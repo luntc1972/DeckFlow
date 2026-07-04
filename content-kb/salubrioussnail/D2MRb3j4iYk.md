@@ -4,29 +4,29 @@ title: "You Might Have Too Much Ramp (but you also might not)"
 url: "https://www.youtube.com/watch?v=D2MRb3j4iYk\u0026list=UUOYkwObFKjxko7oj56gVDag"
 video_id: "D2MRb3j4iYk"
 tags:
-  archetype: ["voltron","control","tribal","ramp","midrange"]
-  bracket: []
+  archetype: ["ramp"]
+  bracket: ["Core","Upgraded"]
   card_category: ["ramp","draw"]
-generated_utc: "2026-06-11T21:21:45Z"
+generated_utc: "2026-07-04T19:25:13Z"
 ---
 
 ## Summary
 
-This video builds a framework for deciding whether an EDH/Commander deck needs more ramp or something else. Ramp serves two distinct functions: curving out (deploying cards on an efficient timeline, e.g. landing a 4-mana Pantlaza on turn 4) and increasing total mana quantity (paying command tax on high-cost commanders or fueling card-draw-heavy, slower gameplans). Choosing ramp mana values should coordinate with the rest of the curve; 1-mana dorks are efficient but fragile to boardwipes, while 3-mana ramp is less efficient but offers synergy and upside. Taplands can fill curve gaps. For total-mana goals, prefer permanent ramp (land ramp, then rocks, dorks last). To size a ramp suite for curveout, use a hypergeometric calculator or benchmarks: 18 copies if always wanted in openers, then 15, 12, 9, 6, 3 for decreasing need; total-mana needs are felt out over many games. A deck wants little ramp when its low curve is already full (e.g. a Meria voltron or Malfegor resource-denial deck) and it doesn't need extra mana. Karsten and Sam Black argue many decks should favor higher land counts over ramp. Test: if you repeatedly miss land drops holding ramp, swap ramp for lands.
+Video builds a framework for deciding whether a Commander deck needs more ramp. Ramp performs two functions: curving out (deploying cards on an ideal timeline) and increasing total mana. For curveout, match ramp mana values to the deck's non-ramp curve; 1-mana mana dorks are most efficient but boardwipe-fragile, 3-mana ramp is less efficient but often synergistic. Taplands fit into curve gaps (e.g. a Pantlaza turn-4 curve leaves two tapland slots). Total-mana ramp matters for high-cost commanders (command tax), draw-heavy decks, and slow gameplans; prefer permanent ramp—land ramp, then mana rocks, mana dorks cautiously (Elvish Mystic dies easily). For quantity, use a hypergeometric calculator; benchmarks by copies: 18 (always want in opening hand), 15, 12, 9, 6, 3 (rarely want early). Decks that don't want ramp: those with packed low-cost curves (Meria voltron equipment deck—still runs some for commander tax) or low-resource gameplans (Malfegor—extra lands replaced ramp). Cites Frank Karsten and Sam Black: average EDH decks should favor higher land count over ramp; 35-36 lands no longer a universal baseline. Test: if you miss land drops with ramp in hand every game, swap ramp for lands. Example lower-land deck: Jhoira, Weatherlight Captain.
 
 ## Key Clips
 
-- **[00:31]** Adding ramp to a deck without thinking about why you're adding it is both a commonplace action for people, and a recipe for decks that aren't as lean and powerful as they could be.
-- **[01:31]** Ramp spells don't fulfill one single task. Rather, they perform two separate functions—curving out, and increasing total mana quantity.
-- **[02:30]** On a basic level, it might just be coordinating with the mana values of the non-ramp cards. If I have lots of 4 drops I like and not many two drops, adding a bunch of 2-cost ramp works out well.
-- **[02:54]** Ramping on turn 1 is theoretically the most efficient from a mana-spent standpoint, but basically all 1 mana ramp will be in the form of mana dorks, which could amplify the weakness to boardwipes.
-- **[05:09]** If you're just getting started with a new deck, or even just getting into the format, a good starting point will be to aim high with both draw and ramp, since you might not know the amount of mana you need to win.
-- **[05:29]** If increased maximum mana is the role of ramp you're leaning into, you're going to be best-served to prioritize more permanent forms of ramp—preferably land ramp, mana rocks in a pinch, and mana dorks at your own caution.
-- **[06:46]** 18 cards of a certain role is a good number if you always want to see it in your opening hand; 15 if it's a tool you want every game with a bit of wiggle room; 12 for most games; 9 for a frequent part of your curve-out; 6 for sometimes; 3 for a thing you don't really want to draw early.
-- **[11:36]** Whenever you miss a land drop with a piece of ramp in hand, or a piece of ramp that was recently played, make note of that. If that is happening every game or even multiple times per game, that's an indication that you probably need to swap some ramp spells for some lands.
+- **[01:45]** Most Pantlaza players would prefer to get him out on turn 4, since Dinosaurs played after him generate extra value and dinosaurs played before him do not — so you choose whether your ramp happens on turn 1, 2, or 3 to hit that target.
+- **[02:49]** Ramping on turn 1 is theoretically the most mana-efficient, but nearly all 1-mana ramp is mana dorks, which amplify the weakness to boardwipes that already exists for dinosaur decks; 3-mana ramp is less efficient but likelier to bring upsides and synergy.
+- **[05:33]** If increased maximum mana is the role you're leaning into, prioritize more permanent forms of ramp — land ramp, mana rocks in a pinch, mana dorks at your own caution. An Elvish Mystic is great for a smooth curveout, but an EDH game is a hostile climate for a squishy creature long-term.
+- **[06:46]** Benchmarks for how many copies of a role to run: 18 if you always want it in your opening hand, 15 if you want it every game with a little wiggle room, 12 for most games, 9 for a frequent part of curve-out, 6 for sometimes, and 3 for a thing you don't want to draw early often.
+- **[08:04]** My Meria voltron deck is packed with 1 and 2 mana equipment, so turns 1-3 are already spoken for and it wouldn't want ramp for curveout — but it still runs ramp because it always wants to be able to pay commander tax and recast the commander.
+- **[08:50]** My Malfegor deck runs very little ramp: the curve is heaviest on 3 then 2 mana, mostly engines and discard, so a mana rock would do nothing early — and since the goal is pushing everyone into a low-resource state, it doesn't need total mana either. Consistent land drops cover the command tax.
+- **[10:18]** Frank Karsten and Sam Black each concluded, through simulations or other mathematical means, that the average EDH deck would be served well to focus more on land count and less on quantity of ramp; a lot of ramp with a low land count is frequently a recipe for inefficiency.
+- **[11:36]** A basic test: whenever you miss a land drop with a piece of ramp in hand, or one recently played, make note of it. If that's happening every game or multiple times per game, that's an indication you should swap some ramp spells for lands.
 
 ## Tags
 
-**Archetypes/Strategy:** voltron, control, tribal, ramp, midrange
-**Format/Bracket:** 
+**Archetypes/Strategy:** ramp
+**Format/Bracket:** Core, Upgraded
 **Card Categories:** ramp, draw

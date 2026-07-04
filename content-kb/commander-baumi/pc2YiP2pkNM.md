@@ -4,29 +4,29 @@ title: "How To Play 40 Lands Without Flooding"
 url: "https://www.youtube.com/watch?v=pc2YiP2pkNM\u0026list=UU98mf08y3Dv_4chuyX1VIkw"
 video_id: "pc2YiP2pkNM"
 tags:
-  archetype: ["value-engine","ramp"]
+  archetype: ["lands","value-engine","ramp"]
   bracket: ["Core","Upgraded"]
-  card_category: ["draw","ramp","recursion"]
-generated_utc: "2026-06-11T23:00:55Z"
+  card_category: ["ramp","draw","recursion","utility"]
+generated_utc: "2026-07-04T19:25:13Z"
 ---
 
 ## Summary
 
-The creator argues that for Bracket 2/3 social Commander, consistency should be the top deckbuilding priority, and recommends playing a high land count (up to 40 lands) to avoid missing land drops, which makes ramp pointless and leaves you unable to participate. Low land counts only make sense in competitive tournament play where gambling for high rolls is acceptable. A high land count alone isn't enough; the deck must be built to prevent flooding. Their tools: looters (e.g., Shoreline Looter, Malcolm) that loot away excess lands and improve hand quality and fill the graveyard for reanimation; rummaging effects in red (Cycle of Demand-style discard-then-draw) and Embrace the Unknown, valued for retrace casting from the graveyard by discarding lands; other retrace spells (Worm Harvest, Formless Genesis); MDFCs with a spell front and land back, which must be played as lands first; and one-mana cycling lands you toss when flooded. Commander itself mitigates flooding since you always have your commander to cast. Above all, load the deck with broadly-defined card draw to dig past lands and discard excess to hand size. The goal is maximizing participation and minimizing low rolls, not win rate.
+Deckbuilding thesis for bracket 2/3 social Commander: play 40 lands and prioritize consistency over power/win rate; commander in the command zone makes flooding less punishing. Build the deck to support high land counts. Key tool: looters (unblockable creatures that loot on combat damage) to fix hands and dig past excess lands—Malcolm, Alluring Scoundrel and Shoreline Looter (loots, then just draws once graveyard has 7+ cards; enables reanimation via Sun Titan and combat-damage payoffs like Coastal Piracy, Grim Hireling, Professional Face-breaker). Non-blue looters: Smuggler's Copter, Mask of Memory, The One Ring; red rummaging (Cathartic Reunion (?), Demand Answers). Auto-include Embrace the Unknown (red impulse draw with retrace—discard a land to cast from graveyard, turning excess lands into cards); loves retrace (Throes of Chaos, Formless Genesis, Spitting Image, Worm Harvest, Ulvenwald(?) and Wrenn and Six). Use spell/land MDFCs (Sink into Stupor, Turntimber Symbiosis, etc.), willing to play them as lands. Include one-mana cycling lands (Secluded Steppe, Lonely Sandbar, Barren Moor, Forgotten Cave, Tranquil Thicket). Above all, load the deck with card draw—broadly defined as anything improving hand quality. Also enjoys Electric Revelation and Laughing Mad(?).
 
 ## Key Clips
 
-- **[00:55]** Your highest priority in deck building for bracket 2, bracket three, social commander should be consistency.
-- **[02:46]** One of the worst scenarios you can run into during a game of Commander is ending up with nothing to do. The most common cases are getting land flooded or land screwed. Getting flooded basically never happens to me because I play cards like Shoreline Looter. I can dig past the lands I don't need and fix up my hand.
-- **[05:17]** It's worth playing cards whose whole purpose is to improve the quality of our hand. If there's any takeaway you have from this video, let it be this one.
-- **[05:30]** Embrace the Unknown is the first card I add into any red deck. Ideally we discard it, it hangs out in the graveyard, and if we end up with too many lands we turn them into card draw with retrace. A simple inclusion like this makes flooding basically a non-issue.
-- **[07:44]** Another great way to ensure consistency are MDFCs — cards with a spell on the front and a land on the back. You have to be ready and willing to play them as a land; that is their primary purpose, the spell is a backup.
-- **[08:08]** I include the one mana cycling lands in all of my decks. We cycle them away most of the time and draw a better card, but a terrible land is still a million times better than missing a land drop.
-- **[09:14]** The real juice is card draw. So long as your deck can draw cards you can do anything you want. The best way to avoid getting flooded is to draw so many cards that you're discarding excess lands to hand size. Your deck should be absolutely brimming with card draw.
-- **[11:13]** You should play 40 lands and then build your deck in a way to make sure those 40 lands don't flood you. Quality of cards in hand is a massive factor that I don't see talked about often.
+- **[00:56]** Your highest priority in deck building for bracket 2, bracket three, social commander should be consistency. And one of the unique features of commander helps us there: we always have our commander, giving us a card to play even if we have too many lands.
+- **[01:32]** A high land count by itself isn't actually that good. You also need to build your deck in a way to support a high land count.
+- **[01:59]** Shoreline Looter is a blue two mana 1/1 that can't be blocked and lets us loot when it deals combat damage. And if there are seven or more cards in our graveyard, we no longer have to discard and instead simply draw a card.
+- **[03:26]** Getting flooded basically never happens to me because I play cards like Shoreline Looter. I can dig past the lands I don't need and fix up my hand. It doesn't just have to be lands either — I can ditch unneeded removal or sweepers or early game pieces that have lost their potency.
+- **[05:30]** During mulligans, a good six is better than a bad seven. This is the same idea. While Shoreline Looter doesn't properly draw us cards, it fixes our hand — it makes it so that the cards we do have are good.
+- **[08:50]** Embrace the Unknown is a red three mana sorcery that exiles the top two cards of our library until the end of our next turn. It's a mediocre impulse draw, but it also has retrace, meaning we can cast it out of our graveyard by discarding a land. If we end up with too many lands, we can turn them into card draw.
+- **[07:05]** Another great way to ensure consistency are MDFCs — specifically the ones that have a spell on the front side and a land on the back side. Some of those lands are optionally other cards. But you have to be ready and willing to play them as a land; that is their primary purpose.
+- **[09:49]** So long as your deck can draw cards, you can do anything you want, but if your deck can't draw cards, nothing will work. The best way to avoid getting flooded is to draw so many cards that you're discarding excess lands to hand size.
 
 ## Tags
 
-**Archetypes/Strategy:** value-engine, ramp
+**Archetypes/Strategy:** lands, value-engine, ramp
 **Format/Bracket:** Core, Upgraded
-**Card Categories:** draw, ramp, recursion
+**Card Categories:** ramp, draw, recursion, utility

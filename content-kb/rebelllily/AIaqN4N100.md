@@ -4,29 +4,29 @@ title: "Why Overlap Cards Are Killing Your Deck"
 url: "https://www.youtube.com/watch?v=-AIaqN4N100\u0026list=UUX8LtC40Hs-QKd7kDpUW4Vg"
 video_id: "-AIaqN4N100"
 tags:
-  archetype: ["aristocrats","tokens","tribal","midrange","value-engine"]
-  bracket: ["cEDH"]
-  card_category: ["ramp","draw","removal","board-wipe","counter","tutor","recursion","finishers"]
-generated_utc: "2026-06-11T23:00:55Z"
+  archetype: ["value-engine","aristocrats","midrange"]
+  bracket: ["Core","cEDH"]
+  card_category: ["ramp","draw","removal","board-wipe"]
+generated_utc: "2026-07-04T19:25:13Z"
 ---
 
 ## Summary
 
-This video argues against rigid template deck building in Commander, where ramp, draw, removal, and lands consume two-thirds of slots, leaving little room for themes. The creator advocates intentional overlap: choosing cards that serve multiple roles to free space for thematic, personal deck building. Using an 8x8 cube model, themes are sized in units of four—small (4 cards) for themes you're happy to draw into, medium (8 cards, seen ~66% of games), or large (12 cards, ~60% opening-hand chance with a mulligan) for core resources like +1/+1 counters or tokens. Overlap can create subthemes (e.g., vampires + counters that are also aristocrats) without extra slots. The best overlapping cards aren't just efficient—they should be threats or support the game plan (e.g., Necropolis Regent), since investing mana into the board beats pure effects. He introduces a 'cross of overlap': thematic buckets (horizontal) versus utility buckets (vertical, fixed at ~12 ramp/12 draw/10 removal). Warnings: avoid the 'counting trap' (multi-role cards faking full coverage) and over-compression (one removed card creating multiple holes). Flexibility carries a tax. In cEDH, efficiency overrides flavor. Goldfishing, covered next, is the real tuning tool.
+Video argues for "intentional overlap"—choosing cards that fill multiple roles to free slots for thematic/personal deckbuilding rather than blindly following ramp/draw/removal templates. Uses an 8x8 cube model (eight-card packages). Example: vampires + +1/+1 counters that are also aristocrats (Yahenni, Bartolome (?), Cordial Vampire, Indulgent Aristocrat, plus Fain the Broker, Death's Presence, Venom Eddie Brock (?), Necrosynthesis (?)) build an aristocrats subtheme within 16 slots. Overlap cards should still be threats/support a proactive game plan—prefers Necropolis Regent (threatens to end game) over pure-value Solemn Simulacrum ("Sad Robot"), which he'd cut without artifact/blink/recursion. Curve example: Elvish Visionary → Aether Channeler → Acidic Slime develops board while drawing/removing; likes Cultivator of Blades. Utility numbers (roughly fixed for a 4-mana commander): 12 ramp, 12 draw, 10 removal. Theme sizing in units of four: small 4 (draw-into), medium 8 (~66.8% seen), large 12 (core resource; 60.7% opening one+). Warns of the "counting trap" (overlap cards counted for everything) and over-compression—if Scavenger Regent (?) doubles as a Dragon and board wipe, casting it as a creature removes a wipe; Toxic Deluge is always reliable. Flexibility carries a tax.
 
 ## Key Clips
 
-- **[01:45]** Overlap is purposely choosing cards that serve multiple roles in our deck. While it's efficient to play cards that do many things in one piece of cardboard, it's more important to play overlapping cards to create space for more thematic deck building.
-- **[02:21]** I like using the 8x8 cube theory model, simple eight-card packages that we quickly use to fill and start seasoning our decks with a flavor or idea.
-- **[03:29]** Finding synergies between your themes is another fun way to save on slots, but push a different avenue within your deck you might not have considered. Four plus-one-plus-one counter cards that are also aristocrats develop a whole subtheme while staying within your 16 slots of vampires and counters.
-- **[04:43]** As we're about to go pick cards that overlap roles, it's not just flexibility, because flexibility is boundless. We have to remember the game plan of our deck. Your deck needs to have a strong proactive game plan.
-- **[05:02]** The best multi-role cards that have overlap aren't just efficient, but they can also be threats or support our threats. In most cases, investing mana to board is better than investing mana purely into an effect.
-- **[08:58]** The cross of overlap: think of thematic buckets like creature types, effects, or flavor as a horizontal, and utility buckets of ramp, draw, removal, and interaction as a vertical. When you look for cards, think about what type of overlap it brings.
-- **[09:45]** For a four-mana commander you generally don't need to stray from the 12-12 split of ramp and draw and the 10 removal card package. These numbers are pretty fixed. Themes, however, use units of four between small, medium, and large based on how important they are to the game plan.
-- **[12:52]** Avoid the counting trap: designing your deck so it counts for everything and checks off all the boxes traps you into thinking you have everything covered. Don't compress so aggressively that one removal spell creates three holes. Flexibility always has a tax.
+- **[04:22]** What's great about Necropolis Regent, that hits two themes—vampires and plus-one/plus-one counters—is she threatens to end the game if left unanswered. That's the card we want in our deck. The best multi-role overlap cards aren't just efficient, they can be threats or support our threats.
+- **[04:04]** Take Solemn Simulacrum. It hits multiple roles—card draw when it leaves, ramp when it ETBs—but do you still play it? Probably not in a deck that doesn't care about artifact creatures, have blink effects, or recursion. Your deck needs a strong proactive game plan.
+- **[05:08]** In most cases, investing mana to board is better than investing mana purely into an effect. Curving Elvish Visionary into Aether Channeler into Acidic Slime on five gets you two draws and a removal spell while developing a board you can blink or grow.
+- **[09:45]** For four-mana commanders you generally don't need to stray from the 12/12 split of ramp and draw, and the 10 removal card package. Those vertical utility numbers are pretty fixed based on your commander's mana value.
+- **[10:16]** Size themes small, medium, or large in units of four. When a theme isn't as important to the game plan, four cards is fine—something you draw into, not mulligan for. When a theme is the main resource like counters, tokens, or life gain, you want 12.
+- **[13:21]** Avoid the counting trap. You've got 11 cards tagged removal, but six are doing two other jobs and only three are dedicated removal. You feel safe but you're not—it traps you into thinking you have everything covered.
+- **[13:57]** If you're playing Scavenger Region as one of three board wipes and you cast it as a creature because you needed a dragon, your deck now only has two board wipes left. Too much compression forces tough decisions mid-game.
+- **[14:17]** A Toxic Deluge is always a Toxic Deluge. Flexibility always has a tax—when your two-for-one costs four as a board wipe instead of three life, you're paying a premium for optionality. Sometimes it's worth it, but nothing's ever free.
 
 ## Tags
 
-**Archetypes/Strategy:** aristocrats, tokens, tribal, midrange, value-engine
-**Format/Bracket:** cEDH
-**Card Categories:** ramp, draw, removal, board-wipe, counter, tutor, recursion, finishers
+**Archetypes/Strategy:** value-engine, aristocrats, midrange
+**Format/Bracket:** Core, cEDH
+**Card Categories:** ramp, draw, removal, board-wipe
