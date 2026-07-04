@@ -324,9 +324,10 @@ public partial class Harvest
             // Why: a pasted playlist URL is expanded via ListPlaylistAsync (bounded by Count); the
             // remaining lines resolve as individual video ids/urls through GetByIdsAsync. Lister calls
             // are serialized (no Task.WhenAll) to honor AngleSharp's single-thread constraint (Pitfall 6).
+            // Why: a watch?v=…&list=… URL (copied from within a playlist) is a SINGLE video, not a
+            // playlist — only bare playlist links expand. See YouTubeUrlClassifier.
             var playlistLines = rawLines
-                .Where(l => l.Contains("list=", StringComparison.OrdinalIgnoreCase)
-                    || l.Contains("playlist?", StringComparison.OrdinalIgnoreCase))
+                .Where(YouTubeUrlClassifier.IsPlaylistUrl)
                 .ToList();
             var idLines = rawLines.Except(playlistLines).ToList();
             var limit = _browseLimit;
