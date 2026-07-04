@@ -2522,5 +2522,75 @@
       "counter",
       "utility"
     ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "VStPAnMkZvU",
+    "source": "3/3 Elk",
+    "title": "\u0022Dies to Removal\u0022",
+    "videoUrl": "https://www.youtube.com/watch?v=VStPAnMkZvU",
+    "artifactPath": "content-kb/3-3-elk/VStPAnMkZvU.md",
+    "publishedUtc": "2026-07-02T13:12:31+00:00",
+    "indexedUtc": "2026-07-04T14:15:00.2738425+00:00",
+    "archetypeTags": [
+      "value-engine",
+      "midrange"
+    ],
+    "bracketTags": [
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "removal",
+      "protection",
+      "recursion"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "aD2uz3YkfsU",
+    "source": "3/3 Elk",
+    "title": "An EDH Gamer\u0027s Guide to Boardwipes",
+    "videoUrl": "https://www.youtube.com/watch?v=aD2uz3YkfsU",
+    "artifactPath": "content-kb/3-3-elk/aD2uz3YkfsU.md",
+    "publishedUtc": "2026-05-05T23:42:44+00:00",
+    "indexedUtc": "2026-07-04T14:15:00.2738425+00:00",
+    "archetypeTags": [
+      "tokens",
+      "value-engine",
+      "aggro"
+    ],
+    "bracketTags": [
+      "Upgraded",
+      "Optimized"
+    ],
+    "cardCategoryTags": [
+      "board-wipe",
+      "removal",
+      "recursion"
+    ]
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "vkC70bIXLw8",
+    "source": "3/3 Elk",
+    "title": "The Hidden Biases that RUIN commander decks",
+    "videoUrl": "https://www.youtube.com/watch?v=vkC70bIXLw8",
+    "artifactPath": "content-kb/3-3-elk/vkC70bIXLw8.md",
+    "publishedUtc": "2026-04-24T01:57:14+00:00",
+    "indexedUtc": "2026-07-04T14:15:00.2738425+00:00",
+    "archetypeTags": [
+      "value-engine",
+      "reanimator",
+      "combo"
+    ],
+    "bracketTags": [
+      "Core",
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "tutor",
+      "recursion",
+      "finishers"
+    ]
   }
 ]
