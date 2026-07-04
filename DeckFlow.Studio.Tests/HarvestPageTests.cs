@@ -225,8 +225,8 @@ namespace DeckFlow.Studio.Tests
             cut.InvokeAsync(() => cut.Find("#autoApproveEnabled").Change(false));
 
             // Persisted to disk (D-04/D-07): a fresh store over the same dir reads back Enabled=false.
-            var reloaded = new AutoApproveSettingsStore(_autoApproveDir).Load();
-            Assert.False(reloaded.Enabled);
+            // WaitForAssertion so the async save handler settles before the reload is read.
+            cut.WaitForAssertion(() => Assert.False(new AutoApproveSettingsStore(_autoApproveDir).Load().Enabled));
 
             cut.WaitForAssertion(() => Assert.True(cut.Find("#autoApproveCutoff").HasAttribute("disabled")));
         }
@@ -241,8 +241,8 @@ namespace DeckFlow.Studio.Tests
 
             cut.InvokeAsync(() => cut.Find("#autoApproveCutoff").Change("7"));
 
-            var reloaded = new AutoApproveSettingsStore(_autoApproveDir).Load();
-            Assert.Equal(7, reloaded.Cutoff);
+            // WaitForAssertion so the async save handler settles before the reload is read.
+            cut.WaitForAssertion(() => Assert.Equal(7, new AutoApproveSettingsStore(_autoApproveDir).Load().Cutoff));
         }
 
         // ── One-click harvest→auto-distill→auto-approve (AUTO-01 / AUTO-02, Plan 03) ──────────
@@ -550,6 +550,45 @@ namespace DeckFlow.Studio.Tests
                 var (keys, status) = index.ApprovalBatchCalls[0];
                 Assert.Equal("approved", status);
                 Assert.Contains(keys, k => k.Value == "v1");
+            });
+        }
+
+        [Fact]
+        public void PendingDistill_AutoLoadsOnInit_WithoutClick()
+        {
+            // The distill list populates on page init so harvested-but-not-distilled videos are
+            // visible without clicking "Load harvested".
+            var distill = new RecordingDistillOrchestrator
+            {
+                Pending = new[] { Pending("v1") },
+            };
+
+            var (cut, _, _, _) = RenderHarvest(
+                Array.Empty<YouTubeChannelVideo>(),
+                new MapBlockedStore(),
+                new MapSiteIndexStore(),
+                distill: distill);
+
+            cut.WaitForAssertion(() => Assert.Contains("Select v1", cut.Markup));
+        }
+
+        [Fact]
+        public void PendingDistill_LoadButton_IsPrimaryEmphasis()
+        {
+            // The loader is the sole required action in the Distill section — it must carry
+            // primary emphasis (btn-primary), not the low-emphasis outline-secondary style.
+            var (cut, _, _, _) = RenderHarvest(
+                Array.Empty<YouTubeChannelVideo>(),
+                new MapBlockedStore(),
+                new MapSiteIndexStore());
+
+            cut.WaitForAssertion(() =>
+            {
+                var button = cut.FindAll("button")
+                    .First(b => b.TextContent.Contains("Load harvested", StringComparison.Ordinal));
+                var css = button.GetAttribute("class") ?? string.Empty;
+                Assert.Contains("btn-primary", css);
+                Assert.DoesNotContain("btn-outline-secondary", css);
             });
         }
 

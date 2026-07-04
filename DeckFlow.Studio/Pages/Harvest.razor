@@ -479,7 +479,10 @@
 
             @* ─── DB-backed pending-distill loader (quick task 260615-p4d) ─── *@
             <div class="mb-3">
-                <button class="btn btn-outline-secondary"
+                @* Primary emphasis (not outline-secondary): this loader is the main way to fill the
+                   distill list when you did not just browse — the sole required action here, so it
+                   should not read as a minor affordance. The list also auto-loads on page init. *@
+                <button class="btn btn-primary"
                         @onclick="LoadPendingDistillAsync"
                         disabled="@(_operationInFlight || _loadingPending)">
                     @if (_loadingPending)
