@@ -33,7 +33,7 @@ internal sealed class ChatGptFollowUpPromptVariant : IFollowUpPromptVariant
         builder.AppendLine("- Incorporate the new follow-up Q&A without contradicting the supplied deck contents or packet context.");
         builder.AppendLine("- Keep using the decklists and packet context as the source of truth.");
         builder.AppendLine("- Do not invent cards, colors, or card text not supported by the provided context.");
-        builder.AppendLine("- If you encounter a card name you do not recognize, look it up at https://scryfall.com/search?q=!\"Card Name\" before assuming what it does. Some cards are alternate-art or Universe Beyond printings with unfamiliar names.");
+        builder.AppendLine("- If you encounter a card name you do not recognize, treat it as unknown instead of guessing. Do not invent its rules text; flag it as unrecognized. Some cards are alternate-art or Universe Beyond printings with unfamiliar names, so match by exact name before concluding a card is unknown.");
         builder.AppendLine("- If a new conclusion is uncertain, mark it as low-confidence and explain why in confidence_notes.");
         builder.AppendLine("- For each revised conclusion, reference the deck patterns, card packages, or commander incentives that support it.");
         builder.AppendLine();

@@ -48,7 +48,7 @@ internal sealed class GeminiComparisonPromptVariant : IComparisonPromptVariant
         builder.AppendLine("- Do not assume a card's role unless it is supported by the deck contents or provided context.");
         builder.AppendLine("- Do not claim exact card text unless it is included in the packet.");
         builder.AppendLine("- If a conclusion is not well-supported by the provided deck contents, say that explicitly instead of guessing.");
-        builder.AppendLine("- If you encounter a card name you do not recognize, look it up at https://scryfall.com/search?q=!\"Card Name\" before assuming what it does. Some cards are alternate-art or Universe Beyond printings with unfamiliar names.");
+        builder.AppendLine("- If you encounter a card name you do not recognize, treat it as unknown instead of guessing. Do not invent its rules text; flag it as unrecognized. Some cards are alternate-art or Universe Beyond printings with unfamiliar names, so match by exact name before concluding a card is unknown.");
         builder.AppendLine("- When uncertain, mark the statement as low-confidence and add the reason to confidence_notes.");
         builder.AppendLine("- For each major conclusion, reference the deck patterns, card packages, or commander incentives that support it.");
         builder.AppendLine("- Base conclusions on observable deck construction rather than vague impressions.");
