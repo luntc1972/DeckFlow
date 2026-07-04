@@ -170,7 +170,7 @@ Deck B ([DECK B NAME]):
 
 <div class="error-banner hidden" data-chatgpt-comparison-validation-error role="alert"></div>
 
-<form method="post" action="@Url.Content("~/deck-comparison")" class="deck-form" data-cache-key="chatgpt-deck-comparison" data-chatgpt-comparison-form data-chatgpt-comparison-current-step="@currentStep" data-busy-title="Building Deck Comparison Packet" data-busy-message="Parsing both decks and generating the comparison prompt.">
+<form method="post" action="@Url.Content("~/deck-comparison")" class="deck-form" data-print-region="workflow" data-cache-key="chatgpt-deck-comparison" data-chatgpt-comparison-form data-chatgpt-comparison-current-step="@currentStep" data-busy-title="Building Deck Comparison Packet" data-busy-message="Parsing both decks and generating the comparison prompt.">
     <div class="chatgpt-sticky-download" role="region" aria-label="Save current session">
         <span class="chatgpt-sticky-download__label">Save your work in progress to a zip file you can re-import later.</span>
         <button type="submit" class="run-button chatgpt-sticky-download__button" data-no-busy data-chatgpt-download-submit
@@ -544,13 +544,16 @@ Deck B ([DECK B NAME]):
 
         @if (Model.ComparisonResponse is not null)
         {
-            <section class="result-panel nested-panel summary-panel" data-chatgpt-comparison-result-anchor>
+            <section class="result-panel nested-panel summary-panel" data-chatgpt-comparison-result-anchor data-print-result>
                 <div class="toolbar chatgpt-step-actions">
                     <button type="submit" class="run-button" data-no-busy data-chatgpt-download-submit
                             formaction="@Url.Content("~/deck-comparison/download")"
                             formmethod="post"
                             formnovalidate>
                         Download comparison session (.zip)
+                    </button>
+                    <button type="button" class="run-button chatgpt-print-button" data-no-busy data-chatgpt-print>
+                        Print results
                     </button>
                 </div>
                 <h3>Comparison Summary</h3>

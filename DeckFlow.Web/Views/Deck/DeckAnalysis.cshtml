@@ -88,7 +88,7 @@ Do not omit any fields from the schema.
     </div>
 </div>
 
-<form method="post" action="@Url.Content("~/deck-analysis")" class="deck-form chatgpt-packets-form" data-cache-key="chatgpt-packets" data-chatgpt-packets-form data-chatgpt-current-step="@currentStep" data-chatgpt-ui-mode="guided" data-set-options-url="@Url.Content("~/api/set-options")" data-busy-title="Building Deck Analysis Packet" data-busy-message="Resolving the deck and generating prompt files.">
+<form method="post" action="@Url.Content("~/deck-analysis")" class="deck-form chatgpt-packets-form" data-print-region="workflow" data-cache-key="chatgpt-packets" data-chatgpt-packets-form data-chatgpt-current-step="@currentStep" data-chatgpt-ui-mode="guided" data-set-options-url="@Url.Content("~/api/set-options")" data-busy-title="Building Deck Analysis Packet" data-busy-message="Resolving the deck and generating prompt files.">
     <div class="chatgpt-sticky-download" role="region" aria-label="Save current session">
         <span class="chatgpt-sticky-download__label">Save your work in progress to a zip file you can re-import later.</span>
         <button type="submit" class="run-button chatgpt-sticky-download__button" data-no-busy data-chatgpt-download-submit
@@ -541,13 +541,16 @@ Do not omit any fields from the schema.
 
         @if (Model.AnalysisResponse is not null)
         {
-            <section class="result-panel nested-panel summary-panel" data-chatgpt-result-anchor>
+            <section class="result-panel nested-panel summary-panel" data-chatgpt-result-anchor data-print-result>
                 <div class="toolbar chatgpt-step-actions">
                     <button type="submit" class="run-button" data-no-busy data-chatgpt-download-submit
                             formaction="@Url.Content("~/deck-analysis/download")"
                             formmethod="post"
                             formnovalidate>
                         Download session (.zip)
+                    </button>
+                    <button type="button" class="run-button chatgpt-print-button" data-no-busy data-chatgpt-print>
+                        Print results
                     </button>
                 </div>
                 <h3>Analysis Summary</h3>
@@ -961,13 +964,16 @@ Do not omit any fields from the schema.
 
         @if (Model.SetUpgradeResponse is not null)
         {
-            <section class="result-panel nested-panel summary-panel" data-chatgpt-result-anchor>
+            <section class="result-panel nested-panel summary-panel" data-chatgpt-result-anchor data-print-result>
                 <div class="toolbar chatgpt-step-actions">
                     <button type="submit" class="run-button" data-no-busy data-chatgpt-download-submit
                             formaction="@Url.Content("~/deck-analysis/download")"
                             formmethod="post"
                             formnovalidate>
                         Download session (.zip)
+                    </button>
+                    <button type="button" class="run-button chatgpt-print-button" data-no-busy data-chatgpt-print>
+                        Print results
                     </button>
                 </div>
                 <h3>Set Upgrade Results</h3>

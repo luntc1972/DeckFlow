@@ -156,7 +156,7 @@
 
 @if (Model.HasResult && report is not null)
 {
-    <section class="result-panel" data-scroll-on-load>
+    <section class="result-panel" data-print-region data-scroll-on-load>
         <div class="panel-heading">
             <div>
                 <h2>Result</h2>
@@ -164,6 +164,11 @@
                 {
                     <p>@Model.InputSummary</p>
                 }
+            </div>
+            <div class="toolbar manabase-print-toolbar">
+                <button type="button" class="run-button chatgpt-print-button" data-no-busy data-chatgpt-print>
+                    Print results
+                </button>
             </div>
         </div>
 

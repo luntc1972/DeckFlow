@@ -23,87 +23,72 @@ using Xunit;
 namespace DeckFlow.Web.Tests;
 
 /// <summary>
-/// Render-level guard for the cEDH meta-gap view. Ensures the Step-3 "Render Meta Gap
-/// Analysis" submit button carries its own busy-overlay copy so the loading message says it
-/// is rendering the analysis rather than the form-level "generating the prompt" text used by
-/// the Step-2 submit.
+/// Render-level guard for the "Print results" button on <c>Views/Deck/DeckComparison.cshtml</c>.
+/// The button (wired to <c>window.print()</c> in deck-sync.ts) and the shared <c>@media print</c>
+/// rules in site-common.css must render in the comparison results toolbar whenever a comparison
+/// response is present, and be absent before any result exists. Mirrors the cedh
+/// <see cref="MetaGapViewRenderTests"/> / analysis print-button render harness.
 /// </summary>
-public sealed class MetaGapViewRenderTests
+public sealed class DeckComparisonPrintButtonViewTests
 {
+    private const string PrintButtonHook = "data-chatgpt-print";
+    private const string PrintButtonLabel = "Print results";
+
     [Fact]
-    public async Task RenderButton_CarriesAnalysisSpecificBusyCopy()
+    public async Task ComparisonResponsePresent_RendersPrintButton()
     {
-        var model = new MetaGapViewModel
+        var model = new DeckComparisonViewModel
         {
-            ActiveTab = DeckPageTab.CedhMetaGap,
-            Request = new MetaGapRequest(),
+            ActiveTab = DeckPageTab.DeckComparison,
+            Request = new DeckComparisonRequest { WorkflowStep = 3 },
+            ComparisonResponse = new DeckComparisonResponse { DeckAName = "Deck A", DeckBName = "Deck B" },
         };
 
-        string html = await RenderCedhMetaGapViewAsync(model);
+        string html = await RenderAsync(model);
 
-        Assert.Contains("data-busy-title=\"Rendering cEDH Meta Gap Analysis\"", html, StringComparison.Ordinal);
-        Assert.Contains("data-busy-message=\"Reading your pasted analysis and building the report.\"", html, StringComparison.Ordinal);
+        Assert.Contains(PrintButtonHook, html, StringComparison.Ordinal);
+        Assert.Contains(PrintButtonLabel, html, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task PrintButton_RendersInResultsToolbar_WhenAnalysisPresent()
+    public async Task NoComparisonResponse_RendersNoPrintButton()
     {
-        var model = new MetaGapViewModel
+        var model = new DeckComparisonViewModel
         {
-            ActiveTab = DeckPageTab.CedhMetaGap,
-            Request = new MetaGapRequest { WorkflowStep = 3 },
-            AnalysisResponse = new MetaGapResponse(),
+            ActiveTab = DeckPageTab.DeckComparison,
+            Request = new DeckComparisonRequest(),
         };
 
-        string html = await RenderCedhMetaGapViewAsync(model);
+        string html = await RenderAsync(model);
 
-        Assert.Contains("data-chatgpt-print", html, StringComparison.Ordinal);
-        Assert.Contains("Print results", html, StringComparison.Ordinal);
+        Assert.DoesNotContain(PrintButtonHook, html, StringComparison.Ordinal);
+        Assert.DoesNotContain(PrintButtonLabel, html, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task PrintButton_AbsentWhenNoAnalysis()
-    {
-        var model = new MetaGapViewModel
-        {
-            ActiveTab = DeckPageTab.CedhMetaGap,
-            Request = new MetaGapRequest(),
-        };
-
-        string html = await RenderCedhMetaGapViewAsync(model);
-
-        Assert.DoesNotContain("data-chatgpt-print", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("Print results", html, StringComparison.Ordinal);
-    }
-
-    private static async Task<string> RenderCedhMetaGapViewAsync(MetaGapViewModel model)
+    private static async Task<string> RenderAsync(DeckComparisonViewModel model)
     {
         var services = new ServiceCollection();
         services.AddSingleton<ObjectPoolProvider, DefaultObjectPoolProvider>();
         services.AddSingleton<DiagnosticListener>(_ => new DiagnosticListener("DeckFlow.Web.Tests"));
-        services.AddSingleton<DiagnosticSource>(serviceProvider => serviceProvider.GetRequiredService<DiagnosticListener>());
+        services.AddSingleton<DiagnosticSource>(sp => sp.GetRequiredService<DiagnosticListener>());
         services.AddSingleton<IWebHostEnvironment>(CreateHostingEnvironment());
-        services.AddSingleton<IHostEnvironment>(serviceProvider => serviceProvider.GetRequiredService<IWebHostEnvironment>());
+        services.AddSingleton<IHostEnvironment>(sp => sp.GetRequiredService<IWebHostEnvironment>());
         services.AddLogging();
         services.AddDataProtection();
-        // The shared _DeckToolTabs partial (@inject) needs these two services to activate.
         services.AddSingleton<DeckFlow.Web.Services.Tools.IToolRegistry, DeckFlow.Web.Services.Tools.ToolRegistry>();
         services.AddSingleton<DeckFlow.Web.Services.FeatureFlags.IFeatureFlagCache>(new FakeFeatureFlagCache());
         services.AddControllersWithViews().AddApplicationPart(typeof(DeckPacketController).Assembly);
 
         using var serviceProvider = services.BuildServiceProvider();
-        var httpContext = new DefaultHttpContext
-        {
-            RequestServices = serviceProvider,
-        };
+        var httpContext = new DefaultHttpContext { RequestServices = serviceProvider };
 
         var actionContext = new ActionContext(
             httpContext,
             new RouteData(new RouteValueDictionary(new Dictionary<string, object?> { ["controller"] = "Deck" })),
             new ActionDescriptor());
         var viewEngine = serviceProvider.GetRequiredService<IRazorViewEngine>();
-        var viewResult = viewEngine.FindView(actionContext, "CedhMetaGap", isMainPage: false);
-        Assert.True(viewResult.Success, $"View 'CedhMetaGap' was not found. Searched: {string.Join(", ", viewResult.SearchedLocations ?? Array.Empty<string>())}");
+        var viewResult = viewEngine.FindView(actionContext, "DeckComparison", isMainPage: false);
+        Assert.True(viewResult.Success, $"View 'DeckComparison' was not found. Searched: {string.Join(", ", viewResult.SearchedLocations ?? Array.Empty<string>())}");
 
         var viewData = new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary())
         {
