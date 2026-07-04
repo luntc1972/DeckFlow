@@ -12,7 +12,7 @@ generated_utc: "2026-06-09T05:48:26Z"
 
 ## Summary
 
-This transcript contains no Magic: The Gathering strategy content. It is a comedic skit in which the speakers banter and tease one another about an embarrassing personal itemΓÇöa "go pillow" that one of them (referred to as "designer" or "senpai") allegedly drools onΓÇöwhile another threatens to leak a photo unless the first admits "Reed Duke is mid." Commander deck building is mentioned only in passing as the framing pretext, with no decklists, archetypes, card choices, mana curve, combo lines, budget guidance, or gameplay strategy discussed. No grounded deck-building or strategic information can be extracted from this excerpt.
+This transcript contains no Magic: The Gathering strategy content. It is a comedic skit in which the speakers banter and tease one another about an embarrassing personal item—a "go pillow" that one of them (referred to as "designer" or "senpai") allegedly drools on—while another threatens to leak a photo unless the first admits "Reed Duke is mid." Commander deck building is mentioned only in passing as the framing pretext, with no decklists, archetypes, card choices, mana curve, combo lines, budget guidance, or gameplay strategy discussed. No grounded deck-building or strategic information can be extracted from this excerpt.
 
 ## Key Clips
 

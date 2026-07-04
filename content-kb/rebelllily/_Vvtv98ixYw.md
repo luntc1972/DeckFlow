@@ -16,10 +16,10 @@ This transcript contains no Magic: The Gathering strategy content. It is a comed
 
 ## Key Clips
 
-- The Hexproof stack is really good ΓÇö it's two mana protection every turn cycle and gets around removal, board wipes, and even Cyclonic Rift.
-- Counterpoint raised in the bit: the Hexproof stacks "don't work" and "don't protect you from everything" ΓÇö they don't shield you against every form of interaction.
-- Comedic aside: a player claims they once jumped into an actual hay stack Assassin's CreedΓÇôstyle from a second floor while running from raccoons, woke up in the hospital, and credited Ted that nothing was broken.
-- Channel sign-off: subscribe and check back Thursday for an Assassin's CreedΓÇôonly Deck Tech.
+- The Hexproof stack is really good — it's two mana protection every turn cycle and gets around removal, board wipes, and even Cyclonic Rift.
+- Counterpoint raised in the bit: the Hexproof stacks "don't work" and "don't protect you from everything" — they don't shield you against every form of interaction.
+- Comedic aside: a player claims they once jumped into an actual hay stack Assassin's Creed–style from a second floor while running from raccoons, woke up in the hospital, and credited Ted that nothing was broken.
+- Channel sign-off: subscribe and check back Thursday for an Assassin's Creed–only Deck Tech.
 
 ## Tags
 

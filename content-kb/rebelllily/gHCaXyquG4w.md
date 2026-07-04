@@ -16,10 +16,10 @@ This transcript contains no substantive Magic: The Gathering strategy content. I
 
 ## Key Clips
 
-- Park frantic search, make a copy now, we flip ΓÇö come on come on come on.
-- Don't go to Vegas, this will work, trust me, it's 50/50 right ΓÇö if I lost the last time it means 100% I'm going to win this, that's how it works.
+- Park frantic search, make a copy now, we flip — come on come on come on.
+- Don't go to Vegas, this will work, trust me, it's 50/50 right — if I lost the last time it means 100% I'm going to win this, that's how it works.
 - This game sucks, this game's like trash, we're going to win this frantic search flip no matter what.
-- Frantic search, let's go ΓÇö Croc trigger on the stack, come on come on, there's no way.
+- Frantic search, let's go — Croc trigger on the stack, come on come on, there's no way.
 
 ## Tags
 

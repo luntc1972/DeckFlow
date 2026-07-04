@@ -17,7 +17,7 @@ This video showcases Anim Pakal as a commander that creates Battle Gnome artifac
 ## Key Clips
 
 - Anim Pakal makes an army of artifact battle gnomes whenever you attack with one or more non-gnome creatures, equal to the number of +1/+1 counters on Anim Pakal, and every attack makes Anim stronger.
-- Extra combats are strong with Anim ΓÇö cards like Aurelia the Warleader or Akki Battle Squad add additional attack steps to trigger her army-making ability more often.
+- Extra combats are strong with Anim — cards like Aurelia the Warleader or Akki Battle Squad add additional attack steps to trigger her army-making ability more often.
 - To pile more +1/+1 counters on Anim Pakal, use +1/+1 theme cards like Citadel Siege, protection like Angelic Intervention, and especially Resourceful Defense; counters also synergize well with proliferate from Grateful Apparition.
 - Use the Golden Army payoffs: Genku, Aether Grid lets you turn gnome tokens into pings to remove creatures, and Alibou, Ancient Witness helps deal a ton of damage with your tapped artifacts.
 - Shared Animosity is incredibly powerful here, boosting your wide board of battle gnomes during attacks.

@@ -18,7 +18,7 @@ This short clip previews Eric, Satia, Aetherflux Genius, a Magic: The Gathering 
 
 - Eric Satia, ether flux genius, has a super big energy gun that makes him hard to block.
 - When he attacks he can make another copy of you, and if you have the energies you can keep him around.
-- If your creator doesn't have enough energy to sustain you, the copy melts into a block ΓÇö a whole life in the snap.
+- If your creator doesn't have enough energy to sustain you, the copy melts into a block — a whole life in the snap.
 - Check out how Rookie plays Satia on our LGS gameplay series this Friday.
 
 ## Tags

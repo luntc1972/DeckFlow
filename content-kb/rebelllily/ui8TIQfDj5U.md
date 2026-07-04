@@ -19,7 +19,7 @@ This short clip reviews Bria, Riptide Rogue, a creature that grows stronger when
 - Bria, Riptide Rogue gets stronger whenever you play spells, but also lets everyone else get powered up when you play spells.
 - Bria makes the damage output of your spells a much better rate because each creature with prowess adds another point of damage.
 - When you play a non-creature spell, Bria lets a creature become unblockable.
-- Bria will be pretty good at Vin (vehicles) ΓÇö double waves.
+- Bria will be pretty good at Vin (vehicles) — double waves.
 
 ## Tags
 

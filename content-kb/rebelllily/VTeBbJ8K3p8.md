@@ -12,7 +12,7 @@ generated_utc: "2026-06-09T07:27:09Z"
 
 ## Summary
 
-This clip is a comedic refusal to "roast" Kinnan players rather than a strategy guide. The speaker characterizes Kinnan as a highly linear commander whose gameplay reduces to a repetitive loop: make mana, then spin (activate Kinnan to dig), or play a blue enchantment and spin. The central recurring decision is mulligan-relatedΓÇöwhether to keep an opening hand with all mana, partial mana, or interaction. The speaker argues the deck demands little strategic thought, comparing Kinnan pilots unfavorably to low-rank mono-red Arena players. One concrete line is mentioned: beating opponents' removal by untapping Basalt Monolith twice (a mana-rock untap interaction tied to Kinnan's ramp engine). The takeaway is a critique of Kinnan's low decision density and combo-reliant, ramp-into-spin play pattern, not a how-to-build or how-to-pilot breakdown.
+This clip is a comedic refusal to "roast" Kinnan players rather than a strategy guide. The speaker characterizes Kinnan as a highly linear commander whose gameplay reduces to a repetitive loop: make mana, then spin (activate Kinnan to dig), or play a blue enchantment and spin. The central recurring decision is mulligan-related—whether to keep an opening hand with all mana, partial mana, or interaction. The speaker argues the deck demands little strategic thought, comparing Kinnan pilots unfavorably to low-rank mono-red Arena players. One concrete line is mentioned: beating opponents' removal by untapping Basalt Monolith twice (a mana-rock untap interaction tied to Kinnan's ramp engine). The takeaway is a critique of Kinnan's low decision density and combo-reliant, ramp-into-spin play pattern, not a how-to-build or how-to-pilot breakdown.
 
 ## Key Clips
 

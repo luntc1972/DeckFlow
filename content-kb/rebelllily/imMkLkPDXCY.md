@@ -16,14 +16,14 @@ This is a tournament recap, not a single deck strategy talk: the host reviews th
 
 ## Key Clips
 
-- There's a whole new meta, cards have been banned. This is a recap of SCG Con DC cEDH 5K and the top 16 ΓÇö Goo won the whole event, and the lists are spicy with decks like Saurin, Bjorna, the Yam gang, a Sans-white 4-color deck, Queen Caleb, and Master of Keys.
+- There's a whole new meta, cards have been banned. This is a recap of SCG Con DC cEDH 5K and the top 16 — Goo won the whole event, and the lists are spicy with decks like Saurin, Bjorna, the Yam gang, a Sans-white 4-color deck, Queen Caleb, and Master of Keys.
 - On the winning Goo list: it targets artifact mana now because the meta is slower, so an asymmetrical hate piece like a Karn seems good. Without the fast mana, you still try to play Goo as many times as possible, and cards that don't facilitate ramping out are less prioritized.
-- Blasphemous Act makes sense ΓÇö if everyone's gunked up the board, you play it for one or two mana and clean up the whole board. Generally most people want it to resolve because it destroys all the other stuff, so it's hard to counter.
-- On the Tana (yam gang) deck: it's a creature-based combo deck. The yam costs one of each color plus one colorless, so all it does is give an extra color ΓÇö losing fast mana doesn't really matter much. Tana's main struggle isn't mana, it's having counters to fuel the flip.
+- Blasphemous Act makes sense — if everyone's gunked up the board, you play it for one or two mana and clean up the whole board. Generally most people want it to resolve because it destroys all the other stuff, so it's hard to counter.
+- On the Tana (yam gang) deck: it's a creature-based combo deck. The yam costs one of each color plus one colorless, so all it does is give an extra color — losing fast mana doesn't really matter much. Tana's main struggle isn't mana, it's having counters to fuel the flip.
 - Hex Drinker is great in the yam deck because it lets you sink all your unused mana at sorcery speed to give you fuel to activate. Heroic Hydra is also good because it gives you counters off free spells or your opponents' spells, solving the deck's biggest problem of fueling activations.
-- The Rosie Cotton combo with Basking Broodscale makes infinite mana ΓÇö you add a counter when you create a token, so you get infinite counters and infinite mana, then sacrifice a Scion to make the mana and flip your whole deck with Tana.
-- On the black-white combo deck: the win is infinite life via two creatures, then flip the planeswalker and deal any amount of life to any target with an Extort commander in the command zone. Angel's Grace plus Ad Nauseam is the classic clean win ΓÇö once you go off it doesn't matter what you do.
-- On Master of Keys: it's a wrestler/enchantment-escape deck. Animate Dead with Abdel Adrian and Displacer Kitten goes infinite ΓÇö exile Animate Dead, it returns making a 1/1, and you loop. Kitten plus Free the Faeries' Amber makes infinite mana, the OG Tibalt-era line. Grand Arbiter taxes opponents asymmetrically to lock out free counters.
+- The Rosie Cotton combo with Basking Broodscale makes infinite mana — you add a counter when you create a token, so you get infinite counters and infinite mana, then sacrifice a Scion to make the mana and flip your whole deck with Tana.
+- On the black-white combo deck: the win is infinite life via two creatures, then flip the planeswalker and deal any amount of life to any target with an Extort commander in the command zone. Angel's Grace plus Ad Nauseam is the classic clean win — once you go off it doesn't matter what you do.
+- On Master of Keys: it's a wrestler/enchantment-escape deck. Animate Dead with Abdel Adrian and Displacer Kitten goes infinite — exile Animate Dead, it returns making a 1/1, and you loop. Kitten plus Free the Faeries' Amber makes infinite mana, the OG Tibalt-era line. Grand Arbiter taxes opponents asymmetrically to lock out free counters.
 
 ## Tags
 

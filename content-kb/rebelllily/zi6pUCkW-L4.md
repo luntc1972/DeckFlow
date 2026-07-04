@@ -20,7 +20,7 @@ This video is a card-guessing game from Commander Herald, not a strategy discuss
 - Okay, it's a red card with two mana: colorless and a red pip. An enchantment, a comma, and there's like a slash. The slash is probably power/toughness.
 - When a creature blank ever... whenever a blank, whenever. I was right. This one's 'each whenever a creature.'
 - Let's try 'shares a creature.' Oh, Shared Animosity. So easy, first try.
-- You should try this if you like word games and you think you know cards as good as I do. Try and beat me ΓÇö I don't think you can, because I'm super smart.
+- You should try this if you like word games and you think you know cards as good as I do. Try and beat me — I don't think you can, because I'm super smart.
 
 ## Tags
 

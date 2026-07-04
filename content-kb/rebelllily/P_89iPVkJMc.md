@@ -17,7 +17,7 @@ Mabel is a two-mana mouse legendary creature framed as a King Arthur figure who 
 ## Key Clips
 
 - Mabel is like the mouse King Arthur with this super sick sword called the Cragflame. Because Mabel has the nice sword, they can lead all the other mice you control and make them Inspire to fight better.
-- Mabel comes with the Cragflame, which gives a creature plus one plus one, vigilance, trample, and haste ΓÇö and all of this just for two mana to equip. That's a pretty good sword.
+- Mabel comes with the Cragflame, which gives a creature plus one plus one, vigilance, trample, and haste — and all of this just for two mana to equip. That's a pretty good sword.
 - I like Mabel because they remind me of this one time I was in the subway and I saw Pizza Rat fight off a bunch of other rats using those little plastic knives you get from takeout, so I'm sure Mabel's pretty good at guarding pizza too.
 
 ## Tags

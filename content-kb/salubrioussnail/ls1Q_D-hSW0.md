@@ -21,7 +21,7 @@ This video argues most decks don't need extra hand size and that running cards t
 - Two: the cards in your deck can't be played fast enough, either because they're high mana or because they're reactive. If your deck is full of 1-to-3-drop permanents you'll probably be able to play them before getting too many in hand.
 - Three: the cards in your deck are valuable enough that you actually want to keep all of them. You might want to keep all your counterspells and specific tech pieces, but you don't need four lands and five generic six-drop creatures in your hand.
 - Even if you meet all three criteria you might still be fine with a max hand size. Recursion, flashback cards, discard synergies, and things that count cards in graveyard all exist, and you get to pick what to discard.
-- At the end of the day card selection usually trumps card quantity by a wide margin unless you have a payoff. So please draw without fear even if you have to discard ΓÇö you'll be okay.
+- At the end of the day card selection usually trumps card quantity by a wide margin unless you have a payoff. So please draw without fear even if you have to discard — you'll be okay.
 
 ## Tags
 

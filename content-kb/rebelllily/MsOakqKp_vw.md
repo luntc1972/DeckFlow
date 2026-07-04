@@ -16,11 +16,11 @@ This transcript contains no Magic: The Gathering strategy content. It is a brief
 
 ## Key Clips
 
-- so you still working on that jund deck ΓÇö yes need some help
+- so you still working on that jund deck — yes need some help
 - I stole one the other day and tried to sell it at another store but then they said they don't buy worthless cards
 - I mean I uh I found it and tried to sell it
 - anyways I traded it for a cool token so you want it
-- I need to be alone for a bit ΓÇö oh okay
+- I need to be alone for a bit — oh okay
 
 ## Tags
 

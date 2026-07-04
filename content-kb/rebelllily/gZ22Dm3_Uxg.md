@@ -20,7 +20,7 @@ This transcript is a brief lore-flavor piece about Aurelia, the angelic leader o
 - Take a deeper look and you'll discover they profit from the battles that rage across the streets of Ravnica.
 - I wouldn't be surprised if she works with agents to goad her enemies into combat with an Unstoppable Army of legionnaires doing her bidding.
 - Leading a fleet of powerful angels from the heavens, the evidence uncovers quite the opportunity for Aurelia to further control Ravnica.
-- Boros Legionnaires are afoot ΓÇö you can trust no one in this city of guilds.
+- Boros Legionnaires are afoot — you can trust no one in this city of guilds.
 
 ## Tags
 

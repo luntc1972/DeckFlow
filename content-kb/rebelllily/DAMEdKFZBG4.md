@@ -16,10 +16,10 @@ This transcript contains no Magic: The Gathering deck strategy or gameplay conte
 
 ## Key Clips
 
-- Hey kid, you think the food at Thunder Junction's good? I mean, you have cultures from all different pl(an)es coming together in this rugged desert ΓÇö they must make some pretty killer food.
+- Hey kid, you think the food at Thunder Junction's good? I mean, you have cultures from all different pl(an)es coming together in this rugged desert — they must make some pretty killer food.
 - Just imagine grilling a juicy steak from Eldraine but in a Theros kebab style with a sweet soy ginger marinade from Kamigawa.
 - And of course a New Capenna chef would definitely sprinkle some truffle salt all over it.
-- What am I saying ΓÇö I'm overcomplicating the dish.
+- What am I saying — I'm overcomplicating the dish.
 
 ## Tags
 

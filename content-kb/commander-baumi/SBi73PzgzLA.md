@@ -17,12 +17,12 @@ This video traces the history of Commander (EDH) rather than offering deck strat
 ## Key Clips
 
 - Around 1993-1994, Adam Staley created a casual format at MTG tournaments where players built 100-card decks with only a single copy of each card (including basic lands) and both players started at 100 life. He named it Highlander after the 1986 movie.
-- In 1996, Jesus M. Lopez submitted 'Elder Dragon Legend Wars' to The Duelist magazine: each player chose one of the five original legendary elder dragons as their leader, with the dragon's colors defining the deck's color identity ΓÇö a Highlander format that already resembled modern Commander.
+- In 1996, Jesus M. Lopez submitted 'Elder Dragon Legend Wars' to The Duelist magazine: each player chose one of the five original legendary elder dragons as their leader, with the dragon's colors defining the deck's color identity — a Highlander format that already resembled modern Commander.
 - In 1996 Staley introduced elder dragon leaders and color identity into his Highlander format, forming the basis of 'Elder Dragon Highlander' (EDH). The leader was called a 'general,' and the game eventually grew to support roughly five players.
-- In 'Alaskan EDH' (circa 2002), there was no command zone ΓÇö generals were shown before each game then shuffled into the deck. Generals were limited to one copy per local community, and the entirety of Alaska counted as one community, leaving only 55 possible generals from the Legends set.
+- In 'Alaskan EDH' (circa 2002), there was no command zone — generals were shown before each game then shuffled into the deck. Generals were limited to one copy per local community, and the entirety of Alaska counted as one community, leaving only 55 possible generals from the Legends set.
 - Alaskan EDH used a total health pool of 200 divided evenly among players (three players = 67 life each, eight players = 25 each). Test of Endurance was the one banned card because four players starting at 50 each made its win condition trivial to fulfill.
 - In Sheldon Menery's 2004 definitive EDH, any legend could be a general, the one-per-deck basic land limit was lifted, and Commander damage was unambiguous: any general dealing 21 total combat damage to a player killed them. The 21-damage rule appears in all earliest sources, debunking the myth that it derived from elder dragons' 7 power.
-- In 2009 Plane Chase introduced the command zone; the Rules Committee immediately moved generals there and adopted the Open Play rule, giving everyone access to all generals ΓÇö ending the one-per-player-per-community restriction.
+- In 2009 Plane Chase introduced the command zone; the Rules Committee immediately moved generals there and adopted the Open Play rule, giving everyone access to all generals — ending the one-per-player-per-community restriction.
 - On December 2, 2010 Wizards announced official Commander products. EDH became the official format Commander with the Commander 2011 precon release, and 'generals' were renamed 'commanders.'
 
 ## Tags
