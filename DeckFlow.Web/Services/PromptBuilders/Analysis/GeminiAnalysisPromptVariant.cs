@@ -125,7 +125,7 @@ internal sealed class GeminiAnalysisPromptVariant : IAnalysisPromptVariant
         builder.AppendLine("- When a conclusion is based on supplied card text, rules text, or bracket guidance, say so briefly.");
         builder.AppendLine("- When a conclusion is based on inference from deck construction, curve, redundancy, or play patterns, label it as an inference.");
         builder.AppendLine("- If the supplied data is insufficient to support a claim, say that directly instead of overstating confidence.");
-        builder.AppendLine("- If you encounter a card name you do not recognize, look it up at https://scryfall.com/search?q=!\"Card Name\" before assuming what it does. Some cards are alternate-art or Universe Beyond printings with unfamiliar names.");
+        builder.AppendLine("- If you encounter a card name you do not recognize, treat it as unknown instead of guessing. Do not invent its rules text; flag it as unrecognized. Some cards are alternate-art or Universe Beyond printings with unfamiliar names, so match by exact name before concluding a card is unknown.");
         if (request.IncludeCandidateReferencesInAnalysis)
         {
             builder.AppendLine("- Cards labeled candidate_include in the reference are not part of the current deck. Treat them only as candidate additions.");

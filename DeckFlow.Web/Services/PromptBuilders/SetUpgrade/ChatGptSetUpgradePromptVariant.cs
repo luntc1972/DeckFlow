@@ -74,7 +74,7 @@ internal sealed class ChatGptSetUpgradePromptVariant : ISetUpgradePromptVariant
         builder.AppendLine("- When a conclusion is based on the deck profile or set card text, say so briefly.");
         builder.AppendLine("- When a conclusion is based on inference from deck construction or play patterns, label it as an inference.");
         builder.AppendLine("- If the supplied data is insufficient to support a claim, say that directly instead of overstating confidence.");
-        builder.AppendLine("- If you encounter a card name you do not recognize, look it up at https://scryfall.com/search?q=!\"Card Name\" before assuming what it does. Some cards are alternate-art or Universe Beyond printings with unfamiliar names.");
+        builder.AppendLine("- If you encounter a card name you do not recognize, treat it as unknown instead of guessing. Do not invent its rules text; flag it as unrecognized. Some cards are alternate-art or Universe Beyond printings with unfamiliar names, so match by exact name before concluding a card is unknown.");
         builder.AppendLine("- Cards listed under Possible Includes are not part of the current deck. Treat them only as candidate additions.");
         builder.AppendLine($"- Do not recommend cards from the official Commander banned list: {DeckAnalysisPacketService.FormatBannedCardsLine(bannedCards)}");
 
