@@ -631,11 +631,6 @@ public partial class Harvest
             _showOutcomeCard = true;
 
             await RefreshBadgesAsync(ids);
-            if (_pendingLoaded)
-            {
-                await LoadPendingDistillAsync();
-            }
-
             await RefreshCapDisplayAsync();
         }
         catch (OperationCanceledException)
@@ -646,6 +641,15 @@ public partial class Harvest
         finally
         {
             _operationInFlight = false;
+            // Why: refresh the pending-distill list AFTER clearing the in-flight flag. Called mid-
+            // operation it no-ops (LoadPendingDistillAsync guards on _operationInFlight), so distilled
+            // videos would otherwise linger in the list — and the spinner state — until the page is
+            // revisited. Reloading here drops them without a manual navigate-away/back.
+            if (_pendingLoaded)
+            {
+                await LoadPendingDistillAsync();
+            }
+
             await InvokeAsync(StateHasChanged);
         }
     }
