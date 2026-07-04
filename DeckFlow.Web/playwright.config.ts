@@ -41,16 +41,21 @@ export default defineConfig({
   // WSL so those local CI-mode runs still reuse the already-running headless
   // server, while real CI keeps owning server startup itself.
   webServer: {
-    command: `${dotnetCommand} run --launch-profile http`,
+    // Use the http-no-browser launch profile, NOT http. The app's Development
+    // auto-open-browser is gated on DECKFLOW_DISABLE_AUTO_BROWSER, but a var set
+    // in this `env` block does NOT cross the WSL→Windows boundary into the
+    // Windows dotnet.exe this command spawns (verified: cmd.exe sees it unset),
+    // so a plain `--launch-profile http` run pops a Windows Chrome. The
+    // http-no-browser profile bakes DECKFLOW_DISABLE_AUTO_BROWSER=true into the
+    // profile's environmentVariables, which `dotnet run` applies in-process
+    // Windows-side — the only reliable suppression across WSL interop. The env
+    // block below is kept as belt-and-suspenders for native-Linux/CI runs.
+    command: `${dotnetCommand} run --launch-profile http-no-browser`,
     url: 'http://localhost:5173',
     reuseExistingServer,
     timeout: 120_000,
     env: {
       ASPNETCORE_ENVIRONMENT: 'Development',
-      // Suppress the Development auto-open browser launch — without this the
-      // Playwright-spawned server (CI, or a local run with no server already
-      // up) pops a Windows browser window. The Program.cs gate keys on this
-      // exact var; env here overrides the launch profile.
       DECKFLOW_DISABLE_AUTO_BROWSER: 'true',
       FEEDBACK_ADMIN_USER: 'admin',
       FEEDBACK_ADMIN_PASSWORD: 'changeme-local',
