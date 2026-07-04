@@ -226,10 +226,20 @@ public sealed class CliLlmDistillationService : ILlmDistillationService
         throw new InvalidOperationException($"CLI extraction failed after {MaxRetries} attempts.", last);
     }
 
-    private static async Task<string> RunProcessAsync(
-        CliCommandSpec spec,
-        string stdinBody,
-        CancellationToken linkedToken)
+    /// <summary>
+    /// Builds the <see cref="ProcessStartInfo"/> for the child LLM CLI process.
+    /// </summary>
+    /// <remarks>
+    /// The child CLI emits UTF-8. <see cref="ProcessStartInfo.StandardOutputEncoding"/>
+    /// and <see cref="ProcessStartInfo.StandardErrorEncoding"/> are pinned to UTF-8
+    /// because, left unset, redirected streams default to <c>Console.OutputEncoding</c>
+    /// — the Windows OEM codepage (e.g. CP437) — which mis-decodes multibyte chars
+    /// (em-dash, en-dash, euro) into mojibake (ΓÇö / ΓÇô / Γé¼) that then gets baked
+    /// into the written artifact.
+    /// </remarks>
+    /// <param name="spec">The CLI command spec (file name + arguments).</param>
+    /// <returns>A configured <see cref="ProcessStartInfo"/> with UTF-8 stream encodings.</returns>
+    internal static ProcessStartInfo BuildStartInfo(CliCommandSpec spec)
     {
         var startInfo = new ProcessStartInfo(spec.FileName)
         {
@@ -238,11 +248,23 @@ public sealed class CliLlmDistillationService : ILlmDistillationService
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
         };
         foreach (var argument in spec.ArgumentList)
         {
             startInfo.ArgumentList.Add(argument);
         }
+
+        return startInfo;
+    }
+
+    private static async Task<string> RunProcessAsync(
+        CliCommandSpec spec,
+        string stdinBody,
+        CancellationToken linkedToken)
+    {
+        var startInfo = BuildStartInfo(spec);
 
         using var process = Process.Start(startInfo)
             ?? throw new InvalidOperationException($"'{spec.FileName}' process failed to start.");

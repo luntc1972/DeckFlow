@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
@@ -8,6 +9,24 @@ namespace DeckFlow.Core.Tests;
 public sealed class CliLlmDistillationServiceTests
 {
     private const string ValidOverride = "[\"wsl.exe\",\"claude\",\"-p\",\"{instruction}\",\"--output-format\",\"json\",\"--allowedTools\",\"\"]";
+
+    [Fact]
+    public void BuildStartInfo_PinsStandardStreamEncodingsToUtf8()
+    {
+        // Guards against CP437/OEM mojibake: redirected streams left unset default to
+        // Console.OutputEncoding on Windows, mangling the child CLI's UTF-8 output.
+        var spec = new CliCommandSpec("claude", ["-p", "prompt"], CliEnvelopeKind.ClaudeJson);
+
+        var startInfo = CliLlmDistillationService.BuildStartInfo(spec);
+
+        Assert.Equal(65001, startInfo.StandardOutputEncoding!.CodePage);
+        Assert.Equal(65001, startInfo.StandardErrorEncoding!.CodePage);
+        Assert.True(startInfo.RedirectStandardOutput);
+        Assert.True(startInfo.RedirectStandardError);
+        Assert.True(startInfo.RedirectStandardInput);
+        Assert.False(startInfo.UseShellExecute);
+        Assert.Equal(new[] { "-p", "prompt" }, startInfo.ArgumentList);
+    }
 
     [Fact]
     public async Task Summarize_CleanJsonClaudeEnvelope_ReturnsSummaryAndZeroUsage()
