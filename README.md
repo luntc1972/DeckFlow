@@ -584,6 +584,8 @@ Current behavior:
 
 DeckFlow distills MTG content-creator videos into paste-ready prompt artifacts and a browsable site index. Heavy work (transcripts, audio, LLM calls, spend ledgers) runs **locally** via the CLI against `artifacts/content-kb.db`; only a slim index and the markdown artifacts ship to the site.
 
+On a KB entry's detail page the browser shows the distilled notes as-authored (Summary, Key Clips, Tags), but the **Copy** button wraps those notes in a standalone, paste-ready prompt — persona, task, and evidence rules around the notes — so pasting into ChatGPT/Claude/Gemini returns grounded, actionable advice with no extra typing. The framing is applied at copy time in code (`ContentKbPromptWrapper`), so every existing and future artifact benefits without re-distilling. This is why the copied text is longer than what is rendered on the page.
+
 Local pipeline (run from the repo root):
 
 ```bash

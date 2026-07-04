@@ -134,7 +134,11 @@ public sealed class ContentKbController : Controller
             Bracket = FirstTag(row.BracketTags, "Bracket unknown"),
             Archetype = FirstTag(row.ArchetypeTags, "Uncategorized"),
             RenderedHtml = renderedHtml,
-            CleanBodyText = cleanBodyText,
+            // The page renders the raw notes; the copy button gets a standalone, framed prompt
+            // (persona + task + evidence rules) so pasting it into an AI returns useful,
+            // grounded advice with no extra typing. Applied here so every stored artifact
+            // benefits without re-distilling. See ContentKbPromptWrapper.
+            CleanBodyText = ContentKbPromptWrapper.Wrap(row.Title, row.Source, row.VideoUrl, cleanBodyText),
             ArtifactUnavailable = artifactUnavailable,
         };
 
