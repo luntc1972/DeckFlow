@@ -17,13 +17,13 @@ Rograkh/Thrasios (Temur) cEDH deck the speaker calls the most powerful they've p
 ## Key Clips
 
 - This is Rograkh Thrasios, the best cEDH deck I've ever played with. The list was sent to me by Sam black when I was trying to find a list to play at pun City and it performed really really well.
-- This deck just can throw a lot of mana out the same way Kinnan can. It's very similar to a turbo deck but closer to Kinnan. The Mulligans are generally really powerful ΓÇö you don't really have to mull in very low.
-- The whole deck does two things. First priority is you find Gaea's Cradle ΓÇö this is Gaea's Cradle.deck. As soon as you get Cradle you're in a good spot. The second thing you do is find Dockside because there's a bunch of Dockside loops.
-- The tutors are designed to be extremely flexible. Muddle the Mixture becomes like a Grim Tutor because it transmutes into a two-CMC card ΓÇö finds Dockside, EarthCraft, Kinnan, Neoform. Spellseeker finds Muddle, transmute artifact, Pyroblast, Neoform.
-- Machine God's Effigy copies Devoted Druid, allowing the Effigy to untap infinitely and generate infinite blue. Shrieking Drake gives combo lines with EarthCraft ΓÇö assemble one enchantment on a basic land and you go infinite.
-- You play Pact of Negation over Force of Negation because this deck is designed to win on our turn ΓÇö we're here to win. Since we make so much mana the pay-five upkeep almost doesn't matter.
+- This deck just can throw a lot of mana out the same way Kinnan can. It's very similar to a turbo deck but closer to Kinnan. The Mulligans are generally really powerful — you don't really have to mull in very low.
+- The whole deck does two things. First priority is you find Gaea's Cradle — this is Gaea's Cradle.deck. As soon as you get Cradle you're in a good spot. The second thing you do is find Dockside because there's a bunch of Dockside loops.
+- The tutors are designed to be extremely flexible. Muddle the Mixture becomes like a Grim Tutor because it transmutes into a two-CMC card — finds Dockside, EarthCraft, Kinnan, Neoform. Spellseeker finds Muddle, transmute artifact, Pyroblast, Neoform.
+- Machine God's Effigy copies Devoted Druid, allowing the Effigy to untap infinitely and generate infinite blue. Shrieking Drake gives combo lines with EarthCraft — assemble one enchantment on a basic land and you go infinite.
+- You play Pact of Negation over Force of Negation because this deck is designed to win on our turn — we're here to win. Since we make so much mana the pay-five upkeep almost doesn't matter.
 - EarthCraft turns your Rograkh and every other creature you play into a mana source. Combined with Shrieking Drake or Cloudstone Curio it opens so many lines that you really want it. Fertile Ground, Utopia Sprawl, Wild Growth give enough density to enable EarthCraft.
-- The fail state is still really good ΓÇö our board was all mana, like Kinnan. You always present the win as aggressively as possible. Other decks need a specific card like Ad Nauseam or Timetwister to stick; this deck is different, all cards are useful and you win.
+- The fail state is still really good — our board was all mana, like Kinnan. You always present the win as aggressively as possible. Other decks need a specific card like Ad Nauseam or Timetwister to stick; this deck is different, all cards are useful and you win.
 
 ## Tags
 

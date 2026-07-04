@@ -12,7 +12,7 @@ generated_utc: "2026-06-09T05:48:26Z"
 
 ## Summary
 
-The video brainstorms a hypothetical custom legendary creature design for a black-green warlock Shaman. The proposed ability: tap for a green and a black mana to exile a target card from a graveyard, then trigger a mode based on the exiled card's type ΓÇö if it was a creature, exile it for value; if it was an instant or sorcery, create a Food token; and each opponent loses two life. The design is pitched as a black-and-green graveyard-hate and drain piece, echoing a Deathrite Shaman-style mana-and-graveyard utility creature. The speaker is teased for predictably gravitating toward a black-green Warlock identity. The clip closes by inviting viewers to consider whether they would brew around this Commander and points to a fuller video showcasing additional custom legend designs.
+The video brainstorms a hypothetical custom legendary creature design for a black-green warlock Shaman. The proposed ability: tap for a green and a black mana to exile a target card from a graveyard, then trigger a mode based on the exiled card's type — if it was a creature, exile it for value; if it was an instant or sorcery, create a Food token; and each opponent loses two life. The design is pitched as a black-and-green graveyard-hate and drain piece, echoing a Deathrite Shaman-style mana-and-graveyard utility creature. The speaker is teased for predictably gravitating toward a black-green Warlock identity. The clip closes by inviting viewers to consider whether they would brew around this Commander and points to a fuller video showcasing additional custom legend designs.
 
 ## Key Clips
 

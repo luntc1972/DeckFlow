@@ -12,7 +12,7 @@ generated_utc: "2026-06-09T05:48:26Z"
 
 ## Summary
 
-This transcript contains no Magic: The Gathering strategy content. It is banter from a multiplayer game where one player worries about being targeted by everyone, and another player invokes a self-styled "homie code"ΓÇövolunteering to take some of the incoming damage on a friend's behalf, accepting one point of damage and exchanging mutual thanks. No deck strategy, card choices, combos, archetypes, mana, or gameplay decisions are discussed in the provided text, so no grounded strategic summary can be extracted from it.
+This transcript contains no Magic: The Gathering strategy content. It is banter from a multiplayer game where one player worries about being targeted by everyone, and another player invokes a self-styled "homie code"—volunteering to take some of the incoming damage on a friend's behalf, accepting one point of damage and exchanging mutual thanks. No deck strategy, card choices, combos, archetypes, mana, or gameplay decisions are discussed in the provided text, so no grounded strategic summary can be extracted from it.
 
 ## Key Clips
 

@@ -12,7 +12,7 @@ generated_utc: "2026-06-09T03:09:19Z"
 
 ## Summary
 
-This is a comedy sketch, not a strategy video. Two characters draft a Magic ban announcement and decide to ban Nadu and The One Ring. They cite that The One Ring's play patternΓÇödrawing many cards under protectionΓÇöisn't fun, especially as it migrates into the premier aggro deck. But the real motive revealed is money: the boss wants the ban to boost revenue, funding an absurd dream of 'nugget town' with lab-grown cruelty-free chicken nuggets. The transcript offers no deckbuilding, gameplay, or competitive strategy guidance. The only ground-truth Magic content is the claim that The One Ring enables drawing an absurd number of cards under protection and has spread into the top aggro deck, framed as the stated (but not actual) reason for banning it alongside Nadu.
+This is a comedy sketch, not a strategy video. Two characters draft a Magic ban announcement and decide to ban Nadu and The One Ring. They cite that The One Ring's play pattern—drawing many cards under protection—isn't fun, especially as it migrates into the premier aggro deck. But the real motive revealed is money: the boss wants the ban to boost revenue, funding an absurd dream of 'nugget town' with lab-grown cruelty-free chicken nuggets. The transcript offers no deckbuilding, gameplay, or competitive strategy guidance. The only ground-truth Magic content is the claim that The One Ring enables drawing an absurd number of cards under protection and has spread into the top aggro deck, framed as the stated (but not actual) reason for banning it alongside Nadu.
 
 ## Key Clips
 

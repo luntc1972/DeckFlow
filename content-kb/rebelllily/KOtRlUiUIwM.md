@@ -19,7 +19,7 @@ This transcript captures in-game banter rather than structured strategy. A playe
 - I'm going to pay eight and I'm going to deal eight damage.
 - What are you going to use that Blaster Hulk on? Are you down to blast some Eldrazi?
 - Leave my spaghetti boys alone. I guess I can blast some.
-- Eldrazi, look at you influencing rookie precious mind designer ΓÇö maybe you're the Eldrazi.
+- Eldrazi, look at you influencing rookie precious mind designer — maybe you're the Eldrazi.
 
 ## Tags
 

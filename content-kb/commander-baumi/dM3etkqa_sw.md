@@ -17,7 +17,7 @@ This is not a strategy video but a comedy game show called "Commander Jeopardy: 
 ## Key Clips
 
 - Mothman is described as a strong mill commander that was slept on when the precons first came out: "This is like the mill commander now... there's Bruvac and this guy... everyone was like, 'Wait a second. This guy's kind of strong.'"
-- On Urza, Lord High Artificer: "the full mana double blue one, the most contracts top for blue cuz that's iconic" ΓÇö distinguishing him from the white-blue-black Urza that makes little artifact tokens.
+- On Urza, Lord High Artificer: "the full mana double blue one, the most contracts top for blue cuz that's iconic" — distinguishing him from the white-blue-black Urza that makes little artifact tokens.
 - Zurzoth, Chaos Rider is often mistaken for group hug but isn't: "Goblin Bombardment with this guy is literally... I think it's the most aggressive burn deck I've ever seen in my entire life."
 - Grand Arbiter Augustin IV is called one of the saltiest cards: "It's the one that makes your white spells cost less and opponents' spells cost more," with "one of the highest salt scores of cards."
 - On The Unspeakable / Vexictus type effect: "Is it just Chaos Warp on a body?... continuous Chaos Warp every single turn. You never get to play the game again. You're only playing Chaos Warp."

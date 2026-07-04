@@ -12,7 +12,7 @@ generated_utc: "2026-06-09T05:48:26Z"
 
 ## Summary
 
-This transcript is a brief conversational opening rather than a strategy lesson. Two people discuss placing an order for Assassin's Creed Magic product, which is described as limited. One person notes the other has already spent their June salary on Modern Horizons 3 singles and is racking up debt. The stated goal is to build an EDH (Commander) deck using only cards from the Assassin's Creed setΓÇöa self-imposed single-set deckbuilding constraint. They agree to work on it together and plan to crack the box jointly once the order arrives, then add two more boxes. No specific cards, combos, archetypes, or deckbuilding strategy are presented in this excerpt; it only establishes the premise of a set-restricted Commander build.
+This transcript is a brief conversational opening rather than a strategy lesson. Two people discuss placing an order for Assassin's Creed Magic product, which is described as limited. One person notes the other has already spent their June salary on Modern Horizons 3 singles and is racking up debt. The stated goal is to build an EDH (Commander) deck using only cards from the Assassin's Creed set—a self-imposed single-set deckbuilding constraint. They agree to work on it together and plan to crack the box jointly once the order arrives, then add two more boxes. No specific cards, combos, archetypes, or deckbuilding strategy are presented in this excerpt; it only establishes the premise of a set-restricted Commander build.
 
 ## Key Clips
 

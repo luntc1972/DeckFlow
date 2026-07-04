@@ -19,7 +19,7 @@ This clip is a comedic, non-strategic bit riffing on the card Kindred ("Kudo kin
 - Kudo king among Bears is like this super chill guy who just makes every other creature in play a bear in addition to whatever type they are.
 - So like you can have eldrazi bears, you can have fexi and bears, and you can have Thalia Bears.
 - It's more like they're an assimilator for assimilating other creature types to also be bears.
-- Oh, I guess that makes them not that cool huh ΓÇö not really.
+- Oh, I guess that makes them not that cool huh — not really.
 
 ## Tags
 

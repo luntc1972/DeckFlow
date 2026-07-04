@@ -12,7 +12,7 @@ generated_utc: "2026-06-09T07:27:09Z"
 
 ## Summary
 
-This "card of the day" video profiles a three-mana mercenary Commander with Menace. Whenever it deals combat damage to a player, its "crew claw" ability triggers: exile cards from the top of your library until you hit a non-land card, then play that card for free by discarding a card from your hand. The presenter highlights creative ways to exploit this free-cast trigger by stacking tutors with high-impact payoffsΓÇöfor example, Vampiric Tutor to set up and flip into Ad Nauseam, Imperial Seal into Underworld Breach, or Scheming Symmetries into Sire of Insanity. The core idea is using cheap tutors to fix the top of your library so the combat-damage trigger casts a powerful spell for free.
+This "card of the day" video profiles a three-mana mercenary Commander with Menace. Whenever it deals combat damage to a player, its "crew claw" ability triggers: exile cards from the top of your library until you hit a non-land card, then play that card for free by discarding a card from your hand. The presenter highlights creative ways to exploit this free-cast trigger by stacking tutors with high-impact payoffs—for example, Vampiric Tutor to set up and flip into Ad Nauseam, Imperial Seal into Underworld Breach, or Scheming Symmetries into Sire of Insanity. The core idea is using cheap tutors to fix the top of your library so the combat-damage trigger casts a powerful spell for free.
 
 ## Key Clips
 

@@ -12,7 +12,7 @@ generated_utc: "2026-06-09T05:48:26Z"
 
 ## Summary
 
-This transcript is a comedic skit, not a strategy discussion. Two charactersΓÇöa store owner called "designer" and a "rookie"ΓÇöbanter about Thunder Junction's Thunder Blasters (jokingly conflated as "thunder guns"). The owner claims Wizards mailed every premium store a real Thunder Blaster, which he keeps under the counter to zap shoplifters; he brags about blasting a customer who tried to steal a designer-picked pack so hard "they're never ever shuffling cards again," then demands the rookie empty his pockets over recent thefts. No deck-building, card evaluation, format, or gameplay strategy is present. There is no usable Magic: The Gathering strategic content to extract from this transcript.
+This transcript is a comedic skit, not a strategy discussion. Two characters—a store owner called "designer" and a "rookie"—banter about Thunder Junction's Thunder Blasters (jokingly conflated as "thunder guns"). The owner claims Wizards mailed every premium store a real Thunder Blaster, which he keeps under the counter to zap shoplifters; he brags about blasting a customer who tried to steal a designer-picked pack so hard "they're never ever shuffling cards again," then demands the rookie empty his pockets over recent thefts. No deck-building, card evaluation, format, or gameplay strategy is present. There is no usable Magic: The Gathering strategic content to extract from this transcript.
 
 ## Key Clips
 

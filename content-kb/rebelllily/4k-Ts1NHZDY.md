@@ -16,14 +16,14 @@ Four-player game pits the four Modern Horizons 3 precons against each other: Jun
 
 ## Key Clips
 
-- Dark Depths comes in with 10 ice counters; pay three mana to remove a counter, and once there are no more it becomes a 20/20 flying indestructible creature. Thespian's Stage can copy Dark Depths while it has no ice counters, so you automatically get the Marit Lage token ΓÇö a pretty common combo in Legacy.
-- Omo, Queen of Vesuva puts everything counters on a land and creature: a land with the counter becomes every land type, so a Forest also taps as a Tower, power plant, and mine ΓÇö letting you assemble Tron off a single land. Dryad of the Ilysian Grove and March of the Machines lines extend the same all-land-types trick.
-- Eldrazi Temple is part of an infamous modern deck that got banned for how quickly it could play Eldrazi with lands like Eldrazi Temple and Eye of Ugin ΓÇö that period is known as Eldrazi Winter.
+- Dark Depths comes in with 10 ice counters; pay three mana to remove a counter, and once there are no more it becomes a 20/20 flying indestructible creature. Thespian's Stage can copy Dark Depths while it has no ice counters, so you automatically get the Marit Lage token — a pretty common combo in Legacy.
+- Omo, Queen of Vesuva puts everything counters on a land and creature: a land with the counter becomes every land type, so a Forest also taps as a Tower, power plant, and mine — letting you assemble Tron off a single land. Dryad of the Ilysian Grove and March of the Machines lines extend the same all-land-types trick.
+- Eldrazi Temple is part of an infamous modern deck that got banned for how quickly it could play Eldrazi with lands like Eldrazi Temple and Eye of Ugin — that period is known as Eldrazi Winter.
 - Professional Face Breaker has menace and makes a treasure whenever your creatures deal combat damage to a player; sacrifice a treasure to exile and play the top card of your library. It works like a Timna-style attacker to draw cards, generate treasures, and crack top-deck tutors.
-- Disa the Restless puts Lagolos-type permanent cards from your graveyard onto the battlefield. Cast Faithless Looting, discard Baba Lysaga and Lagolos, and Disa cheats both onto the battlefield instead ΓÇö turning a card-filtering spell into free fatties.
+- Disa the Restless puts Lagolos-type permanent cards from your graveyard onto the battlefield. Cast Faithless Looting, discard Baba Lysaga and Lagolos, and Disa cheats both onto the battlefield instead — turning a card-filtering spell into free fatties.
 - Blaster Hulk costs one less for each energy spent that turn, has haste, and on attack adds two energy then lets you pay eight energy to deal eight damage split among targets. The plan is to bank energy across turns, then swing and burst a threat or opponent down.
-- Mana Reflection doubles the mana a permanent produces. Copy it with Replication Technique for two Reflections, then taps double again ΓÇö an Urza's Tower taps for three, doubled to six, doubled to twelve ΓÇö fueling X-spells like Drown in Dreams for a lethal mill.
-- Tectonic Edge can only be sacrificed to destroy a nonbasic land if the controller has four or more lands ΓÇö playing the extra Overflowing Basin enabled the opponent's Tectonic Edge to blow up Dark Depths, so watch your land count against it.
+- Mana Reflection doubles the mana a permanent produces. Copy it with Replication Technique for two Reflections, then taps double again — an Urza's Tower taps for three, doubled to six, doubled to twelve — fueling X-spells like Drown in Dreams for a lethal mill.
+- Tectonic Edge can only be sacrificed to destroy a nonbasic land if the controller has four or more lands — playing the extra Overflowing Basin enabled the opponent's Tectonic Edge to blow up Dark Depths, so watch your land count against it.
 
 ## Tags
 

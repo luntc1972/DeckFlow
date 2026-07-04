@@ -17,11 +17,11 @@ This transcript contains no Magic: The Gathering strategy content. It is a short
 ## Key Clips
 
 - I play with Ultimate Guard products, the best accessories for tournament play.
-- You can cut my deck when ready ΓÇö that's right, respectable shill.
+- You can cut my deck when ready — that's right, respectable shill.
 - I have this custom playmat that matches my deck, with matching dice.
 - Before we get started, let me tell you about the time I top nine'd my locals.
 - Charmin's the softest toilet paper on the market.
-- I just borrowed this deck from a friend, I didn't bring a playmat ΓÇö hand me your dice to see who goes first.
+- I just borrowed this deck from a friend, I didn't bring a playmat — hand me your dice to see who goes first.
 
 ## Tags
 

@@ -19,7 +19,7 @@ This short clip is banter rather than strategy content, centered on a card jokin
 - Siege Gang Lieutenant is a funny reference to the classic Siege Gang Commander, but with the Lieutenant mechanic where they make two goblins on combat if you control your commander.
 - Siege Gang Commander just enters the battlefield with three goblins, while Siege Gang Lieutenant deals half of Siege Gang Commander's damage because they're the lieutenant.
 - Siege Gang Commander has been a competitive staple for a really long time, from Goblin bidding to classic Zndrsplt.
-- What about Spawn Gang Commander? Spawn gang ΓÇö you're a broken person.
+- What about Spawn Gang Commander? Spawn gang — you're a broken person.
 
 ## Tags
 

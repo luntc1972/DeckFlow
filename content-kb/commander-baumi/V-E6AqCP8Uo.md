@@ -20,7 +20,7 @@ This is a comedic "Commander Jeopardy" trivia game, not a strategy video, featur
 - The five colleges of Strixhaven are Lorehold, Prismari, Witherbloom, Silverquill, and Quandrix.
 - How many CMC-free counterspells exist? The answer per Scryfall tags is 151. Notably it includes Boromir (it literally has counter text), while Sink into Stupor is tagged despite not actually countering a spell.
 - The five clans of Tarkir are Jeskai, Mardu, Abzan, Sultai, and Temur.
-- Ordering cards by EDH inclusion percentage, Assassin's Trophy actually had the highest play rate ΓÇö people are running flexible removal that can blow up lands, beating staples like Sakura-Tribe Elder and Solemn Simulacrum.
+- Ordering cards by EDH inclusion percentage, Assassin's Trophy actually had the highest play rate — people are running flexible removal that can blow up lands, beating staples like Sakura-Tribe Elder and Solemn Simulacrum.
 - The five families of New Capenna are Brokers, Cabaretti, Maestros, Riveteers (the builders), and Obscura.
 - The ten guilds of Ravnica are Simic, Golgari, Orzhov, Azorius, Boros, Rakdos, Gruul, Selesnya, Dimir, and Izzet.
 - The ten Aetherdrift racing teams (one per color) are the Aetherspark Rangers, Champions of Amonkhet, Cloudspire Racing Team, Guidelight Voyagers, Speed Demons, Goblin Rocketeers, Alacrian Quickbeast, Speed Brute, Keelhaulers, and the End Riders.

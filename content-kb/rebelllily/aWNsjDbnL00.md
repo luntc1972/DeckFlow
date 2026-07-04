@@ -17,9 +17,9 @@ This clip discusses Force of Vigor in a Stax deck. Force of Vigor lets you exile
 ## Key Clips
 
 - Force of Vigor: you get to exile one of our awful green cards and destroy two enchantments or artifacts. Pretty strong in my opinion.
-- Our cards don't matter ΓÇö at the end of the day our deck is so bad and so awful, the card quality is so low that you don't even care if this card says exile.
+- Our cards don't matter — at the end of the day our deck is so bad and so awful, the card quality is so low that you don't even care if this card says exile.
 - You're like, they weren't going to do anything anyways, so I'll go down two cards to blow up your two good cards.
-- Don't forget that we're playing Stacks ΓÇö our cards don't matter.
+- Don't forget that we're playing Stacks — our cards don't matter.
 
 ## Tags
 
