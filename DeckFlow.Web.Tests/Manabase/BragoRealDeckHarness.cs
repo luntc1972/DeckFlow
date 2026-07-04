@@ -118,7 +118,7 @@ public sealed class BragoRealDeckHarness
         var lines = ParseDeck(DeckList);
 
         // Cache resolved CardFacts so the simulator can be iterated without re-hitting Scryfall.
-        string cachePath = Path.Combine(RepoRoot(), ".manabase-brago-facts.json");
+        string cachePath = Path.Combine(RepoRoot(), "DeckFlow.Web.Tests", "Manabase", "fixtures", ".manabase-brago-facts.json");
         IReadOnlyList<CardFact> facts;
         int resolvedCount;
         if (File.Exists(cachePath))

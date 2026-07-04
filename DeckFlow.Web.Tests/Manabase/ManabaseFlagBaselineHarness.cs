@@ -391,7 +391,7 @@ public sealed class ManabaseFlagBaselineHarness
     // Brago cache predates the ManaAmount field, so re-derive it from oracle text on load.
     private static async Task<IReadOnlyList<CardFact>> LoadFactsAsync(string? list, string cacheFile)
     {
-        string cachePath = Path.Combine(RepoRoot(), cacheFile);
+        string cachePath = Path.Combine(RepoRoot(), "DeckFlow.Web.Tests", "Manabase", "fixtures", cacheFile);
         List<CardFact> facts;
         if (File.Exists(cachePath))
         {

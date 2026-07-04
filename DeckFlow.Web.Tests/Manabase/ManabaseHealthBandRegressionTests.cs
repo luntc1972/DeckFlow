@@ -212,7 +212,7 @@ public sealed class ManabaseHealthBandRegressionTests
         }
 
         string deckPath = Path.Combine(RepoRoot(), ".planning", "debug", "manabase-brago-promote-deck.txt");
-        string cachePath = Path.Combine(RepoRoot(), BragoPromoteDeck.FactsFile);
+        string cachePath = Path.Combine(RepoRoot(), "DeckFlow.Web.Tests", "Manabase", "fixtures", BragoPromoteDeck.FactsFile);
         string list = await File.ReadAllTextAsync(deckPath);
         IReadOnlyList<DeckCardEntry> entries = await ResolveAsync(ParseDeck(list));
         IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(entries).ToList();
@@ -259,7 +259,7 @@ public sealed class ManabaseHealthBandRegressionTests
     {
         string path = calibration.IsAssemblyFixture
             ? FactsCachePath
-            : Path.Combine(RepoRoot(), calibration.FactsFile);
+            : Path.Combine(RepoRoot(), "DeckFlow.Web.Tests", "Manabase", "fixtures", calibration.FactsFile);
 
         Assert.True(File.Exists(path), $"Facts cache not found at {path}.");
 
