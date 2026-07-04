@@ -316,4 +316,62 @@ public sealed partial class DeckAnalysisPacketServiceTests
         Assert.NotNull(freshCached);
         Assert.DoesNotContain(InteractionAuditHeaderSentinel, freshCached!.AnalysisPromptText ?? string.Empty, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// Sentinel token proving the pre-computed deck_stats block rendered into the reference artifact.
+    /// </summary>
+    private const string DeckStatsHeaderSentinel = "deck_stats (counts computed";
+
+    /// <summary>
+    /// Follow-up hardening regression, same replay class as
+    /// <see cref="ScoreCacheBypass_FlagOn_BuildAsyncRendersBlock_AndCacheBypassed_NoReplayAfterFlagFlipsOff"/>
+    /// but for the reference deck-stats flag: before this fix, <c>analysis.reference.deck-stats</c>
+    /// mutated <c>ReferenceText</c> (and therefore the cached <see cref="DeckAnalysisPacketResult"/>)
+    /// when ON, yet was absent from both the <c>PromptMutatingAnalysisFlags</c> registry and the
+    /// write-side <c>bypassCacheWrite</c> gate — so a deck-stats-ON packet was written to the shared
+    /// <see cref="PacketSessionCache"/> and could be replayed unchanged after the flag flipped OFF.
+    /// The block lands in <c>ReferenceText</c> (not <c>AnalysisPromptText</c>), so this asserts there.
+    /// </summary>
+    [Fact]
+    public async Task DeckStatsCacheBypass_FlagOn_BuildAsyncRendersBlock_AndCacheBypassed_NoReplayAfterFlagFlipsOff()
+    {
+        var packetCache = new PacketSessionCache();
+        var flagCache = new FakeFeatureFlagCache(new Dictionary<string, bool>
+        {
+            ["analysis.reference.deck-stats"] = true,
+        });
+        var importer = new FakeMoxfieldDeckImporter(entries: CreateCompanionFixtureEntries(includeBackgroundCommander: false));
+        var service = CreateServiceWithSharedCache(packetCache, flagCache, importer);
+        var request = CreateWinConMapCacheRequest();
+
+        // (1) Flag ON: the block renders into ReferenceText AND the read-side cache-key computation
+        // returns null (ShouldBypassPacketCache now covers deck-stats), so the controller-level replay
+        // guard can never attempt a lookup while the flag is ON.
+        var keyWhileOn = await service.TryComputeCacheKeyAsync(request, CancellationToken.None);
+        Assert.Null(keyWhileOn);
+
+        var onResult = await service.BuildAsync(request, CancellationToken.None);
+        Assert.Contains(DeckStatsHeaderSentinel, onResult.ReferenceText, StringComparison.Ordinal);
+
+        // (2) Flip the flag OFF and recompute the cache key the SAME way the controller does. If the ON
+        // BuildAsync call above had (incorrectly) written to the cache under this now-OFF key, this
+        // TryGet would return a stale ON packet here.
+        flagCache.Flags["analysis.reference.deck-stats"] = false;
+        var keyWhileOff = await service.TryComputeCacheKeyAsync(request, CancellationToken.None);
+        Assert.False(string.IsNullOrEmpty(keyWhileOff));
+        var hitAfterFlip = packetCache.TryGet<DeckAnalysisPacketResult>(keyWhileOff!, out var staleCached);
+        Assert.False(hitAfterFlip, "No deck-stats-ON packet should have been cached under the flag-OFF key.");
+        Assert.Null(staleCached);
+
+        // (3) A second BuildAsync on the SAME request, now with the flag OFF, must not surface the
+        // deck-stats sentinel -- proving the flag-OFF path rebuilds clean rather than replaying a stale
+        // ON packet.
+        var offResult = await service.BuildAsync(request, CancellationToken.None);
+        Assert.DoesNotContain(DeckStatsHeaderSentinel, offResult.ReferenceText ?? string.Empty, StringComparison.Ordinal);
+
+        var hitAfterOffBuild = packetCache.TryGet<DeckAnalysisPacketResult>(keyWhileOff!, out var freshCached);
+        Assert.True(hitAfterOffBuild);
+        Assert.NotNull(freshCached);
+        Assert.DoesNotContain(DeckStatsHeaderSentinel, freshCached!.ReferenceText ?? string.Empty, StringComparison.Ordinal);
+    }
 }

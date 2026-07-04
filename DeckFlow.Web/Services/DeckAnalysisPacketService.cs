@@ -161,6 +161,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         MultiAxisScoreFlag,
         InteractionAuditFlag,
         WinConMapFlag,
+        ReferenceDeckStatsFlag,
     };
 
     /// <summary>
@@ -595,6 +596,15 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         var scoreEnabled = IsAnalysisFlagOn(MultiAxisScoreFlag);
         var interactionAuditEnabled = IsAnalysisFlagOn(InteractionAuditFlag);
 
+        // Follow-up hardening: latch the deck-stats reference flag here too. It mutates referenceText
+        // (and therefore AnalysisPromptText) when ON but was previously absent from both the
+        // PromptMutatingAnalysisFlags registry and the write-side bypass gate, so a packet built with
+        // deck-stats ON could be cached and replayed after the flag flipped OFF within the 5-minute TTL
+        // (the same replay class as the four flags above). Latch once, at build time, so the enrichment
+        // gate below and the cache-write decision at the end of this method observe the SAME value.
+        // Explicit-snapshot read (never IsEnabled()) so the flag-OFF path stays byte-identical.
+        var deckStatsEnabled = IsAnalysisFlagOn(ReferenceDeckStatsFlag);
+
         if (string.Equals(request.Format, "Commander", StringComparison.OrdinalIgnoreCase) && inferredCommanderFromMoxfieldOrdering)
         {
             var inferredCommanderNames = entries
@@ -770,13 +780,10 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 // state composition facts (lands, creatures, curve, role counts) instead of asking the AI
                 // to tally 100 cards. Empty when the flag is off, in which case the block is omitted.
                 //
-                // Fail-safe default-OFF: IsEnabled() returns true for an ABSENT key (default-on store
-                // semantics), so a missing/unseeded row would silently turn the block on. Gate on the
-                // EXPLICIT snapshot value instead — absent key, null cache, or store-read failure all
-                // resolve to off, matching the documented default.
-                var deckStatsEnabled = _flagCache is not null
-                    && _flagCache.Snapshot().TryGetValue(ReferenceDeckStatsFlag, out var deckStatsOn)
-                    && deckStatsOn;
+                // Fail-safe default-OFF: gated on the build-time-latched deckStatsEnabled (an explicit
+                // snapshot read via IsAnalysisFlagOn — absent key, null cache, or store-read failure all
+                // resolve to off, matching the documented default). Latched at method scope so the same
+                // value drives this enrichment block and the write-side cache-bypass decision.
                 var deckStatsText = deckStatsEnabled
                     ? BuildDeckStatsText(cardReferenceBundle.CardReferences)
                     : string.Empty;
@@ -967,14 +974,14 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         // identical SHA-256 keys for identical logical inputs — including for Moxfield decks
         // without an explicit commander section (the case Codex pass-3 flagged).
         // Codex 73 HIGH-1 (Phase 80 code-review fix, finding #1; follow-up hardening widened to all
-        // four prompt-mutating flags) — gate on the BUILD-TIME LATCHED locals (commandZoneAwareness,
-        // scoreEnabled, interactionAuditEnabled, winConMapEnabled), NOT a fresh ShouldBypassPacketCache()
-        // re-read. A fresh re-read here could disagree with the value actually used to enrich this
-        // packet if any flag flipped mid-request, letting an enriched packet get cached under a
-        // flag-OFF key (or vice versa) and later replayed once the flag state changes again. This also
-        // closes the open gap where score/interaction-audit packets were being cached and could be
-        // replayed after either flag flipped OFF.
-        var bypassCacheWrite = commandZoneAwareness || scoreEnabled || interactionAuditEnabled || winConMapEnabled;
+        // prompt-mutating flags) — gate on the BUILD-TIME LATCHED locals (commandZoneAwareness,
+        // scoreEnabled, interactionAuditEnabled, winConMapEnabled, deckStatsEnabled), NOT a fresh
+        // ShouldBypassPacketCache() re-read. A fresh re-read here could disagree with the value actually
+        // used to enrich this packet if any flag flipped mid-request, letting an enriched packet get
+        // cached under a flag-OFF key (or vice versa) and later replayed once the flag state changes
+        // again. This also closes the open gap where score/interaction-audit/deck-stats packets were
+        // being cached and could be replayed after the flag flipped OFF.
+        var bypassCacheWrite = commandZoneAwareness || scoreEnabled || interactionAuditEnabled || winConMapEnabled || deckStatsEnabled;
         if (!bypassCacheWrite)
         {
             var cacheInputs = BuildDeckAnalysisCacheInputs(request, preScryfallEntries, preScryfallCommanderName);
