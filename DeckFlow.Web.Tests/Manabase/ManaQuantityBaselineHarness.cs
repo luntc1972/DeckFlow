@@ -24,7 +24,7 @@ public sealed class ManaQuantityBaselineHarness
             return; // gated
         }
 
-        string cachePath = Path.Combine(RepoRoot(), ".manabase-brago-facts.json");
+        string cachePath = Path.Combine(RepoRoot(), "DeckFlow.Web.Tests", "Manabase", "fixtures", ".manabase-brago-facts.json");
         Assert.True(File.Exists(cachePath), $"missing cached facts: {cachePath}");
 
         List<CardFact> raw = JsonSerializer.Deserialize<List<CardFact>>(
