@@ -6,27 +6,27 @@ video_id: "nCziIqY7ptw"
 tags:
   archetype: ["control","value-engine"]
   bracket: ["Core","Upgraded"]
-  card_category: ["removal","counter","protection","board-wipe","tutor","draw","recursion","ramp","win-cons"]
-generated_utc: "2026-06-11T23:00:55Z"
+  card_category: ["removal","draw","protection","board-wipe","tutor"]
+generated_utc: "2026-07-04T19:25:13Z"
 ---
 
 ## Summary
 
-The Trinket Mage argues that a single Commander deck can be built to win any game, countering Travis Gafford's claim it's impossible. The first pillar is flexible interaction: include removal that hits any permanent type (artifact, enchantment, creature, land), ideally rolled into one card like 'destroy target permanent,' plus answers to indestructible (Chaos Warp), protection/hexproof (board wipes, Perilous Vault), and uncounterable threats (Summary Dismissal). Using his Jori-En control list as reference, he favors generic counters and bounce (Capsize). Second, build inevitability/value engines that scale into the late game (Search for Azcanta, Mind's Dilation, Crucible/Urza's Saga, X spells like Genesis Wave, mana sinks, Mind's Eye) so the deck doesn't fold to a board wipe. Third, have a plan B for gimmick decks (Spykit example), though pure value piles don't need one. Fourth, add defense/protection for your strategy: dodge wraths, redirect interaction, sneak past blockers. Speed is an alternative to answers. Finding answers comes via tutors or maximizing flexibility plus heavy card draw. MDFCs (Bala Ged Recovery, Sundering Eruption) provide free flexible slots counted as lands. Combining flexible removal, card draw, protection, and a plan B gives the deck an out in any game.
+Guide to building a Commander deck that can win any game via flexibility. Core: run removal that hits any permanent type. One card can cover artifact/enchantment/creature/land — anything that "destroys target permanent," plus generic counterspells or bounce (Capsize). Chaos Warp is a must-have: hits every type and beats indestructible. Board wipes get past hexproof/shroud/ward; Perilous Vault beats any board in any colors. In a blue Jori-En list, Summary Dismissal answers uncountable cards. Second, build inevitability/value engines that dodge wraths: Search for Azcanta, Capsize, Mind's Dilation, Portal to Phyrexia, Crucible of Worlds, Urza's Saga, Mind's Eye, and X-spells/mana sinks like Genesis Wave. Third, have a Plan B for gimmick decks (Spy Kit + The End + Ardenn + Silas Renn combo needs backup equipment); pure value/control piles (Jarad) don't. Fourth, add protection for your game plan (dodge wraths, redirect). Also: speed, tutors (Tishana finding Ghost Quarter), and lots of card draw. Prefers slightly less mana-efficient removal for flexibility. Counts MDFCs as lands — Bala Ged Recovery, Sundering Eruption, Sink into Stupor (?) — so they cost no slot. Expropriate can flip any board. Play toward your out rather than conceding.
 
 ## Key Clips
 
-- **[03:02]** Interaction is one of the first things I check in my decks. I want to make sure I can deal with a threat of any type. So, can I remove an artifact, enchantment, creature, or land? Don't worry, all of these removal slots can be rolled up into one single card. Anything that destroys target permanent will cover almost all your bases.
-- **[04:04]** Chaos Warp is an awesome card here because it ticks every single box I have mentioned. It hits every type and gets around indestructible. Lastly, you want cards to remove pieces that have protection. Hexproof, shroud, or some annoying ward cost. This can easily be covered by any board wipe.
-- **[05:05]** Cards that can take over a game if they have the space to do so, usually with incremental advantage. For my Jori-En list, this would be Search for Azcanta or Capsize. Both of these provide value over time and are relatively difficult to disrupt.
-- **[06:08]** I see a tremendous amount of decks which do one thing and have no ability to scale into the late game when resources are depleted. This is why so many decks fold to a board wipe. Making sure you have some kind of X spell or mana sink will help you win games that go long.
-- **[06:51]** Beyond inevitability, one thing I like to have in my decks is a plan B. Having a gimmick is very fun, but it can't be the whole deck. What if Spykit gets exiled? Well, then I need a plan B. In a deck like that, it can simply be playing other powerful equipment that Arden can use to swing with.
-- **[08:05]** What all decks need is defense. Not for your life total necessarily, but for your strategy. When you focus on A, B, then C, you forget to ask questions like, what if someone attacks me first? What if they remove your equipment? Ways to dodge board wipes, redirect interaction, or sneak past blockers can be really great ways to add protection for your game plan.
-- **[09:54]** In casual commander, flexibility is king, and I think slightly less mana efficient removal can be worth playing if the flexibility in what it removes and what the card does goes up. Additionally, my list is chock-full of card draw. Letting you see more cards means you can more likely find what card you actually need.
-- **[10:56]** MDFCs like Bala Ged Recovery help you protect your game plan by getting key cards back. All of these cards don't even take real slots in your deck since they can be lands if needed. I count MDFCs as lands when I'm building my decks.
+- **[03:02]** Interaction is one of the first things I check in my decks. I want to make sure I can deal with a threat of any type: can I remove an artifact, enchantment, creature, or land? These removal slots can be rolled up into one card—anything that destroys target permanent covers almost all your bases.
+- **[04:04]** Chaos Warp is awesome because it ticks every box: it hits every type and gets around indestructible, making it a must-have in a lot of my casual decks.
+- **[04:31]** You want cards to remove pieces with protection—hexproof, shroud, or ward. This is covered by any board wipe; almost all board wipes get past those keywords. And if you're really concerned, a Perilous Vault should beat any board state in any color combination.
+- **[04:44]** For this Jori-En list I have Summary Dismissal. This lets me beat uncountable cards since my deck is already so focused on blue removal.
+- **[05:13]** For inevitability, Search for Azcanta lets me continually dig for more interaction or card draw even after my resources are expended, and it dodges most wraths. Capsize continuously bounces a threat and stalls until I'm able to counter it. Both provide value over time and are hard to disrupt.
+- **[06:22]** This is why X spells are so good in Commander. A Genesis Wave for five can be a great value play; a Genesis Wave for 10 can be a game ender. Making sure you have some kind of X spell or mana sink will help you win games that go long.
+- **[09:54]** In casual commander, flexibility is king. I think slightly less mana-efficient removal can be worth playing if the flexibility in what it removes and what the card does goes up. I even play higher mana-cost cards because they have more flexibility.
+- **[10:56]** MDFCs like Bala Ged Recovery help protect your game plan by getting key cards back; Sundering Eruption hits a land and pushes for lethal; Sinkhole to Stupor gives flexible removal. These don't take real slots since they can be lands—I count MDFCs as lands when building my decks.
 
 ## Tags
 
 **Archetypes/Strategy:** control, value-engine
 **Format/Bracket:** Core, Upgraded
-**Card Categories:** removal, counter, protection, board-wipe, tutor, draw, recursion, ramp, win-cons
+**Card Categories:** removal, draw, protection, board-wipe, tutor

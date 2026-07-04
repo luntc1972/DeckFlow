@@ -4,29 +4,29 @@ title: "Card Draw For Us Fools Who Never Stop"
 url: "https://www.youtube.com/watch?v=yZNbI968INw\u0026list=UU98mf08y3Dv_4chuyX1VIkw"
 video_id: "yZNbI968INw"
 tags:
-  archetype: ["value-engine"]
+  archetype: ["value-engine","control"]
   bracket: ["Core","Upgraded"]
-  card_category: ["draw","utility","finishers"]
-generated_utc: "2026-06-12T21:48:16Z"
+  card_category: ["draw","finishers"]
+generated_utc: "2026-07-04T19:25:13Z"
 ---
 
 ## Summary
 
-This video recommends card-draw engines for Commander that disproportionately reward you. Speed Demon (black 5-mana 5/5 flying trample) builds a speed counter that draws cards equal to speed at end step, netting ~5 cards across two turns; it works outside dedicated speed decks. Unholy Annex, a 3-mana demon-synergy enchantment, draws at end of turn and drains opponents for two if you control a demon; it has easier pips than Phyrexian Arena and is now cheap (~$2-3). Scrawling Crawler (free 2-colorless artifact) draws every player a card each upkeep but pings opponents whenever they draw, often dealing 20-60 damage while staying unkillable since it helps everyone. Combat-draw creatures Okame Adversary (deathtouch, near-unblockable, draws on combat damage) and Legolas Greenleaf pair for steady cards and beats. Curse of Verbosity draws you a card whenever the cursed player is attacked, netting upwards of four cards; curse yourself as propaganda if opponents refuse to attack. Mangara the Diplomat draws when opponents cast a second spell. Sire of Stagnation draws two cards and exiles opponents' top two whenever they play a land. Hoarder's Overflow accumulates stash counters via expend, then sacrifices to draw equal cards.
+A card-draw-focused Commander showcase covering repeatable draw engines and how to run them. Speed Demon (black 5-mana 5/5 flying trample) builds a speed counter on first combat damage each turn (max 4) and draws that many at end step, losing equal life; it works outside dedicated speed decks and pairs with engine lands Muraganda and Amonkhet raceways. Unholy Annex (3-mana enchantment) draws at end of turn losing 2 life, but drains everyone for 2 instead if you control a demon; presenter prefers it over Phyrexian Arena for easier pips (2B vs 1BB) plus a 6/6-demon activated ability, and notes it's now cheap (~$2-3). Scrawling Crawler (2 colorless artifact) draws every player each upkeep and pings each opponent 1 per card drawn, punishing all draw. Okame Adversary (?) and Legolas Greenleaf are cheap combat-damage draw creatures. Curse of Verbosity (blue aura) nets you extra cards when the enchanted player is attacked—compared to Curse of Opulence—and can be self-cast as pseudo-propaganda. Mangara the Diplomat draws on opponents' second spell each turn. Sio Stagnation (?) (6-mana demon) draws 2 whenever an opponent plays a land. Hoarders Overflow (2-mana red) accumulates stash counters via expend, then sacrifices to draw that many.
 
 ## Key Clips
 
-- **[01:10]** The turn we play it, we already guaranteed at least one draw, much more likely to be two. The speed demon is a 5/5 with Flample, so next turn we are surely able to deal damage. And that means we draw three. That's five cards across two turns.
-- **[02:57]** Unholy Annex has easier pips than Fyrexian Arena, being two and the black rather than one and two black, which is a huge deal, especially for multicolor decks. It also has an activated ability that lets us summon a 6/6 demon once for five mana.
-- **[04:47]** The important thing to note here is that scrolling crawler punishes all card draw, not just the one it provides. I've seen this little fella deal over 60 total damage, and 20 is really closer to the norm than the exception. It sits at that perfect intersection of being beneficial enough to opponents that they don't want to kill it.
-- **[05:41]** Okiba adversary is basically guaranteed to draw an extra card each turn because commander players always suffer from never blocking disease which is turn terminal if the attacking creature has deathtouch.
-- **[07:03]** Curse of verbosity disguises itself as a fair way for everybody to draw some cards, but it ends up rewarding us disproportionately more. Whereas the other players draw one additional card each turn, we net upwards of four.
-- **[08:05]** If players refuse to attack the cursed player, there's an equally psychopathic technique: we can curse of verbosity ourselves, and this turns it into a kind of propaganda, although it still requires us to remain vigilant in our defenses.
-- **[08:34]** Drawing a card whenever our opponents cast a second spell is often the same as drawing a card every single turn with Mangara the Diplomat. We get to just sit there and quietly count along and as the triggers come in, our hand fills up.
-- **[09:37]** Sheoldred's stagnation is an inverse: instead of us vomiting our deck's budget into play to draw cards, we let our opponents play lands and benefit twice as much. A single turn rotation with this guy out nets six cards minimum.
+- **[00:24]** The speed demon is a black five mana 5/5 with flying and trample. You get a counter that increments by one the first time you deal damage to an opponent each turn up to a maximum of four. At the beginning of your end step, it draws you cards equal to your speed and you lose that much life.
+- **[01:41]** The speed demon looks like it requires a deck centered around speed and engines, but that's not true. The turn you play it you guarantee at least one draw. Next turn as a 5/5 with flample you deal damage and draw three — five cards across two turns.
+- **[02:30]** Speed Demon is a demon, so it synergizes with Unholy Annex — a three mana enchantment that draws a card at end of turn and loses two life, but if you control a demon it drains everybody for two instead.
+- **[02:47]** Unholy Annex has easier pips than Fyrexian Arena — two-and-a-black rather than one-and-two-black — which is a huge deal for multicolor decks. It also has an activated ability to summon a 6/6 demon for five mana, a bonus Fyrexian Arena doesn't have.
+- **[04:07]** Scrolling Crawler punishes all card draw, not just the one it provides. It sits at the intersection of being beneficial enough to opponents that they don't want to kill it, but enough of a playmaker that you don't mind giving them resources. I've seen it deal over 60 total damage, 20 is closer to the norm.
+- **[05:34]** Okiba adversary is a four mana green 2/3 with deathtouch that draws a card whenever it deals combat damage to a player, and costs two less if an opponent controls a green permanent. Commander players never block, which is terminal against deathtouch, so it's basically guaranteed to draw each turn.
+- **[06:50]** Curse of Verbosity is fundamentally the same as Curse of Opulence except it provides card draw instead of a treasure, a much stronger incentive. Whereas other players draw one additional card, you net upwards of four. If opponents refuse to attack the cursed player, you can curse yourself, turning it into a kind of propaganda.
+- **[08:52]** Mangara the Diplomat draws a card whenever an opponent attacks you with two or more creatures or casts their second spell for the turn. Drawing on the second spell is often the same as drawing a card every single turn.
 
 ## Tags
 
-**Archetypes/Strategy:** value-engine
+**Archetypes/Strategy:** value-engine, control
 **Format/Bracket:** Core, Upgraded
-**Card Categories:** draw, utility, finishers
+**Card Categories:** draw, finishers

@@ -4,29 +4,28 @@ title: "The Most Forgotten Part of EDH Deckbuilding"
 url: "https://www.youtube.com/watch?v=mDHrUxOWNHA\u0026list=UUOYkwObFKjxko7oj56gVDag"
 video_id: "mDHrUxOWNHA"
 tags:
-  archetype: ["midrange","aggro","stax","combo","blink","value-engine"]
-  bracket: []
-  card_category: ["ramp","removal","draw","protection","counter","recursion","tutor"]
-generated_utc: "2026-06-13T13:23:14Z"
+  archetype: ["value-engine","blink","midrange"]
+  bracket: ["Core"]
+  card_category: ["ramp","draw","removal","protection","recursion"]
+generated_utc: "2026-07-04T19:25:13Z"
 ---
 
 ## Summary
 
-The video explains how card categories help deckbuilders see the shape and synergies of a Commander deck. The creator starts with core function categories most decks want—lands, ramp, draw, protection, and interaction—citing healthy ranges of roughly 35-40 lands, 15-20 removal, 13-18 draw, 7-12 ramp, and 3-8 protection, noting cards outside these carry an opportunity cost. He warns against a generic "theme" category since most theme cards already perform core tasks, and against tracking single-function "plan-only" cards. Categories should reflect a card's function: define ramp by why you ramp (curve vs. volume), and split interaction by how proactive versus reactive it is (protection/counterspells vs. removal/defense). Give a category only when a role is worth watching; over-categorizing creates false justification for weak cards like Soul Warden in a beatdown deck. The second purpose is tracking synergy packages via setup and payoff sub-categories, ensuring payoffs have enough support. Built-in search/highlight tools on Archidekt and Moxfield supplement categories, including categorizing the maybeboard, though searches don't perfectly capture intent. Avoid grouping superficially similar but functionally opposite cards (Thalia vs. Ghostly Prison).
+On categorizing Commander decks. Start with core function categories most decks want: lands, ramp, draw, protection, interaction. Suggested starting ranges for a standard EDH deck: 35-40 lands, 15-20 removal-equivalent, 13-18 draw, 7-12 ramp, 3-8 protection. Avoid "theme"/"plan" categories: most theme cards also fill a core role, and a plan bucket becomes a dumping ground that fabricates justification for weak cards (Soul Warden in a Yoshimaru beatdown deck). Ramp: ask "why am I ramping?"—rituals fit if hitting specific cards a turn early; Worn Powerstone doesn't fit a get-to-four-early goal (Krenko example). Lands categorized by what you count as a land drop; exceptions like Glacial Chasm, Maze's End. Interaction: one card (Murder) does many tasks; Fogs, counterspells have limits. Two fuzzy buckets—protection+counterspells vs removal+defense—along a proactive/reactive spectrum. His Malfegor deck splits interaction into discard, removal, graveyard exile. Draw-adjacent cards (Laelia, Future Sight) can sit in draw unless roles differ. For synergies, use setup + payoff categories to check support (flicker deck example). Don't merge superficially similar but opposite-function cards (Thalia vs Ghostly Prison in one stax category). Use deckbuilder search/highlight functions and categorize the maybeboard ("too expensive," "too slow").
 
 ## Key Clips
 
-- **[02:13]** I always start out with categories of card that most decks will want at least some of—principally lands, ramp, draw, protection, and interaction. These categories are useful because all on their own they can start to paint a picture of the shape of what a deck is doing.
-- **[03:26]** If somebody asked me for healthy starting ranges for their core categories for a bog-standard EDH deck, I'd say something like 35-40 lands, 15-20 pieces of removal-equivalent, 13-18 pieces of draw, 7-12 pieces of ramp, and 3-8 pieces of protection.
-- **[05:08]** When constructing your ramp category, you should be asking yourself 'why am I ramping?' If your ramp is geared to hit specific cards a turn early, you'll want to be specific with the curve of your mana, and it might even be worth including ritual-style cards. By contrast, if your ramp is generally geared toward increasing the volume of your mana without specific timing goals, less card-efficient options won't make as much sense.
-- **[06:58]** One categorical starting point I've used before is having two slightly-fuzzy buckets—protection + counterspells, and removal + defense. It makes some sense if you think about all interaction in terms of how proactive vs reactive it is.
-- **[10:29]** This is the second major thing categories do—allowing people to keep track of synergies. Specifically, for each synergy package I'll include two categories—setup, and payoff. The utility is allowing you to keep an eye on how well supported a specific theme is.
-- **[14:47]** Putting cards together in the same categories that are similar on some superficial level, but very different in function. An example of what wouldn't work is putting Thalia, Guardian of Thraben and Ghostly Prison together in a stax category. The former is proactive, while the latter is purely reactive, and merging them into one category is a recipe for confusion.
-- **[16:56]** The bigger issue with over-categorization is when categories are used to justify the presence of cards that really might not belong in a deck. With this category I've constructed a justification for this card out of thin air, and might choose to keep this unnecessary card in my deck as a result. Any cards that didn't end up in many categories immediately become suspect and deserving of additional scrutiny.
-- **[12:18]** If you have a deck that cares about protection, definitely give it a category—it'll be important to keep an eye on. Putting this extra thought into categories will also give you a better idea of what your deck does or doesn't need.
+- **[03:31]** Healthy starting ranges for core categories in a bog-standard EDH deck: about 35-40 lands, 15-20 pieces of removal-equivalent, 13-18 pieces of draw, 7-12 pieces of ramp, and 3-8 pieces of protection. On the higher end that adds up to 98 slots, leaving only two to work with—so cards that don't fit a core category charge an opportunity cost.
+- **[04:58]** When constructing your ramp category, ask yourself "why am I ramping?" If the ramp is geared to hit specific cards a turn early, be specific with your mana curve and consider ritual-style temporary-mana cards; if it's just to increase mana volume without timing goals, less efficient small ramp and rituals make less sense and bigger options work better.
+- **[05:37]** Worn Powerstone isn't a ramp spell in a Krenko deck—meaning if your acceleration category is mainly intended to get you to four mana a turn early, Worn Powerstone doesn't fit that function and probably isn't worth playing.
+- **[08:26]** His Malfegor deck has three separate categories for its interaction suite because each serves a different role: discard effects put opponents behind in value, removal deals with active threats on the board, and graveyard exile stops graveyard-oriented opponents from reusing the cards he's made them discard.
+- **[11:37]** Don't merge cards that are superficially similar but functionally opposite—putting Thalia, Guardian of Thraben and Ghostly Prison in one stax category is a recipe for confusion, since Thalia taxes noncreature spells to slow technical decks while Ghostly Prison only taxes attacking and does nothing outside combat. One is proactive, one purely reactive.
+- **[12:03]** A maintained "setup" category lets you keep an eye on how well supported a theme is. It's easy to toss in a payoff card after spotting a couple synergies; if you noticed you were only running five pieces of impulse draw, you'd be far more vigilant about how those payoff cards actually perform in games.
+- **[16:56]** Over-categorizing can manufacture justification for a card that doesn't belong—giving Soul Warden a lifegain category in a Yoshimaru legendary-beatdown deck lets you keep an otherwise pointless card, when without the category you'd be forced to ask "why is this here, what is it accomplishing?"
 
 ## Tags
 
-**Archetypes/Strategy:** midrange, aggro, stax, combo, blink, value-engine
-**Format/Bracket:** 
-**Card Categories:** ramp, removal, draw, protection, counter, recursion, tutor
+**Archetypes/Strategy:** value-engine, blink, midrange
+**Format/Bracket:** Core
+**Card Categories:** ramp, draw, removal, protection, recursion
