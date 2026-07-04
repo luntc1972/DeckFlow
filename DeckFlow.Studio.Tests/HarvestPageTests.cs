@@ -628,6 +628,67 @@ namespace DeckFlow.Studio.Tests
             });
         }
 
+        [Fact]
+        public void ShowHidden_RevealsSkippedVideo_UnskipRestoresIt()
+        {
+            var skipped = new FakeSkippedVideoStore();
+            skipped.Seed("vSkip");
+
+            var (cut, _, _, _) = RenderHarvest(
+                new[] { Vid("vSkip", "Skipped One"), Vid("vNew", "New One") },
+                new MapBlockedStore(),
+                new MapSiteIndexStore(),
+                skipped: skipped);
+
+            BrowseChannel(cut);
+
+            // Default: skipped video is hidden entirely.
+            cut.WaitForAssertion(() => Assert.DoesNotContain("Skipped One", cut.Markup));
+
+            // Toggle Show hidden → it appears in the hidden panel with an Un-skip action.
+            cut.InvokeAsync(() => cut.Find("#showHiddenVideos").Change(true));
+            cut.WaitForAssertion(() =>
+            {
+                Assert.Contains("Skipped One", cut.Markup);
+                Assert.NotNull(cut.Find("button[aria-label='Un-skip Skipped One']"));
+            });
+
+            // Un-skip → row returns to the harvest list (now selectable), leaves the hidden panel.
+            cut.InvokeAsync(() => cut.Find("button[aria-label='Un-skip Skipped One']").Click());
+            cut.WaitForAssertion(() =>
+            {
+                Assert.NotNull(cut.Find("input[aria-label='Select Skipped One']"));
+                Assert.Empty(cut.FindAll("button[aria-label='Un-skip Skipped One']"));
+            });
+        }
+
+        [Fact]
+        public void ShowHidden_RevealsBlockedVideo_UnblockCallsOrchestrator()
+        {
+            var blocked = new MapBlockedStore();
+            blocked.Blocked.Add("vBlk");
+
+            var (cut, maint, _, _) = RenderHarvest(
+                new[] { Vid("vBlk", "Blocked One") },
+                blocked,
+                new MapSiteIndexStore());
+
+            BrowseChannel(cut);
+
+            // Blocked is hidden from the default list; reveal it under Show hidden.
+            cut.InvokeAsync(() => cut.Find("#showHiddenVideos").Change(true));
+            cut.WaitForAssertion(() =>
+            {
+                Assert.Contains("Blocked One", cut.Markup);
+                Assert.NotNull(cut.Find("button[aria-label='Un-block Blocked One']"));
+            });
+
+            // Simulate the store no longer blocking so the badge re-resolves after unblock.
+            blocked.Blocked.Remove("vBlk");
+            cut.InvokeAsync(() => cut.Find("button[aria-label='Un-block Blocked One']").Click());
+            cut.WaitForAssertion(() => Assert.Contains("vBlk", maint.UnblockCalls));
+        }
+
         private static void ClickOneClick(IRenderedComponent<Harvest> cut)
         {
             cut.InvokeAsync(() => cut.FindAll("button")

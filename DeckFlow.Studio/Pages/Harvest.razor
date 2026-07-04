@@ -121,6 +121,14 @@
                         Show all (including harvested / distilled / published). Default shows only not-yet-harvested videos.
                     </label>
                 </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="showHiddenVideos"
+                           @bind="_showHiddenVideos"
+                           disabled="@_operationInFlight" />
+                    <label class="form-check-label small" for="showHiddenVideos">
+                        Show hidden (skipped / blocked) for this creator, with un-skip / un-block.
+                    </label>
+                </div>
                 @if (browseCreators.Count > 1)
                 {
                     <div class="row g-2 align-items-end mb-2">
@@ -221,6 +229,54 @@
                         </tbody>
                     </table>
                 </div>
+                }
+
+                @if (_showHiddenVideos && HiddenChannelVideos.Count > 0)
+                {
+                    <div class="mt-3">
+                        <h3 class="h6 fw-semibold">Hidden (skipped / blocked)</h3>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th scope="col">Title</th>
+                                        <th scope="col" style="width:90px">Status</th>
+                                        <th scope="col" style="width:180px">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var vm in HiddenChannelVideos)
+                                    {
+                                        var isSkipped = _skippedVideoIds.Contains(vm.VideoId);
+                                        <tr>
+                                            <td><a href="@vm.Url" target="_blank" rel="noopener noreferrer">@vm.Title</a></td>
+                                            <td>@(isSkipped ? "Skipped" : "Blocked")</td>
+                                            <td>
+                                                @if (isSkipped)
+                                                {
+                                                    <button class="btn btn-sm btn-outline-primary me-1"
+                                                            @onclick="() => UnskipVideoAsync(vm)"
+                                                            disabled="@_operationInFlight"
+                                                            aria-label="Un-skip @vm.Title">
+                                                        Un-skip
+                                                    </button>
+                                                }
+                                                @if (vm.Status == VideoStatus.Blocked)
+                                                {
+                                                    <button class="btn btn-sm btn-outline-primary"
+                                                            @onclick="() => UnblockVideoRowAsync(vm)"
+                                                            disabled="@_operationInFlight"
+                                                            aria-label="Un-block @vm.Title">
+                                                        Un-block
+                                                    </button>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 }
             }
             else if (_channelBrowseDone && string.IsNullOrEmpty(_channelBrowseError))
