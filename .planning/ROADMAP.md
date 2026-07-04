@@ -47,7 +47,10 @@
   3. Any sweep target exceeding the cycle's risk budget is explicitly deferred to backlog with a written reason — not silently dropped.
   4. Build stays clean (0 warnings/errors) and the full test suite passes after every executed sweep refactor.
   5. A baseline 6-pillar UI audit (`tasks/UI-REVIEW.md`) has been re-run and scored with a per-pillar breakdown, and the concrete gap to ≥20/24 is enumerated and handed to Phases 84/85 as scoped work (not left for Phase 86 to discover).
-**Plans**: TBD
+**Plans**: 3 plans (2 waves)
+- [ ] 82-01-PLAN.md — Refactor-review sweep + per-candidate triage decision (REVIEW-01) [wave 1]
+- [ ] 82-02-PLAN.md — Baseline 6-pillar UI audit + gap-to-20 handoff (UIAUDIT-01) [wave 1]
+- [ ] 82-03-PLAN.md — Execute in-scope refactors (byte-identical gate) + record deferrals (REVIEW-02) [wave 2, depends 82-01]
 
 ### Phase 83: Packet-Service SRP Split
 **Goal**: Split the four parallel packet-building god-services (`DeckAnalysisPacketService` 2372 LOC / `DeckComparisonService` 1033 / `MetaGapService` 956 / `DeckPrimerPacketService` 904) into orchestration shells over shared, independently-tested collaborators, without altering any paste artifact.
@@ -100,7 +103,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 82. Refactor-Review Sweep & UI Baseline Audit | 0/? | Not started | - |
+| 82. Refactor-Review Sweep & UI Baseline Audit | 0/3 | Not started | - |
 | 83. Packet-Service SRP Split | 0/? | Not started | - |
 | 84. Theme Semantic-Token Migration | 0/? | Not started | - |
 | 85. `chatgpt-*` Naming Cleanup | 0/? | Not started | - |
