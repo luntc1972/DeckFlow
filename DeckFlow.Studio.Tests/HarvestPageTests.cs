@@ -592,6 +592,42 @@ namespace DeckFlow.Studio.Tests
             });
         }
 
+        [Fact]
+        public void OneClick_RefreshesPendingList_AndClearsInFlight_WithoutNavigation()
+        {
+            // Regression: the post-distill LoadPendingDistillAsync ran while _operationInFlight was
+            // still true, so its in-flight guard no-op'd — distilled videos lingered in the pending
+            // list and the spinner stayed until a manual navigate-away/back. The refresh now runs in
+            // the finally after the flag clears.
+            var distill = new RecordingDistillOrchestrator
+            {
+                Pending = new[] { Pending("v1") },
+                LiveResult = new DistillResult
+                {
+                    Success = true,
+                    VideosDistilled = 1,
+                    DistilledVideos = new[] { Distilled("v1", 6) },
+                },
+            };
+
+            var (cut, _, _, _) = RenderHarvest(new[] { Vid("v1", "Vid 1") }, new MapBlockedStore(), new MapSiteIndexStore(), distill: distill);
+
+            // Auto-load on init shows v1 in the pending-distill list.
+            cut.WaitForAssertion(() => Assert.Contains("Select v1", cut.Markup));
+
+            BrowseChannel(cut);
+            cut.InvokeAsync(() => cut.Find("input[aria-label='Select Vid 1']").Change(true));
+            ClickOneClick(cut);
+
+            cut.WaitForAssertion(() =>
+            {
+                // v1 distilled → dropped from the pending list without navigating away and back.
+                Assert.DoesNotContain("Select v1", cut.Markup);
+                // In-flight state cleared: the Cancel button (shown only while _operationInFlight) is gone.
+                Assert.DoesNotContain("Cancel Harvest", cut.Markup);
+            });
+        }
+
         private static void ClickOneClick(IRenderedComponent<Harvest> cut)
         {
             cut.InvokeAsync(() => cut.FindAll("button")
@@ -1533,6 +1569,13 @@ namespace DeckFlow.Studio.Tests
                 if (!dryRun)
                 {
                     DistillCalls.Add(videoIds);
+                    // Mimic real behavior: a distilled video is no longer pending-distill, so a
+                    // subsequent ListPendingDistillAsync drops it. Lets tests observe the post-op
+                    // refresh of the pending list.
+                    if (videoIds is not null)
+                    {
+                        Pending = Pending.Where(p => !videoIds.Contains(p.YoutubeVideoId)).ToList();
+                    }
                 }
 
                 var result = LiveResult ?? new DistillResult { Success = true };
