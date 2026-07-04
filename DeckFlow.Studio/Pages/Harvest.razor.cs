@@ -826,6 +826,9 @@ public partial class Harvest
         // the operator's last choice across Studio restarts.
         _autoApproveSettings = AutoApproveSettingsStore.Load();
         await LoadCreatorsAsync();
+        // Why: populate the distill list on arrival so harvested-but-not-distilled videos are
+        // visible without a separate click. Non-fatal — LoadPendingDistillAsync swallows failures.
+        await LoadPendingDistillAsync();
     }
 
     /// <summary>
