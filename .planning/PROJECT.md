@@ -24,6 +24,7 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 - **UI audit re-score → ≥20/24** — re-run the 6-pillar UI audit, measure current score, fix gaps to clear ≥20/24; includes the owed DirectPush Stage 4 live desktop+mobile verify + no-op success-copy fix (`DirectPush.razor:441`).
 - **`chatgpt-*` naming cleanup** — rename ~1545 `chatgpt-*` refs (CSS classes/data-attrs across 25 theme forks + TS constants + views) to AI-agnostic names; render byte-identical.
 - **Refactor-review sweep** — a code-review pass to surface remaining SRP/duplication targets (candidates: `deck-sync.ts` 2877, `Harvest.razor.cs` 1222); fold confirmed items into scope.
+- **Admin flags sort by on/off** — the one small admin-UX addition: `/Admin/Flags` sortable by enabled state so the current toggle picture is scannable (view-only; no flag semantics change).
 
 **Out of scope this cycle:** manabase engine refactor (`CastabilitySimulator`/`ManabaseAnalyzer`/`ManabaseClassifier` — behavior-critical, no byte-identical gate, just heavily worked in Cycles 12/14; needs a numeric-parity harness first → deferred to backlog); feature lanes (cedh-meta-gap / SEO / auto-harvest); framework migration; the manabase engine's numeric behavior.
 
