@@ -174,6 +174,87 @@ public sealed record CardCastability
     /// across non-commander rows to produce <see cref="ManabaseTapAnalysis.Turn1UntappedPercent"/>.
     /// </summary>
     public int Turn1UntappedTrials { get; init; }
+
+    /// <summary>
+    /// MULLIGAN-01: count of simulated trials (out of the trial budget) that were kept per the sim's
+    /// own London-mulligan keep rule — a 7 or a 6, never the forced final 5. Additive/pure-observation
+    /// (mirrors <see cref="Turn1UntappedTrials"/>); safe default 0. Equals
+    /// <see cref="Kept7Trials"/> + <see cref="MulliganTo6Trials"/>.
+    /// </summary>
+    public int KeepableTrials { get; init; }
+
+    /// <summary>
+    /// Trials that kept a first/free 7 — bucketed by the keep VALUE <c>LondonMulligan</c> RETURNS,
+    /// never the mulligan-depth index. A singleton (Commander) deck's depth-1 free mulligan is a
+    /// fresh 7 (not a mull-to-6), so it counts here. Additive/pure-observation; safe default 0.
+    /// </summary>
+    public int Kept7Trials { get; init; }
+
+    /// <summary>Trials that mulliganed to 6. Additive/pure-observation; safe default 0.</summary>
+    public int MulliganTo6Trials { get; init; }
+
+    /// <summary>
+    /// Trials that mulliganed to 5 (the forced final keep). Additive/pure-observation; safe default 0.
+    /// </summary>
+    public int MulliganTo5Trials { get; init; }
+
+    /// <summary>
+    /// Up to 3 representative opening hands observed across this row's trials — one per distinct kept
+    /// size (7/6/5) actually seen — each attributed to THIS row's tracked spell. Additive; empty
+    /// default so existing construction/serialization is unaffected.
+    /// </summary>
+    public IReadOnlyList<OpeningHandSample> RepresentativeOpeners { get; init; } = Array.Empty<OpeningHandSample>();
+}
+
+/// <summary>
+/// MULLIGAN-01..04: a single representative opening hand captured as PURE OBSERVATION from the
+/// existing London-mulligan trial loop inside <see cref="CastabilitySimulator.Simulate"/> — no
+/// second simulation. The simulator abstracts library cards to kinds (land/ramp/filler), so this
+/// Core output DTO carries composition COUNTS plus the tracked spell's on-curve context, never the
+/// opener's individual card names.
+/// </summary>
+public sealed record OpeningHandSample
+{
+    /// <summary>Lands in the kept hand.</summary>
+    public int Lands { get; init; }
+
+    /// <summary>Distinct colors the kept hand's lands can tap for (0-5).</summary>
+    public int Colors { get; init; }
+
+    /// <summary>Ramp pieces (mana rocks/dorks) in the kept hand.</summary>
+    public int RampPieces { get; init; }
+
+    /// <summary>Non-land, non-ramp cards in the kept hand.</summary>
+    public int OtherCards { get; init; }
+
+    /// <summary>The kept hand size (7, 6, or 5) — the same bucketing key as the row's keep-size counters.</summary>
+    public int KeptCards { get; init; }
+
+    /// <summary>The London-mulligan decision label ("keep 7", "mulligan to 6", "mulligan to 5").</summary>
+    public string Decision { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Name of the tracked spell whose per-row <see cref="CastabilitySimulator.Simulate"/> pass
+    /// produced this sample. <see cref="OnCurveCastable"/> and <see cref="HasPlan"/> describe ONLY
+    /// this spell's early play from this hand — never a generic claim.
+    /// </summary>
+    public string TrackedSpellName { get; init; } = string.Empty;
+
+    /// <summary>The tracked spell's effective on-curve turn.</summary>
+    public int TrackedOnCurveTurn { get; init; }
+
+    /// <summary>
+    /// True when the tracked spell first became castable on or before <see cref="TrackedOnCurveTurn"/>
+    /// from this hand.
+    /// </summary>
+    public bool OnCurveCastable { get; init; }
+
+    /// <summary>
+    /// True ("workable line") only when this hand holds &gt;= 2 lands, the kept lands' distinct colors
+    /// cover the deck's color-keep target, AND the tracked early play is actually castable on curve —
+    /// never merely "a non-land card is present."
+    /// </summary>
+    public bool HasPlan { get; init; }
 }
 
 /// <summary>The kinds of spell an always-on cost reducer applies to.</summary>
@@ -877,6 +958,15 @@ public sealed record ManabaseReport
     public ManabaseTapAnalysis? TapAnalysis { get; init; }
 
     /// <summary>
+    /// MULLIGAN-01..05: opening-hand / mulligan evaluation (keepable-hand band, keep-size
+    /// distribution, representative openers with spell-attributed on-curve reads), or null when not
+    /// computed. Additive — defaults null so existing serialization/tests are unaffected. Populated by
+    /// <see cref="ManabaseAnalyzer"/> from the ALREADY-computed castability rows (no second
+    /// simulation); the Web layer flag-gates display.
+    /// </summary>
+    public ManabaseMulliganEvaluation? MulliganEvaluation { get; init; }
+
+    /// <summary>
     /// Count of non-land mana sources in the deck — mana rocks and dorks (artifacts/creatures that
     /// produce mana, no land face). The deck's at-a-glance ramp/acceleration piece count.
     /// </summary>
@@ -1016,4 +1106,43 @@ public sealed record ColorTapFinding
 
     /// <summary>Rounded untapped fraction (0–100).</summary>
     public int UntappedPercent { get; init; }
+}
+
+/// <summary>
+/// MULLIGAN-01..05: the deck-level opening-hand / mulligan evaluation — a keepable-hand BAND (not a
+/// false-precision percent), the London-mulligan keep-size distribution, and representative openers
+/// with spell-attributed on-curve reads. Derived from the ALREADY-computed castability rows (no
+/// second simulation); reuses the sim's own London-mulligan + color-keep rule, so the keepable figure
+/// can never contradict the manabase tool's own cast-rate numbers. All fields are additive
+/// <c>{ get; init; }</c> with safe defaults.
+/// </summary>
+public sealed record ManabaseMulliganEvaluation
+{
+    /// <summary>Share of trials (0–100) kept per the sim's own London-mulligan rule — a 7 or a 6.</summary>
+    public int KeepableHandPercent { get; init; }
+
+    /// <summary>Coarse band over <see cref="KeepableHandPercent"/>: "high" (&gt;=85), "medium" (70-84), "low" (&lt;70).</summary>
+    public string KeepableBand { get; init; } = string.Empty;
+
+    /// <summary>Share of trials (0–100) that kept a first/free 7.</summary>
+    public int Kept7Percent { get; init; }
+
+    /// <summary>Share of trials (0–100) that mulliganed to 6.</summary>
+    public int MulliganTo6Percent { get; init; }
+
+    /// <summary>Share of trials (0–100) that mulliganed to 5 (the forced final keep).</summary>
+    public int MulliganTo5Percent { get; init; }
+
+    /// <summary>Distinct colors the deck demands across its spells (reused from the deck; no new sim).</summary>
+    public int ColorCount { get; init; }
+
+    /// <summary>The deck's average mana value (reused from the deck; no new sim).</summary>
+    public double AverageManaValue { get; init; }
+
+    /// <summary>
+    /// Up to 3 representative openers selected from the EARLIEST (lowest mana-value) non-commander
+    /// castability rows — each already carries its own tracked-spell on-curve context, so the surfaced
+    /// on-curve read is about a genuine early play, never an arbitrary tracked spell.
+    /// </summary>
+    public IReadOnlyList<OpeningHandSample> RepresentativeOpeners { get; init; } = Array.Empty<OpeningHandSample>();
 }

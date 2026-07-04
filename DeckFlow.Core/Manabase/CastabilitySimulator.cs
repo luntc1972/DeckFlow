@@ -202,6 +202,18 @@ public static class CastabilitySimulator
         long delaySum = 0; // sum of max(0, firstCastableTurn - onCurveTurn) over all trials
         int turn1UntappedSuccesses = 0; // TAP-02: trials with >=1 untapped/usable source on turn 1
 
+        // MULLIGAN-01..04: pure-observation keep-size counters + up to 3 representative openers,
+        // bucketed by the keep VALUE LondonMulligan RETURNS (never the mulligan-depth index).
+        int keepableTrials = 0;
+        int kept7 = 0;
+        int mulliganTo6 = 0;
+        int mulliganTo5 = 0;
+        var openerSamples = new List<OpeningHandSample>(3);
+
+        // The deck's color-keep target for HasPlan, computed once (independent of colorAwareMulligan —
+        // do NOT reuse `deckColorCount`, which is 0 when that flag is off).
+        int planColorTarget = Math.Min(DeckColorCount(deck), ColorKeepCap);
+
         // Scratch arrays reused across trials to keep allocations low.
         int[] deck0 = new int[library.Count];
         for (int i = 0; i < library.Count; i++)
@@ -237,13 +249,102 @@ public static class CastabilitySimulator
 
             Array.Copy(deck0, shuffled, library.Count);
             ShufflePrefix(shuffled, prefix, rng);
+            int keptSize = LondonMulligan(library, shuffled, active, rng, deck.AverageManaValue, prefix, deck.IsSingleton, colorAwareMulligan, deckColorCount);
             // Tiny decks (some unit fixtures) can be smaller than a 7-card opener — clamp the hand.
-            int handCount = Math.Min(library.Count, LondonMulligan(library, shuffled, active, rng, deck.AverageManaValue, prefix, deck.IsSingleton, colorAwareMulligan, deckColorCount));
+            int handCount = Math.Min(library.Count, keptSize);
+
+            // MULLIGAN STAGE 1 (pure observation, no rng draw): bucket by the RETURNED keep value —
+            // a singleton's depth-1 Commander free mulligan still returns 7, so it lands in Kept7Trials,
+            // never MulliganTo6Trials. Also stash this trial's kept-hand composition (if this is the
+            // first trial to observe this keptSize) for the STAGE 2 sample built after SimulateGame,
+            // once firstCastableTurn is known.
+            switch (keptSize)
+            {
+                case 7:
+                    kept7++;
+                    break;
+                case 6:
+                    mulliganTo6++;
+                    break;
+                case 5:
+                    mulliganTo5++;
+                    break;
+                default:
+                    // Defensive: LondonMulligan's schedule only ever returns 7/6/5. An unexpected value
+                    // is observed but deliberately not miscounted into any bucket.
+                    break;
+            }
+
+            if (keptSize >= 6)
+            {
+                keepableTrials++;
+            }
+
+            // Only sample a fully-dealt hand: handCount = Math.Min(library.Count, keptSize) clamps below
+            // keptSize only for a degenerate sub-7-card library, where the composition tally (over
+            // handCount) could not sum to the displayed KeptCards (keptSize). Real 99-card decks always
+            // satisfy handCount == keptSize, so this is a no-op there and merely suppresses a
+            // self-contradicting opener readout for tiny partial pastes.
+            bool needSample = openerSamples.Count < 3 && handCount == keptSize && !openerSamples.Any(s => s.KeptCards == keptSize);
+            int stashedLands = 0, stashedRamp = 0, stashedOther = 0, stashedColors = 0;
+            string stashedDecision = string.Empty;
+            if (needSample)
+            {
+                int landColorMask = 0;
+                for (int i = 0; i < handCount; i++)
+                {
+                    int idx = shuffled[i];
+                    LibraryCard card = library[idx];
+                    if (active[idx] && card.IsLand)
+                    {
+                        stashedLands++;
+                        landColorMask |= card.ColorMask;
+                    }
+                    else if (active[idx] && card.Kind == CardKind.Ramp)
+                    {
+                        stashedRamp++;
+                    }
+                    else
+                    {
+                        stashedOther++;
+                    }
+                }
+
+                stashedColors = CountColors(landColorMask);
+                stashedDecision = keptSize switch
+                {
+                    7 => "keep 7",
+                    6 => "mulligan to 6",
+                    5 => "mulligan to 5",
+                    _ => string.Empty,
+                };
+            }
 
             bool success = SimulateGame(
                 library, shuffled, active, handCount, turn, effectiveCost, pipReq, availableColors, onlineLandMasks,
                 gateRampOnCastable, out bool manaShort, out bool colorShort, out int firstCastableTurn,
                 out bool hadUntappedT1);
+
+            // MULLIGAN STAGE 2 (pure observation, no rng draw): build the sample now that
+            // firstCastableTurn is known, attributing it to THIS row's tracked spell.
+            if (needSample)
+            {
+                bool onCurveCastable = firstCastableTurn <= turn;
+                bool hasPlan = stashedLands >= 2 && stashedColors >= planColorTarget && onCurveCastable;
+                openerSamples.Add(new OpeningHandSample
+                {
+                    Lands = stashedLands,
+                    Colors = stashedColors,
+                    RampPieces = stashedRamp,
+                    OtherCards = stashedOther,
+                    KeptCards = keptSize,
+                    Decision = stashedDecision,
+                    TrackedSpellName = spell.Name,
+                    TrackedOnCurveTurn = turn,
+                    OnCurveCastable = onCurveCastable,
+                    HasPlan = hasPlan,
+                });
+            }
 
             // Delay this trial: how many turns LATE the spell first became castable, floored at 0
             // (a spell never tests as castable before its on-curve turn, so this is already >= 0).
@@ -283,6 +384,11 @@ public static class CastabilitySimulator
             IsCostOverridden = spell.IsCostOverridden,
             AverageDelay = averageDelay,
             Turn1UntappedTrials = turn1UntappedSuccesses,
+            KeepableTrials = keepableTrials,
+            Kept7Trials = kept7,
+            MulliganTo6Trials = mulliganTo6,
+            MulliganTo5Trials = mulliganTo5,
+            RepresentativeOpeners = openerSamples,
         };
     }
 

@@ -46,7 +46,14 @@ public sealed class CastabilitySimulatorTests
             companionSpell.ManaValue,
             genericReduction: 0);
 
-        Assert.Equal(direct, viaHelper);
+        // MULLIGAN-01: RepresentativeOpeners is a List<T> (reference-equality field on the record), so
+        // it is compared separately via xUnit's structural IEnumerable<T> comparison; both calls are the
+        // same deterministic seeded run and their contents match element-for-element. The rest of the
+        // record still compares by full value equality.
+        Assert.Equal(direct.RepresentativeOpeners, viaHelper.RepresentativeOpeners);
+        Assert.Equal(
+            direct with { RepresentativeOpeners = Array.Empty<OpeningHandSample>() },
+            viaHelper with { RepresentativeOpeners = Array.Empty<OpeningHandSample>() });
     }
 
     private static ManabaseDeck BuildCompanionDeck()

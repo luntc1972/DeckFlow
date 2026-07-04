@@ -67,6 +67,52 @@ public sealed class ToolFlagSeedConsistencyTests : IDisposable
         Assert.All(registry.All, tool => Assert.Contains(tool.FlagKey, allowedKeys));
     }
 
+    [Fact]
+    public async Task AnalysisInteractionAuditFlag_SeededOff_InBothDialects()
+    {
+        var sqliteAnalysisKeys = GetSeedKeysWithPrefix("SqliteSeedSql", "analysis.");
+        var postgresAnalysisKeys = GetSeedKeysWithPrefix("PostgresSeedSql", "analysis.");
+
+        Assert.Contains("analysis.interaction-audit", sqliteAnalysisKeys);
+        Assert.Contains("analysis.interaction-audit", postgresAnalysisKeys);
+
+        var store = new FeatureFlagStore(_databasePath);
+        await store.EnsureSchemaAsync();
+
+        var seeded = await store.GetAllAsync();
+        Assert.True(seeded.TryGetValue("analysis.interaction-audit", out var enabled), "Missing seeded key 'analysis.interaction-audit'.");
+        Assert.False(enabled);
+
+        var field = typeof(FeatureFlagStore).GetField("PostgresSeedSql", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(field);
+
+        var postgresSql = Assert.IsType<string>(field!.GetRawConstantValue());
+        Assert.Contains("('analysis.interaction-audit', FALSE)", postgresSql, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AnalysisWinConMapFlag_SeededOff_InBothDialects()
+    {
+        var sqliteAnalysisKeys = GetSeedKeysWithPrefix("SqliteSeedSql", "analysis.");
+        var postgresAnalysisKeys = GetSeedKeysWithPrefix("PostgresSeedSql", "analysis.");
+
+        Assert.Contains("analysis.wincon-map", sqliteAnalysisKeys);
+        Assert.Contains("analysis.wincon-map", postgresAnalysisKeys);
+
+        var store = new FeatureFlagStore(_databasePath);
+        await store.EnsureSchemaAsync();
+
+        var seeded = await store.GetAllAsync();
+        Assert.True(seeded.TryGetValue("analysis.wincon-map", out var enabled), "Missing seeded key 'analysis.wincon-map'.");
+        Assert.False(enabled);
+
+        var field = typeof(FeatureFlagStore).GetField("PostgresSeedSql", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(field);
+
+        var postgresSql = Assert.IsType<string>(field!.GetRawConstantValue());
+        Assert.Contains("('analysis.wincon-map', FALSE)", postgresSql, StringComparison.Ordinal);
+    }
+
     private static HashSet<string> GetSeedKeys(string fieldName)
     {
         var field = typeof(FeatureFlagStore).GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Static);
@@ -74,6 +120,17 @@ public sealed class ToolFlagSeedConsistencyTests : IDisposable
 
         var sql = Assert.IsType<string>(field!.GetRawConstantValue());
         return Regex.Matches(sql, @"'(?<key>tool\.[^']+)'")
+            .Select(match => match.Groups["key"].Value)
+            .ToHashSet(StringComparer.Ordinal);
+    }
+
+    private static HashSet<string> GetSeedKeysWithPrefix(string fieldName, string prefix)
+    {
+        var field = typeof(FeatureFlagStore).GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(field);
+
+        var sql = Assert.IsType<string>(field!.GetRawConstantValue());
+        return Regex.Matches(sql, @"'(?<key>" + Regex.Escape(prefix) + @"[^']+)'")
             .Select(match => match.Groups["key"].Value)
             .ToHashSet(StringComparer.Ordinal);
     }

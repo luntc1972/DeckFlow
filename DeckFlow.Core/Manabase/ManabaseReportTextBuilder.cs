@@ -27,6 +27,11 @@ public static class ManabaseReportTextBuilder
     /// skipped entirely so the output is byte-identical to the flag-off artifact. The block append
     /// itself lands in plan 75-02; this parameter only establishes the signature.
     /// </param>
+    /// <param name="mulligan">
+    /// Optional opening-hand / mulligan evaluation (MULLIGAN-01..06). When null the "Opening Hand
+    /// (mulligan)" block is skipped entirely — appends zero bytes — so the flag-off artifact stays
+    /// byte-identical.
+    /// </param>
     /// <returns>A paste-ready plain-text string containing the full mana-base verdict.</returns>
     public static string Build(
         ManabaseReport report,
@@ -35,7 +40,8 @@ public static class ManabaseReportTextBuilder
         ManabaseMode mode = ManabaseMode.Casual,
         ManabaseVerdict? verdict = null,
         ManabaseRampDrawBudget? budget = null,
-        ManabaseTapAnalysis? tap = null)
+        ManabaseTapAnalysis? tap = null,
+        ManabaseMulliganEvaluation? mulligan = null)
     {
         ArgumentNullException.ThrowIfNull(report);
 
@@ -151,6 +157,15 @@ public static class ManabaseReportTextBuilder
             sb.AppendLine();
         }
 
+        // --- Opening hand / mulligan evaluation (MULLIGAN-01..06) ------------
+        // Only when the evaluation was computed (flag on). mulligan == null appends zero bytes, so
+        // the flag-off artifact stays byte-identical (mirrors the tap == null guard above).
+        if (mulligan is not null)
+        {
+            AppendMulliganEvaluationBlock(sb, mulligan);
+            sb.AppendLine();
+        }
+
         // --- Castability table (Casual mode only, when non-empty) ------------
         if (mode == ManabaseMode.Casual && report.Castability.Count > 0)
         {
@@ -226,6 +241,39 @@ public static class ManabaseReportTextBuilder
                     $"{color,-12} {f.UntappedPercent,9}%   {f.UntappedSources:F1} of {f.TotalSources:F1}"));
             }
         }
+    }
+
+    // MULLIGAN-01..06: the "Opening Hand (mulligan)" section. The numbers are the exact values from
+    // the ManabaseMulliganEvaluation record (single source of truth — no recompute). Framed throughout
+    // as DeckFlow's automated first-pass consistency signal the AI re-checks — never a prescriptive
+    // "keep this hand" / "mulligan this hand" instruction and never turn-by-turn play advice.
+    private static void AppendMulliganEvaluationBlock(StringBuilder sb, ManabaseMulliganEvaluation mull)
+    {
+        sb.AppendLine("Opening Hand (mulligan) - DeckFlow first-pass read:");
+        sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+            $"Keepable hands: {mull.KeepableBand} (~{mull.KeepableHandPercent}%) - keepable = a 2-5 land keep on the London mulligan; a heuristic consistency signal, not a strategic keep judgment."));
+        sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+            $"Keep-size process: kept at 7 ~{mull.Kept7Percent}%, mulligan to 6 ~{mull.MulliganTo6Percent}%, mulligan to 5 ~{mull.MulliganTo5Percent}%."));
+        sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+            $"Colors/curve: deck plays {mull.ColorCount} color(s), average mana value ~{mull.AverageManaValue:F1}."));
+
+        if (mull.RepresentativeOpeners.Count > 0)
+        {
+            sb.AppendLine("Representative openers:");
+            foreach (OpeningHandSample opener in mull.RepresentativeOpeners)
+            {
+                string onCurveRead = opener.OnCurveCastable
+                    ? string.Create(CultureInfo.InvariantCulture,
+                        $"{opener.TrackedSpellName} castable on curve (turn {opener.TrackedOnCurveTurn})")
+                    : string.Create(CultureInfo.InvariantCulture,
+                        $"{opener.TrackedSpellName} not on curve (slow start)");
+                string planRead = opener.HasPlan ? "workable line" : "no clear line";
+                sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+                    $"  {opener.Decision} ({opener.KeptCards} cards: {opener.Lands} land / {opener.Colors} color / {opener.RampPieces} ramp / {opener.OtherCards} other) - {onCurveRead} - {planRead}."));
+            }
+        }
+
+        sb.AppendLine("First-pass read only - verify against the actual hand; not a keep/mulligan recommendation.");
     }
 
     private static void AppendVerdictBlock(

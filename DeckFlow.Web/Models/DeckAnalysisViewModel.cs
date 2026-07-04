@@ -34,6 +34,18 @@ public sealed class DeckAnalysisViewModel
     public DeckMultiAxisScore? Score { get; init; }
 
     /// <summary>
+    /// Gets the interaction audit computed at Step 2. Null when the
+    /// <c>analysis.interaction-audit</c> flag is off.
+    /// </summary>
+    public InteractionAudit? InteractionAudit { get; init; }
+
+    /// <summary>
+    /// Gets the win-condition/combo map computed at Step 2. Null when the
+    /// <c>analysis.wincon-map</c> flag is off.
+    /// </summary>
+    public WinConMap? WinConMap { get; init; }
+
+    /// <summary>
     /// Gets the user-facing error message for form or upstream failures.
     /// </summary>
     public string? ErrorMessage { get; init; }

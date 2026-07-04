@@ -2811,6 +2811,39 @@ label.field > span,
   }
 }
 
+/* .manabase-mulliganlens (Phase 81 MULLIGAN-01/02/06) — opening-hand lens card; ties to
+   .manabase-taplens above it. No color tokens — chrome from composed .manabase-lens; layout-only
+   per theme constraint (reuses existing manabase-lens-* tokens, no new root-scope additions). */
+.manabase-mulliganlens {
+  margin: -0.25rem 0 1rem;
+}
+
+/* .manabase-mulliganlens-split — headline column | color/curve + keep-size column internal grid. */
+.manabase-mulliganlens-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 1rem 1.5rem;
+  align-items: start;
+}
+
+/* .manabase-mulliganlens-openers — the representative-opener list, one line per sampled hand. */
+.manabase-mulliganlens-openers {
+  margin: 0.75rem 0 0;
+  padding-left: 1.1rem;
+  font-size: var(--fs-sm, 0.85rem);
+}
+
+.manabase-mulliganlens-openers li {
+  margin: 0.35rem 0;
+}
+
+@media (max-width: 640px) {
+  /* Same breakpoint as the .manabase-twolens / .manabase-taplens-split collapse above. */
+  .manabase-mulliganlens-split {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* The two FORMULA-01 disclosure panels. */
 .manabase-formula > summary {
   cursor: pointer;
@@ -3118,16 +3151,118 @@ label.field > span,
   font-size: var(--fs-sm, 0.82rem);
   font-weight: 600;
   text-transform: uppercase;
+  letter-spacing: 0;
+  color: var(--accent-strong);
+}
+
+/* ── Interaction Audit (INTERACT-01/03, Phase 79) ─────────────────────────
+   Card-backed interaction buckets rendered in the deck-analysis Step-3 panel.
+   Layout-only CSS lives in site-common.css and reuses existing theme tokens so
+   no site-*.css theme fork is needed. */
+.interaction-audit {
+  margin: 0 0 1.25rem;
+}
+
+.interaction-audit__eyebrow {
+  margin: 0 0 0.65rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted, #5a6472);
+}
+
+.interaction-audit-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.interaction-audit-bucket {
+  background: var(--panel-soft-bg, var(--surface, transparent));
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+  border-radius: 8px;
+  padding: 0.85rem;
+  min-width: 0;
+}
+
+.interaction-audit-bucket h4 {
+  margin: 0 0 0.45rem;
+  font-size: var(--fs-sm, 0.82rem);
+  color: var(--accent-strong, var(--accent, inherit));
+}
+
+.interaction-audit-count,
+.interaction-audit-empty,
+.interaction-audit-review {
+  margin: 0;
+  font-size: var(--fs-xs, 0.74rem);
+  line-height: 1.35;
+  color: var(--muted, #5a6472);
+}
+
+.interaction-audit-list {
+  margin: 0.55rem 0 0;
+  padding-left: 1rem;
+  font-size: var(--fs-sm, 0.82rem);
+  line-height: 1.35;
+}
+
+.interaction-audit-review {
+  margin-top: 0.55rem;
+}
+
+.interaction-audit-gaps {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft-bg);
+  padding: 16px;
+  margin-top: 1rem;
+}
+
+/* Warning accent only when gaps are actually flagged; a clean "none flagged"
+   result keeps the neutral border so positive output does not read as a warning. */
+.interaction-audit-gaps--flagged {
+  border-left-color: var(--warning, #c8a040);
+}
+
+.interaction-audit-gaps__label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: var(--fs-sm, 0.82rem);
+  font-weight: 600;
+  text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--accent-strong);
 }
 
-/* Responsive: 4 -> 2 columns. The grid holds 2-up down to phone widths (a 2x2
-   block) rather than stacking 1-up, so the score block stays compact and the
+.interaction-audit-gaps ul,
+.interaction-audit-gaps p {
+  margin: 0;
+}
+
+.interaction-audit-gaps ul {
+  padding-left: 1.1rem;
+}
+
+/* Responsive: the score grid steps 4 -> 2; the five-bucket interaction grid
+   steps 5 -> 3 -> 2 so its variable-length card lists do not become narrow,
+   ragged columns on mid-width screens. Both hold 2-up down to phone widths
+   (a 2x2 block) rather than stacking 1-up, so the blocks stay compact and the
    page does not grow excessively long on mobile; card chrome tightens below
-   520px. The cross-check note is full width at every breakpoint. */
+   520px. The cross-check / coverage-gaps note is full width at every breakpoint. */
+@media (max-width: 1200px) {
+  .interaction-audit-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 @media (max-width: 860px) {
   .chatgpt-score-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .interaction-audit-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
@@ -3148,5 +3283,115 @@ label.field > span,
 
   .chatgpt-score-rationale {
     font-size: 0.68rem;
+  }
+
+  .interaction-audit-grid {
+    gap: 0.6rem;
+  }
+
+  .interaction-audit-bucket {
+    padding: 0.65rem;
+  }
+}
+
+/* ── Win Condition & Combo Map (WINCON-01/03, Phase 80) ───────────────────
+   Ranked combos, near-combos, band, and closing cards rendered in the
+   deck-analysis Step-3 panel. Layout-only CSS lives in site-common.css and
+   reuses existing theme tokens so no site-*.css theme fork is needed. */
+.wincon-map {
+  margin: 0 0 1.25rem;
+}
+
+.wincon-map__eyebrow {
+  margin: 0 0 0.65rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted, #5a6472);
+}
+
+.wincon-map-count {
+  margin: 0 0 0.55rem;
+  font-size: var(--fs-sm, 0.82rem);
+  color: var(--muted, #5a6472);
+}
+
+.wincon-map-unavailable {
+  margin: 0 0 0.55rem;
+  font-size: var(--fs-sm, 0.82rem);
+  color: var(--muted, #5a6472);
+  font-style: italic;
+}
+
+.wincon-map-combo-list {
+  margin: 0 0 0.85rem;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.wincon-map-combo {
+  background: var(--panel-soft-bg, var(--surface, transparent));
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+  font-size: var(--fs-sm, 0.82rem);
+  line-height: 1.4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.wincon-map-combo__cards {
+  font-weight: 600;
+  color: var(--accent-strong, var(--accent, inherit));
+}
+
+.wincon-map-combo__arrow {
+  color: var(--muted, #5a6472);
+}
+
+.wincon-map-band {
+  font-size: var(--fs-xs, 0.74rem);
+  color: var(--muted, #5a6472);
+}
+
+.wincon-map-band--overall {
+  display: block;
+  margin: 0 0 0.55rem;
+}
+
+.wincon-map-near,
+.wincon-map-closers {
+  margin: 0 0 0.85rem;
+}
+
+.wincon-map-near h4,
+.wincon-map-closers h4 {
+  margin: 0 0 0.4rem;
+  font-size: var(--fs-sm, 0.82rem);
+  color: var(--accent-strong, var(--accent, inherit));
+}
+
+.wincon-map-near ul,
+.wincon-map-closers ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: var(--fs-sm, 0.82rem);
+  line-height: 1.4;
+}
+
+.wincon-map-empty {
+  margin: 0;
+  font-size: var(--fs-xs, 0.74rem);
+  color: var(--muted, #5a6472);
+}
+
+@media (max-width: 520px) {
+  .wincon-map-combo {
+    padding: 0.55rem 0.65rem;
   }
 }

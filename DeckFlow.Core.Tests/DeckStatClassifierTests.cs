@@ -238,6 +238,85 @@ public sealed class DeckStatClassifierTests
     }
 
     // -----------------------------------------------------------------------
+    // IsTargetedRemovalCard
+    // -----------------------------------------------------------------------
+
+    [Theory]
+    [InlineData("Instant", "Destroy target creature.", true)]
+    [InlineData("Sorcery", "Exile target creature or planeswalker.", true)]
+    [InlineData("Instant", "Target creature gets -3/-3 until end of turn.", true)]
+    public void IsTargetedRemovalCard_TrueCases(string typeLine, string oracleText, bool expected)
+    {
+        Assert.Equal(expected, DeckStatClassifier.IsTargetedRemovalCard(typeLine, oracleText));
+    }
+
+    [Theory]
+    [InlineData("Sorcery", "Destroy all creatures.", false)]
+    [InlineData("Instant", "Return target creature you control to its owner's hand.", false)]
+    public void IsTargetedRemovalCard_FalseCases(string typeLine, string oracleText, bool expected)
+    {
+        Assert.Equal(expected, DeckStatClassifier.IsTargetedRemovalCard(typeLine, oracleText));
+    }
+
+    // -----------------------------------------------------------------------
+    // IsSelfTargetedInteraction
+    // -----------------------------------------------------------------------
+
+    [Theory]
+    [InlineData("Instant", "Target creature you control gains hexproof until end of turn.", true)]
+    public void IsSelfTargetedInteraction_TrueCases(string typeLine, string oracleText, bool expected)
+    {
+        Assert.Equal(expected, DeckStatClassifier.IsSelfTargetedInteraction(typeLine, oracleText));
+    }
+
+    [Theory]
+    [InlineData("Instant", "Destroy target creature.", false)]
+    public void IsSelfTargetedInteraction_FalseCases(string typeLine, string oracleText, bool expected)
+    {
+        Assert.Equal(expected, DeckStatClassifier.IsSelfTargetedInteraction(typeLine, oracleText));
+    }
+
+    // -----------------------------------------------------------------------
+    // IsPseudoRemovalCard
+    // -----------------------------------------------------------------------
+
+    [Theory]
+    [InlineData("Instant", "Return target creature to its owner's hand.", true)]
+    [InlineData("Sorcery", "Put target creature into its owner's library third from the top.", true)]
+    [InlineData("Instant", "Exile target creature. Return it to the battlefield under its owner's control at the beginning of the next end step.", true)]
+    public void IsPseudoRemovalCard_TrueCases(string typeLine, string oracleText, bool expected)
+    {
+        Assert.Equal(expected, DeckStatClassifier.IsPseudoRemovalCard(typeLine, oracleText));
+    }
+
+    [Theory]
+    [InlineData("Instant", "Destroy target creature.", false)]
+    [InlineData("Instant", "Return target creature you control to its owner's hand.", false)]
+    public void IsPseudoRemovalCard_FalseCases(string typeLine, string oracleText, bool expected)
+    {
+        Assert.Equal(expected, DeckStatClassifier.IsPseudoRemovalCard(typeLine, oracleText));
+    }
+
+    // -----------------------------------------------------------------------
+    // IsProtectionCard
+    // -----------------------------------------------------------------------
+
+    [Theory]
+    [InlineData("Heroic Intervention", "Permanents you control gain indestructible until end of turn.", true)]
+    [InlineData("Teferi's Protection", "Your life total can't change. You gain protection from everything. All permanents you control phase out.", true)]
+    public void IsProtectionCard_TrueCases(string name, string oracleText, bool expected)
+    {
+        Assert.Equal(expected, DeckStatClassifier.IsProtectionCard(name, oracleText));
+    }
+
+    [Theory]
+    [InlineData("Lightning Bolt", "Deal 3 damage to any target.", false)]
+    public void IsProtectionCard_FalseCases(string name, string oracleText, bool expected)
+    {
+        Assert.Equal(expected, DeckStatClassifier.IsProtectionCard(name, oracleText));
+    }
+
+    // -----------------------------------------------------------------------
     // ParseManaToken
     // -----------------------------------------------------------------------
 

@@ -62,7 +62,9 @@ public sealed record DeckAnalysisPacketResult(
     string? ResolvedCommanderName = null,
     string? DecklistText = null,
     IReadOnlyDictionary<string, string>? SetUpgradeCardText = null,
-    DeckMultiAxisScore? Score = null);
+    DeckMultiAxisScore? Score = null,
+    InteractionAudit? InteractionAudit = null,
+    WinConMap? WinConMap = null);
 
 /// <summary>
 /// Builds analysis and set-upgrade prompt packets by hydrating decks via Scryfall, banlist, and Commander Spellbook lookups, then composing the JSON-bound prompt artifacts saved to the session zip.
@@ -126,6 +128,40 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     /// null cache, or store-read failure all resolve to off) — never via IsEnabled() default-on semantics.
     /// </summary>
     internal const string MultiAxisScoreFlag = "analysis.multi-axis-score";
+
+    /// <summary>
+    /// Feature-flag key that, when enabled, computes a card-backed interaction audit from the current
+    /// deck's resolved references and folds the hedged first-pass block into all three prompt artifacts.
+    /// Default-off (seeded FALSE); output is byte-identical when off. Gated on the EXPLICIT snapshot
+    /// value only - never via IsEnabled() default-on semantics.
+    /// </summary>
+    internal const string InteractionAuditFlag = "analysis.interaction-audit";
+
+    /// <summary>
+    /// Feature-flag key that, when enabled, computes a win-condition/combo map from the already-fetched
+    /// Commander Spellbook result plus the current deck's resolved card references and folds the hedged
+    /// candidate-win-line block into all three prompt artifacts. Default-off (seeded FALSE); output is
+    /// byte-identical when off. Gated on the EXPLICIT snapshot value only - never via IsEnabled()
+    /// default-on semantics. Widens (does not duplicate) the single existing combo-lookup fetch.
+    /// </summary>
+    internal const string WinConMapFlag = "analysis.wincon-map";
+
+    /// <summary>
+    /// Registry of every feature-flag key that mutates <see cref="DeckAnalysisPacketResult.AnalysisPromptText"/>
+    /// (or any other cached artifact field). The <see cref="PacketSessionCache"/> key intentionally
+    /// excludes analysis flags (D-01), so a packet built while ANY of these flags is ON must never be
+    /// written to (or served from) that cache — otherwise flipping the flag OFF could replay a stale
+    /// flag-ON packet (the Phase-73 replay class). Add new prompt-mutating flags here as they are
+    /// introduced so <see cref="ShouldBypassPacketCache"/> and the write-side bypass gate stay in sync
+    /// without needing a matching edit at every call site.
+    /// </summary>
+    internal static readonly IReadOnlyList<string> PromptMutatingAnalysisFlags = new[]
+    {
+        CommandZoneAwarenessFlag,
+        MultiAxisScoreFlag,
+        InteractionAuditFlag,
+        WinConMapFlag,
+    };
 
     /// <summary>
     /// Upper bound (characters) applied to a resolved companion name before it reaches any prompt.
@@ -308,6 +344,36 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             && _flagCache.Snapshot().TryGetValue(CommandZoneAwarenessFlag, out var on)
             && on;
 
+    // Phase 80: explicit default-OFF read of the win-condition/combo-map flag, mirroring
+    // IsCommandZoneAwarenessEnabled() above. Shared by the enrichment gate and the cache-bypass
+    // predicate so both observe the identical snapshot-read contract.
+    private bool IsWinConMapEnabled()
+        => _flagCache is not null
+            && _flagCache.Snapshot().TryGetValue(WinConMapFlag, out var winConOn)
+            && winConOn;
+
+    // Follow-up hardening (post-80): explicit default-OFF read of an arbitrary analysis flag key,
+    // used by ShouldBypassPacketCache() to test every entry in PromptMutatingAnalysisFlags with the
+    // same absent-key/null-cache/store-fault-resolves-to-off contract as the individual per-flag
+    // helpers above.
+    private bool IsAnalysisFlagOn(string flagKey)
+        => _flagCache is not null
+            && _flagCache.Snapshot().TryGetValue(flagKey, out var on)
+            && on;
+
+    // Follow-up hardening (post-80): shared predicate for the Phase-73 cache-replay class, now driven
+    // by the PromptMutatingAnalysisFlags registry instead of an explicit OR chain. The PacketSessionCache
+    // key excludes feature flags (D-01), so ANY flag-mutating prompt block must bypass the cache while
+    // its flag is ON, or a flag-ON packet could be replayed unchanged after the flag flips OFF. This
+    // closes the gap where the multi-axis-score and interaction-audit flags mutated the prompt but were
+    // never added to the bypass predicate. Explicit-snapshot read only - never IsEnabled(). Used ONLY
+    // as the pre-build (read-side) guard in TryComputeCacheKeyAsync -- the write-side cache decision
+    // in BuildAsync gates on the build-time LATCHED locals instead (see bypassCacheWrite below) so a
+    // mid-request flag flip cannot desync the value used to enrich the packet from the value used to
+    // decide whether to cache it (Codex LOW/MED code-review finding #1).
+    private bool ShouldBypassPacketCache()
+        => PromptMutatingAnalysisFlags.Any(IsAnalysisFlagOn);
+
     /// <summary>
     /// Composes the D-01 cache-input field bag and returns the canonical PacketSessionCache key
     /// for this request. Re-runs the same shared deck-loader path
@@ -330,12 +396,13 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             return null;
         }
 
-        // Codex 73 HIGH-1: command-zone awareness changes AnalysisPromptText (enriched commander +
-        // companion side-metadata) but those inputs are intentionally NOT in the cache key. Rather than
-        // widen the key (which would risk the flag-OFF byte-identity contract), bypass the session cache
-        // entirely while the flag is ON: returning null here means no cache hit, so /deck-analysis and
-        // /deck-analysis/download always rebuild and never replay a stale OFF packet or a prior companion.
-        if (IsCommandZoneAwarenessEnabled())
+        // Codex 73 HIGH-1 (Phase 80: generalized to ShouldBypassPacketCache): command-zone awareness and
+        // the win-condition/combo map both change AnalysisPromptText but those inputs are intentionally
+        // NOT in the cache key. Rather than widen the key (which would risk the flag-OFF byte-identity
+        // contract), bypass the session cache entirely while either flag is ON: returning null here means
+        // no cache hit, so /deck-analysis and /deck-analysis/download always rebuild and never replay a
+        // stale OFF packet, a prior companion, or a stale win-con block.
+        if (ShouldBypassPacketCache())
         {
             return null;
         }
@@ -402,6 +469,14 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 && _flagCache.Snapshot().TryGetValue(MultiAxisScoreFlag, out var scoreFlagOn)
                 && scoreFlagOn;
             var savedScore = scoreFlagEnabled ? TryDeserializeScore(request.ScoreJson) : null;
+            var interactionAuditFlagEnabled = _flagCache is not null
+                && _flagCache.Snapshot().TryGetValue(InteractionAuditFlag, out var interactionAuditFlagOn)
+                && interactionAuditFlagOn;
+            var savedInteractionAudit = interactionAuditFlagEnabled ? TryDeserializeInteractionAudit(request.InteractionAuditJson) : null;
+            var winConMapFlagEnabled = _flagCache is not null
+                && _flagCache.Snapshot().TryGetValue(WinConMapFlag, out var winConMapFlagOn)
+                && winConMapFlagOn;
+            var savedWinConMap = winConMapFlagEnabled ? TryDeserializeWinConMap(request.WinConMapJson) : null;
             return new DeckAnalysisPacketResult(
                 InputSummary: BuildAnalysisSummaryFromSavedJson(savedAnalysisResponse),
                 SuggestedChatTitle: BuildSuggestedChatTitle(request, savedAnalysisResponse.Commander),
@@ -413,7 +488,9 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 TimingSummary: savedTimingSummary,
                 AnalysisResponse: savedAnalysisResponse,
                 ResolvedCommanderName: savedAnalysisResponse.Commander,
-                Score: savedScore);
+                Score: savedScore,
+                InteractionAudit: savedInteractionAudit,
+                WinConMap: savedWinConMap);
         }
 
         if (request.WorkflowStep == 5
@@ -503,6 +580,21 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         // it under the OFF key (flag flipped OFF before the write), re-opening stale replay.
         var commandZoneAwareness = IsCommandZoneAwarenessEnabled();
 
+        // Phase 80 code-review fix (Codex LOW/MED finding #1): latch the win-con-map flag here too,
+        // for the same reason -- the enrichment gate below and the cache-write decision at the end of
+        // this method must observe the SAME value, not two independent snapshot reads that could
+        // disagree if the flag flips mid-request.
+        var winConMapEnabled = IsWinConMapEnabled();
+
+        // Follow-up hardening (post-80): latch the multi-axis-score and interaction-audit flags here
+        // too, mirroring commandZoneAwareness/winConMapEnabled above, so the enrichment gate further
+        // down and the write-side cache-bypass decision at the end of this method observe the SAME
+        // value rather than two independent snapshot reads that could disagree if either flag flips
+        // mid-request. Explicit-snapshot read only (never IsEnabled()) so a flag-system fault never
+        // mutates output and the flag-OFF path stays byte-identical.
+        var scoreEnabled = IsAnalysisFlagOn(MultiAxisScoreFlag);
+        var interactionAuditEnabled = IsAnalysisFlagOn(InteractionAuditFlag);
+
         if (string.Equals(request.Format, "Commander", StringComparison.OrdinalIgnoreCase) && inferredCommanderFromMoxfieldOrdering)
         {
             var inferredCommanderNames = entries
@@ -557,6 +649,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         DeckAnalysisResponse? analysisResponse = null;
         SetUpgradeResponse? setUpgradeResponse = null;
         DeckMultiAxisScore? computedScore = null;
+        InteractionAudit? interactionAudit = null;
+        WinConMap? winConMap = null;
 
         if (request.WorkflowStep >= 3 && !string.IsNullOrWhiteSpace(request.DeckProfileJson))
         {
@@ -634,20 +728,19 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                     .ToList();
                 var cardReferenceRequests = BuildAnalysisCardReferenceRequests(deckEntries, analysisPossibleIncludeEntries);
 
-                // Multi-axis score (default-OFF). Gate on the EXPLICIT snapshot value (absent key, null
-                // cache, or store-read failure all resolve to off) so a flag-system fault never mutates
-                // output and the flag-OFF path stays byte-identical. NEVER IsEnabled() (default-on).
-                var scoreEnabled = _flagCache is not null
-                    && _flagCache.Snapshot().TryGetValue(MultiAxisScoreFlag, out var scoreOn)
-                    && scoreOn;
+                // scoreEnabled, interactionAuditEnabled, and winConMapEnabled are all latched once at
+                // the top of BuildAsync (see the follow-up hardening / Phase 80 code-review fix comments
+                // above) so they are reused here rather than re-read.
 
                 // Start combo lookup immediately — only needs deckEntries, independent of Scryfall lookups.
-                // Widen the SINGLE combo gate so the one fetch ALSO fires when the score flag is on (Power /
-                // Consistency need combo density even when no combo question was selected). The result is
-                // reused for BOTH the prompt combo-reference text and the score — never double-fetched.
+                // Widen the SINGLE combo gate so the one fetch ALSO fires when the score flag or the
+                // win-con map flag is on (Power/Consistency need combo density even when no combo question
+                // was selected; the win-con map needs the same combo result to build its ranked-combo
+                // block). The result is reused for the prompt combo-reference text, the score, AND the
+                // win-con map — never double-fetched.
                 var comboStopwatch = Stopwatch.StartNew();
                 var requiresComboLookup = AnalysisQuestionCatalog.RequiresComboLookup(selectedQuestions);
-                var comboTask = (scoreEnabled || requiresComboLookup)
+                var comboTask = (scoreEnabled || winConMapEnabled || requiresComboLookup)
                     ? _commanderSpellbookService.FindCombosAsync(deckEntries, cancellationToken)
                     : Task.FromResult<CommanderSpellbookResult?>(null);
 
@@ -703,6 +796,13 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                     comboResult?.IncludedCombos.Count ?? 0,
                     comboResult?.AlmostIncludedCombos.Count ?? 0);
 
+                // Score/interaction-audit/win-con-map each filter the SAME current-deck, non-commander
+                // card slice before projecting to their own DTO. Materialize it lazily ONCE and reuse it
+                // across all three blocks below so the flag-OFF path (all three off) still runs ZERO
+                // passes over cardReferenceBundle.CardReferences -- no regression on the byte-identity-
+                // critical cheap path (Codex LOW efficiency finding #4).
+                List<CardReference>? currentDeckNonCommanderCards = null;
+
                 // Multi-axis score (flag-gated). Compute from the CURRENT-deck resolved card references
                 // (mirrors BuildDeckStatsText input prep), the bracket classification (Game Changers +
                 // two-card combos), and the reused combo result. comboDetectionAvailable distinguishes a
@@ -711,9 +811,11 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 string? scoreBlockText = null;
                 if (scoreEnabled)
                 {
-                    var comboDetectionAvailable = comboResult is not null;
-                    var scoreStats = DeckStatAggregator.Compute(cardReferenceBundle.CardReferences
+                    currentDeckNonCommanderCards ??= cardReferenceBundle.CardReferences
                         .Where(card => IsCurrentDeckScope(card.Scope) && !card.IsCommander)
+                        .ToList();
+                    var comboDetectionAvailable = comboResult is not null;
+                    var scoreStats = DeckStatAggregator.Compute(currentDeckNonCommanderCards
                         .Select(card => new DeckStatCardInput(card.Quantity, card.TypeLine, card.OracleText, card.ManaCost)));
 
                     IReadOnlyList<TwoCardCombo>? scoreTwoCardCombos = comboResult is null
@@ -733,6 +835,42 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                         comboDetectionAvailable,
                         bracketClassification.BracketNumber);
                     scoreBlockText = BuildScoreBlockText(computedScore);
+                }
+
+                string? interactionAuditText = null;
+                if (interactionAuditEnabled)
+                {
+                    currentDeckNonCommanderCards ??= cardReferenceBundle.CardReferences
+                        .Where(card => IsCurrentDeckScope(card.Scope) && !card.IsCommander)
+                        .ToList();
+                    interactionAudit = InteractionAuditAggregator.Compute(currentDeckNonCommanderCards
+                        .Select(card => new InteractionCardInput(card.Quantity, card.Name, card.TypeLine, card.OracleText, card.ManaCost)));
+                    interactionAuditText = BuildInteractionAuditText(interactionAudit);
+                }
+
+                // Win-condition/combo map (flag-gated). Maps the ALREADY-FETCHED comboResult (widened
+                // gate above — no second fetch) plus the current-deck resolved card references onto the
+                // Core input DTOs and computes once. comboDataAvailable distinguishes a null comboResult
+                // (Commander Spellbook unavailable) from an empty one (ran, found nothing) — mirrors the
+                // same comboDetectionAvailable distinction the score block makes above (WINCON-03).
+                string? winConMapText = null;
+                if (winConMapEnabled)
+                {
+                    var winConCombos = comboResult?.IncludedCombos
+                        .Select(c => new WinConComboInput(c.CardNames, c.Results, c.ManaValueNeeded, c.Popularity))
+                        .ToList() ?? new List<WinConComboInput>();
+                    var winConNearCombos = comboResult?.AlmostIncludedCombos
+                        .Select(a => new WinConNearComboInput(a.MissingCard, a.CardsInDeck, a.Results))
+                        .ToList() ?? new List<WinConNearComboInput>();
+                    currentDeckNonCommanderCards ??= cardReferenceBundle.CardReferences
+                        .Where(card => IsCurrentDeckScope(card.Scope) && !card.IsCommander)
+                        .ToList();
+                    var winConClosingCards = currentDeckNonCommanderCards
+                        .Select(card => new WinConClosingCardInput(card.Quantity, card.Name, card.TypeLine, card.OracleText));
+                    var comboDataAvailable = comboResult is not null;
+
+                    winConMap = WinConMapAggregator.Compute(winConCombos, winConNearCombos, winConClosingCards, comboDataAvailable);
+                    winConMapText = BuildWinConMapText(winConMap);
                 }
 
                 // Resolve commander name to oracle name if the deck used a renamed printing.
@@ -776,7 +914,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 // Keep the prompt-side combo-reference gate intact: only emit combo text when a combo
                 // question was selected, so widening the fetch for the score never changes prompt output.
                 var promptComboResult = requiresComboLookup ? comboResult : null;
-                analysisPromptText = BuildAnalysisPrompt(request, analysisDecklistText, referenceText, deckProfileSchemaJson, commanderName, selectedQuestions, bannedCards, promptComboResult, includeCardVersions, companionName, scoreBlockText);
+                analysisPromptText = BuildAnalysisPrompt(request, analysisDecklistText, referenceText, deckProfileSchemaJson, commanderName, selectedQuestions, bannedCards, promptComboResult, includeCardVersions, companionName, scoreBlockText, interactionAuditText, winConMapText);
                 if (wantsSetUpgradePacket)
                 {
                     var oracleResolvedDecklistText = BuildDecklistText(deckEntries, possibleIncludeEntries, oracleNameMap: cardReferenceBundle.OracleNameMap);
@@ -818,7 +956,9 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             ResolvedCommanderName: commanderName,
             DecklistText: decklistText,
             SetUpgradeCardText: setUpgradeCardText,
-            Score: computedScore);
+            Score: computedScore,
+            InteractionAudit: interactionAudit,
+            WinConMap: winConMap);
 
         // Phase 999.3 cache write (PASS-4 H1 FIX). Use the pre-Scryfall entries +
         // commanderName captured immediately after the ResolvePreScryfallCommanderState call.
@@ -826,10 +966,16 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         // (ResolvePreScryfallCommanderState + BuildDeckAnalysisCacheInputs), guaranteeing
         // identical SHA-256 keys for identical logical inputs — including for Moxfield decks
         // without an explicit commander section (the case Codex pass-3 flagged).
-        // Codex 73 HIGH-1: mirror the read-side bypass — do not cache the artifact while command-zone
-        // awareness is ON, otherwise an enriched packet would be keyed without the flag/companion inputs
-        // and could be served back after the flag is toggled off or the companion designator changes.
-        if (!commandZoneAwareness)
+        // Codex 73 HIGH-1 (Phase 80 code-review fix, finding #1; follow-up hardening widened to all
+        // four prompt-mutating flags) — gate on the BUILD-TIME LATCHED locals (commandZoneAwareness,
+        // scoreEnabled, interactionAuditEnabled, winConMapEnabled), NOT a fresh ShouldBypassPacketCache()
+        // re-read. A fresh re-read here could disagree with the value actually used to enrich this
+        // packet if any flag flipped mid-request, letting an enriched packet get cached under a
+        // flag-OFF key (or vice versa) and later replayed once the flag state changes again. This also
+        // closes the open gap where score/interaction-audit packets were being cached and could be
+        // replayed after either flag flipped OFF.
+        var bypassCacheWrite = commandZoneAwareness || scoreEnabled || interactionAuditEnabled || winConMapEnabled;
+        if (!bypassCacheWrite)
         {
             var cacheInputs = BuildDeckAnalysisCacheInputs(request, preScryfallEntries, preScryfallCommanderName);
             var cacheKey = PacketSessionCache.ComputeKey(cacheInputs);
@@ -1268,13 +1414,14 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     /// Internal for test access — per-AI dispatcher exercised by the AI result contract tests.
     /// </summary>
     // Phase 15-02: converted from internal static to instance method; dispatches via injected AnalysisPromptVariantRegistry.
-    internal string BuildAnalysisPrompt(DeckAnalysisRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards, CommanderSpellbookResult? comboResult = null, bool includeCardVersions = false, string? companionName = null, string? scoreBlockText = null)
+    internal string BuildAnalysisPrompt(DeckAnalysisRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards, CommanderSpellbookResult? comboResult = null, bool includeCardVersions = false, string? companionName = null, string? scoreBlockText = null, string? interactionAuditText = null, string? winConMapText = null)
     {
+        var enrichments = new AnalysisPromptEnrichments(companionName, scoreBlockText, interactionAuditText, winConMapText);
         return _analysisPromptRegistry.Build(
             AiPlatform.Normalize(request.TargetAiPlatform),
             request, decklistText, referenceText, deckProfileSchemaJson,
             commanderName, selectedQuestionIds, bannedCards,
-            comboResult, includeCardVersions, companionName, scoreBlockText);
+            comboResult, includeCardVersions, enrichments);
     }
 
     /// <summary>
@@ -1301,6 +1448,118 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     /// <summary>Formats one score axis line: <c>"  Power:       4/5  High      (rationale)"</c>.</summary>
     private static string FormatScoreAxisLine(string axisLabel, int band, string rationale)
         => $"  {(axisLabel + ":").PadRight(12)} {band}/5  {MultiAxisScorer.BandLabel(band).PadRight(9)} ({rationale})";
+
+    /// <summary>
+    /// Renders the interaction audit as a paste-safe ASCII artifact block. Counts are explicitly hedged
+    /// as approximate because the target AI must verify DeckFlow's heuristic first-pass card buckets.
+    /// </summary>
+    /// <param name="audit">The computed interaction audit.</param>
+    internal static string BuildInteractionAuditText(InteractionAudit audit)
+    {
+        ArgumentNullException.ThrowIfNull(audit);
+        var builder = new StringBuilder();
+        builder.AppendLine("INTERACTION AUDIT (DeckFlow heuristic first pass - verify against the cards)");
+        builder.AppendLine(FormatInteractionBucketLine("Targeted removal", audit.TargetedRemoval));
+        builder.AppendLine(FormatInteractionBucketLine("Board wipes", audit.BoardWipes));
+        builder.AppendLine(FormatInteractionBucketLine("Counterspells", audit.Counterspells));
+        builder.AppendLine(FormatInteractionBucketLine("Protection or recursion", audit.ProtectionRecursion));
+        builder.AppendLine(FormatInteractionBucketLine("Stax or taxation", audit.StaxTaxation));
+        builder.AppendLine($"Coverage gaps to verify: {(audit.CoverageGaps.Count == 0 ? "none flagged by DeckFlow" : string.Join(", ", audit.CoverageGaps))}");
+        builder.Append("Use these approximately counted buckets as a starting point only - verify every count and card role against the supplied card text.");
+        return builder.ToString();
+    }
+
+    private static string FormatInteractionBucketLine(string label, InteractionBucketResult bucket)
+    {
+        var confidentCount = bucket.Confident.Sum(card => card.Quantity);
+        var line = $"  {label}: approximately {confidentCount} confident - {FormatInteractionCards(bucket.Confident)}";
+        if (bucket.Review.Count > 0)
+        {
+            line += $" (review: {FormatInteractionCards(bucket.Review)})";
+        }
+
+        return line;
+    }
+
+    private static string FormatInteractionCards(IReadOnlyList<InteractionCard> cards)
+        => FormatQuantityNameList(cards, card => card.Quantity, card => card.Name);
+
+    // "none found" when empty, else a comma-joined "Nx Name" list (the "1x" prefix is dropped for
+    // singletons). Shared by the interaction-audit and win-condition closing-card readouts.
+    private static string FormatQuantityNameList<T>(IReadOnlyList<T> items, Func<T, int> quantity, Func<T, string> name)
+    {
+        if (items.Count == 0)
+        {
+            return "none found";
+        }
+
+        return string.Join(", ", items.Select(item => quantity(item) > 1 ? $"{quantity(item)}x {name(item)}" : name(item)));
+    }
+
+    /// <summary>
+    /// Renders the win-condition/combo map as a paste-safe ASCII artifact block. Every combo and figure
+    /// is hedged as a CANDIDATE win line the target AI must confirm against castability, board state, and
+    /// color access - this text never asserts the deck actually wins via any listed line. Near-combos are
+    /// always labeled "one card away (not currently a win line)" and rendered separately from the
+    /// confirmed combo list, and closing cards render even when no combo data is available so a
+    /// combo-less (or lookup-failed) deck still gets a win-condition read.
+    /// </summary>
+    /// <param name="map">The computed win-condition/combo map.</param>
+    internal static string BuildWinConMapText(WinConMap map)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        var builder = new StringBuilder();
+        builder.AppendLine("WIN CONDITION & COMBO MAP (DeckFlow heuristic first pass - the AI must confirm castability, board state, and color access before treating any line below as a live win condition)");
+
+        if (!map.ComboDataAvailable)
+        {
+            builder.AppendLine("Combo data unavailable (Commander Spellbook did not respond) - this is not a claim the deck has no win conditions.");
+        }
+        else if (map.Combos.Count == 0)
+        {
+            builder.AppendLine("No combos detected by DeckFlow's combo lookup - this is not a claim the deck has no win conditions.");
+        }
+        else
+        {
+            builder.AppendLine("Candidate combos, ranked (verify each is actually castable and assemblable before treating it as live):");
+            foreach (var combo in map.Combos)
+            {
+                builder.AppendLine($"  {FormatWinConComboLine(combo)}");
+            }
+            builder.AppendLine($"Approximately {map.AssemblyPathCount} candidate assembly paths (verify castability).");
+        }
+
+        builder.AppendLine($"Near-combos, one card away (not currently a win line): {FormatWinConNearCombos(map.NearCombos)}");
+
+        if (map.OverallBand != WinConBand.Unknown)
+        {
+            builder.AppendLine($"Fastest candidate combo typically comes online {WinConBandFormatter.Label(map.OverallBand)} (heuristic estimate - verify against the actual game plan).");
+        }
+
+        builder.Append($"Non-combo closers to verify: {FormatWinConClosingCards(map.ClosingCards)}");
+        return builder.ToString();
+    }
+
+    private static string FormatWinConComboLine(WinConCombo combo)
+    {
+        var cardNames = string.Join(", ", combo.CardNames);
+        var results = string.Join(", ", combo.Results);
+        var bandText = combo.Band == WinConBand.Unknown ? string.Empty : $" (typically comes online {WinConBandFormatter.Label(combo.Band)})";
+        return $"{cardNames} -> {results}{bandText}";
+    }
+
+    private static string FormatWinConNearCombos(IReadOnlyList<WinConNearCombo> nearCombos)
+    {
+        if (nearCombos.Count == 0)
+        {
+            return "none found";
+        }
+
+        return string.Join("; ", nearCombos.Select(n => $"missing {n.MissingCard} (have: {string.Join(", ", n.CardsInDeck)})"));
+    }
+
+    private static string FormatWinConClosingCards(IReadOnlyList<WinConClosingCard> closingCards)
+        => FormatQuantityNameList(closingCards, card => card.Quantity, card => card.Name);
 
     /// <summary>
     /// Deserializes the round-tripped <c>ScoreJson</c> hidden field (untrusted client input) into the
@@ -1352,6 +1611,144 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     /// </summary>
     private const int MaxScoreJsonLength = 8192;
 
+    /// <summary>
+    /// Deserializes the round-tripped <c>InteractionAuditJson</c> hidden field (untrusted client input)
+    /// into the typed <see cref="InteractionAudit"/>. Returns <see langword="null"/> on empty,
+    /// malformed, oversized, or structurally invalid input — never throws, never reflects/evals.
+    /// </summary>
+    /// <param name="interactionAuditJson">The serialized interaction audit from the hidden form field or zip entry.</param>
+    private static InteractionAudit? TryDeserializeInteractionAudit(string? interactionAuditJson)
+    {
+        if (string.IsNullOrWhiteSpace(interactionAuditJson) || interactionAuditJson.Length > MaxInteractionAuditJsonLength)
+        {
+            return null;
+        }
+
+        try
+        {
+            var audit = JsonSerializer.Deserialize<InteractionAudit>(interactionAuditJson);
+            return IsStructurallyValidInteractionAudit(audit) ? audit : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Validates a deserialized <see cref="InteractionAudit"/> from untrusted client input before the
+    /// Razor view dereferences bucket lists and card names. Well-formed JSON can still carry null
+    /// buckets, null inner lists, blank names, out-of-range quantities, or blank coverage gaps.
+    /// </summary>
+    private static bool IsStructurallyValidInteractionAudit(InteractionAudit? audit)
+        => audit is not null
+            && IsStructurallyValidInteractionBucket(audit.TargetedRemoval)
+            && IsStructurallyValidInteractionBucket(audit.BoardWipes)
+            && IsStructurallyValidInteractionBucket(audit.Counterspells)
+            && IsStructurallyValidInteractionBucket(audit.ProtectionRecursion)
+            && IsStructurallyValidInteractionBucket(audit.StaxTaxation)
+            && audit.CoverageGaps is not null
+            && audit.CoverageGaps.All(gap => !string.IsNullOrWhiteSpace(gap));
+
+    private static bool IsStructurallyValidInteractionBucket(InteractionBucketResult? bucket)
+        => bucket is not null
+            && bucket.Confident is not null
+            && bucket.Review is not null
+            && bucket.Confident.All(IsStructurallyValidInteractionCard)
+            && bucket.Review.All(IsStructurallyValidInteractionCard);
+
+    private static bool IsStructurallyValidInteractionCard(InteractionCard card)
+        => !string.IsNullOrWhiteSpace(card.Name)
+            && card.Quantity is >= 1 and <= 99;
+
+    /// <summary>
+    /// Upper bound (characters) on the round-tripped InteractionAuditJson hidden field. The audit is a
+    /// small five-bucket payload; this cap rejects oversized client posts before deserialization.
+    /// </summary>
+    private const int MaxInteractionAuditJsonLength = 16384;
+
+    /// <summary>
+    /// Deserializes the round-tripped <c>WinConMapJson</c> hidden field (untrusted client input) into
+    /// the typed <see cref="WinConMap"/>. Returns <see langword="null"/> on empty, malformed, oversized,
+    /// or structurally invalid input — never throws, never reflects/evals (threat T-80-03-01).
+    /// </summary>
+    /// <param name="winConMapJson">The serialized win-condition map from the hidden form field or zip entry.</param>
+    private static WinConMap? TryDeserializeWinConMap(string? winConMapJson)
+    {
+        if (string.IsNullOrWhiteSpace(winConMapJson) || winConMapJson.Length > MaxWinConMapJsonLength)
+        {
+            return null;
+        }
+
+        try
+        {
+            var map = JsonSerializer.Deserialize<WinConMap>(winConMapJson);
+            return IsStructurallyValidWinConMap(map) ? map : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Validates a deserialized <see cref="WinConMap"/> from untrusted client input before the Razor
+    /// view dereferences combo/near-combo/closing-card lists and card names. Well-formed JSON can still
+    /// carry null lists, blank names/results, out-of-range numeric fields, undefined enum values, a
+    /// tampered assembly-path count, or oversized lists that would render dozens of degenerate rows.
+    /// </summary>
+    private static bool IsStructurallyValidWinConMap(WinConMap? map)
+        => map is not null
+            && map.Combos is not null
+            && map.Combos.Count <= MaxWinConMapComboCount
+            && map.Combos.All(IsStructurallyValidWinConCombo)
+            && map.NearCombos is not null
+            && map.NearCombos.Count <= MaxWinConMapNearComboCount
+            && map.NearCombos.All(IsStructurallyValidWinConNearCombo)
+            && map.ClosingCards is not null
+            && map.ClosingCards.Count <= MaxWinConMapClosingCardCount
+            && map.ClosingCards.All(IsStructurallyValidWinConClosingCard)
+            && map.AssemblyPathCount == map.Combos.Count
+            && Enum.IsDefined(typeof(WinConBand), map.OverallBand);
+
+    private static bool IsStructurallyValidWinConCombo(WinConCombo combo)
+        => combo.CardNames is not null
+            && combo.CardNames.Count >= 1
+            && combo.CardNames.Count <= MaxWinConMapListEntryCount
+            && combo.CardNames.All(name => !string.IsNullOrWhiteSpace(name))
+            && combo.Results is not null
+            && combo.Results.Count <= MaxWinConMapListEntryCount
+            && combo.Results.All(result => !string.IsNullOrWhiteSpace(result))
+            && combo.ManaValueNeeded is null or >= 0
+            && combo.Popularity is null or >= 0
+            && Enum.IsDefined(typeof(WinConBand), combo.Band);
+
+    private static bool IsStructurallyValidWinConNearCombo(WinConNearCombo nearCombo)
+        => !string.IsNullOrWhiteSpace(nearCombo.MissingCard)
+            && nearCombo.CardsInDeck is not null
+            && nearCombo.CardsInDeck.Count <= MaxWinConMapListEntryCount
+            && nearCombo.CardsInDeck.All(name => !string.IsNullOrWhiteSpace(name))
+            && nearCombo.Results is not null
+            && nearCombo.Results.Count <= MaxWinConMapListEntryCount
+            && nearCombo.Results.All(result => !string.IsNullOrWhiteSpace(result));
+
+    private static bool IsStructurallyValidWinConClosingCard(WinConClosingCard closingCard)
+        => !string.IsNullOrWhiteSpace(closingCard.Name)
+            && closingCard.Quantity is >= 1 and <= 99;
+
+    /// <summary>
+    /// Upper bound (characters) on the round-tripped WinConMapJson hidden field. The map is a
+    /// small combos/near-combos/closing-cards payload; this cap rejects oversized client posts
+    /// before deserialization runs.
+    /// </summary>
+    private const int MaxWinConMapJsonLength = 32768;
+
+    /// <summary>Per-list count caps well under <see cref="MaxWinConMapJsonLength"/> so degenerate
+    /// hidden-field JSON cannot render dozens of empty/low-value rows in the Step-3 readout.</summary>
+    private const int MaxWinConMapComboCount = 50;
+    private const int MaxWinConMapNearComboCount = 50;
+    private const int MaxWinConMapClosingCardCount = 100;
+    private const int MaxWinConMapListEntryCount = 20;
 
     /// <summary>
     /// Builds the optional set-upgrade prompt used after the deck profile has been generated.

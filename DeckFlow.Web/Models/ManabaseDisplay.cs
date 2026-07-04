@@ -90,6 +90,27 @@ public static class ManabaseDisplay
             ? ("manabase-lens-met", "✓")
             : ("manabase-lens-short", "⚠");
 
+    /// <summary>
+    /// Maps a <see cref="ManabaseMulliganEvaluation.KeepableBand"/> value ("high"/"medium"/"low") to
+    /// a (cssClass, glyph) pair for the opening-hand lens card, reusing the same met/short marker
+    /// classes as <see cref="TapMarker"/> — no new css tokens. "high" reads as met (✓); "medium"
+    /// and "low" both read as short (⚠), since only "high" clears the aggregator's own top band.
+    /// </summary>
+    public static (string Css, string Marker) KeepableMarker(string keepableBand)
+        => string.Equals(keepableBand, "high", StringComparison.OrdinalIgnoreCase)
+            ? ("manabase-lens-met", "✓")
+            : ("manabase-lens-short", "⚠");
+
+    /// <summary>
+    /// Formats the opening-hand lens card's average mana value to one decimal using
+    /// <see cref="System.Globalization.CultureInfo.InvariantCulture"/>, so the on-page number stays
+    /// byte-identical to the paste artifact (<c>ManabaseReportTextBuilder</c> formats every figure
+    /// invariantly) even under a comma-decimal request culture — the card's plan contract is that the
+    /// rendered figures match the pasteable artifact exactly.
+    /// </summary>
+    public static string AvgManaValueText(double averageManaValue)
+        => averageManaValue.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+
     /// <summary>Human label for the four-tier health scale (Excellent / Solid / Workable / Needs work).</summary>
     public static string HealthLabel(ManabaseHealth health) => ManabaseLabels.Health(health);
 

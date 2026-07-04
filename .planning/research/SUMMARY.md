@@ -1,171 +1,162 @@
 # Project Research Summary
 
-**Project:** DeckFlow Cycle 13 — Deck Evaluation & Creator Output
-**Domain:** Commander/cEDH deck evaluation + AI paste-artifact engine extension
-**Researched:** 2026-06-27
-**Confidence:** HIGH (stack verified against live codebase and live Scryfall API; bracket definitions verified against WotC official announcements through Feb 2026)
+**Project:** DeckFlow — Cycle 14 "Deeper Deck Evaluation"
+**Domain:** MTG Commander / cEDH deck-evaluation (paste-to-AI artifact engine), brownfield extension of ASP.NET 10 + Razor
+**Researched:** 2026-06-30
+**Confidence:** HIGH (all four research streams verified directly against the live `deckflow-cycle14` worktree — classifier, aggregator, Commander Spellbook service, Monte-Carlo sim, Hypergeometric, prompt variants, flag store, and DTOs read with file:line citations)
 
 ## Executive Summary
 
-Cycle 13 adds four deck-evaluation and creator-output features to an existing ASP.NET 10 paste-artifact engine. Every feature builds entirely on in-solution components — zero new NuGet packages, zero new npm packages. The Bracket Classifier detects which of the five WotC tiers a deck falls in; the Balancer generates a "cuts to reach bracket N" paste artifact (the only tool in the space to do this). Multi-Axis Deck Score (Power/Speed/Control/Consistency 0-5) replaces single-number scoring in the analysis packet. Auto-Refreshing Primer detects deck staleness against a stored canonical hash and flags the primer for regeneration. Tap Analyzer surfaces untapped-source frequency and turn-1 availability already computed inside the CastabilitySimulator but never previously reported.
+Cycle 14 adds three flag-gated, read-only deck-evaluation dimensions — (1) an **interaction & answers audit**, (2) a **win-condition & combo map**, and (3) an **opening-hand / mulligan evaluator** — onto DeckFlow's already-shipped analysis engine. The dominant finding across all four research streams is consensus: **this milestone requires zero new dependencies.** Every input the three features need is already hydrated and flowing — Scryfall card data (oracle_text, type_line, `keywords`, mana_cost, produced_mana, color_identity), Commander Spellbook combo results (including the captured-but-unused `ManaValueNeeded` / `Popularity`), and a seeded Monte-Carlo `CastabilitySimulator` that already runs a London-mulligan keep decision every trial. The real work is in-codebase C# (new pure classifier predicates, new projection records, additive sim counters, one new metric pass) plus paste-artifact rendering — not packages.
 
-The recommended approach is Core-first and additive. All four scoring and classification engines are pure functions of already-modeled deck facts and belong in `DeckFlow.Core`. The Web layer only hydrates Scryfall facts (reusing the existing `IScryfallCardResolver`/`ScryfallCardFactMapper` path), renders the three decoupled prompt variants per ADR-0001, and owns feature flags. The Tap Analyzer is the simplest and most independent — accumulate two counters inside the existing 20,000-trial Monte-Carlo loop, add additive fields to `ManabaseReport`, surface in the paste text. It has no dependency on any other Cycle 13 feature and should ship first.
+The recommended approach is to follow three proven in-repo grooves rather than invent anything: **Pattern 1** (Phase-77 precedent) — new `DeckStatClassifier` predicate + additive `{ get; init; }` `DeckStatSummary` field tallied in the existing `Compute` loop; **Pattern 2** (multi-axis-score precedent, ADR-0001) — pre-built block text threaded as a trailing optional `string?` param hand-rendered into all three decoupled prompt variants with no shared helper; and **Pattern 3** (TAP-02 precedent) — an additive sim counter observed inside the existing per-trial loop, aggregated like `ComputeTapAnalysis`. Each feature is a paste-artifact section plus a view readout, gated by its own `analysis.*` flag seeded OFF and byte-identical when off.
 
-The dominant risk across all four features is the correctness and honesty of the paste artifacts. A wrong bracket classification, an unjustifiable axis weight, a falsely-stale primer flag, or a tap metric that contradicts the sim's own cast-rate all erode trust in the artifact the user pastes into ChatGPT — the core product value. Prevention is uniform: externalize living data (Game Changers list must be a versioned data file, not a `.cs` constant), document every signal-to-score formula with `// Why:`, source each metric from a single place, and instrument every artifact with enough disclosed inputs that the AI can detect and correct DeckFlow's gaps.
+The key risk is **correctness, not infrastructure**: these features turn heuristics into authoritative-looking numbers. The milestone-wide invariant is that every artifact must paste into ChatGPT/Claude/Gemini and produce a useful answer in one round-trip — so a subtly-wrong count ("7 removal, 3 combos, 62% keepable") is worse than no feature. Mitigation is uniform across the three: frame all outputs as heuristic first-pass reads the AI re-checks, show the cards/bands behind every number, reuse the single existing sim/combo pass (no second sim, no second fetch), and keep all pure logic in `DeckFlow.Core` where the test gate is reliable. Two roadmap-level decisions remain open (mulligan routing and `manaValueNeeded` capture — see Implications) plus a build-order divergence between the Features and Architecture streams.
 
 ## Key Findings
 
 ### Recommended Stack
 
-All four features are pure builds on the existing stack. No new technology decisions are required. The in-solution components that enable each feature are: RestSharp + Polly `scryfall` pipeline + IMemoryCache (Bracket: reuse banlist pattern); `System.Security.Cryptography.SHA256` BCL already used in `PacketSessionCache` (Primer fingerprint); `RelationalDatabaseConnection` dual-dialect (one new `primer_snapshots` table); `DeckFlow.Core/Manabase` (Tap Analyzer: additive fields only). The existing `DeckStatClassifier`, `DeckStatAggregator`, `CardFact`, and `DeckStatSummary` types are the primary inputs to the bracket and scoring engines.
+**Zero new NuGet, zero new npm — verified against every `.csproj`.** All three features are fully covered by data and engines already in `DeckFlow.Core` / `DeckFlow.Web`. The genuinely-needed additions are pure C# (predicates, records, a metric pass) and paste rendering, not dependencies. This honors the project's no-new-deps rule with no exception required. Explicitly rejected: a stats/probability NuGet (would duplicate the hand-rolled, overflow-safe `Hypergeometric`), a local combo DB (Commander Spellbook is the live authority, already Polly-wrapped + 30-min cached), an MTG rules engine, an NLP oracle-text parser, and any shared cross-AI prompt helper (ADR-0001 forbids it).
 
-**Core technologies (all in-solution — no changes):**
-- `DeckFlow.Core/Analysis/` — pure-CPU bracket classification + multi-axis scoring; pure-CPU locale for all new engines
-- RestSharp `scryfall-rest` + Polly `scryfall` + IMemoryCache — Game Changers seed verification; 24h cache; reuse `ICommanderBanListService` pattern
-- `System.Security.Cryptography.SHA256` (BCL) — deck fingerprint for primer staleness; already used in `PacketSessionCache.ComputeKey`
-- `RelationalDatabaseConnection` (`IRelationalDialect`) — primer snapshot store; same pattern as `FeedbackStore`/`CategoryKnowledgeStore`
-- `CastabilitySimulator` (existing, Core) — Tap Analyzer: add counters inside existing 20k-trial loop; zero new simulation
+**Core technologies (all already in place — no version changes):**
+- **.NET 10 / C# 12 + `DeckFlow.Core`** — pure-CPU classifiers, aggregator, and Monte-Carlo sim; new predicates/records/metrics are more of the same.
+- **Scryfall `ScryfallCard` DTO -> `DeckStatCardInput`** — `oracle_text`, `type_line`, **`keywords`** (Ward/Hexproof/Flash), `mana_cost`, `produced_mana`, `color_identity` already deserialized and mapped; interaction audit reads these with zero new fetch.
+- **`ICommanderSpellbookService` (RestSharp 114 + Polly 8)** — returns `IncludedCombos` (+ `Popularity`, `ManaValueNeeded`) and `AlmostIncludedCombos`; combo map is a projection over data already fetched and 30-min cached.
+- **`CastabilitySimulator` (seeded Monte-Carlo) + `Hypergeometric` (log-space closed-form)** — the sim already plays a full London mulligan per trial; `Hypergeometric.AtLeast` already gives P(>=N lands). The mulligan evaluator is a readout, not new compute.
 
 ### Expected Features
 
-**Must have (table stakes — launch with):**
-- Bracket Classifier: Game Changers data table (versioned + dated) + hard-floor detection (mass land denial, extra-turn chains, 2-card combos via Spellbook) + bracket number with disclosed reasons
-- Multi-Axis Score Speed + Consistency axes: ~80% reuse of existing manabase + ramp/draw + combo signals; ship in the analysis paste packet immediately
-- Tap Analyzer surface: untapped land count/fraction + turn-1 untapped availability in report and paste text; the manabase engine already computes this, it just never surfaced it
+Three read-only paste-artifact sections + view readouts, each layered on an already-shipped engine piece. The highest-value output of each is the *synthesis*, not the raw count.
 
-**Should have (uncontested differentiators — complete in Cycle 13):**
-- Bracket Balancer paste artifact: "cuts to hit target bracket N" with per-cut justification anchored to objective gates; no incumbent ships this
-- Multi-Axis Score Control + Power axes: Control needs a new interaction classifier (board-wipe/removal/counter oracle text or category-knowledge); Power axis delegates card-strength judgment to the AI round-trip
-- Auto-Refreshing Primer (flag-stale tier): store canonical deck fingerprint alongside primer artifact; show "Deck changed — regenerate?" banner naming the delta; reuses `DiffEngine` + `PacketSessionCache.ComputeKey`
+**Must have (table stakes, all P1 this cycle):**
+- **Bucketed interaction counts** (targeted removal / counters / wipes / protection / stax) — a single "interaction: 14" is uninformative; players think in buckets.
+- **Interaction gap-flags** ("0 counterspells", "no catch-all removal", "no graveyard hate") — the whole point of an audit is finding holes; the single highest-value output.
+- **Win lines named + grouped** (combo / value / commander-damage) + **combo redundancy count** ("3 ways to assemble") — single-combo fragility is the #1 cEDH concern.
+- **Keepable-hand %** + color/curve read — lowest cost, high value; the sim already makes the keep decision, so surface the rate rather than rebuild it.
+- **Compact, labeled section per feature, rendered in all 3 AI variants, flag-gated OFF, graceful degradation** when Spellbook is unavailable or no win line is detectable.
 
-**Defer (next cycle):**
-- Auto-Refreshing Primer section-scoped regenerate: section to card dependency map + per-section prompt assembly; HIGH complexity; validate the flag-stale tier first
-- Bracket Balancer fair-replacement automation: local replacement-suggestion engine (vs delegating fair-swap judgment to the AI round-trip); only if AI-delegated version proves insufficient
+**Should have (differentiators):**
+- **Coverage-gap synthesis** ("can't answer resolved creatures; no graveyard hate") — no incumbent (EDHREC/Moxfield/Archidekt) tells you what your deck *can't* deal with.
+- **"How this deck wins" narrative** (win line + redundancy + tutorability + assembly band) — cedh-decklist-database does this by hand; nobody auto-generates it.
+- **Assembly-turn band** off MV + tutor density (always a band — "T2-4 with a tutor" — never a hard number).
+- **Protection as its own bucket** (resilience != removal).
+
+**Defer (next cycle / out of scope):**
+- Assembly-band sharpened by captured `manaValueNeeded` (pending the parser-capture decision — see below).
+- Cross-wiring all three into the multi-axis score narrative.
+- **Anti-features to refuse:** exhaustive stax classification (text-heuristic noise -> coarse low/med/high only), hard assembly-turn numbers, per-card "is this good?" grading, mulligan *decisions* / play-vs-draw advisor, win-rate %, live game tracker, "fix my interaction" auto-suggestions (belongs to the AI round-trip).
 
 ### Architecture Approach
 
-The existing DeckFlow Core/Web split governs all four features. Pure scoring/classification logic goes in `DeckFlow.Core/Analysis/` alongside the existing `DeckStatClassifier`/`DeckStatAggregator`. Web services hydrate Scryfall facts (reusing `IScryfallCardResolver`), call Core, and render three decoupled prompt variant families per ADR-0001. Tap Analyzer is the exception: it stays entirely in `DeckFlow.Core/Manabase/` because it is literally an additional readout of `CastabilitySimulator` state. Primer staleness splits: thin `PrimerStalenessEvaluator` in Core (wraps `DiffEngine.Compare`) + `PrimerSnapshotStore` in Web (new dialect-pluggable persistence). A new `BracketController : DeckToolControllerBase` follows the established controller pattern with `[FeatureFlagGate]`.
+The single most important structural fact: **`/deck-analysis` (`DeckAnalysisPacketService`) and `/manabase` (`ManabaseAnalysisService`) are two independent pipelines.** The packet service never builds a `ManabaseDeck` and never calls the Monte-Carlo simulator — the sim lives only behind `ManabaseController`. Features 1 and 2 slot cleanly into the deck-analysis score-block groove; Feature 3's sim lives in the *other* pipeline, which is what makes it the highest-lift and forces the routing decision. All new pure logic stays in `DeckFlow.Core`; Web holds only block-text rendering + flag gates + hydration.
 
-**Major new components:**
-1. `GameChangerCatalog` (Core/Analysis) — static embedded versioned card-name set with effective-date; loaded from a seed JSON file at startup, NOT a hardcoded `.cs` literal
-2. `BracketClassifier` (Core/Analysis) — pure: `CardFact[]` + `DeckStatSummary` + `GameChangerCatalog` -> `BracketResult { Tier, Reasons[], GameChangerHits[] }`
-3. `BracketBalancer` (Core/Analysis) — pure: deck + target tier -> ranked `IReadOnlyList<BracketCut>` anchored to objective gate violations
-4. `DeckScorer` (Core/Analysis) — pure: `DeckStatSummary` + combo count + tutor count -> `DeckScore(Power, Speed, Control, Consistency)` clamped 0-5
-5. `BracketAnalysisService` (Web/Services/Bracket/) — hydrate `CardFact[]` via existing Scryfall path; call Core; render 3 prompt variants; own flag `tool.bracket.enabled`
-6. `PrimerStalenessEvaluator` (Core/Diffing) — thin wrapper over existing `DiffEngine.Compare`; returns stale-bool + change-count
-7. `PrimerSnapshotStore` (Web/Services/Persistence/) — dialect-pluggable (`RelationalDatabaseConnection`); persists `{ deckKey, fingerprint, decklistText, generatedUtc }`
-8. Tap accumulation (inline, Core/Manabase/CastabilitySimulator) — two `out int` counters added to existing `SimulateGame`; additive fields on `CardCastability`/`ManabaseReport`
+**Major components (existing attach points):**
+1. **`DeckStatClassifier` / `DeckStatAggregator` / `DeckStatSummary`** — pure role predicates + the single `Compute` loop; Feature 1 adds predicates + additive `{ get; init; }` tallies here (Pattern 1, Phase-77 precedent).
+2. **`DeckAnalysisPacketService` + `AnalysisPromptVariantRegistry` + 3 decoupled `*AnalysisPromptVariant.cs`** — block text built once, threaded as trailing optional `string?` params, hand-rendered into ChatGpt/Claude/Gemini (Pattern 2, ADR-0001); Features 1 & 2 both add a block here. The combo fetch (`comboTask`) is already wired and widened — reuse `comboResult`, never double-fetch.
+3. **`CastabilitySimulator` + `ManabaseAnalyzer` + `ManabaseReport`** — additive counter in the existing per-trial loop, aggregated like `ComputeTapAnalysis` (Pattern 3, TAP-02 precedent); Feature 3's keepable-hand metric.
+4. **`FeatureFlagStore` / `IFeatureFlagCache`** — three `analysis.*` flags seeded OFF in BOTH dialects; gate via `Snapshot().TryGetValue(key, out var on) && on` (never `IsEnabled`, which defaults missing->true).
 
 ### Critical Pitfalls
 
-1. **Game Changers staleness treadmill** — A hardcoded `string[]` or `HashSet<string>` in `.cs` goes silently stale on every WotC update, producing wrong bracket classifications in the most trusted artifact. Prevention: externalize as a versioned seed JSON file (same pattern as `ContentKbSeedLoader`) with an `effective_date` field. Stamp every bracket classification artifact with the list date. The Scryfall `is:gamechanger` API can validate/update the seed out-of-band; the classifier itself reads only the local cached data.
-
-2. **Tutor restrictions were REMOVED in October 2025** — The Oct 21 2025 WotC update explicitly dropped all tutor-count bracket gates. Classifier logic that hard-gates on tutor count is wrong. Tutors are a soft Consistency axis signal only. Any research or document predating October 2025 that gates brackets on tutors is stale.
-
-3. **Mis-detecting gating mechanics (mass land denial, extra turns, 2-card combos)** — The existing `DeckStatClassifier` substring heuristics (`"extra turn"`, `"destroy all"`) are too coarse for bracket gating where a single Armageddon flips a bracket. Use exact name matching against a small curated named-card list for mass land denial and extra-turn chains. For 2-card combos, use the existing Commander Spellbook integration but treat a `null` return (API down) as "combo detection unavailable, disclosed in artifact," never as "zero combos."
-
-4. **Primer auto-rebuild default triggers regeneration thrashing** — `DeckPrimerPacketService` is ~750 LOC and pulls category knowledge, Commander Spellbook combos, and EdhTop16 matchups per build. Auto-rebuilding on any deck-text difference (including whitespace/reorder changes) hammers upstreams and chews the 512MB RAM cap. Prevention: stale-FLAG is the default; rebuild on explicit user action only. Staleness key must be a canonical multiset hash (name+quantity, sorted) — the existing `TryComputeCacheKeyAsync` / `PacketSessionCache.ComputeKey` machinery is the correct primitive.
-
-5. **3-variant triplication drift (ADR-0001)** — A developer adds a bracket block to the ChatGPT variant, forgets Claude and Gemini, ships a broken artifact for 2 of 3 platforms. Prevention: treat "new artifact section" as a mandatory 3-variant checklist item in every phase's success criteria. Add a parity test asserting the new section appears in all three variants (the codebase has `PrimerPromptVariantTests` as the model). Never extract a shared base class — that violates ADR-0001 and will be reverted.
+1. **Heuristic substring classification presented as authoritative** (Pitfall 1, Phase 79) — `Contains("destroy target")` mis-reads pseudo-removal, modal/MDFC cards, board wipes, self-target effects. Avoid: frame as "automated first-pass read — verify against the cards," show the card list behind every count, add a "possible/review" confidence tier, extend the shared `DeckStatClassifier` (don't fork a second `Contains` chain).
+2. **Over-claiming combos from Commander Spellbook** (Pitfall 2, Phase 80) — "in deck" != reachable; almost-combos conflated with win lines; unranked truncation at 20. Avoid: wire `ManaValueNeeded`/`Popularity` into ranking + assembly-turn read, keep included vs almost-included strictly separated, distinguish API-null ("unavailable") from "no win conditions."
+3. **Over-promising subjective mulligan-keep heuristics** (Pitfall 3, Phase 81) — a second, divergent keep rule would contradict the manabase tool's own model. Avoid: reuse the sim's existing `LondonMulligan` + `ColorKeepCap` as the single source of "keepable," state the criterion narrowly, surface a band not a false-precision %.
+4. **Cross-cutting per-phase gate conditions (Pitfalls 4-8, every phase):**
+   - **Flag-OFF byte-identity** must hold for the page **AND all 3 paste artifacts AND the zip** (AISEL-04 / `ResultContractTests`), seeded OFF in both SQLite + Postgres SQL — copy the Phase-77 contiguous-suppressible-block pattern, add a per-surface parity test.
+   - **ADR-0001 variant parity** — hand-edit all three variants (the Gemini omission is the classic miss), no shared helper, add a 3-platform parity test; don't let `/simplify` "fix" the intentional duplication.
+   - **WSL/CI test-masking** — a green-looking local `dotnet test` masked Cycle 13's 2 CI failures; treat CI as authoritative (push-and-watch), build the test projects, run targeted `--filter`.
+   - **No second sim / no extra fetch** — thread the single existing 20k-trial pass and the cached `CommanderSpellbookResult`; a second pass is a real latency/RAM hit on the 512MB tier.
+   - **Format-gate carve-outs** — never let an editor re-indent raw-string prompt literals (changes the bytes shipped to the AI) or convert `{ get; init; }`->get-only (breaks STJ on combo records); touch only intended lines.
 
 ## Implications for Roadmap
 
-Based on combined research, the recommended phase structure is four phases ordered by dependency and risk. The Core-first build sequence from ARCHITECTURE.md is the canonical reference: pure-Core components land first within each feature, Web wiring follows.
+Based on combined research, three feature-phases (the streams reference them as Phases 79 / 80 / 81), each a paste-artifact section + view readout, each its own `analysis.*` flag seeded OFF. **There is a build-order divergence the roadmapper must resolve** (see below), and **two unresolved design decisions that requirements/roadmap must settle before the affected phase is planned.**
 
-### Phase 1: Tap Analyzer Surface
+### Phase A: Interaction & Answers Audit (flag `analysis.interaction-audit`)
+**Rationale:** Lowest risk and strongest precedent — purely additive over the most-exercised groove (Pattern 1, Phase 77, exact same files: `DeckStatClassifier` + `DeckStatSummary` + `DeckStatAggregator`), no external call, raw inputs (`Interaction`/`Counters`/`Wipes`) already exist. Establishes the repeatable "new block param through 3 variants + new flag" recipe end-to-end. (Architecture recommends this **first**; Features ranks it P1 but second-by-risk — see divergence.)
+**Delivers:** Bucketed interaction counts (targeted removal / counters / wipes / protection / stax) + gap-flags synthesis + a per-AI paste section + view readout.
+**Addresses:** Bucketed counts, gap flags, protection-as-own-bucket, coverage-gap synthesis (FEATURES P1/P2).
+**Avoids:** Pitfall 1 — must show card lists + "verify" framing + a confidence tier; extend the shared classifier, not a forked `Contains` chain.
 
-**Rationale:** Zero dependency on other Cycle 13 features. The manabase engine already models tapped/untapped per trial — this is a readout, not a new model. The additive-field discipline (MQ-02..05 precedent) makes it the lowest-risk change in the cycle and delivers an immediate visible win on the existing manabase page.
-**Delivers:** `UntappedLandCount`, `TappedLandCount`, `UntappedLandFraction`, `UntappedSourcesByColor` on `ManabaseReport`; turn-1 untapped availability metric; new "Land Quality" section in the manabase report text (paste artifact) and in `Manabase.cshtml` view; flag `analysis.manabase.tap-analyzer`.
-**Addresses:** Tap Analyzer surface feature (full scope); Salubrious Snail parity on the untapped-frequency metric.
-**Avoids:** Pitfall 8 (misreading sim tapped state) by sourcing ALL dynamic metrics from inside the existing sim loop. Pitfall 11 (Monte-Carlo perf regression) by using only pre-allocated primitive counters in the hot loop — no LINQ, no allocation, no second pass.
-**Research flag:** SKIP deeper research — the sim internals are fully verified; the additive-field pattern is established.
+### Phase B: Win-Condition & Combo Map (flag `analysis.win-con-map`)
+**Rationale:** Reuses Phase A's block recipe and the **already-wired, already-widened** combo fetch; independent of Phase A's output. Medium risk is only combo-null handling (precedent exists).
+**Delivers:** Win lines named + grouped, combo redundancy count, assembly-turn **band**, "how this deck wins" narrative; reuses `comboResult` (no second fetch) + `IsClosingPowerCard`.
+**Uses:** `ICommanderSpellbookService` `IncludedCombos`/`AlmostIncludedCombos` + `Popularity`/`ManaValueNeeded` (currently captured-but-unused).
+**Avoids:** Pitfall 2 — rank by `ManaValueNeeded`/`Popularity`, separate included vs almost, disclose null as "unavailable" not "no win conditions," never a hard turn number.
 
-### Phase 2: Bracket Classifier + Balancer
-
-**Rationale:** The classifier is the dependency gate for the balancer. Both share the same Core input model (`CardFact[]` + `DeckStatSummary`) and the same Web hydration path (reuse `IScryfallCardResolver`). Shipping classifier and balancer together avoids a mid-cycle integration seam. This is the headline differentiator of Cycle 13 — the balancer paste artifact has no incumbent. It is also the phase with the most domain-accuracy risk (Game Changers list versioning, gating mechanic detection) and must address those risks up front.
-**Delivers:** `GameChangerCatalog` (versioned seed JSON + startup load + effective-date stamp); `BracketClassifier` + `BracketBalancer` in `DeckFlow.Core/Analysis/`; `BracketAnalysisService` in Web; `BracketController` (`DeckToolControllerBase` subclass); three bracket prompt variants (`ChatGpt/Claude/Gemini`) per ADR-0001; parity test; `/bracket` view; `tool.bracket.enabled` flag (seeded OFF). The balancer artifact frames cuts as "objective gate violations for AI evaluation," not as an authoritative cut list.
-**Addresses:** Bracket Classifier (full), Bracket Balancer (full P1 scope, AI-delegated fair-swap suggestions).
-**Avoids:** Pitfall 1 (staleness treadmill) via versioned seed file with effective-date stamp. Pitfall 2 (mis-detecting gating mechanics) via exact name matching for Game Changers + curated named-card list for mass-land-denial/extra-turns + Spellbook `null` disclosed. Pitfall 3 (over-claiming balancer authority) by framing the artifact as "here are the gate violations" not "cut these cards." CRITICAL: do NOT gate brackets on tutor count (Oct 2025 WotC change).
-**Research flag:** NEEDS care on the Game Changers seed file format and the curated mass-land-denial + extra-turn named-card lists — verify these are complete and auditable before execution. The bracket rule thresholds (GC count per bracket, combo-timing definitions for B3) should be documented in the seed data with source citations.
-
-### Phase 3: Multi-Axis Deck Score
-
-**Rationale:** `DeckScorer` depends on `GameChangerCatalog` (Game Changer count feeds the Power axis) from Phase 2 and on `ManabaseReport` tap fields from Phase 1. Speed and Consistency axes are ~80% reuse of existing signals. Folding the score into the existing analysis packet variants (hand-edit all 3, ADR-0001) enriches every existing deck analysis without a new tool surface. Control and Power axes can follow if schedule allows; they are P2, not blockers.
-**Delivers:** `DeckScorer` + `DeckScore` record in `DeckFlow.Core/Analysis/`; score block injected into all 3 existing `Analysis` prompt variants (Speed + Consistency axes in the MVP pass; Control + Power in a follow-on pass if schedule allows); parity test asserting all 3 variants contain the score block; optional standalone score display on the analysis page.
-**Addresses:** Multi-Axis Deck Score (Speed + Consistency P1; Control + Power P2).
-**Avoids:** Pitfall 4 (arbitrary weights) by computing every axis from documented signals with `// Why:` inline rationale and a bracket cross-check test (cEDH golden deck must score higher Power/Speed than a battlecruiser deck). Pitfall 5 (missing card-level data) by sharing the existing per-request enrichment cache and disclosing partial coverage in the artifact. Pitfall 13 (cross-tool number disagreement) by sharing `DeckStatSummary` tallies as the single signal source for bracket, score, and manabase budget.
-**Research flag:** SKIP for Speed + Consistency axes (fully verified inputs). NEEDS one planning spike to decide the Control interaction classifier approach (oracle-text heuristics vs category-knowledge labels vs hybrid) before authoring that axis.
-
-### Phase 4: Auto-Refreshing Primer (Flag-Stale Tier)
-
-**Rationale:** Depends on no other Cycle 13 feature. The core primitive is already in `DeckPrimerPacketService` (`TryComputeCacheKeyAsync`). The `DiffEngine` (Core) is already the diff primitive. The new work is thin: a `PrimerStalenessEvaluator` wrapper, a `PrimerSnapshotStore` (dialect-pluggable), a staleness check in the primer service, and a "Regenerate?" banner in the primer view. This is DeckFlow's clearest creator-lane differentiator — no incumbent auto-flags primer staleness. Ship the flag-stale tier here; defer section-scoped regenerate to the next cycle.
-**Delivers:** `PrimerStalenessEvaluator` (Core, wraps `DiffEngine.Compare`); `PrimerSnapshotStore` (Web, dialect-pluggable; stores `{ deckKey, fingerprint, decklistText, generatedUtc }`); `DeckPrimerPacketService` modification to store fingerprint on build + check on revisit; stale banner in `DeckPrimer.cshtml` naming the changed-card count; golden tests asserting the equivalence relation (reorder/printing = not stale; card swap/quantity change = stale).
-**Addresses:** Auto-Refreshing Primer (flag-stale tier, full P2 scope).
-**Avoids:** Pitfall 6 (regeneration thrashing) by defaulting to stale-FLAG + explicit user-initiated regenerate — never auto-rebuild. Pitfall 7 (false-positive/negative) by using the canonical multiset hash (name+quantity, sorted) as the staleness key, not raw textarea text, with golden tests asserting both directions.
-**Research flag:** SKIP — established patterns throughout (DiffEngine, PacketSessionCache, RelationalDatabaseConnection, FeedbackStore as model).
+### Phase C: Opening-Hand / Mulligan Evaluator (flag TBD)
+**Rationale:** Additive-sim-field half is trivial (TAP-02 clone, Pattern 3), but routing is the milestone's real architectural choice and depends on no other feature's output. Sequence **last** so the cross-pipeline decision is made deliberately.
+**Delivers:** Keepable-hand % + color/curve read as a consistency signal (band, not advice), surfaced from the single existing London-mulligan sim pass.
+**Implements:** Additive `KeepableHandTrials` (+ optional color-screw counter) on `CardCastability`, aggregated like `ComputeTapAnalysis`.
+**Avoids:** Pitfalls 3 & 7 — reuse the sim's `LondonMulligan`/`ColorKeepCap` (one keep rule), no second `Simulate` pass.
 
 ### Phase Ordering Rationale
 
-- Tap Analyzer first: independent, lowest risk, validates the additive-field discipline before heavier bracket work.
-- Bracket before Score: `DeckScorer` consumes `GameChangerCatalog` (GC count feeds the Power axis); bracket service also completes the Scryfall hydration path the score needs.
-- Score before Primer: Primer is fully independent but Score benefits from the full bracket signal. Either can swap without breaking the other.
-- Primer last: most independent feature; its value is clearest once the bracket and score artifacts have demonstrated the paste-artifact thesis.
-- Core-first discipline within each phase (models -> pure logic -> Web wiring -> view) enables unit testing of pure functions before any Web integration.
+- **Build-order divergence to resolve:** **Architecture recommends interaction-first** (strongest precedent, establishes the block recipe, lowest risk, fastest to green). **Features recommends mulligan-first by risk** (the sim already makes the keep decision internally, so it is the lowest-*compute*-risk readout). Both agree the mulligan *routing* is the hardest open question. Recommendation for the roadmapper: do **interaction-first** to lock the repeatable block-through-3-variants recipe on the safest surface, then win-con (reuses the recipe + wired combo fetch), then mulligan last so its routing decision is made deliberately — but the divergence is explicitly flagged for the roadmapper to settle.
+- Features A & B are mutually independent and both slot into the deck-analysis score-block groove; doing A first de-risks B's plumbing. No feature consumes another's output, so all three can be parallelized at the Core layer if needed.
+- All three are gated OFF and byte-identical, so order does not affect the OFF-state contract.
+
+### Two Unresolved Roadmap Decisions (requirements/roadmap must settle)
+
+1. **Mulligan routing — 3a vs 3b (affects Phase C):**
+   - **3a (cheap, recommended first cut):** surface the mulligan metric on **`/manabase`** (`Manabase.cshtml` + its paste artifact), mirroring TAP-01/02. The sim, classify, flag plumbing, and view all already exist there — Pattern-3-only, fraction of the risk, promotable later.
+   - **3b (expensive):** surface it as a discrete metric inside **`/deck-analysis`**. Matches the milestone framing ("a discrete deck-eval metric") but requires bridging `ManabaseClassifier` (text->`ManabaseDeck`) + the 20k-trial sim into `DeckAnalysisPacketService` (which today does neither) — a new dependency, new Scryfall-fact dependency, and heavier per-request cost on the 512MB Render tier.
+   - *Trade-off:* 3a delivers the metric cheaply and safely but on a different page than the rest of Cycle 14; 3b puts it where the milestone implies but adds per-request sim cost and the cross-pipeline bridge. **Decide before Phase C is planned.**
+
+2. **`manaValueNeeded` capture — MV-guessed vs Spellbook-grounded (affects Phase B):**
+   - **MV-guessed (no parser change):** derive the assembly-turn band from combined piece MV + tutor/ramp density. Ships sooner, no parser touch.
+   - **Spellbook-grounded (small parser change first):** capture the already-parsed-but-dropped `SpellbookCombo.ManaValueNeeded` so the band is grounded in Spellbook's needed mana rather than guessed. The field is parsed and discarded today (known backlog: SpellbookCombo ranking fields); wiring it is low-cost and also feeds combo ranking (Pitfall 2).
+   - *Trade-off:* Spellbook-grounded sharpens both the assembly band and the combo ranking for a small parser change; MV-guessed avoids the parser touch but leaves the documented follow-up open and the band weaker. **Decide before Phase B is planned** (the ranking wiring in Pitfall 2 leans toward capturing it).
 
 ### Research Flags
 
-Phases likely needing planning-time research attention:
-- **Phase 2 (Bracket):** The Game Changers seed file format + startup loading mechanism needs a design decision before phase planning. The curated mass-land-denial and extra-turn card lists need to be authored and cited. The Spellbook-null disclosure copy needs to be agreed before prompt variant authoring.
+Phases likely needing a planning-time decision (not deeper external research — the codebase is fully mapped):
+- **Phase C (mulligan):** needs the **3a-vs-3b routing decision** resolved before planning; it is the milestone's one genuine cross-pipeline architectural choice.
+- **Phase B (combo map):** needs the **`manaValueNeeded` capture decision** (parser change yes/no) resolved before planning; affects both assembly band and ranking.
 
-Phases with standard patterns (no additional research needed):
-- **Phase 1 (Tap Analyzer):** Additive-field pattern fully established by MQ-02..05; CastabilitySimulator internals verified directly.
-- **Phase 3 (Multi-Axis Score) Speed+Consistency:** All input signals verified against live codebase.
-- **Phase 4 (Auto-Refreshing Primer):** DiffEngine, PacketSessionCache, RelationalDatabaseConnection all verified; FeedbackStore is the persistence pattern model.
+Phases with standard, well-documented in-repo patterns (skip research-phase):
+- **Phase A (interaction):** exact Phase-77 precedent, same files, purely additive.
+- **Phase B (combo map):** block recipe from A + already-wired combo fetch; only combo-null handling has nuance (precedent exists).
+- **Phase C additive-sim half:** TAP-02 clone; only the routing wrapper is open.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Verified directly against live codebase; zero new dependencies confirmed; Scryfall `is:gamechanger` API verified via live curl returning 53 cards |
-| Features | HIGH | Bracket definitions verified against WotC official announcements through Feb 2026; Oct 2025 tutor-restriction removal confirmed; competitor landscape verified against live tools |
-| Architecture | HIGH | All integration points traced to specific source files; no speculative claims |
-| Pitfalls | HIGH (codebase); MEDIUM (GC domain) | Codebase-integration pitfalls traced to specific files; GC list update cadence is externally controlled by WotC |
+| Stack | HIGH | Zero-new-deps verified against every `.csproj`; every input source read directly (classifier, Spellbook service, sim, Hypergeometric, Scryfall DTOs incl. `keywords`). |
+| Features | HIGH | Interaction taxonomy + win-line archetypes + mulligan keep heuristics grounded in current Commander/cEDH sources; engine dependencies verified in-worktree. |
+| Architecture | HIGH | Every integration point read with file:line citations; the two-pipeline boundary and three reuse patterns (Phase 77 / ADR-0001 / TAP-02) confirmed in source. |
+| Pitfalls | HIGH | Grounded in this repo's source + tests (`AnalysisScorePromptParityTests`, `ResultContractTests`, seed-consistency tests, `CarveOutGuardTests`) and the Cycle-13 CI-masking precedent. |
 
-**Overall confidence:** HIGH
+**Overall confidence:** HIGH — this is a brownfield extension fully mapped against the live worktree; the only open items are two design decisions and one build-order preference, all surfaced explicitly for the roadmapper.
 
 ### Gaps to Address
 
-- **Game Changers list format decision:** Three approaches proposed across research files (static Core HashSet vs versioned seed JSON vs live Scryfall call). Recommended resolution: versioned seed JSON file loaded at startup into IMemoryCache (ContentKbSeedLoader pattern) with effective-date field. Lock this before Phase 2 planning.
-- **Multi-axis Control axis classifier:** Exact approach (oracle-text keyword patterns vs category-knowledge labels vs hybrid) is unresolved. Decide in Phase 3 planning.
-- **Bracket B3 "early-game combo" timing threshold:** WotC defines B3 as "no combos that reliably win before ~turn 6-7" — a prose definition, not a crisp turn number. The Spellbook data does not include a "fastest-win-turn" field. Resolution: disclose the approximation in the artifact and let the AI flag ambiguous cases. Confirm this is acceptable in Phase 2 planning.
-- **Multi-axis score calibration golden decks:** No ground-truth dataset exists to validate axis weights. Define a set of golden decks (a known cEDH list, a known battlecruiser list) as the sanity anchor in Phase 3 planning.
+- **Mulligan routing (3a vs 3b):** the milestone framing leans 3b ("discrete deck-eval metric") but 3a is far lower risk on the 512MB tier; resolve at requirements/roadmap before Phase C planning.
+- **`manaValueNeeded` capture:** decide MV-guessed vs Spellbook-grounded before Phase B; capturing the field is low-cost and also satisfies the ranking pitfall, but it is a (small) parser change to scope.
+- **Build-order divergence:** Features (mulligan-first by risk) vs Architecture (interaction-first by groove) — roadmapper picks the sequence; recommendation is interaction -> win-con -> mulligan.
+- **Stax/protection classification accuracy:** text heuristics are brittle; mitigate with a curated in-repo static keyword/name list (mirroring `bracket-data.json`, NOT a package) and golden tests, and keep stax a coarse low/med/high presence read.
 
 ## Sources
 
-### Primary (HIGH confidence)
-- `DeckFlow.Core/Manabase/CastabilitySimulator.cs` — verified `CardKind.{Untapped,Tapped}Land`, per-land `OnlineTurn` semantics, 20k-trial loop structure, existing `out int` param pattern
-- `DeckFlow.Core/Manabase/ManabaseModels.cs` — verified `ManaSource.EntersUntapped`, `CardCastability` additive-field discipline, `AvgOnCurvePercent` computed-getter rollup pattern
-- `DeckFlow.Core/Analysis/DeckStatClassifier.cs` + `DeckStatAggregator.cs` — confirmed reusable role predicates and `DeckStatSummary` as bracket/score input
-- `DeckFlow.Core/Diffing/DiffEngine.cs` — confirmed `DeckDiff` add/remove/mismatch output for primer staleness
-- `DeckFlow.Web/Services/DeckPrimerPacketService.cs` — confirmed `TryComputeCacheKeyAsync` + `PacketSessionCache.ComputeKey` canonical-deck fingerprint = the staleness signal
-- `DeckFlow.Web/Models/CommanderBracketCatalog.cs` — confirmed current brackets are hard-coded option records (staleness anti-pattern to NOT replicate for Game Changers)
-- `docs/decisions/0001-prompt-variants-decoupled.md` — confirmed 3-variant decoupled pattern; no shared text; hand-edit all 3
-- Scryfall `is:gamechanger` API (live curl) — verified `total_cards: 53`, confirmed JSON structure, June 2026
-- WotC Commander Brackets Beta Update Oct 21 2025 — tutor restrictions REMOVED; 10 GCs removed; 48-card post-update list
-- WotC Commander Brackets Beta Update Feb 9 2026 — +Farewell, +Biorhythm; total 53 cards confirmed
+### Primary (HIGH confidence — live worktree, read directly)
+- `DeckFlow.Core/Analysis/{DeckStatClassifier,DeckStatAggregator,MultiAxisScorer,MultiAxisScore}.cs` — existing predicates + `DeckStatSummary` additive-field pattern (Phase 77).
+- `DeckFlow.Web/Services/CommanderSpellbookService.cs` — `SpellbookCombo` shape incl. `Popularity`/`ManaValueNeeded` (parsed, unused), almost-combo extraction, `MaxIncluded`=20, null-graceful, 30-min cache.
+- `DeckFlow.Core/Manabase/{CastabilitySimulator,Hypergeometric,ManabaseModels,ManabaseAnalyzer}.cs` — London mulligan + `ColorKeepCap`, closed-form `AtLeast`, TAP-02 `Turn1UntappedTrials` additive-counter precedent.
+- `DeckFlow.Web/Services/DeckAnalysisPacketService.cs` + `PromptBuilders/Analysis/*` — score-block groove, trailing-optional-param threading, `comboTask` reuse, `Snapshot().TryGetValue` flag gate.
+- `DeckFlow.Web/Services/Scryfall/ScryfallDtos.cs` — confirms `keywords`/`oracle_text`/`type_line`/`produced_mana`/`color_identity`/`mana_cost` hydrated.
+- `DeckFlow.Web/Services/FeatureFlags/*`, `FeatureFlagStore` dual-dialect seed SQL; `docs/decisions/0001-prompt-variants-decoupled.md` (ADR-0001).
+- Repo tests: `AnalysisScorePromptParityTests`, `ResultContractTests`, `ToolFlagSeedConsistencyTests` / `ToolFlagPostgresSeedTests`, `CarveOutGuardTests`, `Integration/PostgresFactAttribute` (WSL masking).
 
-### Secondary (MEDIUM confidence)
-- EDHRank (mtgmana.rocks) — 4-axis Power/Speed/Control/Consistency definitions and decimal example
-- Spellweave bracket guide — "53 cards as of Feb 2026" cross-check; combo-timing table for B3
-- ScrollVault bracket calculator — classifier pipeline; confirms no cut suggestions exist (DeckFlow balancer is uncontested)
-- Salubrious Snail manabase tool — Tap Analyzer untapped-frequency + opening-turn sim; cast-rate/avg-delay benchmarks
-- Rate My Decks — confirmed it does NOT split into 4 axes (confirms DeckFlow multi-axis decomposition is a differentiator)
-- Moxfield help + BlazeHero primer guide — confirmed primer section structure is manual, no deck-link staleness detection
-- `scratchpad-research/commander-feature-wants-report.md` — feature-gap basis for all four Cycle 13 features
+### Secondary (MEDIUM-HIGH — domain grounding)
+- Commander's Herald (counterspell/removal taxonomy), EDHREC cEDH stax guide, TCGplayer cEDH intro — interaction buckets.
+- Draftsim cEDH win-conditions, Learn cEDH "How Many Combos Are Too Many", Laboratory Maniacs — win-line archetypes + redundancy.
+- Draftsim / MTG EDH / EDHREC mulligan guides — keepable-hand heuristics.
 
-### Tertiary (LOW confidence)
-- MTGSalvation primer status thread — "manually updating to match changes" decay pattern confirms the pain point
+### Tertiary (project context)
+- `.planning/PROJECT.md` (Cycle 14 scope, byte-identical-OFF, Gemini paste ceiling), `CLAUDE.md` + global instructions (no-new-deps, VSTest-unreliable-in-WSL, format-gate carve-outs, 512MB/256mb caps), MEMORY (SpellbookCombo ranking-fields follow-up, Cycle-13 2-CI-failures).
 
 ---
-*Research completed: 2026-06-27*
+*Research completed: 2026-06-30*
 *Ready for roadmap: yes*

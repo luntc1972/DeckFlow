@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Net;
 using System.Text.Json;
 using System.Threading.Tasks;
+using DeckFlow.Core.Analysis;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Infrastructure;
@@ -64,6 +65,14 @@ public sealed class DeckPacketController : DeckToolControllerBase
         => _flagCache is not null
             && _flagCache.Snapshot().TryGetValue(DeckAnalysisPacketService.CommandZoneAwarenessFlag, out var enabled)
             && enabled;
+
+    // Serialize a download-zip artifact (win-con map, interaction audit) SOLELY from the typed,
+    // flag-gated result -- never the raw posted *Json field (which is neither flag-gated nor
+    // structurally validated). A null value (flag off) yields null, dropping the zip entry and
+    // preserving flag-OFF byte-identity even when the client posts a stale field (Codex MED
+    // findings #2/#3; generalized to interaction-audit per code-review fix #3).
+    private static string? SerializeForArtifact<T>(T? value) where T : class
+        => value is null ? null : JsonSerializer.Serialize(value);
 
     /// <summary>
     /// Renders the staged deck-analysis packet workflow. Set options load asynchronously on the client.
@@ -155,10 +164,13 @@ public sealed class DeckPacketController : DeckToolControllerBase
             // Carry the computed score forward through the hidden ScoreJson form field so the Step-3
             // early-return (no live Scryfall data to recompute from) can restore it. Omitting this write
             // would silently drop the score at Step 3 even though it renders at Step 2 via Model.Score.
-            if (result.Score is not null)
-            {
-                request.ScoreJson = JsonSerializer.Serialize(result.Score);
-            }
+            // Codex code-review fix: explicitly CLEAR each field when its typed result is null (not just
+            // skip the write) -- otherwise a stale posted value from a prior flag-ON request survives a
+            // flag-OFF re-post and the view's `!string.IsNullOrEmpty(...)` gate renders the hidden
+            // textarea anyway, breaking flag-OFF byte-identity.
+            request.ScoreJson = result.Score is null ? string.Empty : JsonSerializer.Serialize(result.Score);
+            request.InteractionAuditJson = result.InteractionAudit is null ? string.Empty : JsonSerializer.Serialize(result.InteractionAudit);
+            request.WinConMapJson = result.WinConMap is null ? string.Empty : JsonSerializer.Serialize(result.WinConMap);
             return View("DeckAnalysis", new DeckAnalysisViewModel
             {
                 ActiveTab = DeckPageTab.DeckAnalysis,
@@ -173,6 +185,8 @@ public sealed class DeckPacketController : DeckToolControllerBase
                 TimingSummary = result.TimingSummary,
                 AnalysisResponse = result.AnalysisResponse,
                 Score = result.Score,
+                InteractionAudit = result.InteractionAudit,
+                WinConMap = result.WinConMap,
                 SetUpgradeResponse = result.SetUpgradeResponse,
                 SetUpgradeCardText = result.SetUpgradeCardText ?? EmptySetUpgradeCardText,
                 ImportWarning = result.ImportWarning,
@@ -227,6 +241,8 @@ public sealed class DeckPacketController : DeckToolControllerBase
                     ? cachedResult.ResolvedCommanderName
                     : cachedResult.AnalysisResponse?.Commander ?? request.DeckName;
                 var cachedRequestContextText = cachedResult.RequestContextText ?? DeckAnalysisPacketService.BuildRequestContextText(request, cachedCommanderName);
+                var cachedInteractionAuditJson = SerializeForArtifact(cachedResult.InteractionAudit);
+                var cachedWinConMapJson = SerializeForArtifact(cachedResult.WinConMap);
                 var cachedBytes = PacketArtifactStore.BuildZip(
                     request,
                     cachedCommanderName,
@@ -237,7 +253,9 @@ public sealed class DeckPacketController : DeckToolControllerBase
                     cachedResult.DeckProfileSchemaJson,
                     cachedResult.SetUpgradePromptText,
                     canonicalDeckListText: cachedResult.DecklistText,
-                    originalDeckText: PacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource));
+                    originalDeckText: PacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource),
+                    interactionAuditJson: cachedInteractionAuditJson,
+                    winConMapJson: cachedWinConMapJson);
                 var cachedFileName = PacketArtifactStore.SuggestPacketZipFileName(cachedCommanderName, request.TargetAiPlatform);
                 Response.Headers["X-DeckFlow-Filename"] = cachedFileName;
                 return File(cachedBytes, "application/zip", cachedFileName);
@@ -248,6 +266,8 @@ public sealed class DeckPacketController : DeckToolControllerBase
                 ? result.ResolvedCommanderName
                 : result.AnalysisResponse?.Commander ?? request.DeckName;
             var requestContextText = result.RequestContextText ?? DeckAnalysisPacketService.BuildRequestContextText(request, commanderName);
+            var freshInteractionAuditJson = SerializeForArtifact(result.InteractionAudit);
+            var freshWinConMapJson = SerializeForArtifact(result.WinConMap);
             var bytes = PacketArtifactStore.BuildZip(
                 request,
                 commanderName,
@@ -258,7 +278,9 @@ public sealed class DeckPacketController : DeckToolControllerBase
                 result.DeckProfileSchemaJson,
                 result.SetUpgradePromptText,
                 canonicalDeckListText: result.DecklistText,
-                originalDeckText: PacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource));
+                originalDeckText: PacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource),
+                interactionAuditJson: freshInteractionAuditJson,
+                winConMapJson: freshWinConMapJson);
             var fileName = PacketArtifactStore.SuggestPacketZipFileName(commanderName, request.TargetAiPlatform);
             Response.Headers["X-DeckFlow-Filename"] = fileName;
             return File(bytes, "application/zip", fileName);
@@ -329,6 +351,14 @@ public sealed class DeckPacketController : DeckToolControllerBase
             {
                 request.ScoreJson = JsonSerializer.Serialize(result.Score);
             }
+            if (result.InteractionAudit is not null)
+            {
+                request.InteractionAuditJson = JsonSerializer.Serialize(result.InteractionAudit);
+            }
+            if (result.WinConMap is not null)
+            {
+                request.WinConMapJson = JsonSerializer.Serialize(result.WinConMap);
+            }
             return View("DeckAnalysis", new DeckAnalysisViewModel
             {
                 ActiveTab = DeckPageTab.DeckAnalysis,
@@ -343,6 +373,8 @@ public sealed class DeckPacketController : DeckToolControllerBase
                 TimingSummary = result.TimingSummary,
                 AnalysisResponse = result.AnalysisResponse,
                 Score = result.Score,
+                InteractionAudit = result.InteractionAudit,
+                WinConMap = result.WinConMap,
                 SetUpgradeResponse = result.SetUpgradeResponse,
                 SetUpgradeCardText = result.SetUpgradeCardText ?? EmptySetUpgradeCardText,
                 ImportWarning = result.ImportWarning,

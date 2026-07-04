@@ -182,6 +182,9 @@ public static class ManabaseAnalyzer
             // TAP-01/TAP-02: tap-quality metrics derived from the same castability rows + color
             // findings (no second sim). Always computed in Core; the Web layer flag-gates display.
             TapAnalysis = ComputeTapAnalysis(deck, findings, castability, CastabilitySimulator.DefaultTrials),
+            // MULLIGAN-01..05: opening-hand / mulligan evaluation derived from the same castability
+            // rows (no second sim). Always computed in Core; the Web layer flag-gates display.
+            MulliganEvaluation = ComputeMulliganEvaluation(deck, castability, CastabilitySimulator.DefaultTrials),
             DemandingCards = demandingCards,
             // Genuine mana rocks/dorks only: artifacts/creatures that tap for mana (weight 0.5 dork
             // / 0.75 rock). Excludes conditional "granted" creatures (a creature handed a mana
@@ -873,6 +876,85 @@ public static class ManabaseAnalyzer
             ColorTap = colorTap,
         };
     }
+
+    // MULLIGAN-01..05: build the deck-level opening-hand / mulligan evaluation from the already-
+    // computed castability rows — no second simulation pass. Keepable %/keep-size percents are
+    // spell-INDEPENDENT (LondonMulligan ignores the spell), so they are validly averaged across ALL
+    // non-commander rows (mirrors ComputeTapAnalysis's D1/D3 fallback). Representative openers are
+    // SPELL-SPECIFIC (on-curve castability differs per row), so they are selected from the EARLIEST
+    // (lowest ManaValue, then OnCurveTurn) non-commander rows only, so the surfaced read is about a
+    // genuine early play the deck must make on curve.
+    private static ManabaseMulliganEvaluation ComputeMulliganEvaluation(
+        ManabaseDeck deck,
+        IReadOnlyList<CardCastability> castability,
+        int defaultTrials)
+    {
+        var nonCommanderRows = castability.Where(r => !r.IsCommander).ToList();
+        IReadOnlyList<CardCastability> avgRows = nonCommanderRows.Count > 0 ? nonCommanderRows : castability;
+
+        // kept7 and to6 are the observed primary shares. keepable and to5 are DERIVED from them rather
+        // than independently rounded so the pasteable artifact's numbers always reconcile: the simulator
+        // increments keepableTrials iff keptSize >= 6 (CastabilitySimulator: every keep is 7 or 6 or 5),
+        // so keepable == kept7 + to6 and the three keep-size shares partition 100%. Independent
+        // Math.Round of each raw counter can otherwise print e.g. keepable 85% over a 60% / 24% breakdown
+        // (sum 84) or three shares summing to 99/101. Deriving eliminates that drift by construction.
+        int kept7Percent = AveragePercent(avgRows, r => r.Kept7Trials, defaultTrials);
+        int mulliganTo6Percent = AveragePercent(avgRows, r => r.MulliganTo6Trials, defaultTrials);
+        int keepablePercent = kept7Percent + mulliganTo6Percent;
+        int mulliganTo5Percent = avgRows.Count > 0 ? Math.Max(0, 100 - keepablePercent) : 0;
+
+        string band = keepablePercent switch
+        {
+            >= 85 => "high",
+            >= 70 => "medium",
+            _ => "low",
+        };
+
+        // Earliest-row-first, then concatenate each row's own samples, then keep the first sample seen
+        // per distinct Decision (at most 3: "keep 7" / "mulligan to 6" / "mulligan to 5") — each sample
+        // already carries its own row's TrackedSpellName + TrackedOnCurveTurn, so this never fabricates
+        // a cross-row claim. Openers are SPELL-SPECIFIC (unlike the spell-independent keepable/keep-size
+        // percents above), so they are drawn ONLY from non-commander rows — a commander is rarely the
+        // early on-curve play the read is meant to surface. Empty when the deck has no non-commander row.
+        List<OpeningHandSample> openers = nonCommanderRows
+            .OrderBy(r => r.ManaValue)
+            .ThenBy(r => r.OnCurveTurn)
+            .SelectMany(r => r.RepresentativeOpeners)
+            .GroupBy(s => s.Decision, StringComparer.Ordinal)
+            .Select(g => g.First())
+            .Take(3)
+            .ToList();
+
+        return new ManabaseMulliganEvaluation
+        {
+            KeepableHandPercent = keepablePercent,
+            KeepableBand = band,
+            Kept7Percent = kept7Percent,
+            MulliganTo6Percent = mulliganTo6Percent,
+            MulliganTo5Percent = mulliganTo5Percent,
+            ColorCount = EnumerateUsedColors(deck).Count(),
+            AverageManaValue = deck.AverageManaValue,
+            RepresentativeOpeners = openers,
+        };
+    }
+
+    // Shared divide-by-zero-guarded average-percent helper for the keepable/keep-size figures.
+    private static int AveragePercent(IReadOnlyList<CardCastability> rows, Func<CardCastability, int> selector, int defaultTrials)
+        => rows.Count > 0 && defaultTrials > 0
+            ? (int)Math.Round(100.0 * rows.Average(selector) / defaultTrials)
+            : 0;
+
+    /// <summary>
+    /// MULLIGAN test seam: exposes <see cref="ComputeMulliganEvaluation"/> directly so the aggregation
+    /// logic (keepable-band thresholds, keep-size percent derivation, early-row opener selection,
+    /// empty-rows safe-zero) is unit-testable over hand-constructed castability rows — no Monte-Carlo
+    /// needed (mirrors the <c>ColorKeepSatisfiedForTest</c> seam pattern in <c>CastabilitySimulator</c>).
+    /// </summary>
+    internal static ManabaseMulliganEvaluation ComputeMulliganEvaluationForTest(
+        ManabaseDeck deck,
+        IReadOnlyList<CardCastability> castability,
+        int defaultTrials)
+        => ComputeMulliganEvaluation(deck, castability, defaultTrials);
 
     // Display-only: split a color's total weighted sources into direct (mono-color, the dedicated
     // core), shared (non-conditional multi-color fixers — duals, any-color rocks — real but spread

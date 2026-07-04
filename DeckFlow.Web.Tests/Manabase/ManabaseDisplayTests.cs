@@ -95,6 +95,25 @@ public sealed class ManabaseDisplayTests
     }
 
     [Fact]
+    public void AvgManaValueText_UsesInvariantCulture_MatchesPasteArtifact()
+    {
+        // The paste artifact formats every figure with InvariantCulture; the on-page lens card must
+        // stay byte-identical to it. Under a comma-decimal request culture, a request-culture ToString
+        // would render "2,5" and drift from the artifact's "2.5". Pin the invariant contract here.
+        System.Globalization.CultureInfo original = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("de-DE");
+            Assert.Equal("2.5", ManabaseDisplay.AvgManaValueText(2.5));
+            Assert.Equal("3.0", ManabaseDisplay.AvgManaValueText(3.0));
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = original;
+        }
+    }
+
+    [Fact]
     public void ModeAndImportanceLabels_AreHumanReadable()
     {
         Assert.Equal("cEDH", ManabaseDisplay.ModeLabel(ManabaseMode.Cedh));

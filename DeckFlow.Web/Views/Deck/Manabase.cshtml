@@ -263,6 +263,55 @@
                 }
             </div>
         }
+        @if (Model.ShowMulliganEval && Model.HasResult && report.MulliganEvaluation is { } mull)
+        {
+            var km = ManabaseDisplay.KeepableMarker(mull.KeepableBand);
+            <div class="manabase-lens manabase-mulliganlens" role="group" aria-label="Opening hand">
+                <p class="manabase-lens-label">Opening hand</p>
+                <div class="manabase-mulliganlens-split">
+                    <div>
+                        <div class="manabase-lens-big">
+                            <span class="@km.Css" aria-hidden="true">@km.Marker</span> @mull.KeepableBand (~@mull.KeepableHandPercent%)<span>keepable hands</span>
+                        </div>
+                        <span class="sr-only">@(string.Equals(mull.KeepableBand, "high", StringComparison.OrdinalIgnoreCase) ? "meets target" : "below target")</span>
+                        <span class="manabase-lens-pill">keepable = a 2-5 land keep on the London mulligan</span>
+                    </div>
+                    <div>
+                        <div class="manabase-lens-row">
+                            <span class="manabase-lens-color">Colors / curve</span>
+                            <span><strong>@mull.ColorCount color(s)</strong> <span class="manabase-lens-muted">avg MV ~@ManabaseDisplay.AvgManaValueText(mull.AverageManaValue)</span></span>
+                        </div>
+                        <div class="manabase-lens-row">
+                            <span class="manabase-lens-color">Keep-size process</span>
+                            <span>kept 7 ~@mull.Kept7Percent% <span class="manabase-lens-muted">·</span> to 6 ~@mull.MulliganTo6Percent% <span class="manabase-lens-muted">·</span> to 5 ~@mull.MulliganTo5Percent%</span>
+                        </div>
+                    </div>
+                </div>
+                @if (mull.RepresentativeOpeners.Count > 0)
+                {
+                    <ul class="manabase-mulliganlens-openers">
+                        @foreach (var opener in mull.RepresentativeOpeners)
+                        {
+                            <li>
+                                <strong>@opener.Decision</strong>
+                                <span class="manabase-lens-muted">(@opener.KeptCards cards: @opener.Lands land / @opener.Colors color / @opener.RampPieces ramp / @opener.OtherCards other)</span>
+                                —
+                                @if (opener.OnCurveCastable)
+                                {
+                                    <span>@opener.TrackedSpellName castable on curve (turn @opener.TrackedOnCurveTurn)</span>
+                                }
+                                else
+                                {
+                                    <span>@opener.TrackedSpellName not on curve (slow start)</span>
+                                }
+                                <span class="manabase-lens-muted">— @(opener.HasPlan ? "workable line" : "no clear line")</span>
+                            </li>
+                        }
+                    </ul>
+                }
+                <p class="manabase-lens-note">First-pass read from the same simulation as the cast rate above, so it never contradicts it — a consistency signal, not a keep/mulligan recommendation.</p>
+            </div>
+        }
 
         <p class="manabase-context">
             Mode: <strong>@ManabaseDisplay.ModeLabel(report.Mode)</strong> ·

@@ -14,6 +14,8 @@ public sealed class DeckAnalysisRequest
     private string _companionName = string.Empty;
     private string _deckProfileJson = string.Empty;
     private string _scoreJson = string.Empty;
+    private string _interactionAuditJson = string.Empty;
+    private string _winConMapJson = string.Empty;
     private string _targetCommanderBracket = string.Empty;
     private string _targetAiPlatform = "ChatGPT";
     private List<string> _selectedAnalysisQuestions = [];
@@ -141,6 +143,24 @@ public sealed class DeckAnalysisRequest
     {
         get => _scoreJson;
         set => _scoreJson = value ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Serialized interaction-audit JSON round-tripped between workflow steps and through the analysis artifact zip.
+    /// </summary>
+    public string InteractionAuditJson
+    {
+        get => _interactionAuditJson;
+        set => _interactionAuditJson = value ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Serialized win-condition/combo map JSON round-tripped between workflow steps and through the analysis artifact zip.
+    /// </summary>
+    public string WinConMapJson
+    {
+        get => _winConMapJson;
+        set => _winConMapJson = value ?? string.Empty;
     }
 
     /// <summary>

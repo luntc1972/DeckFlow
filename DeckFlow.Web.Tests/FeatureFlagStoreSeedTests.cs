@@ -42,6 +42,7 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
     [InlineData("tool.bracket.enabled", false)] // BRACKET-05: seeded OFF
     [InlineData("analysis.multi-axis-score", false)] // SCORE-01: seeded OFF
     [InlineData("tool.primer.stale-flag", false)] // PRIMER: seeded OFF
+    [InlineData("analysis.mulligan-eval", false)] // MULLIGAN-06: seeded OFF
     public async Task EnsureSchema_SeedsManabaseFlags_AtExpectedDefault(string key, bool expectedOn)
     {
         var store = new FeatureFlagStore(_dbPath);
@@ -51,5 +52,21 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
 
         Assert.True(flags.ContainsKey(key), $"seed missing for '{key}'");
         Assert.Equal(expectedOn, flags[key]);
+    }
+
+    /// <summary>
+    /// The SQLite runtime seed proves the local dialect only. Postgres is not exercised at
+    /// runtime in this suite, so read the PRIVATE <c>PostgresSeedSql</c> const via reflection
+    /// (mirrors <c>ToolFlagSeedConsistencyTests</c>) and assert the literal seed row is present.
+    /// No visibility widening on the const - reflection reads it in place.
+    /// </summary>
+    [Fact]
+    public void PostgresSeedSql_SeedsMulliganEvalFlag_Off()
+    {
+        var field = typeof(FeatureFlagStore).GetField("PostgresSeedSql", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(field);
+
+        var postgresSql = Assert.IsType<string>(field!.GetRawConstantValue());
+        Assert.Contains("('analysis.mulligan-eval', FALSE)", postgresSql, StringComparison.Ordinal);
     }
 }

@@ -31,9 +31,13 @@ internal sealed class ChatGptAnalysisPromptVariant : IAnalysisPromptVariant
         IReadOnlyList<string> bannedCards,
         CommanderSpellbookResult? comboResult,
         bool includeCardVersions,
-        string? companionName = null,
-        string? scoreBlockText = null)
+        AnalysisPromptEnrichments enrichments)
     {
+        ArgumentNullException.ThrowIfNull(enrichments);
+        var companionName = enrichments.CompanionName;
+        var scoreBlockText = enrichments.ScoreBlockText;
+        var interactionAuditText = enrichments.InteractionAuditText;
+        var winConMapText = enrichments.WinConMapText;
         var bracket = CommanderBracketCatalog.Find(request.TargetCommanderBracket);
         var selectedQuestions = AnalysisQuestionCatalog.ResolveTexts(selectedQuestionIds, request.CardSpecificQuestionCardNames, request.BudgetUpgradeAmount);
         var allRequestedQuestions = selectedQuestions.ToList();
@@ -95,6 +99,20 @@ internal sealed class ChatGptAnalysisPromptVariant : IAnalysisPromptVariant
         {
             builder.AppendLine();
             builder.AppendLine(scoreBlockText);
+        }
+
+        // ADR-0001: hand-edited per variant; caller supplies the pre-built block text.
+        if (!string.IsNullOrWhiteSpace(interactionAuditText))
+        {
+            builder.AppendLine();
+            builder.AppendLine(interactionAuditText);
+        }
+
+        // ADR-0001: hand-edited per variant; caller supplies the pre-built block text.
+        if (!string.IsNullOrWhiteSpace(winConMapText))
+        {
+            builder.AppendLine();
+            builder.AppendLine(winConMapText);
         }
 
         // --- Evidence and authority rules ---
