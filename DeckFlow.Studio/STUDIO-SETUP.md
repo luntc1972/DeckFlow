@@ -43,6 +43,7 @@ already-distilled video** in that DB. If empty, browse a channel + distill one v
 | Var | Purpose | Default |
 |-----|---------|---------|
 | `MTG_DATA_DIR` | Move the Studio data dir off the repo tree | unset → `.\artifacts\studio` |
+| `DECKFLOW_REPO_ROOT` | Repo working tree the git flows (Publish / Direct Push / Pull from Prod) run from — lets a distributed exe publish without being launched from the repo | unset → process current directory |
 | `DECKFLOW_LLM_PROVIDER` | `claude` = subscription/$0; `openai` = metered (cap enforced) | unset (metered) |
 | `DECKFLOW_LLM_MONTHLY_CAP_USD` | Monthly spend cap (P45 cap-block smoke) | `15.00` |
 | `DECKFLOW_DISABLE_AUTO_BROWSER` | `true` stops the browser auto-pop | unset |
@@ -213,7 +214,7 @@ Only two paths need extra config:
 | Path | What you need |
 |------|---------------|
 | DirectPush (SCP + prod Postgres upsert) | `Studio__Scp__*` + `Studio__ProdConnectionString` |
-| Git commit-publish | `git.exe` on `PATH` |
+| Git commit-publish | `git.exe` on `PATH`; launched from the repo working tree **or** `DECKFLOW_REPO_ROOT` set to it |
 
 LLM distill uses `DECKFLOW_LLM_PROVIDER=claude` (subscription, $0 spend) or
 `OPENAI_API_KEY` (metered). Not required to just browse and review existing entries.

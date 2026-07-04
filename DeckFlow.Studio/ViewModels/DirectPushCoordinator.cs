@@ -229,7 +229,7 @@ public sealed class DirectPushCoordinator
         ArgumentNullException.ThrowIfNull(publishRows);
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
 
-        var repoRoot = await _git.ResolveRepoRootAsync(Directory.GetCurrentDirectory(), cancellationToken).ConfigureAwait(false);
+        var repoRoot = await _git.ResolveRepoRootAsync(StudioRepoLocator.ResolveStartDirectory(), cancellationToken).ConfigureAwait(false);
 
         // Resolve the branch up front so a detached HEAD fails fast BEFORE any file copy or commit —
         // rev-parse --abbrev-ref returns the literal "HEAD" when detached, which would otherwise push

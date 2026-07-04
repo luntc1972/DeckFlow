@@ -162,7 +162,7 @@ Testcontainers.PostgreSql will start a `postgres:16-alpine` container, run the t
 ### Helper scripts
 - `scripts/run-web.sh` — bash wrapper that rebuilds `DeckFlow.Web` and launches it on `http://localhost:5173` with no browser auto-launch.
 - `scripts/run-web.ps1` — PowerShell equivalent for Windows terminals.
-- `scripts/publish-studio.ps1` — publishes `DeckFlow.Studio` as a self-contained win-x64 single-file executable (no .NET install required on the target machine). Run from Windows PowerShell; produces `artifacts/studio-release/` and `artifacts/DeckFlowStudio-<date>.zip`. See [DeckFlow.Studio/STUDIO-SETUP.md](DeckFlow.Studio/STUDIO-SETUP.md) for full setup, launch, and secrets configuration steps.
+- `scripts/publish-studio.ps1` — publishes `DeckFlow.Studio` as a self-contained win-x64 single-file executable (no .NET install required on the target machine). Run from Windows PowerShell; produces `artifacts/studio-release/` and `artifacts/DeckFlowStudio-<date>.zip`. See [DeckFlow.Studio/STUDIO-SETUP.md](DeckFlow.Studio/STUDIO-SETUP.md) for full setup, launch, and secrets configuration steps. The git-backed flows (Publish, Direct Push, Pull from Prod) run git from the process working directory; to publish from a distributed exe that lives outside the repo, set `DECKFLOW_REPO_ROOT` to the repo working tree (otherwise launch Studio from inside the repo).
 - `scripts/publish-studio.sh` — WSL bash wrapper that does the same publish via the Windows `dotnet.exe`.
 
 ### Code formatting gate
