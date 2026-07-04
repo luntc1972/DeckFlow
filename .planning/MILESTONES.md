@@ -1,5 +1,23 @@
 # Milestones
 
+## Cycle 14 — Deeper Deck Evaluation (Shipped: 2026-07-03, `2026.07.1`)
+
+**Phases completed:** 3 phases (79-81), 9 plans, 31 tasks. Squash-merged to `main` `701ec2fa`; CI green `28694830980`; milestone audit PASSED (13/13 requirements, 5/5 integration). Build 0/0; Core 1053 / Web 1158 (12 PG skips). All three flags (`analysis.interaction-audit`, `analysis.wincon-map`, `analysis.mulligan-eval`) seeded OFF — operator flips ON after prod deploy. Known deferred items at close: 15 (see STATE.md Deferred Items).
+
+**Key accomplishments:**
+
+- Pure Core interaction audit buckets with curated stax/protection detection, classifier predicates, review tiers, and coverage-gap advisories.
+- Deck-analysis prompt artifacts can now carry a flag-gated, card-backed interaction audit block across ChatGPT, Claude, and Gemini.
+- Step-3 interaction audit readout with hardened hidden-field and zip round-trip, plus page/artifact byte-identity tests
+- Pure-Core WinConMapAggregator ranks/bands Commander Spellbook combos (low mana-value-needed first, then high popularity, then ordinal card-name tie-break), strictly separates one-card-away near-combos, counts assembly paths, and reuses DeckStatClassifier.IsClosingPowerCard for a combo-less-deck win-condition read — all golden-tested with zero Web dependency.
+- Wires the Phase 80-01 WinConMapAggregator into the /deck-analysis paste artifact behind a new `analysis.wincon-map` flag (seeded OFF), reusing the single already-fetched Commander Spellbook result (gate widened, never re-fetched) and generalizing the Phase-73 command-zone cache bypass into a shared predicate so a wincon-ON packet can never be replayed after the flag flips OFF.
+- Step-3 on-page win-condition/combo map readout with hardened WinConMapJson round-trip through a hidden field and a conditional 61-wincon-map.json zip entry, proven flag-OFF byte-identical at both the artifact/zip layer and the Razor page-render layer
+- Two-stage pure-observation instrumentation on the existing London-mulligan Monte-Carlo pass surfaces a keepable-hand band, keep-size distribution, and spell-attributed representative openers — no second simulation, cast% byte-identical.
+- analysis.mulligan-eval flag (seeded OFF both dialects) gates a hedged "Opening Hand (mulligan)" block on the /manabase paste artifact — keepable band, keep-size process, and tracked-spell-attributed representative openers — byte-identical to today's output when off.
+- The `/manabase` page now renders a flag-guarded opening-hand lens card (keepable band, keep-size process, tracked-spell-attributed representative openers) behind `ShowMulliganEval`, proven byte-identical to baseline when OFF by an `IRazorViewEngine` excision test.
+
+---
+
 ## Cycle 13 — Deck Evaluation & Creator Output (Shipped: 2026-06-30, `2026.06.10`)
 
 **Phases:** 75-78, developed on branch `plan/cycle-13-deck-eval` and squash-merged to `main` (per the one-branch-per-cycle convention), capped by the `2026.06.10` tag.

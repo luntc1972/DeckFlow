@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: Cycle 14
 milestone_name: — Deeper Deck Evaluation
-status: completed
+status: Awaiting next milestone
 stopped_at: 81-03 complete (3/3 tasks); Phase 81 all 3 plans EXECUTED. Commits 996870ba + d1b72048 + c55b6e3b + docs 4f30d036 on branch, not pushed.
-last_updated: "2026-07-04T00:01:03.319Z"
-last_activity: 2026-07-04 -- Phase 81 marked complete
+last_updated: "2026-07-04T04:50:45.241Z"
+last_activity: 2026-07-04 — Milestone cycle14 completed and archived
 progress:
   total_phases: 3
   completed_phases: 3
@@ -37,10 +37,10 @@ See: .planning/PROJECT.md
 
 ## Current Position
 
-Phase: 81 — COMPLETE
-Plan: 3 of 3
-Status: Phase 81 complete
-Last activity: 2026-07-04 -- Phase 81 marked complete
+Phase: Milestone cycle14 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-04 — Milestone cycle14 completed and archived
 
 ## Roadmap Summary
 
@@ -113,6 +113,31 @@ Last activity: 2026-07-04 -- Phase 81 marked complete
 
 ## Session Continuity
 
-Last session: 2026-07-03T23:45:13.329Z
-Stopped at: 81-03 complete (3/3 tasks); Phase 81 all 3 plans EXECUTED. Commits 996870ba + d1b72048 + c55b6e3b + docs 4f30d036 on branch, not pushed.
-Resume: `/gsd-plan-phase 81` (Opening-Hand / Mulligan Evaluator). Also owed: push branch, verify CI green, operator live visual smoke for Phase 80.
+Last session: 2026-07-03
+Stopped at: **Cycle 14 milestone CLOSED** — phases 79-81 squash-merged to `main` (`701ec2fa`, CI green `28694830980`), audit PASSED, archived to `.planning/milestones/cycle14-*`, tagged `2026.07.1`.
+Resume: `/gsd-new-milestone` to scope the next cycle.
+
+## Deferred Items
+
+Items acknowledged and deferred at Cycle 14 milestone close on 2026-07-03 (from `audit-open`; mostly prior-cycle artifacts, not Cycle-14 gaps):
+
+| Category | Item | Status |
+|----------|------|--------|
+| debug | calibration-measurement | unknown |
+| debug | health-band-before-baseline | unknown |
+| debug | health-band-flag-on-measurement | unknown |
+| debug | health-band-headline-floor-spec | unknown |
+| debug | moxfield-bridge-busy-stuck | root-cause-found |
+| debug | pull-from-prod-sftp-decouple | unknown |
+| quick_task | manabase-load-step | missing |
+| quick_task | 260624-kpg-fix-dfc-transform-cards-excluded-from-se | missing |
+| quick_task | 260624-opb-be-able-to-download-the-manabase-analysi | missing |
+| quick_task | 260627-flag-key-namespacing | missing |
+| quick_task | 260627-p55-deckflow-studio-safety-wins-loopback-bin | missing |
+| quick_task | 260627-qyc-deckflow-studio-directpush-prod-write-in | missing |
+| verification_gap | (phase 79/80/81 CI-green + live-smoke) | resolved at close — CI green + smoke done |
+
+## Operator Next Steps
+
+- **Manual prod deploy** of Cycle 14 (autodeploy OFF) + flip the three flags ON (`analysis.interaction-audit`, `analysis.wincon-map`, `analysis.mulligan-eval`); Cycle 13 deploy + flag flips likewise still owed.
+- Start the next milestone with `/gsd-new-milestone`.
