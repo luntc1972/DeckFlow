@@ -12,7 +12,22 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 **Shipped:** Cycle 14 — Deeper Deck Evaluation (2026-07-03, CalVer `2026.07.1`) — phases 79-81, developed on branch `plan/cycle-14-deck-eval-depth` and squash-merged to `main` (`701ec2fa`). Three flag-gated read dimensions on the existing engines, zero new deps: **Interaction & Answers Audit** — bucketed, card-backed interaction counts (removal / board wipes / counterspells / protection-recursion / stax-taxation) + coverage-gap advisories in `/deck-analysis` (Phase 79, `analysis.interaction-audit`); **Win-Condition & Combo Map** — ranked Commander Spellbook combos + one-card-away near-combos in coarse early/mid/late assembly bands, disclosing "combo data unavailable" vs "no win conditions" (Phase 80, `analysis.wincon-map`); **Opening-Hand / Mulligan Evaluator** — keepable-hand band, keep-size process, colors/curve, and spell-attributed representative openers off the existing London-mulligan sim (no second pass; cast% byte-identical) on `/manabase` (Phase 81, `analysis.mulligan-eval`). Build 0/0; Core 1053 / Web 1158 pass; CI green on `main` (`28694830980`); milestone audit **PASSED** (13/13 requirements, 5/5 integration); headless live smoke desktop 1280 + mobile 390. All three cycle flags seeded OFF. Prior milestones: **Cycle 13 — Deck Evaluation & Creator Output** (2026-06-30, `2026.06.10`); **Cycle 12 — Manabase Accuracy, Command-Zone Awareness & Cross-Tool Persistence** (2026-06-27, `2026.06.9`, archived).
 
-**Next:** Not yet scoped — run `/gsd-new-milestone` to start the next cycle. Carry-forward backlog still open: scheduled/bulk harvest (AUTO-03/04), SEO/growth lane (SEO-01..05), matchup/meta-threat read (a separate cedh-meta-gap lane). Operator follow-ups owed: **manual prod deploy of Cycle 13 + Cycle 14 (autodeploy OFF)**, then flip the four Cycle 13 flags and the three Cycle 14 flags (`analysis.interaction-audit`, `analysis.wincon-map`, `analysis.mulligan-eval`) in prod when ready.
+**Next:** **Cycle 15 — Cleanup, Refactor & Visual Polish** (in planning, `2026.07.2`) — a pure tech-debt cycle, zero net-new user features, every paste artifact byte-identical and every theme render unchanged. See Current Milestone below. Operator debt from Cycles 12–14 (manual prod deploy + 7 flag flips) is **DONE** (confirmed 2026-07-04). Carry-forward backlog still open: scheduled/bulk harvest (AUTO-03/04), SEO/growth lane (SEO-01..05), matchup/meta-threat read (cedh-meta-gap lane), and a future manabase-engine refactor (needs a numeric-parity harness first).
+
+## Current Milestone: Cycle 15 — Cleanup, Refactor & Visual Polish
+
+**Goal:** Pay down accumulated tech-debt and finish deferred polish without changing public behavior — every paste artifact byte-identical, every theme render unchanged.
+
+**Target features:**
+- **Packet-service family SRP split** — extract shared prompt-building + Scryfall-reference-resolution collaborators from the four parallel god-services (`DeckAnalysisPacketService` 2372 LOC / `DeckComparisonService` 1033 / `MetaGapService` 956 / `DeckPrimerPacketService` 904). Behavior-neutral; artifacts byte-identical (ADR-0001 prompt decoupling holds — no shared prompt-prose helper).
+- **`--accent-strong` semantic-token migration** — finish migrating the 27 theme files off the overloaded `--accent-strong` onto `--link`/`--danger`/`--focus`/`--cta-border`; fixes error-text-reads-as-link in red guild themes.
+- **UI audit re-score → ≥20/24** — re-run the 6-pillar UI audit, measure current score, fix gaps to clear ≥20/24; includes the owed DirectPush Stage 4 live desktop+mobile verify + no-op success-copy fix (`DirectPush.razor:441`).
+- **`chatgpt-*` naming cleanup** — rename ~1545 `chatgpt-*` refs (CSS classes/data-attrs across 25 theme forks + TS constants + views) to AI-agnostic names; render byte-identical.
+- **Refactor-review sweep** — a code-review pass to surface remaining SRP/duplication targets (candidates: `deck-sync.ts` 2877, `Harvest.razor.cs` 1222); fold confirmed items into scope.
+
+**Out of scope this cycle:** manabase engine refactor (`CastabilitySimulator`/`ManabaseAnalyzer`/`ManabaseClassifier` — behavior-critical, no byte-identical gate, just heavily worked in Cycles 12/14; needs a numeric-parity harness first → deferred to backlog); feature lanes (cedh-meta-gap / SEO / auto-harvest); framework migration; the manabase engine's numeric behavior.
+
+**Key context:** Pure tech-debt cycle, zero net-new user features — the byte-identical artifact + theme-render constraint is the milestone gate. Prompt-variant decoupling (ADR-0001) holds. CalVer, NAMED not numbered (ADR 0002); phase numbering continues from 81 → 82+. DeckController god-class split is already DONE (verified 2026-07-04 — split across `DeckPacketController`/`DeckLookup`/`DeckSync`/`DeckPrimer`), so it is NOT in scope.
 
 ## Shipped Milestone: Cycle 14 — Deeper Deck Evaluation (SHIPPED 2026-07-03, `2026.07.1` — archived, see `.planning/milestones/cycle14-ROADMAP.md`)
 
@@ -189,7 +204,7 @@ Gate-driven milestone that pivoted: the KBV value gate = MARGINAL → retired pr
 
 <!-- Planning next milestone — fresh REQUIREMENTS.md created via /gsd-new-milestone. -->
 
-- Cycle 10 Studio Automation, Sync & Polish — scoping in `.planning/REQUIREMENTS.md` (see Current Milestone above)
+- Cycle 15 Cleanup, Refactor & Visual Polish — scoping in `.planning/REQUIREMENTS.md` (see Current Milestone above)
 
 ### Out of Scope
 
@@ -328,4 +343,4 @@ This document evolves at phase transitions and milestone boundaries.
 **Shipped:** v1.5 Deck Primer Generator + Content KB Integration + Housekeeping (2026-06-10) — 30/30 requirements across 6 phases (28-33, 25 plans, 219 commits, +56,893/−2,108 LOC across 781 files, 7-day timeline 2026-06-03 → 2026-06-09). Deck Primer fourth workflow + Content KB prompt integration + expert selection + Core doc gate. Vitest+jsdom + GitHub Actions CI added at close. Tests Core 282/282, Web 657/662 (5 PG-skip). Audit: passed. Content KB ships dark (flag OFF by design).
 
 ---
-*Last updated: 2026-07-03 — Cycle 14 shipped (Deeper Deck Evaluation — Interaction Audit / Win-Condition & Combo Map / Opening-Hand Mulligan Evaluator, `2026.07.1`)*
+*Last updated: 2026-07-04 — Cycle 15 started (Cleanup, Refactor & Visual Polish — packet-service SRP split / `--accent-strong` migration / UI re-score / `chatgpt-*` rename; `2026.07.2`)*

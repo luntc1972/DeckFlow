@@ -20,9 +20,9 @@
 
 ---
 
-## Carry-forward backlog (not in Cycle 14)
+## Carry-forward backlog (not in Cycle 15)
 
 - Scheduled/bulk harvest (AUTO-03/04)
 - SEO/growth lane (SEO-01..05)
 - Matchup / meta-threat read (deferred — deepens cedh-meta-gap, a separate lane)
-- Operator owed: manual prod deploy of Cycle 13 + Cycle 14 (autodeploy OFF) + flip the four Cycle 13 flags and the three Cycle 14 flags (`analysis.interaction-audit`, `analysis.wincon-map`, `analysis.mulligan-eval`) + any owed Cycle 12 flag flips
+- Manabase engine refactor (CastabilitySimulator / ManabaseAnalyzer / ManabaseClassifier SRP split) — deferred out of Cycle 15: behavior-critical Monte-Carlo + Karsten scoring, no byte-identical gate, just heavily worked in Cycles 12/14. Needs a numeric-parity harness built FIRST. Candidate for a dedicated future refactor cycle.
