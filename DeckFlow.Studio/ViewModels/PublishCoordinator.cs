@@ -2,6 +2,7 @@ using System.Text.Json;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Orchestration;
+using DeckFlow.Studio.Services;
 
 namespace DeckFlow.Studio.ViewModels;
 
@@ -61,7 +62,7 @@ public sealed class PublishCoordinator
     /// </summary>
     public async Task<PublishInitData> LoadInitDataAsync(CancellationToken cancellationToken)
     {
-        var repoRoot = await _git.ResolveRepoRootAsync(Directory.GetCurrentDirectory(), cancellationToken).ConfigureAwait(false);
+        var repoRoot = await _git.ResolveRepoRootAsync(StudioRepoLocator.ResolveStartDirectory(), cancellationToken).ConfigureAwait(false);
         var branch = await _git.GetCurrentBranchAsync(repoRoot, cancellationToken).ConfigureAwait(false);
         var rows = await _indexStore.GetApprovedRowsAsync(cancellationToken).ConfigureAwait(false);
         var summary = rows

@@ -89,7 +89,7 @@ public sealed class PullFromProdCoordinator
         onStage("resolve local repo bodies");
         log.Report($"Resolving {prodRows.Count} body/bodies from local repository...");
 
-        var repoRoot = await _git.ResolveRepoRootAsync(Directory.GetCurrentDirectory(), cancellationToken).ConfigureAwait(false);
+        var repoRoot = await _git.ResolveRepoRootAsync(StudioRepoLocator.ResolveStartDirectory(), cancellationToken).ConfigureAwait(false);
         var availableSet = new HashSet<string>(
             prodRows
                 .Where(r =>
@@ -141,7 +141,7 @@ public sealed class PullFromProdCoordinator
         CancellationToken cancellationToken)
     {
         var results = new List<PullApplyRowResult>();
-        var repoRoot = await _git.ResolveRepoRootAsync(Directory.GetCurrentDirectory(), cancellationToken).ConfigureAwait(false);
+        var repoRoot = await _git.ResolveRepoRootAsync(StudioRepoLocator.ResolveStartDirectory(), cancellationToken).ConfigureAwait(false);
 
         foreach (var entry in adoptEntries)
         {
