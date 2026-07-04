@@ -304,6 +304,38 @@ Publish-state tracking wired end-to-end: a `pushed_to_prod_utc` column + shared 
 
 ---
 
+## Milestone: Cycle 14 — Deeper Deck Evaluation (CalVer `2026.07.1`)
+
+**Shipped:** 2026-07-03
+**Phases:** 3 (79-81) | **Plans:** 9 | **Tasks:** 31
+
+### What Was Built
+Three flag-gated deck-evaluation reads on the existing engines, zero new deps: interaction & answers audit (bucketed card-backed counts + gap advisories, `/deck-analysis`), win-condition & combo map (ranked Spellbook combos + near-combos in assembly bands, `/deck-analysis`), opening-hand / mulligan evaluator (keepable band + keep-size process + spell-attributed openers off the existing London-mulligan sim, `/manabase`). All seeded OFF, byte-identical when off.
+
+### What Worked
+- **Reuse-not-rebuild held all cycle.** Every phase layered on shipped surfaces (DeckStatClassifier, cached Spellbook fetch, the single Monte-Carlo sim) — Phase 81 got its opening-hand reads with no second simulation by piggybacking the TAP-02 trial loop; cast% stayed byte-identical.
+- **Per-wave Codex review caught real defects before merge** (spell-specific openers, cache-write latching, culture drift) — the Claude-codes/Codex-reviews split paid off.
+- **A high-effort workflow code-review after execution found 5 more confirmed defects** (keepable-label overclaim, shared-CSS letter-spacing regression, tiny-deck opener sum, rounding non-reconciliation, dead field) that per-wave review missed — a second adversarial pass on the whole diff earns its keep.
+
+### What Was Inefficient
+- **The multi-worktree merge/push dance cost several round-trips.** `main` lives in the root worktree; `git push` (no refspec) and `git push origin main` before the ff-merge both no-op'd. Lesson: advancing `main` requires the ff-merge in the branch that holds it, and an explicit refspec to push a shared ref from a sibling worktree.
+- **A concurrent session pushed a README reorg to `main` mid-close**, forcing the close worktree to be rebased off the new `origin/main`. Fetch + re-base the close before archiving when other sessions may be live.
+
+### Patterns Established
+- Milestone close from a **dedicated temp worktree off `origin/main`** (not the shared main worktree), then ff into main — mirrors the squash-merge handoff, avoids collision.
+- `/manabase` single-artifact tools skip the ADR-0001 3-variant parity test (only `/deck-analysis` has 3 decoupled prompt variants).
+
+### Key Lessons
+- Prompt-mutating flags belong in the packet-cache bypass registry **only for the pipeline that caches** — mulligan-eval correctly stayed out (`/manabase` has no artifact cache); over-applying the pattern would have been dead code.
+- Bucket the London-mulligan keep by the **returned keep value pre-clamp**, not a depth index, or the Commander free-mulligan mislabels.
+
+### Cost Observations
+- Model mix: Opus orchestrator + sonnet gsd-executors/verifier/integration-checker; Codex gpt-5.5 reviews.
+- Sessions: executed + reviewed + shipped + closed across one resumed session.
+- Notable: CI (GitHub Actions) remained the authoritative gate — WSL-local green was necessary but not sufficient; every ship waited on remote CI.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution

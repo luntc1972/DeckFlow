@@ -1,3 +1,12 @@
+# Requirements Archive: cycle14 Cycle 14 — Deeper Deck Evaluation
+
+**Archived:** 2026-07-04
+**Status:** SHIPPED
+
+For current requirements, see `.planning/REQUIREMENTS.md`.
+
+---
+
 # Requirements: Cycle 14 — Deeper Deck Evaluation
 
 **Milestone goal:** Extend the deck-analysis paste-artifact engine with three deeper read dimensions — an interaction & answers audit, a win-condition & combo map, and an opening-hand / mulligan evaluator — each building on the already-shipped engine (DeckStatClassifier, Commander Spellbook, the Monte-Carlo castability simulation, multi-axis score) with zero new dependencies, flag-gated and byte-identical when OFF.
@@ -12,9 +21,9 @@
 
 ### Interaction & Answers Audit (INTERACT)
 
-- [ ] **INTERACT-01**: In the `/deck-analysis` output (paste artifact + on-page readout), the user sees the deck's interaction counted and bucketed — targeted removal, board wipes, counterspells, protection/recursion, and stax/taxation (coarse presence) — with the cards behind each count shown.
-- [ ] **INTERACT-02**: The audit flags coverage GAPS as a short advisory (e.g. "0 counterspells", "no graveyard hate"), framed as a heuristic first-pass the AI re-checks — explicitly not authoritative counts.
-- [ ] **INTERACT-03**: The interaction block is flag-gated (`analysis.interaction-audit`, seeded OFF in both dialects with a catalog description), byte-identical when OFF (pages AND zips), and renders in all three prompt variants (ChatGpt/Claude/Gemini) with no shared helper (ADR-0001, parity test).
+- [x] **INTERACT-01**: In the `/deck-analysis` output (paste artifact + on-page readout), the user sees the deck's interaction counted and bucketed — targeted removal, board wipes, counterspells, protection/recursion, and stax/taxation (coarse presence) — with the cards behind each count shown.
+- [x] **INTERACT-02**: The audit flags coverage GAPS as a short advisory (e.g. "0 counterspells", "no graveyard hate"), framed as a heuristic first-pass the AI re-checks — explicitly not authoritative counts.
+- [x] **INTERACT-03**: The interaction block is flag-gated (`analysis.interaction-audit`, seeded OFF in both dialects with a catalog description), byte-identical when OFF (pages AND zips), and renders in all three prompt variants (ChatGpt/Claude/Gemini) with no shared helper (ADR-0001, parity test).
 
 ### Win-Condition & Combo Map (WINCON)
 
@@ -54,9 +63,9 @@ Phase mapping confirmed by the roadmapper: 79 INTERACT · 80 WINCON · 81 MULLIG
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INTERACT-01 | Phase 79 | Pending |
-| INTERACT-02 | Phase 79 | Pending |
-| INTERACT-03 | Phase 79 | Pending |
+| INTERACT-01 | Phase 79 | Complete |
+| INTERACT-02 | Phase 79 | Complete |
+| INTERACT-03 | Phase 79 | Complete |
 | WINCON-01 | Phase 80 | Complete |
 | WINCON-02 | Phase 80 | Complete |
 | WINCON-03 | Phase 80 | Complete |
