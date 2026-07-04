@@ -64,7 +64,8 @@ public sealed class GeminiVariantSizeTests
             Array.Empty<string>(),
             Array.Empty<string>(),
             RepresentativeComboResult(),
-            includeCardVersions: false);
+            includeCardVersions: false,
+            enrichments: new AnalysisPromptEnrichments());
 
         EmitMeasurement("analysis", prompt.Length);
         Assert.False(string.IsNullOrWhiteSpace(prompt));

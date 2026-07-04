@@ -37,6 +37,8 @@ internal static class PacketArtifactStore
         "41-deck-profile-schema.json",
         "50-set-upgrade-prompt.txt",
         "51-set-upgrade-response.json",
+        "60-interaction-audit.json",
+        "61-wincon-map.json",
         "32-expert-context.json",
         "33-expert-selection.json",
         "all-prompts.txt",
@@ -115,7 +117,9 @@ internal static class PacketArtifactStore
         string deckProfileSchemaJson,
         string? setUpgradePromptText,
         string? canonicalDeckListText = null,
-        string? originalDeckText = null)
+        string? originalDeckText = null,
+        string? interactionAuditJson = null,
+        string? winConMapJson = null)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -134,7 +138,9 @@ internal static class PacketArtifactStore
         var responseSections = NormalizeSections(
         [
             ("40-deck-profile.json", "DECK PROFILE JSON", string.IsNullOrWhiteSpace(request.DeckProfileJson) ? null : ExtractJsonObject(request.DeckProfileJson)),
-            ("51-set-upgrade-response.json", "SET UPGRADE RESPONSE JSON", string.IsNullOrWhiteSpace(request.SetUpgradeResponseJson) ? null : ExtractJsonObject(request.SetUpgradeResponseJson))
+            ("51-set-upgrade-response.json", "SET UPGRADE RESPONSE JSON", string.IsNullOrWhiteSpace(request.SetUpgradeResponseJson) ? null : ExtractJsonObject(request.SetUpgradeResponseJson)),
+            ("60-interaction-audit.json", "INTERACTION AUDIT JSON", string.IsNullOrWhiteSpace(interactionAuditJson) ? null : ExtractJsonObject(interactionAuditJson)),
+            ("61-wincon-map.json", "WIN CONDITION MAP JSON", string.IsNullOrWhiteSpace(winConMapJson) ? null : ExtractJsonObject(winConMapJson))
         ]);
 
         return BuildArchive(promptSections, responseSections);
@@ -274,6 +280,8 @@ internal static class PacketArtifactStore
         entries.TryGetValue("01-request-context.txt", out var requestContextText);
         entries.TryGetValue("10-deck-list.txt", out var canonicalDeckList);
         entries.TryGetValue("10b-deck-original.txt", out var originalDeckText);
+        entries.TryGetValue("60-interaction-audit.json", out var interactionAuditJson);
+        entries.TryGetValue("61-wincon-map.json", out var winConMapJson);
 
         if (string.IsNullOrWhiteSpace(deckProfile) &&
             string.IsNullOrWhiteSpace(setUpgrade) &&
@@ -284,6 +292,8 @@ internal static class PacketArtifactStore
 
         request.DeckProfileJson = deckProfile ?? string.Empty;
         request.SetUpgradeResponseJson = setUpgrade ?? string.Empty;
+        request.InteractionAuditJson = interactionAuditJson?.Trim() ?? string.Empty;
+        request.WinConMapJson = winConMapJson?.Trim() ?? string.Empty;
         request.WorkflowStep = !string.IsNullOrWhiteSpace(setUpgrade)
             ? 5
             : !string.IsNullOrWhiteSpace(deckProfile)

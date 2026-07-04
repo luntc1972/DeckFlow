@@ -39,8 +39,7 @@ public sealed class AiPlatformExtensionTests
             IReadOnlyList<string> bannedCards,
             CommanderSpellbookResult? comboResult,
             bool includeCardVersions,
-            string? companionName = null,
-            string? scoreBlockText = null) =>
+            AnalysisPromptEnrichments enrichments) =>
             "<test-analysis-stub/>";
     }
 

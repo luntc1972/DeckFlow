@@ -65,6 +65,63 @@ public sealed class ManabaseViewRenderTests
     }
 
     [Fact]
+    public async Task OffState_MulliganFlagFalse_RendersNoMulliganLensMarkup()
+    {
+        var model = BuildPopulatedModel(showTapAnalyzer: false, showMulliganEval: false);
+
+        string html = await RenderManabaseViewAsync(model);
+
+        Assert.DoesNotContain("manabase-mulliganlens", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("aria-label=\"Opening hand\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("keepable hands", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task OnState_MulliganFlagTrue_RendersOpeningHandLensCardWithTrackedSpell()
+    {
+        var model = BuildPopulatedModel(showTapAnalyzer: false, showMulliganEval: true);
+
+        string html = await RenderManabaseViewAsync(model);
+
+        Assert.Contains("manabase-mulliganlens", html, StringComparison.Ordinal);
+        Assert.Contains("aria-label=\"Opening hand\"", html, StringComparison.Ordinal);
+        // Keepable-band line (KeepableBand = "high", KeepableHandPercent = 82).
+        Assert.Contains("high (~82%)", html, StringComparison.Ordinal);
+        Assert.Contains("keepable hands", html, StringComparison.Ordinal);
+        // Keep-size process line (Kept7Percent = 55, MulliganTo6Percent = 30, MulliganTo5Percent = 15).
+        Assert.Contains("kept 7 ~55%", html, StringComparison.Ordinal);
+        // Representative-opener line names the tracked spell, never a generic claim.
+        Assert.Contains("Swords to Plowshares castable on curve (turn 1)", html, StringComparison.Ordinal);
+        Assert.Contains("workable line", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task OffState_IsByteIdenticalToOnWithMulliganCardExcised()
+    {
+        // Mirrors OffState_IsByteIdenticalToOnWithTapCardExcised for the opening-hand card: the OFF
+        // and ON models are identical except for ShowMulliganEval (ShowTapAnalyzer held constant at
+        // false so the tap card never appears in either render), so the only difference between the
+        // two pages must be the contiguous mulligan-lens block.
+        string offHtml = NormalizeAntiForgery(await RenderManabaseViewAsync(
+            BuildPopulatedModel(showTapAnalyzer: false, showMulliganEval: false)));
+        string onHtml = NormalizeAntiForgery(await RenderManabaseViewAsync(
+            BuildPopulatedModel(showTapAnalyzer: false, showMulliganEval: true)));
+
+        int prefix = CommonPrefixLength(offHtml, onHtml);
+        int suffix = CommonSuffixLength(offHtml, onHtml, prefix);
+
+        string offMiddle = offHtml[prefix..(offHtml.Length - suffix)];
+        string onMiddle = onHtml[prefix..(onHtml.Length - suffix)];
+
+        // OFF emits nothing in the differing region — byte-identical to ON minus the mulligan card.
+        Assert.Equal(string.Empty, offMiddle);
+        // Sanity: the isolated ON region is exactly the opening-hand lens card.
+        Assert.StartsWith("<div class=\"manabase-lens manabase-mulliganlens\"", onMiddle.TrimStart(), StringComparison.Ordinal);
+        Assert.EndsWith("</div>", onMiddle.TrimEnd(), StringComparison.Ordinal);
+        Assert.Contains("aria-label=\"Opening hand\"", onMiddle, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task OffState_IsByteIdenticalToOnWithTapCardExcised()
     {
         // Codex MED2 — a stronger OFF-path guard than substring-absence. The OFF and ON models are
@@ -127,7 +184,7 @@ public sealed class ManabaseViewRenderTests
         return i;
     }
 
-    private static ManabaseViewModel BuildPopulatedModel(bool showTapAnalyzer) => new()
+    private static ManabaseViewModel BuildPopulatedModel(bool showTapAnalyzer, bool showMulliganEval = false) => new()
     {
         Request = new ManabaseRequest
         {
@@ -137,9 +194,14 @@ public sealed class ManabaseViewRenderTests
         InputSummary = "Test deck · 99 cards + 1 commander",
         Report = ReportWithTapAnalysis(),
         ShowTapAnalyzer = showTapAnalyzer,
+        ShowMulliganEval = showMulliganEval,
     };
 
-    /// <summary>A multi-color report carrying populated tap analysis (ColorFindings.Count &gt; 1).</summary>
+    /// <summary>
+    /// A multi-color report carrying populated tap analysis (ColorFindings.Count &gt; 1) AND a
+    /// populated mulligan evaluation, so the tap and mulligan flags can be toggled independently
+    /// against the same fixed report.
+    /// </summary>
     private static ManabaseReport ReportWithTapAnalysis() => new()
     {
         ActualLands = 36,
@@ -175,6 +237,32 @@ public sealed class ManabaseViewRenderTests
             {
                 [ManaColor.White] = new() { UntappedSources = 16.0, TotalSources = 20.0, UntappedPercent = 80 },
                 [ManaColor.Blue] = new() { UntappedSources = 13.5, TotalSources = 16.0, UntappedPercent = 84 },
+            },
+        },
+        MulliganEvaluation = new ManabaseMulliganEvaluation
+        {
+            KeepableHandPercent = 82,
+            KeepableBand = "high",
+            Kept7Percent = 55,
+            MulliganTo6Percent = 30,
+            MulliganTo5Percent = 15,
+            ColorCount = 2,
+            AverageManaValue = 2.8,
+            RepresentativeOpeners = new List<OpeningHandSample>
+            {
+                new()
+                {
+                    Lands = 3,
+                    Colors = 2,
+                    RampPieces = 1,
+                    OtherCards = 3,
+                    KeptCards = 7,
+                    Decision = "keep 7",
+                    TrackedSpellName = "Swords to Plowshares",
+                    TrackedOnCurveTurn = 1,
+                    OnCurveCastable = true,
+                    HasPlan = true,
+                },
             },
         },
     };

@@ -23,8 +23,7 @@ internal interface IAnalysisPromptVariant
     /// <param name="bannedCards">Official banned-card names.</param>
     /// <param name="comboResult">Optional Commander Spellbook combo result.</param>
     /// <param name="includeCardVersions">Whether to preserve specific card printings in outputs.</param>
-    /// <param name="companionName">Companion name carried as command-zone side metadata; null when the awareness flag is off.</param>
-    /// <param name="scoreBlockText">Pre-built four-axis deck-score text block; null/empty when the multi-axis-score flag is off.</param>
+    /// <param name="enrichments">Bundle of flag-gated enrichment blocks (companion, score, interaction audit, win-con map).</param>
     string Build(
         DeckAnalysisRequest request,
         string decklistText,
@@ -35,6 +34,5 @@ internal interface IAnalysisPromptVariant
         IReadOnlyList<string> bannedCards,
         CommanderSpellbookResult? comboResult,
         bool includeCardVersions,
-        string? companionName = null,
-        string? scoreBlockText = null);
+        AnalysisPromptEnrichments enrichments);
 }

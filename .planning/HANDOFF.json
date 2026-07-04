@@ -1,0 +1,43 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-07-03T15:54:25.799Z",
+  "phase": "81",
+  "phase_name": "Opening-Hand / Mulligan Evaluator",
+  "phase_dir": ".planning/phases/81-opening-hand-mulligan-evaluator",
+  "plan": null,
+  "task": null,
+  "total_tasks": 9,
+  "status": "paused",
+  "stage": "planning-complete-not-executed",
+  "completed_tasks": [
+    {"id": "plan-draft", "name": "Draft 3 plans (81-01/02/03)", "status": "done", "commit": "ef1fd560"},
+    {"id": "plan-checker-1", "name": "gsd-plan-checker: 1 blocker + 1 warning", "status": "done"},
+    {"id": "checker-fixes", "name": "Fix forward-ref + singleton keep-value bucketing", "status": "done", "commit": "436b707a"},
+    {"id": "plan-checker-2", "name": "gsd-plan-checker re-verify: PASS", "status": "done"},
+    {"id": "codex-review-1", "name": "Codex gpt-5.5 plan review: CHANGES-REQUIRED (1 HIGH/1 MED/1 LOW)", "status": "done"},
+    {"id": "codex-fixes", "name": "Fix spell-attributed on-curve/HasPlan + two-stage capture + seed reflection", "status": "done", "commit": "a6010a05"},
+    {"id": "plan-checker-3", "name": "gsd-plan-checker re-verify post-Codex: PASS (no regression)", "status": "done"},
+    {"id": "codex-review-2", "name": "Codex gpt-5.5 confirm: APPROVE", "status": "done"}
+  ],
+  "remaining_tasks": [
+    {"id": "execute", "name": "Run /gsd-execute-phase 81 in a FRESH per-run bench (separate-bench directive)", "status": "not_started"},
+    {"id": "push-ci", "name": "Push branch -> confirm GitHub Actions green (CI is authoritative gate; WSL-local masks failures)", "status": "not_started"},
+    {"id": "live-smoke", "name": "Operator live visual smoke: /manabase desktop 1280 + mobile 390, flag ON shows mulligan lens / OFF hides, across themes", "status": "not_started"}
+  ],
+  "blockers": [],
+  "human_actions_pending": [
+    {"action": "Execute Phase 81 in a dedicated fresh worktree, one execute run per bench", "context": "Separate-bench operator directive (2026-06-30) prevents the Phase-78 concurrent-commit collision; NEVER two execute runs in one worktree, never the shared main checkout", "blocking": true},
+    {"action": "Cycle 14 branch -> main merge + MANUAL prod deploy after 81 ships", "context": "Render autodeploy is OFF; phase 79 pushed, 80+81 not pushed; flags analysis.interaction-audit / analysis.wincon-map / analysis.mulligan-eval all seeded OFF, flip ON in prod post-deploy", "blocking": false},
+    {"action": "Re-apply gsd-statusline.js end->front patch after any /gsd:update", "context": "Hook is gsd-hook-version 1.42.3 GSD-managed; update reverts the context-meter position fix (lines 426 + 517)", "blocking": false}
+  ],
+  "decisions": [
+    {"decision": "Session re-anchored into cycle14 worktree via EnterWorktree path=", "rationale": "cwd resets to shared main after every Bash call and subagents inherit session cwd; planning + gsd subagents must run in the cycle14 bench so gsd-sdk reads Phase-81 .planning and work stays isolated", "phase": "81"},
+    {"decision": "3-plan recipe mirroring 79/80; NO ADR-0001 3-variant parity test", "rationale": "/manabase has ONE paste artifact (ManabaseReportTextBuilder), unlike /deck-analysis's 3 decoupled variants; mirror TAP's single AppendTapAnalysisBlock + null-guard byte-identity", "phase": "81"},
+    {"decision": "No-second-Simulate via TAP-02 Turn1UntappedTrials piggyback; keep-size bucket by returned keep VALUE pre-Math.Min-clamp", "rationale": "reuse single existing per-spell Monte-Carlo pass; singleton (Commander) depth-0 AND depth-1 both return keep=7 (free mulligan), so depth-index bucketing would mislabel free-mull kept-7 as mull-to-6", "phase": "81"},
+    {"decision": "On-curve/HasPlan attributed to a tracked spell (TrackedSpellName + TrackedOnCurveTurn); openers sampled from EARLY low-MV non-commander rows; HasPlan = >=2 lands AND color coverage AND tracked play OnCurveCastable", "rationale": "Codex HIGH: sim is per-spell so firstCastableTurn is spell-specific; a generic 'spell-independent' on-curve claim would misrepresent; HasPlan=any-non-land too weak for MULLIGAN-04", "phase": "81"},
+    {"decision": "Skip research/CONTEXT/UI-SPEC/pattern-mapper", "rationale": "roadmap has 5 detailed success criteria + resolved decisions; matches how 79/80 were planned; UI is an existing-page readout mirroring TAP", "phase": "81"}
+  ],
+  "uncommitted_files": [],
+  "next_action": "Operator opens a FRESH worktree/bench off this branch tip (a6010a05) and runs /gsd-execute-phase 81. Claude codes all 3 waves (sonnet gsd-executors), Codex gpt-5.4 reviews each diff. Do NOT execute in the shared main checkout or run two execute passes in one bench.",
+  "context_notes": "Phase 81 (last Cycle 14 phase) is FULLY PLANNED and dual-reviewed (Claude plan-checker PASS + Codex gpt-5.5 APPROVE). Branch plan/cycle-14-deck-eval-depth tip a6010a05, 31 commits ahead of origin, working tree clean, NOT pushed. Plans execution-ready. Phase 79 already EXECUTED+VERIFIED+PUSHED (CI green); Phase 80 EXECUTED+VERIFIED+Codex-APPROVE, ~30 ahead NOT pushed. Delegation rule (2026-06-27): Claude codes AND plans, Codex reviews. Flag analysis.mulligan-eval seeds OFF both dialects. Non-GSD aside this session: patched ~/.claude/hooks/gsd-statusline.js default 'end'->'front' (context meter was clipping) — syntax-checked OK, reverts on /gsd:update."
+}

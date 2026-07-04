@@ -1,269 +1,256 @@
-# Feature Research — Cycle 13: Deck Evaluation & Creator Output
+# Feature Research — Cycle 14 "Deeper Deck Evaluation"
 
-**Domain:** Commander/cEDH deck-evaluation + creator-output features layered on an existing AI-paste-artifact engine
-**Researched:** 2026-06-27
-**Confidence:** HIGH on bracket definitions + Game Changers list (official WotC sources, cross-checked Feb 2026 update) and EDHRank axes (direct source); MEDIUM on bracket-*balancing* output shape and tap-analyzer exact readout (no incumbent ships the balancer; tap-analyzer described in prose, not screenshots); MEDIUM on primer-refresh semantics (no incumbent auto-refreshes — inferred from Moxfield's manual model + DeckFlow's diff engine).
-
----
-
-## Context: What already exists in DeckFlow (do NOT re-spec)
-
-The four Cycle 13 features build on shipped capability. Each new feature is categorized against these boundaries:
-
-- **Import + enrichment** — Moxfield/Archidekt URL + text paste → `DeckEntry` list, Scryfall enrichment, `ScryfallCardFactMapper`. **Reuse for all four features.**
-- **Manabase castability engine (P70-72)** — `CastabilitySimulator` (seeded Monte-Carlo, 20k trials, London mulligan), `ManabaseReport` with per-spell `CardCastability` (cast %, on-curve turn, average-delay), per-color findings, four-tier health verdict, ramp/draw counts, fast-mana count, MDFC counts, land target breakdown. **The `ManaSource.EntersUntapped` flag and per-trial land-drop simulation already model tapped state — Tap Analyzer surfaces this, it does NOT rebuild it.**
-- **Command-zone detection** — commander/partner/background/companion classification (P72-73). **Feeds bracket commander-power signal and multi-axis Power axis.**
-- **Deck Primer generator** — 31-section catalog, bracket presets, Commander Spellbook combo grounding, EdhTop16 matchup routing, per-AI artifact variants. **Auto-Refreshing Primer extends this — it does NOT replace it.**
-- **AI-agnostic paste artifacts (ADR-0001)** — every workflow renders ChatGpt/Claude/Gemini variants with NO shared helper (intentional prose decoupling). **Every new paste artifact in Cycle 13 must render in all three variants WITHOUT extracting a shared builder.**
-- **EdhTop16 meta client** + **CommanderSpellbook combo client** — combo density + meta archetype data. **Feeds bracket combo-floor and multi-axis Consistency axis.**
-- **Feature flags + admin tool registry** — every new tool/surface ships flag-gated.
-
-**Core thesis (overrides all):** every feature must end in output the user pastes into ChatGPT/Claude/Gemini and gets a useful answer in one round-trip, without reformatting. A score or bracket number that is NOT in a paste artifact only half-serves the thesis.
+**Domain:** MTG Commander / cEDH deck-evaluation (paste-to-AI artifact engine)
+**Researched:** 2026-06-30
+**Confidence:** HIGH (interaction taxonomy + win-line archetypes + mulligan keep heuristics grounded in current Commander/cEDH sources; engine-dependency notes verified against the `deckflow-cycle14` worktree)
 
 ---
 
-## FEATURE 1 — Bracket Classifier + Balancer
+## Scope
 
-### Expected behavior
-Two linked capabilities:
-1. **Classifier** — given an imported deck, auto-detect which of the official 5 WotC brackets it currently sits in, by applying the hard floors (Game Changers count, mass land denial, 2-card infinite combos, extra-turn loops) and the soft signals (fast mana density, tutor count, combo speed).
-2. **Balancer** (the uncontested differentiator) — given a *target* bracket N, output a concrete "cards to cut (and why)" artifact that moves the deck down to bracket N. No incumbent ships this — classifiers stop at "you are Bracket 4."
+Three new **read-only** deck-eval dimensions, each flag-gated, byte-identical when OFF, each layered on an
+already-shipped engine piece:
 
-### Input signals
-- **Hard floors (force a minimum bracket):**
-  - **Game Changers count** — match deck cards against the official list (53 cards as of Feb 2026). 0 GC → B1/B2 eligible; 1-3 GC → minimum B3; 4+ GC → minimum B4.
-  - **2-card infinite combos** — via existing CommanderSpellbook client; B1/B2 forbid intentional 2-card combos, B3 forbids *early-game* combos (must not reliably win before ~turn 6-7), B4/B5 unrestricted.
-  - **Mass land denial** — forbidden B1-B3, allowed B4/B5. Detect Armageddon/Ravages of War/Winter Orb/Static Orb/Jokulhaups class.
-  - **Extra turns / chaining** — B1 none, B2/B3 low quantity no chaining, B4/B5 allowed.
-- **Soft signals (raise the bracket within the floor):** fast mana density (Sol Ring/Mana Crypt/Moxen — already counted as `FastMana` in `ManabaseDeck`), tutor count, ramp count (already in `ManabaseReport.RampSourceCount`), combo *speed* (combo pieces' average turn).
+1. **Interaction & answers audit** — finer taxonomy over the existing coarse `DeckStatClassifier.IsInteractionCard`.
+2. **Win-condition & combo map** — deeper use of `CommanderSpellbookService` + `IsClosingPowerCard`.
+3. **Opening-hand / mulligan evaluator** — a readout off the existing Monte-Carlo `CastabilitySimulator`
+   (which already simulates a London-mulligan opening-hand keep decision today).
 
-### Output the user wants
-- **Classifier:** the bracket number + the specific reasons (which Game Changers were found, which combos, whether mass-land-denial/extra-turns present). NOT a black-box number.
-- **Balancer artifact (paste-ready):** "To move this deck from Bracket 4 to Bracket 3, cut: Vampiric Tutor (Game Changer — over the 3-GC ceiling), Survival of the Fittest (Game Changer), [combo piece X] (enables a turn-4 2-card win). Suggested fair replacements: Fauna Shaman (similar creature tutor, slower, not a GC), Buried Alive (graveyard synergy, not a GC)." The real-world cut pattern (confirmed): swap a Game Changer for a strictly-fairer functional analog.
-
-### Table stakes vs differentiator vs anti-feature
-- **Table stakes:** Game Changer detection + bracket number. Multiple free tools do this (ScrollVault, Spellweave, Draftsim, Rate My Decks, commanderbrackets.com).
-- **DIFFERENTIATOR (the headline):** the *balancer* — concrete cuts + fair-replacement suggestions to hit a chosen target bracket, delivered as a paste artifact. Research confirms this is uncontested. ScrollVault/Spellweave classify but do NOT prescribe cuts; only manual blog examples exist.
-- **Anti-feature:** claiming a deck "IS" bracket N as gospel. WotC is explicit: brackets guide pregame conversation, the table makes the final call. DeckFlow must present the bracket as advisory + show its work, never as a verdict that overrides the pod.
-
-### THE OFFICIAL 5 BRACKETS (cite: WotC Commander Brackets Beta, Oct 2025 + Feb 2026 updates)
-
-| # | Name | Intent | Game Changers | 2-Card Combos | Extra Turns | Mass Land Denial | Tutors | Typical game length |
-|---|------|--------|---------------|---------------|-------------|------------------|--------|--------------------|
-| 1 | **Exhibition** | Ultra-casual, theme over winning; "stretching card legality is okay" | 0 | None intentional | None | Forbidden | Sparse | 9+ turns |
-| 2 | **Core** | Average modern precon power; big turns/engines possible | 0 | None intentional | Low qty, no chaining | Forbidden | Sparse | 8+ turns |
-| 3 | **Upgraded** | Tuned beyond precon, selective upgrades | **Up to 3** | No *early-game* combos (no reliable win before ~T6-7) | Low qty, no chaining | Forbidden | 6+ turns |
-| 4 | **Optimized** | High-power, strongest cards, explosive starts, no tournament-meta focus | Unrestricted | Allowed | Allowed | Allowed | Fast/proactive |
-| 5 | **cEDH** | Competitive, metagame-tuned, winning is the objective | Unrestricted | Allowed | Allowed | Allowed | Any turn |
-
-**CRITICAL UPDATE (Oct 21 2025):** **Tutor restrictions were REMOVED from ALL brackets.** The panel dropped the vague "few tutors" guidance — not all tutors are equally problematic, and the combo restrictions already constrain decks. So the classifier must NOT use raw tutor count as a hard bracket gate; tutors are now only a soft power signal feeding the multi-axis Consistency score. (Earlier 2025 docs that gate on tutor count are STALE.)
-
-### THE GAME CHANGERS LIST (53 cards, as of Feb 9 2026 update)
-
-Base 48-card list after the Oct 21 2025 update, **plus** Feb 9 2026 additions (Farewell, Biorhythm) and other 2025 adds. The Oct-2025 48-card list (HIGH confidence, quoted from the WotC Oct 21 2025 announcement):
-
-> Drannith Magistrate, Humility, Serra's Sanctum, Smothering Tithe, Enlightened Tutor, Teferi's Protection, Consecrated Sphinx, Cyclonic Rift, Force of Will, Fierce Guardianship, Gifts Ungiven, Intuition, Mystical Tutor, Narset Parter of Veils, Rhystic Study, Thassa's Oracle, Ad Nauseam, Bolas's Citadel, Braids Cabal Minion, Demonic Tutor, Imperial Seal, Necropotence, Opposition Agent, Orcish Bowmasters, Tergrid God of Fright, Vampiric Tutor, Gamble, Jeska's Will, Underworld Breach, Crop Rotation, Gaea's Cradle, Natural Order, Seedborn Muse, Survival of the Fittest, Worldly Tutor, Aura Shards, Coalition Victory, Grand Arbiter Augustin IV, Notion Thief, Ancient Tomb, Chrome Mox, Field of the Dead, Glacial Chasm, Grim Monolith, Lion's Eye Diamond, Mana Vault, Mishra's Workshop, Mox Diamond, Panoptic Mirror, The One Ring, The Tabernacle at Pendrell Vale
-
-**Feb 9 2026 update:** **+Farewell** (board-reset; B3+ only), **+Biorhythm** (standard add on un-ban). **Lutri, the Spellchaser explicitly NOT added.** The "53 cards" figure (Spellweave, cross-checked) reflects these plus intermediate 2025 additions. The Oct-2025 removals (do NOT flag these as GCs): Expropriate, Jin-Gitaxias Core Augur, Sway of the Stars, Vorinclex Voice of Hunger, Kinnan Bonder Prodigy, Urza Lord High Artificer, Winota Joiner of Forces, Yuriko the Tiger's Shadow, Deflecting Swat, Food Chain.
-
-> **IMPLEMENTATION NOTE:** the Game Changers list is a LIVING list (updated Feb/Apr/Oct 2025, Feb 2026, with May-June 2026 updates expected). It MUST be data, not code — a versioned, dated, admin-editable table (or seed file), not a hardcoded array. Pin the list version + date in the artifact so a stale classification is auditable. The current month is June 2026; verify the latest list at analysis time and surface the list-date to the user.
-
-### Complexity: MEDIUM (classifier) / HIGH (balancer)
-Classifier reuses combo client + fast-mana/ramp counts; the new work is the Game Changers data table + mass-land-denial/extra-turn card detection. Balancer is HIGH — it must rank candidate cuts (GC over ceiling first, then early-combo enablers), justify each, and ideally suggest fair replacements (could lean on the AI round-trip: DeckFlow emits the "here are the floor-violations, ask the AI for fair swaps" artifact rather than computing replacements locally).
+Each is a **paste-artifact section + a view readout**, NOT a new tool. The bar is the project's core value:
+*useful in one ChatGPT/Claude/Gemini round-trip, no reformatting.* Output must be compact, labeled, and
+self-explanatory — never a raw dump. Every artifact renders in all three AI variants WITHOUT a shared helper (ADR-0001).
 
 ---
 
-## FEATURE 2 — Multi-Axis Deck Score (Power / Speed / Control / Consistency, 0-5)
+## What already exists in DeckFlow (do NOT re-spec)
 
-### Expected behavior
-Replace/augment single-number power scoring with a 4-axis radar (EDHRank model), each axis 0.0-5.0 (decimals allowed), rolled into the paste packet so the AI reasons about the deck across dimensions rather than one scalar.
+| Engine piece | What it gives Cycle 14 | Location (verified) |
+|--------------|------------------------|---------------------|
+| `DeckStatClassifier` | Coarse role booleans: `IsInteractionCard` (OR-of-everything), `IsBoardWipeCard`, `IsRecursionCard`, `IsRampCard`, `IsDrawCard`, `IsClosingPowerCard` | `DeckFlow.Core/Analysis/DeckStatClassifier.cs` |
+| `CastabilitySimulator` | Seeded Monte-Carlo that **already draws openers and runs a London-mulligan keep/mull decision**, incl. a color-aware keep gate `ColorKeepSatisfiedForTest` (threshold `min(colors, lands, 2)`) and land+ramp keep logic | `DeckFlow.Core/Manabase/` (`ColorAwareMulliganTests`, `LandRampSimTests`) |
+| `CommanderSpellbookService` | Combos present in the deck + "almost there" / missing-piece reads; returns `null` on API failure (graceful) | `DeckFlow.Web/Services/CommanderSpellbookService.cs` |
+| Multi-axis score (P77) | Power / Speed / Control / Consistency 0-5 bands already in `/deck-analysis` + 3 paste variants | shipped Cycle 13 |
+| Tutor / ramp counts | Already counted for the manabase + score work | `ManabaseReport`, classifier |
 
-### Input signals per axis (cite: EDHRank / mtgmana.rocks — direct source)
-
-| Axis | Definition (EDHRank) | Card signals feeding it (available in DeckFlow today) |
-|------|----------------------|-------------------------------------------------------|
-| **Power** | Commander's power tier + individual card strength | Command-zone detection (commander identity) + per-card power proxy. *Gap:* DeckFlow has no card-quality DB; EDHREC-popularity or a curated tier table would be needed, OR delegate raw "card strength" judgment to the AI round-trip. |
-| **Speed** | Avg mana value + number of mana producers (rocks + dorks) + card-advantage sources | **All available:** `ManabaseDeck.AverageManaValue`, `ManabaseReport.RampSourceCount` (rocks/dorks), `FastMana` count, ramp/draw counts. |
-| **Control** | Board-wipe quantity + targeted-answer (removal/counter) density | *Partial:* needs an interaction classifier (board wipes, spot removal, counterspells). DeckFlow has category-knowledge crawl data + can pattern-match oracle text. |
-| **Consistency** | Combo density + combo power, tutor count, card-advantage sources | **Mostly available:** CommanderSpellbook combo count (density), tutor detection, draw-piece count (`DrawPieceCount`). |
-
-EDHRank example output (real): Ardenn // Akiri → Power 2.5, Speed 3.0, Control 2.5, Consistency 3.0. Confirms decimal granularity and per-axis independence.
-
-### Output the user wants
-- Four numbers + a one-line plain-language read per axis ("Speed 4.2 — heavy fast-mana, low curve; expects to deploy threats ahead of the table").
-- In the paste artifact: the four axes + the *signals behind them* so the AI can critique ("your Control is 1.5 because you run only 2 board wipes and 3 spot-removal spells for a deck this combo-dense").
-
-### Table stakes vs differentiator vs anti-feature
-- **Table stakes (single number):** every power calculator outputs a 1-10 score (Rate My Decks uses 12 factors → one number; Draftsim; commanderpowermeter; edhpowerlevel). A single number alone is now baseline.
-- **DIFFERENTIATOR:** the *4-axis decomposition in a paste artifact*. EDHRank decomposes but does NOT produce an AI-paste artifact; Rate My Decks bundles 12 factors into ONE number (explicitly does NOT split into Power/Speed/Control/Consistency). DeckFlow's edge = 4 axes + the underlying signals fed to the AI for round-trip critique.
-- **Anti-feature — false precision / a single "objective power 7.3/10."** Every incumbent that ships one number gets argued with; even EDHRank's author admits "mine has some issues." Present axes as *directional signals with shown inputs*, NOT a definitive rating. Decimals are fine, but the artifact must expose the inputs so the score is contestable, not oracular.
-
-### Complexity: MEDIUM
-Speed + Consistency axes are ~80% reuse of existing manabase + combo + ramp/draw signals. Control needs a new interaction classifier (board-wipe / removal / counter detection from oracle text or category-knowledge). Power needs a card-strength proxy — the cleanest path consistent with the thesis is to compute Speed/Control/Consistency locally and let the AI weigh "raw card power" in the round-trip rather than building a card-quality DB. The radar/score is only half-valuable until it is *in the paste packet*.
+**Key insight:** the mulligan evaluator is the lowest-risk of the three — the simulator *already* makes the keep
+decision internally; Cycle 14 surfaces the rate it already computes rather than building a second simulation.
 
 ---
 
-## FEATURE 3 — Auto-Refreshing Primer
+## How These Three Features Work (Domain Grounding)
 
-### Expected behavior
-The Deck Primer artifact (already shipped) becomes deck-version-aware: when the underlying deck changes, the primer is either flagged stale (and the user prompted to regenerate) or selectively regenerated for the affected sections. Closes the universal "primers are manually maintained and decay" gap.
+### 1. Interaction & answers audit — the standard taxonomy
 
-### How primers decay in the wild (cite: Moxfield, BlazeHero guide, MTGSalvation)
-- Moxfield primers are **free-text Markdown** with collapsible section tabs (Win Conditions, Mulligan Guide, Game Plan early/mid/late, Matchups, Updates log, Card Synergies). There is **NO automatic link between the decklist and the primer prose** — change a card and the primer text is silently stale.
-- Maintenance is fully manual: creators keep an "Updates" section by hand; MTGSalvation's approved-primer list literally tracks "currently being updated to match current changes." **No incumbent auto-refreshes or auto-flags staleness** — this is the open lane.
+Serious players bucket interaction into a small, well-understood set. The audit **counts by bucket** and **flags
+coverage gaps** ("what can't this deck answer?"). It does NOT grade individual cards.
 
-### Input signals
-- DeckFlow already has a **diff engine** (`DiffEngine`, deck-vs-deck reconcile) and **cross-tool deck persistence** (P74, sessionStorage `deckflow.last-deck`). The staleness trigger = diff the current decklist against the decklist the primer was generated from.
-- Section-to-card mapping: which primer sections depend on which cards (e.g., a combo-line section depends on the combo pieces; a mana-base section depends on lands; a matchup section is deck-strategy-level and rarely card-specific).
+| Bucket | Answers… | Oracle/type signal (heuristic) | Notes |
+|--------|----------|-------------------------------|-------|
+| **Targeted removal (spot)** | a *resolved* permanent | `destroy target`, `exile target`, `return target … to … hand` (bounce), `target creature gets -X/-X`, `fight` | Sub-read matters: creature-only vs. catch-all ("exile target permanent"). cEDH values *unconditional* + *instant-speed*. |
+| **Counterspells (stack)** | a spell *before* it resolves | `counter target spell` / `counter target … ability` | Most-valued bucket in cEDH. Sub-flag "noncreature only" (a real, commonly-cited gap — most counters can't stop a creature). |
+| **Board wipes (mass)** | many permanents at once | `destroy all`, `exile all`, `each creature gets -X`, "all creatures get" | Already covered by `IsBoardWipeCard` — reuse. Casual leans on these; cEDH runs few. |
+| **Stax / taxation / denial** | opponents *acting at all* | "can't", "don't untap", "costs {1} more", "skip", "players can't search" | Hardest from text; high false-positive risk → **coarse presence read only** (see anti-features). |
+| **Protection / resilience** | keeping *your own* engine alive | "hexproof", "indestructible", "can't be countered", "protection from", "ward", "return it to the battlefield" | Interaction *for your win*, not against theirs. Keep a **distinct** bucket — cEDH measures "counter-to-their-counter." |
+| **Graveyard / recursion answers** | graveyard engines + reuse | "exile … graveyard" (hate) + existing `IsRecursionCard` (your own reuse) | Optional sub-bucket; graveyard *hate* is a common coverage gap. |
 
-### Output the user wants (concrete refresh semantics — two tiers)
-1. **Flag-stale (MVP, LOW-MEDIUM):** store the decklist hash (and/or card-set) the primer was generated from alongside the artifact. On re-open/re-import, diff; if changed, show "This primer was generated from a deck that has since changed: +Card A, -Card B (3 cards differ). Regenerate?" with a one-click regenerate. This is the smallest honest closure of the gap and fits the stateless paste model.
-2. **Selective regenerate (differentiator, HIGH):** map sections → card dependencies; when the diff touches only cards in section X, regenerate ONLY section X's prompt artifact (or flag only that section stale), leaving hand-edited sections intact. Matches Moxfield's section-tab structure and respects that creators hand-tune prose they don't want clobbered.
+**Counting in practice:** each mainboard card is run through the bucket predicates against its normalized Scryfall
+`oracleText` + `typeLine`. A card can land in multiple buckets (a modal "counter target spell or destroy target
+creature" counts as both). Report **per-bucket counts + total interaction density**, then a **gap-flags line**
+("0 counterspells", "no catch-all removal", "no graveyard hate"). Gap flags are the high-value output; raw counts are
+table stakes.
 
-### Table stakes vs differentiator vs anti-feature
-- **Table stakes:** primer generation itself (already shipped) + a manual "Updates" log (the universal manual pattern).
-- **DIFFERENTIATOR (the headline, per research = DeckFlow's clearest creator lane):** auto-detect staleness via deck diff + regenerate. No incumbent does this. Ties directly to the one-round-trip thesis — the output is a fresh paste-ready primer.
-- **Anti-feature — silent full auto-regeneration that clobbers hand-edited prose.** Creators invest hours in primer voice/stories; a tool that silently overwrites their "Card Synergies — that game where X won" loses trust instantly. ALWAYS flag + ask before regenerating; never auto-overwrite. Prefer section-scoped regeneration so hand-edited sections survive a card swap elsewhere.
+**Reference density (orientation, not a grade):** casual decks run ~8-12 removal/counters combined; cEDH runs a much
+higher density weighted toward counters + cheap unconditional removal. (Commander's Herald, EDHREC stax guide, TCGplayer.)
 
-### Complexity: MEDIUM (flag-stale) / HIGH (section-scoped regenerate)
-Flag-stale reuses the diff engine + a stored decklist hash — bounded. Section-scoped regenerate needs a section→card dependency map and per-section prompt assembly, and must honor ADR-0001 (render the regenerated section in all three AI variants with no shared helper).
+### 2. Win-condition & combo map — enumerating + classifying win lines
+
+The map **names the deck's win lines, counts redundancy, and gives an assembly read** — "how does this deck actually
+win, and how reliably?"
+
+**Win-line archetypes (classification buckets):**
+- **Infinite combos** — deterministic loops. cEDH canonical packages: *Thassa's Oracle* (mill-yourself, e.g. Thoracle
+  + Demonic Consultation / Tainted Pact), *Underworld Breach* (graveyard-as-second-hand), *infinite mana* → converted
+  to draw/damage/a wincon. (Draftsim cEDH wincons, Laboratory Maniacs, Learn cEDH.)
+- **Value / engine wins** — incremental advantage that eventually closes (extra turns, damage doublers, card-advantage
+  engines). Detected today by `IsClosingPowerCard`.
+- **Commander damage / combat** — 21 commander damage, evasion + pump, go-wide tokens.
+- **Alt-win / "you win the game" cards** — explicit text wins (Thoracle, Approach, lab-man).
+
+**Redundancy & assembly — the genuinely useful reads:**
+- **Redundancy** = independent copies/substitutes of a win line. cEDH idiom = *layered combos*: multiple combos sharing
+  overlapping pieces so one removal spell doesn't shut you off. Reporting "win line X: 3 redundant enablers; win line Y:
+  1 (fragile)" is the differentiator. (Learn cEDH "How Many Combos Are Too Many", Plagon primer.)
+- **Assembly turn** = earliest realistic turn the combo comes online. A precise turn is unknowable without a full game
+  sim → frame as a **band** ("early / mid / late", or "T2-4 with a tutor") derived from combined piece MV + the deck's
+  tutor/ramp density (already counted). **Never** a hard turn number (false precision, breaks trust).
+- **Tutorability** = can the deck *find* the missing piece? Tie to existing tutor count. Two specific cards + no tutors
+  = "fragile"; one piece + 6 tutors = "consistent."
+
+**Data source:** `CommanderSpellbookService` already returns the deck's combos with missing-piece reads. Cycle 14
+deepens this: group into the archetype buckets, dedupe shared pieces, synthesize the redundancy + assembly-band line.
+The `SpellbookCombo` ranking fields (`manaValueNeeded` / popularity / uses) are **parsed and dropped today** (known
+backlog) — capturing `manaValueNeeded` directly sharpens the assembly band.
+
+### 3. Opening-hand / mulligan evaluator — what makes a hand keepable
+
+A Commander opener is "keepable" when it can **execute the deck's plan**, which players reduce to four checks:
+- **Lands:** 3-4 is the standard functional keep; 2 keepable *with* ramp or cheap draw; 1 only for very low-curve decks;
+  5+ flooded. (Draftsim mulligan rules, MTG EDH, EDHREC mulligan guide.)
+- **Color access:** lands must produce the colors the hand's spells need (sim already enforces this via
+  `ColorKeepSatisfiedForTest`, threshold `min(colors, lands, 2)`).
+- **Ramp / acceleration:** a 2-land hand wants ramp to reach the curve.
+- **A plan:** at least one meaningful action by ~turn 3 (control wants removal/a counter; combo wants setup/selection;
+  aggro wants early threats).
+
+**Framing "keepable-hand probability":** the sim is *already doing this internally* to decide keep/mull per opener.
+Cycle 14 surfaces it as a discrete metric: **"~X% of opening hands are keepable"** (London mulligan; multiplayer
+free-first-mull baseline) plus a **color/curve read** ("most keeps are land-light", "double-color hands rare on the
+play"). Frame it as a **consistency signal** beside the existing Consistency axis — NOT a play/draw decision engine.
+It answers "how often does this deck function out of the gate?", exactly the consistency question builders ask.
 
 ---
 
-## FEATURE 4 — Tap Analyzer surface (untapped frequency + opening-turn metric)
+## Feature Landscape
 
-### Expected behavior
-Surface, as discrete reported metrics, how often the deck's lands enter UNTAPPED and how reliably the deck can act on its earliest turns — exposing state the castability engine (P70-72) already simulates but does not currently report as a first-class number. Modeled on Salubrious Snail's Tap Analyzer.
+### Table Stakes (Users Expect These)
 
-### What Salubrious Snail's Tap Analyzer reports (cite: salubrioussnail.com/manabase-tool)
-- "**How often your lands enter untapped, and how that affects your curve out.**" For conditionally-untapped lands (check lands, fast lands, Temple-type taplands, surveil lands), it computes the **probability the deck meets the untapped condition** turn-by-turn, derives the **overall rate at which lands enter tapped**, then **simulates the opening turns** to score early-game casting performance.
-- Companion metrics it pairs this with: **Cast Rate** (P(enough mana for an MV-X spell by turn X)) and **Average Delay** (turns waited past turn X) — both of which DeckFlow's `CardCastability` ALREADY computes (`CastPercent`, `OnCurveTurn`, `AverageDelay`). Benchmarks: 90% cast rate / 0.3 avg delay = strong; 80% / 0.6 = needs improvement.
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| Interaction counted by **named bucket** (removal / counters / wipes / protection / stax) | A single "interaction: 14" number is uninformative; players think in buckets | MEDIUM | Refine the coarse `IsInteractionCard` into per-bucket predicates; reuse `IsBoardWipeCard`/`IsRecursionCard` |
+| Interaction **gap flags** ("0 counterspells", "no catch-all removal") | The whole point of an audit is finding holes | LOW | Derived from bucket counts; cheap once buckets exist |
+| Win lines **named + grouped** (combo / value / commander-damage) | "How does this deck win" is the first eval question | MEDIUM | Group Spellbook combos + `IsClosingPowerCard` hits into archetype buckets |
+| Combo **redundancy count** ("3 ways to assemble") | Single-combo fragility is the #1 cEDH deckbuilding concern | MEDIUM | Dedupe shared pieces across returned combos |
+| **Keepable-hand %** from the existing sim | Consistency is one of the four already-shipped score axes | LOW | Sim already computes keep/mull per opener — surface the rate, don't rebuild |
+| Color/curve read on opening hands | "land-light / color-screwed" is the common failure mode | LOW | Read off the same sim's per-opener color + land tallies |
+| Compact, labeled paste-artifact section per feature | Core value: paste once, no reformatting | LOW-MED | Must render in all 3 AI variants WITHOUT a shared helper (ADR-0001) |
 
-### Input signals (ALL already in DeckFlow's engine)
-- `ManaSource.EntersUntapped` (bool, already modeled) and the per-trial land-drop sequence in `CastabilitySimulator` (`CardKind.UntappedLand` vs `TappedLand`). The simulator already distinguishes tapped vs untapped lands per trial — the untapped-frequency and turn-1 metrics are **derivable from existing simulation state, not a new model.**
+### Differentiators (Competitive Advantage)
 
-### Output the user wants
-- **Untapped frequency:** % of the deck's mana sources that enter untapped (static count) AND the simulated rate that the land played on a given early turn was available untapped (dynamic). For conditional lands, the probability the untapped condition is met by that turn.
-- **Opening-turn metric:** the chance of an untapped colored source on turn 1 (can you actually DO something T1 — cast a T1 play / hold interaction), and the early-turn (T1-T3) tapped-land drag on the curve. This is the "can this deck start on time" readout that the aggregate cast-rate hides.
-- In the report + paste packet: a line like "Untapped T1 source: 71% · Tapland drag costs ~0.4 turns of tempo on average · 18 of 38 lands enter conditionally tapped."
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| **Coverage-gap synthesis** ("can't answer resolved creatures; no graveyard hate") | No incumbent (EDHREC/Moxfield/Archidekt) tells you what your deck *can't* deal with | MEDIUM | Cross-bucket reasoning; the single highest-value output of the audit |
+| **"How this deck wins" narrative** (win line + redundancy + tutorability + assembly band) | cedh-decklist-database does this *by hand* in primers; nobody auto-generates it | MEDIUM-HIGH | Combines combo map + tutor/ramp counts + MV bands into one prose-ready synthesis the AI expands |
+| **Assembly-turn band** off MV + tutor density | A "comes online ~T3-4" read is primer-grade insight | MEDIUM | Must be a band, never a number. Capturing dropped `manaValueNeeded` sharpens it |
+| **Keepable-hand % as a named eval metric** | Salubrious Snail sims the manabase but doesn't expose a "functional opener" number; the framing is novel | LOW-MED | Reuses the existing sim; the framing is the differentiator, not new compute |
+| Protection as its **own** bucket (resilience ≠ removal) | cEDH separates "answers" from "protect-my-win"; lumping hides a real axis | LOW | A distinct predicate set; cheap once the taxonomy exists |
+| All three **feeding the multi-axis score narrative** | Interaction → Control axis; keepable% → Consistency; combo map → Speed/Power | LOW | Optional cross-wiring; reinforces the shipped score |
 
-### Table stakes vs differentiator vs anti-feature
-- **Table stakes:** none — almost no tool reports untapped frequency; this is rare.
-- **DIFFERENTIATOR:** only Salubrious Snail ships it. DeckFlow already has the simulation substrate, so surfacing it is low marginal cost for a high-distinctiveness metric. Strengthens the existing manabase differentiator.
-- **Anti-feature — rebuilding the castability ENGINE.** Explicitly out of scope (PROJECT.md). This is a READOUT of P70-72 state, not a new simulator. Also avoid an over-precise single "tempo score" — present the untapped-frequency + T1-availability as plain numbers with the benchmark, consistent with the existing plain-language verdict (P71).
+### Anti-Features (Commonly Requested, Often Problematic)
 
-### Complexity: LOW-MEDIUM
-The simulation already classifies lands tapped/untapped per trial and tracks first-castable turns. The work is (a) instrument the simulator to emit untapped-frequency + turn-1-availability aggregates, (b) add report/view fields, (c) add the paste-packet line in all three AI variants. No new mathematical model.
+| Feature | Why Requested | Why Problematic | Alternative |
+|---------|---------------|-----------------|-------------|
+| **Exhaustive stax classification** (every tax/denial sub-type) | Stax is "interaction" too | Stax text is wildly heterogeneous; text heuristics produce high false-positive noise and look broken when wrong | Report a coarse **stax-presence (low/med/high)** read only; let the AI prose handle nuance |
+| **Hard assembly-turn number** ("wins turn 3.4") | Sounds precise/authoritative | Real turn depends on draws/interaction/pod — false precision erodes trust the first time it's wrong | Turn **band** (early/mid/late, "T2-4 with a tutor") |
+| **Per-card "is this good interaction?" grading** | Players love tier lists | Subjective, meta-dependent, instantly contested, maintenance treadmill | Count + categorize objectively; leave quality judgment to the AI round-trip |
+| **Mulligan *decisions* / play-vs-draw advisor** ("keep this hand") | "Should I keep?" feels like the next step | Turns a deck stat into a per-hand coach — huge scope, needs real-time hand input, off-thesis | Aggregate **keepable %** only; it's a deck property, not a per-game tool |
+| **Win-probability / win-rate %** per deck | Everyone wants a win-rate | Needs opponent modeling + game sim; meta sites explicitly *refuse* to publish win-rates because they can't | Speed/consistency **bands** + assembly reads, never a win-% |
+| **Live game-state / board / combo tracker** | "Track my combo mid-game" | Out of band — this is a static deck-eval engine, not a play companion | Out of scope; defer permanently |
+| **"Fix my interaction" auto-suggestions (cuts/adds)** | Natural follow-on from gap-flagging | Recommendation engine = different product surface; the thesis is *the AI recommends* off the paste artifact | Surface the gap; let ChatGPT propose cuts/adds in the round-trip |
 
 ---
 
 ## Feature Dependencies
 
 ```
-Bracket Classifier
-    └──requires──> Game Changers data table (NEW — versioned/dated, admin-editable)
-    └──requires──> CommanderSpellbook combo client (EXISTS) — for combo-floor + early-combo detection
-    └──requires──> Fast-mana / ramp counts (EXIST in ManabaseDeck/ManabaseReport)
-    └──requires──> Mass-land-denial + extra-turn card detection (NEW — oracle-text/curated)
+Interaction & answers audit
+    └──refines──> DeckStatClassifier.IsInteractionCard (coarse → bucketed)
+                      └──reuses──> IsBoardWipeCard, IsRecursionCard
 
-Bracket Balancer
-    └──requires──> Bracket Classifier (must know current bracket + which floors are violated)
-    └──requires──> AI round-trip for fair-replacement suggestions (paste artifact)
+Win-condition & combo map
+    └──requires──> CommanderSpellbookService (combo lookup, already wired, null-graceful)
+    └──reuses────> DeckStatClassifier.IsClosingPowerCard
+    └──enhanced-by──> SpellbookCombo.manaValueNeeded (currently dropped by parser — backlog)
+    └──reuses────> existing tutor/ramp counts (assembly-band + redundancy input)
 
-Multi-Axis Deck Score
-    └──Speed axis──> AverageManaValue + RampSourceCount + FastMana (EXIST)
-    └──Consistency axis──> CommanderSpellbook combo count (EXISTS) + tutor + draw counts
-    └──Control axis──> Interaction classifier (NEW — board-wipe/removal/counter)
-    └──Power axis──> Command-zone detection (EXISTS) + card-strength proxy (GAP → delegate to AI)
+Opening-hand / mulligan evaluator
+    └──reads-off──> CastabilitySimulator Monte-Carlo opener loop
+                      └──already-has──> London-mulligan keep/mull logic
+                      └──already-has──> color-aware keep gate (ColorKeepSatisfiedForTest)
 
-Auto-Refreshing Primer
-    └──requires──> Deck Primer generator (EXISTS)
-    └──requires──> DiffEngine + stored decklist hash (EXISTS / small add) — staleness trigger
-    └──enhanced-by──> section→card dependency map (NEW — for selective regenerate)
-
-Tap Analyzer surface
-    └──requires──> CastabilitySimulator tapped/untapped + first-castable state (EXISTS)
-    └──requires──> new aggregate emit + report fields + paste-packet line (NEW, small)
-
-CROSS-CUTTING:
-    Bracket Classifier ──feeds──> Multi-Axis Score (GC count is a Power/Consistency signal)
-    Bracket Classifier ──feeds──> Deck Primer (bracket presets already exist; auto-classify the bracket)
-    Multi-Axis Score ──feeds──> Deck Primer (axes enrich the primer's "power level" section)
-    ALL paste artifacts ──MUST──> render ChatGpt/Claude/Gemini variants, NO shared helper (ADR-0001)
+All three
+    └──render-into──> /deck-analysis view + 3 AI paste variants (ADR-0001: NO shared helper)
+    └──gated-by──> per-feature flag, seeded OFF, byte-identical when OFF
+    └──feed (optional)──> existing multi-axis score narrative
 ```
 
-### Dependency notes
-- **Balancer requires Classifier:** you cannot prescribe cuts to a target bracket until you know the current bracket and exactly which floors are violated.
-- **Bracket Classifier feeds the Primer:** the Primer already has bracket presets the user picks manually; the Classifier can auto-suggest the bracket, removing a manual step.
-- **Multi-Axis Score shares signals with Classifier:** Game Changer count, fast mana, combo density all feed both — compute once, consume in both. Sequence Classifier and Score in the same or adjacent phases to share the signal-extraction layer.
-- **Tap Analyzer is independent** of the other three — it only touches the manabase engine and can ship in any order.
+### Dependency Notes
+
+- **Interaction audit refines, doesn't replace, `DeckStatClassifier`.** Current `IsInteractionCard` is a single
+  OR-of-everything boolean; Cycle 14 needs *separable* predicates (removal vs. counter vs. protection vs. stax) so a
+  card is counted into the right bucket(s). Board-wipe and recursion predicates already exist — reuse, don't re-implement.
+- **Combo map depends on Spellbook being live and graceful-null.** `FindCombosAsync` returns `null` on API failure;
+  the map must degrade to "combo data unavailable" rather than erroring (matches the existing pattern).
+- **Mulligan evaluator is a *readout*, not new compute.** The simulator already draws openers and runs a London-mulligan
+  keep decision (verified: `ColorAwareMulliganTests`, `LandRampSimTests`). Cheapest correct design exposes the keep-rate
+  the sim already determines rather than adding a second simulation. **Lowest-risk of the three.**
+- **Assembly band needs the dropped ranking field to be sharp.** `manaValueNeeded` is parsed and discarded today;
+  capturing it (small parser change) turns the band from "guessed from piece MV" into "grounded in Spellbook's needed
+  mana" — a worthwhile prerequisite for a strong combo-map read.
 
 ---
 
 ## MVP Definition
 
-### Launch With (Cycle 13 core)
-- [ ] **Bracket Classifier** — Game Changers data table (versioned) + hard-floor detection + bracket number with shown reasons. The classifier is the foundation the balancer needs.
-- [ ] **Bracket Balancer paste artifact** — "cuts to hit target bracket N" with per-cut justification; this is the uncontested headline differentiator and the clearest thesis fit.
-- [ ] **Multi-Axis Score (Speed + Consistency first)** — these two axes are ~80% existing-signal reuse; ship them in the paste packet immediately.
-- [ ] **Tap Analyzer surface** — low-cost readout of existing P70-72 simulation state; strengthens the manabase differentiator.
+### Launch With (this cycle)
 
-### Add After Core (Cycle 13 complete if schedule allows)
-- [ ] **Multi-Axis Control + Power axes** — Control needs a new interaction classifier; Power leans on the AI round-trip. Complete the 4-axis radar once Speed/Consistency are proven.
-- [ ] **Auto-Refreshing Primer (flag-stale tier)** — stored decklist hash + diff + "regenerate?" prompt. Smallest honest closure of the decay gap.
+- [ ] **Bucketed interaction counts + gap flags** — the audit's core; refines `IsInteractionCard` into named buckets
+- [ ] **Win-line grouping + redundancy count** — names how the deck wins and how many ways
+- [ ] **Keepable-hand % + color/curve read** — surfaced from the existing sim (lowest cost, high value)
+- [ ] **One compact paste-artifact section per feature**, rendered in all 3 AI variants, flag-gated OFF
+- [ ] **Graceful degradation** when Spellbook is unavailable / deck has no detectable win line
 
-### Future Consideration (next cycle)
-- [ ] **Auto-Refreshing Primer (section-scoped regenerate)** — section→card dependency map; high complexity, defer until flag-stale validates the workflow.
-- [ ] **Bracket Balancer fair-replacement automation** — local replacement-suggestion engine (vs delegating to the AI round-trip); only if the AI-delegated version proves insufficient.
+### Add After Validation (next cycle)
 
----
+- [ ] **Assembly-turn band sharpened by captured `manaValueNeeded`** — after the parser-field capture lands
+- [ ] **Cross-wire all three into the multi-axis score narrative** — once each reads cleanly on its own
+- [ ] **Graveyard-hate sub-bucket** in the interaction audit — if users ask for it
+
+### Future Consideration (defer)
+
+- [ ] **Matchup / meta-threat read** — explicitly out of scope (deepens cedh-meta-gap, a separate lane)
+- [ ] **Stax fine-classification** — only if a robust (non-text-heuristic) data source appears
+- [ ] **Interaction "fix" suggestions** — belongs to the AI round-trip, not the engine
 
 ## Feature Prioritization Matrix
 
-| Feature | User Value | Implementation Cost | Priority | Reuse vs New |
-|---------|------------|---------------------|----------|--------------|
-| Bracket Classifier (GC table + floors + number) | HIGH | MEDIUM | P1 | 60% reuse (combo client, fast-mana/ramp counts) + new GC data table |
-| Bracket Balancer artifact (cuts to target) | HIGH | HIGH | P1 | New ranking logic; delegates fair-swaps to AI round-trip |
-| Multi-Axis Score — Speed + Consistency | HIGH | MEDIUM | P1 | 80% reuse (manabase + combo + ramp/draw signals) |
-| Tap Analyzer surface | MEDIUM-HIGH | LOW-MEDIUM | P1 | 90% reuse (simulator already classifies tapped/untapped) |
-| Multi-Axis Score — Control axis | MEDIUM | MEDIUM | P2 | New interaction classifier (board-wipe/removal/counter) |
-| Multi-Axis Score — Power axis | MEDIUM | MEDIUM | P2 | Command-zone reuse + AI-delegated card-strength |
-| Auto-Refreshing Primer — flag-stale | HIGH | MEDIUM | P2 | 70% reuse (DiffEngine + Primer); new stored-hash + prompt |
-| Auto-Refreshing Primer — section-scoped regen | HIGH | HIGH | P3 | New section→card dependency map |
+| Feature | User Value | Implementation Cost | Priority |
+|---------|------------|---------------------|----------|
+| Keepable-hand % + color/curve read | HIGH | LOW | P1 |
+| Bucketed interaction counts | HIGH | MEDIUM | P1 |
+| Interaction gap-flag synthesis | HIGH | LOW | P1 |
+| Win-line grouping + redundancy | HIGH | MEDIUM | P1 |
+| Assembly-turn band (MV/tutor-derived) | MEDIUM | MEDIUM | P2 |
+| Capture dropped `SpellbookCombo` ranking fields | MEDIUM | LOW | P2 |
+| Protection-as-own-bucket | MEDIUM | LOW | P2 |
+| Cross-wire into multi-axis score | MEDIUM | LOW | P3 |
+| Stax fine-classification | LOW | HIGH | P3 (anti) |
+| Mulligan per-hand advisor | LOW | HIGH | P3 (anti) |
 
-**Priority key:** P1 = Cycle 13 MVP; P2 = complete in Cycle 13 if schedule allows; P3 = defer.
-
----
+**Priority key:** P1 = launch this cycle; P2 = add if schedule allows; P3 = defer / anti-feature.
 
 ## Competitor Feature Analysis
 
-| Feature | Incumbents | Their approach | DeckFlow's approach |
-|---------|-----------|----------------|---------------------|
-| Bracket classification | ScrollVault, Spellweave, Draftsim, Rate My Decks, commanderbrackets.com | Paste deck → bracket number (+ some show GC count, combo detection, goldfish clock). Stop at the number. | Classify + **show work** + emit a paste artifact. Advisory, not verdict. |
-| Bracket *balancing* (cuts to target) | **None** (only manual blog examples) | Manual: human picks a GC and swaps a fairer analog | **Auto-generate the cut list + justification as a paste artifact** — uncontested lane |
-| Multi-axis score | EDHRank (mtgmana.rocks) | 4 axes (Power/Speed/Control/Consistency 0-5) on a web page; no AI artifact | Same 4 axes **+ underlying signals in the paste packet** for AI round-trip critique |
-| Single power number | Rate My Decks (12 factors→1), Draftsim, edhpowerlevel, commanderpowermeter | One 1-10 number | Decompose; expose inputs; avoid false-precision verdict |
-| Auto-refreshing primer | **None** (Moxfield = manual Markdown; AI deck tools offer "refine primer" but not deck-diff-triggered refresh) | Manual updates log; hand-maintained | **Deck-diff-triggered staleness flag + regenerate** — DeckFlow's clearest creator lane |
-| Tap / untapped analysis | Salubrious Snail only | Untapped-condition probability + opening-turn sim | Surface existing P70-72 simulation state as a first-class metric |
-
----
+| Feature | EDHREC / Moxfield / Archidekt | cEDH primers (cedh-decklist-database) | DeckFlow's Approach |
+|---------|-------------------------------|----------------------------------------|---------------------|
+| Interaction audit | Archidekt auto-categorizes (Evasion/Protection) but rated "obnoxious"; no gap analysis | Hand-written in prose | Auto bucket-count **+ gap flags**, paste-ready |
+| Win-con / combo map | Commander Spellbook = combo DB only, no redundancy/assembly read | Hand-written win-line + combo-line writeups | Auto-grouped win lines **+ redundancy + assembly band** |
+| Mulligan / opener | None expose a "keepable %"; Salubrious Snail sims manabase but not framed as an opener metric | Primers list mulligan priorities by hand | **Keepable-hand %** as a named eval stat off the existing sim |
 
 ## Sources
 
-- WotC — Introducing Commander Brackets Beta: https://magic.wizards.com/en/news/announcements/introducing-commander-brackets-beta (HIGH — official bracket names/intent + per-bracket rule grid + initial 40-card GC list)
-- WotC — Commander Brackets Beta Update Oct 21 2025: https://magic.wizards.com/en/news/announcements/commander-brackets-beta-update-october-21-2025 (HIGH — tutor restrictions REMOVED, 10 GCs removed, 48-card list quoted, turn-count clarification)
-- WotC — Commander Brackets Beta Update Feb 9 2026: https://magic.wizards.com/en/news/announcements/commander-brackets-beta-update-february-9-2026 (HIGH — +Farewell, +Biorhythm, Lutri excluded, hybrid-mana shelved)
-- Spellweave — Commander Brackets 2026 guide: https://spellweave.app/guides/commander-brackets (MEDIUM — "53 cards as of Feb 2026" figure, bracket combo-timing table)
-- ScrollVault — bracket calculator + how-it-works: https://scrollvault.net/tools/commander-bracket/ , https://scrollvault.net/posts/how-scrollvault-bracket-calculator-works.html (MEDIUM — classifier pipeline: hard floors + soft signals + goldfish sim; no cut suggestions)
-- EDHRank — mtgmana.rocks: https://mtgmana.rocks/tool_edhrank.html (HIGH — 4-axis definitions + per-axis card signals + decimal example)
-- Rate My Decks: https://www.ratemydecks.com/en (MEDIUM — 12 factors → ONE number, confirms it does NOT split into 4 axes)
-- Draftsim EDH power level: https://draftsim.com/edh-power-level/ (MEDIUM — single-axis GC-count + combo-speed model)
-- Salubrious Snail — manabase tool: https://www.salubrioussnail.com/manabase-tool (HIGH — Tap Analyzer untapped-frequency + opening-turn sim, cast-rate/avg-delay benchmarks)
-- Moxfield — writing primers + BlazeHero guide: https://moxfield.com/help/writing-primers , https://moxfield.com/decks/icKufeoz_U-4HMNlorzgnw/primer (MEDIUM — section structure; manual, no deck-link/staleness)
-- MTGSalvation primer status thread: https://www.mtgsalvation.com/forums/the-game/commander-edh/543231 (LOW — confirms manual "updating to match changes" decay pattern)
-- DeckFlow codebase: `DeckFlow.Core/Manabase/{ManabaseModels,CastabilitySimulator}.cs` (HIGH — `EntersUntapped`, tapped/untapped per-trial, `CardCastability` cast%/on-curve/avg-delay, ramp/fast-mana counts already exist)
-- Prior research: `scratchpad-research/commander-feature-wants-report.md` (the Cycle 13 feature-gap basis)
+- [The Counterspell Conundrum — Commander's Herald](https://commandersherald.com/the-counterspell-conundrum-rethinking-removal/)
+- [EDHREC Guide to cEDH Stax](https://edhrec.com/guides/edhrec-guide-to-cedh-stax)
+- [What is cEDH? — TCGplayer](https://www.tcgplayer.com/content/article/What-is-cEDH-An-Intro-to-Playing-Competitive-Commander/b9936e3b-6591-44c8-a0a1-902ecc12066f/)
+- [The 7 Best Wincons in cEDH Ranked — Draftsim](https://draftsim.com/cedh-win-conditions-mtg/)
+- [How Many Combos Are Too Many? — Learn cEDH](https://learncedh.com/intermediate-course/how-many-combos-are-too-many)
+- [cEDH 101: Combos and Finishers — Laboratory Maniacs](https://labmaniacs.com/cedh-101-combos-and-finishers/)
+- [Mulligans in Commander — Draftsim](https://draftsim.com/mtg-commander-mulligan-rules/)
+- [MTG Commander Mulligan Guide — MTG EDH](https://mtgedh.com/mtg-commander-mulligan-guide-keep-or-ship/)
+- [The EDHREC Guide to Mulligans](https://edhrec.com/guides/the-edhrec-guide-to-mulligans-in-commander)
+- [Counter — MTG Wiki](https://mtg.fandom.com/wiki/Counter)
+- Prior research: `.planning/research/commander-feature-wants-report.md`
+- Worktree engine pieces verified: `DeckStatClassifier.cs`, `CastabilitySimulator` (ColorAwareMulligan/LandRampSim tests), `CommanderSpellbookService.cs`
 
 ---
-*Feature research for: DeckFlow Cycle 13 — Deck Evaluation & Creator Output*
-*Researched: 2026-06-27*
+*Feature research for: MTG Commander/cEDH deeper deck-evaluation (Cycle 14)*
+*Researched: 2026-06-30*

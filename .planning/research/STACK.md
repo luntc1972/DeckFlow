@@ -1,357 +1,170 @@
 # Stack Research
 
-**Domain:** Cycle 13 — Bracket Classifier + Balancer, Multi-Axis Deck Score, Auto-Refreshing Primer, Tap Analyzer Surface
-**Researched:** 2026-06-27
-**Confidence:** HIGH (existing codebase verified directly; Scryfall API verified via live curl; bracket definitions verified against WotC official announcement pages)
+**Domain:** Cycle 14 — Deeper Deck Evaluation (Interaction & Answers Audit, Win-Condition & Combo Map, Opening-Hand / Mulligan Evaluator) layered on the existing ASP.NET 10 + Razor MTG paste-artifact engine
+**Researched:** 2026-06-30
+**Confidence:** HIGH (verified directly against the live codebase — classifier, aggregator, Commander Spellbook service, Monte-Carlo sim, Hypergeometric helper, and Scryfall DTOs all read in `deckflow-cycle14`)
 
 ---
 
-## Scope
+## Verdict
 
-This research covers ONLY the STACK ADDITIONS needed for the 4 Cycle 13 features. The pinned stack
-(ASP.NET 10, Razor MVC, RestSharp + Polly v8, Npgsql/SQLite, IMemoryCache, Serilog) is not
-re-researched. All four features can be built entirely from existing in-solution dependencies.
+**ZERO new dependencies. Zero new NuGet packages, zero new npm packages.**
 
-**Verdict: zero new NuGet packages. Zero new npm packages.**
+All three Cycle 14 features are fully covered by data and engines already in the codebase. Every input — Scryfall card data (oracle_text, type_line, **keywords**, mana_cost, produced_mana, color_identity), Commander Spellbook combo results, and the seeded Monte-Carlo `CastabilitySimulator` with a built-in London mulligan — is already hydrated and flowing through `DeckFlow.Core` / `DeckFlow.Web`. The genuinely-needed additions are **in-codebase C# code** (new pure classifier predicates, new projection records, one new metric pass), not packages.
 
----
-
-## Feature 1 — Bracket Classifier + Balancer
-
-### Data Source: Game Changers List
-
-**Authoritative source:** Scryfall `is:gamechanger` search filter.
-
-Scryfall tracks the official WotC Commander Game Changers list and updates within hours of each WotC
-announcement. The API endpoint is clean JSON:
-
-```
-GET https://api.scryfall.com/cards/search?q=is%3Agamechanger&order=name&unique=names
-```
-
-Response shape (verified live, June 2026):
-```json
-{
-  "object": "list",
-  "total_cards": 53,
-  "has_more": false,
-  "data": [
-    { "name": "Ad Nauseam", "oracle_id": "...", "type_line": "Instant", ... },
-    ...
-  ]
-}
-```
-
-53 cards as of June 2026. The 53 cards include (not exhaustive):
-Ad Nauseam, Ancient Tomb, Aura Shards, Biorhythm, Bolas's Citadel, Braids (Cabal Minion),
-Chrome Mox, Coalition Victory, Consecrated Sphinx, Crop Rotation, Cyclonic Rift, Demonic Tutor,
-Drannith Magistrate, Enlightened Tutor, Farewell, Field of the Dead, Fierce Guardianship,
-Force of Will, Gaea's Cradle, Gamble, Gifts Ungiven, Glacial Chasm, Grand Arbiter Augustin IV,
-Grim Monolith, Humility, Imperial Seal, Intuition, Jeska's Will, Lion's Eye Diamond, Mana Vault,
-Mishra's Workshop, Mox Diamond, Mystical Tutor, Narset (Parter of Veils), Natural Order,
-Necropotence, Notion Thief, Opposition Agent, Orcish Bowmasters, Panoptic Mirror, Rhystic Study,
-Seedborn Muse, Serra's Sanctum, Smothering Tithe, Survival of the Fittest, Teferi's Protection,
-The One Ring, The Tabernacle at Pendrell Vale, Underworld Breach, Vampiric Tutor, Worldly Tutor.
-
-(Two more names were added in Feb 2026: Farewell and Biorhythm.)
-
-**Ingestion mechanism:** A new `IGameChangersService` in `DeckFlow.Web/Services/`, following the
-exact pattern of the existing `ICommanderBanListService`:
-- RestSharp GET to the Scryfall search endpoint (reusing the `scryfall-rest` named `IHttpClientFactory`
-  client and the existing `scryfall` `ResiliencePipeline<RestResponse>`)
-- Cache result in `IMemoryCache` with 24-hour TTL (the list changes at most a few times per year)
-- Return `IReadOnlyList<string>` of card names
-- `ScryfallThrottle.ExecuteAsync` wraps the call (same as all other Scryfall calls)
-
-**No new NuGet package required.** The RestSharp + Polly + IMemoryCache pattern is already in-place.
-
-**Refresh cadence:** 24-hour IMemoryCache TTL is sufficient. Updates happen at official bracket
-announcements (roughly quarterly). If exact real-time freshness is needed, bump TTL to 6 hours —
-still zero new dependency. Do NOT store the list in Postgres; it is read-only reference data.
-
-### Bracket Definitions (to hardcode)
-
-The 5-tier WotC bracket system. Definitions are stable (rules updated quarterly at most):
-
-| Bracket | Name | Game Changers | Two-Card Combos | Mass Land Denial | Extra Turns |
-|---------|------|---------------|-----------------|------------------|-------------|
-| B1 | Exhibition | 0 | Prohibited | Prohibited | Prohibited |
-| B2 | Core | 0 | Prohibited | Prohibited | Minimal, not chained |
-| B3 | Upgraded | 1–3 | No early-game | Prohibited | Allowed |
-| B4 | Optimized | Any | Allowed | Allowed | Allowed |
-| B5 | cEDH | Any | Allowed | Allowed | Allowed |
-
-Bracket assignment algorithm (pure C# in `DeckFlow.Core/Bracket/BracketClassifier.cs`):
-1. Count Game Changers in deck (intersect normalized card names with the cached list from Feature 1).
-2. Count two-card combos via Commander Spellbook results (reuse existing `ICommanderSpellbookService`).
-3. Check for mass land denial cards (short hardcoded list: Armageddon, Ravages of War, Catastrophe,
-   Obliterate, Jokulhaups, Cataclysm, Winter Orb — these are not Game Changers but are B1/B2
-   prohibited).
-4. Check for extra-turn spells (hardcoded list: Time Warp, Temporal Manipulation, Capture of Jingzhou,
-   Temporal Mastery, Nexus of Fate, etc.).
-5. Apply bracket rules top-down: any condition that disqualifies a lower bracket escalates to next.
-
-**Balancer prompt**: after computing bracket, build a "cuts to reach bracket N" suggestion list:
-- Flag each Game Changer present, sorted by replaceability
-- Flag two-card combos present (Spellbook data already supplies this)
-- This feeds a new prompt artifact (ChatGpt/Claude/Gemini variants, per ADR-0001)
-
-**No new NuGet package required.** `ICommanderSpellbookService` already exists and is already
-called from `DeckPrimerPacketService`.
+This honors the project's no-new-deps rule (CLAUDE.md: "No new packages... without asking the user first"; project CLAUDE.md pins the stack) with no exception required. Do **not** add a stats library, a local combo database, an MTG rules engine, or any package this milestone.
 
 ---
 
-## Feature 2 — Multi-Axis Deck Score
+## Feature-by-Feature Coverage (the load-bearing answer)
 
-### Score Dimensions (all computable from existing data)
+### Feature 1 — Interaction & Answers Audit — COVERED by existing card data + classifier
 
-| Axis | 0–5 scale | Input Source | Already Available? |
-|------|-----------|-------------|-------------------|
-| Power | Combo density + Game Changers count + tutor count | CommanderSpellbook (combos), Game Changers from Feature 1, card name/type matching | YES (after F1) |
-| Speed | Avg MV + ramp quantity + fast mana count | `ManabaseDeck.AverageManaValue`, `ManabaseDeck.RampAndDrawUnderThree`, `ManabaseDeck.FastMana` | YES — already in ManabaseDeck |
-| Control | Interaction count (removal + counterspells) | `CategoryKnowledgeStore` category labels ("Removal", "Counterspell", "Interaction") | YES |
-| Consistency | Tutor count + draw count + single-combo redundancy | `ManabaseDeck.DrawPieceCount`, tutor count (name/oracle text), Spellbook near-combos | YES |
+**Already present (verified):**
+- `DeckStatClassifier` (`DeckFlow.Core/Analysis/DeckStatClassifier.cs`) already has `IsInteractionCard`, `IsBoardWipeCard`, `IsCounterspellCard`, `IsRecursionCard`, `IsTutorCard` — all pure functions over Scryfall `type_line` + `oracle_text`.
+- `DeckStatSummary` (`DeckStatAggregator.cs`) already exposes `Interaction`, `Wipes`, `Counters`, `Recursion`, `Tutors` tallies.
+- The source fields are already hydrated: `DeckStatCardInput` carries `TypeLine`, `OracleText`, `ManaCost`; the `ScryfallCard` DTO (`Services/Scryfall/ScryfallDtos.cs`) deserializes **`keywords`** (e.g. "Ward", "Hexproof", "Flash"), `produced_mana`, and `color_identity`.
 
-All four axis inputs come from existing computed data. No new external API call needed.
+**In-codebase additions needed (NOT packages):**
+- Finer interaction categories the current summary lumps together — **targeted/spot removal** vs board wipes (have) vs counterspells (have) vs **stax** vs **protection / answers-to-removal**. These are NEW pure predicates in `DeckStatClassifier` (e.g. `IsTargetedRemovalCard`, `IsStaxCard`, `IsProtectionCard`) + NEW init-property tally fields on `DeckStatSummary`, plus a coverage-gap rollup ("no enchantment removal", "0 graveyard hate", etc.).
 
-**Implementation:** A new static class `DeckScorer` in `DeckFlow.Core/Bracket/DeckScorer.cs`:
-- Pure function: `DeckScore Score(ManabaseDeck deck, IReadOnlyList<SpellbookCombo> combos, IReadOnlyList<string> gameChangers, IReadOnlyList<CategoryKnowledgeEntry> categories)`
-- Returns a `sealed record DeckScore(int Power, int Speed, int Control, int Consistency)` with
-  each axis 0–5 and a derived `int Overall` (average, rounded)
-- Scorer thresholds hardcoded with named constants (same pattern as manabase mode thresholds)
+**Why no package:** the inputs (oracle text, type line, keywords) are already fetched. Categorization is the same string/keyword-heuristic technique the file already uses. No library can supply judgment the oracle text already encodes.
 
-**Integration point:** `DeckScorer` is called from `DeckAnalysisPacketService` and the new
-Bracket service. Scores fold into the paste artifact packet as a new section in the prompt text.
+### Feature 2 — Win-Condition & Combo Map — COVERED by existing Commander Spellbook integration
 
-**No new NuGet package required.**
+**Already present (verified):**
+- `ICommanderSpellbookService.FindCombosAsync` (`Services/CommanderSpellbookService.cs`) returns `IncludedCombos` — each `SpellbookCombo(CardNames, Results, Instructions, Popularity, ManaValueNeeded)` — and `AlmostIncludedCombos` (exactly one-card-away). `ManaValueNeeded` and `Popularity` are already parsed (defensive `TryGetInt32` → null-graceful).
+- Result is already cached 30 min in `IMemoryCache`, keyed by commander + main list, and consumed by `DeckAnalysisPacketService`, the bracket classifier, and `MultiAxisScorer`.
+- `DeckStatClassifier.IsClosingPowerCard` already flags non-combo win lines ("you win the game", extra turns, overrun/Craterhoof, combat-damage draw engines).
 
----
+**In-codebase additions needed (NOT packages):**
+- A projection record (e.g. `WinConditionMap`) + a Core/Web method composing: combo list → **redundancy** (combos sharing pieces; near-combo count as backup lines) + **assembly-turn read** (derive from `ManaValueNeeded` already captured, optionally cross-referenced with the castability sim's per-card effective turn) + closing-power cards as alternative win lines. Then three paste sections + a view readout.
 
-## Feature 3 — Auto-Refreshing Primer
+**Why no package:** Commander Spellbook IS the combo authority and is already wired with Polly resilience + caching + graceful null-on-failure. No local combo DB or rules engine needed — the "deeper use" is reading fields (`ManaValueNeeded`, `Popularity`, near-combos) the parser already extracts but the analysis prompt does not yet surface as a map.
 
-### Deck Fingerprint
+### Feature 3 — Opening-Hand / Mulligan Evaluator — COVERED by existing Monte-Carlo + Hypergeometric
 
-A deck fingerprint is already computable: `PacketSessionCache.ComputeKey(fieldBag)` performs
-SHA-256 over a deterministic JSON-serialized field bag (`System.Security.Cryptography.SHA256`,
-BCL — no package needed). The fingerprint for auto-refresh uses only the deck content fields
-(normalized decklist text or URL), NOT the section selections or AI platform, so only actual
-deck changes trigger staleness.
+**Already present (verified):**
+- `CastabilitySimulator` (`DeckFlow.Core/Manabase/CastabilitySimulator.cs`) runs a seeded London mulligan every trial (`LondonMulligan`): land-count keep bands that widen with avg MV, the Commander free first mulligan, an optional color-aware keep gate (`ColorKeepSatisfied`), and London choose-and-bottom. 20k trials per spell.
+- `Hypergeometric.AtLeast(population, successes, draws, atLeast)` (`Manabase/Hypergeometric.cs`) computes closed-form "P(≥N lands in the opening 7)" in log-space (overflow-safe to 512 cards).
+- Per-card mana cost / color identity for the color & curve read already live in `CardFact` / `SpellRequirement` (`Pips` by `ManaColor`, `ManaValue`).
 
-**Storage:** The existing `PacketArtifactStore` persists primer zip artifacts to the `/data`
-disk. Add a new column `deck_fingerprint TEXT` to the primer artifact metadata row. On each
-primer generation, store the fingerprint alongside the artifact. On each primer page load:
+**In-codebase additions needed (NOT packages):**
+- A deck-level **keepable-hand probability** metric + a `KeepableHandSummary` record. Two viable in-codebase routes (a roadmap design choice, not a stack choice):
+  - **(a) Closed-form** via the existing `Hypergeometric` for the land-count keep band — cheap, deterministic, RAM-friendly (fits the 512 MB Render cap).
+  - **(b) New deck-level sim pass** reusing the simulator's existing mulligan logic to emit a keep% over one trial set (not per-spell), plus a color/curve read off the kept hands.
+- Today the sim emits only per-spell `CastPercent` + `Turn1UntappedTrials`; the gap is an **exposed deck-level metric**, not a missing engine.
 
-1. Hash the current deck input (URL or text, normalized).
-2. Query the stored fingerprint for the most recent artifact for this commander/deck.
-3. If hashes differ → show "Stale — your deck changed since this primer was written. Regenerate?"
-4. If hashes match → show artifact as current.
-
-**Schema change:** One new column on the existing `packet_artifacts` table (or equivalent
-primer-specific table). Uses the existing `IRelationalDialect` + `RelationalDatabaseConnection`
-dialect-pluggable pattern. No new ORM or migration framework.
-
-**Staleness signal in the prompt artifact:** When the user regenerates, the new artifact
-replaces the old one and updates the stored fingerprint. The AI artifact itself can include
-a "primer generated on [date] for deck version [short hash]" line — uses existing `DateTime`
-and `Convert.ToHexString` (BCL only).
-
-**No new NuGet package required.** `System.Security.Cryptography.SHA256` is BCL; the rest
-reuses `PacketArtifactStore` + `RelationalDatabaseConnection`.
+**Why no package:** the mulligan logic and the hypergeometric math already exist and are unit-tested (see `ColorAwareMulliganTests`, `CastabilitySimulatorTests`). A probability/stats NuGet would duplicate `Hypergeometric.cs`.
 
 ---
 
-## Feature 4 — Tap Analyzer Surface
+## Recommended Stack (all already in place — no version changes)
 
-### What Already Exists
+### Core Technologies
 
-The manabase engine already models untapped vs. tapped:
+| Technology | Version | Purpose | Why It Already Covers Cycle 14 |
+|------------|---------|---------|--------------------------------|
+| .NET / C# | net10.0 / C# 12 | All server logic | Pure-CPU classifiers + sim live in `DeckFlow.Core`; new predicates/records/metrics are more of the same. No runtime change. |
+| Scryfall card data (`ScryfallCard` DTO → `CardFact` / `DeckStatCardInput`) | live API | oracle_text, type_line, **keywords**, mana_cost, produced_mana, color_identity, layout, power | Already deserialized (incl. `keywords`) and mapped. Interaction categorization reads these same fields — no new fetch surface. |
+| `ICommanderSpellbookService` (RestSharp 114 + Polly 8) | existing | Combo enumeration via `backend.commanderspellbook.com/find-my-combos` | Returns `IncludedCombos` (+`Popularity`,`ManaValueNeeded`) and `AlmostIncludedCombos`. Combo map is a projection over data already fetched + cached. |
+| `CastabilitySimulator` (Monte-Carlo, seeded) | existing | Opening-hand modeling | Plays a full London mulligan per trial. Mulligan evaluator is a readout off this exact loop. |
+| `Hypergeometric` (hand-rolled, log-space) | existing | Closed-form opening-hand land/color probability | `AtLeast` already gives P(≥N lands). Lean, deterministic land-count keep dimension. |
+| `DeckStatClassifier` / `DeckStatAggregator` | existing | Card-signal predicates + role tallies | Interaction audit = more predicates + more `DeckStatSummary` fields here. |
+| `MultiAxisScorer` (Cycle 13) | existing | Consumes the same combo + stat signals | Confirms the plumbing the three features need is already assembled. New sections sit beside it. |
 
-- `ManaSource.EntersUntapped` (bool, `ManabaseModels.cs:27`) — set by `ManabaseClassifier.EntersTapped()` from
-  oracle text heuristics.
-- `ManabaseAnalyzer.EffectiveSources(deck, color, untappedOnly: true)` — already called internally
-  for turn-1 color access in `Analyze()` (`ManabaseAnalyzer.cs:442-443`).
-- `CastabilitySimulator` tracks `CardKind.UntappedLand` vs `CardKind.TappedLand` in every trial.
+### Supporting Libraries (already present — use, do not add)
 
-**What is missing:** These computed values are not surfaced in `ManabaseReport`. They are computed
-and used internally but discarded before the report is returned.
+| Library | Version | Purpose | Use For |
+|---------|---------|---------|---------|
+| Polly | 8.x | `"spellbook"` named resilience pipeline | Wraps the combo POST; combo-map reuses unchanged |
+| Microsoft.Extensions.Caching.Memory | built-in | 30-min combo + session cache | Combo map rides the existing cache |
+| `IFeatureFlagCache` (`Services/FeatureFlags/`) | in-repo | Flag gating | Each feature gets its own `analysis.*` flag, seeded OFF, byte-identical when off — same pattern as `analysis.multi-axis-score` |
+| Prompt-variant registries (ChatGpt/Claude/Gemini) | in-repo | Per-AI artifact rendering | New paste sections render in all three variants WITHOUT a shared helper (ADR-0001) |
 
-### What to Add
+### Development Tools (no change)
 
-New fields on `ManabaseReport` (no schema change, no API change — just new init-properties on the
-existing sealed record):
+| Tool | Purpose | Notes |
+|------|---------|-------|
+| xUnit 2.9.x | Core + Web tests | New classifier predicates + the mulligan metric are pure functions — high-value golden tests in `DeckFlow.Core.Tests` |
+| Vitest + Playwright | TS unit + e2e | Only if a view readout adds client TS; otherwise N/A |
+| `dotnet build` clean + push-and-watch CI | Gate | VSTest unreliable in WSL (per constraints) |
 
-```csharp
-/// <summary>Count of lands that enter untapped in the deck.</summary>
-public int UntappedLandCount { get; init; }
+---
 
-/// <summary>Count of lands that enter tapped in the deck.</summary>
-public int TappedLandCount { get; init; }
+## Installation
 
-/// <summary>
-/// Fraction of lands that enter untapped (0.0–1.0). Convenience for the view.
-/// </summary>
-public double UntappedLandFraction => UntappedLandCount + TappedLandCount > 0
-    ? (double)UntappedLandCount / (UntappedLandCount + TappedLandCount) : 0;
-
-/// <summary>
-/// Per-color untapped source count for turn-1 access (the count that
-/// ManabaseAnalyzer already computes via EffectiveSources(untappedOnly: true)).
-/// Keyed by ManaColor; empty for colorless/mono decks that never call turn-1 check.
-/// </summary>
-public IReadOnlyDictionary<ManaColor, double> UntappedSourcesByColor { get; init; }
-    = new Dictionary<ManaColor, double>();
+```bash
+# Nothing to install. No NuGet, npm, or other package is added this milestone.
+# All capabilities already restore with the existing solution.
+dotnet build DeckFlow.sln
 ```
 
-The `ManabaseAnalyzer.Analyze()` method already computes `untappedSources` per color in its
-`BuildColorFindings` loop — it just needs to be captured and set on the report instead of
-discarded. The land counts come from iterating `deck.Sources` and counting
-`IsLand && EntersUntapped` vs. `IsLand && !EntersUntapped`.
+---
 
-**No new NuGet package required.** All computation is pure C# in `DeckFlow.Core`.
+## In-Codebase Additions Required (summary — code, not dependencies)
 
-**UI surface:** The existing `/manabase` page renders `ManabaseReport`. The new fields render
-as a new "Land Quality" row in the land-count table and a per-color untapped breakdown column
-in the color-source table. Uses existing Razor + site-common.css; no TypeScript changes needed.
-
-**Paste artifact integration:** `ManabaseReportTextBuilder` and `ManabaseSwapPromptBuilder`
-already emit the manabase data as text blocks. Add "untapped land %, turn-1 untapped by color"
-lines to the text output. These feed the deck analysis paste packet.
+| Addition | Location | Kind |
+|----------|----------|------|
+| New interaction sub-category predicates (targeted removal, stax, protection) | `DeckFlow.Core/Analysis/DeckStatClassifier.cs` | Pure static methods |
+| New tally fields + coverage-gap rollup | `DeckFlow.Core/Analysis/DeckStatAggregator.cs` (`DeckStatSummary`) | Record init-fields + counting |
+| Win-condition / combo-map projection (redundancy + assembly-turn) | new Core record + Web composition over `CommanderSpellbookResult` | Projection over fetched data |
+| Keepable-hand metric (`KeepableHandSummary`) | Core: reuse `Hypergeometric` and/or a deck-level sim pass | New metric off existing math |
+| 3 flag keys (`analysis.*`), seeded OFF | `Services/FeatureFlags` + flag seed | Config rows |
+| 3 paste-artifact sections per AI + view readouts | prompt variant registries + Razor views | Rendering (no shared helper, ADR-0001) |
+| (Optional, in-codebase) curated stax/protection name or keyword list | static JSON like existing `DeckFlow.Web/Data/bracket-data.json` | Versioned data file, NOT a package |
 
 ---
 
-## Recommended Stack Summary
-
-### Core Technologies (all in-solution — no changes)
-
-| Technology | Version | Purpose | Notes |
-|------------|---------|---------|-------|
-| ASP.NET Core MVC 10.0 | 10.0 | HTTP controllers + Razor views | Pinned; no change |
-| RestSharp | 114.0.0 | HTTP client for all upstream calls including new Game Changers fetch | Reuse `scryfall-rest` named client |
-| Polly v8 | 8.x | Resilience for Game Changers Scryfall call | Reuse existing `scryfall` named pipeline |
-| IMemoryCache (BCL) | built-in | 24-hour cache for Game Changers list | Same as banlist cache pattern |
-| System.Security.Cryptography (BCL) | built-in | SHA-256 for deck fingerprint (Auto-Refresh Primer) | Already used in `PacketSessionCache` |
-| RelationalDatabaseConnection | in-solution | Store primer deck fingerprint | One new column, existing dialect |
-| DeckFlow.Core/Manabase | in-solution | Tap Analyzer — expose untapped metrics | New fields on `ManabaseReport` |
-
-### Supporting Libraries (all already in solution)
-
-| Library | Used For | Feature |
-|---------|---------|---------|
-| `ICommanderSpellbookService` | Combo count for Bracket Classifier + Power axis | F1, F2 |
-| `ICategoryKnowledgeStore` | Interaction/draw counts for Multi-Axis Score | F2 |
-| `ManabaseDeck.AverageManaValue`, `FastMana`, `RampAndDrawUnderThree` | Speed axis | F2 |
-| `PacketArtifactStore` | Store primer fingerprint | F3 |
-| `PacketSessionCache.ComputeKey()` | Deck fingerprint hashing | F3 |
-| `ScryfallThrottle` | Rate-gate the Game Changers refresh call | F1 |
-
-### What NOT to Add
+## What NOT to Use
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| Any external bracket API or WotC scraper | WotC has no bracket API; their pages are not stable scrape targets; the bracket RULES change rarely | Hardcode bracket rules as C# constants; fetch only the Game Changers CARD LIST via Scryfall `is:gamechanger` |
-| MTGGoldfish / EDHREC card-power APIs | No public machine-readable API; rate-limit hostile; single-source risk | Pure in-house scoring on parsed deck composition, already-available Scryfall data, and SpellbookService combos |
-| A dedicated card-tagging service for bracket card classification | Adds a new external dependency with no uptime guarantee | Use Scryfall `is:gamechanger` (already proven, already integrated) + hardcoded lists for mass land denial / extra turns |
-| Any scoring NuGet library | No .NET library covers EDH-specific scoring axes | Pure domain logic in `DeckFlow.Core/Bracket/DeckScorer.cs` |
-| An ORM (EF Core, Dapper) for the primer fingerprint column | Already ruled out by project patterns; existing `RelationalDatabaseConnection` + raw SQL suffices | Existing `IRelationalDialect` + inline SQL |
-| `Microsoft.Extensions.Http.Resilience` standard handler | Project constraint: do NOT migrate from RestSharp + Polly v8 direct pattern | RestSharp + Polly v8 (existing) |
+| MathNet.Numerics / Accord.Statistics (or any stats/probability NuGet) | Duplicates the already hand-rolled, overflow-safe `Hypergeometric` (log-factorial) and the seeded Monte-Carlo sim. New dep, RAM cost, zero new capability. | `DeckFlow.Core/Manabase/Hypergeometric.cs` + `CastabilitySimulator` |
+| A local combo database / bundled combo dataset | Commander Spellbook is the live authority, already integrated with Polly + 30-min cache + graceful null-on-failure. A bundled DB goes stale and re-solves a solved problem. | Existing `ICommanderSpellbookService` (`IncludedCombos` + `AlmostIncludedCombos` + `ManaValueNeeded`) |
+| An MTG rules engine | Massive dependency to replace deterministic substring/field heuristics the classifier already uses. | Existing `DeckStatClassifier` predicates over Scryfall fields |
+| An NLP / semantic oracle-text parser to classify interaction | Over-engineered, non-deterministic, heavy; the existing classifier is deterministic + testable. | New pure predicates over existing oracle_text + **keywords** |
+| A shared cross-AI prompt helper for the new sections | Violates ADR-0001 (prompt variants intentionally decoupled). | Hand-render in each ChatGpt/Claude/Gemini variant |
+| `Microsoft.Extensions.Http.Resilience` standard handler | Project constraint forbids it; existing RestSharp + direct Polly v8 is the pattern. | Existing `ResiliencePipelineProvider<string>` named pipelines |
+| An ORM (EF Core, Dapper) for any new field | Ruled out by project patterns; `RelationalDatabaseConnection` + raw SQL suffices. New metrics here are compute-only and need no persistence at all. | Compute at request time; persist nothing new |
 
 ---
 
-## Integration Map
+## Genuinely-Needed Addition? — None at the dependency level
 
-```
-Cycle 13 Features — Integration with Existing Code
-═══════════════════════════════════════════════════
+No capability among the three features fails to be covered by a current in-codebase source:
 
-Feature 1: Bracket Classifier
-  ← IGameChangersService (new, DeckFlow.Web/Services)
-      uses: RestSharp scryfall-rest + Polly scryfall + IMemoryCache (all existing)
-      calls: Scryfall api.scryfall.com/cards/search?q=is:gamechanger
-  ← BracketClassifier (new, DeckFlow.Core/Bracket)
-      uses: IGameChangersService + ICommanderSpellbookService (existing) + hardcoded lists
-  → DeckBracketPacketService (new) → 3 prompt variants (ChatGpt/Claude/Gemini, ADR-0001)
+- Interaction categorization → Scryfall `oracle_text` + `type_line` + `keywords` (already hydrated into `DeckStatCardInput`).
+- Combo enumeration + redundancy + assembly turn → Commander Spellbook `IncludedCombos`/`AlmostIncludedCombos`/`ManaValueNeeded` (already fetched + cached).
+- Mulligan keep probability + color/curve read → `CastabilitySimulator` London mulligan + `Hypergeometric` + existing per-card color/MV data.
 
-Feature 2: Multi-Axis Deck Score
-  ← DeckScorer (new, DeckFlow.Core/Bracket)
-      uses: ManabaseDeck (existing fields) + BracketClassifier output (F1) +
-            CommanderSpellbook combos (existing) + CategoryKnowledgeStore (existing)
-  → score fields on DeckAnalysisPacketResult (existing record, new fields)
-  → 3 decoupled prompt variant blocks (per ADR-0001)
-
-Feature 3: Auto-Refreshing Primer
-  ← PacketSessionCache.ComputeKey() (existing SHA-256 primitive)
-      scoped to decklist only (URL or normalized text, not sections/platform)
-  ← PacketArtifactStore schema: new deck_fingerprint column (existing dialect)
-  → staleness badge in DeckPrimerViewModel (new bool DeckChanged)
-  → "Stale" UI state triggers regenerate; artifact includes generation date + short hash
-
-Feature 4: Tap Analyzer Surface
-  ← ManabaseAnalyzer.Analyze() (existing)
-      - capture untappedSources (already computed, currently discarded)
-      - count IsLand&&EntersUntapped vs IsLand&&!EntersUntapped (deck.Sources loop)
-  → new fields on ManabaseReport: UntappedLandCount, TappedLandCount,
-      UntappedSourcesByColor (dict, new; computed alongside existing ColorFindings)
-  → existing /manabase Razor view: new "Land Quality" row
-  → ManabaseReportTextBuilder: new lines in text output for paste artifact
-```
-
----
-
-## Data Sources (Authoritative)
-
-### Bracket Definitions
-
-Source: WotC official announcement pages (not an API — read as documentation):
-- Introduction: https://magic.wizards.com/en/news/announcements/introducing-commander-brackets-beta
-- April 2025 update: https://magic.wizards.com/en/news/announcements/commander-brackets-beta-update-april-22-2025
-- October 2025 update: https://magic.wizards.com/en/news/announcements/commander-brackets-beta-update-october-21-2025
-- February 2026 update: https://magic.wizards.com/en/news/announcements/commander-brackets-beta-update-february-9-2026
-
-**These are read-only documentation** — hardcode the bracket rule set in C# constants and update
-them when WotC publishes a new announcement (roughly quarterly). The CARD LIST is not hardcoded;
-only the RULES are.
-
-### Game Changers Card List
-
-Source: Scryfall `is:gamechanger` search (live, JSON, no auth required):
-```
-https://api.scryfall.com/cards/search?q=is%3Agamechanger&order=name&unique=names
-```
-- Returns `total_cards: 53` as of June 2026 (verified via live curl)
-- Scryfall updates this within hours of WotC announcements
-- Confidence: HIGH — Scryfall explicitly maintains this as a tracked filter
+The only honest caveat is a **methodology pitfall, not a stack gap:** stax/protection detection by oracle-text heuristics is brittle (the existing classifier already shows this — see the `IsTutorCard` "nonland card" carve-out gymnastics needed to avoid a false land-fetch match). The correct mitigation is an **in-codebase** curated keyword/name list as a versioned static data file (mirroring `DeckFlow.Web/Data/bracket-data.json`), not a new dependency. Flag this for requirements/roadmap as a classification-accuracy risk to design golden tests around — see PITFALLS.
 
 ---
 
 ## Version Compatibility
 
-All Cycle 13 features use BCL types and in-solution packages. No new version-pinning is needed.
-
-| Component | Package | Version | Note |
-|-----------|---------|---------|------|
-| SHA-256 fingerprint | System.Security.Cryptography | BCL | Already used in PacketSessionCache |
-| Scryfall Game Changers API | RestSharp | 114.0.0 (existing) | Reuse scryfall-rest named client |
-| Manabase untapped surface | DeckFlow.Core | in-solution | New fields on existing record |
-| Bracket/Scoring logic | DeckFlow.Core | in-solution | New classes in new Bracket/ subfolder |
+| Component | State | Notes |
+|-----------|-------|-------|
+| .NET 10 / RestSharp 114 / Polly 8 / Npgsql 10 / Microsoft.Data.Sqlite 10 | Pinned, unchanged | No bumps required; Cycle 14 adds no package surface |
+| Scryfall `keywords` field | Confirmed present in `ScryfallCard` DTO | Available today for interaction keyword tags (Ward/Hexproof/Flash) |
+| Commander Spellbook `manaValueNeeded` / `popularity` | Confirmed parsed into `SpellbookCombo` | Available today for assembly-turn / redundancy read |
 
 ---
 
 ## Sources
 
-- `DeckFlow.Core/Manabase/ManabaseModels.cs` — verified `EntersUntapped` on `ManaSource`; `IReadOnlyDictionary<ManaColor, double>` pattern
-- `DeckFlow.Core/Manabase/ManabaseAnalyzer.cs:442-443` — verified `untappedSources` already computed per-color; confirmed it is currently discarded
-- `DeckFlow.Core/Manabase/CastabilitySimulator.cs:384` — verified `UntappedLand`/`TappedLand` enum in simulator
-- `DeckFlow.Web/Services/CommanderBanListService.cs` — verified the RestSharp + IMemoryCache pattern to replicate for `IGameChangersService`
-- `DeckFlow.Web/Services/PacketSessionCache.cs:57` — verified `SHA256.HashData` already in use
-- `DeckFlow.Web/Models/DeckPrimerRequest.cs` — verified existing `TargetCommanderBracket` field on primer request
-- `DeckFlow.Web/Services/PromptBuilders/Primer/ChatGptPrimerPromptVariant.cs` — confirmed ADR-0001 three-variant decoupled prompt pattern applies to bracket/score artifacts too
-- [Scryfall `is:gamechanger` API](https://api.scryfall.com/cards/search?q=is%3Agamechanger&order=name&unique=names) — live curl returning `total_cards: 53`, confirmed JSON structure
-- [WotC Commander Brackets introduction](https://magic.wizards.com/en/news/announcements/introducing-commander-brackets-beta) — B1 Exhibition / B2 Core / B3 Upgraded (≤3 GC) / B4 Optimized / B5 cEDH definitions
-- [WotC October 2025 bracket update](https://magic.wizards.com/en/news/announcements/commander-brackets-beta-update-october-21-2025) — 10 cards removed; confirmed 47 remaining post-update
-- [WotC February 2026 bracket update](https://magic.wizards.com/en/news/announcements/commander-brackets-beta-update-february-9-2026) — Farewell + Biorhythm added; total 53 cards confirmed
-- [ScrollVault Game Changers list](https://scrollvault.net/guides/game-changers.html) — cross-checked 53 card count, June 2026
-- [Scryfall is:gamechanger search](https://scryfall.com/search?q=is%3Agamechanger) — confirmed Scryfall tracks the WotC list as a named filter
+- `DeckFlow.Core/Analysis/DeckStatClassifier.cs`, `DeckStatAggregator.cs` — existing interaction/role predicates + `DeckStatSummary` fields incl. `Interaction`/`Wipes`/`Counters`/`Tutors`/`Recursion` (HIGH, read directly)
+- `DeckFlow.Web/Services/CommanderSpellbookService.cs` — `SpellbookCombo`/`SpellbookAlmostCombo` shape incl. `Popularity`/`ManaValueNeeded`, near-combo (one-card-away) extraction, 30-min cache (HIGH, read directly)
+- `DeckFlow.Core/Manabase/CastabilitySimulator.cs` — `LondonMulligan` keep bands + Commander free-mull + color-aware keep + per-trial bottoming; emits `CastPercent` + `Turn1UntappedTrials` (HIGH, read directly)
+- `DeckFlow.Core/Manabase/Hypergeometric.cs` — closed-form `AtLeast` land-count probability, log-space (HIGH, read directly)
+- `DeckFlow.Core/Manabase/ManabaseModels.cs` — `SpellRequirement.Pips` by `ManaColor`, `CardCastability`, `ManabaseDeck` (HIGH, read directly)
+- `DeckFlow.Web/Services/Scryfall/ScryfallDtos.cs` — confirms `keywords`, `oracle_text`, `type_line`, `produced_mana`, `color_identity`, `mana_cost` hydrated (HIGH, read directly)
+- `DeckFlow.Core/Analysis/MultiAxisScorer.cs`, `DeckFlow.Web/Services/DeckAnalysisPacketService.cs` — confirms stats + combos + score signal plumbing already assembled and flag-gated via `IFeatureFlagCache` (HIGH, read directly)
+- `DeckFlow.Web/Data/bracket-data.json` — established in-repo static-data-file pattern for curated lists (HIGH, located)
+- Confirmed no stats/math NuGet present (grep of all `.csproj`) — `Hypergeometric` is hand-rolled (HIGH)
+- CLAUDE.md "Dependency additions" + project CLAUDE.md pinned-stack constraints — no-new-deps rule (HIGH)
 
 ---
-*Stack research for: DeckFlow Cycle 13 — Bracket Classifier, Multi-Axis Score, Auto-Refreshing Primer, Tap Analyzer*
-*Researched: 2026-06-27*
+*Stack research for: DeckFlow Cycle 14 — Deeper Deck Evaluation (interaction audit, combo map, mulligan evaluator)*
+*Researched: 2026-06-30*

@@ -1,4 +1,17 @@
 import { expect, test, type Page } from '@playwright/test';
+import { open, unlink } from 'node:fs/promises';
+
+const adminUser = process.env.FEEDBACK_ADMIN_USER ?? 'admin';
+const adminPassword = process.env.FEEDBACK_ADMIN_PASSWORD ?? 'changeme-local';
+const basicAuthHeader = `Basic ${Buffer.from(`${adminUser}:${adminPassword}`).toString('base64')}`;
+const adminLockPath = '/tmp/deckflow-admin-e2e.lock';
+const adminLockTimeoutMs = 90_000;
+const interactionAuditFlagKey = 'analysis.interaction-audit';
+const winConMapFlagKey = 'analysis.wincon-map';
+
+type LockHandle = Awaited<ReturnType<typeof open>>;
+
+let heldLock: LockHandle | null = null;
 
 const deckProfileJson = `
 \`\`\`json
@@ -33,6 +46,84 @@ const deckProfileJson = `
 \`\`\`
 `;
 
+const interactionAuditJson = JSON.stringify({
+  TargetedRemoval: {
+    Confident: [{ Name: 'Swords to Plowshares', Quantity: 1 }],
+    Review: [{ Name: 'Beast Within', Quantity: 1 }],
+  },
+  BoardWipes: {
+    Confident: [{ Name: 'Farewell', Quantity: 1 }],
+    Review: [{ Name: 'Toxic Deluge', Quantity: 1 }],
+  },
+  Counterspells: {
+    Confident: [{ Name: 'Counterspell', Quantity: 1 }],
+    Review: [{ Name: 'Mana Drain', Quantity: 1 }],
+  },
+  ProtectionRecursion: {
+    Confident: [{ Name: "Teferi's Protection", Quantity: 1 }],
+    Review: [{ Name: 'Eternal Witness', Quantity: 1 }],
+  },
+  StaxTaxation: {
+    Confident: [{ Name: 'Drannith Magistrate', Quantity: 1 }],
+    Review: [{ Name: 'Thalia, Guardian of Thraben', Quantity: 1 }],
+  },
+  CoverageGaps: ['Counterspell count is approximately low; verify against the list.'],
+});
+
+const winConMapJson = JSON.stringify({
+  Combos: [
+    {
+      CardNames: ['Kiki-Jiki, Mirror Breaker', 'Restoration Angel'],
+      Results: ['Infinite combat steps'],
+      ManaValueNeeded: 8,
+      Popularity: 42,
+      Band: 1,
+    },
+  ],
+  NearCombos: [
+    {
+      MissingCard: 'Splinter Twin',
+      CardsInDeck: ['Deceiver Exarch'],
+      Results: ['Infinite hasty tokens'],
+    },
+  ],
+  AssemblyPathCount: 1,
+  ClosingCards: [{ Name: 'Craterhoof Behemoth', Quantity: 1 }],
+  ComboDataAvailable: true,
+  OverallBand: 1,
+});
+
+test.describe.configure({ mode: 'serial' });
+
+function getAdminForwardedIp(): string {
+  const info = test.info();
+  const key = `${info.project.name}:${info.file}:${info.title}:${info.retry}`;
+  let hash = 0;
+  for (const char of key) {
+    hash = (hash * 31 + char.charCodeAt(0)) % 200;
+  }
+
+  return `203.0.113.${hash + 1}`;
+}
+
+test.beforeEach(async ({ page }) => {
+  await page.setExtraHTTPHeaders({
+    Authorization: basicAuthHeader,
+    'CF-Connecting-IP': getAdminForwardedIp(),
+  });
+  heldLock = await acquireAdminLock();
+});
+
+test.afterEach(async ({ page }) => {
+  try {
+    await setFlagEnabled(page, interactionAuditFlagKey, false);
+    await setFlagEnabled(page, winConMapFlagKey, false);
+  } finally {
+    await releaseAdminLock(heldLock);
+    heldLock = null;
+  }
+});
+
 async function renderAnalysis(page: Page): Promise<void> {
   const response = await page.goto('/deck-analysis');
   expect(response?.ok()).toBeTruthy();
@@ -48,6 +139,42 @@ async function renderAnalysis(page: Page): Promise<void> {
   const profileTextarea = page.locator('textarea[name="DeckProfileJson"]');
   await expect(profileTextarea).toBeVisible();
   await profileTextarea.fill(deckProfileJson);
+  await page.getByRole('button', { name: 'Render Analysis Summary' }).click();
+}
+
+async function renderAnalysisWithInteractionAudit(page: Page): Promise<void> {
+  const response = await page.goto('/deck-analysis');
+  expect(response?.ok()).toBeTruthy();
+
+  await page.locator('[data-chatgpt-show-step="2"][role="tab"]').click();
+  await page.locator('select[name="TargetCommanderBracket"]').selectOption({ index: 1 });
+  await page.locator('[data-chatgpt-show-step="3"][role="tab"]').click();
+
+  await page.locator('textarea[name="DeckProfileJson"]').fill(deckProfileJson);
+  await page.locator('form').first().evaluate((form, value) => {
+    const textarea = document.createElement('textarea');
+    textarea.name = 'InteractionAuditJson';
+    textarea.value = value;
+    form.appendChild(textarea);
+  }, interactionAuditJson);
+  await page.getByRole('button', { name: 'Render Analysis Summary' }).click();
+}
+
+async function renderAnalysisWithWinConMap(page: Page): Promise<void> {
+  const response = await page.goto('/deck-analysis');
+  expect(response?.ok()).toBeTruthy();
+
+  await page.locator('[data-chatgpt-show-step="2"][role="tab"]').click();
+  await page.locator('select[name="TargetCommanderBracket"]').selectOption({ index: 1 });
+  await page.locator('[data-chatgpt-show-step="3"][role="tab"]').click();
+
+  await page.locator('textarea[name="DeckProfileJson"]').fill(deckProfileJson);
+  await page.locator('form').first().evaluate((form, value) => {
+    const textarea = document.createElement('textarea');
+    textarea.name = 'WinConMapJson';
+    textarea.value = value;
+    form.appendChild(textarea);
+  }, winConMapJson);
   await page.getByRole('button', { name: 'Render Analysis Summary' }).click();
 }
 
@@ -85,3 +212,97 @@ test('step 3 renders object-shaped deck_profile lists on mobile', async ({ page 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
   await expect(page.locator('.error-banner')).toBeHidden();
 });
+
+test('step 3 renders interaction audit readout when the flag is ON', async ({ page }) => {
+  await setFlagEnabled(page, interactionAuditFlagKey, true);
+  await renderAnalysisWithInteractionAudit(page);
+
+  const audit = page.locator('.interaction-audit');
+  await expect(audit).toBeVisible();
+  await expect(audit).toContainText('Targeted removal');
+  await expect(audit).toContainText('Swords to Plowshares');
+  await expect(audit).toContainText('Coverage gaps to verify');
+});
+
+test('step 3 omits interaction audit readout when the flag is OFF', async ({ page }) => {
+  await setFlagEnabled(page, interactionAuditFlagKey, false);
+  await renderAnalysisWithInteractionAudit(page);
+
+  await expect(page.locator('.interaction-audit')).toHaveCount(0);
+});
+
+test('step 3 renders win-condition/combo map readout when the flag is ON', async ({ page }) => {
+  // Runs under both the chromium-desktop (1280) and chromium-mobile (390) projects.
+  await setFlagEnabled(page, winConMapFlagKey, true);
+  await renderAnalysisWithWinConMap(page);
+
+  const winConMap = page.locator('.wincon-map');
+  await expect(winConMap).toBeVisible();
+  await expect(winConMap).toContainText('Kiki-Jiki, Mirror Breaker');
+  await expect(winConMap).toContainText('One card away (not currently a win line)');
+  await expect(winConMap).toContainText('Craterhoof Behemoth');
+});
+
+test('step 3 omits win-condition/combo map readout when the flag is OFF', async ({ page }) => {
+  await setFlagEnabled(page, winConMapFlagKey, false);
+  await renderAnalysisWithWinConMap(page);
+
+  await expect(page.locator('.wincon-map')).toHaveCount(0);
+});
+
+async function setFlagEnabled(page: Page, key: string, enabled: boolean): Promise<void> {
+  const response = await page.goto('/Admin/Flags');
+  expect(response?.ok()).toBeTruthy();
+
+  const row = page.locator(`tr[data-flag-key="${key}"]`);
+  const status = row.locator('[data-label="Status"]');
+  const currentStatus = (await status.textContent())?.trim();
+  const desiredStatus = enabled ? 'On' : 'Off';
+  if (currentStatus === desiredStatus) {
+    return;
+  }
+
+  await row.getByRole('button', { name: enabled ? 'Enable' : 'Disable', exact: true }).click();
+  await expect(page.locator('.admin-banner--success')).toBeVisible();
+  await expect(row.locator('[data-label="Status"]')).toHaveText(desiredStatus);
+}
+
+async function acquireAdminLock(): Promise<LockHandle> {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < adminLockTimeoutMs) {
+    try {
+      const handle = await open(adminLockPath, 'wx');
+      await handle.writeFile(`${process.pid}\n`);
+      return handle;
+    } catch (error: unknown) {
+      const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
+      if (code !== 'EEXIST') {
+        throw error;
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  throw new Error(`Timed out waiting for admin e2e lock at ${adminLockPath}`);
+}
+
+async function releaseAdminLock(handle: LockHandle | null): Promise<void> {
+  if (!handle) {
+    return;
+  }
+
+  try {
+    await handle.close();
+  } finally {
+    try {
+      await unlink(adminLockPath);
+    } catch (error: unknown) {
+      const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
+      if (code !== 'ENOENT') {
+        throw error;
+      }
+    }
+  }
+}

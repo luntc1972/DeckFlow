@@ -48,6 +48,7 @@ public sealed class AnalysisPromptVariantNoExpertContextTests
             Array.Empty<string>(),
             Array.Empty<string>(),
             comboResult: null,
-            includeCardVersions: false);
+            includeCardVersions: false,
+            enrichments: new AnalysisPromptEnrichments());
     }
 }

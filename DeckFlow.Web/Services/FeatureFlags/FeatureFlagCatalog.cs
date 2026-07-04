@@ -77,10 +77,23 @@ public static class FeatureFlagCatalog
             ["analysis.multi-axis-score"] =
                 "Show a four-axis Power/Speed/Control/Consistency score block in the deck-analysis " +
                 "Step-3 results and include the score in all three prompt artifacts. Off = byte-identical.",
+            ["analysis.interaction-audit"] =
+                "Show the deck-analysis interaction and answers audit block - bucketed card-backed " +
+                "interaction counts plus coverage-gap advisories - in the Step-3 readout and all " +
+                "three prompt artifacts. Off = byte-identical to pre-Phase-79.",
+            ["analysis.wincon-map"] =
+                "Show the deck-analysis win-condition & combo map block - ranked combos, one-card-away " +
+                "near-combos, an assembly-path count, a coarse assembly band, and closing cards - in the " +
+                "Step-3 readout and all three prompt artifacts. Off = byte-identical to pre-Phase-80.",
             ["tool.primer.stale-flag"] =
                 "Surface a 'deck changed since this primer was generated' stale banner on the Deck Primer " +
                 "page, shown only on resume-without-rebuild when the current deck differs from the generated " +
                 "primer's deck. Never auto-rebuilds or re-fetches. Off = byte-identical output and zips.",
+            ["analysis.mulligan-eval"] =
+                "Show the opening-hand / mulligan evaluator block on the mana base page and its paste " +
+                "artifact - a keepable-hand band, London mulligan keep-depth process, and representative " +
+                "openers with a per-play on-curve and has-a-plan read, all a heuristic consistency signal " +
+                "derived from the existing simulation. Off = byte-identical output.",
         };
 
     /// <summary>

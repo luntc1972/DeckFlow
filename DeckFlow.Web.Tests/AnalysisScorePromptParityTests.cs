@@ -53,8 +53,7 @@ public sealed class AnalysisScorePromptParityTests
             bannedCards: [],
             comboResult: null,
             includeCardVersions: false,
-            companionName: null,
-            scoreBlockText: scoreBlockText);
+            enrichments: new AnalysisPromptEnrichments(ScoreBlockText: scoreBlockText));
     }
 
     // ── Score block present in all three variants when supplied ─────────────

@@ -131,6 +131,60 @@ public static class DeckStatClassifier
         => oracleText.Contains("counter target spell", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Returns <see langword="true"/> when the card is hard targeted removal, excluding board wipes and self-targeted effects.
+    /// </summary>
+    /// <param name="typeLine">Card type line.</param>
+    /// <param name="oracleText">Normalized oracle text.</param>
+    public static bool IsTargetedRemovalCard(string typeLine, string oracleText)
+        => !IsBoardWipeCard(oracleText)
+            && !oracleText.Contains("you control", StringComparison.OrdinalIgnoreCase)
+            && (oracleText.Contains("destroy target ", StringComparison.OrdinalIgnoreCase)
+                || oracleText.Contains("exile target ", StringComparison.OrdinalIgnoreCase)
+                || oracleText.Contains("target creature", StringComparison.OrdinalIgnoreCase) && oracleText.Contains("gets -", StringComparison.OrdinalIgnoreCase)
+                || oracleText.Contains("deal", StringComparison.OrdinalIgnoreCase) && oracleText.Contains("damage to target creature", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Returns <see langword="true"/> when a targeted interaction is constrained to objects you control.
+    /// </summary>
+    /// <param name="typeLine">Card type line.</param>
+    /// <param name="oracleText">Normalized oracle text.</param>
+    public static bool IsSelfTargetedInteraction(string typeLine, string oracleText)
+        => oracleText.Contains("you control", StringComparison.OrdinalIgnoreCase)
+            && oracleText.Contains("target", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Returns <see langword="true"/> when the card is temporary or weak targeted removal such as bounce, tuck, or blink.
+    /// </summary>
+    /// <param name="typeLine">Card type line.</param>
+    /// <param name="oracleText">Normalized oracle text.</param>
+    public static bool IsPseudoRemovalCard(string typeLine, string oracleText)
+        => !oracleText.Contains("you control", StringComparison.OrdinalIgnoreCase)
+            && (oracleText.Contains("return target", StringComparison.OrdinalIgnoreCase)
+                && (oracleText.Contains("to its owner's hand", StringComparison.OrdinalIgnoreCase)
+                    || oracleText.Contains("to their owner's hand", StringComparison.OrdinalIgnoreCase))
+                || oracleText.Contains("target", StringComparison.OrdinalIgnoreCase)
+                    && (oracleText.Contains("into its owner's library", StringComparison.OrdinalIgnoreCase)
+                        || oracleText.Contains("on the bottom of", StringComparison.OrdinalIgnoreCase)
+                        || oracleText.Contains("shuffles it into", StringComparison.OrdinalIgnoreCase))
+                || oracleText.Contains("exile target", StringComparison.OrdinalIgnoreCase)
+                    && oracleText.Contains("return", StringComparison.OrdinalIgnoreCase)
+                    && (oracleText.Contains("end step", StringComparison.OrdinalIgnoreCase)
+                        || oracleText.Contains("end of turn", StringComparison.OrdinalIgnoreCase)
+                        || oracleText.Contains("next", StringComparison.OrdinalIgnoreCase)));
+
+    /// <summary>
+    /// Returns <see langword="true"/> when the card is a curated or text-detected protection effect.
+    /// </summary>
+    /// <param name="name">Card name.</param>
+    /// <param name="oracleText">Normalized oracle text.</param>
+    public static bool IsProtectionCard(string name, string oracleText)
+        => StaxProtectionCatalog.IsProtection(name)
+            || oracleText.Contains("gains hexproof", StringComparison.OrdinalIgnoreCase)
+            || oracleText.Contains("gains indestructible", StringComparison.OrdinalIgnoreCase)
+            || oracleText.Contains("gain protection from", StringComparison.OrdinalIgnoreCase)
+            || oracleText.Contains("phases out", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Parses a single mana symbol token (the text between <c>{</c> and <c>}</c>) into its
     /// converted mana cost contribution.  Numeric tokens return their integer value; X returns 0;
     /// hybrid symbols (containing '/') return 1; everything else returns 1.

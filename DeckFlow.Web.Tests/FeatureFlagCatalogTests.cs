@@ -43,6 +43,7 @@ public sealed class FeatureFlagCatalogTests
     [InlineData("analysis.command-zone-awareness")]
     [InlineData("tool.bracket.enabled")]
     [InlineData("analysis.multi-axis-score")]
+    [InlineData("analysis.mulligan-eval")]
     public void Describe_EverySeededFlag_HasNonEmptyDescription(string key)
     {
         string description = FeatureFlagCatalog.Describe(key);

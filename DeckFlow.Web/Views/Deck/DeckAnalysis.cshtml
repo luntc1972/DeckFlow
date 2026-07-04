@@ -43,6 +43,9 @@ Do not omit any fields from the schema.
         Model.SetUpgradeCardText.TryGetValue(add.Card, out var packetText) && !string.IsNullOrWhiteSpace(packetText)
             ? packetText
             : add.CardText;
+    // Coarse assembly-speed label for a WinConBand; never a turn-number claim (WINCON-03 hedge).
+    // Shared Core formatter so the prompt artifact and this readout can't drift.
+    Func<WinConBand, string> formatWinConBand = WinConBandFormatter.Label;
 }
 
 <section class="hero">
@@ -519,6 +522,18 @@ Do not omit any fields from the schema.
                so the flag-OFF page stays byte-identical to baseline (no extra field). *@
             <textarea name="ScoreJson" hidden aria-hidden="true" tabindex="-1">@Model.Request.ScoreJson</textarea>
         }
+        @if (!string.IsNullOrEmpty(Model.Request.InteractionAuditJson))
+        {
+            @* Round-trips the interaction audit across Step-3 re-posts and session zip restores; rendered
+               only when present so the flag-OFF page stays byte-identical to baseline (no extra field). *@
+            <textarea name="InteractionAuditJson" hidden aria-hidden="true" tabindex="-1">@Model.Request.InteractionAuditJson</textarea>
+        }
+        @if (!string.IsNullOrEmpty(Model.Request.WinConMapJson))
+        {
+            @* Round-trips the win-condition/combo map across Step-3 re-posts and session zip restores;
+               rendered only when present so the flag-OFF page stays byte-identical to baseline (no extra field). *@
+            <textarea name="WinConMapJson" hidden aria-hidden="true" tabindex="-1">@Model.Request.WinConMapJson</textarea>
+        }
 
         <div class="toolbar chatgpt-step-actions">
             <button type="submit" class="run-button" data-chatgpt-submit-step="3">Render Analysis Summary</button>
@@ -569,6 +584,129 @@ Do not omit any fields from the schema.
                              role="note">
                             <span class="chatgpt-score-crosscheck__label">@(Model.Score.ScoreAlignsBracket ? "✓ " : "⚠ ")CROSS-CHECK</span>
                             @Model.Score.BracketCrossCheckText
+                        </div>
+                    </div>
+                }
+                @if (Model.InteractionAudit is not null)
+                {
+                    <div class="interaction-audit" role="region" aria-label="Interaction and Answers Audit">
+                        <p class="interaction-audit__eyebrow">Interaction and answers audit &middot; DeckFlow automated first pass for the AI to re-verify</p>
+                        <div class="interaction-audit-grid">
+                            @foreach (var (label, bucket) in new[]
+                            {
+                                ("Targeted removal", Model.InteractionAudit.TargetedRemoval),
+                                ("Board wipes", Model.InteractionAudit.BoardWipes),
+                                ("Counterspells", Model.InteractionAudit.Counterspells),
+                                ("Protection or recursion", Model.InteractionAudit.ProtectionRecursion),
+                                ("Stax or taxation", Model.InteractionAudit.StaxTaxation),
+                            })
+                            {
+                                <section class="interaction-audit-bucket" aria-label="@label">
+                                    <h4>@label</h4>
+                                    @if (bucket.Confident.Count > 0)
+                                    {
+                                        <p class="interaction-audit-count">Approximately @bucket.Confident.Sum(card => card.Quantity) confident; verify against your list.</p>
+                                        <ul class="interaction-audit-list">
+                                            @foreach (var card in bucket.Confident)
+                                            {
+                                                <li>@(card.Quantity > 1 ? $"{card.Quantity}x " : string.Empty)@card.Name</li>
+                                            }
+                                        </ul>
+                                    }
+                                    else
+                                    {
+                                        <p class="interaction-audit-empty">No confident cards found by DeckFlow.</p>
+                                    }
+                                    @if (bucket.Review.Count > 0)
+                                    {
+                                        <p class="interaction-audit-review">Review: @string.Join(", ", bucket.Review.Select(card => card.Quantity > 1 ? $"{card.Quantity}x {card.Name}" : card.Name))</p>
+                                    }
+                                </section>
+                            }
+                        </div>
+                        <div class="interaction-audit-gaps@(Model.InteractionAudit.CoverageGaps.Count > 0 ? " interaction-audit-gaps--flagged" : string.Empty)" role="note">
+                            <span class="interaction-audit-gaps__label">Coverage gaps to verify</span>
+                            @if (Model.InteractionAudit.CoverageGaps.Count > 0)
+                            {
+                                <ul>
+                                    @foreach (var gap in Model.InteractionAudit.CoverageGaps)
+                                    {
+                                        <li>@gap</li>
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <p>None flagged by DeckFlow; verify against your list.</p>
+                            }
+                        </div>
+                    </div>
+                }
+                @if (Model.WinConMap is not null)
+                {
+                    <div class="wincon-map" role="region" aria-label="Win Condition and Combo Map">
+                        <p class="wincon-map__eyebrow">Win condition and combo map &middot; DeckFlow automated first pass &mdash; the AI must confirm castability, board state, and color access before treating any line below as a live win condition</p>
+                        @if (!Model.WinConMap.ComboDataAvailable)
+                        {
+                            <p class="wincon-map-unavailable">Combo data unavailable (Commander Spellbook did not respond) &mdash; this is not a claim the deck has no win conditions.</p>
+                        }
+                        else if (Model.WinConMap.Combos.Count == 0)
+                        {
+                            <p class="wincon-map-unavailable">No combos detected by DeckFlow's combo lookup &mdash; this is not a claim the deck has no win conditions.</p>
+                        }
+                        else
+                        {
+                            <p class="wincon-map-count">Approximately @Model.WinConMap.AssemblyPathCount candidate assembly paths; verify castability.</p>
+                            <ul class="wincon-map-combo-list">
+                                @foreach (var combo in Model.WinConMap.Combos)
+                                {
+                                    <li class="wincon-map-combo">
+                                        <span class="wincon-map-combo__cards">@string.Join(", ", combo.CardNames)</span>
+                                        <span class="wincon-map-combo__arrow" aria-hidden="true">&rarr;</span>
+                                        <span class="wincon-map-combo__results">@string.Join(", ", combo.Results)</span>
+                                        @if (combo.Band != WinConBand.Unknown)
+                                        {
+                                            <span class="wincon-map-band">typically comes online @formatWinConBand(combo.Band)</span>
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        <div class="wincon-map-near">
+                            <h4>One card away (not currently a win line)</h4>
+                            @if (Model.WinConMap.NearCombos.Count > 0)
+                            {
+                                <ul>
+                                    @foreach (var near in Model.WinConMap.NearCombos)
+                                    {
+                                        <li>missing @near.MissingCard (have: @string.Join(", ", near.CardsInDeck))</li>
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <p class="wincon-map-empty">None found by DeckFlow.</p>
+                            }
+                        </div>
+                        @if (Model.WinConMap.OverallBand != WinConBand.Unknown)
+                        {
+                            <p class="wincon-map-band wincon-map-band--overall">Fastest candidate combo typically comes online @formatWinConBand(Model.WinConMap.OverallBand) (heuristic estimate &mdash; verify against the actual game plan).</p>
+                        }
+                        <div class="wincon-map-closers">
+                            <h4>Non-combo closers to verify</h4>
+                            @if (Model.WinConMap.ClosingCards.Count > 0)
+                            {
+                                <ul>
+                                    @foreach (var card in Model.WinConMap.ClosingCards)
+                                    {
+                                        <li>@(card.Quantity > 1 ? $"{card.Quantity}x " : string.Empty)@card.Name</li>
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <p class="wincon-map-empty">None found by DeckFlow.</p>
+                            }
                         </div>
                     </div>
                 }

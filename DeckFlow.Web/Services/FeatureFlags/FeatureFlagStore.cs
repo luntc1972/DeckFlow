@@ -227,6 +227,9 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('analysis.command-zone-awareness', FALSE),
           ('tool.bracket.enabled', FALSE),
           ('analysis.multi-axis-score', FALSE),
+          ('analysis.interaction-audit', FALSE),
+          ('analysis.wincon-map', FALSE),
+          ('analysis.mulligan-eval', FALSE),
           ('tool.primer.stale-flag', FALSE)
         ON CONFLICT (key) DO NOTHING;
         """;
@@ -263,6 +266,9 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('analysis.command-zone-awareness', 0),
           ('tool.bracket.enabled', 0),
           ('analysis.multi-axis-score', 0),
+          ('analysis.interaction-audit', 0),
+          ('analysis.wincon-map', 0),
+          ('analysis.mulligan-eval', 0),
           ('tool.primer.stale-flag', 0)
         ON CONFLICT (key) DO NOTHING;
         """;

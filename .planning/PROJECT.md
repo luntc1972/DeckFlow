@@ -14,19 +14,18 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 **Next:** Not yet scoped — run `/gsd-new-milestone` to start the next cycle. Carry-forward backlog still open: scheduled/bulk harvest (AUTO-03/04), SEO/growth lane (SEO-01..05). Operator follow-ups owed: **manual prod deploy of Cycle 13 (autodeploy OFF)**, then flip the four Cycle 13 flags in prod when ready; the Cycle 12 flag flips are likewise still owed if not yet done.
 
-## Current Milestone: Cycle 13 — Deck Evaluation & Creator Output
+## Current Milestone: Cycle 14 — Deeper Deck Evaluation
 
-**Goal:** Extend the paste-artifact engine into deck *evaluation* (bracket + multi-axis score) and *creator output* (auto-refreshing primer), closing the top uncontested gaps from the 2026-06-27 commander-feature-wants research.
+**Goal:** Extend the deck-analysis paste-artifact engine with three deeper read dimensions, all building on the existing Monte-Carlo castability sim, Commander Spellbook integration, multi-axis score, and `DeckStatClassifier` — each flag-gated and byte-identical when OFF.
 
 **Target features:**
-- **Bracket Classifier + Balancer** (#3) — auto-apply the official 5-tier bracket (B1-4 casual, B5 cEDH); generate a "cuts to move this deck to target bracket-N" paste artifact. No incumbent does bracket *balancing* — uncontested per research.
-- **Multi-Axis Deck Score** (#5) — Power / Speed / Control / Consistency (0-5 each) rolled into the paste packet, replacing single-number scoring (EDHRank-style multi-dimensional).
-- **Auto-Refreshing Primer** (#2) — primer artifact regenerates / flags stale when the deck changes; closes the "primers decay, manually maintained" gap, DeckFlow's clearest creator lane.
-- **Tap Analyzer surface** (#4 slice) — surface untapped-source frequency + opening-turn (turn-1) untapped availability as discrete manabase metrics in the report + paste packet. Engine already models tapped state (Cycle 12 / P70-72); this exposes it.
+- **Interaction & answers audit** — count and categorize the deck's interaction (removal, counterspells, stax, protection, board wipes) and flag coverage gaps; new paste-artifact section + view readout.
+- **Win-condition & combo map** — enumerate the deck's win lines and combo pieces (deeper Commander Spellbook use), with redundancy and an assembly-turn read; surfaces "how this deck wins."
+- **Opening-hand / mulligan evaluator** — surface keepable-hand probability plus a color/curve read off the existing Monte-Carlo simulation, as a discrete deck-eval metric.
 
-**Out of scope this cycle:** folder-level deck sharing (off-thesis, no paste artifact); live stream / Twitch overlays (Arena-bound, not paper-pod); rebuilding the manabase castability ENGINE (already shipped P70-72 — only the Tap-Analyzer readout is new).
+**Out of scope this cycle:** matchup / meta-threat read (deferred — deepens cedh-meta-gap, a separate lane); folder-level deck sharing; live-stream overlays; rebuilding the castability engine (only new readouts on top of it).
 
-**Key context:** CalVer, NAMED not numbered (ADR 0002); phase numbering continues from 74 → 75+. **Cycle 12** (P70-74 + flag-key namespacing) shipped to `main` as `2026.06.9` — see Current State above. Prompt-variant decoupling (ADR-0001) holds — any new artifact renders in ChatGpt/Claude/Gemini variants WITHOUT a shared helper. Research backing: `.planning/research/commander-feature-wants-report.md`.
+**Key context:** CalVer, NAMED not numbered (ADR 0002); phase numbering continues from 78 → 79+. **Cycle 13** (P75-78) shipped to `main` as `2026.06.10` — see Current State above. Prompt-variant decoupling (ADR-0001) holds — any new artifact renders in ChatGpt/Claude/Gemini variants WITHOUT a shared helper. Each new feature is flag-gated and seeded OFF, byte-identical until an operator enables it. Developed on branch `plan/cycle-14-deck-eval-depth` + worktree `deckflow-cycle14`.
 
 ## Shipped Milestone: Cycle 11 — Security, Visibility Control & Creator-Lens (SHIPPED 2026-06-25, `2026.06.8`)
 

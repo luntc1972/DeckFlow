@@ -38,13 +38,12 @@ internal sealed class AnalysisPromptVariantRegistry
         IReadOnlyList<string> bannedCards,
         CommanderSpellbookResult? comboResult = null,
         bool includeCardVersions = false,
-        string? companionName = null,
-        string? scoreBlockText = null)
+        AnalysisPromptEnrichments? enrichments = null)
     {
         var variant = _variants.TryGetValue(platform, out var found)
             ? found
             : _variants[AiPlatform.Default];
         return variant.Build(request, decklistText, referenceText, deckProfileSchemaJson,
-            commanderName, selectedQuestionIds, bannedCards, comboResult, includeCardVersions, companionName, scoreBlockText);
+            commanderName, selectedQuestionIds, bannedCards, comboResult, includeCardVersions, enrichments ?? new AnalysisPromptEnrichments());
     }
 }

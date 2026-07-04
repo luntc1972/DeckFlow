@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Threading.Tasks;
 using DeckFlow.Core.Integration;
@@ -489,5 +490,246 @@ public sealed class DeckPacketControllerTests
 
         var status = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status503ServiceUnavailable, status.StatusCode);
+    }
+
+    /// <summary>
+    /// Phase 80 (WINCON-04): a fresh <c>/deck-analysis/download</c> recomputes a WinConMap but may
+    /// receive an EMPTY posted <c>WinConMapJson</c> (e.g. a first download before any Step-3 re-post
+    /// wrote the hidden field back). The controller's serialize-fallback must still emit the
+    /// <c>61-wincon-map.json</c> zip entry from the freshly computed result -- never dropping it.
+    /// </summary>
+    [Fact]
+    public async Task DeckAnalysisDownload_FreshWithEmptyPostedWinConMapJson_StillWritesZipEntryViaSerializeFallback()
+    {
+        var fakeService = new FakeDeckAnalysisPacketService
+        {
+            Result = new DeckAnalysisPacketResult(
+                "summary",
+                "Test Deck | AI Deck Analysis",
+                "{}",
+                "reference",
+                "analysis prompt text",
+                null,
+                null,
+                null,
+                WinConMap: new DeckFlow.Core.Analysis.WinConMap(
+                    Combos: new[]
+                    {
+                        new DeckFlow.Core.Analysis.WinConCombo(
+                            CardNames: new[] { "Kiki-Jiki, Mirror Breaker", "Restoration Angel" },
+                            Results: new[] { "Infinite combat steps" },
+                            ManaValueNeeded: 8,
+                            Popularity: 42,
+                            Band: DeckFlow.Core.Analysis.WinConBand.Mid)
+                    },
+                    NearCombos: Array.Empty<DeckFlow.Core.Analysis.WinConNearCombo>(),
+                    AssemblyPathCount: 1,
+                    ClosingCards: Array.Empty<DeckFlow.Core.Analysis.WinConClosingCard>(),
+                    ComboDataAvailable: true,
+                    OverallBand: DeckFlow.Core.Analysis.WinConBand.Mid))
+        };
+
+        var controller = new DeckPacketController(
+            fakeService,
+            new FakeDeckComparisonService(),
+            new StubMetaGapService(),
+            new PacketSessionCache(),
+            NullLogger<DeckPacketController>.Instance,
+            flagCache: new FakeFeatureFlagCache(new Dictionary<string, bool> { ["analysis.wincon-map"] = true }))
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        // Posted WinConMapJson is deliberately EMPTY -- proving the controller's serialize-fallback
+        // (not the round-tripped hidden field) is what keeps a freshly computed map in the zip.
+        var request = new DeckAnalysisRequest
+        {
+            DeckSource = "https://www.moxfield.com/decks/test-wincon-fresh-download",
+            TargetAiPlatform = "ChatGPT",
+            WinConMapJson = string.Empty
+        };
+
+        var actionResult = await controller.DeckAnalysisDownload(request);
+
+        var fileResult = Assert.IsType<FileContentResult>(actionResult);
+        using var stream = new MemoryStream(fileResult.FileContents);
+        using var archive = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Read);
+        Assert.Contains(archive.Entries, e => string.Equals(e.FullName, "61-wincon-map.json", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Phase 80 code-review fix (Codex MED findings #2/#3): the download path must never trust the
+    /// raw posted <c>WinConMapJson</c> field -- it is neither flag-gated nor structurally validated.
+    /// <see cref="IDeckAnalysisPacketService.BuildAsync"/> always leaves <see cref="DeckAnalysisPacketResult.WinConMap"/>
+    /// <see langword="null"/> when the <c>analysis.wincon-map</c> flag is off, so a fake service
+    /// configured with a <see langword="null"/> <see cref="DeckAnalysisPacketResult.WinConMap"/>
+    /// stands in for the flag-OFF case. Even with a non-empty, stale posted <c>WinConMapJson</c>,
+    /// the zip must omit the <c>61-wincon-map.json</c> entry and must be byte-identical to the
+    /// flag-OFF baseline (no posted field at all).
+    /// </summary>
+    [Fact]
+    public async Task DeckAnalysisDownload_FlagOffResultWithStalePostedWinConMapJson_OmitsZipEntryAndMatchesBaseline()
+    {
+        var fakeService = new FakeDeckAnalysisPacketService
+        {
+            Result = new DeckAnalysisPacketResult(
+                "summary",
+                "Test Deck | AI Deck Analysis",
+                "{}",
+                "reference",
+                "analysis prompt text",
+                null,
+                null,
+                null,
+                WinConMap: null)
+        };
+
+        var baselineController = new DeckPacketController(
+            fakeService,
+            new FakeDeckComparisonService(),
+            new StubMetaGapService(),
+            new PacketSessionCache(),
+            NullLogger<DeckPacketController>.Instance,
+            flagCache: new FakeFeatureFlagCache(new Dictionary<string, bool> { ["analysis.wincon-map"] = false }))
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var baselineRequest = new DeckAnalysisRequest
+        {
+            DeckSource = "https://www.moxfield.com/decks/test-wincon-flag-off",
+            TargetAiPlatform = "ChatGPT",
+            WinConMapJson = string.Empty
+        };
+
+        var baselineResult = await baselineController.DeckAnalysisDownload(baselineRequest);
+        var baselineFile = Assert.IsType<FileContentResult>(baselineResult);
+        using (var baselineStream = new MemoryStream(baselineFile.FileContents))
+        using (var baselineArchive = new System.IO.Compression.ZipArchive(baselineStream, System.IO.Compression.ZipArchiveMode.Read))
+        {
+            Assert.DoesNotContain(baselineArchive.Entries, e => string.Equals(e.FullName, "61-wincon-map.json", StringComparison.OrdinalIgnoreCase));
+        }
+
+        var staleController = new DeckPacketController(
+            fakeService,
+            new FakeDeckComparisonService(),
+            new StubMetaGapService(),
+            new PacketSessionCache(),
+            NullLogger<DeckPacketController>.Instance,
+            flagCache: new FakeFeatureFlagCache(new Dictionary<string, bool> { ["analysis.wincon-map"] = false }))
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        // Stale posted WinConMapJson from a prior flag-ON session -- must be ignored entirely.
+        var staleRequest = new DeckAnalysisRequest
+        {
+            DeckSource = "https://www.moxfield.com/decks/test-wincon-flag-off",
+            TargetAiPlatform = "ChatGPT",
+            WinConMapJson = "{\"combos\":[{\"cardNames\":[\"Kiki-Jiki, Mirror Breaker\",\"Restoration Angel\"],\"results\":[\"Infinite combat steps\"]}]}"
+        };
+
+        var staleResult = await staleController.DeckAnalysisDownload(staleRequest);
+        var staleFile = Assert.IsType<FileContentResult>(staleResult);
+        using var staleStream = new MemoryStream(staleFile.FileContents);
+        using var staleArchive = new System.IO.Compression.ZipArchive(staleStream, System.IO.Compression.ZipArchiveMode.Read);
+        Assert.DoesNotContain(staleArchive.Entries, e => string.Equals(e.FullName, "61-wincon-map.json", StringComparison.OrdinalIgnoreCase));
+
+        Assert.Equal(baselineFile.FileContents, staleFile.FileContents);
+    }
+
+    /// <summary>
+    /// Phase 80 code-review fix #3: mirrors <see cref="DeckAnalysisDownload_FlagOffResultWithStalePostedWinConMapJson_OmitsZipEntryAndMatchesBaseline"/>
+    /// for the interaction-audit artifact -- the win-con fix (deriving the zip entry solely from the
+    /// typed result) was applied too narrowly and the adjacent interaction-audit entry still passed
+    /// the RAW posted <c>InteractionAuditJson</c> field. With <c>analysis.interaction-audit</c> off and
+    /// a stale/crafted posted field, <see cref="DeckAnalysisPacketResult.InteractionAudit"/> is null
+    /// (no overwrite), so the zip must omit <c>60-interaction-audit.json</c> and be byte-identical to
+    /// the flag-OFF baseline.
+    /// </summary>
+    [Fact]
+    public async Task DeckAnalysisDownload_FlagOffResultWithStalePostedInteractionAuditJson_OmitsZipEntryAndMatchesBaseline()
+    {
+        var fakeService = new FakeDeckAnalysisPacketService
+        {
+            Result = new DeckAnalysisPacketResult(
+                "summary",
+                "Test Deck | AI Deck Analysis",
+                "{}",
+                "reference",
+                "analysis prompt text",
+                null,
+                null,
+                null,
+                InteractionAudit: null)
+        };
+
+        var baselineController = new DeckPacketController(
+            fakeService,
+            new FakeDeckComparisonService(),
+            new StubMetaGapService(),
+            new PacketSessionCache(),
+            NullLogger<DeckPacketController>.Instance,
+            flagCache: new FakeFeatureFlagCache(new Dictionary<string, bool> { ["analysis.interaction-audit"] = false }))
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var baselineRequest = new DeckAnalysisRequest
+        {
+            DeckSource = "https://www.moxfield.com/decks/test-interaction-audit-flag-off",
+            TargetAiPlatform = "ChatGPT",
+            InteractionAuditJson = string.Empty
+        };
+
+        var baselineResult = await baselineController.DeckAnalysisDownload(baselineRequest);
+        var baselineFile = Assert.IsType<FileContentResult>(baselineResult);
+        using (var baselineStream = new MemoryStream(baselineFile.FileContents))
+        using (var baselineArchive = new System.IO.Compression.ZipArchive(baselineStream, System.IO.Compression.ZipArchiveMode.Read))
+        {
+            Assert.DoesNotContain(baselineArchive.Entries, e => string.Equals(e.FullName, "60-interaction-audit.json", StringComparison.OrdinalIgnoreCase));
+        }
+
+        var staleController = new DeckPacketController(
+            fakeService,
+            new FakeDeckComparisonService(),
+            new StubMetaGapService(),
+            new PacketSessionCache(),
+            NullLogger<DeckPacketController>.Instance,
+            flagCache: new FakeFeatureFlagCache(new Dictionary<string, bool> { ["analysis.interaction-audit"] = false }))
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        // Stale posted InteractionAuditJson from a prior flag-ON session -- must be ignored entirely.
+        var staleRequest = new DeckAnalysisRequest
+        {
+            DeckSource = "https://www.moxfield.com/decks/test-interaction-audit-flag-off",
+            TargetAiPlatform = "ChatGPT",
+            InteractionAuditJson = "{\"targetedRemoval\":{\"confident\":[{\"name\":\"Swords to Plowshares\",\"quantity\":1}],\"review\":[]},\"boardWipes\":{\"confident\":[],\"review\":[]},\"counterspells\":{\"confident\":[],\"review\":[]},\"protectionRecursion\":{\"confident\":[],\"review\":[]},\"staxTaxation\":{\"confident\":[],\"review\":[]},\"coverageGaps\":[]}"
+        };
+
+        var staleResultAction = await staleController.DeckAnalysisDownload(staleRequest);
+        var staleFileAction = Assert.IsType<FileContentResult>(staleResultAction);
+        using var staleStreamAction = new MemoryStream(staleFileAction.FileContents);
+        using var staleArchiveAction = new System.IO.Compression.ZipArchive(staleStreamAction, System.IO.Compression.ZipArchiveMode.Read);
+        Assert.DoesNotContain(staleArchiveAction.Entries, e => string.Equals(e.FullName, "60-interaction-audit.json", StringComparison.OrdinalIgnoreCase));
+
+        Assert.Equal(baselineFile.FileContents, staleFileAction.FileContents);
     }
 }
