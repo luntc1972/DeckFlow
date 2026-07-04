@@ -29,8 +29,8 @@ The four parallel packet-building services (`DeckAnalysisPacketService` 2372 LOC
 
 The 6-pillar UI audit (`tasks/UI-REVIEW.md`) last scored 16/24 at v1.0 and was never re-measured. DirectPush Stage 4 has an owed live desktop+mobile verify and a flagged no-op success-copy warning.
 
-- [ ] **UIAUDIT-01**: The 6-pillar UI audit is re-run against the current site and scored; the gap to ≥20/24 is enumerated with concrete per-pillar fixes.
-- [ ] **UIAUDIT-02**: The enumerated gaps are fixed and a re-score confirms the site clears ≥20/24.
+- [ ] **UIAUDIT-01**: A baseline 6-pillar UI audit is re-run against the current site and scored early in the cycle; the gap to ≥20/24 is enumerated with concrete per-pillar fixes, and the findings are fed into the Phase 84/85 visual work so fixes are scoped rather than discovered after the fact. (Baseline runs in Phase 82.)
+- [ ] **UIAUDIT-02**: The enumerated gaps are fixed and a final re-score — after the theme-token migration and naming cleanup land — confirms the site clears ≥20/24.
 - [ ] **UIAUDIT-03**: DirectPush Stage 4 card is verified live at desktop + mobile; the no-op success copy (`DirectPush.razor:441`) is corrected to not claim a push that did not happen, phrasing is unified with the committed variant, and the commit SHA is short-form to avoid mobile overflow.
 
 ### AICLEAN — `chatgpt-*` Naming Cleanup
@@ -40,6 +40,12 @@ The 6-pillar UI audit (`tasks/UI-REVIEW.md`) last scored 16/24 at v1.0 and was n
 - [ ] **AICLEAN-01**: All `chatgpt-*` CSS class names are renamed to AI-agnostic names across the 25 theme forks + `site-common.css` + `site.css`, with the rendered output byte-identical.
 - [ ] **AICLEAN-02**: The matching `chatgpt-*` TypeScript constants, `data-*` attributes, and Razor view references are renamed in lockstep; no dead or duplicated selectors remain.
 - [ ] **AICLEAN-03**: No `chatgpt-*` identifier remains in `css/`, `ts/`, or `Views/` (grep-clean); page render and the Playwright e2e suite are unchanged.
+
+### ADMIN — Admin Flags Ergonomics
+
+The `/Admin/Flags` list is unsorted by state, so an operator cannot see at a glance which flags are currently enabled. The one small admin-UX addition in an otherwise behavior-neutral cycle.
+
+- [ ] **ADMIN-01**: The `/Admin/Flags` list can be sorted by on/off (enabled) state so all enabled flags group together and the current toggle state is scannable at a glance. Sort is a view concern only — no flag key, default value, or persisted semantics change; the underlying flag registry is untouched.
 
 ### REVIEW — Refactor-Review Sweep
 
@@ -64,4 +70,23 @@ A code-review pass surfaces remaining SRP/duplication targets beyond the pre-ide
 
 ## Traceability
 
-<!-- Filled by roadmap: REQ-ID → Phase mapping. -->
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| REVIEW-01 | Phase 82 | Pending |
+| REVIEW-02 | Phase 82 | Pending |
+| UIAUDIT-01 | Phase 82 | Pending |
+| PKTSVC-01 | Phase 83 | Pending |
+| PKTSVC-02 | Phase 83 | Pending |
+| PKTSVC-03 | Phase 83 | Pending |
+| PKTSVC-04 | Phase 83 | Pending |
+| THEME-01 | Phase 84 | Pending |
+| THEME-02 | Phase 84 | Pending |
+| THEME-03 | Phase 84 | Pending |
+| AICLEAN-01 | Phase 85 | Pending |
+| AICLEAN-02 | Phase 85 | Pending |
+| AICLEAN-03 | Phase 85 | Pending |
+| UIAUDIT-02 | Phase 86 | Pending |
+| UIAUDIT-03 | Phase 86 | Pending |
+| ADMIN-01 | Phase 86 | Pending |
+
+**Coverage: 16/16 requirements mapped. No orphans.**
