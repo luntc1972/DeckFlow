@@ -1,32 +1,32 @@
 ---
 source: "Salubrious Snail"
 title: "The Art of the Mulligan"
-url: "https://www.youtube.com/watch?v=PRvJsO23Usc\u0026list=UUOYkwObFKjxko7oj56gVDag"
+url: "https://www.youtube.com/watch?v=PRvJsO23Usc"
 video_id: "PRvJsO23Usc"
 tags:
-  archetype: ["lands","ramp"]
-  bracket: []
-  card_category: ["ramp","draw","tutor"]
-generated_utc: "2026-06-08T18:50:52Z"
+  archetype: ["lands","midrange"]
+  bracket: ["Core","Upgraded"]
+  card_category: ["ramp","draw"]
+generated_utc: "2026-07-04T18:33:28Z"
 ---
 
 ## Summary
 
-The 2019 London mulligan transformed mulligans from a painful choice into a filtering resource, especially in Commander where the first mulligan is freeΓÇösince you always redraw a full seven, declining to use it regularly wastes a free resource. In Commander, card power varies wildly: fast mana, low-cost ramp (Birds of Paradise), draw (Mystic Remora, Skullclamp), and high-impact creatures make a six- or five-card hand with a key card better than an average seven, and the always-available commander guarantees access to a good card. Land counts reflect mulligan strategy: aggressive mulliganing supports lower counts (e.g., 28 lands), but spends filtering value chasing lands rather than strong nonland plays; higher counts (40) keep more hands with desirable cards. Card-type counts also matterΓÇörunning 10-12 copies and mulliganing aggressively can beat 20, which raises odds of unwanted duplicates. Decks can be built to mulligan differently by matchup and turn order. Mulligan willingness depends on three factors: how much starting card quantity matters (scales with power level; cEDH rewards aggressive mulligans), personal risk tolerance, and confidence in mulligan skill. Build that skill by knowing your deck's ratios and playtesting opening hands repeatedly.
+Argues mulligans are a filtering resource, not just a yes/no on bad hands. London mulligan (2019) lets you see a full seven every time, so the first mulligan costs nothing but itself; Commander's free mulligan makes it stronger. Land math: at 40% lands, a 7-card hand averages 2.8 lands, six 2.4, five 2.0. In Commander, cards vary wildly—fast mana, cheap ramp (Birds of Paradise), cheap draw (Mystic Remora, Skullclamp), high-impact creatures (Professional Facebreaker, Academy Manufactor)—so a five/six-card hand holding a top card often beats an average seven; the commander creature guarantees an accessible card. Land-count tradeoffs: low-40s maximizes three-land hands; a 28-land aggressive-mulligan plan yields ~95% two+ lands mulliganing to six but spends filtering solely on lands. 30 vs 40 lands gives 2-4 lands 66% vs 76%. Cutting a land (e.g. for Ledger Shredder) raises missed-land-drop risk. For sought card types, 20 copies = 80% to draw one but 40%+ to draw two; running 10-12 and mulliganing aggressively can beat 15-20. cEDH power cards (Dockside Extortionist, Esper Sentinel) redeem five-card hands. Build mulligan skill via ratio analysis and playtesting.
 
 ## Key Clips
 
-- The introduction of the London mulligan in 2019 meant that, since you get to see a full seven cards with every mulligan, it's no longer the painful choice it used to be. This is all the more true in commander, where you get one for free.
-- Taking that first mulligan has no cost to you other than that it requires taking your first mulligan, so if you aren't using that mulligan regularly, every few games at least, you're actively giving up on a resource the game is handing you.
-- The existence of a commander creature means that decks will have a pre-selected card that's effectively in-hand at all times. When you mulligan, you know that whatever hand you draw will have access to that creatureΓÇöas long as you like your commander, it's literally impossible for a hand to have access to no good cards.
-- A deck with 28 lands, if willing to mulligan to 6 to see up to three hands, gives a 95% chance of seeing a hand with at least two lands, and a two thirds chance of seeing a hand with at least three lands. But constructing in the 28 land framework means that filtering resource is basically spent exclusively looking for the right land count.
-- If we're looking for a hand with 2-4 lands, running a land count of 30 will give us that 66% of the time, whereas a land count of 40 will give us that 76% of the time. Almost a third of the hands that the 30 land deck needs to mulligan due to land count are keepable by a 40 land deck.
-- For a deck looking for a diverse range of cards, or a deck that is tight on space, running 10-12 copies and mulligan-ing aggressively for them might be a better plan than running 15 or 20. Twenty cards of a type gives an 80% chance of drawing at least one, but a more than 40% chance of drawing two or more.
-- How tightly a given player leverages their mulligans depends on three factors: how much they care about the quantity of cards they start with, a player's risk tolerance (which works in both directions), and how confident a player feels in their mulligan-ing skill.
-- Your opening hands will contain an average of 2.5 lands and 2.2 cards above three mana, and they'll have a 70% chance each to contain at least one piece of ramp and draw. Doing a combination of pre-play analysis and playtesting is the quickest way to build intuition about how deckbuilding choices turn into early-game results.
+- **[01:35]** Taking that first mulligan has no cost to you other than that it requires taking your first mulligan, so if you aren't using that mulligan regularly, every few games at least, you're actively giving up on a resource the game is handing you.
+- **[02:06]** In commander, just about every deck runs a piece of fast mana that will dramatically warp its early turns if drawn, along with other high-impact cards like Birds of Paradise, Mystic Remora, Skullclamp, Professional Facebreaker, and Academy Manufactor. A six or even five card hand with one of the deck's best cards will often be better than your average seven.
+- **[02:46]** The existence of a commander creature means decks have a pre-selected card effectively in-hand at all times—so as long as you like your commander, it's literally impossible for a hand to have access to no good cards.
+- **[03:34]** If everybody had to keep their first hand every time, you'd see more decks gravitating toward land counts in the low 40s, the range that maximizes the odds of a three land hand.
+- **[04:05]** One commenter advocates a land count of around 28 for most lower-curved decks, the logic being that an aggressive mulligan policy can guarantee a high probability of drawing into enough lands to function. A 28-land hand has a 36% chance of 0 or 1 lands, 33% for two, and 31% for three or more.
+- **[05:55]** If we're looking for a hand with 2-4 lands, running 30 lands gives that 66% of the time, whereas 40 lands gives it 76%. Almost a third of the hands a 30-land deck must mulligan for land count are keepable by a 40-land deck—and those hands might contain really great cards.
+- **[07:37]** Running 20 copies of a card type gives an 80% chance to draw at least one, but a more than 40% chance to draw two or more—actually a lower chance to draw exactly one than at 15 or even 10. For a deck tight on space, running 10-12 copies and mulligan-ing aggressively might beat running 15 or 20.
+- **[08:51]** In cEDH, a single power card like Dockside Extortionist or Esper Sentinel might redeem an otherwise-painful five card hand, and a high density of specific stax pieces means ditching a hate card that doesn't matter against the table isn't a large cost.
 
 ## Tags
 
-**Archetypes/Strategy:** lands, ramp
-**Format/Bracket:** 
-**Card Categories:** ramp, draw, tutor
+**Archetypes/Strategy:** lands, midrange
+**Format/Bracket:** Core, Upgraded
+**Card Categories:** ramp, draw
