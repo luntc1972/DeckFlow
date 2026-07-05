@@ -20,7 +20,7 @@ The video advocates building a custom deck template per Commander deck by first 
 - **[00:48]** If you want to guarantee that you have a single copy of a certain card type by turn two, you need to run 11 of them in your deck.
 - **[00:55]** If you want to guarantee that you have a certain copy of a card type by turn five, you need to run nine.
 - **[01:00]** If we want to guarantee a single copy of a certain card type by turn eight, assuming we're running some card advantage by this point, you need to run six.
-- **[00:19]** Decide what types of cards your strategy needs ΓÇö ramp, removal, or win conditions ΓÇö then fill your deck with the required amount of them to set you up for success.
+- **[00:19]** Decide what types of cards your strategy needs — ramp, removal, or win conditions — then fill your deck with the required amount of them to set you up for success.
 - **[00:30]** This process forces you to build a streamlined deck and take out things that aren't critical; muddying the water with pet cards or alternative win conditions won't leave space for what your deck really needs.
 
 ## Tags

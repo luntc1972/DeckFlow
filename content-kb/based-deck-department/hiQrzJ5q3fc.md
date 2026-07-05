@@ -12,7 +12,7 @@ generated_utc: "2026-07-04T21:23:03Z"
 
 ## Summary
 
-Core principle: build Commander decks around resource battles, since games are usually decided by lack or abundance of resources. Card advantageΓÇöusing one card to draw more of your own or remove multiple of an opponent'sΓÇöquietly wins games and should come proactively from draw spells, recursion, or board wipes. Run at least 10 card-advantage sources; the mix depends on commander and strategy. Examples by archetype: go-wide creature decks use Garruk's Uprising or Mentor of the Meek; Voltron decks with a big commander use Hunter's Insight or Rishkar's Expertise; control decks use draw like Fact or Fiction or Dig Through Time, or board wipes like Austere Command or Farewell. Recursion is another card-advantage category to fill similarly. Pick includes that serve both your strategy and your card-advantage mission.
+Core principle: build Commander decks around resource battles, since games are usually decided by lack or abundance of resources. Card advantage—using one card to draw more of your own or remove multiple of an opponent's—quietly wins games and should come proactively from draw spells, recursion, or board wipes. Run at least 10 card-advantage sources; the mix depends on commander and strategy. Examples by archetype: go-wide creature decks use Garruk's Uprising or Mentor of the Meek; Voltron decks with a big commander use Hunter's Insight or Rishkar's Expertise; control decks use draw like Fact or Fiction or Dig Through Time, or board wipes like Austere Command or Farewell. Recursion is another card-advantage category to fill similarly. Pick includes that serve both your strategy and your card-advantage mission.
 
 ## Key Clips
 
