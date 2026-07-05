@@ -158,3 +158,31 @@ Prompt-artifact first, deterministic C# rubric scoring, **no autonomous agent**.
 
 ## Scope (locked): MVP = P87–P92
 Prompt-artifact, $0 operator cost, the core value. Matches report's "workflow-first, agent-never" recommendation. P93 = fast-follow next cycle.
+
+---
+
+## Plan-review adjustments (Codex gpt-5.4-high + folder finding + P89 prototype, 2026-07-05)
+
+### P88 folder segmentation (NEW — from live Archidekt data)
+Snail's 39 decks span 5 personal folders — **none patron** (all `owner=SalubriousSnail`, zero patron/review keywords; patron-reviewed decks live on patrons' accounts, not his): Current Decks (5), Secondary decks (5), Budget deck pool (10), Decks in consideration (7), Other (12). Pooling all 39 equally distorts the profile — Budget-pool skews cheap, In-consideration = WIP.
+- **CS-04d (new):** capture `parentFolder` (id+name, in the Archidekt API) and **weight/segment the profile by folder** — down-weight Budget + In-consideration, prefer Current+Secondary as the canonical style. Improves on the prototype's equal-pool.
+
+### P89 feasibility = YES (Fable prototype confirmed)
+27 measurable stated-rules extracted from Snail's artifacts (37-42 lands, 8-14 removal, ≥8 counters, 3-5 wipes, copy-benchmark tables); fusion works and discriminates — the board-wipe underweight is an **agreement with his stated philosophy** (not hypocrisy), which is the differentiating signal. **Gaps P89 must close:**
+- **CS-11a:** add a `stated_rules:` YAML block to the distill template (`{category, metric, value, comparator, condition, clip_ts}`) — near-free at distill time; retrofit existing artifacts via one re-distill pass.
+- **CS-11b:** add `content_type:` frontmatter (`deckbuilding-theory|deck-tech|meta-commentary|gameplay`) — ~14% of artifacts have zero deckbuilding signal; gives a clean coverage denominator.
+- **CS-16a (highest-risk modeling decision):** conditionality is first-class — rules are per-archetype/curve; the ledger needs `applies_when` or the fusion emits false deltas (the prototype hit this on the draw metric).
+- **CS-11c:** rule provenance/recency — carry video date; the creator revises his own positions, newer supersedes.
+- **Measured side is the WEAKER leg** (Archidekt labels sparse) — P88 must lean on oracle/name classifiers (harvested store + CS-06), and **filter the 19 >105-card maybeboard-contaminated decks** before computing per-deck ratios.
+
+### Codex adjustments (fold into phases)
+- **HIGH — Moxfield is NOT an MVP source.** Repo README documents Moxfield blocks datacenter IPs; the importer falls back to Commander Spellbook which drops printings/tags/sideboards — fine for deck loading, wrong for a style corpus. → **Archidekt-only MVP crawler**, manual deck-list fallback; Moxfield = separate hardening phase. (Matches the multi-creator finding: RebellLily/Baumi have no clean auto-resolvable Archidekt profile anyway — creator→profile is manual.)
+- **HIGH — Core-vs-Web layering.** The measured extractor wants `CommanderSpellbookService` + `ScryfallTaggerLookupService`, but both live in the Web host; P87/P90 are Core-centric. → add a host-abstraction phase OR keep the extractor in Web behind a narrow Core contract. Resolve before P88 plan.
+- **HIGH — P92 is ≥2 phases.** "Mirror `DeckAnalysisPacketService`" = flag seeding + tool registry + cache-bypass for prompt-mutating flags + packet persistence + controller/view/help + big regression surface. → split **P92a artifact engine** + **P92b tool surface + cache/flag integration**.
+- **MED — `CreatorSourceStore` is the wrong shape** for profile URLs (single normalized `channel_ref`, not multi-platform identity). → **new creator-profile-source table** (slug + platform + profile URL) or anchor off `content_sources`. Supersedes CS-04a's "extend CreatorSourceStore".
+- **MED — card grounding earlier.** Distillation validates schema/tags only, not card names; the summary prompt preserves uncertain names. → a minimal Scryfall grounding pass into **P89/P90**, not just P92/P91.
+- **MED — P88's real work is canonicalization.** The existing `ContentTagVocabulary` allowlist is narrow and a different vocabulary than the prototype uses. → make the category bucket-mapping an explicit prereq before trusting measured ratios.
+- **LOW — P93 is web-side net-new.** `ILlmSpendLedger` isn't registered in Web; no vector packages in either csproj. Keep deferred; write the web-side spend/infra as net-new, not fast-follow glue.
+
+### Verdict
+Cycle 16 has **no hard code dependency on Cycle 17**, but should follow it — creator-style builds on the KB substrate Cycle 17 stabilizes. Prep work allowed in parallel: Archidekt-only crawler spike + P89 schema/rule-extraction design (both already prototyped here).
