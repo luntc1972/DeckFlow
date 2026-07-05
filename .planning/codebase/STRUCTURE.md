@@ -9,7 +9,6 @@ deckflow/
 ├── DeckFlow.sln                       # Solution file (5 projects)
 ├── Directory.Build.props              # Shared .NET build props (clears NuGet fallback)
 ├── Dockerfile                         # Multi-stage ASP.NET 10 container
-├── fly.toml                           # Fly.io deployment config
 ├── render.yaml                        # Render Blueprint (Docker, starter plan)
 ├── CLAUDE.md                          # Project conventions & constraints
 ├── README.md                          # Public documentation
@@ -470,7 +469,7 @@ deckflow/
 - `DeckFlow.sln`: Solution file referencing 5 projects (Web, Core, CLI, Web.Tests, Core.Tests).
 - `Directory.Build.props`: Shared .NET build properties (clears NuGet fallback folders for WSL compatibility).
 - `Dockerfile`: Multi-stage build (sdk:10.0 → aspnet:10.0); copies code, restores, builds, publishes.
-- `fly.toml`, `render.yaml`: Deployment configs (Fly.io and Render platforms).
+- `render.yaml`: Deployment config (Render — the live production host).
 
 **DeckFlow.Web:**
 - Main ASP.NET Core MVC application (web entry point).

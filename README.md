@@ -15,7 +15,7 @@ An admin page at `/Admin/Feedback` displays submissions with filters for status 
 
 ### Admin configuration
 
-Set these environment variables (via `fly secrets set ...` on Fly.io or the Render env var UI):
+Set these environment variables (via the Render env var UI):
 
 - `FEEDBACK_ADMIN_USER` — basic auth username for all `/Admin/*` pages.
 - `FEEDBACK_ADMIN_PASSWORD` — basic auth password.
@@ -231,8 +231,8 @@ If `dotnet build DeckFlow.Web` reports a missing `tsc`, run the
 - Install the ASP.NET Core Hosting Bundle on the IIS machine
 - The checked-in views and scripts are path-base safe, so links and API calls stay under the IIS application path instead of jumping to `/`
 
-### Deploying to cloud hosts (Render, Fly, etc.)
-- A `Dockerfile`, `fly.toml`, and `render.yaml` ship at the repo root for one-command builds on Fly.io or Render.
+### Deploying to cloud hosts (Render)
+- A `Dockerfile` and `render.yaml` ship at the repo root for one-command builds on Render (the live production host).
 - For durable feedback and category cache storage without a persistent disk, configure Postgres with `DECKFLOW_DATABASE_PROVIDER=Postgres` and `DECKFLOW_DATABASE_CONNECTION_STRING=<Postgres connection string>`.
 - If you keep the default SQLite provider in a cloud host, set `MTG_DATA_DIR=/data` and mount a persistent volume there so `feedback.db` and `category-knowledge.db` survive deploys/restarts.
 - AI session artifact folders are still filesystem-backed. Set `MTG_DATA_DIR=/data` and mount a persistent volume if saved AI sessions need to survive deploys/restarts.
