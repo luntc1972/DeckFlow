@@ -44,15 +44,15 @@ public class HelpContentServiceTests : IDisposable
     [Fact]
     public void GetBySlug_uses_filename_without_extension_as_slug()
     {
-        Write("chatgpt-analysis.md", "---\ntitle: ChatGPT Analysis\nsummary: s\norder: 10\n---\n# ChatGPT Analysis\n");
+        Write("prompt-analysis.md", "---\ntitle: Prompt Analysis\nsummary: s\norder: 10\n---\n# Prompt Analysis\n");
 
         var service = new HelpContentService(_root);
 
-        var topic = service.GetBySlug("chatgpt-analysis");
+        var topic = service.GetBySlug("prompt-analysis");
 
         Assert.NotNull(topic);
-        Assert.Equal("chatgpt-analysis", topic!.Slug);
-        Assert.Equal("ChatGPT Analysis", topic.Title);
+        Assert.Equal("prompt-analysis", topic!.Slug);
+        Assert.Equal("Prompt Analysis", topic.Title);
         Assert.Equal("s", topic.Summary);
         Assert.Equal(10, topic.Order);
     }

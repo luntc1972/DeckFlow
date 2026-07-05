@@ -31,6 +31,13 @@ public sealed class VideoViewModel
     /// <summary>Whether a block confirmation is pending for this row.</summary>
     public bool PendingBlock { get; set; }
 
+    /// <summary>
+    /// The curated creator's channel ref (P87) this row was browsed under, or <see langword="null"/>
+    /// for a paste-URL browse. Stamped at browse time only when the browse target still matches the
+    /// selected creator, so it survives a later input edit and cannot mislink at harvest.
+    /// </summary>
+    public string? CreatorRef { get; set; }
+
     /// <summary>YouTube channel id for this video's author, when available from the listing source.</summary>
     public string? ChannelId { get; }
 

@@ -1,5 +1,34 @@
 # Milestones
 
+## 2026.07.2 Cycle 15 — Cleanup, Refactor & Visual Polish (Shipped: 2026-07-05)
+
+**Phases completed:** 6 phases (82–87; Phase 87 Creator-Source hardening merged from a separate branch), 22 plans, 42 tasks
+
+**Key accomplishments:**
+
+- Code-review sweep over 22 ranked Web/Studio/Core files surfaced 8 real SRP/duplication candidates (4 triaged in-scope for Wave 2, 4 backlog with written reasons), while excluding the pre-owned PKTSVC/THEME/AICLEAN/manabase-engine families.
+- Re-ran the 6-pillar UI audit against live screenshots (desktop + mobile, 6 routes) and source evidence, scoring 18/24 (+2 over the 2026-04-30 baseline of 16/24), then enumerated the gap-to-20 with Color and Typography fixes handed to Phase 84 and three residual gaps (Spacing, feedback double-submit, branded error page) flagged for explicit operator assignment rather than left for Phase 86.
+- Executed all 3 in-scope REFACTOR-TRIAGE.md targets (deck-sync.ts 2-concern split, Harvest.razor.cs 4-coordinator split, ContentSiteIndexStore.cs upsert dedup) under the byte-identical gate, and recorded all 6 remaining candidates in REFACTOR-BACKLOG.md with written deferral reasons.
+- 25 xUnit byte-identity tests across all 4 packet services (Analysis/Comparison/MetaGap/Primer) x 3 AI platforms, with goldens captured verbatim from real BuildAsync runs against today's unrefactored code — the safety net every Wave-2 migration in this phase must keep green.
+- Two new pure static collaborators under `DeckFlow.Web/Services/Packets/` — a sectioned-decklist/key-value text assembler and a first-match commander reflag helper — each characterization-tested and NOT yet wired into any of the four packet services.
+- A single reusable Scryfall batch-resolution collaborator — chunk(75) -> cards/collection -> validate -> match-back-by-original-name -> per-miss fallback-delegate — that reproduces the mechanical core of all three current copy-pasted loops (Analysis/Comparison/MetaGap) byte-for-byte, fixture-tested and NOT yet wired into any service.
+- DeckComparisonService migrated onto all three Wave-1 collaborators (ScryfallReferenceResolver / PacketTextAssembler / DeckEntryReflagHelper), dropping from 1033 to 924 LOC with zero change to its comparison/follow-up paste artifacts — the 25 byte-identity tests from 83-01 remain green.
+- MetaGapService migrated onto ScryfallReferenceResolver and DeckEntryReflagHelper (plus PacketTextAssembler.AppendKeyValueLine for its 2 normalized request-context fields), dropping from 956 to 909 LOC with zero change to its meta-gap paste artifact — the 25 byte-identity tests from 83-01 remain green.
+- DeckAnalysisPacketService — the largest of the four packet services (2372 LOC) — migrated onto ScryfallReferenceResolver and PacketTextAssembler, dropping to 2254 LOC with zero change to its analysis/set-upgrade paste artifacts across all 3 AI platforms and every prompt-mutating flag ON/OFF; the 25 byte-identity tests from 83-01 remain green.
+- DeckPrimerPacketService — the fourth and final packet service, and the only one of the four with zero Scryfall card-resolution code — migrated onto PacketTextAssembler, dropping from 905 to 866 LOC with zero change to its per-platform primer artifacts across all 3 AI variants; this closes out the phase, with all four PKTSVC requirements now marked complete.
+- Re-pointed --link/--focus/--cta-border to var(--accent-strong) across site.css + 11 forks, added the missing token block to site-commander-table.css, and swapped exactly 19 genuine link/focus/cta-border affordance sites onto the semantic tokens — leaving 37+3+2 decorative --accent-strong consumers correctly unchanged.
+- Extended theming.spec.ts with a permanent danger!=link structural guard across all 24 themes, then produced a full 24-theme x {light,dark} computed-style no-drift diff plus red-guild screenshot evidence — surfacing one genuine, intended-but-unplanned additional color delta in rakdos for human sign-off.
+- 1. [Rule 2 - Missing Critical / plan-gate compliance] Renamed 2 capitalized "ChatGPT" comment-prose instances in site-common.css
+- 1. [Rule 1 - Bug/Gate-compliance] Reworded 8 "ChatGPT"-branded strings in deck-sync.ts not explicitly enumerated in the plan's symbol/literal tables
+- Re-captured the post-rename render/computed-style snapshot, proved it structurally byte-identical to the 85-01 baseline (modulo three explained, rename-unrelated noise sources), ran all grep-clean/build/xUnit/full-Playwright-e2e gates green, and is now paused at the mandatory human sign-off for the two semantic judgments (D3 keep-list intact, D5 contract lockstep) that grep cannot make.
+- Replaced all 8 hardcoded `rgba(43, 108, 176, …)` literals (base + mobile + 3 forks) with inline `color-mix(in srgb, var(--accent) N%, transparent)`, so every non-Jeskai theme now tints hover/active states with its own accent instead of a fixed blue.
+- Replaced the low-salience active step-tab (same bg as inactive) with a filled `var(--accent)` pill across base site.css + 12 standalone forks, and added empirically-measured `--accent-contrast` tokens to 6 themes whose white-on-accent text fails WCAG 4.5:1.
+- Restyled the empty analysis-questions bucket toggle from a bordered grey pill into a borderless, higher-contrast chevron and gave it an aria-label, mirrored across site.css + all 13 duplicating theme files (12 standalone forks + site-rakdos.css).
+- Full/Compact/Advanced now produce an unmistakable, measurable box delta on `.prompt-instructions` (always rendered on Step 1), and Full gets a positive accent style instead of a do-nothing default — mirrored across base `site.css` and all 12 standalone-fork themes.
+- Two new Playwright specs close the test gap that let Bugs A-D ship green (visual-regression for the filled step-tab pill + WCAG + accent-leak + bucket a11y; interaction-outcome for the layout-picker mode delta), and the 6-pillar UI audit re-scores 18/24 -> 21/24 — clearing the >=20/24 UIAUDIT-02 target with 1 point of margin. The plan's blocking human-verify checkpoint is PENDING, not self-approved.
+
+---
+
 ## Cycle 14 — Deeper Deck Evaluation (Shipped: 2026-07-03, `2026.07.1`)
 
 **Phases completed:** 3 phases (79-81), 9 plans, 31 tasks. Squash-merged to `main` `701ec2fa`; CI green `28694830980`; milestone audit PASSED (13/13 requirements, 5/5 integration). Build 0/0; Core 1053 / Web 1158 (12 PG skips). All three flags (`analysis.interaction-audit`, `analysis.wincon-map`, `analysis.mulligan-eval`) seeded OFF — operator flips ON after prod deploy. Known deferred items at close: 15 (see STATE.md Deferred Items).

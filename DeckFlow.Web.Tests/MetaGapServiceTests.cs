@@ -404,6 +404,53 @@ public sealed class MetaGapServiceTests
     }
 
     [Fact]
+    public async Task BuildAsync_CollectionMissRecoveredViaSearchFallback_OracleNameMapUnchanged()
+    {
+        // Locks the post-83-05-migration behavior: a name absent from the cards/collection
+        // response must still fall through to SearchFallbackCardAsync (now delegated to
+        // ScryfallReferenceResolver.ResolveBatchAsync) and resolve to the same oracle name the
+        // pre-migration inline batch loop produced.
+        var importer = new FakeMoxfieldDeckImporter(new List<DeckEntry>
+        {
+            CreateDeckEntry("Plagon, Lord of the Beach", "commander"),
+            CreateDeckEntry("Unstable Harmonics")
+        });
+
+        var edhTop16Client = new FakeEdhTop16Client(
+            new EdhTop16Entry
+            {
+                Standing = 1,
+                PlayerName = "Pilot",
+                TournamentDate = new DateOnly(2026, 4, 10),
+                MainDeck = new[]
+                {
+                    new EdhTop16Card { Name = "Unstable Harmonics", Type = "Enchantment" }
+                }
+            });
+
+        var scryfall = new FakeScryfallResolver();
+        scryfall.CollectionNameMap["Unstable Harmonics"] = "Rhystic Study";
+        scryfall.MissingFromCollection.Add("Unstable Harmonics");
+
+        var service = CreateService(
+            importer,
+            new FakeArchidektDeckImporter(),
+            edhTop16Client,
+            new FakeCommanderSpellbookService(),
+            scryfall);
+
+        var result = await service.BuildAsync(new MetaGapRequest
+        {
+            WorkflowStep = 2,
+            DeckSource = "https://www.moxfield.com/decks/test-list",
+            SelectedReferenceIndexes = new List<int> { 0 }
+        });
+
+        Assert.Contains("1 Rhystic Study", result.PromptText);
+        Assert.DoesNotContain("1 Unstable Harmonics", result.PromptText);
+    }
+
+    [Fact]
     public async Task BuildAsync_ResolvesAlternatePrintNamesBeforeCommanderSpellbookLookup()
     {
         var importer = new FakeMoxfieldDeckImporter(new List<DeckEntry>
@@ -802,6 +849,13 @@ public sealed class MetaGapServiceTests
     {
         public Dictionary<string, string> CollectionNameMap { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>
+        /// Names to deliberately OMIT from the <c>cards/collection</c> response, forcing
+        /// <c>ScryfallReferenceResolver.ResolveBatchAsync</c>'s per-miss fallback delegate
+        /// (<c>SearchFallbackCardAsync</c> -&gt; <see cref="ExecuteSearchAsync"/>) to run instead.
+        /// </summary>
+        public HashSet<string> MissingFromCollection { get; } = new(StringComparer.OrdinalIgnoreCase);
+
         public Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken cancellationToken)
         {
             var identifiers = request.Parameters
@@ -814,6 +868,7 @@ public sealed class MetaGapServiceTests
                 .ToList();
 
             var cards = ExtractNames(identifiers)
+                .Where(name => !MissingFromCollection.Contains(name))
                 .Select(name => new ScryfallCard(
                     CollectionNameMap.TryGetValue(name, out var resolved) ? resolved : name,
                     null,

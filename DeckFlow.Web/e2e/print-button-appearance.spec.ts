@@ -27,9 +27,9 @@ const deckProfileJson = `
 async function renderAnalysis(page: Page): Promise<void> {
   const response = await page.goto('/deck-analysis');
   expect(response?.ok()).toBeTruthy();
-  await page.locator('[data-chatgpt-show-step="2"][role="tab"]').click();
+  await page.locator('[data-prompt-show-step="2"][role="tab"]').click();
   await page.locator('select[name="TargetCommanderBracket"]').selectOption({ index: 1 });
-  await page.locator('[data-chatgpt-show-step="3"][role="tab"]').click();
+  await page.locator('[data-prompt-show-step="3"][role="tab"]').click();
   await page.locator('textarea[name="DeckProfileJson"]').fill(deckProfileJson);
   await page.getByRole('button', { name: 'Render Analysis Summary' }).click();
   await expect(page.locator('section.summary-panel[data-print-result]')).toBeVisible();
@@ -50,7 +50,7 @@ for (const theme of themes) {
 
     await renderAnalysis(page);
 
-    const toolbar = page.locator('section.summary-panel[data-print-result] .chatgpt-step-actions').first();
+    const toolbar = page.locator('section.summary-panel[data-print-result] .prompt-step-actions').first();
     const download = toolbar.getByRole('button', { name: 'Download session (.zip)' });
     const printBtn = toolbar.getByRole('button', { name: 'Print results' });
 
@@ -59,7 +59,7 @@ for (const theme of themes) {
 
     // Secondary treatment applied: the print button's background is transparent,
     // whereas the primary Download button is a solid/gradient fill. This proves
-    // the `.run-button.chatgpt-print-button` override wins over the themed
+    // the `.run-button.prompt-print-button` override wins over the themed
     // `.run-button` in this theme.
     const printBg = await printBtn.evaluate((el) => getComputedStyle(el).backgroundColor);
     const printImage = await printBtn.evaluate((el) => getComputedStyle(el).backgroundImage);

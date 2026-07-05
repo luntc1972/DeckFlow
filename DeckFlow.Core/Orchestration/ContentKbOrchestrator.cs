@@ -187,6 +187,10 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
         var addResult = await AddSourceAsync(url, name, ContentSourceType.Youtube, progress, cancellationToken).ConfigureAwait(false);
 
         long id;
+        // Why: the slug the caller links onto the creator must be the persisted canonical slug. On
+        // Added it equals addResult.Slug (the just-inserted row); on reuse it is the EXISTING row's
+        // slug, not the display-derived one — so read it off the existing row below.
+        string? canonicalSlug = addResult.Slug;
         if (addResult.Outcome == ContentSourceResult.ContentSourceOutcome.Added)
         {
             // Why: AddSourceAsync returns Id on Added; assert to surface any logic regression.
@@ -208,6 +212,7 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
             }
 
             id = existing.Id;
+            canonicalSlug = existing.SourceSlug;
         }
         else
         {
@@ -224,7 +229,7 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
             Success = true,
             Outcome = addResult.Outcome,
             Id = id,
-            Slug = addResult.Slug,
+            Slug = canonicalSlug,
             Message = $"Source {id} ensured and enabled.",
         };
     }
@@ -1333,6 +1338,18 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
                 summary.Summary,
                 clips.Clips.Select(clip => (clip.TimestampSeconds, clip.Excerpt)).ToArray());
             ContentArtifactWriter.WriteFile(_artifactRoot, source.SourceSlug, naturalKey, artifactText);
+
+            // Bake the paste-ready AI prompt into a sibling {id}.prompt.md at distill time so the
+            // Studio review queue and the public copy button serve the exact shipped prompt without
+            // re-framing. Reconstruct the body from the just-written artifact text (same SplitHeader
+            // path as the serve-time fallback) so a baked prompt is byte-identical to a reconstructed
+            // one for the same notes.
+            var (_, promptBody) = ContentArtifactParser.SplitHeader(artifactText);
+            var promptText = ContentKbPromptWrapper.Wrap(video.Title, source.DisplayName, video.VideoUrl, promptBody);
+            if (!string.IsNullOrWhiteSpace(promptText))
+            {
+                ContentArtifactWriter.WritePromptFile(_artifactRoot, source.SourceSlug, naturalKey, promptText);
+            }
             await _indexStore.UpsertContentColumnsOnlyAsync(
                 new ContentSiteIndexRow
                 {
@@ -1439,21 +1456,25 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
         IOrchestratorProgress? progress,
         CancellationToken cancellationToken)
     {
-        var sources = await store.ListEnabledSourcesAsync(cancellationToken).ConfigureAwait(false);
-        if (sources.Any(source => string.Equals(source.SourceUrl, url, StringComparison.Ordinal)))
+        // Why: enabled-agnostic lookup — a same-url row that exists but is DISABLED must still
+        // classify as AlreadyExistsSameUrl so the caller can re-enable it, not fall through to
+        // SlugConflict/Error. ListEnabledSourcesAsync would miss it. Return the persisted canonical
+        // slug + id so a link overwrites with the true slug rather than the display-derived one.
+        var existingByUrl = await store.GetSourceByUrlAsync(url, cancellationToken).ConfigureAwait(false);
+        if (existingByUrl is not null)
         {
             progress?.Report("source already exists (same url)");
             return new ContentSourceResult
             {
                 Success = true,
                 Outcome = ContentSourceResult.ContentSourceOutcome.AlreadyExistsSameUrl,
-                Slug = slug,
+                Slug = existingByUrl.SourceSlug,
+                Id = existingByUrl.Id,
                 Message = "source already exists (same url)",
             };
         }
 
-        if (sources.Any(source => string.Equals(source.SourceSlug, slug, StringComparison.Ordinal))
-            || ExceptionContains(exception, "source_slug"))
+        if (ExceptionContains(exception, "source_slug"))
         {
             return new ContentSourceResult
             {

@@ -12,6 +12,7 @@ using DeckFlow.Core.Orchestration;
 using DeckFlow.Studio;
 using DeckFlow.Studio.Pages;
 using DeckFlow.Studio.Services;
+using DeckFlow.Studio.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 using Xunit;
@@ -1106,21 +1107,34 @@ namespace DeckFlow.Studio.Tests
                 RecentResult = recent,
                 ByIdsResult = byIds ?? Array.Empty<YouTubeChannelVideo>(),
             };
+            var resolver = BuildResolver(blocked, index);
+            var autoApproveSignal = new ClipCountAutoApproveSignal();
+            var autoApproveSettingsStore = new AutoApproveSettingsStore(_autoApproveDir);
+            var capOverride = new SessionCapOverride();
+            var spendLedger = new StubLedger();
+            var creatorStore = creators ?? new FakeCreatorSourceStore();
 
             Services.AddSingleton<IYouTubeChannelVideoLister>(lister);
             Services.AddSingleton<IHarvestOrchestrator>(harv);
             Services.AddSingleton<IContentSourceManager>(new StubSourceManager());
-            Services.AddSingleton<VideoStatusResolver>(BuildResolver(blocked, index));
+            Services.AddSingleton<VideoStatusResolver>(resolver);
             Services.AddSingleton<IContentSiteIndexStore>(index);
-            Services.AddSingleton<IAutoApproveSignal>(new ClipCountAutoApproveSignal());
+            Services.AddSingleton<IAutoApproveSignal>(autoApproveSignal);
             Services.AddSingleton<IDistillOrchestrator>(distill ?? new RecordingDistillOrchestrator());
             Services.AddSingleton(new StudioDistillConfig(isSubscriptionProvider));
-            Services.AddSingleton(new SessionCapOverride());
-            Services.AddSingleton<ILlmSpendLedger>(new StubLedger());
+            Services.AddSingleton(capOverride);
+            Services.AddSingleton<ILlmSpendLedger>(spendLedger);
             Services.AddSingleton<IContentMaintenanceOrchestrator>(maint);
-            Services.AddSingleton(new AutoApproveSettingsStore(_autoApproveDir));
-            Services.AddSingleton<ICreatorSourceStore>(creators ?? new FakeCreatorSourceStore());
+            Services.AddSingleton(autoApproveSettingsStore);
+            Services.AddSingleton<ICreatorSourceStore>(creatorStore);
             Services.AddSingleton<ISkippedVideoStore>(skipped ?? new FakeSkippedVideoStore());
+
+            // Why: Harvest page collaborators (Phase 82 SRP split) — the page now [Inject]s these
+            // instead of the raw services directly, so bUnit's DI container needs them registered too.
+            Services.AddSingleton(new HarvestQueueCoordinator(lister, resolver));
+            Services.AddSingleton(new AutoApproveSettingsCoordinator(autoApproveSettingsStore, autoApproveSignal, index));
+            Services.AddSingleton(new CreatorManagementCoordinator(creatorStore, maint));
+            Services.AddSingleton(new SpendCapCoordinator(spendLedger, capOverride));
 
             var cut = Render<Harvest>();
             return (cut, maint, harv, lister);

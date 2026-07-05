@@ -35,7 +35,7 @@ test('manabase print view strips chrome and keeps the result readable', async ({
   const analyzed = (await result.count()) > 0 && (await result.isVisible());
   test.skip(!analyzed, 'Scryfall unreachable in this environment — cannot render the manabase result to print.');
 
-  const printButton = page.locator('button[data-chatgpt-print]').first();
+  const printButton = page.locator('button[data-prompt-print]').first();
   await expect(printButton).toBeVisible();
 
   // Switch to print media — the shared @media print rules apply.

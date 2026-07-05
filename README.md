@@ -587,7 +587,7 @@ Current behavior:
 
 DeckFlow distills MTG content-creator videos into paste-ready prompt artifacts and a browsable site index. Heavy work (transcripts, audio, LLM calls, spend ledgers) runs **locally** via the CLI against `artifacts/content-kb.db`; only a slim index and the markdown artifacts ship to the site.
 
-On a KB entry's detail page the browser shows the distilled notes as-authored (Summary, Key Clips, Tags), but the **Copy** button wraps those notes in a standalone, paste-ready prompt — persona, task, and evidence rules around the notes — so pasting into ChatGPT/Claude/Gemini returns grounded, actionable advice with no extra typing. The framing is applied at copy time in code (`ContentKbPromptWrapper`), so every existing and future artifact benefits without re-distilling. This is why the copied text is longer than what is rendered on the page.
+On a KB entry's detail page the browser shows the distilled notes as-authored (Summary, Key Clips, Tags), but the **Copy** button serves a standalone, paste-ready prompt — persona, task, and evidence rules around the notes — so pasting into ChatGPT/Claude/Gemini returns grounded, actionable advice with no extra typing. This is why the copied text is longer than what is rendered on the page. The framing (`ContentKbPromptWrapper`, in `DeckFlow.Core`) is now **baked at distill time** into a sibling `.prompt.md` next to the notes, so the exact shipped prompt is visible in the Studio review queue while approving and is served verbatim by the copy button. Older artifacts with no baked sibling fall back to reconstructing the identical prompt from the notes on the fly (`ContentKbPromptResolver`), so every existing and future entry copies a framed prompt without re-distilling.
 
 Local pipeline (run from the repo root):
 
@@ -609,7 +609,7 @@ dotnet run --project DeckFlow.CLI -- distill --video-ids "VLdny8IVXYE"
 dotnet run --project DeckFlow.CLI -- content-index-export
 ```
 
-- Each artifact is a markdown file under `content-kb/{source-slug}/{video-id}.md` with a ≤200-word summary, 3-8 key clips (each carrying an `[mm:ss]` timestamp when the transcript has a marker to support it, otherwise left untimed rather than guessed), and tags from a controlled vocabulary (archetype/strategy, format/bracket, card category).
+- Each artifact is a markdown file under `content-kb/{source-slug}/{video-id}.md` with a ≤200-word summary, 3-8 key clips (each carrying an `[mm:ss]` timestamp when the transcript has a marker to support it, otherwise left untimed rather than guessed), and tags from a controlled vocabulary (archetype/strategy, format/bracket, card category). Distillation also writes a sibling `content-kb/{source-slug}/{video-id}.prompt.md` — the baked paste-ready prompt (persona + task + evidence rules wrapped around the notes) that the site copy button and the Studio review queue serve.
 - The distill LLM backend is selected by `DECKFLOW_LLM_PROVIDER` (`openai` default with Structured Outputs, or `claude` to shell the Claude Code CLI at $0 subscription cost). Monthly spend caps: `DECKFLOW_LLM_MONTHLY_CAP_USD` and `DECKFLOW_WHISPER_MONTHLY_CAP_USD` (default $15; cap-gating applies to the OpenAI/Whisper paid paths).
 - **`claude` provider on Windows — set `DECKFLOW_LLM_CLI_COMMAND`.** With `DECKFLOW_LLM_PROVIDER=claude`, the distiller shells the `claude` CLI. On Linux/macOS it runs bare `claude` (must be on `PATH`). On **Windows** the bare default is not used — set `DECKFLOW_LLM_CLI_COMMAND` to a JSON array invoking the CLI, with exactly one `{instruction}` placeholder. If your `claude` lives in WSL, call it via `wsl.exe` using the **full path** (wsl.exe uses a non-login shell, so `~/.local/bin` is not on `PATH` — bare `wsl.exe claude` fails):
 
@@ -753,8 +753,15 @@ A persistent theme picker in the shared layout lets users switch between visual 
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
-### Unreleased
+### 2026.07.2 — Cleanup, Refactor & Visual Polish (2026-07-05)
+A behavior-neutral cleanup cycle — no new user-facing features, and paste artifacts stay byte-identical. Most of it is invisible internal work: a packet-service single-responsibility split, a theme semantic-token migration, an AI-agnostic `chatgpt-*` → `prompt-*` identifier rename (byte-identical render), and Studio creator-source model hardening. The one user-visible change is a round of **theme visual polish**, fixing pre-existing bugs the UI audit surfaced:
+- **Readable active step-tab across all 24 themes:** the current workflow step (Deck Analysis / Comparison / Meta-Gap) is now a filled accent pill with contrast-checked text (WCAG ≥4.5:1), replacing the old low-contrast outline that was hard to read on several dark themes.
+- **Per-theme accent, not a fixed blue:** the layout picker, layout-mode buttons, and clear-cache hover now use each theme's own accent color instead of a hardcoded blue that leaked into every theme.
+- **Perceptible Layout picker:** on Deck Analysis, **Full / Compact / Advanced** now produce a visible layout change — Full gets a positive accent treatment, Advanced collapses the instructions panel.
+- **Cleaner question-bucket toggles:** the expand/collapse control is now a labelled chevron (with an accessible name) instead of a stray bordered grey pill.
 - **Studio pending-distill list fix:** the Harvest page's pending-distill list no longer shows videos that have already been distilled/approved/published. The query now excludes videos whose per-video `content_distill_status` is `distilled` (the sanctioned idempotency marker), while `failed` and `skipped_over_cap` stay listed because they are retriable.
+
+The 6-pillar UI audit re-scored 18 → 21/24. New per-theme visual-regression and interaction e2e tests were added so these render-level regressions are caught automatically.
 
 ### 2026.07.1 — Deeper Deck Evaluation (2026-07-03)
 Three deeper deck-evaluation reads layered on the existing analysis engines with zero new dependencies. All three are flag-gated and ship **OFF** by default, so existing pages and paste artifacts stay byte-identical until an admin enables them.

@@ -161,6 +161,15 @@ public partial class Program
             // extracted from the page code-behind (H1). Stateless and all its dependencies are
             // singletons, so it is registered as a singleton too.
             builder.Services.AddSingleton<DeckFlow.Studio.ViewModels.PullFromProdCoordinator>();
+            // Why: Harvest page collaborators (Phase 82 SRP split), each owning the I/O for one
+            // concern while the page keeps the markup-bound state. All dependencies are singletons
+            // except CreatorManagementCoordinator's IContentMaintenanceOrchestrator (scoped) — that
+            // one is registered scoped to avoid a captive dependency, same reasoning as
+            // DirectPushCoordinator/PublishCoordinator above.
+            builder.Services.AddSingleton<DeckFlow.Studio.ViewModels.HarvestQueueCoordinator>();
+            builder.Services.AddSingleton<DeckFlow.Studio.ViewModels.AutoApproveSettingsCoordinator>();
+            builder.Services.AddScoped<DeckFlow.Studio.ViewModels.CreatorManagementCoordinator>();
+            builder.Services.AddSingleton<DeckFlow.Studio.ViewModels.SpendCapCoordinator>();
             builder.Services.AddRazorPages();
             builder.Services.AddServerSideBlazor();
 

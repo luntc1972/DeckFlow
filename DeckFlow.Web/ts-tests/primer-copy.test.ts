@@ -1,4 +1,9 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+// Why (Phase 82 SRP split): see ts-tests/busy-overlay-pageshow.test.ts — busy-indicator.ts and
+// moxfield-extension-bridge.ts must load before deck-sync.ts so bootstrapDeckSync()'s bare-name
+// calls into them resolve under Vitest's per-file ESM import graph.
+import '../wwwroot/ts/busy-indicator';
+import '../wwwroot/ts/moxfield-extension-bridge';
 import '../wwwroot/ts/deck-sync';
 
 interface PrimerSelectionApi {

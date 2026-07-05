@@ -116,13 +116,37 @@ public sealed class ContentKbController : Controller
         var raw = await System.IO.File.ReadAllTextAsync(resolved, cancellationToken).ConfigureAwait(false);
         var (_, body) = ContentArtifactParser.SplitHeader(raw);
         var renderedHtml = new HtmlString(Markdown.ToHtml(body, Pipeline));
-        return View("Detail", BuildDetailModel(row, renderedHtml, body, artifactUnavailable: false));
+
+        // Prefer the baked sibling prompt (written at distill time) when present; otherwise
+        // reconstruct it from the notes so pre-bake artifacts still copy a framed, paste-ready
+        // prompt. Both paths yield identical output for the same notes. See ContentKbPromptResolver.
+        var copyPrompt = await ResolveCopyPromptAsync(row, raw, cancellationToken).ConfigureAwait(false);
+        return View("Detail", BuildDetailModel(row, renderedHtml, copyPrompt, artifactUnavailable: false));
+    }
+
+    // Reads the sibling {id}.prompt.md when it resolves, then delegates to the resolver which
+    // returns the baked prompt or reconstructs one from the notes.
+    private async Task<string> ResolveCopyPromptAsync(
+        ContentSiteIndexRow row,
+        string notesRaw,
+        CancellationToken cancellationToken)
+    {
+        string? bakedPrompt = null;
+        var promptPath = ContentKbPromptResolver.PromptPathFor(row.ArtifactPath);
+        if (promptPath is not null
+            && _resolver.TryResolveExistingArtifact(promptPath, out var promptResolved) == ContentKbArtifactResolution.Resolved)
+        {
+            bakedPrompt = await System.IO.File.ReadAllTextAsync(promptResolved, cancellationToken).ConfigureAwait(false);
+        }
+
+        return ContentKbPromptResolver.BuildOrReconstruct(
+            bakedPrompt, notesRaw, row.Title, row.Source, row.VideoUrl) ?? string.Empty;
     }
 
     private static ContentKbDetailViewModel BuildDetailModel(
         ContentSiteIndexRow row,
         HtmlString renderedHtml,
-        string cleanBodyText,
+        string copyPrompt,
         bool artifactUnavailable)
         => new()
         {
@@ -134,11 +158,10 @@ public sealed class ContentKbController : Controller
             Bracket = FirstTag(row.BracketTags, "Bracket unknown"),
             Archetype = FirstTag(row.ArchetypeTags, "Uncategorized"),
             RenderedHtml = renderedHtml,
-            // The page renders the raw notes; the copy button gets a standalone, framed prompt
-            // (persona + task + evidence rules) so pasting it into an AI returns useful,
-            // grounded advice with no extra typing. Applied here so every stored artifact
-            // benefits without re-distilling. See ContentKbPromptWrapper.
-            CleanBodyText = ContentKbPromptWrapper.Wrap(row.Title, row.Source, row.VideoUrl, cleanBodyText),
+            // The page renders the raw notes; the copy button gets the standalone, framed prompt
+            // (persona + task + evidence rules) resolved by ResolveCopyPromptAsync — the baked
+            // sibling when present, else reconstructed from the notes. See ContentKbPromptResolver.
+            CleanBodyText = copyPrompt,
             ArtifactUnavailable = artifactUnavailable,
         };
 

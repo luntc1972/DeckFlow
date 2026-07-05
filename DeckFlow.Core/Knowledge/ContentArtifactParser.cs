@@ -1,4 +1,4 @@
-namespace DeckFlow.Web.Services;
+namespace DeckFlow.Core.Knowledge;
 
 /// <summary>
 /// Parses markdown artifact front matter from Content KB and help content files.

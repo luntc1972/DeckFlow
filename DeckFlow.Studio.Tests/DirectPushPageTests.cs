@@ -518,6 +518,51 @@ public sealed class DirectPushPageTests : BunitContext
     }
 
     [Fact]
+    public void DirectPush_Stage4_PushedExistingCommits_ReportsCatchUpPush()
+    {
+        // UIAUDIT-03: the third Stage-4 outcome (PushedExistingCommits) — bodies are already committed
+        // (nothing new to commit this run) but the branch has previously-unpushed durability commit(s)
+        // ahead of origin. The coordinator performs a catch-up push; the alert must report that honestly
+        // (not the Committed copy, not the AlreadyInSync no-op copy).
+        var git = new FakeGitRepository
+        {
+            CannedBranch = "main",
+            CannedWorkingChangeCount = 0,                                    // nothing new to commit this run
+            // A prior run's OWN durability commit, still unpushed — must match the exact durability
+            // subject shape (content: direct-push N bod(y|ies) to prod [skip render]) so the foreign-commit
+            // guard accepts it and the coordinator does a catch-up push (outcome PushedExistingCommits).
+            CannedSubjectsAhead = new() { "content: direct-push 1 body to prod [skip render]" },
+        };
+        var local = new[] { MakeApprovedRow(1, "vid1") };
+        var (cut, _, _, _, _, _) = RenderDirectPush(local, gitOverride: git);
+
+        // Drive Stage 1 (diff+confirm) → Stage 2 (SCP) → Stage 3 (DB write).
+        ComputeDiffAndConfirm(cut);
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
+        cut.WaitForState(() => cut.Markup.Contains("uploaded to production /data"));
+        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-danger")[1].HasAttribute("disabled")));
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[1].Click());
+        cut.WaitForState(() => cut.Markup.Contains("written to production"));
+
+        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-outline-primary")[^1].HasAttribute("disabled")));
+        cut.InvokeAsync(() => cut.FindAll("button.btn-outline-primary")[^1].Click());
+
+        cut.WaitForState(() => cut.Markup.Contains("previously-unpushed"));
+        cut.WaitForAssertion(() =>
+        {
+            // Nothing new was committed this run (distinguishes from the Committed variant)...
+            Assert.Empty(git.CommitCalls);
+            // ...but a catch-up push happened to origin/main...
+            var push = Assert.Single(git.PushCalls);
+            Assert.Equal("origin", push.Remote);
+            Assert.Equal("main", push.Branch);
+            // ...reported with the catch-up copy, NOT the no-op "nothing to push" variant.
+            Assert.Contains("previously-unpushed", cut.Markup);
+            Assert.DoesNotContain("nothing to push", cut.Markup);
+        });
+    }
+
+    [Fact]
     public void DirectPush_Success_StampsLocalAndProd_WithSameInstant()
     {
         var local = new[] { MakeApprovedRow(1, "vid1"), MakeApprovedRow(2, "vid2") };

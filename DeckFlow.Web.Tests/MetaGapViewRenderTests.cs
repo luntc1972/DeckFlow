@@ -57,7 +57,7 @@ public sealed class MetaGapViewRenderTests
 
         string html = await RenderCedhMetaGapViewAsync(model);
 
-        Assert.Contains("data-chatgpt-print", html, StringComparison.Ordinal);
+        Assert.Contains("data-prompt-print", html, StringComparison.Ordinal);
         Assert.Contains("Print results", html, StringComparison.Ordinal);
     }
 
@@ -72,7 +72,7 @@ public sealed class MetaGapViewRenderTests
 
         string html = await RenderCedhMetaGapViewAsync(model);
 
-        Assert.DoesNotContain("data-chatgpt-print", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-prompt-print", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Print results", html, StringComparison.Ordinal);
     }
 

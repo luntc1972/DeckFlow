@@ -69,8 +69,8 @@ const panelConfigs: PanelConfig[] = [
   },
   {
     selectName: 'DeckInputSource',
-    urlSelector: '[data-sync-panel="chatgpt-deck-url"]',
-    textSelector: '[data-sync-panel="chatgpt-deck-text"]',
+    urlSelector: '[data-sync-panel="prompt-deck-url"]',
+    textSelector: '[data-sync-panel="prompt-deck-text"]',
   },
   {
     // Manabase reuses the DeckInputSource select; on the deck-analysis page these
@@ -96,339 +96,6 @@ const panelConfigs: PanelConfig[] = [
     textSelector: '[data-sync-panel="bracket-deck-text"]',
   },
 ];
-
-type MoxfieldImportTask = {
-  url: string;
-  applyImportedText: (deckText: string) => void;
-};
-
-type ExtensionBridgeSuccessResponse = {
-  source: 'deckflow-extension';
-  type: 'deckflow-moxfield-import-response';
-  requestId: string;
-  ok: true;
-  deckText: string;
-  deckName?: string | null;
-  cardCount?: number;
-  sourceUrl?: string | null;
-};
-
-type ExtensionBridgeErrorResponse = {
-  source: 'deckflow-extension';
-  type: 'deckflow-moxfield-import-response';
-  requestId: string;
-  ok: false;
-  error: string;
-  optionsUrl?: string;
-};
-
-type ExtensionBridgePingResponse = {
-  source: 'deckflow-extension';
-  type: 'deckflow-extension-ping-response';
-  requestId: string;
-  allowed?: boolean;
-  optionsUrl?: string;
-};
-
-type ExtensionBridgeResponse = ExtensionBridgeSuccessResponse | ExtensionBridgeErrorResponse | ExtensionBridgePingResponse;
-
-const moxfieldUrlPattern = /^https?:\/\/(?:www\.)?moxfield\.com\/decks\/[^/?#\s]+\/?$/i;
-let extensionRequestCounter = 0;
-
-const isSingleMoxfieldDeckUrl = (value: string): boolean => moxfieldUrlPattern.test(value.trim());
-
-const createExtensionRequestId = (): string => {
-  extensionRequestCounter += 1;
-  return `deckflow-extension-${extensionRequestCounter}`;
-};
-
-const getExtensionInstallUrl = (): string => document.body.dataset.deckflowExtensionInstallUrl ?? '/extension-install.html';
-
-const isMobileBrowser = (): boolean => {
-  const userAgentData = (navigator as any).userAgentData as { mobile?: boolean } | undefined;
-  if (typeof userAgentData?.mobile === 'boolean') {
-    return userAgentData.mobile;
-  }
-
-  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-};
-
-const postExtensionBridgeRequest = async (type: 'deckflow-extension-ping' | 'deckflow-moxfield-import', payload: Record<string, unknown>, timeoutMs = 2500): Promise<ExtensionBridgeResponse> => {
-  const requestId = createExtensionRequestId();
-
-  return await new Promise<ExtensionBridgeResponse>((resolve, reject) => {
-    const timeoutId = window.setTimeout(() => {
-      window.removeEventListener('message', handleMessage);
-      reject(new Error('Timed out waiting for the DeckFlow browser extension.'));
-    }, timeoutMs);
-
-    const handleMessage = (event: MessageEvent<ExtensionBridgeResponse>): void => {
-      if (event.source !== window) {
-        return;
-      }
-
-      const message = event.data;
-      if (!message || message.source !== 'deckflow-extension' || message.requestId !== requestId) {
-        return;
-      }
-
-      window.clearTimeout(timeoutId);
-      window.removeEventListener('message', handleMessage);
-      resolve(message);
-    };
-
-    window.addEventListener('message', handleMessage);
-    window.postMessage({ source: 'deckflow-web', type, requestId, ...payload }, window.location.origin);
-  });
-};
-
-type DeckFlowExtensionStatus = {
-  installed: boolean;
-  allowed: boolean;
-  optionsUrl?: string;
-};
-
-const getDeckFlowExtensionStatus = async (): Promise<DeckFlowExtensionStatus> => {
-  try {
-    const response = await postExtensionBridgeRequest('deckflow-extension-ping', {}, 1200);
-    if (response.type !== 'deckflow-extension-ping-response') {
-      return { installed: true, allowed: false };
-    }
-
-    return {
-      installed: true,
-      allowed: response.allowed !== false,
-      optionsUrl: response.optionsUrl
-    };
-  } catch {
-    return { installed: false, allowed: false };
-  }
-};
-
-const importMoxfieldDeckTextViaExtension = async (url: string): Promise<string> => {
-  const response = await postExtensionBridgeRequest('deckflow-moxfield-import', { deckUrl: url }, 6000);
-  if (response.type !== 'deckflow-moxfield-import-response') {
-    throw new Error('The browser extension returned an unexpected response.');
-  }
-
-  if (!response.ok) {
-    throw new Error(response.error || 'The browser extension could not import this Moxfield deck.');
-  }
-
-  return response.deckText;
-};
-
-const promptToConfigureMoxfieldExtensionOrigin = (optionsUrl?: string): boolean => {
-  const shouldOpenOptions = window.confirm(
-    `The DeckFlow extension is installed, but ${window.location.origin} is not allowed yet. Open the extension options to allow this origin?`
-  );
-
-  if (shouldOpenOptions && optionsUrl) {
-    window.open(optionsUrl, '_blank', 'noopener');
-  }
-
-  return shouldOpenOptions;
-};
-
-const resubmitFormBypassingExtension = (form: HTMLFormElement, submitter: HTMLElement | null): void => {
-  form.dataset.extensionBridgeBypass = 'true';
-  if (submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement) {
-    form.requestSubmit(submitter);
-    return;
-  }
-
-  form.requestSubmit();
-};
-
-const createSelectBackedImportTask = (
-  urlInput: HTMLInputElement,
-  textInput: HTMLTextAreaElement,
-  sourceSelect: HTMLSelectElement
-): MoxfieldImportTask | null => {
-  if (sourceSelect.value !== DeckInputSource.PublicUrl || !isSingleMoxfieldDeckUrl(urlInput.value)) {
-    return null;
-  }
-
-  return {
-    url: urlInput.value.trim(),
-    applyImportedText: (deckText: string) => {
-      textInput.value = deckText;
-      urlInput.value = '';
-      sourceSelect.value = DeckInputSource.PasteText;
-      sourceSelect.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-  };
-};
-
-const createTextareaImportTask = (sourceInput: HTMLTextAreaElement): MoxfieldImportTask | null => {
-  if (!isSingleMoxfieldDeckUrl(sourceInput.value)) {
-    return null;
-  }
-
-  return {
-    url: sourceInput.value.trim(),
-    applyImportedText: (deckText: string) => {
-      sourceInput.value = deckText;
-    }
-  };
-};
-
-const collectMoxfieldImportTasks = (form: HTMLFormElement): MoxfieldImportTask[] => {
-  const cacheKey = form.dataset.cacheKey;
-  if (!cacheKey) {
-    return [];
-  }
-
-  if (cacheKey === 'deck-sync') {
-    const tasks: MoxfieldImportTask[] = [];
-    const direction = form.querySelector<HTMLSelectElement>('select[name="Direction"]')?.value ?? 'MoxfieldToArchidekt';
-    const leftUsesMoxfield = direction !== 'ArchidektToArchidekt';
-    const rightUsesMoxfield = direction === 'MoxfieldToMoxfield';
-
-    if (leftUsesMoxfield) {
-      const leftTask = createSelectBackedImportTask(
-        form.querySelector<HTMLInputElement>('input[name="MoxfieldUrl"]')!,
-        form.querySelector<HTMLTextAreaElement>('textarea[name="MoxfieldText"]')!,
-        form.querySelector<HTMLSelectElement>('select[name="MoxfieldInputSource"]')!
-      );
-      if (leftTask) {
-        tasks.push(leftTask);
-      }
-    }
-
-    if (rightUsesMoxfield) {
-      const rightTask = createSelectBackedImportTask(
-        form.querySelector<HTMLInputElement>('input[name="ArchidektUrl"]')!,
-        form.querySelector<HTMLTextAreaElement>('textarea[name="ArchidektText"]')!,
-        form.querySelector<HTMLSelectElement>('select[name="ArchidektInputSource"]')!
-      );
-      if (rightTask) {
-        tasks.push(rightTask);
-      }
-    }
-
-    return tasks;
-  }
-
-  if (cacheKey === 'deck-convert') {
-    const sourceFormat = form.querySelector<HTMLSelectElement>('select[name="SourceFormat"]')?.value;
-    if (sourceFormat !== 'Moxfield') {
-      return [];
-    }
-
-    const task = createSelectBackedImportTask(
-      form.querySelector<HTMLInputElement>('input[name="DeckUrl"]')!,
-      form.querySelector<HTMLTextAreaElement>('textarea[name="DeckText"]')!,
-      form.querySelector<HTMLSelectElement>('select[name="InputSource"]')!
-    );
-    return task ? [task] : [];
-  }
-
-  if (cacheKey === 'chatgpt-packets') {
-    const task = createSelectBackedImportTask(
-      form.querySelector<HTMLInputElement>('input[name="DeckUrl"]')!,
-      form.querySelector<HTMLTextAreaElement>('textarea[name="DeckText"]')!,
-      form.querySelector<HTMLSelectElement>('select[name="DeckInputSource"]')!
-    );
-    return task ? [task] : [];
-  }
-
-  if (cacheKey === 'chatgpt-deck-comparison') {
-    return [
-      createTextareaImportTask(form.querySelector<HTMLTextAreaElement>('textarea[name="DeckASource"]')!),
-      createTextareaImportTask(form.querySelector<HTMLTextAreaElement>('textarea[name="DeckBSource"]')!)
-    ].filter((task): task is MoxfieldImportTask => task !== null);
-  }
-
-  if (cacheKey === 'chatgpt-cedh-meta-gap') {
-    const task = createTextareaImportTask(form.querySelector<HTMLTextAreaElement>('textarea[name="DeckSource"]')!);
-    return task ? [task] : [];
-  }
-
-  return [];
-};
-
-const attachMoxfieldExtensionImport = (): void => {
-  document.addEventListener('submit', async event => {
-    const form = event.target;
-    if (!(form instanceof HTMLFormElement)) {
-      return;
-    }
-
-    if (form.dataset.extensionBridgeBypass === 'true') {
-      delete form.dataset.extensionBridgeBypass;
-      return;
-    }
-
-    const tasks = collectMoxfieldImportTasks(form);
-    if (tasks.length === 0) {
-      return;
-    }
-
-    event.preventDefault();
-    const submitter = (event as SubmitEvent).submitter as HTMLElement | null;
-
-    if (isMobileBrowser()) {
-      window.alert(
-        'Moxfield URLs require the desktop DeckFlow Bridge extension, which is not available on mobile browsers. '
-        + 'Open your deck in Moxfield, tap Bulk Edit, copy the Main Deck contents, and paste them into the text field here. '
-        + 'Tags are preserved.'
-      );
-      abortBridgeBusy();
-      return;
-    }
-
-    const extensionStatus = await getDeckFlowExtensionStatus();
-
-    if (!extensionStatus.installed) {
-      window.alert(
-        'Moxfield URLs require the DeckFlow Bridge extension. '
-        + 'Opening the install page now — come back and retry after installing. '
-        + 'If you cannot install the extension, switch this field to Paste text and use Moxfield Bulk Edit instead.'
-      );
-      window.open(getExtensionInstallUrl(), '_blank', 'noopener');
-      abortBridgeBusy();
-      return;
-    }
-
-    if (!extensionStatus.allowed) {
-      window.alert(
-        `The DeckFlow Bridge extension is installed but ${window.location.origin} is not on its allow list. `
-        + 'Opening extension Options now — add this origin, then retry.'
-      );
-      if (extensionStatus.optionsUrl) {
-        window.open(extensionStatus.optionsUrl, '_blank', 'noopener');
-      }
-      abortBridgeBusy();
-      return;
-    }
-
-    try {
-      for (const task of tasks) {
-        const deckText = await importMoxfieldDeckTextViaExtension(task.url);
-        task.applyImportedText(deckText);
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const optionsUrl = error && typeof error === 'object' && 'optionsUrl' in error
-        ? String((error as { optionsUrl?: string }).optionsUrl ?? '')
-        : '';
-
-      if (optionsUrl && /not allowed/i.test(message)) {
-        promptToConfigureMoxfieldExtensionOrigin(optionsUrl);
-      } else {
-        window.alert(
-          `DeckFlow could not import this Moxfield URL through the browser extension:\n\n${message}\n\nRetry, or switch to Paste text and use Moxfield Bulk Edit.`
-        );
-      }
-
-      abortBridgeBusy();
-      return;
-    }
-
-    resubmitFormBypassingExtension(form, submitter);
-  }, true);
-};
 
 const updateSyncInputModeUi = (): void => {
   panelConfigs.forEach(config => {
@@ -652,180 +319,7 @@ const attachActionButtons = (): void => {
   });
 };
 
-let busyProgressTimer: number | undefined;
-let busyHideTimer: number | undefined;
-
-const formatProgressText = (steps: string[], index: number) => `Step ${index + 1}/${steps.length}: ${steps[index]}`;
-
-const clearBusyProgress = (): void => {
-  if (busyProgressTimer !== undefined) {
-    window.clearInterval(busyProgressTimer);
-    busyProgressTimer = undefined;
-  }
-};
-
-const hideBusyIndicator = (): void => {
-  const container = document.getElementById('busy-indicator');
-  const progressNode = document.getElementById('busy-indicator-progress');
-  if (!container) {
-    return;
-  }
-
-  container.classList.add('hidden');
-  if (progressNode) {
-    progressNode.textContent = '';
-    delete progressNode.dataset.currentIndex;
-  }
-
-  clearBusyProgress();
-  if (busyHideTimer !== undefined) {
-    window.clearTimeout(busyHideTimer);
-    busyHideTimer = undefined;
-  }
-};
-
-// Why: the bridge intercept runs in capture, but the busy overlay shows later in
-// bubble. Abort-path hides must be deferred to a macrotask so they run after the
-// bubble-phase showBusyIndicator() listener.
-const abortBridgeBusy = (): void => {
-  window.setTimeout(hideBusyIndicator, 0);
-};
-
-const scheduleBusyHide = (durationMs: number): void => {
-  if (!durationMs || durationMs <= 0) {
-    return;
-  }
-
-  if (busyHideTimer !== undefined) {
-    window.clearTimeout(busyHideTimer);
-  }
-
-  busyHideTimer = window.setTimeout(() => {
-    hideBusyIndicator();
-  }, durationMs);
-};
-
-const showBusyIndicator = (
-  title?: string,
-  message?: string,
-  progressSteps?: string[],
-  durationMs?: number,
-  holdFinalStep = false
-): void => {
-  const container = document.getElementById('busy-indicator');
-  const titleNode = document.getElementById('busy-indicator-title');
-  const messageNode = document.getElementById('busy-indicator-message');
-  const progressNode = document.getElementById('busy-indicator-progress');
-  if (!container || !titleNode || !messageNode) {
-    return;
-  }
-
-  titleNode.textContent = title || 'Working';
-  messageNode.textContent = message || 'Request in progress.';
-  container.classList.remove('hidden');
-
-  clearBusyProgress();
-  if (progressNode) {
-    if (progressSteps && progressSteps.length > 0) {
-      const finalIndex = progressSteps.length - 1;
-      let currentIndex = 0;
-      progressNode.textContent = formatProgressText(progressSteps, currentIndex);
-      progressNode.dataset.currentIndex = currentIndex.toString();
-
-      busyProgressTimer = window.setInterval(() => {
-        currentIndex++;
-
-        if (currentIndex > finalIndex) {
-          currentIndex = holdFinalStep ? finalIndex : 0;
-        }
-
-        progressNode.dataset.currentIndex = currentIndex.toString();
-        progressNode.textContent = formatProgressText(progressSteps, currentIndex);
-
-        if (holdFinalStep && currentIndex === finalIndex) {
-          clearBusyProgress();
-        }
-      }, 4000);
-    } else {
-      progressNode.textContent = '';
-    }
-  }
-  if (durationMs && durationMs > 0) {
-    scheduleBusyHide(durationMs);
-  }
-};
-
-const registerBusyIndicator = (): void => {
-  document.querySelectorAll<HTMLFormElement>('form[data-busy-title]').forEach(form => {
-    form.addEventListener('submit', (event: Event) => {
-      const submitter = (event as SubmitEvent).submitter;
-
-      // Release pass of a min-display delay (see below): the overlay is already up, so let this
-      // re-fired submit navigate without re-showing or re-delaying.
-      if (form.dataset.busyMinReleased === 'true') {
-        delete form.dataset.busyMinReleased;
-        return;
-      }
-
-      if (submitter?.hasAttribute('data-no-busy')) {
-        return;
-      }
-      // A submit button may override the form-level busy copy (e.g. a "Load" button on the same
-      // form that does less work than the primary submit). Fall back to the form's attributes.
-      const attr = (name: string): string | null =>
-        (submitter instanceof HTMLElement ? submitter.getAttribute(name) : null) ?? form.getAttribute(name);
-      const title = attr('data-busy-title');
-      const message = attr('data-busy-message');
-      const stepsAttr = attr('data-busy-progress');
-      const steps = stepsAttr
-        ? stepsAttr
-            .split('|')
-            .map(step => step.trim())
-            .filter(step => step.length > 0)
-        : [];
-      const durationAttr = form.getAttribute('data-busy-duration');
-      const duration = durationAttr ? parseInt(durationAttr, 10) : undefined;
-      const holdFinalAttr = form.getAttribute('data-busy-hold-final-step');
-      const holdFinalStep = holdFinalAttr !== null && holdFinalAttr.toLowerCase() === 'true';
-      showBusyIndicator(
-        title ?? undefined,
-        message ?? undefined,
-        steps.length > 0 ? steps : undefined,
-        duration,
-        holdFinalStep
-      );
-
-      // Optional minimum display floor: a full-page POST that returns quickly (e.g. cached cards)
-      // navigates before the overlay is ever perceived, so it just flashes. When the form opts in via
-      // data-busy-min-ms, hold the submit briefly so the "Analyzing…" state is actually seen, then
-      // re-fire it. Skipped when another handler already owns this submit (event.defaultPrevented —
-      // the Moxfield extension-bypass path, which is already slow enough to show the overlay).
-      const minMs = parseInt(form.getAttribute('data-busy-min-ms') ?? '', 10);
-      if (Number.isFinite(minMs) && minMs > 0 && !event.defaultPrevented) {
-        event.preventDefault();
-        window.setTimeout(() => {
-          form.dataset.busyMinReleased = 'true';
-          if (typeof form.requestSubmit === 'function') {
-            // Preserve which button submitted (its formaction, e.g. the Load vs Analyze endpoint).
-            form.requestSubmit(
-              submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement
-                ? submitter
-                : undefined
-            );
-          } else {
-            form.submit();
-          }
-        }, minMs);
-      }
-    });
-  });
-
-  window.addEventListener('pageshow', () => {
-    hideBusyIndicator();
-  });
-};
-
-// ChatGPT session-zip download handler.
+// Prompt session-zip download handler.
 //
 // Replaces the prior timed 3s debounce with a deterministic fetch+blob flow:
 // the click is intercepted, the form payload is POSTed via fetch, the
@@ -840,9 +334,9 @@ const registerBusyIndicator = (): void => {
 // Page-wide busy overlay is suppressed via the `data-no-busy` marker on
 // each download button (kept for defense in depth — the form submit never
 // fires anyway because of preventDefault).
-const CHATGPT_DOWNLOAD_FALLBACK_FILENAME = 'session.zip';
+const PROMPT_DOWNLOAD_FALLBACK_FILENAME = 'session.zip';
 
-const parseChatGptDownloadFilename = (header: string | null): string | null => {
+const parsePromptDownloadFilename = (header: string | null): string | null => {
   if (!header) {
     return null;
   }
@@ -861,7 +355,7 @@ const parseChatGptDownloadFilename = (header: string | null): string | null => {
   return null;
 };
 
-const triggerChatGptBlobDownload = (blob: Blob, filename: string): void => {
+const triggerPromptBlobDownload = (blob: Blob, filename: string): void => {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -874,8 +368,8 @@ const triggerChatGptBlobDownload = (blob: Blob, filename: string): void => {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
-const registerChatGptDownloadHandler = (): void => {
-  document.querySelectorAll<HTMLButtonElement>('button[data-chatgpt-download-submit]').forEach(button => {
+const registerPromptDownloadHandler = (): void => {
+  document.querySelectorAll<HTMLButtonElement>('button[data-prompt-download-submit]').forEach(button => {
     button.addEventListener('click', async (event: MouseEvent) => {
       const form = button.closest('form');
       if (!form) {
@@ -930,15 +424,15 @@ const registerChatGptDownloadHandler = (): void => {
         // Prefer the explicit X-DeckFlow-Filename header (set by all download
         // endpoints — bypasses Content-Disposition parsing fragility), then
         // fall back to Content-Disposition, then to the generic default.
-        const dispositionFilename = parseChatGptDownloadFilename(dispositionHeader);
-        const filename = (customFilename && customFilename.trim()) || dispositionFilename || CHATGPT_DOWNLOAD_FALLBACK_FILENAME;
+        const dispositionFilename = parsePromptDownloadFilename(dispositionHeader);
+        const filename = (customFilename && customFilename.trim()) || dispositionFilename || PROMPT_DOWNLOAD_FALLBACK_FILENAME;
         if (!customFilename && !dispositionFilename) {
           // Diagnostic for the user — surface the missing-header case in DevTools.
-          console.warn('ChatGPT download: neither X-DeckFlow-Filename nor Content-Disposition was readable; falling back to generic filename.');
+          console.warn('Prompt download: neither X-DeckFlow-Filename nor Content-Disposition was readable; falling back to generic filename.');
         }
-        triggerChatGptBlobDownload(blob, filename);
+        triggerPromptBlobDownload(blob, filename);
       } catch (err) {
-        console.error('ChatGPT session download failed', err);
+        console.error('Prompt session download failed', err);
         window.alert('Download failed. Please try again.');
       } finally {
         delete button.dataset.downloadInFlight;
@@ -951,8 +445,8 @@ const registerChatGptDownloadHandler = (): void => {
 // Print button on the Step 3 / Step 5 results panels. CSP blocks inline onclick
 // (script-src has no 'unsafe-inline'), so window.print() is wired here. The
 // @media print rules in site-common.css isolate the result panels on paper.
-const registerChatGptPrintHandler = (): void => {
-  document.querySelectorAll<HTMLButtonElement>('button[data-chatgpt-print]').forEach(button => {
+const registerPromptPrintHandler = (): void => {
+  document.querySelectorAll<HTMLButtonElement>('button[data-prompt-print]').forEach(button => {
     button.addEventListener('click', () => {
       window.print();
     });
@@ -1422,8 +916,8 @@ const attachGenericPersistedForms = (): void => {
       const clearHref = clearButton.getAttribute('data-clear-href');
       if (clearHref) {
         form.dataset.skipPersistence = 'true';
-        if (form.getAttribute('data-cache-key') === 'chatgpt-packets') {
-          clearChatGptPacketsState(form);
+        if (form.getAttribute('data-cache-key') === 'prompt-packets') {
+          clearPromptPacketsState(form);
         } else {
           clearPersistedFormState(form);
         }
@@ -1611,12 +1105,12 @@ const submitDeckSyncApi = async (form: HTMLFormElement): Promise<void> => {
       }
 
       document.getElementById('deck-sync-results')?.classList.add('hidden');
-      hideBusyIndicator();
+      window.hideBusyIndicator?.();
       return;
     }
 
     renderDeckSyncResponse(await response.json() as DeckSyncApiResponse);
-    hideBusyIndicator();
+    window.hideBusyIndicator?.();
   } catch (requestError) {
     if (error) {
       error.textContent = requestError instanceof Error ? requestError.message : 'Unable to run deck sync.';
@@ -1624,7 +1118,7 @@ const submitDeckSyncApi = async (form: HTMLFormElement): Promise<void> => {
     }
 
     document.getElementById('deck-sync-results')?.classList.add('hidden');
-    hideBusyIndicator();
+    window.hideBusyIndicator?.();
   }
 };
 
@@ -1662,8 +1156,8 @@ const attachDeckSyncPersistence = (): void => {
     if (clearHref) {
       form.dataset.skipPersistence = 'true';
       const cacheKey = form.getAttribute('data-cache-key');
-      if (cacheKey === 'chatgpt-packets') {
-        clearChatGptPacketsState(form);
+      if (cacheKey === 'prompt-packets') {
+        clearPromptPacketsState(form);
       } else {
         clearPersistedFormState(form);
       }
@@ -1686,17 +1180,17 @@ const attachDeckSyncPersistence = (): void => {
   });
 };
 
-const parseChatGptStep = (value: string | undefined | null): number => {
+const parsePromptStep = (value: string | undefined | null): number => {
   const parsedValue = parseInt(value ?? '1', 10);
   return Number.isNaN(parsedValue) || parsedValue < 1 || parsedValue > 5 ? 1 : parsedValue;
 };
 
-type ChatGptUiMode = 'guided' | 'focused' | 'expert';
+type PromptUiMode = 'guided' | 'focused' | 'expert';
 
-const chatGptUiModeStorageKey = 'decksync-chatgpt-ui-mode';
-const mobileChatGptUiModeQuery = '(max-width: 600px)';
+const promptUiModeStorageKey = 'decksync-prompt-ui-mode';
+const mobilePromptUiModeQuery = '(max-width: 600px)';
 
-const parseChatGptUiMode = (value: string | undefined | null): ChatGptUiMode => {
+const parsePromptUiMode = (value: string | undefined | null): PromptUiMode => {
   if (value === 'focused' || value === 'expert') {
     return value;
   }
@@ -1704,12 +1198,12 @@ const parseChatGptUiMode = (value: string | undefined | null): ChatGptUiMode => 
   return 'guided';
 };
 
-const getDefaultChatGptUiMode = (): ChatGptUiMode => {
-  return window.matchMedia(mobileChatGptUiModeQuery).matches ? 'focused' : 'guided';
+const getDefaultPromptUiMode = (): PromptUiMode => {
+  return window.matchMedia(mobilePromptUiModeQuery).matches ? 'focused' : 'guided';
 };
 
-const setChatGptValidationMessage = (message: string | null): void => {
-  const errorNode = document.querySelector<HTMLElement>('[data-chatgpt-validation-error]');
+const setPromptValidationMessage = (message: string | null): void => {
+  const errorNode = document.querySelector<HTMLElement>('[data-prompt-validation-error]');
   if (!errorNode) {
     return;
   }
@@ -1725,10 +1219,10 @@ const setChatGptValidationMessage = (message: string | null): void => {
   errorNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
 };
 
-const scrollChatGptResults = (form: HTMLFormElement): void => {
-  const step = parseChatGptStep(form.dataset.chatgptCurrentStep);
-  const activePanel = form.querySelector<HTMLElement>(`[data-chatgpt-step="${step}"]`);
-  const resultAnchor = activePanel?.querySelector<HTMLElement>('[data-chatgpt-result-anchor]');
+const scrollPromptResults = (form: HTMLFormElement): void => {
+  const step = parsePromptStep(form.dataset.promptCurrentStep);
+  const activePanel = form.querySelector<HTMLElement>(`[data-prompt-step="${step}"]`);
+  const resultAnchor = activePanel?.querySelector<HTMLElement>('[data-prompt-result-anchor]');
   if (!resultAnchor) {
     return;
   }
@@ -1738,52 +1232,52 @@ const scrollChatGptResults = (form: HTMLFormElement): void => {
   }, 120);
 };
 
-const showChatGptStep = (form: HTMLFormElement, step: number): void => {
-  form.dataset.chatgptCurrentStep = step.toString();
-  const workflowInput = form.querySelector<HTMLInputElement>('[data-chatgpt-workflow-step]');
+const showPromptStep = (form: HTMLFormElement, step: number): void => {
+  form.dataset.promptCurrentStep = step.toString();
+  const workflowInput = form.querySelector<HTMLInputElement>('[data-prompt-workflow-step]');
   if (workflowInput) {
     workflowInput.value = step.toString();
   }
 
-  form.querySelectorAll<HTMLElement>('[data-chatgpt-step]').forEach(panel => {
-    const panelStep = parseChatGptStep(panel.dataset.chatgptStep);
+  form.querySelectorAll<HTMLElement>('[data-prompt-step]').forEach(panel => {
+    const panelStep = parsePromptStep(panel.dataset.promptStep);
     panel.classList.toggle('hidden', panelStep !== step);
     panel.setAttribute('aria-hidden', panelStep === step ? 'false' : 'true');
   });
 
-  form.querySelectorAll<HTMLElement>('[data-chatgpt-show-step]').forEach(button => {
-    const buttonStep = parseChatGptStep(button.dataset.chatgptShowStep);
+  form.querySelectorAll<HTMLElement>('[data-prompt-show-step]').forEach(button => {
+    const buttonStep = parsePromptStep(button.dataset.promptShowStep);
     button.classList.toggle('is-active', buttonStep === step);
     button.setAttribute('aria-selected', buttonStep === step ? 'true' : 'false');
     button.setAttribute('tabindex', buttonStep === step ? '0' : '-1');
   });
 };
 
-const applyChatGptUiMode = (form: HTMLFormElement, mode: ChatGptUiMode): void => {
-  form.dataset.chatgptUiMode = mode;
-  document.body.dataset.chatgptUiMode = mode;
-  document.querySelectorAll<HTMLElement>('[data-chatgpt-ui-mode-button]').forEach(button => {
-    const buttonMode = parseChatGptUiMode(button.dataset.chatgptUiModeButton);
+const applyPromptUiMode = (form: HTMLFormElement, mode: PromptUiMode): void => {
+  form.dataset.promptUiMode = mode;
+  document.body.dataset.promptUiMode = mode;
+  document.querySelectorAll<HTMLElement>('[data-prompt-ui-mode-button]').forEach(button => {
+    const buttonMode = parsePromptUiMode(button.dataset.promptUiModeButton);
     button.classList.toggle('is-active', buttonMode === mode);
     button.setAttribute('aria-pressed', buttonMode === mode ? 'true' : 'false');
   });
 };
 
-const clearChatGptPacketsState = (form: HTMLFormElement): void => {
+const clearPromptPacketsState = (form: HTMLFormElement): void => {
   clearPersistedFormState(form);
-  storageAvailable?.removeItem(chatGptUiModeStorageKey);
+  storageAvailable?.removeItem(promptUiModeStorageKey);
   clearFormToFreshSlate(form);
-  applyChatGptUiMode(form, getDefaultChatGptUiMode());
-  showChatGptStep(form, 1);
+  applyPromptUiMode(form, getDefaultPromptUiMode());
+  showPromptStep(form, 1);
   updateSyncInputModeUi();
   syncVersioningBracketOptions(form);
   syncCardSpecificQuestionField(form);
   syncBudgetQuestionField(form);
   syncPreferredCategoriesField(form);
-  setChatGptValidationMessage(null);
+  setPromptValidationMessage(null);
 };
 
-const validateChatGptPacketsStep = (form: HTMLFormElement, step: number): string | null => {
+const validatePromptPacketsStep = (form: HTMLFormElement, step: number): string | null => {
   const deckInputSource = form.querySelector<HTMLSelectElement>('select[name="DeckInputSource"]')?.value ?? DeckInputSource.PasteText;
   const deckSource = deckInputSource === DeckInputSource.PublicUrl
     ? form.querySelector<HTMLInputElement>('input[name="DeckUrl"]')?.value.trim() ?? ''
@@ -1812,7 +1306,7 @@ const validateChatGptPacketsStep = (form: HTMLFormElement, step: number): string
   const decklistExportFormat = form.querySelector<HTMLSelectElement>('select[name="DecklistExportFormat"]')?.value.trim() ?? '';
 
   if (step < 3 && !deckSource) {
-    return 'Paste a deck URL or deck export before generating ChatGPT packets.';
+    return 'Paste a deck URL or deck export before generating prompt packets.';
   }
 
   if (step === 2 && !targetCommanderBracket) {
@@ -1836,7 +1330,7 @@ const validateChatGptPacketsStep = (form: HTMLFormElement, step: number): string
   }
 
   if (step === 3 && !deckProfileJson) {
-    return 'Paste the deck_profile JSON returned from ChatGPT before rendering the analysis summary.';
+    return 'Paste the deck_profile JSON returned from your AI before rendering the analysis summary.';
   }
 
   if (step === 4) {
@@ -1856,7 +1350,7 @@ const validateChatGptPacketsStep = (form: HTMLFormElement, step: number): string
   if (step === 5) {
     const setUpgradeResponseJson = form.querySelector<HTMLTextAreaElement>('textarea[name="SetUpgradeResponseJson"]')?.value.trim() ?? '';
     if (!setUpgradeResponseJson) {
-      return 'Paste the set_upgrade_report JSON returned from ChatGPT before rendering the set upgrade results.';
+      return 'Paste the set_upgrade_report JSON returned from your AI before rendering the set upgrade results.';
     }
   }
 
@@ -1922,7 +1416,7 @@ const syncVersioningBracketOptions = (form: HTMLFormElement): void => {
     if (shouldDisable && checkbox.checked) {
       checkbox.checked = false;
     }
-    checkbox.closest('label')?.classList.toggle('chatgpt-question-option--disabled', shouldDisable);
+    checkbox.closest('label')?.classList.toggle('prompt-question-option--disabled', shouldDisable);
   });
 
   syncQuestionBucketState(form);
@@ -2018,7 +1512,7 @@ const attachQuestionBucketSelection = (form: HTMLFormElement): void => {
 };
 
 const loadSetOptionsAsync = (): void => {
-  const form = document.querySelector<HTMLFormElement>('[data-chatgpt-packets-form]');
+  const form = document.querySelector<HTMLFormElement>('[data-prompt-packets-form]');
   const select = form?.querySelector<HTMLSelectElement>('[data-set-options-select]');
   if (!form || !select) {
     return;
@@ -2171,17 +1665,17 @@ const loadSetOptionsAsync = (): void => {
     });
 };
 
-const attachChatGptPacketsWorkflow = (): void => {
-  const form = document.querySelector<HTMLFormElement>('[data-chatgpt-packets-form]');
+const attachPromptPacketsWorkflow = (): void => {
+  const form = document.querySelector<HTMLFormElement>('[data-prompt-packets-form]');
   if (!form) {
     return;
   }
 
-  const currentStep = parseChatGptStep(form.dataset.chatgptCurrentStep);
-  const persistedUiMode = storageAvailable?.getItem(chatGptUiModeStorageKey);
+  const currentStep = parsePromptStep(form.dataset.promptCurrentStep);
+  const persistedUiMode = storageAvailable?.getItem(promptUiModeStorageKey);
   const initialUiMode = persistedUiMode
-    ? parseChatGptUiMode(persistedUiMode)
-    : getDefaultChatGptUiMode();
+    ? parsePromptUiMode(persistedUiMode)
+    : getDefaultPromptUiMode();
   attachQuestionBucketSelection(form);
   attachBucketToggles(form);
   attachCardPicker(form);
@@ -2190,66 +1684,66 @@ const attachChatGptPacketsWorkflow = (): void => {
   bracketSelect?.addEventListener('change', () => syncVersioningBracketOptions(form));
   syncVersioningBracketOptions(form);
 
-  applyChatGptUiMode(form, initialUiMode);
-  showChatGptStep(form, currentStep);
-  setChatGptValidationMessage(null);
-  scrollChatGptResults(form);
+  applyPromptUiMode(form, initialUiMode);
+  showPromptStep(form, currentStep);
+  setPromptValidationMessage(null);
+  scrollPromptResults(form);
 
-  document.querySelectorAll<HTMLElement>('[data-chatgpt-ui-mode-button]').forEach(button => {
+  document.querySelectorAll<HTMLElement>('[data-prompt-ui-mode-button]').forEach(button => {
     button.addEventListener('click', () => {
-      const mode = parseChatGptUiMode(button.dataset.chatgptUiModeButton);
-      applyChatGptUiMode(form, mode);
-      storageAvailable?.setItem(chatGptUiModeStorageKey, mode);
+      const mode = parsePromptUiMode(button.dataset.promptUiModeButton);
+      applyPromptUiMode(form, mode);
+      storageAvailable?.setItem(promptUiModeStorageKey, mode);
     });
   });
 
-  form.querySelectorAll<HTMLElement>('[data-chatgpt-show-step]').forEach(button => {
+  form.querySelectorAll<HTMLElement>('[data-prompt-show-step]').forEach(button => {
     button.addEventListener('click', () => {
-      const step = parseChatGptStep(button.dataset.chatgptShowStep);
-      showChatGptStep(form, step);
-      setChatGptValidationMessage(null);
+      const step = parsePromptStep(button.dataset.promptShowStep);
+      showPromptStep(form, step);
+      setPromptValidationMessage(null);
     });
   });
 
-  form.querySelectorAll<HTMLElement>('[data-chatgpt-next-step]').forEach(button => {
+  form.querySelectorAll<HTMLElement>('[data-prompt-next-step]').forEach(button => {
     button.addEventListener('click', () => {
-      const step = parseChatGptStep(button.dataset.chatgptNextStep);
-      showChatGptStep(form, step);
-      setChatGptValidationMessage(null);
-      form.querySelector<HTMLElement>(`[data-chatgpt-step="${step}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const step = parsePromptStep(button.dataset.promptNextStep);
+      showPromptStep(form, step);
+      setPromptValidationMessage(null);
+      form.querySelector<HTMLElement>(`[data-prompt-step="${step}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   });
 
   form.addEventListener('submit', event => {
     const submitter = (event as SubmitEvent).submitter as HTMLElement | null;
-    if (submitter?.hasAttribute('data-chatgpt-upload-submit') ||
-        submitter?.hasAttribute('data-chatgpt-download-submit')) {
-      setChatGptValidationMessage(null);
+    if (submitter?.hasAttribute('data-prompt-upload-submit') ||
+        submitter?.hasAttribute('data-prompt-download-submit')) {
+      setPromptValidationMessage(null);
       return;
     }
 
-    const step = parseChatGptStep(submitter?.dataset.chatgptSubmitStep ?? form.dataset.chatgptCurrentStep);
-    const validationMessage = validateChatGptPacketsStep(form, step);
+    const step = parsePromptStep(submitter?.dataset.promptSubmitStep ?? form.dataset.promptCurrentStep);
+    const validationMessage = validatePromptPacketsStep(form, step);
     if (!validationMessage) {
-      setChatGptValidationMessage(null);
-      showChatGptStep(form, step);
+      setPromptValidationMessage(null);
+      showPromptStep(form, step);
       return;
     }
 
     event.preventDefault();
-    hideBusyIndicator();
-    showChatGptStep(form, step);
-    setChatGptValidationMessage(validationMessage);
+    window.hideBusyIndicator?.();
+    showPromptStep(form, step);
+    setPromptValidationMessage(validationMessage);
   });
 };
 
-const parseChatGptComparisonStep = (value: string | undefined | null): number => {
+const parsePromptComparisonStep = (value: string | undefined | null): number => {
   const parsedValue = parseInt(value ?? '1', 10);
   return Number.isNaN(parsedValue) || parsedValue < 1 || parsedValue > 3 ? 1 : parsedValue;
 };
 
-const setChatGptComparisonValidationMessage = (message: string | null): void => {
-  const errorNode = document.querySelector<HTMLElement>('[data-chatgpt-comparison-validation-error]');
+const setPromptComparisonValidationMessage = (message: string | null): void => {
+  const errorNode = document.querySelector<HTMLElement>('[data-prompt-comparison-validation-error]');
   if (!errorNode) {
     return;
   }
@@ -2265,31 +1759,31 @@ const setChatGptComparisonValidationMessage = (message: string | null): void => 
   errorNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
 };
 
-const showChatGptComparisonStep = (form: HTMLFormElement, step: number): void => {
-  form.dataset.chatgptComparisonCurrentStep = step.toString();
-  const workflowInput = form.querySelector<HTMLInputElement>('[data-chatgpt-comparison-workflow-step]');
+const showPromptComparisonStep = (form: HTMLFormElement, step: number): void => {
+  form.dataset.promptComparisonCurrentStep = step.toString();
+  const workflowInput = form.querySelector<HTMLInputElement>('[data-prompt-comparison-workflow-step]');
   if (workflowInput) {
     workflowInput.value = step.toString();
   }
 
-  form.querySelectorAll<HTMLElement>('[data-chatgpt-comparison-step]').forEach(panel => {
-    const panelStep = parseChatGptComparisonStep(panel.dataset.chatgptComparisonStep);
+  form.querySelectorAll<HTMLElement>('[data-prompt-comparison-step]').forEach(panel => {
+    const panelStep = parsePromptComparisonStep(panel.dataset.promptComparisonStep);
     panel.classList.toggle('hidden', panelStep !== step);
     panel.setAttribute('aria-hidden', panelStep === step ? 'false' : 'true');
   });
 
-  form.querySelectorAll<HTMLElement>('[data-chatgpt-comparison-show-step]').forEach(button => {
-    const buttonStep = parseChatGptComparisonStep(button.dataset.chatgptComparisonShowStep);
+  form.querySelectorAll<HTMLElement>('[data-prompt-comparison-show-step]').forEach(button => {
+    const buttonStep = parsePromptComparisonStep(button.dataset.promptComparisonShowStep);
     button.classList.toggle('is-active', buttonStep === step);
     button.setAttribute('aria-selected', buttonStep === step ? 'true' : 'false');
     button.setAttribute('tabindex', buttonStep === step ? '0' : '-1');
   });
 };
 
-const scrollChatGptComparisonResults = (form: HTMLFormElement): void => {
-  const step = parseChatGptComparisonStep(form.dataset.chatgptComparisonCurrentStep);
-  const activePanel = form.querySelector<HTMLElement>(`[data-chatgpt-comparison-step="${step}"]`);
-  const resultAnchor = activePanel?.querySelector<HTMLElement>('[data-chatgpt-comparison-result-anchor]');
+const scrollPromptComparisonResults = (form: HTMLFormElement): void => {
+  const step = parsePromptComparisonStep(form.dataset.promptComparisonCurrentStep);
+  const activePanel = form.querySelector<HTMLElement>(`[data-prompt-comparison-step="${step}"]`);
+  const resultAnchor = activePanel?.querySelector<HTMLElement>('[data-prompt-comparison-result-anchor]');
   if (!resultAnchor) {
     return;
   }
@@ -2299,7 +1793,7 @@ const scrollChatGptComparisonResults = (form: HTMLFormElement): void => {
   }, 120);
 };
 
-const validateChatGptComparisonStep = (form: HTMLFormElement, step: number): string | null => {
+const validatePromptComparisonStep = (form: HTMLFormElement, step: number): string | null => {
   const deckASource = form.querySelector<HTMLTextAreaElement>('textarea[name="DeckASource"]')?.value.trim() ?? '';
   const deckBSource = form.querySelector<HTMLTextAreaElement>('textarea[name="DeckBSource"]')?.value.trim() ?? '';
   const deckABracket = form.querySelector<HTMLSelectElement>('select[name="DeckABracket"]')?.value.trim() ?? '';
@@ -2323,82 +1817,82 @@ const validateChatGptComparisonStep = (form: HTMLFormElement, step: number): str
   }
 
   if (step >= 3 && !comparisonResponseJson) {
-    return 'Paste the deck_comparison JSON returned from ChatGPT into Step 3 before rendering the summary.';
+    return 'Paste the deck_comparison JSON returned from your AI into Step 3 before rendering the summary.';
   }
 
   return null;
 };
 
-const attachChatGptComparisonWorkflow = (): void => {
-  const form = document.querySelector<HTMLFormElement>('[data-chatgpt-comparison-form]');
+const attachPromptComparisonWorkflow = (): void => {
+  const form = document.querySelector<HTMLFormElement>('[data-prompt-comparison-form]');
   if (!form) {
     return;
   }
 
-  const currentStep = parseChatGptComparisonStep(form.dataset.chatgptComparisonCurrentStep);
-  showChatGptComparisonStep(form, currentStep);
-  setChatGptComparisonValidationMessage(null);
-  scrollChatGptComparisonResults(form);
+  const currentStep = parsePromptComparisonStep(form.dataset.promptComparisonCurrentStep);
+  showPromptComparisonStep(form, currentStep);
+  setPromptComparisonValidationMessage(null);
+  scrollPromptComparisonResults(form);
 
-  form.querySelectorAll<HTMLElement>('[data-chatgpt-comparison-show-step]').forEach(button => {
+  form.querySelectorAll<HTMLElement>('[data-prompt-comparison-show-step]').forEach(button => {
     button.addEventListener('click', () => {
-      const step = parseChatGptComparisonStep(button.dataset.chatgptComparisonShowStep);
-      showChatGptComparisonStep(form, step);
-      setChatGptComparisonValidationMessage(null);
+      const step = parsePromptComparisonStep(button.dataset.promptComparisonShowStep);
+      showPromptComparisonStep(form, step);
+      setPromptComparisonValidationMessage(null);
     });
   });
 
-  form.querySelectorAll<HTMLElement>('[data-chatgpt-comparison-next-step]').forEach(button => {
+  form.querySelectorAll<HTMLElement>('[data-prompt-comparison-next-step]').forEach(button => {
     button.addEventListener('click', () => {
-      const step = parseChatGptComparisonStep(button.dataset.chatgptComparisonNextStep);
-      const validationMessage = validateChatGptComparisonStep(form, Math.min(step, 2));
+      const step = parsePromptComparisonStep(button.dataset.promptComparisonNextStep);
+      const validationMessage = validatePromptComparisonStep(form, Math.min(step, 2));
       if (validationMessage) {
-        setChatGptComparisonValidationMessage(validationMessage);
+        setPromptComparisonValidationMessage(validationMessage);
         return;
       }
 
-      showChatGptComparisonStep(form, step);
-      setChatGptComparisonValidationMessage(null);
-      form.querySelector<HTMLElement>(`[data-chatgpt-comparison-step="${step}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      showPromptComparisonStep(form, step);
+      setPromptComparisonValidationMessage(null);
+      form.querySelector<HTMLElement>(`[data-prompt-comparison-step="${step}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   });
 
   form.addEventListener('submit', event => {
     const submitter = (event as SubmitEvent).submitter as HTMLElement | null;
-    if (submitter?.hasAttribute('data-chatgpt-upload-submit')) {
-      setChatGptComparisonValidationMessage(null);
+    if (submitter?.hasAttribute('data-prompt-upload-submit')) {
+      setPromptComparisonValidationMessage(null);
       return;
     }
 
-    const step = parseChatGptComparisonStep(submitter?.dataset.chatgptComparisonSubmitStep ?? form.dataset.chatgptComparisonCurrentStep);
-    const validationMessage = validateChatGptComparisonStep(form, step);
+    const step = parsePromptComparisonStep(submitter?.dataset.promptComparisonSubmitStep ?? form.dataset.promptComparisonCurrentStep);
+    const validationMessage = validatePromptComparisonStep(form, step);
     if (!validationMessage) {
-      setChatGptComparisonValidationMessage(null);
-      showChatGptComparisonStep(form, step);
+      setPromptComparisonValidationMessage(null);
+      showPromptComparisonStep(form, step);
       return;
     }
 
     event.preventDefault();
-    hideBusyIndicator();
-    showChatGptComparisonStep(form, step);
-    setChatGptComparisonValidationMessage(validationMessage);
+    window.hideBusyIndicator?.();
+    showPromptComparisonStep(form, step);
+    setPromptComparisonValidationMessage(validationMessage);
   });
 };
 
-const parseChatGptCedhStep = (value: string | undefined | null): number => {
+const parsePromptCedhStep = (value: string | undefined | null): number => {
   const parsedValue = parseInt(value ?? '1', 10);
   return Number.isNaN(parsedValue) || parsedValue < 1 || parsedValue > 3 ? 1 : parsedValue;
 };
 
-const parseChatGptCedhPage = (value: string | undefined | null): number => {
+const parsePromptCedhPage = (value: string | undefined | null): number => {
   const parsedValue = parseInt(value ?? '1', 10);
   return Number.isNaN(parsedValue) || parsedValue < 1 ? 1 : parsedValue;
 };
 
-const maxChatGptCedhReferences = 3;
+const maxPromptCedhReferences = 3;
 
-const setChatGptCedhValidationMessage = (message: string | null): void => {
-  const errorNode = document.querySelector<HTMLElement>('[data-chatgpt-cedh-validation-error]');
+const setPromptCedhValidationMessage = (message: string | null): void => {
+  const errorNode = document.querySelector<HTMLElement>('[data-prompt-cedh-validation-error]');
   if (!errorNode) {
     return;
   }
@@ -2414,31 +1908,31 @@ const setChatGptCedhValidationMessage = (message: string | null): void => {
   errorNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
 };
 
-const showChatGptCedhStep = (form: HTMLFormElement, step: number): void => {
-  form.dataset.chatgptCedhCurrentStep = step.toString();
-  const workflowInput = form.querySelector<HTMLInputElement>('[data-chatgpt-cedh-workflow-step]');
+const showPromptCedhStep = (form: HTMLFormElement, step: number): void => {
+  form.dataset.promptCedhCurrentStep = step.toString();
+  const workflowInput = form.querySelector<HTMLInputElement>('[data-prompt-cedh-workflow-step]');
   if (workflowInput) {
     workflowInput.value = step.toString();
   }
 
-  form.querySelectorAll<HTMLElement>('[data-chatgpt-cedh-step]').forEach(panel => {
-    const panelStep = parseChatGptCedhStep(panel.dataset.chatgptCedhStep);
+  form.querySelectorAll<HTMLElement>('[data-prompt-cedh-step]').forEach(panel => {
+    const panelStep = parsePromptCedhStep(panel.dataset.promptCedhStep);
     panel.classList.toggle('hidden', panelStep !== step);
     panel.setAttribute('aria-hidden', panelStep === step ? 'false' : 'true');
   });
 
-  form.querySelectorAll<HTMLElement>('[data-chatgpt-cedh-show-step]').forEach(button => {
-    const buttonStep = parseChatGptCedhStep(button.dataset.chatgptCedhShowStep);
+  form.querySelectorAll<HTMLElement>('[data-prompt-cedh-show-step]').forEach(button => {
+    const buttonStep = parsePromptCedhStep(button.dataset.promptCedhShowStep);
     button.classList.toggle('is-active', buttonStep === step);
     button.setAttribute('aria-selected', buttonStep === step ? 'true' : 'false');
     button.setAttribute('tabindex', buttonStep === step ? '0' : '-1');
   });
 };
 
-const scrollChatGptCedhResults = (form: HTMLFormElement): void => {
-  const step = parseChatGptCedhStep(form.dataset.chatgptCedhCurrentStep);
-  const activePanel = form.querySelector<HTMLElement>(`[data-chatgpt-cedh-step="${step}"]`);
-  const resultAnchor = activePanel?.querySelector<HTMLElement>('[data-chatgpt-cedh-result-anchor]');
+const scrollPromptCedhResults = (form: HTMLFormElement): void => {
+  const step = parsePromptCedhStep(form.dataset.promptCedhCurrentStep);
+  const activePanel = form.querySelector<HTMLElement>(`[data-prompt-cedh-step="${step}"]`);
+  const resultAnchor = activePanel?.querySelector<HTMLElement>('[data-prompt-cedh-result-anchor]');
   if (!resultAnchor) {
     return;
   }
@@ -2456,7 +1950,7 @@ const scrollChatGptCedhResults = (form: HTMLFormElement): void => {
   }, 120);
 };
 
-const validateChatGptCedhStep = (form: HTMLFormElement, step: number): string | null => {
+const validatePromptCedhStep = (form: HTMLFormElement, step: number): string | null => {
   if (step === 1) {
     const deckSource = form.querySelector<HTMLTextAreaElement>('textarea[name="DeckSource"]')?.value.trim() ?? '';
     if (!deckSource) {
@@ -2465,38 +1959,38 @@ const validateChatGptCedhStep = (form: HTMLFormElement, step: number): string | 
   }
 
   if (step === 2) {
-    const checkedReferences = form.querySelectorAll<HTMLInputElement>('[data-chatgpt-cedh-reference-checkbox]:checked').length;
+    const checkedReferences = form.querySelectorAll<HTMLInputElement>('[data-prompt-cedh-reference-checkbox]:checked').length;
     if (checkedReferences < 1) {
       return 'Select at least 1 EDH Top 16 reference deck before generating the prompt.';
     }
 
-    if (checkedReferences > maxChatGptCedhReferences) {
-      return `Select no more than ${maxChatGptCedhReferences} EDH Top 16 reference decks before generating the prompt.`;
+    if (checkedReferences > maxPromptCedhReferences) {
+      return `Select no more than ${maxPromptCedhReferences} EDH Top 16 reference decks before generating the prompt.`;
     }
   }
 
   if (step === 3) {
     const responseJson = form.querySelector<HTMLTextAreaElement>('textarea[name="MetaGapResponseJson"]')?.value.trim() ?? '';
     if (!responseJson) {
-      return 'Paste the meta_gap JSON returned from ChatGPT into Step 3 before rendering the analysis.';
+      return 'Paste the meta_gap JSON returned from your AI into Step 3 before rendering the analysis.';
     }
   }
 
   return null;
 };
 
-const syncChatGptCedhCheckboxState = (form: HTMLFormElement): void => {
-  const checkboxes = Array.from(form.querySelectorAll<HTMLInputElement>('[data-chatgpt-cedh-reference-checkbox]'));
+const syncPromptCedhCheckboxState = (form: HTMLFormElement): void => {
+  const checkboxes = Array.from(form.querySelectorAll<HTMLInputElement>('[data-prompt-cedh-reference-checkbox]'));
   const checkedCount = checkboxes.filter(checkbox => checkbox.checked).length;
   checkboxes.forEach(checkbox => {
-    checkbox.disabled = !checkbox.checked && checkedCount >= maxChatGptCedhReferences;
+    checkbox.disabled = !checkbox.checked && checkedCount >= maxPromptCedhReferences;
   });
 };
 
-const showChatGptCedhReferencePage = (form: HTMLFormElement, page: number): void => {
-  const rowsWithPages = Array.from(form.querySelectorAll<HTMLElement>('[data-chatgpt-cedh-reference-row]')).map(row => ({
+const showPromptCedhReferencePage = (form: HTMLFormElement, page: number): void => {
+  const rowsWithPages = Array.from(form.querySelectorAll<HTMLElement>('[data-prompt-cedh-reference-row]')).map(row => ({
     row,
-    page: parseChatGptCedhPage(row.dataset.chatgptCedhPage)
+    page: parsePromptCedhPage(row.dataset.promptCedhPage)
   }));
   if (rowsWithPages.length === 0) {
     return;
@@ -2509,14 +2003,14 @@ const showChatGptCedhReferencePage = (form: HTMLFormElement, page: number): void
     row.classList.toggle('hidden', rowPage !== nextPage);
   });
 
-  form.dataset.chatgptCedhReferencePage = nextPage.toString();
-  const status = form.querySelector<HTMLElement>('[data-chatgpt-cedh-page-status]');
+  form.dataset.promptCedhReferencePage = nextPage.toString();
+  const status = form.querySelector<HTMLElement>('[data-prompt-cedh-page-status]');
   if (status) {
     status.textContent = `Page ${nextPage} of ${maxPage}`;
   }
 
-  const prevButton = form.querySelector<HTMLButtonElement>('[data-chatgpt-cedh-page-nav="prev"]');
-  const nextButton = form.querySelector<HTMLButtonElement>('[data-chatgpt-cedh-page-nav="next"]');
+  const prevButton = form.querySelector<HTMLButtonElement>('[data-prompt-cedh-page-nav="prev"]');
+  const nextButton = form.querySelector<HTMLButtonElement>('[data-prompt-cedh-page-nav="next"]');
   if (prevButton) {
     prevButton.disabled = nextPage <= 1;
   }
@@ -2526,7 +2020,7 @@ const showChatGptCedhReferencePage = (form: HTMLFormElement, page: number): void
   }
 };
 
-const parseChatGptCedhSortValue = (cell: HTMLElement | undefined, type: string): number | string => {
+const parsePromptCedhSortValue = (cell: HTMLElement | undefined, type: string): number | string => {
   const raw = (cell?.dataset.sortValue ?? cell?.textContent ?? '').trim();
   if (type === 'num') {
     const parsed = parseFloat(raw);
@@ -2538,7 +2032,7 @@ const parseChatGptCedhSortValue = (cell: HTMLElement | undefined, type: string):
 // Core sort: shared by the desktop column-header buttons and the mobile sort
 // control (the headers are sr-only-hidden at <=600px, so phones need a visible
 // alternative that drives the same in-place sort + re-pagination).
-const applyChatGptCedhSort = (
+const applyPromptCedhSort = (
   form: HTMLFormElement,
   table: HTMLTableElement,
   columnIndex: number,
@@ -2551,10 +2045,10 @@ const applyChatGptCedhSort = (
   }
 
   const factor = direction === 'ascending' ? 1 : -1;
-  const rows = Array.from(tbody.querySelectorAll<HTMLTableRowElement>('[data-chatgpt-cedh-reference-row]'));
+  const rows = Array.from(tbody.querySelectorAll<HTMLTableRowElement>('[data-prompt-cedh-reference-row]'));
   rows.sort((left, right) => {
-    const leftValue = parseChatGptCedhSortValue(left.cells[columnIndex], type);
-    const rightValue = parseChatGptCedhSortValue(right.cells[columnIndex], type);
+    const leftValue = parsePromptCedhSortValue(left.cells[columnIndex], type);
+    const rightValue = parsePromptCedhSortValue(right.cells[columnIndex], type);
     let comparison = 0;
     if (typeof leftValue === 'number' && typeof rightValue === 'number') {
       comparison = leftValue - rightValue;
@@ -2564,12 +2058,12 @@ const applyChatGptCedhSort = (
     return comparison * factor;
   });
 
-  // Re-paginate: server assigned data-chatgpt-cedh-page by original index; after a
+  // Re-paginate: server assigned data-prompt-cedh-page by original index; after a
   // client re-sort the rows must be re-numbered so paging follows the new order.
-  const pageSize = Math.max(1, parseInt(table.dataset.chatgptCedhPageSize ?? '10', 10) || 10);
+  const pageSize = Math.max(1, parseInt(table.dataset.promptCedhPageSize ?? '10', 10) || 10);
   rows.forEach((row, index) => {
     tbody.appendChild(row);
-    row.dataset.chatgptCedhPage = (Math.floor(index / pageSize) + 1).toString();
+    row.dataset.promptCedhPage = (Math.floor(index / pageSize) + 1).toString();
   });
 
   // Reflect sort state for assistive tech: only the active column carries a direction.
@@ -2579,25 +2073,25 @@ const applyChatGptCedhSort = (
     }
   });
 
-  showChatGptCedhReferencePage(form, 1);
+  showPromptCedhReferencePage(form, 1);
 };
 
-const sortChatGptCedhFromHeader = (form: HTMLFormElement, button: HTMLButtonElement): void => {
-  const table = button.closest<HTMLTableElement>('[data-chatgpt-cedh-reference-table]');
+const sortPromptCedhFromHeader = (form: HTMLFormElement, button: HTMLButtonElement): void => {
+  const table = button.closest<HTMLTableElement>('[data-prompt-cedh-reference-table]');
   const headerCell = button.closest<HTMLTableCellElement>('th');
   if (!table || !headerCell) {
     return;
   }
 
-  const type = button.dataset.chatgptCedhSortType === 'num' ? 'num' : 'text';
+  const type = button.dataset.promptCedhSortType === 'num' ? 'num' : 'text';
   const direction = headerCell.getAttribute('aria-sort') === 'ascending' ? 'descending' : 'ascending';
-  applyChatGptCedhSort(form, table, headerCell.cellIndex, type, direction);
+  applyPromptCedhSort(form, table, headerCell.cellIndex, type, direction);
 };
 
-const sortChatGptCedhFromMobileControl = (form: HTMLFormElement): void => {
-  const select = form.querySelector<HTMLSelectElement>('[data-chatgpt-cedh-mobile-sort-select]');
-  const dirButton = form.querySelector<HTMLButtonElement>('[data-chatgpt-cedh-mobile-sort-dir]');
-  const table = form.querySelector<HTMLTableElement>('[data-chatgpt-cedh-reference-table]');
+const sortPromptCedhFromMobileControl = (form: HTMLFormElement): void => {
+  const select = form.querySelector<HTMLSelectElement>('[data-prompt-cedh-mobile-sort-select]');
+  const dirButton = form.querySelector<HTMLButtonElement>('[data-prompt-cedh-mobile-sort-dir]');
+  const table = form.querySelector<HTMLTableElement>('[data-prompt-cedh-reference-table]');
   if (!select || !table) {
     return;
   }
@@ -2609,100 +2103,100 @@ const sortChatGptCedhFromMobileControl = (form: HTMLFormElement): void => {
 
   const type = select.selectedOptions[0]?.dataset.sortType === 'num' ? 'num' : 'text';
   const direction = dirButton?.dataset.direction === 'descending' ? 'descending' : 'ascending';
-  applyChatGptCedhSort(form, table, columnIndex, type, direction);
+  applyPromptCedhSort(form, table, columnIndex, type, direction);
 };
 
-const attachChatGptCedhWorkflow = (): void => {
-  const form = document.querySelector<HTMLFormElement>('[data-chatgpt-cedh-form]');
+const attachPromptCedhWorkflow = (): void => {
+  const form = document.querySelector<HTMLFormElement>('[data-prompt-cedh-form]');
   if (!form) {
     return;
   }
 
-  const currentStep = parseChatGptCedhStep(form.dataset.chatgptCedhCurrentStep);
-  showChatGptCedhStep(form, currentStep);
-  setChatGptCedhValidationMessage(null);
-  syncChatGptCedhCheckboxState(form);
-  showChatGptCedhReferencePage(form, parseChatGptCedhPage(form.dataset.chatgptCedhReferencePage));
-  scrollChatGptCedhResults(form);
+  const currentStep = parsePromptCedhStep(form.dataset.promptCedhCurrentStep);
+  showPromptCedhStep(form, currentStep);
+  setPromptCedhValidationMessage(null);
+  syncPromptCedhCheckboxState(form);
+  showPromptCedhReferencePage(form, parsePromptCedhPage(form.dataset.promptCedhReferencePage));
+  scrollPromptCedhResults(form);
 
-  form.querySelectorAll<HTMLInputElement>('[data-chatgpt-cedh-reference-checkbox]').forEach(checkbox => {
+  form.querySelectorAll<HTMLInputElement>('[data-prompt-cedh-reference-checkbox]').forEach(checkbox => {
     checkbox.addEventListener('change', () => {
-      syncChatGptCedhCheckboxState(form);
-      setChatGptCedhValidationMessage(null);
+      syncPromptCedhCheckboxState(form);
+      setPromptCedhValidationMessage(null);
     });
   });
 
-  form.querySelectorAll<HTMLElement>('[data-chatgpt-cedh-show-step]').forEach(button => {
+  form.querySelectorAll<HTMLElement>('[data-prompt-cedh-show-step]').forEach(button => {
     button.addEventListener('click', () => {
-      const step = parseChatGptCedhStep(button.dataset.chatgptCedhShowStep);
-      showChatGptCedhStep(form, step);
-      setChatGptCedhValidationMessage(null);
+      const step = parsePromptCedhStep(button.dataset.promptCedhShowStep);
+      showPromptCedhStep(form, step);
+      setPromptCedhValidationMessage(null);
     });
   });
 
-  form.querySelectorAll<HTMLElement>('[data-chatgpt-cedh-next-step]').forEach(button => {
+  form.querySelectorAll<HTMLElement>('[data-prompt-cedh-next-step]').forEach(button => {
     button.addEventListener('click', () => {
-      const step = parseChatGptCedhStep(button.dataset.chatgptCedhNextStep);
-      showChatGptCedhStep(form, step);
-      setChatGptCedhValidationMessage(null);
-      form.querySelector<HTMLElement>(`[data-chatgpt-cedh-step="${step}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const step = parsePromptCedhStep(button.dataset.promptCedhNextStep);
+      showPromptCedhStep(form, step);
+      setPromptCedhValidationMessage(null);
+      form.querySelector<HTMLElement>(`[data-prompt-cedh-step="${step}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   });
 
-  form.querySelectorAll<HTMLButtonElement>('[data-chatgpt-cedh-page-nav]').forEach(button => {
+  form.querySelectorAll<HTMLButtonElement>('[data-prompt-cedh-page-nav]').forEach(button => {
     button.addEventListener('click', () => {
-      const currentPage = parseChatGptCedhPage(form.dataset.chatgptCedhReferencePage);
-      const delta = button.dataset.chatgptCedhPageNav === 'next' ? 1 : -1;
-      showChatGptCedhReferencePage(form, currentPage + delta);
+      const currentPage = parsePromptCedhPage(form.dataset.promptCedhReferencePage);
+      const delta = button.dataset.promptCedhPageNav === 'next' ? 1 : -1;
+      showPromptCedhReferencePage(form, currentPage + delta);
     });
   });
 
-  form.querySelectorAll<HTMLButtonElement>('[data-chatgpt-cedh-sort]').forEach(button => {
+  form.querySelectorAll<HTMLButtonElement>('[data-prompt-cedh-sort]').forEach(button => {
     button.addEventListener('click', () => {
-      sortChatGptCedhFromHeader(form, button);
+      sortPromptCedhFromHeader(form, button);
     });
   });
 
-  const mobileSortSelect = form.querySelector<HTMLSelectElement>('[data-chatgpt-cedh-mobile-sort-select]');
+  const mobileSortSelect = form.querySelector<HTMLSelectElement>('[data-prompt-cedh-mobile-sort-select]');
   mobileSortSelect?.addEventListener('change', () => {
-    sortChatGptCedhFromMobileControl(form);
+    sortPromptCedhFromMobileControl(form);
   });
 
-  const mobileSortDir = form.querySelector<HTMLButtonElement>('[data-chatgpt-cedh-mobile-sort-dir]');
+  const mobileSortDir = form.querySelector<HTMLButtonElement>('[data-prompt-cedh-mobile-sort-dir]');
   mobileSortDir?.addEventListener('click', () => {
     const next = mobileSortDir.dataset.direction === 'ascending' ? 'descending' : 'ascending';
     mobileSortDir.dataset.direction = next;
     mobileSortDir.textContent = next === 'ascending' ? 'Asc ▲' : 'Desc ▼';
     mobileSortDir.setAttribute('aria-label', next === 'ascending' ? 'Sort ascending' : 'Sort descending');
     if (mobileSortSelect?.value) {
-      sortChatGptCedhFromMobileControl(form);
+      sortPromptCedhFromMobileControl(form);
     }
   });
 
   form.addEventListener('submit', event => {
     const submitter = (event as SubmitEvent).submitter as HTMLElement | null;
-    if (submitter?.hasAttribute('data-chatgpt-upload-submit')) {
-      setChatGptCedhValidationMessage(null);
+    if (submitter?.hasAttribute('data-prompt-upload-submit')) {
+      setPromptCedhValidationMessage(null);
       return;
     }
 
-    const step = parseChatGptCedhStep(submitter?.dataset.chatgptCedhSubmitStep ?? form.dataset.chatgptCedhCurrentStep);
-    const validationMessage = validateChatGptCedhStep(form, step);
+    const step = parsePromptCedhStep(submitter?.dataset.promptCedhSubmitStep ?? form.dataset.promptCedhCurrentStep);
+    const validationMessage = validatePromptCedhStep(form, step);
     if (!validationMessage) {
-      setChatGptCedhValidationMessage(null);
-      showChatGptCedhStep(form, step);
+      setPromptCedhValidationMessage(null);
+      showPromptCedhStep(form, step);
       return;
     }
 
     event.preventDefault();
-    hideBusyIndicator();
-    showChatGptCedhStep(form, step);
-    setChatGptCedhValidationMessage(validationMessage);
+    window.hideBusyIndicator?.();
+    showPromptCedhStep(form, step);
+    setPromptCedhValidationMessage(validationMessage);
   });
 };
 
-const wireChatGptZipUpload = (): void => {
-  document.querySelectorAll<HTMLInputElement>('[data-chatgpt-zip-upload]').forEach(input => {
+const wirePromptZipUpload = (): void => {
+  document.querySelectorAll<HTMLInputElement>('[data-prompt-zip-upload]').forEach(input => {
     input.addEventListener('change', () => {
       const file = input.files?.[0];
       if (!file) { return; }
@@ -2742,11 +2236,20 @@ const wireChatGptZipUpload = (): void => {
 
 interface Window {
   setAllPrintingChoices?: (value: string) => void;
+  // Why (Phase 82 SRP split): busy-indicator.ts and moxfield-extension-bridge.ts were extracted
+  // into their own files. Under tsconfig's `module: "none"` these compile as global scripts that
+  // share the browser's global scope with deck-sync.ts (proven by a clean tsc build), but Vitest's
+  // per-file ESM import graph does NOT share bare top-level identifiers across dynamically-imported
+  // modules — so cross-file calls go through `window.*` instead, mirroring this file's existing
+  // `deckFlowWindow.DeckFlow?.attachTypeahead?.(...)` bridge pattern for the same reason.
   hideBusyIndicator?: () => void;
+  registerBusyIndicator?: () => void;
+  attachMoxfieldExtensionImport?: () => void;
+  DeckInputSource?: typeof DeckInputSource;
 }
 
 window.setAllPrintingChoices = setAllPrintingChoices;
-window.hideBusyIndicator = hideBusyIndicator;
+window.DeckInputSource = DeckInputSource;
 
 // After a full-page POST (e.g. the Mana Base Load / Analyze submit), the browser lands at the top of
 // the fresh page. When the response rendered a section worth seeing — marked [data-scroll-on-load] —
@@ -2785,21 +2288,21 @@ const bootstrapDeckSync = (): void => {
 
   deckSyncBootstrapped = true;
   initializeSyncInputModeUi();
-  registerBusyIndicator();
+  window.registerBusyIndicator?.();
   if (hasRenderedResultOnLoad()) {
-    hideBusyIndicator();
+    window.hideBusyIndicator?.();
   }
   scrollToOnLoadTarget();
-  registerChatGptDownloadHandler();
-  registerChatGptPrintHandler();
+  registerPromptDownloadHandler();
+  registerPromptPrintHandler();
   attachActionButtons();
   attachGenericPersistedForms();
   attachDeckSyncPersistence();
-  attachChatGptPacketsWorkflow();
-  attachChatGptComparisonWorkflow();
-  attachChatGptCedhWorkflow();
-  wireChatGptZipUpload();
-  attachMoxfieldExtensionImport();
+  attachPromptPacketsWorkflow();
+  attachPromptComparisonWorkflow();
+  attachPromptCedhWorkflow();
+  wirePromptZipUpload();
+  window.attachMoxfieldExtensionImport?.();
   loadSetOptionsAsync();
   attachConvertForm();
   attachCommanderSearchInputs();

@@ -87,6 +87,31 @@ public sealed class ContentArtifactWriterTests : IDisposable
         Assert.Equal(text, File.ReadAllText(writtenPath));
     }
 
+    [Fact]
+    public void ComputeRelativePromptPath_ReturnsSiblingPromptPath()
+    {
+        var relativePath = ContentArtifactWriter.ComputeRelativePromptPath("Command Zone", "abc_123");
+
+        Assert.Equal("content-kb/Command-Zone/abc_123.prompt.md", relativePath);
+        Assert.False(Path.IsPathRooted(relativePath));
+    }
+
+    [Fact]
+    public void WritePromptFile_WritesSiblingNextToNotes()
+    {
+        ContentArtifactWriter.WriteFile(_artifactRoot, "Command Zone", "abc_123", "notes body");
+
+        var promptPath = ContentArtifactWriter.WritePromptFile(_artifactRoot, "Command Zone", "abc_123", "paste-ready prompt");
+
+        Assert.True(File.Exists(promptPath));
+        Assert.EndsWith(Path.Combine("Command-Zone", "abc_123.prompt.md"), promptPath, StringComparison.Ordinal);
+        Assert.Equal("paste-ready prompt", File.ReadAllText(promptPath));
+        // Sibling sits in the same directory as the notes artifact.
+        Assert.Equal(
+            Path.GetDirectoryName(Path.Combine(_artifactRoot, "Command-Zone", "abc_123.md")),
+            Path.GetDirectoryName(promptPath));
+    }
+
     private static ContentArtifactMetadata CreateMetadata()
         => new()
         {

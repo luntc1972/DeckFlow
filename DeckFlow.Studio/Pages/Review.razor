@@ -173,6 +173,7 @@
                                         @{
                                             var cacheKey = vm.NaturalKeyValue;
                                             var hasCached = _expandCache.TryGetValue(cacheKey, out var cachedText);
+                                            var hasPrompt = _promptCache.TryGetValue(cacheKey, out var promptText);
                                         }
                                         @if (!hasCached)
                                         {
@@ -188,8 +189,20 @@
                                         else
                                         {
                                             <h3 class="h6 fw-semibold mb-1">Content Preview</h3>
-                                            <pre class="bg-white border rounded p-2"
-                                                 style="max-height:400px; overflow-y:auto; overflow-x:hidden; white-space:pre-wrap; overflow-wrap:anywhere; font-size:0.875rem; font-family:monospace">@cachedText</pre>
+                                            <div class="bg-white border rounded p-2 kb-notes-preview"
+                                                 style="max-height:400px; overflow-y:auto; overflow-x:hidden; overflow-wrap:anywhere; font-size:0.9rem">@RenderNotesHtml(cachedText)</div>
+
+                                            @if (hasPrompt && !string.IsNullOrEmpty(promptText))
+                                            {
+                                                <h3 class="h6 fw-semibold mb-1 mt-3">Paste-ready AI Prompt</h3>
+                                                <p class="text-muted small mb-1">
+                                                    The framed prompt a KB visitor copies into ChatGPT — persona, task, and evidence
+                                                    rules wrapped around these notes. Baked into a sibling <code>.prompt.md</code> at
+                                                    distill time, or reconstructed from the notes for older entries.
+                                                </p>
+                                                <pre class="bg-white border rounded p-2"
+                                                     style="max-height:400px; overflow-y:auto; overflow-x:hidden; white-space:pre-wrap; overflow-wrap:anywhere; font-size:0.875rem; font-family:monospace">@promptText</pre>
+                                            }
                                         }
 
                                         <dl class="row mb-0 mt-2">

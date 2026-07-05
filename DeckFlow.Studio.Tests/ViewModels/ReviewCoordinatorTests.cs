@@ -163,4 +163,81 @@ public sealed class ReviewCoordinatorTests : IDisposable
 
         Assert.Null(text);
     }
+
+    // ── ReadPromptSafe — baked sibling vs reconstruct ────────────────────────
+
+    [Fact]
+    public void ReadPromptSafe_BakedSiblingPresent_ReturnsSiblingVerbatim()
+    {
+        var coordinator = Build(new FakeContentSiteIndexStore());
+        var dir = Path.Combine(_artifactRoot, "test-channel");
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "vid1.md"), "---\ntitle: T\n---\n## Summary\nNotes.");
+        File.WriteAllText(Path.Combine(dir, "vid1.prompt.md"), "BAKED PROMPT");
+
+        var prompt = coordinator.ReadPromptSafe(
+            "content-kb/test-channel/vid1.md", "Video", "test-channel", "https://youtu.be/vid1");
+
+        Assert.Equal("BAKED PROMPT", prompt);
+    }
+
+    [Fact]
+    public void ReadPromptSafe_NoSibling_ReconstructsFromNotes()
+    {
+        var coordinator = Build(new FakeContentSiteIndexStore());
+        var dir = Path.Combine(_artifactRoot, "test-channel");
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "vid1.md"), "---\ntitle: T\n---\n## Summary\nOff-axis builds.");
+
+        var prompt = coordinator.ReadPromptSafe(
+            "content-kb/test-channel/vid1.md", "Video", "test-channel", "https://youtu.be/vid1");
+
+        Assert.NotNull(prompt);
+        Assert.Contains("TASK:", prompt, StringComparison.Ordinal);
+        Assert.Contains("Off-axis builds.", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ReadPromptSafe_MissingNotes_ReturnsNull()
+    {
+        var coordinator = Build(new FakeContentSiteIndexStore());
+
+        var prompt = coordinator.ReadPromptSafe(
+            "content-kb/test-channel/does-not-exist.md", "Video", "test-channel", "https://youtu.be/x");
+
+        Assert.Null(prompt);
+    }
+
+    [Fact]
+    public void ReadPromptSafe_TraversalPath_ReturnsNull()
+    {
+        var coordinator = Build(new FakeContentSiteIndexStore());
+
+        var prompt = coordinator.ReadPromptSafe(
+            "content-kb/test-channel/../../../escape.md", "Video", "test-channel", "https://youtu.be/x");
+
+        Assert.Null(prompt);
+    }
+
+    [Fact]
+    public void ReadArtifactSafe_NonContentKbPrefix_ReturnsNull()
+    {
+        var coordinator = Build(new FakeContentSiteIndexStore());
+        // A file that exists under the data root but OUTSIDE the content-kb/ subtree must be
+        // rejected — a corrupted index row cannot read sibling directories.
+        var dataRoot = Directory.GetParent(_artifactRoot)!.FullName;
+        File.WriteAllText(Path.Combine(dataRoot, "secrets.md"), "top secret");
+
+        Assert.Null(coordinator.ReadArtifactSafe("secrets.md"));
+    }
+
+    [Fact]
+    public void ReadPromptSafe_NonContentKbPrefix_ReturnsNull()
+    {
+        var coordinator = Build(new FakeContentSiteIndexStore());
+        var dataRoot = Directory.GetParent(_artifactRoot)!.FullName;
+        File.WriteAllText(Path.Combine(dataRoot, "secrets.md"), "top secret");
+
+        Assert.Null(coordinator.ReadPromptSafe("secrets.md", "V", "S", "https://x"));
+    }
 }

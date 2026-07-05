@@ -75,23 +75,23 @@ Do not omit any fields from the schema.
     </details>
 }
 
-<div class="error-banner hidden" data-chatgpt-validation-error role="alert"></div>
+<div class="error-banner hidden" data-prompt-validation-error role="alert"></div>
 
-<div class="toolbar chatgpt-page-toolbar desktop-only">
-    <div class="chatgpt-layout-picker" role="group" aria-label="Workflow layout" data-chatgpt-ui-mode-picker>
-        <span class="chatgpt-layout-picker__label">Layout</span>
-        <div class="chatgpt-layout-picker__segments">
-            <button type="button" class="chatgpt-layout-segment" data-chatgpt-ui-mode-button="guided" title="Full workflow — all guidance text">Full</button>
-            <button type="button" class="chatgpt-layout-segment" data-chatgpt-ui-mode-button="focused" title="Compact workflow — reduced guidance">Compact</button>
-            <button type="button" class="chatgpt-layout-segment" data-chatgpt-ui-mode-button="expert" title="Advanced workflow — minimal guidance">Advanced</button>
+<div class="toolbar prompt-page-toolbar desktop-only">
+    <div class="prompt-layout-picker" role="group" aria-label="Workflow layout" data-prompt-ui-mode-picker>
+        <span class="prompt-layout-picker__label">Layout</span>
+        <div class="prompt-layout-picker__segments">
+            <button type="button" class="prompt-layout-segment" data-prompt-ui-mode-button="guided" title="Full workflow — all guidance text">Full</button>
+            <button type="button" class="prompt-layout-segment" data-prompt-ui-mode-button="focused" title="Compact workflow — reduced guidance">Compact</button>
+            <button type="button" class="prompt-layout-segment" data-prompt-ui-mode-button="expert" title="Advanced workflow — minimal guidance">Advanced</button>
         </div>
     </div>
 </div>
 
-<form method="post" action="@Url.Content("~/deck-analysis")" class="deck-form chatgpt-packets-form" data-print-region="workflow" data-cache-key="chatgpt-packets" data-chatgpt-packets-form data-chatgpt-current-step="@currentStep" data-chatgpt-ui-mode="guided" data-set-options-url="@Url.Content("~/api/set-options")" data-busy-title="Building Deck Analysis Packet" data-busy-message="Resolving the deck and generating prompt files.">
-    <div class="chatgpt-sticky-download" role="region" aria-label="Save current session">
-        <span class="chatgpt-sticky-download__label">Save your work in progress to a zip file you can re-import later.</span>
-        <button type="submit" class="run-button chatgpt-sticky-download__button" data-no-busy data-chatgpt-download-submit
+<form method="post" action="@Url.Content("~/deck-analysis")" class="deck-form prompt-packets-form" data-print-region="workflow" data-cache-key="prompt-packets" data-prompt-packets-form data-prompt-current-step="@currentStep" data-prompt-ui-mode="guided" data-set-options-url="@Url.Content("~/api/set-options")" data-busy-title="Building Deck Analysis Packet" data-busy-message="Resolving the deck and generating prompt files.">
+    <div class="prompt-sticky-download" role="region" aria-label="Save current session">
+        <span class="prompt-sticky-download__label">Save your work in progress to a zip file you can re-import later.</span>
+        <button type="submit" class="run-button prompt-sticky-download__button" data-no-busy data-prompt-download-submit
                 formaction="@Url.Content("~/deck-analysis/download")"
                 formmethod="post"
                 formnovalidate>
@@ -99,8 +99,8 @@ Do not omit any fields from the schema.
         </button>
     </div>
     @Html.AntiForgeryToken()
-    <input type="hidden" name="WorkflowStep" value="@currentStep" data-chatgpt-workflow-step />
-    <details class="chatgpt-resume" data-chatgpt-resume>
+    <input type="hidden" name="WorkflowStep" value="@currentStep" data-prompt-workflow-step />
+    <details class="prompt-resume" data-prompt-resume>
         <summary>Resume from a saved session (.zip)</summary>
         <p class="sync-column__hint">
             Choose a <code>.zip</code> file you previously downloaded from Step 3 or Step 5.
@@ -109,12 +109,12 @@ Do not omit any fields from the schema.
         <label class="field">
             <span>Saved session file</span>
             <input type="file" name="zipFile" accept=".zip,application/zip"
-                   data-chatgpt-zip-upload
+                   data-prompt-zip-upload
                    data-upload-action="@Url.Content("~/deck-analysis/upload")" />
         </label>
         <button type="submit"
                 class="run-button"
-                data-chatgpt-upload-submit
+                data-prompt-upload-submit
                 formaction="@Url.Content("~/deck-analysis/upload")"
                 formenctype="multipart/form-data"
                 formmethod="post"
@@ -126,9 +126,9 @@ Do not omit any fields from the schema.
     @{
         var packetTabs = new DeckFlow.Web.Models.WorkflowStepTabsModel(
             AriaLabel: "Deck Analysis packet workflow steps",
-            TabIdPrefix: "chatgpt-step-tab",
-            PanelIdPrefix: "chatgpt-step-panel",
-            DataShowStepAttribute: "chatgpt-show-step",
+            TabIdPrefix: "prompt-step-tab",
+            PanelIdPrefix: "prompt-step-panel",
+            DataShowStepAttribute: "prompt-show-step",
             Steps: new[]
             {
                 new DeckFlow.Web.Models.WorkflowStepTab(1, "Step 1: Deck", !string.IsNullOrWhiteSpace(Model.Request.DeckSource)),
@@ -142,14 +142,14 @@ Do not omit any fields from the schema.
             });
     }
     @await Html.PartialAsync("_WorkflowStepTabs", packetTabs)
-    <section class="result-panel chatgpt-step-panel chatgpt-workflow-setup" role="tabpanel" id="chatgpt-step-panel-1" aria-labelledby="chatgpt-step-tab-1" data-chatgpt-step="1" data-chatgpt-setup-panel>
-        <div class="chatgpt-step-heading">
+    <section class="result-panel prompt-step-panel prompt-workflow-setup" role="tabpanel" id="prompt-step-panel-1" aria-labelledby="prompt-step-tab-1" data-prompt-step="1" data-prompt-setup-panel>
+        <div class="prompt-step-heading">
             <div>
-                <p class="chatgpt-step-eyebrow">Step 1</p>
+                <p class="prompt-step-eyebrow">Step 1</p>
                 <h2>Paste the deck once for the whole workflow</h2>
                 <p>This deck input powers the analysis packet and the optional set-upgrade packet.</p>
             </div>
-            <span class="chatgpt-step-badge">Required</span>
+            <span class="prompt-step-badge">Required</span>
         </div>
 
         <div class="sync-column__body">
@@ -160,13 +160,13 @@ Do not omit any fields from the schema.
                     <option value="@DeckFlow.Web.Models.DeckInputSource.PublicUrl" selected="@(Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl)">Use public deck URL</option>
                 </select>
             </label>
-            <label class="field sync-column__input-field @(Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl ? string.Empty : "hidden")" data-sync-panel="chatgpt-deck-url">
+            <label class="field sync-column__input-field @(Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl ? string.Empty : "hidden")" data-sync-panel="prompt-deck-url">
                 <span>Public deck URL</span>
                 <input type="url" name="DeckUrl" value="@Model.Request.DeckUrl" autocomplete="url" inputmode="url" placeholder="https://moxfield.com/decks/… or https://archidekt.com/decks/…" />
                 <small class="sync-column__hint">Required. Paste a public Moxfield or Archidekt deck URL.</small>
                 @await Html.PartialAsync("_DeckFlowBridgeHint")
             </label>
-            <label class="field sync-column__input-field @(Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PasteText ? string.Empty : "hidden")" data-sync-panel="chatgpt-deck-text">
+            <label class="field sync-column__input-field @(Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PasteText ? string.Empty : "hidden")" data-sync-panel="prompt-deck-text">
                 <span>Deck export text</span>
                 <textarea autocomplete="off" name="DeckText" spellcheck="false">@Model.Request.DeckText</textarea>
                 <small class="sync-column__hint">Required. Paste deck export text directly.</small>
@@ -185,24 +185,24 @@ Do not omit any fields from the schema.
                 </div>
             </details>
         }
-        <div class="toolbar chatgpt-step-actions">
+        <div class="toolbar prompt-step-actions">
             <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/deck-analysis")">Start Over</button>
-            <div class="chatgpt-step-note">You only need to paste the deck here once. After that, move through the workflow tabs below.</div>
-            <button type="button" class="run-button" data-chatgpt-next-step="2">Next: Analysis</button>
+            <div class="prompt-step-note">You only need to paste the deck here once. After that, move through the workflow tabs below.</div>
+            <button type="button" class="run-button" data-prompt-next-step="2">Next: Analysis</button>
         </div>
     </section>
 
-    <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-step-panel-2" aria-labelledby="chatgpt-step-tab-2" data-chatgpt-step="2">
-        <div class="chatgpt-step-heading">
+    <section class="result-panel prompt-step-panel" role="tabpanel" id="prompt-step-panel-2" aria-labelledby="prompt-step-tab-2" data-prompt-step="2">
+        <div class="prompt-step-heading">
             <div>
-                <p class="chatgpt-step-eyebrow">Step 2</p>
+                <p class="prompt-step-eyebrow">Step 2</p>
                 <h2>Choose the analysis questions and generate the analysis packet</h2>
                 <p>Select the Commander bracket you want to target, then choose the question buckets or individual questions that should be answered in the analysis prompt.</p>
             </div>
-            <span class="chatgpt-step-badge">Customize the analysis</span>
+            <span class="prompt-step-badge">Customize the analysis</span>
         </div>
         @await Html.PartialAsync("_AiSelector", Model.Request.TargetAiPlatform)
-        <div class="chatgpt-instructions">
+        <div class="prompt-instructions">
             <strong>What you do:</strong>
             <ol>
                 <li>Choose the target Commander bracket.</li>
@@ -215,7 +215,7 @@ Do not omit any fields from the schema.
             <p><strong>Knowledge Base note:</strong> Browse distilled creator advice in the <a href="@Url.Content("~/content-kb")">Knowledge Base</a>, then open any entry to copy a ready-to-paste prompt from its detail page.</p>
         </div>
 
-        <details class="info-banner chatgpt-helper-panel">
+        <details class="info-banner prompt-helper-panel">
             <summary><strong>How to push back on your AI's conclusions</strong></summary>
             <p>If your AI makes a bad assumption, challenge the specific conclusion before you paste the <code>deck_profile</code> JSON back here. Ask it to revise the analysis and return an updated <code>deck_profile</code> JSON that reflects your corrections.</p>
             <p>Examples: "Re-evaluate this as Bracket 2 Core, not Bracket 3 Upgraded." "You overstated the combo finishers; the deck wins primarily through combat." "Card X is not a weak slot because it is part of the recursion engine."</p>
@@ -249,7 +249,7 @@ Do not omit any fields from the schema.
         </div>
         <details class="result-panel nested-panel">
             <summary>Analysis context</summary>
-            <div class="chatgpt-context-note">
+            <div class="prompt-context-note">
                 <p>These fields do not change the deck parser. They are extra instructions that get inserted into the analysis and set-upgrade prompts.</p>
                 <ul>
                     <li><strong>Format</strong> keeps the analysis and upgrade prompts in the right rules context.</li>
@@ -279,36 +279,36 @@ Do not omit any fields from the schema.
             </label>
         </details>
         <div class="result-panel nested-panel">
-            <label class="chatgpt-question-option">
+            <label class="prompt-question-option">
                 <input type="checkbox" name="IncludeCandidateReferencesInAnalysis" value="true" @(Model.Request.IncludeCandidateReferencesInAnalysis ? "checked" : "") />
                 <span>Include sideboard/maybeboard cards as candidate references in the analysis prompt</span>
             </label>
             <small class="sync-column__hint">Current-deck card definitions are always included. These options only add authoritative references for optional candidate cards and keep them labeled as candidates, not active deck cards.</small>
         </div>
-        <section class="chatgpt-question-picker">
-            <div class="chatgpt-question-picker__header">
+        <section class="prompt-question-picker">
+            <div class="prompt-question-picker__header">
                 <h3>Analysis questions</h3>
                 <p>Select a whole bucket to check all questions under it, or choose individual questions manually.</p>
             </div>
-            <div class="chatgpt-question-buckets">
+            <div class="prompt-question-buckets">
                 @foreach (var bucket in questionBuckets)
                 {
                     var bucketId = $"bucket-{bucket.Id}";
                     var bucketOpen = openBuckets.Contains(bucket.Id);
                     var bucketAriaExpanded = bucketOpen ? "true" : "false";
-                    var bucketQuestionsClass = bucketOpen ? "chatgpt-question-bucket__questions" : "chatgpt-question-bucket__questions hidden";
-                    <section class="result-panel nested-panel chatgpt-question-bucket">
-                        <div class="chatgpt-question-bucket__header">
-                            <label class="chatgpt-question-bucket__label">
+                    var bucketQuestionsClass = bucketOpen ? "prompt-question-bucket__questions" : "prompt-question-bucket__questions hidden";
+                    <section class="result-panel nested-panel prompt-question-bucket">
+                        <div class="prompt-question-bucket__header">
+                            <label class="prompt-question-bucket__label">
                                 <input type="checkbox" data-question-bucket="@bucket.Id" id="@bucketId" />
                                 <span>@bucket.Label</span>
                             </label>
-                            <button type="button" class="chatgpt-question-bucket__toggle" data-bucket-toggle="@bucket.Id" aria-expanded="@bucketAriaExpanded"></button>
+                            <button type="button" class="prompt-question-bucket__toggle" data-bucket-toggle="@bucket.Id" aria-expanded="@bucketAriaExpanded" aria-label="Toggle @bucket.Label questions"></button>
                         </div>
                         <div class="@bucketQuestionsClass" data-bucket-questions="@bucket.Id">
                             @foreach (var question in bucket.Questions)
                             {
-                                <label class="chatgpt-question-option">
+                                <label class="prompt-question-option">
                                     <input
                                         type="checkbox"
                                         name="SelectedAnalysisQuestions"
@@ -320,7 +320,7 @@ Do not omit any fields from the schema.
                             }
                             @if (bucket.Id == "optimization-upgrades")
                             {
-                                <label class="field chatgpt-budget-field hidden" data-budget-question-field>
+                                <label class="field prompt-budget-field hidden" data-budget-question-field>
                                     <span>Budget amount for budget upgrade question</span>
                                     <input type="text" name="BudgetUpgradeAmount" value="@Model.Request.BudgetUpgradeAmount" inputmode="decimal" />
                                     <small class="sync-column__hint">Used when you select "What are the best upgrades under $X budget?" Enter just the amount, for example <code>50</code>.</small>
@@ -328,7 +328,7 @@ Do not omit any fields from the schema.
                             }
                             @if (bucket.Id == "card-level")
                             {
-                                <div class="field chatgpt-card-specific-field hidden" data-card-specific-question-field data-card-picker>
+                                <div class="field prompt-card-specific-field hidden" data-card-specific-question-field data-card-picker>
                                     <span class="field-label">Card names for card-specific questions</span>
                                     <div class="card-picker__rows" data-card-picker-rows>
                                         @if (Model.Request.CardSpecificQuestionCardNames.Count == 0)
@@ -388,7 +388,7 @@ Do not omit any fields from the schema.
                                     </select>
                                     <small class="sync-column__hint">Choose which deck builder you will paste the generated lists into. When assigning or updating categories, you must choose Moxfield or Archidekt and @aiPlatform.DisplayName should return the decklist in a fenced <code>```text</code> block.</small>
                                 </label>
-                                <label class="chatgpt-question-option desktop-only">
+                                <label class="prompt-question-option desktop-only">
                                     <input type="checkbox" name="IncludeCardVersions" value="true" @(Model.Request.IncludeCardVersions ? "checked" : "") />
                                     <span>
                                         Include card versions (set code &amp; collector number) for retained cards
@@ -416,8 +416,8 @@ Do not omit any fields from the schema.
             <textarea autocomplete="off" name="FreeformQuestion" rows="3" spellcheck="false" placeholder="Type any additional question or instruction to include in the analysis prompt…">@Model.Request.FreeformQuestion</textarea>
             <small class="sync-column__hint">This question is appended to the list of selected analysis questions in the generated prompt.</small>
         </label>
-        <div class="toolbar chatgpt-step-actions">
-            <button type="submit" class="run-button" data-chatgpt-submit-step="2">Generate Analysis Packet</button>
+        <div class="toolbar prompt-step-actions">
+            <button type="submit" class="run-button" data-prompt-submit-step="2">Generate Analysis Packet</button>
         </div>
 
         @if (!string.IsNullOrWhiteSpace(Model.SuggestedChatTitle))
@@ -460,7 +460,7 @@ Do not omit any fields from the schema.
                     </div>
                     <button type="button" class="copy-button" data-copy-target="analysis-output">Copy</button>
                 </div>
-                <textarea autocomplete="off" id="analysis-output" readonly spellcheck="false" data-chatgpt-result-anchor>@Model.AnalysisPromptText</textarea>
+                <textarea autocomplete="off" id="analysis-output" readonly spellcheck="false" data-prompt-result-anchor>@Model.AnalysisPromptText</textarea>
                 <div data-kb-clear-pins-on-load hidden></div>
             </section>
         }
@@ -494,20 +494,20 @@ Do not omit any fields from the schema.
             </details>
         }
 
-        <div class="chatgpt-step-footer">
-            <button type="button" class="clear-cache-button" data-chatgpt-show-step="1">Back: Deck Setup</button>
-            <button type="button" class="run-button" data-chatgpt-next-step="3">Next: Analysis Results</button>
+        <div class="prompt-step-footer">
+            <button type="button" class="clear-cache-button" data-prompt-show-step="1">Back: Deck Setup</button>
+            <button type="button" class="run-button" data-prompt-next-step="3">Next: Analysis Results</button>
         </div>
     </section>
 
-    <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-step-panel-3" aria-labelledby="chatgpt-step-tab-3" data-chatgpt-step="3">
-        <div class="chatgpt-step-heading">
+    <section class="result-panel prompt-step-panel" role="tabpanel" id="prompt-step-panel-3" aria-labelledby="prompt-step-tab-3" data-prompt-step="3">
+        <div class="prompt-step-heading">
             <div>
-                <p class="chatgpt-step-eyebrow">Step 3</p>
+                <p class="prompt-step-eyebrow">Step 3</p>
                 <h2>Paste the deck profile JSON and view the analysis results</h2>
                 <p>Paste the fenced <code>deck_profile</code> JSON block or raw JSON payload returned from @aiPlatform.DisplayName. You can use a saved JSON file here directly without filling out Steps 1 and 2 again.</p>
             </div>
-            <span class="chatgpt-step-badge">Review results</span>
+            <span class="prompt-step-badge">Review results</span>
         </div>
 
         <label class="field">
@@ -535,30 +535,30 @@ Do not omit any fields from the schema.
             <textarea name="WinConMapJson" hidden aria-hidden="true" tabindex="-1">@Model.Request.WinConMapJson</textarea>
         }
 
-        <div class="toolbar chatgpt-step-actions">
-            <button type="submit" class="run-button" data-chatgpt-submit-step="3">Render Analysis Summary</button>
+        <div class="toolbar prompt-step-actions">
+            <button type="submit" class="run-button" data-prompt-submit-step="3">Render Analysis Summary</button>
         </div>
 
         @if (Model.AnalysisResponse is not null)
         {
-            <section class="result-panel nested-panel summary-panel" data-chatgpt-result-anchor data-print-result>
-                <div class="toolbar chatgpt-step-actions">
-                    <button type="submit" class="run-button" data-no-busy data-chatgpt-download-submit
+            <section class="result-panel nested-panel summary-panel" data-prompt-result-anchor data-print-result>
+                <div class="toolbar prompt-step-actions">
+                    <button type="submit" class="run-button" data-no-busy data-prompt-download-submit
                             formaction="@Url.Content("~/deck-analysis/download")"
                             formmethod="post"
                             formnovalidate>
                         Download session (.zip)
                     </button>
-                    <button type="button" class="run-button chatgpt-print-button" data-no-busy data-chatgpt-print>
+                    <button type="button" class="run-button prompt-print-button" data-no-busy data-prompt-print>
                         Print results
                     </button>
                 </div>
                 <h3>Analysis Summary</h3>
                 @if (Model.Score is not null)
                 {
-                    <div class="chatgpt-score" role="region" aria-label="Multi-Axis Deck Score">
-                        <p class="chatgpt-score__eyebrow">Deck Score &middot; four coarse bands (0&ndash;5) from your decklist signals</p>
-                        <div class="chatgpt-score-grid">
+                    <div class="prompt-score" role="region" aria-label="Multi-Axis Deck Score">
+                        <p class="prompt-score__eyebrow">Deck Score &middot; four coarse bands (0&ndash;5) from your decklist signals</p>
+                        <div class="prompt-score-grid">
                             @foreach (var (axisLabel, band, rationale) in new[]
                             {
                                 ("POWER", Model.Score.PowerBand, Model.Score.PowerRationale.SignalText),
@@ -567,25 +567,25 @@ Do not omit any fields from the schema.
                                 ("CONSISTENCY", Model.Score.ConsistencyBand, Model.Score.ConsistencyRationale.SignalText),
                             })
                             {
-                                <div class="chatgpt-score-card"
+                                <div class="prompt-score-card"
                                      role="group"
                                      aria-label="@axisLabel score: @band of 5, @MultiAxisScorer.BandLabel(band)">
-                                    <div class="chatgpt-score-label">@axisLabel</div>
-                                    <div class="chatgpt-score-value">@band</div>
-                                    <div class="chatgpt-score-meter" aria-hidden="true">
+                                    <div class="prompt-score-label">@axisLabel</div>
+                                    <div class="prompt-score-value">@band</div>
+                                    <div class="prompt-score-meter" aria-hidden="true">
                                         @for (int pip = 1; pip <= 5; pip++)
                                         {
-                                            <span class="chatgpt-score-pip@(pip <= band ? " chatgpt-score-pip--filled" : "")"></span>
+                                            <span class="prompt-score-pip@(pip <= band ? " prompt-score-pip--filled" : "")"></span>
                                         }
                                     </div>
-                                    <div class="chatgpt-score-band chatgpt-score-band--@band">@MultiAxisScorer.BandLabel(band)</div>
-                                    <div class="chatgpt-score-rationale">@rationale</div>
+                                    <div class="prompt-score-band prompt-score-band--@band">@MultiAxisScorer.BandLabel(band)</div>
+                                    <div class="prompt-score-rationale">@rationale</div>
                                 </div>
                             }
                         </div>
-                        <div class="chatgpt-score-crosscheck chatgpt-score-crosscheck--@(Model.Score.ScoreAlignsBracket ? "agree" : "diverge")"
+                        <div class="prompt-score-crosscheck prompt-score-crosscheck--@(Model.Score.ScoreAlignsBracket ? "agree" : "diverge")"
                              role="note">
-                            <span class="chatgpt-score-crosscheck__label">@(Model.Score.ScoreAlignsBracket ? "✓ " : "⚠ ")CROSS-CHECK</span>
+                            <span class="prompt-score-crosscheck__label">@(Model.Score.ScoreAlignsBracket ? "✓ " : "⚠ ")CROSS-CHECK</span>
                             @Model.Score.BracketCrossCheckText
                         </div>
                     </div>
@@ -860,23 +860,23 @@ Do not omit any fields from the schema.
             </section>
         }
 
-        <div class="chatgpt-step-footer">
-            <button type="button" class="clear-cache-button" data-chatgpt-show-step="2">Back: Analysis</button>
-            <button type="button" class="run-button" data-chatgpt-next-step="4">Next: Set Upgrades</button>
+        <div class="prompt-step-footer">
+            <button type="button" class="clear-cache-button" data-prompt-show-step="2">Back: Analysis</button>
+            <button type="button" class="run-button" data-prompt-next-step="4">Next: Set Upgrades</button>
         </div>
     </section>
 
-    <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-step-panel-4" aria-labelledby="chatgpt-step-tab-4" data-chatgpt-step="4">
-        <div class="chatgpt-step-heading">
+    <section class="result-panel prompt-step-panel" role="tabpanel" id="prompt-step-panel-4" aria-labelledby="prompt-step-tab-4" data-prompt-step="4">
+        <div class="prompt-step-heading">
             <div>
-                <p class="chatgpt-step-eyebrow">Step 4</p>
+                <p class="prompt-step-eyebrow">Step 4</p>
                 <h2>Optional: Build the set-upgrade packet</h2>
                 <p>This step is optional. Use it only when you want set-specific upgrade analysis after the main deck analysis is complete. The deck profile JSON from Step 3 is used automatically.</p>
             </div>
-            <span class="chatgpt-step-badge">Optional final step</span>
+            <span class="prompt-step-badge">Optional final step</span>
         </div>
 
-        <div class="chatgpt-instructions">
+        <div class="prompt-instructions">
             <strong>What you do:</strong>
             <ol>
                 <li>Select one set, or paste a condensed set packet.</li>
@@ -909,8 +909,8 @@ Do not omit any fields from the schema.
                 <small class="sync-column__hint">Optional. Leave this blank to use the generated set packet from the selected sets.</small>
             </label>
         </details>
-        <div class="toolbar chatgpt-step-actions">
-            <button type="submit" class="run-button" data-chatgpt-submit-step="4">Generate Set Upgrade Packet</button>
+        <div class="toolbar prompt-step-actions">
+            <button type="submit" class="run-button" data-prompt-submit-step="4">Generate Set Upgrade Packet</button>
         </div>
 
         @if (!string.IsNullOrWhiteSpace(Model.SetUpgradePromptText))
@@ -923,7 +923,7 @@ Do not omit any fields from the schema.
                     </div>
                     <button type="button" class="copy-button" data-copy-target="set-upgrade-output">Copy</button>
                 </div>
-                <textarea autocomplete="off" id="set-upgrade-output" readonly spellcheck="false" data-chatgpt-result-anchor>@Model.SetUpgradePromptText</textarea>
+                <textarea autocomplete="off" id="set-upgrade-output" readonly spellcheck="false" data-prompt-result-anchor>@Model.SetUpgradePromptText</textarea>
             </section>
         }
         <details class="result-panel nested-panel">
@@ -936,20 +936,20 @@ Do not omit any fields from the schema.
             </div>
             <textarea autocomplete="off" id="set-upgrade-follow-up-output" readonly spellcheck="false">@setUpgradeFollowUpPrompt</textarea>
         </details>
-        <div class="chatgpt-step-footer">
-            <button type="button" class="clear-cache-button" data-chatgpt-show-step="3">Back: Analysis Results</button>
-            <button type="button" class="run-button" data-chatgpt-next-step="5">Next: Set Upgrade Results</button>
+        <div class="prompt-step-footer">
+            <button type="button" class="clear-cache-button" data-prompt-show-step="3">Back: Analysis Results</button>
+            <button type="button" class="run-button" data-prompt-next-step="5">Next: Set Upgrade Results</button>
         </div>
     </section>
 
-    <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-step-panel-5" aria-labelledby="chatgpt-step-tab-5" data-chatgpt-step="5">
-        <div class="chatgpt-step-heading">
+    <section class="result-panel prompt-step-panel" role="tabpanel" id="prompt-step-panel-5" aria-labelledby="prompt-step-tab-5" data-prompt-step="5">
+        <div class="prompt-step-heading">
             <div>
-                <p class="chatgpt-step-eyebrow">Step 5</p>
+                <p class="prompt-step-eyebrow">Step 5</p>
                 <h2>Paste the set-upgrade JSON and view the results</h2>
                 <p>Paste the fenced <code>set_upgrade_report</code> JSON block or raw JSON payload returned from @aiPlatform.DisplayName. You can use a saved JSON file here directly without filling out earlier steps.</p>
             </div>
-            <span class="chatgpt-step-badge">Review results</span>
+            <span class="prompt-step-badge">Review results</span>
         </div>
 
         <label class="field">
@@ -958,21 +958,21 @@ Do not omit any fields from the schema.
             <small class="sync-column__hint">Paste the fenced <code>```json</code> block or the raw JSON payload. Surrounding prose (like the <code>discussion_summary.txt</code> text block) is safe to include.</small>
         </label>
 
-        <div class="toolbar chatgpt-step-actions">
-            <button type="submit" class="run-button" data-chatgpt-submit-step="5">Render Set Upgrade Results</button>
+        <div class="toolbar prompt-step-actions">
+            <button type="submit" class="run-button" data-prompt-submit-step="5">Render Set Upgrade Results</button>
         </div>
 
         @if (Model.SetUpgradeResponse is not null)
         {
-            <section class="result-panel nested-panel summary-panel" data-chatgpt-result-anchor data-print-result>
-                <div class="toolbar chatgpt-step-actions">
-                    <button type="submit" class="run-button" data-no-busy data-chatgpt-download-submit
+            <section class="result-panel nested-panel summary-panel" data-prompt-result-anchor data-print-result>
+                <div class="toolbar prompt-step-actions">
+                    <button type="submit" class="run-button" data-no-busy data-prompt-download-submit
                             formaction="@Url.Content("~/deck-analysis/download")"
                             formmethod="post"
                             formnovalidate>
                         Download session (.zip)
                     </button>
-                    <button type="button" class="run-button chatgpt-print-button" data-no-busy data-chatgpt-print>
+                    <button type="button" class="run-button prompt-print-button" data-no-busy data-prompt-print>
                         Print results
                     </button>
                 </div>
@@ -1135,8 +1135,8 @@ Do not omit any fields from the schema.
             </section>
         }
 
-        <div class="chatgpt-step-footer">
-            <button type="button" class="clear-cache-button" data-chatgpt-show-step="4">Back: Set Upgrades</button>
+        <div class="prompt-step-footer">
+            <button type="button" class="clear-cache-button" data-prompt-show-step="4">Back: Set Upgrades</button>
         </div>
     </section>
 </form>
@@ -1144,5 +1144,7 @@ Do not omit any fields from the schema.
 @section Scripts {
     <script src="~/js/card-lookup.js" asp-append-version="true"></script>
     <script src="~/js/deck-input-store.js" asp-append-version="true"></script>
+    <script src="~/js/busy-indicator.js" asp-append-version="true"></script>
+    <script src="~/js/moxfield-extension-bridge.js" asp-append-version="true"></script>
     <script src="~/js/deck-sync.js" asp-append-version="true"></script>
 }

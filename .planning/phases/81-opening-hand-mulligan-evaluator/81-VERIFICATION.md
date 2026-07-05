@@ -1,7 +1,8 @@
 ---
 phase: 81-opening-hand-mulligan-evaluator
 verified: 2026-07-03T23:58:00Z
-status: human_needed
+status: deferred
+deferral_note: "Deferred — Cycle 14 shipped (tag 2026.07.1) with this feature flag-OFF by default; user-facing UAT is owed at flag-flip time, tracked separately. Not a Cycle 15 blocker. Code-level verification passed (6/6 must-haves); only the CI-green + live visual gates remain, deferred to flag-flip."
 score: 6/6 must-haves verified (code-level); 2 items require operator action before close
 overrides_applied: 0
 human_verification:

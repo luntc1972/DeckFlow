@@ -148,7 +148,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
     }
 
     /// <summary>
-    /// Processes a ChatGPT workflow postback and regenerates the next packet outputs.
+    /// Processes a prompt workflow postback and regenerates the next packet outputs.
     /// </summary>
     /// <param name="request">Current workflow request.</param>
     [HttpPost("/deck-analysis")]

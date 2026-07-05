@@ -9,6 +9,7 @@
   --line: #425838;
   --accent: #6ba83a;
   --accent-strong: #4d7f28;
+  --accent-contrast: #0b0f0a; /* white-on-accent measures 2.88:1, fails 4.5:1; dark green-black clears 6.70:1 */
 
   --panel-soft-bg: #182016;
   --golgari-moss: #94c75f;
@@ -63,10 +64,10 @@ a:focus-visible {
 .warning-banner,
 .info-banner,
 .timing-summary,
-.chatgpt-layout-picker,
-.chatgpt-instructions,
-.chatgpt-context-note,
-.chatgpt-card-specific-field,
+.prompt-layout-picker,
+.prompt-instructions,
+.prompt-context-note,
+.prompt-card-specific-field,
 .hub-card,
 .about-page,
 .help-index,

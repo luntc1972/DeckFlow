@@ -37,12 +37,12 @@
     Step 1 fetches EDH Top 16 reference decks, Step 2 generates the prompt from 1 to 3 selected lists, and Step 3 renders the returned <code>meta_gap</code> JSON.
 </div>
 
-<div class="error-banner hidden" data-chatgpt-cedh-validation-error role="alert"></div>
+<div class="error-banner hidden" data-prompt-cedh-validation-error role="alert"></div>
 
-<form method="post" action="@Url.Content("~/cedh-meta-gap")" class="deck-form" data-print-region="workflow" data-cache-key="chatgpt-cedh-meta-gap" data-chatgpt-cedh-form data-chatgpt-cedh-current-step="@currentStep" data-busy-title="Building cEDH Meta Gap Packet" data-busy-message="Parsing your deck, querying EDH Top 16, and generating the prompt.">
-    <div class="chatgpt-sticky-download" role="region" aria-label="Save current session">
-        <span class="chatgpt-sticky-download__label">Save your work in progress to a zip file you can re-import later.</span>
-        <button type="submit" class="run-button chatgpt-sticky-download__button" data-no-busy data-chatgpt-download-submit
+<form method="post" action="@Url.Content("~/cedh-meta-gap")" class="deck-form" data-print-region="workflow" data-cache-key="prompt-cedh-meta-gap" data-prompt-cedh-form data-prompt-cedh-current-step="@currentStep" data-busy-title="Building cEDH Meta Gap Packet" data-busy-message="Parsing your deck, querying EDH Top 16, and generating the prompt.">
+    <div class="prompt-sticky-download" role="region" aria-label="Save current session">
+        <span class="prompt-sticky-download__label">Save your work in progress to a zip file you can re-import later.</span>
+        <button type="submit" class="run-button prompt-sticky-download__button" data-no-busy data-prompt-download-submit
                 formaction="@Url.Content("~/cedh-meta-gap/download")"
                 formmethod="post"
                 formnovalidate>
@@ -50,10 +50,10 @@
         </button>
     </div>
     @Html.AntiForgeryToken()
-    <input type="hidden" name="WorkflowStep" value="@currentStep" data-chatgpt-cedh-workflow-step />
+    <input type="hidden" name="WorkflowStep" value="@currentStep" data-prompt-cedh-workflow-step />
     <input type="hidden" name="FetchedEntriesJson" value="@Model.Request.FetchedEntriesJson" />
     <input type="hidden" name="MetaGapPromptText" value="@Model.PromptText" />
-    <details class="chatgpt-resume" data-chatgpt-resume>
+    <details class="prompt-resume" data-prompt-resume>
         <summary>Resume from a saved session (.zip)</summary>
         <p class="sync-column__hint">
             Choose a <code>.zip</code> file you previously downloaded from Step 3.
@@ -62,12 +62,12 @@
         <label class="field">
             <span>Saved session file</span>
             <input type="file" name="zipFile" accept=".zip,application/zip"
-                   data-chatgpt-zip-upload
+                   data-prompt-zip-upload
                    data-upload-action="@Url.Content("~/cedh-meta-gap/upload")" />
         </label>
         <button type="submit"
                 class="run-button"
-                data-chatgpt-upload-submit
+                data-prompt-upload-submit
                 formaction="@Url.Content("~/cedh-meta-gap/upload")"
                 formenctype="multipart/form-data"
                 formmethod="post"
@@ -79,9 +79,9 @@
     @{
         var cedhTabs = new DeckFlow.Web.Models.WorkflowStepTabsModel(
             AriaLabel: "cEDH meta-gap workflow steps",
-            TabIdPrefix: "chatgpt-cedh-step-tab",
-            PanelIdPrefix: "chatgpt-cedh-step-panel",
-            DataShowStepAttribute: "chatgpt-cedh-show-step",
+            TabIdPrefix: "prompt-cedh-step-tab",
+            PanelIdPrefix: "prompt-cedh-step-panel",
+            DataShowStepAttribute: "prompt-cedh-show-step",
             Steps: new[]
             {
                 new DeckFlow.Web.Models.WorkflowStepTab(1, "Step 1: Fetch Reference Decks", Model.FetchedEntries.Count > 0 || !string.IsNullOrWhiteSpace(Model.ResolvedCommanderName)),
@@ -91,10 +91,10 @@
     }
     @await Html.PartialAsync("_WorkflowStepTabs", cedhTabs)
 
-    <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-cedh-step-panel-1" aria-labelledby="chatgpt-cedh-step-tab-1" data-chatgpt-cedh-step="1">
-        <div class="chatgpt-step-heading">
+    <section class="result-panel prompt-step-panel" role="tabpanel" id="prompt-cedh-step-panel-1" aria-labelledby="prompt-cedh-step-tab-1" data-prompt-cedh-step="1">
+        <div class="prompt-step-heading">
             <div>
-                <p class="chatgpt-step-eyebrow">Step 1</p>
+                <p class="prompt-step-eyebrow">Step 1</p>
                 <h2>Load your deck and fetch reference lists</h2>
                 <p>Paste your deck URL or deck export, optionally override the commander name, then pull the top tournament lists for that commander from EDH Top 16.</p>
             </div>
@@ -175,16 +175,16 @@
             </section>
         </div>
 
-        <div class="chatgpt-step-footer">
+        <div class="prompt-step-footer">
             <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/cedh-meta-gap")">Start Over</button>
-            <button type="submit" class="run-button" data-chatgpt-cedh-submit-step="1">Fetch Top Decks</button>
+            <button type="submit" class="run-button" data-prompt-cedh-submit-step="1">Fetch Top Decks</button>
         </div>
     </section>
 
-    <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-cedh-step-panel-2" aria-labelledby="chatgpt-cedh-step-tab-2" data-chatgpt-cedh-step="2">
-        <div class="chatgpt-step-heading">
+    <section class="result-panel prompt-step-panel" role="tabpanel" id="prompt-cedh-step-panel-2" aria-labelledby="prompt-cedh-step-tab-2" data-prompt-cedh-step="2">
+        <div class="prompt-step-heading">
             <div>
-                <p class="chatgpt-step-eyebrow">Step 2</p>
+                <p class="prompt-step-eyebrow">Step 2</p>
                 <h2>Select 1 to 3 reference decks and generate the prompt</h2>
                 <p>Choose 1 to 3 EDH Top 16 entries, build the prompt, then paste it into your AI and request a readable response followed by the fenced <code>meta_gap</code> JSON block.</p>
             </div>
@@ -211,10 +211,10 @@
                 @* Mobile-only sort control: the column-header sort buttons live in
                    <thead>, which is sr-only-hidden at <=600px, so phones get this
                    visible equivalent wired to the same client-side sort. *@
-                <div class="cedh-mobile-sort" data-chatgpt-cedh-mobile-sort>
+                <div class="cedh-mobile-sort" data-prompt-cedh-mobile-sort>
                     <label class="field cedh-mobile-sort__field">
                         <span>Sort by</span>
-                        <select data-chatgpt-cedh-mobile-sort-select>
+                        <select data-prompt-cedh-mobile-sort-select>
                             <option value="" selected>Tournament order</option>
                             <option value="2" data-sort-type="text">Player</option>
                             <option value="3" data-sort-type="text">Date</option>
@@ -224,7 +224,7 @@
                         </select>
                     </label>
                     <button type="button" class="clear-cache-button cedh-mobile-sort__dir"
-                            data-chatgpt-cedh-mobile-sort-dir data-direction="ascending"
+                            data-prompt-cedh-mobile-sort-dir data-direction="ascending"
                             aria-label="Sort ascending">Asc &#9650;</button>
                 </div>
 
@@ -233,27 +233,27 @@
                        override would otherwise strip from screen readers (Roselli 2017).
                        Sortable headers use an in-cell <button> + aria-sort; deck-sync.ts
                        re-sorts + re-paginates client-side. *@
-                    <table class="conflicts-table" data-chatgpt-cedh-reference-table role="table" data-chatgpt-cedh-page-size="@pageSize">
+                    <table class="conflicts-table" data-prompt-cedh-reference-table role="table" data-prompt-cedh-page-size="@pageSize">
                         <caption class="sr-only">EDH Top 16 reference decks for the resolved commander. Use the column heading buttons to sort.</caption>
                         <thead role="rowgroup">
                         <tr role="row">
                             <th scope="col" role="columnheader">Select</th>
                             <th scope="col" class="tabular" role="columnheader">#</th>
                             <th scope="col" role="columnheader" aria-sort="none">
-                                <button type="button" class="cedh-sort-button" data-chatgpt-cedh-sort data-chatgpt-cedh-sort-type="text">Player<span class="cedh-sort-indicator" aria-hidden="true"></span></button>
+                                <button type="button" class="cedh-sort-button" data-prompt-cedh-sort data-prompt-cedh-sort-type="text">Player<span class="cedh-sort-indicator" aria-hidden="true"></span></button>
                             </th>
                             <th scope="col" role="columnheader" aria-sort="none">
-                                <button type="button" class="cedh-sort-button" data-chatgpt-cedh-sort data-chatgpt-cedh-sort-type="text">Date<span class="cedh-sort-indicator" aria-hidden="true"></span></button>
+                                <button type="button" class="cedh-sort-button" data-prompt-cedh-sort data-prompt-cedh-sort-type="text">Date<span class="cedh-sort-indicator" aria-hidden="true"></span></button>
                             </th>
                             <th scope="col" class="tabular" role="columnheader" aria-sort="none">
-                                <button type="button" class="cedh-sort-button" data-chatgpt-cedh-sort data-chatgpt-cedh-sort-type="num">Participants<span class="cedh-sort-indicator" aria-hidden="true"></span></button>
+                                <button type="button" class="cedh-sort-button" data-prompt-cedh-sort data-prompt-cedh-sort-type="num">Participants<span class="cedh-sort-indicator" aria-hidden="true"></span></button>
                             </th>
                             <th scope="col" role="columnheader" aria-sort="none">
-                                <button type="button" class="cedh-sort-button" data-chatgpt-cedh-sort data-chatgpt-cedh-sort-type="num">Finish<span class="cedh-sort-indicator" aria-hidden="true"></span></button>
+                                <button type="button" class="cedh-sort-button" data-prompt-cedh-sort data-prompt-cedh-sort-type="num">Finish<span class="cedh-sort-indicator" aria-hidden="true"></span></button>
                             </th>
                             <th scope="col" class="tabular" role="columnheader">W-L-D</th>
                             <th scope="col" class="tabular" role="columnheader" aria-sort="none">
-                                <button type="button" class="cedh-sort-button" data-chatgpt-cedh-sort data-chatgpt-cedh-sort-type="num">Win %<span class="cedh-sort-indicator" aria-hidden="true"></span></button>
+                                <button type="button" class="cedh-sort-button" data-prompt-cedh-sort data-prompt-cedh-sort-type="num">Win %<span class="cedh-sort-indicator" aria-hidden="true"></span></button>
                             </th>
                             <th scope="col" role="columnheader">Decklist</th>
                         </tr>
@@ -263,14 +263,14 @@
                         {
                             var entry = Model.FetchedEntries[index];
                             var rowPage = (index / pageSize) + 1;
-                            <tr role="row" data-chatgpt-cedh-reference-row data-chatgpt-cedh-page="@rowPage">
+                            <tr role="row" data-prompt-cedh-reference-row data-prompt-cedh-page="@rowPage">
                                 <td role="cell" data-label="Select">
                                     <input type="checkbox"
                                            name="SelectedReferenceIndexes"
                                            value="@index"
                                            aria-label="Select reference deck #@(index + 1)@(string.IsNullOrWhiteSpace(entry.PlayerName) ? "" : $" — {entry.PlayerName}")"
                                            checked="@(selectedReferenceIndexes.Contains(index) ? "checked" : null)"
-                                           data-chatgpt-cedh-reference-checkbox />
+                                           data-prompt-cedh-reference-checkbox />
                                 </td>
                                 <td class="tabular" role="cell" data-label="#" data-sort-value="@(index + 1)">@(index + 1)</td>
                                 <td role="cell" data-label="Player" data-sort-value="@(string.IsNullOrWhiteSpace(entry.PlayerName) ? "Unknown" : entry.PlayerName)">@(string.IsNullOrWhiteSpace(entry.PlayerName) ? "Unknown" : entry.PlayerName)</td>
@@ -298,16 +298,16 @@
                 @if (Model.FetchedEntries.Count > pageSize)
                 {
                     var pageCount = (int)Math.Ceiling(Model.FetchedEntries.Count / (double)pageSize);
-                    <div class="toolbar chatgpt-step-actions" data-chatgpt-cedh-pagination>
-                        <button type="button" class="clear-cache-button" data-chatgpt-cedh-page-nav="prev">Previous</button>
-                        <span data-chatgpt-cedh-page-status>Page 1 of @pageCount</span>
-                        <button type="button" class="run-button" data-chatgpt-cedh-page-nav="next">Next</button>
+                    <div class="toolbar prompt-step-actions" data-prompt-cedh-pagination>
+                        <button type="button" class="clear-cache-button" data-prompt-cedh-page-nav="prev">Previous</button>
+                        <span data-prompt-cedh-page-status>Page 1 of @pageCount</span>
+                        <button type="button" class="run-button" data-prompt-cedh-page-nav="next">Next</button>
                     </div>
                 }
             </section>
         }
 
-        <div class="chatgpt-instructions">
+        <div class="prompt-instructions">
             <strong>What you do:</strong>
             <ol>
                 <li>Select 1 to 3 reference decks.</li>
@@ -319,13 +319,13 @@
             </ol>
         </div>
 
-        <div class="toolbar chatgpt-step-actions">
-            <button type="submit" class="run-button" data-chatgpt-cedh-submit-step="2">Generate Meta Gap Prompt</button>
+        <div class="toolbar prompt-step-actions">
+            <button type="submit" class="run-button" data-prompt-cedh-submit-step="2">Generate Meta Gap Prompt</button>
         </div>
 
         @if (!string.IsNullOrWhiteSpace(Model.PromptText))
         {
-            <details class="result-panel nested-panel" data-chatgpt-cedh-result-anchor>
+            <details class="result-panel nested-panel" data-prompt-cedh-result-anchor>
                 <summary>Show generated prompt (30-meta-gap-prompt.txt)</summary>
                 <div class="panel-heading">
                     <div>
@@ -353,16 +353,16 @@
             </details>
         }
 
-        <div class="chatgpt-step-footer">
-            <button type="button" class="clear-cache-button" data-chatgpt-cedh-show-step="1">Back: Fetch Decks</button>
-            <button type="button" class="run-button" data-chatgpt-cedh-next-step="3">Next: Paste JSON</button>
+        <div class="prompt-step-footer">
+            <button type="button" class="clear-cache-button" data-prompt-cedh-show-step="1">Back: Fetch Decks</button>
+            <button type="button" class="run-button" data-prompt-cedh-next-step="3">Next: Paste JSON</button>
         </div>
     </section>
 
-    <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-cedh-step-panel-3" aria-labelledby="chatgpt-cedh-step-tab-3" data-chatgpt-cedh-step="3">
-        <div class="chatgpt-step-heading">
+    <section class="result-panel prompt-step-panel" role="tabpanel" id="prompt-cedh-step-panel-3" aria-labelledby="prompt-cedh-step-tab-3" data-prompt-cedh-step="3">
+        <div class="prompt-step-heading">
             <div>
-                <p class="chatgpt-step-eyebrow">Step 3</p>
+                <p class="prompt-step-eyebrow">Step 3</p>
                 <h2>Paste the returned meta-gap JSON</h2>
                 <p>Paste the fenced JSON block or raw JSON payload that contains the top-level <code>meta_gap</code> object. Extra prose above it is fine.</p>
             </div>
@@ -374,22 +374,22 @@
             <small class="sync-column__hint">Required for rendering the final analysis. You can paste the fenced <code>```json</code> block directly.</small>
         </label>
 
-        <div class="toolbar chatgpt-step-actions">
-            <button type="submit" class="run-button" data-chatgpt-cedh-submit-step="3" data-busy-title="Rendering cEDH Meta Gap Analysis" data-busy-message="Reading your pasted analysis and building the report.">Render Meta Gap Analysis</button>
+        <div class="toolbar prompt-step-actions">
+            <button type="submit" class="run-button" data-prompt-cedh-submit-step="3" data-busy-title="Rendering cEDH Meta Gap Analysis" data-busy-message="Reading your pasted analysis and building the report.">Render Meta Gap Analysis</button>
         </div>
 
         @if (Model.AnalysisResponse is not null)
         {
             var analysis = Model.AnalysisResponse.MetaGap;
-            <section class="result-panel nested-panel summary-panel" data-chatgpt-cedh-result-anchor data-print-result>
-                <div class="toolbar chatgpt-step-actions">
-                    <button type="submit" class="run-button" data-no-busy data-chatgpt-download-submit
+            <section class="result-panel nested-panel summary-panel" data-prompt-cedh-result-anchor data-print-result>
+                <div class="toolbar prompt-step-actions">
+                    <button type="submit" class="run-button" data-no-busy data-prompt-download-submit
                             formaction="@Url.Content("~/cedh-meta-gap/download")"
                             formmethod="post"
                             formnovalidate>
                         Download meta-gap session (.zip)
                     </button>
-                    <button type="button" class="run-button chatgpt-print-button" data-no-busy data-chatgpt-print>
+                    <button type="button" class="run-button prompt-print-button" data-no-busy data-prompt-print>
                         Print results
                     </button>
                 </div>
@@ -643,13 +643,15 @@
             </section>
         }
 
-        <div class="chatgpt-step-footer">
-            <button type="button" class="clear-cache-button" data-chatgpt-cedh-show-step="2">Back: Generate Prompt</button>
+        <div class="prompt-step-footer">
+            <button type="button" class="clear-cache-button" data-prompt-cedh-show-step="2">Back: Generate Prompt</button>
         </div>
     </section>
 </form>
 
 @section Scripts {
     <script src="~/js/deck-input-store.js" asp-append-version="true"></script>
+    <script src="~/js/busy-indicator.js" asp-append-version="true"></script>
+    <script src="~/js/moxfield-extension-bridge.js" asp-append-version="true"></script>
     <script src="~/js/deck-sync.js" asp-append-version="true"></script>
 }

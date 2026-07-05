@@ -72,7 +72,7 @@
     min-height: 44px;
   }
 
-  .chatgpt-sticky-download {
+  .prompt-sticky-download {
     position: static;
     top: auto;
     align-items: flex-start;
@@ -80,7 +80,7 @@
     box-shadow: none;
   }
 
-  .chatgpt-sticky-download__button {
+  .prompt-sticky-download__button {
     min-height: 44px;
     padding: 0.6rem 0.9rem;
     border: 1px solid var(--accent);
@@ -89,10 +89,10 @@
     box-shadow: none;
   }
 
-  .chatgpt-sticky-download__button:hover,
-  .chatgpt-sticky-download__button:focus-visible {
+  .prompt-sticky-download__button:hover,
+  .prompt-sticky-download__button:focus-visible {
     border-color: var(--accent);
-    background: rgba(43, 108, 176, 0.08);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
     color: var(--accent);
   }
 
@@ -116,7 +116,7 @@
   }
 
   .result-panel,
-  .chatgpt-step-panel {
+  .prompt-step-panel {
     padding: 0.85rem;
   }
 
@@ -225,8 +225,8 @@
 
   .hub-hero--primary:hover,
   .hub-hero--primary:focus-visible {
-    border-color: var(--accent-strong, var(--accent));
-    box-shadow: 0 8px 24px rgba(26, 31, 46, 0.08), 0 0 0 1px color-mix(in srgb, var(--accent-strong, var(--accent)) 28%, transparent);
+    border-color: var(--focus, var(--accent-strong, var(--accent)));
+    box-shadow: 0 8px 24px rgba(26, 31, 46, 0.08), 0 0 0 1px color-mix(in srgb, var(--focus, var(--accent-strong, var(--accent))) 28%, transparent);
   }
 
   .page-footer {
@@ -275,13 +275,13 @@
   }
 
   /* mobile UI phase 1 (d2): mobile layout picker + distinct workflow stepper */
-  .chatgpt-page-toolbar.desktop-only {
+  .prompt-page-toolbar.desktop-only {
     display: flex !important;
     margin-top: 0.75rem;
     margin-bottom: 0.75rem;
   }
 
-  .chatgpt-page-toolbar.desktop-only .chatgpt-layout-picker {
+  .prompt-page-toolbar.desktop-only .prompt-layout-picker {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
@@ -290,20 +290,20 @@
     width: 100%;
   }
 
-  .chatgpt-page-toolbar.desktop-only .chatgpt-layout-picker__segments {
+  .prompt-page-toolbar.desktop-only .prompt-layout-picker__segments {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     width: 100%;
   }
 
-  .chatgpt-page-toolbar.desktop-only .chatgpt-layout-segment {
+  .prompt-page-toolbar.desktop-only .prompt-layout-segment {
     min-height: 40px;
     padding: 0.45rem 0.4rem;
     text-align: center;
   }
 
   /* mobile UI phase 2: compact numbered stepper */
-  .chatgpt-step-nav {
+  .prompt-step-nav {
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
@@ -317,7 +317,7 @@
     -webkit-overflow-scrolling: touch;
   }
 
-  .chatgpt-step-tab {
+  .prompt-step-tab {
     display: inline-flex;
     flex: 0 0 auto;
     align-items: center;
@@ -338,11 +338,11 @@
     white-space: nowrap;
   }
 
-  .chatgpt-step-tab__label {
+  .prompt-step-tab__label {
     display: none;
   }
 
-  .chatgpt-step-tab__num {
+  .prompt-step-tab__num {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -350,19 +350,19 @@
     height: 100%;
   }
 
-  .chatgpt-step-tab.is-active {
+  .prompt-step-tab.is-active {
     border-color: var(--accent);
     background: var(--accent);
     color: var(--accent-contrast, #fff);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
   }
 
-  .chatgpt-step-tab:not(.is-active):not(.is-complete) {
+  .prompt-step-tab:not(.is-active):not(.is-complete) {
     color: var(--ink);
     opacity: 1;
   }
 
-  .chatgpt-step-tab.is-complete {
+  .prompt-step-tab.is-complete {
     border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
     background: color-mix(in srgb, var(--accent) 12%, var(--panel));
     color: var(--accent-strong);

@@ -1,6 +1,12 @@
+---
+status: resolved
+created: 2026-06-27
+updated: 2026-07-05
+---
+
 # Bug: Pull-from-Prod artifact download fails for every content-kb row ("SSH download failed — check SCP configuration")
 
-**Status:** diagnosed, fix planned
+**Status:** resolved (was: diagnosed, fix planned)
 **Area:** DeckFlow.Studio — Pull-from-Prod workflow
 **Severity:** Medium (feature unusable for its main case; misleading error; no data loss)
 **Branch:** `fix/pull-from-prod-git-decouple`
@@ -104,3 +110,20 @@ separately; do not change DirectPush in this fix.
   "run git pull" note, adopt still upserts row.
 - Manual: run Pull-from-Prod against prod; expect 109 rows classified, bodies resolved from local
   git tree, zero "SSH download failed" lines, adopt applies locally.
+
+## Resolution (closed 2026-07-05)
+
+Fixed and shipped (merged to main per the Cycle 15 "Studio branches all merged"
+record). The Pull-from-Prod read path was decoupled from SFTP `/data` and now
+resolves content-kb bodies from the local git working tree:
+
+- `0dd49f19 fix(studio): resolve Pull-from-Prod bodies from git tree, not SFTP /data`
+  — the core fix (git-tree body resolution, drops the `ISshArtifactDownloader`
+  dependency from the Pull path).
+- `7f967208 fix(studio): reword Pull-from-Prod missing-body copy (not always git pull)`
+  — replaces the misleading "check SCP configuration" wording described above.
+
+The noted out-of-scope follow-up (DirectPush writing KB bodies to prod `/data` via
+SFTP) was addressed separately by the DirectPush git-durability work (quick task
+`260627-qyc`, commit `959afca3 feat(studio): add git-durability Stage 4 to
+DirectPush publish`). Cycle 15 Studio work; not a blocker. Marked resolved.

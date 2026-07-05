@@ -125,113 +125,56 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
     /// <inheritdoc />
     public async Task UpsertRowAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(row);
-        ArgumentException.ThrowIfNullOrWhiteSpace(row.Source);
-        ArgumentException.ThrowIfNullOrWhiteSpace(row.Title);
-        ArgumentException.ThrowIfNullOrWhiteSpace(row.VideoUrl);
-        ArgumentException.ThrowIfNullOrWhiteSpace(row.ArtifactPath);
-        ArgumentNullException.ThrowIfNull(row.ArchetypeTags);
-        ArgumentNullException.ThrowIfNull(row.BracketTags);
-        ArgumentNullException.ThrowIfNull(row.CardCategoryTags);
-
+        ValidateRowForUpsert(row);
         var naturalKey = GetNaturalKey(row);
         ValidateArtifactPath(row.ArtifactPath);
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
+        var parameters = BuildUpsertParameters(row, naturalKey);
+        parameters.Add("isHidden", row.IsHidden);
+        parameters.Add("isEvergreen", row.IsEvergreen);
+
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await connection.ExecuteAsync(new CommandDefinition(
             UpsertSql,
-            new
-            {
-                source = row.Source,
-                title = row.Title,
-                videoUrl = row.VideoUrl,
-                artifactPath = row.ArtifactPath,
-                publishedUtc = row.PublishedUtc,
-                indexedUtc = row.IndexedUtc,
-                archetypeTags = ContentArtifactSpec.SerializeTags(row.ArchetypeTags),
-                bracketTags = ContentArtifactSpec.SerializeTags(row.BracketTags),
-                cardCategoryTags = ContentArtifactSpec.SerializeTags(row.CardCategoryTags),
-                naturalKeyType = naturalKey.Type,
-                naturalKeyValue = naturalKey.Value,
-                isHidden = row.IsHidden,
-                isEvergreen = row.IsEvergreen
-            },
+            parameters,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
     public async Task UpsertRowPreservingVisibilityAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(row);
-        ArgumentException.ThrowIfNullOrWhiteSpace(row.Source);
-        ArgumentException.ThrowIfNullOrWhiteSpace(row.Title);
-        ArgumentException.ThrowIfNullOrWhiteSpace(row.VideoUrl);
-        ArgumentException.ThrowIfNullOrWhiteSpace(row.ArtifactPath);
-        ArgumentNullException.ThrowIfNull(row.ArchetypeTags);
-        ArgumentNullException.ThrowIfNull(row.BracketTags);
-        ArgumentNullException.ThrowIfNull(row.CardCategoryTags);
-
+        ValidateRowForUpsert(row);
         var naturalKey = GetNaturalKey(row);
         ValidateArtifactPath(row.ArtifactPath);
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
+        var parameters = BuildUpsertParameters(row, naturalKey);
+        parameters.Add("isVisible", false);
+        parameters.Add("isHidden", false);
+        parameters.Add("isEvergreen", false);
+
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await connection.ExecuteAsync(new CommandDefinition(
             UpsertPreservingVisibilitySql,
-            new
-            {
-                source = row.Source,
-                title = row.Title,
-                videoUrl = row.VideoUrl,
-                artifactPath = row.ArtifactPath,
-                publishedUtc = row.PublishedUtc,
-                indexedUtc = row.IndexedUtc,
-                archetypeTags = ContentArtifactSpec.SerializeTags(row.ArchetypeTags),
-                bracketTags = ContentArtifactSpec.SerializeTags(row.BracketTags),
-                cardCategoryTags = ContentArtifactSpec.SerializeTags(row.CardCategoryTags),
-                naturalKeyType = naturalKey.Type,
-                naturalKeyValue = naturalKey.Value,
-                isVisible = false,
-                isHidden = false,
-                isEvergreen = false
-            },
+            parameters,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
     public async Task UpsertContentColumnsOnlyAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(row);
-        ArgumentException.ThrowIfNullOrWhiteSpace(row.Source);
-        ArgumentException.ThrowIfNullOrWhiteSpace(row.Title);
-        ArgumentException.ThrowIfNullOrWhiteSpace(row.VideoUrl);
-        ArgumentException.ThrowIfNullOrWhiteSpace(row.ArtifactPath);
-        ArgumentNullException.ThrowIfNull(row.ArchetypeTags);
-        ArgumentNullException.ThrowIfNull(row.BracketTags);
-        ArgumentNullException.ThrowIfNull(row.CardCategoryTags);
-
+        ValidateRowForUpsert(row);
         var naturalKey = GetNaturalKey(row);
         ValidateArtifactPath(row.ArtifactPath);
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
+        var parameters = BuildUpsertParameters(row, naturalKey);
+
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await connection.ExecuteAsync(new CommandDefinition(
             UpsertContentColumnsOnlySql,
-            new
-            {
-                source = row.Source,
-                title = row.Title,
-                videoUrl = row.VideoUrl,
-                artifactPath = row.ArtifactPath,
-                publishedUtc = row.PublishedUtc,
-                indexedUtc = row.IndexedUtc,
-                archetypeTags = ContentArtifactSpec.SerializeTags(row.ArchetypeTags),
-                bracketTags = ContentArtifactSpec.SerializeTags(row.BracketTags),
-                cardCategoryTags = ContentArtifactSpec.SerializeTags(row.CardCategoryTags),
-                naturalKeyType = naturalKey.Type,
-                naturalKeyValue = naturalKey.Value
-            },
+            parameters,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
@@ -648,34 +591,15 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             (string Type, string Value) naturalKey;
             try
             {
-                ArgumentNullException.ThrowIfNull(row);
-                ArgumentException.ThrowIfNullOrWhiteSpace(row.Source);
-                ArgumentException.ThrowIfNullOrWhiteSpace(row.Title);
-                ArgumentException.ThrowIfNullOrWhiteSpace(row.VideoUrl);
-                ArgumentException.ThrowIfNullOrWhiteSpace(row.ArtifactPath);
-                ArgumentNullException.ThrowIfNull(row.ArchetypeTags);
-                ArgumentNullException.ThrowIfNull(row.BracketTags);
-                ArgumentNullException.ThrowIfNull(row.CardCategoryTags);
-
+                ValidateRowForUpsert(row);
                 naturalKey = GetNaturalKey(row);
                 ValidateArtifactPath(row.ArtifactPath);
 
+                var parameters = BuildUpsertParameters(row, naturalKey);
+
                 await connection.ExecuteAsync(new CommandDefinition(
                     UpsertContentColumnsOnlySql,
-                    new
-                    {
-                        source = row.Source,
-                        title = row.Title,
-                        videoUrl = row.VideoUrl,
-                        artifactPath = row.ArtifactPath,
-                        publishedUtc = row.PublishedUtc,
-                        indexedUtc = row.IndexedUtc,
-                        archetypeTags = ContentArtifactSpec.SerializeTags(row.ArchetypeTags),
-                        bracketTags = ContentArtifactSpec.SerializeTags(row.BracketTags),
-                        cardCategoryTags = ContentArtifactSpec.SerializeTags(row.CardCategoryTags),
-                        naturalKeyType = naturalKey.Type,
-                        naturalKeyValue = naturalKey.Value
-                    },
+                    parameters,
                     transaction: transaction,
                     cancellationToken: cancellationToken)).ConfigureAwait(false);
             }
@@ -760,6 +684,47 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
 
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         return total;
+    }
+
+    /// <summary>
+    /// Shared required-field validation for all three <c>Upsert*Async</c> row variants and the
+    /// batch upsert's per-row loop — extracted so the same checks (and their exact exception
+    /// types/messages) run identically everywhere a row is upserted.
+    /// </summary>
+    private static void ValidateRowForUpsert(ContentSiteIndexRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        ArgumentException.ThrowIfNullOrWhiteSpace(row.Source);
+        ArgumentException.ThrowIfNullOrWhiteSpace(row.Title);
+        ArgumentException.ThrowIfNullOrWhiteSpace(row.VideoUrl);
+        ArgumentException.ThrowIfNullOrWhiteSpace(row.ArtifactPath);
+        ArgumentNullException.ThrowIfNull(row.ArchetypeTags);
+        ArgumentNullException.ThrowIfNull(row.BracketTags);
+        ArgumentNullException.ThrowIfNull(row.CardCategoryTags);
+    }
+
+    /// <summary>
+    /// Shared parameter-binding helper behind all three <c>Upsert*Async</c> row variants (row #4 in
+    /// 82-REVIEW.md): builds the column set common to every upsert SQL variant — source/title/url/
+    /// artifact path/timestamps/serialized tags/natural key — as a <see cref="DynamicParameters"/>
+    /// bag. Callers add their own variant-specific visibility/hidden/evergreen columns (or none, for
+    /// the content-columns-only variant) before executing.
+    /// </summary>
+    private static DynamicParameters BuildUpsertParameters(ContentSiteIndexRow row, (string Type, string Value) naturalKey)
+    {
+        var parameters = new DynamicParameters();
+        parameters.Add("source", row.Source);
+        parameters.Add("title", row.Title);
+        parameters.Add("videoUrl", row.VideoUrl);
+        parameters.Add("artifactPath", row.ArtifactPath);
+        parameters.Add("publishedUtc", row.PublishedUtc);
+        parameters.Add("indexedUtc", row.IndexedUtc);
+        parameters.Add("archetypeTags", ContentArtifactSpec.SerializeTags(row.ArchetypeTags));
+        parameters.Add("bracketTags", ContentArtifactSpec.SerializeTags(row.BracketTags));
+        parameters.Add("cardCategoryTags", ContentArtifactSpec.SerializeTags(row.CardCategoryTags));
+        parameters.Add("naturalKeyType", naturalKey.Type);
+        parameters.Add("naturalKeyValue", naturalKey.Value);
+        return parameters;
     }
 
     private static readonly string[] AllowedApprovalStatuses = ["pending", "approved", "rejected"];

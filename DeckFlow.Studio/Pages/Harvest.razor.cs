@@ -35,32 +35,22 @@ public partial class Harvest
     private StudioDistillConfig DistillConfig { get; set; } = default!;
 
     [Inject]
-    private SessionCapOverride CapOverride { get; set; } = default!;
-
-    [Inject]
-    private ILlmSpendLedger SpendLedger { get; set; } = default!;
-
-    [Inject]
-    private IContentMaintenanceOrchestrator MaintenanceOrchestrator { get; set; } = default!;
-
-    [Inject]
-    private AutoApproveSettingsStore AutoApproveSettingsStore { get; set; } = default!;
-
-    // Why: the swappable auto-approve decision (clip count vs cutoff, D-01/D-02) — the one-click
-    // and manual Stage B paths both resolve this to decide which distilled videos auto-approve.
-    [Inject]
-    private IAutoApproveSignal AutoApproveSignal { get; set; } = default!;
-
-    // Why: batch approval setter (D-09) — the shared auto-approve step flips approval_status to
-    // 'approved' for at/above-cutoff distilled videos; only approval_status is mutated.
-    [Inject]
-    private IContentSiteIndexStore IndexStore { get; set; } = default!;
-
-    [Inject]
-    private ICreatorSourceStore CreatorStore { get; set; } = default!;
-
-    [Inject]
     private ISkippedVideoStore SkippedStore { get; set; } = default!;
+
+    // Why: extracted coordinators (Phase 82 SRP split) — each owns the I/O for one Harvest concern
+    // while the page keeps the markup-bound state fields and the busy/error/log wiring around the
+    // calls. Mirrors the DirectPushCoordinator precedent (H1 split).
+    [Inject]
+    private HarvestQueueCoordinator QueueCoordinator { get; set; } = default!;
+
+    [Inject]
+    private AutoApproveSettingsCoordinator AutoApproveCoordinator { get; set; } = default!;
+
+    [Inject]
+    private CreatorManagementCoordinator CreatorCoordinator { get; set; } = default!;
+
+    [Inject]
+    private SpendCapCoordinator SpendCapCoordinator { get; set; } = default!;
 
     // ── Section 1 state ─────────────────────────────────────────────────────
     // SRC-02: saved creators for the browse dropdown. Selecting one fills _channelInput; the
@@ -196,11 +186,27 @@ public partial class Harvest
                     : Lister.ListRecentAsync(input, _browseLimit, _browseSkip, browseCts.Token),
                 browseCts.Token);
 
+            // P87: stamp creator provenance onto the browsed rows ONLY when the browse target still
+            // matches the picked creator (and it's a channel, not a playlist). If the operator picked
+            // creator A then edited the input to channel B before browsing, the refs no longer match,
+            // so B's rows carry null provenance and cannot mislink to A at harvest.
+            var browseCreatorRef = !isPlaylist
+                && !string.IsNullOrEmpty(_selectedCreatorRef)
+                && string.Equals(
+                    CreatorSourceStore.NormalizeChannelRef(input),
+                    CreatorSourceStore.NormalizeChannelRef(_selectedCreatorRef),
+                    StringComparison.Ordinal)
+                ? _selectedCreatorRef
+                : null;
+
             // Resolve badges for each video at list-build time (HARV-03).
             foreach (var v in videos)
             {
                 var status = await StatusResolver.ResolveStatusAsync(v.VideoId, browseCts.Token);
-                _channelVideos.Add(new VideoViewModel(v.VideoId, v.Url, v.Title, v.PublishedUtc, status, v.ChannelId, v.ChannelTitle));
+                _channelVideos.Add(new VideoViewModel(v.VideoId, v.Url, v.Title, v.PublishedUtc, status, v.ChannelId, v.ChannelTitle)
+                {
+                    CreatorRef = browseCreatorRef,
+                });
             }
 
             // HSEL-02: load the skip set so skipped candidates are filtered out of selection.
@@ -304,7 +310,7 @@ public partial class Harvest
         try
         {
             var result = await Task.Run(
-                () => MaintenanceOrchestrator.UnblockVideoAsync(vm.VideoId, progress: null, _cts.Token),
+                () => CreatorCoordinator.UnblockVideoAsync(vm.VideoId, progress: null, _cts.Token),
                 _cts.Token);
 
             if (result.Success)
@@ -392,54 +398,13 @@ public partial class Harvest
         using var addCts = new CancellationTokenSource();
         try
         {
-            // Why: a pasted playlist URL is expanded via ListPlaylistAsync (bounded by Count); the
-            // remaining lines resolve as individual video ids/urls through GetByIdsAsync. Lister calls
-            // are serialized (no Task.WhenAll) to honor AngleSharp's single-thread constraint (Pitfall 6).
-            // Why: a watch?v=…&list=… URL (copied from within a playlist) is a SINGLE video, not a
-            // playlist — only bare playlist links expand. See YouTubeUrlClassifier.
-            var playlistLines = rawLines
-                .Where(YouTubeUrlClassifier.IsPlaylistUrl)
-                .ToList();
-            var idLines = rawLines.Except(playlistLines).ToList();
+            // Why: paste parsing (playlist-vs-single-video classification via YouTubeUrlClassifier,
+            // playlist expansion, id resolution) lives in HarvestQueueCoordinator.FetchQueueAdditionsAsync
+            // (Phase 82 SRP split). The watch?v=…&list=… single-video fix (main) is enforced there.
             var limit = _browseLimit;
-            var videos = await Task.Run(
-                async () =>
-                {
-                    var collected = new List<YouTubeChannelVideo>();
-                    foreach (var pl in playlistLines)
-                    {
-                        collected.AddRange(await Lister.ListPlaylistAsync(pl, limit, 0, addCts.Token).ConfigureAwait(false));
-                    }
-                    if (idLines.Count > 0)
-                    {
-                        collected.AddRange(await Lister.GetByIdsAsync(idLines.AsReadOnly(), addCts.Token).ConfigureAwait(false));
-                    }
-                    return (IReadOnlyList<YouTubeChannelVideo>)collected;
-                },
-                addCts.Token);
-
-            int added = 0;
-            foreach (var v in videos)
-            {
-                // Skip if already in queue (by VideoId).
-                if (_queueVideos.Any(q => q.VideoId == v.VideoId))
-                {
-                    continue;
-                }
-
-                var status = await StatusResolver.ResolveStatusAsync(v.VideoId, addCts.Token);
-
-                // Why: the paste queue shows Duplicate badge for already-in-DB videos (HARV-02).
-                // Duplicate = Harvested or Distilled — a pre-harvest warning, not auto-exclusion.
-                var displayStatus = (status == VideoStatus.Harvested || status == VideoStatus.Distilled)
-                    ? VideoStatus.Duplicate
-                    : status;
-
-                _queueVideos.Add(new VideoViewModel(v.VideoId, v.Url, v.Title, v.PublishedUtc, displayStatus, v.ChannelId, v.ChannelTitle));
-                added++;
-            }
-
-            _lastAddCount = added;
+            var result = await QueueCoordinator.FetchQueueAdditionsAsync(rawLines, _queueVideos, limit, addCts.Token);
+            _queueVideos.AddRange(result.AddedVideos);
+            _lastAddCount = result.AddedCount;
             _pasteQueueText = string.Empty;
         }
         catch (ArgumentException ex)
@@ -465,16 +430,12 @@ public partial class Harvest
 
     private void RemoveFromQueue(VideoViewModel vm)
     {
-        _queueVideos.Remove(vm);
+        QueueCoordinator.RemoveFromQueue(_queueVideos, vm);
     }
 
     private void ToggleAllQueueSelections()
     {
-        _allQueueSelected = !_allQueueSelected;
-        foreach (var vm in _queueVideos)
-        {
-            vm.Selected = _allQueueSelected;
-        }
+        _allQueueSelected = QueueCoordinator.ToggleAllQueueSelections(_queueVideos, _allQueueSelected);
     }
 
     // ── Section 3: Harvest Trigger (HARV-04) ────────────────────────────────
@@ -649,15 +610,7 @@ public partial class Harvest
 
             // (3) Obtain harvest-ready ids: ListPendingDistillAsync ∩ selected (HIGH #2). Excludes
             // skipped/no-caption and already-distilled videos (which are not pending-distill).
-            var pending = await Task.Run(
-                () => DistillOrchestrator.ListPendingDistillAsync(_cts.Token),
-                _cts.Token);
-            var selectedSet = new HashSet<string>(selectedIds, StringComparer.Ordinal);
-            var harvestReadyIds = pending
-                .Select(p => p.YoutubeVideoId)
-                .Where(selectedSet.Contains)
-                .Distinct(StringComparer.Ordinal)
-                .ToList();
+            var harvestReadyIds = await DetermineHarvestReadyIdsAsync(selectedIds);
             _outcomeHarvestReadyCount = harvestReadyIds.Count;
 
             if (harvestReadyIds.Count == 0)
@@ -668,40 +621,11 @@ public partial class Harvest
                 return;
             }
 
-            // (4) Distill inline (subscription path; dryRun:false). redistill:false — one-click never
-            // re-distills (the manual fallback owns the re-distill double-confirm, D-12).
-            var distillProgress = new ActionOrchestratorProgress(msg =>
-                InvokeAsync(() =>
-                {
-                    try
-                    {
-                        _logLines.Add(msg);
-                        StateHasChanged();
-                    }
-                    catch (ObjectDisposedException) { }
-                    catch (InvalidOperationException) { }
-                }));
+            // (4)+(5): distill inline then apply the shared auto-approve step (extracted, Phase 82).
+            // RunOneClickDistillAndApproveAsync refreshes badges AND reloads the pending list post-distill
+            // (superset of main's a10b0b41 "refresh pending list after one-click distill").
+            await RunOneClickDistillAndApproveAsync(harvestReadyIds);
 
-            var ids = harvestReadyIds.AsReadOnly();
-            var result = await Task.Run(
-                () => DistillOrchestrator.DistillAsync(
-                    limit: ids.Count,
-                    dryRun: false,
-                    isSubscriptionProvider: true,
-                    redistill: false,
-                    videoIds: ids,
-                    progress: distillProgress,
-                    cancellationToken: _cts.Token),
-                _cts.Token);
-
-            _oneClickDistillResult = result;
-
-            // (5) Shared auto-approve step (D-09): flip >=cutoff distills to 'approved' when enabled.
-            _outcomeAutoApprovedCount = await ApplyAutoApproveAsync(result);
-
-            _showOutcomeCard = true;
-
-            await RefreshBadgesAsync(ids);
             await RefreshCapDisplayAsync();
         }
         catch (OperationCanceledException)
@@ -722,6 +646,69 @@ public partial class Harvest
             }
 
             await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    /// <summary>
+    /// Step (3) of the one-click harvest→auto-distill flow: resolves the harvest-ready ids —
+    /// pending-distill videos (excludes skipped/no-caption/already-distilled) intersected with the
+    /// videos selected for this run (HIGH #2).
+    /// </summary>
+    private async Task<List<string>> DetermineHarvestReadyIdsAsync(IReadOnlyList<string> selectedIds)
+    {
+        var pending = await Task.Run(
+            () => DistillOrchestrator.ListPendingDistillAsync(_cts!.Token),
+            _cts!.Token);
+        var selectedSet = new HashSet<string>(selectedIds, StringComparer.Ordinal);
+        return pending
+            .Select(p => p.YoutubeVideoId)
+            .Where(selectedSet.Contains)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Steps (4)+(5) of the one-click harvest→auto-distill flow: distills the harvest-ready ids
+    /// inline (subscription path; dryRun:false, redistill:false — one-click never re-distills, the
+    /// manual fallback owns the re-distill double-confirm, D-12), then applies the shared
+    /// auto-approve step and refreshes badges/pending list.
+    /// </summary>
+    private async Task RunOneClickDistillAndApproveAsync(IReadOnlyList<string> harvestReadyIds)
+    {
+        var distillProgress = new ActionOrchestratorProgress(msg =>
+            InvokeAsync(() =>
+            {
+                try
+                {
+                    _logLines.Add(msg);
+                    StateHasChanged();
+                }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
+            }));
+
+        var result = await Task.Run(
+            () => DistillOrchestrator.DistillAsync(
+                limit: harvestReadyIds.Count,
+                dryRun: false,
+                isSubscriptionProvider: true,
+                redistill: false,
+                videoIds: harvestReadyIds,
+                progress: distillProgress,
+                cancellationToken: _cts!.Token),
+            _cts!.Token);
+
+        _oneClickDistillResult = result;
+
+        // Shared auto-approve step (D-09): flip >=cutoff distills to 'approved' when enabled.
+        _outcomeAutoApprovedCount = await AutoApproveCoordinator.ApplyAutoApproveAsync(result, _autoApproveSettings, _cts!.Token);
+
+        _showOutcomeCard = true;
+
+        await RefreshBadgesAsync(harvestReadyIds);
+        if (_pendingLoaded)
+        {
+            await LoadPendingDistillAsync();
         }
     }
 
@@ -804,6 +791,23 @@ public partial class Harvest
                         continue;
                     }
 
+                    // P87: link the curated creator to the ensured content source (single idempotent
+                    // update keyed by creator id) so /creators shows it linked with the canonical slug.
+                    // Best-effort and keyed by provenance carried on the browsed rows — a link failure
+                    // or an unrecognized ref must never fail the harvest.
+                    if (group.CreatorRef is not null && src.Slug is not null)
+                    {
+                        try
+                        {
+                            await CreatorCoordinator.LinkCreatorToSourceAsync(
+                                group.CreatorRef, src.Id.Value, src.Slug, _cts.Token).ConfigureAwait(false);
+                        }
+                        catch (Exception)
+                        {
+                            // Non-fatal: linking is a convenience; the harvest itself proceeds.
+                        }
+                    }
+
                     var r = await HarvestOrchestrator.HarvestAsync(
                         limit: group.VideoIds.Count,
                         videoIds: group.VideoIds,
@@ -842,33 +846,6 @@ public partial class Harvest
         return _harvestResult.Success;
     }
 
-    /// <summary>
-    /// Shared post-distill auto-approve step (D-09): when auto-approve is enabled, selects the
-    /// distilled videos whose clip count is at or above the persisted cutoff (via
-    /// <see cref="IAutoApproveSignal"/>) and batch-flips their <c>approval_status</c> to 'approved'
-    /// (only approval_status is mutated). Returns the number of rows actually flipped (0 when disabled
-    /// or none qualify). Authored as a shared method so a completing subscription distill — one-click
-    /// or the manual Stage B fallback — benefits identically; metered live distill auto-approve is
-    /// DEFERRED (Core refuses metered live distill, so this never runs for metered today).
-    /// </summary>
-    private async Task<int> ApplyAutoApproveAsync(DistillResult result)
-    {
-        // Why: pure key selection (enabled + clip-count cutoff via the swappable signal) lives in
-        // HarvestPlanner; the page keeps the store write + cancellation. Empty selection => no call.
-        var keys = HarvestPlanner.SelectAutoApproveKeys(
-            result.DistilledVideos,
-            _autoApproveSettings.Enabled,
-            _autoApproveSettings.Cutoff,
-            AutoApproveSignal);
-
-        if (keys.Count == 0)
-        {
-            return 0;
-        }
-
-        return await IndexStore.SetApprovalStatusAsync(keys, "approved", _cts!.Token);
-    }
-
     private void CancelOperation()
     {
         _cts?.Cancel();
@@ -900,7 +877,7 @@ public partial class Harvest
         await RefreshCapDisplayAsync();
         // Why: persisted auto-approve settings (D-07) — load once at init so the panel reflects
         // the operator's last choice across Studio restarts.
-        _autoApproveSettings = AutoApproveSettingsStore.Load();
+        _autoApproveSettings = AutoApproveCoordinator.Load();
         await LoadCreatorsAsync();
         // Why: populate the distill list on arrival so harvested-but-not-distilled videos are
         // visible without a separate click. Non-fatal — LoadPendingDistillAsync swallows failures.
@@ -913,16 +890,7 @@ public partial class Harvest
     /// </summary>
     private async Task LoadCreatorsAsync()
     {
-        try
-        {
-            var creators = await CreatorStore.ListAsync();
-            _creators = creators.ToList();
-        }
-        catch (Exception)
-        {
-            // Why: dropdown is a convenience over the URL fallback; never block browse on a load error.
-            _creators = new();
-        }
+        _creators = await CreatorCoordinator.LoadCreatorsAsync();
     }
 
     /// <summary>
@@ -954,7 +922,7 @@ public partial class Harvest
     /// </summary>
     private void SaveAutoApproveSettings()
     {
-        AutoApproveSettingsStore.Save(_autoApproveSettings);
+        AutoApproveCoordinator.Save(_autoApproveSettings);
     }
 
     /// <summary>
@@ -963,7 +931,7 @@ public partial class Harvest
     private void OnAutoApproveEnabledChanged(ChangeEventArgs args)
     {
         var enabled = args.Value is bool b && b;
-        _autoApproveSettings = _autoApproveSettings with { Enabled = enabled };
+        _autoApproveSettings = AutoApproveCoordinator.ApplyEnabledChange(_autoApproveSettings, enabled);
         SaveAutoApproveSettings();
     }
 
@@ -972,18 +940,19 @@ public partial class Harvest
     /// </summary>
     private void OnAutoApproveCutoffChanged(ChangeEventArgs args)
     {
-        if (int.TryParse(args.Value?.ToString(), out var cutoff))
+        var updated = AutoApproveCoordinator.TryApplyCutoffChange(_autoApproveSettings, args.Value?.ToString());
+        if (updated is not null)
         {
-            _autoApproveSettings = _autoApproveSettings with { Cutoff = cutoff };
+            _autoApproveSettings = updated;
             SaveAutoApproveSettings();
         }
     }
 
     private async Task RefreshCapDisplayAsync()
     {
-        _monthlyCap = SpendLedger.GetMonthlyCapUsd();
+        _monthlyCap = SpendCapCoordinator.GetMonthlyCapUsd();
         var monthKey = DateTime.UtcNow.ToString("yyyy-MM");
-        _monthlySpent = await SpendLedger.GetMonthlyTotalAsync(monthKey);
+        _monthlySpent = await SpendCapCoordinator.GetMonthlyTotalAsync(monthKey);
     }
 
     /// <summary>
@@ -993,17 +962,12 @@ public partial class Harvest
     /// </summary>
     private async Task RaiseCapAsync()
     {
-        if (!decimal.TryParse(_capRaiseInput, System.Globalization.NumberStyles.Number,
-                System.Globalization.CultureInfo.InvariantCulture, out var newCap)
-            || newCap < 0m)
+        if (!SpendCapCoordinator.TryRaiseCap(_capRaiseInput, out _))
         {
             // Why: V5 input validation — ignore invalid or negative input without throwing.
             return;
         }
 
-        // Why: OverrideUsd write propagates to both the page display (GetMonthlyCapUsd) and
-        // the orchestrator's WouldExceedCapAsync call because both resolve the same singleton (D-03).
-        CapOverride.OverrideUsd = newCap;
         await RefreshCapDisplayAsync();
         StateHasChanged();
     }
@@ -1158,7 +1122,7 @@ public partial class Harvest
                 // auto-approves >=cutoff videos through the SAME shared step as the one-click path.
                 // Metered live distill never reaches here (Core refuses at line 244), so the shared
                 // step simply never runs for metered — metered auto-approve is DEFERRED.
-                _outcomeAutoApprovedCount = await ApplyAutoApproveAsync(_distillLiveResult);
+                _outcomeAutoApprovedCount = await AutoApproveCoordinator.ApplyAutoApproveAsync(_distillLiveResult, _autoApproveSettings, _cts!.Token);
 
                 await RefreshBadgesAsync(distillIds);
 
@@ -1245,7 +1209,7 @@ public partial class Harvest
             // Why: Task.Run moves the destructive orchestrator call off the Blazor sync context.
             // BlockVideoAsync owns block-first/delete-second ordering — never call a store delete directly.
             var result = await Task.Run(
-                () => MaintenanceOrchestrator.BlockVideoAsync(vm.VideoId, reason: null, progress, _cts.Token),
+                () => CreatorCoordinator.BlockVideoAsync(vm.VideoId, progress, _cts.Token),
                 _cts.Token);
 
             if (result.Success)

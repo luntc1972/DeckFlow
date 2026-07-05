@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using DeckFlow.Web.Services.Bracket;
 using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Http;
+using DeckFlow.Web.Services.Packets;
 using Polly;
 using Polly.Registry;
 using RestSharp;
@@ -71,7 +72,6 @@ public sealed record DeckAnalysisPacketResult(
 /// </summary>
 public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketService
 {
-    private const int ScryfallBatchSize = 75;
     private static readonly Regex AbilityWordRegex = AbilityWordPattern();
     private static readonly JsonSerializerOptions IndentedJsonSerializerOptions = new()
     {
@@ -84,6 +84,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     private readonly ICommanderSpellbookService _commanderSpellbookService;
     private readonly IGameChangerCatalogService _catalogService;
     private readonly IScryfallCardResolver _scryfallCardResolver;
+    private readonly ScryfallReferenceResolver _scryfallReferenceResolver;
     private readonly ILogger<DeckAnalysisPacketService> _logger;
     private readonly AnalysisPromptVariantRegistry _analysisPromptRegistry;
     private readonly SetUpgradePromptVariantRegistry _setUpgradePromptRegistry;
@@ -196,6 +197,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         ArgumentNullException.ThrowIfNull(setUpgradePromptRegistry);
         ArgumentNullException.ThrowIfNull(packetCache);
         _scryfallCardResolver = scryfallCardResolver;
+        _scryfallReferenceResolver = new ScryfallReferenceResolver(scryfallCardResolver);
         _deckEntryLoader = deckEntryLoader;
         _mechanicLookupService = mechanicLookupService;
         _commanderBanListService = commanderBanListService;
@@ -648,7 +650,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         }
 
         var inputSummary = BuildInputSummary(request, deckEntries, possibleIncludeEntries, commanderName);
-        var decklistText = BuildDecklistText(deckEntries, possibleIncludeEntries);
+        var decklistText = PacketTextAssembler.BuildSectionedDecklistText(deckEntries, possibleIncludeEntries);
         var requiresFullDecklists = AnalysisQuestionCatalog.RequiresFullDecklistOutput(request.SelectedAnalysisQuestions);
         var deckProfileSchemaJson = BuildDeckProfileSchemaJson(commanderName, request.Format, requiresFullDecklists);
         var requestContextText = BuildRequestContextText(request, commanderName);
@@ -916,15 +918,15 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
 
                 var includeCardVersions = AnalysisQuestionCatalog.RequiresFullDecklistOutput(selectedQuestions) && request.IncludeCardVersions;
                 var analysisDecklistText = includeCardVersions
-                    ? BuildDecklistText(deckEntries, analysisPossibleIncludeEntries, includeVersions: true, oracleNameMap: cardReferenceBundle.OracleNameMap)
-                    : BuildDecklistText(deckEntries, analysisPossibleIncludeEntries, oracleNameMap: cardReferenceBundle.OracleNameMap);
+                    ? PacketTextAssembler.BuildSectionedDecklistText(deckEntries, analysisPossibleIncludeEntries, includeVersions: true, oracleNameMap: cardReferenceBundle.OracleNameMap)
+                    : PacketTextAssembler.BuildSectionedDecklistText(deckEntries, analysisPossibleIncludeEntries, oracleNameMap: cardReferenceBundle.OracleNameMap);
                 // Keep the prompt-side combo-reference gate intact: only emit combo text when a combo
                 // question was selected, so widening the fetch for the score never changes prompt output.
                 var promptComboResult = requiresComboLookup ? comboResult : null;
                 analysisPromptText = BuildAnalysisPrompt(request, analysisDecklistText, referenceText, deckProfileSchemaJson, commanderName, selectedQuestions, bannedCards, promptComboResult, includeCardVersions, companionName, scoreBlockText, interactionAuditText, winConMapText);
                 if (wantsSetUpgradePacket)
                 {
-                    var oracleResolvedDecklistText = BuildDecklistText(deckEntries, possibleIncludeEntries, oracleNameMap: cardReferenceBundle.OracleNameMap);
+                    var oracleResolvedDecklistText = PacketTextAssembler.BuildSectionedDecklistText(deckEntries, possibleIncludeEntries, oracleNameMap: cardReferenceBundle.OracleNameMap);
                     setUpgradePromptText = BuildSetUpgradePrompt(request, oracleResolvedDecklistText, deckProfileText, commanderName, generatedSetPacket, bannedCards);
                 }
             }
@@ -1000,7 +1002,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     private string? _lastImportNotice;
 
     /// <summary>
-    /// Builds the short deck summary shown above the generated ChatGPT packets.
+    /// Builds the short deck summary shown above the generated prompt packets.
     /// </summary>
     private static string BuildInputSummary(DeckAnalysisRequest request, IReadOnlyList<DeckEntry> entries, IReadOnlyList<DeckEntry> possibleIncludeEntries, string? commanderName)
     {
@@ -1052,94 +1054,6 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         if (bracket is not null)
         {
             builder.AppendLine($"Target commander bracket: {bracket.Label}");
-        }
-
-        return builder.ToString().TrimEnd();
-    }
-
-    private static string FormatDecklistLine(DeckEntry entry, bool includeVersions, IReadOnlyDictionary<string, string>? oracleNameMap = null)
-    {
-        var name = entry.Name;
-        string? printedAs = null;
-        if (oracleNameMap is not null && oracleNameMap.TryGetValue(entry.Name, out var oracleName)
-            && !string.Equals(oracleName, entry.Name, StringComparison.OrdinalIgnoreCase))
-        {
-            printedAs = entry.Name;
-            name = oracleName;
-        }
-        if (includeVersions)
-        {
-            var slash = name.IndexOf(" // ", StringComparison.Ordinal);
-            if (slash >= 0) name = name[..slash].TrimEnd();
-        }
-        var line = $"{entry.Quantity} {name}";
-        if (includeVersions && !string.IsNullOrWhiteSpace(entry.SetCode))
-        {
-            line += $" ({entry.SetCode.ToUpperInvariant()})";
-            if (!string.IsNullOrWhiteSpace(entry.CollectorNumber))
-                line += $" {entry.CollectorNumber}";
-        }
-        if (printedAs is not null)
-        {
-            line += $" [printed as: {printedAs}]";
-        }
-        return line;
-    }
-
-    /// <summary>
-    /// Builds the analysis deck text, keeping possible includes separate from the playable list.
-    /// When <paramref name="includeVersions"/> is <see langword="true"/>, each commander and mainboard
-    /// line includes the set code and collector number when available.
-    /// </summary>
-    private static string BuildDecklistText(IReadOnlyList<DeckEntry> entries, IReadOnlyList<DeckEntry> possibleIncludeEntries, bool includeVersions = false, IReadOnlyDictionary<string, string>? oracleNameMap = null)
-    {
-        var commanderLines = entries
-            .Where(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(entry => FormatDecklistLine(entry, includeVersions, oracleNameMap))
-            .ToList();
-        var mainboardLines = entries
-            .Where(entry => !string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(entry => FormatDecklistLine(entry, includeVersions, oracleNameMap))
-            .ToList();
-
-        var builder = new StringBuilder();
-        if (commanderLines.Count > 0)
-        {
-            builder.AppendLine("Commander");
-            foreach (var line in commanderLines)
-            {
-                builder.AppendLine(line);
-            }
-
-            builder.AppendLine();
-        }
-
-        builder.AppendLine("Mainboard");
-        foreach (var line in mainboardLines)
-        {
-            builder.AppendLine(line);
-        }
-
-        if (possibleIncludeEntries.Count > 0)
-        {
-            builder.AppendLine();
-            builder.AppendLine("Possible Includes");
-            foreach (var line in possibleIncludeEntries
-                         .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
-                         .Select(entry =>
-                         {
-                             if (oracleNameMap is not null && oracleNameMap.TryGetValue(entry.Name, out var oracleName)
-                                 && !string.Equals(oracleName, entry.Name, StringComparison.OrdinalIgnoreCase))
-                             {
-                                 return $"{entry.Quantity} {oracleName} [printed as: {entry.Name}]";
-                             }
-                             return $"{entry.Quantity} {entry.Name}";
-                         }))
-            {
-                builder.AppendLine(line);
-            }
         }
 
         return builder.ToString().TrimEnd();
@@ -1898,7 +1812,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     }
 
     /// <summary>
-    /// Returns the deck-profile schema that ChatGPT should follow during analysis.
+    /// Returns the deck-profile schema that the prompt should follow during analysis.
     /// </summary>
     private static string BuildDeckProfileSchemaJson(string? commanderName, string format, bool includeFullDecklists = false)
     {
@@ -1961,92 +1875,77 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             return new CardReferenceBundle(Array.Empty<CardReference>(), Array.Empty<string>(), new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
         }
 
-        var resolvedCards = new Dictionary<string, CardReference>(StringComparer.OrdinalIgnoreCase);
-        var oracleNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var mechanicNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var chunk in Chunk(cardRequests, ScryfallBatchSize))
+        // Cluster A delegation: the shared resolver owns chunk(75) -> cards/collection -> validate ->
+        // match-back-by-original-name -> per-miss-fallback. Analysis keeps its OWN fallback strategy
+        // (SearchPrintingFallbackCardAsync, the richer all-printings search) and its OWN
+        // NormalizeForScryfall pre-submission normalization (normalizeForScryfall: true) — neither
+        // choice is hardcoded in the collaborator.
+        var requestByName = new Dictionary<string, CardReferenceRequest>(StringComparer.OrdinalIgnoreCase);
+        foreach (var cardRequest in cardRequests)
         {
-            var request = new RestRequest("cards/collection", Method.Post);
-            request.AddJsonBody(new
+            requestByName[cardRequest.Name] = cardRequest;
+        }
+
+        ScryfallBatchResolution batchResolution;
+        try
+        {
+            batchResolution = await _scryfallReferenceResolver.ResolveBatchAsync(
+                cardRequests.Select(card => card.Name).ToList(),
+                _scryfallCardResolver.SearchPrintingFallbackCardAsync,
+                normalizeForScryfall: true,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (ScryfallReferenceCollectionException exception)
+        {
+            // Preserve Analysis's own cards/collection-CALL message text verbatim. Catching the narrow
+            // ScryfallReferenceCollectionException (not a plain HttpRequestException) is load-bearing:
+            // a per-name printing-fallback failure must propagate with its ORIGINAL upstream message so
+            // UpstreamErrorMessageBuilder produces the generic "Scryfall returned HTTP {n}" copy it did
+            // pre-Phase-83 — re-labeling it here would flip which BuildDetailedScryfallMessage branch
+            // fires (WR-01).
+            throw new HttpRequestException(
+                $"Scryfall card reference lookup (cards/collection) returned HTTP {(int)(exception.StatusCode ?? 0)} while building the analysis packet.",
+                null,
+                exception.StatusCode);
+        }
+
+        var mechanicNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var resolvedCards = new List<CardReference>();
+        foreach (var resolution in batchResolution.Resolutions)
+        {
+            var matchingRequest = requestByName[resolution.RequestName];
+            var card = resolution.Card;
+
+            // Analysis-only: fallback-resolved cards get an annotated display name when the resolved
+            // card's own name doesn't match the submitted name under lookup-normalization; a direct
+            // collection hit always uses the card's own Name verbatim.
+            var name = resolution.FromFallback
+                ? (ScryfallCardResolver.NormalizeLookupName(resolution.RequestName) == ScryfallCardResolver.NormalizeLookupName(card.Name)
+                    ? card.Name
+                    : $"submitted_name: {resolution.RequestName} | resolved_card: {card.Name}")
+                : card.Name;
+
+            resolvedCards.Add(new CardReference(
+                matchingRequest.Scope,
+                name,
+                card.ManaCost ?? string.Empty,
+                card.TypeLine,
+                NormalizeOracleText(card),
+                IsModalDfcLand(card),
+                card.ReleasedAt,
+                matchingRequest.Quantity,
+                matchingRequest.IsCommander));
+
+            foreach (var mechanicName in ExtractMechanicNames(card))
             {
-                identifiers = chunk.Select(card => new { name = ScryfallCardResolver.NormalizeForScryfall(card.Name) }).ToArray()
-            });
-
-            var response = await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
-            if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
-            {
-                throw new HttpRequestException(
-                    $"Scryfall card reference lookup (cards/collection) returned HTTP {(int)response.StatusCode} while building the analysis packet.",
-                    null,
-                    response.StatusCode);
-            }
-
-            foreach (var card in response.Data.Data)
-            {
-                var matchingRequest = chunk.FirstOrDefault(entry => string.Equals(entry.Name, card.Name, StringComparison.OrdinalIgnoreCase));
-                if (matchingRequest is null)
-                {
-                    continue;
-                }
-
-                oracleNameMap[matchingRequest.Name] = card.Name;
-                resolvedCards[matchingRequest.Name] = new CardReference(
-                    matchingRequest.Scope,
-                    card.Name,
-                    card.ManaCost ?? string.Empty,
-                    card.TypeLine,
-                    NormalizeOracleText(card),
-                    IsModalDfcLand(card),
-                    card.ReleasedAt,
-                    matchingRequest.Quantity,
-                    matchingRequest.IsCommander);
-
-                foreach (var mechanicName in ExtractMechanicNames(card))
-                {
-                    mechanicNames.Add(mechanicName);
-                }
-            }
-
-            foreach (var unresolvedRequest in chunk.Where(card => !resolvedCards.ContainsKey(card.Name)))
-            {
-                var fallbackCard = await _scryfallCardResolver.SearchPrintingFallbackCardAsync(unresolvedRequest.Name, cancellationToken).ConfigureAwait(false);
-                if (fallbackCard is null)
-                {
-                    continue;
-                }
-
-                oracleNameMap[unresolvedRequest.Name] = fallbackCard.Name;
-                var displayName = ScryfallCardResolver.NormalizeLookupName(unresolvedRequest.Name) == ScryfallCardResolver.NormalizeLookupName(fallbackCard.Name)
-                    ? fallbackCard.Name
-                    : $"submitted_name: {unresolvedRequest.Name} | resolved_card: {fallbackCard.Name}";
-
-                resolvedCards[unresolvedRequest.Name] = new CardReference(
-                    unresolvedRequest.Scope,
-                    displayName,
-                    fallbackCard.ManaCost ?? string.Empty,
-                    fallbackCard.TypeLine,
-                    NormalizeOracleText(fallbackCard),
-                    IsModalDfcLand(fallbackCard),
-                    fallbackCard.ReleasedAt,
-                    unresolvedRequest.Quantity,
-                    unresolvedRequest.IsCommander);
-
-                foreach (var mechanicName in ExtractMechanicNames(fallbackCard))
-                {
-                    mechanicNames.Add(mechanicName);
-                }
+                mechanicNames.Add(mechanicName);
             }
         }
 
-        var cardReferences = cardRequests
-            .Where(card => resolvedCards.ContainsKey(card.Name))
-            .Select(card => resolvedCards[card.Name])
-            .ToList();
-
         return new CardReferenceBundle(
-            cardReferences,
+            resolvedCards,
             mechanicNames.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList(),
-            oracleNameMap);
+            batchResolution.OracleNameMap);
     }
 
     private async Task<string> ValidateCommanderAsync(IReadOnlyList<DeckEntry> entries, string? commanderName, CancellationToken cancellationToken)
@@ -2167,21 +2066,6 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
     }
 
-    private static IEnumerable<List<T>> Chunk<T>(IReadOnlyList<T> values, int size)
-    {
-        for (var index = 0; index < values.Count; index += size)
-        {
-            var count = Math.Min(size, values.Count - index);
-            var chunk = new List<T>(count);
-            for (var itemIndex = 0; itemIndex < count; itemIndex++)
-            {
-                chunk.Add(values[index + itemIndex]);
-            }
-
-            yield return chunk;
-        }
-    }
-
     internal static string NormalizeSingleLine(string? value, string fallback)
         => string.IsNullOrWhiteSpace(value) ? fallback : CollapseWhitespace(value);
 
@@ -2240,18 +2124,18 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     {
         var builder = new StringBuilder();
         builder.AppendLine($"workflow_step: {request.WorkflowStep}");
-        builder.AppendLine($"format: {NormalizeSingleLine(request.Format, "Commander")}");
-        builder.AppendLine($"deck_name: {NormalizeSingleLine(request.DeckName, string.Empty)}");
-        builder.AppendLine($"commander: {NormalizeSingleLine(commanderName, string.Empty)}");
-        builder.AppendLine($"target_commander_bracket: {NormalizeSingleLine(request.TargetCommanderBracket, string.Empty)}");
-        builder.AppendLine($"target_ai_platform: {NormalizeSingleLine(request.TargetAiPlatform, "ChatGPT")}");
+        PacketTextAssembler.AppendKeyValueLine(builder, "format", request.Format, "Commander", NormalizeSingleLine);
+        PacketTextAssembler.AppendKeyValueLine(builder, "deck_name", request.DeckName, string.Empty, NormalizeSingleLine);
+        PacketTextAssembler.AppendKeyValueLine(builder, "commander", commanderName, string.Empty, NormalizeSingleLine);
+        PacketTextAssembler.AppendKeyValueLine(builder, "target_commander_bracket", request.TargetCommanderBracket, string.Empty, NormalizeSingleLine);
+        PacketTextAssembler.AppendKeyValueLine(builder, "target_ai_platform", request.TargetAiPlatform, "ChatGPT", NormalizeSingleLine);
         builder.AppendLine($"include_candidate_references_in_analysis: {request.IncludeCandidateReferencesInAnalysis}");
         builder.AppendLine("card_specific_question_card_names:");
         foreach (var cardName in request.CardSpecificQuestionCardNames)
         {
             builder.AppendLine($"- {NormalizeSingleLine(cardName, string.Empty)}");
         }
-        builder.AppendLine($"budget_upgrade_amount: {NormalizeSingleLine(request.BudgetUpgradeAmount, string.Empty)}");
+        PacketTextAssembler.AppendKeyValueLine(builder, "budget_upgrade_amount", request.BudgetUpgradeAmount, string.Empty, NormalizeSingleLine);
         builder.AppendLine("selected_analysis_questions:");
         foreach (var questionId in AnalysisQuestionCatalog.NormalizeSelections(request.SelectedAnalysisQuestions))
         {

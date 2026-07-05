@@ -45,20 +45,20 @@ test('verbosity layout picker available on mobile and defaults to Compact', asyn
 
   expect(response?.ok()).toBeTruthy();
 
-  const picker = page.locator('[data-chatgpt-ui-mode-picker]');
-  const form = page.locator('.chatgpt-packets-form');
+  const picker = page.locator('[data-prompt-ui-mode-picker]');
+  const form = page.locator('.prompt-packets-form');
 
   await expect(picker).toBeVisible();
   await expect(form).toBeVisible();
 
   if (isMobile) {
-    await expect(form).toHaveAttribute('data-chatgpt-ui-mode', 'focused');
-    await expect(page.locator('[data-chatgpt-ui-mode-button="focused"]')).toHaveClass(/is-active/);
+    await expect(form).toHaveAttribute('data-prompt-ui-mode', 'focused');
+    await expect(page.locator('[data-prompt-ui-mode-button="focused"]')).toHaveClass(/is-active/);
     return;
   }
 
-  await expect(form).toHaveAttribute('data-chatgpt-ui-mode', 'guided');
-  await expect(page.locator('[data-chatgpt-ui-mode-button="guided"]')).toHaveClass(/is-active/);
+  await expect(form).toHaveAttribute('data-prompt-ui-mode', 'guided');
+  await expect(page.locator('[data-prompt-ui-mode-button="guided"]')).toHaveClass(/is-active/);
 });
 
 test('download-session button is not the primary run-button on mobile', async ({ page }) => {
@@ -67,7 +67,7 @@ test('download-session button is not the primary run-button on mobile', async ({
 
   expect(response?.ok()).toBeTruthy();
 
-  const downloadButton = page.locator('.chatgpt-sticky-download__button');
+  const downloadButton = page.locator('.prompt-sticky-download__button');
 
   await expect(downloadButton).toBeVisible();
 
@@ -75,7 +75,7 @@ test('download-session button is not the primary run-button on mobile', async ({
     return;
   }
 
-  const nextButton = page.locator('[data-chatgpt-next-step]').first();
+  const nextButton = page.locator('[data-prompt-next-step]').first();
   await expect(nextButton).toBeVisible();
 
   const downloadBackground = await downloadButton.evaluate((element) => getComputedStyle(element).backgroundColor);
@@ -90,13 +90,13 @@ test('mobile workflow stepper is compact (no hidden scroll, numbers shown)', asy
 
   expect(response?.ok()).toBeTruthy();
 
-  const nav = page.locator('.chatgpt-step-nav');
+  const nav = page.locator('.prompt-step-nav');
   await expect(nav).toBeVisible();
   expect(await nav.count()).toBeGreaterThan(0);
 
-  const firstTab = nav.locator('.chatgpt-step-tab').first();
-  const firstNumber = firstTab.locator('.chatgpt-step-tab__num');
-  const firstLabel = firstTab.locator('.chatgpt-step-tab__label');
+  const firstTab = nav.locator('.prompt-step-tab').first();
+  const firstNumber = firstTab.locator('.prompt-step-tab__num');
+  const firstLabel = firstTab.locator('.prompt-step-tab__label');
 
   if (isMobile) {
     expect(await nav.evaluate((el) => el.scrollWidth <= el.clientWidth + 2)).toBe(true);

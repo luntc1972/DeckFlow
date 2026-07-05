@@ -1,6 +1,12 @@
+---
+status: resolved
+created: 2026-06-24
+updated: 2026-07-05
+---
+
 # Implementation spec — manabase health-band headline floor (Approach 1)
 
-Status: REVIEWED by Codex (gpt-5.5), BLOCK→folded. Ready to implement.
+Status: resolved — shipped (was: REVIEWED by Codex (gpt-5.5), BLOCK→folded. Ready to implement).
 Flag-gated, default OFF. Cross-cutting (changes verdict label for every prod deck) — measure before/after.
 
 ## Problem
@@ -161,3 +167,16 @@ Only Brago flips. Flag OFF = byte-identical to today for all 9.
 Core + Web build clean, no new warnings. Full Core + Web suites green
 (11 PG-skip expected). Flag OFF inert. New flag seeded both providers.
 README/help untouched (flag default OFF, no behavior change shipped).
+
+## Resolution (closed 2026-07-05)
+
+Implemented and shipped as `bd26ac4b feat(manabase): add headline-floor health band`.
+The headline-floor promote logic (`simFunctions` gated on `AvgOnCurvePercent`,
+`WorstColorCastPercent`, `!AnySevereColorDeficit`, `!BroadColorUnderSupport`) landed
+per this spec, together with the sibling Approach 2 castability coupling
+(`d6a1b4be feat(manabase): flag-gate health-band castability coupling (Gate C)`) and
+its regression guard (`54c155ff test(manabase): Avatar health-band regression guard
+for Gate C`). The flag key was later namespaced to
+`analysis.manabase.health-band-headline-floor` under quick task `260627-flag-key-namespacing`
+(`2d8b1a7b`). Part of the Cycle 12 manabase verdict overhaul; not a Cycle 15 item.
+Marked resolved.

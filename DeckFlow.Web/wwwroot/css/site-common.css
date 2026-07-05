@@ -92,7 +92,7 @@ div.warning-banner {
 }
 
 /* In-page anchor jumps (heading IDs, back-to-top) should not land underneath
-   sticky chrome like .global-job-notice or .chatgpt-sticky-download. */
+   sticky chrome like .global-job-notice or .prompt-sticky-download. */
 h1,
 h2,
 h3,
@@ -235,17 +235,17 @@ summary:focus-visible,
    no secondary-button style yet. Give the print button an outline treatment
    using the standard --accent / --accent-strong tokens that every guild theme
    defines, so it reads as secondary in all themes from one place (no 24-file
-   fork). The compound selector (.run-button.chatgpt-print-button, 0-2-0) out-
+   fork). The compound selector (.run-button.prompt-print-button, 0-2-0) out-
    specifies each theme's plain .run-button (0-1-0), so it wins regardless of
    stylesheet load order. */
-.run-button.chatgpt-print-button {
+.run-button.prompt-print-button {
   background: transparent;
   color: var(--accent);
   border-color: var(--accent);
   box-shadow: none;
 }
 
-.run-button.chatgpt-print-button:hover {
+.run-button.prompt-print-button:hover {
   /* Keep the accent-colored label (its contrast against the page bg is already
      theme-verified) on a subtle accent wash — do NOT fill with a hardcoded white
      label, because --accent-strong is a LIGHT glow tint in several dark themes,
@@ -372,7 +372,7 @@ summary:focus-visible,
 
 .hub-card:hover,
 .hub-card:focus-visible {
-  border-color: var(--accent-strong, var(--line));
+  border-color: var(--focus, var(--accent-strong, var(--line)));
   transform: translateY(-1px);
   box-shadow: 0 8px 24px rgba(26, 31, 46, 0.08);
 }
@@ -573,7 +573,7 @@ summary:focus-visible,
 .kb-chip--pinned,
 .kb-chip--followed {
   border-color: var(--accent);
-  color: var(--accent-strong);
+  color: var(--link, var(--accent-strong));
 }
 
 .kb-chip__label {
@@ -617,7 +617,7 @@ summary:focus-visible,
 
 .kb-clip-origin--pinned,
 .kb-clip-origin--followed {
-  color: var(--accent-strong);
+  color: var(--link, var(--accent-strong));
   background: var(--panel-soft-bg);
 }
 
@@ -652,7 +652,7 @@ summary:focus-visible,
 
 /* Separate the Analysis questions picker from the candidate-references panel
    directly above it; the picker section itself only carries a bottom margin. */
-.chatgpt-question-picker {
+.prompt-question-picker {
   margin-top: 1.5rem;
 }
 
@@ -691,7 +691,7 @@ summary:focus-visible,
 
 .hub-hero:hover,
 .hub-hero:focus-visible {
-  border-color: var(--accent-strong, var(--line));
+  border-color: var(--focus, var(--accent-strong, var(--line)));
   box-shadow: 0 8px 24px rgba(26, 31, 46, 0.08);
 }
 
@@ -727,7 +727,7 @@ summary:focus-visible,
 
 .hub-card--primary:hover,
 .hub-card--primary:focus-visible {
-  border-color: var(--accent-strong, var(--cta-border, var(--accent, var(--line))));
+  border-color: var(--focus, var(--accent-strong, var(--cta-border, var(--accent, var(--line)))));
 }
 
 .hub-card--status {
@@ -735,16 +735,16 @@ summary:focus-visible,
   background: var(--panel-soft-bg);
 }
 
-.chatgpt-page-toolbar {
+.prompt-page-toolbar {
   align-items: stretch;
   justify-content: flex-end;
 }
 
-.chatgpt-step-footer {
+.prompt-step-footer {
   flex-wrap: wrap;
 }
 
-.chatgpt-layout-picker {
+.prompt-layout-picker {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
@@ -755,14 +755,14 @@ summary:focus-visible,
   background: transparent;
 }
 
-.chatgpt-layout-picker__label {
+.prompt-layout-picker__label {
   font-size: var(--fs-sm);
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--muted);
 }
 
-.chatgpt-layout-picker__segments {
+.prompt-layout-picker__segments {
   display: inline-flex;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -770,7 +770,7 @@ summary:focus-visible,
   background: var(--panel, transparent);
 }
 
-.chatgpt-layout-segment {
+.prompt-layout-segment {
   appearance: none;
   border: 0;
   border-left: 1px solid var(--line);
@@ -783,17 +783,18 @@ summary:focus-visible,
   line-height: 1.1;
 }
 
-.chatgpt-layout-segment:first-child {
+.prompt-layout-segment:first-child {
   border-left: 0;
 }
 
-.chatgpt-layout-segment:hover,
-.chatgpt-layout-segment:focus-visible {
-  background: rgba(43, 108, 176, 0.08);
+.prompt-layout-segment:hover,
+.prompt-layout-segment:focus-visible {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
-.chatgpt-layout-picker .chatgpt-layout-segment.is-active {
-  background: rgba(43, 108, 176, 0.15);
+/* Phase 84: decorative brand emphasis, intentionally stays on --accent-strong (D2) */
+.prompt-layout-picker .prompt-layout-segment.is-active {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
   color: var(--accent-strong, var(--accent));
   font-weight: 600;
 }
@@ -1006,6 +1007,7 @@ summary:focus-visible,
     text-decoration: none;
     cursor: default;
 }
+/* Phase 84: decorative brand emphasis, intentionally stays on --accent-strong (D2) */
 .page-footer__link--cta {
     padding: 0.35rem 0.9rem;
     border: 1px solid var(--cta-border);
@@ -1068,11 +1070,11 @@ summary:focus-visible,
 /* cEDH meta-gap reference table — sortable column headers (260530-c72).
    nowrap stops the desktop headers wrapping char-by-char; the in-cell button
    makes the heading a real control with an aria-sort-driven direction glyph. */
-table[data-chatgpt-cedh-reference-table] th {
+table[data-prompt-cedh-reference-table] th {
   white-space: nowrap;
 }
 
-table[data-chatgpt-cedh-reference-table] .cedh-sort-button {
+table[data-prompt-cedh-reference-table] .cedh-sort-button {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
@@ -1088,34 +1090,34 @@ table[data-chatgpt-cedh-reference-table] .cedh-sort-button {
   touch-action: manipulation;
 }
 
-table[data-chatgpt-cedh-reference-table] .cedh-sort-button:hover {
+table[data-prompt-cedh-reference-table] .cedh-sort-button:hover {
   text-decoration: underline;
 }
 
-table[data-chatgpt-cedh-reference-table] .cedh-sort-indicator::after {
+table[data-prompt-cedh-reference-table] .cedh-sort-indicator::after {
   content: "\2195"; /* ↕ idle */
   opacity: 0.4;
   font-size: 0.85em;
 }
 
-table[data-chatgpt-cedh-reference-table] th[aria-sort="ascending"] .cedh-sort-indicator::after {
+table[data-prompt-cedh-reference-table] th[aria-sort="ascending"] .cedh-sort-indicator::after {
   content: "\25B2"; /* ▲ */
   opacity: 1;
 }
 
-table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-indicator::after {
+table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-indicator::after {
   content: "\25BC"; /* ▼ */
   opacity: 1;
 }
 
 /* cEDH meta-gap reference table — mobile card layout (260530-c72).
-   Scoped to [data-chatgpt-cedh-reference-table] so the shared .conflicts-table
+   Scoped to [data-prompt-cedh-reference-table] so the shared .conflicts-table
    on DeckSync / CommanderCategories is intentionally untouched. At narrow
    widths the 9-column table collapses to one card per row: a header band
    (checkbox + rank + player) over a tight label:value grid for the rest. */
 @media (max-width: 600px) {
   /* Hide the header row visually but keep it for assistive tech. */
-  table[data-chatgpt-cedh-reference-table] thead {
+  table[data-prompt-cedh-reference-table] thead {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -1127,14 +1129,14 @@ table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-i
     border: 0;
   }
 
-  table[data-chatgpt-cedh-reference-table],
-  table[data-chatgpt-cedh-reference-table] tbody {
+  table[data-prompt-cedh-reference-table],
+  table[data-prompt-cedh-reference-table] tbody {
     display: block;
     width: 100%;
   }
 
   /* Each row is a card; header cells share row 1, the rest stack full-width. */
-  table[data-chatgpt-cedh-reference-table] tr {
+  table[data-prompt-cedh-reference-table] tr {
     display: grid;
     grid-template-columns: max-content max-content 1fr;
     align-items: center;
@@ -1147,37 +1149,37 @@ table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-i
 
   /* Zero the base .conflicts-table cell borders so they don't bleed through the
      card grid as stray partial lines; intended dividers are re-added below. */
-  table[data-chatgpt-cedh-reference-table] td,
-  table[data-chatgpt-cedh-reference-table] th {
+  table[data-prompt-cedh-reference-table] td,
+  table[data-prompt-cedh-reference-table] th {
     border: 0;
   }
 
   /* --- Header band: checkbox + #rank + player --- */
-  table[data-chatgpt-cedh-reference-table] td[data-label="Select"] {
+  table[data-prompt-cedh-reference-table] td[data-label="Select"] {
     grid-column: 1;
     margin: 0;
     padding: 0;
   }
 
   /* Enlarge the checkbox to a comfortable touch target (WIG: >=44px hit area). */
-  table[data-chatgpt-cedh-reference-table] td[data-label="Select"] input[type="checkbox"] {
+  table[data-prompt-cedh-reference-table] td[data-label="Select"] input[type="checkbox"] {
     width: 1.35rem;
     height: 1.35rem;
     margin: 0;
     touch-action: manipulation;
   }
 
-  table[data-chatgpt-cedh-reference-table] td[data-label="#"] {
+  table[data-prompt-cedh-reference-table] td[data-label="#"] {
     grid-column: 2;
     font-weight: 700;
   }
 
-  table[data-chatgpt-cedh-reference-table] td[data-label="#"]::before {
+  table[data-prompt-cedh-reference-table] td[data-label="#"]::before {
     content: "#";
     color: var(--muted, inherit);
   }
 
-  table[data-chatgpt-cedh-reference-table] td[data-label="Player"] {
+  table[data-prompt-cedh-reference-table] td[data-label="Player"] {
     grid-column: 3;
     font-weight: 700;
   }
@@ -1185,7 +1187,7 @@ table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-i
   /* --- Remaining fields: full-width label:value rows.
      No per-row rules — vertical rhythm (tr row-gap) carries separation; a single
      divider under the header band is enough. --- */
-  table[data-chatgpt-cedh-reference-table] td:not([data-label="Select"]):not([data-label="#"]):not([data-label="Player"]) {
+  table[data-prompt-cedh-reference-table] td:not([data-label="Select"]):not([data-label="#"]):not([data-label="Player"]) {
     grid-column: 1 / -1;
     display: grid;
     grid-template-columns: 6.5rem 1fr;
@@ -1196,13 +1198,13 @@ table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-i
   }
 
   /* Single divider: the first label:value row separates from the header band. */
-  table[data-chatgpt-cedh-reference-table] td[data-label="Date"] {
+  table[data-prompt-cedh-reference-table] td[data-label="Date"] {
     margin-top: 0.55rem;
     padding-top: 0.6rem;
     border-top: 1px solid var(--line, currentColor);
   }
 
-  table[data-chatgpt-cedh-reference-table] td:not([data-label="Select"]):not([data-label="#"]):not([data-label="Player"])::before {
+  table[data-prompt-cedh-reference-table] td:not([data-label="Select"]):not([data-label="#"]):not([data-label="Player"])::before {
     content: attr(data-label);
     font-weight: 600;
     color: var(--muted, inherit);
@@ -1210,7 +1212,7 @@ table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-i
   }
 
   /* "Open" decklist link — comfortable tap target (WIG: hit area). */
-  table[data-chatgpt-cedh-reference-table] td[data-label="Decklist"] a {
+  table[data-prompt-cedh-reference-table] td[data-label="Decklist"] a {
     display: inline-block;
     padding: 0.2rem 0;
     min-height: 1.75rem;
@@ -1218,9 +1220,9 @@ table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-i
   }
 
   /* Selected-state affordance for the pick-1-to-3 list. */
-  table[data-chatgpt-cedh-reference-table] tr:has([data-chatgpt-cedh-reference-checkbox]:checked) {
-    border-color: var(--accent-strong, var(--accent, currentColor));
-    box-shadow: 0 0 0 1px var(--accent-strong, var(--accent, currentColor));
+  table[data-prompt-cedh-reference-table] tr:has([data-prompt-cedh-reference-checkbox]:checked) {
+    border-color: var(--cta-border, var(--accent-strong, var(--accent, currentColor)));
+    box-shadow: 0 0 0 1px var(--cta-border, var(--accent-strong, var(--accent, currentColor)));
   }
 }
 
@@ -1263,7 +1265,7 @@ table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-i
     line-height: 1.6;
 }
 .about-page a {
-    color: var(--accent-strong, var(--accent));
+    color: var(--link, var(--accent-strong, var(--accent)));
     text-decoration: none;
 }
 .about-page a:hover,
@@ -1297,7 +1299,7 @@ table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-i
 }
 .help-index__link {
     font-weight: 600;
-    color: var(--accent-strong, var(--accent));
+    color: var(--link, var(--accent-strong, var(--accent)));
     text-decoration: none;
 }
 .help-index__link:hover,
@@ -1315,7 +1317,7 @@ table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-i
     color: var(--muted, inherit);
 }
 .help-breadcrumb a {
-    color: var(--accent-strong, var(--accent));
+    color: var(--link, var(--accent-strong, var(--accent)));
     text-decoration: none;
 }
 .help-breadcrumb a:hover,
@@ -1327,7 +1329,7 @@ table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-i
 }
 .kb-back-link {
     display: inline-block;
-    color: var(--accent-strong, var(--accent));
+    color: var(--link, var(--accent-strong, var(--accent)));
     text-decoration: none;
     font-size: var(--fs-base);
 }
@@ -1353,7 +1355,7 @@ table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-i
     margin-top: 1.5em;
 }
 .help-prose a {
-    color: var(--accent-strong, var(--accent));
+    color: var(--link, var(--accent-strong, var(--accent)));
     text-decoration: none;
 }
 .help-prose a:hover,
@@ -1409,6 +1411,7 @@ table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-i
     padding: 0.5rem;
     font: inherit;
 }
+/* Phase 84: decorative brand emphasis, intentionally stays on --accent-strong (D2) */
 .feedback-submit {
     align-self: flex-start;
     background: var(--accent-strong);
@@ -1849,8 +1852,8 @@ table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-i
   outline: 0;
 }
 
-/* ChatGPT sticky download bar — always-available zip save across the three ChatGPT workflow pages */
-.chatgpt-sticky-download {
+/* Prompt sticky download bar — always-available zip save across the three prompt workflow pages */
+.prompt-sticky-download {
     position: sticky;
     top: 0;
     z-index: 10;
@@ -1866,14 +1869,14 @@ table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-i
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
 }
 
-.chatgpt-sticky-download__label {
+.prompt-sticky-download__label {
     flex: 1 1 220px;
     color: var(--muted);
     font-size: 0.9rem;
     line-height: 1.3;
 }
 
-.chatgpt-sticky-download__button {
+.prompt-sticky-download__button {
     flex: 0 0 auto;
     padding: 8px 18px;
     font-weight: 600;
@@ -1909,7 +1912,7 @@ table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-i
 }
 
 /* Why: number shown only in the compact mobile stepper */
-.chatgpt-step-tab__num {
+.prompt-step-tab__num {
     display: none;
 }
 
@@ -1943,7 +1946,7 @@ table[data-chatgpt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-i
 }
 
 .ai-selector__option:checked + .ai-selector__option-label {
-    border-color: var(--accent-strong);
+    border-color: var(--cta-border, var(--accent-strong));
     background: var(--panel-soft-bg);
     font-weight: 600;
     color: var(--accent-strong);
@@ -2032,7 +2035,7 @@ details.info-tooltip > summary::marker {
 }
 
 details.info-tooltip > summary:focus-visible {
-    outline: 2px solid var(--accent-strong, var(--accent));
+    outline: 2px solid var(--focus, var(--accent-strong, var(--accent)));
     outline-offset: 2px;
 }
 
@@ -2050,33 +2053,33 @@ details.info-tooltip > p {
    The Step 2 helper-panel is best-practice guidance, not an action, so it is a
    <details> that stays tucked away by default while keeping its info-banner
    highlight. Layout rules live here (D-07) so every theme fork inherits them;
-   the .chatgpt-helper-panel background/padding still come from each theme. */
-details.chatgpt-helper-panel > summary {
+   the .prompt-helper-panel background/padding still come from each theme. */
+details.prompt-helper-panel > summary {
     cursor: pointer;
     list-style: none;
     user-select: none;
 }
 
-details.chatgpt-helper-panel > summary::-webkit-details-marker {
+details.prompt-helper-panel > summary::-webkit-details-marker {
     display: none;
 }
-details.chatgpt-helper-panel > summary::marker {
+details.prompt-helper-panel > summary::marker {
     content: "";
 }
 
 /* Disclosure caret so the summary still reads as expandable. */
-details.chatgpt-helper-panel > summary::after {
+details.prompt-helper-panel > summary::after {
     content: "▸";
     margin-left: 0.4rem;
     font-size: var(--fs-xs);
     color: var(--muted, inherit);
 }
-details.chatgpt-helper-panel[open] > summary::after {
+details.prompt-helper-panel[open] > summary::after {
     content: "▾";
 }
 
-details.chatgpt-helper-panel > summary:focus-visible {
-    outline: 2px solid var(--accent-strong, var(--accent));
+details.prompt-helper-panel > summary:focus-visible {
+    outline: 2px solid var(--focus, var(--accent-strong, var(--accent)));
     outline-offset: 2px;
 }
 
@@ -2478,7 +2481,7 @@ label.field > span,
 
 /* Keyboard focus must be visible even though the native radio is hidden. */
 .manabase-pill > input:focus-visible + span {
-  outline: 2px solid var(--accent-strong, var(--accent, #3858a6));
+  outline: 2px solid var(--focus, var(--accent-strong, var(--accent, #3858a6)));
   outline-offset: 3px;
   border-radius: 4px;
 }
@@ -2962,6 +2965,7 @@ label.field > span,
   background: color-mix(in srgb, #1d4ed8 14%, var(--panel-soft-bg, transparent));
 }
 
+/* Phase 84: decorative brand emphasis, intentionally stays on --accent-strong (D2) */
 .bracket-badge--b3 {
   border-left-color: var(--accent-strong, #7c3aed);
   background: color-mix(in srgb, var(--accent-strong, #7c3aed) 14%, var(--panel-soft-bg, transparent));
@@ -3069,11 +3073,11 @@ label.field > span,
    to read on both light (site.css) and dark (site-nyx.css) themes. The ramp is
    a single-hue light->dark blue intensity scale (more filled = more of this
    axis), NOT a green=good/red=bad heat ramp — a high band is "more", not "better". */
-.chatgpt-score {
+.prompt-score {
   margin: 0 0 1.25rem;
 }
 
-.chatgpt-score__eyebrow {
+.prompt-score__eyebrow {
   margin: 0 0 0.65rem;
   font-size: 0.72rem;
   text-transform: uppercase;
@@ -3081,13 +3085,13 @@ label.field > span,
   color: var(--muted, #5a6472);
 }
 
-.chatgpt-score-grid {
+.prompt-score-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
 }
 
-.chatgpt-score-card {
+.prompt-score-card {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3099,7 +3103,7 @@ label.field > span,
   padding: 0.85rem 1rem;
 }
 
-.chatgpt-score-label {
+.prompt-score-label {
   font-size: 0.72rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -3107,19 +3111,19 @@ label.field > span,
   color: var(--muted, #5a6472);
 }
 
-.chatgpt-score-value {
+.prompt-score-value {
   font-size: 2.4rem;
   font-weight: 700;
   line-height: 1.05;
   color: var(--accent-strong, var(--accent, inherit));
 }
 
-.chatgpt-score-meter {
+.prompt-score-meter {
   display: flex;
   gap: 0.25rem;
 }
 
-.chatgpt-score-pip {
+.prompt-score-pip {
   width: 0.7rem;
   height: 0.7rem;
   border-radius: 999px;
@@ -3127,12 +3131,12 @@ label.field > span,
   border: 1px solid var(--line, rgba(0, 0, 0, 0.3));
 }
 
-.chatgpt-score-pip--filled {
+.prompt-score-pip--filled {
   background: var(--accent-strong, var(--accent, #3b82f6));
   border-color: var(--accent-strong, var(--accent, #3b82f6));
 }
 
-.chatgpt-score-band {
+.prompt-score-band {
   display: inline-block;
   padding: 0.15rem 0.7rem;
   font-size: 0.74rem;
@@ -3141,20 +3145,20 @@ label.field > span,
 }
 
 /* Baked-hex band fills (None -> Extreme); each carries its own legible ink. */
-.chatgpt-score-band--0 { background: #cbd5e1; color: #1c1917; }
-.chatgpt-score-band--1 { background: #93c5fd; color: #1c1917; }
-.chatgpt-score-band--2 { background: #60a5fa; color: #0b1220; }
-.chatgpt-score-band--3 { background: #3b82f6; color: #ffffff; }
-.chatgpt-score-band--4 { background: #2563eb; color: #ffffff; }
-.chatgpt-score-band--5 { background: #1e3a8a; color: #ffffff; }
+.prompt-score-band--0 { background: #cbd5e1; color: #1c1917; }
+.prompt-score-band--1 { background: #93c5fd; color: #1c1917; }
+.prompt-score-band--2 { background: #60a5fa; color: #0b1220; }
+.prompt-score-band--3 { background: #3b82f6; color: #ffffff; }
+.prompt-score-band--4 { background: #2563eb; color: #ffffff; }
+.prompt-score-band--5 { background: #1e3a8a; color: #ffffff; }
 
-.chatgpt-score-rationale {
+.prompt-score-rationale {
   font-size: var(--fs-xs, 0.74rem);
   color: var(--muted, #5a6472);
   line-height: 1.35;
 }
 
-.chatgpt-score-crosscheck {
+.prompt-score-crosscheck {
   border: 1px solid var(--line);
   border-left: 4px solid var(--accent-strong);
   border-radius: 8px;
@@ -3163,15 +3167,15 @@ label.field > span,
   margin-top: 1rem;
 }
 
-.chatgpt-score-crosscheck--agree {
+.prompt-score-crosscheck--agree {
   border-left-color: var(--success, #2f855a);
 }
 
-.chatgpt-score-crosscheck--diverge {
+.prompt-score-crosscheck--diverge {
   border-left-color: var(--gold-warning, var(--warning, #c8a040));
 }
 
-.chatgpt-score-crosscheck__label {
+.prompt-score-crosscheck__label {
   display: inline-block;
   margin-right: 0.4rem;
   font-size: var(--fs-sm, 0.82rem);
@@ -3284,7 +3288,7 @@ label.field > span,
 }
 
 @media (max-width: 860px) {
-  .chatgpt-score-grid {
+  .prompt-score-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
@@ -3294,20 +3298,20 @@ label.field > span,
 }
 
 @media (max-width: 520px) {
-  .chatgpt-score-grid {
+  .prompt-score-grid {
     gap: 0.6rem;
   }
 
-  .chatgpt-score-card {
+  .prompt-score-card {
     padding: 0.6rem 0.5rem;
     gap: 0.3rem;
   }
 
-  .chatgpt-score-value {
+  .prompt-score-value {
     font-size: 1.9rem;
   }
 
-  .chatgpt-score-rationale {
+  .prompt-score-rationale {
     font-size: 0.68rem;
   }
 
@@ -3436,7 +3440,7 @@ label.field > span,
    (hero, tool tabs, timing, layout picker, banners, input forms), so pages whose
    results sit in a container separate from their inputs need no per-page rules.
    Deck-analysis is the exception: its results share the workflow <form> with the
-   inputs, so it adds page-scoped inner rules (keyed on `.chatgpt-packets-form`)
+   inputs, so it adds page-scoped inner rules (keyed on `.prompt-packets-form`)
    to reveal only the result-bearing step panels.
    =========================================================================== */
 @media print {
@@ -3459,7 +3463,7 @@ label.field > span,
 
   /* Any toolbar inside a print region (Download / Print buttons) is not paper. */
   [data-print-region] .toolbar,
-  [data-print-region] .chatgpt-step-actions {
+  [data-print-region] .prompt-step-actions {
     display: none !important;
   }
 
@@ -3469,19 +3473,19 @@ label.field > span,
      anchor), even if JS left an inactive one .hidden; drop the step heading, paste
      fields, and footers that share those panels. Keyed on the "workflow" region
      value so the separate-container tools (e.g. manabase) are untouched. */
-  [data-print-region="workflow"] > *:not(.chatgpt-step-panel) {
+  [data-print-region="workflow"] > *:not(.prompt-step-panel) {
     display: none !important;
   }
-  [data-print-region="workflow"] .chatgpt-step-panel:not(:has([data-print-result])) {
+  [data-print-region="workflow"] .prompt-step-panel:not(:has([data-print-result])) {
     display: none !important;
   }
   /* Reveal ONLY the currently-visible result step. An inactive result tab keeps
      its .hidden (display:none) so, e.g., a populated Step 3 does not print
      alongside the Step 5 the user is actually viewing. */
-  [data-print-region="workflow"] .chatgpt-step-panel:has([data-print-result]):not(.hidden) {
+  [data-print-region="workflow"] .prompt-step-panel:has([data-print-result]):not(.hidden) {
     display: block !important;
   }
-  [data-print-region="workflow"] .chatgpt-step-panel:has([data-print-result]):not(.hidden) > *:not([data-print-result]) {
+  [data-print-region="workflow"] .prompt-step-panel:has([data-print-result]):not(.hidden) > *:not([data-print-result]) {
     display: none !important;
   }
   [data-print-result] {
@@ -3505,7 +3509,7 @@ label.field > span,
   [data-print-region] .nested-panel,
   [data-print-region] .summary-panel,
   [data-print-region] .panel-heading,
-  [data-print-region] .chatgpt-score,
+  [data-print-region] .prompt-score,
   [data-print-region] .interaction-audit,
   [data-print-region] .wincon-map,
   [data-print-region] .manabase-lens,
@@ -3525,7 +3529,7 @@ label.field > span,
   [data-print-region] .nested-panel,
   [data-print-region] .summary-panel,
   [data-print-region] .panel-heading,
-  [data-print-region] .chatgpt-score,
+  [data-print-region] .prompt-score,
   [data-print-region] .interaction-audit,
   [data-print-region] .wincon-map,
   [data-print-region] .manabase-lens,
@@ -3537,9 +3541,9 @@ label.field > span,
   }
 
   /* Keep the color meters/pips/bands (they encode data via color). */
-  .chatgpt-score-pip,
-  .chatgpt-score-band,
-  .chatgpt-score-crosscheck,
+  .prompt-score-pip,
+  .prompt-score-band,
+  .prompt-score-crosscheck,
   .interaction-audit-grid {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -3549,8 +3553,8 @@ label.field > span,
      combo block, and must not strand a heading at the foot of a page. */
   section.result-panel,
   .nested-panel,
-  .chatgpt-score,
-  .chatgpt-score-card,
+  .prompt-score,
+  .prompt-score-card,
   .interaction-audit,
   .wincon-map,
   .wincon-map-combo,

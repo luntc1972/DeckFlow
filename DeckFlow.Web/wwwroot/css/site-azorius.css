@@ -84,10 +84,10 @@ a:focus-visible {
 .warning-banner,
 .info-banner,
 .timing-summary,
-.chatgpt-layout-picker,
-.chatgpt-instructions,
-.chatgpt-context-note,
-.chatgpt-card-specific-field,
+.prompt-layout-picker,
+.prompt-instructions,
+.prompt-context-note,
+.prompt-card-specific-field,
 .hub-card,
 .about-page,
 .help-index,
@@ -143,29 +143,29 @@ button,
   background: linear-gradient(180deg, #2d629f 0, #204d85 100%);
 }
 
-.chatgpt-step-tab,
-.chatgpt-step-badge,
-.chatgpt-layout-picker__segments,
+.prompt-step-tab,
+.prompt-step-badge,
+.prompt-layout-picker__segments,
 .theme-picker,
 .page-footer__link--cta {
   border-radius: 6px;
 }
 
-.chatgpt-step-tab,
-.chatgpt-layout-picker__segments,
-.chatgpt-instructions,
-.chatgpt-context-note,
-.chatgpt-card-specific-field {
+.prompt-step-tab,
+.prompt-layout-picker__segments,
+.prompt-instructions,
+.prompt-context-note,
+.prompt-card-specific-field {
   border-color: rgba(20, 55, 100, 0.18);
   background: rgba(247, 250, 253, 0.96);
 }
 
-.chatgpt-step-eyebrow,
-.chatgpt-step-badge {
+.prompt-step-eyebrow,
+.prompt-step-badge {
   color: #607793;
 }
 
-.chatgpt-step-badge {
+.prompt-step-badge {
   border-color: #b8c6d8;
   background: #f1f5fa;
 }

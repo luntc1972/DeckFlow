@@ -22,6 +22,18 @@ public static class ContentArtifactWriter
     }
 
     /// <summary>
+    /// Computes the relative sibling prompt path stored alongside the notes artifact.
+    /// </summary>
+    /// <param name="sourceSlug">Source slug path segment.</param>
+    /// <param name="videoId">Video or episode identifier path segment.</param>
+    /// <returns>A relative <c>content-kb/{sourceSlug}/{videoId}.prompt.md</c> path using forward slashes.</returns>
+    public static string ComputeRelativePromptPath(string sourceSlug, string videoId)
+    {
+        var (safeSourceSlug, fileName) = BuildPromptSegments(sourceSlug, videoId);
+        return $"content-kb/{safeSourceSlug}/{fileName}";
+    }
+
+    /// <summary>
     /// Renders artifact text from metadata, summary text, and in-memory clip results.
     /// </summary>
     /// <param name="metadata">Artifact front matter metadata.</param>
@@ -112,11 +124,41 @@ public static class ContentArtifactWriter
         return outputPath;
     }
 
+    /// <summary>
+    /// Writes the baked, paste-ready prompt to the sibling <c>{videoId}.prompt.md</c> file beneath
+    /// an artifact root, next to the notes artifact.
+    /// </summary>
+    /// <param name="artifactRoot">Absolute or relative root directory for Content KB artifacts.</param>
+    /// <param name="sourceSlug">Source slug path segment.</param>
+    /// <param name="videoId">Video or episode identifier path segment.</param>
+    /// <param name="promptText">The rendered, paste-ready prompt text.</param>
+    /// <returns>The absolute path written.</returns>
+    public static string WritePromptFile(string artifactRoot, string sourceSlug, string videoId, string promptText)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(artifactRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(promptText);
+
+        var (safeSourceSlug, fileName) = BuildPromptSegments(sourceSlug, videoId);
+        var outputPath = Path.GetFullPath(Path.Combine(artifactRoot, safeSourceSlug, fileName));
+        var parent = Path.GetDirectoryName(outputPath)
+            ?? throw new ArgumentException("Prompt output path must have a parent directory.", nameof(artifactRoot));
+
+        Directory.CreateDirectory(parent);
+        File.WriteAllText(outputPath, promptText);
+        return outputPath;
+    }
+
     // Why: WriteFile and ComputeRelativeArtifactPath must agree on the on-disk layout or the
     // site index points at files that were never written — derive the segments in one place.
     private static (string SourceSlug, string FileName) BuildArtifactSegments(string sourceSlug, string videoId)
         => (SanitizePathSegment(sourceSlug, nameof(sourceSlug)),
             SanitizePathSegment(videoId, nameof(videoId)) + ".md");
+
+    // Why: WritePromptFile and ComputeRelativePromptPath must agree on the sibling layout, and the
+    // sibling shares the notes' sanitized segments so it lands next to it — derive in one place.
+    private static (string SourceSlug, string FileName) BuildPromptSegments(string sourceSlug, string videoId)
+        => (SanitizePathSegment(sourceSlug, nameof(sourceSlug)),
+            SanitizePathSegment(videoId, nameof(videoId)) + ".prompt.md");
 
     private static string GetArtifactVideoId(ContentArtifactMetadata metadata)
     {

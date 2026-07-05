@@ -168,12 +168,12 @@ Deck B ([DECK B NAME]):
     </details>
 }
 
-<div class="error-banner hidden" data-chatgpt-comparison-validation-error role="alert"></div>
+<div class="error-banner hidden" data-prompt-comparison-validation-error role="alert"></div>
 
-<form method="post" action="@Url.Content("~/deck-comparison")" class="deck-form" data-print-region="workflow" data-cache-key="chatgpt-deck-comparison" data-chatgpt-comparison-form data-chatgpt-comparison-current-step="@currentStep" data-busy-title="Building Deck Comparison Packet" data-busy-message="Parsing both decks and generating the comparison prompt.">
-    <div class="chatgpt-sticky-download" role="region" aria-label="Save current session">
-        <span class="chatgpt-sticky-download__label">Save your work in progress to a zip file you can re-import later.</span>
-        <button type="submit" class="run-button chatgpt-sticky-download__button" data-no-busy data-chatgpt-download-submit
+<form method="post" action="@Url.Content("~/deck-comparison")" class="deck-form" data-print-region="workflow" data-cache-key="prompt-deck-comparison" data-prompt-comparison-form data-prompt-comparison-current-step="@currentStep" data-busy-title="Building Deck Comparison Packet" data-busy-message="Parsing both decks and generating the comparison prompt.">
+    <div class="prompt-sticky-download" role="region" aria-label="Save current session">
+        <span class="prompt-sticky-download__label">Save your work in progress to a zip file you can re-import later.</span>
+        <button type="submit" class="run-button prompt-sticky-download__button" data-no-busy data-prompt-download-submit
                 formaction="@Url.Content("~/deck-comparison/download")"
                 formmethod="post"
                 formnovalidate>
@@ -181,8 +181,8 @@ Deck B ([DECK B NAME]):
         </button>
     </div>
     @Html.AntiForgeryToken()
-    <input type="hidden" name="WorkflowStep" value="@currentStep" data-chatgpt-comparison-workflow-step />
-    <details class="chatgpt-resume" data-chatgpt-resume>
+    <input type="hidden" name="WorkflowStep" value="@currentStep" data-prompt-comparison-workflow-step />
+    <details class="prompt-resume" data-prompt-resume>
         <summary>Resume from a saved session (.zip)</summary>
         <p class="sync-column__hint">
             Choose a <code>.zip</code> file you previously downloaded from Step 3.
@@ -191,12 +191,12 @@ Deck B ([DECK B NAME]):
         <label class="field">
             <span>Saved session file</span>
             <input type="file" name="zipFile" accept=".zip,application/zip"
-                   data-chatgpt-zip-upload
+                   data-prompt-zip-upload
                    data-upload-action="@Url.Content("~/deck-comparison/upload")" />
         </label>
         <button type="submit"
                 class="run-button"
-                data-chatgpt-upload-submit
+                data-prompt-upload-submit
                 formaction="@Url.Content("~/deck-comparison/upload")"
                 formenctype="multipart/form-data"
                 formmethod="post"
@@ -208,9 +208,9 @@ Deck B ([DECK B NAME]):
     @{
         var comparisonTabs = new DeckFlow.Web.Models.WorkflowStepTabsModel(
             AriaLabel: "Deck comparison workflow steps",
-            TabIdPrefix: "chatgpt-comparison-step-tab",
-            PanelIdPrefix: "chatgpt-comparison-step-panel",
-            DataShowStepAttribute: "chatgpt-comparison-show-step",
+            TabIdPrefix: "prompt-comparison-step-tab",
+            PanelIdPrefix: "prompt-comparison-step-panel",
+            DataShowStepAttribute: "prompt-comparison-show-step",
             Steps: new[]
             {
                 new DeckFlow.Web.Models.WorkflowStepTab(1, "Step 1: Decks", !string.IsNullOrWhiteSpace(Model.Request.DeckASource) && !string.IsNullOrWhiteSpace(Model.Request.DeckBSource)),
@@ -220,19 +220,19 @@ Deck B ([DECK B NAME]):
     }
     @await Html.PartialAsync("_WorkflowStepTabs", comparisonTabs)
 
-    <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-comparison-step-panel-1" aria-labelledby="chatgpt-comparison-step-tab-1" data-chatgpt-comparison-step="1">
-        <div class="chatgpt-step-heading">
+    <section class="result-panel prompt-step-panel" role="tabpanel" id="prompt-comparison-step-panel-1" aria-labelledby="prompt-comparison-step-tab-1" data-prompt-comparison-step="1">
+        <div class="prompt-step-heading">
             <div>
-                <p class="chatgpt-step-eyebrow">Step 1</p>
+                <p class="prompt-step-eyebrow">Step 1</p>
                 <h2>Enter both decks</h2>
                 <p>Each side accepts the same sources as the current Deck Analysis workflow: a public Moxfield or Archidekt URL, or pasted deck export text.</p>
             </div>
-            <span class="chatgpt-step-badge">Required</span>
+            <span class="prompt-step-badge">Required</span>
         </div>
 
         <details class="result-panel nested-panel">
             <summary>Show Commander bracket definitions</summary>
-            <div class="chatgpt-context-note">
+            <div class="prompt-context-note">
                 <p>Choose the bracket that best reflects each deck's intended power band. The comparison prompt includes these definitions so your AI judges the lists against the selected bracket expectations instead of guessing.</p>
                 <ul>
                     @foreach (var bracket in commanderBrackets)
@@ -304,23 +304,23 @@ Deck B ([DECK B NAME]):
             </section>
         </div>
 
-        <div class="chatgpt-step-footer">
+        <div class="prompt-step-footer">
             <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/deck-comparison")">Start Over</button>
-            <button type="button" class="run-button" data-chatgpt-comparison-next-step="2">Next: Generate Packet</button>
+            <button type="button" class="run-button" data-prompt-comparison-next-step="2">Next: Generate Packet</button>
         </div>
     </section>
 
-    <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-comparison-step-panel-2" aria-labelledby="chatgpt-comparison-step-tab-2" data-chatgpt-comparison-step="2">
-        <div class="chatgpt-step-heading">
+    <section class="result-panel prompt-step-panel" role="tabpanel" id="prompt-comparison-step-panel-2" aria-labelledby="prompt-comparison-step-tab-2" data-prompt-comparison-step="2">
+        <div class="prompt-step-heading">
             <div>
-                <p class="chatgpt-step-eyebrow">Step 2</p>
+                <p class="prompt-step-eyebrow">Step 2</p>
                 <h2>Generate the comparison packet</h2>
                 <p>Generate the packet, copy <code>30-comparison-prompt.txt</code>, paste it into your AI, then ask for the final answer plus the fenced <code>deck_comparison</code> JSON block.</p>
             </div>
-            <span class="chatgpt-step-badge">Packet output</span>
+            <span class="prompt-step-badge">Packet output</span>
         </div>
         @await Html.PartialAsync("_AiSelector", Model.Request.TargetAiPlatform)
-        <div class="chatgpt-instructions">
+        <div class="prompt-instructions">
             <strong>What you do:</strong>
             <ol>
                 <li>Click <code>Generate Comparison Packet</code>.</li>
@@ -381,8 +381,8 @@ Deck B ([DECK B NAME]):
             </div>
         </details>
 
-        <div class="toolbar chatgpt-step-actions">
-            <button type="submit" class="run-button" data-chatgpt-comparison-submit-step="2">Generate Comparison Packet</button>
+        <div class="toolbar prompt-step-actions">
+            <button type="submit" class="run-button" data-prompt-comparison-submit-step="2">Generate Comparison Packet</button>
         </div>
 
         @if (!string.IsNullOrWhiteSpace(Model.InputSummary))
@@ -483,7 +483,7 @@ Deck B ([DECK B NAME]):
                     </div>
                     <button type="button" class="copy-button" data-copy-target="comparison-prompt-output">Copy</button>
                 </div>
-                <textarea autocomplete="off" id="comparison-prompt-output" readonly spellcheck="false" data-chatgpt-comparison-result-anchor>@Model.ComparisonPromptText</textarea>
+                <textarea autocomplete="off" id="comparison-prompt-output" readonly spellcheck="false" data-prompt-comparison-result-anchor>@Model.ComparisonPromptText</textarea>
             </section>
         }
 
@@ -516,20 +516,20 @@ Deck B ([DECK B NAME]):
             </section>
         }
 
-        <div class="chatgpt-step-footer">
-            <button type="button" class="clear-cache-button" data-chatgpt-comparison-show-step="1">Back: Enter Decks</button>
-            <button type="button" class="run-button" data-chatgpt-comparison-next-step="3">Next: Paste JSON</button>
+        <div class="prompt-step-footer">
+            <button type="button" class="clear-cache-button" data-prompt-comparison-show-step="1">Back: Enter Decks</button>
+            <button type="button" class="run-button" data-prompt-comparison-next-step="3">Next: Paste JSON</button>
         </div>
     </section>
 
-    <section class="result-panel chatgpt-step-panel" role="tabpanel" id="chatgpt-comparison-step-panel-3" aria-labelledby="chatgpt-comparison-step-tab-3" data-chatgpt-comparison-step="3">
-        <div class="chatgpt-step-heading">
+    <section class="result-panel prompt-step-panel" role="tabpanel" id="prompt-comparison-step-panel-3" aria-labelledby="prompt-comparison-step-tab-3" data-prompt-comparison-step="3">
+        <div class="prompt-step-heading">
             <div>
-                <p class="chatgpt-step-eyebrow">Step 3</p>
+                <p class="prompt-step-eyebrow">Step 3</p>
                 <h2>Paste the returned comparison JSON</h2>
                 <p>Paste only the fenced JSON block or raw JSON payload that contains the top-level <code>deck_comparison</code> object.</p>
             </div>
-            <span class="chatgpt-step-badge">Final step</span>
+            <span class="prompt-step-badge">Final step</span>
         </div>
 
         <label class="field">
@@ -538,21 +538,21 @@ Deck B ([DECK B NAME]):
             <small class="sync-column__hint">Required for rendering the final summary. You can paste the fenced <code>```json</code> block directly.</small>
         </label>
 
-        <div class="toolbar chatgpt-step-actions">
-            <button type="submit" class="run-button" data-chatgpt-comparison-submit-step="3">Render Comparison Summary</button>
+        <div class="toolbar prompt-step-actions">
+            <button type="submit" class="run-button" data-prompt-comparison-submit-step="3">Render Comparison Summary</button>
         </div>
 
         @if (Model.ComparisonResponse is not null)
         {
-            <section class="result-panel nested-panel summary-panel" data-chatgpt-comparison-result-anchor data-print-result>
-                <div class="toolbar chatgpt-step-actions">
-                    <button type="submit" class="run-button" data-no-busy data-chatgpt-download-submit
+            <section class="result-panel nested-panel summary-panel" data-prompt-comparison-result-anchor data-print-result>
+                <div class="toolbar prompt-step-actions">
+                    <button type="submit" class="run-button" data-no-busy data-prompt-download-submit
                             formaction="@Url.Content("~/deck-comparison/download")"
                             formmethod="post"
                             formnovalidate>
                         Download comparison session (.zip)
                     </button>
-                    <button type="button" class="run-button chatgpt-print-button" data-no-busy data-chatgpt-print>
+                    <button type="button" class="run-button prompt-print-button" data-no-busy data-prompt-print>
                         Print results
                     </button>
                 </div>
@@ -712,12 +712,14 @@ Deck B ([DECK B NAME]):
             </section>
         }
 
-        <div class="chatgpt-step-footer">
-            <button type="button" class="clear-cache-button" data-chatgpt-comparison-show-step="2">Back: Generate Packet</button>
+        <div class="prompt-step-footer">
+            <button type="button" class="clear-cache-button" data-prompt-comparison-show-step="2">Back: Generate Packet</button>
         </div>
     </section>
 </form>
 
 @section Scripts {
+    <script src="~/js/busy-indicator.js" asp-append-version="true"></script>
+    <script src="~/js/moxfield-extension-bridge.js" asp-append-version="true"></script>
     <script src="~/js/deck-sync.js" asp-append-version="true"></script>
 }

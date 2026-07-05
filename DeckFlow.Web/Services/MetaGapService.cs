@@ -7,11 +7,11 @@ using DeckFlow.Core.Normalization;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services.Http;
+using DeckFlow.Web.Services.Packets;
 using DeckFlow.Web.Services.PromptBuilders.MetaGap;
 using DeckFlow.Web.Services.Scryfall;
 using Polly;
 using Polly.Registry;
-using RestSharp;
 using System.Net;
 
 namespace DeckFlow.Web.Services;
@@ -55,7 +55,6 @@ public sealed record MetaGapResult(
 public sealed class MetaGapService : IMetaGapService
 {
     private const int FetchCount = 48;
-    private const int ScryfallBatchSize = 75;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -66,6 +65,7 @@ public sealed class MetaGapService : IMetaGapService
     private readonly IEdhTop16Client _edhTop16Client;
     private readonly ICommanderSpellbookService _commanderSpellbookService;
     private readonly IScryfallCardResolver _scryfallCardResolver;
+    private readonly ScryfallReferenceResolver _scryfallReferenceResolver;
     private readonly MetaGapPromptVariantRegistry _metaGapPromptRegistry;
     private readonly PacketSessionCache _packetCache;
 
@@ -84,6 +84,7 @@ public sealed class MetaGapService : IMetaGapService
         ArgumentNullException.ThrowIfNull(metaGapPromptRegistry);
         ArgumentNullException.ThrowIfNull(packetCache);
         _scryfallCardResolver = scryfallCardResolver;
+        _scryfallReferenceResolver = new ScryfallReferenceResolver(scryfallCardResolver);
         _deckEntryLoader = deckEntryLoader;
         _edhTop16Client = edhTop16Client;
         _commanderSpellbookService = commanderSpellbookService;
@@ -344,8 +345,8 @@ public sealed class MetaGapService : IMetaGapService
         ArgumentNullException.ThrowIfNull(request);
         var builder = new StringBuilder();
         builder.AppendLine($"workflow_step: {request.WorkflowStep}");
-        builder.AppendLine($"commander: {JsonTextFormatterService.NormalizeSingleLine(request.CommanderName, string.Empty)}");
-        builder.AppendLine($"target_ai_platform: {JsonTextFormatterService.NormalizeSingleLine(request.TargetAiPlatform, "ChatGPT")}");
+        PacketTextAssembler.AppendKeyValueLine(builder, "commander", request.CommanderName, string.Empty, JsonTextFormatterService.NormalizeSingleLine);
+        PacketTextAssembler.AppendKeyValueLine(builder, "target_ai_platform", request.TargetAiPlatform, "ChatGPT", JsonTextFormatterService.NormalizeSingleLine);
         builder.AppendLine($"time_period: {request.TimePeriod}");
         builder.AppendLine($"sort_by: {request.SortBy}");
         builder.AppendLine($"min_event_size: {request.MinEventSize}");
@@ -455,33 +456,11 @@ public sealed class MetaGapService : IMetaGapService
 
         if (!hasExplicitCommander && !string.IsNullOrWhiteSpace(commanderName))
         {
-            playableEntries = ReflagCommanderEntry(playableEntries, commanderName);
-            entries = ReflagCommanderEntry(entries, commanderName);
+            playableEntries = DeckEntryReflagHelper.ReflagCommanderEntry(playableEntries, commanderName);
+            entries = DeckEntryReflagHelper.ReflagCommanderEntry(entries, commanderName);
         }
 
         return new LoadedDeck(playableEntries, commanderName ?? string.Empty, entries);
-    }
-
-    private static List<DeckEntry> ReflagCommanderEntry(List<DeckEntry> source, string commanderName)
-    {
-        var matched = false;
-        var result = new List<DeckEntry>(source.Count);
-        foreach (var entry in source)
-        {
-            if (!matched
-                && entry.Quantity == 1
-                && string.Equals(entry.Name, commanderName, StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
-            {
-                result.Add(entry with { Board = "commander" });
-                matched = true;
-            }
-            else
-            {
-                result.Add(entry);
-            }
-        }
-        return result;
     }
 
     // Why: the displayed reference order must honor the user's "Sort by" choice.
@@ -575,49 +554,34 @@ public sealed class MetaGapService : IMetaGapService
             .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var oracleNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var chunk in Chunk(uniqueNames, ScryfallBatchSize))
+        ScryfallBatchResolution batchResolution;
+        try
         {
-            var request = new RestRequest("cards/collection", Method.Post)
-                .AddJsonBody(new
-                {
-                    identifiers = chunk.Select(name => new { name }).ToArray()
-                });
-
-            var response = await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
-            if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
-            {
-                throw new HttpRequestException(
-                    $"Scryfall card reference lookup failed while building the cEDH meta-gap prompt with HTTP {(int)response.StatusCode}.",
-                    null,
-                    response.StatusCode);
-            }
-
-            foreach (var card in response.Data.Data)
-            {
-                foreach (var submittedName in chunk.Where(name => string.Equals(name, card.Name, StringComparison.OrdinalIgnoreCase)))
-                {
-                    oracleNameMap[submittedName] = card.Name;
-                }
-            }
-
-            var unresolvedNames = chunk
-                .Where(name => !oracleNameMap.ContainsKey(name))
-                .ToList();
-
-            foreach (var unresolvedName in unresolvedNames)
-            {
-                var fallbackCard = await _scryfallCardResolver.SearchFallbackCardAsync(unresolvedName, cancellationToken).ConfigureAwait(false);
-                if (fallbackCard is null)
-                {
-                    continue;
-                }
-
-                oracleNameMap[unresolvedName] = fallbackCard.Name;
-            }
+            batchResolution = await _scryfallReferenceResolver.ResolveBatchAsync(
+                uniqueNames,
+                (name, ct) => _scryfallCardResolver.SearchFallbackCardAsync(name, ct),
+                normalizeForScryfall: false,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (ScryfallReferenceCollectionException exception)
+        {
+            // Why: preserve the ORIGINAL cEDH-meta-gap-worded message. The shared resolver's
+            // collection-CALL message contains "cards/collection", which
+            // UpstreamErrorMessageBuilder.BuildDetailedScryfallMessage matches to surface
+            // "...analysis packet..." copy — wrong for a meta-gap failure. Re-wrap here so this
+            // path falls back to BuildSiteSpecificMessage's generic "Scryfall returned HTTP
+            // {code}..." message, matching today's behavior (the controller has no message-text
+            // special-case for cEDH meta-gap, unlike Comparison's "Deck A"/"Deck B" routing).
+            // Catching the narrow ScryfallReferenceCollectionException (not a plain
+            // HttpRequestException) lets a per-name fallback-search failure propagate with its
+            // original message, exactly as the pre-Phase-83 inline loop did (WR-01).
+            throw new HttpRequestException(
+                $"Scryfall card reference lookup failed while building the cEDH meta-gap prompt with HTTP {(int?)exception.StatusCode}.",
+                exception,
+                exception.StatusCode);
         }
 
-        return oracleNameMap;
+        return batchResolution.OracleNameMap;
     }
 
     private static IReadOnlyList<DeckEntry> NormalizeDeckEntriesForPromptAndCombos(
@@ -754,14 +718,6 @@ public sealed class MetaGapService : IMetaGapService
         }
 
         return GetBaseCardDisplayName(trimmed);
-    }
-
-    private static IEnumerable<List<string>> Chunk(IReadOnlyList<string> source, int size)
-    {
-        for (var index = 0; index < source.Count; index += size)
-        {
-            yield return source.Skip(index).Take(size).ToList();
-        }
     }
 
     // Phase 15-02: promoted from private static to internal static for use by MetaGap variant classes.
