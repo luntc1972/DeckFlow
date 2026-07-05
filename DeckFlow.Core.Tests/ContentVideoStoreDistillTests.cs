@@ -58,6 +58,40 @@ public sealed class ContentVideoStoreDistillTests : IDisposable
     }
 
     [Fact]
+    public async Task ListVideosPendingDistillAsync_ExcludesAlreadyDistilledButKeepsRetriable()
+    {
+        var sourceId = await InsertSourceAsync("pending-exclusion-source");
+
+        // Distilled: has captions + transcript, but a successful distill wrote distill_status='distilled'.
+        // Must NOT appear in pending — this is the bug (distilled/approved/published videos lingered).
+        var distilledVideo = await InsertVideoWithTranscriptAsync(sourceId, "distilled-video", TranscriptStatus.Captions);
+        await _videoStore.SetDistillStatusAsync(distilledVideo, "distilled");
+
+        // Failed and skipped-over-cap are retriable — they MUST remain pending so the operator can re-run.
+        var failedVideo = await InsertVideoWithTranscriptAsync(sourceId, "failed-video", TranscriptStatus.Captions);
+        await _videoStore.SetDistillStatusAsync(failedVideo, "failed");
+        var overCapVideo = await InsertVideoWithTranscriptAsync(sourceId, "over-cap-video", TranscriptStatus.Captions);
+        await _videoStore.SetDistillStatusAsync(overCapVideo, "skipped_over_cap");
+
+        // Filtered (LLM judged not KB-worthy) has no site_index row and is intentionally left pending
+        // so the operator can re-attempt; only 'distilled' is excluded.
+        var filteredVideo = await InsertVideoWithTranscriptAsync(sourceId, "filtered-video", TranscriptStatus.Captions);
+        await _videoStore.SetDistillStatusAsync(filteredVideo, "filtered");
+
+        // Never distilled at all — plain pending.
+        var freshVideo = await InsertVideoWithTranscriptAsync(sourceId, "fresh-video", TranscriptStatus.Captions);
+
+        var pending = await _videoStore.ListVideosPendingDistillAsync(sourceId);
+        var pendingIds = pending.Select(v => v.Id).ToHashSet();
+
+        Assert.DoesNotContain(distilledVideo, pendingIds);
+        Assert.Contains(failedVideo, pendingIds);
+        Assert.Contains(overCapVideo, pendingIds);
+        Assert.Contains(filteredVideo, pendingIds);
+        Assert.Contains(freshVideo, pendingIds);
+    }
+
+    [Fact]
     public async Task DistillStatusAsync_RoundTripsAndUpsertsPerVideoStatus()
     {
         var sourceId = await InsertSourceAsync("distill-status-source");
