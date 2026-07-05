@@ -341,7 +341,7 @@
 **Web Host:**
 
 - Location: `DeckFlow.Web/Program.cs`
-- Triggers: `dotnet run --project DeckFlow.Web` (local dev) or container startup (Dockerfile, fly.toml, render.yaml).
+- Triggers: `dotnet run --project DeckFlow.Web` (local dev) or container startup (Dockerfile, render.yaml).
 - Responsibilities: Configure Serilog (console + daily file logs), register 30+ services in DI, build Polly pipelines, configure middleware (forwarded headers → security headers → HTTPS redirect → static files → routing → analytics → request logging → Swagger [Dev] → rate limit → BasicAuth on /Admin → MapControllers), validate DB connections at startup, launch browser (dev only).
 - Key bootstrap: Lines 40-463 (Main method), lines 47-60 (Serilog setup), lines 63-348 (DI registration), lines 354-389 (middleware), lines 423-450 (startup validation).
 
@@ -482,7 +482,7 @@
 - Injected via `ILogger<T>` constructor parameter (nullable/optional in services, defaults to `NullLogger<T>.Instance` so tests don't wire one).
 - Structured templates with named placeholders, never string interpolation (e.g., `logger.LogInformation("Lookup for {CardName} returned {Count} results.", name, results.Count)`).
 - File sink rolls daily, retains 14 days (Program.cs:59, CLI:15).
-- Console sink always on (even in Production) for platform capture (Render, Fly).
+- Console sink always on (even in Production) for platform capture (Render).
 - Request logging via `app.UseSerilogRequestLogging()` (Program.cs:369).
 
 **Validation:**

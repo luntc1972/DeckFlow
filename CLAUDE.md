@@ -61,7 +61,7 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 - Microsoft.Extensions.Logging.Abstractions 10.0.0 - Used in `DeckFlow.Core` (no Serilog dependency in core).
 ## Configuration
 - Configured via environment variables; no `.env` file present in repo.
-- Required for production: `ASPNETCORE_ENVIRONMENT=Production`, `MTG_DATA_DIR=/data`, `PORT` (Render/Fly inject).
+- Required for production: `ASPNETCORE_ENVIRONMENT=Production`, `MTG_DATA_DIR=/data`, `PORT` (Render injects).
 - Optional: `DECKFLOW_DATABASE_PROVIDER` (`Sqlite`|`Postgres`), `DECKFLOW_DATABASE_CONNECTION_STRING`, `FEEDBACK_ADMIN_USER`, `FEEDBACK_ADMIN_PASSWORD`, `FEEDBACK_IP_SALT`, `DECKFLOW_DISABLE_AUTO_BROWSER`.
 - App-level: `DeckFlow.Web/appsettings.json` (logging defaults, allowed hosts) and `appsettings.Development.json` (logging override).
 - `DeckFlow.Web/Properties/launchSettings.json` - Local dev URLs `http://localhost:5173` / `https://localhost:7173`.
@@ -69,15 +69,14 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 - `DeckFlow.sln` - Solution file referencing all 5 projects.
 - `DeckFlow.Web/tsconfig.json` - Strict TS config.
 - `Dockerfile` - Multi-stage build (sdk:10.0 -> aspnet:10.0).
-- `render.yaml` - Render Blueprint (Docker, starter plan, `/data` disk, `mtg-deck-studio` service name).
-- `fly.toml` - Fly.io app `mtg-deck-studio`, Seattle region, shared-cpu-1x/512MB, `/data` mount.
+- `render.yaml` - Render Blueprint (Docker, starter plan, `/data` disk, `mtg-deck-studio` service name). Render is the live production host.
 ## Platform Requirements
 - .NET 10 SDK.
 - Node.js (any recent version) + npm install once in `DeckFlow.Web/` to populate `node_modules/typescript` for the MSBuild TypeScript target.
 - Cross-platform: WSL2, Linux, and Windows are all first-class targets. `Directory.Build.props` exists specifically because Windows VS shared NuGet cache breaks WSL restores.
 - IIS Express + IIS profiles defined for Windows-only Visual Studio runs (`launchSettings.json`).
-- Containerized .NET 10 on Linux. Listens on `${PORT:-8080}` over HTTP behind a TLS-terminating reverse proxy (Render or Fly). `UseForwardedHeaders` honors `X-Forwarded-{For,Proto,Host}` so HTTPS redirection and `SameOriginRequestValidator` see the browser's scheme.
-- Persistent disk mounted at `/data` (Render `mtg-data` 1 GB; Fly `mtg_data` volume) holds SQLite DBs and ChatGPT artifacts.
+- Containerized .NET 10 on Linux. Listens on `${PORT:-8080}` over HTTP behind a TLS-terminating reverse proxy (Render). `UseForwardedHeaders` honors `X-Forwarded-{For,Proto,Host}` so HTTPS redirection and `SameOriginRequestValidator` see the browser's scheme.
+- Persistent disk mounted at `/data` (Render `mtg-data` 1 GB) holds SQLite DBs and ChatGPT artifacts.
 <!-- GSD:stack-end -->
 
 <!-- GSD:conventions-start source:CONVENTIONS.md -->
@@ -128,7 +127,7 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 - Use **structured templates** with named placeholders, never string interpolation:
 - Default `ILogger<T>` parameter to optional/nullable in services and fall back to `NullLogger<T>.Instance` so tests don't have to wire one (`CommanderSpellbookService.cs:75, 82`; tests use `NullLogger<DeckController>.Instance`).
 - File sink rolls daily, `retainedFileCountLimit: 14`, output under `<ContentRoot>/logs/web-.log`.
-- Console sink stays enabled in production so platforms like Render/Fly capture stdout.
+- Console sink stays enabled in production so platforms like Render capture stdout.
 - Request logging via `app.UseSerilogRequestLogging();` in the middleware pipeline (`Program.cs:210`).
 ## Comments
 - XML doc comments (`/// <summary>`) on every public type, interface, public method, and public record. `<GenerateDocumentationFile>true</GenerateDocumentationFile>` is on, so missing doc warnings are explicitly suppressed for known noise (`NoWarn` 1591/1573/1587).
@@ -263,7 +262,7 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 - Purpose: Shared navigation chrome rendered by `Views/Shared/_WorkflowStepTabs.cshtml` so every Deck tool shows the same step strip.
 ## Entry Points
 - Location: `DeckFlow.Web/Program.cs`
-- Triggers: `dotnet run --project DeckFlow.Web` or container startup (`Dockerfile`, `fly.toml`, `render.yaml`)
+- Triggers: `dotnet run --project DeckFlow.Web` or container startup (`Dockerfile`, `render.yaml`)
 - Responsibilities: Configure Serilog, register all DI services, build Polly pipelines, configure middleware (forwarded headers → security headers → HTTPS redirect → static files → routing → request logging → Swagger (Dev) → auth → rate limit → BasicAuth on `/Admin` → `MapControllers` + default route), validate DB connections in non-Dev, run.
 - Location: `DeckFlow.CLI/Program.cs`
 - Triggers: `dotnet run --project DeckFlow.CLI -- <command> ...`
