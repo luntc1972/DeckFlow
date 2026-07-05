@@ -753,6 +753,9 @@ A persistent theme picker in the shared layout lets users switch between visual 
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### Unreleased
+- **Studio pending-distill list fix:** the Harvest page's pending-distill list no longer shows videos that have already been distilled/approved/published. The query now excludes videos whose per-video `content_distill_status` is `distilled` (the sanctioned idempotency marker), while `failed` and `skipped_over_cap` stay listed because they are retriable.
+
 ### 2026.07.1 — Deeper Deck Evaluation (2026-07-03)
 Three deeper deck-evaluation reads layered on the existing analysis engines with zero new dependencies. All three are flag-gated and ship **OFF** by default, so existing pages and paste artifacts stay byte-identical until an admin enables them.
 - **Interaction & answers audit (Deck Analysis, Phase 79, flag `analysis.interaction-audit`):** `/deck-analysis` adds a card-backed count of the deck's interaction by bucket — targeted removal, board wipes, counterspells, protection/recursion, and stax/taxation — plus coverage-gap advisories for the buckets a deck runs thin on. Surfaced in the Step-3 results and the paste artifact; awareness-only — deck text is untouched, and with the flag off the artifact is byte-identical.
