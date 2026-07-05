@@ -41,7 +41,25 @@ Archidekt exposes a public, unauthenticated JSON API that resolves a creator by 
 - Crawler = 2 API calls to list + N per-deck fetches (39 here). Cache the set (mirror `ArchidektDeckCacheSession`); rate-limit via existing Polly pipeline.
 - Style profile for Salubrious Snail will read as "broad midrange brewer, bracket 2-3, theme-driven" — good test case because it's NOT a narrow cEDH optimizer (stresses the say-vs-do fusion).
 - Manual-URL fallback (CS-04a) is unnecessary for Archidekt; keep it only for creators without an Archidekt profile.
-- **Open:** does Moxfield expose an equivalent public owner→deck-list endpoint? Verify before committing the crawler abstraction (Salubrious Snail is Archidekt-primary per the KB).
+
+## Moxfield — equivalent endpoint CONFIRMED ✅ (with a caveat)
+
+The crawler abstraction closes: Moxfield also exposes owner→deck-list, but via a *different* endpoint and with an auth-header gotcha.
+
+- ❌ `/v2/users/<name>/decks` → returns empty (dead/blocked).
+- ✅ `GET https://api2.moxfield.com/v2/decks/search?authorUserNames=<username>&pageNumber=<n>&pageSize=<k>`
+  → `{totalResults, totalPages, data:[{id, name, format, visibility, publicUrl, publicId, createdByUser{userName}, ...}]}`. Filter is **exact** (verified: all results match the author). `format` field lets us keep only `commander`. Per-deck fetch via existing `MoxfieldApiUrl` + `MoxfieldApiDeckImporter` using `publicId`.
+
+**⚠ Caveat:** Moxfield is Cloudflare-fronted and **rejects a bot User-Agent with HTTP 403** — a browser-style `User-Agent` header is required (Archidekt has no such requirement). The crawler must send a realistic UA for Moxfield and respect rate limits / ToS (Moxfield historically discourages scraping — throttle hard, cache aggressively). Bake this into the Moxfield branch of `CreatorProfileDeckCrawler`.
+
+### Crawler abstraction (both platforms)
+| step | Archidekt | Moxfield |
+|---|---|---|
+| resolve user | `/api/users/?username=` | (username is the key) |
+| list decks | `/api/decks/v3/?ownerUsername=&pageSize=&page=` | `/v2/decks/search?authorUserNames=&pageSize=&pageNumber=` |
+| per-deck cards | `ArchidektApiUrl` + `ArchidektApiDeckImporter` | `MoxfieldApiUrl` + `MoxfieldApiDeckImporter` |
+| auth gotcha | none | **browser User-Agent required (bot UA → 403)** |
+| privacy | private/unlisted not returned | filter on `visibility == public` |
 
 ## Starter recommendation
 Salubrious Snail is a solid **first creator** for P88/P92: 39 decks, one format, broad color coverage, distinct brewer voice, and 85 distilled KB video artifacts already on hand for the stated-rules half (P89). Both halves of the fused profile are sourceable today.
