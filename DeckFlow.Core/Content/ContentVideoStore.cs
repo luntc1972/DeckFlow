@@ -506,6 +506,15 @@ public sealed class ContentVideoStore : IContentVideoStore
                SELECT 1
                  FROM content_transcripts t
                 WHERE t.video_id = v.id)
+           -- Why: exclude already-distilled videos so they don't linger in the pending list after
+           -- distill/approve/publish. A successful distill writes content_distill_status='distilled'
+           -- (ContentKbOrchestrator), the same marker the badge resolver's site_index row coincides
+           -- with. 'failed' and 'skipped_over_cap' are intentionally NOT excluded — they are retriable.
+           AND NOT EXISTS (
+               SELECT 1
+                 FROM content_distill_status ds
+                WHERE ds.video_id = v.id
+                  AND ds.status = 'distilled')
          ORDER BY v.id;
         """;
 
