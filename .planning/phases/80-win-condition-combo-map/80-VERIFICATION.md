@@ -1,7 +1,8 @@
 ---
 phase: 80-win-condition-combo-map
 verified: 2026-07-02T19:08:00Z
-status: human_needed
+status: deferred
+deferral_note: "Deferred — Cycle 14 shipped (tag 2026.07.1) with this feature flag-OFF by default; user-facing UAT is owed at flag-flip time, tracked separately. Not a Cycle 15 blocker. Code-level verification passed (4/4 must-have truths); only the CI-green + live operator smoke gates remain, deferred to flag-flip."
 score: 4/4 requirements verified (all must-have truths VERIFIED in code)
 overrides_applied: 0
 human_verification:

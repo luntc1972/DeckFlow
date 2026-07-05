@@ -12,6 +12,40 @@ namespace DeckFlow.Web.Tests;
 /// </summary>
 public sealed class DeckPrimerPacketServiceTests
 {
+    /// <summary>
+    /// PKTSVC-02 is satisfied for Primer by verified ABSENCE of a duplicate Scryfall-resolution
+    /// path, not by wiring one in (83-RESEARCH.md Pitfall 3 — Primer has no card-resolution need
+    /// today, so adding <c>IScryfallCardResolver</c>/<c>ScryfallReferenceResolver</c> would be a
+    /// net-new feature, prohibited by this milestone's no-new-feature gate). This source-scan
+    /// tripwire fails if a future change reintroduces either type into the service file.
+    /// </summary>
+    [Fact]
+    public void SourceFile_ReferencesNoScryfallResolutionType()
+    {
+        var sourceText = File.ReadAllText(FindServiceSourcePath());
+
+        Assert.DoesNotContain("IScryfallCardResolver", sourceText, StringComparison.Ordinal);
+        Assert.DoesNotContain("ScryfallReferenceResolver", sourceText, StringComparison.Ordinal);
+    }
+
+    private static string FindServiceSourcePath()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (directory is not null)
+        {
+            var candidate = Path.Combine(directory.FullName, "DeckFlow.Web", "Services", "DeckPrimerPacketService.cs");
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new InvalidOperationException("Could not locate DeckPrimerPacketService.cs from the current test base directory.");
+    }
+
     [Fact]
     public async Task NullCombos_EmitsDisclosure()
     {

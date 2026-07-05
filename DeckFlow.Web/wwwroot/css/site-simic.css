@@ -55,10 +55,10 @@ a:hover, a:focus-visible { color: #134d56; }
 .warning-banner,
 .info-banner,
 .timing-summary,
-.chatgpt-layout-picker,
-.chatgpt-instructions,
-.chatgpt-context-note,
-.chatgpt-card-specific-field,
+.prompt-layout-picker,
+.prompt-instructions,
+.prompt-context-note,
+.prompt-card-specific-field,
 .hub-card,
 .about-page,
 .help-index,
@@ -70,13 +70,13 @@ a:hover, a:focus-visible { color: #134d56; }
   backdrop-filter: blur(4px);
 }
 
-.chatgpt-step-badge {
+.prompt-step-badge {
   border-color: var(--simic-growth-soft);
   background: var(--simic-growth-bg);
   color: var(--simic-growth);
 }
 
-.chatgpt-step-eyebrow,
+.prompt-step-eyebrow,
 .tool-nav__link.is-active { color: var(--accent); }
 
 .run-button,

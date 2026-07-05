@@ -279,6 +279,63 @@ public sealed class ReviewPageTests : BunitContext
         });
     }
 
+    // ── Distill-baked prompt shown on expand ────────────────────────────────
+
+    [Fact]
+    public async Task ExpandRow_WithBakedPromptSibling_ShowsPasteReadyPrompt()
+    {
+        // Write a notes artifact + its baked sibling under the shared test artifact root at the
+        // row's stored ArtifactPath (unique id avoids cross-test collision in the shared dir).
+        var videoId = "prompt" + Guid.NewGuid().ToString("N");
+        var dir = Path.Combine(Path.GetTempPath(), "deckflow-tests", "content-kb", "test-channel");
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, videoId + ".md"), "---\ntitle: T\n---\n## Summary\nNotes body.");
+        File.WriteAllText(Path.Combine(dir, videoId + ".prompt.md"), "BAKED-PROMPT-SENTINEL");
+
+        var (cut, _) = RenderReview(new[] { MakeYoutubeRow(1, videoId, "pending") });
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Loading review queue", cut.Markup));
+
+        // Expand the row via the chevron button. Await the dispatch so the click's async
+        // continuation (LoadArtifactAsync) is scheduled before we assert — avoids the handler-id race.
+        await cut.InvokeAsync(() => cut.Find("button[aria-label^='Expand entry']").Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Paste-ready AI Prompt", cut.Markup);
+            Assert.Contains("BAKED-PROMPT-SENTINEL", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public async Task ExpandRow_RendersNotesAsHtml_NotRawMarkdown()
+    {
+        var videoId = "render" + Guid.NewGuid().ToString("N");
+        var dir = Path.Combine(Path.GetTempPath(), "deckflow-tests", "content-kb", "test-channel");
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(
+            Path.Combine(dir, videoId + ".md"),
+            "---\nsource: \"@Creator\"\ntitle: \"Vid\"\n---\n## Summary\n\nRendered body text.");
+
+        var (cut, _) = RenderReview(new[] { MakeYoutubeRow(1, videoId, "pending") });
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Loading review queue", cut.Markup));
+
+        await cut.InvokeAsync(() => cut.Find("button[aria-label^='Expand entry']").Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            // Scope to the notes preview div — the prompt panel below legitimately embeds the raw
+            // notes verbatim, so assert on the preview only. The markdown renders to HTML there
+            // (## Summary -> <h2>), not shown as raw markdown.
+            var preview = cut.Find(".kb-notes-preview");
+            Assert.Contains("<h2", preview.InnerHtml);
+            Assert.Contains("Rendered body text.", preview.InnerHtml);
+            Assert.DoesNotContain("## Summary", preview.InnerHtml);
+            // The YAML frontmatter (source/title metadata) is stripped, like the public detail page.
+            Assert.DoesNotContain("title:", preview.InnerHtml);
+            Assert.DoesNotContain("@Creator", preview.InnerHtml);
+        });
+    }
+
     // ── REVQ-03: Batch bar hidden when no rows selected ──────────────────────
 
     [Fact]

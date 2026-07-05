@@ -1,7 +1,8 @@
 ---
 phase: 79-interaction-answers-audit
 verified: 2026-07-01T20:15:00Z
-status: human_needed
+status: deferred
+deferral_note: "Deferred — Cycle 14 shipped (tag 2026.07.1) with this feature flag-OFF by default; user-facing UAT is owed at flag-flip time, tracked separately. Not a Cycle 15 blocker. Code-level verification passed (5/5 observable truths); only the CI-green + live Playwright gates remain, deferred to flag-flip."
 score: 5/5 observable truths verified in code (goal achieved); 2 authoritative gates (CI-green, live Playwright smoke) require human/CI confirmation
 overall_verdict: PASS
 requirements:

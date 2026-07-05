@@ -10,7 +10,7 @@
 
 .hub-card--primary:hover,
 .hub-card--primary:focus-visible {
-  border-color: var(--accent-strong, var(--cta-border, var(--accent, var(--line))));
+  border-color: var(--focus, var(--accent-strong, var(--cta-border, var(--accent, var(--line)))));
 }
 
 .hub-card--status {
@@ -40,8 +40,8 @@
    the "Prompt output" / "Required" / step-eyebrow labels invisible on every
    workflow page. Pin them to the theme-aware --muted body-secondary token, which
    is defined to stay readable on each theme's panel/badge surface. */
-.chatgpt-step-eyebrow,
-.chatgpt-step-badge {
+.prompt-step-eyebrow,
+.prompt-step-badge {
   color: var(--muted, inherit);
 }
 
@@ -141,8 +141,8 @@ input[type="radio"]:disabled {
   cursor: not-allowed;
 }
 
-.chatgpt-question-bucket input[type="checkbox"],
-.chatgpt-question-option input[type="checkbox"] {
+.prompt-question-bucket input[type="checkbox"],
+.prompt-question-option input[type="checkbox"] {
   width: 1.05rem;
   height: 1.05rem;
 }

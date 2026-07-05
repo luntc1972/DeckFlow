@@ -272,6 +272,61 @@ Deck
     }
 
     [Fact]
+    public async Task BuildAsync_FallbackResolvedCard_AnnotatesOnlyTheRenamedCard()
+    {
+        // Why: locks the post-83-04 ScryfallReferenceResolver migration — within the SAME batch, a
+        // collection-hit name (Sol Ring) must NOT get a "[printed as: X]" annotation while a
+        // SearchFallback-recovered name (Bolty Zap -> Lightning Bolt) DOES, proving the shared
+        // collaborator's per-name match-back (not just batch-level success) still discriminates
+        // correctly after the migration off the private inline batch-chunk-collect-fallback loop.
+        var fallbackCard = new ScryfallCard(
+            "Lightning Bolt", "{R}", "Instant", "Lightning Bolt deals 3 damage to any target.",
+            null, null, [], ["R"], null, null, null);
+
+        var service = CreateService(
+            executeCollectionAsync: (request, _) => Task.FromResult(CreateCollectionResponse(request)),
+            executeSearchAsync: (request, _) =>
+            {
+                var query = request.Parameters.FirstOrDefault(parameter => parameter.Name?.ToString() == "q")?.Value?.ToString() ?? string.Empty;
+                var match = query.Contains("Bolty Zap", StringComparison.OrdinalIgnoreCase) ? fallbackCard : FindDefaultCard(query);
+                return Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSearchResponse(match is null ? [] : [match])
+                });
+            });
+
+        var result = await service.BuildAsync(new DeckComparisonRequest
+        {
+            WorkflowStep = 2,
+            DeckAName = "Fallback Color",
+            DeckABracket = "Upgraded",
+            DeckASource = """
+Commander
+1 Tymna the Weaver
+
+Deck
+1 Bolty Zap
+1 Sol Ring
+""",
+            DeckBName = "Partners",
+            DeckBBracket = "Optimized",
+            DeckBSource = """
+Commander
+1 Tymna the Weaver
+
+Deck
+1 Sol Ring
+1 Counterspell
+"""
+        });
+
+        Assert.Contains("1 Lightning Bolt [printed as: Bolty Zap]", result.DeckAListText);
+        Assert.Contains("1 Sol Ring", result.DeckAListText);
+        Assert.DoesNotContain("Sol Ring [printed as:", result.DeckAListText);
+    }
+
+    [Fact]
     public async Task BuildAsync_EmitsCommanderSection_WhenDeckHasNoExplicitCommanderHeader()
     {
         var service = CreateService();
@@ -332,6 +387,134 @@ Deck
         Assert.Equal("Atraxa, Praetors' Voice", second.ResolvedDeckACommander);
         Assert.Equal("Atraxa, Praetors' Voice", second.ResolvedDeckBCommander);
         Assert.Equal(first.DeckAListText, second.DeckAListText);
+    }
+
+    [Fact]
+    public async Task BuildAsync_FallbackSearchHttpFailure_PropagatesOriginalMessage_NotDeckLabeledReWrap()
+    {
+        // Why (Phase 83 WR-01): a per-name fallback-SEARCH HTTP failure must keep its ORIGINAL message
+        // (no "Deck A"/"comparison packet" text) so DeckPacketController routes it through the friendly
+        // UpstreamErrorMessageBuilder copy instead of rendering an internal-sounding string raw. Only a
+        // cards/collection-CALL failure gets the deck-labeled re-wrap (covered by the next test).
+        var service = CreateService(
+            executeCollectionAsync: (request, _) => Task.FromResult(CreateCollectionResponseForRequestedCardsOnly(request)),
+            executeSearchAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
+            {
+                StatusCode = HttpStatusCode.ServiceUnavailable,
+                Data = null
+            }));
+
+        var exception = await Assert.ThrowsAsync<HttpRequestException>(() => service.BuildAsync(new DeckComparisonRequest
+        {
+            WorkflowStep = 2,
+            DeckAName = "Fallback Failure",
+            DeckABracket = "Upgraded",
+            DeckASource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+Deck
+1 Bolty Zap
+1 Sol Ring
+""",
+            DeckBName = "Partners",
+            DeckBBracket = "Optimized",
+            DeckBSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+Deck
+1 Sol Ring
+1 Counterspell
+"""
+        }));
+
+        Assert.Contains("Scryfall fallback lookup failed while resolving", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Deck A", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("comparison packet", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task BuildAsync_CollectionCallHttpFailure_ReWrapsWithDeckLabeledMessage()
+    {
+        // The cards/collection-CALL failure (distinct from a fallback-search failure) keeps the
+        // deck-labeled re-wrap the controller relies on to render it raw for the correct deck.
+        var service = CreateService(
+            executeCollectionAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+            {
+                StatusCode = HttpStatusCode.ServiceUnavailable,
+                Data = null
+            }));
+
+        var exception = await Assert.ThrowsAsync<HttpRequestException>(() => service.BuildAsync(new DeckComparisonRequest
+        {
+            WorkflowStep = 2,
+            DeckAName = "Collection Failure",
+            DeckABracket = "Upgraded",
+            DeckASource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+Deck
+1 Sol Ring
+""",
+            DeckBName = "Partners",
+            DeckBBracket = "Optimized",
+            DeckBSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+Deck
+1 Sol Ring
+1 Counterspell
+"""
+        }));
+
+        Assert.Contains("Deck A", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("comparison packet", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task BuildAsync_CollectionReturnsDuplicateCardName_DedupsInsteadOfCrashing()
+    {
+        // Why (Phase 83 WR-02): the migration deliberately dedups resolved cards by Name. This fixes a
+        // latent ArgumentException in BuildDeckSummary's ToDictionary(card => card.Name) when
+        // cards/collection returns two entries with the same Name, and drops orphan cards that never
+        // matched a request name (which BuildDeckSummary never looked up, so the paste artifact is
+        // unchanged). This is an intentional, tested divergence from the pre-refactor AddRange, not a
+        // regression.
+        var duplicated = new ScryfallCard("Sol Ring", "{1}", "Artifact", "{T}: Add {C}{C}.", null, null, [], [], null, null, null);
+        var service = CreateService(
+            executeCollectionAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+            {
+                StatusCode = HttpStatusCode.OK,
+                Data = new ScryfallCollectionResponse(new List<ScryfallCard> { duplicated, duplicated }, [])
+            }));
+
+        var result = await service.BuildAsync(new DeckComparisonRequest
+        {
+            WorkflowStep = 2,
+            DeckAName = "Duplicate Names",
+            DeckABracket = "Upgraded",
+            DeckASource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+Deck
+1 Sol Ring
+""",
+            DeckBName = "Partners",
+            DeckBBracket = "Optimized",
+            DeckBSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+Deck
+1 Sol Ring
+"""
+        });
+
+        Assert.NotNull(result);
     }
 
     private static DeckComparisonService CreateService(

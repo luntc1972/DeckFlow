@@ -118,6 +118,8 @@
 @await Html.PartialAsync("_ShortFormFooter", "For a rules question, open the Judge Chat above and type your question. For a quick AI-assisted answer, use the ChatGPT prompt generator: type a card name and your question, then copy the generated prompt into ChatGPT.")
 
 @section Scripts {
+    <script src="~/js/busy-indicator.js" asp-append-version="true"></script>
+    <script src="~/js/moxfield-extension-bridge.js" asp-append-version="true"></script>
     <script src="~/js/deck-sync.js" asp-append-version="true"></script>
     <script src="~/js/judge-questions.js" asp-append-version="true"></script>
 }

@@ -1408,6 +1408,71 @@ Commander
         Assert.Contains("deals 4 damage to target creature", result.ReferenceText);
     }
 
+    /// <summary>
+    /// Post-83-06 regression: a card that misses the <c>cards/collection</c> batch and is recovered
+    /// via <c>SearchPrintingFallbackCardAsync</c> (through the shared <c>ScryfallReferenceResolver</c>)
+    /// must still carry its <c>ReleasedAt</c> and MDFC-land classification into the resolved
+    /// <c>CardReference</c> — proving the collaborator's fallback path feeds the same 9-field
+    /// construction the private inline loop used to build directly.
+    /// </summary>
+    [Fact]
+    public async Task BuildAsync_CollectionMissResolvedViaPrintingFallback_PreservesReleasedAtAndMdfcLand()
+    {
+        var fallbackCard = new ScryfallCard(
+            "Riverglide Pathway // Lavaglide Pathway",
+            null,
+            "Land // Land",
+            null,
+            null,
+            null,
+            [],
+            ["U", "R"],
+            "znr",
+            "Zendikar Rising",
+            "260",
+            [
+                new ScryfallCardFace("Riverglide Pathway", null, "Land", "Riverglide Pathway enters tapped unless you control two or more other lands.", null, null),
+                new ScryfallCardFace("Lavaglide Pathway", null, "Land", "Lavaglide Pathway enters tapped unless you control two or more other lands.", null, null)
+            ],
+            Layout: "modal_dfc",
+            ReleasedAt: "2020-09-25");
+
+        var service = CreateService(
+            executeSearchAsync: (request, _) =>
+            {
+                var query = request.Parameters.First(parameter => parameter.Name?.ToString() == "q").Value?.ToString() ?? string.Empty;
+                var cards = query.Contains("Riverglide Pathway", StringComparison.Ordinal)
+                    ? new[] { fallbackCard }
+                    : Array.Empty<ScryfallCard>();
+
+                return Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSearchResponse(cards.ToList())
+                });
+            });
+
+        var result = await service.BuildAsync(new DeckAnalysisRequest
+        {
+            WorkflowStep = 2,
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Riverglide Pathway // Lavaglide Pathway
+1 Sol Ring
+1 Arcane Signet
+""",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["consistency"]
+        });
+
+        Assert.NotNull(result.ReferenceText);
+        Assert.Contains("Riverglide Pathway // Lavaglide Pathway", result.ReferenceText);
+        Assert.Contains("enters tapped unless you control two or more other lands", result.ReferenceText);
+        Assert.Contains("[MDFC-land]", result.ReferenceText);
+    }
+
     [Fact]
     public async Task BuildAsync_GeneratesSetUpgradePrompt_WhenDeckProfileAndSetPacketProvided()
     {
@@ -1841,6 +1906,75 @@ Commander
             return Task.FromResult<CommanderSpellbookResult?>(
                 new CommanderSpellbookResult(Array.Empty<SpellbookCombo>(), Array.Empty<SpellbookAlmostCombo>()));
         }
+    }
+
+    [Fact]
+    public async Task BuildAsync_PrintingFallbackHttpFailure_PropagatesOriginalMessage_NotCollectionReWrap()
+    {
+        // Why (Phase 83 WR-01): a per-name printing-fallback HTTP failure must keep its ORIGINAL upstream
+        // message (no "cards/collection"/"analysis packet" text). The pre-refactor code let it propagate,
+        // so UpstreamErrorMessageBuilder produced the generic "Scryfall returned HTTP {n}" copy; the
+        // migration's catch wrongly re-labeled it with the collection-call message, flipping which
+        // BuildDetailedScryfallMessage branch fires. Only the cards/collection-CALL failure gets that
+        // re-wrap now.
+        var service = CreateService(
+            executeCollectionAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+            {
+                StatusCode = HttpStatusCode.OK,
+                Data = new ScryfallCollectionResponse([], [])
+            }),
+            executeSearchAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
+            {
+                StatusCode = HttpStatusCode.ServiceUnavailable,
+                Data = null
+            }));
+
+        var exception = await Assert.ThrowsAsync<HttpRequestException>(() => service.BuildAsync(new DeckAnalysisRequest
+        {
+            WorkflowStep = 2,
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["consistency"]
+        }));
+
+        Assert.DoesNotContain("cards/collection", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("analysis packet", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task BuildAsync_CollectionCallHttpFailure_ReWrapsWithAnalysisPacketMessage()
+    {
+        // The cards/collection-CALL failure (distinct from a printing-fallback failure) keeps the
+        // analysis-packet re-wrap, matching the pre-refactor collection-call message exactly.
+        var service = CreateService(
+            executeCollectionAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+            {
+                StatusCode = HttpStatusCode.ServiceUnavailable,
+                Data = null
+            }));
+
+        var exception = await Assert.ThrowsAsync<HttpRequestException>(() => service.BuildAsync(new DeckAnalysisRequest
+        {
+            WorkflowStep = 2,
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+""",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["consistency"]
+        }));
+
+        Assert.Contains("cards/collection", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("analysis packet", exception.Message, StringComparison.Ordinal);
     }
 
     private static DeckAnalysisPacketService CreateService(

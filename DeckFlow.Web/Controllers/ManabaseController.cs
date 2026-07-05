@@ -92,7 +92,7 @@ public sealed class ManabaseController : DeckToolControllerBase
                     InputSummary = result.InputSummary,
                     Unresolved = result.Unresolved,
                     ImportWarning = result.ImportWarning,
-                    ChatGptSwapPrompt = result.ChatGptSwapPrompt,
+                    PromptSwapPrompt = result.PromptSwapPrompt,
                     Suggestions = result.Suggestions,
                     PlainLanguageVerdict = result.Verdict,
                     RampDrawBudget = result.Budget,

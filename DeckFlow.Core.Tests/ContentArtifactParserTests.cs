@@ -1,7 +1,6 @@
-using DeckFlow.Web.Services;
-using Xunit;
+using DeckFlow.Core.Knowledge;
 
-namespace DeckFlow.Web.Tests;
+namespace DeckFlow.Core.Tests;
 
 /// <summary>
 /// Tests for <see cref="ContentArtifactParser.SplitHeader"/> — the frontmatter splitter that

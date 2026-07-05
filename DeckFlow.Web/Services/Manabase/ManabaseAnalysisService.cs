@@ -71,7 +71,7 @@ public sealed class ManabaseAnalysisOptions
 /// <param name="InputSummary">Short human summary of what was analyzed.</param>
 /// <param name="Unresolved">Card names Scryfall could not resolve (excluded from the math).</param>
 /// <param name="ImportWarning">Optional notice from the deck importer (e.g. a fallback path).</param>
-/// <param name="ChatGptSwapPrompt">Paste-ready prompt asking an LLM for specific land swaps.</param>
+/// <param name="PromptSwapPrompt">Paste-ready prompt asking an LLM for specific land swaps.</param>
 /// <param name="Suggestions">Auto-detected alt/reduced-cost suggestions to pre-populate the override box.</param>
 /// <param name="Verdict">Optional synthesized plain-language verdict (Casual only when the flag is on).</param>
 /// <param name="Budget">Optional ramp/draw slot-budget advisory (Casual only when the flag is on).</param>
@@ -81,7 +81,7 @@ public sealed record ManabaseAnalysisResult(
     string InputSummary,
     IReadOnlyList<string> Unresolved,
     string? ImportWarning,
-    string ChatGptSwapPrompt,
+    string PromptSwapPrompt,
     IReadOnlyList<CostSuggestion> Suggestions,
     ManabaseVerdict? Verdict,
     ManabaseRampDrawBudget? Budget,

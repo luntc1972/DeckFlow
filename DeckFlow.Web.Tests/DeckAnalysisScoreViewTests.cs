@@ -29,7 +29,7 @@ namespace DeckFlow.Web.Tests;
 /// <summary>
 /// Render-level guard for the flag-gated multi-axis score block on
 /// <c>Views/Deck/DeckAnalysis.cshtml</c> (Phase 77, SCORE-01/04). Renders the real Razor view
-/// through <see cref="IRazorViewEngine"/> so the OFF invariant (no <c>chatgpt-score</c> markup) and
+/// through <see cref="IRazorViewEngine"/> so the OFF invariant (no <c>prompt-score</c> markup) and
 /// the scored state are enforced in CI — a source-text scan cannot distinguish the two states
 /// because the markup literal always exists in the .cshtml. The excision-equality test proves the
 /// OFF path leaks no surrounding-markup drift (the only difference is the contiguous score block
@@ -46,7 +46,7 @@ public sealed class DeckAnalysisScoreViewTests
         // True flag-OFF state: no score, no round-trip field -> byte-identical to baseline.
         string html = await RenderAsync(score: null, scoreJson: string.Empty);
 
-        Assert.DoesNotContain("chatgpt-score", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("prompt-score", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -69,7 +69,7 @@ public sealed class DeckAnalysisScoreViewTests
         Assert.Equal(nullSuffix, scoredSuffix);
         // The excised region is whitespace-only when OFF and carries the grid when scored.
         Assert.True(string.IsNullOrWhiteSpace(nullMiddle), "OFF middle should be whitespace-only.");
-        Assert.Contains("chatgpt-score-grid", scoredMiddle, StringComparison.Ordinal);
+        Assert.Contains("prompt-score-grid", scoredMiddle, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -77,12 +77,12 @@ public sealed class DeckAnalysisScoreViewTests
     {
         string html = await RenderAsync(score: BuildScore(), scoreJson: FixedScoreJson);
 
-        Assert.Contains("chatgpt-score-grid", html, StringComparison.Ordinal);
+        Assert.Contains("prompt-score-grid", html, StringComparison.Ordinal);
         Assert.Contains("POWER", html, StringComparison.Ordinal);
         Assert.Contains("SPEED", html, StringComparison.Ordinal);
         Assert.Contains("CONTROL", html, StringComparison.Ordinal);
         Assert.Contains("CONSISTENCY", html, StringComparison.Ordinal);
-        Assert.Contains("chatgpt-score-crosscheck", html, StringComparison.Ordinal);
+        Assert.Contains("prompt-score-crosscheck", html, StringComparison.Ordinal);
         Assert.Contains("CROSS-CHECK", html, StringComparison.Ordinal);
     }
 

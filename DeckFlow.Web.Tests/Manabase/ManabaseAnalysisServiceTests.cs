@@ -62,7 +62,7 @@ public sealed class ManabaseAnalysisServiceTests
         Assert.NotNull(result.Report);
         Assert.Equal(22, result.Report.ActualLands); // 12 Plains + 10 Island; sideboard excluded.
         Assert.Empty(result.Unresolved); // Godzilla resolved via printing.
-        Assert.Contains("Test Deck", result.ChatGptSwapPrompt);
+        Assert.Contains("Test Deck", result.PromptSwapPrompt);
         Assert.NotEmpty(result.Report.ColorFindings);
         // Default profile is Casual so existing output is unchanged.
         Assert.Equal(ManabaseMode.Casual, result.Report.Mode);
@@ -431,7 +431,7 @@ public sealed class ManabaseAnalysisServiceTests
 
         string expectedPrompt = ManabaseSwapPromptBuilder.Build(
             result.Report, "Curve Deck", BuildDecklistText(entries), result.Report.Mode);
-        Assert.Equal(expectedPrompt, result.ChatGptSwapPrompt);
+        Assert.Equal(expectedPrompt, result.PromptSwapPrompt);
     }
 
     [Fact]
@@ -458,7 +458,7 @@ public sealed class ManabaseAnalysisServiceTests
             offResult.Report.Castability.Select(FormatCastabilityRow));
         Assert.Equal(baselineResult.Report.AvgOnCurvePercent, offResult.Report.AvgOnCurvePercent);
         Assert.Equal(baselineResult.Report.Health, offResult.Report.Health);
-        Assert.Equal(baselineResult.ChatGptSwapPrompt, offResult.ChatGptSwapPrompt);
+        Assert.Equal(baselineResult.PromptSwapPrompt, offResult.PromptSwapPrompt);
         Assert.False(GetResultCommanderCastabilityEnabled(offResult));
         Assert.Null(GetResultCompanionRow(offResult));
     }
@@ -492,9 +492,9 @@ public sealed class ManabaseAnalysisServiceTests
         Assert.Equal(2, result.Report.LandTarget!.CommanderCount);
         Assert.Equal(2, result.Report.Castability.Count(row => row.IsCommander));
         Assert.True(
-            result.ChatGptSwapPrompt.Contains("Command-zone castability:", StringComparison.Ordinal),
-            result.ChatGptSwapPrompt);
-        Assert.Contains("Companion: Kaheera, the Orphanguard", result.ChatGptSwapPrompt);
+            result.PromptSwapPrompt.Contains("Command-zone castability:", StringComparison.Ordinal),
+            result.PromptSwapPrompt);
+        Assert.Contains("Companion: Kaheera, the Orphanguard", result.PromptSwapPrompt);
     }
 
     [Fact]
@@ -519,7 +519,7 @@ public sealed class ManabaseAnalysisServiceTests
 
         Assert.True(GetResultCommanderCastabilityEnabled(result));
         Assert.Null(GetResultCompanionRow(result));
-        Assert.DoesNotContain("Companion:", result.ChatGptSwapPrompt);
+        Assert.DoesNotContain("Companion:", result.PromptSwapPrompt);
     }
 
     [Fact]
@@ -539,7 +539,7 @@ public sealed class ManabaseAnalysisServiceTests
         Assert.True(GetResultShowPlainLanguage(result));
         Assert.NotNull(GetResultVerdict(result));
         Assert.NotNull(GetResultBudget(result));
-        Assert.Contains("Reading your deck", result.ChatGptSwapPrompt);
+        Assert.Contains("Reading your deck", result.PromptSwapPrompt);
     }
 
     [Fact]
@@ -560,7 +560,7 @@ public sealed class ManabaseAnalysisServiceTests
         Assert.True(GetResultShowPlainLanguage(result));
         Assert.Null(GetResultVerdict(result));
         Assert.Null(GetResultBudget(result));
-        Assert.DoesNotContain("Reading your deck", result.ChatGptSwapPrompt);
+        Assert.DoesNotContain("Reading your deck", result.PromptSwapPrompt);
     }
 
     [Fact]

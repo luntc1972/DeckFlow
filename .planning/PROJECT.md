@@ -12,9 +12,11 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 **Shipped:** Cycle 14 — Deeper Deck Evaluation (2026-07-03, CalVer `2026.07.1`) — phases 79-81, developed on branch `plan/cycle-14-deck-eval-depth` and squash-merged to `main` (`701ec2fa`). Three flag-gated read dimensions on the existing engines, zero new deps: **Interaction & Answers Audit** — bucketed, card-backed interaction counts (removal / board wipes / counterspells / protection-recursion / stax-taxation) + coverage-gap advisories in `/deck-analysis` (Phase 79, `analysis.interaction-audit`); **Win-Condition & Combo Map** — ranked Commander Spellbook combos + one-card-away near-combos in coarse early/mid/late assembly bands, disclosing "combo data unavailable" vs "no win conditions" (Phase 80, `analysis.wincon-map`); **Opening-Hand / Mulligan Evaluator** — keepable-hand band, keep-size process, colors/curve, and spell-attributed representative openers off the existing London-mulligan sim (no second pass; cast% byte-identical) on `/manabase` (Phase 81, `analysis.mulligan-eval`). Build 0/0; Core 1053 / Web 1158 pass; CI green on `main` (`28694830980`); milestone audit **PASSED** (13/13 requirements, 5/5 integration); headless live smoke desktop 1280 + mobile 390. All three cycle flags seeded OFF. Prior milestones: **Cycle 13 — Deck Evaluation & Creator Output** (2026-06-30, `2026.06.10`); **Cycle 12 — Manabase Accuracy, Command-Zone Awareness & Cross-Tool Persistence** (2026-06-27, `2026.06.9`, archived).
 
-**Next:** **Cycle 15 — Cleanup, Refactor & Visual Polish** (in planning, `2026.07.2`) — a pure tech-debt cycle, zero net-new user features, every paste artifact byte-identical and every theme render unchanged. See Current Milestone below. Operator debt from Cycles 12–14 (manual prod deploy + 7 flag flips) is **DONE** (confirmed 2026-07-04). Carry-forward backlog still open: scheduled/bulk harvest (AUTO-03/04), SEO/growth lane (SEO-01..05), matchup/meta-threat read (cedh-meta-gap lane), and a future manabase-engine refactor (needs a numeric-parity harness first).
+**Shipped (latest):** **Cycle 15 — Cleanup, Refactor & Visual Polish** (2026-07-05, CalVer `2026.07.2`) — phases 82-87, developed on branch `plan/cycle-15-cleanup-polish`. A behavior-neutral tech-debt + visual-polish cycle: **packet-service SRP split** (shared `PacketTextAssembler`/`ScryfallReferenceResolver` collaborators over the four packet god-services, byte-identical artifacts), **`--accent-strong` semantic-token migration** across all 27 theme forks (error-reads-as-link fixed in red guilds, no other drift), **`chatgpt-*` → AI-agnostic naming cleanup** (~1545 identifiers + the `ChatGptSwapPrompt` C# symbol, byte-identical render, grep-clean), a **refactor-review sweep** with recorded triage, and a **6-pillar UI audit re-score 18→21/24** (theme gap fixes A/B/C/D) plus the owed **DirectPush Stage 4** closeout (no-op copy fix, short-form SHA, operator live prod eyeball) and Studio **creator-source model hardening**. 20/20 in-scope requirements satisfied; ADMIN-01 (Flags on/off sorting) descoped → backlog. Prior milestones: **Cycle 14 — Deeper Deck Evaluation** (2026-07-03, `2026.07.1`); **Cycle 13 — Deck Evaluation & Creator Output** (2026-06-30, `2026.06.10`).
 
-## Current Milestone: Cycle 15 — Cleanup, Refactor & Visual Polish
+**Next:** No active milestone yet. Cycle 16 (Creator-Style) and Cycle 17 (KB-Sync Hardening) are pre-planned on separate branches; start the next active cycle via `/gsd-new-milestone` or `/gsd-review-backlog`. Operator debt from Cycles 12–14 (manual prod deploy + 7 flag flips) is **DONE** (confirmed 2026-07-04). Carry-forward backlog still open: scheduled/bulk harvest (AUTO-03/04), SEO/growth lane (SEO-01..05), matchup/meta-threat read (cedh-meta-gap lane), ADMIN-01 (Flags sorting), a future manabase-engine refactor (needs a numeric-parity harness first), and a KB "commander advice" content class for filtered videos.
+
+## Shipped Milestone: Cycle 15 — Cleanup, Refactor & Visual Polish (SHIPPED 2026-07-05, `2026.07.2`)
 
 **Goal:** Pay down accumulated tech-debt and finish deferred polish without changing public behavior — every paste artifact byte-identical, every theme render unchanged.
 
@@ -200,16 +202,27 @@ Gate-driven milestone that pivoted: the KBV value gate = MARGINAL → retired pr
 - ✓ Admin Content KB Curation UX — instant client-side filter/search over the entries list + readability sweep (zebra/sticky/hover/mobile cards) — v1.5 (KBUX-01/02; Phase 33)
 - ✓ Housekeeping — DeckFlow.Core XML-doc backfill + doc-gate widened to `[DeckFlow.Core/**.cs]`; retroactive VERIFICATION + artifact hygiene — v1.5 (HSK-01/03/04; Phases 28-29)
 - ✓ Quality infra — Vitest+jsdom browser test runner + first GitHub Actions CI (build + xUnit + Vitest); expert-pin injection bug fixed + pin-id derivation unified — v1.5 (close)
+- ✓ Packet-service family SRP split — shared `PacketTextAssembler` + `ScryfallReferenceResolver` collaborators extracted from the four packet god-services (Analysis / Comparison / MetaGap / Primer); per-variant prompt prose stays hand-authored (ADR-0001); byte-identical across ChatGPT/Claude/Gemini (flag ON/OFF) via a regression guard — 2026.07.2 (PKTSVC-01..04)
+- ✓ `--accent-strong` semantic-token migration across all 27 theme forks — re-aliased onto `--link`/`--danger`/`--focus`/`--cta-border` by role; error/danger text no longer resolves to the link color in red guild themes; no non-error visual drift — 2026.07.2 (THEME-01..03)
+- ✓ `chatgpt-*` → AI-agnostic naming cleanup — ~1545 CSS/TS/view identifiers + the `ChatGptSwapPrompt` C# symbol renamed with byte-identical render, grep-clean across css/ts/Views, Playwright e2e unchanged — 2026.07.2 (AICLEAN-01..03)
+- ✓ Refactor-review sweep over the largest/most-duplicated files (`deck-sync.ts` 2877 LOC, `Harvest.razor.cs` 1225) with a recorded per-candidate triage; in-scope targets refactored behavior-neutral (tests), others explicitly deferred to backlog — 2026.07.2 (REVIEW-01/02)
+- ✓ 6-pillar UI audit re-score 18→21/24 — theme gap fixes A/B/C/D (filled-accent-pill active step-tab, tokenized Jeskai-blue literals, analysis-bucket toggle chevron+aria, perceptible Full/Compact/Advanced layout picker) with visual-regression + interaction e2e — 2026.07.2 (UIAUDIT-01/02)
+- ✓ DirectPush Stage 4 closeout — no-op success copy no longer claims a push (`AlreadyInSync` returns without pushing), phrasing unified to `origin/<branch>`, short-form commit SHA (no mobile overflow); three Stage-4 bUnit variants + operator live prod desktop+mobile eyeball — 2026.07.2 (UIAUDIT-03)
+- ✓ Creator-source model hardening (Studio-local) — `creator_sources`↔`content_sources` linked by a persisted `content_source_id` at harvest with an edit-after-select provenance guard, disabled-same-URL source re-enable on both add paths, existence-aware `/creators` link status, and an additive/idempotent `content-kb.db` migration — 2026.07.2 (CREATOR-01..04)
 
 ### Active
 
-<!-- Planning next milestone — fresh REQUIREMENTS.md created via /gsd-new-milestone. -->
+<!-- No active milestone — Cycle 15 shipped 2026.07.2. Next cycle not yet planned. -->
 
-- Cycle 15 Cleanup, Refactor & Visual Polish — scoping in `.planning/REQUIREMENTS.md` (see Current Milestone above)
+- No active milestone. Cycle 15 (Cleanup, Refactor & Visual Polish) shipped `2026.07.2` (2026-07-05). Cycle 16 (Creator-Style) and Cycle 17 (KB-Sync Hardening) are pre-planned on separate branches; start the next active cycle via `/gsd-new-milestone` or `/gsd-review-backlog`.
 
 ### Out of Scope
 
 <!-- Deferred to next milestones, with reasoning. -->
+
+**Descoped from Cycle 15 (2026.07.2):**
+
+- ADMIN-01 — `/Admin/Flags` sortable by on/off (enabled) state — descoped to backlog for a future cycle (user decision 2026-07-05). View-only sort, no flag key/default/persisted-semantics change; the odd net-new admin-UX addition in an otherwise byte-identical tech-debt cycle.
 
 **Deferred from v1.1 (Admin Console):**
 
@@ -252,14 +265,15 @@ Gate-driven milestone that pivoted: the KBV value gate = MARGINAL → retired pr
 - HTTP layer: RestSharp wrapping `IHttpClientFactory` HttpClient + per-call `ResiliencePipelineBuilder<RestResponse>` (NOT MS standard handler)
 - Markdig pipeline hardened with `DisableHtml()` defense-in-depth XSS
 
-**Known UI debt (basis for this milestone)**
+**Known UI debt (basis for the 2026.07.2 milestone) — RESOLVED**
 
-- Recent UI audit (`tasks/UI-REVIEW.md`, 2026-04-30) scored 16/24 across 6 pillars
-- Color (2/4) and Typography (2/4) are the lowest pillars and the biggest leverage points
-- Real bug: `--accent-strong` is overloaded (links + brand + focus + error + CTA) — error text reads as link in red guild themes
+- Recent UI audit (`tasks/UI-REVIEW.md`, 2026-04-30) scored 16/24 across 6 pillars; re-baselined 18/24 in Phase 82 and re-scored **21/24** in Phase 86 (human-verified 2026-07-05, clears the ≥20/24 bar).
+- Color (2/4) and Typography (2/4) were the lowest pillars; Color addressed via the `--accent-strong` semantic-token migration + theme gap fixes. Typography deepening carried forward (D3 → future cycle).
+- Real bug FIXED: `--accent-strong` was overloaded (links + brand + focus + error + CTA) — error text read as link in red guild themes; migrated onto `--link`/`--danger`/`--focus`/`--cta-border` in Phase 84 (THEME-01..03).
 
 **Recent project state**
 
+- **Cycle 15 — Cleanup, Refactor & Visual Polish shipped 2026-07-05 (`2026.07.2`)** — a behavior-neutral cleanup cycle: packet-service SRP split, theme visual polish (`--accent-strong` migration + UI gap fixes A/B/C/D), 6-pillar UI audit re-score 18→21/24, `chatgpt-*`→prompt AI-agnostic rename shipped byte-identical, and Studio creator-source model hardening. Zero net-new user features; every paste artifact byte-identical. ADMIN-01 (Flags sorting) descoped → backlog.
 - v1.0 Polish & Quality milestone shipped 2026-05-02 (5 phases, 17 plans, 63 commits, +20,284 / -5,194 LOC)
 - Phase 4 abandoned mid-milestone after both fixes proved ineffective on prod despite passing static checks; rerouted to Phase 5 with surgical revert + corrective Postgres-backed throttle (see `04-ABANDONED.md` post-mortem)
 - Two latent root causes surfaced during Phase 5 BUG-01: Cloudflare BIC blocks Render egress IPs without browser-shaped headers, and `AutomaticDecompression` must be enabled when advertising `Accept-Encoding`
@@ -314,6 +328,11 @@ Gate-driven milestone that pivoted: the KBV value gate = MARGINAL → retired pr
 | Phases 32/33 inserted mid-milestone from UAT + dogfooding (before Phase 31) | Phase 30 UAT surfaced the need for manual expert selection (SEL); admin dogfooding surfaced the curation-list filter (KBUX). Both layered on Content KB and were higher-value to land before the Primer. | ✓ Good (both shipped; SEL traceability orphan caught + closed at milestone audit) |
 | SEL-02 expert-pin root cause corrected at close | The long-suspected pin-id 3-level-vs-2-level mismatch was refuted as unreachable dead code (read invariant); real cause was `ParseRowsAsync` dropping parse-failed pin rows before tier-1. Fixed + TDD-covered (`a106c6a`); pin-id derivation unified into `ContentSiteIndexRow.PinId` (`bfe16b1`). | ✓ Good (3 regression tests; CI green; live-pin re-confirm pending next KB-enable) |
 | Add Vitest+jsdom JS test runner + GitHub Actions CI at v1.5 close (user-authorized) | Browser TS (`module:none`) had no test runner; KBUX-01 filter logic was untested. Extracted a global-assignment seam (`DeckFlowKbFilter`) testable under both tsc and esbuild; first real CI runs build + xUnit + Vitest. | ✓ Good (CI green; package.json un-gitignored to track the toolchain) |
+| Filled-accent-pill for the active workflow step-tab (Cycle 15 Phase 86) | The baseline UI audit flagged the active step-tab as low-contrast/ambiguous across themes; a filled per-theme accent pill makes the current step unmistakable without adding a feature. | ✓ Good (Bug A; contributed to the 21/24 re-score) |
+| Empirical per-theme WCAG contrast gate for dark-theme token swaps (Cycle 15 Phase 86) | Verified dark-theme token pairings against measured WCAG contrast per theme rather than eyeballing, catching low-contrast pairings the `--accent-strong` re-alias would otherwise mask. | ✓ Good (dark-theme fixes landed under the gate) |
+| Tokenize the 3 hardcoded Jeskai-blue literals to per-theme accent (Cycle 15 Phase 86) | Three hardcoded blue literals bypassed the per-theme accent token, breaking palette self-consistency; tokenizing them keeps every theme on its own accent. | ✓ Good (Bug B; no non-error visual drift) |
+| UIAUDIT-03 (DirectPush Stage 4) = code-complete + operator prod eyeball (Cycle 15 Phase 86) | There is no local prod-secrets path to render Stage 4; the code + three bUnit regression variants land in-repo and the live desktop+mobile render is confirmed by an operator eyeball during a real prod publish. | ✓ Good (operator confirmed 2026-07-05; SHA short-form, no mobile overflow) |
+| ADMIN-01 (`/Admin/Flags` on/off sorting) descoped from Cycle 15 → backlog | The one net-new admin-UX addition was the odd item out in a byte-identical tech-debt cycle; descoping it keeps the cycle purely behavior-neutral. | ⚠️ Deferred (backlog, user decision 2026-07-05) |
 
 ## Evolution
 
@@ -344,4 +363,4 @@ This document evolves at phase transitions and milestone boundaries.
 **Shipped:** v1.5 Deck Primer Generator + Content KB Integration + Housekeeping (2026-06-10) — 30/30 requirements across 6 phases (28-33, 25 plans, 219 commits, +56,893/−2,108 LOC across 781 files, 7-day timeline 2026-06-03 → 2026-06-09). Deck Primer fourth workflow + Content KB prompt integration + expert selection + Core doc gate. Vitest+jsdom + GitHub Actions CI added at close. Tests Core 282/282, Web 657/662 (5 PG-skip). Audit: passed. Content KB ships dark (flag OFF by design).
 
 ---
-*Last updated: 2026-07-04 — Cycle 15 started (Cleanup, Refactor & Visual Polish — packet-service SRP split / `--accent-strong` migration / UI re-score / `chatgpt-*` rename; `2026.07.2`)*
+*Last updated: 2026-07-05 after 2026.07.2 milestone*

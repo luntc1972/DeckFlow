@@ -53,10 +53,10 @@ public class HelpControllerTests
     [Fact]
     public void Topic_returns_view_with_topic_for_known_slug()
     {
-        var topic = new HelpTopic("chatgpt-analysis", "ChatGPT Analysis", "s", 10, "<h1>X</h1>");
+        var topic = new HelpTopic("prompt-analysis", "Prompt Analysis", "s", 10, "<h1>X</h1>");
         var controller = CreateController(new StubHelpContentService(topic));
 
-        var result = Assert.IsType<ViewResult>(controller.Topic("chatgpt-analysis"));
+        var result = Assert.IsType<ViewResult>(controller.Topic("prompt-analysis"));
 
         Assert.Same(topic, result.Model);
     }

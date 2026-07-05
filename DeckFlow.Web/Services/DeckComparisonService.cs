@@ -14,6 +14,7 @@ using Polly;
 using Polly.Registry;
 using RestSharp;
 using DeckFlow.Web.Models;
+using DeckFlow.Web.Services.Packets;
 using DeckFlow.Web.Services.PromptBuilders.Comparison;
 using DeckFlow.Web.Services.PromptBuilders.FollowUp;
 using DeckFlow.Web.Services.Scryfall;
@@ -64,11 +65,10 @@ public sealed record DeckComparisonResult(
 /// </summary>
 public sealed class DeckComparisonService : IDeckComparisonService
 {
-    private const int ScryfallBatchSize = 75;
-
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly ICommanderSpellbookService _commanderSpellbookService;
     private readonly IScryfallCardResolver _scryfallCardResolver;
+    private readonly ScryfallReferenceResolver _scryfallReferenceResolver;
     private readonly ILogger<DeckComparisonService> _logger;
     private readonly ComparisonPromptVariantRegistry _comparisonPromptRegistry;
     private readonly FollowUpPromptVariantRegistry _followUpPromptRegistry;
@@ -90,6 +90,7 @@ public sealed class DeckComparisonService : IDeckComparisonService
         ArgumentNullException.ThrowIfNull(followUpPromptRegistry);
         ArgumentNullException.ThrowIfNull(packetCache);
         _scryfallCardResolver = scryfallCardResolver;
+        _scryfallReferenceResolver = new ScryfallReferenceResolver(scryfallCardResolver);
         _deckEntryLoader = deckEntryLoader;
         _commanderSpellbookService = commanderSpellbookService;
         _comparisonPromptRegistry = comparisonPromptRegistry;
@@ -217,8 +218,8 @@ public sealed class DeckComparisonService : IDeckComparisonService
         var deckACards = deckALookup.Cards;
         var deckBCards = deckBLookup.Cards;
 
-        var deckAListText = BuildDecklistText(deckA.PlayableEntries, deckA.OptionalEntries, deckALookup.OracleNameMap);
-        var deckBListText = BuildDecklistText(deckB.PlayableEntries, deckB.OptionalEntries, deckBLookup.OracleNameMap);
+        var deckAListText = PacketTextAssembler.BuildSectionedDecklistText(deckA.PlayableEntries, deckA.OptionalEntries, includeVersions: false, deckALookup.OracleNameMap);
+        var deckBListText = PacketTextAssembler.BuildSectionedDecklistText(deckB.PlayableEntries, deckB.OptionalEntries, includeVersions: false, deckBLookup.OracleNameMap);
 
         var comboLookupStopwatch = Stopwatch.StartNew();
         var deckACombos = await _commanderSpellbookService.FindCombosAsync(deckA.PlayableEntries, cancellationToken).ConfigureAwait(false);
@@ -291,11 +292,11 @@ public sealed class DeckComparisonService : IDeckComparisonService
         ArgumentNullException.ThrowIfNull(request);
         var builder = new StringBuilder();
         builder.AppendLine($"workflow_step: {request.WorkflowStep}");
-        builder.AppendLine($"deck_a_name: {JsonTextFormatterService.NormalizeSingleLine(request.DeckAName, string.Empty)}");
-        builder.AppendLine($"deck_b_name: {JsonTextFormatterService.NormalizeSingleLine(request.DeckBName, string.Empty)}");
-        builder.AppendLine($"deck_a_bracket: {JsonTextFormatterService.NormalizeSingleLine(request.DeckABracket, string.Empty)}");
-        builder.AppendLine($"deck_b_bracket: {JsonTextFormatterService.NormalizeSingleLine(request.DeckBBracket, string.Empty)}");
-        builder.AppendLine($"target_ai_platform: {JsonTextFormatterService.NormalizeSingleLine(request.TargetAiPlatform, "ChatGPT")}");
+        PacketTextAssembler.AppendKeyValueLine(builder, "deck_a_name", request.DeckAName, string.Empty, JsonTextFormatterService.NormalizeSingleLine);
+        PacketTextAssembler.AppendKeyValueLine(builder, "deck_b_name", request.DeckBName, string.Empty, JsonTextFormatterService.NormalizeSingleLine);
+        PacketTextAssembler.AppendKeyValueLine(builder, "deck_a_bracket", request.DeckABracket, string.Empty, JsonTextFormatterService.NormalizeSingleLine);
+        PacketTextAssembler.AppendKeyValueLine(builder, "deck_b_bracket", request.DeckBBracket, string.Empty, JsonTextFormatterService.NormalizeSingleLine);
+        PacketTextAssembler.AppendKeyValueLine(builder, "target_ai_platform", request.TargetAiPlatform, "ChatGPT", JsonTextFormatterService.NormalizeSingleLine);
         return builder.ToString().TrimEnd() + Environment.NewLine;
     }
 
@@ -353,33 +354,11 @@ public sealed class DeckComparisonService : IDeckComparisonService
 
         if (!hasExplicitCommander)
         {
-            entries = ReflagCommanderEntry(entries, commanderName);
-            playableEntries = ReflagCommanderEntry(playableEntries, commanderName);
+            entries = DeckEntryReflagHelper.ReflagCommanderEntry(entries, commanderName);
+            playableEntries = DeckEntryReflagHelper.ReflagCommanderEntry(playableEntries, commanderName);
         }
 
         return new LoadedDeck(entries, playableEntries, optionalEntries, commanderName ?? string.Empty);
-    }
-
-    private static List<DeckEntry> ReflagCommanderEntry(List<DeckEntry> source, string commanderName)
-    {
-        var matched = false;
-        var result = new List<DeckEntry>(source.Count);
-        foreach (var entry in source)
-        {
-            if (!matched
-                && entry.Quantity == 1
-                && string.Equals(entry.Name, commanderName, StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
-            {
-                result.Add(entry with { Board = "commander" });
-                matched = true;
-            }
-            else
-            {
-                result.Add(entry);
-            }
-        }
-        return result;
     }
 
     private async Task<CardLookupResult> LookupCardDetailsAsync(string deckLabel, IReadOnlyList<DeckEntry> entries, CancellationToken cancellationToken)
@@ -391,57 +370,47 @@ public sealed class DeckComparisonService : IDeckComparisonService
             .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var resolvedCards = new List<ScryfallCard>();
-        var oracleNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var chunk in Chunk(uniqueNames, ScryfallBatchSize))
+        ScryfallBatchResolution batchResolution;
+        try
         {
-            var request = new RestRequest("cards/collection", Method.Post)
-                .AddJsonBody(new
-                {
-                    identifiers = chunk.Select(name => new { name }).ToArray()
-                });
+            batchResolution = await _scryfallReferenceResolver.ResolveBatchAsync(
+                uniqueNames,
+                (name, ct) => _scryfallCardResolver.SearchFallbackCardAsync(name, ct),
+                normalizeForScryfall: false,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (ScryfallReferenceCollectionException exception)
+        {
+            // Why: preserve the deck-labeled message the DeckPacketController's error handler relies
+            // on (it routes messages containing "Deck A"/"Deck B" straight to the view, bypassing
+            // UpstreamErrorMessageBuilder). Only the cards/collection-CALL failure is re-wrapped here:
+            // catching the narrow ScryfallReferenceCollectionException (not a plain HttpRequestException)
+            // lets a per-name fallback-SEARCH failure propagate with its ORIGINAL message, so it keeps
+            // routing through UpstreamErrorMessageBuilder's friendly copy exactly as it did pre-Phase-83
+            // (WR-01) rather than being mislabeled with "Deck A ... comparison packet" and rendered raw.
+            throw new HttpRequestException(
+                $"{deckLabel} Scryfall card reference lookup failed while building the comparison packet with HTTP {(int?)exception.StatusCode}.",
+                exception,
+                exception.StatusCode);
+        }
 
-            var response = await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
-            if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
+        // Why (WR-02): dedup resolved cards by Name. This is an intentional, tested divergence from the
+        // pre-refactor AddRange-all: it fixes a latent ArgumentException in BuildDeckSummary's
+        // ToDictionary(card => card.Name) when cards/collection returns two entries with the same Name,
+        // and drops orphan cards whose Name matched no request (BuildDeckSummary never looked those up,
+        // so the paste artifact is unchanged). Guarded by
+        // BuildAsync_CollectionReturnsDuplicateCardName_DedupsInsteadOfCrashing.
+        var resolvedCards = new List<ScryfallCard>();
+        var seenCardNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var resolution in batchResolution.Resolutions)
+        {
+            if (seenCardNames.Add(resolution.Card.Name))
             {
-                throw new HttpRequestException(
-                    $"{deckLabel} Scryfall card reference lookup failed while building the comparison packet with HTTP {(int)response.StatusCode}.",
-                    null,
-                    response.StatusCode);
-            }
-
-            foreach (var card in response.Data.Data)
-            {
-                var submittedName = chunk.FirstOrDefault(name => string.Equals(name, card.Name, StringComparison.OrdinalIgnoreCase));
-                if (submittedName is not null)
-                {
-                    oracleNameMap[submittedName] = card.Name;
-                }
-            }
-
-            resolvedCards.AddRange(response.Data.Data);
-
-            var unresolvedNames = chunk
-                .Where(name => !oracleNameMap.ContainsKey(name))
-                .ToList();
-
-            foreach (var unresolvedName in unresolvedNames)
-            {
-                var fallbackCard = await _scryfallCardResolver.SearchFallbackCardAsync(unresolvedName, cancellationToken).ConfigureAwait(false);
-                if (fallbackCard is null)
-                {
-                    continue;
-                }
-
-                oracleNameMap[unresolvedName] = fallbackCard.Name;
-                if (!resolvedCards.Any(card => string.Equals(card.Name, fallbackCard.Name, StringComparison.OrdinalIgnoreCase)))
-                {
-                    resolvedCards.Add(fallbackCard);
-                }
+                resolvedCards.Add(resolution.Card);
             }
         }
 
-        return new CardLookupResult(resolvedCards, oracleNameMap);
+        return new CardLookupResult(resolvedCards, batchResolution.OracleNameMap);
     }
 
     private sealed record CardLookupResult(IReadOnlyList<ScryfallCard> Cards, IReadOnlyDictionary<string, string> OracleNameMap);
@@ -861,61 +830,6 @@ public sealed class DeckComparisonService : IDeckComparisonService
     internal static string FallbackText(string? value, string fallback)
         => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
 
-    private static string BuildDecklistText(IReadOnlyList<DeckEntry> entries, IReadOnlyList<DeckEntry> optionalEntries, IReadOnlyDictionary<string, string>? oracleNameMap = null)
-    {
-        var builder = new StringBuilder();
-        var commanderLines = entries
-            .Where(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(entry => FormatDecklistLine(entry, oracleNameMap))
-            .ToList();
-
-        if (commanderLines.Count > 0)
-        {
-            builder.AppendLine("Commander");
-            foreach (var line in commanderLines)
-            {
-                builder.AppendLine(line);
-            }
-
-            builder.AppendLine();
-        }
-
-        builder.AppendLine("Mainboard");
-        foreach (var line in entries
-                     .Where(entry => !string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
-                     .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
-                     .Select(entry => FormatDecklistLine(entry, oracleNameMap)))
-        {
-            builder.AppendLine(line);
-        }
-
-        if (optionalEntries.Count > 0)
-        {
-            builder.AppendLine();
-            builder.AppendLine("Possible Includes");
-            foreach (var line in optionalEntries
-                         .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
-                         .Select(entry => FormatDecklistLine(entry, oracleNameMap)))
-            {
-                builder.AppendLine(line);
-            }
-        }
-
-        return builder.ToString().TrimEnd();
-    }
-
-    private static string FormatDecklistLine(DeckEntry entry, IReadOnlyDictionary<string, string>? oracleNameMap)
-    {
-        if (oracleNameMap is not null && oracleNameMap.TryGetValue(entry.Name, out var resolvedName)
-            && !string.Equals(resolvedName, entry.Name, StringComparison.OrdinalIgnoreCase))
-        {
-            return $"{entry.Quantity} {resolvedName} [printed as: {entry.Name}]";
-        }
-
-        return $"{entry.Quantity} {entry.Name}";
-    }
-
     private static string NormalizeOracleText(ScryfallCard card)
     {
         var parts = new List<string>();
@@ -939,21 +853,6 @@ public sealed class DeckComparisonService : IDeckComparisonService
         => string.Join(" ", value
             .Replace("\r\n", "\n", StringComparison.Ordinal)
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
-
-    private static IEnumerable<List<T>> Chunk<T>(IReadOnlyList<T> values, int size)
-    {
-        for (var index = 0; index < values.Count; index += size)
-        {
-            var count = Math.Min(size, values.Count - index);
-            var chunk = new List<T>(count);
-            for (var itemIndex = 0; itemIndex < count; itemIndex++)
-            {
-                chunk.Add(values[index + itemIndex]);
-            }
-
-            yield return chunk;
-        }
-    }
 
     // Phase 15-02: promoted from private static to internal static for use by Comparison and FollowUp variant classes.
     internal static string IndentJson(string json, int indentSize)

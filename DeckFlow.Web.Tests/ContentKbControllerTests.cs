@@ -102,6 +102,40 @@ public sealed class ContentKbControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task Detail_ServesBakedPromptSibling_WhenPresent()
+    {
+        var (controller, store) = Build(out var baseDir);
+        var rel = "content-kb/edhrecast/baked.md";
+        WriteArtifact(baseDir, rel, "---\ntitle: Ok\n---\n# Body\n\nNotes.");
+        WriteArtifact(baseDir, "content-kb/edhrecast/baked.prompt.md", "BAKED-PROMPT-SENTINEL");
+        store.Rows.Add(Row(7, artifactPath: rel, visible: true));
+
+        var result = await controller.Detail(7);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ContentKbDetailViewModel>(view.Model);
+        // The baked sibling is served verbatim as the copy payload; the page still renders the notes.
+        Assert.Equal("BAKED-PROMPT-SENTINEL", model.CleanBodyText);
+    }
+
+    [Fact]
+    public async Task Detail_ReconstructsPrompt_WhenNoSibling()
+    {
+        var (controller, store) = Build(out var baseDir);
+        var rel = "content-kb/edhrecast/nosibling.md";
+        WriteArtifact(baseDir, rel, "---\ntitle: Ok\n---\n## Summary\nReconstructed body.");
+        store.Rows.Add(Row(8, artifactPath: rel, visible: true));
+
+        var result = await controller.Detail(8);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ContentKbDetailViewModel>(view.Model);
+        // No sibling → the framed prompt is reconstructed from the notes body.
+        Assert.Contains("TASK:", model.CleanBodyText);
+        Assert.Contains("Reconstructed body.", model.CleanBodyText);
+    }
+
+    [Fact]
     public async Task Detail_ServesBody_WhenPresentOnlyInOverlay()
     {
         var overlayRoot = Path.Combine(Path.GetTempPath(), "kbctl-overlay-" + Guid.NewGuid().ToString("N"));

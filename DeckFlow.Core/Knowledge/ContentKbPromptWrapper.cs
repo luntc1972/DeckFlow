@@ -1,13 +1,13 @@
 using System.Text;
 
-namespace DeckFlow.Web.Services;
+namespace DeckFlow.Core.Knowledge;
 
 /// <summary>
 /// Wraps a stored Content-KB artifact body (Summary + Key Clips + Tags) in a standalone,
-/// paste-ready AI prompt: persona, task, and evidence rules around the notes. Applied at
-/// copy time in <see cref="Controllers.ContentKbController"/> so every existing and future
-/// artifact benefits without re-distilling stored files. Framing lives in code, mirroring
-/// the generative prompt builders under <c>Services/PromptBuilders/</c>.
+/// paste-ready AI prompt: persona, task, and evidence rules around the notes. The same framing
+/// is applied at distill time (baked into a sibling <c>.prompt.md</c> by the Content KB
+/// orchestrator) and at serve/review time as a fallback when no baked prompt exists, so the
+/// public copy button and the Studio review queue show identical output.
 /// </summary>
 public static class ContentKbPromptWrapper
 {

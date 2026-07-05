@@ -82,6 +82,44 @@ public sealed class EnsureYoutubeSourceTests
         Assert.Contains(existingId, store.SetEnabledCalledFor);
     }
 
+    // ── H1 regression: disabled row NOT in the enabled list ─────────────────
+
+    [Fact]
+    public async Task EnsureYoutubeSourceAsync_DisabledRowAbsentFromEnabledList_ReclassifiesAndReturnsCanonicalSlug()
+    {
+        // The real H1 bug: a disabled same-url row is NOT in ListEnabledSourcesAsync, so the old
+        // enabled-only classifier fell through to Error/SlugConflict. With GetSourceByUrlAsync
+        // (enabled-agnostic) it must classify AlreadyExistsSameUrl, re-enable, and return the
+        // EXISTING row's canonical slug — not the display-derived one.
+        const string url = "https://www.youtube.com/@disabledchannel";
+        const long existingId = 21;
+
+        var store = new EnsureSourceStore
+        {
+            InsertException = new InvalidOperationException("UNIQUE constraint failed: content_sources.source_url"),
+            EnabledSources = [], // disabled row is absent from the enabled list — the crux of H1
+            ByUrlSource = new ContentSource
+            {
+                Id = existingId,
+                SourceSlug = "canonical-existing-slug",
+                DisplayName = "Disabled Channel",
+                SourceType = ContentSourceType.Youtube,
+                SourceUrl = url,
+                IsEnabled = false,
+                CreatedUtc = DateTimeOffset.Parse("2026-06-01T00:00:00Z"),
+            },
+        };
+
+        var result = await CreateOrchestrator(store)
+            .EnsureYoutubeSourceAsync(url, "Some Different Display Name");
+
+        Assert.True(result.Success);
+        Assert.Equal(ContentSourceResult.ContentSourceOutcome.AlreadyExistsSameUrl, result.Outcome);
+        Assert.Equal(existingId, result.Id);
+        Assert.Equal("canonical-existing-slug", result.Slug);
+        Assert.Contains(existingId, store.SetEnabledCalledFor);
+    }
+
     // ── already-exists, already enabled ─────────────────────────────────────
 
     [Fact]

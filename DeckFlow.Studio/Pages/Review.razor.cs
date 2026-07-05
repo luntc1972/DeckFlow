@@ -2,6 +2,7 @@ using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Studio.Services;
 using DeckFlow.Studio.ViewModels;
+using Markdig;
 using Microsoft.AspNetCore.Components;
 
 namespace DeckFlow.Studio.Pages;
@@ -44,6 +45,12 @@ public partial class Review
     // (parent of ArtifactRoot) so the segment isn't doubled — combining with ArtifactRoot directly
     // resolves every file MISSING. Containment guard rejects rooted/.. paths.
     private readonly Dictionary<string, string?> _expandCache = new();
+
+    // ── Prompt expand cache ─────────────────────────────────────────────────
+    // Why: parallel to _expandCache — holds the paste-ready AI prompt (baked sibling {id}.prompt.md
+    // when present, else reconstructed from the notes) so reviewers see exactly what a KB user would
+    // paste into ChatGPT. Keyed by natural key, populated lazily on expand alongside the notes.
+    private readonly Dictionary<string, string?> _promptCache = new();
 
     // ── Filtered view ──────────────────────────────────────────────────────
     // Tab filter (approval-status axis).
@@ -225,10 +232,14 @@ public partial class Review
     private async Task LoadArtifactAsync(ReviewViewModel vm)
     {
         string? text;
+        string? prompt;
         try
         {
-            // Why: Task.Run moves the file read off the Blazor sync context (Pitfall 1).
+            // Why: Task.Run moves the file reads off the Blazor sync context (Pitfall 1).
             text = await Task.Run(() => Coordinator.ReadArtifactSafe(vm.ArtifactPath), Cts.Token);
+            prompt = await Task.Run(
+                () => Coordinator.ReadPromptSafe(vm.ArtifactPath, vm.Title, vm.Source, vm.VideoUrl),
+                Cts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -236,8 +247,31 @@ public partial class Review
         }
 
         _expandCache[vm.NaturalKeyValue] = text;
+        _promptCache[vm.NaturalKeyValue] = prompt;
 
         await SafeStateHasChangedAsync();
+    }
+
+    // ── Notes markdown rendering ────────────────────────────────────────────
+    // Why: the review preview showed raw markdown (## Summary, - **[mm:ss]** …) in a <pre>; render
+    // it to HTML so reviewers read the notes the same way a KB visitor does on /content-kb. Mirrors
+    // the public detail page's pipeline exactly, including DisableHtml() — the notes are transcript-
+    // derived, so raw/embedded HTML must be escaped, never executed.
+    private static readonly MarkdownPipeline NotesPipeline =
+        new MarkdownPipelineBuilder().UseAdvancedExtensions().DisableHtml().Build();
+
+    private static MarkupString RenderNotesHtml(string? markdown)
+    {
+        if (string.IsNullOrEmpty(markdown))
+        {
+            return default;
+        }
+
+        // Strip the YAML frontmatter before rendering, exactly like the public detail page
+        // (ContentKbController splits the header and renders only the body). Otherwise the
+        // source/title/tags metadata block renders as visible text at the top of the preview.
+        var (_, body) = ContentArtifactParser.SplitHeader(markdown);
+        return (MarkupString)Markdown.ToHtml(body, NotesPipeline);
     }
 
     // ── Artifact missing detection (D-10) ──────────────────────────────────
@@ -257,6 +291,7 @@ public partial class Review
     {
         public long Id { get; }
         public string Title { get; }
+        public string Source { get; }
         public string VideoUrl { get; }
         public string ArtifactPath { get; }
         public string ApprovalStatus { get; set; }
@@ -279,6 +314,7 @@ public partial class Review
         {
             Id = row.Id;
             Title = row.Title;
+            Source = row.Source;
             VideoUrl = row.VideoUrl;
             ArtifactPath = row.ArtifactPath;
             ApprovalStatus = row.ApprovalStatus;

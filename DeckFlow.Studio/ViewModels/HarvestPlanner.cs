@@ -115,10 +115,40 @@ public static class HarvestPlanner
             .Select(g => new HarvestChannelGroup(
                 g.Key,
                 g.First().ChannelName,
-                g.Select(x => x.Video.VideoId).ToList()))
+                g.Select(x => x.Video.VideoId).ToList(),
+                ResolveGroupCreatorRef(g.Select(x => x.Video))))
             .ToList();
 
         return new HarvestGroupPlan(groups, unresolvedIds);
+    }
+
+    /// <summary>
+    /// The single creator ref for a channel group (P87 provenance): the one distinct non-null
+    /// <see cref="VideoViewModel.CreatorRef"/> across the group's videos, or <see langword="null"/>
+    /// when none carry provenance or they disagree. Ambiguity resolves to null (a link miss), never a
+    /// wrong creator link.
+    /// </summary>
+    private static string? ResolveGroupCreatorRef(IEnumerable<VideoViewModel> videos)
+    {
+        string? refValue = null;
+        foreach (var v in videos)
+        {
+            if (string.IsNullOrEmpty(v.CreatorRef))
+            {
+                continue;
+            }
+
+            if (refValue is null)
+            {
+                refValue = v.CreatorRef;
+            }
+            else if (!string.Equals(refValue, v.CreatorRef, StringComparison.Ordinal))
+            {
+                return null;
+            }
+        }
+
+        return refValue;
     }
 
     /// <summary>
@@ -145,8 +175,12 @@ public static class HarvestPlanner
     }
 }
 
-/// <summary>One channel's harvest group: the channel URL/name and the video ids harvested together.</summary>
-public sealed record HarvestChannelGroup(string ChannelUrl, string ChannelName, IReadOnlyList<string> VideoIds);
+/// <summary>
+/// One channel's harvest group: the channel URL/name, the video ids harvested together, and the
+/// curated creator ref (P87) the group was browsed under — <see langword="null"/> for a paste-URL
+/// browse or when the group's videos carry disagreeing provenance.
+/// </summary>
+public sealed record HarvestChannelGroup(string ChannelUrl, string ChannelName, IReadOnlyList<string> VideoIds, string? CreatorRef = null);
 
 /// <summary>The grouped harvest plan: channel groups to harvest plus the unresolved video ids skipped.</summary>
 public sealed record HarvestGroupPlan(

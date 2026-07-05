@@ -1,3 +1,4 @@
+using DeckFlow.Core.Knowledge;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Tools;
 using Xunit;

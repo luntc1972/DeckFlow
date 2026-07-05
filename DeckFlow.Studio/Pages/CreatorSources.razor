@@ -1,6 +1,7 @@
 @page "/creators"
 @inherits StudioCancellableComponentBase
 @using DeckFlow.Core.Content
+@using DeckFlow.Core.Knowledge
 
 <PageTitle>Creators</PageTitle>
 
@@ -38,6 +39,11 @@
         <div class="alert alert-danger py-2">@_error</div>
     }
 
+    @if (!string.IsNullOrEmpty(_notice))
+    {
+        <div class="alert alert-info py-2">@_notice</div>
+    }
+
     @if (_loading)
     {
         <div class="d-flex align-items-center gap-2 mt-3">
@@ -62,6 +68,8 @@
                     <tr>
                         <th scope="col">Creator</th>
                         <th scope="col">Channel</th>
+                        <th scope="col">Slug</th>
+                        <th scope="col">Status</th>
                         <th scope="col" style="width:90px">Actions</th>
                     </tr>
                 </thead>
@@ -71,9 +79,11 @@
                         <tr>
                             <td>@creator.DisplayName</td>
                             <td class="text-break">@creator.ChannelRef</td>
+                            <td class="text-break"><code>@(string.IsNullOrEmpty(creator.SourceSlug) ? "—" : creator.SourceSlug)</code></td>
+                            <td>@LinkStatusLabel(creator)</td>
                             <td>
                                 <button class="btn btn-sm btn-outline-secondary"
-                                        @onclick="() => RemoveAsync(creator.Id)"
+                                        @onclick="() => RemoveAsync(creator)"
                                         disabled="@_operationInFlight"
                                         aria-label="Remove @creator.DisplayName">
                                     Remove
@@ -92,12 +102,20 @@
     [Inject]
     private ICreatorSourceStore CreatorStore { get; set; } = default!;
 
+    [Inject]
+    private IContentSourceStore ContentSourceStore { get; set; } = default!;
+
     private bool _loading = true;
     private bool _operationInFlight;
     private string _error = string.Empty;
+    private string _notice = string.Empty;
     private string _displayName = string.Empty;
     private string _channelRef = string.Empty;
     private List<CreatorSource> _creators = new();
+    // Why: existence-aware link status (P87). Maps each linked creator's content_source_id to the
+    // resolved ContentSource, or null when the id points at a row that no longer exists (there is no
+    // hard FK), so the UI can render "Missing source" rather than a false "Linked".
+    private Dictionary<long, ContentSource?> _linkedSources = new();
 
     protected override async Task OnInitializedAsync() => await ReloadAsync();
 
@@ -108,6 +126,7 @@
             // Why: Task.Run moves the store call off the Blazor sync context.
             var creators = await Task.Run(() => CreatorStore.ListAsync(Cts.Token), Cts.Token);
             _creators = creators.ToList();
+            _linkedSources = await Task.Run(() => LoadLinkedSourcesAsync(_creators), Cts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -122,6 +141,40 @@
             _loading = false;
             await SafeStateHasChangedAsync();
         }
+    }
+
+    // Why: resolve each linked creator's content source once per reload so the status column and the
+    // remove cascade both read a consistent snapshot. Small N (curated creators), so per-id lookups
+    // are fine; there is no bulk "list all sources" API and enabled-only listing would hide disabled.
+    private async Task<Dictionary<long, ContentSource?>> LoadLinkedSourcesAsync(IReadOnlyList<CreatorSource> creators)
+    {
+        var map = new Dictionary<long, ContentSource?>();
+        foreach (var creator in creators)
+        {
+            if (creator.ContentSourceId is long id && !map.ContainsKey(id))
+            {
+                map[id] = await ContentSourceStore.GetSourceAsync(id, Cts.Token);
+            }
+        }
+
+        return map;
+    }
+
+    // Why: existence-aware status (P87) — a dangling content_source_id (no hard FK) degrades to
+    // "Missing source" rather than a false "Linked".
+    private string LinkStatusLabel(CreatorSource creator)
+    {
+        if (creator.ContentSourceId is not long id)
+        {
+            return "Pending first harvest";
+        }
+
+        if (!_linkedSources.TryGetValue(id, out var source) || source is null)
+        {
+            return "Missing source";
+        }
+
+        return source.IsEnabled ? "Linked" : "Disabled";
     }
 
     private async Task AddAsync()
@@ -156,7 +209,7 @@
         }
     }
 
-    private async Task RemoveAsync(long id)
+    private async Task RemoveAsync(CreatorSource creator)
     {
         if (_operationInFlight)
         {
@@ -165,10 +218,31 @@
 
         _operationInFlight = true;
         _error = string.Empty;
+        _notice = string.Empty;
         try
         {
-            await Task.Run(() => CreatorStore.RemoveAsync(id, Cts.Token), Cts.Token);
-            _creators.RemoveAll(c => c.Id == id);
+            // P87 remove cascade: disable the linked content source so harvest stops pulling it, but
+            // never delete KB data — the content_sources row and the on-disk artifacts are preserved
+            // (a later harvest re-enables the source). Only touch a row that still exists, AND only when
+            // no OTHER creator alias still points at the same content_source_id — two creator refs
+            // (e.g. @handle and /channel/UC...) can canonicalize to one content source, and disabling a
+            // shared source would silently break the surviving alias.
+            var disabledSource = false;
+            if (creator.ContentSourceId is long id
+                && _linkedSources.TryGetValue(id, out var source) && source is { IsEnabled: true }
+                && !_creators.Any(c => c.Id != creator.Id && c.ContentSourceId == id))
+            {
+                await Task.Run(() => ContentSourceStore.SetEnabledAsync(id, false, Cts.Token), Cts.Token);
+                disabledSource = true;
+            }
+
+            await Task.Run(() => CreatorStore.RemoveAsync(creator.Id, Cts.Token), Cts.Token);
+            _creators.RemoveAll(c => c.Id == creator.Id);
+
+            if (disabledSource)
+            {
+                _notice = $"Removed {creator.DisplayName}. Its KB source was disabled; any harvested artifacts under content-kb/{creator.SourceSlug}/ were kept.";
+            }
         }
         catch (OperationCanceledException)
         {

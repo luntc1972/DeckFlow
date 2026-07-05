@@ -9,6 +9,11 @@ document.body.innerHTML = `
   <datalist id="cedh-commander-suggestions"></datalist>
 `;
 
+// Why (Phase 82 SRP split): see busy-overlay-pageshow.test.ts — busy-indicator.ts and
+// moxfield-extension-bridge.ts must load before deck-sync.ts so bootstrapDeckSync()'s bare-name
+// calls into them resolve under Vitest's per-file ESM import graph.
+await import('../wwwroot/ts/busy-indicator');
+await import('../wwwroot/ts/moxfield-extension-bridge');
 await import('../wwwroot/ts/deck-sync');
 
 beforeAll(() => {

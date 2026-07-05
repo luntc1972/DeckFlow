@@ -40,6 +40,10 @@ const representativeThemes = ['site.css', 'site-azorius.css', 'site-nyx.css'] as
 
 type ThemeSnapshot = {
   rootAccent: string;
+  rootDanger: string;
+  rootLink: string;
+  rootFocus: string;
+  rootCtaBorder: string;
   checkboxAppearance: string | null;
   checkboxWebkitAppearance: string | null;
   checkboxBackground: string | null;
@@ -76,6 +80,10 @@ async function readThemeSnapshot(page: Page, themeFile: string): Promise<ThemeSn
 
     return {
       rootAccent: rootStyle.getPropertyValue('--accent').trim(),
+      rootDanger: rootStyle.getPropertyValue('--danger').trim(),
+      rootLink: rootStyle.getPropertyValue('--link').trim(),
+      rootFocus: rootStyle.getPropertyValue('--focus').trim(),
+      rootCtaBorder: rootStyle.getPropertyValue('--cta-border').trim(),
       checkboxAppearance: checkboxStyle ? checkboxStyle.getPropertyValue('appearance').trim() : null,
       checkboxWebkitAppearance: checkboxStyle ? checkboxStyle.getPropertyValue('-webkit-appearance').trim() : null,
       checkboxBackground: checkboxStyle?.backgroundColor ?? null,
@@ -232,4 +240,89 @@ test('textarea scrollbar-color is themed (not OS default)', async ({ page }) => 
   expect(normalizeColor(classic!.rootAccent)).not.toBe(normalizeColor(dark!.rootAccent));
   expect(normalizeColor(classic!.textareaScrollbarWidth)).toBe('thin');
   expect(normalizeColor(dark!.textareaScrollbarWidth)).toBe('thin');
+});
+
+// ── THEME-02 regression guard: --danger must never equal --link ────────────
+// Phase 84 decoupled the brand-emphasis alias tokens (--link/--focus/
+// --cta-border, now re-pointed to var(--accent-strong)) from the fixed
+// --danger token, so a guild's brand color can never coincide with its
+// error/danger color. rakdos is the strongest case: its --link:#ff9ea4
+// override (site-rakdos.css, UI-VS-02) is deliberately distinct from BOTH its
+// red --accent-strong (#a92434) and the fixed --danger (#c53030) — a
+// regression that dropped the override, or re-aliased --danger onto
+// --accent-strong, would collapse rakdos's danger and link colors together.
+// getComputedStyle(...).getPropertyValue resolves nested var() references
+// (verified: site-commander-table.css's `--link: var(--accent-strong)`
+// resolves to its hex value, not the literal `var(...)` text), so a plain
+// string-inequality check is a valid, permanent structural guard. Runs over
+// the full themeFiles array (not a sample) because any fork could silently
+// reintroduce the collision; desktop + mobile are both covered because this
+// spec runs under both Playwright projects (chromium-desktop/chromium-mobile).
+test('computed --danger never equals computed --link, in every theme', async ({ page }) => {
+  await setThemedViewport(page);
+  await page.emulateMedia({ colorScheme: 'light' });
+
+  for (const themeFile of themeFiles) {
+    const snapshot = await readThemeSnapshot(page, themeFile);
+
+    const danger = normalizeColor(snapshot.rootDanger);
+    const link = normalizeColor(snapshot.rootLink);
+
+    expect(danger, `${themeFile} should expose a --danger color`).not.toBe('');
+    expect(link, `${themeFile} should expose a --link color`).not.toBe('');
+    expect(danger, `${themeFile}: --danger must never equal --link (THEME-02 structural guard)`).not.toBe(link);
+  }
+});
+
+// ── THEME-01 regression guard: semantic tokens must resolve to real colors ──
+// Catches a future regression that reintroduces an orphaned raw
+// --accent-strong call site under a fork missing the semantic token block
+// entirely (the site-commander-table.css D4 gap Phase 84 fixed).
+// Custom properties are untyped, so reading getPropertyValue('--link') and
+// checking it is a non-empty string is too weak — a bogus `--link: banana`
+// declaration would satisfy a string check yet fail as a color. Instead,
+// resolve each token THROUGH a real `color` property: a valid color yields an
+// rgb value, while a missing or non-color token makes the declaration invalid
+// at computed-value time so `color` falls back to the inherited value. We
+// capture that fallback via an intentionally-undefined control token and assert
+// each semantic token resolves to a real rgb color distinct from the fallback.
+test('every theme resolves --link, --focus, and --cta-border to a real color', async ({ page }) => {
+  await setThemedViewport(page);
+  await page.emulateMedia({ colorScheme: 'light' });
+
+  for (const themeFile of themeFiles) {
+    await readThemeSnapshot(page, themeFile); // establishes the themed /deck-analysis render
+
+    const resolved = await page.evaluate(() => {
+      const probe = document.createElement('span');
+      document.body.appendChild(probe);
+      const resolveViaColor = (expr: string): string => {
+        probe.style.setProperty('color', expr);
+        return getComputedStyle(probe).color;
+      };
+      // Control: an undefined token makes `color: var(...)` invalid, so the probe
+      // inherits document.body's color — the tell-tale "token did not resolve" value.
+      const invalidControl = resolveViaColor('var(--deckflow-nonexistent-token-xyz)');
+      const link = resolveViaColor('var(--link)');
+      const focus = resolveViaColor('var(--focus)');
+      const ctaBorder = resolveViaColor('var(--cta-border)');
+      probe.remove();
+      return { invalidControl, link, focus, ctaBorder };
+    });
+
+    const rgbPattern = /^rgba?\(/;
+    const tokens: ReadonlyArray<readonly [string, string]> = [
+      ['--link', resolved.link],
+      ['--focus', resolved.focus],
+      ['--cta-border', resolved.ctaBorder],
+    ];
+    for (const [token, value] of tokens) {
+      expect(value, `${themeFile}: ${token} should resolve to an rgb color`).toMatch(rgbPattern);
+      expect(isRealColor(value), `${themeFile}: ${token} should not resolve to transparent`).toBeTruthy();
+      expect(
+        value,
+        `${themeFile}: ${token} must resolve to a real color, not the invalid-var inherited fallback (orphaned/non-color token regression)`,
+      ).not.toBe(resolved.invalidControl);
+    }
+  }
 });

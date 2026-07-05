@@ -74,10 +74,10 @@
       data-primer-form
       data-busy-title="Building Deck Primer"
       data-busy-message="Resolving the deck and generating primer prompts.">
-    <div class="chatgpt-sticky-download" role="region" aria-label="Save current primer session">
-        <span class="chatgpt-sticky-download__label">Save the current primer request and prompt variants to a zip file you can re-import later.</span>
+    <div class="prompt-sticky-download" role="region" aria-label="Save current primer session">
+        <span class="prompt-sticky-download__label">Save the current primer request and prompt variants to a zip file you can re-import later.</span>
         <button type="submit"
-                class="run-button chatgpt-sticky-download__button"
+                class="run-button prompt-sticky-download__button"
                 data-no-busy
                 formaction="@Url.Content("~/deck-primer/download")"
                 formmethod="post"
@@ -91,7 +91,7 @@
         <input type="hidden" name="GeneratedPrimerHash" value="@Model.GeneratedPrimerHash" />
     }
 
-    <details class="chatgpt-resume">
+    <details class="prompt-resume">
         <summary>Resume from a saved session (.zip)</summary>
         <p class="sync-column__hint">
             Choose a <code>.zip</code> file you previously downloaded from this page to restore the bracket, AI target, primer style, and selected primer sections.
@@ -113,13 +113,13 @@
     @await Html.PartialAsync("_WorkflowStepTabs", packetTabs)
 
     <section class="result-panel" id="primer-step-panel-1">
-        <div class="chatgpt-step-heading">
+        <div class="prompt-step-heading">
             <div>
-                <p class="chatgpt-step-eyebrow">Step 1</p>
+                <p class="prompt-step-eyebrow">Step 1</p>
                 <h2>Import the deck</h2>
                 <p>Use the same URL-or-paste import flow as the other analyze tools.</p>
             </div>
-            <span class="chatgpt-step-badge">Required</span>
+            <span class="prompt-step-badge">Required</span>
         </div>
 
         <div class="sync-column__body">
@@ -146,13 +146,13 @@
     </section>
 
     <section class="result-panel" id="primer-step-panel-2">
-        <div class="chatgpt-step-heading">
+        <div class="prompt-step-heading">
             <div>
-                <p class="chatgpt-step-eyebrow">Step 2</p>
+                <p class="prompt-step-eyebrow">Step 2</p>
                 <h2>Choose the AI target, bracket, and primer sections</h2>
                 <p>Bracket presets seed the section list for first-time visits, while later bracket visits restore your saved custom selection.</p>
             </div>
-            <span class="chatgpt-step-badge">Customize the primer</span>
+            <span class="prompt-step-badge">Customize the primer</span>
         </div>
 
         @await Html.PartialAsync("_AiSelector", Model.Request.TargetAiPlatform)
@@ -272,20 +272,20 @@
             </details>
         }
 
-        <div class="toolbar chatgpt-step-actions">
+        <div class="toolbar prompt-step-actions">
             <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/deck-primer")">Start Over</button>
             <button type="submit" class="run-button">Generate Primer</button>
         </div>
     </section>
 
     <section class="result-panel" id="primer-step-panel-3">
-        <div class="chatgpt-step-heading">
+        <div class="prompt-step-heading">
             <div>
-                <p class="chatgpt-step-eyebrow">Step 3</p>
+                <p class="prompt-step-eyebrow">Step 3</p>
                 <h2>Copy the generated primer prompt</h2>
                 <p>The prompt below is the variant for the currently selected AI platform.</p>
             </div>
-            <span class="chatgpt-step-badge">Paste-ready output</span>
+            <span class="prompt-step-badge">Paste-ready output</span>
         </div>
 
         @if (Model.StaleDetectionEnabled && Model.IsStale && !string.IsNullOrWhiteSpace(Model.PrimerPromptText))
@@ -358,5 +358,7 @@
 </form>
 
 <script src="~/js/deck-input-store.js" asp-append-version="true"></script>
+<script src="~/js/busy-indicator.js" asp-append-version="true"></script>
+<script src="~/js/moxfield-extension-bridge.js" asp-append-version="true"></script>
 <script src="~/js/deck-sync.js" asp-append-version="true"></script>
 <script src="@Url.Content("~/js/primer-selection.js")"></script>

@@ -55,10 +55,10 @@ body {
 .warning-banner,
 .info-banner,
 .timing-summary,
-.chatgpt-layout-picker,
-.chatgpt-instructions,
-.chatgpt-context-note,
-.chatgpt-card-specific-field,
+.prompt-layout-picker,
+.prompt-instructions,
+.prompt-context-note,
+.prompt-card-specific-field,
 .hub-card,
 .about-page,
 .help-index,
@@ -68,16 +68,16 @@ body {
   box-shadow: 0 10px 24px rgba(45, 62, 28, 0.08);
 }
 
-.chatgpt-layout-picker,
-.chatgpt-instructions,
-.chatgpt-context-note,
-.chatgpt-card-specific-field,
+.prompt-layout-picker,
+.prompt-instructions,
+.prompt-context-note,
+.prompt-card-specific-field,
 .tool-nav__trigger { background: var(--gruul-canopy-surface); }
 
-.chatgpt-step-eyebrow,
-.chatgpt-step-badge { color: var(--gruul-red); }
+.prompt-step-eyebrow,
+.prompt-step-badge { color: var(--gruul-red); }
 
-.chatgpt-step-badge {
+.prompt-step-badge {
   border-color: var(--gruul-red-soft);
   background: var(--gruul-red-bg);
 }

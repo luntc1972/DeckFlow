@@ -178,6 +178,10 @@ public sealed class ContentSourceOrchestratorParityTests
         public Task<ContentSource?> GetSourceAsync(long id, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
+        public Task<ContentSource?> GetSourceByUrlAsync(string url, CancellationToken cancellationToken = default)
+            => Task.FromResult(EnabledSources.FirstOrDefault(
+                source => string.Equals(source.SourceUrl, url, StringComparison.Ordinal)));
+
         public Task<IReadOnlyList<ContentSource>> ListEnabledSourcesAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(EnabledSources);
     }

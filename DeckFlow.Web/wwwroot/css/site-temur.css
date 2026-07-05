@@ -48,16 +48,16 @@ body {
     linear-gradient(180deg, #edf7f8 0, var(--bg) 14rem);
 }
 
-.chatgpt-layout-picker,
-.chatgpt-instructions,
-.chatgpt-context-note,
-.chatgpt-card-specific-field,
+.prompt-layout-picker,
+.prompt-instructions,
+.prompt-context-note,
+.prompt-card-specific-field,
 .tool-nav__trigger { background: var(--temur-blue-bg); }
 
-.chatgpt-step-eyebrow,
-.chatgpt-step-badge { color: var(--temur-red); }
+.prompt-step-eyebrow,
+.prompt-step-badge { color: var(--temur-red); }
 
-.chatgpt-step-badge {
+.prompt-step-badge {
   border-color: var(--temur-red-soft);
   background: var(--temur-red-bg);
 }

@@ -8,6 +8,15 @@ document.body.innerHTML = `
   </div>
 `;
 
+// Why (Phase 82 SRP split): busy-indicator.ts + moxfield-extension-bridge.ts were extracted from
+// deck-sync.ts into their own physical files. bootstrapDeckSync() calls registerBusyIndicator()
+// and attachMoxfieldExtensionImport() by bare name (shared global scope — both files compile
+// under tsconfig's `module: "none"`), but the browser <script> tag chain that provides that shared
+// scope in production doesn't exist under Vitest's per-file ESM import graph — so this harness
+// must import both extracted modules before deck-sync itself, exactly mirroring the view's
+// <script> load order.
+await import('../wwwroot/ts/busy-indicator');
+await import('../wwwroot/ts/moxfield-extension-bridge');
 await import('../wwwroot/ts/deck-sync');
 
 beforeAll(() => {

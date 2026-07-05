@@ -1,3 +1,9 @@
+---
+status: resolved
+created: 2026-06-24
+updated: 2026-07-05
+---
+
 # Health-band BEFORE baseline
 
 Casual mode, all flags OFF. Columns: deck | headline avg-on-curve % | weakest color | current band.
@@ -43,3 +49,12 @@ Castability worst-10 (by cast %):
 | Lyse Hext | 3 | 2 | 92 | color:White |
 | Bria, Riptide Rogue | 4 | 2 | 93 | color:Blue |
 
+
+## Resolution (closed 2026-07-05)
+
+BEFORE-baseline measurement supporting the health-band verdict overhaul. The
+downstream changes shipped: `bd26ac4b feat(manabase): add headline-floor health band`,
+`d6a1b4be feat(manabase): flag-gate health-band castability coupling (Gate C)`, and
+`54c155ff test(manabase): Avatar health-band regression guard for Gate C`. Committed
+with the work under `eef84471 docs(manabase): add health-band coupling debug +
+baseline artifacts`. Cycle 12 manabase overhaul; not a Cycle 15 item. Marked resolved.

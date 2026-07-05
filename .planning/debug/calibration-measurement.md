@@ -1,3 +1,9 @@
+---
+status: resolved
+created: 2026-06-24
+updated: 2026-07-05
+---
+
 # Calibration measurement — per-color detail for Avatar / Meren / graveyard-fungus
 
 Mode: Casual. Run with flag OFF and flag ON (useHealthBandCastability=true).
@@ -160,3 +166,14 @@ Cards demanding this color, ordered by CastPercent ascending:
 - Gate C  (ColorLimitedUnderSupp >= 1 AND Worst < 80): does not fire
 - Gate C' (ColorLimitedUnderSupp > tolerance AND Worst < 80): does not fire
 
+
+## Resolution (closed 2026-07-05)
+
+Calibration/measurement artifact that fed the health-band castability coupling (Gate
+C) work. That work shipped: `d6a1b4be feat(manabase): flag-gate health-band
+castability coupling (Gate C)`, its regression guard `54c155ff test(manabase): Avatar
+health-band regression guard for Gate C`, and the sibling headline-floor
+`bd26ac4b feat(manabase): add headline-floor health band`. These measurement files
+were committed with the work under `eef84471 docs(manabase): add health-band coupling
+debug + baseline artifacts`. Cycle 12 manabase overhaul; not a Cycle 15 item. Marked
+resolved.

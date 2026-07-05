@@ -130,6 +130,47 @@ public sealed class HarvestPlannerTests
     }
 
     [Fact]
+    public void ResolveChannelGroups_CarriesCreatorRef_WhenGroupVideosAgree()
+    {
+        var a = Vm("v1", channelId: "chan1");
+        var b = Vm("v2", channelId: "chan1");
+        a.CreatorRef = "https://youtube.com/@a";
+        b.CreatorRef = "https://youtube.com/@a";
+
+        var plan = HarvestPlanner.ResolveChannelGroups(new[] { a, b }, lastBrowsedChannel: "");
+
+        var group = Assert.Single(plan.Groups);
+        Assert.Equal("https://youtube.com/@a", group.CreatorRef);
+    }
+
+    [Fact]
+    public void ResolveChannelGroups_NullCreatorRef_WhenProvenanceDisagrees()
+    {
+        // Two videos land in the same channel group but carry different provenance — ambiguous, so
+        // the group must link nothing (null) rather than pick a wrong creator.
+        var a = Vm("v1", channelId: "chan1");
+        var b = Vm("v2", channelId: "chan1");
+        a.CreatorRef = "https://youtube.com/@a";
+        b.CreatorRef = "https://youtube.com/@b";
+
+        var plan = HarvestPlanner.ResolveChannelGroups(new[] { a, b }, lastBrowsedChannel: "");
+
+        var group = Assert.Single(plan.Groups);
+        Assert.Null(group.CreatorRef);
+    }
+
+    [Fact]
+    public void ResolveChannelGroups_NullCreatorRef_WhenNoProvenanceStamped()
+    {
+        var a = Vm("v1", channelId: "chan1");
+
+        var plan = HarvestPlanner.ResolveChannelGroups(new[] { a }, lastBrowsedChannel: "");
+
+        var group = Assert.Single(plan.Groups);
+        Assert.Null(group.CreatorRef);
+    }
+
+    [Fact]
     public void ResolveChannelGroups_FallsBackToLastBrowsedChannel_WhenNoChannelId()
     {
         var selected = new[] { Vm("v1") };

@@ -81,10 +81,10 @@ a:focus-visible {
 .error-banner,
 .info-banner,
 .timing-summary,
-.chatgpt-layout-picker,
-.chatgpt-instructions,
-.chatgpt-context-note,
-.chatgpt-card-specific-field,
+.prompt-layout-picker,
+.prompt-instructions,
+.prompt-context-note,
+.prompt-card-specific-field,
 .hub-card,
 .about-page,
 .help-index,
@@ -97,10 +97,10 @@ a:focus-visible {
 
 .warning-banner,
 .info-banner,
-.chatgpt-instructions,
-.chatgpt-context-note,
-.chatgpt-card-specific-field,
-.chatgpt-layout-picker,
+.prompt-instructions,
+.prompt-context-note,
+.prompt-card-specific-field,
+.prompt-layout-picker,
 .timing-summary,
 .busy-indicator__card {
   background: rgba(42, 23, 27, 0.96);
@@ -134,8 +134,8 @@ a:focus-visible {
 summary,
 .sync-column__hint,
 .busy-indicator__progress,
-.chatgpt-layout-picker__copy,
-.chatgpt-question-picker__header p,
+.prompt-layout-picker__copy,
+.prompt-question-picker__header p,
 .hub-card__description,
 .about-page__tagline {
   color: var(--muted);
@@ -155,8 +155,8 @@ input::placeholder {
 }
 
 .tool-nav__trigger,
-.chatgpt-step-tab,
-.chatgpt-question-bucket__toggle,
+.prompt-step-tab,
+.prompt-question-bucket__toggle,
 .clear-cache-button,
 .swap-direction-button {
   border-color: #613840;
@@ -164,9 +164,14 @@ input::placeholder {
   color: var(--ink);
 }
 
+.prompt-question-bucket__toggle {
+  border: 0;
+  background: none;
+}
+
 .tool-nav__group.is-active .tool-nav__trigger,
-.chatgpt-step-tab.is-active,
-.chatgpt-layout-picker [data-chatgpt-ui-mode-button].is-active {
+.prompt-step-tab.is-active,
+.prompt-layout-picker [data-prompt-ui-mode-button].is-active {
   border-color: var(--accent);
   background: rgba(209, 59, 71, 0.14);
   color: #ffd6d9;

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using DeckFlow.Core.Knowledge;
 using DeckFlow.Web.Models;
 using Markdig;
 using Microsoft.AspNetCore.Hosting;

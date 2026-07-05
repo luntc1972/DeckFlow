@@ -1,8 +1,8 @@
 ---
-status: root-cause-found
+status: resolved
 trigger: "on the deck analysis page if the alert error pops up about not being able to access moxfield when closed the loading does not go away, check other pages that use the moxfield chrome extension and if they have this bug as well"
 created: 2026-06-26
-updated: 2026-06-26
+updated: 2026-07-05
 ---
 
 # Moxfield bridge: busy overlay stuck after access-error alert
@@ -43,3 +43,16 @@ Timing subtlety: the mobile branch's `window.alert` is synchronous and runs BEFO
 ## Files
 - DeckFlow.Web/wwwroot/ts/deck-sync.ts (fix)
 - DeckFlow.Web/e2e/*.spec.ts (new regression test)
+
+## Resolution (closed 2026-07-05)
+
+Fixed and shipped. The deferred-hide fix landed in `aa04954e fix(bridge): clear
+stuck busy overlay on Moxfield import abort`, which adds the macrotask-deferred
+`hideBusyIndicator` call before the bridge-abort return paths so the bubble-phase
+`showBusyIndicator` no longer wins. Related hardening for the same overlay class of
+bug shipped alongside: `3769891b fix(web): force-hide busy overlay on load when a
+result is present` and `0993da0c fix(deck-sync): hide busy overlay on pageshow to
+clear mobile bfcache lockup`. The affected `deck-sync.ts` bridge handler was later
+extracted in `80e427df refactor(82-03): extract busy-indicator.ts +
+moxfield-extension-bridge.ts from deck-sync.ts`. Cycle 12–13 work; not a Cycle 15
+item. Marked resolved.

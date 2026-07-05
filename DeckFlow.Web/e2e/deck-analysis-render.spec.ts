@@ -132,9 +132,9 @@ async function renderAnalysis(page: Page): Promise<void> {
   // directly, but the form's only HTML-`required` control — the Step 2 target
   // bracket select — still blocks native submission until it has a value, so
   // satisfy it first (matches the real flow where Step 2 is filled en route).
-  await page.locator('[data-chatgpt-show-step="2"][role="tab"]').click();
+  await page.locator('[data-prompt-show-step="2"][role="tab"]').click();
   await page.locator('select[name="TargetCommanderBracket"]').selectOption({ index: 1 });
-  await page.locator('[data-chatgpt-show-step="3"][role="tab"]').click();
+  await page.locator('[data-prompt-show-step="3"][role="tab"]').click();
 
   const profileTextarea = page.locator('textarea[name="DeckProfileJson"]');
   await expect(profileTextarea).toBeVisible();
@@ -146,9 +146,9 @@ async function renderAnalysisWithInteractionAudit(page: Page): Promise<void> {
   const response = await page.goto('/deck-analysis');
   expect(response?.ok()).toBeTruthy();
 
-  await page.locator('[data-chatgpt-show-step="2"][role="tab"]').click();
+  await page.locator('[data-prompt-show-step="2"][role="tab"]').click();
   await page.locator('select[name="TargetCommanderBracket"]').selectOption({ index: 1 });
-  await page.locator('[data-chatgpt-show-step="3"][role="tab"]').click();
+  await page.locator('[data-prompt-show-step="3"][role="tab"]').click();
 
   await page.locator('textarea[name="DeckProfileJson"]').fill(deckProfileJson);
   await page.locator('form').first().evaluate((form, value) => {
@@ -164,9 +164,9 @@ async function renderAnalysisWithWinConMap(page: Page): Promise<void> {
   const response = await page.goto('/deck-analysis');
   expect(response?.ok()).toBeTruthy();
 
-  await page.locator('[data-chatgpt-show-step="2"][role="tab"]').click();
+  await page.locator('[data-prompt-show-step="2"][role="tab"]').click();
   await page.locator('select[name="TargetCommanderBracket"]').selectOption({ index: 1 });
-  await page.locator('[data-chatgpt-show-step="3"][role="tab"]').click();
+  await page.locator('[data-prompt-show-step="3"][role="tab"]').click();
 
   await page.locator('textarea[name="DeckProfileJson"]').fill(deckProfileJson);
   await page.locator('form').first().evaluate((form, value) => {

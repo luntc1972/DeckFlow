@@ -30,7 +30,7 @@ public sealed class ManabaseViewModel
     public string? ImportWarning { get; init; }
 
     /// <summary>Paste-ready prompt asking an LLM for specific land swaps.</summary>
-    public string? ChatGptSwapPrompt { get; init; }
+    public string? PromptSwapPrompt { get; init; }
 
     /// <summary>Auto-detected alt/reduced-cost suggestions used to pre-populate the override box.</summary>
     public IReadOnlyList<CostSuggestion> Suggestions { get; init; } = Array.Empty<CostSuggestion>();

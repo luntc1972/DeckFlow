@@ -31,7 +31,7 @@ namespace DeckFlow.Web.Tests;
 /// </summary>
 public sealed class DeckComparisonPrintButtonViewTests
 {
-    private const string PrintButtonHook = "data-chatgpt-print";
+    private const string PrintButtonHook = "data-prompt-print";
     private const string PrintButtonLabel = "Print results";
 
     [Fact]

@@ -166,7 +166,7 @@
                 }
             </div>
             <div class="toolbar manabase-print-toolbar">
-                <button type="button" class="run-button chatgpt-print-button" data-no-busy data-chatgpt-print>
+                <button type="button" class="run-button prompt-print-button" data-no-busy data-prompt-print>
                     Print results
                 </button>
             </div>
@@ -619,7 +619,7 @@
         <button type="submit" class="run-button manabase-download-button" data-no-busy>Download analysis (.txt)</button>
     </form>
 
-    @if (!string.IsNullOrWhiteSpace(Model.ChatGptSwapPrompt))
+    @if (!string.IsNullOrWhiteSpace(Model.PromptSwapPrompt))
     {
         <details class="result-panel nested-panel">
             <summary>Want specific land swaps? Copy this prompt for ChatGPT / Claude</summary>
@@ -628,9 +628,9 @@
                     <h3>Swap-suggestion prompt</h3>
                     <p>The math above tells you which colors are short. Paste this to have an AI name specific lands to add and weak cards to cut.</p>
                 </div>
-                <button type="button" class="copy-button" data-copy-target="manabase-chatgpt-output">Copy</button>
+                <button type="button" class="copy-button" data-copy-target="manabase-prompt-output">Copy</button>
             </div>
-            <textarea id="manabase-chatgpt-output" readonly spellcheck="false">@Model.ChatGptSwapPrompt</textarea>
+            <textarea id="manabase-prompt-output" readonly spellcheck="false">@Model.PromptSwapPrompt</textarea>
         </details>
     }
 }
@@ -698,5 +698,7 @@
 
 @section Scripts {
     <script src="~/js/deck-input-store.js" asp-append-version="true"></script>
+    <script src="~/js/busy-indicator.js" asp-append-version="true"></script>
+    <script src="~/js/moxfield-extension-bridge.js" asp-append-version="true"></script>
     <script src="~/js/deck-sync.js" asp-append-version="true"></script>
 }

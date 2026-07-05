@@ -8,6 +8,7 @@ using DeckFlow.Core.Parsing;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Configuration;
 using DeckFlow.Web.Models;
+using DeckFlow.Web.Services.Packets;
 using DeckFlow.Web.Services.PromptBuilders.Primer;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -356,7 +357,7 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
                 string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
             .ToList();
-        var decklistText = BuildDecklistText(playableEntries, possibleIncludeEntries);
+        var decklistText = PacketTextAssembler.BuildSectionedDecklistText(playableEntries, possibleIncludeEntries);
 
         var comboStopwatch = Stopwatch.StartNew();
         var comboResult = await FindCombosAsync(playableEntries, cancellationToken).ConfigureAwait(false);
@@ -679,45 +680,6 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
         return builder.ToString().TrimEnd();
     }
 
-    private static string BuildDecklistText(IReadOnlyList<DeckEntry> playableEntries, IReadOnlyList<DeckEntry> possibleIncludeEntries)
-    {
-        var builder = new StringBuilder();
-        var commanderEntries = playableEntries
-            .Where(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        if (commanderEntries.Count > 0)
-        {
-            builder.AppendLine("Commander");
-            foreach (var entry in commanderEntries)
-            {
-                builder.AppendLine($"{entry.Quantity} {entry.Name}");
-            }
-
-            builder.AppendLine();
-        }
-
-        builder.AppendLine("Mainboard");
-        foreach (var entry in playableEntries
-                     .Where(entry => !string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
-                     .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase))
-        {
-            builder.AppendLine($"{entry.Quantity} {entry.Name}");
-        }
-
-        if (possibleIncludeEntries.Count > 0)
-        {
-            builder.AppendLine();
-            builder.AppendLine("Possible Includes");
-            foreach (var entry in possibleIncludeEntries.OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase))
-            {
-                builder.AppendLine($"{entry.Quantity} {entry.Name}");
-            }
-        }
-
-        return builder.ToString().TrimEnd();
-    }
-
     private static string BuildSuggestedChatTitle(DeckPrimerRequest request, string commanderName)
     {
         var primaryName = !string.IsNullOrWhiteSpace(commanderName)
@@ -733,11 +695,11 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
     {
         var builder = new StringBuilder();
         builder.AppendLine($"workflow_step: {request.WorkflowStep}");
-        builder.AppendLine($"format: {NormalizeSingleLine(request.Format, "Commander")}");
-        builder.AppendLine($"deck_name: {NormalizeSingleLine(request.DeckName, string.Empty)}");
-        builder.AppendLine($"commander: {NormalizeSingleLine(commanderName, string.Empty)}");
-        builder.AppendLine($"target_commander_bracket: {NormalizeSingleLine(request.TargetCommanderBracket, string.Empty)}");
-        builder.AppendLine($"target_ai_platform: {NormalizeSingleLine(request.TargetAiPlatform, AiPlatform.Default.Key)}");
+        PacketTextAssembler.AppendKeyValueLine(builder, "format", request.Format, "Commander", NormalizeSingleLine);
+        PacketTextAssembler.AppendKeyValueLine(builder, "deck_name", request.DeckName, string.Empty, NormalizeSingleLine);
+        PacketTextAssembler.AppendKeyValueLine(builder, "commander", commanderName, string.Empty, NormalizeSingleLine);
+        PacketTextAssembler.AppendKeyValueLine(builder, "target_commander_bracket", request.TargetCommanderBracket, string.Empty, NormalizeSingleLine);
+        PacketTextAssembler.AppendKeyValueLine(builder, "target_ai_platform", request.TargetAiPlatform, AiPlatform.Default.Key, NormalizeSingleLine);
         builder.AppendLine($"primer_style: {request.PrimerStyle}");
         builder.AppendLine("selected_section_ids:");
         foreach (var sectionId in selectedSectionIds)

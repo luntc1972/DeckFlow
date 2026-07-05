@@ -10,10 +10,10 @@
     var currentStep = firstIncomplete?.Step ?? (Model.Steps.Count > 0 ? Model.Steps[0].Step : 0);
 }
 
-<div class="chatgpt-step-nav" role="tablist" aria-label="@Model.AriaLabel">
+<div class="prompt-step-nav" role="tablist" aria-label="@Model.AriaLabel">
     @foreach (var step in Model.Steps)
     {
-        var cls = step.IsComplete ? "chatgpt-step-tab is-complete" : "chatgpt-step-tab";
+        var cls = step.IsComplete ? "prompt-step-tab is-complete" : "prompt-step-tab";
         <button type="button"
                 class="@cls"
                 role="tab"
@@ -21,6 +21,6 @@
                 aria-controls="@($"{Model.PanelIdPrefix}-{step.Step}")"
                 aria-selected="@(step.Step == currentStep ? "true" : "false")"
                 tabindex="@(step.Step == currentStep ? "0" : "-1")"
-                data-@(Model.DataShowStepAttribute)="@step.Step"><span class="chatgpt-step-tab__num" aria-hidden="true">@step.Step</span><span class="chatgpt-step-tab__label">@step.Label</span></button>
+                data-@(Model.DataShowStepAttribute)="@step.Step"><span class="prompt-step-tab__num" aria-hidden="true">@step.Step</span><span class="prompt-step-tab__label">@step.Label</span></button>
     }
 </div>
