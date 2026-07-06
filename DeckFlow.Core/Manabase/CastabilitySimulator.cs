@@ -232,8 +232,9 @@ public static class CastabilitySimulator
         bool[] active = new bool[library.Count];
         Array.Fill(active, true);
 
-        // We only ever inspect the opening 7 plus one draw per turn, so shuffling the first
-        // (7 + turn) slots is sufficient and far cheaper than a full Fisher-Yates of ~99 cards.
+        // We only ever inspect the opening 7 plus one draw per turn (every turn, including turn 1
+        // — Commander is multiplayer), so shuffling the first (7 + turn) slots is sufficient and
+        // far cheaper than a full Fisher-Yates of ~99 cards.
         // Critically it must cover BOTH the mulligan look AND every per-turn draw — otherwise the
         // un-shuffled tail (which BuildLibrary front-loads with sources) biases draws land-heavy.
         int prefix = Math.Min(library.Count, 7 + turn + GraceWindow(turn) + 2);
@@ -577,7 +578,8 @@ public static class CastabilitySimulator
 
     // ---- one game -------------------------------------------------------------------------
 
-    // Plays out turns 1..(turn+grace) on the play. Returns true if the spell becomes castable on the
+    // Plays out turns 1..(turn+grace), drawing every turn (Commander is multiplayer, so the starting
+    // player draws on turn 1 too). Returns true if the spell becomes castable on the
     // effective turn OR within the grace window after it. The grace window tracks Snail/Karsten,
     // whose "cast rate" is not strict-on-curve but tolerates a short delay (a player happily casts a
     // 6-drop on turn 7-8). Out-params attribute the LAST turn's failure to mana vs color coverage.
@@ -635,8 +637,11 @@ public static class CastabilitySimulator
 
         for (int currentTurn = 1; currentTurn <= lastTurn; currentTurn++)
         {
-            // Draw for the turn (skip turn 1 on the play).
-            if (currentTurn > 1 && drawPtr < library.Count)
+            // Draw for the turn — including turn 1. Commander is multiplayer, so the "player on
+            // the play skips their first draw" rule (CR 103.8a) never applies here — it is a
+            // two-player-only rule. Every player, including the one who goes first, draws on their
+            // first turn, so by turn N a card has seen 7 + N cards.
+            if (drawPtr < library.Count)
             {
                 hand.Add(shuffled[drawPtr++]);
             }

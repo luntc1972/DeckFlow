@@ -126,7 +126,8 @@ public sealed record SpellRequirement
 
 /// <summary>
 /// A single spell's on-curve castability estimate: the chance it can be cast on its
-/// effective turn, on the play, with a 7-card opener. The product of P(enough mana) and
+/// effective turn, going first but drawing every turn (Commander is multiplayer, so the
+/// starting player draws their first turn), with a 7-card opener. The product of P(enough mana) and
 /// P(enough colored sources) — an approximate ranking metric (see <see cref="LimitingFactor"/>),
 /// biased slightly optimistic because both factors draw on the same physical sources.
 /// </summary>

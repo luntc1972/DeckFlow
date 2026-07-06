@@ -19,12 +19,13 @@ public sealed class CastabilitySimulatorMulliganTests
     [Fact]
     public void Simulate_CastPercentUnchanged_PinnedFixture()
     {
-        // Pinned value: a fixed seed (spell name "Blue Spell") over this exact fixture produced 89%
-        // before AND after the mulligan instrumentation was added — the instrumentation touches
-        // neither `successes` nor the rng stream, so this must never drift.
+        // Pinned value: a fixed seed (spell name "Blue Spell") over this exact fixture. This rose
+        // from 89% to 93% when the sim started drawing on turn 1 (Commander is multiplayer, so the
+        // starting player draws their first turn — the extra card lifts the cast rate). It must not
+        // drift further: the mulligan instrumentation touches neither `successes` nor the rng stream.
         CardCastability row = Simulate(MonoBlueDeck(), BlueSpell());
 
-        Assert.Equal(89, row.CastPercent);
+        Assert.Equal(93, row.CastPercent);
     }
 
     [Fact]
