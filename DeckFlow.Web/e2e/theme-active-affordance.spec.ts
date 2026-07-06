@@ -190,3 +190,43 @@ test('analysis-questions bucket toggle has an accessible name and no bordered pi
   const borderWidth = await toggle.evaluate((el) => getComputedStyle(el).borderWidth);
   expect(borderWidth, 'bucket toggle must be borderless (no standalone pill)').toBe('0px');
 });
+
+// ── Back-to-top icon: chevron stroke must contrast its button background ────────────────────
+//
+// Azorius flips .back-to-top-button to a near-white background but the base icon stroke is
+// var(--on-accent)=#fff — a white chevron on a white button is invisible (shipped bug). Any
+// theme that repaints the button background must keep the chevron readable. This guards a
+// representative set: the fixed bug (azorius), two dark forks that also repaint the bg
+// (jund, sultai), and the base dark path (Classic/site.css).
+const backToTopThemes = [
+  { name: 'azorius (light @import — the shipped bug)', cookie: 'site-azorius.css' },
+  { name: 'jund (dark fork bg)', cookie: 'site-jund.css' },
+  { name: 'sultai (dark fork bg)', cookie: 'site-sultai.css' },
+  { name: 'Classic (explicit site.css — base dark button)', cookie: 'site.css' },
+];
+
+for (const theme of backToTopThemes) {
+  test(`back-to-top chevron contrasts its button background (${theme.name})`, async ({ page, baseURL }) => {
+    await setTheme(page, theme.cookie, baseURL);
+    const response = await page.goto('/deck-analysis');
+    expect(response?.ok()).toBeTruthy();
+
+    // The button is fixed + hidden until scroll, but its computed colors resolve regardless.
+    // The icon has three <path>s (all share the stroke) — take the first to stay single-match.
+    const buttonBg = await page
+      .locator('#back-to-top-button')
+      .evaluate((el) => getComputedStyle(el).backgroundColor);
+    const iconStroke = await page
+      .locator('.back-to-top-icon path')
+      .first()
+      .evaluate((el) => getComputedStyle(el).stroke);
+
+    // >=3:1 is the WCAG non-text (UI component/graphical object) minimum. White-on-white is
+    // ~1.0, so this fails loudly on the pre-fix Azorius regression.
+    const ratio = contrastRatio(buttonBg, iconStroke);
+    expect(
+      ratio,
+      `chevron stroke ${iconStroke} vs button bg ${buttonBg} must meet >=3:1`,
+    ).toBeGreaterThanOrEqual(3);
+  });
+}

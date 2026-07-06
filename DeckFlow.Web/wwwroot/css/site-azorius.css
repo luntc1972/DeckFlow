@@ -198,3 +198,10 @@ button,
 .back-to-top-button:focus-visible {
   background: #f4f7fb;
 }
+
+/* Why: Azorius flips the button to a near-white background (line 192), but the
+   base icon stroke is var(--on-accent)=#fff — a white chevron on a white button
+   is invisible. Repaint the stroke in the theme accent so the arrow reads. */
+.back-to-top-icon path {
+  stroke: var(--accent-strong);
+}
