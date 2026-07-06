@@ -30,6 +30,19 @@ test('manabase page renders the deck-input form', async ({ page }) => {
   expect(consoleErrors).toEqual([]);
 });
 
+test('help text describes drawing every turn (Commander first-turn draw), not on-the-play skip', async ({ page }) => {
+  await page.goto('/manabase');
+
+  // The "How the analysis works" panel must reflect the rules-correct multiplayer draw model:
+  // the starting player draws on turn 1, so a card has seen 7 + N cards by turn N — not the old
+  // two-player "on the play skips the turn-one draw / 7 + (N − 1)" wording.
+  const help = page.locator('details:has-text("How the analysis works")');
+  await expect(help).toContainText('draws every turn, including turn 1');
+  await expect(help).toContainText('7 + N cards');
+  await expect(help).not.toContainText('skips the turn-one draw');
+  await expect(help).not.toContainText('7 + (N − 1)');
+});
+
 test('Moxfield Bridge hint renders under the URL field like Deck Analysis', async ({ page }) => {
   await page.goto('/manabase');
 
