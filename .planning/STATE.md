@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: Cycle 15
-milestone_name: Cleanup, Refactor & Visual Polish
-status: Awaiting next milestone
-stopped_at: Completed 86-05-PLAN.md — UIAUDIT-02 satisfied + human-verified (6-pillar re-score 21/24, clears >=20/24). Checkpoint approved by coordinator 2026-07-05.
-last_updated: "2026-07-05T23:02:52.924Z"
-last_activity: 2026-07-05 — Milestone 2026.07.2 completed and archived
+milestone: Cycle 16
+milestone_name: Content-KB Prod↔Git↔Studio Sync Hardening
+status: planning
+last_updated: "2026-07-06T20:11:00.646Z"
+last_activity: 2026-07-06
 progress:
-  total_phases: 6
-  completed_phases: 5
-  total_plans: 22
-  completed_plans: 22
-  percent: 83
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -27,10 +26,10 @@ See: .planning/PROJECT.md
 
 ## Current Position
 
-Phase: Milestone 2026.07.2 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-05 — Milestone 2026.07.2 completed and archived
+Status: Defining requirements
+Last activity: 2026-07-06 — Milestone Cycle 16 started
 
 ## Roadmap Summary
 
