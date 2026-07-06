@@ -151,12 +151,12 @@ foreach (var r in prodRows)
     var (prodKeyType, prodKeyValue) = DeriveNaturalKey(r);
     if (!string.IsNullOrEmpty(prodKeyValue))
     {
-        prodByKey[$"{prodKeyType} {prodKeyValue}"] = r;
+        prodByKey[$"{prodKeyType}\u0000{prodKeyValue}"] = r;
     }
 }
 ...
 var (keyType, key) = DeriveNaturalKey(row);
-if (!prodByKey.TryGetValue($"{keyType} {key}", out var prodRow))
+if (!prodByKey.TryGetValue($"{keyType}\u0000{key}", out var prodRow))
 ```
 D-05 shape: extract a shared static helper (Claude's discretion on exact home — a static class in `DeckFlow.Core/Content/` alongside `ContentSyncDiffClassifier`, or a method on `ContentSiteIndexRow` itself) that both `ContentSyncDiffClassifier.IndexByNaturalKey` (below) and `DirectPushCoordinator.ClassifyDiff` call — deleting `DirectPushCoordinator`'s private `DeriveNaturalKey` entirely per D-05.
 
@@ -181,7 +181,7 @@ private static Dictionary<string, ContentSiteIndexRow> IndexByNaturalKey(IReadOn
     return map;
 }
 ```
-D-06/D-08 change: key by the shared helper's composite `type value` (or a `(string Type, string Value)` tuple key, since `Dictionary<string,...>` requires the ` `-join trick used by `DirectPushCoordinator` — reuse that exact separator so both diff paths produce identical key strings), sourced from the stored `NaturalKeyType`/`NaturalKeyValue` columns per D-06 (NOT `row.PinId`/`YoutubeVideoId is not null` heuristic), with fallback derivation only for legacy in-memory rows lacking those fields. Add a structured `_logger`-style warning on skip (D-08) — but note this is a `static` pure classifier with no injected logger today; check whether D-08's "structured log warning" needs a logger parameter threading change or can go through a static `ILogger`-free mechanism (e.g. return a skip-count/list alongside the diff, or accept an optional `ILogger` — this is a discretion point the plan must resolve, since the class is currently 100% pure/static with zero DI).
+D-06/D-08 change: key by the shared helper's composite `type\u0000value` (or a `(string Type, string Value)` tuple key, since `Dictionary<string,...>` requires the `\u0000`-join trick used by `DirectPushCoordinator` — reuse that exact separator so both diff paths produce identical key strings), sourced from the stored `NaturalKeyType`/`NaturalKeyValue` columns per D-06 (NOT `row.PinId`/`YoutubeVideoId is not null` heuristic), with fallback derivation only for legacy in-memory rows lacking those fields. Add a structured `_logger`-style warning on skip (D-08) — but note this is a `static` pure classifier with no injected logger today; check whether D-08's "structured log warning" needs a logger parameter threading change or can go through a static `ILogger`-free mechanism (e.g. return a skip-count/list alongside the diff, or accept an optional `ILogger` — this is a discretion point the plan must resolve, since the class is currently 100% pure/static with zero DI).
 
 **`BuildEntry`'s heuristic key-type derivation to replace (D-07)** — lines 95-117, specifically line 103:
 ```csharp
@@ -274,7 +274,7 @@ public sealed class ProdStoreFactory : IProdStoreFactory
 ```
 D-10 says "ALL prod-pointed stores, always" disable schema-ensure — since `ProdStoreFactory.Create` is the ONLY place a prod `ContentSiteIndexStore` is constructed (grep confirms `IProdStoreFactory` usage is limited to `Program.cs` DI registration, `DirectPushCoordinator.cs`, and the two test doubles), the smallest-surface fix is inside `ProdStoreFactory.Create` itself: pass the new schema-ensure-off ctor argument unconditionally, with NO interface signature change needed at all — `Create(string connectionString)` stays as-is; only the ctor call inside changes to `new ContentSiteIndexStore(conn, ensureSchemaEnabled: false)`. This is the cleanest of the three discretion options listed in CONTEXT.md.
 
-**`ClassifyDiff`/`DeriveNaturalKey` to dedupe (D-05)** — lines 102-117, 362-373 (already excerpted above under the classifier section) — delete the private `DeriveNaturalKey` method here and call the shared `DeckFlow.Core` helper instead. `ClassifyDiff` itself (lines 109-152) keeps its ` `-joined `Dictionary<string, ContentSiteIndexRow>` structure — only the per-row key-derivation call changes from local `DeriveNaturalKey(row)` to the shared helper.
+**`ClassifyDiff`/`DeriveNaturalKey` to dedupe (D-05)** — lines 102-117, 362-373 (already excerpted above under the classifier section) — delete the private `DeriveNaturalKey` method here and call the shared `DeckFlow.Core` helper instead. `ClassifyDiff` itself (lines 109-152) keeps its `\u0000`-joined `Dictionary<string, ContentSiteIndexRow>` structure — only the per-row key-derivation call changes from local `DeriveNaturalKey(row)` to the shared helper.
 
 ---
 
@@ -355,9 +355,9 @@ return parameters;
 **Source:** every public method in `ContentSiteIndexStore.cs` opens with `await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);` (~20 occurrences, e.g. lines 131, 150, 170, 223, 257, 290...).
 **Apply to:** D-09 — the switch must live INSIDE `EnsureSchemaAsync` itself (early return when disabled) so none of these ~20 call sites need editing.
 
-### Natural-key composite join (` `-separated)
-**Source:** `DeckFlow.Studio/ViewModels/DirectPushCoordinator.cs:116-124, 131-132`
-**Apply to:** Both `ContentSyncDiffClassifier.IndexByNaturalKey` and the extracted shared helper's Dictionary-key construction (D-05/D-06) — reuse the exact `$"{type} {value}"` format so both diff paths key identically and can never silently diverge again.
+### Natural-key composite join (`\u0000`-separated — U+0000 NULL, NOT a space)
+**Source:** `DeckFlow.Studio/ViewModels/DirectPushCoordinator.cs:116-124, 131-132` — the separator is the U+0000 NULL character (a shipped Codex MED anti-collision fix: NULL cannot appear in either key component, unlike a space). Do NOT replace it with a space; doing so would revert the hardening.
+**Apply to:** Both `ContentSyncDiffClassifier.IndexByNaturalKey` and the extracted shared helper's Dictionary-key construction (D-05/D-06) — reuse the exact `$"{type}\u0000{value}"` format so both diff paths key identically and can never silently diverge again.
 
 ### `ContentSourceType` vocabulary constants
 **Source:** `DeckFlow.Core/Knowledge/ContentModels.cs:180-187`
