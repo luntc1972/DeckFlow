@@ -754,6 +754,7 @@ A persistent theme picker in the shared layout lets users switch between visual 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
 ### Unreleased fixes
+- **Meta-Gap no longer recommends cutting your own combo pieces:** the cEDH Meta Gap prompt keyed cut suggestions purely on reference-deck overlap, so a card unique to your list was flagged as a potential cut even when it is a combo piece or a deterministic win outlet (e.g. Sunscorched Desert paying off a Preston/Felidar infinite-blink loop, or Ghostly Flicker's Naru Meha combo being "replaced" by a non-combo blink). The prompt now instructs the AI to treat every infinite/near-infinite combo result as an active win engine, protect any card that appears in a combo line or pays one off, and never place such a card in `potential_cuts`, `top_10_cuts`, or the `replaces` field of an add. Applied byte-identically across the ChatGPT, Claude, and Gemini prompt variants; the byte-identity goldens were rebased.
 - **Back-to-top arrow visible in the Azorius theme:** the floating "back to top" button rendered as a blank white circle in Azorius — the theme flipped the button to a near-white background but left the chevron stroke white (white-on-white). The chevron now paints in the theme accent. A per-theme computed-style regression test asserts the chevron stroke clears a ≥3:1 contrast against its button background so this class of regression is caught automatically.
 
 ### 2026.07.2 — Cleanup, Refactor & Visual Polish (2026-07-05)

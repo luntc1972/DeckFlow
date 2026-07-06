@@ -95,6 +95,8 @@ internal sealed class ClaudeMetaGapPromptVariant : IMetaGapPromptVariant
         builder.AppendLine("Clearly label any interpretation as inference.");
         builder.AppendLine("If evidence is weak or unclear, explicitly say so in the relevant field.");
         builder.AppendLine("Do NOT invent card text or interactions.");
+        builder.AppendLine("Treat every infinite or near-infinite result in the supplied combo sections (Infinite/Near-infinite blinking, landfall triggers, ETB/LTB, mana, mill, untap) as an ACTIVE win engine, and scan MY_DECK for any card whose repeated trigger under that loop is game-ending (e.g. a land or permanent with an ETB/landfall ping, drain, or mill) - such a payoff is a win condition even if it is in no combo line and no REF deck.");
+        builder.AppendLine("A card that appears in a supplied combo line, or that pays off one of MY_DECK's own combo/loop results, is a PROTECTED combo piece or win condition: never place it in potential_cuts or top_10_cuts, never name it in the replaces field of a top_10_adds entry, classify its role as wincon or combo, and reconcile every proposed cut or replacement against MY_DECK's combo evidence first.");
         builder.AppendLine("When assessing mana efficiency, count modal double-faced cards (MDFCs) with a land back face toward each deck's land total, and weight them higher than a plain land since they double as flexible land/spell slots that improve consistency.");
         builder.AppendLine();
         builder.AppendLine("Provide readable analysis first covering:");
