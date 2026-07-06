@@ -59,7 +59,10 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
   1. A row DirectPush inserts or updates always carries `approval_status='approved'` — it is never publicly visible while `pending` (C1 closed).
   2. Sync diff classification matches rows by the `(natural_key_type, natural_key_value)` composite instead of `PinId`, so a YouTube/podcast key collision can no longer cross-match two different rows (C4-collision closed).
   3. The DirectPush diff-read path runs no unexpected DDL against prod, and the code comment describing that behavior is corrected to match reality (C4-comment closed).
-**Plans**: TBD
+**Plans**: 3 plans (2 waves)
+- [ ] 88-01-PLAN.md — Store approved-write mirror + serve-side approval filter + schema-ensure OFF switch (SYNC-04, SYNC-06 store)
+- [ ] 88-02-PLAN.md — Shared ContentNaturalKey helper + composite-key classifier + stored vocabulary + skip-log (SYNC-05 core)
+- [ ] 88-03-PLAN.md — Studio coordinator dedup + ProdStoreFactory schema-ensure-off + no-DDL comment sweep (SYNC-05 studio, SYNC-06 factory)
 
 ### Phase 89: Content-Hash Foundation
 **Goal**: Every row's body content is hashed end-to-end on one unified signature, so drift is a single indexed comparison and body corruption (e.g. mojibake) is detectable instead of silently served.
@@ -126,7 +129,7 @@ Phases execute in numeric order: 88 → 89 → 90 → 91 → 92 → 93
 | 85. `chatgpt-*` Naming Cleanup | 2026.07.2 | 5/5 | Complete | 2026-07-05 |
 | 86. UI Audit Re-Score, Studio Stage 4 & Admin Flags Closeout | 2026.07.2 | 5/5 | Complete | 2026-07-05 |
 | 87. Creator-Source Model Hardening | 2026.07.2 | 1/1 | Complete | 2026-07-05 |
-| 88. Index-Row Integrity Hotfix | Cycle 16 | 0/TBD | Not started | - |
+| 88. Index-Row Integrity Hotfix | Cycle 16 | 0/3 | Planned | - |
 | 89. Content-Hash Foundation | Cycle 16 | 0/TBD | Not started | - |
 | 90. DirectPush Correctness + Seed Sync | Cycle 16 | 0/TBD | Not started | - |
 | 91. Reconcile + Seed Lifecycle | Cycle 16 | 0/TBD | Not started | - |
