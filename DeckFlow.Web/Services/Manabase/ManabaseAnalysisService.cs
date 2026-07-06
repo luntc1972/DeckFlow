@@ -375,7 +375,13 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             throw new InvalidOperationException(exception.Message, exception);
         }
 
-        var deckCards = load.Entries
+        // Moxfield plaintext exports carry no "Commander" section header — the commander is
+        // simply the leading card. Reflag inferred commander(s) to the commander board so the
+        // analyzer weights their colors and the callout names them, matching the deck-analysis
+        // tool's behavior. No-op when the source already tagged a commander board.
+        var entries = ReflagInferredCommanders(load.Entries);
+
+        var deckCards = entries
             .Where(e => AnalyzedBoards.Contains(e.Board))
             .ToList();
 
@@ -468,6 +474,30 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             + (unresolved.Count > 0 ? $" · {unresolved.Count} unresolved" : string.Empty);
 
         return new ResolvedManabaseDeck(deck, unresolved, load.FallbackNotice, decklistText, inputSummary, companionCard);
+    }
+
+    // Reflags the leading Moxfield-ordering commander(s) to the commander board when the
+    // source carried no explicit commander tag. Returns the input unchanged when a commander
+    // board already exists or none can be inferred.
+    private static List<DeckEntry> ReflagInferredCommanders(List<DeckEntry> entries)
+    {
+        IReadOnlyList<string> commanderNames = CommanderInference.InferLeadingCommanderNames(entries);
+        if (commanderNames.Count == 0)
+        {
+            return entries;
+        }
+
+        var commanderNameSet = commanderNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // Only reflag the analyzed boards. The inferred commander is always a leading mainboard
+        // entry, so restricting the promotion here keeps a same-named sideboard/maybeboard copy
+        // from being pulled into the analyzed set as a second "commander".
+        return entries
+            .Select(entry => commanderNameSet.Contains(entry.Name)
+                && !string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase)
+                ? entry with { Board = "commander" }
+                : entry)
+            .ToList();
     }
 
     // Internal carrier for the shared resolve+classify stage (no report yet).

@@ -69,6 +69,68 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_HeaderlessMoxfieldPaste_InfersLeadingCommander()
+    {
+        // Moxfield plaintext exports carry no "Commander" header — the commander is simply the
+        // leading card and every entry parses as "mainboard". The service must infer the leading
+        // one-of as the commander so the callout and color weighting work. The rest of the deck is
+        // alphabetical, so the third-entry guard keeps the inference to Bello alone.
+        var entries = new List<DeckEntry>
+        {
+            Entry("Bello, Bard of the Brambles", 1, "mainboard", set: "blc", cn: "101"),
+            Entry("Aggravated Assault", 1, "mainboard"),
+            Entry("Ancient Tomb", 1, "mainboard"),
+            Land("Forest", 34),
+        };
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Forest", "G"),
+            Spell("Bello, Bard of the Brambles", "{2}{R}{G}", 4, "Legendary Creature — Elemental Bard",
+                set: "blc", cn: "101"),
+            Spell("Aggravated Assault", "{2}{R}", 3, "Enchantment"),
+            Spell("Ancient Tomb", "{0}", 0, "Land"),
+        };
+
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+
+        var result = await service.AnalyzeAsync("paste", "Bello Deck");
+
+        var commanderRows = result.Report.Castability.Where(c => c.IsCommander).ToList();
+        Assert.Single(commanderRows);
+        Assert.Equal("Bello, Bard of the Brambles", commanderRows[0].Name);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_HeaderlessPaste_CommanderNameAlsoOnSideboard_PromotesOnlyLeadingCopy()
+    {
+        // A same-named copy on the sideboard must NOT be pulled into the analyzed set as a second
+        // commander — only the leading mainboard copy is promoted.
+        var entries = new List<DeckEntry>
+        {
+            Entry("Bello, Bard of the Brambles", 1, "mainboard", set: "blc", cn: "101"),
+            Entry("Aggravated Assault", 1, "mainboard"),
+            Entry("Ancient Tomb", 1, "mainboard"),
+            Land("Forest", 34),
+            Entry("Bello, Bard of the Brambles", 1, "sideboard", set: "blc", cn: "101"),
+        };
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Forest", "G"),
+            Spell("Bello, Bard of the Brambles", "{2}{R}{G}", 4, "Legendary Creature — Elemental Bard",
+                set: "blc", cn: "101"),
+            Spell("Aggravated Assault", "{2}{R}", 3, "Enchantment"),
+            Spell("Ancient Tomb", "{0}", 0, "Land"),
+        };
+
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+
+        var result = await service.AnalyzeAsync("paste", "Bello Deck");
+
+        // Exactly one commander row — the sideboard copy stayed out of the analyzed set.
+        Assert.Single(result.Report.Castability, c => c.IsCommander);
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_RampCreditV2Flag_DropsOneShotRitualFromLandTarget()
     {
         // MQ-03 plumbing: the flag is read BEFORE classification → narrows the ramp/draw credit. A
