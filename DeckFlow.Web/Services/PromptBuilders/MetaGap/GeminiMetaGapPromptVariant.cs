@@ -61,6 +61,7 @@ internal sealed class GeminiMetaGapPromptVariant : IMetaGapPromptVariant
         builder.AppendLine("- Do NOT invent card text or interactions.");
         builder.AppendLine("- Treat every infinite or near-infinite result in the supplied combo sections (Infinite/Near-infinite blinking, landfall triggers, ETB/LTB, mana, mill, untap) as an ACTIVE win engine. Scan MY_DECK for any card whose repeated trigger under that loop is game-ending (e.g. a land or permanent with an ETB/landfall ping, drain, or mill) - such a payoff is a win condition even if it is in no combo line and no REF deck.");
         builder.AppendLine("- A card that appears in a supplied combo line, or that pays off one of MY_DECK's own combo/loop results, is a PROTECTED combo piece or win condition. Never place it in potential_cuts or top_10_cuts, and never name it in the replaces field of a top_10_adds entry; classify its role as wincon or combo. Reconcile every proposed cut or replacement against MY_DECK's combo evidence first.");
+        builder.AppendLine("- A tutor or fetch effect that can retrieve one of MY_DECK's combo pieces is itself a PROTECTED combo enabler - do not cut it or name it in a replaces field. Exception to the observable-overlap rule, solely to identify such tutors: you may infer a card's hidden tutor ability from well-known printed text (e.g. cycling / typecycling such as wizardcycling, transmute, or explicit 'search your library' text), label that as inference, and do not use inferred card text for any other conclusion.");
         builder.AppendLine();
 
         builder.AppendLine("INPUT DATA:");
@@ -127,7 +128,7 @@ internal sealed class GeminiMetaGapPromptVariant : IMetaGapPromptVariant
         builder.AppendLine($"- Core convergence: cards in all {refCount} REF decks. Flag whether MY_DECK has them.");
         builder.AppendLine("- High-frequency staples: cards in 2+ REF decks but not in MY_DECK = missing staples.");
         builder.AppendLine("- Cards unique to MY_DECK (in 0 REF decks) = potential cuts.");
-        builder.AppendLine("- Exclude from potential cuts any 0-REF card that is a combo piece or combo payoff for MY_DECK (per the combo sections and the win-engine rule above); these are protected despite being unique.");
+        builder.AppendLine("- Exclude from potential cuts any 0-REF card that is a combo piece, combo payoff, or combo tutor for MY_DECK (per the combo sections and the win-engine and tutor rules above); these are protected despite being unique.");
         builder.AppendLine("- Categorize each by role: ramp, interaction, draw, wincon, protection, stax, tutor, utility, land.");
         builder.AppendLine();
 
@@ -138,7 +139,7 @@ internal sealed class GeminiMetaGapPromptVariant : IMetaGapPromptVariant
 
         builder.AppendLine("7. TOP IMPROVEMENTS");
         builder.AppendLine("- Top 5-10 adds: include what each replaces and justify using overlap evidence.");
-        builder.AppendLine("- Top 5-10 cuts: explain why each is low-impact or non-meta. Never cut a protected combo piece or combo payoff; if unsure whether a unique card pays off one of MY_DECK's combos, keep it and note the interaction.");
+        builder.AppendLine("- Top 5-10 cuts: explain why each is low-impact or non-meta. Never cut a protected combo piece, payoff, or tutor; if unsure whether a unique card pays off or tutors one of MY_DECK's combos, keep it and note the interaction.");
         builder.AppendLine();
 
         builder.AppendLine("8. META POSITIONING");
