@@ -30,6 +30,8 @@ RULES:
 - Clearly label any interpretation as inference.
 - If evidence is weak or unclear, explicitly say so in the relevant field.
 - Do NOT invent card text or interactions.
+- Treat every infinite or near-infinite result in the supplied combo sections (Infinite/Near-infinite blinking, landfall triggers, ETB/LTB, mana, mill, untap) as an ACTIVE win engine. Scan MY_DECK for any card whose repeated trigger under that loop is game-ending (e.g. a land or permanent with an ETB/landfall ping, drain, or mill) - such a payoff is a win condition even if it is in no combo line and no REF deck.
+- A card that appears in a supplied combo line, or that pays off one of MY_DECK's own combo/loop results, is a PROTECTED combo piece or win condition. Never place it in potential_cuts or top_10_cuts, and never name it in the replaces field of a top_10_adds entry; classify its role as wincon or combo. Reconcile every proposed cut or replacement against MY_DECK's combo evidence first.
 
 INPUT DATA:
 MY_DECK (Kraum, Ludevic's Opus):
@@ -74,6 +76,7 @@ Use the input data above and complete every section below.
 - Core convergence: cards in all 1 REF decks. Flag whether MY_DECK has them.
 - High-frequency staples: cards in 2+ REF decks but not in MY_DECK = missing staples.
 - Cards unique to MY_DECK (in 0 REF decks) = potential cuts.
+- Exclude from potential cuts any 0-REF card that is a combo piece or combo payoff for MY_DECK (per the combo sections and the win-engine rule above); these are protected despite being unique.
 - Categorize each by role: ramp, interaction, draw, wincon, protection, stax, tutor, utility, land.
 
 6. CONSISTENCY & REDUNDANCY
@@ -82,7 +85,7 @@ Use the input data above and complete every section below.
 
 7. TOP IMPROVEMENTS
 - Top 5-10 adds: include what each replaces and justify using overlap evidence.
-- Top 5-10 cuts: explain why each is low-impact or non-meta.
+- Top 5-10 cuts: explain why each is low-impact or non-meta. Never cut a protected combo piece or combo payoff; if unsure whether a unique card pays off one of MY_DECK's combos, keep it and note the interaction.
 
 8. META POSITIONING
 - Determine if MY_DECK is faster or slower than the field, more or less interactive.
@@ -154,6 +157,8 @@ Cite specific card names as evidence.
 Clearly label any interpretation as inference.
 If evidence is weak or unclear, explicitly say so in the relevant field.
 Do NOT invent card text or interactions.
+Treat every infinite or near-infinite result in the supplied combo sections (Infinite/Near-infinite blinking, landfall triggers, ETB/LTB, mana, mill, untap) as an ACTIVE win engine, and scan MY_DECK for any card whose repeated trigger under that loop is game-ending (e.g. a land or permanent with an ETB/landfall ping, drain, or mill) - such a payoff is a win condition even if it is in no combo line and no REF deck.
+A card that appears in a supplied combo line, or that pays off one of MY_DECK's own combo/loop results, is a PROTECTED combo piece or win condition: never place it in potential_cuts or top_10_cuts, never name it in the replaces field of a top_10_adds entry, classify its role as wincon or combo, and reconcile every proposed cut or replacement against MY_DECK's combo evidence first.
 When assessing mana efficiency, count modal double-faced cards (MDFCs) with a land back face toward each deck's land total, and weight them higher than a plain land since they double as flexible land/spell slots that improve consistency.
 
 Provide readable analysis first covering:
@@ -195,6 +200,8 @@ RULES:
 - Clearly label any interpretation as inference.
 - If evidence is weak or unclear, explicitly say so in the relevant field.
 - Do NOT invent card text or interactions.
+- Treat every infinite or near-infinite result in the supplied combo sections (Infinite/Near-infinite blinking, landfall triggers, ETB/LTB, mana, mill, untap) as an ACTIVE win engine. Scan MY_DECK for any card whose repeated trigger under that loop is game-ending (e.g. a land or permanent with an ETB/landfall ping, drain, or mill) - such a payoff is a win condition even if it is in no combo line and no REF deck.
+- A card that appears in a supplied combo line, or that pays off one of MY_DECK's own combo/loop results, is a PROTECTED combo piece or win condition. Never place it in potential_cuts or top_10_cuts, and never name it in the replaces field of a top_10_adds entry; classify its role as wincon or combo. Reconcile every proposed cut or replacement against MY_DECK's combo evidence first.
 
 INPUT DATA:
 MY_DECK (Kraum, Ludevic's Opus):
@@ -239,6 +246,7 @@ Use the input data above and complete every section below.
 - Core convergence: cards in all 1 REF decks. Flag whether MY_DECK has them.
 - High-frequency staples: cards in 2+ REF decks but not in MY_DECK = missing staples.
 - Cards unique to MY_DECK (in 0 REF decks) = potential cuts.
+- Exclude from potential cuts any 0-REF card that is a combo piece or combo payoff for MY_DECK (per the combo sections and the win-engine rule above); these are protected despite being unique.
 - Categorize each by role: ramp, interaction, draw, wincon, protection, stax, tutor, utility, land.
 
 6. CONSISTENCY & REDUNDANCY
@@ -247,7 +255,7 @@ Use the input data above and complete every section below.
 
 7. TOP IMPROVEMENTS
 - Top 5-10 adds: include what each replaces and justify using overlap evidence.
-- Top 5-10 cuts: explain why each is low-impact or non-meta.
+- Top 5-10 cuts: explain why each is low-impact or non-meta. Never cut a protected combo piece or combo payoff; if unsure whether a unique card pays off one of MY_DECK's combos, keep it and note the interaction.
 
 8. META POSITIONING
 - Determine if MY_DECK is faster or slower than the field, more or less interactive.
@@ -343,6 +351,8 @@ RULES:
 - Clearly label any interpretation as inference.
 - If evidence is weak or unclear, explicitly say so in the relevant field.
 - Do NOT invent card text or interactions.
+- Treat every infinite or near-infinite result in the supplied combo sections (Infinite/Near-infinite blinking, landfall triggers, ETB/LTB, mana, mill, untap) as an ACTIVE win engine. Scan MY_DECK for any card whose repeated trigger under that loop is game-ending (e.g. a land or permanent with an ETB/landfall ping, drain, or mill) - such a payoff is a win condition even if it is in no combo line and no REF deck.
+- A card that appears in a supplied combo line, or that pays off one of MY_DECK's own combo/loop results, is a PROTECTED combo piece or win condition. Never place it in potential_cuts or top_10_cuts, and never name it in the replaces field of a top_10_adds entry; classify its role as wincon or combo. Reconcile every proposed cut or replacement against MY_DECK's combo evidence first.
 
 INPUT DATA:
 MY_DECK (Kraum, Ludevic's Opus):
@@ -387,6 +397,7 @@ Use the input data above and complete every section below.
 - Core convergence: cards in all 1 REF decks. Flag whether MY_DECK has them.
 - High-frequency staples: cards in 2+ REF decks but not in MY_DECK = missing staples.
 - Cards unique to MY_DECK (in 0 REF decks) = potential cuts.
+- Exclude from potential cuts any 0-REF card that is a combo piece or combo payoff for MY_DECK (per the combo sections and the win-engine rule above); these are protected despite being unique.
 - Categorize each by role: ramp, interaction, draw, wincon, protection, stax, tutor, utility, land.
 
 6. CONSISTENCY & REDUNDANCY
@@ -395,7 +406,7 @@ Use the input data above and complete every section below.
 
 7. TOP IMPROVEMENTS
 - Top 5-10 adds: include what each replaces and justify using overlap evidence.
-- Top 5-10 cuts: explain why each is low-impact or non-meta.
+- Top 5-10 cuts: explain why each is low-impact or non-meta. Never cut a protected combo piece or combo payoff; if unsure whether a unique card pays off one of MY_DECK's combos, keep it and note the interaction.
 
 8. META POSITIONING
 - Determine if MY_DECK is faster or slower than the field, more or less interactive.
