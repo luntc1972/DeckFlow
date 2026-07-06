@@ -753,6 +753,9 @@ A persistent theme picker in the shared layout lets users switch between visual 
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### Unreleased fixes
+- **Back-to-top arrow visible in the Azorius theme:** the floating "back to top" button rendered as a blank white circle in Azorius — the theme flipped the button to a near-white background but left the chevron stroke white (white-on-white). The chevron now paints in the theme accent. A per-theme computed-style regression test asserts the chevron stroke clears a ≥3:1 contrast against its button background so this class of regression is caught automatically.
+
 ### 2026.07.2 — Cleanup, Refactor & Visual Polish (2026-07-05)
 A behavior-neutral cleanup cycle — no new user-facing features, and paste artifacts stay byte-identical. Most of it is invisible internal work: a packet-service single-responsibility split, a theme semantic-token migration, an AI-agnostic `chatgpt-*` → `prompt-*` identifier rename (byte-identical render), and Studio creator-source model hardening. The one user-visible change is a round of **theme visual polish**, fixing pre-existing bugs the UI audit surfaced:
 - **Readable active step-tab across all 24 themes:** the current workflow step (Deck Analysis / Comparison / Meta-Gap) is now a filled accent pill with contrast-checked text (WCAG ≥4.5:1), replacing the old low-contrast outline that was hard to read on several dark themes.
