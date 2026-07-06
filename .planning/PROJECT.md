@@ -14,7 +14,24 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 **Shipped (latest):** **Cycle 15 — Cleanup, Refactor & Visual Polish** (2026-07-05, CalVer `2026.07.2`) — phases 82-87, developed on branch `plan/cycle-15-cleanup-polish`. A behavior-neutral tech-debt + visual-polish cycle: **packet-service SRP split** (shared `PacketTextAssembler`/`ScryfallReferenceResolver` collaborators over the four packet god-services, byte-identical artifacts), **`--accent-strong` semantic-token migration** across all 27 theme forks (error-reads-as-link fixed in red guilds, no other drift), **`chatgpt-*` → AI-agnostic naming cleanup** (~1545 identifiers + the `ChatGptSwapPrompt` C# symbol, byte-identical render, grep-clean), a **refactor-review sweep** with recorded triage, and a **6-pillar UI audit re-score 18→21/24** (theme gap fixes A/B/C/D) plus the owed **DirectPush Stage 4** closeout (no-op copy fix, short-form SHA, operator live prod eyeball) and Studio **creator-source model hardening**. 20/20 in-scope requirements satisfied; ADMIN-01 (Flags on/off sorting) descoped → backlog. Prior milestones: **Cycle 14 — Deeper Deck Evaluation** (2026-07-03, `2026.07.1`); **Cycle 13 — Deck Evaluation & Creator Output** (2026-06-30, `2026.06.10`).
 
-**Next:** No active milestone yet. Cycle 16 (Creator-Style) and Cycle 17 (KB-Sync Hardening) are pre-planned on separate branches; start the next active cycle via `/gsd-new-milestone` or `/gsd-review-backlog`. Operator debt from Cycles 12–14 (manual prod deploy + 7 flag flips) is **DONE** (confirmed 2026-07-04). Carry-forward backlog still open: scheduled/bulk harvest (AUTO-03/04), SEO/growth lane (SEO-01..05), matchup/meta-threat read (cedh-meta-gap lane), ADMIN-01 (Flags sorting), a future manabase-engine refactor (needs a numeric-parity harness first), and a KB "commander advice" content class for filtered videos.
+**Next:** Cycle 16 — Content-KB Prod↔Git↔Studio Sync Hardening (ACTIVE, target `2026.07.3`) — see Current Milestone below. Cycle 17 (Creator-Style Deck Intelligence, `docs/research/creator-style-roadmap.md`) pre-planned and ships after (creator-style builds KB-derived features on top of a KB that currently drifts). Operator debt from Cycles 12–14 (manual prod deploy + 7 flag flips) is **DONE** (confirmed 2026-07-04). Carry-forward backlog still open: scheduled/bulk harvest (AUTO-03/04), SEO/growth lane (SEO-01..05), matchup/meta-threat read (cedh-meta-gap lane), ADMIN-01 (Flags sorting), a future manabase-engine refactor (needs a numeric-parity harness first), and a KB "commander advice" content class for filtered videos.
+
+## Current Milestone: Cycle 16 — Content-KB Prod↔Git↔Studio Sync Hardening (target `2026.07.3`)
+
+**Goal:** Make the Content-KB publish loop convergent and drift-proof — git is the single source of truth for bodies, the prod index row is subordinate and reconstructable from git, and every sync path (Publish, DirectPush, Pull, seed reload) is an idempotent, body-hash-verified one-way keyed upsert.
+
+**Target features** (from `docs/research/kb-prod-sync-roadmap.md` + `kb-prod-sync-fix-design.md`, incl. Codex gpt-5.4-high plan-review adjustments and the 2026-07-05 live prod drift audit; Codex-revised sequencing):
+
+- **Index-row integrity hotfix (ships first)** — DirectPush writes `approved` on insert/update (kills the visible-while-`approval_status='pending'` public exposure, C1); `ContentSyncDiffClassifier` keyed by `(natural_key_type, natural_key_value)` composite instead of `PinId` (C4 collision); fix the false "no DDL against prod" comment / guard the diff read (SYNC-04/05/06).
+- **Content-hash foundation** — `body_sha256` column on `content_site_index` (both dialects + seed JSON), ONE unified body-inclusive signature replacing the two divergent schemes, render guard refusing rows whose on-disk body hash ≠ stored hash (SYNC-01/02/03; makes the CP437-mojibake class detectable).
+- **DirectPush correctness + seed sync** — split per Codex HIGH: **P-a architecture flip** (bodies reach prod only via git `/app`; drop the `/data`-SFTP-first overlay) then **P-b ordering + stamping** (DirectPush re-exports `index-seed.json` so deploys can't revert it; hash-gated expand-contract ordering — body deployed+verified before `is_visible` flips; `pushed_to_prod_utc` stamped only after prod confirms). Flag `sync.directpush-gitbody` (SYNC-07..10).
+- **Reconcile + seed lifecycle** — row-level seed-management marker FIRST (Codex HIGH: seed-delete unsafe without it), then a NEW prod↔git↔seed reconciler + persistent discrepancy store (published-orphans / file-orphans / seed-drift / body-hash-mismatch; deterministic IDs, resolution-by-absence, dry-run before destructive), then gated seed-delete for removals. Flag `sync.reconcile` (SYNC-11/12 split).
+- **Pull hardening** — per-field master on Pull-from-Prod: body+content ← git tree, DB-only operator fields (`is_visible`/`is_hidden`/`approval_status`) ← prod preserved not clobbered; stale-checkout (`git pull` first) guard; divergence surfaced to operator, never silent-adopted (SYNC-13/14/15).
+- **Round-trip integration test** — distill → Publish/DirectPush → prod store → web body resolution → deploy/reseed → PullFromProd → reconcile on containerized Postgres + real git tree; served body == published body, `body_sha256` matches end-to-end, no-revert-after-reseed (SYNC-16).
+
+**Out of scope this cycle:** Cycle 17 creator-style features; retiring DirectPush entirely (P-a/P-b make it consistent; retirement is a later-cycle decision); CDC/queue-based sync (upsert + hash + ordering fits 512MB/Render); public-app feature changes (Studio/ops cycle — the only public-surface change is the hash-mismatch render guard and the C1 visibility fix).
+
+**Key context:** Live prod drift audit (2026-07-05, read-only) validates the cycle: 106 prod rows with only 36 in the approved seed (70 not reconstructable), 57 hidden+pending rows re-accumulated after a manual 63-row delete, ~328 file-without-row orphans, 32 mojibake bodies (15 prod-visible, repaired out-of-band — systemic fix is the body hash). Decisions owed at plan time: approval ownership (local-authoritative for DirectPush — confirm), `sync.*` flag plumbing home (web-DB flag vs Studio config vs both; Studio doesn't register the web flag system today). CalVer, NAMED not numbered (ADR 0002); phase numbering continues from 87 → 88+. Developed on branch `plan/cycle-16-kb-sync` + worktree `../deckflow-cycle16`.
 
 ## Shipped Milestone: Cycle 15 — Cleanup, Refactor & Visual Polish (SHIPPED 2026-07-05, `2026.07.2`)
 
@@ -212,9 +229,9 @@ Gate-driven milestone that pivoted: the KBV value gate = MARGINAL → retired pr
 
 ### Active
 
-<!-- No active milestone — Cycle 15 shipped 2026.07.2. Next cycle not yet planned. -->
+<!-- Cycle 16 — Content-KB Prod↔Git↔Studio Sync Hardening. REQ-IDs defined in .planning/REQUIREMENTS.md. -->
 
-- No active milestone. Cycle 15 (Cleanup, Refactor & Visual Polish) shipped `2026.07.2` (2026-07-05). Cycle 16 (Creator-Style) and Cycle 17 (KB-Sync Hardening) are pre-planned on separate branches; start the next active cycle via `/gsd-new-milestone` or `/gsd-review-backlog`.
+- Cycle 16 (Content-KB Prod↔Git↔Studio Sync Hardening) — SYNC-01..16 per `docs/research/kb-prod-sync-roadmap.md`; scoped REQ-IDs in `.planning/REQUIREMENTS.md`.
 
 ### Out of Scope
 
@@ -363,4 +380,4 @@ This document evolves at phase transitions and milestone boundaries.
 **Shipped:** v1.5 Deck Primer Generator + Content KB Integration + Housekeeping (2026-06-10) — 30/30 requirements across 6 phases (28-33, 25 plans, 219 commits, +56,893/−2,108 LOC across 781 files, 7-day timeline 2026-06-03 → 2026-06-09). Deck Primer fourth workflow + Content KB prompt integration + expert selection + Core doc gate. Vitest+jsdom + GitHub Actions CI added at close. Tests Core 282/282, Web 657/662 (5 PG-skip). Audit: passed. Content KB ships dark (flag OFF by design).
 
 ---
-*Last updated: 2026-07-05 after 2026.07.2 milestone*
+*Last updated: 2026-07-06 — Cycle 16 (Content-KB Sync Hardening) started*
