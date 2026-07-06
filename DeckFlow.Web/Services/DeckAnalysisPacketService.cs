@@ -242,34 +242,20 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             ?.Name;
         var inferredCommanderFromMoxfieldOrdering = false;
 
-        // Fallback for Moxfield exports without a Commander section header.
-        // By convention the commander (or partner pair) appears first in the list.
-        if (commanderName is null && entries.Count > 0)
+        // Fallback for Moxfield exports without a Commander section header: the commander (or
+        // partner pair) appears first in the list. Shared with the manabase analyzer via
+        // CommanderInference so the leading-one-of heuristic and its alphabetical guard live in
+        // one place.
+        if (commanderName is null)
         {
-            var leadingOneOfs = entries
-                .TakeWhile(entry => entry.Quantity == 1
-                    && !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase)
-                    && !string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
-                .Take(2)
-                .ToList();
-
-            // Third-entry alphabetical guard — mirrors BuildAsync lines 246-253.
-            if (leadingOneOfs.Count == 2 && entries.Count > 2)
+            IReadOnlyList<string> inferredCommanderNames = CommanderInference.InferLeadingCommanderNames(entries);
+            if (inferredCommanderNames.Count > 0)
             {
-                var thirdEntry = entries[2];
-                if (string.Compare(leadingOneOfs[1].Name, thirdEntry.Name, StringComparison.OrdinalIgnoreCase) < 0)
-                {
-                    leadingOneOfs = leadingOneOfs.Take(1).ToList();
-                }
-            }
-
-            if (leadingOneOfs.Count > 0)
-            {
-                var commanderNames = leadingOneOfs.Select(e => e.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-                // REFLAG MUTATION — mirrors BuildAsync lines 257-267 EXACTLY. Both `entries` and
-                // `deckEntries` collections get inferred commander entries reflagged Board="commander".
-                // Without this mutation, BuildCanonicalDeckSourceText would sort the same logical
-                // deck differently in read vs write paths because Board is the primary sort key.
+                var commanderNames = inferredCommanderNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                // REFLAG MUTATION — both `entries` and `deckEntries` collections get inferred
+                // commander entries reflagged Board="commander". Without this mutation,
+                // BuildCanonicalDeckSourceText would sort the same logical deck differently in read
+                // vs write paths because Board is the primary sort key.
                 entries = entries
                     .Select(entry => commanderNames.Contains(entry.Name)
                         ? entry with { Board = "commander" }
@@ -280,7 +266,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                         ? entry with { Board = "commander" }
                         : entry)
                     .ToList();
-                commanderName = leadingOneOfs[0].Name;
+                commanderName = inferredCommanderNames[0];
                 inferredCommanderFromMoxfieldOrdering = true;
             }
         }
