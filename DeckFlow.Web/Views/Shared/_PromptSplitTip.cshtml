@@ -1,0 +1,14 @@
+@*
+    Advisory shown beside a generated prompt: large packets can push an AI past its
+    single-response output cap, so it splits the answer into parts. The paste-back step only
+    needs the JSON, which fits in one response on its own. Model = the top-level JSON object
+    name this tool expects back (e.g. "meta_gap", "deck_profile", "deck_comparison").
+*@
+@model string
+<div class="prompt-context-note prompt-split-tip" data-prompt-split-tip="@Model">
+    <p>
+        <strong>If your AI splits the answer into parts</strong> (on large decks it may say the full response is too long for one message), reply:
+        <code>Output only the @Model JSON in a single response — skip the prose, keep each justification to one short sentence.</code>
+    </p>
+    <p>The <code>@Model</code> JSON is the only part you paste back here, and on its own it fits in one response.</p>
+</div>

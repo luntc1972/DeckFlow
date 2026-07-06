@@ -53,6 +53,25 @@ public sealed class DeckAnalysisPrintButtonViewTests
     }
 
     [Fact]
+    public async Task GeneratedPrompts_CarryResponseSplitTips()
+    {
+        var model = new DeckAnalysisViewModel
+        {
+            Request = new DeckAnalysisRequest { TargetAiPlatform = "ChatGPT", WorkflowStep = 2 },
+            AnalysisPromptText = "GENERATED ANALYSIS PROMPT",
+            SetUpgradePromptText = "GENERATED SET UPGRADE PROMPT",
+        };
+
+        string html = await RenderAsync(model);
+
+        // Each generated prompt box carries its own object-scoped split tip.
+        Assert.Contains("data-prompt-split-tip=\"deck_profile\"", html, StringComparison.Ordinal);
+        Assert.Contains("Output only the deck_profile JSON in a single response", html, StringComparison.Ordinal);
+        Assert.Contains("data-prompt-split-tip=\"set_upgrade_report\"", html, StringComparison.Ordinal);
+        Assert.Contains("Output only the set_upgrade_report JSON in a single response", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task SetUpgradeResponsePresent_RendersPrintButton()
     {
         var model = new DeckAnalysisViewModel

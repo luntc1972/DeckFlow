@@ -484,6 +484,7 @@ Deck B ([DECK B NAME]):
                     <button type="button" class="copy-button" data-copy-target="comparison-prompt-output">Copy</button>
                 </div>
                 <textarea autocomplete="off" id="comparison-prompt-output" readonly spellcheck="false" data-prompt-comparison-result-anchor>@Model.ComparisonPromptText</textarea>
+                @await Html.PartialAsync("_PromptSplitTip", "deck_comparison")
             </section>
         }
 

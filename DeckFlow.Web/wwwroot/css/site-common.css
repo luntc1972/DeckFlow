@@ -3573,3 +3573,9 @@ label.field > span,
 @page {
   margin: 14mm;
 }
+
+/* Response-split tip sits directly beneath a generated-prompt textarea; give it a little
+   separation so it does not read as part of the prompt box. Layout-only, theme-agnostic. */
+.prompt-split-tip {
+  margin-top: 0.75rem;
+}

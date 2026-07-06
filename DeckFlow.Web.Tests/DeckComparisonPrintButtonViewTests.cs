@@ -51,6 +51,22 @@ public sealed class DeckComparisonPrintButtonViewTests
     }
 
     [Fact]
+    public async Task GeneratedComparisonPrompt_CarriesResponseSplitTip()
+    {
+        var model = new DeckComparisonViewModel
+        {
+            ActiveTab = DeckPageTab.DeckComparison,
+            Request = new DeckComparisonRequest { WorkflowStep = 2 },
+            ComparisonPromptText = "GENERATED COMPARISON PROMPT",
+        };
+
+        string html = await RenderAsync(model);
+
+        Assert.Contains("data-prompt-split-tip=\"deck_comparison\"", html, StringComparison.Ordinal);
+        Assert.Contains("Output only the deck_comparison JSON in a single response", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task NoComparisonResponse_RendersNoPrintButton()
     {
         var model = new DeckComparisonViewModel
