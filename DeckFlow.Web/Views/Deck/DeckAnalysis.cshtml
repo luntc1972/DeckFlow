@@ -461,6 +461,7 @@ Do not omit any fields from the schema.
                     <button type="button" class="copy-button" data-copy-target="analysis-output">Copy</button>
                 </div>
                 <textarea autocomplete="off" id="analysis-output" readonly spellcheck="false" data-prompt-result-anchor>@Model.AnalysisPromptText</textarea>
+                @await Html.PartialAsync("_PromptSplitTip", "deck_profile")
                 <div data-kb-clear-pins-on-load hidden></div>
             </section>
         }
@@ -924,6 +925,7 @@ Do not omit any fields from the schema.
                     <button type="button" class="copy-button" data-copy-target="set-upgrade-output">Copy</button>
                 </div>
                 <textarea autocomplete="off" id="set-upgrade-output" readonly spellcheck="false" data-prompt-result-anchor>@Model.SetUpgradePromptText</textarea>
+                @await Html.PartialAsync("_PromptSplitTip", "set_upgrade_report")
             </section>
         }
         <details class="result-panel nested-panel">

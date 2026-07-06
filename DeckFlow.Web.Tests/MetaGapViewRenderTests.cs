@@ -46,6 +46,38 @@ public sealed class MetaGapViewRenderTests
     }
 
     [Fact]
+    public async Task GeneratedPromptPanel_CarriesTheResponseSplitTip()
+    {
+        var model = new MetaGapViewModel
+        {
+            ActiveTab = DeckPageTab.CedhMetaGap,
+            Request = new MetaGapRequest { WorkflowStep = 2 },
+            PromptText = "GENERATED META GAP PROMPT",
+        };
+
+        string html = await RenderCedhMetaGapViewAsync(model);
+
+        // The tip sits beside the generated prompt box so a user whose AI splits the reply
+        // sees the JSON-only recovery move right where they copy the prompt.
+        Assert.Contains("data-prompt-split-tip=\"meta_gap\"", html, StringComparison.Ordinal);
+        Assert.Contains("Output only the meta_gap JSON in a single response", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SplitTip_AbsentUntilPromptGenerated()
+    {
+        var model = new MetaGapViewModel
+        {
+            ActiveTab = DeckPageTab.CedhMetaGap,
+            Request = new MetaGapRequest(),
+        };
+
+        string html = await RenderCedhMetaGapViewAsync(model);
+
+        Assert.DoesNotContain("data-prompt-split-tip", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task PrintButton_RendersInResultsToolbar_WhenAnalysisPresent()
     {
         var model = new MetaGapViewModel

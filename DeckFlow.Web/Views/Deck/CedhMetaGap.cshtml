@@ -335,6 +335,7 @@
                     <button type="button" class="copy-button" data-copy-target="cedh-meta-gap-prompt-output">Copy</button>
                 </div>
                 <textarea autocomplete="off" id="cedh-meta-gap-prompt-output" readonly spellcheck="false">@Model.PromptText</textarea>
+                @await Html.PartialAsync("_PromptSplitTip", "meta_gap")
             </details>
         }
 
