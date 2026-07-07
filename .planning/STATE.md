@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: Cycle 16
 milestone_name: Content-KB Prod↔Git↔Studio Sync Hardening
-status: executing
-stopped_at: Phase 88 executed (3/3 plans) — awaiting operator ff to main + push (D-16)
-last_updated: "2026-07-06T23:14:05.618Z"
-last_activity: 2026-07-06 -- Phase 88 executed: index-row integrity hotfix shipped to cycle16 branch
+status: Executed on cycle16 branch — awaiting operator ff→main + push (D-16)
+stopped_at: Phase 89 context gathered
+last_updated: "2026-07-07T03:06:54.182Z"
+last_activity: "2026-07-06 -- Phase 88 executed: approval mirror + serve filters + composite keying + prod DDL guard"
 progress:
   total_phases: 6
   completed_phases: 1
@@ -99,6 +99,6 @@ Carried forward from Cycle 15 close (2026-07-05) — none are Cycle-16 gaps:
 
 ## Session Continuity
 
-Last session: 2026-07-06T22:18:39.531Z
-Stopped at: Phase 88 context gathered
-Resume file: .planning/phases/88-index-row-integrity-hotfix/88-CONTEXT.md
+Last session: 2026-07-07T03:06:54.142Z
+Stopped at: Phase 89 context gathered
+Resume file: .planning/phases/89-content-hash-foundation/89-CONTEXT.md
