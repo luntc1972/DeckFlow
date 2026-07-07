@@ -117,6 +117,22 @@ public sealed class ContentKbController : Controller
 
         var raw = await System.IO.File.ReadAllTextAsync(resolved, cancellationToken).ConfigureAwait(false);
         var (_, body) = ContentArtifactParser.SplitHeader(raw);
+
+        // Why: recompute the on-disk body hash via the ONE shared helper (which itself calls
+        // SplitHeader over `raw`) so the render-side hash and the publish-side hash are provably
+        // comparable (D-01). On mismatch OR a legacy null/absent stored hash, log a structured
+        // warning naming the row but keep serving the body — fail-open this phase (D-05); a future
+        // phase may tighten this to fail-closed once the backfill (89-06) guarantees coverage.
+        var computedHash = ContentSiteIndexContentSignature.ComputeBodySha256(raw);
+        if (row.BodySha256 is null || !string.Equals(row.BodySha256, computedHash, StringComparison.Ordinal))
+        {
+            _logger.LogWarning(
+                "Content KB body hash mismatch for row {ContentKbRowId}: stored={StoredHash} computed={ComputedHash}",
+                row.Id,
+                row.BodySha256 ?? "(none)",
+                computedHash);
+        }
+
         var renderedHtml = new HtmlString(Markdown.ToHtml(body, Pipeline));
 
         // Prefer the baked sibling prompt (written at distill time) when present; otherwise

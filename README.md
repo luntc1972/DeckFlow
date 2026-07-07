@@ -621,6 +621,7 @@ dotnet run --project DeckFlow.CLI -- content-index-export
   A native Windows `claude` install instead uses `["cmd.exe","/c","claude.cmd","-p","{instruction}","--output-format","json","--allowedTools",""]`. Optional `DECKFLOW_LLM_CLI_TIMEOUT_SECONDS` bounds each call. If it is unset/invalid on Windows, distill aborts with a clear "Distiller CLI not configured" message (not silent per-video failures).
 - The public browse/detail pages at `/content-kb` are gated behind the `tool.knowledge-base.enabled` feature flag (default OFF) and only show entries an admin published via `/Admin/ContentKb` (per-entry or per-source bulk curation; visibility survives seed reloads).
 - `/Admin/YoutubeExport` downloads a channel's upload list (title, views, upload date, URL) as text or CSV — useful for picking `--video-ids` targets.
+- **Content KB body hash mismatch (operator signal):** each entry's `content_site_index` row carries a `body_sha256` computed from the artifact body at distill time. On the detail page, the server recomputes that hash from the on-disk `.md` and logs a `Content KB body hash mismatch` warning if it differs from the stored value (or the stored value is null on a legacy pre-hash row) — this flags mojibake/stale-body drift for the operator. The entry still serves normally (fail-open this phase); a future phase may tighten this to refuse rendering once every row is backfilled.
 
 ---
 
