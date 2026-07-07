@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: Cycle 16
 milestone_name: Content-KB Prod↔Git↔Studio Sync Hardening
 status: executing
-stopped_at: Completed 90-02-PLAN.md
-last_updated: "2026-07-07T22:48:02.782Z"
+stopped_at: Completed 90-03-PLAN.md
+last_updated: "2026-07-07T23:00:45.347Z"
 last_activity: 2026-07-07
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 16
-  completed_plans: 11
+  completed_plans: 12
   percent: 33
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 ## Current Position
 
 Phase: 90 (directpush-correctness-seed-sync) — EXECUTING
-Plan: 3 of 7
+Plan: 4 of 7
 Status: Ready to execute
 Last activity: 2026-07-07
 
-Progress: [███████░░░] 69%
+Progress: [████████░░] 75%
 
 ## Roadmap Summary
 
@@ -69,6 +69,7 @@ Progress: [███████░░░] 69%
 | Phase 89 P06 | ~45min | 3 tasks | 9 files |
 | Phase 90 P01 | ~25min | 3 tasks | 9 files |
 | Phase 90 P02 | 25min | 2 tasks | 6 files |
+| Phase 90 P03 | ~20min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,8 @@ Full decision log lives in PROJECT.md Key Decisions table. Decisions constrainin
 - [Phase 90]: 90-01: Program.cs needed no change for the new IFeatureFlagCache dependency on ContentKbArtifactPathResolver/ContentKbController - both are registered via plain AddSingleton<T>()/implicit MVC DI with no factory lambda, so the container auto-resolves the new constructor param from AddDeckFlowFeatureFlags()
 - [Phase 90]: 90-02: ArtifactPathSafety root param = repoRoot (not repoRoot/content-kb) — ArtifactPath already carries the content-kb/ prefix, matching PullFromProdCoordinator's proven call shape
 - [Phase 90]: 90-02: GitBodyCoverageAudit depends only on IProdContentReader (no IProdStoreFactory reference) so it is structurally incapable of writing to prod (D-11/T-90-04)
+- [Phase 90]: 90-03: awaiting_confirm_utc chosen as nullable timestamp (not status-string), mirroring body_sha256/pushed_to_prod_utc precedent; excluded from all Upsert* SQL so a re-distill can never clear an in-flight marker
+- [Phase 90]: 90-03: SetAwaitingConfirmAsync/ClearAwaitingConfirmAsync declared as throwing default interface methods (mirrors SetBodySha256IfNullAsync); confirmed via full solution build that existing FakeContentSiteIndexStore doubles compile unchanged
 
 ### Pending Todos
 
@@ -117,6 +120,6 @@ Carried forward from Cycle 15 close (2026-07-05) — none are Cycle-16 gaps:
 
 ## Session Continuity
 
-Last session: 2026-07-07T22:48:02.760Z
-Stopped at: Completed 90-02-PLAN.md
+Last session: 2026-07-07T23:00:45.324Z
+Stopped at: Completed 90-03-PLAN.md
 Resume file: None

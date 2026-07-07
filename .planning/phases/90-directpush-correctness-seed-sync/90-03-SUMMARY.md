@@ -101,6 +101,10 @@ None — no external service configuration required. This is a pure schema/store
 - The durable marker and its composite-key writers are ready for Plan 90-05 (hash-gated DirectPush ordering re-plumb) and Plan 90-06 (DirectPush page resume flow) to consume.
 - No blockers. `DeckFlow.sln` builds with 0 warnings/0 errors; full test suite green (Core 1149, Studio 319, Web 1235 + 12 Postgres-skip).
 
+## Self-Check: PASSED
+
+All created/modified files verified present on disk; all 5 task/summary commits (`ea489b37`, `ba188964`, `23ede2a5`, `f7711e40`, `e3332104`) verified present in git history.
+
 ---
 *Phase: 90-directpush-correctness-seed-sync*
 *Completed: 2026-07-07*
