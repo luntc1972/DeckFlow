@@ -19,7 +19,7 @@
 
 - [x] **SYNC-01**: `content_site_index` gains `body_sha256` (dialect-guarded DDL, SQLite + Postgres + seed JSON), computed from the `.md` body at publish (M5)
 - [x] **SYNC-02**: ONE unified body-inclusive row signature replaces the two divergent schemes (`ContentSiteIndexContentSignature` + `ContentSyncDiffClassifier` fingerprint); DirectPush, Pull, and reconcile all share it
-- [x] **SYNC-03**: Web app refuses to render a row whose on-disk body hash ≠ stored `body_sha256`, logging the mismatch — mojibake/stale-body corruption becomes detectable instead of served
+- [x] **SYNC-03**: Web app detects and logs (structured warning) when a row's on-disk body hash ≠ stored `body_sha256` — mojibake/stale-body corruption becomes visible instead of silently served. Fail-open + log this phase per D-05; the fail-closed refuse-to-render tightening is deferred to a future phase once the D-08 backfill guarantees every live row is hashed.
 
 ### DirectPush Correctness + Seed Sync (flag `sync.directpush-gitbody`)
 
