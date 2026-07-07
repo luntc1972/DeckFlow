@@ -208,6 +208,51 @@ public sealed class ContentKbArtifactPathResolverTests : IDisposable
         Assert.Equal(string.Empty, resolved);
     }
 
+    [Fact]
+    public void TryResolveGitArtifact_ReturnsResolved_WhenGitFileExists()
+    {
+        // D-09 REVISED: the deployed-body-hash endpoint needs a git-/app-ONLY resolve, unconditional
+        // on the flag - present in git -> Resolved(git path), same as the flag-independent git-hit case.
+        var contentRoot = CreateTempWithContentKb();
+        var gitFile = WriteFile(Path.Combine(contentRoot, "content-kb", "edhrecast", "git-only.md"), "# Git");
+        var resolver = Build(contentRoot, new());
+
+        var result = resolver.TryResolveGitArtifact("content-kb/edhrecast/git-only.md", out var resolved);
+
+        Assert.Equal(ContentKbArtifactResolution.Resolved, result);
+        Assert.Equal(gitFile, resolved);
+    }
+
+    [Fact]
+    public void TryResolveGitArtifact_ReturnsMissingFile_WhenGitAbsent_EvenWhenOverlayFilePresent()
+    {
+        // D-09 REVISED: the overlay must NEVER be consulted by this method, regardless of the
+        // sync.directpush-gitbody flag state (this resolver instance has the flag OFF).
+        var contentRoot = CreateTempWithContentKb();
+        var dataDir = CreateTempDir();
+        WriteFile(Path.Combine(dataDir, "content-kb", "edhrecast", "overlay-only.md"), "# Overlay");
+        var resolver = Build(contentRoot, new() { ["MTG_DATA_DIR"] = dataDir });
+
+        var result = resolver.TryResolveGitArtifact("content-kb/edhrecast/overlay-only.md", out var resolved);
+
+        Assert.Equal(ContentKbArtifactResolution.MissingFile, result);
+        Assert.Equal(string.Empty, resolved);
+    }
+
+    [Theory]
+    [InlineData("content-kb/../escape.md")]
+    [InlineData("/content-kb/edhrecast/rooted.md")]
+    public void TryResolveGitArtifact_ReturnsInvalidPath_ForTraversalOrRootedPath(string artifactPath)
+    {
+        var contentRoot = CreateTempWithContentKb();
+        var resolver = Build(contentRoot, new());
+
+        var result = resolver.TryResolveGitArtifact(artifactPath, out var resolved);
+
+        Assert.Equal(ContentKbArtifactResolution.InvalidPath, result);
+        Assert.Equal(string.Empty, resolved);
+    }
+
     private ContentKbArtifactPathResolver Build(
         string contentRootPath,
         Dictionary<string, string?> config,
