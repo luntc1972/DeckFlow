@@ -61,7 +61,8 @@ public sealed class DirectPushCoordinatorTests
         FakeSshArtifactUploader? uploader = null,
         string artifactRoot = "/data/content-kb",
         FakeGitRepository? git = null,
-        FakeContentKbOrchestrator? orchestrator = null)
+        FakeContentKbOrchestrator? orchestrator = null,
+        IProdContentReader? prodReader = null)
         => new(
             local,
             uploader ?? new FakeSshArtifactUploader(),
@@ -69,7 +70,10 @@ public sealed class DirectPushCoordinatorTests
             new ConfigurationBuilder().Build(),
             new ContentKbOrchestratorOptions { ArtifactRoot = artifactRoot },
             git ?? new FakeGitRepository(),
-            orchestrator ?? new FakeContentKbOrchestrator());
+            orchestrator ?? new FakeContentKbOrchestrator(),
+            // D-05: flag OFF by default — [skip render] behavior stays byte-identical unless a test
+            // explicitly turns the flag on (see TestDoubles/FakeDirectPushFlagReader.cs).
+            prodReader ?? new FakeDirectPushFlagReader());
 
     // ── ClassifyDiff (pure) ─────────────────────────────────────────────────
 
@@ -309,12 +313,18 @@ public sealed class DirectPushCoordinatorTests
             new[] { "content-kb/test-channel/aaa.md", "content-kb/test-channel/bbb.md" },
             copied);
 
-        // Committed EXACTLY those body paths — the seed path is never staged (anti-pattern guard).
+        // D-08/SYNC-08: the seed is re-exported via the SAME shared factory Publish uses, into the
+        // repo tree, and staged alongside the copied bodies.
+        var exportedPath = Assert.Single(orchestrator.ExportToFilePaths);
+        Assert.Equal(Path.GetFullPath(Path.Combine("/repo", "content-kb/seed/index-seed.json")), exportedPath);
         var commit = Assert.Single(git.CommitCalls);
-        Assert.Equal(copied, commit.Paths);
-        Assert.DoesNotContain(commit.Paths, p => p.Contains("index-seed.json", StringComparison.Ordinal));
+        Assert.Contains("content-kb/seed/index-seed.json", commit.Paths);
+        Assert.Equal(
+            new[] { "content-kb/seed/index-seed.json", "content-kb/test-channel/aaa.md", "content-kb/test-channel/bbb.md" },
+            commit.Paths);
 
-        // Commit message carries the Render deploy-skip phrase (NOT [skip ci]).
+        // D-05: flag OFF by default (no test override) — commit message carries the Render
+        // deploy-skip phrase byte-identical to before this plan (NOT [skip ci]).
         Assert.Contains("[skip render]", commit.Message);
         Assert.DoesNotContain("[skip ci]", commit.Message);
 
@@ -328,11 +338,77 @@ public sealed class DirectPushCoordinatorTests
         Assert.Equal(2, result.BodyCount);
         Assert.Equal(DirectPushGitOutcome.Committed, result.Outcome);
 
-        // Anti-pattern guard (Codex NIT): the approved-only seed export/copy path is NEVER invoked —
-        // a future refactor that called it would regress the 86-row seed even if the commit pathspec
-        // happened to exclude it.
-        Assert.Empty(orchestrator.ExportToFilePaths);
+        // The APPROVED-ONLY full-set copy path (CopyApprovedArtifactsToRepoAsync — Publish's own
+        // artifact-copy step, distinct from the seed export) is still NEVER invoked here: DirectPush
+        // copies only the pushed bodies via CopyArtifactsToRepoAsync, not the full approved set.
         Assert.Equal(0, orchestrator.CopyApprovedCallCount);
+    }
+
+    [Fact]
+    public async Task CommitAndPushBodiesAsync_FlagOn_DropsSkipRenderPhrase()
+    {
+        // D-09: sync.directpush-gitbody ON drops [skip render] so the push triggers a real redeploy —
+        // required for SYNC-09's hash-gated deploy-confirm step to ever succeed.
+        var git = new FakeGitRepository { CannedBranch = "main" };
+        var flagReader = new FakeDirectPushFlagReader { FlagValue = true };
+        var coordinator = Build(new FakeContentSiteIndexStore(), new FakeContentSiteIndexStore(), git: git, prodReader: flagReader);
+        var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa") };
+
+        var result = await coordinator.CommitAndPushBodiesAsync(publish, "/data", CancellationToken.None);
+
+        var commit = Assert.Single(git.CommitCalls);
+        Assert.DoesNotContain("[skip render]", commit.Message);
+        Assert.Equal(DirectPushGitOutcome.Committed, result.Outcome);
+    }
+
+    [Fact]
+    public async Task CommitAndPushBodiesAsync_FlagOffThenOn_BothCommitSubjects_RecognizedAsOwnDurabilityCommit()
+    {
+        // D-09 correctness: a PRIOR run's flag-ON commit (no trailing phrase) must still be
+        // recognized as OUR OWN durability commit on a later ahead-of-origin check, not misclassified
+        // foreign — otherwise every flag-ON push would permanently block on the NEXT DirectPush run.
+        var git = new FakeGitRepository
+        {
+            CannedBranch = "main",
+            CannedWorkingChangeCount = 0,
+            CannedSubjectsAhead = { "content: direct-push 1 body to prod" },
+        };
+        var coordinator = Build(new FakeContentSiteIndexStore(), new FakeContentSiteIndexStore(), git: git);
+        var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa") };
+
+        var result = await coordinator.CommitAndPushBodiesAsync(publish, "/data", CancellationToken.None);
+
+        Assert.Equal(DirectPushGitOutcome.PushedExistingCommits, result.Outcome);
+        Assert.Empty(git.CommitCalls);
+        Assert.Single(git.PushCalls);   // recognized as own commit → catch-up push, not a foreign-commit refusal
+    }
+
+    [Fact]
+    public async Task CommitAndPushBodiesAsync_SeedExportFails_ThrowsBeforeCopyOrCommitOrPush()
+    {
+        // D-08: a seed-export failure must surface, never fall through to a silent bodies-only
+        // commit.
+        var git = new FakeGitRepository { CannedBranch = "main" };
+        var orchestrator = new FakeContentKbOrchestrator
+        {
+            CannedExportResult = new ContentIndexExportResult
+            {
+                Success = false,
+                Message = "disk full",
+                RowCount = 0,
+                Rows = Array.Empty<ContentIndexExportRow>(),
+            },
+        };
+        var coordinator = Build(new FakeContentSiteIndexStore(), new FakeContentSiteIndexStore(), git: git, orchestrator: orchestrator);
+        var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa") };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => coordinator.CommitAndPushBodiesAsync(publish, "/data", CancellationToken.None));
+
+        Assert.Contains("disk full", ex.Message, StringComparison.Ordinal);
+        Assert.Empty(orchestrator.CopyArtifactsCalls);
+        Assert.Empty(git.CommitCalls);
+        Assert.Empty(git.PushCalls);
     }
 
     [Fact]
@@ -569,7 +645,7 @@ public sealed class DirectPushCoordinatorTests
         Assert.Equal(DirectPushGitOutcome.Committed, result.Outcome);
         Assert.Equal(1, result.BodyCount);                 // accurate committed count, not the copied 2
         var commit = Assert.Single(git.CommitCalls);
-        Assert.Equal(2, commit.Paths.Count);               // both staged; git commits only the changed 1
+        Assert.Equal(3, commit.Paths.Count);               // 2 bodies + the seed staged; git commits only the changed 1 body
         Assert.Contains("1 body", commit.Message);
         Assert.DoesNotContain("2 bodies", commit.Message);
     }
