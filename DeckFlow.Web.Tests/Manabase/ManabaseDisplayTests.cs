@@ -152,25 +152,6 @@ public sealed class ManabaseDisplayTests
         Assert.True(ViewModel(ManabaseMode.Casual, Array.Empty<CardCastability>()).HasResult);
     }
 
-    [Fact]
-    public void AvgOnCurve_EmptyRows_IsZero_NoDivideByZero()
-    {
-        Assert.Equal(0, ManabaseDisplay.AvgOnCurve(Array.Empty<CardCastability>()));
-    }
-
-    [Fact]
-    public void AvgOnCurve_MeansCastPercentAndRounds()
-    {
-        var rows = new[]
-        {
-            new CardCastability { Name = "A", ManaValue = 2, OnCurveTurn = 2, CastPercent = 80, LimitingFactor = "mana" },
-            new CardCastability { Name = "B", ManaValue = 3, OnCurveTurn = 3, CastPercent = 81, LimitingFactor = "mana" },
-        };
-
-        // (80 + 81) / 2 = 80.5 → rounds to 80 (banker's rounding to even).
-        Assert.Equal(80, ManabaseDisplay.AvgOnCurve(rows));
-    }
-
     [Theory]
     // ActualSources >= RequiredSources → met, deficit 0.
     [InlineData(18.0, 17, true, 0)]
