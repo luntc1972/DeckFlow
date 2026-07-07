@@ -58,10 +58,26 @@ public static class ManabaseSwapPromptBuilder
 
         sb.AppendLine();
 
+        // Mirror the three-way land note used by the page, the .txt report, and PrimaryFix
+        // (efficacy R2 finding H3): when the sim says the deck's cheap ramp covers a paper land
+        // shortfall, the prompt must NOT ask the LLM for lands the tool just said are unnecessary.
         double delta = report.LandDelta;
-        string landNote = delta >= -1
-            ? "land count is on target"
-            : $"add ~{Math.Ceiling(-delta).ToString("F0", CultureInfo.InvariantCulture)} more land(s)";
+        string landNote;
+        if (delta >= -1)
+        {
+            landNote = "land count is on target";
+        }
+        else if (report.LandShortfallCoveredByRamp)
+        {
+            landNote = string.Create(CultureInfo.InvariantCulture,
+                $"~{Math.Ceiling(-delta):F0} under the Karsten count, but the deck's ramp covers it — do NOT recommend adding lands");
+        }
+        else
+        {
+            landNote = string.Create(CultureInfo.InvariantCulture,
+                $"add ~{Math.Ceiling(-delta):F0} more land(s)");
+        }
+
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
             $"Lands: {report.ActualLands} vs ~{report.TargetLands:F1} recommended ({landNote})."));
 

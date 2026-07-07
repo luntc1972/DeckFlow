@@ -96,6 +96,33 @@ public sealed class ManabaseSwapPromptBuilderTests
     }
 
     [Fact]
+    public void Build_LandShortfallCoveredByRamp_DoesNotAskForLands()
+    {
+        // Efficacy R2 finding H3: page, .txt, and PrimaryFix all suppress the "add lands" advice
+        // when the sim says ramp covers the paper shortfall — the swap prompt used to contradict
+        // them and tell the LLM to add ~N lands anyway. A report 3 lands under target with every
+        // color clean computes LandShortfallCoveredByRamp = true.
+        var covered = new ManabaseReport
+        {
+            ActualLands = 30,
+            TargetLands = 33.0,
+            Summary = "ramp-covered",
+            ColorFindings = new List<ColorSourceFinding>
+            {
+                new() { Color = ManaColor.Blue, ActualSources = 20, RequiredSources = 15, DrivingSpell = "Counterspell" },
+            },
+        };
+
+        Assert.True(covered.LandShortfallCoveredByRamp); // fixture sanity: the sim signal is on
+
+        string prompt = ManabaseSwapPromptBuilder.Build(covered, "My Deck", "1 Island");
+
+        Assert.Contains("ramp covers it", prompt);
+        Assert.Contains("do NOT recommend adding lands", prompt);
+        Assert.DoesNotContain("add ~3 more land(s)", prompt);
+    }
+
+    [Fact]
     public void Build_NullVerdictAndBudget_IsByteIdentical()
     {
         ManabaseReport report = ReportWithDeficit();
