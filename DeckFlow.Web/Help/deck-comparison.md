@@ -34,6 +34,10 @@ Paste your AI's JSON response back into the form. The page parses the `deck_comp
 
 If you continue asking follow-up questions in the same AI conversation, use the follow-up prompt saved alongside the initial comparison to have your AI revise the readable comparison and regenerate the full `deck_comparison` JSON block.
 
+### If your AI splits the answer or says it's "too long"
+
+If your AI breaks the reply into parts or offers to "continue," reply: **"Output only the complete `deck_comparison` JSON in a single response — skip the prose, one short sentence per justification."** (The same tip is shown on the page beside the generated prompt.) Don't paste a partial into Step 3 — the page needs one complete `deck_comparison` object and can't merge parts. Get the whole block in your AI first, then paste once.
+
 ## Artifact saving
 
 Use **Download comparison session (.zip)** in the sticky bar at the top of the page (always available, regardless of step) or in the Step 3 results panel to save the current artifacts locally.

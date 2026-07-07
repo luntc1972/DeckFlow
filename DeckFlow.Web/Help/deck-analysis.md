@@ -63,6 +63,10 @@ The bands are **deterministic heuristic estimates** computed in DeckFlow from si
 
 This step is local to the returned JSON. It does not regenerate the analysis packet or call upstream services again.
 
+### If your AI splits the answer or says it's "too long"
+
+If your AI breaks the reply into parts or offers to "continue," reply: **"Output only the complete `deck_profile` JSON in a single response — skip the prose, one short sentence per justification."** (The same tip is shown on the page beside the generated prompt.) Don't paste a partial into Step 3 — the page needs one complete `deck_profile` object and can't merge parts. Get the whole block first, then paste once. The set-upgrade step behaves the same with `set_upgrade_report`.
+
 ## Step 4 — Set Upgrade (optional)
 
 Select one or more recent MTG sets, or paste a condensed set packet override. The page generates a set-upgrade prompt that references the parsed deck profile and asks your AI to evaluate new cards from each set as potential inclusions, with suggested cuts, bracket-fit notes, speculative tests, and traps called out per set. For Commander/precon-style sets (`commander`, `duel_deck`, `starter`), the packet is filtered to first-print cards only so reprints don't crowd out genuinely new candidates; standard expansions are unfiltered. A deck in Step 1 is required; the parsed Step 3 deck profile is optional but strongly recommended — without it your AI gets an empty schema and produces generic recommendations.

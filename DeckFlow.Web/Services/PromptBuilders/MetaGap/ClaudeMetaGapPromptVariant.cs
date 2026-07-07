@@ -111,6 +111,8 @@ internal sealed class ClaudeMetaGapPromptVariant : IMetaGapPromptVariant
         builder.AppendLine("- META POSITIONING");
         builder.AppendLine("After the readable summary, return a single JSON object matching <output_schema>.");
         builder.AppendLine("Return the JSON inside a fenced ```json code block (triple-backtick json) whose top-level object is meta_gap. Do not return raw JSON outside a code block.");
+        builder.AppendLine("Return the complete meta_gap JSON in a single response. Do NOT refuse, claim the output is too long, ask to continue, or offer to split it or reduce the schema - a fully-populated meta_gap object is only a few kilobytes and fits well within one response.");
+        builder.AppendLine("If the answer would genuinely approach your output limit, keep every justification to one short sentence and cap each list to its 10 highest-priority entries rather than refusing or splitting.");
         builder.AppendLine("</" + "task>");
         return builder.ToString().TrimEnd();
     }
