@@ -32,6 +32,13 @@ public static class ManabaseReportTextBuilder
     /// (mulligan)" block is skipped entirely — appends zero bytes — so the flag-off artifact stays
     /// byte-identical.
     /// </param>
+    /// <param name="includeCommandZone">
+    /// When true, append the shared "Command-zone castability" block (commanders + optional
+    /// companion) after the castability table (efficacy R2 M10), so the .txt tells the same
+    /// command-zone/companion story as the on-page callout and the swap prompt. Defaults to false so
+    /// callers that don't opt in produce a byte-identical artifact.
+    /// </param>
+    /// <param name="companionRow">Optional companion castability row appended with the +3-tax note.</param>
     /// <returns>A paste-ready plain-text string containing the full mana-base verdict.</returns>
     public static string Build(
         ManabaseReport report,
@@ -41,7 +48,9 @@ public static class ManabaseReportTextBuilder
         ManabaseVerdict? verdict = null,
         ManabaseRampDrawBudget? budget = null,
         ManabaseTapAnalysis? tap = null,
-        ManabaseMulliganEvaluation? mulligan = null)
+        ManabaseMulliganEvaluation? mulligan = null,
+        bool includeCommandZone = false,
+        CardCastability? companionRow = null)
     {
         ArgumentNullException.ThrowIfNull(report);
 
@@ -179,6 +188,15 @@ public static class ManabaseReportTextBuilder
                     $"{c.Name,-30} {c.ManaValue,4} {c.CastPercent,7}%  {c.LimitingFactor}"));
             }
             sb.AppendLine();
+        }
+
+        // --- Command-zone castability (M10) ----------------------------------
+        // Only when the caller opts in (commander-castability flag on), mirroring the swap prompt and
+        // the on-page callout. includeCommandZone == false appends zero bytes, so the flag-off
+        // artifact stays byte-identical.
+        if (includeCommandZone)
+        {
+            ManabaseCommandZoneFormatter.AppendBlock(sb, report, companionRow);
         }
 
         // --- Ramp summary ----------------------------------------------------
