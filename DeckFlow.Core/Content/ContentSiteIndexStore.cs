@@ -13,6 +13,8 @@ namespace DeckFlow.Core.Content;
 public sealed class ContentSiteIndexStore : IContentSiteIndexStore
 {
     private readonly RelationalDatabaseConnection _connectionInfo;
+    private readonly bool _ensureSchemaEnabled;
+    private readonly Func<CancellationToken, Task<DbConnection>>? _connectionFactoryOverride;
     private readonly SemaphoreSlim _schemaGate = new(1, 1);
     private volatile bool _schemaReady;
 
@@ -27,10 +29,34 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
     /// Creates a site-index store using the supplied <see cref="RelationalDatabaseConnection"/>.
     /// </summary>
     /// <param name="connectionInfo">Provider + connection string descriptor.</param>
-    public ContentSiteIndexStore(RelationalDatabaseConnection connectionInfo)
+    /// <param name="ensureSchemaEnabled">
+    /// When <c>true</c> (default) the store auto-creates/backfills its schema on first use. When
+    /// <c>false</c> (prod-pointed stores, D-09/D-10) <see cref="EnsureSchemaAsync"/> is a no-op so the
+    /// store never issues CREATE/ALTER/DROP — prod schema is owned by the web app's startup path.
+    /// </param>
+    public ContentSiteIndexStore(RelationalDatabaseConnection connectionInfo, bool ensureSchemaEnabled = true)
+        : this(connectionInfo, ensureSchemaEnabled, connectionFactoryOverride: null) { }
+
+    /// <summary>
+    /// Test-seam constructor: injects a connection-factory override so tests can wrap the real
+    /// connection with a recording double and assert the exact SQL issued (house test-seam pattern;
+    /// <see cref="RelationalDatabaseConnection"/> is a sealed record and cannot be subclassed).
+    /// The public constructors pass <c>null</c> and behave exactly as production.
+    /// </summary>
+    /// <param name="connectionInfo">Provider + connection string descriptor.</param>
+    /// <param name="ensureSchemaEnabled">Whether schema auto-ensure runs.</param>
+    /// <param name="connectionFactoryOverride">
+    /// Optional connection factory used by <see cref="OpenConnectionAsync"/> in place of the live one.
+    /// </param>
+    internal ContentSiteIndexStore(
+        RelationalDatabaseConnection connectionInfo,
+        bool ensureSchemaEnabled,
+        Func<CancellationToken, Task<DbConnection>>? connectionFactoryOverride)
     {
         ArgumentNullException.ThrowIfNull(connectionInfo);
         _connectionInfo = connectionInfo;
+        _ensureSchemaEnabled = ensureSchemaEnabled;
+        _connectionFactoryOverride = connectionFactoryOverride;
         if (_connectionInfo.IsSqlite)
         {
             var directory = Path.GetDirectoryName(_connectionInfo.ExtractSqlitePath());
@@ -44,6 +70,9 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
     /// <inheritdoc />
     public async Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
     {
+        // Why: prod-pointed stores (D-09) disable schema-ensure entirely — no CREATE/ALTER/DROP is
+        // issued against prod. Placed before the _schemaReady fast-path so the ~20 call sites are untouched.
+        if (!_ensureSchemaEnabled) return;
         if (_schemaReady) return;
         await _schemaGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -244,6 +273,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    approval_status
               FROM content_site_index
              WHERE is_visible = @visible
+               AND approval_status = 'approved'
              ORDER BY source, title, id;
             """,
             new { visible = true },
@@ -345,6 +375,43 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
              WHERE id = @id;
             """,
             new { id },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return row is null ? null : ToContentSiteIndexRow(row);
+    }
+
+    /// <inheritdoc />
+    public async Task<ContentSiteIndexRow?> GetPublishedByIdAsync(long id, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        // Why: defense-in-depth on the public detail route — a drifted visible-but-pending row
+        // must never render at /content-kb/{id}; GetByIdAsync stays unfiltered for admin/Studio.
+        var row = await connection.QuerySingleOrDefaultAsync<ContentSiteIndexRowData>(new CommandDefinition(
+            """
+            SELECT id,
+                   source,
+                   title,
+                   video_url,
+                   artifact_path,
+                   published_utc,
+                   pushed_to_prod_utc,
+                   indexed_utc,
+                   archetype_tags,
+                   bracket_tags,
+                   card_category_tags,
+                   natural_key_type,
+                   natural_key_value,
+                   is_visible,
+                   is_hidden,
+                   is_evergreen,
+                   approval_status
+              FROM content_site_index
+             WHERE id = @id
+               AND is_visible = @visible
+               AND approval_status = 'approved';
+            """,
+            new { id, visible = true },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         return row is null ? null : ToContentSiteIndexRow(row);
     }
@@ -724,6 +791,10 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         parameters.Add("cardCategoryTags", ContentArtifactSpec.SerializeTags(row.CardCategoryTags));
         parameters.Add("naturalKeyType", naturalKey.Type);
         parameters.Add("naturalKeyValue", naturalKey.Value);
+        // Why: mirror the source row's approval_status (D-01) so the content-columns-only upsert
+        // carries approval on insert AND heals a drifted prod row on update; other upsert variants
+        // ignore this unbound-to-their-SQL parameter harmlessly.
+        parameters.Add("approvalStatus", row.ApprovalStatus);
         return parameters;
     }
 
@@ -740,7 +811,9 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
     }
 
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
-        => await _connectionInfo.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        => _connectionFactoryOverride is not null
+            ? await _connectionFactoryOverride(cancellationToken).ConfigureAwait(false)
+            : await _connectionInfo.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
 
     private async Task<IReadOnlySet<string>> GetTableColumnsAsync(
         DbConnection connection,
@@ -978,7 +1051,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           @cardCategoryTags,
           @naturalKeyType,
           @naturalKeyValue,
-          'pending')
+          @approvalStatus)
         ON CONFLICT (natural_key_type, natural_key_value) DO UPDATE SET
           source             = EXCLUDED.source,
           title              = EXCLUDED.title,
@@ -988,8 +1061,10 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           indexed_utc        = EXCLUDED.indexed_utc,
           archetype_tags     = EXCLUDED.archetype_tags,
           bracket_tags       = EXCLUDED.bracket_tags,
-          card_category_tags = EXCLUDED.card_category_tags;
-        -- is_visible, is_hidden, is_evergreen, approval_status are intentionally absent here.
+          card_category_tags = EXCLUDED.card_category_tags,
+          approval_status    = EXCLUDED.approval_status;
+        -- approval_status is now mirrored from the source row on insert and update (D-01/D-02);
+        -- is_visible, is_hidden, is_evergreen remain operator-owned and are intentionally excluded.
         """;
 
     private const string PostgresCreateTableSql = """
