@@ -76,7 +76,7 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
 - [x] 89-01-PLAN.md — Shared ComputeBodySha256 helper + body-inclusive BuildSignature + ContentSiteIndexRow.BodySha256 (SYNC-01, SYNC-02) [wave 1]
 - [x] 89-02-PLAN.md — Store body_sha256 DDL/model/upsert plumbing + null-only backfill setter (SYNC-01) [wave 2]
 - [x] 89-03-PLAN.md — Delete Fingerprint, switch classifier to unified signature + one-signature-surface guard test (SYNC-02) [wave 2]
-- [ ] 89-04-PLAN.md — index-seed.json export/load bodySha256 round-trip + golden fixture (SYNC-01) [wave 3]
+- [x] 89-04-PLAN.md — index-seed.json export/load bodySha256 round-trip + golden fixture (SYNC-01) [wave 3]
 - [ ] 89-05-PLAN.md — Publish-time hash compute + detail-render fail-open guard with structured warning (SYNC-01, SYNC-03) [wave 3]
 - [ ] 89-06-PLAN.md — One-time deterministic startup backfill pass (idempotent, DDL-free) (SYNC-01) [wave 3]
 
@@ -136,7 +136,7 @@ Phases execute in numeric order: 88 → 89 → 90 → 91 → 92 → 93
 | 86. UI Audit Re-Score, Studio Stage 4 & Admin Flags Closeout | 2026.07.2 | 5/5 | Complete | 2026-07-05 |
 | 87. Creator-Source Model Hardening | 2026.07.2 | 1/1 | Complete | 2026-07-05 |
 | 88. Index-Row Integrity Hotfix | Cycle 16 | 3/3 | Complete | 2026-07-06 |
-| 89. Content-Hash Foundation | Cycle 16 | 3/6 | In Progress|  |
+| 89. Content-Hash Foundation | Cycle 16 | 4/6 | In Progress|  |
 | 90. DirectPush Correctness + Seed Sync | Cycle 16 | 0/TBD | Not started | - |
 | 91. Reconcile + Seed Lifecycle | Cycle 16 | 0/TBD | Not started | - |
 | 92. Pull Hardening | Cycle 16 | 0/TBD | Not started | - |
