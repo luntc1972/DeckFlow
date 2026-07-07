@@ -72,6 +72,12 @@ public static class KarstenManabase
     /// <summary>
     /// Recommended land count for a 60-card constructed deck (Karsten's regression fit).
     /// </summary>
+    /// <remarks>
+    /// Karsten's published 60-card regression: 19.59 + 1.90·MV (the same interior that
+    /// <see cref="SingletonLandTarget"/> scales by deck size). This previously shipped the
+    /// 100-card-scaled constants (32.65 + 3.16·MV = the interior pre-multiplied by 5/3),
+    /// inflating every non-singleton land target by ~66% (efficacy R2 finding H5).
+    /// </remarks>
     public static double SixtyCardLandTarget(
         double averageManaValue,
         double rampAndDrawUnderThree,
@@ -79,8 +85,8 @@ public static class KarstenManabase
         double mdfcCommon = 0,
         double mdfcMythic = 0)
     {
-        return 32.65
-            + (3.16 * averageManaValue)
+        return 19.59
+            + (1.90 * averageManaValue)
             - (0.28 * rampAndDrawUnderThree)
             - fastMana
             - (0.74 * mdfcCommon)

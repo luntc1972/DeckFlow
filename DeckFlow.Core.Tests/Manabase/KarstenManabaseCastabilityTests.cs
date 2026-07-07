@@ -230,6 +230,26 @@ public sealed class KarstenManabaseCastabilityTests
         Assert.True(normalCedh >= 28.0);
     }
 
+    [Fact]
+    public void SixtyCardLandTarget_UsesKarstensPublished60CardRegression()
+    {
+        // Efficacy R2 finding H5: the function shipped the 100-card-scaled constants
+        // (32.65 + 3.16·MV = the 60-card interior pre-multiplied by 5/3), recommending
+        // ~38 lands for a normal 60-card midrange deck. Karsten's published 60-card fit
+        // is 19.59 + 1.90·MV — avg MV 2.5 with no credits is 24.34, in the ~22-26 band
+        // his tables give for real 60-card decks.
+        double target = KarstenManabase.SixtyCardLandTarget(averageManaValue: 2.5, rampAndDrawUnderThree: 0);
+        Assert.Equal(24.34, target, precision: 2);
+
+        // 8 cheap ramp/draw pieces credit -0.28 each, exactly as in the singleton form.
+        double withRamp = KarstenManabase.SixtyCardLandTarget(averageManaValue: 2.5, rampAndDrawUnderThree: 8);
+        Assert.Equal(24.34 - 2.24, withRamp, precision: 2);
+
+        // Sanity: a 60-card deck always needs fewer lands than the same curve at 99 cards.
+        double singleton = KarstenManabase.SingletonLandTarget(100, 1, 2.5, 0);
+        Assert.True(target < singleton);
+    }
+
     // ---- helpers --------------------------------------------------------------------------
 
     private static CardCastability Simulate(ManabaseDeck deck, SpellRequirement spell, int effectiveTurn)
