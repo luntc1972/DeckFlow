@@ -1471,6 +1471,16 @@ public static class CastabilitySimulator
         // then cheap non-lands; bottom the most expensive non-lands. Stable enough for our purpose.
         int top = Math.Min(7, shuffled.Length);
 
+        // London bottoming is only well-defined against a full 7-card look: every bottoming depth in
+        // the schedule keeps `keep` and bottoms `toBottom` with keep + toBottom == 7. With a library
+        // smaller than 7 (degenerate unit fixtures only — real 60/99-card decks always have ≥ 7 in the
+        // library) keep + toBottom would exceed the deck, so a "bottomed" card could land back inside
+        // the kept hand [0, keep). Skip bottoming entirely in that case: keep the opener as dealt.
+        if (top < 7)
+        {
+            return;
+        }
+
         // Never bottom more cards than the opening window holds — a tiny/empty library (e.g. a deck
         // that is only commanders, librarySize == 0) would otherwise drive keptBoundary negative and
         // index shuffled[-1]. Clamp so the loop is a no-op when there's nothing to bottom.
