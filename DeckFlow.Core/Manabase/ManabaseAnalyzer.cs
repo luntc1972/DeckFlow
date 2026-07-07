@@ -910,13 +910,27 @@ public static class ManabaseAnalyzer
             _ => "low",
         };
 
+        // Openers surface a GENUINE early play the deck must make on curve, so free / zero-cost spells
+        // are excluded from the row pool: Deflecting Swat, Fierce Guardianship, Force of Negation and
+        // the rest of the "cast without paying its mana cost" cycle are auto-reduced to effective 0
+        // (DetectSelfCost), which makes them the lowest-ManaValue rows and pulls them to the front of
+        // the ordering below — yet a 0-cost spell is trivially castable turn 1 and carries no mana-base
+        // signal, so naming it as the representative early play is misleading. Prefer rows that actually
+        // demand mana (ManaValue >= 1); fall back to all non-commander rows only when every tracked
+        // spell is free (a degenerate paste), so the read is never silently emptied.
+        List<CardCastability> openerRows = nonCommanderRows.Where(r => r.ManaValue >= 1).ToList();
+        if (openerRows.Count == 0)
+        {
+            openerRows = nonCommanderRows;
+        }
+
         // Earliest-row-first, then concatenate each row's own samples, then keep the first sample seen
         // per distinct Decision (at most 3: "keep 7" / "mulligan to 6" / "mulligan to 5") — each sample
         // already carries its own row's TrackedSpellName + TrackedOnCurveTurn, so this never fabricates
         // a cross-row claim. Openers are SPELL-SPECIFIC (unlike the spell-independent keepable/keep-size
         // percents above), so they are drawn ONLY from non-commander rows — a commander is rarely the
         // early on-curve play the read is meant to surface. Empty when the deck has no non-commander row.
-        List<OpeningHandSample> openers = nonCommanderRows
+        List<OpeningHandSample> openers = openerRows
             .OrderBy(r => r.ManaValue)
             .ThenBy(r => r.OnCurveTurn)
             .SelectMany(r => r.RepresentativeOpeners)

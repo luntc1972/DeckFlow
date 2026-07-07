@@ -140,6 +140,55 @@ public sealed class ManabaseMulliganEvaluationTests
     }
 
     [Fact]
+    public void RepresentativeOpeners_ExcludeFreeZeroCostSpells_NeverNamedAsEarlyPlay()
+    {
+        ManabaseDeck deck = Deck(2.5);
+
+        // Deflecting Swat / Fierce Guardianship auto-reduce to effective 0 (DetectSelfCost), so their
+        // castability row lands at ManaValue 0 — the lowest, which would otherwise pull it to the front
+        // of the earliest-row ordering. A free spell is trivially castable turn 1 and is not a genuine
+        // early play, so it must never be surfaced as the representative opener.
+        var freeSpell = Row("Deflecting Swat", mv: 0, turn: 1, isCommander: false, keepable: 800, kept7: 600, m6: 150, m5: 250,
+            openers: new[]
+            {
+                Sample("keep 7", "Deflecting Swat", 1, hasPlan: true),
+                Sample("mulligan to 6", "Deflecting Swat", 1, hasPlan: true),
+                Sample("mulligan to 5", "Deflecting Swat", 1, hasPlan: true),
+            });
+        var realEarly = Row("Ponder", mv: 1, turn: 1, isCommander: false, keepable: 800, kept7: 600, m6: 150, m5: 250,
+            openers: new[]
+            {
+                Sample("keep 7", "Ponder", 1, hasPlan: true),
+                Sample("mulligan to 6", "Ponder", 1, hasPlan: false),
+                Sample("mulligan to 5", "Ponder", 1, hasPlan: false),
+            });
+
+        ManabaseMulliganEvaluation result = ManabaseAnalyzer.ComputeMulliganEvaluationForTest(
+            deck, new[] { freeSpell, realEarly }, defaultTrials: 1000);
+
+        Assert.Equal(3, result.RepresentativeOpeners.Count);
+        Assert.All(result.RepresentativeOpeners, o => Assert.NotEqual("Deflecting Swat", o.TrackedSpellName));
+        Assert.All(result.RepresentativeOpeners, o => Assert.Equal("Ponder", o.TrackedSpellName));
+    }
+
+    [Fact]
+    public void RepresentativeOpeners_AllFreeSpells_FallsBackRatherThanEmpty()
+    {
+        ManabaseDeck deck = Deck(2.5);
+
+        // Degenerate case: every non-commander tracked spell is free (ManaValue 0). Rather than silently
+        // emptying the opener read, fall back to the full non-commander pool so the panel still renders.
+        var free = Row("Force of Negation", mv: 0, turn: 1, isCommander: false, keepable: 800, kept7: 600, m6: 150, m5: 250,
+            openers: new[] { Sample("keep 7", "Force of Negation", 1, hasPlan: true) });
+
+        ManabaseMulliganEvaluation result = ManabaseAnalyzer.ComputeMulliganEvaluationForTest(
+            deck, new[] { free }, defaultTrials: 1000);
+
+        Assert.NotEmpty(result.RepresentativeOpeners);
+        Assert.All(result.RepresentativeOpeners, o => Assert.Equal("Force of Negation", o.TrackedSpellName));
+    }
+
+    [Fact]
     public void RepresentativeOpeners_TruncatedToThree_EvenWithManyDuplicateDecisionRows()
     {
         ManabaseDeck deck = Deck(2.5);
