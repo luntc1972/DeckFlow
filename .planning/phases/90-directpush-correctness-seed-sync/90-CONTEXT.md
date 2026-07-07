@@ -86,17 +86,42 @@ gating an ordering/stamp plan), not cram all four into one plan.
   DirectPush guard that deliberately never stages the seed (`DirectPushCoordinator.cs:240-251`)
   is replaced by this export call.
 
-### Deploy-confirm mechanism (ANSWERED — post-research Q1)
-- **D-09: Confirm via Studio HTTPS GET of the public detail page → HTTP 200 = body reachable at
-  `/app`.** Studio has no HTTP path into the deployed web app today and only talks to prod via
-  Postgres/SSH/git. Rather than build a new authenticated hash endpoint, after git push +
-  Render autodeploy Studio issues an HTTPS GET of the public Content-KB detail URL; a 200 proves
-  the body is reachable at `/app` (kills M1). Corruption detection is delegated to the Phase 89
-  fail-open render guard already serving that path (recompute-and-log). This means SYNC-09's
-  "hash-verified at /app" is satisfied as: body committed → deployed → **reachable** (200) →
-  render-guard covers byte-corruption. DirectPush must therefore NOT `[skip render]` for the
-  git-body flow — the redeploy must actually happen (see `DirectPushCoordinator.cs:33-37`, which
-  currently suppresses it). No new authenticated web endpoint is added this phase.
+### Deploy-confirm mechanism (REVISED after Codex plan-review — supersedes the original HTTPS-200 idea)
+- **D-09 (REVISED): Confirm via a dedicated AUTHENTICATED deployed-body-hash endpoint + hash-match
+  poll — NOT the public detail page.** Codex plan-review proved the original "HTTPS GET public
+  detail page → 200" approach unsound against the actual route semantics: (1) the public detail
+  route (`ContentKbController.Detail` → `GetPublishedByIdAsync`) 404s any row not already
+  `is_visible=true`, so a not-yet-visible row could NEVER confirm → permanent awaiting-confirm
+  deadlock; (2) the detail page returns 200 even when the artifact is missing (renders an
+  "artifact unavailable" shell) → false confirm on a missing body; (3) for an updated visible row
+  the page returns 200 from the OLD deployed body before Render finishes deploying → stale-deploy
+  false confirm; (4) DirectPush has LOCAL row ids but the prod upsert is by natural key and does
+  not return the prod id, so the confirm URL can't be built reliably for new rows.
+
+  **Corrected design:** add a small authenticated read endpoint on the web app,
+  `GET /api/contentkb/deployed-body-hash?naturalKeyType={t}&naturalKeyValue={v}`, that resolves
+  the row's artifact from the git `/app` tree ONLY (via `ContentKbArtifactPathResolver`, NOT the
+  `/data` overlay, NOT gated on `is_visible`), returns **404** if the `/app` artifact is missing,
+  else returns JSON `{ bodySha256 }` where `bodySha256` is recomputed with the shared
+  `ContentSiteIndexContentSignature.ComputeBodySha256` helper. Studio's confirmer polls this
+  endpoint (bounded retries/backoff) until it returns **200 AND `bodySha256` == the expected
+  stored hash**; only then does DirectPush stamp `pushed_to_prod_utc` + flip `is_visible=true`.
+
+  **Why hash-match is sufficient (defeats all four races without needing a commit SHA):** an
+  un-deployed UPDATE returns the OLD body's hash (≠ expected new hash) → keep polling; a NEW row
+  is absent from the old `/app` tree → endpoint 404s → keep polling; a missing body → 404, never a
+  false 200; the natural-key lookup sidesteps the local-vs-prod id mismatch entirely. A deployed
+  commit-SHA signal is an OPTIONAL future hardening, not required for correctness here.
+
+  **Auth / reachability:** the endpoint is Studio→prod server-to-server (cross-origin, no browser
+  Origin header), so it must be authenticated (reuse the existing admin BasicAuth gate / admin
+  creds Studio already holds) and MUST NOT sit behind `SameOriginRequestValidator` (which would
+  reject a server-to-server call). It is read-only (no writes, no DDL).
+
+  DirectPush must still NOT `[skip render]` for the git-body flow — the redeploy must actually
+  happen (`DirectPushCoordinator.cs:33-37`) so the pushed body reaches `/app` for the endpoint to
+  read. Corruption of an otherwise-present body remains covered by the Phase 89 fail-open render
+  guard at serve time.
 
 ### Awaiting-confirm durability (ANSWERED — post-research Q2)
 - **D-10: Persist "pushed, awaiting confirm" state in the LOCAL content-kb store.** The
@@ -179,11 +204,13 @@ gating an ordering/stamp plan), not cram all four into one plan.
 ## Scope Fence
 **In scope:** DirectPush serving flip to `/app` under a web-DB flag + drop `/data` overlay
 (SYNC-07); a read-only pre-flip git-coverage audit (D-11); DirectPush seed re-export via the
-shared factory (SYNC-08); reachability-gated expand-contract visibility ordering via a Studio
-HTTPS GET → 200 confirm (SYNC-09, D-09) with durable local "awaiting-confirm" state (D-10);
-post-confirmation `pushed_to_prod_utc` stamp (SYNC-10); a minimal read-only Studio accessor for
-the web-DB flag; register `sync.directpush-gitbody` OFF; drop `[skip render]` for the git-body
-DirectPush flow so the redeploy actually happens.
+shared factory (SYNC-08); hash-gated expand-contract visibility ordering via a NEW authenticated
+`deployed-body-hash` read endpoint + a Studio hash-match poll (SYNC-09, D-09 REVISED) with durable
+local "awaiting-confirm" state (D-10); post-confirmation `pushed_to_prod_utc` stamp (SYNC-10); a
+minimal read-only Studio accessor for the web-DB flag; register `sync.directpush-gitbody` OFF; drop
+`[skip render]` for the git-body DirectPush flow so the redeploy actually happens. The endpoint is
+authenticated, read-only, git-`/app`-only, not `is_visible`-gated, and not behind
+`SameOriginRequestValidator`.
 
 **Out of scope:** the reconciler / seed lifecycle / deletes (P91), Pull hardening (P92), the
 round-trip integration test (P93), any new SFTP body transport, any framework migration, any
