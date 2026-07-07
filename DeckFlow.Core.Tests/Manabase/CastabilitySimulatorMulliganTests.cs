@@ -21,11 +21,15 @@ public sealed class CastabilitySimulatorMulliganTests
     {
         // Pinned value: a fixed seed (spell name "Blue Spell") over this exact fixture. This rose
         // from 89% to 93% when the sim started drawing on turn 1 (Commander is multiplayer, so the
-        // starting player draws their first turn — the extra card lifts the cast rate). It must not
-        // drift further: the mulligan instrumentation touches neither `successes` nor the rng stream.
+        // starting player draws their first turn — the extra card lifts the cast rate), then to 94%
+        // with the M1 mulligan-bottoming fix: a mull to 6 used to park the bottomed card at the exact
+        // slot the turn-1 draw reads, so it deterministically redrew the dead filler it just bottomed;
+        // bottoming to the physical library tail lets those hands draw a genuine random card (~36%
+        // an Island here) instead. The mulligan INSTRUMENTATION still touches neither `successes` nor
+        // the rng stream — this delta is the bottoming fix alone.
         CardCastability row = Simulate(MonoBlueDeck(), BlueSpell());
 
-        Assert.Equal(93, row.CastPercent);
+        Assert.Equal(94, row.CastPercent);
     }
 
     [Fact]

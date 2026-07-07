@@ -649,8 +649,10 @@ public static class CastabilitySimulator
             // Play one land this turn: prefer an untapped land that adds a still-missing color THIS turn,
             // then any untapped land, then a tapped land (it won't help this turn but builds the board).
             // A tapped land played this turn enters with OnlineTurn = currentTurn + 1, so it contributes
-            // nothing until next turn (FINDING-1 HIGH).
-            PlayOneLand(library, active, hand, landsOnBoard, onlineLandMasks, currentTurn, pipReq);
+            // nothing until next turn (FINDING-1 HIGH). On a slack turn before the cast turn, a tapped
+            // fixer is preferred over a color-useless untapped land (M2) — the ETB-tapped delay is free
+            // when we are not casting this turn.
+            PlayOneLand(library, active, hand, landsOnBoard, onlineLandMasks, currentTurn, turn, pipReq);
 
             // Online lands for this turn: only those whose online-turn has arrived (masks only, for
             // the "still-missing color" check; mana quantity is summed separately below).
@@ -798,6 +800,7 @@ public static class CastabilitySimulator
         List<(int Mask, int OnlineTurn, int Amount)> landsOnBoard,
         List<int> scratchOnlineMasks,
         int currentTurn,
+        int turn,
         (int Bit, int Count)[] pipReq)
     {
         // Colors a still-missing pip needs, judged only against lands ALREADY online (a land that
@@ -817,6 +820,7 @@ public static class CastabilitySimulator
         int bestUntappedNeeded = -1;
         int bestUntappedAny = -1;
         int bestTapped = -1;
+        int bestTappedNeeded = -1;
 
         for (int h = 0; h < hand.Count; h++)
         {
@@ -840,15 +844,47 @@ public static class CastabilitySimulator
                     bestUntappedNeeded = h;
                 }
             }
-            else if (card.Kind == CardKind.TappedLand && bestTapped < 0)
+            else if (card.Kind == CardKind.TappedLand)
             {
-                bestTapped = h;
+                if (bestTapped < 0)
+                {
+                    bestTapped = h;
+                }
+
+                // A tapped land that adds a still-missing color: useless THIS turn, but online next
+                // turn — worth developing on a slack turn (M2).
+                if (bestTappedNeeded < 0 && (card.ColorMask & neededColors) != 0)
+                {
+                    bestTappedNeeded = h;
+                }
             }
         }
 
-        int pick = bestUntappedNeeded >= 0 ? bestUntappedNeeded
-            : bestUntappedAny >= 0 ? bestUntappedAny
-            : bestTapped;
+        // M2: on a slack turn (before the spell's cast turn) with no untapped land that adds a missing
+        // color, a tapped fixer that DOES add one beats a color-useless untapped land. The tapped land
+        // comes online next turn — still on or before the cast turn — so the ETB-tapped delay costs no
+        // tempo here, whereas holding the fixer until the cast turn would enter tapped and miss the
+        // color. On the cast turn itself (currentTurn >= turn) the old priority stands: only an untapped
+        // land completes a color in time.
+        //
+        // Deliberate approximation: this does not look ahead to ramp. In the rare shape where the
+        // color-useless untapped land would let a ramp piece deploy THIS turn (online by the cast turn),
+        // developing the tapped fixer instead defers that ramp by a turn — the untapped land stays in
+        // hand and is simply played next turn. A full land/ramp co-sequencing lookahead is out of scope
+        // for this per-turn greedy step; the calibration decks confirm the heuristic does not over-
+        // correct (only the tapland-heavy 'army now' fixture shifts band, in the correct direction).
+        int pick;
+        if (currentTurn < turn && bestUntappedNeeded < 0 && bestTappedNeeded >= 0)
+        {
+            pick = bestTappedNeeded;
+        }
+        else
+        {
+            pick = bestUntappedNeeded >= 0 ? bestUntappedNeeded
+                : bestUntappedAny >= 0 ? bestUntappedAny
+                : bestTapped;
+        }
+
         if (pick < 0)
         {
             return; // no land to play this turn
@@ -1332,7 +1368,7 @@ public static class CastabilitySimulator
                 // our lands and cheapest spells (London choose-and-bottom). Free-mull depths bottom 0.
                 if (bottom > 0)
                 {
-                    BottomCards(library, shuffled, toBottom: bottom);
+                    BottomCards(library, shuffled, toBottom: bottom, prefix: prefix);
                 }
 
                 return keep;
@@ -1426,8 +1462,10 @@ public static class CastabilitySimulator
         => ColorKeepSatisfied(ColorsToMask(openingLandColors), lands, deckColorCount);
 
     // Move `toBottom` cards from the 7-card look to the bottom: non-lands first, highest cost first.
-    // After this, the first (7 - toBottom) slots are the kept hand.
-    private static void BottomCards(IReadOnlyList<LibraryCard> library, int[] shuffled, int toBottom)
+    // After this, the first (7 - toBottom) slots are the kept hand. `prefix` is the caller's shuffled
+    // window (7 + turn + grace + 2, clamped to the library) — only these slots hold a genuine random
+    // sample, so a bottomed card is parked at the FAR end of it, not in the unshuffled physical tail.
+    private static void BottomCards(IReadOnlyList<LibraryCard> library, int[] shuffled, int toBottom, int prefix)
     {
         // Sort indices [0,7) so the BOTTOMED ones (worst keeps) sort to the end: lands are best keeps,
         // then cheap non-lands; bottom the most expensive non-lands. Stable enough for our purpose.
@@ -1454,6 +1492,22 @@ public static class CastabilitySimulator
 
             keptBoundary--;
             (shuffled[worst], shuffled[keptBoundary]) = (shuffled[keptBoundary], shuffled[worst]);
+
+            // M1: the bottomed card now sits at slot `keptBoundary`, which is exactly where the turn
+            // loop's draw pointer starts (drawPtr == kept size). Left here, a mulligan would
+            // deterministically redraw the very card it just bottomed on turn 1. Relocate it to the FAR
+            // END of the shuffled prefix (prefix carries a +2 slot margin past the deepest draw any
+            // game length reaches, so [prefix-toBottom, prefix) is never drawn) and pull the uniform-
+            // random card sitting there UP into the draw zone. Parking in the shuffled prefix — not the
+            // unshuffled physical tail — is what makes the replacement a real random draw instead of the
+            // deterministic filler that pads the library's end. Guarded so a degenerate tiny fixture
+            // (prefix == library and no never-drawn margin) falls back to in-window placement rather
+            // than corrupting the kept prefix.
+            int bottomSlot = prefix - 1 - b;
+            if (bottomSlot > keptBoundary)
+            {
+                (shuffled[keptBoundary], shuffled[bottomSlot]) = (shuffled[bottomSlot], shuffled[keptBoundary]);
+            }
         }
     }
 
