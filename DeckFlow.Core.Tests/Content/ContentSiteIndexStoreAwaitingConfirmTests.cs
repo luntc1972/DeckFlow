@@ -11,7 +11,7 @@ namespace DeckFlow.Core.Tests;
 /// SQLite integration tests for the <c>awaiting_confirm_utc</c> durable marker column added to
 /// <c>content_site_index</c> (D-10, 90-03 Task 1): fresh-DB CREATE, existing-DB idempotent ALTER,
 /// and the default-null row round-trip through <see cref="ContentSiteIndexRow"/>. Composite-key
-/// set/clear methods are covered by <see cref="ContentSiteIndexStoreAwaitingConfirmSetClearTests"/>
+/// set/clear methods are covered by <c>ContentSiteIndexStoreAwaitingConfirmSetClearTests</c>
 /// (Task 2).
 /// </summary>
 public sealed class ContentSiteIndexStoreAwaitingConfirmTests : IDisposable

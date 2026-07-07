@@ -137,6 +137,18 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                 await addBodySha256.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
 
+            if (!columns.Contains("awaiting_confirm_utc"))
+            {
+                // Why: durable "pushed, awaiting deploy-confirm" marker (D-10); dialect-guarded like
+                // pushed_to_prod_utc since it is a genuine TIMESTAMPTZ on Postgres. Never filtered on
+                // in a WHERE clause (F-51-PG-01 avoided) — only ever set/cleared keyed on natural key.
+                await using var addAwaitingConfirmUtc = connection.CreateCommand();
+                addAwaitingConfirmUtc.CommandText = _connectionInfo.IsPostgres
+                    ? "ALTER TABLE content_site_index ADD COLUMN awaiting_confirm_utc TIMESTAMPTZ NULL;"
+                    : "ALTER TABLE content_site_index ADD COLUMN awaiting_confirm_utc TEXT NULL;";
+                await addAwaitingConfirmUtc.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+
             // Why: grandfather the already-published seed to approved and re-run safely after
             // an ALTER-then-crash; only still-pending visible rows are updated on later passes.
             await using (var grandfatherApprovalStatus = connection.CreateCommand())
@@ -245,7 +257,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    is_hidden,
                    is_evergreen,
                    approval_status,
-                   body_sha256
+                   body_sha256,
+                   awaiting_confirm_utc
               FROM content_site_index
              WHERE natural_key_type = @naturalKeyType
                AND natural_key_value = @naturalKeyValue;
@@ -280,7 +293,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    is_hidden,
                    is_evergreen,
                    approval_status,
-                   body_sha256
+                   body_sha256,
+                   awaiting_confirm_utc
               FROM content_site_index
              WHERE is_visible = @visible
                AND approval_status = 'approved'
@@ -316,7 +330,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    is_hidden,
                    is_evergreen,
                    approval_status,
-                   body_sha256
+                   body_sha256,
+                   awaiting_confirm_utc
               FROM content_site_index
              WHERE approval_status = 'approved'
              ORDER BY source, title, id;
@@ -350,7 +365,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    is_hidden,
                    is_evergreen,
                    approval_status,
-                   body_sha256
+                   body_sha256,
+                   awaiting_confirm_utc
               FROM content_site_index
              ORDER BY source, title, id;
             """,
@@ -383,7 +399,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    is_hidden,
                    is_evergreen,
                    approval_status,
-                   body_sha256
+                   body_sha256,
+                   awaiting_confirm_utc
               FROM content_site_index
              WHERE id = @id;
             """,
@@ -419,7 +436,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    is_hidden,
                    is_evergreen,
                    approval_status,
-                   body_sha256
+                   body_sha256,
+                   awaiting_confirm_utc
               FROM content_site_index
              WHERE id = @id
                AND is_visible = @visible
@@ -968,7 +986,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             IsHidden = row.IsHidden,
             IsEvergreen = row.IsEvergreen,
             ApprovalStatus = row.ApprovalStatus,
-            BodySha256 = row.BodySha256
+            BodySha256 = row.BodySha256,
+            AwaitingConfirmUtc = row.AwaitingConfirmUtc
         };
     }
 
@@ -1135,6 +1154,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           is_evergreen       BOOLEAN NOT NULL DEFAULT FALSE,
           approval_status    TEXT NOT NULL DEFAULT 'pending',
           body_sha256        TEXT NULL,
+          awaiting_confirm_utc TIMESTAMPTZ NULL,
           UNIQUE (natural_key_type, natural_key_value)
         );
         """;
@@ -1159,6 +1179,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           is_evergreen       INTEGER NOT NULL DEFAULT 0,
           approval_status    TEXT NOT NULL DEFAULT 'pending',
           body_sha256        TEXT NULL,
+          awaiting_confirm_utc TEXT NULL,
           UNIQUE (natural_key_type, natural_key_value)
         );
         """;
@@ -1183,5 +1204,6 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         public bool IsEvergreen { get; init; }
         public required string ApprovalStatus { get; init; }
         public string? BodySha256 { get; init; }
+        public DateTimeOffset? AwaitingConfirmUtc { get; init; }
     }
 }
