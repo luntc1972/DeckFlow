@@ -640,9 +640,18 @@ public static class ManabaseClassifier
         return colors;
     }
 
-    private static bool EntersTapped(CardFact card) =>
-        card.OracleText?.Contains("enters the battlefield tapped", StringComparison.OrdinalIgnoreCase)
-        ?? false;
+    // Scryfall's Aug-2024 oracle update reworded "enters the battlefield tapped" to "enters
+    // tapped" ("This land enters tapped."). Live API data uses the new phrasing exclusively, so
+    // matching only the old one classified every tapland as untapped (efficacy R2 finding H1).
+    // Keep the old phrasing too for stale fixtures/caches. "enters tapped" is a substring of the
+    // old form, so the single new check covers both — the old literal stays for documentation.
+    private static bool EntersTapped(CardFact card)
+    {
+        string? text = card.OracleText;
+        return text is not null
+            && (text.Contains("enters tapped", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("enters the battlefield tapped", StringComparison.OrdinalIgnoreCase));
+    }
 
     private static bool IsRampOrDraw(CardFact card)
     {

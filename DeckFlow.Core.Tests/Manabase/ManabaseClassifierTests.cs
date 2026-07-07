@@ -877,4 +877,33 @@ public sealed class ManabaseClassifierTests
         Assert.Contains(ManaColor.Blue, fetch.Produces);
         Assert.Contains(ManaColor.Black, fetch.Produces); // reached via the Plains-typed triome
     }
+
+    [Fact]
+    public void Classify_EntersTapped_MatchesPostAug2024OracleWording()
+    {
+        // Efficacy R2 finding H1: Scryfall's Aug-2024 oracle update reworded
+        // "enters the battlefield tapped" to "enters tapped" ("This land enters tapped.").
+        // Live API data uses the new phrasing exclusively — both forms must classify as tapped.
+        var cards = new List<CardFact>
+        {
+            Spell("Some Spell", 2, "{1}{U}"),
+            Land("Azorius Guildgate", "Land — Gate", new[] { "W", "U" },
+                "This land enters tapped.\n{T}: Add {W} or {U}."),
+            Land("Raffine's Tower", "Land — Plains Island Swamp", new[] { "W", "U", "B" },
+                "Raffine's Tower enters the battlefield tapped."),
+            Land("Island", "Basic Land — Island", new[] { "U" },
+                "{T}: Add {U}."),
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        ManaSource gate = Assert.Single(deck.Sources, s => s.Name == "Azorius Guildgate");
+        Assert.False(gate.EntersUntapped); // new wording
+
+        ManaSource triome = Assert.Single(deck.Sources, s => s.Name == "Raffine's Tower");
+        Assert.False(triome.EntersUntapped); // old wording still recognized
+
+        ManaSource basic = Assert.Single(deck.Sources, s => s.Name == "Island");
+        Assert.True(basic.EntersUntapped);
+    }
 }
