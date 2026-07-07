@@ -4,6 +4,7 @@ using DeckFlow.Core.Knowledge;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.FeatureFlags;
 using Markdig;
 using Microsoft.AspNetCore.Html;
 using Microsoft.AspNetCore.Mvc;
@@ -21,6 +22,7 @@ public sealed class ContentKbController : Controller
 
     private readonly IContentSiteIndexStore _store;
     private readonly ContentKbArtifactPathResolver _resolver;
+    private readonly IFeatureFlagCache _flagCache;
     private readonly ILogger<ContentKbController> _logger;
 
     /// <summary>
@@ -28,18 +30,25 @@ public sealed class ContentKbController : Controller
     /// </summary>
     /// <param name="store">Content site-index store.</param>
     /// <param name="resolver">Artifact path resolver.</param>
+    /// <param name="flagCache">
+    /// Feature-flag cache consulted for <c>sync.directpush-gitbody</c> so a missing-body
+    /// resolution returns a real 404 under the flag instead of the legacy 200 shell.
+    /// </param>
     /// <param name="logger">Logger.</param>
     public ContentKbController(
         IContentSiteIndexStore store,
         ContentKbArtifactPathResolver resolver,
+        IFeatureFlagCache flagCache,
         ILogger<ContentKbController> logger)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(resolver);
+        ArgumentNullException.ThrowIfNull(flagCache);
         ArgumentNullException.ThrowIfNull(logger);
 
         _store = store;
         _resolver = resolver;
+        _flagCache = flagCache;
         _logger = logger;
     }
 
