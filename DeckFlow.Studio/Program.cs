@@ -79,6 +79,12 @@ public partial class Program
             builder.Services.AddSingleton<IContentSourceStore>(_ => new ContentSourceStore(contentKbDatabasePath));
             builder.Services.AddSingleton<IContentVideoStore>(_ => new ContentVideoStore(contentKbDatabasePath));
             builder.Services.AddSingleton<IContentSiteIndexStore>(_ => new ContentSiteIndexStore(contentKbDatabasePath));
+            // Why (D-08): host-agnostic body_sha256 backfill, bound to the LOCAL content-kb.db
+            // store above via the IContentSiteIndexStore singleton — explicitly NOT any
+            // ProdStoreFactory prod store (those stay schema-ensure OFF, P88 D-10). Run at
+            // startup after this registration (see the app.Services resolution below).
+            builder.Services.AddSingleton<IContentArtifactBodyResolver, StudioContentArtifactBodyResolver>();
+            builder.Services.AddSingleton<ContentBodyHashBackfill>();
             builder.Services.AddSingleton<IBlockedVideoStore>(_ => new BlockedVideoStore(contentKbDatabasePath));
             // Why: curated creator list (SRC-01) + skipped-candidate list (HSEL-02/03) live in
             // content-kb.db beside the blocked list; schema is ensured lazily on first use.
@@ -192,6 +198,17 @@ public partial class Program
                     Log.Error(smokeException, "Content KB smoke check failed — the content database or orchestrator wiring may be broken.");
                 }
             }
+
+            // Why (D-08): one-time deterministic body_sha256 backfill against the LOCAL
+            // content-kb.db store only — the IContentSiteIndexStore singleton resolved here is
+            // the line-81 local store, never a ProdStoreFactory prod store (those stay
+            // schema-ensure OFF, P88 D-10). Ensure the local store's own schema first (adds
+            // body_sha256 if missing on a pre-Phase-89 local DB), then run the idempotent
+            // null-only pass so legacy local rows hash identically to web rows (D-08).
+            var localIndexStore = app.Services.GetRequiredService<IContentSiteIndexStore>();
+            await localIndexStore.EnsureSchemaAsync();
+            await app.Services.GetRequiredService<ContentBodyHashBackfill>().RunAsync();
+            Log.Information("Content KB body-hash backfill completed for the local content-kb.db store.");
 
             Log.Information("Studio prod connection: {Status}", isProdConfigured ? "configured" : "not configured");
             Log.Information("Studio SCP: {Status}", isScpConfigured ? "configured" : "not configured");
