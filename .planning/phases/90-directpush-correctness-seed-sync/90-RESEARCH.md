@@ -397,7 +397,7 @@ ordering requirement and needs an explicit decision (see Open Questions), not si
      explicit operator step. Either choice should be captured as a locked decision before planning
      proceeds, since it changes the shape of the new Studio stage(s).
 
-2. **What is the actual mechanism for "confirm the deployed `/app` body matches"?** — **RESOLVED: see D-09.** No new authenticated endpoint: Studio issues an HTTPS GET of the public Content-KB detail URL and treats HTTP 200 as "reachable at /app"; byte-corruption is delegated to the Phase 89 fail-open render guard (recompute + structured warning). Implemented in Plan 90-05.
+2. **What is the actual mechanism for "confirm the deployed `/app` body matches"?** — **RESOLVED: see D-09 REVISED.** ⚠ SUPERSEDED APPROACH: the original answer here (Studio HTTPS GET of the *public detail page* → treat HTTP 200 as reachable) was proven UNSOUND by Codex plan-review (hidden-row deadlock, 200-on-missing false confirm, stale-deploy false confirm, local-vs-prod id mismatch). The CURRENT design (D-09 REVISED, Plan 90-07 + 90-05) is a dedicated AUTHENTICATED endpoint `GET /Admin/api/contentkb/deployed-body-hash?naturalKeyType=&naturalKeyValue=` (git `/app` only, not `is_visible`-gated, 404 on missing, returns `{bodySha256}`) + a Studio hash-match poll (confirm only on `200 && bodySha256 == expected`). Ignore any "public detail page / HTTP 200 suffices" wording below.
    - What we know: D-06 says reuse `ComputeBodySha256` + "the render-guard comparison." The
      render-guard (`ContentKbController.cs:121-134`) computes this hash today as a side effect of
      a normal page GET, but only **logs** on mismatch — it returns nothing machine-readable to a

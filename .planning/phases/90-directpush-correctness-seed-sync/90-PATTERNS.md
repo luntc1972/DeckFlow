@@ -206,7 +206,16 @@ Referenced at `DirectPushCoordinator.cs:342` inside `CommitAndPushBodiesAsync`. 
 
 ---
 
-### `DeckFlow.Studio/ViewModels/DirectPushCoordinator.cs` — SYNC-09 deploy-confirm HTTPS GET (D-09, novel — but Studio HttpClient plumbing already exists)
+### `DeckFlow.Studio/ViewModels/DirectPushCoordinator.cs` — SYNC-09 deploy-confirm (D-09, novel — but Studio HttpClient plumbing already exists)
+
+> ⚠ **SUPERSEDED DETAIL — read this first.** D-09 was REVISED after Codex plan-review. The confirm
+> is NO LONGER a public-detail-page HTTPS GET treating "HTTP 200 = reachable." It is now a poll
+> against a dedicated AUTHENTICATED endpoint `GET /Admin/api/contentkb/deployed-body-hash` (git
+> `/app` only, not `is_visible`-gated, 404 on missing, returns `{bodySha256}`), confirming ONLY on
+> `200 && bodySha256 == expected`, keyed by natural key. See 90-CONTEXT D-09 REVISED + 90-07-PLAN +
+> 90-05-PLAN. The **HttpClient / ResilientHttpHandler transport wiring** described below IS still
+> the right pattern to reuse; DISREGARD the "200 suffices / public detail URL / no hash needed"
+> guidance in the paragraph below — the confirmer DOES compare the returned hash.
 
 **Analog for the HttpClient wiring:** `DeckFlow.Studio/Program.cs:121-124`:
 ```csharp
@@ -324,7 +333,7 @@ private static DirectPushCoordinator Build(
 
 ### Body-hash comparison (D-06)
 **Source:** `DeckFlow.Core/Content/ContentSiteIndexContentSignature.cs:131-145` (`ComputeBodySha256`)
-**Apply to:** `ContentKbController.cs` (already applied, Phase 89), and the new Studio confirm step if it ever needs to compare a fetched body's hash rather than relying on HTTP 200 alone (D-09 says 200 suffices; do not build a second hash path).
+**Apply to:** `ContentKbController.cs` (already applied, Phase 89); the NEW `deployed-body-hash` endpoint (Plan 90-07) recomputes with this same `ComputeBodySha256` helper server-side and returns `{bodySha256}`; the Studio confirmer (Plan 90-05) compares that returned hash against the expected stored hash (D-09 REVISED — the confirm is a hash match, NOT "200 alone"). Reuse the single existing helper on both sides; do not build a second hash path.
 ```csharp
 public static string ComputeBodySha256(string rawArtifactText)
 {
