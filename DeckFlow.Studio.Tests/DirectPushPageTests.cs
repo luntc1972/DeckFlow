@@ -124,6 +124,10 @@ public sealed class DirectPushPageTests : BunitContext
         // through the coordinator; register fakes so no real git process or file copy runs in bUnit.
         Services.AddSingleton<DeckFlow.Core.Integration.IGitRepository>(gitOverride ?? new FakeGitRepository());
         Services.AddSingleton<IContentKbOrchestrator>(orchestratorOverride ?? new FakeContentKbOrchestrator());
+        // Why (90-04): the coordinator's ReadFlagAsync dependency (D-04) — flag OFF by default so
+        // [skip render] behavior in these bUnit page tests stays byte-identical to before this flag
+        // existed (D-05).
+        Services.AddSingleton<IProdContentReader>(new FakeDirectPushFlagReader());
         // Why: the page now resolves its orchestration through DirectPushCoordinator (H1 split);
         // register it over the same fakes so the bUnit render wires up identically to production.
         Services.AddScoped<DirectPushCoordinator>();
@@ -469,10 +473,13 @@ public sealed class DirectPushPageTests : BunitContext
         cut.WaitForState(() => cut.Markup.Contains("pushed to"));
         cut.WaitForAssertion(() =>
         {
-            // Committed exactly the pushed body path (never the seed) and pushed to origin/main.
+            // Committed the pushed body path AND the re-exported seed (D-08/SYNC-08), and pushed to
+            // origin/main. Flag OFF (bUnit's FakeDirectPushFlagReader default) → [skip render] stays,
+            // byte-identical to before this plan (D-09/D-05).
             var commit = Assert.Single(git.CommitCalls);
-            Assert.Equal(new[] { "content-kb/test-channel/vid1.md" }, commit.Paths);
-            Assert.DoesNotContain(commit.Paths, p => p.Contains("index-seed.json", StringComparison.Ordinal));
+            Assert.Equal(
+                new[] { "content-kb/seed/index-seed.json", "content-kb/test-channel/vid1.md" },
+                commit.Paths);
             Assert.Contains("[skip render]", commit.Message);
 
             var push = Assert.Single(git.PushCalls);

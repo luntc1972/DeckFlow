@@ -28,29 +28,47 @@ public sealed class DirectPushCoordinator
     private readonly ContentKbOrchestratorOptions _options;
     private readonly IGitRepository _git;
     private readonly IContentKbOrchestrator _orchestrator;
+    private readonly IProdContentReader _prodReader;
     private readonly ILogger<DirectPushCoordinator> _logger;
 
-    // Why: the git commit carries the Render deploy-skip phrase. Render honors [skip render] /
-    // [render skip] (NOT the CI-only [skip ci]) to suppress an auto-deploy on push — content is
-    // already live via the web /data overlay, so the git push is durability only and must not
-    // trigger a redundant production redeploy.
+    // Why: the git commit MAY carry the Render deploy-skip phrase. Render honors [skip render] /
+    // [render skip] (NOT the CI-only [skip ci]) to suppress an auto-deploy on push. When
+    // sync.directpush-gitbody is OFF (today's default), content is still served via the web /data
+    // overlay, so the git push is durability only and must not trigger a redundant production
+    // redeploy — the phrase is kept, byte-identical to before this flag existed. When the flag is
+    // ON, bodies are served from git /app ONLY (SYNC-07), so the phrase is DROPPED: the push must
+    // trigger a real Render redeploy for SYNC-09's hash-gated deploy-confirm step to ever succeed
+    // (D-09) — keeping it under the flag would permanently strand every row awaiting confirm.
     private const string RenderSkipPhrase = "[skip render]";
+
+    // Why: the web-DB feature flag key (D-04) — the SAME key ContentKbArtifactPathResolver /
+    // ContentKbController read on the web side (90-01). Single source of truth; no duplicate
+    // Studio-local flag.
+    private const string DirectPushGitBodyFlagKey = "sync.directpush-gitbody";
+
+    // Why: the shared seed-export destination (D-08/SYNC-08) — identical literal to
+    // PublishCoordinator.SeedRelative so both coordinators write to the SAME repo location.
+    private const string SeedRelative = "content-kb/seed/index-seed.json";
 
     // Why: the fixed subject prefix of every durability commit. Shared by the commit-message template
     // AND the classifier regex so the two can never drift (refuted-but-noted dup from review).
     private const string CommitSubjectPrefix = "content: direct-push";
 
-    // Why (review R2-2): the foreign-commit guard must match ONLY the exact subject shape this stage
-    // writes — "content: direct-push {n} body|bodies to prod [skip render]" — not merely a subject
-    // that starts with the prefix and contains the token. Built from the two shared consts so it stays
-    // locked to the template. This narrows accidental false-positives (e.g. "content: direct-push
-    // notes [skip render]") to effectively zero; it is not an anti-tamper control (the operator owns
-    // the repo and could always craft any commit — that is not the threat model).
+    // Why (review R2-2, extended for D-09): the foreign-commit guard must match ONLY the exact
+    // subject shapes this stage writes — "content: direct-push {n} body|bodies to prod [skip
+    // render]" (flag OFF) OR "content: direct-push {n} body|bodies to prod" with NO trailing phrase
+    // (flag ON) — not merely a subject that starts with the prefix and contains the token. The
+    // trailing " [skip render]" is OPTIONAL in the pattern so a flag-ON commit (this stage's own,
+    // phrase-dropped) is still recognized as OUR durability commit on a later catch-up push, not
+    // misclassified foreign. Built from the shared consts so it stays locked to the template. This
+    // narrows accidental false-positives (e.g. "content: direct-push notes [skip render]") to
+    // effectively zero; it is not an anti-tamper control (the operator owns the repo and could
+    // always craft any commit — that is not the threat model).
     private static readonly Regex DurabilityCommitSubjectPattern = new(
-        "^" + Regex.Escape(CommitSubjectPrefix) + @" \d+ (?:body|bodies) to prod " + Regex.Escape(RenderSkipPhrase) + "$",
+        "^" + Regex.Escape(CommitSubjectPrefix) + @" \d+ (?:body|bodies) to prod(?: " + Regex.Escape(RenderSkipPhrase) + ")?$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-    /// <summary>Creates the coordinator with the stores, uploader, configuration, KB options, git repo, orchestrator, and an optional logger.</summary>
+    /// <summary>Creates the coordinator with the stores, uploader, configuration, KB options, git repo, orchestrator, prod flag reader, and an optional logger.</summary>
     public DirectPushCoordinator(
         IContentSiteIndexStore localStore,
         ISshArtifactUploader uploader,
@@ -59,6 +77,7 @@ public sealed class DirectPushCoordinator
         ContentKbOrchestratorOptions options,
         IGitRepository git,
         IContentKbOrchestrator orchestrator,
+        IProdContentReader prodReader,
         ILogger<DirectPushCoordinator>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(localStore);
@@ -68,6 +87,7 @@ public sealed class DirectPushCoordinator
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(git);
         ArgumentNullException.ThrowIfNull(orchestrator);
+        ArgumentNullException.ThrowIfNull(prodReader);
         _localStore = localStore;
         _uploader = uploader;
         _prodStoreFactory = prodStoreFactory;
@@ -75,6 +95,7 @@ public sealed class DirectPushCoordinator
         _options = options;
         _git = git;
         _orchestrator = orchestrator;
+        _prodReader = prodReader;
         // Optional logger (house convention, e.g. CommanderSpellbookService): the default keeps every
         // existing construction site + test compiling while D-08 skip-warnings surface in prod.
         _logger = logger ?? NullLogger<DirectPushCoordinator>.Instance;
@@ -233,20 +254,26 @@ public sealed class DirectPushCoordinator
     }
 
     /// <summary>
-    /// Durability stage (runs LAST, after prod DB + /data are already live): copies ONLY the pushed
-    /// (New + Updated) bodies into the repo tree, commits exactly those body paths, and pushes the
-    /// current branch to <c>origin</c> (the remote is fixed, not a parameter).
+    /// Durability stage (runs LAST, after prod DB + /data are already live): re-exports + stages the
+    /// approved-only seed, copies the pushed (New + Updated) bodies into the repo tree, commits the
+    /// seed plus those body paths, and pushes the current branch to <c>origin</c> (the remote is
+    /// fixed, not a parameter).
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Resolves the anti-pattern: this commits body files ONLY — it never invokes the approved-only
-    /// seed export, so the committed <c>index-seed.json</c> (the full published set in git) is left
-    /// untouched. A partial Studio store can therefore never overwrite the seed here.
+    /// Re-exports <c>content-kb/seed/index-seed.json</c> through the SAME shared
+    /// <see cref="IContentKbOrchestrator.ExportIndexToFileAsync"/> factory <c>PublishCoordinator</c>
+    /// uses (D-08/SYNC-08) — no forked seed writer — and stages it alongside the copied bodies, so a
+    /// fresh prod reseed can fully reconstruct this DirectPush'd row instead of reverting it (M2,
+    /// C3). A seed-export failure surfaces as an exception; it never falls through to a silent
+    /// bodies-only commit.
     /// </para>
     /// <para>
-    /// The commit message carries <c>[skip render]</c> so the push does not trigger a production
-    /// redeploy — the content is already serving live from the web /data overlay; git is durability
-    /// only. Any git failure is the caller's to surface as non-fatal (content stays live).
+    /// The commit message carries <c>[skip render]</c> ONLY when <c>sync.directpush-gitbody</c> is
+    /// OFF (today's default, byte-identical) — content is still serving live from the web /data
+    /// overlay; git is durability only. When the flag is ON, the phrase is DROPPED so the push
+    /// triggers a real production redeploy (D-09), which SYNC-09's hash-gated deploy-confirm step
+    /// requires. Any git failure is the caller's to surface as non-fatal (content stays live).
     /// </para>
     /// </remarks>
     public async Task<DirectPushGitResult> CommitAndPushBodiesAsync(
@@ -325,6 +352,20 @@ public sealed class DirectPushCoordinator
                 "Direct Push git stage: the publish set has rows but no usable artifact paths to commit.");
         }
 
+        // Seed re-export (D-08/SYNC-08): the SAME shared factory PublishCoordinator calls — no forked
+        // seed writer. Runs on EVERY invocation of this stage (not gated on changedCount below) so the
+        // committed seed always reflects the current approved set. A failure surfaces immediately,
+        // before any body is copied — never a silent bodies-only commit.
+        var seedAbsPath = Path.GetFullPath(Path.Combine(repoRoot, SeedRelative));
+        var exportResult = await _orchestrator
+            .ExportIndexToFileAsync(seedAbsPath, progress: null, cancellationToken)
+            .ConfigureAwait(false);
+        if (!exportResult.Success)
+        {
+            throw new InvalidOperationException(
+                $"Direct Push git stage: seed export failed - {exportResult.Message}");
+        }
+
         var copied = await _orchestrator
             .CopyArtifactsToRepoAsync(dataRoot, repoRoot, artifactPaths, cancellationToken)
             .ConfigureAwait(false);
@@ -332,18 +373,30 @@ public sealed class DirectPushCoordinator
         // No-op gate (Codex MED): an Updated row whose DB columns changed but whose .md body is
         // byte-identical to HEAD produces nothing to commit — do NOT let StageAndCommitAsync throw
         // "nothing to commit". changedCount is also the ACCURATE committed-body count (review R3-2):
-        // copied.Count includes those byte-identical bodies that git does not actually commit.
+        // copied.Count includes those byte-identical bodies that git does not actually commit. This
+        // count stays BODY-ONLY (never includes the seed) so the "N body|bodies" message wording and
+        // DurabilityCommitSubjectPattern's \d+ group keep meaning exactly what they say.
         var changedCount = await _git.CountWorkingChangesAsync(repoRoot, copied, cancellationToken).ConfigureAwait(false);
 
         string? sha = null;
         if (changedCount > 0)
         {
             var noun = changedCount == 1 ? "body" : "bodies";
-            var message = $"{CommitSubjectPrefix} {changedCount} {noun} to prod {RenderSkipPhrase}";
 
-            // Bodies ONLY — the seed path is deliberately never staged here (anti-pattern guard). A
-            // commit failure propagates before the push (nothing is left half-published on the remote).
-            sha = await _git.StageAndCommitAsync(repoRoot, copied, message, cancellationToken).ConfigureAwait(false);
+            // D-04/D-09: read the SAME web-DB flag the serving flip consults, through the
+            // structurally read-only, fail-closed accessor — Studio never assumes ON.
+            var directPushGitBodyOn = await ReadDirectPushGitBodyFlagAsync(cancellationToken).ConfigureAwait(false);
+            var message = directPushGitBodyOn
+                ? $"{CommitSubjectPrefix} {changedCount} {noun} to prod"
+                : $"{CommitSubjectPrefix} {changedCount} {noun} to prod {RenderSkipPhrase}";
+
+            // Bodies AND the re-exported seed are staged together (D-08/SYNC-08): a fresh prod reseed
+            // can now fully reconstruct this DirectPush'd content instead of reverting it. A commit
+            // failure propagates before the push (nothing is left half-published on the remote).
+            var stagedPaths = new List<string> { SeedRelative };
+            stagedPaths.AddRange(copied);
+
+            sha = await _git.StageAndCommitAsync(repoRoot, stagedPaths, message, cancellationToken).ConfigureAwait(false);
         }
 
         // Decide what actually gets published. aheadSubjects is resolved and all-own (foreign rejected):
@@ -391,6 +444,15 @@ public sealed class DirectPushCoordinator
     // startup. Shared by the diff read and the publish write so the config key lives in one place.
     private IContentSiteIndexStore CreateProdStore()
         => _prodStoreFactory.Create(_configuration["Studio:ProdConnectionString"] ?? string.Empty);
+
+    // Why (D-04): reads the SAME web-DB feature flag the serving flip consults, through the
+    // structurally read-only, fail-closed IProdContentReader.ReadFlagAsync accessor (Task 1) — never
+    // a duplicate Studio-local flag. Reuses the same ephemeral connection string as CreateProdStore.
+    private Task<bool> ReadDirectPushGitBodyFlagAsync(CancellationToken cancellationToken)
+        => _prodReader.ReadFlagAsync(
+            _configuration["Studio:ProdConnectionString"] ?? string.Empty,
+            DirectPushGitBodyFlagKey,
+            cancellationToken);
 }
 
 /// <summary>Approved-row count and resolved data root for the DirectPush page init.</summary>
