@@ -105,7 +105,7 @@ public static class ManabaseSwapPromptBuilder
 
         if (includeCommandZone)
         {
-            AppendCommandZoneBlock(sb, report, companionRow);
+            ManabaseCommandZoneFormatter.AppendBlock(sb, report, companionRow);
         }
 
         sb.AppendLine(
@@ -145,35 +145,6 @@ public static class ManabaseSwapPromptBuilder
         {
             sb.AppendLine(BuildBudgetLine(budget));
         }
-    }
-
-    private static void AppendCommandZoneBlock(
-        StringBuilder sb,
-        ManabaseReport report,
-        CardCastability? companionRow)
-    {
-        List<CardCastability> commanders = report.Castability.Where(c => c.IsCommander).ToList();
-        if (commanders.Count == 0 && companionRow is null)
-        {
-            return;
-        }
-
-        sb.AppendLine("Command-zone castability:");
-        foreach (CardCastability commander in commanders)
-        {
-            sb.AppendLine(string.Create(
-                CultureInfo.InvariantCulture,
-                $"- Commander: {commander.Name} (~{commander.CastPercent}%)."));
-        }
-
-        if (companionRow is not null)
-        {
-            sb.AppendLine(string.Create(
-                CultureInfo.InvariantCulture,
-                $"- Companion: {companionRow.Name} (~{companionRow.CastPercent}%, +3 generic to hand tax heuristic)."));
-        }
-
-        sb.AppendLine();
     }
 
     private static string BuildBudgetLine(ManabaseRampDrawBudget budget) => string.Create(

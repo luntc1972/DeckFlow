@@ -354,6 +354,55 @@ public sealed class ManabaseReportTextBuilderTests
         Assert.DoesNotContain("Decklist:", output);
     }
 
+    // M10: a report whose castability rows include a commander, for the command-zone block.
+    private static ManabaseReport ReportWithCommanderRow() => new()
+    {
+        ActualLands = 36,
+        TargetLands = 37.0,
+        ColorFindings = System.Array.Empty<ColorSourceFinding>(),
+        Mode = ManabaseMode.Casual,
+        Castability = new List<CardCastability>
+        {
+            new() { Name = "Atraxa", ManaValue = 4, OnCurveTurn = 4, CastPercent = 78, LimitingFactor = "color:W", IsCommander = true },
+            new() { Name = "Cultivate", ManaValue = 3, OnCurveTurn = 3, CastPercent = 90, LimitingFactor = "mana" },
+        },
+        Summary = "Fine.",
+    };
+
+    [Fact]
+    public void Build_IncludeCommandZone_AppendsCommanderAndCompanionBlock()
+    {
+        var companion = new CardCastability
+        {
+            Name = "Jegantha, the Wellspring",
+            ManaValue = 5,
+            OnCurveTurn = 5,
+            CastPercent = 64,
+            LimitingFactor = "mana",
+        };
+
+        string output = ManabaseReportTextBuilder.Build(
+            ReportWithCommanderRow(), "Atraxa", null, ManabaseMode.Casual,
+            includeCommandZone: true, companionRow: companion);
+
+        Assert.Contains("Command-zone castability:", output, System.StringComparison.Ordinal);
+        Assert.Contains("- Commander: Atraxa (~78%).", output, System.StringComparison.Ordinal);
+        Assert.Contains("- Companion: Jegantha, the Wellspring (~64%, +3 generic to hand tax heuristic).", output, System.StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build_CommandZoneOff_IsByteIdenticalToDefault()
+    {
+        ManabaseReport report = ReportWithCommanderRow();
+
+        string baseline = ManabaseReportTextBuilder.Build(report, "Atraxa", null);
+        string off = ManabaseReportTextBuilder.Build(
+            report, "Atraxa", null, ManabaseMode.Casual, includeCommandZone: false, companionRow: null);
+
+        Assert.Equal(baseline, off);
+        Assert.DoesNotContain("Command-zone castability:", off, System.StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Build_NullVerdictAndBudget_IsByteIdentical()
     {
