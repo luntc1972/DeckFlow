@@ -6,6 +6,8 @@ using DeckFlow.Core.Orchestration;
 using DeckFlow.Core.Storage;
 using DeckFlow.Studio.Services;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace DeckFlow.Studio.ViewModels;
 
@@ -26,6 +28,7 @@ public sealed class DirectPushCoordinator
     private readonly ContentKbOrchestratorOptions _options;
     private readonly IGitRepository _git;
     private readonly IContentKbOrchestrator _orchestrator;
+    private readonly ILogger<DirectPushCoordinator> _logger;
 
     // Why: the git commit carries the Render deploy-skip phrase. Render honors [skip render] /
     // [render skip] (NOT the CI-only [skip ci]) to suppress an auto-deploy on push — content is
@@ -47,7 +50,7 @@ public sealed class DirectPushCoordinator
         "^" + Regex.Escape(CommitSubjectPrefix) + @" \d+ (?:body|bodies) to prod " + Regex.Escape(RenderSkipPhrase) + "$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-    /// <summary>Creates the coordinator with the stores, uploader, configuration, KB options, git repo, and orchestrator.</summary>
+    /// <summary>Creates the coordinator with the stores, uploader, configuration, KB options, git repo, orchestrator, and an optional logger.</summary>
     public DirectPushCoordinator(
         IContentSiteIndexStore localStore,
         ISshArtifactUploader uploader,
@@ -55,7 +58,8 @@ public sealed class DirectPushCoordinator
         IConfiguration configuration,
         ContentKbOrchestratorOptions options,
         IGitRepository git,
-        IContentKbOrchestrator orchestrator)
+        IContentKbOrchestrator orchestrator,
+        ILogger<DirectPushCoordinator>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(localStore);
         ArgumentNullException.ThrowIfNull(uploader);
@@ -71,6 +75,9 @@ public sealed class DirectPushCoordinator
         _options = options;
         _git = git;
         _orchestrator = orchestrator;
+        // Optional logger (house convention, e.g. CommanderSpellbookService): the default keeps every
+        // existing construction site + test compiling while D-08 skip-warnings surface in prod.
+        _logger = logger ?? NullLogger<DirectPushCoordinator>.Instance;
     }
 
     /// <summary>
@@ -86,8 +93,9 @@ public sealed class DirectPushCoordinator
 
     /// <summary>
     /// Reads local approved rows and all prod rows, then runs the content-aware classification
-    /// (M2). The prod store is built on demand from the ephemeral connection string (D-03) and
-    /// the read issues no DDL against prod (H3).
+    /// (M2). The prod store is built on demand from the ephemeral connection string (D-03); because
+    /// <see cref="IProdStoreFactory"/> builds it with schema-ensure disabled, the read issues no DDL
+    /// against prod (H3 / D-10) — prod schema is owned by the web app's startup path.
     /// </summary>
     public async Task<DirectPushDiff> ComputeDiffAsync(CancellationToken cancellationToken)
     {
@@ -96,19 +104,25 @@ public sealed class DirectPushCoordinator
         var prodStore = CreateProdStore();
         var prodRows = await prodStore.GetAllRowsAsync(cancellationToken).ConfigureAwait(false);
 
-        return ClassifyDiff(localRows, prodRows);
+        return ClassifyDiff(localRows, prodRows, _logger);
     }
 
     /// <summary>
     /// Pure content-aware diff (M2): classifies each local row as New, Updated, or Unchanged
     /// against prod. The diff map is keyed on the FULL natural key (type + value) joined by U+0000
     /// so a prod podcast row and a local youtube row that share a value cannot collide and silently
-    /// skip a publish (Codex MED data-loss fix). Unchanged rows (identical content signature) are
-    /// excluded from the publish set, so they are never uploaded or written.
+    /// skip a publish (Codex MED data-loss fix). Both sides key through the shared
+    /// <see cref="ContentNaturalKey.TryDerive"/> helper so this path can never diverge from the
+    /// <see cref="ContentSyncDiffClassifier"/> (SYNC-05). Unchanged rows (identical content signature)
+    /// are excluded from the publish set, so they are never uploaded or written.
     /// </summary>
+    /// <param name="localRows">Approved local rows to publish.</param>
+    /// <param name="prodRows">All rows currently in prod.</param>
+    /// <param name="logger">Optional logger; warns on rows skipped for having no natural key (D-08).</param>
     public static DirectPushDiff ClassifyDiff(
         IReadOnlyList<ContentSiteIndexRow> localRows,
-        IReadOnlyList<ContentSiteIndexRow> prodRows)
+        IReadOnlyList<ContentSiteIndexRow> prodRows,
+        ILogger? logger = null)
     {
         ArgumentNullException.ThrowIfNull(localRows);
         ArgumentNullException.ThrowIfNull(prodRows);
@@ -116,11 +130,16 @@ public sealed class DirectPushCoordinator
         var prodByKey = new Dictionary<string, ContentSiteIndexRow>(prodRows.Count, StringComparer.Ordinal);
         foreach (var r in prodRows)
         {
-            var (prodKeyType, prodKeyValue) = DeriveNaturalKey(r);
-            if (!string.IsNullOrEmpty(prodKeyValue))
+            if (!ContentNaturalKey.TryDerive(r, out var prodNk))
             {
-                prodByKey[$"{prodKeyType}\u0000{prodKeyValue}"] = r;
+                logger?.LogWarning(
+                    "Skipping prod content row with no natural key (neither YouTube id nor RSS guid): {Title} [{Source}]",
+                    r.Title,
+                    r.Source);
+                continue;
             }
+
+            prodByKey[$"{prodNk.Type}\u0000{prodNk.Value}"] = r;
         }
 
         int newCount = 0, updatedCount = 0, unchangedCount = 0;
@@ -128,7 +147,16 @@ public sealed class DirectPushCoordinator
         var publishRows = new List<ContentSiteIndexRow>();
         foreach (var row in localRows)
         {
-            var (keyType, key) = DeriveNaturalKey(row);
+            if (!ContentNaturalKey.TryDerive(row, out var localNk))
+            {
+                logger?.LogWarning(
+                    "Skipping local content row with no natural key (neither YouTube id nor RSS guid): {Title} [{Source}]",
+                    row.Title,
+                    row.Source);
+                continue;
+            }
+
+            var (keyType, key) = localNk;
             if (!prodByKey.TryGetValue($"{keyType}\u0000{key}", out var prodRow))
             {
                 newCount++;
@@ -363,14 +391,6 @@ public sealed class DirectPushCoordinator
     // startup. Shared by the diff read and the publish write so the config key lives in one place.
     private IContentSiteIndexStore CreateProdStore()
         => _prodStoreFactory.Create(_configuration["Studio:ProdConnectionString"] ?? string.Empty);
-
-    // Why: the display natural key used by the content diff (ClassifyDiff). KeyType is the local diff
-    // label ("youtube"/"podcast"), intentionally NOT the store's youtube_channel/podcast_rss
-    // discriminator — matching is on the key value, not the type. The write path keys instead via
-    // ContentIndexExportRow.From (the store discriminator). KeyValue reuses ContentSiteIndexRow.PinId.
-    private static (string KeyType, string KeyValue) DeriveNaturalKey(ContentSiteIndexRow row)
-        => (row.YoutubeVideoId is not null ? "youtube" : "podcast",
-            row.PinId ?? string.Empty);
 }
 
 /// <summary>Approved-row count and resolved data root for the DirectPush page init.</summary>
