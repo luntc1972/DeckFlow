@@ -116,6 +116,12 @@ None - no external service configuration required. `sync.directpush-gitbody` shi
 - Plans 90-02 through 90-07 (SYNC-08/09/10, the DirectPush ordering/stamp/seed-export rework) can now build on a resolver/controller that already understands `sync.directpush-gitbody` — Studio's read-only flag accessor (D-04) has a stable web-DB flag key to read.
 - No blockers. The D-11 pre-flip git-coverage audit and the actual flag flip remain future/operator-triggered work, out of this plan's scope.
 
+## Self-Check: PASSED
+
+All 9 created/modified files confirmed present on disk; all 5 commit hashes
+(`f48da298`, `9a5d5efb`, `51fadf5f`, `ee2a0e18`, `1ccce1c7`) confirmed present
+in `git log --oneline --all`.
+
 ---
 *Phase: 90-directpush-correctness-seed-sync*
 *Completed: 2026-07-07*
