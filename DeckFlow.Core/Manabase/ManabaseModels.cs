@@ -925,30 +925,29 @@ public sealed record ManabaseReport
     {
         get
         {
-            long sum = 0;
-            int count = 0;
+            long nonCommanderSum = 0;
+            int nonCommanderCount = 0;
+            long allSum = 0;
+            int allCount = 0;
             foreach (CardCastability row in Castability)
             {
-                if (row.IsCommander)
+                allSum += row.CastPercent;
+                allCount++;
+                if (!row.IsCommander)
                 {
-                    continue;
+                    nonCommanderSum += row.CastPercent;
+                    nonCommanderCount++;
                 }
-
-                sum += row.CastPercent;
-                count++;
             }
 
-            if (count == 0)
+            // Prefer the non-commander mean; fall back to the full set only in the degenerate case
+            // where every tracked row is a commander (avoids reporting 0), and 0 for an empty set.
+            if (nonCommanderCount > 0)
             {
-                // Degenerate: only commander rows tracked — fall back to the full set rather than 0.
-                foreach (CardCastability row in Castability)
-                {
-                    sum += row.CastPercent;
-                    count++;
-                }
+                return (int)Math.Round((double)nonCommanderSum / nonCommanderCount);
             }
 
-            return count == 0 ? 0 : (int)Math.Round((double)sum / count);
+            return allCount == 0 ? 0 : (int)Math.Round((double)allSum / allCount);
         }
     }
 
