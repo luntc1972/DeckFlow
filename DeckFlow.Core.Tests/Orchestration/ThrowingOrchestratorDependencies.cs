@@ -129,6 +129,9 @@ internal sealed class ThrowingContentSiteIndexStore : IContentSiteIndexStore
     public Task<ContentSiteIndexRow?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
         => throw new InvalidOperationException($"{nameof(ThrowingContentSiteIndexStore)}.{nameof(GetByIdAsync)} must not be called by the current path");
 
+    public Task<ContentSiteIndexRow?> GetPublishedByIdAsync(long id, CancellationToken cancellationToken = default)
+        => throw new InvalidOperationException($"{nameof(ThrowingContentSiteIndexStore)}.{nameof(GetPublishedByIdAsync)} must not be called by the current path");
+
     public Task<int> SetVisibilityAsync(long id, bool visible, CancellationToken cancellationToken = default)
         => throw new InvalidOperationException($"{nameof(ThrowingContentSiteIndexStore)}.{nameof(SetVisibilityAsync)} must not be called by the current path");
 

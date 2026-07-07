@@ -1274,6 +1274,11 @@ namespace DeckFlow.Studio.Tests
                 throw new NotSupportedException();
             }
 
+            public Task<ContentSiteIndexRow?> GetPublishedByIdAsync(long id, CancellationToken cancellationToken = default)
+            {
+                throw new NotSupportedException();
+            }
+
             public Task<int> SetVisibilityAsync(long id, bool visible, CancellationToken cancellationToken = default)
             {
                 throw new NotSupportedException();

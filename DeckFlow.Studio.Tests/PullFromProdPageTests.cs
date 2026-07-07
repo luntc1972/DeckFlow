@@ -189,9 +189,9 @@ public sealed class PullFromProdPageTests : BunitContext
         Assert.Contains("Diverged", cut.Markup);
         Assert.Contains("Local only", cut.Markup);
         // LocalOnly entry has no adopt radio.
-        Assert.Empty(cut.FindAll("input[id='adopt-youtube:local-only']"));
+        Assert.Empty(cut.FindAll("input[id='adopt-youtube_channel:local-only']"));
         // A non-LocalOnly entry does.
-        Assert.NotEmpty(cut.FindAll("input[id='adopt-youtube:missing-local']"));
+        Assert.NotEmpty(cut.FindAll("input[id='adopt-youtube_channel:missing-local']"));
     }
 
     // ── adopt-prod / keep-local apply ───────────────────────────────────────
@@ -203,7 +203,7 @@ public sealed class PullFromProdPageTests : BunitContext
         var (cut, localStore, _, _) = RenderPull(prodRows: prod);
 
         Pull(cut);
-        cut.InvokeAsync(() => cut.Find("input[id='adopt-youtube:vid-a']").Change(true));
+        cut.InvokeAsync(() => cut.Find("input[id='adopt-youtube_channel:vid-a']").Change(true));
         cut.InvokeAsync(() => cut.Find("button.btn-primary").Click());
         cut.WaitForState(() => cut.Markup.Contains("Resolutions applied"));
 
@@ -222,7 +222,7 @@ public sealed class PullFromProdPageTests : BunitContext
         var (cut, localStore, _, _) = RenderPull(prodRows: prod);
 
         Pull(cut);
-        cut.InvokeAsync(() => cut.Find("input[id='keep-youtube:vid-a']").Change(true));
+        cut.InvokeAsync(() => cut.Find("input[id='keep-youtube_channel:vid-a']").Change(true));
         cut.InvokeAsync(() => cut.Find("button.btn-primary").Click());
         cut.WaitForState(() => cut.Markup.Contains("Resolutions applied"));
 
@@ -254,7 +254,7 @@ public sealed class PullFromProdPageTests : BunitContext
 
         Pull(cut);
         // adopt-prod stays selectable even though the body is missing from the local repo tree (R4).
-        cut.InvokeAsync(() => cut.Find("input[id='adopt-youtube:vid-a']").Change(true));
+        cut.InvokeAsync(() => cut.Find("input[id='adopt-youtube_channel:vid-a']").Change(true));
         cut.InvokeAsync(() => cut.Find("button.btn-primary").Click());
         cut.WaitForState(() => cut.Markup.Contains("Resolutions applied"));
 

@@ -90,8 +90,10 @@ public sealed class ContentKbController : Controller
     [FeatureFlagGate("tool.knowledge-base.enabled")]
     public async Task<IActionResult> Detail(long id, CancellationToken cancellationToken = default)
     {
-        var row = await _store.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
-        if (row is null || !row.IsVisible)
+        // Why: the public detail route reads through the approval-filtered store method so a drifted
+        // visible-but-pending row 404s (D-04 / Codex HIGH); GetByIdAsync stays unfiltered for admin/Studio.
+        var row = await _store.GetPublishedByIdAsync(id, cancellationToken).ConfigureAwait(false);
+        if (row is null)
         {
             return NotFound();
         }

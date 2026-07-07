@@ -92,7 +92,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
     private static SyncDiffEntry AdoptEntry(ContentSiteIndexRow prodRow, bool artifactDownloaded)
         => new()
         {
-            NaturalKeyType = "youtube",
+            NaturalKeyType = ContentSourceType.Youtube,
             NaturalKeyValue = prodRow.YoutubeVideoId!,
             Kind = SyncDiffKind.ProdNewer,
             Title = prodRow.Title,
@@ -276,7 +276,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
         var coordinator = Build(store, new FakeProdContentReader());
         var localOnly = new SyncDiffEntry
         {
-            NaturalKeyType = "youtube",
+            NaturalKeyType = ContentSourceType.Youtube,
             NaturalKeyValue = "vidLocal",
             Kind = SyncDiffKind.LocalOnly,
             Title = "Local Only",

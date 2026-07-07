@@ -28,9 +28,9 @@ public interface IContentSiteIndexStore
     Task UpsertRowPreservingVisibilityAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Inserts or updates content/nav columns only, never touching admin-set fields
-    /// (is_visible, is_hidden, is_evergreen, approval_status) on existing rows.
-    /// New rows are inserted with approval_status='pending'.
+    /// Inserts or updates content/nav columns and mirrors the source row's <c>approval_status</c>
+    /// on insert and update (D-01/D-02), never touching operator-owned fields
+    /// (is_visible, is_hidden, is_evergreen) on existing rows.
     /// </summary>
     /// <param name="row">Site-index row to insert or update.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -76,6 +76,17 @@ public interface IContentSiteIndexStore
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The site-index row when found; otherwise <see langword="null"/>.</returns>
     Task<ContentSiteIndexRow?> GetByIdAsync(long id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets a slim site-index row by surrogate identifier for the PUBLIC detail route — returned only
+    /// when the row is both <c>is_visible</c> and <c>approval_status='approved'</c>. Defense-in-depth so a
+    /// drifted visible-but-pending row can never render at <c>/content-kb/{id}</c>. Admin/Studio use
+    /// <see cref="GetByIdAsync(long, CancellationToken)"/> which stays unfiltered.
+    /// </summary>
+    /// <param name="id">Site-index row identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The approved+visible row when found; otherwise <see langword="null"/>.</returns>
+    Task<ContentSiteIndexRow?> GetPublishedByIdAsync(long id, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Sets visibility for a single site-index row.
@@ -199,8 +210,8 @@ public interface IContentSiteIndexStore
     /// <summary>
     /// Inserts or updates content/nav columns only for every row in <paramref name="rows"/>
     /// inside a single <see cref="System.Data.Common.DbTransaction"/> — all-or-nothing.
-    /// Never touches <c>is_visible</c>, <c>is_hidden</c>, <c>is_evergreen</c>, or
-    /// <c>approval_status</c> on existing rows (D-08 / T-qyc-03).
+    /// Mirrors the source row's <c>approval_status</c> on insert and update (D-01/D-02); never touches
+    /// operator-owned <c>is_visible</c>, <c>is_hidden</c>, or <c>is_evergreen</c> on existing rows (T-qyc-03).
     /// </summary>
     /// <param name="rows">Rows to upsert; empty list is a no-op.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

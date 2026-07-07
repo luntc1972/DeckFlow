@@ -170,8 +170,47 @@ public sealed class ContentSyncDiffClassifierTests
 
         var entry = Assert.Single(result);
         Assert.Equal("rss-only-prod", entry.NaturalKeyValue);
-        Assert.Equal("podcast", entry.NaturalKeyType);
+        Assert.Equal(ContentSourceType.Podcast, entry.NaturalKeyType);
         Assert.Equal(SyncDiffKind.MissingLocally, entry.Kind);
+    }
+
+    [Fact]
+    public void Classify_YoutubeIdEqualsPodcastGuid_DoNotCollide()
+    {
+        // SYNC-05 / D-05: a YouTube id string equal to a podcast RSS guid must NOT cross-match under the
+        // old bare-PinId keying — the composite (type, value) key keeps them separate.
+        var prod = new[]
+        {
+            Row(youtubeId: "COLLIDE", rssGuid: null, title: "YT row"),
+            Row(youtubeId: null, rssGuid: "COLLIDE", title: "Podcast row")
+        };
+        var local = new[]
+        {
+            Row(youtubeId: "COLLIDE", rssGuid: null, title: "YT row")
+        };
+
+        var result = ContentSyncDiffClassifier.Classify(prod, local);
+
+        // The YouTube row is in sync (identical) and omitted; the podcast row survives as MissingLocally.
+        var entry = Assert.Single(result);
+        Assert.Equal(ContentSourceType.Podcast, entry.NaturalKeyType);
+        Assert.Equal("COLLIDE", entry.NaturalKeyValue);
+        Assert.Equal(SyncDiffKind.MissingLocally, entry.Kind);
+    }
+
+    [Fact]
+    public void Classify_RowWithNoNaturalKey_IsSkipped_AndWarns_WhenLoggerSupplied()
+    {
+        // D-08: a row with neither a YouTube id nor an RSS guid is skipped, and a warning naming the row
+        // is logged when a logger is supplied (silent skip when none).
+        var logger = new RecordingLogger<ContentSyncDiffClassifierTests>();
+        var prod = new[] { Row(youtubeId: null, rssGuid: null, title: "Orphan row") };
+
+        var result = ContentSyncDiffClassifier.Classify(prod, Array.Empty<ContentSiteIndexRow>(), logger);
+
+        Assert.Empty(result);
+        var warning = Assert.Single(logger.Entries);
+        Assert.Contains("Orphan row", warning.Message, StringComparison.Ordinal);
     }
 
     [Fact]
