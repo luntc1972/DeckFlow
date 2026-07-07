@@ -122,6 +122,71 @@ public sealed class ManabaseVerdictSynthesizerTests
         Assert.DoesNotContain(verdict.Lines, line => line.StartsWith("Draw looks light:", System.StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void Synthesize_ColorStarvedWorkableBand_NeverSaysNoChangesNeeded()
+    {
+        // Efficacy R2 finding H4: a color can be a health-band issue (Workable chip) via the
+        // color-starved path with a sub-source paper deficit (Deficit <= 1). The old verdict only
+        // recognized Deficit > 1 and reported "no changes needed" beside the orange chip. The
+        // verdict must consume the same ColorIssueFindings the band derives.
+        ManabaseReport report = CreateReport(
+            avgOnCurvePercent: 84,
+            colorFindings:
+            [
+                new ColorSourceFinding
+                {
+                    Color = ManaColor.White,
+                    ActualSources = 17.5,
+                    RequiredSources = 18, // deficit 0.5 — rounding noise on paper
+                    DrivingSpell = "Wrath of God",
+                    UnderSupportedCount = 3,
+                    ColorLimitedUnderSupportedCount = 3, // > tolerance -> color-starved issue
+                    WorstSpellCastPercent = 68,
+                },
+            ]);
+
+        Assert.Equal(ManabaseHealth.Workable, report.Health); // fixture sanity: chip is orange
+
+        ManabaseVerdict verdict = ManabaseVerdictSynthesizer.Synthesize(report, ManabaseMode.Casual);
+
+        Assert.True(verdict.HasIssues);
+        Assert.Equal(
+            "White access is inconsistent - 3 White spell(s) miss their on-curve window on color; add 1-2 White-producing lands (swap in a dual or cut a colorless utility land).",
+            Assert.Single(verdict.Lines));
+    }
+
+    [Fact]
+    public void Synthesize_LandShortUnderTwo_MatchesPageThreshold()
+    {
+        // Efficacy R2 finding H4 (second scenario): the page's Lands line says "add ~2 land(s)"
+        // at LandDelta < -1, but the verdict used <= -2 and stayed silent. Same threshold now.
+        // Broad under-support (mana-limited misses above tolerance) blocks the ramp-covered
+        // suppression, exactly as it blocks it for the page's land note.
+        ManabaseVerdict verdict = ManabaseVerdictSynthesizer.Synthesize(
+            CreateReport(
+                actualLands: 35,
+                targetLands: 36.5,
+                avgOnCurvePercent: 82,
+                colorFindings:
+                [
+                    new ColorSourceFinding
+                    {
+                        Color = ManaColor.Green,
+                        ActualSources = 20.0,
+                        RequiredSources = 18,
+                        DrivingSpell = "Llanowar Elves",
+                        UnderSupportedCount = 3, // broad, mana-limited -> corroborates the shortfall
+                        ColorLimitedUnderSupportedCount = 0,
+                    },
+                ]),
+            ManabaseMode.Casual);
+
+        Assert.True(verdict.HasIssues);
+        Assert.Equal(
+            "Add ~2 more land(s) - the base is short for this curve.",
+            Assert.Single(verdict.Lines));
+    }
+
     private static ManabaseReport CreateReport(
         int actualLands = 35,
         double targetLands = 35.0,

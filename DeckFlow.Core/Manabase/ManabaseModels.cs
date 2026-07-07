@@ -784,6 +784,7 @@ public sealed record ManabaseReport
         bool everyColorClear = true;
         bool broadUnderSupport = false;
         bool broadColorUnderSupport = false;
+        var issueFindings = new List<ColorSourceFinding>();
 
         // Mirror ManabaseAnalyzer's support thresholds: Casual = 80, cEDH = 88.
         // Why: the health-band castability path (UseHealthBandCastability) must gate on the same
@@ -830,6 +831,7 @@ public sealed record ManabaseReport
             if (sourceShort || colorStarved || simWeakestProblem)
             {
                 colorsWithIssue++;
+                issueFindings.Add(f);
             }
 
             // The simulation's verdict that the base actually fails a meaningful slice of the
@@ -852,8 +854,18 @@ public sealed record ManabaseReport
             }
         }
 
-        return new ColorSignals(colorsWithIssue, anySevereColorDeficit, everyColorClear, broadUnderSupport, broadColorUnderSupport);
+        return new ColorSignals(colorsWithIssue, anySevereColorDeficit, everyColorClear, broadUnderSupport, broadColorUnderSupport, issueFindings);
     }
+
+    /// <summary>
+    /// The per-color findings the health band counts as real issues — source-short
+    /// (Deficit &gt; 1), color-starved, or the sim-weakest composite path — via the SAME
+    /// <see cref="ComputeColorSignals"/> predicate the <see cref="Health"/> getter uses. The
+    /// plain-language verdict consumes this (efficacy R2 finding H4) so it can never report
+    /// "no changes needed" while the health chip shows Workable/Needs work. In
+    /// <see cref="ColorFindings"/> order (composite-worst first).
+    /// </summary>
+    public IReadOnlyList<ColorSourceFinding> ColorIssueFindings => ComputeColorSignals().IssueFindings;
 
     /// <summary>Shared per-color corroboration signals computed once by <see cref="ComputeColorSignals"/>.</summary>
     private readonly record struct ColorSignals(
@@ -861,7 +873,8 @@ public sealed record ManabaseReport
         bool AnySevereColorDeficit,
         bool EveryColorClear,
         bool BroadUnderSupport,
-        bool BroadColorUnderSupport);
+        bool BroadColorUnderSupport,
+        IReadOnlyList<ColorSourceFinding> IssueFindings);
 
     /// <summary>True only when fully <see cref="ManabaseHealth.Healthy"/>. Retained for back-compat.</summary>
     public bool IsHealthy => Health == ManabaseHealth.Healthy;
