@@ -906,4 +906,76 @@ public sealed class ManabaseClassifierTests
         ManaSource basic = Assert.Single(deck.Sources, s => s.Name == "Island");
         Assert.True(basic.EntersUntapped);
     }
+
+    [Fact]
+    public void Classify_OneShotAndTriggeredManaProducers_AreNotRocksOrDorks()
+    {
+        // Efficacy R2 finding H2: Scryfall sets produced_mana on Treasure-makers (the token's
+        // reminder text contains "Add one mana of any color"), one-shot sacrifice mana, and
+        // sac-outlets. None of these is the persistent source the 0.5/0.75 partial weights model
+        // — only a repeatable front-face "<cost>: Add" ability qualifies.
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Dockside Extortionist", Quantity = 1, ManaCost = "{1}{R}", ManaValue = 2,
+                TypeLine = "Creature — Goblin Pirate",
+                OracleText = "When this creature enters, create X Treasure tokens, where X is the number of "
+                    + "artifacts and enchantments your opponents control. (Treasure tokens are artifacts with "
+                    + "\"{T}, Sacrifice this token: Add one mana of any color.\")",
+                ProducedMana = new[] { "W", "U", "B", "R", "G" },
+            },
+            new()
+            {
+                Name = "Lotus Petal", Quantity = 1, ManaCost = "{0}", ManaValue = 0,
+                TypeLine = "Artifact",
+                OracleText = "{T}, Sacrifice this artifact: Add one mana of any color.",
+                ProducedMana = new[] { "W", "U", "B", "R", "G" },
+            },
+            new()
+            {
+                Name = "Ashnod's Altar", Quantity = 1, ManaCost = "{3}", ManaValue = 3,
+                TypeLine = "Artifact",
+                OracleText = "Sacrifice a creature: Add {C}{C}.",
+                ProducedMana = new[] { "C" },
+            },
+            new()
+            {
+                Name = "Sol Ring", Quantity = 1, ManaCost = "{1}", ManaValue = 1,
+                TypeLine = "Artifact",
+                OracleText = "{T}: Add {C}{C}.",
+                ProducedMana = new[] { "C" },
+                ManaAmount = 2,
+            },
+            new()
+            {
+                Name = "Birds of Paradise", Quantity = 1, ManaCost = "{G}", ManaValue = 1,
+                TypeLine = "Creature — Bird",
+                OracleText = "Flying\n{T}: Add one mana of any color.",
+                ProducedMana = new[] { "W", "U", "B", "R", "G" },
+            },
+            new()
+            {
+                Name = "Arcane Signet", Quantity = 1, ManaCost = "{2}", ManaValue = 2,
+                TypeLine = "Artifact",
+                OracleText = "{T}: Add one mana of any color in your commander's color identity.",
+                ProducedMana = new[] { "W", "U", "B", "R", "G" },
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        // One-shot / triggered producers: not sources, and visible in the castability rows.
+        Assert.DoesNotContain(deck.Sources, s => s.Name == "Dockside Extortionist");
+        Assert.DoesNotContain(deck.Sources, s => s.Name == "Lotus Petal");
+        Assert.DoesNotContain(deck.Sources, s => s.Name == "Ashnod's Altar");
+        Assert.False(Assert.Single(deck.Spells, s => s.Name == "Dockside Extortionist").IsManaSource);
+        Assert.False(Assert.Single(deck.Spells, s => s.Name == "Ashnod's Altar").IsManaSource);
+
+        // Genuine rocks/dorks keep their Karsten partial weights and row exclusion.
+        Assert.Equal(0.75, Assert.Single(deck.Sources, s => s.Name == "Sol Ring").Weight);
+        Assert.Equal(0.5, Assert.Single(deck.Sources, s => s.Name == "Birds of Paradise").Weight);
+        Assert.Equal(0.75, Assert.Single(deck.Sources, s => s.Name == "Arcane Signet").Weight);
+        Assert.True(Assert.Single(deck.Spells, s => s.Name == "Sol Ring").IsManaSource);
+    }
 }

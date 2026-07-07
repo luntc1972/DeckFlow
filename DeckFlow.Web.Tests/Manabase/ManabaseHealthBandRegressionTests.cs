@@ -35,15 +35,22 @@ public sealed class ManabaseHealthBandRegressionTests
         // starting player draws their first turn — see CastabilitySimulator). The extra card per game
         // lifts castability, so Stale Brago's floor promotes, Meren clears to Excellent, and army-now
         // rises out of the red band.
+        //
+        // Re-baselined again for efficacy R2 H1/H2 (classifier correctness): taplands with the live
+        // "enters tapped" wording now classify tapped, and produced_mana-only producers
+        // (Treasure-makers, one-shot sac mana, sac-outlets) no longer count as permanent sources.
+        // Both remove phantom optimism: Meren (ritual/Treasure sources gone) drops Excellent →
+        // Solid, and army-now (worst color 46% once its phantom sources vanish) drops Solid →
+        // Needs work. The headline floor cannot promote army-now (WorstColorCastPercent < 50).
         new("Stale Brago (WU control)", ".manabase-brago-facts.json", "Needs work", "Workable"),
         new("Kenrith 5-color rocks", ".manabase-5c-facts.json", "Excellent", "Excellent"),
-        new("Meren Golgari ramp/ritual", ".manabase-golgari-facts.json", "Excellent", "Excellent"),
+        new("Meren Golgari ramp/ritual", ".manabase-golgari-facts.json", "Solid", "Solid"),
         new("Avatar - Sokka/Aang", "avatar-facts.json", "Solid", "Solid", IsAssemblyFixture: true),
         new("Archidekt 23563520 - Marchesa", ".manabase-arch-23563520-facts.json", "Needs work", "Needs work"),
         new("Archidekt 23753514 - graveyard fungus", ".manabase-arch-23753514-facts.json", "Solid", "Solid"),
         new("Archidekt 23638601 - Townos", ".manabase-arch-23638601-facts.json", "Excellent", "Excellent"),
         new("Archidekt 8066726 - The Necrobloom", ".manabase-arch-8066726-facts.json", "Needs work", "Needs work"),
-        new("Archidekt 7084567 - army now", ".manabase-arch-7084567-facts.json", "Solid", "Solid"),
+        new("Archidekt 7084567 - army now", ".manabase-arch-7084567-facts.json", "Needs work", "Needs work"),
     ];
 
     // Retained only for the measurement harness/dump. Post turn-1-draw recalibration this deck no
