@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: Cycle 16
 milestone_name: Content-KB Prod↔Git↔Studio Sync Hardening
 status: executing
-stopped_at: Completed 90-01-PLAN.md
-last_updated: "2026-07-07T22:39:39.967Z"
+stopped_at: Completed 90-02-PLAN.md
+last_updated: "2026-07-07T22:48:02.782Z"
 last_activity: 2026-07-07
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 16
-  completed_plans: 10
+  completed_plans: 11
   percent: 33
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 ## Current Position
 
 Phase: 90 (directpush-correctness-seed-sync) — EXECUTING
-Plan: 2 of 7
+Plan: 3 of 7
 Status: Ready to execute
 Last activity: 2026-07-07
 
-Progress: [██████░░░░] 63%
+Progress: [███████░░░] 69%
 
 ## Roadmap Summary
 
@@ -68,6 +68,7 @@ Progress: [██████░░░░] 63%
 | Phase 89 P05 | ~50min | 2 tasks | 6 files |
 | Phase 89 P06 | ~45min | 3 tasks | 9 files |
 | Phase 90 P01 | ~25min | 3 tasks | 9 files |
+| Phase 90 P02 | 25min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,8 @@ Full decision log lives in PROJECT.md Key Decisions table. Decisions constrainin
 - [Phase 89]: 89-06: ContentBodyHashBackfill is host-agnostic (DeckFlow.Core) with an IContentArtifactBodyResolver seam, wired at startup on BOTH web (after schema-ensure + seed load) and Studio (bound only to the local content-kb.db store, never a ProdStoreFactory prod store) — D-08 dual-host backfill
 - [Phase 89]: 89-06: Studio backfill runs at STARTUP (not piggybacked on publish/upsert) — symmetric with web, explicit, unit-testable; new distills already hash forward via 89-05
 - [Phase 90]: 90-01: Program.cs needed no change for the new IFeatureFlagCache dependency on ContentKbArtifactPathResolver/ContentKbController - both are registered via plain AddSingleton<T>()/implicit MVC DI with no factory lambda, so the container auto-resolves the new constructor param from AddDeckFlowFeatureFlags()
+- [Phase 90]: 90-02: ArtifactPathSafety root param = repoRoot (not repoRoot/content-kb) — ArtifactPath already carries the content-kb/ prefix, matching PullFromProdCoordinator's proven call shape
+- [Phase 90]: 90-02: GitBodyCoverageAudit depends only on IProdContentReader (no IProdStoreFactory reference) so it is structurally incapable of writing to prod (D-11/T-90-04)
 
 ### Pending Todos
 
@@ -114,6 +117,6 @@ Carried forward from Cycle 15 close (2026-07-05) — none are Cycle-16 gaps:
 
 ## Session Continuity
 
-Last session: 2026-07-07T22:39:39.946Z
-Stopped at: Completed 90-01-PLAN.md
+Last session: 2026-07-07T22:48:02.760Z
+Stopped at: Completed 90-02-PLAN.md
 Resume file: None
