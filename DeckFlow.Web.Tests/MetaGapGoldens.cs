@@ -98,6 +98,8 @@ OUTPUT CONTRACT:
 - Then return the JSON inside a fenced ```json code block (triple-backtick json) whose top-level object is meta_gap. Do not return raw JSON outside a code block.
 - The prose summary must come before the JSON block.
 - Fill every field in meta_gap.
+- Return the complete meta_gap JSON in a single response. Do NOT refuse, claim the output is too long, ask to continue, or offer to split it or reduce the schema - a fully-populated meta_gap object is only a few kilobytes and fits well within one response.
+- If the answer would genuinely approach your output limit, keep every justification to one short sentence and cap each list to its 10 highest-priority entries rather than refusing or splitting.
 - Use empty strings, 0, 0.0, false, or [] when evidence is missing.
 - Keep all detail and justification concise, specific, and evidence-based.
 - Put the consistency/redundancy summary and meta-positioning summary into meta_summary and optimization_path.
@@ -174,6 +176,8 @@ Provide readable analysis first covering:
 - META POSITIONING
 After the readable summary, return a single JSON object matching <output_schema>.
 Return the JSON inside a fenced ```json code block (triple-backtick json) whose top-level object is meta_gap. Do not return raw JSON outside a code block.
+Return the complete meta_gap JSON in a single response. Do NOT refuse, claim the output is too long, ask to continue, or offer to split it or reduce the schema - a fully-populated meta_gap object is only a few kilobytes and fits well within one response.
+If the answer would genuinely approach your output limit, keep every justification to one short sentence and cap each list to its 10 highest-priority entries rather than refusing or splitting.
 </task>
 """,
         "Gemini" => """
@@ -272,6 +276,8 @@ Place your readable analysis BEFORE the <result> tag. Inside the <result> wrappe
 - Wrap the entire JSON response in <result>...</result> tags so DeckFlow's parser can extract it uniformly across ChatGPT/Claude/Gemini. The existing fenced ```json code block remains as a fallback — do not remove it.
 - The prose summary must come before the JSON block.
 - Fill every field in meta_gap.
+- Return the complete meta_gap JSON in a single response. Do NOT refuse, claim the output is too long, ask to continue, or offer to split it or reduce the schema - a fully-populated meta_gap object is only a few kilobytes and fits well within one response.
+- If the answer would genuinely approach your output limit, keep every justification to one short sentence and cap each list to its 10 highest-priority entries rather than refusing or splitting.
 - Use empty strings, 0, 0.0, false, or [] when evidence is missing.
 - Keep all detail and justification concise, specific, and evidence-based.
 - Put the consistency/redundancy summary and meta-positioning summary into meta_summary and optimization_path.
@@ -422,6 +428,8 @@ OUTPUT CONTRACT:
 - Then return the JSON inside a fenced ```json code block (triple-backtick json) whose top-level object is meta_gap. Do not return raw JSON outside a code block.
 - The prose summary must come before the JSON block.
 - Fill every field in meta_gap.
+- Return the complete meta_gap JSON in a single response. Do NOT refuse, claim the output is too long, ask to continue, or offer to split it or reduce the schema - a fully-populated meta_gap object is only a few kilobytes and fits well within one response.
+- If the answer would genuinely approach your output limit, keep every justification to one short sentence and cap each list to its 10 highest-priority entries rather than refusing or splitting.
 - Use empty strings, 0, 0.0, false, or [] when evidence is missing.
 - Keep all detail and justification concise, specific, and evidence-based.
 - Put the consistency/redundancy summary and meta-positioning summary into meta_summary and optimization_path.

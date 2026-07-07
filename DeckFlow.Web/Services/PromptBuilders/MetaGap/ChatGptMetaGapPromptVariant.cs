@@ -148,6 +148,8 @@ internal sealed class ChatGptMetaGapPromptVariant : IMetaGapPromptVariant
         builder.AppendLine("- Then return the JSON inside a fenced ```json code block (triple-backtick json) whose top-level object is meta_gap. Do not return raw JSON outside a code block.");
         builder.AppendLine("- The prose summary must come before the JSON block.");
         builder.AppendLine("- Fill every field in meta_gap.");
+        builder.AppendLine("- Return the complete meta_gap JSON in a single response. Do NOT refuse, claim the output is too long, ask to continue, or offer to split it or reduce the schema - a fully-populated meta_gap object is only a few kilobytes and fits well within one response.");
+        builder.AppendLine("- If the answer would genuinely approach your output limit, keep every justification to one short sentence and cap each list to its 10 highest-priority entries rather than refusing or splitting.");
         builder.AppendLine("- Use empty strings, 0, 0.0, false, or [] when evidence is missing.");
         builder.AppendLine("- Keep all detail and justification concise, specific, and evidence-based.");
         builder.AppendLine("- Put the consistency/redundancy summary and meta-positioning summary into meta_summary and optimization_path.");
