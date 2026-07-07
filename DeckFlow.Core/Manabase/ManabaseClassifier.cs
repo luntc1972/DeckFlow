@@ -434,17 +434,29 @@ public static class ManabaseClassifier
     // of any color.)") so token reminder wording never reads as the card's own mana ability.
     private static readonly Regex ReminderTextRegex = new(@"\([^)]*\)", RegexOptions.Compiled);
 
-    // Strips quoted abilities GRANTED TO OTHER permanents ('Equipped creature has "{T}: Add one
-    // mana of any color."' — Paradise Mantle; Goldspan Dragon's Treasure grant). A granted
-    // ability lives on some other permanent, not this card, so it must never make the granter
-    // read as its own rock/dork — granters are modeled separately by DetectGranter/
-    // AddGrantedSources. SELF-grants are kept (negative lookbehind): "As long as this creature
-    // is renowned, it has \"{T}: Add one mana of any color.\"" (Honored Hierarch) or "...this
-    // creature has \"{T}: Add two mana...\"" (Mul Daya Channelers) IS the card's own — albeit
-    // conditional — mana ability, and dropping it would un-source genuine dorks.
-    private static readonly Regex QuotedGrantRegex = new(
-        "(?<!\\b(?:it|this creature|this artifact|this enchantment|this land|this permanent) (?:has|gains) )\"[^\"]*\"",
+    // A quoted span in oracle text ('... have "{T}: Add one mana of any color."'). Quoted
+    // abilities are GRANTS: they live on whatever permanent the surrounding clause names, so a
+    // quote only counts as THIS card's own mana ability when the granting clause includes the
+    // card itself — a self pronoun ("it has", "this creature has" — Honored Hierarch, Mul Daya
+    // Channelers) or a collective naming one of the card's own types ("All Slivers have" on
+    // Gemhide Sliver, "Human creatures you control have" on Katilda, "Creatures you control
+    // have" on Citanul Hierophants). Other-grants (Paradise Mantle's "Equipped creature has",
+    // Chromatic Lantern's "Lands you control have", Goldspan's Treasure grant) are ignored here —
+    // they are modeled separately by DetectGranter/AddGrantedSources.
+    private static readonly Regex QuotedSpanRegex = new("\"([^\"]*)\"", RegexOptions.Compiled);
+
+    // Self pronoun immediately before a quoted grant: "..., it has "..."" / "this creature gains".
+    private static readonly Regex SelfPronounGrantRegex = new(
+        @"\b(?:it|this creature|this artifact|this enchantment|this land|this permanent)\s+(?:has|have|gains?)\s*$",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // Words in a collective-grant subject that never name a type ("All Slivers have", "Sliver
+    // creatures you control have", "Equipped creature has").
+    private static readonly HashSet<string> GrantSubjectStopWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "all", "other", "each", "you", "control", "and", "have", "has", "gains", "gain",
+        "equipped", "enchanted", "target", "token", "tokens", "nontoken", "tapped", "untapped",
+    };
 
     // A repeatable, self-contained mana ability on the card's FRONT face: an activated
     // "<cost>: Add ..." line whose cost does not sacrifice anything. The sacrifice check drops
@@ -462,23 +474,80 @@ public static class ManabaseClassifier
         }
 
         text = ReminderTextRegex.Replace(text, string.Empty);
-        text = QuotedGrantRegex.Replace(text, string.Empty);
-        foreach (string line in text.Split('\n'))
+        foreach (string rawLine in text.Split('\n'))
         {
-            int colon = line.IndexOf(':', StringComparison.Ordinal);
-            if (colon < 0)
+            // Quoted grants that include the card itself count as its own (conditional) mana
+            // ability — evaluate the QUOTED ability's cost/effect. Other-grants are skipped.
+            foreach (Match quote in QuotedSpanRegex.Matches(rawLine))
+            {
+                if (GrantIncludesSelf(card, rawLine[..quote.Index])
+                    && LineHasActivatedAdd(quote.Groups[1].Value))
+                {
+                    return true;
+                }
+            }
+
+            // The card's own unquoted ability lines, with all quoted grants removed.
+            if (LineHasActivatedAdd(QuotedSpanRegex.Replace(rawLine, string.Empty)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // An activated "<cost>: Add ..." whose cost does not sacrifice anything (one-shot mana and
+    // sac-outlets are not the persistent source the Karsten partial weights model).
+    private static bool LineHasActivatedAdd(string line)
+    {
+        int colon = line.IndexOf(':', StringComparison.Ordinal);
+        if (colon < 0)
+        {
+            return false;
+        }
+
+        string cost = line[..colon];
+        if (cost.Contains("Sacrifice", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        string effect = line[(colon + 1)..].TrimStart();
+        return effect.StartsWith("Add ", StringComparison.Ordinal);
+    }
+
+    // True when the granting clause before a quote includes the card itself: a self pronoun
+    // ("it has", "this creature has"), or a collective whose subject names a type on the card's
+    // own type line ("All Slivers have" on a Sliver, "Human creatures you control have" on a
+    // Human, "Creatures you control have" on any creature). "Equipped creature has" on an
+    // Equipment and "Lands/Treasures you control have" on a non-land never match.
+    private static bool GrantIncludesSelf(CardFact card, string prefix)
+    {
+        prefix = prefix.TrimEnd();
+        if (SelfPronounGrantRegex.IsMatch(prefix))
+        {
+            return true;
+        }
+
+        // Collective grant: examine the clause after the last sentence/clause boundary, e.g.
+        // "All Slivers have" or "Sliver creatures you control have".
+        int clauseStart = prefix.LastIndexOfAny(new[] { '.', ',', ';' }) + 1;
+        string[] words = prefix[clauseStart..].Split(
+            new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        foreach (string word in words)
+        {
+            if (GrantSubjectStopWords.Contains(word))
             {
                 continue;
             }
 
-            string cost = line[..colon];
-            if (cost.Contains("Sacrifice", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            string effect = line[(colon + 1)..].TrimStart();
-            if (effect.StartsWith("Add ", StringComparison.Ordinal))
+            // Match the word (and its naive singular) against the card's own type line:
+            // "Slivers" -> "Sliver", "creatures" -> "creature", "Frogs" -> "Frog".
+            string singular = word.Length > 1 && word.EndsWith("s", StringComparison.OrdinalIgnoreCase)
+                ? word[..^1]
+                : word;
+            if (IsType(card.TypeLine, singular))
             {
                 return true;
             }

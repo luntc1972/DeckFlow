@@ -1016,10 +1016,12 @@ public sealed class ManabaseClassifierTests
     [Fact]
     public void Classify_SelfGrantedManaAbility_StaysADork()
     {
-        // Codex review round 2: the quoted-grant strip must NOT drop SELF-grants — a conditional
-        // ability the card gives ITSELF is still its own repeatable mana ability. Honored
-        // Hierarch ("...it has ...") and Mul Daya Channelers ("...this creature has ...") are
-        // genuine dorks; Paradise Mantle-style other-grants stay excluded (previous test).
+        // Codex review rounds 2-3: quoted grants that include the card ITSELF are its own
+        // (conditional) mana ability — self pronouns (Honored Hierarch "it has", Mul Daya
+        // Channelers "this creature has") AND collectives naming one of the card's own types
+        // (Gemhide Sliver "All Slivers have", Katilda "Human creatures you control have",
+        // Citanul Hierophants "Creatures you control have"). Other-grants (Paradise Mantle)
+        // stay excluded (previous test).
         var cards = new List<CardFact>
         {
             new()
@@ -1037,11 +1039,35 @@ public sealed class ManabaseClassifierTests
                     + "As long as the top card of your library is a land card, this creature has \"{T}: Add two mana of any one color.\"",
                 ProducedMana = new[] { "W", "U", "B", "R", "G" },
             },
+            new()
+            {
+                Name = "Gemhide Sliver", Quantity = 1, ManaCost = "{1}{G}", ManaValue = 2,
+                TypeLine = "Creature — Sliver",
+                OracleText = "All Slivers have \"{T}: Add one mana of any color.\"",
+                ProducedMana = new[] { "W", "U", "B", "R", "G" },
+            },
+            new()
+            {
+                Name = "Katilda, Dawnhart Prime", Quantity = 1, ManaCost = "{G}{W}", ManaValue = 2,
+                TypeLine = "Legendary Creature — Human Warlock",
+                OracleText = "Ward {1}\nHuman creatures you control have \"{T}: Add one mana of any color.\"",
+                ProducedMana = new[] { "W", "U", "B", "R", "G" },
+            },
+            new()
+            {
+                Name = "Citanul Hierophants", Quantity = 1, ManaCost = "{3}{G}", ManaValue = 4,
+                TypeLine = "Creature — Human Druid",
+                OracleText = "Creatures you control have \"{T}: Add {G}.\"",
+                ProducedMana = new[] { "G" },
+            },
         };
 
         ManabaseDeck deck = ManabaseClassifier.Classify(cards);
 
         Assert.Equal(0.5, Assert.Single(deck.Sources, s => s.Name == "Honored Hierarch").Weight);
         Assert.Equal(0.5, Assert.Single(deck.Sources, s => s.Name == "Mul Daya Channelers").Weight);
+        Assert.Equal(0.5, Assert.Single(deck.Sources, s => s.Name == "Gemhide Sliver").Weight);
+        Assert.Equal(0.5, Assert.Single(deck.Sources, s => s.Name == "Katilda, Dawnhart Prime").Weight);
+        Assert.Equal(0.5, Assert.Single(deck.Sources, s => s.Name == "Citanul Hierophants").Weight);
     }
 }
