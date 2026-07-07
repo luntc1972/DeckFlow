@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: Cycle 16
 milestone_name: Content-KB Prod↔Git↔Studio Sync Hardening
-status: executing
-stopped_at: Completed 89-05-PLAN.md
-last_updated: "2026-07-07T18:09:23.691Z"
+status: verifying
+stopped_at: Completed 89-06-PLAN.md
+last_updated: "2026-07-07T18:24:06.217Z"
 last_activity: 2026-07-07
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 9
-  completed_plans: 8
-  percent: 17
+  completed_plans: 9
+  percent: 33
 ---
 
 # Project State
@@ -27,17 +27,17 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 
 Phase: 89 (content-hash-foundation) — EXECUTING
 Plan: 6 of 6
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-07
 
-Progress: [█████████░] 89%
+Progress: [██████████] 100%
 
 ## Roadmap Summary
 
 | # | Phase | Requirements | Flag | Status |
 |---|-------|-------------|------|--------|
 | 88 | Index-Row Integrity Hotfix | SYNC-04, SYNC-05, SYNC-06 | — | ✅ Complete |
-| 89 | Content-Hash Foundation | SYNC-01, SYNC-02, SYNC-03 | — | Not started |
+| 89 | Content-Hash Foundation | SYNC-01, SYNC-02, SYNC-03 | — | ✅ Complete |
 | 90 | DirectPush Correctness + Seed Sync | SYNC-07, SYNC-08, SYNC-09, SYNC-10 | `sync.directpush-gitbody` | Not started |
 | 91 | Reconcile + Seed Lifecycle | SYNC-17, SYNC-11, SYNC-12 | `sync.reconcile` | Not started |
 | 92 | Pull Hardening | SYNC-13, SYNC-14, SYNC-15 | — | Not started |
@@ -66,6 +66,7 @@ Progress: [█████████░] 89%
 | Phase 89 P03 | 15m | 2 tasks | 3 files |
 | Phase 89 P04 | 20min | 2 tasks | 5 files |
 | Phase 89 P05 | ~50min | 2 tasks | 6 files |
+| Phase 89 P06 | ~45min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,8 @@ Full decision log lives in PROJECT.md Key Decisions table. Decisions constrainin
 - [Phase 89]: 89-03: Fingerprint deleted; classifier equal-timestamp branch now calls ContentSiteIndexContentSignature.AreContentEqual (SYNC-02/D-03), UTC-direction branches (F-51-PG-01) untouched
 - [Phase 89]: 89-04: bodySha256 added to the single shared export factory ContentIndexExportRow.From() (not to CLI/DirectPush consumers) so both inherit it automatically — SYNC-02 one-signature-one-home invariant extended to seed export (D-09)
 - [Phase 89]: 89-05: publish-compute and detail render-guard both call ContentSiteIndexContentSignature.ComputeBodySha256, the ONE shared hash helper (D-01); guard is fail-open + structured-log on mismatch OR null/legacy stored hash, detail-render only, no feature flag (D-05/D-06/D-07)
+- [Phase 89]: 89-06: ContentBodyHashBackfill is host-agnostic (DeckFlow.Core) with an IContentArtifactBodyResolver seam, wired at startup on BOTH web (after schema-ensure + seed load) and Studio (bound only to the local content-kb.db store, never a ProdStoreFactory prod store) — D-08 dual-host backfill
+- [Phase 89]: 89-06: Studio backfill runs at STARTUP (not piggybacked on publish/upsert) — symmetric with web, explicit, unit-testable; new distills already hash forward via 89-05
 
 ### Pending Todos
 
@@ -109,6 +112,6 @@ Carried forward from Cycle 15 close (2026-07-05) — none are Cycle-16 gaps:
 
 ## Session Continuity
 
-Last session: 2026-07-07T18:09:23.671Z
-Stopped at: Completed 89-05-PLAN.md
+Last session: 2026-07-07T18:24:06.191Z
+Stopped at: Completed 89-06-PLAN.md
 Resume file: None
