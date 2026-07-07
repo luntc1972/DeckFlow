@@ -35,7 +35,8 @@ public sealed class ContentIndexExportJsonGoldenTests
                 IndexedUtc = DateTimeOffset.Parse("2026-06-12T09:15:00Z"),
                 ArchetypeTags = ["turbo-naus", "midrange"],
                 BracketTags = ["cEDH"],
-                CardCategoryTags = ["fast-mana", "interaction"]
+                CardCategoryTags = ["fast-mana", "interaction"],
+                BodySha256 = "a1b2c3d4e5f60718293a4b5c6d7e8f90112233445566778899aabbccddeeff"
             },
             new ContentIndexExportRow
             {
@@ -49,7 +50,8 @@ public sealed class ContentIndexExportJsonGoldenTests
                 IndexedUtc = DateTimeOffset.Parse("2026-06-12T10:45:12Z"),
                 ArchetypeTags = [],
                 BracketTags = [],
-                CardCategoryTags = ["stax"]
+                CardCategoryTags = ["stax"],
+                BodySha256 = null
             },
             new ContentIndexExportRow
             {
@@ -63,7 +65,8 @@ public sealed class ContentIndexExportJsonGoldenTests
                 IndexedUtc = DateTimeOffset.Parse("2026-06-12T11:00:00Z"),
                 ArchetypeTags = ["control"],
                 BracketTags = ["cEDH", "high-power"],
-                CardCategoryTags = []
+                CardCategoryTags = [],
+                BodySha256 = "0011223344556677889900aabbccddeeff00112233445566778899aabbccdd"
             }
         ];
 }
