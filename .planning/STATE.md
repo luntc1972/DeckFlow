@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: Cycle 16
 milestone_name: Content-KB Prod↔Git↔Studio Sync Hardening
 status: executing
-stopped_at: Completed 89-04-PLAN.md
-last_updated: "2026-07-07T17:52:38.240Z"
+stopped_at: Completed 89-05-PLAN.md
+last_updated: "2026-07-07T18:09:23.691Z"
 last_activity: 2026-07-07
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 9
-  completed_plans: 7
+  completed_plans: 8
   percent: 17
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 ## Current Position
 
 Phase: 89 (content-hash-foundation) — EXECUTING
-Plan: 5 of 6
+Plan: 6 of 6
 Status: Ready to execute
 Last activity: 2026-07-07
 
-Progress: [████████░░] 78%
+Progress: [█████████░] 89%
 
 ## Roadmap Summary
 
@@ -65,6 +65,7 @@ Progress: [████████░░] 78%
 | Phase 89 P02 | 35m | 2 tasks | 4 files |
 | Phase 89 P03 | 15m | 2 tasks | 3 files |
 | Phase 89 P04 | 20min | 2 tasks | 5 files |
+| Phase 89 P05 | ~50min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,7 @@ Full decision log lives in PROJECT.md Key Decisions table. Decisions constrainin
 - [Phase 89]: 89-02: SetBodySha256IfNullAsync declared as a throwing default interface method (mirrors DeleteAllRowsAsync) so 12 unrelated IContentSiteIndexStore test doubles compile unchanged
 - [Phase 89]: 89-03: Fingerprint deleted; classifier equal-timestamp branch now calls ContentSiteIndexContentSignature.AreContentEqual (SYNC-02/D-03), UTC-direction branches (F-51-PG-01) untouched
 - [Phase 89]: 89-04: bodySha256 added to the single shared export factory ContentIndexExportRow.From() (not to CLI/DirectPush consumers) so both inherit it automatically — SYNC-02 one-signature-one-home invariant extended to seed export (D-09)
+- [Phase 89]: 89-05: publish-compute and detail render-guard both call ContentSiteIndexContentSignature.ComputeBodySha256, the ONE shared hash helper (D-01); guard is fail-open + structured-log on mismatch OR null/legacy stored hash, detail-render only, no feature flag (D-05/D-06/D-07)
 
 ### Pending Todos
 
@@ -107,6 +109,6 @@ Carried forward from Cycle 15 close (2026-07-05) — none are Cycle-16 gaps:
 
 ## Session Continuity
 
-Last session: 2026-07-07T17:52:38.220Z
-Stopped at: Completed 89-04-PLAN.md
+Last session: 2026-07-07T18:09:23.671Z
+Stopped at: Completed 89-05-PLAN.md
 Resume file: None
