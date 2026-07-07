@@ -413,16 +413,65 @@ public static class ManabaseClassifier
     }
 
     // The exact rock/dork test AddPartialSources uses, factored out so the row-exclusion set ==
-    // the partial-source set. NOT bare ProducesMana (deliberately broad — would hide hybrid
-    // payoff cards). MDFC land-backs are NOT rocks/dorks; they are real spells with a land face.
+    // the partial-source set. MDFC land-backs are NOT rocks/dorks; they are real spells with a
+    // land face. Requires a REPEATABLE front-face mana ability (efficacy R2 finding H2): bare
+    // produced_mana is too broad — Scryfall sets it on Treasure-makers (Dockside Extortionist,
+    // whose reminder text contains "Add one mana of any color"), one-shot sacrifice mana (Lotus
+    // Petal, Lion's Eye Diamond) and sac-outlets (Phyrexian/Ashnod's Altar), all of which
+    // previously counted as PERMANENT weighted color sources and were hidden from the
+    // castability rows as IsManaSource.
     private static bool IsRockOrDork(CardFact card)
     {
-        if (card.HasLandFace || card.ProducedMana.Count == 0 || !ProducesMana(card))
+        if (card.HasLandFace || card.ProducedMana.Count == 0 || !HasRepeatableManaAbility(card))
         {
             return false;
         }
 
         return IsType(card.TypeLine, "Creature") || IsType(card.TypeLine, "Artifact");
+    }
+
+    // Strips parenthesized reminder text ("(Treasure tokens are artifacts with ... Add one mana
+    // of any color.)") so token reminder wording never reads as the card's own mana ability.
+    private static readonly Regex ReminderTextRegex = new(@"\([^)]*\)", RegexOptions.Compiled);
+
+    // A repeatable, self-contained mana ability on the card's FRONT face: an activated
+    // "<cost>: Add ..." line whose cost does not sacrifice anything. The sacrifice check drops
+    // one-shot mana (Lotus Petal "{T}, Sacrifice this artifact: Add ...") and sac-outlet engines
+    // (Ashnod's Altar "Sacrifice a creature: Add {C}{C}") — neither is the persistent source the
+    // 0.5/0.75 Karsten partial weights model. Triggered Treasure creation carries no "<cost>: Add"
+    // line at all once reminder text is stripped, so Dockside/Goldspan-class cards fall out too
+    // (Goldspan's granted Treasure ability is also excluded by its "Sacrifice" cost).
+    private static bool HasRepeatableManaAbility(CardFact card)
+    {
+        string text = card.FrontFaceOracleText ?? card.OracleText ?? string.Empty;
+        if (text.Length == 0)
+        {
+            return false;
+        }
+
+        text = ReminderTextRegex.Replace(text, string.Empty);
+        foreach (string line in text.Split('\n'))
+        {
+            int colon = line.IndexOf(':', StringComparison.Ordinal);
+            if (colon < 0)
+            {
+                continue;
+            }
+
+            string cost = line[..colon];
+            if (cost.Contains("Sacrifice", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            string effect = line[(colon + 1)..].TrimStart();
+            if (effect.StartsWith("Add ", StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static SpellKinds ClassifyKinds(string typeLine)

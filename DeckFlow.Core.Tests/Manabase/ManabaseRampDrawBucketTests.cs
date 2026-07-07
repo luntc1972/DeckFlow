@@ -78,10 +78,14 @@ public sealed class ManabaseRampDrawBucketTests
     }
 
     [Fact]
-    public void Classify_BudgetOnlyRockDork_DoesNotLeakIntoHistoricLandTargetCredit()
+    public void Classify_ProducedManaOnlyCreature_IsNeitherSourceNorRampCredit()
     {
+        // Efficacy R2 finding H2: bare produced_mana with no repeatable front-face "<cost>: Add"
+        // ability no longer classifies as a rock/dork AT ALL (real-world shape: Treasure-makers
+        // like Dockside Extortionist). It must not become a weighted source, a budget ramp piece,
+        // or a land-target credit — a deck with it prices lands exactly like a vanilla creature.
         CardFact oneDropDorkWithoutBroadRampText = Nonland(
-            "Birds of Paradise",
+            "Treasure Trigger Creature",
             1,
             "Creature — Bird",
             "Flying.",
@@ -120,9 +124,10 @@ public sealed class ManabaseRampDrawBucketTests
         ManabaseReport baselineReport = ManabaseAnalyzer.Analyze(
             ManabaseClassifier.Classify(deckWithVanillaCreature, rampCreditV2: false));
 
-        Assert.Equal(1.0, deck.RampPieceCount);
+        Assert.Equal(0.0, deck.RampPieceCount);
         Assert.Equal(0.0, deck.DrawPieceCount);
         Assert.Equal(0, deck.RampAndDrawUnderThree);
+        Assert.DoesNotContain(deck.Sources, s => s.Name == "Treasure Trigger Creature");
         Assert.NotNull(report.LandTarget);
         Assert.NotNull(baselineReport.LandTarget);
         Assert.Equal(baselineReport.TargetLands, report.TargetLands);
