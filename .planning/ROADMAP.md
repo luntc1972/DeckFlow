@@ -72,7 +72,13 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
   1. `content_site_index` carries a `body_sha256` column (SQLite + Postgres + seed JSON) computed from the on-disk `.md` body at publish time.
   2. DirectPush, Pull, and reconcile all compare rows using one unified body-inclusive signature — the two previously divergent schemes (`ContentSiteIndexContentSignature` and the `ContentSyncDiffClassifier` fingerprint) are gone.
   3. The web app refuses to render a row whose on-disk body hash does not match its stored `body_sha256`, logging the mismatch instead of serving stale/corrupt content.
-**Plans**: TBD
+**Plans**: 6 plans (3 waves)
+- [ ] 89-01-PLAN.md — Shared ComputeBodySha256 helper + body-inclusive BuildSignature + ContentSiteIndexRow.BodySha256 (SYNC-01, SYNC-02) [wave 1]
+- [ ] 89-02-PLAN.md — Store body_sha256 DDL/model/upsert plumbing + null-only backfill setter (SYNC-01) [wave 2]
+- [ ] 89-03-PLAN.md — Delete Fingerprint, switch classifier to unified signature + one-signature-surface guard test (SYNC-02) [wave 2]
+- [ ] 89-04-PLAN.md — index-seed.json export/load bodySha256 round-trip + golden fixture (SYNC-01) [wave 3]
+- [ ] 89-05-PLAN.md — Publish-time hash compute + detail-render fail-open guard with structured warning (SYNC-01, SYNC-03) [wave 3]
+- [ ] 89-06-PLAN.md — One-time deterministic startup backfill pass (idempotent, DDL-free) (SYNC-01) [wave 3]
 
 ### Phase 90: DirectPush Correctness + Seed Sync
 **Goal**: DirectPush converges to the same consistent end-state as Publish — bodies reach prod only through git, and a redeploy can never revert or leave a DirectPush'd row half-consistent.
@@ -129,8 +135,8 @@ Phases execute in numeric order: 88 → 89 → 90 → 91 → 92 → 93
 | 85. `chatgpt-*` Naming Cleanup | 2026.07.2 | 5/5 | Complete | 2026-07-05 |
 | 86. UI Audit Re-Score, Studio Stage 4 & Admin Flags Closeout | 2026.07.2 | 5/5 | Complete | 2026-07-05 |
 | 87. Creator-Source Model Hardening | 2026.07.2 | 1/1 | Complete | 2026-07-05 |
-| 88. Index-Row Integrity Hotfix | Cycle 16 | 0/3 | Planned | - |
-| 89. Content-Hash Foundation | Cycle 16 | 0/TBD | Not started | - |
+| 88. Index-Row Integrity Hotfix | Cycle 16 | 3/3 | Complete | 2026-07-06 |
+| 89. Content-Hash Foundation | Cycle 16 | 0/6 | Planned | - |
 | 90. DirectPush Correctness + Seed Sync | Cycle 16 | 0/TBD | Not started | - |
 | 91. Reconcile + Seed Lifecycle | Cycle 16 | 0/TBD | Not started | - |
 | 92. Pull Hardening | Cycle 16 | 0/TBD | Not started | - |
