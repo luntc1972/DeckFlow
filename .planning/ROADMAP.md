@@ -31,7 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
 ### 🚧 Cycle 16 — Content-KB Prod↔Git↔Studio Sync Hardening (target `2026.07.3`)
 
 - [x] **Phase 88: Index-Row Integrity Hotfix** - DirectPush stops writing visible-while-pending rows and collision-prone PinId diffing (ships first — live prod bugs)
-- [ ] **Phase 89: Content-Hash Foundation** - One unified body-inclusive hash everywhere; corrupt/stale bodies become detectable instead of silently served
+- [x] **Phase 89: Content-Hash Foundation** - One unified body-inclusive hash everywhere; corrupt/stale bodies become detectable instead of silently served
 - [ ] **Phase 90: DirectPush Correctness + Seed Sync** - Bodies reach prod only via git; DirectPush re-exports the seed and survives a redeploy without reverting (flag `sync.directpush-gitbody`)
 - [ ] **Phase 91: Reconcile + Seed Lifecycle** - Seed-ownership marker, then a prod↔git↔seed reconciler (dry-run first), then gated seed-driven removal (flag `sync.reconcile`)
 - [ ] **Phase 92: Pull Hardening** - Pull-from-Prod adopts prod state without clobbering operator fields or acting on a stale checkout
@@ -78,7 +78,7 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
 - [x] 89-03-PLAN.md — Delete Fingerprint, switch classifier to unified signature + one-signature-surface guard test (SYNC-02) [wave 2]
 - [x] 89-04-PLAN.md — index-seed.json export/load bodySha256 round-trip + golden fixture (SYNC-01) [wave 3]
 - [x] 89-05-PLAN.md — Publish-time hash compute + detail-render fail-open guard with structured warning (SYNC-01, SYNC-03) [wave 3]
-- [ ] 89-06-PLAN.md — One-time deterministic startup backfill pass (idempotent, DDL-free) (SYNC-01) [wave 3]
+- [x] 89-06-PLAN.md — One-time deterministic startup backfill pass (idempotent, DDL-free) (SYNC-01) [wave 3]
 
 ### Phase 90: DirectPush Correctness + Seed Sync
 **Goal**: DirectPush converges to the same consistent end-state as Publish — bodies reach prod only through git, and a redeploy can never revert or leave a DirectPush'd row half-consistent.
@@ -136,7 +136,7 @@ Phases execute in numeric order: 88 → 89 → 90 → 91 → 92 → 93
 | 86. UI Audit Re-Score, Studio Stage 4 & Admin Flags Closeout | 2026.07.2 | 5/5 | Complete | 2026-07-05 |
 | 87. Creator-Source Model Hardening | 2026.07.2 | 1/1 | Complete | 2026-07-05 |
 | 88. Index-Row Integrity Hotfix | Cycle 16 | 3/3 | Complete | 2026-07-06 |
-| 89. Content-Hash Foundation | Cycle 16 | 5/6 | In Progress|  |
+| 89. Content-Hash Foundation | Cycle 16 | 6/6 | Complete   | 2026-07-07 |
 | 90. DirectPush Correctness + Seed Sync | Cycle 16 | 0/TBD | Not started | - |
 | 91. Reconcile + Seed Lifecycle | Cycle 16 | 0/TBD | Not started | - |
 | 92. Pull Hardening | Cycle 16 | 0/TBD | Not started | - |
