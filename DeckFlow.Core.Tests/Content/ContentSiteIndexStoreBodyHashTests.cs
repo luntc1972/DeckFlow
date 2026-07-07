@@ -8,9 +8,9 @@ namespace DeckFlow.Core.Tests;
 
 /// <summary>
 /// SQLite integration tests for the <c>body_sha256</c> column added to <c>content_site_index</c>
-/// (D-09): fresh-DB CREATE, existing-DB idempotent ALTER, content-upsert round-trip, and the reseed
-/// overwrite-from-EXCLUDED path. Task 2's <c>SetBodySha256IfNullAsync</c> safe-on-re-run setter
-/// coverage lives in this same file, added by a follow-up commit.
+/// (D-09): fresh-DB CREATE, existing-DB idempotent ALTER, content-upsert round-trip, the reseed
+/// overwrite-from-EXCLUDED path, and the <see cref="IContentSiteIndexStore.SetBodySha256IfNullAsync"/>
+/// safe-on-re-run setter (Task 2).
 /// </summary>
 public sealed class ContentSiteIndexStoreBodyHashTests : IDisposable
 {
@@ -219,6 +219,66 @@ public sealed class ContentSiteIndexStoreBodyHashTests : IDisposable
         Assert.Null(row!.BodySha256);
     }
 
+    // ── SetBodySha256IfNullAsync (Task 2) ────────────────────────────────────
+
+    [Fact]
+    public async Task SetBodySha256IfNullAsync_NullRow_SetsHashAndAffectsOneRow()
+    {
+        var store = new ContentSiteIndexStore(_dbPath);
+        await store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-backfill", bodySha256: null));
+        var row = await store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-backfill");
+        Assert.NotNull(row);
+
+        var hash = new string('e', 64);
+        var affected = await store.SetBodySha256IfNullAsync(row!.Id, hash);
+
+        Assert.Equal(1, affected);
+        var updated = await store.GetByIdAsync(row.Id);
+        Assert.Equal(hash, updated!.BodySha256);
+    }
+
+    [Fact]
+    public async Task SetBodySha256IfNullAsync_SecondCall_IsNoOpAndDoesNotOverwrite()
+    {
+        var store = new ContentSiteIndexStore(_dbPath);
+        await store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-backfill-noop", bodySha256: null));
+        var row = await store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-backfill-noop");
+        Assert.NotNull(row);
+
+        var firstHash = new string('f', 64);
+        var secondHash = new string('g', 64);
+
+        var firstAffected = await store.SetBodySha256IfNullAsync(row!.Id, firstHash);
+        var secondAffected = await store.SetBodySha256IfNullAsync(row.Id, secondHash);
+
+        Assert.Equal(1, firstAffected);
+        Assert.Equal(0, secondAffected);
+
+        var updated = await store.GetByIdAsync(row.Id);
+        Assert.Equal(firstHash, updated!.BodySha256);
+    }
+
+    [Fact]
+    public async Task SetBodySha256IfNullAsync_NullOrWhitespaceHash_Throws()
+    {
+        var store = new ContentSiteIndexStore(_dbPath);
+        await store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-backfill-guard", bodySha256: null));
+        var row = await store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-backfill-guard");
+        Assert.NotNull(row);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => store.SetBodySha256IfNullAsync(row!.Id, "   "));
+    }
+
+    // ── Throwing default interface method (non-implementing double) ─────────
+
+    [Fact]
+    public async Task SetBodySha256IfNullAsync_DefaultInterfaceMethod_ThrowsNotSupported()
+    {
+        IContentSiteIndexStore doubleWithoutOverride = new NonImplementingStoreDouble();
+        await Assert.ThrowsAsync<NotSupportedException>(
+            () => doubleWithoutOverride.SetBodySha256IfNullAsync(1, new string('h', 64)));
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static async Task<bool> ColumnExistsAsync(System.Data.Common.DbConnection connection, string columnName)
@@ -255,4 +315,33 @@ public sealed class ContentSiteIndexStoreBodyHashTests : IDisposable
             ApprovalStatus = "approved",
             BodySha256 = bodySha256,
         };
+
+    /// <summary>
+    /// Minimal <see cref="IContentSiteIndexStore"/> double that implements nothing beyond the
+    /// interface's required members — used to prove <c>SetBodySha256IfNullAsync</c>'s default
+    /// interface method throws for stores that don't override it (mirrors <c>DeleteAllRowsAsync</c>).
+    /// </summary>
+    private sealed class NonImplementingStoreDouble : IContentSiteIndexStore
+    {
+        public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpsertRowAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpsertRowPreservingVisibilityAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpsertContentColumnsOnlyAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<ContentSiteIndexRow?> GetByNaturalKeyAsync(string naturalKeyType, string naturalKeyValue, CancellationToken cancellationToken = default) => Task.FromResult<ContentSiteIndexRow?>(null);
+        public Task<IReadOnlyList<ContentSiteIndexRow>> GetPublishedRowsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ContentSiteIndexRow>>(Array.Empty<ContentSiteIndexRow>());
+        public Task<IReadOnlyList<ContentSiteIndexRow>> GetApprovedRowsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ContentSiteIndexRow>>(Array.Empty<ContentSiteIndexRow>());
+        public Task<IReadOnlyList<ContentSiteIndexRow>> GetAllRowsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ContentSiteIndexRow>>(Array.Empty<ContentSiteIndexRow>());
+        public Task<ContentSiteIndexRow?> GetByIdAsync(long id, CancellationToken cancellationToken = default) => Task.FromResult<ContentSiteIndexRow?>(null);
+        public Task<ContentSiteIndexRow?> GetPublishedByIdAsync(long id, CancellationToken cancellationToken = default) => Task.FromResult<ContentSiteIndexRow?>(null);
+        public Task<int> SetVisibilityAsync(long id, bool visible, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> SetHiddenAsync(long id, bool hidden, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> DeleteByIdAsync(long id, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> SetEvergreenAsync(long id, bool evergreen, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> SetVisibilityBySourceAsync(string source, bool visible, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> SetHiddenBySourceAsync(string source, bool hidden, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> SetApprovalStatusAsync(string naturalKeyType, string naturalKeyValue, string status, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> SetApprovalStatusAsync(IReadOnlyList<(string Type, string Value)> keys, string status, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> StampPushedToProdAsync(IReadOnlyList<(string Type, string Value)> keys, DateTimeOffset pushedUtc, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> SetVisibilityAsync(IReadOnlyList<(string Type, string Value)> keys, bool visible, CancellationToken cancellationToken = default) => Task.FromResult(0);
+    }
 }

@@ -224,4 +224,18 @@ public interface IContentSiteIndexStore
         IReadOnlyList<ContentSiteIndexRow> rows,
         CancellationToken cancellationToken = default)
         => throw new NotSupportedException("This content site-index store does not support batch content upsert.");
+
+    /// <summary>
+    /// Sets <c>body_sha256</c> for a single row ONLY when it is currently <see langword="null"/> —
+    /// safe to call repeatedly (D-08 backfill): a row that already carries a hash is left untouched
+    /// (never overwrites an existing hash). Real-implemented on <see cref="ContentSiteIndexStore"/>;
+    /// this default interface method mirrors <see cref="DeleteAllRowsAsync"/>'s throwing-escape-hatch
+    /// idiom so the ~13 hand-written test doubles that don't need backfill semantics compile unchanged.
+    /// </summary>
+    /// <param name="id">Site-index row identifier.</param>
+    /// <param name="bodySha256">Lowercase hex SHA-256 to set.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of rows updated (1 when the row existed with a null hash; otherwise 0).</returns>
+    Task<int> SetBodySha256IfNullAsync(long id, string bodySha256, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content site-index store does not support body-hash backfill.");
 }

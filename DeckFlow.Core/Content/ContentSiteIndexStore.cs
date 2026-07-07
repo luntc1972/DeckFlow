@@ -465,6 +465,24 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
     }
 
     /// <inheritdoc />
+    public async Task<int> SetBodySha256IfNullAsync(long id, string bodySha256, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(bodySha256);
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        return await connection.ExecuteAsync(new CommandDefinition(
+            """
+            UPDATE content_site_index
+               SET body_sha256 = @bodySha256
+             WHERE id = @id
+               AND body_sha256 IS NULL;
+            """,
+            new { bodySha256, id },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<int> DeleteAllRowsAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
