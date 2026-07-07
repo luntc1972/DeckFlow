@@ -18,7 +18,7 @@
 ### Content-Hash Foundation
 
 - [ ] **SYNC-01**: `content_site_index` gains `body_sha256` (dialect-guarded DDL, SQLite + Postgres + seed JSON), computed from the `.md` body at publish (M5)
-- [ ] **SYNC-02**: ONE unified body-inclusive row signature replaces the two divergent schemes (`ContentSiteIndexContentSignature` + `ContentSyncDiffClassifier` fingerprint); DirectPush, Pull, and reconcile all share it
+- [x] **SYNC-02**: ONE unified body-inclusive row signature replaces the two divergent schemes (`ContentSiteIndexContentSignature` + `ContentSyncDiffClassifier` fingerprint); DirectPush, Pull, and reconcile all share it
 - [ ] **SYNC-03**: Web app refuses to render a row whose on-disk body hash ≠ stored `body_sha256`, logging the mismatch — mojibake/stale-body corruption becomes detectable instead of served
 
 ### DirectPush Correctness + Seed Sync (flag `sync.directpush-gitbody`)
@@ -77,7 +77,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SYNC-05 | 88 | Pending |
 | SYNC-06 | 88 | Pending |
 | SYNC-01 | 89 | Pending |
-| SYNC-02 | 89 | Pending |
+| SYNC-02 | 89 | Complete |
 | SYNC-03 | 89 | Pending |
 | SYNC-07 | 90 | Pending |
 | SYNC-08 | 90 | Pending |
