@@ -20,4 +20,24 @@ public interface IProdContentReader
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>All production content index rows.</returns>
     Task<IReadOnlyList<ContentSiteIndexRow>> ReadAllAsync(string connectionString, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reads a single feature-flag's enabled state from the production <c>feature_flags</c> table via
+    /// ONE plain SELECT (D-04) — structurally read-only, no DDL/write/schema-ensure, mirroring
+    /// <see cref="ReadAllAsync"/>'s connection setup exactly. Real-implemented ONLY on
+    /// <see cref="ProdContentReader"/>; declared here as a THROWING default interface method (the
+    /// 89-02 / 90-03 throwing-escape-hatch idiom) so the existing hand-written
+    /// <c>FakeProdContentReader</c> test double keeps compiling unchanged (no CS0535).
+    /// </summary>
+    /// <param name="connectionString">Raw prod Postgres connection string (URL or key-value form).</param>
+    /// <param name="key">Feature-flag key to read (e.g. <c>sync.directpush-gitbody</c>).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    /// <see langword="true"/> only when the flag row exists AND is enabled; <see langword="false"/> on
+    /// a missing row, a null <c>enabled</c> value, or a caught connection/query failure. Fails CLOSED
+    /// (D-04) — the inverse of the web-side <c>IFeatureFlagCache</c> default-on: Studio must never
+    /// assume a brand-new, riskier flag is ON when it cannot confirm the value.
+    /// </returns>
+    Task<bool> ReadFlagAsync(string connectionString, string key, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This prod content reader does not support flag reads.");
 }
