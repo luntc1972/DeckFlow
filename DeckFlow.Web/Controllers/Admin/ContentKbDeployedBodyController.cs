@@ -60,9 +60,33 @@ public sealed class ContentKbDeployedBodyController : ControllerBase
         [FromQuery] string? naturalKeyValue,
         CancellationToken cancellationToken)
     {
-        // RED stub (Task 2): unconditional 404 - GREEN commit adds the real natural-key lookup,
-        // git-only resolve, and hash recompute.
-        await Task.CompletedTask;
-        return NotFound();
+        if (string.IsNullOrWhiteSpace(naturalKeyType) || string.IsNullOrWhiteSpace(naturalKeyValue))
+        {
+            return BadRequest();
+        }
+
+        // Why: unfiltered natural-key lookup (NOT GetPublishedByIdAsync) so a not-yet-visible
+        // DirectPush'd row still yields its /app hash - the whole point of D-09 REVISED is to
+        // confirm the deploy independent of is_visible, which flips only AFTER this confirms.
+        var row = await _store.GetByNaturalKeyAsync(naturalKeyType, naturalKeyValue, cancellationToken).ConfigureAwait(false);
+        if (row is null || !row.ArtifactPath.StartsWith("content-kb/", StringComparison.Ordinal))
+        {
+            return NotFound();
+        }
+
+        var resolution = _resolver.TryResolveGitArtifact(row.ArtifactPath, out var resolvedFullPath);
+        if (resolution != ContentKbArtifactResolution.Resolved)
+        {
+            _logger.LogInformation(
+                "Deploy-confirm miss for natural key {NaturalKeyType}/{NaturalKeyValue}: {Resolution}",
+                naturalKeyType,
+                naturalKeyValue,
+                resolution);
+            return NotFound();
+        }
+
+        var raw = await System.IO.File.ReadAllTextAsync(resolvedFullPath, cancellationToken).ConfigureAwait(false);
+        var bodySha256 = ContentSiteIndexContentSignature.ComputeBodySha256(raw);
+        return Ok(new { bodySha256 });
     }
 }
