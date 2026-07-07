@@ -84,10 +84,18 @@ public static class ScryfallCardFactMapper
     {
         if (card.CardFaces is { Count: > 0 } faces)
         {
-            if (faces.Any(f => ContainsLand(f.TypeLine)))
-            {
-                return true;
-            }
+            // Only a face that is playable AS a land from hand counts (efficacy R2 M6). The FRONT
+            // face always does (Westvale Abbey, or a Land // Land MDFC). A BACK-face land is
+            // playable from hand only on a modal DFC (Malakir Rebirth // Malakir Mire); on a
+            // transform card (Search for Azcanta // Azcanta) the land back is reached only by
+            // flipping the front — not castable from hand — so it earns no color-source / land
+            // credit. The joined card-level type_line ("Enchantment // Land") is intentionally NOT
+            // used here because it leaks a transform back into the land count.
+            bool frontIsLand = ContainsLand(faces[0].TypeLine);
+            bool mdfcBackIsLand = faces.Count > 1
+                && string.Equals(card.Layout, "modal_dfc", StringComparison.OrdinalIgnoreCase)
+                && ContainsLand(faces[1].TypeLine);
+            return frontIsLand || mdfcBackIsLand;
         }
 
         return ContainsLand(card.TypeLine);

@@ -127,6 +127,51 @@ public sealed class ScryfallCardFactMapperTests
     }
 
     [Fact]
+    public void ToCardFact_TransformCardWithLandBack_HasNoLandFace()
+    {
+        // M6: a transform card's land back (Search for Azcanta // Azcanta) is reached only by
+        // flipping the front — it is NOT castable from hand, so it earns no land credit. Contrast
+        // with the modal_dfc case above, whose back IS a hand-playable land.
+        var card = new ScryfallCardData
+        {
+            Name = "Search for Azcanta // Azcanta, the Sunken Ruin",
+            Cmc = 2,
+            Layout = "transform",
+            CardFaces = new List<ScryfallFaceData>
+            {
+                new() { Name = "Search for Azcanta", ManaCost = "{1}{U}", TypeLine = "Legendary Enchantment", OracleText = "At the beginning of your upkeep, look at the top card..." },
+                new() { Name = "Azcanta, the Sunken Ruin", ManaCost = "", TypeLine = "Legendary Land", OracleText = "{T}: Add {U}." },
+            },
+        };
+
+        CardFact fact = ScryfallCardFactMapper.ToCardFact(card, 1);
+
+        Assert.False(fact.HasLandFace);
+    }
+
+    [Fact]
+    public void ToCardFact_TransformCardWithLandFront_HasLandFace()
+    {
+        // M6 guard: the FRONT face still counts even on a transform card. Westvale Abbey is a land
+        // that transforms into a creature — it is a real, hand-playable land.
+        var card = new ScryfallCardData
+        {
+            Name = "Westvale Abbey // Ormendahl, Profane Prince",
+            Cmc = 0,
+            Layout = "transform",
+            CardFaces = new List<ScryfallFaceData>
+            {
+                new() { Name = "Westvale Abbey", ManaCost = "", TypeLine = "Land", OracleText = "{T}: Add {C}." },
+                new() { Name = "Ormendahl, Profane Prince", ManaCost = "", TypeLine = "Legendary Creature — Demon", OracleText = "Flying, trample, haste" },
+            },
+        };
+
+        CardFact fact = ScryfallCardFactMapper.ToCardFact(card, 1);
+
+        Assert.True(fact.HasLandFace);
+    }
+
+    [Fact]
     public void ToCardFact_SplitCard_UsesFrontFaceManaValueNotCombinedCmc()
     {
         // Commit // Memory: Scryfall root cmc = 10 (combined), but the cast front is {3}{U} = 4.
