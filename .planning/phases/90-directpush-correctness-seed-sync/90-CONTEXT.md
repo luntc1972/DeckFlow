@@ -99,7 +99,8 @@ gating an ordering/stamp plan), not cram all four into one plan.
   not return the prod id, so the confirm URL can't be built reliably for new rows.
 
   **Corrected design:** add a small authenticated read endpoint on the web app,
-  `GET /api/contentkb/deployed-body-hash?naturalKeyType={t}&naturalKeyValue={v}`, that resolves
+  `GET /Admin/api/contentkb/deployed-body-hash?naturalKeyType={t}&naturalKeyValue={v}` (routed
+  under `/Admin` so the existing BasicAuth branch guards it), that resolves
   the row's artifact from the git `/app` tree ONLY (via `ContentKbArtifactPathResolver`, NOT the
   `/data` overlay, NOT gated on `is_visible`), returns **404** if the `/app` artifact is missing,
   else returns JSON `{ bodySha256 }` where `bodySha256` is recomputed with the shared
