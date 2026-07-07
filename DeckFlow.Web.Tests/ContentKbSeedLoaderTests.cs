@@ -101,6 +101,67 @@ public sealed class ContentKbSeedLoaderTests : IDisposable
     }
 
     [Fact]
+    public async Task LoadIfPresentAsync_MapsBodySha256_WhenPresent()
+    {
+        var baseDir = CreateContentKbBase();
+        WriteSeed(baseDir, """
+        [
+          {
+            "naturalKeyType": "youtube_channel",
+            "naturalKeyValue": "hashedKey",
+            "source": "EDHRECast",
+            "title": "Hashed",
+            "videoUrl": "https://youtu.be/hashedKey",
+            "publishedUtc": null,
+            "indexedUtc": "2026-06-01T00:00:00Z",
+            "artifactPath": "content-kb/edhrecast/hashedKey.md",
+            "archetypeTags": [],
+            "bracketTags": [],
+            "cardCategoryTags": [],
+            "bodySha256": "a1b2c3d4e5f60718293a4b5c6d7e8f90112233445566778899aabbccddeeff"
+          }
+        ]
+        """);
+        var store = new FakeContentSiteIndexStore();
+        var loader = BuildLoader(baseDir, store);
+
+        await loader.LoadIfPresentAsync();
+
+        var row = Assert.Single(store.PreservingUpserts);
+        Assert.Equal("a1b2c3d4e5f60718293a4b5c6d7e8f90112233445566778899aabbccddeeff", row.BodySha256);
+    }
+
+    [Fact]
+    public async Task LoadIfPresentAsync_LeavesBodySha256Null_WhenLegacyEntryOmitsIt()
+    {
+        var baseDir = CreateContentKbBase();
+        WriteSeed(baseDir, """
+        [
+          {
+            "naturalKeyType": "youtube_channel",
+            "naturalKeyValue": "legacyKey",
+            "source": "EDHRECast",
+            "title": "Legacy",
+            "videoUrl": "https://youtu.be/legacyKey",
+            "publishedUtc": null,
+            "indexedUtc": "2026-06-01T00:00:00Z",
+            "artifactPath": "content-kb/edhrecast/legacyKey.md",
+            "archetypeTags": [],
+            "bracketTags": [],
+            "cardCategoryTags": []
+          }
+        ]
+        """);
+        var store = new FakeContentSiteIndexStore();
+        var loader = BuildLoader(baseDir, store);
+
+        await loader.LoadIfPresentAsync();
+
+        var row = Assert.Single(store.PreservingUpserts);
+        Assert.Null(row.BodySha256);
+    }
+
+    [Fact]
     public async Task LoadIfPresentAsync_MapsPodcastKey_ToRssGuid()
     {
         var baseDir = CreateContentKbBase();
