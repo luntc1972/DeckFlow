@@ -254,8 +254,14 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         // MQ-05: read the color-aware-mulligan flag and pass it down. Fail-safe OFF, same as the others.
         bool colorAwareMulligan = IsFlagOn(ColorAwareMulliganFlagKey);
 
-        // P4 gated-ramp shares the land-ramp-sim flag: when ramp is modeled in the sim, also gate its
-        // credit on the ramp's own colored cost being payable (mirrors 17Lands; corrects the optimism).
+        // P4 gated-ramp is always on (efficacy R2 M3): before the sim credits a ramp piece's mana it
+        // verifies the ramp's OWN colored cost is payable from the current board (mirrors 17Lands),
+        // otherwise a {G} dork gets deployed from a green-less hand and its mana inflates cast %. This
+        // was previously coupled to the land-ramp-sim flag, but rocks and dorks are modeled in the sim
+        // unconditionally — land-ramp-sim only adds land-ramp SPELLS (Cultivate) — so the gate is
+        // relevant whenever the deck runs any ramp, not only when land-ramp spells are simulated.
+        // Decoupled and hardcoded on: it is pure correctness, was already live in prod (land-ramp-sim
+        // enabled), and the 9-deck calibration guard confirms a <=1pt delta with no band change.
         // MQ-health-band: couple the verdict tier to the sim's composite-worst-color cast %. Fail-safe
         // OFF — seeded OFF; promoted to ON once the 9-deck calibration regression guard confirms no
         // Solid/Excellent deck regresses.
@@ -263,7 +269,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         bool useHealthBandHeadlineFloor = IsFlagOn(HealthBandHeadlineFloorFlagKey);
         ManabaseReport report = ManabaseAnalyzer.Analyze(
             resolved.Deck, options.Mode, options.CommanderImportance, options.CostOverrides,
-            useManaQuantity, colorAwareMulligan, gateRampOnCastable: landRampSim,
+            useManaQuantity, colorAwareMulligan, gateRampOnCastable: true,
             useHealthBandCastability: useHealthBandCastability,
             useHealthBandHeadlineFloor: useHealthBandHeadlineFloor);
 
@@ -283,7 +289,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 companionRequirement,
                 useManaQuantity,
                 colorAwareMulligan,
-                gateRampOnCastable: landRampSim);
+                gateRampOnCastable: true); // always on — see the report Analyze call above (R2 M3)
         }
 
         if (plainLanguage)
