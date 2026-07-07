@@ -81,6 +81,9 @@ public sealed class ManaRampCreditTests
     [InlineData("Target player draws two cards.", false)]               // indeterminate other: excluded
     [InlineData("Target opponent draws a card.", false)]                // opponent-only: excluded
     [InlineData("Whenever you draw your second card each turn, ...", false)] // "draw your second card" ≠ a/N cards
+    [InlineData("Whenever you draw a card, you gain 1 life.", false)]    // draw-as-trigger payoff, not a draw source
+    [InlineData("If you would draw a card this turn, skip that draw instead.", false)] // draw-as-replacement condition
+    [InlineData("When this creature enters, draw a card.", true)]        // ETB draw effect: no "you" before draw → kept
     public void M7_YouAnchoredDraw_V2AndBudgetAgree(string oracle, bool isDraw)
     {
         CardFact card = Fact("Draw Test", 2, "Artifact", oracle);
