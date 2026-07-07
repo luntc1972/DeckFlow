@@ -14,6 +14,17 @@ namespace DeckFlow.Core.Manabase;
 /// </remarks>
 public static class KarstenManabase
 {
+    // Karsten's published 60-card land-count regression (interior = intercept + slope·MV) and the
+    // credit coefficients, as shared named constants. Both SingletonLandTarget (which scales the
+    // interior by deck size) and SixtyCardLandTarget reference these so the two can never diverge
+    // again — the H5 bug was exactly a hand-copied interior that had silently drifted (32.65 +
+    // 3.16·MV = these pre-multiplied by 5/3). One edit here if Karsten republishes.
+    private const double LandIntercept = 19.59;
+    private const double LandMvSlope = 1.90;
+    private const double RampDrawCredit = 0.28;
+    private const double MdfcCommonCredit = 0.74;
+    private const double MdfcMythicCredit = 0.38;
+
     /// <summary>
     /// Recommended land count for a singleton / Commander deck (Karsten's regression fit).
     /// </summary>
@@ -34,12 +45,12 @@ public static class KarstenManabase
         double mdfcMythic = 0)
     {
         double scale = (totalCards - commanderCount) / 60.0;
-        double interior = 19.59 + (1.90 * averageManaValue) + (0.27 * commanderCount);
+        double interior = LandIntercept + (LandMvSlope * averageManaValue) + (0.27 * commanderCount);
         return (scale * interior)
-            - (0.28 * rampAndDrawUnderThree)
+            - (RampDrawCredit * rampAndDrawUnderThree)
             - fastMana
-            - (0.74 * mdfcCommon)
-            - (0.38 * mdfcMythic)
+            - (MdfcCommonCredit * mdfcCommon)
+            - (MdfcMythicCredit * mdfcMythic)
             - 1.35;
     }
 
@@ -85,12 +96,12 @@ public static class KarstenManabase
         double mdfcCommon = 0,
         double mdfcMythic = 0)
     {
-        return 19.59
-            + (1.90 * averageManaValue)
-            - (0.28 * rampAndDrawUnderThree)
+        return LandIntercept
+            + (LandMvSlope * averageManaValue)
+            - (RampDrawCredit * rampAndDrawUnderThree)
             - fastMana
-            - (0.74 * mdfcCommon)
-            - (0.38 * mdfcMythic);
+            - (MdfcCommonCredit * mdfcCommon)
+            - (MdfcMythicCredit * mdfcMythic);
     }
 
     /// <summary>
