@@ -43,6 +43,7 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
     [InlineData("analysis.multi-axis-score", false)] // SCORE-01: seeded OFF
     [InlineData("tool.primer.stale-flag", false)] // PRIMER: seeded OFF
     [InlineData("analysis.mulligan-eval", false)] // MULLIGAN-06: seeded OFF
+    [InlineData("sync.directpush-gitbody", false)] // SYNC-07/D-05: seeded OFF
     public async Task EnsureSchema_SeedsManabaseFlags_AtExpectedDefault(string key, bool expectedOn)
     {
         var store = new FeatureFlagStore(_dbPath);
@@ -68,5 +69,20 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
 
         var postgresSql = Assert.IsType<string>(field!.GetRawConstantValue());
         Assert.Contains("('analysis.mulligan-eval', FALSE)", postgresSql, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// T-90-03 landmine guard: <c>sync.directpush-gitbody</c> must be explicitly seeded FALSE
+    /// in the Postgres dialect too, or <see cref="FeatureFlagCache"/>'s missing-key default-on
+    /// convention (D-13) would silently activate the SYNC-07 serving flip.
+    /// </summary>
+    [Fact]
+    public void PostgresSeedSql_SeedsDirectPushGitBodyFlag_Off()
+    {
+        var field = typeof(FeatureFlagStore).GetField("PostgresSeedSql", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(field);
+
+        var postgresSql = Assert.IsType<string>(field!.GetRawConstantValue());
+        Assert.Contains("('sync.directpush-gitbody', FALSE)", postgresSql, StringComparison.Ordinal);
     }
 }

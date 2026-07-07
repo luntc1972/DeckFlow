@@ -94,6 +94,9 @@ public static class FeatureFlagCatalog
                 "artifact - a keepable-hand band, London mulligan keep-depth process, and representative " +
                 "openers with a per-play on-curve and has-a-plan read, all a heuristic consistency signal " +
                 "derived from the existing simulation. Off = byte-identical output.",
+            ["sync.directpush-gitbody"] =
+                "Serve a Content-KB body exclusively from the git-shipped /app tree, dropping the legacy " +
+                "/data-SFTP-first overlay fallback. Off = today's byte-identical git-then-overlay serving.",
         };
 
     /// <summary>
