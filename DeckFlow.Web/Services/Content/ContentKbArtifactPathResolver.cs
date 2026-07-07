@@ -160,9 +160,25 @@ public sealed class ContentKbArtifactPathResolver
     public ContentKbArtifactResolution TryResolveGitArtifact(string artifactPath, out string resolvedFullPath)
     {
         resolvedFullPath = string.Empty;
+        if (!IsSafeArtifactPath(artifactPath))
+        {
+            return ContentKbArtifactResolution.InvalidPath;
+        }
 
-        // RED stub (Task 1): always MissingFile - GREEN commit adds the real git-root resolve.
-        return ContentKbArtifactResolution.MissingFile;
+        var gitRoot = Path.Combine(ContentBase, "content-kb");
+        var gitPath = Path.GetFullPath(Path.Combine(ContentBase, artifactPath));
+        if (!IsContainedUnderRoot(gitPath, gitRoot))
+        {
+            return ContentKbArtifactResolution.InvalidPath;
+        }
+
+        if (!File.Exists(gitPath))
+        {
+            return ContentKbArtifactResolution.MissingFile;
+        }
+
+        resolvedFullPath = gitPath;
+        return ContentKbArtifactResolution.Resolved;
     }
 
     private string ResolveContentBase(IWebHostEnvironment environment, IConfiguration configuration)
