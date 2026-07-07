@@ -97,6 +97,8 @@ public partial class Program
                     DeckFlowDatabaseConnectionFactory.CreateContentSiteIndexConnection(builder.Environment)));
             builder.Services.AddSingleton<ContentKbArtifactPathResolver>();
             builder.Services.AddSingleton<IContentKbSeedLoader, ContentKbSeedLoader>();
+            builder.Services.AddSingleton<DeckFlow.Core.Content.IContentArtifactBodyResolver, ContentKbArtifactBodyResolver>();
+            builder.Services.AddSingleton<DeckFlow.Core.Content.ContentBodyHashBackfill>();
             builder.Services.AddSingleton<DeckFlow.Core.Content.PublishStateDeriver>();
             builder.Services.AddSingleton<IAdminBruteForceTrackerStore, AdminBruteForceTrackerStore>();
             builder.Services.AddDeckFlowFeatureFlags();
@@ -264,6 +266,13 @@ public partial class Program
             await app.Services.GetRequiredService<DeckFlow.Core.Content.IContentSiteIndexStore>().EnsureSchemaAsync();
             await app.Services.GetRequiredService<IContentKbSeedLoader>().LoadIfPresentAsync();
             app.Logger.LogInformation("Content site-index schema ensured and seed load completed during startup.");
+
+            // D-08: one-time deterministic body_sha256 backfill, third step after schema-ensure
+            // (the column must exist) and seed load (freshly-seeded rows get hashed too). Idempotent
+            // null-only pass — safe to run on every startup.
+            app.Logger.LogInformation("Running Content KB body-hash backfill during startup.");
+            await app.Services.GetRequiredService<DeckFlow.Core.Content.ContentBodyHashBackfill>().RunAsync();
+            app.Logger.LogInformation("Content KB body-hash backfill completed during startup.");
 
             app.Logger.LogInformation("Ensuring harvest store schemas during startup.");
             await app.Services.GetRequiredService<IHarvestRunStore>().EnsureSchemaAsync();
