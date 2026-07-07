@@ -49,7 +49,7 @@ public static class ManabaseClassifier
     // land-target credit (IsRepeatableRampOrDraw) and the budget draw count (IsDrawPieceForBudget),
     // instead of one subsystem crediting it while the other ignores it.
     private static readonly Regex YouCardDrawRegex = new(
-        @"(?<!opponent )(?<!opponents )(?<!target player )(?<!target opponent )(?<!that player )(?<!another player )\bdraws?\s+(?:a|one|two|three|four|five|six|seven|eight|nine|ten|x|\d+)\s+cards?",
+        @"(?<!(?:opponent|opponents|target player|target opponent|that player|another player) )\bdraws?\s+(?:a|one|two|three|four|five|six|seven|eight|nine|ten|x|\d+)\s+cards?",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     /// <summary>Build a <see cref="ManabaseDeck"/> from classified card facts.</summary>
