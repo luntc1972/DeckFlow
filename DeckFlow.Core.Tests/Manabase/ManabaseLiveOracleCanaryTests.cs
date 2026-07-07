@@ -124,7 +124,9 @@ public sealed class ManabaseLiveOracleCanaryTests
             return "dropped a real repeatable mana dork — the H2 grant/one-shot filter is too aggressive";
         }
 
-        return dork.Weight > 0.6
+        // Must be the ~0.5 mana-dork weight specifically: a regression to 0.25 (conditional/granted),
+        // 0.75 (rock) or 0 would still be "a partial source" but is the wrong classification.
+        return dork.Weight is < 0.45 or > 0.55
             ? $"weight {dork.Weight} is not the expected 0.5 mana-dork weight"
             : null;
     }
