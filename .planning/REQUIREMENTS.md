@@ -24,7 +24,7 @@
 ### DirectPush Correctness + Seed Sync (flag `sync.directpush-gitbody`)
 
 - [x] **SYNC-07**: Bodies reach prod only via git `/app` — the `/data`-SFTP-first overlay is dropped (architecture flip; kills M1 unreachable-body + M3 `/app`-shadows-`/data`)
-- [ ] **SYNC-08**: DirectPush re-exports `index-seed.json` (like Publish) so git fully reconstructs prod and a redeploy cannot revert DirectPush'd rows (M2, C3)
+- [x] **SYNC-08**: DirectPush re-exports `index-seed.json` (like Publish) so git fully reconstructs prod and a redeploy cannot revert DirectPush'd rows (M2, C3)
 - [x] **SYNC-09**: Hash-gated expand-contract ordering — body committed + deployed + hash-verified at `/app` before `is_visible` flips (M3)
 - [x] **SYNC-10**: `pushed_to_prod_utc` stamped only after prod confirms the deployed body, not at local commit time (M6a; fixes "Never published" badge on live rows)
 
@@ -80,7 +80,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SYNC-02 | 89 | Complete |
 | SYNC-03 | 89 | Complete |
 | SYNC-07 | 90 | Complete |
-| SYNC-08 | 90 | Pending |
+| SYNC-08 | 90 | Complete |
 | SYNC-09 | 90 | Complete |
 | SYNC-10 | 90 | Complete |
 | SYNC-17 | 91 | Pending |
