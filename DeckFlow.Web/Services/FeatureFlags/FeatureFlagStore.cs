@@ -230,7 +230,8 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('analysis.interaction-audit', FALSE),
           ('analysis.wincon-map', FALSE),
           ('analysis.mulligan-eval', FALSE),
-          ('tool.primer.stale-flag', FALSE)
+          ('tool.primer.stale-flag', FALSE),
+          ('sync.directpush-gitbody', FALSE)
         ON CONFLICT (key) DO NOTHING;
         """;
 
@@ -269,7 +270,8 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('analysis.interaction-audit', 0),
           ('analysis.wincon-map', 0),
           ('analysis.mulligan-eval', 0),
-          ('tool.primer.stale-flag', 0)
+          ('tool.primer.stale-flag', 0),
+          ('sync.directpush-gitbody', 0)
         ON CONFLICT (key) DO NOTHING;
         """;
 
