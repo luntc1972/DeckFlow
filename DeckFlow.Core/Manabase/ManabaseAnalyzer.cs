@@ -918,11 +918,8 @@ public static class ManabaseAnalyzer
         // signal, so naming it as the representative early play is misleading. Prefer rows that actually
         // demand mana (ManaValue >= 1); fall back to all non-commander rows only when every tracked
         // spell is free (a degenerate paste), so the read is never silently emptied.
-        List<CardCastability> openerRows = nonCommanderRows.Where(r => r.ManaValue >= 1).ToList();
-        if (openerRows.Count == 0)
-        {
-            openerRows = nonCommanderRows;
-        }
+        List<CardCastability> demandingRows = nonCommanderRows.Where(r => r.ManaValue >= 1).ToList();
+        List<CardCastability> openerRows = demandingRows.Count > 0 ? demandingRows : nonCommanderRows;
 
         // Earliest-row-first, then concatenate each row's own samples, then keep the first sample seen
         // per distinct Decision (at most 3: "keep 7" / "mulligan to 6" / "mulligan to 5") — each sample
