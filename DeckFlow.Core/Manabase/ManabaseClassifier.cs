@@ -40,9 +40,17 @@ public static class ManabaseClassifier
         @"this spell costs \{x\} less to cast,? where x is the greatest power among creatures you control",
         RegexOptions.Compiled);
 
-    private static readonly Regex BudgetDrawRegex = new(
-        @"draws?\s+(one|two|three|four|five|six|seven|x|\d+)\s+cards?",
-        RegexOptions.Compiled);
+    // A card-draw effect that benefits YOU (efficacy R2 M7). Matches "draw(s) a/N card(s)" —
+    // imperative ("Draw a card"), activated ("<cost>: Draw a card"), "you (may) draw…", and
+    // symmetric wheels ("each player draws seven cards", where you are a player too) — but EXCLUDES
+    // draws attributed to an opponent or an indeterminate other player ("target/that/another player
+    // draws", "opponent(s) draw"), which are not card advantage for the caster. Handling "draws?"
+    // (with the plural s) is the point: a "…draws two cards" card is now seen the same by the v2
+    // land-target credit (IsRepeatableRampOrDraw) and the budget draw count (IsDrawPieceForBudget),
+    // instead of one subsystem crediting it while the other ignores it.
+    private static readonly Regex YouCardDrawRegex = new(
+        @"(?<!opponent )(?<!opponents )(?<!target player )(?<!target opponent )(?<!that player )(?<!another player )\bdraws?\s+(?:a|one|two|three|four|five|six|seven|eight|nine|ten|x|\d+)\s+cards?",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     /// <summary>Build a <see cref="ManabaseDeck"/> from classified card facts.</summary>
     /// <param name="cards">All cards in the deck (including any commanders, flagged).</param>
@@ -791,6 +799,9 @@ public static class ManabaseClassifier
                 || text.Contains("enters the battlefield tapped", StringComparison.OrdinalIgnoreCase));
     }
 
+    // v1 (rampCreditV2 OFF) legacy baseline — DELIBERATELY FROZEN to the historic broad predicate
+    // (ManaRampCreditTests guards "flag-off == historic"). The M7 you-anchored unification applies to
+    // the ACTIVE v2 + budget paths only; this off-path is not prod and is left byte-identical.
     private static bool IsRampOrDraw(CardFact card)
     {
         string text = card.OracleText ?? string.Empty;
@@ -814,12 +825,12 @@ public static class ManabaseClassifier
             || IsLandRampToBattlefield(card);
     }
 
-    private static bool IsDrawPieceForBudget(CardFact card)
-    {
-        string text = (card.OracleText ?? string.Empty).ToLowerInvariant();
-        return text.Contains("draw a card", StringComparison.Ordinal)
-            || BudgetDrawRegex.IsMatch(text);
-    }
+    private static bool IsDrawPieceForBudget(CardFact card) =>
+        IsYouCardDraw(card);
+
+    // Shared you-anchored card-draw predicate (M7). See YouCardDrawRegex.
+    private static bool IsYouCardDraw(CardFact card) =>
+        YouCardDrawRegex.IsMatch(card.OracleText ?? string.Empty);
 
     // MQ-03 (rampCreditV2): narrowed land-target credit. Only REPEATABLE ramp and true card draw earn
     // the Karsten −0.28 credit; one-shot rituals ("Add" on an instant/sorcery) and Treasure-makers do
@@ -832,11 +843,9 @@ public static class ManabaseClassifier
     //     enchantment ramp (Utopia Sprawl, Wild Growth). The type-gate is what drops one-shot rituals.
     private static bool IsRepeatableRampOrDraw(CardFact card)
     {
-        string text = card.OracleText ?? string.Empty;
-
-        bool draw = text.Contains("draw a card", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("draw two cards", StringComparison.OrdinalIgnoreCase);
-        if (draw)
+        // True card draw for YOU (M7 shared predicate — same one the budget count uses, so a
+        // "draws two cards" card can't be credited by one subsystem and ignored by the other).
+        if (IsYouCardDraw(card))
         {
             return true;
         }
@@ -848,19 +857,53 @@ public static class ManabaseClassifier
 
         // Repeatable mana permanent (rock/dork/enchantment ramp). Check the FRONT face only: joined
         // oracle text would leak a one-shot mana adventure/back face into this front-face permanent
-        // test (a creature with a "{...} Add" adventure is NOT repeatable ramp). Front "Add " is the
-        // precise signal — card-level produced_mana is intentionally NOT used here (also leaky).
+        // test (a creature with a "{...} Add" adventure is NOT repeatable ramp). A front-face "Add "
+        // that is NOT one-shot is the signal — card-level produced_mana is intentionally NOT used
+        // here (also leaky).
         string typeLine = card.TypeLine ?? string.Empty;
-        string frontText = card.FrontFaceOracleText ?? card.OracleText ?? string.Empty;
-        // Strip parenthesized reminder text before the "Add " check (efficacy R2 M4). A permanent
-        // whose ETB/dies clause makes a Treasure/Food/etc. token carries that token's reminder
-        // ("(...Sacrifice this artifact: Add one mana of any color.)") in its front-face text —
-        // which would otherwise read as the CARD's own repeatable mana ability and earn the −0.28
-        // credit MQ-03 exists to deny (Prosperous Innkeeper, Goldhound). Mirrors the H2 strip in
-        // HasRepeatableManaAbility; a real "{T}: Add" ability lives outside parens and survives.
-        frontText = ReminderTextRegex.Replace(frontText, string.Empty);
         bool permanent = !IsType(typeLine, "Instant") && !IsType(typeLine, "Sorcery");
-        return permanent && frontText.Contains("Add ", StringComparison.OrdinalIgnoreCase);
+        return permanent && HasNonOneShotFrontAdd(card);
+    }
+
+    // A front-face "Add ..." mana ability that is not a one-shot sacrifice (efficacy R2 M4 + M4b).
+    // Looser than HasRepeatableManaAbility (which requires a "<cost>: Add" line and drives partial
+    // SOURCE weight): here any front-face "Add " counts — bare mana abilities, triggered enchantment
+    // ramp ("...adds an additional one mana...") — EXCEPT when the only "Add " sits after a
+    // sacrifice cost. M4 strips the parenthesized token reminder ("(...Sacrifice this token: Add
+    // one mana...)") so a Treasure/Food maker never reads as its own source. M4b then drops a
+    // permanent whose sole mana ability is a one-shot sac ("{T}, Sacrifice this artifact: Add three
+    // mana" — Lotus Bloom, Lion's Eye Diamond, Chromatic Star class): those give no persistent mana,
+    // so they must not earn the −0.28 repeatable-ramp land credit — matching the H2 sac-guard.
+    private static bool HasNonOneShotFrontAdd(CardFact card)
+    {
+        string text = card.FrontFaceOracleText ?? card.OracleText ?? string.Empty;
+        if (text.Length == 0)
+        {
+            return false;
+        }
+
+        text = ReminderTextRegex.Replace(text, string.Empty);
+        foreach (string line in text.Split('\n'))
+        {
+            int add = line.IndexOf("Add ", StringComparison.OrdinalIgnoreCase);
+            if (add < 0)
+            {
+                continue;
+            }
+
+            // An "Add" preceded on the same line by a "<cost>: " whose cost sacrifices is one-shot
+            // (Lotus Bloom) or a sac-outlet (Ashnod's Altar) — skip it; keep scanning other lines.
+            int colon = line.IndexOf(':', StringComparison.Ordinal);
+            if (colon >= 0 && colon < add
+                && line[..colon].Contains("Sacrifice", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     // 70-03b: repeatable land-ramp that puts a land ONTO THE BATTLEFIELD (Cultivate / Rampant Growth /
@@ -920,13 +963,18 @@ public static class ManabaseClassifier
             return null;
         }
 
-        // The matched scope prefix sits just before "spells you cast"; classify it.
-        ReductionScope scope = ClassifyReducerScope(match.Groups["scope"].Value);
+        // The matched scope prefix sits just before "spells you cast"; classify it. An unrecognized
+        // non-empty (tribal/supertype) scope returns null → no modeled reducer (M5).
+        ReductionScope? scope = ClassifyReducerScope(match.Groups["scope"].Value);
+        if (scope is null)
+        {
+            return null;
+        }
 
         return new CostReducer
         {
             GenericReduction = amount,
-            Scope = scope,
+            Scope = scope.Value,
             SourceManaValue = Math.Max(0, (int)Math.Round(card.ManaValue)),
         };
     }
@@ -1060,9 +1108,14 @@ public static class ManabaseClassifier
     private static string NormalizeBracedCost(string braced) =>
         braced.ToUpperInvariant();
 
-    private static ReductionScope ClassifyReducerScope(string scopePhrase)
+    private static ReductionScope? ClassifyReducerScope(string scopePhrase)
     {
         string s = scopePhrase.Trim();
+        if (s.Length == 0)
+        {
+            return ReductionScope.All; // bare "spells you cast cost {N} less" = every spell
+        }
+
         bool instant = s.Contains("instant", StringComparison.Ordinal);
         bool sorcery = s.Contains("sorcery", StringComparison.Ordinal);
         if (instant || sorcery)
@@ -1080,7 +1133,11 @@ public static class ManabaseClassifier
             return ReductionScope.Artifact;
         }
 
-        return ReductionScope.All;
+        // M5: an unrecognized non-empty scope is a tribal / supertype narrowing ("Giant", "Goblin",
+        // "Historic", "multicolored" spells you cast cost less). It discounts only that subset, not
+        // every spell; modeling per-subset is out of scope, and defaulting to ReductionScope.All
+        // over-credits the whole deck (cap −2). Drop the reducer entirely — a safe under-credit.
+        return null;
     }
 
     // ---- GRANT-01: mana-ability granters --------------------------------------------------

@@ -39,6 +39,9 @@ public sealed class ManaRampCreditTests
         // M4: an ETB-Treasure permanent carries the token's REMINDER text ("(...Add one mana...)").
         // That parenthetical must not read as the card's own repeatable mana ability → dropped in v2.
         new object[] { "Prosperous Innkeeper", 2.0, "Creature — Halfling Citizen", "When this creature enters, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")\nWhenever another creature you control enters, you gain 1 life.", false, true },
+        // M4b: a permanent whose ONLY mana ability is a one-shot sacrifice ("{T}, Sacrifice ...: Add")
+        // gives no persistent mana → dropped in v2 (Lotus Bloom, Lion's Eye Diamond, Chromatic Star).
+        new object[] { "Lotus Bloom", 0.0, "Artifact", "Suspend 3—{0} (Rather than cast this card from your hand, pay {0} and exile it with three time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)\n{T}, Sacrifice this artifact: Add three mana of any one color.", false, true },
     };
 
     [Theory]
@@ -67,6 +70,27 @@ public sealed class ManaRampCreditTests
 
         Assert.Equal(0, Credit(card, v2: true));   // front-face has no "Add" → dropped in v2
         Assert.Equal(1, Credit(card, v2: false));  // broad reads joined "Add" → credited
+    }
+
+    [Theory]
+    [InlineData("You draw two cards and you lose 2 life.", true)]        // Night's Whisper: you-draw
+    [InlineData("Draw a card.", true)]                                   // imperative = you
+    [InlineData("When this creature enters, you may draw a card.", true)] // "you may draw"
+    [InlineData("{1}, {T}, Sacrifice this artifact: Draw a card.", true)] // activated "<cost>: Draw"
+    [InlineData("Each player draws two cards.", true)]                   // wheel: you are a player too
+    [InlineData("Target player draws two cards.", false)]               // indeterminate other: excluded
+    [InlineData("Target opponent draws a card.", false)]                // opponent-only: excluded
+    [InlineData("Whenever you draw your second card each turn, ...", false)] // "draw your second card" ≠ a/N cards
+    public void M7_YouAnchoredDraw_V2AndBudgetAgree(string oracle, bool isDraw)
+    {
+        CardFact card = Fact("Draw Test", 2, "Artifact", oracle);
+
+        // The v2 land-target credit and the budget draw count share one you-anchored predicate, so
+        // they must return the same answer — and opponent-only / symmetric draws earn neither.
+        Assert.Equal(isDraw ? 1 : 0, Credit(card, v2: true));
+        double drawPieces = ManabaseClassifier
+            .Classify(new[] { card }, isSingleton: true, rampCreditV2: true).DrawPieceCount;
+        Assert.Equal(isDraw ? 1.0 : 0.0, drawPieces);
     }
 
     [Fact]

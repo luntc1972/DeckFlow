@@ -546,6 +546,8 @@ public sealed class ManabaseClassifierTests
     [InlineData("Spells you cast cost {1} less for each artifact you control.")] // "for each" scaling
     [InlineData("Spells your opponents cast cost {2} more.")]                    // opponent-facing
     [InlineData("This spell costs {1} less to cast for each creature you control.")] // not "you cast" + for each
+    [InlineData("Giant spells you cast cost {1} less to cast.")]     // M5: tribal scope → dropped, not All
+    [InlineData("Historic spells you cast cost {1} less to cast.")]  // M5: supertype scope → dropped, not All
     public void Classify_FalsePositiveReducerText_IsNotDetected(string oracle)
     {
         var cards = new List<CardFact>
@@ -565,6 +567,29 @@ public sealed class ManabaseClassifierTests
         ManabaseDeck deck = ManabaseClassifier.Classify(cards);
 
         Assert.Empty(deck.CostReduction);
+    }
+
+    [Fact]
+    public void Classify_BareAllScopeReducer_StillDetectedAsAll()
+    {
+        // M5 guard: an empty scope ("Spells you cast cost {N} less") must still map to All — the fix
+        // only drops UNRECOGNIZED non-empty (tribal/supertype) scopes, not the legitimate all-spell one.
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Generic Reducer",
+                Quantity = 1,
+                ManaCost = "{4}",
+                ManaValue = 4,
+                TypeLine = "Artifact",
+                OracleText = "Spells you cast cost {1} less to cast.",
+                ProducedMana = System.Array.Empty<string>(),
+            },
+        };
+
+        CostReducer reducer = Assert.Single(ManabaseClassifier.Classify(cards).CostReduction);
+        Assert.Equal(ReductionScope.All, reducer.Scope);
     }
 
     [Fact]
