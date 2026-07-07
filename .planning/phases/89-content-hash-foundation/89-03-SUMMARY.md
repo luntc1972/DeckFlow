@@ -100,3 +100,12 @@ None - no external service configuration required.
 ---
 *Phase: 89-content-hash-foundation*
 *Completed: 2026-07-07*
+
+## Self-Check: PASSED
+
+- FOUND: `DeckFlow.Core/Content/ContentSyncDiffClassifier.cs`
+- FOUND: `DeckFlow.Core.Tests/Content/ContentSyncDiffClassifierTests.cs`
+- FOUND: `DeckFlow.Core.Tests/Content/OneSignatureSurfaceGuardTests.cs`
+- FOUND: commit `02c35051`
+- FOUND: commit `ca85d75d`
+- FOUND: commit `b63ad36a`
