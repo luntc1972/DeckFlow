@@ -81,50 +81,63 @@ public sealed class ContentSiteIndexStoreApprovalTests : IDisposable
     }
 
     [Fact]
-    public async Task UpsertContentColumnsOnlyAsync_NewRow_LandsAsPending()
+    public async Task UpsertContentColumnsOnlyAsync_NewRow_MirrorsSourceApproval()
     {
-        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-new-pending"));
+        // D-01: the insert now mirrors the source row's approval_status instead of a hardcoded 'pending'.
+        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-new-pending", approvalStatus: "pending"));
+        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-new-approved", approvalStatus: "approved"));
 
-        var row = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-new-pending");
+        var pending = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-new-pending");
+        var approved = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-new-approved");
 
-        Assert.NotNull(row);
-        Assert.Equal("pending", row!.ApprovalStatus);
+        Assert.NotNull(pending);
+        Assert.NotNull(approved);
+        Assert.Equal("pending", pending!.ApprovalStatus);
+        Assert.Equal("approved", approved!.ApprovalStatus);
     }
 
     [Fact]
-    public async Task UpsertContentColumnsOnlyAsync_ExistingRow_PreservesApprovalStatus()
+    public async Task UpsertContentColumnsOnlyAsync_ExistingPendingRow_HealsToApprovedFromApprovedSource()
     {
-        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-preserve-approval", title: "Original"));
-        await SetApprovalStatusAsync("yt-preserve-approval", "approved");
+        // D-02: a drifted prod row at pending is healed to approved when re-pushed from an approved source
+        // (DirectPush reads only approved local rows), and the reverse value is likewise mirrored (not hardcoded).
+        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-heal-drift", title: "Original", approvalStatus: "pending"));
 
         await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow(
-            "yt-preserve-approval",
+            "yt-heal-drift",
             title: "Updated",
-            artifactPath: "content-kb/command-zone/yt-preserve-approval-v2.md"));
+            artifactPath: "content-kb/command-zone/yt-heal-drift-v2.md",
+            approvalStatus: "approved"));
 
-        var row = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-preserve-approval");
+        var healed = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-heal-drift");
+        Assert.NotNull(healed);
+        Assert.Equal("approved", healed!.ApprovalStatus);
+        Assert.Equal("Updated", healed.Title);
+        Assert.Equal("content-kb/command-zone/yt-heal-drift-v2.md", healed.ArtifactPath);
 
-        Assert.NotNull(row);
-        Assert.Equal("approved", row!.ApprovalStatus);
-        Assert.Equal("Updated", row.Title);
-        Assert.Equal("content-kb/command-zone/yt-preserve-approval-v2.md", row.ArtifactPath);
+        // Reverse: a re-push from a pending source mirrors back to pending (value is mirrored, not forced approved).
+        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-heal-drift", approvalStatus: "pending"));
+        var reverted = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-heal-drift");
+        Assert.Equal("pending", reverted!.ApprovalStatus);
     }
 
     [Fact]
-    public async Task UpsertContentColumnsOnlyAsync_PreservesVisibleEvergreenApprovedFields()
+    public async Task UpsertContentColumnsOnlyAsync_PreservesOperatorVisibleEvergreen_AndMirrorsApproval()
     {
-        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-preserve-admin-visible"));
+        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-preserve-admin-visible", approvalStatus: "approved"));
         var inserted = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-preserve-admin-visible");
         Assert.NotNull(inserted);
 
         Assert.Equal(1, await _store.SetVisibilityAsync(inserted!.Id, visible: true));
         Assert.Equal(1, await _store.SetEvergreenAsync(inserted.Id, evergreen: true));
-        await SetApprovalStatusAsync("yt-preserve-admin-visible", "approved");
 
+        // Content-columns-only re-upsert from an approved source: operator-owned visibility/evergreen survive,
+        // approval mirrors the (still approved) source.
         await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow(
             "yt-preserve-admin-visible",
             title: "Updated admin title",
-            artifactPath: "content-kb/command-zone/yt-preserve-admin-visible-v2.md"));
+            artifactPath: "content-kb/command-zone/yt-preserve-admin-visible-v2.md",
+            approvalStatus: "approved"));
 
         var row = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-preserve-admin-visible");
 
@@ -137,19 +150,19 @@ public sealed class ContentSiteIndexStoreApprovalTests : IDisposable
     }
 
     [Fact]
-    public async Task UpsertContentColumnsOnlyAsync_PreservesHiddenRow()
+    public async Task UpsertContentColumnsOnlyAsync_PreservesOperatorHidden_AndMirrorsApproval()
     {
-        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-preserve-hidden"));
+        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-preserve-hidden", approvalStatus: "approved"));
         var inserted = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-preserve-hidden");
         Assert.NotNull(inserted);
 
         Assert.Equal(1, await _store.SetHiddenAsync(inserted!.Id, hidden: true));
-        await SetApprovalStatusAsync("yt-preserve-hidden", "approved");
 
         await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow(
             "yt-preserve-hidden",
             title: "Updated hidden title",
-            artifactPath: "content-kb/command-zone/yt-preserve-hidden-v2.md"));
+            artifactPath: "content-kb/command-zone/yt-preserve-hidden-v2.md",
+            approvalStatus: "approved"));
 
         var row = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-preserve-hidden");
 
@@ -176,6 +189,58 @@ public sealed class ContentSiteIndexStoreApprovalTests : IDisposable
         var row = Assert.Single(rows);
         Assert.Equal("yt-approved-only", row.YoutubeVideoId);
         Assert.Equal("approved", row.ApprovalStatus);
+    }
+
+    [Fact]
+    public async Task GetPublishedRowsAsync_ReturnsOnlyApprovedAndVisibleRows()
+    {
+        // D-04: the browse serve query returns approved+visible only — excludes visible-but-pending and approved-but-hidden.
+        var approvedVisibleId = await SeedRowAsync("yt-pub-approved-visible", approvalStatus: "approved", visible: true);
+        await SeedRowAsync("yt-pub-visible-pending", approvalStatus: "pending", visible: true);
+        await SeedRowAsync("yt-pub-approved-hidden", approvalStatus: "approved", visible: false);
+
+        var rows = await _store.GetPublishedRowsAsync();
+
+        var row = Assert.Single(rows);
+        Assert.Equal("yt-pub-approved-visible", row.YoutubeVideoId);
+        Assert.Equal(approvedVisibleId, row.Id);
+    }
+
+    [Fact]
+    public async Task GetPublishedByIdAsync_ReturnsRow_OnlyWhenApprovedAndVisible()
+    {
+        // D-04 / Codex HIGH: the public detail read returns a row only when approved+visible; null otherwise.
+        var approvedVisibleId = await SeedRowAsync("yt-byid-approved-visible", approvalStatus: "approved", visible: true);
+        var visiblePendingId = await SeedRowAsync("yt-byid-visible-pending", approvalStatus: "pending", visible: true);
+        var approvedHiddenId = await SeedRowAsync("yt-byid-approved-hidden", approvalStatus: "approved", visible: false);
+
+        var approvedVisible = await _store.GetPublishedByIdAsync(approvedVisibleId);
+        var visiblePending = await _store.GetPublishedByIdAsync(visiblePendingId);
+        var approvedHidden = await _store.GetPublishedByIdAsync(approvedHiddenId);
+        var missing = await _store.GetPublishedByIdAsync(999_999);
+
+        Assert.NotNull(approvedVisible);
+        Assert.Equal("yt-byid-approved-visible", approvedVisible!.YoutubeVideoId);
+        Assert.Null(visiblePending);
+        Assert.Null(approvedHidden);
+        Assert.Null(missing);
+
+        // GetByIdAsync stays unfiltered — admin/Studio still see the pending row.
+        Assert.NotNull(await _store.GetByIdAsync(visiblePendingId));
+    }
+
+    // Seeds an approved/visible-controlled row and returns its id.
+    private async Task<long> SeedRowAsync(string youtubeVideoId, string approvalStatus, bool visible)
+    {
+        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow(youtubeVideoId, approvalStatus: approvalStatus));
+        var inserted = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, youtubeVideoId);
+        Assert.NotNull(inserted);
+        if (visible)
+        {
+            await _store.SetVisibilityAsync(inserted!.Id, visible: true);
+        }
+
+        return inserted!.Id;
     }
 
     [Fact]
@@ -532,7 +597,8 @@ public sealed class ContentSiteIndexStoreApprovalTests : IDisposable
         string? title = null,
         string? artifactPath = null,
         string? source = null,
-        IReadOnlyList<string>? archetypeTags = null)
+        IReadOnlyList<string>? archetypeTags = null,
+        string approvalStatus = "pending")
         => new()
         {
             Id = 0,
@@ -546,7 +612,8 @@ public sealed class ContentSiteIndexStoreApprovalTests : IDisposable
             BracketTags = new[] { "cEDH", "Optimized" },
             CardCategoryTags = new[] { "win-cons", "counter" },
             YoutubeVideoId = youtubeVideoId,
-            RssGuid = null
+            RssGuid = null,
+            ApprovalStatus = approvalStatus
         };
 
     private sealed record LegacySeed(
