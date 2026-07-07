@@ -914,25 +914,41 @@ public sealed record ManabaseReport
 
     /// <summary>
     /// Deck-level "avg on-curve" cast rate: the rounded mean of
-    /// <see cref="CardCastability.CastPercent"/> across tracked castability rows. Returns 0 for an
-    /// empty set.
+    /// <see cref="CardCastability.CastPercent"/> across tracked NON-commander castability rows
+    /// (efficacy R2 M9). The commander is guaranteed available from the command zone and is shown in
+    /// its own callout, so its (often low, high-MV) on-curve rate must not drag the deck-quality
+    /// metric — and this one number is consumed by the results lens, the verdict, and the health
+    /// band, so they can never disagree. Falls back to all rows if every tracked row is a commander;
+    /// returns 0 for an empty set.
     /// </summary>
     public int AvgOnCurvePercent
     {
         get
         {
-            if (Castability.Count == 0)
-            {
-                return 0;
-            }
-
             long sum = 0;
+            int count = 0;
             foreach (CardCastability row in Castability)
             {
+                if (row.IsCommander)
+                {
+                    continue;
+                }
+
                 sum += row.CastPercent;
+                count++;
             }
 
-            return (int)Math.Round((double)sum / Castability.Count);
+            if (count == 0)
+            {
+                // Degenerate: only commander rows tracked — fall back to the full set rather than 0.
+                foreach (CardCastability row in Castability)
+                {
+                    sum += row.CastPercent;
+                    count++;
+                }
+            }
+
+            return count == 0 ? 0 : (int)Math.Round((double)sum / count);
         }
     }
 

@@ -179,6 +179,9 @@
             var commanderRows = report.Castability.Where(c => c.IsCommander).ToList();
             var showRightLens = Model.ShowCastability && castRows.Count > 0;
             var showLeftLens = report.ColorFindings.Count > 0;
+            // M9: the lens quotes report.AvgOnCurvePercent (the one shared non-commander average also
+            // used by the verdict and health band); its count matches that non-commander basis.
+            int trackedNonCommander = report.Castability.Count(c => !c.IsCommander);
         }
         @if (showLeftLens || showRightLens)
         {
@@ -218,13 +221,13 @@
                 {
                     <div class="manabase-lens">
                         <p class="manabase-lens-label">Simulated cast rate</p>
-                        <div class="manabase-lens-big">@ManabaseDisplay.AvgOnCurve(castRows)%<span>avg on-curve</span></div>
+                        <div class="manabase-lens-big">@report.AvgOnCurvePercent%<span>avg on-curve</span></div>
                         <p class="manabase-lens-note">Joint mana + color, with London mulligan, tapped-land timing, and ramp — our Monte-Carlo models the real game, not just color odds.</p>
                         @if (showPlainLanguage)
                         {
                             <p class="manabase-lens-gloss">@ManabaseDisplay.CastRateGloss</p>
                         }
-                        <span class="manabase-lens-pill">avg across @castRows.Count tracked spells</span>
+                        <span class="manabase-lens-pill">avg across @trackedNonCommander tracked spells</span>
                     </div>
                 }
             </div>

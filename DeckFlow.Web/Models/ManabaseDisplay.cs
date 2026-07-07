@@ -143,29 +143,6 @@ public static class ManabaseDisplay
     }
 
     /// <summary>
-    /// Deck-level "avg on-curve" cast rate for the two-lens result header: the mean
-    /// <see cref="CardCastability.CastPercent"/> across the tracked castability rows (these already
-    /// exclude mana rocks/dorks; the commander is a normal row and order does not affect a mean).
-    /// Returns 0 for an empty set (the right lens is hidden in that case) — never divides by zero.
-    /// </summary>
-    public static int AvgOnCurve(IReadOnlyList<CardCastability> rows)
-    {
-        ArgumentNullException.ThrowIfNull(rows);
-        if (rows.Count == 0)
-        {
-            return 0;
-        }
-
-        long sum = 0;
-        foreach (CardCastability row in rows)
-        {
-            sum += row.CastPercent;
-        }
-
-        return (int)Math.Round((double)sum / rows.Count);
-    }
-
-    /// <summary>
     /// Karsten source-check for the left lens of the two-lens header. <c>Met</c> uses the raw
     /// (weighted, fractional) <see cref="ColorSourceFinding.ActualSources"/> against the integer
     /// requirement; <c>Deficit</c> is the whole sources still needed when short, clamped to at least
