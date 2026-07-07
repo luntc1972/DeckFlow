@@ -94,7 +94,7 @@ public sealed class PullFromProdCoordinator
             prodRows
                 .Where(r =>
                 {
-                    if (!TryBuildContainedPath(repoRoot, r.ArtifactPath, out var repoBody))
+                    if (!ArtifactPathSafety.TryBuildContainedPath(repoRoot, r.ArtifactPath, out var repoBody))
                     {
                         log.Report("  body SKIPPED (invalid path)");
                         return false;
@@ -168,8 +168,8 @@ public sealed class PullFromProdCoordinator
                 await _indexStore.SetApprovalStatusAsync(keyType, keyValue, prodRow.ApprovalStatus, cancellationToken).ConfigureAwait(false);
 
                 var note = "row updated; approval mirrored from prod";
-                var validSource = TryBuildContainedPath(repoRoot, entry.ArtifactPath, out var repoBody);
-                var validDest = TryBuildContainedPath(dataRoot, entry.ArtifactPath, out var liveDest);
+                var validSource = ArtifactPathSafety.TryBuildContainedPath(repoRoot, entry.ArtifactPath, out var repoBody);
+                var validDest = ArtifactPathSafety.TryBuildContainedPath(dataRoot, entry.ArtifactPath, out var liveDest);
                 if (!validSource || !validDest)
                 {
                     note = "row updated; body path invalid, not copied; approval mirrored from prod";
@@ -215,59 +215,6 @@ public sealed class PullFromProdCoordinator
 
         return results;
     }
-
-    private static bool TryBuildContainedPath(string root, string artifactPath, out string resolvedPath)
-    {
-        resolvedPath = string.Empty;
-        if (!IsSafeArtifactPath(artifactPath))
-        {
-            return false;
-        }
-
-        var rootFull = Path.GetFullPath(root);
-        var rootWithSeparator = rootFull.EndsWith(Path.DirectorySeparatorChar)
-            ? rootFull
-            : rootFull + Path.DirectorySeparatorChar;
-        var candidate = Path.GetFullPath(Path.Combine(rootFull, artifactPath));
-        if (!candidate.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        resolvedPath = candidate;
-        return true;
-    }
-
-    private static bool IsSafeArtifactPath(string artifactPath)
-    {
-        if (string.IsNullOrWhiteSpace(artifactPath))
-        {
-            return false;
-        }
-
-        if (Path.IsPathRooted(artifactPath)
-            || IsWindowsRootedPath(artifactPath)
-            || artifactPath[0] == '/'
-            || artifactPath[0] == '\\')
-        {
-            return false;
-        }
-
-        if (!artifactPath.StartsWith("content-kb/", StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        var segments = artifactPath.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
-        return segments.Length > 0
-            && !segments.Any(segment => string.Equals(segment, "..", StringComparison.Ordinal));
-    }
-
-    private static bool IsWindowsRootedPath(string artifactPath)
-        => artifactPath.Length >= 3
-            && char.IsLetter(artifactPath[0])
-            && artifactPath[1] == ':'
-            && (artifactPath[2] == '\\' || artifactPath[2] == '/');
 
 }
 
