@@ -434,11 +434,17 @@ public static class ManabaseClassifier
     // of any color.)") so token reminder wording never reads as the card's own mana ability.
     private static readonly Regex ReminderTextRegex = new(@"\([^)]*\)", RegexOptions.Compiled);
 
-    // Strips quoted GRANTED abilities ('Equipped creature has "{T}: Add one mana of any color."'
-    // — Paradise Mantle, Goldspan Dragon's Treasure grant). A granted ability lives on some other
-    // permanent, not this card, so it must never make the granter read as its own rock/dork.
-    // Granters are modeled separately by DetectGranter/AddGrantedSources.
-    private static readonly Regex QuotedGrantRegex = new("\"[^\"]*\"", RegexOptions.Compiled);
+    // Strips quoted abilities GRANTED TO OTHER permanents ('Equipped creature has "{T}: Add one
+    // mana of any color."' — Paradise Mantle; Goldspan Dragon's Treasure grant). A granted
+    // ability lives on some other permanent, not this card, so it must never make the granter
+    // read as its own rock/dork — granters are modeled separately by DetectGranter/
+    // AddGrantedSources. SELF-grants are kept (negative lookbehind): "As long as this creature
+    // is renowned, it has \"{T}: Add one mana of any color.\"" (Honored Hierarch) or "...this
+    // creature has \"{T}: Add two mana...\"" (Mul Daya Channelers) IS the card's own — albeit
+    // conditional — mana ability, and dropping it would un-source genuine dorks.
+    private static readonly Regex QuotedGrantRegex = new(
+        "(?<!\\b(?:it|this creature|this artifact|this enchantment|this land|this permanent) (?:has|gains) )\"[^\"]*\"",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     // A repeatable, self-contained mana ability on the card's FRONT face: an activated
     // "<cost>: Add ..." line whose cost does not sacrifice anything. The sacrifice check drops

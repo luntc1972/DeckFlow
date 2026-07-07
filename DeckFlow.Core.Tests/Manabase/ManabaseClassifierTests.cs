@@ -1012,4 +1012,36 @@ public sealed class ManabaseClassifierTests
         Assert.False(Assert.Single(deck.Spells, s => s.Name == "Paradise Mantle").IsManaSource);
         Assert.Equal(0.75, Assert.Single(deck.Sources, s => s.Name == "Chromatic Lantern").Weight);
     }
+
+    [Fact]
+    public void Classify_SelfGrantedManaAbility_StaysADork()
+    {
+        // Codex review round 2: the quoted-grant strip must NOT drop SELF-grants — a conditional
+        // ability the card gives ITSELF is still its own repeatable mana ability. Honored
+        // Hierarch ("...it has ...") and Mul Daya Channelers ("...this creature has ...") are
+        // genuine dorks; Paradise Mantle-style other-grants stay excluded (previous test).
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Honored Hierarch", Quantity = 1, ManaCost = "{G}", ManaValue = 1,
+                TypeLine = "Creature — Human Druid",
+                OracleText = "Renown 1\nAs long as this creature is renowned, it has \"{T}: Add one mana of any color.\"",
+                ProducedMana = new[] { "W", "U", "B", "R", "G" },
+            },
+            new()
+            {
+                Name = "Mul Daya Channelers", Quantity = 1, ManaCost = "{2}{G}", ManaValue = 3,
+                TypeLine = "Creature — Elf Druid Shaman",
+                OracleText = "Play with the top card of your library revealed.\n"
+                    + "As long as the top card of your library is a land card, this creature has \"{T}: Add two mana of any one color.\"",
+                ProducedMana = new[] { "W", "U", "B", "R", "G" },
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        Assert.Equal(0.5, Assert.Single(deck.Sources, s => s.Name == "Honored Hierarch").Weight);
+        Assert.Equal(0.5, Assert.Single(deck.Sources, s => s.Name == "Mul Daya Channelers").Weight);
+    }
 }
