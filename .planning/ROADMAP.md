@@ -71,7 +71,7 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
 **Success Criteria** (what must be TRUE):
   1. `content_site_index` carries a `body_sha256` column (SQLite + Postgres + seed JSON) computed from the on-disk `.md` body at publish time.
   2. DirectPush, Pull, and reconcile all compare rows using one unified body-inclusive signature — the two previously divergent schemes (`ContentSiteIndexContentSignature` and the `ContentSyncDiffClassifier` fingerprint) are gone.
-  3. The web app refuses to render a row whose on-disk body hash does not match its stored `body_sha256`, logging the mismatch instead of serving stale/corrupt content.
+  3. The web app detects and logs (structured warning) when a row's on-disk body hash does not match its stored `body_sha256`, making corruption visible instead of silently serving it — fail-open this phase per D-05; the fail-closed refuse-to-render tightening is deferred to a future phase once the D-08 backfill guarantees every live row is hashed.
 **Plans**: 6 plans (3 waves)
 - [x] 89-01-PLAN.md — Shared ComputeBodySha256 helper + body-inclusive BuildSignature + ContentSiteIndexRow.BodySha256 (SYNC-01, SYNC-02) [wave 1]
 - [x] 89-02-PLAN.md — Store body_sha256 DDL/model/upsert plumbing + null-only backfill setter (SYNC-01) [wave 2]
