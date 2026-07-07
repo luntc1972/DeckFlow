@@ -148,6 +148,23 @@ public sealed class ContentKbArtifactPathResolver
         return ContentKbArtifactResolution.MissingFile;
     }
 
+    /// <summary>
+    /// Resolves a stored artifact path against the git <c>/app</c> tree ONLY - never the
+    /// <see cref="DataOverlayBase"/> fallback, regardless of <c>sync.directpush-gitbody</c> flag
+    /// state. Used by the D-09 (REVISED) deployed-body-hash endpoint, which must confirm the
+    /// deployed git body independent of the serving flag's rollout state.
+    /// </summary>
+    /// <param name="artifactPath">Stored relative artifact path.</param>
+    /// <param name="resolvedFullPath">Resolved absolute git path when found.</param>
+    /// <returns>The resolution state for the requested artifact path.</returns>
+    public ContentKbArtifactResolution TryResolveGitArtifact(string artifactPath, out string resolvedFullPath)
+    {
+        resolvedFullPath = string.Empty;
+
+        // RED stub (Task 1): always MissingFile - GREEN commit adds the real git-root resolve.
+        return ContentKbArtifactResolution.MissingFile;
+    }
+
     private string ResolveContentBase(IWebHostEnvironment environment, IConfiguration configuration)
     {
         foreach (var candidate in EnumerateCandidates(environment, configuration))
