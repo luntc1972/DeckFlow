@@ -12,13 +12,18 @@ namespace DeckFlow.Web.Tests.Manabase;
 /// <summary>
 /// Regression guard for the health-band/castability coupling fix (debug session
 /// manabase-health-band-coupling, Gate C). The Avatar (Sokka/Aang Jeskai) fixture is the
-/// calibration deck: with the flag OFF the band is "Solid" (no color issue fires because
-/// White's Karsten source count is generous); with the flag ON White counts as an issue
-/// because Suki, Courageous Rescuer is color:White-limited below the 80% threshold AND
-/// ColorLimitedUnderSupportedCount >= 1 (Gate C condition).
+/// calibration deck, read directly from a committed facts fixture (no HTTP) so it runs in CI.
 ///
-/// The test reads a committed Avatar facts fixture directly — no HTTP — so it runs in CI
-/// without any network dependency.
+/// Post efficacy R2 M5 (classifier correctness) the Avatar deck reads a clean "Excellent"
+/// both flag-off and flag-on with no weak color. Previously it read Solid/Workable because three
+/// "Noncreature spells you cast cost {1} less" cards (Gran-Gran, Longshot, Lyse Hext) were
+/// mis-scoped as CREATURE reducers — the substring check read "noncreature" as "creature" — which
+/// fictitiously discounted every creature by up to {2}, pulling their on-curve turns earlier and
+/// depressing castability. With word-boundary scope matching those reducers are correctly dropped
+/// (no Noncreature scope exists), the creatures cast at their true turns, and White is no longer
+/// source-limited. The flag-on color-issue coupling (Gate C) that Avatar used to exercise
+/// end-to-end is fully guarded by the synthetic SyntheticReport tests below; no real fixture sits
+/// at that boundary post-recalibration.
 /// </summary>
 public sealed class ManabaseHealthBandRegressionTests
 {
@@ -50,10 +55,17 @@ public sealed class ManabaseHealthBandRegressionTests
         // tightest color from a deficit into a surplus (MaxColorDeficit -4.8, ColorLimitedUnderSupported
         // 0), so no color issue fires; its 46% worst-color spell is mana/curve-limited, not a fixing
         // gap. No other calibration deck changes band.
+        //
+        // Re-baselined a FOURTH time for efficacy R2 M5 (reducer scope correctness): "Noncreature
+        // spells you cast cost {1} less" is no longer mis-read as a CREATURE reducer (word-boundary
+        // scope match; no Noncreature scope exists → dropped). Only the Avatar deck holds such cards
+        // (3 of them); removing the fictitious deck-wide creature discount lets its creatures cast at
+        // their true turns, so Avatar rises Solid/Workable → Excellent/Excellent with no weak color.
+        // No other calibration deck contains a noncreature reducer, so none else changes band.
         new("Stale Brago (WU control)", ".manabase-brago-facts.json", "Needs work", "Workable"),
         new("Kenrith 5-color rocks", ".manabase-5c-facts.json", "Excellent", "Excellent"),
         new("Meren Golgari ramp/ritual", ".manabase-golgari-facts.json", "Solid", "Solid"),
-        new("Avatar - Sokka/Aang", "avatar-facts.json", "Solid", "Solid", IsAssemblyFixture: true),
+        new("Avatar - Sokka/Aang", "avatar-facts.json", "Excellent", "Excellent", IsAssemblyFixture: true),
         new("Archidekt 23563520 - Marchesa", ".manabase-arch-23563520-facts.json", "Needs work", "Needs work"),
         new("Archidekt 23753514 - graveyard fungus", ".manabase-arch-23753514-facts.json", "Solid", "Solid"),
         new("Archidekt 23638601 - Townos", ".manabase-arch-23638601-facts.json", "Excellent", "Excellent"),
@@ -69,7 +81,7 @@ public sealed class ManabaseHealthBandRegressionTests
         new("Brago promote (WU control)", ".manabase-brago-promote-facts.json", "Needs work", "Needs work");
 
     [Fact]
-    public async Task Avatar_FlagOff_BandIsSolid()
+    public async Task Avatar_FlagOff_BandIsExcellent()
     {
         IReadOnlyList<CardFact> facts = await LoadFactsAsync();
         ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true);
@@ -78,25 +90,24 @@ public sealed class ManabaseHealthBandRegressionTests
             useHealthBandCastability: false);
 
         string label = ManabaseDisplay.HealthLabel(report.Health);
-        Assert.Equal("Solid", label);
+        Assert.Equal("Excellent", label);
     }
 
     [Fact]
-    public async Task Avatar_FlagOn_BandIsWorkable_WeakestColorWhite()
+    public async Task Avatar_FlagOn_BandIsExcellent_NoWeakColor()
     {
+        // Post M5 (see class summary): the deck's three noncreature reducers no longer fictitiously
+        // discount its creatures, so nothing is source-limited and the flag-on castability band is
+        // Excellent with no weak color. The flag-on color-issue coupling this deck used to exercise
+        // end-to-end is now guarded by the synthetic SyntheticReport tests below.
         IReadOnlyList<CardFact> facts = await LoadFactsAsync();
         ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true);
         ManabaseReport report = ManabaseAnalyzer.Analyze(
             deck, ManabaseMode.Casual, CommanderImportance.Standard,
             useHealthBandCastability: true);
 
-        string label = ManabaseDisplay.HealthLabel(report.Health);
-        Assert.Equal("Workable", label);
-
-        // Weakest color must be White (the sim-identified tight color).
-        ColorSourceFinding? weakest = report.ColorFindings.Count > 0 ? report.ColorFindings[0] : null;
-        Assert.NotNull(weakest);
-        Assert.Equal(ManaColor.White, weakest!.Color);
+        Assert.Equal("Excellent", ManabaseDisplay.HealthLabel(report.Health));
+        Assert.DoesNotContain(report.ColorFindings, f => f.ColorLimitedUnderSupportedCount > 0);
     }
 
     public static IEnumerable<object[]> HeadlineFloorCalibrationCases() =>

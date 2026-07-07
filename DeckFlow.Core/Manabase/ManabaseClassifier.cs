@@ -42,14 +42,18 @@ public static class ManabaseClassifier
 
     // A card-draw effect that benefits YOU (efficacy R2 M7). Matches "draw(s) a/N card(s)" —
     // imperative ("Draw a card"), activated ("<cost>: Draw a card"), "you (may) draw…", and
-    // symmetric wheels ("each player draws seven cards", where you are a player too) — but EXCLUDES
-    // draws attributed to an opponent or an indeterminate other player ("target/that/another player
-    // draws", "opponent(s) draw"), which are not card advantage for the caster. Handling "draws?"
-    // (with the plural s) is the point: a "…draws two cards" card is now seen the same by the v2
-    // land-target credit (IsRepeatableRampOrDraw) and the budget draw count (IsDrawPieceForBudget),
-    // instead of one subsystem crediting it while the other ignores it.
+    // symmetric wheels ("each player draws seven cards", where you are a player too) — but EXCLUDES:
+    //   * draws attributed to an opponent or an indeterminate other player ("target/that/another
+    //     player draws", "opponent(s) draw"), which are not card advantage for the caster; and
+    //   * draw-as-CONDITION, where the draw is a trigger/replacement rather than an effect
+    //     ("whenever/when you draw a card, …" payoffs; "if you would draw a card, …" replacements) —
+    //     those cards do not themselves draw. A real ETB draw ("When this enters, draw a card") has
+    //     no "you" between the trigger word and "draw", so it is still matched.
+    // Handling "draws?" (with the plural s) is the point: a "…draws two cards" card is now seen the
+    // same by the v2 land-target credit (IsRepeatableRampOrDraw) and the budget draw count
+    // (IsDrawPieceForBudget), instead of one subsystem crediting it while the other ignores it.
     private static readonly Regex YouCardDrawRegex = new(
-        @"(?<!(?:opponent|opponents|target player|target opponent|that player|another player) )\bdraws?\s+(?:a|one|two|three|four|five|six|seven|eight|nine|ten|x|\d+)\s+cards?",
+        @"(?<!(?:opponent|opponents|target player|target opponent|that player|another player|whenever you|when you|would) )\bdraws?\s+(?:a|one|two|three|four|five|six|seven|eight|nine|ten|x|\d+)\s+cards?",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     /// <summary>Build a <see cref="ManabaseDeck"/> from classified card facts.</summary>
@@ -1108,35 +1112,41 @@ public static class ManabaseClassifier
     private static string NormalizeBracedCost(string braced) =>
         braced.ToUpperInvariant();
 
+    private static readonly char[] ScopeWordSeparators = { ' ', '-' };
+
     private static ReductionScope? ClassifyReducerScope(string scopePhrase)
     {
-        string s = scopePhrase.Trim();
-        if (s.Length == 0)
+        string[] words = scopePhrase.Trim()
+            .Split(ScopeWordSeparators, StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0)
         {
             return ReductionScope.All; // bare "spells you cast cost {N} less" = every spell
         }
 
-        bool instant = s.Contains("instant", StringComparison.Ordinal);
-        bool sorcery = s.Contains("sorcery", StringComparison.Ordinal);
-        if (instant || sorcery)
+        // Match on WHOLE words, not substrings: "noncreature"/"nonartifact" must NOT read as the
+        // creature/artifact scope (a substring check classified "noncreature" as Creature — the
+        // opposite subset). Unmatched non-empty scopes (tribal/supertype/"noncreature") fall through
+        // to null below.
+        if (words.Contains("instant") || words.Contains("sorcery"))
         {
             return ReductionScope.InstantSorcery;
         }
 
-        if (s.Contains("creature", StringComparison.Ordinal))
+        if (words.Contains("creature"))
         {
             return ReductionScope.Creature;
         }
 
-        if (s.Contains("artifact", StringComparison.Ordinal))
+        if (words.Contains("artifact"))
         {
             return ReductionScope.Artifact;
         }
 
-        // M5: an unrecognized non-empty scope is a tribal / supertype narrowing ("Giant", "Goblin",
-        // "Historic", "multicolored" spells you cast cost less). It discounts only that subset, not
-        // every spell; modeling per-subset is out of scope, and defaulting to ReductionScope.All
-        // over-credits the whole deck (cap −2). Drop the reducer entirely — a safe under-credit.
+        // M5: an unrecognized non-empty scope is a tribal / supertype / "noncreature" narrowing
+        // ("Giant", "Goblin", "Historic", "multicolored", "noncreature" spells you cast cost less).
+        // It discounts only that subset, not every spell; modeling per-subset is out of scope, and
+        // defaulting to ReductionScope.All over-credits the whole deck (cap −2). Drop the reducer
+        // entirely — a safe under-credit.
         return null;
     }
 

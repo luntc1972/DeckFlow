@@ -548,6 +548,7 @@ public sealed class ManabaseClassifierTests
     [InlineData("This spell costs {1} less to cast for each creature you control.")] // not "you cast" + for each
     [InlineData("Giant spells you cast cost {1} less to cast.")]     // M5: tribal scope → dropped, not All
     [InlineData("Historic spells you cast cost {1} less to cast.")]  // M5: supertype scope → dropped, not All
+    [InlineData("Noncreature spells you cast cost {1} less to cast.")] // M5: "noncreature" ≠ Creature (word match)
     public void Classify_FalsePositiveReducerText_IsNotDetected(string oracle)
     {
         var cards = new List<CardFact>
