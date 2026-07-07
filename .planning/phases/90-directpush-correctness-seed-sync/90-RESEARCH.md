@@ -376,9 +376,11 @@ ordering requirement and needs an explicit decision (see Open Questions), not si
 
 **If this table is empty:** N/A — see above.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Does the DirectPush git commit keep `[skip render]` under the new flag, or drop it?**
+> All three questions below were resolved during Phase 90 context-gathering and are locked in 90-CONTEXT.md. Annotations added for traceability.
+
+1. **Does the DirectPush git commit keep `[skip render]` under the new flag, or drop it?** — **RESOLVED: see D-09.** Drop `[skip render]` for the git-body flow when `sync.directpush-gitbody` is ON so the redeploy actually happens (flag OFF keeps `[skip render]`, byte-identical). Implemented in Plan 90-04.
    - What we know: The constant exists specifically to suppress a Render redeploy
      (`DirectPushCoordinator.cs:33-37`), because historically the `/data` overlay already served
      the content live. SYNC-09 requires a genuine `/app` redeploy to have happened before the
@@ -395,7 +397,7 @@ ordering requirement and needs an explicit decision (see Open Questions), not si
      explicit operator step. Either choice should be captured as a locked decision before planning
      proceeds, since it changes the shape of the new Studio stage(s).
 
-2. **What is the actual mechanism for "confirm the deployed `/app` body matches"?**
+2. **What is the actual mechanism for "confirm the deployed `/app` body matches"?** — **RESOLVED: see D-09.** No new authenticated endpoint: Studio issues an HTTPS GET of the public Content-KB detail URL and treats HTTP 200 as "reachable at /app"; byte-corruption is delegated to the Phase 89 fail-open render guard (recompute + structured warning). Implemented in Plan 90-05.
    - What we know: D-06 says reuse `ComputeBodySha256` + "the render-guard comparison." The
      render-guard (`ContentKbController.cs:121-134`) computes this hash today as a side effect of
      a normal page GET, but only **logs** on mismatch — it returns nothing machine-readable to a
@@ -417,7 +419,7 @@ ordering requirement and needs an explicit decision (see Open Questions), not si
      a read of arbitrary-but-validated repo-relative paths, similar in shape to the existing
      `TryResolveExistingArtifact` containment guards).
 
-3. **How does DirectPush distinguish "content upserted, awaiting confirm" from "not pushed" across a Studio session boundary?**
+3. **How does DirectPush distinguish "content upserted, awaiting confirm" from "not pushed" across a Studio session boundary?** — **RESOLVED: see D-10.** A durable nullable awaiting-confirm marker column persists the pending state in the LOCAL content-kb store so a mid-flight push survives a Blazor page reload and is resumable. Implemented in Plans 90-03 (column) + 90-06 (resume UI).
    - What we know: All Stage 1-4 state today is page-local Blazor state, not persisted
      (`DirectPush.razor.cs:34-90`). `ClassifyDiff` would reclassify a content-matching-but-invisible
      row as `Unchanged` and exclude it from `PublishRows` on any re-diff (Pitfall 4).
