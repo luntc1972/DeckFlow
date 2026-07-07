@@ -49,6 +49,7 @@ public sealed class VideoStatusResolverTests
         public Task<IReadOnlyList<ContentSiteIndexRow>> GetApprovedRowsAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<ContentSiteIndexRow>> GetAllRowsAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<ContentSiteIndexRow?> GetByIdAsync(long id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<ContentSiteIndexRow?> GetPublishedByIdAsync(long id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<int> SetVisibilityAsync(long id, bool visible, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<int> SetHiddenAsync(long id, bool hidden, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<int> DeleteByIdAsync(long id, CancellationToken cancellationToken = default) => throw new NotSupportedException();

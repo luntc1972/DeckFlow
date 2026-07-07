@@ -81,6 +81,8 @@ public sealed class ContentSiteIndexStoreVisibilityTests : IDisposable
         var visible = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-visible");
         Assert.NotNull(visible);
         Assert.Equal(1, await _store.SetVisibilityAsync(visible!.Id, visible: true));
+        // The browse serve query now requires approval_status='approved'; approve the row we expect published.
+        await _store.SetApprovalStatusAsync(ContentSourceType.Youtube, "yt-visible", "approved");
 
         var publishedRows = await _store.GetPublishedRowsAsync();
         var allRows = await _store.GetAllRowsAsync();
@@ -100,6 +102,10 @@ public sealed class ContentSiteIndexStoreVisibilityTests : IDisposable
         await _store.UpsertRowPreservingVisibilityAsync(CreateYoutubeRow("yt-source-a-1", source: "Source A"));
         await _store.UpsertRowPreservingVisibilityAsync(CreateYoutubeRow("yt-source-a-2", source: "Source A"));
         await _store.UpsertRowPreservingVisibilityAsync(CreateYoutubeRow("yt-source-b", source: "Source B"));
+        // The browse serve query now requires approval_status='approved'; approve all rows we expect published.
+        await _store.SetApprovalStatusAsync(ContentSourceType.Youtube, "yt-source-a-1", "approved");
+        await _store.SetApprovalStatusAsync(ContentSourceType.Youtube, "yt-source-a-2", "approved");
+        await _store.SetApprovalStatusAsync(ContentSourceType.Youtube, "yt-source-b", "approved");
 
         Assert.Equal(2, await _store.SetVisibilityBySourceAsync("Source A", visible: true));
         var sourceB = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-source-b");
