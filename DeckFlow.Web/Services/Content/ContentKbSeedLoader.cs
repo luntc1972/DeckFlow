@@ -84,6 +84,7 @@ public sealed class ContentKbSeedLoader : IContentKbSeedLoader
             CardCategoryTags = entry.CardCategoryTags,
             YoutubeVideoId = entry.NaturalKeyType == ContentSourceType.Youtube ? entry.NaturalKeyValue : null,
             RssGuid = entry.NaturalKeyType == ContentSourceType.Podcast ? entry.NaturalKeyValue : null,
+            BodySha256 = entry.BodySha256,
         };
     }
 
@@ -110,5 +111,7 @@ public sealed class ContentKbSeedLoader : IContentKbSeedLoader
         public required IReadOnlyList<string> BracketTags { get; init; }
 
         public required IReadOnlyList<string> CardCategoryTags { get; init; }
+
+        public string? BodySha256 { get; init; }
     }
 }
