@@ -147,6 +147,13 @@ public sealed record ContentSiteIndexRow
     /// <summary>Approval workflow status: pending, approved, or rejected.</summary>
     public string ApprovalStatus { get; init; } = "pending";
 
+    /// <summary>
+    /// Lowercase hex SHA-256 of the LF-normalized, UTF-8-decoded artifact body (post-front-matter),
+    /// computed by <c>ContentSiteIndexContentSignature.ComputeBodySha256</c>.
+    /// <see langword="null"/> for legacy rows that predate the content-hash backfill.
+    /// </summary>
+    public string? BodySha256 { get; init; }
+
     /// <summary>Allowlisted archetype tags for filtering and display.</summary>
     public required IReadOnlyList<string> ArchetypeTags { get; init; }
 
