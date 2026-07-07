@@ -1,3 +1,4 @@
+using DeckFlow.Web.Services.FeatureFlags;
 using Microsoft.AspNetCore.Hosting;
 
 namespace DeckFlow.Web.Services;
@@ -28,6 +29,7 @@ public enum ContentKbArtifactResolution
 /// </summary>
 public sealed class ContentKbArtifactPathResolver
 {
+    private readonly IFeatureFlagCache _flagCache;
     private readonly ILogger<ContentKbArtifactPathResolver> _logger;
     private static readonly char[] PathSeparators = ['/', '\\'];
 
@@ -36,16 +38,24 @@ public sealed class ContentKbArtifactPathResolver
     /// </summary>
     /// <param name="environment">Web host environment.</param>
     /// <param name="configuration">Application configuration.</param>
+    /// <param name="flagCache">
+    /// Feature-flag cache consulted for <c>sync.directpush-gitbody</c> (SYNC-07): when ON, a
+    /// git-tree miss returns <see cref="ContentKbArtifactResolution.MissingFile"/> without
+    /// consulting the <see cref="DataOverlayBase"/> fallback.
+    /// </param>
     /// <param name="logger">Logger.</param>
     public ContentKbArtifactPathResolver(
         IWebHostEnvironment environment,
         IConfiguration configuration,
+        IFeatureFlagCache flagCache,
         ILogger<ContentKbArtifactPathResolver> logger)
     {
         ArgumentNullException.ThrowIfNull(environment);
         ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(flagCache);
         ArgumentNullException.ThrowIfNull(logger);
 
+        _flagCache = flagCache;
         _logger = logger;
         ContentBase = ResolveContentBase(environment, configuration);
         DataOverlayBase = ResolveDataOverlayBase(configuration);
@@ -108,6 +118,14 @@ public sealed class ContentKbArtifactPathResolver
         {
             resolvedFullPath = gitPath;
             return ContentKbArtifactResolution.Resolved;
+        }
+
+        // SYNC-07/D-01/D-11: under the flag, git is the ONLY body source - a git-tree miss is a
+        // real miss, never masked by the legacy /data-SFTP-first overlay. Flag OFF (default)
+        // preserves the byte-identical git-then-overlay fallback below.
+        if (_flagCache.IsEnabled("sync.directpush-gitbody"))
+        {
+            return ContentKbArtifactResolution.MissingFile;
         }
 
         if (DataOverlayBase is null)

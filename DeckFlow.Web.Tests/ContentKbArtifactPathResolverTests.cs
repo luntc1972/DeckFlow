@@ -147,6 +147,53 @@ public sealed class ContentKbArtifactPathResolverTests : IDisposable
     }
 
     [Fact]
+    public void TryResolveExistingArtifact_FlagOn_ResolvesFromGit_WhenGitFileExists()
+    {
+        // SYNC-07 (c): flag ON + git hit -> Resolved from git (unchanged from flag-OFF git-hit path).
+        var contentRoot = CreateTempWithContentKb();
+        var gitFile = WriteFile(Path.Combine(contentRoot, "content-kb", "edhrecast", "git-hit.md"), "# Git");
+        var resolver = Build(contentRoot, new(), directPushGitBodyOn: true);
+
+        var result = resolver.TryResolveExistingArtifact("content-kb/edhrecast/git-hit.md", out var resolved);
+
+        Assert.Equal(ContentKbArtifactResolution.Resolved, result);
+        Assert.Equal(gitFile, resolved);
+    }
+
+    [Fact]
+    public void TryResolveExistingArtifact_FlagOn_ReturnsMissingFile_WhenGitMissesEvenIfOverlayHasFile()
+    {
+        // SYNC-07 (d): flag ON + git miss + overlay-file-present -> MissingFile; the /data
+        // overlay is never consulted once the flag drops the fallback branch.
+        var contentRoot = CreateTempWithContentKb();
+        var dataDir = CreateTempDir();
+        WriteFile(Path.Combine(dataDir, "content-kb", "edhrecast", "overlay-only.md"), "# Overlay");
+        var resolver = Build(contentRoot, new() { ["MTG_DATA_DIR"] = dataDir }, directPushGitBodyOn: true);
+
+        var result = resolver.TryResolveExistingArtifact("content-kb/edhrecast/overlay-only.md", out var resolved);
+
+        Assert.Equal(ContentKbArtifactResolution.MissingFile, result);
+        Assert.Equal(string.Empty, resolved);
+    }
+
+    [Theory]
+    [InlineData("content-kb/../escape.md")]
+    [InlineData("/content-kb/edhrecast/rooted.md")]
+    public void TryResolveExistingArtifact_FlagOn_ReturnsInvalidPath_ForTraversalOrRootedPath(string artifactPath)
+    {
+        // SYNC-07 (e): unsafe path -> InvalidPath regardless of flag state; the flag never
+        // bypasses IsSafeArtifactPath/IsContainedUnderRoot.
+        var contentRoot = CreateTempWithContentKb();
+        var dataDir = CreateTempDir();
+        var resolver = Build(contentRoot, new() { ["MTG_DATA_DIR"] = dataDir }, directPushGitBodyOn: true);
+
+        var result = resolver.TryResolveExistingArtifact(artifactPath, out var resolved);
+
+        Assert.Equal(ContentKbArtifactResolution.InvalidPath, result);
+        Assert.Equal(string.Empty, resolved);
+    }
+
+    [Fact]
     public void TryResolveExistingArtifact_IgnoresOverlay_WhenMtgDataDirUnset()
     {
         var contentRoot = CreateTempWithContentKb();
@@ -161,13 +208,19 @@ public sealed class ContentKbArtifactPathResolverTests : IDisposable
         Assert.Equal(string.Empty, resolved);
     }
 
-    private ContentKbArtifactPathResolver Build(string contentRootPath, Dictionary<string, string?> config)
+    private ContentKbArtifactPathResolver Build(
+        string contentRootPath,
+        Dictionary<string, string?> config,
+        bool directPushGitBodyOn = false)
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(config).Build();
         var environment = new StubWebHostEnvironment(contentRootPath);
+        var flagCache = new FakeFeatureFlagCache(
+            new Dictionary<string, bool> { ["sync.directpush-gitbody"] = directPushGitBodyOn });
         return new ContentKbArtifactPathResolver(
             environment,
             configuration,
+            flagCache,
             NullLogger<ContentKbArtifactPathResolver>.Instance);
     }
 
