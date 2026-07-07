@@ -42,8 +42,12 @@ public sealed class ContentBodyHashBackfill
     /// <summary>
     /// Enumerates every site-index row and hashes each row whose <c>body_sha256</c> is currently
     /// <see langword="null"/>. Rows that already carry a hash are left untouched (never read via
-    /// the resolver, never written). A row whose artifact cannot be resolved is skipped with a
-    /// structured warning naming the row id — the pass continues, it never throws.
+    /// the resolver, never written). A row whose artifact cannot be resolved <em>or read</em> (the
+    /// resolver returns <see langword="null"/> or throws a read failure) is skipped with a
+    /// structured warning naming the row id — the resolve/read step never propagates, so a single
+    /// locked/permission-denied artifact cannot crash host startup. Cancellation still propagates;
+    /// a store-write failure also propagates, since it signals a systemic DB problem rather than a
+    /// per-row content issue.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task RunAsync(CancellationToken cancellationToken = default)
@@ -62,9 +66,31 @@ public sealed class ContentBodyHashBackfill
                 continue;
             }
 
-            var rawArtifactText = await _resolver
-                .TryReadArtifactTextAsync(row.ArtifactPath, cancellationToken)
-                .ConfigureAwait(false);
+            string? rawArtifactText;
+            try
+            {
+                rawArtifactText = await _resolver
+                    .TryReadArtifactTextAsync(row.ArtifactPath, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // Cooperative cancellation is not a per-row content failure — let it propagate.
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // D-08: this backfill runs during host startup, so a single unreadable artifact
+                // (locked, permission-denied, path-too-long) must never crash the host even if a
+                // host adapter fails to swallow the read exception. Skip the row and continue.
+                skippedCount++;
+                _logger.LogWarning(
+                    ex,
+                    "Content KB body-hash backfill skipped row {ContentKbRowId}: artifact read failed.",
+                    row.Id);
+                continue;
+            }
+
             if (rawArtifactText is null)
             {
                 skippedCount++;
