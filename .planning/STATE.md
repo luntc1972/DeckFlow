@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: Cycle 16
 milestone_name: Content-KB Prod↔Git↔Studio Sync Hardening
-status: verifying
-stopped_at: Completed 89-06-PLAN.md
-last_updated: "2026-07-07T18:24:06.217Z"
+status: executing
+stopped_at: Completed 90-01-PLAN.md
+last_updated: "2026-07-07T22:39:39.967Z"
 last_activity: 2026-07-07
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 16
+  completed_plans: 10
   percent: 33
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-06)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything. This cycle protects the Content-KB half of that promise.
-**Current focus:** Phase 89 — content-hash-foundation
+**Current focus:** Phase 90 — directpush-correctness-seed-sync
 
 ## Current Position
 
-Phase: 89 (content-hash-foundation) — EXECUTING
-Plan: 6 of 6
-Status: Phase complete — ready for verification
+Phase: 90 (directpush-correctness-seed-sync) — EXECUTING
+Plan: 2 of 7
+Status: Ready to execute
 Last activity: 2026-07-07
 
-Progress: [██████████] 100%
+Progress: [██████░░░░] 63%
 
 ## Roadmap Summary
 
@@ -67,6 +67,7 @@ Progress: [██████████] 100%
 | Phase 89 P04 | 20min | 2 tasks | 5 files |
 | Phase 89 P05 | ~50min | 2 tasks | 6 files |
 | Phase 89 P06 | ~45min | 3 tasks | 9 files |
+| Phase 90 P01 | ~25min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -84,6 +85,7 @@ Full decision log lives in PROJECT.md Key Decisions table. Decisions constrainin
 - [Phase 89]: 89-05: publish-compute and detail render-guard both call ContentSiteIndexContentSignature.ComputeBodySha256, the ONE shared hash helper (D-01); guard is fail-open + structured-log on mismatch OR null/legacy stored hash, detail-render only, no feature flag (D-05/D-06/D-07)
 - [Phase 89]: 89-06: ContentBodyHashBackfill is host-agnostic (DeckFlow.Core) with an IContentArtifactBodyResolver seam, wired at startup on BOTH web (after schema-ensure + seed load) and Studio (bound only to the local content-kb.db store, never a ProdStoreFactory prod store) — D-08 dual-host backfill
 - [Phase 89]: 89-06: Studio backfill runs at STARTUP (not piggybacked on publish/upsert) — symmetric with web, explicit, unit-testable; new distills already hash forward via 89-05
+- [Phase 90]: 90-01: Program.cs needed no change for the new IFeatureFlagCache dependency on ContentKbArtifactPathResolver/ContentKbController - both are registered via plain AddSingleton<T>()/implicit MVC DI with no factory lambda, so the container auto-resolves the new constructor param from AddDeckFlowFeatureFlags()
 
 ### Pending Todos
 
@@ -112,6 +114,6 @@ Carried forward from Cycle 15 close (2026-07-05) — none are Cycle-16 gaps:
 
 ## Session Continuity
 
-Last session: 2026-07-07T18:24:06.191Z
-Stopped at: Completed 89-06-PLAN.md
+Last session: 2026-07-07T22:39:39.946Z
+Stopped at: Completed 90-01-PLAN.md
 Resume file: None
