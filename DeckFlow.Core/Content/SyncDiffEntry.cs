@@ -34,7 +34,11 @@ public enum SyncDiffKind
 /// </summary>
 public sealed record SyncDiffEntry
 {
-    /// <summary>The natural-key type: "youtube" when the row carries a YouTube id, else "podcast".</summary>
+    /// <summary>
+    /// The natural-key type in the stored vocabulary: <see cref="ContentSourceType.Youtube"/>
+    /// (<c>"youtube_channel"</c>) when the row carries a YouTube id, else <see cref="ContentSourceType.Podcast"/>
+    /// (<c>"podcast_rss"</c>).
+    /// </summary>
     public required string NaturalKeyType { get; init; }
 
     /// <summary>The natural-key value (<c>YoutubeVideoId ?? RssGuid</c>).</summary>
