@@ -47,6 +47,19 @@ public sealed class ContentKbControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task Detail_ReturnsNotFound_WhenRowVisibleButPending()
+    {
+        // Codex HIGH / D-04: a drifted visible-but-pending row must 404 at the by-id detail route,
+        // not just be absent from the browse list.
+        var (controller, store) = Build();
+        store.Rows.Add(Row(20, artifactPath: "content-kb/edhrecast/pending.md", visible: true, approvalStatus: "pending"));
+
+        var result = await controller.Detail(20);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
     public async Task Detail_ReturnsNotFound_WhenArtifactPathNotUnderContentKbPrefix()
     {
         var (controller, store) = Build();
@@ -207,7 +220,7 @@ public sealed class ContentKbControllerTests : IDisposable
         File.WriteAllText(full, content);
     }
 
-    private static ContentSiteIndexRow Row(long id, string artifactPath, bool visible)
+    private static ContentSiteIndexRow Row(long id, string artifactPath, bool visible, string approvalStatus = "approved")
         => new()
         {
             Id = id,
@@ -221,6 +234,7 @@ public sealed class ContentKbControllerTests : IDisposable
             CardCategoryTags = Array.Empty<string>(),
             YoutubeVideoId = "x" + id,
             IsVisible = visible,
+            ApprovalStatus = approvalStatus,
         };
 
     public void Dispose()

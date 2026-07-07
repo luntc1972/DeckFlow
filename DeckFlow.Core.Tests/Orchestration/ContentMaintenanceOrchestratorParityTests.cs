@@ -225,6 +225,9 @@ public sealed class ContentMaintenanceOrchestratorParityTests
         public Task<ContentSiteIndexRow?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
+        public Task<ContentSiteIndexRow?> GetPublishedByIdAsync(long id, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
         public Task<int> SetVisibilityAsync(long id, bool visible, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
