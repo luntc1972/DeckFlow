@@ -30,7 +30,7 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
 
 ### 🚧 Cycle 16 — Content-KB Prod↔Git↔Studio Sync Hardening (target `2026.07.3`)
 
-- [ ] **Phase 88: Index-Row Integrity Hotfix** - DirectPush stops writing visible-while-pending rows and collision-prone PinId diffing (ships first — live prod bugs)
+- [x] **Phase 88: Index-Row Integrity Hotfix** - DirectPush stops writing visible-while-pending rows and collision-prone PinId diffing (ships first — live prod bugs)
 - [ ] **Phase 89: Content-Hash Foundation** - One unified body-inclusive hash everywhere; corrupt/stale bodies become detectable instead of silently served
 - [ ] **Phase 90: DirectPush Correctness + Seed Sync** - Bodies reach prod only via git; DirectPush re-exports the seed and survives a redeploy without reverting (flag `sync.directpush-gitbody`)
 - [ ] **Phase 91: Reconcile + Seed Lifecycle** - Seed-ownership marker, then a prod↔git↔seed reconciler (dry-run first), then gated seed-driven removal (flag `sync.reconcile`)
@@ -60,9 +60,9 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
   2. Sync diff classification matches rows by the `(natural_key_type, natural_key_value)` composite instead of `PinId`, so a YouTube/podcast key collision can no longer cross-match two different rows (C4-collision closed).
   3. The DirectPush diff-read path runs no unexpected DDL against prod, and the code comment describing that behavior is corrected to match reality (C4-comment closed).
 **Plans**: 3 plans (2 waves)
-- [ ] 88-01-PLAN.md — Store approved-write mirror + serve-side approval filter + schema-ensure OFF switch (SYNC-04, SYNC-06 store)
-- [ ] 88-02-PLAN.md — Shared ContentNaturalKey helper + composite-key classifier + stored vocabulary + skip-log (SYNC-05 core)
-- [ ] 88-03-PLAN.md — Studio coordinator dedup + ProdStoreFactory schema-ensure-off + no-DDL comment sweep (SYNC-05 studio, SYNC-06 factory)
+- [x] 88-01-PLAN.md — Store approved-write mirror + serve-side approval filter + schema-ensure OFF switch (SYNC-04, SYNC-06 store)
+- [x] 88-02-PLAN.md — Shared ContentNaturalKey helper + composite-key classifier + stored vocabulary + skip-log (SYNC-05 core)
+- [x] 88-03-PLAN.md — Studio coordinator dedup + ProdStoreFactory schema-ensure-off + no-DDL comment sweep (SYNC-05 studio, SYNC-06 factory)
 
 ### Phase 89: Content-Hash Foundation
 **Goal**: Every row's body content is hashed end-to-end on one unified signature, so drift is a single indexed comparison and body corruption (e.g. mojibake) is detectable instead of silently served.
