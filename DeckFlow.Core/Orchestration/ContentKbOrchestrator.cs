@@ -1350,6 +1350,11 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
             {
                 ContentArtifactWriter.WritePromptFile(_artifactRoot, source.SourceSlug, naturalKey, promptText);
             }
+
+            // Why: publish-time compute (D-01/D-02) — the ONE shared helper hashes the same
+            // SplitHeader body the render guard will recompute, so the two sides are provably
+            // comparable (SYNC-01/SYNC-03).
+            var bodySha256 = ContentSiteIndexContentSignature.ComputeBodySha256(artifactText);
             await _indexStore.UpsertContentColumnsOnlyAsync(
                 new ContentSiteIndexRow
                 {
@@ -1365,6 +1370,7 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
                     CardCategoryTags = cardCategoryTags,
                     YoutubeVideoId = video.YoutubeVideoId,
                     RssGuid = video.RssGuid,
+                    BodySha256 = bodySha256,
                 },
                 cancellationToken).ConfigureAwait(false);
             await _videoStore.SetDistillStatusAsync(video.Id, DistillationValidation.DistillStatusDistilled, cancellationToken).ConfigureAwait(false);
