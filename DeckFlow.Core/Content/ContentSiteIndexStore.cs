@@ -129,6 +129,14 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                 await addPushedToProdUtc.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
 
+            if (!columns.Contains("body_sha256"))
+            {
+                // Why: TEXT NULL is valid in both dialects — no IsPostgres branch needed (D-09).
+                await using var addBodySha256 = connection.CreateCommand();
+                addBodySha256.CommandText = "ALTER TABLE content_site_index ADD COLUMN body_sha256 TEXT NULL;";
+                await addBodySha256.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+
             // Why: grandfather the already-published seed to approved and re-run safely after
             // an ALTER-then-crash; only still-pending visible rows are updated on later passes.
             await using (var grandfatherApprovalStatus = connection.CreateCommand())
@@ -236,7 +244,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    is_visible,
                    is_hidden,
                    is_evergreen,
-                   approval_status
+                   approval_status,
+                   body_sha256
               FROM content_site_index
              WHERE natural_key_type = @naturalKeyType
                AND natural_key_value = @naturalKeyValue;
@@ -270,7 +279,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    is_visible,
                    is_hidden,
                    is_evergreen,
-                   approval_status
+                   approval_status,
+                   body_sha256
               FROM content_site_index
              WHERE is_visible = @visible
                AND approval_status = 'approved'
@@ -305,7 +315,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    is_visible,
                    is_hidden,
                    is_evergreen,
-                   approval_status
+                   approval_status,
+                   body_sha256
               FROM content_site_index
              WHERE approval_status = 'approved'
              ORDER BY source, title, id;
@@ -338,7 +349,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    is_visible,
                    is_hidden,
                    is_evergreen,
-                   approval_status
+                   approval_status,
+                   body_sha256
               FROM content_site_index
              ORDER BY source, title, id;
             """,
@@ -370,7 +382,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    is_visible,
                    is_hidden,
                    is_evergreen,
-                   approval_status
+                   approval_status,
+                   body_sha256
               FROM content_site_index
              WHERE id = @id;
             """,
@@ -405,7 +418,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    is_visible,
                    is_hidden,
                    is_evergreen,
-                   approval_status
+                   approval_status,
+                   body_sha256
               FROM content_site_index
              WHERE id = @id
                AND is_visible = @visible
@@ -795,6 +809,9 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         // carries approval on insert AND heals a drifted prod row on update; other upsert variants
         // ignore this unbound-to-their-SQL parameter harmlessly.
         parameters.Add("approvalStatus", row.ApprovalStatus);
+        // Why: body_sha256 (D-01/D-09) is bound here so all three upsert variants can bind it;
+        // variants whose SQL doesn't reference @bodySha256 ignore this parameter harmlessly.
+        parameters.Add("bodySha256", row.BodySha256);
         return parameters;
     }
 
@@ -932,7 +949,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             IsVisible = row.IsVisible,
             IsHidden = row.IsHidden,
             IsEvergreen = row.IsEvergreen,
-            ApprovalStatus = row.ApprovalStatus
+            ApprovalStatus = row.ApprovalStatus,
+            BodySha256 = row.BodySha256
         };
     }
 
@@ -950,7 +968,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           natural_key_type,
           natural_key_value,
           is_hidden,
-          is_evergreen)
+          is_evergreen,
+          body_sha256)
         VALUES (
           @source,
           @title,
@@ -964,7 +983,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           @naturalKeyType,
           @naturalKeyValue,
           @isHidden,
-          @isEvergreen)
+          @isEvergreen,
+          @bodySha256)
         ON CONFLICT (natural_key_type, natural_key_value) DO UPDATE SET
           source             = EXCLUDED.source,
           title              = EXCLUDED.title,
@@ -976,7 +996,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           bracket_tags       = EXCLUDED.bracket_tags,
           card_category_tags = EXCLUDED.card_category_tags,
           is_hidden          = EXCLUDED.is_hidden,
-          is_evergreen       = EXCLUDED.is_evergreen;
+          is_evergreen       = EXCLUDED.is_evergreen,
+          body_sha256        = EXCLUDED.body_sha256;
         """;
 
     private const string UpsertPreservingVisibilitySql = """
@@ -994,7 +1015,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           natural_key_value,
           is_visible,
           is_hidden,
-          is_evergreen)
+          is_evergreen,
+          body_sha256)
         VALUES (
           @source,
           @title,
@@ -1009,7 +1031,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           @naturalKeyValue,
           @isVisible,
           @isHidden,
-          @isEvergreen)
+          @isEvergreen,
+          @bodySha256)
         ON CONFLICT (natural_key_type, natural_key_value) DO UPDATE SET
           source             = EXCLUDED.source,
           title              = EXCLUDED.title,
@@ -1022,7 +1045,10 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           card_category_tags = EXCLUDED.card_category_tags,
           is_visible         = content_site_index.is_visible,
           is_hidden          = content_site_index.is_hidden,
-          is_evergreen       = content_site_index.is_evergreen;
+          is_evergreen       = content_site_index.is_evergreen,
+          -- body_sha256 is OVERWRITTEN from EXCLUDED (like indexed_utc), NOT preserved (WARNING 1):
+          -- a corrected seed hash must propagate on reseed, protecting D-08's one-time backfill intent.
+          body_sha256        = EXCLUDED.body_sha256;
         """;
 
     private const string UpsertContentColumnsOnlySql = """
@@ -1038,7 +1064,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           card_category_tags,
           natural_key_type,
           natural_key_value,
-          approval_status)
+          approval_status,
+          body_sha256)
         VALUES (
           @source,
           @title,
@@ -1051,7 +1078,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           @cardCategoryTags,
           @naturalKeyType,
           @naturalKeyValue,
-          @approvalStatus)
+          @approvalStatus,
+          @bodySha256)
         ON CONFLICT (natural_key_type, natural_key_value) DO UPDATE SET
           source             = EXCLUDED.source,
           title              = EXCLUDED.title,
@@ -1062,9 +1090,11 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           archetype_tags     = EXCLUDED.archetype_tags,
           bracket_tags       = EXCLUDED.bracket_tags,
           card_category_tags = EXCLUDED.card_category_tags,
-          approval_status    = EXCLUDED.approval_status;
+          approval_status    = EXCLUDED.approval_status,
+          body_sha256        = EXCLUDED.body_sha256;
         -- approval_status is now mirrored from the source row on insert and update (D-01/D-02);
         -- is_visible, is_hidden, is_evergreen remain operator-owned and are intentionally excluded.
+        -- body_sha256 is OVERWRITTEN from EXCLUDED (D-09) so a re-distill's new hash always lands.
         """;
 
     private const string PostgresCreateTableSql = """
@@ -1086,6 +1116,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           is_hidden          BOOLEAN NOT NULL DEFAULT FALSE,
           is_evergreen       BOOLEAN NOT NULL DEFAULT FALSE,
           approval_status    TEXT NOT NULL DEFAULT 'pending',
+          body_sha256        TEXT NULL,
           UNIQUE (natural_key_type, natural_key_value)
         );
         """;
@@ -1109,6 +1140,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           is_hidden          INTEGER NOT NULL DEFAULT 0,
           is_evergreen       INTEGER NOT NULL DEFAULT 0,
           approval_status    TEXT NOT NULL DEFAULT 'pending',
+          body_sha256        TEXT NULL,
           UNIQUE (natural_key_type, natural_key_value)
         );
         """;
@@ -1132,5 +1164,6 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         public bool IsHidden { get; init; }
         public bool IsEvergreen { get; init; }
         public required string ApprovalStatus { get; init; }
+        public string? BodySha256 { get; init; }
     }
 }
