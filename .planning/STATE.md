@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: Cycle 16
 milestone_name: Content-KB Prod↔Git↔Studio Sync Hardening
 status: executing
-stopped_at: Phase 89 context gathered
-last_updated: "2026-07-07T17:42:41.814Z"
+stopped_at: Completed 89-04-PLAN.md
+last_updated: "2026-07-07T17:52:38.240Z"
 last_activity: 2026-07-07
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 9
-  completed_plans: 6
+  completed_plans: 7
   percent: 17
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 ## Current Position
 
 Phase: 89 (content-hash-foundation) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Status: Ready to execute
 Last activity: 2026-07-07
 
-Progress: [███████░░░] 67%
+Progress: [████████░░] 78%
 
 ## Roadmap Summary
 
@@ -64,6 +64,7 @@ Progress: [███████░░░] 67%
 | Phase 89 P01 | 25m | 2 tasks | 3 files |
 | Phase 89 P02 | 35m | 2 tasks | 4 files |
 | Phase 89 P03 | 15m | 2 tasks | 3 files |
+| Phase 89 P04 | 20min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,7 @@ Full decision log lives in PROJECT.md Key Decisions table. Decisions constrainin
 - **Decisions still owed at plan time** (per research doc, unresolved): (1) confirm approval ownership is local-authoritative for DirectPush (SYNC-04); (2) `sync.*` flag plumbing home — web-DB flag vs Studio config vs both, since Studio doesn't register the web flag system today.
 - [Phase 89]: 89-02: SetBodySha256IfNullAsync declared as a throwing default interface method (mirrors DeleteAllRowsAsync) so 12 unrelated IContentSiteIndexStore test doubles compile unchanged
 - [Phase 89]: 89-03: Fingerprint deleted; classifier equal-timestamp branch now calls ContentSiteIndexContentSignature.AreContentEqual (SYNC-02/D-03), UTC-direction branches (F-51-PG-01) untouched
+- [Phase 89]: 89-04: bodySha256 added to the single shared export factory ContentIndexExportRow.From() (not to CLI/DirectPush consumers) so both inherit it automatically — SYNC-02 one-signature-one-home invariant extended to seed export (D-09)
 
 ### Pending Todos
 
@@ -105,6 +107,6 @@ Carried forward from Cycle 15 close (2026-07-05) — none are Cycle-16 gaps:
 
 ## Session Continuity
 
-Last session: 2026-07-07T17:42:35.805Z
-Stopped at: Phase 89 context gathered
+Last session: 2026-07-07T17:52:38.220Z
+Stopped at: Completed 89-04-PLAN.md
 Resume file: None
