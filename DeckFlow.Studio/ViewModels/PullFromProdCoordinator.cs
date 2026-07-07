@@ -114,8 +114,9 @@ public sealed class PullFromProdCoordinator
 
         var localRows = await _indexStore.GetAllRowsAsync(cancellationToken).ConfigureAwait(false);
 
-        // Classify (omits in-sync pairs, R3), then stamp ArtifactDownloaded per entry.
-        var entries = ContentSyncDiffClassifier.Classify(prodRows, localRows)
+        // Classify (omits in-sync pairs, R3), then stamp ArtifactDownloaded per entry. Pass the logger so
+        // rows with no natural key are surfaced as warnings, not dropped silently (D-08).
+        var entries = ContentSyncDiffClassifier.Classify(prodRows, localRows, _logger)
             .Select(e => e with { ArtifactDownloaded = availableSet.Contains(e.ArtifactPath) })
             .ToList();
 
@@ -152,12 +153,10 @@ public sealed class PullFromProdCoordinator
             }
 
             var prodRow = entry.ProdRow;
-            // The store + SetApprovalStatusAsync key on the ContentSourceType discriminator
-            // ("youtube_channel"/"podcast_rss"), NOT the classifier's short "youtube"/"podcast";
-            // derive it from the row so the approval mirror matches the right row.
-            var keyType = prodRow.YoutubeVideoId is not null
-                ? ContentSourceType.Youtube
-                : ContentSourceType.Podcast;
+            // entry.NaturalKeyType now carries the stored ContentSourceType vocabulary
+            // ("youtube_channel"/"podcast_rss") that the store + SetApprovalStatusAsync key on (D-07), so
+            // read it directly instead of re-deriving from the prod row.
+            var keyType = entry.NaturalKeyType;
             var keyValue = entry.NaturalKeyValue;
 
             try

@@ -2,8 +2,10 @@ using DeckFlow.Core.Content;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Orchestration;
+using DeckFlow.Studio.Services;
 using DeckFlow.Studio.ViewModels;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace DeckFlow.Studio.Tests;
 
@@ -130,6 +132,40 @@ public sealed class DirectPushCoordinatorTests
         Assert.Equal(1, diff.NewCount);
         Assert.Equal(0, diff.UnchangedCount);
         Assert.Single(diff.PublishRows);
+        // The diff now carries the stored vocabulary discriminator (D-07), not the short "youtube".
+        Assert.Equal(ContentSourceType.Youtube, diff.DiffRows[0].KeyType);
+    }
+
+    [Fact]
+    public void ClassifyDiff_RowWithNoNaturalKey_IsSkipped_AndWarns_WhenLoggerSupplied()
+    {
+        // D-08 (Codex MED-3): a local row with neither a YouTube id nor an RSS guid is skipped, and a
+        // structured warning naming the row is logged when a logger is supplied.
+        var orphan = Youtube(1, "keyed") with { YoutubeVideoId = null, RssGuid = null, Title = "Orphan row" };
+        var logger = new RecordingTestLogger();
+
+        var diff = DirectPushCoordinator.ClassifyDiff(new[] { orphan }, Array.Empty<ContentSiteIndexRow>(), logger);
+
+        Assert.Equal(0, diff.NewCount);
+        Assert.Empty(diff.PublishRows);
+        var warning = Assert.Single(logger.Warnings);
+        Assert.Contains("Orphan row", warning, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProdStoreFactory_Create_BuildsSchemaEnsureDisabledStore_NoDdlOnDeadConnection()
+    {
+        // D-10 wiring proof: the factory builds a schema-ensure-DISABLED store, so EnsureSchemaAsync
+        // early-returns without ever opening a connection. Against an unreachable-but-well-formed prod
+        // connection string, that completes without throwing; a regression to schema-ensure-ON would
+        // attempt the dead connection and throw. (The zero-DDL invariant itself is locked by 88-01's
+        // recording-connection test.)
+        var store = new ProdStoreFactory().Create(
+            "Host=127.0.0.1;Port=1;Database=x;Username=x;Password=x;Timeout=1");
+
+        // Should NOT throw — the switch is off, so no connection is opened.
+        var ex = Record.Exception(() => store.EnsureSchemaAsync().GetAwaiter().GetResult());
+        Assert.Null(ex);
     }
 
     [Fact]
@@ -573,5 +609,31 @@ public sealed class DirectPushCoordinatorTests
             () => coordinator.CommitAndPushBodiesAsync(publish, "/data", CancellationToken.None));
 
         Assert.Contains("git push -u origin feature-x", ex.Reason);
+    }
+
+    // Minimal recording logger: captures formatted Warning messages for D-08 skip-log assertions.
+    private sealed class RecordingTestLogger : ILogger
+    {
+        public List<string> Warnings { get; } = new();
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull
+            => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            ArgumentNullException.ThrowIfNull(formatter);
+            if (logLevel == LogLevel.Warning)
+            {
+                Warnings.Add(formatter(state, exception));
+            }
+        }
     }
 }

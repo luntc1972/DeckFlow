@@ -25,8 +25,10 @@ public sealed class ProdStoreFactory : IProdStoreFactory
         // surface. Normalize handles the postgresql:// URL form from Render DATABASE_URL.
         var normalized = PostgresConnectionStringNormalizer.Normalize(connectionString);
         var conn = new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, normalized);
-        // Why: ContentSiteIndexStore ctor accepts any RelationalDatabaseConnection (verified
-        // ContentSiteIndexStore.cs:30); no new Core ctor/overload needed.
-        return new ContentSiteIndexStore(conn);
+        // Why: every prod-pointed store disables schema-ensure (D-10) so Studio NEVER issues
+        // CREATE/ALTER/DROP against prod on reads OR writes — prod schema is owned by the web app's
+        // startup/seed path (SYNC-06). The zero-DDL invariant is locked by the recording-connection
+        // test in Plan 88-01 Task 3; this factory is the only prod-store construction site.
+        return new ContentSiteIndexStore(conn, ensureSchemaEnabled: false);
     }
 }
