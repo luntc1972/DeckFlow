@@ -75,8 +75,10 @@ public sealed class StudioContentArtifactBodyResolver : IContentArtifactBodyReso
         {
             return await File.ReadAllTextAsync(artifactAbs, cancellationToken).ConfigureAwait(false);
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            // Honor the "never throws" contract: a locked/permission-denied artifact reads as
+            // unresolved so the startup backfill skips it instead of crashing the host.
             return null;
         }
     }

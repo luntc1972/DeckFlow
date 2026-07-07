@@ -33,6 +33,15 @@ public sealed class ContentKbArtifactBodyResolver : IContentArtifactBodyResolver
             return null;
         }
 
-        return await File.ReadAllTextAsync(resolvedFullPath, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await File.ReadAllTextAsync(resolvedFullPath, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Honor the "never throws" contract: a locked/permission-denied artifact reads as
+            // unresolved so the caller (startup backfill) skips it instead of crashing.
+            return null;
+        }
     }
 }

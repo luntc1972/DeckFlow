@@ -52,6 +52,39 @@ internal sealed class FakeContentArtifactBodyResolver : IContentArtifactBodyReso
 }
 
 /// <summary>
+/// Fake <see cref="IContentArtifactBodyResolver"/> that throws a supplied exception for one
+/// artifact path (simulating a locked / permission-denied file whose resolver does not swallow
+/// the failure) and returns canned text for any other path — proving the backfill itself is
+/// resilient to a throwing resolver, independent of each host adapter's own guards.
+/// </summary>
+internal sealed class ThrowingContentArtifactBodyResolver : IContentArtifactBodyResolver
+{
+    private readonly string _throwForPath;
+    private readonly Exception _toThrow;
+    private readonly Dictionary<string, string?> _textByPath;
+
+    public ThrowingContentArtifactBodyResolver(
+        string throwForPath,
+        Exception toThrow,
+        Dictionary<string, string?> textByPath)
+    {
+        _throwForPath = throwForPath;
+        _toThrow = toThrow;
+        _textByPath = textByPath;
+    }
+
+    public Task<string?> TryReadArtifactTextAsync(string artifactPath, CancellationToken cancellationToken = default)
+    {
+        if (string.Equals(artifactPath, _throwForPath, StringComparison.Ordinal))
+        {
+            throw _toThrow;
+        }
+
+        return Task.FromResult(_textByPath.TryGetValue(artifactPath, out var text) ? text : null);
+    }
+}
+
+/// <summary>
 /// Behavior coverage for <see cref="ContentBodyHashBackfill"/> (D-08): null-row-with-text gets
 /// hashed via the shared <see cref="ContentSiteIndexContentSignature.ComputeBodySha256"/> helper
 /// and persisted through <see cref="IContentSiteIndexStore.SetBodySha256IfNullAsync"/>; a
@@ -125,6 +158,40 @@ public sealed class ContentBodyHashBackfillTests : IDisposable
             logger.Entries,
             entry => entry.Level == LogLevel.Warning
                 && entry.Message.Contains(row.Id.ToString(), StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task RunAsync_ResolverThrows_SkipsRowLogsWarningAndContinues()
+    {
+        var store = new ContentSiteIndexStore(_dbPath);
+        await store.UpsertContentColumnsOnlyAsync(CreateRow("yt-throws", bodySha256: null));
+        await store.UpsertContentColumnsOnlyAsync(CreateRow("yt-good", bodySha256: null));
+        var throwingRow = await store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-throws");
+        var goodRow = await store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-good");
+        Assert.NotNull(throwingRow);
+        Assert.NotNull(goodRow);
+
+        const string goodText = "---\ntitle: \"x\"\n---\nGood body.";
+        // A resolver that leaks UnauthorizedAccessException (not caught by a host adapter) must not
+        // crash the pass — one locked/permission-denied artifact should never terminate host startup.
+        var resolver = new ThrowingContentArtifactBodyResolver(
+            throwForPath: throwingRow!.ArtifactPath,
+            toThrow: new UnauthorizedAccessException("access denied"),
+            textByPath: new Dictionary<string, string?> { [goodRow!.ArtifactPath] = goodText });
+        var logger = new FakeLogger<ContentBodyHashBackfill>();
+        var backfill = new ContentBodyHashBackfill(store, resolver, logger);
+
+        var exception = await Record.ExceptionAsync(() => backfill.RunAsync());
+
+        Assert.Null(exception);
+        var throwingAfter = await store.GetByIdAsync(throwingRow.Id);
+        Assert.Null(throwingAfter!.BodySha256);
+        var goodAfter = await store.GetByIdAsync(goodRow.Id);
+        Assert.Equal(ContentSiteIndexContentSignature.ComputeBodySha256(goodText), goodAfter!.BodySha256);
+        Assert.Contains(
+            logger.Entries,
+            entry => entry.Level == LogLevel.Warning
+                && entry.Message.Contains(throwingRow.Id.ToString(), StringComparison.Ordinal));
     }
 
     [Fact]
