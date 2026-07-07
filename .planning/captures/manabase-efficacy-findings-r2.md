@@ -202,3 +202,28 @@ sentence lacks its flag caveat.
    classifier predicates against current Scryfall wording — a 2024 rewording rotted a core
    predicate for ~a year with green tests.
 7. Rest by opportunity.
+
+---
+
+## Follow-up findings (discovered during M4 deck-test, 2026-07-07)
+
+### M4b — ramp-credit-v2 permanent branch missing one-shot / sacrifice guard
+`ManabaseClassifier.cs` `IsRepeatableRampOrDraw` (~:849-856). After the M4 reminder-strip, the
+permanent branch is still `permanent && frontText.Contains("Add ")` with **no sacrifice / one-shot
+guard** — unlike H2's `HasRepeatableManaAbility` (`LineHasActivatedAdd`), which drops
+`{cost incl. Sacrifice}: Add`. So a permanent whose ONLY mana ability is a one-shot sac
+(**Lotus Bloom** `{T}, Sacrifice this artifact: Add three…`, **Lion's Eye Diamond**,
+Chromatic Star/Sphere class) earns the −0.28 repeatable-ramp land credit despite giving no
+persistent mana. **Confirmed live** on the Rakdos treasure deck: Lotus Bloom (MV0) → v2=1.
+Subsystem divergence between the MQ-03 credit path and the H2 source-classification path.
+**Fix:** reuse the H2 sacrifice/one-shot predicate (`LineHasActivatedAdd`-style) in the
+permanent branch so the two paths agree, or share one "has a repeatable (non-sac) front-face
+`Add` ability" helper across both. Same class as H2/M4; low magnitude (−0.28 per card) but a
+real correctness + consistency gap.
+
+*Deck-test note:* on a real 100-card Rakdos treasure deck (The Master, Multiplied), M4 itself
+moved the land target ≈0 — its reminder-carrying makers were already excluded for other reasons
+(Ragavan carries no `Add `; Reckless Lackey / Deadly Dispute credited via the DRAW branch, i.e.
+M7 territory), and the MV≤2 slots are dominated by real rocks (Sol Ring, Mox Opal, Signet,
+Fellwar, Talisman, The Soul Stone) which correctly keep credit. Result: 35 lands vs 33.4 target,
+Health "Functional".
