@@ -89,7 +89,13 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
   2. DirectPush re-exports `index-seed.json` (like Publish already does), so a fresh prod reseed reconstructs the DirectPush'd row instead of reverting it.
   3. `is_visible` flips only after the body has been committed, deployed, and hash-verified at `/app` — a row is never visible before its body is reachable.
   4. `pushed_to_prod_utc` is stamped only after prod confirms the deployed body, so a live DirectPush'd row never shows a "Never published" badge.
-**Plans**: TBD
+**Plans**: 6 plans (4 waves)
+- [ ] 90-01-PLAN.md — SYNC-07 git-body serving flip + `sync.directpush-gitbody` registration (seeded OFF) [wave 1]
+- [ ] 90-02-PLAN.md — D-11 read-only pre-flip git-coverage audit (Studio) [wave 1]
+- [ ] 90-03-PLAN.md — D-10 durable awaiting-confirm marker column (Core store, both dialects) [wave 1]
+- [ ] 90-04-PLAN.md — SYNC-08 seed re-export via shared factory + drop [skip render] under flag + read-only Studio prod-flag accessor [wave 2]
+- [ ] 90-05-PLAN.md — SYNC-09/10 coordinator re-plumb: split write, confirm-GET (200=reachable), post-confirm stamp/visibility [wave 3]
+- [ ] 90-06-PLAN.md — SYNC-09/10 DirectPush page expand→verify→contract re-sequencing + durable resume [wave 4]
 
 ### Phase 91: Reconcile + Seed Lifecycle
 **Goal**: Prod-side drift is detectable and reconcilable, and rows removed from the seed actually leave prod — safely, gated behind a seed-ownership marker so a bad seed can't mass-delete live rows.
@@ -137,7 +143,7 @@ Phases execute in numeric order: 88 → 89 → 90 → 91 → 92 → 93
 | 87. Creator-Source Model Hardening | 2026.07.2 | 1/1 | Complete | 2026-07-05 |
 | 88. Index-Row Integrity Hotfix | Cycle 16 | 3/3 | Complete | 2026-07-06 |
 | 89. Content-Hash Foundation | Cycle 16 | 6/6 | Complete   | 2026-07-07 |
-| 90. DirectPush Correctness + Seed Sync | Cycle 16 | 0/TBD | Not started | - |
+| 90. DirectPush Correctness + Seed Sync | Cycle 16 | 0/6 | Not started | - |
 | 91. Reconcile + Seed Lifecycle | Cycle 16 | 0/TBD | Not started | - |
 | 92. Pull Hardening | Cycle 16 | 0/TBD | Not started | - |
 | 93. Round-Trip Integration Test | Cycle 16 | 0/TBD | Not started | - |
