@@ -98,6 +98,36 @@ public sealed class ContentKbControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task Detail_ReturnsNotFound_WhenFileMissingAndDirectPushGitBodyFlagOn()
+    {
+        // SYNC-07/D-01/D-11: under the flag, a missing /app body is a real 404, not the 200
+        // "artifact unavailable" shell - a serving failure is an honest status (Codex LOW #6b).
+        var (controller, store) = Build(new Dictionary<string, string?>(), out _, directPushGitBodyOn: true);
+        store.Rows.Add(Row(40, artifactPath: "content-kb/edhrecast/missing-flagon.md", visible: true));
+
+        var result = await controller.Detail(40);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task Detail_ReturnsOk_ForPresentArtifact_WhenDirectPushGitBodyFlagOn()
+    {
+        // Happy-path render is unchanged by the flag; only the MissingFile branch is gated.
+        var (controller, store) = Build(new Dictionary<string, string?>(), out var baseDir, directPushGitBodyOn: true);
+        var rel = "content-kb/edhrecast/flagon-ok.md";
+        WriteArtifact(baseDir, rel, "---\ntitle: Ok\n---\n# Body\n\nFlag-on present body.");
+        store.Rows.Add(Row(41, artifactPath: rel, visible: true));
+
+        var result = await controller.Detail(41);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ContentKbDetailViewModel>(view.Model);
+        Assert.False(model.ArtifactUnavailable);
+        Assert.Contains("Flag-on present body.", model.CleanBodyText);
+    }
+
+    [Fact]
     public async Task Detail_RendersBodyWithoutFrontmatter_OnHappyPath()
     {
         var (controller, store) = Build(out var baseDir);
@@ -246,7 +276,8 @@ public sealed class ContentKbControllerTests : IDisposable
         => Build(out _);
 
     private (ContentKbController Controller, FakeContentSiteIndexStore Store, FakeLogger<ContentKbController> Logger) BuildWithLogger(
-        out string baseDir)
+        out string baseDir,
+        bool directPushGitBodyOn = false)
     {
         baseDir = Path.Combine(Path.GetTempPath(), "kbctl-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(baseDir, "content-kb"));
@@ -255,15 +286,19 @@ public sealed class ContentKbControllerTests : IDisposable
         var config = new Dictionary<string, string?> { ["ContentKb:ContentBase"] = baseDir };
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(config).Build();
         // Why: sync.directpush-gitbody defaults OFF here (D-05) - these controller tests exercise
-        // today's byte-identical git-then-overlay serving, not the flag-ON git-only path.
+        // today's byte-identical git-then-overlay serving, not the flag-ON git-only path, unless
+        // a test explicitly opts into flag-ON via directPushGitBodyOn. Both the resolver and the
+        // controller share ONE flag cache instance so they observe the same flag state.
+        var flagCache = new FakeFeatureFlagCache(
+            new Dictionary<string, bool> { ["sync.directpush-gitbody"] = directPushGitBodyOn });
         var resolver = new ContentKbArtifactPathResolver(
             new StubWebHostEnvironment(baseDir),
             configuration,
-            new FakeFeatureFlagCache(new Dictionary<string, bool> { ["sync.directpush-gitbody"] = false }),
+            flagCache,
             NullLogger<ContentKbArtifactPathResolver>.Instance);
         var store = new FakeContentSiteIndexStore();
         var logger = new FakeLogger<ContentKbController>();
-        var controller = new ContentKbController(store, resolver, logger);
+        var controller = new ContentKbController(store, resolver, flagCache, logger);
         return (controller, store, logger);
     }
 
@@ -275,7 +310,8 @@ public sealed class ContentKbControllerTests : IDisposable
 
     private (ContentKbController Controller, FakeContentSiteIndexStore Store) Build(
         Dictionary<string, string?> config,
-        out string baseDir)
+        out string baseDir,
+        bool directPushGitBodyOn = false)
     {
         baseDir = Path.Combine(Path.GetTempPath(), "kbctl-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(baseDir, "content-kb"));
@@ -286,14 +322,16 @@ public sealed class ContentKbControllerTests : IDisposable
             .AddInMemoryCollection(config)
             .Build();
         // Why: sync.directpush-gitbody defaults OFF here (D-05) - see comment on the sibling
-        // Build(out) overload above.
+        // BuildWithLogger overload above; both resolver and controller share one flag cache.
+        var flagCache = new FakeFeatureFlagCache(
+            new Dictionary<string, bool> { ["sync.directpush-gitbody"] = directPushGitBodyOn });
         var resolver = new ContentKbArtifactPathResolver(
             new StubWebHostEnvironment(baseDir),
             configuration,
-            new FakeFeatureFlagCache(new Dictionary<string, bool> { ["sync.directpush-gitbody"] = false }),
+            flagCache,
             NullLogger<ContentKbArtifactPathResolver>.Instance);
         var store = new FakeContentSiteIndexStore();
-        var controller = new ContentKbController(store, resolver, NullLogger<ContentKbController>.Instance);
+        var controller = new ContentKbController(store, resolver, flagCache, NullLogger<ContentKbController>.Instance);
         return (controller, store);
     }
 
