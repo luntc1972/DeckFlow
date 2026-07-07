@@ -81,7 +81,44 @@ gating an ordering/stamp plan), not cram all four into one plan.
   emit the seed exactly like Publish does, through the shared `ContentIndexExportRow.From()`
   factory (Phase 89 already routed both CLI export and DirectPush through it and added
   `body_sha256` to it), so a fresh prod reseed reconstructs the DirectPush'd row instead of
-  reverting it (M2, C3). Do NOT fork a second seed-writer.
+  reverting it (M2, C3). Do NOT fork a second seed-writer. Reference pattern:
+  `PublishCoordinator.cs:94-101` (`_orchestrator.ExportIndexToFileAsync`). The current
+  DirectPush guard that deliberately never stages the seed (`DirectPushCoordinator.cs:240-251`)
+  is replaced by this export call.
+
+### Deploy-confirm mechanism (ANSWERED — post-research Q1)
+- **D-09: Confirm via Studio HTTPS GET of the public detail page → HTTP 200 = body reachable at
+  `/app`.** Studio has no HTTP path into the deployed web app today and only talks to prod via
+  Postgres/SSH/git. Rather than build a new authenticated hash endpoint, after git push +
+  Render autodeploy Studio issues an HTTPS GET of the public Content-KB detail URL; a 200 proves
+  the body is reachable at `/app` (kills M1). Corruption detection is delegated to the Phase 89
+  fail-open render guard already serving that path (recompute-and-log). This means SYNC-09's
+  "hash-verified at /app" is satisfied as: body committed → deployed → **reachable** (200) →
+  render-guard covers byte-corruption. DirectPush must therefore NOT `[skip render]` for the
+  git-body flow — the redeploy must actually happen (see `DirectPushCoordinator.cs:33-37`, which
+  currently suppresses it). No new authenticated web endpoint is added this phase.
+
+### Awaiting-confirm durability (ANSWERED — post-research Q2)
+- **D-10: Persist "pushed, awaiting confirm" state in the LOCAL content-kb store.** The
+  commit→Render-deploy lag is minutes and Blazor page state is lost on navigation, so the pending
+  state must be durable: the row stays `is_visible=false` with `pushed_to_prod_utc=null` and
+  carries a durable "awaiting-confirm" marker in the local store until the D-09 GET succeeds. A
+  Studio action (or the next Studio open) can resume/re-run the confirm poll rather than losing
+  the in-flight push. This makes the ordering crash-safe: an abandoned mid-flow push never leaves
+  a row visible-before-reachable. (Design the marker minimally — a nullable local column or an
+  existing status field; the planner picks the least-invasive persistence per the code.)
+
+### SYNC-07 legacy-row safety (ANSWERED — post-research Q3)
+- **D-11: Drop the `/data` serving overlay FULLY under the flag; guard the flip with a pre-flip
+  git-coverage audit.** SYNC-07 removes the `/data`-first fallback under `sync.directpush-gitbody`
+  (do NOT keep a per-row `/data` fallback — that would leave the overlay code path alive and
+  defeat the flip). The live-data risk (~70/106 prod rows whose body may exist only on `/data`,
+  not in the approved git seed — per STATE.md) is mitigated by an audit, not by softening the
+  flip: add a startup/Studio audit that lists approved+visible rows whose body is MISSING from the
+  git `/app` tree. Operator must resolve coverage (git-commit those bodies — the systematic fix is
+  the P91 reconciler) BEFORE flipping the flag ON. Because the flag ships OFF (D-05), there is no
+  live 404 risk now; the audit makes the precondition explicit and observable. The audit is
+  read-only/reporting this phase (it does NOT delete or reconcile — that's P91).
 
 </decisions>
 
@@ -140,10 +177,13 @@ gating an ordering/stamp plan), not cram all four into one plan.
 
 <scope_fence>
 ## Scope Fence
-**In scope:** DirectPush serving flip to `/app` under a web-DB flag (SYNC-07); DirectPush seed
-re-export via the shared factory (SYNC-08); hash-gated expand-contract visibility ordering
-(SYNC-09); post-confirmation `pushed_to_prod_utc` stamp (SYNC-10); a minimal read-only Studio
-accessor for the web-DB flag; register `sync.directpush-gitbody` OFF.
+**In scope:** DirectPush serving flip to `/app` under a web-DB flag + drop `/data` overlay
+(SYNC-07); a read-only pre-flip git-coverage audit (D-11); DirectPush seed re-export via the
+shared factory (SYNC-08); reachability-gated expand-contract visibility ordering via a Studio
+HTTPS GET → 200 confirm (SYNC-09, D-09) with durable local "awaiting-confirm" state (D-10);
+post-confirmation `pushed_to_prod_utc` stamp (SYNC-10); a minimal read-only Studio accessor for
+the web-DB flag; register `sync.directpush-gitbody` OFF; drop `[skip render]` for the git-body
+DirectPush flow so the redeploy actually happens.
 
 **Out of scope:** the reconciler / seed lifecycle / deletes (P91), Pull hardening (P92), the
 round-trip integration test (P93), any new SFTP body transport, any framework migration, any
