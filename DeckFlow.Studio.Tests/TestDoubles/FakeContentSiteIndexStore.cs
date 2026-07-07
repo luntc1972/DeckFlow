@@ -141,6 +141,9 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
     public Task<ContentSiteIndexRow?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
         => Task.FromResult(Rows.FirstOrDefault(r => r.Id == id));
 
+    public Task<ContentSiteIndexRow?> GetPublishedByIdAsync(long id, CancellationToken cancellationToken = default)
+        => Task.FromResult(Rows.FirstOrDefault(r => r.Id == id && r.IsVisible && r.ApprovalStatus == "approved"));
+
     public Task<int> SetVisibilityAsync(long id, bool visible, CancellationToken cancellationToken = default)
     {
         var count = 0;

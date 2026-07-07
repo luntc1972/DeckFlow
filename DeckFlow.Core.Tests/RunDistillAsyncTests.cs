@@ -699,6 +699,9 @@ public sealed class RunDistillAsyncTests : IDisposable
         public Task<ContentSiteIndexRow?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
             => Task.FromResult(Rows.FirstOrDefault(row => row.Id == id));
 
+        public Task<ContentSiteIndexRow?> GetPublishedByIdAsync(long id, CancellationToken cancellationToken = default)
+            => Task.FromResult(Rows.FirstOrDefault(row => row.Id == id && row.IsVisible && row.ApprovalStatus == "approved"));
+
         public Task<int> SetVisibilityAsync(long id, bool visible, CancellationToken cancellationToken = default)
         {
             var count = 0;
