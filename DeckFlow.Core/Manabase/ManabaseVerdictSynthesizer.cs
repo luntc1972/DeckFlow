@@ -46,13 +46,17 @@ public static class ManabaseVerdictSynthesizer
 
     private static List<string> CollectIssues(ManabaseReport report, ManabaseRampDrawBudget? budget)
     {
-        List<string> issues = report.ColorFindings
-            .Where(finding => finding.Deficit > 1.0)
+        // Efficacy R2 finding H4: consume the SAME per-color issue set the health band derives
+        // (ColorIssueFindings — source-short, color-starved, or sim-weakest) instead of a private
+        // Deficit > 1 filter, and the SAME land threshold the page/PrimaryFix use (< -1, not
+        // <= -2). Otherwise the verdict can say "no changes needed" beside a Workable/Needs-work
+        // chip, or stay silent while the Lands line says "add ~2 land(s)".
+        List<string> issues = report.ColorIssueFindings
             .OrderByDescending(finding => finding.Deficit)
             .Select(BuildColorIssue)
             .ToList();
 
-        if (report.LandDelta <= -2.0 && !report.LandShortfallCoveredByRamp)
+        if (report.LandDelta < -1 && !report.LandShortfallCoveredByRamp)
         {
             issues.Add(string.Create(
                 CultureInfo.InvariantCulture,
@@ -97,10 +101,22 @@ public static class ManabaseVerdictSynthesizer
 
     private static string BuildColorIssue(ColorSourceFinding finding)
     {
-        int shortfall = (int)Math.Ceiling(finding.Deficit);
+        // Source-short: a whole-source-plus paper deficit — quantify the shortfall.
+        if (finding.Deficit > 1.0)
+        {
+            int shortfall = (int)Math.Ceiling(finding.Deficit);
+            return string.Create(
+                CultureInfo.InvariantCulture,
+                $"You're ~{shortfall} {finding.Color} source(s) short - add ~{shortfall} {finding.Color}-producing lands/rocks; consider cutting a colorless utility land.");
+        }
+
+        // Color-starved / sim-weakest: the paper count is close but the sim shows spells missing
+        // their on-curve window on COLOR access. Deficit may be <= 1 (even 0), so a count-based
+        // line would read "add ~0"; describe the access problem instead.
+        int slowSpells = Math.Max(1, finding.ColorLimitedUnderSupportedCount);
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"You're ~{shortfall} {finding.Color} source(s) short - add ~{shortfall} {finding.Color}-producing lands/rocks; consider cutting a colorless utility land.");
+            $"{finding.Color} access is inconsistent - {slowSpells} {finding.Color} spell(s) miss their on-curve window on color; add 1-2 {finding.Color}-producing lands (swap in a dual or cut a colorless utility land).");
     }
 
     private static string BuildBudgetIssue(
