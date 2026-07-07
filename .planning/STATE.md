@@ -4,13 +4,13 @@ milestone: Cycle 16
 milestone_name: Content-KB Prod↔Git↔Studio Sync Hardening
 status: executing
 stopped_at: Phase 89 context gathered
-last_updated: "2026-07-07T17:12:46.517Z"
+last_updated: "2026-07-07T17:33:37.164Z"
 last_activity: 2026-07-07
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 9
-  completed_plans: 4
+  completed_plans: 5
   percent: 17
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 ## Current Position
 
 Phase: 89 (content-hash-foundation) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Ready to execute
 Last activity: 2026-07-07
 
-Progress: [████░░░░░░] 44%
+Progress: [██████░░░░] 56%
 
 ## Roadmap Summary
 
@@ -62,6 +62,7 @@ Progress: [████░░░░░░] 44%
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 89 P01 | 25m | 2 tasks | 3 files |
+| Phase 89 P02 | 35m | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,7 @@ Full decision log lives in PROJECT.md Key Decisions table. Decisions constrainin
 - **No CDC/queue-based sync** — upsert + hash + expand-contract ordering fits the 512MB Render / single-operator scale.
 - **Flags `sync.directpush-gitbody` and `sync.reconcile` seeded OFF** — operator flips on after prod deploy, matching every prior cycle's flag convention.
 - **Decisions still owed at plan time** (per research doc, unresolved): (1) confirm approval ownership is local-authoritative for DirectPush (SYNC-04); (2) `sync.*` flag plumbing home — web-DB flag vs Studio config vs both, since Studio doesn't register the web flag system today.
+- [Phase 89]: 89-02: SetBodySha256IfNullAsync declared as a throwing default interface method (mirrors DeleteAllRowsAsync) so 12 unrelated IContentSiteIndexStore test doubles compile unchanged
 
 ### Pending Todos
 
@@ -101,6 +103,6 @@ Carried forward from Cycle 15 close (2026-07-05) — none are Cycle-16 gaps:
 
 ## Session Continuity
 
-Last session: 2026-07-07T17:12:46.494Z
+Last session: 2026-07-07T17:32:31.334Z
 Stopped at: Phase 89 context gathered
 Resume file: None
