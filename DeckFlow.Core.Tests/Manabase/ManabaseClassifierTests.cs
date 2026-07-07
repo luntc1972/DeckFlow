@@ -978,4 +978,38 @@ public sealed class ManabaseClassifierTests
         Assert.Equal(0.75, Assert.Single(deck.Sources, s => s.Name == "Arcane Signet").Weight);
         Assert.True(Assert.Single(deck.Spells, s => s.Name == "Sol Ring").IsManaSource);
     }
+
+    [Fact]
+    public void Classify_GranterOnlyEquipment_IsNotItsOwnRock()
+    {
+        // Efficacy R2 finding H2 (Codex review): a quoted GRANTED ability ('Equipped creature has
+        // "{T}: Add one mana of any color."') lives on another permanent, not the granter — but
+        // Scryfall still sets produced_mana on the granter (Paradise Mantle: all five colors).
+        // The quoted line must not make the Equipment read as its own 0.75 five-color rock.
+        // A card with BOTH a granted line and its own "<cost>: Add" line (Chromatic Lantern)
+        // stays a rock via its own line.
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Paradise Mantle", Quantity = 1, ManaCost = "{0}", ManaValue = 0,
+                TypeLine = "Artifact — Equipment",
+                OracleText = "Equipped creature has \"{T}: Add one mana of any color.\"\nEquip {1}",
+                ProducedMana = new[] { "W", "U", "B", "R", "G" },
+            },
+            new()
+            {
+                Name = "Chromatic Lantern", Quantity = 1, ManaCost = "{3}", ManaValue = 3,
+                TypeLine = "Artifact",
+                OracleText = "Lands you control have \"{T}: Add one mana of any color.\"\n{T}: Add one mana of any color.",
+                ProducedMana = new[] { "W", "U", "B", "R", "G" },
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        Assert.DoesNotContain(deck.Sources, s => s.Name == "Paradise Mantle");
+        Assert.False(Assert.Single(deck.Spells, s => s.Name == "Paradise Mantle").IsManaSource);
+        Assert.Equal(0.75, Assert.Single(deck.Sources, s => s.Name == "Chromatic Lantern").Weight);
+    }
 }

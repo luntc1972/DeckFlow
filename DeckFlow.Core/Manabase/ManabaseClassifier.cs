@@ -434,6 +434,12 @@ public static class ManabaseClassifier
     // of any color.)") so token reminder wording never reads as the card's own mana ability.
     private static readonly Regex ReminderTextRegex = new(@"\([^)]*\)", RegexOptions.Compiled);
 
+    // Strips quoted GRANTED abilities ('Equipped creature has "{T}: Add one mana of any color."'
+    // — Paradise Mantle, Goldspan Dragon's Treasure grant). A granted ability lives on some other
+    // permanent, not this card, so it must never make the granter read as its own rock/dork.
+    // Granters are modeled separately by DetectGranter/AddGrantedSources.
+    private static readonly Regex QuotedGrantRegex = new("\"[^\"]*\"", RegexOptions.Compiled);
+
     // A repeatable, self-contained mana ability on the card's FRONT face: an activated
     // "<cost>: Add ..." line whose cost does not sacrifice anything. The sacrifice check drops
     // one-shot mana (Lotus Petal "{T}, Sacrifice this artifact: Add ...") and sac-outlet engines
@@ -450,6 +456,7 @@ public static class ManabaseClassifier
         }
 
         text = ReminderTextRegex.Replace(text, string.Empty);
+        text = QuotedGrantRegex.Replace(text, string.Empty);
         foreach (string line in text.Split('\n'))
         {
             int colon = line.IndexOf(':', StringComparison.Ordinal);
