@@ -40,8 +40,16 @@ public sealed class ManabaseHealthBandRegressionTests
         // "enters tapped" wording now classify tapped, and produced_mana-only producers
         // (Treasure-makers, one-shot sac mana, sac-outlets) no longer count as permanent sources.
         // Both remove phantom optimism: Meren (ritual/Treasure sources gone) drops Excellent →
-        // Solid, and army-now (worst color 46% once its phantom sources vanish) drops Solid →
-        // Needs work. The headline floor cannot promote army-now (WorstColorCastPercent < 50).
+        // Solid, and army-now (worst color 46% once its phantom sources vanish) dropped Solid →
+        // Needs work.
+        //
+        // Re-baselined a THIRD time for efficacy R2 M1/M2 (sim realism): the London mulligan no
+        // longer redraws the exact card it just bottomed (M1), and slack turns now develop a tapped
+        // fixer over a color-useless untapped land (M2). Both raise real castability on tapland/fixing
+        // decks. army-now recovers Needs work → Solid: M2's better tapland sequencing turns its
+        // tightest color from a deficit into a surplus (MaxColorDeficit -4.8, ColorLimitedUnderSupported
+        // 0), so no color issue fires; its 46% worst-color spell is mana/curve-limited, not a fixing
+        // gap. No other calibration deck changes band.
         new("Stale Brago (WU control)", ".manabase-brago-facts.json", "Needs work", "Workable"),
         new("Kenrith 5-color rocks", ".manabase-5c-facts.json", "Excellent", "Excellent"),
         new("Meren Golgari ramp/ritual", ".manabase-golgari-facts.json", "Solid", "Solid"),
@@ -50,7 +58,7 @@ public sealed class ManabaseHealthBandRegressionTests
         new("Archidekt 23753514 - graveyard fungus", ".manabase-arch-23753514-facts.json", "Solid", "Solid"),
         new("Archidekt 23638601 - Townos", ".manabase-arch-23638601-facts.json", "Excellent", "Excellent"),
         new("Archidekt 8066726 - The Necrobloom", ".manabase-arch-8066726-facts.json", "Needs work", "Needs work"),
-        new("Archidekt 7084567 - army now", ".manabase-arch-7084567-facts.json", "Needs work", "Needs work"),
+        new("Archidekt 7084567 - army now", ".manabase-arch-7084567-facts.json", "Solid", "Solid"),
     ];
 
     // Retained only for the measurement harness/dump. Post turn-1-draw recalibration this deck no
