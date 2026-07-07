@@ -446,9 +446,15 @@ public static class ManabaseClassifier
     private static readonly Regex QuotedSpanRegex = new("\"([^\"]*)\"", RegexOptions.Compiled);
 
     // Self pronoun immediately before a quoted grant: "..., it has "..."" / "this creature gains".
+    // Subjects are singular, so only the singular verbs has/gains can follow.
     private static readonly Regex SelfPronounGrantRegex = new(
-        @"\b(?:it|this creature|this artifact|this enchantment|this land|this permanent)\s+(?:has|have|gains?)\s*$",
+        @"\b(?:it|this creature|this artifact|this enchantment|this land|this permanent)\s+(?:has|gains?)\s*$",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // Constant separators for the grant-clause scan, hoisted so each GrantIncludesSelf call
+    // does not allocate a fresh char[].
+    private static readonly char[] ClauseBoundaryChars = { '.', ',', ';' };
+    private static readonly char[] WordSeparatorChars = { ' ', '\t' };
 
     // Words in a collective-grant subject that never name a type ("All Slivers have", "Sliver
     // creatures you control have", "Equipped creature has").
@@ -532,9 +538,9 @@ public static class ManabaseClassifier
 
         // Collective grant: examine the clause after the last sentence/clause boundary, e.g.
         // "All Slivers have" or "Sliver creatures you control have".
-        int clauseStart = prefix.LastIndexOfAny(new[] { '.', ',', ';' }) + 1;
+        int clauseStart = prefix.LastIndexOfAny(ClauseBoundaryChars) + 1;
         string[] words = prefix[clauseStart..].Split(
-            new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            WordSeparatorChars, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         foreach (string word in words)
         {
             if (GrantSubjectStopWords.Contains(word))
@@ -774,8 +780,9 @@ public static class ManabaseClassifier
     // Scryfall's Aug-2024 oracle update reworded "enters the battlefield tapped" to "enters
     // tapped" ("This land enters tapped."). Live API data uses the new phrasing exclusively, so
     // matching only the old one classified every tapland as untapped (efficacy R2 finding H1).
-    // Keep the old phrasing too for stale fixtures/caches. "enters tapped" is a substring of the
-    // old form, so the single new check covers both — the old literal stays for documentation.
+    // Both literals are required: "enters tapped" is NOT a substring of the old form ("the
+    // battlefield" sits between the words), so the second check is load-bearing for any stale
+    // fixture/cache still holding the pre-2024 wording — do not delete it.
     private static bool EntersTapped(CardFact card)
     {
         string? text = card.OracleText;
