@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: Cycle 16
 milestone_name: Content-KB Prod↔Git↔Studio Sync Hardening
 status: executing
-stopped_at: Completed 90-04-PLAN.md
-last_updated: "2026-07-07T23:20:40.999Z"
+stopped_at: Completed 90-07-PLAN.md
+last_updated: "2026-07-07T23:32:42.978Z"
 last_activity: 2026-07-07
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 16
-  completed_plans: 13
+  completed_plans: 14
   percent: 33
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 ## Current Position
 
 Phase: 90 (directpush-correctness-seed-sync) — EXECUTING
-Plan: 5 of 7
+Plan: 6 of 7
 Status: Ready to execute
 Last activity: 2026-07-07
 
-Progress: [████████░░] 81%
+Progress: [█████████░] 88%
 
 ## Roadmap Summary
 
@@ -71,6 +71,7 @@ Progress: [████████░░] 81%
 | Phase 90 P02 | 25min | 2 tasks | 6 files |
 | Phase 90 P03 | ~20min | 2 tasks | 5 files |
 | Phase 90 P04 | ~25min | 2 tasks | 8 files |
+| Phase 90 P07 | 40min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -96,6 +97,7 @@ Full decision log lives in PROJECT.md Key Decisions table. Decisions constrainin
 - [Phase 90]: 90-04: IProdContentReader.ReadFlagAsync fails CLOSED inside its own try/catch (never propagates a connection/query failure) - inverse of the web-side IFeatureFlagCache D-13 default-on
 - [Phase 90]: 90-04: DurabilityCommitSubjectPattern's trailing [skip render] made optional - a correctness fix: without it a flag-ON commit would misclassify itself as foreign on the next ahead-of-origin check and permanently block the push
 - [Phase 90]: 90-04: seed re-export runs on EVERY CommitAndPushBodiesAsync call (not gated on changedCount) so the seed always reflects the current approved set; the commit-gate and N body|bodies message wording stay BODY-ONLY
+- [Phase 90]: D-09 REVISED deploy-confirm: authenticated Admin/api/contentkb/deployed-body-hash endpoint by natural key — Public detail-page 200 confirm was unsound (Codex plan-review BLOCK); natural-key + git-only + is_visible-independent hash endpoint defeats all 4 races
 
 ### Pending Todos
 
@@ -124,6 +126,6 @@ Carried forward from Cycle 15 close (2026-07-05) — none are Cycle-16 gaps:
 
 ## Session Continuity
 
-Last session: 2026-07-07T23:20:40.976Z
-Stopped at: Completed 90-04-PLAN.md
+Last session: 2026-07-07T23:32:42.957Z
+Stopped at: Completed 90-07-PLAN.md
 Resume file: None
