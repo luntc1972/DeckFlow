@@ -154,6 +154,15 @@ public sealed record ContentSiteIndexRow
     /// </summary>
     public string? BodySha256 { get; init; }
 
+    /// <summary>
+    /// UTC instant this row's content was pushed to prod and is durably awaiting a deploy
+    /// hash-confirm before <c>PushedToProdUtc</c> stamps and <c>IsVisible</c> flips (D-10).
+    /// <see langword="null"/> means the row is not currently mid-flight. Set by
+    /// <c>SetAwaitingConfirmAsync</c>, cleared by <c>ClearAwaitingConfirmAsync</c>; never written by
+    /// an upsert. Local fact only — never mirrored to prod's content-only upsert column list.
+    /// </summary>
+    public DateTimeOffset? AwaitingConfirmUtc { get; init; }
+
     /// <summary>Allowlisted archetype tags for filtering and display.</summary>
     public required IReadOnlyList<string> ArchetypeTags { get; init; }
 
