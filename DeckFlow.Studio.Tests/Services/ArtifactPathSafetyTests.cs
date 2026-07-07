@@ -1,6 +1,6 @@
 using DeckFlow.Studio.Services;
 
-namespace DeckFlow.Studio.Tests.Services;
+namespace DeckFlow.Studio.Tests;
 
 /// <summary>
 /// Unit tests for the shared <see cref="ArtifactPathSafety"/> guard (90-CONTEXT.md D-11 / T-90-05).
