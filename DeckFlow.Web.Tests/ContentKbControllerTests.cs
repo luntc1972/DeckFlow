@@ -254,9 +254,12 @@ public sealed class ContentKbControllerTests : IDisposable
 
         var config = new Dictionary<string, string?> { ["ContentKb:ContentBase"] = baseDir };
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(config).Build();
+        // Why: sync.directpush-gitbody defaults OFF here (D-05) - these controller tests exercise
+        // today's byte-identical git-then-overlay serving, not the flag-ON git-only path.
         var resolver = new ContentKbArtifactPathResolver(
             new StubWebHostEnvironment(baseDir),
             configuration,
+            new FakeFeatureFlagCache(new Dictionary<string, bool> { ["sync.directpush-gitbody"] = false }),
             NullLogger<ContentKbArtifactPathResolver>.Instance);
         var store = new FakeContentSiteIndexStore();
         var logger = new FakeLogger<ContentKbController>();
@@ -282,9 +285,12 @@ public sealed class ContentKbControllerTests : IDisposable
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(config)
             .Build();
+        // Why: sync.directpush-gitbody defaults OFF here (D-05) - see comment on the sibling
+        // Build(out) overload above.
         var resolver = new ContentKbArtifactPathResolver(
             new StubWebHostEnvironment(baseDir),
             configuration,
+            new FakeFeatureFlagCache(new Dictionary<string, bool> { ["sync.directpush-gitbody"] = false }),
             NullLogger<ContentKbArtifactPathResolver>.Instance);
         var store = new FakeContentSiteIndexStore();
         var controller = new ContentKbController(store, resolver, NullLogger<ContentKbController>.Instance);
