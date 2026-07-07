@@ -73,9 +73,10 @@ public sealed class ContentBodyHashBackfill
                     .TryReadArtifactTextAsync(row.ArtifactPath, cancellationToken)
                     .ConfigureAwait(false);
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException)
             {
-                // Cooperative cancellation is not a per-row content failure — let it propagate.
+                // Cancellation (from this token or any linked one) is never a per-row content
+                // failure — always propagate it rather than skipping the row.
                 throw;
             }
             catch (Exception ex)
