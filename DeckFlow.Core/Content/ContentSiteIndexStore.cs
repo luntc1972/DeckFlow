@@ -685,6 +685,79 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
     }
 
     /// <inheritdoc />
+    public async Task<int> SetAwaitingConfirmAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        DateTimeOffset whenUtc,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        if (keys.Count == 0)
+        {
+            return 0;
+        }
+
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        // Why: one transaction = atomic + one logical round-trip (mirrors StampPushedToProdAsync).
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        const string sql = """
+            UPDATE content_site_index
+               SET awaiting_confirm_utc = @whenUtc
+             WHERE natural_key_type = @type
+               AND natural_key_value = @value;
+            """;
+        var total = 0;
+        foreach (var (type, value) in keys)
+        {
+            total += await connection.ExecuteAsync(new CommandDefinition(
+                sql,
+                new { whenUtc, type, value },
+                transaction: transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return total;
+    }
+
+    /// <inheritdoc />
+    public async Task<int> ClearAwaitingConfirmAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        if (keys.Count == 0)
+        {
+            return 0;
+        }
+
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        // Why: one transaction = atomic + one logical round-trip (mirrors StampPushedToProdAsync).
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        const string sql = """
+            UPDATE content_site_index
+               SET awaiting_confirm_utc = NULL
+             WHERE natural_key_type = @type
+               AND natural_key_value = @value;
+            """;
+        var total = 0;
+        foreach (var (type, value) in keys)
+        {
+            total += await connection.ExecuteAsync(new CommandDefinition(
+                sql,
+                new { type, value },
+                transaction: transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return total;
+    }
+
+    /// <inheritdoc />
     public async Task UpsertContentColumnsOnlyBatchAsync(
         IReadOnlyList<ContentSiteIndexRow> rows,
         CancellationToken cancellationToken = default)

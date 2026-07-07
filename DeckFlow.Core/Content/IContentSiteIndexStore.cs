@@ -238,4 +238,38 @@ public interface IContentSiteIndexStore
     /// <returns>The number of rows updated (1 when the row existed with a null hash; otherwise 0).</returns>
     Task<int> SetBodySha256IfNullAsync(long id, string bodySha256, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("This content site-index store does not support body-hash backfill.");
+
+    /// <summary>
+    /// Sets <c>awaiting_confirm_utc</c> = <paramref name="whenUtc"/> for the given natural keys inside
+    /// one transaction — the durable "pushed, awaiting deploy-confirm" marker (D-10). Keyed ONLY on
+    /// <c>(natural_key_type, natural_key_value)</c>; no WHERE filters on any timestamp column
+    /// (F-51-PG-01 avoided). Real-implemented on <see cref="ContentSiteIndexStore"/>; this default
+    /// interface method mirrors <see cref="SetBodySha256IfNullAsync"/>'s throwing-escape-hatch idiom
+    /// so existing hand-written test doubles compile unchanged.
+    /// </summary>
+    /// <param name="keys">Natural-key pairs to update.</param>
+    /// <param name="whenUtc">UTC instant to stamp as awaiting-confirm.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The total number of rows updated.</returns>
+    Task<int> SetAwaitingConfirmAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        DateTimeOffset whenUtc,
+        CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content site-index store does not support the awaiting-confirm marker.");
+
+    /// <summary>
+    /// Clears <c>awaiting_confirm_utc</c> (sets it <see langword="null"/>) for the given natural keys
+    /// inside one transaction (D-10). Keyed ONLY on <c>(natural_key_type, natural_key_value)</c>; no
+    /// WHERE filters on any timestamp column (F-51-PG-01 avoided). Real-implemented on
+    /// <see cref="ContentSiteIndexStore"/>; this default interface method mirrors
+    /// <see cref="SetBodySha256IfNullAsync"/>'s throwing-escape-hatch idiom so existing hand-written
+    /// test doubles compile unchanged.
+    /// </summary>
+    /// <param name="keys">Natural-key pairs to update.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The total number of rows updated.</returns>
+    Task<int> ClearAwaitingConfirmAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content site-index store does not support the awaiting-confirm marker.");
 }
