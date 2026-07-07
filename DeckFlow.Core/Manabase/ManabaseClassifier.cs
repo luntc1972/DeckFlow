@@ -852,6 +852,13 @@ public static class ManabaseClassifier
         // precise signal — card-level produced_mana is intentionally NOT used here (also leaky).
         string typeLine = card.TypeLine ?? string.Empty;
         string frontText = card.FrontFaceOracleText ?? card.OracleText ?? string.Empty;
+        // Strip parenthesized reminder text before the "Add " check (efficacy R2 M4). A permanent
+        // whose ETB/dies clause makes a Treasure/Food/etc. token carries that token's reminder
+        // ("(...Sacrifice this artifact: Add one mana of any color.)") in its front-face text —
+        // which would otherwise read as the CARD's own repeatable mana ability and earn the −0.28
+        // credit MQ-03 exists to deny (Prosperous Innkeeper, Goldhound). Mirrors the H2 strip in
+        // HasRepeatableManaAbility; a real "{T}: Add" ability lives outside parens and survives.
+        frontText = ReminderTextRegex.Replace(frontText, string.Empty);
         bool permanent = !IsType(typeLine, "Instant") && !IsType(typeLine, "Sorcery");
         return permanent && frontText.Contains("Add ", StringComparison.OrdinalIgnoreCase);
     }

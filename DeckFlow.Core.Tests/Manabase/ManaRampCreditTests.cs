@@ -36,6 +36,9 @@ public sealed class ManaRampCreditTests
         new object[] { "Land Grant", 1.0, "Sorcery", "Search your library for a basic land card, reveal it, and put it into your hand.", false, true },        // land-to-HAND: dropped in v2
         new object[] { "Ponder", 1.0, "Sorcery", "Look at the top three cards ... draw a card.", true, true }, // cantrip: kept
         new object[] { "Wily Goblin", 2.0, "Creature — Goblin", "When Wily Goblin enters, create a Treasure token.", false, true }, // one-shot Treasure: dropped in v2
+        // M4: an ETB-Treasure permanent carries the token's REMINDER text ("(...Add one mana...)").
+        // That parenthetical must not read as the card's own repeatable mana ability → dropped in v2.
+        new object[] { "Prosperous Innkeeper", 2.0, "Creature — Halfling Citizen", "When this creature enters, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")\nWhenever another creature you control enters, you gain 1 life.", false, true },
     };
 
     [Theory]
@@ -64,6 +67,22 @@ public sealed class ManaRampCreditTests
 
         Assert.Equal(0, Credit(card, v2: true));   // front-face has no "Add" → dropped in v2
         Assert.Equal(1, Credit(card, v2: false));  // broad reads joined "Add" → credited
+    }
+
+    [Fact]
+    public void TreasureMaker_WithOwnRepeatableManaAbility_StillCreditedInV2()
+    {
+        // M4 strip must be surgical, not blanket: a permanent that BOTH makes a Treasure (reminder
+        // parenthetical) AND has its own bare "{T}: Add" ability outside parens keeps the v2 credit —
+        // the real ability survives the reminder strip.
+        var card = Fact(
+            "Manaphile",
+            2,
+            "Artifact",
+            "{T}: Add {C}.\nWhen Manaphile enters, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this artifact: Add one mana of any color.\")");
+
+        Assert.Equal(1, Credit(card, v2: true));   // own "{T}: Add {C}" survives the strip → credited
+        Assert.Equal(1, Credit(card, v2: false));  // broad also credits
     }
 
     [Fact]
