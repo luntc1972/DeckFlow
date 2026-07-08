@@ -96,6 +96,18 @@ public partial class DirectPush
     private List<RowResult> _confirmedResults = new();
     private List<RowResult> _notConfirmedResults = new();
 
+    // ── Awaiting-confirm resume bucket (D-10) ────────────────────────────────
+    // Why: a mid-flight push (content upserted, not yet deploy-confirmed) is durable via the local
+    // AwaitingConfirmUtc marker (Plan 90-03) and survives a page reload. ClassifyDiff would
+    // reclassify a content-matching-but-hidden row as Unchanged and drop it from PublishRows
+    // (90-RESEARCH Pitfall 4), so this bucket is populated independently of the diff and refreshed
+    // after every stage that can change the marker set (Stage 3 sets it, Stage 5/resume clear it).
+    private IReadOnlyList<ContentSiteIndexRow> _awaitingConfirmRows = Array.Empty<ContentSiteIndexRow>();
+    private bool _resumeVerifyInFlight;
+    private string _resumeVerifyError = string.Empty;
+    private List<RowResult> _resumeConfirmedResults = new();
+    private List<RowResult> _resumeNotConfirmedResults = new();
+
     // ── Lifecycle ──────────────────────────────────────────────────────────
     protected override async Task OnInitializedAsync()
     {
@@ -105,6 +117,11 @@ public partial class DirectPush
             var initData = await Task.Run(() => Coordinator.LoadInitDataAsync(Cts.Token), Cts.Token);
             _approvedCount = initData.ApprovedCount;
             _dataRoot = initData.DataRoot;
+
+            // Why (D-10/Plan 90-06): surface any rows left awaiting-confirm from a prior/interrupted
+            // session BEFORE the operator does anything else — a marker-set row must never look
+            // indistinguishable from "never pushed" (90-RESEARCH Pitfall 4).
+            _awaitingConfirmRows = await Task.Run(() => Coordinator.GetAwaitingConfirmRowsAsync(Cts.Token), Cts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -122,12 +139,48 @@ public partial class DirectPush
         }
     }
 
-    // Why: shared by Stage 5 to build a display row from a confirmed/not-confirmed
+    // Why: shared by Stage 3 (sets new markers), Stage 5 and Resume (both may clear markers on
+    // confirm) — a single refresh point keeps the bucket honest without a re-query on a timestamp
+    // column (Pitfall 3; the coordinator method filters in memory).
+    private async Task RefreshAwaitingConfirmBucketAsync()
+    {
+        try
+        {
+            var rows = await Task.Run(() => Coordinator.GetAwaitingConfirmRowsAsync(Cts.Token), Cts.Token)
+                .ConfigureAwait(false);
+
+            await InvokeAsync(() =>
+            {
+                _awaitingConfirmRows = rows;
+                SafeStateHasChanged();
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            // Component disposed — swallow.
+        }
+        catch (Exception ex)
+        {
+            // Why: non-fatal — the bucket simply won't refresh this cycle; the prior in-memory list
+            // stays shown rather than the page crashing on a secondary read.
+            Logger.LogWarning(ex, "Failed to refresh the awaiting-confirm resume bucket");
+        }
+    }
+
+    // Why: shared by Stage 5 and Resume to build a display row from a confirmed/not-confirmed
     // ContentSiteIndexRow without duplicating the natural-key derivation.
     private static RowResult ToRowResult(ContentSiteIndexRow row, bool success, string? reason)
     {
         var hasKey = ContentNaturalKey.TryDerive(row, out var key);
         return new RowResult(row.Title, hasKey ? key.Type : string.Empty, hasKey ? key.Value : string.Empty, success, reason);
+    }
+
+    // Why: the resume bucket table renders a row's natural key before any RowResult exists for it —
+    // shares the same TryDerive call so the label can never diverge from ToRowResult's derivation.
+    private static string ResumeKeyLabel(ContentSiteIndexRow row)
+    {
+        var hasKey = ContentNaturalKey.TryDerive(row, out var key);
+        return hasKey ? $"{key.Type}:{key.Value}" : string.Empty;
     }
 
     // ── Stage 1: Compute Prod Diff ──────────────────────────────────────────
@@ -196,6 +249,11 @@ public partial class DirectPush
                     SafeStateHasChanged();
                 });
             }, Cts.Token);
+
+            // Why (D-10/Plan 90-06): a fresh diff is also a natural point to re-surface any rows left
+            // awaiting-confirm from an earlier session (90-RESEARCH Pitfall 4) — refresh the bucket
+            // alongside the diff rather than only at page load.
+            await RefreshAwaitingConfirmBucketAsync();
         }
         catch (OperationCanceledException)
         {
@@ -326,6 +384,11 @@ public partial class DirectPush
                     SafeStateHasChanged();
                 });
             }, Cts.Token);
+
+            // Why (D-10/Plan 90-06): WriteContentAsync just set a new awaiting-confirm marker for
+            // every pushed row — refresh the bucket immediately so the resume section reflects it
+            // (test a: "after expand, a row shows in the awaiting-confirm bucket").
+            await RefreshAwaitingConfirmBucketAsync();
         }
         catch (ContentSiteIndexBatchUpsertException ex)
         {
@@ -534,6 +597,10 @@ public partial class DirectPush
                     SafeStateHasChanged();
                 });
             }, Cts.Token);
+
+            // Why: ConfirmAndPublishAsync (inside VerifyAndPublishAsync) clears the local marker for
+            // every confirmed row — refresh the resume bucket so it reflects the new state at once.
+            await RefreshAwaitingConfirmBucketAsync();
         }
         catch (OperationCanceledException)
         {
@@ -553,6 +620,70 @@ public partial class DirectPush
                         "configuration and try again. The pushed rows stay HIDDEN and " +
                         "awaiting-confirm; nothing was published.";
             _verifyInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // ── Resume: re-run verify for rows awaiting confirm from a prior/interrupted session (D-10) ──
+    private async Task ResumeVerifyAsync()
+    {
+        if (_operationInFlight || _awaitingConfirmRows.Count == 0)
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        _resumeVerifyInFlight = true;
+        _resumeVerifyError = string.Empty;
+        _resumeConfirmedResults = new();
+        _resumeNotConfirmedResults = new();
+
+        // Why: capture the current bucket up front — RefreshAwaitingConfirmBucketAsync mutates
+        // _awaitingConfirmRows once the resume completes, and this run must resolve exactly the set
+        // it started with.
+        var rowsToResume = _awaitingConfirmRows;
+
+        try
+        {
+            await Task.Run(async () =>
+            {
+                var result = await Coordinator.VerifyAndPublishAsync(rowsToResume, Cts.Token).ConfigureAwait(false);
+
+                var confirmed = result.Confirmed.Select(r => ToRowResult(r, true, null)).ToList();
+                var notConfirmed = result.NotConfirmed
+                    .Select(r => ToRowResult(
+                        r,
+                        false,
+                        "Still not confirmed at /app. Wait for the Render deploy to finish, then " +
+                        "resume again."))
+                    .ToList();
+
+                await InvokeAsync(() =>
+                {
+                    _resumeConfirmedResults = confirmed;
+                    _resumeNotConfirmedResults = notConfirmed;
+                    _resumeVerifyInFlight = false;
+                    _operationInFlight = false;
+                    SafeStateHasChanged();
+                });
+            }, Cts.Token);
+
+            await RefreshAwaitingConfirmBucketAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            _resumeVerifyError = "Resume verify was cancelled. The rows stay awaiting-confirm.";
+            _resumeVerifyInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Resume verify & publish failed");
+            _resumeVerifyError = "Could not verify the deployed body — check the deploy-confirm " +
+                        "configuration and try again. The rows stay awaiting-confirm.";
+            _resumeVerifyInFlight = false;
             _operationInFlight = false;
             await InvokeAsync(StateHasChanged);
         }

@@ -324,6 +324,22 @@ public sealed class DirectPushCoordinator
         return new DirectPushVerifyResult(confirmed, notConfirmed);
     }
 
+    /// <summary>
+    /// Resume support (D-10/Plan 90-06): reads locally-approved rows carrying a non-null
+    /// <see cref="ContentSiteIndexRow.AwaitingConfirmUtc"/> marker — content already pushed to prod
+    /// in a prior (possibly interrupted) session but not yet deploy-confirmed. These rows would
+    /// otherwise reclassify as Unchanged on a fresh <see cref="ComputeDiffAsync"/> (their content
+    /// signature already matches prod) and silently drop out of <see cref="DirectPushDiff.PublishRows"/>
+    /// (90-RESEARCH Pitfall 4) — this method is the durable, diff-independent way to find them so the
+    /// page can offer a resume/re-run-verify action. Filters in memory (no marker-column WHERE
+    /// clause), avoiding the F-51-PG-01 TEXT-vs-timestamptz class entirely (Pitfall 3).
+    /// </summary>
+    public async Task<IReadOnlyList<ContentSiteIndexRow>> GetAwaitingConfirmRowsAsync(CancellationToken cancellationToken)
+    {
+        var rows = await _localStore.GetApprovedRowsAsync(cancellationToken).ConfigureAwait(false);
+        return rows.Where(r => r.AwaitingConfirmUtc is not null).ToList();
+    }
+
     // Shared key derivation for WriteContentAsync/ConfirmAndPublishAsync — reuses
     // ContentIndexExportRow.From so the natural-key extraction can never diverge between the split
     // methods (Pitfall 5).
