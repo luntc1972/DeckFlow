@@ -299,6 +299,26 @@ public sealed class DirectPushCoordinator
     {
         ArgumentNullException.ThrowIfNull(publishRows);
 
+        // Codex-HIGH fix: the git /app deploy-confirm poll is only meaningful when
+        // sync.directpush-gitbody is ON. Only the ON path drops [skip render] (see
+        // CommitAndPushBodiesAsync), so only then does Render redeploy the body to /app for the hash
+        // poll to ever match. With the flag OFF (today's default) the git push carries [skip render],
+        // /app never receives the body, and polling it would 404 until the retry budget expires —
+        // stranding every row awaiting-confirm forever. In the OFF path the body is already served
+        // live from the /data overlay (SCP'd in Stage 2), so publish immediately, byte-identical to
+        // pre-90 DirectPush. The fail-closed accessor returns OFF on any read error, which correctly
+        // selects this legacy immediate path rather than a hang.
+        var directPushGitBodyOn = await ReadDirectPushGitBodyFlagAsync(cancellationToken).ConfigureAwait(false);
+        if (!directPushGitBodyOn)
+        {
+            if (publishRows.Count > 0)
+            {
+                await ConfirmAndPublishAsync(publishRows, cancellationToken).ConfigureAwait(false);
+            }
+
+            return new DirectPushVerifyResult(publishRows, Array.Empty<ContentSiteIndexRow>());
+        }
+
         var confirmed = new List<ContentSiteIndexRow>();
         var notConfirmed = new List<ContentSiteIndexRow>();
         foreach (var row in publishRows)
@@ -474,8 +494,19 @@ public sealed class DirectPushCoordinator
         // DurabilityCommitSubjectPattern's \d+ group keep meaning exactly what they say.
         var changedCount = await _git.CountWorkingChangesAsync(repoRoot, copied, cancellationToken).ConfigureAwait(false);
 
+        // Codex MED: the seed is re-exported every run (above), but a metadata-only edit
+        // (retitle/retag) changes index-seed.json WITHOUT changing any .md body. changedCount is
+        // body-only, so a seed-only change leaves it 0 and the row would return AlreadyInSync with
+        // the modified seed uncommitted in the working tree (D-08 violated: a fresh prod reseed
+        // could not reconstruct the edit). Detect a seed-only change so it is committed too. Kept
+        // OUT of changedCount so the "N body|bodies" wording + DurabilityCommitSubjectPattern's \d+
+        // group keep meaning body count exactly (a seed-only commit is "0 bodies", still matched).
+        var seedChanged = await _git
+            .CountWorkingChangesAsync(repoRoot, new[] { SeedRelative }, cancellationToken)
+            .ConfigureAwait(false) > 0;
+
         string? sha = null;
-        if (changedCount > 0)
+        if (changedCount > 0 || seedChanged)
         {
             var noun = changedCount == 1 ? "body" : "bodies";
 

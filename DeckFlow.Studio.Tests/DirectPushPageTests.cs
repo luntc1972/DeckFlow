@@ -92,7 +92,8 @@ public sealed class DirectPushPageTests : BunitContext
             bool isConfirmerConfigured = true,
             FakeGitRepository? gitOverride = null,
             FakeContentKbOrchestrator? orchestratorOverride = null,
-            IDeployedBodyConfirmer? confirmerOverride = null)
+            IDeployedBodyConfirmer? confirmerOverride = null,
+            bool directPushGitBodyOn = false)
     {
         var localStore = new FakeContentSiteIndexStore();
         var prodStore = prodStoreOverride ?? new FakeContentSiteIndexStore();
@@ -128,8 +129,9 @@ public sealed class DirectPushPageTests : BunitContext
         Services.AddSingleton<IContentKbOrchestrator>(orchestratorOverride ?? new FakeContentKbOrchestrator());
         // Why (90-04): the coordinator's ReadFlagAsync dependency (D-04) — flag OFF by default so
         // [skip render] behavior in these bUnit page tests stays byte-identical to before this flag
-        // existed (D-05).
-        Services.AddSingleton<IProdContentReader>(new FakeDirectPushFlagReader());
+        // existed (D-05). Tests that exercise the ON /app deploy-confirm verify path (Codex-HIGH fix:
+        // VerifyAndPublishAsync only polls the confirmer when the flag is ON) pass directPushGitBodyOn: true.
+        Services.AddSingleton<IProdContentReader>(new FakeDirectPushFlagReader { FlagValue = directPushGitBodyOn });
         // Why (90-05/SYNC-09, wired to Stage 5 in 90-06): confirmed=true by default so tests
         // unrelated to the confirm step are unaffected; override to exercise the not-confirmed path.
         Services.AddSingleton<IDeployedBodyConfirmer>(confirmerOverride ?? new FakeDeployedBodyConfirmer());
@@ -947,7 +949,7 @@ public sealed class DirectPushPageTests : BunitContext
         var git = new FakeGitRepository { CannedBranch = "main", CannedCommitSha = "cafe123" };
         var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = true };
         var local = new[] { MakeApprovedRow(1, "vid1") with { BodySha256 = "hash-vid1" } };
-        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local, gitOverride: git, confirmerOverride: confirmer);
+        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local, gitOverride: git, confirmerOverride: confirmer, directPushGitBodyOn: true);
 
         DriveThroughStage4(cut);
 
@@ -976,7 +978,7 @@ public sealed class DirectPushPageTests : BunitContext
         var git = new FakeGitRepository { CannedBranch = "main", CannedCommitSha = "cafe123" };
         var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = false };
         var local = new[] { MakeApprovedRow(1, "vid1") with { BodySha256 = "hash-vid1" } };
-        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local, gitOverride: git, confirmerOverride: confirmer);
+        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local, gitOverride: git, confirmerOverride: confirmer, directPushGitBodyOn: true);
 
         DriveThroughStage4(cut);
 
@@ -1027,7 +1029,7 @@ public sealed class DirectPushPageTests : BunitContext
         // visible-before-confirm row.
         var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = false };
         var local = new[] { MakeApprovedRow(1, "vid1") with { BodySha256 = "hash-vid1" } };
-        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local, confirmerOverride: confirmer);
+        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local, confirmerOverride: confirmer, directPushGitBodyOn: true);
 
         ComputeDiffAndConfirm(cut);
         cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
@@ -1060,7 +1062,7 @@ public sealed class DirectPushPageTests : BunitContext
         // bucket — the marker-clear happens inside ConfirmAndPublishAsync (D-10).
         var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = false };
         var local = new[] { MakeApprovedRow(1, "vid1") with { BodySha256 = "hash-vid1" } };
-        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local, confirmerOverride: confirmer);
+        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local, confirmerOverride: confirmer, directPushGitBodyOn: true);
 
         ComputeDiffAndConfirm(cut);
         cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
