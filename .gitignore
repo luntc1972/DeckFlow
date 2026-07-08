@@ -5,7 +5,10 @@ artifacts/
 *.user
 *.suo
 *.log
-node_modules/
+# Match both the directory AND a worktree junction symlink named node_modules
+# (a trailing-slash pattern ignores only the dir, letting `git add -A` stage the
+# symlink — which then checks out as a text file and breaks the TS build).
+node_modules
 AGENTS.md
 DeckFlow.Web/wwwroot/extensions/*.zip
 DeckFlow.Web/wwwroot/js/*.js
