@@ -572,14 +572,24 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             factByName[fact.Name] = fact;
         }
 
+        // Source 1 (crowd categories): ONE batched lookup for the spells we will actually classify (those
+        // with a resolved fact). A per-card loop here issued one DB query per non-land card, which serially
+        // exhausted the request timeout on a full decklist (~65 sequential Postgres round-trips ~= 20s).
+        // Batching collapses it to a single query.
+        IReadOnlyDictionary<string, IReadOnlyList<string>> categoriesByName =
+            await GetCategoriesFailOpenAsync(
+                deck.Spells.Where(s => factByName.ContainsKey(s.Name)).Select(s => s.Name).ToList(),
+                cancellationToken).ConfigureAwait(false);
+
         var tagged = new List<SpellRequirement>(deck.Spells.Count);
         foreach (SpellRequirement spell in deck.Spells)
         {
             PlanRole roles = PlanRole.None;
             if (factByName.TryGetValue(spell.Name, out CardFact? fact))
             {
-                IReadOnlyList<string> categories =
-                    await GetCategoriesFailOpenAsync(spell.Name, cancellationToken).ConfigureAwait(false);
+                IReadOnlyList<string> categories = categoriesByName.TryGetValue(spell.Name, out IReadOnlyList<string>? hit)
+                    ? hit
+                    : Array.Empty<string>();
                 roles = PlanRoleClassifier.Classify(fact, categories, comboNames.Contains(spell.Name), mode);
             }
 
@@ -589,18 +599,19 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         return deck with { Spells = tagged };
     }
 
-    // Source 1 (crowd categories), fail-open per card so a DB hiccup drops to the heuristic tier
-    // rather than failing the whole analysis.
-    private async Task<IReadOnlyList<string>> GetCategoriesFailOpenAsync(string cardName, CancellationToken cancellationToken)
+    // Source 1 (crowd categories), fail-open for the whole batch so a DB hiccup drops every card to the
+    // heuristic tier rather than failing the analysis. One query, never one-per-card.
+    private async Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesFailOpenAsync(
+        IReadOnlyCollection<string> cardNames, CancellationToken cancellationToken)
     {
-        if (_categoryKnowledge is null)
+        if (_categoryKnowledge is null || cardNames.Count == 0)
         {
-            return Array.Empty<string>();
+            return EmptyCategories;
         }
 
         try
         {
-            return await _categoryKnowledge.GetCategoriesAsync(cardName, cancellationToken).ConfigureAwait(false);
+            return await _categoryKnowledge.GetCategoriesForNamesAsync(cardNames, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -608,10 +619,13 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         }
         catch (Exception exception)
         {
-            _logger.LogWarning(exception, "Plan-presence: category lookup failed for {CardName}; using heuristic only.", cardName);
-            return Array.Empty<string>();
+            _logger.LogWarning(exception, "Plan-presence: batch category lookup failed; using heuristics only.");
+            return EmptyCategories;
         }
     }
+
+    private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> EmptyCategories =
+        new Dictionary<string, IReadOnlyList<string>>();
 
     // Reflags the leading Moxfield-ordering commander(s) to the commander board when the
     // source carried no explicit commander tag. Returns the input unchanged when a commander
