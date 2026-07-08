@@ -53,6 +53,9 @@ public sealed class ManabaseViewModel
     /// <summary>Whether the UI should surface the opening-hand/mulligan lens card and its paste-artifact section.</summary>
     public bool ShowMulliganEval { get; init; }
 
+    /// <summary>Whether the UI should surface the "with a plan" plan-presence line inside the opening-hand block.</summary>
+    public bool ShowPlanPresence { get; init; }
+
     /// <summary>Optional companion castability row surfaced outside the 99 table.</summary>
     public CardCastability? CompanionCallout { get; init; }
 

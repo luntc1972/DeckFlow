@@ -308,6 +308,17 @@
                             <span class="manabase-lens-color">Keep-size process</span>
                             <span>kept 7 ~@mull.Kept7Percent% <span class="manabase-lens-muted">·</span> to 6 ~@mull.MulliganTo6Percent% <span class="manabase-lens-muted">·</span> to 5 ~@mull.MulliganTo5Percent%</span>
                         </div>
+                        @if (Model.ShowPlanPresence && mull.PlanPresence is { } plan)
+                        {
+                            var roleBits = plan.RolePercents
+                                .Where(kv => kv.Value > 0)
+                                .Select(kv => $"{ManabaseDisplay.PlanRoleLabel(kv.Key)} ~{kv.Value}%")
+                                .ToList();
+                            <div class="manabase-lens-row">
+                                <span class="manabase-lens-color">With a plan</span>
+                                <span><strong>~@plan.PlanPresencePercent%</strong> hold a win-directed card castable on curve <span class="manabase-lens-muted">(@plan.Band)</span>@if (roleBits.Count > 0){<text> — </text><span class="manabase-lens-muted">@string.Join(" · ", roleBits)</span>}</span>
+                            </div>
+                        }
                     </div>
                 </div>
                 @if (mull.RepresentativeOpeners.Count > 0)

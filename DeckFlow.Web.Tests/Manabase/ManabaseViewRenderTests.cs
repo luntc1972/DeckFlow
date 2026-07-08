@@ -93,6 +93,25 @@ public sealed class ManabaseViewRenderTests
         // Representative-opener line names the tracked spell, never a generic claim.
         Assert.Contains("Swords to Plowshares castable on curve (turn 1)", html, StringComparison.Ordinal);
         Assert.Contains("workable line", html, StringComparison.Ordinal);
+        // Plan-presence line is NOT shown when its own flag is off, even with the opening-hand block on.
+        Assert.DoesNotContain("With a plan", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PlanPresenceFlagTrue_RendersWithAPlanLineAndRoleBreakdown()
+    {
+        var model = BuildPopulatedModel(showTapAnalyzer: false, showMulliganEval: true, showPlanPresence: true);
+
+        string html = await RenderManabaseViewAsync(model);
+
+        // Headline percent + band (PlanPresencePercent = 74, Band = "high").
+        Assert.Contains("With a plan", html, StringComparison.Ordinal);
+        Assert.Contains("~74%", html, StringComparison.Ordinal);
+        // Nonzero roles surfaced; the zero-role (Engine) is omitted.
+        Assert.Contains("payoff ~55%", html, StringComparison.Ordinal);
+        Assert.Contains("tutor/combo ~20%", html, StringComparison.Ordinal);
+        Assert.Contains("interaction ~40%", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("engine ~", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -184,7 +203,7 @@ public sealed class ManabaseViewRenderTests
         return i;
     }
 
-    private static ManabaseViewModel BuildPopulatedModel(bool showTapAnalyzer, bool showMulliganEval = false) => new()
+    private static ManabaseViewModel BuildPopulatedModel(bool showTapAnalyzer, bool showMulliganEval = false, bool showPlanPresence = false) => new()
     {
         Request = new ManabaseRequest
         {
@@ -195,6 +214,7 @@ public sealed class ManabaseViewRenderTests
         Report = ReportWithTapAnalysis(),
         ShowTapAnalyzer = showTapAnalyzer,
         ShowMulliganEval = showMulliganEval,
+        ShowPlanPresence = showPlanPresence,
     };
 
     /// <summary>
@@ -263,6 +283,19 @@ public sealed class ManabaseViewRenderTests
                     OnCurveCastable = true,
                     HasPlan = true,
                 },
+            },
+            PlanPresence = new ManabasePlanPresence
+            {
+                PlanPresencePercent = 74,
+                Band = "high",
+                RolePercents = new Dictionary<PlanRole, int>
+                {
+                    [PlanRole.Payoff] = 55,
+                    [PlanRole.Engine] = 0,
+                    [PlanRole.TutorCombo] = 20,
+                    [PlanRole.Interaction] = 40,
+                },
+                KeepableTrials = 17000,
             },
         },
     };

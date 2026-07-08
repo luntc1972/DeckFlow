@@ -69,6 +69,50 @@ public sealed class ManabaseReportTextBuilderMulliganTests
         },
     };
 
+    private static ManabaseMulliganEvaluation WithPlanPresence() => PopulatedMulliganEvaluation() with
+    {
+        PlanPresence = new ManabasePlanPresence
+        {
+            PlanPresencePercent = 82,
+            Band = "high",
+            RolePercents = new Dictionary<PlanRole, int>
+            {
+                [PlanRole.Payoff] = 60,
+                [PlanRole.Engine] = 30,
+                [PlanRole.TutorCombo] = 0,
+                [PlanRole.Interaction] = 45,
+            },
+            KeepableTrials = 18000,
+        },
+    };
+
+    [Fact]
+    public void PlanPresenceLine_AppendedOnlyWhenIncludePlanPresence()
+    {
+        // Off (default) or flag-off: no "With a plan" line — byte-identical opener block.
+        string off = ManabaseReportTextBuilder.Build(
+            HealthyCasualReport(), "Test", null, mulligan: WithPlanPresence());
+        Assert.DoesNotContain("With a plan:", off, StringComparison.Ordinal);
+
+        // On: the line renders with the percent, band, and the nonzero roles (zero roles omitted).
+        string on = ManabaseReportTextBuilder.Build(
+            HealthyCasualReport(), "Test", null, mulligan: WithPlanPresence(), includePlanPresence: true);
+        Assert.Contains("With a plan: ~82% of keepable hands hold a win-directed card castable on curve - high", on, StringComparison.Ordinal);
+        Assert.Contains("payoff ~60%", on, StringComparison.Ordinal);
+        Assert.Contains("interaction ~45%", on, StringComparison.Ordinal);
+        Assert.DoesNotContain("tutor/combo", on, StringComparison.Ordinal); // zero role omitted
+    }
+
+    [Fact]
+    public void PlanPresenceLine_Absent_WhenIncludeOnButNoPlanPresenceData()
+    {
+        // includePlanPresence on but the eval carried no PlanPresence (deck had no plan cards) → no line.
+        string text = ManabaseReportTextBuilder.Build(
+            HealthyCasualReport(), "Test", null, mulligan: PopulatedMulliganEvaluation(), includePlanPresence: true);
+
+        Assert.DoesNotContain("With a plan:", text, StringComparison.Ordinal);
+    }
+
     // --- tests -----------------------------------------------------------
 
     [Fact]

@@ -111,6 +111,16 @@ public static class ManabaseDisplay
     public static string AvgManaValueText(double averageManaValue)
         => averageManaValue.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
 
+    /// <summary>Human label for a single plan role (used in the plan-presence role breakdown).</summary>
+    public static string PlanRoleLabel(PlanRole role) => role switch
+    {
+        PlanRole.Payoff => "payoff",
+        PlanRole.Engine => "engine",
+        PlanRole.TutorCombo => "tutor/combo",
+        PlanRole.Interaction => "interaction",
+        _ => role.ToString().ToLowerInvariant(),
+    };
+
     /// <summary>Human label for the four-tier health scale (Excellent / Solid / Workable / Needs work).</summary>
     public static string HealthLabel(ManabaseHealth health) => ManabaseLabels.Health(health);
 
