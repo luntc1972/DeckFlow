@@ -466,6 +466,8 @@ public static class CastabilitySimulator
         {
             return new ManabasePlanPresence
             {
+                PayoffPercent = 0,
+                PayoffBand = PlanPayoffBand(0),
                 PlanPresencePercent = 0,
                 Band = PlanPresenceBand(0),
                 RolePercents = roleCounts,
@@ -578,8 +580,11 @@ public static class CastabilitySimulator
             rolePercents[role] = keepable > 0 ? (int)Math.Round(100.0 * roleCounts[role] / keepable) : 0;
         }
 
+        int payoffPercent = rolePercents[PlanRole.Payoff];
         return new ManabasePlanPresence
         {
+            PayoffPercent = payoffPercent,
+            PayoffBand = PlanPayoffBand(payoffPercent),
             PlanPresencePercent = percent,
             Band = PlanPresenceBand(percent),
             RolePercents = rolePercents,
@@ -587,8 +592,20 @@ public static class CastabilitySimulator
         };
     }
 
-    // Provisional bands for the plan-presence headline; re-baselined against calibration decks in the
-    // ship phase. Kept as a single golden-tested mapping so the thresholds live in one place.
+    // Payoff-coverage bands — the headline read. Calibrated to a 6-deck real spread where payoff%
+    // split cleanly (payoff-driven ~30, midrange ~13–15, combo/control ~3–6). Leads because the
+    // composite PlanPresenceBand below saturates high (77–92% across the same decks) and cannot
+    // discriminate. A combo deck reading low here is a correct profile signal, not a defect — its
+    // closer is the combo (tutor-combo role), surfaced in the secondary role breakdown.
+    private static string PlanPayoffBand(int payoffPercent) => payoffPercent switch
+    {
+        >= 20 => "high",
+        >= 10 => "medium",
+        _ => "low",
+    };
+
+    // Composite "any win-directed card" band. Retained as the secondary signal; saturates high on
+    // real decks, which is why PlanPayoffBand leads. Single golden-tested mapping.
     private static string PlanPresenceBand(int percent) => percent switch
     {
         >= 65 => "high",

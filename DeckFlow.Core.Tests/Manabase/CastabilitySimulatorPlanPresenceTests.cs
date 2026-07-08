@@ -68,6 +68,11 @@ public sealed class CastabilitySimulatorPlanPresenceTests
         Assert.True(result.PlanPresencePercent >= 65, $"expected high, got {result.PlanPresencePercent}%");
         Assert.True(result.RolePercents[PlanRole.Payoff] > 0);
         Assert.Equal(0, result.RolePercents[PlanRole.Interaction]);
+
+        // Payoff coverage is the headline read: 25 castable payoffs read high.
+        Assert.Equal(result.RolePercents[PlanRole.Payoff], result.PayoffPercent);
+        Assert.True(result.PayoffPercent >= 20, $"expected payoff high, got {result.PayoffPercent}%");
+        Assert.Equal("high", result.PayoffBand);
     }
 
     [Fact]
@@ -78,6 +83,8 @@ public sealed class CastabilitySimulatorPlanPresenceTests
 
         Assert.Equal(0, result.PlanPresencePercent);
         Assert.Equal("low", result.Band);
+        Assert.Equal(0, result.PayoffPercent);
+        Assert.Equal("low", result.PayoffBand);
         Assert.Equal(0, result.KeepableTrials); // short-circuits before simulating when nothing is tagged
     }
 

@@ -315,7 +315,7 @@
                                 .Select(kv => $"{ManabaseDisplay.PlanRoleLabel(kv.Key)} ~{kv.Value}%")
                                 .ToList();
                             <div class="manabase-lens-row manabase-lens-planline">
-                                <span><span class="manabase-lens-color">With a plan:</span> <strong>~@plan.PlanPresencePercent%</strong> hold a win-directed card castable on curve <span class="manabase-lens-muted">(@plan.Band)</span>@if (roleBits.Count > 0){<text> — </text><span class="manabase-lens-muted">@string.Join(" · ", roleBits)</span>}</span>
+                                <span><span class="manabase-lens-color">Payoff on curve:</span> <strong>~@plan.PayoffPercent%</strong> hold a payoff castable on curve <span class="manabase-lens-muted">(@plan.PayoffBand)</span> <span class="manabase-lens-muted">· any win-directed ~@plan.PlanPresencePercent%</span>@if (roleBits.Count > 0){<text> — </text><span class="manabase-lens-muted">@string.Join(" · ", roleBits)</span>}</span>
                             </div>
                         }
                     </div>

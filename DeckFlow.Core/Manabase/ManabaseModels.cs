@@ -1229,10 +1229,20 @@ public sealed record ManabaseMulliganEvaluation
 /// </summary>
 public sealed record ManabasePlanPresence
 {
+    /// <summary>
+    /// Share of keepable hands (0–100) holding a castable-on-curve PAYOFF — the headline read. The
+    /// composite <see cref="PlanPresencePercent"/> saturates high on real decks and does not
+    /// discriminate; payoff coverage does (payoff-driven decks read high, combo/control read low).
+    /// </summary>
+    public required int PayoffPercent { get; init; }
+
+    /// <summary>Band for the payoff headline (<c>high</c> / <c>medium</c> / <c>low</c>).</summary>
+    public required string PayoffBand { get; init; }
+
     /// <summary>Share of keepable hands (0–100) with at least one castable-on-curve win-directed card.</summary>
     public required int PlanPresencePercent { get; init; }
 
-    /// <summary>Coarse band for the headline percentage (<c>high</c> / <c>medium</c> / <c>low</c>).</summary>
+    /// <summary>Coarse band for the composite percentage (<c>high</c> / <c>medium</c> / <c>low</c>).</summary>
     public required string Band { get; init; }
 
     /// <summary>

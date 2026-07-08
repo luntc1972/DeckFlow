@@ -290,7 +290,7 @@ public static class ManabaseReportTextBuilder
                 .Select(kv => string.Create(CultureInfo.InvariantCulture, $"{ManabaseLabels.PlanRole(kv.Key)} ~{kv.Value}%")));
             string roleSuffix = roleBits.Length > 0 ? $" ({roleBits})" : string.Empty;
             sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
-                $"With a plan: ~{plan.PlanPresencePercent}% of keepable hands hold a win-directed card castable on curve - {plan.Band}{roleSuffix}. Role coverage, a consistency signal, not keep/mulligan advice."));
+                $"Payoff on curve: ~{plan.PayoffPercent}% of keepable hands hold a payoff castable on curve - {plan.PayoffBand}. Any win-directed card ~{plan.PlanPresencePercent}%{roleSuffix}. Consistency signal, not keep/mulligan advice."));
         }
 
         if (mull.RepresentativeOpeners.Count > 0)
