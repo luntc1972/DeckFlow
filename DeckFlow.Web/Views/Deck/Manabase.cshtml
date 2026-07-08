@@ -634,6 +634,9 @@
         <input type="hidden" name="CommanderImportance" value="@Model.Request.CommanderImportance" />
         <input type="hidden" name="CompanionName" value="@Model.Request.CompanionName" />
         <input type="hidden" name="CostOverridesText" value="@Model.Request.CostOverridesText" />
+        @* Mirror OverridesTouched too: if a download error re-renders the analyze view, a deliberately
+           cleared box must not silently refill with the suggestions (MEDIUM-11, Codex). *@
+        <input type="hidden" name="OverridesTouched" value="@(Model.Request.OverridesTouched ? "true" : "false")" />
         <button type="submit" class="run-button manabase-download-button" data-no-busy>Download analysis (.txt)</button>
     </form>
 
