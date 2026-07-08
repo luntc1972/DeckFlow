@@ -32,7 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
 
 - [x] **Phase 88: Index-Row Integrity Hotfix** - DirectPush stops writing visible-while-pending rows and collision-prone PinId diffing (ships first — live prod bugs)
 - [x] **Phase 89: Content-Hash Foundation** - One unified body-inclusive hash everywhere; corrupt/stale bodies become detectable instead of silently served
-- [ ] **Phase 90: DirectPush Correctness + Seed Sync** - Bodies reach prod only via git; DirectPush re-exports the seed and survives a redeploy without reverting (flag `sync.directpush-gitbody`)
+- [x] **Phase 90: DirectPush Correctness + Seed Sync** - Bodies reach prod only via git; DirectPush re-exports the seed and survives a redeploy without reverting (flag `sync.directpush-gitbody`)
 - [ ] **Phase 91: Reconcile + Seed Lifecycle** - Seed-ownership marker, then a prod↔git↔seed reconciler (dry-run first), then gated seed-driven removal (flag `sync.reconcile`)
 - [ ] **Phase 92: Pull Hardening** - Pull-from-Prod adopts prod state without clobbering operator fields or acting on a stale checkout
 - [ ] **Phase 93: Round-Trip Integration Test** - One end-to-end test locks the whole distill→publish→prod→serve→reseed→pull→reconcile loop
