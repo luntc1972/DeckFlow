@@ -260,7 +260,10 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         bool showMulliganEval = IsFlagOn(MulliganEvalFlagKey);
         // Read BEFORE resolve: the flag gates the plan-role tagging (and its category + Spellbook I/O)
         // done during classification. Off = no extra I/O and PlanRoles stay None (byte-identical path).
-        bool showPlanPresence = IsFlagOn(PlanPresenceFlagKey);
+        // ALSO require the opening-hand block (mulligan-eval): the "With a plan" line renders only inside
+        // that block, so enabling plan-presence alone must not do the extra I/O + sim for a line that can
+        // never show (Codex MED). Both flags on = the stat runs and surfaces.
+        bool showPlanPresence = IsFlagOn(PlanPresenceFlagKey) && showMulliganEval;
 
         ResolvedManabaseDeck resolved = await ResolveAndClassifyAsync(
                 deckSource,
