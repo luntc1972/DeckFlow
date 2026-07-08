@@ -11,6 +11,17 @@ namespace DeckFlow.Web.Services.Manabase;
 /// </summary>
 public static class ManabaseCostOverrideParser
 {
+    /// <summary>
+    /// The outcome of parsing the override box: the accepted name → braced-cost map plus the raw text
+    /// of any non-blank lines that were dropped (bad syntax or an unparseable cost). The malformed
+    /// lines let the UI surface "N line(s) not applied" instead of dropping them silently.
+    /// </summary>
+    /// <param name="Overrides">Accepted overrides (card name → canonical braced cost).</param>
+    /// <param name="MalformedLines">Trimmed text of each non-blank line that could not be parsed.</param>
+    public sealed record OverrideParseResult(
+        IReadOnlyDictionary<string, string> Overrides,
+        IReadOnlyList<string> MalformedLines);
+
     // A cost is accepted only when it is EITHER a run of complete braced tokens ({1}{R}, {U/R})
     // OR bare shorthand of digits + single mana letters (0, 1R, WW). This rejects ambiguous mixed
     // input like "{1}R" (Parse would silently drop the trailing R) and slash shorthand like "U/R"
@@ -20,11 +31,20 @@ public static class ManabaseCostOverrideParser
 
     /// <summary>Parse the override text. Returns an empty map for null/blank input.</summary>
     public static IReadOnlyDictionary<string, string> Parse(string? text)
+        => ParseWithDiagnostics(text).Overrides;
+
+    /// <summary>
+    /// Parse the override text, keeping the raw text of every non-blank line that was dropped so the
+    /// caller can tell the user which lines were not applied. Returns an empty map and no malformed
+    /// lines for null/blank input.
+    /// </summary>
+    public static OverrideParseResult ParseWithDiagnostics(string? text)
     {
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var malformed = new List<string>();
         if (string.IsNullOrWhiteSpace(text))
         {
-            return map;
+            return new OverrideParseResult(map, malformed);
         }
 
         foreach (string raw in text.Split('\n'))
@@ -39,6 +59,7 @@ public static class ManabaseCostOverrideParser
             int colon = line.LastIndexOf(':');
             if (colon <= 0 || colon == line.Length - 1)
             {
+                malformed.Add(line);
                 continue;
             }
 
@@ -46,6 +67,7 @@ public static class ManabaseCostOverrideParser
             string costRaw = line[(colon + 1)..].Trim();
             if (name.Length == 0 || !ValidCost.IsMatch(costRaw))
             {
+                malformed.Add(line);
                 continue;
             }
 
@@ -59,12 +81,13 @@ public static class ManabaseCostOverrideParser
             bool isNumericCost = bareDigits.Length > 0 && bareDigits.All(char.IsDigit);
             if (!isNumericCost && parsed.ManaValue == 0 && parsed.Pips.Count == 0)
             {
+                malformed.Add(line);
                 continue;
             }
 
             map[name] = braced; // last line wins on duplicate names
         }
 
-        return map;
+        return new OverrideParseResult(map, malformed);
     }
 }

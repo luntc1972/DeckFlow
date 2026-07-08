@@ -98,6 +98,13 @@ public sealed record ManabaseAnalysisResult(
 
     /// <summary>Optional companion castability row modeled outside the analyzed 99.</summary>
     public CardCastability? CompanionRow { get; init; }
+
+    /// <summary>
+    /// Override card names that matched no card in the analyzed deck (typo or not-in-deck), so their
+    /// line was silently dropped. Surfaced to the user as "not applied" feedback. Empty when every
+    /// override bound to a spell.
+    /// </summary>
+    public IReadOnlyList<string> UnmatchedOverrideNames { get; init; } = Array.Empty<string>();
 }
 
 /// <summary>
@@ -317,6 +324,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             CompanionRow = companionRow,
             ShowTapAnalyzer = showTapAnalyzer,
             ShowMulliganEval = showMulliganEval,
+            UnmatchedOverrideNames = ManabaseAnalyzer.UnmatchedOverrideNames(resolved.Deck, options.CostOverrides),
         };
     }
 

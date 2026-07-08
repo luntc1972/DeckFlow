@@ -65,6 +65,22 @@ test('reduced/alternative cost overrides box is present and posts its value', as
   await expect(box).toHaveValue('Force of Will: 0');
 });
 
+test('editing the reduced-cost box flips OverridesTouched so a cleared box is not refilled', async ({ page }) => {
+  await page.goto('/manabase');
+
+  // MEDIUM-11: the hidden flag starts false and is flipped to true by a one-shot input handler, so
+  // the server can tell a deliberately cleared box (reject suggestions) from an untouched pre-fill.
+  const touched = page.locator('#manabase-overrides-touched');
+  await expect(touched).toHaveValue('false');
+
+  await page.locator('.manabase-overrides > summary').click();
+  const box = page.locator('#manabase-cost-overrides');
+  await expect(box).toBeVisible();
+  await box.fill('Force of Will: 0');
+
+  await expect(touched).toHaveValue('true');
+});
+
 test('Start over link resets the form to a fresh empty page', async ({ page }) => {
   await page.goto('/manabase');
 

@@ -165,6 +165,55 @@ public sealed class ManabaseAnalyzerTests
     }
 
     [Fact]
+    public void UnmatchedOverrideNames_ReturnsOnlyKeysThatBindNoSpell()
+    {
+        // MEDIUM-11: a case-insensitive / normalized match counts as applied; a name no spell
+        // matches is reported so the UI can surface it instead of dropping it silently.
+        var deck = new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            AverageManaValue = 2.0,
+            Sources = new List<ManaSource>(),
+            Spells = new List<SpellRequirement>
+            {
+                new() { Name = "Blasphemous Act", ManaValue = 8, Pips = Pip((ManaColor.Red, 1)) },
+                new() { Name = "Force of Will", ManaValue = 5, Pips = Pip((ManaColor.Blue, 2)) },
+            },
+        };
+
+        var overrides = new Dictionary<string, string>
+        {
+            ["blasphemous act"] = "{R}", // case-insensitive exact match -> applied
+            ["Force of Will"] = "0",     // exact match -> applied
+            ["Totally Fake Card"] = "0", // matches nothing -> unmatched
+        };
+
+        IReadOnlyList<string> unmatched = ManabaseAnalyzer.UnmatchedOverrideNames(deck, overrides);
+
+        Assert.Equal(new[] { "Totally Fake Card" }, unmatched);
+    }
+
+    [Fact]
+    public void UnmatchedOverrideNames_NullOrEmpty_ReturnsEmpty()
+    {
+        var deck = new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            AverageManaValue = 2.0,
+            Sources = new List<ManaSource>(),
+            Spells = new List<SpellRequirement>
+            {
+                new() { Name = "Sol Ring", ManaValue = 1, Pips = Pip((ManaColor.Colorless, 1)) },
+            },
+        };
+
+        Assert.Empty(ManabaseAnalyzer.UnmatchedOverrideNames(deck, null));
+        Assert.Empty(ManabaseAnalyzer.UnmatchedOverrideNames(deck, new Dictionary<string, string>()));
+    }
+
+    [Fact]
     public void MdfcCountsLowerTheLandTarget()
     {
         double withoutMdfc = KarstenManabase.SingletonLandTarget(100, 1, 3.0, 8);
