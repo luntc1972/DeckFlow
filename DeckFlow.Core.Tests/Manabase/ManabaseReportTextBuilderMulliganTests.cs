@@ -73,6 +73,8 @@ public sealed class ManabaseReportTextBuilderMulliganTests
     {
         PlanPresence = new ManabasePlanPresence
         {
+            PayoffPercent = 60,
+            PayoffBand = "high",
             PlanPresencePercent = 82,
             Band = "high",
             RolePercents = new Dictionary<PlanRole, int>
@@ -89,15 +91,16 @@ public sealed class ManabaseReportTextBuilderMulliganTests
     [Fact]
     public void PlanPresenceLine_AppendedOnlyWhenIncludePlanPresence()
     {
-        // Off (default) or flag-off: no "With a plan" line — byte-identical opener block.
+        // Off (default) or flag-off: no plan line — byte-identical opener block.
         string off = ManabaseReportTextBuilder.Build(
             HealthyCasualReport(), "Test", null, mulligan: WithPlanPresence());
-        Assert.DoesNotContain("With a plan:", off, StringComparison.Ordinal);
+        Assert.DoesNotContain("Payoff on curve:", off, StringComparison.Ordinal);
 
-        // On: the line renders with the percent, band, and the nonzero roles (zero roles omitted).
+        // On: the line leads with payoff coverage + band, then the composite % and nonzero roles.
         string on = ManabaseReportTextBuilder.Build(
             HealthyCasualReport(), "Test", null, mulligan: WithPlanPresence(), includePlanPresence: true);
-        Assert.Contains("With a plan: ~82% of keepable hands hold a win-directed card castable on curve - high", on, StringComparison.Ordinal);
+        Assert.Contains("Payoff on curve: ~60% of keepable hands hold a payoff castable on curve - high", on, StringComparison.Ordinal);
+        Assert.Contains("Any win-directed card ~82%", on, StringComparison.Ordinal);
         Assert.Contains("payoff ~60%", on, StringComparison.Ordinal);
         Assert.Contains("interaction ~45%", on, StringComparison.Ordinal);
         Assert.DoesNotContain("tutor/combo", on, StringComparison.Ordinal); // zero role omitted
@@ -110,7 +113,7 @@ public sealed class ManabaseReportTextBuilderMulliganTests
         string text = ManabaseReportTextBuilder.Build(
             HealthyCasualReport(), "Test", null, mulligan: PopulatedMulliganEvaluation(), includePlanPresence: true);
 
-        Assert.DoesNotContain("With a plan:", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Payoff on curve:", text, StringComparison.Ordinal);
     }
 
     // --- tests -----------------------------------------------------------

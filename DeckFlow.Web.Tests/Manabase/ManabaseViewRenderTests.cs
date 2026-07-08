@@ -94,7 +94,7 @@ public sealed class ManabaseViewRenderTests
         Assert.Contains("Swords to Plowshares castable on curve (turn 1)", html, StringComparison.Ordinal);
         Assert.Contains("workable line", html, StringComparison.Ordinal);
         // Plan-presence line is NOT shown when its own flag is off, even with the opening-hand block on.
-        Assert.DoesNotContain("With a plan", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Payoff on curve", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -104,8 +104,9 @@ public sealed class ManabaseViewRenderTests
 
         string html = await RenderManabaseViewAsync(model);
 
-        // Headline percent + band (PlanPresencePercent = 74, Band = "high").
-        Assert.Contains("With a plan", html, StringComparison.Ordinal);
+        // Payoff-led headline (PayoffPercent = 55, PayoffBand = "high") + secondary composite (74%).
+        Assert.Contains("Payoff on curve", html, StringComparison.Ordinal);
+        Assert.Contains("~55%", html, StringComparison.Ordinal);
         Assert.Contains("~74%", html, StringComparison.Ordinal);
         // Nonzero roles surfaced; the zero-role (Engine) is omitted.
         Assert.Contains("payoff ~55%", html, StringComparison.Ordinal);
@@ -286,6 +287,8 @@ public sealed class ManabaseViewRenderTests
             },
             PlanPresence = new ManabasePlanPresence
             {
+                PayoffPercent = 55,
+                PayoffBand = "high",
                 PlanPresencePercent = 74,
                 Band = "high",
                 RolePercents = new Dictionary<PlanRole, int>
