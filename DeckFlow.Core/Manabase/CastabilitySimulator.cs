@@ -479,12 +479,7 @@ public static class CastabilitySimulator
         // so a fixed seed keeps the result reproducible across runs of the same deck.
         var rng = new Random(StableSeed("__deckflow_plan_presence__"));
 
-        int[] deck0 = new int[library.Count];
-        for (int i = 0; i < library.Count; i++)
-        {
-            deck0[i] = i;
-        }
-
+        int[] deck0 = Enumerable.Range(0, library.Count).ToArray();
         int[] shuffled = new int[library.Count];
         var availableColors = new List<(int Mask, int Amount)>(20);
         var onlineLandMasks = new List<int>(20);
