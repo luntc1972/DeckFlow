@@ -282,9 +282,11 @@ public partial class DirectPush
         {
             await Task.Run(async () =>
             {
-                // Why (H4): coordinator runs the single transactional batch upsert + prod-first
-                // stamp/visibility, all-or-nothing. Throws on any row failure (rolled back).
-                await Coordinator.WritePublishAsync(_publishRows, Cts.Token).ConfigureAwait(false);
+                // Why (H4/D-06/D-07): coordinator runs the single transactional content-only batch
+                // upsert + sets the local awaiting-confirm marker, all-or-nothing. Does NOT stamp
+                // pushed_to_prod_utc or flip is_visible — those happen only after a deploy-confirm
+                // (SYNC-09), a later stage. Throws on any row failure (rolled back).
+                await Coordinator.WriteContentAsync(_publishRows, Cts.Token).ConfigureAwait(false);
 
                 // All rows succeeded — _diffRows is parallel to _publishRows (New + Updated set).
                 var successResults = _diffRows

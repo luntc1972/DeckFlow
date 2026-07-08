@@ -232,33 +232,43 @@ public sealed class DirectPushCoordinatorTests
         Assert.Equal(0, prod.EnsureSchemaCallCount); // H3: diff issues no DDL on prod
     }
 
-    // ── WritePublishAsync (transactional batch + stamp/visibility) ───────────
+    // ── WriteContentAsync (content-only batch + awaiting-confirm marker, D-06/D-07) ──────────
 
     [Fact]
-    public async Task WritePublishAsync_HappyPath_UsesContentColumnsOnlyBatch_AndStampsBothStores()
+    public async Task WriteContentAsync_HappyPath_UsesContentColumnsOnlyBatch_SetsMarker_NoStampOrVisibility()
     {
         var local = new FakeContentSiteIndexStore();
         var prod = new FakeContentSiteIndexStore();
-        var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa"), Youtube(2, "bbb") };
-        // Seed prod so the stamp/visibility passes have rows to match.
+        var publish = new List<ContentSiteIndexRow>
+        {
+            Youtube(1, "aaa") with { ApprovalStatus = "approved" },
+            Youtube(2, "bbb") with { ApprovalStatus = "approved" },
+        };
+        // Seed prod so the local marker-set pass has rows to match.
         prod.Rows.Add(Youtube(1, "aaa"));
         prod.Rows.Add(Youtube(2, "bbb"));
         var coordinator = Build(local, prod);
 
-        await coordinator.WritePublishAsync(publish, CancellationToken.None);
+        await coordinator.WriteContentAsync(publish, CancellationToken.None);
 
         // SC3 / D-08: only the content-columns-only BATCH upsert ran on prod — never a full-row upsert.
         Assert.Equal(new[] { "UpsertContentColumnsOnlyBatchAsync" }, prod.UpsertMethodCalls);
         Assert.Single(prod.BatchUpsertCalls);
-        // Prod stamped + made visible, and the local store advanced too.
-        Assert.Single(prod.StampCalls);
-        Assert.Single(prod.VisibilityKeyCalls);
-        Assert.Single(local.StampCalls);
-        Assert.Single(local.VisibilityKeyCalls);
+        // D-03: approval_status mirrored via the content-only upsert (P88 approval mirror preserved
+        // by the split — this method still calls UpsertContentColumnsOnlyBatchAsync).
+        Assert.All(prod.BatchUpsertCalls[0], r => Assert.Equal("approved", r.ApprovalStatus));
+        // D-06/D-07: neither store is stamped or made visible by the content-only write.
+        Assert.Empty(prod.StampCalls);
+        Assert.Empty(prod.VisibilityKeyCalls);
+        Assert.Empty(local.StampCalls);
+        Assert.Empty(local.VisibilityKeyCalls);
+        // D-10: the local awaiting-confirm marker was set for the pushed keys.
+        Assert.Single(local.SetAwaitingConfirmCalls);
+        Assert.Equal(2, local.SetAwaitingConfirmCalls[0].Keys.Count);
     }
 
     [Fact]
-    public async Task WritePublishAsync_BatchRollback_Throws_AndDoesNotStampProd()
+    public async Task WriteContentAsync_BatchRollback_Throws_AndDoesNotSetMarker()
     {
         var local = new FakeContentSiteIndexStore();
         var prod = new FakeContentSiteIndexStore();
@@ -267,13 +277,40 @@ public sealed class DirectPushCoordinatorTests
         var coordinator = Build(local, prod);
 
         await Assert.ThrowsAsync<ContentSiteIndexBatchUpsertException>(
-            () => coordinator.WritePublishAsync(publish, CancellationToken.None));
+            () => coordinator.WriteContentAsync(publish, CancellationToken.None));
 
-        // PUB-01: nothing was stamped or made visible on EITHER store — the whole batch rolled back.
+        // PUB-01: nothing was stamped/made-visible, and the marker was never set — the whole batch
+        // rolled back before the marker-set call is reached.
         Assert.Empty(prod.StampCalls);
         Assert.Empty(prod.VisibilityKeyCalls);
         Assert.Empty(local.StampCalls);
         Assert.Empty(local.VisibilityKeyCalls);
+        Assert.Empty(local.SetAwaitingConfirmCalls);
+    }
+
+    // ── ConfirmAndPublishAsync (post-confirm stamp/visibility + marker clear, D-06/D-07/D-10) ──
+
+    [Fact]
+    public async Task ConfirmAndPublishAsync_StampsAndFlipsVisible_ProdAndLocal_ClearsMarker()
+    {
+        var local = new FakeContentSiteIndexStore();
+        var prod = new FakeContentSiteIndexStore();
+        var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa"), Youtube(2, "bbb") };
+        prod.Rows.Add(Youtube(1, "aaa"));
+        prod.Rows.Add(Youtube(2, "bbb"));
+        var coordinator = Build(local, prod);
+
+        await coordinator.ConfirmAndPublishAsync(publish, CancellationToken.None);
+
+        // PUB-01/HIGH-3: prod stamped + made visible, then local mirrors the same (order preserved
+        // from the pre-split WritePublishAsync across the Task 1 split).
+        Assert.Single(prod.StampCalls);
+        Assert.Single(prod.VisibilityKeyCalls);
+        Assert.Single(local.StampCalls);
+        Assert.Single(local.VisibilityKeyCalls);
+        // D-10: the local awaiting-confirm marker is cleared once the row is fully published.
+        Assert.Single(local.ClearAwaitingConfirmCalls);
+        Assert.Equal(2, local.ClearAwaitingConfirmCalls[0].Count);
     }
 
     // ── UploadArtifactsAsync ─────────────────────────────────────────────────

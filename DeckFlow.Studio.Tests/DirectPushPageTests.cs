@@ -570,8 +570,11 @@ public sealed class DirectPushPageTests : BunitContext
     }
 
     [Fact]
-    public void DirectPush_Success_StampsLocalAndProd_WithSameInstant()
+    public void DirectPush_Success_SetsLocalAwaitingConfirmMarker_NoStampOnEitherStore()
     {
+        // D-06/D-07: Stage 3 is now content-only — pushed_to_prod_utc is stamped only in the
+        // (not-yet-UI-wired) post-confirm path, never at content-upsert time. The local store gets
+        // the durable D-10 awaiting-confirm marker instead.
         var local = new[] { MakeApprovedRow(1, "vid1"), MakeApprovedRow(2, "vid2") };
         var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local);
 
@@ -584,17 +587,13 @@ public sealed class DirectPushPageTests : BunitContext
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Single(localStore.StampCalls);
-            Assert.Single(prodStore.StampCalls);
+            Assert.Empty(localStore.StampCalls);
+            Assert.Empty(prodStore.StampCalls);
 
-            var localStamp = localStore.StampCalls[0];
-            var prodStamp = prodStore.StampCalls[0];
-
-            Assert.Equal(localStamp.PushedUtc, prodStamp.PushedUtc);
-            Assert.Equal(2, localStamp.Keys.Count);
-            Assert.Equal(2, prodStamp.Keys.Count);
-            Assert.All(localStore.Rows, row => Assert.Equal(localStamp.PushedUtc, row.PushedToProdUtc));
-            Assert.All(prodStore.Rows, row => Assert.Equal(prodStamp.PushedUtc, row.PushedToProdUtc));
+            Assert.Single(localStore.SetAwaitingConfirmCalls);
+            Assert.Equal(2, localStore.SetAwaitingConfirmCalls[0].Keys.Count);
+            Assert.All(localStore.Rows, row => Assert.Null(row.PushedToProdUtc));
+            Assert.All(prodStore.Rows, row => Assert.Null(row.PushedToProdUtc));
         });
     }
 
@@ -643,13 +642,15 @@ public sealed class DirectPushPageTests : BunitContext
     }
 
     [Fact]
-    public void DirectPush_Success_PublishesRowsVisible_LocalAndProd()
+    public void DirectPush_Success_RowsStayHidden_AwaitingConfirm_NotYetPublishedVisible()
     {
+        // D-06/D-07: Stage 3 (content-only write) must NEVER flip is_visible — that only happens
+        // after a deploy-confirm (SYNC-09, not wired to this stage — see Plan 90-06). A row must
+        // never go visible before its body is durably in git and deployed.
         var local = new[] { MakeApprovedRow(1, "vid1"), MakeApprovedRow(2, "vid2") };
         var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local);
 
-        // Precondition: approved rows start hidden (KB ships dark) — Studio would derive Pushed-hidden
-        // without the publish-visible step.
+        // Precondition: approved rows start hidden (KB ships dark).
         Assert.All(localStore.Rows, row => Assert.False(row.IsVisible));
 
         ComputeDiffAndConfirm(cut);
@@ -661,15 +662,11 @@ public sealed class DirectPushPageTests : BunitContext
 
         cut.WaitForAssertion(() =>
         {
-            // DirectPush publishes visible: both stores get one keyed SetVisibility(true) and every
-            // pushed row is now visible, so the Studio badge derives Published just like prod /Admin.
-            Assert.Single(localStore.VisibilityKeyCalls);
-            Assert.Single(prodStore.VisibilityKeyCalls);
-            Assert.True(localStore.VisibilityKeyCalls[0].Visible);
-            Assert.True(prodStore.VisibilityKeyCalls[0].Visible);
-            Assert.Equal(2, localStore.VisibilityKeyCalls[0].Keys.Count);
-            Assert.All(localStore.Rows, row => Assert.True(row.IsVisible));
-            Assert.All(prodStore.Rows, row => Assert.True(row.IsVisible));
+            Assert.Contains("awaiting deploy confirmation", cut.Markup);
+            Assert.Empty(localStore.VisibilityKeyCalls);
+            Assert.Empty(prodStore.VisibilityKeyCalls);
+            Assert.All(localStore.Rows, row => Assert.False(row.IsVisible));
+            Assert.All(prodStore.Rows, row => Assert.False(row.IsVisible));
         });
     }
 
@@ -788,9 +785,10 @@ public sealed class DirectPushPageTests : BunitContext
     // ── H4: atomic batch commit ───────────────────────────────────────────────
 
     [Fact]
-    public void H4_Success_BatchMethodCalled_AllRowsWritten_StampAndVisibilityRan()
+    public void H4_Success_BatchMethodCalled_AllRowsWritten_MarkerSet_NoStampOrVisibilityYet()
     {
-        // H4: all publish rows pass through a single batch call; stamp + visibility run on success.
+        // H4/D-06/D-07: all publish rows pass through a single batch call; the local awaiting-confirm
+        // marker is set, but stamp/visibility do NOT run at this stage (post-confirm only).
         var local = new[] { MakeApprovedRow(1, "vid1"), MakeApprovedRow(2, "vid2") };
         var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local);
 
@@ -810,11 +808,15 @@ public sealed class DirectPushPageTests : BunitContext
             // All rows show "Written" in the per-row table.
             Assert.Contains("Written", cut.Markup);
 
-            // Stamp and visibility ran on both stores.
-            Assert.Single(prodStore.StampCalls);
-            Assert.Single(localStore.StampCalls);
-            Assert.Single(prodStore.VisibilityKeyCalls);
-            Assert.Single(localStore.VisibilityKeyCalls);
+            // D-10: the local awaiting-confirm marker was set for both keys.
+            Assert.Single(localStore.SetAwaitingConfirmCalls);
+            Assert.Equal(2, localStore.SetAwaitingConfirmCalls[0].Keys.Count);
+
+            // D-06/D-07: stamp and visibility do NOT run at this stage.
+            Assert.Empty(prodStore.StampCalls);
+            Assert.Empty(localStore.StampCalls);
+            Assert.Empty(prodStore.VisibilityKeyCalls);
+            Assert.Empty(localStore.VisibilityKeyCalls);
         });
     }
 
