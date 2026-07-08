@@ -1569,26 +1569,32 @@ public static class CastabilitySimulator
     // higher curve tolerates more lands.
     private static int LondonMulligan(IReadOnlyList<LibraryCard> library, int[] shuffled, bool[] active, Random rng, double avgMv, int prefix, bool isSingleton, bool colorAware, int deckColorCount)
     {
-        // Acceptable land bands per mulligan depth. Upper bound widens for higher-curve decks.
-        int hiCap = avgMv >= 3.0 ? 5 : 4;
+        // Opening keep sweet spot is 3 lands: on a fresh 7 a 4- or 5-land hand is a flood-risk keep, not
+        // a happy one. So a normal-curve deck keeps 2–3 and mulligans 4+. A HIGH-curve deck (avg MV >= 3)
+        // genuinely wants more lands, so it keeps its wider band (up to 5). A 2-land keep is only correct
+        // with acceleration, so it is gated on at least one ramp piece in the opening hand (RampGate).
+        int hiCap = avgMv >= 3.0 ? 5 : 3;
 
-        // Per-depth (keep, bottom-count, low-land, high-land). Commander grants a FREE first
-        // mulligan, so singleton depth 1 still keeps 7 (bottoms 0) under the same keepable band as a
-        // fresh 7; bottoming only begins at depth 2. Non-singleton is standard London (each mulligan
-        // bottoms one more). Bottom-count is explicit so later depths never bottom the wrong amount.
-        (int Keep, int Bottom, int Lo, int Hi)[] schedule = isSingleton
+        // Per-depth (keep, bottom-count, low-land, high-land, ramp-gate). RampGate gates the Lo-boundary
+        // keep (currently 2 lands) on holding >=1 ramp piece — applied to the fresh-7 keep(s) only; once
+        // you have mulliganed to 6 the band is looser (a thin 6 is kept without the ramp condition).
+        // Commander grants a FREE first
+        // mulligan, so singleton depth 1 still keeps 7 (bottoms 0) under the same band as a fresh 7;
+        // bottoming only begins at depth 2. Non-singleton is standard London (each mulligan bottoms one
+        // more). Bottom-count is explicit so later depths never bottom the wrong amount.
+        (int Keep, int Bottom, int Lo, int Hi, bool RampGate)[] schedule = isSingleton
             ? new[]
             {
-                (7, 0, 2, hiCap), // depth 0
-                (7, 0, 2, hiCap), // depth 1 — Commander free mulligan
-                (6, 1, 2, 4),     // depth 2
-                (5, 2, 1, 4),     // depth 3 — forced keep
+                (7, 0, 2, hiCap, true),  // depth 0
+                (7, 0, 2, hiCap, true),  // depth 1 — Commander free mulligan
+                (6, 1, 2, hiCap, false), // depth 2 — mull to 6 (normal curve keeps 2-3; high-curve up to 5)
+                (5, 2, 1, 4, false),     // depth 3 — forced keep
             }
             : new[]
             {
-                (7, 0, 2, hiCap), // depth 0
-                (6, 1, 2, 4),     // depth 1
-                (5, 2, 1, 4),     // depth 2 — forced keep
+                (7, 0, 2, hiCap, true),  // depth 0
+                (6, 1, 2, hiCap, false), // depth 1 — mull to 6 (normal curve keeps 2-3; high-curve up to 5)
+                (5, 2, 1, 4, false),     // depth 2 — forced keep
             };
 
         int last = schedule.Length - 1;
@@ -1602,9 +1608,15 @@ public static class CastabilitySimulator
             }
 
             int lands = CountLands(library, active, shuffled, 7);
-            (int keep, int bottom, int lo, int hi) = schedule[depth];
+            (int keep, int bottom, int lo, int hi, bool rampGate) = schedule[depth];
 
             bool forced = depth == last;
+
+            // A 2-land keep is only correct with acceleration: gate the low bound on >=1 ramp piece in the
+            // opening hand. Above the low bound the ramp condition does not apply; only computed when it
+            // can matter (a fresh-7 depth sitting exactly on the low bound).
+            bool landsOk = lands >= lo && lands <= hi
+                && (!rampGate || lands > lo || CountRamp(library, active, shuffled, 7) >= 1);
 
             // MQ-05: a non-forced keep also needs the opening lands to show enough distinct colors.
             // Gate is a no-op when the flag is off or this is the forced final keep — in those cases the
@@ -1613,7 +1625,7 @@ public static class CastabilitySimulator
             bool colorOk = !colorAware || forced
                 || ColorKeepSatisfied(OpeningLandColorMask(library, active, shuffled, 7), lands, deckColorCount);
 
-            if (((lands >= lo && lands <= hi) && colorOk) || forced)
+            if ((landsOk && colorOk) || forced)
             {
                 // Bottom `bottom` cards: non-lands first, highest deploy/mana cost first, so we keep
                 // our lands and cheapest spells (London choose-and-bottom). Free-mull depths bottom 0.
@@ -1656,6 +1668,23 @@ public static class CastabilitySimulator
         }
 
         return lands;
+    }
+
+    // Ramp pieces among the top `top` cards, used to gate a 2-land keep (a thin hand is keepable only
+    // with acceleration). Mirrors CountLands' inactive-partial guard.
+    private static int CountRamp(IReadOnlyList<LibraryCard> library, bool[] active, int[] shuffled, int top)
+    {
+        int n = Math.Min(top, shuffled.Length);
+        int ramp = 0;
+        for (int i = 0; i < n; i++)
+        {
+            if (active[shuffled[i]] && library[shuffled[i]].Kind == CardKind.Ramp)
+            {
+                ramp++;
+            }
+        }
+
+        return ramp;
     }
 
     // MQ-05: distinct colors the deck demands across all spell pips (low 5 bits), capped at 5.

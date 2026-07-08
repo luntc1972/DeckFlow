@@ -85,7 +85,7 @@ This layer is **informational only**. It never changes the land count, color cou
 
 When the `analysis.mulligan-eval` feature flag is enabled, the report (and its paste artifact) add an **opening-hand** block — a mulligan-focused read from the same Monte-Carlo sim:
 
-- **Keepable hands** — the share of London-mulligan openers that keep (enough lands and colors to function), with a keep/medium/low band.
+- **Keepable hands** — the share of London-mulligan openers that keep, with a high/medium/low band. A keep is a *sweet-spot* land count, not just "any playable hand": **3 lands** is ideal, **2 lands** keeps only with a ramp piece, and a **4–5 land flood is mulliganed** (a high-mana-curve deck keeps its wider band, up to 5, since it genuinely wants more lands).
 - **Keep-size process** — how often the deck keeps at seven versus mulligans to six or five.
 - **Colors / curve** — the deck's color count and average mana value.
 - **Representative openers** — a few sample keepable hands, each with the earliest turn its best card comes online.

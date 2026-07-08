@@ -473,6 +473,15 @@ public static class ManabaseAnalyzer
         var findings = new List<ColorSourceFinding>();
         var commanderColors = CommanderColors(deck);
 
+        // Spells whose only shortfall is a cheap turn-1 color miss in a color the base already supplies
+        // (a "structural cheap miss"), tracked across every color's pass and pruned from the demanding
+        // list AFTER the color loop. `sourceFixableNames` records spells that ARE genuinely source-short
+        // in at least one demanded color; a spell is pruned only when it is structural AND appears in no
+        // source-fixable color — so a card limited by "both" colors that is short in one but supplied in
+        // the other (structural in the supplied pass, fixable in the short pass) correctly survives.
+        var structuralCheapNames = new HashSet<string>(StringComparer.Ordinal);
+        var sourceFixableNames = new HashSet<string>(StringComparer.Ordinal);
+
         // Cache the mulligan-aware required-source search by (target color + full effective pip
         // signature + on-curve turn + threshold). Ranking every candidate spell on the sim figure
         // (Codex HIGH-2) would otherwise re-run the binary search for identical requirements; most
@@ -565,23 +574,50 @@ public static class ManabaseAnalyzer
 
                 if (castPercent < threshold)
                 {
+                    // Honest display count: every card below the bar, mana- OR color-limited. (Drives
+                    // the "N of M" readout and the everyColorClear gate.)
                     underSupported++;
 
-                    // A color-limited shortfall (vs a pure mana/curve limit) is the only kind the mana
-                    // base can fix. Tracked separately so the health verdict never reads "needs work"
-                    // for an expensive card the base already supports color-wise — that is a curve
-                    // problem, not a mana-base one. (UnderSupportedCount keeps counting every late
-                    // card for the display "N of M".)
-                    if (IsColorLimited(row?.LimitingFactor, color))
+                    bool colorLimited = IsColorLimited(row?.LimitingFactor, color);
+
+                    // Whether MORE of the RIGHT sources would actually help this spell. `deficit` here is
+                    // this spell's TURN-AWARE figure: need vs the sources available AT its on-curve turn
+                    // (untapped-only for a turn-1 cast, all sources later — see `available` above). So a
+                    // color that is comfortably supplied for this spell's turn shows deficit <= 0 and its
+                    // cheap turn-1 misses are structural (a single land drop, no source count moves them);
+                    // whereas a color whose sources mostly enter TAPPED can be untapped-short on turn 1
+                    // (deficit > 0) even at a healthy total count — a real, base-fixable "add untapped
+                    // sources" problem the gate keeps.
+                    bool sourceFixable = colorLimited && deficit > 0;
+
+                    // A color-limited shortfall is the only kind the mana base can fix — but ONLY when the
+                    // color is genuinely short for the spell's turn. This is what the health verdict and the
+                    // "add N lands" advice key off, so a color that supplies its spells on time never reads
+                    // "starved"/"needs work" just because a cheap spell misses its turn-1 window (the field
+                    // report: a color the source table shows over-supplied). Mana-limited curve bombs (not
+                    // colorLimited) still do not count here — that is a curve problem, not a mana-base one.
+                    if (sourceFixable)
                     {
                         colorLimitedUnderSupported++;
+                        sourceFixableNames.Add(spell.Name);
                     }
 
-                    // Record the demanding card once (a spell may demand several colors); keep the
-                    // lowest cast % seen so the worst-first verdict list is stable.
+                    // Record the demanding card once, keeping the lowest cast % seen across the colors it
+                    // needs (worst-first list stability).
                     if (!demandingByName.TryGetValue(spell.Name, out int prior) || castPercent < prior)
                     {
                         demandingByName[spell.Name] = castPercent;
+                    }
+
+                    // "Demanding" = hardest to cast, meant to expose WEAK SUPPORT. A cheap spell that is
+                    // color-limited only by its turn-1 window while THIS (its limiting) color is fully
+                    // supplied is structural variance, not weak support — mark it for removal after the
+                    // loop (the user's "these are all one-mana cards" report). Because colorLimited is true
+                    // only in the spell's limiting color, this is decided exactly once per spell; a
+                    // mana-limited bomb or a genuinely source-short card is never marked and so survives.
+                    if (colorLimited && deficit <= 0)
+                    {
+                        structuralCheapNames.Add(spell.Name);
                     }
                 }
             }
@@ -619,6 +655,18 @@ public static class ManabaseAnalyzer
                 // rounded for display; tap math must divide by the raw total, so keep this un-rounded.
                 UntappedSources = untappedSources,
             });
+        }
+
+        // Drop structural cheap misses from the demanding list now that every color has been scored — but
+        // only when the card is source-fixable in NO demanded color. A card short in one color yet
+        // supplied in another (e.g. limiting factor "both") stays, since more sources would still help it.
+        // Mana-limited cards are never marked structural, so they remain too.
+        foreach (string name in structuralCheapNames)
+        {
+            if (!sourceFixableNames.Contains(name))
+            {
+                demandingByName.Remove(name);
+            }
         }
 
         return OrderFindings(findings, deck, mode, importance, commanderColors);
