@@ -107,7 +107,16 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
   2. A reconcile dry-run enumerates published-orphans (visible row, no body), file-orphans (`.md`, no row), seed-drift (prod row absent from seed), and body-hash-mismatch discrepancies with deterministic IDs — re-running it produces zero duplicate entries and resolves discrepancies by absence.
   3. With `sync.reconcile` on, a seed reload hides or deletes seed-owned rows that are absent from the current seed set, logging the removal as intentional, instead of leaving them to accumulate as orphans.
   4. The destructive seed-delete apply path cannot run unless a dry-run has already validated the same discrepancy set.
-**Plans**: TBD
+**Plans**: 9 plans (7 waves)
+- [ ] 91-01-PLAN.md - Core seed_managed column + null-only backfill setter + shared seed-index reader (SYNC-17) [wave 1]
+- [ ] 91-02-PLAN.md - Write-path stamping (seed loader + DirectPush) + ProdContentReader read extension (SYNC-17) [wave 2]
+- [ ] 91-03-PLAN.md - Host-agnostic SeedManagedBackfill (D-02) + dual-host wiring (SYNC-17) [wave 2]
+- [ ] 91-04-PLAN.md - Pure Core 4-class reconcile classifier + discrepancy records/IDs (SYNC-11) [wave 2]
+- [ ] 91-05-PLAN.md - Local SQLite discrepancy store: idempotent, resolution-by-absence, scope tags (SYNC-11) [wave 3]
+- [ ] 91-06-PLAN.md - Studio reconcile orchestrator (prod read + git enum + seed parse) + D-06 report (SYNC-11) [wave 4]
+- [ ] 91-07-PLAN.md - Dry-run coordinator + Reconcile page (SYNC-11) [wave 5]
+- [ ] 91-08-PLAN.md - sync.reconcile flag + gated re-validated soft-hide Apply + Apply UI (SYNC-12) [wave 6]
+- [ ] 91-09-PLAN.md - Operator workflow human-verify checkpoint (SYNC-11/SYNC-12) [wave 7]
 
 ### Phase 92: Pull Hardening
 **Goal**: Pull-from-Prod adopts prod's state field-by-field without ever clobbering operator-owned data or acting on a stale local checkout.
@@ -145,7 +154,7 @@ Phases execute in numeric order: 88 → 89 → 90 → 91 → 92 → 93
 | 88. Index-Row Integrity Hotfix | Cycle 16 | 3/3 | Complete | 2026-07-06 |
 | 89. Content-Hash Foundation | Cycle 16 | 6/6 | Complete   | 2026-07-07 |
 | 90. DirectPush Correctness + Seed Sync | Cycle 16 | 7/7 | Complete   | 2026-07-08 |
-| 91. Reconcile + Seed Lifecycle | Cycle 16 | 0/TBD | Not started | - |
+| 91. Reconcile + Seed Lifecycle | Cycle 16 | 0/9 | Not started | - |
 | 92. Pull Hardening | Cycle 16 | 0/TBD | Not started | - |
 | 93. Round-Trip Integration Test | Cycle 16 | 0/TBD | Not started | - |
 
