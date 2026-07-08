@@ -65,13 +65,20 @@ public partial class Program
                 && !string.IsNullOrEmpty(builder.Configuration["Studio:Scp:Username"])
                 && !string.IsNullOrEmpty(builder.Configuration["Studio:Scp:KeyFile"])
                 && !string.IsNullOrEmpty(builder.Configuration["Studio:Scp:RemoteArtifactRoot"]);
+            // Why (D-09 REVISED/D-10): presence-only check for the three deploy-confirm keys the
+            // DirectPush hash-match poll needs — mirrors the isScpConfigured pattern. Never log the
+            // values. AdminUser/AdminPassword must equal the web FEEDBACK_ADMIN_USER/PASSWORD so the
+            // /Admin BasicAuth gate accepts the confirmer's request.
+            var isConfirmerConfigured = !string.IsNullOrEmpty(builder.Configuration["Studio:PublicSiteBaseUrl"])
+                && !string.IsNullOrEmpty(builder.Configuration["Studio:AdminUser"])
+                && !string.IsNullOrEmpty(builder.Configuration["Studio:AdminPassword"]);
             var contentKbDatabasePath = Path.Combine(studioDataDirectory, "content-kb.db");
             var contentKbArtifactRoot = Path.Combine(studioDataDirectory, "content-kb");
 
             Directory.CreateDirectory(studioDataDirectory);
             Directory.CreateDirectory(contentKbArtifactRoot);
 
-            builder.Services.AddSingleton(new StudioConfig(isProdConfigured, isScpConfigured));
+            builder.Services.AddSingleton(new StudioConfig(isProdConfigured, isScpConfigured, isConfirmerConfigured));
             builder.Services.AddSingleton<ISshArtifactUploader, SftpArtifactUploader>();
             builder.Services.AddSingleton<ISshArtifactDownloader, SftpArtifactDownloader>();
             builder.Services.AddSingleton<IProdContentReader, ProdContentReader>();
@@ -212,6 +219,7 @@ public partial class Program
 
             Log.Information("Studio prod connection: {Status}", isProdConfigured ? "configured" : "not configured");
             Log.Information("Studio SCP: {Status}", isScpConfigured ? "configured" : "not configured");
+            Log.Information("Studio deploy-confirm: {Status}", isConfirmerConfigured ? "configured" : "not configured");
 
             if (!app.Environment.IsDevelopment())
             {

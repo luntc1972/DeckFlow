@@ -89,6 +89,7 @@ public sealed class DirectPushPageTests : BunitContext
             FakeContentSiteIndexStore? prodStoreOverride = null,
             bool isProdConfigured = true,
             bool isScpConfigured = true,
+            bool isConfirmerConfigured = true,
             FakeGitRepository? gitOverride = null,
             FakeContentKbOrchestrator? orchestratorOverride = null)
     {
@@ -117,7 +118,7 @@ public sealed class DirectPushPageTests : BunitContext
         Services.AddSingleton<IContentSiteIndexStore>(localStore);
         Services.AddSingleton<ISshArtifactUploader>(uploader);
         Services.AddSingleton<IProdStoreFactory>(prodFactory);
-        Services.AddSingleton(new StudioConfig(isProdConfigured, isScpConfigured));
+        Services.AddSingleton(new StudioConfig(isProdConfigured, isScpConfigured, isConfirmerConfigured));
         Services.AddSingleton<IConfiguration>(configuration);
         Services.AddSingleton(new ContentKbOrchestratorOptions { ArtifactRoot = artifactRoot });
         // Why: the git durability stage (Stage 4) resolves IGitRepository + IContentKbOrchestrator
@@ -355,6 +356,32 @@ public sealed class DirectPushPageTests : BunitContext
 
         Assert.True(cut.Find("button.btn-outline-primary").HasAttribute("disabled"),
             "Compute Prod Diff must be disabled when prod and/or SCP is not configured");
+    }
+
+    [Fact]
+    public void DirectPush_ConfirmerNotConfigured_BannerShown_AndStage1Disabled()
+    {
+        // D-09 REVISED/D-10: a missing deploy-confirm config must refuse to start the DirectPush
+        // flow (never a silent 401 hang later) — mirrors the prod/SCP not-configured gate.
+        var local = new[] { MakeApprovedRow(1, "vid1") };
+        var (cut, _, _, _, _, _) = RenderDirectPush(local, isConfirmerConfigured: false);
+
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
+
+        Assert.Contains("Deploy-confirm: not configured", cut.Markup);
+        Assert.True(cut.Find("button.btn-outline-primary").HasAttribute("disabled"),
+            "Compute Prod Diff must be disabled when the deploy-confirm endpoint is not configured");
+    }
+
+    [Fact]
+    public void DirectPush_ConfirmerConfigured_BadgeShowsSuccess()
+    {
+        var local = new[] { MakeApprovedRow(1, "vid1") };
+        var (cut, _, _, _, _, _) = RenderDirectPush(local, isConfirmerConfigured: true);
+
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
+
+        Assert.DoesNotContain("Deploy-confirm: not configured", cut.Markup);
     }
 
     [Fact]

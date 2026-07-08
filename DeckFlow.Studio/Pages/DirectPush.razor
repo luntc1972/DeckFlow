@@ -36,7 +36,7 @@ unlocks only after every file uploads.</p>
     else
     {
         @* ─── Config gate (SC5 / D-07 / D-09): presence-only; never the value ─── *@
-        @if (!Config.IsProdConfigured || !Config.IsScpConfigured)
+        @if (!Config.IsProdConfigured || !Config.IsScpConfigured || !Config.IsConfirmerConfigured)
         {
             @if (!Config.IsProdConfigured)
             {
@@ -50,6 +50,14 @@ unlocks only after every file uploads.</p>
                 <div class="alert alert-warning py-2 mt-3">
                     SCP: not configured. Set the Render SSH target in user-secrets to enable
                     artifact upload.
+                </div>
+            }
+            @if (!Config.IsConfirmerConfigured)
+            {
+                <div class="alert alert-warning py-2 mt-3">
+                    Deploy-confirm: not configured. Set the public site base URL and admin
+                    credentials in user-secrets so the git-body deploy-confirm poll (D-09) can run —
+                    without it, a pushed row can never be confirmed and go visible.
                 </div>
             }
         }
@@ -77,8 +85,18 @@ unlocks only after every file uploads.</p>
                     <span class="badge bg-secondary">not configured</span>
                 }
             </span>
-            <span>SCP:
+            <span class="me-2">SCP:
                 @if (Config.IsScpConfigured)
+                {
+                    <span class="badge bg-success">configured</span>
+                }
+                else
+                {
+                    <span class="badge bg-secondary">not configured</span>
+                }
+            </span>
+            <span>Deploy-confirm:
+                @if (Config.IsConfirmerConfigured)
                 {
                     <span class="badge bg-success">configured</span>
                 }
@@ -113,7 +131,8 @@ unlocks only after every file uploads.</p>
                 <button class="btn btn-outline-primary"
                         @onclick="ComputeDiffAsync"
                         disabled="@(_operationInFlight || _approvedCount == 0
-                                    || !Config.IsProdConfigured || !Config.IsScpConfigured)">
+                                    || !Config.IsProdConfigured || !Config.IsScpConfigured
+                                    || !Config.IsConfirmerConfigured)">
                     @if (_diffComputeInFlight)
                     {
                         <span class="spinner-border spinner-border-sm text-primary"
