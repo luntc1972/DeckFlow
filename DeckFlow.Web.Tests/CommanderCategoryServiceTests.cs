@@ -68,6 +68,9 @@ public sealed class CommanderCategoryServiceTests
         public Task<IReadOnlyList<string>> GetCategoriesAsync(string cardName, CancellationToken cancellationToken = default)
             => throw new NotSupportedException("Not reached in this test.");
 
+        public Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(IReadOnlyCollection<string> cardNames, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("Not reached in this test.");
+
         public Task PersistObservedCategoriesAsync(string source, string cardName, IReadOnlyList<string> categories, int quantity = 1, string board = "mainboard", int deckCountIncrement = 0, CancellationToken cancellationToken = default)
             => throw new NotSupportedException("Not reached in this test.");
 
