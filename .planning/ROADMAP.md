@@ -94,7 +94,7 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
 - [x] 90-02-PLAN.md — D-11 read-only pre-flip git-coverage audit (Studio) [wave 1]
 - [x] 90-03-PLAN.md — D-10 durable awaiting-confirm marker column (Core store, both dialects) [wave 1]
 - [x] 90-04-PLAN.md — SYNC-08 seed re-export via shared factory + drop [skip render] under flag + read-only Studio prod-flag accessor [wave 2]
-- [ ] 90-05-PLAN.md — SYNC-09/10 coordinator re-plumb: split write, confirm-GET (200=reachable), post-confirm stamp/visibility [wave 3]
+- [x] 90-05-PLAN.md — SYNC-09/10 coordinator re-plumb: split write, confirm-GET (200=reachable), post-confirm stamp/visibility [wave 3]
 - [ ] 90-06-PLAN.md — SYNC-09/10 DirectPush page expand→verify→contract re-sequencing + durable resume [wave 4]
 - [x] 90-07-PLAN.md — SYNC-09 authenticated deployed-body-hash endpoint (/app-only, natural-key, hash-match confirm surface) [wave 2]
 
@@ -144,7 +144,7 @@ Phases execute in numeric order: 88 → 89 → 90 → 91 → 92 → 93
 | 87. Creator-Source Model Hardening | 2026.07.2 | 1/1 | Complete | 2026-07-05 |
 | 88. Index-Row Integrity Hotfix | Cycle 16 | 3/3 | Complete | 2026-07-06 |
 | 89. Content-Hash Foundation | Cycle 16 | 6/6 | Complete   | 2026-07-07 |
-| 90. DirectPush Correctness + Seed Sync | Cycle 16 | 5/7 | In Progress|  |
+| 90. DirectPush Correctness + Seed Sync | Cycle 16 | 6/7 | In Progress|  |
 | 91. Reconcile + Seed Lifecycle | Cycle 16 | 0/TBD | Not started | - |
 | 92. Pull Hardening | Cycle 16 | 0/TBD | Not started | - |
 | 93. Round-Trip Integration Test | Cycle 16 | 0/TBD | Not started | - |
