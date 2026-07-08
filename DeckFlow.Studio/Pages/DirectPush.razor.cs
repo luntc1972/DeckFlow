@@ -118,8 +118,11 @@ public partial class DirectPush
     // ── Stage 1: Compute Prod Diff ──────────────────────────────────────────
     private async Task ComputeDiffAsync()
     {
+        // Why (D-09 REVISED): also gate on IsConfirmerConfigured — a push that can never be
+        // deploy-confirmed would strand every row awaiting-confirm forever (T-90-12), so refuse to
+        // start the whole DirectPush flow until the confirmer's base URL + admin creds are set.
         if (_operationInFlight || _approvedCount == 0
-            || !Config.IsProdConfigured || !Config.IsScpConfigured)
+            || !Config.IsProdConfigured || !Config.IsScpConfigured || !Config.IsConfirmerConfigured)
         {
             return;
         }

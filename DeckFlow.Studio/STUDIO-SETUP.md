@@ -77,6 +77,15 @@ REM parent (/data) or the content-kb/ segment is doubled (DirectPush.razor _data
 REM Optional
 "C:\Program Files\dotnet\dotnet.exe" user-secrets set "Studio:Scp:Port" "22"
 "C:\Program Files\dotnet\dotnet.exe" user-secrets set "Studio:Scp:KeyPassphrase" "<passphrase-if-key-encrypted>"
+
+REM Deploy-confirm (D-09 REVISED / SYNC-09): base URL of the live site + the SAME admin creds the
+REM web app's /Admin BasicAuth gate uses (FEEDBACK_ADMIN_USER/FEEDBACK_ADMIN_PASSWORD). All three
+REM are required to enable the DirectPush git-body deploy-confirm poll — without them the
+REM DirectPush page shows a red "Deploy-confirm: not configured" badge and refuses to start (no
+REM silent 401 hang).
+"C:\Program Files\dotnet\dotnet.exe" user-secrets set "Studio:PublicSiteBaseUrl" "https://www.deckflow.gg"
+"C:\Program Files\dotnet\dotnet.exe" user-secrets set "Studio:AdminUser" "<same value as web FEEDBACK_ADMIN_USER>"
+"C:\Program Files\dotnet\dotnet.exe" user-secrets set "Studio:AdminPassword" "<same value as web FEEDBACK_ADMIN_PASSWORD>"
 ```
 
 To view / clear:
@@ -90,6 +99,7 @@ At startup Studio logs only presence, never values:
 ```
 Studio prod connection: configured | not configured
 Studio SCP: configured | not configured
+Studio deploy-confirm: configured | not configured
 ```
 
 ### Security rules (from CLAUDE.md)
@@ -214,6 +224,7 @@ Only two paths need extra config:
 | Path | What you need |
 |------|---------------|
 | DirectPush (SCP + prod Postgres upsert) | `Studio__Scp__*` + `Studio__ProdConnectionString` |
+| DirectPush deploy-confirm poll (D-09 REVISED) | `Studio__PublicSiteBaseUrl` + `Studio__AdminUser` + `Studio__AdminPassword` |
 | Git commit-publish | `git.exe` on `PATH`; launched from the repo working tree **or** `DECKFLOW_REPO_ROOT` set to it |
 
 LLM distill uses `DECKFLOW_LLM_PROVIDER=claude` (subscription, $0 spend) or
@@ -233,6 +244,9 @@ variables** (configuration key `:` separator → `__` in env vars):
 | `Studio:Scp:RemoteArtifactRoot` | `Studio__Scp__RemoteArtifactRoot` | DirectPush SCP upload |
 | `Studio:Scp:Port` | `Studio__Scp__Port` | Optional (default 22) |
 | `Studio:Scp:KeyPassphrase` | `Studio__Scp__KeyPassphrase` | Optional (if key is encrypted) |
+| `Studio:PublicSiteBaseUrl` | `Studio__PublicSiteBaseUrl` | DirectPush deploy-confirm poll (D-09 REVISED) |
+| `Studio:AdminUser` | `Studio__AdminUser` | DirectPush deploy-confirm poll — must match web `FEEDBACK_ADMIN_USER` |
+| `Studio:AdminPassword` | `Studio__AdminPassword` | DirectPush deploy-confirm poll — must match web `FEEDBACK_ADMIN_PASSWORD` |
 | `DECKFLOW_LLM_PROVIDER` | `DECKFLOW_LLM_PROVIDER` | LLM distill (default=openai) |
 | `OPENAI_API_KEY` | `OPENAI_API_KEY` | OpenAI distill path |
 | (override port) | `ASPNETCORE_URLS` | Only if overriding the pinned 5271 port |
