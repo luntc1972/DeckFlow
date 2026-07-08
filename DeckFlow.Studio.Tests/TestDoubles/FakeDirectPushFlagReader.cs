@@ -16,8 +16,16 @@ internal sealed class FakeDirectPushFlagReader : IProdContentReader
     /// <see langword="false"/> (D-05: <c>sync.directpush-gitbody</c> ships OFF).</summary>
     public bool FlagValue { get; set; }
 
+    /// <summary>When <see langword="true"/>, <see cref="TryReadFlagAsync"/> returns <see langword="null"/>
+    /// (the indeterminate/read-failed signal) so a test can exercise the publish gate's fail-safe
+    /// verify path. <see cref="ReadFlagAsync"/> still returns <see cref="FlagValue"/> (fail-closed).</summary>
+    public bool FlagReadIndeterminate { get; set; }
+
     public Task<bool> ReadFlagAsync(string connectionString, string key, CancellationToken cancellationToken = default)
         => Task.FromResult(FlagValue);
+
+    public Task<bool?> TryReadFlagAsync(string connectionString, string key, CancellationToken cancellationToken = default)
+        => Task.FromResult(FlagReadIndeterminate ? (bool?)null : FlagValue);
 
     public Task<IReadOnlyList<ContentSiteIndexRow>> ReadAllAsync(string connectionString, CancellationToken cancellationToken = default)
         => throw new NotImplementedException("DirectPushCoordinator never calls ReadAllAsync.");
