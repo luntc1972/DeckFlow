@@ -2682,6 +2682,13 @@ label.field > span,
   font-weight: 600;
 }
 
+/* Plan-presence line: a single flowing line (not a label|value two-column row), so its long text
+   wraps naturally at spaces instead of the flex row squeezing the label into mid-word breaks on
+   narrow screens. The leading "With a plan:" stays inline as an emphasized lead-in. */
+.manabase-lens-planline {
+  display: block;
+}
+
 .manabase-lens-muted {
   color: var(--muted, #5a6472);
 }
