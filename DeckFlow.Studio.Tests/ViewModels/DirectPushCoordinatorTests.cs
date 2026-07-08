@@ -62,7 +62,8 @@ public sealed class DirectPushCoordinatorTests
         string artifactRoot = "/data/content-kb",
         FakeGitRepository? git = null,
         FakeContentKbOrchestrator? orchestrator = null,
-        IProdContentReader? prodReader = null)
+        IProdContentReader? prodReader = null,
+        IDeployedBodyConfirmer? confirmer = null)
         => new(
             local,
             uploader ?? new FakeSshArtifactUploader(),
@@ -73,7 +74,11 @@ public sealed class DirectPushCoordinatorTests
             orchestrator ?? new FakeContentKbOrchestrator(),
             // D-05: flag OFF by default — [skip render] behavior stays byte-identical unless a test
             // explicitly turns the flag on (see TestDoubles/FakeDirectPushFlagReader.cs).
-            prodReader ?? new FakeDirectPushFlagReader());
+            prodReader ?? new FakeDirectPushFlagReader(),
+            // SYNC-09/D-09 REVISED: confirmed by default so tests exercising WriteContentAsync/
+            // ConfirmAndPublishAsync/CommitAndPushBodiesAsync directly are unaffected; the
+            // VerifyAndPublishAsync tests override this explicitly.
+            confirmer ?? new FakeDeployedBodyConfirmer());
 
     // ── ClassifyDiff (pure) ─────────────────────────────────────────────────
 
@@ -722,6 +727,114 @@ public sealed class DirectPushCoordinatorTests
             () => coordinator.CommitAndPushBodiesAsync(publish, "/data", CancellationToken.None));
 
         Assert.Contains("git push -u origin feature-x", ex.Reason);
+    }
+
+    // ── VerifyAndPublishAsync (deploy-confirm gate, SYNC-09/D-09 REVISED) ────
+    // FakeDeployedBodyConfirmer lives in TestDoubles/FakeDeployedBodyConfirmer.cs (shared with
+    // DirectPushPageTests, mirroring FakeDirectPushFlagReader's placement).
+
+    [Fact]
+    public async Task VerifyAndPublishAsync_ConfirmerFalse_NoStampOrVisibility_RowStaysNotConfirmed()
+    {
+        var local = new FakeContentSiteIndexStore();
+        var prod = new FakeContentSiteIndexStore();
+        var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa") with { BodySha256 = "expected-hash" } };
+        prod.Rows.Add(Youtube(1, "aaa"));
+        var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = false };
+        var coordinator = Build(local, prod, confirmer: confirmer);
+
+        var result = await coordinator.VerifyAndPublishAsync(publish, CancellationToken.None);
+
+        Assert.Empty(result.Confirmed);
+        Assert.Single(result.NotConfirmed);
+        Assert.Empty(prod.StampCalls);
+        Assert.Empty(prod.VisibilityKeyCalls);
+        var call = Assert.Single(confirmer.Calls);
+        Assert.Equal(ContentSourceType.Youtube, call.Type);
+        Assert.Equal("aaa", call.Value);
+        Assert.Equal("expected-hash", call.ExpectedHash);
+    }
+
+    [Fact]
+    public async Task VerifyAndPublishAsync_ConfirmerTrue_RunsConfirmAndPublish_ClearsMarker()
+    {
+        var local = new FakeContentSiteIndexStore();
+        var prod = new FakeContentSiteIndexStore();
+        var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa") with { BodySha256 = "expected-hash" } };
+        prod.Rows.Add(Youtube(1, "aaa"));
+        var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = true };
+        var coordinator = Build(local, prod, confirmer: confirmer);
+
+        var result = await coordinator.VerifyAndPublishAsync(publish, CancellationToken.None);
+
+        Assert.Single(result.Confirmed);
+        Assert.Empty(result.NotConfirmed);
+        Assert.Single(prod.StampCalls);
+        Assert.Single(prod.VisibilityKeyCalls);
+        Assert.Single(local.StampCalls);
+        Assert.Single(local.VisibilityKeyCalls);
+        Assert.Single(local.ClearAwaitingConfirmCalls);
+    }
+
+    [Fact]
+    public async Task VerifyAndPublishAsync_RowWithNoBodyHash_TreatedAsNotConfirmed_ConfirmerNeverCalled()
+    {
+        // A row with no stored body_sha256 has nothing to match against — never call the confirmer,
+        // never publish.
+        var local = new FakeContentSiteIndexStore();
+        var prod = new FakeContentSiteIndexStore();
+        var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa") with { BodySha256 = null } };
+        prod.Rows.Add(Youtube(1, "aaa"));
+        var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = true };
+        var coordinator = Build(local, prod, confirmer: confirmer);
+
+        var result = await coordinator.VerifyAndPublishAsync(publish, CancellationToken.None);
+
+        Assert.Empty(result.Confirmed);
+        Assert.Single(result.NotConfirmed);
+        Assert.Empty(confirmer.Calls);
+        Assert.Empty(prod.StampCalls);
+        Assert.Empty(prod.VisibilityKeyCalls);
+    }
+
+    // Per-key IDeployedBodyConfirmer test double: confirms only the keys explicitly listed as
+    // deployed, so a single VerifyAndPublishAsync call can exercise a mixed confirmed/not-confirmed
+    // batch (a real HTTP confirmer polls each row's own natural key independently).
+    private sealed class SelectiveDeployedBodyConfirmer : IDeployedBodyConfirmer
+    {
+        public HashSet<string> ConfirmedKeys { get; } = new(StringComparer.Ordinal);
+
+        public Task<bool> IsDeployedBodyConfirmedAsync(
+            string naturalKeyType,
+            string naturalKeyValue,
+            string expectedBodySha256,
+            CancellationToken cancellationToken)
+            => Task.FromResult(ConfirmedKeys.Contains(naturalKeyValue));
+    }
+
+    [Fact]
+    public async Task VerifyAndPublishAsync_MixedConfirmedAndNot_OnlyConfirmedRowsPublished()
+    {
+        var local = new FakeContentSiteIndexStore();
+        var prod = new FakeContentSiteIndexStore();
+        var confirmedRow = Youtube(1, "confirmed") with { BodySha256 = "hash-confirmed" };
+        var notConfirmedRow = Youtube(2, "pending") with { BodySha256 = "hash-pending" };
+        prod.Rows.Add(Youtube(1, "confirmed"));
+        prod.Rows.Add(Youtube(2, "pending"));
+        var confirmer = new SelectiveDeployedBodyConfirmer { ConfirmedKeys = { "confirmed" } };
+        var coordinator = Build(local, prod, confirmer: confirmer);
+
+        var result = await coordinator.VerifyAndPublishAsync(
+            new[] { confirmedRow, notConfirmedRow }, CancellationToken.None);
+
+        var confirmedResult = Assert.Single(result.Confirmed);
+        Assert.Equal("confirmed", confirmedResult.YoutubeVideoId);
+        var pendingResult = Assert.Single(result.NotConfirmed);
+        Assert.Equal("pending", pendingResult.YoutubeVideoId);
+        // Only the confirmed row's key was stamped/made visible.
+        Assert.Single(prod.StampCalls);
+        Assert.Single(prod.StampCalls[0].Keys);
+        Assert.Equal("confirmed", prod.StampCalls[0].Keys[0].Value);
     }
 
     // Minimal recording logger: captures formatted Warning messages for D-08 skip-log assertions.
