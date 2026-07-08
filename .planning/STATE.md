@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: Cycle 16
 milestone_name: Content-KB Prod↔Git↔Studio Sync Hardening
-status: executing
-stopped_at: Completed 90-05-PLAN.md
-last_updated: "2026-07-08T02:25:47.453Z"
+status: verifying
+stopped_at: Completed 90-06-PLAN.md
+last_updated: "2026-07-08T02:52:50.670Z"
 last_activity: 2026-07-08
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 16
-  completed_plans: 15
-  percent: 33
+  completed_plans: 16
+  percent: 50
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 
 Phase: 90 (directpush-correctness-seed-sync) — EXECUTING
 Plan: 7 of 7
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-08
 
-Progress: [█████████░] 94%
+Progress: [██████████] 100%
 
 ## Roadmap Summary
 
@@ -73,6 +73,7 @@ Progress: [█████████░] 94%
 | Phase 90 P04 | ~25min | 2 tasks | 8 files |
 | Phase 90 P07 | 40min | 2 tasks | 4 files |
 | Phase 90 P05 | ~50min | 3 tasks | 14 files |
+| Phase 90 P06 | ~30min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,9 @@ Full decision log lives in PROJECT.md Key Decisions table. Decisions constrainin
 - [Phase 90]: 90-05: WriteContentAsync/ConfirmAndPublishAsync split preserves prod-first-then-local stamp/visibility order + ContentIndexExportRow.From key derivation across both methods (Pitfall 5)
 - [Phase 90]: 90-05: DeployedBodyConfirmer is bounded (5 attempts, 3s backoff) and reads config per-call so the IsConfirmerConfigured badge/gate stays accurate without a Studio restart
 - [Phase 90]: 90-05: VerifyAndPublishAsync exists and is unit-tested but is NOT wired to a DirectPush.razor UI stage yet — deferred to Plan 90-06 per this plan's files_modified scope
+- [Phase 90]: 90-06: DirectPush Stage 5 (Verify Deploy & Publish) gates on _gitSuccess broadly (any of Committed/PushedExistingCommits/AlreadyInSync) - the confirm poll is the real safety net, not the git outcome variant
+- [Phase 90]: 90-06: GetAwaitingConfirmRowsAsync filters in memory (never a WHERE on awaiting_confirm_utc) per Pitfall 3; added to DirectPushCoordinator despite absence from plan files_modified since the H1 split gives the page no direct store access
+- [Phase 90]: 90-06: resume-bucket card stays rendered while a resume result is pending display even after the bucket empties - a bucket-gated-only visibility condition hid a fully-successful resume's own confirmation from the operator
 
 ### Pending Todos
 
@@ -130,6 +134,6 @@ Carried forward from Cycle 15 close (2026-07-05) — none are Cycle-16 gaps:
 
 ## Session Continuity
 
-Last session: 2026-07-08T02:25:47.430Z
-Stopped at: Completed 90-05-PLAN.md
+Last session: 2026-07-08T02:52:50.649Z
+Stopped at: Completed 90-06-PLAN.md
 Resume file: None
