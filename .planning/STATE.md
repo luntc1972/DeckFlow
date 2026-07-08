@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 
 ## Current Position
 
-Phase: 90 (directpush-correctness-seed-sync) — EXECUTING
+Phase: 90 (directpush-correctness-seed-sync) — COMPLETE (verified + Codex-reviewed)
 Plan: 7 of 7
-Status: Phase complete — ready for verification
+Status: Verifier PASS 4/4 (SYNC-07..10); Codex review closed 1 HIGH + 1 MED (fixed 6d570f1f, 9b047765); 2 MED deferred to Phase 93 pre-flip gate (see 90-FOLLOWUPS.md). Build 0/0; Core 1149 / Web 1249 / Studio 350 green.
 Last activity: 2026-07-08
 
 Progress: [██████████] 100%
@@ -38,7 +38,7 @@ Progress: [██████████] 100%
 |---|-------|-------------|------|--------|
 | 88 | Index-Row Integrity Hotfix | SYNC-04, SYNC-05, SYNC-06 | — | ✅ Complete |
 | 89 | Content-Hash Foundation | SYNC-01, SYNC-02, SYNC-03 | — | ✅ Complete |
-| 90 | DirectPush Correctness + Seed Sync | SYNC-07, SYNC-08, SYNC-09, SYNC-10 | `sync.directpush-gitbody` | Not started |
+| 90 | DirectPush Correctness + Seed Sync | SYNC-07, SYNC-08, SYNC-09, SYNC-10 | `sync.directpush-gitbody` | ✅ Complete |
 | 91 | Reconcile + Seed Lifecycle | SYNC-17, SYNC-11, SYNC-12 | `sync.reconcile` | Not started |
 | 92 | Pull Hardening | SYNC-13, SYNC-14, SYNC-15 | — | Not started |
 | 93 | Round-Trip Integration Test | SYNC-16 | — | Not started |
