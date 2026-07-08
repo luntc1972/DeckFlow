@@ -104,6 +104,18 @@
             }
             <textarea id="manabase-cost-overrides" name="CostOverridesText" rows="4" spellcheck="false" autocomplete="off"
                       placeholder="Force of Will: 0&#10;Blasphemous Act: {R}">@Model.OverridesBoxText</textarea>
+            @* MEDIUM-11: a client script flips this to "true" on the first edit so a deliberately
+               cleared box is not silently refilled with the suggestions on the next render. *@
+            <input type="hidden" id="manabase-overrides-touched" name="OverridesTouched"
+                   value="@(Model.Request.OverridesTouched ? "true" : "false")" />
+            @if (Model.HasNotAppliedOverrides)
+            {
+                <p class="manabase-help manabase-overrides-notapplied" role="status">
+                    <strong>@Model.NotAppliedOverrides.Count override line(s) not applied</strong>
+                    (unknown card or unreadable cost): @string.Join(", ", Model.NotAppliedOverrides). Check the
+                    card name matches your deck and the cost looks like <code>0</code> or <code>{R}</code>.
+                </p>
+            }
         </div>
     </details>
 
@@ -706,4 +718,5 @@
     <script src="~/js/busy-indicator.js" asp-append-version="true"></script>
     <script src="~/js/moxfield-extension-bridge.js" asp-append-version="true"></script>
     <script src="~/js/deck-sync.js" asp-append-version="true"></script>
+    <script src="~/js/manabase-overrides.js" asp-append-version="true"></script>
 }

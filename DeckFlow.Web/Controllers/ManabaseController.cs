@@ -83,7 +83,15 @@ public sealed class ManabaseController : DeckToolControllerBase
             "Something went wrong analyzing that deck. Please try again.",
             async token =>
             {
-                var result = await RunAnalysisAsync(request, token);
+                ManabaseCostOverrideParser.OverrideParseResult parsed =
+                    ManabaseCostOverrideParser.ParseWithDiagnostics(request.CostOverridesText);
+                var result = await RunAnalysisAsync(request, parsed.Overrides, token);
+
+                // "Not applied" = lines the parser rejected (bad syntax) plus valid lines whose card
+                // name matched no spell in the deck (typo / not in list). Both were previously silent.
+                var notApplied = parsed.MalformedLines
+                    .Concat(result.UnmatchedOverrideNames)
+                    .ToList();
 
                 return View("Manabase", new ManabaseViewModel
                 {
@@ -101,6 +109,7 @@ public sealed class ManabaseController : DeckToolControllerBase
                     ShowTapAnalyzer = result.ShowTapAnalyzer,
                     ShowMulliganEval = result.ShowMulliganEval,
                     CompanionCallout = result.CompanionRow,
+                    NotAppliedOverrides = notApplied,
                 });
             });
     }
@@ -124,7 +133,8 @@ public sealed class ManabaseController : DeckToolControllerBase
             "Something went wrong analyzing that deck. Please try again.",
             async token =>
             {
-                var result = await RunAnalysisAsync(request, token);
+                var result = await RunAnalysisAsync(
+                    request, ManabaseCostOverrideParser.Parse(request.CostOverridesText), token);
 
                 string text = ManabaseReportTextBuilder.Build(
                     result.Report, request.DeckName, decklistText: null, request.Mode, result.Verdict, result.Budget,
@@ -153,8 +163,16 @@ public sealed class ManabaseController : DeckToolControllerBase
             : CommanderImportance.Standard;
     }
 
-    /// <summary>Runs the shared analyze pipeline with the request's mode, importance, and cost overrides.</summary>
-    private Task<ManabaseAnalysisResult> RunAnalysisAsync(ManabaseRequest request, CancellationToken cancellationToken)
+    /// <summary>
+    /// Runs the shared analyze pipeline with the request's mode, importance, and the already-parsed
+    /// cost overrides. Callers parse the box text themselves (the analyze action keeps the malformed
+    /// lines for "not applied" feedback; the download re-parses without diagnostics) so both paths
+    /// feed the same analyzer with identical overrides.
+    /// </summary>
+    private Task<ManabaseAnalysisResult> RunAnalysisAsync(
+        ManabaseRequest request,
+        IReadOnlyDictionary<string, string> overrides,
+        CancellationToken cancellationToken)
         => _manabaseAnalysisService.AnalyzeAsync(
             request.DeckSource,
             request.DeckName,
@@ -163,7 +181,7 @@ public sealed class ManabaseController : DeckToolControllerBase
                 Mode = request.Mode,
                 CommanderImportance = request.CommanderImportance,
                 CompanionDesignator = request.CompanionName,
-                CostOverrides = ManabaseCostOverrideParser.Parse(request.CostOverridesText),
+                CostOverrides = overrides,
             },
             cancellationToken);
 

@@ -56,18 +56,33 @@ public sealed class ManabaseViewModel
     /// <summary>Optional companion castability row surfaced outside the 99 table.</summary>
     public CardCastability? CompanionCallout { get; init; }
 
+    /// <summary>
+    /// Override card names / lines that were NOT applied to the analysis: syntactically bad lines and
+    /// valid lines whose card name matched nothing in the deck (a typo or a card not in the list).
+    /// Surfaced so a dropped override is never silent. Empty when every line applied.
+    /// </summary>
+    public IReadOnlyList<string> NotAppliedOverrides { get; init; } = Array.Empty<string>();
+
+    /// <summary>True when at least one override line was not applied and should be surfaced.</summary>
+    public bool HasNotAppliedOverrides => NotAppliedOverrides.Count > 0;
+
     /// <summary>The detected suggestions rendered as override-box lines (<c>Name: cost</c>).</summary>
     public string SuggestedOverridesText =>
         string.Join("\n", Suggestions.Select(s => $"{s.Name}: {s.EffectiveCost}"));
 
     /// <summary>
-    /// What to show in the override box: the user's own text when they supplied any, otherwise the
-    /// detected suggestions pre-filled (preserve-vs-prepopulate).
+    /// What to show in the override box. Once the user has touched the box
+    /// (<see cref="ManabaseRequest.OverridesTouched"/>), their text is echoed verbatim — including a
+    /// deliberately cleared (empty) box, so rejecting the suggestions sticks instead of silently
+    /// refilling. Until then, an empty box pre-fills with the detected suggestions
+    /// (preserve-vs-prepopulate).
     /// </summary>
     public string OverridesBoxText =>
-        string.IsNullOrWhiteSpace(Request.CostOverridesText)
-            ? SuggestedOverridesText
-            : Request.CostOverridesText;
+        Request.OverridesTouched
+            ? Request.CostOverridesText
+            : string.IsNullOrWhiteSpace(Request.CostOverridesText)
+                ? SuggestedOverridesText
+                : Request.CostOverridesText;
 
     /// <summary>True when there is at least one detected suggestion to surface to the user.</summary>
     public bool HasSuggestions => Suggestions.Count > 0;

@@ -866,6 +866,22 @@ summary:focus-visible,
   color: var(--ink);
 }
 
+/* MEDIUM-11: "N override line(s) not applied" banner under the reduced-cost box. Mirrors the
+   warning-note pattern above so a dropped override reads as a warning, not muted help text. Uses
+   the theme-wide --warning / --ink tokens, so it renders in every guild theme. */
+.manabase-overrides-notapplied {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: var(--warning);
+  color: var(--ink);
+}
+
+.manabase-overrides-notapplied code {
+  background: transparent;
+  color: inherit;
+}
+
 .card-picker__row .card-picker__remove[hidden],
 .card-picker__row .card-picker__remove.hidden {
   display: inline-flex !important;

@@ -70,6 +70,15 @@ public sealed class ManabaseRequest
     }
 
     /// <summary>
+    /// True once the user has edited the reduced-cost box (a client script sets it on the first
+    /// input). It distinguishes "user deliberately cleared the box to reject the suggestions" from
+    /// "user never touched the pre-filled suggestions" — without it, a cleared box silently refills
+    /// with the auto-detected suggestions on the next render. Defaults false so an untouched box (and
+    /// any caller that omits the field) keeps the historic pre-fill behavior.
+    /// </summary>
+    public bool OverridesTouched { get; set; }
+
+    /// <summary>
     /// The raw deck input the user provided — the pasted text or the public URL, whichever
     /// matches <see cref="DeckInputSource"/>.
     /// </summary>

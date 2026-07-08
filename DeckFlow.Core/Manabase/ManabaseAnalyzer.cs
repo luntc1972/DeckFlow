@@ -245,6 +245,46 @@ public static class ManabaseAnalyzer
             : null;
     }
 
+    /// <summary>
+    /// Returns the override card names that bind to no spell in the deck — a typo or a card that is
+    /// not in this list. Uses the SAME exact-then-normalized match rule as <see cref="ApplyCostOverrides"/>
+    /// (see <see cref="ResolveOverrideCost"/>), so a name reported here is exactly one that the analysis
+    /// silently dropped. Order and casing follow the caller's override keys. Empty when overrides is
+    /// null/empty or every key matched.
+    /// </summary>
+    /// <param name="deck">The resolved deck whose spell names the overrides are matched against.</param>
+    /// <param name="overrides">Parsed override map (card name → braced cost); null/empty yields none.</param>
+    public static IReadOnlyList<string> UnmatchedOverrideNames(
+        ManabaseDeck deck,
+        IReadOnlyDictionary<string, string>? overrides)
+    {
+        ArgumentNullException.ThrowIfNull(deck);
+        if (overrides is null || overrides.Count == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        var spellExact = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var spellNormalized = new HashSet<string>(StringComparer.Ordinal);
+        foreach (SpellRequirement spell in deck.Spells)
+        {
+            spellExact.Add(spell.Name);
+            spellNormalized.Add(DeckFlow.Core.Normalization.CardNormalizer.Normalize(spell.Name));
+        }
+
+        var unmatched = new List<string>();
+        foreach (string key in overrides.Keys)
+        {
+            if (!spellExact.Contains(key)
+                && !spellNormalized.Contains(DeckFlow.Core.Normalization.CardNormalizer.Normalize(key)))
+            {
+                unmatched.Add(key);
+            }
+        }
+
+        return unmatched;
+    }
+
     // Build an effective requirement from a (possibly shorthand) cost string. Pips come solely from
     // the parsed cost — no heuristic pip-dropping — so a free "0" clears color while "{R}" keeps it.
     private static SpellRequirement ApplyOverride(SpellRequirement spell, string costString)

@@ -58,4 +58,37 @@ public sealed class ManabaseCostOverrideParserTests
 
         Assert.Equal("{R}", map["Card"]);
     }
+
+    [Fact]
+    public void ParseWithDiagnostics_CapturesMalformedLines_KeepsValid()
+    {
+        // MEDIUM-11: dropped lines are reported (not silent). No-colon, empty cost, and junk cost
+        // are malformed; the real line is accepted. Blank lines never count as malformed.
+        var result = ManabaseCostOverrideParser.ParseWithDiagnostics(
+            "Garbage Line No Colon\n\nNo Cost Here: \nJunk Card: zzqq\nReal Card: 0");
+
+        Assert.Single(result.Overrides);
+        Assert.Equal("0", result.Overrides["Real Card"]);
+        Assert.Equal(
+            new[] { "Garbage Line No Colon", "No Cost Here:", "Junk Card: zzqq" },
+            result.MalformedLines);
+    }
+
+    [Fact]
+    public void ParseWithDiagnostics_AllValid_NoMalformed()
+    {
+        var result = ManabaseCostOverrideParser.ParseWithDiagnostics("Force of Will: 0\nBlasphemous Act: {R}");
+
+        Assert.Equal(2, result.Overrides.Count);
+        Assert.Empty(result.MalformedLines);
+    }
+
+    [Fact]
+    public void ParseWithDiagnostics_NullOrBlank_EmptyBoth()
+    {
+        var result = ManabaseCostOverrideParser.ParseWithDiagnostics("   ");
+
+        Assert.Empty(result.Overrides);
+        Assert.Empty(result.MalformedLines);
+    }
 }

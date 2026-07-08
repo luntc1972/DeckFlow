@@ -37,6 +37,8 @@ A creature-power reducer like The Skullspore Nexus is resolved against the **gre
 
 Edit or clear any line you disagree with (the cost is what the card *effectively* costs you, not its printed cost). The value is a mana **cost**, so it can change colors, not just lower the number: `0` makes a card behave like a true 0-cost spell (it stops demanding its colors), while `{R}` keeps one red pip. An applied override flows through the whole verdict — the castability simulation, the on-curve turn, and the per-color source findings — and the affected rows are flagged with a `*`. Clearing a line scores that card at its printed cost — with one exception: costs the analysis reduces on its own (evoke/pitch and other self-costs, plus always-on deck-wide cost reducers) still apply, since those are how the card really casts, not optional suggestions.
 
+Once you edit the box, your text is honored exactly as typed — including a box you deliberately empty to reject the suggestions. It is only pre-filled with the detected suggestions until you first touch it, so clearing it sticks instead of silently refilling on the next analysis. Any line the analyzer could not use — an unreadable cost, or a card name that matches nothing in your deck (usually a typo) — is called out under the box as **"N override line(s) not applied"** rather than dropped silently, so you can fix or remove it.
+
 Then press **Analyze Mana Base**. Cards resolve through Scryfall by exact printing first, so alternate or flavor names still match; anything unresolved is listed separately.
 
 ## Step 2 — Read The Report
