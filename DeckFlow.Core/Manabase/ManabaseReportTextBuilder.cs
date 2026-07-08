@@ -39,6 +39,10 @@ public static class ManabaseReportTextBuilder
     /// callers that don't opt in produce a byte-identical artifact.
     /// </param>
     /// <param name="companionRow">Optional companion castability row appended with the +3-tax note.</param>
+    /// <param name="includePlanPresence">
+    /// When true (plan-presence flag on) and the mulligan evaluation carries a plan-presence read, the
+    /// "With a plan" line is appended inside the opening-hand block. Off appends zero bytes.
+    /// </param>
     /// <returns>A paste-ready plain-text string containing the full mana-base verdict.</returns>
     public static string Build(
         ManabaseReport report,

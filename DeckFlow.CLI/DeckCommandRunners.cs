@@ -267,6 +267,13 @@ internal static class DeckCommandRunners
             Directory.CreateDirectory(output.DirectoryName ?? Directory.GetCurrentDirectory());
             MoxfieldTextExporter.WriteFile(entries, output.FullName);
             Console.WriteLine($"Wrote Moxfield deck file: {output.FullName}");
+            var commanders = entries
+                .Where(e => string.Equals(e.Board, "commander", StringComparison.OrdinalIgnoreCase))
+                .Select(e => e.Name)
+                .ToList();
+            Console.WriteLine(commanders.Count > 0
+                ? $"Commander(s): {string.Join(", ", commanders)}"
+                : "Commander(s): (none tagged)");
             return 0;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or HttpRequestException)
