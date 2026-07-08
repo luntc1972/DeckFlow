@@ -14,7 +14,8 @@
 <h1 class="h4 fw-semibold">Publish to Production (Direct)</h1>
 <p class="text-muted">Push approved entries straight to production — upload artifacts to
 Render /data, then upsert the rows into the prod database. Artifacts first; the DB step
-unlocks only after every file uploads.</p>
+unlocks only after every file uploads. Pushed rows stay <strong>hidden</strong> until Stage 5
+confirms the deployed body matches (expand&rarr;verify&rarr;contract, SYNC-09/D-06).</p>
 
 <article class="content px-4">
 
@@ -111,9 +112,12 @@ unlocks only after every file uploads.</p>
         <div class="alert alert-danger py-2 mt-3">
             <span class="oi oi-warning me-1" aria-hidden="true"></span>
             <strong>TARGET: PRODUCTION</strong> — Stages 1&ndash;3 write directly to the live site
-            database and the Render /data disk. There is no undo. <strong>Stage 4 is a separate step
-            you click</strong> to commit the pushed bodies to git and push <code>origin</code> with
-            <code>[skip render]</code> (no redeploy) &mdash; it does not run automatically.
+            database and the Render /data disk, but rows stay <strong>hidden</strong> and
+            awaiting-confirm until Stage 5 verifies the deploy. There is no undo.
+            <strong>Stage 4 and Stage 5 are separate steps you click</strong> &mdash; Stage 4 commits
+            the pushed bodies (and the re-exported index seed) to git and pushes <code>origin</code>;
+            Stage 5 polls the deployed body and, only on a confirmed hash match, publishes the rows
+            visible. Neither runs automatically.
         </div>
 
         @* ─── Stage 1 — Compute Prod Diff ─── *@
@@ -414,11 +418,13 @@ unlocks only after every file uploads.</p>
                 <div class="card-body">
 
                     <p class="text-muted small mb-2">
-                        Commits the pushed bodies to the git repo and pushes the current branch to
-                        <code>origin</code> with <code>[skip render]</code> so production is
-                        <strong>not</strong> redeployed. The content is already live via the web
-                        /data overlay; this makes the bodies git-durable. The index seed is
-                        <strong>not</strong> touched here.
+                        Commits the pushed bodies plus the re-exported content-KB index seed to the
+                        git repo and pushes the current branch to <code>origin</code> (dropping
+                        <code>[skip render]</code> once the <code>sync.directpush-gitbody</code> flag
+                        is ON, so a real Render redeploy can happen). The pushed rows stay
+                        <strong>hidden</strong> and awaiting-confirm &mdash; this step does not
+                        publish anything. Stage 5 below verifies the deployed body and makes rows
+                        visible only after it confirms.
                     </p>
 
                     @if (!string.IsNullOrEmpty(_gitError))
@@ -465,8 +471,9 @@ unlocks only after every file uploads.</p>
                             <div class="alert alert-success py-2 mt-3">
                                 Committed @_gitBodyCount @(_gitBodyCount == 1 ? "body" : "bodies")
                                 as <code>@_gitSha</code> and pushed to <code>origin/@_gitBranch</code>.
-                                No production redeploy (<code>[skip render]</code>) — the content was
-                                already live.
+                                The rows stay <strong>hidden</strong>. If this triggered a Render
+                                redeploy, wait for it to go healthy, then run Stage 5 (Verify Deploy
+                                &amp; Publish) below to confirm and make them visible.
                             </div>
                         }
                         else if (_gitPushed)
@@ -474,17 +481,120 @@ unlocks only after every file uploads.</p>
                             <div class="alert alert-success py-2 mt-3">
                                 No new commit needed — the bodies were already committed. Pushed your
                                 previously-unpushed durability commit(s) to
-                                <code>origin/@_gitBranch</code>. The row updates are live in production.
+                                <code>origin/@_gitBranch</code>. The rows stay
+                                <strong>hidden</strong> — run Stage 5 (Verify Deploy &amp; Publish)
+                                below once the deploy is healthy.
                             </div>
                         }
                         else
                         {
                             <div class="alert alert-success py-2 mt-3">
                                 Already committed and in sync with <code>origin/@_gitBranch</code> —
-                                nothing to push. The bodies are git-durable and the row updates are
-                                live in production.
+                                nothing to push. The bodies are git-durable; the rows stay
+                                <strong>hidden</strong> — run Stage 5 (Verify Deploy &amp; Publish)
+                                below to confirm and make them visible.
                             </div>
                         }
+                    }
+                </div>
+            </div>
+
+            @* ─── Stage 5 — Verify Deploy & Publish (gated on _gitSuccess) ─── *@
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h2 class="h5 fw-semibold mb-0">Stage 5 — Verify Deploy &amp; Publish</h2>
+                </div>
+                <div class="card-body">
+
+                    <p class="text-muted small mb-2">
+                        Press this AFTER the Render deploy triggered by Stage 4 shows healthy (check
+                        the Render dashboard). Polls the deployed <code>/app</code> body for each
+                        pushed row and, ONLY for rows whose hash matches, stamps
+                        <code>pushed_to_prod_utc</code> and flips them visible (SYNC-09/D-06). Rows
+                        that do not confirm within the bounded retry window stay hidden and
+                        awaiting-confirm &mdash; re-run this stage (or use Resume above after
+                        reloading) once the deploy catches up.
+                    </p>
+
+                    @if (!string.IsNullOrEmpty(_verifyError))
+                    {
+                        <div class="alert alert-danger py-2">@_verifyError</div>
+                    }
+
+                    @if (!_gitSuccess)
+                    {
+                        <p class="text-muted small mb-2">
+                            Locked until Stage 4 (commit &amp; push) has completed.
+                        </p>
+                    }
+
+                    <button class="btn btn-success"
+                            @onclick="RunVerifyAndPublishAsync"
+                            disabled="@(!_gitSuccess || _operationInFlight)"
+                            aria-label="@(_gitSuccess ? null : "Locked until Stage 4 has completed")">
+                        @if (_verifyInFlight)
+                        {
+                            <span class="spinner-border spinner-border-sm"
+                                  role="status"
+                                  aria-label="Operation in progress">
+                                <span class="visually-hidden">Loading...</span>
+                            </span>
+                            <span> Verifying deploy...</span>
+                        }
+                        else
+                        {
+                            <span>Verify Deploy &amp; Publish</span>
+                        }
+                    </button>
+
+                    @if (_verifyRanOnce)
+                    {
+                        @if (_confirmedResults.Count > 0)
+                        {
+                            <div class="alert alert-success py-2 mt-3">
+                                @_confirmedResults.Count row(s) confirmed at <code>/app</code> and are
+                                now <strong>PUBLISHED &amp; VISIBLE</strong>.
+                            </div>
+                        }
+                        @if (_notConfirmedResults.Count > 0)
+                        {
+                            <div class="alert alert-warning py-2 mt-3">
+                                @_notConfirmedResults.Count row(s) did NOT confirm within the retry
+                                window &mdash; they stay hidden and awaiting-confirm. The Render
+                                deploy may still be in progress; wait and re-run this stage (or use
+                                the Resume section above after reloading).
+                            </div>
+                        }
+
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mt-2" aria-live="polite">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Title</th>
+                                        <th>Natural key</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var rr in _confirmedResults)
+                                    {
+                                        <tr>
+                                            <td class="text-truncate" style="max-width:300px">@rr.Title</td>
+                                            <td><code>@rr.KeyType:@rr.KeyValue</code></td>
+                                            <td><span class="badge bg-success">Published</span></td>
+                                        </tr>
+                                    }
+                                    @foreach (var rr in _notConfirmedResults)
+                                    {
+                                        <tr>
+                                            <td class="text-truncate" style="max-width:300px">@rr.Title</td>
+                                            <td><code>@rr.KeyType:@rr.KeyValue</code></td>
+                                            <td><span class="badge bg-warning text-dark">Awaiting confirm</span></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
                     }
                 </div>
             </div>

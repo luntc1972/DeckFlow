@@ -91,7 +91,8 @@ public sealed class DirectPushPageTests : BunitContext
             bool isScpConfigured = true,
             bool isConfirmerConfigured = true,
             FakeGitRepository? gitOverride = null,
-            FakeContentKbOrchestrator? orchestratorOverride = null)
+            FakeContentKbOrchestrator? orchestratorOverride = null,
+            IDeployedBodyConfirmer? confirmerOverride = null)
     {
         var localStore = new FakeContentSiteIndexStore();
         var prodStore = prodStoreOverride ?? new FakeContentSiteIndexStore();
@@ -129,11 +130,9 @@ public sealed class DirectPushPageTests : BunitContext
         // [skip render] behavior in these bUnit page tests stays byte-identical to before this flag
         // existed (D-05).
         Services.AddSingleton<IProdContentReader>(new FakeDirectPushFlagReader());
-        // Why (90-05/SYNC-09): the coordinator's IDeployedBodyConfirmer dependency. Confirmed=true
-        // by default; unused by any page test in this file today (VerifyAndPublishAsync is not yet
-        // wired to a page stage — Plan 90-06), but the DI container still needs to resolve the
-        // constructor parameter.
-        Services.AddSingleton<IDeployedBodyConfirmer>(new FakeDeployedBodyConfirmer());
+        // Why (90-05/SYNC-09, wired to Stage 5 in 90-06): confirmed=true by default so tests
+        // unrelated to the confirm step are unaffected; override to exercise the not-confirmed path.
+        Services.AddSingleton<IDeployedBodyConfirmer>(confirmerOverride ?? new FakeDeployedBodyConfirmer());
         // Why: the page now resolves its orchestration through DirectPushCoordinator (H1 split);
         // register it over the same fakes so the bUnit render wires up identically to production.
         Services.AddScoped<DirectPushCoordinator>();
@@ -152,6 +151,22 @@ public sealed class DirectPushPageTests : BunitContext
         cut.InvokeAsync(() => cut.Find("button.btn-outline-primary").Click());
         cut.WaitForState(() => cut.Markup.Contains("Diff Preview"));
         cut.InvokeAsync(() => cut.Find("input#prodReviewed").Change(true));
+    }
+
+    // Drives the page through Stage 1 (diff+confirm) → Stage 2 (SCP) → Stage 3 (DB write) →
+    // Stage 4 (git commit+push), leaving the page with the Stage 5 button enabled (_gitSuccess) so
+    // Stage-5-specific tests can begin there without repeating the same four-stage boilerplate.
+    private static void DriveThroughStage4(IRenderedComponent<DirectPush> cut)
+    {
+        ComputeDiffAndConfirm(cut);
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
+        cut.WaitForState(() => cut.Markup.Contains("uploaded to production /data"));
+        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-danger")[1].HasAttribute("disabled")));
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[1].Click());
+        cut.WaitForState(() => cut.Markup.Contains("written to production"));
+        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-outline-primary")[^1].HasAttribute("disabled")));
+        cut.InvokeAsync(() => cut.FindAll("button.btn-outline-primary")[^1].Click());
+        cut.WaitForAssertion(() => Assert.False(cut.Find("button.btn-success").HasAttribute("disabled")));
     }
 
     // ── Tests ─────────────────────────────────────────────────────────────────
@@ -901,6 +916,81 @@ public sealed class DirectPushPageTests : BunitContext
             Assert.Empty(localStore.StampCalls);
             Assert.Empty(prodStore.VisibilityKeyCalls);
             Assert.Empty(localStore.VisibilityKeyCalls);
+        });
+    }
+
+    // ── Stage 5: Verify Deploy & Publish (SYNC-09/D-06) ────────────────────────
+
+    [Fact]
+    public void DirectPush_Stage5InvokedBeforeGitSuccess_NoConfirmCall()
+    {
+        // The confirm-poll stage must early-return before Stage 4 (git commit+push) has completed —
+        // no confirmer call, no stamp/visibility (the disabled button alone is not sufficient; a
+        // stale render must not reach the confirm poll).
+        var confirmer = new FakeDeployedBodyConfirmer();
+        var local = new[] { MakeApprovedRow(1, "vid1") with { BodySha256 = "hash-vid1" } };
+        var (cut, _, _, _, _, _) = RenderDirectPush(local, confirmerOverride: confirmer);
+
+        // Compute diff + confirm, but never run SCP/DB/git — Stage 5 is still locked.
+        ComputeDiffAndConfirm(cut);
+        cut.InvokeAsync(() => cut.Instance.InvokeVerifyAndPublishForTest());
+
+        cut.WaitForAssertion(() => Assert.Empty(confirmer.Calls));
+    }
+
+    [Fact]
+    public void DirectPush_Stage5_Confirmed_StampsAndPublishesVisible()
+    {
+        // D-06: only after Stage 4 has completed AND the confirmer reports a hash match does Stage 5
+        // stamp pushed_to_prod_utc and flip is_visible — prod and local both, mirroring the confirmed
+        // path already proven at the coordinator level (VerifyAndPublishAsync_ConfirmerTrue_...).
+        var git = new FakeGitRepository { CannedBranch = "main", CannedCommitSha = "cafe123" };
+        var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = true };
+        var local = new[] { MakeApprovedRow(1, "vid1") with { BodySha256 = "hash-vid1" } };
+        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local, gitOverride: git, confirmerOverride: confirmer);
+
+        DriveThroughStage4(cut);
+
+        cut.InvokeAsync(() => cut.Find("button.btn-success").Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("PUBLISHED", cut.Markup);
+            Assert.Single(prodStore.StampCalls);
+            Assert.Single(prodStore.VisibilityKeyCalls);
+            Assert.Single(localStore.StampCalls);
+            Assert.Single(localStore.VisibilityKeyCalls);
+            Assert.All(localStore.Rows, row => Assert.True(row.IsVisible));
+            Assert.All(prodStore.Rows, row => Assert.True(row.IsVisible));
+            var call = Assert.Single(confirmer.Calls);
+            Assert.Equal("vid1", call.Value);
+            Assert.Equal("hash-vid1", call.ExpectedHash);
+        });
+    }
+
+    [Fact]
+    public void DirectPush_Stage5_NotConfirmed_RowsStayHiddenAndAwaitingConfirm_OperatorVisibleState()
+    {
+        // T-90-14: a bounded-poll failure must never flip a row visible — it stays hidden and the
+        // page surfaces an operator-visible "did not confirm" state, never a silent deadlock.
+        var git = new FakeGitRepository { CannedBranch = "main", CannedCommitSha = "cafe123" };
+        var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = false };
+        var local = new[] { MakeApprovedRow(1, "vid1") with { BodySha256 = "hash-vid1" } };
+        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local, gitOverride: git, confirmerOverride: confirmer);
+
+        DriveThroughStage4(cut);
+
+        cut.InvokeAsync(() => cut.Find("button.btn-success").Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("did NOT confirm", cut.Markup);
+            Assert.Empty(prodStore.StampCalls);
+            Assert.Empty(prodStore.VisibilityKeyCalls);
+            Assert.Empty(localStore.StampCalls);
+            Assert.Empty(localStore.VisibilityKeyCalls);
+            Assert.All(localStore.Rows, row => Assert.False(row.IsVisible));
+            Assert.All(prodStore.Rows, row => Assert.False(row.IsVisible));
         });
     }
 }
