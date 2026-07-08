@@ -41,6 +41,15 @@ public interface ICategoryKnowledgeStore
     /// <param name="cancellationToken">Token used to cancel the query.</param>
     Task<IReadOnlyList<string>> GetCategoriesAsync(string cardName, CancellationToken cancellationToken = default);
     /// <summary>
+    /// Returns cached category names for many cards in a single round-trip. Prefer this over calling
+    /// <see cref="GetCategoriesAsync"/> in a loop: a per-card loop over a full decklist issues one
+    /// database query per card, which can exhaust a request timeout on a large deck. The result is
+    /// keyed by the original requested name (case-insensitive) and every distinct name gets an entry.
+    /// </summary>
+    /// <param name="cardNames">Card names to resolve.</param>
+    /// <param name="cancellationToken">Token used to cancel the query.</param>
+    Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(IReadOnlyCollection<string> cardNames, CancellationToken cancellationToken = default);
+    /// <summary>
     /// Stores category observations discovered during lookup or harvest work.
     /// </summary>
     /// <param name="source">Source that produced the category observations.</param>

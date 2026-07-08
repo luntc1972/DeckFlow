@@ -74,6 +74,18 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     }
 
     /// <summary>
+    /// Gets cached categories for many cards from the repository in a single query.
+    /// </summary>
+    /// <param name="cardNames">Card names to resolve.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(IReadOnlyCollection<string> cardNames, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(cardNames);
+        await EnsureSchemaReadyAsync(cancellationToken);
+        return await _repository.GetCategoriesForNamesAsync(cardNames, cancellationToken);
+    }
+
+    /// <summary>
     /// Persists observed categories emitted during runtime lookups.
     /// </summary>
     /// <param name="source">Source label for categories.</param>

@@ -273,6 +273,50 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetCategoriesForNamesAsync_MatchesPerCardLookup_AndCoversEveryRequestedName()
+    {
+        var repository = CreateRepository();
+        await repository.PersistObservedCategoriesAsync("archidekt_live:1", "Rhystic Study", new[] { "Card Draw" });
+        await repository.PersistObservedCategoriesAsync("archidekt_live:1", "Cyclonic Rift", new[] { "Removal", "Board Wipe" });
+
+        var names = new[] { "Rhystic Study", "Cyclonic Rift", "Not In Cache" };
+        var batch = await repository.GetCategoriesForNamesAsync(names);
+
+        // Every requested name gets an entry, keyed by the requested spelling.
+        Assert.Equal(names.Length, batch.Count);
+        foreach (var name in names)
+        {
+            // The batch is byte-identical to N single-card lookups, including the missing-card fallback.
+            var single = await repository.GetCategoriesAsync(name);
+            Assert.Equal(single, batch[name]);
+        }
+    }
+
+    [Fact]
+    public async Task GetCategoriesForNamesAsync_KeyedCaseInsensitively_AndSkipsBlankNames()
+    {
+        var repository = CreateRepository();
+        await repository.PersistObservedCategoriesAsync("archidekt_live:1", "Sol Ring", new[] { "Ramp" });
+
+        var batch = await repository.GetCategoriesForNamesAsync(new[] { "SOL RING", "  ", "" });
+
+        // Blank names contribute nothing; the one real name resolves regardless of casing.
+        var entry = Assert.Single(batch);
+        Assert.Equal("SOL RING", entry.Key);
+        Assert.Equal(await repository.GetCategoriesAsync("Sol Ring"), batch["sol ring"]);
+    }
+
+    [Fact]
+    public async Task GetCategoriesForNamesAsync_EmptyInput_ReturnsEmpty()
+    {
+        var repository = CreateRepository();
+
+        var batch = await repository.GetCategoriesForNamesAsync(Array.Empty<string>());
+
+        Assert.Empty(batch);
+    }
+
+    [Fact]
     public async Task EnsureSchemaAsync_CreatesDeckQueueIndexes()
     {
         var repository = CreateRepository();

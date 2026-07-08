@@ -469,6 +469,53 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_PlanPresenceFlagsOn_FetchesCategoriesInOneBatch()
+    {
+        // Regression (Sokka-deck timeout): plan-role tagging fetched each spell's categories in its own
+        // sequential DB query — ~65 round-trips on a full decklist, which exhausted the 20s request
+        // budget. Tagging must now issue exactly ONE batched lookup regardless of spell count.
+        var (entries, cards) = CurveFixture();
+        var store = new FakeCategoryKnowledgeStore();
+        store.CategoriesByName["Filler Spell 0"] = new[] { "Win Condition" };
+
+        var service = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.MulliganEvalFlagKey] = true,
+                [ManabaseAnalysisService.PlanPresenceFlagKey] = true,
+            }),
+            store);
+
+        var result = await service.AnalyzeAsync("paste", "Curve Deck");
+
+        // The whole fix: one batch query, never one-per-card — even though the deck has 60+ spells.
+        Assert.Equal(1, store.GetCategoriesForNamesCalls);
+        Assert.True(GetResultShowPlanPresence(result));
+        // The tagged "Win Condition" category flowed through into a live plan-presence read.
+        Assert.NotNull(result.Report.MulliganEvaluation);
+        Assert.NotNull(result.Report.MulliganEvaluation!.PlanPresence);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_PlanPresenceFlagOff_DoesNotQueryCategories()
+    {
+        // The default path must do ZERO category I/O — plan-role tagging is gated behind both the
+        // plan-presence and mulligan-eval flags, so a store injected but unflagged is never touched.
+        var (entries, cards) = CurveFixture();
+        var store = new FakeCategoryKnowledgeStore();
+
+        var service = new ManabaseAnalysisService(
+            new FakeLoader(entries), new FakeResolver(cards), featureFlags: null, categoryKnowledge: store);
+
+        var result = await service.AnalyzeAsync("paste", "Curve Deck");
+
+        Assert.Equal(0, store.GetCategoriesForNamesCalls);
+        Assert.False(GetResultShowPlanPresence(result));
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_DefaultMode_IsCasual()
     {
         var (entries, cards) = CurveFixture();
@@ -789,6 +836,13 @@ public sealed class ManabaseAnalysisServiceTests
     {
         PropertyInfo property = typeof(ManabaseAnalysisResult).GetProperty("ShowTapAnalyzer")
             ?? throw new Xunit.Sdk.XunitException("ManabaseAnalysisResult.ShowTapAnalyzer property missing.");
+        return (bool)(property.GetValue(result) ?? false);
+    }
+
+    private static bool GetResultShowPlanPresence(ManabaseAnalysisResult result)
+    {
+        PropertyInfo property = typeof(ManabaseAnalysisResult).GetProperty("ShowPlanPresence")
+            ?? throw new Xunit.Sdk.XunitException("ManabaseAnalysisResult.ShowPlanPresence property missing.");
         return (bool)(property.GetValue(result) ?? false);
     }
 
