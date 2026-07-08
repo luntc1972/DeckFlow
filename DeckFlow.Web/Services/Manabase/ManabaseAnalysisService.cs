@@ -349,7 +349,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             ShowTapAnalyzer = showTapAnalyzer,
             ShowMulliganEval = showMulliganEval,
             ShowPlanPresence = showPlanPresence,
-            UnmatchedOverrideNames = ManabaseAnalyzer.UnmatchedOverrideNames(resolved.Deck, options.CostOverrides),
+            UnmatchedOverrideNames = report.UnmatchedOverrideNames,
         };
     }
 

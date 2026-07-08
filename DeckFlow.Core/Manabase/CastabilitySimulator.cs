@@ -258,7 +258,7 @@ public static class CastabilitySimulator
         // active with probability == ActivationWeight. Inactive partials are treated as inert filler.
         int[] partialIndices = Enumerable.Range(0, library.Count).Where(i => library[i].IsPartial).ToArray();
         bool[] active = new bool[library.Count];
-        Array.Fill(active, true);
+        Array.Fill(active, true); // full sources stay active all trials; DealHand re-rolls only partials
 
         // We only ever inspect the opening 7 plus one draw per turn (every turn, including turn 1
         // — Commander is multiplayer), so shuffling the first (7 + turn) slots is sufficient and
@@ -269,16 +269,11 @@ public static class CastabilitySimulator
 
         for (int t = 0; t < trials; t++)
         {
-            // Roll which partial sources are live this game (Bernoulli on the seeded RNG). Done BEFORE
-            // the shuffle/mulligan so an inactive partial counts as inert for land-counts too.
-            foreach (int pi in partialIndices)
-            {
-                active[pi] = rng.NextDouble() < library[pi].ActivationWeight;
-            }
-
-            Array.Copy(deck0, shuffled, library.Count);
-            ShufflePrefix(shuffled, prefix, rng);
-            int keptSize = LondonMulligan(library, shuffled, active, rng, deck.AverageManaValue, prefix, deck.IsSingleton, colorAwareMulligan, deckColorCount);
+            // Deal this trial's hand (rolls partials before the shuffle so an inactive partial counts as
+            // inert for land-counts, reshuffles the prefix, runs the London mulligan).
+            int keptSize = DealHand(
+                library, shuffled, deck0, active, partialIndices, rng,
+                deck.AverageManaValue, prefix, deck.IsSingleton, colorAwareMulligan, deckColorCount);
             // Tiny decks (some unit fixtures) can be smaller than a 7-card opener — clamp the hand.
             int handCount = Math.Min(library.Count, keptSize);
 
@@ -487,6 +482,10 @@ public static class CastabilitySimulator
         var onlineLandMasks = new List<int>(20);
         int[] partialIndices = Enumerable.Range(0, library.Count).Where(i => library[i].IsPartial).ToArray();
         bool[] active = new bool[library.Count];
+        Array.Fill(active, true); // full sources stay active all trials; DealHand re-rolls only partials
+        // Each card's slot in the shuffled prefix, rebuilt per trial so the "is this plan card drawn by
+        // its on-curve turn?" check is an O(1) lookup instead of an O(prefix) scan per plan card.
+        int[] posInPrefix = new int[library.Count];
 
         // The window must cover the opener plus one draw per turn out to the latest plan card's on-curve
         // turn (+ grace + margin), the same prefix rule the per-spell sim uses.
@@ -497,16 +496,9 @@ public static class CastabilitySimulator
 
         for (int t = 0; t < trials; t++)
         {
-            Array.Fill(active, true);
-            foreach (int pi in partialIndices)
-            {
-                active[pi] = rng.NextDouble() < library[pi].ActivationWeight;
-            }
-
-            Array.Copy(deck0, shuffled, library.Count);
-            ShufflePrefix(shuffled, prefix, rng);
-            int keptSize = LondonMulligan(
-                library, shuffled, active, rng, deck.AverageManaValue, prefix, deck.IsSingleton, colorAwareMulligan, deckColorCount);
+            int keptSize = DealHand(
+                library, shuffled, deck0, active, partialIndices, rng,
+                deck.AverageManaValue, prefix, deck.IsSingleton, colorAwareMulligan, deckColorCount);
 
             // Plan-presence is measured over KEEPABLE hands only (kept 7 or mull-to-6) — the same
             // keepable band the opener block reports; a mull-to-5 is not a hand you kept on purpose.
@@ -518,6 +510,13 @@ public static class CastabilitySimulator
             keepable++;
             int handCount = Math.Min(library.Count, keptSize);
 
+            // Invert the shuffled prefix once for this trial so each plan card's position is O(1).
+            Array.Fill(posInPrefix, -1);
+            for (int p = 0; p < prefix; p++)
+            {
+                posInPrefix[shuffled[p]] = p;
+            }
+
             PlanRole rolesThisHand = PlanRole.None;
             foreach (int planIdx in planIndices)
             {
@@ -526,15 +525,7 @@ public static class CastabilitySimulator
                 // Is this plan card drawn by its on-curve turn? Opening cards (pos < handCount) are seen
                 // at turn 0; a card at position p is drawn on turn (p - handCount + 1) — one draw per turn
                 // including turn 1. Beyond the shuffled prefix it is never seen this trial.
-                int pos = -1;
-                for (int p = 0; p < prefix; p++)
-                {
-                    if (shuffled[p] == planIdx)
-                    {
-                        pos = p;
-                        break;
-                    }
-                }
+                int pos = posInPrefix[planIdx];
 
                 if (pos < 0)
                 {
@@ -1549,6 +1540,25 @@ public static class CastabilitySimulator
         var src = sources.Select(s => (ColorsToMask(s.Colors), s.Amount)).ToList();
         (int Bit, int Count)[] pipReq = pips.Select(p => (ColorBit(p.Color), p.Count)).ToArray();
         return ColorsCoverable(src, pipReq, effectiveCost);
+    }
+
+    // Deals one trial's opening hand: re-roll each partial source's Bernoulli (full sources stay active —
+    // callers set active=true once before the trial loop and nothing flips a full slot), reshuffle the
+    // prefix, then run the London mulligan. Returns the kept size (7/6/5). Shared by the per-spell and
+    // plan-presence passes so the deal — and, critically, its RNG draw order (partials, shuffle,
+    // mulligan) — is identical across both reads.
+    private static int DealHand(
+        IReadOnlyList<LibraryCard> library, int[] shuffled, int[] deck0, bool[] active, int[] partialIndices,
+        Random rng, double avgMv, int prefix, bool isSingleton, bool colorAware, int deckColorCount)
+    {
+        foreach (int pi in partialIndices)
+        {
+            active[pi] = rng.NextDouble() < library[pi].ActivationWeight;
+        }
+
+        Array.Copy(deck0, shuffled, library.Count);
+        ShufflePrefix(shuffled, prefix, rng);
+        return LondonMulligan(library, shuffled, active, rng, avgMv, prefix, isSingleton, colorAware, deckColorCount);
     }
 
     // ---- London mulligan ------------------------------------------------------------------
