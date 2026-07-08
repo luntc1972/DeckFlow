@@ -81,6 +81,23 @@ When the `analysis.manabase.tap-analyzer` feature flag is enabled, the report (a
 
 This layer is **informational only**. It never changes the land count, color counts, castability table, or health verdict. The flag defaults off, so the report and the downloaded `.txt` stay unchanged until an admin enables it.
 
+### Opening hand and plan presence
+
+When the `analysis.mulligan-eval` feature flag is enabled, the report (and its paste artifact) add an **opening-hand** block — a mulligan-focused read from the same Monte-Carlo sim:
+
+- **Keepable hands** — the share of London-mulligan openers that keep (enough lands and colors to function), with a keep/medium/low band.
+- **Keep-size process** — how often the deck keeps at seven versus mulligans to six or five.
+- **Colors / curve** — the deck's color count and average mana value.
+- **Representative openers** — a few sample keepable hands, each with the earliest turn its best card comes online.
+
+When the `analysis.manabase.plan-presence` flag is **also** enabled, that block gains a **plan-presence** line. It leads with **payoff on curve** — the share of keepable openers holding a **payoff** you can cast on curve, with its own high/medium/low band — because the broader "any win-directed card" number saturates high on real decks and does not separate stronger builds from weaker ones. The line then shows that composite percentage and a per-role breakdown (payoff / engine / tutor-combo / interaction).
+
+- A combo or control deck reading **low payoff** is a correct profile, not a fault — its closer is the combo (a tutor-combo card), which shows in the role breakdown.
+- **Counters are mode-aware:** a pure counterspell counts as interaction only in **cEDH**, where it protects the combo turn. In **Casual** a counter is reactive insurance, not a card that advances your win plan, so it earns no role. Removal and board wipes still count in both modes.
+- Roles come from your Category Knowledge Store, then Commander Spellbook combo pieces, then an oracle-text heuristic. It is a **consistency signal, never keep/mulligan advice**.
+
+Both flags default off, so the report and the downloaded `.txt` stay unchanged until an admin enables them.
+
 ### Reading your deck
 
 When the admin enables the plain-language layer, the result can also show a short **Reading your deck** advisory:
