@@ -274,7 +274,7 @@ public static class ManabaseReportTextBuilder
     {
         sb.AppendLine("Opening Hand (mulligan) - DeckFlow first-pass read:");
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
-            $"Keepable hands: {mull.KeepableBand} (~{mull.KeepableHandPercent}%) - keepable = a 2-5 land keep on the London mulligan; a heuristic consistency signal, not a strategic keep judgment."));
+            $"Keepable hands: {mull.KeepableBand} (~{mull.KeepableHandPercent}%) - keepable = a London-mulligan keep: 3 lands (2 with ramp), up to 5 for a high-curve deck; a heuristic consistency signal, not a strategic keep judgment."));
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
             $"Keep-size process: kept at 7 ~{mull.Kept7Percent}%, mulligan to 6 ~{mull.MulliganTo6Percent}%, mulligan to 5 ~{mull.MulliganTo5Percent}%."));
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture,

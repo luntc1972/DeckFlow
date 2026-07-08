@@ -26,10 +26,12 @@ public sealed class CastabilitySimulatorMulliganTests
         // slot the turn-1 draw reads, so it deterministically redrew the dead filler it just bottomed;
         // bottoming to the physical library tail lets those hands draw a genuine random card (~36%
         // an Island here) instead. The mulligan INSTRUMENTATION still touches neither `successes` nor
-        // the rng stream — this delta is the bottoming fix alone.
+        // the rng stream — this delta is the bottoming fix alone. Rose to 95% when the opening keep band
+        // tightened (sweet spot 3 lands; mulligan 4-5 land floods instead of keeping them), so fewer
+        // flooded keeps dilute the cast rate.
         CardCastability row = Simulate(MonoBlueDeck(), BlueSpell());
 
-        Assert.Equal(94, row.CastPercent);
+        Assert.Equal(95, row.CastPercent);
     }
 
     [Fact]
@@ -145,6 +147,40 @@ public sealed class CastabilitySimulatorMulliganTests
         });
     }
 
+    [Fact]
+    public void Simulate_Keep7Openers_RespectTightenedLandBand()
+    {
+        // Opening keep band: keep 3 lands (2 only with >=1 ramp), mulligan 4-5 land floods on a normal
+        // curve (MonoBlueDeck avg MV 2.5). A kept 7 therefore never shows 4+ lands, and — since this deck
+        // carries no ramp — a 2-land 7 is mulliganed, so every kept 7 holds exactly 3 lands.
+        CardCastability row = Simulate(MonoBlueDeck(), BlueSpell());
+
+        var keep7 = row.RepresentativeOpeners.Where(o => o.KeptCards == 7).ToList();
+        Assert.NotEmpty(keep7);
+        Assert.All(keep7, o =>
+        {
+            Assert.InRange(o.Lands, 2, 3);
+            if (o.Lands == 2)
+            {
+                Assert.True(o.RampPieces >= 1, "a 2-land keep must hold a ramp piece");
+            }
+        });
+    }
+
+    [Fact]
+    public void Simulate_HighCurveDeck_KeepsMoreLandHeavy7s_ThanNormalCurve()
+    {
+        // A high-curve deck (avg MV >= 3) genuinely wants more lands, so it keeps its wider band (up to
+        // 5) where a normal-curve deck mulligans the same 4-5 land floods. On a land-heavy deck that
+        // shows up as materially more kept-at-7 trials for the high-curve deck.
+        CardCastability normal = Simulate(LandHeavyDeck(avgMv: 2.5), BlueSpell());
+        CardCastability high = Simulate(LandHeavyDeck(avgMv: 3.5), BlueSpell());
+
+        Assert.True(
+            high.Kept7Trials > normal.Kept7Trials,
+            $"high-curve should keep more land-heavy 7s (high {high.Kept7Trials} vs normal {normal.Kept7Trials})");
+    }
+
     // ---- builders ---------------------------------------------------------------------------
 
     private static CardCastability Simulate(ManabaseDeck deck, SpellRequirement spell, int effectiveTurn = 3)
@@ -180,6 +216,28 @@ public sealed class CastabilitySimulatorMulliganTests
             Sources = sources,
             Spells = new List<SpellRequirement> { BlueSpell() },
             AverageManaValue = 2.5,
+            IsSingleton = true,
+        };
+    }
+
+    // Deliberately land-heavy (45 of 99) so a fresh 7 frequently holds 4-5 lands — the exact hands the
+    // normal-curve keep band now mulligans but the high-curve band keeps. The avg MV knob flips the
+    // upper keep bound (>= 3 keeps up to 5, else up to 3) without changing anything else.
+    private static ManabaseDeck LandHeavyDeck(double avgMv)
+    {
+        var sources = new List<ManaSource>();
+        for (int i = 0; i < 45; i++)
+        {
+            sources.Add(new ManaSource { Name = $"Island {i}", Produces = new[] { ManaColor.Blue } });
+        }
+
+        return new ManabaseDeck
+        {
+            TotalCards = 99,
+            CommanderCount = 0,
+            Sources = sources,
+            Spells = new List<SpellRequirement> { BlueSpell() },
+            AverageManaValue = avgMv,
             IsSingleton = true,
         };
     }

@@ -14,8 +14,9 @@ namespace DeckFlow.Web.Tests.Manabase;
 /// manabase-health-band-coupling, Gate C). The Avatar (Sokka/Aang Jeskai) fixture is the
 /// calibration deck, read directly from a committed facts fixture (no HTTP) so it runs in CI.
 ///
-/// Post efficacy R2 M5 (classifier correctness) the Avatar deck reads a clean "Excellent"
-/// both flag-off and flag-on with no weak color. Previously it read Solid/Workable because three
+/// The Avatar deck reads "Solid" both flag-off and flag-on with no weak color: no color is source-
+/// limited, but a cheap colored spell casts just under the bar on curve, an honest minor note that
+/// keeps it out of "Excellent" (and well clear of "needs work"). It previously read Solid/Workable because three
 /// "Noncreature spells you cast cost {1} less" cards (Gran-Gran, Longshot, Lyse Hext) were
 /// mis-scoped as CREATURE reducers — the substring check read "noncreature" as "creature" — which
 /// fictitiously discounted every creature by up to {2}, pulling their on-curve turns earlier and
@@ -62,10 +63,20 @@ public sealed class ManabaseHealthBandRegressionTests
         // (3 of them); removing the fictitious deck-wide creature discount lets its creatures cast at
         // their true turns, so Avatar rises Solid/Workable → Excellent/Excellent with no weak color.
         // No other calibration deck contains a noncreature reducer, so none else changes band.
+        //
+        // Re-baselined a FIFTH time for the keep-band + under-support-consistency fix (field report:
+        // Avatar/Sokka read "needs work" while its color table showed every color over-supplied). Two
+        // changes: (1) the London keep band tightened to the sweet spot — keep 3 lands (2 with ramp),
+        // mulligan 4-5 land floods (high-curve decks keep their wider band) — which shifts real cast
+        // rates; (2) a color counts as "starved"/under-supported by the base ONLY when it actually lacks
+        // sources (deficit > 0), so a cheap colored spell that misses its turn-1 window while its color
+        // runs a surplus no longer drags the verdict. The Avatar deck drops Excellent -> Solid: its worst
+        // color still casts a cheap spell just under the bar on curve (a minor note), but no color is
+        // source-limited, so it is Solid, not Excellent and never "needs work". No other deck changes band.
         new("Stale Brago (WU control)", ".manabase-brago-facts.json", "Needs work", "Workable"),
         new("Kenrith 5-color rocks", ".manabase-5c-facts.json", "Excellent", "Excellent"),
         new("Meren Golgari ramp/ritual", ".manabase-golgari-facts.json", "Solid", "Solid"),
-        new("Avatar - Sokka/Aang", "avatar-facts.json", "Excellent", "Excellent", IsAssemblyFixture: true),
+        new("Avatar - Sokka/Aang", "avatar-facts.json", "Solid", "Solid", IsAssemblyFixture: true),
         new("Archidekt 23563520 - Marchesa", ".manabase-arch-23563520-facts.json", "Needs work", "Needs work"),
         new("Archidekt 23753514 - graveyard fungus", ".manabase-arch-23753514-facts.json", "Solid", "Solid"),
         new("Archidekt 23638601 - Townos", ".manabase-arch-23638601-facts.json", "Excellent", "Excellent"),
@@ -81,7 +92,7 @@ public sealed class ManabaseHealthBandRegressionTests
         new("Brago promote (WU control)", ".manabase-brago-promote-facts.json", "Needs work", "Needs work");
 
     [Fact]
-    public async Task Avatar_FlagOff_BandIsExcellent()
+    public async Task Avatar_FlagOff_BandIsSolid()
     {
         IReadOnlyList<CardFact> facts = await LoadFactsAsync();
         ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true);
@@ -90,23 +101,24 @@ public sealed class ManabaseHealthBandRegressionTests
             useHealthBandCastability: false);
 
         string label = ManabaseDisplay.HealthLabel(report.Health);
-        Assert.Equal("Excellent", label);
+        Assert.Equal("Solid", label);
     }
 
     [Fact]
-    public async Task Avatar_FlagOn_BandIsExcellent_NoWeakColor()
+    public async Task Avatar_FlagOn_BandIsSolid_NoWeakColor()
     {
-        // Post M5 (see class summary): the deck's three noncreature reducers no longer fictitiously
-        // discount its creatures, so nothing is source-limited and the flag-on castability band is
-        // Excellent with no weak color. The flag-on color-issue coupling this deck used to exercise
-        // end-to-end is now guarded by the synthetic SyntheticReport tests below.
+        // No weak COLOR: nothing is source-limited (ColorLimitedUnderSupportedCount == 0), so the deck
+        // never reads "needs work" or advises adding lands. It lands on Solid rather than Excellent only
+        // because a cheap colored spell casts just under the bar on curve (turn-1 variance, not weak
+        // support) — an honest "minor note", not a color problem. The flag-on color-issue coupling this
+        // deck used to exercise end-to-end is now guarded by the synthetic SyntheticReport tests below.
         IReadOnlyList<CardFact> facts = await LoadFactsAsync();
         ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true);
         ManabaseReport report = ManabaseAnalyzer.Analyze(
             deck, ManabaseMode.Casual, CommanderImportance.Standard,
             useHealthBandCastability: true);
 
-        Assert.Equal("Excellent", ManabaseDisplay.HealthLabel(report.Health));
+        Assert.Equal("Solid", ManabaseDisplay.HealthLabel(report.Health));
         Assert.DoesNotContain(report.ColorFindings, f => f.ColorLimitedUnderSupportedCount > 0);
     }
 
