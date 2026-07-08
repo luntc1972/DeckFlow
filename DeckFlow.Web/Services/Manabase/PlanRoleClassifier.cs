@@ -14,7 +14,10 @@ namespace DeckFlow.Web.Services.Manabase;
 /// <item>an oracle-text heuristic fallback (<see cref="DeckStatClassifier"/>).</item>
 /// </list>
 /// Ramp, lands, and filler card draw deliberately never earn a role — that is resource/velocity, a
-/// different axis already measured by keepable-% and on-curve castability.
+/// different axis already measured by keepable-% and on-curve castability. The <see cref="ManabaseMode"/>
+/// tunes one role: a pure counterspell counts as <see cref="PlanRole.Interaction"/> only in
+/// <see cref="ManabaseMode.Cedh"/> (it protects the combo turn); in Casual a counter is reactive
+/// insurance, not a card that advances the win plan, so it earns nothing.
 /// </summary>
 public static class PlanRoleClassifier
 {
@@ -26,12 +29,13 @@ public static class PlanRoleClassifier
     /// <param name="fact">The resolved card (type line + oracle text drive the heuristic fallback).</param>
     /// <param name="categories">The card's crowd-sourced category tags (free text; may be empty).</param>
     /// <param name="isComboPiece">True when Commander Spellbook lists the card in an included combo.</param>
-    public static PlanRole Classify(CardFact fact, IReadOnlyList<string> categories, bool isComboPiece)
+    /// <param name="mode">Analysis profile; gates whether a pure counterspell earns Interaction.</param>
+    public static PlanRole Classify(CardFact fact, IReadOnlyList<string> categories, bool isComboPiece, ManabaseMode mode)
     {
         ArgumentNullException.ThrowIfNull(fact);
         ArgumentNullException.ThrowIfNull(categories);
 
-        PlanRole fromCategories = FromCategories(categories);
+        PlanRole fromCategories = FromCategories(categories, mode);
         if (fromCategories != PlanRole.None)
         {
             return fromCategories;
@@ -42,19 +46,22 @@ public static class PlanRoleClassifier
             return PlanRole.TutorCombo;
         }
 
-        return FromHeuristic(fact);
+        return FromHeuristic(fact, mode);
     }
 
     /// <summary>
     /// Map a card's free-text category tags to roles by keyword. User-typed Archidekt tags are not a
     /// controlled vocabulary, so this is substring matching over the common role words, not an exact
     /// switch. A card tagged both "Win Condition" and "Card Draw" earns Payoff | Engine. Ramp / land /
-    /// fixing tags contribute nothing.
+    /// fixing tags contribute nothing. A "counter" tag earns Interaction only in cEDH.
     /// </summary>
-    public static PlanRole FromCategories(IReadOnlyList<string> categories)
+    /// <param name="categories">The card's crowd-sourced category tags (free text; may be empty).</param>
+    /// <param name="mode">Analysis profile; gates whether a "counter" tag earns Interaction.</param>
+    public static PlanRole FromCategories(IReadOnlyList<string> categories, ManabaseMode mode)
     {
         ArgumentNullException.ThrowIfNull(categories);
 
+        bool countsCounters = mode == ManabaseMode.Cedh;
         PlanRole roles = PlanRole.None;
         foreach (string category in categories)
         {
@@ -70,7 +77,14 @@ public static class PlanRoleClassifier
                 roles |= PlanRole.TutorCombo;
             }
 
-            if (Has(c, "removal", "interaction", "counter", "protect", "wipe", "answer"))
+            if (Has(c, "removal", "interaction", "protect", "wipe", "answer"))
+            {
+                roles |= PlanRole.Interaction;
+            }
+
+            // A counterspell tag advances the plan only in competitive play. In casual a counter is
+            // reactive insurance, not a card that furthers the win plan, so it earns no role there.
+            if (countsCounters && Has(c, "counter"))
             {
                 roles |= PlanRole.Interaction;
             }
@@ -92,7 +106,9 @@ public static class PlanRoleClassifier
     /// draw source (repeatable) — a one-shot instant/sorcery "draw two" is filler, not an engine, and
     /// stays None.
     /// </summary>
-    public static PlanRole FromHeuristic(CardFact fact)
+    /// <param name="fact">The resolved card (type line + oracle text).</param>
+    /// <param name="mode">Analysis profile; gates whether a pure counterspell earns Interaction.</param>
+    public static PlanRole FromHeuristic(CardFact fact, ManabaseMode mode)
     {
         ArgumentNullException.ThrowIfNull(fact);
 
@@ -111,10 +127,7 @@ public static class PlanRoleClassifier
             roles |= PlanRole.TutorCombo;
         }
 
-        if (DeckStatClassifier.IsInteractionCard(typeLine, oracle)
-            || DeckStatClassifier.IsBoardWipeCard(oracle)
-            || DeckStatClassifier.IsCounterspellCard(oracle)
-            || DeckStatClassifier.IsTargetedRemovalCard(typeLine, oracle))
+        if (GrantsInteraction(typeLine, oracle, mode))
         {
             roles |= PlanRole.Interaction;
         }
@@ -130,6 +143,35 @@ public static class PlanRoleClassifier
 
         return roles;
     }
+
+    /// <summary>
+    /// Whether a card earns <see cref="PlanRole.Interaction"/> from the oracle-text heuristic. Removal,
+    /// board wipes, and non-counter instants always qualify. A pure counterspell — one that counters a
+    /// spell and does nothing else — qualifies only in <see cref="ManabaseMode.Cedh"/>: a casual counter
+    /// is reactive insurance, not a card that advances the win plan. A card that both counters and
+    /// removes still counts in casual (it has removal merit beyond the counter).
+    /// </summary>
+    private static bool GrantsInteraction(string typeLine, string oracle, ManabaseMode mode)
+    {
+        // A pure counterspell hits IsInteractionCard (it's an instant / "counter target ...") but in
+        // Casual earns nothing: it is reactive insurance, not a card that advances the win plan. cEDH
+        // keeps it (it protects the combo turn). A card that ALSO removes still qualifies via the hard-
+        // removal checks below (removal merit beyond the counter). Removal / board wipes are checked
+        // second so IsInteractionCard short-circuits the extra oracle scans for the common instant case.
+        bool interactionMerit = DeckStatClassifier.IsInteractionCard(typeLine, oracle)
+            && (mode == ManabaseMode.Cedh || !CountersASpell(oracle));
+
+        return interactionMerit
+            || DeckStatClassifier.IsBoardWipeCard(oracle)
+            || DeckStatClassifier.IsTargetedRemovalCard(typeLine, oracle);
+    }
+
+    // Broader than DeckStatClassifier.IsCounterspellCard (exact "counter target spell" only): also
+    // catches narrow-target counters (Negate, Swan Song, Dovin's Veto) so the casual carve-out covers
+    // them. Ability-only counters (Stifle) lack "spell" and stay generic interaction.
+    private static bool CountersASpell(string oracle)
+        => oracle.Contains("counter target", StringComparison.OrdinalIgnoreCase)
+            && oracle.Contains("spell", StringComparison.OrdinalIgnoreCase);
 
     private static bool Has(string haystack, params string[] needles)
     {

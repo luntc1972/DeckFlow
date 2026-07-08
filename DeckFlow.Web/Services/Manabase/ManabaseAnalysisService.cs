@@ -271,6 +271,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 landRampSim,
                 commanderCastability,
                 classifyPlanRoles: showPlanPresence,
+                options.Mode,
                 options.CompanionDesignator,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -365,6 +366,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 landRampSim: false,
                 commanderCastability: false,
                 classifyPlanRoles: false,
+                mode: ManabaseMode.Casual,
                 companionDesignator: null,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -390,6 +392,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         bool landRampSim,
         bool commanderCastability,
         bool classifyPlanRoles,
+        ManabaseMode mode,
         string? companionDesignator,
         CancellationToken cancellationToken)
     {
@@ -504,7 +507,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
 
         if (classifyPlanRoles)
         {
-            deck = await TagPlanRolesAsync(deck, facts, deckCards, cancellationToken).ConfigureAwait(false);
+            deck = await TagPlanRolesAsync(deck, facts, deckCards, mode, cancellationToken).ConfigureAwait(false);
         }
 
         string decklistText = string.Join(
@@ -531,6 +534,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         ManabaseDeck deck,
         IReadOnlyList<CardFact> facts,
         IReadOnlyList<DeckEntry> deckCards,
+        ManabaseMode mode,
         CancellationToken cancellationToken)
     {
         // Source 2 (combo pieces), fetched once. Fail-open: a Spellbook outage leaves the set empty.
@@ -576,7 +580,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             {
                 IReadOnlyList<string> categories =
                     await GetCategoriesFailOpenAsync(spell.Name, cancellationToken).ConfigureAwait(false);
-                roles = PlanRoleClassifier.Classify(fact, categories, comboNames.Contains(spell.Name));
+                roles = PlanRoleClassifier.Classify(fact, categories, comboNames.Contains(spell.Name), mode);
             }
 
             tagged.Add(spell with { PlanRoles = roles });
