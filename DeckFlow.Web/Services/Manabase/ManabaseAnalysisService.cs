@@ -96,6 +96,9 @@ public sealed record ManabaseAnalysisResult(
     /// <summary>Whether the opening-hand / mulligan-evaluator block was enabled for this result.</summary>
     public bool ShowMulliganEval { get; init; }
 
+    /// <summary>Whether the plan-presence opener stat was enabled (flag on) for this result.</summary>
+    public bool ShowPlanPresence { get; init; }
+
     /// <summary>Optional companion castability row modeled outside the analyzed 99.</summary>
     public CardCastability? CompanionRow { get; init; }
 
@@ -205,9 +208,18 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     /// </summary>
     public const string MulliganEvalFlagKey = "analysis.mulligan-eval";
 
+    /// <summary>
+    /// Plan-presence flag key: seeded OFF. Gates the "with a plan" opener stat AND the only new I/O it
+    /// needs — the per-card category lookup and the Commander Spellbook combo fetch. Read fail-safe OFF,
+    /// so the default manabase path takes on no extra cost until an admin enables the beta stat.
+    /// </summary>
+    public const string PlanPresenceFlagKey = "analysis.manabase.plan-presence";
+
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IScryfallCardResolver _scryfallCardResolver;
     private readonly IFeatureFlagCache? _featureFlags;
+    private readonly ICategoryKnowledgeStore? _categoryKnowledge;
+    private readonly ICommanderSpellbookService? _spellbook;
     private readonly ILogger<ManabaseAnalysisService> _logger;
 
     /// <summary>Creates the analysis service.</summary>
@@ -215,6 +227,8 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         IDeckEntryLoader deckEntryLoader,
         IScryfallCardResolver scryfallCardResolver,
         IFeatureFlagCache? featureFlags = null,
+        ICategoryKnowledgeStore? categoryKnowledge = null,
+        ICommanderSpellbookService? spellbook = null,
         ILogger<ManabaseAnalysisService>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
@@ -223,6 +237,8 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         _deckEntryLoader = deckEntryLoader;
         _scryfallCardResolver = scryfallCardResolver;
         _featureFlags = featureFlags;
+        _categoryKnowledge = categoryKnowledge;
+        _spellbook = spellbook;
         _logger = logger ?? NullLogger<ManabaseAnalysisService>.Instance;
     }
 
@@ -242,12 +258,16 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         bool commanderCastability = IsFlagOn(CommanderCastabilityFlagKey);
         bool showTapAnalyzer = IsFlagOn(TapAnalyzerFlagKey);
         bool showMulliganEval = IsFlagOn(MulliganEvalFlagKey);
+        // Read BEFORE resolve: the flag gates the plan-role tagging (and its category + Spellbook I/O)
+        // done during classification. Off = no extra I/O and PlanRoles stay None (byte-identical path).
+        bool showPlanPresence = IsFlagOn(PlanPresenceFlagKey);
 
         ResolvedManabaseDeck resolved = await ResolveAndClassifyAsync(
                 deckSource,
                 rampCreditV2,
                 landRampSim,
                 commanderCastability,
+                classifyPlanRoles: showPlanPresence,
                 options.CompanionDesignator,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -324,6 +344,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             CompanionRow = companionRow,
             ShowTapAnalyzer = showTapAnalyzer,
             ShowMulliganEval = showMulliganEval,
+            ShowPlanPresence = showPlanPresence,
             UnmatchedOverrideNames = ManabaseAnalyzer.UnmatchedOverrideNames(resolved.Deck, options.CostOverrides),
         };
     }
@@ -340,6 +361,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 rampCreditV2: false,
                 landRampSim: false,
                 commanderCastability: false,
+                classifyPlanRoles: false,
                 companionDesignator: null,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -364,6 +386,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         bool rampCreditV2,
         bool landRampSim,
         bool commanderCastability,
+        bool classifyPlanRoles,
         string? companionDesignator,
         CancellationToken cancellationToken)
     {
@@ -476,6 +499,11 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
         ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true, rampCreditV2: rampCreditV2, landRampSim: landRampSim);
 
+        if (classifyPlanRoles)
+        {
+            deck = await TagPlanRolesAsync(deck, facts, deckCards, cancellationToken).ConfigureAwait(false);
+        }
+
         string decklistText = string.Join(
             "\n",
             deckCards.Select(e => $"{e.Quantity} {e.Name}"));
@@ -488,6 +516,94 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             + (unresolved.Count > 0 ? $" · {unresolved.Count} unresolved" : string.Empty);
 
         return new ResolvedManabaseDeck(deck, unresolved, load.FallbackNotice, decklistText, inputSummary, companionCard);
+    }
+
+    /// <summary>
+    /// Tag each spell with its win-directed <see cref="PlanRole"/>s for the plan-presence stat. Fetches
+    /// the deck's Commander Spellbook combo pieces once and each spell's crowd categories, both
+    /// fail-open (a network/DB error yields no roles for that card, never a failed analysis). Only
+    /// called when the plan-presence flag is on, so this extra I/O never touches the default path.
+    /// </summary>
+    private async Task<ManabaseDeck> TagPlanRolesAsync(
+        ManabaseDeck deck,
+        IReadOnlyList<CardFact> facts,
+        IReadOnlyList<DeckEntry> deckCards,
+        CancellationToken cancellationToken)
+    {
+        // Source 2 (combo pieces), fetched once. Fail-open: a Spellbook outage leaves the set empty.
+        var comboNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (_spellbook is not null)
+        {
+            try
+            {
+                CommanderSpellbookResult? combos =
+                    await _spellbook.FindCombosAsync(deckCards, cancellationToken).ConfigureAwait(false);
+                if (combos is not null)
+                {
+                    foreach (SpellbookCombo combo in combos.IncludedCombos)
+                    {
+                        foreach (string cardName in combo.CardNames)
+                        {
+                            comboNames.Add(cardName);
+                        }
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(exception, "Plan-presence: Commander Spellbook fetch failed; continuing without combo roles.");
+            }
+        }
+
+        var factByName = new Dictionary<string, CardFact>(StringComparer.OrdinalIgnoreCase);
+        foreach (CardFact fact in facts)
+        {
+            factByName[fact.Name] = fact;
+        }
+
+        var tagged = new List<SpellRequirement>(deck.Spells.Count);
+        foreach (SpellRequirement spell in deck.Spells)
+        {
+            PlanRole roles = PlanRole.None;
+            if (factByName.TryGetValue(spell.Name, out CardFact? fact))
+            {
+                IReadOnlyList<string> categories =
+                    await GetCategoriesFailOpenAsync(spell.Name, cancellationToken).ConfigureAwait(false);
+                roles = PlanRoleClassifier.Classify(fact, categories, comboNames.Contains(spell.Name));
+            }
+
+            tagged.Add(spell with { PlanRoles = roles });
+        }
+
+        return deck with { Spells = tagged };
+    }
+
+    // Source 1 (crowd categories), fail-open per card so a DB hiccup drops to the heuristic tier
+    // rather than failing the whole analysis.
+    private async Task<IReadOnlyList<string>> GetCategoriesFailOpenAsync(string cardName, CancellationToken cancellationToken)
+    {
+        if (_categoryKnowledge is null)
+        {
+            return Array.Empty<string>();
+        }
+
+        try
+        {
+            return await _categoryKnowledge.GetCategoriesAsync(cardName, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Plan-presence: category lookup failed for {CardName}; using heuristic only.", cardName);
+            return Array.Empty<string>();
+        }
     }
 
     // Reflags the leading Moxfield-ordering commander(s) to the commander board when the
