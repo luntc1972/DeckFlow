@@ -993,4 +993,122 @@ public sealed class DirectPushPageTests : BunitContext
             Assert.All(prodStore.Rows, row => Assert.False(row.IsVisible));
         });
     }
+
+    // ── Awaiting-confirm resume bucket (D-10/Plan 90-06) ────────────────────────
+
+    [Fact]
+    public void DirectPush_AfterExpand_RowShowsInAwaitingConfirmBucket_NotVisible()
+    {
+        // Test (a): after Stage 3 (content-only write / "expand"), the pushed row must appear in the
+        // awaiting-confirm resume bucket and stay hidden — it is durably tracked, never lost.
+        var local = new[] { MakeApprovedRow(1, "vid1") with { BodySha256 = "hash-vid1" } };
+        var (cut, localStore, _, _, _, _) = RenderDirectPush(local);
+
+        ComputeDiffAndConfirm(cut);
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
+        cut.WaitForState(() => cut.Markup.Contains("uploaded to production /data"));
+        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-danger")[1].HasAttribute("disabled")));
+
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[1].Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Awaiting Confirm", cut.Markup);
+            Assert.Contains("Video 1", cut.Markup);
+            Assert.All(localStore.Rows, row => Assert.False(row.IsVisible));
+        });
+    }
+
+    [Fact]
+    public void DirectPush_Resume_ConfirmerNotConfirmed_StaysAwaitingConfirm_OperatorVisibleState()
+    {
+        // Test (b): resuming with a confirmer that reports not-confirmed keeps the row in the bucket
+        // and shows an operator-visible failed/awaiting state — never a silent deadlock and never a
+        // visible-before-confirm row.
+        var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = false };
+        var local = new[] { MakeApprovedRow(1, "vid1") with { BodySha256 = "hash-vid1" } };
+        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local, confirmerOverride: confirmer);
+
+        ComputeDiffAndConfirm(cut);
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
+        cut.WaitForState(() => cut.Markup.Contains("uploaded to production /data"));
+        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-danger")[1].HasAttribute("disabled")));
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[1].Click());
+        cut.WaitForAssertion(() => Assert.Contains("Awaiting Confirm", cut.Markup));
+
+        cut.InvokeAsync(() => cut.Find("button.btn-outline-warning").Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Not yet confirmed", cut.Markup);
+            Assert.Single(confirmer.Calls);
+            Assert.Empty(prodStore.StampCalls);
+            Assert.Empty(localStore.StampCalls);
+            Assert.All(localStore.Rows, row => Assert.False(row.IsVisible));
+            // Still awaiting-confirm — the bucket must not empty on a failed resume, and it must be
+            // re-runnable (the button is still present, not removed).
+            Assert.Contains("Awaiting Confirm", cut.Markup);
+            Assert.False(cut.Find("button.btn-outline-warning").HasAttribute("disabled"));
+        });
+    }
+
+    [Fact]
+    public void DirectPush_Resume_ConfirmerConfirmed_PublishesRow_ClearsFromBucket()
+    {
+        // Test (c): resuming with a confirmer that now reports confirmed (simulating the deploy
+        // catching up) stamps + flips the row visible and clears it out of the awaiting-confirm
+        // bucket — the marker-clear happens inside ConfirmAndPublishAsync (D-10).
+        var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = false };
+        var local = new[] { MakeApprovedRow(1, "vid1") with { BodySha256 = "hash-vid1" } };
+        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local, confirmerOverride: confirmer);
+
+        ComputeDiffAndConfirm(cut);
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
+        cut.WaitForState(() => cut.Markup.Contains("uploaded to production /data"));
+        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-danger")[1].HasAttribute("disabled")));
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[1].Click());
+        cut.WaitForAssertion(() => Assert.Contains("Awaiting Confirm", cut.Markup));
+
+        // Flip the confirmer to confirmed before resuming — simulates the Render deploy going live.
+        confirmer.ConfirmedResult = true;
+        cut.InvokeAsync(() => cut.Find("button.btn-outline-warning").Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Single(prodStore.StampCalls);
+            Assert.Single(prodStore.VisibilityKeyCalls);
+            Assert.Single(localStore.StampCalls);
+            Assert.Single(localStore.VisibilityKeyCalls);
+            Assert.All(localStore.Rows, row => Assert.True(row.IsVisible));
+            // The bucket is now empty (marker cleared) — the "still pending" list is gone and the
+            // resolved copy shows instead, but the success result table stays visible (the operator
+            // must SEE the confirm succeeded, not have it vanish the instant the marker clears).
+            Assert.Contains("All previously awaiting-confirm rows have been resolved", cut.Markup);
+            Assert.Contains("bg-success\">Confirmed", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void DirectPush_FreshLoad_MarkerSetRow_SurfacesResumeAction_NotClassifiedUnchanged()
+    {
+        // Test (d): a row whose content already matches prod (would classify Unchanged on a diff,
+        // per ClassifyDiff's content-signature comparison — 90-RESEARCH Pitfall 4) but still carries
+        // the durable awaiting-confirm marker must surface via the resume bucket on a FRESH page
+        // load, without the operator ever running Stage 1.
+        var local = new[]
+        {
+            MakeApprovedRow(1, "vid1") with { BodySha256 = "hash-vid1", AwaitingConfirmUtc = DateTimeOffset.UtcNow },
+        };
+        // Prod already carries identical content — a diff would classify this row Unchanged.
+        var prod = new[] { MakeApprovedRow(1, "vid1") with { BodySha256 = "hash-vid1" } };
+        var (cut, _, _, _, _, _) = RenderDirectPush(local, prod);
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.DoesNotContain("Resolving configuration", cut.Markup);
+            Assert.Contains("Awaiting Confirm", cut.Markup);
+            Assert.Contains("Video 1", cut.Markup);
+            Assert.Contains("Resume", cut.Markup);
+        });
+    }
 }

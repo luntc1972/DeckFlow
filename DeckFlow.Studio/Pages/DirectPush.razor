@@ -120,6 +120,113 @@ confirms the deployed body matches (expand&rarr;verify&rarr;contract, SYNC-09/D-
             visible. Neither runs automatically.
         </div>
 
+        @* ─── Awaiting Confirm — Resume (D-10/Plan 90-06) ─── *@
+        @* Why: kept rendered whenever there are still-pending rows OR a resume just ran (even if
+           that resume emptied the bucket) — otherwise a fully-successful resume would clear
+           _awaitingConfirmRows and the whole card (including the success result it just produced)
+           would vanish on the very next render, hiding the confirmation from the operator. *@
+        @if (_awaitingConfirmRows.Count > 0 || _resumeConfirmedResults.Count > 0 || _resumeNotConfirmedResults.Count > 0)
+        {
+            <div class="card mt-3 border-warning">
+                <div class="card-header bg-warning-subtle">
+                    <h2 class="h5 fw-semibold mb-0">Awaiting Confirm &mdash; Resume Interrupted Push</h2>
+                </div>
+                <div class="card-body">
+                    @if (_awaitingConfirmRows.Count > 0)
+                    {
+                        <p class="text-muted small mb-2">
+                            @_awaitingConfirmRows.Count row(s) already have content written to production
+                            but have not been deploy-confirmed yet (e.g. this Studio session was reloaded
+                            mid-flow). They stay hidden until confirmed &mdash; re-run verify below rather
+                            than losing track of them.
+                        </p>
+
+                        @if (!string.IsNullOrEmpty(_resumeVerifyError))
+                        {
+                            <div class="alert alert-danger py-2">@_resumeVerifyError</div>
+                        }
+
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mt-2" aria-live="polite">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Title</th>
+                                        <th>Natural key</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var row in _awaitingConfirmRows)
+                                    {
+                                        <tr>
+                                            <td class="text-truncate" style="max-width:300px">@row.Title</td>
+                                            <td><code>@ResumeKeyLabel(row)</code></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <button class="btn btn-outline-warning"
+                                @onclick="ResumeVerifyAsync"
+                                disabled="@(_operationInFlight || !Config.IsConfirmerConfigured)">
+                            @if (_resumeVerifyInFlight)
+                            {
+                                <span class="spinner-border spinner-border-sm"
+                                      role="status"
+                                      aria-label="Operation in progress">
+                                    <span class="visually-hidden">Loading...</span>
+                                </span>
+                                <span> Re-checking deploy...</span>
+                            }
+                            else
+                            {
+                                <span>Resume &mdash; Verify Deploy &amp; Publish</span>
+                            }
+                        </button>
+                    }
+                    else
+                    {
+                        <p class="text-muted small mb-0">
+                            All previously awaiting-confirm rows have been resolved.
+                        </p>
+                    }
+
+                    @if (_resumeConfirmedResults.Count > 0 || _resumeNotConfirmedResults.Count > 0)
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mt-3" aria-live="polite">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Title</th>
+                                        <th>Natural key</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var rr in _resumeConfirmedResults)
+                                    {
+                                        <tr>
+                                            <td class="text-truncate" style="max-width:300px">@rr.Title</td>
+                                            <td><code>@rr.KeyType:@rr.KeyValue</code></td>
+                                            <td><span class="badge bg-success">Confirmed &amp; Published</span></td>
+                                        </tr>
+                                    }
+                                    @foreach (var rr in _resumeNotConfirmedResults)
+                                    {
+                                        <tr>
+                                            <td class="text-truncate" style="max-width:300px">@rr.Title</td>
+                                            <td><code>@rr.KeyType:@rr.KeyValue</code></td>
+                                            <td><span class="badge bg-warning text-dark">Not yet confirmed</span></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
         @* ─── Stage 1 — Compute Prod Diff ─── *@
         <div class="card mt-3">
             <div class="card-header">

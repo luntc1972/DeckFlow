@@ -318,6 +318,35 @@ public sealed class DirectPushCoordinatorTests
         Assert.Equal(2, local.ClearAwaitingConfirmCalls[0].Count);
     }
 
+    // ── GetAwaitingConfirmRowsAsync (D-10 resume support, Plan 90-06) ────────
+
+    [Fact]
+    public async Task GetAwaitingConfirmRowsAsync_ReturnsOnlyApprovedRowsWithMarkerSet()
+    {
+        var local = new FakeContentSiteIndexStore();
+        local.Rows.Add(Youtube(1, "marked") with { AwaitingConfirmUtc = DateTimeOffset.UtcNow, ApprovalStatus = "approved" });
+        local.Rows.Add(Youtube(2, "unmarked") with { AwaitingConfirmUtc = null, ApprovalStatus = "approved" });
+        local.Rows.Add(Youtube(3, "marked-not-approved") with { AwaitingConfirmUtc = DateTimeOffset.UtcNow, ApprovalStatus = "pending" });
+        var coordinator = Build(local, new FakeContentSiteIndexStore());
+
+        var result = await coordinator.GetAwaitingConfirmRowsAsync(CancellationToken.None);
+
+        var row = Assert.Single(result);
+        Assert.Equal("marked", row.YoutubeVideoId);
+    }
+
+    [Fact]
+    public async Task GetAwaitingConfirmRowsAsync_NoMarkedRows_ReturnsEmpty()
+    {
+        var local = new FakeContentSiteIndexStore();
+        local.Rows.Add(Youtube(1, "aaa"));
+        var coordinator = Build(local, new FakeContentSiteIndexStore());
+
+        var result = await coordinator.GetAwaitingConfirmRowsAsync(CancellationToken.None);
+
+        Assert.Empty(result);
+    }
+
     // ── UploadArtifactsAsync ─────────────────────────────────────────────────
 
     [Fact]
