@@ -50,7 +50,8 @@ public static class ManabaseReportTextBuilder
         ManabaseTapAnalysis? tap = null,
         ManabaseMulliganEvaluation? mulligan = null,
         bool includeCommandZone = false,
-        CardCastability? companionRow = null)
+        CardCastability? companionRow = null,
+        bool includePlanPresence = false)
     {
         ArgumentNullException.ThrowIfNull(report);
 
@@ -171,7 +172,7 @@ public static class ManabaseReportTextBuilder
         // the flag-off artifact stays byte-identical (mirrors the tap == null guard above).
         if (mulligan is not null)
         {
-            AppendMulliganEvaluationBlock(sb, mulligan);
+            AppendMulliganEvaluationBlock(sb, mulligan, includePlanPresence);
             sb.AppendLine();
         }
 
@@ -265,7 +266,7 @@ public static class ManabaseReportTextBuilder
     // the ManabaseMulliganEvaluation record (single source of truth — no recompute). Framed throughout
     // as DeckFlow's automated first-pass consistency signal the AI re-checks — never a prescriptive
     // "keep this hand" / "mulligan this hand" instruction and never turn-by-turn play advice.
-    private static void AppendMulliganEvaluationBlock(StringBuilder sb, ManabaseMulliganEvaluation mull)
+    private static void AppendMulliganEvaluationBlock(StringBuilder sb, ManabaseMulliganEvaluation mull, bool includePlanPresence)
     {
         sb.AppendLine("Opening Hand (mulligan) - DeckFlow first-pass read:");
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
@@ -274,6 +275,19 @@ public static class ManabaseReportTextBuilder
             $"Keep-size process: kept at 7 ~{mull.Kept7Percent}%, mulligan to 6 ~{mull.MulliganTo6Percent}%, mulligan to 5 ~{mull.MulliganTo5Percent}%."));
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
             $"Colors/curve: deck plays {mull.ColorCount} color(s), average mana value ~{mull.AverageManaValue:F1}."));
+
+        // Plan-presence line, only when the plan-presence flag is on (includePlanPresence) AND it was
+        // computed (deck had plan-tagged spells). Off/absent appends zero bytes, keeping the flag-off
+        // artifact byte-identical.
+        if (includePlanPresence && mull.PlanPresence is { } plan)
+        {
+            string roleBits = string.Join(", ", plan.RolePercents
+                .Where(kv => kv.Value > 0)
+                .Select(kv => string.Create(CultureInfo.InvariantCulture, $"{PlanRoleWord(kv.Key)} ~{kv.Value}%")));
+            string roleSuffix = roleBits.Length > 0 ? $" ({roleBits})" : string.Empty;
+            sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+                $"With a plan: ~{plan.PlanPresencePercent}% of keepable hands hold a win-directed card castable on curve - {plan.Band}{roleSuffix}. Role coverage, a consistency signal, not keep/mulligan advice."));
+        }
 
         if (mull.RepresentativeOpeners.Count > 0)
         {
@@ -293,6 +307,15 @@ public static class ManabaseReportTextBuilder
 
         sb.AppendLine("First-pass read only - verify against the actual hand; not a keep/mulligan recommendation.");
     }
+
+    private static string PlanRoleWord(PlanRole role) => role switch
+    {
+        PlanRole.Payoff => "payoff",
+        PlanRole.Engine => "engine",
+        PlanRole.TutorCombo => "tutor/combo",
+        PlanRole.Interaction => "interaction",
+        _ => role.ToString().ToLowerInvariant(),
+    };
 
     private static void AppendVerdictBlock(
         StringBuilder sb,

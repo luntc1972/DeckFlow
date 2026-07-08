@@ -94,6 +94,13 @@ public static class FeatureFlagCatalog
                 "artifact - a keepable-hand band, London mulligan keep-depth process, and representative " +
                 "openers with a per-play on-curve and has-a-plan read, all a heuristic consistency signal " +
                 "derived from the existing simulation. Off = byte-identical output.",
+            ["analysis.manabase.plan-presence"] =
+                "Add a 'with a plan' line to the mana base opening-hand block and paste artifact: the share " +
+                "of keepable openers holding a win-directed card (payoff / engine / tutor-combo / interaction) " +
+                "castable on curve, with a per-role breakdown. Role coverage from your category knowledge + " +
+                "Commander Spellbook + a heuristic; a consistency signal, not keep/mulligan advice. Turning it " +
+                "on adds a per-analysis category lookup and a Commander Spellbook fetch. Off = byte-identical " +
+                "output and no extra calls.",
         };
 
     /// <summary>

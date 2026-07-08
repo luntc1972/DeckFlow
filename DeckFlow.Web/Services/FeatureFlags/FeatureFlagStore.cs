@@ -230,6 +230,7 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('analysis.interaction-audit', FALSE),
           ('analysis.wincon-map', FALSE),
           ('analysis.mulligan-eval', FALSE),
+          ('analysis.manabase.plan-presence', FALSE),
           ('tool.primer.stale-flag', FALSE)
         ON CONFLICT (key) DO NOTHING;
         """;
@@ -269,6 +270,7 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('analysis.interaction-audit', 0),
           ('analysis.wincon-map', 0),
           ('analysis.mulligan-eval', 0),
+          ('analysis.manabase.plan-presence', 0),
           ('tool.primer.stale-flag', 0)
         ON CONFLICT (key) DO NOTHING;
         """;
