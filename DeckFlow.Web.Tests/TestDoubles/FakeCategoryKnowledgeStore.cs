@@ -78,8 +78,33 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         return Task.FromResult(RunCacheSweepResult);
     }
 
+    /// <summary>Configurable per-card categories; empty by default so unset cards resolve to no roles.</summary>
+    public Dictionary<string, IReadOnlyList<string>> CategoriesByName { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Number of times the batch lookup ran — a plan-presence analysis must call it exactly once.</summary>
+    public int GetCategoriesForNamesCalls { get; private set; }
+
     public Task<IReadOnlyList<string>> GetCategoriesAsync(string cardName, CancellationToken cancellationToken = default)
-        => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+        => Task.FromResult(CategoriesByName.TryGetValue(cardName, out var categories)
+            ? categories
+            : (IReadOnlyList<string>)Array.Empty<string>());
+
+    public Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(IReadOnlyCollection<string> cardNames, CancellationToken cancellationToken = default)
+    {
+        GetCategoriesForNamesCalls++;
+        var result = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var name in cardNames)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                continue;
+            }
+
+            result[name] = CategoriesByName.TryGetValue(name, out var categories) ? categories : Array.Empty<string>();
+        }
+
+        return Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<string>>>(result);
+    }
 
     public Task PersistObservedCategoriesAsync(string source, string cardName, IReadOnlyList<string> categories, int quantity = 1, string board = "mainboard", int deckCountIncrement = 0, CancellationToken cancellationToken = default)
         => Task.CompletedTask;

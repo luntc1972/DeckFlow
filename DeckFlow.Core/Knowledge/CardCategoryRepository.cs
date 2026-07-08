@@ -57,6 +57,76 @@ internal sealed class CardCategoryRepository
     }
 
     /// <summary>
+    /// Batch equivalent of <see cref="GetCategoriesAsync"/>: resolves categories for many cards in a
+    /// single round-trip (one <c>IN</c> query instead of one query per card). Returns a dictionary
+    /// keyed by the ORIGINAL requested name (case-insensitive) so the caller can look each spell up by
+    /// the same string it passed in. Every distinct input name gets an entry — including cards with no
+    /// stored observations, which receive <see cref="CategoryFilter.IncludedOrFallback"/>'s fallback
+    /// exactly as the per-card path does. Blank names are skipped.
+    /// </summary>
+    /// <param name="cardNames">Card names to resolve (display spellings; duplicates share one lookup).</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    internal async Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(
+        IReadOnlyCollection<string> cardNames, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(cardNames);
+
+        // Distinct normalized keys to query; two spellings of one card collapse to a single key.
+        var normalizedKeys = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var name in cardNames)
+        {
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                normalizedKeys.Add(CardNormalizer.Normalize(name));
+            }
+        }
+
+        var result = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        if (normalizedKeys.Count == 0)
+        {
+            return result;
+        }
+
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var rows = await connection.QueryAsync<CardCategoryNameRow>(new CommandDefinition(
+            """
+            SELECT c.normalized_card_name AS NormalizedCardName, o.category AS Category
+            FROM card_category_observations o
+            JOIN cards c ON c.id = o.card_id
+            WHERE c.normalized_card_name IN @normalized
+            GROUP BY c.normalized_card_name, o.category
+            ORDER BY c.normalized_card_name, LOWER(o.category), o.category
+            """,
+            new { normalized = normalizedKeys.ToList() },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+        var categoriesByNormalized = rows
+            .GroupBy(row => row.NormalizedCardName, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Select(row => row.Category), StringComparer.Ordinal);
+
+        // Re-key by the caller's ORIGINAL spelling (re-normalizing to find its row set), so a spell can be
+        // looked up by the same string it was passed in as. Every distinct requested name gets an entry,
+        // and a card absent from the cache still receives IncludedOrFallback's fallback (per-card parity).
+        foreach (var name in cardNames)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                continue;
+            }
+
+            var raw = categoriesByNormalized.TryGetValue(CardNormalizer.Normalize(name), out var cats)
+                ? cats
+                : Enumerable.Empty<string>();
+            result[name] = CategoryFilter.IncludedOrFallback(raw);
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Retrieves detail rows for a card, including display name and count.
     /// </summary>
     /// <param name="cardName">Card name to query.</param>
@@ -634,5 +704,11 @@ internal sealed class CardCategoryRepository
     {
         public string Board { get; init; } = string.Empty;
         public long Total { get; init; }
+    }
+
+    private sealed class CardCategoryNameRow
+    {
+        public string NormalizedCardName { get; init; } = string.Empty;
+        public string Category { get; init; } = string.Empty;
     }
 }

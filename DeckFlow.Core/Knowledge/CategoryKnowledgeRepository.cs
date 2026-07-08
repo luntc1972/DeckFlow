@@ -66,6 +66,16 @@ public sealed class CategoryKnowledgeRepository
         => _cardCategory.GetCategoriesAsync(cardName, cancellationToken);
 
     /// <summary>
+    /// Batch equivalent of <see cref="GetCategoriesAsync"/>: resolves categories for many cards in a
+    /// single query. Returns a dictionary keyed by the original requested name (case-insensitive).
+    /// </summary>
+    /// <param name="cardNames">Card names to resolve.</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    public Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(
+        IReadOnlyCollection<string> cardNames, CancellationToken cancellationToken = default)
+        => _cardCategory.GetCategoriesForNamesAsync(cardNames, cancellationToken);
+
+    /// <summary>
     /// Retrieves detail rows for a card, including display name and count.
     /// </summary>
     /// <param name="cardName">Card name to query.</param>
