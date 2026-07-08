@@ -91,6 +91,33 @@ public enum SpellKinds
 }
 
 /// <summary>
+/// The win-directed roles a spell can fill for the "plan presence" opener read: does an opening
+/// hand hold a card that advances the deck's actual game plan (not merely castable lands/spells)?
+/// A card may fill more than one role. Deliberately EXCLUDES ramp, lands, and filler card draw —
+/// those are resources/velocity, a different axis already measured by keepable-% and on-curve
+/// castability. The role is decided in the Web layer (category knowledge + Commander Spellbook +
+/// a classifier heuristic) and passed down as pure data, keeping Core I/O-free.
+/// </summary>
+[Flags]
+public enum PlanRole
+{
+    /// <summary>No win-directed role — a resource, ramp, land, or filler card.</summary>
+    None = 0,
+
+    /// <summary>A payoff / win condition — the card the deck is trying to resolve to win.</summary>
+    Payoff = 1,
+
+    /// <summary>A repeatable card-advantage or value engine that powers the plan over time.</summary>
+    Engine = 2,
+
+    /// <summary>A tutor or a known combo piece that assembles or fetches the win.</summary>
+    TutorCombo = 4,
+
+    /// <summary>Interaction (removal / counters / protection) that defends the plan.</summary>
+    Interaction = 8,
+}
+
+/// <summary>
 /// A spell's colored requirement: how many pips of each color it needs and when it is
 /// first castable on curve (its mana value).
 /// </summary>
@@ -116,6 +143,14 @@ public sealed record SpellRequirement
 
     /// <summary>The card's broad spell kinds, used to match type-scoped cost reducers.</summary>
     public SpellKinds Kinds { get; init; } = SpellKinds.None;
+
+    /// <summary>
+    /// The win-directed plan roles this spell fills (payoff / engine / tutor-combo / interaction), or
+    /// <see cref="PlanRole.None"/> for a resource/ramp/filler card. Classified in the Web layer and
+    /// passed down; drives the "plan presence" opener read. Additive — defaults to None so existing
+    /// construction and JSON round-trips are unaffected.
+    /// </summary>
+    public PlanRole PlanRoles { get; init; } = PlanRole.None;
 
     /// <summary>True when this requirement is the deck's commander (or a partner/background).</summary>
     public bool IsCommander { get; init; }
