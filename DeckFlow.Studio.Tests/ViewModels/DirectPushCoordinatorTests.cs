@@ -502,6 +502,34 @@ public sealed class DirectPushCoordinatorTests
     }
 
     [Fact]
+    public async Task CommitAndPushBodiesAsync_SeedOnlyChange_CommitsAndPushesSeed()
+    {
+        // Codex MED regression: a metadata-only edit (retitle/retag) changes the re-exported
+        // index-seed.json but leaves every .md body byte-identical (CannedWorkingChangeCount = 0).
+        // The row must NOT return AlreadyInSync with the modified seed left uncommitted (D-08) — the
+        // seed-only change is detected and committed (staged with the bodies), then pushed.
+        var git = new FakeGitRepository
+        {
+            CannedBranch = "main",
+            CannedWorkingChangeCount = 0,     // no body changed
+            CannedSeedWorkingChangeCount = 1, // the seed did
+            CannedCommitSha = "seedsha",
+        };
+        var coordinator = Build(new FakeContentSiteIndexStore(), new FakeContentSiteIndexStore(), git: git);
+        var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa") };
+
+        var result = await coordinator.CommitAndPushBodiesAsync(publish, "/data", CancellationToken.None);
+
+        Assert.Equal(DirectPushGitOutcome.Committed, result.Outcome);
+        Assert.Equal("seedsha", result.Sha);
+        Assert.Equal(0, result.BodyCount);                      // body-only count stays 0
+        var commit = Assert.Single(git.CommitCalls);
+        Assert.Contains("content-kb/seed/index-seed.json", commit.Paths); // seed was staged
+        Assert.Contains("0 bodies", commit.Message);            // durability subject shape preserved (\d+ bodies)
+        Assert.Single(git.PushCalls);                           // and pushed
+    }
+
+    [Fact]
     public async Task CommitAndPushBodiesAsync_NoCommitButOwnDurabilityCommitUnpushed_StillPushes()
     {
         // Review F4 (catch-up preserved): a PRIOR run committed a durability commit but its push
@@ -770,7 +798,10 @@ public sealed class DirectPushCoordinatorTests
         var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa") with { BodySha256 = "expected-hash" } };
         prod.Rows.Add(Youtube(1, "aaa"));
         var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = false };
-        var coordinator = Build(local, prod, confirmer: confirmer);
+        // Codex-HIGH fix: VerifyAndPublishAsync only polls the /app deploy-confirm endpoint when
+        // sync.directpush-gitbody is ON. These tests exercise that ON poll path, so the flag reader
+        // is turned ON explicitly (Build defaults it OFF per D-05).
+        var coordinator = Build(local, prod, prodReader: new FakeDirectPushFlagReader { FlagValue = true }, confirmer: confirmer);
 
         var result = await coordinator.VerifyAndPublishAsync(publish, CancellationToken.None);
 
@@ -792,7 +823,10 @@ public sealed class DirectPushCoordinatorTests
         var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa") with { BodySha256 = "expected-hash" } };
         prod.Rows.Add(Youtube(1, "aaa"));
         var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = true };
-        var coordinator = Build(local, prod, confirmer: confirmer);
+        // Codex-HIGH fix: VerifyAndPublishAsync only polls the /app deploy-confirm endpoint when
+        // sync.directpush-gitbody is ON. These tests exercise that ON poll path, so the flag reader
+        // is turned ON explicitly (Build defaults it OFF per D-05).
+        var coordinator = Build(local, prod, prodReader: new FakeDirectPushFlagReader { FlagValue = true }, confirmer: confirmer);
 
         var result = await coordinator.VerifyAndPublishAsync(publish, CancellationToken.None);
 
@@ -815,7 +849,10 @@ public sealed class DirectPushCoordinatorTests
         var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa") with { BodySha256 = null } };
         prod.Rows.Add(Youtube(1, "aaa"));
         var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = true };
-        var coordinator = Build(local, prod, confirmer: confirmer);
+        // Codex-HIGH fix: VerifyAndPublishAsync only polls the /app deploy-confirm endpoint when
+        // sync.directpush-gitbody is ON. These tests exercise that ON poll path, so the flag reader
+        // is turned ON explicitly (Build defaults it OFF per D-05).
+        var coordinator = Build(local, prod, prodReader: new FakeDirectPushFlagReader { FlagValue = true }, confirmer: confirmer);
 
         var result = await coordinator.VerifyAndPublishAsync(publish, CancellationToken.None);
 
@@ -851,7 +888,10 @@ public sealed class DirectPushCoordinatorTests
         prod.Rows.Add(Youtube(1, "confirmed"));
         prod.Rows.Add(Youtube(2, "pending"));
         var confirmer = new SelectiveDeployedBodyConfirmer { ConfirmedKeys = { "confirmed" } };
-        var coordinator = Build(local, prod, confirmer: confirmer);
+        // Codex-HIGH fix: VerifyAndPublishAsync only polls the /app deploy-confirm endpoint when
+        // sync.directpush-gitbody is ON. These tests exercise that ON poll path, so the flag reader
+        // is turned ON explicitly (Build defaults it OFF per D-05).
+        var coordinator = Build(local, prod, prodReader: new FakeDirectPushFlagReader { FlagValue = true }, confirmer: confirmer);
 
         var result = await coordinator.VerifyAndPublishAsync(
             new[] { confirmedRow, notConfirmedRow }, CancellationToken.None);
@@ -864,6 +904,34 @@ public sealed class DirectPushCoordinatorTests
         Assert.Single(prod.StampCalls);
         Assert.Single(prod.StampCalls[0].Keys);
         Assert.Equal("confirmed", prod.StampCalls[0].Keys[0].Value);
+    }
+
+    [Fact]
+    public async Task VerifyAndPublishAsync_FlagOff_PublishesImmediately_WithoutPollingConfirmer()
+    {
+        // Codex-HIGH regression: with sync.directpush-gitbody OFF (default), Stage 4 keeps
+        // [skip render] so Render never redeploys the body to /app — polling /app would 404 forever
+        // and strand the row awaiting-confirm. In the OFF path the body is served live from the
+        // /data overlay, so VerifyAndPublishAsync must publish immediately and NEVER poll the
+        // confirmer (proven here by a confirmer hard-wired to FALSE that must never be consulted).
+        var local = new FakeContentSiteIndexStore();
+        var prod = new FakeContentSiteIndexStore();
+        var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa") with { BodySha256 = "expected-hash" } };
+        prod.Rows.Add(Youtube(1, "aaa"));
+        var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = false };
+        var coordinator = Build(local, prod, prodReader: new FakeDirectPushFlagReader { FlagValue = false }, confirmer: confirmer);
+
+        var result = await coordinator.VerifyAndPublishAsync(publish, CancellationToken.None);
+
+        // Published without a poll: confirmer untouched, row treated as confirmed, stamp+visibility ran.
+        Assert.Empty(confirmer.Calls);
+        Assert.Single(result.Confirmed);
+        Assert.Empty(result.NotConfirmed);
+        Assert.Single(prod.StampCalls);
+        Assert.Single(prod.VisibilityKeyCalls);
+        Assert.Single(local.StampCalls);
+        Assert.Single(local.VisibilityKeyCalls);
+        Assert.Single(local.ClearAwaitingConfirmCalls);
     }
 
     // Minimal recording logger: captures formatted Warning messages for D-08 skip-log assertions.

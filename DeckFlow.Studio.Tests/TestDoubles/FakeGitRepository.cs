@@ -23,6 +23,14 @@ internal sealed class FakeGitRepository : IGitRepository
     /// </summary>
     public int? CannedWorkingChangeCount { get; set; }
 
+    /// <summary>
+    /// Seed-specific override for CountWorkingChangesAsync (Codex MED seed-only-change detection). When
+    /// set and the inspected path set is the seed file alone, this count is returned instead of
+    /// <see cref="CannedWorkingChangeCount"/> — lets a test hold bodies unchanged
+    /// (<see cref="CannedWorkingChangeCount"/> = 0) while the re-exported seed differs.
+    /// </summary>
+    public int? CannedSeedWorkingChangeCount { get; set; }
+
     /// <summary>Subjects returned by GetSubjectsAheadOfRemoteAsync — default empty (branch in sync).</summary>
     public List<string> CannedSubjectsAhead { get; set; } = new();
 
@@ -82,7 +90,18 @@ internal sealed class FakeGitRepository : IGitRepository
     }
 
     public Task<int> CountWorkingChangesAsync(string repoRoot, IReadOnlyList<string> paths, CancellationToken ct = default)
-        => Task.FromResult(CannedWorkingChangeCount ?? paths.Count);
+    {
+        // When the caller inspects the seed file alone (the coordinator's seed-only-change probe),
+        // honor the seed-specific canned count so a test can distinguish a seed change from a body change.
+        if (CannedSeedWorkingChangeCount is int seedCount
+            && paths.Count > 0
+            && paths.All(p => p.EndsWith("index-seed.json", StringComparison.Ordinal)))
+        {
+            return Task.FromResult(seedCount);
+        }
+
+        return Task.FromResult(CannedWorkingChangeCount ?? paths.Count);
+    }
 
     public Task<IReadOnlyList<string>> GetSubjectsAheadOfRemoteAsync(string repoRoot, string remote, string branch, CancellationToken ct = default)
     {
