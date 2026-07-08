@@ -167,6 +167,14 @@ public static class ManabaseAnalyzer
 
         string summary = BuildSummary(actualLands, targetLands, findings, castability, colorSpellCounts, mode, importance);
 
+        // Plan-presence: a dedicated single deck-level pass, run ONLY when the deck carries plan-tagged
+        // spells (the Web layer tags them only when the plan-presence flag is on). No tags → null, so
+        // the flag-off path adds no sim and stays byte-identical.
+        ManabasePlanPresence? planPresence = deck.Spells.Any(s => s.PlanRoles != PlanRole.None)
+            ? CastabilitySimulator.SimulatePlanPresence(
+                deck, librarySize, CastabilitySimulator.DefaultTrials, useManaQuantity, colorAwareMulligan, gateRampOnCastable)
+            : null;
+
         return new ManabaseReport
         {
             ActualLands = actualLands,
@@ -184,7 +192,7 @@ public static class ManabaseAnalyzer
             TapAnalysis = ComputeTapAnalysis(deck, findings, castability, CastabilitySimulator.DefaultTrials),
             // MULLIGAN-01..05: opening-hand / mulligan evaluation derived from the same castability
             // rows (no second sim). Always computed in Core; the Web layer flag-gates display.
-            MulliganEvaluation = ComputeMulliganEvaluation(deck, castability, CastabilitySimulator.DefaultTrials),
+            MulliganEvaluation = ComputeMulliganEvaluation(deck, castability, CastabilitySimulator.DefaultTrials, planPresence),
             DemandingCards = demandingCards,
             // Genuine mana rocks/dorks only: artifacts/creatures that tap for mana (weight 0.5 dork
             // / 0.75 rock). Excludes conditional "granted" creatures (a creature handed a mana
@@ -931,7 +939,8 @@ public static class ManabaseAnalyzer
     private static ManabaseMulliganEvaluation ComputeMulliganEvaluation(
         ManabaseDeck deck,
         IReadOnlyList<CardCastability> castability,
-        int defaultTrials)
+        int defaultTrials,
+        ManabasePlanPresence? planPresence = null)
     {
         var nonCommanderRows = castability.Where(r => !r.IsCommander).ToList();
         IReadOnlyList<CardCastability> avgRows = nonCommanderRows.Count > 0 ? nonCommanderRows : castability;
@@ -990,6 +999,7 @@ public static class ManabaseAnalyzer
             ColorCount = EnumerateUsedColors(deck).Count(),
             AverageManaValue = deck.AverageManaValue,
             RepresentativeOpeners = openers,
+            PlanPresence = planPresence,
         };
     }
 

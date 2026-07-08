@@ -51,7 +51,17 @@ public static class CastabilitySimulator
 
     private readonly struct LibraryCard
     {
-        public LibraryCard(CardKind kind, int colorMask, int deployCost, bool isLand, double activationWeight = 1.0, int manaAmount = 1, (int Bit, int Count)[]? rampPips = null)
+        public LibraryCard(
+            CardKind kind,
+            int colorMask,
+            int deployCost,
+            bool isLand,
+            double activationWeight = 1.0,
+            int manaAmount = 1,
+            (int Bit, int Count)[]? rampPips = null,
+            PlanRole planRoles = PlanRole.None,
+            int planManaValue = 0,
+            (int Bit, int Count)[]? planPips = null)
         {
             Kind = kind;
             ColorMask = colorMask;
@@ -60,7 +70,25 @@ public static class CastabilitySimulator
             ActivationWeight = activationWeight;
             ManaAmount = manaAmount;
             RampPips = rampPips;
+            PlanRoles = planRoles;
+            PlanManaValue = planManaValue;
+            PlanPips = planPips;
         }
+
+        /// <summary>
+        /// Plan-presence only: the win-directed roles this card fills, or None. Mana-inert — a plan card
+        /// is still ordinary non-source filler for every per-spell castability sim; these fields are read
+        /// solely by <see cref="SimulatePlanPresence"/>, so tagging them never changes existing results.
+        /// </summary>
+        public PlanRole PlanRoles { get; }
+
+        /// <summary>Plan-presence only: this plan card's own on-curve turn (its mana value).</summary>
+        public int PlanManaValue { get; }
+
+        /// <summary>Plan-presence only: this plan card's colored pip requirement, for its castability test.</summary>
+        public (int Bit, int Count)[]? PlanPips { get; }
+
+        public bool IsPlanCard => PlanRoles != PlanRole.None;
 
         public CardKind Kind { get; }
 
@@ -395,6 +423,184 @@ public static class CastabilitySimulator
 
     // ---- library construction -------------------------------------------------------------
 
+    /// <summary>
+    /// Plan-presence: the share of KEEPABLE opening hands that hold a win-directed card castable on its
+    /// own mana-value turn. A dedicated single deck-level pass (one loop, not the ~N per-spell sims)
+    /// reusing the same London-mulligan and the same turn-by-turn board model as the per-spell
+    /// castability. A plan card counts only when it is drawn by its on-curve turn AND the board can pay
+    /// its cost then — a plan card you cannot cast is not a plan. Returns an all-zero result when the
+    /// deck carries no plan-tagged spell (flag off / nothing classified).
+    /// </summary>
+    public static ManabasePlanPresence SimulatePlanPresence(
+        ManabaseDeck deck,
+        int librarySize,
+        int trials = DefaultTrials,
+        bool useManaQuantity = false,
+        bool colorAwareMulligan = false,
+        bool gateRampOnCastable = false)
+    {
+        ArgumentNullException.ThrowIfNull(deck);
+
+        IReadOnlyList<LibraryCard> library =
+            BuildLibrary(deck, librarySize, useManaQuantity, gateRampOnCastable, excludeSourceName: null);
+
+        var planIndices = new List<int>();
+        int maxPlanTurn = 1;
+        for (int i = 0; i < library.Count; i++)
+        {
+            if (library[i].IsPlanCard)
+            {
+                planIndices.Add(i);
+                maxPlanTurn = Math.Max(maxPlanTurn, Math.Max(1, library[i].PlanManaValue));
+            }
+        }
+
+        PlanRole[] singleRoles = { PlanRole.Payoff, PlanRole.Engine, PlanRole.TutorCombo, PlanRole.Interaction };
+        var roleCounts = new Dictionary<PlanRole, int>();
+        foreach (PlanRole role in singleRoles)
+        {
+            roleCounts[role] = 0;
+        }
+
+        if (planIndices.Count == 0 || trials <= 0)
+        {
+            return new ManabasePlanPresence
+            {
+                PlanPresencePercent = 0,
+                Band = PlanPresenceBand(0),
+                RolePercents = roleCounts,
+                KeepableTrials = 0,
+            };
+        }
+
+        int deckColorCount = colorAwareMulligan ? DeckColorCount(deck) : 0;
+
+        // Stable deck-independent seed: plan-presence is deck-level (not tied to any one tracked spell),
+        // so a fixed seed keeps the result reproducible across runs of the same deck.
+        var rng = new Random(StableSeed("__deckflow_plan_presence__"));
+
+        int[] deck0 = new int[library.Count];
+        for (int i = 0; i < library.Count; i++)
+        {
+            deck0[i] = i;
+        }
+
+        int[] shuffled = new int[library.Count];
+        var availableColors = new List<(int Mask, int Amount)>(20);
+        var onlineLandMasks = new List<int>(20);
+        int[] partialIndices = Enumerable.Range(0, library.Count).Where(i => library[i].IsPartial).ToArray();
+        bool[] active = new bool[library.Count];
+
+        // The window must cover the opener plus one draw per turn out to the latest plan card's on-curve
+        // turn (+ grace + margin), the same prefix rule the per-spell sim uses.
+        int prefix = Math.Min(library.Count, 7 + maxPlanTurn + GraceWindow(maxPlanTurn) + 2);
+
+        int keepable = 0;
+        int withPlan = 0;
+
+        for (int t = 0; t < trials; t++)
+        {
+            Array.Fill(active, true);
+            foreach (int pi in partialIndices)
+            {
+                active[pi] = rng.NextDouble() < library[pi].ActivationWeight;
+            }
+
+            Array.Copy(deck0, shuffled, library.Count);
+            ShufflePrefix(shuffled, prefix, rng);
+            int keptSize = LondonMulligan(
+                library, shuffled, active, rng, deck.AverageManaValue, prefix, deck.IsSingleton, colorAwareMulligan, deckColorCount);
+
+            // Plan-presence is measured over KEEPABLE hands only (kept 7 or mull-to-6) — the same
+            // keepable band the opener block reports; a mull-to-5 is not a hand you kept on purpose.
+            if (keptSize < 6)
+            {
+                continue;
+            }
+
+            keepable++;
+            int handCount = Math.Min(library.Count, keptSize);
+
+            PlanRole rolesThisHand = PlanRole.None;
+            foreach (int planIdx in planIndices)
+            {
+                int planTurn = Math.Max(1, library[planIdx].PlanManaValue);
+
+                // Is this plan card drawn by its on-curve turn? Opening cards (pos < handCount) are seen
+                // at turn 0; a card at position p is drawn on turn (p - handCount + 1) — one draw per turn
+                // including turn 1. Beyond the shuffled prefix it is never seen this trial.
+                int pos = -1;
+                for (int p = 0; p < prefix; p++)
+                {
+                    if (shuffled[p] == planIdx)
+                    {
+                        pos = p;
+                        break;
+                    }
+                }
+
+                if (pos < 0)
+                {
+                    continue;
+                }
+
+                int drawnByTurn = pos < handCount ? 0 : pos - handCount + 1;
+                if (drawnByTurn > planTurn)
+                {
+                    continue;
+                }
+
+                // Castable by its on-curve turn? Reuse the full board sim for a spell of this card's cost.
+                (int Bit, int Count)[] pips = library[planIdx].PlanPips ?? Array.Empty<(int, int)>();
+                bool castable = SimulateGame(
+                    library, shuffled, active, handCount, planTurn, planTurn, pips,
+                    availableColors, onlineLandMasks, gateRampOnCastable,
+                    out _, out _, out int firstCastableTurn, out _);
+
+                if (castable && firstCastableTurn <= planTurn)
+                {
+                    rolesThisHand |= library[planIdx].PlanRoles;
+                }
+            }
+
+            if (rolesThisHand != PlanRole.None)
+            {
+                withPlan++;
+                foreach (PlanRole role in singleRoles)
+                {
+                    if (rolesThisHand.HasFlag(role))
+                    {
+                        roleCounts[role]++;
+                    }
+                }
+            }
+        }
+
+        int percent = keepable > 0 ? (int)Math.Round(100.0 * withPlan / keepable) : 0;
+        var rolePercents = new Dictionary<PlanRole, int>();
+        foreach (PlanRole role in singleRoles)
+        {
+            rolePercents[role] = keepable > 0 ? (int)Math.Round(100.0 * roleCounts[role] / keepable) : 0;
+        }
+
+        return new ManabasePlanPresence
+        {
+            PlanPresencePercent = percent,
+            Band = PlanPresenceBand(percent),
+            RolePercents = rolePercents,
+            KeepableTrials = keepable,
+        };
+    }
+
+    // Provisional bands for the plan-presence headline; re-baselined against calibration decks in the
+    // ship phase. Kept as a single golden-tested mapping so the thresholds live in one place.
+    private static string PlanPresenceBand(int percent) => percent switch
+    {
+        >= 65 => "high",
+        >= 40 => "medium",
+        _ => "low",
+    };
+
     private static IReadOnlyList<LibraryCard> BuildLibrary(ManabaseDeck deck, int librarySize, bool useManaQuantity, bool gateRampOnCastable, string? excludeSourceName)
     {
         var cards = new List<LibraryCard>(librarySize);
@@ -431,9 +637,32 @@ public static class CastabilitySimulator
         //    source produces mana in ~25% of games (E[copies] = weight).
         AddSourcesAsCards(deck, cards, rampCostByName, rampPipsByName, useManaQuantity, excludeSourceName);
 
-        // Pad/truncate to the real library size with filler so draw probabilities match the deck.
-        int sourceCards = cards.Count;
-        for (int i = sourceCards; i < librarySize; i++)
+        // Plan-presence: place win-directed spells as IDENTIFIABLE (still mana-inert) filler so
+        // SimulatePlanPresence can find them in a simulated hand and test their on-curve castability.
+        // They take filler slots that would otherwise be anonymous, so the library size and every draw
+        // probability are unchanged; and because all filler is interchangeable to the per-spell sims (no
+        // mana, not a source), tagging them leaves those results byte-identical.
+        foreach (SpellRequirement spell in deck.Spells)
+        {
+            if (cards.Count >= librarySize)
+            {
+                break;
+            }
+
+            if (spell.PlanRoles == PlanRole.None || spell.IsManaSource)
+            {
+                continue;
+            }
+
+            cards.Add(new LibraryCard(
+                CardKind.Filler, 0, 0, false,
+                planRoles: spell.PlanRoles,
+                planManaValue: Math.Max(1, spell.ManaValue),
+                planPips: PipArray(spell)));
+        }
+
+        // Pad/truncate to the real library size with anonymous filler so draw probabilities match the deck.
+        for (int i = cards.Count; i < librarySize; i++)
         {
             cards.Add(new LibraryCard(CardKind.Filler, 0, 0, false));
         }

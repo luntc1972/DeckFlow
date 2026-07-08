@@ -1209,4 +1209,39 @@ public sealed record ManabaseMulliganEvaluation
     /// on-curve read is about a genuine early play, never an arbitrary tracked spell.
     /// </summary>
     public IReadOnlyList<OpeningHandSample> RepresentativeOpeners { get; init; } = Array.Empty<OpeningHandSample>();
+
+    /// <summary>
+    /// Plan-presence read: the share of keepable hands holding a win-directed card castable on curve,
+    /// plus its band and per-role breakdown. Null when the plan-presence flag is off or the deck has no
+    /// plan-tagged spell. Additive — a null here leaves the existing opener block byte-identical.
+    /// </summary>
+    public ManabasePlanPresence? PlanPresence { get; init; }
+}
+
+/// <summary>
+/// Plan-presence: whether a keepable opening hand tends to hold a win-directed card the deck can
+/// actually cast on curve — the "does this hand have a plan?" axis, deliberately distinct from
+/// keepable-% (resources) and on-curve castability (velocity). Role-coverage: a card counts only when
+/// it is drawn by its mana-value turn AND affordable then, so a plan card you cannot cast does not
+/// count. Reported as a percentage plus a per-role breakdown (payoff / engine / tutor-combo /
+/// interaction) rather than one blended score, so a deck carried only by interaction reads weaker than
+/// one holding an actual payoff. A consistency signal, never a keep/mulligan recommendation.
+/// </summary>
+public sealed record ManabasePlanPresence
+{
+    /// <summary>Share of keepable hands (0–100) with at least one castable-on-curve win-directed card.</summary>
+    public required int PlanPresencePercent { get; init; }
+
+    /// <summary>Coarse band for the headline percentage (<c>high</c> / <c>medium</c> / <c>low</c>).</summary>
+    public required string Band { get; init; }
+
+    /// <summary>
+    /// Per-role share of keepable hands (0–100) that hold a castable-on-curve card of that role. Keyed
+    /// by the single-role flags (Payoff / Engine / TutorCombo / Interaction); a hand can contribute to
+    /// more than one, so these do not sum to <see cref="PlanPresencePercent"/>.
+    /// </summary>
+    public required IReadOnlyDictionary<PlanRole, int> RolePercents { get; init; }
+
+    /// <summary>Keepable trials that formed the denominator (diagnostic).</summary>
+    public int KeepableTrials { get; init; }
 }
