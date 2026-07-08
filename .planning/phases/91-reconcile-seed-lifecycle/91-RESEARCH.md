@@ -328,9 +328,9 @@ established for anti-collision composite keys (`ContentNaturalKey.cs`, used iden
 
 ```csharp
 // Row-keyed classes (published-orphan, seed-drift, body-hash-mismatch):
-var discrepancyId = $"{kind} {naturalKeyType} {naturalKeyValue}";
+var discrepancyId = $"{kind}{naturalKeyType}{naturalKeyValue}";
 // File-orphan (no row/natural key — keyed by artifact path instead):
-var discrepancyId = $"file_orphan path {artifactPath}";
+var discrepancyId = $"file_orphanpath{artifactPath}";
 ```
 
 **Resolution-by-absence query shape** (run at the end of every reconcile pass, scoped):
@@ -423,7 +423,7 @@ through `ContentSyncDiffClassifier` risks importing timestamp-direction semantic
 by natural key" component, so it's the obvious first thing to reach for.
 **How to avoid:** For seed-drift, do a simple SET DIFFERENCE by natural key
 (`seed_managed=true` prod rows whose natural key is absent from the seed file's entries) — reuse
-only the natural-key indexing helper (`ContentNaturalKey.TryDerive` + the ` `-joined
+only the natural-key indexing helper (`ContentNaturalKey.TryDerive` + the ``-joined
 dictionary-key pattern both `ContentSyncDiffClassifier` and `DirectPushCoordinator.ClassifyDiff`
 already use), not the timestamp-direction branch logic.
 **Warning signs:** If the seed-drift classifier ends up importing `SyncDiffKind` or comparing
@@ -535,7 +535,7 @@ private static Dictionary<string, ContentSiteIndexRow> IndexByNaturalKey(
             logger?.LogWarning("Skipping content row with no natural key...", row.Title, row.Source);
             continue;
         }
-        map.TryAdd($"{nk.Type} {nk.Value}", row);
+        map.TryAdd($"{nk.Type}{nk.Value}", row);
     }
     return map;
 }
@@ -772,3 +772,13 @@ Phase 90 code changes land between this research and plan execution.
 
 ### Ready for Planning
 Research complete. Planner can now create PLAN.md files for Phase 91.
+
+## Validation Architecture
+
+Phase 91 should keep the highest-risk decisions in pure Core logic wherever possible: the four-class reconcile classifier, deterministic discrepancy ID scheme, D-02 backfill classification decision, and the hide-vs-keep eligibility decision are all I/O-free behaviors that belong under `DeckFlow.Core.Tests`. These tests should build in-memory prod rows, git file entries, and seed entries, then assert class output, ID stability, idempotent classification, and the invariant that only `seed_managed=true` rows are eligible for soft-hide.
+
+The I/O-bound parts need seams and focused integration checks rather than broad end-to-end coverage in this phase. Prod reads, git enumeration, seed JSON parsing, local discrepancy-store persistence, dialect-guarded DDL, and the web-DB feature-flag read should be tested through existing Store/Reader/Coordinator seams in `DeckFlow.Studio.Tests`, `DeckFlow.Core.Tests`, and `DeckFlow.Web.Tests` as appropriate. The specific RESEARCH pitfall that `seed_managed` must be a bound per-row parameter is a must-test invariant: local-distill call sites must remain unmarked, while prod-publish / DirectPush / seed-loader call sites must stamp `true`.
+
+Postgres coverage in Phase 91 should assert dialect SQL shape and any available containerized integration for additive DDL and timestamptz-preserving soft-hide writes, but the full containerized Postgres round-trip remains Phase 93 / SYNC-16. This phase validates the Core logic and SQL/flag/store seams that make that round-trip safe, without claiming the complete distill -> publish -> redeploy -> pull -> reconcile proof.
+
+The operator workflow remains manual: Studio dry-run review, Apply confirmation, stale-apply rejection, and actual Render redeploy/reseed behavior require an operator-controlled git checkout and production-like environment. Manual verification should be a narrow checklist layered on top of the automated classifier/store/gating tests, not a substitute for them.
