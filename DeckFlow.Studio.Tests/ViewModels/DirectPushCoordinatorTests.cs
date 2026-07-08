@@ -934,6 +934,33 @@ public sealed class DirectPushCoordinatorTests
         Assert.Single(local.ClearAwaitingConfirmCalls);
     }
 
+    [Fact]
+    public async Task VerifyAndPublishAsync_FlagReadIndeterminate_FailsSafeToVerify_DoesNotImmediatePublish()
+    {
+        // Codex re-review HIGH: an INDETERMINATE flag read (the prod flag DB was briefly unreachable)
+        // must NOT take the OFF immediate-publish path — if prod were actually ON, that would flip a
+        // row visible whose body was never redeployed to /app (false-positive publish). It must fail
+        // SAFE to the /app verify path: here the confirmer reports not-confirmed, so the row stays
+        // awaiting-confirm (recoverable) rather than being published.
+        var local = new FakeContentSiteIndexStore();
+        var prod = new FakeContentSiteIndexStore();
+        var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa") with { BodySha256 = "expected-hash" } };
+        prod.Rows.Add(Youtube(1, "aaa"));
+        var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = false };
+        var flagReader = new FakeDirectPushFlagReader { FlagValue = false, FlagReadIndeterminate = true };
+        var coordinator = Build(local, prod, prodReader: flagReader, confirmer: confirmer);
+
+        var result = await coordinator.VerifyAndPublishAsync(publish, CancellationToken.None);
+
+        // Verify path ran: confirmer WAS polled, row not published (not immediate-published despite
+        // the flag reading `false` on the fail-closed bool — the tri-state null routed to verify).
+        Assert.Single(confirmer.Calls);
+        Assert.Empty(result.Confirmed);
+        Assert.Single(result.NotConfirmed);
+        Assert.Empty(prod.StampCalls);
+        Assert.Empty(prod.VisibilityKeyCalls);
+    }
+
     // Minimal recording logger: captures formatted Warning messages for D-08 skip-log assertions.
     private sealed class RecordingTestLogger : ILogger
     {

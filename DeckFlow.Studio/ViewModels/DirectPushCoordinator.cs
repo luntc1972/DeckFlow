@@ -302,14 +302,21 @@ public sealed class DirectPushCoordinator
         // Codex-HIGH fix: the git /app deploy-confirm poll is only meaningful when
         // sync.directpush-gitbody is ON. Only the ON path drops [skip render] (see
         // CommitAndPushBodiesAsync), so only then does Render redeploy the body to /app for the hash
-        // poll to ever match. With the flag OFF (today's default) the git push carries [skip render],
-        // /app never receives the body, and polling it would 404 until the retry budget expires —
-        // stranding every row awaiting-confirm forever. In the OFF path the body is already served
-        // live from the /data overlay (SCP'd in Stage 2), so publish immediately, byte-identical to
-        // pre-90 DirectPush. The fail-closed accessor returns OFF on any read error, which correctly
-        // selects this legacy immediate path rather than a hang.
-        var directPushGitBodyOn = await ReadDirectPushGitBodyFlagAsync(cancellationToken).ConfigureAwait(false);
-        if (!directPushGitBodyOn)
+        // poll to ever match. With the flag definitively OFF the git push carries [skip render], /app
+        // never receives the body, and polling it would 404 until the retry budget expires —
+        // stranding every row awaiting-confirm forever; in that state the body is already served live
+        // from the /data overlay (SCP'd in Stage 2), so publish immediately, byte-identical to pre-90
+        // DirectPush.
+        //
+        // Codex RE-REVIEW HIGH: use the TRI-STATE read, not the fail-closed bool. Only a DEFINITIVE
+        // OFF (false) takes the immediate path. An INDETERMINATE read (null — the flag DB was briefly
+        // unreachable) must NOT immediate-publish: if prod were actually ON, immediate-publishing
+        // would flip a row visible whose body was never redeployed to /app (the ON web resolver
+        // ignores /data), a false-positive publish. Failing to the VERIFY path instead is safe in
+        // both worlds — a genuinely-OFF row merely 404s the poll and strands recoverably (never a
+        // false publish), while a genuinely-ON row is confirmed correctly.
+        var directPushGitBodyFlag = await TryReadDirectPushGitBodyFlagAsync(cancellationToken).ConfigureAwait(false);
+        if (directPushGitBodyFlag == false)
         {
             if (publishRows.Count > 0)
             {
@@ -577,6 +584,17 @@ public sealed class DirectPushCoordinator
     // a duplicate Studio-local flag. Reuses the same ephemeral connection string as CreateProdStore.
     private Task<bool> ReadDirectPushGitBodyFlagAsync(CancellationToken cancellationToken)
         => _prodReader.ReadFlagAsync(
+            _configuration["Studio:ProdConnectionString"] ?? string.Empty,
+            DirectPushGitBodyFlagKey,
+            cancellationToken);
+
+    // Why (Codex re-review HIGH): the TRI-STATE twin of ReadDirectPushGitBodyFlagAsync used by the
+    // publish gate. Returns null when the flag read failed (indeterminate) so VerifyAndPublishAsync
+    // can fail SAFE to the /app verify path instead of a false-positive immediate publish. The
+    // [skip render] decision keeps using the fail-closed bool accessor above (fail-to-OFF is correct
+    // there — an uncertain read just keeps [skip render], never forces a redundant redeploy).
+    private Task<bool?> TryReadDirectPushGitBodyFlagAsync(CancellationToken cancellationToken)
+        => _prodReader.TryReadFlagAsync(
             _configuration["Studio:ProdConnectionString"] ?? string.Empty,
             DirectPushGitBodyFlagKey,
             cancellationToken);
