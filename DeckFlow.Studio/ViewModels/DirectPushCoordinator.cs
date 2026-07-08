@@ -223,15 +223,19 @@ public sealed class DirectPushCoordinator
     }
 
     /// <summary>
-    /// Writes the publish set to prod as a single transactional batch (H4) and then stamps
-    /// pushed-to-prod + visibility. Production state is written FIRST (prod batch upsert → stamp →
-    /// visibility), then the local store is advanced, so a prod failure leaves the local row behind
-    /// rather than over-reporting prod (PUB-01/HIGH-3). Only the content-columns-only upsert runs on
-    /// prod, preserving is_visible / is_evergreen on existing rows (SC3 / D-08). Throws
-    /// <see cref="ContentSiteIndexBatchUpsertException"/> (whole batch rolled back) or the underlying
-    /// store exception to the caller; this method maps no error copy and writes no log.
+    /// Content-only write stage (D-06/D-07 expand step): writes the publish set to prod as a single
+    /// transactional batch (H4) and marks the pushed keys durably "awaiting confirm" in the LOCAL
+    /// store (D-10). Does NOT stamp <c>pushed_to_prod_utc</c> or flip <c>is_visible</c> on either
+    /// store — those happen only in <see cref="ConfirmAndPublishAsync"/>, after a successful
+    /// deploy-confirm (SYNC-09), so a row can never go visible before its body is durably in git and
+    /// deployed. Only the content-columns-only upsert runs on prod, preserving is_visible /
+    /// is_evergreen on existing rows (SC3 / D-08) and still mirroring approval_status into prod (D-03
+    /// / the P88 approval mirror at <c>ContentSiteIndexStore.UpsertContentColumnsOnlyBatchAsync</c> —
+    /// unchanged by this split). Throws <see cref="ContentSiteIndexBatchUpsertException"/> (whole
+    /// batch rolled back) or the underlying store exception to the caller; this method maps no error
+    /// copy and writes no log.
     /// </summary>
-    public async Task WritePublishAsync(
+    public async Task WriteContentAsync(
         IReadOnlyList<ContentSiteIndexRow> publishRows,
         CancellationToken cancellationToken)
     {
@@ -241,17 +245,49 @@ public sealed class DirectPushCoordinator
 
         await prodStore.UpsertContentColumnsOnlyBatchAsync(publishRows, cancellationToken).ConfigureAwait(false);
 
-        var keys = publishRows
-            .Select(row => ContentIndexExportRow.From(row))
-            .Select(row => (Type: row.NaturalKeyType, Value: row.NaturalKeyValue))
-            .ToList();
+        var keys = DeriveKeys(publishRows);
+
+        // D-10: durable local marker so a mid-flight push (content upserted, not yet confirmed)
+        // survives a Blazor page reload and is resumable (Plan 90-06). Prod itself carries no
+        // marker column — is_visible=false / pushed_to_prod_utc=null on prod already communicates
+        // "not yet live"; the marker only needs to live where the operator's Studio session resumes.
+        await _localStore.SetAwaitingConfirmAsync(keys, DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Post-confirm publish stage (D-06/D-07 contract step): stamps <c>pushed_to_prod_utc</c> and
+    /// flips <c>is_visible</c>=true for the given rows, prod-FIRST-then-local (PUB-01/HIGH-3 — the
+    /// SAME ordering the pre-split <c>WritePublishAsync</c> used, preserved exactly across the
+    /// split), then clears the LOCAL awaiting-confirm marker (D-10) now that the push is fully
+    /// resolved. Callers MUST invoke this only for rows a deploy-confirm (SYNC-09,
+    /// <see cref="VerifyAndPublishAsync"/>) has already proven live at git <c>/app</c> with a
+    /// matching <c>body_sha256</c> — this method performs no confirmation itself.
+    /// </summary>
+    public async Task ConfirmAndPublishAsync(
+        IReadOnlyList<ContentSiteIndexRow> publishRows,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(publishRows);
+
+        var prodStore = CreateProdStore();
+        var keys = DeriveKeys(publishRows);
         var pushedUtc = DateTimeOffset.UtcNow;
 
         await prodStore.StampPushedToProdAsync(keys, pushedUtc, cancellationToken).ConfigureAwait(false);
         await prodStore.SetVisibilityAsync(keys, true, cancellationToken).ConfigureAwait(false);
         await _localStore.StampPushedToProdAsync(keys, pushedUtc, cancellationToken).ConfigureAwait(false);
         await _localStore.SetVisibilityAsync(keys, true, cancellationToken).ConfigureAwait(false);
+        await _localStore.ClearAwaitingConfirmAsync(keys, cancellationToken).ConfigureAwait(false);
     }
+
+    // Shared key derivation for WriteContentAsync/ConfirmAndPublishAsync — reuses
+    // ContentIndexExportRow.From so the natural-key extraction can never diverge between the split
+    // methods (Pitfall 5).
+    private static IReadOnlyList<(string Type, string Value)> DeriveKeys(IReadOnlyList<ContentSiteIndexRow> rows)
+        => rows
+            .Select(row => ContentIndexExportRow.From(row))
+            .Select(row => (Type: row.NaturalKeyType, Value: row.NaturalKeyValue))
+            .ToList();
 
     /// <summary>
     /// Durability stage (runs LAST, after prod DB + /data are already live): re-exports + stages the

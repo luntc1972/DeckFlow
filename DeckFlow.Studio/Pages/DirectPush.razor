@@ -379,9 +379,9 @@ unlocks only after every file uploads.</p>
                     @if (_dbSuccess)
                     {
                         <div class="alert alert-success py-2 mt-3">
-                            All @_rowResults.Count new/updated row(s) written to production and published visible.
-                            Unchanged rows were already up to date and were skipped.
-                            is_evergreen on existing rows was preserved.
+                            All @_rowResults.Count new/updated row(s) written to production and marked
+                            awaiting deploy confirmation — not yet visible. Unchanged rows were already
+                            up to date and were skipped. is_evergreen on existing rows was preserved.
                         </div>
                     }
                 </div>
