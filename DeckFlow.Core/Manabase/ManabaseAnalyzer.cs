@@ -230,6 +230,10 @@ public static class ManabaseAnalyzer
         return deck with { Spells = spells };
     }
 
+    // Exact (case-insensitive) then normalized match. This rule is mirrored by
+    // UnmatchedOverrideNames below: a key it reports as "unmatched" is exactly one that this method
+    // would never resolve. If you add a fallback here (e.g. a fuzzy/alias tier), add the same tier
+    // there or the "not applied" report will silently disagree with what actually applied.
     private static string? ResolveOverrideCost(
         string name,
         IReadOnlyDictionary<string, string> exact,

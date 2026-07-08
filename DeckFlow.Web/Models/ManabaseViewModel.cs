@@ -78,11 +78,9 @@ public sealed class ManabaseViewModel
     /// (preserve-vs-prepopulate).
     /// </summary>
     public string OverridesBoxText =>
-        Request.OverridesTouched
-            ? Request.CostOverridesText
-            : string.IsNullOrWhiteSpace(Request.CostOverridesText)
-                ? SuggestedOverridesText
-                : Request.CostOverridesText;
+        !Request.OverridesTouched && string.IsNullOrWhiteSpace(Request.CostOverridesText)
+            ? SuggestedOverridesText
+            : Request.CostOverridesText;
 
     /// <summary>True when there is at least one detected suggestion to surface to the user.</summary>
     public bool HasSuggestions => Suggestions.Count > 0;
