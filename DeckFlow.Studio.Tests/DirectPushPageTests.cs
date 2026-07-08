@@ -129,6 +129,11 @@ public sealed class DirectPushPageTests : BunitContext
         // [skip render] behavior in these bUnit page tests stays byte-identical to before this flag
         // existed (D-05).
         Services.AddSingleton<IProdContentReader>(new FakeDirectPushFlagReader());
+        // Why (90-05/SYNC-09): the coordinator's IDeployedBodyConfirmer dependency. Confirmed=true
+        // by default; unused by any page test in this file today (VerifyAndPublishAsync is not yet
+        // wired to a page stage — Plan 90-06), but the DI container still needs to resolve the
+        // constructor parameter.
+        Services.AddSingleton<IDeployedBodyConfirmer>(new FakeDeployedBodyConfirmer());
         // Why: the page now resolves its orchestration through DirectPushCoordinator (H1 split);
         // register it over the same fakes so the bUnit render wires up identically to production.
         Services.AddScoped<DirectPushCoordinator>();

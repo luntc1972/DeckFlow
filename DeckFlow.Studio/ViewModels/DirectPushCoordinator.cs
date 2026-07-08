@@ -29,6 +29,7 @@ public sealed class DirectPushCoordinator
     private readonly IGitRepository _git;
     private readonly IContentKbOrchestrator _orchestrator;
     private readonly IProdContentReader _prodReader;
+    private readonly IDeployedBodyConfirmer _confirmer;
     private readonly ILogger<DirectPushCoordinator> _logger;
 
     // Why: the git commit MAY carry the Render deploy-skip phrase. Render honors [skip render] /
@@ -68,7 +69,7 @@ public sealed class DirectPushCoordinator
         "^" + Regex.Escape(CommitSubjectPrefix) + @" \d+ (?:body|bodies) to prod(?: " + Regex.Escape(RenderSkipPhrase) + ")?$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-    /// <summary>Creates the coordinator with the stores, uploader, configuration, KB options, git repo, orchestrator, prod flag reader, and an optional logger.</summary>
+    /// <summary>Creates the coordinator with the stores, uploader, configuration, KB options, git repo, orchestrator, prod flag reader, deploy-confirm poller, and an optional logger.</summary>
     public DirectPushCoordinator(
         IContentSiteIndexStore localStore,
         ISshArtifactUploader uploader,
@@ -78,6 +79,7 @@ public sealed class DirectPushCoordinator
         IGitRepository git,
         IContentKbOrchestrator orchestrator,
         IProdContentReader prodReader,
+        IDeployedBodyConfirmer confirmer,
         ILogger<DirectPushCoordinator>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(localStore);
@@ -88,6 +90,7 @@ public sealed class DirectPushCoordinator
         ArgumentNullException.ThrowIfNull(git);
         ArgumentNullException.ThrowIfNull(orchestrator);
         ArgumentNullException.ThrowIfNull(prodReader);
+        ArgumentNullException.ThrowIfNull(confirmer);
         _localStore = localStore;
         _uploader = uploader;
         _prodStoreFactory = prodStoreFactory;
@@ -96,6 +99,7 @@ public sealed class DirectPushCoordinator
         _git = git;
         _orchestrator = orchestrator;
         _prodReader = prodReader;
+        _confirmer = confirmer;
         // Optional logger (house convention, e.g. CommanderSpellbookService): the default keeps every
         // existing construction site + test compiling while D-08 skip-warnings surface in prod.
         _logger = logger ?? NullLogger<DirectPushCoordinator>.Instance;
@@ -278,6 +282,46 @@ public sealed class DirectPushCoordinator
         await _localStore.StampPushedToProdAsync(keys, pushedUtc, cancellationToken).ConfigureAwait(false);
         await _localStore.SetVisibilityAsync(keys, true, cancellationToken).ConfigureAwait(false);
         await _localStore.ClearAwaitingConfirmAsync(keys, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Verify-then-publish stage (SYNC-09 / D-09 REVISED): for each pushed row, polls the Plan 90-07
+    /// deploy-confirm endpoint (via <see cref="IDeployedBodyConfirmer"/>) for a hash match at the
+    /// deployed git <c>/app</c> body, then runs <see cref="ConfirmAndPublishAsync"/> ONLY for the
+    /// rows that confirmed. Rows that did not confirm within the confirmer's bounded retry budget
+    /// stay content-upserted and awaiting-confirm (D-10) — never a false-positive stamp/visibility
+    /// flip. A row with no <see cref="ContentSiteIndexRow.BodySha256"/> cannot be confirmed (there is
+    /// nothing to match against) and is treated as not-confirmed.
+    /// </summary>
+    public async Task<DirectPushVerifyResult> VerifyAndPublishAsync(
+        IReadOnlyList<ContentSiteIndexRow> publishRows,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(publishRows);
+
+        var confirmed = new List<ContentSiteIndexRow>();
+        var notConfirmed = new List<ContentSiteIndexRow>();
+        foreach (var row in publishRows)
+        {
+            var exportRow = ContentIndexExportRow.From(row);
+            var expectedHash = row.BodySha256;
+            var isConfirmed = !string.IsNullOrEmpty(expectedHash)
+                && await _confirmer.IsDeployedBodyConfirmedAsync(
+                        exportRow.NaturalKeyType,
+                        exportRow.NaturalKeyValue,
+                        expectedHash,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+
+            (isConfirmed ? confirmed : notConfirmed).Add(row);
+        }
+
+        if (confirmed.Count > 0)
+        {
+            await ConfirmAndPublishAsync(confirmed, cancellationToken).ConfigureAwait(false);
+        }
+
+        return new DirectPushVerifyResult(confirmed, notConfirmed);
     }
 
     // Shared key derivation for WriteContentAsync/ConfirmAndPublishAsync — reuses
@@ -596,3 +640,12 @@ public sealed record DirectPushDiff(
     int NewCount,
     int UpdatedCount,
     int UnchangedCount);
+
+/// <summary>
+/// Result of <see cref="DirectPushCoordinator.VerifyAndPublishAsync"/>: the rows whose deployed
+/// git <c>/app</c> body hash matched (and were therefore stamped + made visible) and the rows that
+/// did not confirm within the bounded retry budget (still content-upserted, still awaiting-confirm).
+/// </summary>
+public sealed record DirectPushVerifyResult(
+    IReadOnlyList<ContentSiteIndexRow> Confirmed,
+    IReadOnlyList<ContentSiteIndexRow> NotConfirmed);
