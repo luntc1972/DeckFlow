@@ -189,7 +189,9 @@ public sealed class ManabaseAnalyzerTests
             ["Totally Fake Card"] = "0", // matches nothing -> unmatched
         };
 
-        IReadOnlyList<string> unmatched = ManabaseAnalyzer.UnmatchedOverrideNames(deck, overrides);
+        IReadOnlyList<string> unmatched = ManabaseAnalyzer
+            .Analyze(deck, ManabaseMode.Casual, CommanderImportance.Standard, overrides)
+            .UnmatchedOverrideNames;
 
         Assert.Equal(new[] { "Totally Fake Card" }, unmatched);
     }
@@ -209,8 +211,8 @@ public sealed class ManabaseAnalyzerTests
             },
         };
 
-        Assert.Empty(ManabaseAnalyzer.UnmatchedOverrideNames(deck, null));
-        Assert.Empty(ManabaseAnalyzer.UnmatchedOverrideNames(deck, new Dictionary<string, string>()));
+        Assert.Empty(ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual, CommanderImportance.Standard, null).UnmatchedOverrideNames);
+        Assert.Empty(ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual, CommanderImportance.Standard, new Dictionary<string, string>()).UnmatchedOverrideNames);
     }
 
     [Fact]

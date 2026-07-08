@@ -138,7 +138,7 @@ public static class ManabaseAnalyzer
         // spell with an effective requirement (new MV + pips from the override cost). Every
         // downstream consumer — castability rows, the simulator, and the color findings — then
         // reads the substituted spells, so the table and the color verdict stay consistent.
-        deck = ApplyCostOverrides(deck, costOverrides);
+        deck = ApplyCostOverrides(deck, costOverrides, out IReadOnlyList<string> unmatchedOverrides);
 
         // A source occupies a land slot when flagged IsLand (even discounted fetches);
         // partial sources (dorks, rocks, MDFC backs) count toward color supply only.
@@ -180,6 +180,7 @@ public static class ManabaseAnalyzer
             ActualLands = actualLands,
             TargetLands = targetLands,
             ColorFindings = findings,
+            UnmatchedOverrideNames = unmatchedOverrides,
             Mode = mode,
             UseHealthBandCastability = useHealthBandCastability,
             UseHealthBandHeadlineFloor = useHealthBandHeadlineFloor,
@@ -213,10 +214,14 @@ public static class ManabaseAnalyzer
     // Keyed by resolved display name (case-insensitive) first, normalized name as a fallback so
     // punctuation / DFC front-face names still match. Deck-level aggregates (land target, average
     // mana value) are intentionally untouched — an alt cost changes castability, not the curve.
-    private static ManabaseDeck ApplyCostOverrides(ManabaseDeck deck, IReadOnlyDictionary<string, string>? overrides)
+    private static ManabaseDeck ApplyCostOverrides(
+        ManabaseDeck deck,
+        IReadOnlyDictionary<string, string>? overrides,
+        out IReadOnlyList<string> unmatchedOverrides)
     {
         if (overrides is null || overrides.Count == 0)
         {
+            unmatchedOverrides = Array.Empty<string>();
             return deck;
         }
 
@@ -228,20 +233,39 @@ public static class ManabaseAnalyzer
             byNormalized[DeckFlow.Core.Normalization.CardNormalizer.Normalize(kvp.Key)] = kvp.Value;
         }
 
+        // Collect the spell-name keys as we walk so the "which override bound no spell" report is
+        // derived from the SAME single pass — no second walk of the deck, and no drift-prone second
+        // copy of the exact-then-normalized match rule.
+        var spellExact = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var spellNormalized = new HashSet<string>(StringComparer.Ordinal);
+
         var spells = new List<SpellRequirement>(deck.Spells.Count);
         foreach (SpellRequirement spell in deck.Spells)
         {
+            spellExact.Add(spell.Name);
+            spellNormalized.Add(DeckFlow.Core.Normalization.CardNormalizer.Normalize(spell.Name));
+
             string? cost = ResolveOverrideCost(spell.Name, exact, byNormalized);
             spells.Add(cost is null ? spell : ApplyOverride(spell, cost));
         }
 
+        var unmatched = new List<string>();
+        foreach (string key in overrides.Keys)
+        {
+            if (!spellExact.Contains(key)
+                && !spellNormalized.Contains(DeckFlow.Core.Normalization.CardNormalizer.Normalize(key)))
+            {
+                unmatched.Add(key);
+            }
+        }
+
+        unmatchedOverrides = unmatched;
         return deck with { Spells = spells };
     }
 
-    // Exact (case-insensitive) then normalized match. This rule is mirrored by
-    // UnmatchedOverrideNames below: a key it reports as "unmatched" is exactly one that this method
-    // would never resolve. If you add a fallback here (e.g. a fuzzy/alias tier), add the same tier
-    // there or the "not applied" report will silently disagree with what actually applied.
+    // Exact (case-insensitive) then normalized match. ApplyCostOverrides reuses this same rule to
+    // decide which override keys bound no spell (its unmatched-overrides out-param), so a name it
+    // reports as "not applied" is exactly one this method would never resolve.
     private static string? ResolveOverrideCost(
         string name,
         IReadOnlyDictionary<string, string> exact,
@@ -255,46 +279,6 @@ public static class ManabaseAnalyzer
         return byNormalized.TryGetValue(DeckFlow.Core.Normalization.CardNormalizer.Normalize(name), out string? fallback)
             ? fallback
             : null;
-    }
-
-    /// <summary>
-    /// Returns the override card names that bind to no spell in the deck — a typo or a card that is
-    /// not in this list. Uses the SAME exact-then-normalized match rule as <see cref="ApplyCostOverrides"/>
-    /// (see <see cref="ResolveOverrideCost"/>), so a name reported here is exactly one that the analysis
-    /// silently dropped. Order and casing follow the caller's override keys. Empty when overrides is
-    /// null/empty or every key matched.
-    /// </summary>
-    /// <param name="deck">The resolved deck whose spell names the overrides are matched against.</param>
-    /// <param name="overrides">Parsed override map (card name → braced cost); null/empty yields none.</param>
-    public static IReadOnlyList<string> UnmatchedOverrideNames(
-        ManabaseDeck deck,
-        IReadOnlyDictionary<string, string>? overrides)
-    {
-        ArgumentNullException.ThrowIfNull(deck);
-        if (overrides is null || overrides.Count == 0)
-        {
-            return Array.Empty<string>();
-        }
-
-        var spellExact = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var spellNormalized = new HashSet<string>(StringComparer.Ordinal);
-        foreach (SpellRequirement spell in deck.Spells)
-        {
-            spellExact.Add(spell.Name);
-            spellNormalized.Add(DeckFlow.Core.Normalization.CardNormalizer.Normalize(spell.Name));
-        }
-
-        var unmatched = new List<string>();
-        foreach (string key in overrides.Keys)
-        {
-            if (!spellExact.Contains(key)
-                && !spellNormalized.Contains(DeckFlow.Core.Normalization.CardNormalizer.Normalize(key)))
-            {
-                unmatched.Add(key);
-            }
-        }
-
-        return unmatched;
     }
 
     // Build an effective requirement from a (possibly shorthand) cost string. Pips come solely from

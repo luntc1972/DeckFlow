@@ -702,6 +702,13 @@ public sealed record ManabaseReport
     public required IReadOnlyList<ColorSourceFinding> ColorFindings { get; init; }
 
     /// <summary>
+    /// Override card names that bound to no spell in the deck (a typo or a card not in this list),
+    /// computed in the same pass that applies the overrides. Empty when there were no overrides or
+    /// every one matched. The Web layer surfaces these as "not applied" feedback.
+    /// </summary>
+    public IReadOnlyList<string> UnmatchedOverrideNames { get; init; } = Array.Empty<string>();
+
+    /// <summary>
     /// The weakest color by the tail-risk composite, or null if every color is adequately
     /// supported. Keys off <see cref="ColorSourceFinding.IsCompositeProblem"/> (NOT raw deficit)
     /// so a composite-worst color is never dropped from the verdict.
