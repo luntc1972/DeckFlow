@@ -283,7 +283,7 @@ public static class ManabaseReportTextBuilder
         {
             string roleBits = string.Join(", ", plan.RolePercents
                 .Where(kv => kv.Value > 0)
-                .Select(kv => string.Create(CultureInfo.InvariantCulture, $"{PlanRoleWord(kv.Key)} ~{kv.Value}%")));
+                .Select(kv => string.Create(CultureInfo.InvariantCulture, $"{ManabaseLabels.PlanRole(kv.Key)} ~{kv.Value}%")));
             string roleSuffix = roleBits.Length > 0 ? $" ({roleBits})" : string.Empty;
             sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
                 $"With a plan: ~{plan.PlanPresencePercent}% of keepable hands hold a win-directed card castable on curve - {plan.Band}{roleSuffix}. Role coverage, a consistency signal, not keep/mulligan advice."));
@@ -308,14 +308,6 @@ public static class ManabaseReportTextBuilder
         sb.AppendLine("First-pass read only - verify against the actual hand; not a keep/mulligan recommendation.");
     }
 
-    private static string PlanRoleWord(PlanRole role) => role switch
-    {
-        PlanRole.Payoff => "payoff",
-        PlanRole.Engine => "engine",
-        PlanRole.TutorCombo => "tutor/combo",
-        PlanRole.Interaction => "interaction",
-        _ => role.ToString().ToLowerInvariant(),
-    };
 
     private static void AppendVerdictBlock(
         StringBuilder sb,

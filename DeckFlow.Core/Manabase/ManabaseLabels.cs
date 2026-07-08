@@ -20,4 +20,14 @@ public static class ManabaseLabels
     /// <summary>Human label for an analysis mode (used in the results echo line and the text report).</summary>
     public static string Mode(ManabaseMode mode) =>
         mode == ManabaseMode.Cedh ? "cEDH" : "Casual";
+
+    /// <summary>Human label for a single plan role (used in the plan-presence role breakdown, both surfaces).</summary>
+    public static string PlanRole(PlanRole role) => role switch
+    {
+        Manabase.PlanRole.Payoff => "payoff",
+        Manabase.PlanRole.Engine => "engine",
+        Manabase.PlanRole.TutorCombo => "tutor/combo",
+        Manabase.PlanRole.Interaction => "interaction",
+        _ => role.ToString().ToLowerInvariant(),
+    };
 }
