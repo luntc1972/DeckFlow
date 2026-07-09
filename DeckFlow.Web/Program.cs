@@ -99,6 +99,8 @@ public partial class Program
             builder.Services.AddSingleton<IContentKbSeedLoader, ContentKbSeedLoader>();
             builder.Services.AddSingleton<DeckFlow.Core.Content.IContentArtifactBodyResolver, ContentKbArtifactBodyResolver>();
             builder.Services.AddSingleton<DeckFlow.Core.Content.ContentBodyHashBackfill>();
+            builder.Services.AddSingleton<DeckFlow.Core.Content.ISeedKeyMembershipSource, WebSeedKeyMembershipSource>();
+            builder.Services.AddSingleton<DeckFlow.Core.Content.SeedManagedBackfill>();
             builder.Services.AddSingleton<DeckFlow.Core.Content.PublishStateDeriver>();
             builder.Services.AddSingleton<IAdminBruteForceTrackerStore, AdminBruteForceTrackerStore>();
             builder.Services.AddDeckFlowFeatureFlags();
@@ -273,6 +275,13 @@ public partial class Program
             app.Logger.LogInformation("Running Content KB body-hash backfill during startup.");
             await app.Services.GetRequiredService<DeckFlow.Core.Content.ContentBodyHashBackfill>().RunAsync();
             app.Logger.LogInformation("Content KB body-hash backfill completed during startup.");
+
+            // SYNC-17/D-02: seed_managed backfill runs AFTER the seed load above so membership
+            // reflects the just-loaded seed. Idempotent null-only pass; skips entirely (zero
+            // writes) when the seed was unavailable this run (T-91-07) - safe to run every startup.
+            app.Logger.LogInformation("Running Content KB seed_managed backfill during startup.");
+            await app.Services.GetRequiredService<DeckFlow.Core.Content.SeedManagedBackfill>().RunAsync();
+            app.Logger.LogInformation("Content KB seed_managed backfill completed during startup.");
 
             app.Logger.LogInformation("Ensuring harvest store schemas during startup.");
             await app.Services.GetRequiredService<IHarvestRunStore>().EnsureSchemaAsync();
