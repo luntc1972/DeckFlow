@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: Cycle 16
 milestone_name: Content-KB Prod↔Git↔Studio Sync Hardening
-status: verifying
-stopped_at: Phase 91 planned + Codex-approved (9 plans, 7 waves)
-last_updated: "2026-07-08T22:44:28.065Z"
-last_activity: 2026-07-08
+status: executing
+stopped_at: Completed 91-01-PLAN.md
+last_updated: "2026-07-09T21:46:53.915Z"
+last_activity: 2026-07-09
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 25
-  completed_plans: 16
+  completed_plans: 17
   percent: 50
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-06)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything. This cycle protects the Content-KB half of that promise.
-**Current focus:** Phase 90 — directpush-correctness-seed-sync
+**Current focus:** Phase 91 — reconcile-seed-lifecycle
 
 ## Current Position
 
-Phase: 90 (directpush-correctness-seed-sync) — COMPLETE (verified + Codex-reviewed)
-Plan: 7 of 7
-Status: Verifier PASS 4/4 (SYNC-07..10); Codex review closed 1 HIGH + 1 MED (fixed 6d570f1f, 9b047765); 2 MED deferred to Phase 93 pre-flip gate (see 90-FOLLOWUPS.md). Build 0/0; Core 1149 / Web 1249 / Studio 350 green.
-Last activity: 2026-07-08
+Phase: 91 (reconcile-seed-lifecycle) — EXECUTING
+Plan: 2 of 9
+Status: Ready to execute
+Last activity: 2026-07-09
 
-Progress: [██████████] 100%
+Progress: [███████░░░] 68%
 
 ## Roadmap Summary
 
@@ -74,6 +74,7 @@ Progress: [██████████] 100%
 | Phase 90 P07 | 40min | 2 tasks | 4 files |
 | Phase 90 P05 | ~50min | 3 tasks | 14 files |
 | Phase 90 P06 | ~30min | 2 tasks | 6 files |
+| Phase 91 P01 | ~15min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -106,6 +107,9 @@ Full decision log lives in PROJECT.md Key Decisions table. Decisions constrainin
 - [Phase 90]: 90-06: DirectPush Stage 5 (Verify Deploy & Publish) gates on _gitSuccess broadly (any of Committed/PushedExistingCommits/AlreadyInSync) - the confirm poll is the real safety net, not the git outcome variant
 - [Phase 90]: 90-06: GetAwaitingConfirmRowsAsync filters in memory (never a WHERE on awaiting_confirm_utc) per Pitfall 3; added to DirectPushCoordinator despite absence from plan files_modified since the H1 split gives the page no direct store access
 - [Phase 90]: 90-06: resume-bucket card stays rendered while a resume result is pending display even after the bucket empties - a bucket-gated-only visibility condition hid a fully-successful resume's own confirmation from the operator
+- [Phase 91]: 91-01: seed_managed follows the awaiting_confirm_utc dialect-guarded-both-branches DDL shape (BOOLEAN NULL / INTEGER NULL, never non-nullable-with-DEFAULT) so NULL (unclassified) stays distinct from false (classified prod-owned)
+- [Phase 91]: 91-01: UpsertPreservingVisibilitySql always overwrites seed_managed from EXCLUDED (unlike is_visible/is_hidden/is_evergreen which are preserved) — every row reaching this path via the seed-load call site is definitionally seed-managed
+- [Phase 91]: 91-01: SeedIndexFileReader.Read is the ONLY public read API (no bare-set overload) so SeedAvailable can never be bypassed by a downstream consumer; Tasks 1+2 committed together (tightly coupled column+setter) per config.json coarse granularity
 
 ### Pending Todos
 
@@ -134,6 +138,6 @@ Carried forward from Cycle 15 close (2026-07-05) — none are Cycle-16 gaps:
 
 ## Session Continuity
 
-Last session: 2026-07-08T22:44:28.040Z
-Stopped at: Phase 91 planned + Codex-approved (9 plans, 7 waves)
-Resume file: .planning/phases/91-reconcile-seed-lifecycle/91-01-PLAN.md
+Last session: 2026-07-09T21:46:53.887Z
+Stopped at: Completed 91-01-PLAN.md
+Resume file: None
