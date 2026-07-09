@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: Cycle 16
 milestone_name: Content-KB Prod↔Git↔Studio Sync Hardening
 status: executing
-stopped_at: Completed 91-05-PLAN.md
-last_updated: "2026-07-09T22:44:53.818Z"
+stopped_at: Completed 91-06-PLAN.md
+last_updated: "2026-07-09T22:59:47.954Z"
 last_activity: 2026-07-09
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 25
-  completed_plans: 21
+  completed_plans: 22
   percent: 50
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 ## Current Position
 
 Phase: 91 (reconcile-seed-lifecycle) — EXECUTING
-Plan: 6 of 9
+Plan: 7 of 9
 Status: Ready to execute
 Last activity: 2026-07-09
 
-Progress: [████████░░] 84%
+Progress: [█████████░] 88%
 
 ## Roadmap Summary
 
@@ -79,6 +79,7 @@ Progress: [████████░░] 84%
 | Phase 91 P03 | ~40min | 2 tasks | 6 files |
 | Phase 91 P04 | ~25min | 2 tasks | 3 files |
 | Phase 91 P05 | ~12min | 1 tasks | 4 files |
+| Phase 91 P06 | ~50min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -127,6 +128,9 @@ Full decision log lives in PROJECT.md Key Decisions table. Decisions constrainin
 - [Phase 91]: 91-05: PersistRunAsync wraps the upsert-seen + resolve-absent pass in a single DB transaction (BeginTransactionAsync/CommitAsync/RollbackAsync) for atomicity across the two statements
 - [Phase 91]: 91-05: empty-seen resolution uses a dedicated no-NOT-IN query (ResolveAllInScopeSql) rather than relying on dialect-specific empty-IN-list expansion behavior
 - [Phase 91]: 91-05: Kind<->text mapping (ToKindText/ParseKind) is duplicated locally in ContentKbReconcileStore since ContentKbReconcileDiscrepancy.KindToken is private - vocabulary is pinned by ContentKbReconcileKind's own XML doc comment as the single source of truth by contract
+- [Phase 91]: 91-06: IConfiguration added as a 5th constructor dep beyond the plan's stated list since RunDryRunAsync(scopeTag, ct) carries no connection-string param - mirrors PullFromProdCoordinator's ephemeral-read pattern
+- [Phase 91]: 91-06: D-06 report path content-kb/reconcile-report.md excluded by name from its own file-orphan *.md enumeration to prevent a self-referential flagging loop on re-run
+- [Phase 91]: 91-06: Tasks 1+2 committed as two separate atomic commits (unlike 91-04/91-05 precedent) - the orchestrator's dry-run core is independently meaningful and fully tested without the report writer
 
 ### Pending Todos
 
@@ -155,6 +159,6 @@ Carried forward from Cycle 15 close (2026-07-05) — none are Cycle-16 gaps:
 
 ## Session Continuity
 
-Last session: 2026-07-09T22:44:53.791Z
-Stopped at: Completed 91-05-PLAN.md
+Last session: 2026-07-09T22:59:47.925Z
+Stopped at: Completed 91-06-PLAN.md
 Resume file: None
