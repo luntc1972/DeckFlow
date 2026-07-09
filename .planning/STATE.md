@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: Cycle 16
 milestone_name: Content-KB Prod↔Git↔Studio Sync Hardening
 status: executing
-stopped_at: Completed 91-02-PLAN.md
-last_updated: "2026-07-09T22:04:27.311Z"
+stopped_at: Completed 91-03-PLAN.md
+last_updated: "2026-07-09T22:20:50.525Z"
 last_activity: 2026-07-09
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 25
-  completed_plans: 18
+  completed_plans: 19
   percent: 50
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 ## Current Position
 
 Phase: 91 (reconcile-seed-lifecycle) — EXECUTING
-Plan: 3 of 9
+Plan: 4 of 9
 Status: Ready to execute
 Last activity: 2026-07-09
 
-Progress: [███████░░░] 72%
+Progress: [████████░░] 76%
 
 ## Roadmap Summary
 
@@ -76,6 +76,7 @@ Progress: [███████░░░] 72%
 | Phase 90 P06 | ~30min | 2 tasks | 6 files |
 | Phase 91 P01 | ~15min | 3 tasks | 7 files |
 | Phase 91 P02 | ~35min | 2 tasks | 10 files |
+| Phase 91 P03 | ~40min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -114,6 +115,9 @@ Full decision log lives in PROJECT.md Key Decisions table. Decisions constrainin
 - [Phase 91]: 91-02: SeedManaged hardcoded true at all three write/export call sites (ContentKbSeedLoader.BuildRow, DirectPushCoordinator.WriteContentAsync, ContentIndexExportRow.From) rather than read from the incoming row/entry (Pitfall 4) — presence in the seed file/publish batch/export set is itself the proof of seed-managed membership
 - [Phase 91]: 91-02: ContentIndexExportRow.SeedManaged changes the seed JSON byte-shape, so the CLI golden fixture (ContentIndexExportJsonGoldenTests + index-seed.golden.json) was updated in the same commit as an in-scope consequence of Task 1
 - [Phase 91]: 91-02: ProdContentReader's new round-trip test uses the existing [PostgresFact] env-var-gated convention rather than adding a Testcontainers dependency to DeckFlow.Studio.Tests
+- [Phase 91]: 91-03: SeedManagedBackfill.RunAsync short-circuits BEFORE calling GetAllRowsAsync when SeedAvailable==false - zero store reads/writes on an unavailable seed
+- [Phase 91]: 91-03: a throwing ISeedKeyMembershipSource is caught in RunAsync and treated identically to an unavailable seed - one gate, not two divergent safety mechanisms
+- [Phase 91]: 91-03: StudioSeedKeyMembershipSource resolves repoRoot via IGitRepository.ResolveRepoRootAsync(...).GetAwaiter().GetResult() inside a synchronous GetSeedMembership() - safe (no SynchronizationContext); resolution failure is treated as unavailable seed
 
 ### Pending Todos
 
@@ -142,6 +146,6 @@ Carried forward from Cycle 15 close (2026-07-05) — none are Cycle-16 gaps:
 
 ## Session Continuity
 
-Last session: 2026-07-09T22:04:27.284Z
-Stopped at: Completed 91-02-PLAN.md
+Last session: 2026-07-09T22:20:50.497Z
+Stopped at: Completed 91-03-PLAN.md
 Resume file: None
