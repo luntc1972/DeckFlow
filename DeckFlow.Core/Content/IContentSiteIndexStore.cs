@@ -287,4 +287,23 @@ public interface IContentSiteIndexStore
     /// <returns>The number of rows updated (1 when the row existed with a null classification; otherwise 0).</returns>
     Task<int> SetSeedManagedIfNullAsync(long id, bool seedManaged, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("This content site-index store does not support the seed-managed marker.");
+
+    /// <summary>
+    /// Soft-hides (sets <c>is_visible = FALSE</c>, <c>is_hidden = FALSE</c>) the given natural keys inside one
+    /// transaction, but ONLY for rows that are currently <c>seed_managed = TRUE</c> — the ownership predicate
+    /// lives in the SQL <c>WHERE</c> itself, so a prod-owned (<c>seed_managed = false</c> or <see langword="null"/>)
+    /// row can NEVER be hidden through this path. This closes the reconcile-Apply TOCTOU where a row's marker
+    /// flips between the coordinator's fresh prod read and this destructive write: the write re-checks ownership
+    /// atomically rather than trusting the caller's earlier snapshot. Real-implemented on
+    /// <see cref="ContentSiteIndexStore"/>; this default interface method mirrors
+    /// <see cref="SetBodySha256IfNullAsync"/>'s throwing-escape-hatch idiom so existing hand-written test doubles
+    /// compile unchanged.
+    /// </summary>
+    /// <param name="keys">Natural-key pairs to soft-hide (only seed-managed matches take effect).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of rows actually hidden — only <c>seed_managed = true</c> rows are counted.</returns>
+    Task<int> HideSeedManagedAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content site-index store does not support seed-managed soft-hide.");
 }

@@ -124,16 +124,16 @@ public sealed class ReconcileCoordinator
     /// </item>
     /// <item>
     /// <b>Seed-managed re-check (T-91-20 defense-in-depth).</b> Re-reads prod rows fresh via the
-    /// on-demand prod store and hides a matched removal's natural key ONLY when the CURRENT prod row
-    /// for that key has <see cref="ContentSiteIndexRow.SeedManaged"/> == <see langword="true"/>. This
-    /// does not rely solely on the classifier's own seed-managed gate - a prod-owned row is
-    /// structurally impossible to hide through this method even if a future classifier regression
-    /// ever emitted seed-drift for one.
+    /// on-demand prod store and pre-filters to keys whose CURRENT prod row has
+    /// <see cref="ContentSiteIndexRow.SeedManaged"/> == <see langword="true"/>. This is the FIRST of two
+    /// ownership gates; it does not rely solely on the classifier's own seed-managed gate.
     /// </item>
     /// </list>
-    /// The hide itself reuses <see cref="IContentSiteIndexStore.SetVisibilityAsync(IReadOnlyList{ValueTuple{string,string}},bool,CancellationToken)"/>
-    /// (natural-key batch) - it never hand-rolls SQL and never touches a timestamp column
-    /// (Pitfall 5 / F-51-PG-01).
+    /// The hide itself uses <see cref="IContentSiteIndexStore.HideSeedManagedAsync(IReadOnlyList{ValueTuple{string,string}},CancellationToken)"/>,
+    /// whose SQL carries <c>AND seed_managed = TRUE</c> so the ownership re-check is ATOMIC with the write
+    /// (SECOND gate, closing the Codex 91-08 TOCTOU: a prod-owned row is structurally impossible to hide
+    /// through this method even if its marker flips between the fresh read and the write). It never
+    /// hand-rolls SQL and never touches a timestamp column (Pitfall 5 / F-51-PG-01).
     /// </remarks>
     /// <param name="reviewedRemovalDiscrepancyIds">
     /// The seed-drift-only discrepancy IDs the operator reviewed and approved for removal. Passing a
@@ -231,13 +231,33 @@ public sealed class ReconcileCoordinator
             return ReconcileApplyResult.Applied(0);
         }
 
+        // Why (Codex 91-08 HIGH): the destructive write is HideSeedManagedAsync, whose SQL carries
+        // AND seed_managed = TRUE — so the ownership re-check is atomic with the hide, not merely the
+        // in-memory pre-filter above. A row whose marker flipped to false/null in the TOCTOU window
+        // between GetAllRowsAsync and this write is protected by the predicate and left visible.
         var hiddenCount = await prodStore
-            .SetVisibilityAsync(keysToHide, visible: false, cancellationToken)
+            .HideSeedManagedAsync(keysToHide, cancellationToken)
             .ConfigureAwait(false);
 
-        foreach (var (type, value) in keysToHide)
+        if (hiddenCount == keysToHide.Count)
         {
-            _logger.LogInformation("Reconcile Apply soft-hid {Type}:{Value}.", type, value);
+            // Every requested key was still seed_managed=true at write time, so each was genuinely hidden.
+            foreach (var (type, value) in keysToHide)
+            {
+                _logger.LogInformation("Reconcile Apply soft-hid {Type}:{Value}.", type, value);
+            }
+        }
+        else
+        {
+            // Why (Codex 91-08 LOW): a shortfall means the SQL ownership predicate protected some keys at
+            // write time (their marker flipped since the snapshot). HideSeedManagedAsync returns only a
+            // count, not which keys, so we must NOT name any individual key as hidden here — doing so
+            // would overstate the audit trail for a key that was actually left visible.
+            _logger.LogWarning(
+                "Reconcile Apply hid {HiddenCount} of {RequestedCount} keys — the remainder no longer read " +
+                "seed_managed=true at write time and were protected by the ownership predicate.",
+                hiddenCount,
+                keysToHide.Count);
         }
 
         return ReconcileApplyResult.Applied(hiddenCount);

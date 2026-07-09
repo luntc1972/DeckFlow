@@ -911,6 +911,48 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         return total;
     }
 
+    /// <inheritdoc />
+    public async Task<int> HideSeedManagedAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        if (keys.Count == 0)
+        {
+            return 0;
+        }
+
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        // Why: one transaction = atomic + one logical round-trip (mirrors the batch SetVisibilityAsync).
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        // Why (Codex 91-08 HIGH / SYNC-17 invariant): the seed_managed = TRUE predicate lives IN the WHERE so a
+        // prod-owned row whose marker flipped to false/null between the coordinator's fresh read and this write is
+        // atomically protected — the write itself, not a caller-side snapshot, is the last word on ownership. A
+        // prod-owned row can never be hidden by Apply. Non-seed-managed keys simply do not match and are skipped.
+        const string sql = """
+            UPDATE content_site_index
+               SET is_visible = FALSE,
+                   is_hidden = FALSE
+             WHERE natural_key_type = @type
+               AND natural_key_value = @value
+               AND seed_managed = @seedManagedTrue;
+            """;
+        var total = 0;
+        foreach (var (type, value) in keys)
+        {
+            total += await connection.ExecuteAsync(new CommandDefinition(
+                sql,
+                new { type, value, seedManagedTrue = true },
+                transaction: transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return total;
+    }
+
     /// <summary>
     /// Shared required-field validation for all three <c>Upsert*Async</c> row variants and the
     /// batch upsert's per-row loop — extracted so the same checks (and their exact exception
