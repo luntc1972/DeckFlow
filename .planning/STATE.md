@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: Cycle 16
 milestone_name: Content-KB Prod↔Git↔Studio Sync Hardening
 status: executing
-stopped_at: Completed 91-06-PLAN.md
-last_updated: "2026-07-09T22:59:47.954Z"
+stopped_at: Completed 91-07-PLAN.md
+last_updated: "2026-07-09T23:15:27.190Z"
 last_activity: 2026-07-09
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 25
-  completed_plans: 22
+  completed_plans: 23
   percent: 50
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 ## Current Position
 
 Phase: 91 (reconcile-seed-lifecycle) — EXECUTING
-Plan: 7 of 9
+Plan: 8 of 9
 Status: Ready to execute
 Last activity: 2026-07-09
 
-Progress: [█████████░] 88%
+Progress: [█████████░] 92%
 
 ## Roadmap Summary
 
@@ -80,6 +80,7 @@ Progress: [█████████░] 88%
 | Phase 91 P04 | ~25min | 2 tasks | 3 files |
 | Phase 91 P05 | ~12min | 1 tasks | 4 files |
 | Phase 91 P06 | ~50min | 2 tasks | 4 files |
+| Phase 91 P07 | 45min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -131,6 +132,8 @@ Full decision log lives in PROJECT.md Key Decisions table. Decisions constrainin
 - [Phase 91]: 91-06: IConfiguration added as a 5th constructor dep beyond the plan's stated list since RunDryRunAsync(scopeTag, ct) carries no connection-string param - mirrors PullFromProdCoordinator's ephemeral-read pattern
 - [Phase 91]: 91-06: D-06 report path content-kb/reconcile-report.md excluded by name from its own file-orphan *.md enumeration to prevent a self-referential flagging loop on re-run
 - [Phase 91]: 91-06: Tasks 1+2 committed as two separate atomic commits (unlike 91-04/91-05 precedent) - the orchestrator's dry-run core is independently meaningful and fully tested without the report writer
+- [Phase 91]: 91-07: ReconcileCoordinator omits IConfiguration — RunDryRunAsync delegates entirely to the orchestrator, which already owns the ephemeral prod connection-string read (91-06). — An unused config field would trip CS0414 and violate the 0-new-warnings gate.
+- [Phase 91]: 91-07: Reconcile.razor discrepancy lists render via a shared manual RenderTreeBuilder RenderFragment with literal per-iteration sequence numbers + SetKey(item.Id). — Fixes ASP0006 (ever-incrementing seq++) while avoiding four copies of near-identical markup for the four discrepancy classes.
 
 ### Pending Todos
 
@@ -159,6 +162,6 @@ Carried forward from Cycle 15 close (2026-07-05) — none are Cycle-16 gaps:
 
 ## Session Continuity
 
-Last session: 2026-07-09T22:59:47.925Z
-Stopped at: Completed 91-06-PLAN.md
+Last session: 2026-07-09T23:15:27.160Z
+Stopped at: Completed 91-07-PLAN.md
 Resume file: None
