@@ -115,7 +115,7 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
 - [x] 91-05-PLAN.md - Local SQLite discrepancy store: idempotent, resolution-by-absence, scope tags (SYNC-11) [wave 3]
 - [x] 91-06-PLAN.md - Studio reconcile orchestrator (prod read + git enum + seed parse) + D-06 report (SYNC-11) [wave 4]
 - [x] 91-07-PLAN.md - Dry-run coordinator + Reconcile page (SYNC-11) [wave 5]
-- [ ] 91-08-PLAN.md - sync.reconcile flag + gated re-validated soft-hide Apply + Apply UI (SYNC-12) [wave 6]
+- [x] 91-08-PLAN.md - sync.reconcile flag + gated re-validated soft-hide Apply + Apply UI (SYNC-12) [wave 6]
 - [ ] 91-09-PLAN.md - Operator workflow human-verify checkpoint (SYNC-11/SYNC-12) [wave 7]
 
 ### Phase 92: Pull Hardening
@@ -154,7 +154,7 @@ Phases execute in numeric order: 88 → 89 → 90 → 91 → 92 → 93
 | 88. Index-Row Integrity Hotfix | Cycle 16 | 3/3 | Complete | 2026-07-06 |
 | 89. Content-Hash Foundation | Cycle 16 | 6/6 | Complete   | 2026-07-07 |
 | 90. DirectPush Correctness + Seed Sync | Cycle 16 | 7/7 | Complete   | 2026-07-08 |
-| 91. Reconcile + Seed Lifecycle | Cycle 16 | 7/9 | In Progress|  |
+| 91. Reconcile + Seed Lifecycle | Cycle 16 | 8/9 | In Progress|  |
 | 92. Pull Hardening | Cycle 16 | 0/TBD | Not started | - |
 | 93. Round-Trip Integration Test | Cycle 16 | 0/TBD | Not started | - |
 
