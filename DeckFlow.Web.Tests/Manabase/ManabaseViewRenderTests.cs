@@ -108,11 +108,13 @@ public sealed class ManabaseViewRenderTests
         Assert.Contains("Payoff on curve", html, StringComparison.Ordinal);
         Assert.Contains("~55%", html, StringComparison.Ordinal);
         Assert.Contains("~74%", html, StringComparison.Ordinal);
-        // Nonzero roles surfaced; the zero-role (Engine) is omitted.
-        Assert.Contains("payoff ~55%", html, StringComparison.Ordinal);
+        // Per-role breakdown moves to its own muted sub-line; nonzero roles surfaced, zero-role
+        // (Engine) omitted, and the Payoff role is NOT repeated (it is already the headline number).
+        Assert.Contains("by role:", html, StringComparison.Ordinal);
         Assert.Contains("tutor/combo ~20%", html, StringComparison.Ordinal);
         Assert.Contains("interaction ~40%", html, StringComparison.Ordinal);
         Assert.DoesNotContain("engine ~", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("payoff ~55%", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -185,6 +187,8 @@ public sealed class ManabaseViewRenderTests
         Assert.True(summaryIdx >= 0, "Summary card should render.");
         Assert.True(twoLensIdx >= 0, "Two-lens grid should render for a multi-color report.");
         Assert.True(summaryIdx < twoLensIdx, "Summary must precede the two-lens grid.");
+        // The wide color table carries a (mobile-only, CSS-gated) sideways-scroll cue.
+        Assert.Contains("manabase-scroll-hint", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -222,6 +226,42 @@ public sealed class ManabaseViewRenderTests
         Assert.DoesNotContain("looks balanced", unbalancedHtml, StringComparison.Ordinal);
         // The count line still renders — the section is never empty.
         Assert.Contains("ramp /", unbalancedHtml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task BothLensesShown_RendersReconciliationNoteAndBothTableScrollHints()
+    {
+        // With a Casual report that carries Castability rows, both the Karsten source-check lens and
+        // the simulated cast-rate lens render, so the reconciliation note appears; and both wide
+        // tables (color + castability) each carry a scroll hint.
+        var model = new ManabaseViewModel
+        {
+            Request = new ManabaseRequest { DeckInputSource = DeckInputSource.PasteText, Mode = ManabaseMode.Casual },
+            InputSummary = "Test deck",
+            Report = new ManabaseReport
+            {
+                ActualLands = 36,
+                TargetLands = 37.0,
+                Mode = ManabaseMode.Casual,
+                Summary = "x",
+                ColorFindings = new List<ColorSourceFinding>
+                {
+                    new() { Color = ManaColor.White, ActualSources = 20.0, RequiredSources = 18, DrivingSpell = "Swords to Plowshares", UntappedSources = 16.0 },
+                    new() { Color = ManaColor.Blue, ActualSources = 16.0, RequiredSources = 14, DrivingSpell = "Counterspell", UntappedSources = 13.5 },
+                },
+                Castability = new List<CardCastability>
+                {
+                    new() { Name = "Swords to Plowshares", ManaValue = 1, OnCurveTurn = 1, CastPercent = 95, LimitingFactor = "color: White" },
+                },
+            },
+        };
+
+        string html = await RenderManabaseViewAsync(model);
+
+        Assert.Contains("manabase-twolens-note", html, StringComparison.Ordinal);
+        Assert.Contains("Read the two together", html, StringComparison.Ordinal);
+        int hintCount = Regex.Matches(html, "manabase-scroll-hint").Count;
+        Assert.Equal(2, hintCount);
     }
 
     // Replace the randomized __RequestVerificationToken value with a constant so two renders of the
