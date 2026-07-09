@@ -304,9 +304,7 @@
         @if (!string.IsNullOrWhiteSpace(Model.PromptArtifact))
         {
             <details class="result-panel nested-panel">
-                <summary>
-                    <span class="panel-heading">Want fair swaps? Copy this prompt for ChatGPT / Claude / Gemini</span>
-                </summary>
+                <summary>Want fair swaps? Copy this prompt for ChatGPT / Claude / Gemini</summary>
                 <p class="manabase-help">The cuts above are a starting point. Paste this to have an AI replace each over-bracket card with a power-equivalent legal swap and re-confirm the bracket.</p>
                 <button type="button" class="copy-button" data-copy-target="#bracket-prompt">Copy</button>
                 <textarea id="bracket-prompt" readonly spellcheck="false">@Model.PromptArtifact</textarea>
