@@ -263,9 +263,11 @@ public sealed class ReconcileCoordinatorTests
 
         Assert.True(result.WasApplied);
         Assert.Equal(1, result.HiddenCount);
-        Assert.Single(prod.VisibilityKeyCalls);
-        var (keys, visible) = prod.VisibilityKeyCalls[0];
-        Assert.False(visible);
+        // The destructive hide MUST route through the ownership-scoped HideSeedManagedAsync, never the
+        // ownership-agnostic SetVisibilityAsync (Codex 91-08 HIGH — closes the TOCTOU).
+        Assert.Empty(prod.VisibilityKeyCalls);
+        Assert.Single(prod.HideSeedManagedKeyCalls);
+        var keys = prod.HideSeedManagedKeyCalls[0];
         Assert.Contains(keys, k => k.Type == "youtube_channel" && k.Value == "aaa");
     }
 
@@ -286,7 +288,7 @@ public sealed class ReconcileCoordinatorTests
         Assert.False(result.WasApplied);
         Assert.Equal(ReconcileApplyRefusalReason.FlagNotEnabled, result.RefusalReason);
         Assert.Null(result.HiddenCount);
-        Assert.Empty(prod.VisibilityKeyCalls);
+        Assert.Empty(prod.HideSeedManagedKeyCalls);
         // Why: a false/null flag must refuse BEFORE the fresh re-run even runs — no dry-run call.
         Assert.Equal(0, orchestrator.CallCount);
     }
@@ -309,7 +311,7 @@ public sealed class ReconcileCoordinatorTests
 
         Assert.False(result.WasApplied);
         Assert.Equal(ReconcileApplyRefusalReason.FlagNotEnabled, result.RefusalReason);
-        Assert.Empty(prod.VisibilityKeyCalls);
+        Assert.Empty(prod.HideSeedManagedKeyCalls);
         Assert.Equal(0, orchestrator.CallCount);
     }
 
@@ -333,7 +335,7 @@ public sealed class ReconcileCoordinatorTests
 
         Assert.False(result.WasApplied);
         Assert.Equal(ReconcileApplyRefusalReason.SeedUnavailable, result.RefusalReason);
-        Assert.Empty(prod.VisibilityKeyCalls);
+        Assert.Empty(prod.HideSeedManagedKeyCalls);
     }
 
     [Fact]
@@ -356,7 +358,9 @@ public sealed class ReconcileCoordinatorTests
 
         Assert.True(result.WasApplied);
         Assert.Equal(0, result.HiddenCount);
-        Assert.Empty(prod.VisibilityKeyCalls);
+        // The in-memory pre-filter drops the prod-owned key before any write, so the destructive
+        // HideSeedManagedAsync path is never even reached (and its SQL predicate would refuse anyway).
+        Assert.Empty(prod.HideSeedManagedKeyCalls);
     }
 
     [Fact]
@@ -377,7 +381,7 @@ public sealed class ReconcileCoordinatorTests
 
         Assert.False(result.WasApplied);
         Assert.Equal(ReconcileApplyRefusalReason.StaleReviewSet, result.RefusalReason);
-        Assert.Empty(prod.VisibilityKeyCalls);
+        Assert.Empty(prod.HideSeedManagedKeyCalls);
     }
 
     [Fact]
@@ -405,15 +409,15 @@ public sealed class ReconcileCoordinatorTests
 
         Assert.True(result.WasApplied);
         Assert.Equal(1, result.HiddenCount);
-        Assert.Single(prod.VisibilityKeyCalls);
-        var (keys, _) = prod.VisibilityKeyCalls[0];
+        Assert.Single(prod.HideSeedManagedKeyCalls);
+        var keys = prod.HideSeedManagedKeyCalls[0];
         Assert.Contains(keys, k => k.Type == "youtube_channel" && k.Value == "ccc");
     }
 
     [Fact]
     public async Task ApplyRemovalsAsync_NoTimestampColumnWritten()
     {
-        // Why (D-03/Pitfall 5/F-51-PG-01): the soft-hide reuses SetVisibilityAsync exclusively and
+        // Why (D-03/Pitfall 5/F-51-PG-01): the soft-hide uses HideSeedManagedAsync exclusively and
         // must never call StampPushedToProdAsync or any other timestamp-writing method.
         var drift = SeedDrift("fff");
         var orchestrator = new FakeContentKbReconcileOrchestrator

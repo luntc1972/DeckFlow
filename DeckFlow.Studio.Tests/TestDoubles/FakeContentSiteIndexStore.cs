@@ -25,6 +25,10 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
 
     public List<(IReadOnlyList<(string Type, string Value)> Keys, bool Visible)> VisibilityKeyCalls { get; } = new();
 
+    // Reconcile Apply routes its destructive soft-hide through HideSeedManagedAsync (ownership-scoped),
+    // NOT the ownership-agnostic SetVisibilityAsync — this list lets Apply tests assert the safe path.
+    public List<IReadOnlyList<(string Type, string Value)>> HideSeedManagedKeyCalls { get; } = new();
+
     // D-10 awaiting-confirm marker call tracking (90-05) — the interface declares these as throwing
     // default interface methods, so this fake real-implements + tracks them for assertion.
     public List<(IReadOnlyList<(string Type, string Value)> Keys, DateTimeOffset WhenUtc)> SetAwaitingConfirmCalls { get; } = new();
@@ -309,6 +313,33 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
             }
 
             Rows[i] = Rows[i] with { IsVisible = visible, IsHidden = false };
+            count++;
+        }
+
+        return Task.FromResult(count);
+    }
+
+    // Mirrors the real store: only rows whose CURRENT seed_managed is true are hidden — the ownership
+    // predicate is enforced at write time, so a row flipped to false/null after the caller's snapshot
+    // is protected (never hidden, never counted).
+    public Task<int> HideSeedManagedAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        CancellationToken cancellationToken = default)
+    {
+        HideSeedManagedKeyCalls.Add(keys);
+        var count = 0;
+        for (var i = 0; i < Rows.Count; i++)
+        {
+            var naturalKey = ContentIndexExportRow.From(Rows[i]);
+            var match = keys.Any(key =>
+                key.Type == naturalKey.NaturalKeyType
+                && key.Value == naturalKey.NaturalKeyValue);
+            if (!match || Rows[i].SeedManaged != true)
+            {
+                continue;
+            }
+
+            Rows[i] = Rows[i] with { IsVisible = false, IsHidden = false };
             count++;
         }
 
