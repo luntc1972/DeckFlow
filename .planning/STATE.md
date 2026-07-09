@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: Cycle 16
 milestone_name: Content-KB Prod↔Git↔Studio Sync Hardening
 status: executing
-stopped_at: Completed 91-01-PLAN.md
-last_updated: "2026-07-09T21:46:53.915Z"
+stopped_at: Completed 91-02-PLAN.md
+last_updated: "2026-07-09T22:04:27.311Z"
 last_activity: 2026-07-09
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 25
-  completed_plans: 17
+  completed_plans: 18
   percent: 50
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 ## Current Position
 
 Phase: 91 (reconcile-seed-lifecycle) — EXECUTING
-Plan: 2 of 9
+Plan: 3 of 9
 Status: Ready to execute
 Last activity: 2026-07-09
 
-Progress: [███████░░░] 68%
+Progress: [███████░░░] 72%
 
 ## Roadmap Summary
 
@@ -75,6 +75,7 @@ Progress: [███████░░░] 68%
 | Phase 90 P05 | ~50min | 3 tasks | 14 files |
 | Phase 90 P06 | ~30min | 2 tasks | 6 files |
 | Phase 91 P01 | ~15min | 3 tasks | 7 files |
+| Phase 91 P02 | ~35min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -110,6 +111,9 @@ Full decision log lives in PROJECT.md Key Decisions table. Decisions constrainin
 - [Phase 91]: 91-01: seed_managed follows the awaiting_confirm_utc dialect-guarded-both-branches DDL shape (BOOLEAN NULL / INTEGER NULL, never non-nullable-with-DEFAULT) so NULL (unclassified) stays distinct from false (classified prod-owned)
 - [Phase 91]: 91-01: UpsertPreservingVisibilitySql always overwrites seed_managed from EXCLUDED (unlike is_visible/is_hidden/is_evergreen which are preserved) — every row reaching this path via the seed-load call site is definitionally seed-managed
 - [Phase 91]: 91-01: SeedIndexFileReader.Read is the ONLY public read API (no bare-set overload) so SeedAvailable can never be bypassed by a downstream consumer; Tasks 1+2 committed together (tightly coupled column+setter) per config.json coarse granularity
+- [Phase 91]: 91-02: SeedManaged hardcoded true at all three write/export call sites (ContentKbSeedLoader.BuildRow, DirectPushCoordinator.WriteContentAsync, ContentIndexExportRow.From) rather than read from the incoming row/entry (Pitfall 4) — presence in the seed file/publish batch/export set is itself the proof of seed-managed membership
+- [Phase 91]: 91-02: ContentIndexExportRow.SeedManaged changes the seed JSON byte-shape, so the CLI golden fixture (ContentIndexExportJsonGoldenTests + index-seed.golden.json) was updated in the same commit as an in-scope consequence of Task 1
+- [Phase 91]: 91-02: ProdContentReader's new round-trip test uses the existing [PostgresFact] env-var-gated convention rather than adding a Testcontainers dependency to DeckFlow.Studio.Tests
 
 ### Pending Todos
 
@@ -138,6 +142,6 @@ Carried forward from Cycle 15 close (2026-07-05) — none are Cycle-16 gaps:
 
 ## Session Continuity
 
-Last session: 2026-07-09T21:46:53.887Z
-Stopped at: Completed 91-01-PLAN.md
+Last session: 2026-07-09T22:04:27.284Z
+Stopped at: Completed 91-02-PLAN.md
 Resume file: None
