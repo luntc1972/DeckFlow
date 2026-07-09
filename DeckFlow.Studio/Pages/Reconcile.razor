@@ -8,8 +8,9 @@
 <p class="text-muted">Detect prod &lt;-&gt; git &lt;-&gt; seed drift across four discrepancy classes.
 This dry-run is <strong>read-only</strong> — it reads production and your local git tree, persists
 what it finds to the local discrepancy store, and writes a human-readable report. It never hides,
-deletes, or otherwise writes anything in production. Removal (soft-hide) is a separate, flag-gated
-Apply action that ships in a later plan.</p>
+deletes, or otherwise writes anything in production. Removal (soft-hide) is a separate, gated
+<strong>Apply removals</strong> action below — behind the <code>sync.reconcile</code> flag, scoped to
+seed-drift rows only, and re-validated fresh at apply time.</p>
 
 <article class="content px-4">
 
@@ -138,5 +139,89 @@ Apply action that ships in a later plan.</p>
             }
         </div>
     </div>
+
+    @* ─── Apply Removals (SYNC-12, destructive, flag-gated) ─── *@
+    @if (_result is not null)
+    {
+        var applyDrift = Items(_result, ContentKbReconcileKind.SeedDrift);
+        <div class="card mt-3 border-danger">
+            <div class="card-header">
+                <h2 class="h5 fw-semibold mb-0">Apply Removals</h2>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning py-2">
+                    <span class="oi oi-warning" aria-hidden="true"></span>
+                    <strong> Destructive.</strong> This soft-hides (<code>is_visible = false</code>,
+                    never deleted) the <strong>seed-drift</strong> rows shown above only — Published
+                    Orphans, File Orphans, and Body Hash Mismatches are detection-only and are
+                    <strong>never</strong> applied. Gated behind the <code>sync.reconcile</code> flag
+                    (off by default) and the freshly-read seed's availability; the diff is re-run and
+                    re-validated at apply time, so a stale review (prod/seed moved since this dry-run)
+                    is refused, never blindly applied.
+                </div>
+
+                @if (!string.IsNullOrEmpty(_applyError))
+                {
+                    <div class="alert alert-danger py-2">@_applyError</div>
+                }
+
+                @if (applyDrift.Count == 0)
+                {
+                    <p class="text-muted small mb-0">No seed-drift removals to apply.</p>
+                }
+                else
+                {
+                    <p class="mb-2">@applyDrift.Count seed-drift row(s) would be soft-hidden.</p>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               id="applyReviewed"
+                               @bind="_applyReviewed" />
+                        <label class="form-check-label" for="applyReviewed">
+                            I have reviewed the Seed Drift list above and want to soft-hide these rows in PRODUCTION.
+                        </label>
+                    </div>
+
+                    <button class="btn btn-danger"
+                            @onclick="RunApplyRemovalsAsync"
+                            disabled="@(!_applyReviewed || _applyInFlight)"
+                            aria-label="@(_applyReviewed ? null : "Check the confirmation box above to enable Apply removals")">
+                        @if (_applyInFlight)
+                        {
+                            <span class="spinner-border spinner-border-sm"
+                                  role="status"
+                                  aria-label="Operation in progress">
+                                <span class="visually-hidden">Loading...</span>
+                            </span>
+                            <span> Applying removals...</span>
+                        }
+                        else
+                        {
+                            <span>Apply removals</span>
+                        }
+                    </button>
+                }
+
+                @if (_applyResult is not null)
+                {
+                    <div class="mt-3" data-testid="reconcile-apply-result">
+                        @if (_applyResult.WasApplied)
+                        {
+                            <div class="alert alert-success py-2">
+                                Applied: @_applyResult.HiddenCount row(s) soft-hidden.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-warning py-2">
+                                @DescribeRefusal(_applyResult.RefusalReason!.Value)
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
 
 </article>
