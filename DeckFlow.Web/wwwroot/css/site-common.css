@@ -2814,6 +2814,28 @@ label.field > span,
   color: var(--muted, #5a6472);
 }
 
+/* Reconciliation note bridging the Karsten source check and the simulated cast-rate lens. */
+.manabase-twolens-note {
+  margin: 0.55rem 0 0;
+  font-size: var(--fs-sm, 0.85rem);
+  color: var(--muted, #5a6472);
+}
+
+/* Per-role plan-presence breakdown — a muted sub-line under the payoff headline. */
+.manabase-lens-roleline {
+  font-size: 0.8rem;
+}
+
+/* Sideways-scroll cue for the wide result tables. Hidden on wide screens where every column
+   fits; the .manabase-table-wrap media query below reveals it only when the table can overflow. */
+.manabase-scroll-hint {
+  display: none;
+  margin: 0.5rem 0 0.25rem;
+  font-size: 0.75rem;
+  text-align: right;
+  color: var(--muted, #5a6472);
+}
+
 .manabase-verdict--issues {
   border-left: 3px solid var(--gold-warning, var(--warning, #c8a040));
   background: color-mix(in srgb, var(--gold-warning, var(--warning, #c8a040)) 14%, var(--panel-soft-bg, var(--panel)));
@@ -2891,6 +2913,11 @@ label.field > span,
 @media (max-width: 640px) {
   .manabase-twolens {
     grid-template-columns: 1fr;
+  }
+
+  /* Narrow screens: the result tables scroll horizontally, so surface the cue. */
+  .manabase-scroll-hint {
+    display: block;
   }
 }
 

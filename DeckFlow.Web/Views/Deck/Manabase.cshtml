@@ -296,6 +296,10 @@
                     </div>
                 }
             </div>
+            @if (showLeftLens && showRightLens)
+            {
+                <p class="manabase-twolens-note">Read the two together: the left counts raw colored sources against a fixed target; the right simulates real games with draws, mulligans and ramp. A small source gap can still cast fine — a large one shows up as a lower cast rate.</p>
+            }
         }
         @if (Model.ShowTapAnalyzer && Model.HasResult && report.TapAnalysis is { } tap)
         {
@@ -363,13 +367,22 @@
                         </div>
                         @if (Model.ShowPlanPresence && mull.PlanPresence is { } plan)
                         {
+                            @* Payoff leads on its own; the per-role split moves to a muted sub-line and
+                               drops the Payoff role (already the headline number) so the line is not five
+                               percentages with payoff shown twice. *@
                             var roleBits = plan.RolePercents
-                                .Where(kv => kv.Value > 0)
+                                .Where(kv => kv.Value > 0 && kv.Key != PlanRole.Payoff)
                                 .Select(kv => $"{ManabaseDisplay.PlanRoleLabel(kv.Key)} ~{kv.Value}%")
                                 .ToList();
                             <div class="manabase-lens-row manabase-lens-planline">
-                                <span><span class="manabase-lens-color">Payoff on curve:</span> <strong>~@plan.PayoffPercent%</strong> hold a payoff castable on curve <span class="manabase-lens-muted">(@plan.PayoffBand)</span> <span class="manabase-lens-muted">· any win-directed ~@plan.PlanPresencePercent%</span>@if (roleBits.Count > 0){<text> — </text><span class="manabase-lens-muted">@string.Join(" · ", roleBits)</span>}</span>
+                                <span><span class="manabase-lens-color">Payoff on curve:</span> <strong>~@plan.PayoffPercent%</strong> hold a payoff castable on curve <span class="manabase-lens-muted">(@plan.PayoffBand)</span> <span class="manabase-lens-muted">· any win-directed ~@plan.PlanPresencePercent%</span></span>
                             </div>
+                            @if (roleBits.Count > 0)
+                            {
+                                <div class="manabase-lens-row manabase-lens-roleline">
+                                    <span class="manabase-lens-muted">by role: @string.Join(" · ", roleBits)</span>
+                                </div>
+                            }
                         }
                     </div>
                 </div>
@@ -519,6 +532,7 @@
             extended to weight non-land sources (rocks, dorks, MDFCs), count tapped vs. untapped lands for turn-one casts, and size each color to its hardest spell.
         </p>
 
+        <p class="manabase-scroll-hint" aria-hidden="true">Scroll sideways for all columns →</p>
         <div class="manabase-table-wrap">
             <table class="manabase-table">
                 <thead>
@@ -589,6 +603,7 @@
             <h3 class="manabase-castability-heading">Castability — chance to cast on curve</h3>
             <p class="manabase-help">Estimate on each card's mana-value turn, drawing every turn (Commander is multiplayer, so you draw on your first turn too). Counts ramp; the credited mana rocks/dorks are listed in the expandable Ramp line above. See <em>How the analysis works</em> below for the mulligan and draw details.</p>
 
+            <p class="manabase-scroll-hint" aria-hidden="true">Scroll sideways for all columns →</p>
             <div class="manabase-table-wrap castability-scroll">
                 <table class="manabase-table castability-table">
                     <thead>
