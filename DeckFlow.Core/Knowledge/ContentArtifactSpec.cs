@@ -163,6 +163,16 @@ public sealed record ContentSiteIndexRow
     /// </summary>
     public DateTimeOffset? AwaitingConfirmUtc { get; init; }
 
+    /// <summary>
+    /// Row-level seed-ownership marker (SYNC-17): <see langword="true"/> when this row is
+    /// seed-managed (its natural key currently appears in <c>index-seed.json</c>),
+    /// <see langword="false"/> when it is classified prod-owned, and <see langword="null"/> when
+    /// unclassified. <see langword="null"/> is distinct from <see langword="false"/> so the D-02
+    /// backfill can be re-run safely without clobbering an existing classification. Seed-driven
+    /// removal (SYNC-12) applies ONLY to rows where this is <see langword="true"/>.
+    /// </summary>
+    public bool? SeedManaged { get; init; }
+
     /// <summary>Allowlisted archetype tags for filtering and display.</summary>
     public required IReadOnlyList<string> ArchetypeTags { get; init; }
 

@@ -272,4 +272,19 @@ public interface IContentSiteIndexStore
         IReadOnlyList<(string Type, string Value)> keys,
         CancellationToken cancellationToken = default)
         => throw new NotSupportedException("This content site-index store does not support the awaiting-confirm marker.");
+
+    /// <summary>
+    /// Sets <c>seed_managed</c> for a single row ONLY when it is currently <see langword="null"/>
+    /// (unclassified) — safe to call repeatedly (D-02 backfill): a row already classified
+    /// (<see langword="true"/> or <see langword="false"/>) is left untouched, never overwritten.
+    /// Real-implemented on <see cref="ContentSiteIndexStore"/>; this default interface method
+    /// mirrors <see cref="SetBodySha256IfNullAsync"/>'s throwing-escape-hatch idiom so existing
+    /// hand-written test doubles compile unchanged.
+    /// </summary>
+    /// <param name="id">Site-index row identifier.</param>
+    /// <param name="seedManaged">Classification to set: <see langword="true"/> = seed-owned, <see langword="false"/> = prod-owned.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of rows updated (1 when the row existed with a null classification; otherwise 0).</returns>
+    Task<int> SetSeedManagedIfNullAsync(long id, bool seedManaged, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content site-index store does not support the seed-managed marker.");
 }

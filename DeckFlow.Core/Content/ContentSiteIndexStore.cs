@@ -149,6 +149,18 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                 await addAwaitingConfirmUtc.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
 
+            if (!columns.Contains("seed_managed"))
+            {
+                // Why: row-level seed-ownership marker (SYNC-17, D-01); dialect-guarded NULLable
+                // like awaiting_confirm_utc — NULL means "unclassified", distinct from FALSE
+                // ("classified prod-owned"), so the D-02 backfill can be re-run safely.
+                await using var addSeedManaged = connection.CreateCommand();
+                addSeedManaged.CommandText = _connectionInfo.IsPostgres
+                    ? "ALTER TABLE content_site_index ADD COLUMN seed_managed BOOLEAN NULL;"
+                    : "ALTER TABLE content_site_index ADD COLUMN seed_managed INTEGER NULL;";
+                await addSeedManaged.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+
             // Why: grandfather the already-published seed to approved and re-run safely after
             // an ALTER-then-crash; only still-pending visible rows are updated on later passes.
             await using (var grandfatherApprovalStatus = connection.CreateCommand())
@@ -258,7 +270,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    is_evergreen,
                    approval_status,
                    body_sha256,
-                   awaiting_confirm_utc
+                   awaiting_confirm_utc,
+                   seed_managed
               FROM content_site_index
              WHERE natural_key_type = @naturalKeyType
                AND natural_key_value = @naturalKeyValue;
@@ -294,7 +307,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    is_evergreen,
                    approval_status,
                    body_sha256,
-                   awaiting_confirm_utc
+                   awaiting_confirm_utc,
+                   seed_managed
               FROM content_site_index
              WHERE is_visible = @visible
                AND approval_status = 'approved'
@@ -331,7 +345,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    is_evergreen,
                    approval_status,
                    body_sha256,
-                   awaiting_confirm_utc
+                   awaiting_confirm_utc,
+                   seed_managed
               FROM content_site_index
              WHERE approval_status = 'approved'
              ORDER BY source, title, id;
@@ -366,7 +381,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    is_evergreen,
                    approval_status,
                    body_sha256,
-                   awaiting_confirm_utc
+                   awaiting_confirm_utc,
+                   seed_managed
               FROM content_site_index
              ORDER BY source, title, id;
             """,
@@ -400,7 +416,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    is_evergreen,
                    approval_status,
                    body_sha256,
-                   awaiting_confirm_utc
+                   awaiting_confirm_utc,
+                   seed_managed
               FROM content_site_index
              WHERE id = @id;
             """,
@@ -437,7 +454,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                    is_evergreen,
                    approval_status,
                    body_sha256,
-                   awaiting_confirm_utc
+                   awaiting_confirm_utc,
+                   seed_managed
               FROM content_site_index
              WHERE id = @id
                AND is_visible = @visible
@@ -497,6 +515,23 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                AND body_sha256 IS NULL;
             """,
             new { bodySha256, id },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<int> SetSeedManagedIfNullAsync(long id, bool seedManaged, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        return await connection.ExecuteAsync(new CommandDefinition(
+            """
+            UPDATE content_site_index
+               SET seed_managed = @seedManaged
+             WHERE id = @id
+               AND seed_managed IS NULL;
+            """,
+            new { seedManaged, id },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
@@ -921,6 +956,10 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         // Why: body_sha256 (D-01/D-09) is bound here so all three upsert variants can bind it;
         // variants whose SQL doesn't reference @bodySha256 ignore this parameter harmlessly.
         parameters.Add("bodySha256", row.BodySha256);
+        // Why: seed_managed (SYNC-17/D-01) is a per-row bound parameter, never a hardcoded SQL
+        // literal (T-91-01); only the two seed-managed upsert variants reference @seedManaged,
+        // the plain local-distill UpsertSql ignores this parameter harmlessly.
+        parameters.Add("seedManaged", row.SeedManaged);
         return parameters;
     }
 
@@ -1060,7 +1099,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             IsEvergreen = row.IsEvergreen,
             ApprovalStatus = row.ApprovalStatus,
             BodySha256 = row.BodySha256,
-            AwaitingConfirmUtc = row.AwaitingConfirmUtc
+            AwaitingConfirmUtc = row.AwaitingConfirmUtc,
+            SeedManaged = row.SeedManaged
         };
     }
 
@@ -1126,7 +1166,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           is_visible,
           is_hidden,
           is_evergreen,
-          body_sha256)
+          body_sha256,
+          seed_managed)
         VALUES (
           @source,
           @title,
@@ -1142,7 +1183,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           @isVisible,
           @isHidden,
           @isEvergreen,
-          @bodySha256)
+          @bodySha256,
+          @seedManaged)
         ON CONFLICT (natural_key_type, natural_key_value) DO UPDATE SET
           source             = EXCLUDED.source,
           title              = EXCLUDED.title,
@@ -1158,7 +1200,11 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           is_evergreen       = content_site_index.is_evergreen,
           -- body_sha256 is OVERWRITTEN from EXCLUDED (like indexed_utc), NOT preserved (WARNING 1):
           -- a corrected seed hash must propagate on reseed, protecting D-08's one-time backfill intent.
-          body_sha256        = EXCLUDED.body_sha256;
+          body_sha256        = EXCLUDED.body_sha256,
+          -- seed_managed is ALWAYS overwritten TRUE-from-EXCLUDED on this variant (not preserved like
+          -- is_visible/is_hidden/is_evergreen): every row passing through the seed-load path is by
+          -- definition (re)entering the seed-managed set (D-01).
+          seed_managed       = EXCLUDED.seed_managed;
         """;
 
     private const string UpsertContentColumnsOnlySql = """
@@ -1175,7 +1221,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           natural_key_type,
           natural_key_value,
           approval_status,
-          body_sha256)
+          body_sha256,
+          seed_managed)
         VALUES (
           @source,
           @title,
@@ -1189,7 +1236,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           @naturalKeyType,
           @naturalKeyValue,
           @approvalStatus,
-          @bodySha256)
+          @bodySha256,
+          @seedManaged)
         ON CONFLICT (natural_key_type, natural_key_value) DO UPDATE SET
           source             = EXCLUDED.source,
           title              = EXCLUDED.title,
@@ -1201,10 +1249,13 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           bracket_tags       = EXCLUDED.bracket_tags,
           card_category_tags = EXCLUDED.card_category_tags,
           approval_status    = EXCLUDED.approval_status,
-          body_sha256        = EXCLUDED.body_sha256;
+          body_sha256        = EXCLUDED.body_sha256,
+          seed_managed       = EXCLUDED.seed_managed;
         -- approval_status is now mirrored from the source row on insert and update (D-01/D-02);
         -- is_visible, is_hidden, is_evergreen remain operator-owned and are intentionally excluded.
         -- body_sha256 is OVERWRITTEN from EXCLUDED (D-09) so a re-distill's new hash always lands.
+        -- seed_managed is OVERWRITTEN from EXCLUDED (SYNC-17/D-01) so a row's classification stays
+        -- current on insert and update through this content-only path.
         """;
 
     private const string PostgresCreateTableSql = """
@@ -1228,6 +1279,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           approval_status    TEXT NOT NULL DEFAULT 'pending',
           body_sha256        TEXT NULL,
           awaiting_confirm_utc TIMESTAMPTZ NULL,
+          seed_managed       BOOLEAN NULL,
           UNIQUE (natural_key_type, natural_key_value)
         );
         """;
@@ -1253,6 +1305,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           approval_status    TEXT NOT NULL DEFAULT 'pending',
           body_sha256        TEXT NULL,
           awaiting_confirm_utc TEXT NULL,
+          seed_managed       INTEGER NULL,
           UNIQUE (natural_key_type, natural_key_value)
         );
         """;
@@ -1278,5 +1331,6 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         public required string ApprovalStatus { get; init; }
         public string? BodySha256 { get; init; }
         public DateTimeOffset? AwaitingConfirmUtc { get; init; }
+        public bool? SeedManaged { get; init; }
     }
 }
