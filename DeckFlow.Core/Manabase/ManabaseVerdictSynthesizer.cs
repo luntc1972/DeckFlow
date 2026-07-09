@@ -150,13 +150,17 @@ public static class ManabaseVerdictSynthesizer
             return colorsClause + " and " + castRateClause + " - no changes needed.";
         }
 
+        // This no-issue path only runs when no ramp/draw SHORTFALL was collected (light side), so a
+        // not-balanced budget here is the heavy side (surplus ramp or draw). Don't claim it is "close
+        // enough" — that contradicts the same +/-2 deadband IsBalanced now uses. State it leans off
+        // the split; the trailing "no changes needed" already says a surplus is not worth fixing.
         string budgetClause = budget.IsBalanced
             ? string.Create(
                 CultureInfo.InvariantCulture,
                 $"ramp/draw ({budget.RampCount:0.#} / {budget.DrawCount:0.#}) is in balance")
             : string.Create(
                 CultureInfo.InvariantCulture,
-                $"ramp/draw ({budget.RampCount:0.#} / {budget.DrawCount:0.#}) is close enough to the community target");
+                $"ramp/draw ({budget.RampCount:0.#} / {budget.DrawCount:0.#}) leans off the community split");
 
         return colorsClause + " and " + castRateClause + " - and " + budgetClause + " - no changes needed.";
     }

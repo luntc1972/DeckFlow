@@ -172,6 +172,58 @@ public sealed class ManabaseViewRenderTests
         Assert.Contains("aria-label=\"Untapped sources\"", onMiddle, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Summary_LeadsResultPanel_BeforeTheTwoLensGrid()
+    {
+        // Verdict-first: the .manabase-summary card (health + lands + biggest fix) must render before
+        // the supporting two-lens grid so the answer is read before the evidence.
+        string html = await RenderManabaseViewAsync(BuildPopulatedModel(showTapAnalyzer: false));
+
+        int summaryIdx = html.IndexOf("class=\"manabase-summary\"", StringComparison.Ordinal);
+        int twoLensIdx = html.IndexOf("manabase-twolens", StringComparison.Ordinal);
+
+        Assert.True(summaryIdx >= 0, "Summary card should render.");
+        Assert.True(twoLensIdx >= 0, "Two-lens grid should render for a multi-color report.");
+        Assert.True(summaryIdx < twoLensIdx, "Summary must precede the two-lens grid.");
+    }
+
+    [Fact]
+    public async Task BiggestFix_RendersExactlyOnce_InTheSummaryNotBelowTheColorTable()
+    {
+        // The biggest-fix callout moved into the summary; it must not also render in its old
+        // mode-note slot below the color table (no duplication).
+        string html = await RenderManabaseViewAsync(BuildPopulatedModel(showTapAnalyzer: false));
+
+        Assert.Single(Regex.Matches(html, "manabase-summary-fix"));
+        Assert.DoesNotContain("mode-note\"><strong>Biggest fix", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task OpeningHandHeadline_UsesSoftHierarchyClass()
+    {
+        // Hierarchy fix: the opening-hand headline is downweighted vs the cast-rate headline.
+        string html = await RenderManabaseViewAsync(
+            BuildPopulatedModel(showTapAnalyzer: false, showMulliganEval: true));
+
+        Assert.Contains("manabase-lens-big--soft", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RampDrawBalancedLine_SuppressedWhenBudgetNotBalanced()
+    {
+        // Contradiction fix (view side): a draw-light budget reports IsBalanced=false, so the
+        // "looks balanced" clause must not render beside a draw-light verdict.
+        string balancedHtml = await RenderManabaseViewAsync(
+            BuildPopulatedModel(showTapAnalyzer: false, rampDrawBudget: Budget(isBalanced: true)));
+        Assert.Contains("looks balanced", balancedHtml, StringComparison.Ordinal);
+
+        string unbalancedHtml = await RenderManabaseViewAsync(
+            BuildPopulatedModel(showTapAnalyzer: false, rampDrawBudget: Budget(isBalanced: false)));
+        Assert.DoesNotContain("looks balanced", unbalancedHtml, StringComparison.Ordinal);
+        // The count line still renders — the section is never empty.
+        Assert.Contains("ramp /", unbalancedHtml, StringComparison.Ordinal);
+    }
+
     // Replace the randomized __RequestVerificationToken value with a constant so two renders of the
     // same model differ only by intentional content (here: the tap card).
     private static string NormalizeAntiForgery(string html) =>
@@ -204,18 +256,40 @@ public sealed class ManabaseViewRenderTests
         return i;
     }
 
-    private static ManabaseViewModel BuildPopulatedModel(bool showTapAnalyzer, bool showMulliganEval = false, bool showPlanPresence = false) => new()
-    {
-        Request = new ManabaseRequest
+    private static ManabaseViewModel BuildPopulatedModel(
+        bool showTapAnalyzer,
+        bool showMulliganEval = false,
+        bool showPlanPresence = false,
+        ManabaseRampDrawBudget? rampDrawBudget = null) => new()
         {
-            DeckInputSource = DeckInputSource.PasteText,
-            Mode = ManabaseMode.Casual,
-        },
-        InputSummary = "Test deck · 99 cards + 1 commander",
-        Report = ReportWithTapAnalysis(),
-        ShowTapAnalyzer = showTapAnalyzer,
-        ShowMulliganEval = showMulliganEval,
-        ShowPlanPresence = showPlanPresence,
+            Request = new ManabaseRequest
+            {
+                DeckInputSource = DeckInputSource.PasteText,
+                Mode = ManabaseMode.Casual,
+            },
+            InputSummary = "Test deck · 99 cards + 1 commander",
+            Report = ReportWithTapAnalysis(),
+            ShowTapAnalyzer = showTapAnalyzer,
+            ShowMulliganEval = showMulliganEval,
+            ShowPlanPresence = showPlanPresence,
+            RampDrawBudget = rampDrawBudget,
+        };
+
+    private static ManabaseRampDrawBudget Budget(bool isBalanced) => new()
+    {
+        RampCount = 12,
+        DrawCount = isBalanced ? 12 : 8,
+        OverlapCount = 0,
+        Threshold = 4.0,
+        ThresholdSource = ManabaseRampDrawThresholdSource.CommanderManaValue,
+        TargetRamp = 12,
+        TargetDraw = 12,
+        IsBalanced = isBalanced,
+        IsRampLight = false,
+        IsRampHeavy = false,
+        RampShort = 0,
+        IsDrawLight = !isBalanced,
+        DrawShort = isBalanced ? 0 : 4,
     };
 
     /// <summary>

@@ -184,6 +184,56 @@
             </div>
         </div>
 
+        @* Verdict-first summary: the bottom line (health + land count + the single biggest fix)
+           leads the panel so the answer is read before the supporting lenses and tables below.
+           Health/Lands/PrimaryFix are always computed (not flag-gated), so this renders in every
+           mode. *@
+        @{ var primaryFix = report.PrimaryFix; }
+        <section class="manabase-summary" aria-label="Verdict summary">
+            <div class="manabase-summary-head">
+                <span class="manabase-summary-label">Verdict</span>
+                <span class="manabase-chip manabase-summary-chip @ManabaseDisplay.HealthCss(report.Health)">@ManabaseDisplay.HealthLabel(report.Health)</span>
+            </div>
+            <p class="manabase-summary-lands">
+                <strong>Lands:</strong> @report.ActualLands vs ~@report.TargetLands.ToString("F1") recommended
+                (@(report.LandDelta >= -1
+                    ? "land count OK"
+                    : report.LandShortfallCoveredByRamp
+                        ? $"~{Math.Ceiling(-report.LandDelta):F0} under the Karsten count, but ramp covers it"
+                        : $"add ~{Math.Ceiling(-report.LandDelta):F0} land(s)")).
+            </p>
+            @* Biggest fix — the single most actionable change, chosen so it never contradicts the
+               land/health line above (e.g. it won't tell you to add sources to an oversupplied
+               color). Rendered here (not below the color table) so the fix sits with the verdict. *@
+            @switch (primaryFix.Kind)
+            {
+                case ManabaseFixKind.ColorSources:
+                    <p class="manabase-summary-fix"><strong>Biggest fix:</strong> add ~@primaryFix.Amount more <strong>@primaryFix.Color</strong> source(s) — you have @primaryFix.ActualSources.ToString("F1") vs @primaryFix.RequiredSources needed for @primaryFix.Spell.</p>
+                    break;
+                case ManabaseFixKind.Lands:
+                    <p class="manabase-summary-fix"><strong>Biggest fix:</strong> add ~@primaryFix.Amount more <strong>land(s)</strong> — each color is individually well-supported, but the base is ~@primaryFix.Amount land(s) short of the curve.</p>
+                    break;
+                case ManabaseFixKind.DemandingCards:
+                    <p class="manabase-summary-fix"><strong>Biggest fix:</strong> lands and colored sources are adequate, but @primaryFix.DemandingCount demanding <strong>@primaryFix.Color</strong> card(s) still cast late (worst: @primaryFix.Spell) — trim the top end or add early ramp.</p>
+                    break;
+                default:
+                    <p class="manabase-summary-fix"><strong>Colors:</strong> every color is adequately supported.</p>
+                    break;
+            }
+            @if (report.Health != ManabaseHealth.Healthy && report.DemandingCards.Count > 0)
+            {
+                var worst = report.DemandingCards.OrderBy(d => d.CastPercent).First();
+                <p class="manabase-summary-demanding">
+                    @report.DemandingCards.Count demanding @(report.DemandingCards.Count == 1 ? "card" : "cards") — hardest: <strong>@worst.Name</strong> (@worst.CastPercent%).
+                    <span class="manabase-summary-demanding-hint">Full list in the castability table below.</span>
+                </p>
+                @if (showPlainLanguage)
+                {
+                    <span class="manabase-lens-gloss">@ManabaseDisplay.DemandingCardsGloss</span>
+                }
+            }
+        </section>
+
         @{
             IReadOnlyList<CardCastability> castRows = Model.ShowCommanderCastability
                 ? report.Castability.Where(c => !c.IsCommander).ToList()
@@ -293,7 +343,10 @@
                 <p class="manabase-lens-label">Opening hand</p>
                 <div class="manabase-mulliganlens-split">
                     <div>
-                        <div class="manabase-lens-big">
+                        @* Downweighted vs the cast-rate headline: opening-hand is a consistency signal,
+                           not a keep/mulligan recommendation (see the note below), so it should not be
+                           the largest number on the page. *@
+                        <div class="manabase-lens-big manabase-lens-big--soft">
                             <span class="@km.Css" aria-hidden="true">@km.Marker</span> @mull.KeepableBand (~@mull.KeepableHandPercent%)<span>keepable hands</span>
                         </div>
                         <span class="sr-only">@(string.Equals(mull.KeepableBand, "high", StringComparison.OrdinalIgnoreCase) ? "meets target" : "below target")</span>
@@ -351,29 +404,8 @@
             Commander: <strong>@ManabaseDisplay.ImportanceLabel(importance)</strong>
         </p>
 
-        <p>
-            <strong>Lands:</strong> @report.ActualLands vs ~@report.TargetLands.ToString("F1") recommended
-            (@(report.LandDelta >= -1
-                ? "land count OK"
-                : report.LandShortfallCoveredByRamp
-                    ? $"~{Math.Ceiling(-report.LandDelta):F0} under the Karsten count, but ramp covers it"
-                    : $"add ~{Math.Ceiling(-report.LandDelta):F0} land(s)")).
-            <strong>Health:</strong>
-            <span class="manabase-chip @ManabaseDisplay.HealthCss(report.Health)">@ManabaseDisplay.HealthLabel(report.Health)</span>
-            @if (report.Health != ManabaseHealth.Healthy && report.DemandingCards.Count > 0)
-            {
-                var demanding = report.DemandingCards;
-                <span class="manabase-demanding">
-                    — @demanding.Count demanding @(demanding.Count == 1 ? "card" : "cards"):
-                    @string.Join(", ", demanding.Select(d => $"{d.Name} ({d.CastPercent}%)"))
-                </span>
-                @if (showPlainLanguage)
-                {
-                    <span class="manabase-lens-gloss">@ManabaseDisplay.DemandingCardsGloss</span>
-                }
-            }
-        </p>
-
+        @* Lands + Health + biggest fix now lead the panel in .manabase-summary above; this mid-panel
+           spot keeps only the beta notice and the detailed plain-language / ramp-draw advisories. *@
         <section class="manabase-beta-notice" role="note">
             Heads up: manabase analysis is in beta. Treat the results as a guide, not gospel - numbers may be inaccurate.
         </section>
@@ -533,24 +565,9 @@
             </table>
         </div>
 
-        @* Callout is the single most actionable fix — chosen so it never contradicts the land/health
-           line above (e.g. it won't tell you to add sources to an oversupplied color). *@
-        @{ var fix = report.PrimaryFix; }
-        @switch (fix.Kind)
-        {
-            case ManabaseFixKind.ColorSources:
-                <p class="mode-note"><strong>Biggest fix:</strong> add ~@fix.Amount more <strong>@fix.Color</strong> source(s) — you have @fix.ActualSources.ToString("F1") vs @fix.RequiredSources needed for @fix.Spell.</p>
-                break;
-            case ManabaseFixKind.Lands:
-                <p class="mode-note"><strong>Biggest fix:</strong> add ~@fix.Amount more <strong>land(s)</strong> — each color is individually well-supported, but the base is ~@fix.Amount land(s) short of the curve.</p>
-                break;
-            case ManabaseFixKind.DemandingCards:
-                <p class="mode-note"><strong>Biggest fix:</strong> lands and colored sources are adequate, but @fix.DemandingCount demanding <strong>@fix.Color</strong> card(s) still cast late (worst: @fix.Spell) — trim the top end or add early ramp.</p>
-                break;
-            default:
-                <p class="mode-note"><strong>Colors:</strong> every color is adequately supported.</p>
-                break;
-        }
+        @* Biggest-fix callout moved to the .manabase-summary card at the top of the panel so the
+           single most actionable change reads with the verdict. See the comment there for the
+           no-contradiction invariant (won't tell you to add sources to an oversupplied color). *@
 
         @* MQ-04: disclose cards the analysis can't fully model (X costs, hybrid/Phyrexian pips)
            instead of silently folding them into a clean-looking verdict. *@

@@ -83,6 +83,31 @@ public sealed class ManabaseVerdictSynthesizerTests
     }
 
     [Fact]
+    public void Synthesize_CleanDeckButDrawHeavy_NoIssueReasonDoesNotClaimBalance()
+    {
+        // Draw-heavy, otherwise clean: no shortfall issue is collected (only light-side flags exist),
+        // so this hits the no-issue path with IsBalanced=false. The copy must NOT say "in balance" or
+        // "close enough" — draw (16) is outside the same +/-2 deadband that defines balance.
+        ManabaseVerdict verdict = ManabaseVerdictSynthesizer.Synthesize(
+            CreateReport(
+                actualLands: 37,
+                targetLands: 37.0,
+                avgOnCurvePercent: 87,
+                colorFindings:
+                [
+                    CreateFinding(ManaColor.White, actualSources: 19.0, requiredSources: 18, drivingSpell: "Swords to Plowshares"),
+                    CreateFinding(ManaColor.Blue, actualSources: 16.0, requiredSources: 14, drivingSpell: "Counterspell"),
+                ]),
+            ManabaseMode.Casual,
+            CreateBudget(rampCount: 12.0, drawCount: 16.0, targetRamp: 12, targetDraw: 12, threshold: 4.0, overlapCount: 0, isBalanced: false));
+
+        Assert.False(verdict.HasIssues);
+        Assert.Contains("ramp/draw (12 / 16) leans off the community split", verdict.NoIssueReason);
+        Assert.DoesNotContain("in balance", verdict.NoIssueReason);
+        Assert.DoesNotContain("close enough", verdict.NoIssueReason);
+    }
+
+    [Fact]
     public void Synthesize_MoreThanThreeIssues_CapsToThreeInPriorityOrder()
     {
         ManabaseVerdict verdict = ManabaseVerdictSynthesizer.Synthesize(
@@ -236,7 +261,9 @@ public sealed class ManabaseVerdictSynthesizerTests
         bool isRampLight = false,
         int rampShort = 0,
         bool isDrawLight = false,
-        int drawShort = 0) => new()
+        int drawShort = 0,
+        bool? isBalanced = null,
+        bool isRampHeavy = false) => new()
         {
             RampCount = rampCount,
             DrawCount = drawCount,
@@ -245,9 +272,11 @@ public sealed class ManabaseVerdictSynthesizerTests
             ThresholdSource = thresholdSource,
             TargetRamp = targetRamp,
             TargetDraw = targetDraw,
-            IsBalanced = !isRampLight && !isDrawLight,
+            // Default mirrors the light-shortfall path; override for heavy-side (surplus) cases the
+            // light flags cannot express.
+            IsBalanced = isBalanced ?? (!isRampLight && !isDrawLight),
             IsRampLight = isRampLight,
-            IsRampHeavy = false,
+            IsRampHeavy = isRampHeavy,
             RampShort = rampShort,
             IsDrawLight = isDrawLight,
             DrawShort = drawShort,
