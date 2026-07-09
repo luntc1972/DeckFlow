@@ -1,4 +1,6 @@
 using Dapper;
+using DeckFlow.Core.Content;
+using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Storage;
 using DeckFlow.Studio.Services;
 using Npgsql;
@@ -88,6 +90,55 @@ public sealed class ProdContentReaderTests
         var result = await reader.ReadFlagAsync(connectionString, missingKey, CancellationToken.None);
 
         Assert.False(result);
+    }
+
+    // ── ReadAllAsync body_sha256 + seed_managed round trip (Pitfall 2) ──────────
+
+    [PostgresFact]
+    public async Task ReadAllAsync_RoundTripsBodySha256AndSeedManaged_WhenPopulated()
+    {
+        // Pitfall 2: the reconciler's body-hash-mismatch and seed-drift classes are unbuildable
+        // until ReadAllAsync actually selects + maps these two columns instead of leaving them null.
+        var connectionString = RequireTestConnectionString();
+        var videoId = $"prodreader-{Guid.NewGuid():N}";
+        var expectedHash = "a1b2c3d4e5f60718293a4b5c6d7e8f90112233445566778899aabbccddeeff";
+
+        var store = new ContentSiteIndexStore(
+            new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, NormalizeForStore(connectionString)));
+        await store.UpsertContentColumnsOnlyAsync(new ContentSiteIndexRow
+        {
+            Id = 0,
+            YoutubeVideoId = videoId,
+            Source = "Prod Reader Round Trip",
+            Title = "Round Trip Row",
+            VideoUrl = $"https://youtu.be/{videoId}",
+            ArtifactPath = $"content-kb/prod-reader/{videoId}.md",
+            IndexedUtc = DateTimeOffset.UtcNow,
+            ArchetypeTags = [],
+            BracketTags = [],
+            CardCategoryTags = [],
+            ApprovalStatus = "approved",
+            BodySha256 = expectedHash,
+            SeedManaged = true,
+        });
+
+        var reader = new ProdContentReader();
+        var rows = await reader.ReadAllAsync(connectionString, CancellationToken.None);
+
+        var row = Assert.Single(rows, r => r.YoutubeVideoId == videoId);
+        Assert.Equal(expectedHash, row.BodySha256);
+        Assert.True(row.SeedManaged);
+    }
+
+    // Why: ContentSiteIndexStore's constructor normalizes internally for its own connection pool, but
+    // this test opens the store directly against the SAME test connection string ProdContentReader
+    // consumes raw — force SslMode.Require the same way ProdContentReader does so both sides talk to
+    // the exact same Render-Postgres-shaped endpoint.
+    private static string NormalizeForStore(string connectionString)
+    {
+        var normalized = PostgresConnectionStringNormalizer.Normalize(connectionString);
+        var builder = new NpgsqlConnectionStringBuilder(normalized) { SslMode = SslMode.Require };
+        return builder.ConnectionString;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

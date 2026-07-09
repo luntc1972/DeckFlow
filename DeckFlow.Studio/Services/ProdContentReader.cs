@@ -21,7 +21,8 @@ public sealed class ProdContentReader : IProdContentReader
     private const string SelectAllSql = """
         SELECT id, source, title, video_url, artifact_path, published_utc, pushed_to_prod_utc,
                indexed_utc, archetype_tags, bracket_tags, card_category_tags, natural_key_type,
-               natural_key_value, is_visible, is_hidden, is_evergreen, approval_status
+               natural_key_value, is_visible, is_hidden, is_evergreen, approval_status,
+               body_sha256, seed_managed
           FROM content_site_index;
         """;
 
@@ -180,7 +181,9 @@ public sealed class ProdContentReader : IProdContentReader
             IsVisible = row.IsVisible,
             IsHidden = row.IsHidden,
             IsEvergreen = row.IsEvergreen,
-            ApprovalStatus = row.ApprovalStatus
+            ApprovalStatus = row.ApprovalStatus,
+            BodySha256 = row.BodySha256,
+            SeedManaged = row.SeedManaged
         };
     }
 
@@ -204,5 +207,7 @@ public sealed class ProdContentReader : IProdContentReader
         public bool IsHidden { get; init; }
         public bool IsEvergreen { get; init; }
         public required string ApprovalStatus { get; init; }
+        public string? BodySha256 { get; init; }
+        public bool? SeedManaged { get; init; }
     }
 }
