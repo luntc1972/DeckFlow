@@ -190,6 +190,11 @@ public partial class Program
             // extracted from the page code-behind (H1). Stateless and all its dependencies are
             // singletons, so it is registered as a singleton too.
             builder.Services.AddSingleton<DeckFlow.Studio.ViewModels.PullFromProdCoordinator>();
+            // Why (D-04/SYNC-11): Reconcile page orchestration (dry-run delegate + open-discrepancy
+            // read), mirroring the DirectPush/Pull coordinator convention. Stateless — both
+            // dependencies (the orchestrator + the local store) are singletons, so this is
+            // registered as a singleton too.
+            builder.Services.AddSingleton<DeckFlow.Studio.ViewModels.ReconcileCoordinator>();
             // Why: Harvest page collaborators (Phase 82 SRP split), each owning the I/O for one
             // concern while the page keeps the markup-bound state. All dependencies are singletons
             // except CreatorManagementCoordinator's IContentMaintenanceOrchestrator (scoped) — that
