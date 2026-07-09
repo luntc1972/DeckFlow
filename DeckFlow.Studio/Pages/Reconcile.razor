@@ -1,0 +1,142 @@
+@page "/reconcile"
+@inherits StudioCancellableComponentBase
+@using DeckFlow.Core.Content
+
+<PageTitle>Reconcile</PageTitle>
+
+<h1 class="h4 fw-semibold">Reconcile</h1>
+<p class="text-muted">Detect prod &lt;-&gt; git &lt;-&gt; seed drift across four discrepancy classes.
+This dry-run is <strong>read-only</strong> — it reads production and your local git tree, persists
+what it finds to the local discrepancy store, and writes a human-readable report. It never hides,
+deletes, or otherwise writes anything in production. Removal (soft-hide) is a separate, flag-gated
+Apply action that ships in a later plan.</p>
+
+<article class="content px-4">
+
+    @* ─── Config gate (presence-only; never the value) ─── *@
+    @if (!Config.IsProdConfigured)
+    {
+        <div class="alert alert-warning py-2 mt-3">
+            Prod connection: not configured. Set the prod connection string in user-secrets to
+            enable the reconcile dry-run.
+        </div>
+    }
+
+    @* ─── Read-only assurance banner ─── *@
+    <div class="alert alert-info py-2 mt-3">
+        <span class="oi oi-shield" aria-hidden="true"></span>
+        <strong> READ-ONLY / detection-only.</strong> This dry-run performs no destructive write —
+        no visibility change, no prod DDL. Results are also written to
+        <code>content-kb/reconcile-report.md</code> in your git checkout.
+    </div>
+
+    <div class="card mt-3">
+        <div class="card-header">
+            <h2 class="h5 fw-semibold mb-0">Run Dry-Run</h2>
+        </div>
+        <div class="card-body">
+
+            @if (!string.IsNullOrEmpty(_runError))
+            {
+                <div class="alert alert-danger py-2">@_runError</div>
+            }
+
+            <button class="btn btn-outline-primary"
+                    @onclick="RunDryRunAsync"
+                    disabled="@(_runInFlight || !Config.IsProdConfigured)">
+                @if (_runInFlight)
+                {
+                    <span class="spinner-border spinner-border-sm text-primary"
+                          role="status"
+                          aria-label="Operation in progress">
+                        <span class="visually-hidden">Loading...</span>
+                    </span>
+                    <span> Running dry-run...</span>
+                }
+                else
+                {
+                    <span>Run dry-run</span>
+                }
+            </button>
+
+            @if (_result is not null)
+            {
+                <div class="mt-3" data-testid="reconcile-results">
+                    @if (_lastRunUtc is not null)
+                    {
+                        <p class="text-muted small mb-2">Last run: @_lastRunUtc.Value.ToString("u")</p>
+                    }
+
+                    @{
+                        var publishedOrphans = Items(_result, ContentKbReconcileKind.PublishedOrphan);
+                        var fileOrphans = Items(_result, ContentKbReconcileKind.FileOrphan);
+                        var seedDrift = Items(_result, ContentKbReconcileKind.SeedDrift);
+                        var bodyHashMismatches = Items(_result, ContentKbReconcileKind.BodyHashMismatch);
+                    }
+
+                    @* ─── Published orphans ─── *@
+                    <div class="card border-secondary mt-2">
+                        <div class="card-header py-1">
+                            <span class="fw-semibold">Published Orphans (@publishedOrphans.Count)</span>
+                            <span class="text-muted small d-block">Visible/approved prod row with no git body.</span>
+                        </div>
+                        <div class="card-body py-2">
+                            @RenderDiscrepancyList(publishedOrphans)
+                        </div>
+                    </div>
+
+                    @* ─── File orphans ─── *@
+                    <div class="card border-secondary mt-2">
+                        <div class="card-header py-1">
+                            <span class="fw-semibold">File Orphans (@fileOrphans.Count)</span>
+                            <span class="text-muted small d-block">Git body with no matching prod row.</span>
+                        </div>
+                        <div class="card-body py-2">
+                            @RenderDiscrepancyList(fileOrphans)
+                        </div>
+                    </div>
+
+                    @* ─── Seed drift (or the seed-unavailable notice, T-91-28) ─── *@
+                    @if (_result.SeedAvailable)
+                    {
+                        <div class="card border-secondary mt-2">
+                            <div class="card-header py-1">
+                                <span class="fw-semibold">Seed Drift (@seedDrift.Count)</span>
+                                <span class="text-muted small d-block">Seed-managed prod row absent from the seed.</span>
+                            </div>
+                            <div class="card-body py-2">
+                                @RenderDiscrepancyList(seedDrift)
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="card border-warning mt-2" data-testid="seed-unavailable-banner">
+                            <div class="card-body py-2">
+                                <h3 class="h6 fw-semibold text-warning mb-1">Seed Drift — SEED UNAVAILABLE</h3>
+                                <p class="mb-0 small">
+                                    <code>index-seed.json</code> could not be read or parsed for this
+                                    run, so NO seed-managed row was evaluated for drift. This is
+                                    <strong>not</strong> the same as "no drift found" — re-run once the
+                                    seed file is restored.
+                                </p>
+                            </div>
+                        </div>
+                    }
+
+                    @* ─── Body hash mismatches ─── *@
+                    <div class="card border-secondary mt-2">
+                        <div class="card-header py-1">
+                            <span class="fw-semibold">Body Hash Mismatches (@bodyHashMismatches.Count)</span>
+                            <span class="text-muted small d-block">Prod hash differs from the computed git body hash.</span>
+                        </div>
+                        <div class="card-body py-2">
+                            @RenderDiscrepancyList(bodyHashMismatches)
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+</article>
