@@ -149,6 +149,11 @@ public partial class Program
             builder.Services.AddSingleton<IYouTubeChannelVideoLister>(sp => new YouTubeChannelVideoLister(sp.GetRequiredService<HttpClient>()));
             builder.Services.AddSingleton<IFfmpegAudioChunker, FfmpegAudioChunker>();
             builder.Services.AddSingleton<IGitRepository, GitRepository>();
+            // Why (D-04/SYNC-11): the reconcile dry-run I/O orchestrator — reads prod once, walks the
+            // git content-kb tree, reads the seed availability-aware, drives the pure classifier, and
+            // persists to the IContentKbReconcileStore singleton registered above. Stateless/singleton
+            // dependencies only, so it is safe as a singleton too.
+            builder.Services.AddSingleton<IContentKbReconcileOrchestrator, ContentKbReconcileOrchestrator>();
             builder.Services.AddSingleton<ITranscriptSource>(sp => new YouTubeTranscriptSource(
                 TranscriptProviderFactory.Resolve(sp.GetRequiredService<HttpClient>()),
                 new YouTubeAudioSource(sp.GetRequiredService<HttpClient>()),
