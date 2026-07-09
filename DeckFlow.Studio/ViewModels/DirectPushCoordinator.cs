@@ -247,7 +247,10 @@ public sealed class DirectPushCoordinator
 
         var prodStore = CreateProdStore();
 
-        await prodStore.UpsertContentColumnsOnlyBatchAsync(publishRows, cancellationToken).ConfigureAwait(false);
+        // SYNC-17/D-01: every row DirectPush pushes to prod enters the seed-managed set — stamp the
+        // marker true on the outgoing batch (Pitfall 4: hardcoded true, not sourced from the row).
+        var stampedRows = publishRows.Select(r => r with { SeedManaged = true }).ToList();
+        await prodStore.UpsertContentColumnsOnlyBatchAsync(stampedRows, cancellationToken).ConfigureAwait(false);
 
         var keys = DeriveKeys(publishRows);
 

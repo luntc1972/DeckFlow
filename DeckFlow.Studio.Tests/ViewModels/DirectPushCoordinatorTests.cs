@@ -273,6 +273,29 @@ public sealed class DirectPushCoordinatorTests
     }
 
     [Fact]
+    public async Task WriteContentAsync_StampsSeedManagedTrue_OnEveryBatchRow()
+    {
+        // SYNC-17/D-01: every row DirectPush pushes to prod enters the seed-managed set — the batch
+        // upsert must receive rows stamped seed_managed=true, hardcoded regardless of the incoming
+        // row's own (possibly null/false) classification (Pitfall 4).
+        var local = new FakeContentSiteIndexStore();
+        var prod = new FakeContentSiteIndexStore();
+        var publish = new List<ContentSiteIndexRow>
+        {
+            Youtube(1, "aaa") with { ApprovalStatus = "approved", SeedManaged = null },
+            Youtube(2, "bbb") with { ApprovalStatus = "approved", SeedManaged = false },
+        };
+        prod.Rows.Add(Youtube(1, "aaa"));
+        prod.Rows.Add(Youtube(2, "bbb"));
+        var coordinator = Build(local, prod);
+
+        await coordinator.WriteContentAsync(publish, CancellationToken.None);
+
+        var batch = Assert.Single(prod.BatchUpsertCalls);
+        Assert.All(batch, r => Assert.True(r.SeedManaged));
+    }
+
+    [Fact]
     public async Task WriteContentAsync_BatchRollback_Throws_AndDoesNotSetMarker()
     {
         var local = new FakeContentSiteIndexStore();
