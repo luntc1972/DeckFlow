@@ -12,8 +12,9 @@ namespace DeckFlow.Studio.Tests;
 /// orchestrator. Covers: all four discrepancy classes detected + persisted to the local store with
 /// <c>SeedAvailable == true</c>; an unavailable/missing seed yields <c>SeedAvailable == false</c> and
 /// ZERO seed-drift while the other three classes are still computed (T-91-25/T-91-26); prod is read
-/// exactly once per run (T-91-15); and <c>index-seed.json</c> is excluded from file-orphan
-/// enumeration.
+/// exactly once per run (T-91-15); <c>index-seed.json</c> is excluded from file-orphan enumeration;
+/// and the D-06 report is written with a section+count per class, rendering a seed-unavailable
+/// notice instead of a misleading empty seed-drift section.
 /// </summary>
 public sealed class ContentKbReconcileOrchestratorTests : IDisposable
 {
@@ -206,4 +207,66 @@ public sealed class ContentKbReconcileOrchestratorTests : IDisposable
                 && d.ArtifactPath.EndsWith("index-seed.json", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task RunDryRunAsync_ItsOwnReport_NeverSelfClassifiesAsFileOrphanOnNextRun()
+    {
+        var reader = new FakeProdContentReader();
+        var orchestrator = Build(reader);
+
+        await orchestrator.RunDryRunAsync("full", CancellationToken.None);
+        Assert.True(File.Exists(Path.Combine(_repoRoot, "content-kb", "reconcile-report.md")));
+
+        var second = await orchestrator.RunDryRunAsync("full", CancellationToken.None);
+
+        Assert.DoesNotContain(
+            second.Discrepancies,
+            d => d.Kind == ContentKbReconcileKind.FileOrphan
+                && d.ArtifactPath == "content-kb/reconcile-report.md");
+    }
+
+    [Fact]
+    public async Task RunDryRunAsync_WritesReport_WithSectionAndCountPerClass()
+    {
+        var publishedOrphan = Youtube(
+            1, "missing-vid", "content-kb/test-channel/missing-vid.md",
+            isVisible: true, approvalStatus: "approved");
+        WriteBody("content-kb/test-channel/orphan-file.md", "orphaned body");
+        WriteSeed(("youtube_channel", "some-other-vid"));
+
+        var reader = new FakeProdContentReader();
+        reader.Rows.Add(publishedOrphan);
+
+        var orchestrator = Build(reader);
+        await orchestrator.RunDryRunAsync("full", CancellationToken.None);
+
+        var reportPath = Path.Combine(_repoRoot, "content-kb", "reconcile-report.md");
+        Assert.True(File.Exists(reportPath));
+        var text = File.ReadAllText(reportPath);
+
+        Assert.Contains("Published Orphans", text, StringComparison.Ordinal);
+        Assert.Contains("(1)", text, StringComparison.Ordinal);
+        Assert.Contains("File Orphans", text, StringComparison.Ordinal);
+        Assert.Contains("Seed Drift", text, StringComparison.Ordinal);
+        Assert.Contains("Body Hash Mismatches", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RunDryRunAsync_SeedUnavailable_ReportRendersSeedUnavailableNotice_NotEmptySection()
+    {
+        // No seed file written -> unavailable.
+        var reader = new FakeProdContentReader();
+        reader.Rows.Add(Youtube(
+            1, "present-vid", "content-kb/test-channel/present-vid.md",
+            isVisible: true, approvalStatus: "approved", seedManaged: true));
+        WriteBody("content-kb/test-channel/present-vid.md", "body");
+
+        var orchestrator = Build(reader);
+        await orchestrator.RunDryRunAsync("full", CancellationToken.None);
+
+        var reportPath = Path.Combine(_repoRoot, "content-kb", "reconcile-report.md");
+        var text = File.ReadAllText(reportPath);
+
+        Assert.Contains("SEED UNAVAILABLE", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Seed Drift (seed-managed row absent from seed) (0)", text, StringComparison.Ordinal);
+    }
 }
