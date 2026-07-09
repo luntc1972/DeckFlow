@@ -81,7 +81,10 @@ public static class ManabaseRampDrawBudgetCalculator
         double rampDelta = deck.RampPieceCount - targetRamp;
         double drawDelta = deck.DrawPieceCount - targetDraw;
 
-        bool isBalanced = Math.Abs(rampDelta) <= 2.0;
+        // "Balanced" must hold for BOTH axes, not ramp alone: a deck on-target for ramp but short
+        // on draw was reporting "split looks balanced" directly beside the verdict's "Draw looks
+        // light — add ~N draw" line (UX contradiction). Require draw within the same deadband too.
+        bool isBalanced = Math.Abs(rampDelta) <= 2.0 && Math.Abs(drawDelta) <= 2.0;
         bool isRampLight = rampDelta < -2.0;
         bool isRampHeavy = rampDelta > 2.0;
         int rampShort = isRampLight ? (int)Math.Ceiling(-rampDelta) : 0;

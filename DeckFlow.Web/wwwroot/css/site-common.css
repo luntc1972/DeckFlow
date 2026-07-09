@@ -2717,6 +2717,13 @@ label.field > span,
   color: var(--muted, #5a6472);
 }
 
+/* Opening-hand headline is a caveated consistency signal, not the verdict — render it smaller
+   than the cast-rate headline so it does not dominate the page (UX hierarchy fix). */
+.manabase-lens-big--soft {
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+
 .manabase-lens-note {
   margin: 0.55rem 0 0;
   font-size: 0.8rem;
@@ -2760,6 +2767,51 @@ label.field > span,
   border-left: 3px solid var(--gold-warning, var(--warning, #c8a040));
   background: color-mix(in srgb, var(--gold-warning, var(--warning, #c8a040)) 10%, var(--panel-soft-bg, var(--panel)));
   color: var(--ink, inherit);
+}
+
+/* Verdict-first summary card — leads the result panel with health + land count + biggest fix so
+   the answer reads before the supporting lenses/tables. Layout token-only so it themes cleanly. */
+.manabase-summary {
+  margin: 0.75rem 0 0;
+  padding: 1rem 1.15rem;
+  border-radius: 12px;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+  background: var(--panel-soft-bg, var(--panel));
+}
+
+.manabase-summary-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.manabase-summary-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted, #5a6472);
+}
+
+/* Larger than the inline chips elsewhere — this is the headline verdict. */
+.manabase-summary-chip {
+  font-size: 1.05rem;
+  padding: 0.2rem 0.7rem;
+}
+
+.manabase-summary-lands,
+.manabase-summary-fix,
+.manabase-summary-demanding {
+  margin: 0.3rem 0 0;
+}
+
+.manabase-summary-fix {
+  font-weight: 600;
+}
+
+.manabase-summary-demanding-hint {
+  color: var(--muted, #5a6472);
 }
 
 .manabase-verdict--issues {

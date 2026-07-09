@@ -132,6 +132,27 @@ public sealed class ManabaseRampDrawBudgetTests
     }
 
     [Fact]
+    public void Calculate_RampOnTargetButDrawLight_IsNotBalanced()
+    {
+        // Regression: ramp on-target (delta 0) but draw short by >2 must NOT report balanced —
+        // otherwise the view shows "split looks balanced" beside the verdict's "Draw looks light"
+        // line. Threshold 4 (commander MV) -> target 12 ramp / 12 draw; ramp 12 / draw 8.
+        ManabaseRampDrawBudget budget = ManabaseRampDrawBudgetCalculator.Calculate(
+            Deck(
+                rampCount: 12,
+                drawCount: 8,
+                overlapCount: 0,
+                Spell("Commander", 4, isCommander: true)));
+
+        Assert.False(budget.IsBalanced);
+        Assert.False(budget.IsRampLight);
+        Assert.False(budget.IsRampHeavy);
+        Assert.True(budget.IsDrawLight);
+        Assert.Equal(0, budget.RampShort);
+        Assert.Equal(4, budget.DrawShort);
+    }
+
+    [Fact]
     public void Calculate_RampHeavy_FlagsExcessRamp()
     {
         ManabaseRampDrawBudget budget = ManabaseRampDrawBudgetCalculator.Calculate(
