@@ -95,6 +95,11 @@ public partial class Program
             // startup after this registration (see the app.Services resolution below).
             builder.Services.AddSingleton<IContentArtifactBodyResolver, StudioContentArtifactBodyResolver>();
             builder.Services.AddSingleton<ContentBodyHashBackfill>();
+            // Why (SYNC-17/D-02): host-agnostic seed_managed backfill, bound to the SAME local
+            // content-kb.db store above. StudioSeedKeyMembershipSource resolves the operator's
+            // git-checkout content-kb/seed/index-seed.json (never a prod seed).
+            builder.Services.AddSingleton<ISeedKeyMembershipSource, StudioSeedKeyMembershipSource>();
+            builder.Services.AddSingleton<SeedManagedBackfill>();
             builder.Services.AddSingleton<IBlockedVideoStore>(_ => new BlockedVideoStore(contentKbDatabasePath));
             // Why: curated creator list (SRC-01) + skipped-candidate list (HSEL-02/03) live in
             // content-kb.db beside the blocked list; schema is ensured lazily on first use.
@@ -219,6 +224,12 @@ public partial class Program
             await localIndexStore.EnsureSchemaAsync();
             await app.Services.GetRequiredService<ContentBodyHashBackfill>().RunAsync();
             Log.Information("Content KB body-hash backfill completed for the local content-kb.db store.");
+
+            // Why (SYNC-17/D-02): seed_managed backfill against the SAME local content-kb.db
+            // store, using the operator's git-checkout seed. Skips entirely (zero writes) when the
+            // repo root or seed file can't be resolved this run (T-91-07) - never crashes startup.
+            await app.Services.GetRequiredService<SeedManagedBackfill>().RunAsync();
+            Log.Information("Content KB seed_managed backfill completed for the local content-kb.db store.");
 
             Log.Information("Studio prod connection: {Status}", isProdConfigured ? "configured" : "not configured");
             Log.Information("Studio SCP: {Status}", isScpConfigured ? "configured" : "not configured");
