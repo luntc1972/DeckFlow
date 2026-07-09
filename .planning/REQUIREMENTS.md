@@ -30,7 +30,7 @@
 
 ### Reconcile + Seed Lifecycle (flag `sync.reconcile`)
 
-- [ ] **SYNC-17**: Row-level seed-management marker distinguishing seed-owned rows from prod-only rows (Codex HIGH — hard prereq before any seed-driven delete can ship)
+- [x] **SYNC-17**: Row-level seed-management marker distinguishing seed-owned rows from prod-only rows (Codex HIGH — hard prereq before any seed-driven delete can ship)
 - [ ] **SYNC-11**: NEW prod↔git↔seed reconciler + persistent discrepancy store (not an `ContentKbOrphanScanner` extension — it lacks prod access/git enumeration/seed awareness): emits published-orphans (visible row, no body), file-orphans (`.md`, no row), seed-drift (prod row absent from seed), body-hash-mismatch (uses SYNC-01); deterministic discrepancy IDs, idempotent re-run (zero dupes), resolution-by-absence, scope-tagged partial runs; dry-run mode ships first
 - [ ] **SYNC-12**: Seed reload handles removals — rows absent from the seed-managed set (per SYNC-17 marker) are hidden/deleted intentionally + logged, replacing additive-only upsert (C2); destructive apply gated behind dry-run validation
 
@@ -83,7 +83,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SYNC-08 | 90 | Complete |
 | SYNC-09 | 90 | Complete |
 | SYNC-10 | 90 | Complete |
-| SYNC-17 | 91 | Pending |
+| SYNC-17 | 91 | Complete |
 | SYNC-11 | 91 | Pending |
 | SYNC-12 | 91 | Pending |
 | SYNC-13 | 92 | Pending |
