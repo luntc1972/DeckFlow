@@ -162,6 +162,38 @@ public sealed class ContentKbSeedLoaderTests : IDisposable
     }
 
     [Fact]
+    public async Task LoadIfPresentAsync_StampsSeedManagedTrue_OnLoadedRow()
+    {
+        // SYNC-17/D-01: every row the seed loader builds is hardcoded seed_managed=true (Pitfall 4) —
+        // presence in the loaded seed file proves seed-managed, regardless of the JSON's own fields.
+        var baseDir = CreateContentKbBase();
+        WriteSeed(baseDir, """
+        [
+          {
+            "naturalKeyType": "youtube_channel",
+            "naturalKeyValue": "markedKey",
+            "source": "EDHRECast",
+            "title": "Marked",
+            "videoUrl": "https://youtu.be/markedKey",
+            "publishedUtc": null,
+            "indexedUtc": "2026-06-01T00:00:00Z",
+            "artifactPath": "content-kb/edhrecast/markedKey.md",
+            "archetypeTags": [],
+            "bracketTags": [],
+            "cardCategoryTags": []
+          }
+        ]
+        """);
+        var store = new FakeContentSiteIndexStore();
+        var loader = BuildLoader(baseDir, store);
+
+        await loader.LoadIfPresentAsync();
+
+        var row = Assert.Single(store.PreservingUpserts);
+        Assert.True(row.SeedManaged);
+    }
+
+    [Fact]
     public async Task LoadIfPresentAsync_MapsPodcastKey_ToRssGuid()
     {
         var baseDir = CreateContentKbBase();

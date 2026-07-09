@@ -85,6 +85,9 @@ public sealed class ContentKbSeedLoader : IContentKbSeedLoader
             YoutubeVideoId = entry.NaturalKeyType == ContentSourceType.Youtube ? entry.NaturalKeyValue : null,
             RssGuid = entry.NaturalKeyType == ContentSourceType.Podcast ? entry.NaturalKeyValue : null,
             BodySha256 = entry.BodySha256,
+            // SYNC-17/D-01: hardcoded true, NOT entry.SeedManaged (Pitfall 4) — presence in the seed
+            // file being loaded already proves seed-managed regardless of the JSON's own contents.
+            SeedManaged = true,
         };
     }
 

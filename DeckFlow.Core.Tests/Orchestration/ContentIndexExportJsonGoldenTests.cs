@@ -36,7 +36,8 @@ public sealed class ContentIndexExportJsonGoldenTests
                 ArchetypeTags = ["turbo-naus", "midrange"],
                 BracketTags = ["cEDH"],
                 CardCategoryTags = ["fast-mana", "interaction"],
-                BodySha256 = "a1b2c3d4e5f60718293a4b5c6d7e8f90112233445566778899aabbccddeeff"
+                BodySha256 = "a1b2c3d4e5f60718293a4b5c6d7e8f90112233445566778899aabbccddeeff",
+                SeedManaged = true
             },
             new ContentIndexExportRow
             {
@@ -51,7 +52,8 @@ public sealed class ContentIndexExportJsonGoldenTests
                 ArchetypeTags = [],
                 BracketTags = [],
                 CardCategoryTags = ["stax"],
-                BodySha256 = null
+                BodySha256 = null,
+                SeedManaged = true
             },
             new ContentIndexExportRow
             {
@@ -66,7 +68,8 @@ public sealed class ContentIndexExportJsonGoldenTests
                 ArchetypeTags = ["control"],
                 BracketTags = ["cEDH", "high-power"],
                 CardCategoryTags = [],
-                BodySha256 = "0011223344556677889900aabbccddeeff00112233445566778899aabbccdd"
+                BodySha256 = "0011223344556677889900aabbccddeeff00112233445566778899aabbccdd",
+                SeedManaged = true
             }
         ];
 }
