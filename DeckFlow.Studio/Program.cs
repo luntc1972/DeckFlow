@@ -106,6 +106,9 @@ public partial class Program
             builder.Services.AddSingleton<ICreatorSourceStore>(_ => new CreatorSourceStore(contentKbDatabasePath));
             builder.Services.AddSingleton<ISkippedVideoStore>(_ => new SkippedVideoStore(contentKbDatabasePath));
             builder.Services.AddSingleton<IContentHarvestRunStore>(_ => new ContentHarvestRunStore(contentKbDatabasePath));
+            // Why (D-05/SYNC-11): the 10th content-kb.db sibling — local, durable reconcile
+            // discrepancy store (idempotent upsert + resolution-by-absence, scope-tagged).
+            builder.Services.AddSingleton<IContentKbReconcileStore>(_ => new ContentKbReconcileStore(contentKbDatabasePath));
             // Why: persisted auto-approve settings (D-07) live in the studio data dir, beside content-kb.db,
             // so the operator's on/off + cutoff survive Studio restarts (unlike SessionCapOverride).
             builder.Services.AddSingleton(_ => new AutoApproveSettingsStore(studioDataDirectory));
