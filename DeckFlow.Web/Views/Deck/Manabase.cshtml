@@ -194,13 +194,14 @@
                 <span class="manabase-summary-label">Verdict</span>
                 <span class="manabase-chip manabase-summary-chip @ManabaseDisplay.HealthCss(report.Health)">@ManabaseDisplay.HealthLabel(report.Health)</span>
             </div>
+            @{ var landShort = (int)Math.Ceiling(-report.LandDelta); }
             <p class="manabase-summary-lands">
                 <strong>Lands:</strong> @report.ActualLands vs ~@report.TargetLands.ToString("F1") recommended
                 (@(report.LandDelta >= -1
                     ? "land count OK"
                     : report.LandShortfallCoveredByRamp
-                        ? $"~{Math.Ceiling(-report.LandDelta):F0} under the Karsten count, but ramp covers it"
-                        : $"add ~{Math.Ceiling(-report.LandDelta):F0} land(s)")).
+                        ? $"~{landShort} under the Karsten count, but ramp covers it"
+                        : $"add ~{landShort} {(landShort == 1 ? "land" : "lands")}")).
             </p>
             @* Biggest fix — the single most actionable change, chosen so it never contradicts the
                land/health line above (e.g. it won't tell you to add sources to an oversupplied
@@ -208,13 +209,13 @@
             @switch (primaryFix.Kind)
             {
                 case ManabaseFixKind.ColorSources:
-                    <p class="manabase-summary-fix"><strong>Biggest fix:</strong> add ~@primaryFix.Amount more <strong>@primaryFix.Color</strong> source(s) — you have @primaryFix.ActualSources.ToString("F1") vs @primaryFix.RequiredSources needed for @primaryFix.Spell.</p>
+                    <p class="manabase-summary-fix"><strong>Biggest fix:</strong> add ~@primaryFix.Amount more <strong>@primaryFix.Color</strong> @(primaryFix.Amount == 1 ? "source" : "sources") — you have @primaryFix.ActualSources.ToString("F1") vs @primaryFix.RequiredSources needed for @primaryFix.Spell.</p>
                     break;
                 case ManabaseFixKind.Lands:
-                    <p class="manabase-summary-fix"><strong>Biggest fix:</strong> add ~@primaryFix.Amount more <strong>land(s)</strong> — each color is individually well-supported, but the base is ~@primaryFix.Amount land(s) short of the curve.</p>
+                    <p class="manabase-summary-fix"><strong>Biggest fix:</strong> add ~@primaryFix.Amount more <strong>@(primaryFix.Amount == 1 ? "land" : "lands")</strong> — each color is individually well-supported, but the base is ~@primaryFix.Amount @(primaryFix.Amount == 1 ? "land" : "lands") short of the curve.</p>
                     break;
                 case ManabaseFixKind.DemandingCards:
-                    <p class="manabase-summary-fix"><strong>Biggest fix:</strong> lands and colored sources are adequate, but @primaryFix.DemandingCount demanding <strong>@primaryFix.Color</strong> card(s) still cast late (worst: @primaryFix.Spell) — trim the top end or add early ramp.</p>
+                    <p class="manabase-summary-fix"><strong>Biggest fix:</strong> lands and colored sources are adequate, but @primaryFix.DemandingCount demanding <strong>@primaryFix.Color</strong> @(primaryFix.DemandingCount == 1 ? "card" : "cards") still cast late (worst: @primaryFix.Spell) — trim the top end or add early ramp.</p>
                     break;
                 default:
                     <p class="manabase-summary-fix"><strong>Colors:</strong> every color is adequately supported.</p>
