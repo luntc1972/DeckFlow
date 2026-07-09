@@ -45,6 +45,7 @@ public sealed class FeatureFlagCatalogTests
     [InlineData("analysis.multi-axis-score")]
     [InlineData("analysis.mulligan-eval")]
     [InlineData("sync.directpush-gitbody")]
+    [InlineData("sync.reconcile")]
     public void Describe_EverySeededFlag_HasNonEmptyDescription(string key)
     {
         string description = FeatureFlagCatalog.Describe(key);
