@@ -187,8 +187,8 @@ public sealed class ManabaseViewRenderTests
         Assert.True(summaryIdx >= 0, "Summary card should render.");
         Assert.True(twoLensIdx >= 0, "Two-lens grid should render for a multi-color report.");
         Assert.True(summaryIdx < twoLensIdx, "Summary must precede the two-lens grid.");
-        // The wide color table carries a (mobile-only, CSS-gated) sideways-scroll cue.
-        Assert.Contains("manabase-scroll-hint", html, StringComparison.Ordinal);
+        // The wide color table uses the card-stack reflow on mobile (data-label cells).
+        Assert.Contains("manabase-table--card", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -260,8 +260,12 @@ public sealed class ManabaseViewRenderTests
 
         Assert.Contains("manabase-twolens-note", html, StringComparison.Ordinal);
         Assert.Contains("Read the two together", html, StringComparison.Ordinal);
-        int hintCount = Regex.Matches(html, "manabase-scroll-hint").Count;
-        Assert.Equal(2, hintCount);
+        // Card-stack reflow (#4): both wide tables are card-mode with per-cell data-labels; the
+        // old scroll-hint is gone.
+        Assert.Contains("manabase-table--card", html, StringComparison.Ordinal);
+        Assert.Contains("data-label=\"Color\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-label=\"Cast on curve\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("manabase-scroll-hint", html, StringComparison.Ordinal);
     }
 
     // Replace the randomized __RequestVerificationToken value with a constant so two renders of the

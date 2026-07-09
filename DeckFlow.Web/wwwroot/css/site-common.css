@@ -2595,16 +2595,21 @@ label.field > span,
   border: 1px solid transparent;
 }
 
+/* Cast chips (low/ok/good) carry the majority of castability rows, so — like the health chips
+   below — they use OPAQUE, theme-independent tints with baked WCAG-AA dark text. A translucent
+   fill composites against each theme's --panel, so no single baked text color could guarantee
+   contrast over both light and dark panels; an opaque pale tint can. Kept pale (not the health
+   chips' saturated fills) so a 50-row column stays calm. AA pairs verified by ManabaseCastChipContrastTests. */
 .manabase-chip--low {
-  background: color-mix(in srgb, var(--danger, var(--error, #c53030)) 18%, transparent);
-  border-color: var(--danger, var(--error, #c53030));
-  color: var(--danger, var(--error, #c53030));
+  background: #fdecec;
+  border-color: #dc9a9a;
+  color: #9b1c1c;
 }
 
 .manabase-chip--ok {
-  background: color-mix(in srgb, var(--warning, #d69e2e) 22%, transparent);
-  border-color: var(--warning, #d69e2e);
-  color: var(--ink, #2d3748);
+  background: #fbf0d9;
+  border-color: #e0be7e;
+  color: #854d0e;
 }
 
 /* Health-verdict chips: fixed, theme-independent filled status colors (WCAG-AA contrast with the
@@ -2637,9 +2642,9 @@ label.field > span,
 }
 
 .manabase-chip--good {
-  background: color-mix(in srgb, var(--success, #2f855a) 18%, transparent);
-  border-color: var(--success, #2f855a);
-  color: var(--success, #2f855a);
+  background: #dff3e4;
+  border-color: #9cccae;
+  color: #15602f;
 }
 
 /* Two-lens result header (70-06): Karsten source check + simulated cast rate, side by side. */
@@ -2828,14 +2833,6 @@ label.field > span,
 
 /* Sideways-scroll cue for the wide result tables. Hidden on wide screens where every column
    fits; the .manabase-table-wrap media query below reveals it only when the table can overflow. */
-.manabase-scroll-hint {
-  display: none;
-  margin: 0.5rem 0 0.25rem;
-  font-size: 0.75rem;
-  text-align: right;
-  color: var(--muted, #5a6472);
-}
-
 .manabase-verdict--issues {
   border-left: 3px solid var(--gold-warning, var(--warning, #c8a040));
   background: color-mix(in srgb, var(--gold-warning, var(--warning, #c8a040)) 14%, var(--panel-soft-bg, var(--panel)));
@@ -2915,9 +2912,55 @@ label.field > span,
     grid-template-columns: 1fr;
   }
 
-  /* Narrow screens: the result tables scroll horizontally, so surface the cue. */
-  .manabase-scroll-hint {
+  /* Card-stack the wide result tables: at 390w every column fits without horizontal scroll.
+     The <thead> is CLIPPED (not display:none) so <th scope=col> stays in the a11y tree; the
+     visible label comes from each cell's data-label. Mirrors the admin card-stack pattern. */
+  .manabase-table--card thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .manabase-table--card tr {
     display: block;
+    border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .manabase-table--card td {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem 0.75rem;
+    padding: 0.25rem 0;
+    border: none;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  /* Visual-only label for sighted users; real column context comes from the clipped <th>. */
+  .manabase-table--card td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--muted, #5a6472);
+    text-align: left;
+    flex-shrink: 0;
+  }
+
+  /* Card name leads its card as a full-width heading, not a right-aligned value. */
+  .manabase-table--card td.castability-name {
+    text-align: left;
+    font-weight: 600;
+  }
+
+  .manabase-table--card td.castability-name::before {
+    display: none;
   }
 }
 
@@ -2925,6 +2968,14 @@ label.field > span,
    No color tokens — chrome from composed .manabase-lens; layout-only per theme constraint. */
 .manabase-taplens {
   margin: -0.25rem 0 1rem;
+}
+
+/* When the two-lens reconciliation note sits above, the -0.25rem tie pulls the next lens card up
+   into the note text. Restore normal spacing in that case (the tie only makes sense abutting the
+   two-lens card directly). */
+.manabase-twolens-note + .manabase-taplens,
+.manabase-twolens-note + .manabase-mulliganlens {
+  margin-top: 0.75rem;
 }
 
 /* .manabase-taplens-split — headline column | per-color column internal grid. */
@@ -2957,6 +3008,13 @@ label.field > span,
   align-items: start;
 }
 
+@media (max-width: 640px) {
+  /* Same breakpoint as the .manabase-twolens / .manabase-taplens-split collapse above. */
+  .manabase-mulliganlens-split {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* .manabase-mulliganlens-openers — the representative-opener list, one line per sampled hand. */
 .manabase-mulliganlens-openers {
   margin: 0.75rem 0 0;
@@ -2966,13 +3024,6 @@ label.field > span,
 
 .manabase-mulliganlens-openers li {
   margin: 0.35rem 0;
-}
-
-@media (max-width: 640px) {
-  /* Same breakpoint as the .manabase-twolens / .manabase-taplens-split collapse above. */
-  .manabase-mulliganlens-split {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* The two FORMULA-01 disclosure panels. */
