@@ -35,19 +35,44 @@ public static class PlanRoleClassifier
         ArgumentNullException.ThrowIfNull(fact);
         ArgumentNullException.ThrowIfNull(categories);
 
+        // Resolve roles first (categories → combo piece → heuristic, first-hit-wins), THEN apply the
+        // permanent gate below to whatever won.
+        PlanRole roles;
         PlanRole fromCategories = FromCategories(categories, mode);
         if (fromCategories != PlanRole.None)
         {
-            return fromCategories;
+            roles = fromCategories;
         }
-
-        if (isComboPiece)
+        else if (isComboPiece)
         {
-            return PlanRole.TutorCombo;
+            roles = PlanRole.TutorCombo;
+        }
+        else
+        {
+            roles = FromHeuristic(fact, mode);
         }
 
-        return FromHeuristic(fact, mode);
+        // PERMANENT gate (user decisions 2026-07-09): a hand "has a plan" when it holds a card that
+        // advances the win castable on curve. PAYOFF and INTERACTION require a PERMANENT — a one-shot
+        // burn/extra-turn finisher (Torment of Hailfire) or a one-shot removal/counter (Swords,
+        // Counterspell) leaves nothing on the board, so it is not by itself a plan. TUTORS and CARD-DRAW
+        // (TutorCombo / Engine) still count even as instants/sorceries: a sorcery tutor (Demonic Tutor)
+        // points at the permanent win, and card advantage furthers the plan. So for a non-permanent front
+        // face we strip only the permanent-only roles and keep the rest. (The lower-level
+        // FromCategories/FromHeuristic detectors stay type-agnostic; the type rule lives here, at the
+        // single service entry.)
+        if (CardTypeLine.IsNonPermanentFront(fact.TypeLine))
+        {
+            roles &= ~PermanentOnlyRoles;
+        }
+
+        return roles;
     }
+
+    // Roles that only "count" on a permanent: a board threat (Payoff) and reactive interaction that must
+    // stick to matter. TutorCombo and Engine are deliberately absent — they advance the plan even as a
+    // one-shot instant/sorcery.
+    private const PlanRole PermanentOnlyRoles = PlanRole.Payoff | PlanRole.Interaction;
 
     /// <summary>
     /// Map a card's free-text category tags to roles by keyword. User-typed Archidekt tags are not a

@@ -403,7 +403,11 @@
                                 <strong>@opener.Decision</strong>
                                 <span class="manabase-lens-muted">(@opener.KeptCards cards: @opener.Lands land / @opener.Colors color / @opener.RampPieces ramp / @opener.OtherCards other)</span>
                                 —
-                                @if (opener.OnCurveCastable)
+                                @if (string.IsNullOrEmpty(opener.TrackedSpellName))
+                                {
+                                    <span>no castable plan by its curve turn</span>
+                                }
+                                else if (opener.OnCurveCastable)
                                 {
                                     <span>@opener.TrackedSpellName castable on curve (turn @opener.TrackedOnCurveTurn)</span>
                                 }

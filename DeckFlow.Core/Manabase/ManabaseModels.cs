@@ -293,6 +293,18 @@ public sealed record OpeningHandSample
     public bool HasPlan { get; init; }
 }
 
+/*
+ * Producer note: OpeningHandSample is emitted by TWO passes with slightly different field semantics —
+ *   • Per-spell (CastabilitySimulator.Simulate): TrackedSpellName/OnCurveCastable describe the ROW's
+ *     tracked spell; HasPlan = ">=2 lands + colors cover the target + that spell castable on curve".
+ *   • Plan-presence (CastabilitySimulator.SimulatePlanPresence): TrackedSpellName is the first castable
+ *     permanent PLAN card the hand holds (empty when none), and OnCurveCastable == HasPlan == "a plan
+ *     card is castable on curve" (the lands/colors shape is not re-tested here).
+ * Both render HasPlan uniformly as "workable line" / "no clear line". ManabaseAnalyzer prefers the
+ * plan-presence samples when the plan flag is on and falls back to the per-spell samples otherwise, so a
+ * single result never mixes the two producers.
+ */
+
 /// <summary>The kinds of spell an always-on cost reducer applies to.</summary>
 public enum ReductionScope
 {
@@ -1261,4 +1273,13 @@ public sealed record ManabasePlanPresence
 
     /// <summary>Keepable trials that formed the denominator (diagnostic).</summary>
     public int KeepableTrials { get; init; }
+
+    /// <summary>
+    /// Up to 3 representative openers (one per kept size: 7 / 6 / 5), each PREFERRING a hand that holds a
+    /// castable-on-curve plan card so the display can show "what a hand with a plan looks like" at every
+    /// mulligan depth. <see cref="OpeningHandSample.HasPlan"/> reflects the permanents-only plan rule; a
+    /// depth with no plan hand found falls back to a representative no-plan hand (empty tracked name).
+    /// Empty when the deck carries no plan-tagged spell.
+    /// </summary>
+    public IReadOnlyList<OpeningHandSample> RepresentativeOpeners { get; init; } = Array.Empty<OpeningHandSample>();
 }

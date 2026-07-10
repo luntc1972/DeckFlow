@@ -110,4 +110,52 @@ public sealed class CastabilitySimulatorPlanPresenceTests
 
         Assert.True(result.PlanPresencePercent <= 5, $"unreachable payoff should not count, got {result.PlanPresencePercent}%");
     }
+
+    [Fact]
+    public void RepresentativeOpeners_PreferPlanHands_AndNameThePayoff()
+    {
+        // A castable-payoff deck: the sampled openers should be plan-having hands that name a payoff and
+        // read on-curve. At most one per kept size (7/6/5), each a valid mulligan decision.
+        var spells = Enumerable.Range(0, 25).Select(i => Payoff(i, mv: 1, ManaColor.Green))
+            .Concat(Enumerable.Range(0, 36).Select(Filler));
+        ManabasePlanPresence result = Run(Deck(lands: 38, spells));
+
+        Assert.NotEmpty(result.RepresentativeOpeners);
+        Assert.True(result.RepresentativeOpeners.Count <= 3);
+
+        // One sample per kept size (no duplicate depths).
+        Assert.Equal(
+            result.RepresentativeOpeners.Select(o => o.KeptCards).Distinct().Count(),
+            result.RepresentativeOpeners.Count);
+
+        foreach (OpeningHandSample opener in result.RepresentativeOpeners)
+        {
+            Assert.Contains(opener.KeptCards, new[] { 5, 6, 7 });
+            Assert.Equal(opener.HasPlan, opener.OnCurveCastable);
+        }
+
+        // With 25 turn-1 payoffs almost every keep holds a plan, so at least one opener is a plan hand
+        // that names its payoff.
+        OpeningHandSample planHand = Assert.Single(
+            result.RepresentativeOpeners.Where(o => o.HasPlan).Take(1).ToList());
+        Assert.StartsWith("Payoff ", planHand.TrackedSpellName);
+        Assert.True(planHand.TrackedOnCurveTurn >= 1);
+    }
+
+    [Fact]
+    public void RepresentativeOpeners_NoCastablePlan_HaveEmptyTrackedName()
+    {
+        // Uncastable-color payoffs: openers are still sampled at each depth, but none holds a castable
+        // plan — so HasPlan is false and the tracked name is empty (the display reads "no castable plan").
+        var spells = Enumerable.Range(0, 25).Select(i => Payoff(i, mv: 1, ManaColor.Blue))
+            .Concat(Enumerable.Range(0, 36).Select(Filler));
+        ManabasePlanPresence result = Run(Deck(lands: 38, spells));
+
+        Assert.NotEmpty(result.RepresentativeOpeners);
+        Assert.All(result.RepresentativeOpeners, o =>
+        {
+            Assert.False(o.HasPlan);
+            Assert.Equal(string.Empty, o.TrackedSpellName);
+        });
+    }
 }

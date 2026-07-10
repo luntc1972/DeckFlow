@@ -298,11 +298,16 @@ public static class ManabaseReportTextBuilder
             sb.AppendLine("Representative openers:");
             foreach (OpeningHandSample opener in mull.RepresentativeOpeners)
             {
-                string onCurveRead = opener.OnCurveCastable
-                    ? string.Create(CultureInfo.InvariantCulture,
-                        $"{opener.TrackedSpellName} castable on curve (turn {opener.TrackedOnCurveTurn})")
-                    : string.Create(CultureInfo.InvariantCulture,
-                        $"{opener.TrackedSpellName} not on curve (slow start)");
+                // A plan-presence opener with no plan found carries an empty tracked name — read it as
+                // "no castable plan" rather than emitting a dangling name. Per-row fallback openers
+                // always carry a name, so they take the first two branches as before.
+                string onCurveRead = string.IsNullOrEmpty(opener.TrackedSpellName)
+                    ? "no castable plan by its curve turn"
+                    : opener.OnCurveCastable
+                        ? string.Create(CultureInfo.InvariantCulture,
+                            $"{opener.TrackedSpellName} castable on curve (turn {opener.TrackedOnCurveTurn})")
+                        : string.Create(CultureInfo.InvariantCulture,
+                            $"{opener.TrackedSpellName} not on curve (slow start)");
                 string planRead = opener.HasPlan ? "workable line" : "no clear line";
                 sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
                     $"  {opener.Decision} ({opener.KeptCards} cards: {opener.Lands} land / {opener.Colors} color / {opener.RampPieces} ramp / {opener.OtherCards} other) - {onCurveRead} - {planRead}."));

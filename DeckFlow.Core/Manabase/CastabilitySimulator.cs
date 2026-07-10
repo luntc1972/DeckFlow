@@ -61,7 +61,8 @@ public static class CastabilitySimulator
             (int Bit, int Count)[]? rampPips = null,
             PlanRole planRoles = PlanRole.None,
             int planManaValue = 0,
-            (int Bit, int Count)[]? planPips = null)
+            (int Bit, int Count)[]? planPips = null,
+            string? planName = null)
         {
             Kind = kind;
             ColorMask = colorMask;
@@ -73,6 +74,7 @@ public static class CastabilitySimulator
             PlanRoles = planRoles;
             PlanManaValue = planManaValue;
             PlanPips = planPips;
+            PlanName = planName;
         }
 
         /// <summary>
@@ -87,6 +89,9 @@ public static class CastabilitySimulator
 
         /// <summary>Plan-presence only: this plan card's colored pip requirement, for its castability test.</summary>
         public (int Bit, int Count)[]? PlanPips { get; }
+
+        /// <summary>Plan-presence only: the plan card's display name, surfaced in a representative opener.</summary>
+        public string? PlanName { get; }
 
         public bool IsPlanCard => PlanRoles != PlanRole.None;
 
@@ -314,34 +319,8 @@ public static class CastabilitySimulator
             string stashedDecision = string.Empty;
             if (needSample)
             {
-                int landColorMask = 0;
-                for (int i = 0; i < handCount; i++)
-                {
-                    int idx = shuffled[i];
-                    LibraryCard card = library[idx];
-                    if (active[idx] && card.IsLand)
-                    {
-                        stashedLands++;
-                        landColorMask |= card.ColorMask;
-                    }
-                    else if (active[idx] && card.Kind == CardKind.Ramp)
-                    {
-                        stashedRamp++;
-                    }
-                    else
-                    {
-                        stashedOther++;
-                    }
-                }
-
-                stashedColors = CountColors(landColorMask);
-                stashedDecision = keptSize switch
-                {
-                    7 => "keep 7",
-                    6 => "mulligan to 6",
-                    5 => "mulligan to 5",
-                    _ => string.Empty,
-                };
+                (stashedLands, stashedRamp, stashedOther, stashedColors) = TallyHandComposition(library, shuffled, active, handCount);
+                stashedDecision = DecisionLabel(keptSize);
             }
 
             bool success = SimulateGame(
@@ -494,20 +473,43 @@ public static class CastabilitySimulator
         int keepable = 0;
         int withPlan = 0;
 
+        // Representative openers, one per kept size (index 0 = kept 7, 1 = mull-to-6, 2 = mull-to-5), each
+        // PREFERRING a hand that holds a plan. A depth is "locked" once a plan-having hand is stored, so we
+        // stop the (comparatively costly) per-card plan evaluation for it. Unlike the plan-presence PERCENT
+        // — measured over keepable hands only — the mull-to-5 opener is sampled too, so the display shows a
+        // representative hand at every depth (a mull-5 that still holds a castable plan is a reassuring read).
+        var openerByDepth = new OpeningHandSample?[3];
+        var depthPlanLocked = new bool[3];
+
+        // Mull-to-5 (depth 2) is the only depth whose plan evaluation is NOT already paid for by the
+        // keepable-% stats, so a deck that never yields a castable-plan mull-5 hand would otherwise re-run
+        // the full planIndices × SimulateGame eval on every mull-5 trial for the whole run. Cap the depth-2
+        // sampling attempts: the first mull-5 trial stores a (no-plan) sample immediately, and a plan-having
+        // mull-5 hand — when one exists — is found within a few attempts, so this bound only trims the
+        // pathological no-plan tail. Depths 0/1 need no cap (their eval runs for stats regardless).
+        const int Mull5SampleAttemptCap = 200;
+        int mull5SampleAttempts = 0;
+
         for (int t = 0; t < trials; t++)
         {
             int keptSize = DealHand(
                 library, shuffled, deck0, active, partialIndices, rng,
                 deck.AverageManaValue, prefix, deck.IsSingleton, colorAwareMulligan, deckColorCount);
 
-            // Plan-presence is measured over KEEPABLE hands only (kept 7 or mull-to-6) — the same
-            // keepable band the opener block reports; a mull-to-5 is not a hand you kept on purpose.
-            if (keptSize < 6)
+            int depthIdx = keptSize switch { 7 => 0, 6 => 1, 5 => 2, _ => -1 };
+
+            // Plan-presence PERCENT is measured over KEEPABLE hands only (kept 7 or mull-to-6) — a
+            // mull-to-5 is not a hand you kept on purpose. The OPENER sample, however, is collected at
+            // every depth (including 5) while that depth still lacks a plan hand (depth 2 also honoring the
+            // attempt cap above so a plan-less deck cannot burn the eval on every mull-5 trial).
+            bool countsForStats = keptSize >= 6;
+            bool wantSample = depthIdx >= 0 && !depthPlanLocked[depthIdx]
+                && (depthIdx != 2 || mull5SampleAttempts < Mull5SampleAttemptCap);
+            if (!countsForStats && !wantSample)
             {
-                continue;
+                continue; // mull-to-5 whose opener is already plan-locked or attempt-capped: nothing to do
             }
 
-            keepable++;
             int handCount = Math.Min(library.Count, keptSize);
 
             // Invert the shuffled prefix once for this trial so each plan card's position is O(1).
@@ -517,7 +519,11 @@ public static class CastabilitySimulator
                 posInPrefix[shuffled[p]] = p;
             }
 
+            // Accumulate every role the hand can cast on curve (for the per-role stats) while capturing the
+            // FIRST satisfying plan card (its name + on-curve turn) to name in the representative opener.
             PlanRole rolesThisHand = PlanRole.None;
+            string planName = string.Empty;
+            int planTurnHit = 0;
             foreach (int planIdx in planIndices)
             {
                 int planTurn = Math.Max(1, library[planIdx].PlanManaValue);
@@ -548,21 +554,58 @@ public static class CastabilitySimulator
                 if (castable && firstCastableTurn <= planTurn)
                 {
                     rolesThisHand |= library[planIdx].PlanRoles;
-                }
-            }
-
-            if (rolesThisHand != PlanRole.None)
-            {
-                withPlan++;
-                foreach (PlanRole role in singleRoles)
-                {
-                    if (rolesThisHand.HasFlag(role))
+                    if (planName.Length == 0)
                     {
-                        roleCounts[role]++;
+                        planName = library[planIdx].PlanName ?? string.Empty;
+                        planTurnHit = planTurn;
                     }
                 }
             }
+
+            if (countsForStats)
+            {
+                keepable++;
+                if (rolesThisHand != PlanRole.None)
+                {
+                    withPlan++;
+                    foreach (PlanRole role in singleRoles)
+                    {
+                        if (rolesThisHand.HasFlag(role))
+                        {
+                            roleCounts[role]++;
+                        }
+                    }
+                }
+            }
+
+            if (wantSample)
+            {
+                if (depthIdx == 2)
+                {
+                    mull5SampleAttempts++;
+                }
+
+                bool hasPlan = rolesThisHand != PlanRole.None;
+
+                // Store when the bucket is empty, or upgrade the stored no-plan hand to a plan one. The
+                // depth is unlocked here (wantSample), so any stored sample necessarily has HasPlan == false
+                // — hence the condition is just "empty, or this hand has a plan".
+                if (openerByDepth[depthIdx] is null || hasPlan)
+                {
+                    openerByDepth[depthIdx] = BuildPlanOpenerSample(
+                        library, shuffled, active, handCount, keptSize, hasPlan, planName, planTurnHit);
+                }
+
+                if (hasPlan)
+                {
+                    depthPlanLocked[depthIdx] = true;
+                }
+            }
         }
+
+        // Non-null depth buckets, kept in 7 → 6 → 5 order. OfType drops the nulls and yields the
+        // non-nullable element type (no nullable-flow warning).
+        List<OpeningHandSample> openers = openerByDepth.OfType<OpeningHandSample>().ToList();
 
         int percent = keepable > 0 ? (int)Math.Round(100.0 * withPlan / keepable) : 0;
         var rolePercents = new Dictionary<PlanRole, int>();
@@ -580,8 +623,80 @@ public static class CastabilitySimulator
             Band = PlanPresenceBand(percent),
             RolePercents = rolePercents,
             KeepableTrials = keepable,
+            RepresentativeOpeners = openers,
         };
     }
+
+    // Builds one representative plan-presence opener: tallies the kept hand's composition (lands, distinct
+    // land colors, ramp pieces, other cards) and attributes the plan to the first plan card the hand could
+    // cast on curve. A no-plan hand (hasPlan == false) carries an empty plan name — the display renders it
+    // as "no castable plan by its curve turn" rather than naming a card.
+    private static OpeningHandSample BuildPlanOpenerSample(
+        IReadOnlyList<LibraryCard> library,
+        int[] shuffled,
+        bool[] active,
+        int handCount,
+        int keptSize,
+        bool hasPlan,
+        string planName,
+        int planTurn)
+    {
+        (int lands, int ramp, int other, int colors) = TallyHandComposition(library, shuffled, active, handCount);
+
+        return new OpeningHandSample
+        {
+            Lands = lands,
+            Colors = colors,
+            RampPieces = ramp,
+            OtherCards = other,
+            KeptCards = keptSize,
+            Decision = DecisionLabel(keptSize),
+            TrackedSpellName = hasPlan ? planName : string.Empty,
+            TrackedOnCurveTurn = hasPlan ? planTurn : 0,
+            OnCurveCastable = hasPlan,
+            HasPlan = hasPlan,
+        };
+    }
+
+    // Tallies an opener's composition over the first <paramref name="handCount"/> cards of the shuffled
+    // prefix: lands, ramp pieces, everything else, and the distinct colors the kept lands can tap. An
+    // inactive partial source counts as inert (not a land / not ramp). Shared by the per-spell opener
+    // stash and the plan-presence opener sample so the two reads can never disagree on composition.
+    private static (int Lands, int Ramp, int Other, int Colors) TallyHandComposition(
+        IReadOnlyList<LibraryCard> library, int[] shuffled, bool[] active, int handCount)
+    {
+        int lands = 0, ramp = 0, other = 0, landColorMask = 0;
+        for (int i = 0; i < handCount; i++)
+        {
+            int idx = shuffled[i];
+            LibraryCard card = library[idx];
+            if (active[idx] && card.IsLand)
+            {
+                lands++;
+                landColorMask |= card.ColorMask;
+            }
+            else if (active[idx] && card.Kind == CardKind.Ramp)
+            {
+                ramp++;
+            }
+            else
+            {
+                other++;
+            }
+        }
+
+        return (lands, ramp, other, CountColors(landColorMask));
+    }
+
+    // The London-mulligan decision label for a kept hand size, shared by every opener producer so the
+    // 7 / 6 / 5 wording stays in one place.
+    private static string DecisionLabel(int keptSize) => keptSize switch
+    {
+        7 => "keep 7",
+        6 => "mulligan to 6",
+        5 => "mulligan to 5",
+        _ => string.Empty,
+    };
 
     // Payoff-coverage bands — the headline read. Calibrated to a 6-deck real spread where payoff%
     // split cleanly (payoff-driven ~30, midrange ~13–15, combo/control ~3–6). Leads because the
@@ -661,7 +776,8 @@ public static class CastabilitySimulator
                 CardKind.Filler, 0, 0, false,
                 planRoles: spell.PlanRoles,
                 planManaValue: Math.Max(1, spell.ManaValue),
-                planPips: PipArray(spell)));
+                planPips: PipArray(spell),
+                planName: spell.Name));
         }
 
         // Pad/truncate to the real library size with anonymous filler so draw probabilities match the deck.
