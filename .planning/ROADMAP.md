@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
 - [x] **Phase 88: Index-Row Integrity Hotfix** - DirectPush stops writing visible-while-pending rows and collision-prone PinId diffing (ships first — live prod bugs)
 - [x] **Phase 89: Content-Hash Foundation** - One unified body-inclusive hash everywhere; corrupt/stale bodies become detectable instead of silently served
 - [x] **Phase 90: DirectPush Correctness + Seed Sync** - Bodies reach prod only via git; DirectPush re-exports the seed and survives a redeploy without reverting (flag `sync.directpush-gitbody`)
-- [ ] **Phase 91: Reconcile + Seed Lifecycle** - Seed-ownership marker, then a prod↔git↔seed reconciler (dry-run first), then gated seed-driven removal (flag `sync.reconcile`)
+- [x] **Phase 91: Reconcile + Seed Lifecycle** - Seed-ownership marker, then a prod↔git↔seed reconciler (dry-run first), then gated seed-driven removal (flag `sync.reconcile`)
 - [ ] **Phase 92: Pull Hardening** - Pull-from-Prod adopts prod state without clobbering operator fields or acting on a stale checkout
 - [ ] **Phase 93: Round-Trip Integration Test** - One end-to-end test locks the whole distill→publish→prod→serve→reseed→pull→reconcile loop
 
@@ -116,7 +116,7 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
 - [x] 91-06-PLAN.md - Studio reconcile orchestrator (prod read + git enum + seed parse) + D-06 report (SYNC-11) [wave 4]
 - [x] 91-07-PLAN.md - Dry-run coordinator + Reconcile page (SYNC-11) [wave 5]
 - [x] 91-08-PLAN.md - sync.reconcile flag + gated re-validated soft-hide Apply + Apply UI (SYNC-12) [wave 6]
-- [ ] 91-09-PLAN.md - Operator workflow human-verify checkpoint (SYNC-11/SYNC-12) [wave 7]
+- [x] 91-09-PLAN.md - Operator workflow human-verify checkpoint (SYNC-11/SYNC-12) [wave 7] - APPROVED via fixture driver (ReconcileFixtureDriveTests); live UI/prod walk = 90-FOLLOWUPS FU-3 pre-flip gate
 
 ### Phase 92: Pull Hardening
 **Goal**: Pull-from-Prod adopts prod's state field-by-field without ever clobbering operator-owned data or acting on a stale local checkout.
