@@ -1,0 +1,307 @@
+# Manabase Analysis — Rule Reference
+
+Every rule the DeckFlow manabase analyzer applies, per stage, with exact
+thresholds and `file:line` citations. Source of truth is the code, not this
+doc — if they disagree, the code wins and this file is stale. Paths are relative
+to the repo root; `MA` = `DeckFlow.Core/Manabase/ManabaseAnalyzer.cs`,
+`CS` = `DeckFlow.Core/Manabase/CastabilitySimulator.cs`,
+`Cls` = `DeckFlow.Core/Manabase/ManabaseClassifier.cs`,
+`Kar` = `DeckFlow.Core/Manabase/KarstenManabase.cs`,
+`Mdl` = `DeckFlow.Core/Manabase/ManabaseModels.cs`,
+`RDB` = `DeckFlow.Core/Manabase/ManabaseRampDrawBudget.cs`,
+`VS` = `DeckFlow.Core/Manabase/ManabaseVerdictSynthesizer.cs`,
+`PRC` = `DeckFlow.Web/Services/Manabase/PlanRoleClassifier.cs`,
+`MAS` = `DeckFlow.Web/Services/Manabase/ManabaseAnalysisService.cs`.
+
+## Pipeline
+
+```
+decklist
+  → 1. Classification            (Cls, CardTypeLine)      → ManabaseDeck (sources, spells, budget pieces)
+  → 2. Land target               (Kar, MA)                → recommended land count
+  → 3. Per-color source req       (Kar + MA sim clamp)    → ColorFindings, demanding cards
+  → 4. Castability Monte-Carlo    (CS)                    → per-spell cast %, mulligan/tap counters
+  → 5. Derived reads             (RDB, MA, PRC, CS)       → ramp/draw budget, tap %, mulligan eval, plan-presence
+  → 6. Verdict synthesis         (Mdl health, VS, PrimaryFix) → four-tier health, biggest fix, plain-language
+```
+
+Nearly every accuracy knob is a **feature flag**, snapshotted once per analysis
+and threaded down as a plain argument; see the [Feature Flag Catalog](#feature-flag-catalog).
+`IsFlagOn` is **fail-safe OFF** — a missing key reads `false` (`MAS:384-387`),
+deliberately unlike the generic cache default.
+
+---
+
+## 1. Classification — decklist → analyzer inputs
+
+Entry: `ManabaseClassifier.Classify(cards, isSingleton=true, rampCreditV2=false, landRampSim=false)` (`Cls:76`).
+
+### 1.1 Lands
+- A card is a **land** iff its **front face** (before `//`) type line contains "Land" (case-insensitive) — `Cls:664-668`, `CardTypeLine.FrontFace`. So a spell//land MDFC (`Instant // Land`) is **not** a land; its land back is credited separately (§1.4).
+- A front-face land skips all spell processing (`continue`) — `Cls:125-130`.
+
+### 1.2 Mana sources (color set, amount, land vs non-land)
+- **Land sources** (one `ManaSource` per copy, `IsLand=true`) — `Cls:334-364`. Colors = `MapColors(produced_mana)` (W/U/B/R/G → color; C, S(snow) → Colorless) — `Cls:649-662`, `ManaCost.cs:141-151`.
+- **EntersUntapped** = `!EntersTapped`; tapped iff oracle contains "enters tapped" or "enters the battlefield tapped" — `Cls:797-803`.
+- **ManaAmount** carried from `CardFact.ManaAmount` (Ancient Tomb = 2) — `Cls:361`. **Color-source counts never scale with ManaAmount** — a 2-mana rock is one source of its color; amount only feeds the castability sim — `ManaProductionAmount.cs:12-16`.
+- `AddWeighted` **drops a source that produces no colors** — `Cls:635-647` (a colorless-only rock adds no *color* source here; it can still be a fast-mana land-target credit, §1.4).
+
+### 1.3 Ramp — rock (0.75) vs dork (0.5), and what is excluded
+- **`IsRockOrDork`** (canonical test) requires ALL: `!HasLandFace`, `ProducedMana.Count > 0`, and `HasRepeatableManaAbility`; then rock/dork iff type contains "Creature" or "Artifact" — `Cls:435-443`.
+- **Weight**: creature (dork) = **0.5**, artifact (rock) = **0.75** (creature checked first) — `Cls:619-632`.
+- **`HasRepeatableManaAbility`** (why one-shot mana is excluded) — `Cls:486-536`: strips parenthesized reminder text (`\([^)]*\)`), then requires an activated `<cost>: Add …` line whose cost does **not** contain "Sacrifice". This drops rituals, Lotus Petal / Lion's Eye Diamond (sac-to-add), Ashnod's/Phyrexian Altar (sac-outlet), and triggered Treasure makers (Dockside, Goldspan).
+- **Self-grant vs other-grant**: a quoted `"…{T}: Add…"` counts as the card's own ability only when the granting clause names the card itself — a self pronoun (`it / this creature…` + has|gains, `Cls:462-464`) or a collective naming one of the card's own types ("All Slivers have", "Creatures you control have") — `Cls:543-575`. Other-grants (Chromatic Lantern, Paradise Mantle) are handled by §1.5, not here.
+
+### 1.4 MDFC land-backs, fast mana, basic-fetch
+- **MDFC land back** (`HasLandFace`, spell front): partial colored source weight **0.8**, or **1.0 if mythic** — `Cls:611-616`. Returns before the rock/dork branch, so land-backs are never rocks.
+- **Land-count credit tally** (per copy) — `Cls:214-229`: `HasLandFace` → MDFC common/mythic bucket; else `ManaValue==0 && Artifact && ProducesMana` → **FastMana** bucket (Lotus Petal, Mana Crypt).
+- **Basic-fetch**: oracle contains "Search your library for a" + "basic land" — `Cls:677-683`; weight **0.67** in a 3+ color deck else 1.0 — `Cls:347-349`. Fetch colors are derived from the basics/duals the deck actually runs, never speculatively — `Cls:695-789`.
+
+### 1.5 Granted / conditional sources (weight 0.25)
+- `DetectGranter` finds mana-ability granters (Cryptolith Rite → AllCreatures, Relic of Legends → LegendaryCreatures, equipment/aura → single-creature) — `Cls:1173-1209`.
+- `AddGrantedSources` adds one `ManaSource` per eligible creature named `"<name> (granted)"`, `Produces = deck colors`, **Weight 0.25**, **`IsConditional=true`** — `Cls:1211-1276`. Only the broadest scope counts; existing rocks/dorks and non-creatures are skipped. The sim gates these with a per-trial Bernoulli roll (§4.9).
+
+### 1.6 Land-ramp-to-battlefield (`landRampSim` flag)
+- `IsLandRampToBattlefield`: oracle has "Search your library for" + "land" + "onto the battlefield" (Cultivate, Rampant Growth) — `Cls:919-925`. Land-search-to-**hand** does not qualify.
+- When `landRampSim` (default **ON** in prod): add a colorless (`Produces = empty`), non-land ramp `ManaSource`, `Weight 1.0`, `DeployCost = max(1, round(ManaValue))` — `Cls:236-250`. Never changes land/color counts.
+
+### 1.7 Ramp/draw budget piece counting (`rampCreditV2` flag)
+- **Land-target credit** `RampAndDrawUnderThree`: `+Quantity` when `ManaValue <= 2` and the ramp/draw predicate matches — `Cls:191-195`.
+  - `rampCreditV2` **off** → broad `IsRampOrDraw` (search-land, "Add ", "create a Treasure", draw-a/two) — `Cls:808-818`.
+  - `rampCreditV2` **on** (prod) → narrowed `IsRepeatableRampOrDraw` = you-draw OR land-ramp-to-battlefield OR (permanent AND non-one-shot front "Add"); "permanent" here tests the **whole** type line (any spell face disqualifies) — `Cls:847-873`. Drops one-shot rituals/Treasure from the land credit.
+- **Budget piece counts** (independent of the ≤2 gate): `IsRampPieceForBudget` (search-land, "Add ", Treasure, rock/dork, land-ramp) and `IsDrawPieceForBudget` (you-draw) — `Cls:820-832`. Final: `RampPieceCount = rampPieces − 0.5·both`, `DrawPieceCount = drawPieces − 0.5·both` (a dual-purpose card splits half/half) — `Cls:301-303`.
+
+### 1.8 Cost reducers & alt/reduced-cost
+- **`DetectCostReducer`** (always-on static generic reducers): needs `(<scope>) spells you cast cost {N} less`; excluded if oracle has "for each / less for / affinity / improvise / convoke / delve / opponent(s)"; amount > 0 — `Cls:938-987`. `ReductionScope` (whole-word): empty→All, instant/sorcery→InstantSorcery, creature→Creature, artifact→Artifact, anything else → dropped — `Cls:1120-1154`.
+- **`DetectSelfCost`** (below-printed cost, most-specific first) — `Cls:994-1062`: free/pitch → "0"; greatest-power reducer (Skullspore Nexus); board-scaling ("costs {1} less for each …") → "0"; evoke cost; suspend cost.
+- **Auto-applied to the analysis**: greatest-power reduction and free/alt-cost (override to "0") — `Cls:149,161-171`. **Suggestion-only** (pre-fills the override box): evoke / suspend / board-scaling — `Cls:157-159`.
+- `EffectiveTurn`/`GenericReduction` (`MA:411-449`): reduction floors at `max(1, colored pips)`, total generic reduction capped at **2**, reducer applies only when its own MV < the spell's MV and scope matches.
+- **Cost overrides** change a spell's effective MV/pips before analysis but deliberately do **not** touch deck aggregates (land target, avg MV) — "an alt cost changes castability, not the curve" — `MA:213-296`.
+
+### 1.9 Unsupported interactions (dropped from castability)
+- One `UnsupportedInteraction` per distinct name — `Cls:181-189`: `HasVariableCost` (X/Y/Z) → "Variable (X) cost — castability not simulated" (X spells excluded from the sim, `Cls:370-373`); else `ManaCost` contains `/` → "Flexible split pips (hybrid / Phyrexian / twobrid) — color requirement approximated". Hybrid pips add no hard single-color pip; twobrid `{2/U}` adds +2 MV, other hybrids +1 — `ManaCost.cs:47-54`.
+
+### 1.10 Curve / singleton / commander
+- Curve uses **non-land, non-commander** cards only: `AverageManaValue = round(mvSum / nonlandCount, 2)` — `Cls:132-137, 290, 298`.
+- `TotalCards` = Σ quantity of all cards; `CommanderCount` = Σ quantity of `IsCommander`; `IsSingleton` passed through (true = Commander/singleton, false = 60-card) — `Cls:119-123, 307`.
+- `SpellRequirement.ManaValue` = reduced value if overridden else `max(0, round(ManaValue))`; `IsGold` = `DistinctColors >= 2` — `Cls:384-386`.
+
+---
+
+## 2. Land target (Karsten regression)
+
+Shared constants (`Kar:22-26`): `LandIntercept 19.59`, `LandMvSlope 1.90`,
+`RampDrawCredit 0.28`, `MdfcCommonCredit 0.74`, `MdfcMythicCredit 0.38`.
+
+- **Singleton / Commander** (`Kar:38-55`):
+  `scale = (totalCards − commanderCount)/60`,
+  `interior = 19.59 + 1.90·avgMV + 0.27·commanderCount`,
+  `target = scale·interior − 0.28·rampDrawUnder3 − fastMana − 0.74·mdfcCommon − 0.38·mdfcMythic − 1.35`.
+- **60-card constructed** (`Kar:92-105`): `19.59 + 1.90·avgMV − 0.28·ramp − fastMana − 0.74·mdfcCommon − 0.38·mdfcMythic` (no scale, no commander term). (The old H5 bug that pre-multiplied the interior by 5/3 is fixed.)
+- **cEDH** (`Kar:63-81`): `max(28.0, SingletonLandTarget − 3.5)` — flat −3.5, hard floor 28 (research band 28–32).
+- **Routing** (`MA:301-340`): non-singleton → 60-card; singleton+Casual → singleton; singleton+cEDH → cEDH. `commanderCount = max(1, CommanderCount)`, `librarySize = TotalCards − commanderCount`.
+- **CommanderImportance does NOT change the land target** (explicitly orthogonal) — `MA:86-90`. No floor/ceiling beyond the cEDH 28.
+- `actualLands` counts only `IsLand` sources — partial sources never fill a land slot — `MA:145`.
+
+---
+
+## 3. Per-color source requirements + findings
+
+### 3.1 Karsten mulligan-blind "ceiling"
+- **Consistency threshold** = `clamp((89 + max(1, MV))/100, 0, 0.99)` — 90% at MV1 rising to 96% at MV7, cap 99% — `Kar:111-115`.
+- **Cards seen by turn** = `7 + (onPlay ? turn−1 : turn)` — `Kar:121-122`.
+- **CastConsistency** = P(≥pips colored sources AND ≥M lands by turn M) ÷ P(≥M lands by turn M), triple-category hypergeometric; `pips ≤ 0` → 1.0 — `Kar:135-189`, `Hypergeometric.cs`.
+- **SourcesNeeded** = smallest `sources ≥ pips` meeting the threshold (the table figure) — `Kar:196-213`.
+
+### 3.2 Mulligan-aware requirement (what findings actually use)
+- **`SimRequiredSources`** (`MA:686-744`): binary-searches the on-color land count whose **isolation-probe** sim cast % (`SimColorCast`, a synthetic deck measuring color access only, ramp-free) meets the threshold — `SourceSearchTrials 5000` during search, confirmed at 20k.
+- **Clamp-down**: if even an all-on-color base can't hit the bar, return `pips` (mana/curve-limited, not color) — `MA:718-722`.
+- **Karsten ceiling clamp**: `min(sim result, SourcesNeeded)` — the sim may only *lower* the requirement below Karsten, never inflate it — `MA:742-743`.
+- **Gold-contention bump** (`MA:544-551`): `need = min(totalLands, simNeed + otherColorsNeeded)` — one extra headroom source per other color the same gold card demands.
+- Measured at the spell's **effective on-curve turn** (post cost-reduction), not printed MV — `MA:526-529`.
+
+### 3.3 Commander weighting (`CommanderImportance`)
+- Enum: Central / Standard(default) / Low — `Mdl:544-558`.
+- **Support threshold** = mode base (Casual **80**, cEDH **88**), raised to **88** for a commander color when importance is Central — `MA:831-846`.
+- Commander is a mandatory worst-driver candidate unless importance is Low — `MA:556-562`; a Central commander color below threshold is promoted in the weakest-color ranking — `MA:813-829`.
+
+### 3.4 Color findings
+- One `ColorSourceFinding` per used color — `MA:463-673`.
+- `EffectiveSources` = weighted sum of source weights for the color; `untappedOnly` drops tapped sources. Turn-1 casts may use **untapped only** (`onCurveTurn <= 1`), else all — `MA:530, 889-908`.
+- `ActualSources = round(all, 1)`; `RequiredSources` = worst-driver sim figure (+gold bump); `Deficit = Required − Actual`; `IsAdequate = Deficit <= 0` — `Mdl:515-518`.
+- **UnderSupportedCount** = spells of this color with `castPercent < threshold` (mana- or color-limited) — `MA:575-577`.
+- **ColorLimitedUnderSupportedCount** = subset where `colorLimited && deficit > 0`; `colorLimited` = LimitingFactor is `"both"` or `"color:<thisColor>"` (a different color's `"color:X"` does NOT count this color starved) — `MA:591-603, 751-764`. **This is the only count that pushes health toward "Needs work"** — a card the base already supports color-wise is a curve problem, not a manabase one.
+- **KarstenMet** (left-lens display): `Met = ActualSources >= RequiredSources`; `Deficit = Met ? 0 : max(1, ceil(Required − Actual))` — `ManabaseDisplay.cs:155-161`.
+
+### 3.5 Demanding cards (the recent keep-band / deficit fix)
+- **Record** any spell with `castPercent < threshold` in a needed color, keeping its **lowest** cast% across demanded colors — `MA:607-610`.
+- **Turn-aware deficit**: `deficit = need − available` where `available` is untapped-only for a turn-1 cast (§3.4). A color supplied for the turn shows `deficit <= 0` → cheap turn-1 misses are *structural* (a land drop fixes them, not more sources).
+- **Cheap-miss prune** (`MA:618-621, 664-670`): a spell that is `colorLimited && deficit <= 0` in its single limiting color is "structural"; it is pruned **only** if it is source-fixable (`deficit > 0`) in **no** demanded color.
+- **"both"-color safety**: a `"both"`-limited card short in one color but supplied in another lands in `sourceFixableNames` and survives the prune — `MA:479-483, 663`.
+- **Mana-limited bombs** (LimitingFactor `"mana"`) are never `colorLimited`, so never structural-pruned — kept as demanding (curve problem) — `MA:617`.
+- Ordered ascending by `CastPercent` then name — `MA:162-166`.
+
+---
+
+## 4. Castability Monte-Carlo simulation (`CS`)
+
+### 4.1 Trials, seed, determinism
+- **`DefaultTrials = 20,000`** (`CS:34`); Monte-Carlo error < ~0.5 pt.
+- Per-spell seed = `Random(StableSeed(spell.Name))`, **FNV-1a** over UTF-16 (offset `2166136261`, prime `16777619`) — reproducible across runs/machines, explicitly not `GetHashCode` — `CS:230, 1988-2003`. Plan-presence uses fixed seed `"__deckflow_plan_presence__"` — `CS:456`.
+- Per-trial RNG order fixed: roll partials → shuffle prefix → mulligan — `CS:1670-1677`. Observation counters (TAP-02, keep sizes) add no draws.
+
+### 4.2 The joint event & effective cost
+- Answers: "by effective on-curve turn T, can I make ≥T mana **including** the spell's colored pips?" — one shuffled library, one land sequence, single joint test — `CS:8-9`. Replaces the old `P_mana × P_color` product (understated ~30 pts).
+- `effectiveCost = max(max(1, totalPips), effectiveGeneric + totalPips)`, `effectiveGeneric = max(0, printedGeneric − reduction)` — cost never dips below colored pip count or 1 — `CS:214-219`. `turn = max(1, effectiveTurn)`; `castPercent = clamp(round(100·successes/trials), 0, 100)` — `CS:227, 375`.
+
+### 4.3 London mulligan
+- **`hiCap = avgMV >= 3.0 ? 5 : 3`** — high-curve keeps up to 5 lands, normal-curve 2–3; sweet spot 3 — `CS:1688-1692`.
+- Schedule `(Keep, Bottom, Lo, Hi, RampGate)`:
+  - Singleton (`CS:1701-1708`): depth0 `(7,0,2,hiCap,true)`; **depth1 Commander free mulligan `(7,0,2,hiCap,true)`** (keeps 7, bottoms 0); depth2 `(6,1,2,hiCap,false)`; depth3 forced `(5,2,1,4,false)`.
+  - Non-singleton (`CS:1709-1714`): depth0 `(7,…)`; depth1 `(6,1,…)`; depth2 forced `(5,2,1,4)`.
+- **RampGate**: a 2-land (low-bound) fresh-7 keep needs ≥1 ramp piece in the opening 7 — `CS:1731-1735`. Loosens once at 6.
+- **Color-aware keep** (MQ-05, `colorAware`): non-forced keep also needs opening **lands** to show `min(deckColorCount, lands, ColorKeepCap=2)` distinct colors; mono decks no-op — `CS:40, 1737-1742, 1848-1850`.
+- **Bottoming**: non-lands first, highest cost first (filler cost treated as 3); free-mull depths bottom 0 — `CS:1864-1940`. **M1**: a bottomed card is relocated to the never-drawn tail of the prefix so turn-1 doesn't redraw it — `CS:1902-1916`.
+
+### 4.4 Draw model
+- **Draws every turn including turn 1** (multiplayer — CR 103.8a doesn't apply); by turn N a card has seen 7+N — `CS:988-995`.
+- Prefix window `min(library, 7 + turn + grace + 2)`; only the prefix is shuffled (Fisher-Yates), covering the mulligan look and every draw plus a +2 never-drawn margin — `CS:273, 1762-1771`.
+
+### 4.5 Land play priority (`PlayOneLand`, `CS:1144-1247`)
+- Order: untapped-that-adds-a-missing-color → any untapped → tapped. Missing colors judged only against lands already **online**.
+- **M2**: on a slack turn before the cast turn, a tapped fixer that adds a missing color beats a color-useless untapped land (it comes online next turn, still ≤ cast turn) — `CS:1225-1228`.
+- Tapped land is online **next** turn (`onlineTurn = currentTurn+1`); untapped same turn — `CS:1244`.
+
+### 4.6 Ramp deploy (`TryDeployRamp`, `CS:1252-1308`)
+- Only when `availableNow < effectiveCost` (stops over-ramping). Cheapest affordable piece; 0-cost fast mana online same turn, else next turn.
+- **Deploy-friction reserve** (`gateRampOnCastable`): the mana spent playing the rock is reserved out of this turn's sources, least-color-flexible first — `CS:1314-1353`. Flag-off = no reserve, byte-identical.
+- **Gated own-colored-cost**: with the gate on, a ramp piece is deployed only if the board can also pay the ramp's **own** colored cost (`RampPips`) — mirrors 17Lands — `CS:1287-1291`.
+
+### 4.7 Mana quantity (`useManaQuantity`, MQ-02)
+- Source pays `ManaAmount` mana of **one locked color** (a multi-color source can't pay two different pips) — `CS:118-122, 843`. Off → every source = 1.
+- `ColorsCoverable`: colorless → total-mana check; unit **greedy fast path** when no source makes >1 (byte-identical to history); else exact **DFS** backtracking — `CS:1453-1642`.
+
+### 4.8 Grace window & delay
+- **`GraceWindow = 1`** uniform — "on its turn or one turn late" (17Lands convention; replaced the old 3/2/1) — `CS:1142`. `firstCastableTurn` bounded at `lastTurn+1`; `AverageDelay = round(Σ max(0, first−turn)/trials, 1)` — `CS:962, 377`.
+
+### 4.9 Partial / conditional sources
+- Only `IsConditional` granted sources (the 0.25 Cryptolith/Relic any-color sources) get a per-trial Bernoulli roll at their weight — `CS:128-131, 873-914`. Deployable ramp/discounted lands enter at **full value 1.0** (friction already modeled by deploy cost + online turn; re-applying analytic weights would double-discount ~5-7 pts).
+
+### 4.10 TAP-02 & LimitingFactor
+- **TAP-02**: on turn 1, record whether any online turn-1 source can make a **needed** color (colorless spells accept any) — a 1-bit observation, no RNG — `CS:1407-1437`.
+- **LimitingFactor** (`CS:1944-1967`): colorless → "mana"; no failures → "mana"; `manaShort > 2·colorShort` → "mana"; `colorShort > 2·manaShort` → "color:<most-pips color>"; else "both".
+
+---
+
+## 5. Derived reads (layered on the sim)
+
+### 5.1 Ramp/draw budget (advisory — never touches target/color/health)
+- **Threshold** (`RDB:126-153`): highest commander MV if a commander exists, else the 75th-percentile MV of non-mana spells (`min(count−1, ceil(count·0.75))`), else 4.0.
+- **TargetRamp** (`RDB:113-124`): `≤2→8`; `≤4→8+2(t−2)`; `≤6→12+(t−4)`; `>6→14`. **TargetDraw = 24 − TargetRamp**.
+- **IsBalanced** = `|rampDelta| ≤ 2 AND |drawDelta| ≤ 2` — both axes (`RDB:87`). `IsRampLight/Heavy` = `rampDelta </> ±2`; `IsDrawLight` = `drawDelta < −2` (no draw-heavy). `RampShort/DrawShort = ceil(−delta)` when light — `RDB:88-93`.
+
+### 5.2 Tap analysis (`ComputeTapAnalysis`, `MA:916-962`) — flag `tap-analyzer`
+- Per-color untapped % = `round(100·rawUntapped/rawTotal)` (raw un-rounded weights). Overall = same over sums. Turn1UntappedPercent = mean `Turn1UntappedTrials` over non-commander rows ÷ trials.
+- "Untapped" = a source online turn 1 whose color matches a needed pip (colorless spells accept any) — `CS:1407-1437`.
+
+### 5.3 Mulligan evaluation (`ComputeMulliganEvaluation`, `MA:971-1044`) — flag `mulligan-eval`
+- Keep-size counters bucket by the **returned** keep value (7/6/5); `keepable == kept7 + to6` by construction — `CS:290-310`.
+- `KeepableHandPercent = Kept7% + MulliganTo6%`; `MulliganTo5% = max(0, 100 − keepable)` — `MA:986-989`.
+- **KeepableBand**: `≥85 high / ≥70 medium / else low` — `MA:991-996`.
+- Openers drawn from non-commander rows with **ManaValue ≥ 1** (free spells carry no signal) — `MA:1006-1007`.
+- **Openers source**: if the plan-presence pass ran, use its plan-preferred openers verbatim (one per depth 7/6/5); else fall back to per-row samples grouped by decision, max 3 — `MA:1021-1030`.
+
+### 5.4 Plan-presence (`SimulatePlanPresence`, `CS:408-659`) — flags `plan-presence` AND `mulligan-eval`
+- A **plan card** = `PlanRoles != None`; placed as identifiable, mana-inert filler. Pass runs only when the deck carries plan tags — `MA:173-176`.
+- **Role classification** (`PRC:33-70`), first-hit-wins: crowd categories → Commander Spellbook combo piece (TutorCombo) → oracle heuristic.
+- **Permanents-only gate** (`PRC:55-75`): `PermanentOnlyRoles = Payoff | Interaction`; for a non-permanent **front face** (`CardTypeLine.IsNonPermanentFront`), `roles &= ~PermanentOnlyRoles`. So a one-shot instant/sorcery **payoff** (Torment of Hailfire) or **interaction** (Swords, Counterspell) is stripped, while **Tutors (TutorCombo) and card draw (Engine) still count even as instants/sorceries**. Front face judged before `//` (Adventure creature = permanent; `Instant // Land` MDFC = not).
+- **Per-hand test**: a plan card counts only when **drawn by its on-curve turn** AND **castable by it** (`SimulateGame` on its own cost) — `CS:527-563`.
+- **Denominator = keepable-only** (`keptSize ≥ 6`); mull-to-5 is sampled for the opener display but not the percent — `CS:501-505, 565-568`.
+- **Bands**: PayoffPercent headline `≥20 high / ≥10 medium / else low` (`CS:706-711`); composite PlanPresence `≥65 high / ≥40 medium / else low` (`CS:715-720`).
+- **Representative openers**: one per depth (7/6/5), preferring a plan-holding hand; a depth locks once a plan hand is stored; mull-5 sampling capped at **200** attempts to bound plan-less decks; no-plan hand renders "no castable plan by its curve turn" — `CS:476-608`.
+
+### 5.5 Opener `HasPlan` has two producers
+- **Per-spell opener**: `HasPlan = ≥2 lands AND ≥ planColorTarget colors AND the tracked spell castable on curve` — a resource/keepability proxy — `CS:333-349`.
+- **Plan-presence opener**: `HasPlan = the hand holds a castable-on-curve permanent plan card` (the win-plan read), naming the card — `CS:634-659`.
+- When the plan-presence pass ran, its openers replace the per-row ones in the mulligan block, so the surfaced "with a plan" opener uses the win-plan meaning — `MA:1021-1022`.
+
+---
+
+## 6. Verdict synthesis
+
+### 6.1 Four-tier health (`ManabaseReport.Health`, `Mdl:750-794`)
+Labels (`ManabaseLabels.cs:14-17`): Healthy→**Excellent**, Functional→**Solid**, Workable→**Workable**, NeedsWork→**Needs work**. Evaluated in order:
+1. **Needs work** if `AnySevereColorDeficit` (any `Deficit > 2`) OR `ColorsWithIssue ≥ 2` — `Mdl:770-773, 905-908`.
+2. **Land-short escalation**: `landShort = LandDelta ≤ −2`. If land-short AND (a color issue OR broad under-support) → **Workable** only when `simFunctions && ColorsWithIssue == 1`, else **Needs work** — `Mdl:775-780`. (A raw land shortfall alone never forces Needs work — the land regression under-credits cheap ramp — so the sim must corroborate.)
+3. **Workable** if `ColorsWithIssue == 1` — `Mdl:783-786`.
+4. **Excellent** if `LandDelta ≥ −1 AND EveryColorClear` — `Mdl:788-791`.
+5. **Solid** otherwise — `Mdl:793`.
+
+Per-color "issue" (`ComputeColorSignals`, `Mdl:855-889`), tolerance `max(1, ceil(colorCards·0.15))`: `sourceShort = Deficit > 1`, `colorStarved = ColorLimitedUnderSupportedCount > tolerance`, `simWeakestProblem` (health-band path). **Mana-limited curve bombs are excluded from color issues** — only color-limited misses move the tier.
+
+`simFunctions` (headline floor) = `UseHealthBandHeadlineFloor && AvgOnCurvePercent ≥ 85 && WorstColorCastPercent ≥ 50 && !AnySevereColorDeficit && !BroadColorUnderSupport` — `Mdl:763-768`.
+
+### 6.2 Keep band's contribution
+The opening-keep affects the verdict **only** through the sim cast % it produces (which feeds `AvgOnCurvePercent`/`WorstColorCastPercent`), not as a separate input. The recent "tighten keep band + gate color-starved on real deficit" work is the RampGate/hiCap tuning (§4.3) plus the `colorStarved`/`simWeakestProblem` gating (§6.1), so a structural cheap-spell miss on a well-supplied color no longer trips the verdict.
+
+### 6.3 Biggest fix (`ManabaseReport.PrimaryFix`, `Mdl:1088-1146`)
+Strict priority: **ColorSources** (largest `Deficit > 1`, `Amount = ceil(Deficit)`) → **Lands** (only if `LandDelta < −1 && !LandShortfallCoveredByRamp`, `Amount = ceil(−LandDelta)`) → **DemandingCards** (if the weakest color has `UnderSupportedCount > 0`, `DemandingCount = that count`) → **None**.
+
+### 6.4 Plain-language verdict (`plain-language-verdict` flag; Casual only)
+`VS.Synthesize` builds up to **3** issue lines — `VS:19-100`:
+1. Per-color issues from `ColorIssueFindings` (the exact set the health band uses, so the verdict can't say "no changes needed" beside a Workable/Needs-work chip) — `VS:49-57`.
+2. Land line if `LandDelta < −1 && !LandShortfallCoveredByRamp` — `VS:59-64`.
+3. Ramp-light / draw-light budget lines, each tagged "(community heuristic, not Karsten math)" — `VS:66-92`.
+No-issue path: on the balanced budget → "in balance"; on a surplus/heavy side → "leans off the community split" (deliberately not "close enough") — `VS:157-165`. Verdict + budget are computed **only in Casual**; cEDH uses the flag as a UI-gloss gate — `MAS:328-331`.
+
+---
+
+## Feature Flag Catalog
+
+Keys read via `MAS.IsFlagOn` (fail-safe OFF). Seed defaults in `FeatureFlagStore.cs`.
+
+| Flag | Default | Changes |
+|---|---|---|
+| `analysis.manabase.source-mana-quantity` (MQ-02) | **ON** | Castability rows credit each source its full mana amount (Sol Ring = 2). Display-only; color counts unchanged. |
+| `analysis.manabase.ramp-credit-v2` (MQ-03) | **ON** | Only repeatable ramp + true draw lower the Karsten land target (one-shot rituals/Treasure no longer do). |
+| `analysis.manabase.color-aware-mulligan` (MQ-05) | **ON** | Sim mulligans color-screwed 2+ color hands; mono unchanged. |
+| `analysis.manabase.land-ramp-sim` (70-03b) | **ON** | Land-ramp spells (Cultivate) modeled as colorless ramp sources in the sim. |
+| `analysis.manabase.health-band-castability` | **OFF** | Composite-weakest color's worst-spell cast % can tip Solid→Workable (`simWeakestProblem`). |
+| `analysis.manabase.health-band-headline-floor` | **ON** | Strong headline narrowly promotes a land-short single-soft-issue Needs-work→Workable (`simFunctions`). |
+| `analysis.manabase.plain-language-verdict` | **OFF** | Casual: plain-language verdict + ramp/draw budget advisory. |
+| `analysis.manabase.commander-castability` | **OFF** | Command-zone castability callout + companion modeling (+3 "to hand" tax). |
+| `analysis.manabase.tap-analyzer` | **OFF** | "Untapped Sources" block + tap card. |
+| `analysis.mulligan-eval` (note: not `.manabase.`) | **OFF** | Opening-hand / mulligan-evaluator block. |
+| `analysis.manabase.plan-presence` | **OFF** | "With a plan" opener stat. Gated **also** on `mulligan-eval`; its category + Spellbook I/O only fire when both are on (fail-open). |
+
+**Hardcoded, no flag**: `gateRampOnCastable = true` — P4 gated-ramp is always on (`MAS:301-305`); before crediting a ramp piece the sim verifies the ramp's own colored cost is payable.
+
+---
+
+## Mode differences (cEDH vs Casual)
+
+| Rule | Casual | cEDH |
+|---|---|---|
+| Land target | singleton figure | `max(28, singleton − 3.5)` |
+| Color support threshold | 80 | 88 |
+| Central-commander color bar | raised to 88 if Central | already 88 |
+| Plain-language verdict + budget | computed | flag is UI-gloss only |
+
+Mode does **not** change the (89+M)% Karsten consistency threshold, the per-color
+source math, or the 60-card path.
+
+---
+
+## Notes & caveats
+
+- **Nearly nothing here is flag-free.** The prod-live accuracy set is MQ-02,
+  ramp-credit-v2, color-aware-mulligan, land-ramp-sim, health-band-headline-floor
+  (all ON) plus the always-on gated-ramp. The opening-hand, tap, plan-presence,
+  plain-language, commander-castability, and health-band-castability reads are
+  OFF by default and enabled per-environment.
+- **Flag-off = byte-identical** is a maintained invariant for the sim accuracy
+  flags (MQ-02 / MQ-05 / gated-ramp) — see the guards cited in §4.
+- `HealthBandHeadlineFloorFlagKey` ships **ON** — seed
+  (`Services/FeatureFlags/FeatureFlagStore.cs:223,263`) and catalog
+  (`Services/FeatureFlags/FeatureFlagCatalog.cs:63`) both enable it. (An earlier
+  XML comment that said "Seeded OFF" was corrected.)
