@@ -45,6 +45,21 @@ un-strand the row.
   re-trigger the git redeploy stage (drop `[skip render]` on resume) so a
   stranded ON row is self-recoverable without a full re-push.
 
+## FU-3 (P91 91-09, deferred) — Live Studio-UI + prod-Postgres reconcile walk before flipping `sync.reconcile`
+
+**Phase 91 operator gate (91-09).** The reconcile workflow's safety story was verified end-to-end
+by an automated fixture driver (`ReconcileFixtureDriveTests`, commit `5cb654ae`): real orchestrator +
+coordinator against a real SQLite prod stand-in + real git tree + real seed, proving all four classes
+detect read-only, flag/stale Apply refusals, seed-owned-only soft-hide, and prod-owned-stays-visible.
+The harness does **not** exercise (a) real Render Postgres prod, (b) the actual Studio `/reconcile`
+Blazor page interactions, or (c) a real `sync.reconcile` flip in the live web DB.
+
+- **Safe:** `sync.reconcile` ships **OFF**; the destructive Apply cannot run in prod until it is flipped.
+- **Pre-flip action (before enabling `sync.reconcile` in prod):** run the `/reconcile` page once, live —
+  dry-run against real prod (expect file-orphans in the hundreds order of magnitude per the 2026-07-05
+  audit), review the readable D-06 report, confirm no prod write, then a scoped dry-run→Apply with the
+  flag ON confirming only seed-owned rows soft-hide and a known prod-owned row stays visible.
+
 ## Closed this phase (for the record)
 
 - **HIGH (original)** — flag-OFF DirectPush could never publish (verify flow not
