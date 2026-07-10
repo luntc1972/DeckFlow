@@ -664,8 +664,7 @@ public static class ManabaseClassifier
     private static bool IsLandType(string typeLine)
     {
         // Use the front face only (before "//") so MDFC spell-fronts aren't treated as lands.
-        string front = typeLine.Split("//")[0];
-        return IsType(front, "Land");
+        return IsType(CardTypeLine.FrontFace(typeLine), "Land");
     }
 
     private static bool IsType(string typeLine, string type) =>
@@ -864,6 +863,10 @@ public static class ManabaseClassifier
         // test (a creature with a "{...} Add" adventure is NOT repeatable ramp). A front-face "Add "
         // that is NOT one-shot is the signal — card-level produced_mana is intentionally NOT used
         // here (also leaky).
+        // Deliberately tests the WHOLE type line (both faces), NOT CardTypeLine.IsNonPermanentFront:
+        // any instant/sorcery face disqualifies a card from repeatable-ramp credit here, so an Adventure
+        // creature with a spell back does not earn it. (The plan-role gate wants the opposite — front-face
+        // only — which is why the two intentionally differ.)
         string typeLine = card.TypeLine ?? string.Empty;
         bool permanent = !IsType(typeLine, "Instant") && !IsType(typeLine, "Sorcery");
         return permanent && HasNonOneShotFrontAdd(card);

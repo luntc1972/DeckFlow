@@ -157,14 +157,114 @@ public sealed class PlanRoleClassifierTests
     }
 
     [Theory]
-    [InlineData(ManabaseMode.Cedh, PlanRole.Interaction)]
-    [InlineData(ManabaseMode.Casual, PlanRole.None)]
-    public void Classify_PureCounterspell_HeuristicInteractionOnlyInCedh(ManabaseMode mode, PlanRole expected)
+    [InlineData(ManabaseMode.Cedh)]
+    [InlineData(ManabaseMode.Casual)]
+    public void Classify_PureCounterspell_IsNeverAPlan_PermanentGate(ManabaseMode mode)
     {
+        // Permanents-only plan gate: an instant counterspell leaves nothing on the board to advance the
+        // win, so it earns no plan role in EITHER mode — even cEDH, where the heuristic would otherwise
+        // grant Interaction. The mode carve-out still lives in FromHeuristic; the permanent gate at
+        // Classify overrides it for non-permanent front faces.
         CardFact fact = Fact("Instant", "Counter target spell.");
 
         PlanRole roles = PlanRoleClassifier.Classify(fact, Array.Empty<string>(), isComboPiece: false, mode);
 
-        Assert.Equal(expected, roles);
+        Assert.Equal(PlanRole.None, roles);
+    }
+
+    [Theory]
+    [InlineData("Instant", "Destroy target creature.")]          // removal → Interaction (stripped)
+    [InlineData("Sorcery", "Take an extra turn after this one.")] // extra-turn finisher → Payoff (stripped)
+    [InlineData("Sorcery", "Destroy all creatures.")]            // board wipe → Interaction (stripped)
+    public void Classify_NonPermanentPayoffOrInteraction_EarnsNoPlan(string typeLine, string oracle)
+    {
+        // Each oracle IS detected by FromHeuristic, but Payoff/Interaction require a permanent: a one-shot
+        // instant/sorcery threat or answer leaves nothing on the board, so the gate strips it.
+        Assert.NotEqual(PlanRole.None, PlanRoleClassifier.FromHeuristic(Fact(typeLine, oracle), ManabaseMode.Cedh));
+
+        Assert.Equal(
+            PlanRole.None,
+            PlanRoleClassifier.Classify(Fact(typeLine, oracle), Array.Empty<string>(), isComboPiece: false, ManabaseMode.Cedh));
+    }
+
+    [Fact]
+    public void Classify_NonPermanentTutor_IsKept()
+    {
+        // A sorcery tutor points at the permanent win, so TutorCombo survives the permanent gate — both
+        // from the oracle heuristic and from combo-piece membership.
+        Assert.Equal(
+            PlanRole.TutorCombo,
+            PlanRoleClassifier.Classify(Fact("Sorcery", "Search your library for a card."), Array.Empty<string>(), isComboPiece: false, ManabaseMode.Casual));
+
+        Assert.Equal(
+            PlanRole.TutorCombo,
+            PlanRoleClassifier.Classify(Fact("Instant", "Vanilla."), Array.Empty<string>(), isComboPiece: true, ManabaseMode.Casual));
+    }
+
+    [Fact]
+    public void Classify_NonPermanentCardDraw_IsKept()
+    {
+        // Card advantage furthers the plan even as a one-shot: a sorcery tagged "Card Draw" keeps Engine.
+        Assert.Equal(
+            PlanRole.Engine,
+            PlanRoleClassifier.Classify(Fact("Sorcery", "Draw two cards."), new[] { "Card Draw" }, isComboPiece: false, ManabaseMode.Casual));
+    }
+
+    [Fact]
+    public void Classify_NonPermanentPayoffCategory_IsStripped()
+    {
+        // A sorcery tagged "Win Condition" earns Payoff from categories, which the permanent gate strips —
+        // the category wins first-hit, so combo membership is not consulted here.
+        CardFact sorcery = Fact("Sorcery", "Deal 5 damage to each opponent.");
+
+        Assert.Equal(
+            PlanRole.None,
+            PlanRoleClassifier.Classify(sorcery, new[] { "Win Condition" }, isComboPiece: true, ManabaseMode.Casual));
+    }
+
+    [Fact]
+    public void Classify_PermanentPayoff_IsKept()
+    {
+        // A creature finisher is a permanent, so its Payoff role survives the gate.
+        CardFact creature = Fact("Creature — Avatar", "Whenever this attacks, each opponent loses 3 life.");
+
+        PlanRole roles = PlanRoleClassifier.Classify(creature, new[] { "Win Condition" }, isComboPiece: false, ManabaseMode.Casual);
+
+        Assert.Equal(PlanRole.Payoff, roles);
+    }
+
+    [Fact]
+    public void Classify_AdventureCreatureFront_IsPermanent_RoleKept()
+    {
+        // Bonecrusher Giant: "Creature — Giant // Instant — Adventure". The FRONT is a permanent, so the
+        // card is a valid plan even though its adventure back is an instant.
+        CardFact adventure = Fact("Creature — Giant // Instant — Adventure", "Whenever this attacks...");
+
+        PlanRole roles = PlanRoleClassifier.Classify(adventure, new[] { "Finisher" }, isComboPiece: false, ManabaseMode.Casual);
+
+        Assert.Equal(PlanRole.Payoff, roles);
+    }
+
+    [Fact]
+    public void Classify_SpellLandMdfc_JudgedOnInstantFront_EarnsNoPlan()
+    {
+        // Malakir Rebirth // Malakir Mire: the FRONT is an instant (the land back is a land, never a
+        // plan), so even a "Removal"/combo tag earns nothing.
+        CardFact mdfc = Fact("Instant // Land", "Return target creature card... // Malakir Mire enters tapped.");
+
+        Assert.Equal(
+            PlanRole.None,
+            PlanRoleClassifier.Classify(mdfc, new[] { "Removal" }, isComboPiece: true, ManabaseMode.Cedh));
+    }
+
+    [Fact]
+    public void Classify_PermanentFrontDfc_IsKept()
+    {
+        // A creature/creature (or creature/land back) DFC whose FRONT is a permanent qualifies.
+        CardFact dfc = Fact("Creature — Werewolf // Creature — Werewolf", "Whenever this attacks...");
+
+        Assert.Equal(
+            PlanRole.Payoff,
+            PlanRoleClassifier.Classify(dfc, new[] { "Win Condition" }, isComboPiece: false, ManabaseMode.Casual));
     }
 }

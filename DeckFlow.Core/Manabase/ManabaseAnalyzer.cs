@@ -1012,14 +1012,22 @@ public static class ManabaseAnalyzer
         // a cross-row claim. Openers are SPELL-SPECIFIC (unlike the spell-independent keepable/keep-size
         // percents above), so they are drawn ONLY from non-commander rows — a commander is rarely the
         // early on-curve play the read is meant to surface. Empty when the deck has no non-commander row.
-        List<OpeningHandSample> openers = openerRows
-            .OrderBy(r => r.ManaValue)
-            .ThenBy(r => r.OnCurveTurn)
-            .SelectMany(r => r.RepresentativeOpeners)
-            .GroupBy(s => s.Decision, StringComparer.Ordinal)
-            .Select(g => g.First())
-            .Take(3)
-            .ToList();
+        // When the plan-presence pass ran (flag on), it produced openers that PREFER a hand holding a
+        // castable-on-curve plan card (the permanents-only "hand with a plan" read) at each kept size —
+        // that is the more informative opener, so it wins. With the flag off (planPresence null / no
+        // openers) fall back to the per-row samples: earliest-row-first, first sample per Decision, ≤3.
+        // Each per-row sample already carries its own TrackedSpellName + TrackedOnCurveTurn, so this
+        // never fabricates a cross-row claim.
+        List<OpeningHandSample> openers = planPresence?.RepresentativeOpeners is { Count: > 0 } planOpeners
+            ? planOpeners.ToList()
+            : openerRows
+                .OrderBy(r => r.ManaValue)
+                .ThenBy(r => r.OnCurveTurn)
+                .SelectMany(r => r.RepresentativeOpeners)
+                .GroupBy(s => s.Decision, StringComparer.Ordinal)
+                .Select(g => g.First())
+                .Take(3)
+                .ToList();
 
         return new ManabaseMulliganEvaluation
         {

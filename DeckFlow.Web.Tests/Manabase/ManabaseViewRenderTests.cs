@@ -98,6 +98,20 @@ public sealed class ManabaseViewRenderTests
     }
 
     [Fact]
+    public async Task MulliganOpeners_NoCastablePlanSample_RendersNoPlanLine()
+    {
+        // The mull-to-5 opener in the fixture holds no castable plan (empty tracked name). It must render
+        // the plain "no castable plan by its curve turn" phrasing and a "no clear line" verdict — never a
+        // dangling "<empty> castable on curve" line.
+        var model = BuildPopulatedModel(showTapAnalyzer: false, showMulliganEval: true, showPlanPresence: true);
+
+        string html = await RenderManabaseViewAsync(model);
+
+        Assert.Contains("no castable plan by its curve turn", html, StringComparison.Ordinal);
+        Assert.Contains("no clear line", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task PlanPresenceFlagTrue_RendersWithAPlanLineAndRoleBreakdown()
     {
         var model = BuildPopulatedModel(showTapAnalyzer: false, showMulliganEval: true, showPlanPresence: true);
@@ -401,6 +415,21 @@ public sealed class ManabaseViewRenderTests
                     TrackedOnCurveTurn = 1,
                     OnCurveCastable = true,
                     HasPlan = true,
+                },
+                new()
+                {
+                    // Plan-presence opener with no castable plan found at this depth: empty tracked name
+                    // must render as "no castable plan", never a dangling on-curve line.
+                    Lands = 2,
+                    Colors = 1,
+                    RampPieces = 0,
+                    OtherCards = 3,
+                    KeptCards = 5,
+                    Decision = "mulligan to 5",
+                    TrackedSpellName = string.Empty,
+                    TrackedOnCurveTurn = 0,
+                    OnCurveCastable = false,
+                    HasPlan = false,
                 },
             },
             PlanPresence = new ManabasePlanPresence

@@ -475,8 +475,15 @@ public sealed class ManabaseAnalysisServiceTests
         // sequential DB query — ~65 round-trips on a full decklist, which exhausted the 20s request
         // budget. Tagging must now issue exactly ONE batched lookup regardless of spell count.
         var (entries, cards) = CurveFixture();
+
+        // The permanents-only plan gate means a win-con category only earns a plan role on a PERMANENT —
+        // CurveFixture's fillers are all sorceries, so tag a creature so the category flows into a live
+        // plan-presence read. (The batched-lookup assertion below is independent of card type.)
+        entries.Add(Entry("Plan Beater", 1, "mainboard"));
+        cards.Add(Spell("Plan Beater", "{2}{U}", 3, "Creature — Avatar"));
+
         var store = new FakeCategoryKnowledgeStore();
-        store.CategoriesByName["Filler Spell 0"] = new[] { "Win Condition" };
+        store.CategoriesByName["Plan Beater"] = new[] { "Win Condition" };
 
         var service = new ManabaseAnalysisService(
             new FakeLoader(entries),
