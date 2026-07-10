@@ -179,7 +179,8 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
 
     /// <summary>
     /// MQ-health-band headline-floor flag key: when enabled, a strong headline castability result
-    /// can narrowly promote a land-short NeedsWork verdict to Workable. Seeded OFF.
+    /// can narrowly promote a land-short NeedsWork verdict to Workable. Seeded ON (the seed store and
+    /// operator catalog both ship it enabled).
     /// </summary>
     public const string HealthBandHeadlineFloorFlagKey = "analysis.manabase.health-band-headline-floor";
 
