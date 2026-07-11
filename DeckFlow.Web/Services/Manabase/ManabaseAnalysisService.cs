@@ -189,6 +189,13 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     /// </summary>
     public const string PlanPresenceFlagKey = "analysis.manabase.plan-presence";
 
+    /// <summary>
+    /// Ritual-burst flag key: seeded OFF. Credits instant/sorcery rituals (Dark Ritual, Rite of Flame,
+    /// Cabal Ritual) as one-shot burst mana in the castability sim, cEDH mode only. Read fail-safe OFF;
+    /// off = byte-identical output.
+    /// </summary>
+    public const string RitualBurstFlagKey = "analysis.manabase.ritual-burst-mana";
+
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IScryfallCardResolver _scryfallCardResolver;
     private readonly IFeatureFlagCache? _featureFlags;
@@ -242,6 +249,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         // that block, so enabling plan-presence alone must not do the extra I/O + sim for a line that can
         // never show (Codex MED). Both flags on = the stat runs and surfaces.
         bool showPlanPresence = IsFlagOn(PlanPresenceFlagKey) && showMulliganEval;
+        bool ritualBurst = IsFlagOn(RitualBurstFlagKey);
 
         ResolvedManabaseDeck resolved = await ResolveAndClassifyAsync(
                 deckSource,
@@ -277,6 +285,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         ManabaseReport report = ManabaseAnalyzer.Analyze(
             resolved.Deck, options.Mode, options.CommanderImportance, options.CostOverrides,
             useManaQuantity, colorAwareMulligan, gateRampOnCastable: true,
+            ritualBurst: ritualBurst,
             useHealthBandCastability: useHealthBandCastability,
             useHealthBandHeadlineFloor: useHealthBandHeadlineFloor);
 

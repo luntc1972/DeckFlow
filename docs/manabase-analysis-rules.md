@@ -186,6 +186,20 @@ count as real lands, §1.4 — so the old `MdfcCommonCredit`/`MdfcMythicCredit` 
 - Source pays `ManaAmount` mana of **one locked color** (a multi-color source can't pay two different pips) — `CS:118-122, 843`. Off → every source = 1.
 - `ColorsCoverable`: colorless → total-mana check; unit **greedy fast path** when no source makes >1 (byte-identical to history); else exact **DFS** backtracking — `CS:1453-1642`.
 
+### 4.7a Ritual / one-shot burst mana (`ritual-burst-mana`)
+- Behind `analysis.manabase.ritual-burst-mana` (**default OFF**), the sim may credit a drawn
+  **instant/sorcery ritual** as a one-turn burst source on the tracked spell's cast attempt —
+  examples: Dark Ritual, Rite of Flame, Cabal Ritual. Qualification is conservative: front face
+  Instant/Sorcery, unconditional `Add {…}`, and **net-positive** mana over the spell's own mana cost.
+- The ritual must be **payable from the pre-burst board** first — its own colored cost is checked
+  before any burst mana is added. A red ritual cannot cover a missing blue pip, and one ritual
+  cannot pay for another in v1.
+- The credit is **non-persistent**: it helps only that cast attempt, never becomes a permanent source,
+  and never changes the land target, effective color-source counts, or Karsten requirements.
+- The Web flag is **cEDH-only**: `ritualBurst=true` is hard-gated inside `ManabaseAnalyzer.Analyze`
+  to `mode == Cedh`. Casual stays byte-identical even when the flag is on. Flag OFF is byte-identical
+  in both modes.
+
 ### 4.8 Grace window & delay
 - **`GraceWindow = 1`** uniform — "on its turn or one turn late" (17Lands convention; replaced the old 3/2/1) — `CS:1142`. `firstCastableTurn` bounded at `lastTurn+1`; `AverageDelay = round(Σ max(0, first−turn)/trials, 1)` — `CS:962, 377`.
 
@@ -274,6 +288,7 @@ Keys read via `MAS.IsFlagOn` (fail-safe OFF). Seed defaults in `FeatureFlagStore
 | `analysis.manabase.tap-analyzer` | **ON** | "Untapped Sources" block + tap card. |
 | `analysis.manabase.mulligan-eval` | **ON** | Opening-hand / mulligan-evaluator block. Renamed from `analysis.mulligan-eval` (state carried by the store's idempotent rename migration). |
 | `analysis.manabase.plan-presence` | **ON** | "With a plan" opener stat. Gated **also** on `mulligan-eval`; its category + Spellbook I/O only fire when both are on (fail-open). |
+| `analysis.manabase.ritual-burst-mana` | **OFF** | Credit instant/sorcery rituals as one-shot burst mana in the castability sim. cEDH mode only; land count and color counts unchanged. |
 
 **Hardcoded, no flag**: `gateRampOnCastable = true` — P4 gated-ramp is always on (`MAS:301-305`); before crediting a ramp piece the sim verifies the ramp's own colored cost is payable.
 
@@ -298,10 +313,12 @@ source math, or the 60-card path.
 - **Nearly nothing here is flag-free.** The prod-live accuracy bundle is
   `analysis.manabase.accuracy` (ON) plus the always-on gated-ramp. The opening-hand
   (`mulligan-eval`), tap, plan-presence, plain-language, commander-castability, and
-  health-band-castability reads now also **default ON** — every manabase display/verdict
-  flag ships enabled; an admin can still hide any one from `/Admin/Flags`. Flipping the
-  seed default does not retroactively flip an existing DB's stored row (operator toggles
-  those), except `mulligan-eval`, whose prior state is carried across its rename.
+  health-band-castability reads now also **default ON** — every current manabase
+  display/verdict flag ships enabled. The dark-launched sim flag
+  `analysis.manabase.ritual-burst-mana` is the exception and stays **default OFF**;
+  an admin can still hide or flip any one from `/Admin/Flags`. Flipping a seed default
+  does not retroactively flip an existing DB's stored row (operator toggles those),
+  except `mulligan-eval`, whose prior state is carried across its rename.
 - **Flag-off = byte-identical** is a maintained invariant for the sim accuracy
   flags (MQ-02 / MQ-05 / gated-ramp) — see the guards cited in §4.
 - `analysis.manabase.accuracy` ships **ON** — seed and catalog both enable it.

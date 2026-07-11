@@ -489,6 +489,90 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_RitualBurstFlagOff_MatchesBaselineCastPercent()
+    {
+        var (entries, cards) = RitualBurstFixture();
+        var baseline = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+        var explicitOff = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.RitualBurstFlagKey] = false,
+            }));
+
+        var baselineResult = await baseline.AnalyzeAsync(
+            "paste", "Ritual Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Cedh });
+        var offResult = await explicitOff.AnalyzeAsync(
+            "paste", "Ritual Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Cedh });
+
+        Assert.Equal(
+            baselineResult.Report.Castability.Single(c => c.Name == "Necropotence").CastPercent,
+            offResult.Report.Castability.Single(c => c.Name == "Necropotence").CastPercent);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_RitualBurstFlagOn_Cedh_RaisesTripleBlackCastPercent()
+    {
+        var (entries, cards) = RitualBurstFixture();
+        var off = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.RitualBurstFlagKey] = false,
+            }));
+        var on = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.RitualBurstFlagKey] = true,
+            }));
+
+        var offResult = await off.AnalyzeAsync(
+            "paste", "Ritual Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Cedh });
+        var onResult = await on.AnalyzeAsync(
+            "paste", "Ritual Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Cedh });
+
+        int castOff = offResult.Report.Castability.Single(c => c.Name == "Necropotence").CastPercent;
+        int castOn = onResult.Report.Castability.Single(c => c.Name == "Necropotence").CastPercent;
+        int lift = castOn - castOff;
+
+        Assert.True(castOn > castOff, $"ritual burst should raise Necropotence cast% in cEDH (off={castOff}, on={castOn})");
+        Assert.True(lift > 0, "ritual burst lift should be strictly positive; a zero lift suggests Dark Ritual failed to classify.");
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_RitualBurstFlagOn_Casual_KeepsTripleBlackCastPercentUnchanged()
+    {
+        var (entries, cards) = RitualBurstFixture();
+        var off = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.RitualBurstFlagKey] = false,
+            }));
+        var on = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.RitualBurstFlagKey] = true,
+            }));
+
+        var offResult = await off.AnalyzeAsync(
+            "paste", "Ritual Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Casual });
+        var onResult = await on.AnalyzeAsync(
+            "paste", "Ritual Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Casual });
+
+        Assert.Equal(
+            offResult.Report.Castability.Single(c => c.Name == "Necropotence").CastPercent,
+            onResult.Report.Castability.Single(c => c.Name == "Necropotence").CastPercent);
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_TapAnalyzerFlagAbsent_ShowTapAnalyzerFalse()
     {
         var (entries, cards) = CurveFixture();
@@ -796,6 +880,41 @@ public sealed class ManabaseAnalysisServiceTests
         string.Join("\n", entries
             .Where(entry => entry.Quantity > 0)
             .Select(entry => $"{entry.Quantity} {entry.Name}"));
+
+    private static (List<DeckEntry> Entries, List<ScryfallCard> Cards) RitualBurstFixture()
+    {
+        static ScryfallCard Oracle(string name, string cost, double cmc, string type, string oracle) => new(
+            Name: name, ManaCost: cost, TypeLine: type, OracleText: oracle,
+            Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
+            SetCode: null, SetName: null, CollectorNumber: null, CardFaces: null, Id: null,
+            Layout: "normal", Cmc: cmc, ProducedMana: null, Rarity: "rare");
+
+        var entries = new List<DeckEntry>
+        {
+            Entry("Yahenni, Undying Partisan", 1, "commander"),
+            Land("Swamp", 22),
+            Entry("Dark Ritual", 1, "mainboard"),
+            Entry("Necropotence", 1, "mainboard"),
+        };
+        for (int i = 0; i < 75; i++)
+        {
+            entries.Add(Entry($"Ritual Filler {i}", 1, "mainboard"));
+        }
+
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Swamp", "B"),
+            Spell("Yahenni, Undying Partisan", "{2}{B}", 3, "Legendary Creature — Aetherborn Vampire"),
+            Oracle("Dark Ritual", "{B}", 1, "Instant", "Add {B}{B}{B}."),
+            Spell("Necropotence", "{B}{B}{B}", 3, "Enchantment"),
+        };
+        for (int i = 0; i < 75; i++)
+        {
+            cards.Add(Spell($"Ritual Filler {i}", "{2}", 2, "Artifact"));
+        }
+
+        return (entries, cards);
+    }
 
     [Fact]
     public async Task AnalyzeAsync_CommanderImportance_ThreadsThroughToTheReport()
