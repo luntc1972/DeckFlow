@@ -38,11 +38,12 @@ test('infers the leading commander from a header-less Moxfield paste', async ({ 
 
   const result = await analyze(page);
 
-  // The castability table flags exactly one commander row, and it is Bello.
-  const commanderRows = result.locator('.castability-table tbody tr.manabase-row--commander');
-  await expect(commanderRows).toHaveCount(1);
-  await expect(commanderRows.first()).toContainText('Bello, Bard of the Brambles');
-  await expect(commanderRows.first().locator('.manabase-cmd-glyph[title="commander"]')).toBeVisible();
+  // With analysis.manabase.commander-castability default-on, the inferred commander is surfaced in
+  // the command-zone callout (not as a castability-table row) and excluded from the visible rows.
+  const callout = result.locator('.manabase-cmd-castability');
+  await expect(callout).toBeVisible();
+  await expect(callout).toContainText('Bello, Bard of the Brambles');
+  await expect(result.locator('.castability-table')).not.toContainText('Bello, Bard of the Brambles');
 
   // Bello is R/G, so at least one color finding is marked as a commander color (★).
   await expect(result.locator('.manabase-cmd-glyph[title="commander color"]').first()).toBeVisible();

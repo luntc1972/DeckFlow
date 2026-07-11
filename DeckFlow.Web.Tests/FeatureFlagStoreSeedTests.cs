@@ -30,15 +30,16 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
 
     [Theory]
     [InlineData("analysis.manabase.accuracy", true)]
-    [InlineData("analysis.manabase.health-band-castability", false)]
-    [InlineData("analysis.manabase.plain-language-verdict", false)]
-    [InlineData("analysis.manabase.commander-castability", false)]
-    [InlineData("analysis.manabase.tap-analyzer", false)] // TAP-04: seeded OFF
+    [InlineData("analysis.manabase.health-band-castability", true)] // manabase UI flags default ON
+    [InlineData("analysis.manabase.plain-language-verdict", true)]
+    [InlineData("analysis.manabase.commander-castability", true)]
+    [InlineData("analysis.manabase.tap-analyzer", true)]
     [InlineData("analysis.command-zone-awareness", false)]
     [InlineData("tool.bracket.enabled", false)] // BRACKET-05: seeded OFF
     [InlineData("analysis.multi-axis-score", false)] // SCORE-01: seeded OFF
     [InlineData("tool.primer.stale-flag", false)] // PRIMER: seeded OFF
-    [InlineData("analysis.mulligan-eval", false)] // MULLIGAN-06: seeded OFF
+    [InlineData("analysis.manabase.mulligan-eval", true)] // renamed + default ON
+    [InlineData("analysis.manabase.plan-presence", true)] // default ON (gated also on mulligan-eval)
     public async Task EnsureSchema_SeedsManabaseFlags_AtExpectedDefault(string key, bool expectedOn)
     {
         var store = new FeatureFlagStore(_dbPath);
@@ -57,12 +58,28 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
     /// No visibility widening on the const - reflection reads it in place.
     /// </summary>
     [Fact]
-    public void PostgresSeedSql_SeedsMulliganEvalFlag_Off()
+    public void PostgresSeedSql_SeedsMulliganEvalFlag_On()
     {
         var field = typeof(FeatureFlagStore).GetField("PostgresSeedSql", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
         Assert.NotNull(field);
 
         var postgresSql = Assert.IsType<string>(field!.GetRawConstantValue());
-        Assert.Contains("('analysis.mulligan-eval', FALSE)", postgresSql, StringComparison.Ordinal);
+        Assert.Contains("('analysis.manabase.mulligan-eval', TRUE)", postgresSql, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The Phase-81 opening-hand flag shipped un-namespaced as <c>analysis.mulligan-eval</c>; it is
+    /// renamed to <c>analysis.manabase.mulligan-eval</c> via the store's idempotent rename migration,
+    /// which carries any operator toggle state forward. Guard that the legacy key is registered for
+    /// rename (reflection reads the private table in place).
+    /// </summary>
+    [Fact]
+    public void RenamedFlagKeys_CarriesLegacyMulliganEvalKeyForward()
+    {
+        var field = typeof(FeatureFlagStore).GetField("RenamedFlagKeys", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(field);
+
+        var renames = Assert.IsType<(string OldKey, string NewKey)[]>(field!.GetValue(null));
+        Assert.Contains(("analysis.mulligan-eval", "analysis.manabase.mulligan-eval"), renames);
     }
 }

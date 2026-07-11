@@ -147,14 +147,15 @@ test('casual submit renders the castability table, worst-first, commander pinned
   // The real spells we pasted do appear as rows.
   expect(names.some((n) => n.includes('Counterspell'))).toBe(true);
 
-  // The commander (carried on the `Commander` section of the paste) is pinned to the FIRST row
-  // and flagged with the commander glyph.
-  const firstRow = table.locator('tbody tr').first();
-  await expect(firstRow).toHaveClass(/manabase-row--commander/);
-  await expect(firstRow.locator('td.castability-name')).toContainText('Brago, King Eternal');
-  await expect(firstRow.locator('.manabase-cmd-glyph')).toBeVisible();
+  // With analysis.manabase.commander-castability default-on, the commander (carried on the
+  // `Commander` section of the paste) moves OUT of the castability table INTO the command-zone
+  // callout, and is excluded from the visible rows.
+  const callout = page.locator('.manabase-cmd-castability');
+  await expect(callout).toBeVisible();
+  await expect(callout).toContainText('Brago, King Eternal');
+  await expect(table).not.toContainText('Brago, King Eternal');
 
-  // Non-commander rows are sorted ascending by cast %.
+  // Rows are sorted ascending by cast % (no commander row present to exclude).
   const chipText = await table.locator('tbody tr:not(.manabase-row--commander) .manabase-chip').allInnerTexts();
   const percents = chipText.map((t) => parseInt(t.replace('%', ''), 10)).filter((n) => !Number.isNaN(n));
   const sorted = [...percents].sort((a, b) => a - b);
