@@ -1140,6 +1140,39 @@ public sealed class ManabaseClassifierTests
     }
 
     [Fact]
+    public void Classify_SacrificeCostRituals_AreExcludedFromOneShotBurstMana()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Culling the Weak", Quantity = 1, ManaCost = "{B}", ManaValue = 1,
+                TypeLine = "Instant",
+                OracleText = "As an additional cost to cast this spell, sacrifice a creature.\nAdd {B}{B}{B}{B}.",
+                ProducedMana = new[] { "B" },
+            },
+            new()
+            {
+                Name = "Infernal Plunge", Quantity = 1, ManaCost = "{R}", ManaValue = 1,
+                TypeLine = "Instant",
+                OracleText = "As an additional cost to cast this spell, sacrifice a creature.\nAdd {R}{R}{R}.",
+                ProducedMana = new[] { "R" },
+            },
+            new()
+            {
+                Name = "Dark Ritual", Quantity = 1, ManaCost = "{B}", ManaValue = 1,
+                TypeLine = "Instant", OracleText = "Add {B}{B}{B}.", ProducedMana = new[] { "B" },
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        Assert.DoesNotContain(deck.OneShots, o => o.Name == "Culling the Weak");
+        Assert.DoesNotContain(deck.OneShots, o => o.Name == "Infernal Plunge");
+        Assert.Contains(deck.OneShots, o => o.Name == "Dark Ritual");
+    }
+
+    [Fact]
     public void Classify_NonRitualsAndArtifactFastMana_AreNotOneShotBurstMana()
     {
         var cards = new List<CardFact>

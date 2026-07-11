@@ -544,6 +544,9 @@ public static class ManabaseClassifier
     private static readonly Regex AddClauseRegex =
         new(@"\bAdd\s+((?:\{[^}]+\}\s*)+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    private static readonly Regex SacrificeClauseRegex =
+        new(@"\bsacrifice\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     private static OneShotMana? DetectOneShotBurstMana(CardFact card)
     {
         string front = CardTypeLine.FrontFace(card.TypeLine);
@@ -558,7 +561,16 @@ public static class ManabaseClassifier
             return null;
         }
 
-        Match add = AddClauseRegex.Match(ReminderTextRegex.Replace(text, string.Empty));
+        string normalizedText = ReminderTextRegex.Replace(text, string.Empty);
+
+        // Instant/sorcery rituals with any Sacrifice clause carry an additional cost or downside
+        // the sim cannot model, so exclude them conservatively per SPEC §3.1.
+        if (SacrificeClauseRegex.IsMatch(normalizedText))
+        {
+            return null;
+        }
+
+        Match add = AddClauseRegex.Match(normalizedText);
         if (!add.Success)
         {
             return null;
