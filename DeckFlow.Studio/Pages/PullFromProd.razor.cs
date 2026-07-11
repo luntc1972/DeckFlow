@@ -47,8 +47,10 @@ public partial class PullFromProd
     private string _pullError = string.Empty;
     private string _pullStage = string.Empty;
     private bool _diffReady;
+    private PullFreshnessStatus? _freshness;
     private List<SyncDiffEntry> _diffEntries = new();
     private readonly Dictionary<string, Resolution> _resolutions = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _divergenceOverrides = new(StringComparer.Ordinal);
 
     // ── Progress log (live console view, SUI-03) ────────────────────────────
     // Why: bounded to last ProgressLogMaxLines so an enormous pull (many artifacts) never grows
@@ -107,9 +109,11 @@ public partial class PullFromProd
         _pullInFlight = true;
         _pullError = string.Empty;
         _diffReady = false;
+        _freshness = null;
         _diffEntries = new();
         _progressLog = new();
         _resolutions.Clear();
+        _divergenceOverrides.Clear();
         _applySuccess = false;
         _applyError = string.Empty;
         _rowResults = new();
@@ -129,11 +133,12 @@ public partial class PullFromProd
 
         try
         {
-            var entries = await Task.Run(
+            var result = await Task.Run(
                 () => Coordinator.PullAndClassifyAsync(_stagingRoot, log, onStage, Cts.Token),
                 Cts.Token);
 
-            _diffEntries = entries.ToList();
+            _diffEntries = result.Entries.ToList();
+            _freshness = result.Freshness;
             _diffReady = true;
             _pullInFlight = false;
             _operationInFlight = false;
@@ -185,11 +190,24 @@ public partial class PullFromProd
 
         // Adopt set = entries the operator chose to adopt that carry a prod row (LocalOnly is
         // display-only — never adoptable). The coordinator applies each to the LOCAL store only.
-        var adoptEntries = _diffEntries
+        var selectedAdoptEntries = _diffEntries
             .Where(e => GetResolution(e) == Resolution.AdoptProd
                 && e.Kind != SyncDiffKind.LocalOnly
                 && e.ProdRow is not null)
             .ToList();
+        var adoptEntries = selectedAdoptEntries
+            .Where(e => e.BodyDivergence is BodyDivergenceStatus.NotApplicable or BodyDivergenceStatus.Clean
+                || _divergenceOverrides.Contains(EntryKey(e)))
+            .ToList();
+
+        if (selectedAdoptEntries.Count > 0 && adoptEntries.Count == 0)
+        {
+            _applyError = "No eligible entries to apply — check the 'adopt anyway' opt-in on divergent/indeterminate entries to adopt them. Production was not modified.";
+            _applyInFlight = false;
+            _operationInFlight = false;
+            await SafeStateHasChangedAsync();
+            return;
+        }
 
         // Progress<T> captures the sync context: each per-entry snapshot re-renders incrementally.
         var progress = new Progress<IReadOnlyList<PullApplyRowResult>>(snapshot =>
@@ -201,7 +219,7 @@ public partial class PullFromProd
         try
         {
             var results = await Task.Run(
-                () => Coordinator.ApplyAdoptionsAsync(adoptEntries, _stagingRoot, _dataRoot, progress, Cts.Token),
+                () => Coordinator.ApplyAdoptionsAsync(adoptEntries, _stagingRoot, _dataRoot, progress, _divergenceOverrides, Cts.Token),
                 Cts.Token);
 
             _rowResults = results.ToList();
@@ -234,13 +252,27 @@ public partial class PullFromProd
     }
 
     // ── Resolution helpers ──────────────────────────────────────────────────
-    private static string EntryKey(SyncDiffEntry entry) => $"{entry.NaturalKeyType}:{entry.NaturalKeyValue}";
+    private static string EntryKey(SyncDiffEntry entry) => PullFromProdCoordinator.AcknowledgmentKey(entry);
 
     private Resolution GetResolution(SyncDiffEntry entry) =>
         _resolutions.TryGetValue(EntryKey(entry), out var r) ? r : Resolution.None;
 
     private void SetResolution(SyncDiffEntry entry, Resolution resolution) =>
         _resolutions[EntryKey(entry)] = resolution;
+
+    private bool IsDivergenceAck(SyncDiffEntry entry) => _divergenceOverrides.Contains(EntryKey(entry));
+
+    private void SetDivergenceAck(SyncDiffEntry entry, bool ack)
+    {
+        if (ack)
+        {
+            _divergenceOverrides.Add(EntryKey(entry));
+        }
+        else
+        {
+            _divergenceOverrides.Remove(EntryKey(entry));
+        }
+    }
 
     private bool AnyResolutionChosen() => _resolutions.Values.Any(r => r != Resolution.None);
 

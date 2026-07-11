@@ -31,7 +31,8 @@ public sealed class PullFromProdPageTests : BunitContext
         string videoId,
         string title = "Video",
         DateTimeOffset? indexedUtc = null,
-        string approvalStatus = "approved")
+        string approvalStatus = "approved",
+        string? bodySha256 = null)
         => new ContentSiteIndexRow
         {
             Id = id,
@@ -45,6 +46,7 @@ public sealed class PullFromProdPageTests : BunitContext
             BracketTags = Array.Empty<string>(),
             CardCategoryTags = Array.Empty<string>(),
             YoutubeVideoId = videoId,
+            BodySha256 = bodySha256,
         };
 
     private (IRenderedComponent<PullFromProd> Cut,
@@ -56,13 +58,16 @@ public sealed class PullFromProdPageTests : BunitContext
             IEnumerable<ContentSiteIndexRow>? prodRows = null,
             FakeProdContentReader? prodReaderOverride = null,
             IEnumerable<string>? missingRepoBodies = null,
+            IReadOnlyDictionary<string, string>? repoBodiesByArtifactPath = null,
+            FakeGitRepository? gitOverride = null,
             bool isProdConfigured = true,
             bool isScpConfigured = true)
     {
         var localStore = new FakeContentSiteIndexStore();
         var prodReader = prodReaderOverride ?? new FakeProdContentReader();
         var repoRoot = Path.Combine(Path.GetTempPath(), "deckflow-tests-pull-repo", Path.GetRandomFileName());
-        var git = new FakeGitRepository { CannedRepoRoot = repoRoot };
+        var git = gitOverride ?? new FakeGitRepository();
+        git.CannedRepoRoot = repoRoot;
         var missing = new HashSet<string>(missingRepoBodies ?? Enumerable.Empty<string>(), StringComparer.Ordinal);
 
         foreach (var r in localRows ?? Enumerable.Empty<ContentSiteIndexRow>())
@@ -77,7 +82,11 @@ public sealed class PullFromProdPageTests : BunitContext
             {
                 var repoBody = Path.Combine(repoRoot, r.ArtifactPath);
                 Directory.CreateDirectory(Path.GetDirectoryName(repoBody)!);
-                File.WriteAllText(repoBody, $"repo body for {r.ArtifactPath}");
+                File.WriteAllText(
+                    repoBody,
+                    repoBodiesByArtifactPath is not null && repoBodiesByArtifactPath.TryGetValue(r.ArtifactPath, out var body)
+                        ? body
+                        : $"repo body for {r.ArtifactPath}");
             }
         }
 
@@ -194,13 +203,74 @@ public sealed class PullFromProdPageTests : BunitContext
         Assert.NotEmpty(cut.FindAll("input[id='adopt-youtube_channel:missing-local']"));
     }
 
+    [Fact]
+    public void Pull_BehindFreshness_RendersBanner()
+    {
+        var git = new FakeGitRepository
+        {
+            CannedBranch = "main",
+            CannedBehindCount = 2,
+        };
+        var (cut, _, _, _) = RenderPull(prodRows: new[] { MakeRow(1, "vid-a") }, gitOverride: git);
+
+        Pull(cut);
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(cut.FindAll("[data-testid='freshness-banner']"));
+            Assert.Contains("Local checkout is 2 commit(s) behind origin/main", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void Pull_UnverifiedFreshness_RendersDistinctBanner()
+    {
+        var git = new FakeGitRepository
+        {
+            ThrowOnFetch = new GitCommandException("fetch failed"),
+        };
+        var (cut, _, _, _) = RenderPull(prodRows: new[] { MakeRow(1, "vid-a") }, gitOverride: git);
+
+        Pull(cut);
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(cut.FindAll("[data-testid='freshness-banner']"));
+            Assert.Contains("Could not verify checkout freshness (fetch failed or timed out)", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void Pull_FreshCheckout_DoesNotRenderFreshnessBanner()
+    {
+        var git = new FakeGitRepository
+        {
+            CannedBranch = "main",
+            CannedBehindCount = 0,
+        };
+        var (cut, _, _, _) = RenderPull(prodRows: new[] { MakeRow(1, "vid-a") }, gitOverride: git);
+
+        Pull(cut);
+
+        Assert.Empty(cut.FindAll("[data-testid='freshness-banner']"));
+    }
+
     // ── adopt-prod / keep-local apply ───────────────────────────────────────
 
     [Fact]
     public void Resolve_AdoptProd_OnMissingLocally_UpsertsContentOnly_AndMirrorsApproval()
     {
-        var prod = new[] { MakeRow(1, "vid-a", approvalStatus: "approved") };
-        var (cut, localStore, _, _) = RenderPull(prodRows: prod);
+        var repoBody = "---\ntitle: Video 1\n---\nrepo body";
+        var prod = new[]
+        {
+            MakeRow(1, "vid-a", approvalStatus: "approved", bodySha256: ContentSiteIndexContentSignature.ComputeBodySha256(repoBody)),
+        };
+        var (cut, localStore, _, _) = RenderPull(
+            prodRows: prod,
+            repoBodiesByArtifactPath: new Dictionary<string, string>
+            {
+                ["content-kb/test-channel/vid-a.md"] = repoBody,
+            });
 
         Pull(cut);
         cut.InvokeAsync(() => cut.Find("input[id='adopt-youtube_channel:vid-a']").Change(true));
@@ -218,7 +288,7 @@ public sealed class PullFromProdPageTests : BunitContext
     [Fact]
     public void Resolve_KeepLocal_DoesNotUpsert()
     {
-        var prod = new[] { MakeRow(1, "vid-a") };
+        var prod = new[] { MakeRow(1, "vid-a", bodySha256: "prod-hash") };
         var (cut, localStore, _, _) = RenderPull(prodRows: prod);
 
         Pull(cut);
@@ -247,20 +317,102 @@ public sealed class PullFromProdPageTests : BunitContext
     [Fact]
     public void Resolve_AdoptProd_BodyAbsentFromRepo_StillUpserts_SkipsPromotion()
     {
-        var prod = new[] { MakeRow(1, "vid-a", approvalStatus: "approved") };
+        var prod = new[] { MakeRow(1, "vid-a", approvalStatus: "approved", bodySha256: "prod-hash") };
         var (cut, localStore, _, _) = RenderPull(
             prodRows: prod,
             missingRepoBodies: new[] { "content-kb/test-channel/vid-a.md" });
 
         Pull(cut);
-        // adopt-prod stays selectable even though the body is missing from the local repo tree (R4).
         cut.InvokeAsync(() => cut.Find("input[id='adopt-youtube_channel:vid-a']").Change(true));
+        cut.InvokeAsync(() => cut.Find("button.btn-primary").Click());
+        cut.WaitForState(() => cut.Markup.Contains("No eligible entries to apply"));
+
+        Assert.Empty(localStore.UpsertMethodCalls);
+        Assert.Empty(localStore.SingleApprovalCalls);
+        Assert.Contains("body missing in local repo", cut.Markup);
+    }
+
+    [Fact]
+    public void Resolve_ConfirmedBody_RequiresOptInBeforeAdopt()
+    {
+        var repoBody = "---\ntitle: Video 1\n---\nrepo body";
+        var prod = new[]
+        {
+            MakeRow(1, "vid-a", approvalStatus: "approved", bodySha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+        };
+        var (cut, localStore, _, _) = RenderPull(
+            prodRows: prod,
+            repoBodiesByArtifactPath: new Dictionary<string, string>
+            {
+                ["content-kb/test-channel/vid-a.md"] = repoBody,
+            });
+
+        Pull(cut);
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("divergent", cut.Markup);
+            Assert.NotEmpty(cut.FindAll("[data-testid='divergence-optin-youtube_channel:vid-a']"));
+        });
+        cut.InvokeAsync(() => cut.Find("input[id='adopt-youtube_channel:vid-a']").Change(true));
+        cut.InvokeAsync(() => cut.Find("button.btn-primary").Click());
+        cut.WaitForState(() => cut.Markup.Contains("No eligible entries to apply"));
+
+        Assert.Empty(localStore.UpsertMethodCalls);
+        Assert.DoesNotContain("Resolutions applied", cut.Markup);
+    }
+
+    [Fact]
+    public void Resolve_ConfirmedBody_WithOptIn_Adopts()
+    {
+        var repoBody = "---\ntitle: Video 1\n---\nrepo body";
+        var prod = new[]
+        {
+            MakeRow(1, "vid-a", approvalStatus: "approved", bodySha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+        };
+        var (cut, localStore, _, _) = RenderPull(
+            prodRows: prod,
+            repoBodiesByArtifactPath: new Dictionary<string, string>
+            {
+                ["content-kb/test-channel/vid-a.md"] = repoBody,
+            });
+
+        Pull(cut);
+        cut.InvokeAsync(() => cut.Find("input[id='adopt-youtube_channel:vid-a']").Change(true));
+        cut.InvokeAsync(() => cut.Find("[data-testid='divergence-optin-youtube_channel:vid-a']").Change(true));
         cut.InvokeAsync(() => cut.Find("button.btn-primary").Click());
         cut.WaitForState(() => cut.Markup.Contains("Resolutions applied"));
 
         Assert.Contains("UpsertContentColumnsOnlyAsync", localStore.UpsertMethodCalls);
-        Assert.Single(localStore.SingleApprovalCalls);
-        Assert.Contains("body not in local git repo (prod-only or unpublished), not copied", cut.Markup);
+    }
+
+    [Fact]
+    public void Resolve_IndeterminateBody_RequiresOptInBeforeAdopt()
+    {
+        var repoBody = "---\ntitle: Video 1\n---\nrepo body";
+        var prod = new[]
+        {
+            MakeRow(1, "vid-a", approvalStatus: "approved", bodySha256: null),
+        };
+        var (cut, localStore, _, _) = RenderPull(
+            prodRows: prod,
+            repoBodiesByArtifactPath: new Dictionary<string, string>
+            {
+                ["content-kb/test-channel/vid-a.md"] = repoBody,
+            });
+
+        Pull(cut);
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("unverified body", cut.Markup);
+            Assert.NotEmpty(cut.FindAll("[data-testid='divergence-optin-youtube_channel:vid-a']"));
+        });
+        cut.InvokeAsync(() => cut.Find("input[id='adopt-youtube_channel:vid-a']").Change(true));
+        cut.InvokeAsync(() => cut.Find("button.btn-primary").Click());
+        cut.WaitForState(() => cut.Markup.Contains("No eligible entries to apply"));
+
+        Assert.Empty(localStore.UpsertMethodCalls);
     }
 
     // ── secret leak (D-07) ──────────────────────────────────────────────────
