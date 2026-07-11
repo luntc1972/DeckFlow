@@ -34,15 +34,15 @@ deliberately unlike the generic cache default.
 
 ## 1. Classification — decklist → analyzer inputs
 
-Entry: `ManabaseClassifier.Classify(cards, isSingleton=true, rampCreditV2=false, landRampSim=false, payLifeUntapped=false, mdfcAsLand=false)` (`Cls:76`). The last two are bundled under `analysis.manabase.accuracy` (default **ON**).
+Entry: `ManabaseClassifier.Classify(cards, isSingleton=true, rampCreditV2=false, landRampSim=false, payLifeUntapped=false, checkLandUntapped=false)` (`Cls:95`). The four accuracy params (`rampCreditV2`, `landRampSim`, `payLifeUntapped`, `checkLandUntapped`) are bundled under `analysis.manabase.accuracy` (default **ON**). MDFC land-backs are modeled as real lands **unconditionally** — no flag (§1.4).
 
 ### 1.1 Lands
-- A card is a **land** iff its **front face** (before `//`) type line contains "Land" (case-insensitive) — `Cls:664-668`, `CardTypeLine.FrontFace`. So a spell//land MDFC (`Instant // Land`) is **not** a front-face land. Under `mdfcAsLand` (bundled in `analysis.manabase.accuracy`, **ON**) its land back is counted as a **real land source** (§1.4); with the flag off it is instead credited as a partial colored source plus a land-target tally (§1.4, legacy path).
+- A card is a **land** iff its **front face** (before `//`) type line contains "Land" (case-insensitive) — `Cls:664-668`, `CardTypeLine.FrontFace`. So a spell//land MDFC (`Instant // Land`) is **not** a front-face land. Its land back is counted as a **real land source** (§1.4), unconditionally.
 - A front-face land skips all spell processing (`continue`) — `Cls:125-130`.
 
 ### 1.2 Mana sources (color set, amount, land vs non-land)
 - **Land sources** (one `ManaSource` per copy, `IsLand=true`) — `Cls:334-364`. Colors = `MapColors(produced_mana)` (W/U/B/R/G → color; C, S(snow) → Colorless) — `Cls:649-662`, `ManaCost.cs:141-151`.
-- **EntersUntapped** = `!EntersTapped`; tapped iff oracle contains "enters tapped" or "enters the battlefield tapped" — `TextEntersTapped`. **Pay-life override** (bundled under `analysis.manabase.accuracy`, default **ON**): a land whose oracle offers "you may pay N life" to avoid the tapped clause (shocklands — Steam Vents, Godless Shrine) is treated as **untapped** — `TextPayLifeUntapped`. The regex is anchored to "you may pay" so always-tapped lands with a life-payment *activated* ability (Boseiju Who Shelters All, Hall of the Bandit Lord, Untaidake) stay tapped. Scope is pay-life only: plain taplands stay tapped; board/hand-conditional lands are handled by the conditional-untapped override below. **Single-faced and MDFC land-back paths share one primitive**: single-faced lands read `OracleText`; MDFC backs read the isolated land-face text (`LandFaceOracleText ?? OracleText`) via the `LandFaceEntersTapped` / `LandFacePayLifeUntapped` wrappers, so a pay-life MDFC back (Agadeem, the Undercrypt) enters untapped too when `mdfcAsLand` is on (§1.4).
+- **EntersUntapped** = `!EntersTapped`; tapped iff oracle contains "enters tapped" or "enters the battlefield tapped" — `TextEntersTapped`. **Pay-life override** (bundled under `analysis.manabase.accuracy`, default **ON**): a land whose oracle offers "you may pay N life" to avoid the tapped clause (shocklands — Steam Vents, Godless Shrine) is treated as **untapped** — `TextPayLifeUntapped`. The regex is anchored to "you may pay" so always-tapped lands with a life-payment *activated* ability (Boseiju Who Shelters All, Hall of the Bandit Lord, Untaidake) stay tapped. Scope is pay-life only: plain taplands stay tapped; board/hand-conditional lands are handled by the conditional-untapped override below. **Single-faced and MDFC land-back paths share one primitive**: single-faced lands read `OracleText`; MDFC backs read the isolated land-face text (`LandFaceOracleText ?? OracleText`) via the `LandFaceEntersTapped` / `LandFacePayLifeUntapped` wrappers, so a pay-life MDFC back (Agadeem, the Undercrypt) enters untapped too (§1.4).
 - **Conditional-untapped override** (`checkLandUntapped`, bundled under `analysis.manabase.accuracy`, default **ON**) — `IsConditionallyUntapped`:
   - **Bond / crowd lands** (Sea of Clouds, Training Center, … — `BondLandRegex` "tapped unless you have two or more opponents") → **always untapped**. DeckFlow models Commander (always multiplayer), so the condition always holds; no census.
   - **Check lands** (Glacial Fortress cycle — `CheckLandRegex` "tapped unless you control a Plains or an Island") and **Snarls** (Strixhaven — `SnarlRevealRegex` "reveal an Island or Mountain card from your hand … enters tapped") → **untapped iff the deck runs ≥ `CheckLandMatchTypeThreshold` (6) lands bearing a named basic type** (`CountLandsBearingAnyType`, union count over basics/duals/shocks/triomes). Named types are pulled only from the matched trigger clause, so a stray type word elsewhere in the oracle can't misfire.
@@ -57,10 +57,8 @@ Entry: `ManabaseClassifier.Classify(cards, isSingleton=true, rampCreditV2=false,
 - **Self-grant vs other-grant**: a quoted `"…{T}: Add…"` counts as the card's own ability only when the granting clause names the card itself — a self pronoun (`it / this creature…` + has|gains, `Cls:462-464`) or a collective naming one of the card's own types ("All Slivers have", "Creatures you control have") — `Cls:543-575`. Other-grants (Chromatic Lantern, Paradise Mantle) are handled by §1.5, not here.
 
 ### 1.4 MDFC land-backs, fast mana, basic-fetch
-- **MDFC land back** (`HasLandFace`, spell front). Behavior splits on `mdfcAsLand` (bundled in `analysis.manabase.accuracy`, **ON**):
-  - **Flag ON (real land)** — the back adds a real `ManaSource` with `IsLand=true`, colors from the land face, and `EntersUntapped` read from the isolated land-face text (§1.3, so a tapped or pay-life back is modeled correctly). It counts toward the actual land total and the castability sim like any other land. To avoid double-crediting, the MDFC land-target tally is **not** incremented (see below).
-  - **Flag OFF (legacy)** — the back is a **non-land** partial colored source, weight **0.8** (or **1.0 if mythic**), and instead earns a land-target tally credit. Returns before the rock/dork branch, so land-backs are never rocks.
-- **Land-count credit tally** (per copy) — `Cls:214-229`: with `mdfcAsLand` **off**, `HasLandFace` → MDFC common/mythic bucket (feeds the `−0.74·mdfcCommon − 0.38·mdfcMythic` target credit, §2); with it **on**, the bucket is skipped (the back is already a real land). Independent of MDFCs, `ManaValue==0 && Artifact && ProducesMana` → **FastMana** bucket (Lotus Petal, Mana Crypt).
+- **MDFC land back** (`HasLandFace`, spell front) — **always** a real land (`AddPartialSources`, `Cls:670`): adds a `ManaSource` with `IsLand=true`, colors from the land face, **color-supply weight `1.0`** (a real land supplies its color fully; its tapped-or-pay-life timing is the only penalty, carried by the sim — a sub-1 color discount on top would double-count the downside), and `EntersUntapped` read from the isolated land-face text (§1.3, so a tapped or pay-life back is modeled correctly). It counts toward the actual land total (by copy) and the castability sim like any other land. Returns before the rock/dork branch, so land-backs are never rocks. (The pre-2026-07 legacy path — a non-land partial source plus a Karsten land-target credit — has been removed.)
+- **Fast-mana tally** (per copy) — `Cls:233-238`: `!HasLandFace && ManaValue==0 && Artifact && ProducesMana` → **FastMana** bucket (Lotus Petal, Mana Crypt). MDFC land-backs are excluded (they already raise the real land count).
 - **Basic-fetch**: oracle contains "Search your library for a" + "basic land" — `Cls:677-683`; weight **0.67** in a 3+ color deck else 1.0 — `Cls:347-349`. Fetch colors are derived from the basics/duals the deck actually runs, never speculatively — `Cls:695-789`.
 
 ### 1.5 Granted / conditional sources (weight 0.25)
@@ -96,14 +94,15 @@ Entry: `ManabaseClassifier.Classify(cards, isSingleton=true, rampCreditV2=false,
 
 ## 2. Land target (Karsten regression)
 
-Shared constants (`Kar:22-26`): `LandIntercept 19.59`, `LandMvSlope 1.90`,
-`RampDrawCredit 0.28`, `MdfcCommonCredit 0.74`, `MdfcMythicCredit 0.38`.
+Shared constants (`Kar:22-24`): `LandIntercept 19.59`, `LandMvSlope 1.90`,
+`RampDrawCredit 0.28`. (MDFCs no longer earn a fractional land-target credit — they
+count as real lands, §1.4 — so the old `MdfcCommonCredit`/`MdfcMythicCredit` are gone.)
 
 - **Singleton / Commander** (`Kar:38-55`):
   `scale = (totalCards − commanderCount)/60`,
   `interior = 19.59 + 1.90·avgMV + 0.27·commanderCount`,
-  `target = scale·interior − 0.28·rampDrawUnder3 − fastMana − 0.74·mdfcCommon − 0.38·mdfcMythic − 1.35`.
-- **60-card constructed** (`Kar:92-105`): `19.59 + 1.90·avgMV − 0.28·ramp − fastMana − 0.74·mdfcCommon − 0.38·mdfcMythic` (no scale, no commander term). (The old H5 bug that pre-multiplied the interior by 5/3 is fixed.)
+  `target = scale·interior − 0.28·rampDrawUnder3 − fastMana − 1.35`.
+- **60-card constructed** (`Kar:92-105`): `19.59 + 1.90·avgMV − 0.28·ramp − fastMana` (no scale, no commander term). (The old H5 bug that pre-multiplied the interior by 5/3 is fixed.)
 - **cEDH** (`Kar:63-81`): `max(28.0, SingletonLandTarget − 3.5)` — flat −3.5, hard floor 28 (research band 28–32).
 - **Routing** (`MA:301-340`): non-singleton → 60-card; singleton+Casual → singleton; singleton+cEDH → cEDH. `commanderCount = max(1, CommanderCount)`, `librarySize = TotalCards − commanderCount`.
 - **CommanderImportance does NOT change the land target** (explicitly orthogonal) — `MA:86-90`. No floor/ceiling beyond the cEDH 28.
@@ -268,7 +267,7 @@ Keys read via `MAS.IsFlagOn` (fail-safe OFF). Seed defaults in `FeatureFlagStore
 
 | Flag | Default | Changes |
 |---|---|---|
-| `analysis.manabase.accuracy` | **ON** | Bundled sim-accuracy knobs: mana quantity, repeatable-ramp credit, color-aware mulligan, land-ramp sim, health-band headline floor, pay-life untapped, MDFC land backs as real lands, conditional-untapped lands (bond always; check/Snarl on matching-type census). |
+| `analysis.manabase.accuracy` | **ON** | Bundled sim-accuracy knobs: mana quantity, repeatable-ramp credit, color-aware mulligan, land-ramp sim, health-band headline floor, pay-life untapped, conditional-untapped lands (bond always; check/Snarl on matching-type census). (MDFC land-backs are modeled as real lands **unconditionally** — not part of this bundle.) |
 | `analysis.manabase.health-band-castability` | **ON** | Composite-weakest color's worst-spell cast % can tip Solid→Workable (`simWeakestProblem`). |
 | `analysis.manabase.plain-language-verdict` | **ON** | Casual: plain-language verdict + ramp/draw budget advisory. |
 | `analysis.manabase.commander-castability` | **ON** | Command-zone castability callout + companion modeling (+3 "to hand" tax). |

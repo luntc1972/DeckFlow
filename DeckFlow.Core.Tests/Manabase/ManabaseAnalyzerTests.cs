@@ -85,13 +85,12 @@ public sealed class ManabaseAnalyzerTests
     [Fact]
     public void SingletonLandTarget_LowCurveTemurDeck_LandsNearThirtySeven()
     {
-        // Buffs by Hans: 100 cards, 1 commander, avgMV 2.59, ~6 cheap ramp/draw, 1 common MDFC.
+        // Buffs by Hans: 100 cards, 1 commander, avgMV 2.59, ~6 cheap ramp/draw.
         double target = KarstenManabase.SingletonLandTarget(
             totalCards: 100,
             commanderCount: 1,
             averageManaValue: 2.59,
-            rampAndDrawUnderThree: 6,
-            mdfcCommon: 1);
+            rampAndDrawUnderThree: 6);
 
         Assert.InRange(target, 36.0, 38.0);
     }
@@ -216,17 +215,7 @@ public sealed class ManabaseAnalyzerTests
     }
 
     [Fact]
-    public void MdfcCountsLowerTheLandTarget()
-    {
-        double withoutMdfc = KarstenManabase.SingletonLandTarget(100, 1, 3.0, 8);
-        double withMdfc = KarstenManabase.SingletonLandTarget(100, 1, 3.0, 8, mdfcCommon: 4);
-
-        // Four common MDFCs shave ~0.74 land each.
-        Assert.True(withMdfc < withoutMdfc - 2.5, $"{withMdfc} should be well below {withoutMdfc}");
-    }
-
-    [Fact]
-    public void Classify_TapsCountsMdfcBackFaces()
+    public void Classify_MdfcBackFace_IsRealTappedLand()
     {
         var cards = new List<CardFact>
         {
@@ -238,6 +227,7 @@ public sealed class ManabaseAnalyzerTests
                 ManaValue = 3,
                 TypeLine = "Sorcery // Land",
                 OracleText = "Return target permanent card... // Bala Ged Sanctuary enters the battlefield tapped.",
+                LandFaceOracleText = "Bala Ged Sanctuary enters the battlefield tapped.",
                 ProducedMana = new[] { "G" },
                 Rarity = "uncommon",
                 Layout = "modal_dfc",
@@ -247,12 +237,11 @@ public sealed class ManabaseAnalyzerTests
 
         ManabaseDeck deck = ManabaseClassifier.Classify(cards);
 
-        Assert.Equal(1, deck.MdfcCommon);
-        Assert.Equal(0, deck.MdfcMythic);
-        // The land back counts as a partial (0.8) source, not a land slot.
+        // The land back is a real land (full weight 1.0), entering tapped per its land face.
         ManaSource back = Assert.Single(deck.Sources);
-        Assert.False(back.IsLand);
-        Assert.Equal(0.8, back.Weight, 2);
+        Assert.True(back.IsLand);
+        Assert.False(back.EntersUntapped);
+        Assert.Equal(1.0, back.Weight, 2);
     }
 
     [Fact]
@@ -644,8 +633,6 @@ public sealed class ManabaseAnalyzerTests
         Assert.Equal(2.59, lt.AverageManaValue, 3);
         Assert.Equal(6, lt.RampAndDrawUnderThree);
         Assert.Equal(0, lt.FastMana);
-        Assert.Equal(0, lt.MdfcCommon);
-        Assert.Equal(0, lt.MdfcMythic);
         Assert.Equal(1, lt.CommanderCount);
         Assert.Equal(99, lt.LibrarySize); // 100 cards − 1 commander
 
@@ -659,8 +646,6 @@ public sealed class ManabaseAnalyzerTests
         double reconstructed = (scale * (19.59 + (1.90 * lt.AverageManaValue) + (0.27 * lt.CommanderCount)))
             - (0.28 * lt.RampAndDrawUnderThree)
             - lt.FastMana
-            - (0.74 * lt.MdfcCommon)
-            - (0.38 * lt.MdfcMythic)
             - 1.35;
         Assert.Equal(lt.FinalTarget, reconstructed, 6);
     }

@@ -271,7 +271,7 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
-    public async Task AnalyzeAsync_AccuracyFlag_ModelsMdfcBackAsRealLand_AndDropsTargetCredit()
+    public async Task AnalyzeAsync_MdfcBack_ModeledAsRealLand_RegardlessOfAccuracyFlag()
     {
         var entries = new List<DeckEntry>
         {
@@ -329,11 +329,9 @@ public sealed class ManabaseAnalysisServiceTests
         var rOff = await off.AnalyzeAsync("x", null);
         var rOn = await on.AnalyzeAsync("x", null);
 
-        Assert.Equal(rOff.Report.ActualLands + 2, rOn.Report.ActualLands);
-        Assert.Equal(1, rOff.Report.LandTarget!.MdfcCommon);
-        Assert.Equal(1, rOff.Report.LandTarget!.MdfcMythic);
-        Assert.Equal(0, rOn.Report.LandTarget!.MdfcCommon);
-        Assert.Equal(0, rOn.Report.LandTarget!.MdfcMythic);
+        // MDFC land backs are real lands whether or not the accuracy flag is on: 32 Swamps + 2 MDFC = 34.
+        Assert.Equal(rOff.Report.ActualLands, rOn.Report.ActualLands);
+        Assert.Equal(34, rOn.Report.ActualLands);
     }
 
     [Fact]

@@ -22,8 +22,6 @@ public static class KarstenManabase
     private const double LandIntercept = 19.59;
     private const double LandMvSlope = 1.90;
     private const double RampDrawCredit = 0.28;
-    private const double MdfcCommonCredit = 0.74;
-    private const double MdfcMythicCredit = 0.38;
 
     /// <summary>
     /// Recommended land count for a singleton / Commander deck (Karsten's regression fit).
@@ -33,24 +31,18 @@ public static class KarstenManabase
     /// <param name="averageManaValue">Mean mana value of the non-land cards.</param>
     /// <param name="rampAndDrawUnderThree">Count of ramp/card-draw spells of mana value 2 or less.</param>
     /// <param name="fastMana">Count of 0-cost mana artifacts (Lotus, Moxen). Sol Ring ≈ 0.8.</param>
-    /// <param name="mdfcCommon">Count of non-mythic land/spell MDFCs.</param>
-    /// <param name="mdfcMythic">Count of mythic land/spell MDFCs.</param>
     public static double SingletonLandTarget(
         int totalCards,
         int commanderCount,
         double averageManaValue,
         double rampAndDrawUnderThree,
-        double fastMana = 0,
-        double mdfcCommon = 0,
-        double mdfcMythic = 0)
+        double fastMana = 0)
     {
         double scale = (totalCards - commanderCount) / 60.0;
         double interior = LandIntercept + (LandMvSlope * averageManaValue) + (0.27 * commanderCount);
         return (scale * interior)
             - (RampDrawCredit * rampAndDrawUnderThree)
             - fastMana
-            - (MdfcCommonCredit * mdfcCommon)
-            - (MdfcMythicCredit * mdfcMythic)
             - 1.35;
     }
 
@@ -65,18 +57,14 @@ public static class KarstenManabase
         int commanderCount,
         double averageManaValue,
         double rampAndDrawUnderThree,
-        double fastMana = 0,
-        double mdfcCommon = 0,
-        double mdfcMythic = 0)
+        double fastMana = 0)
     {
         double singleton = SingletonLandTarget(
             totalCards,
             commanderCount,
             averageManaValue,
             rampAndDrawUnderThree,
-            fastMana,
-            mdfcCommon,
-            mdfcMythic);
+            fastMana);
         return Math.Max(28.0, singleton - 3.5);
     }
 
@@ -92,16 +80,12 @@ public static class KarstenManabase
     public static double SixtyCardLandTarget(
         double averageManaValue,
         double rampAndDrawUnderThree,
-        double fastMana = 0,
-        double mdfcCommon = 0,
-        double mdfcMythic = 0)
+        double fastMana = 0)
     {
         return LandIntercept
             + (LandMvSlope * averageManaValue)
             - (RampDrawCredit * rampAndDrawUnderThree)
-            - fastMana
-            - (MdfcCommonCredit * mdfcCommon)
-            - (MdfcMythicCredit * mdfcMythic);
+            - fastMana;
     }
 
     /// <summary>

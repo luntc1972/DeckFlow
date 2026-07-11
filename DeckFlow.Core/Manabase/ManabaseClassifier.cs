@@ -7,11 +7,11 @@ namespace DeckFlow.Core.Manabase;
 /// <see cref="ManabaseDeck"/> ready for <see cref="ManabaseAnalyzer"/>. Applies Karsten's
 /// source-counting weights (full-weight lands, mana dorks at 0.5, rocks at 0.75, basic
 /// fetches in 3+ color decks at ~0.67) and models each land's tapped/untapped state for the
-/// castability sim. Several behaviors are flag-gated (see the <see cref="Classify"/> parameters,
-/// bundled in prod under <c>analysis.manabase.accuracy</c>): pay-life shocklands and
-/// bond/check/Snarl lands are modeled untapped when their condition reliably holds, and spell//land
-/// MDFC backs are counted as real lands. With those flags off, the historic paths apply — MDFC
-/// backs stay partial non-land sources at 0.8 (mythic 1.0) and the conditional lands stay tapped.
+/// castability sim. Spell//land MDFC backs are always counted as real lands (full color weight,
+/// tapped/pay-life state read from the land face). Several other behaviors are flag-gated (see the
+/// <see cref="Classify"/> parameters, bundled in prod under <c>analysis.manabase.accuracy</c>):
+/// pay-life shocklands and bond/check/Snarl lands are modeled untapped when their condition reliably
+/// holds; with those flags off, those lands stay on the historic always-tapped path.
 /// </summary>
 public static class ManabaseClassifier
 {
@@ -82,17 +82,12 @@ public static class ManabaseClassifier
     /// When true, shock-style lands whose oracle offers "pay N life" to avoid entering tapped are
     /// modeled as untapped lands. When false (default), they remain on the historic tapped path.
     /// </param>
-    /// <param name="mdfcAsLand">
-    /// When true, spell-front MDFCs with a land back are modeled as real lands in the simulator,
-    /// using the land face's tapped/pay-life text. When false (default), they stay on the historic
-    /// partial non-land source path.
-    /// </param>
     /// <param name="checkLandUntapped">
     /// When true, board/hand-conditional lands are modeled untapped where the condition is reliably
     /// met: bond lands (always, in multiplayer Commander) and check lands / Snarls when the deck runs
     /// enough matching-type sources. When false (default), they stay on the historic always-tapped path.
     /// </param>
-    public static ManabaseDeck Classify(IReadOnlyList<CardFact> cards, bool isSingleton = true, bool rampCreditV2 = false, bool landRampSim = false, bool payLifeUntapped = false, bool mdfcAsLand = false, bool checkLandUntapped = false)
+    public static ManabaseDeck Classify(IReadOnlyList<CardFact> cards, bool isSingleton = true, bool rampCreditV2 = false, bool landRampSim = false, bool payLifeUntapped = false, bool checkLandUntapped = false)
     {
         ArgumentNullException.ThrowIfNull(cards);
 
@@ -117,8 +112,6 @@ public static class ManabaseClassifier
         int drawPieces = 0;
         int bothPieces = 0;
         var rampNames = new List<string>();
-        int mdfcCommon = 0;
-        int mdfcMythic = 0;
         int fastMana = 0;
 
         // Greatest FIXED creature power in the deck — the optimistic on-board value for board-scaling
@@ -230,26 +223,15 @@ public static class ManabaseClassifier
                 bothPieces += card.Quantity;
             }
 
-            // Tally land-count formula adjustments (MDFC spell-backs, 0-cost fast mana).
-            if (card.HasLandFace)
-            {
-                // Why: when MDFC land backs are modeled as real lands, they already raise actualLands
-                // in the sim/report, so preserving the Karsten MDFC target credit would double-count.
-                if (!mdfcAsLand && IsMythic(card))
-                {
-                    mdfcMythic += card.Quantity;
-                }
-                else if (!mdfcAsLand)
-                {
-                    mdfcCommon += card.Quantity;
-                }
-            }
-            else if (card.ManaValue == 0 && IsType(card.TypeLine, "Artifact") && ProducesMana(card))
+            // 0-cost artifact fast mana (Lotus Petal, Mana Crypt) earns a land-target credit. MDFC land
+            // backs are modeled as real lands (§1.4), so they raise actualLands directly and never enter
+            // the fast-mana bucket.
+            if (!card.HasLandFace && card.ManaValue == 0 && IsType(card.TypeLine, "Artifact") && ProducesMana(card))
             {
                 fastMana += card.Quantity;
             }
 
-            AddPartialSources(sources, card, mdfcAsLand);
+            AddPartialSources(sources, card);
 
             // 70-03b: model repeatable land-ramp as a colorless, non-land ramp source (one per copy) so
             // the simulator credits the fetched land's mana. Colorless (Produces empty) → no color-count
@@ -322,8 +304,6 @@ public static class ManabaseClassifier
             RampPieceCount = rampPieces - (0.5 * bothPieces),
             DrawPieceCount = drawPieces - (0.5 * bothPieces),
             RampDrawBothCount = bothPieces,
-            MdfcCommon = mdfcCommon,
-            MdfcMythic = mdfcMythic,
             FastMana = fastMana,
             IsSingleton = isSingleton,
             CostReduction = reducers,
@@ -673,39 +653,34 @@ public static class ManabaseClassifier
         return kinds;
     }
 
-    private static void AddPartialSources(List<ManaSource> sources, CardFact card, bool mdfcAsLand)
+    private static void AddPartialSources(List<ManaSource> sources, CardFact card)
     {
-        // Land/spell MDFC back face: count as a partial colored source (0.8 / mythic 1.0).
+        // Land/spell MDFC back face: a real land at full color weight 1.0. Its tapped-or-pay-life
+        // timing (read from the isolated land face) is the only penalty, carried by the sim — a color
+        // discount on top would double-count the downside. It counts as a full land in actualLands.
         if (card.HasLandFace)
         {
-            double mdfcWeight = IsMythic(card) ? 1.0 : 0.8;
-            if (mdfcAsLand)
+            IReadOnlyList<ManaColor> produces = MapColors(card.ProducedMana);
+            if (produces.Count == 0)
             {
-                IReadOnlyList<ManaColor> produces = MapColors(card.ProducedMana);
-                if (produces.Count == 0)
-                {
-                    return;
-                }
-
-                bool untapped = !LandFaceEntersTapped(card) || LandFacePayLifeUntapped(card);
-                for (int i = 0; i < card.Quantity; i++)
-                {
-                    sources.Add(new ManaSource
-                    {
-                        Name = card.Name,
-                        Produces = produces,
-                        Weight = mdfcWeight,
-                        IsLand = true,
-                        EntersUntapped = untapped,
-                        ManaAmount = 1,
-                        IsCommander = card.IsCommander,
-                    });
-                }
-
                 return;
             }
 
-            AddWeighted(sources, card, mdfcWeight);
+            bool untapped = !LandFaceEntersTapped(card) || LandFacePayLifeUntapped(card);
+            for (int i = 0; i < card.Quantity; i++)
+            {
+                sources.Add(new ManaSource
+                {
+                    Name = card.Name,
+                    Produces = produces,
+                    Weight = 1.0,
+                    IsLand = true,
+                    EntersUntapped = untapped,
+                    ManaAmount = 1,
+                    IsCommander = card.IsCommander,
+                });
+            }
+
             return;
         }
 
@@ -1135,9 +1110,6 @@ public static class ManabaseClassifier
             && text.Contains("land", StringComparison.OrdinalIgnoreCase)
             && text.Contains("onto the battlefield", StringComparison.OrdinalIgnoreCase);
     }
-
-    private static bool IsMythic(CardFact card) =>
-        string.Equals(card.Rarity, "mythic", StringComparison.OrdinalIgnoreCase);
 
     // ---- REDUCE-01: always-on static generic cost reducers --------------------------------
 
