@@ -1,3 +1,4 @@
+using DeckFlow.Core.Content;
 using DeckFlow.Web.Services.FeatureFlags;
 using Microsoft.AspNetCore.Hosting;
 
@@ -80,7 +81,7 @@ public sealed class ContentKbArtifactPathResolver
     /// <summary>
     /// Gets the resolved seed-file path.
     /// </summary>
-    public string SeedFilePath => Path.Combine(ContentBase, "content-kb", "seed", "index-seed.json");
+    public string SeedFilePath => Path.Combine(ContentBase, ContentKbPaths.SeedRelativePath);
 
     /// <summary>
     /// Gets the optional persistent data overlay root containing the <c>content-kb</c> artifact tree.

@@ -335,7 +335,7 @@ internal static class ContentKbCommandRunners
                 return 1;
             }
 
-            var outputPath = output?.FullName ?? Path.Combine("content-kb", "seed", "index-seed.json");
+            var outputPath = output?.FullName ?? ContentKbPaths.SeedRelativePath;
             Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? Directory.GetCurrentDirectory());
             await File.WriteAllTextAsync(outputPath, SerializeContentIndexExportRows(result.Rows)).ConfigureAwait(false);
             Console.WriteLine($"Exported {result.RowCount} rows to {outputPath}");
