@@ -27,9 +27,13 @@ Notes:
   the size-tiered fetch (winner / top4 / top16) is what feeds `_calib`.
 - `fetch.py` is stdlib-only and resumes off `_calib/cards_full.json`, resolving only missing card names.
 - `cedh-land-baseline` writes the monthly markdown report, the matching monthly JSON snapshot, and copies the same JSON content to `latest.json` for the app contract.
-- Re-run the calibration harness (`DeckFlow.Core.Tests/Manabase/_CalibrationHarness.cs`, untracked) after
-  each refresh to confirm the hybrid target still cuts the under-flag rate without over-correcting grindy
-  commanders, before flipping `analysis.manabase.cedh-land-target` ON.
+- Re-run the committed calibration command after each refresh to confirm the hybrid target still cuts
+  the under-flag rate without over-correcting grindy commanders, before flipping
+  `analysis.manabase.cedh-land-target` ON:
+
+  ```bash
+  dotnet run --project DeckFlow.CLI -- cedh-land-calibrate --data _calib
+  ```
 
 ### Exception: under-covered commanders (commander search)
 
