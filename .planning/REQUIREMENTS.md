@@ -1,6 +1,6 @@
 # Requirements: DeckFlow — Cycle 17 (Creator-Style Deck Intelligence)
 
-**Status:** DEFINING (milestone started 2026-07-11)
+**Status:** ROADMAPPED (roadmap created 2026-07-11)
 **Defined:** 2026-07-11
 **Source:** `docs/research/creator-style-roadmap.md` (locked MVP scope) + Fable 5 report `docs/research/creator-style-llm-system.md`, incl. Codex gpt-5.4-high plan-review + P89 Fable prototype on real Archidekt data.
 
@@ -86,9 +86,47 @@ profile; lift over raw synergy; confidence/`numDecks` next to every stat.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CS-01..31 (+ CS-04a..d, CS-11a..c, CS-16a) | TBD | Pending roadmap |
+| CS-01 | Phase 94 — Style-Profile Foundation | Pending |
+| CS-02 | Phase 94 — Style-Profile Foundation | Pending |
+| CS-03 | Phase 94 — Style-Profile Foundation | Pending |
+| CS-04 | Phase 94 — Style-Profile Foundation | Pending |
+| CS-04a | Phase 95 — Measured-Style Extractor | Pending |
+| CS-04b | Phase 95 — Measured-Style Extractor | Pending |
+| CS-04c | Phase 95 — Measured-Style Extractor | Pending |
+| CS-04d | Phase 95 — Measured-Style Extractor | Pending |
+| CS-05 | Phase 95 — Measured-Style Extractor | Pending |
+| CS-06 | Phase 95 — Measured-Style Extractor | Pending |
+| CS-07 | Phase 95 — Measured-Style Extractor | Pending |
+| CS-08 | Phase 95 — Measured-Style Extractor | Pending |
+| CS-09 | Phase 95 — Measured-Style Extractor | Pending |
+| CS-10 | Phase 95 — Measured-Style Extractor | Pending |
+| CS-11 | Phase 96 — Stated-Rules Distiller | Pending |
+| CS-11a | Phase 96 — Stated-Rules Distiller | Pending |
+| CS-11b | Phase 96 — Stated-Rules Distiller | Pending |
+| CS-11c | Phase 96 — Stated-Rules Distiller | Pending |
+| CS-12 | Phase 96 — Stated-Rules Distiller | Pending |
+| CS-13 | Phase 96 — Stated-Rules Distiller | Pending |
+| CS-14 | Phase 96 — Stated-Rules Distiller | Pending |
+| CS-15 | Phase 96 — Stated-Rules Distiller | Pending |
+| CS-16 | Phase 97 — Profile Fusion + Conflict Ledger | Pending |
+| CS-16a | Phase 97 — Profile Fusion + Conflict Ledger | Pending |
+| CS-17 | Phase 97 — Profile Fusion + Conflict Ledger | Pending |
+| CS-18 | Phase 97 — Profile Fusion + Conflict Ledger | Pending |
+| CS-19 | Phase 97 — Profile Fusion + Conflict Ledger | Pending |
+| CS-20 | Phase 97 — Profile Fusion + Conflict Ledger | Pending |
+| CS-21 | Phase 98 — Card-Grounding Guard | Pending |
+| CS-22 | Phase 98 — Card-Grounding Guard | Pending |
+| CS-23 | Phase 98 — Card-Grounding Guard | Pending |
+| CS-24 | Phase 98 — Card-Grounding Guard | Pending |
+| CS-25 | Phase 98 — Card-Grounding Guard | Pending |
+| CS-26 | Phase 99 — Creator-Style Artifact Engine | Pending |
+| CS-27 | Phase 99 — Creator-Style Artifact Engine | Pending |
+| CS-28 | Phase 99 — Creator-Style Artifact Engine | Pending |
+| CS-29 | Phase 99 — Creator-Style Artifact Engine | Pending |
+| CS-30 | Phase 100 — Creator-Style Tool Surface | Pending |
+| CS-31 | Phase 100 — Creator-Style Tool Surface | Pending |
 
-**Coverage:** 39 requirements defined, mapping pending roadmap.
+**Coverage:** 39/39 requirements mapped to exactly one phase (94-100). No orphans, no duplicates.
 
 ## Cross-Phase Guardrails (woven into every phase)
 
@@ -97,7 +135,7 @@ profile; lift over raw synergy; confidence/`numDecks` next to every stat.
 - Weekly Scryfall bulk refresh; never let parametric card memory override the snapshot.
 - Confidence/`numDecks` shown next to every stat (CS-10).
 - Persona = weighted targets + exemplars, never adjectives (anti-caricature).
-- **Core-vs-Web layering (Codex HIGH):** the measured extractor wants `CommanderSpellbookService` + Scryfall Tagger, both Web-host services, while P87/P90 are Core-centric. Resolve before the extractor plan — host-abstraction phase OR keep the extractor in Web behind a narrow Core contract.
+- **Core-vs-Web layering (Codex HIGH) — RESOLVED:** the measured extractor (Phase 95) lives in `DeckFlow.Web` behind a narrow Core-facing contract, since it needs `CommanderSpellbookService` + Scryfall Tagger (both Web-host services) while Phases 94/96/97/98 stay Core-centric. See ROADMAP.md Phase 95 for the framing.
 
 ## Future Requirements (deferred — fast-follow next cycle)
 
@@ -117,4 +155,4 @@ profile; lift over raw synergy; confidence/`numDecks` next to every stat.
 - **Autonomous agent / tool-use loop** — the report's explicit recommendation is workflow-first, agent-never.
 
 ---
-*Requirements defined 2026-07-11; phase mapping pending the Cycle 17 roadmap (phases continue from 93 → 94+).*
+*Requirements defined 2026-07-11; phase mapping completed 2026-07-11 by `/gsd:new-project` roadmapper — phases 94-100, 39/39 CS-* requirements covered.*

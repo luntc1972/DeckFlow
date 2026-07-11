@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: Cycle 17
 milestone_name: Creator-Style Deck Intelligence
 status: planning
-last_updated: "2026-07-11T20:19:02.903Z"
+last_updated: "2026-07-11T20:30:00.000Z"
 last_activity: 2026-07-11
 progress:
-  total_phases: 0
+  total_phases: 7
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,43 +17,44 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-06)
+See: .planning/PROJECT.md (updated 2026-07-11)
 
-**Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything. This cycle protects the Content-KB half of that promise.
-**Current focus:** Cycle 16 SHIPPED (2026.07.3) — archived; awaiting operator push + squash→main + tag.
+**Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything. Cycle 17 adds a new such workflow: a $0 paste-ready packet that critiques a submitted deck in a chosen creator's deckbuilding style.
+**Current focus:** Cycle 17 roadmap created (7 phases, 94-100, 39/39 CS-* requirements mapped). Ready for `/gsd:plan-phase 94`.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: Not started (roadmap created, execution not begun)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-07-11 — Milestone Cycle 17 started
+Status: Roadmap complete, awaiting phase planning
+Last activity: 2026-07-11 — Cycle 17 ROADMAP.md written, REQUIREMENTS.md traceability filled
 
 ## Roadmap Summary
 
 | # | Phase | Requirements | Flag | Status |
 |---|-------|-------------|------|--------|
-| 88 | Index-Row Integrity Hotfix | SYNC-04, SYNC-05, SYNC-06 | — | ✅ Complete |
-| 89 | Content-Hash Foundation | SYNC-01, SYNC-02, SYNC-03 | — | ✅ Complete |
-| 90 | DirectPush Correctness + Seed Sync | SYNC-07, SYNC-08, SYNC-09, SYNC-10 | `sync.directpush-gitbody` | ✅ Complete |
-| 91 | Reconcile + Seed Lifecycle | SYNC-17, SYNC-11, SYNC-12 | `sync.reconcile` | ✅ Complete |
-| 92 | Pull Hardening | SYNC-13, SYNC-14, SYNC-15 | — | ✅ Complete |
-| 93 | Round-Trip Integration Test | SYNC-16 | — | Not started |
+| 94 | Style-Profile Foundation | CS-01, CS-02, CS-03, CS-04 | — | Not started |
+| 95 | Measured-Style Extractor | CS-04a, CS-04b, CS-04c, CS-04d, CS-05, CS-06, CS-07, CS-08, CS-09, CS-10 | — | Not started |
+| 96 | Stated-Rules Distiller | CS-11, CS-11a, CS-11b, CS-11c, CS-12, CS-13, CS-14, CS-15 | — | Not started |
+| 97 | Profile Fusion + Conflict Ledger | CS-16, CS-16a, CS-17, CS-18, CS-19, CS-20 | — | Not started |
+| 98 | Card-Grounding Guard | CS-21, CS-22, CS-23, CS-24, CS-25 | — | Not started |
+| 99 | Creator-Style Artifact Engine | CS-26, CS-27, CS-28, CS-29 | — | Not started |
+| 100 | Creator-Style Tool Surface | CS-30, CS-31 | `creator.style-artifact` | Not started |
 
-**Phase ordering rationale** (Codex-revised sequencing from `docs/research/kb-prod-sync-roadmap.md`):
+**Phase ordering rationale** (locked arc from `docs/research/creator-style-roadmap.md`, Codex gpt-5.4-high plan-review adjustments folded in):
 
-- **88 first**: SYNC-04/05/06 are live prod correctness bugs (visible-while-pending rows, PinId collision risk) — ship ahead of the hash foundation per Codex's MED finding that the hotfix slice is immediately user-visible.
-- **89 second**: the unified `body_sha256` signature is a hard prerequisite for Phase 90's hash-gated expand-contract ordering.
-- **90 third**: split per Codex HIGH into one phase covering both the DirectPush architecture flip (bodies via git only) and the ordering/stamping fix — sequenced as explicit sub-scopes within the phase, not two phases, to keep coverage 1:1 with requirements while preserving the internal order.
-- **91 fourth**: SYNC-17's seed-ownership marker is a hard prereq (Codex HIGH) before SYNC-11's reconciler or SYNC-12's seed-delete can ship; internal order within the phase is marker → reconciler (dry-run) → gated delete.
-- **92 fifth**: reuses the composite-key diffing (Phase 88) and reconcile discrepancy vocabulary (Phase 91).
-- **93 last**: the round-trip test exercises every prior phase's fix; it cannot be written until all of them exist.
+- **94 first**: pure substrate (schema + store) — every other phase reads/writes through it.
+- **95 and 96 in parallel (Wave 1)**: both consume only Phase 94's schema and are independent of each other — the measured extractor (Archidekt crawl + stats) and the stated distiller (transcripts + rules) don't share code.
+- **97 and 98 in parallel (Wave 2)**: Fusion needs both 95 and 96's outputs; the Card-Grounding Guard is independent (needs only the existing Scryfall client) so it can run concurrently with Fusion rather than blocking on it.
+- **99**: Codex HIGH — the prompt-artifact deliverable is mandated as ≥2 phases. 99 is the "engine" half (deterministic rubric + artifact assembly), needs Fusion (97, for targets) and the Guard (98, for card safety) — nothing in 99 can start before both land.
+- **100 last**: the "tool surface" half of the mandated split — page/controller/flag/cache-wiring on top of 99's engine. Only phase that ships user-visible value; flag `creator.style-artifact` seeded OFF.
+- **Core-vs-Web layering (Codex HIGH, resolved without a dedicated phase)**: Phase 95 lives in `DeckFlow.Web` (needs `CommanderSpellbookService` + Scryfall Tagger) behind a narrow contract, keeping its pure logic Core-testable; Phases 94/96/97/98 stay Core-centric.
 
 ## Performance Metrics
 
-**Velocity (Cycle 15 reference — most recent shipped):**
+**Velocity (Cycle 16 reference — most recently shipped):**
 
-- Phases 82-87; 22 plans, 42 tasks; build 0/0 at close
+- Phases 88-93; ~30 plans across 6 phases; build 0/0 at close; squash `94427ada` + tag `2026.07.3`, live via manual deploy `01487890` then autodeploy `a18ac836`
 - Claude implements + reviews code; Codex (gpt-5.4 medium) reviews plans + code (delegation rule per CLAUDE.md)
 
 | Plan | Duration | Tasks | Files |
@@ -83,16 +84,21 @@ Last activity: 2026-07-11 — Milestone Cycle 17 started
 | Phase 93 P03 | ~10min | 1 tasks | 1 files |
 | Phase 93 P02 | ~55min | 2 tasks | 1 files |
 
+Cycle 17 has no plans executed yet — this table will accumulate per-plan entries as Phase 94+ execution begins.
+
 ## Accumulated Context
 
 ### Decisions
 
-Full decision log lives in PROJECT.md Key Decisions table. Decisions constraining this milestone:
+Full decision log lives in PROJECT.md Key Decisions table. Decisions constraining Cycle 17:
 
-- **Git = single source of truth for bodies; prod DB row is subordinate and reconstructable from git.** All sync = idempotent one-way keyed upsert (design stance, `docs/research/kb-prod-sync-roadmap.md`).
-- **No CDC/queue-based sync** — upsert + hash + expand-contract ordering fits the 512MB Render / single-operator scale.
-- **Flags `sync.directpush-gitbody` and `sync.reconcile` seeded OFF** — operator flips on after prod deploy, matching every prior cycle's flag convention.
-- **Decisions still owed at plan time** (per research doc, unresolved): (1) confirm approval ownership is local-authoritative for DirectPush (SYNC-04); (2) `sync.*` flag plumbing home — web-DB flag vs Studio config vs both, since Studio doesn't register the web flag system today.
+- **Phase count = 7 (94-100), not the config's coarse 3-5 guidance** — overridden by two Codex HIGH findings: the prompt-artifact deliverable must split into ≥2 phases, and the wave-dependency chain itself yields 6 natural boundaries before that split. See ROADMAP.md "Granularity note".
+- **Core-vs-Web layering resolved via framing, not a new phase** — Phase 95 (Measured-Style Extractor) is explicitly a Web-hosted phase behind a narrow Core contract, rather than inserting a dedicated host-abstraction phase. Chosen to keep the milestone at 7 phases rather than 8.
+- **Archidekt-only MVP crawler** (Codex HIGH) — Moxfield blocks datacenter IPs and its importer fallback drops printings/tags/sideboards, wrong for a style corpus. Moxfield crawler deferred to a separate hardening phase.
+- **Creator→profile mapping is manual, one new table, NOT `CreatorSourceStore`** (Codex MED — wrong shape for multi-platform profile identity).
+- **Card grounding is woven in twice**: a minimal Scryfall pass inside the Stated-Rules Distiller (Phase 96, Codex MED — ground earlier than the artifact tool) plus the full reusable guard (Phase 98) consumed by the Artifact Engine (Phase 99).
+- **Still open at plan time** (per REQUIREMENTS.md/PROJECT.md): starter creator + Archidekt profile URL (Salubrious Snail — 39 decks across 5 personal folders, no patron decks); confirm Archidekt exposes a public profile→deck-list endpoint (else manual URL-list fallback, Phase 95).
+- [Cycle 16 context, retained] Full prior-milestone decision entries (Phase 89-93 implementation notes) remain below for reference; they do not constrain Cycle 17 directly but document the KB-sync substrate Cycle 17 builds on top of.
 - [Phase 89]: 89-02: SetBodySha256IfNullAsync declared as a throwing default interface method (mirrors DeleteAllRowsAsync) so 12 unrelated IContentSiteIndexStore test doubles compile unchanged
 - [Phase 89]: 89-03: Fingerprint deleted; classifier equal-timestamp branch now calls ContentSiteIndexContentSignature.AreContentEqual (SYNC-02/D-03), UTC-direction branches (F-51-PG-01) untouched
 - [Phase 89]: 89-04: bodySha256 added to the single shared export factory ContentIndexExportRow.From() (not to CLI/DirectPush consumers) so both inherit it automatically — SYNC-02 one-signature-one-home invariant extended to seed export (D-09)
@@ -148,19 +154,23 @@ Full decision log lives in PROJECT.md Key Decisions table. Decisions constrainin
 
 ### Pending Todos
 
-None yet — milestone just started.
+None yet — Cycle 17 roadmap just created; phase planning has not started.
 
 ### Blockers/Concerns
 
-- **Live prod drift exists today** (2026-07-05 read-only audit): 106 prod rows with only 36 in the approved seed (70 not reconstructable from a reset), 57 hidden+pending rows re-accumulated after a manual delete, ~328 file-without-row orphans, 32 mojibake bodies (15 prod-visible, repaired out-of-band). This is the motivating evidence for the cycle, not new risk introduced by it — Phase 91's reconciler and Phase 89's body-hash are the systemic fixes.
-- **`sync.*` flag plumbing is undecided** — resolve before/during Phase 90 planning (see Decisions above).
+- **Starter creator + Archidekt profile URL not yet confirmed** — Salubrious Snail has the most artifacts (39 decks across 5 personal folders, no patron decks); needs confirmation at Phase 95 plan/discuss time.
+- **Archidekt public profile→deck-list endpoint not yet verified** — Phase 95 must confirm this exists before committing to the crawler design; if absent, fall back to a manual per-creator URL list (already scoped as an acceptable fallback in CS-04a).
+- Cycle 16 is shipped; its prior blockers (prod drift, `sync.*` flag plumbing) are resolved and no longer active concerns for Cycle 17.
 
 ## Deferred Items
 
-Carried forward, plus Cycle-16 operator gates acknowledged at close (2026-07-11):
+Carried forward from prior cycles, plus Cycle-17-specific fast-follow deferrals:
 
 | Category | Item | Status |
 |----------|------|--------|
+| Cycle 17 fast-follow | Tier-2 in-app LLM critique (CS-32..36) | Deferred — needs new-package approval (pgvector) + net-new web-side spend/vector infra |
+| Cycle 17 fast-follow | Moxfield crawler (corpus source) | Deferred — separate hardening phase |
+| Cycle 17 fast-follow | Multi-creator auto-resolution | Deferred — creator→profile stays manual per creator |
 | Carry-forward | `deckflow_admin` credential deletion (password rotated) | Operator task |
 | Carry-forward | Full dual-dialect branch collapse (PG DDL parity prereq) | Backlog |
 | Carry-forward | SEO/growth lane (SEO-01..05) | Deferred |
@@ -168,13 +178,12 @@ Carried forward, plus Cycle-16 operator gates acknowledged at close (2026-07-11)
 | Carry-forward | Matchup / meta-threat read (deepens cedh-meta-gap) | Deferred (separate lane) |
 | Carry-forward | Manabase engine refactor (needs numeric-parity harness first) | Deferred (own future cycle) |
 | Carry-forward | ADMIN-01 (`/Admin/Flags` on/off sorting) | Descoped to backlog |
+| Carry-forward | KB "commander advice" content class for filtered videos | Deferred (backlog) |
 | Sync follow-ons | SYNC-F1 (retire DirectPush entirely) | Deferred — later-cycle decision |
-| Sync follow-ons | SYNC-F2 (scheduled/automatic reconcile runs) | Deferred — this cycle ships operator-triggered only |
-| Cycle-16 operator gate | FU-3 live reconcile walk + SYNC-16 real-deploy leg (91-VERIFICATION `human_needed`) | Deferred — post-ship; flags ship OFF, gates flipping `sync.directpush-gitbody` / `sync.reconcile` ON |
-| Cycle-16 operator | Push branch + squash→main + tag `2026.07.3` + push tag | Owed at close (2026-07-11); AI does not push main |
+| Sync follow-ons | SYNC-F2 (scheduled/automatic reconcile runs) | Deferred — Cycle 16 shipped operator-triggered only |
 
 ## Session Continuity
 
-Last session: 2026-07-11T05:47:44.339Z
-Stopped at: Completed 93-02-PLAN.md
+Last session: 2026-07-11T20:30:00.000Z
+Stopped at: Cycle 17 ROADMAP.md + STATE.md + REQUIREMENTS.md traceability written by gsd-roadmapper; ready for `/gsd:plan-phase 94`
 Resume file: None
