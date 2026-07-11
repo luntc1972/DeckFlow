@@ -25,8 +25,10 @@ let approvedId = 0;
 let seeded = false;
 
 function sqlite(sql: string): string {
-  // busy_timeout guards against the running server briefly holding the SQLite file.
-  return execFileSync('sqlite3', [dbPath, `PRAGMA busy_timeout=8000; ${sql}`], {
+  // `.timeout` (via -cmd) SILENTLY sets the busy timeout to guard against the running server briefly
+  // holding the SQLite file. Do NOT prepend `PRAGMA busy_timeout=...;` to the SQL — it emits its value
+  // as a result row, corrupting Number(...) parsing of the id SELECT (turned every run into a skip).
+  return execFileSync('sqlite3', ['-cmd', '.timeout 8000', dbPath, sql], {
     encoding: 'utf8',
   }).trim();
 }

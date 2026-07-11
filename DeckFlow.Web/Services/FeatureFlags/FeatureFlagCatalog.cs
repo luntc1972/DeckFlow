@@ -101,6 +101,13 @@ public static class FeatureFlagCatalog
                 "Enable the hybrid cEDH land target: keep the Karsten curve anchor, but drop the flat 28 " +
                 "floor and optionally nudge toward the commander's committed cEDH land baseline when sample " +
                 "size is deep enough. cEDH only; off = byte-identical output.",
+            ["sync.directpush-gitbody"] =
+                "Serve a Content-KB body exclusively from the git-shipped /app tree, dropping the legacy " +
+                "/data-SFTP-first overlay fallback. Off = today's byte-identical git-then-overlay serving.",
+            ["sync.reconcile"] =
+                "Gate the Studio Reconcile page's destructive soft-hide Apply action, which removes " +
+                "seed-managed rows absent from the current git seed. Detection and the read-only dry-run " +
+                "stay always-available regardless of this flag; off blocks Apply only.",
         };
 
     /// <summary>

@@ -1,0 +1,86 @@
+@page "/git-body-coverage"
+@inherits StudioCancellableComponentBase
+@using DeckFlow.Studio.Services
+
+<PageTitle>Git Body Coverage</PageTitle>
+
+<h1 class="h4 fw-semibold">Git Body Coverage</h1>
+<p class="text-muted">This is the SYNC-07 pre-flip audit. It is <strong>read-only</strong>: for
+every approved+visible production <code>content_site_index</code> row, it checks that the row's
+body <code>.md</code> exists in the local git <code>content-kb</code> tree that becomes
+<code>/app</code> after deploy, and lists any that are <strong>MISSING</strong>. It never writes
+to prod or the local store.</p>
+
+<article class="content px-4">
+    <div class="card mt-3">
+        <div class="card-header">
+            <h2 class="h5 fw-semibold mb-0">Run Audit</h2>
+        </div>
+        <div class="card-body">
+            @if (!string.IsNullOrEmpty(_runError))
+            {
+                <div class="alert alert-danger py-2">@_runError</div>
+            }
+
+            <button class="btn btn-outline-primary"
+                    @onclick="RunAuditAsync"
+                    disabled="@_isRunning">
+                @if (_isRunning)
+                {
+                    <span class="spinner-border spinner-border-sm text-primary"
+                          role="status"
+                          aria-label="Operation in progress">
+                        <span class="visually-hidden">Loading...</span>
+                    </span>
+                    <span> Running audit...</span>
+                }
+                else
+                {
+                    <span>Run audit</span>
+                }
+            </button>
+
+            @if (_report is not null)
+            {
+                <div class="mt-3" data-testid="git-body-coverage-results">
+                    @if (_report.MissingCount == 0)
+                    {
+                        <div class="alert alert-success py-2">
+                            All approved+visible production bodies are present in the git tree. This
+                            SYNC-07 precondition is satisfied.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-danger py-2">
+                            @_report.MissingCount approved+visible row(s) have no body in the git
+                            tree — do NOT flip <code>sync.directpush-gitbody</code> until resolved.
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Title</th>
+                                        <th>Natural Key</th>
+                                        <th>Expected Path</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var row in _report.MissingRows)
+                                    {
+                                        <tr>
+                                            <td>@row.Title</td>
+                                            <td>@FormatNaturalKey(row)</td>
+                                            <td><code>@row.ExpectedPath</code></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</article>

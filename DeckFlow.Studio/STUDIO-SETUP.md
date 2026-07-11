@@ -43,10 +43,19 @@ already-distilled video** in that DB. If empty, browse a channel + distill one v
 | Var | Purpose | Default |
 |-----|---------|---------|
 | `MTG_DATA_DIR` | Move the Studio data dir off the repo tree | unset → `.\artifacts\studio` |
-| `DECKFLOW_REPO_ROOT` | Repo working tree the git flows (Publish / Direct Push / Pull from Prod) run from — lets a distributed exe publish without being launched from the repo | unset → process current directory |
+| `DECKFLOW_REPO_ROOT` | Repo working tree the git flows (Publish / Direct Push / Pull from Prod / Reconcile / Git Body Coverage) run from — lets a distributed exe publish without being launched from the repo | unset → process current directory |
 | `DECKFLOW_LLM_PROVIDER` | `claude` = subscription/$0; `openai` = metered (cap enforced) | unset (metered) |
 | `DECKFLOW_LLM_MONTHLY_CAP_USD` | Monthly spend cap (P45 cap-block smoke) | `15.00` |
 | `DECKFLOW_DISABLE_AUTO_BROWSER` | `true` stops the browser auto-pop | unset |
+
+## Sync feature flags (web-DB `feature_flags`, read fail-closed)
+
+Two flags gate Studio sync behavior; Studio reads them from the **production** `feature_flags` table through a read-only accessor that fails closed (a missing row or a connection failure reads as OFF). Both ship **OFF**:
+
+- `sync.directpush-gitbody` — when ON, Direct Push triggers a real Render redeploy and bodies are served from the git `/app` tree only (the `/data` overlay fallback is dropped from serving). Before flipping it ON, run the **Git Body Coverage** page and confirm **0 missing** (every approved+visible prod row's body is present in the local git tree).
+- `sync.reconcile` — when ON, the **Reconcile** page's destructive **Apply removals** (seed-drift soft-hide) is enabled. The dry-run detection is always available regardless of this flag.
+
+Flipping either flag is an operator action in the prod web flag store; see the phase 93 pre-flip checklist.
 
 ## User-secrets — ONLY for the prod-publish (DirectPush) page (Phase 52)
 
@@ -77,6 +86,15 @@ REM parent (/data) or the content-kb/ segment is doubled (DirectPush.razor _data
 REM Optional
 "C:\Program Files\dotnet\dotnet.exe" user-secrets set "Studio:Scp:Port" "22"
 "C:\Program Files\dotnet\dotnet.exe" user-secrets set "Studio:Scp:KeyPassphrase" "<passphrase-if-key-encrypted>"
+
+REM Deploy-confirm (D-09 REVISED / SYNC-09): base URL of the live site + the SAME admin creds the
+REM web app's /Admin BasicAuth gate uses (FEEDBACK_ADMIN_USER/FEEDBACK_ADMIN_PASSWORD). All three
+REM are required to enable the DirectPush git-body deploy-confirm poll — without them the
+REM DirectPush page shows a red "Deploy-confirm: not configured" badge and refuses to start (no
+REM silent 401 hang).
+"C:\Program Files\dotnet\dotnet.exe" user-secrets set "Studio:PublicSiteBaseUrl" "https://www.deckflow.gg"
+"C:\Program Files\dotnet\dotnet.exe" user-secrets set "Studio:AdminUser" "<same value as web FEEDBACK_ADMIN_USER>"
+"C:\Program Files\dotnet\dotnet.exe" user-secrets set "Studio:AdminPassword" "<same value as web FEEDBACK_ADMIN_PASSWORD>"
 ```
 
 To view / clear:
@@ -90,6 +108,7 @@ At startup Studio logs only presence, never values:
 ```
 Studio prod connection: configured | not configured
 Studio SCP: configured | not configured
+Studio deploy-confirm: configured | not configured
 ```
 
 ### Security rules (from CLAUDE.md)
@@ -214,6 +233,7 @@ Only two paths need extra config:
 | Path | What you need |
 |------|---------------|
 | DirectPush (SCP + prod Postgres upsert) | `Studio__Scp__*` + `Studio__ProdConnectionString` |
+| DirectPush deploy-confirm poll (D-09 REVISED) | `Studio__PublicSiteBaseUrl` + `Studio__AdminUser` + `Studio__AdminPassword` |
 | Git commit-publish | `git.exe` on `PATH`; launched from the repo working tree **or** `DECKFLOW_REPO_ROOT` set to it |
 
 LLM distill uses `DECKFLOW_LLM_PROVIDER=claude` (subscription, $0 spend) or
@@ -233,6 +253,9 @@ variables** (configuration key `:` separator → `__` in env vars):
 | `Studio:Scp:RemoteArtifactRoot` | `Studio__Scp__RemoteArtifactRoot` | DirectPush SCP upload |
 | `Studio:Scp:Port` | `Studio__Scp__Port` | Optional (default 22) |
 | `Studio:Scp:KeyPassphrase` | `Studio__Scp__KeyPassphrase` | Optional (if key is encrypted) |
+| `Studio:PublicSiteBaseUrl` | `Studio__PublicSiteBaseUrl` | DirectPush deploy-confirm poll (D-09 REVISED) |
+| `Studio:AdminUser` | `Studio__AdminUser` | DirectPush deploy-confirm poll — must match web `FEEDBACK_ADMIN_USER` |
+| `Studio:AdminPassword` | `Studio__AdminPassword` | DirectPush deploy-confirm poll — must match web `FEEDBACK_ADMIN_PASSWORD` |
 | `DECKFLOW_LLM_PROVIDER` | `DECKFLOW_LLM_PROVIDER` | LLM distill (default=openai) |
 | `OPENAI_API_KEY` | `OPENAI_API_KEY` | OpenAI distill path |
 | (override port) | `ASPNETCORE_URLS` | Only if overriding the pinned 5271 port |

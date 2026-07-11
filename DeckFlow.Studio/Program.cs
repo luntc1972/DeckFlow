@@ -65,26 +65,51 @@ public partial class Program
                 && !string.IsNullOrEmpty(builder.Configuration["Studio:Scp:Username"])
                 && !string.IsNullOrEmpty(builder.Configuration["Studio:Scp:KeyFile"])
                 && !string.IsNullOrEmpty(builder.Configuration["Studio:Scp:RemoteArtifactRoot"]);
+            // Why (D-09 REVISED/D-10): presence-only check for the three deploy-confirm keys the
+            // DirectPush hash-match poll needs — mirrors the isScpConfigured pattern. Never log the
+            // values. AdminUser/AdminPassword must equal the web FEEDBACK_ADMIN_USER/PASSWORD so the
+            // /Admin BasicAuth gate accepts the confirmer's request.
+            var isConfirmerConfigured = !string.IsNullOrEmpty(builder.Configuration["Studio:PublicSiteBaseUrl"])
+                && !string.IsNullOrEmpty(builder.Configuration["Studio:AdminUser"])
+                && !string.IsNullOrEmpty(builder.Configuration["Studio:AdminPassword"]);
             var contentKbDatabasePath = Path.Combine(studioDataDirectory, "content-kb.db");
             var contentKbArtifactRoot = Path.Combine(studioDataDirectory, "content-kb");
 
             Directory.CreateDirectory(studioDataDirectory);
             Directory.CreateDirectory(contentKbArtifactRoot);
 
-            builder.Services.AddSingleton(new StudioConfig(isProdConfigured, isScpConfigured));
+            builder.Services.AddSingleton(new StudioConfig(isProdConfigured, isScpConfigured, isConfirmerConfigured));
             builder.Services.AddSingleton<ISshArtifactUploader, SftpArtifactUploader>();
             builder.Services.AddSingleton<ISshArtifactDownloader, SftpArtifactDownloader>();
             builder.Services.AddSingleton<IProdContentReader, ProdContentReader>();
             builder.Services.AddSingleton<IProdStoreFactory, ProdStoreFactory>();
+            builder.Services.AddSingleton<IStudioProdConnectionSource, StudioProdConnectionSource>();
+            // Why (D-09 REVISED/SYNC-09): the DirectPush deploy-confirm poller. Depends only on the
+            // shared singleton HttpClient (registered below) + IConfiguration — safe as a singleton.
+            builder.Services.AddSingleton<IDeployedBodyConfirmer, DeployedBodyConfirmer>();
             builder.Services.AddSingleton<IContentSourceStore>(_ => new ContentSourceStore(contentKbDatabasePath));
             builder.Services.AddSingleton<IContentVideoStore>(_ => new ContentVideoStore(contentKbDatabasePath));
             builder.Services.AddSingleton<IContentSiteIndexStore>(_ => new ContentSiteIndexStore(contentKbDatabasePath));
+            // Why (D-08): host-agnostic body_sha256 backfill, bound to the LOCAL content-kb.db
+            // store above via the IContentSiteIndexStore singleton — explicitly NOT any
+            // ProdStoreFactory prod store (those stay schema-ensure OFF, P88 D-10). Run at
+            // startup after this registration (see the app.Services resolution below).
+            builder.Services.AddSingleton<IContentArtifactBodyResolver, StudioContentArtifactBodyResolver>();
+            builder.Services.AddSingleton<ContentBodyHashBackfill>();
+            // Why (SYNC-17/D-02): host-agnostic seed_managed backfill, bound to the SAME local
+            // content-kb.db store above. StudioSeedKeyMembershipSource resolves the operator's
+            // git-checkout content-kb/seed/index-seed.json (never a prod seed).
+            builder.Services.AddSingleton<ISeedKeyMembershipSource, StudioSeedKeyMembershipSource>();
+            builder.Services.AddSingleton<SeedManagedBackfill>();
             builder.Services.AddSingleton<IBlockedVideoStore>(_ => new BlockedVideoStore(contentKbDatabasePath));
             // Why: curated creator list (SRC-01) + skipped-candidate list (HSEL-02/03) live in
             // content-kb.db beside the blocked list; schema is ensured lazily on first use.
             builder.Services.AddSingleton<ICreatorSourceStore>(_ => new CreatorSourceStore(contentKbDatabasePath));
             builder.Services.AddSingleton<ISkippedVideoStore>(_ => new SkippedVideoStore(contentKbDatabasePath));
             builder.Services.AddSingleton<IContentHarvestRunStore>(_ => new ContentHarvestRunStore(contentKbDatabasePath));
+            // Why (D-05/SYNC-11): the 10th content-kb.db sibling — local, durable reconcile
+            // discrepancy store (idempotent upsert + resolution-by-absence, scope-tagged).
+            builder.Services.AddSingleton<IContentKbReconcileStore>(_ => new ContentKbReconcileStore(contentKbDatabasePath));
             // Why: persisted auto-approve settings (D-07) live in the studio data dir, beside content-kb.db,
             // so the operator's on/off + cutoff survive Studio restarts (unlike SessionCapOverride).
             builder.Services.AddSingleton(_ => new AutoApproveSettingsStore(studioDataDirectory));
@@ -125,6 +150,12 @@ public partial class Program
             builder.Services.AddSingleton<IYouTubeChannelVideoLister>(sp => new YouTubeChannelVideoLister(sp.GetRequiredService<HttpClient>()));
             builder.Services.AddSingleton<IFfmpegAudioChunker, FfmpegAudioChunker>();
             builder.Services.AddSingleton<IGitRepository, GitRepository>();
+            builder.Services.AddScoped<IGitBodyCoverageAudit, GitBodyCoverageAudit>();
+            // Why (D-04/SYNC-11): the reconcile dry-run I/O orchestrator — reads prod once, walks the
+            // git content-kb tree, reads the seed availability-aware, drives the pure classifier, and
+            // persists to the IContentKbReconcileStore singleton registered above. Stateless/singleton
+            // dependencies only, so it is safe as a singleton too.
+            builder.Services.AddSingleton<IContentKbReconcileOrchestrator, ContentKbReconcileOrchestrator>();
             builder.Services.AddSingleton<ITranscriptSource>(sp => new YouTubeTranscriptSource(
                 TranscriptProviderFactory.Resolve(sp.GetRequiredService<HttpClient>()),
                 new YouTubeAudioSource(sp.GetRequiredService<HttpClient>()),
@@ -161,6 +192,11 @@ public partial class Program
             // extracted from the page code-behind (H1). Stateless and all its dependencies are
             // singletons, so it is registered as a singleton too.
             builder.Services.AddSingleton<DeckFlow.Studio.ViewModels.PullFromProdCoordinator>();
+            // Why (D-04/SYNC-11): Reconcile page orchestration (dry-run delegate + open-discrepancy
+            // read), mirroring the DirectPush/Pull coordinator convention. Stateless — both
+            // dependencies (the orchestrator + the local store) are singletons, so this is
+            // registered as a singleton too.
+            builder.Services.AddSingleton<DeckFlow.Studio.ViewModels.ReconcileCoordinator>();
             // Why: Harvest page collaborators (Phase 82 SRP split), each owning the I/O for one
             // concern while the page keeps the markup-bound state. All dependencies are singletons
             // except CreatorManagementCoordinator's IContentMaintenanceOrchestrator (scoped) — that
@@ -193,8 +229,26 @@ public partial class Program
                 }
             }
 
+            // Why (D-08): one-time deterministic body_sha256 backfill against the LOCAL
+            // content-kb.db store only — the IContentSiteIndexStore singleton resolved here is
+            // the line-81 local store, never a ProdStoreFactory prod store (those stay
+            // schema-ensure OFF, P88 D-10). Ensure the local store's own schema first (adds
+            // body_sha256 if missing on a pre-Phase-89 local DB), then run the idempotent
+            // null-only pass so legacy local rows hash identically to web rows (D-08).
+            var localIndexStore = app.Services.GetRequiredService<IContentSiteIndexStore>();
+            await localIndexStore.EnsureSchemaAsync();
+            await app.Services.GetRequiredService<ContentBodyHashBackfill>().RunAsync();
+            Log.Information("Content KB body-hash backfill completed for the local content-kb.db store.");
+
+            // Why (SYNC-17/D-02): seed_managed backfill against the SAME local content-kb.db
+            // store, using the operator's git-checkout seed. Skips entirely (zero writes) when the
+            // repo root or seed file can't be resolved this run (T-91-07) - never crashes startup.
+            await app.Services.GetRequiredService<SeedManagedBackfill>().RunAsync();
+            Log.Information("Content KB seed_managed backfill completed for the local content-kb.db store.");
+
             Log.Information("Studio prod connection: {Status}", isProdConfigured ? "configured" : "not configured");
             Log.Information("Studio SCP: {Status}", isScpConfigured ? "configured" : "not configured");
+            Log.Information("Studio deploy-confirm: {Status}", isConfirmerConfigured ? "configured" : "not configured");
 
             if (!app.Environment.IsDevelopment())
             {

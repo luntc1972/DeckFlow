@@ -1,3 +1,5 @@
+using DeckFlow.Core.Content;
+using DeckFlow.Web.Services.FeatureFlags;
 using Microsoft.AspNetCore.Hosting;
 
 namespace DeckFlow.Web.Services;
@@ -28,27 +30,41 @@ public enum ContentKbArtifactResolution
 /// </summary>
 public sealed class ContentKbArtifactPathResolver
 {
+    private readonly IFeatureFlagCache _flagCache;
     private readonly ILogger<ContentKbArtifactPathResolver> _logger;
-    private static readonly char[] PathSeparators = ['/', '\\'];
+    private readonly string _gitRootWithSeparator;
+    private readonly string? _overlayRootWithSeparator;
 
     /// <summary>
     /// Creates a resolver using the configured content base candidates.
     /// </summary>
     /// <param name="environment">Web host environment.</param>
     /// <param name="configuration">Application configuration.</param>
+    /// <param name="flagCache">
+    /// Feature-flag cache consulted for <c>sync.directpush-gitbody</c> (SYNC-07): when ON, a
+    /// git-tree miss returns <see cref="ContentKbArtifactResolution.MissingFile"/> without
+    /// consulting the <see cref="DataOverlayBase"/> fallback.
+    /// </param>
     /// <param name="logger">Logger.</param>
     public ContentKbArtifactPathResolver(
         IWebHostEnvironment environment,
         IConfiguration configuration,
+        IFeatureFlagCache flagCache,
         ILogger<ContentKbArtifactPathResolver> logger)
     {
         ArgumentNullException.ThrowIfNull(environment);
         ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(flagCache);
         ArgumentNullException.ThrowIfNull(logger);
 
+        _flagCache = flagCache;
         _logger = logger;
         ContentBase = ResolveContentBase(environment, configuration);
         DataOverlayBase = ResolveDataOverlayBase(configuration);
+        _gitRootWithSeparator = EnsureTrailingSeparator(Path.GetFullPath(Path.Combine(ContentBase, "content-kb")));
+        _overlayRootWithSeparator = DataOverlayBase is null
+            ? null
+            : EnsureTrailingSeparator(Path.GetFullPath(DataOverlayBase));
         var contentKbExists = Directory.Exists(Path.Combine(ContentBase, "content-kb"));
         _logger.LogInformation(
             "Content KB content base resolved to {ContentBase}; content-kb exists: {ContentKbExists}.",
@@ -64,7 +80,7 @@ public sealed class ContentKbArtifactPathResolver
     /// <summary>
     /// Gets the resolved seed-file path.
     /// </summary>
-    public string SeedFilePath => Path.Combine(ContentBase, "content-kb", "seed", "index-seed.json");
+    public string SeedFilePath => Path.GetFullPath(Path.Combine(ContentBase, ContentKbPaths.SeedRelativePath));
 
     /// <summary>
     /// Gets the optional persistent data overlay root containing the <c>content-kb</c> artifact tree.
@@ -91,23 +107,18 @@ public sealed class ContentKbArtifactPathResolver
     /// <returns>The resolution state for the requested artifact path.</returns>
     public ContentKbArtifactResolution TryResolveExistingArtifact(string artifactPath, out string resolvedFullPath)
     {
-        resolvedFullPath = string.Empty;
-        if (!IsSafeArtifactPath(artifactPath))
+        var gitResolution = TryResolveGitPath(artifactPath, out resolvedFullPath);
+        if (gitResolution != ContentKbArtifactResolution.MissingFile)
         {
-            return ContentKbArtifactResolution.InvalidPath;
+            return gitResolution;
         }
 
-        var gitRoot = Path.Combine(ContentBase, "content-kb");
-        var gitPath = Path.GetFullPath(Path.Combine(ContentBase, artifactPath));
-        if (!IsContainedUnderRoot(gitPath, gitRoot))
+        // SYNC-07/D-01/D-11: under the flag, git is the ONLY body source - a git-tree miss is a
+        // real miss, never masked by the legacy /data-SFTP-first overlay. Flag OFF (default)
+        // preserves the byte-identical git-then-overlay fallback below.
+        if (_flagCache.IsEnabled("sync.directpush-gitbody"))
         {
-            return ContentKbArtifactResolution.InvalidPath;
-        }
-
-        if (File.Exists(gitPath))
-        {
-            resolvedFullPath = gitPath;
-            return ContentKbArtifactResolution.Resolved;
+            return ContentKbArtifactResolution.MissingFile;
         }
 
         if (DataOverlayBase is null)
@@ -116,7 +127,7 @@ public sealed class ContentKbArtifactPathResolver
         }
 
         var overlayPath = Path.GetFullPath(Path.Combine(DataOverlayBase, artifactPath["content-kb/".Length..]));
-        if (!IsContainedUnderRoot(overlayPath, DataOverlayBase))
+        if (_overlayRootWithSeparator is null || !IsContainedUnderRoot(overlayPath, _overlayRootWithSeparator))
         {
             return ContentKbArtifactResolution.InvalidPath;
         }
@@ -129,6 +140,18 @@ public sealed class ContentKbArtifactPathResolver
 
         return ContentKbArtifactResolution.MissingFile;
     }
+
+    /// <summary>
+    /// Resolves a stored artifact path against the git <c>/app</c> tree ONLY - never the
+    /// <see cref="DataOverlayBase"/> fallback, regardless of <c>sync.directpush-gitbody</c> flag
+    /// state. Used by the D-09 (REVISED) deployed-body-hash endpoint, which must confirm the
+    /// deployed git body independent of the serving flag's rollout state.
+    /// </summary>
+    /// <param name="artifactPath">Stored relative artifact path.</param>
+    /// <param name="resolvedFullPath">Resolved absolute git path when found.</param>
+    /// <returns>The resolution state for the requested artifact path.</returns>
+    public ContentKbArtifactResolution TryResolveGitArtifact(string artifactPath, out string resolvedFullPath)
+        => TryResolveGitPath(artifactPath, out resolvedFullPath);
 
     private string ResolveContentBase(IWebHostEnvironment environment, IConfiguration configuration)
     {
@@ -172,33 +195,37 @@ public sealed class ContentKbArtifactPathResolver
             : Path.GetFullPath(Path.Combine(dataDir, "content-kb"));
     }
 
+    private ContentKbArtifactResolution TryResolveGitPath(string artifactPath, out string resolvedFullPath)
+    {
+        resolvedFullPath = string.Empty;
+        if (!IsSafeArtifactPath(artifactPath))
+        {
+            return ContentKbArtifactResolution.InvalidPath;
+        }
+
+        var gitPath = Path.GetFullPath(Path.Combine(ContentBase, artifactPath));
+        if (!IsContainedUnderRoot(gitPath, _gitRootWithSeparator))
+        {
+            return ContentKbArtifactResolution.InvalidPath;
+        }
+
+        if (!File.Exists(gitPath))
+        {
+            return ContentKbArtifactResolution.MissingFile;
+        }
+
+        resolvedFullPath = gitPath;
+        return ContentKbArtifactResolution.Resolved;
+    }
+
     private static bool IsSafeArtifactPath(string artifactPath)
-    {
-        if (string.IsNullOrWhiteSpace(artifactPath) ||
-            Path.IsPathRooted(artifactPath) ||
-            !artifactPath.StartsWith("content-kb/", StringComparison.Ordinal))
-        {
-            return false;
-        }
+        => ContentKbArtifactPath.IsSafe(artifactPath);
 
-        foreach (var segment in artifactPath.Split(PathSeparators, StringSplitOptions.RemoveEmptyEntries))
-        {
-            if (segment == "..")
-            {
-                return false;
-            }
-        }
+    private static bool IsContainedUnderRoot(string candidatePath, string rootPathWithSeparator)
+        => candidatePath.StartsWith(rootPathWithSeparator, StringComparison.OrdinalIgnoreCase);
 
-        return true;
-    }
-
-    private static bool IsContainedUnderRoot(string candidatePath, string rootPath)
-    {
-        var fullRoot = Path.GetFullPath(rootPath);
-        var comparisonRoot = fullRoot.EndsWith(Path.DirectorySeparatorChar)
-            ? fullRoot
-            : fullRoot + Path.DirectorySeparatorChar;
-
-        return candidatePath.StartsWith(comparisonRoot, StringComparison.OrdinalIgnoreCase);
-    }
+    private static string EnsureTrailingSeparator(string path)
+        => path.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
+            ? path
+            : path + Path.DirectorySeparatorChar;
 }

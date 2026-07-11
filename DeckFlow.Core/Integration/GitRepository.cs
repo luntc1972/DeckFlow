@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 
 namespace DeckFlow.Core.Integration;
 
@@ -145,17 +146,7 @@ public sealed class GitRepository : IGitRepository
         // ── STEP 1: FOREIGN-STAGED GUARD ──────────────────────────────────────────
         // Why: pathspec-scoped commit + foreign-staged guard so a pre-staged unrelated
         // hunk is never swept into the publish commit (D-01).
-        var diffCachedInfo = BuildStartInfo(repoRoot);
-        diffCachedInfo.ArgumentList.Add("diff");
-        diffCachedInfo.ArgumentList.Add("--cached");
-        diffCachedInfo.ArgumentList.Add("--name-only");
-
-        var (cachedOut, _, _) = await RunRawAsync(diffCachedInfo, ct).ConfigureAwait(false);
-        var alreadyStaged = cachedOut
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Select(p => p.Trim())
-            .Where(p => !string.IsNullOrEmpty(p))
-            .ToList();
+        var alreadyStaged = await GetCachedPathListAsync(repoRoot, ct).ConfigureAwait(false);
 
         var offenders = alreadyStaged
             .Where(p => !allowedSet.Contains(NormalizeGitPath(p)))
@@ -194,13 +185,39 @@ public sealed class GitRepository : IGitRepository
         await RunAndCaptureAsync(commitInfo, ct).ConfigureAwait(false);
 
         // ── STEP 4: return short SHA ──────────────────────────────────────────────
-        var revParseInfo = BuildStartInfo(repoRoot);
-        revParseInfo.ArgumentList.Add("rev-parse");
-        revParseInfo.ArgumentList.Add("--short");
-        revParseInfo.ArgumentList.Add("HEAD");
+        return await GetShortHeadShaAsync(repoRoot, ct).ConfigureAwait(false);
+    }
 
-        var sha = await RunAndCaptureAsync(revParseInfo, ct).ConfigureAwait(false);
-        return sha.Trim();
+    /// <inheritdoc />
+    public async Task<string> CommitEmptyAsync(
+        string repoRoot,
+        string message,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repoRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+
+        var alreadyStaged = await GetCachedPathListAsync(repoRoot, ct).ConfigureAwait(false);
+        if (alreadyStaged.Count > 0)
+        {
+            throw new GitForeignStagedChangesException(alreadyStaged);
+        }
+
+        var commitInfo = BuildStartInfo(repoRoot);
+        commitInfo.ArgumentList.Add("commit");
+        commitInfo.ArgumentList.Add("--allow-empty");
+        commitInfo.ArgumentList.Add("-m");
+        commitInfo.ArgumentList.Add(message);
+
+        await RunAndCaptureAsync(commitInfo, ct).ConfigureAwait(false);
+
+        if (!await IsHeadCommitEmptyAsync(repoRoot, ct).ConfigureAwait(false))
+        {
+            throw new InvalidOperationException(
+                "Expected git commit --allow-empty to create an empty commit, but HEAD changed files.");
+        }
+
+        return await GetShortHeadShaAsync(repoRoot, ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -220,6 +237,27 @@ public sealed class GitRepository : IGitRepository
         // Why: explicit HEAD:refs/heads/{branch} so the push targets the named branch regardless of
         // upstream tracking config, and never a branch the operator is not currently on.
         startInfo.ArgumentList.Add($"HEAD:refs/heads/{branch}");
+
+        await RunAndCaptureAsync(startInfo, ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task FetchAsync(
+        string repoRoot,
+        string remote,
+        string branch,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repoRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(remote);
+        ArgumentException.ThrowIfNullOrWhiteSpace(branch);
+
+        var startInfo = BuildStartInfo(repoRoot);
+        startInfo.ArgumentList.Add("fetch");
+        startInfo.ArgumentList.Add(remote);
+        // Why: explicit refspec forces refs/remotes/{remote}/{branch} to advance so the behind-count
+        // reads a fresh tracking ref; a bare branch fetch can leave it stale and falsely report behind=0.
+        startInfo.ArgumentList.Add($"+refs/heads/{branch}:refs/remotes/{remote}/{branch}");
 
         await RunAndCaptureAsync(startInfo, ct).ConfigureAwait(false);
     }
@@ -257,6 +295,26 @@ public sealed class GitRepository : IGitRepository
     }
 
     /// <inheritdoc />
+    public async Task<int> GetBehindCountAsync(
+        string repoRoot,
+        string remote,
+        string branch,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repoRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(remote);
+        ArgumentException.ThrowIfNullOrWhiteSpace(branch);
+
+        var startInfo = BuildStartInfo(repoRoot);
+        startInfo.ArgumentList.Add("rev-list");
+        startInfo.ArgumentList.Add("--count");
+        startInfo.ArgumentList.Add($"HEAD..{remote}/{branch}");
+
+        var stdout = await RunAndCaptureAsync(startInfo, ct).ConfigureAwait(false);
+        return int.Parse(stdout.Trim(), CultureInfo.InvariantCulture);
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<string>> GetSubjectsAheadOfRemoteAsync(
         string repoRoot,
         string remote,
@@ -284,7 +342,68 @@ public sealed class GitRepository : IGitRepository
             .ToList();
     }
 
+    /// <inheritdoc />
+    public async Task<string> GetHeadSubjectAsync(string repoRoot, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repoRoot);
+
+        var startInfo = BuildStartInfo(repoRoot);
+        startInfo.ArgumentList.Add("log");
+        startInfo.ArgumentList.Add("-1");
+        startInfo.ArgumentList.Add("--format=%s");
+        startInfo.ArgumentList.Add("HEAD");
+
+        var stdout = await RunAndCaptureAsync(startInfo, ct).ConfigureAwait(false);
+        return stdout.Trim();
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> IsHeadCommitEmptyAsync(string repoRoot, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repoRoot);
+
+        var startInfo = BuildStartInfo(repoRoot);
+        startInfo.ArgumentList.Add("diff-tree");
+        startInfo.ArgumentList.Add("--no-commit-id");
+        startInfo.ArgumentList.Add("--name-only");
+        startInfo.ArgumentList.Add("-r");
+        startInfo.ArgumentList.Add("HEAD");
+
+        var stdout = await RunAndCaptureAsync(startInfo, ct).ConfigureAwait(false);
+        return string.IsNullOrWhiteSpace(stdout);
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────────
+
+    private static async Task<IReadOnlyList<string>> GetCachedPathListAsync(
+        string repoRoot,
+        CancellationToken ct)
+    {
+        var diffCachedInfo = BuildStartInfo(repoRoot);
+        diffCachedInfo.ArgumentList.Add("diff");
+        diffCachedInfo.ArgumentList.Add("--cached");
+        diffCachedInfo.ArgumentList.Add("--name-only");
+
+        var (cachedOut, _, _) = await RunRawAsync(diffCachedInfo, ct).ConfigureAwait(false);
+        return cachedOut
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(p => p.Trim())
+            .Where(p => !string.IsNullOrEmpty(p))
+            .ToList();
+    }
+
+    private static async Task<string> GetShortHeadShaAsync(
+        string repoRoot,
+        CancellationToken ct)
+    {
+        var revParseInfo = BuildStartInfo(repoRoot);
+        revParseInfo.ArgumentList.Add("rev-parse");
+        revParseInfo.ArgumentList.Add("--short");
+        revParseInfo.ArgumentList.Add("HEAD");
+
+        var sha = await RunAndCaptureAsync(revParseInfo, ct).ConfigureAwait(false);
+        return sha.Trim();
+    }
 
     private static ProcessStartInfo BuildStartInfo(string workingDirectory)
     {

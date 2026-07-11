@@ -42,6 +42,8 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
     [InlineData("analysis.manabase.plan-presence", true)] // default ON (gated also on mulligan-eval)
     [InlineData("analysis.manabase.ritual-burst-mana", false)] // ritual-burst sim dark launch
     [InlineData("analysis.manabase.cedh-land-target", false)] // cEDH land-target dark launch
+    [InlineData("sync.directpush-gitbody", false)] // SYNC-07/D-05: seeded OFF
+    [InlineData("sync.reconcile", false)] // SYNC-12: seeded OFF
     public async Task EnsureSchema_SeedsManabaseFlags_AtExpectedDefault(string key, bool expectedOn)
     {
         var store = new FeatureFlagStore(_dbPath);

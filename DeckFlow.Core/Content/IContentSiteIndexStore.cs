@@ -224,4 +224,86 @@ public interface IContentSiteIndexStore
         IReadOnlyList<ContentSiteIndexRow> rows,
         CancellationToken cancellationToken = default)
         => throw new NotSupportedException("This content site-index store does not support batch content upsert.");
+
+    /// <summary>
+    /// Sets <c>body_sha256</c> for a single row ONLY when it is currently <see langword="null"/> —
+    /// safe to call repeatedly (D-08 backfill): a row that already carries a hash is left untouched
+    /// (never overwrites an existing hash). Real-implemented on <see cref="ContentSiteIndexStore"/>;
+    /// this default interface method mirrors <see cref="DeleteAllRowsAsync"/>'s throwing-escape-hatch
+    /// idiom so the ~13 hand-written test doubles that don't need backfill semantics compile unchanged.
+    /// </summary>
+    /// <param name="id">Site-index row identifier.</param>
+    /// <param name="bodySha256">Lowercase hex SHA-256 to set.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of rows updated (1 when the row existed with a null hash; otherwise 0).</returns>
+    Task<int> SetBodySha256IfNullAsync(long id, string bodySha256, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content site-index store does not support body-hash backfill.");
+
+    /// <summary>
+    /// Sets <c>awaiting_confirm_utc</c> = <paramref name="whenUtc"/> for the given natural keys inside
+    /// one transaction — the durable "pushed, awaiting deploy-confirm" marker (D-10). Keyed ONLY on
+    /// <c>(natural_key_type, natural_key_value)</c>; no WHERE filters on any timestamp column
+    /// (F-51-PG-01 avoided). Real-implemented on <see cref="ContentSiteIndexStore"/>; this default
+    /// interface method mirrors <see cref="SetBodySha256IfNullAsync"/>'s throwing-escape-hatch idiom
+    /// so existing hand-written test doubles compile unchanged.
+    /// </summary>
+    /// <param name="keys">Natural-key pairs to update.</param>
+    /// <param name="whenUtc">UTC instant to stamp as awaiting-confirm.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The total number of rows updated.</returns>
+    Task<int> SetAwaitingConfirmAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        DateTimeOffset whenUtc,
+        CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content site-index store does not support the awaiting-confirm marker.");
+
+    /// <summary>
+    /// Clears <c>awaiting_confirm_utc</c> (sets it <see langword="null"/>) for the given natural keys
+    /// inside one transaction (D-10). Keyed ONLY on <c>(natural_key_type, natural_key_value)</c>; no
+    /// WHERE filters on any timestamp column (F-51-PG-01 avoided). Real-implemented on
+    /// <see cref="ContentSiteIndexStore"/>; this default interface method mirrors
+    /// <see cref="SetBodySha256IfNullAsync"/>'s throwing-escape-hatch idiom so existing hand-written
+    /// test doubles compile unchanged.
+    /// </summary>
+    /// <param name="keys">Natural-key pairs to update.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The total number of rows updated.</returns>
+    Task<int> ClearAwaitingConfirmAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content site-index store does not support the awaiting-confirm marker.");
+
+    /// <summary>
+    /// Sets <c>seed_managed</c> for a single row ONLY when it is currently <see langword="null"/>
+    /// (unclassified) — safe to call repeatedly (D-02 backfill): a row already classified
+    /// (<see langword="true"/> or <see langword="false"/>) is left untouched, never overwritten.
+    /// Real-implemented on <see cref="ContentSiteIndexStore"/>; this default interface method
+    /// mirrors <see cref="SetBodySha256IfNullAsync"/>'s throwing-escape-hatch idiom so existing
+    /// hand-written test doubles compile unchanged.
+    /// </summary>
+    /// <param name="id">Site-index row identifier.</param>
+    /// <param name="seedManaged">Classification to set: <see langword="true"/> = seed-owned, <see langword="false"/> = prod-owned.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of rows updated (1 when the row existed with a null classification; otherwise 0).</returns>
+    Task<int> SetSeedManagedIfNullAsync(long id, bool seedManaged, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content site-index store does not support the seed-managed marker.");
+
+    /// <summary>
+    /// Soft-hides (sets <c>is_visible = FALSE</c>, <c>is_hidden = FALSE</c>) the given natural keys inside one
+    /// transaction, but ONLY for rows that are currently <c>seed_managed = TRUE</c> — the ownership predicate
+    /// lives in the SQL <c>WHERE</c> itself, so a prod-owned (<c>seed_managed = false</c> or <see langword="null"/>)
+    /// row can NEVER be hidden through this path. This closes the reconcile-Apply TOCTOU where a row's marker
+    /// flips between the coordinator's fresh prod read and this destructive write: the write re-checks ownership
+    /// atomically rather than trusting the caller's earlier snapshot. Real-implemented on
+    /// <see cref="ContentSiteIndexStore"/>; this default interface method mirrors
+    /// <see cref="SetBodySha256IfNullAsync"/>'s throwing-escape-hatch idiom so existing hand-written test doubles
+    /// compile unchanged.
+    /// </summary>
+    /// <param name="keys">Natural-key pairs to soft-hide (only seed-managed matches take effect).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of rows actually hidden — only <c>seed_managed = true</c> rows are counted.</returns>
+    Task<int> HideSeedManagedAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content site-index store does not support seed-managed soft-hide.");
 }

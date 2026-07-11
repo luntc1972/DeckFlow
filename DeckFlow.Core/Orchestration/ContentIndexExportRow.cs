@@ -42,6 +42,15 @@ public sealed record ContentIndexExportRow
     /// <summary>Gets the card-category tags.</summary>
     public required IReadOnlyList<string> CardCategoryTags { get; init; }
 
+    /// <summary>Gets the SHA-256 hash of the normalized artifact body, when known.</summary>
+    public string? BodySha256 { get; init; }
+
+    /// <summary>
+    /// Gets the row-level seed-ownership marker (SYNC-17/D-01). Always <see langword="true"/> on an
+    /// exported row: every row that reaches the seed JSON is, by definition, seed-managed.
+    /// </summary>
+    public bool? SeedManaged { get; init; }
+
     /// <summary>
     /// Creates an export row from one published content site-index row.
     /// </summary>
@@ -66,6 +75,10 @@ public sealed record ContentIndexExportRow
             ArchetypeTags = row.ArchetypeTags,
             BracketTags = row.BracketTags,
             CardCategoryTags = row.CardCategoryTags,
+            BodySha256 = row.BodySha256,
+            // SYNC-17/D-01: hardcoded true, NOT row.SeedManaged — every row reaching the export/seed
+            // is definitionally seed-managed regardless of the source row's own classification.
+            SeedManaged = true,
         };
     }
 

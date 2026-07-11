@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -97,6 +98,36 @@ public sealed class ContentKbControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task Detail_ReturnsNotFound_WhenFileMissingAndDirectPushGitBodyFlagOn()
+    {
+        // SYNC-07/D-01/D-11: under the flag, a missing /app body is a real 404, not the 200
+        // "artifact unavailable" shell - a serving failure is an honest status (Codex LOW #6b).
+        var (controller, store) = Build(new Dictionary<string, string?>(), out _, directPushGitBodyOn: true);
+        store.Rows.Add(Row(40, artifactPath: "content-kb/edhrecast/missing-flagon.md", visible: true));
+
+        var result = await controller.Detail(40);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task Detail_ReturnsOk_ForPresentArtifact_WhenDirectPushGitBodyFlagOn()
+    {
+        // Happy-path render is unchanged by the flag; only the MissingFile branch is gated.
+        var (controller, store) = Build(new Dictionary<string, string?>(), out var baseDir, directPushGitBodyOn: true);
+        var rel = "content-kb/edhrecast/flagon-ok.md";
+        WriteArtifact(baseDir, rel, "---\ntitle: Ok\n---\n# Body\n\nFlag-on present body.");
+        store.Rows.Add(Row(41, artifactPath: rel, visible: true));
+
+        var result = await controller.Detail(41);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ContentKbDetailViewModel>(view.Model);
+        Assert.False(model.ArtifactUnavailable);
+        Assert.Contains("Flag-on present body.", model.CleanBodyText);
+    }
+
+    [Fact]
     public async Task Detail_RendersBodyWithoutFrontmatter_OnHappyPath()
     {
         var (controller, store) = Build(out var baseDir);
@@ -169,6 +200,64 @@ public sealed class ContentKbControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task Detail_MatchingBodyHash_RendersWithoutWarning()
+    {
+        var (controller, store, logger) = BuildWithLogger(out var baseDir);
+        var rel = "content-kb/edhrecast/matching.md";
+        const string raw = "---\ntitle: Ok\n---\n# Body\n\nMatching hash body.";
+        WriteArtifact(baseDir, rel, raw);
+        var expectedHash = DeckFlow.Core.Content.ContentSiteIndexContentSignature.ComputeBodySha256(raw);
+        store.Rows.Add(Row(30, artifactPath: rel, visible: true, bodySha256: expectedHash));
+
+        var result = await controller.Detail(30);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ContentKbDetailViewModel>(view.Model);
+        Assert.False(model.ArtifactUnavailable);
+        Assert.DoesNotContain(logger.Entries, e => e.Level == LogLevel.Warning);
+    }
+
+    [Fact]
+    public async Task Detail_MismatchedBodyHash_StillRendersAndLogsWarning()
+    {
+        var (controller, store, logger) = BuildWithLogger(out var baseDir);
+        var rel = "content-kb/edhrecast/mismatch.md";
+        WriteArtifact(baseDir, rel, "---\ntitle: Ok\n---\n# Body\n\nCurrent on-disk body.");
+        store.Rows.Add(Row(31, artifactPath: rel, visible: true, bodySha256: "0000000000000000000000000000000000000000000000000000000000ff"));
+
+        var result = await controller.Detail(31);
+
+        // Fail-open (D-05): the mismatch still renders the body, it does not 404/blank it.
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ContentKbDetailViewModel>(view.Model);
+        Assert.False(model.ArtifactUnavailable);
+        Assert.Contains("Current on-disk body.", model.CleanBodyText);
+
+        var warning = Assert.Single(logger.Entries, e => e.Level == LogLevel.Warning);
+        Assert.Contains("body hash mismatch", warning.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("31", warning.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Detail_NullStoredBodyHash_StillRendersAndLogsWarningWithNoneSentinel()
+    {
+        var (controller, store, logger) = BuildWithLogger(out var baseDir);
+        var rel = "content-kb/edhrecast/nullhash.md";
+        WriteArtifact(baseDir, rel, "---\ntitle: Ok\n---\n# Body\n\nLegacy pre-backfill body.");
+        store.Rows.Add(Row(32, artifactPath: rel, visible: true, bodySha256: null));
+
+        var result = await controller.Detail(32);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ContentKbDetailViewModel>(view.Model);
+        Assert.False(model.ArtifactUnavailable);
+        Assert.Contains("Legacy pre-backfill body.", model.CleanBodyText);
+
+        var warning = Assert.Single(logger.Entries, e => e.Level == LogLevel.Warning);
+        Assert.Contains("(none)", warning.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Index_ProjectsPublishedRowsOnly()
     {
         var (controller, store) = Build();
@@ -186,6 +275,33 @@ public sealed class ContentKbControllerTests : IDisposable
     private (ContentKbController Controller, FakeContentSiteIndexStore Store) Build()
         => Build(out _);
 
+    private (ContentKbController Controller, FakeContentSiteIndexStore Store, FakeLogger<ContentKbController> Logger) BuildWithLogger(
+        out string baseDir,
+        bool directPushGitBodyOn = false)
+    {
+        baseDir = Path.Combine(Path.GetTempPath(), "kbctl-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(baseDir, "content-kb"));
+        _tempDirs.Add(baseDir);
+
+        var config = new Dictionary<string, string?> { ["ContentKb:ContentBase"] = baseDir };
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(config).Build();
+        // Why: sync.directpush-gitbody defaults OFF here (D-05) - these controller tests exercise
+        // today's byte-identical git-then-overlay serving, not the flag-ON git-only path, unless
+        // a test explicitly opts into flag-ON via directPushGitBodyOn. Both the resolver and the
+        // controller share ONE flag cache instance so they observe the same flag state.
+        var flagCache = new FakeFeatureFlagCache(
+            new Dictionary<string, bool> { ["sync.directpush-gitbody"] = directPushGitBodyOn });
+        var resolver = new ContentKbArtifactPathResolver(
+            new StubWebHostEnvironment(baseDir),
+            configuration,
+            flagCache,
+            NullLogger<ContentKbArtifactPathResolver>.Instance);
+        var store = new FakeContentSiteIndexStore();
+        var logger = new FakeLogger<ContentKbController>();
+        var controller = new ContentKbController(store, resolver, flagCache, logger);
+        return (controller, store, logger);
+    }
+
     private (ContentKbController Controller, FakeContentSiteIndexStore Store) Build(out string baseDir)
         => Build(new Dictionary<string, string?>(), out baseDir);
 
@@ -194,7 +310,8 @@ public sealed class ContentKbControllerTests : IDisposable
 
     private (ContentKbController Controller, FakeContentSiteIndexStore Store) Build(
         Dictionary<string, string?> config,
-        out string baseDir)
+        out string baseDir,
+        bool directPushGitBodyOn = false)
     {
         baseDir = Path.Combine(Path.GetTempPath(), "kbctl-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(baseDir, "content-kb"));
@@ -204,12 +321,17 @@ public sealed class ContentKbControllerTests : IDisposable
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(config)
             .Build();
+        // Why: sync.directpush-gitbody defaults OFF here (D-05) - see comment on the sibling
+        // BuildWithLogger overload above; both resolver and controller share one flag cache.
+        var flagCache = new FakeFeatureFlagCache(
+            new Dictionary<string, bool> { ["sync.directpush-gitbody"] = directPushGitBodyOn });
         var resolver = new ContentKbArtifactPathResolver(
             new StubWebHostEnvironment(baseDir),
             configuration,
+            flagCache,
             NullLogger<ContentKbArtifactPathResolver>.Instance);
         var store = new FakeContentSiteIndexStore();
-        var controller = new ContentKbController(store, resolver, NullLogger<ContentKbController>.Instance);
+        var controller = new ContentKbController(store, resolver, flagCache, NullLogger<ContentKbController>.Instance);
         return (controller, store);
     }
 
@@ -220,7 +342,12 @@ public sealed class ContentKbControllerTests : IDisposable
         File.WriteAllText(full, content);
     }
 
-    private static ContentSiteIndexRow Row(long id, string artifactPath, bool visible, string approvalStatus = "approved")
+    private static ContentSiteIndexRow Row(
+        long id,
+        string artifactPath,
+        bool visible,
+        string approvalStatus = "approved",
+        string? bodySha256 = null)
         => new()
         {
             Id = id,
@@ -235,6 +362,7 @@ public sealed class ContentKbControllerTests : IDisposable
             YoutubeVideoId = "x" + id,
             IsVisible = visible,
             ApprovalStatus = approvalStatus,
+            BodySha256 = bodySha256,
         };
 
     public void Dispose()

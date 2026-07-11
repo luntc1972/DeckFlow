@@ -61,15 +61,24 @@ public sealed class DirectPushCoordinatorTests
         FakeSshArtifactUploader? uploader = null,
         string artifactRoot = "/data/content-kb",
         FakeGitRepository? git = null,
-        FakeContentKbOrchestrator? orchestrator = null)
+        FakeContentKbOrchestrator? orchestrator = null,
+        IProdContentReader? prodReader = null,
+        IDeployedBodyConfirmer? confirmer = null)
         => new(
             local,
             uploader ?? new FakeSshArtifactUploader(),
             new FakeProdStoreFactory(prod),
-            new ConfigurationBuilder().Build(),
+            new StudioProdConnectionSource(new ConfigurationBuilder().Build()),
             new ContentKbOrchestratorOptions { ArtifactRoot = artifactRoot },
             git ?? new FakeGitRepository(),
-            orchestrator ?? new FakeContentKbOrchestrator());
+            orchestrator ?? new FakeContentKbOrchestrator(),
+            // D-05: flag OFF by default — [skip render] behavior stays byte-identical unless a test
+            // explicitly turns the flag on (see TestDoubles/FakeDirectPushFlagReader.cs).
+            prodReader ?? new FakeDirectPushFlagReader(),
+            // SYNC-09/D-09 REVISED: confirmed by default so tests exercising WriteContentAsync/
+            // ConfirmAndPublishAsync/CommitAndPushBodiesAsync directly are unaffected; the
+            // VerifyAndPublishAsync tests override this explicitly.
+            confirmer ?? new FakeDeployedBodyConfirmer());
 
     // ── ClassifyDiff (pure) ─────────────────────────────────────────────────
 
@@ -228,33 +237,66 @@ public sealed class DirectPushCoordinatorTests
         Assert.Equal(0, prod.EnsureSchemaCallCount); // H3: diff issues no DDL on prod
     }
 
-    // ── WritePublishAsync (transactional batch + stamp/visibility) ───────────
+    // ── WriteContentAsync (content-only batch + awaiting-confirm marker, D-06/D-07) ──────────
 
     [Fact]
-    public async Task WritePublishAsync_HappyPath_UsesContentColumnsOnlyBatch_AndStampsBothStores()
+    public async Task WriteContentAsync_HappyPath_UsesContentColumnsOnlyBatch_SetsMarker_NoStampOrVisibility()
     {
         var local = new FakeContentSiteIndexStore();
         var prod = new FakeContentSiteIndexStore();
-        var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa"), Youtube(2, "bbb") };
-        // Seed prod so the stamp/visibility passes have rows to match.
+        var publish = new List<ContentSiteIndexRow>
+        {
+            Youtube(1, "aaa") with { ApprovalStatus = "approved" },
+            Youtube(2, "bbb") with { ApprovalStatus = "approved" },
+        };
+        // Seed prod so the local marker-set pass has rows to match.
         prod.Rows.Add(Youtube(1, "aaa"));
         prod.Rows.Add(Youtube(2, "bbb"));
         var coordinator = Build(local, prod);
 
-        await coordinator.WritePublishAsync(publish, CancellationToken.None);
+        await coordinator.WriteContentAsync(publish, CancellationToken.None);
 
         // SC3 / D-08: only the content-columns-only BATCH upsert ran on prod — never a full-row upsert.
         Assert.Equal(new[] { "UpsertContentColumnsOnlyBatchAsync" }, prod.UpsertMethodCalls);
         Assert.Single(prod.BatchUpsertCalls);
-        // Prod stamped + made visible, and the local store advanced too.
-        Assert.Single(prod.StampCalls);
-        Assert.Single(prod.VisibilityKeyCalls);
-        Assert.Single(local.StampCalls);
-        Assert.Single(local.VisibilityKeyCalls);
+        // D-03: approval_status mirrored via the content-only upsert (P88 approval mirror preserved
+        // by the split — this method still calls UpsertContentColumnsOnlyBatchAsync).
+        Assert.All(prod.BatchUpsertCalls[0], r => Assert.Equal("approved", r.ApprovalStatus));
+        // D-06/D-07: neither store is stamped or made visible by the content-only write.
+        Assert.Empty(prod.StampCalls);
+        Assert.Empty(prod.VisibilityKeyCalls);
+        Assert.Empty(local.StampCalls);
+        Assert.Empty(local.VisibilityKeyCalls);
+        // D-10: the local awaiting-confirm marker was set for the pushed keys.
+        Assert.Single(local.SetAwaitingConfirmCalls);
+        Assert.Equal(2, local.SetAwaitingConfirmCalls[0].Keys.Count);
     }
 
     [Fact]
-    public async Task WritePublishAsync_BatchRollback_Throws_AndDoesNotStampProd()
+    public async Task WriteContentAsync_StampsSeedManagedTrue_OnEveryBatchRow()
+    {
+        // SYNC-17/D-01: every row DirectPush pushes to prod enters the seed-managed set — the batch
+        // upsert must receive rows stamped seed_managed=true, hardcoded regardless of the incoming
+        // row's own (possibly null/false) classification (Pitfall 4).
+        var local = new FakeContentSiteIndexStore();
+        var prod = new FakeContentSiteIndexStore();
+        var publish = new List<ContentSiteIndexRow>
+        {
+            Youtube(1, "aaa") with { ApprovalStatus = "approved", SeedManaged = null },
+            Youtube(2, "bbb") with { ApprovalStatus = "approved", SeedManaged = false },
+        };
+        prod.Rows.Add(Youtube(1, "aaa"));
+        prod.Rows.Add(Youtube(2, "bbb"));
+        var coordinator = Build(local, prod);
+
+        await coordinator.WriteContentAsync(publish, CancellationToken.None);
+
+        var batch = Assert.Single(prod.BatchUpsertCalls);
+        Assert.All(batch, r => Assert.True(r.SeedManaged));
+    }
+
+    [Fact]
+    public async Task WriteContentAsync_BatchRollback_Throws_AndDoesNotSetMarker()
     {
         var local = new FakeContentSiteIndexStore();
         var prod = new FakeContentSiteIndexStore();
@@ -263,13 +305,69 @@ public sealed class DirectPushCoordinatorTests
         var coordinator = Build(local, prod);
 
         await Assert.ThrowsAsync<ContentSiteIndexBatchUpsertException>(
-            () => coordinator.WritePublishAsync(publish, CancellationToken.None));
+            () => coordinator.WriteContentAsync(publish, CancellationToken.None));
 
-        // PUB-01: nothing was stamped or made visible on EITHER store — the whole batch rolled back.
+        // PUB-01: nothing was stamped/made-visible, and the marker was never set — the whole batch
+        // rolled back before the marker-set call is reached.
         Assert.Empty(prod.StampCalls);
         Assert.Empty(prod.VisibilityKeyCalls);
         Assert.Empty(local.StampCalls);
         Assert.Empty(local.VisibilityKeyCalls);
+        Assert.Empty(local.SetAwaitingConfirmCalls);
+    }
+
+    // ── ConfirmAndPublishAsync (post-confirm stamp/visibility + marker clear, D-06/D-07/D-10) ──
+
+    [Fact]
+    public async Task ConfirmAndPublishAsync_StampsAndFlipsVisible_ProdAndLocal_ClearsMarker()
+    {
+        var local = new FakeContentSiteIndexStore();
+        var prod = new FakeContentSiteIndexStore();
+        var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa"), Youtube(2, "bbb") };
+        prod.Rows.Add(Youtube(1, "aaa"));
+        prod.Rows.Add(Youtube(2, "bbb"));
+        var coordinator = Build(local, prod);
+
+        await coordinator.ConfirmAndPublishAsync(publish, CancellationToken.None);
+
+        // PUB-01/HIGH-3: prod stamped + made visible, then local mirrors the same (order preserved
+        // from the pre-split WritePublishAsync across the Task 1 split).
+        Assert.Single(prod.StampCalls);
+        Assert.Single(prod.VisibilityKeyCalls);
+        Assert.Single(local.StampCalls);
+        Assert.Single(local.VisibilityKeyCalls);
+        // D-10: the local awaiting-confirm marker is cleared once the row is fully published.
+        Assert.Single(local.ClearAwaitingConfirmCalls);
+        Assert.Equal(2, local.ClearAwaitingConfirmCalls[0].Count);
+    }
+
+    // ── GetAwaitingConfirmRowsAsync (D-10 resume support, Plan 90-06) ────────
+
+    [Fact]
+    public async Task GetAwaitingConfirmRowsAsync_ReturnsOnlyApprovedRowsWithMarkerSet()
+    {
+        var local = new FakeContentSiteIndexStore();
+        local.Rows.Add(Youtube(1, "marked") with { AwaitingConfirmUtc = DateTimeOffset.UtcNow, ApprovalStatus = "approved" });
+        local.Rows.Add(Youtube(2, "unmarked") with { AwaitingConfirmUtc = null, ApprovalStatus = "approved" });
+        local.Rows.Add(Youtube(3, "marked-not-approved") with { AwaitingConfirmUtc = DateTimeOffset.UtcNow, ApprovalStatus = "pending" });
+        var coordinator = Build(local, new FakeContentSiteIndexStore());
+
+        var result = await coordinator.GetAwaitingConfirmRowsAsync(CancellationToken.None);
+
+        var row = Assert.Single(result);
+        Assert.Equal("marked", row.YoutubeVideoId);
+    }
+
+    [Fact]
+    public async Task GetAwaitingConfirmRowsAsync_NoMarkedRows_ReturnsEmpty()
+    {
+        var local = new FakeContentSiteIndexStore();
+        local.Rows.Add(Youtube(1, "aaa"));
+        var coordinator = Build(local, new FakeContentSiteIndexStore());
+
+        var result = await coordinator.GetAwaitingConfirmRowsAsync(CancellationToken.None);
+
+        Assert.Empty(result);
     }
 
     // ── UploadArtifactsAsync ─────────────────────────────────────────────────
@@ -309,12 +407,18 @@ public sealed class DirectPushCoordinatorTests
             new[] { "content-kb/test-channel/aaa.md", "content-kb/test-channel/bbb.md" },
             copied);
 
-        // Committed EXACTLY those body paths — the seed path is never staged (anti-pattern guard).
+        // D-08/SYNC-08: the seed is re-exported via the SAME shared factory Publish uses, into the
+        // repo tree, and staged alongside the copied bodies.
+        var exportedPath = Assert.Single(orchestrator.ExportToFilePaths);
+        Assert.Equal(Path.GetFullPath(Path.Combine("/repo", "content-kb/seed/index-seed.json")), exportedPath);
         var commit = Assert.Single(git.CommitCalls);
-        Assert.Equal(copied, commit.Paths);
-        Assert.DoesNotContain(commit.Paths, p => p.Contains("index-seed.json", StringComparison.Ordinal));
+        Assert.Contains("content-kb/seed/index-seed.json", commit.Paths);
+        Assert.Equal(
+            new[] { "content-kb/seed/index-seed.json", "content-kb/test-channel/aaa.md", "content-kb/test-channel/bbb.md" },
+            commit.Paths);
 
-        // Commit message carries the Render deploy-skip phrase (NOT [skip ci]).
+        // D-05: flag OFF by default (no test override) — commit message carries the Render
+        // deploy-skip phrase byte-identical to before this plan (NOT [skip ci]).
         Assert.Contains("[skip render]", commit.Message);
         Assert.DoesNotContain("[skip ci]", commit.Message);
 
@@ -328,11 +432,77 @@ public sealed class DirectPushCoordinatorTests
         Assert.Equal(2, result.BodyCount);
         Assert.Equal(DirectPushGitOutcome.Committed, result.Outcome);
 
-        // Anti-pattern guard (Codex NIT): the approved-only seed export/copy path is NEVER invoked —
-        // a future refactor that called it would regress the 86-row seed even if the commit pathspec
-        // happened to exclude it.
-        Assert.Empty(orchestrator.ExportToFilePaths);
+        // The APPROVED-ONLY full-set copy path (CopyApprovedArtifactsToRepoAsync — Publish's own
+        // artifact-copy step, distinct from the seed export) is still NEVER invoked here: DirectPush
+        // copies only the pushed bodies via CopyArtifactsToRepoAsync, not the full approved set.
         Assert.Equal(0, orchestrator.CopyApprovedCallCount);
+    }
+
+    [Fact]
+    public async Task CommitAndPushBodiesAsync_FlagOn_DropsSkipRenderPhrase()
+    {
+        // D-09: sync.directpush-gitbody ON drops [skip render] so the push triggers a real redeploy —
+        // required for SYNC-09's hash-gated deploy-confirm step to ever succeed.
+        var git = new FakeGitRepository { CannedBranch = "main" };
+        var flagReader = new FakeDirectPushFlagReader { FlagValue = true };
+        var coordinator = Build(new FakeContentSiteIndexStore(), new FakeContentSiteIndexStore(), git: git, prodReader: flagReader);
+        var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa") };
+
+        var result = await coordinator.CommitAndPushBodiesAsync(publish, "/data", CancellationToken.None);
+
+        var commit = Assert.Single(git.CommitCalls);
+        Assert.DoesNotContain("[skip render]", commit.Message);
+        Assert.Equal(DirectPushGitOutcome.Committed, result.Outcome);
+    }
+
+    [Fact]
+    public async Task CommitAndPushBodiesAsync_FlagOffThenOn_BothCommitSubjects_RecognizedAsOwnDurabilityCommit()
+    {
+        // D-09 correctness: a PRIOR run's flag-ON commit (no trailing phrase) must still be
+        // recognized as OUR OWN durability commit on a later ahead-of-origin check, not misclassified
+        // foreign — otherwise every flag-ON push would permanently block on the NEXT DirectPush run.
+        var git = new FakeGitRepository
+        {
+            CannedBranch = "main",
+            CannedWorkingChangeCount = 0,
+            CannedSubjectsAhead = { "content: direct-push 1 body to prod" },
+        };
+        var coordinator = Build(new FakeContentSiteIndexStore(), new FakeContentSiteIndexStore(), git: git);
+        var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa") };
+
+        var result = await coordinator.CommitAndPushBodiesAsync(publish, "/data", CancellationToken.None);
+
+        Assert.Equal(DirectPushGitOutcome.PushedExistingCommits, result.Outcome);
+        Assert.Empty(git.CommitCalls);
+        Assert.Single(git.PushCalls);   // recognized as own commit → catch-up push, not a foreign-commit refusal
+    }
+
+    [Fact]
+    public async Task CommitAndPushBodiesAsync_SeedExportFails_ThrowsBeforeCopyOrCommitOrPush()
+    {
+        // D-08: a seed-export failure must surface, never fall through to a silent bodies-only
+        // commit.
+        var git = new FakeGitRepository { CannedBranch = "main" };
+        var orchestrator = new FakeContentKbOrchestrator
+        {
+            CannedExportResult = new ContentIndexExportResult
+            {
+                Success = false,
+                Message = "disk full",
+                RowCount = 0,
+                Rows = Array.Empty<ContentIndexExportRow>(),
+            },
+        };
+        var coordinator = Build(new FakeContentSiteIndexStore(), new FakeContentSiteIndexStore(), git: git, orchestrator: orchestrator);
+        var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa") };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => coordinator.CommitAndPushBodiesAsync(publish, "/data", CancellationToken.None));
+
+        Assert.Contains("disk full", ex.Message, StringComparison.Ordinal);
+        Assert.Empty(orchestrator.CopyArtifactsCalls);
+        Assert.Empty(git.CommitCalls);
+        Assert.Empty(git.PushCalls);
     }
 
     [Fact]
@@ -352,6 +522,34 @@ public sealed class DirectPushCoordinatorTests
         Assert.Null(result.Sha);
         Assert.Empty(git.CommitCalls);
         Assert.Empty(git.PushCalls);   // in sync → no push at all
+    }
+
+    [Fact]
+    public async Task CommitAndPushBodiesAsync_SeedOnlyChange_CommitsAndPushesSeed()
+    {
+        // Codex MED regression: a metadata-only edit (retitle/retag) changes the re-exported
+        // index-seed.json but leaves every .md body byte-identical (CannedWorkingChangeCount = 0).
+        // The row must NOT return AlreadyInSync with the modified seed left uncommitted (D-08) — the
+        // seed-only change is detected and committed (staged with the bodies), then pushed.
+        var git = new FakeGitRepository
+        {
+            CannedBranch = "main",
+            CannedWorkingChangeCount = 0,     // no body changed
+            CannedSeedWorkingChangeCount = 1, // the seed did
+            CannedCommitSha = "seedsha",
+        };
+        var coordinator = Build(new FakeContentSiteIndexStore(), new FakeContentSiteIndexStore(), git: git);
+        var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa") };
+
+        var result = await coordinator.CommitAndPushBodiesAsync(publish, "/data", CancellationToken.None);
+
+        Assert.Equal(DirectPushGitOutcome.Committed, result.Outcome);
+        Assert.Equal("seedsha", result.Sha);
+        Assert.Equal(0, result.BodyCount);                      // body-only count stays 0
+        var commit = Assert.Single(git.CommitCalls);
+        Assert.Contains("content-kb/seed/index-seed.json", commit.Paths); // seed was staged
+        Assert.Contains("0 bodies", commit.Message);            // durability subject shape preserved (\d+ bodies)
+        Assert.Single(git.PushCalls);                           // and pushed
     }
 
     [Fact]
@@ -569,7 +767,7 @@ public sealed class DirectPushCoordinatorTests
         Assert.Equal(DirectPushGitOutcome.Committed, result.Outcome);
         Assert.Equal(1, result.BodyCount);                 // accurate committed count, not the copied 2
         var commit = Assert.Single(git.CommitCalls);
-        Assert.Equal(2, commit.Paths.Count);               // both staged; git commits only the changed 1
+        Assert.Equal(3, commit.Paths.Count);               // 2 bodies + the seed staged; git commits only the changed 1 body
         Assert.Contains("1 body", commit.Message);
         Assert.DoesNotContain("2 bodies", commit.Message);
     }
@@ -609,6 +807,274 @@ public sealed class DirectPushCoordinatorTests
             () => coordinator.CommitAndPushBodiesAsync(publish, "/data", CancellationToken.None));
 
         Assert.Contains("git push -u origin feature-x", ex.Reason);
+    }
+
+    // ── TriggerRedeployAsync (FU-2 resume redeploy path) ───────────────────
+
+    [Fact]
+    public async Task TriggerRedeployAsync_FlagOnInSync_CreatesEmptyDurabilityCommit_ThenPushes()
+    {
+        var git = new FakeGitRepository
+        {
+            CannedBranch = "main",
+            CannedCommitSha = "redeploy1",
+        };
+        var flagReader = new FakeDirectPushFlagReader { FlagValue = true };
+        var coordinator = Build(new FakeContentSiteIndexStore(), new FakeContentSiteIndexStore(), git: git, prodReader: flagReader);
+
+        var result = await coordinator.TriggerRedeployAsync(CancellationToken.None);
+
+        Assert.Equal(DirectPushRedeployOutcome.RedeployTriggered, result.Outcome);
+        Assert.Equal("main", result.Branch);
+        Assert.Equal("redeploy1", result.Sha);
+        var emptyCommit = Assert.Single(git.EmptyCommitCalls);
+        Assert.Equal("content: direct-push 0 bodies to prod", emptyCommit.Message);
+        Assert.Single(git.PushCalls);
+    }
+
+    [Fact]
+    public async Task TriggerRedeployAsync_HeadAlreadyEmptyDurabilityCommit_ReturnsAlreadyTriggered()
+    {
+        var git = new FakeGitRepository
+        {
+            CannedBranch = "main",
+            CannedHeadSubject = "content: direct-push 0 bodies to prod",
+            CannedHeadCommitIsEmpty = true,
+        };
+        var flagReader = new FakeDirectPushFlagReader { FlagValue = true };
+        var coordinator = Build(new FakeContentSiteIndexStore(), new FakeContentSiteIndexStore(), git: git, prodReader: flagReader);
+
+        var result = await coordinator.TriggerRedeployAsync(CancellationToken.None);
+
+        Assert.Equal(DirectPushRedeployOutcome.AlreadyTriggered, result.Outcome);
+        Assert.Equal("main", result.Branch);
+        Assert.Null(result.Sha);
+        Assert.Empty(git.EmptyCommitCalls);
+        Assert.Empty(git.PushCalls);
+    }
+
+    [Fact]
+    public async Task TriggerRedeployAsync_BranchAlreadyAhead_ReturnsBranchAheadNeedsPush()
+    {
+        var git = new FakeGitRepository
+        {
+            CannedBranch = "main",
+            CannedSubjectsAhead = { "content: direct-push 1 body to prod" },
+        };
+        var flagReader = new FakeDirectPushFlagReader { FlagValue = true };
+        var coordinator = Build(new FakeContentSiteIndexStore(), new FakeContentSiteIndexStore(), git: git, prodReader: flagReader);
+
+        var result = await coordinator.TriggerRedeployAsync(CancellationToken.None);
+
+        Assert.Equal(DirectPushRedeployOutcome.BranchAheadNeedsPush, result.Outcome);
+        Assert.Equal("main", result.Branch);
+        Assert.Empty(git.EmptyCommitCalls);
+        Assert.Empty(git.PushCalls);
+    }
+
+    [Fact]
+    public async Task TriggerRedeployAsync_FlagReadIndeterminate_ReturnsIndeterminate_WithoutCommit()
+    {
+        var git = new FakeGitRepository { CannedBranch = "main" };
+        var flagReader = new FakeDirectPushFlagReader { FlagValue = false, FlagReadIndeterminate = true };
+        var coordinator = Build(new FakeContentSiteIndexStore(), new FakeContentSiteIndexStore(), git: git, prodReader: flagReader);
+
+        var result = await coordinator.TriggerRedeployAsync(CancellationToken.None);
+
+        Assert.Equal(DirectPushRedeployOutcome.Indeterminate, result.Outcome);
+        Assert.Null(result.Branch);
+        Assert.Empty(git.EmptyCommitCalls);
+        Assert.Empty(git.PushCalls);
+    }
+
+    [Fact]
+    public async Task TriggerRedeployAsync_FlagOff_ReturnsFlagNotOn_WithoutCommit()
+    {
+        var git = new FakeGitRepository { CannedBranch = "main" };
+        var flagReader = new FakeDirectPushFlagReader { FlagValue = false };
+        var coordinator = Build(new FakeContentSiteIndexStore(), new FakeContentSiteIndexStore(), git: git, prodReader: flagReader);
+
+        var result = await coordinator.TriggerRedeployAsync(CancellationToken.None);
+
+        Assert.Equal(DirectPushRedeployOutcome.FlagNotOn, result.Outcome);
+        Assert.Null(result.Branch);
+        Assert.Empty(git.EmptyCommitCalls);
+        Assert.Empty(git.PushCalls);
+    }
+
+    // ── VerifyAndPublishAsync (deploy-confirm gate, SYNC-09/D-09 REVISED) ────
+    // FakeDeployedBodyConfirmer lives in TestDoubles/FakeDeployedBodyConfirmer.cs (shared with
+    // DirectPushPageTests, mirroring FakeDirectPushFlagReader's placement).
+
+    [Fact]
+    public async Task VerifyAndPublishAsync_ConfirmerFalse_NoStampOrVisibility_RowStaysNotConfirmed()
+    {
+        var local = new FakeContentSiteIndexStore();
+        var prod = new FakeContentSiteIndexStore();
+        var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa") with { BodySha256 = "expected-hash" } };
+        prod.Rows.Add(Youtube(1, "aaa"));
+        var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = false };
+        // Codex-HIGH fix: VerifyAndPublishAsync only polls the /app deploy-confirm endpoint when
+        // sync.directpush-gitbody is ON. These tests exercise that ON poll path, so the flag reader
+        // is turned ON explicitly (Build defaults it OFF per D-05).
+        var coordinator = Build(local, prod, prodReader: new FakeDirectPushFlagReader { FlagValue = true }, confirmer: confirmer);
+
+        var result = await coordinator.VerifyAndPublishAsync(publish, CancellationToken.None);
+
+        Assert.Empty(result.Confirmed);
+        Assert.Single(result.NotConfirmed);
+        Assert.Empty(prod.StampCalls);
+        Assert.Empty(prod.VisibilityKeyCalls);
+        var call = Assert.Single(confirmer.Calls);
+        Assert.Equal(ContentSourceType.Youtube, call.Type);
+        Assert.Equal("aaa", call.Value);
+        Assert.Equal("expected-hash", call.ExpectedHash);
+    }
+
+    [Fact]
+    public async Task VerifyAndPublishAsync_ConfirmerTrue_RunsConfirmAndPublish_ClearsMarker()
+    {
+        var local = new FakeContentSiteIndexStore();
+        var prod = new FakeContentSiteIndexStore();
+        var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa") with { BodySha256 = "expected-hash" } };
+        prod.Rows.Add(Youtube(1, "aaa"));
+        var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = true };
+        // Codex-HIGH fix: VerifyAndPublishAsync only polls the /app deploy-confirm endpoint when
+        // sync.directpush-gitbody is ON. These tests exercise that ON poll path, so the flag reader
+        // is turned ON explicitly (Build defaults it OFF per D-05).
+        var coordinator = Build(local, prod, prodReader: new FakeDirectPushFlagReader { FlagValue = true }, confirmer: confirmer);
+
+        var result = await coordinator.VerifyAndPublishAsync(publish, CancellationToken.None);
+
+        Assert.Single(result.Confirmed);
+        Assert.Empty(result.NotConfirmed);
+        Assert.Single(prod.StampCalls);
+        Assert.Single(prod.VisibilityKeyCalls);
+        Assert.Single(local.StampCalls);
+        Assert.Single(local.VisibilityKeyCalls);
+        Assert.Single(local.ClearAwaitingConfirmCalls);
+    }
+
+    [Fact]
+    public async Task VerifyAndPublishAsync_RowWithNoBodyHash_TreatedAsNotConfirmed_ConfirmerNeverCalled()
+    {
+        // A row with no stored body_sha256 has nothing to match against — never call the confirmer,
+        // never publish.
+        var local = new FakeContentSiteIndexStore();
+        var prod = new FakeContentSiteIndexStore();
+        var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa") with { BodySha256 = null } };
+        prod.Rows.Add(Youtube(1, "aaa"));
+        var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = true };
+        // Codex-HIGH fix: VerifyAndPublishAsync only polls the /app deploy-confirm endpoint when
+        // sync.directpush-gitbody is ON. These tests exercise that ON poll path, so the flag reader
+        // is turned ON explicitly (Build defaults it OFF per D-05).
+        var coordinator = Build(local, prod, prodReader: new FakeDirectPushFlagReader { FlagValue = true }, confirmer: confirmer);
+
+        var result = await coordinator.VerifyAndPublishAsync(publish, CancellationToken.None);
+
+        Assert.Empty(result.Confirmed);
+        Assert.Single(result.NotConfirmed);
+        Assert.Empty(confirmer.Calls);
+        Assert.Empty(prod.StampCalls);
+        Assert.Empty(prod.VisibilityKeyCalls);
+    }
+
+    // Per-key IDeployedBodyConfirmer test double: confirms only the keys explicitly listed as
+    // deployed, so a single VerifyAndPublishAsync call can exercise a mixed confirmed/not-confirmed
+    // batch (a real HTTP confirmer polls each row's own natural key independently).
+    private sealed class SelectiveDeployedBodyConfirmer : IDeployedBodyConfirmer
+    {
+        public HashSet<string> ConfirmedKeys { get; } = new(StringComparer.Ordinal);
+
+        public Task<bool> IsDeployedBodyConfirmedAsync(
+            string naturalKeyType,
+            string naturalKeyValue,
+            string expectedBodySha256,
+            CancellationToken cancellationToken)
+            => Task.FromResult(ConfirmedKeys.Contains(naturalKeyValue));
+    }
+
+    [Fact]
+    public async Task VerifyAndPublishAsync_MixedConfirmedAndNot_OnlyConfirmedRowsPublished()
+    {
+        var local = new FakeContentSiteIndexStore();
+        var prod = new FakeContentSiteIndexStore();
+        var confirmedRow = Youtube(1, "confirmed") with { BodySha256 = "hash-confirmed" };
+        var notConfirmedRow = Youtube(2, "pending") with { BodySha256 = "hash-pending" };
+        prod.Rows.Add(Youtube(1, "confirmed"));
+        prod.Rows.Add(Youtube(2, "pending"));
+        var confirmer = new SelectiveDeployedBodyConfirmer { ConfirmedKeys = { "confirmed" } };
+        // Codex-HIGH fix: VerifyAndPublishAsync only polls the /app deploy-confirm endpoint when
+        // sync.directpush-gitbody is ON. These tests exercise that ON poll path, so the flag reader
+        // is turned ON explicitly (Build defaults it OFF per D-05).
+        var coordinator = Build(local, prod, prodReader: new FakeDirectPushFlagReader { FlagValue = true }, confirmer: confirmer);
+
+        var result = await coordinator.VerifyAndPublishAsync(
+            new[] { confirmedRow, notConfirmedRow }, CancellationToken.None);
+
+        var confirmedResult = Assert.Single(result.Confirmed);
+        Assert.Equal("confirmed", confirmedResult.YoutubeVideoId);
+        var pendingResult = Assert.Single(result.NotConfirmed);
+        Assert.Equal("pending", pendingResult.YoutubeVideoId);
+        // Only the confirmed row's key was stamped/made visible.
+        Assert.Single(prod.StampCalls);
+        Assert.Single(prod.StampCalls[0].Keys);
+        Assert.Equal("confirmed", prod.StampCalls[0].Keys[0].Value);
+    }
+
+    [Fact]
+    public async Task VerifyAndPublishAsync_FlagOff_PublishesImmediately_WithoutPollingConfirmer()
+    {
+        // Codex-HIGH regression: with sync.directpush-gitbody OFF (default), Stage 4 keeps
+        // [skip render] so Render never redeploys the body to /app — polling /app would 404 forever
+        // and strand the row awaiting-confirm. In the OFF path the body is served live from the
+        // /data overlay, so VerifyAndPublishAsync must publish immediately and NEVER poll the
+        // confirmer (proven here by a confirmer hard-wired to FALSE that must never be consulted).
+        var local = new FakeContentSiteIndexStore();
+        var prod = new FakeContentSiteIndexStore();
+        var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa") with { BodySha256 = "expected-hash" } };
+        prod.Rows.Add(Youtube(1, "aaa"));
+        var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = false };
+        var coordinator = Build(local, prod, prodReader: new FakeDirectPushFlagReader { FlagValue = false }, confirmer: confirmer);
+
+        var result = await coordinator.VerifyAndPublishAsync(publish, CancellationToken.None);
+
+        // Published without a poll: confirmer untouched, row treated as confirmed, stamp+visibility ran.
+        Assert.Empty(confirmer.Calls);
+        Assert.Single(result.Confirmed);
+        Assert.Empty(result.NotConfirmed);
+        Assert.Single(prod.StampCalls);
+        Assert.Single(prod.VisibilityKeyCalls);
+        Assert.Single(local.StampCalls);
+        Assert.Single(local.VisibilityKeyCalls);
+        Assert.Single(local.ClearAwaitingConfirmCalls);
+    }
+
+    [Fact]
+    public async Task VerifyAndPublishAsync_FlagReadIndeterminate_FailsSafeToVerify_DoesNotImmediatePublish()
+    {
+        // Codex re-review HIGH: an INDETERMINATE flag read (the prod flag DB was briefly unreachable)
+        // must NOT take the OFF immediate-publish path — if prod were actually ON, that would flip a
+        // row visible whose body was never redeployed to /app (false-positive publish). It must fail
+        // SAFE to the /app verify path: here the confirmer reports not-confirmed, so the row stays
+        // awaiting-confirm (recoverable) rather than being published.
+        var local = new FakeContentSiteIndexStore();
+        var prod = new FakeContentSiteIndexStore();
+        var publish = new List<ContentSiteIndexRow> { Youtube(1, "aaa") with { BodySha256 = "expected-hash" } };
+        prod.Rows.Add(Youtube(1, "aaa"));
+        var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = false };
+        var flagReader = new FakeDirectPushFlagReader { FlagValue = false, FlagReadIndeterminate = true };
+        var coordinator = Build(local, prod, prodReader: flagReader, confirmer: confirmer);
+
+        var result = await coordinator.VerifyAndPublishAsync(publish, CancellationToken.None);
+
+        // Verify path ran: confirmer WAS polled, row not published (not immediate-published despite
+        // the flag reading `false` on the fail-closed bool — the tri-state null routed to verify).
+        Assert.Single(confirmer.Calls);
+        Assert.Empty(result.Confirmed);
+        Assert.Single(result.NotConfirmed);
+        Assert.Empty(prod.StampCalls);
+        Assert.Empty(prod.VisibilityKeyCalls);
     }
 
     // Minimal recording logger: captures formatted Warning messages for D-08 skip-log assertions.

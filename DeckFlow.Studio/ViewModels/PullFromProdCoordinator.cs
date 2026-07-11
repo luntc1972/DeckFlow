@@ -3,7 +3,6 @@ using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Orchestration;
 using DeckFlow.Studio.Services;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace DeckFlow.Studio.ViewModels;
@@ -22,7 +21,7 @@ public sealed class PullFromProdCoordinator
     private readonly IContentSiteIndexStore _indexStore;
     private readonly IGitRepository _git;
     private readonly IProdContentReader _prodReader;
-    private readonly IConfiguration _configuration;
+    private readonly IStudioProdConnectionSource _prodConnection;
     private readonly ContentKbOrchestratorOptions _options;
     private readonly ILogger<PullFromProdCoordinator> _logger;
 
@@ -31,20 +30,20 @@ public sealed class PullFromProdCoordinator
         IContentSiteIndexStore indexStore,
         IGitRepository git,
         IProdContentReader prodReader,
-        IConfiguration configuration,
+        IStudioProdConnectionSource prodConnection,
         ContentKbOrchestratorOptions options,
         ILogger<PullFromProdCoordinator> logger)
     {
         ArgumentNullException.ThrowIfNull(indexStore);
         ArgumentNullException.ThrowIfNull(git);
         ArgumentNullException.ThrowIfNull(prodReader);
-        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(prodConnection);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(logger);
         _indexStore = indexStore;
         _git = git;
         _prodReader = prodReader;
-        _configuration = configuration;
+        _prodConnection = prodConnection;
         _options = options;
         _logger = logger;
     }
@@ -56,9 +55,13 @@ public sealed class PullFromProdCoordinator
     public PullPaths ResolvePaths()
     {
         var dataRoot = Path.GetDirectoryName(_options.ArtifactRoot) ?? _options.ArtifactRoot;
-        var stagingRoot = Path.Combine(dataRoot, "pull-staging");
-        return new PullPaths(dataRoot, stagingRoot);
+        return new PullPaths(dataRoot);
     }
+
+    /// <summary>Builds the acknowledged-divergence lookup key for a diff entry.</summary>
+    /// <param name="entry">The diff entry whose natural key should be encoded.</param>
+    /// <returns>The byte-identical <c>{NaturalKeyType}:{NaturalKeyValue}</c> acknowledgment key.</returns>
+    public static string AcknowledgmentKey(SyncDiffEntry entry) => $"{entry.NaturalKeyType}:{entry.NaturalKeyValue}";
 
     /// <summary>
     /// Reads the live production content index (read-only, NO DDL), resolves each prod body from the
@@ -68,20 +71,20 @@ public sealed class PullFromProdCoordinator
     /// stage in flight — diagnostic copy) and emits human-readable progress lines to
     /// <paramref name="log"/>. NEVER writes to production.
     /// </summary>
-    public async Task<IReadOnlyList<SyncDiffEntry>> PullAndClassifyAsync(
-        string stagingRoot,
+    public async Task<PullClassifyResult> PullAndClassifyAsync(
         IProgress<string> log,
         Action<string> onStage,
         CancellationToken cancellationToken)
     {
-        _ = stagingRoot;
+        var repoRoot = await _git.ResolveRepoRootAsync(StudioRepoLocator.ResolveStartDirectory(), cancellationToken).ConfigureAwait(false);
+        var freshness = await CheckFreshnessAsync(repoRoot, log, onStage, cancellationToken).ConfigureAwait(false);
 
         // R1: read prod via the read-only reader — plain SELECT, NO EnsureSchemaAsync/DDL.
         onStage("read production content_site_index");
         log.Report("Reading production content_site_index...");
 
         // Why: the prod conn string is read ephemerally here, never materialized into DI state (D-03/D-07).
-        var rawConnStr = _configuration["Studio:ProdConnectionString"] ?? string.Empty;
+        var rawConnStr = _prodConnection.ConnectionString;
         var prodRows = await _prodReader.ReadAllAsync(rawConnStr, cancellationToken).ConfigureAwait(false);
 
         log.Report($"  {prodRows.Count} row(s) read from production.");
@@ -89,25 +92,24 @@ public sealed class PullFromProdCoordinator
         onStage("resolve local repo bodies");
         log.Report($"Resolving {prodRows.Count} body/bodies from local repository...");
 
-        var repoRoot = await _git.ResolveRepoRootAsync(StudioRepoLocator.ResolveStartDirectory(), cancellationToken).ConfigureAwait(false);
-        var availableSet = new HashSet<string>(
-            prodRows
-                .Where(r =>
-                {
-                    if (!TryBuildContainedPath(repoRoot, r.ArtifactPath, out var repoBody))
-                    {
-                        log.Report("  body SKIPPED (invalid path)");
-                        return false;
-                    }
+        var availableBodies = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var prodRow in prodRows)
+        {
+            if (!ArtifactPathSafety.TryBuildContainedPath(repoRoot, prodRow.ArtifactPath, out var repoBody))
+            {
+                log.Report("  body SKIPPED (invalid path)");
+                continue;
+            }
 
-                    var present = File.Exists(repoBody);
-                    log.Report(present
-                        ? $"  body present: {r.ArtifactPath}"
-                        : $"  body not in local git repo (prod-only/unpublished): {r.ArtifactPath}");
-                    return present;
-                })
-                .Select(r => r.ArtifactPath),
-            StringComparer.Ordinal);
+            var present = File.Exists(repoBody);
+            log.Report(present
+                ? $"  body present: {prodRow.ArtifactPath}"
+                : $"  body not in local git repo (prod-only/unpublished): {prodRow.ArtifactPath}");
+            if (present)
+            {
+                availableBodies[prodRow.ArtifactPath] = repoBody;
+            }
+        }
 
         onStage("classify");
         log.Report("Classifying diff against local store...");
@@ -117,13 +119,16 @@ public sealed class PullFromProdCoordinator
         // Classify (omits in-sync pairs, R3), then stamp ArtifactDownloaded per entry. Pass the logger so
         // rows with no natural key are surfaced as warnings, not dropped silently (D-08).
         var entries = ContentSyncDiffClassifier.Classify(prodRows, localRows, _logger)
-            .Select(e => e with { ArtifactDownloaded = availableSet.Contains(e.ArtifactPath) })
+            .Select(e => StampArtifactAvailabilityAndDivergence(
+                e,
+                availableBodies.TryGetValue(e.ArtifactPath, out var repoBody),
+                repoBody))
             .ToList();
 
         log.Report($"Done — {entries.Count} differing entry/entries found. "
-            + $"{availableSet.Count}/{prodRows.Count} body/bodies resolved from the local repo.");
+            + $"{availableBodies.Count}/{prodRows.Count} body/bodies resolved from the local repo.");
 
-        return entries;
+        return new PullClassifyResult(entries, freshness);
     }
 
     /// <summary>
@@ -136,9 +141,9 @@ public sealed class PullFromProdCoordinator
     /// </summary>
     public async Task<IReadOnlyList<PullApplyRowResult>> ApplyAdoptionsAsync(
         IReadOnlyList<SyncDiffEntry> adoptEntries,
-        string stagingRoot,
         string dataRoot,
         IProgress<IReadOnlyList<PullApplyRowResult>> progress,
+        IReadOnlySet<string> acknowledgedDivergentKeys,
         CancellationToken cancellationToken)
     {
         var results = new List<PullApplyRowResult>();
@@ -149,6 +154,16 @@ public sealed class PullFromProdCoordinator
             // Defensive: the page pre-filters these, but never adopt a local-only / prod-less row.
             if (entry.Kind == SyncDiffKind.LocalOnly || entry.ProdRow is null)
             {
+                continue;
+            }
+
+            if ((entry.BodyDivergence is BodyDivergenceStatus.Confirmed or BodyDivergenceStatus.Indeterminate)
+                && !acknowledgedDivergentKeys.Contains(AcknowledgmentKey(entry)))
+            {
+                results.Add(new PullApplyRowResult(entry.Title, entry.NaturalKeyType, entry.NaturalKeyValue, true,
+                    "Skipped (divergent, not acknowledged)",
+                    "Entry was not applied because body divergence was not explicitly acknowledged."));
+                progress.Report(results.ToList());
                 continue;
             }
 
@@ -168,8 +183,8 @@ public sealed class PullFromProdCoordinator
                 await _indexStore.SetApprovalStatusAsync(keyType, keyValue, prodRow.ApprovalStatus, cancellationToken).ConfigureAwait(false);
 
                 var note = "row updated; approval mirrored from prod";
-                var validSource = TryBuildContainedPath(repoRoot, entry.ArtifactPath, out var repoBody);
-                var validDest = TryBuildContainedPath(dataRoot, entry.ArtifactPath, out var liveDest);
+                var validSource = ArtifactPathSafety.TryBuildContainedPath(repoRoot, entry.ArtifactPath, out var repoBody);
+                var validDest = ArtifactPathSafety.TryBuildContainedPath(dataRoot, entry.ArtifactPath, out var liveDest);
                 if (!validSource || !validDest)
                 {
                     note = "row updated; body path invalid, not copied; approval mirrored from prod";
@@ -216,65 +231,110 @@ public sealed class PullFromProdCoordinator
         return results;
     }
 
-    private static bool TryBuildContainedPath(string root, string artifactPath, out string resolvedPath)
+    private async Task<PullFreshnessStatus> CheckFreshnessAsync(
+        string repoRoot,
+        IProgress<string> log,
+        Action<string> onStage,
+        CancellationToken cancellationToken)
     {
-        resolvedPath = string.Empty;
-        if (!IsSafeArtifactPath(artifactPath))
+        onStage("check local checkout freshness");
+        using var freshnessCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        freshnessCts.CancelAfter(TimeSpan.FromSeconds(5));
+        try
         {
-            return false;
-        }
+            var branch = await _git.GetCurrentBranchAsync(repoRoot, freshnessCts.Token).ConfigureAwait(false);
+            await _git.FetchAsync(repoRoot, "origin", branch, freshnessCts.Token).ConfigureAwait(false);
+            var behindCount = await _git.GetBehindCountAsync(repoRoot, "origin", branch, freshnessCts.Token).ConfigureAwait(false);
+            if (behindCount > 0)
+            {
+                log.Report($"WARNING: Local checkout is {behindCount} commit(s) behind origin/{branch}; consider running 'git pull' before adopting. Proceeding with the current git tree.");
+                return new PullFreshnessStatus(PullFreshnessKind.Behind, behindCount, branch);
+            }
 
-        var rootFull = Path.GetFullPath(root);
-        var rootWithSeparator = rootFull.EndsWith(Path.DirectorySeparatorChar)
-            ? rootFull
-            : rootFull + Path.DirectorySeparatorChar;
-        var candidate = Path.GetFullPath(Path.Combine(rootFull, artifactPath));
-        if (!candidate.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase))
+            return new PullFreshnessStatus(PullFreshnessKind.Fresh, 0, branch);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return false;
+            throw;
         }
-
-        resolvedPath = candidate;
-        return true;
+        catch (OperationCanceledException)
+        {
+            log.Report("Could not verify checkout freshness (fetch timed out — offline, VPN, or slow network). Proceeding with the local git tree as-is.");
+            return new PullFreshnessStatus(PullFreshnessKind.Unverified, 0, string.Empty);
+        }
+        catch (GitCommandException ex)
+        {
+            _logger.LogWarning(ex, "Could not verify checkout freshness before pull-from-prod.");
+            log.Report("Could not verify checkout freshness (fetch failed — offline, VPN, or auth). Proceeding with the local git tree as-is.");
+            return new PullFreshnessStatus(PullFreshnessKind.Unverified, 0, string.Empty);
+        }
     }
 
-    private static bool IsSafeArtifactPath(string artifactPath)
+    private SyncDiffEntry StampArtifactAvailabilityAndDivergence(SyncDiffEntry entry, bool downloaded, string? repoBody) =>
+        entry with
+        {
+            ArtifactDownloaded = downloaded,
+            BodyDivergence = ComputeBodyDivergence(entry, downloaded, repoBody)
+        };
+
+    private BodyDivergenceStatus ComputeBodyDivergence(SyncDiffEntry entry, bool downloaded, string? repoBody)
     {
-        if (string.IsNullOrWhiteSpace(artifactPath))
+        if (entry.ProdRow is null)
         {
-            return false;
+            return BodyDivergenceStatus.NotApplicable;
         }
 
-        if (Path.IsPathRooted(artifactPath)
-            || IsWindowsRootedPath(artifactPath)
-            || artifactPath[0] == '/'
-            || artifactPath[0] == '\\')
+        // Why: body-less prod row: prod's body_sha256 cannot be shown to match a local body,
+        // so adopting would leave an incoherent index; surface + opt-in only.
+        if (!downloaded || string.IsNullOrEmpty(repoBody) || entry.ProdRow.BodySha256 is null)
         {
-            return false;
+            return BodyDivergenceStatus.Indeterminate;
         }
 
-        if (!artifactPath.StartsWith("content-kb/", StringComparison.Ordinal))
+        try
         {
-            return false;
+            var bodyText = File.ReadAllText(repoBody);
+            var computedHash = ContentSiteIndexContentSignature.ComputeBodySha256(bodyText);
+            return string.Equals(entry.ProdRow.BodySha256, computedHash, StringComparison.Ordinal)
+                ? BodyDivergenceStatus.Clean
+                : BodyDivergenceStatus.Confirmed;
         }
-
-        var segments = artifactPath.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
-        return segments.Length > 0
-            && !segments.Any(segment => string.Equals(segment, "..", StringComparison.Ordinal));
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(ex, "Unreadable git body for {ArtifactPath}; stamping Indeterminate.", entry.ArtifactPath);
+            return BodyDivergenceStatus.Indeterminate;
+        }
     }
-
-    private static bool IsWindowsRootedPath(string artifactPath)
-        => artifactPath.Length >= 3
-            && char.IsLetter(artifactPath[0])
-            && artifactPath[1] == ':'
-            && (artifactPath[2] == '\\' || artifactPath[2] == '/');
 
 }
 
 /// <summary>Data root + isolated pull-staging directory resolved for the Pull-from-Prod page.</summary>
 /// <param name="DataRoot">Studio data root (parent of <c>ArtifactRoot</c>).</param>
-/// <param name="StagingRoot">Legacy isolated staging directory path retained for page compatibility.</param>
-public sealed record PullPaths(string DataRoot, string StagingRoot);
+public sealed record PullPaths(string DataRoot);
+
+/// <summary>Freshness state of the local checkout relative to origin before pull-from-prod classification.</summary>
+public enum PullFreshnessKind
+{
+    /// <summary>The checkout was fetched and is not behind origin.</summary>
+    Fresh,
+
+    /// <summary>The checkout was fetched and is behind origin by one or more commits.</summary>
+    Behind,
+
+    /// <summary>The checkout freshness could not be verified because fetch timed out or failed.</summary>
+    Unverified
+}
+
+/// <summary>Freshness details surfaced to the operator after the bounded pre-check.</summary>
+/// <param name="Kind">Freshness outcome.</param>
+/// <param name="BehindCount">Number of commits behind origin when <see cref="Kind"/> is <see cref="PullFreshnessKind.Behind"/>.</param>
+/// <param name="Branch">Current branch name when known.</param>
+public sealed record PullFreshnessStatus(PullFreshnessKind Kind, int BehindCount, string Branch);
+
+/// <summary>Result of pull-from-prod classification: diff entries plus checkout freshness status.</summary>
+/// <param name="Entries">Differing entries classified against the local store.</param>
+/// <param name="Freshness">Checkout freshness status from the pre-check stage.</param>
+public sealed record PullClassifyResult(IReadOnlyList<SyncDiffEntry> Entries, PullFreshnessStatus Freshness);
 
 /// <summary>One per-entry outcome of applying a Pull-from-Prod adopt resolution to the local store.</summary>
 /// <param name="Title">Entry title (display).</param>
