@@ -388,12 +388,6 @@ public sealed record ManabaseDeck
     /// </summary>
     public int RampDrawBothCount { get; init; }
 
-    /// <summary>Count of non-mythic land/spell MDFCs (each ≈ 0.74 land off the target).</summary>
-    public int MdfcCommon { get; init; }
-
-    /// <summary>Count of mythic land/spell MDFCs (each ≈ 0.38 land off the target).</summary>
-    public int MdfcMythic { get; init; }
-
     /// <summary>Count of 0-cost mana artifacts (Lotus, Moxen). Each substitutes ~1 land.</summary>
     public int FastMana { get; init; }
 
@@ -561,8 +555,8 @@ public enum CommanderImportance
 /// FORMULA-01: the additive term-by-term breakdown of the Karsten land-target regression for THIS
 /// deck, so the view can "show the work" — each input value and the contribution it makes to the
 /// final target. All contributions sum (with their signs) to <see cref="FinalTarget"/>; the view
-/// renders them as <c>scale·(19.59 + 1.90·avgMV + 0.27·cmdrs) − 0.28·ramp − fastMana −
-/// 0.74·mdfcCommon − 0.38·mdfcMythic − 1.35</c>, plus the cEDH adjustment when applicable.
+/// renders them as <c>scale·(19.59 + 1.90·avgMV + 0.27·cmdrs) − 0.28·ramp − fastMana − 1.35</c>,
+/// plus the cEDH adjustment when applicable.
 /// </summary>
 public sealed record ManabaseLandTargetBreakdown
 {
@@ -574,12 +568,6 @@ public sealed record ManabaseLandTargetBreakdown
 
     /// <summary>Count of 0-cost mana artifacts credited 1 land each (the <c>−fastMana</c> input).</summary>
     public required int FastMana { get; init; }
-
-    /// <summary>Count of non-mythic land/spell MDFCs (the <c>−0.74·mdfcCommon</c> input).</summary>
-    public required int MdfcCommon { get; init; }
-
-    /// <summary>Count of mythic land/spell MDFCs (the <c>−0.38·mdfcMythic</c> input).</summary>
-    public required int MdfcMythic { get; init; }
 
     /// <summary>Number of commanders credited (the <c>0.27·cmdrs</c> input).</summary>
     public required int CommanderCount { get; init; }

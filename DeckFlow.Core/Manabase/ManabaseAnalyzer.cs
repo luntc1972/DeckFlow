@@ -305,9 +305,7 @@ public static class ManabaseAnalyzer
             double sixty = KarstenManabase.SixtyCardLandTarget(
                 deck.AverageManaValue,
                 deck.RampAndDrawUnderThree,
-                deck.FastMana,
-                deck.MdfcCommon,
-                deck.MdfcMythic);
+                deck.FastMana);
             breakdown = BuildBreakdown(deck, commanders: 0, librarySize: deck.TotalCards, baseTarget: sixty, finalTarget: sixty);
             return sixty;
         }
@@ -320,9 +318,7 @@ public static class ManabaseAnalyzer
             commanderCount,
             deck.AverageManaValue,
             deck.RampAndDrawUnderThree,
-            deck.FastMana,
-            deck.MdfcCommon,
-            deck.MdfcMythic);
+            deck.FastMana);
 
         double finalTarget = mode == ManabaseMode.Cedh
             ? KarstenManabase.CedhLandTarget(
@@ -330,9 +326,7 @@ public static class ManabaseAnalyzer
                 commanderCount,
                 deck.AverageManaValue,
                 deck.RampAndDrawUnderThree,
-                deck.FastMana,
-                deck.MdfcCommon,
-                deck.MdfcMythic)
+                deck.FastMana)
             : singleton;
 
         breakdown = BuildBreakdown(deck, commanderCount, librarySize, baseTarget: singleton, finalTarget: finalTarget);
@@ -350,8 +344,6 @@ public static class ManabaseAnalyzer
             AverageManaValue = deck.AverageManaValue,
             RampAndDrawUnderThree = deck.RampAndDrawUnderThree,
             FastMana = deck.FastMana,
-            MdfcCommon = deck.MdfcCommon,
-            MdfcMythic = deck.MdfcMythic,
             CommanderCount = commanders,
             LibrarySize = librarySize,
             BaseTarget = baseTarget,

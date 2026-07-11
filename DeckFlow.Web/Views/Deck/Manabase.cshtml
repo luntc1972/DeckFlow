@@ -736,8 +736,6 @@
                     <li>base interior = 19.59 + 1.90·(avg MV <strong>@lt.AverageManaValue.ToString("F2")</strong>) + 0.27·(commanders <strong>@lt.CommanderCount</strong>) = <strong>@((19.59 + (1.90 * lt.AverageManaValue) + (0.27 * lt.CommanderCount)).ToString("F2"))</strong></li>
                     <li>− 0.28·(ramp/draw ≤2 MV <strong>@lt.RampAndDrawUnderThree</strong>) = <strong>−@((0.28 * lt.RampAndDrawUnderThree).ToString("F2"))</strong></li>
                     <li>− fast mana <strong>@lt.FastMana</strong> (1 land each) = <strong>−@lt.FastMana.ToString("F2")</strong></li>
-                    <li>− 0.74·(common MDFCs <strong>@lt.MdfcCommon</strong>) = <strong>−@((0.74 * lt.MdfcCommon).ToString("F2"))</strong></li>
-                    <li>− 0.38·(mythic MDFCs <strong>@lt.MdfcMythic</strong>) = <strong>−@((0.38 * lt.MdfcMythic).ToString("F2"))</strong></li>
                     <li>− 1.35 fixed offset</li>
                     @if (report.Mode == ManabaseMode.Cedh)
                     {

@@ -1019,7 +1019,7 @@ public sealed class ManabaseClassifierTests
     }
 
     [Fact]
-    public void Classify_MdfcAsLand_PayLifeLandBack_IsRealUntappedLand()
+    public void Classify_MdfcPayLifeLandBack_IsRealUntappedLand()
     {
         var cards = new List<CardFact>
         {
@@ -1039,7 +1039,7 @@ public sealed class ManabaseClassifierTests
             },
         };
 
-        ManabaseDeck deck = ManabaseClassifier.Classify(cards, mdfcAsLand: true);
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
 
         ManaSource source = Assert.Single(deck.Sources);
         Assert.True(source.IsLand);
@@ -1048,7 +1048,7 @@ public sealed class ManabaseClassifierTests
     }
 
     [Fact]
-    public void Classify_MdfcAsLand_AlwaysTappedLandBack_StaysTappedLand()
+    public void Classify_MdfcLandBack_AlwaysTapped_IsRealTappedLand()
     {
         var cards = new List<CardFact>
         {
@@ -1068,44 +1068,18 @@ public sealed class ManabaseClassifierTests
             },
         };
 
-        ManabaseDeck deck = ManabaseClassifier.Classify(cards, mdfcAsLand: true);
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
 
         ManaSource source = Assert.Single(deck.Sources);
         Assert.True(source.IsLand);
         Assert.False(source.EntersUntapped);
-        Assert.Equal(0.8, source.Weight, 2);
+        // A real-land MDFC supplies its color at full weight 1.0; the tapped timing is the only
+        // penalty (a color discount on top would double-count the downside).
+        Assert.Equal(1.0, source.Weight, 2);
     }
 
     [Fact]
-    public void Classify_MdfcAsLand_FlagOff_KeepsHistoricNonLandPartialSource()
-    {
-        var cards = new List<CardFact>
-        {
-            new()
-            {
-                Name = "Bala Ged Recovery // Bala Ged Sanctuary",
-                Quantity = 1,
-                ManaCost = "{2}{G}",
-                ManaValue = 3,
-                TypeLine = "Sorcery",
-                OracleText = "Return target permanent card.\nBala Ged Sanctuary enters tapped.",
-                LandFaceOracleText = "Bala Ged Sanctuary enters tapped.",
-                ProducedMana = new[] { "G" },
-                Rarity = "uncommon",
-                Layout = "modal_dfc",
-                HasLandFace = true,
-            },
-        };
-
-        ManabaseDeck deck = ManabaseClassifier.Classify(cards, mdfcAsLand: false);
-
-        ManaSource source = Assert.Single(deck.Sources);
-        Assert.False(source.IsLand);
-        Assert.Equal(0.8, source.Weight, 2);
-    }
-
-    [Fact]
-    public void Classify_MdfcAsLand_IncreasesActualLandSourcesByCopyCount()
+    public void Classify_MdfcLandBack_CountsAsLandByCopyCount()
     {
         var cards = new List<CardFact>
         {
@@ -1127,56 +1101,10 @@ public sealed class ManabaseClassifierTests
             },
         };
 
-        ManabaseDeck off = ManabaseClassifier.Classify(cards, mdfcAsLand: false);
-        ManabaseDeck on = ManabaseClassifier.Classify(cards, mdfcAsLand: true);
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
 
-        int actualLandsOff = off.Sources.Count(s => s.IsLand);
-        int actualLandsOn = on.Sources.Count(s => s.IsLand);
-        Assert.Equal(actualLandsOff + 2, actualLandsOn);
-    }
-
-    [Fact]
-    public void Classify_MdfcAsLand_DropsLandTargetCreditBuckets()
-    {
-        var cards = new List<CardFact>
-        {
-            new()
-            {
-                Name = "Bala Ged Recovery // Bala Ged Sanctuary",
-                Quantity = 2,
-                ManaCost = "{2}{G}",
-                ManaValue = 3,
-                TypeLine = "Sorcery",
-                OracleText = "Return target permanent card.\nBala Ged Sanctuary enters tapped.",
-                LandFaceOracleText = "Bala Ged Sanctuary enters tapped.",
-                ProducedMana = new[] { "G" },
-                Rarity = "uncommon",
-                Layout = "modal_dfc",
-                HasLandFace = true,
-            },
-            new()
-            {
-                Name = "Agadeem's Awakening // Agadeem, the Undercrypt",
-                Quantity = 1,
-                ManaCost = "{X}{B}{B}{B}",
-                ManaValue = 3,
-                TypeLine = "Sorcery",
-                OracleText = "Return from graveyard.\nAs Agadeem, the Undercrypt enters, you may pay 3 life. If you don't, it enters tapped.",
-                LandFaceOracleText = "As Agadeem, the Undercrypt enters, you may pay 3 life. If you don't, it enters tapped.",
-                ProducedMana = new[] { "B" },
-                Rarity = "mythic",
-                Layout = "modal_dfc",
-                HasLandFace = true,
-            },
-        };
-
-        ManabaseDeck off = ManabaseClassifier.Classify(cards, mdfcAsLand: false);
-        ManabaseDeck on = ManabaseClassifier.Classify(cards, mdfcAsLand: true);
-
-        Assert.Equal(2, off.MdfcCommon);
-        Assert.Equal(1, off.MdfcMythic);
-        Assert.Equal(0, on.MdfcCommon);
-        Assert.Equal(0, on.MdfcMythic);
+        // 2 basics + 2 MDFC land backs = 4 land sources; the MDFC backs are real lands (by copy).
+        Assert.Equal(4, deck.Sources.Count(s => s.IsLand));
     }
 
     [Fact]

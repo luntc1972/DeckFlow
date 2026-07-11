@@ -144,9 +144,9 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
 
     /// <summary>
     /// Flag key: bundles the settled sim-accuracy knobs (mana quantity, ramp-credit-v2,
-    /// color-aware mulligan, land-ramp sim, health-band headline floor, pay-life untapped, and MDFC
-    /// land backs modeled as real lands.
-    /// Seeded ON.
+    /// color-aware mulligan, land-ramp sim, health-band headline floor, pay-life untapped, and the
+    /// conditional-untapped land census). MDFC land backs are modeled as real lands unconditionally
+    /// (no longer gated by this flag). Seeded ON.
     /// </summary>
     public const string AccuracyFlagKey = "analysis.manabase.accuracy";
 
@@ -232,7 +232,6 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         bool rampCreditV2 = accuracy;
         bool landRampSim = accuracy;
         bool payLifeUntapped = accuracy;
-        bool mdfcAsLand = accuracy;
         bool checkLandUntapped = accuracy;
         bool commanderCastability = IsFlagOn(CommanderCastabilityFlagKey);
         bool showTapAnalyzer = IsFlagOn(TapAnalyzerFlagKey);
@@ -249,7 +248,6 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 rampCreditV2,
                 landRampSim,
                 payLifeUntapped,
-                mdfcAsLand,
                 checkLandUntapped,
                 commanderCastability,
                 classifyPlanRoles: showPlanPresence,
@@ -343,7 +341,6 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 rampCreditV2: false,
                 landRampSim: false,
                 payLifeUntapped: false,
-                mdfcAsLand: false,
                 checkLandUntapped: false,
                 commanderCastability: false,
                 classifyPlanRoles: false,
@@ -372,7 +369,6 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         bool rampCreditV2,
         bool landRampSim,
         bool payLifeUntapped,
-        bool mdfcAsLand,
         bool checkLandUntapped,
         bool commanderCastability,
         bool classifyPlanRoles,
@@ -487,7 +483,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         }
 
         IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
-        ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true, rampCreditV2: rampCreditV2, landRampSim: landRampSim, payLifeUntapped: payLifeUntapped, mdfcAsLand: mdfcAsLand, checkLandUntapped: checkLandUntapped);
+        ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true, rampCreditV2: rampCreditV2, landRampSim: landRampSim, payLifeUntapped: payLifeUntapped, checkLandUntapped: checkLandUntapped);
 
         if (classifyPlanRoles)
         {
