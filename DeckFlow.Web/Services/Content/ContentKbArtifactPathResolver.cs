@@ -32,7 +32,6 @@ public sealed class ContentKbArtifactPathResolver
 {
     private readonly IFeatureFlagCache _flagCache;
     private readonly ILogger<ContentKbArtifactPathResolver> _logger;
-    private static readonly char[] PathSeparators = ['/', '\\'];
     private readonly string _gitRootWithSeparator;
     private readonly string? _overlayRootWithSeparator;
 
@@ -81,7 +80,7 @@ public sealed class ContentKbArtifactPathResolver
     /// <summary>
     /// Gets the resolved seed-file path.
     /// </summary>
-    public string SeedFilePath => Path.Combine(ContentBase, ContentKbPaths.SeedRelativePath);
+    public string SeedFilePath => Path.GetFullPath(Path.Combine(ContentBase, ContentKbPaths.SeedRelativePath));
 
     /// <summary>
     /// Gets the optional persistent data overlay root containing the <c>content-kb</c> artifact tree.
@@ -220,27 +219,7 @@ public sealed class ContentKbArtifactPathResolver
     }
 
     private static bool IsSafeArtifactPath(string artifactPath)
-    {
-        if (string.IsNullOrWhiteSpace(artifactPath) ||
-            Path.IsPathRooted(artifactPath) ||
-            !artifactPath.StartsWith("content-kb/", StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        if (artifactPath.Contains("..", StringComparison.Ordinal))
-        {
-            foreach (var segment in artifactPath.Split(PathSeparators, StringSplitOptions.RemoveEmptyEntries))
-            {
-                if (segment == "..")
-                {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
+        => ContentKbArtifactPath.IsSafe(artifactPath);
 
     private static bool IsContainedUnderRoot(string candidatePath, string rootPathWithSeparator)
         => candidatePath.StartsWith(rootPathWithSeparator, StringComparison.OrdinalIgnoreCase);
