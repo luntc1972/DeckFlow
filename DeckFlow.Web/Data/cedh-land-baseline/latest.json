@@ -1,0 +1,567 @@
+{
+  "generated": "2026-07",
+  "sampleSize": 3281,
+  "overallMeanLands": 26.5,
+  "commanders": {
+    "Kraum, Ludevic's Opus / Tymna the Weaver": {
+      "n": 442,
+      "landsMean": 25.9,
+      "landsSd": 0.8
+    },
+    "Kinnan, Bonder Prodigy": {
+      "n": 327,
+      "landsMean": 25.8,
+      "landsSd": 0.9
+    },
+    "Rograkh, Son of Rohgahh / Thrasios, Triton Hero": {
+      "n": 241,
+      "landsMean": 27.3,
+      "landsSd": 1.5
+    },
+    "Rograkh, Son of Rohgahh / Silas Renn, Seeker Adept": {
+      "n": 196,
+      "landsMean": 23.1,
+      "landsSd": 1
+    },
+    "Sisay, Weatherlight Captain": {
+      "n": 177,
+      "landsMean": 27.7,
+      "landsSd": 1.2
+    },
+    "Thrasios, Triton Hero / Tymna the Weaver": {
+      "n": 112,
+      "landsMean": 26.9,
+      "landsSd": 1.1
+    },
+    "Ral, Monsoon Mage // Ral, Leyline Prodigy": {
+      "n": 105,
+      "landsMean": 21.6,
+      "landsSd": 1.4
+    },
+    "Ishai, Ojutai Dragonspeaker / Rograkh, Son of Rohgahh": {
+      "n": 102,
+      "landsMean": 25,
+      "landsSd": 0.4
+    },
+    "Dargo, the Shipwrecker / Tymna the Weaver": {
+      "n": 84,
+      "landsMean": 24,
+      "landsSd": 0.7
+    },
+    "Tivit, Seller of Secrets": {
+      "n": 67,
+      "landsMean": 28.3,
+      "landsSd": 1.1
+    },
+    "Vivi Ornitier": {
+      "n": 66,
+      "landsMean": 26,
+      "landsSd": 1.2
+    },
+    "Etali, Primal Conqueror // Etali, Primal Sickness": {
+      "n": 50,
+      "landsMean": 27.9,
+      "landsSd": 1.3
+    },
+    "Thrasios, Triton Hero / Yoshimaru, Ever Faithful": {
+      "n": 48,
+      "landsMean": 27.8,
+      "landsSd": 0.6
+    },
+    "Kefka, Court Mage // Kefka, Ruler of Ruin": {
+      "n": 43,
+      "landsMean": 27,
+      "landsSd": 1
+    },
+    "Kenrith, the Returned King": {
+      "n": 42,
+      "landsMean": 27,
+      "landsSd": 1
+    },
+    "Tayam, Luminous Enigma": {
+      "n": 41,
+      "landsMean": 30.9,
+      "landsSd": 1
+    },
+    "Malcolm, Keen-Eyed Navigator / Vial Smasher the Fierce": {
+      "n": 38,
+      "landsMean": 25.8,
+      "landsSd": 0.7
+    },
+    "Thrasios, Triton Hero / Vial Smasher the Fierce": {
+      "n": 38,
+      "landsMean": 26.1,
+      "landsSd": 0.7
+    },
+    "Magda, Brazen Outlaw": {
+      "n": 37,
+      "landsMean": 24.4,
+      "landsSd": 1.9
+    },
+    "Lumra, Bellow of the Woods": {
+      "n": 34,
+      "landsMean": 46.5,
+      "landsSd": 1.8
+    },
+    "Brigid, Clachan's Heart // Brigid, Doun's Mind": {
+      "n": 33,
+      "landsMean": 27.4,
+      "landsSd": 1.9
+    },
+    "Winota, Joiner of Forces": {
+      "n": 33,
+      "landsMean": 27.5,
+      "landsSd": 1.6
+    },
+    "Ob Nixilis, Captive Kingpin": {
+      "n": 28,
+      "landsMean": 25,
+      "landsSd": 1.3
+    },
+    "Rocco, Cabaretti Caterer": {
+      "n": 27,
+      "landsMean": 27.1,
+      "landsSd": 1.2
+    },
+    "Inalla, Archmage Ritualist": {
+      "n": 25,
+      "landsMean": 25.8,
+      "landsSd": 1
+    },
+    "Zirda, the Dawnwaker": {
+      "n": 24,
+      "landsMean": 26.5,
+      "landsSd": 1.6
+    },
+    "Scion of the Ur-Dragon": {
+      "n": 23,
+      "landsMean": 27.3,
+      "landsSd": 0.7
+    },
+    "Glarb, Calamity's Augur": {
+      "n": 22,
+      "landsMean": 28.5,
+      "landsSd": 1.7
+    },
+    "Terra, Magical Adept // Esper Terra": {
+      "n": 22,
+      "landsMean": 26.4,
+      "landsSd": 1
+    },
+    "Tevesh Szat, Doom of Fools / Thrasios, Triton Hero": {
+      "n": 21,
+      "landsMean": 27.9,
+      "landsSd": 0.5
+    },
+    "Leonardo, the Balance / Michelangelo, the Heart": {
+      "n": 20,
+      "landsMean": 26.3,
+      "landsSd": 0.8
+    },
+    "Kediss, Emberclaw Familiar / Malcolm, Keen-Eyed Navigator": {
+      "n": 18,
+      "landsMean": 27.8,
+      "landsSd": 2.2
+    },
+    "The Cabbage Merchant": {
+      "n": 18,
+      "landsMean": 24.9,
+      "landsSd": 1.1
+    },
+    "The Wandering Minstrel": {
+      "n": 18,
+      "landsMean": 37.2,
+      "landsSd": 3.1
+    },
+    "Atraxa, Grand Unifier": {
+      "n": 17,
+      "landsMean": 27.7,
+      "landsSd": 0.7
+    },
+    "Esika, God of the Tree // The Prismatic Bridge": {
+      "n": 17,
+      "landsMean": 26.6,
+      "landsSd": 0.9
+    },
+    "Malcolm, Keen-Eyed Navigator / Tana, the Bloodsower": {
+      "n": 17,
+      "landsMean": 27.9,
+      "landsSd": 1.2
+    },
+    "Marneus Calgar": {
+      "n": 17,
+      "landsMean": 26.8,
+      "landsSd": 1
+    },
+    "Derevi, Empyrial Tactician": {
+      "n": 16,
+      "landsMean": 27.1,
+      "landsSd": 1.1
+    },
+    "Malcolm, Keen-Eyed Navigator / Tymna the Weaver": {
+      "n": 15,
+      "landsMean": 26.4,
+      "landsSd": 0.7
+    },
+    "Dihada, Binder of Wills": {
+      "n": 14,
+      "landsMean": 24,
+      "landsSd": 0.8
+    },
+    "The Gitrog Monster": {
+      "n": 14,
+      "landsMean": 35.9,
+      "landsSd": 2.1
+    },
+    "Krark, the Thumbless / Sakashima of a Thousand Faces": {
+      "n": 13,
+      "landsMean": 25.5,
+      "landsSd": 1.1
+    },
+    "Najeela, the Blade-Blossom": {
+      "n": 13,
+      "landsMean": 28.2,
+      "landsSd": 2.4
+    },
+    "Stella Lee, Wild Card": {
+      "n": 13,
+      "landsMean": 25.5,
+      "landsSd": 1.5
+    },
+    "Arcum Dagsson": {
+      "n": 12,
+      "landsMean": 22.8,
+      "landsSd": 1.8
+    },
+    "Heliod, the Radiant Dawn // Heliod, the Warped Eclipse": {
+      "n": 12,
+      "landsMean": 26.7,
+      "landsSd": 0.9
+    },
+    "Shorikai, Genesis Engine": {
+      "n": 12,
+      "landsMean": 26.8,
+      "landsSd": 0.9
+    },
+    "Elsha of the Infinite": {
+      "n": 11,
+      "landsMean": 25.2,
+      "landsSd": 1.4
+    },
+    "Niv-Mizzet, Parun": {
+      "n": 11,
+      "landsMean": 27.9,
+      "landsSd": 2
+    },
+    "Dargo, the Shipwrecker / Reyhan, Last of the Abzan": {
+      "n": 10,
+      "landsMean": 23.3,
+      "landsSd": 0.8
+    },
+    "Gwenom, Remorseless": {
+      "n": 10,
+      "landsMean": 21.6,
+      "landsSd": 2.4
+    },
+    "Kodama of the East Tree / Tymna the Weaver": {
+      "n": 10,
+      "landsMean": 28.6,
+      "landsSd": 0.8
+    },
+    "Bjorna, Nightfall Alchemist / Wernog, Rider's Chaplain": {
+      "n": 9,
+      "landsMean": 25.1,
+      "landsSd": 0.6
+    },
+    "Chatterfang, Squirrel General": {
+      "n": 9,
+      "landsMean": 26.9,
+      "landsSd": 1.5
+    },
+    "Maralen, Fae Ascendant": {
+      "n": 9,
+      "landsMean": 27,
+      "landsSd": 1.2
+    },
+    "Norman Osborn // Green Goblin": {
+      "n": 9,
+      "landsMean": 24.8,
+      "landsSd": 0.7
+    },
+    "Aang, at the Crossroads // Aang, Destined Savior": {
+      "n": 8,
+      "landsMean": 28,
+      "landsSd": 0.8
+    },
+    "Halana, Kessig Ranger / Tymna the Weaver": {
+      "n": 7,
+      "landsMean": 27.7,
+      "landsSd": 0.5
+    },
+    "Jhoira, Ageless Innovator": {
+      "n": 7,
+      "landsMean": 24.7,
+      "landsSd": 1.3
+    },
+    "Nick Fury, Agent of S.H.I.E.L.D.": {
+      "n": 7,
+      "landsMean": 24.9,
+      "landsSd": 0.7
+    },
+    "The Master of Keys": {
+      "n": 7,
+      "landsMean": 27,
+      "landsSd": 0.6
+    },
+    "Urza, Lord High Artificer": {
+      "n": 7,
+      "landsMean": 22.6,
+      "landsSd": 1.1
+    },
+    "Akiri, Line-Slinger / Thrasios, Triton Hero": {
+      "n": 6,
+      "landsMean": 27,
+      "landsSd": 0.9
+    },
+    "Animar, Soul of Elements": {
+      "n": 6,
+      "landsMean": 27.7,
+      "landsSd": 1
+    },
+    "Iron Man, Titan of Innovation": {
+      "n": 6,
+      "landsMean": 26.8,
+      "landsSd": 0.8
+    },
+    "Jeska, Thrice Reborn / Tymna the Weaver": {
+      "n": 6,
+      "landsMean": 25.3,
+      "landsSd": 0.8
+    },
+    "Krark, the Thumbless / Thrasios, Triton Hero": {
+      "n": 6,
+      "landsMean": 27.2,
+      "landsSd": 1
+    },
+    "Nissa, Resurgent Animist": {
+      "n": 6,
+      "landsMean": 48.8,
+      "landsSd": 0.8
+    },
+    "Rakdos, the Muscle": {
+      "n": 6,
+      "landsMean": 24.5,
+      "landsSd": 1.4
+    },
+    "Rograkh, Son of Rohgahh / Tymna the Weaver": {
+      "n": 6,
+      "landsMean": 23.2,
+      "landsSd": 1.6
+    },
+    "Selvala, Explorer Returned": {
+      "n": 6,
+      "landsMean": 21.8,
+      "landsSd": 2.9
+    },
+    "Tana, the Bloodsower / Tymna the Weaver": {
+      "n": 6,
+      "landsMean": 28.3,
+      "landsSd": 1.2
+    },
+    "Avatar Aang // Aang, Master of Elements": {
+      "n": 5,
+      "landsMean": 26,
+      "landsSd": 1.4
+    },
+    "Cazur, Ruthless Stalker / Ukkima, Stalking Shadow": {
+      "n": 5,
+      "landsMean": 26.4,
+      "landsSd": 0.5
+    },
+    "Celes, Rune Knight": {
+      "n": 5,
+      "landsMean": 27,
+      "landsSd": 2.1
+    },
+    "Crystal, Inhuman Princess": {
+      "n": 5,
+      "landsMean": 26.2,
+      "landsSd": 1.3
+    },
+    "Francisco, Fowl Marauder / Thrasios, Triton Hero": {
+      "n": 5,
+      "landsMean": 27,
+      "landsSd": 0.7
+    },
+    "Hapatra, Vizier of Poisons": {
+      "n": 5,
+      "landsMean": 26.8,
+      "landsSd": 3.1
+    },
+    "Korvold, Fae-Cursed King": {
+      "n": 5,
+      "landsMean": 28.4,
+      "landsSd": 3.5
+    },
+    "Krark, the Thumbless / Silas Renn, Seeker Adept": {
+      "n": 5,
+      "landsMean": 25,
+      "landsSd": 1.2
+    },
+    "Kykar, Wind's Fury": {
+      "n": 5,
+      "landsMean": 26,
+      "landsSd": 0
+    },
+    "Raph & Mikey, Troublemakers": {
+      "n": 5,
+      "landsMean": 25.8,
+      "landsSd": 2.3
+    },
+    "Reyhan, Last of the Abzan / Rograkh, Son of Rohgahh": {
+      "n": 5,
+      "landsMean": 18.4,
+      "landsSd": 3.7
+    },
+    "Silas Renn, Seeker Adept / Yoshimaru, Ever Faithful": {
+      "n": 5,
+      "landsMean": 24,
+      "landsSd": 1.4
+    },
+    "Talion, the Kindly Lord": {
+      "n": 5,
+      "landsMean": 28.8,
+      "landsSd": 1.1
+    },
+    "Tasigur, the Golden Fang": {
+      "n": 5,
+      "landsMean": 27.8,
+      "landsSd": 1.3
+    },
+    "Cecily, Haunted Mage / Elmar, Ulvenwald Informant": {
+      "n": 4,
+      "landsMean": 26,
+      "landsSd": 0
+    },
+    "Codie, Vociferous Codex": {
+      "n": 4,
+      "landsMean": 28,
+      "landsSd": 0.8
+    },
+    "Fire Lord Azula": {
+      "n": 4,
+      "landsMean": 26.8,
+      "landsSd": 1
+    },
+    "Ishai, Ojutai Dragonspeaker / Krark, the Thumbless": {
+      "n": 4,
+      "landsMean": 26,
+      "landsSd": 0
+    },
+    "Kaalia of the Vast": {
+      "n": 4,
+      "landsMean": 25.8,
+      "landsSd": 1
+    },
+    "Sami, Wildcat Captain": {
+      "n": 4,
+      "landsMean": 24,
+      "landsSd": 0.8
+    },
+    "Tatyova, Benthic Druid": {
+      "n": 4,
+      "landsMean": 33,
+      "landsSd": 0.8
+    },
+    "Yuriko, the Tiger's Shadow": {
+      "n": 4,
+      "landsMean": 25.3,
+      "landsSd": 3.1
+    },
+    "Zur the Enchanter": {
+      "n": 4,
+      "landsMean": 27.8,
+      "landsSd": 0.5
+    },
+    "Emiel the Blessed": {
+      "n": 3,
+      "landsMean": 28.3,
+      "landsSd": 1.2
+    },
+    "Erinis, Gloom Stalker / Street Urchin": {
+      "n": 3,
+      "landsMean": 27,
+      "landsSd": 0
+    },
+    "Ezio Auditore da Firenze": {
+      "n": 3,
+      "landsMean": 26,
+      "landsSd": 0
+    },
+    "Jhoira, Weatherlight Captain": {
+      "n": 3,
+      "landsMean": 24.7,
+      "landsSd": 1.2
+    },
+    "K-9, Mark I / The Fourteenth Doctor": {
+      "n": 3,
+      "landsMean": 26.3,
+      "landsSd": 0.6
+    },
+    "Krark, the Thumbless / Tymna the Weaver": {
+      "n": 3,
+      "landsMean": 25,
+      "landsSd": 0
+    },
+    "Loot, the Pathfinder": {
+      "n": 3,
+      "landsMean": 26.7,
+      "landsSd": 0.6
+    },
+    "Lord Windgrace": {
+      "n": 3,
+      "landsMean": 37,
+      "landsSd": 0
+    },
+    "Prismari, the Inspiration": {
+      "n": 3,
+      "landsMean": 26.3,
+      "landsSd": 0.6
+    },
+    "Rograkh, Son of Rohgahh / Tevesh Szat, Doom of Fools": {
+      "n": 3,
+      "landsMean": 26,
+      "landsSd": 2
+    },
+    "Rowan, Scion of War": {
+      "n": 3,
+      "landsMean": 27.7,
+      "landsSd": 1.5
+    },
+    "Sakashima of a Thousand Faces / Tymna the Weaver": {
+      "n": 3,
+      "landsMean": 26.7,
+      "landsSd": 0.6
+    },
+    "Ulalek, Fused Atrocity": {
+      "n": 3,
+      "landsMean": 28,
+      "landsSd": 0
+    },
+    "Yidris, Maelstrom Wielder": {
+      "n": 3,
+      "landsMean": 25.7,
+      "landsSd": 0.6
+    },
+    "Yusri, Fortune's Flame": {
+      "n": 3,
+      "landsMean": 25.3,
+      "landsSd": 3.1
+    },
+    "Plagon, Lord of the Beach": {
+      "n": 25,
+      "landsMean": 26.3,
+      "landsSd": 1.5
+    }
+  }
+}

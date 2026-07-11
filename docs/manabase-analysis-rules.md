@@ -103,9 +103,9 @@ count as real lands, §1.4 — so the old `MdfcCommonCredit`/`MdfcMythicCredit` 
   `interior = 19.59 + 1.90·avgMV + 0.27·commanderCount`,
   `target = scale·interior − 0.28·rampDrawUnder3 − fastMana − 1.35`.
 - **60-card constructed** (`Kar:92-105`): `19.59 + 1.90·avgMV − 0.28·ramp − fastMana` (no scale, no commander term). (The old H5 bug that pre-multiplied the interior by 5/3 is fixed.)
-- **cEDH** (`Kar:63-81`): `max(28.0, SingletonLandTarget − 3.5)` — flat −3.5, hard floor 28 (research band 28–32).
+- **cEDH** (`Kar:63-108`): flag OFF = historic `max(28.0, SingletonLandTarget − 3.5)`. Flag ON (`analysis.manabase.cedh-land-target`) swaps to a hybrid target: `curveTarget = singleton − 3.5`; when the commander's committed baseline has `n ≥ 10` (and its mean is finite, in `[10,60]`), blend halfway toward it — `target = curveTarget − 0.5·(curveTarget − mean)` (`CedhBaselineBlendWeight = 0.5`); then clamp to **[22, 45]** (`CedhSafetyFloor` / `CedhTargetCeiling`). The blend weight and floor are calibration knobs. This supersedes the old flat-28 note: the committed baseline is a **6-month** cEDH sample (EDHTop16 size-tiered, cEDH-gated at avgMV ≤ 2.7 & 95–101 cards), currently **mean 26.5 lands across N=3281** decks, 54 commanders usable at `n ≥ 10` (plus commander-search exceptions like Plagon for low-play commanders). Calibration on that set cuts the tool's under-target flagging from ~76% to ~22% without over-correcting grindy commanders (Sisay/Tayam stay ~healthy). The Web layer resolves the commander→baseline mean; Core stays name-agnostic (`CedhLandContext(mean?, n, enabled)`).
 - **Routing** (`MA:301-340`): non-singleton → 60-card; singleton+Casual → singleton; singleton+cEDH → cEDH. `commanderCount = max(1, CommanderCount)`, `librarySize = TotalCards − commanderCount`.
-- **CommanderImportance does NOT change the land target** (explicitly orthogonal) — `MA:86-90`. No floor/ceiling beyond the cEDH 28.
+- **CommanderImportance does NOT change the land target** (explicitly orthogonal) — `MA:86-90`. Floor/ceiling: none beyond the flag-OFF cEDH 28 floor; flag ON clamps the hybrid target to [22, 45] (above).
 - `actualLands` counts only `IsLand` sources — partial sources never fill a land slot — `MA:145`.
 
 ---
@@ -289,6 +289,7 @@ Keys read via `MAS.IsFlagOn` (fail-safe OFF). Seed defaults in `FeatureFlagStore
 | `analysis.manabase.mulligan-eval` | **ON** | Opening-hand / mulligan-evaluator block. Renamed from `analysis.mulligan-eval` (state carried by the store's idempotent rename migration). |
 | `analysis.manabase.plan-presence` | **ON** | "With a plan" opener stat. Gated **also** on `mulligan-eval`; its category + Spellbook I/O only fire when both are on (fail-open). |
 | `analysis.manabase.ritual-burst-mana` | **OFF** | Credit instant/sorcery rituals as one-shot burst mana in the castability sim. cEDH mode only; land count and color counts unchanged. |
+| `analysis.manabase.cedh-land-target` | **OFF** | cEDH only. Replaces the flat 28-floor target with a curve-anchored target that can blend halfway toward a committed commander baseline when the baseline has `n ≥ 10`. Off = byte-identical. |
 
 **Hardcoded, no flag**: `gateRampOnCastable = true` — P4 gated-ramp is always on (`MAS:301-305`); before crediting a ramp piece the sim verifies the ramp's own colored cost is payable.
 
@@ -298,7 +299,7 @@ Keys read via `MAS.IsFlagOn` (fail-safe OFF). Seed defaults in `FeatureFlagStore
 
 | Rule | Casual | cEDH |
 |---|---|---|
-| Land target | singleton figure | `max(28, singleton − 3.5)` |
+| Land target | singleton figure | Flag OFF: `max(28, singleton − 3.5)`; flag ON: hybrid `singleton − 3.5`, optional commander-baseline blend, clamp `[22,45]` |
 | Color support threshold | 80 | 88 |
 | Central-commander color bar | raised to 88 if Central | already 88 |
 | Plain-language verdict + budget | computed | flag is UI-gloss only |

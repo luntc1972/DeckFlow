@@ -196,12 +196,19 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     /// </summary>
     public const string RitualBurstFlagKey = "analysis.manabase.ritual-burst-mana";
 
+    /// <summary>
+    /// cEDH land-target flag key: seeded OFF. When enabled, cEDH uses the hybrid curve-anchored land
+    /// target with an optional commander baseline nudge; off = byte-identical historic behavior.
+    /// </summary>
+    public const string CedhLandTargetFlagKey = "analysis.manabase.cedh-land-target";
+
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IScryfallCardResolver _scryfallCardResolver;
     private readonly IFeatureFlagCache? _featureFlags;
     private readonly ICategoryKnowledgeStore? _categoryKnowledge;
     private readonly ICommanderSpellbookService? _spellbook;
     private readonly ILogger<ManabaseAnalysisService> _logger;
+    private readonly ICedhLandBaselineProvider? _cedhLandBaseline;
 
     /// <summary>Creates the analysis service.</summary>
     public ManabaseAnalysisService(
@@ -210,7 +217,8 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         IFeatureFlagCache? featureFlags = null,
         ICategoryKnowledgeStore? categoryKnowledge = null,
         ICommanderSpellbookService? spellbook = null,
-        ILogger<ManabaseAnalysisService>? logger = null)
+        ILogger<ManabaseAnalysisService>? logger = null,
+        ICedhLandBaselineProvider? cedhLandBaseline = null)
     {
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
         ArgumentNullException.ThrowIfNull(scryfallCardResolver);
@@ -221,6 +229,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         _categoryKnowledge = categoryKnowledge;
         _spellbook = spellbook;
         _logger = logger ?? NullLogger<ManabaseAnalysisService>.Instance;
+        _cedhLandBaseline = cedhLandBaseline;
     }
 
     /// <inheritdoc />
@@ -250,6 +259,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         // never show (Codex MED). Both flags on = the stat runs and surfaces.
         bool showPlanPresence = IsFlagOn(PlanPresenceFlagKey) && showMulliganEval;
         bool ritualBurst = IsFlagOn(RitualBurstFlagKey);
+        bool cedhLandTarget = IsFlagOn(CedhLandTargetFlagKey);
 
         ResolvedManabaseDeck resolved = await ResolveAndClassifyAsync(
                 deckSource,
@@ -282,12 +292,32 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         // Solid/Excellent deck regresses.
         bool useHealthBandCastability = IsFlagOn(HealthBandCastabilityFlagKey);
         bool useHealthBandHeadlineFloor = accuracy;
+        // cEDH-only. Enabled with a resolved commander baseline (N>=10) nudges the target toward the
+        // meta mean; enabled WITHOUT a baseline is the intended recalibrated path (drop the flat-28
+        // floor to the curve target) — so Enabled stays true even when the lookup misses. Core's
+        // N>=10 guard decides whether the mean is actually applied. Flag off / non-cEDH = Disabled.
+        CedhLandContext cedhContext = CedhLandContext.Disabled;
+        if (cedhLandTarget && options.Mode == ManabaseMode.Cedh)
+        {
+            double? baselineMean = null;
+            int baselineN = 0;
+            if (_cedhLandBaseline is not null
+                && _cedhLandBaseline.TryGetBaseline(resolved.CommanderNames, out double mean, out int n))
+            {
+                baselineMean = mean;
+                baselineN = n;
+            }
+
+            cedhContext = new CedhLandContext(baselineMean, baselineN, Enabled: true);
+        }
+
         ManabaseReport report = ManabaseAnalyzer.Analyze(
             resolved.Deck, options.Mode, options.CommanderImportance, options.CostOverrides,
             useManaQuantity, colorAwareMulligan, gateRampOnCastable: true,
             ritualBurst: ritualBurst,
             useHealthBandCastability: useHealthBandCastability,
-            useHealthBandHeadlineFloor: useHealthBandHeadlineFloor);
+            useHealthBandHeadlineFloor: useHealthBandHeadlineFloor,
+            cedhContext: cedhContext);
 
         bool plainLanguage = IsFlagOn(PlainLanguageVerdictFlagKey);
         ManabaseRampDrawBudget? budget = null;
@@ -510,7 +540,14 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         string inputSummary = $"{cardCount} cards · {landCount} lands"
             + (unresolved.Count > 0 ? $" · {unresolved.Count} unresolved" : string.Empty);
 
-        return new ResolvedManabaseDeck(deck, unresolved, load.FallbackNotice, decklistText, inputSummary, companionCard);
+        return new ResolvedManabaseDeck(
+            deck,
+            unresolved,
+            load.FallbackNotice,
+            decklistText,
+            inputSummary,
+            deckEntries.Where(e => e.IsCommander).Select(e => e.Card.Name).ToList(),
+            companionCard);
     }
 
     /// <summary>
@@ -647,6 +684,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         string? FallbackNotice,
         string DecklistText,
         string InputSummary,
+        IReadOnlyList<string> CommanderNames,
         ScryfallCardData? CompanionCard);
 
     private static string? ResolveCompanionName(string? designator, string? detected)

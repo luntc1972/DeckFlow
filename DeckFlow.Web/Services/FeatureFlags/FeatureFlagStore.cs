@@ -228,6 +228,7 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('analysis.manabase.mulligan-eval', TRUE),
           ('analysis.manabase.plan-presence', TRUE),
           ('analysis.manabase.ritual-burst-mana', FALSE),
+          ('analysis.manabase.cedh-land-target', FALSE),
           ('tool.primer.stale-flag', FALSE)
         ON CONFLICT (key) DO NOTHING;
         """;
@@ -265,6 +266,7 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('analysis.manabase.mulligan-eval', 1),
           ('analysis.manabase.plan-presence', 1),
           ('analysis.manabase.ritual-burst-mana', 0),
+          ('analysis.manabase.cedh-land-target', 0),
           ('tool.primer.stale-flag', 0)
         ON CONFLICT (key) DO NOTHING;
         """;

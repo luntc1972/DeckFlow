@@ -9,7 +9,8 @@ namespace DeckFlow.Core.Tests;
 
 /// <summary>
 /// Validates the seeded Monte-Carlo <see cref="CastabilitySimulator"/> (FINDING-3: it replaced the
-/// pessimistic <c>P_mana × P_color</c> independence product) and <see cref="KarstenManabase.CedhLandTarget"/>.
+/// pessimistic <c>P_mana × P_color</c> independence product) and
+/// <see cref="KarstenManabase.CedhLandTarget(int, int, double, double, double)"/>.
 /// </summary>
 /// <remarks>
 /// The simulator is seeded (per-spell stable hash), so its output is deterministic across runs — but

@@ -97,6 +97,10 @@ public static class FeatureFlagCatalog
                 "Credit instant/sorcery rituals (Dark Ritual, Rite of Flame, Cabal Ritual) as one-shot " +
                 "burst mana in the manabase castability sim, cEDH mode only. Raises early-turn cast % " +
                 "for ritual-fueled lists; land count and color counts stay unchanged. Off = byte-identical output.",
+            ["analysis.manabase.cedh-land-target"] =
+                "Enable the hybrid cEDH land target: keep the Karsten curve anchor, but drop the flat 28 " +
+                "floor and optionally nudge toward the commander's committed cEDH land baseline when sample " +
+                "size is deep enough. cEDH only; off = byte-identical output.",
         };
 
     /// <summary>

@@ -22,6 +22,7 @@ using DeckFlow.Web.Services.Bracket;
 using DeckFlow.Web.Services.Harvest;
 using DeckFlow.Web.Services.PromptBuilders.Bracket;
 using DeckFlow.Web.Services.Http;
+using DeckFlow.Web.Services.Manabase;
 using Microsoft.Extensions.Options;
 
 namespace DeckFlow.Web;
@@ -90,6 +91,7 @@ public partial class Program
 
             builder.Services.AddSingleton<IHelpContentService, HelpContentService>();
             builder.Services.AddSingleton<IGameChangerCatalogService, GameChangerCatalogService>();
+            builder.Services.AddSingleton<ICedhLandBaselineProvider, CedhLandBaselineProvider>();
             builder.Services.AddSingleton<IVersionService, VersionService>();
             builder.Services.AddSingleton<IFeedbackStore, FeedbackStore>();
             builder.Services.AddSingleton<DeckFlow.Core.Content.IContentSiteIndexStore>(_ =>
@@ -277,6 +279,10 @@ public partial class Program
             app.Logger.LogInformation("Warming Game Changer catalog into memory cache during startup.");
             app.Services.GetRequiredService<IGameChangerCatalogService>().GetCatalog();
             app.Logger.LogInformation("Game Changer catalog warm-loaded.");
+
+            app.Logger.LogInformation("Warming cEDH land baseline into memory cache during startup.");
+            app.Services.GetRequiredService<ICedhLandBaselineProvider>().EnsureLoaded();
+            app.Logger.LogInformation("cEDH land baseline warm-loaded.");
 
             // Resolve the IP-hash salt once at startup so the analytics middleware does not
             // perform DB I/O on the hot path. Uses CreateHarvestStateConnection for explicit

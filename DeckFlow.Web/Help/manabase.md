@@ -20,7 +20,7 @@ Add an optional **Deck name** to label the report.
 
 ### Deck type and commander importance
 
-- **Deck type** — *Casual* (default; Karsten's full land target) or **cEDH** (a lower land count in the competitive ~28–32 band, assuming heavy fast mana).
+- **Deck type** — *Casual* (default; Karsten's full land target) or **cEDH** (a lower land count in the competitive ~28–32 band, assuming heavy fast mana). A dark-launch flag, `analysis.manabase.cedh-land-target` (default OFF), can further recalibrate **cEDH only** to a curve-anchored target that nudges toward how many lands winning lists of *your* commander actually run — a per-commander baseline built from the last six months of EDHTop16 results (with a commander-specific top-up for lower-play commanders). This drops the flat 28-land floor that flagged most real cEDH winners as "add lands," while still reading grindy, high-land commanders as healthy. When the flag is off, the current cEDH target stays byte-identical.
 - **How important is your commander?** — *Central* (must cast as early as possible every game, e.g. Brago), *Standard* (matters, cast when convenient), or *Low* (optional / late value). Central holds the commander's colors to a stricter threshold; it does not change the land target. Both selectors persist when you re-analyze.
 
 ### Reduced / alternative costs (optional)

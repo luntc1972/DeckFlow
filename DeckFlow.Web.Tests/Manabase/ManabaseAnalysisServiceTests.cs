@@ -846,6 +846,95 @@ public sealed class ManabaseAnalysisServiceTests
             $"cEDH target {cedhResult.Report.TargetLands} should be below casual {casualResult.Report.TargetLands}");
     }
 
+    [Fact]
+    public async Task AnalyzeAsync_CedhLandTargetFlagOff_KeepsCedhTargetByteIdentical()
+    {
+        var (entries, cards) = KinnanCedhFixture();
+        var provider = new FakeCedhLandBaselineProvider(found: true, mean: 25.7, n: 157);
+
+        var baseline = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            cedhLandBaseline: provider);
+        var explicitOff = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.CedhLandTargetFlagKey] = false,
+            }),
+            cedhLandBaseline: provider);
+
+        var baselineResult = await baseline.AnalyzeAsync(
+            "paste", null, new ManabaseAnalysisOptions { Mode = ManabaseMode.Cedh });
+        var offResult = await explicitOff.AnalyzeAsync(
+            "paste", null, new ManabaseAnalysisOptions { Mode = ManabaseMode.Cedh });
+
+        Assert.Equal(baselineResult.Report.TargetLands, offResult.Report.TargetLands);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_CedhLandTargetFlagOn_Kinnan_LowersCedhTarget()
+    {
+        var (entries, cards) = KinnanCedhFixture();
+        var provider = new FakeCedhLandBaselineProvider(found: true, mean: 25.7, n: 157);
+
+        var off = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.CedhLandTargetFlagKey] = false,
+            }),
+            cedhLandBaseline: provider);
+        var on = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.CedhLandTargetFlagKey] = true,
+            }),
+            cedhLandBaseline: provider);
+
+        var offResult = await off.AnalyzeAsync(
+            "paste", null, new ManabaseAnalysisOptions { Mode = ManabaseMode.Cedh });
+        var onResult = await on.AnalyzeAsync(
+            "paste", null, new ManabaseAnalysisOptions { Mode = ManabaseMode.Cedh });
+
+        Assert.True(onResult.Report.TargetLands < offResult.Report.TargetLands);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_CedhLandTargetFlagOn_CasualMode_Unchanged()
+    {
+        var (entries, cards) = KinnanCedhFixture();
+        var provider = new FakeCedhLandBaselineProvider(found: true, mean: 25.7, n: 157);
+
+        var off = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.CedhLandTargetFlagKey] = false,
+            }),
+            cedhLandBaseline: provider);
+        var on = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.CedhLandTargetFlagKey] = true,
+            }),
+            cedhLandBaseline: provider);
+
+        var offResult = await off.AnalyzeAsync(
+            "paste", null, new ManabaseAnalysisOptions { Mode = ManabaseMode.Casual });
+        var onResult = await on.AnalyzeAsync(
+            "paste", null, new ManabaseAnalysisOptions { Mode = ManabaseMode.Casual });
+
+        Assert.Equal(offResult.Report.TargetLands, onResult.Report.TargetLands);
+    }
+
     // A full ~99-card singleton fixture (so the Karsten regression target sits well above the
     // cEDH floor of 28 and the two modes genuinely differ). 36 lands + 63 distinct spells across
     // a normal curve gives a casual target around the mid-30s; cEDH cuts ~3.5 off it.
@@ -872,6 +961,24 @@ public sealed class ManabaseAnalysisServiceTests
             entries.Add(Entry(name, 1, "mainboard"));
             cards.Add(Spell(name, $"{{{mv - 1}}}{{U}}", mv, "Sorcery"));
         }
+
+        return (entries, cards);
+    }
+
+    private static (List<DeckEntry> Entries, List<ScryfallCard> Cards) KinnanCedhFixture()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Kinnan, Bonder Prodigy", 1, "commander"),
+            Land("Island", 30),
+            Entry("Cheap Spell", 69, "mainboard"),
+        };
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Island", "U"),
+            Spell("Kinnan, Bonder Prodigy", "{G}{U}", 2, "Legendary Creature — Human Druid"),
+            Spell("Cheap Spell", "{U}", 1, "Sorcery"),
+        };
 
         return (entries, cards);
     }
@@ -1288,6 +1395,31 @@ public sealed class ManabaseAnalysisServiceTests
 
         public Task<ScryfallCard?> ResolveSingleAsync(string cardName, CancellationToken cancellationToken)
             => Task.FromResult(_cards.FirstOrDefault(card => string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private sealed class FakeCedhLandBaselineProvider : ICedhLandBaselineProvider
+    {
+        private readonly bool _found;
+        private readonly double _mean;
+        private readonly int _n;
+
+        public FakeCedhLandBaselineProvider(bool found, double mean, int n)
+        {
+            _found = found;
+            _mean = mean;
+            _n = n;
+        }
+
+        public void EnsureLoaded()
+        {
+        }
+
+        public bool TryGetBaseline(IReadOnlyList<string> commanderNames, out double mean, out int n)
+        {
+            mean = _mean;
+            n = _n;
+            return _found;
+        }
     }
 }
 
