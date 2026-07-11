@@ -37,7 +37,7 @@ Prompt-artifact-first, deterministic C# rubric scoring, **no autonomous agent**.
 
 Decimal phases appear between their surrounding integers in numeric order. Numbering continues from Cycle 16's Phase 93.
 
-- [ ] **Phase 94: Style-Profile Foundation** - Persisted creator-style schema (stated/measured/fused) + dialect-guarded store; substrate only.
+- [x] **Phase 94: Style-Profile Foundation** - Persisted creator-style schema (stated/measured/fused) + dialect-guarded store; substrate only.
 - [ ] **Phase 95: Measured-Style Extractor** - Compute a creator's measured style from their own Archidekt decks (staple-stripped, lift-weighted, folder-segmented); substrate only.
 - [ ] **Phase 96: Stated-Rules Distiller** - Transcripts to structured, clip-tied stated rules; substrate only.
 - [ ] **Phase 97: Profile Fusion + Conflict Ledger** - Reconcile stated vs measured into weighted numeric targets + say-vs-do ledger; admin-visible, no public UI.
@@ -83,9 +83,9 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
   3. A profile backed by fewer decks than the min-deck-floor constant is marked `insufficient_sample` rather than silently trusted.
   4. xUnit round-trip tests pass on both dialects, proving write-then-read fidelity of the full profile shape.
 **Plans**: 3 plans
-- [ ] 94-01-PLAN.md — CS-01 record set (StatedRule/MeasuredMetric/FusedTarget) + MinDeckFloor const + JSON-section helpers
-- [ ] 94-02-PLAN.md — CS-02 ICreatorStyleProfileStore + dialect-guarded creator_style_profile DDL/UPSERT (mirror ContentSiteIndexStore)
-- [ ] 94-03-PLAN.md — CS-04 xUnit round-trip tests (SQLite unconditional + gated Postgres via Testcontainers)
+- [x] 94-01-PLAN.md — CS-01 record set (StatedRule/MeasuredMetric/FusedTarget) + MinDeckFloor const + JSON-section helpers
+- [x] 94-02-PLAN.md — CS-02 ICreatorStyleProfileStore + dialect-guarded creator_style_profile DDL/UPSERT (mirror ContentSiteIndexStore)
+- [x] 94-03-PLAN.md — CS-04 xUnit round-trip tests (SQLite unconditional + gated Postgres via Testcontainers)
 
 ### Phase 95: Measured-Style Extractor
 **Goal**: Compute a creator's measured style profile from their OWN Archidekt decklists — staple-stripped, lift-weighted (not raw synergy), folder-segmented, every stat carrying `numDecks`. Substrate only (feeds Phase 97); no user-visible surface. Lives in `DeckFlow.Web` (needs `CommanderSpellbookService` + the Scryfall Tagger service, both Web-host services) behind a narrow contract so the extraction algorithm's pure logic stays testable independent of the host — the Codex-flagged Core-vs-Web layering resolution for this cycle.
