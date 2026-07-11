@@ -67,6 +67,13 @@ public sealed class NavMenuTests : BunitContext
         Assert.NotNull(cut.Find("a[href='reconcile']"));
     }
 
+    [Fact]
+    public void NavMenu_Renders_GitBodyCoverageLink()
+    {
+        var cut = Render<NavMenu>();
+        Assert.NotNull(cut.Find("a[href='git-body-coverage']"));
+    }
+
     // ── A3: Support section contains Skipped and Blocked ─────────────────────
 
     [Fact]
@@ -101,16 +108,16 @@ public sealed class NavMenuTests : BunitContext
         Assert.Contains(headers, h => h.TextContent.Contains("Support", StringComparison.OrdinalIgnoreCase));
     }
 
-    // ── A3/91-07: All ten destinations are present (count check) ──────────────
+    // ── A3/91-07: All destinations are present (count check) ──────────────────
 
     [Fact]
-    public void NavMenu_Renders_AllTenDestinations()
+    public void NavMenu_Renders_AllElevenDestinations()
     {
         var cut = Render<NavMenu>();
         var navLinks = cut.FindAll("nav a.nav-link");
         // Home, Harvest, Creators, Review, Publish, Direct Push, Pull from Prod, Reconcile,
-        // Skipped, Blocked = 10
-        Assert.Equal(10, navLinks.Count);
+        // Git Body Coverage, Skipped, Blocked = 11
+        Assert.Equal(11, navLinks.Count);
     }
 
     // ── A3: Pipeline links appear before Support links in document order ──────
