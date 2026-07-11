@@ -43,10 +43,19 @@ already-distilled video** in that DB. If empty, browse a channel + distill one v
 | Var | Purpose | Default |
 |-----|---------|---------|
 | `MTG_DATA_DIR` | Move the Studio data dir off the repo tree | unset → `.\artifacts\studio` |
-| `DECKFLOW_REPO_ROOT` | Repo working tree the git flows (Publish / Direct Push / Pull from Prod) run from — lets a distributed exe publish without being launched from the repo | unset → process current directory |
+| `DECKFLOW_REPO_ROOT` | Repo working tree the git flows (Publish / Direct Push / Pull from Prod / Reconcile / Git Body Coverage) run from — lets a distributed exe publish without being launched from the repo | unset → process current directory |
 | `DECKFLOW_LLM_PROVIDER` | `claude` = subscription/$0; `openai` = metered (cap enforced) | unset (metered) |
 | `DECKFLOW_LLM_MONTHLY_CAP_USD` | Monthly spend cap (P45 cap-block smoke) | `15.00` |
 | `DECKFLOW_DISABLE_AUTO_BROWSER` | `true` stops the browser auto-pop | unset |
+
+## Sync feature flags (web-DB `feature_flags`, read fail-closed)
+
+Two flags gate Studio sync behavior; Studio reads them from the **production** `feature_flags` table through a read-only accessor that fails closed (a missing row or a connection failure reads as OFF). Both ship **OFF**:
+
+- `sync.directpush-gitbody` — when ON, Direct Push triggers a real Render redeploy and bodies are served from the git `/app` tree only (the `/data` overlay fallback is dropped from serving). Before flipping it ON, run the **Git Body Coverage** page and confirm **0 missing** (every approved+visible prod row's body is present in the local git tree).
+- `sync.reconcile` — when ON, the **Reconcile** page's destructive **Apply removals** (seed-drift soft-hide) is enabled. The dry-run detection is always available regardless of this flag.
+
+Flipping either flag is an operator action in the prod web flag store; see the phase 93 pre-flip checklist.
 
 ## User-secrets — ONLY for the prod-publish (DirectPush) page (Phase 52)
 
