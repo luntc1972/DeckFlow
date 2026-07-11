@@ -14,7 +14,23 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 **Shipped (latest):** **Cycle 16 — Content-KB Prod↔Git↔Studio Sync Hardening** (2026-07-11, CalVer `2026.07.3`) — phases 88-93, developed on branch `plan/cycle-16-kb-sync`. A Studio/ops hardening cycle making the Content-KB drift-proof: git is the single source of truth for bodies, the prod index row subordinate and reconstructable from the seed. Shipped: the index-row integrity hotfix (no visible-while-`pending` prod rows, composite-key diffing), a unified body-inclusive `body_sha256` with render-time mismatch detection, DirectPush git-`/app`-only serving + `index-seed.json` re-export + hash-gated expand→verify→contract (flag `sync.directpush-gitbody`), a prod↔git↔seed Reconcile page with gated seed-drift soft-hide (flag `sync.reconcile`), field-authoritative Pull hardening, a round-trip integration test, and a Studio **Git Body Coverage** pre-flip audit. 17/17 requirements satisfied and a clean security review; both flags ship **OFF** (live flip gated behind the operator pre-flip walk). Prior milestones: **Cycle 15 — Cleanup, Refactor & Visual Polish** (2026-07-05, `2026.07.2`); **Cycle 14 — Deeper Deck Evaluation** (2026-07-03, `2026.07.1`).
 
-**Next:** **Cycle 17 — Creator-Style Deck Intelligence** (`docs/research/creator-style-roadmap.md`) is pre-planned and ships next (creator-style builds KB-derived features on top of a KB that Cycle 16 just made drift-proof). Operator debt from Cycles 12–14 (manual prod deploy + 7 flag flips) is **DONE** (confirmed 2026-07-04). Cycle-16 operator gates outstanding: push branch + squash→main + tag `2026.07.3`, and the FU-3 pre-flip walk before flipping `sync.*` ON (both flags ship OFF). Carry-forward backlog still open: scheduled/bulk harvest (AUTO-03/04), SEO/growth lane (SEO-01..05), matchup/meta-threat read (cedh-meta-gap lane), ADMIN-01 (Flags sorting), a future manabase-engine refactor (needs a numeric-parity harness first), and a KB "commander advice" content class for filtered videos.
+**Next:** **Cycle 17 — Creator-Style Deck Intelligence** is now the active milestone (see Current Milestone below). Operator debt from Cycles 12–14 (manual prod deploy + 7 flag flips) is **DONE** (confirmed 2026-07-04). Cycle-16 operator gates outstanding: push branch + squash→main + tag `2026.07.3`, and the FU-3 pre-flip walk before flipping `sync.*` ON (both flags ship OFF). Carry-forward backlog still open: scheduled/bulk harvest (AUTO-03/04), SEO/growth lane (SEO-01..05), matchup/meta-threat read (cedh-meta-gap lane), ADMIN-01 (Flags sorting), a future manabase-engine refactor (needs a numeric-parity harness first), and a KB "commander advice" content class for filtered videos.
+
+## Current Milestone: Cycle 17 — Creator-Style Deck Intelligence
+
+**Goal:** Encode a creator's deckbuilding style — stated rules (from transcripts) fused with measured stats (from their own decks) into a say-vs-do conflict ledger — and ship it as a $0 paste-ready prompt-artifact tool that critiques a submitted deck in that creator's voice. Prompt-artifact-first, deterministic C# rubric, no autonomous agent; all flag-gated (`creator.*`), byte-identical prose gate.
+
+**Target features (MVP, from `docs/research/creator-style-roadmap.md` + Fable 5 report `creator-style-llm-system.md`, incl. Codex gpt-5.4-high plan-review + P89 Fable prototype):**
+- **Style-profile foundation** — persisted schema (StatedRule / MeasuredMetric / FusedTarget) + dialect-guarded store keyed by creator slug; min-deck floor / `insufficient_sample` marker (CS-01..04).
+- **Measured-style extractor** — crawl the creator's OWN Archidekt decks (Archidekt-only MVP; Moxfield blocks datacenter IPs), staple-strip before stats, lift-metric (not raw synergy), category tagging, combo density, Karsten curve, folder-segmented weighting; every stat carries `numDecks` (CS-04a..d, CS-05..10).
+- **Stated-rules distiller** — transcripts → measurable rules (Claimify Select→Disambiguate→Decompose, strict JSON schema) each tied to a clip + confidence + recency; `stated_rules:` + `content_type:` blocks added to the distill template (CS-11..15, CS-11a..c).
+- **Profile fusion + conflict ledger** — reconcile stated vs measured into weighted numeric targets (not prose); conflict = measured outside stated band; conditionality first-class (`applies_when`); say-vs-do ledger surfaced in Studio/admin; pure-Core, fully unit-tested (CS-16..20, CS-16a).
+- **Card-grounding guard** — Scryfall fuzzy validator + constrained-selection whitelist + singleton/color-identity/castability checks; reusable, cached; known-hallucination fixtures (CS-21..25).
+- **Creator-Style prompt artifact** ($0 shipping tool) — pick creator + submit deck → ChatGPT-ready critique packet; deterministic rubric diff vs fused targets, injects weighted targets + real creator-deck exemplars + validated synergy/combo context + rubric scores + "critique only with provided cards"; full web bundle (xUnit + Playwright desktop/mobile/themes + README + byte-identical prose gate); flag `creator.style-artifact` seeded OFF (CS-26..31).
+
+**Out of scope this cycle:** P93 tier-2 in-app single-shot LLM critique + pgvector retrieval + web-side spend infra — deferred to a fast-follow cycle (needs a new-package approval). Moxfield crawler = separate hardening phase. Multi-creator auto-resolution (creator→profile stays manual per creator).
+
+**Key context:** No hard code dependency on Cycle 16 but follows it — creator-style builds on the KB substrate Cycle 16 stabilized. Open items to settle at discuss-time: starter creator + Archidekt profile URL (Salubrious Snail has the most artifacts, 39 decks across 5 personal folders); verify Archidekt exposes a public profile→deck-list endpoint (else manual URL-list fallback); Core-vs-Web host layering for the Web-host services (CommanderSpellbook / Scryfall Tagger) the Core-centric extractor needs. CalVer, NAMED not numbered (ADR 0002); phase numbering continues from 93 → 94+. Developed on branch `plan/cycle-17-creator-style`.
 
 ## Shipped Milestone: Cycle 16 — Content-KB Prod↔Git↔Studio Sync Hardening (SHIPPED 2026-07-11, `2026.07.3`)
 
@@ -229,9 +245,10 @@ Gate-driven milestone that pivoted: the KBV value gate = MARGINAL → retired pr
 
 ### Active
 
-<!-- Cycle 16 — Content-KB Prod↔Git↔Studio Sync Hardening. REQ-IDs defined in .planning/REQUIREMENTS.md. -->
+<!-- Cycle 17 — Creator-Style Deck Intelligence. REQ-IDs defined in .planning/REQUIREMENTS.md. -->
 
-- Cycle 16 (Content-KB Prod↔Git↔Studio Sync Hardening) — SYNC-01..16 per `docs/research/kb-prod-sync-roadmap.md`; scoped REQ-IDs in `.planning/REQUIREMENTS.md`.
+- Cycle 17 (Creator-Style Deck Intelligence) — CS-01..31 per `docs/research/creator-style-roadmap.md`; scoped REQ-IDs in `.planning/REQUIREMENTS.md`.
+- Cycle 16 (Content-KB Prod↔Git↔Studio Sync Hardening) — SYNC-01..16 SHIPPED `2026.07.3`; see Shipped Milestone above.
 
 ### Out of Scope
 
@@ -380,4 +397,4 @@ This document evolves at phase transitions and milestone boundaries.
 **Shipped:** v1.5 Deck Primer Generator + Content KB Integration + Housekeeping (2026-06-10) — 30/30 requirements across 6 phases (28-33, 25 plans, 219 commits, +56,893/−2,108 LOC across 781 files, 7-day timeline 2026-06-03 → 2026-06-09). Deck Primer fourth workflow + Content KB prompt integration + expert selection + Core doc gate. Vitest+jsdom + GitHub Actions CI added at close. Tests Core 282/282, Web 657/662 (5 PG-skip). Audit: passed. Content KB ships dark (flag OFF by design).
 
 ---
-*Last updated: 2026-07-06 — Cycle 16 (Content-KB Sync Hardening) started*
+*Last updated: 2026-07-11 — Cycle 17 (Creator-Style Deck Intelligence) started*
