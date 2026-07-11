@@ -58,6 +58,10 @@ var manabaseArchidektUrlOption = new Option<string?>("--archidekt-url") { Descri
 var manabaseMoxfieldUrlOption = new Option<string?>("--moxfield-url") { Description = "Public Moxfield deck URL." };
 var manabaseModeOption = new Option<string>("--mode", () => "casual") { Description = "Analysis profile: casual | cedh (cedh lowers the land target)." };
 var manabaseSwapPromptOption = new Option<bool>("--swap-prompt") { Description = "Also print a paste-ready LLM prompt asking for specific land swaps." };
+var cedhLandCalibrateCommand = new Command("cedh-land-calibrate", "Replay cached cEDH decks against the old and new land targets.");
+var cedhLandCalibrateDataOption = new Option<string>("--data", () => "_calib") { Description = "Directory containing decks_all.json and cards_full.json." };
+var cedhLandCalibrateBaselineOption = new Option<string>("--baseline", () => Path.Combine("DeckFlow.Web", "Data", "cedh-land-baseline", "latest.json")) { Description = "Path to the committed cEDH baseline snapshot JSON." };
+var cedhLandCalibrateOutOption = new Option<string?>("--out") { Description = "Markdown report path. Defaults to <data>/cedh-calibration.md." };
 var cedhLandBaselineCommand = new Command("cedh-land-baseline", "Build the monthly cEDH land baseline from cached calibration data.");
 var cedhLandBaselineDataOption = new Option<string>("--data") { Description = "Directory containing decks_all.json and cards_full.json.", IsRequired = true };
 var cedhLandBaselineOutOption = new Option<string>("--out", () => Path.Combine("DeckFlow.Web", "Data", "cedh-land-baseline")) { Description = "Output directory for the monthly markdown/JSON artifacts." };
@@ -136,6 +140,9 @@ manabaseCommand.AddOption(manabaseArchidektUrlOption);
 manabaseCommand.AddOption(manabaseMoxfieldUrlOption);
 manabaseCommand.AddOption(manabaseModeOption);
 manabaseCommand.AddOption(manabaseSwapPromptOption);
+cedhLandCalibrateCommand.AddOption(cedhLandCalibrateDataOption);
+cedhLandCalibrateCommand.AddOption(cedhLandCalibrateBaselineOption);
+cedhLandCalibrateCommand.AddOption(cedhLandCalibrateOutOption);
 cedhLandBaselineCommand.AddOption(cedhLandBaselineDataOption);
 cedhLandBaselineCommand.AddOption(cedhLandBaselineOutOption);
 cedhLandBaselineCommand.AddOption(cedhLandBaselineMonthOption);
@@ -217,6 +224,7 @@ rootCommand.AddCommand(archidektCacheCommand);
 rootCommand.AddCommand(categoryFindCommand);
 rootCommand.AddCommand(cardLookupCommand);
 rootCommand.AddCommand(manabaseCommand);
+rootCommand.AddCommand(cedhLandCalibrateCommand);
 rootCommand.AddCommand(cedhLandBaselineCommand);
 rootCommand.AddCommand(scryfallProbeCommand);
 rootCommand.AddCommand(contentSourceAddCommand);
@@ -275,6 +283,11 @@ manabaseCommand.SetHandler((string? archidektUrl, string? moxfieldUrl, string mo
 {
     Environment.ExitCode = ManabaseCommandRunner.RunAsync(archidektUrl, moxfieldUrl, mode, swapPrompt).GetAwaiter().GetResult();
 }, manabaseArchidektUrlOption, manabaseMoxfieldUrlOption, manabaseModeOption, manabaseSwapPromptOption);
+
+cedhLandCalibrateCommand.SetHandler((string dataDirectory, string baselinePath, string? outputPath) =>
+{
+    Environment.ExitCode = CedhCalibrateCommandRunner.RunAsync(dataDirectory, baselinePath, outputPath).GetAwaiter().GetResult();
+}, cedhLandCalibrateDataOption, cedhLandCalibrateBaselineOption, cedhLandCalibrateOutOption);
 
 cedhLandBaselineCommand.SetHandler((string dataDirectory, string outputDirectory, string month) =>
 {
