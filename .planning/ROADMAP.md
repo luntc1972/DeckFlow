@@ -82,7 +82,10 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
   2. `ICreatorStyleProfileStore` persists and retrieves a profile keyed by creator slug (reusing `SlugifySourceName`) on both SQLite and Postgres dialects, mirroring the `ContentSiteIndexStore` migration pattern.
   3. A profile backed by fewer decks than the min-deck-floor constant is marked `insufficient_sample` rather than silently trusted.
   4. xUnit round-trip tests pass on both dialects, proving write-then-read fidelity of the full profile shape.
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 94-01-PLAN.md — CS-01 record set (StatedRule/MeasuredMetric/FusedTarget) + MinDeckFloor const + JSON-section helpers
+- [ ] 94-02-PLAN.md — CS-02 ICreatorStyleProfileStore + dialect-guarded creator_style_profile DDL/UPSERT (mirror ContentSiteIndexStore)
+- [ ] 94-03-PLAN.md — CS-04 xUnit round-trip tests (SQLite unconditional + gated Postgres via Testcontainers)
 
 ### Phase 95: Measured-Style Extractor
 **Goal**: Compute a creator's measured style profile from their OWN Archidekt decklists — staple-stripped, lift-weighted (not raw synergy), folder-segmented, every stat carrying `numDecks`. Substrate only (feeds Phase 97); no user-visible surface. Lives in `DeckFlow.Web` (needs `CommanderSpellbookService` + the Scryfall Tagger service, both Web-host services) behind a narrow contract so the extraction algorithm's pure logic stays testable independent of the host — the Codex-flagged Core-vs-Web layering resolution for this cycle.
