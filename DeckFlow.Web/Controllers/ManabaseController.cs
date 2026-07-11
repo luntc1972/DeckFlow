@@ -16,17 +16,21 @@ namespace DeckFlow.Web.Controllers;
 public sealed class ManabaseController : DeckToolControllerBase
 {
     private readonly IManabaseAnalysisService _manabaseAnalysisService;
+    private readonly ICardSearchService _cardSearchService;
     private readonly ILogger<ManabaseController> _logger;
 
     /// <summary>Creates the mana-base controller.</summary>
     public ManabaseController(
         IManabaseAnalysisService manabaseAnalysisService,
+        ICardSearchService cardSearchService,
         ILogger<ManabaseController> logger)
     {
         ArgumentNullException.ThrowIfNull(manabaseAnalysisService);
+        ArgumentNullException.ThrowIfNull(cardSearchService);
         ArgumentNullException.ThrowIfNull(logger);
 
         _manabaseAnalysisService = manabaseAnalysisService;
+        _cardSearchService = cardSearchService;
         _logger = logger;
     }
 
@@ -86,6 +90,10 @@ public sealed class ManabaseController : DeckToolControllerBase
                 ManabaseCostOverrideParser.OverrideParseResult parsed =
                     ManabaseCostOverrideParser.ParseWithDiagnostics(request.CostOverridesText);
                 var result = await RunAnalysisAsync(request, parsed.Overrides, token);
+                if (result.CommanderSelectionRequired || result.Report is null)
+                {
+                    return View("Manabase", BuildCommanderSelectionViewModel(request, result));
+                }
 
                 // "Not applied" = lines the parser rejected (bad syntax) plus valid lines whose card
                 // name matched no spell in the deck (typo / not in list). Both were previously silent.
@@ -136,6 +144,10 @@ public sealed class ManabaseController : DeckToolControllerBase
             {
                 var result = await RunAnalysisAsync(
                     request, ManabaseCostOverrideParser.Parse(request.CostOverridesText), token);
+                if (result.CommanderSelectionRequired || result.Report is null)
+                {
+                    return View("Manabase", BuildCommanderSelectionViewModel(request, result));
+                }
 
                 string text = ManabaseReportTextBuilder.Build(
                     result.Report, request.DeckName, decklistText: null, request.Mode, result.Verdict, result.Budget,
@@ -151,6 +163,29 @@ public sealed class ManabaseController : DeckToolControllerBase
                     "text/plain; charset=utf-8",
                     $"manabase-analysis-{timestamp}.txt");
             });
+    }
+
+    /// <summary>
+    /// Returns commander-eligible card name suggestions for the mana-base commander picker.
+    /// </summary>
+    /// <param name="q">Partial commander name.</param>
+    [HttpGet("/manabase/commander-search")]
+    [FeatureFlagGate("tool.manabase.enabled")]
+    public async Task<IActionResult> CommanderSearch(string q)
+    {
+        try
+        {
+            var names = await _cardSearchService.SearchCommandersAsync(q ?? string.Empty, HttpContext.RequestAborted);
+            return Json(names);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
+        {
+            _logger.LogWarning(exception, "Commander search autocomplete failed for mana-base query {Query}.", q);
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                Message = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception)
+            });
+        }
     }
 
     // MEDIUM-1: a hand-crafted post can carry an out-of-range enum value (model binding does not
@@ -183,9 +218,26 @@ public sealed class ManabaseController : DeckToolControllerBase
                 Mode = request.Mode,
                 CommanderImportance = request.CommanderImportance,
                 CompanionDesignator = request.CompanionName,
+                SelectedCommander = request.SelectedCommander,
                 CostOverrides = overrides,
             },
             cancellationToken);
+
+    // Selecting a commander is a routine interactive prompt, not an error, so this leaves
+    // ErrorMessage null (no role="alert" banner) — the picker panel is the sole message.
+    private static ManabaseViewModel BuildCommanderSelectionViewModel(
+        ManabaseRequest request,
+        ManabaseAnalysisResult result)
+        => new()
+        {
+            Request = request,
+            InputSummary = result.InputSummary,
+            Unresolved = result.Unresolved,
+            ImportWarning = result.ImportWarning,
+            Suggestions = result.Suggestions,
+            CommanderSelectionRequired = true,
+            CommanderChoices = result.CommanderChoices,
+        };
 
     /// <summary>
     /// Wraps a mana-base action body in the shared request timeout scope and the friendly error

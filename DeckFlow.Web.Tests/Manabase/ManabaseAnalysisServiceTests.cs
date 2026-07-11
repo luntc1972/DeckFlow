@@ -19,6 +19,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using RestSharp;
 using Xunit;
 
+#pragma warning disable CS8602, CS8604
+
 namespace DeckFlow.Web.Tests;
 
 /// <summary>
@@ -128,6 +130,142 @@ public sealed class ManabaseAnalysisServiceTests
 
         // Exactly one commander row — the sideboard copy stayed out of the analyzed set.
         Assert.Single(result.Report.Castability, c => c.IsCommander);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_HeaderlessWinotaPaste_KeepsWinotaAsCommander_AndRejectsAcademyRector()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Winota, Joiner of Forces", 1, "mainboard"),
+            Entry("Academy Rector", 1, "mainboard"),
+            Entry("Ancient Tomb", 1, "mainboard"),
+            Land("Mountain", 34),
+            Land("Plains", 30),
+        };
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Mountain", "R"),
+            BasicLand("Plains", "W"),
+            Spell("Winota, Joiner of Forces", "{2}{R}{W}", 4, "Legendary Creature — Human Warrior"),
+            Spell("Academy Rector", "{3}{W}", 4, "Creature — Human Cleric"),
+            Spell("Ancient Tomb", "{0}", 0, "Land"),
+        };
+
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+
+        var result = await service.AnalyzeAsync("paste", "Winota Deck");
+
+        Assert.NotNull(result.Report);
+        Assert.False(result.CommanderSelectionRequired);
+        Assert.Equal(1, result.Report.LandTarget!.CommanderCount);
+        CardCastability commander = Assert.Single(result.Report.Castability, row => row.IsCommander);
+        Assert.Equal("Winota, Joiner of Forces", commander.Name);
+        Assert.DoesNotContain(result.Report.Castability.Where(row => row.IsCommander), row => row.Name == "Academy Rector");
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_InferredNonLegendaryCommander_ClearsFlag_AndRequiresSelection()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Academy Rector", 1, "mainboard"),
+            Entry("Arcane Signet", 1, "mainboard"),
+            Entry("Ancient Tomb", 1, "mainboard"),
+            Entry("Winota, Joiner of Forces", 1, "mainboard"),
+            Land("Mountain", 34),
+            Land("Plains", 30),
+        };
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Mountain", "R"),
+            BasicLand("Plains", "W"),
+            Spell("Academy Rector", "{3}{W}", 4, "Creature — Human Cleric"),
+            Spell("Arcane Signet", "{2}", 2, "Artifact"),
+            Spell("Ancient Tomb", "{0}", 0, "Land"),
+            Spell("Winota, Joiner of Forces", "{2}{R}{W}", 4, "Legendary Creature — Human Warrior"),
+        };
+
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+
+        var result = await service.AnalyzeAsync("paste", "Selection Deck");
+
+        Assert.True(result.CommanderSelectionRequired);
+        Assert.Null(result.Report);
+        Assert.NotEmpty(result.CommanderChoices);
+        Assert.Contains("Winota, Joiner of Forces", result.CommanderChoices);
+        Assert.DoesNotContain("Academy Rector", result.CommanderChoices);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_SelectedCommander_OverridesInferredCommander_AndProducesReport()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Academy Rector", 1, "mainboard"),
+            Entry("Arcane Signet", 1, "mainboard"),
+            Entry("Ancient Tomb", 1, "mainboard"),
+            Entry("Winota, Joiner of Forces", 1, "mainboard"),
+            Land("Mountain", 34),
+            Land("Plains", 30),
+        };
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Mountain", "R"),
+            BasicLand("Plains", "W"),
+            Spell("Academy Rector", "{3}{W}", 4, "Creature — Human Cleric"),
+            Spell("Arcane Signet", "{2}", 2, "Artifact"),
+            Spell("Ancient Tomb", "{0}", 0, "Land"),
+            Spell("Winota, Joiner of Forces", "{2}{R}{W}", 4, "Legendary Creature — Human Warrior"),
+        };
+
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+
+        var result = await service.AnalyzeAsync(
+            "paste",
+            "Winota Deck",
+            new ManabaseAnalysisOptions { SelectedCommander = "Winota, Joiner of Forces" });
+
+        Assert.False(result.CommanderSelectionRequired);
+        Assert.NotNull(result.Report);
+        CardCastability commander = Assert.Single(result.Report.Castability, row => row.IsCommander);
+        Assert.Equal("Winota, Joiner of Forces", commander.Name);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_HeaderlessPartnerPaste_PreservesTwoEligibleCommanders()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Tymna the Weaver", 1, "mainboard"),
+            Entry("Thrasios, Triton Hero", 1, "mainboard"),
+            Entry("Abrupt Decay", 1, "mainboard"),
+            Land("Forest", 20),
+            Land("Island", 20),
+            Land("Plains", 20),
+            Land("Swamp", 20),
+        };
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Forest", "G"),
+            BasicLand("Island", "U"),
+            BasicLand("Plains", "W"),
+            BasicLand("Swamp", "B"),
+            Spell("Tymna the Weaver", "{1}{W}{B}", 3, "Legendary Creature — Human Cleric"),
+            Spell("Thrasios, Triton Hero", "{G}{U}", 2, "Legendary Creature — Merfolk Wizard"),
+            Spell("Abrupt Decay", "{B}{G}", 2, "Instant"),
+        };
+
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+
+        var result = await service.AnalyzeAsync("paste", "Partners");
+
+        Assert.NotNull(result.Report);
+        Assert.False(result.CommanderSelectionRequired);
+        Assert.Equal(2, result.Report.LandTarget!.CommanderCount);
+        Assert.Equal(2, result.Report.Castability.Count(row => row.IsCommander));
+        Assert.Contains("Tymna the Weaver", result.CommanderChoices);
+        Assert.Contains("Thrasios, Triton Hero", result.CommanderChoices);
     }
 
     [Fact]
@@ -1159,12 +1297,14 @@ public sealed class ManabaseAnalysisServiceTests
     {
         var entries = new List<DeckEntry>
         {
+            Entry("Commander Guy", 1, "commander"),
             Land("Plains", 1),
             Spell("Swords to Plowshares", "{W}", 1, "Instant").ToEntry(),
             Entry("Totally Made Up Card", 1, "mainboard"),
         };
         var cards = new List<ScryfallCard>
         {
+            Spell("Commander Guy", "{2}{W}", 3, "Legendary Creature — Human"),
             BasicLand("Plains", "W"),
             Spell("Swords to Plowshares", "{W}", 1, "Instant"),
         };
@@ -1457,7 +1597,10 @@ public sealed class ManabaseControllerCompanionTests
 
     private static ManabaseController BuildController(IManabaseAnalysisService service)
     {
-        var controller = new ManabaseController(service, NullLogger<ManabaseController>.Instance)
+        var controller = new ManabaseController(
+            service,
+            new StubCardSearchService(),
+            NullLogger<ManabaseController>.Instance)
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
         };

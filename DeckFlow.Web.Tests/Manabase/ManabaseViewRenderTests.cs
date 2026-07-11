@@ -282,6 +282,39 @@ public sealed class ManabaseViewRenderTests
         Assert.DoesNotContain("manabase-scroll-hint", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task CommanderSelectionRequired_RendersPickerSelectAndAutocomplete()
+    {
+        var model = new ManabaseViewModel
+        {
+            Request = new ManabaseRequest
+            {
+                DeckInputSource = DeckInputSource.PasteText,
+                DeckText = "1 Winota, Joiner of Forces",
+                SelectedCommander = "Winota, Joiner of Forces",
+            },
+            CommanderSelectionRequired = true,
+            CommanderChoices = new[] { "Winota, Joiner of Forces", "Alesha, Who Smiles at Death" },
+        };
+
+        string html = await RenderManabaseViewAsync(model);
+
+        Assert.Contains("Pick your commander", html, StringComparison.Ordinal);
+        Assert.Contains("name=\"SelectedCommander\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-commander-search=\"/manabase/commander-search\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-commander-target=\"#manabase-selected-commander\"", html, StringComparison.Ordinal);
+        Assert.Contains("Winota, Joiner of Forces", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CommanderSelectionNotRequired_DoesNotRenderPicker()
+    {
+        string html = await RenderManabaseViewAsync(BuildPopulatedModel(showTapAnalyzer: false));
+
+        Assert.DoesNotContain("Pick your commander", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-commander-search=\"/manabase/commander-search\"", html, StringComparison.Ordinal);
+    }
+
     // Replace the randomized __RequestVerificationToken value with a constant so two renders of the
     // same model differ only by intentional content (here: the tap card).
     private static string NormalizeAntiForgery(string html) =>

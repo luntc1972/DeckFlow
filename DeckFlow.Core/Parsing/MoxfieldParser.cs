@@ -28,6 +28,10 @@ public sealed partial class MoxfieldParser : IParser
         var board = "mainboard";
         var commanderSectionActive = false;
         var foundEntries = false;
+        var parseableBlocks = new List<ParseableBlock>();
+        ParseableBlock? currentBlock = null;
+        var blockPrecededByBlankLine = false;
+        var pendingHeader = false;
         var lines = content.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
 
         for (var i = 0; i < lines.Length; i++)
@@ -35,12 +39,20 @@ public sealed partial class MoxfieldParser : IParser
             var line = lines[i].Trim();
             if (string.IsNullOrWhiteSpace(line))
             {
+                if (currentBlock is not null)
+                {
+                    parseableBlocks.Add(currentBlock);
+                    currentBlock = null;
+                }
+
                 if (commanderSectionActive)
                 {
                     board = "mainboard";
                     commanderSectionActive = false;
                 }
 
+                blockPrecededByBlankLine = foundEntries;
+                pendingHeader = false;
                 continue;
             }
 
@@ -51,8 +63,15 @@ public sealed partial class MoxfieldParser : IParser
 
             if (TryGetBoardHeader(line, out var headerBoard))
             {
+                if (currentBlock is not null)
+                {
+                    parseableBlocks.Add(currentBlock);
+                    currentBlock = null;
+                }
+
                 board = headerBoard;
                 commanderSectionActive = headerBoard == "commander";
+                pendingHeader = true;
                 continue;
             }
 
@@ -76,8 +95,11 @@ public sealed partial class MoxfieldParser : IParser
                 continue;
             }
 
+            currentBlock ??= new ParseableBlock(entries.Count, board, pendingHeader, blockPrecededByBlankLine);
             entries.Add(entry);
             foundEntries = true;
+            blockPrecededByBlankLine = false;
+            pendingHeader = false;
         }
 
         if (entries.Count == 0)
@@ -85,7 +107,59 @@ public sealed partial class MoxfieldParser : IParser
             throw new DeckParseException("Moxfield text did not contain any card lines.");
         }
 
+        if (currentBlock is not null)
+        {
+            parseableBlocks.Add(currentBlock);
+        }
+
+        PromoteTrailingCommanderBlock(entries, parseableBlocks);
         return entries;
+    }
+
+    private static void PromoteTrailingCommanderBlock(List<DeckEntry> entries, IReadOnlyList<ParseableBlock> parseableBlocks)
+    {
+        if (entries.Any(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        if (parseableBlocks.Count < 2)
+        {
+            return;
+        }
+
+        // Blocks partition the entries contiguously, so each block's entry count is derivable from
+        // the next block's start (or the end of the list for the trailing block).
+        var trailingBlock = parseableBlocks[^1];
+        var previousBlock = parseableBlocks[^2];
+        int trailingCount = entries.Count - trailingBlock.EntryStartIndex;
+        if (trailingBlock.HasHeader
+            || !trailingBlock.PrecededByBlankLine
+            || trailingCount > 2
+            || !IsSideOrMaybeBoard(previousBlock.Board))
+        {
+            return;
+        }
+
+        var trailingEntries = entries
+            .Skip(trailingBlock.EntryStartIndex)
+            .Take(trailingCount)
+            .ToList();
+        if (trailingEntries.Any(entry => entry.Quantity != 1)
+            || trailingEntries.Any(entry => !string.Equals(entry.Board, previousBlock.Board, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        for (var i = 0; i < trailingCount; i++)
+        {
+            var entryIndex = trailingBlock.EntryStartIndex + i;
+            entries[entryIndex] = entries[entryIndex] with
+            {
+                Board = "commander",
+                Category = null,
+            };
+        }
     }
 
     private static bool TryParseEntry(string line, string board, bool allowImplicitQuantity, out DeckEntry entry)
@@ -275,6 +349,10 @@ public sealed partial class MoxfieldParser : IParser
     private static bool IsSectionHeader(string line, string header)
         => string.Equals(line.TrimEnd(':'), header, StringComparison.OrdinalIgnoreCase);
 
+    private static bool IsSideOrMaybeBoard(string board) =>
+        string.Equals(board, "sideboard", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(board, "maybeboard", StringComparison.OrdinalIgnoreCase);
+
     private static bool IsIgnorableLine(string line)
     {
         if (string.IsNullOrWhiteSpace(line))
@@ -358,4 +436,6 @@ public sealed partial class MoxfieldParser : IParser
 
     [GeneratedRegex(@"^(?<name>.+?)\s+\((?<set>[^)]+)\)\s+(?<collector>\S+)$", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
     private static partial Regex PrintingRegex();
+
+    private sealed record ParseableBlock(int EntryStartIndex, string Board, bool HasHeader, bool PrecededByBlankLine);
 }

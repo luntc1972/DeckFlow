@@ -84,6 +84,44 @@
         </p>
     }
 
+    @if (Model.CommanderSelectionRequired)
+    {
+        <div class="result-panel nested-panel" data-scroll-on-load>
+            <div class="panel-heading">
+                <div>
+                    <h2>Pick your commander</h2>
+                    <p>We couldn't identify your commander automatically. Choose it from the deck, or search to override with the exact name you want analyzed.</p>
+                </div>
+            </div>
+            <div class="field">
+                <label for="manabase-selected-commander">Commander from this deck</label>
+                <select id="manabase-selected-commander" name="SelectedCommander" data-df-select autofocus>
+                    <option value="">Choose a commander</option>
+                    @foreach (var commanderChoice in Model.CommanderChoices)
+                    {
+                        <option value="@commanderChoice" selected="@(string.Equals(Model.Request.SelectedCommander, commanderChoice, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
+                            @commanderChoice
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label for="manabase-commander-search">Commander search backstop</label>
+                <input id="manabase-commander-search"
+                       type="text"
+                       value="@Model.Request.SelectedCommander"
+                       placeholder="Start typing a commander name…"
+                       autocomplete="off"
+                       list="manabase-commander-suggestions"
+                       data-commander-search="@Url.Content("~/manabase/commander-search")"
+                       data-commander-target="#manabase-selected-commander"
+                       data-commander-create-option="true" />
+                <datalist id="manabase-commander-suggestions"></datalist>
+                <p class="manabase-help">Pick a commander, then re-run the same analysis. Your decklist and other options stay intact.</p>
+            </div>
+        </div>
+    }
+
     <details class="manabase-overrides" @(Model.HasSuggestions || !string.IsNullOrWhiteSpace(Model.Request.CostOverridesText) ? "open" : null)>
         <summary>Companion &amp; reduced costs (optional)</summary>
         <div class="field">

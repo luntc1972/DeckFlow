@@ -14,9 +14,15 @@ The Mana Base page (`/manabase`) scores your deck's land count and colored-sourc
 Pick one of two inputs:
 
 - **Public URL** — paste an Archidekt or Moxfield deck link.
-- **Paste decklist** — paste a list, one card per line (e.g. `4 Island`). Set and collector number are optional but help cards resolve to the exact printing. Include a `Commander` section header (your export usually does) so the analyzer can pin and weight your commander.
+- **Paste decklist** — paste a list, one card per line (e.g. `4 Island`). Set and collector number are optional but help cards resolve to the exact printing.
 
 Add an optional **Deck name** to label the report.
+
+### Finding your commander
+
+DeckFlow figures out your commander from the pasted list across the common export shapes — an explicit `Commander` section header or `#commander` tag, and Moxfield's header-less **Copy for MTGO** / **Copy Plain Text** formats, which leave the commander as a lone line *after* the `SIDEBOARD` section. Each detected commander is then validated for legality (Legendary Creature, Legendary Vehicle, a *"can be your commander"* planeswalker, or a Legendary Enchantment Background), and partner / background pairs are kept together.
+
+If DeckFlow still can't pin a valid commander, it does **not** guess — it shows a **Pick your commander** panel with a drop-down of the deck's own commander-eligible cards, plus a name-search box to override with any exact commander. Choose one and press **Analyze Mana Base** again; your decklist and every other option carry over. (URL imports already carry the command zone, so the picker is mainly for pasted lists.)
 
 ### Deck type and commander importance
 

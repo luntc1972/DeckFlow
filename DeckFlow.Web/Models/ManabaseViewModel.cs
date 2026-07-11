@@ -29,6 +29,12 @@ public sealed class ManabaseViewModel
     /// <summary>Optional importer notice (e.g. a Moxfield fallback path was used).</summary>
     public string? ImportWarning { get; init; }
 
+    /// <summary>Whether the page should render the commander picker instead of a report.</summary>
+    public bool CommanderSelectionRequired { get; init; }
+
+    /// <summary>The deck's eligible commander choices surfaced in the picker.</summary>
+    public IReadOnlyList<string> CommanderChoices { get; init; } = Array.Empty<string>();
+
     /// <summary>Paste-ready prompt asking an LLM for specific land swaps.</summary>
     public string? PromptSwapPrompt { get; init; }
 

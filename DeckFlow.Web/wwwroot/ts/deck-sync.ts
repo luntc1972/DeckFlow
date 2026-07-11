@@ -2344,13 +2344,60 @@ const attachCommanderSearchInputs = (): void => {
   document.querySelectorAll<HTMLInputElement>('input[data-commander-search]').forEach(commanderInput => {
     const endpoint = commanderInput.dataset.commanderSearch;
     if (!endpoint) return;
+    const targetSelector = commanderInput.dataset.commanderTarget;
+    const targetElement = targetSelector
+      ? document.querySelector<HTMLInputElement | HTMLSelectElement>(targetSelector)
+      : null;
 
     const listId = commanderInput.getAttribute('list');
     const datalist = listId ? (document.getElementById(listId) as HTMLDataListElement | null) : null;
     let debounceTimer: number | undefined;
     let inFlight: AbortController | undefined;
+    let generatedOption: HTMLOptionElement | undefined;
+
+    const syncCommanderTarget = (): void => {
+      if (!targetElement) return;
+
+      const value = commanderInput.value.trim();
+      if (targetElement instanceof HTMLSelectElement) {
+        if (generatedOption) {
+          generatedOption.remove();
+          generatedOption = undefined;
+        }
+
+        const existingOption = Array.from(targetElement.options).find(option => option.value === value);
+        if (existingOption) {
+          targetElement.value = existingOption.value;
+          return;
+        }
+
+        if (value.length === 0) {
+          targetElement.value = '';
+          return;
+        }
+
+        if (commanderInput.dataset.commanderCreateOption === 'true') {
+          generatedOption = document.createElement('option');
+          generatedOption.value = value;
+          generatedOption.text = value;
+          targetElement.appendChild(generatedOption);
+          targetElement.value = value;
+        }
+
+        return;
+      }
+
+      targetElement.value = value;
+    };
+
+    if (targetElement instanceof HTMLSelectElement) {
+      targetElement.addEventListener('change', () => {
+        commanderInput.value = targetElement.value;
+      });
+    }
 
     commanderInput.addEventListener('input', () => {
+      syncCommanderTarget();
       window.clearTimeout(debounceTimer);
       const query = commanderInput.value.trim();
       if (query.length < 2) {
@@ -2383,6 +2430,8 @@ const attachCommanderSearchInputs = (): void => {
         }
       }, 300);
     });
+
+    syncCommanderTarget();
   });
 };
 

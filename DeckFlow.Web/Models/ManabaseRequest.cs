@@ -12,6 +12,7 @@ public sealed class ManabaseRequest
     private string _deckText = string.Empty;
     private string _deckName = string.Empty;
     private string _companionName = string.Empty;
+    private string _selectedCommander = string.Empty;
     private string _costOverridesText = string.Empty;
 
     /// <summary>Selects whether the deck is supplied via a public URL or pasted export text.</summary>
@@ -56,6 +57,13 @@ public sealed class ManabaseRequest
     {
         get => _companionName;
         set => _companionName = value ?? string.Empty;
+    }
+
+    /// <summary>Optional explicit commander choice when the importer needs user help.</summary>
+    public string SelectedCommander
+    {
+        get => _selectedCommander;
+        set => _selectedCommander = value ?? string.Empty;
     }
 
     /// <summary>

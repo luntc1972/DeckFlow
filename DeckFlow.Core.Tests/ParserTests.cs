@@ -127,6 +127,138 @@ public sealed class ParserTests
     }
 
     [Fact]
+    public void MoxfieldParser_PromotesTrailingSingleCommanderBlockAfterSideboard()
+    {
+        var entries = new MoxfieldParser().ParseText("""
+            1 Sol Ring
+            1 Arcane Signet
+            SIDEBOARD:
+            1 Abrade
+            1 Return to Dust
+
+            1 Winota, Joiner of Forces
+            """);
+
+        Assert.Collection(
+            entries,
+            entry =>
+            {
+                Assert.Equal("Sol Ring", entry.Name);
+                Assert.Equal("mainboard", entry.Board);
+            },
+            entry =>
+            {
+                Assert.Equal("Arcane Signet", entry.Name);
+                Assert.Equal("mainboard", entry.Board);
+            },
+            entry =>
+            {
+                Assert.Equal("Abrade", entry.Name);
+                Assert.Equal("sideboard", entry.Board);
+            },
+            entry =>
+            {
+                Assert.Equal("Return to Dust", entry.Name);
+                Assert.Equal("sideboard", entry.Board);
+            },
+            entry =>
+            {
+                Assert.Equal("Winota, Joiner of Forces", entry.Name);
+                Assert.Equal("commander", entry.Board);
+            });
+    }
+
+    [Fact]
+    public void MoxfieldParser_PromotesTrailingPartnerBlockAfterSideboard()
+    {
+        var entries = new MoxfieldParser().ParseText("""
+            1 Sol Ring
+            Sideboard
+            1 Swords to Plowshares
+
+            1 Tana, the Bloodsower
+            1 Kraum, Ludevic's Opus
+            """);
+
+        Assert.Equal("mainboard", entries[0].Board);
+        Assert.Equal("sideboard", entries[1].Board);
+        Assert.Equal("commander", entries[2].Board);
+        Assert.Equal("Tana, the Bloodsower", entries[2].Name);
+        Assert.Equal("commander", entries[3].Board);
+        Assert.Equal("Kraum, Ludevic's Opus", entries[3].Name);
+    }
+
+    [Fact]
+    public void MoxfieldParser_ExplicitCommanderHeaderStillWins()
+    {
+        var entries = new MoxfieldParser().ParseText("""
+            Commander
+            1 Winota, Joiner of Forces
+
+            1 Sol Ring
+            Sideboard
+            1 Abrade
+            """);
+
+        Assert.Equal("commander", entries[0].Board);
+        Assert.Equal("Winota, Joiner of Forces", entries[0].Name);
+        Assert.Equal("mainboard", entries[1].Board);
+        Assert.Equal("sideboard", entries[2].Board);
+    }
+
+    [Fact]
+    public void MoxfieldParser_SingleSideboardCardWithoutTrailingBlock_StaysSideboard()
+    {
+        var entries = new MoxfieldParser().ParseText("""
+            1 Sol Ring
+            Sideboard
+            1 Winota, Joiner of Forces
+            """);
+
+        Assert.Equal("mainboard", entries[0].Board);
+        Assert.Equal("sideboard", entries[1].Board);
+        Assert.Equal("Winota, Joiner of Forces", entries[1].Name);
+    }
+
+    [Fact]
+    public void MoxfieldParser_FinalMaybeboardBlock_IsNotPromotedToCommander()
+    {
+        var entries = new MoxfieldParser().ParseText("""
+            1 Sol Ring
+            Sideboard
+            1 Abrade
+
+            Maybeboard
+            1 Tana, the Bloodsower
+            1 Kraum, Ludevic's Opus
+            """);
+
+        Assert.Equal("mainboard", entries[0].Board);
+        Assert.Equal("sideboard", entries[1].Board);
+        Assert.Equal("maybeboard", entries[2].Board);
+        Assert.Equal("maybeboard", entries[3].Board);
+    }
+
+    [Fact]
+    public void MoxfieldParser_TrailingBlockFollowedByMoreCards_IsNotPromoted()
+    {
+        var entries = new MoxfieldParser().ParseText("""
+            1 Sol Ring
+            Sideboard
+            1 Abrade
+
+            1 Winota, Joiner of Forces
+
+            2 Mountain
+            """);
+
+        Assert.Equal("mainboard", entries[0].Board);
+        Assert.Equal("sideboard", entries[1].Board);
+        Assert.Equal("sideboard", entries[2].Board);
+        Assert.Equal("sideboard", entries[3].Board);
+    }
+
+    [Fact]
     public void MoxfieldParser_AllowsImplicitQuantityOfOne()
     {
         var entries = new MoxfieldParser().ParseText("""
