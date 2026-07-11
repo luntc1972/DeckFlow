@@ -392,7 +392,7 @@ summary:focus-visible,
 
 .prompt-packets-form[data-prompt-ui-mode="guided"] .prompt-instructions {
   border-left: 4px solid var(--accent);
-  background: color-mix(in srgb, var(--accent) 6%, var(--theme-surface));
+  background: color-mix(in srgb, var(--accent) 6%, var(--abzan-charcoal-bg));
 }
 
 .prompt-packets-form[data-prompt-ui-mode="focused"] .prompt-step-eyebrow,
