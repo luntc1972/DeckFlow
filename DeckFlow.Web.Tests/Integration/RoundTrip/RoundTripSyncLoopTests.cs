@@ -268,7 +268,6 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
         await prodStore.UpsertContentColumnsOnlyAsync(bumpedProdRowA);
 
         var pullResult = await pull.PullAndClassifyAsync(
-            stagingRoot: string.Empty,
             log: new Progress<string>(msg => _output.WriteLine($"[pull] {msg}")),
             onStage: stage => _output.WriteLine($"[pull-stage] {stage}"),
             CancellationToken.None);
@@ -278,7 +277,6 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
 
         var applyResults = await pull.ApplyAdoptionsAsync(
             new[] { pullEntryA },
-            stagingRoot: string.Empty,
             _pullApplyDataRoot,
             progress: new Progress<IReadOnlyList<PullApplyRowResult>>(_ => { }),
             acknowledgedDivergentKeys: new HashSet<string>(),

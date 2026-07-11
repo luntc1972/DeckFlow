@@ -18,14 +18,12 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
 {
     private readonly string _dataRoot;
     private readonly string _artifactRoot;
-    private readonly string _stagingRoot;
     private readonly string _repoRoot;
 
     public PullFromProdCoordinatorTests()
     {
         _dataRoot = Path.Combine(Path.GetTempPath(), "deckflow-pull-coord-" + Guid.NewGuid().ToString("N"));
         _artifactRoot = Path.Combine(_dataRoot, "content-kb");
-        _stagingRoot = Path.Combine(_dataRoot, "pull-staging");
         _repoRoot = Path.Combine(_dataRoot, "repo");
         Directory.CreateDirectory(_artifactRoot);
         Directory.CreateDirectory(_repoRoot);
@@ -121,14 +119,13 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
     // ── ResolvePaths ─────────────────────────────────────────────────────────
 
     [Fact]
-    public void ResolvePaths_ReturnsDataRootParentAndStagingDir()
+    public void ResolvePaths_ReturnsDataRootParent()
     {
         var coordinator = Build(new FakeContentSiteIndexStore(), new FakeProdContentReader());
 
         var paths = coordinator.ResolvePaths();
 
         Assert.Equal(_dataRoot, paths.DataRoot);
-        Assert.Equal(Path.Combine(_dataRoot, "pull-staging"), paths.StagingRoot);
     }
 
     // ── PullAndClassifyAsync ───────────────────────────────────────────────────
@@ -145,7 +142,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
         var log = new ListProgress<string>();
         var stage = new List<string>();
 
-        var result = await coordinator.PullAndClassifyAsync(_stagingRoot, log, stage.Add, CancellationToken.None);
+        var result = await coordinator.PullAndClassifyAsync(log, stage.Add, CancellationToken.None);
 
         var entry = Assert.Single(result.Entries);
         Assert.Equal(SyncDiffKind.MissingLocally, entry.Kind);
@@ -167,7 +164,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
         var log = new ListProgress<string>();
         var stage = new List<string>();
 
-        var result = await coordinator.PullAndClassifyAsync(_stagingRoot, log, stage.Add, CancellationToken.None);
+        var result = await coordinator.PullAndClassifyAsync(log, stage.Add, CancellationToken.None);
 
         var entry = Assert.Single(result.Entries);
         Assert.False(entry.ArtifactDownloaded);
@@ -185,7 +182,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
         var log = new ListProgress<string>();
         var stage = new List<string>();
 
-        var result = await coordinator.PullAndClassifyAsync(_stagingRoot, log, stage.Add, CancellationToken.None);
+        var result = await coordinator.PullAndClassifyAsync(log, stage.Add, CancellationToken.None);
 
         var entry = Assert.Single(result.Entries);
         Assert.False(entry.ArtifactDownloaded);
@@ -203,7 +200,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
         var stage = new List<string>();
 
         await Assert.ThrowsAnyAsync<Exception>(() =>
-            coordinator.PullAndClassifyAsync(_stagingRoot, log, stage.Add, CancellationToken.None));
+            coordinator.PullAndClassifyAsync(log, stage.Add, CancellationToken.None));
 
         Assert.Equal("read production content_site_index", stage[^1]);
     }
@@ -224,7 +221,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
         var coordinator = Build(new FakeContentSiteIndexStore(), prodReader, git);
         var log = new ListProgress<string>();
 
-        var result = await coordinator.PullAndClassifyAsync(_stagingRoot, log, _ => { }, CancellationToken.None);
+        var result = await coordinator.PullAndClassifyAsync(log, _ => { }, CancellationToken.None);
 
         Assert.Equal(PullFreshnessKind.Behind, result.Freshness.Kind);
         Assert.Equal(3, result.Freshness.BehindCount);
@@ -249,7 +246,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
         var coordinator = Build(new FakeContentSiteIndexStore(), prodReader, git);
         var log = new ListProgress<string>();
 
-        var result = await coordinator.PullAndClassifyAsync(_stagingRoot, log, _ => { }, CancellationToken.None);
+        var result = await coordinator.PullAndClassifyAsync(log, _ => { }, CancellationToken.None);
 
         Assert.Equal(PullFreshnessKind.Unverified, result.Freshness.Kind);
         Assert.Single(result.Entries);
@@ -269,7 +266,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
         var coordinator = Build(new FakeContentSiteIndexStore(), prodReader, git);
         var log = new ListProgress<string>();
 
-        var result = await coordinator.PullAndClassifyAsync(_stagingRoot, log, _ => { }, CancellationToken.None);
+        var result = await coordinator.PullAndClassifyAsync(log, _ => { }, CancellationToken.None);
 
         Assert.Equal(PullFreshnessKind.Unverified, result.Freshness.Kind);
         Assert.Single(result.Entries);
@@ -291,7 +288,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
         var coordinator = Build(new FakeContentSiteIndexStore(), prodReader, git);
 
         await Assert.ThrowsAsync<OperationCanceledException>(() =>
-            coordinator.PullAndClassifyAsync(_stagingRoot, new ListProgress<string>(), _ => { }, cts.Token));
+            coordinator.PullAndClassifyAsync(new ListProgress<string>(), _ => { }, cts.Token));
     }
 
     [Fact]
@@ -308,7 +305,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
         var coordinator = Build(new FakeContentSiteIndexStore(), prodReader, git);
         var log = new ListProgress<string>();
 
-        var result = await coordinator.PullAndClassifyAsync(_stagingRoot, log, _ => { }, CancellationToken.None);
+        var result = await coordinator.PullAndClassifyAsync(log, _ => { }, CancellationToken.None);
 
         Assert.Equal(PullFreshnessKind.Fresh, result.Freshness.Kind);
         Assert.DoesNotContain(log.Items, l => l.Contains("Could not verify checkout freshness", StringComparison.Ordinal)
@@ -323,7 +320,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
         WriteRepoBody("content-kb/test-channel/vid1.md", "---\ntitle: Video 1\n---\nrepo body");
         var coordinator = Build(new FakeContentSiteIndexStore(), prodReader);
 
-        var result = await coordinator.PullAndClassifyAsync(_stagingRoot, new ListProgress<string>(), _ => { }, CancellationToken.None);
+        var result = await coordinator.PullAndClassifyAsync(new ListProgress<string>(), _ => { }, CancellationToken.None);
 
         Assert.Equal(BodyDivergenceStatus.Confirmed, Assert.Single(result.Entries).BodyDivergence);
     }
@@ -337,7 +334,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
         WriteRepoBody("content-kb/test-channel/vid1.md", rawBody);
         var coordinator = Build(new FakeContentSiteIndexStore(), prodReader);
 
-        var result = await coordinator.PullAndClassifyAsync(_stagingRoot, new ListProgress<string>(), _ => { }, CancellationToken.None);
+        var result = await coordinator.PullAndClassifyAsync(new ListProgress<string>(), _ => { }, CancellationToken.None);
 
         var entry = Assert.Single(result.Entries);
         Assert.Equal(BodyDivergenceStatus.Indeterminate, entry.BodyDivergence);
@@ -354,7 +351,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
         WriteRepoBody("content-kb/test-channel/vid1.md", "---\ntitle: Video 1\n---\nrepo body");
         var coordinator = Build(localStore, prodReader);
 
-        var result = await coordinator.PullAndClassifyAsync(_stagingRoot, new ListProgress<string>(), _ => { }, CancellationToken.None);
+        var result = await coordinator.PullAndClassifyAsync(new ListProgress<string>(), _ => { }, CancellationToken.None);
 
         var entry = Assert.Single(result.Entries);
         Assert.Equal(SyncDiffKind.ProdNewer, entry.Kind);
@@ -372,7 +369,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
         Directory.CreateDirectory(path);
         var coordinator = Build(new FakeContentSiteIndexStore(), prodReader);
 
-        var result = await coordinator.PullAndClassifyAsync(_stagingRoot, new ListProgress<string>(), _ => { }, CancellationToken.None);
+        var result = await coordinator.PullAndClassifyAsync(new ListProgress<string>(), _ => { }, CancellationToken.None);
 
         Assert.Equal(BodyDivergenceStatus.Indeterminate, Assert.Single(result.Entries).BodyDivergence);
     }
@@ -392,7 +389,6 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
 
         var results = await coordinator.ApplyAdoptionsAsync(
             adopt,
-            _stagingRoot,
             _dataRoot,
             progress,
             new HashSet<string>(StringComparer.Ordinal),
@@ -430,7 +426,6 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
 
         var results = await coordinator.ApplyAdoptionsAsync(
             new[] { AdoptEntry(prodRow, artifactDownloaded: true) },
-            _stagingRoot,
             _dataRoot,
             new ListProgress<IReadOnlyList<PullApplyRowResult>>(),
             new HashSet<string>(StringComparer.Ordinal),
@@ -453,7 +448,6 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
 
         var results = await coordinator.ApplyAdoptionsAsync(
             new[] { AdoptEntry(prodRow, artifactDownloaded: true, bodyDivergence: BodyDivergenceStatus.Confirmed) },
-            _stagingRoot,
             _dataRoot,
             new ListProgress<IReadOnlyList<PullApplyRowResult>>(),
             new HashSet<string>(StringComparer.Ordinal),
@@ -476,7 +470,6 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
 
         var results = await coordinator.ApplyAdoptionsAsync(
             new[] { AdoptEntry(prodRow, artifactDownloaded: false, bodyDivergence: BodyDivergenceStatus.Confirmed) },
-            _stagingRoot,
             _dataRoot,
             new ListProgress<IReadOnlyList<PullApplyRowResult>>(),
             acknowledged,
@@ -496,7 +489,6 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
 
         var results = await coordinator.ApplyAdoptionsAsync(
             new[] { AdoptEntry(prodRow, artifactDownloaded: false, bodyDivergence: BodyDivergenceStatus.Indeterminate) },
-            _stagingRoot,
             _dataRoot,
             new ListProgress<IReadOnlyList<PullApplyRowResult>>(),
             new HashSet<string>(StringComparer.Ordinal),
@@ -517,7 +509,6 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
 
         var results = await coordinator.ApplyAdoptionsAsync(
             new[] { AdoptEntry(prodRow, artifactDownloaded: false, bodyDivergence: BodyDivergenceStatus.Indeterminate) },
-            _stagingRoot,
             _dataRoot,
             new ListProgress<IReadOnlyList<PullApplyRowResult>>(),
             acknowledged,
@@ -552,7 +543,6 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
 
         var results = await coordinator.ApplyAdoptionsAsync(
             new[] { localOnly },
-            _stagingRoot,
             _dataRoot,
             progress,
             new HashSet<string>(StringComparer.Ordinal),

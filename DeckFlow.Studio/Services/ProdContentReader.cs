@@ -32,7 +32,66 @@ public sealed class ProdContentReader : IProdContentReader
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+        await using var connection = await OpenProdConnectionAsync(connectionString, cancellationToken).ConfigureAwait(false);
 
+        var rows = await connection.QueryAsync<ContentSiteIndexRowData>(
+            new CommandDefinition(SelectAllSql, cancellationToken: cancellationToken));
+
+        return rows.Select(ToContentSiteIndexRow).ToList();
+    }
+
+    // Why: single plain SELECT, no WHERE on any timestamp column (no F-51-PG-01 exposure), no
+    // DDL/EnsureSchema — the feature_flags read-only twin of SelectAllSql (D-04).
+    private const string SelectFlagSql = "SELECT enabled FROM feature_flags WHERE key = @key;";
+
+    /// <inheritdoc />
+    public async Task<bool> ReadFlagAsync(
+        string connectionString,
+        string key,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        return await TryReadFlagAsync(connectionString, key, cancellationToken).ConfigureAwait(false) ?? false;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool?> TryReadFlagAsync(
+        string connectionString,
+        string key,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+
+        try
+        {
+            await using var connection = await OpenProdConnectionAsync(connectionString, cancellationToken).ConfigureAwait(false);
+
+            var enabled = await connection.QuerySingleOrDefaultAsync<bool?>(
+                new CommandDefinition(SelectFlagSql, new { key }, cancellationToken: cancellationToken));
+
+            // A missing row / null enabled is a DEFINITIVE OFF (false), NOT indeterminate — only a
+            // caught read failure below returns null. This lets the DirectPush publish gate fail SAFE
+            // (verify the deployed body) on a read blip rather than immediate-publishing.
+            return enabled ?? false;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // Indeterminate: the read itself failed. No connection string / exception detail surfaced
+            // (D-07). The publish-gate caller treats null as "cannot prove OFF → must verify".
+            return null;
+        }
+    }
+
+    private static async Task<System.Data.Common.DbConnection> OpenProdConnectionAsync(
+        string connectionString,
+        CancellationToken cancellationToken)
+    {
         // Why: built on-demand, never registered live at DI startup — minimizes the always-live
         // surface (D-03). Normalize handles Render's postgresql:// URL form.
         var normalized = PostgresConnectionStringNormalizer.Normalize(connectionString);
@@ -53,100 +112,7 @@ public sealed class ProdContentReader : IProdContentReader
         };
 
         var conn = new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, builder.ConnectionString);
-
-        await using var connection = await conn.OpenConnectionAsync(cancellationToken);
-
-        var rows = await connection.QueryAsync<ContentSiteIndexRowData>(
-            new CommandDefinition(SelectAllSql, cancellationToken: cancellationToken));
-
-        return rows.Select(ToContentSiteIndexRow).ToList();
-    }
-
-    // Why: single plain SELECT, no WHERE on any timestamp column (no F-51-PG-01 exposure), no
-    // DDL/EnsureSchema — the feature_flags read-only twin of SelectAllSql (D-04).
-    private const string SelectFlagSql = "SELECT enabled FROM feature_flags WHERE key = @key;";
-
-    /// <inheritdoc />
-    public async Task<bool> ReadFlagAsync(
-        string connectionString,
-        string key,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
-        ArgumentException.ThrowIfNullOrWhiteSpace(key);
-
-        try
-        {
-            // Why: identical connection setup to ReadAllAsync (normalize + force SslMode.Require) so
-            // this accessor honors the exact same Render-Postgres connectivity contract.
-            var normalized = PostgresConnectionStringNormalizer.Normalize(connectionString);
-            var builder = new NpgsqlConnectionStringBuilder(normalized)
-            {
-                SslMode = SslMode.Require
-            };
-
-            var conn = new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, builder.ConnectionString);
-
-            await using var connection = await conn.OpenConnectionAsync(cancellationToken);
-
-            var enabled = await connection.QuerySingleOrDefaultAsync<bool?>(
-                new CommandDefinition(SelectFlagSql, new { key }, cancellationToken: cancellationToken));
-
-            return enabled ?? false;
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception)
-        {
-            // Why: fail CLOSED (D-04) — a connection/query failure must read exactly like a
-            // missing/false row, never propagate as an error a caller could misinterpret. No
-            // connection string or exception detail is logged or surfaced here (D-07 convention).
-            return false;
-        }
-    }
-
-    /// <inheritdoc />
-    public async Task<bool?> TryReadFlagAsync(
-        string connectionString,
-        string key,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
-        ArgumentException.ThrowIfNullOrWhiteSpace(key);
-
-        try
-        {
-            // Same read-only connection contract as ReadFlagAsync (normalize + force SslMode.Require).
-            var normalized = PostgresConnectionStringNormalizer.Normalize(connectionString);
-            var builder = new NpgsqlConnectionStringBuilder(normalized)
-            {
-                SslMode = SslMode.Require
-            };
-
-            var conn = new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, builder.ConnectionString);
-
-            await using var connection = await conn.OpenConnectionAsync(cancellationToken);
-
-            var enabled = await connection.QuerySingleOrDefaultAsync<bool?>(
-                new CommandDefinition(SelectFlagSql, new { key }, cancellationToken: cancellationToken));
-
-            // A missing row / null enabled is a DEFINITIVE OFF (false), NOT indeterminate — only a
-            // caught read failure below returns null. This lets the DirectPush publish gate fail SAFE
-            // (verify the deployed body) on a read blip rather than immediate-publishing.
-            return enabled ?? false;
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception)
-        {
-            // Indeterminate: the read itself failed. No connection string / exception detail surfaced
-            // (D-07). The publish-gate caller treats null as "cannot prove OFF → must verify".
-            return null;
-        }
+        return await conn.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
     }
 
     // Mirrors ContentSiteIndexStore.ToContentSiteIndexRow exactly: split natural_key_type into
