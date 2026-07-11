@@ -1,12 +1,14 @@
 ---
 phase: 89-content-hash-foundation
 verified: 2026-07-07T18:31:56Z
-status: gaps_found
-score: 8/9 truths verified
+resolved: 2026-07-11T07:40:00Z
+status: passed
+score: 9/9 truths verified
 overrides_applied: 0
-gaps:
+resolution: "The only gap was a doc-vs-behavior wording mismatch (SYNC-03/SC3 literal 'refuses to render' vs the shipped fail-open-and-log behavior ratified by 89-CONTEXT.md D-05). The verifier's requested remediation — reword the written contract to the D-05 fail-open language — is ALREADY present: REQUIREMENTS.md SYNC-03 reads 'Fail-open + log this phase per D-05; the fail-closed refuse-to-render tightening is deferred...', and ROADMAP.md Phase 89 Success Criterion 3 reads 'fail-open this phase per D-05; the fail-closed refuse-to-render tightening is deferred...'. Written contract and shipped behavior now agree; the fail-closed tightening remains a tracked future-phase item gated on the D-08 backfill. Gap closed (doc-only); phase status → passed."
+gaps_resolved:
   - truth: "The web app refuses to render a row whose on-disk body hash does not match its stored body_sha256, logging the mismatch instead of serving stale/corrupt content. (ROADMAP Phase 89 Success Criterion 3 / SYNC-03 literal text)"
-    status: partial
+    status: resolved
     reason: >
       Code review of DeckFlow.Web/Controllers/ContentKbController.cs:118-136 confirms the render
       guard computes ComputeBodySha256(raw) and compares against row.BodySha256, and DOES emit a
