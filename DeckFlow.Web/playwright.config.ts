@@ -9,6 +9,10 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
+  // Why: the global admin e2e mutex already serializes the 8 admin specs, so
+  // CI parallelism only piles workers into the lock queue and blows the per-test
+  // timeout; serial CI workers make the lock uncontended. Keep local default.
+  workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
     baseURL: 'http://localhost:5173',
