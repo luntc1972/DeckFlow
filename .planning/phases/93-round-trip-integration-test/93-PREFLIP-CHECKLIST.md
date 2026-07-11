@@ -63,8 +63,9 @@ Complete in order:
 1. [ ] SYNC-16 round-trip test green — run locally with Docker (`DECKFLOW_POSTGRES_TESTS=1 dotnet.exe test DeckFlow.Web.Tests --filter FullyQualifiedName~RoundTrip`) or confirmed via a Docker-backed CI watch (see D-07 gate note above).
 2. [ ] FU-1 decision recorded (Option A or B, above).
 3. [ ] FU-2 decision recorded (build the resume-redeploy fix, or accept the safe/recoverable strand as-is).
-4. [ ] Flip `sync.directpush-gitbody` to **ON** in the prod web flag store.
-5. [ ] **Post-flip smoke:** perform one real DirectPush of a single content row and confirm:
+4. [ ] **Git Body Coverage audit passes (0 missing).** Open Studio → **Git Body Coverage** (`/git-body-coverage`) and Run the audit; every approved+visible prod row's body must be present in the local git tree that becomes `/app`. This is the SYNC-07 flip precondition. Do not flip until it reports 0 missing.
+5. [ ] Flip `sync.directpush-gitbody` to **ON** in the prod web flag store.
+6. [ ] **Post-flip smoke:** perform one real DirectPush of a single content row and confirm:
    - [ ] The row serves its body from `/app` (git-deployed tree), not the `/data` SFTP overlay.
    - [ ] `index-seed.json` was re-exported and committed as part of the push (seed reflects the new/updated row).
    - [ ] The next normal deploy does **not** revert the row (no-revert-after-reseed holds in prod, matching the SYNC-16 assertion).
