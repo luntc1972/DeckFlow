@@ -141,8 +141,9 @@ and may briefly serve its prior body until the redeploy completes
                         <p class="text-muted small mb-2">
                             @_awaitingConfirmRows.Count row(s) already have content written to production
                             but have not been deploy-confirmed yet (e.g. this Studio session was reloaded
-                            mid-flow). They stay hidden until confirmed &mdash; re-run verify below rather
-                            than losing track of them.
+                            mid-flow). New rows stay hidden until confirmed; already-visible rows stay
+                            visible and may briefly serve their prior body until the deploy confirms
+                            &mdash; re-run verify below rather than losing track of them.
                         </p>
 
                         @if (!string.IsNullOrEmpty(_resumeVerifyError))
@@ -514,8 +515,10 @@ and may briefly serve its prior body until the redeploy completes
                     {
                         <div class="alert alert-success py-2 mt-3">
                             All @_rowResults.Count new/updated row(s) written to production and marked
-                            awaiting deploy confirmation — not yet visible. Unchanged rows were already
-                            up to date and were skipped. is_evergreen on existing rows was preserved.
+                            awaiting deploy confirmation — new rows are not yet visible; already-visible
+                            rows stay visible and may briefly serve their prior body until the redeploy
+                            completes. Unchanged rows were already up to date and were skipped.
+                            is_evergreen on existing rows was preserved.
                         </div>
                     }
                 </div>
@@ -627,9 +630,10 @@ and may briefly serve its prior body until the redeploy completes
                         the Render dashboard). Polls the deployed <code>/app</code> body for each
                         pushed row and, ONLY for rows whose hash matches, stamps
                         <code>pushed_to_prod_utc</code> and flips them visible (SYNC-09/D-06). Rows
-                        that do not confirm within the bounded retry window stay hidden and
-                        awaiting-confirm &mdash; re-run this stage (or use Resume above after
-                        reloading) once the deploy catches up.
+                        that do not confirm within the bounded retry window leave new rows hidden and
+                        awaiting-confirm, while already-visible rows remain visible and may serve
+                        their prior body meanwhile &mdash; re-run this stage (or use Resume above
+                        after reloading) once the deploy catches up.
                     </p>
 
                     @if (!string.IsNullOrEmpty(_verifyError))
@@ -676,9 +680,10 @@ and may briefly serve its prior body until the redeploy completes
                         {
                             <div class="alert alert-warning py-2 mt-3">
                                 @_notConfirmedResults.Count row(s) did NOT confirm within the retry
-                                window &mdash; they stay hidden and awaiting-confirm. The Render
-                                deploy may still be in progress; wait and re-run this stage (or use
-                                the Resume section above after reloading).
+                                window &mdash; new rows stay hidden and awaiting-confirm, while
+                                already-visible rows stay visible until the deploy confirms. The
+                                Render deploy may still be in progress; wait and re-run this stage
+                                (or use the Resume section above after reloading).
                             </div>
                         }
 
@@ -718,4 +723,3 @@ and may briefly serve its prior body until the redeploy completes
     }
 
 </article>
-
