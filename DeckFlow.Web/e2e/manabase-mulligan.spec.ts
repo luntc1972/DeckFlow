@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { open, unlink } from 'node:fs/promises';
 
 // Phase 81 MULLIGAN-01/02/06 — the opening-hand/mulligan lens card on /manabase, gated behind
-// analysis.mulligan-eval. This is a LIVE-UX SMOKE (card visible at desktop 1280 + mobile 390 —
+// analysis.manabase.mulligan-eval (default ON). This is a LIVE-UX SMOKE (card visible at desktop 1280 + mobile 390 —
 // runs under both the chromium-desktop and chromium-mobile Playwright projects — when the flag
 // is ON, absent when OFF) — NOT the byte-identity proof, which lives in
 // ManabaseViewRenderTests.OffState_IsByteIdenticalToOnWithMulliganCardExcised (an IRazorViewEngine
@@ -22,7 +22,7 @@ const adminPassword = process.env.FEEDBACK_ADMIN_PASSWORD ?? 'changeme-local';
 const basicAuthHeader = `Basic ${Buffer.from(`${adminUser}:${adminPassword}`).toString('base64')}`;
 const adminLockPath = '/tmp/deckflow-admin-e2e.lock';
 const adminLockTimeoutMs = 90_000;
-const mulliganEvalFlagKey = 'analysis.mulligan-eval';
+const mulliganEvalFlagKey = 'analysis.manabase.mulligan-eval';
 
 type LockHandle = Awaited<ReturnType<typeof open>>;
 
@@ -92,7 +92,7 @@ async function submitDeck(page: Page): Promise<boolean> {
   return (await result.count()) > 0 && (await result.isVisible());
 }
 
-test('opening-hand lens card is visible when analysis.mulligan-eval is ON', async ({ page }) => {
+test('opening-hand lens card is visible when analysis.manabase.mulligan-eval is ON', async ({ page }) => {
   await setFlagEnabled(page, mulliganEvalFlagKey, true);
   const ok = await submitDeck(page);
   test.skip(!ok, 'analysis result unavailable (Scryfall not reachable in this environment)');
@@ -108,7 +108,7 @@ test('opening-hand lens card is visible when analysis.mulligan-eval is ON', asyn
   ).toBeTruthy();
 });
 
-test('opening-hand lens card is absent when analysis.mulligan-eval is OFF', async ({ page }) => {
+test('opening-hand lens card is absent when analysis.manabase.mulligan-eval is OFF', async ({ page }) => {
   await setFlagEnabled(page, mulliganEvalFlagKey, false);
   const ok = await submitDeck(page);
   test.skip(!ok, 'analysis result unavailable (Scryfall not reachable in this environment)');

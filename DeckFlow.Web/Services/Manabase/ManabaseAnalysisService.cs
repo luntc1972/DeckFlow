@@ -180,7 +180,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     /// base page plus the "Opening Hand (mulligan)" block in the paste artifact. Read fail-safe OFF;
     /// off = byte-identical output.
     /// </summary>
-    public const string MulliganEvalFlagKey = "analysis.mulligan-eval";
+    public const string MulliganEvalFlagKey = "analysis.manabase.mulligan-eval";
 
     /// <summary>
     /// Plan-presence flag key: seeded OFF. Gates the "with a plan" opener stat AND the only new I/O it

@@ -22,21 +22,40 @@ const CASUAL_ISSUE_DECK = [
   '1 Teferi, Hero of Dominaria',
 ].join('\n');
 
+// A genuinely clean mono-blue shell: Karsten source target cleared, and — with the plain-language
+// layer now default-on — enough repeatable ramp AND card draw to satisfy the ramp/draw budget for
+// the commander's MV threshold, so the verdict reports the why-it-is-fine path (no issue list).
+// Mono-color avoids any color-shortfall issue; the ramp/draw balance is what unlocks verdict-fine.
 const CASUAL_CLEAN_DECK = [
   'Commander',
-  '1 Brago, King Eternal',
+  '1 Talrand, Sky Summoner',
   '',
   'Deck',
-  '24 Plains',
-  '24 Island',
+  '32 Island',
   '1 Sol Ring',
-  '1 Arcane Signet',
-  '1 Azorius Signet',
   '1 Mind Stone',
-  '1 Counterspell',
-  '1 Swords to Plowshares',
-  '1 Supreme Verdict',
-  '1 Wrath of God',
+  '1 Fellwar Stone',
+  '1 Thought Vessel',
+  '1 Everflowing Chalice',
+  '1 Sky Diamond',
+  '1 Worn Powerstone',
+  '1 Gilded Lotus',
+  '1 Hedron Archive',
+  '1 Thran Dynamo',
+  '1 Dreamstone Hedron',
+  '1 Palladium Myr',
+  '1 Rhystic Study',
+  '1 Mystic Remora',
+  '1 Fact or Fiction',
+  '1 Preordain',
+  '1 Ponder',
+  '1 Brainstorm',
+  '1 Divination',
+  '1 Compulsive Research',
+  '1 Chart a Course',
+  '1 Behold the Multiverse',
+  '1 Windfall',
+  '1 Mind Spring',
 ].join('\n');
 
 const CEDH_DECK = [

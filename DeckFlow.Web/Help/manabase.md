@@ -63,7 +63,7 @@ The castability number comes from a Monte-Carlo simulation: it plays out thousan
 
 ### Command zone callout and companion handling
 
-When the `analysis.manabase.commander-castability` feature flag is enabled, the report can add a **command zone** callout above the per-card Castability table. That callout lists each commander card that starts outside the 99, including partner pairs and Backgrounds, with its estimated chance to be cast on curve. Those cards move out of the per-card table for display only; the underlying health verdict and color findings stay the same.
+By default (the `analysis.manabase.commander-castability` flag, on — an admin can hide it), the report adds a **command zone** callout above the per-card Castability table. That callout lists each commander card that starts outside the 99, including partner pairs and Backgrounds, with its estimated chance to be cast on curve. Those cards move out of the per-card table for display only; the underlying health verdict and color findings stay the same.
 
 Companions are handled separately from the command zone cards. DeckFlow can auto-detect a companion from the **Moxfield direct API**. Archidekt does not expose a reliable Companion category, so Archidekt decks, pasted lists, and the Moxfield Commander Spellbook fallback path rely on the manual companion designator instead.
 
@@ -75,35 +75,35 @@ A standing **"analysis is in beta"** notice sits at the top of every manabase re
 
 Shocklands and other **"pay N life"** lands (Steam Vents, Godless Shrine, and pay-life MDFC backs like Agadeem, the Undercrypt) are counted as entering **untapped** — the way you actually play them — so they help your turn-one casts. Plain taplands, and board-conditional check / fast / slow lands with no pay-life option, are still treated as tapped.
 
-When the `analysis.manabase.tap-analyzer` feature flag is enabled, the report (and its paste artifact) add an **untapped-source** readout — a land that enters tapped can't help you cast on curve, so this measures how much of your mana is available right away:
+By default (the `analysis.manabase.tap-analyzer` flag, on), the report (and its paste artifact) add an **untapped-source** readout — a land that enters tapped can't help you cast on curve, so this measures how much of your mana is available right away:
 
 - **Untapped-source frequency** — the overall share of your mana sources that come in untapped.
 - **Turn-1 untapped availability** — the deck-level chance you have an untapped source to spend on turn one.
 - **Per-color untapped breakdown** (multi-color decks only) — the same untapped view split by color, so you can see which color is stuck behind tapped lands.
 
-This layer is **informational only**. It never changes the land count, color counts, castability table, or health verdict. The flag defaults off, so the report and the downloaded `.txt` stay unchanged until an admin enables it.
+This layer is **informational only**. It never changes the land count, color counts, castability table, or health verdict. The flag is on by default; an admin can hide the block from `/Admin/Flags`.
 
 ### Opening hand and plan presence
 
-When the `analysis.mulligan-eval` feature flag is enabled, the report (and its paste artifact) add an **opening-hand** block — a mulligan-focused read from the same Monte-Carlo sim:
+By default (the `analysis.manabase.mulligan-eval` flag, on), the report (and its paste artifact) add an **opening-hand** block — a mulligan-focused read from the same Monte-Carlo sim:
 
 - **Keepable hands** — the share of London-mulligan openers that keep, with a high/medium/low band. A keep is a *sweet-spot* land count, not just "any playable hand": **3 lands** is ideal, **2 lands** keeps only with a ramp piece, and a **4–5 land flood is mulliganed** (a high-mana-curve deck keeps its wider band, up to 5, since it genuinely wants more lands).
 - **Keep-size process** — how often the deck keeps at seven versus mulligans to six or five.
 - **Colors / curve** — the deck's color count and average mana value.
 - **Representative openers** — a few sample keepable hands, each with the earliest turn its best card comes online.
 
-When the `analysis.manabase.plan-presence` flag is **also** enabled, that block gains a **plan-presence** line. It leads with **payoff on curve** — the share of keepable openers holding a **payoff** you can cast on curve, with its own high/medium/low band — because the broader "any win-directed card" number saturates high on real decks and does not separate stronger builds from weaker ones. The line then shows that composite percentage and a per-role breakdown (payoff / engine / tutor-combo / interaction).
+With the `analysis.manabase.plan-presence` flag on (default; it needs the opening-hand block above, so it also requires `mulligan-eval`), that block gains a **plan-presence** line. It leads with **payoff on curve** — the share of keepable openers holding a **payoff** you can cast on curve, with its own high/medium/low band — because the broader "any win-directed card" number saturates high on real decks and does not separate stronger builds from weaker ones. The line then shows that composite percentage and a per-role breakdown (payoff / engine / tutor-combo / interaction).
 
 - A combo or control deck reading **low payoff** is a correct profile, not a fault — its closer is the combo (a tutor-combo card), which shows in the role breakdown.
 - **Payoffs & interaction need a permanent:** a **payoff** (a board threat) or **interaction** (removal / counters) counts toward a plan only when it is a **permanent** you can cast on curve — a one-shot burn/extra-turn finisher or a one-shot removal/counter leaves nothing on the board, so it earns no plan role. **Tutors and card draw still count even as instants/sorceries** — a sorcery tutor points at the permanent win, and card advantage furthers the plan. (A pure counterspell, being a non-permanent, no longer makes a hand "have a plan" on its own.)
 - The representative openers prefer, at each mulligan depth (7 / 6 / 5), a hand that holds such a castable permanent plan card and name it — so you can see what a hand *with a plan* looks like, down to a mulligan to five.
 - Roles come from your Category Knowledge Store, then Commander Spellbook combo pieces, then an oracle-text heuristic. It is a **consistency signal, never keep/mulligan advice**.
 
-Both flags default off, so the report and the downloaded `.txt` stay unchanged until an admin enables them.
+Both flags are on by default; an admin can hide either block from `/Admin/Flags`.
 
 ### Reading your deck
 
-When the admin enables the plain-language layer, the result can also show a short **Reading your deck** advisory:
+By default (the plain-language layer, on), the result also shows a short **Reading your deck** advisory:
 
 - **Metric glosses** — brief plain-English help under the Karsten source check and simulated cast-rate lenses, plus the demanding-cards note when that warning renders.
 - **Reading your deck** — a prioritized summary of the top fixes when there are issues, or a specific why-it-is-fine explanation when the mana base already clears the important checks.

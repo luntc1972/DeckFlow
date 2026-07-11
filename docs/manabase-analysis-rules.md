@@ -265,12 +265,12 @@ Keys read via `MAS.IsFlagOn` (fail-safe OFF). Seed defaults in `FeatureFlagStore
 | Flag | Default | Changes |
 |---|---|---|
 | `analysis.manabase.accuracy` | **ON** | Bundled sim-accuracy knobs: mana quantity, repeatable-ramp credit, color-aware mulligan, land-ramp sim, health-band headline floor, pay-life untapped, MDFC land backs as real lands. |
-| `analysis.manabase.health-band-castability` | **OFF** | Composite-weakest color's worst-spell cast % can tip Solid→Workable (`simWeakestProblem`). |
-| `analysis.manabase.plain-language-verdict` | **OFF** | Casual: plain-language verdict + ramp/draw budget advisory. |
-| `analysis.manabase.commander-castability` | **OFF** | Command-zone castability callout + companion modeling (+3 "to hand" tax). |
-| `analysis.manabase.tap-analyzer` | **OFF** | "Untapped Sources" block + tap card. |
-| `analysis.mulligan-eval` (note: not `.manabase.`) | **OFF** | Opening-hand / mulligan-evaluator block. |
-| `analysis.manabase.plan-presence` | **OFF** | "With a plan" opener stat. Gated **also** on `mulligan-eval`; its category + Spellbook I/O only fire when both are on (fail-open). |
+| `analysis.manabase.health-band-castability` | **ON** | Composite-weakest color's worst-spell cast % can tip Solid→Workable (`simWeakestProblem`). |
+| `analysis.manabase.plain-language-verdict` | **ON** | Casual: plain-language verdict + ramp/draw budget advisory. |
+| `analysis.manabase.commander-castability` | **ON** | Command-zone castability callout + companion modeling (+3 "to hand" tax). |
+| `analysis.manabase.tap-analyzer` | **ON** | "Untapped Sources" block + tap card. |
+| `analysis.manabase.mulligan-eval` | **ON** | Opening-hand / mulligan-evaluator block. Renamed from `analysis.mulligan-eval` (state carried by the store's idempotent rename migration). |
+| `analysis.manabase.plan-presence` | **ON** | "With a plan" opener stat. Gated **also** on `mulligan-eval`; its category + Spellbook I/O only fire when both are on (fail-open). |
 
 **Hardcoded, no flag**: `gateRampOnCastable = true` — P4 gated-ramp is always on (`MAS:301-305`); before crediting a ramp piece the sim verifies the ramp's own colored cost is payable.
 
@@ -293,9 +293,12 @@ source math, or the 60-card path.
 ## Notes & caveats
 
 - **Nearly nothing here is flag-free.** The prod-live accuracy bundle is
-  `analysis.manabase.accuracy` (ON) plus the always-on gated-ramp. The opening-hand, tap, plan-presence,
-  plain-language, commander-castability, and health-band-castability reads are
-  OFF by default and enabled per-environment.
+  `analysis.manabase.accuracy` (ON) plus the always-on gated-ramp. The opening-hand
+  (`mulligan-eval`), tap, plan-presence, plain-language, commander-castability, and
+  health-band-castability reads now also **default ON** — every manabase display/verdict
+  flag ships enabled; an admin can still hide any one from `/Admin/Flags`. Flipping the
+  seed default does not retroactively flip an existing DB's stored row (operator toggles
+  those), except `mulligan-eval`, whose prior state is carried across its rename.
 - **Flag-off = byte-identical** is a maintained invariant for the sim accuracy
   flags (MQ-02 / MQ-05 / gated-ramp) — see the guards cited in §4.
 - `analysis.manabase.accuracy` ships **ON** — seed and catalog both enable it.

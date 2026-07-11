@@ -96,7 +96,10 @@ test('command-zone castability callout renders above the table and excludes comm
   const avgFromRows = Math.round(
     rowPercents.reduce((sum, text) => sum + parsePercent(text), 0) / rowPercents.length,
   );
-  const visibleAvg = parsePercent(await result.locator('.manabase-lens-big').textContent());
+  // With the manabase display flags all default-on, several lens cards render a .manabase-lens-big
+  // figure (plain-language, untapped, sim cast rate). Scope to the simulated-cast-rate card so the
+  // avg-on-curve number is unambiguous.
+  const visibleAvg = parsePercent(await result.locator('.manabase-lens:has-text("avg on-curve") .manabase-lens-big').textContent());
   expect(visibleAvg).toBe(avgFromRows);
 
   const companionLine = callout.locator('.manabase-cmd-castability-line').filter({ hasText: 'Jegantha, the Wellspring' });

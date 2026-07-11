@@ -30,6 +30,10 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
         (Key("manabase", "health-band-castability"), "analysis.manabase.health-band-castability"),
         (Key("manabase", "plain-language-verdict"), "analysis.manabase.plain-language-verdict"),
         (Key("manabase", "commander-castability"), "analysis.manabase.commander-castability"),
+        // Late-namespacing: the Phase-81 opening-hand flag shipped un-namespaced as
+        // 'analysis.mulligan-eval' but is a manabase-only knob; move it under the
+        // analysis.manabase.* namespace, carrying any operator toggle state forward.
+        ("analysis.mulligan-eval", "analysis.manabase.mulligan-eval"),
     ];
 
     private readonly RelationalDatabaseConnection _connectionInfo;
@@ -212,17 +216,17 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('analysis.reference.full-oracle-text', TRUE),
           ('analysis.reference.deck-stats', FALSE),
           ('analysis.manabase.accuracy', TRUE),
-          ('analysis.manabase.health-band-castability', FALSE),
-          ('analysis.manabase.plain-language-verdict', FALSE),
-          ('analysis.manabase.commander-castability', FALSE),
-          ('analysis.manabase.tap-analyzer', FALSE),
+          ('analysis.manabase.health-band-castability', TRUE),
+          ('analysis.manabase.plain-language-verdict', TRUE),
+          ('analysis.manabase.commander-castability', TRUE),
+          ('analysis.manabase.tap-analyzer', TRUE),
           ('analysis.command-zone-awareness', FALSE),
           ('tool.bracket.enabled', FALSE),
           ('analysis.multi-axis-score', FALSE),
           ('analysis.interaction-audit', FALSE),
           ('analysis.wincon-map', FALSE),
-          ('analysis.mulligan-eval', FALSE),
-          ('analysis.manabase.plan-presence', FALSE),
+          ('analysis.manabase.mulligan-eval', TRUE),
+          ('analysis.manabase.plan-presence', TRUE),
           ('tool.primer.stale-flag', FALSE)
         ON CONFLICT (key) DO NOTHING;
         """;
@@ -248,17 +252,17 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('analysis.reference.full-oracle-text', 1),
           ('analysis.reference.deck-stats', 0),
           ('analysis.manabase.accuracy', 1),
-          ('analysis.manabase.health-band-castability', 0),
-          ('analysis.manabase.plain-language-verdict', 0),
-          ('analysis.manabase.commander-castability', 0),
-          ('analysis.manabase.tap-analyzer', 0),
+          ('analysis.manabase.health-band-castability', 1),
+          ('analysis.manabase.plain-language-verdict', 1),
+          ('analysis.manabase.commander-castability', 1),
+          ('analysis.manabase.tap-analyzer', 1),
           ('analysis.command-zone-awareness', 0),
           ('tool.bracket.enabled', 0),
           ('analysis.multi-axis-score', 0),
           ('analysis.interaction-audit', 0),
           ('analysis.wincon-map', 0),
-          ('analysis.mulligan-eval', 0),
-          ('analysis.manabase.plan-presence', 0),
+          ('analysis.manabase.mulligan-eval', 1),
+          ('analysis.manabase.plan-presence', 1),
           ('tool.primer.stale-flag', 0)
         ON CONFLICT (key) DO NOTHING;
         """;

@@ -81,7 +81,7 @@ public static class FeatureFlagCatalog
                 "Surface a 'deck changed since this primer was generated' stale banner on the Deck Primer " +
                 "page, shown only on resume-without-rebuild when the current deck differs from the generated " +
                 "primer's deck. Never auto-rebuilds or re-fetches. Off = byte-identical output and zips.",
-            ["analysis.mulligan-eval"] =
+            ["analysis.manabase.mulligan-eval"] =
                 "Show the opening-hand / mulligan evaluator block on the mana base page and its paste " +
                 "artifact - a keepable-hand band, London mulligan keep-depth process, and representative " +
                 "openers with a per-play on-curve and has-a-plan read, all a heuristic consistency signal " +
