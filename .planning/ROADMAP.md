@@ -139,7 +139,7 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
   2. The test asserts served body == published body and `body_sha256` matches at every hop in the chain.
   3. The test asserts a published/DirectPush'd row is not reverted after a reseed (no-revert-after-reseed).
 **Plans**: 3 plans
-  - [ ] 93-01-PLAN.md — Test-host wiring (DeckFlow.Studio ProjectReference) + round-trip harness scaffold (real PG schema pre-create, real git temp repo, deterministic seams) + boot smoke [PostgresFact]
+  - [x] 93-01-PLAN.md — Test-host wiring (DeckFlow.Studio ProjectReference) + round-trip harness scaffold (real PG schema pre-create, real git temp repo, deterministic seams) + boot smoke [PostgresFact]
   - [ ] 93-02-PLAN.md — SYNC-16 round-trip [PostgresFact]: full loop + hash-at-every-hop + no-revert-after-reseed + Pull field-authority + reconcile idempotent
   - [ ] 93-03-PLAN.md — Operator pre-flip checklist (D-08): FU-1/FU-2/FU-3 decisions + live flip steps for sync.directpush-gitbody + sync.reconcile
 
@@ -161,7 +161,7 @@ Phases execute in numeric order: 88 â 89 â 90 â 91 â 92 â
 | 90. DirectPush Correctness + Seed Sync | Cycle 16 | 7/7 | Complete   | 2026-07-08 |
 | 91. Reconcile + Seed Lifecycle | Cycle 16 | 9/9 | Complete | 2026-07-09 |
 | 92. Pull Hardening | Cycle 16 | 2/2 | Complete | 2026-07-10 |
-| 93. Round-Trip Integration Test | Cycle 16 | 0/TBD | Not started | - |
+| 93. Round-Trip Integration Test | Cycle 16 | 1/3 | In Progress|  |
 
 ---
 
