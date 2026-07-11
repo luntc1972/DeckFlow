@@ -53,6 +53,9 @@ public sealed class AdminFlagsController : Controller
     {
         var snapshot = _cache.Snapshot();
         var rows = snapshot
+            // Why: tool.* flags are administered on /Admin/Tools (public-tool visibility);
+            // exclude them here so the same flag isn't administrated in two places.
+            .Where(kv => !kv.Key.StartsWith("tool.", StringComparison.Ordinal))
             .OrderBy(kv => kv.Key, StringComparer.Ordinal)
             .Select(kv => new FlagRow(kv.Key, kv.Value, FeatureFlagCatalog.Describe(kv.Key)))
             .ToArray();
