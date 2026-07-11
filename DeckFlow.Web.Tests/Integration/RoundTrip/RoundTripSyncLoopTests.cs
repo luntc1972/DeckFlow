@@ -101,6 +101,7 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
         var publish = new PublishCoordinator(git, orchestrator, localStore, options, new PublishStateDeriver());
         var directPush = new DirectPushCoordinator(
             localStore, uploader, prodStoreFactory, config, options, git, orchestrator, prodReader, confirmer);
+        var pull = new PullFromProdCoordinator(localStore, git, prodReader, config, options, NullLogger<PullFromProdCoordinator>.Instance);
 
         _output.WriteLine("── Boot: real PG schema + real git tree bootstrapped; coordinators wired ──");
 
@@ -251,6 +252,68 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
         Assert.Equal(prodRowBAfterConfirm.BodySha256, prodRowBAfterSecondReseed.BodySha256);
 
         _output.WriteLine("── Reseed #2 (redeploy): neither row A nor row B was reverted -- no-revert-after-reseed proven ──");
+
+        // ════════════════════════════════════════════════════════════════════════════════════
+        // Pull field-authority: force a non-body diff on row A (bumped IndexedUtc; body unchanged)
+        // ════════════════════════════════════════════════════════════════════════════════════
+        var originalLocalRowA = await localStore.GetByNaturalKeyAsync(ContentSourceType.Youtube, videoIdA);
+        Assert.NotNull(originalLocalRowA);
+        var originalLocalIsVisibleA = originalLocalRowA!.IsVisible;
+
+        // Why: PullAndClassifyAsync returns ONLY entries that DIFFER (PullFromProdCoordinator.cs:123)
+        // -- a byte-identical row never surfaces. Bumping prod row A's IndexedUtc (a metadata column,
+        // NOT the body) forces a real ProdNewer diff entry while the git body hash stays unchanged,
+        // so the divergence stamp comes back Clean (body matches; only metadata differs).
+        var bumpedProdRowA = prodRowAAfterSecondReseed! with { IndexedUtc = prodRowAAfterSecondReseed.IndexedUtc.AddMinutes(5) };
+        await prodStore.UpsertContentColumnsOnlyAsync(bumpedProdRowA);
+
+        var pullResult = await pull.PullAndClassifyAsync(
+            stagingRoot: string.Empty,
+            log: new Progress<string>(msg => _output.WriteLine($"[pull] {msg}")),
+            onStage: stage => _output.WriteLine($"[pull-stage] {stage}"),
+            CancellationToken.None);
+
+        var pullEntryA = Assert.Single(pullResult.Entries, e => e.NaturalKeyValue == videoIdA);
+        Assert.Equal(BodyDivergenceStatus.Clean, pullEntryA.BodyDivergence);
+
+        var applyResults = await pull.ApplyAdoptionsAsync(
+            new[] { pullEntryA },
+            stagingRoot: string.Empty,
+            _pullApplyDataRoot,
+            progress: new Progress<IReadOnlyList<PullApplyRowResult>>(_ => { }),
+            acknowledgedDivergentKeys: new HashSet<string>(),
+            CancellationToken.None);
+        Assert.True(Assert.Single(applyResults).Success);
+
+        var localRowAAfterAdopt = await localStore.GetByNaturalKeyAsync(ContentSourceType.Youtube, videoIdA);
+        Assert.NotNull(localRowAAfterAdopt);
+        Assert.Equal(hashDistillA, localRowAAfterAdopt!.BodySha256); // body <- git (unchanged; hash still matches)
+        Assert.Equal(pullEntryA.ProdRow!.ApprovalStatus, localRowAAfterAdopt.ApprovalStatus); // approval <- prod
+        Assert.Equal(originalLocalIsVisibleA, localRowAAfterAdopt.IsVisible); // is_visible PRESERVED, never clobbered
+
+        _output.WriteLine("── Pull: Clean-divergence entry adopted -- body<-git, approval<-prod, is_visible preserved ──");
+
+        // ════════════════════════════════════════════════════════════════════════════════════
+        // Reconcile dry-run: zero unexpected discrepancies + idempotent re-run
+        // ════════════════════════════════════════════════════════════════════════════════════
+        var reconcileStore = new ContentKbReconcileStore(_reconcileDbPath);
+        var reconcileOrchestrator = new ContentKbReconcileOrchestrator(
+            prodReader, reconcileStore, git, config, NullLogger<ContentKbReconcileOrchestrator>.Instance);
+        var reconcile = new ReconcileCoordinator(
+            reconcileOrchestrator, reconcileStore, prodStoreFactory, prodReader, config, NullLogger<ReconcileCoordinator>.Instance);
+
+        var dryRun1 = await reconcile.RunDryRunAsync();
+        Assert.True(dryRun1.SeedAvailable);
+        Assert.Empty(dryRun1.Discrepancies); // coherent loop -- zero unexpected discrepancies
+
+        var dryRun2 = await reconcile.RunDryRunAsync();
+        Assert.True(dryRun2.SeedAvailable);
+        Assert.Empty(dryRun2.Discrepancies); // idempotent re-run -- zero duplicate discrepancies / ghost rows
+
+        var openAfterBothRuns = await reconcile.GetOpenDiscrepanciesAsync();
+        Assert.Empty(openAfterBothRuns); // no ghost rows persisted across the two runs
+
+        _output.WriteLine("── Reconcile: zero unexpected discrepancies on both dry-runs (idempotent, no ghost rows) ──");
     }
 
     /// <inheritdoc />
