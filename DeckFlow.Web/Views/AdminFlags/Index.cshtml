@@ -17,18 +17,17 @@
     else
     {
         <div class="flag-filter">
-            <label for="flag-filter-search">Filter by key prefix, e.g. tool.</label>
-            <input id="flag-filter-search" type="search" autocomplete="off" placeholder="Filter by key prefix, e.g. tool." aria-controls="flag-table" />
+            <label for="flag-filter-search">Filter by key prefix, e.g. analysis.</label>
+            <input id="flag-filter-search" type="search" autocomplete="off" placeholder="Filter by key prefix, e.g. analysis." aria-controls="flag-table" />
             <div class="flag-filter__chips" role="group" aria-label="Namespace filter">
                 <button type="button" class="flag-filter__chip is-active" data-flag-prefix="" aria-pressed="true">All</button>
-                <button type="button" class="flag-filter__chip" data-flag-prefix="tool." aria-pressed="false">tool</button>
                 <button type="button" class="flag-filter__chip" data-flag-prefix="service." aria-pressed="false">service</button>
                 <button type="button" class="flag-filter__chip" data-flag-prefix="analysis." aria-pressed="false">analysis</button>
             </div>
             <p class="flag-filter__count" id="flag-filter-count" role="status" aria-live="polite"></p>
         </div>
         <table id="flag-table" class="admin-table admin-table--card">
-            <caption class="sr-only">Tool flags and their current on/off status</caption>
+            <caption class="sr-only">Feature flags and their current on/off status</caption>
             <thead>
                 <tr>
                     <th scope="col">Key</th>
