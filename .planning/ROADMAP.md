@@ -35,7 +35,7 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
 - [x] **Phase 90: DirectPush Correctness + Seed Sync** - Bodies reach prod only via git; DirectPush re-exports the seed and survives a redeploy without reverting (flag `sync.directpush-gitbody`)
 - [x] **Phase 91: Reconcile + Seed Lifecycle** - Seed-ownership marker, then a prodâgitâseed reconciler (dry-run first), then gated seed-driven removal (flag `sync.reconcile`)
 - [x] **Phase 92: Pull Hardening** - Pull-from-Prod adopts prod state without clobbering operator fields or acting on a stale checkout
-- [ ] **Phase 93: Round-Trip Integration Test** - One end-to-end test locks the whole distillâpublishâprodâserveâreseedâpullâreconcile loop
+- [x] **Phase 93: Round-Trip Integration Test** - One end-to-end test locks the whole distillâpublishâprodâserveâreseedâpullâreconcile loop
 
 <details>
 <summary>â 2026.07.2 Cycle 15 (Phases 82â87) â SHIPPED 2026-07-05</summary>
