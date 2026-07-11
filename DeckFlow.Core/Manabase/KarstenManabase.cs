@@ -1,6 +1,16 @@
 namespace DeckFlow.Core.Manabase;
 
 /// <summary>
+/// Advisory cEDH land-baseline inputs resolved by the Web layer and threaded into Core without
+/// exposing commander-name matching here.
+/// </summary>
+public readonly record struct CedhLandContext(double? BaselineMean, int BaselineN, bool Enabled)
+{
+    /// <summary>Disabled/default context: preserves the historic cEDH flat-28 floor behavior.</summary>
+    public static readonly CedhLandContext Disabled = new(null, 0, false);
+}
+
+/// <summary>
 /// Frank Karsten's mana-base math: the land-count-vs-curve regression and the
 /// colored-source requirement for a given pip pattern, reproduced from
 /// "How Many Sources Do You Need to Consistently Cast Your Spells? A 2022 Update".
@@ -22,6 +32,9 @@ public static class KarstenManabase
     private const double LandIntercept = 19.59;
     private const double LandMvSlope = 1.90;
     private const double RampDrawCredit = 0.28;
+    private const double CedhSafetyFloor = 22.0;
+    private const double CedhTargetCeiling = 45.0;
+    private const double CedhBaselineBlendWeight = 0.5;
 
     /// <summary>
     /// Recommended land count for a singleton / Commander deck (Karsten's regression fit).
@@ -47,17 +60,38 @@ public static class KarstenManabase
     }
 
     /// <summary>
-    /// Competitive (cEDH) land target: the singleton regression minus a flat 3.5, clamped to a
-    /// 28 floor. The research band is 28–32; a flat offset is the simplest fit that lands there,
-    /// and the 28 floor matches the lowest real cEDH combo lists. Fast mana / rocks are already
-    /// credited inside <see cref="SingletonLandTarget"/>.
+    /// Competitive (cEDH) land target. With the default disabled context this preserves the historic
+    /// singleton-minus-3.5 path clamped to a 28 floor. With the Phase-A July 2026 cEDH baseline
+    /// enabled, the flat 28 floor is superseded by a curve-anchored target with a tunable safety
+    /// floor and an optional midpoint nudge toward the commander's real meta land mean when the
+    /// baseline sample is deep enough. Fast mana / rocks are already credited inside
+    /// <see cref="SingletonLandTarget"/>.
+    /// </summary>
+    internal static double CedhLandTarget(
+        int totalCards,
+        int commanderCount,
+        double averageManaValue,
+        double rampAndDrawUnderThree,
+        double fastMana = 0)
+        => CedhLandTarget(
+            totalCards,
+            commanderCount,
+            averageManaValue,
+            rampAndDrawUnderThree,
+            fastMana,
+            CedhLandContext.Disabled);
+
+    /// <summary>
+    /// Competitive (cEDH) land target with optional July 2026 baseline inputs. The safety floor and
+    /// baseline blend weight are explicit calibration knobs for post-ship tuning.
     /// </summary>
     public static double CedhLandTarget(
         int totalCards,
         int commanderCount,
         double averageManaValue,
         double rampAndDrawUnderThree,
-        double fastMana = 0)
+        double fastMana,
+        CedhLandContext context)
     {
         double singleton = SingletonLandTarget(
             totalCards,
@@ -65,7 +99,24 @@ public static class KarstenManabase
             averageManaValue,
             rampAndDrawUnderThree,
             fastMana);
-        return Math.Max(28.0, singleton - 3.5);
+
+        if (!context.Enabled)
+        {
+            return Math.Max(28.0, singleton - 3.5);
+        }
+
+        double curveTarget = singleton - 3.5;
+        double mean = context.BaselineMean.GetValueOrDefault();
+        bool useBaseline = context.BaselineN >= 10
+            && context.BaselineMean.HasValue
+            && double.IsFinite(mean)
+            && mean is >= 10.0 and <= 60.0;
+
+        double target = useBaseline
+            ? curveTarget - (CedhBaselineBlendWeight * (curveTarget - mean))
+            : curveTarget;
+
+        return Math.Clamp(target, CedhSafetyFloor, CedhTargetCeiling);
     }
 
     /// <summary>

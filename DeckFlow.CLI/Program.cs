@@ -58,6 +58,10 @@ var manabaseArchidektUrlOption = new Option<string?>("--archidekt-url") { Descri
 var manabaseMoxfieldUrlOption = new Option<string?>("--moxfield-url") { Description = "Public Moxfield deck URL." };
 var manabaseModeOption = new Option<string>("--mode", () => "casual") { Description = "Analysis profile: casual | cedh (cedh lowers the land target)." };
 var manabaseSwapPromptOption = new Option<bool>("--swap-prompt") { Description = "Also print a paste-ready LLM prompt asking for specific land swaps." };
+var cedhLandBaselineCommand = new Command("cedh-land-baseline", "Build the monthly cEDH land baseline from cached calibration data.");
+var cedhLandBaselineDataOption = new Option<string>("--data") { Description = "Directory containing decks_all.json and cards_full.json.", IsRequired = true };
+var cedhLandBaselineOutOption = new Option<string>("--out", () => Path.Combine("DeckFlow.Web", "Data", "cedh-land-baseline")) { Description = "Output directory for the monthly markdown/JSON artifacts." };
+var cedhLandBaselineMonthOption = new Option<string>("--month") { Description = "Month label in YYYY-MM format.", IsRequired = true };
 var scryfallProbeCommand = new Command("scryfall-probe", "Hit Scryfall once (or many times) and log the full response including headers.");
 var scryfallProbeEndpointOption = new Option<string>("--endpoint", () => "named") { Description = "named | search | random" };
 var scryfallProbeNameOption = new Option<string?>("--name") { Description = "Card name for named/search. Defaults to Sol Ring." };
@@ -132,6 +136,9 @@ manabaseCommand.AddOption(manabaseArchidektUrlOption);
 manabaseCommand.AddOption(manabaseMoxfieldUrlOption);
 manabaseCommand.AddOption(manabaseModeOption);
 manabaseCommand.AddOption(manabaseSwapPromptOption);
+cedhLandBaselineCommand.AddOption(cedhLandBaselineDataOption);
+cedhLandBaselineCommand.AddOption(cedhLandBaselineOutOption);
+cedhLandBaselineCommand.AddOption(cedhLandBaselineMonthOption);
 scryfallProbeCommand.AddOption(scryfallProbeEndpointOption);
 scryfallProbeCommand.AddOption(scryfallProbeNameOption);
 scryfallProbeCommand.AddOption(scryfallProbeRepeatOption);
@@ -210,6 +217,7 @@ rootCommand.AddCommand(archidektCacheCommand);
 rootCommand.AddCommand(categoryFindCommand);
 rootCommand.AddCommand(cardLookupCommand);
 rootCommand.AddCommand(manabaseCommand);
+rootCommand.AddCommand(cedhLandBaselineCommand);
 rootCommand.AddCommand(scryfallProbeCommand);
 rootCommand.AddCommand(contentSourceAddCommand);
 rootCommand.AddCommand(contentSourceSetEnabledCommand);
@@ -267,6 +275,11 @@ manabaseCommand.SetHandler((string? archidektUrl, string? moxfieldUrl, string mo
 {
     Environment.ExitCode = ManabaseCommandRunner.RunAsync(archidektUrl, moxfieldUrl, mode, swapPrompt).GetAwaiter().GetResult();
 }, manabaseArchidektUrlOption, manabaseMoxfieldUrlOption, manabaseModeOption, manabaseSwapPromptOption);
+
+cedhLandBaselineCommand.SetHandler((string dataDirectory, string outputDirectory, string month) =>
+{
+    Environment.ExitCode = CedhBaselineCommandRunner.RunAsync(dataDirectory, outputDirectory, month).GetAwaiter().GetResult();
+}, cedhLandBaselineDataOption, cedhLandBaselineOutOption, cedhLandBaselineMonthOption);
 
 scryfallProbeCommand.SetHandler((string endpoint, string? cardName, int repeat) =>
 {

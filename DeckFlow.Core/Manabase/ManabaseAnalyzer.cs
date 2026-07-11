@@ -131,6 +131,10 @@ public static class ManabaseAnalyzer
     /// <see cref="ManabaseReport.UseHealthBandHeadlineFloor"/>. When false (default), behavior is
     /// byte-identical.
     /// </param>
+    /// <param name="cedhContext">
+    /// Optional cEDH-only baseline context resolved by the Web layer. Default/disabled preserves the
+    /// historic flat-28 cEDH target path byte-for-byte.
+    /// </param>
     public static ManabaseReport Analyze(
         ManabaseDeck deck,
         ManabaseMode mode,
@@ -141,7 +145,8 @@ public static class ManabaseAnalyzer
         bool gateRampOnCastable = false,
         bool ritualBurst = false,
         bool useHealthBandCastability = false,
-        bool useHealthBandHeadlineFloor = false)
+        bool useHealthBandHeadlineFloor = false,
+        CedhLandContext cedhContext = default)
     {
         ArgumentNullException.ThrowIfNull(deck);
 
@@ -155,7 +160,7 @@ public static class ManabaseAnalyzer
         // partial sources (dorks, rocks, MDFC backs) count toward color supply only.
         int actualLands = deck.Sources.Count(s => s.IsLand);
 
-        double targetLands = ComputeTargetLands(deck, mode, out ManabaseLandTargetBreakdown landTarget);
+        double targetLands = ComputeTargetLands(deck, mode, cedhContext, out ManabaseLandTargetBreakdown landTarget);
 
         // Library size excludes commanders (they start in the command zone, not the deck).
         int librarySize = deck.TotalCards - deck.CommanderCount;
@@ -315,7 +320,11 @@ public static class ManabaseAnalyzer
     // FORMULA-01: returns the land target AND the additive term breakdown the "show the work" panel
     // renders. The returned target is byte-for-byte what KarstenManabase produces — the breakdown
     // only surfaces the inputs and the (already-applied) cEDH adjustment; it never recomputes.
-    private static double ComputeTargetLands(ManabaseDeck deck, ManabaseMode mode, out ManabaseLandTargetBreakdown breakdown)
+    private static double ComputeTargetLands(
+        ManabaseDeck deck,
+        ManabaseMode mode,
+        CedhLandContext cedhContext,
+        out ManabaseLandTargetBreakdown breakdown)
     {
         if (!deck.IsSingleton)
         {
@@ -343,7 +352,8 @@ public static class ManabaseAnalyzer
                 commanderCount,
                 deck.AverageManaValue,
                 deck.RampAndDrawUnderThree,
-                deck.FastMana)
+                deck.FastMana,
+                cedhContext)
             : singleton;
 
         breakdown = BuildBreakdown(deck, commanderCount, librarySize, baseTarget: singleton, finalTarget: finalTarget);

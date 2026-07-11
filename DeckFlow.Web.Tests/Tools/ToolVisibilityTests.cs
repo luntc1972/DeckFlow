@@ -30,9 +30,9 @@ public sealed class ToolVisibilityTests
 
         Assert.Collection(
             sections,
-            section => AssertSection(section, ToolNavSection.Analyze, "deck-analysis", "deck-comparison", "cedh-meta-gap", "manabase", "bracket"),
-            section => AssertSection(section, ToolNavSection.Build, "deck-sync", "convert", "deck-primer"),
-            section => AssertSection(section, ToolNavSection.Reference, "card-lookup", "mechanic-lookup", "judge-questions", "content-kb"),
+            section => AssertSection(section, ToolNavSection.Analyze, "deck-analysis", "manabase", "deck-comparison", "cedh-meta-gap", "bracket"),
+            section => AssertSection(section, ToolNavSection.Build, "deck-primer", "deck-sync", "convert"),
+            section => AssertSection(section, ToolNavSection.Reference, "content-kb", "card-lookup", "mechanic-lookup", "judge-questions"),
             section => AssertSection(section, ToolNavSection.Categories, "suggest-categories", "commander-categories"));
 
         Assert.Equal(14, sections.Sum(section => section.Tools.Count));
@@ -72,7 +72,7 @@ public sealed class ToolVisibilityTests
         var sections = ToolVisibility.VisibleBySection(registry.All, cache);
         var reference = sections.Single(section => section.Section == ToolNavSection.Reference);
 
-        Assert.Equal(new[] { "mechanic-lookup", "content-kb" }, reference.Tools.Select(tool => tool.Key).ToArray());
+        Assert.Equal(new[] { "content-kb", "mechanic-lookup" }, reference.Tools.Select(tool => tool.Key).ToArray());
     }
 
     private static void AssertSection(ToolSection section, ToolNavSection expectedSection, params string[] expectedKeys)
