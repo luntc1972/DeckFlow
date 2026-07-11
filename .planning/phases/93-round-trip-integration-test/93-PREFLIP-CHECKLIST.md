@@ -26,14 +26,15 @@
 
 ---
 
-## FU-2 — ON row can strand after a Stage-4 indeterminate flag read (MED, code DEFERRED)
+## FU-2 — ON row can strand after a Stage-4 indeterminate flag read (MED, code ✅FIXED 2026-07-11)
 
-**Mechanism:** If the Stage-4 flag read is indeterminate (prod flag DB briefly unreachable) while prod is genuinely **ON**, the fail-closed read pushes the git commit with `[skip render]` and triggers **no Render redeploy**. Stage 5 then polls `/app`, never finds the new body deployed, and leaves the row `awaiting-confirm`. The resume path (`GetAwaitingConfirmRowsAsync` + resume) only re-polls — it does **not** create a fresh non-`[skip render]` commit or trigger a redeploy, so resume alone cannot un-strand the row.
+**Mechanism:** If the Stage-4 flag read is indeterminate (prod flag DB briefly unreachable) while prod is genuinely **ON**, the fail-closed read pushes the git commit with `[skip render]` and triggers **no Render redeploy**. Stage 5 then polls `/app`, never finds the new body deployed, and leaves the row `awaiting-confirm`. The resume path (`GetAwaitingConfirmRowsAsync` + resume) only re-polled — it did **not** create a fresh non-`[skip render]` commit or trigger a redeploy, so resume alone could not un-strand the row.
 
-- [ ] **This is SAFE** — no false publish occurs; the row is operator-visible as `awaiting-confirm`, not silently wrong.
-- [ ] **This is RECOVERABLE** — a full re-push of the same content (Stage 4 flag read now succeeds → drops `[skip render]` → redeploys → Stage 5 confirms), or any later normal deploy that makes `/app` catch up, clears the strand.
-- [ ] **DECISION/ACTION (before or soon after flipping `sync.directpush-gitbody`):** consider whether to build a fix that lets the resume/awaiting-confirm action re-trigger the git redeploy stage (drop `[skip render]` on resume) so a stranded ON row is self-recoverable without a full re-push. This is a code change — deferred; file as a follow-up if you want it built.
-- [ ] Record the decision and date: ______________________
+- [x] **This is SAFE** — no false publish occurs; the row is operator-visible as `awaiting-confirm`, not silently wrong.
+- [x] **This is RECOVERABLE** — a full re-push of the same content, or any later normal deploy that makes `/app` catch up, clears the strand.
+- [x] **DECISION/ACTION: self-heal fix BUILT (commit `53cfb036`).** Resume now re-triggers the git redeploy without a full re-push: when the flag reads **definitively ON** and rows are still not-confirmed after a verify pass, `DirectPushCoordinator.TriggerRedeployAsync` forces a fresh Render redeploy via an empty durability commit (no `[skip render]`), pushed through the same Stage-4 safety gates. Tri-state: OFF unchanged; **indeterminate refuses to force a redeploy** (stays safely stranded, recoverable). Churn-guarded (AlreadyTriggered / BranchAheadNeedsPush). Resume UI shows a distinct message per outcome. Studio.Tests 410/0, Core git 5/0, build 0/0; plan Codex-reviewed, code Codex-authored + Claude-reviewed + /simplify.
+- [x] Record the decision and date: **Build self-heal fix — 2026-07-11 (`53cfb036`)**
+- [ ] **Still operator-owned:** the fix only self-heals when the flag reads ON. Exercise it live during the `sync.directpush-gitbody` flip walk (below) — confirm a stranded row's Resume triggers a redeploy commit and the row confirms after Render goes healthy.
 
 ---
 
