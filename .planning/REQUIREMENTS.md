@@ -11,9 +11,9 @@
 
 ### Integrity Hotfix (live prod bugs — ships first)
 
-- [ ] **SYNC-04**: DirectPush writes `approval_status='approved'` on its insert/update path (it only reads approved local rows) — a prod row can never be publicly visible while `pending` (C1)
-- [ ] **SYNC-05**: Sync diffing keyed by the `(natural_key_type, natural_key_value)` composite, replacing `PinId`, matching DirectPush — YouTube/podcast key collisions can't cross-match rows (C4-collision)
-- [ ] **SYNC-06**: DirectPush diff read runs no unexpected DDL against prod; the false "no DDL against prod" comment corrected and the path explicitly guarded (C4-comment)
+- [x] **SYNC-04**: DirectPush writes `approval_status='approved'` on its insert/update path (it only reads approved local rows) — a prod row can never be publicly visible while `pending` (C1)
+- [x] **SYNC-05**: Sync diffing keyed by the `(natural_key_type, natural_key_value)` composite, replacing `PinId`, matching DirectPush — YouTube/podcast key collisions can't cross-match rows (C4-collision)
+- [x] **SYNC-06**: DirectPush diff read runs no unexpected DDL against prod; the false "no DDL against prod" comment corrected and the path explicitly guarded (C4-comment)
 
 ### Content-Hash Foundation
 
@@ -73,9 +73,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SYNC-04 | 88 | Pending |
-| SYNC-05 | 88 | Pending |
-| SYNC-06 | 88 | Pending |
+| SYNC-04 | 88 | Complete |
+| SYNC-05 | 88 | Complete |
+| SYNC-06 | 88 | Complete |
 | SYNC-01 | 89 | Complete |
 | SYNC-02 | 89 | Complete |
 | SYNC-03 | 89 | Complete |
