@@ -93,6 +93,10 @@ public static class FeatureFlagCatalog
                 "Commander Spellbook + a heuristic; a consistency signal, not keep/mulligan advice. Turning it " +
                 "on adds a per-analysis category lookup and a Commander Spellbook fetch. Off = byte-identical " +
                 "output and no extra calls.",
+            ["analysis.manabase.ritual-burst-mana"] =
+                "Credit instant/sorcery rituals (Dark Ritual, Rite of Flame, Cabal Ritual) as one-shot " +
+                "burst mana in the manabase castability sim, cEDH mode only. Raises early-turn cast % " +
+                "for ritual-fueled lists; land count and color counts stay unchanged. Off = byte-identical output.",
         };
 
     /// <summary>

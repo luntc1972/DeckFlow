@@ -40,6 +40,7 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
     [InlineData("tool.primer.stale-flag", false)] // PRIMER: seeded OFF
     [InlineData("analysis.manabase.mulligan-eval", true)] // renamed + default ON
     [InlineData("analysis.manabase.plan-presence", true)] // default ON (gated also on mulligan-eval)
+    [InlineData("analysis.manabase.ritual-burst-mana", false)] // ritual-burst sim dark launch
     public async Task EnsureSchema_SeedsManabaseFlags_AtExpectedDefault(string key, bool expectedOn)
     {
         var store = new FeatureFlagStore(_dbPath);
@@ -65,6 +66,7 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
 
         var postgresSql = Assert.IsType<string>(field!.GetRawConstantValue());
         Assert.Contains("('analysis.manabase.mulligan-eval', TRUE)", postgresSql, StringComparison.Ordinal);
+        Assert.Contains("('analysis.manabase.ritual-burst-mana', FALSE)", postgresSql, StringComparison.Ordinal);
     }
 
     /// <summary>

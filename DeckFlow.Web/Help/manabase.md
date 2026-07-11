@@ -61,6 +61,8 @@ The result panel shows:
 
 The castability number comes from a Monte-Carlo simulation: it plays out thousands of games with a London mulligan — including **Commander's free first mulligan** (the first mulligan keeps seven; only later ones bottom a card) — **drawing every turn, including turn 1** (Commander is multiplayer, so the starting player draws their first turn; the skip-first-draw rule is two-player only). The simulation also models **how much** mana each source makes (Sol Ring and Ancient Tomb pay 2, Gilded Lotus pays 3 of one color) and is **color-aware when mulliganing** — it ships an opening hand that has enough lands but the wrong colors (a 2+ color deck wants at least two colors in its opening lands), the way a real player would. Repeatable **land-ramp** (Cultivate, Rampant Growth) is modeled too: the fetched land joins the simulation as persistent (colorless) mana one turn after the ramp spell resolves, so expensive payoffs in ramp decks are not under-rated. A card on its mana-value turn N has therefore seen its opening 7 plus one card per turn (7 + N). The sim still goes **first for board development** (one land drop per turn, no earlier plays), which is the conservative case for land sequencing, but it draws on turn 1 like every Commander player does. Read the number as a **ranking aid**, not a guarantee.
 
+A dark-launch beta flag, `analysis.manabase.ritual-burst-mana` (default OFF), can also let **cEDH** analyses credit one-shot rituals such as Dark Ritual as temporary burst mana in that castability sim. This changes only early-turn cast percentages; it does **not** change the land count recommendation or color-source counts, and Casual mode stays unchanged.
+
 ### Command zone callout and companion handling
 
 By default (the `analysis.manabase.commander-castability` flag, on — an admin can hide it), the report adds a **command zone** callout above the per-card Castability table. That callout lists each commander card that starts outside the 99, including partner pairs and Backgrounds, with its estimated chance to be cast on curve. Those cards move out of the per-card table for display only; the underlying health verdict and color findings stay the same.
@@ -99,7 +101,7 @@ With the `analysis.manabase.plan-presence` flag on (default; it needs the openin
 - The representative openers prefer, at each mulligan depth (7 / 6 / 5), a hand that holds such a castable permanent plan card and name it — so you can see what a hand *with a plan* looks like, down to a mulligan to five.
 - Roles come from your Category Knowledge Store, then Commander Spellbook combo pieces, then an oracle-text heuristic. It is a **consistency signal, never keep/mulligan advice**.
 
-Both flags are on by default; an admin can hide either block from `/Admin/Flags`.
+Both flags are on by default; an admin can hide either block from `/Admin/Flags`. The separate ritual-burst beta flag above is default OFF.
 
 ### Reading your deck
 
