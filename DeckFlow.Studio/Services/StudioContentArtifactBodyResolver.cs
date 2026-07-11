@@ -30,38 +30,12 @@ public sealed class StudioContentArtifactBodyResolver : IContentArtifactBodyReso
     /// <inheritdoc />
     public async Task<string?> TryReadArtifactTextAsync(string artifactPath, CancellationToken cancellationToken = default)
     {
-        // Reject rooted paths and paths that contain ".." traversal segments.
-        if (string.IsNullOrWhiteSpace(artifactPath) || Path.IsPathRooted(artifactPath))
-        {
-            return null;
-        }
-
-        var normalizedPath = artifactPath.Replace('\\', '/');
-        var segments = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (segments.Any(segment => segment == ".."))
-        {
-            return null;
-        }
-
-        // Require the content-kb/ subtree prefix, mirroring the web resolver's guard, so a
-        // corrupted or malicious index row can only ever read from the content-kb artifact tree
-        // under the data root — never a sibling directory like {dataRoot}/secrets.md.
-        if (!normalizedPath.StartsWith("content-kb/", StringComparison.Ordinal))
-        {
-            return null;
-        }
-
         // Resolve against the DATA ROOT = parent of ArtifactRoot.
         // ArtifactRoot = {studioDataDir}/content-kb; dataRoot = {studioDataDir}.
         // The stored path already begins with "content-kb/", so combining with the data root
         // yields {studioDataDir}/content-kb/{sourceSlug}/{id}.md — correct.
         var dataRoot = Directory.GetParent(_options.ArtifactRoot)?.FullName ?? _options.ArtifactRoot;
-        var artifactAbs = Path.GetFullPath(Path.Combine(dataRoot, artifactPath));
-
-        // CONTAINMENT GUARD: the normalized absolute path must start with the canonical
-        // data root followed by the directory separator to prevent escape to parent directories.
-        var canonicalDataRoot = Path.GetFullPath(dataRoot);
-        if (!artifactAbs.StartsWith(canonicalDataRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+        if (!ArtifactPathSafety.TryBuildContainedPath(dataRoot, artifactPath, out var artifactAbs))
         {
             return null;
         }
