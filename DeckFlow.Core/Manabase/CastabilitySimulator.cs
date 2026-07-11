@@ -46,6 +46,7 @@ public static class CastabilitySimulator
         UntappedLand,
         TappedLand,
         Ramp,
+        OneShotMana,
         Filler,
     }
 
@@ -62,7 +63,9 @@ public static class CastabilitySimulator
             PlanRole planRoles = PlanRole.None,
             int planManaValue = 0,
             (int Bit, int Count)[]? planPips = null,
-            string? planName = null)
+            string? planName = null,
+            (int Bit, int Count)[]? oneShotOwnPips = null,
+            int oneShotOwnCost = 0)
         {
             Kind = kind;
             ColorMask = colorMask;
@@ -75,6 +78,8 @@ public static class CastabilitySimulator
             PlanManaValue = planManaValue;
             PlanPips = planPips;
             PlanName = planName;
+            OneShotOwnPips = oneShotOwnPips;
+            OneShotOwnCost = oneShotOwnCost;
         }
 
         /// <summary>
@@ -96,6 +101,10 @@ public static class CastabilitySimulator
         public bool IsPlanCard => PlanRoles != PlanRole.None;
 
         public CardKind Kind { get; }
+
+        public (int Bit, int Count)[]? OneShotOwnPips { get; }
+
+        public int OneShotOwnCost { get; }
 
         /// <summary>
         /// P4 gated-ramp: the ramp spell's OWN colored pip requirement (the pips needed to CAST it),
@@ -186,6 +195,13 @@ public static class CastabilitySimulator
     /// is credited only once the ramp itself was castable), so an un-castable ramp never inflates the
     /// spell's mana.
     /// </param>
+    /// <param name="ritualBurst">
+    /// Ritual burst flag (snapshotted once by the caller). When false (default) one-shot mana cards are
+    /// excluded from the simulated library and no burst logic runs — byte-identical to the pre-feature
+    /// behavior. When true, instant/sorcery rituals already classified into <see cref="ManabaseDeck.OneShots"/>
+    /// may add their NET mana to the tracked spell's cast-attempt turn, gated by the board's ability to
+    /// pay each ritual's OWN cost from the pre-burst pool.
+    /// </param>
     public static CardCastability Simulate(
         ManabaseDeck deck,
         int librarySize,
@@ -195,14 +211,15 @@ public static class CastabilitySimulator
         int trials = DefaultTrials,
         bool useManaQuantity = false,
         bool colorAwareMulligan = false,
-        bool gateRampOnCastable = false)
+        bool gateRampOnCastable = false,
+        bool ritualBurst = false)
     {
         ArgumentNullException.ThrowIfNull(deck);
         ArgumentNullException.ThrowIfNull(spell);
 
         // 70-03b: exclude one same-name land-ramp source when scoring this spell's own row (a card
         // cannot ramp itself out). No-op unless this spell is a modeled land-ramp source.
-        IReadOnlyList<LibraryCard> library = BuildLibrary(deck, librarySize, useManaQuantity, gateRampOnCastable, excludeSourceName: spell.Name);
+        IReadOnlyList<LibraryCard> library = BuildLibrary(deck, librarySize, useManaQuantity, gateRampOnCastable, ritualBurst, excludeSourceName: spell.Name);
 
         // MQ-05: distinct colors the deck actually demands across all spell pips (capped at 5). Only
         // computed when the flag is on; <=1 makes the color gate a no-op (mono decks stay identical).
@@ -325,7 +342,7 @@ public static class CastabilitySimulator
 
             bool success = SimulateGame(
                 library, shuffled, active, handCount, turn, effectiveCost, pipReq, availableColors, onlineLandMasks,
-                gateRampOnCastable, out bool manaShort, out bool colorShort, out int firstCastableTurn,
+                gateRampOnCastable, ritualBurst, out bool manaShort, out bool colorShort, out int firstCastableTurn,
                 out bool hadUntappedT1);
 
             // MULLIGAN STAGE 2 (pure observation, no rng draw): build the sample now that
@@ -411,12 +428,13 @@ public static class CastabilitySimulator
         int trials = DefaultTrials,
         bool useManaQuantity = false,
         bool colorAwareMulligan = false,
-        bool gateRampOnCastable = false)
+        bool gateRampOnCastable = false,
+        bool ritualBurst = false)
     {
         ArgumentNullException.ThrowIfNull(deck);
 
         IReadOnlyList<LibraryCard> library =
-            BuildLibrary(deck, librarySize, useManaQuantity, gateRampOnCastable, excludeSourceName: null);
+            BuildLibrary(deck, librarySize, useManaQuantity, gateRampOnCastable, ritualBurst, excludeSourceName: null);
 
         var planIndices = new List<int>();
         int maxPlanTurn = 1;
@@ -548,7 +566,7 @@ public static class CastabilitySimulator
                 (int Bit, int Count)[] pips = library[planIdx].PlanPips ?? Array.Empty<(int, int)>();
                 bool castable = SimulateGame(
                     library, shuffled, active, handCount, planTurn, planTurn, pips,
-                    availableColors, onlineLandMasks, gateRampOnCastable,
+                    availableColors, onlineLandMasks, gateRampOnCastable, ritualBurst,
                     out _, out _, out int firstCastableTurn, out _);
 
                 if (castable && firstCastableTurn <= planTurn)
@@ -719,7 +737,7 @@ public static class CastabilitySimulator
         _ => "low",
     };
 
-    private static IReadOnlyList<LibraryCard> BuildLibrary(ManabaseDeck deck, int librarySize, bool useManaQuantity, bool gateRampOnCastable, string? excludeSourceName)
+    private static IReadOnlyList<LibraryCard> BuildLibrary(ManabaseDeck deck, int librarySize, bool useManaQuantity, bool gateRampOnCastable, bool ritualBurst, string? excludeSourceName)
     {
         var cards = new List<LibraryCard>(librarySize);
 
@@ -780,6 +798,26 @@ public static class CastabilitySimulator
                 planName: spell.Name));
         }
 
+        if (ritualBurst)
+        {
+            foreach (OneShotMana oneShot in deck.OneShots)
+            {
+                if (cards.Count >= librarySize)
+                {
+                    break;
+                }
+
+                cards.Add(new LibraryCard(
+                    CardKind.OneShotMana,
+                    ColorsToMask(oneShot.ProducedColors),
+                    deployCost: 0,
+                    isLand: false,
+                    manaAmount: oneShot.NetMana,
+                    oneShotOwnPips: PipArray(oneShot.OwnPips),
+                    oneShotOwnCost: oneShot.OwnManaValue));
+            }
+        }
+
         // Pad/truncate to the real library size with anonymous filler so draw probabilities match the deck.
         for (int i = cards.Count; i < librarySize; i++)
         {
@@ -796,8 +834,11 @@ public static class CastabilitySimulator
 
     // P4 gated-ramp: extract a spell's colored pip requirement as (bit, count) pairs (colorless pips
     // excluded — only colored access gates a cast). Empty array means "colorless to cast".
-    private static (int Bit, int Count)[] PipArray(SpellRequirement spell) =>
-        spell.Pips
+    private static (int Bit, int Count)[] PipArray(SpellRequirement spell) => PipArray(spell.Pips);
+
+    // Same conversion for any pip dictionary (a spell's pips, or a ritual's OWN cost pips).
+    private static (int Bit, int Count)[] PipArray(IReadOnlyDictionary<ManaColor, int> pips) =>
+        pips
             .Where(p => p.Key != ManaColor.Colorless && p.Value > 0)
             .Select(p => (Bit: ColorBit(p.Key), Count: p.Value))
             .ToArray();
@@ -942,6 +983,7 @@ public static class CastabilitySimulator
         List<(int Mask, int Amount)> availableColors,
         List<int> onlineLandMasks,
         bool gateRampOnCastable,
+        bool ritualBurst,
         out bool manaShort,
         out bool colorShort,
         out int firstCastableTurn,
@@ -1107,6 +1149,17 @@ public static class CastabilitySimulator
             if (gateRampOnCastable && rampSpentThisTurn > 0)
             {
                 ReserveGenericForRamp(availableColors, rampSpentThisTurn);
+            }
+
+            // Ritual burst (one-shot mana): on the cast-attempt turn, a ritual in hand fires IF the board
+            // (post-ramp-reserve) can pay its OWN cost, adding its NET mana/colors to THIS turn's pool for THIS
+            // attempt only (availableColors is rebuilt each turn, so nothing persists — a ritual is never a
+            // standing source, never added to rampOnBoard). Chain guard: own costs are gated against a DEPLETING
+            // snapshot of the base pool, so a ritual's own output can never pay for another ritual, and two
+            // rituals cannot both spend the same single source. Flag-off skips this entirely (byte-identical).
+            if (ritualBurst)
+            {
+                ApplyRitualBurst(library, hand, availableColors);
             }
 
             if (TotalMana(availableColors) < effectiveCost)
@@ -1445,6 +1498,103 @@ public static class CastabilitySimulator
         }
 
         return mana;
+    }
+
+    // Fires every castable ritual in hand for THIS cast attempt: appends each fired ritual's NET produced
+    // mana to availableColors. Own-cost payability is tested against a depleting COPY of the base pool
+    // (snapshot taken before any burst is appended), so no ritual's output ever pays another ritual and
+    // two rituals cannot reuse the same base source.
+    private static void ApplyRitualBurst(
+        IReadOnlyList<LibraryCard> library,
+        List<int> hand,
+        List<(int Mask, int Amount)> availableColors)
+    {
+        List<(int Mask, int Amount)>? gate = null;
+        List<(int Mask, int Amount)>? bursts = null;
+        for (int h = 0; h < hand.Count; h++)
+        {
+            LibraryCard card = library[hand[h]];
+            if (card.Kind != CardKind.OneShotMana)
+            {
+                continue;
+            }
+
+            gate ??= new List<(int Mask, int Amount)>(availableColors);
+            if (TryConsumeOwnCost(gate, card.OneShotOwnPips ?? Array.Empty<(int, int)>(), card.OneShotOwnCost))
+            {
+                (bursts ??= new List<(int Mask, int Amount)>()).Add((card.ColorMask, card.ManaAmount));
+            }
+        }
+
+        if (bursts is not null)
+        {
+            availableColors.AddRange(bursts);
+        }
+    }
+
+    // Tests whether the pool can pay a ritual's own cost (colored pips + generic remainder); if so, DEPLETES
+    // exactly ownManaValue units from the pool (mutating it) so a later ritual cannot reuse that capacity.
+    // Payability is confirmed with the exact solver first, so a false never half-drains the pool. Depletion
+    // removes a full ownManaValue units (colored pips prefer a matching source, else any source; generic
+    // remainder from any source), so it never UNDER-depletes — erring only toward fewer later firings, which
+    // is conservative (never an over-credit). Returns false (pool untouched) when not payable.
+    private static bool TryConsumeOwnCost(
+        List<(int Mask, int Amount)> pool,
+        (int Bit, int Count)[] ownPips,
+        int ownManaValue)
+    {
+        if (!ColorsCoverable(pool, ownPips, ownManaValue))
+        {
+            return false;
+        }
+
+        int pipTotal = 0;
+        foreach ((int Bit, int Count) pip in ownPips)
+        {
+            for (int c = 0; c < pip.Count; c++)
+            {
+                RemoveOneUnit(pool, pip.Bit);
+            }
+
+            pipTotal += pip.Count;
+        }
+
+        for (int g = 0; g < Math.Max(0, ownManaValue - pipTotal); g++)
+        {
+            RemoveOneUnit(pool, 0);
+        }
+
+        return true;
+    }
+
+    // Removes one unit of capacity from the pool: prefers a source whose mask matches colorBit (0 = any),
+    // falling back to any source with remaining capacity so a full unit is always removed when possible.
+    private static void RemoveOneUnit(List<(int Mask, int Amount)> pool, int colorBit)
+    {
+        int fallback = -1;
+        for (int s = 0; s < pool.Count; s++)
+        {
+            if (pool[s].Amount <= 0)
+            {
+                continue;
+            }
+
+            if (colorBit == 0 || (pool[s].Mask & colorBit) != 0)
+            {
+                pool[s] = (pool[s].Mask, pool[s].Amount - 1);
+                return;
+            }
+
+            if (fallback < 0)
+            {
+                fallback = s;
+            }
+        }
+
+        if (fallback >= 0)
+        {
+            pool[fallback] = (pool[fallback].Mask, pool[fallback].Amount - 1);
+        }
     }
 
     // Capacity-aware color assignment (MQ-02): can the online sources cover every colored pip, where a
