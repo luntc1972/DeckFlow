@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
 - [x] **Phase 89: Content-Hash Foundation** - One unified body-inclusive hash everywhere; corrupt/stale bodies become detectable instead of silently served
 - [x] **Phase 90: DirectPush Correctness + Seed Sync** - Bodies reach prod only via git; DirectPush re-exports the seed and survives a redeploy without reverting (flag `sync.directpush-gitbody`)
 - [x] **Phase 91: Reconcile + Seed Lifecycle** - Seed-ownership marker, then a prod↔git↔seed reconciler (dry-run first), then gated seed-driven removal (flag `sync.reconcile`)
-- [ ] **Phase 92: Pull Hardening** - Pull-from-Prod adopts prod state without clobbering operator fields or acting on a stale checkout
+- [x] **Phase 92: Pull Hardening** - Pull-from-Prod adopts prod state without clobbering operator fields or acting on a stale checkout
 - [ ] **Phase 93: Round-Trip Integration Test** - One end-to-end test locks the whole distill→publish→prod→serve→reseed→pull→reconcile loop
 
 <details>
@@ -127,8 +127,8 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
   2. Pull warns or refuses to proceed when the local checkout is behind (a `git pull` staleness guard), rather than silently reading a stale git tree.
   3. Any body-vs-index divergence discovered during Pull is surfaced to the operator for a decision — it is never silently adopted.
 **Plans**: 2 plans (2 waves)
-- [ ] 92-01-PLAN.md — Core foundations: git behind-detection seam (Fetch/GetBehindCount) + BodyDivergenceStatus model (SYNC-14, SYNC-15) [wave 1]
-- [ ] 92-02-PLAN.md — Coordinator + page hardening (merged): staleness warn-then-proceed + freshness banner + divergence stamping/badge + per-entry opt-in + field-authority regression lock (SYNC-13, SYNC-14, SYNC-15) [wave 2]
+- [x] 92-01-PLAN.md — Core foundations: git behind-detection seam (Fetch/GetBehindCount) + BodyDivergenceStatus model (SYNC-14, SYNC-15) [wave 1]
+- [x] 92-02-PLAN.md — Coordinator + page hardening (merged): staleness warn-then-proceed + freshness banner + divergence stamping/badge + per-entry opt-in + field-authority regression lock (SYNC-13, SYNC-14, SYNC-15) [wave 2]
 
 ### Phase 93: Round-Trip Integration Test
 **Goal**: The entire sync loop — distill through reconcile — is locked by one automated end-to-end test so future changes can't silently reintroduce any of the fixed classes of drift.
@@ -156,8 +156,8 @@ Phases execute in numeric order: 88 → 89 → 90 → 91 → 92 → 93
 | 88. Index-Row Integrity Hotfix | Cycle 16 | 3/3 | Complete | 2026-07-06 |
 | 89. Content-Hash Foundation | Cycle 16 | 6/6 | Complete   | 2026-07-07 |
 | 90. DirectPush Correctness + Seed Sync | Cycle 16 | 7/7 | Complete   | 2026-07-08 |
-| 91. Reconcile + Seed Lifecycle | Cycle 16 | 8/9 | In Progress|  |
-| 92. Pull Hardening | Cycle 16 | 0/3 | Not started | - |
+| 91. Reconcile + Seed Lifecycle | Cycle 16 | 9/9 | Complete | 2026-07-09 |
+| 92. Pull Hardening | Cycle 16 | 2/2 | Complete | 2026-07-10 |
 | 93. Round-Trip Integration Test | Cycle 16 | 0/TBD | Not started | - |
 
 ---

@@ -36,9 +36,9 @@
 
 ### Pull Hardening
 
-- [ ] **SYNC-13**: Pull-from-Prod per-field master — body+content ← git tree; DB-only operator fields (`is_visible`/`is_hidden`/`approval_status`) ← prod, preserved not clobbered (M7)
-- [ ] **SYNC-14**: Pull warns/refuses when the local checkout is behind (`git pull` first staleness guard); never SFTP-downloads prod bodies (Codex rebuild rejected — prod `/data` empty by design, `0dd49f19`)
-- [ ] **SYNC-15**: Body-vs-index divergence surfaced to the operator instead of silently adopted
+- [x] **SYNC-13**: Pull-from-Prod per-field master — body+content ← git tree; DB-only operator fields (`is_visible`/`is_hidden`/`approval_status`) ← prod, preserved not clobbered (M7)
+- [x] **SYNC-14**: Pull warns/refuses when the local checkout is behind (`git pull` first staleness guard); never SFTP-downloads prod bodies (Codex rebuild rejected — prod `/data` empty by design, `0dd49f19`)
+- [x] **SYNC-15**: Body-vs-index divergence surfaced to the operator instead of silently adopted
 
 ### Round-Trip Proof
 
@@ -86,9 +86,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SYNC-17 | 91 | Complete |
 | SYNC-11 | 91 | Complete |
 | SYNC-12 | 91 | Complete |
-| SYNC-13 | 92 | Pending |
-| SYNC-14 | 92 | Pending |
-| SYNC-15 | 92 | Pending |
+| SYNC-13 | 92 | Complete |
+| SYNC-14 | 92 | Complete |
+| SYNC-15 | 92 | Complete |
 | SYNC-16 | 93 | Pending |
 
 **Coverage:**
