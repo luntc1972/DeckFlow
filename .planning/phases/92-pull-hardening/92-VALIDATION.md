@@ -42,7 +42,7 @@ created: 2026-07-10
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
 | 92-01-* | 01 | 1 | SYNC-14 | — | `git fetch` failure (offline) warns, never blocks Pull; behind-count>0 warns; never SFTP/prod | unit | `dotnet.exe test DeckFlow.Core.Tests` | ✅ | ⬜ pending |
 | 92-02-* | 02 | 2 | SYNC-15 | — | body-hash != prod body_sha256 ⇒ divergence stamped, EXCLUDED from default adopt; null body_sha256 ⇒ indeterminate ⇒ surfaced not skipped | unit | `dotnet.exe test DeckFlow.Studio.Tests` | ✅ | ⬜ pending |
-| 92-03-* | 03 | 2 | SYNC-13 | — | adopt = body←git, index cols←prod, approval←prod-mirror, is_visible/is_hidden preserved-local; divergent-not-acked entry never adopted | unit | `dotnet.exe test DeckFlow.Studio.Tests` | ✅ | ⬜ pending |
+| 92-02-* | 02 | 2 | SYNC-13 | — | adopt = body←git, index cols←prod, approval←prod-mirror, is_visible/is_hidden preserved-local; divergent-not-acked entry never adopted | unit | `dotnet.exe test DeckFlow.Studio.Tests` | ✅ | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky. Task IDs finalized by the planner; wave/plan split is indicative.*
 
