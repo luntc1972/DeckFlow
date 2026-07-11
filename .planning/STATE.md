@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
 milestone: Cycle 16
-milestone_name: Content-KB Prod↔Git↔Studio Sync Hardening
+milestone_name: â Content-KB ProdâGitâStudio Sync Hardening
 status: executing
-stopped_at: Phase 92 executed + verified (PASS 3/3)
-last_updated: "2026-07-11T02:24:07.443Z"
-last_activity: 2026-07-10 -- Phase 92 executed (Codex-coded, Claude-reviewed, /simplify applied), verifier PASS 3/3
+stopped_at: Completed 93-01-PLAN.md
+last_updated: "2026-07-11T05:17:29.537Z"
+last_activity: 2026-07-11
 progress:
   total_phases: 6
-  completed_phases: 5
-  total_plans: 27
-  completed_plans: 27
-  percent: 83
+  completed_phases: 4
+  total_plans: 30
+  completed_plans: 26
+  percent: 67
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-06)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything. This cycle protects the Content-KB half of that promise.
-**Current focus:** Phase 93 — Round-Trip Integration Test (next; last phase)
+**Current focus:** Phase 93 — round-trip-integration-test
 
 ## Current Position
 
-Phase: 92 (pull-hardening) — ✅ COMPLETE (2 plans; gsd-verifier PASS 3/3 SC; Codex-coded + Claude-reviewed + /simplify)
-Plan: 2 of 2 done
-Status: Ready to plan Phase 93 (last phase)
-Last activity: 2026-07-10 -- Phase 92 executed + verified
+Phase: 93 (round-trip-integration-test) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-07-11
 
-Progress: [██████████] 100% of Phase 92
+Progress: [█████████░] 87%
 
 ## Roadmap Summary
 
@@ -82,6 +82,7 @@ Progress: [██████████] 100% of Phase 92
 | Phase 91 P06 | ~50min | 2 tasks | 4 files |
 | Phase 91 P07 | 45min | 2 tasks | 10 files |
 | Phase 91 P08 | ~35min | 3 tasks | 10 files |
+| Phase 93 P01 | ~25min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -138,6 +139,9 @@ Full decision log lives in PROJECT.md Key Decisions table. Decisions constrainin
 - [Phase 91]: 91-08: ReconcileCoordinator gained IProdStoreFactory/IProdContentReader/IConfiguration ctor deps for ApplyRemovalsAsync's flag read + prod write - DI needed no registration change (all 3 already-registered singletons)
 - [Phase 91]: 91-08: ApplyRemovalsAsync re-reads prod fresh to re-check seed_managed=true per matched key rather than trusting discrepancy Kind==SeedDrift alone - defense-in-depth beyond the classifier's own gate (T-91-20)
 - [Phase 91]: 91-08: stale-check + reviewed set scoped to ContentKbReconcileKind.SeedDrift only so a mixed-class dry-run never false-rejects the removal Apply as stale
+- [Phase 93]: 93-01: DeployToAppAsync is a plain recursive filesystem copy of content-kb/**, not a second git invocation - keeps the test-only git bootstrap helper the sole hand-rolled ProcessStartInfo carve-out
+- [Phase 93]: 93-01: AppTreeDeployedBodyConfirmer mirrors ArtifactPathSafety inline rather than adding InternalsVisibleTo to DeckFlow.Studio - preserves zero-production-code-change this phase
+- [Phase 93]: 93-01: Smoke test wires the real ContentKbOrchestrator via the existing public ContentKbOrchestratorFactory.Create rather than 14 raw ctor args - matches the CLI's own construction path
 
 ### Pending Todos
 
@@ -166,6 +170,6 @@ Carried forward from Cycle 15 close (2026-07-05) — none are Cycle-16 gaps:
 
 ## Session Continuity
 
-Last session: 2026-07-11T01:37:35.226Z
-Stopped at: Phase 92 context gathered
-Resume file: .planning/phases/92-pull-hardening/92-CONTEXT.md
+Last session: 2026-07-11T05:17:29.508Z
+Stopped at: Completed 93-01-PLAN.md
+Resume file: None
