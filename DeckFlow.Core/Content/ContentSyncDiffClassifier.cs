@@ -23,8 +23,8 @@ public static class ContentSyncDiffClassifier
     /// </param>
     /// <returns>
     /// One <see cref="SyncDiffEntry"/> per natural key that differs between the two sides. Keys whose
-    /// production and local rows are identical (equal index timestamp and identical content
-    /// fingerprint) are omitted.
+    /// production and local rows are identical (equal index timestamp and identical
+    /// <see cref="ContentSiteIndexContentSignature"/>) are omitted.
     /// </returns>
     public static IReadOnlyList<SyncDiffEntry> Classify(
         IReadOnlyList<ContentSiteIndexRow> prodRows,
@@ -60,13 +60,15 @@ public static class ContentSyncDiffClassifier
             {
                 entries.Add(BuildEntry(SyncDiffKind.Diverged, prod, local, localIsNewer: true));
             }
-            else if (!string.Equals(Fingerprint(prod), Fingerprint(local), StringComparison.Ordinal))
+            else if (!ContentSiteIndexContentSignature.AreContentEqual(prod, local))
             {
                 // Equal timestamps but different content — diverged without a clear direction.
+                // Uses the one unified, body-hash-inclusive signature (SYNC-02/D-03) — the exact
+                // comparator DirectPushCoordinator.ClassifyDiff already calls.
                 entries.Add(BuildEntry(SyncDiffKind.Diverged, prod, local, localIsNewer: false));
             }
 
-            // Equal timestamps AND identical fingerprint => in sync => emit nothing (R3).
+            // Equal timestamps AND identical content signature => in sync => emit nothing (R3).
         }
 
         foreach (var (key, local) in localByKey)
@@ -129,16 +131,8 @@ public static class ContentSyncDiffClassifier
             LocalRow = localRow,
             ArtifactPath = prodRow?.ArtifactPath ?? localRow!.ArtifactPath,
             LocalIsNewer = localIsNewer,
-            ArtifactDownloaded = false
+            ArtifactDownloaded = false,
+            BodyDivergence = BodyDivergenceStatus.NotApplicable
         };
     }
-
-    private static string Fingerprint(ContentSiteIndexRow row) =>
-        string.Join(
-            '',
-            row.Title,
-            row.ArtifactPath,
-            string.Join(',', row.ArchetypeTags),
-            string.Join(',', row.BracketTags),
-            string.Join(',', row.CardCategoryTags));
 }

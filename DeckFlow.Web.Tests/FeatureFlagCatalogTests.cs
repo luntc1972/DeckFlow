@@ -43,6 +43,8 @@ public sealed class FeatureFlagCatalogTests
     [InlineData("analysis.manabase.plan-presence")]
     [InlineData("analysis.manabase.ritual-burst-mana")]
     [InlineData("analysis.manabase.cedh-land-target")]
+    [InlineData("sync.directpush-gitbody")]
+    [InlineData("sync.reconcile")]
     public void Describe_EverySeededFlag_HasNonEmptyDescription(string key)
     {
         string description = FeatureFlagCatalog.Describe(key);

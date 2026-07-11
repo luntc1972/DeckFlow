@@ -200,6 +200,25 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
         CancellationToken cancellationToken = default)
         => Task.FromResult(0);
 
+    /// <summary>Rows passed to <see cref="SetBodySha256IfNullAsync"/> that actually set a null hash.</summary>
+    public List<long> BodySha256BackfilledIds { get; } = new();
+
+    public Task<int> SetBodySha256IfNullAsync(long id, string bodySha256, CancellationToken cancellationToken = default)
+    {
+        var count = 0;
+        for (var i = 0; i < Rows.Count; i++)
+        {
+            if (Rows[i].Id == id && Rows[i].BodySha256 is null)
+            {
+                Rows[i] = Rows[i] with { BodySha256 = bodySha256 };
+                BodySha256BackfilledIds.Add(id);
+                count++;
+            }
+        }
+
+        return Task.FromResult(count);
+    }
+
     private int ApplyApprovalStatus(string naturalKeyType, string naturalKeyValue, string status)
     {
         var count = 0;

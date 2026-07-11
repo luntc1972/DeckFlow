@@ -1,0 +1,227 @@
+@page "/reconcile"
+@inherits StudioCancellableComponentBase
+@using DeckFlow.Core.Content
+
+<PageTitle>Reconcile</PageTitle>
+
+<h1 class="h4 fw-semibold">Reconcile</h1>
+<p class="text-muted">Detect prod &lt;-&gt; git &lt;-&gt; seed drift across four discrepancy classes.
+This dry-run is <strong>read-only</strong> — it reads production and your local git tree, persists
+what it finds to the local discrepancy store, and writes a human-readable report. It never hides,
+deletes, or otherwise writes anything in production. Removal (soft-hide) is a separate, gated
+<strong>Apply removals</strong> action below — behind the <code>sync.reconcile</code> flag, scoped to
+seed-drift rows only, and re-validated fresh at apply time.</p>
+
+<article class="content px-4">
+
+    @* ─── Config gate (presence-only; never the value) ─── *@
+    @if (!Config.IsProdConfigured)
+    {
+        <div class="alert alert-warning py-2 mt-3">
+            Prod connection: not configured. Set the prod connection string in user-secrets to
+            enable the reconcile dry-run.
+        </div>
+    }
+
+    @* ─── Read-only assurance banner ─── *@
+    <div class="alert alert-info py-2 mt-3">
+        <span class="oi oi-shield" aria-hidden="true"></span>
+        <strong> READ-ONLY / detection-only.</strong> This dry-run performs no destructive write —
+        no visibility change, no prod DDL. Results are also written to
+        <code>content-kb/reconcile-report.md</code> in your git checkout.
+    </div>
+
+    <div class="card mt-3">
+        <div class="card-header">
+            <h2 class="h5 fw-semibold mb-0">Run Dry-Run</h2>
+        </div>
+        <div class="card-body">
+
+            @if (!string.IsNullOrEmpty(_runError))
+            {
+                <div class="alert alert-danger py-2">@_runError</div>
+            }
+
+            <button class="btn btn-outline-primary"
+                    @onclick="RunDryRunAsync"
+                    disabled="@(_runInFlight || !Config.IsProdConfigured)">
+                @if (_runInFlight)
+                {
+                    <span class="spinner-border spinner-border-sm text-primary"
+                          role="status"
+                          aria-label="Operation in progress">
+                        <span class="visually-hidden">Loading...</span>
+                    </span>
+                    <span> Running dry-run...</span>
+                }
+                else
+                {
+                    <span>Run dry-run</span>
+                }
+            </button>
+
+            @if (_result is not null)
+            {
+                <div class="mt-3" data-testid="reconcile-results">
+                    @if (_lastRunUtc is not null)
+                    {
+                        <p class="text-muted small mb-2">Last run: @_lastRunUtc.Value.ToString("u")</p>
+                    }
+
+                    @{
+                        var publishedOrphans = Items(_result, ContentKbReconcileKind.PublishedOrphan);
+                        var fileOrphans = Items(_result, ContentKbReconcileKind.FileOrphan);
+                        var seedDrift = Items(_result, ContentKbReconcileKind.SeedDrift);
+                        var bodyHashMismatches = Items(_result, ContentKbReconcileKind.BodyHashMismatch);
+                    }
+
+                    @* ─── Published orphans ─── *@
+                    <div class="card border-secondary mt-2">
+                        <div class="card-header py-1">
+                            <span class="fw-semibold">Published Orphans (@publishedOrphans.Count)</span>
+                            <span class="text-muted small d-block">Visible/approved prod row with no git body.</span>
+                        </div>
+                        <div class="card-body py-2">
+                            @RenderDiscrepancyList(publishedOrphans)
+                        </div>
+                    </div>
+
+                    @* ─── File orphans ─── *@
+                    <div class="card border-secondary mt-2">
+                        <div class="card-header py-1">
+                            <span class="fw-semibold">File Orphans (@fileOrphans.Count)</span>
+                            <span class="text-muted small d-block">Git body with no matching prod row.</span>
+                        </div>
+                        <div class="card-body py-2">
+                            @RenderDiscrepancyList(fileOrphans)
+                        </div>
+                    </div>
+
+                    @* ─── Seed drift (or the seed-unavailable notice, T-91-28) ─── *@
+                    @if (_result.SeedAvailable)
+                    {
+                        <div class="card border-secondary mt-2">
+                            <div class="card-header py-1">
+                                <span class="fw-semibold">Seed Drift (@seedDrift.Count)</span>
+                                <span class="text-muted small d-block">Seed-managed prod row absent from the seed.</span>
+                            </div>
+                            <div class="card-body py-2">
+                                @RenderDiscrepancyList(seedDrift)
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="card border-warning mt-2" data-testid="seed-unavailable-banner">
+                            <div class="card-body py-2">
+                                <h3 class="h6 fw-semibold text-warning mb-1">Seed Drift — SEED UNAVAILABLE</h3>
+                                <p class="mb-0 small">
+                                    <code>index-seed.json</code> could not be read or parsed for this
+                                    run, so NO seed-managed row was evaluated for drift. This is
+                                    <strong>not</strong> the same as "no drift found" — re-run once the
+                                    seed file is restored.
+                                </p>
+                            </div>
+                        </div>
+                    }
+
+                    @* ─── Body hash mismatches ─── *@
+                    <div class="card border-secondary mt-2">
+                        <div class="card-header py-1">
+                            <span class="fw-semibold">Body Hash Mismatches (@bodyHashMismatches.Count)</span>
+                            <span class="text-muted small d-block">Prod hash differs from the computed git body hash.</span>
+                        </div>
+                        <div class="card-body py-2">
+                            @RenderDiscrepancyList(bodyHashMismatches)
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    @* ─── Apply Removals (SYNC-12, destructive, flag-gated) ─── *@
+    @if (_result is not null)
+    {
+        var applyDrift = Items(_result, ContentKbReconcileKind.SeedDrift);
+        <div class="card mt-3 border-danger">
+            <div class="card-header">
+                <h2 class="h5 fw-semibold mb-0">Apply Removals</h2>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning py-2">
+                    <span class="oi oi-warning" aria-hidden="true"></span>
+                    <strong> Destructive.</strong> This soft-hides (<code>is_visible = false</code>,
+                    never deleted) the <strong>seed-drift</strong> rows shown above only — Published
+                    Orphans, File Orphans, and Body Hash Mismatches are detection-only and are
+                    <strong>never</strong> applied. Gated behind the <code>sync.reconcile</code> flag
+                    (off by default) and the freshly-read seed's availability; the diff is re-run and
+                    re-validated at apply time, so a stale review (prod/seed moved since this dry-run)
+                    is refused, never blindly applied.
+                </div>
+
+                @if (!string.IsNullOrEmpty(_applyError))
+                {
+                    <div class="alert alert-danger py-2">@_applyError</div>
+                }
+
+                @if (applyDrift.Count == 0)
+                {
+                    <p class="text-muted small mb-0">No seed-drift removals to apply.</p>
+                }
+                else
+                {
+                    <p class="mb-2">@applyDrift.Count seed-drift row(s) would be soft-hidden.</p>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               id="applyReviewed"
+                               @bind="_applyReviewed" />
+                        <label class="form-check-label" for="applyReviewed">
+                            I have reviewed the Seed Drift list above and want to soft-hide these rows in PRODUCTION.
+                        </label>
+                    </div>
+
+                    <button class="btn btn-danger"
+                            @onclick="RunApplyRemovalsAsync"
+                            disabled="@(!_applyReviewed || _applyInFlight)"
+                            aria-label="@(_applyReviewed ? null : "Check the confirmation box above to enable Apply removals")">
+                        @if (_applyInFlight)
+                        {
+                            <span class="spinner-border spinner-border-sm"
+                                  role="status"
+                                  aria-label="Operation in progress">
+                                <span class="visually-hidden">Loading...</span>
+                            </span>
+                            <span> Applying removals...</span>
+                        }
+                        else
+                        {
+                            <span>Apply removals</span>
+                        }
+                    </button>
+                }
+
+                @if (_applyResult is not null)
+                {
+                    <div class="mt-3" data-testid="reconcile-apply-result">
+                        @if (_applyResult.WasApplied)
+                        {
+                            <div class="alert alert-success py-2">
+                                Applied: @_applyResult.HiddenCount row(s) soft-hidden.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-warning py-2">
+                                @DescribeRefusal(_applyResult.RefusalReason!.Value)
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+</article>

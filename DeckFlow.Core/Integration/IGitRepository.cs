@@ -83,6 +83,35 @@ public interface IGitRepository
         CancellationToken ct = default);
 
     /// <summary>
+    /// Creates an EMPTY commit with <paramref name="message"/> via
+    /// <c>git commit --allow-empty -m {message}</c>, then returns the short SHA of the new commit.
+    /// </summary>
+    /// <remarks>
+    /// Why: Direct Push resume may need to force a fresh Render redeploy of content that is already
+    /// committed on the branch by pushing a new durability commit with no file delta. This method
+    /// MUST first prove the index is clean (no pre-staged paths) so it never sweeps unrelated staged
+    /// work into the empty commit, and MUST verify the resulting commit is actually empty relative to
+    /// its parent.
+    /// </remarks>
+    /// <param name="repoRoot">Absolute path to the git working tree root.</param>
+    /// <param name="message">Commit message.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The short SHA of the resulting commit.</returns>
+    /// <exception cref="GitForeignStagedChangesException">
+    /// Thrown when any paths are already staged.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the resulting commit is not empty.
+    /// </exception>
+    /// <exception cref="GitCommandException">
+    /// Thrown when any git sub-command exits with a non-zero code.
+    /// </exception>
+    Task<string> CommitEmptyAsync(
+        string repoRoot,
+        string message,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Pushes the current <c>HEAD</c> to <paramref name="branch"/> on <paramref name="remote"/>
     /// via <c>git push {remote} HEAD:refs/heads/{branch}</c>.
     /// </summary>
@@ -111,6 +140,38 @@ public interface IGitRepository
         string remote,
         string branch,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Fetches exactly <paramref name="branch"/> from <paramref name="remote"/> via an explicit
+    /// refspec <c>+refs/heads/{branch}:refs/remotes/{remote}/{branch}</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Why: this is a SCOPED single-branch fetch that deterministically advances the
+    /// remote-tracking ref <c>refs/remotes/{remote}/{branch}</c> before a follow-up behind check
+    /// reads it. A bare <c>git fetch {remote} {branch}</c> updates only <c>FETCH_HEAD</c> and can
+    /// leave <c>refs/remotes/{remote}/{branch}</c> stale, making the behind-count read a stale ref.
+    /// This is also intentionally NOT <c>--all</c>; the caller needs one branch only.
+    /// </para>
+    /// <para>
+    /// Why: callers use this as a best-effort freshness probe before deciding whether a local
+    /// checkout is behind its remote. On failure, the caller treats the resulting
+    /// <see cref="GitCommandException"/> as "cannot determine" and proceeds best-effort.
+    /// </para>
+    /// </remarks>
+    /// <param name="repoRoot">Absolute path to the git working tree root.</param>
+    /// <param name="remote">The remote name (e.g. <c>origin</c>).</param>
+    /// <param name="branch">The branch name (e.g. <c>main</c>).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <exception cref="GitCommandException">
+    /// Thrown when the fetch exits with a non-zero code (auth failure, no network, unknown remote).
+    /// </exception>
+    Task FetchAsync(
+        string repoRoot,
+        string remote,
+        string branch,
+        CancellationToken ct = default)
+        => throw new NotSupportedException("This git repository does not support fetch operations.");
 
     /// <summary>
     /// Returns the NUMBER of <paramref name="paths"/> that have an uncommitted change (modified,
@@ -158,4 +219,58 @@ public interface IGitRepository
         string remote,
         string branch,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the subject line of <c>HEAD</c> via <c>git log -1 --format=%s HEAD</c>.
+    /// </summary>
+    /// <param name="repoRoot">Absolute path to the git working tree root.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The current <c>HEAD</c> subject, trimmed.</returns>
+    Task<string> GetHeadSubjectAsync(string repoRoot, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns whether <c>HEAD</c> has an EMPTY file delta relative to its parent.
+    /// </summary>
+    /// <remarks>
+    /// Why: the FU-2 redeploy churn guard must detect whether the current tip is already an empty
+    /// durability commit so repeated resumes do not stack more empty commits while Render is still
+    /// catching up.
+    /// </remarks>
+    /// <param name="repoRoot">Absolute path to the git working tree root.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns><see langword="true"/> when <c>HEAD</c> changes no files; otherwise <see langword="false"/>.</returns>
+    Task<bool> IsHeadCommitEmptyAsync(string repoRoot, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the NUMBER of commits on <c>{remote}/{branch}</c> that are not yet on <c>HEAD</c>,
+    /// via <c>git rev-list --count HEAD..{remote}/{branch}</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Why: this is the operand-reversal of <see cref="GetSubjectsAheadOfRemoteAsync"/>. Where that
+    /// method answers "what is local ahead of remote?", this answers "how far is local behind the
+    /// remote-tracking ref?" by counting commits reachable from <c>{remote}/{branch}</c> but not
+    /// from <c>HEAD</c>.
+    /// </para>
+    /// <para>
+    /// Why: it is only meaningful after <see cref="FetchAsync"/> has advanced the
+    /// <c>{remote}/{branch}</c> tracking ref. If the command fails, the caller treats the resulting
+    /// <see cref="GitCommandException"/> as "cannot determine" and proceeds best-effort.
+    /// </para>
+    /// </remarks>
+    /// <param name="repoRoot">Absolute path to the git working tree root.</param>
+    /// <param name="remote">The remote name (e.g. <c>origin</c>).</param>
+    /// <param name="branch">The branch name (e.g. <c>main</c>).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The number of remote commits not reachable from <c>HEAD</c>.</returns>
+    /// <exception cref="GitCommandException">
+    /// Thrown when the remote-tracking ref <c>{remote}/{branch}</c> is unknown or the command
+    /// otherwise fails; the caller treats this as "cannot determine" and proceeds best-effort.
+    /// </exception>
+    Task<int> GetBehindCountAsync(
+        string repoRoot,
+        string remote,
+        string branch,
+        CancellationToken ct = default)
+        => throw new NotSupportedException("This git repository does not support behind-count checks.");
 }

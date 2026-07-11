@@ -18,7 +18,8 @@ public sealed class ContentSyncDiffClassifierTests
         IReadOnlyList<string>? archetypeTags = null,
         IReadOnlyList<string>? bracketTags = null,
         IReadOnlyList<string>? cardCategoryTags = null,
-        string approvalStatus = "approved") =>
+        string approvalStatus = "approved",
+        string? bodySha256 = null) =>
         new()
         {
             Id = 1,
@@ -32,7 +33,8 @@ public sealed class ContentSyncDiffClassifierTests
             BracketTags = bracketTags ?? Array.Empty<string>(),
             CardCategoryTags = cardCategoryTags ?? Array.Empty<string>(),
             YoutubeVideoId = youtubeId,
-            RssGuid = rssGuid
+            RssGuid = rssGuid,
+            BodySha256 = bodySha256
         };
 
     [Fact]
@@ -54,6 +56,16 @@ public sealed class ContentSyncDiffClassifierTests
         Assert.Equal("yt-prod", entry.NaturalKeyValue);
         Assert.NotNull(entry.ProdRow);
         Assert.Null(entry.LocalRow);
+    }
+
+    [Fact]
+    public void Classify_DefaultsBodyDivergence_ToNotApplicable()
+    {
+        var prod = new[] { Row(youtubeId: "yt-prod") };
+
+        var entry = Assert.Single(ContentSyncDiffClassifier.Classify(prod, Array.Empty<ContentSiteIndexRow>()));
+
+        Assert.Equal(BodyDivergenceStatus.NotApplicable, entry.BodyDivergence);
     }
 
     [Fact]
@@ -105,6 +117,34 @@ public sealed class ContentSyncDiffClassifierTests
 
         Assert.Equal(SyncDiffKind.Diverged, entry.Kind);
         Assert.False(entry.LocalIsNewer);
+    }
+
+    [Fact]
+    public void Classify_EqualTimestampSameOtherColumnsDifferentBodyHash_IsDiverged()
+    {
+        // D-03/D-04: the equal-timestamp tie-breaker is now the unified body-hash-inclusive
+        // signature (ContentSiteIndexContentSignature.AreContentEqual), not the old subset
+        // Fingerprint — which never looked at body_sha256 and would have missed this case.
+        var ts = new DateTimeOffset(2026, 6, 20, 12, 0, 0, TimeSpan.Zero);
+        var prod = new[] { Row(indexedUtc: ts, bodySha256: new string('a', 64)) };
+        var local = new[] { Row(indexedUtc: ts, bodySha256: new string('b', 64)) };
+
+        var entry = Assert.Single(ContentSyncDiffClassifier.Classify(prod, local));
+
+        Assert.Equal(SyncDiffKind.Diverged, entry.Kind);
+        Assert.False(entry.LocalIsNewer);
+    }
+
+    [Fact]
+    public void Classify_EqualTimestampFullyEqualIncludingBodyHash_EmitsNothing()
+    {
+        var ts = new DateTimeOffset(2026, 6, 20, 12, 0, 0, TimeSpan.Zero);
+        var prod = new[] { Row(indexedUtc: ts, bodySha256: new string('c', 64)) };
+        var local = new[] { Row(indexedUtc: ts, bodySha256: new string('c', 64)) };
+
+        var result = ContentSyncDiffClassifier.Classify(prod, local);
+
+        Assert.Empty(result);
     }
 
     [Fact]

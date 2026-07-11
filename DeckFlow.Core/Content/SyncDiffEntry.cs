@@ -28,6 +28,32 @@ public enum SyncDiffKind
 }
 
 /// <summary>
+/// The body-coherence status for an entry that has a production row to compare against.
+/// </summary>
+/// <remarks>
+/// This is ORTHOGONAL to <see cref="SyncDiffKind"/>: a <see cref="SyncDiffKind.ProdNewer"/> or
+/// <see cref="SyncDiffKind.MissingLocally"/> entry can independently be clean, confirmed divergent,
+/// or indeterminate once the coordinator evaluates body coherence.
+/// </remarks>
+public enum BodyDivergenceStatus
+{
+    /// <summary>No production row exists to compare against, so body divergence does not apply.</summary>
+    NotApplicable,
+
+    /// <summary>The git body hash matches production's <c>body_sha256</c>, so default adopt is eligible.</summary>
+    Clean,
+
+    /// <summary>The git body hash differs from production's <c>body_sha256</c>, so default adopt is excluded.</summary>
+    Confirmed,
+
+    /// <summary>
+    /// Coherence cannot be confirmed and must not be silently adopted: either production's
+    /// <c>body_sha256</c> is null/legacy, or the git body is absent/unreadable while a production row exists.
+    /// </summary>
+    Indeterminate
+}
+
+/// <summary>
 /// One classified difference between a production and a local <see cref="ContentSiteIndexRow"/>,
 /// keyed by its natural key. Produced by <see cref="ContentSyncDiffClassifier"/>; consumed by the
 /// Studio Pull-from-Prod page. In-sync (identical) pairs are never represented — only real diffs.
@@ -70,4 +96,10 @@ public sealed record SyncDiffEntry
     /// The classifier leaves this <c>false</c>; the page sets it after the SCP step (Plan 03).
     /// </summary>
     public bool ArtifactDownloaded { get; init; }
+
+    /// <summary>
+    /// Whether body coherence with production has been evaluated. The classifier leaves the default;
+    /// the coordinator stamps it post-classify (SYNC-15).
+    /// </summary>
+    public BodyDivergenceStatus BodyDivergence { get; init; }
 }

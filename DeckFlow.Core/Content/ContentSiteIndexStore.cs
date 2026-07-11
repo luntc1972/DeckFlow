@@ -129,6 +129,38 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                 await addPushedToProdUtc.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
 
+            if (!columns.Contains("body_sha256"))
+            {
+                // Why: TEXT NULL is valid in both dialects — no IsPostgres branch needed (D-09).
+                await using var addBodySha256 = connection.CreateCommand();
+                addBodySha256.CommandText = "ALTER TABLE content_site_index ADD COLUMN body_sha256 TEXT NULL;";
+                await addBodySha256.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            if (!columns.Contains("awaiting_confirm_utc"))
+            {
+                // Why: durable "pushed, awaiting deploy-confirm" marker (D-10); dialect-guarded like
+                // pushed_to_prod_utc since it is a genuine TIMESTAMPTZ on Postgres. Never filtered on
+                // in a WHERE clause (F-51-PG-01 avoided) — only ever set/cleared keyed on natural key.
+                await using var addAwaitingConfirmUtc = connection.CreateCommand();
+                addAwaitingConfirmUtc.CommandText = _connectionInfo.IsPostgres
+                    ? "ALTER TABLE content_site_index ADD COLUMN awaiting_confirm_utc TIMESTAMPTZ NULL;"
+                    : "ALTER TABLE content_site_index ADD COLUMN awaiting_confirm_utc TEXT NULL;";
+                await addAwaitingConfirmUtc.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            if (!columns.Contains("seed_managed"))
+            {
+                // Why: row-level seed-ownership marker (SYNC-17, D-01); dialect-guarded NULLable
+                // like awaiting_confirm_utc — NULL means "unclassified", distinct from FALSE
+                // ("classified prod-owned"), so the D-02 backfill can be re-run safely.
+                await using var addSeedManaged = connection.CreateCommand();
+                addSeedManaged.CommandText = _connectionInfo.IsPostgres
+                    ? "ALTER TABLE content_site_index ADD COLUMN seed_managed BOOLEAN NULL;"
+                    : "ALTER TABLE content_site_index ADD COLUMN seed_managed INTEGER NULL;";
+                await addSeedManaged.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+
             // Why: grandfather the already-published seed to approved and re-run safely after
             // an ALTER-then-crash; only still-pending visible rows are updated on later passes.
             await using (var grandfatherApprovalStatus = connection.CreateCommand())
@@ -218,32 +250,16 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        var row = await connection.QuerySingleOrDefaultAsync<ContentSiteIndexRowData>(new CommandDefinition(
-            """
-            SELECT id,
-                   source,
-                   title,
-                   video_url,
-                   artifact_path,
-                   published_utc,
-                   pushed_to_prod_utc,
-                   indexed_utc,
-                   archetype_tags,
-                   bracket_tags,
-                   card_category_tags,
-                   natural_key_type,
-                   natural_key_value,
-                   is_visible,
-                   is_hidden,
-                   is_evergreen,
-                   approval_status
+        var row = await connection.QuerySingleOrDefaultAsync<ContentSiteIndexReadModel>(new CommandDefinition(
+            $"""
+            SELECT {ContentSiteIndexReadColumns.SelectList}
               FROM content_site_index
              WHERE natural_key_type = @naturalKeyType
                AND natural_key_value = @naturalKeyValue;
             """,
             new { naturalKeyType, naturalKeyValue },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return row is null ? null : ToContentSiteIndexRow(row);
+        return row is null ? null : ContentSiteIndexRowMapper.ToRow(row);
     }
 
     /// <inheritdoc />
@@ -252,25 +268,9 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        var rows = await connection.QueryAsync<ContentSiteIndexRowData>(new CommandDefinition(
-            """
-            SELECT id,
-                   source,
-                   title,
-                   video_url,
-                   artifact_path,
-                   published_utc,
-                   pushed_to_prod_utc,
-                   indexed_utc,
-                   archetype_tags,
-                   bracket_tags,
-                   card_category_tags,
-                   natural_key_type,
-                   natural_key_value,
-                   is_visible,
-                   is_hidden,
-                   is_evergreen,
-                   approval_status
+        var rows = await connection.QueryAsync<ContentSiteIndexReadModel>(new CommandDefinition(
+            $"""
+            SELECT {ContentSiteIndexReadColumns.SelectList}
               FROM content_site_index
              WHERE is_visible = @visible
                AND approval_status = 'approved'
@@ -278,7 +278,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             """,
             new { visible = true },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return rows.Select(ToContentSiteIndexRow).ToList();
+        return rows.Select(ContentSiteIndexRowMapper.ToRow).ToList();
     }
 
     /// <inheritdoc />
@@ -287,31 +287,15 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        var rows = await connection.QueryAsync<ContentSiteIndexRowData>(new CommandDefinition(
-            """
-            SELECT id,
-                   source,
-                   title,
-                   video_url,
-                   artifact_path,
-                   published_utc,
-                   pushed_to_prod_utc,
-                   indexed_utc,
-                   archetype_tags,
-                   bracket_tags,
-                   card_category_tags,
-                   natural_key_type,
-                   natural_key_value,
-                   is_visible,
-                   is_hidden,
-                   is_evergreen,
-                   approval_status
+        var rows = await connection.QueryAsync<ContentSiteIndexReadModel>(new CommandDefinition(
+            $"""
+            SELECT {ContentSiteIndexReadColumns.SelectList}
               FROM content_site_index
              WHERE approval_status = 'approved'
              ORDER BY source, title, id;
             """,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return rows.Select(ToContentSiteIndexRow).ToList();
+        return rows.Select(ContentSiteIndexRowMapper.ToRow).ToList();
     }
 
     /// <inheritdoc />
@@ -320,30 +304,14 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        var rows = await connection.QueryAsync<ContentSiteIndexRowData>(new CommandDefinition(
-            """
-            SELECT id,
-                   source,
-                   title,
-                   video_url,
-                   artifact_path,
-                   published_utc,
-                   pushed_to_prod_utc,
-                   indexed_utc,
-                   archetype_tags,
-                   bracket_tags,
-                   card_category_tags,
-                   natural_key_type,
-                   natural_key_value,
-                   is_visible,
-                   is_hidden,
-                   is_evergreen,
-                   approval_status
+        var rows = await connection.QueryAsync<ContentSiteIndexReadModel>(new CommandDefinition(
+            $"""
+            SELECT {ContentSiteIndexReadColumns.SelectList}
               FROM content_site_index
              ORDER BY source, title, id;
             """,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return rows.Select(ToContentSiteIndexRow).ToList();
+        return rows.Select(ContentSiteIndexRowMapper.ToRow).ToList();
     }
 
     /// <inheritdoc />
@@ -352,31 +320,15 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        var row = await connection.QuerySingleOrDefaultAsync<ContentSiteIndexRowData>(new CommandDefinition(
-            """
-            SELECT id,
-                   source,
-                   title,
-                   video_url,
-                   artifact_path,
-                   published_utc,
-                   pushed_to_prod_utc,
-                   indexed_utc,
-                   archetype_tags,
-                   bracket_tags,
-                   card_category_tags,
-                   natural_key_type,
-                   natural_key_value,
-                   is_visible,
-                   is_hidden,
-                   is_evergreen,
-                   approval_status
+        var row = await connection.QuerySingleOrDefaultAsync<ContentSiteIndexReadModel>(new CommandDefinition(
+            $"""
+            SELECT {ContentSiteIndexReadColumns.SelectList}
               FROM content_site_index
              WHERE id = @id;
             """,
             new { id },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return row is null ? null : ToContentSiteIndexRow(row);
+        return row is null ? null : ContentSiteIndexRowMapper.ToRow(row);
     }
 
     /// <inheritdoc />
@@ -387,25 +339,9 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         // Why: defense-in-depth on the public detail route — a drifted visible-but-pending row
         // must never render at /content-kb/{id}; GetByIdAsync stays unfiltered for admin/Studio.
-        var row = await connection.QuerySingleOrDefaultAsync<ContentSiteIndexRowData>(new CommandDefinition(
-            """
-            SELECT id,
-                   source,
-                   title,
-                   video_url,
-                   artifact_path,
-                   published_utc,
-                   pushed_to_prod_utc,
-                   indexed_utc,
-                   archetype_tags,
-                   bracket_tags,
-                   card_category_tags,
-                   natural_key_type,
-                   natural_key_value,
-                   is_visible,
-                   is_hidden,
-                   is_evergreen,
-                   approval_status
+        var row = await connection.QuerySingleOrDefaultAsync<ContentSiteIndexReadModel>(new CommandDefinition(
+            $"""
+            SELECT {ContentSiteIndexReadColumns.SelectList}
               FROM content_site_index
              WHERE id = @id
                AND is_visible = @visible
@@ -413,7 +349,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             """,
             new { id, visible = true },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return row is null ? null : ToContentSiteIndexRow(row);
+        return row is null ? null : ContentSiteIndexRowMapper.ToRow(row);
     }
 
     /// <inheritdoc />
@@ -447,6 +383,41 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
              WHERE id = @id;
             """,
             new { hidden, id },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<int> SetBodySha256IfNullAsync(long id, string bodySha256, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(bodySha256);
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        return await connection.ExecuteAsync(new CommandDefinition(
+            """
+            UPDATE content_site_index
+               SET body_sha256 = @bodySha256
+             WHERE id = @id
+               AND body_sha256 IS NULL;
+            """,
+            new { bodySha256, id },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<int> SetSeedManagedIfNullAsync(long id, bool seedManaged, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        return await connection.ExecuteAsync(new CommandDefinition(
+            """
+            UPDATE content_site_index
+               SET seed_managed = @seedManaged
+             WHERE id = @id
+               AND seed_managed IS NULL;
+            """,
+            new { seedManaged, id },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
@@ -635,6 +606,79 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
     }
 
     /// <inheritdoc />
+    public async Task<int> SetAwaitingConfirmAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        DateTimeOffset whenUtc,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        if (keys.Count == 0)
+        {
+            return 0;
+        }
+
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        // Why: one transaction = atomic + one logical round-trip (mirrors StampPushedToProdAsync).
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        const string sql = """
+            UPDATE content_site_index
+               SET awaiting_confirm_utc = @whenUtc
+             WHERE natural_key_type = @type
+               AND natural_key_value = @value;
+            """;
+        var total = 0;
+        foreach (var (type, value) in keys)
+        {
+            total += await connection.ExecuteAsync(new CommandDefinition(
+                sql,
+                new { whenUtc, type, value },
+                transaction: transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return total;
+    }
+
+    /// <inheritdoc />
+    public async Task<int> ClearAwaitingConfirmAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        if (keys.Count == 0)
+        {
+            return 0;
+        }
+
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        // Why: one transaction = atomic + one logical round-trip (mirrors StampPushedToProdAsync).
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        const string sql = """
+            UPDATE content_site_index
+               SET awaiting_confirm_utc = NULL
+             WHERE natural_key_type = @type
+               AND natural_key_value = @value;
+            """;
+        var total = 0;
+        foreach (var (type, value) in keys)
+        {
+            total += await connection.ExecuteAsync(new CommandDefinition(
+                sql,
+                new { type, value },
+                transaction: transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return total;
+    }
+
+    /// <inheritdoc />
     public async Task UpsertContentColumnsOnlyBatchAsync(
         IReadOnlyList<ContentSiteIndexRow> rows,
         CancellationToken cancellationToken = default)
@@ -753,6 +797,48 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         return total;
     }
 
+    /// <inheritdoc />
+    public async Task<int> HideSeedManagedAsync(
+        IReadOnlyList<(string Type, string Value)> keys,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        if (keys.Count == 0)
+        {
+            return 0;
+        }
+
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        // Why: one transaction = atomic + one logical round-trip (mirrors the batch SetVisibilityAsync).
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        // Why (Codex 91-08 HIGH / SYNC-17 invariant): the seed_managed = TRUE predicate lives IN the WHERE so a
+        // prod-owned row whose marker flipped to false/null between the coordinator's fresh read and this write is
+        // atomically protected — the write itself, not a caller-side snapshot, is the last word on ownership. A
+        // prod-owned row can never be hidden by Apply. Non-seed-managed keys simply do not match and are skipped.
+        const string sql = """
+            UPDATE content_site_index
+               SET is_visible = FALSE,
+                   is_hidden = FALSE
+             WHERE natural_key_type = @type
+               AND natural_key_value = @value
+               AND seed_managed = @seedManagedTrue;
+            """;
+        var total = 0;
+        foreach (var (type, value) in keys)
+        {
+            total += await connection.ExecuteAsync(new CommandDefinition(
+                sql,
+                new { type, value, seedManagedTrue = true },
+                transaction: transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return total;
+    }
+
     /// <summary>
     /// Shared required-field validation for all three <c>Upsert*Async</c> row variants and the
     /// batch upsert's per-row loop — extracted so the same checks (and their exact exception
@@ -795,6 +881,13 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         // carries approval on insert AND heals a drifted prod row on update; other upsert variants
         // ignore this unbound-to-their-SQL parameter harmlessly.
         parameters.Add("approvalStatus", row.ApprovalStatus);
+        // Why: body_sha256 (D-01/D-09) is bound here so all three upsert variants can bind it;
+        // variants whose SQL doesn't reference @bodySha256 ignore this parameter harmlessly.
+        parameters.Add("bodySha256", row.BodySha256);
+        // Why: seed_managed (SYNC-17/D-01) is a per-row bound parameter, never a hardcoded SQL
+        // literal (T-91-01); only the two seed-managed upsert variants reference @seedManaged,
+        // the plain local-distill UpsertSql ignores this parameter harmlessly.
+        parameters.Add("seedManaged", row.SeedManaged);
         return parameters;
     }
 
@@ -880,7 +973,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
     {
         // Why: REVIEW #5 requires rejecting traversal or rooted paths before later phases
         // resolve this relative pointer against MTG_DATA_DIR.
-        if (Path.IsPathRooted(artifactPath) || IsWindowsRootedPath(artifactPath))
+        if (Path.IsPathRooted(artifactPath) || ContentKbArtifactPath.IsWindowsRootedPath(artifactPath))
         {
             throw new ArgumentException(
                 "Artifact path must be relative.",
@@ -894,46 +987,6 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                 "Artifact path must not contain '..' path segments.",
                 nameof(ContentSiteIndexRow.ArtifactPath));
         }
-    }
-
-    private static bool IsWindowsRootedPath(string artifactPath)
-        => artifactPath.Length >= 3
-            && char.IsLetter(artifactPath[0])
-            && artifactPath[1] == ':'
-            && (artifactPath[2] == '\\' || artifactPath[2] == '/');
-
-    private static ContentSiteIndexRow ToContentSiteIndexRow(ContentSiteIndexRowData row)
-    {
-        var naturalKeyType = row.NaturalKeyType;
-        var naturalKeyValue = row.NaturalKeyValue;
-        var youtubeVideoId = naturalKeyType == ContentSourceType.Youtube ? naturalKeyValue : null;
-        var rssGuid = naturalKeyType == ContentSourceType.Podcast ? naturalKeyValue : null;
-
-        if (youtubeVideoId is null && rssGuid is null)
-        {
-            throw new InvalidOperationException($"Unknown content_site_index.natural_key_type value '{naturalKeyType}'.");
-        }
-
-        return new ContentSiteIndexRow
-        {
-            Id = row.Id,
-            Source = row.Source,
-            Title = row.Title,
-            VideoUrl = row.VideoUrl,
-            ArtifactPath = row.ArtifactPath,
-            PublishedUtc = row.PublishedUtc,
-            PushedToProdUtc = row.PushedToProdUtc,
-            IndexedUtc = row.IndexedUtc,
-            ArchetypeTags = ContentArtifactSpec.DeserializeTags(row.ArchetypeTags),
-            BracketTags = ContentArtifactSpec.DeserializeTags(row.BracketTags),
-            CardCategoryTags = ContentArtifactSpec.DeserializeTags(row.CardCategoryTags),
-            YoutubeVideoId = youtubeVideoId,
-            RssGuid = rssGuid,
-            IsVisible = row.IsVisible,
-            IsHidden = row.IsHidden,
-            IsEvergreen = row.IsEvergreen,
-            ApprovalStatus = row.ApprovalStatus
-        };
     }
 
     private const string UpsertSql = """
@@ -950,7 +1003,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           natural_key_type,
           natural_key_value,
           is_hidden,
-          is_evergreen)
+          is_evergreen,
+          body_sha256)
         VALUES (
           @source,
           @title,
@@ -964,7 +1018,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           @naturalKeyType,
           @naturalKeyValue,
           @isHidden,
-          @isEvergreen)
+          @isEvergreen,
+          @bodySha256)
         ON CONFLICT (natural_key_type, natural_key_value) DO UPDATE SET
           source             = EXCLUDED.source,
           title              = EXCLUDED.title,
@@ -976,7 +1031,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           bracket_tags       = EXCLUDED.bracket_tags,
           card_category_tags = EXCLUDED.card_category_tags,
           is_hidden          = EXCLUDED.is_hidden,
-          is_evergreen       = EXCLUDED.is_evergreen;
+          is_evergreen       = EXCLUDED.is_evergreen,
+          body_sha256        = EXCLUDED.body_sha256;
         """;
 
     private const string UpsertPreservingVisibilitySql = """
@@ -994,7 +1050,9 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           natural_key_value,
           is_visible,
           is_hidden,
-          is_evergreen)
+          is_evergreen,
+          body_sha256,
+          seed_managed)
         VALUES (
           @source,
           @title,
@@ -1009,7 +1067,9 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           @naturalKeyValue,
           @isVisible,
           @isHidden,
-          @isEvergreen)
+          @isEvergreen,
+          @bodySha256,
+          @seedManaged)
         ON CONFLICT (natural_key_type, natural_key_value) DO UPDATE SET
           source             = EXCLUDED.source,
           title              = EXCLUDED.title,
@@ -1022,7 +1082,14 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           card_category_tags = EXCLUDED.card_category_tags,
           is_visible         = content_site_index.is_visible,
           is_hidden          = content_site_index.is_hidden,
-          is_evergreen       = content_site_index.is_evergreen;
+          is_evergreen       = content_site_index.is_evergreen,
+          -- body_sha256 is OVERWRITTEN from EXCLUDED (like indexed_utc), NOT preserved (WARNING 1):
+          -- a corrected seed hash must propagate on reseed, protecting D-08's one-time backfill intent.
+          body_sha256        = EXCLUDED.body_sha256,
+          -- seed_managed is ALWAYS overwritten TRUE-from-EXCLUDED on this variant (not preserved like
+          -- is_visible/is_hidden/is_evergreen): every row passing through the seed-load path is by
+          -- definition (re)entering the seed-managed set (D-01).
+          seed_managed       = EXCLUDED.seed_managed;
         """;
 
     private const string UpsertContentColumnsOnlySql = """
@@ -1038,7 +1105,9 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           card_category_tags,
           natural_key_type,
           natural_key_value,
-          approval_status)
+          approval_status,
+          body_sha256,
+          seed_managed)
         VALUES (
           @source,
           @title,
@@ -1051,7 +1120,9 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           @cardCategoryTags,
           @naturalKeyType,
           @naturalKeyValue,
-          @approvalStatus)
+          @approvalStatus,
+          @bodySha256,
+          @seedManaged)
         ON CONFLICT (natural_key_type, natural_key_value) DO UPDATE SET
           source             = EXCLUDED.source,
           title              = EXCLUDED.title,
@@ -1062,9 +1133,14 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           archetype_tags     = EXCLUDED.archetype_tags,
           bracket_tags       = EXCLUDED.bracket_tags,
           card_category_tags = EXCLUDED.card_category_tags,
-          approval_status    = EXCLUDED.approval_status;
+          approval_status    = EXCLUDED.approval_status,
+          body_sha256        = EXCLUDED.body_sha256,
+          seed_managed       = EXCLUDED.seed_managed;
         -- approval_status is now mirrored from the source row on insert and update (D-01/D-02);
         -- is_visible, is_hidden, is_evergreen remain operator-owned and are intentionally excluded.
+        -- body_sha256 is OVERWRITTEN from EXCLUDED (D-09) so a re-distill's new hash always lands.
+        -- seed_managed is OVERWRITTEN from EXCLUDED (SYNC-17/D-01) so a row's classification stays
+        -- current on insert and update through this content-only path.
         """;
 
     private const string PostgresCreateTableSql = """
@@ -1086,6 +1162,9 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           is_hidden          BOOLEAN NOT NULL DEFAULT FALSE,
           is_evergreen       BOOLEAN NOT NULL DEFAULT FALSE,
           approval_status    TEXT NOT NULL DEFAULT 'pending',
+          body_sha256        TEXT NULL,
+          awaiting_confirm_utc TIMESTAMPTZ NULL,
+          seed_managed       BOOLEAN NULL,
           UNIQUE (natural_key_type, natural_key_value)
         );
         """;
@@ -1109,28 +1188,11 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
           is_hidden          INTEGER NOT NULL DEFAULT 0,
           is_evergreen       INTEGER NOT NULL DEFAULT 0,
           approval_status    TEXT NOT NULL DEFAULT 'pending',
+          body_sha256        TEXT NULL,
+          awaiting_confirm_utc TEXT NULL,
+          seed_managed       INTEGER NULL,
           UNIQUE (natural_key_type, natural_key_value)
         );
         """;
 
-    private sealed class ContentSiteIndexRowData
-    {
-        public long Id { get; init; }
-        public required string Source { get; init; }
-        public required string Title { get; init; }
-        public required string VideoUrl { get; init; }
-        public required string ArtifactPath { get; init; }
-        public DateTimeOffset? PublishedUtc { get; init; }
-        public DateTimeOffset? PushedToProdUtc { get; init; }
-        public DateTimeOffset IndexedUtc { get; init; }
-        public required string ArchetypeTags { get; init; }
-        public required string BracketTags { get; init; }
-        public required string CardCategoryTags { get; init; }
-        public required string NaturalKeyType { get; init; }
-        public required string NaturalKeyValue { get; init; }
-        public bool IsVisible { get; init; }
-        public bool IsHidden { get; init; }
-        public bool IsEvergreen { get; init; }
-        public required string ApprovalStatus { get; init; }
-    }
 }

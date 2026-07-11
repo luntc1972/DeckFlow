@@ -1,4 +1,5 @@
 using Dapper;
+using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Storage;
 using Npgsql;
@@ -18,12 +19,7 @@ public sealed class ProdContentReader : IProdContentReader
     // Why: matches ContentSiteIndexStore's read column set 1:1 so the materialized rows are identical
     // to GetAllRowsAsync — but with NO EnsureSchemaAsync call (which would run prod DDL). Plain SELECT,
     // no WHERE on any timestamp column, so the F-51-PG-01 timestamptz-vs-text class cannot recur.
-    private const string SelectAllSql = """
-        SELECT id, source, title, video_url, artifact_path, published_utc, pushed_to_prod_utc,
-               indexed_utc, archetype_tags, bracket_tags, card_category_tags, natural_key_type,
-               natural_key_value, is_visible, is_hidden, is_evergreen, approval_status
-          FROM content_site_index;
-        """;
+    private static readonly string SelectAllSql = $"SELECT {ContentSiteIndexReadColumns.SelectList} FROM content_site_index;";
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<ContentSiteIndexRow>> ReadAllAsync(
@@ -31,7 +27,66 @@ public sealed class ProdContentReader : IProdContentReader
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+        await using var connection = await OpenProdConnectionAsync(connectionString, cancellationToken).ConfigureAwait(false);
 
+        var rows = await connection.QueryAsync<ContentSiteIndexReadModel>(
+            new CommandDefinition(SelectAllSql, cancellationToken: cancellationToken));
+
+        return rows.Select(ContentSiteIndexRowMapper.ToRow).ToList();
+    }
+
+    // Why: single plain SELECT, no WHERE on any timestamp column (no F-51-PG-01 exposure), no
+    // DDL/EnsureSchema — the feature_flags read-only twin of SelectAllSql (D-04).
+    private const string SelectFlagSql = "SELECT enabled FROM feature_flags WHERE key = @key;";
+
+    /// <inheritdoc />
+    public async Task<bool> ReadFlagAsync(
+        string connectionString,
+        string key,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        return await TryReadFlagAsync(connectionString, key, cancellationToken).ConfigureAwait(false) ?? false;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool?> TryReadFlagAsync(
+        string connectionString,
+        string key,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+
+        try
+        {
+            await using var connection = await OpenProdConnectionAsync(connectionString, cancellationToken).ConfigureAwait(false);
+
+            var enabled = await connection.QuerySingleOrDefaultAsync<bool?>(
+                new CommandDefinition(SelectFlagSql, new { key }, cancellationToken: cancellationToken));
+
+            // A missing row / null enabled is a DEFINITIVE OFF (false), NOT indeterminate — only a
+            // caught read failure below returns null. This lets the DirectPush publish gate fail SAFE
+            // (verify the deployed body) on a read blip rather than immediate-publishing.
+            return enabled ?? false;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // Indeterminate: the read itself failed. No connection string / exception detail surfaced
+            // (D-07). The publish-gate caller treats null as "cannot prove OFF → must verify".
+            return null;
+        }
+    }
+
+    private static async Task<System.Data.Common.DbConnection> OpenProdConnectionAsync(
+        string connectionString,
+        CancellationToken cancellationToken)
+    {
         // Why: built on-demand, never registered live at DI startup — minimizes the always-live
         // surface (D-03). Normalize handles Render's postgresql:// URL form.
         var normalized = PostgresConnectionStringNormalizer.Normalize(connectionString);
@@ -52,70 +107,7 @@ public sealed class ProdContentReader : IProdContentReader
         };
 
         var conn = new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, builder.ConnectionString);
-
-        await using var connection = await conn.OpenConnectionAsync(cancellationToken);
-
-        var rows = await connection.QueryAsync<ContentSiteIndexRowData>(
-            new CommandDefinition(SelectAllSql, cancellationToken: cancellationToken));
-
-        return rows.Select(ToContentSiteIndexRow).ToList();
+        return await conn.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    // Mirrors ContentSiteIndexStore.ToContentSiteIndexRow exactly: split natural_key_type into
-    // YoutubeVideoId vs RssGuid and deserialize the three serialized tag columns.
-    private static ContentSiteIndexRow ToContentSiteIndexRow(ContentSiteIndexRowData row)
-    {
-        var naturalKeyType = row.NaturalKeyType;
-        var naturalKeyValue = row.NaturalKeyValue;
-        var youtubeVideoId = naturalKeyType == ContentSourceType.Youtube ? naturalKeyValue : null;
-        var rssGuid = naturalKeyType == ContentSourceType.Podcast ? naturalKeyValue : null;
-
-        if (youtubeVideoId is null && rssGuid is null)
-        {
-            throw new InvalidOperationException($"Unknown content_site_index.natural_key_type value '{naturalKeyType}'.");
-        }
-
-        return new ContentSiteIndexRow
-        {
-            Id = row.Id,
-            Source = row.Source,
-            Title = row.Title,
-            VideoUrl = row.VideoUrl,
-            ArtifactPath = row.ArtifactPath,
-            PublishedUtc = row.PublishedUtc,
-            PushedToProdUtc = row.PushedToProdUtc,
-            IndexedUtc = row.IndexedUtc,
-            ArchetypeTags = ContentArtifactSpec.DeserializeTags(row.ArchetypeTags),
-            BracketTags = ContentArtifactSpec.DeserializeTags(row.BracketTags),
-            CardCategoryTags = ContentArtifactSpec.DeserializeTags(row.CardCategoryTags),
-            YoutubeVideoId = youtubeVideoId,
-            RssGuid = rssGuid,
-            IsVisible = row.IsVisible,
-            IsHidden = row.IsHidden,
-            IsEvergreen = row.IsEvergreen,
-            ApprovalStatus = row.ApprovalStatus
-        };
-    }
-
-    // Dapper materialization target — mirrors ContentSiteIndexStore's private ContentSiteIndexRowData.
-    private sealed class ContentSiteIndexRowData
-    {
-        public long Id { get; init; }
-        public required string Source { get; init; }
-        public required string Title { get; init; }
-        public required string VideoUrl { get; init; }
-        public required string ArtifactPath { get; init; }
-        public DateTimeOffset? PublishedUtc { get; init; }
-        public DateTimeOffset? PushedToProdUtc { get; init; }
-        public DateTimeOffset IndexedUtc { get; init; }
-        public required string ArchetypeTags { get; init; }
-        public required string BracketTags { get; init; }
-        public required string CardCategoryTags { get; init; }
-        public required string NaturalKeyType { get; init; }
-        public required string NaturalKeyValue { get; init; }
-        public bool IsVisible { get; init; }
-        public bool IsHidden { get; init; }
-        public bool IsEvergreen { get; init; }
-        public required string ApprovalStatus { get; init; }
-    }
 }

@@ -4,6 +4,7 @@
 @using DeckFlow.Core.Knowledge
 @using DeckFlow.Core.Orchestration
 @using DeckFlow.Studio.Services
+@using DeckFlow.Studio.ViewModels
 
 <PageTitle>Pull from Production</PageTitle>
 
@@ -104,6 +105,22 @@ mirror of Publish — it NEVER writes to production.</p>
                     </div>
                 }
 
+                @if (_freshness is not null && _freshness.Kind != PullFreshnessKind.Fresh)
+                {
+                    <div class="card border-warning mt-3" data-testid="freshness-banner">
+                        <div class="card-body py-2">
+                            @if (_freshness.Kind == PullFreshnessKind.Behind)
+                            {
+                                <span>Local checkout is @_freshness.BehindCount commit(s) behind origin/@_freshness.Branch — run <code>git pull</code> before adopting.</span>
+                            }
+                            else
+                            {
+                                <span>Could not verify checkout freshness (fetch failed or timed out) — proceeding against the local git tree as-is.</span>
+                            }
+                        </div>
+                    </div>
+                }
+
                 @if (_diffReady)
                 {
                     <div class="card border-primary mt-3">
@@ -125,6 +142,7 @@ mirror of Publish — it NEVER writes to production.</p>
                                                 <th>Natural key</th>
                                                 <th>Difference</th>
                                                 <th>Artifact</th>
+                                                <th>Body</th>
                                                 <th>Resolution</th>
                                             </tr>
                                         </thead>
@@ -171,6 +189,20 @@ mirror of Publish — it NEVER writes to production.</p>
                                                         }
                                                     </td>
                                                     <td>
+                                                        @switch (entry.BodyDivergence)
+                                                        {
+                                                            case BodyDivergenceStatus.Confirmed:
+                                                                <span class="badge bg-danger">divergent</span>
+                                                                break;
+                                                            case BodyDivergenceStatus.Indeterminate:
+                                                                <span class="badge bg-warning text-dark">unverified body</span>
+                                                                break;
+                                                            case BodyDivergenceStatus.Clean:
+                                                                <span class="badge bg-success">matches</span>
+                                                                break;
+                                                        }
+                                                    </td>
+                                                    <td>
                                                         @if (entry.Kind == SyncDiffKind.LocalOnly)
                                                         {
                                                             <span class="text-muted small">display only</span>
@@ -194,6 +226,17 @@ mirror of Publish — it NEVER writes to production.</p>
                                                             @if (!entry.ArtifactDownloaded)
                                                             {
                                                                 <div class="text-warning small">body missing in local repo — adopting updates the row only</div>
+                                                            }
+                                                            @if (entry.BodyDivergence is BodyDivergenceStatus.Confirmed or BodyDivergenceStatus.Indeterminate)
+                                                            {
+                                                                <div class="form-check mt-2">
+                                                                    <input class="form-check-input" type="checkbox"
+                                                                           id="divergence-optin-@key"
+                                                                           data-testid="divergence-optin-@key"
+                                                                           checked="@IsDivergenceAck(entry)"
+                                                                           @onchange="e => SetDivergenceAck(entry, e.Value as bool? == true)" />
+                                                                    <label class="form-check-label small" for="divergence-optin-@key">I understand this body diverges from prod — adopt anyway</label>
+                                                                </div>
                                                             }
                                                         }
                                                     </td>

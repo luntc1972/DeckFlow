@@ -102,6 +102,69 @@ public sealed class ContentSiteIndexStoreKeyedVisibilityTests : IDisposable
         Assert.Equal(0, rowsAffected);
     }
 
+    [Fact]
+    public async Task HideSeedManagedAsync_HidesOnlySeedManagedTrueRows_LeavesProdOwnedAndUnclassifiedVisible()
+    {
+        // Why (Codex 91-08 HIGH): the destructive Apply hide MUST enforce seed_managed = TRUE in the SQL
+        // itself. Passing all three keys — seed-owned, prod-owned, and unclassified — proves the WHERE
+        // predicate hides ONLY the seed-owned row, so a prod-owned row can never be hidden by this path
+        // even when the caller mistakenly includes its key (the TOCTOU-flip scenario).
+        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-seed-owned"));
+        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-prod-owned"));
+        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-unclassified"));
+
+        var seedOwned = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-seed-owned");
+        var prodOwned = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-prod-owned");
+        await _store.SetSeedManagedIfNullAsync(seedOwned!.Id, seedManaged: true);
+        await _store.SetSeedManagedIfNullAsync(prodOwned!.Id, seedManaged: false);
+        // yt-unclassified is deliberately left seed_managed = NULL.
+
+        // Drive all three visible first (rows insert hidden) so any wrongful hide is observable.
+        var allKeys = new[]
+        {
+            (ContentSourceType.Youtube, "yt-seed-owned"),
+            (ContentSourceType.Youtube, "yt-prod-owned"),
+            (ContentSourceType.Youtube, "yt-unclassified"),
+        };
+        await _store.SetVisibilityAsync(allKeys, visible: true);
+
+        var hidden = await _store.HideSeedManagedAsync(allKeys);
+
+        var seedRow = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-seed-owned");
+        var prodRow = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-prod-owned");
+        var nullRow = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-unclassified");
+
+        Assert.Equal(1, hidden);
+        Assert.False(seedRow!.IsVisible);
+        Assert.True(prodRow!.IsVisible);
+        Assert.True(nullRow!.IsVisible);
+    }
+
+    [Fact]
+    public async Task HideSeedManagedAsync_ClearsHiddenFlagOnTheSeedOwnedRow()
+    {
+        // Soft-hide semantics mirror SetVisibilityAsync: is_hidden is cleared to FALSE alongside
+        // is_visible = FALSE (a soft-hidden row is not-visible-and-not-hidden, i.e. removed-from-index).
+        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-hide-flag"));
+        var seeded = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-hide-flag");
+        await _store.SetSeedManagedIfNullAsync(seeded!.Id, seedManaged: true);
+        await _store.SetVisibilityAsync([(ContentSourceType.Youtube, "yt-hide-flag")], visible: true);
+
+        await _store.HideSeedManagedAsync([(ContentSourceType.Youtube, "yt-hide-flag")]);
+
+        var row = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-hide-flag");
+        Assert.False(row!.IsVisible);
+        Assert.False(row.IsHidden);
+    }
+
+    [Fact]
+    public async Task HideSeedManagedAsync_EmptyKeys_NoOp_ReturnsZero()
+    {
+        var hidden = await _store.HideSeedManagedAsync([]);
+
+        Assert.Equal(0, hidden);
+    }
+
     private static ContentSiteIndexRow CreateYoutubeRow(string youtubeVideoId)
         => new()
         {

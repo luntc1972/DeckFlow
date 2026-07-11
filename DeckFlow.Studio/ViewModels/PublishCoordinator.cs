@@ -22,9 +22,6 @@ public sealed class PublishCoordinator
     private readonly ContentKbOrchestratorOptions _options;
     private readonly PublishStateDeriver _deriver;
 
-    // ── Seed path constant ───────────────────────────────────────────────────
-    private const string SeedRelative = "content-kb/seed/index-seed.json";
-
     // ── Pinned serializer options for canonical per-row JSON comparison ──────
     // Why: ContentIndexExportRow tag props are IReadOnlyList<string>; record == compares list
     // references not contents, miscounting unchanged rows as Updated. Compare canonical per-row
@@ -91,7 +88,7 @@ public sealed class PublishCoordinator
         // SEED must land in the REPO tree (NOT the data dir): ArtifactPath already carries
         // content-kb/; the seed is written under repoRoot so the committed seed is the repo's file
         // (D-01/D-03/D-10).
-        var seedAbsPath = Path.GetFullPath(Path.Combine(repoRoot, SeedRelative));
+        var seedAbsPath = Path.GetFullPath(Path.Combine(repoRoot, ContentKbSeedPaths.SeedRelativePath));
 
         // Step 1: Write the approved-only LF seed into the repo tree.
         var exportResult = await _orchestrator.ExportIndexToFileAsync(seedAbsPath, progress, cancellationToken).ConfigureAwait(false);
@@ -120,7 +117,7 @@ public sealed class PublishCoordinator
         }
 
         // Step 3: Build the staged repo-relative path list = [seedRelative] + copiedArtifactPaths.
-        var staged = new List<string> { SeedRelative };
+        var staged = new List<string> { ContentKbSeedPaths.SeedRelativePath };
         staged.AddRange(copiedArtifactPaths);
         var stagedReadOnly = staged.AsReadOnly();
 
@@ -128,7 +125,7 @@ public sealed class PublishCoordinator
         var rawDiff = await _git.DiffAsync(repoRoot, stagedReadOnly, cancellationToken).ConfigureAwait(false);
 
         // Step 5: In-memory counts via CANONICAL PER-ROW JSON (never record/list-reference equality).
-        var headSeedText = await _git.CatHeadSeedAsync(repoRoot, SeedRelative, cancellationToken).ConfigureAwait(false);
+        var headSeedText = await _git.CatHeadSeedAsync(repoRoot, ContentKbSeedPaths.SeedRelativePath, cancellationToken).ConfigureAwait(false);
         List<ContentIndexExportRow> headRows;
         if (string.IsNullOrEmpty(headSeedText))
         {

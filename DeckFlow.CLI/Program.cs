@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.IO;
+using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Storage;
@@ -105,7 +106,7 @@ var distillDryRunOption = new Option<bool>("--dry-run", () => false) { Descripti
 var distillVideoIdsOption = new Option<string?>("--video-ids") { Description = "Comma-separated natural keys (YouTube video ids or RSS guids) to distill; other pending videos are skipped and --limit is ignored." };
 var contentIndexExportCommand = new Command("content-index-export", "Exports the local content_site_index to a tracked JSON seed file for commit-then-deploy.");
 var contentIndexExportDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
-var contentIndexExportOutputOption = new Option<FileInfo?>("--output", () => new FileInfo(Path.Combine("content-kb", "seed", "index-seed.json"))) { Description = "Path to the JSON seed file. Defaults to content-kb/seed/index-seed.json." };
+var contentIndexExportOutputOption = new Option<FileInfo?>("--output", () => new FileInfo(ContentKbPaths.SeedRelativePath)) { Description = "Path to the JSON seed file. Defaults to content-kb/seed/index-seed.json." };
 var contentKbCheckCommand = new Command("content-kb-check", "Checks content_site_index rows against local artifact files and reports orphans (read-only; exits 1 when a published orphan exists).");
 var contentKbCheckDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
 var contentKbCheckArtifactRootOption = new Option<DirectoryInfo?>("--artifact-root") { Description = "Artifact directory: either the data-root parent of content-kb/ or the content-kb directory itself (both are normalized). Defaults to the MTG_DATA_DIR/content-kb resolution." };

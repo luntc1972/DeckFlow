@@ -4,6 +4,7 @@ using DeckFlow.Core.Knowledge;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.FeatureFlags;
 using Markdig;
 using Microsoft.AspNetCore.Html;
 using Microsoft.AspNetCore.Mvc;
@@ -21,6 +22,7 @@ public sealed class ContentKbController : Controller
 
     private readonly IContentSiteIndexStore _store;
     private readonly ContentKbArtifactPathResolver _resolver;
+    private readonly IFeatureFlagCache _flagCache;
     private readonly ILogger<ContentKbController> _logger;
 
     /// <summary>
@@ -28,18 +30,25 @@ public sealed class ContentKbController : Controller
     /// </summary>
     /// <param name="store">Content site-index store.</param>
     /// <param name="resolver">Artifact path resolver.</param>
+    /// <param name="flagCache">
+    /// Feature-flag cache consulted for <c>sync.directpush-gitbody</c> so a missing-body
+    /// resolution returns a real 404 under the flag instead of the legacy 200 shell.
+    /// </param>
     /// <param name="logger">Logger.</param>
     public ContentKbController(
         IContentSiteIndexStore store,
         ContentKbArtifactPathResolver resolver,
+        IFeatureFlagCache flagCache,
         ILogger<ContentKbController> logger)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(resolver);
+        ArgumentNullException.ThrowIfNull(flagCache);
         ArgumentNullException.ThrowIfNull(logger);
 
         _store = store;
         _resolver = resolver;
+        _flagCache = flagCache;
         _logger = logger;
     }
 
@@ -112,11 +121,36 @@ public sealed class ContentKbController : Controller
         if (resolution == ContentKbArtifactResolution.MissingFile)
         {
             _logger.LogWarning("Content KB artifact file was unavailable for row {ContentKbRowId}.", row.Id);
+
+            // SYNC-07/D-01/D-11: under the flag, git is the only body source, so a missing body
+            // is a real serving failure - return an honest 404 instead of the legacy 200
+            // "artifact unavailable" shell. Flag OFF (default) preserves the 200 shell.
+            if (_flagCache.IsEnabled("sync.directpush-gitbody"))
+            {
+                return NotFound();
+            }
+
             return View("Detail", BuildDetailModel(row, new HtmlString(string.Empty), string.Empty, artifactUnavailable: true));
         }
 
         var raw = await System.IO.File.ReadAllTextAsync(resolved, cancellationToken).ConfigureAwait(false);
         var (_, body) = ContentArtifactParser.SplitHeader(raw);
+
+        // Why: recompute the on-disk body hash via the ONE shared helper (which itself calls
+        // SplitHeader over `raw`) so the render-side hash and the publish-side hash are provably
+        // comparable (D-01). On mismatch OR a legacy null/absent stored hash, log a structured
+        // warning naming the row but keep serving the body — fail-open this phase (D-05); a future
+        // phase may tighten this to fail-closed once the backfill (89-06) guarantees coverage.
+        var computedHash = ContentSiteIndexContentSignature.ComputeBodySha256(raw);
+        if (row.BodySha256 is null || !string.Equals(row.BodySha256, computedHash, StringComparison.Ordinal))
+        {
+            _logger.LogWarning(
+                "Content KB body hash mismatch for row {ContentKbRowId}: stored={StoredHash} computed={ComputedHash}",
+                row.Id,
+                row.BodySha256 ?? "(none)",
+                computedHash);
+        }
+
         var renderedHtml = new HtmlString(Markdown.ToHtml(body, Pipeline));
 
         // Prefer the baked sibling prompt (written at distill time) when present; otherwise

@@ -89,6 +89,25 @@ public partial class DirectPush
     private string _gitBranch = string.Empty;
     private int _gitBodyCount;
 
+    // ── Stage 5 — Verify Deploy & Publish (gated on _gitSuccess; SYNC-09/D-06) ─
+    private bool _verifyInFlight;
+    private bool _verifyRanOnce;
+    private string _verifyError = string.Empty;
+    private List<RowResult> _confirmedResults = new();
+    private List<RowResult> _notConfirmedResults = new();
+
+    // ── Awaiting-confirm resume bucket (D-10) ────────────────────────────────
+    // Why: a mid-flight push (content upserted, not yet deploy-confirmed) is durable via the local
+    // AwaitingConfirmUtc marker (Plan 90-03) and survives a page reload. ClassifyDiff would
+    // reclassify a content-matching-but-hidden row as Unchanged and drop it from PublishRows
+    // (90-RESEARCH Pitfall 4), so this bucket is populated independently of the diff and refreshed
+    // after every stage that can change the marker set (Stage 3 sets it, Stage 5/resume clear it).
+    private IReadOnlyList<ContentSiteIndexRow> _awaitingConfirmRows = Array.Empty<ContentSiteIndexRow>();
+    private bool _resumeVerifyInFlight;
+    private string _resumeVerifyError = string.Empty;
+    private List<RowResult> _resumeConfirmedResults = new();
+    private List<RowResult> _resumeNotConfirmedResults = new();
+
     // ── Lifecycle ──────────────────────────────────────────────────────────
     protected override async Task OnInitializedAsync()
     {
@@ -98,6 +117,11 @@ public partial class DirectPush
             var initData = await Task.Run(() => Coordinator.LoadInitDataAsync(Cts.Token), Cts.Token);
             _approvedCount = initData.ApprovedCount;
             _dataRoot = initData.DataRoot;
+
+            // Why (D-10/Plan 90-06): surface any rows left awaiting-confirm from a prior/interrupted
+            // session BEFORE the operator does anything else — a marker-set row must never look
+            // indistinguishable from "never pushed" (90-RESEARCH Pitfall 4).
+            _awaitingConfirmRows = await Task.Run(() => Coordinator.GetAwaitingConfirmRowsAsync(Cts.Token), Cts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -115,11 +139,58 @@ public partial class DirectPush
         }
     }
 
+    // Why: shared by Stage 3 (sets new markers), Stage 5 and Resume (both may clear markers on
+    // confirm) — a single refresh point keeps the bucket honest without a re-query on a timestamp
+    // column (Pitfall 3; the coordinator method filters in memory).
+    private async Task RefreshAwaitingConfirmBucketAsync()
+    {
+        try
+        {
+            var rows = await Task.Run(() => Coordinator.GetAwaitingConfirmRowsAsync(Cts.Token), Cts.Token)
+                .ConfigureAwait(false);
+
+            await InvokeAsync(() =>
+            {
+                _awaitingConfirmRows = rows;
+                SafeStateHasChanged();
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            // Component disposed — swallow.
+        }
+        catch (Exception ex)
+        {
+            // Why: non-fatal — the bucket simply won't refresh this cycle; the prior in-memory list
+            // stays shown rather than the page crashing on a secondary read.
+            Logger.LogWarning(ex, "Failed to refresh the awaiting-confirm resume bucket");
+        }
+    }
+
+    // Why: shared by Stage 5 and Resume to build a display row from a confirmed/not-confirmed
+    // ContentSiteIndexRow without duplicating the natural-key derivation.
+    private static RowResult ToRowResult(ContentSiteIndexRow row, bool success, string? reason)
+    {
+        var hasKey = ContentNaturalKey.TryDerive(row, out var key);
+        return new RowResult(row.Title, hasKey ? key.Type : string.Empty, hasKey ? key.Value : string.Empty, success, reason);
+    }
+
+    // Why: the resume bucket table renders a row's natural key before any RowResult exists for it —
+    // shares the same TryDerive call so the label can never diverge from ToRowResult's derivation.
+    private static string ResumeKeyLabel(ContentSiteIndexRow row)
+    {
+        var hasKey = ContentNaturalKey.TryDerive(row, out var key);
+        return hasKey ? $"{key.Type}:{key.Value}" : string.Empty;
+    }
+
     // ── Stage 1: Compute Prod Diff ──────────────────────────────────────────
     private async Task ComputeDiffAsync()
     {
+        // Why (D-09 REVISED): also gate on IsConfirmerConfigured — a push that can never be
+        // deploy-confirmed would strand every row awaiting-confirm forever (T-90-12), so refuse to
+        // start the whole DirectPush flow until the confirmer's base URL + admin creds are set.
         if (_operationInFlight || _approvedCount == 0
-            || !Config.IsProdConfigured || !Config.IsScpConfigured)
+            || !Config.IsProdConfigured || !Config.IsScpConfigured || !Config.IsConfirmerConfigured)
         {
             return;
         }
@@ -150,6 +221,12 @@ public partial class DirectPush
         _gitSha = string.Empty;
         _gitBranch = string.Empty;
         _gitBodyCount = 0;
+        // Why: Stage 5 also re-gates on a fresh batch, mirroring the Stage 4 reset above — a prior
+        // batch's confirm/not-confirm results must not linger against the new publish set.
+        _verifyRanOnce = false;
+        _verifyError = string.Empty;
+        _confirmedResults = new();
+        _notConfirmedResults = new();
 
         try
         {
@@ -172,6 +249,11 @@ public partial class DirectPush
                     SafeStateHasChanged();
                 });
             }, Cts.Token);
+
+            // Why (D-10/Plan 90-06): a fresh diff is also a natural point to re-surface any rows left
+            // awaiting-confirm from an earlier session (90-RESEARCH Pitfall 4) — refresh the bucket
+            // alongside the diff rather than only at page load.
+            await RefreshAwaitingConfirmBucketAsync();
         }
         catch (OperationCanceledException)
         {
@@ -282,9 +364,11 @@ public partial class DirectPush
         {
             await Task.Run(async () =>
             {
-                // Why (H4): coordinator runs the single transactional batch upsert + prod-first
-                // stamp/visibility, all-or-nothing. Throws on any row failure (rolled back).
-                await Coordinator.WritePublishAsync(_publishRows, Cts.Token).ConfigureAwait(false);
+                // Why (H4/D-06/D-07): coordinator runs the single transactional content-only batch
+                // upsert + sets the local awaiting-confirm marker, all-or-nothing. Does NOT stamp
+                // pushed_to_prod_utc or flip is_visible — those happen only after a deploy-confirm
+                // (SYNC-09), a later stage. Throws on any row failure (rolled back).
+                await Coordinator.WriteContentAsync(_publishRows, Cts.Token).ConfigureAwait(false);
 
                 // All rows succeeded — _diffRows is parallel to _publishRows (New + Updated set).
                 var successResults = _diffRows
@@ -300,6 +384,11 @@ public partial class DirectPush
                     SafeStateHasChanged();
                 });
             }, Cts.Token);
+
+            // Why (D-10/Plan 90-06): WriteContentAsync just set a new awaiting-confirm marker for
+            // every pushed row — refresh the bucket immediately so the resume section reflects it
+            // (test a: "after expand, a row shows in the awaiting-confirm bucket").
+            await RefreshAwaitingConfirmBucketAsync();
         }
         catch (ContentSiteIndexBatchUpsertException ex)
         {
@@ -340,9 +429,11 @@ public partial class DirectPush
     // ── Stage 4: Commit Bodies to Git + Push (gated on _dbSuccess) ──────────
     private async Task CommitAndPushAsync()
     {
-        // Why: hard-guard — the git durability stage must never run before the prod DB write
-        // succeeded (the bodies are only "pushed" once their rows are live). The disabled button
-        // alone is not sufficient (mirrors the Stage 3 guard).
+        // Why: hard-guard — the git durability stage must never run before the prod content-only
+        // write succeeded (D-06: expand's git step follows expand's content step). The rows stay
+        // hidden and awaiting-confirm through this entire stage — nothing goes live here; only
+        // Stage 5 (after a confirmed deploy) can do that. The disabled button alone is not
+        // sufficient (mirrors the Stage 3 guard).
         if (!_dbSuccess || _operationInFlight)
         {
             return;
@@ -385,8 +476,9 @@ public partial class DirectPush
         }
         catch (OperationCanceledException)
         {
-            _gitError = "Git commit/push was cancelled. Content is already live in production; " +
-                        "run the git backup again to persist the bodies.";
+            _gitError = "Git commit/push was cancelled. The pushed rows stay HIDDEN and " +
+                        "awaiting-confirm — nothing was published. Re-run Stage 4 to commit and " +
+                        "push the bodies.";
             _gitInFlight = false;
             _operationInFlight = false;
             await InvokeAsync(StateHasChanged);
@@ -395,10 +487,13 @@ public partial class DirectPush
         {
             // Why (review R2-1): the stage could not verify the branch was safe to auto-push (e.g.
             // origin/{branch} not fetched) and failed CLOSED — nothing was committed or pushed. The
-            // Reason is secret-free by construction. Non-fatal: content is already live.
+            // Reason is secret-free by construction. Non-fatal (D-06): the pushed rows are already
+            // hidden and awaiting-confirm — a git failure here cannot expose anything, it only
+            // delays the deploy the confirm step needs.
             Logger.LogWarning("Direct Push git stage blocked on {Branch}: {Reason}", ex.Branch, ex.Reason);
             _gitError = $"Stage 4 stopped: {ex.Reason}. Nothing was committed or pushed. " +
-                        "Content is already LIVE in production. Resolve that, then retry.";
+                        "The pushed rows stay HIDDEN and awaiting-confirm until the bodies are " +
+                        "git-durable and deploy-confirmed. Resolve that, then retry.";
             _gitInFlight = false;
             _operationInFlight = false;
             await InvokeAsync(StateHasChanged);
@@ -407,14 +502,14 @@ public partial class DirectPush
         {
             // Why (review F2): the branch has commits ahead of origin that this stage did not author.
             // Pushing would publish them unreviewed, so the stage refused BEFORE committing anything.
-            // This is non-fatal — content is already live; the operator handles their own commits.
+            // Non-fatal (D-06): the pushed rows stay hidden and awaiting-confirm regardless.
             Logger.LogWarning(
                 "Direct Push git stage refused: {Count} unreviewed commit(s) ahead of origin/{Branch}",
                 ex.ForeignCommitCount, ex.Branch);
             _gitError = $"Stage 4 stopped: {ex.ForeignCommitCount} other unpushed commit(s) on " +
                         $"'{ex.Branch}' would be published by this push and have not been reviewed. " +
                         "Nothing was committed or pushed. Review and push (or reset) them yourself " +
-                        "first, then retry. Content is already LIVE in production.";
+                        "first, then retry. The pushed rows stay HIDDEN and awaiting-confirm.";
             _gitInFlight = false;
             _operationInFlight = false;
             await InvokeAsync(StateHasChanged);
@@ -431,7 +526,8 @@ public partial class DirectPush
                 ? "The bodies are already committed locally"
                 : $"Committed the bodies locally as {ex.Sha}";
             _gitError = $"{committedClause}, but the push to origin FAILED. " +
-                        "Content is already LIVE in production. To back it up, run:";
+                        "The pushed rows stay HIDDEN and awaiting-confirm until the push succeeds " +
+                        "and Stage 5 confirms the deploy. To finish the git backup, run:";
             _gitManualPushCommand = $"git push origin HEAD:refs/heads/{ex.Branch}";
             _gitInFlight = false;
             _operationInFlight = false;
@@ -441,13 +537,172 @@ public partial class DirectPush
         {
             // Why: M3 — a git error message can carry the repo path / remote URL / credential hints
             // (D-07 / SC5); log the full exception to the sink only and surface sanitized copy. This
-            // stage is NON-FATAL: prod DB + /data already hold the live content, so the git backup
-            // failing does not lose anything the user can see.
+            // stage is NON-FATAL (D-06): the pushed rows are already hidden and awaiting-confirm in
+            // prod DB, so a git backup failure delays the deploy the confirm step needs but exposes
+            // nothing new.
             Logger.LogError(ex, "Git commit/push (durability stage) failed");
             _gitError = "Could not commit or push the bodies to git — check the Studio git repo and " +
-                        "credentials. Content is already LIVE in production; only the git backup did " +
-                        "not complete. You can retry, or run 'git push' manually.";
+                        "credentials. The pushed rows stay HIDDEN and awaiting-confirm; only the git " +
+                        "backup did not complete. You can retry, or run 'git push' manually.";
             _gitInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // ── Stage 5: Verify Deploy & Publish (gated on _gitSuccess; SYNC-09/D-06) ─
+    private async Task RunVerifyAndPublishAsync()
+    {
+        // Why: hard-guard — verification/publish must never run before Stage 4 (git commit+push)
+        // has completed; the confirm poll checks the deployed /app body, which cannot exist without
+        // a completed push. The disabled button alone is not sufficient (mirrors the Stage 3/4
+        // guards).
+        if (!_gitSuccess || _operationInFlight)
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        _verifyInFlight = true;
+        _verifyError = string.Empty;
+        _confirmedResults = new();
+        _notConfirmedResults = new();
+
+        try
+        {
+            await Task.Run(async () =>
+            {
+                // Why (SYNC-09/D-06): polls the Plan 90-07 deployed-body-hash endpoint per row and
+                // stamps+flips visible ONLY the rows that confirm (200 && hash match). Not-confirmed
+                // rows stay content-upserted, hidden, and durably awaiting-confirm (D-10) — resumable,
+                // never a false-positive publish.
+                var result = await Coordinator.VerifyAndPublishAsync(_publishRows, Cts.Token).ConfigureAwait(false);
+
+                var confirmed = result.Confirmed.Select(r => ToRowResult(r, true, null)).ToList();
+                var notConfirmed = result.NotConfirmed
+                    .Select(r => ToRowResult(
+                        r,
+                        false,
+                        "Not yet confirmed at /app — the Render deploy may still be catching up. " +
+                        "Re-run this stage once it is healthy."))
+                    .ToList();
+
+                await InvokeAsync(() =>
+                {
+                    _confirmedResults = confirmed;
+                    _notConfirmedResults = notConfirmed;
+                    _verifyRanOnce = true;
+                    _verifyInFlight = false;
+                    _operationInFlight = false;
+                    SafeStateHasChanged();
+                });
+            }, Cts.Token);
+
+            // Why: ConfirmAndPublishAsync (inside VerifyAndPublishAsync) clears the local marker for
+            // every confirmed row — refresh the resume bucket so it reflects the new state at once.
+            await RefreshAwaitingConfirmBucketAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            _verifyError = "Verify was cancelled. The pushed rows stay HIDDEN and awaiting-confirm " +
+                        "— nothing was published. Re-run this stage.";
+            _verifyInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            // Why: M3 — the confirmer's HTTP failure can carry host/creds in ex.Message (D-07 / SC5);
+            // log full exception to the sink only, surface sanitized copy. Non-fatal: the rows stay
+            // hidden and awaiting-confirm, never a false-positive publish.
+            Logger.LogError(ex, "Verify deploy & publish failed");
+            _verifyError = "Could not verify the deployed body — check the deploy-confirm " +
+                        "configuration and try again. The pushed rows stay HIDDEN and " +
+                        "awaiting-confirm; nothing was published.";
+            _verifyInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // ── Resume: re-run verify for rows awaiting confirm from a prior/interrupted session (D-10) ──
+    private async Task ResumeVerifyAsync()
+    {
+        if (_operationInFlight || _awaitingConfirmRows.Count == 0)
+        {
+            return;
+        }
+
+        _operationInFlight = true;
+        _resumeVerifyInFlight = true;
+        _resumeVerifyError = string.Empty;
+        _resumeConfirmedResults = new();
+        _resumeNotConfirmedResults = new();
+
+        // Why: capture the current bucket up front — RefreshAwaitingConfirmBucketAsync mutates
+        // _awaitingConfirmRows once the resume completes, and this run must resolve exactly the set
+        // it started with.
+        var rowsToResume = _awaitingConfirmRows;
+
+        try
+        {
+            await Task.Run(async () =>
+            {
+                var result = await Coordinator.VerifyAndPublishAsync(rowsToResume, Cts.Token).ConfigureAwait(false);
+
+                var confirmed = result.Confirmed.Select(r => ToRowResult(r, true, null)).ToList();
+                var notConfirmedReason = "Still not confirmed at /app. Wait for the Render deploy to finish, then " +
+                                         "resume again.";
+
+                if (result.NotConfirmed.Count > 0)
+                {
+                    var redeployResult = await Coordinator.TriggerRedeployAsync(Cts.Token).ConfigureAwait(false);
+                    notConfirmedReason = redeployResult.Outcome switch
+                    {
+                        DirectPushRedeployOutcome.RedeployTriggered
+                            => "Redeploy triggered — wait for the Render deploy to go healthy, then Resume again.",
+                        DirectPushRedeployOutcome.AlreadyTriggered
+                            => "Redeploy already triggered — wait for the Render deploy to go healthy, then Resume again.",
+                        DirectPushRedeployOutcome.Indeterminate
+                            => "prod flag DB unreachable — retry when reachable; rows stay awaiting-confirm.",
+                        DirectPushRedeployOutcome.BranchAheadNeedsPush
+                            => "A durability commit is already ahead of origin. Let that push/redeploy settle, then Resume again.",
+                        _ => notConfirmedReason,
+                    };
+                }
+
+                var notConfirmed = result.NotConfirmed
+                    .Select(r => ToRowResult(
+                        r,
+                        false,
+                        notConfirmedReason))
+                    .ToList();
+
+                await InvokeAsync(() =>
+                {
+                    _resumeConfirmedResults = confirmed;
+                    _resumeNotConfirmedResults = notConfirmed;
+                    _resumeVerifyInFlight = false;
+                    _operationInFlight = false;
+                    SafeStateHasChanged();
+                });
+            }, Cts.Token);
+
+            await RefreshAwaitingConfirmBucketAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            _resumeVerifyError = "Resume verify was cancelled. The rows stay awaiting-confirm.";
+            _resumeVerifyInFlight = false;
+            _operationInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Resume verify and redeploy handling failed");
+            _resumeVerifyError = "Could not complete resume verify/redeploy handling — check the " +
+                        "deploy-confirm and git state, then retry. The rows stay awaiting-confirm.";
+            _resumeVerifyInFlight = false;
             _operationInFlight = false;
             await InvokeAsync(StateHasChanged);
         }
@@ -465,4 +720,9 @@ public partial class DirectPush
     // a disabled button, so the guard (no git run before prod DB success) is otherwise unreachable in
     // a test. Calls the exact production handler; no behavior is duplicated.
     internal Task InvokeCommitAndPushForTest() => CommitAndPushAsync();
+
+    // Why: exercises the RunVerifyAndPublishAsync hard-guard directly — bUnit will not dispatch a
+    // click to a disabled button, so the guard (no confirm poll before git success) is otherwise
+    // unreachable in a test. Calls the exact production handler; no behavior is duplicated.
+    internal Task InvokeVerifyAndPublishForTest() => RunVerifyAndPublishAsync();
 }

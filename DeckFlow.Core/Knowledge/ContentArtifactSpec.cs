@@ -147,6 +147,32 @@ public sealed record ContentSiteIndexRow
     /// <summary>Approval workflow status: pending, approved, or rejected.</summary>
     public string ApprovalStatus { get; init; } = "pending";
 
+    /// <summary>
+    /// Lowercase hex SHA-256 of the LF-normalized, UTF-8-decoded artifact body (post-front-matter),
+    /// computed by <c>ContentSiteIndexContentSignature.ComputeBodySha256</c>.
+    /// <see langword="null"/> for legacy rows that predate the content-hash backfill.
+    /// </summary>
+    public string? BodySha256 { get; init; }
+
+    /// <summary>
+    /// UTC instant this row's content was pushed to prod and is durably awaiting a deploy
+    /// hash-confirm before <c>PushedToProdUtc</c> stamps and <c>IsVisible</c> flips (D-10).
+    /// <see langword="null"/> means the row is not currently mid-flight. Set by
+    /// <c>SetAwaitingConfirmAsync</c>, cleared by <c>ClearAwaitingConfirmAsync</c>; never written by
+    /// an upsert. Local fact only — never mirrored to prod's content-only upsert column list.
+    /// </summary>
+    public DateTimeOffset? AwaitingConfirmUtc { get; init; }
+
+    /// <summary>
+    /// Row-level seed-ownership marker (SYNC-17): <see langword="true"/> when this row is
+    /// seed-managed (its natural key currently appears in <c>index-seed.json</c>),
+    /// <see langword="false"/> when it is classified prod-owned, and <see langword="null"/> when
+    /// unclassified. <see langword="null"/> is distinct from <see langword="false"/> so the D-02
+    /// backfill can be re-run safely without clobbering an existing classification. Seed-driven
+    /// removal (SYNC-12) applies ONLY to rows where this is <see langword="true"/>.
+    /// </summary>
+    public bool? SeedManaged { get; init; }
+
     /// <summary>Allowlisted archetype tags for filtering and display.</summary>
     public required IReadOnlyList<string> ArchetypeTags { get; init; }
 
