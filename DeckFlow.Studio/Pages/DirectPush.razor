@@ -14,8 +14,10 @@
 <h1 class="h4 fw-semibold">Publish to Production (Direct)</h1>
 <p class="text-muted">Push approved entries straight to production — upload artifacts to
 Render /data, then upsert the rows into the prod database. Artifacts first; the DB step
-unlocks only after every file uploads. Pushed rows stay <strong>hidden</strong> until Stage 5
-confirms the deployed body matches (expand&rarr;verify&rarr;contract, SYNC-09/D-06).</p>
+unlocks only after every file uploads. New rows stay <strong>hidden</strong> until Stage 5
+confirms the deployed body matches; a row that is already visible stays <strong>visible</strong>
+and may briefly serve its prior body until the redeploy completes
+(expand&rarr;verify&rarr;contract, SYNC-09/D-06).</p>
 
 <article class="content px-4">
 
@@ -112,8 +114,10 @@ confirms the deployed body matches (expand&rarr;verify&rarr;contract, SYNC-09/D-
         <div class="alert alert-danger py-2 mt-3">
             <span class="oi oi-warning me-1" aria-hidden="true"></span>
             <strong>TARGET: PRODUCTION</strong> — Stages 1&ndash;3 write directly to the live site
-            database and the Render /data disk, but rows stay <strong>hidden</strong> and
-            awaiting-confirm until Stage 5 verifies the deploy. There is no undo.
+            database and the Render /data disk. New rows stay <strong>hidden</strong> and
+            awaiting-confirm until Stage 5 verifies the deploy; a row that is already visible stays
+            <strong>visible</strong> and may briefly serve its prior body until the redeploy completes.
+            There is no undo.
             <strong>Stage 4 and Stage 5 are separate steps you click</strong> &mdash; Stage 4 commits
             the pushed bodies (and the re-exported index seed) to git and pushes <code>origin</code>;
             Stage 5 polls the deployed body and, only on a confirmed hash match, publishes the rows
@@ -528,10 +532,11 @@ confirms the deployed body matches (expand&rarr;verify&rarr;contract, SYNC-09/D-
                         Commits the pushed bodies plus the re-exported content-KB index seed to the
                         git repo and pushes the current branch to <code>origin</code> (dropping
                         <code>[skip render]</code> once the <code>sync.directpush-gitbody</code> flag
-                        is ON, so a real Render redeploy can happen). The pushed rows stay
-                        <strong>hidden</strong> and awaiting-confirm &mdash; this step does not
-                        publish anything. Stage 5 below verifies the deployed body and makes rows
-                        visible only after it confirms.
+                        is ON, so a real Render redeploy can happen). New rows stay
+                        <strong>hidden</strong> and awaiting-confirm; a row that was already visible
+                        stays <strong>visible</strong> and may briefly serve its prior body until the
+                        redeploy completes &mdash; this step does not change visibility. Stage 5 below
+                        verifies the deployed body and makes new rows visible only after it confirms.
                     </p>
 
                     @if (!string.IsNullOrEmpty(_gitError))
@@ -578,9 +583,11 @@ confirms the deployed body matches (expand&rarr;verify&rarr;contract, SYNC-09/D-
                             <div class="alert alert-success py-2 mt-3">
                                 Committed @_gitBodyCount @(_gitBodyCount == 1 ? "body" : "bodies")
                                 as <code>@_gitSha</code> and pushed to <code>origin/@_gitBranch</code>.
-                                The rows stay <strong>hidden</strong>. If this triggered a Render
-                                redeploy, wait for it to go healthy, then run Stage 5 (Verify Deploy
-                                &amp; Publish) below to confirm and make them visible.
+                                New rows stay <strong>hidden</strong>; already-visible rows stay
+                                visible (serving their prior body until the redeploy completes). If
+                                this triggered a Render redeploy, wait for it to go healthy, then run
+                                Stage 5 (Verify Deploy &amp; Publish) below to confirm and make new
+                                rows visible.
                             </div>
                         }
                         else if (_gitPushed)
@@ -588,8 +595,9 @@ confirms the deployed body matches (expand&rarr;verify&rarr;contract, SYNC-09/D-
                             <div class="alert alert-success py-2 mt-3">
                                 No new commit needed — the bodies were already committed. Pushed your
                                 previously-unpushed durability commit(s) to
-                                <code>origin/@_gitBranch</code>. The rows stay
-                                <strong>hidden</strong> — run Stage 5 (Verify Deploy &amp; Publish)
+                                <code>origin/@_gitBranch</code>. New rows stay
+                                <strong>hidden</strong>; already-visible rows stay visible until the
+                                redeploy completes — run Stage 5 (Verify Deploy &amp; Publish)
                                 below once the deploy is healthy.
                             </div>
                         }
@@ -597,9 +605,10 @@ confirms the deployed body matches (expand&rarr;verify&rarr;contract, SYNC-09/D-
                         {
                             <div class="alert alert-success py-2 mt-3">
                                 Already committed and in sync with <code>origin/@_gitBranch</code> —
-                                nothing to push. The bodies are git-durable; the rows stay
-                                <strong>hidden</strong> — run Stage 5 (Verify Deploy &amp; Publish)
-                                below to confirm and make them visible.
+                                nothing to push. The bodies are git-durable; new rows stay
+                                <strong>hidden</strong> while already-visible rows stay visible — run
+                                Stage 5 (Verify Deploy &amp; Publish) below to confirm and make new
+                                rows visible.
                             </div>
                         }
                     }
