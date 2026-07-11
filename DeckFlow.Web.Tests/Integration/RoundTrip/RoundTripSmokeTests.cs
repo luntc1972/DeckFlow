@@ -39,10 +39,19 @@ public sealed class RoundTripSmokeTests : IClassFixture<PostgresContainerFixture
 
         Directory.CreateDirectory(_artifactRoot);
 
+        // Why: WriteFile writes {root}/{slug}/{id}.md while the stored ArtifactPath is
+        // content-kb/{slug}/{id}.md, so the two agree only when the factory's artifactRoot param
+        // already carries the content-kb/ segment -- exactly how Studio's Program.cs builds
+        // ContentKbOrchestratorOptions.ArtifactRoot = Path.Combine(studioDataDirectory, "content-kb").
+        // The File.Exists assertion below then resolves the stored relative path against _artifactRoot
+        // (the parent of that segment). Passing bare _artifactRoot silently writes to the wrong tree.
+        var factoryArtifactRoot = Path.Combine(_artifactRoot, "content-kb");
+        Directory.CreateDirectory(factoryArtifactRoot);
+
         var localConnection = RelationalDatabaseConnection.FromSqlitePath(_harness.LocalDbPath);
         var orchestrator = ContentKbOrchestratorFactory.Create(
             localConnection,
-            _artifactRoot,
+            factoryArtifactRoot,
             distiller: new CannedLlmDistillationService(),
             lister: new ThrowingYouTubeChannelVideoLister(),
             transcriptSource: new ThrowingTranscriptSource(),
