@@ -113,6 +113,7 @@ public static class ManabaseClassifier
         int bothPieces = 0;
         var rampNames = new List<string>();
         int fastMana = 0;
+        var oneShots = new List<OneShotMana>();
 
         // Greatest FIXED creature power in the deck — the optimistic on-board value for board-scaling
         // self reducers keyed on "the greatest power among creatures you control" (The Skullspore
@@ -231,6 +232,17 @@ public static class ManabaseClassifier
                 fastMana += card.Quantity;
             }
 
+            // One-shot burst mana (instant/sorcery rituals — Dark Ritual). Inert data on the deck until
+            // the ritual-burst sim path consumes it; artifact fast mana stays in the FastMana lane above.
+            OneShotMana? oneShot = DetectOneShotBurstMana(card);
+            if (oneShot is not null)
+            {
+                for (int i = 0; i < card.Quantity; i++)
+                {
+                    oneShots.Add(oneShot);
+                }
+            }
+
             AddPartialSources(sources, card);
 
             // 70-03b: model repeatable land-ramp as a colorless, non-land ramp source (one per copy) so
@@ -305,6 +317,7 @@ public static class ManabaseClassifier
             DrawPieceCount = drawPieces - (0.5 * bothPieces),
             RampDrawBothCount = bothPieces,
             FastMana = fastMana,
+            OneShots = oneShots,
             IsSingleton = isSingleton,
             CostReduction = reducers,
             CostSuggestions = suggestions,
@@ -522,6 +535,63 @@ public static class ManabaseClassifier
         "all", "other", "each", "you", "control", "and", "have", "has", "gains", "gain",
         "equipped", "enchanted", "target", "token", "tokens", "nontoken", "tapped", "untapped",
     };
+
+    // One-shot burst mana: an instant/sorcery ritual whose "Add {…}" clause produces more mana than
+    // its own cost (Dark Ritual {B} → Add {B}{B}{B}, net +2 B). Front-face Instant/Sorcery ONLY, so
+    // artifact fast mana (Lotus Petal, LED — kept in the FastMana land-target lane) can never qualify
+    // here, and no card lands in both lanes. {X} in the produced clause or the own cost is skipped
+    // (model only a fixed floor). See .planning/captures/manabase-ritual-burst-mana-spec.md.
+    private static readonly Regex AddClauseRegex =
+        new(@"\bAdd\s+((?:\{[^}]+\}\s*)+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static OneShotMana? DetectOneShotBurstMana(CardFact card)
+    {
+        string front = CardTypeLine.FrontFace(card.TypeLine);
+        if (!IsType(front, "Instant") && !IsType(front, "Sorcery"))
+        {
+            return null;
+        }
+
+        string text = card.FrontFaceOracleText ?? card.OracleText ?? string.Empty;
+        if (text.Length == 0)
+        {
+            return null;
+        }
+
+        Match add = AddClauseRegex.Match(ReminderTextRegex.Replace(text, string.Empty));
+        if (!add.Success)
+        {
+            return null;
+        }
+
+        ParsedManaCost produced = ManaCostParser.Parse(add.Groups[1].Value);
+        ParsedManaCost own = ManaCostParser.Parse(card.ManaCost);
+        if (produced.HasVariableCost || own.HasVariableCost || produced.ManaValue <= 0)
+        {
+            return null;
+        }
+
+        // Net-positive only — a "ritual" that adds no more than it costs is not acceleration.
+        if (produced.ManaValue - own.ManaValue <= 0)
+        {
+            return null;
+        }
+
+        List<ManaColor> colors = produced.Pips.Where(p => p.Value > 0).Select(p => p.Key).ToList();
+        if (colors.Count == 0)
+        {
+            return null;
+        }
+
+        return new OneShotMana
+        {
+            Name = card.Name,
+            ProducedColors = colors,
+            ProducedAmount = produced.ManaValue,
+            OwnPips = own.Pips,
+            OwnManaValue = own.ManaValue,
+        };
+    }
 
     // A repeatable, self-contained mana ability on the card's FRONT face: an activated
     // "<cost>: Add ..." line whose cost does not sacrifice anything. The sacrifice check drops

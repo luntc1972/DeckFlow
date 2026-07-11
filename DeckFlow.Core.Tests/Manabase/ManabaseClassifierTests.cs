@@ -1108,6 +1108,84 @@ public sealed class ManabaseClassifierTests
     }
 
     [Fact]
+    public void Classify_InstantSorceryRituals_DetectedAsOneShotBurstMana()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Dark Ritual", Quantity = 1, ManaCost = "{B}", ManaValue = 1,
+                TypeLine = "Instant", OracleText = "Add {B}{B}{B}.", ProducedMana = new[] { "B" },
+            },
+            new()
+            {
+                Name = "Rite of Flame", Quantity = 2, ManaCost = "{R}", ManaValue = 1,
+                TypeLine = "Sorcery", OracleText = "Add {R}{R}.", ProducedMana = new[] { "R" },
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        // One entry per copy (Dark Ritual ×1 + Rite of Flame ×2 = 3).
+        Assert.Equal(3, deck.OneShots.Count);
+
+        OneShotMana dark = Assert.Single(deck.OneShots, o => o.Name == "Dark Ritual");
+        Assert.Equal(3, dark.ProducedAmount);
+        Assert.Equal(1, dark.OwnManaValue);
+        Assert.Equal(2, dark.NetMana);
+        Assert.Equal(new[] { ManaColor.Black }, dark.ProducedColors);
+
+        OneShotMana rite = deck.OneShots.First(o => o.Name == "Rite of Flame");
+        Assert.Equal(1, rite.NetMana); // Add RR (2) − {R} (1)
+    }
+
+    [Fact]
+    public void Classify_NonRitualsAndArtifactFastMana_AreNotOneShotBurstMana()
+    {
+        var cards = new List<CardFact>
+        {
+            // Artifact fast mana — stays in the FastMana lane, NEVER a one-shot (O-2 guard).
+            new()
+            {
+                Name = "Lotus Petal", Quantity = 1, ManaCost = "{0}", ManaValue = 0,
+                TypeLine = "Artifact",
+                OracleText = "{T}, Sacrifice this artifact: Add one mana of any color.",
+                ProducedMana = new[] { "W", "U", "B", "R", "G" },
+            },
+            new()
+            {
+                Name = "Lion's Eye Diamond", Quantity = 1, ManaCost = "{0}", ManaValue = 0,
+                TypeLine = "Artifact",
+                OracleText = "{T}, Sacrifice this artifact: Add three mana of any one color.",
+                ProducedMana = new[] { "W", "U", "B", "R", "G" },
+            },
+            // Sac-outlet engine (not a self-contained one-shot) — and an artifact anyway.
+            new()
+            {
+                Name = "Ashnod's Altar", Quantity = 1, ManaCost = "{3}", ManaValue = 3,
+                TypeLine = "Artifact", OracleText = "Sacrifice a creature: Add {C}{C}.",
+                ProducedMana = new[] { "C" },
+            },
+            // A non-mana instant.
+            new()
+            {
+                Name = "Opt", Quantity = 1, ManaCost = "{U}", ManaValue = 1,
+                TypeLine = "Instant", OracleText = "Scry 1.\nDraw a card.", ProducedMana = Array.Empty<string>(),
+            },
+            // A sorcery that "adds" no more than it costs — not net-positive.
+            new()
+            {
+                Name = "Break-Even Ritual", Quantity = 1, ManaCost = "{1}{R}", ManaValue = 2,
+                TypeLine = "Sorcery", OracleText = "Add {R}{R}.", ProducedMana = new[] { "R" },
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        Assert.Empty(deck.OneShots);
+    }
+
+    [Fact]
     public void Classify_OneShotAndTriggeredManaProducers_AreNotRocksOrDorks()
     {
         // Efficacy R2 finding H2: Scryfall sets produced_mana on Treasure-makers (the token's
