@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-06)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything. This cycle protects the Content-KB half of that promise.
-**Current focus:** Phase 93 — round-trip-integration-test
+**Current focus:** Cycle 16 SHIPPED (2026.07.3) — archived; awaiting operator push + squash→main + tag.
 
 ## Current Position
 
@@ -160,7 +160,7 @@ None yet — milestone just started.
 
 ## Deferred Items
 
-Carried forward from Cycle 15 close (2026-07-05) — none are Cycle-16 gaps:
+Carried forward, plus Cycle-16 operator gates acknowledged at close (2026-07-11):
 
 | Category | Item | Status |
 |----------|------|--------|
@@ -173,6 +173,8 @@ Carried forward from Cycle 15 close (2026-07-05) — none are Cycle-16 gaps:
 | Carry-forward | ADMIN-01 (`/Admin/Flags` on/off sorting) | Descoped to backlog |
 | Sync follow-ons | SYNC-F1 (retire DirectPush entirely) | Deferred — later-cycle decision |
 | Sync follow-ons | SYNC-F2 (scheduled/automatic reconcile runs) | Deferred — this cycle ships operator-triggered only |
+| Cycle-16 operator gate | FU-3 live reconcile walk + SYNC-16 real-deploy leg (91-VERIFICATION `human_needed`) | Deferred — post-ship; flags ship OFF, gates flipping `sync.directpush-gitbody` / `sync.reconcile` ON |
+| Cycle-16 operator | Push branch + squash→main + tag `2026.07.3` + push tag | Owed at close (2026-07-11); AI does not push main |
 
 ## Session Continuity
 

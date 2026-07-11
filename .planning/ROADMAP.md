@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- ð§ **Cycle 16 â Content-KB ProdâGitâStudio Sync Hardening** â Phases 88-93 (target `2026.07.3`)
+- [SHIPPED] **Cycle 16 - Content-KB Prod<->Git<->Studio Sync Hardening** - Phases 88-93 (shipped 2026-07-11, `2026.07.3`) - see `.planning/milestones/cycle16-ROADMAP.md`
 - â **2026.07.2 Cycle 15 â Cleanup, Refactor & Visual Polish** â Phases 82â87 (shipped 2026-07-05) â see .planning/milestones/2026.07.2-ROADMAP.md
 - â **Cycle 14 â Deeper Deck Evaluation** â Phases 79-81 (shipped 2026-07-03, `2026.07.1`) â see `.planning/milestones/cycle14-ROADMAP.md`
 - â **Cycle 13 â Deck Evaluation & Creator Output** â Phases 75-78 (shipped 2026-06-30, `2026.06.10`) â see `.planning/milestones/cycle13-ROADMAP.md`
@@ -28,14 +28,19 @@
 
 Decimal phases appear between their surrounding integers in numeric order. Numbering continues from Cycle 15's Phase 87.
 
-### ð§ Cycle 16 â Content-KB ProdâGitâStudio Sync Hardening (target `2026.07.3`)
+<details>
+<summary>Cycle 16 (Phases 88-93) - SHIPPED 2026-07-11 (2026.07.3)</summary>
 
-- [x] **Phase 88: Index-Row Integrity Hotfix** - DirectPush stops writing visible-while-pending rows and collision-prone PinId diffing (ships first â live prod bugs)
-- [x] **Phase 89: Content-Hash Foundation** - One unified body-inclusive hash everywhere; corrupt/stale bodies become detectable instead of silently served
-- [x] **Phase 90: DirectPush Correctness + Seed Sync** - Bodies reach prod only via git; DirectPush re-exports the seed and survives a redeploy without reverting (flag `sync.directpush-gitbody`)
-- [x] **Phase 91: Reconcile + Seed Lifecycle** - Seed-ownership marker, then a prodâgitâseed reconciler (dry-run first), then gated seed-driven removal (flag `sync.reconcile`)
-- [x] **Phase 92: Pull Hardening** - Pull-from-Prod adopts prod state without clobbering operator fields or acting on a stale checkout
-- [x] **Phase 93: Round-Trip Integration Test** - One end-to-end test locks the whole distillâpublishâprodâserveâreseedâpullâreconcile loop
+- [x] Phase 88 - Index-Row Integrity Hotfix
+- [x] Phase 89 - Content-Hash Foundation
+- [x] Phase 90 - DirectPush Correctness + Seed Sync (flag sync.directpush-gitbody)
+- [x] Phase 91 - Reconcile + Seed Lifecycle (flag sync.reconcile)
+- [x] Phase 92 - Pull Hardening
+- [x] Phase 93 - Round-Trip Integration Test
+
+Full details: .planning/milestones/cycle16-ROADMAP.md
+
+</details>
 
 <details>
 <summary>â 2026.07.2 Cycle 15 (Phases 82â87) â SHIPPED 2026-07-05</summary>
@@ -51,97 +56,7 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
 
 ## Phase Details
 
-### Phase 88: Index-Row Integrity Hotfix
-**Goal**: Kill the two live prod correctness bugs â a row can never be publicly visible while `pending`, and sync diffing can never cross-match rows on a colliding surrogate key.
-**Depends on**: Nothing (first phase â live prod bugs, ships ahead of the hash foundation per Codex-revised sequencing)
-**Requirements**: SYNC-04, SYNC-05, SYNC-06
-**Success Criteria** (what must be TRUE):
-  1. A row DirectPush inserts or updates always carries `approval_status='approved'` â it is never publicly visible while `pending` (C1 closed).
-  2. Sync diff classification matches rows by the `(natural_key_type, natural_key_value)` composite instead of `PinId`, so a YouTube/podcast key collision can no longer cross-match two different rows (C4-collision closed).
-  3. The DirectPush diff-read path runs no unexpected DDL against prod, and the code comment describing that behavior is corrected to match reality (C4-comment closed).
-**Plans**: 3 plans (2 waves)
-- [x] 88-01-PLAN.md â Store approved-write mirror + serve-side approval filter + schema-ensure OFF switch (SYNC-04, SYNC-06 store)
-- [x] 88-02-PLAN.md â Shared ContentNaturalKey helper + composite-key classifier + stored vocabulary + skip-log (SYNC-05 core)
-- [x] 88-03-PLAN.md â Studio coordinator dedup + ProdStoreFactory schema-ensure-off + no-DDL comment sweep (SYNC-05 studio, SYNC-06 factory)
-
-### Phase 89: Content-Hash Foundation
-**Goal**: Every row's body content is hashed end-to-end on one unified signature, so drift is a single indexed comparison and body corruption (e.g. mojibake) is detectable instead of silently served.
-**Depends on**: Phase 88
-**Requirements**: SYNC-01, SYNC-02, SYNC-03
-**Success Criteria** (what must be TRUE):
-  1. `content_site_index` carries a `body_sha256` column (SQLite + Postgres + seed JSON) computed from the on-disk `.md` body at publish time.
-  2. DirectPush, Pull, and reconcile all compare rows using one unified body-inclusive signature â the two previously divergent schemes (`ContentSiteIndexContentSignature` and the `ContentSyncDiffClassifier` fingerprint) are gone.
-  3. The web app detects and logs (structured warning) when a row's on-disk body hash does not match its stored `body_sha256`, making corruption visible instead of silently serving it â fail-open this phase per D-05; the fail-closed refuse-to-render tightening is deferred to a future phase once the D-08 backfill guarantees every live row is hashed.
-**Plans**: 6 plans (3 waves)
-- [x] 89-01-PLAN.md â Shared ComputeBodySha256 helper + body-inclusive BuildSignature + ContentSiteIndexRow.BodySha256 (SYNC-01, SYNC-02) [wave 1]
-- [x] 89-02-PLAN.md â Store body_sha256 DDL/model/upsert plumbing + null-only backfill setter (SYNC-01) [wave 2]
-- [x] 89-03-PLAN.md â Delete Fingerprint, switch classifier to unified signature + one-signature-surface guard test (SYNC-02) [wave 2]
-- [x] 89-04-PLAN.md â index-seed.json export/load bodySha256 round-trip + golden fixture (SYNC-01) [wave 3]
-- [x] 89-05-PLAN.md â Publish-time hash compute + detail-render fail-open guard with structured warning (SYNC-01, SYNC-03) [wave 3]
-- [x] 89-06-PLAN.md â One-time deterministic startup backfill pass (idempotent, DDL-free) (SYNC-01) [wave 3]
-
-### Phase 90: DirectPush Correctness + Seed Sync
-**Goal**: DirectPush converges to the same consistent end-state as Publish â bodies reach prod only through git, and a redeploy can never revert or leave a DirectPush'd row half-consistent.
-**Depends on**: Phase 89 (needs the body hash to hash-gate the ordering)
-**Requirements**: SYNC-07, SYNC-08, SYNC-09, SYNC-10
-**Success Criteria** (what must be TRUE):
-  1. With `sync.directpush-gitbody` on, a DirectPush'd row's body is served exclusively from the git-shipped `/app` tree â the `/data` SFTP-first overlay is no longer part of the serving path.
-  2. DirectPush re-exports `index-seed.json` (like Publish already does), so a fresh prod reseed reconstructs the DirectPush'd row instead of reverting it.
-  3. `is_visible` flips only after the body has been committed, deployed, and hash-verified at `/app` â a row is never visible before its body is reachable.
-  4. `pushed_to_prod_utc` is stamped only after prod confirms the deployed body, so a live DirectPush'd row never shows a "Never published" badge.
-**Plans**: 7 plans (4 waves)
-- [x] 90-01-PLAN.md â SYNC-07 git-body serving flip + `sync.directpush-gitbody` registration (seeded OFF) [wave 1]
-- [x] 90-02-PLAN.md â D-11 read-only pre-flip git-coverage audit (Studio) [wave 1]
-- [x] 90-03-PLAN.md â D-10 durable awaiting-confirm marker column (Core store, both dialects) [wave 1]
-- [x] 90-04-PLAN.md â SYNC-08 seed re-export via shared factory + drop [skip render] under flag + read-only Studio prod-flag accessor [wave 2]
-- [x] 90-05-PLAN.md â SYNC-09/10 coordinator re-plumb: split write, confirm-GET (200=reachable), post-confirm stamp/visibility [wave 3]
-- [x] 90-06-PLAN.md â SYNC-09/10 DirectPush page expandâverifyâcontract re-sequencing + durable resume [wave 4]
-- [x] 90-07-PLAN.md â SYNC-09 authenticated deployed-body-hash endpoint (/app-only, natural-key, hash-match confirm surface) [wave 2]
-
-### Phase 91: Reconcile + Seed Lifecycle
-**Goal**: Prod-side drift is detectable and reconcilable, and rows removed from the seed actually leave prod â safely, gated behind a seed-ownership marker so a bad seed can't mass-delete live rows.
-**Depends on**: Phase 90 (shares the seed contract DirectPush now maintains)
-**Requirements**: SYNC-17, SYNC-11, SYNC-12
-**Success Criteria** (what must be TRUE):
-  1. Every `content_site_index` row carries a seed-management marker distinguishing seed-owned rows from prod-only rows.
-  2. A reconcile dry-run enumerates published-orphans (visible row, no body), file-orphans (`.md`, no row), seed-drift (prod row absent from seed), and body-hash-mismatch discrepancies with deterministic IDs â re-running it produces zero duplicate entries and resolves discrepancies by absence.
-  3. With `sync.reconcile` on, a seed reload hides or deletes seed-owned rows that are absent from the current seed set, logging the removal as intentional, instead of leaving them to accumulate as orphans.
-  4. The destructive seed-delete apply path cannot run unless a dry-run has already validated the same discrepancy set.
-**Plans**: 9 plans (7 waves)
-- [x] 91-01-PLAN.md - Core seed_managed column + null-only backfill setter + shared seed-index reader (SYNC-17) [wave 1]
-- [x] 91-02-PLAN.md - Write-path stamping (seed loader + DirectPush) + ProdContentReader read extension (SYNC-17) [wave 2]
-- [x] 91-03-PLAN.md - Host-agnostic SeedManagedBackfill (D-02) + dual-host wiring (SYNC-17) [wave 2]
-- [x] 91-04-PLAN.md - Pure Core 4-class reconcile classifier + discrepancy records/IDs (SYNC-11) [wave 2]
-- [x] 91-05-PLAN.md - Local SQLite discrepancy store: idempotent, resolution-by-absence, scope tags (SYNC-11) [wave 3]
-- [x] 91-06-PLAN.md - Studio reconcile orchestrator (prod read + git enum + seed parse) + D-06 report (SYNC-11) [wave 4]
-- [x] 91-07-PLAN.md - Dry-run coordinator + Reconcile page (SYNC-11) [wave 5]
-- [x] 91-08-PLAN.md - sync.reconcile flag + gated re-validated soft-hide Apply + Apply UI (SYNC-12) [wave 6]
-- [x] 91-09-PLAN.md - Operator workflow human-verify checkpoint (SYNC-11/SYNC-12) [wave 7] - APPROVED via fixture driver (ReconcileFixtureDriveTests); live UI/prod walk = 90-FOLLOWUPS FU-3 pre-flip gate
-
-### Phase 92: Pull Hardening
-**Goal**: Pull-from-Prod adopts prod's state field-by-field without ever clobbering operator-owned data or acting on a stale local checkout.
-**Depends on**: Phase 91 (reuses the composite-key diffing + reconcile discrepancy vocabulary)
-**Requirements**: SYNC-13, SYNC-14, SYNC-15
-**Success Criteria** (what must be TRUE):
-  1. On Pull, body and content are sourced from the git tree while `is_visible`/`is_hidden`/`approval_status` are sourced from prod and preserved â neither side clobbers the other's authoritative fields.
-  2. Pull warns or refuses to proceed when the local checkout is behind (a `git pull` staleness guard), rather than silently reading a stale git tree.
-  3. Any body-vs-index divergence discovered during Pull is surfaced to the operator for a decision â it is never silently adopted.
-**Plans**: 2 plans (2 waves)
-- [x] 92-01-PLAN.md â Core foundations: git behind-detection seam (Fetch/GetBehindCount) + BodyDivergenceStatus model (SYNC-14, SYNC-15) [wave 1]
-- [x] 92-02-PLAN.md â Coordinator + page hardening (merged): staleness warn-then-proceed + freshness banner + divergence stamping/badge + per-entry opt-in + field-authority regression lock (SYNC-13, SYNC-14, SYNC-15) [wave 2]
-
-### Phase 93: Round-Trip Integration Test
-**Goal**: The entire sync loop â distill through reconcile â is locked by one automated end-to-end test so future changes can't silently reintroduce any of the fixed classes of drift.
-**Depends on**: Phase 92 (exercises every prior phase's fix)
-**Requirements**: SYNC-16
-**Success Criteria** (what must be TRUE):
-  1. An integration test spanning distill â Publish/DirectPush â prod store â web body resolution â deploy/reseed â PullFromProd â reconcile runs against containerized Postgres + a real git tree.
-  2. The test asserts served body == published body and `body_sha256` matches at every hop in the chain.
-  3. The test asserts a published/DirectPush'd row is not reverted after a reseed (no-revert-after-reseed).
-**Plans**: 3 plans
-  - [x] 93-01-PLAN.md — Test-host wiring (DeckFlow.Studio ProjectReference) + round-trip harness scaffold (real PG schema pre-create, real git temp repo, deterministic seams) + boot smoke [PostgresFact]
-  - [x] 93-02-PLAN.md — SYNC-16 round-trip [PostgresFact]: full loop + hash-at-every-hop + no-revert-after-reseed + Pull field-authority + reconcile idempotent
-  - [x] 93-03-PLAN.md — Operator pre-flip checklist (D-08): FU-1/FU-2/FU-3 decisions + live flip steps for sync.directpush-gitbody + sync.reconcile
+All Cycle 16 phase details are archived in `.planning/milestones/cycle16-ROADMAP.md`.
 
 ## Progress
 
