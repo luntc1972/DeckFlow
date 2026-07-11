@@ -502,6 +502,12 @@ public static class ManabaseClassifier
         @"reveal ([^.]+?) card from your hand",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    // Oracle templates whose first capture group is the named-basic-type clause a conditional land
+    // keys off. Tried in order, first match wins. Future census families (Verge, Vivid, Training
+    // Compound — see docs/manabase-analysis-rules.md §4b backlog) add one entry here, not another
+    // branch in ConditionalUntappedTypes. Must be declared after the regexes it references.
+    private static readonly Regex[] ConditionalTypeTemplates = { CheckLandRegex, SnarlRevealRegex };
+
     // A conditional-untapped land (check/Snarl) is modeled untapped when the deck runs at least this
     // many lands bearing one of its named basic types — enough that you almost always control/hold a
     // trigger by the turn it is played. Heuristic constant; tune during calibration.
@@ -937,10 +943,14 @@ public static class ManabaseClassifier
         }
 
         text = ReminderTextRegex.Replace(text, string.Empty);
-        Match clause = CheckLandRegex.Match(text);
-        if (!clause.Success)
+        Match clause = Match.Empty;
+        foreach (Regex template in ConditionalTypeTemplates)
         {
-            clause = SnarlRevealRegex.Match(text);
+            clause = template.Match(text);
+            if (clause.Success)
+            {
+                break;
+            }
         }
 
         if (!clause.Success)
@@ -976,7 +986,7 @@ public static class ManabaseClassifier
                 continue;
             }
 
-            string front = card.TypeLine.Split("//")[0];
+            string front = CardTypeLine.FrontFace(card.TypeLine);
             foreach (string type in types)
             {
                 if (front.Contains(type, StringComparison.OrdinalIgnoreCase))
