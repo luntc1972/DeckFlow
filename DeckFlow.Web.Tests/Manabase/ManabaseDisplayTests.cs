@@ -153,19 +153,18 @@ public sealed class ManabaseDisplayTests
     }
 
     [Theory]
-    // Within half a source of the requirement counts as met, deficit 0.
-    [InlineData(18.0, 17, true, 0)]
-    [InlineData(17.0, 17, true, 0)]
-    [InlineData(16.6, 17, true, 0)]
+    // Within one full source of the requirement counts as met, deficit 0.
+    [InlineData(24.0, 24, true, 0)]
     [InlineData(23.8, 24, true, 0)]
-    [InlineData(23.5, 24, true, 0)]
+    [InlineData(23.0, 24, true, 0)]
+    [InlineData(17.0, 17, true, 0)]
+    [InlineData(16.0, 17, true, 0)]
     // Short: deficit is whole sources needed, clamped to >= 1 so it never shows "-0".
-    [InlineData(15.0, 16, false, 1)]
-    [InlineData(23.4, 24, false, 1)]
+    [InlineData(22.9, 24, false, 2)]
     [InlineData(22.8, 24, false, 2)]
-    [InlineData(16.0, 17, false, 1)]
+    [InlineData(21.9, 24, false, 3)]
     [InlineData(12.2, 16, false, 4)]
-    public void KarstenMet_AppliesHalfSourceTolerance_AndClampsDeficit(double actual, int required, bool met, int deficit)
+    public void KarstenMet_AppliesOneSourceTolerance_AndClampsDeficit(double actual, int required, bool met, int deficit)
     {
         var finding = new ColorSourceFinding
         {

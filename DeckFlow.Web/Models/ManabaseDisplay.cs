@@ -148,7 +148,7 @@ public static class ManabaseDisplay
     /// <summary>
     /// Karsten source-check for the left lens of the two-lens header. <c>Met</c> uses the raw
     /// (weighted, fractional) <see cref="ColorSourceFinding.ActualSources"/> against the integer
-    /// requirement, with a half-source tolerance so anything within 0.5 of the requirement counts
+    /// requirement, with a one-source tolerance so anything within 1.0 of the requirement counts
     /// as on-target; <c>Deficit</c> is the whole sources still needed when short, clamped to at
     /// least 1 so an unmet color never renders "−0". The view shows <c>ActualSources</c> to one
     /// decimal so the displayed number and the ✓/⚠ marker can never contradict each other.
@@ -156,7 +156,7 @@ public static class ManabaseDisplay
     public static (bool Met, int Deficit) KarstenMet(ColorSourceFinding finding)
     {
         ArgumentNullException.ThrowIfNull(finding);
-        bool met = finding.ActualSources >= finding.RequiredSources - 0.5;
+        bool met = finding.ActualSources >= finding.RequiredSources - 1.0;
         int deficit = met ? 0 : Math.Max(1, (int)Math.Ceiling(finding.RequiredSources - finding.ActualSources));
         return (met, deficit);
     }
