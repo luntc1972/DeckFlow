@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { open, unlink } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 
 // Live smoke spec for the /bracket Bracket Check tool (flag-gated, tool.bracket.enabled).
 //
@@ -26,9 +26,6 @@ const baseUrl = 'http://localhost:5173';
 const adminUser = process.env.FEEDBACK_ADMIN_USER ?? 'admin';
 const adminPassword = process.env.FEEDBACK_ADMIN_PASSWORD ?? 'changeme-local';
 const adminToolsUrl = `http://${adminUser}:${adminPassword}@localhost:5173/Admin/Tools`;
-const basicAuthHeader = `Basic ${Buffer.from(`${adminUser}:${adminPassword}`).toString('base64')}`;
-const adminLockPath = '/tmp/deckflow-admin-e2e.lock';
-const adminLockTimeoutMs = 90_000;
 
 // Why: __dirname is DeckFlow.Web/e2e → resolve up 2 levels for the repo root, then into
 // .planning/ui-design/cycle13/screenshots/ where Phase 75 screenshots already live.
@@ -66,31 +63,15 @@ const themes = [
   { name: 'nyx', cookie: 'site-nyx.css' },
 ] as const;
 
-type LockHandle = Awaited<ReturnType<typeof open>>;
+type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
 
 let heldLock: LockHandle | null = null;
 
 test.describe.configure({ mode: 'serial' });
 
-// Why: unique per project/test/retry so concurrent projects (desktop vs mobile) never
-// collide on the same admin IP quota bucket — mirrored from tool-toggles.spec.ts.
-function getAdminForwardedIp(): string {
-  const info = test.info();
-  const key = `${info.project.name}:${info.file}:${info.title}:${info.retry}`;
-  let hash = 0;
-  for (const char of key) {
-    hash = (hash * 31 + char.charCodeAt(0)) % 200;
-  }
-  return `203.0.113.${hash + 1}`;
-}
-
 test.beforeEach(async ({ page }) => {
-  await page.setExtraHTTPHeaders({
-    Authorization: basicAuthHeader,
-    'CF-Connecting-IP': getAdminForwardedIp(),
-  });
   // Serialize against other /Admin/* specs that share the same process-level lock file.
-  heldLock = await acquireAdminLock();
+  heldLock = await acquireAdminLockForTest(page);
   // Enable tool.bracket.enabled for this run (prod seed stays FALSE; only the running store
   // is toggled — afterEach reverts it regardless of pass/fail).
   await setToolEnabled(page, 'Bracket Check', true);
@@ -101,7 +82,7 @@ test.afterEach(async ({ page }) => {
     // Restore the flag to OFF so no persistent state leaks between test runs.
     await setToolEnabled(page, 'Bracket Check', false);
   } finally {
-    await releaseAdminLock(heldLock);
+    await releaseAdminLockForTest(heldLock);
     heldLock = null;
   }
 });
@@ -262,48 +243,6 @@ test('with tool.bracket.enabled OFF, /bracket returns 404 and the tile/tab are a
 });
 
 // ── Helpers (lock + admin toggle — mirrored from tool-toggles.spec.ts) ────────────────────────
-
-async function acquireAdminLock(): Promise<LockHandle> {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < adminLockTimeoutMs) {
-    try {
-      const handle = await open(adminLockPath, 'wx');
-      await handle.writeFile(`${process.pid}\n`);
-      return handle;
-    } catch (error: unknown) {
-      const code =
-        typeof error === 'object' && error !== null && 'code' in error
-          ? String(error.code)
-          : '';
-      if (code !== 'EEXIST') {
-        throw error;
-      }
-    }
-    await new Promise<void>((resolve) => setTimeout(resolve, 250));
-  }
-  throw new Error(`Timed out waiting for admin e2e lock at ${adminLockPath}`);
-}
-
-async function releaseAdminLock(handle: LockHandle | null): Promise<void> {
-  if (!handle) {
-    return;
-  }
-  try {
-    await handle.close();
-  } finally {
-    try {
-      await unlink(adminLockPath);
-    } catch (error: unknown) {
-      const code =
-        typeof error === 'object' && error !== null && 'code' in error
-          ? String(error.code)
-          : '';
-      if (code !== 'ENOENT') {
-        throw error;
-      }
-    }
-  }
-}
 
 async function gotoAdminTools(page: import('@playwright/test').Page): Promise<void> {
   const response = await page.goto(adminToolsUrl);

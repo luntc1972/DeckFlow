@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { open, unlink } from 'node:fs/promises';
+import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 
 const getVisibleRowCount = async (page: Page): Promise<number> =>
   page.locator('#kb-entries-table tbody tr').evaluateAll((rows) =>
@@ -9,10 +9,9 @@ const getVisibleRowCount = async (page: Page): Promise<number> =>
       .length,
   );
 
-const adminLockPath = '/tmp/deckflow-admin-e2e.lock';
-const adminLockTimeoutMs = 90_000;
+type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
 
-type LockHandle = Awaited<ReturnType<typeof open>>;
+test.describe.configure({ mode: 'serial' });
 
 test('deck primer exposes bracket and section controls', async ({ page }) => {
   const response = await page.goto('/deck-primer');
@@ -87,57 +86,6 @@ test('manabase exposes a Load deck step before Analyze', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Analyze Mana Base' })).toBeVisible();
 });
 
-async function acquireAdminLock(): Promise<LockHandle> {
-  const startedAt = Date.now();
-
-  while (Date.now() - startedAt < adminLockTimeoutMs) {
-    try {
-      const handle = await open(adminLockPath, 'wx');
-      await handle.writeFile(`${process.pid}\n`);
-      return handle;
-    } catch (error: unknown) {
-      const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
-      if (code !== 'EEXIST') {
-        throw error;
-      }
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-
-  throw new Error(`Timed out waiting for admin e2e lock at ${adminLockPath}`);
-}
-
-async function releaseAdminLock(handle: LockHandle | null): Promise<void> {
-  if (!handle) {
-    return;
-  }
-
-  try {
-    await handle.close();
-  } finally {
-    try {
-      await unlink(adminLockPath);
-    } catch (error: unknown) {
-      const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
-      if (code !== 'ENOENT') {
-        throw error;
-      }
-    }
-  }
-}
-
-function getAdminForwardedIp(): string {
-  const info = test.info();
-  const key = `${info.project.name}:${info.file}:${info.title}:${info.retry}`;
-  let hash = 0;
-  for (const char of key) {
-    hash = (hash * 31 + char.charCodeAt(0)) % 200;
-  }
-
-  return `203.0.113.${hash + 1}`;
-}
-
 test('content kb detail copy button signals it builds an AI prompt', async ({ page }) => {
   const listResponse = await page.goto('/content-kb');
   expect(listResponse?.ok()).toBeTruthy();
@@ -181,14 +129,11 @@ test.describe('admin content kb flows @admin', () => {
     // The admin Content KB pages share a SQLite-backed admin store. Keep every
     // /Admin/ content-kb test behind the same lock so desktop/mobile workers do
     // not collide and trigger transient 429/500 responses in CI.
-    await page.setExtraHTTPHeaders({
-      'CF-Connecting-IP': getAdminForwardedIp(),
-    });
-    heldLock = await acquireAdminLock();
+    heldLock = await acquireAdminLockForTest(page);
   });
 
   test.afterEach(async () => {
-    await releaseAdminLock(heldLock);
+    await releaseAdminLockForTest(heldLock);
     heldLock = null;
   });
 

@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { open, unlink } from 'node:fs/promises';
+import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 
 // Smoke for Phase 73: the deck-analysis Step 1 companion designator input is gated on the
 // analysis.command-zone-awareness flag. When the flag is ON the single input[name="CompanionName"]
@@ -9,14 +9,9 @@ import { open, unlink } from 'node:fs/promises';
 // Windows-host browser is opened), then from DeckFlow.Web/ run:
 //   npx --no-install playwright test e2e/deck-analysis-command-zone.spec.ts
 
-const adminUser = process.env.FEEDBACK_ADMIN_USER ?? 'admin';
-const adminPassword = process.env.FEEDBACK_ADMIN_PASSWORD ?? 'changeme-local';
-const basicAuthHeader = `Basic ${Buffer.from(`${adminUser}:${adminPassword}`).toString('base64')}`;
-const adminLockPath = '/tmp/deckflow-admin-e2e.lock';
-const adminLockTimeoutMs = 90_000;
 const commandZoneFlagKey = 'analysis.command-zone-awareness';
 
-type LockHandle = Awaited<ReturnType<typeof open>>;
+type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
 
 let heldLock: LockHandle | null = null;
 
@@ -24,23 +19,8 @@ let heldLock: LockHandle | null = null;
 // serially behind the shared lock to avoid cross-spec flakes.
 test.describe.configure({ mode: 'serial' });
 
-function getAdminForwardedIp(): string {
-  const info = test.info();
-  const key = `${info.project.name}:${info.file}:${info.title}:${info.retry}`;
-  let hash = 0;
-  for (const char of key) {
-    hash = (hash * 31 + char.charCodeAt(0)) % 200;
-  }
-
-  return `203.0.113.${hash + 1}`;
-}
-
 test.beforeEach(async ({ page }) => {
-  await page.setExtraHTTPHeaders({
-    Authorization: basicAuthHeader,
-    'CF-Connecting-IP': getAdminForwardedIp(),
-  });
-  heldLock = await acquireAdminLock();
+  heldLock = await acquireAdminLockForTest(page);
 });
 
 test.afterEach(async ({ page }) => {
@@ -48,7 +28,7 @@ test.afterEach(async ({ page }) => {
     // Restore the default-OFF state so other specs and the prod default are unaffected.
     await setFlagEnabled(page, commandZoneFlagKey, false);
   } finally {
-    await releaseAdminLock(heldLock);
+    await releaseAdminLockForTest(heldLock);
     heldLock = null;
   }
 });
@@ -96,44 +76,4 @@ async function setFlagEnabled(page: Page, key: string, enabled: boolean): Promis
 
 function getFlagRow(page: Page, key: string): Locator {
   return page.locator(`tr[data-flag-key="${key}"]`);
-}
-
-async function acquireAdminLock(): Promise<LockHandle> {
-  const startedAt = Date.now();
-
-  while (Date.now() - startedAt < adminLockTimeoutMs) {
-    try {
-      const handle = await open(adminLockPath, 'wx');
-      await handle.writeFile(`${process.pid}\n`);
-      return handle;
-    } catch (error: unknown) {
-      const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
-      if (code !== 'EEXIST') {
-        throw error;
-      }
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-
-  throw new Error(`Timed out waiting for admin e2e lock at ${adminLockPath}`);
-}
-
-async function releaseAdminLock(handle: LockHandle | null): Promise<void> {
-  if (!handle) {
-    return;
-  }
-
-  try {
-    await handle.close();
-  } finally {
-    try {
-      await unlink(adminLockPath);
-    } catch (error: unknown) {
-      const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
-      if (code !== 'ENOENT') {
-        throw error;
-      }
-    }
-  }
 }
