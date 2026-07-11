@@ -341,6 +341,33 @@ public sealed record CostReducer
 }
 
 /// <summary>
+/// A one-shot burst-mana spell (instant/sorcery ritual): cast the same turn as a payoff, it adds
+/// <see cref="ProducedAmount"/> mana of <see cref="ProducedColors"/> for that turn only, then is
+/// consumed. Its own cost (<see cref="OwnPips"/> / <see cref="OwnManaValue"/>) must be payable from
+/// the board that turn. Net gain over its own cost is <see cref="NetMana"/> (&gt; 0 by construction).
+/// </summary>
+public sealed record OneShotMana
+{
+    /// <summary>Card name (for opener/debug display).</summary>
+    public required string Name { get; init; }
+
+    /// <summary>Colors the ritual's "Add {…}" clause produces (may include Colorless).</summary>
+    public required IReadOnlyList<ManaColor> ProducedColors { get; init; }
+
+    /// <summary>Total mana the "Add {…}" clause produces (e.g. Dark Ritual = 3).</summary>
+    public required int ProducedAmount { get; init; }
+
+    /// <summary>Hard colored pips of the ritual's own mana cost (for the sim's own-cost gate).</summary>
+    public required IReadOnlyDictionary<ManaColor, int> OwnPips { get; init; }
+
+    /// <summary>Mana value of the ritual's own cost.</summary>
+    public required int OwnManaValue { get; init; }
+
+    /// <summary>Net mana gained over the ritual's own cost (<see cref="ProducedAmount"/> − <see cref="OwnManaValue"/>).</summary>
+    public int NetMana => ProducedAmount - OwnManaValue;
+}
+
+/// <summary>
 /// A fully classified deck ready for mana-base analysis: its lands, its colored spells,
 /// and the aggregate numbers the land-count formula needs.
 /// </summary>
@@ -390,6 +417,14 @@ public sealed record ManabaseDeck
 
     /// <summary>Count of 0-cost mana artifacts (Lotus, Moxen). Each substitutes ~1 land.</summary>
     public int FastMana { get; init; }
+
+    /// <summary>
+    /// One-shot burst-mana spells (instant/sorcery rituals — Dark Ritual, Rite of Flame). One entry
+    /// per copy. Inert data unless the ritual-burst sim path is enabled; never a color source, never
+    /// a land, never in the Karsten per-color requirement. See
+    /// <c>.planning/captures/manabase-ritual-burst-mana-spec.md</c>.
+    /// </summary>
+    public IReadOnlyList<OneShotMana> OneShots { get; init; } = Array.Empty<OneShotMana>();
 
     /// <summary>True for a singleton/Commander deck (uses the 99-card formula); false for 60-card.</summary>
     public bool IsSingleton { get; init; } = true;
