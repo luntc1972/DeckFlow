@@ -100,10 +100,7 @@ public sealed class ContentKbReconcileStore : IContentKbReconcileStore
                     }),
                     transaction: transaction,
                     cancellationToken: cancellationToken)).ConfigureAwait(false);
-            }
 
-            if (seen.Count > 0)
-            {
                 // Why: NOT IN @seenIds resolves every open discrepancy in this scope that was NOT
                 // just re-affirmed by the upsert above (Dapper expands @seenIds into an IN list).
                 await connection.ExecuteAsync(new CommandDefinition(
@@ -141,7 +138,7 @@ public sealed class ContentKbReconcileStore : IContentKbReconcileStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        var sql = scopeTag is null ? GetOpenAllScopesSql : GetOpenByScopeSql;
+        var sql = scopeTag is null ? GetOpenBaseSql : GetOpenBaseSql + GetOpenByScopePredicateSql;
         var rows = await connection.QueryAsync<StoredReconcileDiscrepancyRow>(new CommandDefinition(
             sql,
             new { scopeTag },
@@ -278,22 +275,7 @@ public sealed class ContentKbReconcileStore : IContentKbReconcileStore
            AND resolved_utc IS NULL;
         """;
 
-    private const string GetOpenAllScopesSql = """
-        SELECT discrepancy_id    AS DiscrepancyId,
-               kind              AS Kind,
-               natural_key_type  AS NaturalKeyType,
-               natural_key_value AS NaturalKeyValue,
-               artifact_path     AS ArtifactPath,
-               title             AS Title,
-               scope_tag         AS ScopeTag,
-               first_seen_utc    AS FirstSeenUtc,
-               last_seen_utc     AS LastSeenUtc,
-               resolved_utc      AS ResolvedUtc
-          FROM content_kb_reconcile_discrepancy
-         WHERE resolved_utc IS NULL;
-        """;
-
-    private const string GetOpenByScopeSql = """
+    private const string GetOpenBaseSql = """
         SELECT discrepancy_id    AS DiscrepancyId,
                kind              AS Kind,
                natural_key_type  AS NaturalKeyType,
@@ -306,6 +288,9 @@ public sealed class ContentKbReconcileStore : IContentKbReconcileStore
                resolved_utc      AS ResolvedUtc
           FROM content_kb_reconcile_discrepancy
          WHERE resolved_utc IS NULL
+        """;
+
+    private const string GetOpenByScopePredicateSql = """
            AND scope_tag = @scopeTag;
         """;
 }

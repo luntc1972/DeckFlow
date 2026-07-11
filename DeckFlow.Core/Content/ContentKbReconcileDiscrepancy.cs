@@ -48,6 +48,13 @@ public sealed record ContentKbReconcileDiscrepancy(
     string? Title)
 {
     /// <summary>
+    /// Renders the current discrepancy using the shared UI/report label text.
+    /// </summary>
+    public string? ToDisplayLabel() => Kind == ContentKbReconcileKind.FileOrphan
+        ? ArtifactPath
+        : $"{Title} [{NaturalKeyType}:{NaturalKeyValue}] ({ArtifactPath})";
+
+    /// <summary>
     /// Delimiter joining ID components. Matches the U+0000 NULL separator convention already
     /// established by <see cref="ContentNaturalKey"/> / <see cref="ContentSyncDiffClassifier"/>
     /// (SYNC-05 anti-collision format) — NULL cannot appear in a kind token, natural-key

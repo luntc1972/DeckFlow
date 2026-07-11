@@ -61,7 +61,7 @@ public sealed class StudioSeedKeyMembershipSource : ISeedKeyMembershipSource
             return new SeedIndexReadResult(false, EmptyKeys);
         }
 
-        var seedFilePath = Path.Combine(repoRoot, "content-kb", "seed", "index-seed.json");
+        var seedFilePath = Path.Combine(repoRoot, ContentKbSeedPaths.SeedRelativePath);
         return SeedIndexFileReader.Read(seedFilePath, _logger);
     }
 }

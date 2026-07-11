@@ -171,12 +171,9 @@ public partial class Reconcile
         // not an ever-incrementing counter, which is what the analyzer actually flags.
         foreach (var item in items)
         {
-            var label = item.Kind == ContentKbReconcileKind.FileOrphan
-                ? item.ArtifactPath
-                : $"{item.Title} [{item.NaturalKeyType}:{item.NaturalKeyValue}] ({item.ArtifactPath})";
             builder.OpenElement(2, "li");
             builder.SetKey(item.Id);
-            builder.AddContent(3, label);
+            builder.AddContent(3, item.ToDisplayLabel());
             builder.CloseElement();
         }
 
