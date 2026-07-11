@@ -886,7 +886,7 @@ public static class CastabilitySimulator
         {
             // DEPLOYABLE ramp / discounted land: a card you DRAW and PLAY. It enters the sim at FULL
             // value (one card, activation 1.0). The analytic sub-1 weight (rock 0.75, dork 0.5, fetch
-            // 0.67, MDFC back 0.8) is a PROXY for deploy-cost + summoning-sickness friction that the sim
+            // 0.67) is a PROXY for deploy-cost + summoning-sickness friction that the sim
             // ALREADY models explicitly (DeployCost from MV, online-next-turn). Re-applying the weight as
             // a Bernoulli activation here would double-discount and pull cast % ~5-7 pts under Snail. A
             // drawn-and-cast Sol Ring is a full mana source. (Each card is one physical copy; MQ-02

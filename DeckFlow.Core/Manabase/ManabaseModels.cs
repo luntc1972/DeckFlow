@@ -18,8 +18,8 @@ public sealed record ManaSource
 
     /// <summary>
     /// True if this source occupies a land slot (counts toward the land-drop total), even when
-    /// its color weight is discounted (e.g. a basic-fetch at 0.67). Partial non-land sources
-    /// — mana dorks, rocks, MDFC spell-backs — are <see langword="false"/>.
+    /// its color weight is discounted (e.g. a basic-fetch at 0.67). MDFC land-backs are real lands
+    /// (<see langword="true"/>). Partial non-land sources — mana dorks, rocks — are <see langword="false"/>.
     /// </summary>
     public bool IsLand { get; init; } = true;
 
