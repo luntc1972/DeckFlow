@@ -34,15 +34,15 @@ deliberately unlike the generic cache default.
 
 ## 1. Classification — decklist → analyzer inputs
 
-Entry: `ManabaseClassifier.Classify(cards, isSingleton=true, rampCreditV2=false, landRampSim=false)` (`Cls:76`).
+Entry: `ManabaseClassifier.Classify(cards, isSingleton=true, rampCreditV2=false, landRampSim=false, payLifeUntapped=false, mdfcAsLand=false)` (`Cls:76`). The last two are bundled under `analysis.manabase.accuracy` (default **ON**).
 
 ### 1.1 Lands
-- A card is a **land** iff its **front face** (before `//`) type line contains "Land" (case-insensitive) — `Cls:664-668`, `CardTypeLine.FrontFace`. So a spell//land MDFC (`Instant // Land`) is **not** a land; its land back is credited separately (§1.4).
+- A card is a **land** iff its **front face** (before `//`) type line contains "Land" (case-insensitive) — `Cls:664-668`, `CardTypeLine.FrontFace`. So a spell//land MDFC (`Instant // Land`) is **not** a front-face land. Under `mdfcAsLand` (bundled in `analysis.manabase.accuracy`, **ON**) its land back is counted as a **real land source** (§1.4); with the flag off it is instead credited as a partial colored source plus a land-target tally (§1.4, legacy path).
 - A front-face land skips all spell processing (`continue`) — `Cls:125-130`.
 
 ### 1.2 Mana sources (color set, amount, land vs non-land)
 - **Land sources** (one `ManaSource` per copy, `IsLand=true`) — `Cls:334-364`. Colors = `MapColors(produced_mana)` (W/U/B/R/G → color; C, S(snow) → Colorless) — `Cls:649-662`, `ManaCost.cs:141-151`.
-- **EntersUntapped** = `!EntersTapped`; tapped iff oracle contains "enters tapped" or "enters the battlefield tapped" — `Cls:797-803`.
+- **EntersUntapped** = `!EntersTapped`; tapped iff oracle contains "enters tapped" or "enters the battlefield tapped" — `TextEntersTapped`. **Pay-life override** (bundled under `analysis.manabase.accuracy`, default **ON**): a land whose oracle offers "you may pay N life" to avoid the tapped clause (shocklands — Steam Vents, Godless Shrine) is treated as **untapped** — `TextPayLifeUntapped`. The regex is anchored to "you may pay" so always-tapped lands with a life-payment *activated* ability (Boseiju Who Shelters All, Hall of the Bandit Lord, Untaidake) stay tapped. Scope is pay-life only: plain taplands and board-conditional check/fast/slow lands (no pay-life clause) stay tapped. **Single-faced and MDFC land-back paths share one primitive**: single-faced lands read `OracleText`; MDFC backs read the isolated land-face text (`LandFaceOracleText ?? OracleText`) via the `LandFaceEntersTapped` / `LandFacePayLifeUntapped` wrappers, so a pay-life MDFC back (Agadeem, the Undercrypt) enters untapped too when `mdfcAsLand` is on (§1.4).
 - **ManaAmount** carried from `CardFact.ManaAmount` (Ancient Tomb = 2) — `Cls:361`. **Color-source counts never scale with ManaAmount** — a 2-mana rock is one source of its color; amount only feeds the castability sim — `ManaProductionAmount.cs:12-16`.
 - `AddWeighted` **drops a source that produces no colors** — `Cls:635-647` (a colorless-only rock adds no *color* source here; it can still be a fast-mana land-target credit, §1.4).
 
@@ -53,8 +53,10 @@ Entry: `ManabaseClassifier.Classify(cards, isSingleton=true, rampCreditV2=false,
 - **Self-grant vs other-grant**: a quoted `"…{T}: Add…"` counts as the card's own ability only when the granting clause names the card itself — a self pronoun (`it / this creature…` + has|gains, `Cls:462-464`) or a collective naming one of the card's own types ("All Slivers have", "Creatures you control have") — `Cls:543-575`. Other-grants (Chromatic Lantern, Paradise Mantle) are handled by §1.5, not here.
 
 ### 1.4 MDFC land-backs, fast mana, basic-fetch
-- **MDFC land back** (`HasLandFace`, spell front): partial colored source weight **0.8**, or **1.0 if mythic** — `Cls:611-616`. Returns before the rock/dork branch, so land-backs are never rocks.
-- **Land-count credit tally** (per copy) — `Cls:214-229`: `HasLandFace` → MDFC common/mythic bucket; else `ManaValue==0 && Artifact && ProducesMana` → **FastMana** bucket (Lotus Petal, Mana Crypt).
+- **MDFC land back** (`HasLandFace`, spell front). Behavior splits on `mdfcAsLand` (bundled in `analysis.manabase.accuracy`, **ON**):
+  - **Flag ON (real land)** — the back adds a real `ManaSource` with `IsLand=true`, colors from the land face, and `EntersUntapped` read from the isolated land-face text (§1.3, so a tapped or pay-life back is modeled correctly). It counts toward the actual land total and the castability sim like any other land. To avoid double-crediting, the MDFC land-target tally is **not** incremented (see below).
+  - **Flag OFF (legacy)** — the back is a **non-land** partial colored source, weight **0.8** (or **1.0 if mythic**), and instead earns a land-target tally credit. Returns before the rock/dork branch, so land-backs are never rocks.
+- **Land-count credit tally** (per copy) — `Cls:214-229`: with `mdfcAsLand` **off**, `HasLandFace` → MDFC common/mythic bucket (feeds the `−0.74·mdfcCommon − 0.38·mdfcMythic` target credit, §2); with it **on**, the bucket is skipped (the back is already a real land). Independent of MDFCs, `ManaValue==0 && Artifact && ProducesMana` → **FastMana** bucket (Lotus Petal, Mana Crypt).
 - **Basic-fetch**: oracle contains "Search your library for a" + "basic land" — `Cls:677-683`; weight **0.67** in a 3+ color deck else 1.0 — `Cls:347-349`. Fetch colors are derived from the basics/duals the deck actually runs, never speculatively — `Cls:695-789`.
 
 ### 1.5 Granted / conditional sources (weight 0.25)
@@ -262,12 +264,8 @@ Keys read via `MAS.IsFlagOn` (fail-safe OFF). Seed defaults in `FeatureFlagStore
 
 | Flag | Default | Changes |
 |---|---|---|
-| `analysis.manabase.source-mana-quantity` (MQ-02) | **ON** | Castability rows credit each source its full mana amount (Sol Ring = 2). Display-only; color counts unchanged. |
-| `analysis.manabase.ramp-credit-v2` (MQ-03) | **ON** | Only repeatable ramp + true draw lower the Karsten land target (one-shot rituals/Treasure no longer do). |
-| `analysis.manabase.color-aware-mulligan` (MQ-05) | **ON** | Sim mulligans color-screwed 2+ color hands; mono unchanged. |
-| `analysis.manabase.land-ramp-sim` (70-03b) | **ON** | Land-ramp spells (Cultivate) modeled as colorless ramp sources in the sim. |
+| `analysis.manabase.accuracy` | **ON** | Bundled sim-accuracy knobs: mana quantity, repeatable-ramp credit, color-aware mulligan, land-ramp sim, health-band headline floor, pay-life untapped, MDFC land backs as real lands. |
 | `analysis.manabase.health-band-castability` | **OFF** | Composite-weakest color's worst-spell cast % can tip Solid→Workable (`simWeakestProblem`). |
-| `analysis.manabase.health-band-headline-floor` | **ON** | Strong headline narrowly promotes a land-short single-soft-issue Needs-work→Workable (`simFunctions`). |
 | `analysis.manabase.plain-language-verdict` | **OFF** | Casual: plain-language verdict + ramp/draw budget advisory. |
 | `analysis.manabase.commander-castability` | **OFF** | Command-zone castability callout + companion modeling (+3 "to hand" tax). |
 | `analysis.manabase.tap-analyzer` | **OFF** | "Untapped Sources" block + tap card. |
@@ -294,14 +292,10 @@ source math, or the 60-card path.
 
 ## Notes & caveats
 
-- **Nearly nothing here is flag-free.** The prod-live accuracy set is MQ-02,
-  ramp-credit-v2, color-aware-mulligan, land-ramp-sim, health-band-headline-floor
-  (all ON) plus the always-on gated-ramp. The opening-hand, tap, plan-presence,
+- **Nearly nothing here is flag-free.** The prod-live accuracy bundle is
+  `analysis.manabase.accuracy` (ON) plus the always-on gated-ramp. The opening-hand, tap, plan-presence,
   plain-language, commander-castability, and health-band-castability reads are
   OFF by default and enabled per-environment.
 - **Flag-off = byte-identical** is a maintained invariant for the sim accuracy
   flags (MQ-02 / MQ-05 / gated-ramp) — see the guards cited in §4.
-- `HealthBandHeadlineFloorFlagKey` ships **ON** — seed
-  (`Services/FeatureFlags/FeatureFlagStore.cs:223,263`) and catalog
-  (`Services/FeatureFlags/FeatureFlagCatalog.cs:63`) both enable it. (An earlier
-  XML comment that said "Seeded OFF" was corrected.)
+- `analysis.manabase.accuracy` ships **ON** — seed and catalog both enable it.
