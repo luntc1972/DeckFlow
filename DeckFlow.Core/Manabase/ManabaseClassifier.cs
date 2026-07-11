@@ -5,8 +5,13 @@ namespace DeckFlow.Core.Manabase;
 /// <summary>
 /// Turns a list of <see cref="CardFact"/> (Scryfall-shaped data) into a
 /// <see cref="ManabaseDeck"/> ready for <see cref="ManabaseAnalyzer"/>. Applies Karsten's
-/// source-counting rules: full-weight lands, mana dorks at 0.5, rocks at 0.75, basic
-/// fetches in 3+ color decks at ~0.67, and land/spell MDFC backs at 0.8 (mythic 1.0).
+/// source-counting weights (full-weight lands, mana dorks at 0.5, rocks at 0.75, basic
+/// fetches in 3+ color decks at ~0.67) and models each land's tapped/untapped state for the
+/// castability sim. Several behaviors are flag-gated (see the <see cref="Classify"/> parameters,
+/// bundled in prod under <c>analysis.manabase.accuracy</c>): pay-life shocklands and
+/// bond/check/Snarl lands are modeled untapped when their condition reliably holds, and spell//land
+/// MDFC backs are counted as real lands. With those flags off, the historic paths apply — MDFC
+/// backs stay partial non-land sources at 0.8 (mythic 1.0) and the conditional lands stay tapped.
 /// </summary>
 public static class ManabaseClassifier
 {
@@ -82,7 +87,12 @@ public static class ManabaseClassifier
     /// using the land face's tapped/pay-life text. When false (default), they stay on the historic
     /// partial non-land source path.
     /// </param>
-    public static ManabaseDeck Classify(IReadOnlyList<CardFact> cards, bool isSingleton = true, bool rampCreditV2 = false, bool landRampSim = false, bool payLifeUntapped = false, bool mdfcAsLand = false)
+    /// <param name="checkLandUntapped">
+    /// When true, board/hand-conditional lands are modeled untapped where the condition is reliably
+    /// met: bond lands (always, in multiplayer Commander) and check lands / Snarls when the deck runs
+    /// enough matching-type sources. When false (default), they stay on the historic always-tapped path.
+    /// </param>
+    public static ManabaseDeck Classify(IReadOnlyList<CardFact> cards, bool isSingleton = true, bool rampCreditV2 = false, bool landRampSim = false, bool payLifeUntapped = false, bool mdfcAsLand = false, bool checkLandUntapped = false)
     {
         ArgumentNullException.ThrowIfNull(cards);
 
@@ -134,7 +144,7 @@ public static class ManabaseClassifier
             bool frontIsLand = IsLandType(card.TypeLine);
             if (frontIsLand)
             {
-                AddLandCopies(sources, card, deckColorCount, fetchTypeColors, fetchBasicColors, payLifeUntapped);
+                AddLandCopies(sources, card, deckColorCount, fetchTypeColors, fetchBasicColors, payLifeUntapped, checkLandUntapped, cards);
                 continue;
             }
 
@@ -344,7 +354,7 @@ public static class ManabaseClassifier
 
     private static void AddLandCopies(List<ManaSource> sources, CardFact card, int deckColorCount,
         Dictionary<string, HashSet<ManaColor>> fetchTypeColors, HashSet<ManaColor> fetchBasicColors,
-        bool payLifeUntapped)
+        bool payLifeUntapped, bool checkLandUntapped, IReadOnlyList<CardFact> allCards)
     {
         IReadOnlyList<ManaColor> produces = MapColors(card.ProducedMana);
         if (produces.Count == 0)
@@ -359,7 +369,9 @@ public static class ManabaseClassifier
         bool basicFetch = IsBasicFetch(card);
         // A choice-fetch in a 3+ color deck can only grab one color at a time.
         double weight = basicFetch && deckColorCount >= 3 ? 0.67 : 1.0;
-        bool untapped = !EntersTapped(card) || (payLifeUntapped && HasPayLifeUntappedClause(card));
+        bool untapped = !EntersTapped(card)
+            || (payLifeUntapped && HasPayLifeUntappedClause(card))
+            || (checkLandUntapped && IsConditionallyUntapped(card, allCards));
 
         for (int i = 0; i < card.Quantity; i++)
         {
@@ -463,6 +475,37 @@ public static class ManabaseClassifier
     // to "you may pay" rather than a bare "pay N life".
     private static readonly Regex PayLifeRegex =
         new(@"you may pay \d+ life", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // Bond / "crowd" lands (Battlebond + Commander Legends — Sea of Clouds, Training Center, …):
+    // "enters tapped unless you have two or more opponents". DeckFlow only models Commander, which is
+    // always multiplayer (2+ opponents), so the condition always holds → they always enter untapped.
+    private static readonly Regex BondLandRegex = new(
+        @"tapped unless you (?:have|control) (?:two or more|2 or more) opponents",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // Check lands (M10/Innistrad/Ixalan — Glacial Fortress …): "enters tapped unless you control a
+    // Plains or an Island". Anchored to the "control (a|an) <type>" template so it captures ONLY the
+    // check-land family. This deliberately excludes:
+    //   * slow lands ("control two or more other lands") — no "a/an", no basic type;
+    //   * ELD threshold lands ("control three or more other Islands" — Mystic Sanctuary, Dwarven Mine,
+    //     Gingerbread Cabin, Idyllic Grange, Witch's Cottage) — "three or more other", not "a/an", a
+    //     stricter in-play condition the census does not model.
+    // The captured group is the named-type clause ("Plains or an Island"); types are pulled from it.
+    private static readonly Regex CheckLandRegex = new(
+        @"tapped unless you control (?:a|an) ([^.]+)",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // Snarls (Strixhaven — Frostboil Snarl …): "you may reveal an Island or Mountain card from your
+    // hand. If you don't, this land enters tapped." Hand-reveal trigger; the named types come from
+    // the reveal clause and feed the same matching-type census as check lands.
+    private static readonly Regex SnarlRevealRegex = new(
+        @"reveal ([^.]+?) card from your hand",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // A conditional-untapped land (check/Snarl) is modeled untapped when the deck runs at least this
+    // many lands bearing one of its named basic types — enough that you almost always control/hold a
+    // trigger by the turn it is played. Heuristic constant; tune during calibration.
+    private const int CheckLandMatchTypeThreshold = 6;
 
     // A quoted span in oracle text ('... have "{T}: Add one mana of any color."'). Quoted
     // abilities are GRANTS: they live on whatever permanent the surrounding clause names, so a
@@ -872,6 +915,94 @@ public static class ManabaseClassifier
 
     private static bool LandFacePayLifeUntapped(CardFact card) =>
         TextPayLifeUntapped(card.LandFaceOracleText ?? card.OracleText);
+
+    // A bond/crowd land ("tapped unless you have two or more opponents") always enters untapped in
+    // this tool's Commander (multiplayer) model. Reminder text stripped first for consistency.
+    private static bool IsBondLand(CardFact card)
+    {
+        string? text = card.OracleText;
+        return text is not null && BondLandRegex.IsMatch(ReminderTextRegex.Replace(text, string.Empty));
+    }
+
+    // The named basic land types a check land or Snarl keys off ("a Plains or an Island" / "reveal an
+    // Island or Mountain card"). Empty when the card is neither — including slow/fast lands, whose
+    // "other lands" clause names no basic type. Scans only the matched trigger clause so a basic-type
+    // word elsewhere in the oracle can't false-trigger.
+    private static IReadOnlyList<string> ConditionalUntappedTypes(CardFact card)
+    {
+        string? text = card.OracleText;
+        if (text is null)
+        {
+            return Array.Empty<string>();
+        }
+
+        text = ReminderTextRegex.Replace(text, string.Empty);
+        Match clause = CheckLandRegex.Match(text);
+        if (!clause.Success)
+        {
+            clause = SnarlRevealRegex.Match(text);
+        }
+
+        if (!clause.Success)
+        {
+            return Array.Empty<string>();
+        }
+
+        string named = clause.Groups[1].Value;
+        var types = new List<string>();
+        foreach ((string type, ManaColor _) in BasicLandColors)
+        {
+            if (named.Contains(type, StringComparison.OrdinalIgnoreCase))
+            {
+                types.Add(type);
+            }
+        }
+
+        return types;
+    }
+
+    // Count of OTHER deck land COPIES bearing at least one of the given basic land types (basics,
+    // duals, shocks, triomes). Union — a dual bearing two named types is counted once. The candidate
+    // land is excluded so it never counts itself toward its own trigger (the real condition is
+    // "control a [type]" on OTHER permanents). Cheap: only the few check/Snarl lands trigger this,
+    // and it walks the (already in-memory) card list once each.
+    private static int CountLandsBearingAnyType(IReadOnlyList<CardFact> cards, IReadOnlyList<string> types, CardFact candidate)
+    {
+        int count = 0;
+        foreach (CardFact card in cards)
+        {
+            if (ReferenceEquals(card, candidate) || !IsLandType(card.TypeLine))
+            {
+                continue;
+            }
+
+            string front = card.TypeLine.Split("//")[0];
+            foreach (string type in types)
+            {
+                if (front.Contains(type, StringComparison.OrdinalIgnoreCase))
+                {
+                    count += card.Quantity;
+                    break;
+                }
+            }
+        }
+
+        return count;
+    }
+
+    // Whether a board/hand-conditional land (bond, check, Snarl) should be modeled untapped. Bond is
+    // unconditional (Commander is multiplayer); check/Snarl require enough matching-type sources that
+    // a trigger is reliably available by the turn the land is played.
+    private static bool IsConditionallyUntapped(CardFact card, IReadOnlyList<CardFact> cards)
+    {
+        if (IsBondLand(card))
+        {
+            return true;
+        }
+
+        IReadOnlyList<string> types = ConditionalUntappedTypes(card);
+        return types.Count > 0 && CountLandsBearingAnyType(cards, types, card) >= CheckLandMatchTypeThreshold;
+    }
 
     // v1 (rampCreditV2 OFF) legacy baseline — DELIBERATELY FROZEN to the historic broad predicate
     // (ManaRampCreditTests guards "flag-off == historic"). The M7 you-anchored unification applies to

@@ -233,6 +233,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         bool landRampSim = accuracy;
         bool payLifeUntapped = accuracy;
         bool mdfcAsLand = accuracy;
+        bool checkLandUntapped = accuracy;
         bool commanderCastability = IsFlagOn(CommanderCastabilityFlagKey);
         bool showTapAnalyzer = IsFlagOn(TapAnalyzerFlagKey);
         bool showMulliganEval = IsFlagOn(MulliganEvalFlagKey);
@@ -249,6 +250,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 landRampSim,
                 payLifeUntapped,
                 mdfcAsLand,
+                checkLandUntapped,
                 commanderCastability,
                 classifyPlanRoles: showPlanPresence,
                 options.Mode,
@@ -342,6 +344,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 landRampSim: false,
                 payLifeUntapped: false,
                 mdfcAsLand: false,
+                checkLandUntapped: false,
                 commanderCastability: false,
                 classifyPlanRoles: false,
                 mode: ManabaseMode.Casual,
@@ -370,6 +373,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         bool landRampSim,
         bool payLifeUntapped,
         bool mdfcAsLand,
+        bool checkLandUntapped,
         bool commanderCastability,
         bool classifyPlanRoles,
         ManabaseMode mode,
@@ -483,7 +487,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         }
 
         IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
-        ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true, rampCreditV2: rampCreditV2, landRampSim: landRampSim, payLifeUntapped: payLifeUntapped, mdfcAsLand: mdfcAsLand);
+        ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true, rampCreditV2: rampCreditV2, landRampSim: landRampSim, payLifeUntapped: payLifeUntapped, mdfcAsLand: mdfcAsLand, checkLandUntapped: checkLandUntapped);
 
         if (classifyPlanRoles)
         {
