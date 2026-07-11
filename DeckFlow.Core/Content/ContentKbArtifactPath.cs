@@ -77,7 +77,13 @@ public static class ContentKbArtifactPath
         return true;
     }
 
-    private static bool IsWindowsRootedPath(string artifactPath)
+    /// <summary>
+    /// Returns <see langword="true"/> when the path is Windows-drive-rooted (for example
+    /// <c>C:\</c> or <c>C:/</c>).
+    /// </summary>
+    /// <param name="artifactPath">Path to inspect.</param>
+    /// <returns><see langword="true"/> when the path is Windows-drive-rooted; otherwise, <see langword="false"/>.</returns>
+    public static bool IsWindowsRootedPath(string artifactPath)
         => artifactPath.Length >= 3
             && char.IsLetter(artifactPath[0])
             && artifactPath[1] == ':'
