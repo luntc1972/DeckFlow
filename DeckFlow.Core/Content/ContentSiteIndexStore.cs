@@ -250,35 +250,16 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        var row = await connection.QuerySingleOrDefaultAsync<ContentSiteIndexRowData>(new CommandDefinition(
-            """
-            SELECT id,
-                   source,
-                   title,
-                   video_url,
-                   artifact_path,
-                   published_utc,
-                   pushed_to_prod_utc,
-                   indexed_utc,
-                   archetype_tags,
-                   bracket_tags,
-                   card_category_tags,
-                   natural_key_type,
-                   natural_key_value,
-                   is_visible,
-                   is_hidden,
-                   is_evergreen,
-                   approval_status,
-                   body_sha256,
-                   awaiting_confirm_utc,
-                   seed_managed
+        var row = await connection.QuerySingleOrDefaultAsync<ContentSiteIndexReadModel>(new CommandDefinition(
+            $"""
+            SELECT {ContentSiteIndexReadColumns.SelectList}
               FROM content_site_index
              WHERE natural_key_type = @naturalKeyType
                AND natural_key_value = @naturalKeyValue;
             """,
             new { naturalKeyType, naturalKeyValue },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return row is null ? null : ToContentSiteIndexRow(row);
+        return row is null ? null : ContentSiteIndexRowMapper.ToRow(row);
     }
 
     /// <inheritdoc />
@@ -287,28 +268,9 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        var rows = await connection.QueryAsync<ContentSiteIndexRowData>(new CommandDefinition(
-            """
-            SELECT id,
-                   source,
-                   title,
-                   video_url,
-                   artifact_path,
-                   published_utc,
-                   pushed_to_prod_utc,
-                   indexed_utc,
-                   archetype_tags,
-                   bracket_tags,
-                   card_category_tags,
-                   natural_key_type,
-                   natural_key_value,
-                   is_visible,
-                   is_hidden,
-                   is_evergreen,
-                   approval_status,
-                   body_sha256,
-                   awaiting_confirm_utc,
-                   seed_managed
+        var rows = await connection.QueryAsync<ContentSiteIndexReadModel>(new CommandDefinition(
+            $"""
+            SELECT {ContentSiteIndexReadColumns.SelectList}
               FROM content_site_index
              WHERE is_visible = @visible
                AND approval_status = 'approved'
@@ -316,7 +278,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             """,
             new { visible = true },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return rows.Select(ToContentSiteIndexRow).ToList();
+        return rows.Select(ContentSiteIndexRowMapper.ToRow).ToList();
     }
 
     /// <inheritdoc />
@@ -325,34 +287,15 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        var rows = await connection.QueryAsync<ContentSiteIndexRowData>(new CommandDefinition(
-            """
-            SELECT id,
-                   source,
-                   title,
-                   video_url,
-                   artifact_path,
-                   published_utc,
-                   pushed_to_prod_utc,
-                   indexed_utc,
-                   archetype_tags,
-                   bracket_tags,
-                   card_category_tags,
-                   natural_key_type,
-                   natural_key_value,
-                   is_visible,
-                   is_hidden,
-                   is_evergreen,
-                   approval_status,
-                   body_sha256,
-                   awaiting_confirm_utc,
-                   seed_managed
+        var rows = await connection.QueryAsync<ContentSiteIndexReadModel>(new CommandDefinition(
+            $"""
+            SELECT {ContentSiteIndexReadColumns.SelectList}
               FROM content_site_index
              WHERE approval_status = 'approved'
              ORDER BY source, title, id;
             """,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return rows.Select(ToContentSiteIndexRow).ToList();
+        return rows.Select(ContentSiteIndexRowMapper.ToRow).ToList();
     }
 
     /// <inheritdoc />
@@ -361,33 +304,14 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        var rows = await connection.QueryAsync<ContentSiteIndexRowData>(new CommandDefinition(
-            """
-            SELECT id,
-                   source,
-                   title,
-                   video_url,
-                   artifact_path,
-                   published_utc,
-                   pushed_to_prod_utc,
-                   indexed_utc,
-                   archetype_tags,
-                   bracket_tags,
-                   card_category_tags,
-                   natural_key_type,
-                   natural_key_value,
-                   is_visible,
-                   is_hidden,
-                   is_evergreen,
-                   approval_status,
-                   body_sha256,
-                   awaiting_confirm_utc,
-                   seed_managed
+        var rows = await connection.QueryAsync<ContentSiteIndexReadModel>(new CommandDefinition(
+            $"""
+            SELECT {ContentSiteIndexReadColumns.SelectList}
               FROM content_site_index
              ORDER BY source, title, id;
             """,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return rows.Select(ToContentSiteIndexRow).ToList();
+        return rows.Select(ContentSiteIndexRowMapper.ToRow).ToList();
     }
 
     /// <inheritdoc />
@@ -396,34 +320,15 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        var row = await connection.QuerySingleOrDefaultAsync<ContentSiteIndexRowData>(new CommandDefinition(
-            """
-            SELECT id,
-                   source,
-                   title,
-                   video_url,
-                   artifact_path,
-                   published_utc,
-                   pushed_to_prod_utc,
-                   indexed_utc,
-                   archetype_tags,
-                   bracket_tags,
-                   card_category_tags,
-                   natural_key_type,
-                   natural_key_value,
-                   is_visible,
-                   is_hidden,
-                   is_evergreen,
-                   approval_status,
-                   body_sha256,
-                   awaiting_confirm_utc,
-                   seed_managed
+        var row = await connection.QuerySingleOrDefaultAsync<ContentSiteIndexReadModel>(new CommandDefinition(
+            $"""
+            SELECT {ContentSiteIndexReadColumns.SelectList}
               FROM content_site_index
              WHERE id = @id;
             """,
             new { id },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return row is null ? null : ToContentSiteIndexRow(row);
+        return row is null ? null : ContentSiteIndexRowMapper.ToRow(row);
     }
 
     /// <inheritdoc />
@@ -434,28 +339,9 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         // Why: defense-in-depth on the public detail route — a drifted visible-but-pending row
         // must never render at /content-kb/{id}; GetByIdAsync stays unfiltered for admin/Studio.
-        var row = await connection.QuerySingleOrDefaultAsync<ContentSiteIndexRowData>(new CommandDefinition(
-            """
-            SELECT id,
-                   source,
-                   title,
-                   video_url,
-                   artifact_path,
-                   published_utc,
-                   pushed_to_prod_utc,
-                   indexed_utc,
-                   archetype_tags,
-                   bracket_tags,
-                   card_category_tags,
-                   natural_key_type,
-                   natural_key_value,
-                   is_visible,
-                   is_hidden,
-                   is_evergreen,
-                   approval_status,
-                   body_sha256,
-                   awaiting_confirm_utc,
-                   seed_managed
+        var row = await connection.QuerySingleOrDefaultAsync<ContentSiteIndexReadModel>(new CommandDefinition(
+            $"""
+            SELECT {ContentSiteIndexReadColumns.SelectList}
               FROM content_site_index
              WHERE id = @id
                AND is_visible = @visible
@@ -463,7 +349,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             """,
             new { id, visible = true },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return row is null ? null : ToContentSiteIndexRow(row);
+        return row is null ? null : ContentSiteIndexRowMapper.ToRow(row);
     }
 
     /// <inheritdoc />
@@ -1109,43 +995,6 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             && artifactPath[1] == ':'
             && (artifactPath[2] == '\\' || artifactPath[2] == '/');
 
-    private static ContentSiteIndexRow ToContentSiteIndexRow(ContentSiteIndexRowData row)
-    {
-        var naturalKeyType = row.NaturalKeyType;
-        var naturalKeyValue = row.NaturalKeyValue;
-        var youtubeVideoId = naturalKeyType == ContentSourceType.Youtube ? naturalKeyValue : null;
-        var rssGuid = naturalKeyType == ContentSourceType.Podcast ? naturalKeyValue : null;
-
-        if (youtubeVideoId is null && rssGuid is null)
-        {
-            throw new InvalidOperationException($"Unknown content_site_index.natural_key_type value '{naturalKeyType}'.");
-        }
-
-        return new ContentSiteIndexRow
-        {
-            Id = row.Id,
-            Source = row.Source,
-            Title = row.Title,
-            VideoUrl = row.VideoUrl,
-            ArtifactPath = row.ArtifactPath,
-            PublishedUtc = row.PublishedUtc,
-            PushedToProdUtc = row.PushedToProdUtc,
-            IndexedUtc = row.IndexedUtc,
-            ArchetypeTags = ContentArtifactSpec.DeserializeTags(row.ArchetypeTags),
-            BracketTags = ContentArtifactSpec.DeserializeTags(row.BracketTags),
-            CardCategoryTags = ContentArtifactSpec.DeserializeTags(row.CardCategoryTags),
-            YoutubeVideoId = youtubeVideoId,
-            RssGuid = rssGuid,
-            IsVisible = row.IsVisible,
-            IsHidden = row.IsHidden,
-            IsEvergreen = row.IsEvergreen,
-            ApprovalStatus = row.ApprovalStatus,
-            BodySha256 = row.BodySha256,
-            AwaitingConfirmUtc = row.AwaitingConfirmUtc,
-            SeedManaged = row.SeedManaged
-        };
-    }
-
     private const string UpsertSql = """
         INSERT INTO content_site_index (
           source,
@@ -1352,27 +1201,4 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         );
         """;
 
-    private sealed class ContentSiteIndexRowData
-    {
-        public long Id { get; init; }
-        public required string Source { get; init; }
-        public required string Title { get; init; }
-        public required string VideoUrl { get; init; }
-        public required string ArtifactPath { get; init; }
-        public DateTimeOffset? PublishedUtc { get; init; }
-        public DateTimeOffset? PushedToProdUtc { get; init; }
-        public DateTimeOffset IndexedUtc { get; init; }
-        public required string ArchetypeTags { get; init; }
-        public required string BracketTags { get; init; }
-        public required string CardCategoryTags { get; init; }
-        public required string NaturalKeyType { get; init; }
-        public required string NaturalKeyValue { get; init; }
-        public bool IsVisible { get; init; }
-        public bool IsHidden { get; init; }
-        public bool IsEvergreen { get; init; }
-        public required string ApprovalStatus { get; init; }
-        public string? BodySha256 { get; init; }
-        public DateTimeOffset? AwaitingConfirmUtc { get; init; }
-        public bool? SeedManaged { get; init; }
-    }
 }
