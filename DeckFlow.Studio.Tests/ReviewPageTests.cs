@@ -161,8 +161,7 @@ public sealed class ReviewPageTests : BunitContext
         cut.WaitForAssertion(() => Assert.DoesNotContain("Loading review queue", cut.Markup));
 
         // Act: click "Approve Entry" for the pending row
-        var approveBtn = cut.Find("button[aria-label='Approve Entry']");
-        approveBtn.Click();
+        cut.InvokeAsync(() => cut.Find("button[aria-label='Approve Entry']").Click());
 
         // Assert: single-overload called with (youtube_channel, "vidABC", "approved")
         cut.WaitForAssertion(() =>
@@ -265,8 +264,7 @@ public sealed class ReviewPageTests : BunitContext
         cut.WaitForAssertion(() => Assert.DoesNotContain("Loading review queue", cut.Markup));
 
         // Act
-        var approveBtn = cut.Find("button[aria-label='Approve Entry']");
-        approveBtn.Click();
+        cut.InvokeAsync(() => cut.Find("button[aria-label='Approve Entry']").Click());
 
         // Assert: natural key type is podcast_rss, value is the RssGuid
         cut.WaitForAssertion(() =>
