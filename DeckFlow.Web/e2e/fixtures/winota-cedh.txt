@@ -1,0 +1,153 @@
+1 Winota, Joiner of Forces (IKO) 216
+1 Academy Rector (UDS) 1
+1 Aether Vial (2X2) 391
+1 Ainok Strike Leader (TDC) 11
+1 Ancient Den (EOC) 148
+1 Angrath's Marauders (LCC) 215
+1 Arcane Signet (TDC) 105
+1 Arid Mesa (ZEN) 211
+1 Auratouched Mage (RAV) 1
+1 Balin's Tomb (LTC) 357 *F*
+1 Black Widow, Agile Avenger (MSC) 77
+1 Blade Historian (STX) 165
+1 Bloodstained Mire (KTK) 230
+1 Boromir, Warden of the Tower (LTR) 407
+1 Breath of Fury (C16) 121
+1 Cavern of Souls (LCI) 345
+1 Chrome Mox (EMA) 219
+1 City of Traitors (EXO) 143
+1 Clive, Ifrit's Dominant / Ifrit, Warden of Inferno (FIN) 133
+1 Combat Celebrant (LTC) 212
+1 Command Beacon (CMR) 704
+1 Command Tower (PMEI) 2026-1 *F*
+1 Crimson Kobolds (LEG) 139
+1 Crookshank Kobolds (LEG) 141
+1 Dauntless Dismantler (LCI) 8
+1 Deafening Silence (ELD) 10
+1 Deep Gnome Terramancer (CLB) 607
+1 Deflecting Swat (SLD) 1552 *F*
+1 Delney, Streetwise Lookout (PMKM) 12p
+1 Drannith Magistrate (IKO) 11
+1 Elegant Parlor (MKM) 260
+1 Enlightened Tutor (DMR) 412
+1 Esper Sentinel (MH2) 328
+1 Ethersworn Canonist (MB2) 10
+1 Excava, the Risen Past (SOC) 2
+1 Final Fortune (MIR) 173
+1 Flare of Fortitude (MH3) 321
+1 Flooded Strand (KTK) 233
+1 Gingerbrute (WOE) 246
+1 Giver of Runes (H1R) 3 *F*
+1 Grand Abolisher (PBIG) 2p
+1 Great Furnace (C18) 250
+1 Hexing Squelcher (ECL) 317
+1 Hope of Ghirapur (AER) 154
+1 Howlsquad Heavy (DFT) 134
+1 Kinscaer Sentry (ECL) 300
+1 Kobolds of Kher Keep (MB2) 194
+1 Lightning, Army of One (FIN) 233
+1 Lion's Eye Diamond (MIR) 307
+1 Lotus Petal (P30M) 2 *E*
+1 Loyal Apprentice (PIP) 190
+1 Mana Confluence (JOU) 163
+1 Mana Vault (3ED) 263
+1 Marsh Flats (SPG) 110
+1 Memnite (DCI) 61
+1 Molecule Man (MSC) 9
+1 Mox Amber (DOM) 224
+1 Mox Diamond (STH) 138
+1 Mox Opal (MM2) 223
+1 Myrel, Shield of Argive (BRO) 18
+1 Ocelot Pride (MH3) 394
+1 Ornithopter (ATQ) 60
+1 Path to Exile (NCC) 208
+1 Phelia, Exuberant Shepherd (MH3) 40
+1 Phyrexian Walker (VIS) 152
+1 Plankton, Tiny Tyrant (SLD) 1926
+1 Plateau (FBB) 284
+1 Possibility Storm (DGM) 34
+1 Professional Face-Breaker (SNC) 116
+1 Pyre of Heroes (KHM) 370
+1 Ragavan, Nimble Pilferer (H2R) 11
+1 Ranger-Captain of Eos (PLST) MH1-21
+1 Raph & Leo, Sibling Rivals (TMT) 166
+1 Redirect Lightning (TLA) 343
+1 Remote Farm (MMQ) 323
+1 Rick, Steadfast Leader (SLD) 143 *F*
+1 Rionya, Fire Dancer (PRM) 90100
+1 Rograkh, Son of Rohgahh (CMR) 575 *E*
+1 Sacred Foundry (RVR) 297
+1 Sandstone Needle (MMQ) 326
+1 Scalding Tarn (MM3) 244
+1 Scuzzback Scrounger (ECL) 153
+1 Seasoned Pyromancer (2X2) 123
+1 Sevinne's Reclamation (MH3) 267
+1 Simian Spirit Guide (TSR) 190
+1 Smellerbee, Rebel Fighter (TLE) 125
+1 Snow-Covered Mountain (KHM) 283
+2 Snow-Covered Plains (KHM) 277
+1 Sokenzan, Crucible of Defiance (NEO) 415
+1 Solitude (PMH2) 32s *F*
+1 Spectator Seating (CMR) 711
+1 Sundering Eruption / Volcanic Fissure (MH3) 248
+1 Tataru Taru (FIC) 30
+1 Urza's Saga (MH2) 380
+1 Voice of Victory (TDM) 331
+1 Windswept Heath (KTK) 248
+1 Witch Enchanter / Witch-Blessed Meadow (MH3) 239
+1 Wooded Foothills (KTK) 249
+1 Yuffie, Materia Hunter (FIC) 65
+
+SIDEBOARD:
+1 Ajani, Nacatl Pariah / Ajani, Nacatl Avenger (MH3) 468 *F*
+1 Alexios, Deimos of Kosmos (ACR) 134
+1 Alseid of Life's Bounty (THB) 353
+1 Anim Pakal, Thousandth Moon (LCI) 300
+1 Archivist of Oghma (CLB) 553
+1 Arena of Glory (MH3) 351
+1 Avalanche of Sector 7 (FIC) 53
+1 Aven Interrupter (OTJ) 4
+1 Battlefield Forge (TDC) 340
+1 Chalice of the Void (J19) 7 *F*
+1 Chance for Glory (GRN) 159 *F*
+1 Chancellor of the Annex (PLST) NPH-6
+1 Charismatic Conqueror (LCC) 38
+1 City of Brass (2X2) 403
+1 Clive, Ifrit's Dominant / Ifrit, Warden of Inferno (FIN) 133
+1 Deep Gnome Terramancer (CLB) 607
+1 Doorkeeper Thrull (MKM) 338
+1 Eidolon of Rhetoric (J22) 54
+1 Ephemerate (PLST) MH1-7
+1 Fable of the Mirror-Breaker / Reflection of Kiki-Jiki (NEO) 141
+1 Fellwar Stone (ECC) 141
+1 Flare of Duplication (MH3) 119
+1 Fury (ECC) 50
+1 Fury of the Horde (DDN) 30
+1 Garnet Til Alexandros 17th (FCA) 24
+1 Glittering Caves of Aglarond (LTC) 364
+1 Gogo, Mysterious Mime (FIC) 56
+1 Goldnight Commander (TDC) 117
+1 Grim Reaper's Sprint (PIP) 58
+1 High Noon (OTJ) 15
+1 Imperial Recruiter (2XM) 131
+1 Orim's Chant (MH3) 265
+1 Ornithopter of Paradise (MH2) 430
+1 Phelia, Exuberant Shepherd (MH3) 478 *E*
+1 Pyroblast (ICE) 213
+1 Razorkin Needlehead (DSK) 153
+1 Rite of Flame (MB2) 59
+1 Serra Ascendant (SLD) 1125
+1 Silence (TSR) 302
+1 Skyclave Apparition (GDY) 2 *F*
+1 Slicer, Hired Muscle / Slicer, High-Speed Antagonist (BOT) 6
+1 Soulless Jailer (ONE) 397
+1 Spirit of the Labyrinth (MB2) 20
+1 Sunbaked Canyon (ACR) 111
+1 Super State (SLD) 2081
+1 Swords to Plowshares (WHO) 212
+1 Thalia, Guardian of Thraben (VOW) 38
+1 Vexing Bauble (MH3) 212
+1 Village Bell-Ringer (LTC) 181
+1 Wheel of Fortune (G10) 7 *F*
+1 Will of the Mardu (TDC) 17
+1 Zealous Conscripts (MM3) 116

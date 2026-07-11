@@ -4,7 +4,7 @@ namespace DeckFlow.Core.Manabase;
 /// Advisory cEDH land-baseline inputs resolved by the Web layer and threaded into Core without
 /// exposing commander-name matching here.
 /// </summary>
-public readonly record struct CedhLandContext(double? BaselineMean, int BaselineN, bool Enabled)
+public readonly record struct CedhLandContext(double? BaselineMean, int BaselineN, bool Enabled, double? BaselineSd = null, string? BaselineMonth = null)
 {
     /// <summary>Disabled/default context: preserves the historic cEDH flat-28 floor behavior.</summary>
     public static readonly CedhLandContext Disabled = new(null, 0, false);
@@ -32,7 +32,12 @@ public static class KarstenManabase
     private const double LandIntercept = 19.59;
     private const double LandMvSlope = 1.90;
     private const double RampDrawCredit = 0.28;
-    private const double CedhSafetyFloor = 22.0;
+    /// <summary>Safety floor for the enabled cEDH recalibration path.</summary>
+    public const double CedhSafetyFloor = 22.0;
+
+    /// <summary>Historic safety floor for the disabled cEDH path.</summary>
+    public const double CedhDisabledFloor = 28.0;
+
     private const double CedhTargetCeiling = 45.0;
     private const double CedhBaselineBlendWeight = 0.5;
 
@@ -102,7 +107,7 @@ public static class KarstenManabase
 
         if (!context.Enabled)
         {
-            return Math.Max(28.0, singleton - 3.5);
+            return Math.Max(CedhDisabledFloor, singleton - 3.5);
         }
 
         double curveTarget = singleton - 3.5;

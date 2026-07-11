@@ -622,6 +622,18 @@ public sealed record ManabaseLandTargetBreakdown
     /// </summary>
     public required double CedhAdjustment { get; init; }
 
+    /// <summary>
+    /// The cEDH floor applied to the display target: 28 when the feature is disabled, 22 when the
+    /// recalibrated cEDH path is enabled, 0 outside cEDH mode.
+    /// </summary>
+    public double CedhSafetyFloor { get; init; }
+
+    /// <summary>
+    /// True when the enabled cEDH target was nudged toward the matched commander's baseline mean.
+    /// Display-only; does not affect whether the range fields render.
+    /// </summary>
+    public bool CedhBaselineBlended { get; init; }
+
     /// <summary>The land target the report reports (equal to <see cref="ManabaseReport.TargetLands"/>).</summary>
     public required double FinalTarget { get; init; }
 }
@@ -728,6 +740,42 @@ public sealed record ManabaseReport
 
     /// <summary>Actual minus target; negative means too few lands.</summary>
     public double LandDelta => ActualLands - TargetLands;
+
+    /// <summary>
+    /// Lower bound of the cEDH baseline land range (baseline mean minus standard deviation), or
+    /// null when no usable cEDH baseline was available.
+    /// </summary>
+    public double? TargetLandsRangeLow { get; init; }
+
+    /// <summary>
+    /// Upper bound of the cEDH baseline land range (baseline mean plus standard deviation), or
+    /// null when no usable cEDH baseline was available.
+    /// </summary>
+    public double? TargetLandsRangeHigh { get; init; }
+
+    /// <summary>
+    /// Number of cEDH baseline decks behind <see cref="BaselineLandsMean"/> / <see cref="BaselineLandsSd"/>,
+    /// or null when no usable cEDH baseline was available.
+    /// </summary>
+    public int? BaselineDeckCount { get; init; }
+
+    /// <summary>
+    /// Mean land count from the matched cEDH commander baseline, or null when no usable baseline
+    /// was available.
+    /// </summary>
+    public double? BaselineLandsMean { get; init; }
+
+    /// <summary>
+    /// Standard deviation of land counts from the matched cEDH commander baseline, or null when no
+    /// usable baseline was available.
+    /// </summary>
+    public double? BaselineLandsSd { get; init; }
+
+    /// <summary>
+    /// Snapshot month for the matched cEDH baseline sample (for example <c>2026-07</c>), or null
+    /// when no usable cEDH baseline was available.
+    /// </summary>
+    public string? BaselineMonth { get; init; }
 
     /// <summary>
     /// Per-color source findings, ordered by the tail-risk composite: under-supported colors

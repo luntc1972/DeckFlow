@@ -233,13 +233,24 @@
                 <span class="manabase-chip manabase-summary-chip @ManabaseDisplay.HealthCss(report.Health)">@ManabaseDisplay.HealthLabel(report.Health)</span>
             </div>
             @{ var landShort = (int)Math.Ceiling(-report.LandDelta); }
-            <p class="manabase-summary-lands">
-                <strong>Lands:</strong> @report.ActualLands vs ~@report.TargetLands.ToString("F1") recommended
-                (@(report.LandDelta >= -1
+            @{
+                string landNote = report.LandDelta >= -1
                     ? "land count OK"
                     : report.LandShortfallCoveredByRamp
                         ? $"~{landShort} under the Karsten count, but ramp covers it"
-                        : $"add ~{landShort} {(landShort == 1 ? "land" : "lands")}")).
+                        : $"add ~{landShort} {(landShort == 1 ? "land" : "lands")}";
+            }
+            <p class="manabase-summary-lands">
+                <strong>Lands:</strong> @report.ActualLands vs ~@report.TargetLands.ToString("F1") recommended
+                @if (report.TargetLandsRangeLow is { } rangeLow
+                    && report.TargetLandsRangeHigh is { } rangeHigh
+                    && report.BaselineDeckCount is { } baselineDeckCount
+                    && report.BaselineLandsMean is { } baselineMean
+                    && report.BaselineLandsSd is { } baselineSd)
+                {
+                    <text>— cEDH meta range ~@Math.Round(rangeLow).ToString("F0")–@Math.Round(rangeHigh).ToString("F0") lands (@baselineDeckCount cEDH tournament decks@(string.IsNullOrWhiteSpace(report.BaselineMonth) ? "" : $", {report.BaselineMonth} sample"); mean @baselineMean.ToString("F1") ±@baselineSd.ToString("F1")).</text>
+                }
+                <text> (@landNote).</text>
             </p>
             @* Biggest fix — the single most actionable change, chosen so it never contradicts the
                land/health line above (e.g. it won't tell you to add sources to an oversupplied
@@ -278,6 +289,9 @@
                 ? report.Castability.Where(c => !c.IsCommander).ToList()
                 : report.Castability;
             var commanderRows = report.Castability.Where(c => c.IsCommander).ToList();
+            string commanderNames = commanderRows.Count > 0
+                ? string.Join(" / ", commanderRows.Select(c => c.Name))
+                : string.Empty;
             var showRightLens = Model.ShowCastability && castRows.Count > 0;
             var showLeftLens = report.ColorFindings.Count > 0;
             // M9: the lens quotes report.AvgOnCurvePercent (the one shared non-commander average also
@@ -463,8 +477,12 @@
         }
 
         <p class="manabase-context">
-            Mode: <strong>@ManabaseDisplay.ModeLabel(report.Mode)</strong> ·
-            Commander: <strong>@ManabaseDisplay.ImportanceLabel(importance)</strong>
+            Mode: <strong>@ManabaseDisplay.ModeLabel(report.Mode)</strong>
+            @if (commanderRows.Count > 0)
+            {
+                <text> · Commander: <strong>@commanderNames</strong></text>
+            }
+            <text> · Casting priority: <strong>@ManabaseDisplay.ImportanceLabel(importance)</strong></text>
         </p>
 
         @* Lands + Health + biggest fix now lead the panel in .manabase-summary above; this mid-panel
@@ -750,7 +768,7 @@
 <details class="result-panel nested-panel manabase-formula" data-manabase-formula="how">
     <summary>How the analysis works</summary>
     <div class="manabase-formula-body">
-        <p>The land count comes from <strong>Frank Karsten's source-count regression</strong> for singleton (Commander) decks: a target driven by average mana value, ramp and card draw at three mana or less, and fast mana, with a credit for each commander. Modal double-faced land-backs count directly toward your actual land total rather than adjusting this target. cEDH mode lowers that target into the competitive ~28–32 band (a ~3.5-land cut, floored at 28), crediting fast mana fully.</p>
+        <p>The land count comes from <strong>Frank Karsten's source-count regression</strong> for singleton (Commander) decks: a target driven by average mana value, ramp and card draw at three mana or less, and fast mana, with a credit for each commander. Modal double-faced land-backs count directly toward your actual land total rather than adjusting this target. cEDH mode lowers that target for the faster competitive format (about a 3.5-land cut, crediting fast mana fully); when there is enough cEDH tournament data for your commander, the recommendation is nudged toward that real-deck land mean and shown as a range.</p>
         <p>Each spell's <strong>castability</strong> comes from a Monte-Carlo simulation. It draws an opening seven and applies the <strong>London mulligan</strong>, including <strong>Commander's free first mulligan</strong> — the first mulligan keeps seven at no cost; only later ones bottom a card (lowest-impact first, never your lands). It then <strong>draws every turn, including turn 1</strong>: Commander is multiplayer, so the "player who goes first skips their first draw" rule (a two-player-only rule) never applies — every player draws on their first turn. A card is judged on its mana-value turn, so by turn N it has seen its opening 7 plus one card per turn (7 + N cards). Each turn it deploys ramp as it comes online, credits fetchlands to the colors they can fetch, and applies any always-on cost reducers — then asks, on that turn, whether there is enough <strong>mana and the right colored pips together</strong> (a joint check, not two independent odds). The reported number is the share of simulated games where the card was castable on curve.</p>
         <p class="manabase-help">The sim plays going first for board development (one land drop per turn, no earlier plays), which is the <strong>conservative</strong> case for land sequencing — but it draws on turn 1 like every Commander player does, so the card count matches real multiplayer games.</p>
         <p>Colored-source findings combine a <strong>worst-driver</strong> spell (the hardest single card for a color) with a <strong>population</strong> view (how many of that color's cards are under-supported and their mean castability). The weakest color surfaces tail risk first. The <strong>commander-importance</strong> setting weights the commander's colors more or less heavily — Central holds them to a stricter, cEDH-style threshold.</p>
@@ -777,7 +795,14 @@
                     <li>− 1.35 fixed offset</li>
                     @if (report.Mode == ManabaseMode.Cedh)
                     {
-                        <li>cEDH adjustment (−3.5, floored at 28 lands): <strong>@lt.CedhAdjustment.ToString("0.0;-0.0;0.0")</strong> from a base of @lt.BaseTarget.ToString("F1")</li>
+                        if (lt.CedhBaselineBlended && report.BaselineDeckCount is { } n && report.BaselineLandsMean is { } bmean)
+                        {
+                            <li>cEDH adjustment: −3.5 off the curve base @lt.BaseTarget.ToString("F1"), then nudged 50% toward this commander's tournament land mean (@bmean.ToString("F1") from @n cEDH decks@(string.IsNullOrWhiteSpace(report.BaselineMonth) ? "" : $", {report.BaselineMonth}")); safety floor @lt.CedhSafetyFloor.ToString("F0") = net <strong>@lt.CedhAdjustment.ToString("0.0;-0.0;0.0")</strong>, target ~@lt.FinalTarget.ToString("F1").</li>
+                        }
+                        else
+                        {
+                            <li>cEDH adjustment (−3.5, floor @lt.CedhSafetyFloor.ToString("F0") lands): <strong>@lt.CedhAdjustment.ToString("0.0;-0.0;0.0")</strong> from a base of @lt.BaseTarget.ToString("F1").</li>
+                        }
                     }
                     <li><strong>= target ~@lt.FinalTarget.ToString("F1") lands</strong> vs <strong>@report.ActualLands</strong> actually in the deck.</li>
                 </ul>

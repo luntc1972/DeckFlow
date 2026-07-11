@@ -16,8 +16,8 @@ public interface ICedhLandBaselineProvider
     /// <summary>Warm-loads the baseline snapshot into memory, swallowing file/parse failures.</summary>
     void EnsureLoaded();
 
-    /// <summary>Tries to resolve a baseline mean/sample size for one commander or one partner pair.</summary>
-    bool TryGetBaseline(IReadOnlyList<string> commanderNames, out double mean, out int n);
+    /// <summary>Tries to resolve a baseline mean/sample size/standard deviation for one commander or one partner pair.</summary>
+    bool TryGetBaseline(IReadOnlyList<string> commanderNames, out double mean, out int n, out double sd, out string? generated);
 }
 
 /// <inheritdoc />
@@ -63,10 +63,12 @@ public sealed class CedhLandBaselineProvider : ICedhLandBaselineProvider
         => GetOrLoadSnapshot();
 
     /// <inheritdoc />
-    public bool TryGetBaseline(IReadOnlyList<string> commanderNames, out double mean, out int n)
+    public bool TryGetBaseline(IReadOnlyList<string> commanderNames, out double mean, out int n, out double sd, out string? generated)
     {
         mean = default;
         n = default;
+        sd = default;
+        generated = default;
 
         CedhLandBaselineSnapshot? snapshot = GetOrLoadSnapshot();
         if (snapshot is null)
@@ -74,12 +76,15 @@ public sealed class CedhLandBaselineProvider : ICedhLandBaselineProvider
             return false;
         }
 
+        generated = snapshot.Generated;
+
         foreach (string key in CandidateKeys(commanderNames))
         {
             if (snapshot.Commanders.TryGetValue(key, out CedhCommanderBaselineSnapshot? match))
             {
                 mean = match.LandsMean;
                 n = match.N;
+                sd = match.LandsSd;
                 return true;
             }
         }
