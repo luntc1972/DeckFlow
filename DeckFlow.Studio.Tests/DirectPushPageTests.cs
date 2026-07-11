@@ -93,6 +93,7 @@ public sealed class DirectPushPageTests : BunitContext
             FakeGitRepository? gitOverride = null,
             FakeContentKbOrchestrator? orchestratorOverride = null,
             IDeployedBodyConfirmer? confirmerOverride = null,
+            IProdContentReader? prodReaderOverride = null,
             bool directPushGitBodyOn = false)
     {
         var localStore = new FakeContentSiteIndexStore();
@@ -131,7 +132,8 @@ public sealed class DirectPushPageTests : BunitContext
         // [skip render] behavior in these bUnit page tests stays byte-identical to before this flag
         // existed (D-05). Tests that exercise the ON /app deploy-confirm verify path (Codex-HIGH fix:
         // VerifyAndPublishAsync only polls the confirmer when the flag is ON) pass directPushGitBodyOn: true.
-        Services.AddSingleton<IProdContentReader>(new FakeDirectPushFlagReader { FlagValue = directPushGitBodyOn });
+        Services.AddSingleton<IProdContentReader>(
+            prodReaderOverride ?? new FakeDirectPushFlagReader { FlagValue = directPushGitBodyOn });
         // Why (90-05/SYNC-09, wired to Stage 5 in 90-06): confirmed=true by default so tests
         // unrelated to the confirm step are unaffected; override to exercise the not-confirmed path.
         Services.AddSingleton<IDeployedBodyConfirmer>(confirmerOverride ?? new FakeDeployedBodyConfirmer());
@@ -1022,14 +1024,19 @@ public sealed class DirectPushPageTests : BunitContext
     }
 
     [Fact]
-    public void DirectPush_Resume_ConfirmerNotConfirmed_StaysAwaitingConfirm_OperatorVisibleState()
+    public void DirectPush_Resume_FlagOnNotConfirmed_TriggersRedeploy_StaysAwaitingConfirm()
     {
-        // Test (b): resuming with a confirmer that reports not-confirmed keeps the row in the bucket
-        // and shows an operator-visible failed/awaiting state — never a silent deadlock and never a
-        // visible-before-confirm row.
+        // FU-2: with git-body serving ON and a stranded row that still does not confirm, Resume must
+        // trigger exactly one empty durability commit/push to force a fresh Render redeploy, then
+        // keep the row awaiting-confirm until the operator resumes again after Render is healthy.
         var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = false };
+        var git = new FakeGitRepository { CannedBranch = "main" };
         var local = new[] { MakeApprovedRow(1, "vid1") with { BodySha256 = "hash-vid1" } };
-        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local, confirmerOverride: confirmer, directPushGitBodyOn: true);
+        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(
+            local,
+            gitOverride: git,
+            confirmerOverride: confirmer,
+            directPushGitBodyOn: true);
 
         ComputeDiffAndConfirm(cut);
         cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
@@ -1042,8 +1049,11 @@ public sealed class DirectPushPageTests : BunitContext
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Contains("Not yet confirmed", cut.Markup);
+            Assert.Contains("Redeploy triggered", cut.Markup);
             Assert.Single(confirmer.Calls);
+            var emptyCommit = Assert.Single(git.EmptyCommitCalls);
+            Assert.Equal("content: direct-push 0 bodies to prod", emptyCommit.Message);
+            Assert.Single(git.PushCalls);
             Assert.Empty(prodStore.StampCalls);
             Assert.Empty(localStore.StampCalls);
             Assert.All(localStore.Rows, row => Assert.False(row.IsVisible));
@@ -1051,6 +1061,40 @@ public sealed class DirectPushPageTests : BunitContext
             // re-runnable (the button is still present, not removed).
             Assert.Contains("Awaiting Confirm", cut.Markup);
             Assert.False(cut.Find("button.btn-outline-warning").HasAttribute("disabled"));
+        });
+    }
+
+    [Fact]
+    public void DirectPush_Resume_FlagReadIndeterminate_SurfacesRetryMessage_LeavesRowsAwaitingConfirm()
+    {
+        var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = false };
+        var flagReader = new FakeDirectPushFlagReader { FlagValue = false, FlagReadIndeterminate = true };
+        var git = new FakeGitRepository { CannedBranch = "main" };
+        var local = new[] { MakeApprovedRow(1, "vid1") with { BodySha256 = "hash-vid1" } };
+        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(
+            local,
+            gitOverride: git,
+            confirmerOverride: confirmer,
+            prodReaderOverride: flagReader);
+
+        ComputeDiffAndConfirm(cut);
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
+        cut.WaitForState(() => cut.Markup.Contains("uploaded to production /data"));
+        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-danger")[1].HasAttribute("disabled")));
+        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[1].Click());
+        cut.WaitForAssertion(() => Assert.Contains("Awaiting Confirm", cut.Markup));
+
+        cut.InvokeAsync(() => cut.Find("button.btn-outline-warning").Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("prod flag DB unreachable", cut.Markup);
+            Assert.Single(confirmer.Calls);
+            Assert.Empty(git.EmptyCommitCalls);
+            Assert.Empty(git.PushCalls);
+            Assert.Empty(prodStore.StampCalls);
+            Assert.Empty(localStore.StampCalls);
+            Assert.Contains("Awaiting Confirm", cut.Markup);
         });
     }
 

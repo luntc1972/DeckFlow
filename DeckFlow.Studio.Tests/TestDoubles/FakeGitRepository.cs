@@ -15,6 +15,8 @@ internal sealed class FakeGitRepository : IGitRepository
     public string CannedDiff { get; set; } = "diff --git a/content-kb/seed/index-seed.json b/content-kb/seed/index-seed.json\nindex abc..def 100644\n--- a/content-kb/seed/index-seed.json\n+++ b/content-kb/seed/index-seed.json\n@@ -0,0 +1,5 @@\n+[]\n";
     public string CannedHeadSeed { get; set; } = string.Empty;
     public string CannedCommitSha { get; set; } = "abc1234";
+    public string CannedHeadSubject { get; set; } = string.Empty;
+    public bool CannedHeadCommitIsEmpty { get; set; }
 
     /// <summary>
     /// Controls CountWorkingChangesAsync. Null (default) = "all supplied paths changed" (returns
@@ -44,6 +46,9 @@ internal sealed class FakeGitRepository : IGitRepository
     /// <summary>When set, StageAndCommitAsync throws this exception instead of succeeding.</summary>
     public Exception? ThrowOnCommit { get; set; }
 
+    /// <summary>When set, CommitEmptyAsync throws this exception instead of succeeding.</summary>
+    public Exception? ThrowOnEmptyCommit { get; set; }
+
     /// <summary>When set, FetchAsync throws this exception instead of succeeding.</summary>
     public Exception? ThrowOnFetch { get; set; }
 
@@ -52,6 +57,7 @@ internal sealed class FakeGitRepository : IGitRepository
 
     // ── Call recording ──────────────────────────────────────────────────────
     public List<(string RepoRoot, IReadOnlyList<string> Paths, string Message)> CommitCalls { get; } = new();
+    public List<(string RepoRoot, string Message)> EmptyCommitCalls { get; } = new();
     public List<(string RepoRoot, string Remote, string Branch)> FetchCalls { get; } = new();
     public List<(string RepoRoot, string Remote, string Branch)> PushCalls { get; } = new();
 
@@ -79,6 +85,21 @@ internal sealed class FakeGitRepository : IGitRepository
         if (ThrowOnCommit is not null)
         {
             throw ThrowOnCommit;
+        }
+
+        return Task.FromResult(CannedCommitSha);
+    }
+
+    public Task<string> CommitEmptyAsync(
+        string repoRoot,
+        string message,
+        CancellationToken ct = default)
+    {
+        EmptyCommitCalls.Add((repoRoot, message));
+
+        if (ThrowOnEmptyCommit is not null)
+        {
+            throw ThrowOnEmptyCommit;
         }
 
         return Task.FromResult(CannedCommitSha);
@@ -134,4 +155,10 @@ internal sealed class FakeGitRepository : IGitRepository
 
     public Task<int> GetBehindCountAsync(string repoRoot, string remote, string branch, CancellationToken ct = default)
         => Task.FromResult(CannedBehindCount);
+
+    public Task<string> GetHeadSubjectAsync(string repoRoot, CancellationToken ct = default)
+        => Task.FromResult(CannedHeadSubject);
+
+    public Task<bool> IsHeadCommitEmptyAsync(string repoRoot, CancellationToken ct = default)
+        => Task.FromResult(CannedHeadCommitIsEmpty);
 }

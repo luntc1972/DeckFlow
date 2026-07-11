@@ -410,55 +410,10 @@ public sealed class DirectPushCoordinator
         ArgumentNullException.ThrowIfNull(publishRows);
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
 
-        var repoRoot = await _git.ResolveRepoRootAsync(StudioRepoLocator.ResolveStartDirectory(), cancellationToken).ConfigureAwait(false);
-
-        // Resolve the branch up front so a detached HEAD fails fast BEFORE any file copy or commit —
-        // rev-parse --abbrev-ref returns the literal "HEAD" when detached, which would otherwise push
-        // to a bogus refs/heads/HEAD branch (Codex LOW).
-        var branch = await _git.GetCurrentBranchAsync(repoRoot, cancellationToken).ConfigureAwait(false);
-        if (string.Equals(branch, "HEAD", StringComparison.Ordinal) || string.IsNullOrWhiteSpace(branch))
-        {
-            throw new InvalidOperationException(
-                "Direct Push requires a checked-out branch; the repository is in a detached-HEAD state.");
-        }
-
-        // Ahead-of-origin inspection (reviews F2 / R2-1 / R2-2): pushing the branch ref publishes HEAD
-        // AND every ancestor not already on origin — not just our durability commit. Before pushing we
-        // must PROVE the only thing published is our own [skip render] durability commit(s). Read what
-        // is currently ahead of origin/{branch}.
-        IReadOnlyList<string>? aheadSubjects;
-        try
-        {
-            aheadSubjects = await _git
-                .GetSubjectsAheadOfRemoteAsync(repoRoot, "origin", branch, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (GitCommandException)
-        {
-            aheadSubjects = null;
-        }
-
-        // Fail CLOSED when the ahead state cannot be determined (review R2-1): a missing origin/{branch}
-        // remote-tracking ref (never fetched) means we cannot prove a push would publish only our own
-        // commits, so refuse to auto-push rather than risk publishing unreviewed history. Nothing has
-        // been committed yet — the operator resolves this by fetching, then retrying.
-        if (aheadSubjects is null)
-        {
-            throw new DirectPushPushBlockedException(
-                branch,
-                $"the branch's remote state could not be verified — origin/{branch} was not found. " +
-                $"If the branch has never been pushed, run 'git push -u origin {branch}'; otherwise run " +
-                "'git fetch'. Then retry");
-        }
-
-        // Foreign-commit guard: if ANY commit ahead of origin is one this stage did not author (not an
-        // exact-shape [skip render] durability commit), refuse — Stage 4 must never publish unreviewed
-        // commits (the project rule is "AI commits, the operator pushes after review").
-        var foreignAhead = aheadSubjects.Count(s => !IsDurabilityCommitSubject(s));
-        if (foreignAhead > 0)
-        {
-            throw new DirectPushUnreviewedCommitsException(foreignAhead, branch);
-        }
+        var pushState = await GetVerifiedPushStateAsync(cancellationToken).ConfigureAwait(false);
+        var repoRoot = pushState.RepoRoot;
+        var branch = pushState.Branch;
+        var aheadSubjects = pushState.AheadSubjects;
 
         // Only the pushed bodies — distinct in case two rows share an artifact path. Filter blank AND
         // whitespace paths (review F6) so a stray whitespace ArtifactPath cannot turn the durability
@@ -523,9 +478,7 @@ public sealed class DirectPushCoordinator
             // D-04/D-09: read the SAME web-DB flag the serving flip consults, through the
             // structurally read-only, fail-closed accessor — Studio never assumes ON.
             var directPushGitBodyOn = await ReadDirectPushGitBodyFlagAsync(cancellationToken).ConfigureAwait(false);
-            var message = directPushGitBodyOn
-                ? $"{CommitSubjectPrefix} {changedCount} {noun} to prod"
-                : $"{CommitSubjectPrefix} {changedCount} {noun} to prod {RenderSkipPhrase}";
+            var message = BuildDurabilityCommitMessage(changedCount, noun, directPushGitBodyOn);
 
             // Bodies AND the re-exported seed are staged together (D-08/SYNC-08): a fresh prod reseed
             // can now fully reconstruct this DirectPush'd content instead of reverting it. A commit
@@ -555,20 +508,52 @@ public sealed class DirectPushCoordinator
         // bodies are already durable locally — surface the SHA (null when nothing was committed this
         // run) + branch so the operator can push by hand. A genuine cancellation must surface AS
         // cancellation, not as a push failure (review F3), so it is rethrown before the generic wrap.
-        try
-        {
-            await _git.PushAsync(repoRoot, "origin", branch, cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            throw new DirectPushPushException(sha, branch, ex);
-        }
+        await PushOrWrapAsync(repoRoot, branch, sha, cancellationToken).ConfigureAwait(false);
 
         return new DirectPushGitResult(sha, branch, changedCount, outcome);
+    }
+
+    /// <summary>
+    /// Resume-only recovery stage (FU-2): when direct-push git bodies are DEFINITIVELY ON and rows
+    /// remain awaiting confirm after a verify pass, force a fresh Render redeploy by creating an
+    /// empty durability commit and pushing it through the same safety gates as Stage 4.
+    /// </summary>
+    public async Task<DirectPushRedeployResult> TriggerRedeployAsync(CancellationToken cancellationToken)
+    {
+        var directPushGitBodyFlag = await TryReadDirectPushGitBodyFlagAsync(cancellationToken).ConfigureAwait(false);
+        if (directPushGitBodyFlag is null)
+        {
+            return new DirectPushRedeployResult(DirectPushRedeployOutcome.Indeterminate, null, null);
+        }
+
+        if (directPushGitBodyFlag == false)
+        {
+            return new DirectPushRedeployResult(DirectPushRedeployOutcome.FlagNotOn, null, null);
+        }
+
+        var pushState = await GetVerifiedPushStateAsync(cancellationToken).ConfigureAwait(false);
+        if (pushState.AheadSubjects.Count > 0)
+        {
+            return new DirectPushRedeployResult(DirectPushRedeployOutcome.BranchAheadNeedsPush, pushState.Branch, null);
+        }
+
+        var headSubject = await _git.GetHeadSubjectAsync(pushState.RepoRoot, cancellationToken).ConfigureAwait(false);
+        var headIsEmpty = await _git.IsHeadCommitEmptyAsync(pushState.RepoRoot, cancellationToken).ConfigureAwait(false);
+        if (headIsEmpty && IsDurabilityCommitSubject(headSubject))
+        {
+            return new DirectPushRedeployResult(DirectPushRedeployOutcome.AlreadyTriggered, pushState.Branch, null);
+        }
+
+        var sha = await _git
+            .CommitEmptyAsync(
+                pushState.RepoRoot,
+                BuildDurabilityCommitMessage(0, "bodies", directPushGitBodyOn: true),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        await PushOrWrapAsync(pushState.RepoRoot, pushState.Branch, sha, cancellationToken).ConfigureAwait(false);
+
+        return new DirectPushRedeployResult(DirectPushRedeployOutcome.RedeployTriggered, pushState.Branch, sha);
     }
 
     // Why: our own durability commits are the only commits Stage 4 is allowed to publish. They are
@@ -576,6 +561,66 @@ public sealed class DirectPushCoordinator
     // consts). Anything else ahead of origin is foreign and blocks the push.
     private static bool IsDurabilityCommitSubject(string subject)
         => DurabilityCommitSubjectPattern.IsMatch(subject);
+
+    private static string BuildDurabilityCommitMessage(int changedCount, string noun, bool directPushGitBodyOn)
+        => directPushGitBodyOn
+            ? $"{CommitSubjectPrefix} {changedCount} {noun} to prod"
+            : $"{CommitSubjectPrefix} {changedCount} {noun} to prod {RenderSkipPhrase}";
+
+    private async Task<DirectPushVerifiedPushState> GetVerifiedPushStateAsync(CancellationToken cancellationToken)
+    {
+        var repoRoot = await _git.ResolveRepoRootAsync(StudioRepoLocator.ResolveStartDirectory(), cancellationToken).ConfigureAwait(false);
+
+        // Resolve the branch up front so a detached HEAD fails fast BEFORE any file copy or commit —
+        // rev-parse --abbrev-ref returns the literal "HEAD" when detached, which would otherwise push
+        // to a bogus refs/heads/HEAD branch (Codex LOW).
+        var branch = await _git.GetCurrentBranchAsync(repoRoot, cancellationToken).ConfigureAwait(false);
+        if (string.Equals(branch, "HEAD", StringComparison.Ordinal) || string.IsNullOrWhiteSpace(branch))
+        {
+            throw new InvalidOperationException(
+                "Direct Push requires a checked-out branch; the repository is in a detached-HEAD state.");
+        }
+
+        // Ahead-of-origin inspection (reviews F2 / R2-1 / R2-2): pushing the branch ref publishes HEAD
+        // AND every ancestor not already on origin — not just our durability commit. Before pushing we
+        // must PROVE the only thing published is our own durability commit(s). Read what is currently
+        // ahead of origin/{branch}.
+        IReadOnlyList<string>? aheadSubjects;
+        try
+        {
+            aheadSubjects = await _git
+                .GetSubjectsAheadOfRemoteAsync(repoRoot, "origin", branch, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (GitCommandException)
+        {
+            aheadSubjects = null;
+        }
+
+        // Fail CLOSED when the ahead state cannot be determined (review R2-1): a missing origin/{branch}
+        // remote-tracking ref (never fetched) means we cannot prove a push would publish only our own
+        // commits, so refuse to auto-push rather than risk publishing unreviewed history. Nothing has
+        // been committed yet — the operator resolves this by fetching, then retrying.
+        if (aheadSubjects is null)
+        {
+            throw new DirectPushPushBlockedException(
+                branch,
+                $"the branch's remote state could not be verified — origin/{branch} was not found. " +
+                $"If the branch has never been pushed, run 'git push -u origin {branch}'; otherwise run " +
+                "'git fetch'. Then retry");
+        }
+
+        // Foreign-commit guard: if ANY commit ahead of origin is one this stage did not author (not an
+        // exact-shape durability commit), refuse — Stage 4 and FU-2 resume must never publish
+        // unreviewed commits.
+        var foreignAhead = aheadSubjects.Count(s => !IsDurabilityCommitSubject(s));
+        if (foreignAhead > 0)
+        {
+            throw new DirectPushUnreviewedCommitsException(foreignAhead, branch);
+        }
+
+        return new DirectPushVerifiedPushState(repoRoot, branch, aheadSubjects);
+    }
 
     // Builds the on-demand prod store from the ephemeral connection string (D-03) — never at DI
     // startup. Shared by the diff read and the publish write so the config key lives in one place.
@@ -601,6 +646,31 @@ public sealed class DirectPushCoordinator
             _configuration["Studio:ProdConnectionString"] ?? string.Empty,
             DirectPushGitBodyFlagKey,
             cancellationToken);
+
+    private async Task PushOrWrapAsync(
+        string repoRoot,
+        string branch,
+        string? sha,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _git.PushAsync(repoRoot, "origin", branch, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new DirectPushPushException(sha, branch, ex);
+        }
+    }
+
+    private sealed record DirectPushVerifiedPushState(
+        string RepoRoot,
+        string Branch,
+        IReadOnlyList<string> AheadSubjects);
 }
 
 /// <summary>Approved-row count and resolved data root for the DirectPush page init.</summary>
@@ -624,6 +694,31 @@ public enum DirectPushGitOutcome
 /// was committed this run), the current branch, the body count, and the outcome discriminator.
 /// </summary>
 public sealed record DirectPushGitResult(string? Sha, string Branch, int BodyCount, DirectPushGitOutcome Outcome);
+
+/// <summary>Discriminates the outcome of the FU-2 resume redeploy trigger stage.</summary>
+public enum DirectPushRedeployOutcome
+{
+    /// <summary>A new empty durability commit was created and pushed to trigger a redeploy.</summary>
+    RedeployTriggered,
+
+    /// <summary>The branch is in sync and <c>HEAD</c> is already an empty durability commit, so a redeploy is already pending.</summary>
+    AlreadyTriggered,
+
+    /// <summary>The prod flag read was definitive OFF, so no redeploy should be forced.</summary>
+    FlagNotOn,
+
+    /// <summary>The prod flag state could not be read, so the coordinator refuses to force a redeploy.</summary>
+    Indeterminate,
+
+    /// <summary>The branch already has our own durability commits ahead of origin and must be pushed/caught up before another empty commit is added.</summary>
+    BranchAheadNeedsPush,
+}
+
+/// <summary>Result of <see cref="DirectPushCoordinator.TriggerRedeployAsync"/>.</summary>
+public sealed record DirectPushRedeployResult(
+    DirectPushRedeployOutcome Outcome,
+    string? Branch,
+    string? Sha);
 
 /// <summary>
 /// Thrown when the DirectPush git stage committed the bodies locally but the subsequent push failed.
