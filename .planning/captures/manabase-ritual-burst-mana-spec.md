@@ -1,6 +1,7 @@
 # SPEC — Manabase ritual / one-shot burst mana
 
-**Status:** proposed (for Codex plan-review)
+**Status:** APPROVED with conditions (Codex gpt-5.5 plan-review, 2026-07-10) — HIGH
+O-2 (FastMana double-count) + 4 MED folded into §2/§3.1/§3.2/§4. Cleared to execute.
 **Branch:** `feat/manabase-ritual-burst-mana`
 **Author:** Claude (plan), 2026-07-10
 **Depends on:** current manabase pipeline (post MDFC-real-land removal, `main@66ed4843`)
@@ -32,18 +33,30 @@ source, so this defends the tool's central promise.
 
 ## 2. Scope
 
-### In (v1)
-- **Instant/sorcery rituals**: a spell whose front-face oracle has an unconditional
-  `Add {…}` producing **more mana than its own cost** (net positive). Examples:
-  Dark Ritual (`{B}` → `{B}{B}{B}`, net +2 B), Rite of Flame (net +1 R),
-  Pyretic/Desperate Ritual (net +1), Cabal Ritual, Seething Song (net +2),
-  Jeska's Will (net variable — model the base `{R}{R}{R}` component).
-- **Sac-to-add fast mana**: `{0}`/cheap artifact with "Sacrifice … : Add" — Lotus
-  Petal (net +1 any), Lion's Eye Diamond (net +3 one color).
+### In (v1) — instant/sorcery rituals ONLY (Codex O-2 HIGH resolution)
+- **Instant/sorcery rituals**: a spell whose **front-face type line is Instant or
+  Sorcery** and whose oracle has an unconditional `Add {…}` producing **more mana than
+  its own mana cost** (net positive). Examples: Dark Ritual (`{B}` → `{B}{B}{B}`, net
+  +2 B), Rite of Flame (net +1 R), Pyretic/Desperate Ritual (net +1), Cabal Ritual,
+  Seething Song (net +2), Jeska's Will (model the fixed `{R}{R}{R}` floor only).
+- **Hard exclusion of the FastMana lane (no double-count):** a card that satisfies the
+  existing FastMana predicate (`ManaValue==0 && Artifact && ProducesMana`, `Cls:233`)
+  is **never** an `OneShotMana`. This keeps **Lotus Petal, Lion's Eye Diamond, Jeweled
+  Lotus, Lotus Bloom** in their current FastMana land-target lane and out of the sim
+  burst — they are already credited (Codex: LED/Lotus Petal are NOT new entrants).
+  Since the v1 predicate is *Instant/Sorcery* front face, artifacts are excluded by
+  construction anyway; the FastMana check is the belt-and-suspenders assertion.
 
 ### Out (v1) — documented, deferred
-- **Imprint/exile-cost** producers (Chrome Mox, Simian Spirit Guide, Elvish Spirit
-  Guide) — cost is a card removed from hand, not mana; harder to model, lower freq.
+- **All artifact fast mana** (Lotus Petal, LED, Jeweled Lotus, Chrome Mox, Grim
+  Monolith, etc.) — stays in the FastMana land-target lane; moving it to the sim would
+  change land targets and risk O-2. Revisit in a later phase if the FastMana land
+  credit proves less accurate than a sim burst.
+- **Sac-*outlet* mana** (Ashnod's Altar, Phyrexian Altar) — they sacrifice *another*
+  permanent and are repeatable engines, not self-contained one-shots. Explicitly
+  excluded (Codex MED).
+- **Imprint/exile-cost** producers (Chrome Mox, Simian/Elvish Spirit Guide) — cost is
+  a card removed from hand, not mana; harder to model, lower freq.
 - **Triggered Treasure** (Dockside, Goldspan) — board/opponent-state dependent.
 - **X-ritual scaling** beyond the fixed base (Jeska's Will politics, Cabal Ritual
   threshold) — model the guaranteed floor only.
@@ -54,32 +67,44 @@ source, so this defends the tool's central promise.
 ## 3. Design
 
 ### 3.1 Classification (`ManabaseClassifier` / `CardFact`)
-- New detector `IsOneShotBurstMana(card)` + a captured `(int NetMana, IReadOnlyList<ManaColor> Colors, int OwnCost)`.
-  - Reuse the existing `Add`-parsing + `ReminderTextRegex` strip already in the ramp
-    detectors; compute produced pips from `ProducedMana` and own cost from `ManaCost`
-    (instants) or the sac ability's mana cost (0 for Lotus Petal).
-  - `NetMana = producedCount − ownGeneric+coloredCost` (floor 0; only emit if > 0).
-- Emit a new **`ManaSource` kind** — either `IsOneShot=true` on `ManaSource`, or a
-  parallel `IReadOnlyList<OneShotMana>` on `ManabaseDeck`. Prefer a dedicated list to
-  avoid polluting the color-source census (rituals must NOT count as color *sources*
-  in the Karsten per-color requirement — they're burst, not durable supply).
-- **Never** classified as a rock/dork/land; excluded from `EffectiveSources`.
+- New detector `IsOneShotBurstMana(card)` returning `(int NetMana, IReadOnlyList<ManaColor> Colors, ManaCost OwnCost)`.
+  - **Conservative shape-match only (Codex MED):** require front-face type line
+    Instant or Sorcery (`CardTypeLine.FrontFace`), an unconditional `Add {symbols}`
+    clause (reuse `ReminderTextRegex` strip + the existing `Add`-parsing), and
+    `NetMana = producedPips − ownCastPips > 0`. Do **not** reuse `ManaAmount.Parse`
+    blindly for burst sizing — it returns 1 for "any combination"/multi-color splits;
+    derive produced count from the literal `ProducedMana` list / the `Add {…}` symbols.
+  - **Own cost** = the spell's `ManaCost` (colored pips + generic), captured as a
+    `ManaCost` so the sim can test payability with MQ-02 semantics.
+  - **Colors** = the produced colors (Dark Ritual → {B}; a "any color" ritual → all).
+  - **Explicit exclusions:** FastMana-predicate cards (§2), sac-*outlets* (cost
+    contains "Sacrifice" naming another permanent/creature — Ashnod's/Phyrexian Altar),
+    and anything with a variable `{X}` in the produced amount (model fixed floor only,
+    or skip if no fixed floor).
+- Emit a dedicated `IReadOnlyList<OneShotMana>` on `ManabaseDeck` (NOT a `ManaSource`).
+  Rituals must **not** count as color *sources* in the Karsten per-color requirement or
+  `EffectiveSources` — they are burst, not durable supply. Never a rock/dork/land.
 
 ### 3.2 Simulation (`CastabilitySimulator`)
 - Model a one-shot as a library card of a new `CardKind.OneShotMana` carrying
-  `(netMana, colorMask, ownCost)`.
-- On the **cast-attempt turn T** for the tracked spell (not before): after normal
-  land/ramp mana is tallied, if a one-shot is **in hand** (drawn by T) **and its own
-  cost is payable** from the turn's available mana, add its `netMana` of its color(s)
-  to the pool **for that turn only**, then consume it (does not persist to T+1).
-  - Mirrors the `TryDeployRamp` own-cost gate (`gateRampOnCastable`) but one-shot and
-    same-turn, not online-next-turn.
-  - Chain-safe cap: allow at most the rituals actually in hand; do not let one ritual
-    pay for another speculatively in v1 (bounded, avoids runaway combos) — document
-    the simplification.
-- Integrate the added mana into `ColorsCoverable` (respect MQ-02 locked-color / DFS).
-- **Determinism:** one-shots participate in the existing per-spell FNV seed; no new
-  RNG (drawn-status already comes from the shuffled prefix).
+  `(netMana, colorMask, ownCost)`, drawn via the same shuffled prefix as everything else.
+- **Exact insertion point (Codex MED):** on the tracked spell's cast-attempt turn T,
+  **after** `TryDeployRamp` and `ReserveGenericForRamp`, while building `availableColors`
+  and **before** `TotalMana` / `ColorsCoverable` (`CastabilitySimulator.cs:~1082`).
+  - Test the ritual's **own cost** against the **pre-burst, post-ramp-reserve** sources
+    via `ColorsCoverable(baseSources, ritualOwnPips, ritualOwnCost)` — so a Dark Ritual
+    with no B source in play cannot fire.
+  - If payable, **append** its `netMana`/colors to `availableColors` for **this cast
+    attempt only**; do **not** add it to `rampOnBoard` (no persistence, no deploy-ramp
+    chaining).
+  - Then run the normal `ColorsCoverable(availableColors + burst, spellPips, spellCost)`
+    for the target spell — preserving MQ-02 locked-color / DFS.
+- **Chain guard (Codex MED):** own-cost gates are evaluated against the **base** pool
+  only, never a progressively enlarged one — no ritual pays for another in v1. At most
+  the rituals actually in hand contribute; document the simplification.
+- **Color correctness:** because activation itself goes through `ColorsCoverable`, a red
+  ritual can't help a blue-pip spell unless the rest of the pool covers blue.
+- **Determinism:** one-shots use the existing per-spell FNV seed; no new RNG.
 
 ### 3.3 Land target
 - No change in v1 (`KarstenManabase` untouched). One-shots do not enter the FastMana
@@ -96,14 +121,17 @@ source, so this defends the tool's central promise.
 - Weighted toward cEDH in messaging, but the mechanic applies in both modes.
 
 ## 4. Tests
-- Classifier: Dark Ritual → net +2 B; Rite of Flame → +1 R; Lotus Petal → +1 any;
-  a repeatable rock (Signet) and a non-ritual sorcery → NOT one-shot; LED → +3 one color.
-- Sim: a mono-B deck that misses B-source count but holds Dark Ritual casts a 3-drop
-  on curve at materially higher % with the flag on vs off; own-cost gate (no B source
-  → Dark Ritual can't fire) respected; one-shot consumed (doesn't help turn T+1).
-- Flag-off byte-identical guard (extend `ManabaseFlagBaselineHarness`).
-- No double-count: Lotus Petal doesn't get both FastMana land credit AND one-shot sim
-  burst (per O-2 resolution).
+- Classifier (P1): Dark Ritual → net +2 B; Rite of Flame → +1 R; Cabal Ritual →
+  fixed floor; Seething Song → +2. Negatives: a repeatable rock (Signet), a sac-outlet
+  (Ashnod's Altar), a non-ritual sorcery → NOT one-shot. **Lane guard:** Lotus Petal
+  and LED are **NOT** one-shot (they stay FastMana — asserts O-2 exclusion).
+- Sim (P2): a mono-B deck short on B sources but holding Dark Ritual casts a 3-drop on
+  curve at materially higher % with the flag on vs off; own-cost gate (no B source in
+  play → Dark Ritual can't fire) respected; consumed (doesn't help turn T+1); a red
+  ritual does NOT help a blue-pip spell.
+- Flag (P3): `analysis.manabase.ritual-burst-mana` seeded **OFF** (seed test +
+  `FeatureFlagCatalog` entry test); flag-off **byte-identical** at classifier, service,
+  and report level (extend `ManabaseFlagBaselineHarness` + a service-level parity test).
 
 ## 5. Risks & open questions
 - **O-1 (over-credit):** a ritual must help only its enabling turn and only when its
