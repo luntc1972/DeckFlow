@@ -809,6 +809,99 @@ public sealed class DirectPushCoordinatorTests
         Assert.Contains("git push -u origin feature-x", ex.Reason);
     }
 
+    // ── TriggerRedeployAsync (FU-2 resume redeploy path) ───────────────────
+
+    [Fact]
+    public async Task TriggerRedeployAsync_FlagOnInSync_CreatesEmptyDurabilityCommit_ThenPushes()
+    {
+        var git = new FakeGitRepository
+        {
+            CannedBranch = "main",
+            CannedCommitSha = "redeploy1",
+        };
+        var flagReader = new FakeDirectPushFlagReader { FlagValue = true };
+        var coordinator = Build(new FakeContentSiteIndexStore(), new FakeContentSiteIndexStore(), git: git, prodReader: flagReader);
+
+        var result = await coordinator.TriggerRedeployAsync(CancellationToken.None);
+
+        Assert.Equal(DirectPushRedeployOutcome.RedeployTriggered, result.Outcome);
+        Assert.Equal("main", result.Branch);
+        Assert.Equal("redeploy1", result.Sha);
+        var emptyCommit = Assert.Single(git.EmptyCommitCalls);
+        Assert.Equal("content: direct-push 0 bodies to prod", emptyCommit.Message);
+        Assert.Single(git.PushCalls);
+    }
+
+    [Fact]
+    public async Task TriggerRedeployAsync_HeadAlreadyEmptyDurabilityCommit_ReturnsAlreadyTriggered()
+    {
+        var git = new FakeGitRepository
+        {
+            CannedBranch = "main",
+            CannedHeadSubject = "content: direct-push 0 bodies to prod",
+            CannedHeadCommitIsEmpty = true,
+        };
+        var flagReader = new FakeDirectPushFlagReader { FlagValue = true };
+        var coordinator = Build(new FakeContentSiteIndexStore(), new FakeContentSiteIndexStore(), git: git, prodReader: flagReader);
+
+        var result = await coordinator.TriggerRedeployAsync(CancellationToken.None);
+
+        Assert.Equal(DirectPushRedeployOutcome.AlreadyTriggered, result.Outcome);
+        Assert.Equal("main", result.Branch);
+        Assert.Null(result.Sha);
+        Assert.Empty(git.EmptyCommitCalls);
+        Assert.Empty(git.PushCalls);
+    }
+
+    [Fact]
+    public async Task TriggerRedeployAsync_BranchAlreadyAhead_ReturnsBranchAheadNeedsPush()
+    {
+        var git = new FakeGitRepository
+        {
+            CannedBranch = "main",
+            CannedSubjectsAhead = { "content: direct-push 1 body to prod" },
+        };
+        var flagReader = new FakeDirectPushFlagReader { FlagValue = true };
+        var coordinator = Build(new FakeContentSiteIndexStore(), new FakeContentSiteIndexStore(), git: git, prodReader: flagReader);
+
+        var result = await coordinator.TriggerRedeployAsync(CancellationToken.None);
+
+        Assert.Equal(DirectPushRedeployOutcome.BranchAheadNeedsPush, result.Outcome);
+        Assert.Equal("main", result.Branch);
+        Assert.Empty(git.EmptyCommitCalls);
+        Assert.Empty(git.PushCalls);
+    }
+
+    [Fact]
+    public async Task TriggerRedeployAsync_FlagReadIndeterminate_ReturnsIndeterminate_WithoutCommit()
+    {
+        var git = new FakeGitRepository { CannedBranch = "main" };
+        var flagReader = new FakeDirectPushFlagReader { FlagValue = false, FlagReadIndeterminate = true };
+        var coordinator = Build(new FakeContentSiteIndexStore(), new FakeContentSiteIndexStore(), git: git, prodReader: flagReader);
+
+        var result = await coordinator.TriggerRedeployAsync(CancellationToken.None);
+
+        Assert.Equal(DirectPushRedeployOutcome.Indeterminate, result.Outcome);
+        Assert.Null(result.Branch);
+        Assert.Empty(git.EmptyCommitCalls);
+        Assert.Empty(git.PushCalls);
+    }
+
+    [Fact]
+    public async Task TriggerRedeployAsync_FlagOff_ReturnsFlagNotOn_WithoutCommit()
+    {
+        var git = new FakeGitRepository { CannedBranch = "main" };
+        var flagReader = new FakeDirectPushFlagReader { FlagValue = false };
+        var coordinator = Build(new FakeContentSiteIndexStore(), new FakeContentSiteIndexStore(), git: git, prodReader: flagReader);
+
+        var result = await coordinator.TriggerRedeployAsync(CancellationToken.None);
+
+        Assert.Equal(DirectPushRedeployOutcome.FlagNotOn, result.Outcome);
+        Assert.Null(result.Branch);
+        Assert.Empty(git.EmptyCommitCalls);
+        Assert.Empty(git.PushCalls);
+    }
+
     // ── VerifyAndPublishAsync (deploy-confirm gate, SYNC-09/D-09 REVISED) ────
     // FakeDeployedBodyConfirmer lives in TestDoubles/FakeDeployedBodyConfirmer.cs (shared with
     // DirectPushPageTests, mirroring FakeDirectPushFlagReader's placement).

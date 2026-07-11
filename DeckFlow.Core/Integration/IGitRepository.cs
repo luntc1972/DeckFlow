@@ -83,6 +83,35 @@ public interface IGitRepository
         CancellationToken ct = default);
 
     /// <summary>
+    /// Creates an EMPTY commit with <paramref name="message"/> via
+    /// <c>git commit --allow-empty -m {message}</c>, then returns the short SHA of the new commit.
+    /// </summary>
+    /// <remarks>
+    /// Why: Direct Push resume may need to force a fresh Render redeploy of content that is already
+    /// committed on the branch by pushing a new durability commit with no file delta. This method
+    /// MUST first prove the index is clean (no pre-staged paths) so it never sweeps unrelated staged
+    /// work into the empty commit, and MUST verify the resulting commit is actually empty relative to
+    /// its parent.
+    /// </remarks>
+    /// <param name="repoRoot">Absolute path to the git working tree root.</param>
+    /// <param name="message">Commit message.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The short SHA of the resulting commit.</returns>
+    /// <exception cref="GitForeignStagedChangesException">
+    /// Thrown when any paths are already staged.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the resulting commit is not empty.
+    /// </exception>
+    /// <exception cref="GitCommandException">
+    /// Thrown when any git sub-command exits with a non-zero code.
+    /// </exception>
+    Task<string> CommitEmptyAsync(
+        string repoRoot,
+        string message,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Pushes the current <c>HEAD</c> to <paramref name="branch"/> on <paramref name="remote"/>
     /// via <c>git push {remote} HEAD:refs/heads/{branch}</c>.
     /// </summary>
@@ -190,6 +219,27 @@ public interface IGitRepository
         string remote,
         string branch,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the subject line of <c>HEAD</c> via <c>git log -1 --format=%s HEAD</c>.
+    /// </summary>
+    /// <param name="repoRoot">Absolute path to the git working tree root.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The current <c>HEAD</c> subject, trimmed.</returns>
+    Task<string> GetHeadSubjectAsync(string repoRoot, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns whether <c>HEAD</c> has an EMPTY file delta relative to its parent.
+    /// </summary>
+    /// <remarks>
+    /// Why: the FU-2 redeploy churn guard must detect whether the current tip is already an empty
+    /// durability commit so repeated resumes do not stack more empty commits while Render is still
+    /// catching up.
+    /// </remarks>
+    /// <param name="repoRoot">Absolute path to the git working tree root.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns><see langword="true"/> when <c>HEAD</c> changes no files; otherwise <see langword="false"/>.</returns>
+    Task<bool> IsHeadCommitEmptyAsync(string repoRoot, CancellationToken ct = default);
 
     /// <summary>
     /// Returns the NUMBER of commits on <c>{remote}/{branch}</c> that are not yet on <c>HEAD</c>,

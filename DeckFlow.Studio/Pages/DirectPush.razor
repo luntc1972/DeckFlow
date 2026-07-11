@@ -142,8 +142,10 @@ and may briefly serve its prior body until the redeploy completes
                             @_awaitingConfirmRows.Count row(s) already have content written to production
                             but have not been deploy-confirmed yet (e.g. this Studio session was reloaded
                             mid-flow). New rows stay hidden until confirmed; already-visible rows stay
-                            visible and may briefly serve their prior body until the deploy confirms
-                            &mdash; re-run verify below rather than losing track of them.
+                            visible and may briefly serve their prior body until the deploy confirms.
+                            Resume re-runs verify; when git-body serving is ON and rows still do not
+                            confirm, it can trigger one empty durability commit so Render redeploys
+                            the already-committed tree. Then wait for Render healthy and Resume again.
                         </p>
 
                         @if (!string.IsNullOrEmpty(_resumeVerifyError))
@@ -221,7 +223,13 @@ and may briefly serve its prior body until the redeploy completes
                                         <tr>
                                             <td class="text-truncate" style="max-width:300px">@rr.Title</td>
                                             <td><code>@rr.KeyType:@rr.KeyValue</code></td>
-                                            <td><span class="badge bg-warning text-dark">Not yet confirmed</span></td>
+                                            <td>
+                                                <span class="badge bg-warning text-dark">Not yet confirmed</span>
+                                                @if (!string.IsNullOrWhiteSpace(rr.Reason))
+                                                {
+                                                    <div class="small text-muted mt-1">@rr.Reason</div>
+                                                }
+                                            </td>
                                         </tr>
                                     }
                                 </tbody>

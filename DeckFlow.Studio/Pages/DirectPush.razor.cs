@@ -651,12 +651,31 @@ public partial class DirectPush
                 var result = await Coordinator.VerifyAndPublishAsync(rowsToResume, Cts.Token).ConfigureAwait(false);
 
                 var confirmed = result.Confirmed.Select(r => ToRowResult(r, true, null)).ToList();
+                var notConfirmedReason = "Still not confirmed at /app. Wait for the Render deploy to finish, then " +
+                                         "resume again.";
+
+                if (result.NotConfirmed.Count > 0)
+                {
+                    var redeployResult = await Coordinator.TriggerRedeployAsync(Cts.Token).ConfigureAwait(false);
+                    notConfirmedReason = redeployResult.Outcome switch
+                    {
+                        DirectPushRedeployOutcome.RedeployTriggered
+                            => "Redeploy triggered — wait for the Render deploy to go healthy, then Resume again.",
+                        DirectPushRedeployOutcome.AlreadyTriggered
+                            => "Redeploy already triggered — wait for the Render deploy to go healthy, then Resume again.",
+                        DirectPushRedeployOutcome.Indeterminate
+                            => "prod flag DB unreachable — retry when reachable; rows stay awaiting-confirm.",
+                        DirectPushRedeployOutcome.BranchAheadNeedsPush
+                            => "A durability commit is already ahead of origin. Let that push/redeploy settle, then Resume again.",
+                        _ => notConfirmedReason,
+                    };
+                }
+
                 var notConfirmed = result.NotConfirmed
                     .Select(r => ToRowResult(
                         r,
                         false,
-                        "Still not confirmed at /app. Wait for the Render deploy to finish, then " +
-                        "resume again."))
+                        notConfirmedReason))
                     .ToList();
 
                 await InvokeAsync(() =>
@@ -680,9 +699,9 @@ public partial class DirectPush
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Resume verify & publish failed");
-            _resumeVerifyError = "Could not verify the deployed body — check the deploy-confirm " +
-                        "configuration and try again. The rows stay awaiting-confirm.";
+            Logger.LogError(ex, "Resume verify and redeploy handling failed");
+            _resumeVerifyError = "Could not complete resume verify/redeploy handling — check the " +
+                        "deploy-confirm and git state, then retry. The rows stay awaiting-confirm.";
             _resumeVerifyInFlight = false;
             _operationInFlight = false;
             await InvokeAsync(StateHasChanged);
