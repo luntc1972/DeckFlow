@@ -58,6 +58,40 @@ public sealed class CommanderInferenceTests
     }
 
     [Fact]
+    public void InferLeadingCommanderNames_AlphabetizedRun_PinsCurrentSingleCommanderGuard()
+    {
+        // Eligibility-based partner recovery happens later in ManabaseAnalysisService; Core
+        // intentionally keeps the alphabetical single-commander guard unchanged here.
+        var entries = new List<DeckEntry>
+        {
+            Entry("Bello, Bard of the Brambles"),
+            Entry("Aggravated Assault"),
+            Entry("Ancient Tomb"),
+        };
+
+        IReadOnlyList<string> commanders = CommanderInference.InferLeadingCommanderNames(entries);
+
+        Assert.Equal(new[] { "Bello, Bard of the Brambles" }, commanders);
+    }
+
+    [Fact]
+    public void InferLeadingCommanderNames_NonAlphabeticalLeadingPair_PinsCurrentPartnerHeuristic()
+    {
+        // Eligibility-based partner recovery happens later in ManabaseAnalysisService; this
+        // test pins the current structure-only partner heuristic until that pass runs.
+        var entries = new List<DeckEntry>
+        {
+            Entry("Tana, the Bloodsower"),
+            Entry("Kraum, Ludevic's Opus"),
+            Entry("Aggravated Assault"),
+        };
+
+        IReadOnlyList<string> commanders = CommanderInference.InferLeadingCommanderNames(entries);
+
+        Assert.Equal(new[] { "Tana, the Bloodsower", "Kraum, Ludevic's Opus" }, commanders);
+    }
+
+    [Fact]
     public void InferLeadingCommanderNames_LeadingMultiCopyCard_ReturnsEmpty()
     {
         // A list pasted lands-first (e.g. a playset of basics) has no leading one-of, so no

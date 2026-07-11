@@ -46,6 +46,9 @@ public static class CommanderInference
             .Take(2)
             .ToList();
 
+        // Keep this structure-only Take(2) + alphabetical guard intact. Wave 2 recovers real
+        // partner/background pairs post-resolve in ManabaseAnalysisService using eligibility,
+        // because Core alone cannot distinguish "partner 2" from an alphabetized mainboard card.
         // Third-entry alphabetical guard: if the second leading card sorts before the third,
         // the run is just an alphabetized mainboard, so only the first card is the commander.
         if (leadingOneOfs.Count == 2 && entries.Count > 2)

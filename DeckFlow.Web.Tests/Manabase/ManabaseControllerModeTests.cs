@@ -42,6 +42,23 @@ public sealed class ManabaseControllerModeTests
     }
 
     [Fact]
+    public async Task Post_ThreadsSelectedCommander_IntoTheService()
+    {
+        var fake = new CapturingService(CasualReport());
+        var controller = BuildController(fake);
+
+        await controller.Manabase(new ManabaseRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "1 Winota, Joiner of Forces",
+            SelectedCommander = "Winota, Joiner of Forces",
+        });
+
+        Assert.NotNull(fake.LastOptions);
+        Assert.Equal("Winota, Joiner of Forces", fake.LastOptions!.SelectedCommander);
+    }
+
+    [Fact]
     public async Task Post_DefaultRequest_IsCasualStandard()
     {
         var fake = new CapturingService(CasualReport());
@@ -157,11 +174,52 @@ public sealed class ManabaseControllerModeTests
         Assert.True(GetBoolProperty(model, "ShowPlainLanguage"));
     }
 
+    [Fact]
+    public async Task Post_CommanderSelectionRequired_RendersViewWithoutNullRef_AndStoresChoices()
+    {
+        var fake = new SelectionRequiredService();
+        var controller = BuildController(fake);
+
+        var result = await controller.Manabase(new ManabaseRequest
+        {
+            DeckText = "x",
+            DeckInputSource = DeckInputSource.PasteText,
+        });
+
+        var model = ModelOf(result);
+        Assert.Null(model.Report);
+        // Selection is a routine prompt, not an error — no alert banner; the picker is the message.
+        Assert.Null(model.ErrorMessage);
+        Assert.True(model.CommanderSelectionRequired);
+        Assert.Equal(new[] { "Winota, Joiner of Forces" }, model.CommanderChoices);
+    }
+
+    [Fact]
+    public async Task CommanderSearch_ReturnsJsonCommanderNames()
+    {
+        var service = new CapturingService(CasualReport());
+        var search = new StubCardSearchService("Winota, Joiner of Forces", "Winota's Friend");
+        var controller = BuildController(service, search);
+
+        var result = await controller.CommanderSearch("wino");
+
+        var json = Assert.IsType<JsonResult>(result);
+        Assert.Equal("wino", search.LastCommanderQuery);
+        Assert.Equal(
+            new[] { "Winota, Joiner of Forces", "Winota's Friend" },
+            Assert.IsAssignableFrom<IReadOnlyList<string>>(json.Value));
+    }
+
     // --- helpers -------------------------------------------------------------
 
-    private static ManabaseController BuildController(IManabaseAnalysisService service)
+    private static ManabaseController BuildController(
+        IManabaseAnalysisService service,
+        StubCardSearchService? cardSearchService = null)
     {
-        var controller = new ManabaseController(service, NullLogger<ManabaseController>.Instance)
+        var controller = new ManabaseController(
+            service,
+            cardSearchService ?? new StubCardSearchService(),
+            NullLogger<ManabaseController>.Instance)
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
         };
@@ -229,6 +287,35 @@ public sealed class ManabaseControllerModeTests
             CancellationToken cancellationToken = default)
             => Task.FromResult(new ManabaseLoadResult(
                 "1 cards · 36 lands", Array.Empty<string>(), null, Array.Empty<CostSuggestion>()));
+    }
+
+    private sealed class SelectionRequiredService : IManabaseAnalysisService
+    {
+        public Task<ManabaseAnalysisResult> AnalyzeAsync(
+            string deckSource,
+            string? deckName,
+            ManabaseAnalysisOptions? options = null,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new ManabaseAnalysisResult(
+                null,
+                "100 cards · 36 lands",
+                Array.Empty<string>(),
+                null,
+                string.Empty,
+                Array.Empty<CostSuggestion>(),
+                null,
+                null,
+                false)
+            {
+                CommanderSelectionRequired = true,
+                CommanderChoices = new[] { "Winota, Joiner of Forces" },
+            });
+
+        public Task<ManabaseLoadResult> LoadAsync(
+            string deckSource,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new ManabaseLoadResult(
+                "100 cards · 36 lands", Array.Empty<string>(), null, Array.Empty<CostSuggestion>()));
     }
 
     private static ManabaseAnalysisResult CreateResult(

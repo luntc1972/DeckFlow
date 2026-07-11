@@ -64,10 +64,19 @@ public sealed class ManabaseAnalysisOptions
 
     /// <summary>Optional user-supplied companion designator; blank/null means "no manual override".</summary>
     public string? CompanionDesignator { get; init; }
+
+    /// <summary>
+    /// Optional explicit commander choice from the UI. When supplied it overrides inferred/imported
+    /// commander flags, but the selected card must still pass commander eligibility validation.
+    /// </summary>
+    public string? SelectedCommander { get; init; }
 }
 
 /// <summary>The outcome of a mana-base analysis: the report plus presentation context.</summary>
-/// <param name="Report">The computed Karsten §6 report.</param>
+/// <param name="Report">
+/// The computed Karsten §6 report, or <see langword="null"/> when commander selection is required
+/// before analysis can continue.
+/// </param>
 /// <param name="InputSummary">Short human summary of what was analyzed.</param>
 /// <param name="Unresolved">Card names Scryfall could not resolve (excluded from the math).</param>
 /// <param name="ImportWarning">Optional notice from the deck importer (e.g. a fallback path).</param>
@@ -77,7 +86,7 @@ public sealed class ManabaseAnalysisOptions
 /// <param name="Budget">Optional ramp/draw slot-budget advisory (Casual only when the flag is on).</param>
 /// <param name="ShowPlainLanguage">Whether the UI should surface the plain-language glosses/verdict gate.</param>
 public sealed record ManabaseAnalysisResult(
-    ManabaseReport Report,
+    ManabaseReport? Report,
     string InputSummary,
     IReadOnlyList<string> Unresolved,
     string? ImportWarning,
@@ -87,6 +96,18 @@ public sealed record ManabaseAnalysisResult(
     ManabaseRampDrawBudget? Budget,
     bool ShowPlainLanguage)
 {
+    /// <summary>
+    /// Whether the deck resolved but no valid commander remained after eligibility validation, so a
+    /// user selection is required before a report can be produced.
+    /// </summary>
+    public bool CommanderSelectionRequired { get; init; }
+
+    /// <summary>
+    /// Commander-eligible resolved card names surfaced to the caller when manual commander selection
+    /// is required.
+    /// </summary>
+    public IReadOnlyList<string> CommanderChoices { get; init; } = Array.Empty<string>();
+
     /// <summary>Whether the command-zone castability affordances were enabled for this result.</summary>
     public bool CommanderCastabilityEnabled { get; init; }
 
@@ -271,8 +292,31 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 classifyPlanRoles: showPlanPresence,
                 options.Mode,
                 options.CompanionDesignator,
+                options.SelectedCommander,
                 cancellationToken)
             .ConfigureAwait(false);
+
+        if (resolved.CommanderSelectionRequired)
+        {
+            return new ManabaseAnalysisResult(
+                Report: null,
+                resolved.InputSummary,
+                resolved.Unresolved,
+                resolved.FallbackNotice,
+                PromptSwapPrompt: string.Empty,
+                resolved.Deck.CostSuggestions,
+                Verdict: null,
+                Budget: null,
+                ShowPlainLanguage: false)
+            {
+                CommanderSelectionRequired = true,
+                CommanderChoices = resolved.CommanderChoices,
+                CommanderCastabilityEnabled = commanderCastability,
+                ShowTapAnalyzer = showTapAnalyzer,
+                ShowMulliganEval = showMulliganEval,
+                ShowPlanPresence = showPlanPresence,
+            };
+        }
 
         // Fan the bundled accuracy flag out to the existing Core bools so the internal analyzer/classifier
         // plumbing stays stable. Fail-safe OFF still comes from IsFlagOn above.
@@ -359,6 +403,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             report, resolved.InputSummary, resolved.Unresolved, resolved.FallbackNotice,
             swapPrompt, resolved.Deck.CostSuggestions, verdict, budget, plainLanguage)
         {
+            CommanderChoices = resolved.CommanderChoices,
             CommanderCastabilityEnabled = commanderCastability,
             CompanionRow = companionRow,
             ShowTapAnalyzer = showTapAnalyzer,
@@ -385,6 +430,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 classifyPlanRoles: false,
                 mode: ManabaseMode.Casual,
                 companionDesignator: null,
+                selectedCommander: null,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -413,6 +459,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         bool classifyPlanRoles,
         ManabaseMode mode,
         string? companionDesignator,
+        string? selectedCommander,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(deckSource))
@@ -521,6 +568,28 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             throw new InvalidOperationException("Scryfall could not resolve any of the deck's cards; try again shortly.");
         }
 
+        string? normalizedSelectedCommander = BoundCompanionName(selectedCommander) is { } boundedSelectedCommander
+            ? CardNormalizer.Normalize(boundedSelectedCommander)
+            : null;
+        if (normalizedSelectedCommander is not null)
+        {
+            deckEntries = deckEntries
+                .Select(entry =>
+                {
+                    bool isCommander = string.Equals(
+                        CardNormalizer.Normalize(entry.Card.Name),
+                        normalizedSelectedCommander,
+                        StringComparison.Ordinal);
+                    return entry.IsCommander == isCommander ? entry : entry with { IsCommander = isCommander };
+                })
+                .ToList();
+        }
+
+        CommanderValidationResult commanderValidation = ValidateResolvedCommanders(
+            deckEntries,
+            selectedCommanderSupplied: normalizedSelectedCommander is not null);
+        deckEntries = commanderValidation.Entries;
+
         IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
         ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true, rampCreditV2: rampCreditV2, landRampSim: landRampSim, payLifeUntapped: payLifeUntapped, checkLandUntapped: checkLandUntapped);
 
@@ -547,7 +616,9 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             decklistText,
             inputSummary,
             deckEntries.Where(e => e.IsCommander).Select(e => e.Card.Name).ToList(),
-            companionCard);
+            companionCard,
+            commanderValidation.CommanderChoices,
+            commanderValidation.SelectionRequired);
     }
 
     /// <summary>
@@ -677,6 +748,86 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             .ToList();
     }
 
+    private static CommanderValidationResult ValidateResolvedCommanders(
+        List<DeckCardEntry> entries,
+        bool selectedCommanderSupplied)
+    {
+        var validatedEntries = new List<DeckCardEntry>(entries.Count);
+        var commanderChoices = new List<string>();
+        var seenChoices = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        bool hadFlaggedCommander = entries.Any(entry => entry.IsCommander);
+
+        foreach (DeckCardEntry entry in entries)
+        {
+            string typeLine = entry.Card.TypeLine ?? string.Empty;
+
+            // Only the planeswalker path reads oracle text ("can be your commander"); the other
+            // eligibility branches look at the type line alone, so skip the per-card oracle flatten
+            // for the common (creature/vehicle/enchantment) cards.
+            string? oracleText = typeLine.Contains("Planeswalker", StringComparison.OrdinalIgnoreCase)
+                ? NormalizeOracleText(entry.Card)
+                : null;
+            bool eligible = CommanderEligibility.IsEligible(typeLine, oracleText);
+            if (eligible && seenChoices.Add(entry.Card.Name))
+            {
+                commanderChoices.Add(entry.Card.Name);
+            }
+
+            validatedEntries.Add(entry.IsCommander && !eligible
+                ? entry with { IsCommander = false }
+                : entry);
+        }
+
+        bool noCommanderRemains = validatedEntries.All(entry => !entry.IsCommander);
+        bool selectionRequired = noCommanderRemains && (selectedCommanderSupplied || hadFlaggedCommander);
+        return new CommanderValidationResult(validatedEntries, commanderChoices, selectionRequired);
+    }
+
+    private static string NormalizeOracleText(ScryfallCardData card)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(card.OracleText))
+        {
+            parts.Add(CollapseWhitespace(card.OracleText));
+        }
+
+        foreach (ScryfallFaceData face in card.CardFaces ?? Array.Empty<ScryfallFaceData>())
+        {
+            var faceParts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(face.Name))
+            {
+                faceParts.Add(face.Name.Trim());
+            }
+
+            if (!string.IsNullOrWhiteSpace(face.ManaCost))
+            {
+                faceParts.Add(face.ManaCost.Trim());
+            }
+
+            if (!string.IsNullOrWhiteSpace(face.TypeLine))
+            {
+                faceParts.Add(CollapseWhitespace(face.TypeLine));
+            }
+
+            if (!string.IsNullOrWhiteSpace(face.OracleText))
+            {
+                faceParts.Add(CollapseWhitespace(face.OracleText));
+            }
+
+            if (faceParts.Count > 0)
+            {
+                parts.Add(string.Join(" | ", faceParts));
+            }
+        }
+
+        return string.Join(" ", parts);
+    }
+
+    private static string CollapseWhitespace(string value)
+        => string.Join(" ", (value ?? string.Empty)
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+
     // Internal carrier for the shared resolve+classify stage (no report yet).
     private sealed record ResolvedManabaseDeck(
         ManabaseDeck Deck,
@@ -685,7 +836,14 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         string DecklistText,
         string InputSummary,
         IReadOnlyList<string> CommanderNames,
-        ScryfallCardData? CompanionCard);
+        ScryfallCardData? CompanionCard,
+        IReadOnlyList<string> CommanderChoices,
+        bool CommanderSelectionRequired);
+
+    private sealed record CommanderValidationResult(
+        List<DeckCardEntry> Entries,
+        IReadOnlyList<string> CommanderChoices,
+        bool SelectionRequired);
 
     private static string? ResolveCompanionName(string? designator, string? detected)
         => BoundCompanionName(designator) ?? BoundCompanionName(detected);

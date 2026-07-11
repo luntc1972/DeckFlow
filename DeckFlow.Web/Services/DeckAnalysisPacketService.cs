@@ -1948,35 +1948,13 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         }
 
         var commanderCard = await _scryfallCardResolver.SearchPrintingFallbackCardAsync(commanderName, cancellationToken).ConfigureAwait(false);
-        if (commanderCard is null || !IsCommanderEligible(commanderCard))
+        if (commanderCard is null || !CommanderEligibility.IsEligible(commanderCard.TypeLine ?? string.Empty, NormalizeOracleText(commanderCard)))
         {
             throw new InvalidOperationException($"The commander isn't in the deck text. \"{commanderName}\" is not a legal commander by this workflow's rules.");
         }
 
         return commanderEntry.Name;
     }
-
-    private static bool IsCommanderEligible(ScryfallCard card)
-    {
-        var typeLine = card.TypeLine ?? string.Empty;
-        var oracleText = NormalizeOracleText(card);
-        if (IsLegendaryType(typeLine, "Creature"))
-        {
-            return true;
-        }
-
-        if (IsLegendaryType(typeLine, "Vehicle"))
-        {
-            return true;
-        }
-
-        return typeLine.Contains("Planeswalker", StringComparison.OrdinalIgnoreCase)
-            && oracleText.Contains("can be your commander", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsLegendaryType(string typeLine, string requiredType)
-        => typeLine.Contains("Legendary", StringComparison.OrdinalIgnoreCase)
-            && typeLine.Contains(requiredType, StringComparison.OrdinalIgnoreCase);
 
     private async Task<IReadOnlyList<MechanicReference>> LookupMechanicReferencesAsync(IReadOnlyList<string> mechanicNames, CancellationToken cancellationToken)
     {
