@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: Cycle 16
 milestone_name: â Content-KB ProdâGitâStudio Sync Hardening
 status: executing
-stopped_at: Completed 93-01-PLAN.md
-last_updated: "2026-07-11T05:17:29.537Z"
+stopped_at: Completed 93-03-PLAN.md
+last_updated: "2026-07-11T05:22:22.849Z"
 last_activity: 2026-07-11
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 30
-  completed_plans: 26
+  completed_plans: 27
   percent: 67
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 ## Current Position
 
 Phase: 93 (round-trip-integration-test) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-07-11
 
-Progress: [█████████░] 87%
+Progress: [█████████░] 90%
 
 ## Roadmap Summary
 
@@ -83,6 +83,7 @@ Progress: [█████████░] 87%
 | Phase 91 P07 | 45min | 2 tasks | 10 files |
 | Phase 91 P08 | ~35min | 3 tasks | 10 files |
 | Phase 93 P01 | ~25min | 3 tasks | 4 files |
+| Phase 93 P03 | ~10min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -142,6 +143,7 @@ Full decision log lives in PROJECT.md Key Decisions table. Decisions constrainin
 - [Phase 93]: 93-01: DeployToAppAsync is a plain recursive filesystem copy of content-kb/**, not a second git invocation - keeps the test-only git bootstrap helper the sole hand-rolled ProcessStartInfo carve-out
 - [Phase 93]: 93-01: AppTreeDeployedBodyConfirmer mirrors ArtifactPathSafety inline rather than adding InternalsVisibleTo to DeckFlow.Studio - preserves zero-production-code-change this phase
 - [Phase 93]: 93-01: Smoke test wires the real ContentKbOrchestrator via the existing public ContentKbOrchestratorFactory.Create rather than 14 raw ctor args - matches the CLI's own construction path
+- [Phase 93]: 93-03: checklist created as its own standalone file (93-PREFLIP-CHECKLIST.md) rather than appended to 90-FOLLOWUPS.md or 93-CONTEXT.md, per D-08 planner's-call
 
 ### Pending Todos
 
@@ -170,6 +172,6 @@ Carried forward from Cycle 15 close (2026-07-05) — none are Cycle-16 gaps:
 
 ## Session Continuity
 
-Last session: 2026-07-11T05:17:29.508Z
-Stopped at: Completed 93-01-PLAN.md
+Last session: 2026-07-11T05:22:22.823Z
+Stopped at: Completed 93-03-PLAN.md
 Resume file: None
