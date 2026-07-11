@@ -3,7 +3,6 @@ using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Orchestration;
 using DeckFlow.Studio.Services;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace DeckFlow.Studio.ViewModels;
@@ -22,7 +21,7 @@ public sealed class PullFromProdCoordinator
     private readonly IContentSiteIndexStore _indexStore;
     private readonly IGitRepository _git;
     private readonly IProdContentReader _prodReader;
-    private readonly IConfiguration _configuration;
+    private readonly IStudioProdConnectionSource _prodConnection;
     private readonly ContentKbOrchestratorOptions _options;
     private readonly ILogger<PullFromProdCoordinator> _logger;
 
@@ -31,20 +30,20 @@ public sealed class PullFromProdCoordinator
         IContentSiteIndexStore indexStore,
         IGitRepository git,
         IProdContentReader prodReader,
-        IConfiguration configuration,
+        IStudioProdConnectionSource prodConnection,
         ContentKbOrchestratorOptions options,
         ILogger<PullFromProdCoordinator> logger)
     {
         ArgumentNullException.ThrowIfNull(indexStore);
         ArgumentNullException.ThrowIfNull(git);
         ArgumentNullException.ThrowIfNull(prodReader);
-        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(prodConnection);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(logger);
         _indexStore = indexStore;
         _git = git;
         _prodReader = prodReader;
-        _configuration = configuration;
+        _prodConnection = prodConnection;
         _options = options;
         _logger = logger;
     }
@@ -85,7 +84,7 @@ public sealed class PullFromProdCoordinator
         log.Report("Reading production content_site_index...");
 
         // Why: the prod conn string is read ephemerally here, never materialized into DI state (D-03/D-07).
-        var rawConnStr = _configuration["Studio:ProdConnectionString"] ?? string.Empty;
+        var rawConnStr = _prodConnection.ConnectionString;
         var prodRows = await _prodReader.ReadAllAsync(rawConnStr, cancellationToken).ConfigureAwait(false);
 
         log.Report($"  {prodRows.Count} row(s) read from production.");

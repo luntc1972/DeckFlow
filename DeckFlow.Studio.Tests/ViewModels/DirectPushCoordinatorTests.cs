@@ -68,7 +68,7 @@ public sealed class DirectPushCoordinatorTests
             local,
             uploader ?? new FakeSshArtifactUploader(),
             new FakeProdStoreFactory(prod),
-            new ConfigurationBuilder().Build(),
+            new StudioProdConnectionSource(new ConfigurationBuilder().Build()),
             new ContentKbOrchestratorOptions { ArtifactRoot = artifactRoot },
             git ?? new FakeGitRepository(),
             orchestrator ?? new FakeContentKbOrchestrator(),

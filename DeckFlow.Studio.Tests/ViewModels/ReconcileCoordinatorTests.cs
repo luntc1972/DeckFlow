@@ -100,12 +100,15 @@ public sealed class ReconcileCoordinatorTests
         FakeContentSiteIndexStore? prod = null,
         bool? flagValue = null,
         bool flagIndeterminate = false)
-        => new(
+    {
+        var configuration = new ConfigurationBuilder().Build();
+        return new(
             orchestrator ?? new FakeContentKbReconcileOrchestrator(),
             store ?? new FakeContentKbReconcileStore(),
             new FakeProdStoreFactory(prod ?? new FakeContentSiteIndexStore()),
             new FakeReconcileFlagReader { FlagValue = flagValue, FlagIndeterminate = flagIndeterminate },
-            new ConfigurationBuilder().Build());
+            new StudioProdConnectionSource(configuration));
+    }
 
     // ── Dry-run (91-07, unchanged behavior) ────────────────────────────────
 
@@ -198,7 +201,7 @@ public sealed class ReconcileCoordinatorTests
             new FakeContentKbReconcileStore(),
             new FakeProdStoreFactory(new FakeContentSiteIndexStore()),
             new FakeReconcileFlagReader(),
-            new ConfigurationBuilder().Build()));
+            new StudioProdConnectionSource(new ConfigurationBuilder().Build())));
     }
 
     [Fact]
@@ -209,7 +212,7 @@ public sealed class ReconcileCoordinatorTests
             null!,
             new FakeProdStoreFactory(new FakeContentSiteIndexStore()),
             new FakeReconcileFlagReader(),
-            new ConfigurationBuilder().Build()));
+            new StudioProdConnectionSource(new ConfigurationBuilder().Build())));
     }
 
     [Fact]
@@ -220,7 +223,7 @@ public sealed class ReconcileCoordinatorTests
             new FakeContentKbReconcileStore(),
             null!,
             new FakeReconcileFlagReader(),
-            new ConfigurationBuilder().Build()));
+            new StudioProdConnectionSource(new ConfigurationBuilder().Build())));
     }
 
     [Fact]
@@ -231,11 +234,11 @@ public sealed class ReconcileCoordinatorTests
             new FakeContentKbReconcileStore(),
             new FakeProdStoreFactory(new FakeContentSiteIndexStore()),
             null!,
-            new ConfigurationBuilder().Build()));
+            new StudioProdConnectionSource(new ConfigurationBuilder().Build())));
     }
 
     [Fact]
-    public void Constructor_NullConfiguration_Throws()
+    public void Constructor_NullProdConnection_Throws()
     {
         Assert.Throws<ArgumentNullException>(() => new ReconcileCoordinator(
             new FakeContentKbReconcileOrchestrator(),

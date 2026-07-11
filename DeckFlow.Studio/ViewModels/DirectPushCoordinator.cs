@@ -5,7 +5,6 @@ using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Orchestration;
 using DeckFlow.Core.Storage;
 using DeckFlow.Studio.Services;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -24,7 +23,7 @@ public sealed class DirectPushCoordinator
     private readonly IContentSiteIndexStore _localStore;
     private readonly ISshArtifactUploader _uploader;
     private readonly IProdStoreFactory _prodStoreFactory;
-    private readonly IConfiguration _configuration;
+    private readonly IStudioProdConnectionSource _prodConnection;
     private readonly ContentKbOrchestratorOptions _options;
     private readonly IGitRepository _git;
     private readonly IContentKbOrchestrator _orchestrator;
@@ -70,7 +69,7 @@ public sealed class DirectPushCoordinator
         IContentSiteIndexStore localStore,
         ISshArtifactUploader uploader,
         IProdStoreFactory prodStoreFactory,
-        IConfiguration configuration,
+        IStudioProdConnectionSource prodConnection,
         ContentKbOrchestratorOptions options,
         IGitRepository git,
         IContentKbOrchestrator orchestrator,
@@ -81,7 +80,7 @@ public sealed class DirectPushCoordinator
         ArgumentNullException.ThrowIfNull(localStore);
         ArgumentNullException.ThrowIfNull(uploader);
         ArgumentNullException.ThrowIfNull(prodStoreFactory);
-        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(prodConnection);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(git);
         ArgumentNullException.ThrowIfNull(orchestrator);
@@ -90,7 +89,7 @@ public sealed class DirectPushCoordinator
         _localStore = localStore;
         _uploader = uploader;
         _prodStoreFactory = prodStoreFactory;
-        _configuration = configuration;
+        _prodConnection = prodConnection;
         _options = options;
         _git = git;
         _orchestrator = orchestrator;
@@ -621,14 +620,14 @@ public sealed class DirectPushCoordinator
     // Builds the on-demand prod store from the ephemeral connection string (D-03) — never at DI
     // startup. Shared by the diff read and the publish write so the config key lives in one place.
     private IContentSiteIndexStore CreateProdStore()
-        => _prodStoreFactory.Create(_configuration["Studio:ProdConnectionString"] ?? string.Empty);
+        => _prodStoreFactory.Create(_prodConnection.ConnectionString);
 
     // Why (D-04): reads the SAME web-DB feature flag the serving flip consults, through the
     // structurally read-only, fail-closed IProdContentReader.ReadFlagAsync accessor (Task 1) — never
     // a duplicate Studio-local flag. Reuses the same ephemeral connection string as CreateProdStore.
     private Task<bool> ReadDirectPushGitBodyFlagAsync(CancellationToken cancellationToken)
         => _prodReader.ReadFlagAsync(
-            _configuration["Studio:ProdConnectionString"] ?? string.Empty,
+            _prodConnection.ConnectionString,
             DirectPushGitBodyFlagKey,
             cancellationToken);
 
@@ -639,7 +638,7 @@ public sealed class DirectPushCoordinator
     // there — an uncertain read just keeps [skip render], never forces a redundant redeploy).
     private Task<bool?> TryReadDirectPushGitBodyFlagAsync(CancellationToken cancellationToken)
         => _prodReader.TryReadFlagAsync(
-            _configuration["Studio:ProdConnectionString"] ?? string.Empty,
+            _prodConnection.ConnectionString,
             DirectPushGitBodyFlagKey,
             cancellationToken);
 

@@ -83,6 +83,7 @@ public partial class Program
             builder.Services.AddSingleton<ISshArtifactDownloader, SftpArtifactDownloader>();
             builder.Services.AddSingleton<IProdContentReader, ProdContentReader>();
             builder.Services.AddSingleton<IProdStoreFactory, ProdStoreFactory>();
+            builder.Services.AddSingleton<IStudioProdConnectionSource, StudioProdConnectionSource>();
             // Why (D-09 REVISED/SYNC-09): the DirectPush deploy-confirm poller. Depends only on the
             // shared singleton HttpClient (registered below) + IConfiguration — safe as a singleton.
             builder.Services.AddSingleton<IDeployedBodyConfirmer, DeployedBodyConfirmer>();

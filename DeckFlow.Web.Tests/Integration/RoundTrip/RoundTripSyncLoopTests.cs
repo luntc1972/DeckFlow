@@ -83,6 +83,7 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
 
         var git = new GitRepository();
         var config = _harness.BuildConfiguration();
+        var prodConnection = new StudioProdConnectionSource(config);
         var options = new ContentKbOrchestratorOptions { ArtifactRoot = factoryArtifactRoot };
 
         var orchestrator = ContentKbOrchestratorFactory.Create(
@@ -100,8 +101,8 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
 
         var publish = new PublishCoordinator(git, orchestrator, localStore, options, new PublishStateDeriver());
         var directPush = new DirectPushCoordinator(
-            localStore, uploader, prodStoreFactory, config, options, git, orchestrator, prodReader, confirmer);
-        var pull = new PullFromProdCoordinator(localStore, git, prodReader, config, options, NullLogger<PullFromProdCoordinator>.Instance);
+            localStore, uploader, prodStoreFactory, prodConnection, options, git, orchestrator, prodReader, confirmer);
+        var pull = new PullFromProdCoordinator(localStore, git, prodReader, prodConnection, options, NullLogger<PullFromProdCoordinator>.Instance);
 
         _output.WriteLine("── Boot: real PG schema + real git tree bootstrapped; coordinators wired ──");
 
@@ -298,7 +299,7 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
         var reconcileOrchestrator = new ContentKbReconcileOrchestrator(
             prodReader, reconcileStore, git, config, NullLogger<ContentKbReconcileOrchestrator>.Instance);
         var reconcile = new ReconcileCoordinator(
-            reconcileOrchestrator, reconcileStore, prodStoreFactory, prodReader, config, NullLogger<ReconcileCoordinator>.Instance);
+            reconcileOrchestrator, reconcileStore, prodStoreFactory, prodReader, prodConnection, NullLogger<ReconcileCoordinator>.Instance);
 
         var dryRun1 = await reconcile.RunDryRunAsync();
         Assert.True(dryRun1.SeedAvailable);
