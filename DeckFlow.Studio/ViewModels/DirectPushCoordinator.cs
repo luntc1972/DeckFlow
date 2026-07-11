@@ -47,10 +47,6 @@ public sealed class DirectPushCoordinator
     // Studio-local flag.
     private const string DirectPushGitBodyFlagKey = "sync.directpush-gitbody";
 
-    // Why: the shared seed-export destination (D-08/SYNC-08) — identical literal to
-    // PublishCoordinator.SeedRelative so both coordinators write to the SAME repo location.
-    private const string SeedRelative = "content-kb/seed/index-seed.json";
-
     // Why: the fixed subject prefix of every durability commit. Shared by the commit-message template
     // AND the classifier regex so the two can never drift (refuted-but-noted dup from review).
     private const string CommitSubjectPrefix = "content: direct-push";
@@ -437,7 +433,7 @@ public sealed class DirectPushCoordinator
         // seed writer. Runs on EVERY invocation of this stage (not gated on changedCount below) so the
         // committed seed always reflects the current approved set. A failure surfaces immediately,
         // before any body is copied — never a silent bodies-only commit.
-        var seedAbsPath = Path.GetFullPath(Path.Combine(repoRoot, SeedRelative));
+        var seedAbsPath = Path.GetFullPath(Path.Combine(repoRoot, ContentKbSeedPaths.SeedRelativePath));
         var exportResult = await _orchestrator
             .ExportIndexToFileAsync(seedAbsPath, progress: null, cancellationToken)
             .ConfigureAwait(false);
@@ -467,7 +463,7 @@ public sealed class DirectPushCoordinator
         // OUT of changedCount so the "N body|bodies" wording + DurabilityCommitSubjectPattern's \d+
         // group keep meaning body count exactly (a seed-only commit is "0 bodies", still matched).
         var seedChanged = await _git
-            .CountWorkingChangesAsync(repoRoot, new[] { SeedRelative }, cancellationToken)
+            .CountWorkingChangesAsync(repoRoot, new[] { ContentKbSeedPaths.SeedRelativePath }, cancellationToken)
             .ConfigureAwait(false) > 0;
 
         string? sha = null;
@@ -483,7 +479,7 @@ public sealed class DirectPushCoordinator
             // Bodies AND the re-exported seed are staged together (D-08/SYNC-08): a fresh prod reseed
             // can now fully reconstruct this DirectPush'd content instead of reverting it. A commit
             // failure propagates before the push (nothing is left half-published on the remote).
-            var stagedPaths = new List<string> { SeedRelative };
+            var stagedPaths = new List<string> { ContentKbSeedPaths.SeedRelativePath };
             stagedPaths.AddRange(copied);
 
             sha = await _git.StageAndCommitAsync(repoRoot, stagedPaths, message, cancellationToken).ConfigureAwait(false);

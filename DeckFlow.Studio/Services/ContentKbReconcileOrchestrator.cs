@@ -77,7 +77,7 @@ public sealed class ContentKbReconcileOrchestrator : IContentKbReconcileOrchestr
 
         var (existingGitBodyRelPaths, gitBodyByRelPath) = ReadGitContentTree(repoRoot);
 
-        var seedFilePath = Path.Combine(repoRoot, "content-kb", "seed", "index-seed.json");
+        var seedFilePath = Path.Combine(repoRoot, ContentKbSeedPaths.SeedRelativePath);
         var seedIndex = SeedIndexFileReader.Read(seedFilePath, _logger);
 
         var discrepancies = ContentKbReconcileClassifier.Classify(
@@ -217,10 +217,7 @@ public sealed class ContentKbReconcileOrchestrator : IContentKbReconcileOrchestr
 
         foreach (var item in items)
         {
-            var label = item.Kind == ContentKbReconcileKind.FileOrphan
-                ? item.ArtifactPath
-                : $"{item.Title} [{item.NaturalKeyType}:{item.NaturalKeyValue}] ({item.ArtifactPath})";
-            builder.AppendLine($"  - {label}");
+            builder.AppendLine($"  - {item.ToDisplayLabel()}");
         }
     }
 }

@@ -196,7 +196,7 @@ public sealed class ReconcileCoordinator
         {
             if (ContentNaturalKey.TryDerive(row, out var naturalKey))
             {
-                seedManagedByKey[$"{naturalKey.Type}\u0000{naturalKey.Value}"] = row.SeedManaged;
+                seedManagedByKey[CompositeKey(naturalKey.Type, naturalKey.Value)] = row.SeedManaged;
             }
         }
 
@@ -208,7 +208,7 @@ public sealed class ReconcileCoordinator
                 continue;
             }
 
-            var compositeKey = $"{discrepancy.NaturalKeyType}\u0000{discrepancy.NaturalKeyValue}";
+            var compositeKey = CompositeKey(discrepancy.NaturalKeyType, discrepancy.NaturalKeyValue);
 
             // Why (T-91-20 SYNC-17 invariant): re-check seed_managed against the FRESH prod row
             // itself, not merely the discrepancy's Kind — a prod-owned row must never be hidden even
@@ -276,6 +276,8 @@ public sealed class ReconcileCoordinator
             _configuration["Studio:ProdConnectionString"] ?? string.Empty,
             ReconcileFlagKey,
             cancellationToken);
+
+    private static string CompositeKey(string type, string value) => $"{type}\u0000{value}";
 }
 
 /// <summary>Discriminates why <see cref="ReconcileCoordinator.ApplyRemovalsAsync"/> refused to hide anything.</summary>
@@ -299,7 +301,7 @@ public enum ReconcileApplyRefusalReason
 public sealed record ReconcileApplyResult
 {
     /// <summary><see langword="true"/> when the apply proceeded (possibly hiding zero rows); <see langword="false"/> on any refusal.</summary>
-    public required bool WasApplied { get; init; }
+    public bool WasApplied => RefusalReason is null;
 
     /// <summary>Count of rows soft-hidden; <see langword="null"/> when <see cref="WasApplied"/> is <see langword="false"/>.</summary>
     public int? HiddenCount { get; init; }
@@ -308,8 +310,8 @@ public sealed record ReconcileApplyResult
     public ReconcileApplyRefusalReason? RefusalReason { get; init; }
 
     /// <summary>Builds an applied result carrying the number of rows soft-hidden.</summary>
-    public static ReconcileApplyResult Applied(int hiddenCount) => new() { WasApplied = true, HiddenCount = hiddenCount };
+    public static ReconcileApplyResult Applied(int hiddenCount) => new() { HiddenCount = hiddenCount };
 
     /// <summary>Builds a refused result carrying the reason; no visibility write occurred.</summary>
-    public static ReconcileApplyResult Refused(ReconcileApplyRefusalReason reason) => new() { WasApplied = false, RefusalReason = reason };
+    public static ReconcileApplyResult Refused(ReconcileApplyRefusalReason reason) => new() { RefusalReason = reason };
 }
