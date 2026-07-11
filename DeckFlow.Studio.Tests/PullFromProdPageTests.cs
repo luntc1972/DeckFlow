@@ -100,6 +100,7 @@ public sealed class PullFromProdPageTests : BunitContext
         Services.AddSingleton<IGitRepository>(git);
         Services.AddSingleton(new StudioConfig(isProdConfigured, isScpConfigured));
         Services.AddSingleton<IConfiguration>(configuration);
+        Services.AddSingleton<IStudioProdConnectionSource>(new StudioProdConnectionSource(configuration));
         Services.AddSingleton(new ContentKbOrchestratorOptions { ArtifactRoot = artifactRoot });
         // Why: the page now resolves its prod-pull + local-apply orchestration through
         // PullFromProdCoordinator (H1 split); the coordinator is built from the fakes registered

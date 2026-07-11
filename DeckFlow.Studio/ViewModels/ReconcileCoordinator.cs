@@ -1,7 +1,6 @@
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Studio.Services;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -32,7 +31,7 @@ public sealed class ReconcileCoordinator
     private readonly IContentKbReconcileStore _store;
     private readonly IProdStoreFactory _prodStoreFactory;
     private readonly IProdContentReader _prodReader;
-    private readonly IConfiguration _configuration;
+    private readonly IStudioProdConnectionSource _prodConnection;
     private readonly ILogger<ReconcileCoordinator> _logger;
 
     /// <summary>
@@ -45,19 +44,19 @@ public sealed class ReconcileCoordinator
         IContentKbReconcileStore store,
         IProdStoreFactory prodStoreFactory,
         IProdContentReader prodReader,
-        IConfiguration configuration,
+        IStudioProdConnectionSource prodConnection,
         ILogger<ReconcileCoordinator>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(orchestrator);
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(prodStoreFactory);
         ArgumentNullException.ThrowIfNull(prodReader);
-        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(prodConnection);
         _orchestrator = orchestrator;
         _store = store;
         _prodStoreFactory = prodStoreFactory;
         _prodReader = prodReader;
-        _configuration = configuration;
+        _prodConnection = prodConnection;
         // Optional logger (house convention, e.g. DirectPushCoordinator): the default keeps every
         // existing construction site + test compiling.
         _logger = logger ?? NullLogger<ReconcileCoordinator>.Instance;
@@ -266,14 +265,14 @@ public sealed class ReconcileCoordinator
     // Builds the on-demand prod store from the ephemeral connection string (D-03) — never at DI
     // startup. Mirrors DirectPushCoordinator.CreateProdStore exactly.
     private IContentSiteIndexStore CreateProdStore()
-        => _prodStoreFactory.Create(_configuration["Studio:ProdConnectionString"] ?? string.Empty);
+        => _prodStoreFactory.Create(_prodConnection.ConnectionString);
 
     // Why (D-10): the TRI-STATE twin of DirectPushCoordinator's flag helpers, reused verbatim for
     // the destructive Apply gate — both a definitive false AND an indeterminate null refuse here
     // (unlike DirectPush's publish-immediate short-circuit, which only fails safe on false).
     private Task<bool?> TryReadReconcileFlagAsync(CancellationToken cancellationToken)
         => _prodReader.TryReadFlagAsync(
-            _configuration["Studio:ProdConnectionString"] ?? string.Empty,
+            _prodConnection.ConnectionString,
             ReconcileFlagKey,
             cancellationToken);
 

@@ -2,6 +2,7 @@ using DeckFlow.Core.Content;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Orchestration;
+using DeckFlow.Studio.Services;
 using DeckFlow.Studio.ViewModels;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -93,7 +94,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
             localStore,
             git ?? new FakeGitRepository { CannedRepoRoot = _repoRoot },
             prodReader,
-            configuration,
+            new StudioProdConnectionSource(configuration),
             new ContentKbOrchestratorOptions { ArtifactRoot = _artifactRoot },
             NullLogger<PullFromProdCoordinator>.Instance);
     }

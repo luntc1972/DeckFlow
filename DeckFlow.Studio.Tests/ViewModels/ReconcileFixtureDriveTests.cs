@@ -92,7 +92,7 @@ public sealed class ReconcileFixtureDriveTests : IDisposable
         var orchestrator = new ContentKbReconcileOrchestrator(
             reader, localStore, git, config, NullLogger<ContentKbReconcileOrchestrator>.Instance);
         var coordinator = new ReconcileCoordinator(
-            orchestrator, localStore, storeFactory, reader, config, NullLogger<ReconcileCoordinator>.Instance);
+            orchestrator, localStore, storeFactory, reader, new StudioProdConnectionSource(config), NullLogger<ReconcileCoordinator>.Instance);
 
         // ── CHECKPOINT 1: dry-run detects all four classes, read-only, flag OFF ───────────────────
         reader.Flag = false; // sync.reconcile OFF — detection must be flag-independent.
