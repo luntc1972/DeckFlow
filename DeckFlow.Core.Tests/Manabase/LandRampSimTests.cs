@@ -105,10 +105,12 @@ public sealed class LandRampSimTests
     [Fact]
     public void MdfcSpellBack_HasNullDeployCost_NeverSelfExcluded()
     {
-        // Regression guard (Codex HIGH): an MDFC spell-land adds a non-land source with the SAME name
-        // as its castability row, via AddPartialSources. Self-exclusion must key on the land-ramp marker
-        // (DeployCost set), NOT on name alone, or scoring that MDFC's row would wrongly drop its own
-        // back-face source even with the flag off.
+        // Regression guard (Codex HIGH): an MDFC spell-land adds a source with the SAME name as its
+        // castability row, via AddPartialSources. Since the MDFC-as-real-lands refactor its back face is
+        // a REAL land (IsLand == true, weight 1.0, no land-ramp DeployCost marker). Self-exclusion keys
+        // on the land-ramp marker (non-land AND DeployCost set), NOT on name alone, so scoring that
+        // MDFC's own row must NOT drop its back-face land source — and a real land trivially fails the
+        // non-land clause anyway. DeployCost stays null (it is a land, not modeled land-ramp).
         var deck = new List<CardFact>
         {
             Land("Plains", 33, "W"),
@@ -130,7 +132,7 @@ public sealed class LandRampSimTests
         {
             ManaSource src = ManabaseClassifier.Classify(deck, landRampSim: flag)
                 .Sources.Single(s => s.Name == "Sejiri Shelter");
-            Assert.False(src.IsLand);
+            Assert.True(src.IsLand); // MDFC back is a real land since the real-lands refactor
             Assert.Null(src.DeployCost); // not modeled land-ramp → exclusion predicate skips it
         }
     }
