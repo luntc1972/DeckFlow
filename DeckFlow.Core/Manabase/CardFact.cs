@@ -43,7 +43,7 @@ public sealed record CardFact
     /// <summary>Scryfall <c>produced_mana</c> letters (e.g. ["U","R","G"]); empty if none.</summary>
     public IReadOnlyList<string> ProducedMana { get; init; } = Array.Empty<string>();
 
-    /// <summary>Scryfall rarity ("common", "uncommon", "rare", "mythic"); used for MDFC weighting.</summary>
+    /// <summary>Scryfall rarity ("common", "uncommon", "rare", "mythic"). Populated from Scryfall; not read by the analyzer.</summary>
     public string? Rarity { get; init; }
 
     /// <summary>Scryfall layout ("normal", "modal_dfc", "transform", "split", ...).</summary>
