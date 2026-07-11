@@ -40,7 +40,7 @@ to prod or the local store.</p>
                 }
             </button>
 
-            @if (_hasCompleted && _report is not null)
+            @if (_report is not null)
             {
                 <div class="mt-3" data-testid="git-body-coverage-results">
                     @if (_report.MissingCount == 0)

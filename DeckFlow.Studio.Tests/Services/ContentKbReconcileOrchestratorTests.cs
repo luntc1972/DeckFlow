@@ -94,7 +94,7 @@ public sealed class ContentKbReconcileOrchestratorTests : IDisposable
             reader,
             store ?? new ContentKbReconcileStore(_dbPath),
             new FakeGitRepository { CannedRepoRoot = _repoRoot },
-            new ConfigurationBuilder().Build(),
+            new StudioProdConnectionSource(new ConfigurationBuilder().Build()),
             NullLogger<ContentKbReconcileOrchestrator>.Instance);
 
     [Fact]

@@ -297,7 +297,7 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
         // ════════════════════════════════════════════════════════════════════════════════════
         var reconcileStore = new ContentKbReconcileStore(_reconcileDbPath);
         var reconcileOrchestrator = new ContentKbReconcileOrchestrator(
-            prodReader, reconcileStore, git, config, NullLogger<ContentKbReconcileOrchestrator>.Instance);
+            prodReader, reconcileStore, git, new StudioProdConnectionSource(config), NullLogger<ContentKbReconcileOrchestrator>.Instance);
         var reconcile = new ReconcileCoordinator(
             reconcileOrchestrator, reconcileStore, prodStoreFactory, prodReader, prodConnection, NullLogger<ReconcileCoordinator>.Instance);
 

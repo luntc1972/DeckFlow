@@ -1,7 +1,6 @@
 using System.Text;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Integration;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace DeckFlow.Studio.Services;
@@ -31,7 +30,7 @@ public sealed class ContentKbReconcileOrchestrator : IContentKbReconcileOrchestr
     private readonly IProdContentReader _prodReader;
     private readonly IContentKbReconcileStore _store;
     private readonly IGitRepository _git;
-    private readonly IConfiguration _configuration;
+    private readonly IStudioProdConnectionSource _prodConnection;
     private readonly ILogger<ContentKbReconcileOrchestrator> _logger;
 
     /// <summary>
@@ -45,19 +44,19 @@ public sealed class ContentKbReconcileOrchestrator : IContentKbReconcileOrchestr
         IProdContentReader prodReader,
         IContentKbReconcileStore store,
         IGitRepository git,
-        IConfiguration configuration,
+        IStudioProdConnectionSource prodConnection,
         ILogger<ContentKbReconcileOrchestrator> logger)
     {
         ArgumentNullException.ThrowIfNull(prodReader);
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(git);
-        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(prodConnection);
         ArgumentNullException.ThrowIfNull(logger);
 
         _prodReader = prodReader;
         _store = store;
         _git = git;
-        _configuration = configuration;
+        _prodConnection = prodConnection;
         _logger = logger;
     }
 
@@ -72,7 +71,7 @@ public sealed class ContentKbReconcileOrchestrator : IContentKbReconcileOrchestr
 
         // Why (T-91-15): read prod EXACTLY ONCE per run, never per-row — the ephemeral connection
         // string is read here and never materialized into DI state (D-03/D-07 precedent).
-        var rawConnStr = _configuration["Studio:ProdConnectionString"] ?? string.Empty;
+        var rawConnStr = _prodConnection.ConnectionString;
         var prodRows = await _prodReader.ReadAllAsync(rawConnStr, cancellationToken).ConfigureAwait(false);
 
         var (existingGitBodyRelPaths, gitBodyByRelPath) = ReadGitContentTree(repoRoot);
