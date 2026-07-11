@@ -21,6 +21,10 @@
     <ProjectReference Include="..\DeckFlow.Web\DeckFlow.Web.csproj">
       <SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
     </ProjectReference>
+    <!-- Why: reaches the DirectPush/Pull/Reconcile/Publish coordinators for the SYNC-16 round-trip
+         harness (93-01 D-01). DeckFlow.Studio references only DeckFlow.Core, so Web.Tests -> {Web,
+         Studio}, both -> Core, stays acyclic. -->
+    <ProjectReference Include="..\DeckFlow.Studio\DeckFlow.Studio.csproj" />
   </ItemGroup>
 
   <ItemGroup>
