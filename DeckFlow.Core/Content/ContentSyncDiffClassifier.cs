@@ -131,7 +131,8 @@ public static class ContentSyncDiffClassifier
             LocalRow = localRow,
             ArtifactPath = prodRow?.ArtifactPath ?? localRow!.ArtifactPath,
             LocalIsNewer = localIsNewer,
-            ArtifactDownloaded = false
+            ArtifactDownloaded = false,
+            BodyDivergence = BodyDivergenceStatus.NotApplicable
         };
     }
 }

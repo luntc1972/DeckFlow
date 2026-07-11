@@ -113,6 +113,38 @@ public interface IGitRepository
         CancellationToken ct = default);
 
     /// <summary>
+    /// Fetches exactly <paramref name="branch"/> from <paramref name="remote"/> via an explicit
+    /// refspec <c>+refs/heads/{branch}:refs/remotes/{remote}/{branch}</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Why: this is a SCOPED single-branch fetch that deterministically advances the
+    /// remote-tracking ref <c>refs/remotes/{remote}/{branch}</c> before a follow-up behind check
+    /// reads it. A bare <c>git fetch {remote} {branch}</c> updates only <c>FETCH_HEAD</c> and can
+    /// leave <c>refs/remotes/{remote}/{branch}</c> stale, making the behind-count read a stale ref.
+    /// This is also intentionally NOT <c>--all</c>; the caller needs one branch only.
+    /// </para>
+    /// <para>
+    /// Why: callers use this as a best-effort freshness probe before deciding whether a local
+    /// checkout is behind its remote. On failure, the caller treats the resulting
+    /// <see cref="GitCommandException"/> as "cannot determine" and proceeds best-effort.
+    /// </para>
+    /// </remarks>
+    /// <param name="repoRoot">Absolute path to the git working tree root.</param>
+    /// <param name="remote">The remote name (e.g. <c>origin</c>).</param>
+    /// <param name="branch">The branch name (e.g. <c>main</c>).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <exception cref="GitCommandException">
+    /// Thrown when the fetch exits with a non-zero code (auth failure, no network, unknown remote).
+    /// </exception>
+    Task FetchAsync(
+        string repoRoot,
+        string remote,
+        string branch,
+        CancellationToken ct = default)
+        => throw new NotSupportedException("This git repository does not support fetch operations.");
+
+    /// <summary>
     /// Returns the NUMBER of <paramref name="paths"/> that have an uncommitted change (modified,
     /// staged, or untracked) relative to the working tree, via <c>git status --porcelain -- {paths}</c>
     /// (one output line per changed path).
@@ -158,4 +190,37 @@ public interface IGitRepository
         string remote,
         string branch,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the NUMBER of commits on <c>{remote}/{branch}</c> that are not yet on <c>HEAD</c>,
+    /// via <c>git rev-list --count HEAD..{remote}/{branch}</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Why: this is the operand-reversal of <see cref="GetSubjectsAheadOfRemoteAsync"/>. Where that
+    /// method answers "what is local ahead of remote?", this answers "how far is local behind the
+    /// remote-tracking ref?" by counting commits reachable from <c>{remote}/{branch}</c> but not
+    /// from <c>HEAD</c>.
+    /// </para>
+    /// <para>
+    /// Why: it is only meaningful after <see cref="FetchAsync"/> has advanced the
+    /// <c>{remote}/{branch}</c> tracking ref. If the command fails, the caller treats the resulting
+    /// <see cref="GitCommandException"/> as "cannot determine" and proceeds best-effort.
+    /// </para>
+    /// </remarks>
+    /// <param name="repoRoot">Absolute path to the git working tree root.</param>
+    /// <param name="remote">The remote name (e.g. <c>origin</c>).</param>
+    /// <param name="branch">The branch name (e.g. <c>main</c>).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The number of remote commits not reachable from <c>HEAD</c>.</returns>
+    /// <exception cref="GitCommandException">
+    /// Thrown when the remote-tracking ref <c>{remote}/{branch}</c> is unknown or the command
+    /// otherwise fails; the caller treats this as "cannot determine" and proceeds best-effort.
+    /// </exception>
+    Task<int> GetBehindCountAsync(
+        string repoRoot,
+        string remote,
+        string branch,
+        CancellationToken ct = default)
+        => throw new NotSupportedException("This git repository does not support behind-count checks.");
 }

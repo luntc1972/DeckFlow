@@ -59,6 +59,16 @@ public sealed class ContentSyncDiffClassifierTests
     }
 
     [Fact]
+    public void Classify_DefaultsBodyDivergence_ToNotApplicable()
+    {
+        var prod = new[] { Row(youtubeId: "yt-prod") };
+
+        var entry = Assert.Single(ContentSyncDiffClassifier.Classify(prod, Array.Empty<ContentSiteIndexRow>()));
+
+        Assert.Equal(BodyDivergenceStatus.NotApplicable, entry.BodyDivergence);
+    }
+
+    [Fact]
     public void Classify_KeyInLocalOnly_IsLocalOnly()
     {
         var local = new[] { Row(youtubeId: "yt-local") };

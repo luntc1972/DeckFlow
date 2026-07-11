@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 
 namespace DeckFlow.Core.Integration;
 
@@ -225,6 +226,27 @@ public sealed class GitRepository : IGitRepository
     }
 
     /// <inheritdoc />
+    public async Task FetchAsync(
+        string repoRoot,
+        string remote,
+        string branch,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repoRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(remote);
+        ArgumentException.ThrowIfNullOrWhiteSpace(branch);
+
+        var startInfo = BuildStartInfo(repoRoot);
+        startInfo.ArgumentList.Add("fetch");
+        startInfo.ArgumentList.Add(remote);
+        // Why: explicit refspec forces refs/remotes/{remote}/{branch} to advance so the behind-count
+        // reads a fresh tracking ref; a bare branch fetch can leave it stale and falsely report behind=0.
+        startInfo.ArgumentList.Add($"+refs/heads/{branch}:refs/remotes/{remote}/{branch}");
+
+        await RunAndCaptureAsync(startInfo, ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<int> CountWorkingChangesAsync(
         string repoRoot,
         IReadOnlyList<string> paths,
@@ -254,6 +276,26 @@ public sealed class GitRepository : IGitRepository
         return stdout
             .Split('\n', StringSplitOptions.RemoveEmptyEntries)
             .Count(line => !string.IsNullOrWhiteSpace(line));
+    }
+
+    /// <inheritdoc />
+    public async Task<int> GetBehindCountAsync(
+        string repoRoot,
+        string remote,
+        string branch,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repoRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(remote);
+        ArgumentException.ThrowIfNullOrWhiteSpace(branch);
+
+        var startInfo = BuildStartInfo(repoRoot);
+        startInfo.ArgumentList.Add("rev-list");
+        startInfo.ArgumentList.Add("--count");
+        startInfo.ArgumentList.Add($"HEAD..{remote}/{branch}");
+
+        var stdout = await RunAndCaptureAsync(startInfo, ct).ConfigureAwait(false);
+        return int.Parse(stdout.Trim(), CultureInfo.InvariantCulture);
     }
 
     /// <inheritdoc />

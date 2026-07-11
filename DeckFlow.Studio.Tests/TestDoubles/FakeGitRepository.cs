@@ -34,6 +34,9 @@ internal sealed class FakeGitRepository : IGitRepository
     /// <summary>Subjects returned by GetSubjectsAheadOfRemoteAsync — default empty (branch in sync).</summary>
     public List<string> CannedSubjectsAhead { get; set; } = new();
 
+    /// <summary>Behind count returned by GetBehindCountAsync — default 0 (not behind).</summary>
+    public int CannedBehindCount { get; set; }
+
     /// <summary>When set, GetSubjectsAheadOfRemoteAsync throws it (simulates a missing remote-tracking ref).</summary>
     public Exception? ThrowOnSubjectsAhead { get; set; }
 
@@ -41,11 +44,15 @@ internal sealed class FakeGitRepository : IGitRepository
     /// <summary>When set, StageAndCommitAsync throws this exception instead of succeeding.</summary>
     public Exception? ThrowOnCommit { get; set; }
 
+    /// <summary>When set, FetchAsync throws this exception instead of succeeding.</summary>
+    public Exception? ThrowOnFetch { get; set; }
+
     /// <summary>When set, PushAsync throws this exception instead of succeeding.</summary>
     public Exception? ThrowOnPush { get; set; }
 
     // ── Call recording ──────────────────────────────────────────────────────
     public List<(string RepoRoot, IReadOnlyList<string> Paths, string Message)> CommitCalls { get; } = new();
+    public List<(string RepoRoot, string Remote, string Branch)> FetchCalls { get; } = new();
     public List<(string RepoRoot, string Remote, string Branch)> PushCalls { get; } = new();
 
     // ── IGitRepository ──────────────────────────────────────────────────────
@@ -89,6 +96,18 @@ internal sealed class FakeGitRepository : IGitRepository
         return Task.CompletedTask;
     }
 
+    public Task FetchAsync(string repoRoot, string remote, string branch, CancellationToken ct = default)
+    {
+        FetchCalls.Add((repoRoot, remote, branch));
+
+        if (ThrowOnFetch is not null)
+        {
+            throw ThrowOnFetch;
+        }
+
+        return Task.CompletedTask;
+    }
+
     public Task<int> CountWorkingChangesAsync(string repoRoot, IReadOnlyList<string> paths, CancellationToken ct = default)
     {
         // When the caller inspects the seed file alone (the coordinator's seed-only-change probe),
@@ -112,4 +131,7 @@ internal sealed class FakeGitRepository : IGitRepository
 
         return Task.FromResult<IReadOnlyList<string>>(CannedSubjectsAhead);
     }
+
+    public Task<int> GetBehindCountAsync(string repoRoot, string remote, string branch, CancellationToken ct = default)
+        => Task.FromResult(CannedBehindCount);
 }
