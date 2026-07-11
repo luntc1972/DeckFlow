@@ -345,14 +345,17 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         {
             double? baselineMean = null;
             int baselineN = 0;
+            double? baselineSd = null;
+            string? generated = null;
             if (_cedhLandBaseline is not null
-                && _cedhLandBaseline.TryGetBaseline(resolved.CommanderNames, out double mean, out int n))
+                && _cedhLandBaseline.TryGetBaseline(resolved.CommanderNames, out double mean, out int n, out double sd, out generated))
             {
                 baselineMean = mean;
                 baselineN = n;
+                baselineSd = sd;
             }
 
-            cedhContext = new CedhLandContext(baselineMean, baselineN, Enabled: true);
+            cedhContext = new CedhLandContext(baselineMean, baselineN, Enabled: true, BaselineSd: baselineSd, BaselineMonth: generated);
         }
 
         ManabaseReport report = ManabaseAnalyzer.Analyze(

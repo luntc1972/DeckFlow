@@ -315,6 +315,63 @@ public sealed class ManabaseViewRenderTests
         Assert.DoesNotContain("data-commander-search=\"/manabase/commander-search\"", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task CasualContextHeader_RendersCommanderName_AndCastingPriority()
+    {
+        string html = await RenderManabaseViewAsync(BuildPopulatedModel(showTapAnalyzer: false));
+
+        Assert.Contains("Mode: <strong>Casual</strong>", html, StringComparison.Ordinal);
+        Assert.Contains("Commander: <strong>Winota, Joiner of Forces</strong>", html, StringComparison.Ordinal);
+        Assert.Contains("Casting priority: <strong>Standard</strong>", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CedhContextHeader_RendersCommanderName_WhenCastabilityTableIsHidden()
+    {
+        string html = await RenderManabaseViewAsync(BuildPopulatedModel(showTapAnalyzer: false, mode: ManabaseMode.Cedh));
+
+        Assert.Contains("Mode: <strong>cEDH</strong>", html, StringComparison.Ordinal);
+        Assert.Contains("Commander: <strong>Winota, Joiner of Forces</strong>", html, StringComparison.Ordinal);
+        Assert.Contains("Casting priority: <strong>Standard</strong>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Command-zone castability", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CedhSummary_RendersMetaRange_WhenBaselineFieldsArePresent()
+    {
+        string html = await RenderManabaseViewAsync(BuildPopulatedModel(showTapAnalyzer: false, mode: ManabaseMode.Cedh, includeCedhRange: true));
+
+        Assert.Contains("cEDH meta range ~26–29 lands (33 cEDH tournament decks, 2026-07 sample; mean 27.5 ±1.6).", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CasualSummary_DoesNotRenderMetaRange_WhenBaselineFieldsAreAbsent()
+    {
+        string html = await RenderManabaseViewAsync(BuildPopulatedModel(showTapAnalyzer: false, mode: ManabaseMode.Casual, includeCedhRange: false));
+
+        Assert.DoesNotContain("cEDH meta range", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CedhHowItWorks_BlendedTarget_RendersBlendWordingAndFloor22()
+    {
+        string html = await RenderManabaseViewAsync(BuildPopulatedModel(showTapAnalyzer: false, mode: ManabaseMode.Cedh, includeCedhRange: true));
+
+        Assert.Contains("then nudged 50% toward this commander's tournament land mean", html, StringComparison.Ordinal);
+        Assert.Contains("safety floor 22", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("floored at 28", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CedhHowItWorks_FlagOffStyleTarget_RendersFloor28WithoutBlendWording()
+    {
+        string html = await RenderManabaseViewAsync(
+            BuildPopulatedModel(showTapAnalyzer: false, mode: ManabaseMode.Cedh, includeCedhRange: false, cedhSafetyFloor: 28.0, cedhBaselineBlended: false));
+
+        Assert.Contains("cEDH adjustment (−3.5, floor 28 lands)", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("nudged 50% toward this commander's tournament land mean", html, StringComparison.Ordinal);
+    }
+
     // Replace the randomized __RequestVerificationToken value with a constant so two renders of the
     // same model differ only by intentional content (here: the tap card).
     private static string NormalizeAntiForgery(string html) =>
@@ -351,15 +408,19 @@ public sealed class ManabaseViewRenderTests
         bool showTapAnalyzer,
         bool showMulliganEval = false,
         bool showPlanPresence = false,
-        ManabaseRampDrawBudget? rampDrawBudget = null) => new()
+        ManabaseRampDrawBudget? rampDrawBudget = null,
+        ManabaseMode mode = ManabaseMode.Casual,
+        bool includeCedhRange = false,
+        double? cedhSafetyFloor = null,
+        bool? cedhBaselineBlended = null) => new()
         {
             Request = new ManabaseRequest
             {
                 DeckInputSource = DeckInputSource.PasteText,
-                Mode = ManabaseMode.Casual,
+                Mode = mode,
             },
             InputSummary = "Test deck · 99 cards + 1 commander",
-            Report = ReportWithTapAnalysis(),
+            Report = ReportWithTapAnalysis(mode, includeCedhRange, cedhSafetyFloor, cedhBaselineBlended),
             ShowTapAnalyzer = showTapAnalyzer,
             ShowMulliganEval = showMulliganEval,
             ShowPlanPresence = showPlanPresence,
@@ -388,11 +449,21 @@ public sealed class ManabaseViewRenderTests
     /// populated mulligan evaluation, so the tap and mulligan flags can be toggled independently
     /// against the same fixed report.
     /// </summary>
-    private static ManabaseReport ReportWithTapAnalysis() => new()
-    {
-        ActualLands = 36,
-        TargetLands = 37.0,
-        ColorFindings = new List<ColorSourceFinding>
+    private static ManabaseReport ReportWithTapAnalysis(
+        ManabaseMode mode,
+        bool includeCedhRange,
+        double? cedhSafetyFloor,
+        bool? cedhBaselineBlended) => new()
+        {
+            ActualLands = 36,
+            TargetLands = 37.0,
+            TargetLandsRangeLow = includeCedhRange ? 25.9 : null,
+            TargetLandsRangeHigh = includeCedhRange ? 29.1 : null,
+            BaselineDeckCount = includeCedhRange ? 33 : null,
+            BaselineLandsMean = includeCedhRange ? 27.5 : null,
+            BaselineLandsSd = includeCedhRange ? 1.6 : null,
+            BaselineMonth = includeCedhRange ? "2026-07" : null,
+            ColorFindings = new List<ColorSourceFinding>
         {
             new()
             {
@@ -411,30 +482,71 @@ public sealed class ManabaseViewRenderTests
                 UntappedSources = 13.5,
             },
         },
-        Mode = ManabaseMode.Casual,
-        Summary = "Mana base looks fine for this test.",
-        TapAnalysis = new ManabaseTapAnalysis
-        {
-            OverallUntappedPercent = 82,
-            UntappedSources = 29.5,
-            TotalSources = 36.0,
-            Turn1UntappedPercent = 76,
-            ColorTap = new Dictionary<ManaColor, ColorTapFinding>
+            Mode = mode,
+            Summary = "Mana base looks fine for this test.",
+            LandTarget = new ManabaseLandTargetBreakdown
             {
-                [ManaColor.White] = new() { UntappedSources = 16.0, TotalSources = 20.0, UntappedPercent = 80 },
-                [ManaColor.Blue] = new() { UntappedSources = 13.5, TotalSources = 16.0, UntappedPercent = 84 },
+                AverageManaValue = 2.8,
+                RampAndDrawUnderThree = 6,
+                FastMana = 2,
+                CommanderCount = 1,
+                LibrarySize = 99,
+                BaseTarget = 31.0,
+                CedhAdjustment = mode == ManabaseMode.Cedh ? -3.0 : 0.0,
+                CedhSafetyFloor = cedhSafetyFloor ?? (mode == ManabaseMode.Cedh ? 22.0 : 0.0),
+                CedhBaselineBlended = cedhBaselineBlended ?? (mode == ManabaseMode.Cedh && includeCedhRange),
+                FinalTarget = mode == ManabaseMode.Cedh ? 28.0 : 31.0,
+            },
+            Castability = new List<CardCastability>
+        {
+            new()
+            {
+                Name = "Winota, Joiner of Forces",
+                ManaValue = 4,
+                OnCurveTurn = 4,
+                CastPercent = 62,
+                LimitingFactor = "mana",
+                IsCommander = true,
+            },
+            new()
+            {
+                Name = "Swords to Plowshares",
+                ManaValue = 1,
+                OnCurveTurn = 1,
+                CastPercent = 95,
+                LimitingFactor = "color: White",
+            },
+            new()
+            {
+                Name = "Counterspell",
+                ManaValue = 2,
+                OnCurveTurn = 2,
+                CastPercent = 88,
+                LimitingFactor = "color: Blue",
             },
         },
-        MulliganEvaluation = new ManabaseMulliganEvaluation
-        {
-            KeepableHandPercent = 82,
-            KeepableBand = "high",
-            Kept7Percent = 55,
-            MulliganTo6Percent = 30,
-            MulliganTo5Percent = 15,
-            ColorCount = 2,
-            AverageManaValue = 2.8,
-            RepresentativeOpeners = new List<OpeningHandSample>
+            TapAnalysis = new ManabaseTapAnalysis
+            {
+                OverallUntappedPercent = 82,
+                UntappedSources = 29.5,
+                TotalSources = 36.0,
+                Turn1UntappedPercent = 76,
+                ColorTap = new Dictionary<ManaColor, ColorTapFinding>
+                {
+                    [ManaColor.White] = new() { UntappedSources = 16.0, TotalSources = 20.0, UntappedPercent = 80 },
+                    [ManaColor.Blue] = new() { UntappedSources = 13.5, TotalSources = 16.0, UntappedPercent = 84 },
+                },
+            },
+            MulliganEvaluation = new ManabaseMulliganEvaluation
+            {
+                KeepableHandPercent = 82,
+                KeepableBand = "high",
+                Kept7Percent = 55,
+                MulliganTo6Percent = 30,
+                MulliganTo5Percent = 15,
+                ColorCount = 2,
+                AverageManaValue = 2.8,
+                RepresentativeOpeners = new List<OpeningHandSample>
             {
                 new()
                 {
@@ -465,23 +577,23 @@ public sealed class ManabaseViewRenderTests
                     HasPlan = false,
                 },
             },
-            PlanPresence = new ManabasePlanPresence
-            {
-                PayoffPercent = 55,
-                PayoffBand = "high",
-                PlanPresencePercent = 74,
-                Band = "high",
-                RolePercents = new Dictionary<PlanRole, int>
+                PlanPresence = new ManabasePlanPresence
                 {
-                    [PlanRole.Payoff] = 55,
-                    [PlanRole.Engine] = 0,
-                    [PlanRole.TutorCombo] = 20,
-                    [PlanRole.Interaction] = 40,
+                    PayoffPercent = 55,
+                    PayoffBand = "high",
+                    PlanPresencePercent = 74,
+                    Band = "high",
+                    RolePercents = new Dictionary<PlanRole, int>
+                    {
+                        [PlanRole.Payoff] = 55,
+                        [PlanRole.Engine] = 0,
+                        [PlanRole.TutorCombo] = 20,
+                        [PlanRole.Interaction] = 40,
+                    },
+                    KeepableTrials = 17000,
                 },
-                KeepableTrials = 17000,
             },
-        },
-    };
+        };
 
     private static async Task<string> RenderManabaseViewAsync(ManabaseViewModel model)
     {

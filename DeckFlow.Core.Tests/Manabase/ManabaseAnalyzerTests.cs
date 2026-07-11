@@ -164,6 +164,97 @@ public sealed class ManabaseAnalyzerTests
     }
 
     [Fact]
+    public void Analyze_CedhBaselineRangeFields_PopulateWhenBaselineHasMeanSdAndUsableSample()
+    {
+        var deck = new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            IsSingleton = true,
+            AverageManaValue = 2.0,
+            Sources = Enumerable.Range(0, 28)
+                .Select(i => new ManaSource
+                {
+                    Name = $"Plains {i}",
+                    IsLand = true,
+                    Produces = new[] { ManaColor.White },
+                    EntersUntapped = true,
+                })
+                .ToList(),
+            Spells = new List<SpellRequirement>
+            {
+                new() { Name = "Winota, Joiner of Forces", ManaValue = 4, Pips = Pip((ManaColor.Red, 1), (ManaColor.White, 1)), IsCommander = true },
+                new() { Name = "Esper Sentinel", ManaValue = 1, Pips = Pip((ManaColor.White, 1)) },
+            },
+        };
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(
+            deck,
+            ManabaseMode.Cedh,
+            cedhContext: new CedhLandContext(27.5, 33, Enabled: true, BaselineSd: 1.6, BaselineMonth: "2026-07"));
+
+        Assert.NotNull(report.TargetLandsRangeLow);
+        Assert.NotNull(report.TargetLandsRangeHigh);
+        Assert.Equal(33, report.BaselineDeckCount);
+        Assert.NotNull(report.BaselineLandsMean);
+        Assert.NotNull(report.BaselineLandsSd);
+        Assert.Equal("2026-07", report.BaselineMonth);
+        Assert.Equal(25.9, report.TargetLandsRangeLow.Value, 3);
+        Assert.Equal(29.1, report.TargetLandsRangeHigh.Value, 3);
+        Assert.Equal(27.5, report.BaselineLandsMean.Value, 3);
+        Assert.Equal(1.6, report.BaselineLandsSd.Value, 3);
+        Assert.Equal(22.0, report.LandTarget!.CedhSafetyFloor);
+        Assert.True(report.LandTarget.CedhBaselineBlended);
+    }
+
+    [Theory]
+    [InlineData(true, 9, 27.5, 1.6)]
+    [InlineData(true, 33, 27.5, null)]
+    [InlineData(false, 33, 27.5, 1.6)]
+    public void Analyze_CedhBaselineRangeFields_StayNullWhenBaselineUnavailable(
+        bool enabled,
+        int baselineN,
+        double? baselineMean,
+        double? baselineSd)
+    {
+        var deck = new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            IsSingleton = true,
+            AverageManaValue = 2.0,
+            Sources = Enumerable.Range(0, 28)
+                .Select(i => new ManaSource
+                {
+                    Name = $"Plains {i}",
+                    IsLand = true,
+                    Produces = new[] { ManaColor.White },
+                    EntersUntapped = true,
+                })
+                .ToList(),
+            Spells = new List<SpellRequirement>
+            {
+                new() { Name = "Winota, Joiner of Forces", ManaValue = 4, Pips = Pip((ManaColor.Red, 1), (ManaColor.White, 1)), IsCommander = true },
+                new() { Name = "Esper Sentinel", ManaValue = 1, Pips = Pip((ManaColor.White, 1)) },
+            },
+        };
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(
+            deck,
+            ManabaseMode.Cedh,
+            cedhContext: new CedhLandContext(baselineMean, baselineN, Enabled: enabled, BaselineSd: baselineSd));
+
+        Assert.Null(report.TargetLandsRangeLow);
+        Assert.Null(report.TargetLandsRangeHigh);
+        Assert.Null(report.BaselineDeckCount);
+        Assert.Null(report.BaselineLandsMean);
+        Assert.Null(report.BaselineLandsSd);
+        Assert.Null(report.BaselineMonth);
+        Assert.Equal(enabled ? 22.0 : 28.0, report.LandTarget!.CedhSafetyFloor);
+        Assert.False(report.LandTarget.CedhBaselineBlended);
+    }
+
+    [Fact]
     public void UnmatchedOverrideNames_ReturnsOnlyKeysThatBindNoSpell()
     {
         // MEDIUM-11: a case-insensitive / normalized match counts as applied; a name no spell

@@ -187,6 +187,25 @@ public static class ManabaseAnalyzer
             .ThenBy(d => d.Name, StringComparer.Ordinal)
             .ToList();
 
+        double? baselineRangeLow = null;
+        double? baselineRangeHigh = null;
+        int? baselineDeckCount = null;
+        double? baselineLandsMean = null;
+        double? baselineLandsSd = null;
+        string? baselineMonth = null;
+        if (cedhContext.Enabled
+            && cedhContext.BaselineN >= 10
+            && cedhContext.BaselineMean is { } baselineMean
+            && cedhContext.BaselineSd is { } baselineSd)
+        {
+            baselineDeckCount = cedhContext.BaselineN;
+            baselineLandsMean = baselineMean;
+            baselineLandsSd = baselineSd;
+            baselineMonth = cedhContext.BaselineMonth;
+            baselineRangeLow = baselineMean - baselineSd;
+            baselineRangeHigh = baselineMean + baselineSd;
+        }
+
         string summary = BuildSummary(actualLands, targetLands, findings, castability, colorSpellCounts, mode, importance);
 
         // Plan-presence: a dedicated single deck-level pass, run ONLY when the deck carries plan-tagged
@@ -201,6 +220,12 @@ public static class ManabaseAnalyzer
         {
             ActualLands = actualLands,
             TargetLands = targetLands,
+            TargetLandsRangeLow = baselineRangeLow,
+            TargetLandsRangeHigh = baselineRangeHigh,
+            BaselineDeckCount = baselineDeckCount,
+            BaselineLandsMean = baselineLandsMean,
+            BaselineLandsSd = baselineLandsSd,
+            BaselineMonth = baselineMonth,
             ColorFindings = findings,
             UnmatchedOverrideNames = unmatchedOverrides,
             Mode = mode,
@@ -332,7 +357,14 @@ public static class ManabaseAnalyzer
                 deck.AverageManaValue,
                 deck.RampAndDrawUnderThree,
                 deck.FastMana);
-            breakdown = BuildBreakdown(deck, commanders: 0, librarySize: deck.TotalCards, baseTarget: sixty, finalTarget: sixty);
+            breakdown = BuildBreakdown(
+                deck,
+                mode,
+                cedhContext,
+                commanders: 0,
+                librarySize: deck.TotalCards,
+                baseTarget: sixty,
+                finalTarget: sixty);
             return sixty;
         }
 
@@ -356,17 +388,32 @@ public static class ManabaseAnalyzer
                 cedhContext)
             : singleton;
 
-        breakdown = BuildBreakdown(deck, commanderCount, librarySize, baseTarget: singleton, finalTarget: finalTarget);
+        breakdown = BuildBreakdown(deck, mode, cedhContext, commanderCount, librarySize, baseTarget: singleton, finalTarget: finalTarget);
         return finalTarget;
     }
 
     private static ManabaseLandTargetBreakdown BuildBreakdown(
         ManabaseDeck deck,
+        ManabaseMode mode,
+        CedhLandContext cedhContext,
         int commanders,
         int librarySize,
         double baseTarget,
         double finalTarget)
-        => new()
+    {
+        double baselineMean = cedhContext.BaselineMean.GetValueOrDefault();
+        bool cedhBaselineBlended = mode == ManabaseMode.Cedh
+            && cedhContext.Enabled
+            && cedhContext.BaselineN >= 10
+            && cedhContext.BaselineMean.HasValue
+            && cedhContext.BaselineSd.HasValue
+            && double.IsFinite(baselineMean)
+            && baselineMean is >= 10.0 and <= 60.0;
+        double cedhSafetyFloor = mode == ManabaseMode.Cedh
+            ? (cedhContext.Enabled ? KarstenManabase.CedhSafetyFloor : KarstenManabase.CedhDisabledFloor)
+            : 0.0;
+
+        return new ManabaseLandTargetBreakdown
         {
             AverageManaValue = deck.AverageManaValue,
             RampAndDrawUnderThree = deck.RampAndDrawUnderThree,
@@ -374,11 +421,13 @@ public static class ManabaseAnalyzer
             CommanderCount = commanders,
             LibrarySize = librarySize,
             BaseTarget = baseTarget,
-            // The cEDH adjustment is the signed delta after the 28-floor (so the floor is honored),
-            // 0 when no adjustment was applied.
+            // The cEDH adjustment is the signed delta after the applied floor/clamp.
             CedhAdjustment = finalTarget - baseTarget,
+            CedhSafetyFloor = cedhSafetyFloor,
+            CedhBaselineBlended = cedhBaselineBlended,
             FinalTarget = finalTarget,
         };
+    }
 
     // CAST-01/02/04 + COMMANDER-01: build the per-spell castability rows. Rocks/dorks are excluded
     // (but counted in the pools) UNLESS the row is the commander. Commanders pin to the top.

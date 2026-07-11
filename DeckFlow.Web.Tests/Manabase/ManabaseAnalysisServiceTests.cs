@@ -1073,6 +1073,88 @@ public sealed class ManabaseAnalysisServiceTests
         Assert.Equal(offResult.Report.TargetLands, onResult.Report.TargetLands);
     }
 
+    [Fact]
+    public async Task AnalyzeAsync_CedhBaselineRangeFields_ArePopulatedWhenProviderReturnsUsableBaseline()
+    {
+        var (entries, cards) = KinnanCedhFixture();
+        var service = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.CedhLandTargetFlagKey] = true,
+            }),
+            cedhLandBaseline: new FakeCedhLandBaselineProvider(found: true, mean: 27.5, n: 33, sd: 1.6, generated: "2026-07"));
+
+        var result = await service.AnalyzeAsync(
+            "paste", null, new ManabaseAnalysisOptions { Mode = ManabaseMode.Cedh });
+
+        Assert.NotNull(result.Report);
+        Assert.NotNull(result.Report.TargetLandsRangeLow);
+        Assert.NotNull(result.Report.TargetLandsRangeHigh);
+        Assert.Equal(33, result.Report.BaselineDeckCount);
+        Assert.NotNull(result.Report.BaselineLandsMean);
+        Assert.NotNull(result.Report.BaselineLandsSd);
+        Assert.Equal("2026-07", result.Report.BaselineMonth);
+        Assert.Equal(25.9, result.Report.TargetLandsRangeLow.Value, 3);
+        Assert.Equal(29.1, result.Report.TargetLandsRangeHigh.Value, 3);
+        Assert.Equal(27.5, result.Report.BaselineLandsMean.Value, 3);
+        Assert.Equal(1.6, result.Report.BaselineLandsSd.Value, 3);
+        Assert.Equal(22.0, result.Report.LandTarget!.CedhSafetyFloor);
+        Assert.True(result.Report.LandTarget.CedhBaselineBlended);
+        Assert.Equal("Kinnan, Bonder Prodigy", Assert.Single(result.Report.Castability, row => row.IsCommander).Name);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_CedhBaselineRangeFields_StayNullWhenProviderMisses()
+    {
+        var (entries, cards) = KinnanCedhFixture();
+        var service = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.CedhLandTargetFlagKey] = true,
+            }),
+            cedhLandBaseline: new FakeCedhLandBaselineProvider(found: false, mean: 0, n: 0, sd: 0));
+
+        var result = await service.AnalyzeAsync(
+            "paste", null, new ManabaseAnalysisOptions { Mode = ManabaseMode.Cedh });
+
+        Assert.NotNull(result.Report);
+        Assert.Null(result.Report.TargetLandsRangeLow);
+        Assert.Null(result.Report.TargetLandsRangeHigh);
+        Assert.Null(result.Report.BaselineDeckCount);
+        Assert.Null(result.Report.BaselineLandsMean);
+        Assert.Null(result.Report.BaselineLandsSd);
+        Assert.Null(result.Report.BaselineMonth);
+        Assert.Equal(22.0, result.Report.LandTarget!.CedhSafetyFloor);
+        Assert.False(result.Report.LandTarget.CedhBaselineBlended);
+        Assert.Equal("Kinnan, Bonder Prodigy", Assert.Single(result.Report.Castability, row => row.IsCommander).Name);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_CedhLandTargetFlagOff_UsesHistoricDisplayFloorWithoutBlend()
+    {
+        var (entries, cards) = KinnanCedhFixture();
+        var service = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.CedhLandTargetFlagKey] = false,
+            }),
+            cedhLandBaseline: new FakeCedhLandBaselineProvider(found: true, mean: 27.5, n: 33, sd: 1.6, generated: "2026-07"));
+
+        var result = await service.AnalyzeAsync(
+            "paste", null, new ManabaseAnalysisOptions { Mode = ManabaseMode.Cedh });
+
+        Assert.NotNull(result.Report);
+        Assert.Equal(28.0, result.Report.LandTarget!.CedhSafetyFloor);
+        Assert.False(result.Report.LandTarget.CedhBaselineBlended);
+        Assert.Null(result.Report.BaselineMonth);
+    }
+
     // A full ~99-card singleton fixture (so the Karsten regression target sits well above the
     // cEDH floor of 28 and the two modes genuinely differ). 36 lands + 63 distinct spells across
     // a normal curve gives a casual target around the mid-30s; cEDH cuts ~3.5 off it.
@@ -1542,22 +1624,28 @@ public sealed class ManabaseAnalysisServiceTests
         private readonly bool _found;
         private readonly double _mean;
         private readonly int _n;
+        private readonly double _sd;
+        private readonly string? _generated;
 
-        public FakeCedhLandBaselineProvider(bool found, double mean, int n)
+        public FakeCedhLandBaselineProvider(bool found, double mean, int n, double sd = 0, string? generated = null)
         {
             _found = found;
             _mean = mean;
             _n = n;
+            _sd = sd;
+            _generated = generated;
         }
 
         public void EnsureLoaded()
         {
         }
 
-        public bool TryGetBaseline(IReadOnlyList<string> commanderNames, out double mean, out int n)
+        public bool TryGetBaseline(IReadOnlyList<string> commanderNames, out double mean, out int n, out double sd, out string? generated)
         {
             mean = _mean;
             n = _n;
+            sd = _sd;
+            generated = _generated;
             return _found;
         }
     }
