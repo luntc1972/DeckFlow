@@ -50,18 +50,10 @@ public static class FeatureFlagCatalog
                 "Include full Oracle rules text for reference cards in the deck-analysis prompt (larger but more precise).",
             ["analysis.reference.deck-stats"] =
                 "Append computed deck statistics to the deck-analysis prompt.",
-            ["analysis.manabase.source-mana-quantity"] =
-                "Count how much mana each source actually makes (Sol Ring makes 2, Gilded Lotus 3) when judging whether spells are affordable on curve. The colored-source counts behind the land recommendation stay the same.",
-            ["analysis.manabase.ramp-credit-v2"] =
-                "Only let repeatable ramp and real card draw lower the recommended land count. One-shot rituals and Treasure tokens no longer make a deck look like it needs fewer lands than it really does.",
-            ["analysis.manabase.color-aware-mulligan"] =
-                "When simulating opening hands, also mulligan hands that are color-screwed: a deck of two or more colors wants at least two of its colors among its starting lands. Mono-color decks are unaffected.",
-            ["analysis.manabase.land-ramp-sim"] =
-                "Treat repeatable land ramp (Cultivate, Rampant Growth, and similar) as putting its fetched land onto the battlefield during the simulation, so expensive payoff spells in ramp-heavy decks are not under-rated.",
+            ["analysis.manabase.accuracy"] =
+                "Bundled manabase sim-accuracy improvements (mana quantity, repeatable-ramp credit, color-aware mulligan, land-ramp simulation, health-band headline floor, pay-life untapped lands, and MDFC land backs modeled as real lands).",
             ["analysis.manabase.health-band-castability"] =
                 "Let the deck's weakest color affect the overall health rating: if that color's hardest spell is cast below the target (80% Casual, 88% cEDH), it counts as a color problem and can drop the verdict from Solid to Workable. Off by default until the regression check passes.",
-            ["analysis.manabase.health-band-headline-floor"] =
-                "Allow a deck with a strong average on-curve score to be nudged up from 'Needs work' to 'Workable', but only when it has a single minor color weakness, that color still casts acceptably, and there are no serious mana shortfalls. On by default.",
             ["analysis.manabase.plain-language-verdict"] =
                 "Show a plain-language 'Reading your deck' verdict, friendly one-line explanations for each manabase metric, and (Casual only) a ramp vs. draw slot-budget advisory. Off by default; recommendations are heuristic and never change the land count, color counts, castability, or health rating.",
             ["analysis.manabase.commander-castability"] =

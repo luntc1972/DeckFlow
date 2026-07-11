@@ -33,6 +33,13 @@ public sealed record CardFact
     /// </summary>
     public string? FrontFaceOracleText { get; init; }
 
+    /// <summary>
+    /// Oracle text of the card's LAND face (the front for a front-face land; the MDFC back face for
+    /// a spell//land card). Null when the card has no land face. Used for precise tapped/pay-life
+    /// detection without cross-face bleed from joined OracleText.
+    /// </summary>
+    public string? LandFaceOracleText { get; init; }
+
     /// <summary>Scryfall <c>produced_mana</c> letters (e.g. ["U","R","G"]); empty if none.</summary>
     public IReadOnlyList<string> ProducedMana { get; init; } = Array.Empty<string>();
 

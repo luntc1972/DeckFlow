@@ -160,7 +160,7 @@ public sealed class ManabaseAnalysisServiceTests
         var off = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(Cards()));
         var on = new ManabaseAnalysisService(
             new FakeLoader(entries), new FakeResolver(Cards()),
-            new FakeFeatureFlagCache(new Dictionary<string, bool> { ["analysis.manabase.ramp-credit-v2"] = true }));
+            new FakeFeatureFlagCache(new Dictionary<string, bool> { [ManabaseAnalysisService.AccuracyFlagKey] = true }));
 
         var rOff = await off.AnalyzeAsync("x", null);
         var rOn = await on.AnalyzeAsync("x", null);
@@ -193,7 +193,7 @@ public sealed class ManabaseAnalysisServiceTests
             new FakeLoader(entries), new FakeResolver(cards),
             new FakeFeatureFlagCache(new Dictionary<string, bool>
             {
-                [ManabaseAnalysisService.HealthBandHeadlineFloorFlagKey] = true,
+                [ManabaseAnalysisService.AccuracyFlagKey] = true,
             }));
 
         ManabaseAnalysisResult offResult = await off.AnalyzeAsync("x", null);
@@ -256,7 +256,7 @@ public sealed class ManabaseAnalysisServiceTests
         var off = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(Cards()));
         var on = new ManabaseAnalysisService(
             new FakeLoader(entries), new FakeResolver(Cards()),
-            new FakeFeatureFlagCache(new Dictionary<string, bool> { ["analysis.manabase.land-ramp-sim"] = true }));
+            new FakeFeatureFlagCache(new Dictionary<string, bool> { [ManabaseAnalysisService.AccuracyFlagKey] = true }));
 
         var rOff = await off.AnalyzeAsync("x", null);
         var rOn = await on.AnalyzeAsync("x", null);
@@ -268,6 +268,72 @@ public sealed class ManabaseAnalysisServiceTests
         // Colorless ramp source → land total + color verdict unchanged.
         Assert.Equal(rOff.Report.TargetLands, rOn.Report.TargetLands);
         Assert.Equal(rOff.Report.ActualLands, rOn.Report.ActualLands);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_AccuracyFlag_ModelsMdfcBackAsRealLand_AndDropsTargetCredit()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Tymna the Weaver", 1, "commander", set: "cmr", cn: "1"),
+            Land("Swamp", 32),
+            Entry("Bala Ged Recovery // Bala Ged Sanctuary", 1, "mainboard"),
+            Entry("Agadeem's Awakening // Agadeem, the Undercrypt", 1, "mainboard"),
+            Entry("Feed the Swarm", 1, "mainboard"),
+        };
+
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Swamp", "B"),
+            Spell("Tymna the Weaver", "{1}{W}", 2, "Legendary Creature — Human Cleric"),
+            Spell("Feed the Swarm", "{1}{B}", 2, "Sorcery"),
+            new(
+                Name: "Bala Ged Recovery // Bala Ged Sanctuary",
+                ManaCost: "{2}{G}",
+                TypeLine: "Sorcery",
+                OracleText: "Return target permanent card from your graveyard to your hand.\nBala Ged Sanctuary enters tapped.",
+                Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
+                SetCode: null, SetName: null, CollectorNumber: null, Id: null,
+                CardFaces: new List<ScryfallCardFace>
+                {
+                    new(Name: "Bala Ged Recovery", ManaCost: "{2}{G}", TypeLine: "Sorcery", OracleText: "Return target permanent card from your graveyard to your hand.", Power: null, Toughness: null),
+                    new(Name: "Bala Ged Sanctuary", ManaCost: null, TypeLine: "Land", OracleText: "Bala Ged Sanctuary enters tapped.", Power: null, Toughness: null),
+                },
+                Layout: "modal_dfc",
+                Cmc: 3,
+                ProducedMana: new[] { "G" },
+                Rarity: "uncommon"),
+            new(
+                Name: "Agadeem's Awakening // Agadeem, the Undercrypt",
+                ManaCost: "{X}{B}{B}{B}",
+                TypeLine: "Sorcery",
+                OracleText: "Return from graveyard.\nAs Agadeem, the Undercrypt enters, you may pay 3 life. If you don't, it enters tapped.",
+                Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
+                SetCode: null, SetName: null, CollectorNumber: null, Id: null,
+                CardFaces: new List<ScryfallCardFace>
+                {
+                    new(Name: "Agadeem's Awakening", ManaCost: "{X}{B}{B}{B}", TypeLine: "Sorcery", OracleText: "Return from graveyard.", Power: null, Toughness: null),
+                    new(Name: "Agadeem, the Undercrypt", ManaCost: null, TypeLine: "Land", OracleText: "As Agadeem, the Undercrypt enters, you may pay 3 life. If you don't, it enters tapped.", Power: null, Toughness: null),
+                },
+                Layout: "modal_dfc",
+                Cmc: 3,
+                ProducedMana: new[] { "B" },
+                Rarity: "mythic"),
+        };
+
+        var off = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+        var on = new ManabaseAnalysisService(
+            new FakeLoader(entries), new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool> { [ManabaseAnalysisService.AccuracyFlagKey] = true }));
+
+        var rOff = await off.AnalyzeAsync("x", null);
+        var rOn = await on.AnalyzeAsync("x", null);
+
+        Assert.Equal(rOff.Report.ActualLands + 2, rOn.Report.ActualLands);
+        Assert.Equal(1, rOff.Report.LandTarget!.MdfcCommon);
+        Assert.Equal(1, rOff.Report.LandTarget!.MdfcMythic);
+        Assert.Equal(0, rOn.Report.LandTarget!.MdfcCommon);
+        Assert.Equal(0, rOn.Report.LandTarget!.MdfcMythic);
     }
 
     [Fact]
@@ -319,7 +385,7 @@ public sealed class ManabaseAnalysisServiceTests
         var off = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(Cards()));
         var on = new ManabaseAnalysisService(
             new FakeLoader(entries), new FakeResolver(Cards()),
-            new FakeFeatureFlagCache(new Dictionary<string, bool> { ["analysis.manabase.color-aware-mulligan"] = true }));
+            new FakeFeatureFlagCache(new Dictionary<string, bool> { [ManabaseAnalysisService.AccuracyFlagKey] = true }));
 
         var rOff = await off.AnalyzeAsync("x", null);
         var rOn = await on.AnalyzeAsync("x", null);
@@ -335,7 +401,7 @@ public sealed class ManabaseAnalysisServiceTests
     [Fact]
     public async Task AnalyzeAsync_SourceManaQuantityFlag_RaisesAffordability_FailsSafeOff()
     {
-        // MQ-02 plumbing: the flag "analysis.manabase.source-mana-quantity" is read via IsFlagOn (fail-safe OFF)
+        // Bundled accuracy plumbing: the flag "analysis.manabase.accuracy" is read via IsFlagOn (fail-safe OFF)
         // and threaded as useManaQuantity into ManabaseAnalyzer.Analyze → CastabilitySimulator. When ON
         // each colorless burst source (oracle "{T}: Add {C}{C}.") contributes ManaAmount=2 so a big
         // colorless payoff casts more often. Without a cache the key is absent → IsFlagOn returns false
@@ -399,13 +465,13 @@ public sealed class ManabaseAnalysisServiceTests
             return cards;
         }
 
-        // OFF path: no cache at all → IsFlagOn("analysis.manabase.source-mana-quantity") returns false.
+        // OFF path: no cache at all → IsFlagOn("analysis.manabase.accuracy") returns false.
         var off = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(Cards()));
 
         // ON path: cache present with the flag enabled.
         var on = new ManabaseAnalysisService(
             new FakeLoader(entries), new FakeResolver(Cards()),
-            new FakeFeatureFlagCache(new Dictionary<string, bool> { [ManabaseAnalysisService.ManaQuantityFlagKey] = true }));
+            new FakeFeatureFlagCache(new Dictionary<string, bool> { [ManabaseAnalysisService.AccuracyFlagKey] = true }));
 
         var rOff = await off.AnalyzeAsync("x", null);
         var rOn = await on.AnalyzeAsync("x", null);
@@ -416,12 +482,12 @@ public sealed class ManabaseAnalysisServiceTests
         // Fail-safe OFF: absent cache must behave identically to explicit false.
         var explicitOff = new ManabaseAnalysisService(
             new FakeLoader(entries), new FakeResolver(Cards()),
-            new FakeFeatureFlagCache(new Dictionary<string, bool> { [ManabaseAnalysisService.ManaQuantityFlagKey] = false }));
+            new FakeFeatureFlagCache(new Dictionary<string, bool> { [ManabaseAnalysisService.AccuracyFlagKey] = false }));
         var rExplicitOff = await explicitOff.AnalyzeAsync("x", null);
         int castExplicitOff = rExplicitOff.Report.Castability.First(c => c.Name == "Big Colorless").CastPercent;
 
         Assert.Equal(castExplicitOff, castOff); // absent key == explicit false (fail-safe off)
-        Assert.True(castOn > castOff, $"source-mana-quantity ON should raise payoff cast% (off={castOff}, on={castOn})");
+        Assert.True(castOn > castOff, $"accuracy ON should raise payoff cast% via mana quantity (off={castOff}, on={castOn})");
     }
 
     [Fact]
