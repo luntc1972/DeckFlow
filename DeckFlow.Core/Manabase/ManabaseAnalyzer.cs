@@ -34,7 +34,8 @@ public static class ManabaseAnalyzer
         SpellRequirement companionSpell,
         bool useManaQuantity = false,
         bool colorAwareMulligan = false,
-        bool gateRampOnCastable = false)
+        bool gateRampOnCastable = false,
+        bool ritualBurst = false)
     {
         ArgumentNullException.ThrowIfNull(deck);
         ArgumentNullException.ThrowIfNull(companionSpell);
@@ -53,7 +54,8 @@ public static class ManabaseAnalyzer
             genericReduction,
             useManaQuantity: useManaQuantity,
             colorAwareMulligan: colorAwareMulligan,
-            gateRampOnCastable: gateRampOnCastable);
+            gateRampOnCastable: gateRampOnCastable,
+            ritualBurst: ritualBurst);
     }
 
     /// <summary>
@@ -107,6 +109,14 @@ public static class ManabaseAnalyzer
     /// Threaded ONLY into the display castability path — the per-color source requirement probe builds
     /// ramp-free synthetic decks, so it is unaffected.
     /// </param>
+    /// <param name="ritualBurst">
+    /// Ritual burst flag. When true the castability ROWS and plan-presence sim may credit classified
+    /// one-shot mana rituals on the tracked cast-attempt turn, but credited ONLY when
+    /// <c>mode == ManabaseMode.Cedh</c>; in Casual the burst is suppressed and the path is
+    /// byte-identical to flag-off. When false (default) the simulator omits them from the library
+    /// and the path is byte-identical. Threaded ONLY into the display castability path — the
+    /// per-color source requirement probe stays unchanged.
+    /// </param>
     /// <param name="useHealthBandCastability">
     /// MQ-health-band flag. When true, the composite-weakest color's worst-spell cast % feeds the
     /// health-band verdict: a color that is composite-worst AND casts its worst spell below the mode
@@ -129,6 +139,7 @@ public static class ManabaseAnalyzer
         bool useManaQuantity = false,
         bool colorAwareMulligan = false,
         bool gateRampOnCastable = false,
+        bool ritualBurst = false,
         bool useHealthBandCastability = false,
         bool useHealthBandHeadlineFloor = false)
     {
@@ -149,10 +160,16 @@ public static class ManabaseAnalyzer
         // Library size excludes commanders (they start in the command zone, not the deck).
         int librarySize = deck.TotalCards - deck.CommanderCount;
 
+        // Ritual burst is hard-gated to cEDH: rituals (Dark Ritual, etc.) substitute for lands on the
+        // explosive early turns that define competitive play; in Casual the credit is suppressed so the
+        // flag-on path stays byte-identical there. The simulator itself is mode-agnostic — the policy gate
+        // lives here where the mode is known.
+        bool ritualBurstActive = ritualBurst && mode == ManabaseMode.Cedh;
+
         // Per-spell castability comes FIRST; the color findings then consume these rows so the
         // table and the color verdict never drift apart.
         var castabilityByName = new Dictionary<string, CardCastability>(StringComparer.Ordinal);
-        IReadOnlyList<CardCastability> castability = BuildCastability(deck, librarySize, actualLands, castabilityByName, useManaQuantity, colorAwareMulligan, gateRampOnCastable);
+        IReadOnlyList<CardCastability> castability = BuildCastability(deck, librarySize, actualLands, castabilityByName, useManaQuantity, colorAwareMulligan, gateRampOnCastable, ritualBurstActive);
 
         var colorSpellCounts = new Dictionary<ManaColor, int>();
         var demandingByName = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -172,7 +189,7 @@ public static class ManabaseAnalyzer
         // the flag-off path adds no sim and stays byte-identical.
         ManabasePlanPresence? planPresence = deck.Spells.Any(s => s.PlanRoles != PlanRole.None)
             ? CastabilitySimulator.SimulatePlanPresence(
-                deck, librarySize, CastabilitySimulator.DefaultTrials, useManaQuantity, colorAwareMulligan, gateRampOnCastable)
+                deck, librarySize, CastabilitySimulator.DefaultTrials, useManaQuantity, colorAwareMulligan, gateRampOnCastable, ritualBurstActive)
             : null;
 
         return new ManabaseReport
@@ -362,7 +379,8 @@ public static class ManabaseAnalyzer
         Dictionary<string, CardCastability> byName,
         bool useManaQuantity,
         bool colorAwareMulligan,
-        bool gateRampOnCastable)
+        bool gateRampOnCastable,
+        bool ritualBurst)
     {
         var rows = new List<CardCastability>();
 
@@ -383,7 +401,7 @@ public static class ManabaseAnalyzer
 
             CardCastability row = CastabilitySimulator.Simulate(
                 deck, librarySize, spell, onCurveTurn, genericReduction,
-                useManaQuantity: useManaQuantity, colorAwareMulligan: colorAwareMulligan, gateRampOnCastable: gateRampOnCastable);
+                useManaQuantity: useManaQuantity, colorAwareMulligan: colorAwareMulligan, gateRampOnCastable: gateRampOnCastable, ritualBurst: ritualBurst);
             rows.Add(row);
             byName[spell.Name] = row;
         }
