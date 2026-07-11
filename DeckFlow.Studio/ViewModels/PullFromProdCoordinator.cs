@@ -56,8 +56,7 @@ public sealed class PullFromProdCoordinator
     public PullPaths ResolvePaths()
     {
         var dataRoot = Path.GetDirectoryName(_options.ArtifactRoot) ?? _options.ArtifactRoot;
-        var stagingRoot = Path.Combine(dataRoot, "pull-staging");
-        return new PullPaths(dataRoot, stagingRoot);
+        return new PullPaths(dataRoot);
     }
 
     /// <summary>Builds the acknowledged-divergence lookup key for a diff entry.</summary>
@@ -74,12 +73,10 @@ public sealed class PullFromProdCoordinator
     /// <paramref name="log"/>. NEVER writes to production.
     /// </summary>
     public async Task<PullClassifyResult> PullAndClassifyAsync(
-        string stagingRoot,
         IProgress<string> log,
         Action<string> onStage,
         CancellationToken cancellationToken)
     {
-        _ = stagingRoot;
         var repoRoot = await _git.ResolveRepoRootAsync(StudioRepoLocator.ResolveStartDirectory(), cancellationToken).ConfigureAwait(false);
         var freshness = await CheckFreshnessAsync(repoRoot, log, onStage, cancellationToken).ConfigureAwait(false);
 
@@ -125,8 +122,8 @@ public sealed class PullFromProdCoordinator
         var entries = ContentSyncDiffClassifier.Classify(prodRows, localRows, _logger)
             .Select(e => StampArtifactAvailabilityAndDivergence(
                 e,
-                availableBodies.ContainsKey(e.ArtifactPath),
-                availableBodies.TryGetValue(e.ArtifactPath, out var repoBody) ? repoBody : null))
+                availableBodies.TryGetValue(e.ArtifactPath, out var repoBody),
+                repoBody))
             .ToList();
 
         log.Report($"Done — {entries.Count} differing entry/entries found. "
@@ -145,7 +142,6 @@ public sealed class PullFromProdCoordinator
     /// </summary>
     public async Task<IReadOnlyList<PullApplyRowResult>> ApplyAdoptionsAsync(
         IReadOnlyList<SyncDiffEntry> adoptEntries,
-        string stagingRoot,
         string dataRoot,
         IProgress<IReadOnlyList<PullApplyRowResult>> progress,
         IReadOnlySet<string> acknowledgedDivergentKeys,
@@ -315,8 +311,7 @@ public sealed class PullFromProdCoordinator
 
 /// <summary>Data root + isolated pull-staging directory resolved for the Pull-from-Prod page.</summary>
 /// <param name="DataRoot">Studio data root (parent of <c>ArtifactRoot</c>).</param>
-/// <param name="StagingRoot">Legacy isolated staging directory path retained for page compatibility.</param>
-public sealed record PullPaths(string DataRoot, string StagingRoot);
+public sealed record PullPaths(string DataRoot);
 
 /// <summary>Freshness state of the local checkout relative to origin before pull-from-prod classification.</summary>
 public enum PullFreshnessKind

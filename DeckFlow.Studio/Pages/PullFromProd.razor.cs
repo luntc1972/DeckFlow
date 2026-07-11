@@ -37,7 +37,6 @@ public partial class PullFromProd
     // dataRoot = parent of ArtifactRoot = {studioDataDirectory}; ArtifactPath already carries
     // content-kb/, so the data root is the correct base for both staging and the live tree.
     private string _dataRoot = string.Empty;
-    private string _stagingRoot = string.Empty;
 
     // ── Shared in-flight guard ──────────────────────────────────────────────
     private bool _operationInFlight;
@@ -78,7 +77,6 @@ public partial class PullFromProd
         {
             var paths = await Task.Run(() => Coordinator.ResolvePaths(), Cts.Token);
             _dataRoot = paths.DataRoot;
-            _stagingRoot = paths.StagingRoot;
         }
         catch (OperationCanceledException)
         {
@@ -134,7 +132,7 @@ public partial class PullFromProd
         try
         {
             var result = await Task.Run(
-                () => Coordinator.PullAndClassifyAsync(_stagingRoot, log, onStage, Cts.Token),
+                () => Coordinator.PullAndClassifyAsync(log, onStage, Cts.Token),
                 Cts.Token);
 
             _diffEntries = result.Entries.ToList();
@@ -219,7 +217,7 @@ public partial class PullFromProd
         try
         {
             var results = await Task.Run(
-                () => Coordinator.ApplyAdoptionsAsync(adoptEntries, _stagingRoot, _dataRoot, progress, _divergenceOverrides, Cts.Token),
+                () => Coordinator.ApplyAdoptionsAsync(adoptEntries, _dataRoot, progress, _divergenceOverrides, Cts.Token),
                 Cts.Token);
 
             _rowResults = results.ToList();
