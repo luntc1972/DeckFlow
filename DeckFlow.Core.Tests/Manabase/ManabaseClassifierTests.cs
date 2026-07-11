@@ -1342,4 +1342,188 @@ public sealed class ManabaseClassifierTests
         Assert.Equal(0.5, Assert.Single(deck.Sources, s => s.Name == "Katilda, Dawnhart Prime").Weight);
         Assert.Equal(0.5, Assert.Single(deck.Sources, s => s.Name == "Citanul Hierophants").Weight);
     }
+
+    // --- Conditional-untapped lands: bond / check / Snarl (checkLandUntapped flag) ---
+
+    [Fact]
+    public void Classify_CheckLandUntapped_BondLand_EntersUntapped()
+    {
+        // Bond lands are unconditional in multiplayer Commander (2+ opponents), so no matching-type
+        // sources are needed.
+        var cards = new List<CardFact>
+        {
+            Land("Sea of Clouds", "Land", new[] { "W", "U" },
+                "Sea of Clouds enters the battlefield tapped unless you have two or more opponents."),
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, checkLandUntapped: true);
+
+        Assert.True(Assert.Single(deck.Sources, s => s.Name == "Sea of Clouds").EntersUntapped);
+    }
+
+    [Fact]
+    public void Classify_CheckLandUntapped_BondLand_FlagOff_StaysTapped()
+    {
+        var cards = new List<CardFact>
+        {
+            Land("Sea of Clouds", "Land", new[] { "W", "U" },
+                "Sea of Clouds enters the battlefield tapped unless you have two or more opponents."),
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, checkLandUntapped: false);
+
+        Assert.False(Assert.Single(deck.Sources, s => s.Name == "Sea of Clouds").EntersUntapped);
+    }
+
+    [Fact]
+    public void Classify_CheckLandUntapped_CheckLand_EnoughMatchingSources_EntersUntapped()
+    {
+        var cards = new List<CardFact>
+        {
+            Land("Glacial Fortress", "Land", new[] { "W", "U" },
+                "Glacial Fortress enters the battlefield tapped unless you control a Plains or an Island."),
+            Land("Island", "Basic Land — Island", new[] { "U" }, "{T}: Add {U}.") with { Quantity = 8 },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, checkLandUntapped: true);
+
+        Assert.True(Assert.Single(deck.Sources, s => s.Name == "Glacial Fortress").EntersUntapped);
+    }
+
+    [Fact]
+    public void Classify_CheckLandUntapped_CheckLand_TooFewMatchingSources_StaysTapped()
+    {
+        // Only 2 matching-type sources (< threshold 6): the deck can't reliably turn the check land on.
+        var cards = new List<CardFact>
+        {
+            Land("Glacial Fortress", "Land", new[] { "W", "U" },
+                "Glacial Fortress enters the battlefield tapped unless you control a Plains or an Island."),
+            Land("Island", "Basic Land — Island", new[] { "U" }, "{T}: Add {U}.") with { Quantity = 2 },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, checkLandUntapped: true);
+
+        Assert.False(Assert.Single(deck.Sources, s => s.Name == "Glacial Fortress").EntersUntapped);
+    }
+
+    [Fact]
+    public void Classify_CheckLandUntapped_Snarl_EnoughMatchingSources_EntersUntapped()
+    {
+        var cards = new List<CardFact>
+        {
+            Land("Frostboil Snarl", "Land", new[] { "U", "R" },
+                "As Frostboil Snarl enters, you may reveal an Island or Mountain card from your hand. "
+                + "If you don't, Frostboil Snarl enters the battlefield tapped."),
+            Land("Mountain", "Basic Land — Mountain", new[] { "R" }, "{T}: Add {R}.") with { Quantity = 8 },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, checkLandUntapped: true);
+
+        Assert.True(Assert.Single(deck.Sources, s => s.Name == "Frostboil Snarl").EntersUntapped);
+    }
+
+    [Fact]
+    public void Classify_CheckLandUntapped_SlowLand_StaysTapped()
+    {
+        // Slow lands ("two or more OTHER LANDS") name no basic type -> out of scope, stay tapped even
+        // with the flag on and plenty of lands present.
+        var cards = new List<CardFact>
+        {
+            Land("Deserted Beach", "Land", new[] { "W", "U" },
+                "Deserted Beach enters the battlefield tapped unless you control two or more other lands."),
+            Land("Island", "Basic Land — Island", new[] { "U" }, "{T}: Add {U}.") with { Quantity = 8 },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, checkLandUntapped: true);
+
+        Assert.False(Assert.Single(deck.Sources, s => s.Name == "Deserted Beach").EntersUntapped);
+    }
+
+    [Fact]
+    public void Classify_CheckLandUntapped_FastLand_StaysTapped()
+    {
+        var cards = new List<CardFact>
+        {
+            Land("Seachrome Coast", "Land", new[] { "W", "U" },
+                "Seachrome Coast enters the battlefield tapped unless you control two or fewer other lands."),
+            Land("Island", "Basic Land — Island", new[] { "U" }, "{T}: Add {U}.") with { Quantity = 8 },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, checkLandUntapped: true);
+
+        Assert.False(Assert.Single(deck.Sources, s => s.Name == "Seachrome Coast").EntersUntapped);
+    }
+
+    [Fact]
+    public void Classify_CheckLandUntapped_ThresholdLandNamingBasicType_StaysTapped()
+    {
+        // Regression: ELD "three or more other Islands" lands (Mystic Sanctuary, Dwarven Mine, …) name
+        // a basic type but are NOT check lands — the anchored "control (a|an) <type>" regex must not
+        // match them, so they stay tapped even with plenty of Islands.
+        var cards = new List<CardFact>
+        {
+            Land("Mystic Sanctuary", "Land — Island", new[] { "U" },
+                "Mystic Sanctuary enters the battlefield tapped unless you control three or more other Islands."),
+            Land("Island", "Basic Land — Island", new[] { "U" }, "{T}: Add {U}.") with { Quantity = 8 },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, checkLandUntapped: true);
+
+        Assert.False(Assert.Single(deck.Sources, s => s.Name == "Mystic Sanctuary").EntersUntapped);
+    }
+
+    [Fact]
+    public void Classify_CheckLandUntapped_ExactlyThresholdMatchingSources_EntersUntapped()
+    {
+        // Boundary: >= threshold (6) is inclusive.
+        var cards = new List<CardFact>
+        {
+            Land("Glacial Fortress", "Land", new[] { "W", "U" },
+                "Glacial Fortress enters the battlefield tapped unless you control a Plains or an Island."),
+            Land("Island", "Basic Land — Island", new[] { "U" }, "{T}: Add {U}.") with { Quantity = 6 },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, checkLandUntapped: true);
+
+        Assert.True(Assert.Single(deck.Sources, s => s.Name == "Glacial Fortress").EntersUntapped);
+    }
+
+    [Fact]
+    public void Classify_CheckLandUntapped_DualTypeSourcesCountedOnce_NotDoubled()
+    {
+        // Union count: 5 dual-type (Plains AND Island) lands count as 5 toward a {Plains, Island} check
+        // land, not 10 — so 5 < threshold 6 leaves it tapped. (A sum-per-type bug would read 10 and
+        // wrongly flip it untapped.)
+        var cards = new List<CardFact>
+        {
+            Land("Glacial Fortress", "Land", new[] { "W", "U" },
+                "Glacial Fortress enters the battlefield tapped unless you control a Plains or an Island."),
+            Land("Hallowed Fountain", "Land — Plains Island", new[] { "W", "U" },
+                "As Hallowed Fountain enters, you may pay 2 life. If you don't, it enters tapped.") with { Quantity = 5 },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, checkLandUntapped: true);
+
+        Assert.False(Assert.Single(deck.Sources, s => s.Name == "Glacial Fortress").EntersUntapped);
+    }
+
+    [Fact]
+    public void Classify_CheckLandUntapped_FlagOff_AllStayTapped()
+    {
+        // Byte-identical guard: with the flag off, bond and an otherwise-online check land both stay
+        // on the historic tapped path.
+        var cards = new List<CardFact>
+        {
+            Land("Sea of Clouds", "Land", new[] { "W", "U" },
+                "Sea of Clouds enters the battlefield tapped unless you have two or more opponents."),
+            Land("Glacial Fortress", "Land", new[] { "W", "U" },
+                "Glacial Fortress enters the battlefield tapped unless you control a Plains or an Island."),
+            Land("Island", "Basic Land — Island", new[] { "U" }, "{T}: Add {U}.") with { Quantity = 8 },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, checkLandUntapped: false);
+
+        Assert.False(Assert.Single(deck.Sources, s => s.Name == "Sea of Clouds").EntersUntapped);
+        Assert.False(Assert.Single(deck.Sources, s => s.Name == "Glacial Fortress").EntersUntapped);
+    }
 }

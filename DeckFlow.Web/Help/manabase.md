@@ -73,7 +73,7 @@ A standing **"analysis is in beta"** notice sits at the top of every manabase re
 
 ### Untapped-source (Tap) analyzer
 
-Shocklands and other **"pay N life"** lands (Steam Vents, Godless Shrine, and pay-life MDFC backs like Agadeem, the Undercrypt) are counted as entering **untapped** — the way you actually play them — so they help your turn-one casts. Plain taplands, and board-conditional check / fast / slow lands with no pay-life option, are still treated as tapped.
+Shocklands and other **"pay N life"** lands (Steam Vents, Godless Shrine, and pay-life MDFC backs like Agadeem, the Undercrypt) are counted as entering **untapped** — the way you actually play them — so they help your turn-one casts. A few more conditional lands are also read as untapped when the condition reliably holds: **bond lands** (Sea of Clouds, Training Center) always, since a Commander game is always multiplayer; and **check lands** (Glacial Fortress) and **Snarls** (Frostboil Snarl) when your deck runs enough lands of the matching basic types that you'll usually have the trigger. **Fast lands** and **slow lands** are left as tapped (in a long Commander game a fast land is usually tapped, and a slow land only untaps late), as are plain taplands.
 
 By default (the `analysis.manabase.tap-analyzer` flag, on), the report (and its paste artifact) add an **untapped-source** readout — a land that enters tapped can't help you cast on curve, so this measures how much of your mana is available right away:
 
