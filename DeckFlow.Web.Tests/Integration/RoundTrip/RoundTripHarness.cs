@@ -201,11 +201,30 @@ public sealed class RoundTripHarness : IDisposable
 
         foreach (var directory in new[] { RepoRoot, AppRoot, OriginRoot })
         {
-            if (Directory.Exists(directory))
+            ForceDeleteDirectory(directory);
+        }
+    }
+
+    // Why: git marks loose object files read-only, so a plain Directory.Delete throws
+    // UnauthorizedAccessException on Windows. Clear the read-only attribute on every entry
+    // before deleting so temp git-repo teardown never fails the test at Dispose time.
+    private static void ForceDeleteDirectory(string directory)
+    {
+        if (!Directory.Exists(directory))
+        {
+            return;
+        }
+
+        foreach (var filePath in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
+        {
+            var attributes = File.GetAttributes(filePath);
+            if ((attributes & FileAttributes.ReadOnly) != 0)
             {
-                Directory.Delete(directory, recursive: true);
+                File.SetAttributes(filePath, attributes & ~FileAttributes.ReadOnly);
             }
         }
+
+        Directory.Delete(directory, recursive: true);
     }
 
     private static void CopyDirectoryRecursive(string sourceDir, string targetDir)
