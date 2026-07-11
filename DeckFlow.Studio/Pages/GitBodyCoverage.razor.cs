@@ -27,7 +27,6 @@ public partial class GitBodyCoverage
     private ILogger<GitBodyCoverage> Logger { get; set; } = default!;
 
     private bool _isRunning;
-    private bool _hasCompleted;
     private string _runError = string.Empty;
     private GitBodyCoverageReport? _report;
 
@@ -39,7 +38,6 @@ public partial class GitBodyCoverage
         }
 
         _isRunning = true;
-        _hasCompleted = false;
         _runError = string.Empty;
         _report = null;
         SafeStateHasChanged();
@@ -51,22 +49,20 @@ public partial class GitBodyCoverage
             var report = await Audit.RunAsync(connectionString, repoRoot, Cts.Token);
 
             _report = report;
-            _hasCompleted = true;
-            _isRunning = false;
-            await SafeStateHasChangedAsync();
         }
         catch (OperationCanceledException)
         {
             _runError = "The audit was cancelled.";
-            _isRunning = false;
-            await InvokeAsync(StateHasChanged);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Git body coverage audit failed.");
             _runError = "The audit could not be completed.";
+        }
+        finally
+        {
             _isRunning = false;
-            await InvokeAsync(StateHasChanged);
+            await SafeStateHasChangedAsync();
         }
     }
 
