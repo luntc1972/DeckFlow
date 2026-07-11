@@ -973,7 +973,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
     {
         // Why: REVIEW #5 requires rejecting traversal or rooted paths before later phases
         // resolve this relative pointer against MTG_DATA_DIR.
-        if (Path.IsPathRooted(artifactPath) || IsWindowsRootedPath(artifactPath))
+        if (Path.IsPathRooted(artifactPath) || ContentKbArtifactPath.IsWindowsRootedPath(artifactPath))
         {
             throw new ArgumentException(
                 "Artifact path must be relative.",
@@ -988,12 +988,6 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                 nameof(ContentSiteIndexRow.ArtifactPath));
         }
     }
-
-    private static bool IsWindowsRootedPath(string artifactPath)
-        => artifactPath.Length >= 3
-            && char.IsLetter(artifactPath[0])
-            && artifactPath[1] == ':'
-            && (artifactPath[2] == '\\' || artifactPath[2] == '/');
 
     private const string UpsertSql = """
         INSERT INTO content_site_index (
