@@ -1,3 +1,5 @@
+using DeckFlow.Core.Content;
+
 namespace DeckFlow.Studio.Services;
 
 /// <summary>
@@ -5,6 +7,6 @@ namespace DeckFlow.Studio.Services;
 /// </summary>
 public static class ContentKbSeedPaths
 {
-    /// <summary>Repo-relative path to the tracked seed index file, with forward slashes.</summary>
-    public const string SeedRelativePath = "content-kb/seed/index-seed.json";
+    /// <summary>Repo-relative path to the tracked seed index file, with forward slashes, derived from the shared Core constant.</summary>
+    public const string SeedRelativePath = ContentKbPaths.SeedRelativePath;
 }
