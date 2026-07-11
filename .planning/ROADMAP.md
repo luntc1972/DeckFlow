@@ -126,7 +126,10 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
   1. On Pull, body and content are sourced from the git tree while `is_visible`/`is_hidden`/`approval_status` are sourced from prod and preserved — neither side clobbers the other's authoritative fields.
   2. Pull warns or refuses to proceed when the local checkout is behind (a `git pull` staleness guard), rather than silently reading a stale git tree.
   3. Any body-vs-index divergence discovered during Pull is surfaced to the operator for a decision — it is never silently adopted.
-**Plans**: TBD
+**Plans**: 3 plans (3 waves)
+- [ ] 92-01-PLAN.md — Core foundations: git behind-detection seam (Fetch/GetBehindCount) + BodyDivergenceStatus model (SYNC-14, SYNC-15) [wave 1]
+- [ ] 92-02-PLAN.md — Coordinator hardening: staleness warn-then-proceed + divergence stamping + field-authority regression lock (SYNC-14, SYNC-15, SYNC-13) [wave 2]
+- [ ] 92-03-PLAN.md — Page UI: freshness banner + divergence badge + per-entry opt-in (SYNC-14, SYNC-15) [wave 3]
 
 ### Phase 93: Round-Trip Integration Test
 **Goal**: The entire sync loop — distill through reconcile — is locked by one automated end-to-end test so future changes can't silently reintroduce any of the fixed classes of drift.
@@ -155,7 +158,7 @@ Phases execute in numeric order: 88 → 89 → 90 → 91 → 92 → 93
 | 89. Content-Hash Foundation | Cycle 16 | 6/6 | Complete   | 2026-07-07 |
 | 90. DirectPush Correctness + Seed Sync | Cycle 16 | 7/7 | Complete   | 2026-07-08 |
 | 91. Reconcile + Seed Lifecycle | Cycle 16 | 8/9 | In Progress|  |
-| 92. Pull Hardening | Cycle 16 | 0/TBD | Not started | - |
+| 92. Pull Hardening | Cycle 16 | 0/3 | Not started | - |
 | 93. Round-Trip Integration Test | Cycle 16 | 0/TBD | Not started | - |
 
 ---
