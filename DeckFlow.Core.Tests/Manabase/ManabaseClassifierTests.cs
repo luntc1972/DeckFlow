@@ -934,6 +934,252 @@ public sealed class ManabaseClassifierTests
     }
 
     [Fact]
+    public void Classify_PayLifeUntapped_ShocklandFlagOn_EntersUntapped()
+    {
+        var cards = new List<CardFact>
+        {
+            Spell("Some Spell", 2, "{1}{U}"),
+            Land("Steam Vents", "Land — Island Mountain", new[] { "U", "R" },
+                "As Steam Vents enters, you may pay 2 life. If you don't, it enters tapped."),
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, payLifeUntapped: true);
+
+        ManaSource shock = Assert.Single(deck.Sources, s => s.Name == "Steam Vents");
+        Assert.True(shock.EntersUntapped);
+    }
+
+    [Fact]
+    public void Classify_PayLifeUntapped_ShocklandFlagOff_EntersTapped()
+    {
+        var cards = new List<CardFact>
+        {
+            Spell("Some Spell", 2, "{1}{U}"),
+            Land("Steam Vents", "Land — Island Mountain", new[] { "U", "R" },
+                "As Steam Vents enters, you may pay 2 life. If you don't, it enters tapped."),
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, payLifeUntapped: false);
+
+        ManaSource shock = Assert.Single(deck.Sources, s => s.Name == "Steam Vents");
+        Assert.False(shock.EntersUntapped);
+    }
+
+    [Fact]
+    public void Classify_PayLifeUntapped_PlainTaplandStaysTapped()
+    {
+        var cards = new List<CardFact>
+        {
+            Spell("Some Spell", 2, "{1}{U}"),
+            Land("Tranquil Cove", "Land", new[] { "W", "U" },
+                "Tranquil Cove enters tapped. When Tranquil Cove enters, you gain 1 life. {T}: Add {W} or {U}."),
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, payLifeUntapped: true);
+
+        ManaSource tapland = Assert.Single(deck.Sources, s => s.Name == "Tranquil Cove");
+        Assert.False(tapland.EntersUntapped);
+    }
+
+    [Fact]
+    public void Classify_PayLifeUntapped_BasicLandUnaffectedAcrossFlagStates()
+    {
+        var cards = new List<CardFact>
+        {
+            Spell("Some Spell", 2, "{1}{U}"),
+            Land("Island", "Basic Land — Island", new[] { "U" }, "{T}: Add {U}."),
+        };
+
+        ManabaseDeck off = ManabaseClassifier.Classify(cards, payLifeUntapped: false);
+        ManabaseDeck on = ManabaseClassifier.Classify(cards, payLifeUntapped: true);
+
+        ManaSource basicOff = Assert.Single(off.Sources, s => s.Name == "Island");
+        ManaSource basicOn = Assert.Single(on.Sources, s => s.Name == "Island");
+        Assert.True(basicOff.EntersUntapped);
+        Assert.True(basicOn.EntersUntapped);
+    }
+
+    [Fact]
+    public void Classify_PayLifeUntapped_AlwaysTappedLandWithPayLifeAbility_StaysTapped()
+    {
+        // Boseiju/Hall/Untaidake pattern: enters tapped AND has a "{T}, Pay N life:" ACTIVATED
+        // ability. This must NOT be flipped untapped — the pay-life is a cost, not the shock ETB
+        // choice. Guards against the over-broad "pay N life" match.
+        var cards = new List<CardFact>
+        {
+            Spell("Some Spell", 2, "{1}{U}"),
+            Land("Hall of the Bandit Lord", "Land", new[] { "W", "U", "B", "R", "G" },
+                "Hall of the Bandit Lord enters tapped. {T}, Pay 3 life: Add one mana of any color."),
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, payLifeUntapped: true);
+
+        ManaSource land = Assert.Single(deck.Sources, s => s.Name == "Hall of the Bandit Lord");
+        Assert.False(land.EntersUntapped);
+    }
+
+    [Fact]
+    public void Classify_MdfcAsLand_PayLifeLandBack_IsRealUntappedLand()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Agadeem's Awakening // Agadeem, the Undercrypt",
+                Quantity = 1,
+                ManaCost = "{X}{B}{B}{B}",
+                ManaValue = 3,
+                TypeLine = "Sorcery",
+                OracleText = "Return from graveyard.\nAs Agadeem, the Undercrypt enters, you may pay 3 life. If you don't, it enters tapped.",
+                LandFaceOracleText = "As Agadeem, the Undercrypt enters, you may pay 3 life. If you don't, it enters tapped.",
+                ProducedMana = new[] { "B" },
+                Rarity = "mythic",
+                Layout = "modal_dfc",
+                HasLandFace = true,
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, mdfcAsLand: true);
+
+        ManaSource source = Assert.Single(deck.Sources);
+        Assert.True(source.IsLand);
+        Assert.True(source.EntersUntapped);
+        Assert.Equal(1.0, source.Weight);
+    }
+
+    [Fact]
+    public void Classify_MdfcAsLand_AlwaysTappedLandBack_StaysTappedLand()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Bala Ged Recovery // Bala Ged Sanctuary",
+                Quantity = 1,
+                ManaCost = "{2}{G}",
+                ManaValue = 3,
+                TypeLine = "Sorcery",
+                OracleText = "Return target permanent card.\nBala Ged Sanctuary enters tapped.",
+                LandFaceOracleText = "Bala Ged Sanctuary enters tapped.",
+                ProducedMana = new[] { "G" },
+                Rarity = "uncommon",
+                Layout = "modal_dfc",
+                HasLandFace = true,
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, mdfcAsLand: true);
+
+        ManaSource source = Assert.Single(deck.Sources);
+        Assert.True(source.IsLand);
+        Assert.False(source.EntersUntapped);
+        Assert.Equal(0.8, source.Weight, 2);
+    }
+
+    [Fact]
+    public void Classify_MdfcAsLand_FlagOff_KeepsHistoricNonLandPartialSource()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Bala Ged Recovery // Bala Ged Sanctuary",
+                Quantity = 1,
+                ManaCost = "{2}{G}",
+                ManaValue = 3,
+                TypeLine = "Sorcery",
+                OracleText = "Return target permanent card.\nBala Ged Sanctuary enters tapped.",
+                LandFaceOracleText = "Bala Ged Sanctuary enters tapped.",
+                ProducedMana = new[] { "G" },
+                Rarity = "uncommon",
+                Layout = "modal_dfc",
+                HasLandFace = true,
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, mdfcAsLand: false);
+
+        ManaSource source = Assert.Single(deck.Sources);
+        Assert.False(source.IsLand);
+        Assert.Equal(0.8, source.Weight, 2);
+    }
+
+    [Fact]
+    public void Classify_MdfcAsLand_IncreasesActualLandSourcesByCopyCount()
+    {
+        var cards = new List<CardFact>
+        {
+            Land("Swamp", "Basic Land — Swamp", new[] { "B" }, "{T}: Add {B}."),
+            Land("Swamp", "Basic Land — Swamp", new[] { "B" }, "{T}: Add {B}.") with { Name = "Swamp Two" },
+            new()
+            {
+                Name = "Bala Ged Recovery // Bala Ged Sanctuary",
+                Quantity = 2,
+                ManaCost = "{2}{G}",
+                ManaValue = 3,
+                TypeLine = "Sorcery",
+                OracleText = "Return target permanent card.\nBala Ged Sanctuary enters tapped.",
+                LandFaceOracleText = "Bala Ged Sanctuary enters tapped.",
+                ProducedMana = new[] { "G" },
+                Rarity = "uncommon",
+                Layout = "modal_dfc",
+                HasLandFace = true,
+            },
+        };
+
+        ManabaseDeck off = ManabaseClassifier.Classify(cards, mdfcAsLand: false);
+        ManabaseDeck on = ManabaseClassifier.Classify(cards, mdfcAsLand: true);
+
+        int actualLandsOff = off.Sources.Count(s => s.IsLand);
+        int actualLandsOn = on.Sources.Count(s => s.IsLand);
+        Assert.Equal(actualLandsOff + 2, actualLandsOn);
+    }
+
+    [Fact]
+    public void Classify_MdfcAsLand_DropsLandTargetCreditBuckets()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Bala Ged Recovery // Bala Ged Sanctuary",
+                Quantity = 2,
+                ManaCost = "{2}{G}",
+                ManaValue = 3,
+                TypeLine = "Sorcery",
+                OracleText = "Return target permanent card.\nBala Ged Sanctuary enters tapped.",
+                LandFaceOracleText = "Bala Ged Sanctuary enters tapped.",
+                ProducedMana = new[] { "G" },
+                Rarity = "uncommon",
+                Layout = "modal_dfc",
+                HasLandFace = true,
+            },
+            new()
+            {
+                Name = "Agadeem's Awakening // Agadeem, the Undercrypt",
+                Quantity = 1,
+                ManaCost = "{X}{B}{B}{B}",
+                ManaValue = 3,
+                TypeLine = "Sorcery",
+                OracleText = "Return from graveyard.\nAs Agadeem, the Undercrypt enters, you may pay 3 life. If you don't, it enters tapped.",
+                LandFaceOracleText = "As Agadeem, the Undercrypt enters, you may pay 3 life. If you don't, it enters tapped.",
+                ProducedMana = new[] { "B" },
+                Rarity = "mythic",
+                Layout = "modal_dfc",
+                HasLandFace = true,
+            },
+        };
+
+        ManabaseDeck off = ManabaseClassifier.Classify(cards, mdfcAsLand: false);
+        ManabaseDeck on = ManabaseClassifier.Classify(cards, mdfcAsLand: true);
+
+        Assert.Equal(2, off.MdfcCommon);
+        Assert.Equal(1, off.MdfcMythic);
+        Assert.Equal(0, on.MdfcCommon);
+        Assert.Equal(0, on.MdfcMythic);
+    }
+
+    [Fact]
     public void Classify_OneShotAndTriggeredManaProducers_AreNotRocksOrDorks()
     {
         // Efficacy R2 finding H2: Scryfall sets produced_mana on Treasure-makers (the token's

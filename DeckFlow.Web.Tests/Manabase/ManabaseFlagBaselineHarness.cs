@@ -12,9 +12,8 @@ namespace DeckFlow.Web.Tests.Manabase;
 /// <summary>
 /// Manual harness (NOT a CI test): the consolidated Phase-70 flag baseline. For each representative
 /// real deck it runs the Core analyzer with each MQ flag turned on in isolation vs the all-off
-/// baseline and dumps the cast% / verdict delta, so the flag-default decisions for
-/// analysis.manabase.source-mana-quantity (MQ-02), analysis.manabase.ramp-credit-v2 (MQ-03), and
-/// analysis.manabase.color-aware-mulligan (MQ-05) can be made against real numbers.
+/// baseline and dumps the cast% / verdict delta, so the bundled
+/// <c>analysis.manabase.accuracy</c> toggle's default can be made against real numbers.
 ///
 /// Decks: Brago (cached WU, exercises MQ-02 weakly + MQ-05 at 2 colors); a 5-color rocks/ramp deck
 /// (MQ-02 burst rocks + MQ-05 at 5 colors); a Golgari ritual/land-ramp deck (MQ-03 one-shot vs

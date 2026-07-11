@@ -73,7 +73,16 @@ public static class ManabaseClassifier
     /// mana. Colorless + non-land → never changes color counts or the land total. When false (default),
     /// no such source is added (byte-identical sim).
     /// </param>
-    public static ManabaseDeck Classify(IReadOnlyList<CardFact> cards, bool isSingleton = true, bool rampCreditV2 = false, bool landRampSim = false)
+    /// <param name="payLifeUntapped">
+    /// When true, shock-style lands whose oracle offers "pay N life" to avoid entering tapped are
+    /// modeled as untapped lands. When false (default), they remain on the historic tapped path.
+    /// </param>
+    /// <param name="mdfcAsLand">
+    /// When true, spell-front MDFCs with a land back are modeled as real lands in the simulator,
+    /// using the land face's tapped/pay-life text. When false (default), they stay on the historic
+    /// partial non-land source path.
+    /// </param>
+    public static ManabaseDeck Classify(IReadOnlyList<CardFact> cards, bool isSingleton = true, bool rampCreditV2 = false, bool landRampSim = false, bool payLifeUntapped = false, bool mdfcAsLand = false)
     {
         ArgumentNullException.ThrowIfNull(cards);
 
@@ -125,7 +134,7 @@ public static class ManabaseClassifier
             bool frontIsLand = IsLandType(card.TypeLine);
             if (frontIsLand)
             {
-                AddLandCopies(sources, card, deckColorCount, fetchTypeColors, fetchBasicColors);
+                AddLandCopies(sources, card, deckColorCount, fetchTypeColors, fetchBasicColors, payLifeUntapped);
                 continue;
             }
 
@@ -214,11 +223,13 @@ public static class ManabaseClassifier
             // Tally land-count formula adjustments (MDFC spell-backs, 0-cost fast mana).
             if (card.HasLandFace)
             {
-                if (IsMythic(card))
+                // Why: when MDFC land backs are modeled as real lands, they already raise actualLands
+                // in the sim/report, so preserving the Karsten MDFC target credit would double-count.
+                if (!mdfcAsLand && IsMythic(card))
                 {
                     mdfcMythic += card.Quantity;
                 }
-                else
+                else if (!mdfcAsLand)
                 {
                     mdfcCommon += card.Quantity;
                 }
@@ -228,7 +239,7 @@ public static class ManabaseClassifier
                 fastMana += card.Quantity;
             }
 
-            AddPartialSources(sources, card);
+            AddPartialSources(sources, card, mdfcAsLand);
 
             // 70-03b: model repeatable land-ramp as a colorless, non-land ramp source (one per copy) so
             // the simulator credits the fetched land's mana. Colorless (Produces empty) → no color-count
@@ -332,7 +343,8 @@ public static class ManabaseClassifier
     }
 
     private static void AddLandCopies(List<ManaSource> sources, CardFact card, int deckColorCount,
-        Dictionary<string, HashSet<ManaColor>> fetchTypeColors, HashSet<ManaColor> fetchBasicColors)
+        Dictionary<string, HashSet<ManaColor>> fetchTypeColors, HashSet<ManaColor> fetchBasicColors,
+        bool payLifeUntapped)
     {
         IReadOnlyList<ManaColor> produces = MapColors(card.ProducedMana);
         if (produces.Count == 0)
@@ -347,7 +359,7 @@ public static class ManabaseClassifier
         bool basicFetch = IsBasicFetch(card);
         // A choice-fetch in a 3+ color deck can only grab one color at a time.
         double weight = basicFetch && deckColorCount >= 3 ? 0.67 : 1.0;
-        bool untapped = !EntersTapped(card);
+        bool untapped = !EntersTapped(card) || (payLifeUntapped && HasPayLifeUntappedClause(card));
 
         for (int i = 0; i < card.Quantity; i++)
         {
@@ -445,6 +457,12 @@ public static class ManabaseClassifier
     // Strips parenthesized reminder text ("(Treasure tokens are artifacts with ... Add one mana
     // of any color.)") so token reminder wording never reads as the card's own mana ability.
     private static readonly Regex ReminderTextRegex = new(@"\([^)]*\)", RegexOptions.Compiled);
+
+    // Shockland ETB template ("you may pay N life. If you don't, it enters tapped"). Compiled +
+    // hoisted to match this file's regex convention; see TextPayLifeUntapped for why it is anchored
+    // to "you may pay" rather than a bare "pay N life".
+    private static readonly Regex PayLifeRegex =
+        new(@"you may pay \d+ life", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     // A quoted span in oracle text ('... have "{T}: Add one mana of any color."'). Quoted
     // abilities are GRANTS: they live on whatever permanent the surrounding clause names, so a
@@ -606,12 +624,38 @@ public static class ManabaseClassifier
         return kinds;
     }
 
-    private static void AddPartialSources(List<ManaSource> sources, CardFact card)
+    private static void AddPartialSources(List<ManaSource> sources, CardFact card, bool mdfcAsLand)
     {
         // Land/spell MDFC back face: count as a partial colored source (0.8 / mythic 1.0).
         if (card.HasLandFace)
         {
             double mdfcWeight = IsMythic(card) ? 1.0 : 0.8;
+            if (mdfcAsLand)
+            {
+                IReadOnlyList<ManaColor> produces = MapColors(card.ProducedMana);
+                if (produces.Count == 0)
+                {
+                    return;
+                }
+
+                bool untapped = !LandFaceEntersTapped(card) || LandFacePayLifeUntapped(card);
+                for (int i = 0; i < card.Quantity; i++)
+                {
+                    sources.Add(new ManaSource
+                    {
+                        Name = card.Name,
+                        Produces = produces,
+                        Weight = mdfcWeight,
+                        IsLand = true,
+                        EntersUntapped = untapped,
+                        ManaAmount = 1,
+                        IsCommander = card.IsCommander,
+                    });
+                }
+
+                return;
+            }
+
             AddWeighted(sources, card, mdfcWeight);
             return;
         }
@@ -794,13 +838,40 @@ public static class ManabaseClassifier
     // Both literals are required: "enters tapped" is NOT a substring of the old form ("the
     // battlefield" sits between the words), so the second check is load-bearing for any stale
     // fixture/cache still holding the pre-2024 wording — do not delete it.
-    private static bool EntersTapped(CardFact card)
+    private static bool TextEntersTapped(string? text) =>
+        text is not null
+        && (text.Contains("enters tapped", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("enters the battlefield tapped", StringComparison.OrdinalIgnoreCase));
+
+    private static bool EntersTapped(CardFact card) => TextEntersTapped(card.OracleText);
+
+    // MDFC land backs read the land-face oracle text; single-faced lands fall back to OracleText.
+    private static bool LandFaceEntersTapped(CardFact card) =>
+        TextEntersTapped(card.LandFaceOracleText ?? card.OracleText);
+
+    /// <summary>
+    /// Detects shock-style "pay N life or enters tapped" lands, which should be treated as entering
+    /// untapped in practice when the pay-life path is enabled.
+    /// </summary>
+    private static bool TextPayLifeUntapped(string? text)
     {
-        string? text = card.OracleText;
-        return text is not null
-            && (text.Contains("enters tapped", StringComparison.OrdinalIgnoreCase)
-                || text.Contains("enters the battlefield tapped", StringComparison.OrdinalIgnoreCase));
+        if (text is null)
+        {
+            return false;
+        }
+
+        text = ReminderTextRegex.Replace(text, string.Empty);
+        // Anchor to the shockland replacement template ("you may pay N life. If you don't, it enters
+        // tapped"). A bare "pay N life" would misfire on always-tapped lands with a life-payment
+        // ACTIVATED ability (Boseiju Who Shelters All, Hall of the Bandit Lord, Untaidake) — those use
+        // "{T}, Pay N life:" as a cost, not the "you may pay" ETB choice.
+        return PayLifeRegex.IsMatch(text) && TextEntersTapped(text);
     }
+
+    private static bool HasPayLifeUntappedClause(CardFact card) => TextPayLifeUntapped(card.OracleText);
+
+    private static bool LandFacePayLifeUntapped(CardFact card) =>
+        TextPayLifeUntapped(card.LandFaceOracleText ?? card.OracleText);
 
     // v1 (rampCreditV2 OFF) legacy baseline — DELIBERATELY FROZEN to the historic broad predicate
     // (ManaRampCreditTests guards "flag-off == historic"). The M7 you-anchored unification applies to

@@ -143,32 +143,12 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         new(StringComparer.OrdinalIgnoreCase) { "mainboard", "commander" };
 
     /// <summary>
-    /// MQ-02 flag key: when enabled, the castability rows credit each source its full mana amount
-    /// (Sol Ring = 2, etc.). Seeded ON after the Phase-70 flag baseline (8 decks, no verdict flips).
+    /// Flag key: bundles the settled sim-accuracy knobs (mana quantity, ramp-credit-v2,
+    /// color-aware mulligan, land-ramp sim, health-band headline floor, pay-life untapped, and MDFC
+    /// land backs modeled as real lands.
+    /// Seeded ON.
     /// </summary>
-    public const string ManaQuantityFlagKey = "analysis.manabase.source-mana-quantity";
-
-    /// <summary>
-    /// MQ-03 flag key: when enabled, the Karsten ramp/draw land-target credit is narrowed to
-    /// repeatable ramp + true draw (one-shot rituals / Treasure-makers no longer lower the target).
-    /// Seeded ON after the Phase-70 flag baseline. Read BEFORE classification (the credit is computed
-    /// in the classifier, not the analyzer).
-    /// </summary>
-    public const string RampCreditV2FlagKey = "analysis.manabase.ramp-credit-v2";
-
-    /// <summary>
-    /// MQ-05 flag key: when enabled, the castability rows' London mulligan keeps multi-color hands
-    /// only when the opening lands show enough distinct colors (count-only otherwise). Cast%-affecting
-    /// on 2+ color decks; mono decks are unchanged. Seeded ON after the Phase-70 flag baseline.
-    /// </summary>
-    public const string ColorAwareMulliganFlagKey = "analysis.manabase.color-aware-mulligan";
-
-    /// <summary>
-    /// MQ-03 70-03b flag key: when enabled, repeatable land-ramp spells (Cultivate / Rampant Growth)
-    /// are modeled in the castability simulator as colorless ramp sources so the fetched land's mana is
-    /// credited (closing the sim ↔ regression gap). Seeded ON after the Phase-70 land-ramp baseline.
-    /// </summary>
-    public const string LandRampSimFlagKey = "analysis.manabase.land-ramp-sim";
+    public const string AccuracyFlagKey = "analysis.manabase.accuracy";
 
     /// <summary>
     /// MQ-health-band flag key: when enabled, the composite-weakest color's worst-spell cast %
@@ -176,13 +156,6 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     /// Seeded OFF — promoted to ON after a full 9-deck calibration regression guard passes.
     /// </summary>
     public const string HealthBandCastabilityFlagKey = "analysis.manabase.health-band-castability";
-
-    /// <summary>
-    /// MQ-health-band headline-floor flag key: when enabled, a strong headline castability result
-    /// can narrowly promote a land-short NeedsWork verdict to Workable. Seeded ON (the seed store and
-    /// operator catalog both ship it enabled).
-    /// </summary>
-    public const string HealthBandHeadlineFloorFlagKey = "analysis.manabase.health-band-headline-floor";
 
     /// <summary>
     /// Phase-71 flag key: when enabled, Casual mode computes a deterministic plain-language verdict
@@ -252,10 +225,14 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     {
         options ??= new ManabaseAnalysisOptions();
 
-        // MQ-03: read BEFORE classification — the ramp/draw land-target credit AND the 70-03b land-ramp
-        // sim source are both built in the classifier, so reading them after Resolve would be too late.
-        bool rampCreditV2 = IsFlagOn(RampCreditV2FlagKey);
-        bool landRampSim = IsFlagOn(LandRampSimFlagKey);
+        // Read the bundled manabase accuracy flag BEFORE classification — the ramp/draw land-target
+        // credit, land-ramp sim source, and pay-life untapped land handling are all built before the
+        // analyzer path runs, so reading this after Resolve would be too late.
+        bool accuracy = IsFlagOn(AccuracyFlagKey);
+        bool rampCreditV2 = accuracy;
+        bool landRampSim = accuracy;
+        bool payLifeUntapped = accuracy;
+        bool mdfcAsLand = accuracy;
         bool commanderCastability = IsFlagOn(CommanderCastabilityFlagKey);
         bool showTapAnalyzer = IsFlagOn(TapAnalyzerFlagKey);
         bool showMulliganEval = IsFlagOn(MulliganEvalFlagKey);
@@ -270,6 +247,8 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 deckSource,
                 rampCreditV2,
                 landRampSim,
+                payLifeUntapped,
+                mdfcAsLand,
                 commanderCastability,
                 classifyPlanRoles: showPlanPresence,
                 options.Mode,
@@ -277,14 +256,10 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 cancellationToken)
             .ConfigureAwait(false);
 
-        // MQ-02: read the flag and pass it down, so the simulator stays a pure function of its
-        // arguments. Both flags read fail-safe OFF (a missing/unseeded key must NOT turn a
-        // safety-gated experiment on — IFeatureFlagCache.IsEnabled defaults missing keys ON, so use
-        // Snapshot().TryGetValue via IsFlagOn instead).
-        bool useManaQuantity = IsFlagOn(ManaQuantityFlagKey);
-
-        // MQ-05: read the color-aware-mulligan flag and pass it down. Fail-safe OFF, same as the others.
-        bool colorAwareMulligan = IsFlagOn(ColorAwareMulliganFlagKey);
+        // Fan the bundled accuracy flag out to the existing Core bools so the internal analyzer/classifier
+        // plumbing stays stable. Fail-safe OFF still comes from IsFlagOn above.
+        bool useManaQuantity = accuracy;
+        bool colorAwareMulligan = accuracy;
 
         // P4 gated-ramp is always on (efficacy R2 M3): before the sim credits a ramp piece's mana it
         // verifies the ramp's OWN colored cost is payable from the current board (mirrors 17Lands),
@@ -298,7 +273,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         // OFF — seeded OFF; promoted to ON once the 9-deck calibration regression guard confirms no
         // Solid/Excellent deck regresses.
         bool useHealthBandCastability = IsFlagOn(HealthBandCastabilityFlagKey);
-        bool useHealthBandHeadlineFloor = IsFlagOn(HealthBandHeadlineFloorFlagKey);
+        bool useHealthBandHeadlineFloor = accuracy;
         ManabaseReport report = ManabaseAnalyzer.Analyze(
             resolved.Deck, options.Mode, options.CommanderImportance, options.CostOverrides,
             useManaQuantity, colorAwareMulligan, gateRampOnCastable: true,
@@ -365,6 +340,8 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 deckSource,
                 rampCreditV2: false,
                 landRampSim: false,
+                payLifeUntapped: false,
+                mdfcAsLand: false,
                 commanderCastability: false,
                 classifyPlanRoles: false,
                 mode: ManabaseMode.Casual,
@@ -391,6 +368,8 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         string deckSource,
         bool rampCreditV2,
         bool landRampSim,
+        bool payLifeUntapped,
+        bool mdfcAsLand,
         bool commanderCastability,
         bool classifyPlanRoles,
         ManabaseMode mode,
@@ -504,7 +483,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         }
 
         IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
-        ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true, rampCreditV2: rampCreditV2, landRampSim: landRampSim);
+        ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true, rampCreditV2: rampCreditV2, landRampSim: landRampSim, payLifeUntapped: payLifeUntapped, mdfcAsLand: mdfcAsLand);
 
         if (classifyPlanRoles)
         {

@@ -26,6 +26,7 @@ public sealed class ScryfallCardFactMapperTests
 
         Assert.Equal(6, fact.Quantity);
         Assert.True(fact.HasLandFace);
+        Assert.Equal("({T}: Add {U}.)", fact.LandFaceOracleText);
         Assert.Null(fact.ManaCost);
         Assert.Contains("U", fact.ProducedMana);
         Assert.Equal("Basic Land — Island", fact.TypeLine);
@@ -123,6 +124,7 @@ public sealed class ScryfallCardFactMapperTests
         Assert.Equal("{2}{G}", fact.ManaCost);          // front face cost
         Assert.Equal("Sorcery", fact.TypeLine);          // front face type → not a land slot
         Assert.True(fact.HasLandFace);                   // back face is a Land
+        Assert.Equal("Bala Ged Sanctuary enters the battlefield tapped.", fact.LandFaceOracleText);
         Assert.Contains("enters the battlefield tapped", fact.OracleText); // joined faces
     }
 
