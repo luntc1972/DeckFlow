@@ -3,7 +3,7 @@
     "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "VStPAnMkZvU",
     "source": "3/3 Elk",
-    "title": "\u0022Dies to Removal\u0022",
+    "title": "\"Dies to Removal\"",
     "videoUrl": "https://www.youtube.com/watch?v=VStPAnMkZvU",
     "artifactPath": "content-kb/3-3-elk/VStPAnMkZvU.md",
     "publishedUtc": "2026-07-02T13:12:31+00:00",
@@ -25,7 +25,7 @@
     "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "aD2uz3YkfsU",
     "source": "3/3 Elk",
-    "title": "An EDH Gamer\u0027s Guide to Boardwipes",
+    "title": "An EDH Gamer's Guide to Boardwipes",
     "videoUrl": "https://www.youtube.com/watch?v=aD2uz3YkfsU",
     "artifactPath": "content-kb/3-3-elk/aD2uz3YkfsU.md",
     "publishedUtc": "2026-05-05T23:42:44+00:00",
@@ -96,57 +96,6 @@
   },
   {
     "naturalKeyType": "youtube_channel",
-    "naturalKeyValue": "ez1wpDWTyJo",
-    "source": "Based Deck Department",
-    "title": "Build Decks So Good, It Feels Like Cheating",
-    "videoUrl": "https://www.youtube.com/watch?v=ez1wpDWTyJo",
-    "artifactPath": "content-kb/based-deck-department/ez1wpDWTyJo.md",
-    "publishedUtc": "2025-08-26T14:01:09+00:00",
-    "indexedUtc": "2026-07-04T16:17:53.0416139+00:00",
-    "archetypeTags": [
-      "reanimator",
-      "aristocrats",
-      "voltron"
-    ],
-    "bracketTags": [
-      "Core",
-      "Upgraded"
-    ],
-    "cardCategoryTags": [
-      "recursion",
-      "ramp",
-      "protection",
-      "removal",
-      "draw"
-    ]
-  },
-  {
-    "naturalKeyType": "youtube_channel",
-    "naturalKeyValue": "9oqgqNyPZW0",
-    "source": "Based Deck Department",
-    "title": "Build Decks So Good, It Feels Like Cheating (Ep 3)",
-    "videoUrl": "https://www.youtube.com/watch?v=9oqgqNyPZW0",
-    "artifactPath": "content-kb/based-deck-department/9oqgqNyPZW0.md",
-    "publishedUtc": "2025-10-08T00:00:12+00:00",
-    "indexedUtc": "2026-07-04T16:17:53.0416139+00:00",
-    "archetypeTags": [
-      "control",
-      "tokens",
-      "voltron"
-    ],
-    "bracketTags": [
-      "Upgraded"
-    ],
-    "cardCategoryTags": [
-      "draw",
-      "protection",
-      "counter",
-      "removal",
-      "finishers"
-    ]
-  },
-  {
-    "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "K-Tt22L44o8",
     "source": "Based Deck Department",
     "title": "Build Decks So Good, It Feels Like Cheating (Episode 4)",
@@ -198,57 +147,9 @@
   },
   {
     "naturalKeyType": "youtube_channel",
-    "naturalKeyValue": "912gkTugQ8k",
-    "source": "Based Deck Department",
-    "title": "Build Decks So Good, It Feels Like Cheating. (Ep 2)",
-    "videoUrl": "https://www.youtube.com/watch?v=912gkTugQ8k",
-    "artifactPath": "content-kb/based-deck-department/912gkTugQ8k.md",
-    "publishedUtc": "2025-09-14T14:00:20+00:00",
-    "indexedUtc": "2026-07-04T16:17:53.0416139+00:00",
-    "archetypeTags": [
-      "reanimator",
-      "blink",
-      "value-engine"
-    ],
-    "bracketTags": [
-      "Core",
-      "Optimized"
-    ],
-    "cardCategoryTags": [
-      "recursion",
-      "removal",
-      "draw",
-      "win-cons",
-      "ramp"
-    ]
-  },
-  {
-    "naturalKeyType": "youtube_channel",
-    "naturalKeyValue": "hiQrzJ5q3fc",
-    "source": "Based Deck Department",
-    "title": "Build around resource battles in commander #magicthegathering #mtg",
-    "videoUrl": "https://www.youtube.com/watch?v=hiQrzJ5q3fc",
-    "artifactPath": "content-kb/based-deck-department/hiQrzJ5q3fc.md",
-    "publishedUtc": "2025-04-09T07:30:41+00:00",
-    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
-    "archetypeTags": [
-      "value-engine",
-      "control"
-    ],
-    "bracketTags": [
-      "Core"
-    ],
-    "cardCategoryTags": [
-      "draw",
-      "recursion",
-      "board-wipe"
-    ]
-  },
-  {
-    "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "fW6hdw5SA1U",
     "source": "Based Deck Department",
-    "title": "Deck Building Advice \u0026 QA",
+    "title": "Deck Building Advice & QA",
     "videoUrl": "https://www.youtube.com/watch?v=fW6hdw5SA1U",
     "artifactPath": "content-kb/based-deck-department/fW6hdw5SA1U.md",
     "publishedUtc": "2026-04-26T18:57:36+00:00",
@@ -300,7 +201,7 @@
     "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "A7Icr8F2SiE",
     "source": "Based Deck Department",
-    "title": "How I\u0027d Build Commander Decks If I Started Today",
+    "title": "How I'd Build Commander Decks If I Started Today",
     "videoUrl": "https://www.youtube.com/watch?v=A7Icr8F2SiE",
     "artifactPath": "content-kb/based-deck-department/A7Icr8F2SiE.md",
     "publishedUtc": "2026-05-09T13:15:02+00:00",
@@ -320,49 +221,6 @@
       "finishers",
       "ramp",
       "removal"
-    ]
-  },
-  {
-    "naturalKeyType": "youtube_channel",
-    "naturalKeyValue": "mV7AL_kUcuY",
-    "source": "Based Deck Department",
-    "title": "Lower your mana curve #magicthegathering #mtg",
-    "videoUrl": "https://www.youtube.com/watch?v=mV7AL_kUcuY",
-    "artifactPath": "content-kb/based-deck-department/mV7AL_kUcuY.md",
-    "publishedUtc": "2025-04-08T09:55:58+00:00",
-    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
-    "archetypeTags": [
-      "midrange",
-      "aggro"
-    ],
-    "bracketTags": [
-      "Core"
-    ],
-    "cardCategoryTags": [
-      "ramp",
-      "removal",
-      "counter"
-    ]
-  },
-  {
-    "naturalKeyType": "youtube_channel",
-    "naturalKeyValue": "aQT5ynTUCZ0",
-    "source": "Based Deck Department",
-    "title": "Magic Deckbuilding Masterclass Part 1 #magicthegathering #mtg",
-    "videoUrl": "https://www.youtube.com/watch?v=aQT5ynTUCZ0",
-    "artifactPath": "content-kb/based-deck-department/aQT5ynTUCZ0.md",
-    "publishedUtc": "2025-04-04T23:45:36+00:00",
-    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
-    "archetypeTags": [
-      "combo",
-      "value-engine"
-    ],
-    "bracketTags": [
-      "Core"
-    ],
-    "cardCategoryTags": [
-      "win-cons",
-      "protection"
     ]
   },
   {
@@ -413,99 +271,9 @@
   },
   {
     "naturalKeyType": "youtube_channel",
-    "naturalKeyValue": "6nVC7zHZMMA",
-    "source": "Based Deck Department",
-    "title": "Part two of how to cut cards from your magic decks. #mtg  #mtgcommander  #magicthegathering",
-    "videoUrl": "https://www.youtube.com/watch?v=6nVC7zHZMMA",
-    "artifactPath": "content-kb/based-deck-department/6nVC7zHZMMA.md",
-    "publishedUtc": "2025-12-01T00:40:36+00:00",
-    "indexedUtc": "2026-07-04T15:39:08.6394349+00:00",
-    "archetypeTags": [
-      "value-engine"
-    ],
-    "bracketTags": [
-      "Core"
-    ],
-    "cardCategoryTags": [
-      "utility"
-    ]
-  },
-  {
-    "naturalKeyType": "youtube_channel",
-    "naturalKeyValue": "NyHEnuAJBFY",
-    "source": "Based Deck Department",
-    "title": "This One Thing Will Change How You Build Decks Forever",
-    "videoUrl": "https://www.youtube.com/watch?v=NyHEnuAJBFY",
-    "artifactPath": "content-kb/based-deck-department/NyHEnuAJBFY.md",
-    "publishedUtc": "2025-06-21T15:00:40+00:00",
-    "indexedUtc": "2026-07-04T16:17:53.0416139+00:00",
-    "archetypeTags": [
-      "voltron",
-      "combo",
-      "ramp"
-    ],
-    "bracketTags": [
-      "Upgraded",
-      "Optimized"
-    ],
-    "cardCategoryTags": [
-      "ramp",
-      "draw",
-      "removal",
-      "protection",
-      "finishers"
-    ]
-  },
-  {
-    "naturalKeyType": "youtube_channel",
-    "naturalKeyValue": "XHGrFYtIIRk",
-    "source": "Based Deck Department",
-    "title": "Want to build commander decks that win? Then eat your vegetables. #magicthegathering #mtgone",
-    "videoUrl": "https://www.youtube.com/watch?v=XHGrFYtIIRk",
-    "artifactPath": "content-kb/based-deck-department/XHGrFYtIIRk.md",
-    "publishedUtc": "2025-04-10T13:30:46+00:00",
-    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
-    "archetypeTags": [
-      "value-engine",
-      "midrange"
-    ],
-    "bracketTags": [
-      "Core",
-      "Upgraded"
-    ],
-    "cardCategoryTags": [
-      "ramp",
-      "removal",
-      "draw",
-      "board-wipe"
-    ]
-  },
-  {
-    "naturalKeyType": "youtube_channel",
-    "naturalKeyValue": "MDBw-CdhDoA",
-    "source": "Based Deck Department",
-    "title": "Want to build decks that win? Then think more. #magicthegathering #mtg",
-    "videoUrl": "https://www.youtube.com/watch?v=MDBw-CdhDoA",
-    "artifactPath": "content-kb/based-deck-department/MDBw-CdhDoA.md",
-    "publishedUtc": "2025-04-09T23:45:02+00:00",
-    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
-    "archetypeTags": [
-      "voltron",
-      "midrange"
-    ],
-    "bracketTags": [
-      "Core"
-    ],
-    "cardCategoryTags": [
-      "ramp",
-      "board-wipe"
-    ]
-  },
-  {
-    "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "7lJJPXGfFNs",
     "source": "Based Deck Department",
-    "title": "You\u0027re Building Your Commander Decks Backwards",
+    "title": "You're Building Your Commander Decks Backwards",
     "videoUrl": "https://www.youtube.com/watch?v=7lJJPXGfFNs",
     "artifactPath": "content-kb/based-deck-department/7lJJPXGfFNs.md",
     "publishedUtc": "2026-04-24T15:00:12+00:00",
@@ -529,121 +297,9 @@
   },
   {
     "naturalKeyType": "youtube_channel",
-    "naturalKeyValue": "asUHlAfDzYI",
-    "source": "Based Deck Department",
-    "title": "You\u0027re Probably Building Bad Commander Decks. Part 1: Lands. #magicthegathering #mtg",
-    "videoUrl": "https://www.youtube.com/watch?v=asUHlAfDzYI",
-    "artifactPath": "content-kb/based-deck-department/asUHlAfDzYI.md",
-    "publishedUtc": "2025-04-22T01:17:06+00:00",
-    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
-    "archetypeTags": [
-      "lands",
-      "ramp"
-    ],
-    "bracketTags": [
-      "Core"
-    ],
-    "cardCategoryTags": [
-      "ramp",
-      "draw"
-    ]
-  },
-  {
-    "naturalKeyType": "youtube_channel",
-    "naturalKeyValue": "DF9wESE8ZpA",
-    "source": "Based Deck Department",
-    "title": "You\u0027re Probably Building Bad Commander Decks. Part 2: Mana Acceleration. #magicthegathering  #mtg",
-    "videoUrl": "https://www.youtube.com/watch?v=DF9wESE8ZpA",
-    "artifactPath": "content-kb/based-deck-department/DF9wESE8ZpA.md",
-    "publishedUtc": "2025-04-22T22:00:01+00:00",
-    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
-    "archetypeTags": [
-      "ramp"
-    ],
-    "bracketTags": [
-      "Core"
-    ],
-    "cardCategoryTags": [
-      "ramp",
-      "draw"
-    ]
-  },
-  {
-    "naturalKeyType": "youtube_channel",
-    "naturalKeyValue": "LOLdGv1N4EA",
-    "source": "Based Deck Department",
-    "title": "You\u0027re Probably Building Bad Commander Decks. Part 3: Drawing what you need #magicthegathering #mtg",
-    "videoUrl": "https://www.youtube.com/watch?v=LOLdGv1N4EA",
-    "artifactPath": "content-kb/based-deck-department/LOLdGv1N4EA.md",
-    "publishedUtc": "2025-04-23T05:37:43+00:00",
-    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
-    "archetypeTags": [
-      "voltron",
-      "tokens"
-    ],
-    "bracketTags": [
-      "Core"
-    ],
-    "cardCategoryTags": [
-      "removal",
-      "draw",
-      "protection",
-      "win-cons"
-    ]
-  },
-  {
-    "naturalKeyType": "youtube_channel",
-    "naturalKeyValue": "DUMPHAorESo",
-    "source": "Based Deck Department",
-    "title": "You\u0027re Probably Building Bad Commander Decks. Part 4: Fitting Everything In. #magicthegathering #mtg",
-    "videoUrl": "https://www.youtube.com/watch?v=DUMPHAorESo",
-    "artifactPath": "content-kb/based-deck-department/DUMPHAorESo.md",
-    "publishedUtc": "2025-04-23T22:57:14+00:00",
-    "indexedUtc": "2026-07-04T16:17:53.0416139+00:00",
-    "archetypeTags": [
-      "value-engine",
-      "reanimator",
-      "aristocrats"
-    ],
-    "bracketTags": [
-      "Core",
-      "Upgraded"
-    ],
-    "cardCategoryTags": [
-      "ramp",
-      "removal",
-      "draw",
-      "recursion"
-    ]
-  },
-  {
-    "naturalKeyType": "youtube_channel",
-    "naturalKeyValue": "xbpAJGmBT6I",
-    "source": "Based Deck Department",
-    "title": "You\u0027re Probably Building Bad Commander Decks. Part 5: The Numbers. #magicthegathering #mtg",
-    "videoUrl": "https://www.youtube.com/watch?v=xbpAJGmBT6I",
-    "artifactPath": "content-kb/based-deck-department/xbpAJGmBT6I.md",
-    "publishedUtc": "2025-04-24T23:18:07+00:00",
-    "indexedUtc": "2026-07-04T16:17:53.0416139+00:00",
-    "archetypeTags": [
-      "value-engine",
-      "midrange"
-    ],
-    "bracketTags": [
-      "Core"
-    ],
-    "cardCategoryTags": [
-      "ramp",
-      "removal",
-      "win-cons",
-      "finishers"
-    ]
-  },
-  {
-    "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "upqHyQqN3WU",
     "source": "Based Deck Department",
-    "title": "You\u0027re Probably Ramping Wrong",
+    "title": "You're Probably Ramping Wrong",
     "videoUrl": "https://www.youtube.com/watch?v=upqHyQqN3WU",
     "artifactPath": "content-kb/based-deck-department/upqHyQqN3WU.md",
     "publishedUtc": "2026-06-19T12:00:25+00:00",
@@ -661,30 +317,6 @@
       "ramp",
       "draw",
       "finishers"
-    ]
-  },
-  {
-    "naturalKeyType": "youtube_channel",
-    "naturalKeyValue": "ZMGx5m4FdaA",
-    "source": "Based Deck Department",
-    "title": "Your Commander Deck Needs Less Removal",
-    "videoUrl": "https://www.youtube.com/watch?v=ZMGx5m4FdaA",
-    "artifactPath": "content-kb/based-deck-department/ZMGx5m4FdaA.md",
-    "publishedUtc": "2025-09-03T14:00:54+00:00",
-    "indexedUtc": "2026-07-04T16:17:53.0416139+00:00",
-    "archetypeTags": [
-      "midrange",
-      "aggro",
-      "control"
-    ],
-    "bracketTags": [
-      "Upgraded"
-    ],
-    "cardCategoryTags": [
-      "board-wipe",
-      "removal",
-      "tutor",
-      "win-cons"
     ]
   },
   {
@@ -710,52 +342,6 @@
       "draw",
       "recursion",
       "win-cons"
-    ]
-  },
-  {
-    "naturalKeyType": "youtube_channel",
-    "naturalKeyValue": "XdQCP-zJsic",
-    "source": "Based Deck Department",
-    "title": "Your commander decks need more resilience #magicthegathering #mtg",
-    "videoUrl": "https://www.youtube.com/watch?v=XdQCP-zJsic",
-    "artifactPath": "content-kb/based-deck-department/XdQCP-zJsic.md",
-    "publishedUtc": "2025-04-08T23:04:28+00:00",
-    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
-    "archetypeTags": [
-      "voltron"
-    ],
-    "bracketTags": [
-      "Core"
-    ],
-    "cardCategoryTags": [
-      "protection",
-      "counter",
-      "recursion",
-      "finishers"
-    ]
-  },
-  {
-    "naturalKeyType": "youtube_channel",
-    "naturalKeyValue": "mwTCvRTunKQ",
-    "source": "Based Deck Department",
-    "title": "You\u2019ll Never Build Commander Decks the Same Way Again",
-    "videoUrl": "https://www.youtube.com/watch?v=mwTCvRTunKQ",
-    "artifactPath": "content-kb/based-deck-department/mwTCvRTunKQ.md",
-    "publishedUtc": "2025-04-21T01:08:21+00:00",
-    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
-    "archetypeTags": [
-      "midrange",
-      "value-engine"
-    ],
-    "bracketTags": [
-      "Core"
-    ],
-    "cardCategoryTags": [
-      "ramp",
-      "removal",
-      "draw",
-      "win-cons",
-      "finishers"
     ]
   },
   {
@@ -787,7 +373,7 @@
     "naturalKeyValue": "pc2YiP2pkNM",
     "source": "Commander Baumi",
     "title": "How To Play 40 Lands Without Flooding",
-    "videoUrl": "https://www.youtube.com/watch?v=pc2YiP2pkNM\u0026list=UU98mf08y3Dv_4chuyX1VIkw",
+    "videoUrl": "https://www.youtube.com/watch?v=pc2YiP2pkNM&list=UU98mf08y3Dv_4chuyX1VIkw",
     "artifactPath": "content-kb/commander-baumi/pc2YiP2pkNM.md",
     "publishedUtc": "2026-06-04T18:00:26+00:00",
     "indexedUtc": "2026-06-11T23:00:55.467363+00:00",
@@ -809,7 +395,7 @@
     "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "jzeTz9clIC8",
     "source": "The Command Zone",
-    "title": "What\u0027s Up w/ Bracket 4? | The Command Zone 731 | MTG EDH Magic Gathering",
+    "title": "What's Up w/ Bracket 4? | The Command Zone 731 | MTG EDH Magic Gathering",
     "videoUrl": "https://www.youtube.com/watch?v=jzeTz9clIC8",
     "artifactPath": "content-kb/the-command-zone/jzeTz9clIC8.md",
     "publishedUtc": "2026-03-17T18:00:52+00:00",
