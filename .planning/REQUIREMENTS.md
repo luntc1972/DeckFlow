@@ -42,7 +42,7 @@
 
 ### Round-Trip Proof
 
-- [ ] **SYNC-16**: End-to-end integration test spanning distill → Publish/DirectPush → prod store → web body resolution → deploy/reseed → PullFromProd → reconcile, on containerized Postgres + a real git tree; asserts served body == published body, `body_sha256` matches end-to-end, and no-revert-after-reseed (M8)
+- [x] **SYNC-16**: End-to-end integration test spanning distill → Publish/DirectPush → prod store → web body resolution → deploy/reseed → PullFromProd → reconcile, on containerized Postgres + a real git tree; asserts served body == published body, `body_sha256` matches end-to-end, and no-revert-after-reseed (M8)
 
 ## Future Requirements
 
@@ -89,7 +89,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SYNC-13 | 92 | Complete |
 | SYNC-14 | 92 | Complete |
 | SYNC-15 | 92 | Complete |
-| SYNC-16 | 93 | Pending |
+| SYNC-16 | 93 | Complete |
 
 **Coverage:**
 - Cycle 16 requirements: 17 total

@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: Cycle 16
 milestone_name: â Content-KB ProdâGitâStudio Sync Hardening
-status: executing
-stopped_at: Completed 93-03-PLAN.md
-last_updated: "2026-07-11T05:22:22.849Z"
+status: verifying
+stopped_at: Completed 93-02-PLAN.md
+last_updated: "2026-07-11T05:47:44.367Z"
 last_activity: 2026-07-11
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 30
-  completed_plans: 27
-  percent: 67
+  completed_plans: 28
+  percent: 83
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 
 Phase: 93 (round-trip-integration-test) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-11
 
-Progress: [█████████░] 90%
+Progress: [█████████░] 93%
 
 ## Roadmap Summary
 
@@ -84,6 +84,7 @@ Progress: [█████████░] 90%
 | Phase 91 P08 | ~35min | 3 tasks | 10 files |
 | Phase 93 P01 | ~25min | 3 tasks | 4 files |
 | Phase 93 P03 | ~10min | 1 tasks | 1 files |
+| Phase 93 P02 | ~55min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -144,6 +145,9 @@ Full decision log lives in PROJECT.md Key Decisions table. Decisions constrainin
 - [Phase 93]: 93-01: AppTreeDeployedBodyConfirmer mirrors ArtifactPathSafety inline rather than adding InternalsVisibleTo to DeckFlow.Studio - preserves zero-production-code-change this phase
 - [Phase 93]: 93-01: Smoke test wires the real ContentKbOrchestrator via the existing public ContentKbOrchestratorFactory.Create rather than 14 raw ctor args - matches the CLI's own construction path
 - [Phase 93]: 93-03: checklist created as its own standalone file (93-PREFLIP-CHECKLIST.md) rather than appended to 90-FOLLOWUPS.md or 93-CONTEXT.md, per D-08 planner's-call
+- [Phase 93]: 93-02: ContentKbOrchestratorFactory.Create's artifactRoot must already carry the content-kb/ segment (Path.Combine(dataRoot, "content-kb")) to match ContentArtifactWriter's on-disk layout - mirrors Studio's own Program.cs convention
+- [Phase 93]: 93-02: explicit IGitRepository.PushAsync inserted after PublishCoordinator.CommitAsync (simulating operator manual push, since Publish itself never pushes per D-01) - otherwise DirectPush's foreign-commit guard refuses
+- [Phase 93]: 93-02: forced the Pull-classify diff via an IndexedUtc bump (not approval_status), since approval_status is excluded from both the timestamp compare and the content signature
 
 ### Pending Todos
 
@@ -172,6 +176,6 @@ Carried forward from Cycle 15 close (2026-07-05) — none are Cycle-16 gaps:
 
 ## Session Continuity
 
-Last session: 2026-07-11T05:22:22.823Z
-Stopped at: Completed 93-03-PLAN.md
+Last session: 2026-07-11T05:47:44.339Z
+Stopped at: Completed 93-02-PLAN.md
 Resume file: None
