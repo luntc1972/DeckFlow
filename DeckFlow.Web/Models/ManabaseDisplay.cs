@@ -157,7 +157,7 @@ public static class ManabaseDisplay
     {
         ArgumentNullException.ThrowIfNull(finding);
         bool met = finding.ActualSources >= finding.RequiredSources - 1.0;
-        int deficit = met ? 0 : Math.Max(1, (int)Math.Ceiling(finding.RequiredSources - finding.ActualSources));
+        int deficit = met ? 0 : ManabaseWording.ApproximateCount(finding.RequiredSources - finding.ActualSources);
         return (met, deficit);
     }
 

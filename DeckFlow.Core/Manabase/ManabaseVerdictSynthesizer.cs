@@ -58,10 +58,10 @@ public static class ManabaseVerdictSynthesizer
 
         if (report.LandDelta < -1 && !report.LandShortfallCoveredByRamp)
         {
-            int landShortfall = ApproximateCount(-report.LandDelta);
+            int landShortfall = ManabaseWording.ApproximateCount(-report.LandDelta);
             issues.Add(string.Create(
                 CultureInfo.InvariantCulture,
-                $"Add ~{landShortfall} more {Pluralize("land", landShortfall)} - the base is short for this curve."));
+                $"Add ~{landShortfall} more {ManabaseWording.Pluralize("land", landShortfall)} - the base is short for this curve."));
         }
 
         if (budget is not null && budget.IsRampLight)
@@ -107,10 +107,10 @@ public static class ManabaseVerdictSynthesizer
         // Source-short: a whole-source-plus paper deficit — quantify the shortfall.
         if (finding.Deficit > 1.0)
         {
-            int shortfall = ApproximateCount(finding.Deficit);
+            int shortfall = ManabaseWording.ApproximateCount(finding.Deficit);
             return string.Create(
                 CultureInfo.InvariantCulture,
-                $"You're ~{shortfall} {finding.Color} {Pluralize("source", shortfall)} short - heuristic guidance: add ~{shortfall} {finding.Color}-producing lands/rocks; consider cutting a colorless utility land.");
+                $"You're ~{shortfall} {finding.Color} {ManabaseWording.Pluralize("source", shortfall)} short - heuristic guidance: add ~{shortfall} {finding.Color}-producing lands/rocks; consider cutting a colorless utility land.");
         }
 
         // Color-starved / sim-weakest: the paper count is close but the sim shows spells missing
@@ -119,7 +119,7 @@ public static class ManabaseVerdictSynthesizer
         int slowSpells = Math.Max(1, finding.ColorLimitedUnderSupportedCount);
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"{finding.Color} access is inconsistent - {slowSpells} {finding.Color} {Pluralize("spell", slowSpells)} miss their on-curve window on color; heuristic guidance: add 1-2 {finding.Color}-producing lands (swap in a dual or cut a colorless utility land).");
+            $"{finding.Color} access is inconsistent - {slowSpells} {finding.Color} {ManabaseWording.Pluralize("spell", slowSpells)} miss their on-curve window on color; heuristic guidance: add 1-2 {finding.Color}-producing lands (swap in a dual or cut a colorless utility land).");
     }
 
     private static string BuildBudgetIssue(
@@ -135,13 +135,8 @@ public static class ManabaseVerdictSynthesizer
     {
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"{prefix}: you run ~{count:0.#} {countLabel} vs a ~{targetRamp}/{targetDraw} split for a ~MV{threshold:0.#} threshold ({BuildThresholdProxy(thresholdSource)}) - add ~{shortfall} {countLabel} {Pluralize("piece", shortfall)} (e.g. {example}). (community heuristic, not Karsten math)");
+            $"{prefix}: you run ~{count:0.#} {countLabel} vs a ~{targetRamp}/{targetDraw} split for a ~MV{threshold:0.#} threshold ({BuildThresholdProxy(thresholdSource)}) - add ~{shortfall} {countLabel} {ManabaseWording.Pluralize("piece", shortfall)} (e.g. {example}). (community heuristic, not Karsten math)");
     }
-
-    private static int ApproximateCount(double value) =>
-        Math.Max(1, (int)Math.Round(value, MidpointRounding.AwayFromZero));
-
-    private static string Pluralize(string singular, int count) => count == 1 ? singular : singular + "s";
 
     private static string BuildNoIssueReason(
         ManabaseReport report,

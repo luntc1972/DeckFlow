@@ -282,14 +282,14 @@ Per-color "issue" (`ComputeColorSignals`, `Mdl:855-889`), tolerance `max(1, ceil
 The opening-keep affects the verdict **only** through the sim cast % it produces (which feeds `AvgOnCurvePercent`/`WorstColorCastPercent`), not as a separate input. The recent "tighten keep band + gate color-starved on real deficit" work is the RampGate/hiCap tuning (§4.3) plus the `colorStarved`/`simWeakestProblem` gating (§6.1), so a structural cheap-spell miss on a well-supplied color no longer trips the verdict.
 
 ### 6.3 Biggest fix (`ManabaseReport.PrimaryFix`, `Mdl:1088-1146`)
-Strict priority: **ColorSources** (largest `Deficit > 1`) → **Lands** (only if `LandDelta < −1 && !LandShortfallCoveredByRamp`) → **DemandingCards** (if the weakest color has `UnderSupportedCount > 0`, `DemandingCount = that count`) → **None**. The underlying `PrimaryFix.Amount` still rounds up, but the page, `.txt`, swap prompt, and verdict wording now display a **rounded heuristic count** so a `1.05` shortfall reads `~1`, not `~2`.
+Strict priority: **ColorSources** (largest `Deficit > 1`) → **Lands** (only if `LandDelta < −1 && !LandShortfallCoveredByRamp`) → **DemandingCards** (if the weakest color has `UnderSupportedCount > 0`, `DemandingCount = that count`) → **None**. All user-facing manabase wording now shares one advisory-count helper (`ManabaseWording.ApproximateCount` / `Pluralize`): `PrimaryFix`, the summary string, the verdict, the `.txt` artifact, the swap prompt, and the left-lens deficit marker all use the same rounded display count, so a `1.05` shortfall reads `~1`, not `~2`, everywhere.
 
 ### 6.4 Plain-language verdict (`plain-language-verdict` flag; Casual only)
 `VS.Synthesize` builds up to **3** issue lines, then appends **`…plus N more`** when additional issues were collected instead of silently truncating them — `VS:19-100`:
 1. Per-color issues from `ColorIssueFindings` (the exact set the health band uses, so the verdict can't say "no changes needed" beside a Workable/Needs-work chip) — `VS:49-57`.
 2. Land line if `LandDelta < −1 && !LandShortfallCoveredByRamp` — `VS:59-64`.
 3. Ramp-light / draw-light budget lines, each tagged "(community heuristic, not Karsten math)" — `VS:66-92`.
-Per-color "add N sources" wording is now explicitly tagged as **heuristic guidance** on the page, in the `.txt` artifact, and in the swap prompt; the shortfall count is advisory wording only, not a new math path. No-issue path: on the balanced budget → "in balance"; on a surplus/heavy side → "leans off the community split" (deliberately not "close enough") — `VS:157-165`. Verdict + budget are computed **only in Casual**; cEDH uses the flag as a UI-gloss gate — `MAS:328-331`.
+Per-color "add N sources" wording is now explicitly tagged as **heuristic guidance** on the page, in the `.txt` artifact, and in the swap prompt; the shortfall count is advisory wording only, not a new math path. The same shared helper also removed the last user-visible `(s)` artifacts from the summary / biggest-fix / lens surfaces. No-issue path: on the balanced budget → "in balance"; on a surplus/heavy side → "leans off the community split" (deliberately not "close enough") — `VS:157-165`. Verdict + budget are computed **only in Casual**; cEDH uses the flag as a UI-gloss gate — `MAS:328-331`.
 
 ---
 

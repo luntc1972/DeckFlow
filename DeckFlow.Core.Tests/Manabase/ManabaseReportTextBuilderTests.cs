@@ -281,6 +281,35 @@ public sealed class ManabaseReportTextBuilderTests
     }
 
     [Fact]
+    public void Build_FullArtifactFractionalLandShortfall_HasNoPluralArtifacts_AndMatchesSummaryCount()
+    {
+        var report = new ManabaseReport
+        {
+            ActualLands = 36,
+            TargetLands = 37.05,
+            Summary = "Mode: Casual — Lands: 36 vs ~37.0 target (add ~1 land). Colors: every color adequately supported.",
+            ColorFindings =
+            [
+                new ColorSourceFinding
+                {
+                    Color = ManaColor.Blue,
+                    ActualSources = 20.0,
+                    RequiredSources = 25,
+                    DrivingSpell = "Counterspell",
+                    UnderSupportedCount = 3,
+                },
+            ],
+        };
+
+        string output = ManabaseReportTextBuilder.Build(report, null, null, ManabaseMode.Casual);
+
+        Assert.DoesNotContain("(s)", output, StringComparison.Ordinal);
+        Assert.Contains("Lands: 36 vs ~37.0 recommended (add ~1 land).", output);
+        Assert.Contains("Summary:", output);
+        Assert.Contains("Mode: Casual — Lands: 36 vs ~37.0 target (add ~1 land).", output);
+    }
+
+    [Fact]
     public void Build_PrimaryFixNone_EmitsEveryColorAdequate()
     {
         string output = ManabaseReportTextBuilder.Build(

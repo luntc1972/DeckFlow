@@ -425,6 +425,40 @@ public sealed class ManabaseAnalyzerTests
     }
 
     [Fact]
+    public void BuildSummary_FractionalLandShortfall_UsesRoundedCount_AndNoPluralArtifact()
+    {
+        var findings = new List<ColorSourceFinding>
+        {
+            new()
+            {
+                Color = ManaColor.Blue,
+                ActualSources = 20.0,
+                RequiredSources = 18,
+                DrivingSpell = "Counterspell",
+            },
+        };
+        var castability = new List<CardCastability>
+        {
+            new()
+            {
+                Name = "Counterspell",
+                ManaValue = 2,
+                OnCurveTurn = 2,
+                CastPercent = 88,
+                LimitingFactor = "color:U",
+            },
+        };
+        var colorSpellCounts = new Dictionary<ManaColor, int> { [ManaColor.Blue] = 4 };
+
+        string summary = (string)typeof(ManabaseAnalyzer)
+            .GetMethod("BuildSummary", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!
+            .Invoke(null, [36, 37.05, findings, castability, colorSpellCounts, ManabaseMode.Casual, CommanderImportance.Standard])!;
+
+        Assert.Contains("Lands: 36 vs ~37.0 target (add ~1 land).", summary);
+        Assert.DoesNotContain("(s)", summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Analyze_ColorUnderSupportedByComposite_ButNoRawDeficit_StillWeakest_AndUnhealthy()
     {
         // HIGH-1 guard: a color with ENOUGH raw sources (deficit <= 0) but whose only spell is a
