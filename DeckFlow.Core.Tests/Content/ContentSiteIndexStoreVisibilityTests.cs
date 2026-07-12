@@ -36,7 +36,8 @@ public sealed class ContentSiteIndexStoreVisibilityTests : IDisposable
     [Fact]
     public async Task UpsertRowPreservingVisibilityAsync_NewRowsAreHiddenAndAllRowsIncludesThem()
     {
-        await _store.UpsertRowPreservingVisibilityAsync(CreateYoutubeRow("yt-hidden") with { IsVisible = true, IsHidden = true });
+        var hiddenRow = CreateYoutubeRow("yt-hidden", approvalStatus: "approved") with { IsVisible = true, IsHidden = true };
+        await _store.UpsertRowPreservingVisibilityAsync(hiddenRow);
 
         var allRows = await _store.GetAllRowsAsync();
         var publishedRows = await _store.GetPublishedRowsAsync();
@@ -44,6 +45,7 @@ public sealed class ContentSiteIndexStoreVisibilityTests : IDisposable
         var row = Assert.Single(allRows);
         Assert.False(row.IsVisible);
         Assert.False(row.IsHidden);
+        Assert.Equal("approved", row.ApprovalStatus);
         Assert.Empty(publishedRows);
     }
 
@@ -52,7 +54,8 @@ public sealed class ContentSiteIndexStoreVisibilityTests : IDisposable
     {
         await _store.UpsertRowPreservingVisibilityAsync(CreateYoutubeRow(
             "yt-preserve",
-            title: "Original title"));
+            title: "Original title",
+            approvalStatus: "approved"));
         var inserted = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-preserve");
         Assert.NotNull(inserted);
         Assert.Equal(1, await _store.SetVisibilityAsync(inserted!.Id, visible: true));
@@ -61,16 +64,43 @@ public sealed class ContentSiteIndexStoreVisibilityTests : IDisposable
             "yt-preserve",
             title: "Updated title",
             artifactPath: "content-kb/command-zone/yt-preserve-v2.md",
-            archetypeTags: new[] { "stax" }));
+            archetypeTags: new[] { "stax" },
+            approvalStatus: "approved"));
 
         var row = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-preserve");
 
         Assert.NotNull(row);
         Assert.True(row!.IsVisible);
         Assert.False(row.IsHidden);
+        Assert.Equal("approved", row.ApprovalStatus);
         Assert.Equal("Updated title", row.Title);
         Assert.Equal("content-kb/command-zone/yt-preserve-v2.md", row.ArtifactPath);
         Assert.Equal(new[] { "stax" }, row.ArchetypeTags);
+    }
+
+    [Fact]
+    public async Task UpsertRowPreservingVisibilityAsync_OverwritesApprovalStatus_ButPreservesVisibility()
+    {
+        await _store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow(
+            "yt-heal-pending",
+            title: "Pending original",
+            approvalStatus: "pending"));
+        var inserted = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-heal-pending");
+        Assert.NotNull(inserted);
+        Assert.Equal(1, await _store.SetVisibilityAsync(inserted!.Id, visible: true));
+
+        await _store.UpsertRowPreservingVisibilityAsync(CreateYoutubeRow(
+            "yt-heal-pending",
+            title: "Approved update",
+            approvalStatus: "approved"));
+
+        var healed = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-heal-pending");
+
+        Assert.NotNull(healed);
+        Assert.True(healed!.IsVisible);
+        Assert.False(healed.IsHidden);
+        Assert.Equal("approved", healed.ApprovalStatus);
+        Assert.Equal("Approved update", healed.Title);
     }
 
     [Fact]
@@ -311,7 +341,8 @@ public sealed class ContentSiteIndexStoreVisibilityTests : IDisposable
         string? title = null,
         string? artifactPath = null,
         string? source = null,
-        IReadOnlyList<string>? archetypeTags = null)
+        IReadOnlyList<string>? archetypeTags = null,
+        string approvalStatus = "pending")
         => new()
         {
             Id = 0,
@@ -325,6 +356,7 @@ public sealed class ContentSiteIndexStoreVisibilityTests : IDisposable
             BracketTags = new[] { "cEDH", "Optimized" },
             CardCategoryTags = new[] { "win-cons", "counter" },
             YoutubeVideoId = youtubeVideoId,
-            RssGuid = null
+            RssGuid = null,
+            ApprovalStatus = approvalStatus
         };
 }
