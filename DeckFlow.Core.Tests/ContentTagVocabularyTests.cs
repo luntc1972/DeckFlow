@@ -66,4 +66,16 @@ public sealed class ContentTagVocabularyTests
             ContentTagVocabulary.CardCategories,
             value => Assert.True(ContentTagVocabulary.IsValid(ContentTagDimension.CardCategory, value)));
     }
+
+    /// <summary>
+    /// Verifies the curated staple set is case-insensitive and excludes non-staples.
+    /// </summary>
+    [Fact]
+    public void Staples_ContainsSeedStaples_AndExcludesNonStaples()
+    {
+        Assert.Contains("sol ring", ContentTagVocabulary.Staples);
+        Assert.Contains("COMMAND TOWER", ContentTagVocabulary.Staples);
+        Assert.Contains("forest", ContentTagVocabulary.Staples);
+        Assert.DoesNotContain("Thassa's Oracle", ContentTagVocabulary.Staples);
+    }
 }

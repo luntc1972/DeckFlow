@@ -54,6 +54,23 @@ public static class ContentTagVocabulary
         "utility"
     };
 
+    /// <summary>D-05 curated "always-strip" staple card set, distinct from the later per-creator >60% staple cut.</summary>
+    public static readonly IReadOnlySet<string> Staples = new HashSet<string>(
+        StringComparer.OrdinalIgnoreCase)
+    {
+        "Plains",
+        "Island",
+        "Swamp",
+        "Mountain",
+        "Forest",
+        "Command Tower",
+        "Sol Ring",
+        "Arcane Signet",
+        "Exotic Orchard",
+        "Rogue's Passage",
+        "Negate"
+    };
+
     /// <summary>
     /// Returns whether a tag value is allowed for the supplied tag dimension.
     /// </summary>
