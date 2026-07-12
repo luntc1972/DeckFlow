@@ -11,6 +11,8 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
+    // Force headless so a local WSL run never surfaces a browser window on the Windows host via WSLg.
+    headless: true,
     baseURL: 'http://localhost:5173',
     httpCredentials: {
       username: process.env.FEEDBACK_ADMIN_USER ?? 'admin',
