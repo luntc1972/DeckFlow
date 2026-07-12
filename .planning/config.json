@@ -9,10 +9,10 @@
     "plan_check": true,
     "verifier": true,
     "nyquist_validation": true,
-    "auto_advance": true,
+    "auto_advance": false,
     "_auto_chain_active": false,
     "cross_ai_execution": true,
-    "cross_ai_command": "codex exec --model gpt-5.5 --sandbox danger-full-access --color never --skip-git-repo-check -",
+    "cross_ai_command": "codex exec --model gpt-5.4 --sandbox danger-full-access --color never --skip-git-repo-check -",
     "cross_ai_timeout": 1800,
     "plan_review_convergence": true,
     "use_worktrees": false
