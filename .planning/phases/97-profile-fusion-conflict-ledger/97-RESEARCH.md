@@ -584,6 +584,18 @@ implementation to supersede.
 
 ## Open Questions
 
+> **(RESOLVED during Phase 97 planning — 2026-07-12)** All three open questions are answered by the
+> planned 7-plan set:
+> - **#1 (fusion trigger)** → RESOLVED: new CLI command `fuse-profile --slug <creator>` in **97-06**
+>   (mirrors `distill`); the Studio ledger page (**97-07**) stays strictly read-only per D-11.
+> - **#2 (out-of-vocabulary `category_ratio:*` keys)** → RESOLVED (safe-superset): fusion is
+>   stated-rule-driven, so any measured key outside the 11 closed `ContentTagVocabulary.CardCategories`
+>   names simply never joins and is harmless. **97-02** locks this with a category-set audit test
+>   (mapper category set == the 11 names) + a `// Why:` doc note; no fuzzy/broader mapping added.
+> - **#3 (D-03 harvest feasibility)** → RESOLVED: yt-dlp/ffmpeg/whisper absent from PATH, so **97-04**
+>   scopes D-03 as a NON-BLOCKING documented operator checkpoint (fusion numbers grounded on the D-02
+>   prototype table); the executor never silently attempts a live distill.
+
 1. **Where does fusion actually run?**
    - What we know: `ProfileFusion`/equivalent must be pure Core (CS-20). `CreatorStyleProfileStore.UpsertAsync`
      already persists `FusedTargets`. `MeasuredStyleProfileBuilder` (Web) already builds+persists the
