@@ -4,6 +4,7 @@ using System.Text.Json;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
+using DeckFlow.Core.Knowledge.StatedRulesExtraction;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -29,6 +30,7 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
     private readonly Func<DateTimeOffset> _utcNow;
     private readonly string _artifactRoot;
     private readonly ILogger<ContentKbOrchestrator> _logger;
+    private readonly ICardNameGrounder? _cardGrounder;
 
     /// <summary>
     /// Initializes a new Content KB orchestrator from the host-provided stores, services, and artifact-root options.
@@ -47,6 +49,7 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
     /// <param name="utcNow">UTC clock function.</param>
     /// <param name="options">Resolved orchestrator options.</param>
     /// <param name="logger">Optional structured logger.</param>
+    /// <param name="cardGrounder">Optional card-name grounder for stated-rules extraction.</param>
     public ContentKbOrchestrator(
         IContentSourceStore sourceStore,
         IContentVideoStore videoStore,
@@ -61,7 +64,8 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
         IFfmpegAudioChunker chunker,
         Func<DateTimeOffset> utcNow,
         ContentKbOrchestratorOptions options,
-        ILogger<ContentKbOrchestrator>? logger = null)
+        ILogger<ContentKbOrchestrator>? logger = null,
+        ICardNameGrounder? cardGrounder = null)
     {
         ArgumentNullException.ThrowIfNull(sourceStore);
         ArgumentNullException.ThrowIfNull(videoStore);
@@ -92,6 +96,7 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
         _artifactRoot = options.ArtifactRoot;
         ArgumentException.ThrowIfNullOrWhiteSpace(_artifactRoot);
         _logger = logger ?? NullLogger<ContentKbOrchestrator>.Instance;
+        _cardGrounder = cardGrounder;
     }
 
     /// <inheritdoc />
@@ -1292,6 +1297,24 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
             var archetypeTags = FilterTags(ContentTagDimension.Archetype, tags.Archetype);
             var bracketTags = FilterTags(ContentTagDimension.Bracket, tags.Bracket);
             var cardCategoryTags = FilterTags(ContentTagDimension.CardCategory, tags.CardCategory);
+            var contentType = ContentTypeHeuristic.Classify(archetypeTags, cardCategoryTags, clips.Clips);
+            IReadOnlyList<StatedRuleCandidate> statedRules;
+            if (video.PublishedUtc is not DateTimeOffset pub)
+            {
+                // Why: fail-closed provenance (D-04) — no publish date means no trustworthy stated-rule date stamp.
+                statedRules = Array.Empty<StatedRuleCandidate>();
+            }
+            else
+            {
+                try
+                {
+                    statedRules = await new StatedRulesExtractor(_distiller, _cardGrounder).ExtractAsync(transcript.Body, pub, cancellationToken).ConfigureAwait(false);
+                }
+                catch (NotSupportedException)
+                {
+                    statedRules = Array.Empty<StatedRuleCandidate>();
+                }
+            }
 
             await _videoStore.InsertSummaryAsync(video.Id, summary.Summary, cancellationToken).ConfigureAwait(false);
             var sortOrder = 0;
@@ -1321,6 +1344,12 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
                 await _videoStore.InsertTagAsync(video.Id, ContentTagDimension.CardCategory, tag, cancellationToken).ConfigureAwait(false);
             }
 
+            var statedRuleSortOrder = 0;
+            foreach (var rule in statedRules)
+            {
+                await _videoStore.InsertStatedRuleAsync(video.Id, rule, statedRuleSortOrder++, cancellationToken).ConfigureAwait(false);
+            }
+
             var metadata = new ContentArtifactMetadata
             {
                 Source = source.DisplayName,
@@ -1332,6 +1361,8 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
                 BracketTags = bracketTags,
                 CardCategoryTags = cardCategoryTags,
                 GeneratedUtc = generatedUtc,
+                ContentType = contentType,
+                StatedRules = statedRules,
             };
             var artifactText = ContentArtifactWriter.ToText(
                 metadata,
