@@ -98,9 +98,9 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
   4. Category tagging reuses `CardCategoryRepository` + Scryfall Tagger oracle tags and counts multi-category cards in every bucket they qualify for (not just their first match).
   5. Crawling reuses the existing Polly resilience pipelines and a cached deck set (mirroring `ArchidektDeckCacheSession`) so re-running against the same creator does not re-hit Archidekt.
 **Plans**: 7 plans
-- [ ] 95-01-PLAN.md — Nested EffectiveSampleSize field (D-10) + dialect-guarded creator_profile_source store (CS-04a, CS-10)
-- [ ] 95-02-PLAN.md — Creator-scoped deck cache store, content-hash freshness, no corpus pollution (CS-04b)
-- [ ] 95-03-PLAN.md — ContentTagVocabulary.Staples set + server-side global lift-baseline aggregate (CS-05, CS-07)
+- [x] 95-01-PLAN.md — Nested EffectiveSampleSize field (D-10) + dialect-guarded creator_profile_source store (CS-04a, CS-10)
+- [x] 95-02-PLAN.md — Creator-scoped deck cache store, content-hash freshness, no corpus pollution (CS-04b)
+- [x] 95-03-PLAN.md — ContentTagVocabulary.Staples set + server-side global lift-baseline aggregate (CS-05, CS-07)
 - [ ] 95-04-PLAN.md — Pure extraction contract + StapleStripper + FolderWeighting (CS-05, CS-04c, CS-04d)
 - [ ] 95-05-PLAN.md — Pure CategoryCounter (multi-bucket) + LiftCalculator (CS-06, CS-07)
 - [ ] 95-06-PLAN.md — CreatorProfileDeckCrawler: ownerUsername crawl, SSRF guard, cache read-through (CS-04a/b/c/d)
@@ -172,7 +172,7 @@ Phase 94 -> {Phase 95, Phase 96 in parallel} -> {Phase 97 (needs 95+96), Phase 9
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|-----------------|--------|-----------|
 | 94. Style-Profile Foundation | Cycle 17 | 0/0 | Not started | - |
-| 95. Measured-Style Extractor | Cycle 17 | 0/7 | Planned | - |
+| 95. Measured-Style Extractor | Cycle 17 | 3/7 | In Progress|  |
 | 96. Stated-Rules Distiller | Cycle 17 | 0/0 | Not started | - |
 | 97. Profile Fusion + Conflict Ledger | Cycle 17 | 0/0 | Not started | - |
 | 98. Card-Grounding Guard | Cycle 17 | 0/0 | Not started | - |
