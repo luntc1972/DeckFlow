@@ -4,8 +4,8 @@ milestone: Cycle 17
 milestone_name: Creator-Style Deck Intelligence
 status: executing
 stopped_at: Phase 94 context gathered
-last_updated: "2026-07-12T01:43:11.243Z"
-last_activity: 2026-07-12 -- Phase 95 planning complete
+last_updated: "2026-07-12T03:47:27.743Z"
+last_activity: 2026-07-12 -- Phase 95 execution started
 progress:
   total_phases: 7
   completed_phases: 1
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-11)
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything. Cycle 17 adds a new such workflow: a $0 paste-ready packet that critiques a submitted deck in a chosen creator's deckbuilding style.
-**Current focus:** Phase 94 (Style-Profile Foundation) executed — CS-01 record set, CS-02 dialect-guarded store, CS-04 both-dialect round-trip tests all landed. Ready for Phase 95 (Measured-Style Extractor).
+**Current focus:** Phase 95 — measured-style-extractor
 
 ## Current Position
 
-Phase: 95 Measured-Style Extractor — context gathered, ready to plan
-Plan: — (next: /gsd-plan-phase 95)
-Status: Ready to execute
-Last activity: 2026-07-12 -- Phase 95 planning complete
+Phase: 95 (measured-style-extractor) — EXECUTING
+Plan: 1 of 7
+Status: Executing Phase 95
+Last activity: 2026-07-12 -- Phase 95 execution started
 
 ## Roadmap Summary
 
