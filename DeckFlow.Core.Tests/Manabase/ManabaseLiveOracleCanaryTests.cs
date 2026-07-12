@@ -57,6 +57,12 @@ public sealed class ManabaseLiveOracleCanaryTests
             "Activate only if this land entered this turn or if you control a basic land.");
         Assert.Matches(RegexField("VividChargeRegex"),
             "This land enters tapped with two charge counters on it.");
+        Assert.Matches(RegexField("SpendOnlyCreatureRegex"),
+            "Spend this mana only to cast a creature spell of the chosen type.");
+        Assert.Matches(RegexField("SpendOnlyCreatureRegex"),
+            "Spend this mana only to cast a creature spell.");
+        Assert.Matches(RegexField("NykthosDevotionRegex"),
+            "{2}, {T}: Choose a color. Add an amount of mana of that color equal to your devotion to that color.");
     }
 
     [Fact]
