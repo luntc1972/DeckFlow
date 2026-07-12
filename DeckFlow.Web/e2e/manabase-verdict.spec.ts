@@ -98,10 +98,25 @@ test('casual issue deck shows glosses, an issue verdict list, and ramp/draw budg
   test.skip(!process.env.DECKFLOW_LIVE_E2E, 'live-only: needs Scryfall + flag on');
 
   const result = await analyzeDeck(page, CASUAL_ISSUE_DECK, 'Casual');
+  const verdict = result.locator('.manabase-verdict');
+  const verdictItems = result.locator('.manabase-verdict-list li');
 
   await expect(result.locator('.manabase-lens-gloss').first()).toBeVisible();
-  await expect(result.locator('.manabase-verdict')).toBeVisible();
-  await expect(result.locator('.manabase-verdict-list li').first()).toBeVisible();
+  await expect(verdict).toBeVisible();
+  await expect(verdictItems.first()).toBeVisible();
+  await expect(verdict).not.toContainText('(s)');
+  await expect(result.locator('td[data-label="Short by (heuristic guidance)"]').first()).toBeVisible();
+
+  const verdictText = await verdict.textContent() ?? '';
+  if (verdictText.includes('…plus'))
+  {
+    await expect(verdict).toContainText('…plus');
+  }
+  else
+  {
+    expect(await verdictItems.count()).toBeLessThanOrEqual(3);
+  }
+
   await expect(result.locator('.manabase-rampdraw')).toBeVisible();
 });
 
