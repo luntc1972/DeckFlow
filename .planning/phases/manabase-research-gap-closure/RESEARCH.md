@@ -889,7 +889,7 @@ and wording fixes to already-shipped, still-current logic.
 
 **If this table is empty:** N/A — see above, five assumptions logged.
 
-## Open Questions
+## Open Questions (RESOLVED — see Addendum)
 
 1. **Does "Training Compound" exist as a real MTG card, and if not, what card
    was actually meant?**
@@ -1150,6 +1150,6 @@ Oracle (identical across cycle, colors vary):
 
 `ManabaseVerdictSynthesizer.cs:63` (CONTEXT-cited) AND the second site the researcher found (~VS:107) — same defect class, fixing one and not the other leaves the same overstatement in a different sentence. Planner: cite both file:line anchors in the plan task.
 
-### Q3: Verge sim data-model shape → planner discretion
+### Q3 RESOLVED: Verge sim data-model shape → planner discretion (granted by CONTEXT.md D-07)
 
 CONTEXT.md D-07 already grants modeling-depth discretion. Constraint: Verge is always-untapped + conditionally-colored (same family as the MSH cycle above) — model the color gate, not tapped-ness.
