@@ -317,6 +317,24 @@ const attachActionButtons = (): void => {
       setAllPrintingChoices(choice);
     });
   });
+
+  document.querySelectorAll<HTMLButtonElement>('[data-expand-target]').forEach(button => {
+    button.addEventListener('click', () => {
+      const targetId = button.dataset.expandTarget;
+      if (!targetId) {
+        return;
+      }
+
+      const target = document.getElementById(targetId);
+      if (!(target instanceof HTMLTextAreaElement)) {
+        return;
+      }
+
+      const expanded = target.classList.toggle('prompt-artifact-textarea--expanded');
+      button.textContent = expanded ? 'Collapse' : 'Expand';
+      button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    });
+  });
 };
 
 // Prompt session-zip download handler.

@@ -247,7 +247,7 @@ Do not omit any fields from the schema.
                 <small class="sync-column__hint">Required. The analysis prompt will include the official Commander bracket expectation and turn pacing for the bracket you select.</small>
             </label>
         </div>
-        <details class="result-panel nested-panel">
+        <details class="result-panel nested-panel" open>
             <summary>Analysis context</summary>
             <div class="prompt-context-note">
                 <p>These fields do not change the deck parser. They are extra instructions that get inserted into the analysis and set-upgrade prompts.</p>
@@ -438,7 +438,7 @@ Do not omit any fields from the schema.
         {
             <section class="result-panel nested-panel summary-panel">
                 <h3>Deck Summary</h3>
-                <pre spellcheck="false">@Model.InputSummary</pre>
+                <pre class="deck-summary-pre" spellcheck="false">@Model.InputSummary</pre>
             </section>
         }
 
@@ -458,9 +458,12 @@ Do not omit any fields from the schema.
                             <p class="prompt-size-note prompt-size-note--warn" role="status">⚠️ Large prompt — may exceed @aiPlatform.DisplayName's paste limit. ChatGPT and Claude handle this size fine; for @aiPlatform.DisplayName, trim questions or candidate references, or paste in parts.</p>
                         }
                     </div>
-                    <button type="button" class="copy-button" data-copy-target="analysis-output">Copy</button>
+                    <div class="panel-heading__actions">
+                        <button type="button" class="copy-button" data-copy-target="analysis-output">Copy</button>
+                        <button type="button" class="copy-button" data-expand-target="analysis-output" aria-expanded="false">Expand</button>
+                    </div>
                 </div>
-                <textarea autocomplete="off" id="analysis-output" readonly spellcheck="false" data-prompt-result-anchor>@Model.AnalysisPromptText</textarea>
+                <textarea class="prompt-artifact-textarea" autocomplete="off" id="analysis-output" readonly spellcheck="false" data-prompt-result-anchor>@Model.AnalysisPromptText</textarea>
                 @await Html.PartialAsync("_PromptSplitTip", "deck_profile")
                 <div data-kb-clear-pins-on-load hidden></div>
             </section>
@@ -474,9 +477,12 @@ Do not omit any fields from the schema.
                         <h3>reference.txt</h3>
                         <p>Support context for the analysis prompt. It contains the authoritative card and mechanic references already embedded into <code>analysis.txt</code>, so you usually do not need to paste it into @aiPlatform.DisplayName separately.</p>
                     </div>
-                    <button type="button" class="copy-button" data-copy-target="reference-output">Copy</button>
+                    <div class="panel-heading__actions">
+                        <button type="button" class="copy-button" data-copy-target="reference-output">Copy</button>
+                        <button type="button" class="copy-button" data-expand-target="reference-output" aria-expanded="false">Expand</button>
+                    </div>
                 </div>
-                <textarea autocomplete="off" id="reference-output" readonly spellcheck="false">@Model.ReferenceText</textarea>
+                <textarea class="prompt-artifact-textarea" autocomplete="off" id="reference-output" readonly spellcheck="false">@Model.ReferenceText</textarea>
             </section>
         }
 
@@ -922,9 +928,12 @@ Do not omit any fields from the schema.
                         <h3>set-upgrade-analysis.txt</h3>
                         <p>Paste this into @aiPlatform.DisplayName after you have a deck profile and a condensed set packet. It tells @aiPlatform.DisplayName to return both structured JSON and a condensed discussion summary text block that includes the per-set analysis.</p>
                     </div>
-                    <button type="button" class="copy-button" data-copy-target="set-upgrade-output">Copy</button>
+                    <div class="panel-heading__actions">
+                        <button type="button" class="copy-button" data-copy-target="set-upgrade-output">Copy</button>
+                        <button type="button" class="copy-button" data-expand-target="set-upgrade-output" aria-expanded="false">Expand</button>
+                    </div>
                 </div>
-                <textarea autocomplete="off" id="set-upgrade-output" readonly spellcheck="false" data-prompt-result-anchor>@Model.SetUpgradePromptText</textarea>
+                <textarea class="prompt-artifact-textarea" autocomplete="off" id="set-upgrade-output" readonly spellcheck="false" data-prompt-result-anchor>@Model.SetUpgradePromptText</textarea>
                 @await Html.PartialAsync("_PromptSplitTip", "set_upgrade_report")
             </section>
         }
