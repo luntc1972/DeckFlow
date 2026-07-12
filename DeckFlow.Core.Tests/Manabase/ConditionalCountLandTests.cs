@@ -90,4 +90,21 @@ public sealed class ManabaseConditionalCountLandTests
 
         Assert.True(untapped);
     }
+
+    [Fact]
+    public void EldThresholdLand_BelowThreeNamedBasicTypes_EntersTapped()
+    {
+        bool untapped = CastabilitySimulator.ConditionalCountLandEntersUntappedForTest(
+            CountConditionKind.EldThreshold,
+            3,
+            new[] { "Island" },
+            new List<IReadOnlyList<string>>
+            {
+                new[] { "Island" },
+                new[] { "Island" },
+                new[] { "Plains" },
+            });
+
+        Assert.False(untapped);
+    }
 }

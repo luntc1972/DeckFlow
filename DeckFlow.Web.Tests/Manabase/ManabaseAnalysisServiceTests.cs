@@ -473,7 +473,7 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
-    public async Task AnalyzeAsync_AccuracyFlagOff_NewConditionalLandCycles_LeavesReportByteIdentical()
+    public async Task AnalyzeAsync_AccuracyFlag_NewConditionalLandCycles_OnDiverges_OffMatchesBaseline()
     {
         static ScryfallCard LandOracle(string name, string typeLine, string oracle, params string[] produced) => new(
             Name: name, ManaCost: null, TypeLine: typeLine, OracleText: oracle,
@@ -535,9 +535,17 @@ public sealed class ManabaseAnalysisServiceTests
             {
                 [ManabaseAnalysisService.AccuracyFlagKey] = false,
             }));
+        var on = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.AccuracyFlagKey] = true,
+            }));
 
         ManabaseAnalysisResult baselineResult = await baseline.AnalyzeAsync("paste", "Conditional Cycles");
         ManabaseAnalysisResult offResult = await explicitOff.AnalyzeAsync("paste", "Conditional Cycles");
+        ManabaseAnalysisResult onResult = await on.AnalyzeAsync("paste", "Conditional Cycles");
 
         Assert.Equal(
             baselineResult.Report.Castability.Select(FormatCastabilityRow),
@@ -547,6 +555,10 @@ public sealed class ManabaseAnalysisServiceTests
         Assert.Equal(baselineResult.Report.TargetLands, offResult.Report.TargetLands);
         Assert.Equal(baselineResult.Report.ActualLands, offResult.Report.ActualLands);
         Assert.Equal(baselineResult.PromptSwapPrompt, offResult.PromptSwapPrompt);
+
+        int offCast = offResult.Report.Castability.Single(c => c.Name == "Counterspell").CastPercent;
+        int onCast = onResult.Report.Castability.Single(c => c.Name == "Counterspell").CastPercent;
+        Assert.NotEqual(offCast, onCast);
     }
 
     [Fact]

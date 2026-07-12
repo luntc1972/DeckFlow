@@ -258,9 +258,8 @@ public static class CastabilitySimulator
 
         // 70-03b: exclude one same-name land-ramp source when scoring this spell's own row (a card
         // cannot ramp itself out). No-op unless this spell is a modeled land-ramp source.
-        bool conditionalCountLandSim = useManaQuantity || colorAwareMulligan || gateRampOnCastable;
         IReadOnlyList<LibraryCard> library = BuildLibrary(
-            deck, librarySize, useManaQuantity, gateRampOnCastable, ritualBurst, conditionalCountLandSim, excludeSourceName: spell.Name);
+            deck, librarySize, useManaQuantity, gateRampOnCastable, ritualBurst, excludeSourceName: spell.Name);
 
         // MQ-05: distinct colors the deck actually demands across all spell pips (capped at 5). Only
         // computed when the flag is on; <=1 makes the color gate a no-op (mono decks stay identical).
@@ -474,9 +473,8 @@ public static class CastabilitySimulator
     {
         ArgumentNullException.ThrowIfNull(deck);
 
-        bool conditionalCountLandSim = useManaQuantity || colorAwareMulligan || gateRampOnCastable;
         IReadOnlyList<LibraryCard> library =
-            BuildLibrary(deck, librarySize, useManaQuantity, gateRampOnCastable, ritualBurst, conditionalCountLandSim, excludeSourceName: null);
+            BuildLibrary(deck, librarySize, useManaQuantity, gateRampOnCastable, ritualBurst, excludeSourceName: null);
 
         var planIndices = new List<int>();
         int maxPlanTurn = 1;
@@ -785,7 +783,6 @@ public static class CastabilitySimulator
         bool useManaQuantity,
         bool gateRampOnCastable,
         bool ritualBurst,
-        bool conditionalCountLandSim,
         string? excludeSourceName)
     {
         var cards = new List<LibraryCard>(librarySize);
@@ -820,7 +817,7 @@ public static class CastabilitySimulator
         //    enabler fully is out of scope. Their whole part becomes full copies and any leftover fraction
         //    becomes ONE partial card carrying that fraction as its activation probability, so a 0.25
         //    source produces mana in ~25% of games (E[copies] = weight).
-        AddSourcesAsCards(deck, cards, rampCostByName, rampPipsByName, useManaQuantity, conditionalCountLandSim, excludeSourceName);
+        AddSourcesAsCards(deck, cards, rampCostByName, rampPipsByName, useManaQuantity, excludeSourceName);
 
         // Plan-presence: place win-directed spells as IDENTIFIABLE (still mana-inert) filler so
         // SimulatePlanPresence can find them in a simulated hand and test their on-curve castability.
@@ -898,7 +895,6 @@ public static class CastabilitySimulator
         IReadOnlyDictionary<string, int> rampCostByName,
         IReadOnlyDictionary<string, (int Bit, int Count)[]>? rampPipsByName,
         bool useManaQuantity,
-        bool conditionalCountLandSim,
         string? excludeSourceName)
     {
         // 70-03b self-exclusion: when scoring a land-ramp spell's OWN row, the single physical copy is
@@ -937,7 +933,7 @@ public static class CastabilitySimulator
 
             if (source.IsLand)
             {
-                CardKind kind = source.CountCondition != CountConditionKind.None && conditionalCountLandSim
+                CardKind kind = source.CountCondition != CountConditionKind.None
                     ? CardKind.ConditionalCountLand
                     : source.EntersUntapped ? CardKind.UntappedLand : CardKind.TappedLand;
                 // Lands are never conditional; a discounted basic-fetch is still a full card you draw.
