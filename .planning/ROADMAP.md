@@ -136,7 +136,14 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
   3. Rules carry `applies_when` conditionality so a per-archetype or per-curve rule does not produce a false conflict against an unconditional aggregate (CS-16a, the highest-risk modeling decision this cycle).
   4. The fused profile is encoded as weighted numeric targets — never prose — and the conflict ledger is viewable read-only in Studio/admin.
   5. Fusion logic lives entirely in `DeckFlow.Core`, has zero Web/HTTP dependency, and is fully unit-tested (deterministic, falsifiable).
-**Plans**: TBD
+**Plans**: 7 plans
+- [ ] 97-01-PLAN.md — Additive FusedTarget/FusedConflict schema extension + P94 round-trip guard (CS-18, CS-16)
+- [ ] 97-02-PLAN.md — StatedMetricKeyMapper + observable/philosophy MetricClassification (CS-16a, CS-17)
+- [ ] 97-03-PLAN.md — Stated-rules read path GetStatedRulesBySourceSlugAsync (CS-16a)
+- [ ] 97-04-PLAN.md — StatedRuleRecencyCollapser + ConflictCalculator, prototype-grounded goldens (CS-16, CS-16a)
+- [ ] 97-05-PLAN.md — ProfileFusionEngine deterministic (metric,condition) join (CS-16a, CS-17, CS-20)
+- [ ] 97-06-PLAN.md — CLI fuse-profile trigger: read -> fuse -> persist (CS-16, CS-20)
+- [ ] 97-07-PLAN.md — Read-only Studio say-vs-do ledger page + DI + nav (CS-19, CS-18)
 
 ### Phase 98: Card-Grounding Guard
 **Goal**: Guarantee no hallucinated or illegal card ever ships in a creator-style artifact or critique — a single reusable, cached validation service. Cross-cutting substrate; independent of Fusion, needs only Scryfall, so it can execute in parallel with Phases 95-97.
@@ -182,7 +189,7 @@ Phase 94 -> {Phase 95, Phase 96 in parallel} -> {Phase 97 (needs 95+96), Phase 9
 | 94. Style-Profile Foundation | Cycle 17 | 0/0 | Not started | - |
 | 95. Measured-Style Extractor | Cycle 17 | 7/7 | Complete   | 2026-07-12 |
 | 96. Stated-Rules Distiller | Cycle 17 | 8/8 | Complete   | 2026-07-12 |
-| 97. Profile Fusion + Conflict Ledger | Cycle 17 | 0/0 | Not started | - |
+| 97. Profile Fusion + Conflict Ledger | Cycle 17 | 0/7 | Not started | - |
 | 98. Card-Grounding Guard | Cycle 17 | 0/0 | Not started | - |
 | 99. Creator-Style Artifact Engine | Cycle 17 | 0/0 | Not started | - |
 | 100. Creator-Style Tool Surface | Cycle 17 | 0/0 | Not started | - |
