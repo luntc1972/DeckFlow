@@ -65,6 +65,8 @@ public static class ContentArtifactWriter
         builder.Append("  bracket: ").AppendLine(ContentArtifactSpec.SerializeTags(metadata.BracketTags));
         builder.Append("  card_category: ").AppendLine(ContentArtifactSpec.SerializeTags(metadata.CardCategoryTags));
         builder.Append("generated_utc: ").AppendLine(Quote(FormatGeneratedUtc(metadata.GeneratedUtc)));
+        builder.Append("content_type: ").AppendLine(Quote(metadata.ContentType));
+        builder.Append("stated_rules: ").AppendLine(ContentArtifactSpec.SerializeStatedRules(metadata.StatedRules));
         builder.AppendLine("---");
         builder.AppendLine();
         builder.AppendLine("## Summary");

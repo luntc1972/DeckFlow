@@ -1,5 +1,6 @@
 using System.IO;
 using DeckFlow.Core.Knowledge;
+using DeckFlow.Core.Knowledge.StatedRulesExtraction;
 using Xunit;
 
 namespace DeckFlow.Core.Tests;
@@ -53,6 +54,104 @@ public sealed class ContentArtifactWriterTests : IDisposable
         Assert.StartsWith("- The guest", unknownTimestampClip, StringComparison.Ordinal);
         Assert.DoesNotContain("[00:00]", unknownTimestampClip, StringComparison.Ordinal);
         Assert.DoesNotContain('[', unknownTimestampClip);
+    }
+
+    [Fact]
+    public void ToText_EmitsContentTypeAndStatedRulesBetweenGeneratedUtcAndClosingFence()
+    {
+        var text = ContentArtifactWriter.ToText(
+            CreateMetadata() with
+            {
+                ContentType = "youtube",
+                StatedRules = [CreateRule()]
+            },
+            "summary",
+            []).ReplaceLineEndings("\n");
+
+        var generatedLine = "generated_utc: \"2026-05-27T12:34:56Z\"\n";
+        var contentTypeLine = "content_type: \"youtube\"\n";
+        var statedRulesLinePrefix = "stated_rules: [{\"category\":\"ramp\"";
+        var generatedIndex = text.IndexOf(generatedLine, StringComparison.Ordinal);
+        var contentTypeIndex = text.IndexOf(contentTypeLine, StringComparison.Ordinal);
+        var statedRulesIndex = text.IndexOf(statedRulesLinePrefix, StringComparison.Ordinal);
+        var closingFenceIndex = text.IndexOf("---\n\n## Summary", StringComparison.Ordinal);
+
+        Assert.True(generatedIndex >= 0);
+        Assert.True(contentTypeIndex > generatedIndex);
+        Assert.True(statedRulesIndex > contentTypeIndex);
+        Assert.True(closingFenceIndex > statedRulesIndex);
+    }
+
+    [Fact]
+    public void ToText_PreservesPreexistingFrontmatterAndBodyBytes()
+    {
+        const string summary = "This is a concise standalone summary under the upstream 200-word limit.";
+        var clips = new (int? TimestampSeconds, string Excerpt)[]
+        {
+            (134, "The host explains why cheap interaction matters."),
+            (null, "The guest gives an untimed strategic takeaway."),
+        };
+        var baseline = """
+            ---
+            source: "The Command Zone"
+            title: "cEDH Tier List"
+            url: "https://www.youtube.com/watch?v=abc_123"
+            video_id: "abc_123"
+            tags:
+              archetype: ["combo","control"]
+              bracket: ["cEDH"]
+              card_category: ["win-cons","counter"]
+            generated_utc: "2026-05-27T12:34:56Z"
+            ---
+
+            ## Summary
+
+            This is a concise standalone summary under the upstream 200-word limit.
+
+            ## Key Clips
+
+            - **[02:14]** The host explains why cheap interaction matters.
+            - The guest gives an untimed strategic takeaway.
+
+            ## Tags
+
+            **Archetypes/Strategy:** combo, control
+            **Format/Bracket:** cEDH
+            **Card Categories:** win-cons, counter
+            
+            """.ReplaceLineEndings("\n");
+
+        var text = ContentArtifactWriter.ToText(
+            CreateMetadata(),
+            summary,
+            clips).ReplaceLineEndings("\n");
+        var normalized = text.Replace("content_type: \"youtube\"\n", string.Empty, StringComparison.Ordinal)
+            .Replace("stated_rules: []\n", string.Empty, StringComparison.Ordinal);
+
+        Assert.Equal(baseline, normalized);
+    }
+
+    [Fact]
+    public void ToText_EmitsSnakeCaseStatedRuleKeysOnly()
+    {
+        var text = ContentArtifactWriter.ToText(
+            CreateMetadata() with
+            {
+                ContentType = "youtube",
+                StatedRules = [CreateRule()]
+            },
+            "summary",
+            []);
+
+        Assert.Contains("\"video_date\":", text, StringComparison.Ordinal);
+        Assert.Contains("\"card_reference\":", text, StringComparison.Ordinal);
+        Assert.Contains("\"card_grounded\":", text, StringComparison.Ordinal);
+        Assert.Contains("\"clip_ts\":", text, StringComparison.Ordinal);
+        Assert.Contains("\"value_min\":", text, StringComparison.Ordinal);
+        Assert.Contains("\"source_clip\":", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"VideoDateUtc\":", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"ClipTimestampSeconds\":", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"SourceClip\":", text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -120,9 +219,28 @@ public sealed class ContentArtifactWriterTests : IDisposable
             Url = "https://www.youtube.com/watch?v=abc_123",
             YoutubeVideoId = "abc_123",
             RssGuid = null,
+            ContentType = "youtube",
             ArchetypeTags = ["combo", "control"],
             BracketTags = ["cEDH"],
             CardCategoryTags = ["win-cons", "counter"],
             GeneratedUtc = DateTimeOffset.Parse("2026-05-27T12:34:56Z"),
+        };
+
+    private static StatedRuleCandidate CreateRule()
+        => new()
+        {
+            Category = "ramp",
+            Metric = "lands",
+            Value = 37,
+            ValueMin = 36,
+            ValueMax = 38,
+            Comparator = "range",
+            Condition = "control shells",
+            ClipTimestampSeconds = 134,
+            SourceClip = "Play 36-38 lands in control shells.",
+            Confidence = 0.91,
+            CardReference = "Rhystic Study",
+            CardGrounded = true,
+            VideoDateUtc = DateTimeOffset.Parse("2026-05-26T12:00:00Z"),
         };
 }

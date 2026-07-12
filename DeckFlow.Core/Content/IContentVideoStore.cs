@@ -1,4 +1,5 @@
 using DeckFlow.Core.Knowledge;
+using DeckFlow.Core.Knowledge.StatedRulesExtraction;
 
 namespace DeckFlow.Core.Content;
 
@@ -130,6 +131,21 @@ public interface IContentVideoStore
         string dimension,
         string tagValue,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Inserts a stated rule extracted from distilled content for a video.
+    /// </summary>
+    /// <param name="videoId">Identifier of the owning video.</param>
+    /// <param name="rule">Stated rule candidate to persist.</param>
+    /// <param name="sortOrder">Stable sort order for stated rules under the same video.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The inserted stated-rule identifier.</returns>
+    Task<long> InsertStatedRuleAsync(
+        long videoId,
+        StatedRuleCandidate rule,
+        int sortOrder,
+        CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content video store does not support stated-rule inserts.");
 
     /// <summary>
     /// Deletes a video row by identifier.
