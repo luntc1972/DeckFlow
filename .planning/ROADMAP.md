@@ -104,7 +104,7 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
 - [x] 95-04-PLAN.md — Pure extraction contract + StapleStripper + FolderWeighting (CS-05, CS-04c, CS-04d)
 - [x] 95-05-PLAN.md — Pure CategoryCounter (multi-bucket) + LiftCalculator (CS-06, CS-07)
 - [x] 95-06-PLAN.md — CreatorProfileDeckCrawler: ownerUsername crawl, SSRF guard, cache read-through (CS-04a/b/c/d)
-- [ ] 95-07-PLAN.md — MeasuredStyleProfileBuilder: Karsten+combo+category -> MeasuredMetric[] persisted (CS-06/08/09/10)
+- [x] 95-07-PLAN.md — MeasuredStyleProfileBuilder: Karsten+combo+category -> MeasuredMetric[] persisted (CS-06/08/09/10)
 
 ### Phase 96: Stated-Rules Distiller
 **Goal**: Turn a creator's transcripts into structured, measurable stated rules — each tied to a clip, a confidence, and a recency date so a creator's later self supersedes an earlier one. Substrate only (feeds Phase 97).
@@ -172,7 +172,7 @@ Phase 94 -> {Phase 95, Phase 96 in parallel} -> {Phase 97 (needs 95+96), Phase 9
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|-----------------|--------|-----------|
 | 94. Style-Profile Foundation | Cycle 17 | 0/0 | Not started | - |
-| 95. Measured-Style Extractor | Cycle 17 | 6/7 | In Progress|  |
+| 95. Measured-Style Extractor | Cycle 17 | 7/7 | Complete   | 2026-07-12 |
 | 96. Stated-Rules Distiller | Cycle 17 | 0/0 | Not started | - |
 | 97. Profile Fusion + Conflict Ledger | Cycle 17 | 0/0 | Not started | - |
 | 98. Card-Grounding Guard | Cycle 17 | 0/0 | Not started | - |
