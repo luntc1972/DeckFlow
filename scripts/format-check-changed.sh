@@ -32,16 +32,30 @@ resolve_dotnet() {
 
 canonicalize_absolute_path() {
   local path="$1"
+  local msys=0
 
   path="${path//$'\r'/}"
   path="${path//\\//}"
 
+  case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) msys=1 ;;
+    *) msys=0 ;;
+  esac
+
   if [[ "$path" =~ ^([A-Za-z]):/(.*)$ ]]; then
     local drive="${BASH_REMATCH[1],,}"
-    path="/mnt/$drive/${BASH_REMATCH[2]}"
+    if [ "$msys" -eq 1 ]; then
+      path="/$drive/${BASH_REMATCH[2]}"
+    else
+      path="/mnt/$drive/${BASH_REMATCH[2]}"
+    fi
   elif [[ "$path" =~ ^/([A-Za-z])/(.*)$ ]]; then
     local drive="${BASH_REMATCH[1],,}"
-    path="/mnt/$drive/${BASH_REMATCH[2]}"
+    if [ "$msys" -eq 1 ]; then
+      path="/$drive/${BASH_REMATCH[2]}"
+    else
+      path="/mnt/$drive/${BASH_REMATCH[2]}"
+    fi
   fi
 
   path="${path%/}"
