@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: Cycle 17
 milestone_name: Creator-Style Deck Intelligence
 status: executing
-stopped_at: Phase 95 context gathered
-last_updated: "2026-07-11T23:45:00.000Z"
-last_activity: 2026-07-11 -- Phase 95 context gathered (measured-style extractor)
+stopped_at: Phase 94 context gathered
+last_updated: "2026-07-12T01:43:11.243Z"
+last_activity: 2026-07-12 -- Phase 95 planning complete
 progress:
   total_phases: 7
   completed_phases: 1
-  total_plans: 3
+  total_plans: 10
   completed_plans: 3
   percent: 14
 ---
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-07-11)
 
 Phase: 95 Measured-Style Extractor — context gathered, ready to plan
 Plan: — (next: /gsd-plan-phase 95)
-Status: P94 COMPLETE (3/3, verified). P95 CONTEXT.md written (D-01..D-12: Archidekt ownerUsername crawl, hybrid >60% staple-strip, creator-numerator/global-baseline lift, graded manually-curated folder weights, raw-int-NumDecks + nested weighted-effective count).
-Last activity: 2026-07-11 -- Phase 95 context gathered
+Status: Ready to execute
+Last activity: 2026-07-12 -- Phase 95 planning complete
 
 ## Roadmap Summary
 
