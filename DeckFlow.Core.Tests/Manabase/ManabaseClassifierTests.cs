@@ -1462,10 +1462,8 @@ public sealed class ManabaseClassifierTests
     }
 
     [Fact]
-    public void Classify_CheckLandUntapped_SlowLand_StaysTapped()
+    public void Classify_CheckLandUntapped_SlowLand_EmitsSlowLandCountCondition()
     {
-        // Slow lands ("two or more OTHER LANDS") name no basic type -> out of scope, stay tapped even
-        // with the flag on and plenty of lands present.
         var cards = new List<CardFact>
         {
             Land("Deserted Beach", "Land", new[] { "W", "U" },
@@ -1475,30 +1473,33 @@ public sealed class ManabaseClassifierTests
 
         ManabaseDeck deck = ManabaseClassifier.Classify(cards, checkLandUntapped: true);
 
-        Assert.False(Assert.Single(deck.Sources, s => s.Name == "Deserted Beach").EntersUntapped);
+        ManaSource source = Assert.Single(deck.Sources, s => s.Name == "Deserted Beach");
+        Assert.Equal(CountConditionKind.SlowLand, source.CountCondition);
+        Assert.Equal(2, source.CountThreshold);
+        Assert.Empty(source.CountTypeFilter);
     }
 
     [Fact]
-    public void Classify_CheckLandUntapped_FastLand_StaysTapped()
+    public void Classify_CheckLandUntapped_FastLand_EmitsFastLandCountCondition()
     {
         var cards = new List<CardFact>
         {
             Land("Seachrome Coast", "Land", new[] { "W", "U" },
                 "Seachrome Coast enters the battlefield tapped unless you control two or fewer other lands."),
-            Land("Island", "Basic Land — Island", new[] { "U" }, "{T}: Add {U}.") with { Quantity = 8 },
+            Land("Island", "Basic Land — Island", new[] { "U" }, "{T}: Add {U}.") with { Quantity = 2 },
         };
 
         ManabaseDeck deck = ManabaseClassifier.Classify(cards, checkLandUntapped: true);
 
-        Assert.False(Assert.Single(deck.Sources, s => s.Name == "Seachrome Coast").EntersUntapped);
+        ManaSource source = Assert.Single(deck.Sources, s => s.Name == "Seachrome Coast");
+        Assert.Equal(CountConditionKind.FastLand, source.CountCondition);
+        Assert.Equal(2, source.CountThreshold);
+        Assert.Empty(source.CountTypeFilter);
     }
 
     [Fact]
-    public void Classify_CheckLandUntapped_ThresholdLandNamingBasicType_StaysTapped()
+    public void Classify_CheckLandUntapped_ThresholdLandNamingBasicType_EmitsEldMetadata()
     {
-        // Regression: ELD "three or more other Islands" lands (Mystic Sanctuary, Dwarven Mine, …) name
-        // a basic type but are NOT check lands — the anchored "control (a|an) <type>" regex must not
-        // match them, so they stay tapped even with plenty of Islands.
         var cards = new List<CardFact>
         {
             Land("Mystic Sanctuary", "Land — Island", new[] { "U" },
@@ -1508,7 +1509,127 @@ public sealed class ManabaseClassifierTests
 
         ManabaseDeck deck = ManabaseClassifier.Classify(cards, checkLandUntapped: true);
 
-        Assert.False(Assert.Single(deck.Sources, s => s.Name == "Mystic Sanctuary").EntersUntapped);
+        ManaSource source = Assert.Single(deck.Sources, s => s.Name == "Mystic Sanctuary");
+        Assert.Equal(CountConditionKind.EldThreshold, source.CountCondition);
+        Assert.Equal(3, source.CountThreshold);
+        Assert.Equal(new[] { "Island" }, source.CountTypeFilter);
+    }
+
+    [Fact]
+    public void Classify_CheckLandUntapped_Verge_WithEnoughMatchingTypes_ProducesBothColors()
+    {
+        var cards = new List<CardFact>
+        {
+            Land("Floodfarm Verge", "Land", new[] { "W", "U" },
+                "{T}: Add {W}. {T}: Add {U}. Activate only if you control a Plains or an Island."),
+            Land("Island", "Basic Land — Island", new[] { "U" }, "{T}: Add {U}.") with { Quantity = 6 },
+            Spell("Brago", 4, "{2}{W}{U}"),
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, checkLandUntapped: true);
+
+        ManaSource source = Assert.Single(deck.Sources, s => s.Name == "Floodfarm Verge");
+        Assert.True(source.EntersUntapped);
+        Assert.Equal(new[] { ManaColor.White, ManaColor.Blue }, source.Produces);
+    }
+
+    [Fact]
+    public void Classify_CheckLandUntapped_Verge_WithTooFewMatchingTypes_ProducesOnlyFixedColor()
+    {
+        var cards = new List<CardFact>
+        {
+            Land("Floodfarm Verge", "Land", new[] { "W", "U" },
+                "{T}: Add {W}. {T}: Add {U}. Activate only if you control a Plains or an Island."),
+            Land("Island", "Basic Land — Island", new[] { "U" }, "{T}: Add {U}.") with { Quantity = 5 },
+            Spell("Brago", 4, "{2}{W}{U}"),
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, checkLandUntapped: true);
+
+        ManaSource source = Assert.Single(deck.Sources, s => s.Name == "Floodfarm Verge");
+        Assert.True(source.EntersUntapped);
+        Assert.Equal(new[] { ManaColor.White }, source.Produces);
+    }
+
+    [Fact]
+    public void Classify_CheckLandUntapped_BragoRegressionGuard_NimbusMaze_DoesNotMatchVergePath()
+    {
+        var cards = new List<CardFact>
+        {
+            Land("Nimbus Maze", "Land", new[] { "C", "W", "U" },
+                "{T}: Add {C}. {T}: Add {W}. Activate only if you control an Island. "
+                + "{T}: Add {U}. Activate only if you control a Plains."),
+            Land("Island", "Basic Land — Island", new[] { "U" }, "{T}: Add {U}.") with { Quantity = 8 },
+            Land("Plains", "Basic Land — Plains", new[] { "W" }, "{T}: Add {W}.") with { Quantity = 8 },
+            Spell("Brago", 4, "{2}{W}{U}"),
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, checkLandUntapped: true);
+
+        ManaSource source = Assert.Single(deck.Sources, s => s.Name == "Nimbus Maze");
+        Assert.True(source.EntersUntapped);
+        Assert.Equal(new[] { ManaColor.Colorless, ManaColor.White, ManaColor.Blue }, source.Produces);
+    }
+
+    [Fact]
+    public void Classify_CheckLandUntapped_TrainingCompound_WithEnoughTrueBasics_ProducesAllColorsAndColorless()
+    {
+        var cards = new List<CardFact>
+        {
+            Land("Training Compound", "Land", new[] { "C", "R", "G" },
+                "{T}: Add {C}. {T}: Add {R} or {G}. Activate only if this land entered this turn or if you control a basic land."),
+            Land("Mountain", "Basic Land — Mountain", new[] { "R" }, "{T}: Add {R}.") with { Quantity = 6 },
+            Spell("Gruul Spell", 2, "{R}{G}"),
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, checkLandUntapped: true);
+
+        ManaSource source = Assert.Single(deck.Sources, s => s.Name == "Training Compound");
+        Assert.True(source.EntersUntapped);
+        Assert.Equal(new[] { ManaColor.Colorless, ManaColor.Red, ManaColor.Green }, source.Produces);
+    }
+
+    [Fact]
+    public void Classify_CheckLandUntapped_TrainingCompound_WithTypedNonBasics_StaysColorlessOnly()
+    {
+        var cards = new List<CardFact>
+        {
+            Land("Training Compound", "Land", new[] { "C", "R", "G" },
+                "{T}: Add {C}. {T}: Add {R} or {G}. Activate only if this land entered this turn or if you control a basic land."),
+            Land("Stomping Ground", "Land — Mountain Forest", new[] { "R", "G" },
+                "As Stomping Ground enters, you may pay 2 life. If you don't, it enters tapped.") with { Quantity = 8 },
+            Spell("Gruul Spell", 2, "{R}{G}"),
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, checkLandUntapped: true);
+
+        ManaSource source = Assert.Single(deck.Sources, s => s.Name == "Training Compound");
+        Assert.True(source.EntersUntapped);
+        Assert.Equal(new[] { ManaColor.Colorless }, source.Produces);
+    }
+
+    [Fact]
+    public void Classify_CheckLandUntapped_VividLand_IsTappedAndAddsOneConditionalAnyColorSource()
+    {
+        var cards = new List<CardFact>
+        {
+            Land("Vivid Meadow", "Land", new[] { "W", "U", "B", "R", "G" },
+                "Vivid Meadow enters the battlefield tapped with two charge counters on it. "
+                + "{T}: Add {W}. {T}, Remove a charge counter from this land: Add one mana of any color."),
+            Spell("Azorius Spell", 2, "{W}{U}"),
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, checkLandUntapped: true);
+
+        ManaSource land = Assert.Single(deck.Sources, s => s.Name == "Vivid Meadow");
+        Assert.False(land.EntersUntapped);
+        Assert.Equal(new[] { ManaColor.White }, land.Produces);
+
+        ManaSource vivid = Assert.Single(deck.Sources, s => s.Name == "Vivid Meadow (vivid)");
+        Assert.False(vivid.IsLand);
+        Assert.True(vivid.IsConditional);
+        Assert.Equal(0.25, vivid.Weight);
+        Assert.Equal(new[] { ManaColor.White, ManaColor.Blue }, vivid.Produces);
     }
 
     [Fact]
