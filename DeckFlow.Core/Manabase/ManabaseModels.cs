@@ -1,6 +1,24 @@
 namespace DeckFlow.Core.Manabase;
 
 /// <summary>
+/// The per-trial land-count condition a land source carries for the castability simulator.
+/// </summary>
+public enum CountConditionKind
+{
+    /// <summary>No per-trial land-count condition.</summary>
+    None,
+
+    /// <summary>Fast land clause: untapped while you control two or fewer other lands.</summary>
+    FastLand,
+
+    /// <summary>Slow land clause: untapped while you control two or more other lands.</summary>
+    SlowLand,
+
+    /// <summary>ELD threshold clause: untapped while you control enough other lands of a named basic type.</summary>
+    EldThreshold,
+}
+
+/// <summary>
 /// A land (or partial mana source) and the colors it can produce. Weight allows
 /// discounting fragile or conditional sources per Karsten's counting rules
 /// (mana dork ≈ 0.5, Signet ≈ 0.75, choice-fetch in 3+ colors ≈ 0.67).
@@ -62,6 +80,24 @@ public sealed record ManaSource
     /// the commander starts in the command zone, not the 99. Defaults to <see langword="false"/>.
     /// </summary>
     public bool IsCommander { get; init; }
+
+    /// <summary>
+    /// The per-trial land-count condition this source carries for the simulator. Static lands leave
+    /// this at <see cref="CountConditionKind.None"/>.
+    /// </summary>
+    public CountConditionKind CountCondition { get; init; } = CountConditionKind.None;
+
+    /// <summary>
+    /// The "other lands" threshold paired with <see cref="CountCondition"/>. Fast/slow lands use 2;
+    /// ELD threshold lands use 3.
+    /// </summary>
+    public int CountThreshold { get; init; }
+
+    /// <summary>
+    /// The named basic land types the count condition filters to. Empty for non-type-scoped conditions
+    /// (fast/slow) and populated for ELD threshold lands (for example, <c>Island</c>).
+    /// </summary>
+    public IReadOnlyList<string> CountTypeFilter { get; init; } = Array.Empty<string>();
 }
 
 /// <summary>
