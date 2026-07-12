@@ -1,3 +1,4 @@
+using DeckFlow.Core.Knowledge.StatedRulesExtraction;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.Caching.Memory;
@@ -55,6 +56,7 @@ public static class ScryfallServiceCollectionExtensions
             new ScryfallCardResolver(
                 sp.GetRequiredService<IScryfallRestClientFactory>(),
                 sp.GetRequiredService<ResiliencePipelineProvider<string>>()));
+        services.AddSingleton<ICardNameGrounder, ScryfallCardNameGrounder>();
         services.AddSingleton<IMechanicLookupService, WotcMechanicLookupService>();
         services.AddSingleton<ICommanderBanListService>(sp =>
             new CommanderBanListService(
