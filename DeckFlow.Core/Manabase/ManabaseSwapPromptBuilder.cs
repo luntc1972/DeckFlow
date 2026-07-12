@@ -69,13 +69,15 @@ public static class ManabaseSwapPromptBuilder
         }
         else if (report.LandShortfallCoveredByRamp)
         {
+            int coveredShortfall = ApproximateCount(-delta);
             landNote = string.Create(CultureInfo.InvariantCulture,
-                $"~{Math.Ceiling(-delta):F0} under the Karsten count, but the deck's ramp covers it — do NOT recommend adding lands");
+                $"~{coveredShortfall} under the Karsten count, but the deck's ramp covers it — do NOT recommend adding lands");
         }
         else
         {
+            int landShortfall = ApproximateCount(-delta);
             landNote = string.Create(CultureInfo.InvariantCulture,
-                $"add ~{Math.Ceiling(-delta):F0} more land(s)");
+                $"add ~{landShortfall} more {Pluralize("land", landShortfall)}");
         }
 
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
@@ -88,11 +90,12 @@ public static class ManabaseSwapPromptBuilder
         }
         else
         {
-            sb.AppendLine("Color sources falling short of the threshold:");
+            sb.AppendLine("Color sources falling short of the threshold (per-color add counts are heuristic guidance):");
             foreach (ColorSourceFinding f in deficits)
             {
+                int sourceShortfall = ApproximateCount(f.Deficit);
                 sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
-                    $"- {f.Color}: {f.ActualSources:F1} sources vs {f.RequiredSources} needed for \"{f.DrivingSpell}\" (add ~{Math.Ceiling(f.Deficit):F0})."));
+                    $"- {f.Color}: {f.ActualSources:F1} sources vs {f.RequiredSources} needed for \"{f.DrivingSpell}\" (add ~{sourceShortfall})."));
             }
         }
 
@@ -150,6 +153,11 @@ public static class ManabaseSwapPromptBuilder
     private static string BuildBudgetLine(ManabaseRampDrawBudget budget) => string.Create(
         CultureInfo.InvariantCulture,
         $"Ramp/draw: ~{budget.RampCount:0.#} ramp / ~{budget.DrawCount:0.#} draw vs a ~{budget.TargetRamp}/{budget.TargetDraw} community target for a ~MV{budget.Threshold:0.#} threshold ({BuildThresholdProxy(budget.ThresholdSource)}); ({budget.OverlapCount} do both). community heuristic, not Karsten math.");
+
+    private static int ApproximateCount(double value) =>
+        Math.Max(1, (int)Math.Round(value, MidpointRounding.AwayFromZero));
+
+    private static string Pluralize(string singular, int count) => count == 1 ? singular : singular + "s";
 
     private static string BuildThresholdProxy(ManabaseRampDrawThresholdSource thresholdSource) => thresholdSource switch
     {

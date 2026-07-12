@@ -20,8 +20,8 @@ public sealed class ManabaseReportTextBuilderTests
         NoIssueReason = string.Empty,
         Lines =
         [
-            "You're ~3 White source(s) short - add ~3 White-producing lands/rocks; consider cutting a colorless utility land.",
-            "Ramp looks light: you run ~6 ramp vs a ~12/12 split for a ~MV4 threshold (your commander's mana value) - add ~6 ramp piece(s) (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
+            "You're ~3 White sources short - heuristic guidance: add ~3 White-producing lands/rocks; consider cutting a colorless utility land.",
+            "Ramp looks light: you run ~6 ramp vs a ~12/12 split for a ~MV4 threshold (your commander's mana value) - add ~6 ramp pieces (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
         ],
     };
 
@@ -433,13 +433,35 @@ public sealed class ManabaseReportTextBuilderTests
 
         int summaryIndex = output.IndexOf("Mana base is well-built.", StringComparison.Ordinal);
         int verdictIndex = output.IndexOf("Reading your deck:", StringComparison.Ordinal);
-        int colorSourcesIndex = output.IndexOf("Color Sources:", StringComparison.Ordinal);
+        int colorSourcesIndex = output.IndexOf("Color Sources (per-color shortfalls are heuristic guidance):", StringComparison.Ordinal);
 
         Assert.True(verdictIndex > summaryIndex);
         Assert.True(colorSourcesIndex > verdictIndex);
-        Assert.Contains("1. You're ~3 White source(s) short", output);
+        Assert.Contains("1. You're ~3 White sources short - heuristic guidance:", output);
         Assert.Contains("2. Ramp looks light: you run ~6 ramp", output);
         Assert.Contains("Ramp/draw: ~6 ramp / ~12 draw vs a ~12/12 community target for a ~MV4 threshold (your commander's mana value); (1 do both). community heuristic, not Karsten math.", output);
+    }
+
+    [Fact]
+    public void Build_VerdictWithOverflowLine_PreservesPlusCountInTextArtifact()
+    {
+        ManabaseVerdict verdict = new()
+        {
+            HasIssues = true,
+            Headline = "Reading your deck",
+            NoIssueReason = string.Empty,
+            Lines =
+            [
+                "First",
+                "Second",
+                "Third",
+                "…plus 2 more",
+            ],
+        };
+
+        string output = ManabaseReportTextBuilder.Build(HealthyCasualReport(), null, null, ManabaseMode.Casual, verdict);
+
+        Assert.Contains("4. …plus 2 more", output);
     }
 
     [Fact]

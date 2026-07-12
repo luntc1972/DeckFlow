@@ -83,13 +83,15 @@ public static class ManabaseReportTextBuilder
         }
         else if (report.LandShortfallCoveredByRamp)
         {
+            int coveredShortfall = ApproximateCount(-delta);
             landNote = string.Create(CultureInfo.InvariantCulture,
-                $"~{Math.Ceiling(-delta):F0} under the Karsten count, but ramp covers it");
+                $"~{coveredShortfall} under the Karsten count, but ramp covers it");
         }
         else
         {
+            int landShortfall = ApproximateCount(-delta);
             landNote = string.Create(CultureInfo.InvariantCulture,
-                $"add ~{Math.Ceiling(-delta):F0} land(s)");
+                $"add ~{landShortfall} {Pluralize("land", landShortfall)}");
         }
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
             $"Lands: {report.ActualLands} vs ~{report.TargetLands:F1} recommended ({landNote})."));
@@ -121,7 +123,7 @@ public static class ManabaseReportTextBuilder
         // --- Per-color source table ------------------------------------------
         if (report.ColorFindings.Count > 0)
         {
-            sb.AppendLine("Color Sources:");
+            sb.AppendLine("Color Sources (per-color shortfalls are heuristic guidance):");
             sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
                 $"{"Color",-10} {"Actual",8} {"Needed",7} {"Deficit",8}  Driving spell"));
             sb.AppendLine(new string('-', 60));
@@ -141,18 +143,20 @@ public static class ManabaseReportTextBuilder
         switch (fix.Kind)
         {
             case ManabaseFixKind.ColorSources:
+                int sourceFixAmount = ApproximateCount(fix.RequiredSources - fix.ActualSources);
                 sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
-                    $"Biggest fix: add ~{fix.Amount} more {fix.Color} source(s) — you have {fix.ActualSources:F1} vs {fix.RequiredSources} needed for {fix.Spell}."));
+                    $"Biggest fix: add ~{sourceFixAmount} more {fix.Color} {Pluralize("source", sourceFixAmount)} — you have {fix.ActualSources:F1} vs {fix.RequiredSources} needed for {fix.Spell}."));
                 break;
 
             case ManabaseFixKind.Lands:
+                int landFixAmount = ApproximateCount(-report.LandDelta);
                 sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
-                    $"Biggest fix: add ~{fix.Amount} more land(s) — each color is individually well-supported, but the base is ~{fix.Amount} land(s) short of the curve."));
+                    $"Biggest fix: add ~{landFixAmount} more {Pluralize("land", landFixAmount)} — each color is individually well-supported, but the base is ~{landFixAmount} {Pluralize("land", landFixAmount)} short of the curve."));
                 break;
 
             case ManabaseFixKind.DemandingCards:
                 sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
-                    $"Biggest fix: lands and colored sources are adequate, but {fix.DemandingCount} demanding {fix.Color} card(s) still cast late (worst: {fix.Spell}) — trim the top end or add early ramp."));
+                    $"Biggest fix: lands and colored sources are adequate, but {fix.DemandingCount} demanding {fix.Color} {Pluralize("card", fix.DemandingCount)} still cast late (worst: {fix.Spell}) — trim the top end or add early ramp."));
                 break;
 
             default:
@@ -278,7 +282,7 @@ public static class ManabaseReportTextBuilder
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
             $"Keep-size process: kept at 7 ~{mull.Kept7Percent}%, mulligan to 6 ~{mull.MulliganTo6Percent}%, mulligan to 5 ~{mull.MulliganTo5Percent}%."));
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
-            $"Colors/curve: deck plays {mull.ColorCount} color(s), average mana value ~{mull.AverageManaValue:F1}."));
+            $"Colors/curve: deck plays {mull.ColorCount} {Pluralize("color", mull.ColorCount)}, average mana value ~{mull.AverageManaValue:F1}."));
 
         // Plan-presence line, only when the plan-presence flag is on (includePlanPresence) AND it was
         // computed (deck had plan-tagged spells). Off/absent appends zero bytes, keeping the flag-off
@@ -346,6 +350,11 @@ public static class ManabaseReportTextBuilder
     private static string BuildBudgetLine(ManabaseRampDrawBudget budget) => string.Create(
         CultureInfo.InvariantCulture,
         $"Ramp/draw: ~{budget.RampCount:0.#} ramp / ~{budget.DrawCount:0.#} draw vs a ~{budget.TargetRamp}/{budget.TargetDraw} community target for a ~MV{budget.Threshold:0.#} threshold ({BuildThresholdProxy(budget.ThresholdSource)}); ({budget.OverlapCount} do both). community heuristic, not Karsten math.");
+
+    private static int ApproximateCount(double value) =>
+        Math.Max(1, (int)Math.Round(value, MidpointRounding.AwayFromZero));
+
+    private static string Pluralize(string singular, int count) => count == 1 ? singular : singular + "s";
 
     private static string BuildThresholdProxy(ManabaseRampDrawThresholdSource thresholdSource) => thresholdSource switch
     {

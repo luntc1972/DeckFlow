@@ -18,8 +18,8 @@ public sealed class ManabaseSwapPromptBuilderTests
         NoIssueReason = string.Empty,
         Lines =
         [
-            "You're ~3 White source(s) short - add ~3 White-producing lands/rocks; consider cutting a colorless utility land.",
-            "Ramp looks light: you run ~6 ramp vs a ~12/12 split for a ~MV4 threshold (your commander's mana value) - add ~6 ramp piece(s) (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
+            "You're ~3 White sources short - heuristic guidance: add ~3 White-producing lands/rocks; consider cutting a colorless utility land.",
+            "Ramp looks light: you run ~6 ramp vs a ~12/12 split for a ~MV4 threshold (your commander's mana value) - add ~6 ramp pieces (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
         ],
     };
 
@@ -73,6 +73,7 @@ public sealed class ManabaseSwapPromptBuilderTests
         Assert.Contains("Swords to Plowshares", prompt);
         Assert.Contains("1 Plains", prompt);
         Assert.Contains("add ~", prompt); // a land recommendation surfaced
+        Assert.Contains("per-color add counts are heuristic guidance", prompt);
     }
 
     [Fact]
@@ -119,7 +120,7 @@ public sealed class ManabaseSwapPromptBuilderTests
 
         Assert.Contains("ramp covers it", prompt);
         Assert.Contains("do NOT recommend adding lands", prompt);
-        Assert.DoesNotContain("add ~3 more land(s)", prompt);
+        Assert.DoesNotContain("add ~3 more lands", prompt);
     }
 
     [Fact]
@@ -181,7 +182,7 @@ public sealed class ManabaseSwapPromptBuilderTests
 
         Assert.True(verdictIndex >= 0);
         Assert.True(askIndex > verdictIndex);
-        Assert.Contains("1. You're ~3 White source(s) short", prompt);
+        Assert.Contains("1. You're ~3 White sources short - heuristic guidance:", prompt);
         Assert.Contains("2. Ramp looks light: you run ~6 ramp", prompt);
         Assert.Contains("Ramp/draw: ~6 ramp / ~12 draw vs a ~12/12 community target for a ~MV4 threshold (your commander's mana value); (1 do both). community heuristic, not Karsten math.", prompt);
     }
