@@ -174,6 +174,35 @@ public sealed class LlmDistillationServiceTests
     }
 
     [Fact]
+    public async Task ExtractCombinedAsync_ComposesExistingMethodsAndSumsUsage()
+    {
+        using var httpClient = new HttpClient();
+        var completions = new Queue<ChatCompletion>(
+        [
+            CreateCompletion("""{"summary":"Build around sacrifice payoffs."}""", inputTokens: 101, outputTokens: 11),
+            CreateCompletion(
+                """{"clips":[{"timestamp_seconds":120,"excerpt":"Use the commander as a draw engine."},{"timestamp_seconds":null,"excerpt":"Protect the combo turn."},{"timestamp_seconds":480,"excerpt":"Close with a sacrifice loop."}]}""",
+                inputTokens: 202,
+                outputTokens: 22),
+            CreateCompletion(
+                """{"archetype":["aristocrats"],"bracket":["Optimized"],"card_category":["draw","win-cons"]}""",
+                inputTokens: 303,
+                outputTokens: 33)
+        ]);
+        var service = CreateService(httpClient, completions);
+
+        var result = await service.ExtractCombinedAsync("transcript");
+
+        Assert.Equal("Build around sacrifice payoffs.", result.Summary);
+        Assert.Equal(3, result.Clips.Count);
+        Assert.Equal(["aristocrats"], result.Archetype);
+        Assert.Equal(["Optimized"], result.Bracket);
+        Assert.Equal(["draw", "win-cons"], result.CardCategory);
+        Assert.Equal(new TokenUsage(606, 66), result.Usage);
+        Assert.Empty(completions);
+    }
+
+    [Fact]
     public void ConstructorSurface_IsPureAdapterWithoutPersistenceDependencies()
     {
         var publicConstructor = Assert.Single(typeof(LlmDistillationService).GetConstructors());

@@ -33,3 +33,14 @@ public sealed record TagsResult(
     IReadOnlyList<string> Bracket,
     IReadOnlyList<string> CardCategory,
     TokenUsage Usage);
+
+/// <summary>
+/// Combined summary, clip, and tag extraction result with per-call token usage.
+/// </summary>
+public sealed record CombinedExtractionResult(
+    string Summary,
+    IReadOnlyList<ClipItem> Clips,
+    IReadOnlyList<string> Archetype,
+    IReadOnlyList<string> Bracket,
+    IReadOnlyList<string> CardCategory,
+    TokenUsage Usage);

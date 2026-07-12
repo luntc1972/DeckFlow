@@ -84,6 +84,28 @@ public sealed class LlmDistillationService : ILlmDistillationService
     }
 
     /// <inheritdoc />
+    public async Task<CombinedExtractionResult> ExtractCombinedAsync(
+        string transcript,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(transcript);
+
+        var summary = await SummarizeAsync(transcript, cancellationToken).ConfigureAwait(false);
+        var clips = await ExtractClipsAsync(transcript, cancellationToken).ConfigureAwait(false);
+        var tags = await InferTagsAsync(transcript, cancellationToken).ConfigureAwait(false);
+
+        return new CombinedExtractionResult(
+            summary.Summary,
+            clips.Clips,
+            tags.Archetype,
+            tags.Bracket,
+            tags.CardCategory,
+            new TokenUsage(
+                summary.Usage.InputTokens + clips.Usage.InputTokens + tags.Usage.InputTokens,
+                summary.Usage.OutputTokens + clips.Usage.OutputTokens + tags.Usage.OutputTokens));
+    }
+
+    /// <inheritdoc />
     public async Task<TagsResult> InferTagsAsync(
         string transcript,
         CancellationToken cancellationToken = default)

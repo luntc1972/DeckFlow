@@ -78,7 +78,7 @@ public sealed class RunDistillAsyncTests : IDisposable
         var result = await RunAsync(videoStore, distiller: distiller, videoIds: ["video-two"]);
 
         Assert.True(result.Success);
-        Assert.Equal(1, distiller.SummaryCalls);
+        Assert.Equal(1, distiller.CombinedCalls);
         Assert.Equal([new StatusUpdate(2, "distilled")], videoStore.StatusUpdates);
         var row = Assert.Single(LastRunIndexStore!.Rows);
         Assert.Equal("Video video-two", row.Title);
@@ -101,7 +101,7 @@ public sealed class RunDistillAsyncTests : IDisposable
         var result = await RunAsync(videoStore, distiller: distiller);
 
         Assert.True(result.Success);
-        Assert.Equal(3, distiller.SummaryCalls);
+        Assert.Equal(3, distiller.CombinedCalls);
         Assert.Equal([2, 3, 4], videoStore.ClearCalls);
         Assert.DoesNotContain(videoStore.StatusUpdates, update => update.VideoId == 1);
         Assert.Equal(
@@ -122,8 +122,8 @@ public sealed class RunDistillAsyncTests : IDisposable
         videoStore.AddPending(1, first, "transcript first");
         videoStore.AddPending(1, second, "transcript second");
         var distiller = new FakeLlmDistillationService();
-        distiller.SummaryQueue.Enqueue(new InvalidOperationException("summary failed"));
-        distiller.SummaryQueue.Enqueue(FakeLlmDistillationService.CreateSummary());
+        distiller.CombinedQueue.Enqueue(new InvalidOperationException("combined failed"));
+        distiller.CombinedQueue.Enqueue(FakeLlmDistillationService.CreateCombined());
 
         var result = await RunAsync(videoStore, distiller: distiller);
 
@@ -174,13 +174,13 @@ public sealed class RunDistillAsyncTests : IDisposable
         var result = await RunAsync(videoStore, ledger, distiller, isSubscriptionProvider: true);
 
         Assert.True(result.Success);
-        Assert.Equal(["classify:transcript body", "summary:transcript body", "clips:transcript body", "tags:transcript body"], distiller.Calls);
+        Assert.Equal(["classify:transcript body", "combined:transcript body"], distiller.Calls);
         Assert.Empty(ledger.WouldExceedChecks);
-        Assert.Equal(3, ledger.Records.Count);
+        Assert.Single(ledger.Records);
         Assert.All(ledger.Records, record => Assert.Equal(0m, record.CostUsd));
         Assert.Equal(new StatusUpdate(1, "distilled"), Assert.Single(videoStore.StatusUpdates));
         var completedRun = Assert.Single(LastRunStore!.CompleteCalls);
-        Assert.Equal(3, completedRun.WhisperCalls);
+        Assert.Equal(1, completedRun.WhisperCalls);
         Assert.Equal(0m, completedRun.SpendUsd);
     }
 
@@ -248,7 +248,7 @@ public sealed class RunDistillAsyncTests : IDisposable
         Assert.Contains(new StatusUpdate(1, "filtered"), videoStore.StatusUpdates);
         Assert.Contains(1, videoStore.ClearCalls);
         Assert.Equal(1, distiller.ClassifyCallCount);
-        Assert.Equal(0, distiller.SummaryCalls);
+        Assert.Equal(0, distiller.CombinedCalls);
         Assert.Empty(videoStore.Summaries);
         Assert.Empty(videoStore.Clips);
         Assert.Empty(videoStore.Tags);
@@ -308,7 +308,7 @@ public sealed class RunDistillAsyncTests : IDisposable
 
         Assert.True(result.Success);
         Assert.Equal(1, distiller.ClassifyCallCount);
-        Assert.Equal(1, distiller.SummaryCalls);
+        Assert.Equal(1, distiller.CombinedCalls);
         Assert.Contains(new StatusUpdate(1, "distilled"), videoStore.StatusUpdates);
         var row = Assert.Single(LastRunIndexStore!.Rows);
         Assert.Equal("keep-video", row.YoutubeVideoId);
@@ -327,7 +327,7 @@ public sealed class RunDistillAsyncTests : IDisposable
         Assert.False(result.Success);
         Assert.Contains("classifier requires the subscription LLM CLI", result.AbortedReason, StringComparison.Ordinal);
         Assert.Equal(0, distiller.ClassifyCallCount);
-        Assert.Equal(0, distiller.SummaryCalls);
+        Assert.Equal(0, distiller.CombinedCalls);
         Assert.Empty(videoStore.StatusUpdates);
         Assert.Empty(videoStore.ClearCalls);
         Assert.Empty(LastRunIndexStore!.Rows);
@@ -922,6 +922,8 @@ public sealed class RunDistillAsyncTests : IDisposable
 
         public int SummaryCalls { get; private set; }
 
+        public int CombinedCalls { get; private set; }
+
         public ClassificationResult DefaultClassification { get; init; } = new("keep", "default");
 
         public SummaryResult DefaultSummary { get; init; } = CreateSummary();
@@ -937,6 +939,8 @@ public sealed class RunDistillAsyncTests : IDisposable
         public Queue<object> ClipsQueue { get; } = [];
 
         public Queue<object> TagsQueue { get; } = [];
+
+        public Queue<object> CombinedQueue { get; } = [];
 
         public static SummaryResult CreateSummary()
             => new("This video explains a compact combo deck plan.", new TokenUsage(100, 10));
@@ -956,6 +960,21 @@ public sealed class RunDistillAsyncTests : IDisposable
                 ["cEDH"],
                 ["win-cons"],
                 new TokenUsage(30, 3));
+
+        public static CombinedExtractionResult CreateCombined()
+            => CreateCombined(CreateSummary(), CreateClips(), CreateTags());
+
+        private static CombinedExtractionResult CreateCombined(
+            SummaryResult summary,
+            ClipsResult clips,
+            TagsResult tags)
+            => new(
+                summary.Summary,
+                clips.Clips,
+                tags.Archetype,
+                tags.Bracket,
+                tags.CardCategory,
+                new TokenUsage(330, 33));
 
         public Task<ClassificationResult> ClassifyAsync(string transcript, CancellationToken cancellationToken = default)
         {
@@ -978,6 +997,14 @@ public sealed class RunDistillAsyncTests : IDisposable
             Calls.Add("clips:" + transcript);
             Operations.Add("clips:" + transcript);
             return Task.FromResult(Next(ClipsQueue, DefaultClips));
+        }
+
+        public Task<CombinedExtractionResult> ExtractCombinedAsync(string transcript, CancellationToken cancellationToken = default)
+        {
+            CombinedCalls++;
+            Calls.Add("combined:" + transcript);
+            Operations.Add("combined:" + transcript);
+            return Task.FromResult(Next(CombinedQueue, CreateCombined(DefaultSummary, DefaultClips, DefaultTags)));
         }
 
         public Task<TagsResult> InferTagsAsync(string transcript, CancellationToken cancellationToken = default)

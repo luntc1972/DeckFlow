@@ -228,6 +228,9 @@ internal sealed class ThrowingLlmDistillationService : ILlmDistillationService
     public Task<ClipsResult> ExtractClipsAsync(string transcript, CancellationToken cancellationToken = default)
         => throw new InvalidOperationException($"{nameof(ThrowingLlmDistillationService)}.{nameof(ExtractClipsAsync)} must not be called by the current path");
 
+    public Task<CombinedExtractionResult> ExtractCombinedAsync(string transcript, CancellationToken cancellationToken = default)
+        => throw new InvalidOperationException($"{nameof(ThrowingLlmDistillationService)}.{nameof(ExtractCombinedAsync)} must not be called by the current path");
+
     public Task<TagsResult> InferTagsAsync(string transcript, CancellationToken cancellationToken = default)
         => throw new InvalidOperationException($"{nameof(ThrowingLlmDistillationService)}.{nameof(InferTagsAsync)} must not be called by the current path");
 }
