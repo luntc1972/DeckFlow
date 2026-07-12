@@ -302,6 +302,7 @@ Keys read via `MAS.IsFlagOn` (fail-safe OFF). Seed defaults in `FeatureFlagStore
 | `analysis.manabase.mulligan-eval` | **ON** | Opening-hand / mulligan-evaluator block. Renamed from `analysis.mulligan-eval` (state carried by the store's idempotent rename migration). |
 | `analysis.manabase.plan-presence` | **ON** | "With a plan" opener stat. Gated **also** on `mulligan-eval`; its category + Spellbook I/O only fire when both are on (fail-open). |
 | `analysis.manabase.ritual-burst-mana` | **OFF** | Credit instant/sorcery rituals as one-shot burst mana in the castability sim. cEDH mode only; land count and color counts unchanged. |
+| `analysis.manabase.restricted-lands` | **OFF** | Enable the restricted-land approximation for Cavern of Souls, Unclaimed Territory, Ancient Ziggurat, and Nykthos, Shrine to Nyx. Off = byte-identical; on also surfaces name-matched land-row disclosure markers, a gated footnote, and one unsupported-interactions entry naming the affected lands. |
 | `analysis.manabase.cedh-land-target` | **OFF** | cEDH only. Replaces the flat 28-floor target with a curve-anchored target that can blend halfway toward a committed commander baseline when the baseline has `n ≥ 10`. Off = byte-identical. |
 
 **Hardcoded, no flag**: `gateRampOnCastable = true` — P4 gated-ramp is always on (`MAS:301-305`); before crediting a ramp piece the sim verifies the ramp's own colored cost is payable.
