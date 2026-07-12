@@ -39,7 +39,7 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
 
 - [x] **Phase 94: Style-Profile Foundation** - Persisted creator-style schema (stated/measured/fused) + dialect-guarded store; substrate only.
 - [ ] **Phase 95: Measured-Style Extractor** - Compute a creator's measured style from their own Archidekt decks (staple-stripped, lift-weighted, folder-segmented); substrate only.
-- [ ] **Phase 96: Stated-Rules Distiller** - Transcripts to structured, clip-tied stated rules; substrate only.
+- [x] **Phase 96: Stated-Rules Distiller** - Transcripts to structured, clip-tied stated rules; substrate only.
 - [ ] **Phase 97: Profile Fusion + Conflict Ledger** - Reconcile stated vs measured into weighted numeric targets + say-vs-do ledger; admin-visible, no public UI.
 - [ ] **Phase 98: Card-Grounding Guard** - Reusable Scryfall validator + constrained-selection whitelist so no hallucinated/illegal card ever ships; cross-cutting substrate.
 - [ ] **Phase 99: Creator-Style Artifact Engine** - Deterministic C# rubric diffing a submitted deck vs fused targets + assembled artifact content; no LLM call, no page yet.
@@ -117,14 +117,14 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
   4. A minimal Scryfall card-name grounding pass flags or rejects unrecognized card names inside distilled rules, ahead of the full Phase 98 guard.
   5. A golden regression test on the new schema passes using the existing UTF-8-safe harness (the `CliLlmDistillationService` CP437 lesson).
 **Plans**: 8 plans
-- [ ] 96-01-PLAN.md — StatedRuleCandidate DTO + closed metric vocabulary + deterministic reducer
-- [ ] 96-02-PLAN.md — TranscriptChunker + content_type heuristic + ICardNameGrounder seam
-- [ ] 96-03-PLAN.md — 4 Claimify schemas/prompts + ValidateStatedRules/SanitizeStatedRules
-- [ ] 96-04-PLAN.md — CLI Select/Disambiguate/Decompose/Reduce stage methods (UTF-8 harness)
-- [ ] 96-05-PLAN.md — content_stated_rules table + additive content_type:/stated_rules: frontmatter
-- [ ] 96-06-PLAN.md — Web ScryfallCardNameGrounder (cached fuzzy grounding)
-- [ ] 96-07-PLAN.md — StatedRulesExtractor multi-pass coordinator + D-06 Snail golden test
-- [ ] 96-08-PLAN.md — Orchestrator wiring: content_type + extractor + persist + emit
+- [x] 96-01-PLAN.md — StatedRuleCandidate DTO + closed metric vocabulary + deterministic reducer
+- [x] 96-02-PLAN.md — TranscriptChunker + content_type heuristic + ICardNameGrounder seam
+- [x] 96-03-PLAN.md — 4 Claimify schemas/prompts + ValidateStatedRules/SanitizeStatedRules
+- [x] 96-04-PLAN.md — CLI Select/Disambiguate/Decompose/Reduce stage methods (UTF-8 harness)
+- [x] 96-05-PLAN.md — content_stated_rules table + additive content_type:/stated_rules: frontmatter
+- [x] 96-06-PLAN.md — Web ScryfallCardNameGrounder (cached fuzzy grounding)
+- [x] 96-07-PLAN.md — StatedRulesExtractor multi-pass coordinator + D-06 Snail golden test
+- [x] 96-08-PLAN.md — Orchestrator wiring: content_type + extractor + persist + emit
 
 ### Phase 97: Profile Fusion + Conflict Ledger
 **Goal**: Reconcile stated (Phase 96) vs measured (Phase 95) into one fused profile of weighted numeric targets, with a say-vs-do conflict ledger. The deterministic rubric's intellectual core. Admin/Studio-visible ledger; still no public UI.
@@ -181,7 +181,7 @@ Phase 94 -> {Phase 95, Phase 96 in parallel} -> {Phase 97 (needs 95+96), Phase 9
 |-------|-----------|-----------------|--------|-----------|
 | 94. Style-Profile Foundation | Cycle 17 | 0/0 | Not started | - |
 | 95. Measured-Style Extractor | Cycle 17 | 7/7 | Complete   | 2026-07-12 |
-| 96. Stated-Rules Distiller | Cycle 17 | 0/0 | Not started | - |
+| 96. Stated-Rules Distiller | Cycle 17 | 8/8 | Complete   | 2026-07-12 |
 | 97. Profile Fusion + Conflict Ledger | Cycle 17 | 0/0 | Not started | - |
 | 98. Card-Grounding Guard | Cycle 17 | 0/0 | Not started | - |
 | 99. Creator-Style Artifact Engine | Cycle 17 | 0/0 | Not started | - |
