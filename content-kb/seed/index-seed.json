@@ -3,7 +3,7 @@
     "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "VStPAnMkZvU",
     "source": "3/3 Elk",
-    "title": "\"Dies to Removal\"",
+    "title": "\u0022Dies to Removal\u0022",
     "videoUrl": "https://www.youtube.com/watch?v=VStPAnMkZvU",
     "artifactPath": "content-kb/3-3-elk/VStPAnMkZvU.md",
     "publishedUtc": "2026-07-02T13:12:31+00:00",
@@ -19,13 +19,15 @@
       "removal",
       "protection",
       "recursion"
-    ]
+    ],
+    "bodySha256": "25dad191a758546063aa4768160dc0b868776fb03c5103434fc3be220d85d196",
+    "seedManaged": true
   },
   {
     "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "aD2uz3YkfsU",
     "source": "3/3 Elk",
-    "title": "An EDH Gamer's Guide to Boardwipes",
+    "title": "An EDH Gamer\u0027s Guide to Boardwipes",
     "videoUrl": "https://www.youtube.com/watch?v=aD2uz3YkfsU",
     "artifactPath": "content-kb/3-3-elk/aD2uz3YkfsU.md",
     "publishedUtc": "2026-05-05T23:42:44+00:00",
@@ -43,7 +45,9 @@
       "board-wipe",
       "removal",
       "recursion"
-    ]
+    ],
+    "bodySha256": "f402eee00ffbbe9b1435391d5f2d11bffb96d6de23dd5cb9356ca0a871a2d3e3",
+    "seedManaged": true
   },
   {
     "naturalKeyType": "youtube_channel",
@@ -67,7 +71,37 @@
       "tutor",
       "recursion",
       "finishers"
-    ]
+    ],
+    "bodySha256": "8026a19a5cc92d048016b9e8cb4c351c14857891987a8d58dbdd9992bc633f33",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "1j1K8nwVlb8",
+    "source": "Based Deck Department",
+    "title": "30 Years Of Magic Deck Building Knowledge in 15 minutes",
+    "videoUrl": "https://www.youtube.com/watch?v=1j1K8nwVlb8",
+    "artifactPath": "content-kb/based-deck-department/1j1K8nwVlb8.md",
+    "publishedUtc": "2025-04-04T16:00:06+00:00",
+    "indexedUtc": "2026-07-05T17:08:07.6065632+00:00",
+    "archetypeTags": [
+      "value-engine",
+      "midrange",
+      "control"
+    ],
+    "bracketTags": [
+      "Upgraded",
+      "Optimized"
+    ],
+    "cardCategoryTags": [
+      "draw",
+      "removal",
+      "ramp",
+      "board-wipe",
+      "protection"
+    ],
+    "bodySha256": "96aaf1f01525ce7559c8563e7382d2ea830affba4c0818978518db0b64c8aa3a",
+    "seedManaged": true
   },
   {
     "naturalKeyType": "youtube_channel",
@@ -92,7 +126,187 @@
       "draw",
       "finishers",
       "win-cons"
-    ]
+    ],
+    "bodySha256": "145ef99729f615d33516729f8a98dbe0f3f62784077df21a4069966930921cf4",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "YiDfKRL1vKU",
+    "source": "Based Deck Department",
+    "title": "Based Deck Diaries Day 1. Talking About Spirit Water Revival  #mtg #magicthegathering #mtgcommander",
+    "videoUrl": "https://www.youtube.com/watch?v=YiDfKRL1vKU",
+    "artifactPath": "content-kb/based-deck-department/YiDfKRL1vKU.md",
+    "publishedUtc": "2025-11-04T05:05:11+00:00",
+    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
+    "archetypeTags": [
+      "value-engine",
+      "spellslinger"
+    ],
+    "bracketTags": [
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "draw",
+      "ramp"
+    ],
+    "bodySha256": "57a0e4bd631d508bb01e81e2417f29890a6d8f04ce71d48924890543191ebda9",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "bXKFHJsm9m4",
+    "source": "Based Deck Department",
+    "title": "Based Deck Diaries Day 2. Yapping about better decks part 1/3  #mtg #magicthegathering #mtgcommander",
+    "videoUrl": "https://www.youtube.com/watch?v=bXKFHJsm9m4",
+    "artifactPath": "content-kb/based-deck-department/bXKFHJsm9m4.md",
+    "publishedUtc": "2025-11-05T01:52:13+00:00",
+    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
+    "archetypeTags": [
+      "combo",
+      "tokens"
+    ],
+    "bracketTags": [
+      "Core",
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "draw",
+      "removal",
+      "win-cons"
+    ],
+    "bodySha256": "23faf802ba66b73de77bd857499fd511333d5d263d7c870e69f37af163054f8b",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "a41-uui26Kk",
+    "source": "Based Deck Department",
+    "title": "Based Deck Diaries Day 3. Yappin about better decks part 2/3 #mtg  #magicthegathering",
+    "videoUrl": "https://www.youtube.com/watch?v=a41-uui26Kk",
+    "artifactPath": "content-kb/based-deck-department/a41-uui26Kk.md",
+    "publishedUtc": "2025-11-06T05:21:21+00:00",
+    "indexedUtc": "2026-07-04T16:17:53.0416139+00:00",
+    "archetypeTags": [
+      "voltron",
+      "aggro"
+    ],
+    "bracketTags": [
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "protection",
+      "finishers",
+      "win-cons"
+    ],
+    "bodySha256": "b8d0e8e45fff0cbcda406af255e33911bb92d198e0829fe2c61e056a32c14462",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "zaUzypqV19A",
+    "source": "Based Deck Department",
+    "title": "Based Deck Diaries Day 4! All about better decks part 3/3 #mtg   #magicthegathering #mtgcommander",
+    "videoUrl": "https://www.youtube.com/watch?v=zaUzypqV19A",
+    "artifactPath": "content-kb/based-deck-department/zaUzypqV19A.md",
+    "publishedUtc": "2025-11-07T01:20:40+00:00",
+    "indexedUtc": "2026-07-04T16:17:53.0416139+00:00",
+    "archetypeTags": [
+      "tokens",
+      "spellslinger",
+      "aggro"
+    ],
+    "bracketTags": [
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "finishers",
+      "win-cons"
+    ],
+    "bodySha256": "04ea03bbc7021b3a90ec35a5fc838c810df177bdf7667f0d76ff9aae581bbc9b",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "3rkgPkJQb14",
+    "source": "Based Deck Department",
+    "title": "Based Deck Diaries Day 8. My top Avatar commanders part 1 #mtg   #magicthegathering #mtgcommander",
+    "videoUrl": "https://www.youtube.com/watch?v=3rkgPkJQb14",
+    "artifactPath": "content-kb/based-deck-department/3rkgPkJQb14.md",
+    "publishedUtc": "2025-11-12T01:25:01+00:00",
+    "indexedUtc": "2026-07-04T16:17:53.0416139+00:00",
+    "archetypeTags": [
+      "voltron",
+      "control",
+      "tribal"
+    ],
+    "bracketTags": [
+      "Core",
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "draw",
+      "protection",
+      "finishers"
+    ],
+    "bodySha256": "d53e341ffde96b1245c40a406cf0bb1042a2b806a9caa5d221278b106eb143d5",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "ez1wpDWTyJo",
+    "source": "Based Deck Department",
+    "title": "Build Decks So Good, It Feels Like Cheating",
+    "videoUrl": "https://www.youtube.com/watch?v=ez1wpDWTyJo",
+    "artifactPath": "content-kb/based-deck-department/ez1wpDWTyJo.md",
+    "publishedUtc": "2025-08-26T14:01:09+00:00",
+    "indexedUtc": "2026-07-04T16:17:53.0416139+00:00",
+    "archetypeTags": [
+      "reanimator",
+      "aristocrats",
+      "voltron"
+    ],
+    "bracketTags": [
+      "Core",
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "recursion",
+      "ramp",
+      "protection",
+      "removal",
+      "draw"
+    ],
+    "bodySha256": "b7b94b57986ac0dc67a90b87530b39ff3257af2a67de60a7e92ca6141abe239e",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "9oqgqNyPZW0",
+    "source": "Based Deck Department",
+    "title": "Build Decks So Good, It Feels Like Cheating (Ep 3)",
+    "videoUrl": "https://www.youtube.com/watch?v=9oqgqNyPZW0",
+    "artifactPath": "content-kb/based-deck-department/9oqgqNyPZW0.md",
+    "publishedUtc": "2025-10-08T00:00:12+00:00",
+    "indexedUtc": "2026-07-04T16:17:53.0416139+00:00",
+    "archetypeTags": [
+      "control",
+      "tokens",
+      "voltron"
+    ],
+    "bracketTags": [
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "draw",
+      "protection",
+      "counter",
+      "removal",
+      "finishers"
+    ],
+    "bodySha256": "85a8f2a002b877507f10854689f69dd1561209540ae4ed6e5ffaaf47c4d228fe",
+    "seedManaged": true
   },
   {
     "naturalKeyType": "youtube_channel",
@@ -118,7 +332,9 @@
       "tutor",
       "finishers",
       "recursion"
-    ]
+    ],
+    "bodySha256": "b21f993f3d5bffd98af975b8f05ee535aeb1fce3ccfaf752482ba6d22cbf1970",
+    "seedManaged": true
   },
   {
     "naturalKeyType": "youtube_channel",
@@ -143,13 +359,67 @@
       "ramp",
       "draw",
       "recursion"
-    ]
+    ],
+    "bodySha256": "1e286e144b00ecb8702d6142d3d0538be90647214cf7daf29d0ee06dd88f8739",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "912gkTugQ8k",
+    "source": "Based Deck Department",
+    "title": "Build Decks So Good, It Feels Like Cheating. (Ep 2)",
+    "videoUrl": "https://www.youtube.com/watch?v=912gkTugQ8k",
+    "artifactPath": "content-kb/based-deck-department/912gkTugQ8k.md",
+    "publishedUtc": "2025-09-14T14:00:20+00:00",
+    "indexedUtc": "2026-07-04T16:17:53.0416139+00:00",
+    "archetypeTags": [
+      "reanimator",
+      "blink",
+      "value-engine"
+    ],
+    "bracketTags": [
+      "Core",
+      "Optimized"
+    ],
+    "cardCategoryTags": [
+      "recursion",
+      "removal",
+      "draw",
+      "win-cons",
+      "ramp"
+    ],
+    "bodySha256": "e3b62d01b43ebf7e5036de9cb57f00429d9c3ffada8deafd79ddc5df4e7e94d5",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "hiQrzJ5q3fc",
+    "source": "Based Deck Department",
+    "title": "Build around resource battles in commander #magicthegathering #mtg",
+    "videoUrl": "https://www.youtube.com/watch?v=hiQrzJ5q3fc",
+    "artifactPath": "content-kb/based-deck-department/hiQrzJ5q3fc.md",
+    "publishedUtc": "2025-04-09T07:30:41+00:00",
+    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
+    "archetypeTags": [
+      "value-engine",
+      "control"
+    ],
+    "bracketTags": [
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "draw",
+      "recursion",
+      "board-wipe"
+    ],
+    "bodySha256": "c761014e9733009eb1034b1ba54cef64d2f64b6b85a5881842a1584422cdf4e0",
+    "seedManaged": true
   },
   {
     "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "fW6hdw5SA1U",
     "source": "Based Deck Department",
-    "title": "Deck Building Advice & QA",
+    "title": "Deck Building Advice \u0026 QA",
     "videoUrl": "https://www.youtube.com/watch?v=fW6hdw5SA1U",
     "artifactPath": "content-kb/based-deck-department/fW6hdw5SA1U.md",
     "publishedUtc": "2026-04-26T18:57:36+00:00",
@@ -169,7 +439,9 @@
       "finishers",
       "ramp",
       "removal"
-    ]
+    ],
+    "bodySha256": "2d8d482161fd56fef11e734d354acd4891767647a114233ec8a97b592c562c1b",
+    "seedManaged": true
   },
   {
     "naturalKeyType": "youtube_channel",
@@ -195,13 +467,15 @@
       "removal",
       "draw",
       "finishers"
-    ]
+    ],
+    "bodySha256": "9ea55ab532816749c65c2f750690dcc4054ba552915704580eca693f5bdbf67c",
+    "seedManaged": true
   },
   {
     "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "A7Icr8F2SiE",
     "source": "Based Deck Department",
-    "title": "How I'd Build Commander Decks If I Started Today",
+    "title": "How I\u0027d Build Commander Decks If I Started Today",
     "videoUrl": "https://www.youtube.com/watch?v=A7Icr8F2SiE",
     "artifactPath": "content-kb/based-deck-department/A7Icr8F2SiE.md",
     "publishedUtc": "2026-05-09T13:15:02+00:00",
@@ -221,7 +495,56 @@
       "finishers",
       "ramp",
       "removal"
-    ]
+    ],
+    "bodySha256": "e99e848cc05de0a33a1b9c465815157ef611c2ebdbed4fa0eab7f3cd37713648",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "mV7AL_kUcuY",
+    "source": "Based Deck Department",
+    "title": "Lower your mana curve #magicthegathering #mtg",
+    "videoUrl": "https://www.youtube.com/watch?v=mV7AL_kUcuY",
+    "artifactPath": "content-kb/based-deck-department/mV7AL_kUcuY.md",
+    "publishedUtc": "2025-04-08T09:55:58+00:00",
+    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
+    "archetypeTags": [
+      "midrange",
+      "aggro"
+    ],
+    "bracketTags": [
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "counter"
+    ],
+    "bodySha256": "4ad5bf26eff88f2f70515f8aa4635e6cc65bf3f667d89f73b652d85a5f2302d4",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "aQT5ynTUCZ0",
+    "source": "Based Deck Department",
+    "title": "Magic Deckbuilding Masterclass Part 1 #magicthegathering #mtg",
+    "videoUrl": "https://www.youtube.com/watch?v=aQT5ynTUCZ0",
+    "artifactPath": "content-kb/based-deck-department/aQT5ynTUCZ0.md",
+    "publishedUtc": "2025-04-04T23:45:36+00:00",
+    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
+    "archetypeTags": [
+      "combo",
+      "value-engine"
+    ],
+    "bracketTags": [
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "win-cons",
+      "protection"
+    ],
+    "bodySha256": "1311082df2a23ea706541f77140f9cbf4a3a25af66fd813b9d4b992c102b5fa9",
+    "seedManaged": true
   },
   {
     "naturalKeyType": "youtube_channel",
@@ -247,7 +570,9 @@
       "draw",
       "win-cons",
       "protection"
-    ]
+    ],
+    "bodySha256": "ea0b67f4211714dd1c96a941df238a499e81931dcefc0e0ad3fc6cc007ad0b78",
+    "seedManaged": true
   },
   {
     "naturalKeyType": "youtube_channel",
@@ -267,13 +592,136 @@
     ],
     "cardCategoryTags": [
       "utility"
-    ]
+    ],
+    "bodySha256": "f011d282dad7ed63adae2e6165e675ac71a2b9923b0e69c9177ae375d16f44ad",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "6nVC7zHZMMA",
+    "source": "Based Deck Department",
+    "title": "Part two of how to cut cards from your magic decks. #mtg  #mtgcommander  #magicthegathering",
+    "videoUrl": "https://www.youtube.com/watch?v=6nVC7zHZMMA",
+    "artifactPath": "content-kb/based-deck-department/6nVC7zHZMMA.md",
+    "publishedUtc": "2025-12-01T00:40:36+00:00",
+    "indexedUtc": "2026-07-04T15:39:08.6394349+00:00",
+    "archetypeTags": [
+      "value-engine"
+    ],
+    "bracketTags": [
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "utility"
+    ],
+    "bodySha256": "fe43b5d1d562bd0509a2e3a1cb0ad0529716a0a0a14f85c21c2fde5b2a02b54f",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "oRpeXyZ3ygU",
+    "source": "Based Deck Department",
+    "title": "Play some real game changers in commander... #magicthegathering #mtg",
+    "videoUrl": "https://www.youtube.com/watch?v=oRpeXyZ3ygU",
+    "artifactPath": "content-kb/based-deck-department/oRpeXyZ3ygU.md",
+    "publishedUtc": "2025-04-07T23:36:10+00:00",
+    "indexedUtc": "2026-07-12T16:49:25.9918952+00:00",
+    "archetypeTags": [
+      "control"
+    ],
+    "bracketTags": [
+      "Optimized"
+    ],
+    "cardCategoryTags": [
+      "protection",
+      "board-wipe",
+      "utility"
+    ],
+    "bodySha256": "54069fd6f418bfd564d91e014d758bbc4118a3a226826e7f17d60a5b78bef712",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "NyHEnuAJBFY",
+    "source": "Based Deck Department",
+    "title": "This One Thing Will Change How You Build Decks Forever",
+    "videoUrl": "https://www.youtube.com/watch?v=NyHEnuAJBFY",
+    "artifactPath": "content-kb/based-deck-department/NyHEnuAJBFY.md",
+    "publishedUtc": "2025-06-21T15:00:40+00:00",
+    "indexedUtc": "2026-07-04T16:17:53.0416139+00:00",
+    "archetypeTags": [
+      "voltron",
+      "combo",
+      "ramp"
+    ],
+    "bracketTags": [
+      "Upgraded",
+      "Optimized"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "draw",
+      "removal",
+      "protection",
+      "finishers"
+    ],
+    "bodySha256": "62e82f85501d02d39b4714ed88ede479c6f0e4115b305356048f61db83fe796c",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "XHGrFYtIIRk",
+    "source": "Based Deck Department",
+    "title": "Want to build commander decks that win? Then eat your vegetables. #magicthegathering #mtgone",
+    "videoUrl": "https://www.youtube.com/watch?v=XHGrFYtIIRk",
+    "artifactPath": "content-kb/based-deck-department/XHGrFYtIIRk.md",
+    "publishedUtc": "2025-04-10T13:30:46+00:00",
+    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
+    "archetypeTags": [
+      "value-engine",
+      "midrange"
+    ],
+    "bracketTags": [
+      "Core",
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "draw",
+      "board-wipe"
+    ],
+    "bodySha256": "fab41b31e092b31f623aa7e8860f750a20ff4de713d2c42dbd88fe62d727f824",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "MDBw-CdhDoA",
+    "source": "Based Deck Department",
+    "title": "Want to build decks that win? Then think more. #magicthegathering #mtg",
+    "videoUrl": "https://www.youtube.com/watch?v=MDBw-CdhDoA",
+    "artifactPath": "content-kb/based-deck-department/MDBw-CdhDoA.md",
+    "publishedUtc": "2025-04-09T23:45:02+00:00",
+    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
+    "archetypeTags": [
+      "voltron",
+      "midrange"
+    ],
+    "bracketTags": [
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "board-wipe"
+    ],
+    "bodySha256": "fa8dab640f7dc0e4d73edfd64773c35e688e9d6dedf7b47ffe82f08ce6fdc79b",
+    "seedManaged": true
   },
   {
     "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "7lJJPXGfFNs",
     "source": "Based Deck Department",
-    "title": "You're Building Your Commander Decks Backwards",
+    "title": "You\u0027re Building Your Commander Decks Backwards",
     "videoUrl": "https://www.youtube.com/watch?v=7lJJPXGfFNs",
     "artifactPath": "content-kb/based-deck-department/7lJJPXGfFNs.md",
     "publishedUtc": "2026-04-24T15:00:12+00:00",
@@ -293,13 +741,137 @@
       "ramp",
       "recursion",
       "tutor"
-    ]
+    ],
+    "bodySha256": "22579650921f4e57d8e75b4ecad3adf56c72e2e4be080742bc2d542e172de2c7",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "asUHlAfDzYI",
+    "source": "Based Deck Department",
+    "title": "You\u0027re Probably Building Bad Commander Decks. Part 1: Lands. #magicthegathering #mtg",
+    "videoUrl": "https://www.youtube.com/watch?v=asUHlAfDzYI",
+    "artifactPath": "content-kb/based-deck-department/asUHlAfDzYI.md",
+    "publishedUtc": "2025-04-22T01:17:06+00:00",
+    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
+    "archetypeTags": [
+      "lands",
+      "ramp"
+    ],
+    "bracketTags": [
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "draw"
+    ],
+    "bodySha256": "555f63623347beb24f63c12a9dc38fcf1192bf135dd76ebdb849132b64cf1b89",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "DF9wESE8ZpA",
+    "source": "Based Deck Department",
+    "title": "You\u0027re Probably Building Bad Commander Decks. Part 2: Mana Acceleration. #magicthegathering  #mtg",
+    "videoUrl": "https://www.youtube.com/watch?v=DF9wESE8ZpA",
+    "artifactPath": "content-kb/based-deck-department/DF9wESE8ZpA.md",
+    "publishedUtc": "2025-04-22T22:00:01+00:00",
+    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
+    "archetypeTags": [
+      "ramp"
+    ],
+    "bracketTags": [
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "draw"
+    ],
+    "bodySha256": "bb235b0281d1f484af589e0ec1311859f4ad981e9557c543dc200838993a77a8",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "LOLdGv1N4EA",
+    "source": "Based Deck Department",
+    "title": "You\u0027re Probably Building Bad Commander Decks. Part 3: Drawing what you need #magicthegathering #mtg",
+    "videoUrl": "https://www.youtube.com/watch?v=LOLdGv1N4EA",
+    "artifactPath": "content-kb/based-deck-department/LOLdGv1N4EA.md",
+    "publishedUtc": "2025-04-23T05:37:43+00:00",
+    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
+    "archetypeTags": [
+      "voltron",
+      "tokens"
+    ],
+    "bracketTags": [
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "removal",
+      "draw",
+      "protection",
+      "win-cons"
+    ],
+    "bodySha256": "22d6edde1bcd5119074885daf632ad62a865c67712f60b5f1ee6bd1ff844deeb",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "DUMPHAorESo",
+    "source": "Based Deck Department",
+    "title": "You\u0027re Probably Building Bad Commander Decks. Part 4: Fitting Everything In. #magicthegathering #mtg",
+    "videoUrl": "https://www.youtube.com/watch?v=DUMPHAorESo",
+    "artifactPath": "content-kb/based-deck-department/DUMPHAorESo.md",
+    "publishedUtc": "2025-04-23T22:57:14+00:00",
+    "indexedUtc": "2026-07-04T16:17:53.0416139+00:00",
+    "archetypeTags": [
+      "value-engine",
+      "reanimator",
+      "aristocrats"
+    ],
+    "bracketTags": [
+      "Core",
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "draw",
+      "recursion"
+    ],
+    "bodySha256": "243800bf17eb9e1eff3b8b229854f2b5ea771b3c26b95ac6c191a911ff0420ad",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "xbpAJGmBT6I",
+    "source": "Based Deck Department",
+    "title": "You\u0027re Probably Building Bad Commander Decks. Part 5: The Numbers. #magicthegathering #mtg",
+    "videoUrl": "https://www.youtube.com/watch?v=xbpAJGmBT6I",
+    "artifactPath": "content-kb/based-deck-department/xbpAJGmBT6I.md",
+    "publishedUtc": "2025-04-24T23:18:07+00:00",
+    "indexedUtc": "2026-07-04T16:17:53.0416139+00:00",
+    "archetypeTags": [
+      "value-engine",
+      "midrange"
+    ],
+    "bracketTags": [
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "win-cons",
+      "finishers"
+    ],
+    "bodySha256": "221fe80d1c55c82d90178fc8b40d32e9ad13546adcc1b65672f40b6fc745e662",
+    "seedManaged": true
   },
   {
     "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "upqHyQqN3WU",
     "source": "Based Deck Department",
-    "title": "You're Probably Ramping Wrong",
+    "title": "You\u0027re Probably Ramping Wrong",
     "videoUrl": "https://www.youtube.com/watch?v=upqHyQqN3WU",
     "artifactPath": "content-kb/based-deck-department/upqHyQqN3WU.md",
     "publishedUtc": "2026-06-19T12:00:25+00:00",
@@ -317,7 +889,35 @@
       "ramp",
       "draw",
       "finishers"
-    ]
+    ],
+    "bodySha256": "c941e74f5deeb6f009c27aa8deb4ed95dd0055bb1f16d1f8a9b94c9a08c9a30c",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "ZMGx5m4FdaA",
+    "source": "Based Deck Department",
+    "title": "Your Commander Deck Needs Less Removal",
+    "videoUrl": "https://www.youtube.com/watch?v=ZMGx5m4FdaA",
+    "artifactPath": "content-kb/based-deck-department/ZMGx5m4FdaA.md",
+    "publishedUtc": "2025-09-03T14:00:54+00:00",
+    "indexedUtc": "2026-07-04T16:17:53.0416139+00:00",
+    "archetypeTags": [
+      "midrange",
+      "aggro",
+      "control"
+    ],
+    "bracketTags": [
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "board-wipe",
+      "removal",
+      "tutor",
+      "win-cons"
+    ],
+    "bodySha256": "f170b2712f4e160a6e09ee88239636c1793989d1889842c5346977eb32eb0276",
+    "seedManaged": true
   },
   {
     "naturalKeyType": "youtube_channel",
@@ -342,7 +942,59 @@
       "draw",
       "recursion",
       "win-cons"
-    ]
+    ],
+    "bodySha256": "dc0b8a89384131c38026779f87e13164d3622e001c1cd9b4e1f95a3543bbdab7",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "XdQCP-zJsic",
+    "source": "Based Deck Department",
+    "title": "Your commander decks need more resilience #magicthegathering #mtg",
+    "videoUrl": "https://www.youtube.com/watch?v=XdQCP-zJsic",
+    "artifactPath": "content-kb/based-deck-department/XdQCP-zJsic.md",
+    "publishedUtc": "2025-04-08T23:04:28+00:00",
+    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
+    "archetypeTags": [
+      "voltron"
+    ],
+    "bracketTags": [
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "protection",
+      "counter",
+      "recursion",
+      "finishers"
+    ],
+    "bodySha256": "c0407a1ba9f2a957178a4d9eab10f3db0daf3224d764abf58a3d06e854dce3a4",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "mwTCvRTunKQ",
+    "source": "Based Deck Department",
+    "title": "You\u2019ll Never Build Commander Decks the Same Way Again",
+    "videoUrl": "https://www.youtube.com/watch?v=mwTCvRTunKQ",
+    "artifactPath": "content-kb/based-deck-department/mwTCvRTunKQ.md",
+    "publishedUtc": "2025-04-21T01:08:21+00:00",
+    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
+    "archetypeTags": [
+      "midrange",
+      "value-engine"
+    ],
+    "bracketTags": [
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "draw",
+      "win-cons",
+      "finishers"
+    ],
+    "bodySha256": "b60ddf07ebc4f6233286fa90689501424edde2787f8226dd5f3cf9e34e7ca223",
+    "seedManaged": true
   },
   {
     "naturalKeyType": "youtube_channel",
@@ -366,14 +1018,150 @@
       "ramp",
       "recursion",
       "draw"
-    ]
+    ],
+    "bodySha256": "7d6c2a7a6c0f0081d401e61545522ff3c6d12cc53478aaa152a92ffa1e57aa26",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "3cTyPH_x0T0",
+    "source": "Based Deck Department",
+    "title": "You\u2019re Probably Failing at Magic\u2019s Most Critical Skill",
+    "videoUrl": "https://www.youtube.com/watch?v=3cTyPH_x0T0",
+    "artifactPath": "content-kb/based-deck-department/3cTyPH_x0T0.md",
+    "publishedUtc": "2025-06-25T15:00:10+00:00",
+    "indexedUtc": "2026-07-04T21:23:03.4701968+00:00",
+    "archetypeTags": [
+      "control",
+      "combo",
+      "midrange"
+    ],
+    "bracketTags": [
+      "Core",
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "removal",
+      "draw",
+      "board-wipe",
+      "ramp",
+      "protection"
+    ],
+    "bodySha256": "c847be66b8278da5cfc56fbe957f5ee426d3a49301bbfff6094c26b3e14be565",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "Qw1wtosaskM",
+    "source": "ComedIan MTG",
+    "title": "Black Widow a new cEDH Staple?!",
+    "videoUrl": "https://www.youtube.com/watch?v=Qw1wtosaskM",
+    "artifactPath": "content-kb/comedian-mtg/Qw1wtosaskM.md",
+    "publishedUtc": "2026-07-03T17:45:39+00:00",
+    "indexedUtc": "2026-07-12T16:42:21.3788013+00:00",
+    "archetypeTags": [
+      "value-engine",
+      "aggro"
+    ],
+    "bracketTags": [
+      "cEDH"
+    ],
+    "cardCategoryTags": [
+      "draw",
+      "utility",
+      "finishers"
+    ],
+    "bodySha256": "4a0ae46729eea45c3f06d07a3120a347f3d9048e9d0ede4a2761bcab7c016ad1",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "3rZo1aaXWa8",
+    "source": "ComedIan MTG",
+    "title": "I Brewed Four Unique cEDH Decks For Marvel Superheroes | 4 cEDH Deck Techs",
+    "videoUrl": "https://www.youtube.com/watch?v=3rZo1aaXWa8",
+    "artifactPath": "content-kb/comedian-mtg/3rZo1aaXWa8.md",
+    "publishedUtc": "2026-07-01T18:00:23+00:00",
+    "indexedUtc": "2026-07-12T16:42:21.3788013+00:00",
+    "archetypeTags": [
+      "combo",
+      "value-engine",
+      "midrange"
+    ],
+    "bracketTags": [
+      "cEDH"
+    ],
+    "cardCategoryTags": [
+      "draw",
+      "win-cons",
+      "tutor",
+      "protection",
+      "ramp"
+    ],
+    "bodySha256": "0ac5cd64b3455721d73fe3de052e60283af00dec1368f9935308a0da80702adc",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "_KyJgaI2YkQ",
+    "source": "ComedIan MTG",
+    "title": "I\u0027m Going To Be Getting Winota Ready To Tackle The 2026 cEDH Meta: Live!!!",
+    "videoUrl": "https://www.youtube.com/watch?v=_KyJgaI2YkQ",
+    "artifactPath": "content-kb/comedian-mtg/_KyJgaI2YkQ.md",
+    "publishedUtc": "2026-03-09T08:59:32+00:00",
+    "indexedUtc": "2026-07-12T16:42:21.3788013+00:00",
+    "archetypeTags": [
+      "stax",
+      "combo",
+      "tribal"
+    ],
+    "bracketTags": [
+      "cEDH",
+      "Optimized"
+    ],
+    "cardCategoryTags": [
+      "removal",
+      "protection",
+      "ramp",
+      "draw",
+      "finishers"
+    ],
+    "bodySha256": "acae0a31ab5a2d2b79ae50d161f64463dd6e479d05c79ebf89a36b3dd86250fd",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "TZT3si4LZCk",
+    "source": "ComedIan MTG",
+    "title": "Which Marvel Superheroes Cards Are Best In Your cEDH Decks?!?",
+    "videoUrl": "https://www.youtube.com/watch?v=TZT3si4LZCk",
+    "artifactPath": "content-kb/comedian-mtg/TZT3si4LZCk.md",
+    "publishedUtc": "2026-06-27T16:00:17+00:00",
+    "indexedUtc": "2026-07-12T16:42:21.3788013+00:00",
+    "archetypeTags": [
+      "combo",
+      "stax",
+      "ramp"
+    ],
+    "bracketTags": [
+      "cEDH"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "tutor",
+      "draw",
+      "removal",
+      "win-cons"
+    ],
+    "bodySha256": "322bc020e46459e95344265180faad0e4394675d123f445ab83748388c3ad127",
+    "seedManaged": true
   },
   {
     "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "pc2YiP2pkNM",
     "source": "Commander Baumi",
     "title": "How To Play 40 Lands Without Flooding",
-    "videoUrl": "https://www.youtube.com/watch?v=pc2YiP2pkNM&list=UU98mf08y3Dv_4chuyX1VIkw",
+    "videoUrl": "https://www.youtube.com/watch?v=pc2YiP2pkNM\u0026list=UU98mf08y3Dv_4chuyX1VIkw",
     "artifactPath": "content-kb/commander-baumi/pc2YiP2pkNM.md",
     "publishedUtc": "2026-06-04T18:00:26+00:00",
     "indexedUtc": "2026-06-11T23:00:55.467363+00:00",
@@ -389,13 +1177,67 @@
       "draw",
       "ramp",
       "recursion"
-    ]
+    ],
+    "bodySha256": "2b9ec74b1f86b8ce8e449babb9144e260425d67ce6e9b8cd3040148a8fb883d7",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "R838BvlUJyM",
+    "source": "Play to Win",
+    "title": "SHOULD YOU MULLIGAN FOR INTERACTION?",
+    "videoUrl": "https://www.youtube.com/watch?v=R838BvlUJyM",
+    "artifactPath": "content-kb/play-to-win/R838BvlUJyM.md",
+    "publishedUtc": "2026-06-27T14:12:26+00:00",
+    "indexedUtc": "2026-07-12T16:49:25.9918952+00:00",
+    "archetypeTags": [
+      "ramp",
+      "combo"
+    ],
+    "bracketTags": [
+      "cEDH"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "tutor",
+      "counter",
+      "protection"
+    ],
+    "bodySha256": "a76e3243dba95d213004f9acfb6f876211c5de2e18ab21764d8d548de2857451",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "fxBCPGaWu9Y",
+    "source": "The Command Zone",
+    "title": "Level Up Your Deck Building w/ This One Hack | The Command Zone 733 | MTG EDH Magic Gathering",
+    "videoUrl": "https://www.youtube.com/watch?v=fxBCPGaWu9Y",
+    "artifactPath": "content-kb/the-command-zone/fxBCPGaWu9Y.md",
+    "publishedUtc": "2026-04-01T18:00:00+00:00",
+    "indexedUtc": "2026-07-04T15:13:01.3413948+00:00",
+    "archetypeTags": [
+      "value-engine",
+      "midrange"
+    ],
+    "bracketTags": [
+      "Core",
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "draw",
+      "removal",
+      "board-wipe",
+      "tutor"
+    ],
+    "bodySha256": "b05a953dd7ae8dcfa2947648ce744d62f9c4342e9e26e5a6cf8f70db9b8b007c",
+    "seedManaged": true
   },
   {
     "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "jzeTz9clIC8",
     "source": "The Command Zone",
-    "title": "What's Up w/ Bracket 4? | The Command Zone 731 | MTG EDH Magic Gathering",
+    "title": "What\u0027s Up w/ Bracket 4? | The Command Zone 731 | MTG EDH Magic Gathering",
     "videoUrl": "https://www.youtube.com/watch?v=jzeTz9clIC8",
     "artifactPath": "content-kb/the-command-zone/jzeTz9clIC8.md",
     "publishedUtc": "2026-03-17T18:00:52+00:00",
@@ -414,7 +1256,9 @@
       "protection",
       "finishers",
       "draw"
-    ]
+    ],
+    "bodySha256": "b3de400b7341d14b7a9e16ce322d0bba80088d97958d245be370d2793b1b389a",
+    "seedManaged": true
   },
   {
     "naturalKeyType": "youtube_channel",
@@ -440,6 +1284,8 @@
       "removal",
       "finishers",
       "utility"
-    ]
+    ],
+    "bodySha256": "b62f019d8e2121e2afee742e18e4e7aaa7a643f6f3b757b3e1ef5d488984d35d",
+    "seedManaged": true
   }
 ]
