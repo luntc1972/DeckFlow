@@ -1,0 +1,21 @@
+namespace DeckFlow.Core.Knowledge.MeasuredStyleExtraction;
+
+/// <summary>
+/// Host-agnostic input bundle for pure measured-style extraction routines.
+/// </summary>
+public sealed record MeasuredStyleInputs
+{
+    /// <summary>Creator deck samples already fetched and normalized by the host tier.</summary>
+    public required IReadOnlyList<CreatorDeckSample> Samples { get; init; }
+
+    /// <summary>Resolved multi-bucket categories keyed by card name.</summary>
+    public required IReadOnlyDictionary<string, IReadOnlyList<string>> CardCategories { get; init; }
+
+    /// <summary>Shared global baseline used by lift calculations.</summary>
+    public required GlobalCategoryBaseline Baseline { get; init; }
+
+    /// <summary>
+    /// Indicates the host has no curated folder-weight map, so every sample should remain at full weight.
+    /// </summary>
+    public bool WeightsUncurated { get; init; }
+}
