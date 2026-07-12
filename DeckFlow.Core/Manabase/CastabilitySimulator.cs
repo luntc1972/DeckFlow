@@ -988,6 +988,18 @@ public static class CastabilitySimulator
         int basicTypeMask = 0)
     {
         bool isLand = kind is CardKind.UntappedLand or CardKind.TappedLand or CardKind.ConditionalCountLand;
+        LibraryCard Build(double activationWeight = 1.0) => new(
+            kind,
+            mask,
+            deployCost,
+            isLand,
+            activationWeight: activationWeight,
+            manaAmount: amount,
+            countCondition: countCondition,
+            countThreshold: countThreshold,
+            countTypeMask: countTypeMask,
+            basicTypeMask: basicTypeMask,
+            rampPips: rampPips);
 
         if (!isConditional)
         {
@@ -998,17 +1010,7 @@ public static class CastabilitySimulator
             // a Bernoulli activation here would double-discount and pull cast % ~5-7 pts under Snail. A
             // drawn-and-cast Sol Ring is a full mana source. (Each card is one physical copy; MQ-02
             // gives it amount mana, all of one chosen color.)
-            cards.Add(new LibraryCard(
-                kind,
-                mask,
-                deployCost,
-                isLand,
-                manaAmount: amount,
-                countCondition: countCondition,
-                countThreshold: countThreshold,
-                countTypeMask: countTypeMask,
-                basicTypeMask: basicTypeMask,
-                rampPips: rampPips));
+            cards.Add(Build());
             return;
         }
 
@@ -1020,32 +1022,13 @@ public static class CastabilitySimulator
         int whole = (int)Math.Floor(weight);
         for (int i = 0; i < whole; i++)
         {
-            cards.Add(new LibraryCard(
-                kind,
-                mask,
-                deployCost,
-                isLand,
-                countCondition: countCondition,
-                countThreshold: countThreshold,
-                countTypeMask: countTypeMask,
-                basicTypeMask: basicTypeMask,
-                rampPips: rampPips));
+            cards.Add(Build());
         }
 
         double frac = weight - whole;
         if (frac > 1e-9)
         {
-            cards.Add(new LibraryCard(
-                kind,
-                mask,
-                deployCost,
-                isLand,
-                activationWeight: frac,
-                countCondition: countCondition,
-                countThreshold: countThreshold,
-                countTypeMask: countTypeMask,
-                basicTypeMask: basicTypeMask,
-                rampPips: rampPips));
+            cards.Add(Build(frac));
         }
     }
 
@@ -1085,15 +1068,15 @@ public static class CastabilitySimulator
         // flag-off path and avoids inventing typed-nonbasic data not present on ManaSource.
         if (source.Produces.Count == 1)
         {
-            mask |= source.Produces[0] switch
+            ManaColor color = source.Produces[0];
+            foreach ((string type, ManaColor basicColor) in ManabaseClassifier.BasicLandColors)
             {
-                ManaColor.White => BasicTypeBit("Plains"),
-                ManaColor.Blue => BasicTypeBit("Island"),
-                ManaColor.Black => BasicTypeBit("Swamp"),
-                ManaColor.Red => BasicTypeBit("Mountain"),
-                ManaColor.Green => BasicTypeBit("Forest"),
-                _ => 0,
-            };
+                if (basicColor == color)
+                {
+                    mask |= BasicTypeBit(type);
+                    break;
+                }
+            }
         }
 
         return mask;
@@ -1564,9 +1547,22 @@ public static class CastabilitySimulator
 
     private static bool ConditionalCountLandEntersUntapped(LibraryCard played, IReadOnlyList<PlayedLand> landsOnBoard)
     {
-        int count = played.CountCondition == CountConditionKind.EldThreshold
-            ? landsOnBoard.Count(land => (land.BasicTypeMask & played.CountTypeMask) != 0)
-            : landsOnBoard.Count;
+        int count;
+        if (played.CountCondition == CountConditionKind.EldThreshold)
+        {
+            count = 0;
+            for (int i = 0; i < landsOnBoard.Count; i++)
+            {
+                if ((landsOnBoard[i].BasicTypeMask & played.CountTypeMask) != 0)
+                {
+                    count++;
+                }
+            }
+        }
+        else
+        {
+            count = landsOnBoard.Count;
+        }
 
         return played.CountCondition switch
         {
