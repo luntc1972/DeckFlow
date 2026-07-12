@@ -389,7 +389,7 @@ Deck B ([DECK B NAME]):
         {
             <section class="result-panel nested-panel summary-panel">
                 <h3>Deck Summary</h3>
-                <pre spellcheck="false">@Model.InputSummary</pre>
+                <pre class="deck-summary-pre" spellcheck="false">@Model.InputSummary</pre>
             </section>
         }
 
@@ -462,14 +462,17 @@ Deck B ([DECK B NAME]):
         @if (!string.IsNullOrWhiteSpace(Model.ComparisonContextText))
         {
             <section class="result-panel nested-panel">
-                        <div class="panel-heading">
-                            <div>
-                                <h3>20-comparison-context.txt</h3>
-                                <p>Structured comparison context derived from both decklists, the selected brackets, and Commander Spellbook combo lookup results.</p>
-                            </div>
-                            <button type="button" class="copy-button" data-copy-target="comparison-context-output">Copy</button>
-                        </div>
-                <textarea autocomplete="off" id="comparison-context-output" readonly spellcheck="false">@Model.ComparisonContextText</textarea>
+                <div class="panel-heading">
+                    <div>
+                        <h3>20-comparison-context.txt</h3>
+                        <p>Structured comparison context derived from both decklists, the selected brackets, and Commander Spellbook combo lookup results.</p>
+                    </div>
+                    <div class="panel-heading__actions">
+                        <button type="button" class="copy-button" data-copy-target="comparison-context-output">Copy</button>
+                        <button type="button" class="copy-button" data-expand-target="comparison-context-output" aria-expanded="false">Expand</button>
+                    </div>
+                </div>
+                <textarea class="prompt-artifact-textarea" autocomplete="off" id="comparison-context-output" readonly spellcheck="false">@Model.ComparisonContextText</textarea>
             </section>
         }
 
@@ -481,9 +484,12 @@ Deck B ([DECK B NAME]):
                         <h3>30-comparison-prompt.txt</h3>
                         <p>Paste this into @aiPlatform.DisplayName to get the side-by-side comparison plus the required <code>deck_comparison</code> JSON.</p>
                     </div>
-                    <button type="button" class="copy-button" data-copy-target="comparison-prompt-output">Copy</button>
+                    <div class="panel-heading__actions">
+                        <button type="button" class="copy-button" data-copy-target="comparison-prompt-output">Copy</button>
+                        <button type="button" class="copy-button" data-expand-target="comparison-prompt-output" aria-expanded="false">Expand</button>
+                    </div>
                 </div>
-                <textarea autocomplete="off" id="comparison-prompt-output" readonly spellcheck="false" data-prompt-comparison-result-anchor>@Model.ComparisonPromptText</textarea>
+                <textarea class="prompt-artifact-textarea" autocomplete="off" id="comparison-prompt-output" readonly spellcheck="false" data-prompt-comparison-result-anchor>@Model.ComparisonPromptText</textarea>
                 @await Html.PartialAsync("_PromptSplitTip", "deck_comparison")
             </section>
         }
@@ -511,9 +517,12 @@ Deck B ([DECK B NAME]):
                         <h3>32-comparison-follow-up-prompt.txt</h3>
                         <p>Paste this into the same @aiPlatform.DisplayName conversation after follow-up questions when you want an updated comparison and regenerated <code>deck_comparison</code> JSON.</p>
                     </div>
-                    <button type="button" class="copy-button" data-copy-target="comparison-follow-up-prompt-output">Copy</button>
+                    <div class="panel-heading__actions">
+                        <button type="button" class="copy-button" data-copy-target="comparison-follow-up-prompt-output">Copy</button>
+                        <button type="button" class="copy-button" data-expand-target="comparison-follow-up-prompt-output" aria-expanded="false">Expand</button>
+                    </div>
                 </div>
-                <textarea autocomplete="off" id="comparison-follow-up-prompt-output" readonly spellcheck="false">@Model.FollowUpPromptText</textarea>
+                <textarea class="prompt-artifact-textarea" autocomplete="off" id="comparison-follow-up-prompt-output" readonly spellcheck="false">@Model.FollowUpPromptText</textarea>
             </section>
         }
 
