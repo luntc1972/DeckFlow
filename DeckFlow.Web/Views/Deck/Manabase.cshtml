@@ -149,7 +149,7 @@
             @if (Model.HasNotAppliedOverrides)
             {
                 <p class="manabase-help manabase-overrides-notapplied" role="status">
-                    <strong>@Model.NotAppliedOverrides.Count override line(s) not applied</strong>
+                    <strong>@Model.NotAppliedOverrides.Count override @(Model.NotAppliedOverrides.Count == 1 ? "line" : "lines") not applied</strong>
                     (unknown card or unreadable cost): @string.Join(", ", Model.NotAppliedOverrides). Check the
                     card name matches your deck and the cost looks like <code>0</code> or <code>{R}</code>.
                 </p>
@@ -232,7 +232,9 @@
                 <span class="manabase-summary-label">Verdict</span>
                 <span class="manabase-chip manabase-summary-chip @ManabaseDisplay.HealthCss(report.Health)">@ManabaseDisplay.HealthLabel(report.Health)</span>
             </div>
-            @{ var landShort = (int)Math.Ceiling(-report.LandDelta); }
+            @{
+                var landShort = Math.Max(1, (int)Math.Round(-report.LandDelta, MidpointRounding.AwayFromZero));
+            }
             @{
                 string landNote = report.LandDelta >= -1
                     ? "land count OK"
@@ -419,7 +421,7 @@
                     <div>
                         <div class="manabase-lens-row">
                             <span class="manabase-lens-color">Colors / curve</span>
-                            <span><strong>@mull.ColorCount color(s)</strong> <span class="manabase-lens-muted">avg MV ~@ManabaseDisplay.AvgManaValueText(mull.AverageManaValue)</span></span>
+                            <span><strong>@mull.ColorCount @(mull.ColorCount == 1 ? "color" : "colors")</strong> <span class="manabase-lens-muted">avg MV ~@ManabaseDisplay.AvgManaValueText(mull.AverageManaValue)</span></span>
                         </div>
                         <div class="manabase-lens-row">
                             <span class="manabase-lens-color">Keep-size process</span>
@@ -559,7 +561,9 @@
         }
         @if (report.RampSourceCount > 0 || rampDraw > 0)
         {
-            var rampSummary = $"{report.RampSourceCount} mana rock(s)/dork(s)" + (rampDraw > 0 ? $" · {rampDraw} ramp/draw piece(s) at ≤2 MV credited toward a lower land count" : string.Empty);
+            var rockOrDorkLabel = report.RampSourceCount == 1 ? "mana rock/dork" : "mana rocks/dorks";
+            var rampPieceLabel = rampDraw == 1 ? "ramp/draw piece" : "ramp/draw pieces";
+            var rampSummary = $"{report.RampSourceCount} {rockOrDorkLabel}" + (rampDraw > 0 ? $" · {rampDraw} {rampPieceLabel} at ≤2 MV credited toward a lower land count" : string.Empty);
             if (report.RampSourceNames.Count > 0 || report.RampAndDrawNames.Count > 0)
             {
                 <details class="manabase-ramp">
@@ -638,7 +642,7 @@
                             </td>
                             <td data-label="Needed">@f.RequiredSources</td>
                             <td data-label="Population">@f.UnderSupportedCount of @total under-supported</td>
-                            <td data-label="Short by">@(f.IsAdequate ? "OK" : $"{f.Deficit.ToString("0.0")} ⚠")</td>
+                            <td data-label="Short by (heuristic guidance)">@(f.IsAdequate ? "OK" : $"{f.Deficit.ToString("0.0")} ⚠")</td>
                             <td data-label="Driving spell">@f.DrivingSpell</td>
                         </tr>
                     }
@@ -681,7 +685,7 @@
         @if (report.UnsupportedInteractions.Count > 0)
         {
             <details class="manabase-unsupported">
-                <summary>⚠ @report.UnsupportedInteractions.Count card(s) use interactions this analysis approximates or skips</summary>
+                <summary>⚠ @report.UnsupportedInteractions.Count @(report.UnsupportedInteractions.Count == 1 ? "card uses" : "cards use") interactions this analysis approximates or skips</summary>
                 <ul>
                     @foreach (var u in report.UnsupportedInteractions)
                     {
@@ -749,7 +753,7 @@
         }
         @if (Model.Unresolved.Count > 0)
         {
-            <p class="mode-note">Skipped @Model.Unresolved.Count card(s) Scryfall could not resolve: @string.Join(", ", Model.Unresolved)</p>
+            <p class="mode-note">Skipped @Model.Unresolved.Count @(Model.Unresolved.Count == 1 ? "card" : "cards") Scryfall could not resolve: @string.Join(", ", Model.Unresolved)</p>
         }
     </section>
 
@@ -844,7 +848,7 @@
                         <strong>@f.Color</strong>: @f.ActualSources.ToString("F1") sources
                         (@f.DirectSources.ToString("F1") direct + @f.SharedSources.ToString("F1") shared + @f.ConditionalSources.ToString("F1") conditional) ·
                         needs @f.RequiredSources for @f.DrivingSpell ·
-                        @f.UnderSupportedCount of @total card(s) under-supported · mean cast @f.AverageCastPercent.ToString("F0")%
+                        @f.UnderSupportedCount of @total @(total == 1 ? "card" : "cards") under-supported · mean cast @f.AverageCastPercent.ToString("F0")%
                     </li>
                 }
             </ul>
