@@ -1502,6 +1502,25 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
   font-size: 0.85rem;
 }
 
+.summary-panel .deck-summary-pre {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.panel-heading__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.prompt-artifact-textarea--expanded {
+  min-height: min(60vh, 48rem);
+  height: min(60vh, 48rem);
+  max-height: none;
+}
+
 .card-lookup-mechanics-list {
   display: flex;
   flex-direction: column;
