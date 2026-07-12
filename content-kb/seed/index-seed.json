@@ -719,6 +719,29 @@
   },
   {
     "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "9VNd8QOuEqc",
+    "source": "Based Deck Department",
+    "title": "You\u0027ll Never Build Mana Bases The Same Way Again...",
+    "videoUrl": "https://www.youtube.com/watch?v=9VNd8QOuEqc",
+    "artifactPath": "content-kb/based-deck-department/9VNd8QOuEqc.md",
+    "publishedUtc": "2025-01-18T19:00:09+00:00",
+    "indexedUtc": "2026-07-12T18:01:49.0401138+00:00",
+    "archetypeTags": [
+      "ramp",
+      "tribal"
+    ],
+    "bracketTags": [
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "utility"
+    ],
+    "bodySha256": "2542c034ed99b80e72ddde5274aede0105772ed7ed5018bfe143b6ef0aa7ef14",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "7lJJPXGfFNs",
     "source": "Based Deck Department",
     "title": "You\u0027re Building Your Commander Decks Backwards",
@@ -998,6 +1021,28 @@
   },
   {
     "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "7KSNUSIb2xM",
+    "source": "Based Deck Department",
+    "title": "You\u2019ll Never Play Board Wipes The Same Way Again",
+    "videoUrl": "https://www.youtube.com/watch?v=7KSNUSIb2xM",
+    "artifactPath": "content-kb/based-deck-department/7KSNUSIb2xM.md",
+    "publishedUtc": "2024-11-27T12:00:09+00:00",
+    "indexedUtc": "2026-07-12T18:01:49.0401138+00:00",
+    "archetypeTags": [
+      "control"
+    ],
+    "bracketTags": [
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "board-wipe",
+      "removal"
+    ],
+    "bodySha256": "0d200f6329803d022ac81202943dff69c341a44793a747a5939933561bd0b25e",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "ttxFKsVmED8",
     "source": "Based Deck Department",
     "title": "You\u2019re Building Color Pairs Wrong in Commander",
@@ -1183,6 +1228,34 @@
   },
   {
     "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "NYUlsk6gFa8",
+    "source": "EDHRECast",
+    "title": "Are You Optimizing the FUN out of Commander? | Magic: the Gathering",
+    "videoUrl": "https://www.youtube.com/watch?v=NYUlsk6gFa8",
+    "artifactPath": "content-kb/edhrecast/NYUlsk6gFa8.md",
+    "publishedUtc": "2026-06-01T18:00:26+00:00",
+    "indexedUtc": "2026-07-12T18:19:00.2983823+00:00",
+    "archetypeTags": [
+      "tokens",
+      "lands",
+      "voltron"
+    ],
+    "bracketTags": [
+      "Core",
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "removal",
+      "tutor",
+      "win-cons",
+      "draw",
+      "ramp"
+    ],
+    "bodySha256": "4c436cc94ed976c8c7bcbfa6401f50e1f58f7c85392be9b72c4694b73e2122db",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "R838BvlUJyM",
     "source": "Play to Win",
     "title": "SHOULD YOU MULLIGAN FOR INTERACTION?",
@@ -1204,6 +1277,31 @@
       "protection"
     ],
     "bodySha256": "a76e3243dba95d213004f9acfb6f876211c5de2e18ab21764d8d548de2857451",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "ftCPe3Yxztk",
+    "source": "The Command Zone",
+    "title": "How to Play Commander | The Command Zone 745 | MTG EDH Magic Gathering",
+    "videoUrl": "https://www.youtube.com/watch?v=ftCPe3Yxztk",
+    "artifactPath": "content-kb/the-command-zone/ftCPe3Yxztk.md",
+    "publishedUtc": "2026-06-03T18:00:34+00:00",
+    "indexedUtc": "2026-07-12T17:19:37.7030346+00:00",
+    "archetypeTags": [
+      "value-engine",
+      "ramp"
+    ],
+    "bracketTags": [
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "draw",
+      "removal",
+      "board-wipe"
+    ],
+    "bodySha256": "6ce6fb7f9ceb7c9d33027666cef7eb3765a80fba4190bd5a4c2d4b6f98e5afe9",
     "seedManaged": true
   },
   {
