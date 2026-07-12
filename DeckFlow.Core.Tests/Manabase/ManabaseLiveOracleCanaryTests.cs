@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -39,6 +41,23 @@ public sealed class ManabaseLiveOracleCanaryTests
     {
         PropertyNameCaseInsensitive = true,
     };
+
+    [Fact]
+    public void OracleRegexes_MatchVerifiedMbGap02Clauses()
+    {
+        Assert.Matches(RegexField("FastLandRegex"),
+            "This land enters tapped unless you control two or fewer other lands.");
+        Assert.Matches(RegexField("SlowLandRegex"),
+            "This land enters tapped unless you control two or more other lands.");
+        Assert.Matches(RegexField("EldThresholdRegex"),
+            "This land enters tapped unless you control three or more other Islands.");
+        Assert.Matches(RegexField("VergeSecondColorRegex"),
+            "Activate only if you control a Plains or an Island.");
+        Assert.Matches(RegexField("TrainingCompoundRegex"),
+            "Activate only if this land entered this turn or if you control a basic land.");
+        Assert.Matches(RegexField("VividChargeRegex"),
+            "This land enters tapped with two charge counters on it.");
+    }
 
     [Fact]
     public async Task LiveOracle_BellwetherCards_ClassifyAsExpected()
@@ -132,6 +151,15 @@ public sealed class ManabaseLiveOracleCanaryTests
     }
 
     private sealed record Bellwether(string Name, Func<ManabaseDeck, string?> Check);
+
+    private static Regex RegexField(string name)
+    {
+        FieldInfo? field = typeof(ManabaseClassifier).GetField(name, BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(field);
+        Regex? regex = field!.GetValue(null) as Regex;
+        Assert.NotNull(regex);
+        return regex!;
+    }
 
     private static readonly IReadOnlyList<Bellwether> Bellwethers = new[]
     {
