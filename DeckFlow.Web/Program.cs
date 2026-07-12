@@ -188,6 +188,8 @@ public partial class Program
                     sp.GetService<ILogger<BracketClassificationService>>()));
             builder.Services.AddSingleton<IMoxfieldDeckImporter, MoxfieldApiDeckImporter>();
             builder.Services.AddSingleton<IArchidektDeckImporter, ArchidektApiDeckImporter>();
+            builder.Services.AddSingleton<DeckFlow.Web.Services.CreatorStyle.IArchidektOwnerClient, DeckFlow.Web.Services.CreatorStyle.ArchidektOwnerClient>();
+            builder.Services.AddScoped<DeckFlow.Web.Services.CreatorStyle.CreatorProfileDeckCrawler>();
 
             var app = builder.Build();
 
