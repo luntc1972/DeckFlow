@@ -176,6 +176,12 @@ Carried forward, plus Cycle-16 operator gates acknowledged at close (2026-07-11)
 | Cycle-16 operator gate | FU-3 live reconcile walk + SYNC-16 real-deploy leg (91-VERIFICATION `human_needed`) | Deferred — post-ship; flags ship OFF, gates flipping `sync.directpush-gitbody` / `sync.reconcile` ON |
 | Cycle-16 operator | Push branch + squash→main + tag `2026.07.3` + push tag | Owed at close (2026-07-11); AI does not push main |
 
+## Quick Tasks Completed
+
+| Date | Task | Branch | Commits |
+|------|------|--------|---------|
+| 2026-07-12 | Deck-analysis + primer + comparison UX fixes (mobile overflow, artifact expand, context open, step-3 tab) | quick/deck-analysis-ux-fixes | aac3b4dd, 98ed77a1 |
+
 ## Session Continuity
 
 Last session: 2026-07-12T18:14:36.076Z
