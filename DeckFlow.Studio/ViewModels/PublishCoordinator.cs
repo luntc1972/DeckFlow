@@ -191,9 +191,7 @@ public sealed class PublishCoordinator
 
     /// <summary>
     /// Stage 2: stages ONLY the supplied repo-relative paths (never <c>-A</c>) and commits with the
-    /// given message, then stamps the exported keys as pushed-to-prod locally. Commit success is the
-    /// publish boundary (PUB-01/HIGH-2); a failed/cancelled local stamp is non-fatal and reported via
-    /// <see cref="PublishCommitResult.LocalStampFailed"/>. Git failures
+    /// given message. Commit success is the publish boundary for this git-seed flow. Git failures
     /// (<see cref="GitForeignStagedChangesException"/>, <see cref="GitCommandException"/>,
     /// <see cref="OperationCanceledException"/>) propagate to the page for sanitized copy mapping.
     /// </summary>
@@ -205,26 +203,7 @@ public sealed class PublishCoordinator
         CancellationToken cancellationToken)
     {
         var sha = await _git.StageAndCommitAsync(repoRoot, stagedPaths, commitMessage, cancellationToken).ConfigureAwait(false);
-
-        var localStampFailed = false;
-        if (exportedKeys.Count > 0)
-        {
-            try
-            {
-                await _indexStore.StampPushedToProdAsync(
-                    exportedKeys,
-                    DateTimeOffset.UtcNow,
-                    cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception)
-            {
-                // Why: commit already landed; a failed/cancelled local stamp is non-fatal (WR-01/WR-02).
-                // Surface only a boolean; the page maps it to sanitized copy (WR-03 hygiene).
-                localStampFailed = true;
-            }
-        }
-
-        return new PublishCommitResult(sha, localStampFailed);
+        return new PublishCommitResult(sha);
     }
 
     private static string Canonical(ContentIndexExportRow row) =>
@@ -330,5 +309,4 @@ public sealed record PublishExportResult(
 /// Result of <see cref="PublishCoordinator.CommitAsync"/>.
 /// </summary>
 /// <param name="Sha">The commit SHA produced by the stage-and-commit.</param>
-/// <param name="LocalStampFailed">True when the commit landed but the local pushed-to-prod stamp did not complete.</param>
-public sealed record PublishCommitResult(string Sha, bool LocalStampFailed);
+public sealed record PublishCommitResult(string Sha);

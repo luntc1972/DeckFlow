@@ -246,7 +246,7 @@ public sealed class PublishCoordinatorTests
     // ── CommitAsync ──────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task CommitAsync_Success_ReturnsShaAndStampsKeys()
+    public async Task CommitAsync_Success_ReturnsShaAndDoesNotStampKeys()
     {
         var git = new FakeGitRepository { CannedCommitSha = "deadbee" };
         var store = new FakeContentSiteIndexStore();
@@ -261,31 +261,11 @@ public sealed class PublishCoordinatorTests
             CancellationToken.None);
 
         Assert.Equal("deadbee", result.Sha);
-        Assert.False(result.LocalStampFailed);
-        Assert.Single(store.StampCalls);
+        Assert.Empty(store.StampCalls);
     }
 
     [Fact]
-    public async Task CommitAsync_StampThrows_ReturnsLocalStampFailed_CommitStillSucceeds()
-    {
-        var git = new FakeGitRepository { CannedCommitSha = "deadbee" };
-        var store = new FakeContentSiteIndexStore { ThrowOnStamp = new InvalidOperationException("local db locked") };
-        var coordinator = Build(git, new FakeContentKbOrchestrator(), store);
-        var keys = new[] { (ContentSourceType.Youtube, "vid1") };
-
-        var result = await coordinator.CommitAsync(
-            "/fake/repo",
-            new[] { "content-kb/seed/index-seed.json" },
-            "msg",
-            keys,
-            CancellationToken.None);
-
-        Assert.Equal("deadbee", result.Sha);
-        Assert.True(result.LocalStampFailed);
-    }
-
-    [Fact]
-    public async Task CommitAsync_NoExportedKeys_SkipsStamp()
+    public async Task CommitAsync_NoExportedKeys_DoesNotStamp()
     {
         var git = new FakeGitRepository { CannedCommitSha = "deadbee" };
         var store = new FakeContentSiteIndexStore();
@@ -299,7 +279,6 @@ public sealed class PublishCoordinatorTests
             CancellationToken.None);
 
         Assert.Equal("deadbee", result.Sha);
-        Assert.False(result.LocalStampFailed);
         Assert.Empty(store.StampCalls);
     }
 

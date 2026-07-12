@@ -8,9 +8,9 @@ namespace DeckFlow.Studio.Pages;
 
 /// <summary>
 /// Code-behind for the Publish-to-Git page. The git repo-info load, export / artifact-copy / diff /
-/// change classification, and stage-and-commit + stamp orchestration live in
+/// change classification, and stage-and-commit orchestration live in
 /// <see cref="PublishCoordinator"/> (H1 split); this page keeps only UI state, busy guards,
-/// progress wiring, sanitized error/warning copy mapping, cancellation, and re-render marshalling.
+/// progress wiring, sanitized error copy mapping, cancellation, and re-render marshalling.
 /// Behavior is identical to the prior inline implementation.
 /// </summary>
 public partial class Publish
@@ -52,7 +52,6 @@ public partial class Publish
     private bool _commitSuccess;
     private string _commitSha = string.Empty;
     private string _commitError = string.Empty;
-    private string _stampWarning = string.Empty;
     private string _commitMessage = string.Empty;
 
     // ── Shared in-flight guard ──────────────────────────────────────────────
@@ -107,7 +106,6 @@ public partial class Publish
         _diffReviewed = false;
         _commitSuccess = false;
         _commitError = string.Empty;
-        _stampWarning = string.Empty;
         _stagedPaths = Array.Empty<string>();
         _exportedKeys = Array.Empty<(string Type, string Value)>();
 
@@ -175,7 +173,6 @@ public partial class Publish
         _operationInFlight = true;
         _commitInFlight = true;
         _commitError = string.Empty;
-        _stampWarning = string.Empty;
         _commitSuccess = false;
 
         try
@@ -189,13 +186,6 @@ public partial class Publish
 
             _commitSha = result.Sha;
             _commitSuccess = true;
-
-            if (result.LocalStampFailed)
-            {
-                // Why: commit already landed; a failed/cancelled local stamp is non-fatal (WR-01/WR-02).
-                // Do NOT surface raw exception text (WR-03 hygiene); operator just needs to re-publish.
-                _stampWarning = "Commit succeeded, but the local pushed-to-prod stamp did not complete — re-export and publish again to record it.";
-            }
 
             // After a successful commit, disable the Commit button until a new export cycle runs.
             _diffReady = false;
