@@ -156,21 +156,24 @@ public sealed class MeasuredStyleProfileBuilder
         double effectiveSampleSize)
     {
         var metrics = new List<MeasuredMetric>();
-        foreach (var category in CategoryCounter.AggregateCounts(samples, cardCategories)
-                     .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
+        List<IReadOnlyDictionary<string, int>> perDeckCounts = samples
+            .Select(sample => CategoryCounter.CountPerDeck(sample, cardCategories))
+            .ToList();
+        IEnumerable<string> categories = perDeckCounts
+            .SelectMany(counts => counts.Keys)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(category => category, StringComparer.OrdinalIgnoreCase);
+
+        foreach (string category in categories)
         {
-            IReadOnlyList<double> perDeckValues = samples
-                .Select(sample =>
-                {
-                    IReadOnlyDictionary<string, int> counts = CategoryCounter.CountPerDeck(sample, cardCategories);
-                    return counts.TryGetValue(category.Key, out var count) ? (double)count : 0d;
-                })
+            IReadOnlyList<double> perDeckValues = perDeckCounts
+                .Select(counts => counts.TryGetValue(category, out var count) ? (double)count : 0d)
                 .ToArray();
 
             metrics.Add(new MeasuredMetric
             {
-                Metric = $"category_ratio:{category.Key}",
-                Value = category.Value,
+                Metric = $"category_ratio:{category}",
+                Value = perDeckValues.Count == 0 ? 0 : perDeckValues.Average(),
                 NumDecks = rawDeckCount,
                 Distribution = BuildDistribution(perDeckValues, effectiveSampleSize)
             });
@@ -208,13 +211,7 @@ public sealed class MeasuredStyleProfileBuilder
                 samples.Select(sample => ResolveComboCountAsync(sample.Entries, cancellationToken)))
             .ConfigureAwait(false);
 
-        return new MeasuredMetric
-        {
-            Metric = "combo_density:included_per_deck",
-            Value = comboCounts.Count == 0 ? 0 : comboCounts.Average(),
-            NumDecks = rawDeckCount,
-            Distribution = BuildDistribution(comboCounts, effectiveSampleSize)
-        };
+        return AverageMetric("combo_density:included_per_deck", comboCounts, rawDeckCount, effectiveSampleSize);
     }
 
     private async Task<IReadOnlyList<MeasuredMetric>> BuildKarstenMetricsAsync(
@@ -233,28 +230,25 @@ public sealed class MeasuredStyleProfileBuilder
 
         return
         [
-            new MeasuredMetric
-            {
-                Metric = "karsten:land_delta",
-                Value = landDelta.Count == 0 ? 0 : landDelta.Average(),
-                NumDecks = rawDeckCount,
-                Distribution = BuildDistribution(landDelta, effectiveSampleSize)
-            },
-            new MeasuredMetric
-            {
-                Metric = "karsten:target_lands",
-                Value = targetLands.Count == 0 ? 0 : targetLands.Average(),
-                NumDecks = rawDeckCount,
-                Distribution = BuildDistribution(targetLands, effectiveSampleSize)
-            },
-            new MeasuredMetric
-            {
-                Metric = "karsten:health_score",
-                Value = healthScores.Count == 0 ? 0 : healthScores.Average(),
-                NumDecks = rawDeckCount,
-                Distribution = BuildDistribution(healthScores, effectiveSampleSize)
-            }
+            AverageMetric("karsten:land_delta", landDelta, rawDeckCount, effectiveSampleSize),
+            AverageMetric("karsten:target_lands", targetLands, rawDeckCount, effectiveSampleSize),
+            AverageMetric("karsten:health_score", healthScores, rawDeckCount, effectiveSampleSize)
         ];
+    }
+
+    private static MeasuredMetric AverageMetric(
+        string metricName,
+        IReadOnlyList<double> values,
+        int rawDeckCount,
+        double effectiveSampleSize)
+    {
+        return new MeasuredMetric
+        {
+            Metric = metricName,
+            Value = values.Count == 0 ? 0 : values.Average(),
+            NumDecks = rawDeckCount,
+            Distribution = BuildDistribution(values, effectiveSampleSize)
+        };
     }
 
     private async Task<double> ResolveComboCountAsync(

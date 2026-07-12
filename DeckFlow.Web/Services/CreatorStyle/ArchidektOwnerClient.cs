@@ -222,17 +222,7 @@ public sealed class ArchidektOwnerClient : IArchidektOwnerClient
 
     private static string ReadString(JsonElement item, string propertyName)
     {
-        if (!item.TryGetProperty(propertyName, out var property))
-        {
-            return string.Empty;
-        }
-
-        return property.ValueKind switch
-        {
-            JsonValueKind.String => property.GetString() ?? string.Empty,
-            JsonValueKind.Number => property.GetRawText(),
-            _ => string.Empty
-        };
+        return ReadNullableString(item, propertyName) ?? string.Empty;
     }
 
     private static string? ReadNullableString(JsonElement item, string propertyName)
@@ -249,22 +239,7 @@ public sealed class ArchidektOwnerClient : IArchidektOwnerClient
 
     private static int ReadInt32(JsonElement item, string propertyName)
     {
-        if (!item.TryGetProperty(propertyName, out var property))
-        {
-            return 0;
-        }
-
-        if (property.ValueKind == JsonValueKind.Number && property.TryGetInt32(out var value))
-        {
-            return value;
-        }
-
-        if (property.ValueKind == JsonValueKind.String && int.TryParse(property.GetString(), out value))
-        {
-            return value;
-        }
-
-        return 0;
+        return ReadNullableInt32(item, propertyName) ?? 0;
     }
 
     private static int? ReadNullableInt32(JsonElement item, string propertyName)
