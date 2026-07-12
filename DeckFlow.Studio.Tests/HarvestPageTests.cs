@@ -606,6 +606,47 @@ namespace DeckFlow.Studio.Tests
         }
 
         [Fact]
+        public void PendingDistill_FilteredVideo_IsReadyAndRunsWithoutRedistillConfirm()
+        {
+            var distill = new RecordingDistillOrchestrator
+            {
+                Pending = new[] { Pending("vf1", "filtered") },
+            };
+
+            var (cut, _, _, _) = RenderHarvest(
+                Array.Empty<YouTubeChannelVideo>(),
+                new MapBlockedStore(),
+                new MapSiteIndexStore(),
+                distill: distill);
+
+            cut.WaitForAssertion(() =>
+            {
+                Assert.Contains("Select vf1", cut.Markup);
+                Assert.Contains("Filtered", cut.Markup);
+            });
+
+            cut.InvokeAsync(() => cut.Find("input[aria-label='Select vf1']").Change(true));
+
+            cut.WaitForAssertion(() =>
+            {
+                Assert.Contains("Videos ready to distill: 1", cut.Markup);
+                var button = cut.FindAll("button").First(b => b.TextContent.Contains("Run Distill", StringComparison.Ordinal));
+                Assert.False(button.HasAttribute("disabled"));
+            });
+
+            cut.InvokeAsync(() => cut.FindAll("button")
+                .First(b => b.TextContent.Contains("Run Distill", StringComparison.Ordinal))
+                .Click());
+
+            cut.WaitForAssertion(() =>
+            {
+                Assert.True(distill.LiveDistillCalled);
+                var ids = distill.DistillCalls.SelectMany(c => c ?? Array.Empty<string>()).ToList();
+                Assert.Contains("vf1", ids);
+            });
+        }
+
+        [Fact]
         public void PendingDistill_AutoLoadsOnInit_WithoutClick()
         {
             // The distill list populates on page init so harvested-but-not-distilled videos are
@@ -748,12 +789,13 @@ namespace DeckFlow.Studio.Tests
                 .Click());
         }
 
-        private static PendingDistillVideo Pending(string id) => new()
+        private static PendingDistillVideo Pending(string id, string? distillStatus = null) => new()
         {
             YoutubeVideoId = id,
             Title = id,
             VideoUrl = $"https://youtu.be/{id}",
             PublishedUtc = DateTimeOffset.UtcNow,
+            DistillStatus = distillStatus,
         };
 
         private static DistilledVideoResult Distilled(string id, int clipCount) => new()

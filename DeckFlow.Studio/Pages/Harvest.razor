@@ -619,7 +619,8 @@
 
             @{
                 var allSelectedForDistill = GetAllSelectedForDistill();
-                var distillHarvested = allSelectedForDistill.Where(v => v.Status == VideoStatus.Harvested).ToList();
+                // Why: pending rows previously filtered by the classifier are safe to distill again with no re-distill confirm.
+                var distillHarvested = allSelectedForDistill.Where(v => v.Status == VideoStatus.Harvested || v.Status == VideoStatus.Filtered).ToList();
                 var distillAlreadyDistilled = allSelectedForDistill.Where(v => v.Status == VideoStatus.Distilled).ToList();
                 var readyCount = distillHarvested.Count;
                 var alreadyDistilledCount = distillAlreadyDistilled.Count;
