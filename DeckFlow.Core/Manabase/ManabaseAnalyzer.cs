@@ -1227,7 +1227,7 @@ public static class ManabaseAnalyzer
         }
         else
         {
-            sb.Append(CultureInfo.InvariantCulture, $"(add ~{Math.Ceiling(-delta):F0} land(s)). ");
+            sb.Append(CultureInfo.InvariantCulture, $"(add {ManabaseWording.ApproximatePhrase("land", -delta)}). ");
         }
 
         // HIGH-1: gate on the tail-risk composite (same signal that orders findings), not raw
@@ -1241,7 +1241,7 @@ public static class ManabaseAnalyzer
         {
             // A composite-worst color may still meet the raw source bar (deficit <= 0) — only
             // suggest adding sources when there is an actual shortfall.
-            int addSources = (int)Math.Ceiling(Math.Max(0, weakest.Deficit));
+            int addSources = weakest.Deficit > 0 ? ManabaseWording.ApproximateCount(weakest.Deficit) : 0;
             string addClause = addSources > 0 ? $" (add ~{addSources})" : string.Empty;
             sb.Append(CultureInfo.InvariantCulture,
                 $"Weakest color: {weakest.Color} — {weakest.ActualSources:F1} sources vs {weakest.RequiredSources} needed for {weakest.DrivingSpell}{addClause}. ");

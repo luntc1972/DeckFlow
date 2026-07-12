@@ -1238,7 +1238,7 @@ public sealed record ManabaseReport
                 {
                     Kind = ManabaseFixKind.ColorSources,
                     Color = rawShort.Color,
-                    Amount = (int)Math.Ceiling(rawShort.Deficit),
+                    Amount = ManabaseWording.ApproximateCount(rawShort.Deficit),
                     ActualSources = rawShort.ActualSources,
                     RequiredSources = rawShort.RequiredSources,
                     Spell = rawShort.DrivingSpell,
@@ -1255,7 +1255,7 @@ public sealed record ManabaseReport
                 return new ManabasePrimaryFix
                 {
                     Kind = ManabaseFixKind.Lands,
-                    Amount = (int)Math.Ceiling(-LandDelta),
+                    Amount = ManabaseWording.ApproximateCount(-LandDelta),
                 };
             }
 

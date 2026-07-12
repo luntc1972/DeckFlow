@@ -160,9 +160,10 @@ public sealed class ManabaseDisplayTests
     [InlineData(17.0, 17, true, 0)]
     [InlineData(16.0, 17, true, 0)]
     // Short: deficit is whole sources needed, clamped to >= 1 so it never shows "-0".
-    [InlineData(22.9, 24, false, 2)]
-    [InlineData(22.8, 24, false, 2)]
-    [InlineData(21.9, 24, false, 3)]
+    [InlineData(22.95, 24, false, 1)]
+    [InlineData(22.9, 24, false, 1)]
+    [InlineData(22.8, 24, false, 1)]
+    [InlineData(21.9, 24, false, 2)]
     [InlineData(12.2, 16, false, 4)]
     public void KarstenMet_AppliesOneSourceTolerance_AndClampsDeficit(double actual, int required, bool met, int deficit)
     {

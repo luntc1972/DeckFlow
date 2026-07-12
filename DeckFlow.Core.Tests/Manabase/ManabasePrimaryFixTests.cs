@@ -75,8 +75,23 @@ public sealed class ManabasePrimaryFixTests
 
         Assert.False(report.LandShortfallCoveredByRamp);
         Assert.Equal(ManabaseFixKind.Lands, fix.Kind);
-        Assert.Equal(2, fix.Amount); // ceil(37.4 - 36) = ceil(1.4) = 2
+        Assert.Equal(1, fix.Amount); // rounded display count: 37.4 - 36 = 1.4 -> ~1
         Assert.Null(fix.Color);
+    }
+
+    [Fact]
+    public void LandShortfallOfOnePointZeroFive_RoundsToOneForPrimaryFix()
+    {
+        ManabaseReport report = Report(
+            actualLands: 36,
+            targetLands: 37.05,
+            Finding(ManaColor.Green, actual: 28.5, required: 14, underSupported: 12),
+            Finding(ManaColor.Red, actual: 23.5, required: 14, underSupported: 2));
+
+        ManabasePrimaryFix fix = report.PrimaryFix;
+
+        Assert.Equal(ManabaseFixKind.Lands, fix.Kind);
+        Assert.Equal(1, fix.Amount);
     }
 
     [Fact]
