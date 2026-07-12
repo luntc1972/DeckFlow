@@ -58,6 +58,33 @@ public sealed class CreatorStyleProfileStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task UpsertAsync_NullEffectiveSampleSize_RoundTripsAsNull()
+    {
+        var metric = CreatorStyleProfileTestData.CreateFullProfile("fixture").MeasuredMetrics[0];
+        var distribution = Assert.IsType<MetricDistribution>(metric.Distribution);
+        var expected = CreatorStyleProfileTestData.CreateFullProfile("null-effective-sample") with
+        {
+            MeasuredMetrics = new[]
+            {
+                metric with
+                {
+                    Distribution = distribution with
+                    {
+                        EffectiveSampleSize = null
+                    }
+                }
+            }
+        };
+
+        await _store.UpsertAsync(expected);
+
+        var actual = await _store.GetBySlugAsync(expected.Slug);
+
+        Assert.NotNull(actual);
+        Assert.Null(actual!.MeasuredMetrics[0].Distribution?.EffectiveSampleSize);
+    }
+
+    [Fact]
     public async Task UpsertAsync_BelowFloor_InsufficientSampleSurvivesRoundTrip()
     {
         var expected = CreatorStyleProfileTestData.CreateFullProfile("below-floor") with
