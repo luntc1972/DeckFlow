@@ -19,6 +19,13 @@ public sealed class NavMenuTests : BunitContext
     }
 
     [Fact]
+    public void NavMenu_Renders_GuideLink()
+    {
+        var cut = Render<NavMenu>();
+        Assert.NotNull(cut.Find("a[href='guide']"));
+    }
+
+    [Fact]
     public void NavMenu_Renders_HarvestLink()
     {
         var cut = Render<NavMenu>();
@@ -111,13 +118,13 @@ public sealed class NavMenuTests : BunitContext
     // ── A3/91-07: All destinations are present (count check) ──────────────────
 
     [Fact]
-    public void NavMenu_Renders_AllElevenDestinations()
+    public void NavMenu_Renders_AllTwelveDestinations()
     {
         var cut = Render<NavMenu>();
         var navLinks = cut.FindAll("nav a.nav-link");
-        // Home, Harvest, Creators, Review, Publish, Direct Push, Pull from Prod, Reconcile,
-        // Git Body Coverage, Skipped, Blocked = 11
-        Assert.Equal(11, navLinks.Count);
+        // Home, Guide, Harvest, Creators, Review, Publish, Direct Push, Pull from Prod,
+        // Reconcile, Git Body Coverage, Skipped, Blocked = 12
+        Assert.Equal(12, navLinks.Count);
     }
 
     // ── A3: Pipeline links appear before Support links in document order ──────

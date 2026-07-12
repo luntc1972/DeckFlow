@@ -18,6 +18,13 @@ unlocks only after every file uploads. New rows stay <strong>hidden</strong> unt
 confirms the deployed body matches; a row that is already visible stays <strong>visible</strong>
 and may briefly serve its prior body until the redeploy completes
 (expand&rarr;verify&rarr;contract, SYNC-09/D-06).</p>
+<HelpPanel Title="Write approved entries straight to live production">
+    <p class="mb-2">This is the direct-to-production publish path. It runs a staged flow that uploads artifacts, writes the live prod database, commits git durability, and only makes new rows visible after Stage 5 confirms the deployed body.</p>
+    <ul class="mb-0 ps-3">
+        <li>This page targets <strong>PRODUCTION</strong>; use Publish to Git when you want the safer default path.</li>
+        <li>New rows stay hidden until confirm succeeds, but already-visible rows can temporarily keep serving their prior body during redeploy.</li>
+    </ul>
+</HelpPanel>
 
 <article class="content px-4">
 

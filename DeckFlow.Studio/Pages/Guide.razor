@@ -1,0 +1,62 @@
+@page "/guide"
+
+<PageTitle>Workflow Guide</PageTitle>
+
+<h1 class="h4 fw-semibold">Workflow Guide</h1>
+<p class="text-muted">End-to-end map of the Studio pipeline from finding a video through review, publish, and sync maintenance.</p>
+
+<article class="content px-4">
+    <div class="card mt-3">
+        <div class="card-header">
+            <h2 class="h5 fw-semibold mb-0">Start to Finish</h2>
+        </div>
+        <div class="card-body">
+            <ol class="mb-0 ps-3">
+                <li class="mb-3">
+                    <a href="/">Home</a> shows the pipeline dashboard. Check it first when you want a quick read on what is harvested, approved, published, or still newer locally.
+                </li>
+                <li class="mb-3">
+                    <a href="/creators">Creators</a> is optional. Curate the channels and playlists you revisit often so Harvest can offer quick-picks instead of requiring pasted URLs each time.
+                </li>
+                <li class="mb-3">
+                    <a href="/harvest">Harvest + Distill</a> is where new work begins. Browse a channel or playlist, or paste a video URL, harvest the transcript, and distill it into KB notes and prompt artifacts.
+                </li>
+                <li class="mb-3">
+                    <a href="/review">Review</a> is the approval gate. Inspect the distilled entry, then approve what is ready to ship or reject what should stay out of the publish path.
+                </li>
+                <li class="mb-3">
+                    <a href="/publish">Publish to Git</a> is the default path when you want a git-backed publish. Export the approved seed, review the diff, edit the commit message, commit in Studio, then push from your terminal because Studio never pushes.
+                </li>
+                <li class="mb-3">
+                    <a href="/direct-push">Direct Push to Production</a> is the alternate publish path when you need to write approved entries straight to prod. It runs the 5 staged steps: artifacts, prod DB write, git durability, deploy, then verify before new rows become visible.
+                </li>
+                <li class="mb-3">
+                    Verify and maintain with <a href="/pull-from-prod">Pull from Prod</a>, <a href="/reconcile">Reconcile</a>, and <a href="/git-body-coverage">Git Body Coverage</a>. Use them to sync local state, audit drift, and confirm that prod-visible rows are backed by git bodies.
+                </li>
+                <li>
+                    Support pages <a href="/skipped">Skipped</a> and <a href="/blocked">Blocked</a> manage videos you do not want harvested. Skip is reversible housekeeping; block is the stronger exclusion until you unblock it.
+                </li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="card mt-3">
+        <div class="card-header">
+            <h2 class="h5 fw-semibold mb-0">Choose a Publish Path</h2>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info mb-3">
+                <span class="oi oi-info me-1" aria-hidden="true"></span>
+                <strong>Safe default:</strong> <a href="/publish">Publish to Git</a> keeps the handoff in your repo and leaves the push to your terminal. <strong>Direct Push</strong> writes live production and should be used deliberately.
+            </div>
+            <div class="list-group">
+                <div class="list-group-item">
+                    <strong>5a. Git publish:</strong> use <a href="/publish">Publish to Git</a> when you want to review the repo diff, commit on the current branch, and control the push yourself afterward.
+                </div>
+                <div class="list-group-item">
+                    <strong>5b. Direct to prod:</strong> use <a href="/direct-push">Direct Push to Production</a> when you intentionally want the staged production write flow: upload artifacts, update prod rows, commit git durability, and verify the deployed body before publish visibility.
+                </div>
+            </div>
+        </div>
+    </div>
+</article>

@@ -11,6 +11,13 @@ what it finds to the local discrepancy store, and writes a human-readable report
 deletes, or otherwise writes anything in production. Removal (soft-hide) is a separate, gated
 <strong>Apply removals</strong> action below — behind the <code>sync.reconcile</code> flag, scoped to
 seed-drift rows only, and re-validated fresh at apply time.</p>
+<HelpPanel Title="Audit drift across prod, git, and the seed">
+    <p class="mb-2">Run this page when you need a dry-run view of drift between production, the git content tree, and the exported seed. It classifies discrepancies, stores the audit locally, and writes a readable report without changing production.</p>
+    <ul class="mb-0 ps-3">
+        <li>Apply removals is a separate destructive step, and it only ever targets seed-drift rows.</li>
+        <li>If the seed is unavailable, treat that as a warning state rather than a clean no-drift result.</li>
+    </ul>
+</HelpPanel>
 
 <article class="content px-4">
 

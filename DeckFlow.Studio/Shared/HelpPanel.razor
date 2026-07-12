@@ -1,0 +1,35 @@
+<div class="card border-info-subtle mb-3">
+    <div class="card-header p-0">
+        <button type="button"
+                class="btn btn-link w-100 text-start text-decoration-none px-3 py-2"
+                @onclick="Toggle"
+                aria-expanded="@_isOpen.ToString().ToLowerInvariant()"
+                aria-controls="@_bodyId">
+            <span class="oi oi-question-mark me-2" aria-hidden="true"></span>
+            <span class="fw-semibold">Help — @Title</span>
+            <span class="oi @(_isOpen ? "oi-chevron-top" : "oi-chevron-bottom") float-end mt-1" aria-hidden="true"></span>
+        </button>
+    </div>
+    @if (_isOpen)
+    {
+        <div id="@_bodyId" class="card-body">
+            @ChildContent
+        </div>
+    }
+</div>
+
+@code {
+    private readonly string _bodyId = $"help-panel-{Guid.NewGuid():N}";
+    private bool _isOpen;
+
+    [Parameter]
+    public string Title { get; set; } = "How this page works";
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    private void Toggle()
+    {
+        _isOpen = !_isOpen;
+    }
+}
