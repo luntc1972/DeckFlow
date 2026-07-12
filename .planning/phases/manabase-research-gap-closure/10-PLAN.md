@@ -139,7 +139,11 @@ Output: view + display-helper changes, CSS, an e2e guard spec, human visual sign
     parity, semantic gain): Karsten source check, Simulated cast rate, Untapped sources, Opening
     hand, Reading your deck, Ramp & draw, Command-zone castability, Color findings, Castability.
     Add ids to each and render a compact "On this page" anchor list at the top of the Result
-    panel (results state only). Then create DeckFlow.Web/e2e/manabase-ux-polish.spec.ts asserting:
+    panel (results state only). The footer blocks below the castability table (unsupported-
+    interactions disclosure, download form, swap-suggestion prompt, "How the analysis works",
+    "This deck's numbers") stay EXACTLY as they are — collapsed details at the bottom, no
+    restructuring — but get a shared anchor id and a final "Details" link in the anchor list
+    so they are reachable without blind scrolling. Then create DeckFlow.Web/e2e/manabase-ux-polish.spec.ts asserting:
     (1) default castability row count ≤ cap and expander reveals all; (2) cEDH result has no
     "castability table below" text; (3) anchor nav present with working fragment links;
     (4) 390px viewport: a long known card name is fully readable (not clipped) in the table;
