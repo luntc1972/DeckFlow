@@ -124,8 +124,23 @@ internal static class CedhCalibrateCommandRunner
                     classifiedDeck.RampAndDrawUnderThree,
                     classifiedDeck.FastMana,
                     context);
+                double newTargetWithRitualCredit = KarstenManabase.CedhLandTarget(
+                    classifiedDeck.TotalCards,
+                    classifiedDeck.CommanderCount,
+                    classifiedDeck.AverageManaValue,
+                    classifiedDeck.RampAndDrawUnderThree,
+                    classifiedDeck.FastMana,
+                    context,
+                    netPositiveRitualCount: classifiedDeck.OneShots.Count,
+                    ritualLandCredit: true);
 
-                rows.Add(new CedhCalibrationRow(deck.CmdKey, actualLands, oldTarget, newTarget, hasBaseline));
+                rows.Add(new CedhCalibrationRow(
+                    deck.CmdKey,
+                    actualLands,
+                    oldTarget,
+                    newTarget,
+                    newTargetWithRitualCredit,
+                    hasBaseline));
             }
 
             CedhCalibrationReport report = CedhCalibration.Build(rows);
