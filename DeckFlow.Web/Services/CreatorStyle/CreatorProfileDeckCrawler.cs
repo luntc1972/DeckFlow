@@ -97,9 +97,8 @@ public sealed class CreatorProfileDeckCrawler
                 continue;
             }
 
-            var storedHash = await _deckCacheStore.GetContentHashAsync(creatorSlug, summary.Id, cancellationToken).ConfigureAwait(false);
-            if (!string.IsNullOrWhiteSpace(storedHash)
-                && cacheByDeckId.TryGetValue(summary.Id, out var cachedEntry))
+            if (cacheByDeckId.TryGetValue(summary.Id, out var cachedEntry)
+                && !string.IsNullOrWhiteSpace(cachedEntry.ContentHash))
             {
                 samples.Add(RebuildSampleFromCache(cachedEntry, source));
                 continue;
