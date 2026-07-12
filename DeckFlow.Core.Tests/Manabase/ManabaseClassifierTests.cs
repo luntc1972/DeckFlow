@@ -1686,4 +1686,197 @@ public sealed class ManabaseClassifierTests
         Assert.False(Assert.Single(deck.Sources, s => s.Name == "Sea of Clouds").EntersUntapped);
         Assert.False(Assert.Single(deck.Sources, s => s.Name == "Glacial Fortress").EntersUntapped);
     }
+
+    [Fact]
+    public void Classify_RestrictedLands_CavernInTribalDeck_UsesDominantTypeShare()
+    {
+        var cards = new List<CardFact>
+        {
+            Land(
+                "Cavern of Souls",
+                "Land",
+                new[] { "C", "W", "U", "B", "R", "G" },
+                "As Cavern of Souls enters, choose a creature type. {T}: Add {C}. {T}: Add one mana of any color. "
+                + "Spend this mana only to cast a creature spell of the chosen type, and that spell can't be countered."),
+            CreatureSpell("Elf One", "{G}", "Creature — Elf Druid") with { Quantity = 5 },
+            CreatureSpell("Elf Two", "{1}{G}", "Creature — Elf Warrior") with { Quantity = 5 },
+            CreatureSpell("Goblin Splash", "{R}", "Creature — Goblin") with { Quantity = 1 },
+            NonCreatureSpell("Arcane Signet", "{2}", 2, "Artifact"),
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, restrictedLands: true);
+
+        ManaSource cavern = Assert.Single(deck.Sources, s => s.Name == "Cavern of Souls");
+        Assert.InRange(cavern.Weight, 0.90, 0.91);
+        Assert.Contains("Cavern of Souls", deck.RestrictedSourceLandNames);
+        Assert.True(deck.HasRestrictedSourceApproximation);
+    }
+
+    [Fact]
+    public void Classify_RestrictedLands_CavernInMixedTypeDeck_IsHeavilyDiscounted()
+    {
+        var cards = new List<CardFact>
+        {
+            Land(
+                "Cavern of Souls",
+                "Land",
+                new[] { "C", "W", "U", "B", "R", "G" },
+                "As Cavern of Souls enters, choose a creature type. {T}: Add {C}. {T}: Add one mana of any color. "
+                + "Spend this mana only to cast a creature spell of the chosen type, and that spell can't be countered."),
+            CreatureSpell("Elf Captain", "{G}", "Creature — Elf Warrior") with { Quantity = 2 },
+            CreatureSpell("Goblin Guide", "{R}", "Creature — Goblin Scout"),
+            CreatureSpell("Merfolk Looter", "{1}{U}", "Creature — Merfolk Rogue"),
+            CreatureSpell("Human Knight", "{1}{W}", "Creature — Human Knight"),
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, restrictedLands: true);
+
+        ManaSource cavern = Assert.Single(deck.Sources, s => s.Name == "Cavern of Souls");
+        Assert.Equal(0.4, cavern.Weight, 3);
+    }
+
+    [Fact]
+    public void Classify_RestrictedLands_Ziggurat_UsesCreatureShare()
+    {
+        var cards = new List<CardFact>
+        {
+            Land(
+                "Ancient Ziggurat",
+                "Land",
+                new[] { "W", "U", "B", "R", "G" },
+                "{T}: Add one mana of any color. Spend this mana only to cast a creature spell."),
+            CreatureSpell("Creature One", "{G}", "Creature — Elf") with { Quantity = 3 },
+            CreatureSpell("Creature Two", "{1}{W}", "Creature — Human") with { Quantity = 3 },
+            NonCreatureSpell("Ponder", "{U}", 1, "Sorcery") with { Quantity = 2 },
+            NonCreatureSpell("Swords to Plowshares", "{W}", 1, "Instant") with { Quantity = 2 },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, restrictedLands: true);
+
+        ManaSource ziggurat = Assert.Single(deck.Sources, s => s.Name == "Ancient Ziggurat");
+        Assert.Equal(0.6, ziggurat.Weight, 3);
+        Assert.Contains("Ancient Ziggurat", deck.RestrictedSourceLandNames);
+    }
+
+    [Fact]
+    public void Classify_RestrictedLands_Nykthos_AddsLowWeightConditionalSource()
+    {
+        var cards = new List<CardFact>
+        {
+            Land(
+                "Nykthos, Shrine to Nyx",
+                "Legendary Land",
+                new[] { "C", "G" },
+                "{T}: Add {C}. {2}, {T}: Choose a color. Add an amount of mana of that color equal to your devotion to that color."),
+            CreatureSpell("Llanowar Elves", "{G}", "Creature — Elf Druid"),
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, restrictedLands: true);
+
+        ManaSource nykthos = Assert.Single(deck.Sources, s => s.Name == "Nykthos, Shrine to Nyx");
+        Assert.Equal(new[] { ManaColor.Colorless }, nykthos.Produces);
+
+        ManaSource devotion = Assert.Single(deck.Sources, s => s.Name == "Nykthos, Shrine to Nyx (devotion)");
+        Assert.True(devotion.IsConditional);
+        Assert.Equal(0.25, devotion.Weight);
+        Assert.Equal(new[] { ManaColor.Green }, devotion.Produces);
+    }
+
+    [Fact]
+    public void Classify_RestrictedLands_PopulatesPresentLandNames()
+    {
+        var cards = new List<CardFact>
+        {
+            Land(
+                "Cavern of Souls",
+                "Land",
+                new[] { "C", "W", "U", "B", "R", "G" },
+                "As Cavern of Souls enters, choose a creature type. {T}: Add {C}. {T}: Add one mana of any color. "
+                + "Spend this mana only to cast a creature spell of the chosen type, and that spell can't be countered."),
+            Land(
+                "Unclaimed Territory",
+                "Land",
+                new[] { "C", "W", "U", "B", "R", "G" },
+                "As Unclaimed Territory enters, choose a creature type. {T}: Add {C}. {T}: Add one mana of any color. "
+                + "Spend this mana only to cast a creature spell of the chosen type."),
+            Land(
+                "Ancient Ziggurat",
+                "Land",
+                new[] { "W", "U", "B", "R", "G" },
+                "{T}: Add one mana of any color. Spend this mana only to cast a creature spell."),
+            Land(
+                "Nykthos, Shrine to Nyx",
+                "Legendary Land",
+                new[] { "C", "G" },
+                "{T}: Add {C}. {2}, {T}: Choose a color. Add an amount of mana of that color equal to your devotion to that color."),
+            CreatureSpell("Elf Body", "{G}", "Creature — Elf Druid"),
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, restrictedLands: true);
+
+        Assert.Equal(
+            new[]
+            {
+                "Cavern of Souls",
+                "Unclaimed Territory",
+                "Ancient Ziggurat",
+                "Nykthos, Shrine to Nyx",
+            },
+            deck.RestrictedSourceLandNames);
+    }
+
+    [Fact]
+    public void Classify_RestrictedLands_NoRestrictedLandDeck_RemainsUnchangedAndNamesStayEmpty()
+    {
+        var cards = new List<CardFact>
+        {
+            Land("Island", "Basic Land — Island", new[] { "U" }, "{T}: Add {U}.") with { Quantity = 8 },
+            CreatureSpell("Merfolk Trickster", "{1}{U}", "Creature — Merfolk Wizard"),
+            NonCreatureSpell("Counterspell", "{U}{U}", 2, "Instant"),
+        };
+
+        ManabaseDeck off = ManabaseClassifier.Classify(cards);
+        ManabaseDeck on = ManabaseClassifier.Classify(cards, restrictedLands: true);
+
+        Assert.Equal(
+            off.Sources.Select(SourceShape),
+            on.Sources.Select(SourceShape));
+        Assert.Equal(
+            off.Spells.Select(SpellShape),
+            on.Spells.Select(SpellShape));
+        Assert.Equal(off.RampAndDrawUnderThree, on.RampAndDrawUnderThree);
+        Assert.Empty(on.RestrictedSourceLandNames);
+        Assert.False(on.HasRestrictedSourceApproximation);
+    }
+
+    private static string SourceShape(ManaSource source) =>
+        $"{source.Name}|{string.Join(',', source.Produces)}|{source.Weight:F3}|{source.IsLand}|{source.EntersUntapped}|"
+        + $"{source.ManaAmount}|{source.IsConditional}|{source.CountCondition}|{source.CountThreshold}|"
+        + $"{string.Join(',', source.CountTypeFilter)}";
+
+    private static string SpellShape(SpellRequirement spell) =>
+        $"{spell.Name}|{spell.ManaValue}|{string.Join(',', spell.Pips.OrderBy(p => p.Key).Select(p => $"{p.Key}:{p.Value}"))}|"
+        + $"{spell.IsGold}|{spell.IsManaSource}|{spell.Kinds}|{spell.PlanRoles}|{spell.IsCommander}|{spell.IsCostOverridden}";
+
+    private static CardFact CreatureSpell(string name, string manaCost, string typeLine) => new()
+    {
+        Name = name,
+        Quantity = 1,
+        ManaCost = manaCost,
+        ManaValue = ManaCostParser.Parse(manaCost).ManaValue,
+        TypeLine = typeLine,
+        OracleText = string.Empty,
+        ProducedMana = System.Array.Empty<string>(),
+    };
+
+    private static CardFact NonCreatureSpell(string name, string manaCost, int manaValue, string typeLine) => new()
+    {
+        Name = name,
+        Quantity = 1,
+        ManaCost = manaCost,
+        ManaValue = manaValue,
+        TypeLine = typeLine,
+        OracleText = string.Empty,
+        ProducedMana = System.Array.Empty<string>(),
+    };
 }

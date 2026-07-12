@@ -34,7 +34,7 @@ deliberately unlike the generic cache default.
 
 ## 1. Classification — decklist → analyzer inputs
 
-Entry: `ManabaseClassifier.Classify(cards, isSingleton=true, rampCreditV2=false, landRampSim=false, payLifeUntapped=false, checkLandUntapped=false)` (`Cls:95`). The four accuracy params (`rampCreditV2`, `landRampSim`, `payLifeUntapped`, `checkLandUntapped`) are bundled under `analysis.manabase.accuracy` (default **ON**). MDFC land-backs are modeled as real lands **unconditionally** — no flag (§1.4).
+Entry: `ManabaseClassifier.Classify(cards, isSingleton=true, rampCreditV2=false, landRampSim=false, payLifeUntapped=false, checkLandUntapped=false, restrictedLands=false)` (`Cls:95`). The four accuracy params (`rampCreditV2`, `landRampSim`, `payLifeUntapped`, `checkLandUntapped`) are bundled under `analysis.manabase.accuracy` (default **ON**). `restrictedLands` is the default-OFF classifier gate that plan 04 wires to `analysis.manabase.restricted-lands`. MDFC land-backs are modeled as real lands **unconditionally** — no flag (§1.4).
 
 ### 1.1 Lands
 - A card is a **land** iff its **front face** (before `//`) type line contains "Land" (case-insensitive) — `Cls:664-668`, `CardTypeLine.FrontFace`. So a spell//land MDFC (`Instant // Land`) is **not** a front-face land. Its land back is counted as a **real land source** (§1.4), unconditionally.
@@ -50,6 +50,11 @@ Entry: `ManabaseClassifier.Classify(cards, isSingleton=true, rampCreditV2=false,
   - **Verge lands** (Floodfarm Verge cycle) are **always untapped**. Their first printed color is unconditional; their second printed color is added only when the deck runs ≥ `CheckLandMatchTypeThreshold` (6) lands bearing either named basic type from the oracle clause ("a Plains or an Island"). This is a **static type census** like check lands, but it gates color availability, not tapped state.
   - **Training Compound** and its MSH allied-cycle siblings are **always untapped** and always produce `{C}`. Their allied-color ability is enabled only when the deck runs ≥ `CheckLandMatchTypeThreshold` (6) **true basic lands** counted by `Basic` supertype (`CountBasicLands`), not merely typed nonbasics. This is another **static** color gate.
   - **Vivid lands** are modeled as **ETB tapped** base-color lands plus one reduced-weight any-color source (`IsConditional=true`, `Weight=0.25`, `Produces = deck colors`) to approximate the two charge counters. This is intentionally shallow: the simulator does **not** track "charges remaining" per game.
+  - **Restricted source lands** (`restrictedLands`, default **OFF**; plan 04 wires this to `analysis.manabase.restricted-lands`) use a deck-composition approximation instead of spell-by-spell spend masks:
+    - **Cavern of Souls / Unclaimed Territory** match `"Spend this mana only to cast a creature spell of the chosen type"` and scale to `Clamp(dominantTypeShare, 0.25, 1.0)`, where `dominantTypeShare = max(subtypeHistogram.Values) / totalCreatureCount`.
+    - **Ancient Ziggurat** matches `"Spend this mana only to cast a creature spell."` and scales to `creatureShare = totalCreatureCount / nonlandCount`.
+    - **Nykthos, Shrine to Nyx** matches `"devotion to that color"` and adds one `IsConditional=true`, `Weight=0.25` any-color source; the simulator reuses the existing Bernoulli conditional-source path for that speculative devotion burst.
+    - The subtype histogram is Quantity-weighted and built from `TypeLine.Split('—')` on creature cards only. With the gate OFF, these lands stay on the historic classifier path and `RestrictedSourceLandNames` remains empty.
 - **ManaAmount** carried from `CardFact.ManaAmount` (Ancient Tomb = 2) — `Cls:361`. **Color-source counts never scale with ManaAmount** — a 2-mana rock is one source of its color; amount only feeds the castability sim — `ManaProductionAmount.cs:12-16`.
 - `AddWeighted` **drops a source that produces no colors** — `Cls:635-647` (a colorless-only rock adds no *color* source here; it can still be a fast-mana land-target credit, §1.4).
 
@@ -92,6 +97,7 @@ Entry: `ManabaseClassifier.Classify(cards, isSingleton=true, rampCreditV2=false,
 - Curve uses **non-land, non-commander** cards only: `AverageManaValue = round(mvSum / nonlandCount, 2)` — `Cls:132-137, 290, 298`.
 - `TotalCards` = Σ quantity of all cards; `CommanderCount` = Σ quantity of `IsCommander`; `IsSingleton` passed through (true = Commander/singleton, false = 60-card) — `Cls:119-123, 307`.
 - `SpellRequirement.ManaValue` = reduced value if overridden else `max(0, round(ManaValue))`; `IsGold` = `DistinctColors >= 2` — `Cls:384-386`.
+- `RestrictedSourceLandNames` / `HasRestrictedSourceApproximation` are deck-level disclosure surfaces for the restricted-land approximation. In this phase the classifier populates the deck-level name list only when `restrictedLands` is on; plan 04 copies it onto the report/UI and marks the matching land rows.
 
 ---
 
