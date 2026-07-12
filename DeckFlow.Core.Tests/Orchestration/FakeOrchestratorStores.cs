@@ -1,6 +1,7 @@
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
+using DeckFlow.Core.Knowledge.StatedRulesExtraction;
 
 namespace DeckFlow.Core.Tests;
 
@@ -39,6 +40,8 @@ internal sealed class FakeContentVideoStore : IContentVideoStore
     public List<SummaryWrite> Summaries { get; } = [];
 
     public List<ClipWrite> Clips { get; } = [];
+
+    public List<StatedRuleWrite> StatedRules { get; } = [];
 
     public void AddPending(long sourceId, ContentVideo video, string transcript)
     {
@@ -91,6 +94,12 @@ internal sealed class FakeContentVideoStore : IContentVideoStore
 
     public Task<long> InsertTagAsync(long videoId, string dimension, string tagValue, CancellationToken cancellationToken = default)
         => Task.FromResult(1L);
+
+    public Task<long> InsertStatedRuleAsync(long videoId, StatedRuleCandidate rule, int sortOrder, CancellationToken cancellationToken = default)
+    {
+        StatedRules.Add(new StatedRuleWrite(videoId, rule, sortOrder));
+        return Task.FromResult((long)StatedRules.Count);
+    }
 
     public Task DeleteVideoAsync(long videoId, CancellationToken cancellationToken = default)
         => throw new NotImplementedException();
@@ -227,11 +236,61 @@ internal sealed class FakeLlmDistillationService : ILlmDistillationService
 {
     public ClipsResult ClipsResult { get; init; } = new(
     [
-        new ClipItem(0, "first"),
-        new ClipItem(0, "second"),
-        new ClipItem(0, "third"),
+        new ClipItem(30, "first"),
+        new ClipItem(60, "second"),
+        new ClipItem(90, "third"),
     ],
     new TokenUsage(200, 20));
+
+    public SelectResult SelectResult { get; init; } = new(
+        ["Play at least 37 lands in control shells."],
+        new TokenUsage(40, 4));
+
+    public DisambiguateResult DisambiguateResult { get; init; } = new(
+        ["Control decks should play at least 37 lands."],
+        new TokenUsage(30, 3));
+
+    public DecomposeResult DecomposeResult { get; init; } = new(
+        [
+            new StatedRuleCandidate
+            {
+                Category = "mana-base",
+                Metric = "karsten:target_lands",
+                Value = null,
+                ValueMin = 37,
+                ValueMax = 39,
+                Comparator = "range",
+                Condition = "archetype:control",
+                ClipTimestampSeconds = 134,
+                SourceClip = "Control decks should play at least 37 lands.",
+                Confidence = 0.91,
+                CardReference = null,
+                CardGrounded = null,
+                VideoDateUtc = DateTimeOffset.Parse("2026-05-26T12:00:00Z"),
+            },
+        ],
+        new TokenUsage(50, 5));
+
+    public ReduceResult ReduceResult { get; init; } = new(
+        [
+            new StatedRuleCandidate
+            {
+                Category = "mana-base",
+                Metric = "karsten:target_lands",
+                Value = null,
+                ValueMin = 37,
+                ValueMax = 39,
+                Comparator = "range",
+                Condition = "archetype:control",
+                ClipTimestampSeconds = 134,
+                SourceClip = "Control decks should play at least 37 lands.",
+                Confidence = 0.91,
+                CardReference = null,
+                CardGrounded = null,
+                VideoDateUtc = DateTimeOffset.Parse("2026-05-26T12:00:00Z"),
+            },
+        ],
+        new TokenUsage(20, 2));
 
     public Task<SummaryResult> SummarizeAsync(string transcript, CancellationToken cancellationToken = default)
         => Task.FromResult(new SummaryResult("summary", new TokenUsage(100, 10)));
@@ -244,10 +303,34 @@ internal sealed class FakeLlmDistillationService : ILlmDistillationService
 
     public Task<TagsResult> InferTagsAsync(string transcript, CancellationToken cancellationToken = default)
         => Task.FromResult(new TagsResult(["combo"], ["cEDH"], ["win-cons"], new TokenUsage(30, 3)));
+
+    public Task<SelectResult> SelectStatedClaimsAsync(string transcriptChunk, CancellationToken ct = default)
+        => Task.FromResult(SelectResult);
+
+    public Task<DisambiguateResult> DisambiguateStatedClaimsAsync(IReadOnlyList<string> selectedClaims, CancellationToken ct = default)
+        => Task.FromResult(DisambiguateResult);
+
+    public Task<DecomposeResult> DecomposeStatedClaimsAsync(IReadOnlyList<string> disambiguatedClaims, DateTimeOffset videoDateUtc, CancellationToken ct = default)
+        => Task.FromResult(new DecomposeResult(
+            DecomposeResult.Rules.Select(rule => rule with
+            {
+                VideoDateUtc = videoDateUtc,
+            }).ToArray(),
+            DecomposeResult.Usage));
+
+    public Task<ReduceResult> ReduceStatedRulesAsync(IReadOnlyList<StatedRuleCandidate> allChunkRules, DateTimeOffset videoDateUtc, CancellationToken ct = default)
+        => Task.FromResult(new ReduceResult(
+            ReduceResult.Rules.Select(rule => rule with
+            {
+                VideoDateUtc = videoDateUtc,
+            }).ToArray(),
+            ReduceResult.Usage));
 }
 
 internal sealed record SummaryWrite(long VideoId, string Body);
 
 internal sealed record ClipWrite(long VideoId, int TimestampSeconds, string Excerpt, int SortOrder);
+
+internal sealed record StatedRuleWrite(long VideoId, StatedRuleCandidate Rule, int SortOrder);
 
 internal sealed record StatusUpdate(long VideoId, string Status);

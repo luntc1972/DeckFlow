@@ -1,6 +1,7 @@
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
+using DeckFlow.Core.Knowledge.StatedRulesExtraction;
 using DeckFlow.Core.Orchestration;
 
 namespace DeckFlow.Core.Tests;
@@ -10,15 +11,18 @@ namespace DeckFlow.Core.Tests;
 /// podcast) + clip count for every successfully distilled video, while filtered/failed/dry-run
 /// videos produce no entry (D-01, D-11).
 /// </summary>
-public sealed class DistillResultClipCountTests
+public sealed class DistillResultClipCountTests : IDisposable
 {
     private const long SourceId = 1;
     private const string Transcript = "This is a test transcript for clip-count surfacing.";
+    private readonly List<string> _artifactRoots = [];
 
     private static ContentKbOrchestrator CreateOrchestrator(
         ClipCountTestVideoStore videoStore,
-        ConfigurableDistillationService distiller,
-        string sourceType = ContentSourceType.Youtube)
+        ILlmDistillationService distiller,
+        string artifactRoot,
+        string sourceType = ContentSourceType.Youtube,
+        ICardNameGrounder? cardGrounder = null)
     {
         var sourceStore = new FakeContentSourceStore(
         [
@@ -49,8 +53,27 @@ public sealed class DistillResultClipCountTests
             () => DateTimeOffset.Parse("2026-06-15T00:00:00Z"),
             new ContentKbOrchestratorOptions
             {
-                ArtifactRoot = Path.Combine(Path.GetTempPath(), "deckflow-clipcount-tests"),
-            });
+                ArtifactRoot = artifactRoot,
+            },
+            cardGrounder: cardGrounder);
+    }
+
+    public void Dispose()
+    {
+        foreach (var artifactRoot in _artifactRoots)
+        {
+            if (Directory.Exists(artifactRoot))
+            {
+                Directory.Delete(artifactRoot, recursive: true);
+            }
+        }
+    }
+
+    private string CreateArtifactRoot()
+    {
+        var artifactRoot = Path.Combine(Path.GetTempPath(), $"deckflow-clipcount-tests-{Guid.NewGuid():N}");
+        _artifactRoots.Add(artifactRoot);
+        return artifactRoot;
     }
 
     [Fact]
@@ -59,8 +82,9 @@ public sealed class DistillResultClipCountTests
         var videoStore = new ClipCountTestVideoStore();
         videoStore.AddPendingYoutube(SourceId, videoId: 10, youtubeVideoId: "yt-aaa", Transcript);
         var distiller = new ConfigurableDistillationService(clipCount: 6);
+        var artifactRoot = CreateArtifactRoot();
 
-        var result = await CreateOrchestrator(videoStore, distiller).DistillAsync(
+        var result = await CreateOrchestrator(videoStore, distiller, artifactRoot).DistillAsync(
             limit: 10,
             dryRun: false,
             isSubscriptionProvider: true,
@@ -80,8 +104,9 @@ public sealed class DistillResultClipCountTests
         var videoStore = new ClipCountTestVideoStore();
         videoStore.AddPendingPodcast(SourceId, videoId: 20, rssGuid: "rss-guid-xyz", Transcript);
         var distiller = new ConfigurableDistillationService(clipCount: 5);
+        var artifactRoot = CreateArtifactRoot();
 
-        var result = await CreateOrchestrator(videoStore, distiller, ContentSourceType.Podcast).DistillAsync(
+        var result = await CreateOrchestrator(videoStore, distiller, artifactRoot, ContentSourceType.Podcast).DistillAsync(
             limit: 10,
             dryRun: false,
             isSubscriptionProvider: true,
@@ -102,8 +127,9 @@ public sealed class DistillResultClipCountTests
         var videoStore = new ClipCountTestVideoStore();
         videoStore.AddPendingYoutube(SourceId, videoId: 30, youtubeVideoId: "yt-drop", Transcript);
         var distiller = new ConfigurableDistillationService(clipCount: 6, verdict: "drop");
+        var artifactRoot = CreateArtifactRoot();
 
-        var result = await CreateOrchestrator(videoStore, distiller).DistillAsync(
+        var result = await CreateOrchestrator(videoStore, distiller, artifactRoot).DistillAsync(
             limit: 10,
             dryRun: false,
             isSubscriptionProvider: true,
@@ -121,8 +147,9 @@ public sealed class DistillResultClipCountTests
         var videoStore = new ClipCountTestVideoStore();
         videoStore.AddPendingYoutube(SourceId, videoId: 40, youtubeVideoId: "yt-fail", Transcript);
         var distiller = new ConfigurableDistillationService(clipCount: 6, throwOnClips: true);
+        var artifactRoot = CreateArtifactRoot();
 
-        var result = await CreateOrchestrator(videoStore, distiller).DistillAsync(
+        var result = await CreateOrchestrator(videoStore, distiller, artifactRoot).DistillAsync(
             limit: 10,
             dryRun: false,
             isSubscriptionProvider: true,
@@ -140,8 +167,9 @@ public sealed class DistillResultClipCountTests
         var videoStore = new ClipCountTestVideoStore();
         videoStore.AddPendingYoutube(SourceId, videoId: 50, youtubeVideoId: "yt-dry", Transcript);
         var distiller = new ConfigurableDistillationService(clipCount: 6);
+        var artifactRoot = CreateArtifactRoot();
 
-        var result = await CreateOrchestrator(videoStore, distiller).DistillAsync(
+        var result = await CreateOrchestrator(videoStore, distiller, artifactRoot).DistillAsync(
             limit: 10,
             dryRun: true,
             isSubscriptionProvider: true,
@@ -160,8 +188,9 @@ public sealed class DistillResultClipCountTests
         videoStore.AddPendingYoutube(SourceId, videoId: 60, youtubeVideoId: "yt-first", Transcript);
         videoStore.AddPendingYoutube(SourceId, videoId: 61, youtubeVideoId: "yt-second", Transcript);
         var distiller = new ConfigurableDistillationService(clipCount: 5);
+        var artifactRoot = CreateArtifactRoot();
 
-        var result = await CreateOrchestrator(videoStore, distiller).DistillAsync(
+        var result = await CreateOrchestrator(videoStore, distiller, artifactRoot).DistillAsync(
             limit: 10,
             dryRun: false,
             isSubscriptionProvider: true,
@@ -173,6 +202,60 @@ public sealed class DistillResultClipCountTests
             result.DistilledVideos,
             first => Assert.Equal("yt-first", first.NaturalKeyValue),
             second => Assert.Equal("yt-second", second.NaturalKeyValue));
+    }
+
+    [Fact]
+    public async Task DistillAsync_SubscriptionProviderWithPublishedUtc_PersistsStatedRulesAndEmitsArtifactFrontmatter()
+    {
+        var artifactRoot = CreateArtifactRoot();
+        var publishedUtc = DateTimeOffset.Parse("2026-05-26T12:00:00Z");
+        var videoStore = new ClipCountTestVideoStore();
+        videoStore.AddPendingYoutube(SourceId, videoId: 70, youtubeVideoId: "yt-rules", Transcript, publishedUtc);
+        var distiller = new FakeLlmDistillationService();
+
+        var result = await CreateOrchestrator(videoStore, distiller, artifactRoot, cardGrounder: null).DistillAsync(
+            limit: 10,
+            dryRun: false,
+            isSubscriptionProvider: true,
+            progress: null,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Empty(result.FailedVideoIds);
+        var ruleInsert = Assert.Single(videoStore.StatedRules);
+        Assert.Equal(0, ruleInsert.SortOrder);
+        Assert.Equal(publishedUtc, ruleInsert.Rule.VideoDateUtc);
+        Assert.All(videoStore.StatedRules, write => Assert.Equal(publishedUtc, write.Rule.VideoDateUtc));
+
+        var artifactPath = Path.Combine(artifactRoot, "test-source", "yt-rules.md");
+        var artifactText = await File.ReadAllTextAsync(artifactPath);
+        Assert.Contains("content_type:", artifactText, StringComparison.Ordinal);
+        Assert.Contains("stated_rules:", artifactText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DistillAsync_SubscriptionProviderWithoutPublishedUtc_SkipsStatedRulesButStillEmitsContentType()
+    {
+        var artifactRoot = CreateArtifactRoot();
+        var videoStore = new ClipCountTestVideoStore();
+        videoStore.AddPendingYoutube(SourceId, videoId: 71, youtubeVideoId: "yt-no-date", Transcript);
+        var distiller = new FakeLlmDistillationService();
+
+        var result = await CreateOrchestrator(videoStore, distiller, artifactRoot, cardGrounder: null).DistillAsync(
+            limit: 10,
+            dryRun: false,
+            isSubscriptionProvider: true,
+            progress: null,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Empty(result.FailedVideoIds);
+        Assert.Empty(videoStore.StatedRules);
+
+        var artifactPath = Path.Combine(artifactRoot, "test-source", "yt-no-date.md");
+        var artifactText = await File.ReadAllTextAsync(artifactPath);
+        Assert.Contains("content_type:", artifactText, StringComparison.Ordinal);
+        Assert.Contains("stated_rules: []", artifactText, StringComparison.Ordinal);
     }
 }
 
@@ -215,6 +298,37 @@ internal sealed class ConfigurableDistillationService : ILlmDistillationService
 
     public Task<TagsResult> InferTagsAsync(string transcript, CancellationToken cancellationToken = default)
         => Task.FromResult(new TagsResult(["combo"], ["cEDH"], ["win-cons"], new TokenUsage(30, 3)));
+
+    public Task<SelectResult> SelectStatedClaimsAsync(string transcriptChunk, CancellationToken ct = default)
+        => Task.FromResult(new SelectResult(["Control decks should play at least 37 lands."], new TokenUsage(40, 4)));
+
+    public Task<DisambiguateResult> DisambiguateStatedClaimsAsync(IReadOnlyList<string> selectedClaims, CancellationToken ct = default)
+        => Task.FromResult(new DisambiguateResult(selectedClaims, new TokenUsage(30, 3)));
+
+    public Task<DecomposeResult> DecomposeStatedClaimsAsync(IReadOnlyList<string> disambiguatedClaims, DateTimeOffset videoDateUtc, CancellationToken ct = default)
+        => Task.FromResult(new DecomposeResult(
+            [
+                new StatedRuleCandidate
+                {
+                    Category = "mana-base",
+                    Metric = "karsten:target_lands",
+                    Value = null,
+                    ValueMin = 37,
+                    ValueMax = 39,
+                    Comparator = "range",
+                    Condition = "archetype:control",
+                    ClipTimestampSeconds = 134,
+                    SourceClip = disambiguatedClaims[0],
+                    Confidence = 0.91,
+                    CardReference = null,
+                    CardGrounded = null,
+                    VideoDateUtc = videoDateUtc,
+                },
+            ],
+            new TokenUsage(50, 5)));
+
+    public Task<ReduceResult> ReduceStatedRulesAsync(IReadOnlyList<StatedRuleCandidate> allChunkRules, DateTimeOffset videoDateUtc, CancellationToken ct = default)
+        => Task.FromResult(new ReduceResult(allChunkRules, new TokenUsage(20, 2)));
 }
 
 /// <summary>
@@ -303,14 +417,16 @@ internal sealed class ClipCountTestVideoStore : IContentVideoStore
     private readonly Dictionary<long, string> _distillStatusByVideoId = [];
 
     /// <summary>Seeds a pending YouTube-keyed video with a transcript.</summary>
-    public void AddPendingYoutube(long sourceId, long videoId, string youtubeVideoId, string transcriptBody)
-        => Add(sourceId, videoId, youtubeVideoId, rssGuid: null, transcriptBody, $"https://www.youtube.com/watch?v={youtubeVideoId}");
+    public List<StatedRuleWrite> StatedRules { get; } = [];
+
+    public void AddPendingYoutube(long sourceId, long videoId, string youtubeVideoId, string transcriptBody, DateTimeOffset? publishedUtc = null)
+        => Add(sourceId, videoId, youtubeVideoId, rssGuid: null, transcriptBody, $"https://www.youtube.com/watch?v={youtubeVideoId}", publishedUtc);
 
     /// <summary>Seeds a pending podcast-keyed video (RssGuid set, YoutubeVideoId null) with a transcript.</summary>
-    public void AddPendingPodcast(long sourceId, long videoId, string rssGuid, string transcriptBody)
-        => Add(sourceId, videoId, youtubeVideoId: null, rssGuid, transcriptBody, $"https://example.com/podcast/{rssGuid}");
+    public void AddPendingPodcast(long sourceId, long videoId, string rssGuid, string transcriptBody, DateTimeOffset? publishedUtc = null)
+        => Add(sourceId, videoId, youtubeVideoId: null, rssGuid, transcriptBody, $"https://example.com/podcast/{rssGuid}", publishedUtc);
 
-    private void Add(long sourceId, long videoId, string? youtubeVideoId, string? rssGuid, string transcriptBody, string videoUrl)
+    private void Add(long sourceId, long videoId, string? youtubeVideoId, string? rssGuid, string transcriptBody, string videoUrl, DateTimeOffset? publishedUtc)
     {
         var video = new ContentVideo
         {
@@ -320,6 +436,7 @@ internal sealed class ClipCountTestVideoStore : IContentVideoStore
             RssGuid = rssGuid,
             Title = $"Test Video {videoId}",
             VideoUrl = videoUrl,
+            PublishedUtc = publishedUtc,
             TranscriptStatus = TranscriptStatus.Captions,
             CreatedUtc = DateTimeOffset.Parse("2026-06-15T00:00:00Z"),
         };
@@ -369,6 +486,12 @@ internal sealed class ClipCountTestVideoStore : IContentVideoStore
 
     public Task<long> InsertTagAsync(long videoId, string dimension, string tagValue, CancellationToken cancellationToken = default)
         => Task.FromResult(1L);
+
+    public Task<long> InsertStatedRuleAsync(long videoId, StatedRuleCandidate rule, int sortOrder, CancellationToken cancellationToken = default)
+    {
+        StatedRules.Add(new StatedRuleWrite(videoId, rule, sortOrder));
+        return Task.FromResult((long)StatedRules.Count);
+    }
 
     public Task<long> InsertVideoAsync(long sourceId, string? youtubeVideoId, string? rssGuid, string title, string videoUrl, DateTimeOffset? publishedUtc, string transcriptStatus, CancellationToken cancellationToken = default)
         => throw new NotImplementedException();
