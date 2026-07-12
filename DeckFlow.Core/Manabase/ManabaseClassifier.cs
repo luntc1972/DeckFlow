@@ -380,7 +380,13 @@ public static class ManabaseClassifier
         bool untapped = !EntersTapped(card)
             || (payLifeUntapped && HasPayLifeUntappedClause(card))
             || (checkLandUntapped && IsConditionallyUntapped(card, allCards));
-        LandSourceClassification classification = ClassifySpecialLand(card, allCards, produces, untapped);
+        LandSourceClassification classification = checkLandUntapped
+            ? ClassifySpecialLand(card, allCards, produces, untapped)
+            : new LandSourceClassification
+            {
+                Produces = produces,
+                EntersUntapped = untapped,
+            };
 
         for (int i = 0; i < card.Quantity; i++)
         {
