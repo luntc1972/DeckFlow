@@ -191,6 +191,7 @@ public sealed class ContentKbSeedLoaderTests : IDisposable
 
         var row = Assert.Single(store.PreservingUpserts);
         Assert.True(row.SeedManaged);
+        Assert.Equal("approved", row.ApprovalStatus);
     }
 
     [Fact]
