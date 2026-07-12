@@ -22,6 +22,14 @@
         </div>
     </header>
 
+    <p class="text-muted">Read-only pipeline dashboard for status and publish-state totals across your local Studio data.</p>
+    <HelpPanel Title="How to use the dashboard">
+        <p class="mb-2">This page is a read-only overview of what is already in the pipeline. Use it to see how many videos are harvested, distilled, approved, published, or still newer locally.</p>
+        <ul class="mb-0 ps-3">
+            <li>Start on <a href="/harvest">Harvest</a> when you need new videos in the pipeline.</li>
+            <li>The buckets summarize state only; take actions from Harvest, Review, Publish, or the sync pages.</li>
+        </ul>
+    </HelpPanel>
     <p class="home-prod-indicator mb-0">
         Prod connection: <strong>@(Config.IsProdConfigured ? "configured" : "not configured")</strong>
     </p>

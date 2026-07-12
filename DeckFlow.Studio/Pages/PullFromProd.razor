@@ -12,6 +12,13 @@
 <p class="text-muted">Read the live production content index, resolve bodies from the local git
 tree, see a per-entry diff against your local store, and resolve each one locally. This is the read
 mirror of Publish — it NEVER writes to production.</p>
+<HelpPanel Title="Sync production state down into your local Studio store">
+    <p class="mb-2">Use this page to compare live production against your local Studio data and adopt selected prod changes locally. It is the read-only mirror of the publish flows and never writes back to production.</p>
+    <ul class="mb-0 ps-3">
+        <li>Body resolution comes from your local git tree, so stale local checkout state can affect what you adopt.</li>
+        <li>Each resolution writes locally only; review the diff kinds before adopting prod over local work.</li>
+    </ul>
+</HelpPanel>
 
 <article class="content px-4">
 

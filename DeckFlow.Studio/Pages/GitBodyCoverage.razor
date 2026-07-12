@@ -10,6 +10,13 @@ every approved+visible production <code>content_site_index</code> row, it checks
 body <code>.md</code> exists in the local git <code>content-kb</code> tree that becomes
 <code>/app</code> after deploy, and lists any that are <strong>MISSING</strong>. It never writes
 to prod or the local store.</p>
+<HelpPanel Title="Check that visible prod rows have git-backed bodies">
+    <p class="mb-2">Use this audit before relying on git-served bodies. It verifies that every approved and visible production row has a matching local git body file in the content tree that ships on deploy.</p>
+    <ul class="mb-0 ps-3">
+        <li>This page is read-only and reports gaps only.</li>
+        <li>Any missing body is a stop signal before flipping the related direct-push git-body path.</li>
+    </ul>
+</HelpPanel>
 
 <article class="content px-4">
     <div class="card mt-3">
