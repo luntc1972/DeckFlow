@@ -345,6 +345,21 @@ public static class ManabaseClassifier
         return colors.Count;
     }
 
+    private sealed record LandSourceClassification
+    {
+        public required IReadOnlyList<ManaColor> Produces { get; init; }
+
+        public required bool EntersUntapped { get; init; }
+
+        public CountConditionKind CountCondition { get; init; } = CountConditionKind.None;
+
+        public int CountThreshold { get; init; }
+
+        public IReadOnlyList<string> CountTypeFilter { get; init; } = Array.Empty<string>();
+
+        public ManaSource? ConditionalAnyColorSource { get; init; }
+    }
+
     private static void AddLandCopies(List<ManaSource> sources, CardFact card, int deckColorCount,
         Dictionary<string, HashSet<ManaColor>> fetchTypeColors, HashSet<ManaColor> fetchBasicColors,
         bool payLifeUntapped, bool checkLandUntapped, IReadOnlyList<CardFact> allCards)
@@ -365,19 +380,155 @@ public static class ManabaseClassifier
         bool untapped = !EntersTapped(card)
             || (payLifeUntapped && HasPayLifeUntappedClause(card))
             || (checkLandUntapped && IsConditionallyUntapped(card, allCards));
+        LandSourceClassification classification = ClassifySpecialLand(card, allCards, produces, untapped);
 
         for (int i = 0; i < card.Quantity; i++)
         {
             sources.Add(new ManaSource
             {
                 Name = card.Name,
-                Produces = produces,
+                Produces = classification.Produces,
                 Weight = weight,
-                EntersUntapped = untapped,
+                EntersUntapped = classification.EntersUntapped,
                 IsCommander = card.IsCommander,
                 ManaAmount = card.ManaAmount, // MQ-02: e.g. Ancient Tomb (a land) makes 2.
+                CountCondition = classification.CountCondition,
+                CountThreshold = classification.CountThreshold,
+                CountTypeFilter = classification.CountTypeFilter,
             });
+
+            if (classification.ConditionalAnyColorSource is ManaSource conditionalSource)
+            {
+                sources.Add(conditionalSource with { IsCommander = card.IsCommander });
+            }
         }
+    }
+
+    private static LandSourceClassification ClassifySpecialLand(
+        CardFact card,
+        IReadOnlyList<CardFact> allCards,
+        IReadOnlyList<ManaColor> produces,
+        bool defaultUntapped)
+    {
+        string text = ReminderTextRegex.Replace(card.OracleText ?? string.Empty, string.Empty);
+        if (text.Length == 0)
+        {
+            return new LandSourceClassification
+            {
+                Produces = produces,
+                EntersUntapped = defaultUntapped,
+            };
+        }
+
+        if (FastLandRegex.IsMatch(text))
+        {
+            return new LandSourceClassification
+            {
+                Produces = produces,
+                EntersUntapped = defaultUntapped,
+                CountCondition = CountConditionKind.FastLand,
+                CountThreshold = 2,
+            };
+        }
+
+        if (SlowLandRegex.IsMatch(text))
+        {
+            return new LandSourceClassification
+            {
+                Produces = produces,
+                EntersUntapped = defaultUntapped,
+                CountCondition = CountConditionKind.SlowLand,
+                CountThreshold = 2,
+            };
+        }
+
+        Match eldThreshold = EldThresholdRegex.Match(text);
+        if (eldThreshold.Success)
+        {
+            return new LandSourceClassification
+            {
+                Produces = produces,
+                EntersUntapped = defaultUntapped,
+                CountCondition = CountConditionKind.EldThreshold,
+                CountThreshold = 3,
+                CountTypeFilter = new[] { eldThreshold.Groups[1].Value },
+            };
+        }
+
+        Match verge = VergeSecondColorRegex.Match(text);
+        if (verge.Success && produces.Count >= 2)
+        {
+            IReadOnlyList<string> namedTypes = new[]
+            {
+                verge.Groups[1].Value,
+                verge.Groups[2].Value,
+            };
+            bool secondColorOnline = namedTypes.Count > 0
+                && CountLandsBearingAnyType(allCards, namedTypes, card) >= CheckLandMatchTypeThreshold;
+            var vergeColors = new List<ManaColor> { produces[0] };
+            if (secondColorOnline && !vergeColors.Contains(produces[1]))
+            {
+                vergeColors.Add(produces[1]);
+            }
+
+            return new LandSourceClassification
+            {
+                Produces = vergeColors,
+                EntersUntapped = true,
+            };
+        }
+
+        if (TrainingCompoundRegex.IsMatch(text))
+        {
+            bool colorsOnline = CountBasicLands(allCards) >= CheckLandMatchTypeThreshold;
+            var trainingColors = new List<ManaColor> { ManaColor.Colorless };
+            if (colorsOnline)
+            {
+                foreach (ManaColor color in produces)
+                {
+                    if (color != ManaColor.Colorless && !trainingColors.Contains(color))
+                    {
+                        trainingColors.Add(color);
+                    }
+                }
+            }
+
+            return new LandSourceClassification
+            {
+                Produces = trainingColors,
+                EntersUntapped = true,
+            };
+        }
+
+        if (VividChargeRegex.IsMatch(text))
+        {
+            IReadOnlyList<ManaColor> deckColors = DeckColors(allCards);
+            ManaColor? baseColor = ExtractNthTapAddColor(text, 1);
+            IReadOnlyList<ManaColor> vividBase = baseColor is ManaColor color
+                ? new[] { color }
+                : produces.Where(c => c != ManaColor.Colorless).Take(1).ToArray();
+
+            return new LandSourceClassification
+            {
+                Produces = vividBase,
+                EntersUntapped = false,
+                ConditionalAnyColorSource = new ManaSource
+                {
+                    Name = card.Name + " (vivid)",
+                    Produces = deckColors,
+                    Weight = 0.25,
+                    IsLand = false,
+                    ManaAmount = 1,
+                    IsConditional = true,
+                },
+            };
+        }
+
+        return new LandSourceClassification
+        {
+            Produces = produces,
+            EntersUntapped = defaultUntapped,
+        };
     }
 
     private static void AddSpellRequirement(List<SpellRequirement> spells, CardFact card, ParsedManaCost cost, bool costOverridden = false)
@@ -479,10 +630,8 @@ public static class ManabaseClassifier
     // Check lands (M10/Innistrad/Ixalan — Glacial Fortress …): "enters tapped unless you control a
     // Plains or an Island". Anchored to the "control (a|an) <type>" template so it captures ONLY the
     // check-land family. This deliberately excludes:
-    //   * slow lands ("control two or more other lands") — no "a/an", no basic type;
-    //   * ELD threshold lands ("control three or more other Islands" — Mystic Sanctuary, Dwarven Mine,
-    //     Gingerbread Cabin, Idyllic Grange, Witch's Cottage) — "three or more other", not "a/an", a
-    //     stricter in-play condition the census does not model.
+    //   * fast / slow / ELD threshold lands, which use dedicated count-condition regexes below; and
+    //   * Verge / Training Compound / Vivid, which gate colors rather than tapped state.
     // The captured group is the named-type clause ("Plains or an Island"); types are pulled from it.
     private static readonly Regex CheckLandRegex = new(
         @"tapped unless you control (?:a|an) ([^.]+)",
@@ -495,10 +644,40 @@ public static class ManabaseClassifier
         @"reveal ([^.]+?) card from your hand",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    // [ASSUMED] Verified by ManabaseLiveOracleCanaryTests.cs against Botanical Sanctum's live clause.
+    private static readonly Regex FastLandRegex = new(
+        @"enters(?: the battlefield)? tapped unless you control two or fewer other lands",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // [ASSUMED] Verified by ManabaseLiveOracleCanaryTests.cs against Deathcap Glade's live clause.
+    private static readonly Regex SlowLandRegex = new(
+        @"enters(?: the battlefield)? tapped unless you control two or more other lands",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // [ASSUMED] Verified by ManabaseLiveOracleCanaryTests.cs against Mystic Sanctuary's live clause.
+    private static readonly Regex EldThresholdRegex = new(
+        @"enters(?: the battlefield)? tapped unless you control three or more other ([A-Za-z]+)s",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // [ASSUMED] Verified by ManabaseLiveOracleCanaryTests.cs against Floodfarm Verge's live clause.
+    private static readonly Regex VergeSecondColorRegex = new(
+        @"Activate only if you control (?:a|an) (Plains|Island|Swamp|Mountain|Forest) or (?:a|an) (Plains|Island|Swamp|Mountain|Forest)\.",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // [ASSUMED] Verified by ManabaseLiveOracleCanaryTests.cs against Training Compound's live clause.
+    private static readonly Regex TrainingCompoundRegex = new(
+        @"Activate only if this land entered this turn or if you control a basic land",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // [ASSUMED] Verified by ManabaseLiveOracleCanaryTests.cs against Vivid Meadow's live clause.
+    private static readonly Regex VividChargeRegex = new(
+        @"with two charge counters on it",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     // Oracle templates whose first capture group is the named-basic-type clause a conditional land
-    // keys off. Tried in order, first match wins. Future census families (Verge, Vivid, Training
-    // Compound — see docs/manabase-analysis-rules.md §4b backlog) add one entry here, not another
-    // branch in ConditionalUntappedTypes. Must be declared after the regexes it references.
+    // keys off. Tried in order, first match wins. This remains the tapped-state census path for
+    // check lands and Snarls only; the newer MBGAP-02 families use dedicated helpers below because
+    // they gate per-trial count metadata or conditional colors instead.
     private static readonly Regex[] ConditionalTypeTemplates = { CheckLandRegex, SnarlRevealRegex };
 
     // A conditional-untapped land (check/Snarl) is modeled untapped when the deck runs at least this
@@ -1016,6 +1195,11 @@ public static class ManabaseClassifier
         }
 
         string named = clause.Groups[1].Value;
+        return ExtractNamedBasicTypes(named);
+    }
+
+    private static IReadOnlyList<string> ExtractNamedBasicTypes(string named)
+    {
         var types = new List<string>();
         foreach ((string type, ManaColor _) in BasicLandColors)
         {
@@ -1026,6 +1210,43 @@ public static class ManabaseClassifier
         }
 
         return types;
+    }
+
+    private static ManaColor? ExtractNthTapAddColor(string text, int occurrence)
+    {
+        const string marker = "{t}: add {";
+        string lower = text.ToLowerInvariant();
+        int start = 0;
+        for (int i = 0; i < occurrence; i++)
+        {
+            start = lower.IndexOf(marker, start, StringComparison.Ordinal);
+            if (start < 0)
+            {
+                return null;
+            }
+
+            start += marker.Length;
+        }
+
+        return start < lower.Length && TryParseManaColor(lower[start], out ManaColor color)
+            ? color
+            : null;
+    }
+
+    private static bool TryParseManaColor(char symbol, out ManaColor color)
+    {
+        color = symbol switch
+        {
+            'w' => ManaColor.White,
+            'u' => ManaColor.Blue,
+            'b' => ManaColor.Black,
+            'r' => ManaColor.Red,
+            'g' => ManaColor.Green,
+            'c' => ManaColor.Colorless,
+            _ => ManaColor.Colorless,
+        };
+
+        return symbol is 'w' or 'u' or 'b' or 'r' or 'g' or 'c';
     }
 
     // Count of OTHER deck land COPIES bearing at least one of the given basic land types (basics,
@@ -1051,6 +1272,26 @@ public static class ManabaseClassifier
                     count += card.Quantity;
                     break;
                 }
+            }
+        }
+
+        return count;
+    }
+
+    private static int CountBasicLands(IReadOnlyList<CardFact> cards)
+    {
+        int count = 0;
+        foreach (CardFact card in cards)
+        {
+            if (!IsLandType(card.TypeLine))
+            {
+                continue;
+            }
+
+            string front = CardTypeLine.FrontFace(card.TypeLine);
+            if (front.Contains("Basic", StringComparison.OrdinalIgnoreCase))
+            {
+                count += card.Quantity;
             }
         }
 
