@@ -26,7 +26,7 @@ public sealed class ManabaseVerdictSynthesizerTests
         Assert.True(verdict.HasIssues);
         Assert.Equal("Reading your deck", verdict.Headline);
         Assert.Equal(
-            "You're ~4 White source(s) short - add ~4 White-producing lands/rocks; consider cutting a colorless utility land.",
+            "You're ~3 White sources short - heuristic guidance: add ~3 White-producing lands/rocks; consider cutting a colorless utility land.",
             Assert.Single(verdict.Lines));
         Assert.Equal(string.Empty, verdict.NoIssueReason);
     }
@@ -49,14 +49,15 @@ public sealed class ManabaseVerdictSynthesizerTests
         Assert.True(verdict.HasIssues);
         Assert.Equal(3, verdict.Lines.Count);
         Assert.Equal(
-            "You're ~3 Blue source(s) short - add ~3 Blue-producing lands/rocks; consider cutting a colorless utility land.",
+            "You're ~2 Blue sources short - heuristic guidance: add ~2 Blue-producing lands/rocks; consider cutting a colorless utility land.",
             verdict.Lines[0]);
         Assert.Equal(
-            "Add ~3 more land(s) - the base is short for this curve.",
+            "Add ~3 more lands - the base is short for this curve.",
             verdict.Lines[1]);
         Assert.Equal(
-            "Ramp looks light: you run ~6 ramp vs a ~12/12 split for a ~MV4 threshold (your commander's mana value) - add ~6 ramp piece(s) (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
+            "Ramp looks light: you run ~6 ramp vs a ~12/12 split for a ~MV4 threshold (your commander's mana value) - add ~6 ramp pieces (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
             verdict.Lines[2]);
+        Assert.DoesNotContain(verdict.Lines, line => line.Contains("plus", System.StringComparison.Ordinal));
     }
 
     [Fact]
@@ -134,17 +135,17 @@ public sealed class ManabaseVerdictSynthesizerTests
                 drawShort: 4));
 
         Assert.True(verdict.HasIssues);
-        Assert.Equal(3, verdict.Lines.Count);
+        Assert.Equal(4, verdict.Lines.Count);
         Assert.Equal(
-            "You're ~4 White source(s) short - add ~4 White-producing lands/rocks; consider cutting a colorless utility land.",
+            "You're ~3 White sources short - heuristic guidance: add ~3 White-producing lands/rocks; consider cutting a colorless utility land.",
             verdict.Lines[0]);
         Assert.Equal(
-            "Add ~5 more land(s) - the base is short for this curve.",
+            "Add ~5 more lands - the base is short for this curve.",
             verdict.Lines[1]);
         Assert.Equal(
-            "Ramp looks light: you run ~7 ramp vs a ~12/12 split for a ~MV5 threshold (your curve's 75th-percentile mana value, since you have no single commander) - add ~5 ramp piece(s) (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
+            "Ramp looks light: you run ~7 ramp vs a ~12/12 split for a ~MV5 threshold (your curve's 75th-percentile mana value, since you have no single commander) - add ~5 ramp pieces (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
             verdict.Lines[2]);
-        Assert.DoesNotContain(verdict.Lines, line => line.StartsWith("Draw looks light:", System.StringComparison.Ordinal));
+        Assert.Equal("…plus 1 more", verdict.Lines[3]);
     }
 
     [Fact]
@@ -176,7 +177,7 @@ public sealed class ManabaseVerdictSynthesizerTests
 
         Assert.True(verdict.HasIssues);
         Assert.Equal(
-            "White access is inconsistent - 3 White spell(s) miss their on-curve window on color; add 1-2 White-producing lands (swap in a dual or cut a colorless utility land).",
+            "White access is inconsistent - 3 White spells miss their on-curve window on color; heuristic guidance: add 1-2 White-producing lands (swap in a dual or cut a colorless utility land).",
             Assert.Single(verdict.Lines));
     }
 
@@ -208,7 +209,63 @@ public sealed class ManabaseVerdictSynthesizerTests
 
         Assert.True(verdict.HasIssues);
         Assert.Equal(
-            "Add ~2 more land(s) - the base is short for this curve.",
+            "Add ~2 more lands - the base is short for this curve.",
+            Assert.Single(verdict.Lines));
+    }
+
+    [Fact]
+    public void Synthesize_LandShortfallOfOnePointZeroFive_RoundsToOneLand()
+    {
+        ManabaseVerdict verdict = ManabaseVerdictSynthesizer.Synthesize(
+            CreateReport(
+                actualLands: 35,
+                targetLands: 36.05,
+                avgOnCurvePercent: 82,
+                colorFindings:
+                [
+                    new ColorSourceFinding
+                    {
+                        Color = ManaColor.Green,
+                        ActualSources = 20.0,
+                        RequiredSources = 18,
+                        DrivingSpell = "Llanowar Elves",
+                        UnderSupportedCount = 3,
+                    },
+                ]),
+            ManabaseMode.Casual);
+
+        Assert.Equal("Add ~1 more land - the base is short for this curve.", Assert.Single(verdict.Lines));
+    }
+
+    [Fact]
+    public void Synthesize_ColorShortfallOfOnePointTwo_UsesSingularSource()
+    {
+        ManabaseVerdict verdict = ManabaseVerdictSynthesizer.Synthesize(
+            CreateReport(
+                colorFindings:
+                [
+                    CreateFinding(ManaColor.Black, actualSources: 13.8, requiredSources: 15, drivingSpell: "Demonic Tutor"),
+                ]),
+            ManabaseMode.Casual);
+
+        Assert.Equal(
+            "You're ~1 Black source short - heuristic guidance: add ~1 Black-producing lands/rocks; consider cutting a colorless utility land.",
+            Assert.Single(verdict.Lines));
+    }
+
+    [Fact]
+    public void Synthesize_ColorShortfallOfTwoPointSix_UsesPluralSources()
+    {
+        ManabaseVerdict verdict = ManabaseVerdictSynthesizer.Synthesize(
+            CreateReport(
+                colorFindings:
+                [
+                    CreateFinding(ManaColor.Red, actualSources: 12.4, requiredSources: 15, drivingSpell: "Lightning Bolt"),
+                ]),
+            ManabaseMode.Casual);
+
+        Assert.Equal(
+            "You're ~3 Red sources short - heuristic guidance: add ~3 Red-producing lands/rocks; consider cutting a colorless utility land.",
             Assert.Single(verdict.Lines));
     }
 
