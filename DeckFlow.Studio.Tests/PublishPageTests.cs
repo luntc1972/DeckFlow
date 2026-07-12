@@ -285,10 +285,10 @@ public sealed class PublishPageTests : BunitContext
         });
     }
 
-    // ── PUB-03: Successful commit shows SHA and push reminder, no push called ──
+    // ── PUB-03: Successful commit shows SHA and git-only next steps, no push called ──
 
     [Fact]
-    public void SuccessfulCommit_ShowsShaAndPushReminder()
+    public void SuccessfulCommit_ShowsShaAndGitOnlyNextSteps()
     {
         // Arrange
         var rows = new[] { MakeApprovedRow(1, "vid1") };
@@ -317,11 +317,13 @@ public sealed class PublishPageTests : BunitContext
             Assert.Contains("deadbeef", cut.Markup);
         });
 
-        // Assert: push reminder shown (without Studio ever calling push)
+        // Assert: git-only next steps shown (without Studio ever calling push)
         cut.WaitForAssertion(() =>
         {
             Assert.Contains("git push origin", cut.Markup);
             Assert.Contains("Studio never pushes", cut.Markup);
+            Assert.Contains("Committed to git seed", cut.Markup);
+            Assert.Contains("To make content live in prod, use Direct Push", cut.Markup);
         });
     }
 
@@ -355,7 +357,7 @@ public sealed class PublishPageTests : BunitContext
     }
 
     [Fact]
-    public void SuccessfulCommit_StampsApprovedKeys_AfterCommit()
+    public void SuccessfulCommit_DoesNotStampApprovedKeys()
     {
         var rows = new[] { MakeApprovedRow(1, "vid1") };
         var (cut, git, orchestrator, store) = RenderPublish(rows);
@@ -393,12 +395,8 @@ public sealed class PublishPageTests : BunitContext
         cut.WaitForAssertion(() =>
         {
             Assert.Single(git.CommitCalls);
-            Assert.Single(store.StampCalls);
-            var stamp = store.StampCalls[0];
-            var key = Assert.Single(stamp.Keys);
-            Assert.Equal(ContentSourceType.Youtube, key.Type);
-            Assert.Equal("vid1", key.Value);
-            Assert.Equal(stamp.PushedUtc, store.Rows.Single().PushedToProdUtc);
+            Assert.Empty(store.StampCalls);
+            Assert.Null(store.Rows.Single().PushedToProdUtc);
         });
     }
 

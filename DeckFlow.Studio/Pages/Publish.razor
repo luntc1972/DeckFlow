@@ -9,12 +9,12 @@
 <PageTitle>Publish to Git</PageTitle>
 
 <h1 class="h4 fw-semibold">Publish to Git</h1>
-<p class="text-muted">Export the approved seed into the repo, copy artifacts, review the diff, then commit.</p>
+<p class="text-muted">Commit the approved content seed and bodies to the local git repo, then push and deploy separately.</p>
 <HelpPanel Title="Commit approved content into the repo">
-    <p class="mb-2">Use this path when you want a git-backed publish. Studio exports the approved seed, copies the artifacts, shows you the diff, and lets you commit on the current branch.</p>
+    <p class="mb-2">Publish commits the approved seed and content bodies to the current branch in your local repo. It does not make content live in production by itself.</p>
     <ul class="mb-0 ps-3">
         <li>Review approves what is eligible; this page only works from the already-approved set.</li>
-        <li>Studio never pushes. After the commit succeeds, push from your terminal yourself.</li>
+        <li>Use Direct Push for a verified live prod update, or push this branch and let Render load the seed before setting visibility.</li>
     </ul>
 </HelpPanel>
 
@@ -197,21 +197,16 @@
         @if (_commitSuccess)
         {
             <div class="alert alert-success py-2 mt-3">
-                Committed: <strong>@_commitSha</strong> — @_approvedCount @(_approvedCount == 1 ? "entry" : "entries") on branch <strong>@_branch</strong>.
+                Committed to git seed: <strong>@_commitSha</strong> — @_approvedCount @(_approvedCount == 1 ? "entry" : "entries") on branch <strong>@_branch</strong>.
             </div>
 
             <div class="alert alert-info py-2">
-                <strong>Next step:</strong> push from your terminal to deploy.
+                <strong>Next step:</strong> push this branch from your terminal to continue deployment.
                 <br />
                 <code>git push origin @_branch</code>
                 <br />
-                <span class="text-muted small">Render auto-deploys when push reaches main. Studio never pushes.</span>
+                <span class="text-muted small">Studio never pushes. To make content live in prod, use Direct Push or complete the deploy and visibility steps after push.</span>
             </div>
-        }
-
-        @if (_commitSuccess && !string.IsNullOrEmpty(_stampWarning))
-        {
-            <div class="alert alert-warning py-2">@_stampWarning</div>
         }
     }
 
