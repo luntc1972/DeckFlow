@@ -2,7 +2,7 @@
 phase: manabase-research-gap-closure
 plan: 09
 type: execute
-wave: 8
+wave: 9
 depends_on: ["04", "06", "08"]
 files_modified:
   - DeckFlow.Web/e2e/manabase-lens-visual.spec.ts

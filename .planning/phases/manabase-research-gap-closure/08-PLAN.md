@@ -2,8 +2,8 @@
 phase: manabase-research-gap-closure
 plan: 08
 type: execute
-wave: 7
-depends_on: ["06"]
+wave: 8
+depends_on: ["06", "07"]
 files_modified:
   - DeckFlow.Web/Help/manabase.md
 autonomous: true
@@ -29,11 +29,12 @@ MBGAP-11 (D-13): re-audit `DeckFlow.Web/Help/manabase.md` (138 lines) line-by-li
 overclaims. The file was rewritten since EF2, so the original M12 finding's line citations
 are dead — this is a fresh content audit, not a targeted edit. Cross-check every factual
 claim against `docs/manabase-analysis-rules.md` (the "code wins" authoritative reference,
-now updated by plans 01-07 this phase) and rewrite any claim that overstates precision or
+fully updated by plans 01-07 this phase) and rewrite any claim that overstates precision or
 certainty beyond what the engine actually computes.
 
-This plan is docs-only and reads (does not write) docs/manabase-analysis-rules.md, so it is
-file-disjoint from plan 07 and runs in the same wave.
+This plan is docs-only and READS (does not write) docs/manabase-analysis-rules.md. Because
+plan 07 WRITES that doc, plan 08 depends on plan 07 (wave 8) to avoid a read-after-write
+race — it audits Help against the fully-updated rules doc, not a half-written one.
 
 Purpose: closes the M12 "Help/methodology overclaims" finding class.
 Output: an overclaim-free, phase-accurate in-app help page.
@@ -50,10 +51,11 @@ Output: an overclaim-free, phase-accurate in-app help page.
 
 <interfaces>
 <!-- Authoritative reference to check against. -->
-- docs/manabase-analysis-rules.md — the "code wins" engine-behavior doc (updated this phase by plans 01-07)
+- docs/manabase-analysis-rules.md — the "code wins" engine-behavior doc (fully updated this phase by plans 01-07)
 - Overclaim pattern to catch (M12 class): help text asserting the analysis is exact/definitive where the engine actually
   uses a Monte-Carlo estimate, a heuristic (community ramp/draw split, per-color deficit — now labeled heuristic in plan 06),
-  or an approximation (restricted-land composition gate, Vivid charge approximation, ELD static-census fallback if chosen).
+  or an approximation (restricted-land composition gate, Vivid charge approximation). Note: ELD threshold lands are resolved
+  PER-TRIAL inside the simulation (not a static-census approximation) — describe them as part of the simulation, not as an estimate.
 </interfaces>
 </context>
 

@@ -17,7 +17,7 @@ files_modified:
   - DeckFlow.Web.Tests/Manabase/ManabaseAnalysisServiceTests.cs
   - docs/manabase-analysis-rules.md
   - README.md
-autonomous: true
+autonomous: false
 requirements: [MBGAP-03]
 must_haves:
   truths:
@@ -26,6 +26,7 @@ must_haves:
     - "New flag analysis.manabase.ritual-land-credit is registered and seeded FALSE/0 in both dialects — NOT folded into ritual-burst-mana (D-10)"
     - "With the flag OFF, land targets are byte-identical to before"
     - "The cedh-land-calibrate CLI reports a third column (target with ritual credit) so the constant can be tuned against the 1597-deck corpus"
+    - "The calibration harness is RUN against the 1597-deck corpus and the before/after under-flag% delta is documented (D-09: the data decides the constant) — BLOCKING; if the corpus is unavailable the plan halts at a checkpoint, it does not complete"
   artifacts:
     - path: "DeckFlow.Core/Manabase/KarstenManabase.cs"
       provides: "ritual land-target credit term + RitualLandCreditWeight const"
@@ -51,9 +52,16 @@ Critical (D-10): do NOT reuse `analysis.manabase.ritual-burst-mana` — it is al
 prod and folding land-target changes into it would move live decks' land counts the moment
 the code deploys.
 
+Critical (D-09): the credit constant is DATA-decided. Running the calibration harness against
+the 1597-deck corpus and documenting the before/after under-flag% delta is a BLOCKING part of
+this plan — shipping the default 0.5 with calibration deferred does NOT count as MBGAP-03
+complete. If the corpus is unavailable in the execution environment, the plan halts at the
+Task 4 checkpoint (autonomous: false); it does not silently complete.
+
 Purpose: closes the deferred RIT O-4 land-target credit.
 Output: KarstenManabase credit term + named constant, new flag OFF in both dialects,
-analyzer/service threading, calibration-harness third column, tests, docs + README.
+analyzer/service threading, calibration-harness third column, a RUN calibration delta,
+tests, docs + README.
 </objective>
 
 <execution_context>
@@ -159,7 +167,7 @@ tactical per-cast; they address different objects (state this in docs).
 </task>
 
 <task type="auto">
-  <name>Task 3: Calibration-harness third column + run + docs/README</name>
+  <name>Task 3: Calibration-harness third column + BLOCKING run + docs/README</name>
   <read_first>
     - DeckFlow.CLI/CedhCalibrateCommandRunner.cs (RunAsync deck-replay loop :27-150)
     - DeckFlow.Core/Manabase/CedhCalibration.cs (CedhCalibrationRow / Build / RenderMarkdown)
@@ -170,24 +178,35 @@ tactical per-cast; they address different objects (state this in docs).
     (a) Extend CedhCalibrationRow + CedhCalibration.Build + RenderMarkdown with a third target column
     `newTargetWithRitualCredit`, computed from classifiedDeck.OneShots via the Task-1 credit path. Extend
     CedhCalibrateCommandRunner.RunAsync to populate it. Do not build a parallel harness (reuse the existing 1597-deck replay).
-    (b) Run the harness against the cached corpus and record the before/after under-flag% delta in the SUMMARY (this is the
-    calibration evidence gating the eventual operator flip; the flip itself is deferred, not part of DoD). If the cached
-    corpus/data files are unavailable in the execution environment, note that and mark the run as a deferred manual verification
-    (VALIDATION.md Manual-Only row).
+    (b) RUN the harness against the cached 1597-deck corpus and record the before/after under-flag% delta in the SUMMARY. Per
+    D-09 the credit constant is DATA-decided, so this run is a BLOCKING requirement of the plan — do NOT ship the default 0.5 and
+    call MBGAP-03 complete without the documented delta. If the cached corpus/data files are UNAVAILABLE in the execution
+    environment, do NOT mark this as a deferred manual verification: stop and surface the blocker at the Task 4 checkpoint
+    (MBGAP-03 stays open, the flag stays OFF, no completion).
     (c) Update docs/manabase-analysis-rules.md: document the ritual land-target credit (constant, cap, cEDH-only, flag OFF,
-    SEPARATE from ritual-burst-mana), and the double-credit decision (ritual stays eligible for the sim burst — different
-    objects). Update README where manabase flags are listed. Changed lines only, LF.
+    SEPARATE from ritual-burst-mana), the calibration delta, and the double-credit decision (ritual stays eligible for the sim
+    burst — different objects). Update README where manabase flags are listed. Changed lines only, LF.
   </action>
   <verify>
     <automated>dotnet build DeckFlow.sln 2>&1 | tail -5; dotnet test DeckFlow.Core.Tests --filter "FullyQualifiedName~CedhCalibration" 2>&1 | tail -10</automated>
   </verify>
   <acceptance_criteria>
     - CedhCalibration report renders a third ritual-credit target column (`grep -c "RitualCredit" DeckFlow.Core/Manabase/CedhCalibration.cs` >= 1)
-    - Harness run delta recorded in SUMMARY (or explicitly deferred to manual verification with reason)
-    - docs/manabase-analysis-rules.md documents the credit + double-credit decision; README updated
+    - Harness RUN before/after under-flag% delta recorded in SUMMARY (BLOCKING — if the corpus is unavailable the plan halts at the Task 4 checkpoint, it does NOT complete)
+    - docs/manabase-analysis-rules.md documents the credit + calibration delta + double-credit decision; README updated
     - `dotnet build DeckFlow.sln` 0/0; no EOL churn
   </acceptance_criteria>
-  <done>Calibration harness reports the ritual-credit column; docs+README updated; delta captured or deferred.</done>
+  <done>Calibration harness reports the ritual-credit column; docs+README updated; before/after delta captured (or blocked at checkpoint if corpus unavailable).</done>
+</task>
+
+<task type="checkpoint:human-verify" gate="blocking">
+  <what-built>The cEDH-only ritual land-target credit (RitualLandCreditWeight, default 0.5, capped) shipped behind a new OFF flag analysis.manabase.ritual-land-credit (SEPARATE from ritual-burst-mana per D-10), and the cedh-land-calibrate harness was extended with the third ritual-credit target column and RUN against the 1597-deck cEDH corpus.</what-built>
+  <how-to-verify>
+    1. Open the plan-05 SUMMARY and confirm it records the harness before/after under-flag% delta against the 1597-deck corpus — this is the D-09 calibration evidence proving the credit constant is data-decided, not assumed.
+    2. Confirm the delta shows no re-opened under-flag regression and grindy decks stay healthy (the cedh-land-target acceptance bar).
+    3. If the corpus/data files were UNAVAILABLE: the SUMMARY must say so explicitly. In that case MBGAP-03 is NOT complete — the credit stays OFF and the calibration run is an outstanding BLOCKER, not a deferred nicety. Do not sign off as complete.
+  </how-to-verify>
+  <resume-signal>Type "approved" if the calibration delta is captured and within the acceptance bar, or "blocked" if the corpus was unavailable (MBGAP-03 remains open pending the run).</resume-signal>
 </task>
 
 </tasks>
@@ -202,18 +221,18 @@ tactical per-cast; they address different objects (state this in docs).
 | Threat ID | Category | Component | Disposition | Mitigation Plan |
 |-----------|----------|-----------|-------------|-----------------|
 | T-mbgap03-01 | Tampering | folding credit into live ritual-burst-mana flag | mitigate | new SEPARATE flag OFF (D-10); parity test proves OFF byte-identical |
-| T-mbgap03-02 | Repudiation | double-credit inflates resource base | mitigate | explicit double-credit decision documented; calibration delta reviewed before flip |
+| T-mbgap03-02 | Repudiation | double-credit inflates resource base | mitigate | explicit double-credit decision documented; calibration delta reviewed at the blocking checkpoint before flip |
 | T-mbgap03-SC | Tampering | NuGet installs | accept | No new packages this plan |
 </threat_model>
 
 <verification>
 - `dotnet build DeckFlow.sln` clean; full `dotnet test DeckFlow.sln` green.
 - Flag OFF byte-identical land targets; ON reduces for ritual-heavy cEDH lists, floor 22 held.
-- Calibration harness reports the third column; under-flag% delta recorded (no re-opened regression per acceptance bar).
+- Calibration harness reports the third column AND is run; under-flag% delta recorded (no re-opened regression per acceptance bar) — verified at the blocking checkpoint.
 </verification>
 
 <success_criteria>
-cEDH-only ritual land-target credit shipped behind a new OFF flag (separate from ritual-burst-mana), byte-identical when off, floor-safe, calibrated via the extended harness, docs + README updated. MBGAP-03 complete (pending operator flip).
+cEDH-only ritual land-target credit shipped behind a new OFF flag (separate from ritual-burst-mana), byte-identical when off, floor-safe, calibrated via the extended harness with the before/after delta captured and human-reviewed at the blocking checkpoint (or the plan explicitly blocked if the corpus was unavailable), docs + README updated. MBGAP-03 complete (pending operator flip) only after checkpoint approval.
 </success_criteria>
 
 <output>

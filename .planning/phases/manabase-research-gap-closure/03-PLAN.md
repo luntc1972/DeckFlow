@@ -18,15 +18,15 @@ must_haves:
     - "Ancient Ziggurat is weighted by the creature share of the deck (D-03)"
     - "Nykthos, Shrine to Nyx is modeled as a conditional low-weight source (D-03, reuses the IsConditional Bernoulli pattern)"
     - "A per-deck creature-subtype histogram and dominant-type-share fraction is computed from TypeLine em-dash splitting"
-    - "Each restricted-land source is flagged so the view (plan 04) can render the disclosure marker"
+    - "The analyzer sets a deck-level 'restricted-source approximation present' signal plus the list of affected restricted-land NAMES (not a per-spell-row flag) so plan 04 can mark those land rows"
     - "Every new oracle-text regex has a canary assertion"
   artifacts:
     - path: "DeckFlow.Core/Manabase/ManabaseClassifier.cs"
       provides: "SpendOnlyCreatureRegex + Nykthos devotion detector + subtype-share census + composition-gated weights"
       contains: "devotion"
     - path: "DeckFlow.Core/Manabase/ManabaseModels.cs"
-      provides: "IsRestrictedSourceUsed flag on CardCastability (or equivalent) for the plan-04 disclosure marker"
-      contains: "IsRestrictedSourceUsed"
+      provides: "Deck-level RestrictedSourceLandNames list (+ derived HasRestrictedSourceApproximation) on the report for the plan-04 land-row marker"
+      contains: "RestrictedSourceLandNames"
   key_links:
     - from: "ManabaseClassifier.cs"
       to: "creature-subtype histogram"
@@ -44,9 +44,15 @@ D-03 is explicit: NOT a flat discount, NOT a full spend-restriction sim mask. In
 weight scaled by a computed deck fraction (dominant-creature-type share for
 Cavern/Unclaimed, creature share for Ziggurat) and a conditional low weight for Nykthos.
 
+Disclosure (D-05, LEAD-pinned semantics): do NOT plumb per-spell-row simulator tracking.
+Collect a deck-level signal — the NAMES of the restricted lands present — that plan 04's
+view uses to mark those LAND rows in the land/source table (mirroring the alt-cost `1*`
+land-row precedent).
+
 Purpose: fixes efficacy finding M8 (these lands currently overstate color fixing).
 Output: new regexes + canaries, a genuinely-new creature-subtype-share census, four
-composition-gated weight rules, and the model flag that plan 04's marker consumes.
+composition-gated weight rules, and the deck-level restricted-land name list that plan 04's
+marker consumes.
 </objective>
 
 <execution_context>
@@ -75,7 +81,8 @@ Oracle text (RESEARCH MBGAP-01 table, MEDIUM confidence — verify via canary):
 - Nykthos: activated ability with "devotion to that color" (no "spend this mana only" clause — needs a distinct detector)
 
 From DeckFlow.Core/Manabase/ManabaseModels.cs:
-- CardCastability record (Models:169), IsCostOverridden bool (Models:159,196) — add IsRestrictedSourceUsed sibling bool (use `{ get; init; }`)
+- CardCastability record (Models:169), IsCostOverridden bool (Models:159,196) — reference only; do NOT add a per-spell-row restricted flag
+- The deck-level report record (ManabaseReport) — add `IReadOnlyList<string> RestrictedSourceLandNames { get; init; } = Array.Empty<string>();` plus a derived `bool HasRestrictedSourceApproximation => RestrictedSourceLandNames.Count > 0;` (deck-level signal + the affected LAND names; use `{ get; init; }`)
 
 Formula (RESEARCH D-03, researcher-proposed — planner PINS it here):
 dominantTypeShare = max(subtypeHistogram.Values) / totalCreatureCount (Quantity-weighted).
@@ -94,11 +101,12 @@ dominantTypeShare = max(subtypeHistogram.Values) / totalCreatureCount (Quantity-
     - Cavern in a 3-type deck with no dominant tribe (share ~0.4) → weight ~0.4 (heavy discount), not full
     - Ziggurat in a 60% creature deck → weight ~0.6
     - Nykthos → a single IsConditional source at weight 0.25
-    - A deck with none of these four lands → classification byte-identical to before
+    - A deck with any of these four lands → its name appears in the deck-level RestrictedSourceLandNames list
+    - A deck with none of these four lands → classification byte-identical to before AND RestrictedSourceLandNames empty
   </behavior>
   <read_first>
     - DeckFlow.Core/Manabase/ManabaseClassifier.cs (Cls:340-520 weight+regex, Cls:990-1075 census, Cls:1440-1545 granted-source)
-    - DeckFlow.Core/Manabase/ManabaseModels.cs (ManaSource + CardCastability records)
+    - DeckFlow.Core/Manabase/ManabaseModels.cs (ManaSource + CardCastability records + the deck-level report record)
   </read_first>
   <action>
     (a) Add `SpendOnlyCreatureRegex` matching "spend this mana only to cast a creature spell(?: of the chosen type)?" (the
@@ -113,23 +121,26 @@ dominantTypeShare = max(subtypeHistogram.Values) / totalCreatureCount (Quantity-
     Cavern/Unclaimed weight = Clamp(dominantTypeShare, floor, 1.0); Ziggurat weight = creatureShare; Nykthos = one IsConditional
     source at Weight=0.25 via the AddGrantedSources pattern. Pin `floor` as a named private const (e.g.
     RestrictedLandMinWeight = 0.25) — no magic numbers.
-    (d) Set IsRestrictedSourceUsed=true on the resulting CardCastability rows (add the bool to CardCastability in
-    ManabaseModels.cs using `{ get; init; }`) so plan 04's marker can gate on it. All new behavior must be reachable ONLY when
-    the plan-04 restricted-lands flag is on — thread a `bool restrictedLands = false` guard param through the classify path so
-    that flag-off is byte-identical (the flag itself is registered in plan 04; here just add the trailing-optional guard and
-    default it false).
+    (d) Disclosure (D-05, LEAD-pinned): do NOT add a per-spell-row flag and do NOT plumb per-row simulator tracking. Instead
+    collect the NAMES of the restricted lands actually present in the deck (Cavern / Unclaimed / Ziggurat / Nykthos) into a
+    deck-level `RestrictedSourceLandNames` list on the report record (with the derived `HasRestrictedSourceApproximation` bool),
+    mirroring the alt-cost land-row precedent. Plan 04's view renders the `*` marker on those LAND rows in the land/source table
+    by matching on name. All new behavior must be reachable ONLY when the plan-04 restricted-lands flag is on — thread a
+    `bool restrictedLands = false` guard param through the classify/analyze path so that flag-off is byte-identical (the flag
+    itself is registered in plan 04; here just add the trailing-optional guard, default it false, and leave
+    RestrictedSourceLandNames empty when off).
   </action>
   <verify>
     <automated>dotnet test DeckFlow.Core.Tests --filter "FullyQualifiedName~ManabaseClassifierTests" 2>&1 | tail -15</automated>
   </verify>
   <acceptance_criteria>
     - `grep -Ec "SpendOnlyCreatureRegex|devotion" DeckFlow.Core/Manabase/ManabaseClassifier.cs` returns >= 2
-    - `grep -c "IsRestrictedSourceUsed" DeckFlow.Core/Manabase/ManabaseModels.cs` returns >= 1 and uses `{ get; init; }`
+    - `grep -c "RestrictedSourceLandNames" DeckFlow.Core/Manabase/ManabaseModels.cs` returns >= 1 and uses `{ get; init; }`; NO per-spell-row IsRestrictedSourceUsed flag was added to CardCastability
     - `grep -c "Split" DeckFlow.Core/Manabase/ManabaseClassifier.cs` shows the new em-dash split census
     - No flat-constant weight for these four lands (weights are Clamp(dominantTypeShare,...)/creatureShare/0.25-conditional)
     - `dotnet build DeckFlow.sln` 0/0
   </acceptance_criteria>
-  <done>Four restricted lands composition-gated; subtype census built; model flag added; flag-off guard defaults false.</done>
+  <done>Four restricted lands composition-gated; subtype census built; deck-level RestrictedSourceLandNames populated; flag-off guard defaults false.</done>
 </task>
 
 <task type="auto">
@@ -141,12 +152,13 @@ dominantTypeShare = max(subtypeHistogram.Values) / totalCreatureCount (Quantity-
   </read_first>
   <action>
     (a) Add ManabaseClassifierTests cases matching Task 1 <behavior> (tribal Cavern near-full, multi-type Cavern discounted,
-    Ziggurat by creature share, Nykthos conditional 0.25, and a no-restricted-land deck unchanged with flag on).
+    Ziggurat by creature share, Nykthos conditional 0.25, RestrictedSourceLandNames populated with the present lands, and a
+    no-restricted-land deck unchanged with flag on and RestrictedSourceLandNames empty).
     (b) Add canary assertions for SpendOnlyCreatureRegex (both Cavern "of the chosen type" and Ziggurat any-creature forms) and
     the Nykthos "devotion to that color" detector against the verified oracle strings.
     (c) Update docs/manabase-analysis-rules.md: document the composition-gated model (dominant-type-share formula, creature-share,
     Nykthos conditional weight), that it is gated by analysis.manabase.restricted-lands (registered in plan 04), and that the
-    disclosure marker surfaces it. Changed lines only, LF.
+    deck-level RestrictedSourceLandNames signal drives the plan-04 land-row disclosure marker. Changed lines only, LF.
   </action>
   <verify>
     <automated>dotnet test DeckFlow.Core.Tests --filter "FullyQualifiedName~ManabaseClassifierTests|FullyQualifiedName~ManabaseLiveOracleCanary" 2>&1 | tail -15</automated>
@@ -181,7 +193,7 @@ dominantTypeShare = max(subtypeHistogram.Values) / totalCreatureCount (Quantity-
 </verification>
 
 <success_criteria>
-The four conditional-restriction lands are composition-gated per D-03 (dominant-type-share / creature-share / Nykthos conditional), the subtype census exists, the disclosure model flag is set, canaries added, docs updated; behavior is guarded behind a default-false param awaiting the plan-04 flag.
+The four conditional-restriction lands are composition-gated per D-03 (dominant-type-share / creature-share / Nykthos conditional), the subtype census exists, the deck-level restricted-land name list is populated, canaries added, docs updated; behavior is guarded behind a default-false param awaiting the plan-04 flag.
 </success_criteria>
 
 <output>
