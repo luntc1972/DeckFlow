@@ -1,4 +1,5 @@
 using DeckFlow.Core.Knowledge;
+using DeckFlow.Core.Knowledge.StatedRulesExtraction;
 
 namespace DeckFlow.Core.Integration;
 
@@ -40,4 +41,52 @@ public interface ILlmDistillationService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A tags result with token usage from the completion.</returns>
     Task<TagsResult> InferTagsAsync(string transcript, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Selects transcript claims that state concrete deckbuilding rules or heuristics.
+    /// </summary>
+    /// <param name="transcriptChunk">Transcript chunk to scan for stated claims.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A selection result with token usage from the completion.</returns>
+    Task<SelectResult> SelectStatedClaimsAsync(string transcriptChunk, CancellationToken ct = default)
+        => Task.FromException<SelectResult>(
+            new NotSupportedException("Stated-rules extraction requires the subscription LLM CLI provider."));
+
+    /// <summary>
+    /// Rewrites selected stated claims so they are explicit and self-contained.
+    /// </summary>
+    /// <param name="selectedClaims">Selected claims to disambiguate.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A disambiguation result with token usage from the completion.</returns>
+    Task<DisambiguateResult> DisambiguateStatedClaimsAsync(IReadOnlyList<string> selectedClaims, CancellationToken ct = default)
+        => Task.FromException<DisambiguateResult>(
+            new NotSupportedException("Stated-rules extraction requires the subscription LLM CLI provider."));
+
+    /// <summary>
+    /// Decomposes disambiguated claims into atomic stated-rule candidates.
+    /// </summary>
+    /// <param name="disambiguatedClaims">Disambiguated claims to decompose.</param>
+    /// <param name="videoDateUtc">Video publication date used for rule provenance.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A decomposition result with token usage from the completion.</returns>
+    Task<DecomposeResult> DecomposeStatedClaimsAsync(
+        IReadOnlyList<string> disambiguatedClaims,
+        DateTimeOffset videoDateUtc,
+        CancellationToken ct = default)
+        => Task.FromException<DecomposeResult>(
+            new NotSupportedException("Stated-rules extraction requires the subscription LLM CLI provider."));
+
+    /// <summary>
+    /// Reduces all chunk-level stated-rule candidates into a deduplicated final set.
+    /// </summary>
+    /// <param name="allChunkRules">All chunk-level stated-rule candidates.</param>
+    /// <param name="videoDateUtc">Video publication date used for rule provenance.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A reduction result with token usage from the completion.</returns>
+    Task<ReduceResult> ReduceStatedRulesAsync(
+        IReadOnlyList<StatedRuleCandidate> allChunkRules,
+        DateTimeOffset videoDateUtc,
+        CancellationToken ct = default)
+        => Task.FromException<ReduceResult>(
+            new NotSupportedException("Stated-rules extraction requires the subscription LLM CLI provider."));
 }

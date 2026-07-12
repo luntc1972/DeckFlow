@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
+using DeckFlow.Core.Knowledge.StatedRulesExtraction;
 using Xunit;
 
 namespace DeckFlow.Core.Tests;
@@ -287,6 +288,112 @@ public sealed class CliLlmDistillationServiceTests
         Assert.Empty(result.Bracket);
         Assert.Empty(result.CardCategory);
         Assert.Empty(stdout);
+    }
+
+    [Fact]
+    public async Task SelectStatedClaimsAsync_ValidPayload_ReturnsClaimsAndZeroUsage()
+    {
+        var stdout = new Queue<string>(
+        [
+            ClaudeEnvelope("""{"claims":["Run at least ten ramp pieces.","Cut four-drops that do not advance the combo."]}""")
+        ]);
+        var service = CreateService(stdout);
+
+        var result = await WithCommandOverrideAsync(
+            ValidOverride,
+            () => service.SelectStatedClaimsAsync("chunk"));
+
+        Assert.Equal(
+            ["Run at least ten ramp pieces.", "Cut four-drops that do not advance the combo."],
+            result.Claims);
+        Assert.Equal(new TokenUsage(0, 0), result.Usage);
+    }
+
+    [Fact]
+    public async Task DisambiguateStatedClaimsAsync_ValidPayload_ReturnsClaimsAndZeroUsage()
+    {
+        var stdout = new Queue<string>(
+        [
+            ClaudeEnvelope("""{"claims":["Run at least ten ramp pieces in this list.","Cut four-drops that do not advance the combo plan."]}""")
+        ]);
+        var service = CreateService(stdout);
+
+        var result = await WithCommandOverrideAsync(
+            ValidOverride,
+            () => service.DisambiguateStatedClaimsAsync(["Run at least ten ramp pieces.", "Cut four-drops."]));
+
+        Assert.Equal(
+            ["Run at least ten ramp pieces in this list.", "Cut four-drops that do not advance the combo plan."],
+            result.Claims);
+        Assert.Equal(new TokenUsage(0, 0), result.Usage);
+    }
+
+    [Fact]
+    public async Task DecomposeStatedClaimsAsync_ValidPayload_ReturnsSanitizedRulesWithVideoDate()
+    {
+        var stdout = new Queue<string>(
+        [
+            ClaudeEnvelope(
+                """{"rules":[{"category":"mana","metric":"land_count","value":10,"value_min":null,"value_max":null,"comparator":"gte","condition":null,"clip_timestamp_seconds":95,"source_clip":"I want at least ten lands here.","confidence":0.92,"card_reference":null}]}""")
+        ]);
+        var service = CreateService(stdout);
+        var videoDateUtc = new DateTimeOffset(2026, 7, 12, 0, 0, 0, TimeSpan.Zero);
+
+        var result = await WithCommandOverrideAsync(
+            ValidOverride,
+            () => service.DecomposeStatedClaimsAsync(
+                ["Run at least ten ramp pieces in this list."],
+                videoDateUtc));
+
+        var rule = Assert.Single(result.Rules);
+        Assert.Equal("mana", rule.Category);
+        Assert.Equal("land_count", rule.Metric);
+        Assert.Equal(10, rule.Value);
+        Assert.Equal(95, rule.ClipTimestampSeconds);
+        Assert.Equal(videoDateUtc, rule.VideoDateUtc);
+        Assert.Equal(new TokenUsage(0, 0), result.Usage);
+    }
+
+    [Fact]
+    public async Task ReduceStatedRulesAsync_ValidPayload_ReturnsSanitizedRulesAndZeroUsage()
+    {
+        var stdout = new Queue<string>(
+        [
+            ClaudeEnvelope(
+                """{"rules":[{"category":"interaction","metric":"interaction","value":7,"value_min":null,"value_max":null,"comparator":"gte","condition":"archetype:midrange","clip_timestamp_seconds":null,"source_clip":"I still want at least seven interaction pieces in midrange shells.","confidence":0.81,"card_reference":null}]}""")
+        ]);
+        var service = CreateService(stdout);
+        var videoDateUtc = new DateTimeOffset(2026, 7, 11, 0, 0, 0, TimeSpan.Zero);
+        IReadOnlyList<StatedRuleCandidate> allChunkRules =
+        [
+            new()
+            {
+                Category = "interaction",
+                Metric = "interaction",
+                Value = 7,
+                ValueMin = null,
+                ValueMax = null,
+                Comparator = "gte",
+                Condition = "archetype:midrange",
+                ClipTimestampSeconds = 30,
+                SourceClip = "At least seven pieces of spot removal.",
+                Confidence = 0.7,
+                CardReference = null,
+                CardGrounded = null,
+                VideoDateUtc = videoDateUtc,
+            }
+        ];
+
+        var result = await WithCommandOverrideAsync(
+            ValidOverride,
+            () => service.ReduceStatedRulesAsync(allChunkRules, videoDateUtc));
+
+        var rule = Assert.Single(result.Rules);
+        Assert.Equal("interaction", rule.Category);
+        Assert.Equal("interaction", rule.Metric);
+        Assert.Equal("archetype:midrange", rule.Condition);
+        Assert.Equal(videoDateUtc, rule.VideoDateUtc);
+        Assert.Equal(new TokenUsage(0, 0), result.Usage);
     }
 
     [Fact]
