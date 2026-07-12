@@ -1420,6 +1420,11 @@ namespace DeckFlow.Studio.Tests
                 throw new NotSupportedException();
             }
 
+            public Task<IReadOnlyList<PendingDistillProjection>> ListPendingDistillDisplayAsync(long sourceId, CancellationToken cancellationToken = default)
+            {
+                throw new NotSupportedException();
+            }
+
             public Task UpdateTranscriptStatusAsync(long videoId, string status, CancellationToken cancellationToken = default)
             {
                 throw new NotSupportedException();

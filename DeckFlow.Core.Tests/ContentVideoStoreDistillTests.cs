@@ -92,6 +92,26 @@ public sealed class ContentVideoStoreDistillTests : IDisposable
     }
 
     [Fact]
+    public async Task ListPendingDistillDisplayAsync_SurfacesFilteredDistillStatus()
+    {
+        var sourceId = await InsertSourceAsync("pending-status-source");
+        var filteredVideo = await InsertVideoWithTranscriptAsync(sourceId, "filtered-status-pending-video", TranscriptStatus.Captions);
+        var freshVideo = await InsertVideoWithTranscriptAsync(sourceId, "fresh-status-pending-video", TranscriptStatus.Captions);
+        var distilledVideoId = await InsertVideoWithTranscriptAsync(sourceId, "distilled-status-pending-video", TranscriptStatus.Captions);
+
+        await _videoStore.SetDistillStatusAsync(filteredVideo, "filtered");
+        await _videoStore.SetDistillStatusAsync(distilledVideoId, "distilled");
+
+        var pending = await _videoStore.ListPendingDistillDisplayAsync(sourceId);
+        var filtered = Assert.Single(pending, video => video.YoutubeVideoId == "filtered-status-pending-video");
+        var fresh = Assert.Single(pending, video => video.YoutubeVideoId == "fresh-status-pending-video");
+
+        Assert.Equal("filtered", filtered.DistillStatus);
+        Assert.Null(fresh.DistillStatus);
+        Assert.DoesNotContain(pending, video => video.YoutubeVideoId == "distilled-status-pending-video");
+    }
+
+    [Fact]
     public async Task DistillStatusAsync_RoundTripsAndUpsertsPerVideoStatus()
     {
         var sourceId = await InsertSourceAsync("distill-status-source");

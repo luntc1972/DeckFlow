@@ -60,6 +60,35 @@ public sealed class ListPendingDistillTests
         Assert.Equal("From Source 1", only.Title);
     }
 
+    [Fact]
+    public async Task ListPendingDistillAsync_CarriesFilteredDistillStatus()
+    {
+        var dbPath = CreateDatabasePath();
+        var videoStore = new ContentVideoStore(dbPath);
+        var sourceStore = new ContentSourceStore(dbPath);
+        var persistedSourceId = await sourceStore.InsertSourceAsync(
+            "pending-distill-status-source",
+            "Pending Distill Status Source",
+            ContentSourceType.Youtube,
+            "https://www.youtube.com/@pending-distill-status-source");
+        var filteredVideoId = await videoStore.InsertVideoAsync(
+            persistedSourceId,
+            "filtered-status-video",
+            null,
+            "Filtered Status Video",
+            "https://youtu.be/filtered-status-video",
+            Now,
+            TranscriptStatus.Captions);
+        await videoStore.InsertTranscriptAsync(filteredVideoId, TranscriptSource.Captions, "Transcript");
+        await videoStore.SetDistillStatusAsync(filteredVideoId, "filtered");
+
+        var result = await CreateOrchestratorFromStores(sourceStore, videoStore)
+            .ListPendingDistillAsync(CancellationToken.None);
+
+        var only = Assert.Single(result);
+        Assert.Equal("filtered", only.DistillStatus);
+    }
+
     private static ContentVideo Video(long id, string? youtubeVideoId, string title, string videoUrl)
         => new()
         {
@@ -85,11 +114,35 @@ public sealed class ListPendingDistillTests
             CreatedUtc = Now,
         };
 
+    private static string CreateDatabasePath()
+        => Path.Combine(Path.GetTempPath(), $"deckflow-list-pending-distill-{Guid.NewGuid():N}.db");
+
     private static ContentKbOrchestrator CreateOrchestrator(
         FakeContentVideoStore videoStore,
         params ContentSource[] sources)
         => new(
             new FakeContentSourceStore(sources),
+            videoStore,
+            new FakeContentSiteIndexStore(),
+            new ThrowingBlockedVideoStore(),
+            new FakeContentHarvestRunStore(),
+            new FakeLlmSpendLedger(),
+            new ThrowingWhisperSpendLedger(),
+            new FakeLlmDistillationService(),
+            new ThrowingYouTubeChannelVideoLister(),
+            new ThrowingTranscriptSource(),
+            new ThrowingFfmpegAudioChunker(),
+            () => Now,
+            new ContentKbOrchestratorOptions
+            {
+                ArtifactRoot = Path.Combine(Path.GetTempPath(), "deckflow-pending-distill-tests"),
+            });
+
+    private static ContentKbOrchestrator CreateOrchestratorFromStores(
+        IContentSourceStore sourceStore,
+        IContentVideoStore videoStore)
+        => new(
+            sourceStore,
             videoStore,
             new FakeContentSiteIndexStore(),
             new ThrowingBlockedVideoStore(),

@@ -468,10 +468,21 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var source in sources)
         {
-            IReadOnlyList<ContentVideo> pending;
+            IReadOnlyList<PendingDistillVideo> pending;
             try
             {
-                pending = await _videoStore.ListVideosPendingDistillAsync(source.Id, cancellationToken).ConfigureAwait(false);
+                var projected = await _videoStore.ListPendingDistillDisplayAsync(source.Id, cancellationToken).ConfigureAwait(false);
+                pending = projected
+                    .Select(
+                        video => new PendingDistillVideo
+                        {
+                            YoutubeVideoId = video.YoutubeVideoId ?? string.Empty,
+                            Title = video.Title,
+                            VideoUrl = video.VideoUrl,
+                            PublishedUtc = video.PublishedUtc,
+                            DistillStatus = video.DistillStatus,
+                        })
+                    .ToList();
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -486,13 +497,7 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
                     continue;
                 }
 
-                results.Add(new PendingDistillVideo
-                {
-                    YoutubeVideoId = video.YoutubeVideoId,
-                    Title = video.Title,
-                    VideoUrl = video.VideoUrl,
-                    PublishedUtc = video.PublishedUtc,
-                });
+                results.Add(video);
             }
         }
 

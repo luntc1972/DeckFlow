@@ -1,13 +1,12 @@
-namespace DeckFlow.Core.Orchestration;
+namespace DeckFlow.Core.Content;
 
 /// <summary>
-/// A harvested-but-not-yet-distilled video, projected for host-side display so an operator
-/// can select it for distillation without re-browsing the source channel.
+/// Display-focused projection for a harvested video that is eligible to appear in the pending-distill list.
 /// </summary>
-public sealed record PendingDistillVideo
+public sealed record PendingDistillProjection
 {
-    /// <summary>YouTube video identifier (the distill natural key for YouTube sources).</summary>
-    public required string YoutubeVideoId { get; init; }
+    /// <summary>YouTube video identifier, or <see langword="null"/> when the row is not a YouTube video.</summary>
+    public string? YoutubeVideoId { get; init; }
 
     /// <summary>Content title supplied by the upstream source.</summary>
     public required string Title { get; init; }

@@ -504,6 +504,12 @@ public sealed class CommandRunnerHarvestTests
             CancellationToken cancellationToken = default)
             => Task.FromResult(ExistingVideos.GetValueOrDefault(youtubeVideoId));
 
+        public Task<IReadOnlyList<ContentVideo>> ListVideosPendingDistillAsync(long sourceId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<IReadOnlyList<PendingDistillProjection>> ListPendingDistillDisplayAsync(long sourceId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
         public Task UpdateTranscriptStatusAsync(
             long videoId,
             string status,

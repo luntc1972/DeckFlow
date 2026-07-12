@@ -68,6 +68,19 @@ internal sealed class FakeContentVideoStore : IContentVideoStore
     public Task<IReadOnlyList<ContentVideo>> ListVideosPendingDistillAsync(long sourceId, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<ContentVideo>>(_pendingBySource.GetValueOrDefault(sourceId) ?? []);
 
+    public Task<IReadOnlyList<PendingDistillProjection>> ListPendingDistillDisplayAsync(long sourceId, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<PendingDistillProjection>>(
+            (_pendingBySource.GetValueOrDefault(sourceId) ?? [])
+            .Select(video => new PendingDistillProjection
+            {
+                YoutubeVideoId = video.YoutubeVideoId,
+                Title = video.Title,
+                VideoUrl = video.VideoUrl,
+                PublishedUtc = video.PublishedUtc,
+                DistillStatus = null,
+            })
+            .ToArray());
+
     public Task UpdateTranscriptStatusAsync(long videoId, string status, CancellationToken cancellationToken = default)
         => throw new NotImplementedException();
 
