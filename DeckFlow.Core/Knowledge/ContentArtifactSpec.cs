@@ -1,4 +1,7 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using DeckFlow.Core.Knowledge.StatedRulesExtraction;
 
 namespace DeckFlow.Core.Knowledge;
 
@@ -21,6 +24,8 @@ public static class ContentArtifactSpec
           bracket: ["cEDH", "Optimized"]
           card_category: ["win-cons", "counter"]
         generated_utc: "2026-05-26T18:00:00Z"
+        content_type: "youtube"
+        stated_rules: [{"category":"ramp","metric":"lands","value":37,"value_min":null,"value_max":null,"comparator":"gte","condition":"control","clip_ts":134,"source_clip":"Play at least 37 lands in control shells.","confidence":0.91,"card_reference":null,"card_grounded":null,"video_date":"2026-05-26T12:00:00+00:00"}]
         ---
 
         ## Summary
@@ -53,6 +58,32 @@ public static class ContentArtifactSpec
     }
 
     /// <summary>
+    /// Serializes stated rules to the locked JSON-array representation used in artifact front matter.
+    /// </summary>
+    /// <param name="rules">Stated rules to serialize.</param>
+    /// <returns>JSON array text, with empty lists serialized as <c>[]</c>.</returns>
+    public static string SerializeStatedRules(IReadOnlyList<StatedRuleCandidate> rules)
+    {
+        ArgumentNullException.ThrowIfNull(rules);
+
+        return JsonSerializer.Serialize(rules.Select(
+            rule => new StatedRuleArtifactEntry(
+                rule.Category,
+                rule.Metric,
+                rule.Value,
+                rule.ValueMin,
+                rule.ValueMax,
+                rule.Comparator,
+                rule.Condition,
+                rule.ClipTimestampSeconds,
+                rule.SourceClip,
+                rule.Confidence,
+                rule.CardReference,
+                rule.CardGrounded,
+                rule.VideoDateUtc)));
+    }
+
+    /// <summary>
     /// Deserializes a locked JSON-array tag representation.
     /// </summary>
     /// <param name="serializedTags">JSON array text, or <see langword="null"/> when no tags were stored.</param>
@@ -73,6 +104,22 @@ public static class ContentArtifactSpec
 /// </summary>
 public sealed record ContentArtifactMetadata
 {
+    /// <summary>
+    /// Initializes metadata defaults while preserving required-member compatibility for existing callers.
+    /// </summary>
+    [SetsRequiredMembers]
+    public ContentArtifactMetadata()
+    {
+        Source = string.Empty;
+        Title = string.Empty;
+        Url = string.Empty;
+        ContentType = string.Empty;
+        ArchetypeTags = Array.Empty<string>();
+        BracketTags = Array.Empty<string>();
+        CardCategoryTags = Array.Empty<string>();
+        StatedRules = Array.Empty<StatedRuleCandidate>();
+    }
+
     /// <summary>Source discriminator or display value written to artifact front matter.</summary>
     public required string Source { get; init; }
 
@@ -88,6 +135,9 @@ public sealed record ContentArtifactMetadata
     /// <summary>RSS item GUID, or <see langword="null"/> for YouTube artifacts.</summary>
     public string? RssGuid { get; init; }
 
+    /// <summary>Opaque content type discriminator serialized into artifact front matter.</summary>
+    public required string ContentType { get; init; }
+
     /// <summary>Allowlisted archetype tags serialized into artifact front matter.</summary>
     public required IReadOnlyList<string> ArchetypeTags { get; init; }
 
@@ -99,7 +149,25 @@ public sealed record ContentArtifactMetadata
 
     /// <summary>UTC timestamp when the artifact was generated.</summary>
     public required DateTimeOffset GeneratedUtc { get; init; }
+
+    /// <summary>Structured stated rules serialized into artifact front matter.</summary>
+    public IReadOnlyList<StatedRuleCandidate> StatedRules { get; init; } = Array.Empty<StatedRuleCandidate>();
 }
+
+internal sealed record StatedRuleArtifactEntry(
+    [property: JsonPropertyName("category")] string Category,
+    [property: JsonPropertyName("metric")] string Metric,
+    [property: JsonPropertyName("value")] double? Value,
+    [property: JsonPropertyName("value_min")] double? ValueMin,
+    [property: JsonPropertyName("value_max")] double? ValueMax,
+    [property: JsonPropertyName("comparator")] string Comparator,
+    [property: JsonPropertyName("condition")] string? Condition,
+    [property: JsonPropertyName("clip_ts")] int? ClipTimestampSeconds,
+    [property: JsonPropertyName("source_clip")] string SourceClip,
+    [property: JsonPropertyName("confidence")] double Confidence,
+    [property: JsonPropertyName("card_reference")] string? CardReference,
+    [property: JsonPropertyName("card_grounded")] bool? CardGrounded,
+    [property: JsonPropertyName("video_date")] DateTimeOffset VideoDateUtc);
 
 /// <summary>
 /// Slim Content KB site-index row intended for browse and filter surfaces.
