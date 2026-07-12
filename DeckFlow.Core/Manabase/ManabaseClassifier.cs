@@ -87,11 +87,19 @@ public static class ManabaseClassifier
     /// met: bond lands (always, in multiplayer Commander) and check lands / Snarls when the deck runs
     /// enough matching-type sources. When false (default), they stay on the historic always-tapped path.
     /// </param>
-    public static ManabaseDeck Classify(IReadOnlyList<CardFact> cards, bool isSingleton = true, bool rampCreditV2 = false, bool landRampSim = false, bool payLifeUntapped = false, bool checkLandUntapped = false)
+    /// <param name="restrictedLands">
+    /// When true, restricted-color lands (Cavern of Souls, Unclaimed Territory, Ancient Ziggurat,
+    /// Nykthos, Shrine to Nyx) use the D-03 composition-gated approximation. When false (default),
+    /// they stay on the historic unrestricted classifier path.
+    /// </param>
+    public static ManabaseDeck Classify(IReadOnlyList<CardFact> cards, bool isSingleton = true, bool rampCreditV2 = false, bool landRampSim = false, bool payLifeUntapped = false, bool checkLandUntapped = false, bool restrictedLands = false)
     {
         ArgumentNullException.ThrowIfNull(cards);
 
         int deckColorCount = CountDeckColors(cards);
+        CreatureComposition creatureComposition = restrictedLands
+            ? ComputeCreatureComposition(cards)
+            : CreatureComposition.Empty;
         (Dictionary<string, HashSet<ManaColor>> fetchTypeColors, HashSet<ManaColor> fetchBasicColors) =
             BuildFetchableColors(cards);
 
@@ -103,6 +111,8 @@ public static class ManabaseClassifier
         var suggestedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var unsupported = new List<UnsupportedInteraction>();
         var unsupportedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var restrictedSourceLandNames = new List<string>();
+        var restrictedSourceLandNameSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         int totalCards = 0;
         int commanderCount = 0;
         double mvSum = 0;
@@ -138,7 +148,19 @@ public static class ManabaseClassifier
             bool frontIsLand = IsLandType(card.TypeLine);
             if (frontIsLand)
             {
-                AddLandCopies(sources, card, deckColorCount, fetchTypeColors, fetchBasicColors, payLifeUntapped, checkLandUntapped, cards);
+                AddLandCopies(
+                    sources,
+                    card,
+                    deckColorCount,
+                    fetchTypeColors,
+                    fetchBasicColors,
+                    payLifeUntapped,
+                    checkLandUntapped,
+                    restrictedLands,
+                    cards,
+                    creatureComposition,
+                    restrictedSourceLandNames,
+                    restrictedSourceLandNameSet);
                 continue;
             }
 
@@ -322,6 +344,9 @@ public static class ManabaseClassifier
             CostReduction = reducers,
             CostSuggestions = suggestions,
             UnsupportedInteractions = unsupported,
+            RestrictedSourceLandNames = restrictedLands
+                ? restrictedSourceLandNames
+                : Array.Empty<string>(),
         };
     }
 
@@ -351,6 +376,8 @@ public static class ManabaseClassifier
 
         public required bool EntersUntapped { get; init; }
 
+        public double Weight { get; init; } = 1.0;
+
         public CountConditionKind CountCondition { get; init; } = CountConditionKind.None;
 
         public int CountThreshold { get; init; }
@@ -358,11 +385,15 @@ public static class ManabaseClassifier
         public IReadOnlyList<string> CountTypeFilter { get; init; } = Array.Empty<string>();
 
         public ManaSource? ConditionalAnyColorSource { get; init; }
+
+        public bool IsRestrictedSourceApproximation { get; init; }
     }
 
     private static void AddLandCopies(List<ManaSource> sources, CardFact card, int deckColorCount,
         Dictionary<string, HashSet<ManaColor>> fetchTypeColors, HashSet<ManaColor> fetchBasicColors,
-        bool payLifeUntapped, bool checkLandUntapped, IReadOnlyList<CardFact> allCards)
+        bool payLifeUntapped, bool checkLandUntapped, bool restrictedLands, IReadOnlyList<CardFact> allCards,
+        CreatureComposition creatureComposition, List<string> restrictedSourceLandNames,
+        HashSet<string> restrictedSourceLandNameSet)
     {
         IReadOnlyList<ManaColor> produces = MapColors(card.ProducedMana);
         if (produces.Count == 0)
@@ -380,13 +411,19 @@ public static class ManabaseClassifier
         bool untapped = !EntersTapped(card)
             || (payLifeUntapped && HasPayLifeUntappedClause(card))
             || (checkLandUntapped && IsConditionallyUntapped(card, allCards));
-        LandSourceClassification classification = checkLandUntapped
-            ? ClassifySpecialLand(card, allCards, produces, untapped)
+        LandSourceClassification classification = (checkLandUntapped || restrictedLands)
+            ? ClassifySpecialLand(card, allCards, produces, untapped, checkLandUntapped, restrictedLands, creatureComposition)
             : new LandSourceClassification
             {
                 Produces = produces,
                 EntersUntapped = untapped,
             };
+
+        if (classification.IsRestrictedSourceApproximation
+            && restrictedSourceLandNameSet.Add(card.Name))
+        {
+            restrictedSourceLandNames.Add(card.Name);
+        }
 
         for (int i = 0; i < card.Quantity; i++)
         {
@@ -394,7 +431,7 @@ public static class ManabaseClassifier
             {
                 Name = card.Name,
                 Produces = classification.Produces,
-                Weight = weight,
+                Weight = weight * classification.Weight,
                 EntersUntapped = classification.EntersUntapped,
                 IsCommander = card.IsCommander,
                 ManaAmount = card.ManaAmount, // MQ-02: e.g. Ancient Tomb (a land) makes 2.
@@ -414,7 +451,10 @@ public static class ManabaseClassifier
         CardFact card,
         IReadOnlyList<CardFact> allCards,
         IReadOnlyList<ManaColor> produces,
-        bool defaultUntapped)
+        bool defaultUntapped,
+        bool checkLandUntapped,
+        bool restrictedLands,
+        CreatureComposition creatureComposition)
     {
         string text = ReminderTextRegex.Replace(card.OracleText ?? string.Empty, string.Empty);
         if (text.Length == 0)
@@ -426,7 +466,7 @@ public static class ManabaseClassifier
             };
         }
 
-        if (FastLandRegex.IsMatch(text))
+        if (checkLandUntapped && FastLandRegex.IsMatch(text))
         {
             return new LandSourceClassification
             {
@@ -437,7 +477,7 @@ public static class ManabaseClassifier
             };
         }
 
-        if (SlowLandRegex.IsMatch(text))
+        if (checkLandUntapped && SlowLandRegex.IsMatch(text))
         {
             return new LandSourceClassification
             {
@@ -448,7 +488,7 @@ public static class ManabaseClassifier
             };
         }
 
-        Match eldThreshold = EldThresholdRegex.Match(text);
+        Match eldThreshold = checkLandUntapped ? EldThresholdRegex.Match(text) : Match.Empty;
         if (eldThreshold.Success)
         {
             return new LandSourceClassification
@@ -461,7 +501,7 @@ public static class ManabaseClassifier
             };
         }
 
-        Match verge = VergeSecondColorRegex.Match(text);
+        Match verge = checkLandUntapped ? VergeSecondColorRegex.Match(text) : Match.Empty;
         if (verge.Success && produces.Count >= 2)
         {
             IReadOnlyList<string> namedTypes = new[]
@@ -484,7 +524,7 @@ public static class ManabaseClassifier
             };
         }
 
-        if (TrainingCompoundRegex.IsMatch(text))
+        if (checkLandUntapped && TrainingCompoundRegex.IsMatch(text))
         {
             bool colorsOnline = CountBasicLands(allCards) >= CheckLandMatchTypeThreshold;
             var trainingColors = new List<ManaColor> { ManaColor.Colorless };
@@ -506,7 +546,7 @@ public static class ManabaseClassifier
             };
         }
 
-        if (VividChargeRegex.IsMatch(text))
+        if (checkLandUntapped && VividChargeRegex.IsMatch(text))
         {
             IReadOnlyList<ManaColor> deckColors = DeckColors(allCards);
             ManaColor? baseColor = ExtractNthTapAddColor(text, 1);
@@ -528,6 +568,48 @@ public static class ManabaseClassifier
                     IsConditional = true,
                 },
             };
+        }
+
+        if (restrictedLands)
+        {
+            Match spendOnlyCreature = SpendOnlyCreatureRegex.Match(text);
+            if (spendOnlyCreature.Success)
+            {
+                bool chosenTypeOnly = spendOnlyCreature.Groups["chosenType"].Success;
+                double restrictedWeight = chosenTypeOnly
+                    ? ClampRestrictedLandWeight(creatureComposition.DominantTypeShare)
+                    : creatureComposition.CreatureShare;
+                return new LandSourceClassification
+                {
+                    Produces = produces,
+                    EntersUntapped = defaultUntapped,
+                    Weight = restrictedWeight,
+                    IsRestrictedSourceApproximation = true,
+                };
+            }
+
+            if (NykthosDevotionRegex.IsMatch(text))
+            {
+                IReadOnlyList<ManaColor> deckColors = DeckColors(allCards);
+                IReadOnlyList<ManaColor> nykthosBase = produces.Contains(ManaColor.Colorless)
+                    ? new[] { ManaColor.Colorless }
+                    : produces;
+                return new LandSourceClassification
+                {
+                    Produces = nykthosBase,
+                    EntersUntapped = defaultUntapped,
+                    IsRestrictedSourceApproximation = true,
+                    ConditionalAnyColorSource = new ManaSource
+                    {
+                        Name = card.Name + " (devotion)",
+                        Produces = deckColors,
+                        Weight = RestrictedLandMinWeight,
+                        IsLand = false,
+                        ManaAmount = 1,
+                        IsConditional = true,
+                    },
+                };
+            }
         }
 
         return new LandSourceClassification
@@ -680,6 +762,18 @@ public static class ManabaseClassifier
         @"with two charge counters on it",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    // [ASSUMED] Verified by ManabaseLiveOracleCanaryTests.cs against Cavern of Souls, Unclaimed
+    // Territory, and Ancient Ziggurat live clauses.
+    private static readonly Regex SpendOnlyCreatureRegex = new(
+        @"Spend this mana only to cast a creature spell(?<chosenType> of the chosen type)?\b",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // [ASSUMED] Verified by ManabaseLiveOracleCanaryTests.cs against Nykthos, Shrine to Nyx's live
+    // devotion clause.
+    private static readonly Regex NykthosDevotionRegex = new(
+        @"devotion to that color",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     // Oracle templates whose first capture group is the named-basic-type clause a conditional land
     // keys off. Tried in order, first match wins. This remains the tapped-state census path for
     // check lands and Snarls only; the newer MBGAP-02 families use dedicated helpers below because
@@ -690,6 +784,10 @@ public static class ManabaseClassifier
     // many lands bearing one of its named basic types — enough that you almost always control/hold a
     // trigger by the turn it is played. Heuristic constant; tune during calibration.
     private const int CheckLandMatchTypeThreshold = 6;
+
+    // D-03 restricted lands: the minimum colored-source weight for a restrictive land in a deck with
+    // little or no matching creature composition. Named so the Cavern/Unclaimed floor is explicit.
+    private const double RestrictedLandMinWeight = 0.25;
 
     // A quoted span in oracle text ('... have "{T}: Add one mana of any color."'). Quoted
     // abilities are GRANTS: they live on whatever permanent the surrounding clause names, so a
@@ -1303,6 +1401,69 @@ public static class ManabaseClassifier
 
         return count;
     }
+
+    private sealed record CreatureComposition
+    {
+        public static CreatureComposition Empty { get; } = new()
+        {
+            DominantTypeShare = 0.0,
+            CreatureShare = 0.0,
+        };
+
+        public required double DominantTypeShare { get; init; }
+
+        public required double CreatureShare { get; init; }
+    }
+
+    private static CreatureComposition ComputeCreatureComposition(IReadOnlyList<CardFact> cards)
+    {
+        var histogram = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        int totalCreatureCount = 0;
+        int nonlandCount = 0;
+
+        foreach (CardFact card in cards)
+        {
+            if (IsLandType(card.TypeLine))
+            {
+                continue;
+            }
+
+            nonlandCount += card.Quantity;
+            if (!IsType(CardTypeLine.FrontFace(card.TypeLine), "Creature"))
+            {
+                continue;
+            }
+
+            totalCreatureCount += card.Quantity;
+            string[] typeLineParts = CardTypeLine.FrontFace(card.TypeLine).Split('—', 2, StringSplitOptions.TrimEntries);
+            if (typeLineParts.Length < 2)
+            {
+                continue;
+            }
+
+            string[] subtypes = typeLineParts[1].Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            foreach (string subtype in subtypes)
+            {
+                histogram[subtype] = histogram.GetValueOrDefault(subtype) + card.Quantity;
+            }
+        }
+
+        double dominantTypeShare = totalCreatureCount > 0 && histogram.Count > 0
+            ? (double)histogram.Values.Max() / totalCreatureCount
+            : 0.0;
+        double creatureShare = nonlandCount > 0
+            ? (double)totalCreatureCount / nonlandCount
+            : 0.0;
+
+        return new CreatureComposition
+        {
+            DominantTypeShare = dominantTypeShare,
+            CreatureShare = creatureShare,
+        };
+    }
+
+    private static double ClampRestrictedLandWeight(double weight) =>
+        Math.Clamp(weight, RestrictedLandMinWeight, 1.0);
 
     // Whether a board/hand-conditional land (bond, check, Snarl) should be modeled untapped. Bond is
     // unconditional (Commander is multiplayer); check/Snarl require enough matching-type sources that

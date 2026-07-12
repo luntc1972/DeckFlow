@@ -481,6 +481,18 @@ public sealed record ManabaseDeck
     /// verdict discloses what it approximates instead of silently absorbing it. Empty when none.
     /// </summary>
     public IReadOnlyList<UnsupportedInteraction> UnsupportedInteractions { get; init; } = Array.Empty<UnsupportedInteraction>();
+
+    /// <summary>
+    /// Names of lands whose colored-source contribution is approximated by the restricted-land model
+    /// (Cavern of Souls, Unclaimed Territory, Ancient Ziggurat, Nykthos, Shrine to Nyx). Empty when
+    /// the restricted-land path is off or none are present.
+    /// </summary>
+    public IReadOnlyList<string> RestrictedSourceLandNames { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// True when <see cref="RestrictedSourceLandNames"/> contains at least one approximated land.
+    /// </summary>
+    public bool HasRestrictedSourceApproximation => RestrictedSourceLandNames.Count > 0;
 }
 
 /// <summary>
@@ -826,6 +838,18 @@ public sealed record ManabaseReport
     /// every one matched. The Web layer surfaces these as "not applied" feedback.
     /// </summary>
     public IReadOnlyList<string> UnmatchedOverrideNames { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Names of lands whose colored-source contribution was approximated by the restricted-land
+    /// model (Cavern of Souls, Unclaimed Territory, Ancient Ziggurat, Nykthos, Shrine to Nyx).
+    /// Plan 04 uses this deck-level signal to mark those land rows in the UI. Empty when absent.
+    /// </summary>
+    public IReadOnlyList<string> RestrictedSourceLandNames { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// True when <see cref="RestrictedSourceLandNames"/> contains at least one approximated land.
+    /// </summary>
+    public bool HasRestrictedSourceApproximation => RestrictedSourceLandNames.Count > 0;
 
     /// <summary>
     /// The weakest color by the tail-risk composite, or null if every color is adequately
