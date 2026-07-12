@@ -203,7 +203,8 @@ public sealed class PublishPageTests : BunitContext
         // Assert: commit message reports the DELTA (what changed), not the full seed size.
         cut.WaitForAssertion(() =>
         {
-            var commitMsg = cut.Find("input#commitMessage").GetAttribute("value");
+            var field = typeof(Publish).GetField("_commitMessage", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            var commitMsg = (string?)field?.GetValue(cut.Instance);
             Assert.Equal("content: publish KB seed (1 added, 0 updated, 0 removed)", commitMsg);
         });
     }
@@ -253,6 +254,34 @@ public sealed class PublishPageTests : BunitContext
             var commitBtn = cut.Find("button.btn-primary:not(.btn-outline-primary)");
             Assert.False(commitBtn.HasAttribute("disabled"),
                 "Commit button must be enabled after checkbox is checked and rawDiff is non-empty");
+        });
+    }
+
+    [Fact]
+    public void CommitMessage_IsEditable_AndBlankMessage_DisablesCommit()
+    {
+        var rows = new[] { MakeApprovedRow(1, "vid1") };
+        var (cut, _, _, _) = RenderPublish(rows);
+
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving repository info", cut.Markup));
+        cut.InvokeAsync(() => cut.Find("button.btn-outline-primary").Click());
+        cut.WaitForState(() => cut.Markup.Contains("Stage 2 — Commit"));
+
+        cut.WaitForAssertion(() =>
+        {
+            var commitMessage = cut.Find("textarea#commitMessage");
+            Assert.False(commitMessage.HasAttribute("readonly"),
+                "Commit message field must be editable.");
+        });
+
+        cut.InvokeAsync(() => cut.Find("input#diffReviewed").Change(true));
+        cut.InvokeAsync(() => cut.Find("textarea#commitMessage").Input(string.Empty));
+
+        cut.WaitForAssertion(() =>
+        {
+            var commitBtn = cut.Find("button.btn-primary:not(.btn-outline-primary)");
+            Assert.True(commitBtn.HasAttribute("disabled"),
+                "Commit button must stay disabled when commit message is blank.");
         });
     }
 
