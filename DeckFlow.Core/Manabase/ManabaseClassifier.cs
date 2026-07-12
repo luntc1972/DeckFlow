@@ -1116,7 +1116,7 @@ public static class ManabaseClassifier
     }
 
     // Basic land type -> the color it taps for, used to color fetchlands whose produced_mana is empty.
-    private static readonly (string Type, ManaColor Color)[] BasicLandColors =
+    internal static readonly (string Type, ManaColor Color)[] BasicLandColors =
     {
         ("Plains", ManaColor.White),
         ("Island", ManaColor.Blue),
@@ -1332,25 +1332,12 @@ public static class ManabaseClassifier
             start += marker.Length;
         }
 
-        return start < lower.Length && TryParseManaColor(lower[start], out ManaColor color)
-            ? color
-            : null;
-    }
-
-    private static bool TryParseManaColor(char symbol, out ManaColor color)
-    {
-        color = symbol switch
+        if (start >= lower.Length)
         {
-            'w' => ManaColor.White,
-            'u' => ManaColor.Blue,
-            'b' => ManaColor.Black,
-            'r' => ManaColor.Red,
-            'g' => ManaColor.Green,
-            'c' => ManaColor.Colorless,
-            _ => ManaColor.Colorless,
-        };
+            return null;
+        }
 
-        return symbol is 'w' or 'u' or 'b' or 'r' or 'g' or 'c';
+        return ManaCostParser.MapSymbol(char.ToUpperInvariant(lower[start]).ToString());
     }
 
     // Count of OTHER deck land COPIES bearing at least one of the given basic land types (basics,

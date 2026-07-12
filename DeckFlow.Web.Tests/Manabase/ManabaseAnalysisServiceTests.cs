@@ -475,12 +475,6 @@ public sealed class ManabaseAnalysisServiceTests
     [Fact]
     public async Task AnalyzeAsync_AccuracyFlag_NewConditionalLandCycles_OnDiverges_OffMatchesBaseline()
     {
-        static ScryfallCard LandOracle(string name, string typeLine, string oracle, params string[] produced) => new(
-            Name: name, ManaCost: null, TypeLine: typeLine, OracleText: oracle,
-            Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
-            SetCode: null, SetName: null, CollectorNumber: null, CardFaces: null, Id: null,
-            Layout: "normal", Cmc: 0, ProducedMana: produced, Rarity: "rare");
-
         var entries = new List<DeckEntry>
         {
             Entry("Tymna the Weaver", 1, "commander", set: "cmr", cn: "1"),
@@ -599,12 +593,6 @@ public sealed class ManabaseAnalysisServiceTests
     [Fact]
     public async Task AnalyzeAsync_RestrictedLandsFlag_OnDiverges_OffMatchesBaseline()
     {
-        static ScryfallCard LandOracle(string name, string typeLine, string oracle, params string[] produced) => new(
-            Name: name, ManaCost: null, TypeLine: typeLine, OracleText: oracle,
-            Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
-            SetCode: null, SetName: null, CollectorNumber: null, CardFaces: null, Id: null,
-            Layout: "normal", Cmc: 0, ProducedMana: produced, Rarity: "rare");
-
         var entries = new List<DeckEntry>
         {
             Entry("Tymna the Weaver", 1, "commander", set: "cmr", cn: "1"),
@@ -1827,6 +1815,12 @@ public sealed class ManabaseAnalysisServiceTests
         Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
         SetCode: null, SetName: null, CollectorNumber: null, CardFaces: null, Id: null,
         Layout: "normal", Cmc: 0, ProducedMana: new[] { color }, Rarity: "common");
+
+    private static ScryfallCard LandOracle(string name, string typeLine, string oracle, params string[] produced) => new(
+        Name: name, ManaCost: null, TypeLine: typeLine, OracleText: oracle,
+        Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
+        SetCode: null, SetName: null, CollectorNumber: null, CardFaces: null, Id: null,
+        Layout: "normal", Cmc: 0, ProducedMana: produced, Rarity: "rare");
 
     private static ScryfallCard Spell(string name, string manaCost, double cmc, string typeLine, string? set = null, string? cn = null) => new(
         Name: name, ManaCost: manaCost, TypeLine: typeLine, OracleText: "...",

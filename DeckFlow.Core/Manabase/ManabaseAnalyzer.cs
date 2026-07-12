@@ -140,11 +140,6 @@ public static class ManabaseAnalyzer
     /// existing classified <see cref="ManabaseDeck.OneShots"/> list. Tactical ritual burst in the
     /// castability sim remains a separate flag and path.
     /// </param>
-    /// <param name="restrictedLands">
-    /// Trailing-optional flag hook for the restricted-land approximation rollout. The current Core
-    /// analyzer keys behavior from the classifier-populated deck/report surfaces, so this parameter
-    /// preserves the service threading shape without reordering existing args.
-    /// </param>
     public static ManabaseReport Analyze(
         ManabaseDeck deck,
         ManabaseMode mode,
@@ -157,8 +152,7 @@ public static class ManabaseAnalyzer
         bool ritualLandCredit = false,
         bool useHealthBandCastability = false,
         bool useHealthBandHeadlineFloor = false,
-        CedhLandContext cedhContext = default,
-        bool restrictedLands = false)
+        CedhLandContext cedhContext = default)
     {
         ArgumentNullException.ThrowIfNull(deck);
 

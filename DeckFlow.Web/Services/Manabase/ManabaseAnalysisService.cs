@@ -382,8 +382,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             ritualLandCredit: ritualLandCredit,
             useHealthBandCastability: useHealthBandCastability,
             useHealthBandHeadlineFloor: useHealthBandHeadlineFloor,
-            cedhContext: cedhContext,
-            restrictedLands: restrictedLands);
+            cedhContext: cedhContext);
 
         bool plainLanguage = IsFlagOn(PlainLanguageVerdictFlagKey);
         ManabaseRampDrawBudget? budget = null;

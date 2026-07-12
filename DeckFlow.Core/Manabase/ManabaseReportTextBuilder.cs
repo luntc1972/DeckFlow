@@ -143,13 +143,13 @@ public static class ManabaseReportTextBuilder
         switch (fix.Kind)
         {
             case ManabaseFixKind.ColorSources:
-                int sourceFixAmount = ManabaseWording.ApproximateCount(fix.RequiredSources - fix.ActualSources);
+                int sourceFixAmount = fix.Amount;
                 sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
                     $"Biggest fix: add ~{sourceFixAmount} more {fix.Color} {ManabaseWording.Pluralize("source", sourceFixAmount)} — you have {fix.ActualSources:F1} vs {fix.RequiredSources} needed for {fix.Spell}."));
                 break;
 
             case ManabaseFixKind.Lands:
-                int landFixAmount = ManabaseWording.ApproximateCount(-report.LandDelta);
+                int landFixAmount = fix.Amount;
                 sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
                     $"Biggest fix: add ~{landFixAmount} more {ManabaseWording.Pluralize("land", landFixAmount)} — each color is individually well-supported, but the base is ~{landFixAmount} {ManabaseWording.Pluralize("land", landFixAmount)} short of the curve."));
                 break;
