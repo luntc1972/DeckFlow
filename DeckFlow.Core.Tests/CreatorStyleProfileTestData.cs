@@ -38,7 +38,8 @@ internal static class CreatorStyleProfileTestData
                         Mean = 35.4,
                         Min = 33.0,
                         Max = 37.0,
-                        StdDev = 1.2
+                        StdDev = 1.2,
+                        EffectiveSampleSize = 8.5
                     }
                 }
             },
@@ -71,6 +72,9 @@ internal static class CreatorStyleProfileTestData
         Assert.Equal(expected.StatedRules[0], actual.StatedRules[0]);
         Assert.Single(actual.MeasuredMetrics);
         Assert.Equal(expected.MeasuredMetrics[0], actual.MeasuredMetrics[0]);
+        Assert.Equal(
+            expected.MeasuredMetrics[0].Distribution?.EffectiveSampleSize,
+            actual.MeasuredMetrics[0].Distribution?.EffectiveSampleSize);
         Assert.Single(actual.FusedTargets);
         Assert.Equal(expected.FusedTargets[0], actual.FusedTargets[0]);
         AssertCloseTo(expected.UpdatedUtc, actual.UpdatedUtc);

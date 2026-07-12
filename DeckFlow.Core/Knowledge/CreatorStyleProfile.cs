@@ -112,6 +112,9 @@ public sealed record MetricDistribution
 
     /// <summary>Standard deviation across the contributing sample.</summary>
     public required double StdDev { get; init; }
+
+    /// <summary>D-10 folder-weighted effective sample size (fractional), distinct from raw <see cref="MeasuredMetric.NumDecks"/>.</summary>
+    public double? EffectiveSampleSize { get; init; }
 }
 
 /// <summary>
