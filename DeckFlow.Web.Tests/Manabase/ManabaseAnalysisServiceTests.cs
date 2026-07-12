@@ -473,6 +473,83 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_AccuracyFlagOff_NewConditionalLandCycles_LeavesReportByteIdentical()
+    {
+        static ScryfallCard LandOracle(string name, string typeLine, string oracle, params string[] produced) => new(
+            Name: name, ManaCost: null, TypeLine: typeLine, OracleText: oracle,
+            Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
+            SetCode: null, SetName: null, CollectorNumber: null, CardFaces: null, Id: null,
+            Layout: "normal", Cmc: 0, ProducedMana: produced, Rarity: "rare");
+
+        var entries = new List<DeckEntry>
+        {
+            Entry("Tymna the Weaver", 1, "commander", set: "cmr", cn: "1"),
+            Land("Island", 12),
+            Land("Plains", 10),
+            Land("Mountain", 6),
+            Land("Forest", 6),
+            Entry("Seachrome Coast", 1, "mainboard"),
+            Entry("Deserted Beach", 1, "mainboard"),
+            Entry("Mystic Sanctuary", 1, "mainboard"),
+            Entry("Floodfarm Verge", 1, "mainboard"),
+            Entry("Training Compound", 1, "mainboard"),
+            Entry("Vivid Meadow", 1, "mainboard"),
+            Entry("Counterspell", 1, "mainboard"),
+            Entry("Growth Spiral", 1, "mainboard"),
+        };
+
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Island", "U"),
+            BasicLand("Plains", "W"),
+            BasicLand("Mountain", "R"),
+            BasicLand("Forest", "G"),
+            Spell("Tymna the Weaver", "{1}{W}", 2, "Legendary Creature — Human Cleric"),
+            Spell("Counterspell", "{U}{U}", 2, "Instant"),
+            Spell("Growth Spiral", "{G}{U}", 2, "Instant"),
+            LandOracle("Seachrome Coast", "Land",
+                "Seachrome Coast enters the battlefield tapped unless you control two or fewer other lands.",
+                "W", "U"),
+            LandOracle("Deserted Beach", "Land",
+                "Deserted Beach enters the battlefield tapped unless you control two or more other lands.",
+                "W", "U"),
+            LandOracle("Mystic Sanctuary", "Land — Island",
+                "Mystic Sanctuary enters the battlefield tapped unless you control three or more other Islands.",
+                "U"),
+            LandOracle("Floodfarm Verge", "Land",
+                "{T}: Add {W}. {T}: Add {U}. Activate only if you control a Plains or an Island.",
+                "W", "U"),
+            LandOracle("Training Compound", "Land",
+                "{T}: Add {C}. {T}: Add {R} or {G}. Activate only if this land entered this turn or if you control a basic land.",
+                "C", "R", "G"),
+            LandOracle("Vivid Meadow", "Land",
+                "Vivid Meadow enters the battlefield tapped with two charge counters on it. {T}: Add {W}. {T}, Remove a charge counter from this land: Add one mana of any color.",
+                "W", "U", "B", "R", "G"),
+        };
+
+        var baseline = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+        var explicitOff = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.AccuracyFlagKey] = false,
+            }));
+
+        ManabaseAnalysisResult baselineResult = await baseline.AnalyzeAsync("paste", "Conditional Cycles");
+        ManabaseAnalysisResult offResult = await explicitOff.AnalyzeAsync("paste", "Conditional Cycles");
+
+        Assert.Equal(
+            baselineResult.Report.Castability.Select(FormatCastabilityRow),
+            offResult.Report.Castability.Select(FormatCastabilityRow));
+        Assert.Equal(baselineResult.Report.AvgOnCurvePercent, offResult.Report.AvgOnCurvePercent);
+        Assert.Equal(baselineResult.Report.Health, offResult.Report.Health);
+        Assert.Equal(baselineResult.Report.TargetLands, offResult.Report.TargetLands);
+        Assert.Equal(baselineResult.Report.ActualLands, offResult.Report.ActualLands);
+        Assert.Equal(baselineResult.PromptSwapPrompt, offResult.PromptSwapPrompt);
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_ColorAwareMulliganFlag_ChangesCast_FailsSafeOff()
     {
         // MQ-05 plumbing: the flag is read via IsFlagOn (fail-safe OFF) and threaded into the analyzer
