@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using DeckFlow.Core.Knowledge;
+using DeckFlow.Core.Knowledge.StatedRulesExtraction;
 
 namespace DeckFlow.Core.Integration;
 
@@ -115,6 +116,80 @@ public sealed class CliLlmDistillationService : ILlmDistillationService
             sanitized.Archetype,
             sanitized.Bracket,
             sanitized.CardCategory,
+            new TokenUsage(0, 0));
+    }
+
+    /// <inheritdoc />
+    public async Task<SelectResult> SelectStatedClaimsAsync(
+        string transcriptChunk,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(transcriptChunk);
+
+        var payload = await ExtractWithRetryAsync<SelectPayload>(
+            BuildInstruction(
+                DistillationSchemas.StatedRulesSelectSystemPrompt,
+                DistillationSchemas.StatedRulesSelectSchema),
+            transcriptChunk,
+            ct).ConfigureAwait(false);
+
+        return new SelectResult(payload.Claims, new TokenUsage(0, 0));
+    }
+
+    /// <inheritdoc />
+    public async Task<DisambiguateResult> DisambiguateStatedClaimsAsync(
+        IReadOnlyList<string> selectedClaims,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(selectedClaims);
+
+        var payload = await ExtractWithRetryAsync<DisambiguatePayload>(
+            BuildInstruction(
+                DistillationSchemas.StatedRulesDisambiguateSystemPrompt,
+                DistillationSchemas.StatedRulesDisambiguateSchema),
+            JsonSerializer.Serialize(selectedClaims, JsonOpts),
+            ct).ConfigureAwait(false);
+
+        return new DisambiguateResult(payload.Claims, new TokenUsage(0, 0));
+    }
+
+    /// <inheritdoc />
+    public async Task<DecomposeResult> DecomposeStatedClaimsAsync(
+        IReadOnlyList<string> disambiguatedClaims,
+        DateTimeOffset videoDateUtc,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(disambiguatedClaims);
+
+        var payload = await ExtractWithRetryAsync<RulesPayload>(
+            BuildInstruction(
+                DistillationSchemas.StatedRulesDecomposeSystemPrompt,
+                DistillationSchemas.StatedRulesDecomposeSchema),
+            JsonSerializer.Serialize(disambiguatedClaims, JsonOpts),
+            ct).ConfigureAwait(false);
+
+        return new DecomposeResult(
+            DistillationValidation.SanitizeStatedRules(payload, videoDateUtc),
+            new TokenUsage(0, 0));
+    }
+
+    /// <inheritdoc />
+    public async Task<ReduceResult> ReduceStatedRulesAsync(
+        IReadOnlyList<StatedRuleCandidate> allChunkRules,
+        DateTimeOffset videoDateUtc,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(allChunkRules);
+
+        var payload = await ExtractWithRetryAsync<RulesPayload>(
+            BuildInstruction(
+                DistillationSchemas.StatedRulesReduceSystemPrompt,
+                DistillationSchemas.StatedRulesReduceSchema),
+            JsonSerializer.Serialize(allChunkRules, JsonOpts),
+            ct).ConfigureAwait(false);
+
+        return new ReduceResult(
+            DistillationValidation.SanitizeStatedRules(payload, videoDateUtc),
             new TokenUsage(0, 0));
     }
 
