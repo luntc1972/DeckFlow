@@ -153,7 +153,7 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
 
         var commitResult = await publish.CommitAsync(
             initData.RepoRoot, exportResult.StagedPaths, exportResult.CommitMessage, exportResult.ExportedKeys, CancellationToken.None);
-        Assert.False(commitResult.LocalStampFailed);
+        Assert.False(string.IsNullOrEmpty(commitResult.Sha));
 
         // Why: Publish (D-01) never pushes -- the operator reviews then pushes by hand. Without this,
         // DirectPush's foreign-commit guard would later see the unpushed Publish commit ahead of
