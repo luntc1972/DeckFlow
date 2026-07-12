@@ -273,6 +273,43 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetGlobalCategoryBaselineAsync_AggregatesProcessedDecksOnly()
+    {
+        var repository = CreateRepository();
+        var insertedUtc = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
+
+        await SeedProcessedDeckAsync(repository, "deck-1", "Commander One", insertedUtc, insertedUtc);
+        await repository.PersistObservedCategoriesAsync("archidekt_live:deck-1", "Arcane Signet", new[] { "ramp" });
+        await repository.PersistObservedCategoriesAsync("archidekt_live:deck-1", "Rhystic Study", new[] { "draw" });
+
+        await SeedProcessedDeckAsync(repository, "deck-2", "Commander Two", insertedUtc, insertedUtc);
+        await repository.PersistObservedCategoriesAsync("archidekt_live:deck-2", "Sol Ring", new[] { "ramp" });
+        await repository.PersistObservedCategoriesAsync("archidekt_live:deck-2", "Swords to Plowshares", new[] { "removal" });
+
+        await SeedProcessedDeckAsync(repository, "deck-3", "Commander Three", insertedUtc, insertedUtc);
+        await repository.PersistObservedCategoriesAsync("archidekt_live:deck-3", "Cultivate", new[] { "ramp" });
+
+        await SeedProcessedDeckAsync(repository, "deck-4", "Commander Four", insertedUtc, insertedUtc);
+        await repository.PersistObservedCategoriesAsync("archidekt_live:deck-4", "Fact or Fiction", new[] { "draw" });
+
+        await repository.AddDeckIdsAsync(new[] { "deck-5" });
+        await SetDeckQueueFieldsAsync("deck-5", insertedUtc, "Queued Commander", insertedUtc);
+        await repository.PersistObservedCategoriesAsync("archidekt_live:deck-5", "Fellwar Stone", new[] { "ramp" });
+        await repository.PersistObservedCategoriesAsync("archidekt_live:deck-5", "Mystic Remora", new[] { "draw" });
+
+        var baseline = await repository.GetGlobalCategoryBaselineAsync();
+
+        Assert.Equal(4, baseline.TotalDecks);
+        Assert.Equal(3, baseline.DecksWithCategory["ramp"]);
+        Assert.Equal(2, baseline.DecksWithCategory["draw"]);
+        Assert.Equal(1, baseline.DecksWithCategory["removal"]);
+        // HIGH-1 regression guard: the queued-but-unprocessed ramp+draw deck must be excluded from totals, category counts, and pair counts.
+        Assert.Equal(1, baseline.DecksWithCategoryPair["draw|ramp"]);
+        Assert.Equal(1, baseline.DecksWithCategoryPair["ramp|removal"]);
+        Assert.DoesNotContain("ramp|draw", baseline.DecksWithCategoryPair.Keys);
+    }
+
+    [Fact]
     public async Task EnsureSchemaAsync_CreatesDeckQueueIndexes()
     {
         var repository = CreateRepository();
