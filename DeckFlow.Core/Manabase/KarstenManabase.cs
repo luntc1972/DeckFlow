@@ -40,6 +40,8 @@ public static class KarstenManabase
 
     private const double CedhTargetCeiling = 45.0;
     private const double CedhBaselineBlendWeight = 0.5;
+    private const double RitualLandCreditWeight = 0.5;
+    private const double RitualLandCreditCap = 3.0;
 
     /// <summary>
     /// Recommended land count for a singleton / Commander deck (Karsten's regression fit).
@@ -96,7 +98,9 @@ public static class KarstenManabase
         double averageManaValue,
         double rampAndDrawUnderThree,
         double fastMana,
-        CedhLandContext context)
+        CedhLandContext context,
+        int netPositiveRitualCount = 0,
+        bool ritualLandCredit = false)
     {
         double singleton = SingletonLandTarget(
             totalCards,
@@ -120,6 +124,12 @@ public static class KarstenManabase
         double target = useBaseline
             ? curveTarget - (CedhBaselineBlendWeight * (curveTarget - mean))
             : curveTarget;
+
+        if (ritualLandCredit && netPositiveRitualCount > 0)
+        {
+            double credit = Math.Min(RitualLandCreditCap, netPositiveRitualCount * RitualLandCreditWeight);
+            target -= credit;
+        }
 
         return Math.Clamp(target, CedhSafetyFloor, CedhTargetCeiling);
     }

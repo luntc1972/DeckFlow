@@ -74,4 +74,56 @@ public sealed class CedhLandTargetHybridTests
 
         Assert.Equal(28.7015, target, 4);
     }
+
+    [Fact]
+    public void EnabledContext_RitualCredit_ThreeRituals_ReducesTargetByWeight()
+    {
+        double withoutCredit = KarstenManabase.CedhLandTarget(
+            100, 1, 1.1, 12, 0, new CedhLandContext(null, 0, Enabled: true));
+        double withCredit = KarstenManabase.CedhLandTarget(
+            100, 1, 1.1, 12, 0, new CedhLandContext(null, 0, Enabled: true), netPositiveRitualCount: 3, ritualLandCredit: true);
+
+        Assert.Equal(1.5, withoutCredit - withCredit, 6);
+    }
+
+    [Fact]
+    public void EnabledContext_RitualCredit_FlagOff_IsByteIdentical()
+    {
+        double baseline = KarstenManabase.CedhLandTarget(
+            100, 1, 1.1, 12, 0, new CedhLandContext(null, 0, Enabled: true));
+        double explicitOff = KarstenManabase.CedhLandTarget(
+            100, 1, 1.1, 12, 0, new CedhLandContext(null, 0, Enabled: true), netPositiveRitualCount: 3, ritualLandCredit: false);
+
+        Assert.Equal(baseline, explicitOff, 6);
+    }
+
+    [Fact]
+    public void DisabledContext_RitualCredit_DoesNotApply()
+    {
+        double disabled = KarstenManabase.CedhLandTarget(
+            100, 1, 1.1, 12, 0, CedhLandContext.Disabled, netPositiveRitualCount: 3, ritualLandCredit: true);
+        double legacy = KarstenManabase.CedhLandTarget(100, 1, 1.1, 12, 0);
+
+        Assert.Equal(legacy, disabled, 6);
+    }
+
+    [Fact]
+    public void EnabledContext_RitualCredit_ZeroRituals_DoesNotChangeTarget()
+    {
+        double baseline = KarstenManabase.CedhLandTarget(
+            100, 1, 1.1, 12, 0, new CedhLandContext(null, 0, Enabled: true));
+        double withZero = KarstenManabase.CedhLandTarget(
+            100, 1, 1.1, 12, 0, new CedhLandContext(null, 0, Enabled: true), netPositiveRitualCount: 0, ritualLandCredit: true);
+
+        Assert.Equal(baseline, withZero, 6);
+    }
+
+    [Fact]
+    public void EnabledContext_RitualCredit_NeverDropsBelowSafetyFloor()
+    {
+        double target = KarstenManabase.CedhLandTarget(
+            100, 1, 0.0, 24, 0, new CedhLandContext(null, 0, Enabled: true), netPositiveRitualCount: 12, ritualLandCredit: true);
+
+        Assert.Equal(22.0, target, 6);
+    }
 }
