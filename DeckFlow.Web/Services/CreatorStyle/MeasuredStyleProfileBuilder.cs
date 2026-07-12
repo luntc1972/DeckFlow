@@ -129,6 +129,9 @@ public sealed class MeasuredStyleProfileBuilder
         metrics.AddRange(BuildLiftMetrics(weightedSamples, cardCategories, baseline, rawDeckCount, effectiveSampleSize));
         metrics.Add(await BuildComboDensityMetricAsync(weightedSamples, rawDeckCount, effectiveSampleSize, cancellationToken).ConfigureAwait(false));
         metrics.AddRange(await BuildKarstenMetricsAsync(weightedSamples, rawDeckCount, effectiveSampleSize, cancellationToken).ConfigureAwait(false));
+        metrics = metrics
+            .OrderBy(metric => metric.Metric, StringComparer.Ordinal)
+            .ToList();
 
         var profile = new CreatorStyleProfile
         {
