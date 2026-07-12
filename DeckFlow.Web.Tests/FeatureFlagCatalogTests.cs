@@ -42,6 +42,7 @@ public sealed class FeatureFlagCatalogTests
     [InlineData("analysis.manabase.mulligan-eval")]
     [InlineData("analysis.manabase.plan-presence")]
     [InlineData("analysis.manabase.ritual-burst-mana")]
+    [InlineData("analysis.manabase.ritual-land-credit")]
     [InlineData("analysis.manabase.restricted-lands")]
     [InlineData("analysis.manabase.cedh-land-target")]
     [InlineData("sync.directpush-gitbody")]

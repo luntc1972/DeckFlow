@@ -135,6 +135,11 @@ public static class ManabaseAnalyzer
     /// Optional cEDH-only baseline context resolved by the Web layer. Default/disabled preserves the
     /// historic flat-28 cEDH target path byte-for-byte.
     /// </param>
+    /// <param name="ritualLandCredit">
+    /// When true, cEDH may reduce the strategic land target for net-positive rituals using the
+    /// existing classified <see cref="ManabaseDeck.OneShots"/> list. Tactical ritual burst in the
+    /// castability sim remains a separate flag and path.
+    /// </param>
     /// <param name="restrictedLands">
     /// Trailing-optional flag hook for the restricted-land approximation rollout. The current Core
     /// analyzer keys behavior from the classifier-populated deck/report surfaces, so this parameter
@@ -149,6 +154,7 @@ public static class ManabaseAnalyzer
         bool colorAwareMulligan = false,
         bool gateRampOnCastable = false,
         bool ritualBurst = false,
+        bool ritualLandCredit = false,
         bool useHealthBandCastability = false,
         bool useHealthBandHeadlineFloor = false,
         CedhLandContext cedhContext = default,
@@ -166,7 +172,8 @@ public static class ManabaseAnalyzer
         // partial sources (dorks, rocks, MDFC backs) count toward color supply only.
         int actualLands = deck.Sources.Count(s => s.IsLand);
 
-        double targetLands = ComputeTargetLands(deck, mode, cedhContext, out ManabaseLandTargetBreakdown landTarget);
+        bool ritualLandCreditActive = ritualLandCredit && mode == ManabaseMode.Cedh;
+        double targetLands = ComputeTargetLands(deck, mode, cedhContext, ritualLandCreditActive, out ManabaseLandTargetBreakdown landTarget);
 
         // Library size excludes commanders (they start in the command zone, not the deck).
         int librarySize = deck.TotalCards - deck.CommanderCount;
@@ -376,6 +383,7 @@ public static class ManabaseAnalyzer
         ManabaseDeck deck,
         ManabaseMode mode,
         CedhLandContext cedhContext,
+        bool ritualLandCredit,
         out ManabaseLandTargetBreakdown breakdown)
     {
         if (!deck.IsSingleton)
@@ -412,7 +420,9 @@ public static class ManabaseAnalyzer
                 deck.AverageManaValue,
                 deck.RampAndDrawUnderThree,
                 deck.FastMana,
-                cedhContext)
+                cedhContext,
+                netPositiveRitualCount: deck.OneShots.Count,
+                ritualLandCredit: ritualLandCredit)
             : singleton;
 
         breakdown = BuildBreakdown(deck, mode, cedhContext, commanderCount, librarySize, baseTarget: singleton, finalTarget: finalTarget);
