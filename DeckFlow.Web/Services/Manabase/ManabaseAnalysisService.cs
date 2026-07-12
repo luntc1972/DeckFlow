@@ -218,6 +218,13 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     public const string RitualBurstFlagKey = "analysis.manabase.ritual-burst-mana";
 
     /// <summary>
+    /// Ritual land-credit flag key: seeded OFF. Applies a cEDH-only strategic land-target credit
+    /// for net-positive rituals. Deliberately separate from ritual-burst-mana, which changes only
+    /// the tactical castability sim.
+    /// </summary>
+    public const string RitualLandCreditFlagKey = "analysis.manabase.ritual-land-credit";
+
+    /// <summary>
     /// Restricted-lands flag key: seeded OFF. When enabled, the classifier applies the D-03
     /// composition-gated approximation for Cavern/Unclaimed/Ziggurat/Nykthos and surfaces the
     /// deck-level disclosure names; off = byte-identical historic output.
@@ -287,6 +294,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         // never show (Codex MED). Both flags on = the stat runs and surfaces.
         bool showPlanPresence = IsFlagOn(PlanPresenceFlagKey) && showMulliganEval;
         bool ritualBurst = IsFlagOn(RitualBurstFlagKey);
+        bool ritualLandCredit = IsFlagOn(RitualLandCreditFlagKey);
         bool restrictedLands = IsFlagOn(RestrictedLandsFlagKey);
         bool cedhLandTarget = IsFlagOn(CedhLandTargetFlagKey);
 
@@ -371,6 +379,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             resolved.Deck, options.Mode, options.CommanderImportance, options.CostOverrides,
             useManaQuantity, colorAwareMulligan, gateRampOnCastable: true,
             ritualBurst: ritualBurst,
+            ritualLandCredit: ritualLandCredit,
             useHealthBandCastability: useHealthBandCastability,
             useHealthBandHeadlineFloor: useHealthBandHeadlineFloor,
             cedhContext: cedhContext,

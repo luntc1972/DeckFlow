@@ -935,6 +935,45 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_RitualLandCreditFlag_OffMatchesBaseline_OnReducesCedhLandTarget()
+    {
+        var (entries, cards) = RitualBurstFixture();
+        var baseline = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.CedhLandTargetFlagKey] = true,
+            }));
+        var explicitOff = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.CedhLandTargetFlagKey] = true,
+                [ManabaseAnalysisService.RitualLandCreditFlagKey] = false,
+            }));
+        var on = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.CedhLandTargetFlagKey] = true,
+                [ManabaseAnalysisService.RitualLandCreditFlagKey] = true,
+            }));
+
+        var baselineResult = await baseline.AnalyzeAsync(
+            "paste", "Ritual Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Cedh });
+        var offResult = await explicitOff.AnalyzeAsync(
+            "paste", "Ritual Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Cedh });
+        var onResult = await on.AnalyzeAsync(
+            "paste", "Ritual Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Cedh });
+
+        Assert.Equal(baselineResult.Report.TargetLands, offResult.Report.TargetLands);
+        Assert.True(onResult.Report.TargetLands < offResult.Report.TargetLands);
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_TapAnalyzerFlagAbsent_ShowTapAnalyzerFalse()
     {
         var (entries, cards) = CurveFixture();
