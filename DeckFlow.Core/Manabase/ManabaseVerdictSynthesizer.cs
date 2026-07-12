@@ -50,7 +50,7 @@ public static class ManabaseVerdictSynthesizer
         // (ColorIssueFindings — source-short, color-starved, or sim-weakest) instead of a private
         // Deficit > 1 filter, and the SAME land threshold the page/PrimaryFix use (< -1, not
         // <= -2). Otherwise the verdict can say "no changes needed" beside a Workable/Needs-work
-        // chip, or stay silent while the Lands line says "add ~2 land(s)".
+        // chip, or stay silent while the Lands line says "add ~2 lands".
         List<string> issues = report.ColorIssueFindings
             .OrderByDescending(finding => finding.Deficit)
             .Select(BuildColorIssue)
@@ -58,9 +58,10 @@ public static class ManabaseVerdictSynthesizer
 
         if (report.LandDelta < -1 && !report.LandShortfallCoveredByRamp)
         {
+            int landShortfall = ApproximateCount(-report.LandDelta);
             issues.Add(string.Create(
                 CultureInfo.InvariantCulture,
-                $"Add ~{Math.Ceiling(-report.LandDelta):F0} more land(s) - the base is short for this curve."));
+                $"Add ~{landShortfall} more {Pluralize("land", landShortfall)} - the base is short for this curve."));
         }
 
         if (budget is not null && budget.IsRampLight)
@@ -93,7 +94,9 @@ public static class ManabaseVerdictSynthesizer
 
         if (issues.Count > 3)
         {
-            issues.RemoveRange(3, issues.Count - 3);
+            int hiddenCount = issues.Count - 3;
+            issues = issues.Take(3).ToList();
+            issues.Add(string.Create(CultureInfo.InvariantCulture, $"…plus {hiddenCount} more"));
         }
 
         return issues;
@@ -104,10 +107,10 @@ public static class ManabaseVerdictSynthesizer
         // Source-short: a whole-source-plus paper deficit — quantify the shortfall.
         if (finding.Deficit > 1.0)
         {
-            int shortfall = (int)Math.Ceiling(finding.Deficit);
+            int shortfall = ApproximateCount(finding.Deficit);
             return string.Create(
                 CultureInfo.InvariantCulture,
-                $"You're ~{shortfall} {finding.Color} source(s) short - add ~{shortfall} {finding.Color}-producing lands/rocks; consider cutting a colorless utility land.");
+                $"You're ~{shortfall} {finding.Color} {Pluralize("source", shortfall)} short - heuristic guidance: add ~{shortfall} {finding.Color}-producing lands/rocks; consider cutting a colorless utility land.");
         }
 
         // Color-starved / sim-weakest: the paper count is close but the sim shows spells missing
@@ -116,7 +119,7 @@ public static class ManabaseVerdictSynthesizer
         int slowSpells = Math.Max(1, finding.ColorLimitedUnderSupportedCount);
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"{finding.Color} access is inconsistent - {slowSpells} {finding.Color} spell(s) miss their on-curve window on color; add 1-2 {finding.Color}-producing lands (swap in a dual or cut a colorless utility land).");
+            $"{finding.Color} access is inconsistent - {slowSpells} {finding.Color} {Pluralize("spell", slowSpells)} miss their on-curve window on color; heuristic guidance: add 1-2 {finding.Color}-producing lands (swap in a dual or cut a colorless utility land).");
     }
 
     private static string BuildBudgetIssue(
@@ -132,8 +135,13 @@ public static class ManabaseVerdictSynthesizer
     {
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"{prefix}: you run ~{count:0.#} {countLabel} vs a ~{targetRamp}/{targetDraw} split for a ~MV{threshold:0.#} threshold ({BuildThresholdProxy(thresholdSource)}) - add ~{shortfall} {countLabel} piece(s) (e.g. {example}). (community heuristic, not Karsten math)");
+            $"{prefix}: you run ~{count:0.#} {countLabel} vs a ~{targetRamp}/{targetDraw} split for a ~MV{threshold:0.#} threshold ({BuildThresholdProxy(thresholdSource)}) - add ~{shortfall} {countLabel} {Pluralize("piece", shortfall)} (e.g. {example}). (community heuristic, not Karsten math)");
     }
+
+    private static int ApproximateCount(double value) =>
+        Math.Max(1, (int)Math.Round(value, MidpointRounding.AwayFromZero));
+
+    private static string Pluralize(string singular, int count) => count == 1 ? singular : singular + "s";
 
     private static string BuildNoIssueReason(
         ManabaseReport report,
