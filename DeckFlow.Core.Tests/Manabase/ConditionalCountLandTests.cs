@@ -1,3 +1,7 @@
+using System.Collections.Generic;
+
+using DeckFlow.Core.Manabase;
+
 namespace DeckFlow.Core.Tests;
 
 /// <summary>
@@ -5,33 +9,85 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class ManabaseConditionalCountLandTests
 {
-    [Fact(Skip = "enabled in plan 02 once the ConditionalCountLand sim primitive exists")]
+    [Fact]
     public void FastLand_OtherLandsAtOrBelowTwo_EntersUntapped()
     {
-        Assert.True(true);
+        bool untapped = CastabilitySimulator.ConditionalCountLandEntersUntappedForTest(
+            CountConditionKind.FastLand,
+            2,
+            System.Array.Empty<string>(),
+            new List<IReadOnlyList<string>>
+            {
+                new[] { "Island" },
+                new[] { "Plains" },
+            });
+
+        Assert.True(untapped);
     }
 
-    [Fact(Skip = "enabled in plan 02 once the ConditionalCountLand sim primitive exists")]
+    [Fact]
     public void FastLand_OtherLandsAtOrAboveThree_EntersTapped()
     {
-        Assert.True(true);
+        bool untapped = CastabilitySimulator.ConditionalCountLandEntersUntappedForTest(
+            CountConditionKind.FastLand,
+            2,
+            System.Array.Empty<string>(),
+            new List<IReadOnlyList<string>>
+            {
+                new[] { "Island" },
+                new[] { "Plains" },
+                new[] { "Swamp" },
+            });
+
+        Assert.False(untapped);
     }
 
-    [Fact(Skip = "enabled in plan 02 once the ConditionalCountLand sim primitive exists")]
+    [Fact]
     public void SlowLand_OtherLandsBelowTwo_EntersTapped()
     {
-        Assert.True(true);
+        bool untapped = CastabilitySimulator.ConditionalCountLandEntersUntappedForTest(
+            CountConditionKind.SlowLand,
+            2,
+            System.Array.Empty<string>(),
+            new List<IReadOnlyList<string>>
+            {
+                new[] { "Island" },
+            });
+
+        Assert.False(untapped);
     }
 
-    [Fact(Skip = "enabled in plan 02 once the ConditionalCountLand sim primitive exists")]
+    [Fact]
     public void SlowLand_OtherLandsAtOrAboveTwo_EntersUntapped()
     {
-        Assert.True(true);
+        bool untapped = CastabilitySimulator.ConditionalCountLandEntersUntappedForTest(
+            CountConditionKind.SlowLand,
+            2,
+            System.Array.Empty<string>(),
+            new List<IReadOnlyList<string>>
+            {
+                new[] { "Island" },
+                new[] { "Plains" },
+            });
+
+        Assert.True(untapped);
     }
 
-    [Fact(Skip = "enabled in plan 02 once the ConditionalCountLand sim primitive exists")]
+    [Fact]
     public void EldThresholdLand_ThreeOtherNamedBasicTypes_EntersUntapped()
     {
-        Assert.True(true);
+        bool untapped = CastabilitySimulator.ConditionalCountLandEntersUntappedForTest(
+            CountConditionKind.EldThreshold,
+            3,
+            new[] { "Island" },
+            new List<IReadOnlyList<string>>
+            {
+                new[] { "Island" },
+                new[] { "Island" },
+                new[] { "Island" },
+                new[] { "Plains" },
+            });
+
+        Assert.True(untapped);
     }
 }

@@ -45,10 +45,13 @@ public static class CastabilitySimulator
     {
         UntappedLand,
         TappedLand,
+        ConditionalCountLand,
         Ramp,
         OneShotMana,
         Filler,
     }
+
+    private readonly record struct PlayedLand(int Mask, int OnlineTurn, int Amount, int BasicTypeMask);
 
     private readonly struct LibraryCard
     {
@@ -59,6 +62,10 @@ public static class CastabilitySimulator
             bool isLand,
             double activationWeight = 1.0,
             int manaAmount = 1,
+            CountConditionKind countCondition = CountConditionKind.None,
+            int countThreshold = 0,
+            int countTypeMask = 0,
+            int basicTypeMask = 0,
             (int Bit, int Count)[]? rampPips = null,
             PlanRole planRoles = PlanRole.None,
             int planManaValue = 0,
@@ -73,6 +80,10 @@ public static class CastabilitySimulator
             IsLand = isLand;
             ActivationWeight = activationWeight;
             ManaAmount = manaAmount;
+            CountCondition = countCondition;
+            CountThreshold = countThreshold;
+            CountTypeMask = countTypeMask;
+            BasicTypeMask = basicTypeMask;
             RampPips = rampPips;
             PlanRoles = planRoles;
             PlanManaValue = planManaValue;
@@ -130,6 +141,24 @@ public static class CastabilitySimulator
         /// </summary>
         public int ManaAmount { get; }
 
+        /// <summary>The per-trial count-condition family for a conditional land; None for all other cards.</summary>
+        public CountConditionKind CountCondition { get; }
+
+        /// <summary>The threshold paired with <see cref="CountCondition"/>.</summary>
+        public int CountThreshold { get; }
+
+        /// <summary>
+        /// Bitmask over the five basic land types used by ELD threshold lands to filter prior lands in
+        /// the trial's own <c>landsOnBoard</c> state.
+        /// </summary>
+        public int CountTypeMask { get; }
+
+        /// <summary>
+        /// Bitmask over the land's own basic land types, stored on every played land so ELD threshold
+        /// checks can count matching already-played lands per trial.
+        /// </summary>
+        public int BasicTypeMask { get; }
+
         /// <summary>
         /// Probability this source is "live" in any given game, in (0,1]. 1.0 for a whole source.
         /// <para>
@@ -162,6 +191,16 @@ public static class CastabilitySimulator
         ManaColor.Black => 1 << 2,
         ManaColor.Red => 1 << 3,
         ManaColor.Green => 1 << 4,
+        _ => 0,
+    };
+
+    private static int BasicTypeBit(string type) => type switch
+    {
+        "Plains" => 1 << 0,
+        "Island" => 1 << 1,
+        "Swamp" => 1 << 2,
+        "Mountain" => 1 << 3,
+        "Forest" => 1 << 4,
         _ => 0,
     };
 
@@ -219,7 +258,9 @@ public static class CastabilitySimulator
 
         // 70-03b: exclude one same-name land-ramp source when scoring this spell's own row (a card
         // cannot ramp itself out). No-op unless this spell is a modeled land-ramp source.
-        IReadOnlyList<LibraryCard> library = BuildLibrary(deck, librarySize, useManaQuantity, gateRampOnCastable, ritualBurst, excludeSourceName: spell.Name);
+        bool conditionalCountLandSim = useManaQuantity || colorAwareMulligan || gateRampOnCastable;
+        IReadOnlyList<LibraryCard> library = BuildLibrary(
+            deck, librarySize, useManaQuantity, gateRampOnCastable, ritualBurst, conditionalCountLandSim, excludeSourceName: spell.Name);
 
         // MQ-05: distinct colors the deck actually demands across all spell pips (capped at 5). Only
         // computed when the flag is on; <=1 makes the color gate a no-op (mono decks stay identical).
@@ -433,8 +474,9 @@ public static class CastabilitySimulator
     {
         ArgumentNullException.ThrowIfNull(deck);
 
+        bool conditionalCountLandSim = useManaQuantity || colorAwareMulligan || gateRampOnCastable;
         IReadOnlyList<LibraryCard> library =
-            BuildLibrary(deck, librarySize, useManaQuantity, gateRampOnCastable, ritualBurst, excludeSourceName: null);
+            BuildLibrary(deck, librarySize, useManaQuantity, gateRampOnCastable, ritualBurst, conditionalCountLandSim, excludeSourceName: null);
 
         var planIndices = new List<int>();
         int maxPlanTurn = 1;
@@ -737,7 +779,14 @@ public static class CastabilitySimulator
         _ => "low",
     };
 
-    private static IReadOnlyList<LibraryCard> BuildLibrary(ManabaseDeck deck, int librarySize, bool useManaQuantity, bool gateRampOnCastable, bool ritualBurst, string? excludeSourceName)
+    private static IReadOnlyList<LibraryCard> BuildLibrary(
+        ManabaseDeck deck,
+        int librarySize,
+        bool useManaQuantity,
+        bool gateRampOnCastable,
+        bool ritualBurst,
+        bool conditionalCountLandSim,
+        string? excludeSourceName)
     {
         var cards = new List<LibraryCard>(librarySize);
 
@@ -771,7 +820,7 @@ public static class CastabilitySimulator
         //    enabler fully is out of scope. Their whole part becomes full copies and any leftover fraction
         //    becomes ONE partial card carrying that fraction as its activation probability, so a 0.25
         //    source produces mana in ~25% of games (E[copies] = weight).
-        AddSourcesAsCards(deck, cards, rampCostByName, rampPipsByName, useManaQuantity, excludeSourceName);
+        AddSourcesAsCards(deck, cards, rampCostByName, rampPipsByName, useManaQuantity, conditionalCountLandSim, excludeSourceName);
 
         // Plan-presence: place win-directed spells as IDENTIFIABLE (still mana-inert) filler so
         // SimulatePlanPresence can find them in a simulated hand and test their on-curve castability.
@@ -849,6 +898,7 @@ public static class CastabilitySimulator
         IReadOnlyDictionary<string, int> rampCostByName,
         IReadOnlyDictionary<string, (int Bit, int Count)[]>? rampPipsByName,
         bool useManaQuantity,
+        bool conditionalCountLandSim,
         string? excludeSourceName)
     {
         // 70-03b self-exclusion: when scoring a land-ramp spell's OWN row, the single physical copy is
@@ -877,6 +927,8 @@ public static class CastabilitySimulator
             }
 
             int mask = ColorsToMask(source.Produces);
+            int countTypeMask = BasicTypeMask(source.CountTypeFilter);
+            int basicTypeMask = BasicTypeMask(source);
 
             // MQ-02: how much mana the source makes per activation. Off → 1 (byte-identical to the
             // pre-MQ-02 sim). Conditional/granted sources always stay 1 (the Bernoulli roll gates a
@@ -885,9 +937,23 @@ public static class CastabilitySimulator
 
             if (source.IsLand)
             {
-                CardKind kind = source.EntersUntapped ? CardKind.UntappedLand : CardKind.TappedLand;
+                CardKind kind = source.CountCondition != CountConditionKind.None && conditionalCountLandSim
+                    ? CardKind.ConditionalCountLand
+                    : source.EntersUntapped ? CardKind.UntappedLand : CardKind.TappedLand;
                 // Lands are never conditional; a discounted basic-fetch is still a full card you draw.
-                AddWeighted(cards, kind, mask, deployCost: 0, source.Weight, source.IsConditional, amount, rampPips: null);
+                AddWeighted(
+                    cards,
+                    kind,
+                    mask,
+                    deployCost: 0,
+                    source.Weight,
+                    source.IsConditional,
+                    amount,
+                    countCondition: source.CountCondition,
+                    countThreshold: source.CountThreshold,
+                    countTypeMask: countTypeMask,
+                    basicTypeMask: basicTypeMask,
+                    rampPips: null);
                 continue;
             }
 
@@ -907,7 +973,7 @@ public static class CastabilitySimulator
                 && rampPipsByName.TryGetValue(baseName, out (int Bit, int Count)[]? pips)
                 ? pips
                 : (rampPipsByName is not null ? Array.Empty<(int, int)>() : null);
-            AddWeighted(cards, CardKind.Ramp, mask, deployCost, source.Weight, source.IsConditional, amount, rampPips);
+            AddWeighted(cards, CardKind.Ramp, mask, deployCost, source.Weight, source.IsConditional, amount, rampPips: rampPips);
         }
     }
 
@@ -919,9 +985,13 @@ public static class CastabilitySimulator
         double weight,
         bool isConditional,
         int amount,
-        (int Bit, int Count)[]? rampPips)
+        (int Bit, int Count)[]? rampPips = null,
+        CountConditionKind countCondition = CountConditionKind.None,
+        int countThreshold = 0,
+        int countTypeMask = 0,
+        int basicTypeMask = 0)
     {
-        bool isLand = kind is CardKind.UntappedLand or CardKind.TappedLand;
+        bool isLand = kind is CardKind.UntappedLand or CardKind.TappedLand or CardKind.ConditionalCountLand;
 
         if (!isConditional)
         {
@@ -932,7 +1002,17 @@ public static class CastabilitySimulator
             // a Bernoulli activation here would double-discount and pull cast % ~5-7 pts under Snail. A
             // drawn-and-cast Sol Ring is a full mana source. (Each card is one physical copy; MQ-02
             // gives it amount mana, all of one chosen color.)
-            cards.Add(new LibraryCard(kind, mask, deployCost, isLand, manaAmount: amount, rampPips: rampPips));
+            cards.Add(new LibraryCard(
+                kind,
+                mask,
+                deployCost,
+                isLand,
+                manaAmount: amount,
+                countCondition: countCondition,
+                countThreshold: countThreshold,
+                countTypeMask: countTypeMask,
+                basicTypeMask: basicTypeMask,
+                rampPips: rampPips));
             return;
         }
 
@@ -944,13 +1024,32 @@ public static class CastabilitySimulator
         int whole = (int)Math.Floor(weight);
         for (int i = 0; i < whole; i++)
         {
-            cards.Add(new LibraryCard(kind, mask, deployCost, isLand, rampPips: rampPips));
+            cards.Add(new LibraryCard(
+                kind,
+                mask,
+                deployCost,
+                isLand,
+                countCondition: countCondition,
+                countThreshold: countThreshold,
+                countTypeMask: countTypeMask,
+                basicTypeMask: basicTypeMask,
+                rampPips: rampPips));
         }
 
         double frac = weight - whole;
         if (frac > 1e-9)
         {
-            cards.Add(new LibraryCard(kind, mask, deployCost, isLand, activationWeight: frac, rampPips: rampPips));
+            cards.Add(new LibraryCard(
+                kind,
+                mask,
+                deployCost,
+                isLand,
+                activationWeight: frac,
+                countCondition: countCondition,
+                countThreshold: countThreshold,
+                countTypeMask: countTypeMask,
+                basicTypeMask: basicTypeMask,
+                rampPips: rampPips));
         }
     }
 
@@ -960,6 +1059,45 @@ public static class CastabilitySimulator
         foreach (ManaColor c in colors)
         {
             mask |= ColorBit(c);
+        }
+
+        return mask;
+    }
+
+    private static int BasicTypeMask(IReadOnlyList<string> types)
+    {
+        int mask = 0;
+        foreach (string type in types)
+        {
+            mask |= BasicTypeBit(type);
+        }
+
+        return mask;
+    }
+
+    private static int BasicTypeMask(ManaSource source)
+    {
+        int mask = BasicTypeMask(source.CountTypeFilter);
+        if (mask != 0)
+        {
+            return mask;
+        }
+
+        // Simulator-only approximation for plan 02's in-trial ELD tag: monocolor land sources carry the
+        // corresponding single basic type; multi-color and colorless lands remain untyped unless the
+        // classifier already supplied an explicit CountTypeFilter. This keeps the tag conservative on the
+        // flag-off path and avoids inventing typed-nonbasic data not present on ManaSource.
+        if (source.Produces.Count == 1)
+        {
+            mask |= source.Produces[0] switch
+            {
+                ManaColor.White => BasicTypeBit("Plains"),
+                ManaColor.Blue => BasicTypeBit("Island"),
+                ManaColor.Black => BasicTypeBit("Swamp"),
+                ManaColor.Red => BasicTypeBit("Mountain"),
+                ManaColor.Green => BasicTypeBit("Forest"),
+                _ => 0,
+            };
         }
 
         return mask;
@@ -1011,7 +1149,7 @@ public static class CastabilitySimulator
         // count toward this turn's mana or color access. We model this exactly like ramp's OnlineTurn
         // (FINDING-1 HIGH): tapped lands previously inflated both the mana count and color coverage the
         // turn they entered.
-        var landsOnBoard = new List<(int Mask, int OnlineTurn, int Amount)>(turn + 2);
+        var landsOnBoard = new List<PlayedLand>(turn + 2);
 
         // Working hand as a list of library indices.
         var hand = new List<int>(handCount + turn);
@@ -1047,7 +1185,7 @@ public static class CastabilitySimulator
             // Online lands for this turn: only those whose online-turn has arrived (masks only, for
             // the "still-missing color" check; mana quantity is summed separately below).
             onlineLandMasks.Clear();
-            foreach ((int Mask, int OnlineTurn, int Amount) land in landsOnBoard)
+            foreach (PlayedLand land in landsOnBoard)
             {
                 if (land.OnlineTurn <= currentTurn)
                 {
@@ -1083,7 +1221,7 @@ public static class CastabilitySimulator
                 {
                     onlineForRamp = availableColors;
                     onlineForRamp.Clear();
-                    foreach ((int Mask, int OnlineTurn, int Amount) land in landsOnBoard)
+                    foreach (PlayedLand land in landsOnBoard)
                     {
                         if (land.OnlineTurn <= currentTurn)
                         {
@@ -1124,7 +1262,7 @@ public static class CastabilitySimulator
             // Rebuild the online sources as (mask, amount) capacity records — lands plus ramp that is
             // online this turn (re-read AFTER the ramp deploy so 0-cost same-turn ramp counts).
             availableColors.Clear();
-            foreach ((int Mask, int OnlineTurn, int Amount) land in landsOnBoard)
+            foreach (PlayedLand land in landsOnBoard)
             {
                 if (land.OnlineTurn <= currentTurn)
                 {
@@ -1198,7 +1336,7 @@ public static class CastabilitySimulator
         IReadOnlyList<LibraryCard> library,
         bool[] active,
         List<int> hand,
-        List<(int Mask, int OnlineTurn, int Amount)> landsOnBoard,
+        List<PlayedLand> landsOnBoard,
         List<int> scratchOnlineMasks,
         int currentTurn,
         int turn,
@@ -1208,7 +1346,7 @@ public static class CastabilitySimulator
         // entered tapped last turn but is online now counts; one that enters tapped THIS turn does not
         // help this turn, so picking it to "complete a missing color" would be a lie — FINDING-1 HIGH).
         scratchOnlineMasks.Clear();
-        foreach ((int Mask, int OnlineTurn, int Amount) land in landsOnBoard)
+        foreach (PlayedLand land in landsOnBoard)
         {
             if (land.OnlineTurn <= currentTurn)
             {
@@ -1232,7 +1370,15 @@ public static class CastabilitySimulator
             }
 
             LibraryCard card = library[hand[h]];
-            if (card.Kind == CardKind.UntappedLand)
+            bool entersUntappedNow = card.Kind switch
+            {
+                CardKind.UntappedLand => true,
+                CardKind.TappedLand => false,
+                CardKind.ConditionalCountLand => ResolveLandOnlineTurn(card, landsOnBoard, currentTurn) == currentTurn,
+                _ => false,
+            };
+
+            if (entersUntappedNow)
             {
                 if (bestUntappedAny < 0)
                 {
@@ -1245,7 +1391,7 @@ public static class CastabilitySimulator
                     bestUntappedNeeded = h;
                 }
             }
-            else if (card.Kind == CardKind.TappedLand)
+            else if (card.Kind == CardKind.TappedLand || card.Kind == CardKind.ConditionalCountLand)
             {
                 if (bestTapped < 0)
                 {
@@ -1293,9 +1439,8 @@ public static class CastabilitySimulator
 
         LibraryCard played = library[hand[pick]];
 
-        // Untapped: online this turn. Tapped: online next turn — contributes nothing until then.
-        int onlineTurn = played.Kind == CardKind.TappedLand ? currentTurn + 1 : currentTurn;
-        landsOnBoard.Add((played.ColorMask, onlineTurn, played.ManaAmount));
+        int onlineTurn = ResolveLandOnlineTurn(played, landsOnBoard, currentTurn);
+        landsOnBoard.Add(new PlayedLand(played.ColorMask, onlineTurn, played.ManaAmount, played.BasicTypeMask));
         hand.RemoveAt(pick);
     }
 
@@ -1405,6 +1550,37 @@ public static class CastabilitySimulator
         sources.RemoveAll(s => s.Amount <= 0);
     }
 
+    private static int ResolveLandOnlineTurn(LibraryCard played, IReadOnlyList<PlayedLand> landsOnBoard, int currentTurn)
+    {
+        if (played.Kind == CardKind.TappedLand)
+        {
+            return currentTurn + 1;
+        }
+
+        if (played.Kind != CardKind.ConditionalCountLand)
+        {
+            return currentTurn;
+        }
+
+        bool untapped = ConditionalCountLandEntersUntapped(played, landsOnBoard);
+        return untapped ? currentTurn : currentTurn + 1;
+    }
+
+    private static bool ConditionalCountLandEntersUntapped(LibraryCard played, IReadOnlyList<PlayedLand> landsOnBoard)
+    {
+        int count = played.CountCondition == CountConditionKind.EldThreshold
+            ? landsOnBoard.Count(land => (land.BasicTypeMask & played.CountTypeMask) != 0)
+            : landsOnBoard.Count;
+
+        return played.CountCondition switch
+        {
+            CountConditionKind.FastLand => count <= played.CountThreshold,
+            CountConditionKind.SlowLand => count >= played.CountThreshold,
+            CountConditionKind.EldThreshold => count >= played.CountThreshold,
+            _ => true,
+        };
+    }
+
     // Colors still missing from the colored requirement given what the board can already tap.
     private static int MissingColorMask(List<int> landMasks, (int Bit, int Count)[] pipReq)
     {
@@ -1428,12 +1604,12 @@ public static class CastabilitySimulator
 
     // Total mana online this turn (MQ-02): each source contributes its Amount, not 1.
     private static int OnlineMana(
-        List<(int Mask, int OnlineTurn, int Amount)> lands,
+        List<PlayedLand> lands,
         List<(int Mask, int Cost, int OnlineTurn, int Amount)> ramp,
         int currentTurn)
     {
         int mana = 0;
-        foreach ((int Mask, int OnlineTurn, int Amount) l in lands)
+        foreach (PlayedLand l in lands)
         {
             if (l.OnlineTurn <= currentTurn)
             {
@@ -1458,7 +1634,7 @@ public static class CastabilitySimulator
     /// over existing board state — no RNG draw, so determinism is preserved.
     /// </summary>
     private static bool HasColorMatchedUntappedT1(
-        List<(int Mask, int OnlineTurn, int Amount)> landsOnBoard,
+        List<PlayedLand> landsOnBoard,
         List<(int Mask, int Cost, int OnlineTurn, int Amount)> rampOnBoard,
         (int Bit, int Count)[] pipReq)
     {
@@ -1470,7 +1646,7 @@ public static class CastabilitySimulator
 
         bool colorless = neededMask == 0;
 
-        foreach ((int Mask, int OnlineTurn, int Amount) land in landsOnBoard)
+        foreach (PlayedLand land in landsOnBoard)
         {
             if (land.OnlineTurn <= 1 && (colorless || (land.Mask & neededMask) != 0))
             {
@@ -1806,6 +1982,34 @@ public static class CastabilitySimulator
         var src = sources.Select(s => (ColorsToMask(s.Colors), s.Amount)).ToList();
         (int Bit, int Count)[] pipReq = pips.Select(p => (ColorBit(p.Color), p.Count)).ToArray();
         return ColorsCoverable(src, pipReq, effectiveCost);
+    }
+
+    /// <summary>
+    /// Plan-02 test seam: resolve a conditional-count land's tapped-vs-untapped state against an
+    /// explicit per-trial history of already-played land basic types.
+    /// </summary>
+    internal static bool ConditionalCountLandEntersUntappedForTest(
+        CountConditionKind countCondition,
+        int countThreshold,
+        IReadOnlyList<string> countTypeFilter,
+        IReadOnlyList<IReadOnlyList<string>> previouslyPlayedLandTypes)
+    {
+        int countTypeMask = BasicTypeMask(countTypeFilter);
+        var history = previouslyPlayedLandTypes
+            .Select(types => new PlayedLand(0, 0, 1, BasicTypeMask(types)))
+            .ToList();
+
+        var played = new LibraryCard(
+            CardKind.ConditionalCountLand,
+            colorMask: 0,
+            deployCost: 0,
+            isLand: true,
+            countCondition: countCondition,
+            countThreshold: countThreshold,
+            countTypeMask: countTypeMask,
+            basicTypeMask: countTypeMask);
+
+        return ConditionalCountLandEntersUntapped(played, history);
     }
 
     // Deals one trial's opening hand: re-roll each partial source's Bernoulli (full sources stay active —
