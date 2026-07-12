@@ -1117,3 +1117,39 @@ essentially permanent once printed, so the card-text portions of this
 research do not expire on a calibration timescale — only the "Training
 Compound" open question and any new-set reprints of these cycles could
 change this).
+
+---
+
+## Addendum — Open Questions Resolved (LEAD verification, 2026-07-12)
+
+### Q1 RESOLVED: "Training Compound" is real — MSH (Marvel Super Heroes, 2026-06-26) 5-card allied cycle
+
+Verified live against Scryfall API (post-cutoff set; WebSearch missed it):
+
+| Card | Colors |
+|------|--------|
+| Gleaming Bastion | W/U |
+| Hidden Lair | U/B |
+| Dark Fortress | B/R |
+| Training Compound | R/G |
+| Gathering Place | G/W |
+
+Oracle (identical across cycle, colors vary):
+```
+{T}: Add {C}.
+{T}: Add {R} or {G}. Activate only if this land entered this turn or if you control a basic land.
+```
+
+**Key modeling facts:**
+- **Always enters UNTAPPED** — no tapped clause at all. This cycle is NOT a conditional-untapped problem; it is a conditional-COLOR problem (like Verge).
+- Colorless {C} is unconditional; the two allied colors are gated on "entered this turn OR you control a basic land".
+- **Detection pattern:** oracle contains `Activate only if this land entered this turn or if you control a basic land` (exact clause, 5 cards only as of 2026-07).
+- **Recommended model (static census, Verge-lane):** count basic lands in deck; if `basics >= threshold` (reuse `CheckLandMatchTypeThreshold`-style constant), treat as untapped allied dual + colorless; else treat as untapped colorless-only (or low conditional weight for the colored half). "Entered this turn" makes the colored half available the turn it's played even with zero basics, so the census under-counts slightly in its favor — acceptable, matches check-land precedent conservatism.
+
+### Q2 RESOLVED (LEAD decision): both `Math.Ceiling` overstatement sites in scope for MBGAP-05a
+
+`ManabaseVerdictSynthesizer.cs:63` (CONTEXT-cited) AND the second site the researcher found (~VS:107) — same defect class, fixing one and not the other leaves the same overstatement in a different sentence. Planner: cite both file:line anchors in the plan task.
+
+### Q3: Verge sim data-model shape → planner discretion
+
+CONTEXT.md D-07 already grants modeling-depth discretion. Constraint: Verge is always-untapped + conditionally-colored (same family as the MSH cycle above) — model the color gate, not tapped-ness.
