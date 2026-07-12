@@ -142,11 +142,12 @@
 
                     <div class="mb-3">
                         <label for="commitMessage" class="form-label fw-semibold small">Commit message</label>
-                        <input id="commitMessage"
-                               type="text"
-                               class="form-control"
-                               value="@_commitMessage"
-                               readonly />
+                        <textarea id="commitMessage"
+                                  class="form-control"
+                                  rows="3"
+                                  @bind="_commitMessage"
+                                  @bind:event="oninput"></textarea>
+                        <div class="form-text">Auto-filled from the diff — edit before committing if needed.</div>
                     </div>
 
                     <div class="mb-3">
@@ -163,7 +164,7 @@
 
                     <button class="btn btn-primary"
                             @onclick="CommitAsync"
-                            disabled="@(!_diffReviewed || _operationInFlight || string.IsNullOrWhiteSpace(_rawDiff))">
+                            disabled="@(!_diffReviewed || _operationInFlight || string.IsNullOrWhiteSpace(_rawDiff) || string.IsNullOrWhiteSpace(_commitMessage))">
                         @if (_commitInFlight)
                         {
                             <span class="spinner-border spinner-border-sm"
