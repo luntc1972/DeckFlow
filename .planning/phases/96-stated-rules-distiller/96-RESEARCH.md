@@ -560,22 +560,25 @@ private const string ClearDistillOutputSql = """
 | A5 | Recommendation to add a `content_stated_rules` child table (not explicitly named in CONTEXT.md's canonical_refs) | Pattern 4 / Don't Hand-Roll | If omitted, Phase 97 has no structured per-video rule source and must re-parse markdown frontmatter at fusion time — more fragile, inconsistent with the established store pattern, but not strictly a Phase-96 test failure since CS-11a only requires the YAML block to exist. |
 | A6 | The Microsoft Research blog's description of Claimify's 3 stages (input/output shapes, "no merge step") is an accurate summary of the arXiv paper | Claimify Method | The blog is Microsoft's own secondary description of their own paper, not independently verified against the raw PDF text in this session; if the blog oversimplifies, DeckFlow's stage-by-stage prompt design could miss a nuance (e.g., the paper may describe a "5-sentence context window" or similar specific parameter not captured by the blog summary). |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `land_count` be its own stated-only metric key, or should land-count stated rules target `karsten:target_lands`?**
    - What we know: Phase 95 emits `karsten:target_lands`/`karsten:land_delta`, neither of which is a raw actual-land-count metric; the Snail prototype's single strongest-agreement stated rule is specifically about land COUNT (37-42).
    - What's unclear: Whether Phase 97 (not yet planned) will want to introduce a genuinely new measured "actual land count" metric of its own (which would require touching already-shipped Phase 95 code), or whether it will accept comparing stated land-count rules only against `karsten:target_lands` with a documented semantic caveat.
    - Recommendation: Introduce `land_count` as its own stated-only metric key in Phase 96's allowlist (no Phase-95 counterpart needed yet); flag this explicitly for Phase 97's own research/discuss-phase rather than resolving it here, since resolving it might require reopening already-shipped Phase 95 code, which is out of this phase's scope.
+   - **RESOLVED:** `land_count` is introduced as its own stated-only metric key, distinct from `karsten:target_lands`; see 96-01-PLAN.md (metric allowlist). Flag for the P97 discuss-phase whether P95 should emit an actual-land-count measured metric.
 
 2. **How should `gameplay` content_type be detected given no new LLM call is allowed and no existing tag dimension captures it?**
    - What we know: `Archetype`/`Bracket`/`CardCategory` tags are all deckbuilding-oriented; none capture "this is a play-by-play/gameplay video."
    - What's unclear: Whether a lightweight keyword heuristic over already-extracted clip excerpts is acceptable "no new LLM call" scope, or whether `gameplay` should just be the residual/default bucket.
    - Recommendation: Treat `gameplay` as the residual bucket (fires only when none of the other three heuristics match) unless the planner/user wants to invest in a keyword-list heuristic; either way, this needs an explicit decision recorded in the plan, not a silent default.
+   - **RESOLVED:** `gameplay` is detected by a deterministic keyword-scan over already-extracted clip text, with `gameplay` as the residual/default bucket; no new LLM call; see 96-02-PLAN.md (ContentTypeHeuristic).
 
 3. **Should the new Claimify-stage LLM methods be gated to the subscription/CLI provider only, and if so, should `DistillAsync`'s existing `isSubscriptionProvider` gate be extended to cover them explicitly (the way it already does for `ClassifyAsync`)?**
    - What we know: The existing precedent (`ClassifyAsync`) is CLI-only and the orchestrator explicitly refuses non-dry-run distills on a metered provider because of it.
    - What's unclear: Whether the planner wants the SAME hard refusal for stated-rules extraction, or a softer degrade (e.g., skip stated-rules extraction on OpenAI but still run summary/clips/tags).
    - Recommendation: Hard-gate identically to `ClassifyAsync`, given CONTEXT.md's own explicit "cost note" flagging this as the most token-heavy part of the phase; a partial degrade adds branching complexity without a clearly stated user need.
+   - **RESOLVED:** the 4 Claimify-stage methods are hard-gated with a `NotSupportedException` provider gate mirroring `ClassifyAsync` (OpenAI/metered path unchanged; off-subscription distills refuse); see 96-04-PLAN.md.
 
 ## Environment Availability
 
