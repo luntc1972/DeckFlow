@@ -33,7 +33,7 @@
         {
             new DeckFlow.Web.Models.WorkflowStepTab(1, "Step 1: Deck", !string.IsNullOrWhiteSpace(Model.Request.DeckSource)),
             new DeckFlow.Web.Models.WorkflowStepTab(2, "Step 2: Build Primer", !string.IsNullOrWhiteSpace(Model.PrimerPromptText)),
-            new DeckFlow.Web.Models.WorkflowStepTab(3, "Step 3: Results", false)
+            new DeckFlow.Web.Models.WorkflowStepTab(3, "Step 3: Results", !string.IsNullOrWhiteSpace(Model.PrimerPromptText))
         });
 }
 
@@ -326,7 +326,7 @@
         {
             <section class="result-panel nested-panel summary-panel">
                 <h3>Deck Summary</h3>
-                <pre spellcheck="false">@Model.InputSummary</pre>
+                <pre class="deck-summary-pre" spellcheck="false">@Model.InputSummary</pre>
             </section>
         }
 
@@ -343,9 +343,12 @@
                             <p class="prompt-size-note prompt-size-note--warn" role="status">⚠️ Large prompt — may exceed @aiPlatform.DisplayName's paste limit. Trim sections or paste in parts if needed.</p>
                         }
                     </div>
-                    <button type="button" class="copy-button" data-copy-target="primer-output">Copy</button>
+                    <div class="panel-heading__actions">
+                        <button type="button" class="copy-button" data-copy-target="primer-output">Copy</button>
+                        <button type="button" class="copy-button" data-expand-target="primer-output" aria-expanded="false">Expand</button>
+                    </div>
                 </div>
-                <textarea autocomplete="off" id="primer-output" readonly spellcheck="false">@Model.PrimerPromptText</textarea>
+                <textarea class="prompt-artifact-textarea" autocomplete="off" id="primer-output" readonly spellcheck="false">@Model.PrimerPromptText</textarea>
             </section>
         }
         else
