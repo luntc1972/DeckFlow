@@ -122,7 +122,7 @@ count as real lands, §1.4 — so the old `MdfcCommonCredit`/`MdfcMythicCredit` 
 ## 3. Per-color source requirements + findings
 
 ### 3.1 Karsten mulligan-blind "ceiling"
-- **Consistency threshold** = `clamp((89 + max(1, MV))/100, 0, 0.99)` — 90% at MV1 rising to 96% at MV7, cap 99% — `Kar:111-115`.
+- **Consistency threshold** = `clamp((89 + max(1, MV))/100, 0, 0.99)` — 90% at MV1 rising to 96% at MV7, cap 99% — `Kar:111-115`. MBGAP-04 re-verified this against the existing headless-browser primary-source capture of Frank Karsten's 2022 TCGplayer article; see `.planning/phases/manabase-research-gap-closure/MBGAP-04-threshold-decision.md`.
 - **Cards seen by turn** = `7 + (onPlay ? turn−1 : turn)` — `Kar:121-122`.
 - **CastConsistency** = P(≥pips colored sources AND ≥M lands by turn M) ÷ P(≥M lands by turn M), triple-category hypergeometric; `pips ≤ 0` → 1.0 — `Kar:135-189`, `Hypergeometric.cs`.
 - **SourcesNeeded** = smallest `sources ≥ pips` meeting the threshold (the table figure) — `Kar:196-213`.
@@ -324,8 +324,12 @@ Keys read via `MAS.IsFlagOn` (fail-safe OFF). Seed defaults in `FeatureFlagStore
 | Central-commander color bar | raised to 88 if Central | already 88 |
 | Plain-language verdict + budget | computed | flag is UI-gloss only |
 
-Mode does **not** change the (89+M)% Karsten consistency threshold, the per-color
-source math, or the 60-card path.
+Mode does **not** change the confirmed `(89+M)%` Karsten consistency threshold,
+the per-color source math, or the 60-card path. MBGAP-04 explicitly reviewed and
+rejected a separate casual-multiplayer `(85+M)%` relaxation because DeckFlow
+already models Commander with a more generous every-turn draw pattern in the
+simulator, so lowering the threshold as well would risk double-counting the
+multiplayer benefit.
 
 ---
 
