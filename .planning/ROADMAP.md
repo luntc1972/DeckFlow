@@ -116,7 +116,15 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
   3. Every extracted rule validates against a strict JSON schema (constrained decoding, extending `DistillationSchemas`/`DistillationValidation`) and carries `sourceClip`, `confidence`, and the source video's date (recency/provenance).
   4. A minimal Scryfall card-name grounding pass flags or rejects unrecognized card names inside distilled rules, ahead of the full Phase 98 guard.
   5. A golden regression test on the new schema passes using the existing UTF-8-safe harness (the `CliLlmDistillationService` CP437 lesson).
-**Plans**: TBD
+**Plans**: 8 plans
+- [ ] 96-01-PLAN.md — StatedRuleCandidate DTO + closed metric vocabulary + deterministic reducer
+- [ ] 96-02-PLAN.md — TranscriptChunker + content_type heuristic + ICardNameGrounder seam
+- [ ] 96-03-PLAN.md — 4 Claimify schemas/prompts + ValidateStatedRules/SanitizeStatedRules
+- [ ] 96-04-PLAN.md — CLI Select/Disambiguate/Decompose/Reduce stage methods (UTF-8 harness)
+- [ ] 96-05-PLAN.md — content_stated_rules table + additive content_type:/stated_rules: frontmatter
+- [ ] 96-06-PLAN.md — Web ScryfallCardNameGrounder (cached fuzzy grounding)
+- [ ] 96-07-PLAN.md — StatedRulesExtractor multi-pass coordinator + D-06 Snail golden test
+- [ ] 96-08-PLAN.md — Orchestrator wiring: content_type + extractor + persist + emit
 
 ### Phase 97: Profile Fusion + Conflict Ledger
 **Goal**: Reconcile stated (Phase 96) vs measured (Phase 95) into one fused profile of weighted numeric targets, with a say-vs-do conflict ledger. The deterministic rubric's intellectual core. Admin/Studio-visible ledger; still no public UI.
