@@ -290,6 +290,40 @@ public sealed class CliLlmDistillationServiceTests
     }
 
     [Fact]
+    public async Task ExtractCombinedAsync_BuildsCombinedInstructionAndSanitizesPayload()
+    {
+        CliCommandSpec? capturedSpec = null;
+        var longSummary = string.Join(" ", Enumerable.Range(1, 205).Select(index => $"word{index}"));
+        var service = new CliLlmDistillationService(
+            "claude",
+            (spec, _, _) =>
+            {
+                capturedSpec = spec;
+                return Task.FromResult(ClaudeEnvelope($$"""
+                    {"summary":"{{longSummary}}","clips":[{"timestamp_seconds":-5,"excerpt":"drop"},{"timestamp_seconds":10,"excerpt":"1"},{"timestamp_seconds":20,"excerpt":"2"},{"timestamp_seconds":30,"excerpt":"3"},{"timestamp_seconds":40,"excerpt":"4"},{"timestamp_seconds":50,"excerpt":"5"},{"timestamp_seconds":60,"excerpt":"6"},{"timestamp_seconds":70,"excerpt":"7"},{"timestamp_seconds":80,"excerpt":"8"},{"timestamp_seconds":90,"excerpt":"9"}],"archetype":["banana","Aristocrats","ARISTOCRATS","tokens"],"bracket":["Optimized","optimized","battlecruiser"],"card_category":["artifacts","draw","DRAW","ramp"]}
+                    """));
+            });
+
+        var result = await WithCommandOverrideAsync(
+            ValidOverride,
+            () => service.ExtractCombinedAsync("transcript"));
+
+        Assert.NotNull(capturedSpec);
+        var arguments = capturedSpec.ArgumentList.ToArray();
+        var promptIndex = Array.IndexOf(arguments, "-p") + 1;
+        Assert.True(promptIndex > 0);
+        Assert.StartsWith(DistillationSchemas.CombinedSystemPrompt, arguments[promptIndex], StringComparison.Ordinal);
+        Assert.Contains(DistillationSchemas.CombinedSchema, arguments[promptIndex], StringComparison.Ordinal);
+        Assert.Equal(200, DistillationValidation.CountWords(result.Summary));
+        Assert.Equal(8, result.Clips.Count);
+        Assert.Equal([10, 20, 30, 40, 50, 60, 70, 80], result.Clips.Select(clip => clip.TimestampSeconds).ToArray());
+        Assert.Equal(["aristocrats", "tokens"], result.Archetype);
+        Assert.Equal(["Optimized"], result.Bracket);
+        Assert.Equal(["draw", "ramp"], result.CardCategory);
+        Assert.Equal(new TokenUsage(0, 0), result.Usage);
+    }
+
+    [Fact]
     public async Task Summarize_RunnerHangs_TimesOutWithoutHanging()
     {
         var service = new CliLlmDistillationService(

@@ -1206,94 +1206,42 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
             await _videoStore.ClearDistillOutputAsync(video.Id, cancellationToken).ConfigureAwait(false);
 
             if (!isSubscriptionProvider && await _llmLedger.WouldExceedCapAsync(
-                DistillationValidation.ComputeProjectedCallCostUsd(transcript.Body, DistillationValidation.SummaryMaxOutputTokens),
+                DistillationValidation.ComputeProjectedCallCostUsd(transcript.Body, DistillationValidation.CombinedMaxOutputTokens),
                 monthKey,
                 cancellationToken).ConfigureAwait(false))
             {
                 return await MarkSkippedOverCapAsync(
                     video.Id,
                     naturalKey,
-                    "llm monthly cap would be exceeded before summary for " + naturalKey,
+                    "llm monthly cap would be exceeded before combined extraction for " + naturalKey,
                     llmCalls,
                     llmSpend,
                     progress,
                     cancellationToken).ConfigureAwait(false);
             }
 
-            var summary = await _distiller.SummarizeAsync(transcript.Body, cancellationToken).ConfigureAwait(false);
-            var summaryCost = isSubscriptionProvider ? 0m : LlmSpendLedger.ComputeCostUsd(summary.Usage.InputTokens, summary.Usage.OutputTokens);
-            // Why: each OpenAI call is separately billed; record its incurred cost BEFORE the next call so a later-call failure can never orphan an already-billed cost (HIGH-1/FIX-1, Phase 20 CR-01 class -- recorded spend >= incurred).
+            var combined = await _distiller.ExtractCombinedAsync(transcript.Body, cancellationToken).ConfigureAwait(false);
+            var combinedCost = isSubscriptionProvider ? 0m : LlmSpendLedger.ComputeCostUsd(combined.Usage.InputTokens, combined.Usage.OutputTokens);
             await _llmLedger.RecordCallAsync(
                 video.Id,
-                summary.Usage.InputTokens,
-                summary.Usage.OutputTokens,
-                summaryCost,
+                combined.Usage.InputTokens,
+                combined.Usage.OutputTokens,
+                combinedCost,
                 monthKey,
                 cancellationToken).ConfigureAwait(false);
             llmCalls++;
-            llmSpend += summaryCost;
+            llmSpend += combinedCost;
 
-            if (!isSubscriptionProvider && await _llmLedger.WouldExceedCapAsync(
-                DistillationValidation.ComputeProjectedCallCostUsd(transcript.Body, DistillationValidation.ClipsMaxOutputTokens),
-                monthKey,
-                cancellationToken).ConfigureAwait(false))
-            {
-                return await MarkSkippedOverCapAsync(
-                    video.Id,
-                    naturalKey,
-                    "llm monthly cap would be exceeded before clips for " + naturalKey,
-                    llmCalls,
-                    llmSpend,
-                    progress,
-                    cancellationToken).ConfigureAwait(false);
-            }
+            var summary = new SummaryResult(combined.Summary, combined.Usage);
+            var clips = new ClipsResult(combined.Clips, combined.Usage);
 
-            var clips = await _distiller.ExtractClipsAsync(transcript.Body, cancellationToken).ConfigureAwait(false);
-            var clipsCost = isSubscriptionProvider ? 0m : LlmSpendLedger.ComputeCostUsd(clips.Usage.InputTokens, clips.Usage.OutputTokens);
-            await _llmLedger.RecordCallAsync(
-                video.Id,
-                clips.Usage.InputTokens,
-                clips.Usage.OutputTokens,
-                clipsCost,
-                monthKey,
-                cancellationToken).ConfigureAwait(false);
-            llmCalls++;
-            llmSpend += clipsCost;
+            DistillationValidation.ValidateSummary(combined.Summary);
+            DistillationValidation.ValidateClips(combined.Clips);
+            var archetypeTags = FilterTags(ContentTagDimension.Archetype, combined.Archetype);
+            var bracketTags = FilterTags(ContentTagDimension.Bracket, combined.Bracket);
+            var cardCategoryTags = FilterTags(ContentTagDimension.CardCategory, combined.CardCategory);
 
-            if (!isSubscriptionProvider && await _llmLedger.WouldExceedCapAsync(
-                DistillationValidation.ComputeProjectedCallCostUsd(transcript.Body, DistillationValidation.TagsMaxOutputTokens),
-                monthKey,
-                cancellationToken).ConfigureAwait(false))
-            {
-                return await MarkSkippedOverCapAsync(
-                    video.Id,
-                    naturalKey,
-                    "llm monthly cap would be exceeded before tags for " + naturalKey,
-                    llmCalls,
-                    llmSpend,
-                    progress,
-                    cancellationToken).ConfigureAwait(false);
-            }
-
-            var tags = await _distiller.InferTagsAsync(transcript.Body, cancellationToken).ConfigureAwait(false);
-            var tagsCost = isSubscriptionProvider ? 0m : LlmSpendLedger.ComputeCostUsd(tags.Usage.InputTokens, tags.Usage.OutputTokens);
-            await _llmLedger.RecordCallAsync(
-                video.Id,
-                tags.Usage.InputTokens,
-                tags.Usage.OutputTokens,
-                tagsCost,
-                monthKey,
-                cancellationToken).ConfigureAwait(false);
-            llmCalls++;
-            llmSpend += tagsCost;
-
-            DistillationValidation.ValidateSummary(summary.Summary);
-            DistillationValidation.ValidateClips(clips.Clips);
-            var archetypeTags = FilterTags(ContentTagDimension.Archetype, tags.Archetype);
-            var bracketTags = FilterTags(ContentTagDimension.Bracket, tags.Bracket);
-            var cardCategoryTags = FilterTags(ContentTagDimension.CardCategory, tags.CardCategory);
-
-            await _videoStore.InsertSummaryAsync(video.Id, summary.Summary, cancellationToken).ConfigureAwait(false);
+            await _videoStore.InsertSummaryAsync(video.Id, combined.Summary, cancellationToken).ConfigureAwait(false);
             var sortOrder = 0;
             foreach (var clip in clips.Clips)
             {

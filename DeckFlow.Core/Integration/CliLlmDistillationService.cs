@@ -99,6 +99,31 @@ public sealed class CliLlmDistillationService : ILlmDistillationService
     }
 
     /// <inheritdoc />
+    public async Task<CombinedExtractionResult> ExtractCombinedAsync(
+        string transcript,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(transcript);
+
+        var payload = await ExtractWithRetryAsync<CombinedPayload>(
+            BuildInstruction(DistillationSchemas.CombinedSystemPrompt, DistillationSchemas.CombinedSchema),
+            transcript,
+            cancellationToken).ConfigureAwait(false);
+        var sanitizedTags = DistillationValidation.SanitizeTags(new TagsPayload(
+            payload.Archetype,
+            payload.Bracket,
+            payload.CardCategory));
+
+        return new CombinedExtractionResult(
+            DistillationValidation.TruncateSummary(payload.Summary),
+            DistillationValidation.SanitizeClips(payload.Clips),
+            sanitizedTags.Archetype,
+            sanitizedTags.Bracket,
+            sanitizedTags.CardCategory,
+            new TokenUsage(0, 0));
+    }
+
+    /// <inheritdoc />
     public async Task<TagsResult> InferTagsAsync(
         string transcript,
         CancellationToken cancellationToken = default)

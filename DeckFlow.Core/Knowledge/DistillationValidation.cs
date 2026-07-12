@@ -14,11 +14,12 @@ internal static class DistillationValidation
     internal const int SummaryMaxOutputTokens = 400;
     internal const int ClipsMaxOutputTokens = 1200;
     internal const int TagsMaxOutputTokens = 200;
+    internal const int CombinedMaxOutputTokens = SummaryMaxOutputTokens + ClipsMaxOutputTokens + TagsMaxOutputTokens;
     internal const int SummaryMaxWords = 200;
     internal const int MinClipCount = 3;
     internal const int MaxClipCount = 8;
     internal const int MaxTranscriptInputTokens = 120_000;
-    internal const int DistillationCallCount = 3;
+    internal const int DistillationCallCount = 1;
     internal const string DistillStatusDistilled = "distilled";
     internal const string DistillStatusSkippedOverCap = "skipped_over_cap";
     internal const string DistillStatusFailed = "failed";
@@ -111,7 +112,7 @@ internal static class DistillationValidation
     internal static decimal ComputeProjectedVideoCostUsd(string transcript)
         => LlmSpendLedger.ComputeCostUsd(
             EstimateTokenCount(transcript) * DistillationCallCount,
-            SummaryMaxOutputTokens + ClipsMaxOutputTokens + TagsMaxOutputTokens);
+            CombinedMaxOutputTokens);
 
     internal static decimal ComputeProjectedCallCostUsd(string transcript, int maxOutputTokens)
         => LlmSpendLedger.ComputeCostUsd(EstimateTokenCount(transcript), maxOutputTokens);
@@ -192,6 +193,14 @@ internal sealed record ClassificationPayload(string Verdict, string? Reason);
 
 /// <summary>JSON payload shape for the tag extraction call.</summary>
 internal sealed record TagsPayload(
+    IReadOnlyList<string> Archetype,
+    IReadOnlyList<string> Bracket,
+    IReadOnlyList<string> CardCategory);
+
+/// <summary>JSON payload shape for the combined extraction call.</summary>
+internal sealed record CombinedPayload(
+    string Summary,
+    IReadOnlyList<ClipItem> Clips,
     IReadOnlyList<string> Archetype,
     IReadOnlyList<string> Bracket,
     IReadOnlyList<string> CardCategory);

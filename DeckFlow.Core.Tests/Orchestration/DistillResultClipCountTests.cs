@@ -213,6 +213,25 @@ internal sealed class ConfigurableDistillationService : ILlmDistillationService
         return Task.FromResult(new ClipsResult(clips, new TokenUsage(200, 20)));
     }
 
+    public Task<CombinedExtractionResult> ExtractCombinedAsync(string transcript, CancellationToken cancellationToken = default)
+    {
+        if (_throwOnClips)
+        {
+            throw new InvalidOperationException("clip extraction failed (test injection)");
+        }
+
+        var clips = Enumerable.Range(0, _clipCount)
+            .Select(i => new ClipItem((i + 1) * 30, $"clip-{i}"))
+            .ToArray();
+        return Task.FromResult(new CombinedExtractionResult(
+            "summary",
+            clips,
+            ["combo"],
+            ["cEDH"],
+            ["win-cons"],
+            new TokenUsage(330, 33)));
+    }
+
     public Task<TagsResult> InferTagsAsync(string transcript, CancellationToken cancellationToken = default)
         => Task.FromResult(new TagsResult(["combo"], ["cEDH"], ["win-cons"], new TokenUsage(30, 3)));
 }

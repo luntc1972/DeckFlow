@@ -252,6 +252,9 @@ internal sealed class ConfigErrorLlmDistillationService : ILlmDistillationServic
     public Task<ClipsResult> ExtractClipsAsync(string transcript, CancellationToken cancellationToken = default)
         => throw new LlmCliConfigurationException(_message);
 
+    public Task<CombinedExtractionResult> ExtractCombinedAsync(string transcript, CancellationToken cancellationToken = default)
+        => throw new LlmCliConfigurationException(_message);
+
     public Task<TagsResult> InferTagsAsync(string transcript, CancellationToken cancellationToken = default)
         => throw new LlmCliConfigurationException(_message);
 }

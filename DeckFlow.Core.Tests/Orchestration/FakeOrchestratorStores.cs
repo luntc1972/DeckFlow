@@ -242,6 +242,15 @@ internal sealed class FakeLlmDistillationService : ILlmDistillationService
     public Task<ClipsResult> ExtractClipsAsync(string transcript, CancellationToken cancellationToken = default)
         => Task.FromResult(ClipsResult);
 
+    public Task<CombinedExtractionResult> ExtractCombinedAsync(string transcript, CancellationToken cancellationToken = default)
+        => Task.FromResult(new CombinedExtractionResult(
+            "summary",
+            ClipsResult.Clips,
+            ["combo"],
+            ["cEDH"],
+            ["win-cons"],
+            new TokenUsage(330, 33)));
+
     public Task<TagsResult> InferTagsAsync(string transcript, CancellationToken cancellationToken = default)
         => Task.FromResult(new TagsResult(["combo"], ["cEDH"], ["win-cons"], new TokenUsage(30, 3)));
 }
