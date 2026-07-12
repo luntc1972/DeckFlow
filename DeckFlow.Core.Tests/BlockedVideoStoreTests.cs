@@ -370,6 +370,12 @@ public sealed class BlockedVideoStoreTests : IDisposable
         public Task<ContentVideo?> GetVideoByYoutubeIdAsync(long sourceId, string youtubeVideoId, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
+        public Task<IReadOnlyList<ContentVideo>> ListVideosPendingDistillAsync(long sourceId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<IReadOnlyList<PendingDistillProjection>> ListPendingDistillDisplayAsync(long sourceId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
         public Task UpdateTranscriptStatusAsync(long videoId, string status, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 

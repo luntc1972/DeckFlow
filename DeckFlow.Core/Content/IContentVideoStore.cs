@@ -55,8 +55,17 @@ public interface IContentVideoStore
     /// <returns>Videos scoped to the supplied source that have at least one transcript row.</returns>
     Task<IReadOnlyList<ContentVideo>> ListVideosPendingDistillAsync(
         long sourceId,
-        CancellationToken cancellationToken = default)
-        => throw new NotSupportedException("This content video store does not support distill pending queries.");
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lists display-focused pending-distill rows for one source, including the raw durable distill status.
+    /// </summary>
+    /// <param name="sourceId">Identifier of the owning content source.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Pending-distill display rows scoped to the supplied source.</returns>
+    Task<IReadOnlyList<PendingDistillProjection>> ListPendingDistillDisplayAsync(
+        long sourceId,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Updates the transcript status for a content video.

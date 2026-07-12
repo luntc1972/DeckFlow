@@ -122,16 +122,17 @@ public sealed class ContentVideoStore : IContentVideoStore
         long sourceId,
         CancellationToken cancellationToken = default)
     {
-        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        var rows = await QueryPendingDistillRowsAsync(sourceId, cancellationToken).ConfigureAwait(false);
+        return rows.Select(row => row.ToContentVideo()).ToList();
+    }
 
-        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        // Why: source-scoped so a video is only ever distilled under its own
-        // source slug and a disabled source's videos are skipped by the caller (HIGH-2).
-        var videos = await connection.QueryAsync<ContentVideo>(new CommandDefinition(
-            ListVideosPendingDistillSql,
-            new { sourceId },
-            cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return videos.ToList();
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<PendingDistillProjection>> ListPendingDistillDisplayAsync(
+        long sourceId,
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await QueryPendingDistillRowsAsync(sourceId, cancellationToken).ConfigureAwait(false);
+        return rows.Select(row => row.ToPendingDistillProjection()).ToList();
     }
 
     /// <inheritdoc />
@@ -498,8 +499,11 @@ public sealed class ContentVideoStore : IContentVideoStore
                v.video_url,
                v.published_utc,
                v.transcript_status,
-               v.created_utc
+               v.created_utc,
+               ds.status AS distill_status
           FROM content_videos v
+          LEFT JOIN content_distill_status ds
+            ON ds.video_id = v.id
          WHERE v.source_id = @sourceId
            AND v.transcript_status IN ('captions','whisper')
            AND EXISTS (
@@ -509,12 +513,8 @@ public sealed class ContentVideoStore : IContentVideoStore
            -- Why: exclude already-distilled videos so they don't linger in the pending list after
            -- distill/approve/publish. A successful distill writes content_distill_status='distilled'
            -- (ContentKbOrchestrator), the same marker the badge resolver's site_index row coincides
-           -- with. 'failed' and 'skipped_over_cap' are intentionally NOT excluded — they are retriable.
-           AND NOT EXISTS (
-               SELECT 1
-                 FROM content_distill_status ds
-                WHERE ds.video_id = v.id
-                  AND ds.status = 'distilled')
+           -- with. 'failed', 'skipped_over_cap', and 'filtered' are intentionally NOT excluded.
+           AND (ds.status IS NULL OR ds.status <> 'distilled')
          ORDER BY v.id;
         """;
 
@@ -746,4 +746,67 @@ public sealed class ContentVideoStore : IContentVideoStore
         CREATE INDEX IF NOT EXISTS ix_content_clips_video_id         ON content_clips(video_id);
         CREATE INDEX IF NOT EXISTS ix_content_tags_video_id          ON content_tags(video_id);
         """;
+
+    private async Task<IReadOnlyList<PendingDistillVideoRow>> QueryPendingDistillRowsAsync(
+        long sourceId,
+        CancellationToken cancellationToken)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        // Why: source-scoped so a video is only ever distilled under its own
+        // source slug and a disabled source's videos are skipped by the caller (HIGH-2).
+        var rows = await connection.QueryAsync<PendingDistillVideoRow>(new CommandDefinition(
+            ListVideosPendingDistillSql,
+            new { sourceId },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return rows.ToList();
+    }
+
+    private sealed record PendingDistillVideoRow
+    {
+        public required long Id { get; init; }
+
+        public required long SourceId { get; init; }
+
+        public string? YoutubeVideoId { get; init; }
+
+        public string? RssGuid { get; init; }
+
+        public required string Title { get; init; }
+
+        public required string VideoUrl { get; init; }
+
+        public DateTimeOffset? PublishedUtc { get; init; }
+
+        public required string TranscriptStatus { get; init; }
+
+        public required DateTimeOffset CreatedUtc { get; init; }
+
+        public string? DistillStatus { get; init; }
+
+        public ContentVideo ToContentVideo()
+            => new()
+            {
+                Id = Id,
+                SourceId = SourceId,
+                YoutubeVideoId = YoutubeVideoId,
+                RssGuid = RssGuid,
+                Title = Title,
+                VideoUrl = VideoUrl,
+                PublishedUtc = PublishedUtc,
+                TranscriptStatus = TranscriptStatus,
+                CreatedUtc = CreatedUtc,
+            };
+
+        public PendingDistillProjection ToPendingDistillProjection()
+            => new()
+            {
+                YoutubeVideoId = YoutubeVideoId,
+                Title = Title,
+                VideoUrl = VideoUrl,
+                PublishedUtc = PublishedUtc,
+                DistillStatus = DistillStatus,
+            };
+    }
 }

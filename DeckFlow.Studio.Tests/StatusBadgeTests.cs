@@ -15,6 +15,7 @@ public sealed class StatusBadgeTests : BunitContext
     [Theory]
     [InlineData(VideoStatus.NotHarvested, "Not harvested", "bg-secondary")]
     [InlineData(VideoStatus.Harvested, "Harvested", "bg-info")]
+    [InlineData(VideoStatus.Filtered, "Filtered", "bg-dark")]
     [InlineData(VideoStatus.Distilled, "Distilled", "bg-success")]
     [InlineData(VideoStatus.Approved, "Approved", "bg-primary")]
     [InlineData(VideoStatus.Published, "Published", "bg-success")]

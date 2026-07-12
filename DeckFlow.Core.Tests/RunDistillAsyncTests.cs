@@ -549,6 +549,25 @@ public sealed class RunDistillAsyncTests : IDisposable
                 _pendingBySource.TryGetValue(sourceId, out var videos) ? videos : []);
         }
 
+        public Task<IReadOnlyList<PendingDistillProjection>> ListPendingDistillDisplayAsync(
+            long sourceId,
+            CancellationToken cancellationToken = default)
+        {
+            PendingSourceIds.Add(sourceId);
+            return Task.FromResult<IReadOnlyList<PendingDistillProjection>>(
+                (_pendingBySource.TryGetValue(sourceId, out var videos) ? videos : [])
+                .Select(
+                    video => new PendingDistillProjection
+                    {
+                        YoutubeVideoId = video.YoutubeVideoId,
+                        Title = video.Title,
+                        VideoUrl = video.VideoUrl,
+                        PublishedUtc = video.PublishedUtc,
+                        DistillStatus = _statusByVideoId.GetValueOrDefault(video.Id),
+                    })
+                .ToArray());
+        }
+
         public Task UpdateTranscriptStatusAsync(
             long videoId,
             string status,

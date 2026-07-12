@@ -20,8 +20,8 @@ public sealed class DistillationPromptRegressionTests
         const string expectedClassificationPrompt = """
             You classify Magic: The Gathering video transcripts for the Content KB.
             Output only JSON matching the supplied schema.
-            KEEP any transcript that contains at least one substantial deckbuilding lesson, including named cards with reasoning, slot philosophy, cut decisions, synergy decisions, or deckbuilding principles or heuristics applied to a deck context.
-            DROP transcripts that are mostly trivia or quiz content, news or set commentary with no deckbuilding application, meta or format philosophy with no actionable deckbuilding advice, intro or announcement or promotional material, or budget-pool reveals without deckbuilding guidance.
+            KEEP any transcript that contains at least one substantial Commander/cEDH lesson a player can apply, including named cards with reasoning, slot philosophy, cut decisions, synergy decisions, deckbuilding principles or heuristics, mulligan decisions, threat assessment, play-pattern or sequencing advice, politics or table strategy, game-theory or meta reasoning, or stated gameplay/philosophy principles even when no specific card names are present.
+            DROP transcripts that are mostly trivia or quiz content, set or news or spoiler commentary with no practical application, pure promotional or announcement or housekeeping or intro material, or budget-pool reveals without deckbuilding or gameplay guidance.
             When in doubt, keep.
             """;
         const string expectedClipsPrompt = """
@@ -76,6 +76,9 @@ public sealed class DistillationPromptRegressionTests
         Assert.Contains("SUMMARY:", DistillationSchemas.CombinedSystemPrompt, StringComparison.Ordinal);
         Assert.Contains("KEY CLIPS:", DistillationSchemas.CombinedSystemPrompt, StringComparison.Ordinal);
         Assert.Contains("TAGS:", DistillationSchemas.CombinedSystemPrompt, StringComparison.Ordinal);
+        Assert.Contains("mulligan decisions", DistillationSchemas.ClassificationSystemPrompt, StringComparison.Ordinal);
+        Assert.Contains("no specific card names are present", DistillationSchemas.ClassificationSystemPrompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("meta or format philosophy with no actionable deckbuilding advice", DistillationSchemas.ClassificationSystemPrompt, StringComparison.Ordinal);
     }
 
     [Fact]

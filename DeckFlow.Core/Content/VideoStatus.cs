@@ -12,6 +12,9 @@ public enum VideoStatus
     /// <summary>The video has been harvested and exists in at least one enabled source, but has not been distilled.</summary>
     Harvested,
 
+    /// <summary>The video was rejected by the distill classifier (content_distill_status.status='filtered'); it will not distill without a classifier change.</summary>
+    Filtered,
+
     /// <summary>The video has been distilled; a content_site_index row exists for it. Implies harvested.</summary>
     Distilled,
 

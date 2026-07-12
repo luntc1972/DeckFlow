@@ -107,6 +107,8 @@ public sealed class VideoStatusResolverTests
 
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<long> InsertVideoAsync(long sourceId, string? youtubeVideoId, string? rssGuid, string title, string videoUrl, DateTimeOffset? publishedUtc, string transcriptStatus, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<ContentVideo>> ListVideosPendingDistillAsync(long sourceId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<PendingDistillProjection>> ListPendingDistillDisplayAsync(long sourceId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task UpdateTranscriptStatusAsync(long videoId, string status, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<long> InsertTranscriptAsync(long videoId, string source, string body, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<long> InsertSummaryAsync(long videoId, string body, CancellationToken cancellationToken = default) => throw new NotSupportedException();

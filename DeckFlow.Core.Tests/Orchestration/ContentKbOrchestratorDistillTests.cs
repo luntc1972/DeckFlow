@@ -149,6 +149,19 @@ internal sealed class DistillTestVideoStore : IContentVideoStore
     public Task<IReadOnlyList<ContentVideo>> ListVideosPendingDistillAsync(long sourceId, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<ContentVideo>>(_pendingBySource.GetValueOrDefault(sourceId) ?? []);
 
+    public Task<IReadOnlyList<PendingDistillProjection>> ListPendingDistillDisplayAsync(long sourceId, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<PendingDistillProjection>>(
+            (_pendingBySource.GetValueOrDefault(sourceId) ?? [])
+            .Select(video => new PendingDistillProjection
+            {
+                YoutubeVideoId = video.YoutubeVideoId,
+                Title = video.Title,
+                VideoUrl = video.VideoUrl,
+                PublishedUtc = video.PublishedUtc,
+                DistillStatus = null,
+            })
+            .ToArray());
+
     public Task<ContentTranscriptBody?> GetLatestTranscriptAsync(long videoId, CancellationToken cancellationToken = default)
         => Task.FromResult(_transcriptsByVideoId.GetValueOrDefault(videoId));
 

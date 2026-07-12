@@ -478,10 +478,18 @@ public partial class Harvest
                 pendingCts.Token);
 
             _pendingDistillVideos = pending
-                .Select(p => new VideoViewModel(p.YoutubeVideoId, p.VideoUrl, p.Title, p.PublishedUtc, VideoStatus.Harvested)
-                {
-                    Selected = false,
-                })
+                .Select(
+                    p => new VideoViewModel(
+                        p.YoutubeVideoId,
+                        p.VideoUrl,
+                        p.Title,
+                        p.PublishedUtc,
+                        string.Equals(p.DistillStatus, "filtered", StringComparison.Ordinal)
+                            ? VideoStatus.Filtered
+                            : VideoStatus.Harvested)
+                    {
+                        Selected = false,
+                    })
                 .ToList();
             _pendingLoaded = true;
             _allPendingSelected = false;

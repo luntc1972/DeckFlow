@@ -51,6 +51,9 @@ internal sealed class ThrowingContentVideoStore : IContentVideoStore
     public Task<IReadOnlyList<ContentVideo>> ListVideosPendingDistillAsync(long sourceId, CancellationToken cancellationToken = default)
         => throw new InvalidOperationException($"{nameof(ThrowingContentVideoStore)}.{nameof(ListVideosPendingDistillAsync)} must not be called by the current path");
 
+    public Task<IReadOnlyList<PendingDistillProjection>> ListPendingDistillDisplayAsync(long sourceId, CancellationToken cancellationToken = default)
+        => throw new InvalidOperationException($"{nameof(ThrowingContentVideoStore)}.{nameof(ListPendingDistillDisplayAsync)} must not be called by the current path");
+
     public Task UpdateTranscriptStatusAsync(long videoId, string status, CancellationToken cancellationToken = default)
         => throw new InvalidOperationException($"{nameof(ThrowingContentVideoStore)}.{nameof(UpdateTranscriptStatusAsync)} must not be called by the current path");
 
