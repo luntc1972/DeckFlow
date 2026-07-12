@@ -4,6 +4,7 @@
 @using DeckFlow.Core.Integration
 @using DeckFlow.Core.Orchestration
 @using DeckFlow.Studio.Services
+@using DeckFlow.Studio.ViewModels
 @using System.Diagnostics
 
 <PageTitle>Harvest + Distill</PageTitle>
@@ -26,7 +27,7 @@
             <h2 class="h5 fw-semibold mb-0">Browse Channel or Playlist</h2>
         </div>
         <div class="card-body">
-            @if (_operationInFlight)
+            @if (Runner.IsRunning)
             {
                 <div class="alert alert-info py-2 mb-3">
                     Harvest or distill in progress — channel browse unavailable.
@@ -40,7 +41,7 @@
                         <select id="creatorSelect" class="form-select"
                                 value="@_selectedCreatorRef"
                                 @onchange="OnCreatorSelected"
-                                disabled="@_operationInFlight">
+                                disabled="@IsBusy">
                             <option value="">— paste a URL instead —</option>
                             @foreach (var creator in _creators)
                             {
@@ -59,27 +60,27 @@
                     <input id="channelInput" type="text" class="form-control"
                            placeholder="e.g. @@SomeCreator or https://youtube.com/playlist?list=PL..."
                            @bind="_channelInput"
-                           disabled="@_operationInFlight" />
+                           disabled="@IsBusy" />
                 </div>
                 <div class="col-md-2">
                     <label for="browseLimit" class="form-label fw-semibold small">Count</label>
                     <input id="browseLimit" type="number" class="form-control"
                            min="1" max="200"
                            @bind="_browseLimit"
-                           disabled="@_operationInFlight" />
+                           disabled="@IsBusy" />
                 </div>
                 <div class="col-md-2">
                     <label for="browseSkip" class="form-label fw-semibold small">Skip</label>
                     <input id="browseSkip" type="number" class="form-control"
                            min="0"
                            @bind="_browseSkip"
-                           disabled="@_operationInFlight"
+                           disabled="@IsBusy"
                            aria-describedby="browseSkipHint" />
                 </div>
                 <div class="col-md-3">
                     <button class="btn btn-outline-primary w-100"
                             @onclick="BrowseChannelAsync"
-                            disabled="@(_operationInFlight || _isBrowsingChannel)">
+                            disabled="@IsBusy">
                         @if (_isBrowsingChannel)
                         {
                             <span class="spinner-border spinner-border-sm text-primary"
@@ -123,7 +124,7 @@
                 <div class="form-check mb-2">
                     <input class="form-check-input" type="checkbox" id="showAllVideos"
                            @bind="_showAllVideos"
-                           disabled="@_operationInFlight" />
+                           disabled="@IsBusy" />
                     <label class="form-check-label small" for="showAllVideos">
                         Show all (including harvested / distilled / published). Default shows only not-yet-harvested videos.
                     </label>
@@ -131,7 +132,7 @@
                 <div class="form-check mb-2">
                     <input class="form-check-input" type="checkbox" id="showHiddenVideos"
                            @bind="_showHiddenVideos"
-                           disabled="@_operationInFlight" />
+                           disabled="@IsBusy" />
                     <label class="form-check-label small" for="showHiddenVideos">
                         Show hidden (skipped / blocked) for this creator, with un-skip / un-block.
                     </label>
@@ -144,7 +145,7 @@
                             <select id="browseCreatorFilter" class="form-select form-select-sm"
                                     value="@_browsCreatorFilter"
                                     @onchange="OnBrowseCreatorFilterChanged"
-                                    disabled="@_operationInFlight">
+                                    disabled="@IsBusy">
                                 <option value="">All creators</option>
                                 @foreach (var creator in browseCreators)
                                 {
@@ -203,13 +204,13 @@
                                         {
                                             <button class="btn btn-sm btn-outline-secondary me-1"
                                                     @onclick="() => SkipVideoAsync(vm)"
-                                                    disabled="@_operationInFlight"
+                                                    disabled="@IsBusy"
                                                     aria-label="Skip @vm.Title">
                                                 Skip
                                             </button>
                                             <button class="btn btn-sm btn-outline-danger"
                                                     @onclick="() => BeginBlock(vm)"
-                                                    disabled="@(_operationInFlight || vm.Status == VideoStatus.Blocked)"
+                                                    disabled="@(IsBusy || vm.Status == VideoStatus.Blocked)"
                                                     aria-label="Block @vm.Title">
                                                 Block Video
                                             </button>
@@ -219,7 +220,7 @@
                                             <button class="btn btn-sm btn-danger"
                                                     @ref="_confirmBlockButton"
                                                     @onclick="() => ConfirmBlockAsync(vm)"
-                                                    disabled="@_operationInFlight"
+                                                    disabled="@IsBusy"
                                                     aria-label="Confirm block @vm.Title">
                                                 Confirm Block
                                             </button>
@@ -263,7 +264,7 @@
                                                 {
                                                     <button class="btn btn-sm btn-outline-primary me-1"
                                                             @onclick="() => UnskipVideoAsync(vm)"
-                                                            disabled="@_operationInFlight"
+                                                            disabled="@IsBusy"
                                                             aria-label="Un-skip @vm.Title">
                                                         Un-skip
                                                     </button>
@@ -272,7 +273,7 @@
                                                 {
                                                     <button class="btn btn-sm btn-outline-primary"
                                                             @onclick="() => UnblockVideoRowAsync(vm)"
-                                                            disabled="@_operationInFlight"
+                                                            disabled="@IsBusy"
                                                             aria-label="Un-block @vm.Title">
                                                         Un-block
                                                     </button>
@@ -303,11 +304,11 @@
                 <label for="pasteQueue" class="form-label fw-semibold small">Paste video URLs or IDs, or a playlist URL (one per line)</label>
                 <textarea id="pasteQueue" class="form-control" rows="4"
                           @bind="_pasteQueueText"
-                          disabled="@_operationInFlight"></textarea>
+                          disabled="@IsBusy"></textarea>
             </div>
             <button class="btn btn-outline-secondary"
                     @onclick="AddToQueueAsync"
-                    disabled="@(_operationInFlight || _isAddingToQueue)">
+                    disabled="@IsBusy">
                 @if (_isAddingToQueue)
                 {
                     <span class="spinner-border spinner-border-sm text-primary"
@@ -425,9 +426,16 @@
                 </p>
             }
 
-            @if (selectedCount == 0 && !_operationInFlight)
+            @if (selectedCount == 0 && !Runner.IsRunning)
             {
                 <p class="text-muted">Select at least one video to harvest.</p>
+            }
+
+            @if (Runner.IsRunning)
+            {
+                <div class="alert alert-info py-2 mb-3">
+                    @(Runner.CurrentKind == HarvestJobKind.LiveDistill ? "Distilling" : "Harvesting") — this job keeps running in the background if you switch pages.
+                </div>
             }
 
             <div class="d-flex gap-2 align-items-center mb-3 flex-wrap">
@@ -435,19 +443,19 @@
                    auto-approve. The plain "Harvest Selected" stays as a fallback (D-12). *@
                 <button class="btn btn-primary"
                         @onclick="HarvestAndAutoDistillAsync"
-                        disabled="@(selectedCount == 0 || _operationInFlight)">
+                        disabled="@(selectedCount == 0 || IsBusy)">
                     Harvest + Auto-distill
                 </button>
                 <button class="btn btn-outline-primary"
                         @onclick="HarvestSelectedAsync"
-                        disabled="@(selectedCount == 0 || _operationInFlight)">
+                        disabled="@(selectedCount == 0 || IsBusy)">
                     Harvest Selected
                 </button>
-                @if (_operationInFlight)
+                @if (Runner.IsRunning)
                 {
                     <button class="btn btn-outline-danger btn-sm"
                             @onclick="CancelOperation">
-                        Cancel Harvest
+                        Cancel
                     </button>
                 }
             </div>
@@ -494,12 +502,12 @@
                 </div>
             }
 
-            @if (_operationInFlight || _logLines.Count > 0)
+            @if (Runner.IsRunning || _logLines.Count > 0)
             {
                 <div class="mb-2">
-                    @if (_operationInFlight)
+                    @if (Runner.IsRunning)
                     {
-                        <span class="fw-semibold me-2">Harvesting...</span>
+                        <span class="fw-semibold me-2">Harvest/distill running...</span>
                         <div class="spinner-border spinner-border-sm text-primary d-inline-block"
                              role="status"
                              aria-label="Operation in progress">
@@ -547,7 +555,7 @@
                    should not read as a minor affordance. The list also auto-loads on page init. *@
                 <button class="btn btn-primary"
                         @onclick="LoadPendingDistillAsync"
-                        disabled="@(_operationInFlight || _loadingPending)">
+                        disabled="@IsBusy">
                     @if (_loadingPending)
                     {
                         <span class="spinner-border spinner-border-sm text-primary"
@@ -619,7 +627,7 @@
                 var distillIds = redistillConfirmed
                     ? distillHarvested.Select(v => v.VideoId).Concat(distillAlreadyDistilled.Select(v => v.VideoId)).ToList().AsReadOnly()
                     : distillHarvested.Select(v => v.VideoId).ToList().AsReadOnly();
-                var dryRunButtonEnabled = !_operationInFlight
+                var dryRunButtonEnabled = !IsBusy
                     && (alreadyDistilledCount == 0 || redistillConfirmed)
                     && (readyCount > 0 || (alreadyDistilledCount > 0 && redistillConfirmed));
             }
@@ -657,7 +665,7 @@
                     </div>
                     <button class="btn btn-outline-secondary btn-sm"
                             @onclick="RaiseCapAsync"
-                            disabled="@_operationInFlight">
+                            disabled="@IsBusy">
                         Raise cap
                     </button>
                 </div>
@@ -731,7 +739,7 @@
                 <div class="d-flex gap-2 align-items-center mb-3">
                     <button class="btn btn-primary"
                             @onclick="() => RunDistillStageBAsync(distillIds, redistillConfirmed)"
-                            disabled="@(!dryRunButtonEnabled || _distillLiveInFlight)">
+                            disabled="@(!dryRunButtonEnabled)">
                         @if (_distillLiveInFlight)
                         {
                             <span class="spinner-border spinner-border-sm"
@@ -780,7 +788,7 @@
                 @if (_distillDryRunInFlight)
                 {
                     <button class="btn btn-outline-danger btn-sm"
-                            @onclick="CancelOperation">
+                            @onclick="CancelDryRun">
                         Cancel Distill
                     </button>
                 }
@@ -840,7 +848,7 @@
                     <div class="d-flex gap-2 align-items-center mb-3">
                         <button class="btn btn-primary"
                                 @onclick="() => RunDistillStageBAsync(distillIds, redistillConfirmed)"
-                                disabled="@(!_distillSpendConfirmed || _operationInFlight)">
+                                disabled="@(!_distillSpendConfirmed || IsBusy)">
                             @if (_distillLiveInFlight)
                             {
                                 <span class="spinner-border spinner-border-sm"

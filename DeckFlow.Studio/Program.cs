@@ -203,6 +203,7 @@ public partial class Program
             // one is registered scoped to avoid a captive dependency, same reasoning as
             // DirectPushCoordinator/PublishCoordinator above.
             builder.Services.AddSingleton<DeckFlow.Studio.ViewModels.HarvestQueueCoordinator>();
+            builder.Services.AddSingleton<DeckFlow.Studio.ViewModels.HarvestJobRunner>();
             builder.Services.AddSingleton<DeckFlow.Studio.ViewModels.AutoApproveSettingsCoordinator>();
             builder.Services.AddScoped<DeckFlow.Studio.ViewModels.CreatorManagementCoordinator>();
             builder.Services.AddSingleton<DeckFlow.Studio.ViewModels.SpendCapCoordinator>();

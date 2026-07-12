@@ -52,6 +52,9 @@ public partial class Harvest
     [Inject]
     private SpendCapCoordinator SpendCapCoordinator { get; set; } = default!;
 
+    [Inject]
+    private HarvestJobRunner Runner { get; set; } = default!;
+
     // ── Section 1 state ─────────────────────────────────────────────────────
     // SRC-02: saved creators for the browse dropdown. Selecting one fills _channelInput; the
     // URL/handle input remains the one-off fallback when no creator is selected.
@@ -87,8 +90,6 @@ public partial class Harvest
     private bool _allQueueSelected;
 
     // ── Section 3 harvest state ──────────────────────────────────────────────
-    private CancellationTokenSource? _cts;
-    private bool _operationInFlight;
     private List<string> _logLines = new();
     private string _blockError = string.Empty;
     private HarvestResult? _harvestResult;
@@ -133,6 +134,7 @@ public partial class Harvest
     private bool _distillDryRunInFlight;
     private List<string> _distillLogLines = new();
     private DistillResult? _distillDryRunResult;
+    private CancellationTokenSource? _distillDryRunCts;
 
     // Stage B live-distill state.
     private bool _distillSpendConfirmed;
@@ -152,11 +154,12 @@ public partial class Harvest
     private bool _loadingPending;
     private bool _allPendingSelected;
     private string _pendingDistillMessage = string.Empty;
+    private bool IsBusy => Runner.IsRunning || _isBrowsingChannel || _isAddingToQueue || _loadingPending;
 
     // ── Section 1: Channel or Playlist Browse (HARV-01) ────────────────────
     private async Task BrowseChannelAsync()
     {
-        if (_operationInFlight || _isBrowsingChannel || string.IsNullOrWhiteSpace(_channelInput))
+        if (IsBusy || string.IsNullOrWhiteSpace(_channelInput))
         {
             return;
         }
@@ -275,7 +278,7 @@ public partial class Harvest
     // Un-skip a browsed row: drop it from the skip list so it returns to the harvest list. Non-fatal.
     private async Task UnskipVideoAsync(VideoViewModel vm)
     {
-        if (_operationInFlight)
+        if (IsBusy)
         {
             return;
         }
@@ -298,20 +301,19 @@ public partial class Harvest
     // Un-block a browsed row via the maintenance orchestrator, then re-resolve its badge.
     private async Task UnblockVideoRowAsync(VideoViewModel vm)
     {
-        if (_operationInFlight)
+        if (IsBusy)
         {
             return;
         }
 
-        _operationInFlight = true;
         _blockError = string.Empty;
-        _cts = new CancellationTokenSource();
+        using var unblockCts = new CancellationTokenSource();
 
         try
         {
             var result = await Task.Run(
-                () => CreatorCoordinator.UnblockVideoAsync(vm.VideoId, progress: null, _cts.Token),
-                _cts.Token);
+                () => CreatorCoordinator.UnblockVideoAsync(vm.VideoId, progress: null, unblockCts.Token),
+                unblockCts.Token);
 
             if (result.Success)
             {
@@ -331,7 +333,6 @@ public partial class Harvest
         }
         finally
         {
-            _operationInFlight = false;
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -349,7 +350,7 @@ public partial class Harvest
     // writes only the skip list (no artifact delete, no blocklist).
     private async Task SkipVideoAsync(VideoViewModel vm)
     {
-        if (_operationInFlight)
+        if (IsBusy)
         {
             return;
         }
@@ -372,7 +373,7 @@ public partial class Harvest
     // ── Section 2: URL/ID Paste Queue (HARV-02) ─────────────────────────────
     private async Task AddToQueueAsync()
     {
-        if (_operationInFlight || _isAddingToQueue || string.IsNullOrWhiteSpace(_pasteQueueText))
+        if (IsBusy || string.IsNullOrWhiteSpace(_pasteQueueText))
         {
             return;
         }
@@ -460,7 +461,7 @@ public partial class Harvest
     /// </summary>
     private async Task LoadPendingDistillAsync()
     {
-        if (_operationInFlight || _loadingPending)
+        if (IsBusy)
         {
             return;
         }
@@ -525,7 +526,7 @@ public partial class Harvest
 
     private async Task HarvestSelectedAsync()
     {
-        if (_operationInFlight)
+        if (Runner.IsRunning)
         {
             return;
         }
@@ -536,18 +537,18 @@ public partial class Harvest
             return;
         }
 
-        _operationInFlight = true;
         _logLines.Clear();
         _harvestResult = null;
         _harvestCancelled = false;
         // Clear any prior one-click outcome so the plain harvest path shows only its own status.
         _showOutcomeCard = false;
         _oneClickMeteredMessage = string.Empty;
-        _cts = new CancellationTokenSource();
 
         try
         {
-            await RunHarvestCoreAsync(selectedVideos, BuildHarvestProgress());
+            await Runner.RunAsync(
+                HarvestJobKind.Harvest,
+                ct => RunHarvestCoreAsync(selectedVideos, BuildHarvestProgress(), ct));
         }
         catch (OperationCanceledException)
         {
@@ -556,7 +557,6 @@ public partial class Harvest
         }
         finally
         {
-            _operationInFlight = false;
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -571,7 +571,7 @@ public partial class Harvest
     /// </summary>
     private async Task HarvestAndAutoDistillAsync()
     {
-        if (_operationInFlight)
+        if (Runner.IsRunning)
         {
             return;
         }
@@ -582,7 +582,6 @@ public partial class Harvest
             return;
         }
 
-        _operationInFlight = true;
         _logLines.Clear();
         _harvestResult = null;
         _harvestCancelled = false;
@@ -591,50 +590,53 @@ public partial class Harvest
         _oneClickMeteredMessage = string.Empty;
         _outcomeHarvestReadyCount = 0;
         _outcomeAutoApprovedCount = 0;
-        _cts = new CancellationTokenSource();
-
-        var progress = BuildHarvestProgress();
         var selectedIds = selectedVideos.Select(v => v.VideoId).ToList();
 
         try
         {
-            // (2) Always harvest first — both paths run the harvest body.
-            var harvestOk = await RunHarvestCoreAsync(selectedVideos, progress);
+            await Runner.RunAsync<object?>(
+                HarvestJobKind.HarvestAndAutoDistill,
+                async ct =>
+                {
+                    var progress = BuildHarvestProgress();
 
-            // (1) D-08 GATE: a metered provider does NOT live-distill (Core refuses at line 244).
-            // Surface the requires-subscription message and stop before distill — no silent spend.
-            if (!DistillConfig.IsSubscriptionProvider)
-            {
-                _oneClickMeteredMessage =
-                    "Live distill requires a subscription provider. Harvest completed; use the Distill section below to preview/confirm.";
-                return;
-            }
+                    // (2) Always harvest first — both paths run the harvest body.
+                    var harvestOk = await RunHarvestCoreAsync(selectedVideos, progress, ct);
 
-            if (!harvestOk)
-            {
-                // Harvest itself failed/partial — the harvest status line already explains; do not distill.
-                return;
-            }
+                    // (1) D-08 GATE: a metered provider does NOT live-distill (Core refuses at line 244).
+                    // Surface the requires-subscription message and stop before distill — no silent spend.
+                    if (!DistillConfig.IsSubscriptionProvider)
+                    {
+                        _oneClickMeteredMessage =
+                            "Live distill requires a subscription provider. Harvest completed; use the Distill section below to preview/confirm.";
+                        return null;
+                    }
 
-            // (3) Obtain harvest-ready ids: ListPendingDistillAsync ∩ selected (HIGH #2). Excludes
-            // skipped/no-caption and already-distilled videos (which are not pending-distill).
-            var harvestReadyIds = await DetermineHarvestReadyIdsAsync(selectedIds);
-            _outcomeHarvestReadyCount = harvestReadyIds.Count;
+                    if (!harvestOk)
+                    {
+                        // Harvest itself failed/partial — the harvest status line already explains; do not distill.
+                        return null;
+                    }
 
-            if (harvestReadyIds.Count == 0)
-            {
-                // Nothing distillable — show the outcome card with harvested/0-distilled and stop.
-                _oneClickDistillResult = new DistillResult { Success = true };
-                _showOutcomeCard = true;
-                return;
-            }
+                    // (3) Obtain harvest-ready ids: ListPendingDistillAsync ∩ selected (HIGH #2). Excludes
+                    // skipped/no-caption and already-distilled videos (which are not pending-distill).
+                    var harvestReadyIds = await DetermineHarvestReadyIdsAsync(selectedIds, ct);
+                    _outcomeHarvestReadyCount = harvestReadyIds.Count;
 
-            // (4)+(5): distill inline then apply the shared auto-approve step (extracted, Phase 82).
-            // RunOneClickDistillAndApproveAsync refreshes badges AND reloads the pending list post-distill
-            // (superset of main's a10b0b41 "refresh pending list after one-click distill").
-            await RunOneClickDistillAndApproveAsync(harvestReadyIds);
+                    if (harvestReadyIds.Count == 0)
+                    {
+                        // Nothing distillable — show the outcome card with harvested/0-distilled and stop.
+                        _oneClickDistillResult = new DistillResult { Success = true };
+                        _showOutcomeCard = true;
+                        return null;
+                    }
 
-            await RefreshCapDisplayAsync();
+                    // (4)+(5): distill inline then apply the shared auto-approve step (extracted, Phase 82).
+                    await RunOneClickDistillAndApproveAsync(harvestReadyIds, ct);
+
+                    await RefreshCapDisplayAsync();
+                    return null;
+                });
         }
         catch (OperationCanceledException)
         {
@@ -643,9 +645,8 @@ public partial class Harvest
         }
         finally
         {
-            _operationInFlight = false;
-            // Why: refresh the pending-distill list AFTER clearing the in-flight flag. Called mid-
-            // operation it no-ops (LoadPendingDistillAsync guards on _operationInFlight), so distilled
+            // Why: refresh the pending-distill list AFTER the runner clears IsRunning. Called mid-
+            // operation it no-ops (LoadPendingDistillAsync guards on IsBusy), so distilled
             // videos would otherwise linger in the list — and the spinner state — until the page is
             // revisited. Reloading here drops them without a manual navigate-away/back.
             if (_pendingLoaded)
@@ -662,11 +663,11 @@ public partial class Harvest
     /// pending-distill videos (excludes skipped/no-caption/already-distilled) intersected with the
     /// videos selected for this run (HIGH #2).
     /// </summary>
-    private async Task<List<string>> DetermineHarvestReadyIdsAsync(IReadOnlyList<string> selectedIds)
+    private async Task<List<string>> DetermineHarvestReadyIdsAsync(IReadOnlyList<string> selectedIds, CancellationToken cancellationToken)
     {
         var pending = await Task.Run(
-            () => DistillOrchestrator.ListPendingDistillAsync(_cts!.Token),
-            _cts!.Token);
+            () => DistillOrchestrator.ListPendingDistillAsync(cancellationToken),
+            cancellationToken);
         var selectedSet = new HashSet<string>(selectedIds, StringComparer.Ordinal);
         return pending
             .Select(p => p.YoutubeVideoId)
@@ -681,15 +682,15 @@ public partial class Harvest
     /// manual fallback owns the re-distill double-confirm, D-12), then applies the shared
     /// auto-approve step and refreshes badges/pending list.
     /// </summary>
-    private async Task RunOneClickDistillAndApproveAsync(IReadOnlyList<string> harvestReadyIds)
+    private async Task RunOneClickDistillAndApproveAsync(IReadOnlyList<string> harvestReadyIds, CancellationToken cancellationToken)
     {
         var distillProgress = new ActionOrchestratorProgress(msg =>
             InvokeAsync(() =>
             {
                 try
                 {
-                    _logLines.Add(msg);
-                    StateHasChanged();
+                    // Runner.AppendLog raises Changed → OnRunnerChanged appends + re-renders.
+                    Runner.AppendLog(msg);
                 }
                 catch (ObjectDisposedException) { }
                 catch (InvalidOperationException) { }
@@ -703,21 +704,17 @@ public partial class Harvest
                 redistill: false,
                 videoIds: harvestReadyIds,
                 progress: distillProgress,
-                cancellationToken: _cts!.Token),
-            _cts!.Token);
+                cancellationToken: cancellationToken),
+            cancellationToken);
 
         _oneClickDistillResult = result;
 
         // Shared auto-approve step (D-09): flip >=cutoff distills to 'approved' when enabled.
-        _outcomeAutoApprovedCount = await AutoApproveCoordinator.ApplyAutoApproveAsync(result, _autoApproveSettings, _cts!.Token);
+        _outcomeAutoApprovedCount = await AutoApproveCoordinator.ApplyAutoApproveAsync(result, _autoApproveSettings, cancellationToken);
 
         _showOutcomeCard = true;
 
         await RefreshBadgesAsync(harvestReadyIds);
-        if (_pendingLoaded)
-        {
-            await LoadPendingDistillAsync();
-        }
     }
 
     /// <summary>
@@ -730,8 +727,8 @@ public partial class Harvest
             {
                 try
                 {
-                    _logLines.Add(msg);
-                    StateHasChanged();
+                    // Runner.AppendLog raises Changed → OnRunnerChanged appends + re-renders.
+                    Runner.AppendLog(msg);
                 }
                 catch (ObjectDisposedException) { }
                 catch (InvalidOperationException) { }
@@ -741,12 +738,13 @@ public partial class Harvest
     /// Runs the harvest body (resolve channel per video, group, EnsureYoutubeSource + HarvestAsync per
     /// group, continue-on-failure) for the supplied selected videos, sets <see cref="_harvestResult"/>,
     /// and refreshes badges on success. Shared by the plain "Harvest Selected" and one-click paths.
-    /// Caller owns the <see cref="_operationInFlight"/> guard, the CTS, and OperationCanceledException.
+    /// Caller owns the runner guard and OperationCanceledException handling.
     /// </summary>
     /// <returns><c>true</c> when the harvest completed successfully; otherwise <c>false</c>.</returns>
     private async Task<bool> RunHarvestCoreAsync(
         IReadOnlyList<VideoViewModel> selectedVideos,
-        ActionOrchestratorProgress progress)
+        ActionOrchestratorProgress progress,
+        CancellationToken cancellationToken)
     {
         // Resolve a channel URL and name for each selected video.
         // Videos from the explicit-id queue carry ChannelId from YouTube metadata;
@@ -760,14 +758,14 @@ public partial class Harvest
         if (groups.Count == 0)
         {
             // All selected videos are unresolved — abort cleanly without throwing.
-            _logLines.Add("Could not determine a channel for the selected video(s).");
+            Runner.AppendLog("Could not determine a channel for the selected video(s).");
             await InvokeAsync(StateHasChanged);
             return false;
         }
 
         if (plan.UnresolvedVideoIds.Count > 0)
         {
-            _logLines.Add($"Warning: skipping {plan.UnresolvedVideoIds.Count} video(s) with no resolvable channel — ids: {string.Join(", ", plan.UnresolvedVideoIds)}");
+            Runner.AppendLog($"Warning: skipping {plan.UnresolvedVideoIds.Count} video(s) with no resolvable channel — ids: {string.Join(", ", plan.UnresolvedVideoIds)}");
         }
 
         var selectedIds = selectedVideos.Select(v => v.VideoId).ToList().AsReadOnly();
@@ -790,7 +788,7 @@ public partial class Harvest
                         group.ChannelUrl,
                         group.ChannelName,
                         progress,
-                        _cts!.Token).ConfigureAwait(false);
+                        cancellationToken).ConfigureAwait(false);
 
                     if (!src.Success || src.Id is null)
                     {
@@ -808,7 +806,7 @@ public partial class Harvest
                         try
                         {
                             await CreatorCoordinator.LinkCreatorToSourceAsync(
-                                group.CreatorRef, src.Id.Value, src.Slug, _cts.Token).ConfigureAwait(false);
+                                group.CreatorRef, src.Id.Value, src.Slug, cancellationToken).ConfigureAwait(false);
                         }
                         catch (Exception)
                         {
@@ -821,7 +819,7 @@ public partial class Harvest
                         videoIds: group.VideoIds,
                         sourceId: src.Id,
                         progress: progress,
-                        cancellationToken: _cts.Token).ConfigureAwait(false);
+                        cancellationToken: cancellationToken).ConfigureAwait(false);
 
                     if (!r.Success)
                     {
@@ -843,7 +841,7 @@ public partial class Harvest
                     Message = anyGroupFailed ? firstFailureMessage : null,
                 };
             },
-            _cts!.Token);
+            cancellationToken);
 
         // Re-resolve badges for harvested videos to reflect new DB state.
         if (_harvestResult.Success)
@@ -856,7 +854,12 @@ public partial class Harvest
 
     private void CancelOperation()
     {
-        _cts?.Cancel();
+        Runner.Cancel();
+    }
+
+    private void CancelDryRun()
+    {
+        _distillDryRunCts?.Cancel();
     }
 
     private void BeginBlock(VideoViewModel vm)
@@ -890,6 +893,43 @@ public partial class Harvest
         // Why: populate the distill list on arrival so harvested-but-not-distilled videos are
         // visible without a separate click. Non-fatal — LoadPendingDistillAsync swallows failures.
         await LoadPendingDistillAsync();
+        Runner.Changed += OnRunnerChanged;
+        // Reconnect: seed the pane for whatever job is running so the live log reappears on return.
+        if (Runner.IsRunning)
+        {
+            if (Runner.CurrentKind == HarvestJobKind.LiveDistill)
+            {
+                _distillLogLines = Runner.Log.ToList();
+            }
+            else
+            {
+                _logLines = Runner.Log.ToList();
+            }
+        }
+    }
+
+    // Runner event: append the single new line (O(1)) to the pane owned by the running job kind,
+    // then re-render. A null line is a running-state transition (start/finish) — render only.
+    private void OnRunnerChanged(string? line)
+    {
+        if (line is not null)
+        {
+            if (Runner.CurrentKind == HarvestJobKind.LiveDistill)
+            {
+                _distillLogLines.Add(line);
+            }
+            else
+            {
+                _logLines.Add(line);
+            }
+        }
+
+        try
+        {
+            _ = InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException) { }
+        catch (InvalidOperationException) { }
     }
 
     /// <summary>
@@ -989,19 +1029,18 @@ public partial class Harvest
         IReadOnlyList<string> distillIds,
         bool redistillConfirmed)
     {
-        if (_operationInFlight)
+        if (IsBusy)
         {
             return;
         }
 
-        _operationInFlight = true;
         _distillDryRunInFlight = true;
         _distillLogLines.Clear();
         _distillDryRunResult = null;
         _distillLiveResult = null;
         _distillSpendConfirmed = false;
         _distillCancelled = false;
-        _cts = new CancellationTokenSource();
+        _distillDryRunCts = new CancellationTokenSource();
 
         // Why: progress sink must marshal _distillLogLines.Add and StateHasChanged through
         // InvokeAsync — same disposal-safe pattern as harvest (T-45-18).
@@ -1031,8 +1070,8 @@ public partial class Harvest
                     redistill: redistillConfirmed,
                     videoIds: distillIds,
                     progress: progress,
-                    cancellationToken: _cts.Token),
-                _cts.Token);
+                    cancellationToken: _distillDryRunCts.Token),
+                _distillDryRunCts.Token);
 
             await RefreshCapDisplayAsync();
         }
@@ -1043,8 +1082,9 @@ public partial class Harvest
         }
         finally
         {
+            _distillDryRunCts?.Dispose();
+            _distillDryRunCts = null;
             _distillDryRunInFlight = false;
-            _operationInFlight = false;
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -1061,17 +1101,15 @@ public partial class Harvest
         // Why: the reviewed-spend confirmation is a spend-safety gate (HARV-05). A subscription
         // ($0) provider has no metered spend, so the dry-run + confirm are skipped and Run Distill
         // is reachable directly; metered providers still require _distillSpendConfirmed.
-        if (_operationInFlight || (!_distillSpendConfirmed && !DistillConfig.IsSubscriptionProvider))
+        if (Runner.IsRunning || (!_distillSpendConfirmed && !DistillConfig.IsSubscriptionProvider))
         {
             return;
         }
 
-        _operationInFlight = true;
         _distillLiveInFlight = true;
         _distillLogLines.Clear();
         _distillLiveResult = null;
         _distillCancelled = false;
-        _cts = new CancellationTokenSource();
 
         // Start elapsed clock and 1-second ticker for live progress display (260615-t7m).
         _distillStopwatch = Stopwatch.StartNew();
@@ -1100,8 +1138,8 @@ public partial class Harvest
             {
                 try
                 {
-                    _distillLogLines.Add(msg);
-                    StateHasChanged();
+                    // CurrentKind == LiveDistill routes this to the distill pane via OnRunnerChanged.
+                    Runner.AppendLog(msg);
                 }
                 catch (ObjectDisposedException) { }
                 catch (InvalidOperationException) { }
@@ -1109,41 +1147,39 @@ public partial class Harvest
 
         try
         {
-            // Why: dryRun: false executes the live distill. redistill: is the same gate as Stage A
-            // so the re-distill guard is consistent end-to-end (HIGH-4). Named argument form used
-            // to decouple from parameter position.
-            _distillLiveResult = await Task.Run(
-                () => DistillOrchestrator.DistillAsync(
-                    limit: distillIds.Count,
-                    dryRun: false,
-                    isSubscriptionProvider: DistillConfig.IsSubscriptionProvider,
-                    redistill: redistillConfirmed,
-                    videoIds: distillIds,
-                    progress: progress,
-                    cancellationToken: _cts.Token),
-                _cts.Token);
-
-            // Refresh badges for distilled videos and update cap display.
-            if (_distillLiveResult.Success || _distillLiveResult.VideosDistilled > 0)
-            {
-                // Why: D-09 reuse — a completing SUBSCRIPTION distill via the manual fallback (D-12)
-                // auto-approves >=cutoff videos through the SAME shared step as the one-click path.
-                // Metered live distill never reaches here (Core refuses at line 244), so the shared
-                // step simply never runs for metered — metered auto-approve is DEFERRED.
-                _outcomeAutoApprovedCount = await AutoApproveCoordinator.ApplyAutoApproveAsync(_distillLiveResult, _autoApproveSettings, _cts!.Token);
-
-                await RefreshBadgesAsync(distillIds);
-
-                // Why: reload the DB-backed pending list so just-distilled videos drop off
-                // (quick task 260615-p4d). Only reload if it was previously loaded so an
-                // operator who never used the loader isn't surprised by a new table appearing.
-                if (_pendingLoaded)
+            await Runner.RunAsync<object?>(
+                HarvestJobKind.LiveDistill,
+                async ct =>
                 {
-                    await LoadPendingDistillAsync();
-                }
-            }
+                    // Why: dryRun: false executes the live distill. redistill: is the same gate as Stage A
+                    // so the re-distill guard is consistent end-to-end (HIGH-4). Named argument form used
+                    // to decouple from parameter position.
+                    _distillLiveResult = await Task.Run(
+                        () => DistillOrchestrator.DistillAsync(
+                            limit: distillIds.Count,
+                            dryRun: false,
+                            isSubscriptionProvider: DistillConfig.IsSubscriptionProvider,
+                            redistill: redistillConfirmed,
+                            videoIds: distillIds,
+                            progress: progress,
+                            cancellationToken: ct),
+                        ct);
 
-            await RefreshCapDisplayAsync();
+                    // Refresh badges for distilled videos and update cap display.
+                    if (_distillLiveResult.Success || _distillLiveResult.VideosDistilled > 0)
+                    {
+                        // Why: D-09 reuse — a completing SUBSCRIPTION distill via the manual fallback (D-12)
+                        // auto-approves >=cutoff videos through the SAME shared step as the one-click path.
+                        // Metered live distill never reaches here (Core refuses at line 244), so the shared
+                        // step simply never runs for metered — metered auto-approve is DEFERRED.
+                        _outcomeAutoApprovedCount = await AutoApproveCoordinator.ApplyAutoApproveAsync(_distillLiveResult, _autoApproveSettings, ct);
+
+                        await RefreshBadgesAsync(distillIds);
+                    }
+
+                    await RefreshCapDisplayAsync();
+                    return null;
+                });
         }
         catch (OperationCanceledException)
         {
@@ -1161,7 +1197,11 @@ public partial class Harvest
             _distillTickerCts = null;
 
             _distillLiveInFlight = false;
-            _operationInFlight = false;
+            if (_pendingLoaded)
+            {
+                await LoadPendingDistillAsync();
+            }
+
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -1191,14 +1231,13 @@ public partial class Harvest
 
     private async Task ConfirmBlockAsync(VideoViewModel vm)
     {
-        if (_operationInFlight)
+        if (IsBusy)
         {
             return;
         }
 
-        _operationInFlight = true;
         _blockError = string.Empty;
-        _cts = new CancellationTokenSource();
+        using var blockCts = new CancellationTokenSource();
 
         var progress = new ActionOrchestratorProgress(msg =>
             InvokeAsync(() =>
@@ -1217,8 +1256,8 @@ public partial class Harvest
             // Why: Task.Run moves the destructive orchestrator call off the Blazor sync context.
             // BlockVideoAsync owns block-first/delete-second ordering — never call a store delete directly.
             var result = await Task.Run(
-                () => CreatorCoordinator.BlockVideoAsync(vm.VideoId, progress, _cts.Token),
-                _cts.Token);
+                () => CreatorCoordinator.BlockVideoAsync(vm.VideoId, progress, blockCts.Token),
+                blockCts.Token);
 
             if (result.Success)
             {
@@ -1245,7 +1284,6 @@ public partial class Harvest
         {
             // Clear the confirm state on EVERY outcome (success, result-false, throw).
             vm.PendingBlock = false;
-            _operationInFlight = false;
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -1254,16 +1292,16 @@ public partial class Harvest
     private static string FormatElapsed(TimeSpan t) =>
         t.TotalSeconds < 60 ? $"{t.TotalSeconds:F0}s" : $"{(int)t.TotalMinutes}m {t.Seconds}s";
 
-    // ── IDisposable: cancel in-flight op on circuit drop (D-06) ─────────────
+    // ── IDisposable: detach UI-only resources on circuit drop ───────────────
     /// <summary>
-    /// Cancels and disposes the active <see cref="CancellationTokenSource"/> so any in-flight
-    /// harvest is stopped when the operator closes the tab or the SignalR circuit drops (D-06).
+    /// Detaches page subscriptions and stops UI-only timers/cancellation sources owned by this
+    /// component instance.
     /// </summary>
     public void Dispose()
     {
-        // Why: CTS disposed on component disposal so a circuit drop cancels in-flight ops (D-06).
-        _cts?.Cancel();
-        _cts?.Dispose();
+        Runner.Changed -= OnRunnerChanged;
+        _distillDryRunCts?.Cancel();
+        _distillDryRunCts?.Dispose();
         // Why: ticker CTS must also be cancelled on disposal so the PeriodicTimer loop exits cleanly
         // when the operator closes the tab mid-distill (260615-t7m).
         _distillTickerCts?.Cancel();

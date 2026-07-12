@@ -29,6 +29,8 @@ DeckFlow.Web/.playwright/
 DeckFlow.Studio/appsettings*.local.json
 DeckFlow.Studio/appsettings.Local.json
 DeckFlow.Studio/secrets.json
+# Local Studio launcher — holds prod/admin secrets in plaintext, never commit (public repo).
+run-studio.bat
 
 # Manabase baseline harness local artifacts (the gating sentinel + harvested decks).
 # The live-Scryfall regenerator is gated by .manabase-harness-on (kept uncommitted), so ignoring

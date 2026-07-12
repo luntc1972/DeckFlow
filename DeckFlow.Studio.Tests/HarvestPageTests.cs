@@ -200,6 +200,57 @@ namespace DeckFlow.Studio.Tests
         }
 
         [Fact]
+        public async Task HarvestPage_Dispose_DoesNotCancelRunningHarvestJob()
+        {
+            var blocked = new MapBlockedStore();
+            var index = new MapSiteIndexStore();
+            var runner = new HarvestJobRunner();
+            var started = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var release = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var harv = new RecordingHarvestOrchestrator
+            {
+                StartedSignal = started,
+                ReleaseSignal = release,
+            };
+
+            var (cut, _, _, _) = RenderHarvest(
+                new[] { Vid("v1", "Vid 1") },
+                blocked,
+                index,
+                harv: harv,
+                runner: runner);
+
+            BrowseChannel(cut);
+
+            await cut.InvokeAsync(() => cut.Find("input[aria-label='Select Vid 1']").Change(true));
+            cut.WaitForAssertion(() =>
+            {
+                var button = cut.FindAll("button").First(b => b.TextContent.Contains("Harvest Selected", StringComparison.Ordinal));
+                Assert.False(button.HasAttribute("disabled"));
+            });
+
+            await cut.InvokeAsync(() => cut.FindAll("button").First(b => b.TextContent.Contains("Harvest Selected", StringComparison.Ordinal)).Click());
+
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            cut.WaitForAssertion(() => Assert.True(runner.IsRunning));
+
+            cut.Dispose();
+
+            Assert.True(runner.IsRunning);
+
+            // Reconnect: render a fresh Harvest against the SAME already-registered services
+            // (bUnit forbids re-registering services after the first render, so we cannot call
+            // RenderHarvest again — the singleton runner is already in the container).
+            var reconnected = Render<Harvest>();
+
+            reconnected.WaitForAssertion(() => Assert.Contains("keeps running in the background if you switch pages", reconnected.Markup));
+
+            release.TrySetResult(true);
+
+            reconnected.WaitForAssertion(() => Assert.False(runner.IsRunning));
+        }
+
+        [Fact]
         public void AutoApprove_DefaultRender_ShowsToggleOnAndCutoffFive()
         {
             var (cut, _, _, _) = RenderHarvest(
@@ -1091,7 +1142,9 @@ namespace DeckFlow.Studio.Tests
             IDistillOrchestrator? distill = null,
             bool isSubscriptionProvider = true,
             FakeCreatorSourceStore? creators = null,
-            FakeSkippedVideoStore? skipped = null)
+            FakeSkippedVideoStore? skipped = null,
+            RecordingHarvestOrchestrator? harv = null,
+            HarvestJobRunner? runner = null)
         {
             JSInterop.Mode = JSRuntimeMode.Loose;
 
@@ -1101,7 +1154,7 @@ namespace DeckFlow.Studio.Tests
                 maint.CannedMaintenanceResult = cannedBlock;
             }
 
-            var harv = new RecordingHarvestOrchestrator();
+            var harvestOrchestrator = harv ?? new RecordingHarvestOrchestrator();
             var lister = new StubLister
             {
                 RecentResult = recent,
@@ -1113,9 +1166,10 @@ namespace DeckFlow.Studio.Tests
             var capOverride = new SessionCapOverride();
             var spendLedger = new StubLedger();
             var creatorStore = creators ?? new FakeCreatorSourceStore();
+            var harvestRunner = runner ?? new HarvestJobRunner();
 
             Services.AddSingleton<IYouTubeChannelVideoLister>(lister);
-            Services.AddSingleton<IHarvestOrchestrator>(harv);
+            Services.AddSingleton<IHarvestOrchestrator>(harvestOrchestrator);
             Services.AddSingleton<IContentSourceManager>(new StubSourceManager());
             Services.AddSingleton<VideoStatusResolver>(resolver);
             Services.AddSingleton<IContentSiteIndexStore>(index);
@@ -1132,12 +1186,13 @@ namespace DeckFlow.Studio.Tests
             // Why: Harvest page collaborators (Phase 82 SRP split) — the page now [Inject]s these
             // instead of the raw services directly, so bUnit's DI container needs them registered too.
             Services.AddSingleton(new HarvestQueueCoordinator(lister, resolver));
+            Services.AddSingleton(harvestRunner);
             Services.AddSingleton(new AutoApproveSettingsCoordinator(autoApproveSettingsStore, autoApproveSignal, index));
             Services.AddSingleton(new CreatorManagementCoordinator(creatorStore, maint));
             Services.AddSingleton(new SpendCapCoordinator(spendLedger, capOverride));
 
             var cut = Render<Harvest>();
-            return (cut, maint, harv, lister);
+            return (cut, maint, harvestOrchestrator, lister);
         }
 
         private VideoStatusResolver BuildResolver(MapBlockedStore blocked, MapSiteIndexStore index)
@@ -1540,8 +1595,10 @@ namespace DeckFlow.Studio.Tests
         private sealed class RecordingHarvestOrchestrator : IHarvestOrchestrator
         {
             public List<IReadOnlyList<string>?> HarvestCalls { get; } = new();
+            public TaskCompletionSource<bool>? StartedSignal { get; set; }
+            public TaskCompletionSource<bool>? ReleaseSignal { get; set; }
 
-            public Task<HarvestResult> HarvestAsync(
+            public async Task<HarvestResult> HarvestAsync(
                 int limit,
                 IReadOnlyList<string>? videoIds = null,
                 long? sourceId = null,
@@ -1549,11 +1606,17 @@ namespace DeckFlow.Studio.Tests
                 CancellationToken cancellationToken = default)
             {
                 HarvestCalls.Add(videoIds);
-                return Task.FromResult(new HarvestResult
+                StartedSignal?.TrySetResult(true);
+                if (ReleaseSignal is not null)
+                {
+                    await ReleaseSignal.Task.WaitAsync(cancellationToken);
+                }
+
+                return new HarvestResult
                 {
                     Success = true,
                     Captions = videoIds?.Count ?? 0,
-                });
+                };
             }
         }
 
