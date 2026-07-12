@@ -2962,6 +2962,11 @@ label.field > span,
   .manabase-table--card td.castability-name::before {
     display: none;
   }
+
+  .manabase-restricted-sources td[data-label="Approximation"] {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
 }
 
 /* .manabase-taplens — full-width tap-analyzer card; ties to .manabase-twolens above it.

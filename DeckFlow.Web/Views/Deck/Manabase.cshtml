@@ -646,6 +646,32 @@
             </table>
         </div>
 
+        @if (report.HasRestrictedSourceApproximation)
+        {
+            <div class="manabase-table-wrap">
+                <table class="manabase-table manabase-table--card manabase-restricted-sources">
+                    <thead>
+                        <tr>
+                            <th scope="col">Land / source</th>
+                            <th scope="col">Approximation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var landName in report.RestrictedSourceLandNames)
+                        {
+                            <tr>
+                                <td data-label="Land / source">
+                                    @landName<span class="manabase-override-mark" title="restricted-source approximation applied" aria-label="restricted-source approximation applied">†</span>
+                                </td>
+                                <td data-label="Approximation">composition-gated restricted color-source estimate</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <p class="manabase-help"><span class="manabase-override-mark">†</span> restricted-source approximation applied to these land rows; colored-source weight is composition-gated, not tracked spell-by-spell.</p>
+        }
+
         @* Biggest-fix callout moved to the .manabase-summary card at the top of the panel so the
            single most actionable change reads with the verdict. See the comment there for the
            no-contradiction invariant (won't tell you to add sources to an oversupplied color). *@
