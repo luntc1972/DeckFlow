@@ -135,6 +135,11 @@ public static class ManabaseAnalyzer
     /// Optional cEDH-only baseline context resolved by the Web layer. Default/disabled preserves the
     /// historic flat-28 cEDH target path byte-for-byte.
     /// </param>
+    /// <param name="restrictedLands">
+    /// Trailing-optional flag hook for the restricted-land approximation rollout. The current Core
+    /// analyzer keys behavior from the classifier-populated deck/report surfaces, so this parameter
+    /// preserves the service threading shape without reordering existing args.
+    /// </param>
     public static ManabaseReport Analyze(
         ManabaseDeck deck,
         ManabaseMode mode,
@@ -146,7 +151,8 @@ public static class ManabaseAnalyzer
         bool ritualBurst = false,
         bool useHealthBandCastability = false,
         bool useHealthBandHeadlineFloor = false,
-        CedhLandContext cedhContext = default)
+        CedhLandContext cedhContext = default,
+        bool restrictedLands = false)
     {
         ArgumentNullException.ThrowIfNull(deck);
 
@@ -252,9 +258,30 @@ public static class ManabaseAnalyzer
             // count credited; de-dup by name preserving first-seen (deck) order.
             RampSourceNames = deck.Sources.Where(s => !s.IsLand && !s.IsConditional && s.Weight <= 0.75).Select(s => s.Name).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
             RampAndDrawNames = deck.RampAndDrawNames,
-            UnsupportedInteractions = deck.UnsupportedInteractions,
+            RestrictedSourceLandNames = deck.RestrictedSourceLandNames,
+            UnsupportedInteractions = AppendRestrictedLandUnsupportedInteraction(deck),
             Summary = summary,
         };
+    }
+
+    private static IReadOnlyList<UnsupportedInteraction> AppendRestrictedLandUnsupportedInteraction(ManabaseDeck deck)
+    {
+        if (deck.RestrictedSourceLandNames.Count == 0)
+        {
+            return deck.UnsupportedInteractions;
+        }
+
+        string landList = string.Join(", ", deck.RestrictedSourceLandNames);
+        return deck.UnsupportedInteractions
+            .Concat(new[]
+            {
+                new UnsupportedInteraction
+                {
+                    Name = "Restricted land approximation",
+                    Reason = $"Approximated restricted colored sources for: {landList}.",
+                },
+            })
+            .ToList();
     }
 
     // Substitute each overridden spell with an effective requirement built from the override cost.

@@ -218,6 +218,13 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     public const string RitualBurstFlagKey = "analysis.manabase.ritual-burst-mana";
 
     /// <summary>
+    /// Restricted-lands flag key: seeded OFF. When enabled, the classifier applies the D-03
+    /// composition-gated approximation for Cavern/Unclaimed/Ziggurat/Nykthos and surfaces the
+    /// deck-level disclosure names; off = byte-identical historic output.
+    /// </summary>
+    public const string RestrictedLandsFlagKey = "analysis.manabase.restricted-lands";
+
+    /// <summary>
     /// cEDH land-target flag key: seeded OFF. When enabled, cEDH uses the hybrid curve-anchored land
     /// target with an optional commander baseline nudge; off = byte-identical historic behavior.
     /// </summary>
@@ -280,6 +287,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         // never show (Codex MED). Both flags on = the stat runs and surfaces.
         bool showPlanPresence = IsFlagOn(PlanPresenceFlagKey) && showMulliganEval;
         bool ritualBurst = IsFlagOn(RitualBurstFlagKey);
+        bool restrictedLands = IsFlagOn(RestrictedLandsFlagKey);
         bool cedhLandTarget = IsFlagOn(CedhLandTargetFlagKey);
 
         ResolvedManabaseDeck resolved = await ResolveAndClassifyAsync(
@@ -288,6 +296,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 landRampSim,
                 payLifeUntapped,
                 checkLandUntapped,
+                restrictedLands,
                 commanderCastability,
                 classifyPlanRoles: showPlanPresence,
                 options.Mode,
@@ -364,7 +373,8 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             ritualBurst: ritualBurst,
             useHealthBandCastability: useHealthBandCastability,
             useHealthBandHeadlineFloor: useHealthBandHeadlineFloor,
-            cedhContext: cedhContext);
+            cedhContext: cedhContext,
+            restrictedLands: restrictedLands);
 
         bool plainLanguage = IsFlagOn(PlainLanguageVerdictFlagKey);
         ManabaseRampDrawBudget? budget = null;
@@ -429,6 +439,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 landRampSim: false,
                 payLifeUntapped: false,
                 checkLandUntapped: false,
+                restrictedLands: false,
                 commanderCastability: false,
                 classifyPlanRoles: false,
                 mode: ManabaseMode.Casual,
@@ -458,6 +469,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         bool landRampSim,
         bool payLifeUntapped,
         bool checkLandUntapped,
+        bool restrictedLands,
         bool commanderCastability,
         bool classifyPlanRoles,
         ManabaseMode mode,
@@ -594,7 +606,14 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         deckEntries = commanderValidation.Entries;
 
         IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
-        ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true, rampCreditV2: rampCreditV2, landRampSim: landRampSim, payLifeUntapped: payLifeUntapped, checkLandUntapped: checkLandUntapped);
+        ManabaseDeck deck = ManabaseClassifier.Classify(
+            facts,
+            isSingleton: true,
+            rampCreditV2: rampCreditV2,
+            landRampSim: landRampSim,
+            payLifeUntapped: payLifeUntapped,
+            checkLandUntapped: checkLandUntapped,
+            restrictedLands: restrictedLands);
 
         if (classifyPlanRoles)
         {

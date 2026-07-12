@@ -562,6 +562,141 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public void Classify_RestrictedLandsFlagOff_CavernStaysFullWeightAndNamesStayEmpty()
+    {
+        var facts = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Cavern of Souls",
+                Quantity = 1,
+                TypeLine = "Land",
+                OracleText = "As Cavern of Souls enters, choose a creature type. {T}: Add {C}. {T}: Add one mana of any color. Spend this mana only to cast a creature spell of the chosen type, and that spell can't be countered.",
+                ProducedMana = new[] { "C", "W", "U", "B", "R", "G" },
+                ManaValue = 0,
+                HasLandFace = true,
+            },
+            new()
+            {
+                Name = "Elf Body",
+                Quantity = 2,
+                ManaCost = "{G}",
+                ManaValue = 1,
+                TypeLine = "Creature — Elf Druid",
+                OracleText = string.Empty,
+                ProducedMana = Array.Empty<string>(),
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(facts, restrictedLands: false);
+
+        ManaSource cavern = Assert.Single(deck.Sources, s => s.Name == "Cavern of Souls");
+        Assert.Equal(1.0, cavern.Weight);
+        Assert.Empty(deck.RestrictedSourceLandNames);
+        Assert.False(deck.HasRestrictedSourceApproximation);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_RestrictedLandsFlag_OnDiverges_OffMatchesBaseline()
+    {
+        static ScryfallCard LandOracle(string name, string typeLine, string oracle, params string[] produced) => new(
+            Name: name, ManaCost: null, TypeLine: typeLine, OracleText: oracle,
+            Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
+            SetCode: null, SetName: null, CollectorNumber: null, CardFaces: null, Id: null,
+            Layout: "normal", Cmc: 0, ProducedMana: produced, Rarity: "rare");
+
+        var entries = new List<DeckEntry>
+        {
+            Entry("Tymna the Weaver", 1, "commander", set: "cmr", cn: "1"),
+            Land("Island", 18),
+            Land("Plains", 14),
+            Entry("Cavern of Souls", 1, "mainboard"),
+            Entry("Ancient Ziggurat", 1, "mainboard"),
+            Entry("Nykthos, Shrine to Nyx", 1, "mainboard"),
+            Entry("Elf One", 1, "mainboard"),
+            Entry("Elf Two", 1, "mainboard"),
+            Entry("Human One", 1, "mainboard"),
+            Entry("Counterspell", 1, "mainboard"),
+        };
+        for (int i = 0; i < 55; i++)
+        {
+            entries.Add(Entry($"Filler {i}", 1, "mainboard"));
+        }
+
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Island", "U"),
+            BasicLand("Plains", "W"),
+            Spell("Tymna the Weaver", "{1}{W}", 2, "Legendary Creature — Human Cleric"),
+            Spell("Elf One", "{G}", 1, "Creature — Elf Druid"),
+            Spell("Elf Two", "{1}{G}", 2, "Creature — Elf Warrior"),
+            Spell("Human One", "{1}{W}", 2, "Creature — Human Soldier"),
+            Spell("Counterspell", "{U}{U}", 2, "Instant"),
+            LandOracle("Cavern of Souls", "Land",
+                "As Cavern of Souls enters, choose a creature type. {T}: Add {C}. {T}: Add one mana of any color. Spend this mana only to cast a creature spell of the chosen type, and that spell can't be countered.",
+                "C", "W", "U", "B", "R", "G"),
+            LandOracle("Ancient Ziggurat", "Land",
+                "{T}: Add one mana of any color. Spend this mana only to cast a creature spell.",
+                "W", "U", "B", "R", "G"),
+            LandOracle("Nykthos, Shrine to Nyx", "Legendary Land",
+                "{T}: Add {C}. {2}, {T}: Choose a color. Add an amount of mana of that color equal to your devotion to that color.",
+                "C", "G"),
+        };
+        cards.AddRange(Enumerable.Range(0, 55).Select(i => Spell($"Filler {i}", "{1}", 1, "Artifact")));
+
+        var baseline = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+        var explicitOff = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.RestrictedLandsFlagKey] = false,
+            }));
+        var on = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.RestrictedLandsFlagKey] = true,
+            }));
+
+        ManabaseAnalysisResult baselineResult = await baseline.AnalyzeAsync("paste", "Restricted Lands");
+        ManabaseAnalysisResult offResult = await explicitOff.AnalyzeAsync("paste", "Restricted Lands");
+        ManabaseAnalysisResult onResult = await on.AnalyzeAsync("paste", "Restricted Lands");
+
+        Assert.Equal(
+            baselineResult.Report.Castability.Select(FormatCastabilityRow),
+            offResult.Report.Castability.Select(FormatCastabilityRow));
+        Assert.Equal(baselineResult.Report.AvgOnCurvePercent, offResult.Report.AvgOnCurvePercent);
+        Assert.Equal(baselineResult.Report.Health, offResult.Report.Health);
+        Assert.Equal(baselineResult.Report.TargetLands, offResult.Report.TargetLands);
+        Assert.Equal(baselineResult.Report.ActualLands, offResult.Report.ActualLands);
+        Assert.Equal(baselineResult.PromptSwapPrompt, offResult.PromptSwapPrompt);
+        Assert.Empty(offResult.Report.RestrictedSourceLandNames);
+        Assert.False(offResult.Report.HasRestrictedSourceApproximation);
+
+        double offBlue = offResult.Report.ColorFindings.Single(f => f.Color == ManaColor.Blue).ActualSources;
+        double onBlue = onResult.Report.ColorFindings.Single(f => f.Color == ManaColor.Blue).ActualSources;
+        Assert.NotEqual(offBlue, onBlue);
+        Assert.Equal(
+            new[]
+            {
+                "Cavern of Souls",
+                "Ancient Ziggurat",
+                "Nykthos, Shrine to Nyx",
+            },
+            onResult.Report.RestrictedSourceLandNames);
+        Assert.True(onResult.Report.HasRestrictedSourceApproximation);
+        UnsupportedInteraction restricted = Assert.Single(
+            onResult.Report.UnsupportedInteractions,
+            u => u.Name == "Restricted land approximation");
+        Assert.Contains("Cavern of Souls", restricted.Reason, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            offResult.Report.UnsupportedInteractions,
+            u => u.Name == "Restricted land approximation");
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_ColorAwareMulliganFlag_ChangesCast_FailsSafeOff()
     {
         // MQ-05 plumbing: the flag is read via IsFlagOn (fail-safe OFF) and threaded into the analyzer

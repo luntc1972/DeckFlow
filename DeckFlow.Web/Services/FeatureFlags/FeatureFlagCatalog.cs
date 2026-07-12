@@ -97,6 +97,11 @@ public static class FeatureFlagCatalog
                 "Credit instant/sorcery rituals (Dark Ritual, Rite of Flame, Cabal Ritual) as one-shot " +
                 "burst mana in the manabase castability sim, cEDH mode only. Raises early-turn cast % " +
                 "for ritual-fueled lists; land count and color counts stay unchanged. Off = byte-identical output.",
+            ["analysis.manabase.restricted-lands"] =
+                "Apply the restricted-land approximation for Cavern of Souls, Unclaimed Territory, " +
+                "Ancient Ziggurat, and Nykthos, Shrine to Nyx, plus the related disclosure marker on " +
+                "the mana base page. Discounts colored-source weight by deck composition; the deck's " +
+                "land/source rows disclose the approximation when present. Off = byte-identical output.",
             ["analysis.manabase.cedh-land-target"] =
                 "Enable the hybrid cEDH land target: keep the Karsten curve anchor, but drop the flat 28 " +
                 "floor and optionally nudge toward the commander's committed cEDH land baseline when sample " +
