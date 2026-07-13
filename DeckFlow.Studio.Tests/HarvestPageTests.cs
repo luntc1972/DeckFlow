@@ -244,6 +244,7 @@ namespace DeckFlow.Studio.Tests
             // (bUnit forbids re-registering services after the first render, so we cannot call
             // RenderHarvest again — the singleton runner is already in the container).
             var reconnected = Render<Harvest>();
+            WaitForPageReady(reconnected);
 
             reconnected.WaitForAssertion(() => Assert.Contains("keeps running in the background if you switch pages", reconnected.Markup));
 
@@ -1246,6 +1247,7 @@ namespace DeckFlow.Studio.Tests
             Services.AddSingleton(new SpendCapCoordinator(spendLedger, capOverride));
 
             var cut = Render<Harvest>();
+            WaitForPageReady(cut);
             return (cut, maint, harvestOrchestrator, lister);
         }
 
@@ -1293,9 +1295,21 @@ namespace DeckFlow.Studio.Tests
 
         private static void BrowseChannel(IRenderedComponent<Harvest> cut)
         {
+            WaitForPageReady(cut);
             cut.InvokeAsync(() => cut.Find("#channelInput").Change("https://youtube.com/@chan")).GetAwaiter().GetResult();
             cut.InvokeAsync(() => cut.FindAll("button").First(b => b.TextContent.Contains("Browse", StringComparison.Ordinal)).Click()).GetAwaiter().GetResult();
             cut.WaitForAssertion(() => Assert.DoesNotContain("Fetching channel videos", cut.Markup), UiTimeout);
+        }
+
+        private static void WaitForPageReady(IRenderedComponent<Harvest> cut)
+        {
+            cut.WaitForAssertion(
+                () =>
+                {
+                    var marker = cut.Find("#harvestInitState");
+                    Assert.Equal("true", marker.GetAttribute("data-ready"));
+                },
+                UiTimeout);
         }
 
         private sealed class MapBlockedStore : IBlockedVideoStore

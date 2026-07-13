@@ -154,6 +154,7 @@ public partial class Harvest
     private bool _loadingPending;
     private bool _allPendingSelected;
     private string _pendingDistillMessage = string.Empty;
+    private bool _initializationComplete;
     private bool IsBusy => Runner.IsRunning || _isBrowsingChannel || _isAddingToQueue || _loadingPending;
 
     // ── Section 1: Channel or Playlist Browse (HARV-01) ────────────────────
@@ -885,26 +886,33 @@ public partial class Harvest
     /// </summary>
     protected override async Task OnInitializedAsync()
     {
-        await RefreshCapDisplayAsync();
-        // Why: persisted auto-approve settings (D-07) — load once at init so the panel reflects
-        // the operator's last choice across Studio restarts.
-        _autoApproveSettings = AutoApproveCoordinator.Load();
-        await LoadCreatorsAsync();
-        // Why: populate the distill list on arrival so harvested-but-not-distilled videos are
-        // visible without a separate click. Non-fatal — LoadPendingDistillAsync swallows failures.
-        await LoadPendingDistillAsync();
-        Runner.Changed += OnRunnerChanged;
-        // Reconnect: seed the pane for whatever job is running so the live log reappears on return.
-        if (Runner.IsRunning)
+        try
         {
-            if (Runner.CurrentKind == HarvestJobKind.LiveDistill)
+            await RefreshCapDisplayAsync();
+            // Why: persisted auto-approve settings (D-07) — load once at init so the panel reflects
+            // the operator's last choice across Studio restarts.
+            _autoApproveSettings = AutoApproveCoordinator.Load();
+            await LoadCreatorsAsync();
+            // Why: populate the distill list on arrival so harvested-but-not-distilled videos are
+            // visible without a separate click. Non-fatal — LoadPendingDistillAsync swallows failures.
+            await LoadPendingDistillAsync();
+            Runner.Changed += OnRunnerChanged;
+            // Reconnect: seed the pane for whatever job is running so the live log reappears on return.
+            if (Runner.IsRunning)
             {
-                _distillLogLines = Runner.Log.ToList();
+                if (Runner.CurrentKind == HarvestJobKind.LiveDistill)
+                {
+                    _distillLogLines = Runner.Log.ToList();
+                }
+                else
+                {
+                    _logLines = Runner.Log.ToList();
+                }
             }
-            else
-            {
-                _logLines = Runner.Log.ToList();
-            }
+        }
+        finally
+        {
+            _initializationComplete = true;
         }
     }
 
