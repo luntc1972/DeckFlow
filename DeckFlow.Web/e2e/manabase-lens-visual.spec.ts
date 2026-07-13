@@ -2,7 +2,7 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 
-const screenshotRoot = '/mnt/c/users/chrislunt/source/personal/deckflow/ux-shots';
+const screenshotRoot = process.env.DECKFLOW_LENS_SHOT_DIR;
 
 // Tapland-heavy Azorius shell with real early interaction, a couple of rocks, and a small top end.
 // This reliably renders both the untapped-source lens and the opening-hand lens without needing any
@@ -67,14 +67,11 @@ test('captures tap and mulligan lens element screenshots at each viewport', asyn
   await assertWithinViewportWidth(page, tapLens);
   await assertWithinViewportWidth(page, mulliganLens);
 
-  await mkdir(screenshotRoot, { recursive: true });
-
-  const project = testInfo.project.name;
   await tapLens.screenshot({
-    path: path.join(screenshotRoot, `lens-tap-${project}.png`),
+    path: await screenshotPath(testInfo, 'lens-tap.png', 'lens-tap'),
   });
   await mulliganLens.screenshot({
-    path: path.join(screenshotRoot, `lens-mulligan-${project}.png`),
+    path: await screenshotPath(testInfo, 'lens-mulligan.png', 'lens-mulligan'),
   });
 });
 
@@ -102,4 +99,13 @@ async function assertWithinViewportWidth(page: Page, locator: Locator): Promise<
   expect(viewport).not.toBeNull();
 
   expect(box!.width).toBeLessThanOrEqual(viewport!.width + 1);
+}
+
+async function screenshotPath(testInfo: TestInfo, defaultName: string, prefix: string): Promise<string> {
+  if (!screenshotRoot) {
+    return testInfo.outputPath(defaultName);
+  }
+
+  await mkdir(screenshotRoot, { recursive: true });
+  return path.join(screenshotRoot, `${prefix}-${testInfo.project.name}.png`);
 }
