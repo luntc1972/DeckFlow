@@ -226,7 +226,7 @@ test('health verdict renders a four-tier scale label', async ({ page }) => {
   const analyzed = await submitDeck(page, 'Casual');
   test.skip(!analyzed, 'Scryfall unreachable in this environment — cannot render the result panel.');
 
-  const chip = page.locator('.result-panel .manabase-chip').first();
+  const chip = page.locator('.result-panel .manabase-summary .manabase-summary-chip');
   await expect(chip).toBeVisible();
   await expect(chip).toHaveText(/^(Excellent|Solid|Workable|Needs work)$/);
 
