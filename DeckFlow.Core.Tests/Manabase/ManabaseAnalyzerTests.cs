@@ -778,8 +778,8 @@ public sealed class ManabaseAnalyzerTests
     [Fact]
     public void Analyze_CedhBreakdown_RecordsFlooredAdjustment_FromBaseToFinal()
     {
-        // The cEDH adjustment is the signed delta from the singleton base to the floored final
-        // target, so the panel can show "−3.5 (floor 28)" honestly.
+        // The cEDH adjustment is the signed delta from the singleton base to the floored/clamped
+        // final target, so the panel can show the net cEDH adjustment honestly.
         ManabaseDeck deck = BuildBuffsByHans();
 
         ManabaseReport casual = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual);
@@ -793,6 +793,80 @@ public sealed class ManabaseAnalyzerTests
         Assert.Equal(cedh.TargetLands, lt.FinalTarget, 6);
         Assert.Equal(lt.FinalTarget - lt.BaseTarget, lt.CedhAdjustment, 6);
         Assert.True(lt.CedhAdjustment < 0, "cEDH must lower the target");
+    }
+
+    [Theory]
+    [InlineData(-1, 0.0)]
+    [InlineData(0, 0.0)]
+    [InlineData(1, 0.5)]
+    [InlineData(7, 3.0)]
+    public void RitualLandCreditAmount_MatchesExpectedCurve(int netPositiveRitualCount, double expected)
+    {
+        Assert.Equal(expected, KarstenManabase.RitualLandCreditAmount(netPositiveRitualCount), 6);
+    }
+
+    [Fact]
+    public void Analyze_CedhBreakdown_PopulatesRitualLandCredit_WhenEnabledInSingletonCedh()
+    {
+        ManabaseDeck deck = BuildBuffsByHans() with
+        {
+            OneShots = new List<OneShotMana>
+            {
+                MakeOneShot("Dark Ritual"),
+                MakeOneShot("Seething Song"),
+            },
+        };
+        CedhLandContext context = new(27.5, 33, Enabled: true, BaselineSd: 1.6, BaselineMonth: "2026-07");
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(
+            deck,
+            ManabaseMode.Cedh,
+            ritualLandCredit: true,
+            cedhContext: context);
+
+        Assert.NotNull(report.LandTarget);
+        ManabaseLandTargetBreakdown lt = report.LandTarget;
+        double expectedCredit = KarstenManabase.RitualLandCreditAmount(deck.OneShots.Count);
+
+        Assert.Equal(expectedCredit, lt.RitualLandCredit, 6);
+        Assert.Equal(deck.OneShots.Count, lt.NetPositiveRitualCount);
+        Assert.Equal(lt.FinalTarget - lt.BaseTarget, lt.CedhAdjustment, 6);
+    }
+
+    [Fact]
+    public void Analyze_CedhBreakdown_LeavesRitualLandCreditZero_WhenNotApplied()
+    {
+        ManabaseDeck ritualDeck = BuildBuffsByHans() with
+        {
+            OneShots = new List<OneShotMana>
+            {
+                MakeOneShot("Dark Ritual"),
+            },
+        };
+        CedhLandContext enabledContext = new(27.5, 33, Enabled: true, BaselineSd: 1.6, BaselineMonth: "2026-07");
+
+        ManabaseReport casual = ManabaseAnalyzer.Analyze(
+            ritualDeck,
+            ManabaseMode.Casual,
+            ritualLandCredit: true,
+            cedhContext: enabledContext);
+        ManabaseReport flagOff = ManabaseAnalyzer.Analyze(
+            ritualDeck,
+            ManabaseMode.Cedh,
+            ritualLandCredit: false,
+            cedhContext: enabledContext);
+        ManabaseReport noRituals = ManabaseAnalyzer.Analyze(
+            BuildBuffsByHans(),
+            ManabaseMode.Cedh,
+            ritualLandCredit: true,
+            cedhContext: enabledContext);
+
+        Assert.Equal(0.0, casual.LandTarget!.RitualLandCredit);
+        Assert.Equal(0, casual.LandTarget.NetPositiveRitualCount);
+        Assert.Equal(0.0, flagOff.LandTarget!.RitualLandCredit);
+        Assert.Equal(0, flagOff.LandTarget.NetPositiveRitualCount);
+        Assert.Equal(0.0, noRituals.LandTarget!.RitualLandCredit);
+        Assert.Equal(0, noRituals.LandTarget.NetPositiveRitualCount);
     }
 
     private static ManabaseDeck BuildReducerDeck(bool withReducer)
@@ -956,6 +1030,15 @@ public sealed class ManabaseAnalyzerTests
             IsSingleton = true,
         };
     }
+
+    private static OneShotMana MakeOneShot(string name) => new()
+    {
+        Name = name,
+        ProducedColors = new[] { ManaColor.Black },
+        ProducedAmount = 3,
+        OwnPips = Pip((ManaColor.Black, 1)),
+        OwnManaValue = 1,
+    };
 
     private static ManabaseDeck SingleSpellDeck(SpellRequirement spell, ManaColor sourceColor)
     {

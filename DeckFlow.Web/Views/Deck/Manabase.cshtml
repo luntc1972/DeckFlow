@@ -908,6 +908,10 @@
                         {
                             <li>cEDH adjustment (−3.5, floor @lt.CedhSafetyFloor.ToString("F0") lands): <strong>@lt.CedhAdjustment.ToString("0.0;-0.0;0.0")</strong> from a base of @lt.BaseTarget.ToString("F1").</li>
                         }
+                        @if (lt.RitualLandCredit > 0)
+                        {
+                            <li>Ritual land credit: <strong>−@lt.RitualLandCredit.ToString("0.0")</strong> (@lt.NetPositiveRitualCount net-positive @ManabaseWording.Pluralize("ritual", lt.NetPositiveRitualCount) × 0.5, cap 3) — applied before the safety floor and included in the net adjustment above.</li>
+                        }
                     }
                     <li><strong>= target ~@lt.FinalTarget.ToString("F1") lands</strong> vs <strong>@report.ActualLands</strong> actually in the deck.</li>
                 </ul>

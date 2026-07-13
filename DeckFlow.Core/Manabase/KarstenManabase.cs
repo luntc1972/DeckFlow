@@ -88,6 +88,10 @@ public static class KarstenManabase
             fastMana,
             CedhLandContext.Disabled);
 
+    /// <summary>Nominal cEDH ritual land credit for <paramref name="netPositiveRitualCount"/> rituals: 0.5 per ritual, capped at 3.0.</summary>
+    public static double RitualLandCreditAmount(int netPositiveRitualCount) =>
+        netPositiveRitualCount <= 0 ? 0.0 : Math.Min(RitualLandCreditCap, netPositiveRitualCount * RitualLandCreditWeight);
+
     /// <summary>
     /// Competitive (cEDH) land target with optional July 2026 baseline inputs. The safety floor and
     /// baseline blend weight are explicit calibration knobs for post-ship tuning.
@@ -101,7 +105,34 @@ public static class KarstenManabase
         CedhLandContext context,
         int netPositiveRitualCount = 0,
         bool ritualLandCredit = false)
+        => CedhLandTarget(
+            totalCards,
+            commanderCount,
+            averageManaValue,
+            rampAndDrawUnderThree,
+            fastMana,
+            context,
+            netPositiveRitualCount,
+            ritualLandCredit,
+            out _);
+
+    /// <summary>
+    /// Competitive (cEDH) land target that also reports the nominal ritual land credit it applied
+    /// (0 when the credit did not fire). This out value is the single source for display surfaces,
+    /// so the breakdown can never claim a credit the target math didn't subtract.
+    /// </summary>
+    public static double CedhLandTarget(
+        int totalCards,
+        int commanderCount,
+        double averageManaValue,
+        double rampAndDrawUnderThree,
+        double fastMana,
+        CedhLandContext context,
+        int netPositiveRitualCount,
+        bool ritualLandCredit,
+        out double appliedRitualLandCredit)
     {
+        appliedRitualLandCredit = 0.0;
         double singleton = SingletonLandTarget(
             totalCards,
             commanderCount,
@@ -127,8 +158,8 @@ public static class KarstenManabase
 
         if (ritualLandCredit && netPositiveRitualCount > 0)
         {
-            double credit = Math.Min(RitualLandCreditCap, netPositiveRitualCount * RitualLandCreditWeight);
-            target -= credit;
+            appliedRitualLandCredit = RitualLandCreditAmount(netPositiveRitualCount);
+            target -= appliedRitualLandCredit;
         }
 
         return Math.Clamp(target, CedhSafetyFloor, CedhTargetCeiling);

@@ -372,6 +372,26 @@ public sealed class ManabaseViewRenderTests
         Assert.DoesNotContain("nudged 50% toward this commander's tournament land mean", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task CedhHowItWorks_RendersRitualLandCreditLine_WhenBreakdownCarriesCredit()
+    {
+        string html = await RenderManabaseViewAsync(
+            BuildPopulatedModel(showTapAnalyzer: false, mode: ManabaseMode.Cedh, ritualLandCredit: 1.0, netPositiveRitualCount: 2));
+
+        // Pin the load-bearing tokens (value + count), not the explanatory prose tail.
+        Assert.Contains("Ritual land credit: <strong>−1.0</strong>", html, StringComparison.Ordinal);
+        Assert.Contains("(2 net-positive rituals × 0.5, cap 3)", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CedhHowItWorks_DoesNotRenderRitualLandCreditLine_WhenBreakdownHasNoCredit()
+    {
+        string html = await RenderManabaseViewAsync(
+            BuildPopulatedModel(showTapAnalyzer: false, mode: ManabaseMode.Cedh, ritualLandCredit: 0.0, netPositiveRitualCount: 2));
+
+        Assert.DoesNotContain("Ritual land credit:", html, StringComparison.Ordinal);
+    }
+
     // Replace the randomized __RequestVerificationToken value with a constant so two renders of the
     // same model differ only by intentional content (here: the tap card).
     private static string NormalizeAntiForgery(string html) =>
@@ -412,7 +432,9 @@ public sealed class ManabaseViewRenderTests
         ManabaseMode mode = ManabaseMode.Casual,
         bool includeCedhRange = false,
         double? cedhSafetyFloor = null,
-        bool? cedhBaselineBlended = null) => new()
+        bool? cedhBaselineBlended = null,
+        double ritualLandCredit = 0.0,
+        int netPositiveRitualCount = 0) => new()
         {
             Request = new ManabaseRequest
             {
@@ -420,7 +442,7 @@ public sealed class ManabaseViewRenderTests
                 Mode = mode,
             },
             InputSummary = "Test deck · 99 cards + 1 commander",
-            Report = ReportWithTapAnalysis(mode, includeCedhRange, cedhSafetyFloor, cedhBaselineBlended),
+            Report = ReportWithTapAnalysis(mode, includeCedhRange, cedhSafetyFloor, cedhBaselineBlended, ritualLandCredit, netPositiveRitualCount),
             ShowTapAnalyzer = showTapAnalyzer,
             ShowMulliganEval = showMulliganEval,
             ShowPlanPresence = showPlanPresence,
@@ -453,7 +475,9 @@ public sealed class ManabaseViewRenderTests
         ManabaseMode mode,
         bool includeCedhRange,
         double? cedhSafetyFloor,
-        bool? cedhBaselineBlended) => new()
+        bool? cedhBaselineBlended,
+        double ritualLandCredit,
+        int netPositiveRitualCount) => new()
         {
             ActualLands = 36,
             TargetLands = 37.0,
@@ -495,6 +519,8 @@ public sealed class ManabaseViewRenderTests
                 CedhAdjustment = mode == ManabaseMode.Cedh ? -3.0 : 0.0,
                 CedhSafetyFloor = cedhSafetyFloor ?? (mode == ManabaseMode.Cedh ? 22.0 : 0.0),
                 CedhBaselineBlended = cedhBaselineBlended ?? (mode == ManabaseMode.Cedh && includeCedhRange),
+                RitualLandCredit = ritualLandCredit,
+                NetPositiveRitualCount = netPositiveRitualCount,
                 FinalTarget = mode == ManabaseMode.Cedh ? 28.0 : 31.0,
             },
             Castability = new List<CardCastability>

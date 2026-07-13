@@ -666,7 +666,8 @@ public sealed record ManabaseLandTargetBreakdown
 
     /// <summary>
     /// The cEDH adjustment actually applied (the signed delta from <see cref="BaseTarget"/> to
-    /// <see cref="FinalTarget"/>, after the 28-land floor). 0 in Casual mode.
+    /// <see cref="FinalTarget"/>, after the cEDH floor/clamp (28 when the feature is disabled,
+    /// 22 when the recalibrated path is enabled). 0 in Casual mode.
     /// </summary>
     public required double CedhAdjustment { get; init; }
 
@@ -681,6 +682,12 @@ public sealed record ManabaseLandTargetBreakdown
     /// Display-only; does not affect whether the range fields render.
     /// </summary>
     public bool CedhBaselineBlended { get; init; }
+
+    /// <summary>Nominal cEDH ritual land credit included in <see cref="CedhAdjustment"/> (0 when none applied). Applied before the safety floor, so the floor can absorb part of it.</summary>
+    public double RitualLandCredit { get; init; }
+
+    /// <summary>Count of net-positive rituals behind <see cref="RitualLandCredit"/>.</summary>
+    public int NetPositiveRitualCount { get; init; }
 
     /// <summary>The land target the report reports (equal to <see cref="ManabaseReport.TargetLands"/>).</summary>
     public required double FinalTarget { get; init; }

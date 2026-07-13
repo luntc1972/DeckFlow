@@ -399,6 +399,7 @@ public static class ManabaseAnalyzer
 
         int commanderCount = Math.Max(1, deck.CommanderCount);
         int librarySize = deck.TotalCards - commanderCount;
+        double ritualLandCreditAmount = 0.0;
 
         double singleton = KarstenManabase.SingletonLandTarget(
             deck.TotalCards,
@@ -407,6 +408,8 @@ public static class ManabaseAnalyzer
             deck.RampAndDrawUnderThree,
             deck.FastMana);
 
+        // The out value is the credit the target math actually subtracted, so the breakdown
+        // can never drift from CedhLandTarget's internal gating.
         double finalTarget = mode == ManabaseMode.Cedh
             ? KarstenManabase.CedhLandTarget(
                 deck.TotalCards,
@@ -415,11 +418,23 @@ public static class ManabaseAnalyzer
                 deck.RampAndDrawUnderThree,
                 deck.FastMana,
                 cedhContext,
-                netPositiveRitualCount: deck.OneShots.Count,
-                ritualLandCredit: ritualLandCredit)
+                deck.OneShots.Count,
+                ritualLandCredit,
+                out ritualLandCreditAmount)
             : singleton;
 
-        breakdown = BuildBreakdown(deck, mode, cedhContext, commanderCount, librarySize, baseTarget: singleton, finalTarget: finalTarget);
+        int netPositiveRitualCount = ritualLandCreditAmount > 0 ? deck.OneShots.Count : 0;
+
+        breakdown = BuildBreakdown(
+            deck,
+            mode,
+            cedhContext,
+            commanderCount,
+            librarySize,
+            baseTarget: singleton,
+            finalTarget: finalTarget,
+            ritualLandCredit: ritualLandCreditAmount,
+            netPositiveRitualCount: netPositiveRitualCount);
         return finalTarget;
     }
 
@@ -430,7 +445,9 @@ public static class ManabaseAnalyzer
         int commanders,
         int librarySize,
         double baseTarget,
-        double finalTarget)
+        double finalTarget,
+        double ritualLandCredit = 0.0,
+        int netPositiveRitualCount = 0)
     {
         double baselineMean = cedhContext.BaselineMean.GetValueOrDefault();
         bool cedhBaselineBlended = mode == ManabaseMode.Cedh
@@ -456,6 +473,8 @@ public static class ManabaseAnalyzer
             CedhAdjustment = finalTarget - baseTarget,
             CedhSafetyFloor = cedhSafetyFloor,
             CedhBaselineBlended = cedhBaselineBlended,
+            RitualLandCredit = ritualLandCredit,
+            NetPositiveRitualCount = netPositiveRitualCount,
             FinalTarget = finalTarget,
         };
     }
