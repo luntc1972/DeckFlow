@@ -235,18 +235,20 @@ public sealed class CedhCalibrationTests
     }
 
     [Fact]
-    public void Build_CeilingCountsRitualColumn_FloorCountsNewTarget()
+    public void Build_FloorAndCeilingHitsReadRitualCreditColumn()
     {
         CedhCalibrationRow[] rows =
         [
-            new("Floor", 21, 30, 22, 20, false),
+            new("RitualCreditFloor", 21, 30, 24, 22, false),
+            new("RitualCreditFloorAgain", 21, 30, 23, 22, false),
+            new("NewTargetFloorOnly", 21, 30, 22, 24, false),
             new("NewTargetCeilingOnly", 40, 30, 45, 42, false),
             new("RitualCreditCeiling", 40, 30, 44, 45, false),
         ];
 
         CedhCalibrationReport report = CedhCalibration.Build(rows);
 
-        Assert.Equal(1, report.SafetyFloorHitCount);
+        Assert.Equal(2, report.SafetyFloorHitCount);
         Assert.Equal(1, report.CeilingHitCount);
     }
 

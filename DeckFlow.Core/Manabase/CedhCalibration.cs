@@ -132,7 +132,8 @@ public static class CedhCalibration
             NewlyUnderRitualCreditCount = newlyUnderRitualCredit,
             BaselineBackedCount = materialized.Count(row => row.HasBaseline),
             NoBaselineCount = materialized.Count(row => !row.HasBaseline),
-            SafetyFloorHitCount = materialized.Count(row => Math.Abs(row.NewTarget - SafetyFloor) < 0.01),
+            // Why: ritual-credit is the shipped effective target, and ritual credit only pushes targets down toward the floor.
+            SafetyFloorHitCount = materialized.Count(row => Math.Abs(row.NewTargetWithRitualCredit - SafetyFloor) < 0.01),
             CeilingHitCount = materialized.Count(row => Math.Abs(row.NewTargetWithRitualCredit - TargetCeiling) < 0.01),
             Segments = segments,
             Commanders = commanders,
@@ -326,10 +327,10 @@ public sealed record CedhCalibrationReport
     /// <summary>Decks that fell back to the no-baseline path.</summary>
     public int NoBaselineCount { get; init; }
 
-    /// <summary>New-target rows clamped to the safety floor.</summary>
+    /// <summary>Ritual-credit target rows clamped to the safety floor.</summary>
     public int SafetyFloorHitCount { get; init; }
 
-    /// <summary>New-target rows clamped to the ceiling.</summary>
+    /// <summary>Ritual-credit target rows clamped to the ceiling.</summary>
     public int CeilingHitCount { get; init; }
 
     /// <summary>Baseline-backed vs no-baseline segment stats.</summary>
