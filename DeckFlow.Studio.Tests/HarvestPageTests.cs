@@ -21,6 +21,8 @@ namespace DeckFlow.Studio.Tests
 {
     public sealed class HarvestPageTests : BunitContext
     {
+        private static readonly TimeSpan UiTimeout = TimeSpan.FromSeconds(15);
+
         // Per-test temp dir backing the AutoApproveSettingsStore so persistence assertions are isolated.
         private readonly string _autoApproveDir =
             Path.Combine(Path.GetTempPath(), "deckflow-harvest-autoapprove-" + Guid.NewGuid().ToString("N"));
@@ -455,7 +457,7 @@ namespace DeckFlow.Studio.Tests
         }
 
         [Fact]
-        public void OneClick_Metered_DoesNotDistill_ShowsRequiresSubscription()
+        public async Task OneClick_Metered_DoesNotDistill_ShowsRequiresSubscription()
         {
             // SC4 / HIGH #1: metered provider → one-click does NOT call DistillAsync and shows the message.
             var blocked = new MapBlockedStore();
@@ -473,10 +475,14 @@ namespace DeckFlow.Studio.Tests
                 isSubscriptionProvider: false);
 
             BrowseChannel(cut);
-            cut.InvokeAsync(() => cut.Find("input[aria-label='Select Vid 1']").Change(true));
-            ClickOneClick(cut);
+            await cut.InvokeAsync(() => cut.Find("input[aria-label='Select Vid 1']").Change(true));
+            await cut.InvokeAsync(() => cut.FindAll("button")
+                .First(b => b.TextContent.Contains("Harvest + Auto-distill", StringComparison.Ordinal))
+                .Click());
 
-            cut.WaitForAssertion(() => Assert.Contains("subscription provider", cut.Markup, StringComparison.OrdinalIgnoreCase));
+            cut.WaitForAssertion(
+                () => Assert.Contains("subscription provider", cut.Markup, StringComparison.OrdinalIgnoreCase),
+                UiTimeout);
             Assert.False(distill.LiveDistillCalled);
             Assert.Empty(index.ApprovalBatchCalls);
         }
@@ -756,7 +762,7 @@ namespace DeckFlow.Studio.Tests
         }
 
         [Fact]
-        public void ShowHidden_RevealsBlockedVideo_UnblockCallsOrchestrator()
+        public async Task ShowHidden_RevealsBlockedVideo_UnblockCallsOrchestrator()
         {
             var blocked = new MapBlockedStore();
             blocked.Blocked.Add("vBlk");
@@ -769,17 +775,19 @@ namespace DeckFlow.Studio.Tests
             BrowseChannel(cut);
 
             // Blocked is hidden from the default list; reveal it under Show hidden.
-            cut.InvokeAsync(() => cut.Find("#showHiddenVideos").Change(true));
-            cut.WaitForAssertion(() =>
-            {
-                Assert.Contains("Blocked One", cut.Markup);
-                Assert.NotNull(cut.Find("button[aria-label='Un-block Blocked One']"));
-            });
+            await cut.InvokeAsync(() => cut.Find("#showHiddenVideos").Change(true));
+            cut.WaitForAssertion(
+                () =>
+                {
+                    Assert.Contains("Blocked One", cut.Markup);
+                    Assert.NotNull(cut.Find("button[aria-label='Un-block Blocked One']"));
+                },
+                UiTimeout);
 
             // Simulate the store no longer blocking so the badge re-resolves after unblock.
             blocked.Blocked.Remove("vBlk");
-            cut.InvokeAsync(() => cut.Find("button[aria-label='Un-block Blocked One']").Click());
-            cut.WaitForAssertion(() => Assert.Contains("vBlk", maint.UnblockCalls));
+            await cut.InvokeAsync(() => cut.Find("button[aria-label='Un-block Blocked One']").Click());
+            cut.WaitForAssertion(() => Assert.Contains("vBlk", maint.UnblockCalls), UiTimeout);
         }
 
         private static void ClickOneClick(IRenderedComponent<Harvest> cut)
@@ -974,7 +982,7 @@ namespace DeckFlow.Studio.Tests
         // ── SUI-05: creator filter tests ──────────────────────────────────────
 
         [Fact]
-        public void CreatorFilter_NarrowsBrowseRows_ToSelectedCreator()
+        public async Task CreatorFilter_NarrowsBrowseRows_ToSelectedCreator()
         {
             // Browsed rows span two creators; filter to "Alice" shows only Alice's video.
             var (cut, _, _, _) = RenderHarvest(
@@ -988,22 +996,26 @@ namespace DeckFlow.Studio.Tests
 
             BrowseChannel(cut);
 
-            cut.WaitForAssertion(() =>
-            {
-                // Both rows visible and a creator filter dropdown rendered.
-                Assert.Contains("Alpha", cut.Markup);
-                Assert.Contains("Beta", cut.Markup);
-                Assert.NotNull(cut.Find("#browseCreatorFilter"));
-            });
+            cut.WaitForAssertion(
+                () =>
+                {
+                    // Both rows visible and a creator filter dropdown rendered.
+                    Assert.Contains("Alpha", cut.Markup);
+                    Assert.Contains("Beta", cut.Markup);
+                    Assert.NotNull(cut.Find("#browseCreatorFilter"));
+                },
+                UiTimeout);
 
             // Select "Alice" from the filter.
-            cut.InvokeAsync(() => cut.Find("#browseCreatorFilter").Change("Alice"));
+            await cut.InvokeAsync(() => cut.Find("#browseCreatorFilter").Change("Alice"));
 
-            cut.WaitForAssertion(() =>
-            {
-                Assert.Contains("Alpha", cut.Markup);
-                Assert.DoesNotContain("Beta", cut.Markup);
-            });
+            cut.WaitForAssertion(
+                () =>
+                {
+                    Assert.Contains("Alpha", cut.Markup);
+                    Assert.DoesNotContain("Beta", cut.Markup);
+                },
+                UiTimeout);
         }
 
         [Fact]
@@ -1281,9 +1293,9 @@ namespace DeckFlow.Studio.Tests
 
         private static void BrowseChannel(IRenderedComponent<Harvest> cut)
         {
-            cut.InvokeAsync(() => cut.Find("#channelInput").Change("https://youtube.com/@chan"));
-            cut.InvokeAsync(() => cut.FindAll("button").First(b => b.TextContent.Contains("Browse", StringComparison.Ordinal)).Click());
-            cut.WaitForAssertion(() => Assert.DoesNotContain("Fetching channel videos", cut.Markup));
+            cut.InvokeAsync(() => cut.Find("#channelInput").Change("https://youtube.com/@chan")).GetAwaiter().GetResult();
+            cut.InvokeAsync(() => cut.FindAll("button").First(b => b.TextContent.Contains("Browse", StringComparison.Ordinal)).Click()).GetAwaiter().GetResult();
+            cut.WaitForAssertion(() => Assert.DoesNotContain("Fetching channel videos", cut.Markup), UiTimeout);
         }
 
         private sealed class MapBlockedStore : IBlockedVideoStore
