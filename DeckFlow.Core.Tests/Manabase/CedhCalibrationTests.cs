@@ -261,6 +261,7 @@ public sealed class CedhCalibrationTests
         string markdown = CedhCalibration.RenderMarkdown(report);
 
         Assert.Contains("Commander\\|WithAnExcessivelyLongIdentifierFor", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("RollupTableOutput", markdown, StringComparison.Ordinal);
     }
 
     [Fact]
