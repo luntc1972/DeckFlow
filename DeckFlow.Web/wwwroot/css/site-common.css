@@ -2803,6 +2803,13 @@ label.field > span,
   background: var(--panel-soft-bg, var(--panel));
 }
 
+.manabase-result-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.75rem;
+}
+
 .manabase-summary-head {
   display: flex;
   align-items: center;
@@ -2836,6 +2843,62 @@ label.field > span,
 
 .manabase-summary-demanding-hint {
   color: var(--muted, #5a6472);
+}
+
+.manabase-mode-chip {
+  background: var(--panel-soft-bg, var(--panel));
+  border-color: var(--line, rgba(0, 0, 0, 0.18));
+  color: var(--accent-strong, var(--accent, inherit));
+}
+
+.manabase-anchor-nav {
+  margin: 0.85rem 0 0;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+  background: var(--panel-soft-bg, var(--panel));
+}
+
+.manabase-anchor-nav-label {
+  margin: 0 0 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted, #5a6472);
+}
+
+.manabase-anchor-nav-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.8rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.manabase-anchor-nav-list a {
+  color: var(--accent-strong, var(--accent, inherit));
+  text-decoration: none;
+}
+
+.manabase-anchor-nav-list a:hover,
+.manabase-anchor-nav-list a:focus-visible {
+  text-decoration: underline;
+}
+
+.manabase-castability-summary {
+  margin: 0.35rem 0 0.75rem;
+  color: var(--muted, #5a6472);
+}
+
+.manabase-castability-details {
+  margin-top: 0.75rem;
+}
+
+.manabase-verdict-summary {
+  margin: 0.35rem 0 0;
+  font-weight: 600;
 }
 
 /* Reconciliation note bridging the Karsten source check and the simulated cast-rate lens. */
@@ -2926,7 +2989,20 @@ label.field > span,
   min-width: 0.9rem;
 }
 
+.manabase-twolens--single {
+  grid-template-columns: 1fr;
+}
+
 @media (max-width: 640px) {
+  .manabase-result-heading {
+    align-items: flex-start;
+  }
+
+  .manabase-anchor-nav-list {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
   .manabase-twolens {
     grid-template-columns: 1fr;
   }
@@ -2976,10 +3052,17 @@ label.field > span,
   .manabase-table--card td.castability-name {
     text-align: left;
     font-weight: 600;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
   }
 
   .manabase-table--card td.castability-name::before {
     display: none;
+  }
+
+  .manabase-table--card .castability-name-text {
+    overflow-wrap: anywhere;
   }
 
   .manabase-restricted-sources td[data-label="Approximation"] {

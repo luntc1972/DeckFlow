@@ -206,10 +206,114 @@
 
 @if (Model.HasResult && report is not null)
 {
+    IReadOnlyList<CardCastability> castRows = Model.ShowCommanderCastability
+        ? report.Castability.Where(c => !c.IsCommander).ToList()
+        : report.Castability;
+    var commanderRows = report.Castability.Where(c => c.IsCommander).ToList();
+    string commanderNames = commanderRows.Count > 0
+        ? string.Join(" / ", commanderRows.Select(c => c.Name))
+        : string.Empty;
+    var showRightLens = Model.ShowCastability && castRows.Count > 0;
+    var showLeftLens = report.ColorFindings.Count > 0;
+    var showReadingYourDeckSection = Model.PlainLanguageVerdict is not null;
+    var rampDraw = report.LandTarget?.RampAndDrawUnderThree ?? 0;
+    var showRampSection = Model.RampDrawBudget is not null || report.RampSourceCount > 0 || rampDraw > 0;
+    var showCommanderCastabilitySection = Model.ShowCommanderCastability && Model.ShowCastability && commanderRows.Count > 0;
+    var showCastabilitySection = Model.ShowCastability && castRows.Count > 0;
+    int nonCommanderCount = report.Castability.Count(c => !c.IsCommander);
+    int trackedNonCommander = nonCommanderCount > 0 ? nonCommanderCount : report.Castability.Count;
+    int visibleCastRowCount = showCastabilitySection ? ManabaseDisplay.DefaultVisibleCastabilityCount(castRows) : 0;
+    var visibleCastRows = showCastabilitySection ? castRows.Take(visibleCastRowCount).ToList() : new List<CardCastability>();
+    var hiddenCastRows = showCastabilitySection ? castRows.Skip(visibleCastRowCount).ToList() : new List<CardCastability>();
+    string castabilitySummary = showCastabilitySection ? ManabaseDisplay.CastabilitySummaryText(castRows, visibleCastRowCount) : string.Empty;
+    var showRampDetails = report.RampSourceNames.Count > 0 || report.RampAndDrawNames.Count > 0;
+    (string Id, string Label, bool Show)[] resultNavItems =
+    [
+        ("manabase-karsten-source-check", "Karsten source check", showLeftLens),
+        ("manabase-simulated-cast-rate", "Simulated cast rate", showRightLens),
+        ("manabase-reading-your-deck", "Reading your deck", showReadingYourDeckSection),
+        ("manabase-ramp-draw", "Ramp & draw", showRampSection),
+        ("manabase-command-zone-castability", "Command-zone castability", showCommanderCastabilitySection),
+        ("manabase-color-findings", "Color findings", true),
+        ("manabase-castability", "Castability", showCastabilitySection),
+        ("manabase-details", "Details", true),
+    ];
+
+    void RenderCastabilityTable(IReadOnlyList<CardCastability> rows)
+    {
+        <div class="manabase-table-wrap castability-scroll">
+            <table class="manabase-table castability-table manabase-table--card">
+                <thead>
+                    <tr>
+                        <th scope="col">Card</th>
+                        <th scope="col">MV</th>
+                        <th scope="col">Cast on curve</th>
+                        <th scope="col">Avg delay</th>
+                        <th scope="col">Limiting</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in rows)
+                    {
+                        var chip = ManabaseDisplay.CastChip(c.CastPercent);
+                        <tr class="@(c.IsCommander ? "manabase-row--commander" : null)">
+                            <td class="castability-name" data-label="Card" title="@c.Name">
+                                @if (c.IsCommander)
+                                {
+                                    <span class="manabase-cmd-glyph" title="commander" aria-label="commander">★</span>
+                                }
+                                <span class="castability-name-text">@c.Name</span>
+                            </td>
+                            <td data-label="MV">
+                                @c.ManaValue@if (c.IsCostOverridden)
+                                {<span class="manabase-override-mark" title="reduced / alternative cost applied" aria-label="reduced or alternative cost applied">*</span>}
+                            </td>
+                            <td data-label="Cast on curve">
+                                <span class="manabase-chip @chip.Css">@c.CastPercent% · @chip.Label</span>
+                            </td>
+                            <td class="castability-delay" data-label="Avg delay">@ManabaseDisplay.DelayText(c.AverageDelay)</td>
+                            <td data-label="Limiting">@ManabaseDisplay.LimitingText(c.LimitingFactor)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    void RenderRampBreakdownDetails(string rampSummary)
+    {
+        <details class="manabase-ramp">
+            <summary><strong>Ramp:</strong> @rampSummary.</summary>
+            @if (report.RampSourceNames.Count > 0)
+            {
+                <p class="manabase-ramp-group-label">Mana rocks/dorks</p>
+                <ul>
+                    @foreach (var name in report.RampSourceNames)
+                    {
+                        <li>@name</li>
+                    }
+                </ul>
+            }
+            @if (report.RampAndDrawNames.Count > 0)
+            {
+                <p class="manabase-ramp-group-label">Ramp/draw ≤2 MV</p>
+                <ul>
+                    @foreach (var name in report.RampAndDrawNames)
+                    {
+                        <li>@name</li>
+                    }
+                </ul>
+            }
+        </details>
+    }
+
     <section class="result-panel" data-print-region data-scroll-on-load>
         <div class="panel-heading">
             <div>
-                <h2>Result</h2>
+                <div class="manabase-result-heading">
+                    <h2>Result</h2>
+                    <span class="manabase-chip manabase-mode-chip">@ManabaseDisplay.ModeLabel(report.Mode) analysis</span>
+                </div>
                 @if (!string.IsNullOrWhiteSpace(Model.InputSummary))
                 {
                     <p>@Model.InputSummary</p>
@@ -221,6 +325,19 @@
                 </button>
             </div>
         </div>
+
+        <nav class="manabase-anchor-nav" aria-label="On this page">
+            <p class="manabase-anchor-nav-label">On this page</p>
+            <ul class="manabase-anchor-nav-list">
+                @foreach (var item in resultNavItems)
+                {
+                    @if (item.Show)
+                    {
+                        <li><a href="#@item.Id">@item.Label</a></li>
+                    }
+                }
+            </ul>
+        </nav>
 
         @* Verdict-first summary: the bottom line (health + land count + the single biggest fix)
            leads the panel so the answer is read before the supporting lenses and tables below.
@@ -275,9 +392,12 @@
             @if (report.Health != ManabaseHealth.Healthy && report.DemandingCards.Count > 0)
             {
                 var worst = report.DemandingCards.OrderBy(d => d.CastPercent).First();
+                string followUpText = showCastabilitySection
+                    ? "Full list in the castability table below."
+                    : "See the color findings table below.";
                 <p class="manabase-summary-demanding">
                     @report.DemandingCards.Count demanding @(report.DemandingCards.Count == 1 ? "card" : "cards") — hardest: <strong>@worst.Name</strong> (@worst.CastPercent%).
-                    <span class="manabase-summary-demanding-hint">Full list in the castability table below.</span>
+                    <span class="manabase-summary-demanding-hint">@followUpText</span>
                 </p>
                 @if (showPlainLanguage)
                 {
@@ -286,30 +406,34 @@
             }
         </section>
 
-        @{
-            IReadOnlyList<CardCastability> castRows = Model.ShowCommanderCastability
-                ? report.Castability.Where(c => !c.IsCommander).ToList()
-                : report.Castability;
-            var commanderRows = report.Castability.Where(c => c.IsCommander).ToList();
-            string commanderNames = commanderRows.Count > 0
-                ? string.Join(" / ", commanderRows.Select(c => c.Name))
-                : string.Empty;
-            var showRightLens = Model.ShowCastability && castRows.Count > 0;
-            var showLeftLens = report.ColorFindings.Count > 0;
-            // M9: the lens quotes report.AvgOnCurvePercent (the one shared non-commander average also
-            // used by the verdict and health band); its count matches that average's basis — the
-            // non-commander rows, or (degenerate all-commander report) the full set, exactly as
-            // AvgOnCurvePercent falls back — so the count can never read 0 beside a nonzero average.
-            int nonCommanderCount = report.Castability.Count(c => !c.IsCommander);
-            int trackedNonCommander = nonCommanderCount > 0 ? nonCommanderCount : report.Castability.Count;
+        @if (showReadingYourDeckSection && Model.PlainLanguageVerdict is { } verdict)
+        {
+            <section id="manabase-reading-your-deck" class="manabase-verdict @(verdict.HasIssues ? "manabase-verdict--issues" : "manabase-verdict--fine")">
+                <h3 class="manabase-verdict-heading">Reading your deck</h3>
+                <p class="manabase-verdict-summary">@verdict.Headline</p>
+                @if (verdict.HasIssues)
+                {
+                    <ul class="manabase-verdict-list">
+                        @foreach (var line in verdict.Lines)
+                        {
+                            <li>@line</li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <p class="manabase-verdict-fine">@verdict.NoIssueReason</p>
+                }
+            </section>
         }
+
         @if (showLeftLens || showRightLens)
         {
-            <div class="manabase-twolens">
+            <div class="manabase-twolens @(!(showLeftLens && showRightLens) ? "manabase-twolens--single" : null)">
                 @if (showLeftLens)
                 {
-                    <div class="manabase-lens">
-                        <p class="manabase-lens-label">Karsten source check</p>
+                    <section id="manabase-karsten-source-check" class="manabase-lens">
+                        <h3 class="manabase-lens-label">Karsten source check</h3>
                         @* Headline figure to balance the cast-rate lens's big number: how many colors
                            clear their source target. *@
                         @{
@@ -342,12 +466,12 @@
                             <p class="manabase-lens-gloss">@ManabaseDisplay.KarstenSourceGloss</p>
                             <p class="manabase-lens-gloss">@ManabaseDisplay.WeakestColorGloss</p>
                         }
-                    </div>
+                    </section>
                 }
                 @if (showRightLens)
                 {
-                    <div class="manabase-lens">
-                        <p class="manabase-lens-label">Simulated cast rate</p>
+                    <section id="manabase-simulated-cast-rate" class="manabase-lens">
+                        <h3 class="manabase-lens-label">Simulated cast rate</h3>
                         <div class="manabase-lens-big">@report.AvgOnCurvePercent%<span>avg on-curve</span></div>
                         <p class="manabase-lens-note">Joint mana + color, with London mulligan, tapped-land timing, and ramp — our Monte-Carlo models the real game, not just color odds.</p>
                         @if (showPlainLanguage)
@@ -355,7 +479,7 @@
                             <p class="manabase-lens-gloss">@ManabaseDisplay.CastRateGloss</p>
                         }
                         <span class="manabase-lens-pill">avg across @trackedNonCommander tracked spells</span>
-                    </div>
+                    </section>
                 }
             </div>
             @if (showLeftLens && showRightLens)
@@ -365,8 +489,8 @@
         }
         @if (Model.ShowTapAnalyzer && Model.HasResult && report.TapAnalysis is { } tap)
         {
-            <div class="manabase-lens manabase-taplens" role="group" aria-label="Untapped sources">
-                <p class="manabase-lens-label">Untapped sources</p>
+            <div class="manabase-lens manabase-taplens" id="manabase-untapped-sources" role="group" aria-label="Untapped sources">
+                <h3 class="manabase-lens-label">Untapped sources</h3>
                 <div class="manabase-taplens-split">
                     <div>
                         <div class="manabase-lens-big">@tap.Turn1UntappedPercent%<span>turn-1 untapped</span></div>
@@ -405,8 +529,8 @@
         @if (Model.ShowMulliganEval && Model.HasResult && report.MulliganEvaluation is { } mull)
         {
             var km = ManabaseDisplay.KeepableMarker(mull.KeepableBand);
-            <div class="manabase-lens manabase-mulliganlens" role="group" aria-label="Opening hand">
-                <p class="manabase-lens-label">Opening hand</p>
+            <div class="manabase-lens manabase-mulliganlens" id="manabase-opening-hand" role="group" aria-label="Opening hand">
+                <h3 class="manabase-lens-label">Opening hand</h3>
                 <div class="manabase-mulliganlens-split">
                     <div>
                         @* Downweighted vs the cast-rate headline: opening-hand is a consistency signal,
@@ -493,32 +617,13 @@
             Heads up: manabase analysis is in beta. Treat the results as a guide, not gospel - numbers may be inaccurate.
         </section>
 
-        @if (Model.PlainLanguageVerdict is { } verdict)
-        {
-            <section class="manabase-verdict @(verdict.HasIssues ? "manabase-verdict--issues" : "manabase-verdict--fine")">
-                <p class="manabase-verdict-heading">@verdict.Headline</p>
-                @if (verdict.HasIssues)
-                {
-                    <ul class="manabase-verdict-list">
-                        @foreach (var line in verdict.Lines)
-                        {
-                            <li>@line</li>
-                        }
-                    </ul>
-                }
-                else
-                {
-                    <p class="manabase-verdict-fine">@verdict.NoIssueReason</p>
-                }
-            </section>
-        }
-
-        @if (Model.RampDrawBudget is { } budget)
+        @if (showRampSection && Model.RampDrawBudget is { } budget)
         {
             var thresholdProxy = budget.ThresholdSource == ManabaseRampDrawThresholdSource.CommanderManaValue
                 ? "commander MV"
                 : "curve 75th-percentile MV";
-            <section class="manabase-rampdraw" aria-label="Ramp and draw budget advisory">
+            <section id="manabase-ramp-draw" class="manabase-rampdraw" aria-label="Ramp and draw budget advisory">
+                <h3 class="manabase-verdict-heading">Ramp &amp; draw</h3>
                 <p class="manabase-rampdraw-line">
                     @if (budget.IsBalanced)
                     {
@@ -534,10 +639,10 @@
             </section>
         }
 
-        @if (Model.ShowCommanderCastability && Model.ShowCastability && commanderRows.Count > 0)
+        @if (showCommanderCastabilitySection)
         {
-            <section class="manabase-cmd-castability">
-                <p class="manabase-verdict-heading">Command-zone castability</p>
+            <section id="manabase-command-zone-castability" class="manabase-cmd-castability">
+                <h3 class="manabase-verdict-heading">Command-zone castability</h3>
                 @foreach (var c in commanderRows)
                 {
                     <p class="manabase-cmd-castability-line">
@@ -556,45 +661,39 @@
             </section>
         }
 
-        @{
-            var rampDraw = report.LandTarget?.RampAndDrawUnderThree ?? 0;
-        }
-        @if (report.RampSourceCount > 0 || rampDraw > 0)
+        @if (showRampSection && (report.RampSourceCount > 0 || rampDraw > 0))
         {
             var rockOrDorkLabel = report.RampSourceCount == 1 ? "mana rock/dork" : "mana rocks/dorks";
             var rampPieceLabel = rampDraw == 1 ? "ramp/draw piece" : "ramp/draw pieces";
             var rampSummary = $"{report.RampSourceCount} {rockOrDorkLabel}" + (rampDraw > 0 ? $" · {rampDraw} {rampPieceLabel} at ≤2 MV credited toward a lower land count" : string.Empty);
-            if (report.RampSourceNames.Count > 0 || report.RampAndDrawNames.Count > 0)
+            @if (Model.RampDrawBudget is null)
             {
-                <details class="manabase-ramp">
-                    <summary><strong>Ramp:</strong> @rampSummary.</summary>
-                    @if (report.RampSourceNames.Count > 0)
+                <section id="manabase-ramp-draw">
+                    <h3 class="manabase-verdict-heading">Ramp &amp; draw</h3>
+                    @if (showRampDetails)
                     {
-                        <p class="manabase-ramp-group-label">Mana rocks/dorks</p>
-                        <ul>
-                            @foreach (var name in report.RampSourceNames)
-                            {
-                                <li>@name</li>
-                            }
-                        </ul>
+                        RenderRampBreakdownDetails(rampSummary);
                     }
-                    @if (report.RampAndDrawNames.Count > 0)
+                    else
                     {
-                        <p class="manabase-ramp-group-label">Ramp/draw ≤2 MV</p>
-                        <ul>
-                            @foreach (var name in report.RampAndDrawNames)
-                            {
-                                <li>@name</li>
-                            }
-                        </ul>
+                        <p class="manabase-help">
+                            <strong>Ramp:</strong> @rampSummary.
+                        </p>
                     }
-                </details>
+                </section>
             }
             else
             {
-                <p class="manabase-help">
-                    <strong>Ramp:</strong> @rampSummary.
-                </p>
+                @if (showRampDetails)
+                {
+                    RenderRampBreakdownDetails(rampSummary);
+                }
+                else
+                {
+                    <p class="manabase-help">
+                        <strong>Ramp:</strong> @rampSummary.
+                    </p>
+                }
             }
         }
 
@@ -604,51 +703,54 @@
             extended to weight non-land sources (rocks, dorks), count modal double-faced land-backs as real lands, count tapped vs. untapped lands for turn-one casts, and size each color to its hardest spell.
         </p>
 
-        <div class="manabase-table-wrap">
-            <table class="manabase-table manabase-table--card">
-                <thead>
-                    <tr>
-                        <th scope="col">Color</th>
-                        <th scope="col">Sources</th>
-                        <th scope="col">Needed</th>
-                        <th scope="col">Population</th>
-                        <th scope="col">Short by</th>
-                        <th scope="col">Driving spell</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var f in report.ColorFindings)
-                    {
-                        var isWeakest = report.WeakestColor is { } w && w.Color == f.Color;
-                        // Red "weakest" accent only when the lead color genuinely needs sources
-                        // (domain rule lives on the model, see ColorSourceFinding.NeedsMoreSources).
-                        var weakestNeedsSources = isWeakest && f.NeedsMoreSources;
-                        var isCommanderColor = report.CommanderColors.Contains(f.Color);
-                        var total = report.ColorSpellCounts.TryGetValue(f.Color, out var t) ? t : f.UnderSupportedCount;
-                        <tr class="@(f.IsAdequate ? null : "manabase-row--short") @(weakestNeedsSources ? "manabase-row--weakest" : null)">
-                            <td data-label="Color">
-                                @f.Color
-                                @if (isCommanderColor)
-                                {
-                                    <span class="manabase-cmd-glyph" title="commander color" aria-label="commander color">★</span>
-                                }
-                            </td>
-                            <td data-label="Sources">
-                                @f.ActualSources.ToString("F1")
-                                @if (f.SharedSources > 0 || f.ConditionalSources > 0)
-                                {
-                                    <span class="manabase-source-breakdown">@f.DirectSources.ToString("F1") direct + @f.SharedSources.ToString("F1") shared@(f.ConditionalSources > 0 ? $" + {f.ConditionalSources.ToString("F1")} conditional" : string.Empty)</span>
-                                }
-                            </td>
-                            <td data-label="Needed">@f.RequiredSources</td>
-                            <td data-label="Population">@f.UnderSupportedCount of @total under-supported</td>
-                            <td data-label="Short by (heuristic guidance)">@(f.IsAdequate ? "OK" : $"{f.Deficit.ToString("0.0")} ⚠")</td>
-                            <td data-label="Driving spell">@f.DrivingSpell</td>
+        <section id="manabase-color-findings">
+            <h3 class="manabase-castability-heading">Color findings</h3>
+            <div class="manabase-table-wrap">
+                <table class="manabase-table manabase-table--card">
+                    <thead>
+                        <tr>
+                            <th scope="col">Color</th>
+                            <th scope="col">Sources</th>
+                            <th scope="col">Needed</th>
+                            <th scope="col">Population</th>
+                            <th scope="col">Short by</th>
+                            <th scope="col">Driving spell</th>
                         </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
+                    </thead>
+                    <tbody>
+                        @foreach (var f in report.ColorFindings)
+                        {
+                            var isWeakest = report.WeakestColor is { } w && w.Color == f.Color;
+                            // Red "weakest" accent only when the lead color genuinely needs sources
+                            // (domain rule lives on the model, see ColorSourceFinding.NeedsMoreSources).
+                            var weakestNeedsSources = isWeakest && f.NeedsMoreSources;
+                            var isCommanderColor = report.CommanderColors.Contains(f.Color);
+                            var total = report.ColorSpellCounts.TryGetValue(f.Color, out var t) ? t : f.UnderSupportedCount;
+                            <tr class="@(f.IsAdequate ? null : "manabase-row--short") @(weakestNeedsSources ? "manabase-row--weakest" : null)">
+                                <td data-label="Color">
+                                    @f.Color
+                                    @if (isCommanderColor)
+                                    {
+                                        <span class="manabase-cmd-glyph" title="commander color" aria-label="commander color">★</span>
+                                    }
+                                </td>
+                                <td data-label="Sources">
+                                    @f.ActualSources.ToString("F1")
+                                    @if (f.SharedSources > 0 || f.ConditionalSources > 0)
+                                    {
+                                        <span class="manabase-source-breakdown">@f.DirectSources.ToString("F1") direct + @f.SharedSources.ToString("F1") shared@(f.ConditionalSources > 0 ? $" + {f.ConditionalSources.ToString("F1")} conditional" : string.Empty)</span>
+                                    }
+                                </td>
+                                <td data-label="Needed">@f.RequiredSources</td>
+                                <td data-label="Population">@f.UnderSupportedCount of @total under-supported</td>
+                                <td data-label="Short by (heuristic guidance)">@(f.IsAdequate ? "OK" : $"{f.Deficit.ToString("0.0")} ⚠")</td>
+                                <td data-label="Driving spell">@f.DrivingSpell</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
 
         @if (report.HasRestrictedSourceApproximation)
         {
@@ -695,48 +797,21 @@
             </details>
         }
 
-        @if (Model.ShowCastability && report.Castability.Count > 0)
+        @if (showCastabilitySection)
         {
-            <h3 class="manabase-castability-heading">Castability — chance to cast on curve</h3>
-            <p class="manabase-help">Estimate on each card's mana-value turn, drawing every turn (Commander is multiplayer, so you draw on your first turn too). Counts ramp; the credited mana rocks/dorks are listed in the expandable Ramp line above. See <em>How the analysis works</em> below for the mulligan and draw details.</p>
-
-            <div class="manabase-table-wrap castability-scroll">
-                <table class="manabase-table castability-table manabase-table--card">
-                    <thead>
-                        <tr>
-                            <th scope="col">Card</th>
-                            <th scope="col">MV</th>
-                            <th scope="col">Cast on curve</th>
-                            <th scope="col">Avg delay</th>
-                            <th scope="col">Limiting</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var c in castRows)
-                        {
-                            var chip = ManabaseDisplay.CastChip(c.CastPercent);
-                            <tr class="@(c.IsCommander ? "manabase-row--commander" : null)">
-                                <td class="castability-name" data-label="Card" title="@c.Name">
-                                    @if (c.IsCommander)
-                                    {
-                                        <span class="manabase-cmd-glyph" title="commander" aria-label="commander">★</span>
-                                    }
-                                    @c.Name
-                                </td>
-                                <td data-label="MV">
-                                    @c.ManaValue@if (c.IsCostOverridden)
-                                    {<span class="manabase-override-mark" title="reduced / alternative cost applied" aria-label="reduced or alternative cost applied">*</span>}
-                                </td>
-                                <td data-label="Cast on curve">
-                                    <span class="manabase-chip @chip.Css">@c.CastPercent% · @chip.Label</span>
-                                </td>
-                                <td class="castability-delay" data-label="Avg delay">@ManabaseDisplay.DelayText(c.AverageDelay)</td>
-                                <td data-label="Limiting">@ManabaseDisplay.LimitingText(c.LimitingFactor)</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
+            <section id="manabase-castability">
+                <h3 class="manabase-castability-heading">Castability — chance to cast on curve</h3>
+                <p class="manabase-help">Estimate on each card's mana-value turn, drawing every turn (Commander is multiplayer, so you draw on your first turn too). Counts ramp; the credited mana rocks/dorks are listed in the expandable Ramp line above. See <em>How the analysis works</em> below for the mulligan and draw details.</p>
+                <p class="manabase-castability-summary">@castabilitySummary</p>
+                @{ RenderCastabilityTable(visibleCastRows); }
+                @if (hiddenCastRows.Count > 0)
+                {
+                    <details class="manabase-castability-details">
+                        <summary>Show all @castRows.Count castability rows</summary>
+                        @{ RenderCastabilityTable(hiddenCastRows); }
+                    </details>
+                }
+            </section>
             @if (report.Castability.Any(c => c.IsCostOverridden))
             {
                 <p class="manabase-help"><span class="manabase-override-mark">*</span> reduced / alternative cost applied from your overrides.</p>
@@ -795,7 +870,7 @@
 }
 
 @* FORMULA-01 — methodology always shown; the per-deck breakdown only with a result. *@
-<details class="result-panel nested-panel manabase-formula" data-manabase-formula="how">
+<details id="manabase-details" class="result-panel nested-panel manabase-formula" data-manabase-formula="how">
     <summary>How the analysis works</summary>
     <div class="manabase-formula-body">
         <p>The land count comes from <strong>Frank Karsten's source-count regression</strong> for singleton (Commander) decks: a target driven by average mana value, ramp and card draw at three mana or less, and fast mana, with a credit for each commander. Modal double-faced land-backs count directly toward your actual land total rather than adjusting this target. cEDH mode lowers that target for the faster competitive format (about a 3.5-land cut, crediting fast mana fully); when there is enough cEDH tournament data for your commander, the recommendation is nudged toward that real-deck land mean and shown as a range.</p>
