@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Reflection;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Models;
@@ -181,6 +182,60 @@ public sealed class ManabaseDisplayTests
         Assert.Equal(deficit, result.Deficit);
     }
 
+    [Fact]
+    public void DefaultVisibleCastabilityCount_AllGoodDeck_ShowsMinimumRows()
+    {
+        var rows = BuildUniformRows(25, 95);
+
+        int visible = ManabaseDisplay.DefaultVisibleCastabilityCount(rows);
+
+        Assert.Equal(ManabaseDisplay.MinVisibleCastabilityRows, visible);
+    }
+
+    [Fact]
+    public void DefaultVisibleCastabilityCount_AllBadDeck_CapsAtMaximumRows()
+    {
+        var rows = BuildUniformRows(30, 68);
+
+        int visible = ManabaseDisplay.DefaultVisibleCastabilityCount(rows);
+
+        Assert.Equal(ManabaseDisplay.MaxVisibleCastabilityRows, visible);
+    }
+
+    [Fact]
+    public void DefaultVisibleCastabilityCount_ShowsAllLowAndOkRows_WhenWithinBounds()
+    {
+        var rows = BuildRowsWithPercents(
+            55,
+            60,
+            66,
+            70,
+            74,
+            78,
+            82,
+            85,
+            88,
+            89,
+            91,
+            93,
+            95,
+            97);
+
+        int visible = ManabaseDisplay.DefaultVisibleCastabilityCount(rows);
+
+        Assert.Equal(10, visible);
+    }
+
+    [Fact]
+    public void CastabilitySummaryText_UsesHiddenFloorAndCount()
+    {
+        var rows = BuildRowsWithPercents(51, 55, 60, 65, 72, 76, 81, 86, 88, 89, 92, 97);
+
+        string summary = ManabaseDisplay.CastabilitySummaryText(rows, 10);
+
+        Assert.Equal("Showing the 10 hardest casts — 2 more at 92%+ are fine.", summary);
+    }
+
     [Theory]
     [InlineData("KarstenSourceGloss", "need -3 means about 3 short")]
     [InlineData("CastRateGloss", "Higher = smoother.")]
@@ -215,4 +270,25 @@ public sealed class ManabaseDisplayTests
             ?? throw new Xunit.Sdk.XunitException($"ManabaseDisplay.{fieldName} field missing.");
         return Assert.IsType<string>(field.GetValue(null));
     }
+
+    private static CardCastability[] BuildUniformRows(int count, int castPercent)
+        => Enumerable.Range(1, count)
+            .Select(i => BuildCastabilityRow($"Spell {i}", castPercent))
+            .ToArray();
+
+    private static CardCastability[] BuildRowsWithPercents(params int[] castPercents)
+        => castPercents
+            .Select((percent, index) => BuildCastabilityRow($"Spell {index + 1}", percent))
+            .ToArray();
+
+    private static CardCastability BuildCastabilityRow(string name, int castPercent)
+        => new()
+        {
+            Name = name,
+            ManaValue = 3,
+            OnCurveTurn = 3,
+            CastPercent = castPercent,
+            AverageDelay = castPercent >= 90 ? 0.0 : 1.0,
+            LimitingFactor = "mana",
+        };
 }
