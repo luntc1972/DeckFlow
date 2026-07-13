@@ -23,7 +23,22 @@ from the gap phase. Context anchor: `.planning/phases/manabase-research-gap-clos
 
 From the 2026-07-12 research-vs-implementation audit (CONTEXT.md deferred section):
 - **MBGAP-06** — scry-0.2 source credit
-- **MBGAP-07** — casual low-curve guard (verify with a real ~1.8-MV deck FIRST — may be a non-issue)
+- ~~**MBGAP-07** — casual low-curve guard~~ **RESOLVED 2026-07-13: verified NON-ISSUE, no
+  code change.** Ran realistic low-curve casual decks through the exact `SingletonLandTarget`
+  formula (`scale·(19.59 + 1.90·MV + 0.27·c) − 0.28·ramp − fast − 1.35`, 100-card scale ×1.65):
+
+  | profile | target |
+  |---|---|
+  | hyper-aggro mv1.3 ramp3 | 33.9 |
+  | aggressive mv1.6 ramp4 | 34.5 |
+  | note's deck mv1.8 ramp6 | 34.6 |
+  | low+ramp-heavy mv1.6 ramp10 fast2 | 31.6 |
+  | midrange baseline mv2.8 | 37.7 |
+  | pathological mv1.0 ramp25 fast5 | 22.6 |
+
+  Realistic low-curve decks land 31–35 (inside Karsten/community norms); gradient behaves.
+  Latent: casual path has NO min-land floor (cEDH clamps 22), but adding one would OVER-recommend
+  for legit heavy-ramp low-curve decks — deliberately left floorless. Do not reopen.
 - **MBGAP-08** — snow color category
 - **MBGAP-10** — LOW sweep: L4 (verify-then-fix), L5, L6, L9, L13
 
