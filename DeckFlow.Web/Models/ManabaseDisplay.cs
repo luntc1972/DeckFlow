@@ -9,6 +9,24 @@ namespace DeckFlow.Web.Models;
 /// </summary>
 public static class ManabaseDisplay
 {
+    /// <summary>Minimum number of castability rows shown before the "show more" expander appears.</summary>
+    public const int MinVisibleCastabilityRows = 10;
+
+    /// <summary>Maximum number of castability rows shown before the "show more" expander appears.</summary>
+    public const int MaxVisibleCastabilityRows = 20;
+
+    /// <summary>
+    /// Castability rows at or above this percentage count as "good" for the default table cap. All
+    /// sub-threshold rows stay visible by default; this only affects which already-good rows can be
+    /// tucked behind the expander.
+    /// </summary>
+    public const int GoodCastabilityThreshold = 90;
+
+    /// <summary>
+    /// Castability rows at or above this percentage count as merely "ok" rather than "low".
+    /// </summary>
+    public const int OkCastabilityThreshold = 70;
+
     /// <summary>UI-only gloss for the Karsten source-check metric.</summary>
     public const string KarstenSourceGloss =
         "Enough lands/rocks of each color to reliably have that color when you need it. need -3 means about 3 short.";
@@ -63,16 +81,17 @@ public static class ManabaseDisplay
 
     /// <summary>
     /// Maps a cast percentage to a (cssModifier, label) pair so the chip conveys severity by both
-    /// text and color (never color alone): &lt;70 danger/"low", 70–89 warning/"ok", ≥90 success/"good".
+    /// text and color (never color alone): below <see cref="OkCastabilityThreshold"/> danger/"low",
+    /// below <see cref="GoodCastabilityThreshold"/> warning/"ok", otherwise success/"good".
     /// </summary>
     public static (string Css, string Label) CastChip(int castPercent)
     {
-        if (castPercent < 70)
+        if (castPercent < OkCastabilityThreshold)
         {
             return ("manabase-chip--low", "low");
         }
 
-        if (castPercent < 90)
+        if (castPercent < GoodCastabilityThreshold)
         {
             return ("manabase-chip--ok", "ok");
         }
@@ -159,6 +178,61 @@ public static class ManabaseDisplay
         bool met = finding.ActualSources >= finding.RequiredSources - 1.0;
         int deficit = met ? 0 : ManabaseWording.ApproximateCount(finding.RequiredSources - finding.ActualSources);
         return (met, deficit);
+    }
+
+    /// <summary>
+    /// Returns how many castability rows should stay visible before the progressive-disclosure
+    /// expander. All rows below the "good" threshold remain visible, with a floor of
+    /// <see cref="MinVisibleCastabilityRows"/> and a ceiling of <see cref="MaxVisibleCastabilityRows"/>.
+    /// </summary>
+    public static int DefaultVisibleCastabilityCount(IReadOnlyList<CardCastability> rows)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+
+        if (rows.Count <= MinVisibleCastabilityRows)
+        {
+            return rows.Count;
+        }
+
+        int actionableCount = 0;
+        for (int i = 0; i < rows.Count; i++)
+        {
+            if (rows[i].CastPercent < GoodCastabilityThreshold)
+            {
+                actionableCount++;
+            }
+        }
+
+        return Math.Min(rows.Count, Math.Clamp(actionableCount, MinVisibleCastabilityRows, MaxVisibleCastabilityRows));
+    }
+
+    /// <summary>
+    /// Human summary for the capped castability table, describing how many rows are shown by default
+    /// and how strong the hidden rows are.
+    /// </summary>
+    public static string CastabilitySummaryText(IReadOnlyList<CardCastability> allRows, int visibleCount)
+    {
+        ArgumentNullException.ThrowIfNull(allRows);
+
+        if (allRows.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        visibleCount = Math.Clamp(visibleCount, 0, allRows.Count);
+        int hiddenCount = allRows.Count - visibleCount;
+        if (hiddenCount <= 0)
+        {
+            return $"Showing all {allRows.Count} castability {(allRows.Count == 1 ? "row" : "rows")}.";
+        }
+
+        int hiddenFloor = 100;
+        for (int i = visibleCount; i < allRows.Count; i++)
+        {
+            hiddenFloor = Math.Min(hiddenFloor, allRows[i].CastPercent);
+        }
+
+        return $"Showing the {visibleCount} hardest casts — {hiddenCount} more at {hiddenFloor}%+ are fine.";
     }
 
     /// <summary>Human label for an analysis mode (used in the results echo line).</summary>
