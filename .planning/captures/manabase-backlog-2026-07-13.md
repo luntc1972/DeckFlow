@@ -13,6 +13,18 @@ This doc is the continuation list, ordered by recommended pickup.
 | `analysis.manabase.ritual-land-credit` | OFF | none left — calibration DONE + user accepted 0.5/cap 3.0 (2026-07-12 checkpoint) | Evidence committed: `.planning/phases/manabase-research-gap-closure/05-calibration-{before,after}.md` (3281 decks, under-flag 21.8%→11.1%, 0 newly-flagged, floor-22 holds). Flip = 1 prod UPDATE via /Admin/Flags or SQL. |
 | `analysis.manabase.restricted-lands` | OFF | **golden-deck diff required (D-04)** — run a before/after on a deck set containing Cavern/Unclaimed/Ziggurat/Nykthos, review weight deltas + disclosure rendering, then flip | Classifier gated by `restrictedLands` param; flag-off byte-identical proven by parity tests. |
 
+**UPDATE 2026-07-13: both flags FLIPPED ON in prod (2026-07-12 21:18) and post-flip
+sanity-verified live** (headless Playwright vs deckflow.gg, two probe decks):
+- restricted-lands: Golgari Elves w/ Cavern + Unclaimed Territory + Nykthos — all 3 rows
+  marked `†`, footnote + "Land / source | Approximation" disclosure table render, verdict sane.
+- ritual-land-credit: cEDH K'rrik ritual pile — breakdown shows base 35.6 → target 31.1
+  with adjustment −4.5 = −3.5 cEDH cut + **−1.0 ritual credit** (2 net-positive rituals ×0.5;
+  sac-cost rituals correctly excluded). No baseline range (K'rrik N<10), so delta is pure credit.
+- **NEW LOW (add to §4-adjacent polish): "This deck's numbers" panel folds the ritual credit
+  into the "cEDH adjustment" line without naming it** — shows `cEDH adjustment (−3.5 …): -4.5`
+  and the word "ritual" appears nowhere on the page, so the −1.0 is unexplained to a user
+  auditing the math. Fix: render the ritual credit as its own breakdown line when non-zero.
+
 ## 2. MBGAP-09 — cEDH castability surface (own phase, per locked D-02)
 
 Early-interaction turns-1-3 color-access lens for cEDH mode. Deliberately excluded
