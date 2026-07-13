@@ -50,6 +50,8 @@ const PASTE_DECK = [
 ].join('\n');
 
 test('captures tap and mulligan lens element screenshots at each viewport', async ({ page }, testInfo) => {
+  test.skip(!process.env.DECKFLOW_LIVE_E2E, 'live-only: needs Scryfall + flag on');
+
   const ok = await submitDeck(page);
   test.skip(!ok, 'analysis result unavailable (Scryfall not reachable in this environment)');
 
