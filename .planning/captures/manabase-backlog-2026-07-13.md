@@ -57,8 +57,10 @@ From `.foreman/ledger.md` Runs 3-4:
   Every future land family becomes one array entry. (`ManabaseClassifier.cs`)
 - **`CedhCalibration` TargetColumn generalization**: Old/New/RitualCredit triplication →
   `IReadOnlyList<TargetColumn>` + shared `ComputeVariantStats`; a 4th target variant is
-  near-certain. ALSO: its ~90 lines of aggregation math (means/percents/un-flag deltas)
-  have NO unit tests — surfaced and accepted 2026-07-12; add tests when touched.
+  near-certain. ~~ALSO: aggregation math has NO unit tests~~ **DONE 2026-07-13**: 13 tests
+  added (`55694820`) covering ritual-credit columns/edges/renderers, and the floor/ceiling
+  hit-counter asymmetry was unified onto the ritual-credit column (`fcdd8c49`). The
+  TargetColumn refactor itself is still open — now safe to do against the pinned math.
 - **`AddLandCopies` context record**: 11-param signature (6 shared context + 2 out-collections)
   → `LandClassificationContext` readonly record struct per project >3-param guidance.
 
