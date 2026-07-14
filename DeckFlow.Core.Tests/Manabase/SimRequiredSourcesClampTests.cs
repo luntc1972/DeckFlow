@@ -127,6 +127,64 @@ public sealed class SimRequiredSourcesClampTests
     }
 
     [Fact]
+    public void SingletonFourDrop_UsesDrawBaselineKarstenCeiling()
+    {
+        var deck = new ManabaseDeck
+        {
+            TotalCards = 99,
+            CommanderCount = 0,
+            Sources = Enumerable.Range(0, 36)
+                .Select(_ => Land(ManaColor.Red))
+                .ToList(),
+            Spells = new List<SpellRequirement>
+            {
+                new() { Name = "R Four-Drop", ManaValue = 4, Pips = new Dictionary<ManaColor, int> { [ManaColor.Red] = 1 } },
+            },
+            AverageManaValue = 2.5,
+            IsSingleton = true,
+        };
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual, CommanderImportance.Standard);
+        ColorSourceFinding red = report.ColorFindings.Single(f => f.Color == ManaColor.Red);
+
+        int onDraw = KarstenManabase.SourcesNeeded(99, 36, pips: 1, manaValue: 4, onPlay: false);
+        int onPlay = KarstenManabase.SourcesNeeded(99, 36, pips: 1, manaValue: 4, onPlay: true);
+
+        Assert.Equal(15, onDraw);
+        Assert.Equal(16, onPlay);
+        Assert.Equal(onDraw, red.RequiredSources);
+    }
+
+    [Fact]
+    public void SixtyCardTwoDrop_KeepsOnPlayBaseline()
+    {
+        var deck = new ManabaseDeck
+        {
+            TotalCards = 60,
+            CommanderCount = 0,
+            Sources = Enumerable.Range(0, 24)
+                .Select(_ => Land(ManaColor.Blue))
+                .ToList(),
+            Spells = new List<SpellRequirement>
+            {
+                new() { Name = "U Two-Drop", ManaValue = 2, Pips = new Dictionary<ManaColor, int> { [ManaColor.Blue] = 1 } },
+            },
+            AverageManaValue = 2.0,
+            IsSingleton = false,
+        };
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual, CommanderImportance.Standard);
+        ColorSourceFinding blue = report.ColorFindings.Single(f => f.Color == ManaColor.Blue);
+
+        int onPlay = KarstenManabase.SourcesNeeded(60, 24, pips: 1, manaValue: 2, onPlay: true);
+        int onDraw = KarstenManabase.SourcesNeeded(60, 24, pips: 1, manaValue: 2, onPlay: false);
+
+        Assert.Equal(13, onPlay);
+        Assert.Equal(12, onDraw);
+        Assert.Equal(8, blue.RequiredSources);
+    }
+
+    [Fact]
     public void RampSourceCount_CountsNonLandManaSources()
     {
         // Mana rocks/dorks (non-land sources) are counted; lands are not. RampSourceCount keys on the
@@ -158,4 +216,3 @@ public sealed class SimRequiredSourcesClampTests
         Assert.Equal(2, report.RampSourceCount);
     }
 }
-

@@ -270,6 +270,9 @@ public static class ManabaseClassifier
             // 70-03b: model repeatable land-ramp as a colorless, non-land ramp source (one per copy) so
             // the simulator credits the fetched land's mana. Colorless (Produces empty) → no color-count
             // change; non-land → no land-count / mulligan inflation; deploy cost = the spell's MV.
+            // Why: the sim intentionally does NOT thin the library after the fetch resolves; keeping the
+            // fetched land as delayed mana while leaving draw density untouched is a known approximation,
+            // and the two errors partially offset over the short turn window we simulate.
             if (landRampSim && IsLandRampToBattlefield(card))
             {
                 for (int i = 0; i < card.Quantity; i++)
@@ -1850,13 +1853,15 @@ public static class ManabaseClassifier
             return GranterScope.AllCreatures;
         }
 
-        bool tapForMana = lower.Contains("{t}: add", StringComparison.Ordinal);
+        bool tapForMana = lower.Contains("{t}: add", StringComparison.Ordinal)
+            || (lower.Contains("{t}, tap", StringComparison.Ordinal) && lower.Contains(": add", StringComparison.Ordinal));
         if (!tapForMana && !lower.Contains("have \"{t}", StringComparison.Ordinal))
         {
             return null;
         }
 
-        if (lower.Contains("legendary creatures you control", StringComparison.Ordinal))
+        if (lower.Contains("legendary creatures you control", StringComparison.Ordinal)
+            || lower.Contains("legendary creature you control", StringComparison.Ordinal))
         {
             return GranterScope.LegendaryCreatures;
         }

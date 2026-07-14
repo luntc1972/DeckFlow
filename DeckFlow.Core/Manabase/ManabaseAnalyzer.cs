@@ -907,7 +907,12 @@ public static class ManabaseAnalyzer
         // cast% sits depressed enough that the binary search climbs toward totalLands (a Gruul deck
         // reading "need ~35 of 36 red sources" for an {2}{R}{R} card). Clamp to Karsten's trusted,
         // Snail-validated figure so the sim's only effect is to shave the requirement, never inflate it.
-        int karstenCeiling = KarstenManabase.SourcesNeeded(librarySize, totalLands, pips, Math.Max(1, onCurveTurn));
+        int karstenCeiling = KarstenManabase.SourcesNeeded(
+            librarySize,
+            totalLands,
+            pips,
+            Math.Max(1, onCurveTurn),
+            onPlay: !isSingleton);
         return Math.Min(result, karstenCeiling);
     }
 

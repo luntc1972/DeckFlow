@@ -722,6 +722,82 @@ public sealed class ManabaseClassifierTests
     }
 
     [Fact]
+    public void Classify_RelicOfLegends_GrantsAnyColorSourceToLegendaryCreature()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Relic of Legends",
+                Quantity = 1,
+                ManaCost = "{3}",
+                ManaValue = 3,
+                TypeLine = "Artifact",
+                OracleText = "{T}, Tap an untapped legendary creature you control: Add one mana of any color.",
+                ProducedMana = System.Array.Empty<string>(),
+            },
+            new()
+            {
+                Name = "Raff Capashen, Ship's Mage",
+                Quantity = 1,
+                ManaCost = "{2}{W}{U}",
+                ManaValue = 4,
+                TypeLine = "Legendary Creature — Human Wizard",
+                OracleText = "Flash.",
+                ProducedMana = System.Array.Empty<string>(),
+            },
+            new()
+            {
+                Name = "Grizzly Bears",
+                Quantity = 1,
+                ManaCost = "{1}{G}",
+                ManaValue = 2,
+                TypeLine = "Creature — Bear",
+                OracleText = string.Empty,
+                ProducedMana = System.Array.Empty<string>(),
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        ManaSource granted = Assert.Single(deck.Sources, s => s.Name == "Raff Capashen, Ship's Mage (granted)");
+        Assert.Equal(0.25, granted.Weight);
+        Assert.DoesNotContain(deck.Sources, s => s.Name == "Grizzly Bears (granted)");
+    }
+
+    [Fact]
+    public void Classify_NonManaTapAbility_DoesNotMatchLegendaryGranter()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Not A Relic",
+                Quantity = 1,
+                ManaCost = "{3}",
+                ManaValue = 3,
+                TypeLine = "Artifact",
+                OracleText = "{T}, Tap an untapped legendary creature you control: Draw a card.",
+                ProducedMana = System.Array.Empty<string>(),
+            },
+            new()
+            {
+                Name = "Raff Capashen, Ship's Mage",
+                Quantity = 1,
+                ManaCost = "{2}{W}{U}",
+                ManaValue = 4,
+                TypeLine = "Legendary Creature — Human Wizard",
+                OracleText = "Flash.",
+                ProducedMana = System.Array.Empty<string>(),
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        Assert.DoesNotContain(deck.Sources, s => s.Name.EndsWith("(granted)"));
+    }
+
+    [Fact]
     public void Classify_Commander_IsFlaggedOnSpellRequirement()
     {
         var cards = new List<CardFact>
