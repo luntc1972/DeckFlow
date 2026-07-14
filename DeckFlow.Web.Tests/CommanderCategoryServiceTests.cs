@@ -1,12 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using DeckFlow.Core.Reporting;
-using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
-using DeckFlow.Web.Services.Harvest;
-using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
@@ -22,8 +15,8 @@ public sealed class CommanderCategoryServiceTests
         var store = new FakeCategoryKnowledgeStore
         {
             RunCacheSweepException = new InvalidOperationException("Cache sweep should not run."),
-            CategoryRowsResult = new[] { new CategoryKnowledgeRow("Ramp", "Birds of Paradise", 2) },
-            CommanderDeckCount = 1
+            CategoryRowsResult = [new CategoryKnowledgeRow("Ramp", "Birds of Paradise", 2, 1)],
+            CommanderDeckCount = 20
         };
         var service = new CommanderCategoryService(store);
 
@@ -32,73 +25,123 @@ public sealed class CommanderCategoryServiceTests
         Assert.Equal(0, store.RunCacheSweepCalls);
         Assert.Single(result.Rows);
         Assert.Single(result.Summaries);
-        Assert.Equal(1, result.CardDeckTotals.TotalDeckCount);
+        Assert.Equal(20, result.CardDeckTotals.TotalDeckCount);
     }
 
-    private sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
+    [Fact]
+    public async Task LookupAsync_DeckCountMeetsThreshold_KeepsSummary()
     {
-        public int RunCacheSweepCalls { get; private set; }
-        public Exception? RunCacheSweepException { get; init; }
-        public IReadOnlyList<CategoryKnowledgeRow> CategoryRowsResult { get; init; } = Array.Empty<CategoryKnowledgeRow>();
-        public int CommanderDeckCount { get; init; }
-
-        public Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached in this test.");
-
-        public Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsForCommanderAsync(string commanderName, CancellationToken cancellationToken = default)
-            => Task.FromResult(CategoryRowsResult);
-
-        public Task<int> GetProcessedDeckCountAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult(3);
-
-        public Task<int> GetCommanderDeckCountAsync(string commanderName, CancellationToken cancellationToken = default)
-            => Task.FromResult(CommanderDeckCount);
-
-        public Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
+        var store = new FakeCategoryKnowledgeStore
         {
-            RunCacheSweepCalls++;
-            if (RunCacheSweepException is not null)
-            {
-                throw RunCacheSweepException;
-            }
+            CategoryRowsResult =
+            [
+                new CategoryKnowledgeRow("Ramp", "Birds of Paradise", 4, 3),
+            ],
+            CommanderDeckCount = 100
+        };
+        var service = new CommanderCategoryService(store);
 
-            return Task.FromResult(1);
-        }
+        var result = await service.LookupAsync("Bello", CancellationToken.None);
 
-        public Task<IReadOnlyList<string>> GetCategoriesAsync(string cardName, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached in this test.");
+        var summary = Assert.Single(result.Summaries);
+        Assert.Equal("Ramp", summary.Category);
+    }
 
-        public Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(IReadOnlyCollection<string> cardNames, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached in this test.");
+    [Fact]
+    public async Task LookupAsync_BelowDeckCountAndShareThreshold_DropsSummary()
+    {
+        var store = new FakeCategoryKnowledgeStore
+        {
+            CategoryRowsResult =
+            [
+                new CategoryKnowledgeRow("Ramp", "Birds of Paradise", 2, 2),
+            ],
+            CommanderDeckCount = 100
+        };
+        var service = new CommanderCategoryService(store);
 
-        public Task PersistObservedCategoriesAsync(string source, string cardName, IReadOnlyList<string> categories, int quantity = 1, string board = "mainboard", int deckCountIncrement = 0, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached in this test.");
+        var result = await service.LookupAsync("Bello", CancellationToken.None);
 
-        public Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached in this test.");
+        Assert.Empty(result.Summaries);
+    }
 
-        public Task<int> GetTotalProcessedDeckCountAsync(CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached in this test.");
+    [Fact]
+    public async Task LookupAsync_DeckShareMeetsThreshold_KeepsSummary()
+    {
+        var store = new FakeCategoryKnowledgeStore
+        {
+            CategoryRowsResult =
+            [
+                new CategoryKnowledgeRow("Niche Value", "Guardian Project", 2, 2),
+            ],
+            CommanderDeckCount = 40
+        };
+        var service = new CommanderCategoryService(store);
 
-        public Task<int> GetTotalProcessedDeckCountSinceAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached in this test.");
+        var result = await service.LookupAsync("Bello", CancellationToken.None);
 
-        public Task<int> GetTotalObservationCountAsync(CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached in this test.");
+        var summary = Assert.Single(result.Summaries);
+        Assert.Equal("Niche Value", summary.Category);
+    }
 
-        public Task<IReadOnlyList<TopCommanderRow>> GetTopCommandersAsync(int n, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached in this test.");
+    [Fact]
+    public async Task LookupAsync_CategoryVariantsCollapseIntoSingleSummary()
+    {
+        var store = new FakeCategoryKnowledgeStore
+        {
+            CategoryRowsResult =
+            [
+                new CategoryKnowledgeRow("Ramp", "Birds of Paradise", 3, 2),
+                new CategoryKnowledgeRow("ramp", "Llanowar Elves", 1, 1),
+            ],
+            CommanderDeckCount = 20
+        };
+        var service = new CommanderCategoryService(store);
 
-        public Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached in this test.");
+        var result = await service.LookupAsync("Bello", CancellationToken.None);
 
-        public Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached in this test.");
+        var summary = Assert.Single(result.Summaries);
+        Assert.Equal("Ramp", summary.Category);
+        Assert.Equal(4, summary.Count);
+        Assert.Equal(3, summary.DeckCount);
+    }
 
-        public Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached in this test.");
+    [Fact]
+    public async Task LookupAsync_ComputesDeckShare()
+    {
+        var store = new FakeCategoryKnowledgeStore
+        {
+            CategoryRowsResult =
+            [
+                new CategoryKnowledgeRow("Ramp", "Birds of Paradise", 3, 5),
+            ],
+            CommanderDeckCount = 20
+        };
+        var service = new CommanderCategoryService(store);
 
-        public Task<CardDeckTotals> GetCardDeckTotalsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Not reached in this test.");
+        var result = await service.LookupAsync("Bello", CancellationToken.None);
+
+        var summary = Assert.Single(result.Summaries);
+        Assert.Equal(0.25d, summary.DeckShare, 6);
+    }
+
+    [Fact]
+    public async Task LookupAsync_RanksByDeckShareThenDeckCountThenCategory()
+    {
+        var store = new FakeCategoryKnowledgeStore
+        {
+            CategoryRowsResult =
+            [
+                new CategoryKnowledgeRow("Tokens", "Card A", 5, 8),
+                new CategoryKnowledgeRow("Ramp", "Card B", 4, 5),
+                new CategoryKnowledgeRow("Draw", "Card C", 3, 5),
+            ],
+            CommanderDeckCount = 20
+        };
+        var service = new CommanderCategoryService(store);
+
+        var result = await service.LookupAsync("Bello", CancellationToken.None);
+
+        Assert.Equal(["Tokens", "Draw", "Ramp"], result.Summaries.Select(summary => summary.Category));
     }
 }

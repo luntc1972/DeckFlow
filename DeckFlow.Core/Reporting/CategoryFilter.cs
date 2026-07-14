@@ -17,6 +17,8 @@ public static class CategoryFilter
         "Enchantments",
         "Instant",
         "Instants",
+        "Mainboard",
+        "Maybeboard",
         "Planeswalker",
         "Planeswalkers",
         "Sorcery",
@@ -31,6 +33,30 @@ public static class CategoryFilter
         return !string.IsNullOrWhiteSpace(category) && !ExcludedCategories.Contains(category);
     }
 
+    /// <summary>Returns whether <paramref name="category"/> is syntactic junk rather than a useful strategy label.</summary>
+    /// <param name="category">Category label to evaluate.</param>
+    /// <returns><see langword="true"/> when the category is null, blank, or matches the junk heuristics.</returns>
+    public static bool IsJunk(string? category)
+    {
+        if (string.IsNullOrWhiteSpace(category))
+        {
+            return true;
+        }
+
+        var trimmed = category.Trim();
+        if (char.IsAsciiDigit(trimmed[0]) || trimmed.Length <= 1 || trimmed.Length > 40)
+        {
+            return true;
+        }
+
+        if (trimmed.Contains('?') || trimmed.Contains('!') || trimmed.Contains("...", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return trimmed.Any(character => character > 127);
+    }
+
     /// <summary>
     /// Returns non-generic categories when present, otherwise preserves the original category labels.
     /// </summary>
@@ -38,13 +64,16 @@ public static class CategoryFilter
     /// <returns>Filtered category labels, or the original labels when none survive the filter.</returns>
     public static IReadOnlyList<string> IncludedOrFallback(IEnumerable<string> categories)
     {
-        var items = categories
+        var nonEmptyItems = categories
             .Where(category => !string.IsNullOrWhiteSpace(category))
             .ToList();
-        var included = items
+        var nonJunkItems = nonEmptyItems
+            .Where(category => !IsJunk(category))
+            .ToList();
+        var included = nonJunkItems
             .Where(IsIncluded)
             .ToList();
 
-        return included.Count > 0 ? included : items;
+        return included.Count > 0 ? included : nonJunkItems;
     }
 }

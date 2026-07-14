@@ -63,6 +63,9 @@ public sealed class DeckDiffViewModel
     /// <summary>Prompt context explaining Scryfall Tagger category hints.</summary>
     public string? TaggerSuggestionContextText { get; init; }
 
+    /// <summary>Merged, ranked category hints across all suggestion sources.</summary>
+    public string? MergedCategoriesText { get; init; }
+
     /// <summary>Whether no category suggestion source produced a useful result.</summary>
     public bool NoSuggestionsFound { get; init; }
 

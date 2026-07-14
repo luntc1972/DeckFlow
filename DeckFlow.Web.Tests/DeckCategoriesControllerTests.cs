@@ -4,6 +4,7 @@ using System.Net;
 using System.Threading.Tasks;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Controllers;
+using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -59,5 +60,69 @@ public sealed class DeckCategoriesControllerTests
         var payload = objectResult.Value!;
         var message = payload.GetType().GetProperty("Message")?.GetValue(payload) as string;
         Assert.Equal("Scryfall returned HTTP 503. Try again shortly.", message);
+    }
+
+    [Fact]
+    public async Task SuggestCategories_Success_PopulatesMergedAndLegacyCategoryTexts()
+    {
+        var controller = new DeckCategoriesController(
+            new StubCategorySuggestionService(new CategorySuggestionResult(
+                "Guardian Project",
+                ["Card Draw"],
+                ["Ramp", "Draw"],
+                ["PUMP✊"],
+                ["Draw"],
+                new CardDeckTotals(3, new Dictionary<string, int>()),
+                ["cached store", "Scryfall Tagger"],
+                false)),
+            new StubCardSearchService(),
+            NullLogger<DeckCategoriesController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var response = await controller.SuggestCategories(new CategorySuggestionRequest
+        {
+            CardName = "Guardian Project"
+        });
+
+        var viewResult = Assert.IsType<ViewResult>(response);
+        var model = Assert.IsType<DeckDiffViewModel>(viewResult.Model);
+        Assert.Equal("- Draw" + Environment.NewLine + "- Ramp", model.MergedCategoriesText);
+        Assert.Equal("- Card Draw", model.ExactSuggestedCategoriesText);
+        Assert.Equal("- Ramp" + Environment.NewLine + "- Draw", model.InferredCategoriesText);
+        Assert.Equal("- PUMP✊", model.EdhrecCategoriesText);
+        Assert.Equal("- Draw", model.TaggerCategoriesText);
+    }
+
+    private sealed class StubCategorySuggestionService : ICategorySuggestionService
+    {
+        private readonly CategorySuggestionResult _result;
+
+        public StubCategorySuggestionService(CategorySuggestionResult result)
+        {
+            _result = result;
+        }
+
+        public Task<CategorySuggestionResult> SuggestAsync(CategorySuggestionRequest request, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(_result);
+        }
+    }
+
+    private sealed class StubCardSearchService : ICardSearchService
+    {
+        public Task<IReadOnlyList<string>> SearchAsync(string query, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+        }
+
+        public Task<IReadOnlyList<string>> SearchCommandersAsync(string query, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+        }
     }
 }

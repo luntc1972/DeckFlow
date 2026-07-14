@@ -57,12 +57,38 @@ public sealed class CommanderCategoryService : ICommanderCategoryService
         var commanderDeckCount = await _knowledgeStore.GetCommanderDeckCountAsync(trimmed, cancellationToken);
         var cardTotals = new CardDeckTotals(commanderDeckCount, new Dictionary<string, int>());
         var summaries = rows
-            .GroupBy(row => row.Category, StringComparer.OrdinalIgnoreCase)
-            .Select(group => new CommanderCategorySummary(
-                group.Key,
-                group.Sum(row => row.Count),
-                group.Sum(row => row.DeckCount)))
-            .OrderByDescending(summary => summary.Count)
+            .Where(row => !string.IsNullOrWhiteSpace(row.Category))
+            .GroupBy(row => CategoryCanonicalizer.CanonicalKey(row.Category), StringComparer.Ordinal)
+            .Select(group =>
+            {
+                var category = group
+                    .GroupBy(row => row.Category, StringComparer.OrdinalIgnoreCase)
+                    .OrderByDescending(labelGroup => labelGroup.Count())
+                    .ThenByDescending(labelGroup => labelGroup.Sum(row => row.DeckCount))
+                    .ThenByDescending(labelGroup => labelGroup.Sum(row => row.Count))
+                    .ThenBy(labelGroup => labelGroup.Key, StringComparer.OrdinalIgnoreCase)
+                    .Select(labelGroup => CategoryCanonicalizer.Canonicalize(labelGroup.Key))
+                    .First();
+                var summaryDeckCount = group.Sum(row => row.DeckCount);
+                var deckShare = commanderDeckCount > 0
+                    ? (double)summaryDeckCount / commanderDeckCount
+                    : 0d;
+
+                return new CommanderCategorySummary(
+                    category,
+                    group.Sum(row => row.Count),
+                    summaryDeckCount,
+                    deckShare);
+            })
+            .Where(summary => summary.DeckCount >= 3 || summary.DeckShare >= 0.05d)
+            .Where(summary => !CategoryFilter.IsJunk(summary.Category))
+            .ToList();
+        var includedCategories = CategoryFilter.IncludedOrFallback(summaries.Select(summary => summary.Category));
+        var includedCategorySet = includedCategories.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        summaries = summaries
+            .Where(summary => includedCategorySet.Contains(summary.Category))
+            .OrderByDescending(summary => summary.DeckShare)
+            .ThenByDescending(summary => summary.DeckCount)
             .ThenBy(summary => summary.Category, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
