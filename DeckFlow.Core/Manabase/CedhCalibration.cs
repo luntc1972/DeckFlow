@@ -60,9 +60,9 @@ public static class CedhCalibration
     private const double TargetCeiling = 45.0;
     private static readonly IReadOnlyList<TargetColumn> TargetColumns =
     [
-        new("OLD", row => row.OldTarget),
-        new("NEW", row => row.NewTarget),
-        new("RitualCredit", row => row.NewTargetWithRitualCredit),
+        new(row => row.OldTarget),
+        new(row => row.NewTarget),
+        new(row => row.NewTargetWithRitualCredit),
     ];
 
     /// <summary>Build the cEDH calibration report from materialized deck rows.</summary>
@@ -246,12 +246,11 @@ public static class CedhCalibration
         };
     }
 
-    /// <summary>Column descriptor for one target variant.</summary>
-    private readonly record struct TargetColumn(string Label, Func<CedhCalibrationRow, double> Selector);
+    /// <summary>Selector for one target variant.</summary>
+    private readonly record struct TargetColumn(Func<CedhCalibrationRow, double> Selector);
 
     /// <summary>Computed stats for one target variant across a row set.</summary>
     private readonly record struct VariantStats(
-        string Label,
         double Mean,
         double Min,
         double Max,
@@ -272,8 +271,7 @@ public static class CedhCalibration
         Func<CedhCalibrationRow, double> selector = column.Selector;
         int underCount = rows.Count(row => row.ActualLands < selector(row));
         return new VariantStats(
-            column.Label,
-            sampleSize == 0 ? 0 : rows.Average(selector),
+            Average(rows, selector),
             sampleSize == 0 ? 0 : rows.Min(selector),
             sampleSize == 0 ? 0 : rows.Max(selector),
             underCount,
