@@ -1801,6 +1801,8 @@ Commander
         Assert.Contains("Do not omit any question. If there are 8 questions, return exactly 8 question_answers entries numbered 1 through 8.", result.AnalysisPromptText);
         Assert.Contains("The JSON question_answers entries must mirror the readable Requested Question Answers section one-for-one.", result.AnalysisPromptText);
         Assert.Contains("Before returning the JSON, count the numbered questions above and verify that question_answers has the same count.", result.AnalysisPromptText);
+        Assert.Contains("Deliver the ENTIRE required output — the Requested Question Answers, Top Adds, Top Cuts, and the complete deck_profile JSON — in this single response.", result.AnalysisPromptText);
+        Assert.Contains("If the full output would genuinely approach your hard output limit, do not refuse or drop any section: shorten each question answer to 4-6 sentences", result.AnalysisPromptText);
     }
 
     [Fact]

@@ -35,6 +35,9 @@ internal sealed class ChatGptSetUpgradePromptVariant : ISetUpgradePromptVariant
         var isBoth = string.Equals(upgradeFocus, "both", StringComparison.OrdinalIgnoreCase);
         var bracket = CommanderBracketCatalog.Find(request.TargetCommanderBracket);
 
+        builder.AppendLine("EXECUTE NOW — perform the entire task defined below and output the complete result in this reply. Do not ask which task to run, do not ask for confirmation, and do not wait for further instructions; the full task is specified below.");
+        builder.AppendLine();
+
         builder.AppendLine("You are an expert Magic: The Gathering deck analyst specializing in Commander set reviews and upgrade evaluation.");
         builder.AppendLine();
         builder.AppendLine("Analyze each selected set for possible additions to this deck, suggested removals for those additions, and any traps.");

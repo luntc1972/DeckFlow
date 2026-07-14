@@ -30,6 +30,9 @@ internal sealed class ChatGptPrimerPromptVariant : IPrimerPromptVariant
         var bracket = ResolveBracketLabel(bracketNumber);
         var builder = new StringBuilder();
 
+        builder.AppendLine("EXECUTE NOW — perform the entire task defined below and output the complete result in this reply. Do not ask which task to run, do not ask for confirmation, and do not wait for further instructions; the full task is specified below.");
+        builder.AppendLine();
+
         if (!string.IsNullOrWhiteSpace(request.DeckName))
         {
             builder.AppendLine($"Title this chat: {DeckPrimerPacketService.NormalizeSingleLine(request.DeckName, "Commander Deck")} | Deck Primer");

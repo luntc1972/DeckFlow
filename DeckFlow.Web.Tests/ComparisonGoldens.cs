@@ -7,9 +7,11 @@ namespace DeckFlow.Web.Tests;
 /// dotnet.exe; CI runs ubuntu-latest) — see PacketByteIdentityFixtures.NormalizeForGoldenComparison.</summary>
 internal static class ComparisonGoldens
 {
+    private const string ChatGptImmediateHeader = PacketByteIdentityFixtures.ChatGptImmediateHeader;
+
     public static string BaselineComparisonPrompt(string platform) => platform switch
     {
-        "ChatGPT" => """
+        "ChatGPT" => ChatGptImmediateHeader + """
 Title this chat: Kraum, Ludevic's Opus vs Kraum, Ludevic's Opus | Deck Comparison
 
 You are an expert Magic: The Gathering deck analyst specializing in Commander.
@@ -632,7 +634,7 @@ MANDATORY — DO NOT SKIP: Your response MUST end with a <result>...</result> bl
 
     public static string BaselineFollowUpPrompt(string platform) => platform switch
     {
-        "ChatGPT" => """
+        "ChatGPT" => ChatGptImmediateHeader + """
 You are an expert Magic: The Gathering deck analyst specializing in Commander.
 
 ## TASK

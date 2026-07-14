@@ -23,6 +23,8 @@ namespace DeckFlow.Web.Tests;
 /// </summary>
 public sealed class MetaGapServiceTests
 {
+    private const string ChatGptImmediateHeader = PacketByteIdentityFixtures.ChatGptImmediateHeader;
+
     [Fact]
     public async Task BuildAsync_ParsesSavedResponseWithoutReloadingDeck()
     {
@@ -134,12 +136,12 @@ public sealed class MetaGapServiceTests
             WorkflowStep = 3,
             DeckSource = "https://www.moxfield.com/decks/test-list",
             MetaGapResponseJson = """{"meta_gap":{"commander":"Kinnan, Bonder Prodigy","meta_summary":"x"}}""",
-            MetaGapPromptText = "Title this chat: Kinnan, Bonder Prodigy | cEDH Meta Gap",
+            MetaGapPromptText = ChatGptImmediateHeader + "Title this chat: Kinnan, Bonder Prodigy | cEDH Meta Gap",
             SelectedReferenceIndexes = new List<int>()
         });
 
         Assert.NotNull(result.AnalysisResponse);
-        Assert.Equal("Title this chat: Kinnan, Bonder Prodigy | cEDH Meta Gap", result.PromptText);
+        Assert.Equal(ChatGptImmediateHeader + "Title this chat: Kinnan, Bonder Prodigy | cEDH Meta Gap", result.PromptText);
     }
 
     [Fact]
@@ -295,10 +297,13 @@ public sealed class MetaGapServiceTests
         Assert.Equal(new[] { "Later Pilot", "Earlier Pilot" }, result.FetchedEntries.Select(entry => entry.PlayerName));
         Assert.Contains("Commander: Kinnan, Bonder Prodigy", result.InputSummary);
         Assert.Contains("Fetched EDH Top 16 entries: 2", result.InputSummary);
-        Assert.Contains("Title this chat: Kinnan, Bonder Prodigy | cEDH Meta Gap", result.PromptText);
+        // Why: AppendLine emits "\r\n" under Windows dotnet.exe; strip "\r" so the embedded
+        // "\n\n" in ChatGptImmediateHeader matches on both Windows and CI (same as line ~631).
+        Assert.Contains(ChatGptImmediateHeader + "Title this chat: Kinnan, Bonder Prodigy | cEDH Meta Gap", result.PromptText.Replace("\r", string.Empty));
         Assert.Contains("ROLE:", result.PromptText);
         Assert.Contains("EVIDENCE PRIORITY:", result.PromptText);
         Assert.Contains("RULES:", result.PromptText);
+        Assert.Contains("HEURISTIC VALIDATION:", result.PromptText);
         Assert.Contains("INPUT DATA:", result.PromptText);
         Assert.Contains("ANALYSIS TASK:", result.PromptText);
         Assert.Contains("OUTPUT CONTRACT:", result.PromptText);

@@ -22,6 +22,9 @@ internal sealed class ChatGptFollowUpPromptVariant : IFollowUpPromptVariant
     public string Build(string comparisonSchemaJson)
     {
         var builder = new StringBuilder();
+        builder.AppendLine("EXECUTE NOW — perform the entire task defined below and output the complete result in this reply. Do not ask which task to run, do not ask for confirmation, and do not wait for further instructions; the full task is specified below.");
+        builder.AppendLine();
+
         builder.AppendLine("You are an expert Magic: The Gathering deck analyst specializing in Commander.");
         builder.AppendLine();
         builder.AppendLine("## TASK");

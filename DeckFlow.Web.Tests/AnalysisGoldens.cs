@@ -11,9 +11,11 @@ namespace DeckFlow.Web.Tests;
 /// so this suite is OS-independent (captured via Windows dotnet.exe; CI runs ubuntu-latest).</summary>
 internal static class AnalysisGoldens
 {
+    private const string ChatGptImmediateHeader = PacketByteIdentityFixtures.ChatGptImmediateHeader;
+
     public static string BaselineAnalysisPrompt(string platform) => platform switch
     {
-        "ChatGPT" => """
+        "ChatGPT" => ChatGptImmediateHeader + """
 Title this chat: Kraum, Ludevic's Opus | Deck Analysis
 
 You are an expert Magic: The Gathering deck analyst specializing in Commander.
@@ -76,6 +78,8 @@ D. After the full analysis, return a JSON object named deck_profile matching the
    Each answer field must be a thorough response (6-12 sentences minimum) — not a brief summary. Cite specific card names and interactions.
    Do not collapse multiple questions into one JSON entry, and do not replace full answers with shorthand summaries in the JSON.
    Before returning the JSON, count the numbered questions above and verify that question_answers has the same count.
+   Deliver the ENTIRE required output — the Requested Question Answers, Top Adds, Top Cuts, and the complete deck_profile JSON — in this single response. Do NOT refuse, claim the output is too long, ask which part to produce, ask to continue, or offer to restructure, summarize, or split the output; a complete response for this task is a few hundred lines and fits well within one reply.
+   If the full output would genuinely approach your hard output limit, do not refuse or drop any section: shorten each question answer to 4-6 sentences (apply the SAME shortened text in both the readable section and the JSON question_answers so they still mirror each other), and cap Top Adds and Top Cuts at 5 entries each. Every section and every JSON field must still be present.
 
 
    Field-level detail requirements for the deck_profile JSON:
@@ -567,7 +571,7 @@ Mainboard
 
     public static string SingleFlagOnAnalysisPrompt(string flagKey) => flagKey switch
     {
-        DeckAnalysisPacketService.CommandZoneAwarenessFlag => """
+        DeckAnalysisPacketService.CommandZoneAwarenessFlag => ChatGptImmediateHeader + """
 Title this chat: Kraum, Ludevic's Opus | Deck Analysis
 
 You are an expert Magic: The Gathering deck analyst specializing in Commander.
@@ -630,6 +634,8 @@ D. After the full analysis, return a JSON object named deck_profile matching the
    Each answer field must be a thorough response (6-12 sentences minimum) — not a brief summary. Cite specific card names and interactions.
    Do not collapse multiple questions into one JSON entry, and do not replace full answers with shorthand summaries in the JSON.
    Before returning the JSON, count the numbered questions above and verify that question_answers has the same count.
+   Deliver the ENTIRE required output — the Requested Question Answers, Top Adds, Top Cuts, and the complete deck_profile JSON — in this single response. Do NOT refuse, claim the output is too long, ask which part to produce, ask to continue, or offer to restructure, summarize, or split the output; a complete response for this task is a few hundred lines and fits well within one reply.
+   If the full output would genuinely approach your hard output limit, do not refuse or drop any section: shorten each question answer to 4-6 sentences (apply the SAME shortened text in both the readable section and the JSON question_answers so they still mirror each other), and cap Top Adds and Top Cuts at 5 entries each. Every section and every JSON field must still be present.
 
 
    Field-level detail requirements for the deck_profile JSON:
@@ -704,7 +710,7 @@ Mainboard
 1 Ponder
 1 Sol Ring
 """,
-        DeckAnalysisPacketService.MultiAxisScoreFlag => """
+        DeckAnalysisPacketService.MultiAxisScoreFlag => ChatGptImmediateHeader + """
 Title this chat: Kraum, Ludevic's Opus | Deck Analysis
 
 You are an expert Magic: The Gathering deck analyst specializing in Commander.
@@ -734,6 +740,16 @@ Cross-check: Score aligns with the Bracket 2 classification.
 - Do not recommend cards from the official Commander banned list (see banned list in the reference section below).
 - Modal double-faced cards (MDFCs) with a land back face (e.g. Sea Gate Restoration // Sea Gate Sortie) count toward the deck's land total — include them when assessing land count and mana base. Weight them higher than a plain land, since they can be cast as a spell or played as a land and add consistency and flexibility. Such cards are flagged [MDFC-land] in the reference data.
 
+## HEURISTIC VALIDATION
+Before beginning the analysis:
+1. Validate every proposed combo.
+2. Validate every interaction count.
+3. Validate every tutor count.
+4. Validate every fast mana source.
+5. Validate the estimated power/speed scores.
+6. Identify every discrepancy between the DeckFlow heuristic blocks above and the actual deck.
+7. Use the validated results for the remainder of the analysis.
+
 ## BRACKET GUIDANCE
 Commander bracket definitions:
 - Bracket 1: Exhibition: Prioritize theme, unusual ideas, flexible legality, and showcase gameplay over optimization. Expect to play at least nine turns before you win or lose.
@@ -775,6 +791,8 @@ D. After the full analysis, return a JSON object named deck_profile matching the
    Each answer field must be a thorough response (6-12 sentences minimum) — not a brief summary. Cite specific card names and interactions.
    Do not collapse multiple questions into one JSON entry, and do not replace full answers with shorthand summaries in the JSON.
    Before returning the JSON, count the numbered questions above and verify that question_answers has the same count.
+   Deliver the ENTIRE required output — the Requested Question Answers, Top Adds, Top Cuts, and the complete deck_profile JSON — in this single response. Do NOT refuse, claim the output is too long, ask which part to produce, ask to continue, or offer to restructure, summarize, or split the output; a complete response for this task is a few hundred lines and fits well within one reply.
+   If the full output would genuinely approach your hard output limit, do not refuse or drop any section: shorten each question answer to 4-6 sentences (apply the SAME shortened text in both the readable section and the JSON question_answers so they still mirror each other), and cap Top Adds and Top Cuts at 5 entries each. Every section and every JSON field must still be present.
 
 
    Field-level detail requirements for the deck_profile JSON:
@@ -849,7 +867,7 @@ Mainboard
 1 Ponder
 1 Sol Ring
 """,
-        DeckAnalysisPacketService.InteractionAuditFlag => """
+        DeckAnalysisPacketService.InteractionAuditFlag => ChatGptImmediateHeader + """
 Title this chat: Kraum, Ludevic's Opus | Deck Analysis
 
 You are an expert Magic: The Gathering deck analyst specializing in Commander.
@@ -880,6 +898,16 @@ Use these approximately counted buckets as a starting point only - verify every 
 - Do not recommend cards from the official Commander banned list (see banned list in the reference section below).
 - Modal double-faced cards (MDFCs) with a land back face (e.g. Sea Gate Restoration // Sea Gate Sortie) count toward the deck's land total — include them when assessing land count and mana base. Weight them higher than a plain land, since they can be cast as a spell or played as a land and add consistency and flexibility. Such cards are flagged [MDFC-land] in the reference data.
 
+## HEURISTIC VALIDATION
+Before beginning the analysis:
+1. Validate every proposed combo.
+2. Validate every interaction count.
+3. Validate every tutor count.
+4. Validate every fast mana source.
+5. Validate the estimated power/speed scores.
+6. Identify every discrepancy between the DeckFlow heuristic blocks above and the actual deck.
+7. Use the validated results for the remainder of the analysis.
+
 ## BRACKET GUIDANCE
 Commander bracket definitions:
 - Bracket 1: Exhibition: Prioritize theme, unusual ideas, flexible legality, and showcase gameplay over optimization. Expect to play at least nine turns before you win or lose.
@@ -921,6 +949,8 @@ D. After the full analysis, return a JSON object named deck_profile matching the
    Each answer field must be a thorough response (6-12 sentences minimum) — not a brief summary. Cite specific card names and interactions.
    Do not collapse multiple questions into one JSON entry, and do not replace full answers with shorthand summaries in the JSON.
    Before returning the JSON, count the numbered questions above and verify that question_answers has the same count.
+   Deliver the ENTIRE required output — the Requested Question Answers, Top Adds, Top Cuts, and the complete deck_profile JSON — in this single response. Do NOT refuse, claim the output is too long, ask which part to produce, ask to continue, or offer to restructure, summarize, or split the output; a complete response for this task is a few hundred lines and fits well within one reply.
+   If the full output would genuinely approach your hard output limit, do not refuse or drop any section: shorten each question answer to 4-6 sentences (apply the SAME shortened text in both the readable section and the JSON question_answers so they still mirror each other), and cap Top Adds and Top Cuts at 5 entries each. Every section and every JSON field must still be present.
 
 
    Field-level detail requirements for the deck_profile JSON:
@@ -995,7 +1025,7 @@ Mainboard
 1 Ponder
 1 Sol Ring
 """,
-        DeckAnalysisPacketService.WinConMapFlag => """
+        DeckAnalysisPacketService.WinConMapFlag => ChatGptImmediateHeader + """
 Title this chat: Kraum, Ludevic's Opus | Deck Analysis
 
 You are an expert Magic: The Gathering deck analyst specializing in Commander.
@@ -1022,6 +1052,16 @@ Non-combo closers to verify: none found
 - Do not recommend cards from the official Commander banned list (see banned list in the reference section below).
 - Modal double-faced cards (MDFCs) with a land back face (e.g. Sea Gate Restoration // Sea Gate Sortie) count toward the deck's land total — include them when assessing land count and mana base. Weight them higher than a plain land, since they can be cast as a spell or played as a land and add consistency and flexibility. Such cards are flagged [MDFC-land] in the reference data.
 
+## HEURISTIC VALIDATION
+Before beginning the analysis:
+1. Validate every proposed combo.
+2. Validate every interaction count.
+3. Validate every tutor count.
+4. Validate every fast mana source.
+5. Validate the estimated power/speed scores.
+6. Identify every discrepancy between the DeckFlow heuristic blocks above and the actual deck.
+7. Use the validated results for the remainder of the analysis.
+
 ## BRACKET GUIDANCE
 Commander bracket definitions:
 - Bracket 1: Exhibition: Prioritize theme, unusual ideas, flexible legality, and showcase gameplay over optimization. Expect to play at least nine turns before you win or lose.
@@ -1063,6 +1103,8 @@ D. After the full analysis, return a JSON object named deck_profile matching the
    Each answer field must be a thorough response (6-12 sentences minimum) — not a brief summary. Cite specific card names and interactions.
    Do not collapse multiple questions into one JSON entry, and do not replace full answers with shorthand summaries in the JSON.
    Before returning the JSON, count the numbered questions above and verify that question_answers has the same count.
+   Deliver the ENTIRE required output — the Requested Question Answers, Top Adds, Top Cuts, and the complete deck_profile JSON — in this single response. Do NOT refuse, claim the output is too long, ask which part to produce, ask to continue, or offer to restructure, summarize, or split the output; a complete response for this task is a few hundred lines and fits well within one reply.
+   If the full output would genuinely approach your hard output limit, do not refuse or drop any section: shorten each question answer to 4-6 sentences (apply the SAME shortened text in both the readable section and the JSON question_answers so they still mirror each other), and cap Top Adds and Top Cuts at 5 entries each. Every section and every JSON field must still be present.
 
 
    Field-level detail requirements for the deck_profile JSON:
@@ -1137,7 +1179,7 @@ Mainboard
 1 Ponder
 1 Sol Ring
 """,
-        DeckAnalysisPacketService.ReferenceFullOracleFlag => """
+        DeckAnalysisPacketService.ReferenceFullOracleFlag => ChatGptImmediateHeader + """
 Title this chat: Kraum, Ludevic's Opus | Deck Analysis
 
 You are an expert Magic: The Gathering deck analyst specializing in Commander.
@@ -1200,6 +1242,8 @@ D. After the full analysis, return a JSON object named deck_profile matching the
    Each answer field must be a thorough response (6-12 sentences minimum) — not a brief summary. Cite specific card names and interactions.
    Do not collapse multiple questions into one JSON entry, and do not replace full answers with shorthand summaries in the JSON.
    Before returning the JSON, count the numbered questions above and verify that question_answers has the same count.
+   Deliver the ENTIRE required output — the Requested Question Answers, Top Adds, Top Cuts, and the complete deck_profile JSON — in this single response. Do NOT refuse, claim the output is too long, ask which part to produce, ask to continue, or offer to restructure, summarize, or split the output; a complete response for this task is a few hundred lines and fits well within one reply.
+   If the full output would genuinely approach your hard output limit, do not refuse or drop any section: shorten each question answer to 4-6 sentences (apply the SAME shortened text in both the readable section and the JSON question_answers so they still mirror each other), and cap Top Adds and Top Cuts at 5 entries each. Every section and every JSON field must still be present.
 
 
    Field-level detail requirements for the deck_profile JSON:
@@ -1274,7 +1318,7 @@ Mainboard
 1 Ponder
 1 Sol Ring
 """,
-        DeckAnalysisPacketService.ReferenceDeckStatsFlag => """
+        DeckAnalysisPacketService.ReferenceDeckStatsFlag => ChatGptImmediateHeader + """
 Title this chat: Kraum, Ludevic's Opus | Deck Analysis
 
 You are an expert Magic: The Gathering deck analyst specializing in Commander.
@@ -1337,6 +1381,8 @@ D. After the full analysis, return a JSON object named deck_profile matching the
    Each answer field must be a thorough response (6-12 sentences minimum) — not a brief summary. Cite specific card names and interactions.
    Do not collapse multiple questions into one JSON entry, and do not replace full answers with shorthand summaries in the JSON.
    Before returning the JSON, count the numbered questions above and verify that question_answers has the same count.
+   Deliver the ENTIRE required output — the Requested Question Answers, Top Adds, Top Cuts, and the complete deck_profile JSON — in this single response. Do NOT refuse, claim the output is too long, ask which part to produce, ask to continue, or offer to restructure, summarize, or split the output; a complete response for this task is a few hundred lines and fits well within one reply.
+   If the full output would genuinely approach your hard output limit, do not refuse or drop any section: shorten each question answer to 4-6 sentences (apply the SAME shortened text in both the readable section and the JSON question_answers so they still mirror each other), and cap Top Adds and Top Cuts at 5 entries each. Every section and every JSON field must still be present.
 
 
    Field-level detail requirements for the deck_profile JSON:
@@ -1422,7 +1468,7 @@ Mainboard
         _ => throw new ArgumentOutOfRangeException(nameof(flagKey)),
     };
 
-    public static readonly string AllFourMutatingFlagsOnAnalysisPrompt = """
+    public static readonly string AllFourMutatingFlagsOnAnalysisPrompt = ChatGptImmediateHeader + """
 Title this chat: Kraum, Ludevic's Opus & Passionate Archaeologist | Deck Analysis
 
 You are an expert Magic: The Gathering deck analyst specializing in Commander.
@@ -1466,6 +1512,16 @@ Non-combo closers to verify: none found
 - Do not recommend cards from the official Commander banned list (see banned list in the reference section below).
 - Modal double-faced cards (MDFCs) with a land back face (e.g. Sea Gate Restoration // Sea Gate Sortie) count toward the deck's land total — include them when assessing land count and mana base. Weight them higher than a plain land, since they can be cast as a spell or played as a land and add consistency and flexibility. Such cards are flagged [MDFC-land] in the reference data.
 
+## HEURISTIC VALIDATION
+Before beginning the analysis:
+1. Validate every proposed combo.
+2. Validate every interaction count.
+3. Validate every tutor count.
+4. Validate every fast mana source.
+5. Validate the estimated power/speed scores.
+6. Identify every discrepancy between the DeckFlow heuristic blocks above and the actual deck.
+7. Use the validated results for the remainder of the analysis.
+
 ## BRACKET GUIDANCE
 Commander bracket definitions:
 - Bracket 1: Exhibition: Prioritize theme, unusual ideas, flexible legality, and showcase gameplay over optimization. Expect to play at least nine turns before you win or lose.
@@ -1507,6 +1563,8 @@ D. After the full analysis, return a JSON object named deck_profile matching the
    Each answer field must be a thorough response (6-12 sentences minimum) — not a brief summary. Cite specific card names and interactions.
    Do not collapse multiple questions into one JSON entry, and do not replace full answers with shorthand summaries in the JSON.
    Before returning the JSON, count the numbered questions above and verify that question_answers has the same count.
+   Deliver the ENTIRE required output — the Requested Question Answers, Top Adds, Top Cuts, and the complete deck_profile JSON — in this single response. Do NOT refuse, claim the output is too long, ask which part to produce, ask to continue, or offer to restructure, summarize, or split the output; a complete response for this task is a few hundred lines and fits well within one reply.
+   If the full output would genuinely approach your hard output limit, do not refuse or drop any section: shorten each question answer to 4-6 sentences (apply the SAME shortened text in both the readable section and the JSON question_answers so they still mirror each other), and cap Top Adds and Top Cuts at 5 entries each. Every section and every JSON field must still be present.
 
 
    Field-level detail requirements for the deck_profile JSON:
@@ -1585,7 +1643,7 @@ Mainboard
 1 Sol Ring
 """;
 
-    public static readonly string VersionedDecklistAnalysisPrompt = """
+    public static readonly string VersionedDecklistAnalysisPrompt = ChatGptImmediateHeader + """
 Title this chat: Kraum, Ludevic's Opus | Deck Analysis
 
 You are an expert Magic: The Gathering deck analyst specializing in Commander.
@@ -1665,6 +1723,8 @@ D. After the full analysis, return a JSON object named deck_profile matching the
    Each answer field must be a thorough response (6-12 sentences minimum) — not a brief summary. Cite specific card names and interactions.
    Do not collapse multiple questions into one JSON entry, and do not replace full answers with shorthand summaries in the JSON.
    Before returning the JSON, count the numbered questions above and verify that question_answers has the same count.
+   Deliver the ENTIRE required output — the Requested Question Answers, Top Adds, Top Cuts, and the complete deck_profile JSON — in this single response. Do NOT refuse, claim the output is too long, ask which part to produce, ask to continue, or offer to restructure, summarize, or split the output; a complete response for this task is a few hundred lines and fits well within one reply.
+   If the full output would genuinely approach your hard output limit, do not refuse or drop any section: shorten each question answer to 4-6 sentences (apply the SAME shortened text in both the readable section and the JSON question_answers so they still mirror each other), and cap Top Adds and Top Cuts at 5 entries each. Every section and every JSON field must still be present.
 
    The deck_versions array must contain one entry per requested deck version or upgrade path.
    Each entry's decklist field must contain the complete 100-card list (one card per line, same format as the text code blocks above).
