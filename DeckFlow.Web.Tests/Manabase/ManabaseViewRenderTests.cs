@@ -392,6 +392,25 @@ public sealed class ManabaseViewRenderTests
         Assert.DoesNotContain("Ritual land credit:", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ThisDecksNumbers_RendersScrySourceCreditLine_WhenReportCarriesCredit()
+    {
+        string html = await RenderManabaseViewAsync(
+            BuildPopulatedModel(showTapAnalyzer: false, scrySourceCredit: 0.4, scrySourceCreditCopies: 2));
+
+        Assert.Contains("Scry source credit: <strong>+0.4</strong> any-color sources", html, StringComparison.Ordinal);
+        Assert.Contains("(2 cheap scry spells × 0.2)", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ThisDecksNumbers_DoesNotRenderScrySourceCreditLine_WhenReportHasNoCredit()
+    {
+        string html = await RenderManabaseViewAsync(
+            BuildPopulatedModel(showTapAnalyzer: false, scrySourceCredit: 0.0, scrySourceCreditCopies: 2));
+
+        Assert.DoesNotContain("Scry source credit:", html, StringComparison.Ordinal);
+    }
+
     // Replace the randomized __RequestVerificationToken value with a constant so two renders of the
     // same model differ only by intentional content (here: the tap card).
     private static string NormalizeAntiForgery(string html) =>
@@ -434,7 +453,9 @@ public sealed class ManabaseViewRenderTests
         double? cedhSafetyFloor = null,
         bool? cedhBaselineBlended = null,
         double ritualLandCredit = 0.0,
-        int netPositiveRitualCount = 0) => new()
+        int netPositiveRitualCount = 0,
+        double scrySourceCredit = 0.0,
+        int scrySourceCreditCopies = 0) => new()
         {
             Request = new ManabaseRequest
             {
@@ -442,7 +463,7 @@ public sealed class ManabaseViewRenderTests
                 Mode = mode,
             },
             InputSummary = "Test deck · 99 cards + 1 commander",
-            Report = ReportWithTapAnalysis(mode, includeCedhRange, cedhSafetyFloor, cedhBaselineBlended, ritualLandCredit, netPositiveRitualCount),
+            Report = ReportWithTapAnalysis(mode, includeCedhRange, cedhSafetyFloor, cedhBaselineBlended, ritualLandCredit, netPositiveRitualCount, scrySourceCredit, scrySourceCreditCopies),
             ShowTapAnalyzer = showTapAnalyzer,
             ShowMulliganEval = showMulliganEval,
             ShowPlanPresence = showPlanPresence,
@@ -477,7 +498,9 @@ public sealed class ManabaseViewRenderTests
         double? cedhSafetyFloor,
         bool? cedhBaselineBlended,
         double ritualLandCredit,
-        int netPositiveRitualCount) => new()
+        int netPositiveRitualCount,
+        double scrySourceCredit,
+        int scrySourceCreditCopies) => new()
         {
             ActualLands = 36,
             TargetLands = 37.0,
@@ -487,6 +510,8 @@ public sealed class ManabaseViewRenderTests
             BaselineLandsMean = includeCedhRange ? 27.5 : null,
             BaselineLandsSd = includeCedhRange ? 1.6 : null,
             BaselineMonth = includeCedhRange ? "2026-07" : null,
+            ScrySourceCredit = scrySourceCredit,
+            ScrySourceCreditCopies = scrySourceCreditCopies,
             ColorFindings = new List<ColorSourceFinding>
         {
             new()

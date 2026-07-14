@@ -870,6 +870,60 @@ public sealed class ManabaseAnalyzerTests
     }
 
     [Fact]
+    public void Analyze_ScrySourceCredit_AddsPointTwoPerDetectedCopy_WhenEnabled()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Island",
+                Quantity = 10,
+                ManaCost = string.Empty,
+                ManaValue = 0,
+                TypeLine = "Basic Land — Island",
+                OracleText = "{T}: Add {U}.",
+                ProducedMana = new[] { "U" },
+                HasLandFace = true,
+            },
+            new()
+            {
+                Name = "Preordain",
+                Quantity = 2,
+                ManaCost = "{U}",
+                ManaValue = 1,
+                TypeLine = "Sorcery",
+                OracleText = "Scry 2, then draw a card.",
+                ProducedMana = System.Array.Empty<string>(),
+            },
+            new()
+            {
+                Name = "Counterspell",
+                Quantity = 1,
+                ManaCost = "{U}{U}",
+                ManaValue = 2,
+                TypeLine = "Instant",
+                OracleText = "Counter target spell.",
+                ProducedMana = System.Array.Empty<string>(),
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        ManabaseReport off = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual, scryCredit: false);
+        ManabaseReport on = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual, scryCredit: true);
+
+        ColorSourceFinding offBlue = Assert.Single(off.ColorFindings);
+        ColorSourceFinding onBlue = Assert.Single(on.ColorFindings);
+
+        Assert.Equal(2, deck.ScrySourceCreditCopies);
+        Assert.Equal(0.0, off.ScrySourceCredit);
+        Assert.Equal(0, off.ScrySourceCreditCopies);
+        Assert.Equal(0.4, on.ScrySourceCredit, 6);
+        Assert.Equal(2, on.ScrySourceCreditCopies);
+        Assert.Equal(offBlue.ActualSources + 0.4, onBlue.ActualSources, 6);
+    }
+
+    [Fact]
     public void Analyze_InteractionLens_IsNull_InCasualMode_EvenWhenFlagOn()
     {
         ManabaseReport report = ManabaseAnalyzer.Analyze(

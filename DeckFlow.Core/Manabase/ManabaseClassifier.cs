@@ -61,6 +61,10 @@ public static class ManabaseClassifier
         @"(?<!(?:opponent|opponents|target player|target opponent|that player|another player|whenever you|when you|would) )\bdraws?\s+(?:a|one|two|three|four|five|six|seven|eight|nine|ten|x|\d+)\s+cards?",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    // Cheap setup smoothing Karsten treats as a small any-color source credit. Reminder text is
+    // stripped before matching, so parenthesized glossary text never fabricates a real scry effect.
+    private static readonly Regex ScryRegex = new(@"\bscry\s+([1-9]\d*)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     /// <summary>Build a <see cref="ManabaseDeck"/> from classified card facts.</summary>
     /// <param name="cards">All cards in the deck (including any commanders, flagged).</param>
     /// <param name="isSingleton">True for Commander/singleton; false for 60-card constructed.</param>
@@ -118,6 +122,7 @@ public static class ManabaseClassifier
         double mvSum = 0;
         int nonlandCount = 0;
         int rampUnderThree = 0;
+        int scrySourceCreditCopies = 0;
         int rampPieces = 0;
         int drawPieces = 0;
         int bothPieces = 0;
@@ -227,6 +232,11 @@ public static class ManabaseClassifier
             {
                 rampUnderThree += card.Quantity;
                 rampNames.Add(card.Name);
+            }
+
+            if (QualifiesForScrySourceCredit(card))
+            {
+                scrySourceCreditCopies += card.Quantity;
             }
 
             bool isRampPieceForBudget = IsRampPieceForBudget(card);
@@ -343,6 +353,7 @@ public static class ManabaseClassifier
             RampDrawBothCount = bothPieces,
             FastMana = fastMana,
             OneShots = oneShots,
+            ScrySourceCreditCopies = scrySourceCreditCopies,
             IsSingleton = isSingleton,
             CostReduction = reducers,
             CostSuggestions = suggestions,
@@ -699,6 +710,17 @@ public static class ManabaseClassifier
         }
 
         return IsType(card.TypeLine, "Creature") || IsType(card.TypeLine, "Artifact");
+    }
+
+    private static bool QualifiesForScrySourceCredit(CardFact card)
+    {
+        if (card.ManaValue > 2 || IsLandType(card.TypeLine))
+        {
+            return false;
+        }
+
+        string text = ReminderTextRegex.Replace(card.OracleText ?? string.Empty, string.Empty);
+        return ScryRegex.IsMatch(text);
     }
 
     // Strips parenthesized reminder text ("(Treasure tokens are artifacts with ... Add one mana

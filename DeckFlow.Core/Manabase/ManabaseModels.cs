@@ -477,6 +477,12 @@ public sealed record ManabaseDeck
     /// </summary>
     public IReadOnlyList<OneShotMana> OneShots { get; init; } = Array.Empty<OneShotMana>();
 
+    /// <summary>
+    /// Count of cheap non-land scry spell copies (mana value ≤ 2, real "scry N" oracle text after
+    /// reminder stripping) eligible for the analyzer-only 0.2 any-color source credit.
+    /// </summary>
+    public int ScrySourceCreditCopies { get; init; }
+
     /// <summary>True for a singleton/Commander deck (uses the 99-card formula); false for 60-card.</summary>
     public bool IsSingleton { get; init; } = true;
 
@@ -1227,6 +1233,18 @@ public sealed record ManabaseReport
     /// de-duplicated by name in deck order. Surfaced in the Ramp disclosure.
     /// </summary>
     public IReadOnlyList<string> RampAndDrawNames { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Aggregate any-color source credit from cheap scry spells, surfaced only when the
+    /// <c>analysis.manabase.scry-credit</c> path is enabled. Analyzer-only: never a
+    /// <see cref="ManaSource"/>, never part of castability, never part of the land target.
+    /// </summary>
+    public double ScrySourceCredit { get; init; }
+
+    /// <summary>
+    /// Count of cheap scry spell copies behind <see cref="ScrySourceCredit"/>.
+    /// </summary>
+    public int ScrySourceCreditCopies { get; init; }
 
     /// <summary>
     /// Cards the analysis cannot fully model (X/variable costs skipped from castability;
