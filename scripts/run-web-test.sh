@@ -32,6 +32,11 @@ if [ -z "$DOTNET" ]; then
   exit 1
 fi
 
+# WSL-exported vars do not cross into Windows .exe processes unless named in WSLENV.
+if [[ "$DOTNET" == *.exe || "$DOTNET" == *"/mnt/c/"* ]]; then
+  export WSLENV="${WSLENV:+${WSLENV}:}DECKFLOW_DISABLE_AUTO_BROWSER:ASPNETCORE_ENVIRONMENT:FEEDBACK_ADMIN_USER:FEEDBACK_ADMIN_PASSWORD"
+fi
+
 # Free the port so a stale server does not block the bind (best-effort).
 if command -v fuser >/dev/null 2>&1; then
   fuser -k "${PORT}/tcp" 2>/dev/null || true

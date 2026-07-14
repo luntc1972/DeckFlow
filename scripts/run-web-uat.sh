@@ -17,6 +17,17 @@ cd "$(dirname "$0")/.."
 export FEEDBACK_ADMIN_USER="${FEEDBACK_ADMIN_USER:-admin}"
 export FEEDBACK_ADMIN_PASSWORD="${FEEDBACK_ADMIN_PASSWORD:-changeme-local}"
 
+DOTNET="$(command -v dotnet 2>/dev/null || command -v dotnet.exe 2>/dev/null || true)"
+if [ -z "$DOTNET" ]; then
+  echo "error: neither 'dotnet' nor 'dotnet.exe' found on PATH" >&2
+  exit 1
+fi
+
+# WSL-exported vars do not cross into Windows .exe processes unless named in WSLENV.
+if [[ "$DOTNET" == *.exe || "$DOTNET" == *"/mnt/c/"* ]]; then
+  export WSLENV="${WSLENV:+${WSLENV}:}DECKFLOW_DISABLE_AUTO_BROWSER:ASPNETCORE_ENVIRONMENT:FEEDBACK_ADMIN_USER:FEEDBACK_ADMIN_PASSWORD"
+fi
+
 echo "Admin login: ${FEEDBACK_ADMIN_USER} / ${FEEDBACK_ADMIN_PASSWORD}"
 echo "After login, enable tool.knowledge-base.enabled via /Admin/Flags for UAT."
 
@@ -27,5 +38,5 @@ if command -v fuser >/dev/null 2>&1; then
     sleep 0.5
 fi
 
-dotnet build DeckFlow.Web
-dotnet run --project DeckFlow.Web --launch-profile http --no-build
+"$DOTNET" build DeckFlow.Web
+"$DOTNET" run --project DeckFlow.Web --launch-profile http --no-build
