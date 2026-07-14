@@ -278,7 +278,7 @@ public static class ManabaseAnalyzer
             LandTarget = landTarget,
             // TAP-01/TAP-02: tap-quality metrics derived from the same castability rows + color
             // findings (no second sim). Always computed in Core; the Web layer flag-gates display.
-            TapAnalysis = ComputeTapAnalysis(deck, findings, castability, CastabilitySimulator.DefaultTrials),
+            TapAnalysis = ComputeTapAnalysis(deck, findings, castability, CastabilitySimulator.DefaultTrials, scrySourceCreditAmount),
             // MULLIGAN-01..05: opening-hand / mulligan evaluation derived from the same castability
             // rows (no second sim). Always computed in Core; the Web layer flag-gates display.
             MulliganEvaluation = ComputeMulliganEvaluation(deck, castability, CastabilitySimulator.DefaultTrials, planPresence),
@@ -587,7 +587,7 @@ public static class ManabaseAnalyzer
             // pessimistic P_mana × P_color independence product (it ran ~30 pts under Salubrious
             // Snail because the same lands feed both factors and we skipped the mulligan).
             int genericReduction = GenericReduction(spell, deck.CostReduction);
-            int onCurveTurn = EffectiveTurn(spell, deck.CostReduction);
+            int onCurveTurn = EffectiveTurn(spell, deck.CostReduction, colorlessSnow);
 
             CardCastability row = CastabilitySimulator.Simulate(
                 deck, librarySize, spell, onCurveTurn, genericReduction,
@@ -608,11 +608,15 @@ public static class ManabaseAnalyzer
     /// drops below the spell's total colored pips, and caps the total generic reduction at 2.
     /// A reducer only applies when its own mana value is below the spell's (deployable first).
     /// </summary>
-    private static int EffectiveTurn(SpellRequirement spell, IReadOnlyList<CostReducer> reducers)
+    private static int EffectiveTurn(SpellRequirement spell, IReadOnlyList<CostReducer> reducers, bool colorlessSnow)
     {
-        int totalPips = spell.Pips.Where(p => p.Key != ManaColor.Colorless).Sum(p => Math.Max(0, p.Value))
-            + Math.Max(0, spell.TrueColorlessPips)
-            + Math.Max(0, spell.SnowPips);
+        int totalPips = spell.Pips.Where(p => p.Key != ManaColor.Colorless).Sum(p => Math.Max(0, p.Value));
+        if (colorlessSnow)
+        {
+            totalPips += Math.Max(0, spell.TrueColorlessPips)
+                + Math.Max(0, spell.SnowPips);
+        }
+
         int floor = Math.Max(1, totalPips);
         int applicable = GenericReduction(spell, reducers);
         return Math.Max(floor, spell.ManaValue - applicable);
@@ -695,7 +699,7 @@ public static class ManabaseAnalyzer
         foreach (ManaColor color in EnumerateUsedColors(deck))
         {
             double allSources = EffectiveSources(deck, color, untappedOnly: false, scrySourceCredit);
-            double untappedSources = EffectiveSources(deck, color, untappedOnly: true, scrySourceCredit);
+            double untappedSources = EffectiveSources(deck, color, untappedOnly: true);
 
             int required = 0;
             string driver = "(none)";
@@ -725,11 +729,11 @@ public static class ManabaseAnalyzer
 
                 // HIGH-2: evaluate availability AND required-sources at the spell's effective
                 // on-curve turn (after cost reduction), not its printed mana value, so the color
-                // verdict matches the castability table. Fall back to ManaValue when the spell has
-                // no castability row (e.g. an excluded mana source).
+                // verdict matches the castability table. When a mana source row is excluded from the
+                // castability table, recompute the same effective turn here instead of falling back.
                 int onCurveTurn = castabilityByName.TryGetValue(spell.Name, out CardCastability? curveRow)
                     ? curveRow.OnCurveTurn
-                    : spell.ManaValue;
+                    : EffectiveTurn(spell, deck.CostReduction, colorlessSnow);
 
                 double available = onCurveTurn <= 1 ? untappedSources : allSources;
 
@@ -855,6 +859,7 @@ public static class ManabaseAnalyzer
                 DirectSources = direct,
                 SharedSources = shared,
                 ConditionalSources = conditional,
+                EvaluatedCardCount = castCount,
                 // TAP-01: the RAW (un-rounded) untapped weight for this color. ActualSources above is
                 // rounded for display; tap math must divide by the raw total, so keep this un-rounded.
                 UntappedSources = untappedSources,
@@ -943,11 +948,6 @@ public static class ManabaseAnalyzer
 
         foreach (SpellRequirement spell in deck.Spells)
         {
-            if (spell.IsManaSource && !spell.IsCommander)
-            {
-                continue;
-            }
-
             int categoryPips = category switch
             {
                 SourceRequirementCategory.Colorless => spell.TrueColorlessPips,
@@ -961,7 +961,7 @@ public static class ManabaseAnalyzer
 
             int onCurveTurn = castabilityByName.TryGetValue(spell.Name, out CardCastability? curveRow)
                 ? curveRow.OnCurveTurn
-                : spell.ManaValue;
+                : EffectiveTurn(spell, deck.CostReduction, colorlessSnow: true);
             double available = onCurveTurn <= 1 ? untappedSources : allSources;
 
             string sig = $"special:{category}|{categoryPips}|t{onCurveTurn}|th{threshold}";
@@ -1035,6 +1035,7 @@ public static class ManabaseAnalyzer
             DirectSources = Math.Round(allSources, 1),
             SharedSources = 0.0,
             ConditionalSources = 0.0,
+            EvaluatedCardCount = castCount,
             UntappedSources = untappedSources,
         });
     }
@@ -1446,7 +1447,8 @@ public static class ManabaseAnalyzer
         ManabaseDeck deck,
         IReadOnlyList<ColorSourceFinding> colorFindings,
         IReadOnlyList<CardCastability> castability,
-        int defaultTrials)
+        int defaultTrials,
+        double scrySourceCredit)
     {
         double totalUntapped = 0.0;
         double totalAll = 0.0;
@@ -1460,7 +1462,7 @@ public static class ManabaseAnalyzer
 
             // RAW (un-rounded) numerator + denominator — never the rounded f.ActualSources.
             double rawUntapped = f.UntappedSources;
-            double rawTotal = EffectiveSources(deck, f.Color, untappedOnly: false);
+            double rawTotal = EffectiveSources(deck, f.Color, untappedOnly: false, scrySourceCredit);
             totalUntapped += rawUntapped;
             totalAll += rawTotal;
             colorTap[f.Color] = new ColorTapFinding
@@ -1673,7 +1675,9 @@ public static class ManabaseAnalyzer
             string addClause = addSources > 0 ? $" (add ~{addSources})" : string.Empty;
             sb.Append(CultureInfo.InvariantCulture,
                 $"Weakest color: {weakest.CategoryName} — {weakest.ActualSources:F1} sources vs {weakest.RequiredSources} needed for {weakest.DrivingSpell}{addClause}. ");
-            int total = colorSpellCounts.TryGetValue(weakest.Color, out int count) ? count : Math.Max(weakest.UnderSupportedCount, 1);
+            int total = weakest.EvaluatedCardCount > 0
+                ? weakest.EvaluatedCardCount
+                : (colorSpellCounts.TryGetValue(weakest.Color, out int count) ? count : Math.Max(weakest.UnderSupportedCount, 1));
             sb.Append(CultureInfo.InvariantCulture,
                 $"{weakest.UnderSupportedCount} of {total} {weakest.CategoryName} cards under-supported; worst cast: {weakest.WorstSpell} (~{weakest.WorstSpellCastPercent:F0}%).");
         }

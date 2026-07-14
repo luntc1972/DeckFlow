@@ -443,6 +443,29 @@ public sealed class ManabaseViewRenderTests
         Assert.Contains("Arcum&#x27;s Astrolabe", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ThisDecksNumbers_UsesEvaluatedCardCountForSpecialCategoryPopulation()
+    {
+        string html = await RenderManabaseViewAsync(
+            BuildPopulatedModel(
+                showTapAnalyzer: false,
+                colorFindings: new List<ColorSourceFinding>
+                {
+                    new()
+                    {
+                        Color = ManaColor.Colorless,
+                        DisplayColor = "Snow",
+                        ActualSources = 4.0,
+                        RequiredSources = 8,
+                        DrivingSpell = "Icehide Golem",
+                        UnderSupportedCount = 0,
+                        EvaluatedCardCount = 1,
+                    },
+                }));
+
+        Assert.Contains("0 of 1 under-supported", html, StringComparison.Ordinal);
+    }
+
     // Replace the randomized __RequestVerificationToken value with a constant so two renders of the
     // same model differ only by intentional content (here: the tap card).
     private static string NormalizeAntiForgery(string html) =>

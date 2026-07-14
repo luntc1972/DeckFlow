@@ -819,7 +819,9 @@
                             // (domain rule lives on the model, see ColorSourceFinding.NeedsMoreSources).
                             var weakestNeedsSources = isWeakest && f.NeedsMoreSources;
                             var isCommanderColor = string.IsNullOrEmpty(f.DisplayColor) && report.CommanderColors.Contains(f.Color);
-                            var total = report.ColorSpellCounts.TryGetValue(f.Color, out var t) ? t : f.UnderSupportedCount;
+                            var total = f.EvaluatedCardCount > 0
+                                ? f.EvaluatedCardCount
+                                : (report.ColorSpellCounts.TryGetValue(f.Color, out var t) ? t : f.UnderSupportedCount);
                             <tr class="@(f.IsAdequate ? null : "manabase-row--short") @(weakestNeedsSources ? "manabase-row--weakest" : null)">
                                 <td data-label="Color">
                                     @f.CategoryName
@@ -1028,7 +1030,9 @@
                 }
                 @foreach (var f in report.ColorFindings)
                 {
-                    var total = report.ColorSpellCounts.TryGetValue(f.Color, out var t) ? t : f.UnderSupportedCount;
+                    var total = f.EvaluatedCardCount > 0
+                        ? f.EvaluatedCardCount
+                        : (report.ColorSpellCounts.TryGetValue(f.Color, out var t) ? t : f.UnderSupportedCount);
                     <li>
                         <strong>@f.CategoryName</strong>: @f.ActualSources.ToString("F1") sources
                         (@f.DirectSources.ToString("F1") direct + @f.SharedSources.ToString("F1") shared + @f.ConditionalSources.ToString("F1") conditional) ·

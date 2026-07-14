@@ -1069,6 +1069,58 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_ColorlessSnowFlag_AbsentAndExplicitOff_PreserveReducerCastabilityParity_ForSnowBlueSpell()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Island", 20, "mainboard"),
+            Entry("Goblin Electromancer", 1, "mainboard"),
+            Entry("Snow Test Spell", 1, "mainboard"),
+        };
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Island", "U"),
+            Spell("Goblin Electromancer", "{U}", 1, "Creature — Goblin Wizard", oracle: "Instant and sorcery spells you cast cost {1} less to cast."),
+            Spell("Snow Test Spell", "{S}{U}", 2, "Sorcery"),
+        };
+
+        var baseline = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>()));
+        var explicitOff = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.ColorlessSnowFlagKey] = false,
+            }));
+        var on = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.ColorlessSnowFlagKey] = true,
+            }));
+
+        var baselineResult = await baseline.AnalyzeAsync(
+            "paste", "Snow Reducer Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Casual });
+        var offResult = await explicitOff.AnalyzeAsync(
+            "paste", "Snow Reducer Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Casual });
+        var onResult = await on.AnalyzeAsync(
+            "paste", "Snow Reducer Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Casual });
+
+        CardCastability baselineRow = baselineResult.Report.Castability.Single(row => row.Name == "Snow Test Spell");
+        CardCastability offRow = offResult.Report.Castability.Single(row => row.Name == "Snow Test Spell");
+        CardCastability onRow = onResult.Report.Castability.Single(row => row.Name == "Snow Test Spell");
+
+        Assert.Equal(FormatCastabilityRow(baselineRow), FormatCastabilityRow(offRow));
+        Assert.Equal(1, baselineRow.OnCurveTurn);
+        Assert.Equal(1, offRow.OnCurveTurn);
+        Assert.True(onRow.OnCurveTurn >= 1);
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_TapAnalyzerFlagAbsent_ShowTapAnalyzerFalse()
     {
         var (entries, cards) = CurveFixture();

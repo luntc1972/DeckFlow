@@ -65,6 +65,10 @@ public static class ManabaseClassifier
     // stripped before matching, so parenthesized glossary text never fabricates a real scry effect.
     private static readonly Regex ScryRegex = new(@"\bscry\s+([1-9]\d*)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    // Detect "{T}, Tap ..." mana abilities only when the tap-cost and the "add" text stay inside
+    // one clause; otherwise unrelated quoted abilities can fabricate a false positive.
+    private static readonly Regex TapClauseAddRegex = new(@"\{t\}, tap[^.\n""]*:\s*add", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     /// <summary>Build a <see cref="ManabaseDeck"/> from classified card facts.</summary>
     /// <param name="cards">All cards in the deck (including any commanders, flagged).</param>
     /// <param name="isSingleton">True for Commander/singleton; false for 60-card constructed.</param>
@@ -1912,7 +1916,7 @@ public static class ManabaseClassifier
         }
 
         bool tapForMana = lower.Contains("{t}: add", StringComparison.Ordinal)
-            || (lower.Contains("{t}, tap", StringComparison.Ordinal) && lower.Contains(": add", StringComparison.Ordinal));
+            || TapClauseAddRegex.IsMatch(text);
         if (!tapForMana && !lower.Contains("have \"{t}", StringComparison.Ordinal))
         {
             return null;

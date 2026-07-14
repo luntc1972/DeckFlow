@@ -924,6 +924,58 @@ public sealed class ManabaseAnalyzerTests
     }
 
     [Fact]
+    public void Analyze_ScrySourceCredit_DoesNotInflateUntappedNumerator()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Island",
+                Quantity = 19,
+                ManaCost = string.Empty,
+                ManaValue = 0,
+                TypeLine = "Basic Land — Island",
+                OracleText = "{T}: Add {U}.",
+                ProducedMana = new[] { "U" },
+                HasLandFace = true,
+            },
+            new()
+            {
+                Name = "Opt",
+                Quantity = 5,
+                ManaCost = "{U}",
+                ManaValue = 1,
+                TypeLine = "Instant",
+                OracleText = "Scry 1, then draw a card.",
+                ProducedMana = System.Array.Empty<string>(),
+            },
+            new()
+            {
+                Name = "Ponder",
+                Quantity = 1,
+                ManaCost = "{U}",
+                ManaValue = 1,
+                TypeLine = "Sorcery",
+                OracleText = "Draw a card.",
+                ProducedMana = System.Array.Empty<string>(),
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual, scryCredit: true);
+
+        ColorSourceFinding blue = Assert.Single(report.ColorFindings, finding => finding.Color == ManaColor.Blue);
+
+        Assert.Equal(20.0, blue.ActualSources);
+        Assert.Equal(19.0, blue.UntappedSources, 6);
+        Assert.NotNull(report.TapAnalysis);
+        Assert.Equal(19.0, report.TapAnalysis!.UntappedSources, 6);
+        Assert.Equal(20.0, report.TapAnalysis.TotalSources, 6);
+        Assert.Equal(95, report.TapAnalysis.OverallUntappedPercent);
+    }
+
+    [Fact]
     public void Analyze_ColorlessSnowFlagOn_AddsDedicatedRequirementRows_ForColorlessAndSnow()
     {
         var cards = new List<CardFact>
@@ -988,6 +1040,85 @@ public sealed class ManabaseAnalyzerTests
             finding => finding.DisplayColor == "Snow"
                 && finding.ActualSources == 14.0
                 && finding.DrivingSpell == "Arcum's Astrolabe");
+    }
+
+    [Fact]
+    public void Analyze_ColorlessSnowFlagOn_AllowsSnowManaSourceToDriveSnowFinding()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Snow-Covered Island",
+                Quantity = 14,
+                ManaCost = string.Empty,
+                ManaValue = 0,
+                TypeLine = "Snow Land — Island",
+                OracleText = "{T}: Add {U}.",
+                ProducedMana = new[] { "U" },
+                HasLandFace = true,
+            },
+            new()
+            {
+                Name = "Arcum's Astrolabe",
+                Quantity = 1,
+                ManaCost = "{S}",
+                ManaValue = 1,
+                TypeLine = "Snow Artifact",
+                OracleText = "When Arcum's Astrolabe enters, draw a card.\n{1}, {T}: Add one mana of any color.",
+                ProducedMana = Array.Empty<string>(),
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual, colorlessSnow: true);
+
+        ColorSourceFinding snow = Assert.Single(report.ColorFindings, finding => finding.DisplayColor == "Snow");
+        Assert.Equal("Arcum's Astrolabe", snow.DrivingSpell);
+        Assert.Equal(1, snow.EvaluatedCardCount);
+    }
+
+    [Fact]
+    public void Analyze_ColorlessSnowFlagOn_SetsSpecialCategoryDenominatorToEvaluatedSpellCount()
+    {
+        var sources = new List<ManaSource>();
+        for (int i = 0; i < 1; i++)
+        {
+            sources.Add(new ManaSource
+            {
+                Name = $"Snow-Covered Wastes {i}",
+                Produces = System.Array.Empty<ManaColor>(),
+                ProducesColorless = true,
+                IsSnow = true,
+                EntersUntapped = true,
+                IsLand = true,
+            });
+        }
+
+        var deck = new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            AverageManaValue = 1.5,
+            Sources = sources,
+            Spells = new List<SpellRequirement>
+            {
+                new()
+                {
+                    Name = "Icehide Golem",
+                    ManaValue = 1,
+                    Pips = Pip(),
+                    SnowPips = 1,
+                },
+            },
+            IsSingleton = true,
+        };
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual, colorlessSnow: true);
+
+        ColorSourceFinding snow = Assert.Single(report.ColorFindings, finding => finding.DisplayColor == "Snow");
+        Assert.Equal(1, snow.EvaluatedCardCount);
     }
 
     [Fact]

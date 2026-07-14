@@ -600,6 +600,12 @@ public sealed record ColorSourceFinding
     public string WorstSpell { get; init; } = string.Empty;
 
     /// <summary>
+    /// Count of spells actually evaluated for this finding's category. Regular colors usually match
+    /// <see cref="ManabaseReport.ColorSpellCounts"/>; special categories carry their own denominator.
+    /// </summary>
+    public int EvaluatedCardCount { get; init; }
+
+    /// <summary>
     /// Display-only composition of <see cref="ActualSources"/>: weight from sources that make ONLY
     /// this color (basics, mono dorks/rocks, mono lands). The reliable, dedicated core.
     /// </summary>

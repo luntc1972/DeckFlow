@@ -809,6 +809,38 @@ public sealed class ManabaseClassifierTests
     }
 
     [Fact]
+    public void Classify_QuotedAddAbility_DoesNotOvermatchLegendaryGranter()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "False Relic",
+                Quantity = 1,
+                ManaCost = "{3}",
+                ManaValue = 3,
+                TypeLine = "Artifact",
+                OracleText = "{T}, Tap an untapped legendary creature you control: Draw a card.\nTarget creature gains \"{1}, Sacrifice this artifact: Add one mana of any color.\" until end of turn.",
+                ProducedMana = System.Array.Empty<string>(),
+            },
+            new()
+            {
+                Name = "Raff Capashen, Ship's Mage",
+                Quantity = 1,
+                ManaCost = "{2}{W}{U}",
+                ManaValue = 4,
+                TypeLine = "Legendary Creature — Human Wizard",
+                OracleText = "Flash.",
+                ProducedMana = System.Array.Empty<string>(),
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        Assert.DoesNotContain(deck.Sources, s => s.Name.EndsWith("(granted)"));
+    }
+
+    [Fact]
     public void Classify_Commander_IsFlaggedOnSpellRequirement()
     {
         var cards = new List<CardFact>
