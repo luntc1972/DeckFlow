@@ -74,7 +74,7 @@ CedhCalibration.cs:56-66 — the constant-block + selector-list pattern to mirro
   private const double TargetCeiling = 45.0;
 
 ManabaseModels.cs:144-159 — PlanRole flags enum (Payoff=1, Engine=2, TutorCombo=4, Interaction=8).
-ManabaseModels.cs:706 — CommanderImportance enum (Critical / Standard / Low).
+ManabaseModels.cs:706 — CommanderImportance enum (Central / Standard / Low).
 ManabaseModels.cs:8-15 (ManabaseMode.cs) — ManabaseMode enum (Casual / Cedh).
 
 ManabaseModels.cs:315-357 — OpeningHandSample (init-only, all defaulted): Lands, Colors, RampPieces,
