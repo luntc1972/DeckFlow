@@ -3,6 +3,7 @@ import '../wwwroot/ts/flag-filter';
 
 interface FlagFilterApi {
   keyMatches(key: string, query: string): boolean;
+  statusMatches(enabled: boolean, status: string): boolean;
   formatCount(matched: number, total: number): string;
   emptyRowHidden(matched: number, total: number): boolean;
 }
@@ -28,6 +29,26 @@ describe('DeckFlowFlagFilter', () => {
 
   it('matches case-insensitively', () => {
     expect(api.keyMatches('Service.Scryfall-Tagger.Enabled', 'service.')).toBe(true);
+  });
+
+  it('matches all statuses when the status filter is empty', () => {
+    expect(api.statusMatches(true, '')).toBe(true);
+    expect(api.statusMatches(false, '')).toBe(true);
+  });
+
+  it('matches only enabled rows for the on status filter', () => {
+    expect(api.statusMatches(true, 'on')).toBe(true);
+    expect(api.statusMatches(false, 'on')).toBe(false);
+  });
+
+  it('matches only disabled rows for the off status filter', () => {
+    expect(api.statusMatches(true, 'off')).toBe(false);
+    expect(api.statusMatches(false, 'off')).toBe(true);
+  });
+
+  it('treats unknown status filters as matching all rows', () => {
+    expect(api.statusMatches(true, 'unknown')).toBe(true);
+    expect(api.statusMatches(false, 'unknown')).toBe(true);
   });
 
   it('formats the live count', () => {

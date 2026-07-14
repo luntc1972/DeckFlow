@@ -24,6 +24,11 @@
                 <button type="button" class="flag-filter__chip" data-flag-prefix="service." aria-pressed="false">service</button>
                 <button type="button" class="flag-filter__chip" data-flag-prefix="analysis." aria-pressed="false">analysis</button>
             </div>
+            <div class="flag-filter__chips" role="group" aria-label="Status filter">
+                <button type="button" class="flag-filter__chip is-active" data-flag-status="" aria-pressed="true">All statuses</button>
+                <button type="button" class="flag-filter__chip" data-flag-status="on" aria-pressed="false">Enabled</button>
+                <button type="button" class="flag-filter__chip" data-flag-status="off" aria-pressed="false">Disabled</button>
+            </div>
             <p class="flag-filter__count" id="flag-filter-count" role="status" aria-live="polite"></p>
         </div>
         <table id="flag-table" class="admin-table admin-table--card">
@@ -39,7 +44,7 @@
             <tbody>
                 @foreach (var flag in Model.Flags)
                 {
-                    <tr data-flag-key="@flag.Key">
+                    <tr data-flag-key="@flag.Key" data-flag-enabled="@(flag.Enabled ? "true" : "false")">
                         <td data-label="Key"><code>@flag.Key</code></td>
                         <td data-label="What it does" class="admin-flags__desc">@(string.IsNullOrEmpty(flag.Description) ? "—" : flag.Description)</td>
                         <td data-label="Status">@(flag.Enabled ? "On" : "Off")</td>

@@ -3,6 +3,7 @@
 // admin-flags.js, and Vitest imports it for the globalThis side effect.
 interface FlagFilterApi {
   keyMatches(key: string, query: string): boolean;
+  statusMatches(enabled: boolean, status: string): boolean;
   formatCount(matched: number, total: number): string;
   emptyRowHidden(matched: number, total: number): boolean;
 }
@@ -13,6 +14,17 @@ interface FlagFilterApi {
       const normalizedKey = key.toLowerCase();
       const normalizedQuery = query.toLowerCase();
       return normalizedQuery === '' || normalizedKey.startsWith(normalizedQuery);
+    },
+    statusMatches(enabled: boolean, status: string): boolean {
+      if (status === 'on') {
+        return enabled;
+      }
+
+      if (status === 'off') {
+        return !enabled;
+      }
+
+      return true;
     },
     formatCount(matched: number, total: number): string {
       return `${matched} of ${total} flags shown`;

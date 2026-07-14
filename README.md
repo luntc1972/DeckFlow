@@ -23,7 +23,7 @@ Set these environment variables (via the Render env var UI):
 
 Basic auth covers the whole admin shell: Dashboard (`/Admin`), Feedback, Flags, Harvest, Analytics, Content KB curation, and YouTube Export. If `FEEDBACK_ADMIN_USER` or `FEEDBACK_ADMIN_PASSWORD` are not set, `/Admin/*` returns **503 Service Unavailable**. The public `/feedback` form continues to accept submissions.
 
-On `/Admin/Flags`, operators can narrow the table instantly in-browser with a starts-with key filter plus namespace chips for `service.` and `analysis.`; the current filter is kept in `sessionStorage` across admin page reloads within the session. Public-tool visibility flags (`tool.*`) are **not** listed here — they are administered on `/Admin/Tools` (which cascades to the home tile, nav, help, and route), so a tool flag is toggled in exactly one place.
+On `/Admin/Flags`, operators can narrow the table instantly in-browser with a starts-with key filter, namespace chips for `service.` and `analysis.`, and status chips (**All statuses / Enabled / Disabled**) that filter rows by their current on/off state; all three compose, and the current filter is kept in `sessionStorage` across admin page reloads within the session. Public-tool visibility flags (`tool.*`) are **not** listed here — they are administered on `/Admin/Tools` (which cascades to the home tile, nav, help, and route), so a tool flag is toggled in exactly one place.
 
 Public submissions are rate-limited to 5 per hour per IP.
 
