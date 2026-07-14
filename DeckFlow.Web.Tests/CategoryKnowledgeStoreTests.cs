@@ -1,6 +1,7 @@
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.FileProviders;
 using Xunit;
 
@@ -173,6 +174,55 @@ public sealed class CategoryKnowledgeStoreTests
         finally
         {
             Environment.SetEnvironmentVariable("MTG_DATA_DIR", original);
+        }
+    }
+
+    [Fact]
+    public async Task GetTotalProcessedDeckCountSinceAsync_WithMixedProcessedRows_ReturnsOnlyProcessedRowsAtOrAfterCutoff()
+    {
+        var original = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
+        var tempRoot = Path.Combine(Path.GetTempPath(), "deckflow-store-" + Guid.NewGuid().ToString("N"));
+        var cutoffUtc = new DateTime(2026, 01, 15, 12, 00, 00, DateTimeKind.Utc);
+
+        try
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", null);
+            var store = CreateStore(Path.Combine(tempRoot, "content"));
+
+            _ = await store.GetTotalProcessedDeckCountAsync();
+
+            Assert.NotNull(store.DatabasePath);
+
+            await using var connection = new SqliteConnection($"Data Source={store.DatabasePath}");
+            await connection.OpenAsync();
+
+            await using var command = connection.CreateCommand();
+            command.CommandText = """
+                INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, commander_name)
+                VALUES
+                    ('deck-before', @beforeCutoff, 1, 0, NULL, 'Commander Before'),
+                    ('deck-at-cutoff', @atCutoff, 1, 0, NULL, 'Commander At Cutoff'),
+                    ('deck-after', @afterCutoff, 1, 0, NULL, 'Commander After'),
+                    ('deck-unprocessed', @unprocessedAfterCutoff, 0, 0, NULL, 'Commander Pending');
+                """;
+            command.Parameters.AddWithValue("@beforeCutoff", cutoffUtc.AddMinutes(-1).ToString("O"));
+            command.Parameters.AddWithValue("@atCutoff", cutoffUtc.ToString("O"));
+            command.Parameters.AddWithValue("@afterCutoff", cutoffUtc.AddMinutes(1).ToString("O"));
+            command.Parameters.AddWithValue("@unprocessedAfterCutoff", cutoffUtc.AddMinutes(2).ToString("O"));
+            await command.ExecuteNonQueryAsync();
+
+            var count = await store.GetTotalProcessedDeckCountSinceAsync(cutoffUtc);
+
+            Assert.Equal(2, count);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", original);
+            SqliteConnection.ClearAllPools();
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, recursive: true);
+            }
         }
     }
 
