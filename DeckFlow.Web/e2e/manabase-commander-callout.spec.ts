@@ -61,20 +61,24 @@ test('command-zone castability callout renders above the table and excludes comm
 
   const result = await analyzeDeck(page);
   const callout = result.locator('.manabase-cmd-castability');
-  const heading = result.locator('.manabase-castability-heading');
+  const heading = result.locator('#manabase-castability .manabase-castability-heading');
   const castabilityTable = result.locator('.castability-table');
 
   await expect(callout).toBeVisible();
+  await expect(callout).toHaveClass(/manabase-lens/);
   await expect(callout).toContainText('Command-zone castability');
   await expect(callout).toContainText('Esika, God of the Tree');
   await expect(callout).toContainText('Jegantha, the Wellspring');
   await expect(callout).toContainText('This heuristic includes the +3 generic "to hand" tax as an approximation.');
+  await expect(callout.locator('.manabase-lens-big.manabase-lens-big--soft')).toContainText(/\d+%/);
 
   const order = await result.locator(':scope > *').evaluateAll((nodes) =>
     nodes.map((node) =>
       (node as HTMLElement).classList.contains('manabase-cmd-castability')
         ? 'callout'
-        : (node as HTMLElement).classList.contains('manabase-castability-heading')
+        // The heading lives inside the castability section wrapper.
+        : (node as HTMLElement).id === 'manabase-castability'
+          || (node as HTMLElement).querySelector('#manabase-castability .manabase-castability-heading') !== null
           ? 'heading'
           : '',
     ),
@@ -83,7 +87,7 @@ test('command-zone castability callout renders above the table and excludes comm
   expect(order.indexOf('heading')).toBeGreaterThan(-1);
   expect(order.indexOf('callout')).toBeLessThan(order.indexOf('heading'));
   const isBeforeHeading = await callout.evaluate((node) => {
-    const headingNode = document.querySelector('.manabase-castability-heading');
+    const headingNode = document.querySelector('#manabase-castability .manabase-castability-heading');
     return headingNode !== null
       && (node.compareDocumentPosition(headingNode) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
   });
@@ -99,8 +103,12 @@ test('command-zone castability callout renders above the table and excludes comm
   // With the manabase display flags all default-on, several lens cards render a .manabase-lens-big
   // figure (plain-language, untapped, sim cast rate). Scope to the simulated-cast-rate card so the
   // avg-on-curve number is unambiguous.
-  const visibleAvg = parsePercent(await result.locator('.manabase-lens:has-text("avg on-curve") .manabase-lens-big').textContent());
+  const simulatedCastRateLens = result.locator('#manabase-simulated-cast-rate');
+  const visibleAvg = parsePercent(await simulatedCastRateLens.locator('.manabase-lens-big').textContent());
   expect(visibleAvg).toBe(avgFromRows);
+  await expect(simulatedCastRateLens.locator('.manabase-lens-note').filter({ hasText: '≥90% cast:' })).toContainText(
+    /≥90% cast:\s*\d+\s+spells?\s*·\s*70–89%:\s*\d+\s*·\s*<70%:\s*\d+/,
+  );
 
   const companionLine = callout.locator('.manabase-cmd-castability-line').filter({ hasText: 'Jegantha, the Wellspring' });
   await expect(companionLine).toContainText(/\d+%/);
