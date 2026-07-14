@@ -98,6 +98,27 @@ public sealed class ManabaseReportTextBuilderTests
         Summary = "cEDH mana base looks solid.",
     };
 
+    private static ManabaseInteractionLens PopulatedInteractionLens() => new()
+    {
+        QualifyingCount = 3,
+        OnTargetCount = 1,
+        Threshold = 88,
+        Rows = new List<ManabaseInteractionRow>
+        {
+            new() { Name = "Swan Song", HoldablePercent = 61 },
+            new() { Name = "An Offer You Can't Refuse", HoldablePercent = 74 },
+            new() { Name = "Flusterstorm", HoldablePercent = 91, IsCostOverridden = true },
+        },
+    };
+
+    private static ManabaseInteractionLens EmptyInteractionLens() => new()
+    {
+        QualifyingCount = 0,
+        OnTargetCount = 0,
+        Threshold = 88,
+        Rows = Array.Empty<ManabaseInteractionRow>(),
+    };
+
     private static ManabaseReport CasualReportWithCastability() => new()
     {
         ActualLands = 35,
@@ -251,6 +272,57 @@ public sealed class ManabaseReportTextBuilderTests
         // Castability section must NOT appear in cEDH output
         Assert.DoesNotContain("Castability", output);
         Assert.DoesNotContain("Cast on curve", output);
+    }
+
+    [Fact]
+    public void Build_NullInteractionLens_IsByteIdenticalToDefault()
+    {
+        ManabaseReport report = CedhReport();
+
+        string baseline = ManabaseReportTextBuilder.Build(report, null, null, ManabaseMode.Cedh);
+        string withNullLens = ManabaseReportTextBuilder.Build(
+            report,
+            null,
+            null,
+            ManabaseMode.Cedh,
+            interactionLens: null);
+
+        Assert.Equal(baseline, withNullLens);
+        Assert.DoesNotContain("Early interaction (turns 1-3)", withNullLens, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build_WithInteractionLens_AppendsEarlyInteractionBlock()
+    {
+        string output = ManabaseReportTextBuilder.Build(
+            CedhReport(),
+            null,
+            null,
+            ManabaseMode.Cedh,
+            interactionLens: PopulatedInteractionLens());
+
+        Assert.Contains("Early interaction (turns 1-3)", output, StringComparison.Ordinal);
+        Assert.Contains("1 / 3 interaction held up by turn 3", output, StringComparison.Ordinal);
+        Assert.Contains("Swan Song", output, StringComparison.Ordinal);
+        Assert.Contains("61%", output, StringComparison.Ordinal);
+        Assert.Contains("An Offer You Can't Refuse", output, StringComparison.Ordinal);
+        Assert.Contains("assumes you hold mana open", output, StringComparison.Ordinal);
+        Assert.Contains("First-pass read only", output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build_WithEmptyInteractionLens_AppendsCautionWithoutRows()
+    {
+        string output = ManabaseReportTextBuilder.Build(
+            CedhReport(),
+            null,
+            null,
+            ManabaseMode.Cedh,
+            interactionLens: EmptyInteractionLens());
+
+        Assert.Contains("no cheap interaction found", output, StringComparison.Ordinal);
+        Assert.DoesNotContain("Swan Song", output, StringComparison.Ordinal);
+        Assert.DoesNotContain("Holdable %", output, StringComparison.Ordinal);
     }
 
     [Fact]
