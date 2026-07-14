@@ -33,7 +33,7 @@ patterns-established:
 requirements-completed: [CS-19]
 duration: 25min
 completed: 2026-07-14
-checkpoint_status: pending-operator-verification
+checkpoint_status: approved-by-operator-2026-07-14
 ---
 
 # Phase 97-07 Summary
@@ -80,3 +80,15 @@ checkpoint_status: pending-operator-verification
 ---
 *Phase: 97-profile-fusion-conflict-ledger*
 *Completed: 2026-07-14*
+
+## Checkpoint closure (2026-07-14)
+
+Operator smoke checkpoint **approved** ("approved", 2026-07-14). Verified against seeded prototype
+Snail data (gitignored `artifacts/studio/content-kb.db`, real `fuse-profile` run): both routes
+(`/creator-style-ledger` and `/creator-style-ledger/salubrioussnail`) render the same 7-row ledger;
+board-wipes shows Agree (deviates-from-canon-but-matches-own-philosophy legible, not a conflict);
+draw shows Conflict; control-conditioned counters shows insufficient-measured with
+no-condition-breakdown subtext; superseded draw history row muted; page read-only. Two
+foreman-review fixes landed pre-approval: source-clip href restricted to http/https (94b83ea5),
+Bootstrap 5.1 badge classes (1e0fe0e9); NavMenu contract test updated for the 12th destination
+(49b3731e). Screenshots delivered in-session.
