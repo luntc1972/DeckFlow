@@ -63,6 +63,27 @@ public sealed class ManabaseSwapPromptBuilderTests
         },
     };
 
+    private static ManabaseInteractionLens PopulatedInteractionLens() => new()
+    {
+        QualifyingCount = 4,
+        OnTargetCount = 2,
+        Threshold = 88,
+        Rows = new List<ManabaseInteractionRow>
+        {
+            new() { Name = "Swan Song", HoldablePercent = 63 },
+            new() { Name = "Flusterstorm", HoldablePercent = 79 },
+            new() { Name = "An Offer You Can't Refuse", HoldablePercent = 89 },
+        },
+    };
+
+    private static ManabaseInteractionLens EmptyInteractionLens() => new()
+    {
+        QualifyingCount = 0,
+        OnTargetCount = 0,
+        Threshold = 88,
+        Rows = Array.Empty<ManabaseInteractionRow>(),
+    };
+
     [Fact]
     public void Build_IncludesDeckName_DeficitColor_AndDecklist()
     {
@@ -164,6 +185,53 @@ public sealed class ManabaseSwapPromptBuilderTests
             null);
 
         Assert.Equal(baseline, withExplicitDefaults);
+    }
+
+    [Fact]
+    public void Build_CedhNullInteractionLens_IsByteIdenticalToDefault()
+    {
+        ManabaseReport report = ReportWithDeficit();
+
+        string baseline = ManabaseSwapPromptBuilder.Build(report, "My Deck", "1 Plains", ManabaseMode.Cedh);
+        string withNullLens = ManabaseSwapPromptBuilder.Build(
+            report,
+            "My Deck",
+            "1 Plains",
+            ManabaseMode.Cedh,
+            interactionLens: null);
+
+        Assert.Equal(baseline, withNullLens);
+        Assert.Contains("prioritize early (turn 1–3) untapped colored access for cheap interaction.", withNullLens);
+    }
+
+    [Fact]
+    public void Build_CedhInteractionLens_ReplacesGenericSentenceWithRealCounts()
+    {
+        string prompt = ManabaseSwapPromptBuilder.Build(
+            ReportWithDeficit(),
+            "My Deck",
+            "1 Plains",
+            ManabaseMode.Cedh,
+            interactionLens: PopulatedInteractionLens());
+
+        Assert.Contains("2 / 4", prompt, StringComparison.Ordinal);
+        Assert.Contains("Swan Song", prompt, StringComparison.Ordinal);
+        Assert.Contains("Flusterstorm", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("prioritize early (turn 1–3) untapped colored access for cheap interaction.", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build_CedhEmptyInteractionLens_StatesNoCheapInteractionFound()
+    {
+        string prompt = ManabaseSwapPromptBuilder.Build(
+            ReportWithDeficit(),
+            "My Deck",
+            "1 Plains",
+            ManabaseMode.Cedh,
+            interactionLens: EmptyInteractionLens());
+
+        Assert.Contains("no cheap interaction found", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("Swan Song", prompt, StringComparison.Ordinal);
     }
 
     [Fact]
