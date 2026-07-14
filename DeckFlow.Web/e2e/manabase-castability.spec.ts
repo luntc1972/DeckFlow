@@ -187,19 +187,22 @@ test('casual submit renders the castability table, worst-first, commander pinned
   await assertNoHorizontalScroll(page);
 });
 
-test('cedh submit echoes cEDH and replaces the castability table with a note', async ({ page }) => {
+test('cedh submit echoes cEDH and shows the castability table under the interaction lens', async ({ page }) => {
   // The exact land-target drop (cEDH < casual) needs a full ~99-card deck and is covered by the
-  // xUnit service test; here we assert the mode echo + the cEDH table-hidden contract, which is
-  // what a user sees. A real land-target line is still rendered.
+  // xUnit service test; here we assert the mode echo + the cEDH table contract, which is what a
+  // user sees. A real land-target line is still rendered.
+  // MBGAP-09 (analysis.manabase.cedh-interaction-lens, seeded ON): cEDH now RENDERS the full
+  // castability table instead of the "available in Casual mode" note. The note remains only as
+  // the flag-OFF fallback, which this seeded-ON environment never shows.
   const cedhOk = await submitDeck(page, 'Cedh');
   test.skip(!cedhOk, 'analysis result unavailable (Scryfall not reachable in this environment)');
 
   await expect(page.locator('.manabase-context')).toContainText(/Mode:\s*cEDH/i);
   await expect(page.locator('.result-panel p:has(strong:text-is("Lands:"))')).toContainText(/recommended/i);
 
-  // Castability table is hidden in cEDH; the note appears instead.
-  await expect(page.locator('table.castability-table')).toHaveCount(0);
-  await expect(page.locator('.manabase-castability-note')).toContainText(/available in Casual mode/i);
+  // Castability table renders in cEDH (flag on); the old mode-note must be absent.
+  await expect(page.locator('table.castability-table').first()).toBeVisible();
+  await expect(page.locator('.manabase-castability-note')).toHaveCount(0);
 
   await assertNoHorizontalScroll(page);
 });
