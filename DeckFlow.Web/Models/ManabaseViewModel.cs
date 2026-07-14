@@ -62,6 +62,9 @@ public sealed class ManabaseViewModel
     /// <summary>Whether the UI should surface the "with a plan" plan-presence line inside the opening-hand block.</summary>
     public bool ShowPlanPresence { get; init; }
 
+    /// <summary>Whether the UI should surface the cEDH early-interaction lens and related table rows.</summary>
+    public bool ShowCedhInteractionLens { get; init; }
+
     /// <summary>Optional companion castability row surfaced outside the 99 table.</summary>
     public CardCastability? CompanionCallout { get; init; }
 
@@ -104,8 +107,12 @@ public sealed class ManabaseViewModel
     public bool Loaded { get; init; }
 
     /// <summary>
-    /// True when the castability table should render: a report exists, it was run in Casual mode,
-    /// and it carries at least one castability row. cEDH hides the table (v1) and shows a note.
+    /// True when the castability table should render: a report exists, it carries at least one
+    /// castability row, and either the run was Casual or it was cEDH with the interaction-lens
+    /// surface enabled.
     /// </summary>
-    public bool ShowCastability => Report is { Mode: ManabaseMode.Casual, Castability.Count: > 0 };
+    public bool ShowCastability =>
+        Report is { Castability.Count: > 0 } report
+        && (report.Mode == ManabaseMode.Casual
+            || (report.Mode == ManabaseMode.Cedh && ShowCedhInteractionLens));
 }
