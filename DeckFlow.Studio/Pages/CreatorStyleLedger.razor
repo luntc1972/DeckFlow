@@ -1,0 +1,227 @@
+@page "/creator-style-ledger"
+@page "/creator-style-ledger/{Slug}"
+@inherits StudioCancellableComponentBase
+@using System.Globalization
+@using DeckFlow.Core.Content
+@using DeckFlow.Core.Knowledge
+
+<PageTitle>Creator Style Ledger</PageTitle>
+
+<h1 class="h4 fw-semibold">Creator Style Ledger</h1>
+<p class="text-muted">Read-only say-vs-do ledger for the persisted fused creator profile.</p>
+
+<article class="content px-4">
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger py-2">@_error</div>
+    }
+
+    @if (_loading)
+    {
+        <div class="d-flex align-items-center gap-2 mt-3">
+            <span class="spinner-border spinner-border-sm text-primary" role="status" aria-label="Operation in progress">
+                <span class="visually-hidden">Loading...</span>
+            </span>
+            <span class="text-muted">Loading fused profile...</span>
+        </div>
+    }
+    else if (_profile is null || _profile.FusedTargets.Count == 0)
+    {
+        @if (string.IsNullOrEmpty(_error))
+        {
+            <p class="text-muted mt-3">No fused targets found for <code>@_effectiveSlug</code>.</p>
+        }
+    }
+    else
+    {
+        <div class="d-flex flex-wrap gap-3 align-items-baseline mt-3">
+            <div><span class="fw-semibold">Slug:</span> <code>@_profile.Slug</code></div>
+            <div><span class="fw-semibold">Updated:</span> @FormatDateTime(_profile.UpdatedUtc)</div>
+        </div>
+
+        <div class="table-responsive mt-3">
+            <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col">Metric</th>
+                        <th scope="col">Condition</th>
+                        <th scope="col">Stated Band</th>
+                        <th scope="col">Measured</th>
+                        <th scope="col">Resolved</th>
+                        <th scope="col">Verdict</th>
+                        <th scope="col">Weight</th>
+                        <th scope="col">Confidence</th>
+                        <th scope="col">Source Clip</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var target in _profile.FusedTargets)
+                    {
+                        <tr class="@GetRowClass(target)">
+                            <td>@target.Metric</td>
+                            <td>@(string.IsNullOrWhiteSpace(target.Condition) ? "—" : target.Condition)</td>
+                            <td>@FormatBand(target)</td>
+                            <td>@FormatMeasured(target)</td>
+                            <td>@FormatNumber(target.Value)</td>
+                            <td>
+                                <span class="badge @GetVerdictBadgeClass(target)" title="@GetVerdictTitle(target)">
+                                    @GetVerdictLabel(target)
+                                </span>
+                                @if (ShouldShowVerdictReason(target))
+                                {
+                                    <div><small class="text-muted">@target.VerdictReason</small></div>
+                                }
+                            </td>
+                            <td>@FormatNumber(target.Weight)</td>
+                            <td>@(string.IsNullOrWhiteSpace(target.Confidence) ? "—" : target.Confidence)</td>
+                            <td class="text-break">
+                                @if (TryGetAbsoluteUri(target.SourceClip, out var sourceClipUri))
+                                {
+                                    <a href="@sourceClipUri" target="_blank" rel="noopener noreferrer">@target.SourceClip</a>
+                                }
+                                else
+                                {
+                                    <span>@(string.IsNullOrWhiteSpace(target.SourceClip) ? "—" : target.SourceClip)</span>
+                                }
+                                <div><small class="text-muted">@FormatDate(target.VideoDateUtc)</small></div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</article>
+
+@code {
+    private const string DefaultSlug = "salubrioussnail";
+
+    [Inject]
+    private ICreatorStyleProfileStore ProfileStore { get; set; } = default!;
+
+    [Parameter]
+    public string? Slug { get; set; }
+
+    private CreatorStyleProfile? _profile;
+    private bool _loading = true;
+    private string _error = string.Empty;
+    private string _effectiveSlug = DefaultSlug;
+
+    protected override async Task OnInitializedAsync() => await ReloadAsync();
+
+    private async Task ReloadAsync()
+    {
+        _effectiveSlug = Slug ?? DefaultSlug;
+        _loading = true;
+        _error = string.Empty;
+
+        try
+        {
+            // Why: Task.Run moves the store call off the Blazor sync context.
+            _profile = await Task.Run(() => ProfileStore.GetBySlugAsync(_effectiveSlug, Cts.Token), Cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception)
+        {
+            // Why: never echo exception.Message (may leak the DB path) — generic operator-safe copy only.
+            _error = "Could not load the fused profile. Try again.";
+        }
+        finally
+        {
+            _loading = false;
+            await SafeStateHasChangedAsync();
+        }
+    }
+
+    private static string FormatBand(FusedTarget target)
+    {
+        if (target.StatedMin.HasValue && target.StatedMax.HasValue)
+        {
+            return $"{FormatNumber(target.StatedMin.Value)}-{FormatNumber(target.StatedMax.Value)}";
+        }
+
+        if (target.StatedMin.HasValue)
+        {
+            return $">= {FormatNumber(target.StatedMin.Value)}";
+        }
+
+        if (target.StatedMax.HasValue)
+        {
+            return $"<= {FormatNumber(target.StatedMax.Value)}";
+        }
+
+        return "—";
+    }
+
+    private static string FormatMeasured(FusedTarget target)
+    {
+        if (!target.MeasuredValue.HasValue)
+        {
+            return "—";
+        }
+
+        return $"{FormatNumber(target.MeasuredValue.Value)} · decks {FormatNullableInt(target.NumDecks)} · eff {FormatNullableDouble(target.EffectiveSampleSize)}";
+    }
+
+    private static string FormatNullableInt(int? value) => value?.ToString(CultureInfo.InvariantCulture) ?? "—";
+
+    private static string FormatNullableDouble(double? value) => value.HasValue ? FormatNumber(value.Value) : "—";
+
+    private static string FormatNumber(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static string FormatDate(DateTimeOffset? value) => value?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "—";
+
+    private static string FormatDateTime(DateTimeOffset value) => value.ToString("yyyy-MM-dd HH:mm 'UTC'", CultureInfo.InvariantCulture);
+
+    private static string GetRowClass(FusedTarget target)
+        => string.Equals(target.Verdict, "superseded", StringComparison.OrdinalIgnoreCase) ? "text-muted opacity-75" : string.Empty;
+
+    private static string GetVerdictBadgeClass(FusedTarget target)
+    {
+        return (target.Verdict ?? string.Empty).ToLowerInvariant() switch
+        {
+            "agree" => "text-bg-success",
+            "conflict" => "text-bg-danger",
+            "insufficient-measured" => "text-bg-secondary",
+            "philosophy-stated-only" => "text-bg-info",
+            "superseded" => "text-bg-light",
+            _ => "text-bg-light",
+        };
+    }
+
+    private static string GetVerdictLabel(FusedTarget target)
+    {
+        return (target.Verdict ?? string.Empty).ToLowerInvariant() switch
+        {
+            "agree" => "Agree",
+            "conflict" => "Conflict",
+            "insufficient-measured" => "Insufficient measured",
+            "philosophy-stated-only" => "Philosophy stated only",
+            "superseded" => "Superseded",
+            _ => string.IsNullOrWhiteSpace(target.Verdict) ? "—" : target.Verdict,
+        };
+    }
+
+    private static string GetVerdictTitle(FusedTarget target)
+        => ShouldShowVerdictReason(target)
+            ? target.VerdictReason!
+            : (string.IsNullOrWhiteSpace(target.Verdict) ? string.Empty : target.Verdict);
+
+    private static bool ShouldShowVerdictReason(FusedTarget target)
+        => string.Equals(target.Verdict, "insufficient-measured", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(target.VerdictReason);
+
+    private static bool TryGetAbsoluteUri(string? value, out string absoluteUri)
+    {
+        absoluteUri = string.Empty;
+        if (string.IsNullOrWhiteSpace(value) || !Uri.TryCreate(value, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        absoluteUri = uri.AbsoluteUri;
+        return true;
+    }
+}
