@@ -32,6 +32,9 @@ internal sealed class ChatGptMetaGapPromptVariant : IMetaGapPromptVariant
     {
         var refCount = selectedEntries.Count;
         var builder = new StringBuilder();
+        builder.AppendLine("EXECUTE NOW — perform the entire task defined below and output the complete result in this reply. Do not ask which task to run, do not ask for confirmation, and do not wait for further instructions; the full task is specified below.");
+        builder.AppendLine();
+
         builder.AppendLine($"Title this chat: {commanderName} | cEDH Meta Gap");
         builder.AppendLine();
         builder.AppendLine("ROLE:");
@@ -57,6 +60,16 @@ internal sealed class ChatGptMetaGapPromptVariant : IMetaGapPromptVariant
         builder.AppendLine("- Treat every infinite or near-infinite result in the supplied combo sections (Infinite/Near-infinite blinking, landfall triggers, ETB/LTB, mana, mill, untap) as an ACTIVE win engine. Scan MY_DECK for any card whose repeated trigger under that loop is game-ending (e.g. a land or permanent with an ETB/landfall ping, drain, or mill) - such a payoff is a win condition even if it is in no combo line and no REF deck.");
         builder.AppendLine("- A card that appears in a supplied combo line, or that pays off one of MY_DECK's own combo/loop results, is a PROTECTED combo piece or win condition. Never place it in potential_cuts or top_10_cuts, and never name it in the replaces field of a top_10_adds entry; classify its role as wincon or combo. Reconcile every proposed cut or replacement against MY_DECK's combo evidence first.");
         builder.AppendLine("- A tutor or fetch effect that can retrieve one of MY_DECK's combo pieces is itself a PROTECTED combo enabler - do not cut it or name it in a replaces field. Exception to the observable-overlap rule, solely to identify such tutors: you may infer a card's hidden tutor ability from well-known printed text (e.g. cycling / typecycling such as wizardcycling, transmute, or explicit 'search your library' text), label that as inference, and do not use inferred card text for any other conclusion.");
+        builder.AppendLine();
+        builder.AppendLine("HEURISTIC VALIDATION:");
+        builder.AppendLine("Before beginning the analysis:");
+        builder.AppendLine("1. Validate every proposed combo.");
+        builder.AppendLine("2. Validate every interaction count.");
+        builder.AppendLine("3. Validate every tutor count.");
+        builder.AppendLine("4. Validate every fast mana source.");
+        builder.AppendLine("5. Validate the estimated power/speed scores.");
+        builder.AppendLine("6. Identify every discrepancy between the supplied combo references and the actual decklists.");
+        builder.AppendLine("7. Use the validated results for the remainder of the analysis.");
         builder.AppendLine();
 
         builder.AppendLine("INPUT DATA:");

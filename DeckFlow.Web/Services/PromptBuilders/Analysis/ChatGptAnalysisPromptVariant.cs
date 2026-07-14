@@ -47,7 +47,15 @@ internal sealed class ChatGptAnalysisPromptVariant : IAnalysisPromptVariant
         }
         var requiresFullDecklists = AnalysisQuestionCatalog.RequiresFullDecklistOutput(selectedQuestionIds);
         var requiresCategoryOutput = AnalysisQuestionCatalog.RequiresCategoryOutput(selectedQuestionIds);
+        var hasHeuristicContentToValidate =
+            !string.IsNullOrWhiteSpace(scoreBlockText)
+            || !string.IsNullOrWhiteSpace(interactionAuditText)
+            || !string.IsNullOrWhiteSpace(winConMapText)
+            || comboResult is not null;
         var builder = new StringBuilder();
+
+        builder.AppendLine("EXECUTE NOW — perform the entire task defined below and output the complete result in this reply. Do not ask which task to run, do not ask for confirmation, and do not wait for further instructions; the full task is specified below.");
+        builder.AppendLine();
 
         if (!string.IsNullOrWhiteSpace(commanderName))
         {
@@ -130,6 +138,19 @@ internal sealed class ChatGptAnalysisPromptVariant : IAnalysisPromptVariant
         builder.AppendLine("- Do not recommend cards from the official Commander banned list (see banned list in the reference section below).");
         builder.AppendLine("- Modal double-faced cards (MDFCs) with a land back face (e.g. Sea Gate Restoration // Sea Gate Sortie) count toward the deck's land total — include them when assessing land count and mana base. Weight them higher than a plain land, since they can be cast as a spell or played as a land and add consistency and flexibility. Such cards are flagged [MDFC-land] in the reference data.");
         builder.AppendLine();
+        if (hasHeuristicContentToValidate)
+        {
+            builder.AppendLine("## HEURISTIC VALIDATION");
+            builder.AppendLine("Before beginning the analysis:");
+            builder.AppendLine("1. Validate every proposed combo.");
+            builder.AppendLine("2. Validate every interaction count.");
+            builder.AppendLine("3. Validate every tutor count.");
+            builder.AppendLine("4. Validate every fast mana source.");
+            builder.AppendLine("5. Validate the estimated power/speed scores.");
+            builder.AppendLine("6. Identify every discrepancy between the DeckFlow heuristic blocks above and the actual deck.");
+            builder.AppendLine("7. Use the validated results for the remainder of the analysis.");
+            builder.AppendLine();
+        }
 
         // --- Bracket guidance ---
         builder.AppendLine("## BRACKET GUIDANCE");
@@ -242,6 +263,8 @@ internal sealed class ChatGptAnalysisPromptVariant : IAnalysisPromptVariant
         builder.AppendLine("   Each answer field must be a thorough response (6-12 sentences minimum) — not a brief summary. Cite specific card names and interactions.");
         builder.AppendLine("   Do not collapse multiple questions into one JSON entry, and do not replace full answers with shorthand summaries in the JSON.");
         builder.AppendLine("   Before returning the JSON, count the numbered questions above and verify that question_answers has the same count.");
+        builder.AppendLine("   Deliver the ENTIRE required output — the Requested Question Answers, Top Adds, Top Cuts, and the complete deck_profile JSON — in this single response. Do NOT refuse, claim the output is too long, ask which part to produce, ask to continue, or offer to restructure, summarize, or split the output; a complete response for this task is a few hundred lines and fits well within one reply.");
+        builder.AppendLine("   If the full output would genuinely approach your hard output limit, do not refuse or drop any section: shorten each question answer to 4-6 sentences (apply the SAME shortened text in both the readable section and the JSON question_answers so they still mirror each other), and cap Top Adds and Top Cuts at 5 entries each. Every section and every JSON field must still be present.");
         builder.AppendLine();
         if (requiresFullDecklists)
         {

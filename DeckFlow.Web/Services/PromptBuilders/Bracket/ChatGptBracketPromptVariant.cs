@@ -32,8 +32,10 @@ internal sealed class ChatGptBracketPromptVariant : IBracketPromptVariant
         var tierName = classifiedTier?.Name ?? $"Bracket {classification.BracketNumber}";
         var tierLabel = classifiedTier?.Label ?? $"Bracket {classification.BracketNumber}";
 
-        // ── Classification block (always present) ───────────────────────────
+        builder.AppendLine("EXECUTE NOW — perform the entire task defined below and output the complete result in this reply. Do not ask which task to run, do not ask for confirmation, and do not wait for further instructions; the full task is specified below.");
+        builder.AppendLine();
 
+        // ── Classification block (always present) ───────────────────────────
         if (!string.IsNullOrWhiteSpace(deckName))
         {
             builder.AppendLine($"## Bracket Classification: {deckName}");

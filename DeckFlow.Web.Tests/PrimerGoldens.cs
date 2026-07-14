@@ -7,9 +7,11 @@ namespace DeckFlow.Web.Tests;
 /// embeds a live timestamp (confirmed by grep of DeckPrimerPacketService.cs).</summary>
 internal static class PrimerGoldens
 {
+    private const string ChatGptImmediateHeader = PacketByteIdentityFixtures.ChatGptImmediateHeader;
+
     public static string BaselinePromptText(string platform) => platform switch
     {
-        "ChatGPT" => """
+        "ChatGPT" => ChatGptImmediateHeader + """
 You are an expert Magic: The Gathering primer writer specializing in Commander.
 Build a pilot-facing deck primer that is grounded in the supplied decklist and reference blocks before offering any inference.
 

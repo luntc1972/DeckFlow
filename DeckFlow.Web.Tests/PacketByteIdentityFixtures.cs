@@ -39,6 +39,32 @@ internal static class PacketByteIdentityFixtures
     public const string Claude = "Claude";
     public const string Gemini = "Gemini";
 
+    /// <summary>
+    /// The ChatGPT-only execute-immediately preamble every ChatGpt* prompt variant emits as its
+    /// first line (see ChatGpt*PromptVariant.cs). Kept as ONE test-side literal so the goldens
+    /// cannot drift from each other; intentionally independent of production source per the
+    /// golden-test philosophy (a prod typo must FAIL here, not be re-imported).
+    /// </summary>
+    public const string ChatGptImmediateHeader = "EXECUTE NOW \u2014 perform the entire task defined below and output the complete result in this reply. Do not ask which task to run, do not ask for confirmation, and do not wait for further instructions; the full task is specified below.\n\n";
+
+    /// <summary>
+    /// The ChatGPT-only heuristic-validation section the analysis variant emits when the prompt
+    /// carries heuristic content (score block, interaction audit, win-con map, or combo data).
+    /// Built with Environment.NewLine because the parity tests compare in-process builder output,
+    /// which is CRLF under Windows dotnet.exe and LF on CI.
+    /// </summary>
+    public static readonly string ChatGptHeuristicValidationBlock = string.Join(
+        Environment.NewLine,
+        "## HEURISTIC VALIDATION",
+        "Before beginning the analysis:",
+        "1. Validate every proposed combo.",
+        "2. Validate every interaction count.",
+        "3. Validate every tutor count.",
+        "4. Validate every fast mana source.",
+        "5. Validate the estimated power/speed scores.",
+        "6. Identify every discrepancy between the DeckFlow heuristic blocks above and the actual deck.",
+        "7. Use the validated results for the remainder of the analysis.") + Environment.NewLine + Environment.NewLine;
+
     /// <summary>The 3 AI platforms every byte-identity suite sweeps (mirrors ResultContractTests.cs:25).</summary>
     public static readonly string[] AiPlatforms = [ChatGpt, Claude, Gemini];
 

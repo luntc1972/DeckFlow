@@ -97,6 +97,18 @@ public sealed class AnalysisScorePromptParityTests
 
         // Excise that single contiguous block; the remainder must be byte-identical to the null path.
         var excised = withScore.Remove(firstIndex, insertedBlock.Length);
+
+        // Why: the ChatGPT variant couples the HEURISTIC VALIDATION section to heuristic-content
+        // presence, so the enriched path adds that section too; excise it before asserting the
+        // remainder is byte-identical to the null path. Claude/Gemini do not emit the section.
+        if (platformName == PacketByteIdentityFixtures.ChatGpt)
+        {
+            var validationBlock = PacketByteIdentityFixtures.ChatGptHeuristicValidationBlock;
+            var validationIndex = excised.IndexOf(validationBlock, StringComparison.Ordinal);
+            Assert.True(validationIndex >= 0, "Expected the heuristic validation section in the ChatGPT output.");
+            excised = excised.Remove(validationIndex, validationBlock.Length);
+        }
+
         Assert.Equal(nullPath, excised);
     }
 
