@@ -182,12 +182,12 @@
     {
         return (target.Verdict ?? string.Empty).ToLowerInvariant() switch
         {
-            "agree" => "text-bg-success",
-            "conflict" => "text-bg-danger",
-            "insufficient-measured" => "text-bg-secondary",
-            "philosophy-stated-only" => "text-bg-info",
-            "superseded" => "text-bg-light",
-            _ => "text-bg-light",
+            "agree" => "bg-success",
+            "conflict" => "bg-danger",
+            "insufficient-measured" => "bg-secondary",
+            "philosophy-stated-only" => "bg-info text-dark",
+            "superseded" => "bg-light text-dark",
+            _ => "bg-light text-dark",
         };
     }
 
