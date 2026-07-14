@@ -124,8 +124,16 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        // Why: inserted_utc is a TEXT column on both dialects, but the Dapper DateTime
+        // handler binds @cutoff as a native timestamptz on Postgres — and Postgres has
+        // no `text >= timestamptz` operator (42883), so the comparison must cast the
+        // column to timestamptz there. SQLite keeps its lexical TEXT comparison
+        // unchanged. (F-51-PG-01)
+        var column = _connectionInfo.IsSqlite
+            ? "inserted_utc"
+            : "inserted_utc::timestamptz";
         return CoerceCount(await connection.ExecuteScalarAsync<object?>(new CommandDefinition(
-            "SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND inserted_utc >= @cutoff;",
+            $"SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND {column} >= @cutoff;",
             new { cutoff = cutoffUtc },
             cancellationToken: cancellationToken)).ConfigureAwait(false));
     }
