@@ -2774,9 +2774,7 @@ label.field > span,
 }
 
 .manabase-verdict,
-.manabase-beta-notice,
-.manabase-cmd-castability,
-.manabase-rampdraw {
+.manabase-beta-notice {
   margin: 0.75rem 0 0;
   padding: 0.85rem 1rem;
   border-radius: 12px;
@@ -2957,13 +2955,16 @@ label.field > span,
   font-weight: 600;
 }
 
-.manabase-rampdraw-note {
-  margin: 0.45rem 0 0;
-  font-size: var(--fs-sm, 0.85rem);
-  color: var(--muted, #5a6472);
+.manabase-rampdraw {
+  margin: 0.75rem 0 0;
+}
+
+.manabase-ramp-fallback {
+  margin: 0.75rem 0 0;
 }
 
 .manabase-cmd-castability {
+  margin: 0.75rem 0 0;
   border-left: 3px solid var(--accent-strong, var(--accent, #3858a6));
 }
 

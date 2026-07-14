@@ -209,6 +209,7 @@
     IReadOnlyList<CardCastability> castRows = Model.ShowCommanderCastability
         ? report.Castability.Where(c => !c.IsCommander).ToList()
         : report.Castability;
+    IReadOnlyList<CardCastability> trackedCastRows = castRows.Count > 0 ? castRows : report.Castability;
     var commanderRows = report.Castability.Where(c => c.IsCommander).ToList();
     string commanderNames = commanderRows.Count > 0
         ? string.Join(" / ", commanderRows.Select(c => c.Name))
@@ -221,12 +222,12 @@
     var showRampSection = Model.RampDrawBudget is not null || report.RampSourceCount > 0 || rampDraw > 0;
     var showCommanderCastabilitySection = Model.ShowCommanderCastability && Model.ShowCastability && commanderRows.Count > 0;
     var showCastabilitySection = Model.ShowCastability && castRows.Count > 0;
-    int nonCommanderCount = report.Castability.Count(c => !c.IsCommander);
-    int trackedNonCommander = nonCommanderCount > 0 ? nonCommanderCount : report.Castability.Count;
+    int trackedNonCommander = trackedCastRows.Count;
     int visibleCastRowCount = showCastabilitySection ? ManabaseDisplay.DefaultVisibleCastabilityCount(castRows) : 0;
     var visibleCastRows = showCastabilitySection ? castRows.Take(visibleCastRowCount).ToList() : new List<CardCastability>();
     var hiddenCastRows = showCastabilitySection ? castRows.Skip(visibleCastRowCount).ToList() : new List<CardCastability>();
     string castabilitySummary = showCastabilitySection ? ManabaseDisplay.CastabilitySummaryText(castRows, visibleCastRowCount) : string.Empty;
+    string castRateShapeText = showRightLens ? ManabaseDisplay.CastRateShapeText(trackedCastRows) : string.Empty;
     int visibleInteractionRowCount = showInteractionLens
         ? Math.Min(ManabaseDisplay.DefaultVisibleInteractionCount, report.InteractionLens!.Rows.Count)
         : 0;
@@ -534,6 +535,10 @@
                     <section id="manabase-simulated-cast-rate" class="manabase-lens">
                         <h3 class="manabase-lens-label">Simulated cast rate</h3>
                         <div class="manabase-lens-big">@report.AvgOnCurvePercent%<span>avg on-curve</span></div>
+                        @if (!string.IsNullOrEmpty(castRateShapeText))
+                        {
+                            <p class="manabase-lens-note">@castRateShapeText</p>
+                        }
                         <p class="manabase-lens-note">Joint mana + color, with London mulligan, tapped-land timing, and ramp — our Monte-Carlo models the real game, not just color odds.</p>
                         @if (showPlainLanguage)
                         {
@@ -716,8 +721,11 @@
             var thresholdProxy = budget.ThresholdSource == ManabaseRampDrawThresholdSource.CommanderManaValue
                 ? "commander MV"
                 : "curve 75th-percentile MV";
-            <section id="manabase-ramp-draw" class="manabase-rampdraw" aria-label="Ramp and draw budget advisory">
-                <h3 class="manabase-verdict-heading">Ramp &amp; draw</h3>
+            var rockOrDorkLabel = report.RampSourceCount == 1 ? "mana rock/dork" : "mana rocks/dorks";
+            var rampPieceLabel = rampDraw == 1 ? "ramp/draw piece" : "ramp/draw pieces";
+            var rampSummary = $"{report.RampSourceCount} {rockOrDorkLabel}" + (rampDraw > 0 ? $" · {rampDraw} {rampPieceLabel} at ≤2 MV credited toward a lower land count" : string.Empty);
+            <section id="manabase-ramp-draw" class="manabase-lens manabase-rampdraw" aria-label="Ramp and draw budget advisory">
+                <h3 class="manabase-lens-label">Ramp &amp; draw</h3>
                 <p class="manabase-rampdraw-line">
                     @if (budget.IsBalanced)
                     {
@@ -729,14 +737,29 @@
                         <span> (@budget.OverlapCount do both)</span>
                     }
                 </p>
-                <p class="manabase-rampdraw-note">Community heuristic, not Karsten math. Threshold proxied from @thresholdProxy.</p>
+                <p class="manabase-lens-note">Community heuristic, not Karsten math. Threshold proxied from @thresholdProxy.</p>
+                @if (showRampDetails)
+                {
+                    RenderRampBreakdownDetails(rampSummary);
+                }
+                else
+                {
+                    <p class="manabase-help">
+                        <strong>Ramp:</strong> @rampSummary.
+                    </p>
+                }
             </section>
         }
 
         @if (showCommanderCastabilitySection)
         {
-            <section id="manabase-command-zone-castability" class="manabase-cmd-castability">
-                <h3 class="manabase-verdict-heading">Command-zone castability</h3>
+            <section id="manabase-command-zone-castability" class="manabase-lens manabase-cmd-castability">
+                <h3 class="manabase-lens-label">Command-zone castability</h3>
+                @if (commanderRows.Count == 1)
+                {
+                    var commander = commanderRows[0];
+                    <div class="manabase-lens-big manabase-lens-big--soft">@commander.CastPercent%<span>by on-curve turn @commander.OnCurveTurn</span></div>
+                }
                 @foreach (var c in commanderRows)
                 {
                     <p class="manabase-cmd-castability-line">
@@ -762,8 +785,8 @@
             var rampSummary = $"{report.RampSourceCount} {rockOrDorkLabel}" + (rampDraw > 0 ? $" · {rampDraw} {rampPieceLabel} at ≤2 MV credited toward a lower land count" : string.Empty);
             @if (Model.RampDrawBudget is null)
             {
-                <section id="manabase-ramp-draw">
-                    <h3 class="manabase-verdict-heading">Ramp &amp; draw</h3>
+                <section id="manabase-ramp-draw" class="manabase-lens manabase-ramp-fallback">
+                    <h3 class="manabase-lens-label">Ramp &amp; draw</h3>
                     @if (showRampDetails)
                     {
                         RenderRampBreakdownDetails(rampSummary);
@@ -775,19 +798,6 @@
                         </p>
                     }
                 </section>
-            }
-            else
-            {
-                @if (showRampDetails)
-                {
-                    RenderRampBreakdownDetails(rampSummary);
-                }
-                else
-                {
-                    <p class="manabase-help">
-                        <strong>Ramp:</strong> @rampSummary.
-                    </p>
-                }
             }
         }
 
