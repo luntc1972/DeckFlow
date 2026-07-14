@@ -108,6 +108,10 @@ public static class FeatureFlagCatalog
                 "Commander Spellbook + a heuristic; a consistency signal, not keep/mulligan advice. Turning it " +
                 "on adds a per-analysis category lookup and a Commander Spellbook fetch. Off = byte-identical " +
                 "output and no extra calls.",
+            ["analysis.manabase.cedh-interaction-lens"] =
+                "cEDH-only kill switch for the 'Early interaction' lens, the full castability table " +
+                "exposure in cEDH mode, and the two prompt-artifact interaction blocks. Seeded ON; off = " +
+                "byte-identical output.",
             ["analysis.manabase.ritual-burst-mana"] =
                 "Credit instant/sorcery rituals (Dark Ritual, Rite of Flame, Cabal Ritual) as one-shot " +
                 "burst mana in the manabase castability sim, cEDH mode only. Raises early-turn cast % " +
