@@ -148,6 +148,17 @@ public interface IContentVideoStore
         => throw new NotSupportedException("This content video store does not support stated-rule inserts.");
 
     /// <summary>
+    /// Reads persisted stated rules for all videos under the supplied source slug.
+    /// </summary>
+    /// <param name="sourceSlug">Creator/source slug.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Stated rules ordered deterministically for the source.</returns>
+    Task<IReadOnlyList<StatedRuleCandidate>> GetStatedRulesBySourceSlugAsync(
+        string sourceSlug,
+        CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content video store does not support stated-rule reads.");
+
+    /// <summary>
     /// Deletes a video row by identifier.
     /// </summary>
     /// <param name="videoId">Video identifier.</param>
