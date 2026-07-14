@@ -129,6 +129,12 @@ public static class ManabaseReportTextBuilder
         if (report.ColorFindings.Count > 0)
         {
             sb.AppendLine("Color Sources (per-color shortfalls are heuristic guidance):");
+            if (report.ScrySourceCredit > 0 && report.ScrySourceCreditCopies > 0)
+            {
+                sb.AppendLine(string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"  Scry source credit: +{report.ScrySourceCredit:0.0} any-color sources ({report.ScrySourceCreditCopies} cheap scry {ManabaseWording.Pluralize("spell", report.ScrySourceCreditCopies)} × 0.2) — separate from the ≤2 MV ramp/draw land credit, so draw+scry cards can count in both places."));
+            }
             sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
                 $"{"Color",-10} {"Actual",8} {"Needed",7} {"Deficit",8}  Driving spell"));
             sb.AppendLine(new string('-', 60));

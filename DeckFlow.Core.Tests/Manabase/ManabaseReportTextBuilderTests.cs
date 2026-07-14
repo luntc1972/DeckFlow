@@ -603,6 +603,35 @@ public sealed class ManabaseReportTextBuilderTests
         Assert.Contains("Demonic Tutor", output);
     }
 
+    [Fact]
+    public void Build_WithScrySourceCredit_AppendsAuditableDisclosureLine()
+    {
+        var report = new ManabaseReport
+        {
+            ActualLands = 35,
+            TargetLands = 36.0,
+            ColorFindings = new List<ColorSourceFinding>
+            {
+                new()
+                {
+                    Color = ManaColor.Blue,
+                    ActualSources = 12.4,
+                    RequiredSources = 10,
+                    DrivingSpell = "Counterspell",
+                },
+            },
+            ScrySourceCredit = 0.4,
+            ScrySourceCreditCopies = 2,
+            Mode = ManabaseMode.Casual,
+            Summary = "Scry credit test.",
+        };
+
+        string output = ManabaseReportTextBuilder.Build(report, null, null);
+
+        Assert.Contains("Scry source credit: +0.4 any-color sources", output, StringComparison.Ordinal);
+        Assert.Contains("(2 cheap scry spells × 0.2)", output, StringComparison.Ordinal);
+    }
+
     // --- TAP-01/TAP-02 (Phase 75) ----------------------------------------
     // Byte-identity is GREEN now (tap=null appends nothing). The content/omit facts are RED until
     // plan 75-02 appends the "Untapped Sources:" block.

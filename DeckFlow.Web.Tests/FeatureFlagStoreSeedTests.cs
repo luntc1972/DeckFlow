@@ -42,6 +42,7 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
     [InlineData("analysis.manabase.plan-presence", true)] // default ON (gated also on mulligan-eval)
     [InlineData("analysis.manabase.ritual-burst-mana", false)] // ritual-burst sim dark launch
     [InlineData("analysis.manabase.ritual-land-credit", false)] // ritual land-target dark launch
+    [InlineData("analysis.manabase.scry-credit", true)] // cheap scry source credit default ON
     [InlineData("analysis.manabase.restricted-lands", false)] // restricted-land approximation dark launch
     [InlineData("analysis.manabase.cedh-land-target", false)] // cEDH land-target dark launch
     [InlineData("sync.directpush-gitbody", false)] // SYNC-07/D-05: seeded OFF
@@ -73,6 +74,7 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
         Assert.Contains("('analysis.manabase.mulligan-eval', TRUE)", postgresSql, StringComparison.Ordinal);
         Assert.Contains("('analysis.manabase.ritual-burst-mana', FALSE)", postgresSql, StringComparison.Ordinal);
         Assert.Contains("('analysis.manabase.ritual-land-credit', FALSE)", postgresSql, StringComparison.Ordinal);
+        Assert.Contains("('analysis.manabase.scry-credit', TRUE)", postgresSql, StringComparison.Ordinal);
         Assert.Contains("('analysis.manabase.restricted-lands', FALSE)", postgresSql, StringComparison.Ordinal);
         Assert.Contains("('analysis.manabase.cedh-land-target', FALSE)", postgresSql, StringComparison.Ordinal);
     }

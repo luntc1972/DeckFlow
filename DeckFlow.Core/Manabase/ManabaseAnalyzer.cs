@@ -15,6 +15,7 @@ public static class ManabaseAnalyzer
     // a mid bar; cEDH and a Central commander hold their colors to a stricter bar.
     private const int CasualSupportThreshold = 80;
     private const int CedhSupportThreshold = 88;
+    private const double ScrySourceCreditPerCopy = 0.2;
 
     /// <summary>
     /// The companion "to hand" rule tax — accessing a companion from outside the game costs +3
@@ -140,6 +141,11 @@ public static class ManabaseAnalyzer
     /// existing classified <see cref="ManabaseDeck.OneShots"/> list. Tactical ritual burst in the
     /// castability sim remains a separate flag and path.
     /// </param>
+    /// <param name="scryCredit">
+    /// When true, each qualifying cheap scry spell copy contributes a small analyzer-only any-color
+    /// source credit to the Karsten per-color source counts. This never creates a
+    /// <see cref="ManaSource"/>, never changes the castability sim, and never changes the land target.
+    /// </param>
     /// <param name="interactionLens">
     /// When true, the report may include the cEDH-only early-interaction lens derived from the
     /// existing castability rows. When false (default), or in non-cEDH modes, the output remains
@@ -155,6 +161,7 @@ public static class ManabaseAnalyzer
         bool gateRampOnCastable = false,
         bool ritualBurst = false,
         bool ritualLandCredit = false,
+        bool scryCredit = false,
         bool interactionLens = false,
         bool useHealthBandCastability = false,
         bool useHealthBandHeadlineFloor = false,
@@ -192,7 +199,18 @@ public static class ManabaseAnalyzer
 
         var colorSpellCounts = new Dictionary<ManaColor, int>();
         var demandingByName = new Dictionary<string, int>(StringComparer.Ordinal);
-        var findings = BuildColorFindings(deck, librarySize, actualLands, castabilityByName, mode, importance, colorSpellCounts, demandingByName);
+        double scrySourceCreditAmount = scryCredit ? deck.ScrySourceCreditCopies * ScrySourceCreditPerCopy : 0.0;
+        int scrySourceCreditCopies = scryCredit ? deck.ScrySourceCreditCopies : 0;
+        var findings = BuildColorFindings(
+            deck,
+            librarySize,
+            actualLands,
+            castabilityByName,
+            mode,
+            importance,
+            colorSpellCounts,
+            demandingByName,
+            scrySourceCreditAmount);
 
         // Demanding cards (below their color's bar) worst-first — surfaced by the two-tier verdict.
         IReadOnlyList<DemandingCard> demandingCards = demandingByName
@@ -269,6 +287,8 @@ public static class ManabaseAnalyzer
             // count credited; de-dup by name preserving first-seen (deck) order.
             RampSourceNames = deck.Sources.Where(s => !s.IsLand && !s.IsConditional && s.Weight <= 0.75).Select(s => s.Name).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
             RampAndDrawNames = deck.RampAndDrawNames,
+            ScrySourceCredit = scrySourceCreditAmount,
+            ScrySourceCreditCopies = scrySourceCreditCopies,
             RestrictedSourceLandNames = deck.RestrictedSourceLandNames,
             UnsupportedInteractions = AppendRestrictedLandUnsupportedInteraction(deck),
             Summary = summary,
@@ -636,7 +656,8 @@ public static class ManabaseAnalyzer
         ManabaseMode mode,
         CommanderImportance importance,
         Dictionary<ManaColor, int> colorSpellCounts,
-        Dictionary<string, int> demandingByName)
+        Dictionary<string, int> demandingByName,
+        double scrySourceCredit)
     {
         var findings = new List<ColorSourceFinding>();
         var commanderColors = CommanderColors(deck);
@@ -658,8 +679,8 @@ public static class ManabaseAnalyzer
 
         foreach (ManaColor color in EnumerateUsedColors(deck))
         {
-            double allSources = EffectiveSources(deck, color, untappedOnly: false);
-            double untappedSources = EffectiveSources(deck, color, untappedOnly: true);
+            double allSources = EffectiveSources(deck, color, untappedOnly: false, scrySourceCredit);
+            double untappedSources = EffectiveSources(deck, color, untappedOnly: true, scrySourceCredit);
 
             int required = 0;
             string driver = "(none)";
@@ -1059,9 +1080,9 @@ public static class ManabaseAnalyzer
 
     // Sum weighted sources of a color. When untappedOnly, exclude tapped lands — a turn-1
     // one-drop can only be cast off mana available the turn the land is played.
-    private static double EffectiveSources(ManabaseDeck deck, ManaColor color, bool untappedOnly)
+    private static double EffectiveSources(ManabaseDeck deck, ManaColor color, bool untappedOnly, double scrySourceCredit = 0.0)
     {
-        double total = 0.0;
+        double total = scrySourceCredit;
         foreach (ManaSource source in deck.Sources)
         {
             if (!source.Produces.Contains(color))

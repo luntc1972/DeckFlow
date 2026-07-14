@@ -1022,6 +1022,10 @@
 
             <p><strong>Per-color sources.</strong> Effective colored sources counted for each color (duals, any-color and fetch sources credited to every color they can make, per Karsten). The breakdown splits that total into <em>direct</em> (sources that make only this color), <em>shared</em> (multi-color fixers also feeding your other colors — one makes one mana per turn), and <em>conditional</em> (granted any-color sources the sim only fires part of the time):</p>
             <ul class="manabase-formula-list">
+                @if (report.ScrySourceCredit > 0 && report.ScrySourceCreditCopies > 0)
+                {
+                    <li>Scry source credit: <strong>+@report.ScrySourceCredit.ToString("0.0")</strong> any-color sources (@report.ScrySourceCreditCopies cheap scry @ManabaseWording.Pluralize("spell", report.ScrySourceCreditCopies) × 0.2) — separate from the ≤2 MV ramp/draw land credit, so draw+scry cards can count in both places.</li>
+                }
                 @foreach (var f in report.ColorFindings)
                 {
                     var total = report.ColorSpellCounts.TryGetValue(f.Color, out var t) ? t : f.UnderSupportedCount;

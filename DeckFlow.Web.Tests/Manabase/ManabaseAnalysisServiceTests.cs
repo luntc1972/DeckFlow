@@ -962,6 +962,60 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_ScryCreditFlag_AbsentAndExplicitOff_AreByteIdentical_OnAddsEffectiveSources()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Island", 10, "mainboard"),
+            Entry("Preordain", 2, "mainboard"),
+            Entry("Counterspell", 1, "mainboard"),
+        };
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Island", "U"),
+            Spell("Preordain", "{U}", 1, "Sorcery", oracle: "Scry 2, then draw a card."),
+            Spell("Counterspell", "{U}{U}", 2, "Instant", oracle: "Counter target spell."),
+        };
+
+        var baseline = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>()));
+        var explicitOff = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.ScryCreditFlagKey] = false,
+            }));
+        var on = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.ScryCreditFlagKey] = true,
+            }));
+
+        var baselineResult = await baseline.AnalyzeAsync(
+            "paste", "Scry Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Casual });
+        var offResult = await explicitOff.AnalyzeAsync(
+            "paste", "Scry Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Casual });
+        var onResult = await on.AnalyzeAsync(
+            "paste", "Scry Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Casual });
+
+        Assert.Equal(baselineResult.PromptSwapPrompt, offResult.PromptSwapPrompt);
+        Assert.Equal(
+            baselineResult.Report.ColorFindings.Single().ActualSources,
+            offResult.Report.ColorFindings.Single().ActualSources);
+        Assert.Equal(0.0, offResult.Report.ScrySourceCredit);
+        Assert.Equal(0.4, onResult.Report.ScrySourceCredit, 6);
+        Assert.Equal(
+            offResult.Report.ColorFindings.Single().ActualSources + 0.4,
+            onResult.Report.ColorFindings.Single().ActualSources,
+            6);
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_TapAnalyzerFlagAbsent_ShowTapAnalyzerFalse()
     {
         var (entries, cards) = CurveFixture();
@@ -2026,8 +2080,8 @@ public sealed class ManabaseAnalysisServiceTests
         SetCode: null, SetName: null, CollectorNumber: null, CardFaces: null, Id: null,
         Layout: "normal", Cmc: 0, ProducedMana: produced, Rarity: "rare");
 
-    private static ScryfallCard Spell(string name, string manaCost, double cmc, string typeLine, string? set = null, string? cn = null) => new(
-        Name: name, ManaCost: manaCost, TypeLine: typeLine, OracleText: "...",
+    private static ScryfallCard Spell(string name, string manaCost, double cmc, string typeLine, string? oracle = null, string? set = null, string? cn = null) => new(
+        Name: name, ManaCost: manaCost, TypeLine: typeLine, OracleText: oracle ?? "...",
         Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
         SetCode: set, SetName: null, CollectorNumber: cn, CardFaces: null, Id: null,
         Layout: "normal", Cmc: cmc, ProducedMana: null, Rarity: "rare");

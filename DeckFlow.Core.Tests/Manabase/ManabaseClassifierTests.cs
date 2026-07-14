@@ -1925,6 +1925,95 @@ public sealed class ManabaseClassifierTests
         Assert.False(on.HasRestrictedSourceApproximation);
     }
 
+    [Fact]
+    public void Classify_CheapNonLandScrySpell_CountsTowardScrySourceCredit()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Opt",
+                Quantity = 1,
+                ManaCost = "{U}",
+                ManaValue = 1,
+                TypeLine = "Instant",
+                OracleText = "Scry 1, then draw a card.",
+                ProducedMana = System.Array.Empty<string>(),
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        Assert.Equal(1, deck.ScrySourceCreditCopies);
+    }
+
+    [Fact]
+    public void Classify_ScryLand_DoesNotCountTowardScrySourceCredit()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Temple of Epiphany",
+                Quantity = 1,
+                ManaCost = string.Empty,
+                ManaValue = 0,
+                TypeLine = "Land",
+                OracleText = "Temple of Epiphany enters tapped.\nWhen Temple of Epiphany enters, scry 1.\n{T}: Add {U} or {R}.",
+                ProducedMana = new[] { "U", "R" },
+                HasLandFace = true,
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        Assert.Equal(0, deck.ScrySourceCreditCopies);
+    }
+
+    [Fact]
+    public void Classify_ManaValueThreeScrySpell_DoesNotCountTowardScrySourceCredit()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Cryptic Speculation",
+                Quantity = 1,
+                ManaCost = "{2}{U}",
+                ManaValue = 3,
+                TypeLine = "Sorcery",
+                OracleText = "Scry 3.",
+                ProducedMana = System.Array.Empty<string>(),
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        Assert.Equal(0, deck.ScrySourceCreditCopies);
+    }
+
+    [Fact]
+    public void Classify_ReminderTextOnlyScryMatch_DoesNotCountTowardScrySourceCredit()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Reminder Mirage",
+                Quantity = 1,
+                ManaCost = "{U}",
+                ManaValue = 1,
+                TypeLine = "Instant",
+                OracleText = "Draw a card. (Scry 1.)",
+                ProducedMana = System.Array.Empty<string>(),
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        Assert.Equal(0, deck.ScrySourceCreditCopies);
+    }
+
     private static string SourceShape(ManaSource source) =>
         $"{source.Name}|{string.Join(',', source.Produces)}|{source.Weight:F3}|{source.IsLand}|{source.EntersUntapped}|"
         + $"{source.ManaAmount}|{source.IsConditional}|{source.CountCondition}|{source.CountThreshold}|"

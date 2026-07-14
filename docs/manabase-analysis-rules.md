@@ -99,6 +99,7 @@ Entry: `ManabaseClassifier.Classify(cards, isSingleton=true, rampCreditV2=false,
 - `TotalCards` = Σ quantity of all cards; `CommanderCount` = Σ quantity of `IsCommander`; `IsSingleton` passed through (true = Commander/singleton, false = 60-card) — `Cls:119-123, 307`.
 - `SpellRequirement.ManaValue` = reduced value if overridden else `max(0, round(ManaValue))`; `IsGold` = `DistinctColors >= 2` — `Cls:384-386`.
 - `RestrictedSourceLandNames` / `HasRestrictedSourceApproximation` are deck-level disclosure surfaces for the restricted-land approximation. In this phase the classifier populates the deck-level name list only when `restrictedLands` is on; plan 04 copies it onto the report/UI and marks the matching land rows.
+- `ScrySourceCreditCopies` is a deck-level analyzer input only: count cheap non-land spells with mana value ≤ 2 whose reminder-stripped oracle text contains a real `scry N` effect (`N ≥ 1`, case-insensitive). Lands are excluded entirely, including scry lands (already full sources), and reminder-text-only matches are excluded.
 
 ---
 
@@ -133,6 +134,7 @@ count as real lands, §1.4 — so the old `MdfcCommonCredit`/`MdfcMythicCredit` 
 - **Clamp-down**: if even an all-on-color base can't hit the bar, return `pips` (mana/curve-limited, not color) — `MA:718-722`.
 - **Karsten ceiling clamp**: `min(sim result, SourcesNeeded)` — the sim may only *lower* the requirement below Karsten, never inflate it — `MA:742-743`.
 - **Gold-contention bump** (`MA:544-551`): `need = min(totalLands, simNeed + otherColorsNeeded)` — one extra headroom source per other color the same gold card demands.
+- **Cheap scry source credit** (`analysis.manabase.scry-credit`, `MA:195-204, 648-649, 1065-1078`): when the flag is ON, add `0.2 × ScrySourceCreditCopies` as an analyzer-only any-color source bonus inside `EffectiveSources` before each color's requirement comparison. This is NOT a `ManaSource`, so it never leaks into castability/tap/ramp outputs, and it never changes the land target. Draw+scry stacking with the `−0.28·rampDrawUnder3` land-target term is intentional: the two credits model different lanes (land count vs color-source count), so a cheap cantrip that both draws and scries can earn both.
 - Measured at the spell's **effective on-curve turn** (post cost-reduction), not printed MV — `MA:526-529`.
 
 ### 3.3 Commander weighting (`CommanderImportance`)
@@ -309,6 +311,7 @@ Keys read via `MAS.IsFlagOn` (fail-safe OFF). Seed defaults in `FeatureFlagStore
 | `analysis.manabase.plan-presence` | **ON** | "With a plan" opener stat. Gated **also** on `mulligan-eval`; its category + Spellbook I/O only fire when both are on (fail-open). |
 | `analysis.manabase.ritual-burst-mana` | **OFF** | Credit instant/sorcery rituals as one-shot burst mana in the castability sim. cEDH mode only; land count and color counts unchanged. |
 | `analysis.manabase.ritual-land-credit` | **OFF** | cEDH only. Ships OFF by default and is enabled on deckflow.gg. Subtract `min(3.0, 0.5 × net-positive rituals)` from the enabled hybrid cEDH land target before the final `[22,45]` clamp. Separate from `ritual-burst-mana`; off = byte-identical. The Web breakdown also names the ritual land credit on its own line when applied. Calibration on the current 3281-deck harness moved the cEDH under-target rate from `21.8%` to `11.1%` and lowered the mean target by `0.7` lands. |
+| `analysis.manabase.scry-credit` | **ON** | Add `0.2 ×` each qualifying cheap non-land `scry N` spell as analyzer-only any-color effective sources in the Karsten per-color requirement lane. Reminder-text-only matches and lands are excluded. Separate from the `≤2 MV` ramp/draw land-target credit, so draw+scry cards can count in both places; castability and land target stay unchanged. Off = byte-identical. |
 | `analysis.manabase.restricted-lands` | **OFF** | Ships OFF by default and is enabled on deckflow.gg. Enable the restricted-land approximation for Cavern of Souls, Unclaimed Territory, Ancient Ziggurat, and Nykthos, Shrine to Nyx. Off = byte-identical; on also surfaces name-matched land-row disclosure markers, a gated footnote, and one unsupported-interactions entry naming the affected lands. |
 | `analysis.manabase.cedh-land-target` | **OFF** | cEDH only. Replaces the flat 28-floor target with a curve-anchored target that can blend halfway toward a committed commander baseline when the baseline has `n ≥ 10`. Off = byte-identical. |
 

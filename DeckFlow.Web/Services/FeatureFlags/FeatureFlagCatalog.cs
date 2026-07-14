@@ -121,6 +121,10 @@ public static class FeatureFlagCatalog
                 "Apply a cEDH-only land-target credit for net-positive rituals when recommending land " +
                 "count. Separate from analysis.manabase.ritual-burst-mana: this changes the strategic " +
                 "land target, not the tactical castability burst sim. Off = byte-identical output.",
+            ["analysis.manabase.scry-credit"] =
+                "Credit qualifying cheap scry spells as +0.2 any-color effective sources per copy in " +
+                "the analyzer's Karsten color-count lane only. Separate from the ≤2 MV ramp/draw land " +
+                "credit, so draw+scry cards can count in both places; castability and land target stay unchanged. Off = byte-identical output.",
             ["analysis.manabase.restricted-lands"] =
                 "Apply the restricted-land approximation for Cavern of Souls, Unclaimed Territory, " +
                 "Ancient Ziggurat, and Nykthos, Shrine to Nyx, plus the related disclosure marker on " +
