@@ -76,6 +76,7 @@ Entry: `ManabaseClassifier.Classify(cards, isSingleton=true, rampCreditV2=false,
 ### 1.6 Land-ramp-to-battlefield (`landRampSim` flag)
 - `IsLandRampToBattlefield`: oracle has "Search your library for" + "land" + "onto the battlefield" (Cultivate, Rampant Growth) — `Cls:919-925`. Land-search-to-**hand** does not qualify.
 - When `landRampSim` (default **ON** in prod): add a colorless (`Produces = empty`), non-land ramp `ManaSource`, `Weight 1.0`, `DeployCost = max(1, round(ManaValue))` — `Cls:236-250`. Never changes land/color counts.
+- Known approximation: the fetched land is modeled as a delayed source once the ramp resolves, but the simulator does **not** thin that land out of the library. That slightly overstates later draw density while slightly understating the resolved ramp's deck-compression benefit; over the short castability window those errors partially offset.
 
 ### 1.7 Ramp/draw budget piece counting (`rampCreditV2` flag)
 - **Land-target credit** `RampAndDrawUnderThree`: `+Quantity` when `ManaValue <= 2` and the ramp/draw predicate matches — `Cls:191-195`.
