@@ -62,6 +62,34 @@ internal static class CreatorStyleProfileTestData
             UpdatedUtc = FullProfileUpdatedUtc
         };
 
+    internal static FusedTarget CreateFullyPopulatedFusedTarget()
+        => new()
+        {
+            Metric = "draw",
+            Value = 11.1,
+            Weight = 0.8,
+            Source = "measured",
+            Condition = "archetype:control",
+            StatedMin = 13.0,
+            StatedMax = 18.0,
+            MeasuredValue = 11.1,
+            NumDecks = 39,
+            EffectiveSampleSize = 10.5,
+            Verdict = "conflict",
+            VerdictReason = "no-condition-breakdown",
+            SourceClip = "I want 13 to 18 draw spells in control shells.",
+            VideoDateUtc = DateTimeOffset.Parse("2026-07-05T00:00:00Z"),
+            Confidence = "high",
+            Conflict = new FusedConflict
+            {
+                StatedValue = 15.5,
+                MeasuredValue = 11.1,
+                Delta = -4.4,
+                BandRelativePercent = 0.2821,
+                Winner = "measured"
+            }
+        };
+
     internal static void AssertProfilesEqual(CreatorStyleProfile expected, CreatorStyleProfile actual)
     {
         Assert.Equal(expected.Slug, actual.Slug);
