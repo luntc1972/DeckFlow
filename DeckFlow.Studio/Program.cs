@@ -89,6 +89,7 @@ public partial class Program
             builder.Services.AddSingleton<IDeployedBodyConfirmer, DeployedBodyConfirmer>();
             builder.Services.AddSingleton<IContentSourceStore>(_ => new ContentSourceStore(contentKbDatabasePath));
             builder.Services.AddSingleton<IContentVideoStore>(_ => new ContentVideoStore(contentKbDatabasePath));
+            builder.Services.AddSingleton<ICreatorStyleProfileStore>(_ => new CreatorStyleProfileStore(contentKbDatabasePath));
             builder.Services.AddSingleton<IContentSiteIndexStore>(_ => new ContentSiteIndexStore(contentKbDatabasePath));
             // Why (D-08): host-agnostic body_sha256 backfill, bound to the LOCAL content-kb.db
             // store above via the IContentSiteIndexStore singleton — explicitly NOT any
