@@ -17,7 +17,7 @@ The Convert Deck page (`/convert`) reformats one decklist from Moxfield format t
 
 ## Step 2 — Provide the deck
 
-- **Paste text** — paste the exported deck text. From Moxfield, use the bulk-editor output.
+- **Paste text** — paste the exported deck text. Supported formats include Moxfield bulk-editor output, Archidekt export, and MTG Arena export.
 - **Public deck URL** — paste a public Moxfield or Archidekt deck link (for example `https://moxfield.com/decks/…` or `https://archidekt.com/decks/…`). The Moxfield URL field supports the optional DeckFlow Bridge extension when a datacenter IP is blocked by Moxfield.
 
 ### Commander (Moxfield source)

@@ -60,7 +60,7 @@
         }
     </label>
     <label class="field @(inputSource == DeckFlow.Web.Models.DeckInputSource.PasteText ? string.Empty : "hidden")" data-convert-panel="text">
-        <span>Deck export text</span>
+        <span>Deck export text (Moxfield, Archidekt, or MTG Arena)</span>
         <textarea autocomplete="off" name="DeckText" spellcheck="false">@Model.Request.DeckText</textarea>
         @if (isMoxfieldSource)
         {

@@ -127,6 +127,162 @@ public sealed class ParserTests
     }
 
     [Fact]
+    public void MoxfieldParser_ParsesGoldfishArenaDownloadPreamble()
+    {
+        var entries = new MoxfieldParser().ParseText("""
+            About
+            Name 8 Rack
+
+            Deck
+            4 Thoughtseize (2XM) 109
+            1 The Rack (4ED) 343
+            Sideboard
+            2 Duress
+            """);
+
+        Assert.Collection(
+            entries,
+            entry =>
+            {
+                Assert.Equal("Thoughtseize", entry.Name);
+                Assert.Equal(4, entry.Quantity);
+                Assert.Equal("mainboard", entry.Board);
+            },
+            entry =>
+            {
+                Assert.Equal("The Rack", entry.Name);
+                Assert.Equal(1, entry.Quantity);
+                Assert.Equal("mainboard", entry.Board);
+            },
+            entry =>
+            {
+                Assert.Equal("Duress", entry.Name);
+                Assert.Equal(2, entry.Quantity);
+                Assert.Equal("sideboard", entry.Board);
+            });
+        Assert.DoesNotContain(entries, entry => string.Equals(entry.Name, "About", StringComparison.Ordinal));
+        Assert.DoesNotContain(entries, entry => string.Equals(entry.Name, "Name 8 Rack", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void MoxfieldParser_ParsesArenaExportCommanderSection()
+    {
+        var entries = new MoxfieldParser().ParseText("""
+            Deck
+            1 Sol Ring (C21) 263
+
+            Commander
+            1 Atraxa, Praetors' Voice (2X2) 190
+            """);
+
+        Assert.Collection(
+            entries,
+            entry =>
+            {
+                Assert.Equal("Sol Ring", entry.Name);
+                Assert.Equal("mainboard", entry.Board);
+                Assert.Equal("C21", entry.SetCode);
+                Assert.Equal("263", entry.CollectorNumber);
+            },
+            entry =>
+            {
+                Assert.Equal("Atraxa, Praetors' Voice", entry.Name);
+                Assert.Equal("commander", entry.Board);
+                Assert.Equal("2X2", entry.SetCode);
+                Assert.Equal("190", entry.CollectorNumber);
+            });
+    }
+
+    [Fact]
+    public void MoxfieldParser_ParsesLegacyDecSideboardPrefixWithoutChangingRunningBoard()
+    {
+        var entries = new MoxfieldParser().ParseText("""
+            1 Sol Ring
+            SB: 2 Duress
+            1 Arcane Signet
+            """);
+
+        Assert.Collection(
+            entries,
+            entry =>
+            {
+                Assert.Equal("Sol Ring", entry.Name);
+                Assert.Equal("mainboard", entry.Board);
+            },
+            entry =>
+            {
+                Assert.Equal("Duress", entry.Name);
+                Assert.Equal(2, entry.Quantity);
+                Assert.Equal("sideboard", entry.Board);
+            },
+            entry =>
+            {
+                Assert.Equal("Arcane Signet", entry.Name);
+                Assert.Equal("mainboard", entry.Board);
+            });
+    }
+
+    [Fact]
+    public void MoxfieldParser_TrailingSbPrefixedBlockIsNeverPromotedToCommander()
+    {
+        // Why: an SB: prefix is an explicit sideboard marker, so a trailing blank-separated block it
+        // opens must be exempt from the trailing-commander promotion heuristic.
+        var entries = new MoxfieldParser().ParseText("""
+            1 Sol Ring
+
+            Sideboard
+            1 Duress
+
+            SB: 1 Vexing Shusher
+            """);
+
+        var shusher = Assert.Single(entries, entry => entry.Name == "Vexing Shusher");
+        Assert.Equal("sideboard", shusher.Board);
+        Assert.DoesNotContain(entries, entry => entry.Board == "commander");
+    }
+
+    [Fact]
+    public void MoxfieldParser_BareDeckAndSideboardHeadersStillParse()
+    {
+        var entries = new MoxfieldParser().ParseText("""
+            Deck
+            1 Sol Ring
+            Sideboard
+            1 Duress
+            """);
+
+        Assert.Collection(
+            entries,
+            entry =>
+            {
+                Assert.Equal("Sol Ring", entry.Name);
+                Assert.Equal("mainboard", entry.Board);
+            },
+            entry =>
+            {
+                Assert.Equal("Duress", entry.Name);
+                Assert.Equal("sideboard", entry.Board);
+            });
+    }
+
+    [Fact]
+    public void MoxfieldParser_NameLineAfterEntriesIsNotIgnoredAsPreamble()
+    {
+        // Why: the deck-name preamble rule is gated to the pre-entry region only. After entries
+        // exist, a "Name ..." line falls through to the LEGACY path — implicit-quantity parsing
+        // treats it as a card line (pre-existing behavior this change must not alter). This pins
+        // that the new rule does not swallow post-entry lines; it does NOT bless the legacy quirk.
+        var entries = new MoxfieldParser().ParseText("""
+            1 Sol Ring
+            Name Sideboard Notes
+            """);
+
+        Assert.Equal(2, entries.Count);
+        Assert.Equal("Sol Ring", entries[0].Name);
+        Assert.Equal("Name Sideboard Notes", entries[1].Name);
+    }
+
+    [Fact]
     public void MoxfieldParser_PromotesTrailingSingleCommanderBlockAfterSideboard()
     {
         var entries = new MoxfieldParser().ParseText("""

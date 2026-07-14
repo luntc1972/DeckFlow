@@ -107,7 +107,7 @@
                 <label class="field sync-column__input-field @(moxfieldInputSource == DeckInputSource.PasteText ? string.Empty : "hidden")" data-sync-panel="moxfield-text">
                     <span data-sync-role="moxfield-text-label">@leftSystem export text</span>
                     <textarea autocomplete="off" name="MoxfieldText" spellcheck="false">@Model.Request.MoxfieldText</textarea>
-                    <small class="sync-column__hint" data-sync-role="moxfield-hint">Use this when the @leftSystem deck is @(leftIsSource ? "the source" : "the target").</small>
+                    <small class="sync-column__hint" data-sync-role="moxfield-hint">Use this when the @leftSystem deck is @(leftIsSource ? "the source" : "the target"). Accepts Moxfield, Archidekt, or MTG Arena export text.</small>
                     @if (string.Equals(leftSystem, "Moxfield", StringComparison.OrdinalIgnoreCase))
                     {
                         @await Html.PartialAsync("_MoxfieldBulkEditHint", "Run Sync")
@@ -142,7 +142,7 @@
                 <label class="field sync-column__input-field @(archidektInputSource == DeckInputSource.PasteText ? string.Empty : "hidden")" data-sync-panel="archidekt-text">
                     <span data-sync-role="archidekt-text-label">@rightSystem export text</span>
                     <textarea autocomplete="off" name="ArchidektText" spellcheck="false">@Model.Request.ArchidektText</textarea>
-                    <small class="sync-column__hint" data-sync-role="archidekt-hint">Use this when the @rightSystem deck is @(leftIsSource ? "the target" : "the source").</small>
+                    <small class="sync-column__hint" data-sync-role="archidekt-hint">Use this when the @rightSystem deck is @(leftIsSource ? "the target" : "the source"). Accepts Moxfield, Archidekt, or MTG Arena export text.</small>
                     @if (string.Equals(rightSystem, "Moxfield", StringComparison.OrdinalIgnoreCase))
                     {
                         @await Html.PartialAsync("_MoxfieldBulkEditHint", "Run Sync")

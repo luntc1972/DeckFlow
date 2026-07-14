@@ -6,6 +6,8 @@ namespace DeckFlow.Core.Parsing;
 
 /// <summary>
 /// Parses Moxfield plain-text deck exports into <see cref="DeckFlow.Core.Models.DeckEntry"/> lists.
+/// Also tolerates the Arena-family export dialects that share the same line grammar: MTG Arena /
+/// MTGGoldfish "About" + "Name ..." preambles and legacy .dec "SB:" sideboard prefixes.
 /// </summary>
 public sealed partial class MoxfieldParser : IParser
 {
@@ -80,7 +82,21 @@ public sealed partial class MoxfieldParser : IParser
                 continue;
             }
 
-            if (!TryParseEntry(line, board, allowImplicitQuantity: true, out var entry))
+            if (!foundEntries && IsDeckNamePreambleLine(line))
+            {
+                continue;
+            }
+
+            var entryLine = line;
+            var entryBoard = board;
+            var sideboardPrefixed = line.StartsWith("SB:", StringComparison.OrdinalIgnoreCase);
+            if (sideboardPrefixed)
+            {
+                entryLine = line.AsSpan(3).TrimStart().ToString();
+                entryBoard = "sideboard";
+            }
+
+            if (!TryParseEntry(entryLine, entryBoard, allowImplicitQuantity: true, out var entry))
             {
                 if (foundEntries && IsNonDeckTextLine(line))
                 {
@@ -95,7 +111,9 @@ public sealed partial class MoxfieldParser : IParser
                 continue;
             }
 
-            currentBlock ??= new ParseableBlock(entries.Count, board, pendingHeader, blockPrecededByBlankLine);
+            // Why: an explicit SB: prefix is a board marker just like a section header, so a block it
+            // opens must be exempt from trailing-commander promotion (never promote explicit sideboard).
+            currentBlock ??= new ParseableBlock(entries.Count, board, pendingHeader || sideboardPrefixed, blockPrecededByBlankLine);
             entries.Add(entry);
             foundEntries = true;
             blockPrecededByBlankLine = false;
@@ -368,10 +386,15 @@ public sealed partial class MoxfieldParser : IParser
 
         var normalized = trimmed.TrimEnd(':');
         return string.Equals(normalized, "Deck", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalized, "About", StringComparison.OrdinalIgnoreCase)
             || string.Equals(normalized, "Commander", StringComparison.OrdinalIgnoreCase)
             || string.Equals(normalized, "Maybeboard", StringComparison.OrdinalIgnoreCase)
             || string.Equals(normalized, "Sideboard", StringComparison.OrdinalIgnoreCase);
     }
+
+    // Why: the caller already trims each line; match the file's GeneratedRegex idiom rather than
+    // hand-rolled index checks (the label word, one whitespace run, then any non-blank deck name).
+    private static bool IsDeckNamePreambleLine(string line) => DeckNamePreambleRegex().IsMatch(line);
 
     private static bool IsStoppingLine(string line)
     {
@@ -436,6 +459,9 @@ public sealed partial class MoxfieldParser : IParser
 
     [GeneratedRegex(@"^(?<name>.+?)\s+\((?<set>[^)]+)\)\s+(?<collector>\S+)$", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
     private static partial Regex PrintingRegex();
+
+    [GeneratedRegex(@"^Name\s+\S", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex DeckNamePreambleRegex();
 
     private sealed record ParseableBlock(int EntryStartIndex, string Board, bool HasHeader, bool PrecededByBlankLine);
 }

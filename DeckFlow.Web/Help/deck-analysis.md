@@ -15,7 +15,7 @@ Three layouts are available via the toolbar: **Guided**, **Focused**, and **Expe
 
 ## Step 1 — Deck Setup
 
-Choose an **Input method** (paste text or public deck URL) and provide either a **Moxfield** / **Archidekt** deck URL or pasted deck export text. The chosen mode round-trips with the form so it survives refreshes and step navigation. The service:
+Choose an **Input method** (paste text or public deck URL) and provide either a **Moxfield** / **Archidekt** deck URL or pasted Moxfield, Archidekt, or MTG Arena deck export text. The chosen mode round-trips with the form so it survives refreshes and step navigation. The service:
 
 - Falls back to treating leading quantity-1 entries as the commander when no Commander section header is present (Moxfield plain-text exports), then validates the inferred commander against Scryfall before continuing.
 - Rejects inferred commanders that are not legal by the workflow rules: legendary creature, legendary Vehicle, or a planeswalker whose oracle text says it can be your commander.

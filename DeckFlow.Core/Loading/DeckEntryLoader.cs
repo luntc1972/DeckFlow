@@ -152,7 +152,7 @@ public sealed class DeckEntryLoader : IDeckEntryLoader
         {
         }
 
-        throw new InvalidOperationException("The submitted deck was not recognized as a Moxfield URL, Archidekt URL, Moxfield export, or Archidekt export.");
+        throw new InvalidOperationException("The submitted deck was not recognized as a Moxfield URL, Archidekt URL, or a Moxfield, Archidekt, or MTG Arena deck export.");
     }
 
     /// <inheritdoc />

@@ -11,7 +11,7 @@ The cEDH Meta Gap page (`/cedh-meta-gap`) generates a structured AI workflow for
 
 ## Step 1 — Load Deck And Fetch References
 
-Paste a public Moxfield or Archidekt URL, or paste deck export text directly. You can optionally override the commander name. The page then queries EDH Top 16 using:
+Paste a public Moxfield or Archidekt URL, or paste Moxfield, Archidekt, or MTG Arena deck export text directly. You can optionally override the commander name. The page then queries EDH Top 16 using:
 
 - Time period
 - Sort by (`TOP` or `NEW`)
