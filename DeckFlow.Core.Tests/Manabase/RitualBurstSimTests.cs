@@ -111,6 +111,74 @@ public sealed class RitualBurstSimTests
     }
 
     [Fact]
+    public void ReserveGenericForRamp_RitualBridgeDelayIsObservable()
+    {
+        SpellRequirement spell = new()
+        {
+            Name = "BBBB? No, Just Four",
+            ManaValue = 4,
+            Pips = Pip((ManaColor.Black, 1)),
+        };
+
+        var sources = new List<ManaSource>();
+        for (int i = 0; i < 24; i++)
+        {
+            sources.Add(new ManaSource
+            {
+                Name = $"Swamp {i}",
+                Produces = new[] { ManaColor.Black },
+                IsLand = true,
+            });
+        }
+
+        for (int i = 0; i < 4; i++)
+        {
+            sources.Add(new ManaSource
+            {
+                Name = "Charcoal Diamond",
+                Produces = new[] { ManaColor.Black },
+                IsLand = false,
+                Weight = 0.75,
+                DeployCost = 2,
+            });
+        }
+
+        ManabaseDeck deck = new()
+        {
+            TotalCards = 60,
+            CommanderCount = 0,
+            AverageManaValue = 2.0,
+            Sources = sources,
+            Spells = new List<SpellRequirement>
+            {
+                spell,
+                new() { Name = "Charcoal Diamond", ManaValue = 2, Pips = Pip(), IsManaSource = true },
+            },
+            OneShots = Enumerable.Range(0, 4)
+                .Select(_ => new OneShotMana
+                {
+                    Name = "Dark Ritual",
+                    ProducedColors = new[] { ManaColor.Black },
+                    ProducedAmount = 3,
+                    OwnPips = Pip((ManaColor.Black, 1)),
+                    OwnManaValue = 1,
+                })
+                .ToList(),
+            IsSingleton = false,
+        };
+
+        CardCastability withoutReserve = CastabilitySimulator.Simulate(
+            deck, 60, spell, effectiveTurn: 2, genericReduction: 0, gateRampOnCastable: false, ritualBurst: true);
+        CardCastability withReserve = CastabilitySimulator.Simulate(
+            deck, 60, spell, effectiveTurn: 2, genericReduction: 0, gateRampOnCastable: true, ritualBurst: true);
+
+        Assert.True(withReserve.CastPercent < withoutReserve.CastPercent,
+            $"reserve should lower cast% when same-turn ramp plus ritual would otherwise double-spend mana (off={withoutReserve.CastPercent}, on={withReserve.CastPercent})");
+        Assert.True(withReserve.AverageDelay > withoutReserve.AverageDelay,
+            $"reserve should delay the payoff when the ritual only bridges the gap after same-turn ramp (off={withoutReserve.AverageDelay}, on={withReserve.AverageDelay})");
+    }
+
+    [Fact]
     public void CedhMode_CreditsRitualBurst()
     {
         SpellRequirement spell = TripleBlackSpell();

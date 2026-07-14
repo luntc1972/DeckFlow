@@ -1265,11 +1265,12 @@ public static class CastabilitySimulator
             BuildOnlineSourceView(landsOnBoard, rampOnBoard, currentTurn, availableColors);
 
             // DEPLOY-FRICTION (land-ramp-sim on): reserve the mana we just spent playing a ramp piece, so
-            // the payoff spell cannot also use it this turn. We tap the LEAST color-flexible sources first
-            // (mirrors real play — pay generic with the lands that least restrict your colored access), so
-            // the reserve never wrongly steals a scarce color the payoff still needs. Gated on the flag so
-            // the flag-OFF path is byte-identical; no-op when nothing was deployed (rampSpentThisTurn == 0)
-            // and for 0-cost fast mana (it reserves nothing).
+            // the payoff spell cannot also use it this turn. Why: this reserve is the guard that stops a
+            // same-turn ritual burst from reusing the ramp's deploy mana after the board view is rebuilt.
+            // We tap the LEAST color-flexible sources first (mirrors real play — pay generic with the lands
+            // that least restrict your colored access), so the reserve never wrongly steals a scarce color
+            // the payoff still needs. Gated on the flag so the flag-OFF path is byte-identical; no-op when
+            // nothing was deployed (rampSpentThisTurn == 0) and for 0-cost fast mana (it reserves nothing).
             if (gateRampOnCastable && rampSpentThisTurn > 0)
             {
                 ReserveGenericForRamp(availableColors, rampSpentThisTurn);
@@ -1492,9 +1493,10 @@ public static class CastabilitySimulator
     }
 
     // DEPLOY-FRICTION reserve: subtract `cost` generic mana from this turn's online sources to model the
-    // mana spent playing a ramp piece. Tap the LEAST color-flexible sources first (fewest distinct
-    // colors, e.g. a mono/colorless land before a dual), so paying generic for the rock never strips a
-    // scarce color the payoff still needs. Sources are reduced in place (amount drained, dropped at 0).
+    // mana spent playing a ramp piece before any same-turn ritual burst is checked. Tap the LEAST color-
+    // flexible sources first (fewest distinct colors, e.g. a mono/colorless land before a dual), so
+    // paying generic for the rock never strips a scarce color the payoff still needs. Sources are reduced
+    // in place (amount drained, dropped at 0).
     private static void ReserveGenericForRamp(List<(int Mask, int Amount)> sources, int cost)
     {
         while (cost > 0)
