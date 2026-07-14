@@ -272,6 +272,22 @@ public sealed class ContentVideoStore : IContentVideoStore
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<StatedRuleCandidate>> GetStatedRulesBySourceSlugAsync(
+        string sourceSlug,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourceSlug);
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        var rules = await connection.QueryAsync<StatedRuleCandidate>(new CommandDefinition(
+            GetStatedRulesBySourceSlugSql,
+            new { sourceSlug },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return rules.ToList();
+    }
+
+    /// <inheritdoc />
     public async Task DeleteVideoAsync(long videoId, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
@@ -646,6 +662,30 @@ public sealed class ContentVideoStore : IContentVideoStore
           @videoDateUtc,
           @sortOrder)
         RETURNING id;
+        """;
+
+    private const string GetStatedRulesBySourceSlugSql = """
+        SELECT sr.category AS Category,
+               sr.metric AS Metric,
+               sr.value AS Value,
+               sr.value_min AS ValueMin,
+               sr.value_max AS ValueMax,
+               sr.comparator AS Comparator,
+               sr.condition AS Condition,
+               sr.clip_ts AS ClipTimestampSeconds,
+               sr.source_clip AS SourceClip,
+               sr.confidence AS Confidence,
+               sr.card_reference AS CardReference,
+               sr.card_grounded AS CardGrounded,
+               sr.video_date_utc AS VideoDateUtc
+          FROM content_stated_rules sr
+          INNER JOIN content_videos v
+                  ON v.id = sr.video_id
+          INNER JOIN content_sources s
+                  ON s.id = v.source_id
+         WHERE s.source_slug = @sourceSlug
+         ORDER BY sr.video_id,
+                  sr.sort_order;
         """;
 
     private const string CountTranscriptsByVideoSql = """
