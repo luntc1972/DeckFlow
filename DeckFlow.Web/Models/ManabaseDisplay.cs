@@ -16,7 +16,7 @@ public static class ManabaseDisplay
     public const int MaxVisibleCastabilityRows = 20;
 
     /// <summary>Number of interaction rows kept visible before the lens uses progressive disclosure.</summary>
-    public const int DefaultVisibleInteractionCount = 5;
+    public const int DefaultVisibleInteractionCount = ManabaseInteractionLens.DefaultVisibleRows;
 
     /// <summary>
     /// Castability rows at or above this percentage count as "good" for the default table cap. All
@@ -112,9 +112,7 @@ public static class ManabaseDisplay
     /// informational only — never contradicts or affects the health verdict.
     /// </summary>
     public static (string Css, string Marker) TapMarker(int untappedPercent)
-        => untappedPercent >= 80
-            ? ("manabase-lens-met", "✓")
-            : ("manabase-lens-short", "⚠");
+        => MetShortMarker(untappedPercent >= 80);
 
     /// <summary>
     /// Maps a <see cref="ManabaseMulliganEvaluation.KeepableBand"/> value ("high"/"medium"/"low") to
@@ -123,16 +121,17 @@ public static class ManabaseDisplay
     /// and "low" both read as short (⚠), since only "high" clears the aggregator's own top band.
     /// </summary>
     public static (string Css, string Marker) KeepableMarker(string keepableBand)
-        => string.Equals(keepableBand, "high", StringComparison.OrdinalIgnoreCase)
-            ? ("manabase-lens-met", "✓")
-            : ("manabase-lens-short", "⚠");
+        => MetShortMarker(string.Equals(keepableBand, "high", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Maps an interaction spell's by-turn-3 holdable percent to a (cssClass, glyph) pair using the
     /// lens threshold supplied by the report model.
     /// </summary>
     public static (string Css, string Marker) InteractionHoldableMarker(int holdablePercent, int threshold)
-        => holdablePercent >= threshold
+        => MetShortMarker(holdablePercent >= threshold);
+
+    private static (string Css, string Marker) MetShortMarker(bool met)
+        => met
             ? ("manabase-lens-met", "✓")
             : ("manabase-lens-short", "⚠");
 
@@ -267,7 +266,7 @@ public static class ManabaseDisplay
         int hiddenCount = allRows.Count - visibleCount;
         if (hiddenCount <= 0)
         {
-            return $"Showing all {allRows.Count} interaction {(allRows.Count == 1 ? "row" : "rows")}.";
+            return $"Showing all {allRows.Count} interaction {ManabaseWording.Pluralize("row", allRows.Count)}.";
         }
 
         return $"Showing the {visibleCount} weakest interaction holds — {hiddenCount} more are hidden.";

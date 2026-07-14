@@ -107,7 +107,8 @@ public static class FeatureFlagCatalog
                 "castable on curve, with a per-role breakdown. Role coverage from your category knowledge + " +
                 "Commander Spellbook + a heuristic; a consistency signal, not keep/mulligan advice. Turning it " +
                 "on adds a per-analysis category lookup and a Commander Spellbook fetch. Off = byte-identical " +
-                "output and no extra calls.",
+                "output; note the same role-classification I/O still runs in cEDH when the " +
+                "cedh-interaction-lens flag (seeded ON) is active.",
             ["analysis.manabase.cedh-interaction-lens"] =
                 "cEDH-only kill switch for the 'Early interaction' lens, the full castability table " +
                 "exposure in cEDH mode, and the two prompt-artifact interaction blocks. Seeded ON; off = " +

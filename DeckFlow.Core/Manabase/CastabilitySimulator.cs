@@ -524,7 +524,6 @@ public static class CastabilitySimulator
         int[] deck0 = Enumerable.Range(0, library.Count).ToArray();
         int[] shuffled = new int[library.Count];
         var availableColors = new List<(int Mask, int Amount)>(20);
-        var byTurn3Colors = new List<(int Mask, int Amount)>(20);
         var onlineLandMasks = new List<int>(20);
         int[] partialIndices = Enumerable.Range(0, library.Count).Where(i => library[i].IsPartial).ToArray();
         bool[] active = new bool[library.Count];
@@ -615,7 +614,7 @@ public static class CastabilitySimulator
                 (int Bit, int Count)[] pips = library[planIdx].PlanPips ?? Array.Empty<(int, int)>();
                 bool castable = SimulateGame(
                     library, shuffled, active, handCount, planTurn, planTurn, pips,
-                    availableColors, byTurn3Colors, onlineLandMasks, gateRampOnCastable, ritualBurst,
+                    availableColors, null, onlineLandMasks, gateRampOnCastable, ritualBurst,
                     out _, out _, out int firstCastableTurn, out _, out _);
 
                 if (castable && firstCastableTurn <= planTurn)
@@ -1107,7 +1106,7 @@ public static class CastabilitySimulator
         int effectiveCost,
         (int Bit, int Count)[] pipReq,
         List<(int Mask, int Amount)> availableColors,
-        List<(int Mask, int Amount)> byTurn3Colors,
+        List<(int Mask, int Amount)>? byTurn3Colors,
         List<int> onlineLandMasks,
         bool gateRampOnCastable,
         bool ritualBurst,
@@ -1249,10 +1248,10 @@ public static class CastabilitySimulator
             // a mirrored online-source view here instead of reusing availableColors: that list is only
             // rebuilt after the early-continue below, so sharing it would leave turns 1-3 stale/unset for
             // spells whose effective turn is later than 3.
-            if (!hadByTurn3Holdable && currentTurn <= 3)
+            if (!hadByTurn3Holdable && currentTurn <= 3 && byTurn3Colors is not null)
             {
                 BuildOnlineSourceView(landsOnBoard, rampOnBoard, currentTurn, byTurn3Colors);
-                hadByTurn3Holdable = IsCastableFromOnlineSources(byTurn3Colors, pipReq, effectiveCost);
+                hadByTurn3Holdable = ColorsCoverable(byTurn3Colors, pipReq, effectiveCost);
             }
 
             // From the effective turn onward, test castability; succeed on the first turn it lands.
@@ -1687,19 +1686,6 @@ public static class CastabilitySimulator
                 destination.Add((ramp.Mask, ramp.Amount));
             }
         }
-    }
-
-    private static bool IsCastableFromOnlineSources(
-        List<(int Mask, int Amount)> onlineSources,
-        (int Bit, int Count)[] pipReq,
-        int effectiveCost)
-    {
-        if (TotalMana(onlineSources) < effectiveCost)
-        {
-            return false;
-        }
-
-        return ColorsCoverable(onlineSources, pipReq, effectiveCost);
     }
 
     private static int TotalMana(List<(int Mask, int Amount)> sources)

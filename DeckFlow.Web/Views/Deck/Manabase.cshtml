@@ -306,10 +306,11 @@
                                     @if (isInteractionRow)
                                     {
                                         var holdableMarker = ManabaseDisplay.InteractionHoldableMarker(interactionRow!.HoldablePercent, report.InteractionLens!.Threshold);
-                                        <span class="manabase-chip @(holdableMarker.Css == "manabase-lens-met" ? "manabase-chip--good" : "manabase-chip--ok")">
+                                        bool met = interactionRow.HoldablePercent >= report.InteractionLens.Threshold;
+                                        <span class="manabase-chip @(met ? "manabase-chip--good" : "manabase-chip--ok")">
                                             @interactionRow.HoldablePercent% <span class="@holdableMarker.Css" aria-hidden="true">@holdableMarker.Marker</span>
                                         </span>
-                                        <span class="sr-only">@(holdableMarker.Css == "manabase-lens-met" ? "meets hold-up target" : "below hold-up target")</span>
+                                        <span class="sr-only">@(met ? "meets hold-up target" : "below hold-up target")</span>
                                     }
                                 </td>
                             }
@@ -319,6 +320,24 @@
                     }
                 </tbody>
             </table>
+        </div>
+    }
+
+    void RenderInteractionRow(ManabaseInteractionRow row)
+    {
+        var marker = ManabaseDisplay.InteractionHoldableMarker(row.HoldablePercent, report.InteractionLens!.Threshold);
+        bool met = row.HoldablePercent >= report.InteractionLens.Threshold;
+        <div class="manabase-lens-row">
+            <span class="manabase-lens-color">
+                @row.Name@if (row.IsCostOverridden)
+                {<span class="manabase-override-mark" title="reduced / alternative cost applied" aria-label="reduced or alternative cost applied">*</span>}
+            </span>
+            <span>
+                <strong>@row.HoldablePercent%</strong>
+                <span class="manabase-lens-muted">holdable</span>
+                <span class="@marker.Css" aria-hidden="true">@marker.Marker</span>
+                <span class="sr-only">@(met ? "meets hold-up target" : "below hold-up target")</span>
+            </span>
         </div>
     }
 
@@ -536,19 +555,7 @@
                         {
                             @foreach (var row in visibleInteractionRows)
                             {
-                                var marker = ManabaseDisplay.InteractionHoldableMarker(row.HoldablePercent, report.InteractionLens.Threshold);
-                                <div class="manabase-lens-row">
-                                    <span class="manabase-lens-color">
-                                        @row.Name@if (row.IsCostOverridden)
-                                        {<span class="manabase-override-mark" title="reduced / alternative cost applied" aria-label="reduced or alternative cost applied">*</span>}
-                                    </span>
-                                    <span>
-                                        <strong>@row.HoldablePercent%</strong>
-                                        <span class="manabase-lens-muted">holdable</span>
-                                        <span class="@marker.Css" aria-hidden="true">@marker.Marker</span>
-                                        <span class="sr-only">@(marker.Css == "manabase-lens-met" ? "meets hold-up target" : "below hold-up target")</span>
-                                    </span>
-                                </div>
+                                RenderInteractionRow(row);
                             }
                             @if (hiddenInteractionRows.Count > 0)
                             {
@@ -556,19 +563,7 @@
                                     <summary>View all @report.InteractionLens.Rows.Count interaction rows (@hiddenInteractionRows.Count more)</summary>
                                     @foreach (var row in hiddenInteractionRows)
                                     {
-                                        var marker = ManabaseDisplay.InteractionHoldableMarker(row.HoldablePercent, report.InteractionLens.Threshold);
-                                        <div class="manabase-lens-row">
-                                            <span class="manabase-lens-color">
-                                                @row.Name@if (row.IsCostOverridden)
-                                                {<span class="manabase-override-mark" title="reduced / alternative cost applied" aria-label="reduced or alternative cost applied">*</span>}
-                                            </span>
-                                            <span>
-                                                <strong>@row.HoldablePercent%</strong>
-                                                <span class="manabase-lens-muted">holdable</span>
-                                                <span class="@marker.Css" aria-hidden="true">@marker.Marker</span>
-                                                <span class="sr-only">@(marker.Css == "manabase-lens-met" ? "meets hold-up target" : "below hold-up target")</span>
-                                            </span>
-                                        </div>
+                                        RenderInteractionRow(row);
                                     }
                                 </details>
                             }

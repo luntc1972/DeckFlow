@@ -214,9 +214,9 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     public const string CedhInteractionLensFlagKey = "analysis.manabase.cedh-interaction-lens";
 
     /// <summary>
-    /// Plan-presence flag key: seeded OFF. Gates the "with a plan" opener stat AND the only new I/O it
-    /// needs — the per-card category lookup and the Commander Spellbook combo fetch. Read fail-safe OFF,
-    /// so the default manabase path takes on no extra cost until an admin enables the beta stat.
+    /// Plan-presence flag key: seeded OFF. Gates the "with a plan" opener stat; the role-classification
+    /// I/O it shares with the cEDH interaction lens (batched category lookup + Commander Spellbook combo
+    /// fetch) also runs when that lens flag is on in cEDH mode. Read fail-safe OFF.
     /// </summary>
     public const string PlanPresenceFlagKey = "analysis.manabase.plan-presence";
 
@@ -304,6 +304,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         // never show (Codex MED). Both flags on = the stat runs and surfaces.
         bool showPlanPresence = IsFlagOn(PlanPresenceFlagKey) && showMulliganEval;
         bool interactionLens = IsFlagOn(CedhInteractionLensFlagKey);
+        bool showCedhInteractionLens = interactionLens && options.Mode == ManabaseMode.Cedh;
         bool ritualBurst = IsFlagOn(RitualBurstFlagKey);
         bool ritualLandCredit = IsFlagOn(RitualLandCreditFlagKey);
         bool restrictedLands = IsFlagOn(RestrictedLandsFlagKey);
@@ -317,7 +318,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 checkLandUntapped,
                 restrictedLands,
                 commanderCastability,
-                classifyPlanRoles: showPlanPresence || (interactionLens && options.Mode == ManabaseMode.Cedh),
+                classifyPlanRoles: showPlanPresence || showCedhInteractionLens,
                 options.Mode,
                 options.CompanionDesignator,
                 options.SelectedCommander,
@@ -343,7 +344,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 ShowTapAnalyzer = showTapAnalyzer,
                 ShowMulliganEval = showMulliganEval,
                 ShowPlanPresence = showPlanPresence,
-                ShowCedhInteractionLens = interactionLens && options.Mode == ManabaseMode.Cedh,
+                ShowCedhInteractionLens = showCedhInteractionLens,
             };
         }
 
@@ -445,7 +446,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             ShowTapAnalyzer = showTapAnalyzer,
             ShowMulliganEval = showMulliganEval,
             ShowPlanPresence = showPlanPresence,
-            ShowCedhInteractionLens = interactionLens && options.Mode == ManabaseMode.Cedh,
+            ShowCedhInteractionLens = showCedhInteractionLens,
             UnmatchedOverrideNames = report.UnmatchedOverrideNames,
         };
     }
@@ -668,10 +669,11 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     }
 
     /// <summary>
-    /// Tag each spell with its win-directed <see cref="PlanRole"/>s for the plan-presence stat. Fetches
-    /// the deck's Commander Spellbook combo pieces once and each spell's crowd categories, both
-    /// fail-open (a network/DB error yields no roles for that card, never a failed analysis). Only
-    /// called when the plan-presence flag is on, so this extra I/O never touches the default path.
+    /// Tag each spell with its win-directed <see cref="PlanRole"/>s for the plan-presence stat and the
+    /// cEDH interaction lens. Fetches the deck's Commander Spellbook combo pieces once and each spell's
+    /// crowd categories, both fail-open (a network/DB error yields no roles for that card, never a
+    /// failed analysis). Called when plan-presence is on, or when the cEDH interaction-lens flag is on
+    /// in cEDH mode; otherwise the default path still skips this extra I/O.
     /// </summary>
     private async Task<ManabaseDeck> TagPlanRolesAsync(
         ManabaseDeck deck,

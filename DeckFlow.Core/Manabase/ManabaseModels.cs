@@ -1417,6 +1417,9 @@ public sealed record ManabaseInteractionRow
 /// </summary>
 public sealed record ManabaseInteractionLens
 {
+    /// <summary>Default number of weakest interaction rows shown before progressive disclosure.</summary>
+    public const int DefaultVisibleRows = 5;
+
     /// <summary>Cheap interaction spells considered by the lens.</summary>
     public required int QualifyingCount { get; init; }
 
