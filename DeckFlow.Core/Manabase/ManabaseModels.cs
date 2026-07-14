@@ -188,6 +188,14 @@ public sealed record SpellRequirement
     /// </summary>
     public PlanRole PlanRoles { get; init; } = PlanRole.None;
 
+    /// <summary>
+    /// Pre-permanent-gate interaction merit; exists because the plan-presence permanent gate strips
+    /// <see cref="PlanRole.Interaction"/> from one-shot instants/sorceries, while the cEDH early-
+    /// interaction lens must still see instant-speed interaction. Additive — defaults to false so
+    /// existing construction and JSON round-trips are unaffected.
+    /// </summary>
+    public bool IsInteractionSpell { get; init; }
+
     /// <summary>True when this requirement is the deck's commander (or a partner/background).</summary>
     public bool IsCommander { get; init; }
 
