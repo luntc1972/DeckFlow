@@ -289,7 +289,9 @@ public static class ManabaseAnalyzer
 
         List<ManabaseInteractionRow> rows = castability
             .Where(row => spellsByName.TryGetValue(row.Name, out SpellRequirement? spell)
-                && spell.PlanRoles.HasFlag(PlanRole.Interaction)
+                // The OR preserves cheap instant/sorcery interaction whose PlanRole.Interaction was
+                // intentionally stripped by the Web-layer permanent gate for plan-presence semantics.
+                && (spell.PlanRoles.HasFlag(PlanRole.Interaction) || spell.IsInteractionSpell)
                 && spell.ManaValue <= 2)
             .Select(row => new ManabaseInteractionRow
             {

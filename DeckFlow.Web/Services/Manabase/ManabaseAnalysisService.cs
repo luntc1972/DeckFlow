@@ -728,15 +728,21 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         foreach (SpellRequirement spell in deck.Spells)
         {
             PlanRole roles = PlanRole.None;
+            bool interactionMeritPreGate = false;
             if (factByName.TryGetValue(spell.Name, out CardFact? fact))
             {
                 IReadOnlyList<string> categories = categoriesByName.TryGetValue(spell.Name, out IReadOnlyList<string>? hit)
                     ? hit
                     : Array.Empty<string>();
-                roles = PlanRoleClassifier.Classify(fact, categories, comboNames.Contains(spell.Name), mode);
+                roles = PlanRoleClassifier.Classify(
+                    fact,
+                    categories,
+                    comboNames.Contains(spell.Name),
+                    mode,
+                    out interactionMeritPreGate);
             }
 
-            tagged.Add(spell with { PlanRoles = roles });
+            tagged.Add(spell with { PlanRoles = roles, IsInteractionSpell = interactionMeritPreGate });
         }
 
         return deck with { Spells = tagged };

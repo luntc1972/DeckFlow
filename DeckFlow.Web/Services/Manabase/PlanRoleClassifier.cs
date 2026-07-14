@@ -17,7 +17,9 @@ namespace DeckFlow.Web.Services.Manabase;
 /// different axis already measured by keepable-% and on-curve castability. The <see cref="ManabaseMode"/>
 /// tunes one role: a pure counterspell counts as <see cref="PlanRole.Interaction"/> only in
 /// <see cref="ManabaseMode.Cedh"/> (it protects the combo turn); in Casual a counter is reactive
-/// insurance, not a card that advances the win plan, so it earns nothing.
+/// insurance, not a card that advances the win plan, so it earns nothing. The classifier also exposes
+/// a pre-permanent-gate interaction signal for the cEDH early-interaction lens, while leaving the
+/// returned plan-presence roles unchanged.
 /// </summary>
 public static class PlanRoleClassifier
 {
@@ -31,6 +33,19 @@ public static class PlanRoleClassifier
     /// <param name="isComboPiece">True when Commander Spellbook lists the card in an included combo.</param>
     /// <param name="mode">Analysis profile; gates whether a pure counterspell earns Interaction.</param>
     public static PlanRole Classify(CardFact fact, IReadOnlyList<string> categories, bool isComboPiece, ManabaseMode mode)
+        => Classify(fact, categories, isComboPiece, mode, out _);
+
+    /// <summary>
+    /// Resolve a card's plan roles, while also reporting whether it earned
+    /// <see cref="PlanRole.Interaction"/> before the permanent gate strips one-shot instants/sorceries.
+    /// The returned value is byte-identical to <see cref="Classify(CardFact, IReadOnlyList{string}, bool, ManabaseMode)"/>.
+    /// </summary>
+    public static PlanRole Classify(
+        CardFact fact,
+        IReadOnlyList<string> categories,
+        bool isComboPiece,
+        ManabaseMode mode,
+        out bool interactionMeritPreGate)
     {
         ArgumentNullException.ThrowIfNull(fact);
         ArgumentNullException.ThrowIfNull(categories);
@@ -51,6 +66,8 @@ public static class PlanRoleClassifier
         {
             roles = FromHeuristic(fact, mode);
         }
+
+        interactionMeritPreGate = roles.HasFlag(PlanRole.Interaction);
 
         // PERMANENT gate (user decisions 2026-07-09): a hand "has a plan" when it holds a card that
         // advances the win castable on curve. PAYOFF and INTERACTION require a PERMANENT — a one-shot
