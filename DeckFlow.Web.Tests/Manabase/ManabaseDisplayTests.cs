@@ -207,6 +207,34 @@ public sealed class ManabaseDisplayTests
         Assert.Equal("Showing the 10 hardest casts — 2 more at 92%+ are fine.", summary);
     }
 
+    [Fact]
+    public void CastRateShapeText_EmptyRows_ReturnsEmptyString()
+    {
+        string shape = ManabaseDisplay.CastRateShapeText(Array.Empty<CardCastability>());
+
+        Assert.Equal(string.Empty, shape);
+    }
+
+    [Fact]
+    public void CastRateShapeText_SingleRow_FormatsSingularCounts()
+    {
+        CardCastability[] rows = [BuildCastabilityRow("Arcane Signet", 100)];
+
+        string shape = ManabaseDisplay.CastRateShapeText(rows);
+
+        Assert.Equal("≥90% cast: 1 spell · 70–89%: 0 · <70%: 0", shape);
+    }
+
+    [Fact]
+    public void CastRateShapeText_BucketsBoundaryPercents_UsingExistingThresholds()
+    {
+        var rows = BuildRowsWithPercents(90, 70, 69);
+
+        string shape = ManabaseDisplay.CastRateShapeText(rows);
+
+        Assert.Equal("≥90% cast: 1 spell · 70–89%: 1 · <70%: 1", shape);
+    }
+
     [Theory]
     [InlineData(87, 88, "manabase-lens-short", "⚠")]
     [InlineData(88, 88, "manabase-lens-met", "✓")]

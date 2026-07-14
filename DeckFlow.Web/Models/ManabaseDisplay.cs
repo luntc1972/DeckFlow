@@ -251,6 +251,46 @@ public static class ManabaseDisplay
     }
 
     /// <summary>
+    /// Formats the simulated-cast-rate lens distribution line using the existing castability
+    /// thresholds: rows at or above <see cref="GoodCastabilityThreshold"/>, rows from
+    /// <see cref="OkCastabilityThreshold"/> through one below good, and rows below ok.
+    /// Returns an empty string when no rows are provided so the view can omit the line cleanly.
+    /// </summary>
+    public static string CastRateShapeText(IReadOnlyList<CardCastability> rows)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+
+        if (rows.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        int goodCount = 0;
+        int okCount = 0;
+        int lowCount = 0;
+
+        for (int i = 0; i < rows.Count; i++)
+        {
+            int castPercent = rows[i].CastPercent;
+            if (castPercent >= GoodCastabilityThreshold)
+            {
+                goodCount++;
+            }
+            else if (castPercent >= OkCastabilityThreshold)
+            {
+                okCount++;
+            }
+            else
+            {
+                lowCount++;
+            }
+        }
+
+        string spellLabel = goodCount == 1 ? "spell" : "spells";
+        return $"≥90% cast: {goodCount} {spellLabel} · 70–89%: {okCount} · <70%: {lowCount}";
+    }
+
+    /// <summary>
     /// Human summary for the capped cEDH interaction lens list, describing the hidden remainder.
     /// </summary>
     public static string InteractionSummaryText(IReadOnlyList<ManabaseInteractionRow> allRows, int visibleCount)
