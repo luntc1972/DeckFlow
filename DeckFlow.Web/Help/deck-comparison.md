@@ -11,7 +11,7 @@ The Deck Comparison page (`/deck-comparison`) generates structured AI prompts fo
 
 ## Step 1 — Deck Setup
 
-Paste two decklists (Moxfield / Archidekt URL or plain-text export) and select a Commander Bracket for each deck. Optionally name each deck — the service falls back to the commander name if left blank.
+Paste two decklists (Moxfield / Archidekt URL or Moxfield, Archidekt, or MTG Arena export text) and select a Commander Bracket for each deck. Optionally name each deck — the service falls back to the commander name if left blank.
 
 ## Step 2 — Generate Comparison Packet
 

@@ -17,7 +17,7 @@ The workflow is three steps.
 
 Choose an **Input method**:
 
-- **Paste text** — paste exported deck text (Moxfield bulk-editor output, Archidekt export, or plain text).
+- **Paste text** — paste exported deck text (Moxfield bulk-editor output, Archidekt export, MTG Arena export, or plain text).
 - **Use public deck URL** — paste a public Moxfield or Archidekt deck URL (for example `https://moxfield.com/decks/…` or `https://archidekt.com/decks/…`).
 
 The deck is parsed and resolved. It must contain a commander and at least one mainboard card, or an error is shown. The chosen input method round-trips with the form, so it survives refreshes and step navigation.

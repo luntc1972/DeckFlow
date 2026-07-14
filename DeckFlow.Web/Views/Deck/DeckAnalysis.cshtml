@@ -169,7 +169,7 @@ Do not omit any fields from the schema.
             <label class="field sync-column__input-field @(Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PasteText ? string.Empty : "hidden")" data-sync-panel="prompt-deck-text">
                 <span>Deck export text</span>
                 <textarea autocomplete="off" name="DeckText" spellcheck="false">@Model.Request.DeckText</textarea>
-                <small class="sync-column__hint">Required. Paste deck export text directly.</small>
+                <small class="sync-column__hint">Required. Paste Moxfield, Archidekt, or MTG Arena deck export text directly.</small>
                 @await Html.PartialAsync("_MoxfieldBulkEditHint", "Run Analysis")
             </label>
         </div>

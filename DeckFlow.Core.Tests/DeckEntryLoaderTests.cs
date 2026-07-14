@@ -137,6 +137,39 @@ Deck
         Assert.Null(result.DetectedCompanionName);
     }
 
+    [Fact]
+    public async Task LoadFromSourceAsync_PastedGoldfishArenaText_ParsesEntries()
+    {
+        var loader = CreateLoader();
+
+        var result = await loader.LoadFromSourceAsync("""
+About
+Name 8 Rack
+
+Deck
+4 Thoughtseize (2XM) 109
+Sideboard
+2 Duress
+""");
+
+        Assert.Collection(
+            result.Entries,
+            entry =>
+            {
+                Assert.Equal("Thoughtseize", entry.Name);
+                Assert.Equal(4, entry.Quantity);
+                Assert.Equal("mainboard", entry.Board);
+            },
+            entry =>
+            {
+                Assert.Equal("Duress", entry.Name);
+                Assert.Equal(2, entry.Quantity);
+                Assert.Equal("sideboard", entry.Board);
+            });
+        Assert.Null(result.FallbackNotice);
+        Assert.Null(result.DetectedCompanionName);
+    }
+
     [Theory]
     [InlineData("https://moxfield.com.evil.tld/decks/abc")]
     [InlineData("https://evilmoxfield.com/decks/abc")]
@@ -178,7 +211,7 @@ Deck
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => loader.LoadFromSourceAsync("*F*"));
 
-        Assert.Equal("The submitted deck was not recognized as a Moxfield URL, Archidekt URL, Moxfield export, or Archidekt export.", exception.Message);
+        Assert.Equal("The submitted deck was not recognized as a Moxfield URL, Archidekt URL, or a Moxfield, Archidekt, or MTG Arena deck export.", exception.Message);
     }
 
     [Fact]
