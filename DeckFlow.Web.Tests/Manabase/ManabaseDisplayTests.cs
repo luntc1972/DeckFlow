@@ -124,35 +124,6 @@ public sealed class ManabaseDisplayTests
         Assert.Equal("Low", ManabaseDisplay.ImportanceLabel(CommanderImportance.Low));
     }
 
-    [Fact]
-    public void ShowCastability_TrueOnlyForCasualWithRows()
-    {
-        var rows = new[]
-        {
-            new CardCastability { Name = "X", ManaValue = 2, OnCurveTurn = 2, CastPercent = 50, LimitingFactor = "mana" },
-        };
-
-        Assert.True(ViewModel(ManabaseMode.Casual, rows).ShowCastability);
-        Assert.False(ViewModel(ManabaseMode.Cedh, rows).ShowCastability);
-        Assert.False(ViewModel(ManabaseMode.Casual, Array.Empty<CardCastability>()).ShowCastability);
-    }
-
-    [Fact]
-    public void ShowCastability_And_HasResult_FalseWhenNoReport()
-    {
-        // A view model with no report (initial GET or error path) gates both off.
-        var empty = new ManabaseViewModel();
-
-        Assert.False(empty.HasResult);
-        Assert.False(empty.ShowCastability);
-    }
-
-    [Fact]
-    public void HasResult_TrueWhenReportPresent()
-    {
-        Assert.True(ViewModel(ManabaseMode.Casual, Array.Empty<CardCastability>()).HasResult);
-    }
-
     [Theory]
     // Within one full source of the requirement counts as met, deficit 0.
     [InlineData(24.0, 24, true, 0)]
@@ -237,6 +208,28 @@ public sealed class ManabaseDisplayTests
     }
 
     [Theory]
+    [InlineData(87, 88, "manabase-lens-short", "⚠")]
+    [InlineData(88, 88, "manabase-lens-met", "✓")]
+    [InlineData(90, 88, "manabase-lens-met", "✓")]
+    public void InteractionHoldableMarker_UsesSuppliedThreshold(
+        int holdablePercent,
+        int threshold,
+        string expectedCss,
+        string expectedMarker)
+    {
+        var (css, marker) = ManabaseDisplay.InteractionHoldableMarker(holdablePercent, threshold);
+
+        Assert.Equal(expectedCss, css);
+        Assert.Equal(expectedMarker, marker);
+    }
+
+    [Fact]
+    public void CedhInteractionLensGloss_ContainsHoldManaOpenCaveat()
+    {
+        Assert.Contains("assumes you hold mana open", ManabaseDisplay.CedhInteractionLensGloss);
+    }
+
+    [Theory]
     [InlineData("KarstenSourceGloss", "need -3 means about 3 short")]
     [InlineData("CastRateGloss", "Higher = smoother.")]
     [InlineData("WeakestColorGloss", "first color to fix")]
@@ -250,19 +243,6 @@ public sealed class ManabaseDisplayTests
         Assert.DoesNotContain('—', value);
         Assert.DoesNotContain('–', value);
     }
-
-    private static ManabaseViewModel ViewModel(ManabaseMode mode, System.Collections.Generic.IReadOnlyList<CardCastability> rows) => new()
-    {
-        Report = new ManabaseReport
-        {
-            ActualLands = 36,
-            TargetLands = 37,
-            ColorFindings = Array.Empty<ColorSourceFinding>(),
-            Mode = mode,
-            Castability = rows,
-            Summary = "ok",
-        },
-    };
 
     private static string GetGloss(string fieldName)
     {

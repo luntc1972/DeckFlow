@@ -171,6 +171,48 @@ public sealed class ManabaseViewModelTests
         Assert.True(GetBoolProperty(vm, "ShowTapAnalyzer"));
     }
 
+    [Fact]
+    public void ShowCastability_CasualWithRows_ReturnsTrue()
+    {
+        var vm = ViewModel(ManabaseMode.Casual, BuildRows(), showCedhInteractionLens: false);
+
+        Assert.True(vm.ShowCastability);
+    }
+
+    [Fact]
+    public void ShowCastability_CedhWithRowsAndLensOff_ReturnsFalse()
+    {
+        var vm = ViewModel(ManabaseMode.Cedh, BuildRows(), showCedhInteractionLens: false);
+
+        Assert.False(vm.ShowCastability);
+    }
+
+    [Fact]
+    public void ShowCastability_CedhWithRowsAndLensOn_ReturnsTrue()
+    {
+        var vm = ViewModel(ManabaseMode.Cedh, BuildRows(), showCedhInteractionLens: true);
+
+        Assert.True(vm.ShowCastability);
+    }
+
+    [Fact]
+    public void ShowCastability_And_HasResult_FalseWhenNoReport()
+    {
+        // A view model with no report (initial GET or error path) gates both off.
+        var empty = new ManabaseViewModel();
+
+        Assert.False(empty.HasResult);
+        Assert.False(empty.ShowCastability);
+    }
+
+    [Fact]
+    public void HasResult_TrueWhenReportPresent()
+    {
+        var vm = ViewModel(ManabaseMode.Casual, Array.Empty<CardCastability>(), showCedhInteractionLens: false);
+
+        Assert.True(vm.HasResult);
+    }
+
     private static T? GetOptionalProperty<T>(object target, string name)
         where T : class
     {
@@ -193,4 +235,35 @@ public sealed class ManabaseViewModelTests
         property.SetValue(vm, value);
         return vm;
     }
+
+    private static ManabaseViewModel ViewModel(
+        ManabaseMode mode,
+        IReadOnlyList<CardCastability> rows,
+        bool showCedhInteractionLens)
+        => new()
+        {
+            ShowCedhInteractionLens = showCedhInteractionLens,
+            Report = new ManabaseReport
+            {
+                ActualLands = 36,
+                TargetLands = 37,
+                ColorFindings = Array.Empty<ColorSourceFinding>(),
+                Castability = rows,
+                Summary = "ok",
+                Mode = mode,
+            },
+        };
+
+    private static CardCastability[] BuildRows()
+        =>
+        [
+            new CardCastability
+            {
+                Name = "Spell",
+                ManaValue = 2,
+                OnCurveTurn = 2,
+                CastPercent = 50,
+                LimitingFactor = "mana",
+            },
+        ];
 }
