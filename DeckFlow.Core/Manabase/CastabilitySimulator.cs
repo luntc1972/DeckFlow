@@ -918,21 +918,30 @@ public static class CastabilitySimulator
                 .ToArray();
         }
 
-        var req = pips
+        var coloredPips = pips
             .Where(p => p.Key != ManaColor.Colorless && p.Value > 0)
             .Select(p => (Bit: ColorBit(p.Key), Count: p.Value))
-            .ToList();
+            .ToArray();
+        if (trueColorlessPips == 0 && snowPips == 0)
+        {
+            return coloredPips;
+        }
+
+        int extra = (trueColorlessPips > 0 ? 1 : 0) + (snowPips > 0 ? 1 : 0);
+        var req = new (int Bit, int Count)[coloredPips.Length + extra];
+        Array.Copy(coloredPips, req, coloredPips.Length);
+        int next = coloredPips.Length;
         if (trueColorlessPips > 0)
         {
-            req.Add((TrueColorlessBit, trueColorlessPips));
+            req[next++] = (TrueColorlessBit, trueColorlessPips);
         }
 
         if (snowPips > 0)
         {
-            req.Add((SnowBit, snowPips));
+            req[next] = (SnowBit, snowPips);
         }
 
-        return req.ToArray();
+        return req;
     }
 
     private static void AddSourcesAsCards(
@@ -2423,12 +2432,12 @@ public static class CastabilitySimulator
         {
             if (spell.SnowPips > spell.TrueColorlessPips)
             {
-                return "Snow";
+                return SourceRequirementCategory.Snow.DisplayLabel();
             }
 
             if (spell.TrueColorlessPips > 0)
             {
-                return ManaColor.Colorless.ToString();
+                return SourceRequirementCategory.Colorless.DisplayLabel();
             }
         }
 

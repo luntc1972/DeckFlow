@@ -2110,6 +2110,32 @@ public sealed class ManabaseClassifierTests
         Assert.False(solRing.IsSnow);
     }
 
+    [Fact]
+    public void Classify_SpellFrontMdfcWithSnowLandBack_DoesNotQualifyAsSnowPermanent()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Glacial Rebirth // Frostvein Falls",
+                Quantity = 1,
+                ManaCost = "{1}{U}",
+                ManaValue = 2,
+                TypeLine = "Sorcery // Snow Land",
+                OracleText = "Return target creature to its owner's hand.\nFrostvein Falls enters tapped.",
+                LandFaceOracleText = "Frostvein Falls enters tapped.",
+                ProducedMana = new[] { "U" },
+                Layout = "modal_dfc",
+                HasLandFace = true,
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        ManaSource source = Assert.Single(deck.Sources);
+        Assert.False(source.IsSnow);
+    }
+
     private static string SourceShape(ManaSource source) =>
         $"{source.Name}|{string.Join(',', source.Produces)}|{source.Weight:F3}|{source.IsLand}|{source.EntersUntapped}|"
         + $"{source.ManaAmount}|{source.IsConditional}|{source.ProducesColorless}|{source.IsSnow}|"

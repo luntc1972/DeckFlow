@@ -243,6 +243,8 @@ public static class ManabaseClassifier
                 scrySourceCreditCopies += card.Quantity;
             }
 
+            SourceCapabilities sourceCapabilities = GetSourceCapabilities(card);
+
             bool isRampPieceForBudget = IsRampPieceForBudget(card);
             bool isDrawPieceForBudget = IsDrawPieceForBudget(card);
             if (isRampPieceForBudget)
@@ -279,7 +281,7 @@ public static class ManabaseClassifier
                 }
             }
 
-            AddPartialSources(sources, card);
+            AddPartialSources(sources, card, sourceCapabilities);
 
             // 70-03b: model repeatable land-ramp as a colorless, non-land ramp source (one per copy) so
             // the simulator credits the fetched land's mana. Colorless (Produces empty) → no color-count
@@ -299,8 +301,8 @@ public static class ManabaseClassifier
                         Weight = 1.0,
                         ManaAmount = 1,
                         DeployCost = Math.Max(1, (int)Math.Round(card.ManaValue, MidpointRounding.AwayFromZero)),
-                        IsSnow = IsSnowPermanent(card),
-                        ProducesColorless = ProducesTrueColorless(card),
+                        IsSnow = sourceCapabilities.IsSnow,
+                        ProducesColorless = sourceCapabilities.ProducesColorless,
                     });
                 }
             }
@@ -445,6 +447,8 @@ public static class ManabaseClassifier
             restrictedSourceLandNames.Add(card.Name);
         }
 
+        SourceCapabilities sourceCapabilities = GetSourceCapabilities(card);
+
         for (int i = 0; i < card.Quantity; i++)
         {
             sources.Add(new ManaSource
@@ -455,8 +459,8 @@ public static class ManabaseClassifier
                 EntersUntapped = classification.EntersUntapped,
                 IsCommander = card.IsCommander,
                 ManaAmount = card.ManaAmount, // MQ-02: e.g. Ancient Tomb (a land) makes 2.
-                IsSnow = IsSnowPermanent(card),
-                ProducesColorless = ProducesTrueColorless(card),
+                IsSnow = sourceCapabilities.IsSnow,
+                ProducesColorless = sourceCapabilities.ProducesColorless,
                 CountCondition = classification.CountCondition,
                 CountThreshold = classification.CountThreshold,
                 CountTypeFilter = classification.CountTypeFilter,
@@ -575,6 +579,7 @@ public static class ManabaseClassifier
             IReadOnlyList<ManaColor> vividBase = baseColor is ManaColor color
                 ? new[] { color }
                 : produces.Where(c => c != ManaColor.Colorless).Take(1).ToArray();
+            SourceCapabilities sourceCapabilities = GetSourceCapabilities(card);
 
             return new LandSourceClassification
             {
@@ -588,8 +593,8 @@ public static class ManabaseClassifier
                     IsLand = false,
                     ManaAmount = 1,
                     IsConditional = true,
-                    IsSnow = IsSnowPermanent(card),
-                    ProducesColorless = ProducesTrueColorless(card),
+                    IsSnow = sourceCapabilities.IsSnow,
+                    ProducesColorless = sourceCapabilities.ProducesColorless,
                 },
             };
         }
@@ -618,6 +623,7 @@ public static class ManabaseClassifier
                 IReadOnlyList<ManaColor> nykthosBase = produces.Contains(ManaColor.Colorless)
                     ? new[] { ManaColor.Colorless }
                     : produces;
+                SourceCapabilities sourceCapabilities = GetSourceCapabilities(card);
                 return new LandSourceClassification
                 {
                     Produces = nykthosBase,
@@ -631,8 +637,8 @@ public static class ManabaseClassifier
                         IsLand = false,
                         ManaAmount = 1,
                         IsConditional = true,
-                        IsSnow = IsSnowPermanent(card),
-                        ProducesColorless = ProducesTrueColorless(card),
+                        IsSnow = sourceCapabilities.IsSnow,
+                        ProducesColorless = sourceCapabilities.ProducesColorless,
                     },
                 };
             }
@@ -733,7 +739,13 @@ public static class ManabaseClassifier
             return false;
         }
 
-        string text = ReminderTextRegex.Replace(card.OracleText ?? string.Empty, string.Empty);
+        string rawText = card.OracleText ?? string.Empty;
+        if (!rawText.Contains("scry", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        string text = ReminderTextRegex.Replace(rawText, string.Empty);
         return ScryRegex.IsMatch(text);
     }
 
@@ -1057,7 +1069,7 @@ public static class ManabaseClassifier
         return kinds;
     }
 
-    private static void AddPartialSources(List<ManaSource> sources, CardFact card)
+    private static void AddPartialSources(List<ManaSource> sources, CardFact card, SourceCapabilities sourceCapabilities)
     {
         // Land/spell MDFC back face: a real land at full color weight 1.0. Its tapped-or-pay-life
         // timing (read from the isolated land face) is the only penalty, carried by the sim — a color
@@ -1082,8 +1094,8 @@ public static class ManabaseClassifier
                     EntersUntapped = untapped,
                     ManaAmount = 1,
                     IsCommander = card.IsCommander,
-                    IsSnow = IsSnowPermanent(card),
-                    ProducesColorless = ProducesTrueColorless(card),
+                    IsSnow = sourceCapabilities.IsSnow,
+                    ProducesColorless = sourceCapabilities.ProducesColorless,
                 });
             }
 
@@ -1098,15 +1110,15 @@ public static class ManabaseClassifier
         // Mana dork (creature) ≈ 0.5; mana rock (artifact) ≈ 0.75.
         if (IsType(card.TypeLine, "Creature"))
         {
-            AddWeighted(sources, card, 0.5);
+            AddWeighted(sources, card, 0.5, sourceCapabilities);
         }
         else if (IsType(card.TypeLine, "Artifact"))
         {
-            AddWeighted(sources, card, 0.75);
+            AddWeighted(sources, card, 0.75, sourceCapabilities);
         }
     }
 
-    private static void AddWeighted(List<ManaSource> sources, CardFact card, double weight)
+    private static void AddWeighted(List<ManaSource> sources, CardFact card, double weight, SourceCapabilities sourceCapabilities)
     {
         IReadOnlyList<ManaColor> produces = MapColors(card.ProducedMana);
         if (produces.Count == 0)
@@ -1124,8 +1136,8 @@ public static class ManabaseClassifier
                 IsLand = false,
                 IsCommander = card.IsCommander,
                 ManaAmount = card.ManaAmount,
-                IsSnow = IsSnowPermanent(card),
-                ProducesColorless = ProducesTrueColorless(card),
+                IsSnow = sourceCapabilities.IsSnow,
+                ProducesColorless = sourceCapabilities.ProducesColorless,
             });
         }
     }
@@ -1146,7 +1158,7 @@ public static class ManabaseClassifier
     }
 
     private static bool IsSnowPermanent(CardFact card) =>
-        card.TypeLine.Contains("Snow", StringComparison.OrdinalIgnoreCase);
+        IsType(CardTypeLine.FrontFace(card.TypeLine), "Snow");
 
     private static bool ProducesTrueColorless(CardFact card)
     {
@@ -1164,6 +1176,11 @@ public static class ManabaseClassifier
         // Use the front face only (before "//") so MDFC spell-fronts aren't treated as lands.
         return IsType(CardTypeLine.FrontFace(typeLine), "Land");
     }
+
+    private static SourceCapabilities GetSourceCapabilities(CardFact card) =>
+        new(IsSnowPermanent(card), ProducesTrueColorless(card));
+
+    private readonly record struct SourceCapabilities(bool IsSnow, bool ProducesColorless);
 
     private static bool IsType(string typeLine, string type) =>
         typeLine.Contains(type, StringComparison.OrdinalIgnoreCase);
@@ -1978,6 +1995,8 @@ public static class ManabaseClassifier
                 continue;
             }
 
+            bool isSnow = IsSnowPermanent(card);
+
             for (int i = 0; i < card.Quantity; i++)
             {
                 sources.Add(new ManaSource
@@ -1987,11 +2006,13 @@ public static class ManabaseClassifier
                     Weight = 0.25,
                     IsLand = false,
                     IsCommander = card.IsCommander,
-                    IsSnow = IsSnowPermanent(card),
+                    IsSnow = isSnow,
 
                     // MQ-02: conditional/granted sources stay at 1 mana — the Bernoulli activation
                     // gates a single speculative unit; multi-unit granted bundles are out of scope.
                     ManaAmount = 1,
+
+                    // Why: granted any-color abilities intentionally don't pay {C}.
 
                     // Enabler-conditional: this source only produces if the granter (Cryptolith Rite,
                     // Relic of Legends, ...) is on the battlefield AND this creature survives. That is

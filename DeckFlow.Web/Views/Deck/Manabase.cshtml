@@ -818,10 +818,7 @@
                             // Red "weakest" accent only when the lead color genuinely needs sources
                             // (domain rule lives on the model, see ColorSourceFinding.NeedsMoreSources).
                             var weakestNeedsSources = isWeakest && f.NeedsMoreSources;
-                            var isCommanderColor = string.IsNullOrEmpty(f.DisplayColor) && report.CommanderColors.Contains(f.Color);
-                            var total = f.EvaluatedCardCount > 0
-                                ? f.EvaluatedCardCount
-                                : (report.ColorSpellCounts.TryGetValue(f.Color, out var t) ? t : f.UnderSupportedCount);
+                            var isCommanderColor = !f.IsSpecialCategory && report.CommanderColors.Contains(f.Color);
                             <tr class="@(f.IsAdequate ? null : "manabase-row--short") @(weakestNeedsSources ? "manabase-row--weakest" : null)">
                                 <td data-label="Color">
                                     @f.CategoryName
@@ -838,7 +835,7 @@
                                     }
                                 </td>
                                 <td data-label="Needed">@f.RequiredSources</td>
-                                <td data-label="Population">@f.UnderSupportedCount of @total under-supported</td>
+                                <td data-label="Population">@f.UnderSupportedCount of @f.DisplayEvaluatedCardCount under-supported</td>
                                 <td data-label="Short by (heuristic guidance)">@(f.IsAdequate ? "OK" : $"{f.Deficit.ToString("0.0")} ⚠")</td>
                                 <td data-label="Driving spell">@f.DrivingSpell</td>
                             </tr>
@@ -1024,20 +1021,17 @@
 
             <p><strong>Per-color sources.</strong> Effective colored sources counted for each color (duals, any-color and fetch sources credited to every color they can make, per Karsten). The breakdown splits that total into <em>direct</em> (sources that make only this color), <em>shared</em> (multi-color fixers also feeding your other colors — one makes one mana per turn), and <em>conditional</em> (granted any-color sources the sim only fires part of the time):</p>
             <ul class="manabase-formula-list">
-                @if (report.ScrySourceCredit > 0 && report.ScrySourceCreditCopies > 0)
+                @if (report.ScrySourceCreditCopies > 0)
                 {
-                    <li>Scry source credit: <strong>+@report.ScrySourceCredit.ToString("0.0")</strong> any-color sources (@report.ScrySourceCreditCopies cheap scry @ManabaseWording.Pluralize("spell", report.ScrySourceCreditCopies) × 0.2) — separate from the ≤2 MV ramp/draw land credit, so draw+scry cards can count in both places.</li>
+                    <li>@ManabaseWording.ScrySourceCreditLine(report.ScrySourceCreditCopies, report.ScrySourceCredit)</li>
                 }
                 @foreach (var f in report.ColorFindings)
                 {
-                    var total = f.EvaluatedCardCount > 0
-                        ? f.EvaluatedCardCount
-                        : (report.ColorSpellCounts.TryGetValue(f.Color, out var t) ? t : f.UnderSupportedCount);
                     <li>
                         <strong>@f.CategoryName</strong>: @f.ActualSources.ToString("F1") sources
                         (@f.DirectSources.ToString("F1") direct + @f.SharedSources.ToString("F1") shared + @f.ConditionalSources.ToString("F1") conditional) ·
                         needs @f.RequiredSources for @f.DrivingSpell ·
-                        @f.UnderSupportedCount of @total @(total == 1 ? "card" : "cards") under-supported · mean cast @f.AverageCastPercent.ToString("F0")%
+                        @f.UnderSupportedCount of @f.DisplayEvaluatedCardCount @(f.DisplayEvaluatedCardCount == 1 ? "card" : "cards") under-supported · mean cast @f.AverageCastPercent.ToString("F0")%
                     </li>
                 }
             </ul>

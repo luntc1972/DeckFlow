@@ -571,6 +571,9 @@ public sealed record ColorSourceFinding
     /// </summary>
     public string DisplayColor { get; init; } = string.Empty;
 
+    /// <summary>True when this finding is for a special non-color category (for example true colorless or snow).</summary>
+    public bool IsSpecialCategory => !string.IsNullOrEmpty(DisplayColor);
+
     /// <summary>Effective sources of this color currently in the deck (weighted).</summary>
     public required double ActualSources { get; init; }
 
@@ -604,6 +607,13 @@ public sealed record ColorSourceFinding
     /// <see cref="ManabaseReport.ColorSpellCounts"/>; special categories carry their own denominator.
     /// </summary>
     public int EvaluatedCardCount { get; init; }
+
+    /// <summary>
+    /// Shared denominator resolver for display/summaries. Analyzer now populates
+    /// <see cref="EvaluatedCardCount"/> for regular colors and special categories; the fallback keeps
+    /// manually-constructed legacy test/report instances safe.
+    /// </summary>
+    public int DisplayEvaluatedCardCount => EvaluatedCardCount > 0 ? EvaluatedCardCount : Math.Max(UnderSupportedCount, 1);
 
     /// <summary>
     /// Display-only composition of <see cref="ActualSources"/>: weight from sources that make ONLY
@@ -660,6 +670,32 @@ public sealed record ColorSourceFinding
 
     /// <summary>Resolved display label for the finding's category.</summary>
     public string CategoryName => string.IsNullOrEmpty(DisplayColor) ? Color.ToString() : DisplayColor;
+}
+
+/// <summary>Special source-requirement categories tracked alongside normal colored sources.</summary>
+public enum SourceRequirementCategory
+{
+    /// <summary>True colorless pips ({C}).</summary>
+    Colorless,
+
+    /// <summary>Snow pips ({S}).</summary>
+    Snow,
+}
+
+/// <summary>Shared labels/tokens for <see cref="SourceRequirementCategory"/>.</summary>
+public static class SourceRequirementCategoryExtensions
+{
+    /// <summary>Human-facing category label.</summary>
+    public static string DisplayLabel(this SourceRequirementCategory category) => category switch
+    {
+        SourceRequirementCategory.Colorless => nameof(SourceRequirementCategory.Colorless),
+        SourceRequirementCategory.Snow => nameof(SourceRequirementCategory.Snow),
+        _ => throw new ArgumentOutOfRangeException(nameof(category)),
+    };
+
+    /// <summary>Castability limiting-factor token for this category.</summary>
+    public static string LimitingFactorToken(this SourceRequirementCategory category) =>
+        "color:" + category.DisplayLabel();
 }
 
 /// <summary>
@@ -836,7 +872,7 @@ public sealed record ManabasePrimaryFix
     public int DemandingCount { get; init; }
 
     /// <summary>Resolved display label for the fix's category.</summary>
-    public string CategoryName => string.IsNullOrEmpty(DisplayColor) ? Color?.ToString() ?? string.Empty : DisplayColor;
+    public string CategoryName => DisplayColor;
 }
 
 /// <summary>The §6 mana-base report: land count, ramp, per-color sources, and a verdict.</summary>
@@ -1269,16 +1305,16 @@ public sealed record ManabaseReport
     public IReadOnlyList<string> RampAndDrawNames { get; init; } = Array.Empty<string>();
 
     /// <summary>
+    /// Count of cheap scry spell copies behind <see cref="ScrySourceCredit"/>.
+    /// </summary>
+    public int ScrySourceCreditCopies { get; init; }
+
+    /// <summary>
     /// Aggregate any-color source credit from cheap scry spells, surfaced only when the
     /// <c>analysis.manabase.scry-credit</c> path is enabled. Analyzer-only: never a
     /// <see cref="ManaSource"/>, never part of castability, never part of the land target.
     /// </summary>
-    public double ScrySourceCredit { get; init; }
-
-    /// <summary>
-    /// Count of cheap scry spell copies behind <see cref="ScrySourceCredit"/>.
-    /// </summary>
-    public int ScrySourceCreditCopies { get; init; }
+    public double ScrySourceCredit => KarstenManabase.ScrySourceCreditAmount(ScrySourceCreditCopies);
 
     /// <summary>
     /// Cards the analysis cannot fully model (X/variable costs skipped from castability;
