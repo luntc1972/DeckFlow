@@ -354,6 +354,13 @@ public sealed record OpeningHandSample
     /// never merely "a non-land card is present."
     /// </summary>
     public bool HasPlan { get; init; }
+
+    /// <summary>
+    /// cEDH keep-shape copy token ("explosive keep" / "engine keep" / "bridge keep" / "no plan by
+    /// turn 4 — mulligan"). Empty in casual mode or when the shape read is disabled so existing
+    /// opener rendering stays byte-identical.
+    /// </summary>
+    public string ShapeLabel { get; init; } = string.Empty;
 }
 
 /*
@@ -1480,6 +1487,26 @@ public sealed record ManabaseMulliganEvaluation
     public IReadOnlyList<OpeningHandSample> RepresentativeOpeners { get; init; } = Array.Empty<OpeningHandSample>();
 
     /// <summary>
+    /// D-01 cEDH second headline: share of all trials (0-100) that were mana-keepable AND satisfied at
+    /// least one keep shape. Defaults to 0 so existing construction and serialization stay unchanged
+    /// until the cEDH producer populates it.
+    /// </summary>
+    public int PlanKeepablePercent { get; init; }
+
+    /// <summary>
+    /// D-01 cEDH band over <see cref="PlanKeepablePercent"/>. Empty default keeps the existing mulligan
+    /// block byte-identical until the cEDH producer populates it.
+    /// </summary>
+    public string PlanKeepableBand { get; init; } = string.Empty;
+
+    /// <summary>
+    /// D-03 casual curve-coverage metric: average count of turns 1-5 where the hand has at least one
+    /// castable play. Defaults to 0.0 so existing construction and serialization stay unchanged until
+    /// the casual producer populates it.
+    /// </summary>
+    public double CurveCoverageTurns { get; init; }
+
+    /// <summary>
     /// Plan-presence read: the share of keepable hands holding a win-directed card castable on curve,
     /// plus its band and per-role breakdown. Null when the plan-presence flag is off or the deck has no
     /// plan-tagged spell. Additive — a null here leaves the existing opener block byte-identical.
@@ -1556,6 +1583,37 @@ public sealed record ManabasePlanPresence
     /// more than one, so these do not sum to <see cref="PlanPresencePercent"/>.
     /// </summary>
     public required IReadOnlyDictionary<PlanRole, int> RolePercents { get; init; }
+
+    /// <summary>
+    /// Share of all trials (0-100) that were mana-keepable AND passed at least one cEDH keep shape.
+    /// This is the D-01 cEDH plan-keepable headline and is therefore always &lt;= the mana-keepable
+    /// headline by construction.
+    /// </summary>
+    public int PlanKeepablePercent { get; init; }
+
+    /// <summary>
+    /// Band over <see cref="PlanKeepablePercent"/> (<c>high</c> / <c>medium</c> / <c>low</c>).
+    /// Empty by default so existing construction and serialization stay unchanged until populated.
+    /// </summary>
+    public string PlanKeepableBand { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Share of keepable hands (0-100) that qualify via Shape A explosive starts: the commander or a
+    /// Payoff/TutorCombo card deployable by the calibrated explosive turn cap.
+    /// </summary>
+    public int ShapeExplosivePercent { get; init; }
+
+    /// <summary>
+    /// Share of keepable hands (0-100) that qualify via Shape B early-engine starts: an Engine-role
+    /// card castable by the calibrated engine turn cap.
+    /// </summary>
+    public int ShapeEnginePercent { get; init; }
+
+    /// <summary>
+    /// Share of keepable hands (0-100) that qualify via Shape C bridge keeps: enough interaction plus
+    /// continued development to bridge into a later plan.
+    /// </summary>
+    public int ShapeBridgePercent { get; init; }
 
     /// <summary>Keepable trials that formed the denominator (diagnostic).</summary>
     public int KeepableTrials { get; init; }
