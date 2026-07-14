@@ -1006,6 +1006,104 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_CedhInteractionLensFlagOn_CedhMode_ShowsLens_AndThreadsSwapPrompt()
+    {
+        var (entries, cards) = CedhInteractionFixture();
+        var store = new FakeCategoryKnowledgeStore();
+        store.CategoriesByName["Drannith Magistrate"] = new[] { "Interaction" };
+        var service = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.CedhInteractionLensFlagKey] = true,
+            }),
+            store);
+
+        var result = await service.AnalyzeAsync(
+            "paste", "Interaction Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Cedh });
+
+        Assert.True(GetResultShowCedhInteractionLens(result));
+        Assert.NotNull(result.Report.InteractionLens);
+        Assert.Equal(1, result.Report.InteractionLens!.QualifyingCount);
+        Assert.Contains("1 / 1 cheap interaction spells are held up by turn 3", result.PromptSwapPrompt);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_CedhInteractionLensFlagOff_CedhMode_LeavesPromptByteIdentical()
+    {
+        var (entries, cards) = CedhInteractionFixture();
+        var baseline = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+        var explicitOff = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.CedhInteractionLensFlagKey] = false,
+            }));
+
+        var baselineResult = await baseline.AnalyzeAsync(
+            "paste", "Interaction Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Cedh });
+        var offResult = await explicitOff.AnalyzeAsync(
+            "paste", "Interaction Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Cedh });
+
+        Assert.False(GetResultShowCedhInteractionLens(offResult));
+        Assert.Null(offResult.Report.InteractionLens);
+        Assert.Equal(baselineResult.PromptSwapPrompt, offResult.PromptSwapPrompt);
+
+        string expectedPrompt = ManabaseSwapPromptBuilder.Build(
+            offResult.Report, "Interaction Deck", BuildDecklistText(entries), ManabaseMode.Cedh);
+        Assert.Equal(expectedPrompt, offResult.PromptSwapPrompt);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_CedhInteractionLensFlagOn_CasualMode_HidesLens()
+    {
+        var (entries, cards) = CedhInteractionFixture();
+        var store = new FakeCategoryKnowledgeStore();
+        store.CategoriesByName["Drannith Magistrate"] = new[] { "Interaction" };
+        var service = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.CedhInteractionLensFlagKey] = true,
+            }),
+            store);
+
+        var result = await service.AnalyzeAsync(
+            "paste", "Interaction Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Casual });
+
+        Assert.False(GetResultShowCedhInteractionLens(result));
+        Assert.Null(result.Report.InteractionLens);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_CedhInteractionLensFlagOn_PlanPresenceOff_StillClassifiesInteractionRoles()
+    {
+        var (entries, cards) = CedhInteractionFixture();
+        var store = new FakeCategoryKnowledgeStore();
+        store.CategoriesByName["Drannith Magistrate"] = new[] { "Interaction" };
+        var service = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.CedhInteractionLensFlagKey] = true,
+                [ManabaseAnalysisService.MulliganEvalFlagKey] = false,
+                [ManabaseAnalysisService.PlanPresenceFlagKey] = false,
+            }),
+            store);
+
+        var result = await service.AnalyzeAsync(
+            "paste", "Interaction Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Cedh });
+
+        Assert.False(GetResultShowPlanPresence(result));
+        Assert.NotNull(result.Report.InteractionLens);
+        Assert.True(result.Report.InteractionLens!.QualifyingCount > 0);
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_PlanPresenceFlagsOn_FetchesCategoriesInOneBatch()
     {
         // Regression (Sokka-deck timeout): plan-role tagging fetched each spell's categories in its own
@@ -1454,6 +1552,31 @@ public sealed class ManabaseAnalysisServiceTests
         return (entries, cards);
     }
 
+    private static (List<DeckEntry> Entries, List<ScryfallCard> Cards) CedhInteractionFixture()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Yoshimaru, Ever Faithful", 1, "commander"),
+            Land("Plains", 34),
+            Entry("Drannith Magistrate", 1, "mainboard"),
+        };
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Plains", "W"),
+            Spell("Yoshimaru, Ever Faithful", "{W}", 1, "Legendary Creature — Dog"),
+            Spell("Drannith Magistrate", "{1}{W}", 2, "Creature — Human Wizard"),
+        };
+
+        for (int i = 0; i < 63; i++)
+        {
+            string name = $"Interaction Filler {i}";
+            entries.Add(Entry(name, 1, "mainboard"));
+            cards.Add(Spell(name, "{2}{W}", 3, "Sorcery"));
+        }
+
+        return (entries, cards);
+    }
+
     private static string BuildDecklistText(IEnumerable<DeckEntry> entries) =>
         string.Join("\n", entries
             .Where(entry => entry.Quantity > 0)
@@ -1611,6 +1734,13 @@ public sealed class ManabaseAnalysisServiceTests
     {
         PropertyInfo property = typeof(ManabaseAnalysisResult).GetProperty("ShowPlanPresence")
             ?? throw new Xunit.Sdk.XunitException("ManabaseAnalysisResult.ShowPlanPresence property missing.");
+        return (bool)(property.GetValue(result) ?? false);
+    }
+
+    private static bool GetResultShowCedhInteractionLens(ManabaseAnalysisResult result)
+    {
+        PropertyInfo property = typeof(ManabaseAnalysisResult).GetProperty("ShowCedhInteractionLens")
+            ?? throw new Xunit.Sdk.XunitException("ManabaseAnalysisResult.ShowCedhInteractionLens property missing.");
         return (bool)(property.GetValue(result) ?? false);
     }
 
