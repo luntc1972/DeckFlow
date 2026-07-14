@@ -22,6 +22,7 @@ const mulliganEvalFlagKey = 'analysis.manabase.mulligan-eval';
 type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
 
 let heldLock: LockHandle | null = null;
+let originalEnabled = true;
 
 // A small but real two-color shell: a commander, basics, and an early removal spell so a
 // representative opener has a genuine tracked early play (mirrors manabase-castability.spec.ts's
@@ -43,11 +44,13 @@ test.describe.configure({ mode: 'serial' });
 
 test.beforeEach(async ({ page }) => {
   heldLock = await acquireAdminLockForTest(page);
+  // Restore this flag to its pre-test state to avoid cross-spec contamination (incident 2026-07-14).
+  originalEnabled = await captureOriginalFlagEnabled(page, mulliganEvalFlagKey);
 });
 
 test.afterEach(async ({ page }) => {
   try {
-    await setFlagEnabled(page, mulliganEvalFlagKey, false);
+    await restoreFlagEnabled(page, mulliganEvalFlagKey, originalEnabled);
   } finally {
     await releaseAdminLockForTest(heldLock);
     heldLock = null;
@@ -111,4 +114,30 @@ async function setFlagEnabled(page: Page, key: string, enabled: boolean): Promis
   await row.getByRole('button', { name: enabled ? 'Enable' : 'Disable', exact: true }).click();
   await expect(page.locator('.admin-banner--success')).toBeVisible();
   await expect(row.locator('[data-label="Status"]')).toHaveText(desiredStatus);
+}
+
+async function captureOriginalFlagEnabled(page: Page, key: string): Promise<boolean> {
+  try {
+    const response = await page.goto('/Admin/Flags');
+    expect(response?.ok()).toBeTruthy();
+
+    const row = page.locator(`tr[data-flag-key="${key}"]`);
+    const status = row.locator('[data-label="Status"]');
+    return ((await status.textContent())?.trim() ?? '') === 'On';
+  } catch {
+    return true;
+  }
+}
+
+async function restoreFlagEnabled(page: Page, key: string, enabled: boolean): Promise<void> {
+  try {
+    await setFlagEnabled(page, key, enabled);
+  } catch (error) {
+    await page.waitForTimeout(1_000);
+    try {
+      await setFlagEnabled(page, key, enabled);
+    } catch (retryError) {
+      console.warn(`Failed to restore ${key} after retry`, error, retryError);
+    }
+  }
 }
