@@ -25,6 +25,10 @@ public static class ManabaseSwapPromptBuilder
     /// <param name="budget">Optional ramp/draw budget advisory.</param>
     /// <param name="includeCommandZone">When true, append command-zone castability lines.</param>
     /// <param name="companionRow">Optional companion castability row to append with the heuristic note.</param>
+    /// <param name="interactionLens">
+    /// Optional cEDH early-interaction lens. When null, the generic cEDH interaction sentence stays
+    /// byte-identical to the no-lens artifact.
+    /// </param>
     public static string Build(
         ManabaseReport report,
         string? deckName,
@@ -33,7 +37,8 @@ public static class ManabaseSwapPromptBuilder
         ManabaseVerdict? verdict = null,
         ManabaseRampDrawBudget? budget = null,
         bool includeCommandZone = false,
-        CardCastability? companionRow = null)
+        CardCastability? companionRow = null,
+        ManabaseInteractionLens? interactionLens = null)
     {
         ArgumentNullException.ThrowIfNull(report);
 
@@ -47,9 +52,25 @@ public static class ManabaseSwapPromptBuilder
 
         if (mode == ManabaseMode.Cedh)
         {
-            sb.AppendLine(
-                "This is a cEDH deck — favor low land counts and fast mana, and prioritize early "
-                + "(turn 1–3) untapped colored access for cheap interaction.");
+            if (interactionLens is null)
+            {
+                sb.AppendLine(
+                    "This is a cEDH deck — favor low land counts and fast mana, and prioritize early "
+                    + "(turn 1–3) untapped colored access for cheap interaction.");
+            }
+            else if (interactionLens.QualifyingCount == 0)
+            {
+                sb.AppendLine(
+                    "This is a cEDH deck — favor low land counts and fast mana, and no cheap interaction "
+                    + "found for the turn-1-3 hold-up check.");
+            }
+            else
+            {
+                string worstNames = string.Join(", ", interactionLens.Rows.Take(3).Select(r => r.Name));
+                sb.AppendLine(string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"This is a cEDH deck — favor low land counts and fast mana; {interactionLens.OnTargetCount} / {interactionLens.QualifyingCount} cheap interaction spells are held up by turn 3, with the worst holdable reads on {worstNames}."));
+            }
         }
         else
         {
