@@ -58,6 +58,12 @@ public static class CedhCalibration
     private const int MinCommanderSamples = 10;
     private const double SafetyFloor = 22.0;
     private const double TargetCeiling = 45.0;
+    private static readonly IReadOnlyList<TargetColumn> TargetColumns =
+    [
+        new("OLD", row => row.OldTarget),
+        new("NEW", row => row.NewTarget),
+        new("RitualCredit", row => row.NewTargetWithRitualCredit),
+    ];
 
     /// <summary>Build the cEDH calibration report from materialized deck rows.</summary>
     /// <param name="rows">Calibration rows to aggregate.</param>
@@ -67,13 +73,9 @@ public static class CedhCalibration
 
         var materialized = rows.ToList();
         int sampleSize = materialized.Count;
-        int underOld = materialized.Count(row => row.ActualLands < row.OldTarget);
-        int underNew = materialized.Count(row => row.ActualLands < row.NewTarget);
-        int underRitualCredit = materialized.Count(row => row.ActualLands < row.NewTargetWithRitualCredit);
-        int unflaggedByNew = materialized.Count(row => row.ActualLands < row.OldTarget && row.ActualLands >= row.NewTarget);
-        int newlyUnder = materialized.Count(row => row.ActualLands >= row.OldTarget && row.ActualLands < row.NewTarget);
-        int unflaggedByRitualCredit = materialized.Count(row => row.ActualLands < row.NewTarget && row.ActualLands >= row.NewTargetWithRitualCredit);
-        int newlyUnderRitualCredit = materialized.Count(row => row.ActualLands >= row.NewTarget && row.ActualLands < row.NewTargetWithRitualCredit);
+        IReadOnlyList<VariantStats> variantStats = ComputeVariantStats(materialized);
+        PairwiseDelta oldToNewDelta = ComputePairwiseDelta(materialized, TargetColumns[0], TargetColumns[1]);
+        PairwiseDelta newToRitualCreditDelta = ComputePairwiseDelta(materialized, TargetColumns[1], TargetColumns[2]);
 
         IReadOnlyList<CedhCalibrationSegmentStats> segments =
         [
@@ -89,20 +91,21 @@ public static class CedhCalibration
             .Select(group =>
             {
                 var commanderRows = group.ToList();
+                IReadOnlyList<VariantStats> commanderStats = ComputeVariantStats(commanderRows);
                 return new CedhCalibrationCommanderRollup
                 {
                     CommanderKey = group.Key,
                     SampleSize = commanderRows.Count,
                     ActualLandsMean = commanderRows.Average(row => row.ActualLands),
-                    OldTargetMean = commanderRows.Average(row => row.OldTarget),
-                    NewTargetMean = commanderRows.Average(row => row.NewTarget),
-                    NewTargetWithRitualCreditMean = commanderRows.Average(row => row.NewTargetWithRitualCredit),
-                    UnderOldCount = commanderRows.Count(row => row.ActualLands < row.OldTarget),
-                    UnderOldPercent = Percent(commanderRows, row => row.ActualLands < row.OldTarget),
-                    UnderNewCount = commanderRows.Count(row => row.ActualLands < row.NewTarget),
-                    UnderNewPercent = Percent(commanderRows, row => row.ActualLands < row.NewTarget),
-                    UnderRitualCreditCount = commanderRows.Count(row => row.ActualLands < row.NewTargetWithRitualCredit),
-                    UnderRitualCreditPercent = Percent(commanderRows, row => row.ActualLands < row.NewTargetWithRitualCredit),
+                    OldTargetMean = commanderStats[0].Mean,
+                    NewTargetMean = commanderStats[1].Mean,
+                    NewTargetWithRitualCreditMean = commanderStats[2].Mean,
+                    UnderOldCount = commanderStats[0].UnderCount,
+                    UnderOldPercent = commanderStats[0].UnderPercent,
+                    UnderNewCount = commanderStats[1].UnderCount,
+                    UnderNewPercent = commanderStats[1].UnderPercent,
+                    UnderRitualCreditCount = commanderStats[2].UnderCount,
+                    UnderRitualCreditPercent = commanderStats[2].UnderPercent,
                 };
             })
             .ToList();
@@ -111,25 +114,25 @@ public static class CedhCalibration
         {
             SampleSize = sampleSize,
             ActualLandsMean = Average(materialized, row => row.ActualLands),
-            OldTargetMean = Average(materialized, row => row.OldTarget),
-            OldTargetMin = sampleSize == 0 ? 0 : materialized.Min(row => row.OldTarget),
-            OldTargetMax = sampleSize == 0 ? 0 : materialized.Max(row => row.OldTarget),
-            NewTargetMean = Average(materialized, row => row.NewTarget),
-            NewTargetMin = sampleSize == 0 ? 0 : materialized.Min(row => row.NewTarget),
-            NewTargetMax = sampleSize == 0 ? 0 : materialized.Max(row => row.NewTarget),
-            NewTargetWithRitualCreditMean = Average(materialized, row => row.NewTargetWithRitualCredit),
-            NewTargetWithRitualCreditMin = sampleSize == 0 ? 0 : materialized.Min(row => row.NewTargetWithRitualCredit),
-            NewTargetWithRitualCreditMax = sampleSize == 0 ? 0 : materialized.Max(row => row.NewTargetWithRitualCredit),
-            UnderOldCount = underOld,
-            UnderOldPercent = Percent(materialized, row => row.ActualLands < row.OldTarget),
-            UnderNewCount = underNew,
-            UnderNewPercent = Percent(materialized, row => row.ActualLands < row.NewTarget),
-            UnderRitualCreditCount = underRitualCredit,
-            UnderRitualCreditPercent = Percent(materialized, row => row.ActualLands < row.NewTargetWithRitualCredit),
-            UnflaggedByNewCount = unflaggedByNew,
-            NewlyUnderCount = newlyUnder,
-            UnflaggedByRitualCreditCount = unflaggedByRitualCredit,
-            NewlyUnderRitualCreditCount = newlyUnderRitualCredit,
+            OldTargetMean = variantStats[0].Mean,
+            OldTargetMin = variantStats[0].Min,
+            OldTargetMax = variantStats[0].Max,
+            NewTargetMean = variantStats[1].Mean,
+            NewTargetMin = variantStats[1].Min,
+            NewTargetMax = variantStats[1].Max,
+            NewTargetWithRitualCreditMean = variantStats[2].Mean,
+            NewTargetWithRitualCreditMin = variantStats[2].Min,
+            NewTargetWithRitualCreditMax = variantStats[2].Max,
+            UnderOldCount = variantStats[0].UnderCount,
+            UnderOldPercent = variantStats[0].UnderPercent,
+            UnderNewCount = variantStats[1].UnderCount,
+            UnderNewPercent = variantStats[1].UnderPercent,
+            UnderRitualCreditCount = variantStats[2].UnderCount,
+            UnderRitualCreditPercent = variantStats[2].UnderPercent,
+            UnflaggedByNewCount = oldToNewDelta.UnflaggedCount,
+            NewlyUnderCount = oldToNewDelta.NewlyUnderCount,
+            UnflaggedByRitualCreditCount = newToRitualCreditDelta.UnflaggedCount,
+            NewlyUnderRitualCreditCount = newToRitualCreditDelta.NewlyUnderCount,
             BaselineBackedCount = materialized.Count(row => row.HasBaseline),
             NoBaselineCount = materialized.Count(row => !row.HasBaseline),
             // Why: ritual-credit is the shipped effective target, and ritual credit only pushes targets down toward the floor.
@@ -219,38 +222,79 @@ public static class CedhCalibration
     private static CedhCalibrationSegmentStats BuildSegment(string label, IEnumerable<CedhCalibrationRow> rows)
     {
         var materialized = rows.ToList();
+        IReadOnlyList<VariantStats> variantStats = ComputeVariantStats(materialized);
+        PairwiseDelta oldToNewDelta = ComputePairwiseDelta(materialized, TargetColumns[0], TargetColumns[1]);
+        PairwiseDelta newToRitualCreditDelta = ComputePairwiseDelta(materialized, TargetColumns[1], TargetColumns[2]);
         return new CedhCalibrationSegmentStats
         {
             Label = label,
             SampleSize = materialized.Count,
             ActualLandsMean = Average(materialized, row => row.ActualLands),
-            OldTargetMean = Average(materialized, row => row.OldTarget),
-            NewTargetMean = Average(materialized, row => row.NewTarget),
-            NewTargetWithRitualCreditMean = Average(materialized, row => row.NewTargetWithRitualCredit),
-            UnderOldCount = materialized.Count(row => row.ActualLands < row.OldTarget),
-            UnderOldPercent = Percent(materialized, row => row.ActualLands < row.OldTarget),
-            UnderNewCount = materialized.Count(row => row.ActualLands < row.NewTarget),
-            UnderNewPercent = Percent(materialized, row => row.ActualLands < row.NewTarget),
-            UnderRitualCreditCount = materialized.Count(row => row.ActualLands < row.NewTargetWithRitualCredit),
-            UnderRitualCreditPercent = Percent(materialized, row => row.ActualLands < row.NewTargetWithRitualCredit),
-            UnflaggedByNewCount = materialized.Count(row => row.ActualLands < row.OldTarget && row.ActualLands >= row.NewTarget),
-            NewlyUnderCount = materialized.Count(row => row.ActualLands >= row.OldTarget && row.ActualLands < row.NewTarget),
-            UnflaggedByRitualCreditCount = materialized.Count(row => row.ActualLands < row.NewTarget && row.ActualLands >= row.NewTargetWithRitualCredit),
-            NewlyUnderRitualCreditCount = materialized.Count(row => row.ActualLands >= row.NewTarget && row.ActualLands < row.NewTargetWithRitualCredit),
+            OldTargetMean = variantStats[0].Mean,
+            NewTargetMean = variantStats[1].Mean,
+            NewTargetWithRitualCreditMean = variantStats[2].Mean,
+            UnderOldCount = variantStats[0].UnderCount,
+            UnderOldPercent = variantStats[0].UnderPercent,
+            UnderNewCount = variantStats[1].UnderCount,
+            UnderNewPercent = variantStats[1].UnderPercent,
+            UnderRitualCreditCount = variantStats[2].UnderCount,
+            UnderRitualCreditPercent = variantStats[2].UnderPercent,
+            UnflaggedByNewCount = oldToNewDelta.UnflaggedCount,
+            NewlyUnderCount = oldToNewDelta.NewlyUnderCount,
+            UnflaggedByRitualCreditCount = newToRitualCreditDelta.UnflaggedCount,
+            NewlyUnderRitualCreditCount = newToRitualCreditDelta.NewlyUnderCount,
         };
     }
 
-    private static double Average(IEnumerable<CedhCalibrationRow> rows, Func<CedhCalibrationRow, double> selector)
+    /// <summary>Column descriptor for one target variant.</summary>
+    private readonly record struct TargetColumn(string Label, Func<CedhCalibrationRow, double> Selector);
+
+    /// <summary>Computed stats for one target variant across a row set.</summary>
+    private readonly record struct VariantStats(
+        string Label,
+        double Mean,
+        double Min,
+        double Max,
+        int UnderCount,
+        double UnderPercent);
+
+    /// <summary>Under-target transition counts between adjacent target variants.</summary>
+    private readonly record struct PairwiseDelta(int UnflaggedCount, int NewlyUnderCount);
+
+    /// <summary>Compute the shared aggregate stats for each target variant.</summary>
+    private static IReadOnlyList<VariantStats> ComputeVariantStats(IReadOnlyList<CedhCalibrationRow> rows) =>
+        TargetColumns.Select(column => ComputeVariantStats(rows, column)).ToArray();
+
+    /// <summary>Compute the shared aggregate stats for one target variant.</summary>
+    private static VariantStats ComputeVariantStats(IReadOnlyList<CedhCalibrationRow> rows, TargetColumn column)
     {
-        var materialized = rows.ToList();
-        return materialized.Count == 0 ? 0 : materialized.Average(selector);
+        int sampleSize = rows.Count;
+        Func<CedhCalibrationRow, double> selector = column.Selector;
+        int underCount = rows.Count(row => row.ActualLands < selector(row));
+        return new VariantStats(
+            column.Label,
+            sampleSize == 0 ? 0 : rows.Average(selector),
+            sampleSize == 0 ? 0 : rows.Min(selector),
+            sampleSize == 0 ? 0 : rows.Max(selector),
+            underCount,
+            sampleSize == 0 ? 0 : (100.0 * underCount / sampleSize));
     }
 
-    private static double Percent(IEnumerable<CedhCalibrationRow> rows, Func<CedhCalibrationRow, bool> predicate)
+    /// <summary>Compute under-target transition counts between adjacent target variants.</summary>
+    private static PairwiseDelta ComputePairwiseDelta(
+        IReadOnlyList<CedhCalibrationRow> rows,
+        TargetColumn current,
+        TargetColumn next)
     {
-        var materialized = rows.ToList();
-        return materialized.Count == 0 ? 0 : (100.0 * materialized.Count(predicate) / materialized.Count);
+        Func<CedhCalibrationRow, double> currentSelector = current.Selector;
+        Func<CedhCalibrationRow, double> nextSelector = next.Selector;
+        return new PairwiseDelta(
+            rows.Count(row => row.ActualLands < currentSelector(row) && row.ActualLands >= nextSelector(row)),
+            rows.Count(row => row.ActualLands >= currentSelector(row) && row.ActualLands < nextSelector(row)));
     }
+
+    private static double Average(IReadOnlyList<CedhCalibrationRow> rows, Func<CedhCalibrationRow, double> selector) =>
+        rows.Count == 0 ? 0 : rows.Average(selector);
 
     private static string EscapePipe(string value) => value.Replace("|", "\\|", StringComparison.Ordinal);
 }
