@@ -221,6 +221,13 @@
             return false;
         }
 
+        // Why: content-KB data may not be a safe link, so only http/https schemes are allowed.
+        if (!string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
         absoluteUri = uri.AbsoluteUri;
         return true;
     }
