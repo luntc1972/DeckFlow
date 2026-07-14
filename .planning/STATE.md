@@ -186,6 +186,7 @@ Carried forward, plus Cycle-16 operator gates acknowledged at close (2026-07-11)
 | 2026-07-14 | Manabase tier-3 minors: MBGAP-06 scry-0.2 credit (flag scry-credit) + MBGAP-08/L6 colorless {C}/snow {S} categories (flag colorless-snow) + MBGAP-10 LOW sweep (L4 kept+guarded, L5 draw-baseline ceiling, L9 Relic granter, L13 doc) + review/simplify fixes + WSLENV auto-browser gate fix — closes manabase backlog §3 | quick/manabase-tier3-minors | e35da9a9..d0be157e (9) |
 | 2026-07-14 | Manabase §5 refactor batch: table-driven ClassifySpecialLand (SpecialLandRule[] + 2 pin tests), AddLandCopies → LandClassificationContext record struct, CedhCalibration TargetColumn descriptors + shared variant stats — behavior-neutral, verifier PASS, closes backlog §5 top three | quick/manabase-s5-refactors | 41debe07..ec50833b (4) |
 | 2026-07-14 | Manabase UX LOW-8/9: Ramp/draw + Command-zone folded into lens-card system (soft commander headline, breakdown inside section), cast-rate distribution-shape line (≥90/70–89/<70) in Simulated cast rate lens; repaired 2 stale live-only e2e assertions; 24 theme×viewport screenshots verified — closes backlog §4 (LOW-10 skipped by design) | quick/manabase-ux-low89 | bf146343+ba289760 |
+| 2026-07-14 | e2e flag-restore hardening: manabase-mulligan + restricted-lands specs now capture pre-test flag state and restore it (retry + lock-safe fallback) instead of hard-restoring to false — ends shared flag-store contamination between flag-gated specs/runs | quick/e2e-flag-restore | f8f58586 |
 
 ## Session Continuity
 
