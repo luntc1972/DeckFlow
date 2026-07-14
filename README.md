@@ -607,12 +607,14 @@ dotnet run --project DeckFlow.CLI -- harvest --video-ids "VLdny8IVXYE,IJYU_rzCcP
 # 3. Distill into artifacts + index rows (--dry-run estimates spend first)
 dotnet run --project DeckFlow.CLI -- distill --limit 5
 dotnet run --project DeckFlow.CLI -- distill --video-ids "VLdny8IVXYE"
+dotnet run --project DeckFlow.CLI -- fuse-profile --slug "salubrioussnail"
 
 # 4. Export the index seed for commit-then-deploy
 dotnet run --project DeckFlow.CLI -- content-index-export
 ```
 
 - Each artifact is a markdown file under `content-kb/{source-slug}/{video-id}.md` with a ≤200-word summary, 3-8 key clips (each carrying an `[mm:ss]` timestamp when the transcript has a marker to support it, otherwise left untimed rather than guessed), and tags from a controlled vocabulary (archetype/strategy, format/bracket, card category). Distillation also writes a sibling `content-kb/{source-slug}/{video-id}.prompt.md` — the baked paste-ready prompt (persona + task + evidence rules wrapped around the notes) that the site copy button and the Studio review queue serve.
+- `fuse-profile --slug <creator>` runs after distill/stated-rules work and persists a fused creator style profile: weighted numeric targets plus a say-vs-do conflict ledger that reconciles measured style against stated philosophy. Studio exposes that output on `/creator-style-ledger` (and `/creator-style-ledger/{slug}`) as a read-only inspection page; fusion is CLI-only.
 - The distill LLM backend is selected by `DECKFLOW_LLM_PROVIDER` (`openai` default with Structured Outputs, or `claude` to shell the Claude Code CLI at $0 subscription cost). Monthly spend caps: `DECKFLOW_LLM_MONTHLY_CAP_USD` and `DECKFLOW_WHISPER_MONTHLY_CAP_USD` (default $15; cap-gating applies to the OpenAI/Whisper paid paths).
 - **`claude` provider on Windows — set `DECKFLOW_LLM_CLI_COMMAND`.** With `DECKFLOW_LLM_PROVIDER=claude`, the distiller shells the `claude` CLI. On Linux/macOS it runs bare `claude` (must be on `PATH`). On **Windows** the bare default is not used — set `DECKFLOW_LLM_CLI_COMMAND` to a JSON array invoking the CLI, with exactly one `{instruction}` placeholder. If your `claude` lives in WSL, call it via `wsl.exe` using the **full path** (wsl.exe uses a non-login shell, so `~/.local/bin` is not on `PATH` — bare `wsl.exe claude` fails):
 
