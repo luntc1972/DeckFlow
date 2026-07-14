@@ -26,4 +26,9 @@ public static class ManabaseWording
         int count = ApproximateCount(value);
         return string.Create(CultureInfo.InvariantCulture, $"~{count} {Pluralize(singular, count)}");
     }
+
+    /// <summary>Shared disclosure line for the analyzer-only cheap-scry source credit.</summary>
+    public static string ScrySourceCreditLine(int copies, double credit) => string.Create(
+        CultureInfo.InvariantCulture,
+        $"Scry source credit: +{credit:0.0} any-color sources ({copies} cheap scry {Pluralize("spell", copies)} × 0.2) — separate from the ≤2 MV ramp/draw land credit, so draw+scry cards can count in both places.");
 }

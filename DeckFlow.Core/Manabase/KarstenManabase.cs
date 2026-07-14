@@ -42,6 +42,7 @@ public static class KarstenManabase
     private const double CedhBaselineBlendWeight = 0.5;
     private const double RitualLandCreditWeight = 0.5;
     private const double RitualLandCreditCap = 3.0;
+    private const double ScrySourceCreditPerCopy = 0.2;
 
     /// <summary>
     /// Recommended land count for a singleton / Commander deck (Karsten's regression fit).
@@ -91,6 +92,9 @@ public static class KarstenManabase
     /// <summary>Nominal cEDH ritual land credit for <paramref name="netPositiveRitualCount"/> rituals: 0.5 per ritual, capped at 3.0.</summary>
     public static double RitualLandCreditAmount(int netPositiveRitualCount) =>
         netPositiveRitualCount <= 0 ? 0.0 : Math.Min(RitualLandCreditCap, netPositiveRitualCount * RitualLandCreditWeight);
+
+    /// <summary>Nominal any-color source credit for cheap scry spell copies: 0.2 per copy.</summary>
+    public static double ScrySourceCreditAmount(int copies) => copies <= 0 ? 0.0 : copies * ScrySourceCreditPerCopy;
 
     /// <summary>
     /// Competitive (cEDH) land target with optional July 2026 baseline inputs. The safety floor and

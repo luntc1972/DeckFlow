@@ -620,7 +620,6 @@ public sealed class ManabaseReportTextBuilderTests
                     DrivingSpell = "Counterspell",
                 },
             },
-            ScrySourceCredit = 0.4,
             ScrySourceCreditCopies = 2,
             Mode = ManabaseMode.Casual,
             Summary = "Scry credit test.",

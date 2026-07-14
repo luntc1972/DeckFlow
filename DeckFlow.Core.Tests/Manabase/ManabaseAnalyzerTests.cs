@@ -1082,19 +1082,18 @@ public sealed class ManabaseAnalyzerTests
     [Fact]
     public void Analyze_ColorlessSnowFlagOn_SetsSpecialCategoryDenominatorToEvaluatedSpellCount()
     {
-        var sources = new List<ManaSource>();
-        for (int i = 0; i < 1; i++)
+        var sources = new List<ManaSource>
         {
-            sources.Add(new ManaSource
+            new()
             {
-                Name = $"Snow-Covered Wastes {i}",
+                Name = "Snow-Covered Wastes 0",
                 Produces = System.Array.Empty<ManaColor>(),
                 ProducesColorless = true,
                 IsSnow = true,
                 EntersUntapped = true,
                 IsLand = true,
-            });
-        }
+            },
+        };
 
         var deck = new ManabaseDeck
         {

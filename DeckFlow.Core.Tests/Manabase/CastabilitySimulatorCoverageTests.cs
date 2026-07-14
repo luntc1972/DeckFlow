@@ -125,54 +125,36 @@ public sealed class CastabilitySimulatorCoverageTests
         Assert.Equal(onBlue.CastPercent, onRed.CastPercent);
     }
 
-    [Fact]
-    public void Simulate_TrueColorlessPip_RequiresColorlessProducer_WhenFlagEnabled()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Simulate_SpecialPip_RequiresMatchingProducer_WhenFlagEnabled(bool trueColorless)
     {
-        ManabaseDeck noColorless = MonoBlueDeck(islands: 40);
-        ManabaseDeck withWastes = MonoBlueDeck(islands: 39) with
+        ManabaseDeck monoBlue39 = MonoBlueDeck(islands: 39);
+        ManabaseDeck withoutMatchingProducer = MonoBlueDeck(islands: 40);
+        ManabaseDeck withMatchingProducer = monoBlue39 with
         {
-            Sources = MonoBlueDeck(islands: 39).Sources.Append(
+            Sources = monoBlue39.Sources.Append(
                 new ManaSource
                 {
-                    Name = "Wastes",
-                    Produces = new[] { ManaColor.Colorless },
-                    ProducesColorless = true,
+                    Name = trueColorless ? "Wastes" : "Snow-Covered Island",
+                    Produces = new[] { trueColorless ? ManaColor.Colorless : ManaColor.Blue },
+                    ProducesColorless = trueColorless,
+                    IsSnow = !trueColorless,
                 }).ToList(),
         };
-        var warpingWail = Spell("Warping Wail", manaValue: 2, Array.Empty<(ManaColor Color, int Count)>(), trueColorlessPips: 1);
+        SpellRequirement probe = trueColorless
+            ? Spell("Warping Wail", manaValue: 2, Array.Empty<(ManaColor Color, int Count)>(), trueColorlessPips: 1)
+            : Spell("Arcum's Astrolabe", manaValue: 1, Array.Empty<(ManaColor Color, int Count)>(), snowPips: 1);
+        int effectiveTurn = trueColorless ? 2 : 1;
 
-        CardCastability off = Simulate(noColorless, warpingWail, effectiveTurn: 2, colorlessSnow: false);
-        CardCastability onWithoutProducer = Simulate(noColorless, warpingWail, effectiveTurn: 2, colorlessSnow: true);
-        CardCastability onWithProducer = Simulate(withWastes, warpingWail, effectiveTurn: 2, colorlessSnow: true);
+        CardCastability off = Simulate(withoutMatchingProducer, probe, effectiveTurn, colorlessSnow: false);
+        CardCastability onWithoutProducer = Simulate(withoutMatchingProducer, probe, effectiveTurn, colorlessSnow: true);
+        CardCastability onWithProducer = Simulate(withMatchingProducer, probe, effectiveTurn, colorlessSnow: true);
 
         Assert.True(off.CastPercent > 0);
         Assert.Equal(0, onWithoutProducer.CastPercent);
         Assert.True(onWithProducer.CastPercent > onWithoutProducer.CastPercent);
-    }
-
-    [Fact]
-    public void Simulate_SnowPip_RequiresSnowSource_WhenFlagEnabled()
-    {
-        ManabaseDeck regularIslandDeck = MonoBlueDeck(islands: 40);
-        ManabaseDeck snowIslandDeck = MonoBlueDeck(islands: 39) with
-        {
-            Sources = MonoBlueDeck(islands: 39).Sources.Append(
-                new ManaSource
-                {
-                    Name = "Snow-Covered Island",
-                    Produces = new[] { ManaColor.Blue },
-                    IsSnow = true,
-                }).ToList(),
-        };
-        var astrolabe = Spell("Arcum's Astrolabe", manaValue: 1, Array.Empty<(ManaColor Color, int Count)>(), snowPips: 1);
-
-        CardCastability off = Simulate(regularIslandDeck, astrolabe, effectiveTurn: 1, colorlessSnow: false);
-        CardCastability onWithoutSnow = Simulate(regularIslandDeck, astrolabe, effectiveTurn: 1, colorlessSnow: true);
-        CardCastability onWithSnow = Simulate(snowIslandDeck, astrolabe, effectiveTurn: 1, colorlessSnow: true);
-
-        Assert.True(off.CastPercent > 0);
-        Assert.Equal(0, onWithoutSnow.CastPercent);
-        Assert.True(onWithSnow.CastPercent > onWithoutSnow.CastPercent);
     }
 
     [Fact]

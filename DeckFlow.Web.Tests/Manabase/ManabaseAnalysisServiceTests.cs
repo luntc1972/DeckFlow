@@ -30,6 +30,32 @@ namespace DeckFlow.Web.Tests;
 /// </summary>
 public sealed class ManabaseAnalysisServiceTests
 {
+    private static (ManabaseAnalysisService Baseline, ManabaseAnalysisService ExplicitOff, ManabaseAnalysisService On) BuildFlagServiceTriple(
+        List<DeckEntry> entries,
+        List<ScryfallCard> cards,
+        string flagKey)
+    {
+        return (
+            new ManabaseAnalysisService(
+                new FakeLoader(entries),
+                new FakeResolver(cards),
+                new FakeFeatureFlagCache(new Dictionary<string, bool>())),
+            new ManabaseAnalysisService(
+                new FakeLoader(entries),
+                new FakeResolver(cards),
+                new FakeFeatureFlagCache(new Dictionary<string, bool>
+                {
+                    [flagKey] = false,
+                })),
+            new ManabaseAnalysisService(
+                new FakeLoader(entries),
+                new FakeResolver(cards),
+                new FakeFeatureFlagCache(new Dictionary<string, bool>
+                {
+                    [flagKey] = true,
+                })));
+    }
+
     [Fact]
     public async Task AnalyzeAsync_ProducesReport_FiltersSideboard_ResolvesByPrinting()
     {
@@ -977,24 +1003,7 @@ public sealed class ManabaseAnalysisServiceTests
             Spell("Counterspell", "{U}{U}", 2, "Instant", oracle: "Counter target spell."),
         };
 
-        var baseline = new ManabaseAnalysisService(
-            new FakeLoader(entries),
-            new FakeResolver(cards),
-            new FakeFeatureFlagCache(new Dictionary<string, bool>()));
-        var explicitOff = new ManabaseAnalysisService(
-            new FakeLoader(entries),
-            new FakeResolver(cards),
-            new FakeFeatureFlagCache(new Dictionary<string, bool>
-            {
-                [ManabaseAnalysisService.ScryCreditFlagKey] = false,
-            }));
-        var on = new ManabaseAnalysisService(
-            new FakeLoader(entries),
-            new FakeResolver(cards),
-            new FakeFeatureFlagCache(new Dictionary<string, bool>
-            {
-                [ManabaseAnalysisService.ScryCreditFlagKey] = true,
-            }));
+        var (baseline, explicitOff, on) = BuildFlagServiceTriple(entries, cards, ManabaseAnalysisService.ScryCreditFlagKey);
 
         var baselineResult = await baseline.AnalyzeAsync(
             "paste", "Scry Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Casual });
@@ -1033,24 +1042,7 @@ public sealed class ManabaseAnalysisServiceTests
             Spell("Arcum's Astrolabe", "{S}", 1, "Artifact"),
         };
 
-        var baseline = new ManabaseAnalysisService(
-            new FakeLoader(entries),
-            new FakeResolver(cards),
-            new FakeFeatureFlagCache(new Dictionary<string, bool>()));
-        var explicitOff = new ManabaseAnalysisService(
-            new FakeLoader(entries),
-            new FakeResolver(cards),
-            new FakeFeatureFlagCache(new Dictionary<string, bool>
-            {
-                [ManabaseAnalysisService.ColorlessSnowFlagKey] = false,
-            }));
-        var on = new ManabaseAnalysisService(
-            new FakeLoader(entries),
-            new FakeResolver(cards),
-            new FakeFeatureFlagCache(new Dictionary<string, bool>
-            {
-                [ManabaseAnalysisService.ColorlessSnowFlagKey] = true,
-            }));
+        var (baseline, explicitOff, on) = BuildFlagServiceTriple(entries, cards, ManabaseAnalysisService.ColorlessSnowFlagKey);
 
         var baselineResult = await baseline.AnalyzeAsync(
             "paste", "Category Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Casual });
@@ -1084,24 +1076,7 @@ public sealed class ManabaseAnalysisServiceTests
             Spell("Snow Test Spell", "{S}{U}", 2, "Sorcery"),
         };
 
-        var baseline = new ManabaseAnalysisService(
-            new FakeLoader(entries),
-            new FakeResolver(cards),
-            new FakeFeatureFlagCache(new Dictionary<string, bool>()));
-        var explicitOff = new ManabaseAnalysisService(
-            new FakeLoader(entries),
-            new FakeResolver(cards),
-            new FakeFeatureFlagCache(new Dictionary<string, bool>
-            {
-                [ManabaseAnalysisService.ColorlessSnowFlagKey] = false,
-            }));
-        var on = new ManabaseAnalysisService(
-            new FakeLoader(entries),
-            new FakeResolver(cards),
-            new FakeFeatureFlagCache(new Dictionary<string, bool>
-            {
-                [ManabaseAnalysisService.ColorlessSnowFlagKey] = true,
-            }));
+        var (baseline, explicitOff, on) = BuildFlagServiceTriple(entries, cards, ManabaseAnalysisService.ColorlessSnowFlagKey);
 
         var baselineResult = await baseline.AnalyzeAsync(
             "paste", "Snow Reducer Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Casual });
