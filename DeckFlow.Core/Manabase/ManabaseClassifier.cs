@@ -295,6 +295,8 @@ public static class ManabaseClassifier
                         Weight = 1.0,
                         ManaAmount = 1,
                         DeployCost = Math.Max(1, (int)Math.Round(card.ManaValue, MidpointRounding.AwayFromZero)),
+                        IsSnow = IsSnowPermanent(card),
+                        ProducesColorless = ProducesTrueColorless(card),
                     });
                 }
             }
@@ -449,6 +451,8 @@ public static class ManabaseClassifier
                 EntersUntapped = classification.EntersUntapped,
                 IsCommander = card.IsCommander,
                 ManaAmount = card.ManaAmount, // MQ-02: e.g. Ancient Tomb (a land) makes 2.
+                IsSnow = IsSnowPermanent(card),
+                ProducesColorless = ProducesTrueColorless(card),
                 CountCondition = classification.CountCondition,
                 CountThreshold = classification.CountThreshold,
                 CountTypeFilter = classification.CountTypeFilter,
@@ -580,6 +584,8 @@ public static class ManabaseClassifier
                     IsLand = false,
                     ManaAmount = 1,
                     IsConditional = true,
+                    IsSnow = IsSnowPermanent(card),
+                    ProducesColorless = ProducesTrueColorless(card),
                 },
             };
         }
@@ -621,6 +627,8 @@ public static class ManabaseClassifier
                         IsLand = false,
                         ManaAmount = 1,
                         IsConditional = true,
+                        IsSnow = IsSnowPermanent(card),
+                        ProducesColorless = ProducesTrueColorless(card),
                     },
                 };
             }
@@ -653,6 +661,8 @@ public static class ManabaseClassifier
             // cost is an applied intrinsic reduction, use the reduced value so the cast turn drops.
             ManaValue = costOverridden ? cost.ManaValue : Math.Max(0, (int)Math.Round(card.ManaValue)),
             Pips = cost.Pips,
+            TrueColorlessPips = cost.TrueColorlessPips,
+            SnowPips = cost.SnowPips,
             IsGold = cost.DistinctColors >= 2,
             IsManaSource = IsRockOrDork(card),
             Kinds = ClassifyKinds(card.TypeLine),
@@ -1068,6 +1078,8 @@ public static class ManabaseClassifier
                     EntersUntapped = untapped,
                     ManaAmount = 1,
                     IsCommander = card.IsCommander,
+                    IsSnow = IsSnowPermanent(card),
+                    ProducesColorless = ProducesTrueColorless(card),
                 });
             }
 
@@ -1100,7 +1112,17 @@ public static class ManabaseClassifier
 
         for (int i = 0; i < card.Quantity; i++)
         {
-            sources.Add(new ManaSource { Name = card.Name, Produces = produces, Weight = weight, IsLand = false, IsCommander = card.IsCommander, ManaAmount = card.ManaAmount });
+            sources.Add(new ManaSource
+            {
+                Name = card.Name,
+                Produces = produces,
+                Weight = weight,
+                IsLand = false,
+                IsCommander = card.IsCommander,
+                ManaAmount = card.ManaAmount,
+                IsSnow = IsSnowPermanent(card),
+                ProducesColorless = ProducesTrueColorless(card),
+            });
         }
     }
 
@@ -1117,6 +1139,20 @@ public static class ManabaseClassifier
         }
 
         return colors;
+    }
+
+    private static bool IsSnowPermanent(CardFact card) =>
+        card.TypeLine.Contains("Snow", StringComparison.OrdinalIgnoreCase);
+
+    private static bool ProducesTrueColorless(CardFact card)
+    {
+        if (card.ProducedMana.Contains("C", StringComparer.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        string text = ReminderTextRegex.Replace(card.OracleText ?? string.Empty, string.Empty);
+        return text.Contains("{C}", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsLandType(string typeLine)
@@ -1947,6 +1983,7 @@ public static class ManabaseClassifier
                     Weight = 0.25,
                     IsLand = false,
                     IsCommander = card.IsCommander,
+                    IsSnow = IsSnowPermanent(card),
 
                     // MQ-02: conditional/granted sources stay at 1 mana — the Bernoulli activation
                     // gates a single speculative unit; multi-unit granted bundles are out of scope.

@@ -30,6 +30,9 @@ namespace DeckFlow.Core.Manabase;
 /// </remarks>
 public static class CastabilitySimulator
 {
+    private const int TrueColorlessBit = 1 << 5;
+    private const int SnowBit = 1 << 6;
+
     /// <summary>Trials per spell. 20k keeps the Monte-Carlo error well under ~0.5 points.</summary>
     public const int DefaultTrials = 20_000;
 
@@ -241,6 +244,11 @@ public static class CastabilitySimulator
     /// may add their NET mana to the tracked spell's cast-attempt turn, gated by the board's ability to
     /// pay each ritual's OWN cost from the pre-burst pool.
     /// </param>
+    /// <param name="colorlessSnow">
+    /// When true, true colorless <c>{C}</c> pips and snow <c>{S}</c> pips are enforced as distinct
+    /// mask bits (bit 5 = produces colorless, bit 6 = snow source). When false (default), the historic
+    /// path drops colorless-folded pips exactly as before.
+    /// </param>
     public static CardCastability Simulate(
         ManabaseDeck deck,
         int librarySize,
@@ -251,7 +259,8 @@ public static class CastabilitySimulator
         bool useManaQuantity = false,
         bool colorAwareMulligan = false,
         bool gateRampOnCastable = false,
-        bool ritualBurst = false)
+        bool ritualBurst = false,
+        bool colorlessSnow = false)
     {
         ArgumentNullException.ThrowIfNull(deck);
         ArgumentNullException.ThrowIfNull(spell);
@@ -259,7 +268,7 @@ public static class CastabilitySimulator
         // 70-03b: exclude one same-name land-ramp source when scoring this spell's own row (a card
         // cannot ramp itself out). No-op unless this spell is a modeled land-ramp source.
         IReadOnlyList<LibraryCard> library = BuildLibrary(
-            deck, librarySize, useManaQuantity, gateRampOnCastable, ritualBurst, excludeSourceName: spell.Name);
+            deck, librarySize, useManaQuantity, gateRampOnCastable, ritualBurst, colorlessSnow, excludeSourceName: spell.Name);
 
         // MQ-05: distinct colors the deck actually demands across all spell pips (capped at 5). Only
         // computed when the flag is on; <=1 makes the color gate a no-op (mono decks stay identical).
@@ -271,15 +280,16 @@ public static class CastabilitySimulator
         int totalPips = spell.Pips
             .Where(p => p.Key != ManaColor.Colorless && p.Value > 0)
             .Sum(p => p.Value);
+        if (colorlessSnow)
+        {
+            totalPips += spell.TrueColorlessPips + spell.SnowPips;
+        }
         int printedGeneric = Math.Max(0, spell.ManaValue - totalPips);
         int effectiveGeneric = Math.Max(0, printedGeneric - Math.Max(0, genericReduction));
         int effectiveCost = Math.Max(Math.Max(1, totalPips), effectiveGeneric + totalPips);
 
         // The colored pips as (bit, count) pairs for the greedy color-coverage check.
-        var pipReq = spell.Pips
-            .Where(p => p.Key != ManaColor.Colorless && p.Value > 0)
-            .Select(p => (Bit: ColorBit(p.Key), Count: p.Value))
-            .ToArray();
+        (int Bit, int Count)[] pipReq = PipArray(spell, colorlessSnow);
 
         int turn = Math.Max(1, effectiveTurn);
 
@@ -477,12 +487,13 @@ public static class CastabilitySimulator
         bool useManaQuantity = false,
         bool colorAwareMulligan = false,
         bool gateRampOnCastable = false,
-        bool ritualBurst = false)
+        bool ritualBurst = false,
+        bool colorlessSnow = false)
     {
         ArgumentNullException.ThrowIfNull(deck);
 
         IReadOnlyList<LibraryCard> library =
-            BuildLibrary(deck, librarySize, useManaQuantity, gateRampOnCastable, ritualBurst, excludeSourceName: null);
+            BuildLibrary(deck, librarySize, useManaQuantity, gateRampOnCastable, ritualBurst, colorlessSnow, excludeSourceName: null);
 
         var planIndices = new List<int>();
         int maxPlanTurn = 1;
@@ -791,6 +802,7 @@ public static class CastabilitySimulator
         bool useManaQuantity,
         bool gateRampOnCastable,
         bool ritualBurst,
+        bool colorlessSnow,
         string? excludeSourceName)
     {
         var cards = new List<LibraryCard>(librarySize);
@@ -810,7 +822,7 @@ public static class CastabilitySimulator
         Dictionary<string, (int Bit, int Count)[]>? rampPipsByName = gateRampOnCastable
             ? deck.Spells
                 .GroupBy(s => s.Name, StringComparer.Ordinal)
-                .ToDictionary(g => g.Key, g => PipArray(g.First()), StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => PipArray(g.First(), colorlessSnow), StringComparer.Ordinal)
             : null;
 
         // Source modeling distinguishes DEPLOYABLE ramp from ENABLER-CONDITIONAL granted sources:
@@ -825,7 +837,7 @@ public static class CastabilitySimulator
         //    enabler fully is out of scope. Their whole part becomes full copies and any leftover fraction
         //    becomes ONE partial card carrying that fraction as its activation probability, so a 0.25
         //    source produces mana in ~25% of games (E[copies] = weight).
-        AddSourcesAsCards(deck, cards, rampCostByName, rampPipsByName, useManaQuantity, excludeSourceName);
+        AddSourcesAsCards(deck, cards, rampCostByName, rampPipsByName, useManaQuantity, colorlessSnow, excludeSourceName);
 
         // Plan-presence: place win-directed spells as IDENTIFIABLE (still mana-inert) filler so
         // SimulatePlanPresence can find them in a simulated hand and test their on-curve castability.
@@ -848,7 +860,7 @@ public static class CastabilitySimulator
                 CardKind.Filler, 0, 0, false,
                 planRoles: spell.PlanRoles,
                 planManaValue: Math.Max(1, spell.ManaValue),
-                planPips: PipArray(spell),
+                planPips: PipArray(spell, colorlessSnow),
                 planName: spell.Name));
         }
 
@@ -867,7 +879,7 @@ public static class CastabilitySimulator
                     deployCost: 0,
                     isLand: false,
                     manaAmount: oneShot.NetMana,
-                    oneShotOwnPips: PipArray(oneShot.OwnPips),
+                    oneShotOwnPips: PipArray(oneShot.OwnPips, 0, 0, colorlessSnow),
                     oneShotOwnCost: oneShot.OwnManaValue));
             }
         }
@@ -888,14 +900,40 @@ public static class CastabilitySimulator
 
     // P4 gated-ramp: extract a spell's colored pip requirement as (bit, count) pairs (colorless pips
     // excluded — only colored access gates a cast). Empty array means "colorless to cast".
-    private static (int Bit, int Count)[] PipArray(SpellRequirement spell) => PipArray(spell.Pips);
+    private static (int Bit, int Count)[] PipArray(SpellRequirement spell, bool colorlessSnow) =>
+        PipArray(spell.Pips, spell.TrueColorlessPips, spell.SnowPips, colorlessSnow);
 
     // Same conversion for any pip dictionary (a spell's pips, or a ritual's OWN cost pips).
-    private static (int Bit, int Count)[] PipArray(IReadOnlyDictionary<ManaColor, int> pips) =>
-        pips
+    private static (int Bit, int Count)[] PipArray(
+        IReadOnlyDictionary<ManaColor, int> pips,
+        int trueColorlessPips,
+        int snowPips,
+        bool colorlessSnow)
+    {
+        if (!colorlessSnow)
+        {
+            return pips
+                .Where(p => p.Key != ManaColor.Colorless && p.Value > 0)
+                .Select(p => (Bit: ColorBit(p.Key), Count: p.Value))
+                .ToArray();
+        }
+
+        var req = pips
             .Where(p => p.Key != ManaColor.Colorless && p.Value > 0)
             .Select(p => (Bit: ColorBit(p.Key), Count: p.Value))
-            .ToArray();
+            .ToList();
+        if (trueColorlessPips > 0)
+        {
+            req.Add((TrueColorlessBit, trueColorlessPips));
+        }
+
+        if (snowPips > 0)
+        {
+            req.Add((SnowBit, snowPips));
+        }
+
+        return req.ToArray();
+    }
 
     private static void AddSourcesAsCards(
         ManabaseDeck deck,
@@ -903,6 +941,7 @@ public static class CastabilitySimulator
         IReadOnlyDictionary<string, int> rampCostByName,
         IReadOnlyDictionary<string, (int Bit, int Count)[]>? rampPipsByName,
         bool useManaQuantity,
+        bool colorlessSnow,
         string? excludeSourceName)
     {
         // 70-03b self-exclusion: when scoring a land-ramp spell's OWN row, the single physical copy is
@@ -930,7 +969,7 @@ public static class CastabilitySimulator
                 continue;
             }
 
-            int mask = ColorsToMask(source.Produces);
+            int mask = ColorsToMask(source, colorlessSnow);
             int countTypeMask = BasicTypeMask(source.CountTypeFilter);
             int basicTypeMask = BasicTypeMask(source);
 
@@ -1046,6 +1085,27 @@ public static class CastabilitySimulator
         foreach (ManaColor c in colors)
         {
             mask |= ColorBit(c);
+        }
+
+        return mask;
+    }
+
+    private static int ColorsToMask(ManaSource source, bool colorlessSnow)
+    {
+        int mask = ColorsToMask(source.Produces);
+        if (!colorlessSnow)
+        {
+            return mask;
+        }
+
+        if (source.ProducesColorless)
+        {
+            mask |= TrueColorlessBit;
+        }
+
+        if (source.IsSnow)
+        {
+            mask |= SnowBit;
         }
 
         return mask;
@@ -2356,6 +2416,19 @@ public static class CastabilitySimulator
             {
                 max = pip.Value;
                 worst = pip.Key;
+            }
+        }
+
+        if (max == 0)
+        {
+            if (spell.SnowPips > spell.TrueColorlessPips)
+            {
+                return "Snow";
+            }
+
+            if (spell.TrueColorlessPips > 0)
+            {
+                return ManaColor.Colorless.ToString();
             }
         }
 

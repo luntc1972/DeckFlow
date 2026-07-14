@@ -126,6 +126,56 @@ public sealed class CastabilitySimulatorCoverageTests
     }
 
     [Fact]
+    public void Simulate_TrueColorlessPip_RequiresColorlessProducer_WhenFlagEnabled()
+    {
+        ManabaseDeck noColorless = MonoBlueDeck(islands: 40);
+        ManabaseDeck withWastes = MonoBlueDeck(islands: 39) with
+        {
+            Sources = MonoBlueDeck(islands: 39).Sources.Append(
+                new ManaSource
+                {
+                    Name = "Wastes",
+                    Produces = new[] { ManaColor.Colorless },
+                    ProducesColorless = true,
+                }).ToList(),
+        };
+        var warpingWail = Spell("Warping Wail", manaValue: 2, Array.Empty<(ManaColor Color, int Count)>(), trueColorlessPips: 1);
+
+        CardCastability off = Simulate(noColorless, warpingWail, effectiveTurn: 2, colorlessSnow: false);
+        CardCastability onWithoutProducer = Simulate(noColorless, warpingWail, effectiveTurn: 2, colorlessSnow: true);
+        CardCastability onWithProducer = Simulate(withWastes, warpingWail, effectiveTurn: 2, colorlessSnow: true);
+
+        Assert.True(off.CastPercent > 0);
+        Assert.Equal(0, onWithoutProducer.CastPercent);
+        Assert.True(onWithProducer.CastPercent > onWithoutProducer.CastPercent);
+    }
+
+    [Fact]
+    public void Simulate_SnowPip_RequiresSnowSource_WhenFlagEnabled()
+    {
+        ManabaseDeck regularIslandDeck = MonoBlueDeck(islands: 40);
+        ManabaseDeck snowIslandDeck = MonoBlueDeck(islands: 39) with
+        {
+            Sources = MonoBlueDeck(islands: 39).Sources.Append(
+                new ManaSource
+                {
+                    Name = "Snow-Covered Island",
+                    Produces = new[] { ManaColor.Blue },
+                    IsSnow = true,
+                }).ToList(),
+        };
+        var astrolabe = Spell("Arcum's Astrolabe", manaValue: 1, Array.Empty<(ManaColor Color, int Count)>(), snowPips: 1);
+
+        CardCastability off = Simulate(regularIslandDeck, astrolabe, effectiveTurn: 1, colorlessSnow: false);
+        CardCastability onWithoutSnow = Simulate(regularIslandDeck, astrolabe, effectiveTurn: 1, colorlessSnow: true);
+        CardCastability onWithSnow = Simulate(snowIslandDeck, astrolabe, effectiveTurn: 1, colorlessSnow: true);
+
+        Assert.True(off.CastPercent > 0);
+        Assert.Equal(0, onWithoutSnow.CastPercent);
+        Assert.True(onWithSnow.CastPercent > onWithoutSnow.CastPercent);
+    }
+
+    [Fact]
     public void Simulate_ScreenHand_MulliganRecoversCheapSpell()
     {
         // London mulligan SCREEN band: a deck that routinely draws a land-light opener (few lands,
@@ -237,16 +287,32 @@ public sealed class CastabilitySimulatorCoverageTests
         Assert.Equal(2.0, row.AverageDelay);
     }
 
-    private static CardCastability Simulate(ManabaseDeck deck, SpellRequirement spell, int effectiveTurn)
-        => CastabilitySimulator.Simulate(deck, deck.TotalCards - deck.CommanderCount, spell, effectiveTurn, genericReduction: 0);
+    private static CardCastability Simulate(ManabaseDeck deck, SpellRequirement spell, int effectiveTurn, bool colorlessSnow = false)
+        => CastabilitySimulator.Simulate(
+            deck,
+            deck.TotalCards - deck.CommanderCount,
+            spell,
+            effectiveTurn,
+            genericReduction: 0,
+            colorlessSnow: colorlessSnow);
 
-    private static SpellRequirement Spell(string name, int manaValue, params (ManaColor Color, int Count)[] pips) => new()
-    {
-        Name = name,
-        ManaValue = manaValue,
-        Pips = pips.ToDictionary(p => p.Color, p => p.Count),
-        IsGold = pips.Count(p => p.Color != ManaColor.Colorless) >= 2,
-    };
+    private static SpellRequirement Spell(string name, int manaValue, params (ManaColor Color, int Count)[] pips)
+        => Spell(name, manaValue, pips, trueColorlessPips: 0, snowPips: 0);
+
+    private static SpellRequirement Spell(
+        string name,
+        int manaValue,
+        IEnumerable<(ManaColor Color, int Count)> pips,
+        int trueColorlessPips = 0,
+        int snowPips = 0) => new()
+        {
+            Name = name,
+            ManaValue = manaValue,
+            Pips = pips.ToDictionary(p => p.Color, p => p.Count),
+            TrueColorlessPips = trueColorlessPips,
+            SnowPips = snowPips,
+            IsGold = pips.Count(p => p.Color != ManaColor.Colorless) >= 2,
+        };
 
     private static ManabaseDeck MonoBlueDeck(int islands)
     {

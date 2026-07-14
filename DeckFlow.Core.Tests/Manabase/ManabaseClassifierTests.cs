@@ -56,6 +56,17 @@ public sealed class ManabaseClassifierTests
     }
 
     [Fact]
+    public void Parse_ColorlessAndSnowPips_TrackDedicatedCounts_WithoutChangingLegacyPips()
+    {
+        ParsedManaCost cost = ManaCostParser.Parse("{2}{C}{S}{S}");
+
+        Assert.Equal(5, cost.ManaValue);
+        Assert.Equal(3, cost.Pips[ManaColor.Colorless]);
+        Assert.Equal(1, cost.TrueColorlessPips);
+        Assert.Equal(2, cost.SnowPips);
+    }
+
+    [Fact]
     public void Classify_ZeroCostSpell_KeepsManaValueZero()
     {
         // Regression: a 0-mana card (Ornithopter, kobolds, Shield Sphere) used to be clamped to
@@ -2014,14 +2025,68 @@ public sealed class ManabaseClassifierTests
         Assert.Equal(0, deck.ScrySourceCreditCopies);
     }
 
+    [Fact]
+    public void Classify_SetsSnowAndColorlessSourceCapabilities_FromTypeLineAndOracleText()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Snow-Covered Island",
+                Quantity = 1,
+                ManaCost = string.Empty,
+                ManaValue = 0,
+                TypeLine = "Snow Land — Island",
+                OracleText = "{T}: Add {U}.",
+                ProducedMana = new[] { "U" },
+                HasLandFace = true,
+            },
+            new()
+            {
+                Name = "Wastes",
+                Quantity = 1,
+                ManaCost = string.Empty,
+                ManaValue = 0,
+                TypeLine = "Basic Land — Wastes",
+                OracleText = "{T}: Add {C}.",
+                ProducedMana = new[] { "C" },
+                HasLandFace = true,
+            },
+            new()
+            {
+                Name = "Sol Ring",
+                Quantity = 1,
+                ManaCost = "{1}",
+                ManaValue = 1,
+                TypeLine = "Artifact",
+                OracleText = "{T}: Add {C}{C}.",
+                ProducedMana = new[] { "C" },
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        ManaSource snowIsland = deck.Sources.Single(source => source.Name == "Snow-Covered Island");
+        ManaSource wastes = deck.Sources.Single(source => source.Name == "Wastes");
+        ManaSource solRing = deck.Sources.Single(source => source.Name == "Sol Ring");
+
+        Assert.True(snowIsland.IsSnow);
+        Assert.False(snowIsland.ProducesColorless);
+        Assert.True(wastes.ProducesColorless);
+        Assert.False(wastes.IsSnow);
+        Assert.True(solRing.ProducesColorless);
+        Assert.False(solRing.IsSnow);
+    }
+
     private static string SourceShape(ManaSource source) =>
         $"{source.Name}|{string.Join(',', source.Produces)}|{source.Weight:F3}|{source.IsLand}|{source.EntersUntapped}|"
-        + $"{source.ManaAmount}|{source.IsConditional}|{source.CountCondition}|{source.CountThreshold}|"
+        + $"{source.ManaAmount}|{source.IsConditional}|{source.ProducesColorless}|{source.IsSnow}|"
+        + $"{source.CountCondition}|{source.CountThreshold}|"
         + $"{string.Join(',', source.CountTypeFilter)}";
 
     private static string SpellShape(SpellRequirement spell) =>
         $"{spell.Name}|{spell.ManaValue}|{string.Join(',', spell.Pips.OrderBy(p => p.Key).Select(p => $"{p.Key}:{p.Value}"))}|"
-        + $"{spell.IsGold}|{spell.IsManaSource}|{spell.Kinds}|{spell.PlanRoles}|{spell.IsCommander}|{spell.IsCostOverridden}";
+        + $"{spell.TrueColorlessPips}|{spell.SnowPips}|{spell.IsGold}|{spell.IsManaSource}|{spell.Kinds}|{spell.PlanRoles}|{spell.IsCommander}|{spell.IsCostOverridden}";
 
     private static CardFact CreatureSpell(string name, string manaCost, string typeLine) => new()
     {

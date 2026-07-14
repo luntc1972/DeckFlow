@@ -16,6 +16,12 @@ public sealed record ParsedManaCost
 
     /// <summary>True if the cost contains X/Y/Z — the printed mana value is not the real cast turn.</summary>
     public bool HasVariableCost { get; init; }
+
+    /// <summary>Count of true <c>{C}</c> pips in the printed cost. Additive; legacy <see cref="Pips"/> stays unchanged.</summary>
+    public int TrueColorlessPips { get; init; }
+
+    /// <summary>Count of <c>{S}</c> pips in the printed cost. Additive; legacy <see cref="Pips"/> stays unchanged.</summary>
+    public int SnowPips { get; init; }
 }
 
 /// <summary>
@@ -34,6 +40,8 @@ public static class ManaCostParser
         var pips = new Dictionary<ManaColor, int>();
         int manaValue = 0;
         bool variable = false;
+        int trueColorlessPips = 0;
+        int snowPips = 0;
 
         if (string.IsNullOrWhiteSpace(manaCost))
         {
@@ -73,9 +81,24 @@ public static class ManaCostParser
 
             manaValue += 1;
             pips[color.Value] = pips.GetValueOrDefault(color.Value) + 1;
+            if (token == "C")
+            {
+                trueColorlessPips++;
+            }
+            else if (token == "S")
+            {
+                snowPips++;
+            }
         }
 
-        return new ParsedManaCost { ManaValue = manaValue, Pips = pips, HasVariableCost = variable };
+        return new ParsedManaCost
+        {
+            ManaValue = manaValue,
+            Pips = pips,
+            HasVariableCost = variable,
+            TrueColorlessPips = trueColorlessPips,
+            SnowPips = snowPips,
+        };
     }
 
     /// <summary>

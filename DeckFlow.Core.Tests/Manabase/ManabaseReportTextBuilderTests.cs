@@ -632,6 +632,44 @@ public sealed class ManabaseReportTextBuilderTests
         Assert.Contains("(2 cheap scry spells × 0.2)", output, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Build_WithColorlessAndSnowRequirementRows_UsesDedicatedLabels()
+    {
+        var report = new ManabaseReport
+        {
+            ActualLands = 24,
+            TargetLands = 24.0,
+            ColorFindings = new List<ColorSourceFinding>
+            {
+                new()
+                {
+                    Color = ManaColor.Colorless,
+                    DisplayColor = "Colorless",
+                    ActualSources = 10.0,
+                    RequiredSources = 10,
+                    DrivingSpell = "Thought-Knot Seer",
+                },
+                new()
+                {
+                    Color = ManaColor.Colorless,
+                    DisplayColor = "Snow",
+                    ActualSources = 14.0,
+                    RequiredSources = 14,
+                    DrivingSpell = "Arcum's Astrolabe",
+                },
+            },
+            Mode = ManabaseMode.Casual,
+            Summary = "Category rows test.",
+        };
+
+        string output = ManabaseReportTextBuilder.Build(report, null, null);
+
+        Assert.Contains("Colorless", output, StringComparison.Ordinal);
+        Assert.Contains("Thought-Knot Seer", output, StringComparison.Ordinal);
+        Assert.Contains("Snow", output, StringComparison.Ordinal);
+        Assert.Contains("Arcum's Astrolabe", output, StringComparison.Ordinal);
+    }
+
     // --- TAP-01/TAP-02 (Phase 75) ----------------------------------------
     // Byte-identity is GREEN now (tap=null appends nothing). The content/omit facts are RED until
     // plan 75-02 appends the "Untapped Sources:" block.

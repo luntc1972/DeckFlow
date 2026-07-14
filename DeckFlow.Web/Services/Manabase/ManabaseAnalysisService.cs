@@ -241,6 +241,12 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     public const string ScryCreditFlagKey = "analysis.manabase.scry-credit";
 
     /// <summary>
+    /// Colorless/snow requirement flag key: seeded ON. Tracks true <c>{C}</c> and snow <c>{S}</c>
+    /// costs as separate source categories in the analyzer and castability sim; off = byte-identical.
+    /// </summary>
+    public const string ColorlessSnowFlagKey = "analysis.manabase.colorless-snow";
+
+    /// <summary>
     /// Restricted-lands flag key: seeded OFF. When enabled, the classifier applies the D-03
     /// composition-gated approximation for Cavern/Unclaimed/Ziggurat/Nykthos and surfaces the
     /// deck-level disclosure names; off = byte-identical historic output.
@@ -314,6 +320,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         bool ritualBurst = IsFlagOn(RitualBurstFlagKey);
         bool ritualLandCredit = IsFlagOn(RitualLandCreditFlagKey);
         bool scryCredit = IsFlagOn(ScryCreditFlagKey);
+        bool colorlessSnow = IsFlagOn(ColorlessSnowFlagKey);
         bool restrictedLands = IsFlagOn(RestrictedLandsFlagKey);
         bool cedhLandTarget = IsFlagOn(CedhLandTargetFlagKey);
 
@@ -401,6 +408,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             ritualBurst: ritualBurst,
             ritualLandCredit: ritualLandCredit,
             scryCredit: scryCredit,
+            colorlessSnow: colorlessSnow,
             interactionLens: interactionLens,
             useHealthBandCastability: useHealthBandCastability,
             useHealthBandHeadlineFloor: useHealthBandHeadlineFloor,

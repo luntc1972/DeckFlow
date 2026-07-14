@@ -411,6 +411,38 @@ public sealed class ManabaseViewRenderTests
         Assert.DoesNotContain("Scry source credit:", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ThisDecksNumbers_RendersDedicatedColorlessAndSnowRequirementLabels()
+    {
+        string html = await RenderManabaseViewAsync(
+            BuildPopulatedModel(
+                showTapAnalyzer: false,
+                colorFindings: new List<ColorSourceFinding>
+                {
+                    new()
+                    {
+                        Color = ManaColor.Colorless,
+                        DisplayColor = "Colorless",
+                        ActualSources = 10.0,
+                        RequiredSources = 10,
+                        DrivingSpell = "Thought-Knot Seer",
+                    },
+                    new()
+                    {
+                        Color = ManaColor.Colorless,
+                        DisplayColor = "Snow",
+                        ActualSources = 14.0,
+                        RequiredSources = 14,
+                        DrivingSpell = "Arcum's Astrolabe",
+                    },
+                }));
+
+        Assert.Contains("<strong>Colorless</strong>: 10.0 sources", html, StringComparison.Ordinal);
+        Assert.Contains("Thought-Knot Seer", html, StringComparison.Ordinal);
+        Assert.Contains("<strong>Snow</strong>: 14.0 sources", html, StringComparison.Ordinal);
+        Assert.Contains("Arcum&#x27;s Astrolabe", html, StringComparison.Ordinal);
+    }
+
     // Replace the randomized __RequestVerificationToken value with a constant so two renders of the
     // same model differ only by intentional content (here: the tap card).
     private static string NormalizeAntiForgery(string html) =>
@@ -455,7 +487,8 @@ public sealed class ManabaseViewRenderTests
         double ritualLandCredit = 0.0,
         int netPositiveRitualCount = 0,
         double scrySourceCredit = 0.0,
-        int scrySourceCreditCopies = 0) => new()
+        int scrySourceCreditCopies = 0,
+        IReadOnlyList<ColorSourceFinding>? colorFindings = null) => new()
         {
             Request = new ManabaseRequest
             {
@@ -463,7 +496,7 @@ public sealed class ManabaseViewRenderTests
                 Mode = mode,
             },
             InputSummary = "Test deck · 99 cards + 1 commander",
-            Report = ReportWithTapAnalysis(mode, includeCedhRange, cedhSafetyFloor, cedhBaselineBlended, ritualLandCredit, netPositiveRitualCount, scrySourceCredit, scrySourceCreditCopies),
+            Report = ReportWithTapAnalysis(mode, includeCedhRange, cedhSafetyFloor, cedhBaselineBlended, ritualLandCredit, netPositiveRitualCount, scrySourceCredit, scrySourceCreditCopies, colorFindings),
             ShowTapAnalyzer = showTapAnalyzer,
             ShowMulliganEval = showMulliganEval,
             ShowPlanPresence = showPlanPresence,
@@ -500,7 +533,8 @@ public sealed class ManabaseViewRenderTests
         double ritualLandCredit,
         int netPositiveRitualCount,
         double scrySourceCredit,
-        int scrySourceCreditCopies) => new()
+        int scrySourceCreditCopies,
+        IReadOnlyList<ColorSourceFinding>? colorFindings) => new()
         {
             ActualLands = 36,
             TargetLands = 37.0,
@@ -512,25 +546,25 @@ public sealed class ManabaseViewRenderTests
             BaselineMonth = includeCedhRange ? "2026-07" : null,
             ScrySourceCredit = scrySourceCredit,
             ScrySourceCreditCopies = scrySourceCreditCopies,
-            ColorFindings = new List<ColorSourceFinding>
-        {
-            new()
+            ColorFindings = colorFindings ?? new List<ColorSourceFinding>
             {
-                Color = ManaColor.White,
-                ActualSources = 20.0,
-                RequiredSources = 18,
-                DrivingSpell = "Swords to Plowshares",
-                UntappedSources = 16.0,
+                new()
+                {
+                    Color = ManaColor.White,
+                    ActualSources = 20.0,
+                    RequiredSources = 18,
+                    DrivingSpell = "Swords to Plowshares",
+                    UntappedSources = 16.0,
+                },
+                new()
+                {
+                    Color = ManaColor.Blue,
+                    ActualSources = 16.0,
+                    RequiredSources = 14,
+                    DrivingSpell = "Counterspell",
+                    UntappedSources = 13.5,
+                },
             },
-            new()
-            {
-                Color = ManaColor.Blue,
-                ActualSources = 16.0,
-                RequiredSources = 14,
-                DrivingSpell = "Counterspell",
-                UntappedSources = 13.5,
-            },
-        },
             Mode = mode,
             Summary = "Mana base looks fine for this test.",
             LandTarget = new ManabaseLandTargetBreakdown
