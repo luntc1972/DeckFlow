@@ -33,6 +33,10 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public int GetDistinctProcessedCommanderCountCalls { get; private set; }
 
+    public IReadOnlyList<CategoryKnowledgeRow> CategoryRowsResult { get; set; } = Array.Empty<CategoryKnowledgeRow>();
+
+    public int CommanderDeckCount { get; set; }
+
     public IReadOnlyList<HarvestedCommanderRow> PagedCommandersResult { get; set; } = Array.Empty<HarvestedCommanderRow>();
 
     public int LastPagedCommanderPage { get; private set; }
@@ -144,8 +148,8 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         => Task.FromResult(CardDeckTotals.Empty);
 
     public Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsForCommanderAsync(string commanderName, CancellationToken cancellationToken = default)
-        => Task.FromResult<IReadOnlyList<CategoryKnowledgeRow>>(Array.Empty<CategoryKnowledgeRow>());
+        => Task.FromResult(CategoryRowsResult);
 
     public Task<int> GetCommanderDeckCountAsync(string commanderName, CancellationToken cancellationToken = default)
-        => Task.FromResult(0);
+        => Task.FromResult(CommanderDeckCount);
 }

@@ -138,7 +138,7 @@ public sealed class SuggestionsApiControllerTests
         var result = new CommanderCategoryResult(
             "Bello",
             new[] { new CategoryKnowledgeRow("Ramp", "Birds of Paradise", 2) },
-            new[] { new CommanderCategorySummary("Ramp", 2, 2) },
+            new[] { new CommanderCategorySummary("Ramp", 2, 2, 0.5d) },
             8,
             new CardDeckTotals(4, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["commander"] = 4 }));
 

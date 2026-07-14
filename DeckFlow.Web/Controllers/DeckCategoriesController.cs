@@ -108,6 +108,11 @@ public sealed class DeckCategoriesController : DeckToolControllerBase
             using var timeoutCts = CreateTimeoutScope(SuggestionTimeout);
             var cancellationToken = timeoutCts.Token;
             var result = await _categorySuggestionService.SuggestAsync(request, cancellationToken);
+            var merged = CategorySuggestionReporter.Merge(
+                result.ExactCategories,
+                result.InferredCategories,
+                result.EdhrecCategories,
+                result.TaggerCategories);
             var lookupMessage = result.NothingFound
                 ? CategorySuggestionMessageBuilder.BuildNoSuggestionsMessage(result.CardName, result.CardDeckTotals)
                 : null;
@@ -115,6 +120,7 @@ public sealed class DeckCategoriesController : DeckToolControllerBase
             {
                 ActiveTab = DeckPageTab.SuggestCategories,
                 SuggestionRequest = request,
+                MergedCategoriesText = CategorySuggestionReporter.ToText(merged, result.CardName),
                 ExactSuggestedCategoriesText = CategorySuggestionReporter.ToText(result.ExactCategories, result.CardName),
                 ExactSuggestionContextText = "These are exact card-name matches found in the Archidekt reference deck you provided.",
                 InferredCategoriesText = CategorySuggestionReporter.ToText(result.InferredCategories, result.CardName),

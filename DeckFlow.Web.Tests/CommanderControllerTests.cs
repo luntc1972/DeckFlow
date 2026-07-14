@@ -31,8 +31,8 @@ public sealed class CommanderControllerTests
 
         var summaries = new[]
         {
-            new CommanderCategorySummary("Ramp", 4, 3),
-            new CommanderCategorySummary("Draw", 2, 2)
+            new CommanderCategorySummary("Ramp", 4, 3, 0.3d),
+            new CommanderCategorySummary("Draw", 2, 2, 0.2d)
         };
 
         var cardTotals = new CardDeckTotals(2, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
