@@ -2993,6 +2993,10 @@ label.field > span,
   grid-template-columns: 1fr;
 }
 
+.manabase-twolens--triple {
+  grid-template-columns: repeat(3, 1fr);
+}
+
 @media (max-width: 640px) {
   .manabase-result-heading {
     align-items: flex-start;
