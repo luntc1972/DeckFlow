@@ -108,7 +108,7 @@ Prompt-cache note (D-15 discretion): grep confirms NO manabase artifact replay c
     - DeckFlow.Core/Manabase/ManabaseAnalyzer.cs (new interactionLens param) and ManabaseSwapPromptBuilder.cs (new interactionLens param)
   </read_first>
   <action>
-    Add `public const string CedhInteractionLensFlagKey = "analysis.manabase.cedh-interaction-lens";` with a seeded-ON XML doc (word it like TapAnalyzerFlagKey/MulliganEvalFlagKey, not the seeded-OFF ritual-burst doc). Add `bool interactionLens = IsFlagOn(CedhInteractionLensFlagKey);` in the flag-read block. Pass `interactionLens: interactionLens` into the ManabaseAnalyzer.Analyze call. Add `public bool ShowCedhInteractionLens { get; init; }` to ManabaseAnalysisResult and set it at BOTH assembly sites to `interactionLens && options.Mode == ManabaseMode.Cedh` (match however Mode is referenced at each site). Feed the swap-prompt builder: at both build calls (414, 419) pass `interactionLens: report.InteractionLens` (which is already null unless cEDH+flag-on, so the cEDH-arm gets data and other arms pass null harmlessly). Do not add a manabase replay-cache set (none exists — note this in the SUMMARY as D-15 discretion resolved).
+    Add `public const string CedhInteractionLensFlagKey = "analysis.manabase.cedh-interaction-lens";` with a seeded-ON XML doc (word it like TapAnalyzerFlagKey/MulliganEvalFlagKey, not the seeded-OFF ritual-burst doc). Add `bool interactionLens = IsFlagOn(CedhInteractionLensFlagKey);` in the flag-read block. Pass `interactionLens: interactionLens` into the ManabaseAnalyzer.Analyze call. CRITICAL — plan-role classification gate: the service currently passes `classifyPlanRoles: showPlanPresence` (line 309); if plan-presence is OFF but the interaction lens is ON, PlanRoles would stay None and the lens would falsely report zero qualifying interaction (D-01 violation). Change the argument to `classifyPlanRoles: showPlanPresence || (interactionLens && options.Mode == ManabaseMode.Cedh)` (match however Mode is referenced at that site) so the lens always has role tags when active. Add `public bool ShowCedhInteractionLens { get; init; }` to ManabaseAnalysisResult and set it at BOTH assembly sites to `interactionLens && options.Mode == ManabaseMode.Cedh` (match however Mode is referenced at each site). Feed the swap-prompt builder: at both build calls (414, 419) pass `interactionLens: report.InteractionLens` (which is already null unless cEDH+flag-on, so the cEDH-arm gets data and other arms pass null harmlessly). Do not add a manabase replay-cache set (none exists — note this in the SUMMARY as D-15 discretion resolved).
   </action>
   <verify>
     <automated>grep -n "CedhInteractionLensFlagKey\|ShowCedhInteractionLens\|interactionLens: interactionLens\|interactionLens: report.InteractionLens" DeckFlow.Web/Services/Manabase/ManabaseAnalysisService.cs</automated>
@@ -116,6 +116,7 @@ Prompt-cache note (D-15 discretion): grep confirms NO manabase artifact replay c
   <acceptance_criteria>
     - The flag const exists with seeded-ON doc wording; read via IsFlagOn (fail-safe OFF path unchanged).
     - Analyze is called with interactionLens; ShowCedhInteractionLens is set at BOTH result assembly sites, ANDed with cEDH mode.
+    - classifyPlanRoles argument is `showPlanPresence || (interactionLens && cEDH-mode)` — grep shows the OR at the call site (line ~309).
     - Both swap-prompt build calls receive interactionLens: report.InteractionLens.
     - `dotnet build DeckFlow.Web` clean, 0 new warnings.
   </acceptance_criteria>
@@ -129,7 +130,7 @@ Prompt-cache note (D-15 discretion): grep confirms NO manabase artifact replay c
     - DeckFlow.Web/Services/Manabase/ManabaseAnalysisService.cs (the Task 2 code)
   </read_first>
   <action>
-    Add tests: cEDH deck with the flag ON -> result.ShowCedhInteractionLens is true, report.InteractionLens is non-null, and the produced swapPrompt contains the N/M pair (proving the call-site threading). cEDH deck with the flag OFF -> ShowCedhInteractionLens false, report.InteractionLens null, swapPrompt equals the pre-change generic sentence (byte-identical). Casual deck with the flag ON -> ShowCedhInteractionLens false. Reuse the existing fake IFeatureFlagCache to toggle the key.
+    Add tests: cEDH deck with the flag ON -> result.ShowCedhInteractionLens is true, report.InteractionLens is non-null, and the produced swapPrompt contains the N/M pair (proving the call-site threading). cEDH deck with the flag OFF -> ShowCedhInteractionLens false, report.InteractionLens null, swapPrompt equals the pre-change generic sentence (byte-identical). Casual deck with the flag ON -> ShowCedhInteractionLens false. Plan-role gate test: cEDH deck with plan-presence flag OFF + interaction lens ON containing a known cheap interaction spell -> report.InteractionLens.QualifyingCount > 0 (proves classifyPlanRoles fires for the lens independently of plan-presence). Reuse the existing fake IFeatureFlagCache to toggle the keys.
   </action>
   <verify>
     <automated>build DeckFlow.Web.Tests clean and run the new ManabaseAnalysisServiceTests cases via `dotnet test --filter` (record manual-harness result in SUMMARY if WSL VSTest cannot run).</automated>
@@ -138,6 +139,7 @@ Prompt-cache note (D-15 discretion): grep confirms NO manabase artifact replay c
     - Flag-on cEDH test asserts ShowCedhInteractionLens true + non-null lens + N/M in swapPrompt.
     - Flag-off test asserts byte-identical swapPrompt and null lens.
     - Casual-flag-on test asserts ShowCedhInteractionLens false.
+    - Plan-presence-OFF + lens-ON test asserts QualifyingCount > 0 (role tagging active for the lens).
     - `dotnet build DeckFlow.Web.Tests` clean, 0 new warnings.
   </acceptance_criteria>
   <done>Flag behavior and swap-prompt lens content are test-locked.</done>
