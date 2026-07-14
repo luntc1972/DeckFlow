@@ -1104,6 +1104,55 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_CedhInteractionLensFlagOn_InstantInteractionUsesPreGateSignal_WhilePlanRoleStaysStripped()
+    {
+        var (entries, cards) = CedhInstantInteractionFixture();
+        var service = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.CedhInteractionLensFlagKey] = true,
+                [ManabaseAnalysisService.MulliganEvalFlagKey] = true,
+                [ManabaseAnalysisService.PlanPresenceFlagKey] = true,
+            }));
+
+        var result = await service.AnalyzeAsync(
+            "paste", "Instant Interaction Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Cedh });
+
+        ManabaseInteractionLens lens = Assert.IsType<ManabaseInteractionLens>(result.Report.InteractionLens);
+        Assert.True(lens.QualifyingCount > 0);
+        Assert.Contains(lens.Rows, row => row.Name == "Counterspell");
+
+        IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(
+            entries.Select(entry => new DeckCardEntry
+            {
+                Card = ScryfallCardDataMapper.ToCardData(cards.Single(card => card.Name == entry.Name)),
+                Quantity = entry.Quantity,
+                IsCommander = string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase),
+            }).ToList());
+        ManabaseDeck classified = ManabaseClassifier.Classify(
+            facts,
+            isSingleton: true,
+            rampCreditV2: false,
+            landRampSim: false,
+            payLifeUntapped: false,
+            checkLandUntapped: false,
+            restrictedLands: false);
+
+        MethodInfo tagPlanRoles = typeof(ManabaseAnalysisService).GetMethod(
+            "TagPlanRolesAsync",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        Task<ManabaseDeck> tagTask = (Task<ManabaseDeck>)tagPlanRoles.Invoke(
+            service,
+            new object[] { classified, facts, entries, ManabaseMode.Cedh, CancellationToken.None })!;
+        ManabaseDeck tagged = await tagTask;
+        SpellRequirement counterspell = Assert.Single(tagged.Spells, spell => spell.Name == "Counterspell");
+        Assert.False(counterspell.PlanRoles.HasFlag(PlanRole.Interaction));
+        Assert.True(counterspell.IsInteractionSpell);
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_PlanPresenceFlagsOn_FetchesCategoriesInOneBatch()
     {
         // Regression (Sokka-deck timeout): plan-role tagging fetched each spell's categories in its own
@@ -1572,6 +1621,31 @@ public sealed class ManabaseAnalysisServiceTests
             string name = $"Interaction Filler {i}";
             entries.Add(Entry(name, 1, "mainboard"));
             cards.Add(Spell(name, "{2}{W}", 3, "Sorcery"));
+        }
+
+        return (entries, cards);
+    }
+
+    private static (List<DeckEntry> Entries, List<ScryfallCard> Cards) CedhInstantInteractionFixture()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Baral, Chief of Compliance", 1, "commander"),
+            Land("Island", 34),
+            Entry("Counterspell", 1, "mainboard"),
+        };
+        var cards = new List<ScryfallCard>
+        {
+            BasicLand("Island", "U"),
+            Spell("Baral, Chief of Compliance", "{1}{U}", 2, "Legendary Creature — Human Wizard"),
+            Spell("Counterspell", "{U}{U}", 2, "Instant"),
+        };
+
+        for (int i = 0; i < 63; i++)
+        {
+            string name = $"Instant Interaction Filler {i}";
+            entries.Add(Entry(name, 1, "mainboard"));
+            cards.Add(Spell(name, "{2}{U}", 3, "Sorcery"));
         }
 
         return (entries, cards);

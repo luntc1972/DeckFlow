@@ -172,6 +172,23 @@ public sealed class PlanRoleClassifierTests
         Assert.Equal(PlanRole.None, roles);
     }
 
+    [Fact]
+    public void Classify_CedhInstantCounter_PreservesPreGateInteractionSignal_WhileReturningNone()
+    {
+        CardFact fact = Fact("Instant", "Counter target spell.");
+
+        PlanRole roles = PlanRoleClassifier.Classify(
+            fact,
+            Array.Empty<string>(),
+            isComboPiece: false,
+            ManabaseMode.Cedh,
+            out bool interactionMeritPreGate);
+
+        Assert.True(interactionMeritPreGate);
+        Assert.False(roles.HasFlag(PlanRole.Interaction));
+        Assert.Equal(PlanRole.None, roles);
+    }
+
     [Theory]
     [InlineData("Instant", "Destroy target creature.")]          // removal → Interaction (stripped)
     [InlineData("Sorcery", "Take an extra turn after this one.")] // extra-turn finisher → Payoff (stripped)
