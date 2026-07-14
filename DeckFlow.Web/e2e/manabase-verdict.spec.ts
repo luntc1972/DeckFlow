@@ -118,6 +118,7 @@ test('casual issue deck shows glosses, an issue verdict list, and ramp/draw budg
   }
 
   await expect(result.locator('.manabase-rampdraw')).toBeVisible();
+  await expect(result.locator('.manabase-rampdraw')).toHaveClass(/manabase-lens/);
 });
 
 test('casual clean deck shows the why-it-is-fine verdict with no issue list', async ({ page }) => {
@@ -130,6 +131,7 @@ test('casual clean deck shows the why-it-is-fine verdict with no issue list', as
   await expect(result.locator('.manabase-verdict-fine')).toBeVisible();
   await expect(result.locator('.manabase-verdict-list')).toHaveCount(0);
   await expect(result.locator('.manabase-rampdraw')).toBeVisible();
+  await expect(result.locator('.manabase-rampdraw')).toHaveClass(/manabase-lens/);
 });
 
 test('cedh shows glosses but suppresses the casual-only verdict and ramp/draw advisory', async ({ page }) => {
