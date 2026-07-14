@@ -209,7 +209,7 @@
     IReadOnlyList<CardCastability> castRows = Model.ShowCommanderCastability
         ? report.Castability.Where(c => !c.IsCommander).ToList()
         : report.Castability;
-    IReadOnlyList<CardCastability> trackedCastRows = castRows.Count > 0 ? castRows : report.Castability;
+    IReadOnlyList<CardCastability> trackedCastRows = report.Castability.Where(c => !c.IsCommander).ToList() is { Count: > 0 } trackedRows ? trackedRows : report.Castability;
     var commanderRows = report.Castability.Where(c => c.IsCommander).ToList();
     string commanderNames = commanderRows.Count > 0
         ? string.Join(" / ", commanderRows.Select(c => c.Name))
