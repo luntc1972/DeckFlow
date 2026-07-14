@@ -869,6 +869,79 @@ public sealed class ManabaseAnalyzerTests
         Assert.Equal(0, noRituals.LandTarget.NetPositiveRitualCount);
     }
 
+    [Fact]
+    public void Analyze_InteractionLens_IsNull_InCasualMode_EvenWhenFlagOn()
+    {
+        ManabaseReport report = ManabaseAnalyzer.Analyze(
+            BuildInteractionLensDeck(withReducer: false),
+            ManabaseMode.Casual,
+            interactionLens: true);
+
+        Assert.Null(report.InteractionLens);
+    }
+
+    [Fact]
+    public void Analyze_InteractionLens_IsNull_InCedhMode_WhenFlagOff()
+    {
+        ManabaseReport report = ManabaseAnalyzer.Analyze(
+            BuildInteractionLensDeck(withReducer: false),
+            ManabaseMode.Cedh,
+            interactionLens: false);
+
+        Assert.Null(report.InteractionLens);
+    }
+
+    [Fact]
+    public void Analyze_InteractionLens_FiltersByInteractionAndPostOverrideManaValue_AndSortsWorstFirst()
+    {
+        var overrides = new Dictionary<string, string>
+        {
+            ["Fierce Guardianship"] = "0",
+        };
+
+        ManabaseReport report = ManabaseAnalyzer.Analyze(
+            BuildInteractionLensDeck(withReducer: true),
+            ManabaseMode.Cedh,
+            costOverrides: overrides,
+            interactionLens: true);
+
+        ManabaseInteractionLens lens = Assert.IsType<ManabaseInteractionLens>(report.InteractionLens);
+
+        Assert.Equal(3, lens.QualifyingCount);
+        Assert.Equal(2, lens.OnTargetCount);
+        Assert.Equal(88, lens.Threshold);
+        Assert.Equal(
+            new[] { "Red Blast", "Counterspell", "Fierce Guardianship" },
+            lens.Rows.Select(r => r.Name).ToArray());
+        Assert.Equal(0, lens.Rows[0].HoldablePercent);
+        Assert.InRange(lens.Rows[1].HoldablePercent, 88, 100);
+        Assert.Equal(100, lens.Rows[2].HoldablePercent);
+        Assert.True(lens.Rows[0].HoldablePercent <= lens.Rows[1].HoldablePercent);
+        Assert.True(lens.Rows[1].HoldablePercent <= lens.Rows[2].HoldablePercent);
+        Assert.True(lens.Rows.Single(r => r.Name == "Fierce Guardianship").IsCostOverridden);
+        Assert.DoesNotContain(lens.Rows, r => r.Name == "Exclude Printed Three");
+        Assert.DoesNotContain(lens.Rows, r => r.Name == "Reducer Only Three");
+
+        CardCastability reducerOnlyRow = report.Castability.Single(c => c.Name == "Reducer Only Three");
+        Assert.True(reducerOnlyRow.OnCurveTurn <= 2, $"reducer-only test needs an early reduced turn, got {reducerOnlyRow.OnCurveTurn}");
+    }
+
+    [Fact]
+    public void Analyze_InteractionLens_WithNoQualifyingSpells_ReturnsPopulatedEmptyState()
+    {
+        ManabaseReport report = ManabaseAnalyzer.Analyze(
+            BuildNoQualifyingInteractionLensDeck(),
+            ManabaseMode.Cedh,
+            interactionLens: true);
+
+        ManabaseInteractionLens lens = Assert.IsType<ManabaseInteractionLens>(report.InteractionLens);
+
+        Assert.Equal(0, lens.QualifyingCount);
+        Assert.Equal(0, lens.OnTargetCount);
+        Assert.Equal(88, lens.Threshold);
+        Assert.Empty(lens.Rows);
+    }
+
     private static ManabaseDeck BuildReducerDeck(bool withReducer)
     {
         var sources = new List<ManaSource>();
@@ -900,6 +973,117 @@ public sealed class ManabaseAnalyzerTests
             Sources = sources,
             Spells = spells,
             CostReduction = reducers,
+        };
+    }
+
+    private static ManabaseDeck BuildInteractionLensDeck(bool withReducer)
+    {
+        var sources = new List<ManaSource>();
+        for (int i = 0; i < 36; i++)
+        {
+            sources.Add(new ManaSource { Name = $"Island {i}", Produces = new[] { ManaColor.Blue } });
+        }
+
+        var spells = new List<SpellRequirement>
+        {
+            new()
+            {
+                Name = "Fierce Guardianship",
+                ManaValue = 4,
+                Pips = Pip((ManaColor.Blue, 1)),
+                PlanRoles = PlanRole.Interaction,
+                Kinds = SpellKinds.Instant,
+            },
+            new()
+            {
+                Name = "Counterspell",
+                ManaValue = 2,
+                Pips = Pip((ManaColor.Blue, 2)),
+                PlanRoles = PlanRole.Interaction,
+                Kinds = SpellKinds.Instant,
+            },
+            new()
+            {
+                Name = "Red Blast",
+                ManaValue = 1,
+                Pips = Pip((ManaColor.Red, 1)),
+                PlanRoles = PlanRole.Interaction,
+                Kinds = SpellKinds.Instant,
+            },
+            new()
+            {
+                Name = "Exclude Printed Three",
+                ManaValue = 3,
+                Pips = Pip((ManaColor.Blue, 1)),
+                PlanRoles = PlanRole.Interaction,
+                Kinds = SpellKinds.Instant,
+            },
+            new()
+            {
+                Name = "Reducer Only Three",
+                ManaValue = 3,
+                Pips = Pip((ManaColor.Blue, 1)),
+                PlanRoles = PlanRole.Interaction,
+                Kinds = SpellKinds.Instant,
+            },
+            new()
+            {
+                Name = "Rhystic Study",
+                ManaValue = 3,
+                Pips = Pip((ManaColor.Blue, 1)),
+                PlanRoles = PlanRole.Engine,
+            },
+        };
+
+        var reducers = withReducer
+            ? new List<CostReducer> { new() { GenericReduction = 1, Scope = ReductionScope.InstantSorcery, SourceManaValue = 2 } }
+            : new List<CostReducer>();
+
+        return new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            AverageManaValue = 2.0,
+            Sources = sources,
+            Spells = spells,
+            CostReduction = reducers,
+            IsSingleton = true,
+        };
+    }
+
+    private static ManabaseDeck BuildNoQualifyingInteractionLensDeck()
+    {
+        var sources = new List<ManaSource>();
+        for (int i = 0; i < 36; i++)
+        {
+            sources.Add(new ManaSource { Name = $"Plains {i}", Produces = new[] { ManaColor.White } });
+        }
+
+        return new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            AverageManaValue = 2.5,
+            Sources = sources,
+            Spells = new List<SpellRequirement>
+            {
+                new()
+                {
+                    Name = "Rhystic Study",
+                    ManaValue = 3,
+                    Pips = Pip((ManaColor.Blue, 1)),
+                    PlanRoles = PlanRole.Engine,
+                },
+                new()
+                {
+                    Name = "Force of Negation",
+                    ManaValue = 3,
+                    Pips = Pip((ManaColor.Blue, 1)),
+                    PlanRoles = PlanRole.Interaction,
+                    Kinds = SpellKinds.Instant,
+                },
+            },
+            IsSingleton = true,
         };
     }
 
