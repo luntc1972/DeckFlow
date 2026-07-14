@@ -1,7 +1,7 @@
 ---
 phase: mbgap-09-cedh-castability-surface
 plan: 06
-status: pending-human-verify
+status: complete
 executor: codex gpt-5.4 (cross-AI), reviewed + committed by Claude
 commits:
   - e3b54508 feat(MBGAP-09-06): cEDH early-interaction lens UI
@@ -44,6 +44,6 @@ Live e2e run rendered **0 / 0** — the plan-presence permanent gate in `PlanRol
 - Three strict-mode locator fixes applied by Claude during verification (trivial test-only edits).
 - Mid-plan fix commits 32da92c6/8a9d0efc extend Plans 01/02/04 files — documented above.
 
-## Human-verify checkpoint: PENDING user approval (screenshots under .planning/ui-design/mbgap-09/screenshots/)
+## Human-verify checkpoint: APPROVED by user 2026-07-13
 
-## Self-Check: PASSED (pending checkpoint)
+## Self-Check: PASSED
