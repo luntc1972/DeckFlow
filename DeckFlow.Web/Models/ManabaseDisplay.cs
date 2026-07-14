@@ -15,6 +15,9 @@ public static class ManabaseDisplay
     /// <summary>Maximum number of castability rows shown before the "show more" expander appears.</summary>
     public const int MaxVisibleCastabilityRows = 20;
 
+    /// <summary>Number of interaction rows kept visible before the lens uses progressive disclosure.</summary>
+    public const int DefaultVisibleInteractionCount = 5;
+
     /// <summary>
     /// Castability rows at or above this percentage count as "good" for the default table cap. All
     /// sub-threshold rows stay visible by default; this only affects which already-good rows can be
@@ -34,6 +37,10 @@ public static class ManabaseDisplay
     /// <summary>UI-only gloss for the simulated cast-rate metric.</summary>
     public const string CastRateGloss =
         "Across simulated games, how often your spells are castable on or before their ideal turn. Higher = smoother.";
+
+    /// <summary>UI-only gloss for the cEDH early-interaction metric.</summary>
+    public const string CedhInteractionLensGloss =
+        "By-turn-3 untapped interaction availability assumes you hold mana open.";
 
     /// <summary>UI-only gloss for the weakest-color callout.</summary>
     public const string WeakestColorGloss =
@@ -117,6 +124,15 @@ public static class ManabaseDisplay
     /// </summary>
     public static (string Css, string Marker) KeepableMarker(string keepableBand)
         => string.Equals(keepableBand, "high", StringComparison.OrdinalIgnoreCase)
+            ? ("manabase-lens-met", "✓")
+            : ("manabase-lens-short", "⚠");
+
+    /// <summary>
+    /// Maps an interaction spell's by-turn-3 holdable percent to a (cssClass, glyph) pair using the
+    /// lens threshold supplied by the report model.
+    /// </summary>
+    public static (string Css, string Marker) InteractionHoldableMarker(int holdablePercent, int threshold)
+        => holdablePercent >= threshold
             ? ("manabase-lens-met", "✓")
             : ("manabase-lens-short", "⚠");
 
@@ -233,6 +249,28 @@ public static class ManabaseDisplay
         }
 
         return $"Showing the {visibleCount} hardest casts — {hiddenCount} more at {hiddenFloor}%+ are fine.";
+    }
+
+    /// <summary>
+    /// Human summary for the capped cEDH interaction lens list, describing the hidden remainder.
+    /// </summary>
+    public static string InteractionSummaryText(IReadOnlyList<ManabaseInteractionRow> allRows, int visibleCount)
+    {
+        ArgumentNullException.ThrowIfNull(allRows);
+
+        if (allRows.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        visibleCount = Math.Clamp(visibleCount, 0, allRows.Count);
+        int hiddenCount = allRows.Count - visibleCount;
+        if (hiddenCount <= 0)
+        {
+            return $"Showing all {allRows.Count} interaction {(allRows.Count == 1 ? "row" : "rows")}.";
+        }
+
+        return $"Showing the {visibleCount} weakest interaction holds — {hiddenCount} more are hidden.";
     }
 
     /// <summary>Human label for an analysis mode (used in the results echo line).</summary>
