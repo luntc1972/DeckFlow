@@ -144,7 +144,7 @@ public static class ManabaseReportTextBuilder
                     ? "OK"
                     : string.Create(CultureInfo.InvariantCulture, $"{f.Deficit:0.0} short");
                 sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
-                    $"{f.Color,-10} {f.ActualSources,8:F1} {f.RequiredSources,7}  {deficitOrOk,-9}  {f.DrivingSpell}"));
+                    $"{f.CategoryName,-10} {f.ActualSources,8:F1} {f.RequiredSources,7}  {deficitOrOk,-9}  {f.DrivingSpell}"));
             }
             sb.AppendLine();
         }
@@ -156,7 +156,7 @@ public static class ManabaseReportTextBuilder
             case ManabaseFixKind.ColorSources:
                 int sourceFixAmount = fix.Amount;
                 sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
-                    $"Biggest fix: add ~{sourceFixAmount} more {fix.Color} {ManabaseWording.Pluralize("source", sourceFixAmount)} — you have {fix.ActualSources:F1} vs {fix.RequiredSources} needed for {fix.Spell}."));
+                    $"Biggest fix: add ~{sourceFixAmount} more {fix.CategoryName} {ManabaseWording.Pluralize("source", sourceFixAmount)} — you have {fix.ActualSources:F1} vs {fix.RequiredSources} needed for {fix.Spell}."));
                 break;
 
             case ManabaseFixKind.Lands:
@@ -167,7 +167,7 @@ public static class ManabaseReportTextBuilder
 
             case ManabaseFixKind.DemandingCards:
                 sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
-                    $"Biggest fix: lands and colored sources are adequate, but {fix.DemandingCount} demanding {fix.Color} {ManabaseWording.Pluralize("card", fix.DemandingCount)} still cast late (worst: {fix.Spell}) — trim the top end or add early ramp."));
+                    $"Biggest fix: lands and colored sources are adequate, but {fix.DemandingCount} demanding {fix.CategoryName} {ManabaseWording.Pluralize("card", fix.DemandingCount)} still cast late (worst: {fix.Spell}) — trim the top end or add early ramp."));
                 break;
 
             default:

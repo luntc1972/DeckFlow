@@ -924,6 +924,73 @@ public sealed class ManabaseAnalyzerTests
     }
 
     [Fact]
+    public void Analyze_ColorlessSnowFlagOn_AddsDedicatedRequirementRows_ForColorlessAndSnow()
+    {
+        var cards = new List<CardFact>
+        {
+            new()
+            {
+                Name = "Wastes",
+                Quantity = 10,
+                ManaCost = string.Empty,
+                ManaValue = 0,
+                TypeLine = "Basic Land — Wastes",
+                OracleText = "{T}: Add {C}.",
+                ProducedMana = new[] { "C" },
+                HasLandFace = true,
+            },
+            new()
+            {
+                Name = "Snow-Covered Island",
+                Quantity = 14,
+                ManaCost = string.Empty,
+                ManaValue = 0,
+                TypeLine = "Snow Land — Island",
+                OracleText = "{T}: Add {U}.",
+                ProducedMana = new[] { "U" },
+                HasLandFace = true,
+            },
+            new()
+            {
+                Name = "Thought-Knot Seer",
+                Quantity = 1,
+                ManaCost = "{3}{C}",
+                ManaValue = 4,
+                TypeLine = "Creature — Eldrazi",
+                OracleText = string.Empty,
+                ProducedMana = Array.Empty<string>(),
+            },
+            new()
+            {
+                Name = "Arcum's Astrolabe",
+                Quantity = 1,
+                ManaCost = "{S}",
+                ManaValue = 1,
+                TypeLine = "Artifact",
+                OracleText = string.Empty,
+                ProducedMana = Array.Empty<string>(),
+            },
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        ManabaseReport off = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual, colorlessSnow: false);
+        ManabaseReport on = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual, colorlessSnow: true);
+
+        Assert.DoesNotContain(off.ColorFindings, finding => finding.DisplayColor is "Colorless" or "Snow");
+        Assert.Contains(
+            on.ColorFindings,
+            finding => finding.DisplayColor == "Colorless"
+                && finding.ActualSources == 10.0
+                && finding.DrivingSpell == "Thought-Knot Seer");
+        Assert.Contains(
+            on.ColorFindings,
+            finding => finding.DisplayColor == "Snow"
+                && finding.ActualSources == 14.0
+                && finding.DrivingSpell == "Arcum's Astrolabe");
+    }
+
+    [Fact]
     public void Analyze_InteractionLens_IsNull_InCasualMode_EvenWhenFlagOn()
     {
         ManabaseReport report = ManabaseAnalyzer.Analyze(

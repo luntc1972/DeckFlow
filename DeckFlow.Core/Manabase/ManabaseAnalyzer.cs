@@ -75,6 +75,8 @@ public static class ManabaseAnalyzer
             // HEURISTIC: companion access costs an extra CompanionToHandTax generic mana to move it to hand first.
             ManaValue = clampedPrinted + CompanionToHandTax,
             Pips = printedCost.Pips,
+            TrueColorlessPips = printedCost.TrueColorlessPips,
+            SnowPips = printedCost.SnowPips,
             IsGold = printedCost.DistinctColors >= 2,
             IsCommander = false,
         };
@@ -146,6 +148,11 @@ public static class ManabaseAnalyzer
     /// source credit to the Karsten per-color source counts. This never creates a
     /// <see cref="ManaSource"/>, never changes the castability sim, and never changes the land target.
     /// </param>
+    /// <param name="colorlessSnow">
+    /// When true, true colorless <c>{C}</c> and snow <c>{S}</c> costs are treated as separate
+    /// source-requirement categories. The analyzer adds dedicated requirement rows and the castability
+    /// sim enforces the matching source capabilities. When false (default), output stays byte-identical.
+    /// </param>
     /// <param name="interactionLens">
     /// When true, the report may include the cEDH-only early-interaction lens derived from the
     /// existing castability rows. When false (default), or in non-cEDH modes, the output remains
@@ -162,6 +169,7 @@ public static class ManabaseAnalyzer
         bool ritualBurst = false,
         bool ritualLandCredit = false,
         bool scryCredit = false,
+        bool colorlessSnow = false,
         bool interactionLens = false,
         bool useHealthBandCastability = false,
         bool useHealthBandHeadlineFloor = false,
@@ -195,7 +203,7 @@ public static class ManabaseAnalyzer
         // Per-spell castability comes FIRST; the color findings then consume these rows so the
         // table and the color verdict never drift apart.
         var castabilityByName = new Dictionary<string, CardCastability>(StringComparer.Ordinal);
-        IReadOnlyList<CardCastability> castability = BuildCastability(deck, librarySize, actualLands, castabilityByName, useManaQuantity, colorAwareMulligan, gateRampOnCastable, ritualBurstActive);
+        IReadOnlyList<CardCastability> castability = BuildCastability(deck, librarySize, actualLands, castabilityByName, useManaQuantity, colorAwareMulligan, gateRampOnCastable, ritualBurstActive, colorlessSnow);
 
         var colorSpellCounts = new Dictionary<ManaColor, int>();
         var demandingByName = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -210,7 +218,8 @@ public static class ManabaseAnalyzer
             importance,
             colorSpellCounts,
             demandingByName,
-            scrySourceCreditAmount);
+            scrySourceCreditAmount,
+            colorlessSnow);
 
         // Demanding cards (below their color's bar) worst-first — surfaced by the two-tier verdict.
         IReadOnlyList<DemandingCard> demandingCards = demandingByName
@@ -245,7 +254,7 @@ public static class ManabaseAnalyzer
         // the flag-off path adds no sim and stays byte-identical.
         ManabasePlanPresence? planPresence = deck.Spells.Any(s => s.PlanRoles != PlanRole.None)
             ? CastabilitySimulator.SimulatePlanPresence(
-                deck, librarySize, CastabilitySimulator.DefaultTrials, useManaQuantity, colorAwareMulligan, gateRampOnCastable, ritualBurstActive)
+                deck, librarySize, CastabilitySimulator.DefaultTrials, useManaQuantity, colorAwareMulligan, gateRampOnCastable, ritualBurstActive, colorlessSnow)
             : null;
 
         return new ManabaseReport
@@ -434,6 +443,8 @@ public static class ManabaseAnalyzer
         {
             ManaValue = cost.ManaValue,
             Pips = cost.Pips,
+            TrueColorlessPips = cost.TrueColorlessPips,
+            SnowPips = cost.SnowPips,
             IsGold = cost.DistinctColors >= 2,
             IsCostOverridden = true,
         };
@@ -558,7 +569,8 @@ public static class ManabaseAnalyzer
         bool useManaQuantity,
         bool colorAwareMulligan,
         bool gateRampOnCastable,
-        bool ritualBurst)
+        bool ritualBurst,
+        bool colorlessSnow)
     {
         var rows = new List<CardCastability>();
 
@@ -579,7 +591,7 @@ public static class ManabaseAnalyzer
 
             CardCastability row = CastabilitySimulator.Simulate(
                 deck, librarySize, spell, onCurveTurn, genericReduction,
-                useManaQuantity: useManaQuantity, colorAwareMulligan: colorAwareMulligan, gateRampOnCastable: gateRampOnCastable, ritualBurst: ritualBurst);
+                useManaQuantity: useManaQuantity, colorAwareMulligan: colorAwareMulligan, gateRampOnCastable: gateRampOnCastable, ritualBurst: ritualBurst, colorlessSnow: colorlessSnow);
             rows.Add(row);
             byName[spell.Name] = row;
         }
@@ -598,7 +610,9 @@ public static class ManabaseAnalyzer
     /// </summary>
     private static int EffectiveTurn(SpellRequirement spell, IReadOnlyList<CostReducer> reducers)
     {
-        int totalPips = spell.Pips.Where(p => p.Key != ManaColor.Colorless).Sum(p => Math.Max(0, p.Value));
+        int totalPips = spell.Pips.Where(p => p.Key != ManaColor.Colorless).Sum(p => Math.Max(0, p.Value))
+            + Math.Max(0, spell.TrueColorlessPips)
+            + Math.Max(0, spell.SnowPips);
         int floor = Math.Max(1, totalPips);
         int applicable = GenericReduction(spell, reducers);
         return Math.Max(floor, spell.ManaValue - applicable);
@@ -657,7 +671,8 @@ public static class ManabaseAnalyzer
         CommanderImportance importance,
         Dictionary<ManaColor, int> colorSpellCounts,
         Dictionary<string, int> demandingByName,
-        double scrySourceCredit)
+        double scrySourceCredit,
+        bool colorlessSnow)
     {
         var findings = new List<ColorSourceFinding>();
         var commanderColors = CommanderColors(deck);
@@ -846,6 +861,34 @@ public static class ManabaseAnalyzer
             });
         }
 
+        if (colorlessSnow)
+        {
+            AddSpecialCategoryFinding(
+                findings,
+                deck,
+                librarySize,
+                totalLands,
+                castabilityByName,
+                mode,
+                demandingByName,
+                simRequiredCache,
+                structuralCheapNames,
+                sourceFixableNames,
+                SourceRequirementCategory.Colorless);
+            AddSpecialCategoryFinding(
+                findings,
+                deck,
+                librarySize,
+                totalLands,
+                castabilityByName,
+                mode,
+                demandingByName,
+                simRequiredCache,
+                structuralCheapNames,
+                sourceFixableNames,
+                SourceRequirementCategory.Snow);
+        }
+
         // Drop structural cheap misses from the demanding list now that every color has been scored — but
         // only when the card is source-fixable in NO demanded color. A card short in one color yet
         // supplied in another (e.g. limiting factor "both") stays, since more sources would still help it.
@@ -859,6 +902,141 @@ public static class ManabaseAnalyzer
         }
 
         return OrderFindings(findings, deck, mode, importance, commanderColors);
+    }
+
+    private enum SourceRequirementCategory
+    {
+        Colorless,
+        Snow,
+    }
+
+    private static void AddSpecialCategoryFinding(
+        List<ColorSourceFinding> findings,
+        ManabaseDeck deck,
+        int librarySize,
+        int totalLands,
+        IReadOnlyDictionary<string, CardCastability> castabilityByName,
+        ManabaseMode mode,
+        Dictionary<string, int> demandingByName,
+        Dictionary<string, int> simRequiredCache,
+        HashSet<string> structuralCheapNames,
+        HashSet<string> sourceFixableNames,
+        SourceRequirementCategory category)
+    {
+        double allSources = EffectiveSpecialSources(deck, category, untappedOnly: false);
+        double untappedSources = EffectiveSpecialSources(deck, category, untappedOnly: true);
+        if (allSources <= 0 && !DeckUsesSpecialCategory(deck, category))
+        {
+            return;
+        }
+
+        int required = 0;
+        string driver = "(none)";
+        double worstDeficit = double.NegativeInfinity;
+        int underSupported = 0;
+        int colorLimitedUnderSupported = 0;
+        double castSum = 0;
+        int castCount = 0;
+        double worstCast = double.PositiveInfinity;
+        string worstSpell = "(none)";
+        int threshold = mode == ManabaseMode.Cedh ? CedhSupportThreshold : CasualSupportThreshold;
+
+        foreach (SpellRequirement spell in deck.Spells)
+        {
+            if (spell.IsManaSource && !spell.IsCommander)
+            {
+                continue;
+            }
+
+            int categoryPips = category switch
+            {
+                SourceRequirementCategory.Colorless => spell.TrueColorlessPips,
+                SourceRequirementCategory.Snow => spell.SnowPips,
+                _ => 0,
+            };
+            if (categoryPips <= 0)
+            {
+                continue;
+            }
+
+            int onCurveTurn = castabilityByName.TryGetValue(spell.Name, out CardCastability? curveRow)
+                ? curveRow.OnCurveTurn
+                : spell.ManaValue;
+            double available = onCurveTurn <= 1 ? untappedSources : allSources;
+
+            string sig = $"special:{category}|{categoryPips}|t{onCurveTurn}|th{threshold}";
+            if (!simRequiredCache.TryGetValue(sig, out int simNeed))
+            {
+                simNeed = SimRequiredSpecialSources(
+                    librarySize, totalLands, category, categoryPips, onCurveTurn,
+                    deck.AverageManaValue, deck.IsSingleton, threshold);
+                simRequiredCache[sig] = simNeed;
+            }
+
+            double deficit = simNeed - available;
+            if (deficit > worstDeficit)
+            {
+                worstDeficit = deficit;
+                required = simNeed;
+                driver = spell.Name;
+            }
+
+            int castPercent = castabilityByName.TryGetValue(spell.Name, out CardCastability? row)
+                ? row.CastPercent
+                : 0;
+            castSum += castPercent;
+            castCount++;
+            if (castPercent < worstCast)
+            {
+                worstCast = castPercent;
+                worstSpell = spell.Name;
+            }
+
+            if (castPercent < threshold)
+            {
+                underSupported++;
+                bool colorLimited = IsSpecialCategoryLimited(row?.LimitingFactor, category);
+                bool sourceFixable = colorLimited && deficit > 0;
+                if (sourceFixable)
+                {
+                    colorLimitedUnderSupported++;
+                    sourceFixableNames.Add(spell.Name);
+                }
+
+                if (!demandingByName.TryGetValue(spell.Name, out int prior) || castPercent < prior)
+                {
+                    demandingByName[spell.Name] = castPercent;
+                }
+
+                if (colorLimited && deficit <= 0)
+                {
+                    structuralCheapNames.Add(spell.Name);
+                }
+            }
+        }
+
+        if (driver == "(none)")
+        {
+            return;
+        }
+
+        findings.Add(new ColorSourceFinding
+        {
+            Color = ManaColor.Colorless,
+            DisplayColor = category.ToString(),
+            ActualSources = Math.Round(allSources, 1),
+            RequiredSources = required,
+            DrivingSpell = driver,
+            UnderSupportedCount = underSupported,
+            ColorLimitedUnderSupportedCount = colorLimitedUnderSupported,
+            AverageCastPercent = castCount > 0 ? Math.Round(castSum / castCount, 1) : 0,
+            WorstSpellCastPercent = double.IsPositiveInfinity(worstCast) ? 0 : worstCast,
+            WorstSpell = worstSpell,
+            DirectSources = Math.Round(allSources, 1),
+            SharedSources = 0.0,
+            ConditionalSources = 0.0,
+            UntappedSources = untappedSources,
+        });
     }
 
     // Reduced trial count for the per-color source-requirement search (binary search runs several
@@ -937,6 +1115,59 @@ public static class ManabaseAnalyzer
         return Math.Min(result, karstenCeiling);
     }
 
+    private static int SimRequiredSpecialSources(
+        int librarySize, int totalLands, SourceRequirementCategory category, int pips, int onCurveTurn,
+        double averageManaValue, bool isSingleton, int threshold)
+    {
+        if (pips <= 0 || totalLands <= 0)
+        {
+            return 0;
+        }
+
+        int lo = Math.Min(pips, totalLands);
+        int hi = totalLands;
+        int result = totalLands;
+        while (lo <= hi)
+        {
+            int mid = (lo + hi) / 2;
+            int pct = SimSpecialCategoryCast(librarySize, totalLands, category, pips, onCurveTurn, averageManaValue, isSingleton, mid, SourceSearchTrials);
+            if (pct >= threshold)
+            {
+                result = mid;
+                hi = mid - 1;
+            }
+            else
+            {
+                lo = mid + 1;
+            }
+        }
+
+        if (result >= totalLands
+            && SimSpecialCategoryCast(librarySize, totalLands, category, pips, onCurveTurn, averageManaValue, isSingleton, totalLands, CastabilitySimulator.DefaultTrials) < threshold)
+        {
+            return pips;
+        }
+
+        if (result > pips
+            && SimSpecialCategoryCast(librarySize, totalLands, category, pips, onCurveTurn, averageManaValue, isSingleton, result - 1, CastabilitySimulator.DefaultTrials) >= threshold)
+        {
+            result -= 1;
+        }
+        else if (result < totalLands
+            && SimSpecialCategoryCast(librarySize, totalLands, category, pips, onCurveTurn, averageManaValue, isSingleton, result, CastabilitySimulator.DefaultTrials) < threshold)
+        {
+            result += 1;
+        }
+
+        int karstenCeiling = KarstenManabase.SourcesNeeded(
+            librarySize,
+            totalLands,
+            pips,
+            Math.Max(1, onCurveTurn),
+            onPlay: !isSingleton);
+        return Math.Min(result, karstenCeiling);
+    }
+
     // True when THIS color is part of why the card casts late. LimitingFactor (from
     // CastabilitySimulator.DeriveLimitingFactor) is one of: "mana" (pure curve — never color),
     // "both" (mana + color, so every demanded color is stressed), or "color:X" where X is the single
@@ -955,6 +1186,22 @@ public static class ManabaseAnalyzer
         }
 
         return limitingFactor.Equals("color:" + color, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsSpecialCategoryLimited(string? limitingFactor, SourceRequirementCategory category)
+    {
+        if (string.IsNullOrEmpty(limitingFactor))
+        {
+            return false;
+        }
+
+        if (limitingFactor.Equals("both", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        string expected = category == SourceRequirementCategory.Colorless ? "color:Colorless" : "color:Snow";
+        return limitingFactor.Equals(expected, StringComparison.OrdinalIgnoreCase);
     }
 
     // Sim cast% for a synthetic `pips`-of-`color` spell at `onCurveTurn` on a base of `onColor`
@@ -994,6 +1241,65 @@ public static class ManabaseAnalyzer
         };
 
         return CastabilitySimulator.Simulate(deck, librarySize, probe, onCurveTurn, genericReduction: 0, trials).CastPercent;
+    }
+
+    private static int SimSpecialCategoryCast(
+        int librarySize, int totalLands, SourceRequirementCategory category, int pips, int onCurveTurn,
+        double averageManaValue, bool isSingleton, int qualifyingSources, int trials)
+    {
+        var sources = new List<ManaSource>(totalLands);
+        for (int i = 0; i < qualifyingSources; i++)
+        {
+            sources.Add(category switch
+            {
+                SourceRequirementCategory.Colorless => new ManaSource
+                {
+                    Name = "Colorless",
+                    Produces = Array.Empty<ManaColor>(),
+                    ProducesColorless = true,
+                },
+                SourceRequirementCategory.Snow => new ManaSource
+                {
+                    Name = "Snow",
+                    Produces = Array.Empty<ManaColor>(),
+                    IsSnow = true,
+                },
+                _ => throw new ArgumentOutOfRangeException(nameof(category)),
+            });
+        }
+
+        for (int i = qualifyingSources; i < totalLands; i++)
+        {
+            sources.Add(new ManaSource { Name = "Other", Produces = Array.Empty<ManaColor>() });
+        }
+
+        var probe = new SpellRequirement
+        {
+            Name = "probe",
+            ManaValue = onCurveTurn,
+            Pips = new Dictionary<ManaColor, int>(),
+            TrueColorlessPips = category == SourceRequirementCategory.Colorless ? pips : 0,
+            SnowPips = category == SourceRequirementCategory.Snow ? pips : 0,
+        };
+
+        var deck = new ManabaseDeck
+        {
+            TotalCards = librarySize,
+            CommanderCount = 0,
+            Sources = sources,
+            Spells = new List<SpellRequirement> { probe },
+            AverageManaValue = averageManaValue,
+            IsSingleton = isSingleton,
+        };
+
+        return CastabilitySimulator.Simulate(
+            deck,
+            librarySize,
+            probe,
+            onCurveTurn,
+            genericReduction: 0,
+            trials: trials,
+            colorlessSnow: true).CastPercent;
     }
 
     // WeakestColor / ordering = MOST-ACTIONABLE-first: the color whose mana a deck-builder can most
@@ -1078,6 +1384,11 @@ public static class ManabaseAnalyzer
         return colors;
     }
 
+    private static bool DeckUsesSpecialCategory(ManabaseDeck deck, SourceRequirementCategory category) =>
+        deck.Spells.Any(spell => category == SourceRequirementCategory.Colorless
+            ? spell.TrueColorlessPips > 0
+            : spell.SnowPips > 0);
+
     // Sum weighted sources of a color. When untappedOnly, exclude tapped lands — a turn-1
     // one-drop can only be cast off mana available the turn the land is played.
     private static double EffectiveSources(ManabaseDeck deck, ManaColor color, bool untappedOnly, double scrySourceCredit = 0.0)
@@ -1086,6 +1397,30 @@ public static class ManabaseAnalyzer
         foreach (ManaSource source in deck.Sources)
         {
             if (!source.Produces.Contains(color))
+            {
+                continue;
+            }
+
+            if (untappedOnly && !source.EntersUntapped)
+            {
+                continue;
+            }
+
+            total += source.Weight;
+        }
+
+        return total;
+    }
+
+    private static double EffectiveSpecialSources(ManabaseDeck deck, SourceRequirementCategory category, bool untappedOnly)
+    {
+        double total = 0.0;
+        foreach (ManaSource source in deck.Sources)
+        {
+            bool qualifies = category == SourceRequirementCategory.Colorless
+                ? source.ProducesColorless
+                : source.IsSnow;
+            if (!qualifies)
             {
                 continue;
             }
@@ -1118,6 +1453,11 @@ public static class ManabaseAnalyzer
         var colorTap = new Dictionary<ManaColor, ColorTapFinding>();
         foreach (ColorSourceFinding f in colorFindings)
         {
+            if (!string.IsNullOrEmpty(f.DisplayColor))
+            {
+                continue;
+            }
+
             // RAW (un-rounded) numerator + denominator — never the rounded f.ActualSources.
             double rawUntapped = f.UntappedSources;
             double rawTotal = EffectiveSources(deck, f.Color, untappedOnly: false);
@@ -1332,10 +1672,10 @@ public static class ManabaseAnalyzer
             int addSources = weakest.Deficit > 0 ? ManabaseWording.ApproximateCount(weakest.Deficit) : 0;
             string addClause = addSources > 0 ? $" (add ~{addSources})" : string.Empty;
             sb.Append(CultureInfo.InvariantCulture,
-                $"Weakest color: {weakest.Color} — {weakest.ActualSources:F1} sources vs {weakest.RequiredSources} needed for {weakest.DrivingSpell}{addClause}. ");
+                $"Weakest color: {weakest.CategoryName} — {weakest.ActualSources:F1} sources vs {weakest.RequiredSources} needed for {weakest.DrivingSpell}{addClause}. ");
             int total = colorSpellCounts.TryGetValue(weakest.Color, out int count) ? count : Math.Max(weakest.UnderSupportedCount, 1);
             sb.Append(CultureInfo.InvariantCulture,
-                $"{weakest.UnderSupportedCount} of {total} {weakest.Color} cards under-supported; worst cast: {weakest.WorstSpell} (~{weakest.WorstSpellCastPercent:F0}%).");
+                $"{weakest.UnderSupportedCount} of {total} {weakest.CategoryName} cards under-supported; worst cast: {weakest.WorstSpell} (~{weakest.WorstSpellCastPercent:F0}%).");
         }
 
         // Surface the deck's single hardest payoff to cast (commander weighted heaviest at Central).

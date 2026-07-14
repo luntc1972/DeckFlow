@@ -1016,6 +1016,59 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_ColorlessSnowFlag_AbsentAndExplicitOff_AreByteIdentical_OnAddsDedicatedRequirementRows()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Wastes", 10, "mainboard"),
+            Entry("Snow-Covered Island", 14, "mainboard"),
+            Entry("Thought-Knot Seer", 1, "mainboard"),
+            Entry("Arcum's Astrolabe", 1, "mainboard"),
+        };
+        var cards = new List<ScryfallCard>
+        {
+            LandOracle("Wastes", "Basic Land — Wastes", "{T}: Add {C}.", "C"),
+            LandOracle("Snow-Covered Island", "Snow Land — Island", "{T}: Add {U}.", "U"),
+            Spell("Thought-Knot Seer", "{3}{C}", 4, "Creature — Eldrazi"),
+            Spell("Arcum's Astrolabe", "{S}", 1, "Artifact"),
+        };
+
+        var baseline = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>()));
+        var explicitOff = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.ColorlessSnowFlagKey] = false,
+            }));
+        var on = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.ColorlessSnowFlagKey] = true,
+            }));
+
+        var baselineResult = await baseline.AnalyzeAsync(
+            "paste", "Category Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Casual });
+        var offResult = await explicitOff.AnalyzeAsync(
+            "paste", "Category Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Casual });
+        var onResult = await on.AnalyzeAsync(
+            "paste", "Category Deck", new ManabaseAnalysisOptions { Mode = ManabaseMode.Casual });
+
+        Assert.Equal(baselineResult.PromptSwapPrompt, offResult.PromptSwapPrompt);
+        Assert.Equal(baselineResult.Report.Summary, offResult.Report.Summary);
+        Assert.Equal(
+            baselineResult.Report.ColorFindings.Select(f => f.DisplayColor),
+            offResult.Report.ColorFindings.Select(f => f.DisplayColor));
+        Assert.Contains(onResult.Report.ColorFindings, finding => finding.DisplayColor == "Colorless");
+        Assert.Contains(onResult.Report.ColorFindings, finding => finding.DisplayColor == "Snow");
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_TapAnalyzerFlagAbsent_ShowTapAnalyzerFalse()
     {
         var (entries, cards) = CurveFixture();

@@ -44,6 +44,12 @@ public sealed record ManaSource
     /// <summary>True if it can produce mana the turn it is played (matters only for turn-1 pips).</summary>
     public bool EntersUntapped { get; init; } = true;
 
+    /// <summary>True when the permanent itself is snow (type line contains "Snow"), so it can pay <c>{S}</c>.</summary>
+    public bool IsSnow { get; init; }
+
+    /// <summary>True when the permanent can produce true colorless mana (<c>{C}</c>) and so can pay <c>{C}</c> costs.</summary>
+    public bool ProducesColorless { get; init; }
+
     /// <summary>
     /// How much mana this source makes per activation (MQ-02): Sol Ring / Ancient Tomb = 2,
     /// Gilded Lotus = 3, a normal land = 1. Defaults to 1. Feeds ONLY the castability simulator's
@@ -167,6 +173,12 @@ public sealed record SpellRequirement
 
     /// <summary>Colored pip counts by color (omit colors with zero pips).</summary>
     public required IReadOnlyDictionary<ManaColor, int> Pips { get; init; }
+
+    /// <summary>Count of true <c>{C}</c> pips in the cost. Additive; legacy <see cref="Pips"/> stays unchanged.</summary>
+    public int TrueColorlessPips { get; init; }
+
+    /// <summary>Count of <c>{S}</c> pips in the cost. Additive; legacy <see cref="Pips"/> stays unchanged.</summary>
+    public int SnowPips { get; init; }
 
     /// <summary>True if the card needs more than one color (gold) and both colors are consistency-critical.</summary>
     public bool IsGold { get; init; }
@@ -552,6 +564,13 @@ public sealed record ColorSourceFinding
     /// <summary>The color examined.</summary>
     public required ManaColor Color { get; init; }
 
+    /// <summary>
+    /// Optional display label when this finding represents a special category that shares
+    /// <see cref="ManaColor.Colorless"/> internally (for example true colorless or snow).
+    /// Empty/default keeps the historic <see cref="Color"/> rendering.
+    /// </summary>
+    public string DisplayColor { get; init; } = string.Empty;
+
     /// <summary>Effective sources of this color currently in the deck (weighted).</summary>
     public required double ActualSources { get; init; }
 
@@ -632,6 +651,9 @@ public sealed record ColorSourceFinding
     /// verdict never reverts to raw deficit and drops a composite-worst color.
     /// </summary>
     public bool IsCompositeProblem => UnderSupportedCount > 0 || Deficit > 0;
+
+    /// <summary>Resolved display label for the finding's category.</summary>
+    public string CategoryName => string.IsNullOrEmpty(DisplayColor) ? Color.ToString() : DisplayColor;
 }
 
 /// <summary>
@@ -789,6 +811,9 @@ public sealed record ManabasePrimaryFix
     /// <summary>The color the fix concerns (ColorSources/DemandingCards), or null.</summary>
     public ManaColor? Color { get; init; }
 
+    /// <summary>Optional display label overriding <see cref="Color"/> for special source categories.</summary>
+    public string DisplayColor { get; init; } = string.Empty;
+
     /// <summary>Sources to add (ColorSources) or lands to add (Lands); 0 otherwise.</summary>
     public int Amount { get; init; }
 
@@ -803,6 +828,9 @@ public sealed record ManabasePrimaryFix
 
     /// <summary>How many demanding cards of <see cref="Color"/> still cast late (DemandingCards only).</summary>
     public int DemandingCount { get; init; }
+
+    /// <summary>Resolved display label for the fix's category.</summary>
+    public string CategoryName => string.IsNullOrEmpty(DisplayColor) ? Color?.ToString() ?? string.Empty : DisplayColor;
 }
 
 /// <summary>The §6 mana-base report: land count, ramp, per-color sources, and a verdict.</summary>
@@ -1037,7 +1065,7 @@ public sealed record ManabaseReport
             // Only the composite-weakest color (ColorFindings[0] when IsCompositeProblem)
             // can trigger this, so a merely sub-par color never inflates the count.
             bool simWeakestProblem = UseHealthBandCastability
-                && f.Color == compositeProblemWorst?.Color
+                && f.CategoryName == compositeProblemWorst?.CategoryName
                 && f.ColorLimitedUnderSupportedCount >= 1
                 && f.WorstSpellCastPercent < supportThreshold;
 
@@ -1285,6 +1313,7 @@ public sealed record ManabaseReport
                 {
                     Kind = ManabaseFixKind.ColorSources,
                     Color = rawShort.Color,
+                    DisplayColor = rawShort.CategoryName,
                     Amount = ManabaseWording.ApproximateCount(rawShort.Deficit),
                     ActualSources = rawShort.ActualSources,
                     RequiredSources = rawShort.RequiredSources,
@@ -1314,6 +1343,7 @@ public sealed record ManabaseReport
                 {
                     Kind = ManabaseFixKind.DemandingCards,
                     Color = weak.Color,
+                    DisplayColor = weak.CategoryName,
                     DemandingCount = weak.UnderSupportedCount,
                     Spell = weak.WorstSpell,
                 };
