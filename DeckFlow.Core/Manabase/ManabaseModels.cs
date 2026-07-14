@@ -248,6 +248,13 @@ public sealed record CardCastability
     public int Turn1UntappedTrials { get; init; }
 
     /// <summary>
+    /// Count of simulated trials (out of the simulator's trial budget) in which the spell was castable
+    /// from untapped/online sources on at least one of turns 1-3. Additive — safe default 0 so
+    /// existing construction/serialization is unaffected.
+    /// </summary>
+    public int ByTurn3HoldableTrials { get; init; }
+
+    /// <summary>
     /// MULLIGAN-01: count of simulated trials (out of the trial budget) that were kept per the sim's
     /// own London-mulligan keep rule — a 7 or a 6, never the forced final 5. Additive/pure-observation
     /// (mirrors <see cref="Turn1UntappedTrials"/>); safe default 0. Equals
@@ -1188,6 +1195,13 @@ public sealed record ManabaseReport
     public ManabaseMulliganEvaluation? MulliganEvaluation { get; init; }
 
     /// <summary>
+    /// cEDH early-interaction lens, or null when not computed. Additive — defaults null so existing
+    /// serialization/tests are unaffected. Populated by <see cref="ManabaseAnalyzer"/> cEDH-only when the
+    /// interaction-lens flag is on.
+    /// </summary>
+    public ManabaseInteractionLens? InteractionLens { get; init; }
+
+    /// <summary>
     /// Count of non-land mana sources in the deck — mana rocks and dorks (artifacts/creatures that
     /// produce mana, no land face). The deck's at-a-glance ramp/acceleration piece count.
     /// </summary>
@@ -1373,6 +1387,39 @@ public sealed record ManabaseMulliganEvaluation
     /// plan-tagged spell. Additive — a null here leaves the existing opener block byte-identical.
     /// </summary>
     public ManabasePlanPresence? PlanPresence { get; init; }
+}
+
+/// <summary>One interaction spell's by-turn-3 holdable result for the cEDH interaction lens.</summary>
+public sealed record ManabaseInteractionRow
+{
+    /// <summary>Spell display name.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>Share of trials (0-100) where the spell was holdable by turn 3.</summary>
+    public required int HoldablePercent { get; init; }
+
+    /// <summary>True when a user override / detected alt cost changed the spell's effective cost.</summary>
+    public bool IsCostOverridden { get; init; }
+}
+
+/// <summary>
+/// cEDH early-interaction lens: cheap interaction spells held up by turn 3, with a headline target
+/// count and per-spell rows ordered worst-holdable first. QualifyingCount == 0 is a valid populated
+/// empty state; the lens itself is not null-modeled for that case.
+/// </summary>
+public sealed record ManabaseInteractionLens
+{
+    /// <summary>Cheap interaction spells considered by the lens.</summary>
+    public required int QualifyingCount { get; init; }
+
+    /// <summary>Qualifying spells meeting or exceeding <see cref="Threshold"/>.</summary>
+    public required int OnTargetCount { get; init; }
+
+    /// <summary>Support threshold used for the headline target count.</summary>
+    public required int Threshold { get; init; }
+
+    /// <summary>Per-spell rows ordered worst-holdable first.</summary>
+    public required IReadOnlyList<ManabaseInteractionRow> Rows { get; init; }
 }
 
 /// <summary>
