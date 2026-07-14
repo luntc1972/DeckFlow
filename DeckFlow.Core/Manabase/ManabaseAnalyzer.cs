@@ -140,6 +140,11 @@ public static class ManabaseAnalyzer
     /// existing classified <see cref="ManabaseDeck.OneShots"/> list. Tactical ritual burst in the
     /// castability sim remains a separate flag and path.
     /// </param>
+    /// <param name="interactionLens">
+    /// When true, the report may include the cEDH-only early-interaction lens derived from the
+    /// existing castability rows. When false (default), or in non-cEDH modes, the output remains
+    /// byte-identical with <see cref="ManabaseReport.InteractionLens"/> left null.
+    /// </param>
     public static ManabaseReport Analyze(
         ManabaseDeck deck,
         ManabaseMode mode,
@@ -150,6 +155,7 @@ public static class ManabaseAnalyzer
         bool gateRampOnCastable = false,
         bool ritualBurst = false,
         bool ritualLandCredit = false,
+        bool interactionLens = false,
         bool useHealthBandCastability = false,
         bool useHealthBandHeadlineFloor = false,
         CedhLandContext cedhContext = default)
@@ -177,6 +183,7 @@ public static class ManabaseAnalyzer
         // flag-on path stays byte-identical there. The simulator itself is mode-agnostic — the policy gate
         // lives here where the mode is known.
         bool ritualBurstActive = ritualBurst && mode == ManabaseMode.Cedh;
+        bool interactionLensActive = interactionLens && mode == ManabaseMode.Cedh;
 
         // Per-spell castability comes FIRST; the color findings then consume these rows so the
         // table and the color verdict never drift apart.
@@ -248,6 +255,9 @@ public static class ManabaseAnalyzer
             // MULLIGAN-01..05: opening-hand / mulligan evaluation derived from the same castability
             // rows (no second sim). Always computed in Core; the Web layer flag-gates display.
             MulliganEvaluation = ComputeMulliganEvaluation(deck, castability, CastabilitySimulator.DefaultTrials, planPresence),
+            InteractionLens = interactionLensActive
+                ? ComputeInteractionLens(deck, castability, CastabilitySimulator.DefaultTrials, CedhSupportThreshold)
+                : null,
             DemandingCards = demandingCards,
             // Genuine mana rocks/dorks only: artifacts/creatures that tap for mana (weight 0.5 dork
             // / 0.75 rock). Excludes conditional "granted" creatures (a creature handed a mana
@@ -262,6 +272,43 @@ public static class ManabaseAnalyzer
             RestrictedSourceLandNames = deck.RestrictedSourceLandNames,
             UnsupportedInteractions = AppendRestrictedLandUnsupportedInteraction(deck),
             Summary = summary,
+        };
+    }
+
+    private static ManabaseInteractionLens ComputeInteractionLens(
+        ManabaseDeck deck,
+        IReadOnlyList<CardCastability> castability,
+        int defaultTrials,
+        int threshold)
+    {
+        var spellsByName = new Dictionary<string, SpellRequirement>(StringComparer.OrdinalIgnoreCase);
+        foreach (SpellRequirement spell in deck.Spells)
+        {
+            spellsByName[spell.Name] = spell;
+        }
+
+        List<ManabaseInteractionRow> rows = castability
+            .Where(row => spellsByName.TryGetValue(row.Name, out SpellRequirement? spell)
+                && spell.PlanRoles.HasFlag(PlanRole.Interaction)
+                && spell.ManaValue <= 2)
+            .Select(row => new ManabaseInteractionRow
+            {
+                Name = row.Name,
+                HoldablePercent = defaultTrials > 0
+                    ? (int)Math.Round(100.0 * row.ByTurn3HoldableTrials / defaultTrials)
+                    : 0,
+                IsCostOverridden = row.IsCostOverridden,
+            })
+            .OrderBy(row => row.HoldablePercent)
+            .ThenBy(row => row.Name, StringComparer.Ordinal)
+            .ToList();
+
+        return new ManabaseInteractionLens
+        {
+            QualifyingCount = rows.Count,
+            OnTargetCount = rows.Count(row => row.HoldablePercent >= threshold),
+            Threshold = threshold,
+            Rows = rows,
         };
     }
 
