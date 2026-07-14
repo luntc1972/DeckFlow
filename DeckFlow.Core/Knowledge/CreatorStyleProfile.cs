@@ -92,6 +92,39 @@ public sealed record FusedTarget
     /// <summary>Source description for how the fused target was produced.</summary>
     public required string Source { get; init; }
 
+    /// <summary>Optional condition segment paired with the metric when evaluating the fused target.</summary>
+    public string? Condition { get; init; }
+
+    /// <summary>Optional lower bound from the creator's stated target band.</summary>
+    public double? StatedMin { get; init; }
+
+    /// <summary>Optional upper bound from the creator's stated target band.</summary>
+    public double? StatedMax { get; init; }
+
+    /// <summary>Optional measured value retained for the ledger even when the resolved source is stated-only.</summary>
+    public double? MeasuredValue { get; init; }
+
+    /// <summary>Optional raw contributing deck count for the measured leg of the fused target.</summary>
+    public int? NumDecks { get; init; }
+
+    /// <summary>Optional effective sample size retained as the coverage-floor signal for the measured leg.</summary>
+    public double? EffectiveSampleSize { get; init; }
+
+    /// <summary>Optional verdict badge describing how the stated and measured legs resolved.</summary>
+    public string? Verdict { get; init; }
+
+    /// <summary>Optional verdict discriminator explaining why an insufficient-measured verdict landed.</summary>
+    public string? VerdictReason { get; init; }
+
+    /// <summary>Optional source clip excerpt supporting the stated leg of the fused target.</summary>
+    public string? SourceClip { get; init; }
+
+    /// <summary>Optional UTC video date for the stated source that contributed this fused target.</summary>
+    public DateTimeOffset? VideoDateUtc { get; init; }
+
+    /// <summary>Optional coarse confidence band for the stated leg of the fused target.</summary>
+    public string? Confidence { get; init; }
+
     /// <summary>Optional conflict details between stated and measured inputs.</summary>
     public FusedConflict? Conflict { get; init; }
 }
@@ -130,4 +163,10 @@ public sealed record FusedConflict
 
     /// <summary>Difference between the stated and measured values.</summary>
     public required double Delta { get; init; }
+
+    /// <summary>Optional band-relative percent quantifying how far the measured value sits beyond the stated band.</summary>
+    public double? BandRelativePercent { get; init; }
+
+    /// <summary>Optional winner marker identifying whether the measured or stated leg prevailed.</summary>
+    public string? Winner { get; init; }
 }
