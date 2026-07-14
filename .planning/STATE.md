@@ -181,6 +181,7 @@ Carried forward, plus Cycle-16 operator gates acknowledged at close (2026-07-11)
 | Date | Task | Branch | Commits |
 |------|------|--------|---------|
 | 2026-07-12 | Deck-analysis + primer + comparison UX fixes (mobile overflow, artifact expand, context open, step-3 tab) | quick/deck-analysis-ux-fixes | aac3b4dd, 98ed77a1 |
+| 2026-07-13 | Arena-format paste hardening (About/Name preamble, SB: sideboard prefix, hints/help/README) | quick/arena-paste-hardening | 38496f51, 23faf7c6 |
 
 ## Session Continuity
 
