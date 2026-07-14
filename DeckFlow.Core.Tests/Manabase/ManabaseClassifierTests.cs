@@ -1617,6 +1617,27 @@ public sealed class ManabaseClassifierTests
     }
 
     [Fact]
+    public void Classify_RestrictedLandsOnlyGate_FastLandText_DoesNotEmitCheckLandCondition()
+    {
+        var cards = new List<CardFact>
+        {
+            Land("Seachrome Coast", "Land", new[] { "W", "U" },
+                "Seachrome Coast enters the battlefield tapped unless you control two or fewer other lands."),
+            CreatureSpell("Esper Sentinel", "{W}", "Creature — Human Soldier"),
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(
+            cards,
+            restrictedLands: true,
+            checkLandUntapped: false);
+
+        ManaSource source = Assert.Single(deck.Sources, s => s.Name == "Seachrome Coast");
+        Assert.Equal(CountConditionKind.None, source.CountCondition);
+        Assert.Equal(0, source.CountThreshold);
+        Assert.Empty(source.CountTypeFilter);
+    }
+
+    [Fact]
     public void Classify_CheckLandUntapped_ThresholdLandNamingBasicType_EmitsEldMetadata()
     {
         var cards = new List<CardFact>
@@ -1668,6 +1689,27 @@ public sealed class ManabaseClassifierTests
         ManaSource source = Assert.Single(deck.Sources, s => s.Name == "Floodfarm Verge");
         Assert.True(source.EntersUntapped);
         Assert.Equal(new[] { ManaColor.White }, source.Produces);
+    }
+
+    [Fact]
+    public void Classify_CheckLandUntapped_VergeWithOneProducedColor_FallsThroughToDefaultClassification()
+    {
+        var cards = new List<CardFact>
+        {
+            Land("Single-Color Verge", "Land", new[] { "W" },
+                "{T}: Add {W}. Activate only if you control a Plains or an Island."),
+            Land("Island", "Basic Land — Island", new[] { "U" }, "{T}: Add {U}.") with { Quantity = 8 },
+            Spell("Brago", 4, "{2}{W}{U}"),
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards, checkLandUntapped: true);
+
+        ManaSource source = Assert.Single(deck.Sources, s => s.Name == "Single-Color Verge");
+        Assert.True(source.EntersUntapped);
+        Assert.Equal(new[] { ManaColor.White }, source.Produces);
+        Assert.Equal(CountConditionKind.None, source.CountCondition);
+        Assert.Equal(0, source.CountThreshold);
+        Assert.Empty(source.CountTypeFilter);
     }
 
     [Fact]
