@@ -942,6 +942,20 @@ public sealed class ManabaseAnalyzerTests
         Assert.Empty(lens.Rows);
     }
 
+    [Fact]
+    public void Analyze_InteractionLens_IncludesPreGateInstantInteraction_WhenPlanRoleWasStripped()
+    {
+        ManabaseReport report = ManabaseAnalyzer.Analyze(
+            BuildPreGateInteractionLensDeck(),
+            ManabaseMode.Cedh,
+            interactionLens: true);
+
+        ManabaseInteractionLens lens = Assert.IsType<ManabaseInteractionLens>(report.InteractionLens);
+
+        Assert.Equal(1, lens.QualifyingCount);
+        Assert.Contains(lens.Rows, row => row.Name == "Counterspell");
+    }
+
     private static ManabaseDeck BuildReducerDeck(bool withReducer)
     {
         var sources = new List<ManaSource>();
@@ -1080,6 +1094,36 @@ public sealed class ManabaseAnalyzerTests
                     ManaValue = 3,
                     Pips = Pip((ManaColor.Blue, 1)),
                     PlanRoles = PlanRole.Interaction,
+                    Kinds = SpellKinds.Instant,
+                },
+            },
+            IsSingleton = true,
+        };
+    }
+
+    private static ManabaseDeck BuildPreGateInteractionLensDeck()
+    {
+        var sources = new List<ManaSource>();
+        for (int i = 0; i < 36; i++)
+        {
+            sources.Add(new ManaSource { Name = $"Island {i}", Produces = new[] { ManaColor.Blue } });
+        }
+
+        return new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            AverageManaValue = 2.0,
+            Sources = sources,
+            Spells = new List<SpellRequirement>
+            {
+                new()
+                {
+                    Name = "Counterspell",
+                    ManaValue = 2,
+                    Pips = Pip((ManaColor.Blue, 2)),
+                    PlanRoles = PlanRole.None,
+                    IsInteractionSpell = true,
                     Kinds = SpellKinds.Instant,
                 },
             },
