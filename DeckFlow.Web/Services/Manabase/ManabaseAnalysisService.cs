@@ -120,6 +120,9 @@ public sealed record ManabaseAnalysisResult(
     /// <summary>Whether the plan-presence opener stat was enabled (flag on) for this result.</summary>
     public bool ShowPlanPresence { get; init; }
 
+    /// <summary>Whether the cEDH-only early-interaction lens was enabled for this result.</summary>
+    public bool ShowCedhInteractionLens { get; init; }
+
     /// <summary>Optional companion castability row modeled outside the analyzed 99.</summary>
     public CardCastability? CompanionRow { get; init; }
 
@@ -202,6 +205,13 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     /// off = byte-identical output.
     /// </summary>
     public const string MulliganEvalFlagKey = "analysis.manabase.mulligan-eval";
+
+    /// <summary>
+    /// cEDH interaction-lens flag key: seeded ON; gates the cEDH-only early-interaction lens, the
+    /// full castability-table exposure in cEDH mode, and the related prompt-artifact blocks. Read
+    /// fail-safe OFF; off = byte-identical output.
+    /// </summary>
+    public const string CedhInteractionLensFlagKey = "analysis.manabase.cedh-interaction-lens";
 
     /// <summary>
     /// Plan-presence flag key: seeded OFF. Gates the "with a plan" opener stat AND the only new I/O it
@@ -293,6 +303,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         // that block, so enabling plan-presence alone must not do the extra I/O + sim for a line that can
         // never show (Codex MED). Both flags on = the stat runs and surfaces.
         bool showPlanPresence = IsFlagOn(PlanPresenceFlagKey) && showMulliganEval;
+        bool interactionLens = IsFlagOn(CedhInteractionLensFlagKey);
         bool ritualBurst = IsFlagOn(RitualBurstFlagKey);
         bool ritualLandCredit = IsFlagOn(RitualLandCreditFlagKey);
         bool restrictedLands = IsFlagOn(RestrictedLandsFlagKey);
@@ -306,7 +317,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 checkLandUntapped,
                 restrictedLands,
                 commanderCastability,
-                classifyPlanRoles: showPlanPresence,
+                classifyPlanRoles: showPlanPresence || (interactionLens && options.Mode == ManabaseMode.Cedh),
                 options.Mode,
                 options.CompanionDesignator,
                 options.SelectedCommander,
@@ -332,6 +343,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 ShowTapAnalyzer = showTapAnalyzer,
                 ShowMulliganEval = showMulliganEval,
                 ShowPlanPresence = showPlanPresence,
+                ShowCedhInteractionLens = interactionLens && options.Mode == ManabaseMode.Cedh,
             };
         }
 
@@ -380,6 +392,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             useManaQuantity, colorAwareMulligan, gateRampOnCastable: true,
             ritualBurst: ritualBurst,
             ritualLandCredit: ritualLandCredit,
+            interactionLens: interactionLens,
             useHealthBandCastability: useHealthBandCastability,
             useHealthBandHeadlineFloor: useHealthBandHeadlineFloor,
             cedhContext: cedhContext);
@@ -412,12 +425,14 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             }
 
             swapPrompt = ManabaseSwapPromptBuilder.Build(
-                report, deckName, resolved.DecklistText, options.Mode, verdict, budget, commanderCastability, companionRow);
+                report, deckName, resolved.DecklistText, options.Mode, verdict, budget, commanderCastability, companionRow,
+                interactionLens: report.InteractionLens);
         }
         else
         {
             swapPrompt = ManabaseSwapPromptBuilder.Build(
-                report, deckName, resolved.DecklistText, options.Mode, null, null, commanderCastability, companionRow);
+                report, deckName, resolved.DecklistText, options.Mode, null, null, commanderCastability, companionRow,
+                interactionLens: report.InteractionLens);
         }
 
         return new ManabaseAnalysisResult(
@@ -430,6 +445,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             ShowTapAnalyzer = showTapAnalyzer,
             ShowMulliganEval = showMulliganEval,
             ShowPlanPresence = showPlanPresence,
+            ShowCedhInteractionLens = interactionLens && options.Mode == ManabaseMode.Cedh,
             UnmatchedOverrideNames = report.UnmatchedOverrideNames,
         };
     }
