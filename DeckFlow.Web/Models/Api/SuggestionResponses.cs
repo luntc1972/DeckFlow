@@ -14,6 +14,8 @@ public sealed class CategorySuggestionApiResponse
     /// Card name that was queried.
     /// </summary>
     public string CardName { get; init; } = string.Empty;
+    /// <summary>Merged, ranked category text across all suggestion sources.</summary>
+    public string? MergedCategoriesText { get; init; }
     /// <summary>
     /// Exact category text from the optional reference deck.
     /// </summary>
@@ -90,6 +92,8 @@ public sealed class CommanderCategorySummaryDto
     public int Count { get; init; }
     /// <summary>Total harvested decks represented by the category.</summary>
     public int DeckCount { get; init; }
+    /// <summary>Share of observed commander decks that include the category.</summary>
+    public double DeckShare { get; init; }
 }
 
 /// <summary>

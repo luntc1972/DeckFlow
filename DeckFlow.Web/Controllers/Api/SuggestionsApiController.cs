@@ -79,9 +79,15 @@ public sealed class SuggestionsApiController : ControllerBase
         try
         {
             var result = await _categorySuggestionService.SuggestAsync(request, cancellationToken);
+            var merged = CategorySuggestionReporter.Merge(
+                result.ExactCategories,
+                result.InferredCategories,
+                result.EdhrecCategories,
+                result.TaggerCategories);
             var response = new CategorySuggestionApiResponse
             {
                 CardName = result.CardName,
+                MergedCategoriesText = CategorySuggestionReporter.ToText(merged, result.CardName),
                 ExactCategoriesText = CategorySuggestionReporter.ToText(result.ExactCategories, result.CardName),
                 ExactSuggestionContextText = "These are exact card-name matches found in the Archidekt reference deck you provided.",
                 InferredCategoriesText = CategorySuggestionReporter.ToText(result.InferredCategories, result.CardName),
@@ -157,7 +163,8 @@ public sealed class SuggestionsApiController : ControllerBase
                     {
                         Category = summary.Category,
                         Count = summary.Count,
-                        DeckCount = summary.DeckCount
+                        DeckCount = summary.DeckCount,
+                        DeckShare = summary.DeckShare
                     })
                     .ToList(),
                 NoResultsMessage = result.Summaries.Count == 0

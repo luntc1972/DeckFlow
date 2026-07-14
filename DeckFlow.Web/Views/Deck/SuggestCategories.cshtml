@@ -6,8 +6,7 @@
     var hasReferenceInput = suggestionMode == CategorySuggestionMode.ReferenceDeck
         && (!string.IsNullOrWhiteSpace(Model.SuggestionRequest.ArchidektUrl) || !string.IsNullOrWhiteSpace(Model.SuggestionRequest.ArchidektText));
     var cardSpecified = !string.IsNullOrWhiteSpace(Model.SuggestionRequest.CardName);
-    var hasExact = !string.IsNullOrWhiteSpace(Model.ExactSuggestedCategoriesText);
-    var hasInferred = !string.IsNullOrWhiteSpace(Model.InferredCategoriesText);
+    var hasMerged = !string.IsNullOrWhiteSpace(Model.MergedCategoriesText);
     ViewData["Title"] = "MTG Deck Category & Tag Suggestions";
     ViewData["Description"] = "Get suggested categories and tags for every card in your Commander deck, drawn from crawled deck history. Speeds up Archidekt deck organization.";
 }
@@ -21,7 +20,7 @@
 @await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
 
 <div class="warning-banner">
-    Suggestions are separated by confidence. Cached store results are the default source, and exact Archidekt deck matches are optional.
+    Suggestions are merged into one ranked category list. Cached store results are the default source, and exact Archidekt deck matches are optional.
 </div>
 
 <div class="error-banner @(string.IsNullOrWhiteSpace(Model.SuggestionErrorMessage) ? "hidden" : string.Empty)" role="alert" data-api-panel="suggest-error">
@@ -128,42 +127,14 @@
         <p data-api-field="source-summary-text">@Model.SuggestionSourceSummary</p>
     </section>
 
-    <section class="result-panel @(hasReferenceInput ? string.Empty : "hidden")" data-api-panel="exact">
+    <section class="result-panel @(hasMerged ? string.Empty : "hidden")" data-api-panel="merged">
         <div class="panel-heading">
             <div>
-                <h2>Exact Deck Match</h2>
-                <p data-api-field="exact-context">@Model.ExactSuggestionContextText</p>
+                <h2>Suggested Categories</h2>
             </div>
-            <button type="button" class="copy-button" data-copy-target="exact-suggested-categories-output">Copy</button>
+            <button type="button" class="copy-button" data-copy-target="merged-categories-output">Copy</button>
         </div>
-        <textarea autocomplete="off" id="exact-suggested-categories-output" data-api-field="exact-text" readonly spellcheck="false">@Model.ExactSuggestedCategoriesText</textarea>
-    </section>
-
-    <section class="result-panel inferred-panel @(hasInferred ? string.Empty : "hidden")" data-api-panel="inferred" id="cached-store-matches">
-        <div class="panel-heading">
-            <div>
-                <h2>Cached Store Matches</h2>
-                <details class="info-tooltip">
-                    <summary>i</summary>
-                    <p>These categories are ordered by how many cached decks contained the card (descending).</p>
-                </details>
-                <p data-api-field="inferred-context">@Model.InferredSuggestionContextText</p>
-                <p data-api-field="cache-info-detail">@if (Model.CardDeckTotals.TotalDeckCount > 0) { <text>@Model.CardDeckTotals.TotalDeckCount deck(s) in the cache include @Model.SuggestionRequest.CardName.</text> }</p>
-            </div>
-            <button type="button" class="copy-button" data-copy-target="inferred-categories-output">Copy</button>
-        </div>
-        <textarea autocomplete="off" id="inferred-categories-output" data-api-field="inferred-text" readonly spellcheck="false">@Model.InferredCategoriesText</textarea>
-    </section>
-
-    <section class="result-panel tagger-panel @(string.IsNullOrWhiteSpace(Model.TaggerCategoriesText) ? "hidden" : string.Empty)" data-api-panel="tagger">
-        <div class="panel-heading">
-            <div>
-                <h2>Scryfall Tagger Tags</h2>
-                <p data-api-field="tagger-context">@Model.TaggerSuggestionContextText</p>
-            </div>
-            <button type="button" class="copy-button" data-copy-target="tagger-categories-output">Copy</button>
-        </div>
-        <textarea autocomplete="off" id="tagger-categories-output" data-api-field="tagger-text" readonly spellcheck="false">@Model.TaggerCategoriesText</textarea>
+        <textarea autocomplete="off" id="merged-categories-output" data-api-field="merged-text" readonly spellcheck="false">@Model.MergedCategoriesText</textarea>
     </section>
 </section>
 
