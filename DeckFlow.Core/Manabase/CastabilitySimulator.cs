@@ -291,6 +291,7 @@ public static class CastabilitySimulator
         int colorShortFailures = 0; // had enough total mana but couldn't cover the pips
         long delaySum = 0; // sum of max(0, firstCastableTurn - onCurveTurn) over all trials
         int turn1UntappedSuccesses = 0; // TAP-02: trials with >=1 untapped/usable source on turn 1
+        int byTurn3HoldableSuccesses = 0; // cEDH lens seed: trials castable from online sources on turns 1-3
 
         // MULLIGAN-01..04: pure-observation keep-size counters + up to 3 representative openers,
         // bucketed by the keep VALUE LondonMulligan RETURNS (never the mulligan-depth index).
@@ -313,6 +314,7 @@ public static class CastabilitySimulator
 
         int[] shuffled = new int[library.Count];
         var availableColors = new List<(int Mask, int Amount)>(20); // online sources as (mask, mana amount)
+        var byTurn3Colors = new List<(int Mask, int Amount)>(20); // mirrored turn-1/2/3 online-source view
         var onlineLandMasks = new List<int>(20); // scratch: lands whose online-turn <= currentTurn (masks only)
 
         // Partial sources (FINDING-2 MEDIUM): indices of sub-1 cards needing a per-trial Bernoulli roll.
@@ -381,9 +383,9 @@ public static class CastabilitySimulator
             }
 
             bool success = SimulateGame(
-                library, shuffled, active, handCount, turn, effectiveCost, pipReq, availableColors, onlineLandMasks,
+                library, shuffled, active, handCount, turn, effectiveCost, pipReq, availableColors, byTurn3Colors, onlineLandMasks,
                 gateRampOnCastable, ritualBurst, out bool manaShort, out bool colorShort, out int firstCastableTurn,
-                out bool hadUntappedT1);
+                out bool hadUntappedT1, out bool hadByTurn3Holdable);
 
             // MULLIGAN STAGE 2 (pure observation, no rng draw): build the sample now that
             // firstCastableTurn is known, attributing it to THIS row's tracked spell.
@@ -415,6 +417,11 @@ public static class CastabilitySimulator
                 turn1UntappedSuccesses++;
             }
 
+            if (hadByTurn3Holdable)
+            {
+                byTurn3HoldableSuccesses++;
+            }
+
             if (success)
             {
                 successes++;
@@ -444,6 +451,7 @@ public static class CastabilitySimulator
             IsCostOverridden = spell.IsCostOverridden,
             AverageDelay = averageDelay,
             Turn1UntappedTrials = turn1UntappedSuccesses,
+            ByTurn3HoldableTrials = byTurn3HoldableSuccesses,
             KeepableTrials = keepableTrials,
             Kept7Trials = kept7,
             MulliganTo6Trials = mulliganTo6,
@@ -516,6 +524,7 @@ public static class CastabilitySimulator
         int[] deck0 = Enumerable.Range(0, library.Count).ToArray();
         int[] shuffled = new int[library.Count];
         var availableColors = new List<(int Mask, int Amount)>(20);
+        var byTurn3Colors = new List<(int Mask, int Amount)>(20);
         var onlineLandMasks = new List<int>(20);
         int[] partialIndices = Enumerable.Range(0, library.Count).Where(i => library[i].IsPartial).ToArray();
         bool[] active = new bool[library.Count];
@@ -606,8 +615,8 @@ public static class CastabilitySimulator
                 (int Bit, int Count)[] pips = library[planIdx].PlanPips ?? Array.Empty<(int, int)>();
                 bool castable = SimulateGame(
                     library, shuffled, active, handCount, planTurn, planTurn, pips,
-                    availableColors, onlineLandMasks, gateRampOnCastable, ritualBurst,
-                    out _, out _, out int firstCastableTurn, out _);
+                    availableColors, byTurn3Colors, onlineLandMasks, gateRampOnCastable, ritualBurst,
+                    out _, out _, out int firstCastableTurn, out _, out _);
 
                 if (castable && firstCastableTurn <= planTurn)
                 {
@@ -1098,17 +1107,20 @@ public static class CastabilitySimulator
         int effectiveCost,
         (int Bit, int Count)[] pipReq,
         List<(int Mask, int Amount)> availableColors,
+        List<(int Mask, int Amount)> byTurn3Colors,
         List<int> onlineLandMasks,
         bool gateRampOnCastable,
         bool ritualBurst,
         out bool manaShort,
         out bool colorShort,
         out int firstCastableTurn,
-        out bool hadUntappedT1)
+        out bool hadUntappedT1,
+        out bool hadByTurn3Holdable)
     {
         manaShort = false;
         colorShort = false;
         hadUntappedT1 = false;
+        hadByTurn3Holdable = false;
 
         // Snail's metric forgives a short delay; lower drops get a slightly wider window (a 1-drop is
         // rarely cast exactly on turn 1, but a player will still happily cast it on turn 2-3). The
@@ -1232,6 +1244,17 @@ public static class CastabilitySimulator
                 hadUntappedT1 = HasColorMatchedUntappedT1(landsOnBoard, rampOnBoard, pipReq);
             }
 
+            // cEDH interaction-lens seed: independently of the spell's own on-curve turn, record whether
+            // the board could hold this spell up from untapped/online sources on ANY of turns 1-3. Build
+            // a mirrored online-source view here instead of reusing availableColors: that list is only
+            // rebuilt after the early-continue below, so sharing it would leave turns 1-3 stale/unset for
+            // spells whose effective turn is later than 3.
+            if (!hadByTurn3Holdable && currentTurn <= 3)
+            {
+                BuildOnlineSourceView(landsOnBoard, rampOnBoard, currentTurn, byTurn3Colors);
+                hadByTurn3Holdable = IsCastableFromOnlineSources(byTurn3Colors, pipReq, effectiveCost);
+            }
+
             // From the effective turn onward, test castability; succeed on the first turn it lands.
             if (currentTurn < turn)
             {
@@ -1240,22 +1263,7 @@ public static class CastabilitySimulator
 
             // Rebuild the online sources as (mask, amount) capacity records — lands plus ramp that is
             // online this turn (re-read AFTER the ramp deploy so 0-cost same-turn ramp counts).
-            availableColors.Clear();
-            foreach (PlayedLand land in landsOnBoard)
-            {
-                if (land.OnlineTurn <= currentTurn)
-                {
-                    availableColors.Add((land.Mask, land.Amount));
-                }
-            }
-
-            foreach ((int Mask, int Cost, int OnlineTurn, int Amount) r in rampOnBoard)
-            {
-                if (r.OnlineTurn <= currentTurn)
-                {
-                    availableColors.Add((r.Mask, r.Amount));
-                }
-            }
+            BuildOnlineSourceView(landsOnBoard, rampOnBoard, currentTurn, availableColors);
 
             // DEPLOY-FRICTION (land-ramp-sim on): reserve the mana we just spent playing a ramp piece, so
             // the payoff spell cannot also use it this turn. We tap the LEAST color-flexible sources first
@@ -1655,6 +1663,43 @@ public static class CastabilitySimulator
         }
 
         return false;
+    }
+
+    private static void BuildOnlineSourceView(
+        List<PlayedLand> landsOnBoard,
+        List<(int Mask, int Cost, int OnlineTurn, int Amount)> rampOnBoard,
+        int currentTurn,
+        List<(int Mask, int Amount)> destination)
+    {
+        destination.Clear();
+        foreach (PlayedLand land in landsOnBoard)
+        {
+            if (land.OnlineTurn <= currentTurn)
+            {
+                destination.Add((land.Mask, land.Amount));
+            }
+        }
+
+        foreach ((int Mask, int Cost, int OnlineTurn, int Amount) ramp in rampOnBoard)
+        {
+            if (ramp.OnlineTurn <= currentTurn)
+            {
+                destination.Add((ramp.Mask, ramp.Amount));
+            }
+        }
+    }
+
+    private static bool IsCastableFromOnlineSources(
+        List<(int Mask, int Amount)> onlineSources,
+        (int Bit, int Count)[] pipReq,
+        int effectiveCost)
+    {
+        if (TotalMana(onlineSources) < effectiveCost)
+        {
+            return false;
+        }
+
+        return ColorsCoverable(onlineSources, pipReq, effectiveCost);
     }
 
     private static int TotalMana(List<(int Mask, int Amount)> sources)
