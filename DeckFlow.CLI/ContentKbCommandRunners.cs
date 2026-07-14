@@ -2,6 +2,7 @@ using System.Text.Json;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
+using DeckFlow.Core.Knowledge.ProfileFusion;
 using DeckFlow.Core.Orchestration;
 using DeckFlow.Core.Storage;
 using Serilog;
@@ -116,6 +117,57 @@ internal static class ContentKbCommandRunners
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             logger.Error(exception, "Content KB distill failed.");
+            Console.Error.WriteLine(exception.Message);
+            return 1;
+        }
+    }
+
+    public static async Task<int> RunFuseProfileAsync(
+        FileInfo? db,
+        string slug,
+        Serilog.ILogger logger,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentException.ThrowIfNullOrWhiteSpace(slug);
+
+        try
+        {
+            var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
+            var profileStore = new CreatorStyleProfileStore(dbPath);
+            var videoStore = new ContentVideoStore(dbPath);
+            await profileStore.EnsureSchemaAsync(ct).ConfigureAwait(false);
+            await videoStore.EnsureSchemaAsync(ct).ConfigureAwait(false);
+
+            var profile = await profileStore.GetBySlugAsync(slug, ct).ConfigureAwait(false);
+            if (profile is null)
+            {
+                const string message = "No measured profile found for slug.";
+                logger.Error("{Message} {Slug}", message, slug);
+                Console.Error.WriteLine($"{message} {slug}");
+                return 1;
+            }
+
+            var statedRules = await videoStore.GetStatedRulesBySourceSlugAsync(slug, ct).ConfigureAwait(false);
+            var fusedTargets = ProfileFusionEngine.Fuse(profile.MeasuredMetrics, statedRules);
+            var updatedProfile = profile with
+            {
+                FusedTargets = fusedTargets,
+                UpdatedUtc = DateTimeOffset.UtcNow
+            };
+            await profileStore.UpsertAsync(updatedProfile, ct).ConfigureAwait(false);
+
+            var conflictCount = fusedTargets.Count(target => string.Equals(target.Verdict, "conflict", StringComparison.OrdinalIgnoreCase));
+            logger.Information(
+                "Fused profile for {Slug}: {FusedTargetCount} targets, {ConflictCount} conflicts.",
+                slug,
+                fusedTargets.Count,
+                conflictCount);
+            return 0;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.Error(exception, "Fuse profile failed for {Slug}.", slug);
             Console.Error.WriteLine(exception.Message);
             return 1;
         }

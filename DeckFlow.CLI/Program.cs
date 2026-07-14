@@ -96,6 +96,9 @@ var distillDbOption = new Option<FileInfo?>("--db") { Description = "Path to the
 var distillLimitOption = new Option<int>("--limit", () => 5) { Description = "Videos to distill per enabled source." };
 var distillDryRunOption = new Option<bool>("--dry-run", () => false) { Description = "Estimate projected spend over pending videos and process nothing." };
 var distillVideoIdsOption = new Option<string?>("--video-ids") { Description = "Comma-separated natural keys (YouTube video ids or RSS guids) to distill; other pending videos are skipped and --limit is ignored." };
+var fuseProfileCommand = new Command("fuse-profile", "Fuse a creator's measured profile and stated rules into weighted numeric targets + say-vs-do ledger.");
+var fuseProfileSlugOption = new Option<string>("--slug") { IsRequired = true };
+var fuseProfileDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
 var contentIndexExportCommand = new Command("content-index-export", "Exports the local content_site_index to a tracked JSON seed file for commit-then-deploy.");
 var contentIndexExportDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
 var contentIndexExportOutputOption = new Option<FileInfo?>("--output", () => new FileInfo(ContentKbPaths.SeedRelativePath)) { Description = "Path to the JSON seed file. Defaults to content-kb/seed/index-seed.json." };
@@ -161,6 +164,8 @@ distillCommand.AddOption(distillDbOption);
 distillCommand.AddOption(distillLimitOption);
 distillCommand.AddOption(distillDryRunOption);
 distillCommand.AddOption(distillVideoIdsOption);
+fuseProfileCommand.AddOption(fuseProfileSlugOption);
+fuseProfileCommand.AddOption(fuseProfileDbOption);
 contentIndexExportCommand.AddOption(contentIndexExportDbOption);
 contentIndexExportCommand.AddOption(contentIndexExportOutputOption);
 contentKbCheckCommand.AddOption(contentKbCheckDbOption);
@@ -220,6 +225,7 @@ rootCommand.AddCommand(unblockVideoCommand);
 rootCommand.AddCommand(listBlockedCommand);
 rootCommand.AddCommand(corpusResetCommand);
 rootCommand.AddCommand(distillCommand);
+rootCommand.AddCommand(fuseProfileCommand);
 rootCommand.AddCommand(contentIndexExportCommand);
 rootCommand.AddCommand(contentKbCheckCommand);
 
@@ -323,6 +329,11 @@ distillCommand.SetHandler((FileInfo? db, int limit, bool dryRun, string? videoId
 {
     Environment.ExitCode = ContentKbCommandRunners.RunDistillAsync(db, limit, dryRun, Log.Logger, CancellationToken.None, ContentKbCommandRunners.ParseVideoIds(videoIds)).GetAwaiter().GetResult();
 }, distillDbOption, distillLimitOption, distillDryRunOption, distillVideoIdsOption);
+
+fuseProfileCommand.SetHandler((FileInfo? db, string slug) =>
+{
+    Environment.ExitCode = ContentKbCommandRunners.RunFuseProfileAsync(db, slug, Log.Logger, CancellationToken.None).GetAwaiter().GetResult();
+}, fuseProfileDbOption, fuseProfileSlugOption);
 
 contentIndexExportCommand.SetHandler((FileInfo? db, FileInfo? output) =>
 {
