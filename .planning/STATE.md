@@ -184,6 +184,7 @@ Carried forward, plus Cycle-16 operator gates acknowledged at close (2026-07-11)
 | 2026-07-13 | Arena-format paste hardening (About/Name preamble, SB: sideboard prefix, hints/help/README) | quick/arena-paste-hardening | 38496f51, 23faf7c6 |
 | 2026-07-14 | /Admin/Flags enabled/disabled status filter chips (compose with prefix search + namespace chips; e2e contract repair) | quick/flags-status-filter | 998f1ccb |
 | 2026-07-14 | Manabase tier-3 minors: MBGAP-06 scry-0.2 credit (flag scry-credit) + MBGAP-08/L6 colorless {C}/snow {S} categories (flag colorless-snow) + MBGAP-10 LOW sweep (L4 kept+guarded, L5 draw-baseline ceiling, L9 Relic granter, L13 doc) + review/simplify fixes + WSLENV auto-browser gate fix — closes manabase backlog §3 | quick/manabase-tier3-minors | e35da9a9..d0be157e (9) |
+| 2026-07-14 | Manabase §5 refactor batch: table-driven ClassifySpecialLand (SpecialLandRule[] + 2 pin tests), AddLandCopies → LandClassificationContext record struct, CedhCalibration TargetColumn descriptors + shared variant stats — behavior-neutral, verifier PASS, closes backlog §5 top three | quick/manabase-s5-refactors | 41debe07..ec50833b (4) |
 
 ## Session Continuity
 
