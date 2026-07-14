@@ -153,7 +153,7 @@ public sealed class ManabaseController : DeckToolControllerBase
                 string text = ManabaseReportTextBuilder.Build(
                     result.Report, request.DeckName, decklistText: null, request.Mode, result.Verdict, result.Budget,
                     tap: result.ShowTapAnalyzer ? result.Report.TapAnalysis : null,
-                    interactionLens: result.ShowCedhInteractionLens ? result.Report.InteractionLens : null,
+                    interactionLens: result.Report.InteractionLens,
                     mulligan: result.ShowMulliganEval ? result.Report.MulliganEvaluation : null,
                     includeCommandZone: result.CommanderCastabilityEnabled,
                     companionRow: result.CompanionRow,

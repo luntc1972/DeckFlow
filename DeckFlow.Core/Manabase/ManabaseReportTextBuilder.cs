@@ -346,7 +346,7 @@ public static class ManabaseReportTextBuilder
             $"{lens.OnTargetCount} / {lens.QualifyingCount} interaction held up by turn 3 at the {lens.Threshold}% threshold."));
         sb.AppendLine("Worst holdable spells:");
 
-        foreach (ManabaseInteractionRow row in lens.Rows.Take(5))
+        foreach (ManabaseInteractionRow row in lens.Rows.Take(ManabaseInteractionLens.DefaultVisibleRows))
         {
             sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
                 $"  - {row.Name}: {row.HoldablePercent}%"));
