@@ -93,6 +93,10 @@ public sealed class ProfileFusionEngineTests
     [Fact]
     public void Fuse_SupersededRuleAppearsAsHistoryAndNotAsActiveTarget()
     {
+        MeasuredMetric[] measured =
+        [
+            CreateMeasuredMetric("category_ratio:draw", 14.0, effectiveSampleSize: 10.5),
+        ];
         StatedRuleCandidate older = CreateRule(
             metric: "draw",
             comparator: "range",
@@ -108,7 +112,7 @@ public sealed class ProfileFusionEngineTests
             sourceClip: "New draw target.",
             videoDateUtc: "2026-07-05T00:00:00Z");
 
-        IReadOnlyList<FusedTarget> result = ProfileFusionEngine.Fuse([], [older, newer]);
+        IReadOnlyList<FusedTarget> result = ProfileFusionEngine.Fuse(measured, [older, newer]);
 
         Assert.Equal(2, result.Count);
         Assert.Collection(
@@ -116,7 +120,7 @@ public sealed class ProfileFusionEngineTests
             active =>
             {
                 Assert.Equal("draw", active.Metric);
-                Assert.Equal("philosophy-stated-only", active.Verdict);
+                Assert.Equal("agree", active.Verdict);
                 Assert.Equal("New draw target.", active.SourceClip);
             },
             history =>
