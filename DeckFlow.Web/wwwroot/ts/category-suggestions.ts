@@ -23,6 +23,7 @@
 
   type CardSuggestionResponse = {
     cardName: string;
+    mergedCategoriesText?: string | null;
     exactCategoriesText: string;
     exactSuggestionContextText: string;
     inferredCategoriesText: string;
@@ -56,6 +57,7 @@
       category: string;
       count: number;
       deckCount: number;
+      deckShare: number;
     }>;
   };
 
@@ -88,6 +90,14 @@
     return cell;
   };
 
+  const createCommanderSummaryRow = (summary: CommanderSuggestionResponse['summaries'][number]): HTMLTableRowElement => {
+    const row = document.createElement('tr');
+    row.appendChild(createTextCell(summary.category));
+    row.appendChild(createTextCell(`${Math.round(summary.deckShare * 100)}%`));
+    row.appendChild(createTextCell(summary.deckCount));
+    return row;
+  };
+
   const handleError = (panel: 'suggest-error' | 'commander-error', message?: string | null): void => {
     if (!message) {
       toggleSuggestionPanel(panel, false);
@@ -102,6 +112,7 @@
     toggleSuggestionPanel('suggest-error', false);
     toggleSuggestionPanel('cache-info', false);
     toggleSuggestionPanel('source-summary', false);
+    toggleSuggestionPanel('merged', false);
     toggleSuggestionPanel('exact', false);
     toggleSuggestionPanel('inferred', false);
     toggleSuggestionPanel('edhrec', false);
@@ -216,31 +227,9 @@
       toggleSuggestionPanel('source-summary', true);
     }
 
-    const showExact = mode === 'ReferenceDeck' && response.hasExactCategories;
-    toggleSuggestionPanel('exact', showExact);
-    setFieldText('exact-context', response.exactSuggestionContextText);
-    setFieldText('exact-text', response.exactCategoriesText);
-
-    const showInferred = showCached && response.hasInferredCategories;
-    toggleSuggestionPanel('inferred', showInferred);
-    setFieldText('inferred-context', response.inferredSuggestionContextText);
-    setFieldText('inferred-text', response.inferredCategoriesText);
-    setFieldText(
-      'cache-info-detail',
-      showCached && response.cardDeckTotals.totalDeckCount > 0
-        ? `${response.cardDeckTotals.totalDeckCount} deck(s) in the cache include ${response.cardName}.`
-        : ''
-    );
-
-    const showEdhrec = showCached && response.hasEdhrecCategories;
-    toggleSuggestionPanel('edhrec', showEdhrec);
-    setFieldText('edhrec-context', response.edhrecSuggestionContextText);
-    setFieldText('edhrec-text', response.edhrecCategoriesText);
-
-    const showTagger = (mode === 'ScryfallTagger' || showAll) && response.hasTaggerCategories;
-    toggleSuggestionPanel('tagger', showTagger);
-    setFieldText('tagger-context', response.taggerSuggestionContextText);
-    setFieldText('tagger-text', response.taggerCategoriesText);
+    const showMerged = Boolean(response.mergedCategoriesText && response.mergedCategoriesText.trim().length > 0);
+    setFieldText('merged-text', response.mergedCategoriesText);
+    toggleSuggestionPanel('merged', showMerged);
 
     toggleSuggestionPanel('no-suggestions', response.noSuggestionsFound);
     if (response.noSuggestionsFound) {
@@ -249,23 +238,8 @@
       return;
     }
 
-    if (showTagger) {
-      scrollPanelIntoCenter('[data-api-panel="tagger"]');
-      return;
-    }
-
-    if (showInferred) {
-      scrollPanelIntoCenter('#cached-store-matches');
-      return;
-    }
-
-    if (showExact) {
-      scrollPanelIntoCenter('[data-api-panel="exact"]');
-      return;
-    }
-
-    if (showEdhrec) {
-      scrollPanelIntoCenter('[data-api-panel="edhrec"]');
+    if (showMerged) {
+      scrollPanelIntoCenter('[data-api-panel="merged"]');
     }
   };
 
@@ -289,23 +263,35 @@
     }
 
     setFieldText('commander-cards-count', `${response.cardRowCount} cards contributed to this summary.`);
-    setFieldText('commander-deck-count', `Derived from ${response.harvestedDeckCount} cached decks with ${response.categoryCount} distinct categories.`);
+    setFieldText('commander-deck-count', `Derived from ${response.harvestedDeckCount} cached decks with ${response.categoryCount} filtered categories.`);
     setFieldText('commander-card-deck-count', `${response.commanderName} appears in ${response.cardDeckTotals.totalDeckCount} cached commander deck(s).`);
     setFieldText('commander-card-count', response.cardDeckTotals.totalDeckCount.toString());
 
     const body = document.querySelector<HTMLElement>('[data-api-field="commander-summary-body"]');
-    if (!body) {
+    const overflow = document.querySelector<HTMLDetailsElement>('[data-api-field="commander-summary-overflow"]');
+    const overflowLabel = document.querySelector<HTMLElement>('[data-api-field="commander-summary-overflow-label"]');
+    const overflowBody = document.querySelector<HTMLElement>('[data-api-field="commander-summary-overflow-body"]');
+    if (!body || !overflow || !overflowLabel || !overflowBody) {
       return;
     }
 
     body.innerHTML = '';
-    response.summaries.forEach(summary => {
-      const row = document.createElement('tr');
-      row.appendChild(createTextCell(summary.category));
-      row.appendChild(createTextCell(summary.count));
-      row.appendChild(createTextCell(summary.deckCount));
-      body.appendChild(row);
+    overflowBody.innerHTML = '';
+    overflow.open = false;
+
+    const visibleSummaries = response.summaries.slice(0, 25);
+    const overflowSummaries = response.summaries.slice(25);
+
+    visibleSummaries.forEach(summary => {
+      body.appendChild(createCommanderSummaryRow(summary));
     });
+
+    overflowSummaries.forEach(summary => {
+      overflowBody.appendChild(createCommanderSummaryRow(summary));
+    });
+
+    overflowLabel.textContent = `Show ${overflowSummaries.length} more categories`;
+    overflow.classList.toggle('hidden', overflowSummaries.length === 0);
 
     scrollPanelIntoCenter('#commander-results-anchor');
   };
