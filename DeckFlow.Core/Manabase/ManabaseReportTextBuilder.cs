@@ -43,6 +43,10 @@ public static class ManabaseReportTextBuilder
     /// When true (plan-presence flag on) and the mulligan evaluation carries a plan-presence read, the
     /// "With a plan" line is appended inside the opening-hand block. Off appends zero bytes.
     /// </param>
+    /// <param name="interactionLens">
+    /// Optional cEDH early-interaction lens. When null the "Early interaction (turns 1-3)" block is
+    /// skipped entirely so the output is byte-identical to the no-lens artifact.
+    /// </param>
     /// <returns>A paste-ready plain-text string containing the full mana-base verdict.</returns>
     public static string Build(
         ManabaseReport report,
@@ -55,7 +59,8 @@ public static class ManabaseReportTextBuilder
         ManabaseMulliganEvaluation? mulligan = null,
         bool includeCommandZone = false,
         CardCastability? companionRow = null,
-        bool includePlanPresence = false)
+        bool includePlanPresence = false,
+        ManabaseInteractionLens? interactionLens = null)
     {
         ArgumentNullException.ThrowIfNull(report);
 
@@ -181,6 +186,12 @@ public static class ManabaseReportTextBuilder
         if (mulligan is not null)
         {
             AppendMulliganEvaluationBlock(sb, mulligan, includePlanPresence);
+            sb.AppendLine();
+        }
+
+        if (interactionLens is not null)
+        {
+            AppendInteractionLensBlock(sb, interactionLens);
             sb.AppendLine();
         }
 
@@ -319,6 +330,30 @@ public static class ManabaseReportTextBuilder
         }
 
         sb.AppendLine("First-pass read only - verify against the actual hand; not a keep/mulligan recommendation.");
+    }
+
+    private static void AppendInteractionLensBlock(StringBuilder sb, ManabaseInteractionLens lens)
+    {
+        sb.AppendLine("Early interaction (turns 1-3)");
+
+        if (lens.QualifyingCount == 0)
+        {
+            sb.AppendLine("Caution: no cheap interaction found.");
+            return;
+        }
+
+        sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+            $"{lens.OnTargetCount} / {lens.QualifyingCount} interaction held up by turn 3 at the {lens.Threshold}% threshold."));
+        sb.AppendLine("Worst holdable spells:");
+
+        foreach (ManabaseInteractionRow row in lens.Rows.Take(5))
+        {
+            sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+                $"  - {row.Name}: {row.HoldablePercent}%"));
+        }
+
+        sb.AppendLine("Raw availability only - assumes you hold mana open.");
+        sb.AppendLine("First-pass read only - informational signal, not a recommendation.");
     }
 
 
