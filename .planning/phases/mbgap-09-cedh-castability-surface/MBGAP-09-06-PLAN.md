@@ -14,12 +14,12 @@ must_haves:
   truths:
     - "cEDH mode renders a third 'Early interaction' lens in the header strip; single/dual states still work (D-10)"
     - "The lens shows worst-5 spells + a <details> 'view all' expander disclosing the remainder count (D-11, L2)"
-    - "cEDH mode renders the full per-card castability table with a holdable badge column on interaction rows only; the v1 mode-note is removed (D-09, D-12)"
+    - "cEDH flag-on renders the full per-card castability table with a holdable badge column on interaction rows only; the v1 mode-note no longer renders flag-on but its .cshtml fallback block is preserved so flag-off cEDH output stays byte-identical (D-09, D-12, D-15)"
     - "Zero qualifying spells renders a caution-styled empty state, not a hidden lens (D-03)"
     - "The 3-up lens grid is responsive and collapses to one column on mobile; layout CSS lives in site-common.css (D-10)"
   artifacts:
     - path: "DeckFlow.Web/Views/Deck/Manabase.cshtml"
-      provides: "third lens section, table holdable column, mode-note removal, formula-panel coverage"
+      provides: "third lens section, table holdable column, flag-on mode-note suppression (flag-off fallback preserved), formula-panel coverage"
       contains: "manabase-early-interaction"
     - path: "DeckFlow.Web/wwwroot/css/site-common.css"
       provides: "manabase-twolens 3-up responsive rule"
@@ -36,7 +36,7 @@ must_haves:
 ---
 
 <objective>
-Ship the cEDH early-interaction UI: a third "Early interaction" lens in the header strip, the full per-card castability table in cEDH mode (v1 note removed) with a holdable badge column on interaction rows, the worst-5 + `<details>` expander, the caution empty state, the responsive 3-up grid CSS, and the formula-panel coverage. Verify across themes at two viewports (project UI rule).
+Ship the cEDH early-interaction UI: a third "Early interaction" lens in the header strip, the full per-card castability table in cEDH mode (v1 note suppressed flag-on, fallback preserved flag-off) with a holdable badge column on interaction rows, the worst-5 + `<details>` expander, the caution empty state, the responsive 3-up grid CSS, and the formula-panel coverage. Verify across themes at two viewports (project UI rule).
 
 Purpose: This is the user-facing surface. All prior plans exist to feed it.
 Output: Razor view + CSS + Playwright spec + 2-viewport screenshots, gated by a human-verify checkpoint.
@@ -67,7 +67,7 @@ View anchors (Manabase.cshtml):
 - manabase-twolens wrapper + per-lens section structure (430-489): manabase-lens-label -> manabase-lens-big ->
   manabase-lens-row -> manabase-lens-note -> optional manabase-lens-gloss.
 - Castability table progressive-disclosure block (800-814): worst-N visible + `<details><summary>Show all N ...</summary>`.
-- cEDH mode-note to REMOVE (820-823): "Castability view is available in Casual mode."
+- cEDH mode-note (820-823): "Castability view is available in Casual mode." — KEEP the else-if fallback block; it self-suppresses flag-on (ShowCastability true) and must keep rendering flag-off (D-15 byte-identical).
 - Formula panels (873-938): "How the analysis works" + "This deck's numbers" (per-term <ul class="manabase-formula-terms">).
 
 CSS anchors (site-common.css): .manabase-twolens (2669-2675), .manabase-twolens--single (2992-2994),
@@ -83,7 +83,7 @@ Never open a browser on the Windows host. Do NOT commit compiled wwwroot/js.
 <tasks>
 
 <task type="auto">
-  <name>Task 1: Third lens section, holdable table column, mode-note removal, formula panels</name>
+  <name>Task 1: Third lens section, holdable table column, flag-on mode-note suppression, formula panels</name>
   <read_first>
     - DeckFlow.Web/Views/Deck/Manabase.cshtml (lens strip 207-240; RenderCastabilityTable 242-281; twolens block 430-489; details expander 800-814; mode-note 820-823; formula panels 873-938)
     - DeckFlow.Web/Models/ManabaseDisplay.cs (InteractionHoldableMarker, CedhInteractionLensGloss, DefaultVisibleInteractionCount)
@@ -94,21 +94,21 @@ Never open a browser on the Windows host. Do NOT commit compiled wwwroot/js.
     (b) Inside the existing `<div class="manabase-twolens ...">` wrapper add a third `<section id="manabase-early-interaction" class="manabase-lens">` when showInteractionLens: a manabase-lens-label ("Early interaction"), a manabase-lens-big headline rendering `report.InteractionLens.OnTargetCount / report.InteractionLens.QualifyingCount` + "interaction held up by turn 3", then the worst rows (Rows are worst-first) capped to DefaultVisibleInteractionCount using InteractionHoldableMarker(row.HoldablePercent, report.InteractionLens.Threshold) for the badge, a manabase-lens-note carrying the raw-availability caveat, and manabase-lens-gloss = CedhInteractionLensGloss when plain-language is on. When QualifyingCount == 0 render the D-03 caution (manabase-lens-short styling, ⚠, "no cheap interaction found") — do NOT gate the section off on empty rows.
     (c) When more than DefaultVisibleInteractionCount rows exist, add a `<details>` "view all" expander (copy the 800-814 pattern) whose summary discloses the hidden remainder count (never silent truncation, L2).
     (d) Update the twolens wrapper's modifier-class logic so it applies the new triple modifier when all three lenses show, single when one, default (2-up) when two.
-    (e) Remove the mode-note block at 820-823 (D-09).
+    (e) Mode-note (820-823): do NOT delete the `else if (report.Mode == ManabaseMode.Cedh)` fallback block. It sits behind the ShowCastability `if`, so once Plan 05 makes ShowCastability true for cEDH+flag-on, the note naturally stops rendering in the flag-on path (D-09 satisfied) while flag-off cEDH still renders it — required for D-15 flag-off byte-identical output. Deleting it would change flag-off markup.
     (f) In RenderCastabilityTable add a conditional `<td data-label="Held up (T1-3)">` rendered only for interaction rows (look up membership via the lens's qualifying set / a Name->HoldablePercent map derived from report.InteractionLens.Rows), showing a manabase-chip badge via InteractionHoldableMarker; non-interaction rows render an empty cell WITH the same data-label so the mobile card-stack stays aligned. Keep the existing worst-first sort.
     (g) Update both formula panels (873-938) to cover the new metric: "How the analysis works" gains a sentence on the interaction lens; "This deck's numbers" gains a term line with the deck's plugged-in numbers (e.g. "N of M interaction spells qualified (PlanRole.Interaction, effective MV <= 2); X held up by turn 3 at the 88% threshold"), rendered only in cEDH mode when the lens is present.
     Use Razor auto-encoding for all card names (@row.Name — never Html.Raw). All card-name output must be HTML-encoded.
   </action>
   <verify>
-    <automated>grep -n "manabase-early-interaction\|Held up\|InteractionHoldableMarker\|Castability view is available" DeckFlow.Web/Views/Deck/Manabase.cshtml; echo "expect: mode-note string ABSENT"</automated>
+    <automated>grep -n "manabase-early-interaction\|Held up\|InteractionHoldableMarker\|Castability view is available" DeckFlow.Web/Views/Deck/Manabase.cshtml; echo "expect: mode-note string PRESENT once (flag-off fallback preserved)"</automated>
   </verify>
   <acceptance_criteria>
-    - `grep -c "Castability view is available in Casual mode" Manabase.cshtml` returns 0 (mode-note removed).
+    - `grep -c "Castability view is available in Casual mode" Manabase.cshtml` returns 1 (flag-off fallback preserved; the note is unreachable in the flag-on cEDH path because ShowCastability is true there).
     - The third section id manabase-early-interaction and the "Held up (T1-3)" data-label are present.
     - Card names are emitted via Razor encoding (no Html.Raw on lens/table card names — grep shows none introduced).
     - `dotnet build DeckFlow.Web` clean (Razor compiles), 0 new warnings.
   </acceptance_criteria>
-  <done>cEDH renders the third lens + full table + badge; empty-state caution; formula panels cover the metric; mode-note gone.</done>
+  <done>cEDH flag-on renders the third lens + full table + badge (mode-note no longer reachable); empty-state caution; formula panels cover the metric; flag-off cEDH still renders the original mode-note byte-identically.</done>
 </task>
 
 <task type="auto">
@@ -157,7 +157,7 @@ Never open a browser on the Windows host. Do NOT commit compiled wwwroot/js.
     1. Review the desktop + mobile screenshots produced by Task 3 (paths listed in the SUMMARY).
     2. Confirm the 3-up lens strip reads cleanly on desktop and collapses to one column on mobile with no horizontal overflow, in both the light and dark theme shots.
     3. Confirm the third lens headline reads "N / M interaction held up by turn 3", the worst rows show holdable % + met/short glyphs, and the caveat caption is visible.
-    4. Confirm the cEDH castability table renders with the "Held up (T1-3)" badge on interaction rows and the mode-note ("available in Casual mode") is gone.
+    4. Confirm the cEDH castability table renders with the "Held up (T1-3)" badge on interaction rows and the mode-note ("available in Casual mode") does not appear on the flag-on rendered page (the string stays in the .cshtml as the flag-off fallback).
     5. Optionally run a cEDH deck with zero cheap interaction and confirm the caution empty state renders instead of a hidden lens.
   </how-to-verify>
   <resume-signal>Type "approved" or describe rendering issues to fix.</resume-signal>
@@ -185,7 +185,7 @@ Never open a browser on the Windows host. Do NOT commit compiled wwwroot/js.
 <verification>
 - `dotnet build DeckFlow.sln` clean (Razor compiles).
 - Playwright spec green; desktop+mobile screenshots captured (light+dark).
-- `grep -c` confirms mode-note removed and no layout CSS in site.css.
+- `grep -c` confirms the mode-note fallback string is still present exactly once in Manabase.cshtml (flag-off path) and no layout CSS in site.css.
 - Human-verify checkpoint approved.
 </verification>
 

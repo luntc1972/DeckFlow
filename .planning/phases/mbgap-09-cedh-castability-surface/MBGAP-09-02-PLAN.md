@@ -56,9 +56,13 @@ Existing analyzer anchors (ManabaseAnalyzer.cs):
 - `private const int CedhSupportThreshold = 88;` (line 17) — reuse, do NOT fork.
 - cEDH gate precedent: `bool ritualBurstActive = ritualBurst && mode == ManabaseMode.Cedh;` (line 179);
   `bool ritualLandCreditActive = ritualLandCredit && mode == ManabaseMode.Cedh;` (line 169).
-- `deck = ApplyCostOverrides(deck, costOverrides, out ...)` runs at line 163 — so deck.Spells and the
-  castability rows built at line 184 are ALREADY effective-cost (override-aware); the row's OnCurveTurn
-  is the override-aware effective cast turn (D-02 satisfied for free).
+- `deck = ApplyCostOverrides(deck, costOverrides, out ...)` runs at line 163 — so deck.Spells is
+  ALREADY effective-cost (override-aware): ApplyCostOverrides replaces `SpellRequirement.ManaValue`
+  (line ~366). The effective-MV signal for D-02 is the matched spell's post-override
+  `SpellRequirement.ManaValue` — NOT the castability row's OnCurveTurn. OnCurveTurn additionally
+  folds in deck-wide generic cost reducers (`EffectiveTurn`, lines 509/530), which would wrongly
+  qualify a printed-MV3 spell that a medallion-style reducer pulls to turn 2 — D-02 explicitly
+  excludes that ("printed-MV3 without an override does not").
 - castability rows: `IReadOnlyList<CardCastability> castability = BuildCastability(...)` (line 184).
 - "derive, don't re-simulate" precedent: ComputeTapAnalysis (1035-1081), ComputeMulliganEvaluation (1090-1163).
 - Analyze return construction sets `TapAnalysis = ...` / `MulliganEvaluation = ...` (lines 247-250).
@@ -78,7 +82,7 @@ Existing analyzer anchors (ManabaseAnalyzer.cs):
     Add a new `bool interactionLens = false` parameter to the full `Analyze(...)` overload (ManabaseAnalyzer.cs:143-155), placed alongside `ritualBurst`/`ritualLandCredit`, with an XML `<param>` doc stating flag-off (or non-cEDH) leaves output byte-identical (default false). Add `bool interactionLensActive = interactionLens && mode == ManabaseMode.Cedh;` next to the ritual gates.
     Add `private static ManabaseInteractionLens ComputeInteractionLens(ManabaseDeck deck, IReadOnlyList<CardCastability> castability, int defaultTrials, int threshold)`:
     - Build a Name -> SpellRequirement lookup from deck.Spells (case-insensitive, mirroring the analyzer's existing name-match rule near line 341).
-    - Qualifying rows = castability rows whose matched spell `PlanRoles.HasFlag(PlanRole.Interaction)` AND whose effective MV <= 2, using the row's OnCurveTurn (override-aware) as the effective-MV signal per D-02. Exclude commander rows if the commander is not itself interaction (natural fallout of the PlanRole filter).
+    - Qualifying rows = castability rows whose matched spell `PlanRoles.HasFlag(PlanRole.Interaction)` AND whose matched spell's post-override `SpellRequirement.ManaValue <= 2` (ApplyCostOverrides has already replaced ManaValue at this point — this is the D-02 effective-MV signal). Do NOT use the row's OnCurveTurn for the filter: it also folds in deck-wide generic cost reducers, which D-02 excludes (a reducer-only printed-MV3 spell must NOT qualify). Exclude commander rows if the commander is not itself interaction (natural fallout of the PlanRole filter).
     - For each qualifying row: HoldablePercent = defaultTrials > 0 ? (int)Math.Round(100.0 * row.ByTurn3HoldableTrials / defaultTrials) : 0 (mirror ComputeTapAnalysis' averaging shape).
     - OnTargetCount = count of qualifying rows with HoldablePercent >= threshold. QualifyingCount = qualifying-row count. Rows sorted ascending by HoldablePercent (worst-first, matching the castability sort contract). Threshold = the passed-in value.
     - Return a populated lens even when QualifyingCount == 0 (empty rows list) so the view renders the D-03 caution; never return null from this method.
@@ -90,7 +94,7 @@ Existing analyzer anchors (ManabaseAnalyzer.cs):
   </verify>
   <acceptance_criteria>
     - `Analyze` has an `interactionLens` bool param defaulting false; `interactionLensActive` ANDs it with `mode == ManabaseMode.Cedh`.
-    - ComputeInteractionLens filters on PlanRole.Interaction AND OnCurveTurn <= 2; passes CedhSupportThreshold through (no literal 88 in the new code).
+    - ComputeInteractionLens filters on PlanRole.Interaction AND matched post-override `SpellRequirement.ManaValue <= 2` (NOT OnCurveTurn); passes CedhSupportThreshold through (no literal 88 in the new code).
     - Analyze return sets InteractionLens only when interactionLensActive, else null.
     - `dotnet build DeckFlow.Core` clean, 0 new warnings; no changes to ComputeTargetLands / verdict code.
   </acceptance_criteria>
@@ -107,6 +111,7 @@ Existing analyzer anchors (ManabaseAnalyzer.cs):
     - Casual mode with interactionLens:true -> report.InteractionLens is null.
     - cEDH mode with interactionLens:false -> report.InteractionLens is null (byte-identical guard).
     - cEDH + interactionLens:true, a PlanRole.Interaction spell with a cost-override to effective MV 0 (Fierce-Guardianship-style) -> appears in Rows; a printed-MV3 interaction spell with no override -> excluded.
+    - Reducer-only exclusion (D-02): a printed-MV3 interaction spell with NO override but a deck-wide generic cost reducer present (so its OnCurveTurn would be <= 2) -> still excluded, proving the filter reads post-override SpellRequirement.ManaValue, not OnCurveTurn.
     - Zero qualifying spells -> InteractionLens is non-null with QualifyingCount 0 and empty Rows (D-03 empty-state).
     - OnTargetCount counts only rows with HoldablePercent >= 88; the headline pair is (OnTargetCount / QualifyingCount).
   </behavior>
@@ -119,6 +124,7 @@ Existing analyzer anchors (ManabaseAnalyzer.cs):
   <acceptance_criteria>
     - Tests assert null for Casual and for cEDH-flag-off; non-null with QualifyingCount 0 for empty-state.
     - Override test proves effective-MV<=2 qualification comes through ApplyCostOverrides, not a hand-set field.
+    - Reducer-only test proves a generic-reducer MV3 spell (no override) is excluded even when its OnCurveTurn <= 2.
     - `dotnet build DeckFlow.Core.Tests` clean, 0 new warnings.
   </acceptance_criteria>
   <done>The filter (D-01/D-02), cEDH gate (D-15), empty-state (D-03), and N/M aggregate (D-08) are pinned by tests.</done>
