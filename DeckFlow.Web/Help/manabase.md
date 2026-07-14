@@ -110,6 +110,21 @@ With the `analysis.manabase.plan-presence` flag on (default; it needs the openin
 
 Both flags are on by default; an admin can hide either block from `/Admin/Flags`. The separate ritual-burst beta flag above is default OFF.
 
+### cEDH: Early interaction
+
+In **cEDH** mode, DeckFlow can also measure your deck's early cheap interaction coverage. For each qualifying interaction spell, the simulation checks whether you have enough **untapped** colored access to hold that spell up on at least one of turns 1-3, then rolls that into a per-card **holdable** percentage.
+
+By default (the `analysis.manabase.cedh-interaction-lens` flag, on), **cEDH only** adds an **Early interaction** lens to the header strip and shows the full Castability table in cEDH mode:
+
+- **Qualifying spells** — cards tagged `PlanRole.Interaction` with **effective MV <= 2** after any reduced / alternative cost overrides are applied.
+- **Headline support check** — **N / M interaction held up by turn 3** at the same **88%** threshold the report uses for a met support read.
+- **Tail-risk disclosure** — the lens shows the **worst 5** holdable interaction spells first, with a native **view all** expander for the rest.
+- **Empty-state caution** — if no spells qualify, the lens shows a caution-style **no cheap interaction found** warning instead of silently disappearing.
+
+This interaction lens is a **raw-availability** read and **assumes you hold mana open**.
+
+This layer is **informational only**. It never changes the land count, color counts, castability math, castability sort, castability percentages, or health verdict. In cEDH mode it does newly make the full Castability table **visible** and adds a **holdable** badge on qualifying interaction rows. See **How the analysis works** and **This deck's numbers** for the exact interaction formulas and the deck-specific numbers plugged into them.
+
 ### Reading your deck
 
 By default (the plain-language layer, on), the result also shows a short **Reading your deck** advisory:
@@ -124,8 +139,8 @@ This layer is advisory only. It never changes the land count, color counts, cast
 
 Two collapsible panels show exactly how the verdict was reached:
 
-- **How the analysis works** — the methodology (Karsten's land regression, the cEDH adjustment, and the castability simulation), shown even before you analyze.
-- **This deck's numbers** — the land-target formula with *your* deck's values plugged into every term, the per-color source tally, and the simulation parameters. Use it to audit why a color or a card was flagged.
+- **How the analysis works** — the methodology (Karsten's land regression, the cEDH adjustment, the cEDH early-interaction metric, and the castability simulation), shown even before you analyze.
+- **This deck's numbers** — the land-target formula with *your* deck's values plugged into every term, the per-color source tally, and the simulation parameters, including the cEDH interaction metric when that mode is active. Use it to audit why a color or a card was flagged.
 
 ## Step 4 — Optional: Land-Swap Prompt
 
