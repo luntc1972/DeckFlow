@@ -628,6 +628,12 @@
         @if (Model.ShowMulliganEval && Model.HasResult && report.MulliganEvaluation is { } mull)
         {
             var km = ManabaseDisplay.KeepableMarker(mull.KeepableBand);
+            bool showKeepShapesCedh = Model.ShowKeepShapes
+                && report.Mode == ManabaseMode.Cedh
+                && !string.IsNullOrEmpty(mull.PlanKeepableBand);
+            bool showCurveCoverageCasual = Model.ShowKeepShapes
+                && report.Mode == ManabaseMode.Casual
+                && mull.CurveCoverageTurns > 0;
             <div class="manabase-lens manabase-mulliganlens" id="manabase-opening-hand" role="group" aria-label="Opening hand">
                 <h3 class="manabase-lens-label">Opening hand</h3>
                 <div class="manabase-mulliganlens-split">
@@ -636,10 +642,18 @@
                            not a keep/mulligan recommendation (see the note below), so it should not be
                            the largest number on the page. *@
                         <div class="manabase-lens-big manabase-lens-big--soft">
-                            <span class="@km.Css" aria-hidden="true">@km.Marker</span> @mull.KeepableBand (~@mull.KeepableHandPercent%)<span>keepable hands</span>
+                            <span class="@km.Css" aria-hidden="true">@km.Marker</span> @mull.KeepableBand (~@mull.KeepableHandPercent%)<span>@(showKeepShapesCedh ? "mana-keepable hands" : "keepable hands")</span>
                         </div>
                         <span class="sr-only">@(string.Equals(mull.KeepableBand, "high", StringComparison.OrdinalIgnoreCase) ? "meets target" : "below target")</span>
                         <span class="manabase-lens-pill">keepable = a London-mulligan keep: 3 lands (2 with ramp), up to 5 for a high-curve deck</span>
+                        @if (showKeepShapesCedh)
+                        {
+                            var planKeepMarker = ManabaseDisplay.KeepableMarker(mull.PlanKeepableBand);
+                            <div class="manabase-lens-big manabase-lens-big--soft">
+                                <span class="@planKeepMarker.Css" aria-hidden="true">@planKeepMarker.Marker</span> @mull.PlanKeepableBand (~@mull.PlanKeepablePercent%)<span>plan-keepable hands</span>
+                            </div>
+                            <span class="manabase-lens-pill">plan-keepable = passed a cEDH keep shape (explosive / early engine / interaction bridge)</span>
+                        }
                     </div>
                     <div>
                         <div class="manabase-lens-row">
@@ -650,6 +664,13 @@
                             <span class="manabase-lens-color">Keep-size process</span>
                             <span>kept 7 ~@mull.Kept7Percent% <span class="manabase-lens-muted">·</span> to 6 ~@mull.MulliganTo6Percent% <span class="manabase-lens-muted">·</span> to 5 ~@mull.MulliganTo5Percent%</span>
                         </div>
+                        @if (showCurveCoverageCasual)
+                        {
+                            <div class="manabase-lens-row">
+                                <span class="manabase-lens-color">Curve coverage</span>
+                                <span>plays a spell on ~@ManabaseDisplay.CurveCoverageText(mull.CurveCoverageTurns) of first 5 turns</span>
+                            </div>
+                        }
                         @if (Model.ShowPlanPresence && mull.PlanPresence is { } plan)
                         {
                             @* Payoff leads on its own; the per-role split moves to a muted sub-line and
@@ -692,7 +713,7 @@
                                 {
                                     <span>@opener.TrackedSpellName not on curve (slow start)</span>
                                 }
-                                <span class="manabase-lens-muted">— @(opener.HasPlan ? "workable line" : "no clear line")</span>
+                                <span class="manabase-lens-muted">— @(Model.ShowKeepShapes && !string.IsNullOrEmpty(opener.ShapeLabel) ? opener.ShapeLabel : opener.HasPlan ? "workable line" : "no clear line")</span>
                             </li>
                         }
                     </ul>

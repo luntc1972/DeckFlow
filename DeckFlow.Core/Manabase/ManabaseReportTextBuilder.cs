@@ -43,6 +43,10 @@ public static class ManabaseReportTextBuilder
     /// When true (plan-presence flag on) and the mulligan evaluation carries a plan-presence read, the
     /// "With a plan" line is appended inside the opening-hand block. Off appends zero bytes.
     /// </param>
+    /// <param name="includeCedhKeepShapes">
+    /// When true, append the cEDH plan-keepable headline, shape-labeled opener reads, and casual
+    /// curve-coverage line inside the opening-hand block. Off appends zero bytes.
+    /// </param>
     /// <param name="interactionLens">
     /// Optional cEDH early-interaction lens. When null the "Early interaction (turns 1-3)" block is
     /// skipped entirely so the output is byte-identical to the no-lens artifact.
@@ -60,6 +64,7 @@ public static class ManabaseReportTextBuilder
         bool includeCommandZone = false,
         CardCastability? companionRow = null,
         bool includePlanPresence = false,
+        bool includeCedhKeepShapes = false,
         ManabaseInteractionLens? interactionLens = null)
     {
         ArgumentNullException.ThrowIfNull(report);
@@ -190,7 +195,7 @@ public static class ManabaseReportTextBuilder
         // the flag-off artifact stays byte-identical (mirrors the tap == null guard above).
         if (mulligan is not null)
         {
-            AppendMulliganEvaluationBlock(sb, mulligan, includePlanPresence);
+            AppendMulliganEvaluationBlock(sb, mulligan, includePlanPresence, includeCedhKeepShapes);
             sb.AppendLine();
         }
 
@@ -290,15 +295,29 @@ public static class ManabaseReportTextBuilder
     // the ManabaseMulliganEvaluation record (single source of truth — no recompute). Framed throughout
     // as DeckFlow's automated first-pass consistency signal the AI re-checks — never a prescriptive
     // "keep this hand" / "mulligan this hand" instruction and never turn-by-turn play advice.
-    private static void AppendMulliganEvaluationBlock(StringBuilder sb, ManabaseMulliganEvaluation mull, bool includePlanPresence)
+    private static void AppendMulliganEvaluationBlock(
+        StringBuilder sb,
+        ManabaseMulliganEvaluation mull,
+        bool includePlanPresence,
+        bool includeCedhKeepShapes)
     {
         sb.AppendLine("Opening Hand (mulligan) - DeckFlow first-pass read:");
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
             $"Keepable hands: {mull.KeepableBand} (~{mull.KeepableHandPercent}%) - keepable = a London-mulligan keep: 3 lands (2 with ramp), up to 5 for a high-curve deck; a heuristic consistency signal, not a strategic keep judgment."));
+        if (includeCedhKeepShapes && !string.IsNullOrEmpty(mull.PlanKeepableBand))
+        {
+            sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+                $"Plan-keepable hands: {mull.PlanKeepableBand} (~{mull.PlanKeepablePercent}%) - passed a cEDH keep shape (explosive / early engine / interaction bridge); <= mana-keepable by construction."));
+        }
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
             $"Keep-size process: kept at 7 ~{mull.Kept7Percent}%, mulligan to 6 ~{mull.MulliganTo6Percent}%, mulligan to 5 ~{mull.MulliganTo5Percent}%."));
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
             $"Colors/curve: deck plays {mull.ColorCount} {ManabaseWording.Pluralize("color", mull.ColorCount)}, average mana value ~{mull.AverageManaValue:F1}."));
+        if (includeCedhKeepShapes && mull.CurveCoverageTurns > 0)
+        {
+            sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+                $"Plays a spell on ~{CurveCoverageText(mull.CurveCoverageTurns)} of first 5 turns."));
+        }
 
         // Plan-presence line, only when the plan-presence flag is on (includePlanPresence) AND it was
         // computed (deck had plan-tagged spells). Off/absent appends zero bytes, keeping the flag-off
@@ -328,7 +347,9 @@ public static class ManabaseReportTextBuilder
                             $"{opener.TrackedSpellName} castable on curve (turn {opener.TrackedOnCurveTurn})")
                         : string.Create(CultureInfo.InvariantCulture,
                             $"{opener.TrackedSpellName} not on curve (slow start)");
-                string planRead = opener.HasPlan ? "workable line" : "no clear line";
+                string planRead = includeCedhKeepShapes && !string.IsNullOrEmpty(opener.ShapeLabel)
+                    ? opener.ShapeLabel
+                    : opener.HasPlan ? "workable line" : "no clear line";
                 sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
                     $"  {opener.Decision} ({opener.KeptCards} cards: {opener.Lands} land / {opener.Colors} color / {opener.RampPieces} ramp / {opener.OtherCards} other) - {onCurveRead} - {planRead}."));
             }
@@ -336,6 +357,11 @@ public static class ManabaseReportTextBuilder
 
         sb.AppendLine("First-pass read only - verify against the actual hand; not a keep/mulligan recommendation.");
     }
+
+    private static string CurveCoverageText(double curveCoverageTurns)
+        => string.Create(
+            CultureInfo.InvariantCulture,
+            $"{Math.Clamp((int)Math.Round(curveCoverageTurns, MidpointRounding.AwayFromZero), 0, 5)}");
 
     private static void AppendInteractionLensBlock(StringBuilder sb, ManabaseInteractionLens lens)
     {

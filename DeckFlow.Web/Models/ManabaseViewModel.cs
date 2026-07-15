@@ -62,6 +62,9 @@ public sealed class ManabaseViewModel
     /// <summary>Whether the UI should surface the "with a plan" plan-presence line inside the opening-hand block.</summary>
     public bool ShowPlanPresence { get; init; }
 
+    /// <summary>Whether the UI should surface the cEDH keep-shape and casual curve-coverage reads.</summary>
+    public bool ShowKeepShapes { get; init; }
+
     /// <summary>Whether the UI should surface the cEDH early-interaction lens and related table rows.</summary>
     public bool ShowCedhInteractionLens { get; init; }
 
