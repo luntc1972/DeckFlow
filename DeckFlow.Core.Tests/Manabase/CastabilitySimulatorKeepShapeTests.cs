@@ -140,6 +140,7 @@ public sealed class CastabilitySimulatorKeepShapeTests
             false,
             null,
             false,
+            false,
         })!;
         return ((IEnumerable)library).Cast<object>().ToList();
     }
