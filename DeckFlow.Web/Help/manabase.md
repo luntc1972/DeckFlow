@@ -111,6 +111,16 @@ With the `analysis.manabase.plan-presence` flag on (default; it needs the openin
 
 Both flags are on by default; an admin can hide either block from `/Admin/Flags`. The separate ritual-burst beta flag above is default OFF.
 
+### Deck types
+
+The **Deck type** selector has three profiles:
+
+- **Casual** — the historic default: Karsten's singleton land target, per-card castability table, plain-language verdict, and the 80% color-support bar.
+- **Focused** — a mid-power profile behind `analysis.manabase.focused-tier` (default **OFF**). It behaves exactly like Casual except the color-support reliability bar is **85%** instead of 80%.
+- **cEDH** — lower land count, fast-mana heavy, tighter early-color expectations, and cEDH-only lenses.
+
+With the Focused flag **OFF**, the radio stays hidden and a hand-crafted Focused form post falls back to Casual, so the page remains byte-identical to the historic two-mode behavior.
+
 ### cEDH keep shapes and casual curve coverage
 
 A dark-launch flag, `analysis.manabase.keep-shapes` (default **OFF**, enabled by an admin after testing), sharpens the opening-hand read for the two formats it serves. It rides on the opening-hand block above, so it also needs `mulligan-eval`.
@@ -123,7 +133,7 @@ In **cEDH**, a keepable hand (the mana floor above) is necessary but not suffici
 
 Because plan-keepable openers are a subset of the mana-keepable ones, plan-keepable is always **≤ mana-keepable**. The representative openers each carry a **shape label** (*explosive / engine / bridge keep*, or *no plan by turn 4 — mulligan*), and the line is **turn-capped**: a payoff that only comes online on turn 5 or later is never presented as a workable line. For a **commander-central** deck — one whose commander is a reliably-castable, win-directed early engine — the commander itself can surface as the representative opener when it deploys ahead of curve.
 
-In **Casual** mode, the same flag instead adds a **curve-coverage** line — *plays a spell on ~N of first 5 turns* — a plain read of how often the deck does something in the first five turns, independent of any win-plan tagging.
+In **Casual** and **Focused** mode, the same flag instead adds a **curve-coverage** line — *plays a spell on ~N of first 5 turns* — a plain read of how often the deck does something in the first five turns, independent of any win-plan tagging.
 
 The flag is seeded **OFF**. With it off (and in casual with it off), the page, the `.txt` artifact, and the swap prompt are **byte-identical** to before; turning it on is an admin action from `/Admin/Flags`. It is a **consistency signal, never keep/mulligan advice**.
 

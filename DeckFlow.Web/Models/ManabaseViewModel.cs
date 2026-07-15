@@ -65,6 +65,9 @@ public sealed class ManabaseViewModel
     /// <summary>Whether the UI should surface the cEDH keep-shape and casual curve-coverage reads.</summary>
     public bool ShowKeepShapes { get; init; }
 
+    /// <summary>Whether the UI should surface the Focused deck-type pill.</summary>
+    public bool ShowFocusedTier { get; init; }
+
     /// <summary>Whether the UI should surface the display-only mana-source disclosure sections.</summary>
     public bool ShowSourceList { get; init; }
 
@@ -114,11 +117,11 @@ public sealed class ManabaseViewModel
 
     /// <summary>
     /// True when the castability table should render: a report exists, it carries at least one
-    /// castability row, and either the run was Casual or it was cEDH with the interaction-lens
+    /// castability row, and either the run was non-cEDH or it was cEDH with the interaction-lens
     /// surface enabled.
     /// </summary>
     public bool ShowCastability =>
         Report is { Castability.Count: > 0 } report
-        && (report.Mode == ManabaseMode.Casual
+        && (report.Mode != ManabaseMode.Cedh
             || (report.Mode == ManabaseMode.Cedh && ShowCedhInteractionLens));
 }

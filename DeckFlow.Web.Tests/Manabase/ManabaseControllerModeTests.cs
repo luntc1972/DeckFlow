@@ -219,6 +219,7 @@ public sealed class ManabaseControllerModeTests
         var controller = new ManabaseController(
             service,
             cardSearchService ?? new StubCardSearchService(),
+            new FakeFeatureFlagCache(),
             NullLogger<ManabaseController>.Instance)
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },

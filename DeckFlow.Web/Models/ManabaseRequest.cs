@@ -20,7 +20,9 @@ public sealed class ManabaseRequest
 
     /// <summary>
     /// The analysis profile. <see cref="ManabaseMode.Casual"/> is the default (Karsten land
-    /// target, castability table shown); <see cref="ManabaseMode.Cedh"/> lowers the land target.
+    /// target, castability table shown); <see cref="ManabaseMode.Focused"/> keeps the Casual
+    /// land target/surfaces but tightens the color-support threshold; <see cref="ManabaseMode.Cedh"/>
+    /// lowers the land target.
     /// </summary>
     public ManabaseMode Mode { get; set; } = ManabaseMode.Casual;
 

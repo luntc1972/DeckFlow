@@ -1097,10 +1097,15 @@ public sealed record ManabaseReport
         bool broadColorUnderSupport = false;
         var issueFindings = new List<ColorSourceFinding>();
 
-        // Mirror ManabaseAnalyzer's support thresholds: Casual = 80, cEDH = 88.
+        // Mirror ManabaseAnalyzer's support thresholds: Casual = 80, Focused = 85, cEDH = 88.
         // Why: the health-band castability path (UseHealthBandCastability) must gate on the same
         // per-mode bar that BuildColorFindings uses, so the sim verdict and the band agree.
-        int supportThreshold = Mode == ManabaseMode.Cedh ? 88 : 80;
+        int supportThreshold = Mode switch
+        {
+            ManabaseMode.Cedh => 88,
+            ManabaseMode.Focused => 85,
+            _ => 80,
+        };
 
         // The composite-weakest color is ColorFindings[0] when it IsCompositeProblem. Only that
         // color is eligible for the sim-weakest path — a good color that just happens to have a

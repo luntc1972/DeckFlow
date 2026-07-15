@@ -72,6 +72,10 @@ public static class ManabaseSwapPromptBuilder
                     $"This is a cEDH deck — favor low land counts and fast mana; {interactionLens.OnTargetCount} / {interactionLens.QualifyingCount} cheap interaction spells are held up by turn 3, with the worst holdable reads on {worstNames}."));
             }
         }
+        else if (mode == ManabaseMode.Focused)
+        {
+            sb.AppendLine("This is a Focused Commander deck — optimize for a consistent, on-curve mana base.");
+        }
         else
         {
             sb.AppendLine("This is a Casual Commander deck — optimize for a consistent, on-curve mana base.");

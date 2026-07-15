@@ -165,12 +165,19 @@
                     <input type="radio" name="Mode" value="Casual" checked="@(mode == ManabaseMode.Casual ? "checked" : null)" />
                     <span>Casual</span>
                 </label>
+                @if (Model.ShowFocusedTier)
+                {
+                    <label class="manabase-pill @(mode == ManabaseMode.Focused ? "is-selected" : null)">
+                        <input type="radio" name="Mode" value="Focused" checked="@(mode == ManabaseMode.Focused ? "checked" : null)" />
+                        <span>Focused</span>
+                    </label>
+                }
                 <label class="manabase-pill @(mode == ManabaseMode.Cedh ? "is-selected" : null)">
                     <input type="radio" name="Mode" value="Cedh" checked="@(mode == ManabaseMode.Cedh ? "checked" : null)" />
                     <span>cEDH</span>
                 </label>
             </div>
-            <p class="manabase-help">cEDH = lower land count, fast-mana heavy. Casual also shows a per-card castability table.</p>
+            <p class="manabase-help">Focused keeps the Casual land target and display, but raises the color-support bar. cEDH = lower land count, fast-mana heavy. Casual and Focused also show a per-card castability table.</p>
         </fieldset>
 
         <fieldset class="manabase-segmented" role="radiogroup">
@@ -691,7 +698,7 @@
                 && report.Mode == ManabaseMode.Cedh
                 && !string.IsNullOrEmpty(mull.PlanKeepableBand);
             bool showCurveCoverageCasual = Model.ShowKeepShapes
-                && report.Mode == ManabaseMode.Casual
+                && report.Mode != ManabaseMode.Cedh
                 && mull.CurveCoverageTurns > 0;
             <div class="manabase-lens manabase-mulliganlens" id="manabase-opening-hand" role="group" aria-label="Opening hand">
                 <h3 class="manabase-lens-label">Opening hand</h3>
