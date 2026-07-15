@@ -57,7 +57,7 @@ var cardLookupNameOption = new Option<string>("--name") { IsRequired = true };
 var manabaseCommand = new Command("manabase", "Fetch a public deck and run the Karsten §6 mana-base analysis.");
 var manabaseArchidektUrlOption = new Option<string?>("--archidekt-url") { Description = "Public Archidekt deck URL." };
 var manabaseMoxfieldUrlOption = new Option<string?>("--moxfield-url") { Description = "Public Moxfield deck URL." };
-var manabaseModeOption = new Option<string>("--mode", () => "casual") { Description = "Analysis profile: casual | cedh (cedh lowers the land target)." };
+var manabaseModeOption = new Option<string>("--mode", () => "casual") { Description = "Analysis profile: casual | focused | cedh (focused keeps Casual surfaces with an 85% color bar; cedh lowers the land target)." };
 var manabaseSwapPromptOption = new Option<bool>("--swap-prompt") { Description = "Also print a paste-ready LLM prompt asking for specific land swaps." };
 var cedhLandCalibrateCommand = new Command("cedh-land-calibrate", "Replay cached cEDH decks against the old and new land targets.");
 var cedhLandCalibrateDataOption = new Option<string>("--data", () => "_calib") { Description = "Directory containing decks_all.json and cards_full.json." };

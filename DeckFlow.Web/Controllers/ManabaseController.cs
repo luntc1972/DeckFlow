@@ -3,6 +3,7 @@ using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Manabase;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,20 +18,24 @@ public sealed class ManabaseController : DeckToolControllerBase
 {
     private readonly IManabaseAnalysisService _manabaseAnalysisService;
     private readonly ICardSearchService _cardSearchService;
+    private readonly IFeatureFlagCache _featureFlags;
     private readonly ILogger<ManabaseController> _logger;
 
     /// <summary>Creates the mana-base controller.</summary>
     public ManabaseController(
         IManabaseAnalysisService manabaseAnalysisService,
         ICardSearchService cardSearchService,
+        IFeatureFlagCache featureFlags,
         ILogger<ManabaseController> logger)
     {
         ArgumentNullException.ThrowIfNull(manabaseAnalysisService);
         ArgumentNullException.ThrowIfNull(cardSearchService);
+        ArgumentNullException.ThrowIfNull(featureFlags);
         ArgumentNullException.ThrowIfNull(logger);
 
         _manabaseAnalysisService = manabaseAnalysisService;
         _cardSearchService = cardSearchService;
+        _featureFlags = featureFlags;
         _logger = logger;
     }
 
@@ -39,7 +44,11 @@ public sealed class ManabaseController : DeckToolControllerBase
     [FeatureFlagGate("tool.manabase.enabled")]
     public IActionResult Manabase()
     {
-        return View("Manabase", new ManabaseViewModel());
+        bool focusedTierEnabled = IsFocusedTierEnabled();
+        return View("Manabase", new ManabaseViewModel
+        {
+            ShowFocusedTier = focusedTierEnabled,
+        });
     }
 
     /// <summary>
@@ -53,9 +62,10 @@ public sealed class ManabaseController : DeckToolControllerBase
     public async Task<IActionResult> Load(ManabaseRequest request)
     {
         request ??= new ManabaseRequest();
-        NormalizeKnobs(request);
+        bool focusedTierEnabled = IsFocusedTierEnabled();
+        NormalizeKnobs(request, focusedTierEnabled);
 
-        return await RunGuardedAsync(request, "load",
+        return await RunGuardedAsync(request, focusedTierEnabled, "load",
             "Something went wrong loading that deck. Please try again.",
             async token =>
             {
@@ -69,6 +79,7 @@ public sealed class ManabaseController : DeckToolControllerBase
                     ImportWarning = result.ImportWarning,
                     Suggestions = result.Suggestions,
                     Loaded = true,
+                    ShowFocusedTier = focusedTierEnabled,
                 });
             });
     }
@@ -81,9 +92,10 @@ public sealed class ManabaseController : DeckToolControllerBase
     public async Task<IActionResult> Manabase(ManabaseRequest request)
     {
         request ??= new ManabaseRequest();
-        NormalizeKnobs(request);
+        bool focusedTierEnabled = IsFocusedTierEnabled();
+        NormalizeKnobs(request, focusedTierEnabled);
 
-        return await RunGuardedAsync(request, "analysis",
+        return await RunGuardedAsync(request, focusedTierEnabled, "analysis",
             "Something went wrong analyzing that deck. Please try again.",
             async token =>
             {
@@ -92,7 +104,7 @@ public sealed class ManabaseController : DeckToolControllerBase
                 var result = await RunAnalysisAsync(request, parsed.Overrides, token);
                 if (result.CommanderSelectionRequired || result.Report is null)
                 {
-                    return View("Manabase", BuildCommanderSelectionViewModel(request, result));
+                    return View("Manabase", BuildCommanderSelectionViewModel(request, result, focusedTierEnabled));
                 }
 
                 // "Not applied" = lines the parser rejected (bad syntax) plus valid lines whose card
@@ -118,6 +130,7 @@ public sealed class ManabaseController : DeckToolControllerBase
                     ShowMulliganEval = result.ShowMulliganEval,
                     ShowPlanPresence = result.ShowPlanPresence,
                     ShowKeepShapes = result.ShowKeepShapes,
+                    ShowFocusedTier = focusedTierEnabled,
                     ShowSourceList = result.ShowSourceList,
                     ShowCedhInteractionLens = result.ShowCedhInteractionLens,
                     CompanionCallout = result.CompanionRow,
@@ -139,9 +152,10 @@ public sealed class ManabaseController : DeckToolControllerBase
     public async Task<IActionResult> Download(ManabaseRequest request)
     {
         request ??= new ManabaseRequest();
-        NormalizeKnobs(request);
+        bool focusedTierEnabled = IsFocusedTierEnabled();
+        NormalizeKnobs(request, focusedTierEnabled);
 
-        return await RunGuardedAsync(request, "download",
+        return await RunGuardedAsync(request, focusedTierEnabled, "download",
             "Something went wrong analyzing that deck. Please try again.",
             async token =>
             {
@@ -149,7 +163,7 @@ public sealed class ManabaseController : DeckToolControllerBase
                     request, ManabaseCostOverrideParser.Parse(request.CostOverridesText), token);
                 if (result.CommanderSelectionRequired || result.Report is null)
                 {
-                    return View("Manabase", BuildCommanderSelectionViewModel(request, result));
+                    return View("Manabase", BuildCommanderSelectionViewModel(request, result, focusedTierEnabled));
                 }
 
                 string text = ManabaseReportTextBuilder.Build(
@@ -199,9 +213,14 @@ public sealed class ManabaseController : DeckToolControllerBase
     // reject unknown ints). Coerce both knobs back to their defaults and write the normalized values
     // onto the request so every action runs a valid mode AND the view re-renders the correct radios
     // (an invalid Mode would otherwise drop the castability table and un-check both radios).
-    private static void NormalizeKnobs(ManabaseRequest request)
+    private static void NormalizeKnobs(ManabaseRequest request, bool focusedTierEnabled)
     {
         request.Mode = Enum.IsDefined(typeof(ManabaseMode), request.Mode) ? request.Mode : ManabaseMode.Casual;
+        if (request.Mode == ManabaseMode.Focused && !focusedTierEnabled)
+        {
+            request.Mode = ManabaseMode.Casual;
+        }
+
         request.CommanderImportance = Enum.IsDefined(typeof(CommanderImportance), request.CommanderImportance)
             ? request.CommanderImportance
             : CommanderImportance.Standard;
@@ -234,7 +253,8 @@ public sealed class ManabaseController : DeckToolControllerBase
     // ErrorMessage null (no role="alert" banner) — the picker panel is the sole message.
     private static ManabaseViewModel BuildCommanderSelectionViewModel(
         ManabaseRequest request,
-        ManabaseAnalysisResult result)
+        ManabaseAnalysisResult result,
+        bool focusedTierEnabled)
         => new()
         {
             Request = request,
@@ -249,6 +269,7 @@ public sealed class ManabaseController : DeckToolControllerBase
             ShowMulliganEval = result.ShowMulliganEval,
             ShowPlanPresence = result.ShowPlanPresence,
             ShowKeepShapes = result.ShowKeepShapes,
+            ShowFocusedTier = focusedTierEnabled,
             ShowSourceList = result.ShowSourceList,
             ShowCedhInteractionLens = result.ShowCedhInteractionLens,
         };
@@ -261,6 +282,7 @@ public sealed class ManabaseController : DeckToolControllerBase
     /// </summary>
     private async Task<IActionResult> RunGuardedAsync(
         ManabaseRequest request,
+        bool focusedTierEnabled,
         string operation,
         string unexpectedMessage,
         Func<CancellationToken, Task<IActionResult>> body)
@@ -278,6 +300,7 @@ public sealed class ManabaseController : DeckToolControllerBase
             {
                 Request = request,
                 ErrorMessage = "The deck took too long to load. Try again in a moment.",
+                ShowFocusedTier = focusedTierEnabled,
             });
         }
         catch (InvalidOperationException exception)
@@ -287,6 +310,7 @@ public sealed class ManabaseController : DeckToolControllerBase
             {
                 Request = request,
                 ErrorMessage = exception.Message,
+                ShowFocusedTier = focusedTierEnabled,
             });
         }
         catch (HttpRequestException exception)
@@ -296,6 +320,7 @@ public sealed class ManabaseController : DeckToolControllerBase
             {
                 Request = request,
                 ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
+                ShowFocusedTier = focusedTierEnabled,
             });
         }
         catch (Exception exception)
@@ -307,7 +332,12 @@ public sealed class ManabaseController : DeckToolControllerBase
             {
                 Request = request,
                 ErrorMessage = unexpectedMessage,
+                ShowFocusedTier = focusedTierEnabled,
             });
         }
     }
+
+    private bool IsFocusedTierEnabled()
+        => _featureFlags.Snapshot().TryGetValue(ManabaseAnalysisService.FocusedTierFlagKey, out bool enabled)
+            && enabled;
 }

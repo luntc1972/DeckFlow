@@ -142,7 +142,7 @@ count as real lands, §1.4 — so the old `MdfcCommonCredit`/`MdfcMythicCredit` 
 
 ### 3.3 Commander weighting (`CommanderImportance`)
 - Enum: Central / Standard(default) / Low — `Mdl:544-558`.
-- **Support threshold** = mode base (Casual **80**, cEDH **88**), raised to **88** for a commander color when importance is Central — `MA:831-846`.
+- **Support threshold** = mode base (Casual **80**, Focused **85**, cEDH **88**), raised to **88** for a commander color when importance is Central — `MA:831-846`.
 - Commander is a mandatory worst-driver candidate unless importance is Low — `MA:556-562`; a Central commander color below threshold is promoted in the weakest-color ranking — `MA:813-829`.
 
 ### 3.4 Color findings
@@ -326,7 +326,8 @@ Keys read via `MAS.IsFlagOn` (fail-safe OFF). Seed defaults in `FeatureFlagStore
 | `analysis.manabase.tap-analyzer` | **ON** | "Untapped Sources" block + tap card. |
 | `analysis.manabase.mulligan-eval` | **ON** | Opening-hand / mulligan-evaluator block. Renamed from `analysis.mulligan-eval` (state carried by the store's idempotent rename migration). |
 | `analysis.manabase.plan-presence` | **ON** | "With a plan" opener stat. Gated **also** on `mulligan-eval`; its category + Spellbook I/O only fire when both are on (fail-open). |
-| `analysis.manabase.keep-shapes` | **OFF** | Gated `&& mulligan-eval`; also widens plan-role classification in cEDH. **cEDH**: three-shape opening-hand keep gate (explosive ≤T3 / early-engine ≤T2 / interaction-bridge ≥2+≥2) → second **plan-keepable %** headline (≤ mana-keepable by construction), shape-labeled + turn-capped (on-curve ≥5 never workable) representative openers, commander surfaced when commander-central (`IsCommanderCentral`: importance≠Low & cmd cast%≥88 & win-directed role). **Casual**: role-independent **curve-coverage** line (avg of turns 1–5 with a castable play). Seed OFF, flip after UAT; off (and casual off) = byte-identical on page, `.txt`, and swap prompt. |
+| `analysis.manabase.keep-shapes` | **OFF** | Gated `&& mulligan-eval`; also widens plan-role classification in cEDH. **cEDH**: three-shape opening-hand keep gate (explosive ≤T3 / early-engine ≤T2 / interaction-bridge ≥2+≥2) → second **plan-keepable %** headline (≤ mana-keepable by construction), shape-labeled + turn-capped (on-curve ≥5 never workable) representative openers, commander surfaced when commander-central (`IsCommanderCentral`: importance≠Low & cmd cast%≥88 & win-directed role). **Casual / Focused**: role-independent **curve-coverage** line (avg of turns 1–5 with a castable play). Seed OFF, flip after UAT; off (and non-cEDH off) = byte-identical on page, `.txt`, and swap prompt. |
+| `analysis.manabase.focused-tier` | **OFF** | Show the Focused mid-power mode between Casual and cEDH. Focused keeps the Casual land target and display surfaces, but raises the color-support threshold to **85%**. Seed OFF is mandatory because missing flag keys default ON in the generic cache. |
 | `analysis.manabase.source-list` | **OFF** | Display-only. Shows two nested disclosures inside the Untapped Sources lens: a full physical mana-source list (lands, rocks, dorks) with compact pip letters, and a tapped-sources subset (`EntersUntapped == false`). The Core report always carries the slim `ManaSourceListing` projection; the flag gates page HTML only, so it is intentionally NOT part of `PromptMutatingAnalysisFlags`. |
 | `analysis.manabase.ritual-burst-mana` | **OFF** | Credit instant/sorcery rituals as one-shot burst mana in the castability sim. cEDH mode only; land count and color counts unchanged. |
 | `analysis.manabase.ritual-land-credit` | **OFF** | cEDH only. Ships OFF by default and is enabled on deckflow.gg. Subtract `min(3.0, 0.5 × net-positive rituals)` from the enabled hybrid cEDH land target before the final `[22,45]` clamp. Separate from `ritual-burst-mana`; off = byte-identical. The Web breakdown also names the ritual land credit on its own line when applied. Calibration on the current 3281-deck harness moved the cEDH under-target rate from `21.8%` to `11.1%` and lowered the mean target by `0.7` lands. |
@@ -339,15 +340,16 @@ Keys read via `MAS.IsFlagOn` (fail-safe OFF). Seed defaults in `FeatureFlagStore
 
 ---
 
-## Mode differences (cEDH vs Casual)
+## Mode differences (Casual vs Focused vs cEDH)
 
-| Rule | Casual | cEDH |
-|---|---|---|
-| Land target | singleton figure | Flag OFF: `max(28, singleton − 3.5)`; flag ON: hybrid `singleton − 3.5`, optional commander-baseline blend, clamp `[22,45]` |
-| Color support threshold | 80 | 88 |
-| Central-commander color bar | raised to 88 if Central | already 88 |
-| Plain-language verdict + budget | computed | flag is UI-gloss only |
-| Keep shapes (`keep-shapes` flag) | curve-coverage line only (avg turns 1–5 with a castable play) | three-shape keep gate → plan-keepable % headline + shape-labeled/turn-capped openers + commander-central opener |
+| Rule | Casual | Focused | cEDH |
+|---|---|---|---|
+| Land target | singleton figure | same as Casual | Flag OFF: `max(28, singleton − 3.5)`; flag ON: hybrid `singleton − 3.5`, optional commander-baseline blend, clamp `[22,45]` |
+| Color support threshold | 80 | 85 | 88 |
+| Central-commander color bar | raised to 88 if Central | raised to 88 if Central | already 88 |
+| Plain-language verdict + budget | computed | computed | flag is UI-gloss only |
+| Castability table | shown | shown | hidden unless cEDH interaction lens is on |
+| Keep shapes (`keep-shapes` flag) | curve-coverage line only (avg turns 1–5 with a castable play) | same as Casual | three-shape keep gate → plan-keepable % headline + shape-labeled/turn-capped openers + commander-central opener |
 
 Mode does **not** change the confirmed `(89+M)%` Karsten consistency threshold,
 the per-color source math, or the 60-card path. MBGAP-04 explicitly reviewed and

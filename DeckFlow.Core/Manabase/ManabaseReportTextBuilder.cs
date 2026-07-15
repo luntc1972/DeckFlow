@@ -206,7 +206,7 @@ public static class ManabaseReportTextBuilder
         }
 
         // --- Castability table (Casual mode only, when non-empty) ------------
-        if (mode == ManabaseMode.Casual && report.Castability.Count > 0)
+        if (mode != ManabaseMode.Cedh && report.Castability.Count > 0)
         {
             sb.AppendLine("Castability (chance to cast on curve):");
             sb.AppendLine(string.Create(CultureInfo.InvariantCulture,

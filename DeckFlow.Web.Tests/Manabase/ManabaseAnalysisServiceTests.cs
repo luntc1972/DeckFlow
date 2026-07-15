@@ -2317,6 +2317,7 @@ public sealed class ManabaseControllerCompanionTests
         var controller = new ManabaseController(
             service,
             new StubCardSearchService(),
+            new FakeFeatureFlagCache(),
             NullLogger<ManabaseController>.Instance)
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },

@@ -14,6 +14,7 @@ public static class ManabaseAnalyzer
     // A spell whose castability falls below this is "under-supported" for COLOR-AGG. Casual uses
     // a mid bar; cEDH and a Central commander hold their colors to a stricter bar.
     private const int CasualSupportThreshold = 80;
+    internal const int FocusedSupportThreshold = 85;
     private const int CedhSupportThreshold = 88;
 
     /// <summary>
@@ -962,7 +963,12 @@ public static class ManabaseAnalyzer
         int castCount = 0;
         double worstCast = double.PositiveInfinity;
         string worstSpell = "(none)";
-        int threshold = mode == ManabaseMode.Cedh ? CedhSupportThreshold : CasualSupportThreshold;
+        int threshold = mode switch
+        {
+            ManabaseMode.Cedh => CedhSupportThreshold,
+            ManabaseMode.Focused => FocusedSupportThreshold,
+            _ => CasualSupportThreshold,
+        };
 
         foreach (SpellRequirement spell in deck.Spells)
         {
@@ -1339,7 +1345,12 @@ public static class ManabaseAnalyzer
     {
         // Base bar comes from the mode; a Central commander tightens ITS colors only (orthogonal
         // to mode — it does not move the land target). A Low commander gets no elevation.
-        int baseThreshold = mode == ManabaseMode.Cedh ? CedhSupportThreshold : CasualSupportThreshold;
+        int baseThreshold = mode switch
+        {
+            ManabaseMode.Cedh => CedhSupportThreshold,
+            ManabaseMode.Focused => FocusedSupportThreshold,
+            _ => CasualSupportThreshold,
+        };
         if (importance == CommanderImportance.Central && commanderColors.Contains(color))
         {
             return Math.Max(baseThreshold, CedhSupportThreshold);
@@ -1788,7 +1799,12 @@ public static class ManabaseAnalyzer
             .First();
     }
 
-    private static string ModeLabel(ManabaseMode mode) => mode == ManabaseMode.Cedh ? "cEDH" : "Casual";
+    private static string ModeLabel(ManabaseMode mode) => mode switch
+    {
+        ManabaseMode.Cedh => "cEDH",
+        ManabaseMode.Focused => "Focused",
+        _ => "Casual",
+    };
 }
 
 /// <summary>

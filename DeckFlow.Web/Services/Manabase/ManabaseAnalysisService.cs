@@ -96,6 +96,9 @@ public sealed record ManabaseAnalysisResult(
     ManabaseRampDrawBudget? Budget,
     bool ShowPlainLanguage)
 {
+    /// <summary>Whether the UI should surface the Focused deck-type pill.</summary>
+    public bool ShowFocusedTier { get; init; }
+
     /// <summary>
     /// Whether the deck resolved but no valid commander remained after eligibility validation, so a
     /// user selection is required before a report can be produced.
@@ -233,6 +236,12 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     public const string KeepShapesFlagKey = "analysis.manabase.keep-shapes";
 
     /// <summary>
+    /// Focused mid-power tier flag key: seeded OFF. Gates the third deck-type radio and the 85%
+    /// color-support threshold path; off = byte-identical to Casual.
+    /// </summary>
+    public const string FocusedTierFlagKey = "analysis.manabase.focused-tier";
+
+    /// <summary>
     /// Display-only source-list flag key: seeded OFF. Gates the nested source disclosures inside the
     /// untapped-sources lens; analyzer data stays unconditional and deterministic.
     /// </summary>
@@ -328,6 +337,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         bool showTapAnalyzer = IsFlagOn(TapAnalyzerFlagKey);
         bool showMulliganEval = IsFlagOn(MulliganEvalFlagKey);
         bool keepShapesFlag = IsFlagOn(KeepShapesFlagKey);
+        bool showFocusedTier = IsFlagOn(FocusedTierFlagKey);
         bool showSourceList = IsFlagOn(SourceListFlagKey);
         // Read BEFORE resolve: the flag gates the plan-role tagging (and its category + Spellbook I/O)
         // done during classification. Off = no extra I/O and PlanRoles stay None (byte-identical path).
@@ -379,6 +389,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 CommanderSelectionRequired = true,
                 CommanderChoices = resolved.CommanderChoices,
                 CommanderCastabilityEnabled = commanderCastability,
+                ShowFocusedTier = showFocusedTier,
                 ShowTapAnalyzer = showTapAnalyzer,
                 ShowMulliganEval = showMulliganEval,
                 ShowPlanPresence = showPlanPresence,
@@ -462,7 +473,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
 
         if (plainLanguage)
         {
-            if (options.Mode == ManabaseMode.Casual)
+            if (options.Mode != ManabaseMode.Cedh)
             {
                 budget = ManabaseRampDrawBudgetCalculator.Calculate(resolved.Deck);
                 verdict = ManabaseVerdictSynthesizer.Synthesize(report, options.Mode, budget);
@@ -486,6 +497,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             CommanderChoices = resolved.CommanderChoices,
             CommanderCastabilityEnabled = commanderCastability,
             CompanionRow = companionRow,
+            ShowFocusedTier = showFocusedTier,
             ShowTapAnalyzer = showTapAnalyzer,
             ShowMulliganEval = showMulliganEval,
             ShowPlanPresence = showPlanPresence,

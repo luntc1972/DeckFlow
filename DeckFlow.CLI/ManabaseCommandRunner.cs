@@ -29,7 +29,7 @@ internal static class ManabaseCommandRunner
     /// <summary>Resolve a deck and print its mana-base report. Returns a process exit code.</summary>
     /// <param name="archidektUrl">Public Archidekt deck URL, or null.</param>
     /// <param name="moxfieldUrl">Public Moxfield deck URL, or null.</param>
-    /// <param name="mode">Analysis profile: "casual" (default) or "cedh".</param>
+    /// <param name="mode">Analysis profile: "casual" (default), "focused", or "cedh".</param>
     /// <param name="includeSwapPrompt">When true, also print the paste-ready LLM swap prompt.</param>
     public static async Task<int> RunAsync(
         string? archidektUrl,
@@ -47,7 +47,7 @@ internal static class ManabaseCommandRunner
 
         if (!TryParseMode(mode, out ManabaseMode manabaseMode))
         {
-            Console.Error.WriteLine("--mode must be 'casual' or 'cedh'.");
+            Console.Error.WriteLine("--mode must be 'casual', 'focused', or 'cedh'.");
             return 1;
         }
 
@@ -122,7 +122,7 @@ internal static class ManabaseCommandRunner
             // its plain-language-verdict flag; the CLI always shows them in Casual by design.
             ManabaseRampDrawBudget? budget = null;
             ManabaseVerdict? verdict = null;
-            if (manabaseMode == ManabaseMode.Casual)
+            if (manabaseMode != ManabaseMode.Cedh)
             {
                 budget = ManabaseRampDrawBudgetCalculator.Calculate(deck);
                 verdict = ManabaseVerdictSynthesizer.Synthesize(report, manabaseMode, budget);

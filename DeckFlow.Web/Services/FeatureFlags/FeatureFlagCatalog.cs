@@ -115,6 +115,10 @@ public static class FeatureFlagCatalog
                 "shape-labeled representative openers, a turn cap so a turn-6 payoff is never called workable, " +
                 "the commander surfaced for commander-central decks, and a casual 'plays a spell on ~N of the " +
                 "first 5 turns' read. cEDH gate + casual metric; off = byte-identical output.",
+            ["analysis.manabase.focused-tier"] =
+                "Show the Focused mid-power manabase mode between Casual and cEDH. Focused keeps the " +
+                "Casual land target and display surfaces, but raises the color-support threshold from 80% to 85%. " +
+                "Seeded OFF; off = byte-identical to today's two-mode UI and behavior.",
             ["analysis.manabase.source-list"] =
                 "Show two display-only disclosures inside the mana base untapped-sources lens: a full " +
                 "mana-source list with pip letters plus a tapped-sources subset. Page HTML only; off = byte-identical output.",
