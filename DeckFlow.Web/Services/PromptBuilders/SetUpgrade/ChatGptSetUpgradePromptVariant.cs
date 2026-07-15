@@ -127,10 +127,6 @@ internal sealed class ChatGptSetUpgradePromptVariant : ISetUpgradePromptVariant
         builder.AppendLine("   For every top add and every shortlist entry (must_test and optional), set card_text to that card's full rules text, copied verbatim from its line in the SET PACKET below. Do not paraphrase, summarize, or invent card text. Leave card_text empty only when the card is not present in the set packet.");
         builder.AppendLine();
         builder.AppendLine("C. Return a complete set_upgrade_report JSON matching the schema at the end of this prompt. You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.");
-        builder.AppendLine();
-        builder.AppendLine();
-        builder.AppendLine("D. Return a second fenced code block tagged as ```text named discussion_summary.txt.");
-        builder.AppendLine("   Include the per-set analysis in condensed form, final recommendations, reasoning behind key adds and cuts, and direct answers to the analysis questions — a standalone notes document.");
 
         // --- Data sections ---
         builder.AppendLine();

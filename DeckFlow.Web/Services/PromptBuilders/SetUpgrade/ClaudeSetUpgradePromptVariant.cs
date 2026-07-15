@@ -187,7 +187,6 @@ internal sealed class ClaudeSetUpgradePromptVariant : ISetUpgradePromptVariant
         builder.AppendLine("- Per-set analysis for each selected set including top adds, suggested removals, traps, and speculative tests.");
         builder.AppendLine("- A final cross-set ranked shortlist with must_test, optional, and skip recommendations.");
         builder.AppendLine("- For every top add and every shortlist entry (must_test and optional), set card_text to that card's full rules text copied verbatim from <set_packet>. Do not paraphrase, summarize, or invent card text; leave card_text empty only when the card is not present in the set packet.");
-        builder.AppendLine("- A standalone discussion_summary.txt-style notes section that condenses the per-set analysis, final recommendations, key add/cut reasoning, and direct answers to the analysis questions.");
         builder.AppendLine("After the readable analysis, return a single JSON object matching <output_schema>.");
         builder.AppendLine("Return a complete set_upgrade_report JSON. You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.");
         builder.AppendLine("</" + "task>");
