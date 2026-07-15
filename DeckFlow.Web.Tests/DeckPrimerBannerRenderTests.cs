@@ -139,6 +139,22 @@ public sealed class DeckPrimerBannerRenderTests
         Assert.Equal(baselineHtml, flagOffHtml);
     }
 
+    [Fact]
+    public async Task DownloadButton_RendersPromptDownloadMarker()
+    {
+        string html = await RenderDeckPrimerViewAsync(BuildModel(
+            staleDetectionEnabled: true,
+            generatedPrimerHash: "hash-123",
+            isStale: false,
+            changedCardCount: null,
+            primerPromptText: "Existing primer text."));
+
+        Assert.Contains("prompt-sticky-download__button", html, StringComparison.Ordinal);
+        Assert.Contains("data-prompt-download-submit", html, StringComparison.Ordinal);
+        // coverage note: Card Lookup shares the same markup-only submit-button marker change, but
+        // lacks an existing equivalent render harness in this test project.
+    }
+
     private static DeckPrimerViewModel BuildModel(
         bool staleDetectionEnabled,
         string? generatedPrimerHash,

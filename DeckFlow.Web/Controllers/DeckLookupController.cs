@@ -239,11 +239,15 @@ public sealed class DeckLookupController : DeckToolControllerBase
                     verifiedOutputs = result.VerifiedOutputs,
                     missingLines = result.MissingLines,
                 }, new JsonSerializerOptions { WriteIndented = true });
-                return File(Encoding.UTF8.GetBytes(json), "application/json; charset=utf-8", $"verified-cards-{timestamp}.json");
+                var fileName = $"verified-cards-{timestamp}.json";
+                Response.Headers["X-DeckFlow-Filename"] = fileName;
+                return File(Encoding.UTF8.GetBytes(json), "application/json; charset=utf-8", fileName);
             }
 
             var output = BuildVerificationFile(result);
-            return File(Encoding.UTF8.GetBytes(output), "text/plain; charset=utf-8", $"verified-cards-{timestamp}.txt");
+            var textFileName = $"verified-cards-{timestamp}.txt";
+            Response.Headers["X-DeckFlow-Filename"] = textFileName;
+            return File(Encoding.UTF8.GetBytes(output), "text/plain; charset=utf-8", textFileName);
         }
         catch (InvalidOperationException exception)
         {
