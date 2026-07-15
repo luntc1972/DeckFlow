@@ -161,11 +161,13 @@ public sealed class ManabaseController : DeckToolControllerBase
                     includePlanPresence: result.ShowPlanPresence,
                     includeCedhKeepShapes: result.ShowKeepShapes);
                 string timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
+                string fileName = $"manabase-analysis-{timestamp}.txt";
+                Response.Headers["X-DeckFlow-Filename"] = fileName;
 
                 return File(
                     Encoding.UTF8.GetBytes(text),
                     "text/plain; charset=utf-8",
-                    $"manabase-analysis-{timestamp}.txt");
+                    fileName);
             });
     }
 

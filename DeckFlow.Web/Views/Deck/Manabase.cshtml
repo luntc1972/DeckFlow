@@ -974,7 +974,7 @@
         @* Mirror OverridesTouched too: if a download error re-renders the analyze view, a deliberately
            cleared box must not silently refill with the suggestions (MEDIUM-11, Codex). *@
         <input type="hidden" name="OverridesTouched" value="@(Model.Request.OverridesTouched ? "true" : "false")" />
-        <button type="submit" class="run-button manabase-download-button" data-no-busy>Download analysis (.txt)</button>
+        <button type="submit" class="run-button manabase-download-button" data-no-busy data-prompt-download-submit>Download analysis (.txt)</button>
     </form>
 
     @if (!string.IsNullOrWhiteSpace(Model.PromptSwapPrompt))

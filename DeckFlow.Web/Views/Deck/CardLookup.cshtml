@@ -109,8 +109,8 @@
             Each Download button runs the Scryfall lookup on the list above and saves the enriched card text to a file. For inline results on screen, use <strong>Single Card</strong> mode.
         </p>
         <div class="toolbar">
-            <button type="submit" class="run-button" formaction="@Url.Content("~/card-lookup/download")">Download .txt</button>
-            <button type="submit" class="clear-cache-button" formaction="@Url.Content("~/card-lookup/download-json")">Download .json</button>
+            <button type="submit" class="run-button" data-prompt-download-submit formaction="@Url.Content("~/card-lookup/download")">Download .txt</button>
+            <button type="submit" class="clear-cache-button" data-prompt-download-submit formaction="@Url.Content("~/card-lookup/download-json")">Download .json</button>
             <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/card-lookup")">Clear</button>
         </div>
     </form>
