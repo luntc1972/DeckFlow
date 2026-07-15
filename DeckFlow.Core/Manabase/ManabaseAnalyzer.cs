@@ -157,6 +157,11 @@ public static class ManabaseAnalyzer
     /// existing castability rows. When false (default), or in non-cEDH modes, the output remains
     /// byte-identical with <see cref="ManabaseReport.InteractionLens"/> left null.
     /// </param>
+    /// <param name="keepShapes">
+    /// When true in cEDH mode, the mulligan read also surfaces the three-shape keep gate from
+    /// <see cref="CastabilitySimulator.SimulatePlanPresence"/>. Off by default so existing callers
+    /// remain byte-identical until the Web flag is wired.
+    /// </param>
     public static ManabaseReport Analyze(
         ManabaseDeck deck,
         ManabaseMode mode,
@@ -170,6 +175,7 @@ public static class ManabaseAnalyzer
         bool scryCredit = false,
         bool colorlessSnow = false,
         bool interactionLens = false,
+        bool keepShapes = false,
         bool useHealthBandCastability = false,
         bool useHealthBandHeadlineFloor = false,
         CedhLandContext cedhContext = default)
@@ -253,7 +259,7 @@ public static class ManabaseAnalyzer
         // the flag-off path adds no sim and stays byte-identical.
         ManabasePlanPresence? planPresence = deck.Spells.Any(s => s.PlanRoles != PlanRole.None)
             ? CastabilitySimulator.SimulatePlanPresence(
-                deck, librarySize, CastabilitySimulator.DefaultTrials, useManaQuantity, colorAwareMulligan, gateRampOnCastable, ritualBurstActive, colorlessSnow)
+                deck, librarySize, CastabilitySimulator.DefaultTrials, useManaQuantity, colorAwareMulligan, gateRampOnCastable, ritualBurstActive, colorlessSnow, mode, keepShapes)
             : null;
 
         return new ManabaseReport
@@ -280,7 +286,7 @@ public static class ManabaseAnalyzer
             TapAnalysis = ComputeTapAnalysis(deck, findings, castability, CastabilitySimulator.DefaultTrials, scrySourceCreditAmount),
             // MULLIGAN-01..05: opening-hand / mulligan evaluation derived from the same castability
             // rows (no second sim). Always computed in Core; the Web layer flag-gates display.
-            MulliganEvaluation = ComputeMulliganEvaluation(deck, castability, CastabilitySimulator.DefaultTrials, planPresence),
+            MulliganEvaluation = ComputeMulliganEvaluation(deck, castability, CastabilitySimulator.DefaultTrials, mode, keepShapes, planPresence),
             InteractionLens = interactionLensActive
                 ? ComputeInteractionLens(deck, castability, CastabilitySimulator.DefaultTrials, CedhSupportThreshold)
                 : null,
@@ -1475,6 +1481,8 @@ public static class ManabaseAnalyzer
         ManabaseDeck deck,
         IReadOnlyList<CardCastability> castability,
         int defaultTrials,
+        ManabaseMode mode,
+        bool keepShapes,
         ManabasePlanPresence? planPresence = null)
     {
         var nonCommanderRows = castability.Where(r => !r.IsCommander).ToList();
@@ -1543,6 +1551,12 @@ public static class ManabaseAnalyzer
             AverageManaValue = deck.AverageManaValue,
             RepresentativeOpeners = openers,
             PlanPresence = planPresence,
+            PlanKeepablePercent = keepShapes && mode == ManabaseMode.Cedh && planPresence is not null
+                ? planPresence.PlanKeepablePercent
+                : 0,
+            PlanKeepableBand = keepShapes && mode == ManabaseMode.Cedh && planPresence is not null
+                ? planPresence.PlanKeepableBand
+                : string.Empty,
         };
     }
 
@@ -1561,8 +1575,10 @@ public static class ManabaseAnalyzer
     internal static ManabaseMulliganEvaluation ComputeMulliganEvaluationForTest(
         ManabaseDeck deck,
         IReadOnlyList<CardCastability> castability,
-        int defaultTrials)
-        => ComputeMulliganEvaluation(deck, castability, defaultTrials);
+        int defaultTrials,
+        ManabaseMode mode = ManabaseMode.Casual,
+        bool keepShapes = false)
+        => ComputeMulliganEvaluation(deck, castability, defaultTrials, mode, keepShapes);
 
     // Display-only: split a color's total weighted sources into direct (mono-color, the dedicated
     // core), shared (non-conditional multi-color fixers — duals, any-color rocks — real but spread
