@@ -852,6 +852,108 @@ public static class CastabilitySimulator
         };
     }
 
+    /// <summary>
+    /// D-03 casual curve coverage: average number of turns 1-5 where the hand plus natural draws can
+    /// cast at least one non-commander, non-mana-source spell. Role-independent and flag-gated by the
+    /// analyzer, so flag-off callers add no extra simulation work.
+    /// </summary>
+    public static double SimulateCurveCoverage(
+        ManabaseDeck deck,
+        int librarySize,
+        int trials = DefaultTrials,
+        bool useManaQuantity = false,
+        bool colorAwareMulligan = false,
+        bool gateRampOnCastable = false,
+        bool ritualBurst = false,
+        bool colorlessSnow = false)
+    {
+        ArgumentNullException.ThrowIfNull(deck);
+
+        if (trials <= 0)
+        {
+            return 0.0;
+        }
+
+        IReadOnlyList<LibraryCard> library = BuildLibrary(
+            deck, librarySize, useManaQuantity, gateRampOnCastable, ritualBurst, colorlessSnow,
+            excludeSourceName: null, includeInteractionSpellCards: false, includeCurveCoverageSpellCards: true);
+        int deckColorCount = colorAwareMulligan ? DeckColorCount(deck) : 0;
+
+        int[] candidateIndices = Enumerable.Range(0, library.Count)
+            .Where(i => library[i].PlanName is not null && library[i].PlanManaValue > 0)
+            .ToArray();
+        if (candidateIndices.Length == 0)
+        {
+            return 0.0;
+        }
+
+        var rng = new Random(StableSeed("__deckflow_curve_coverage__"));
+        int[] deck0 = Enumerable.Range(0, library.Count).ToArray();
+        int[] shuffled = new int[library.Count];
+        var availableColors = new List<(int Mask, int Amount)>(20);
+        var onlineLandMasks = new List<int>(20);
+        int[] partialIndices = Enumerable.Range(0, library.Count).Where(i => library[i].IsPartial).ToArray();
+        bool[] active = new bool[library.Count];
+        Array.Fill(active, true);
+        int[] posInPrefix = new int[library.Count];
+        int prefix = Math.Min(library.Count, 7 + 5 + GraceWindow(5) + 2);
+
+        double coveredTurnSum = 0.0;
+        for (int t = 0; t < trials; t++)
+        {
+            int keptSize = DealHand(
+                library, shuffled, deck0, active, partialIndices, rng,
+                deck.AverageManaValue, prefix, deck.IsSingleton, colorAwareMulligan, deckColorCount);
+            int handCount = Math.Min(library.Count, keptSize);
+
+            Array.Fill(posInPrefix, -1);
+            for (int p = 0; p < prefix; p++)
+            {
+                posInPrefix[shuffled[p]] = p;
+            }
+
+            int coveredTurns = 0;
+            for (int turn = 1; turn <= 5; turn++)
+            {
+                foreach (int candidateIdx in candidateIndices)
+                {
+                    LibraryCard spellCard = library[candidateIdx];
+                    if (spellCard.PlanManaValue > turn)
+                    {
+                        continue;
+                    }
+
+                    int pos = posInPrefix[candidateIdx];
+                    if (pos < 0)
+                    {
+                        continue;
+                    }
+
+                    int drawnByTurn = pos < handCount ? 0 : pos - handCount + 1;
+                    if (drawnByTurn > turn)
+                    {
+                        continue;
+                    }
+
+                    bool castable = SimulateGame(
+                        library, shuffled, active, handCount, turn, spellCard.PlanManaValue,
+                        spellCard.PlanPips ?? Array.Empty<(int, int)>(),
+                        availableColors, null, onlineLandMasks, gateRampOnCastable, ritualBurst,
+                        out _, out _, out int firstCastableTurn, out _, out _);
+                    if (castable && firstCastableTurn <= turn)
+                    {
+                        coveredTurns++;
+                        break;
+                    }
+                }
+            }
+
+            coveredTurnSum += coveredTurns;
+        }
+
+        return coveredTurnSum / trials;
+    }
+
     // Builds one representative plan-presence opener: tallies the kept hand's composition (lands, distinct
     // land colors, ramp pieces, other cards) and attributes the plan to the first plan card the hand could
     // cast on curve. A no-plan hand (hasPlan == false) carries an empty plan name — the display renders it
@@ -974,7 +1076,7 @@ public static class CastabilitySimulator
         KeepShape.Explosive => "explosive keep",
         KeepShape.Engine => "engine keep",
         KeepShape.Bridge => "bridge keep",
-        _ => $"no plan by turn {CedhMulliganCalibration.RepresentativeLineTurnCap} \u2014 mulligan",
+        _ => $"no plan by turn {CedhMulliganCalibration.RepresentativeLineTurnCap} - mulligan",
     };
 
     private static IReadOnlyList<LibraryCard> BuildLibrary(
@@ -985,7 +1087,8 @@ public static class CastabilitySimulator
         bool ritualBurst,
         bool colorlessSnow,
         string? excludeSourceName,
-        bool includeInteractionSpellCards = false)
+        bool includeInteractionSpellCards = false,
+        bool includeCurveCoverageSpellCards = false)
     {
         var cards = new List<LibraryCard>(librarySize);
 
@@ -1033,7 +1136,9 @@ public static class CastabilitySimulator
                 break;
             }
 
-            if ((spell.PlanRoles == PlanRole.None && (!includeInteractionSpellCards || !spell.IsInteractionSpell))
+            if ((!includeCurveCoverageSpellCards
+                    && spell.PlanRoles == PlanRole.None
+                    && (!includeInteractionSpellCards || !spell.IsInteractionSpell))
                 || spell.IsManaSource)
             {
                 continue;

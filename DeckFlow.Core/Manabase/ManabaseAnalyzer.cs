@@ -286,7 +286,20 @@ public static class ManabaseAnalyzer
             TapAnalysis = ComputeTapAnalysis(deck, findings, castability, CastabilitySimulator.DefaultTrials, scrySourceCreditAmount),
             // MULLIGAN-01..05: opening-hand / mulligan evaluation derived from the same castability
             // rows (no second sim). Always computed in Core; the Web layer flag-gates display.
-            MulliganEvaluation = ComputeMulliganEvaluation(deck, castability, CastabilitySimulator.DefaultTrials, mode, keepShapes, planPresence),
+            MulliganEvaluation = ComputeMulliganEvaluation(
+                deck,
+                castability,
+                CastabilitySimulator.DefaultTrials,
+                librarySize,
+                mode,
+                importance,
+                keepShapes,
+                useManaQuantity,
+                colorAwareMulligan,
+                gateRampOnCastable,
+                ritualBurstActive,
+                colorlessSnow,
+                planPresence),
             InteractionLens = interactionLensActive
                 ? ComputeInteractionLens(deck, castability, CastabilitySimulator.DefaultTrials, CedhSupportThreshold)
                 : null,
@@ -1481,12 +1494,20 @@ public static class ManabaseAnalyzer
         ManabaseDeck deck,
         IReadOnlyList<CardCastability> castability,
         int defaultTrials,
+        int librarySize,
         ManabaseMode mode,
+        CommanderImportance importance,
         bool keepShapes,
+        bool useManaQuantity,
+        bool colorAwareMulligan,
+        bool gateRampOnCastable,
+        bool ritualBurst,
+        bool colorlessSnow,
         ManabasePlanPresence? planPresence = null)
     {
         var nonCommanderRows = castability.Where(r => !r.IsCommander).ToList();
         IReadOnlyList<CardCastability> avgRows = nonCommanderRows.Count > 0 ? nonCommanderRows : castability;
+        bool shapeGateActive = keepShapes && mode == ManabaseMode.Cedh;
 
         // kept7 and to6 are the observed primary shares. keepable and to5 are DERIVED from them rather
         // than independently rounded so the pasteable artifact's numbers always reconcile: the simulator
@@ -1514,8 +1535,12 @@ public static class ManabaseAnalyzer
         // signal, so naming it as the representative early play is misleading. Prefer rows that actually
         // demand mana (ManaValue >= 1); fall back to all non-commander rows only when every tracked
         // spell is free (a degenerate paste), so the read is never silently emptied.
-        List<CardCastability> demandingRows = nonCommanderRows.Where(r => r.ManaValue >= 1).ToList();
-        List<CardCastability> openerRows = demandingRows.Count > 0 ? demandingRows : nonCommanderRows;
+        bool commanderCentral = shapeGateActive && IsCommanderCentral(deck, castability, importance, mode);
+        List<CardCastability> openerPool = commanderCentral
+            ? castability.Where(r => shapeGateActive ? r.OnCurveTurn <= CedhMulliganCalibration.RepresentativeLineTurnCap : true).ToList()
+            : nonCommanderRows;
+        List<CardCastability> demandingRows = openerPool.Where(r => r.ManaValue >= 1).ToList();
+        List<CardCastability> openerRows = demandingRows.Count > 0 ? demandingRows : openerPool;
 
         // Earliest-row-first, then concatenate each row's own samples, then keep the first sample seen
         // per distinct Decision (at most 3: "keep 7" / "mulligan to 6" / "mulligan to 5") — each sample
@@ -1532,13 +1557,26 @@ public static class ManabaseAnalyzer
         List<OpeningHandSample> openers = planPresence?.RepresentativeOpeners is { Count: > 0 } planOpeners
             ? planOpeners.ToList()
             : openerRows
-                .OrderBy(r => r.ManaValue)
+                .Where(r => !shapeGateActive || r.OnCurveTurn <= CedhMulliganCalibration.RepresentativeLineTurnCap)
+                .OrderBy(r => commanderCentral && r.IsCommander && r.OnCurveTurn < r.ManaValue ? 0 : 1)
+                .ThenBy(r => r.ManaValue)
                 .ThenBy(r => r.OnCurveTurn)
                 .SelectMany(r => r.RepresentativeOpeners)
                 .GroupBy(s => s.Decision, StringComparer.Ordinal)
                 .Select(g => g.First())
                 .Take(3)
                 .ToList();
+        double curveCoverageTurns = keepShapes
+            ? CastabilitySimulator.SimulateCurveCoverage(
+                deck,
+                librarySize,
+                defaultTrials,
+                useManaQuantity,
+                colorAwareMulligan,
+                gateRampOnCastable,
+                ritualBurst,
+                colorlessSnow)
+            : 0.0;
 
         return new ManabaseMulliganEvaluation
         {
@@ -1551,12 +1589,13 @@ public static class ManabaseAnalyzer
             AverageManaValue = deck.AverageManaValue,
             RepresentativeOpeners = openers,
             PlanPresence = planPresence,
-            PlanKeepablePercent = keepShapes && mode == ManabaseMode.Cedh && planPresence is not null
+            PlanKeepablePercent = shapeGateActive && planPresence is not null
                 ? planPresence.PlanKeepablePercent
                 : 0,
-            PlanKeepableBand = keepShapes && mode == ManabaseMode.Cedh && planPresence is not null
+            PlanKeepableBand = shapeGateActive && planPresence is not null
                 ? planPresence.PlanKeepableBand
                 : string.Empty,
+            CurveCoverageTurns = curveCoverageTurns,
         };
     }
 
@@ -1577,8 +1616,72 @@ public static class ManabaseAnalyzer
         IReadOnlyList<CardCastability> castability,
         int defaultTrials,
         ManabaseMode mode = ManabaseMode.Casual,
-        bool keepShapes = false)
-        => ComputeMulliganEvaluation(deck, castability, defaultTrials, mode, keepShapes);
+        CommanderImportance importance = CommanderImportance.Standard,
+        bool keepShapes = false,
+        ManabasePlanPresence? planPresence = null)
+        => ComputeMulliganEvaluation(
+            deck,
+            castability,
+            defaultTrials,
+            deck.TotalCards - deck.CommanderCount,
+            mode,
+            importance,
+            keepShapes,
+            useManaQuantity: false,
+            colorAwareMulligan: false,
+            gateRampOnCastable: false,
+            ritualBurst: false,
+            colorlessSnow: false,
+            planPresence);
+
+    /// <summary>
+    /// D-02 commander-centrality heuristic: combines the already-computed command-zone castability row,
+    /// the commander's <see cref="SpellRequirement.PlanRoles"/>, and
+    /// <see cref="CommanderImportance"/> to decide whether cEDH representative-openers may surface the
+    /// commander as a central early line. Classification-degraded fallback is allowed only when the
+    /// entire deck has no role tags at all.
+    /// </summary>
+    private static bool IsCommanderCentral(
+        ManabaseDeck deck,
+        IReadOnlyList<CardCastability> castability,
+        CommanderImportance importance,
+        ManabaseMode mode)
+    {
+        ArgumentNullException.ThrowIfNull(deck);
+        ArgumentNullException.ThrowIfNull(castability);
+
+        if (mode != ManabaseMode.Cedh || importance == CommanderImportance.Low)
+        {
+            return false;
+        }
+
+        CardCastability? strongestCommanderRow = castability
+            .Where(c => c.IsCommander)
+            .MaxBy(c => c.CastPercent);
+        if (strongestCommanderRow is null || strongestCommanderRow.CastPercent < CedhSupportThreshold)
+        {
+            return false;
+        }
+
+        bool rolesUnavailable = deck.Spells.All(s => s.PlanRoles == PlanRole.None);
+        if (rolesUnavailable)
+        {
+            return true;
+        }
+
+        return deck.Spells.Any(
+            s => s.IsCommander
+                && (s.PlanRoles.HasFlag(PlanRole.Payoff)
+                    || s.PlanRoles.HasFlag(PlanRole.Engine)
+                    || s.PlanRoles.HasFlag(PlanRole.TutorCombo)));
+    }
+
+    internal static bool IsCommanderCentralForTest(
+        ManabaseDeck deck,
+        IReadOnlyList<CardCastability> castability,
+        CommanderImportance importance,
+        ManabaseMode mode)
+        => IsCommanderCentral(deck, castability, importance, mode);
 
     // Display-only: split a color's total weighted sources into direct (mono-color, the dedicated
     // core), shared (non-conditional multi-color fixers — duals, any-color rocks — real but spread
