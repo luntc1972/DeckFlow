@@ -19,6 +19,7 @@ using Polly;
 using Polly.Registry;
 using RestSharp;
 using DeckFlow.Web.Models;
+using DeckFlow.Web.Services.Manabase;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
 using DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
 using DeckFlow.Web.Services.Scryfall;
@@ -163,6 +164,13 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         InteractionAuditFlag,
         WinConMapFlag,
         ReferenceDeckStatsFlag,
+        // Precautionary: the manabase paste artifact and swap prompt are rebuilt per request
+        // (ManabaseController.Download / ManabaseAnalysisService.AnalyzeAsync) and do not currently
+        // touch PacketSessionCache, so this is inert today. Register it now so any future cache-routing
+        // of manabase or merged text cannot replay a stale flag-ON prompt (cf. WinConMap and the
+        // followup_packet_cache_flag_replay regression). Live byte-identity is guarded by the
+        // flag-gated append in ManabaseReportTextBuilder.
+        ManabaseAnalysisService.KeepShapesFlagKey,
     };
 
     /// <summary>
