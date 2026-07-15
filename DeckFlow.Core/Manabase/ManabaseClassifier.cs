@@ -15,6 +15,10 @@ namespace DeckFlow.Core.Manabase;
 /// </summary>
 public static class ManabaseClassifier
 {
+    private static readonly Regex ArtifactTokenCreationRegex = new(
+        @"create\b[\s\S]*?\b(?:treasure|clue|food|blood|gold|powerstone|map|artifact token)\b",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     // Matches an always-on static generic reducer: an optional type scope (instant/sorcery/
     // creature/artifact words) immediately before "spells you cast cost {N} less". The "you cast"
     // anchor excludes opponent-only and activated-ability discounts. Oracle text is lower-cased.
@@ -349,13 +353,25 @@ public static class ManabaseClassifier
         // enable (a second pass: it needs the full creature list and the already-built sources).
         AddGrantedSources(sources, cards, granters, deckColorCount);
 
+        int commanderColorMask = ManabaseColorMask.CommanderColorMask(spells);
+        int legendaryPermanentCount = CountByQuantity(cards, IsLegendaryAmberSupport);
+        int artifactCount = CountByQuantity(cards, card => IsType(card.TypeLine, "Artifact"));
+        int artifactTokenCreatorCount = CountByQuantity(cards, CreatesArtifactTokens);
+        double effectiveArtifactSupport = artifactCount + (0.5 * artifactTokenCreatorCount);
+        (IReadOnlyList<ManaSource> adjustedSources, int adjustedFastMana) = ConditionalMoxHeuristics.Apply(
+            sources,
+            fastMana,
+            commanderColorMask,
+            legendaryPermanentCount,
+            effectiveArtifactSupport);
+
         double avgMv = nonlandCount > 0 ? mvSum / nonlandCount : 0;
 
         return new ManabaseDeck
         {
             TotalCards = totalCards,
             CommanderCount = commanderCount,
-            Sources = sources,
+            Sources = adjustedSources,
             Spells = spells,
             AverageManaValue = Math.Round(avgMv, 2),
             RampAndDrawUnderThree = rampUnderThree,
@@ -363,7 +379,7 @@ public static class ManabaseClassifier
             RampPieceCount = rampPieces - (0.5 * bothPieces),
             DrawPieceCount = drawPieces - (0.5 * bothPieces),
             RampDrawBothCount = bothPieces,
-            FastMana = fastMana,
+            FastMana = adjustedFastMana,
             OneShots = oneShots,
             ScrySourceCreditCopies = scrySourceCreditCopies,
             IsSingleton = isSingleton,
@@ -375,6 +391,30 @@ public static class ManabaseClassifier
                 : Array.Empty<string>(),
         };
     }
+
+    private static int CountByQuantity(IReadOnlyList<CardFact> cards, Func<CardFact, bool> predicate)
+    {
+        int count = 0;
+        foreach (CardFact card in cards)
+        {
+            if (predicate(card))
+            {
+                count += card.Quantity;
+            }
+        }
+
+        return count;
+    }
+
+    // Whole-type-line check (not the front-face-only IsLegendary): Mox Amber sees any legendary
+    // creature/planeswalker permanent you control, so a legendary back face still counts.
+    private static bool IsLegendaryAmberSupport(CardFact card)
+        => IsType(card.TypeLine, "Legendary")
+            && (IsType(card.TypeLine, "Creature") || IsType(card.TypeLine, "Planeswalker"));
+
+    private static bool CreatesArtifactTokens(CardFact card)
+        => !string.IsNullOrWhiteSpace(card.OracleText)
+            && ArtifactTokenCreationRegex.IsMatch(card.OracleText);
 
     private static int CountDeckColors(IReadOnlyList<CardFact> cards)
     {
