@@ -120,6 +120,9 @@ public sealed record ManabaseAnalysisResult(
     /// <summary>Whether the plan-presence opener stat was enabled (flag on) for this result.</summary>
     public bool ShowPlanPresence { get; init; }
 
+    /// <summary>Whether the cEDH keep-shapes / casual curve-coverage read was enabled for this result.</summary>
+    public bool ShowKeepShapes { get; init; }
+
     /// <summary>Whether the cEDH-only early-interaction lens was enabled for this result.</summary>
     public bool ShowCedhInteractionLens { get; init; }
 
@@ -221,6 +224,12 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     public const string PlanPresenceFlagKey = "analysis.manabase.plan-presence";
 
     /// <summary>
+    /// cEDH three-shape opening-hand keep gate (explosive / early-engine / interaction-bridge) plus the
+    /// casual curve-coverage read. Seeded OFF; flip after UAT. Off = byte-identical output.
+    /// </summary>
+    public const string KeepShapesFlagKey = "analysis.manabase.keep-shapes";
+
+    /// <summary>
     /// Ritual-burst flag key: seeded OFF. Credits instant/sorcery rituals (Dark Ritual, Rite of Flame,
     /// Cabal Ritual) as one-shot burst mana in the castability sim, cEDH mode only. Read fail-safe OFF;
     /// off = byte-identical output.
@@ -309,12 +318,14 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         bool commanderCastability = IsFlagOn(CommanderCastabilityFlagKey);
         bool showTapAnalyzer = IsFlagOn(TapAnalyzerFlagKey);
         bool showMulliganEval = IsFlagOn(MulliganEvalFlagKey);
+        bool keepShapesFlag = IsFlagOn(KeepShapesFlagKey);
         // Read BEFORE resolve: the flag gates the plan-role tagging (and its category + Spellbook I/O)
         // done during classification. Off = no extra I/O and PlanRoles stay None (byte-identical path).
         // ALSO require the opening-hand block (mulligan-eval): the "With a plan" line renders only inside
         // that block, so enabling plan-presence alone must not do the extra I/O + sim for a line that can
         // never show (Codex MED). Both flags on = the stat runs and surfaces.
         bool showPlanPresence = IsFlagOn(PlanPresenceFlagKey) && showMulliganEval;
+        bool keepShapes = keepShapesFlag && showMulliganEval;
         bool interactionLens = IsFlagOn(CedhInteractionLensFlagKey);
         bool showCedhInteractionLens = interactionLens && options.Mode == ManabaseMode.Cedh;
         bool ritualBurst = IsFlagOn(RitualBurstFlagKey);
@@ -332,7 +343,10 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 checkLandUntapped,
                 restrictedLands,
                 commanderCastability,
-                classifyPlanRoles: showPlanPresence || showCedhInteractionLens,
+                // Keep-shapes in cEDH also needs PlanRoles tagged: shapes B/C read roles and shape A
+                // reads Payoff/TutorCombo. keepShapes is already gated on showMulliganEval, so this
+                // extra I/O stays off whenever the opening-hand block is hidden.
+                classifyPlanRoles: showPlanPresence || showCedhInteractionLens || (keepShapes && options.Mode == ManabaseMode.Cedh),
                 options.Mode,
                 options.CompanionDesignator,
                 options.SelectedCommander,
@@ -358,6 +372,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 ShowTapAnalyzer = showTapAnalyzer,
                 ShowMulliganEval = showMulliganEval,
                 ShowPlanPresence = showPlanPresence,
+                ShowKeepShapes = keepShapes,
                 ShowCedhInteractionLens = showCedhInteractionLens,
             };
         }
@@ -409,6 +424,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             ritualLandCredit: ritualLandCredit,
             scryCredit: scryCredit,
             colorlessSnow: colorlessSnow,
+            keepShapes: keepShapes,
             interactionLens: interactionLens,
             useHealthBandCastability: useHealthBandCastability,
             useHealthBandHeadlineFloor: useHealthBandHeadlineFloor,
@@ -462,6 +478,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             ShowTapAnalyzer = showTapAnalyzer,
             ShowMulliganEval = showMulliganEval,
             ShowPlanPresence = showPlanPresence,
+            ShowKeepShapes = keepShapes,
             ShowCedhInteractionLens = showCedhInteractionLens,
             UnmatchedOverrideNames = report.UnmatchedOverrideNames,
         };

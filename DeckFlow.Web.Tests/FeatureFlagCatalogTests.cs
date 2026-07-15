@@ -41,6 +41,7 @@ public sealed class FeatureFlagCatalogTests
     [InlineData("analysis.multi-axis-score")]
     [InlineData("analysis.manabase.mulligan-eval")]
     [InlineData("analysis.manabase.plan-presence")]
+    [InlineData("analysis.manabase.keep-shapes")]
     [InlineData("analysis.manabase.ritual-burst-mana")]
     [InlineData("analysis.manabase.ritual-land-credit")]
     [InlineData("analysis.manabase.scry-credit")]

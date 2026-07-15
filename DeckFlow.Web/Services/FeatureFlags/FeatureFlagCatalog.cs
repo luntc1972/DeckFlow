@@ -109,6 +109,12 @@ public static class FeatureFlagCatalog
                 "on adds a per-analysis category lookup and a Commander Spellbook fetch. Off = byte-identical " +
                 "output; note the same role-classification I/O still runs in cEDH when the " +
                 "cedh-interaction-lens flag (seeded ON) is active.",
+            ["analysis.manabase.keep-shapes"] =
+                "Show the cEDH three-shape keep gate plus the casual curve-coverage line in the mana base " +
+                "opening-hand block and paste artifact: headline mana-keepable and plan-keepable rates, " +
+                "shape-labeled representative openers, a turn cap so a turn-6 payoff is never called workable, " +
+                "the commander surfaced for commander-central decks, and a casual 'plays a spell on ~N of the " +
+                "first 5 turns' read. cEDH gate + casual metric; off = byte-identical output.",
             ["analysis.manabase.cedh-interaction-lens"] =
                 "cEDH-only kill switch for the 'Early interaction' lens, the full castability table " +
                 "exposure in cEDH mode, and the two prompt-artifact interaction blocks. Seeded ON; off = " +
