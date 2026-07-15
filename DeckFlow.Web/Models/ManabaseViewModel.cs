@@ -65,6 +65,9 @@ public sealed class ManabaseViewModel
     /// <summary>Whether the UI should surface the cEDH keep-shape and casual curve-coverage reads.</summary>
     public bool ShowKeepShapes { get; init; }
 
+    /// <summary>Whether the UI should surface the display-only mana-source disclosure sections.</summary>
+    public bool ShowSourceList { get; init; }
+
     /// <summary>Whether the UI should surface the cEDH early-interaction lens and related table rows.</summary>
     public bool ShowCedhInteractionLens { get; init; }
 

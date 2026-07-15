@@ -118,6 +118,7 @@ public sealed class ManabaseController : DeckToolControllerBase
                     ShowMulliganEval = result.ShowMulliganEval,
                     ShowPlanPresence = result.ShowPlanPresence,
                     ShowKeepShapes = result.ShowKeepShapes,
+                    ShowSourceList = result.ShowSourceList,
                     ShowCedhInteractionLens = result.ShowCedhInteractionLens,
                     CompanionCallout = result.CompanionRow,
                     NotAppliedOverrides = notApplied,
@@ -243,6 +244,13 @@ public sealed class ManabaseController : DeckToolControllerBase
             Suggestions = result.Suggestions,
             CommanderSelectionRequired = true,
             CommanderChoices = result.CommanderChoices,
+            ShowCommanderCastability = result.CommanderCastabilityEnabled,
+            ShowTapAnalyzer = result.ShowTapAnalyzer,
+            ShowMulliganEval = result.ShowMulliganEval,
+            ShowPlanPresence = result.ShowPlanPresence,
+            ShowKeepShapes = result.ShowKeepShapes,
+            ShowSourceList = result.ShowSourceList,
+            ShowCedhInteractionLens = result.ShowCedhInteractionLens,
         };
 
     /// <summary>

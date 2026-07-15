@@ -314,6 +314,14 @@ public static class ManabaseAnalyzer
             // count credited; de-dup by name preserving first-seen (deck) order.
             RampSourceNames = deck.Sources.Where(s => !s.IsLand && !s.IsConditional && s.Weight <= 0.75).Select(s => s.Name).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
             RampAndDrawNames = deck.RampAndDrawNames,
+            ManaSourceListings = deck.Sources.Select(source => new ManaSourceListing
+            {
+                Name = source.Name,
+                Colors = source.Produces.ToArray(),
+                IsLand = source.IsLand,
+                EntersUntapped = source.EntersUntapped,
+                ProducesColorless = source.ProducesColorless,
+            }).ToList(),
             ScrySourceCreditCopies = scrySourceCreditCopies,
             RestrictedSourceLandNames = deck.RestrictedSourceLandNames,
             UnsupportedInteractions = AppendRestrictedLandUnsupportedInteraction(deck),

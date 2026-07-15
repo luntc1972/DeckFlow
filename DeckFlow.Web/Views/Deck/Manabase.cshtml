@@ -623,6 +623,65 @@
                 {
                     <p class="manabase-lens-gloss">@ManabaseDisplay.TapAnalyzerGloss</p>
                 }
+                @if (Model.ShowSourceList && report.ManaSourceListings is { Count: > 0 } listings)
+                {
+                    var groupedListings = listings
+                        .GroupBy(listing => listing.Name, StringComparer.OrdinalIgnoreCase)
+                        .Select(group => new
+                        {
+                            Name = group.First().Name,
+                            Count = group.Count(),
+                            Sample = group.First(),
+                        })
+                        .OrderBy(group => group.Sample.IsLand ? 0 : 1)
+                        .ThenBy(group => group.Name, StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                    var tappedListings = listings
+                        .Where(listing => !listing.EntersUntapped)
+                        .GroupBy(listing => listing.Name, StringComparer.OrdinalIgnoreCase)
+                        .Select(group => new
+                        {
+                            Name = group.First().Name,
+                            Count = group.Count(),
+                            Sample = group.First(),
+                        })
+                        .OrderBy(group => group.Sample.IsLand ? 0 : 1)
+                        .ThenBy(group => group.Name, StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                    <details class="manabase-source-details">
+                        <summary>Mana sources (@listings.Count)</summary>
+                        <div class="manabase-source-list" role="list">
+                            @foreach (var entry in groupedListings)
+                            {
+                                var pips = ManabaseDisplay.ColorPips(entry.Sample.Colors, entry.Sample.ProducesColorless, report.CommanderColors);
+                                <div class="manabase-source-row" role="listitem">
+                                    <span class="manabase-source-name">@(entry.Count > 1 ? $"{entry.Count}× {entry.Name}" : entry.Name)</span>
+                                    <span class="manabase-source-pips" aria-label="@pips.AriaLabel">@pips.Text</span>
+                                </div>
+                            }
+                        </div>
+                    </details>
+                    <details class="manabase-source-details">
+                        <summary>Tapped sources (@tappedListings.Sum(entry => entry.Count))</summary>
+                        @if (tappedListings.Count == 0)
+                        {
+                            <p class="manabase-source-note">No sources enter tapped.</p>
+                        }
+                        else
+                        {
+                            <div class="manabase-source-list" role="list">
+                                @foreach (var entry in tappedListings)
+                                {
+                                    var pips = ManabaseDisplay.ColorPips(entry.Sample.Colors, entry.Sample.ProducesColorless, report.CommanderColors);
+                                    <div class="manabase-source-row" role="listitem">
+                                        <span class="manabase-source-name">@(entry.Count > 1 ? $"{entry.Count}× {entry.Name}" : entry.Name)</span>
+                                        <span class="manabase-source-pips" aria-label="@pips.AriaLabel">@pips.Text</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </details>
+                }
             </div>
         }
         @if (Model.ShowMulliganEval && Model.HasResult && report.MulliganEvaluation is { } mull)

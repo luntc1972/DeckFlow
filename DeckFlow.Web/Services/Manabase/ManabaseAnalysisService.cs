@@ -123,6 +123,9 @@ public sealed record ManabaseAnalysisResult(
     /// <summary>Whether the cEDH keep-shapes / casual curve-coverage read was enabled for this result.</summary>
     public bool ShowKeepShapes { get; init; }
 
+    /// <summary>Whether the display-only mana-source disclosure sections were enabled for this result.</summary>
+    public bool ShowSourceList { get; init; }
+
     /// <summary>Whether the cEDH-only early-interaction lens was enabled for this result.</summary>
     public bool ShowCedhInteractionLens { get; init; }
 
@@ -230,6 +233,12 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     public const string KeepShapesFlagKey = "analysis.manabase.keep-shapes";
 
     /// <summary>
+    /// Display-only source-list flag key: seeded OFF. Gates the nested source disclosures inside the
+    /// untapped-sources lens; analyzer data stays unconditional and deterministic.
+    /// </summary>
+    public const string SourceListFlagKey = "analysis.manabase.source-list"; // Why: display-only; never mutates prompt or packet artifacts.
+
+    /// <summary>
     /// Ritual-burst flag key: seeded OFF. Credits instant/sorcery rituals (Dark Ritual, Rite of Flame,
     /// Cabal Ritual) as one-shot burst mana in the castability sim, cEDH mode only. Read fail-safe OFF;
     /// off = byte-identical output.
@@ -319,6 +328,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         bool showTapAnalyzer = IsFlagOn(TapAnalyzerFlagKey);
         bool showMulliganEval = IsFlagOn(MulliganEvalFlagKey);
         bool keepShapesFlag = IsFlagOn(KeepShapesFlagKey);
+        bool showSourceList = IsFlagOn(SourceListFlagKey);
         // Read BEFORE resolve: the flag gates the plan-role tagging (and its category + Spellbook I/O)
         // done during classification. Off = no extra I/O and PlanRoles stay None (byte-identical path).
         // ALSO require the opening-hand block (mulligan-eval): the "With a plan" line renders only inside
@@ -373,6 +383,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 ShowMulliganEval = showMulliganEval,
                 ShowPlanPresence = showPlanPresence,
                 ShowKeepShapes = keepShapes,
+                ShowSourceList = showSourceList,
                 ShowCedhInteractionLens = showCedhInteractionLens,
             };
         }
@@ -479,6 +490,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             ShowMulliganEval = showMulliganEval,
             ShowPlanPresence = showPlanPresence,
             ShowKeepShapes = keepShapes,
+            ShowSourceList = showSourceList,
             ShowCedhInteractionLens = showCedhInteractionLens,
             UnmatchedOverrideNames = report.UnmatchedOverrideNames,
         };

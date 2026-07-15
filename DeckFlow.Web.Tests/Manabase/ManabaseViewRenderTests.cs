@@ -65,6 +65,149 @@ public sealed class ManabaseViewRenderTests
     }
 
     [Fact]
+    public async Task OffState_SourceListFlagFalse_RendersNoManaSourceDisclosures()
+    {
+        var model = BuildPopulatedModel(showTapAnalyzer: true, showSourceList: false);
+
+        string html = await RenderManabaseViewAsync(model);
+
+        Assert.DoesNotContain("Mana sources (", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Tapped sources (", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Temple of Enlightenment", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task OnState_SourceListFlagTrue_RendersManaSourceAndTappedSourceDisclosures()
+    {
+        var model = BuildPopulatedModel(showTapAnalyzer: true, showSourceList: true);
+
+        string html = await RenderManabaseViewAsync(model);
+
+        Assert.Contains("Mana sources (4)", html, StringComparison.Ordinal);
+        Assert.Contains("Tapped sources (2)", html, StringComparison.Ordinal);
+        Assert.Matches("2(?:×|&#xD7;) Temple of Enlightenment", html);
+        Assert.Contains("Sol Ring", html, StringComparison.Ordinal);
+        Assert.Contains("W U", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task OnState_SourceListFlagTrue_CapsRainbowSourceDisplayToCommanderIdentity()
+    {
+        var model = BuildPopulatedModel(
+            showTapAnalyzer: true,
+            showSourceList: true,
+            commanderColors: new[] { ManaColor.White, ManaColor.Blue },
+            manaSourceListings: new List<ManaSourceListing>
+            {
+                new()
+                {
+                    Name = "Temple of Enlightenment",
+                    Colors = new[] { ManaColor.White, ManaColor.Blue },
+                    IsLand = true,
+                    EntersUntapped = false,
+                },
+                new()
+                {
+                    Name = "Temple of Enlightenment",
+                    Colors = new[] { ManaColor.White, ManaColor.Blue },
+                    IsLand = true,
+                    EntersUntapped = false,
+                },
+                new()
+                {
+                    Name = "Command Tower",
+                    Colors = new[] { ManaColor.White, ManaColor.Blue, ManaColor.Black, ManaColor.Red, ManaColor.Green },
+                    IsLand = true,
+                    EntersUntapped = true,
+                },
+                new()
+                {
+                    Name = "Plains",
+                    Colors = new[] { ManaColor.White },
+                    IsLand = true,
+                    EntersUntapped = true,
+                },
+                new()
+                {
+                    Name = "Sol Ring",
+                    Colors = new[] { ManaColor.Colorless },
+                    IsLand = false,
+                    EntersUntapped = true,
+                    ProducesColorless = true,
+                },
+            });
+
+        string html = await RenderManabaseViewAsync(model);
+
+        Assert.Matches("2(?:×|&#xD7;) Temple of Enlightenment</span>\\s*<span class=\"manabase-source-pips\" aria-label=\"white, blue\">W U</span>", html);
+        Assert.Contains("Command Tower", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("aria-label=\"white, blue, black, red, green\">W U B R G</span>", html, StringComparison.Ordinal);
+        Assert.Matches("Command Tower</span>\\s*<span class=\"manabase-source-pips\" aria-label=\"white, blue\">W U</span>", html);
+    }
+
+    [Theory]
+    [InlineData(new[] { ManaColor.White, ManaColor.Blue }, false, "W U")]
+    [InlineData(new[] { ManaColor.Colorless }, true, "C")]
+    [InlineData(new ManaColor[0], true, "C")]
+    [InlineData(new ManaColor[0], false, "—")]
+    public void ColorPips_FormatsLetters_Colorless_AndEmpty(ManaColor[] colors, bool producesColorless, string expected)
+    {
+        Assert.Equal(expected, ManabaseDisplay.ColorPips(colors, producesColorless).Text);
+    }
+
+    [Fact]
+    public void ColorPips_CapsColoredPipsToCommanderIdentity()
+    {
+        var pips = ManabaseDisplay.ColorPips(
+            new[] { ManaColor.White, ManaColor.Blue, ManaColor.Black, ManaColor.Red, ManaColor.Green },
+            producesColorless: false,
+            commanderColors: new[] { ManaColor.White, ManaColor.Red });
+
+        Assert.Equal("W R", pips.Text);
+        Assert.Equal("white, red", pips.AriaLabel);
+    }
+
+    [Fact]
+    public void ColorPips_KeepsColorlessUnderCommanderCap()
+    {
+        var colorlessOnly = ManabaseDisplay.ColorPips(
+            new[] { ManaColor.Colorless },
+            producesColorless: true,
+            commanderColors: new[] { ManaColor.White, ManaColor.Red });
+        var mixed = ManabaseDisplay.ColorPips(
+            new[] { ManaColor.White, ManaColor.Blue, ManaColor.Black, ManaColor.Red, ManaColor.Green, ManaColor.Colorless },
+            producesColorless: true,
+            commanderColors: new[] { ManaColor.White, ManaColor.Red });
+
+        Assert.Equal("C", colorlessOnly.Text);
+        Assert.Equal("W R C", mixed.Text);
+    }
+
+    [Fact]
+    public void ColorPips_EmptyCommanderColors_DoesNotCap()
+    {
+        var pips = ManabaseDisplay.ColorPips(
+            new[] { ManaColor.White, ManaColor.Blue },
+            producesColorless: false,
+            commanderColors: Array.Empty<ManaColor>());
+
+        Assert.Equal("W U", pips.Text);
+        Assert.Equal("white, blue", pips.AriaLabel);
+    }
+
+    [Fact]
+    public void ColorPips_NullCommanderColors_DoesNotCap()
+    {
+        var pips = ManabaseDisplay.ColorPips(
+            new[] { ManaColor.White, ManaColor.Blue },
+            producesColorless: false,
+            commanderColors: null);
+
+        Assert.Equal("W U", pips.Text);
+        Assert.Equal("white, blue", pips.AriaLabel);
+    }
+
+    [Fact]
     public async Task OffState_MulliganFlagFalse_RendersNoMulliganLensMarkup()
     {
         var model = BuildPopulatedModel(showTapAnalyzer: false, showMulliganEval: false);
@@ -559,6 +702,7 @@ public sealed class ManabaseViewRenderTests
         bool showMulliganEval = false,
         bool showPlanPresence = false,
         bool showKeepShapes = false,
+        bool showSourceList = false,
         ManabaseRampDrawBudget? rampDrawBudget = null,
         ManabaseMode mode = ManabaseMode.Casual,
         bool includeCedhRange = false,
@@ -567,7 +711,9 @@ public sealed class ManabaseViewRenderTests
         double ritualLandCredit = 0.0,
         int netPositiveRitualCount = 0,
         int scrySourceCreditCopies = 0,
-        IReadOnlyList<ColorSourceFinding>? colorFindings = null) => new()
+        IReadOnlyList<ColorSourceFinding>? colorFindings = null,
+        IReadOnlyList<ManaColor>? commanderColors = null,
+        IReadOnlyList<ManaSourceListing>? manaSourceListings = null) => new()
         {
             Request = new ManabaseRequest
             {
@@ -575,11 +721,22 @@ public sealed class ManabaseViewRenderTests
                 Mode = mode,
             },
             InputSummary = "Test deck · 99 cards + 1 commander",
-            Report = ReportWithTapAnalysis(mode, includeCedhRange, cedhSafetyFloor, cedhBaselineBlended, ritualLandCredit, netPositiveRitualCount, scrySourceCreditCopies, colorFindings),
+            Report = ReportWithTapAnalysis(
+                mode,
+                includeCedhRange,
+                cedhSafetyFloor,
+                cedhBaselineBlended,
+                ritualLandCredit,
+                netPositiveRitualCount,
+                scrySourceCreditCopies,
+                colorFindings,
+                commanderColors,
+                manaSourceListings),
             ShowTapAnalyzer = showTapAnalyzer,
             ShowMulliganEval = showMulliganEval,
             ShowPlanPresence = showPlanPresence,
             ShowKeepShapes = showKeepShapes,
+            ShowSourceList = showSourceList,
             RampDrawBudget = rampDrawBudget,
         };
 
@@ -613,7 +770,9 @@ public sealed class ManabaseViewRenderTests
         double ritualLandCredit,
         int netPositiveRitualCount,
         int scrySourceCreditCopies,
-        IReadOnlyList<ColorSourceFinding>? colorFindings) => new()
+        IReadOnlyList<ColorSourceFinding>? colorFindings,
+        IReadOnlyList<ManaColor>? commanderColors,
+        IReadOnlyList<ManaSourceListing>? manaSourceListings) => new()
         {
             ActualLands = 36,
             TargetLands = 37.0,
@@ -643,6 +802,7 @@ public sealed class ManabaseViewRenderTests
                     UntappedSources = 13.5,
                 },
             },
+            CommanderColors = commanderColors ?? new[] { ManaColor.White, ManaColor.Blue },
             Mode = mode,
             Summary = "Mana base looks fine for this test.",
             LandTarget = new ManabaseLandTargetBreakdown
@@ -698,6 +858,38 @@ public sealed class ManabaseViewRenderTests
                 {
                     [ManaColor.White] = new() { UntappedSources = 16.0, TotalSources = 20.0, UntappedPercent = 80 },
                     [ManaColor.Blue] = new() { UntappedSources = 13.5, TotalSources = 16.0, UntappedPercent = 84 },
+                },
+            },
+            ManaSourceListings = manaSourceListings ?? new List<ManaSourceListing>
+            {
+                new()
+                {
+                    Name = "Temple of Enlightenment",
+                    Colors = new[] { ManaColor.White, ManaColor.Blue },
+                    IsLand = true,
+                    EntersUntapped = false,
+                },
+                new()
+                {
+                    Name = "Temple of Enlightenment",
+                    Colors = new[] { ManaColor.White, ManaColor.Blue },
+                    IsLand = true,
+                    EntersUntapped = false,
+                },
+                new()
+                {
+                    Name = "Plains",
+                    Colors = new[] { ManaColor.White },
+                    IsLand = true,
+                    EntersUntapped = true,
+                },
+                new()
+                {
+                    Name = "Sol Ring",
+                    Colors = new[] { ManaColor.Colorless },
+                    IsLand = false,
+                    EntersUntapped = true,
+                    ProducesColorless = true,
                 },
             },
             MulliganEvaluation = new ManabaseMulliganEvaluation

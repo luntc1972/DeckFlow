@@ -115,6 +115,9 @@ public static class FeatureFlagCatalog
                 "shape-labeled representative openers, a turn cap so a turn-6 payoff is never called workable, " +
                 "the commander surfaced for commander-central decks, and a casual 'plays a spell on ~N of the " +
                 "first 5 turns' read. cEDH gate + casual metric; off = byte-identical output.",
+            ["analysis.manabase.source-list"] =
+                "Show two display-only disclosures inside the mana base untapped-sources lens: a full " +
+                "mana-source list with pip letters plus a tapped-sources subset. Page HTML only; off = byte-identical output.",
             ["analysis.manabase.cedh-interaction-lens"] =
                 "cEDH-only kill switch for the 'Early interaction' lens, the full castability table " +
                 "exposure in cEDH mode, and the two prompt-artifact interaction blocks. Seeded ON; off = " +

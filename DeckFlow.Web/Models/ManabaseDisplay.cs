@@ -154,6 +154,54 @@ public static class ManabaseDisplay
             System.Globalization.CultureInfo.InvariantCulture,
             $"{Math.Clamp((int)Math.Round(curveCoverageTurns, MidpointRounding.AwayFromZero), 0, 5)}");
 
+    /// <summary>
+    /// Formats a mana source's produced colors as pip letters for compact display, plus an aria label
+    /// with the full color names in the same order.
+    /// </summary>
+    /// <param name="colors">Raw colors the source can produce.</param>
+    /// <param name="producesColorless">Whether the source can produce colorless mana.</param>
+    /// <param name="commanderColors">
+    /// Optional commander color identity cap for display-only colored pips; colorless remains
+    /// unaffected and null/empty leaves the existing uncapped behavior unchanged.
+    /// </param>
+    public static (string Text, string AriaLabel) ColorPips(
+        IReadOnlyList<ManaColor> colors,
+        bool producesColorless,
+        IReadOnlyList<ManaColor>? commanderColors = null)
+    {
+        ArgumentNullException.ThrowIfNull(colors);
+
+        var pipLetters = new List<string>(6);
+        var ariaLabels = new List<string>(6);
+        bool capToCommanderColors = commanderColors is { Count: > 0 };
+        AddColorIfPresent(ManaColor.White, "W", "white");
+        AddColorIfPresent(ManaColor.Blue, "U", "blue");
+        AddColorIfPresent(ManaColor.Black, "B", "black");
+        AddColorIfPresent(ManaColor.Red, "R", "red");
+        AddColorIfPresent(ManaColor.Green, "G", "green");
+        if (colors.Contains(ManaColor.Colorless) || producesColorless)
+        {
+            pipLetters.Add("C");
+            ariaLabels.Add("colorless");
+        }
+
+        if (pipLetters.Count == 0)
+        {
+            return ("—", "no mana colors produced");
+        }
+
+        return (string.Join(" ", pipLetters), string.Join(", ", ariaLabels));
+
+        void AddColorIfPresent(ManaColor color, string letter, string ariaLabel)
+        {
+            if (colors.Contains(color) && (!capToCommanderColors || commanderColors!.Contains(color)))
+            {
+                pipLetters.Add(letter);
+                ariaLabels.Add(ariaLabel);
+            }
+        }
+    }
+
     /// <summary>Human label for the four-tier health scale (Excellent / Solid / Workable / Needs work).</summary>
     public static string HealthLabel(ManabaseHealth health) => ManabaseLabels.Health(health);
 
