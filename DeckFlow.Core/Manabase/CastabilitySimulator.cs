@@ -54,6 +54,14 @@ public static class CastabilitySimulator
         Filler,
     }
 
+    private enum KeepShape
+    {
+        None,
+        Explosive,
+        Engine,
+        Bridge,
+    }
+
     private readonly record struct PlayedLand(int Mask, int OnlineTurn, int Amount, int BasicTypeMask);
 
     private readonly struct LibraryCard
@@ -71,6 +79,7 @@ public static class CastabilitySimulator
             int basicTypeMask = 0,
             (int Bit, int Count)[]? rampPips = null,
             PlanRole planRoles = PlanRole.None,
+            bool isInteractionSpell = false,
             int planManaValue = 0,
             (int Bit, int Count)[]? planPips = null,
             string? planName = null,
@@ -89,6 +98,7 @@ public static class CastabilitySimulator
             BasicTypeMask = basicTypeMask;
             RampPips = rampPips;
             PlanRoles = planRoles;
+            IsInteractionSpell = isInteractionSpell;
             PlanManaValue = planManaValue;
             PlanPips = planPips;
             PlanName = planName;
@@ -102,6 +112,13 @@ public static class CastabilitySimulator
         /// solely by <see cref="SimulatePlanPresence"/>, so tagging them never changes existing results.
         /// </summary>
         public PlanRole PlanRoles { get; }
+
+        /// <summary>
+        /// Plan-presence only: pre-permanent-gate interaction truth from <see cref="SpellRequirement"/>.
+        /// This lets Shape C count instant/sorcery counterspells whose <see cref="PlanRole.Interaction"/>
+        /// bit was intentionally stripped upstream.
+        /// </summary>
+        public bool IsInteractionSpell { get; }
 
         /// <summary>Plan-presence only: this plan card's own on-curve turn (its mana value).</summary>
         public int PlanManaValue { get; }
@@ -474,11 +491,10 @@ public static class CastabilitySimulator
 
     /// <summary>
     /// Plan-presence: the share of KEEPABLE opening hands that hold a win-directed card castable on its
-    /// own mana-value turn. A dedicated single deck-level pass (one loop, not the ~N per-spell sims)
-    /// reusing the same London-mulligan and the same turn-by-turn board model as the per-spell
-    /// castability. A plan card counts only when it is drawn by its on-curve turn AND the board can pay
-    /// its cost then — a plan card you cannot cast is not a plan. Returns an all-zero result when the
-    /// deck carries no plan-tagged spell (flag off / nothing classified).
+    /// own mana-value turn. When <paramref name="keepShapes"/> is enabled in cEDH mode, the same pass
+    /// also applies the three-shape keep gate from MBGAP-11 CONTEXT §5.1: explosive start (Shape A),
+    /// early engine (Shape B), or interaction bridge (Shape C). Returns an all-zero result when the deck
+    /// carries no plan-tagged spell (flag off / nothing classified).
     /// </summary>
     public static ManabasePlanPresence SimulatePlanPresence(
         ManabaseDeck deck,
@@ -488,21 +504,36 @@ public static class CastabilitySimulator
         bool colorAwareMulligan = false,
         bool gateRampOnCastable = false,
         bool ritualBurst = false,
-        bool colorlessSnow = false)
+        bool colorlessSnow = false,
+        ManabaseMode mode = ManabaseMode.Casual,
+        bool keepShapes = false)
     {
         ArgumentNullException.ThrowIfNull(deck);
 
+        bool shapeGateActive = keepShapes && mode == ManabaseMode.Cedh;
         IReadOnlyList<LibraryCard> library =
-            BuildLibrary(deck, librarySize, useManaQuantity, gateRampOnCastable, ritualBurst, colorlessSnow, excludeSourceName: null);
+            BuildLibrary(
+                deck,
+                librarySize,
+                useManaQuantity,
+                gateRampOnCastable,
+                ritualBurst,
+                colorlessSnow,
+                excludeSourceName: null,
+                includeInteractionSpellCards: shapeGateActive);
 
         var planIndices = new List<int>();
         int maxPlanTurn = 1;
         for (int i = 0; i < library.Count; i++)
         {
-            if (library[i].IsPlanCard)
+            if (library[i].IsPlanCard || (shapeGateActive && library[i].IsInteractionSpell))
             {
                 planIndices.Add(i);
                 maxPlanTurn = Math.Max(maxPlanTurn, Math.Max(1, library[i].PlanManaValue));
+                if (shapeGateActive && library[i].IsInteractionSpell)
+                {
+                    maxPlanTurn = Math.Max(maxPlanTurn, CedhMulliganCalibration.RepresentativeLineTurnCap);
+                }
             }
         }
 
@@ -549,6 +580,13 @@ public static class CastabilitySimulator
 
         int keepable = 0;
         int withPlan = 0;
+        int planKeepable = 0;
+        int explosiveKeepable = 0;
+        int engineKeepable = 0;
+        int bridgeKeepable = 0;
+        List<SpellRequirement> commanders = shapeGateActive
+            ? deck.Spells.Where(spell => spell.IsCommander).ToList()
+            : new List<SpellRequirement>();
 
         // Representative openers, one per kept size (index 0 = kept 7, 1 = mull-to-6, 2 = mull-to-5), each
         // PREFERRING a hand that holds a plan. A depth is "locked" once a plan-having hand is stored, so we
@@ -601,8 +639,12 @@ public static class CastabilitySimulator
             PlanRole rolesThisHand = PlanRole.None;
             string planName = string.Empty;
             int planTurnHit = 0;
+            bool shapeExplosive = false;
+            bool shapeEngine = false;
+            int bridgeInteractionCount = 0;
             foreach (int planIdx in planIndices)
             {
+                LibraryCard planCard = library[planIdx];
                 int planTurn = Math.Max(1, library[planIdx].PlanManaValue);
 
                 // Is this plan card drawn by its on-curve turn? Opening cards (pos < handCount) are seen
@@ -618,11 +660,28 @@ public static class CastabilitySimulator
                 int drawnByTurn = pos < handCount ? 0 : pos - handCount + 1;
                 if (drawnByTurn > planTurn)
                 {
+                    if (!(shapeGateActive
+                        && planCard.IsInteractionSpell
+                        && drawnByTurn <= CedhMulliganCalibration.RepresentativeLineTurnCap))
+                    {
+                        continue;
+                    }
+                }
+
+                if (shapeGateActive
+                    && planCard.IsInteractionSpell
+                    && drawnByTurn <= CedhMulliganCalibration.RepresentativeLineTurnCap)
+                {
+                    bridgeInteractionCount++;
+                }
+
+                if (planCard.PlanRoles == PlanRole.None)
+                {
                     continue;
                 }
 
                 // Castable by its on-curve turn? Reuse the full board sim for a spell of this card's cost.
-                (int Bit, int Count)[] pips = library[planIdx].PlanPips ?? Array.Empty<(int, int)>();
+                (int Bit, int Count)[] pips = planCard.PlanPips ?? Array.Empty<(int, int)>();
                 bool castable = SimulateGame(
                     library, shuffled, active, handCount, planTurn, planTurn, pips,
                     availableColors, null, onlineLandMasks, gateRampOnCastable, ritualBurst,
@@ -630,13 +689,79 @@ public static class CastabilitySimulator
 
                 if (castable && firstCastableTurn <= planTurn)
                 {
-                    rolesThisHand |= library[planIdx].PlanRoles;
+                    rolesThisHand |= planCard.PlanRoles;
                     if (planName.Length == 0)
                     {
-                        planName = library[planIdx].PlanName ?? string.Empty;
+                        planName = planCard.PlanName ?? string.Empty;
                         planTurnHit = planTurn;
                     }
                 }
+
+                if (!shapeGateActive)
+                {
+                    continue;
+                }
+
+                if (!shapeExplosive
+                    && drawnByTurn <= CedhMulliganCalibration.TurnCapExplosive
+                    && (planCard.PlanRoles.HasFlag(PlanRole.Payoff) || planCard.PlanRoles.HasFlag(PlanRole.TutorCombo)))
+                {
+                    bool castableExplosive = SimulateGame(
+                        library, shuffled, active, handCount,
+                        CedhMulliganCalibration.TurnCapExplosive,
+                        planTurn,
+                        pips,
+                        availableColors, null, onlineLandMasks, gateRampOnCastable, ritualBurst,
+                        out _, out _, out int firstExplosiveTurn, out _, out _);
+                    shapeExplosive = castableExplosive && firstExplosiveTurn <= CedhMulliganCalibration.TurnCapExplosive;
+                }
+
+                if (!shapeEngine
+                    && drawnByTurn <= CedhMulliganCalibration.TurnCapEngine
+                    && planCard.PlanRoles.HasFlag(PlanRole.Engine))
+                {
+                    bool castableEngine = SimulateGame(
+                        library, shuffled, active, handCount,
+                        CedhMulliganCalibration.TurnCapEngine,
+                        planTurn,
+                        pips,
+                        availableColors, null, onlineLandMasks, gateRampOnCastable, ritualBurst,
+                        out _, out _, out int firstEngineTurn, out _, out _);
+                    shapeEngine = castableEngine && firstEngineTurn <= CedhMulliganCalibration.TurnCapEngine;
+                }
+            }
+
+            bool shapeBridge = false;
+            KeepShape keepShape = KeepShape.None;
+            if (shapeGateActive)
+            {
+                (int lands, int ramp, _, _) = TallyHandComposition(library, shuffled, active, handCount);
+                shapeBridge = bridgeInteractionCount >= CedhMulliganCalibration.BridgeInteractionMin
+                    && lands + ramp >= CedhMulliganCalibration.BridgeDevelopmentMin;
+
+                if (!shapeExplosive)
+                {
+                    foreach (SpellRequirement commander in commanders)
+                    {
+                        int commanderTargetTurn = Math.Max(1, Math.Min(
+                            CedhMulliganCalibration.TurnCapExplosive,
+                            Math.Max(1, commander.ManaValue - 1)));
+                        bool castableCommander = SimulateGame(
+                            library, shuffled, active, handCount,
+                            commanderTargetTurn,
+                            Math.Max(1, commander.ManaValue),
+                            PipArray(commander, colorlessSnow),
+                            availableColors, null, onlineLandMasks, gateRampOnCastable, ritualBurst,
+                            out _, out _, out int firstCommanderTurn, out _, out _);
+                        if (castableCommander && firstCommanderTurn <= commanderTargetTurn)
+                        {
+                            shapeExplosive = true;
+                            break;
+                        }
+                    }
+                }
+
+                keepShape = WinningKeepShape(shapeExplosive, shapeEngine, shapeBridge);
             }
 
             if (countsForStats)
@@ -651,6 +776,23 @@ public static class CastabilitySimulator
                         {
                             roleCounts[role]++;
                         }
+                    }
+                }
+
+                if (shapeGateActive && keepShape != KeepShape.None)
+                {
+                    planKeepable++;
+                    switch (keepShape)
+                    {
+                        case KeepShape.Explosive:
+                            explosiveKeepable++;
+                            break;
+                        case KeepShape.Engine:
+                            engineKeepable++;
+                            break;
+                        case KeepShape.Bridge:
+                            bridgeKeepable++;
+                            break;
                     }
                 }
             }
@@ -670,7 +812,7 @@ public static class CastabilitySimulator
                 if (openerByDepth[depthIdx] is null || hasPlan)
                 {
                     openerByDepth[depthIdx] = BuildPlanOpenerSample(
-                        library, shuffled, active, handCount, keptSize, hasPlan, planName, planTurnHit);
+                        library, shuffled, active, handCount, keptSize, hasPlan, planName, planTurnHit, keepShape, shapeGateActive);
                 }
 
                 if (hasPlan)
@@ -685,6 +827,7 @@ public static class CastabilitySimulator
         List<OpeningHandSample> openers = openerByDepth.OfType<OpeningHandSample>().ToList();
 
         int percent = keepable > 0 ? (int)Math.Round(100.0 * withPlan / keepable) : 0;
+        int planKeepablePercent = shapeGateActive && trials > 0 ? (int)Math.Round(100.0 * planKeepable / trials) : 0;
         var rolePercents = new Dictionary<PlanRole, int>();
         foreach (PlanRole role in singleRoles)
         {
@@ -701,6 +844,11 @@ public static class CastabilitySimulator
             RolePercents = rolePercents,
             KeepableTrials = keepable,
             RepresentativeOpeners = openers,
+            PlanKeepablePercent = planKeepablePercent,
+            PlanKeepableBand = shapeGateActive ? KeepableBand(planKeepablePercent) : string.Empty,
+            ShapeExplosivePercent = shapeGateActive && keepable > 0 ? (int)Math.Round(100.0 * explosiveKeepable / keepable) : 0,
+            ShapeEnginePercent = shapeGateActive && keepable > 0 ? (int)Math.Round(100.0 * engineKeepable / keepable) : 0,
+            ShapeBridgePercent = shapeGateActive && keepable > 0 ? (int)Math.Round(100.0 * bridgeKeepable / keepable) : 0,
         };
     }
 
@@ -716,7 +864,9 @@ public static class CastabilitySimulator
         int keptSize,
         bool hasPlan,
         string planName,
-        int planTurn)
+        int planTurn,
+        KeepShape keepShape,
+        bool shapeGateActive)
     {
         (int lands, int ramp, int other, int colors) = TallyHandComposition(library, shuffled, active, handCount);
 
@@ -732,6 +882,7 @@ public static class CastabilitySimulator
             TrackedOnCurveTurn = hasPlan ? planTurn : 0,
             OnCurveCastable = hasPlan,
             HasPlan = hasPlan,
+            ShapeLabel = shapeGateActive ? KeepShapeLabel(keepShape) : string.Empty,
         };
     }
 
@@ -796,6 +947,36 @@ public static class CastabilitySimulator
         _ => "low",
     };
 
+    private static string KeepableBand(int percent) => percent switch
+    {
+        >= 85 => "high",
+        >= 70 => "medium",
+        _ => "low",
+    };
+
+    private static KeepShape WinningKeepShape(bool shapeExplosive, bool shapeEngine, bool shapeBridge)
+    {
+        if (shapeExplosive)
+        {
+            return KeepShape.Explosive;
+        }
+
+        if (shapeEngine)
+        {
+            return KeepShape.Engine;
+        }
+
+        return shapeBridge ? KeepShape.Bridge : KeepShape.None;
+    }
+
+    private static string KeepShapeLabel(KeepShape keepShape) => keepShape switch
+    {
+        KeepShape.Explosive => "explosive keep",
+        KeepShape.Engine => "engine keep",
+        KeepShape.Bridge => "bridge keep",
+        _ => $"no plan by turn {CedhMulliganCalibration.RepresentativeLineTurnCap} \u2014 mulligan",
+    };
+
     private static IReadOnlyList<LibraryCard> BuildLibrary(
         ManabaseDeck deck,
         int librarySize,
@@ -803,7 +984,8 @@ public static class CastabilitySimulator
         bool gateRampOnCastable,
         bool ritualBurst,
         bool colorlessSnow,
-        string? excludeSourceName)
+        string? excludeSourceName,
+        bool includeInteractionSpellCards = false)
     {
         var cards = new List<LibraryCard>(librarySize);
 
@@ -851,7 +1033,13 @@ public static class CastabilitySimulator
                 break;
             }
 
-            if (spell.PlanRoles == PlanRole.None || spell.IsManaSource)
+            if ((spell.PlanRoles == PlanRole.None && (!includeInteractionSpellCards || !spell.IsInteractionSpell))
+                || spell.IsManaSource)
+            {
+                continue;
+            }
+
+            if (spell.IsCommander)
             {
                 continue;
             }
@@ -859,6 +1047,7 @@ public static class CastabilitySimulator
             cards.Add(new LibraryCard(
                 CardKind.Filler, 0, 0, false,
                 planRoles: spell.PlanRoles,
+                isInteractionSpell: spell.IsInteractionSpell,
                 planManaValue: Math.Max(1, spell.ManaValue),
                 planPips: PipArray(spell, colorlessSnow),
                 planName: spell.Name));
