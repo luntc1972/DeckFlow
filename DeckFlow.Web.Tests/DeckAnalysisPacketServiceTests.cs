@@ -1516,9 +1516,9 @@ Commander
         Assert.Contains("set_upgrade_report", result.SetUpgradePromptText);
         Assert.Contains("```json", result.SetUpgradePromptText);
         Assert.Contains("\"final_shortlist\"", result.SetUpgradePromptText);
-        Assert.Contains("discussion_summary.txt", result.SetUpgradePromptText);
-        Assert.Contains("```text", result.SetUpgradePromptText);
-        Assert.Contains("per-set analysis in condensed form", result.SetUpgradePromptText);
+        Assert.DoesNotContain("discussion_summary", result.SetUpgradePromptText);
+        Assert.DoesNotContain("```text", result.SetUpgradePromptText);
+        Assert.DoesNotContain("per-set analysis in condensed form", result.SetUpgradePromptText);
         Assert.Contains("SET: Test Set", result.SetUpgradePromptText);
         Assert.Contains("\"game_plan\": \"Midrange value\"", result.SetUpgradePromptText);
     }
@@ -1729,8 +1729,8 @@ Commander
         Assert.Contains("Final cross-set ranked shortlist", result.SetUpgradePromptText);
         Assert.Contains("set_upgrade_report", result.SetUpgradePromptText);
         Assert.Contains("\"sets\": [", result.SetUpgradePromptText);
-        Assert.Contains("discussion_summary.txt", result.SetUpgradePromptText);
-        Assert.Contains("per-set analysis in condensed form", result.SetUpgradePromptText);
+        Assert.DoesNotContain("discussion_summary", result.SetUpgradePromptText);
+        Assert.DoesNotContain("per-set analysis in condensed form", result.SetUpgradePromptText);
         Assert.DoesNotContain("Off Color Test Card", result.SetUpgradePromptText);
         Assert.DoesNotContain("Paste the condensed set packet", result.SetUpgradePromptText);
     }

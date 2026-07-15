@@ -888,7 +888,7 @@ Do not omit any fields from the schema.
             <ol>
                 <li>Select one set, or paste a condensed set packet.</li>
                 <li>Click <code>Generate Set Upgrade Packet</code>, then paste <code>set-upgrade-analysis.txt</code> into @aiPlatform.DisplayName.</li>
-                <li>Have @aiPlatform.DisplayName return a fenced <code>```json</code> block (set analysis) plus a fenced <code>```text</code> block named <code>discussion_summary.txt</code> with per-set notes, recommendations, and answers.</li>
+                <li>Have @aiPlatform.DisplayName return the readable per-set analysis followed by a fenced <code>```json</code> block (the set analysis report).</li>
             </ol>
         </div>
         <label class="field">
@@ -966,7 +966,7 @@ Do not omit any fields from the schema.
         <label class="field">
             <span>Set upgrade report JSON</span>
             <textarea autocomplete="off" name="SetUpgradeResponseJson" spellcheck="false">@Model.Request.SetUpgradeResponseJson</textarea>
-            <small class="sync-column__hint">Paste the fenced <code>```json</code> block or the raw JSON payload. Surrounding prose (like the <code>discussion_summary.txt</code> text block) is safe to include.</small>
+            <small class="sync-column__hint">Paste the fenced <code>```json</code> block or the raw JSON payload. Surrounding prose is safe to include.</small>
         </label>
 
         <div class="toolbar prompt-step-actions">
