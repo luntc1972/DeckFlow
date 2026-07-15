@@ -148,6 +148,12 @@ public static class ManabaseDisplay
     /// <summary>Human label for a single plan role (used in the plan-presence role breakdown).</summary>
     public static string PlanRoleLabel(PlanRole role) => ManabaseLabels.PlanRole(role);
 
+    /// <summary>Rounded 0-5 count used for the casual curve-coverage line on both page and artifact.</summary>
+    public static string CurveCoverageText(double curveCoverageTurns)
+        => string.Create(
+            System.Globalization.CultureInfo.InvariantCulture,
+            $"{Math.Clamp((int)Math.Round(curveCoverageTurns, MidpointRounding.AwayFromZero), 0, 5)}");
+
     /// <summary>Human label for the four-tier health scale (Excellent / Solid / Workable / Needs work).</summary>
     public static string HealthLabel(ManabaseHealth health) => ManabaseLabels.Health(health);
 

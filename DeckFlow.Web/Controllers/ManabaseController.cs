@@ -117,6 +117,7 @@ public sealed class ManabaseController : DeckToolControllerBase
                     ShowTapAnalyzer = result.ShowTapAnalyzer,
                     ShowMulliganEval = result.ShowMulliganEval,
                     ShowPlanPresence = result.ShowPlanPresence,
+                    ShowKeepShapes = result.ShowKeepShapes,
                     ShowCedhInteractionLens = result.ShowCedhInteractionLens,
                     CompanionCallout = result.CompanionRow,
                     NotAppliedOverrides = notApplied,
@@ -157,7 +158,8 @@ public sealed class ManabaseController : DeckToolControllerBase
                     mulligan: result.ShowMulliganEval ? result.Report.MulliganEvaluation : null,
                     includeCommandZone: result.CommanderCastabilityEnabled,
                     companionRow: result.CompanionRow,
-                    includePlanPresence: result.ShowPlanPresence);
+                    includePlanPresence: result.ShowPlanPresence,
+                    includeCedhKeepShapes: result.ShowKeepShapes);
                 string timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
 
                 return File(

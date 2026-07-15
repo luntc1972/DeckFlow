@@ -65,6 +65,7 @@ public sealed class ManabaseReportTextBuilderMulliganTests
                 TrackedOnCurveTurn = 2,
                 OnCurveCastable = true,
                 HasPlan = true,
+                ShapeLabel = "explosive keep",
             },
         },
     };
@@ -86,6 +87,17 @@ public sealed class ManabaseReportTextBuilderMulliganTests
             },
             KeepableTrials = 18000,
         },
+    };
+
+    private static ManabaseMulliganEvaluation WithKeepShapes() => WithPlanPresence() with
+    {
+        PlanKeepablePercent = 63,
+        PlanKeepableBand = "medium",
+    };
+
+    private static ManabaseMulliganEvaluation WithCurveCoverage() => PopulatedMulliganEvaluation() with
+    {
+        CurveCoverageTurns = 3.6,
     };
 
     [Fact]
@@ -144,6 +156,54 @@ public sealed class ManabaseReportTextBuilderMulliganTests
         // curve" claim.
         Assert.Contains("Counterspell castable on curve (turn 2)", text, StringComparison.Ordinal);
         Assert.Contains("workable line", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void KeepShapesOff_ByteIdenticalToBaseline()
+    {
+        string baseline = ManabaseReportTextBuilder.Build(
+            HealthyCasualReport(), "Test", null, mulligan: WithKeepShapes());
+        string off = ManabaseReportTextBuilder.Build(
+            HealthyCasualReport(), "Test", null, mulligan: WithKeepShapes(), includeCedhKeepShapes: false);
+
+        Assert.Equal(baseline, off);
+        Assert.DoesNotContain("Plan-keepable hands:", off, StringComparison.Ordinal);
+        Assert.DoesNotContain("explosive keep", off, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CedhKeepShapesOn_AppendsPlanKeepableLine_AndShapeLabeledOpener()
+    {
+        string text = ManabaseReportTextBuilder.Build(
+            HealthyCasualReport(),
+            "Test",
+            null,
+            ManabaseMode.Cedh,
+            mulligan: WithKeepShapes(),
+            includeCedhKeepShapes: true);
+
+        Assert.Contains(
+            "Plan-keepable hands: medium (~63%) - passed a cEDH keep shape (explosive / early engine / interaction bridge); <= mana-keepable by construction.",
+            text,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "keep 7 (7 cards: 3 land / 2 color / 1 ramp / 3 other) - Counterspell castable on curve (turn 2) - explosive keep.",
+            text,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("workable line", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CasualKeepShapesOn_AppendsCurveCoverageLine()
+    {
+        string text = ManabaseReportTextBuilder.Build(
+            HealthyCasualReport(),
+            "Test",
+            null,
+            mulligan: WithCurveCoverage(),
+            includeCedhKeepShapes: true);
+
+        Assert.Contains("Plays a spell on ~4 of first 5 turns.", text, StringComparison.Ordinal);
     }
 
     [Fact]

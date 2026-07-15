@@ -132,6 +132,47 @@ public sealed class ManabaseViewRenderTests
     }
 
     [Fact]
+    public async Task KeepShapesFlagTrue_Cedh_RendersSecondHeadline_AndShapeLabels()
+    {
+        string html = await RenderManabaseViewAsync(
+            BuildPopulatedModel(showTapAnalyzer: false, showMulliganEval: true, showKeepShapes: true, mode: ManabaseMode.Cedh));
+
+        Assert.Contains("mana-keepable hands", html, StringComparison.Ordinal);
+        Assert.Contains("plan-keepable hands", html, StringComparison.Ordinal);
+        Assert.Contains("passed a cEDH keep shape (explosive / early engine / interaction bridge)", html, StringComparison.Ordinal);
+        Assert.Contains("high (~82%)", html, StringComparison.Ordinal);
+        Assert.Contains("medium (~64%)", html, StringComparison.Ordinal);
+        Assert.Contains("explosive keep", html, StringComparison.Ordinal);
+        Assert.Contains("no plan by turn 4 - mulligan", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("workable line", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("no clear line", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task KeepShapesFlagTrue_Casual_RendersCurveCoverageLine()
+    {
+        string html = await RenderManabaseViewAsync(
+            BuildPopulatedModel(showTapAnalyzer: false, showMulliganEval: true, showKeepShapes: true, mode: ManabaseMode.Casual));
+
+        Assert.Contains("Curve coverage", html, StringComparison.Ordinal);
+        Assert.Contains("plays a spell on ~4 of first 5 turns", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("plan-keepable hands", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task KeepShapesOff_IsByteIdenticalToOnWithKeepShapesMarkupExcised()
+    {
+        string offHtml = NormalizeAntiForgery(await RenderManabaseViewAsync(
+            BuildPopulatedModel(showTapAnalyzer: false, showMulliganEval: true, showPlanPresence: true, showKeepShapes: false, mode: ManabaseMode.Cedh)));
+        string onHtml = NormalizeAntiForgery(await RenderManabaseViewAsync(
+            BuildPopulatedModel(showTapAnalyzer: false, showMulliganEval: true, showPlanPresence: true, showKeepShapes: true, mode: ManabaseMode.Cedh)));
+
+        string excised = ExciseKeepShapesMarkup(onHtml);
+
+        Assert.Equal(offHtml, excised);
+    }
+
+    [Fact]
     public async Task OffState_IsByteIdenticalToOnWithMulliganCardExcised()
     {
         // Mirrors OffState_IsByteIdenticalToOnWithTapCardExcised for the opening-hand card: the OFF
@@ -500,10 +541,24 @@ public sealed class ManabaseViewRenderTests
         return i;
     }
 
+    private static string ExciseKeepShapesMarkup(string html)
+    {
+        html = html.Replace("mana-keepable hands", "keepable hands", StringComparison.Ordinal);
+        html = Regex.Replace(
+            html,
+            @"\s*<div class=""manabase-lens-big manabase-lens-big--soft"">(?:(?!</div>).)*<span>plan-keepable hands</span>\s*</div>\s*<span class=""manabase-lens-pill"">plan-keepable = passed a cEDH keep shape \(explosive / early engine / interaction bridge\)</span>",
+            string.Empty,
+            RegexOptions.CultureInvariant | RegexOptions.Singleline);
+        html = html.Replace("— explosive keep", "— workable line", StringComparison.Ordinal);
+        html = html.Replace("— no plan by turn 4 - mulligan", "— no clear line", StringComparison.Ordinal);
+        return html;
+    }
+
     private static ManabaseViewModel BuildPopulatedModel(
         bool showTapAnalyzer,
         bool showMulliganEval = false,
         bool showPlanPresence = false,
+        bool showKeepShapes = false,
         ManabaseRampDrawBudget? rampDrawBudget = null,
         ManabaseMode mode = ManabaseMode.Casual,
         bool includeCedhRange = false,
@@ -524,6 +579,7 @@ public sealed class ManabaseViewRenderTests
             ShowTapAnalyzer = showTapAnalyzer,
             ShowMulliganEval = showMulliganEval,
             ShowPlanPresence = showPlanPresence,
+            ShowKeepShapes = showKeepShapes,
             RampDrawBudget = rampDrawBudget,
         };
 
@@ -653,6 +709,9 @@ public sealed class ManabaseViewRenderTests
                 MulliganTo5Percent = 15,
                 ColorCount = 2,
                 AverageManaValue = 2.8,
+                PlanKeepablePercent = 64,
+                PlanKeepableBand = "medium",
+                CurveCoverageTurns = 3.6,
                 RepresentativeOpeners = new List<OpeningHandSample>
             {
                 new()
@@ -667,6 +726,7 @@ public sealed class ManabaseViewRenderTests
                     TrackedOnCurveTurn = 1,
                     OnCurveCastable = true,
                     HasPlan = true,
+                    ShapeLabel = "explosive keep",
                 },
                 new()
                 {
@@ -682,6 +742,7 @@ public sealed class ManabaseViewRenderTests
                     TrackedOnCurveTurn = 0,
                     OnCurveCastable = false,
                     HasPlan = false,
+                    ShapeLabel = "no plan by turn 4 - mulligan",
                 },
             },
                 PlanPresence = new ManabasePlanPresence
