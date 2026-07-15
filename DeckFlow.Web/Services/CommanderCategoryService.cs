@@ -52,6 +52,11 @@ public sealed class CommanderCategoryService : ICommanderCategoryService
 
         var trimmed = commanderName.Trim();
         var rows = await _knowledgeStore.GetCategoryRowsForCommanderAsync(trimmed, cancellationToken);
+        var membership = await _knowledgeStore.GetCategoryDeckMembershipForCommanderAsync(trimmed, cancellationToken);
+        var deckCountByCanonicalKey = membership
+            .Where(m => !string.IsNullOrWhiteSpace(m.Category))
+            .GroupBy(m => CategoryCanonicalizer.CanonicalKey(m.Category), StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Select(m => m.DeckId).Distinct().Count(), StringComparer.Ordinal);
 
         var deckCount = await _knowledgeStore.GetProcessedDeckCountAsync(cancellationToken);
         var commanderDeckCount = await _knowledgeStore.GetCommanderDeckCountAsync(trimmed, cancellationToken);
@@ -69,7 +74,7 @@ public sealed class CommanderCategoryService : ICommanderCategoryService
                     .ThenBy(labelGroup => labelGroup.Key, StringComparer.OrdinalIgnoreCase)
                     .Select(labelGroup => CategoryCanonicalizer.Canonicalize(labelGroup.Key))
                     .First();
-                var summaryDeckCount = group.Sum(row => row.DeckCount);
+                var summaryDeckCount = deckCountByCanonicalKey.TryGetValue(group.Key, out var distinctDecks) ? distinctDecks : 0;
                 var deckShare = commanderDeckCount > 0
                     ? (double)summaryDeckCount / commanderDeckCount
                     : 0d;

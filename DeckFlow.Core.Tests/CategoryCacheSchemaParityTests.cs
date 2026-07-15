@@ -254,6 +254,44 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
     }
 
     [Fact]
+    public async Task GetCategoryDeckMembershipForCommanderAsync_ReturnsDistinctUnionAndMatchesFallbackFiltering()
+    {
+        var repository = CreateRepository();
+
+        await repository.AddDeckIdsAsync(new[] { "deck-1", "deck-2", "deck-3" });
+        await repository.MarkDeckProcessedAsync("deck-1", "Kinnan, Bonder Prodigy");
+        await repository.MarkDeckProcessedAsync("deck-2", "Kinnan, Bonder Prodigy");
+        await repository.MarkDeckProcessedAsync("deck-3", "Kinnan, Bonder Prodigy");
+
+        await repository.PersistObservedCategoriesAsync("archidekt_live:deck-1", "Sol Ring", new[] { "Ramp", "Artifact" }, quantity: 1, board: "mainboard", deckCountIncrement: 1);
+        await repository.PersistObservedCategoriesAsync("archidekt_live:deck-2", "Sol Ring", new[] { "Ramp", "Artifact" }, quantity: 1, board: "mainboard", deckCountIncrement: 1);
+        await repository.PersistObservedCategoriesAsync("archidekt_live:deck-3", "Sol Ring", new[] { "Ramp", "Artifact" }, quantity: 1, board: "mainboard", deckCountIncrement: 1);
+        await repository.PersistObservedCategoriesAsync("archidekt_live:deck-1", "Arcane Signet", new[] { "ramp", "Artifact" }, quantity: 1, board: "mainboard", deckCountIncrement: 1);
+        await repository.PersistObservedCategoriesAsync("archidekt_live:deck-2", "Arcane Signet", new[] { "ramp", "Artifact" }, quantity: 1, board: "mainboard", deckCountIncrement: 1);
+
+        var rows = await repository.GetCategoryRowsForCommanderAsync("Kinnan, Bonder Prodigy");
+        var memberships = await repository.GetCategoryDeckMembershipForCommanderAsync("Kinnan, Bonder Prodigy");
+
+        Assert.DoesNotContain(rows, row => row.CardName == "Sol Ring" && row.Category == "Artifact");
+        Assert.DoesNotContain(rows, row => row.CardName == "Arcane Signet" && row.Category == "Artifact");
+        Assert.DoesNotContain(memberships, membership => membership.CardName == "Sol Ring" && membership.Category == "Artifact");
+        Assert.DoesNotContain(memberships, membership => membership.CardName == "Arcane Signet" && membership.Category == "Artifact");
+
+        var rampRowDeckTotal = rows
+            .Where(row => string.Equals(row.Category, "Ramp", StringComparison.OrdinalIgnoreCase))
+            .Sum(row => row.DeckCount);
+        var rampDistinctDecks = memberships
+            .Where(membership => string.Equals(membership.Category, "Ramp", StringComparison.OrdinalIgnoreCase))
+            .Select(membership => membership.DeckId)
+            .Distinct()
+            .Count();
+
+        Assert.Equal(5, rampRowDeckTotal);
+        Assert.Equal(3, rampDistinctDecks);
+        Assert.True(rampDistinctDecks < rampRowDeckTotal);
+    }
+
+    [Fact]
     public async Task UrlImportSource_ContributesToCardRowsWithoutQueueing()
     {
         var repository = CreateRepository();

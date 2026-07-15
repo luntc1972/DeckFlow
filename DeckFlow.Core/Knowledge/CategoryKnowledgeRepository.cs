@@ -92,6 +92,12 @@ public sealed class CategoryKnowledgeRepository
         => _cardCategory.GetCategoryRowsForCommanderAsync(commanderName, cancellationToken);
 
     /// <summary>
+    /// Returns per-deck card-category memberships from decks led by <paramref name="commanderName"/>.
+    /// </summary>
+    public Task<IReadOnlyList<CategoryDeckMembership>> GetCategoryDeckMembershipForCommanderAsync(string commanderName, CancellationToken cancellationToken = default)
+        => _cardCategory.GetCategoryDeckMembershipForCommanderAsync(commanderName, cancellationToken);
+
+    /// <summary>
     /// Returns the count of processed decks in <c>deck_queue</c> that are led by <paramref name="commanderName"/>.
     /// </summary>
     public Task<int> GetCommanderDeckCountAsync(string commanderName, CancellationToken cancellationToken = default)

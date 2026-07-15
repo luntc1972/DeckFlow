@@ -201,6 +201,29 @@ internal sealed class CardCategoryRepository
         return FilterGenericCategoryRowsWithFallback(rows);
     }
 
+    internal async Task<IReadOnlyList<CategoryDeckMembership>> GetCategoryDeckMembershipForCommanderAsync(string commanderName, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(commanderName);
+        await _schema.EnsureSchemaAsync(cancellationToken);
+
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var memberships = await connection.QueryAsync<CategoryDeckMembership>(new CommandDefinition(
+            """
+            SELECT DISTINCT o.category AS Category, o.card_name AS CardName, q.id AS DeckId
+            FROM card_category_observations o
+            JOIN sources s ON s.id = o.source_id
+            JOIN deck_queue q ON q.id = s.deck_queue_id
+            WHERE LOWER(q.commander_name) = LOWER(@commanderName)
+              AND q.processed = 1;
+            """,
+            new { commanderName },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+        return FilterGenericMembershipWithFallback(memberships.ToList());
+    }
+
     /// <summary>
     /// Replaces all observations for a source with the provided rows.
     /// </summary>
@@ -677,16 +700,27 @@ internal sealed class CardCategoryRepository
     }
 
     private static IReadOnlyList<CategoryKnowledgeRow> FilterGenericCategoryRowsWithFallback(IReadOnlyList<CategoryKnowledgeRow> rows)
+        => FilterGenericByCardWithFallback(rows, row => row.CardName, row => row.Category);
+
+    private static IReadOnlyList<CategoryDeckMembership> FilterGenericMembershipWithFallback(IReadOnlyList<CategoryDeckMembership> memberships)
+        => FilterGenericByCardWithFallback(memberships, membership => membership.CardName, membership => membership.Category);
+
+    // Drops each card's generic categories when a more specific one is present, keeping
+    // a fallback when only generics exist. Shared by the aggregate-row and per-deck
+    // membership queries so both apply identical filtering. Distinct guards against the
+    // membership query's duplicate (card, category) pairs across decks; it is a no-op for
+    // the already-unique aggregate rows.
+    private static IReadOnlyList<T> FilterGenericByCardWithFallback<T>(IReadOnlyList<T> items, Func<T, string> cardName, Func<T, string> category)
     {
-        var categoriesByCard = rows
-            .GroupBy(row => row.CardName, StringComparer.OrdinalIgnoreCase)
+        var categoriesByCard = items
+            .GroupBy(cardName, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
                 group => group.Key,
-                group => CategoryFilter.IncludedOrFallback(group.Select(row => row.Category)),
+                group => CategoryFilter.IncludedOrFallback(group.Select(category).Distinct(StringComparer.OrdinalIgnoreCase)),
                 StringComparer.OrdinalIgnoreCase);
 
-        return rows
-            .Where(row => categoriesByCard[row.CardName].Contains(row.Category, StringComparer.OrdinalIgnoreCase))
+        return items
+            .Where(item => categoriesByCard[cardName(item)].Contains(category(item), StringComparer.OrdinalIgnoreCase))
             .ToList();
     }
 
