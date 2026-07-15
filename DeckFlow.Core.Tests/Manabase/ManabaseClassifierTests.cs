@@ -1501,6 +1501,79 @@ public sealed class ManabaseClassifierTests
         Assert.Equal(0.5, Assert.Single(deck.Sources, s => s.Name == "Citanul Hierophants").Weight);
     }
 
+    [Fact]
+    public void Classify_ConditionalMoxen_ApplyDensityGradedManabaseHeuristics()
+    {
+        var cards = new List<CardFact>
+        {
+            CommanderCard("Brago, King Eternal", "{2}{W}{U}", 4, "Legendary Creature — Spirit"),
+            new()
+            {
+                Name = "Legendary Support",
+                Quantity = 5,
+                ManaCost = "{1}{W}",
+                ManaValue = 2,
+                TypeLine = "Legendary Creature — Human",
+                OracleText = string.Empty,
+                ProducedMana = System.Array.Empty<string>(),
+            },
+            new()
+            {
+                Name = "Artifact Support",
+                Quantity = 8,
+                ManaCost = "{1}",
+                ManaValue = 1,
+                TypeLine = "Artifact",
+                OracleText = string.Empty,
+                ProducedMana = System.Array.Empty<string>(),
+            },
+            new()
+            {
+                Name = "Treasure Support",
+                Quantity = 4,
+                ManaCost = "{1}{U}",
+                ManaValue = 2,
+                TypeLine = "Sorcery",
+                OracleText = "Create a Treasure token.",
+                ProducedMana = System.Array.Empty<string>(),
+            },
+            ZeroCostMox("Mox Amber"),
+            ZeroCostMox("Mox Opal"),
+            ZeroCostMox("Chrome Mox"),
+            ZeroCostMox("Mox Tantalite"),
+            ZeroCostMox("Mox Diamond"),
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(cards);
+
+        Assert.Equal(2, deck.FastMana);
+
+        ManaSource amber = Assert.Single(deck.Sources, s => s.Name == "Mox Amber");
+        Assert.Equal(new[] { ManaColor.White, ManaColor.Blue }, amber.Produces);
+        Assert.False(amber.EntersUntapped);
+        Assert.Equal(0.60, amber.Weight);
+
+        ManaSource opal = Assert.Single(deck.Sources, s => s.Name == "Mox Opal");
+        Assert.Equal(new[] { ManaColor.White, ManaColor.Blue, ManaColor.Black, ManaColor.Red, ManaColor.Green }, opal.Produces);
+        Assert.True(opal.EntersUntapped);
+        Assert.Equal(0.75, opal.Weight);
+
+        ManaSource chrome = Assert.Single(deck.Sources, s => s.Name == "Chrome Mox");
+        Assert.Equal(new[] { ManaColor.White, ManaColor.Blue }, chrome.Produces);
+        Assert.True(chrome.EntersUntapped);
+        Assert.Equal(0.50, chrome.Weight);
+
+        ManaSource tantalite = Assert.Single(deck.Sources, s => s.Name == "Mox Tantalite");
+        Assert.Equal(new[] { ManaColor.White, ManaColor.Blue, ManaColor.Black, ManaColor.Red, ManaColor.Green }, tantalite.Produces);
+        Assert.False(tantalite.EntersUntapped);
+        Assert.Equal(0.50, tantalite.Weight);
+
+        ManaSource diamond = Assert.Single(deck.Sources, s => s.Name == "Mox Diamond");
+        Assert.Equal(new[] { ManaColor.White, ManaColor.Blue, ManaColor.Black, ManaColor.Red, ManaColor.Green }, diamond.Produces);
+        Assert.True(diamond.EntersUntapped);
+        Assert.Equal(0.75, diamond.Weight);
+    }
+
     // --- Conditional-untapped lands: bond / check / Snarl (checkLandUntapped flag) ---
 
     [Fact]
@@ -2208,5 +2281,16 @@ public sealed class ManabaseClassifierTests
         TypeLine = typeLine,
         OracleText = string.Empty,
         ProducedMana = System.Array.Empty<string>(),
+    };
+
+    private static CardFact ZeroCostMox(string name) => new()
+    {
+        Name = name,
+        Quantity = 1,
+        ManaCost = "{0}",
+        ManaValue = 0,
+        TypeLine = "Artifact",
+        OracleText = "{T}: Add one mana of any color.",
+        ProducedMana = new[] { "W", "U", "B", "R", "G" },
     };
 }

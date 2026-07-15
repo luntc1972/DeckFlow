@@ -592,8 +592,9 @@ public sealed class ManabaseAnalyzerTests
     [Fact]
     public void Analyze_SourceBreakdown_SplitsDirectSharedConditional_AndSumsToActual()
     {
-        // Green sources of three kinds: a mono Forest (direct), an any-color Mox (shared, weight
-        // 0.75), and a granted creature via Cryptolith Rite (conditional, weight 0.25). The
+        // Green sources of three kinds: a mono Forest (direct), a low-support Mox Opal (shared,
+        // weight 0.40 after the conditional-Mox manabase pass), and a granted creature via
+        // Cryptolith Rite (conditional, weight 0.25). The
         // breakdown must bucket each correctly and sum (within rounding) to ActualSources, which
         // itself is unchanged.
         var cards = new List<CardFact>
@@ -612,7 +613,7 @@ public sealed class ManabaseAnalyzerTests
         ColorSourceFinding green = report.ColorFindings.Single(f => f.Color == ManaColor.Green);
 
         Assert.Equal(30.0, green.DirectSources, 1);                 // 30 Forests, weight 1.0 each
-        Assert.Equal(0.75, green.SharedSources, 2);                 // Mox Opal (any-color rock)
+        Assert.Equal(0.40, green.SharedSources, 2);                 // Mox Opal (weak artifact support tier)
         Assert.Equal(0.25, green.ConditionalSources, 2);           // Vanilla Bear granted by the Rite
         Assert.Equal(
             green.ActualSources,

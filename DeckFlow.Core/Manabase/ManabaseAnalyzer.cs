@@ -1349,26 +1349,7 @@ public static class ManabaseAnalyzer
     }
 
     private static IReadOnlySet<ManaColor> CommanderColors(ManabaseDeck deck)
-    {
-        var colors = new HashSet<ManaColor>();
-        foreach (SpellRequirement spell in deck.Spells)
-        {
-            if (!spell.IsCommander)
-            {
-                continue;
-            }
-
-            foreach (KeyValuePair<ManaColor, int> pip in spell.Pips)
-            {
-                if (pip.Value > 0 && pip.Key != ManaColor.Colorless)
-                {
-                    colors.Add(pip.Key);
-                }
-            }
-        }
-
-        return colors;
-    }
+        => new HashSet<ManaColor>(ManabaseColorMask.ColorsFromMask(ManabaseColorMask.CommanderColorMask(deck.Spells)));
 
     private static IEnumerable<ManaColor> EnumerateUsedColors(ManabaseDeck deck)
     {
@@ -1808,4 +1789,68 @@ public static class ManabaseAnalyzer
     }
 
     private static string ModeLabel(ManabaseMode mode) => mode == ManabaseMode.Cedh ? "cEDH" : "Casual";
+}
+
+/// <summary>
+/// Shared commander/deck color-mask helpers for the manabase classifier and analyzer.
+/// </summary>
+internal static class ManabaseColorMask
+{
+    /// <summary>The five colored mana colors in canonical WUBRG order.</summary>
+    internal static readonly IReadOnlyList<ManaColor> Wubrg =
+        new[] { ManaColor.White, ManaColor.Blue, ManaColor.Black, ManaColor.Red, ManaColor.Green };
+
+    /// <summary>Builds the colored commander-identity mask from commander spell pips only.</summary>
+    /// <param name="spells">The spell requirements to inspect.</param>
+    /// <returns>A five-bit mask over WUBRG.</returns>
+    internal static int CommanderColorMask(IReadOnlyList<SpellRequirement> spells)
+    {
+        ArgumentNullException.ThrowIfNull(spells);
+
+        int mask = 0;
+        foreach (SpellRequirement spell in spells)
+        {
+            if (!spell.IsCommander)
+            {
+                continue;
+            }
+
+            foreach (KeyValuePair<ManaColor, int> pip in spell.Pips)
+            {
+                if (pip.Value > 0 && pip.Key != ManaColor.Colorless)
+                {
+                    mask |= ColorBit(pip.Key);
+                }
+            }
+        }
+
+        return mask;
+    }
+
+    /// <summary>Expands a five-bit WUBRG mask back into an ordered color list.</summary>
+    /// <param name="mask">The colored bitmask.</param>
+    /// <returns>An ordered list of colors present in the mask.</returns>
+    internal static IReadOnlyList<ManaColor> ColorsFromMask(int mask)
+    {
+        var colors = new List<ManaColor>(5);
+        foreach (ManaColor color in Wubrg)
+        {
+            if ((mask & ColorBit(color)) != 0)
+            {
+                colors.Add(color);
+            }
+        }
+
+        return colors;
+    }
+
+    private static int ColorBit(ManaColor color) => color switch
+    {
+        ManaColor.White => 1 << 0,
+        ManaColor.Blue => 1 << 1,
+        ManaColor.Black => 1 << 2,
+        ManaColor.Red => 1 << 3,
+        ManaColor.Green => 1 << 4,
+        _ => 0,
+    };
 }
