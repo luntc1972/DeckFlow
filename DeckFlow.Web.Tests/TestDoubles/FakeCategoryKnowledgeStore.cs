@@ -35,6 +35,8 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public IReadOnlyList<CategoryKnowledgeRow> CategoryRowsResult { get; set; } = Array.Empty<CategoryKnowledgeRow>();
 
+    public List<CategoryDeckMembership> Memberships { get; } = new();
+
     public int CommanderDeckCount { get; set; }
 
     public IReadOnlyList<HarvestedCommanderRow> PagedCommandersResult { get; set; } = Array.Empty<HarvestedCommanderRow>();
@@ -149,6 +151,9 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsForCommanderAsync(string commanderName, CancellationToken cancellationToken = default)
         => Task.FromResult(CategoryRowsResult);
+
+    public Task<IReadOnlyList<CategoryDeckMembership>> GetCategoryDeckMembershipForCommanderAsync(string commanderName, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<CategoryDeckMembership>>(Memberships);
 
     public Task<int> GetCommanderDeckCountAsync(string commanderName, CancellationToken cancellationToken = default)
         => Task.FromResult(CommanderDeckCount);

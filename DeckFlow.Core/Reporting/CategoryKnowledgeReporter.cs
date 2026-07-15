@@ -170,7 +170,12 @@ public static class CategoryKnowledgeReporter
     }
 }
 
-    /// <summary>
-    /// Represents a single aggregated card-category observation row in the knowledge cache.
-    /// </summary>
-    public sealed record CategoryKnowledgeRow(string Category, string CardName, int Count, int DeckCount = 0);
+/// <summary>
+/// Represents a single aggregated card-category observation row in the knowledge cache.
+/// </summary>
+public sealed record CategoryKnowledgeRow(string Category, string CardName, int Count, int DeckCount = 0);
+
+/// <summary>
+/// Represents a single commander deck membership for a card-category observation.
+/// </summary>
+public sealed record CategoryDeckMembership(string Category, string CardName, long DeckId);

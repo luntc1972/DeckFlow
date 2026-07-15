@@ -19,6 +19,8 @@ public interface ICategoryKnowledgeStore
     Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default);
     /// <summary>Returns all card-category observations from decks led by the specified commander.</summary>
     Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsForCommanderAsync(string commanderName, CancellationToken cancellationToken = default);
+    /// <summary>Returns per-deck card-category memberships from decks led by the specified commander.</summary>
+    Task<IReadOnlyList<CategoryDeckMembership>> GetCategoryDeckMembershipForCommanderAsync(string commanderName, CancellationToken cancellationToken = default);
     /// <summary>
     /// Returns the number of decks already processed by the category cache.
     /// </summary>
