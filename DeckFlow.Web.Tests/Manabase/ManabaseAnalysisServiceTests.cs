@@ -1140,6 +1140,33 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_SourceListFlagAbsent_ShowSourceListFalse()
+    {
+        var (entries, cards) = CurveFixture();
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), new FakeResolver(cards));
+
+        var result = await service.AnalyzeAsync("paste", "Curve Deck");
+
+        Assert.False(GetResultShowSourceList(result));
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_SourceListFlagOn_ShowSourceListTrue()
+    {
+        var (entries, cards) = CurveFixture();
+        var service = new ManabaseAnalysisService(
+            new FakeLoader(entries), new FakeResolver(cards),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.SourceListFlagKey] = true,
+            }));
+
+        var result = await service.AnalyzeAsync("paste", "Curve Deck");
+
+        Assert.True(GetResultShowSourceList(result));
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_CedhInteractionLensFlagOn_CedhMode_ShowsLens_AndThreadsSwapPrompt()
     {
         var (entries, cards) = CedhInteractionFixture();
@@ -1942,6 +1969,13 @@ public sealed class ManabaseAnalysisServiceTests
     {
         PropertyInfo property = typeof(ManabaseAnalysisResult).GetProperty("ShowPlanPresence")
             ?? throw new Xunit.Sdk.XunitException("ManabaseAnalysisResult.ShowPlanPresence property missing.");
+        return (bool)(property.GetValue(result) ?? false);
+    }
+
+    private static bool GetResultShowSourceList(ManabaseAnalysisResult result)
+    {
+        PropertyInfo property = typeof(ManabaseAnalysisResult).GetProperty("ShowSourceList")
+            ?? throw new Xunit.Sdk.XunitException("ManabaseAnalysisResult.ShowSourceList property missing.");
         return (bool)(property.GetValue(result) ?? false);
     }
 

@@ -107,6 +107,27 @@ public sealed record ManaSource
 }
 
 /// <summary>
+/// Slim per-source projection surfaced on <see cref="ManabaseReport"/> for display-only source lists.
+/// </summary>
+public sealed record ManaSourceListing
+{
+    /// <summary>Display name for the physical source entry.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>Colors the source can produce.</summary>
+    public required IReadOnlyList<ManaColor> Colors { get; init; }
+
+    /// <summary>True when the source occupies a land slot.</summary>
+    public required bool IsLand { get; init; }
+
+    /// <summary>True when the source can make mana the turn it is played.</summary>
+    public required bool EntersUntapped { get; init; }
+
+    /// <summary>True when the source can produce true colorless mana <c>{C}</c>.</summary>
+    public bool ProducesColorless { get; init; }
+}
+
+/// <summary>
 /// Broad spell categories used to match type-scoped cost reducers (e.g. "instant and
 /// sorcery spells you cast cost {1} less"). A card may carry more than one kind.
 /// </summary>
@@ -1310,6 +1331,12 @@ public sealed record ManabaseReport
     /// de-duplicated by name in deck order. Surfaced in the Ramp disclosure.
     /// </summary>
     public IReadOnlyList<string> RampAndDrawNames { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// One display listing per physical mana source in the deck, lands and non-land sources alike.
+    /// Ungated in Core; the Web layer decides whether to render it.
+    /// </summary>
+    public IReadOnlyList<ManaSourceListing> ManaSourceListings { get; init; } = Array.Empty<ManaSourceListing>();
 
     /// <summary>
     /// Count of cheap scry spell copies behind <see cref="ScrySourceCredit"/>.

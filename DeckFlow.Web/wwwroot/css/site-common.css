@@ -2762,6 +2762,42 @@ label.field > span,
   overflow-wrap: anywhere;
 }
 
+.manabase-source-details {
+  margin-top: 0.7rem;
+}
+
+.manabase-source-details > summary {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.manabase-source-list {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.55rem;
+}
+
+.manabase-source-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.manabase-source-name {
+  font-weight: 500;
+}
+
+.manabase-source-pips {
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.manabase-source-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+}
+
 .manabase-lens-pill {
   display: inline-block;
   margin-top: 0.55rem;

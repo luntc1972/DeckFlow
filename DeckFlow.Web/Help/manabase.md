@@ -126,6 +126,15 @@ In **Casual** mode, the same flag instead adds a **curve-coverage** line — *pl
 
 The flag is seeded **OFF**. With it off (and in casual with it off), the page, the `.txt` artifact, and the swap prompt are **byte-identical** to before; turning it on is an admin action from `/Admin/Flags`. It is a **consistency signal, never keep/mulligan advice**.
 
+### Mana-source disclosure lists
+
+A separate dark-launch flag, `analysis.manabase.source-list` (default **OFF**, enabled by an admin after testing), adds two small nested disclosures inside the existing **Untapped sources** lens.
+
+- **Mana sources** — every physical mana source in the deck, lands and non-lands alike, grouped by card name and shown with compact pip letters (`W U B R G C`).
+- **Tapped sources** — only the sources that enter tapped and therefore cannot make mana the turn they are played.
+
+This flag is **display-only**. The Core report always carries the underlying source listing so the analysis stays deterministic; the flag only decides whether that HTML renders on the page. With the flag **OFF**, the page stays byte-identical.
+
 ### cEDH: Early interaction
 
 In **cEDH** mode, DeckFlow can also measure your deck's early cheap interaction coverage. For each qualifying interaction spell, the simulation checks whether you have enough **untapped** colored access to hold that spell up on at least one of turns 1-3, then rolls that into a per-card **holdable** percentage.
