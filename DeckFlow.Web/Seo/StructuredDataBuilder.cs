@@ -113,9 +113,49 @@ public static class StructuredDataBuilder
         },
     };
 
+    private static Dictionary<string, object?> Breadcrumb(IReadOnlyList<(string Name, string Url)> items)
+    {
+        var elements = new List<object>(items.Count);
+        for (var i = 0; i < items.Count; i++)
+        {
+            elements.Add(new Dictionary<string, object?>
+            {
+                ["@type"] = "ListItem",
+                ["position"] = i + 1,
+                ["name"] = items[i].Name,
+                ["item"] = items[i].Url,
+            });
+        }
+
+        return new Dictionary<string, object?>
+        {
+            ["@type"] = "BreadcrumbList",
+            ["itemListElement"] = elements,
+        };
+    }
+
     // Placeholder members completed in Tasks 3 and 4; declared here so the file compiles.
-    private static Dictionary<string, object?> ToolPageGraph(string canonicalUrl, string baseUrl, string name, string description) =>
-        WebSiteNode();
+    private static Dictionary<string, object?> ToolPageGraph(string canonicalUrl, string baseUrl, string name, string description) => new()
+    {
+        ["@context"] = SchemaContext,
+        ["@graph"] = new object[]
+        {
+            new Dictionary<string, object?>
+            {
+                ["@type"] = "WebPage",
+                ["@id"] = $"{canonicalUrl}#webpage",
+                ["name"] = name,
+                ["description"] = description,
+                ["url"] = canonicalUrl,
+                ["isPartOf"] = new Dictionary<string, object?> { ["@id"] = $"{baseUrl}/#website" },
+            },
+            Breadcrumb(new[]
+            {
+                ("Home", $"{baseUrl}/"),
+                (name, canonicalUrl),
+            }),
+        },
+    };
 
     private static Dictionary<string, object?> HelpArticleGraph(string canonicalUrl, string baseUrl, string name, string description) =>
         WebSiteNode();

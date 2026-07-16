@@ -43,4 +43,29 @@ public sealed class StructuredDataBuilderTests
         var org = graph.Single(node => node.GetProperty("@type").GetString() == "Organization");
         Assert.Equal($"{BaseUrl}/og-image.png", org.GetProperty("logo").GetString());
     }
+
+    [Fact]
+    public void Tool_path_returns_webpage_and_breadcrumb_depth_two()
+    {
+        var json = StructuredDataBuilder.ForPath(
+            "/manabase", $"{BaseUrl}/manabase", BaseUrl, "MTG Commander Mana Base Analyzer", "Analyze your mana base.");
+
+        var graph = Parse(json).GetProperty("@graph").EnumerateArray().ToList();
+        var types = graph.Select(node => node.GetProperty("@type").GetString()).ToList();
+        Assert.Contains("WebPage", types);
+        Assert.Contains("BreadcrumbList", types);
+
+        var webPage = graph.Single(node => node.GetProperty("@type").GetString() == "WebPage");
+        Assert.Equal("MTG Commander Mana Base Analyzer", webPage.GetProperty("name").GetString());
+        Assert.Equal($"{BaseUrl}/manabase", webPage.GetProperty("url").GetString());
+
+        var crumbs = graph.Single(node => node.GetProperty("@type").GetString() == "BreadcrumbList")
+            .GetProperty("itemListElement").EnumerateArray().ToList();
+        Assert.Equal(2, crumbs.Count);
+        Assert.Equal(1, crumbs[0].GetProperty("position").GetInt32());
+        Assert.Equal("Home", crumbs[0].GetProperty("name").GetString());
+        Assert.Equal($"{BaseUrl}/", crumbs[0].GetProperty("item").GetString());
+        Assert.Equal("MTG Commander Mana Base Analyzer", crumbs[1].GetProperty("name").GetString());
+        Assert.Equal($"{BaseUrl}/manabase", crumbs[1].GetProperty("item").GetString());
+    }
 }
