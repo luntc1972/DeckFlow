@@ -7,6 +7,8 @@ public sealed class MetaGapRequest
 {
     private string _commanderName = string.Empty;
     private string _deckSource = string.Empty;
+    private string _deckUrl = string.Empty;
+    private string _deckText = string.Empty;
     private string _metaGapResponseJson = string.Empty;
     private string _targetAiPlatform = "ChatGPT";
     private string _fetchedEntriesJson = string.Empty;
@@ -33,6 +35,29 @@ public sealed class MetaGapRequest
     {
         get => _deckSource;
         set => _deckSource = value ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Selects whether the deck is supplied via a public URL or pasted export text.
+    /// </summary>
+    public DeckInputSource DeckInputSource { get; set; } = DeckInputSource.PublicUrl;
+
+    /// <summary>
+    /// Public deck URL used when <see cref="DeckInputSource"/> is <see cref="DeckInputSource.PublicUrl"/>.
+    /// </summary>
+    public string DeckUrl
+    {
+        get => _deckUrl;
+        set => _deckUrl = value ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Pasted deck export text used when <see cref="DeckInputSource"/> is <see cref="DeckInputSource.PasteText"/>.
+    /// </summary>
+    public string DeckText
+    {
+        get => _deckText;
+        set => _deckText = value ?? string.Empty;
     }
 
     /// <summary>
@@ -105,5 +130,14 @@ public sealed class MetaGapRequest
     {
         get => _metaGapPromptText;
         set => _metaGapPromptText = value ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Reconciles the split deck-input fields with the canonical <see cref="DeckSource"/> value.
+    /// </summary>
+    public void NormalizeDeckSource()
+    {
+        (DeckInputSource, DeckUrl, DeckText, DeckSource) =
+            DeckInputReconciler.Reconcile(DeckInputSource, DeckUrl, DeckText, DeckSource);
     }
 }

@@ -120,10 +120,29 @@
                     <small class="sync-column__hint">Leave blank to infer the commander from the submitted deck list, or pick a suggestion to match the exact EDH Top 16 name.</small>
                 </label>
 
+                @{
+                    var metaIsUrl = Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl;
+                }
                 <label class="field">
-                    <span>Deck URL or deck text</span>
-                    <textarea autocomplete="off" name="DeckSource" spellcheck="false">@Model.Request.DeckSource</textarea>
-                    <small class="sync-column__hint">Required. Paste a public Moxfield or Archidekt URL, or raw deck export text.</small>
+                    <span>Import method</span>
+                    <select name="DeckInputSource" data-df-select>
+                        <option value="@DeckFlow.Web.Models.DeckInputSource.PublicUrl" selected="@(metaIsUrl ? "selected" : null)">Use public deck URL</option>
+                        <option value="@DeckFlow.Web.Models.DeckInputSource.PasteText" selected="@(!metaIsUrl ? "selected" : null)">Paste text</option>
+                    </select>
+                </label>
+                <label class="field @(metaIsUrl ? string.Empty : "hidden")" data-sync-panel="metagap-deck-url">
+                    <span>Archidekt or Moxfield deck URL</span>
+                    <input type="url"
+                           name="DeckUrl"
+                           value="@Model.Request.DeckUrl"
+                           autocomplete="url"
+                           inputmode="url"
+                           placeholder="https://moxfield.com/decks/… or https://archidekt.com/decks/…" />
+                </label>
+                <label class="field @(metaIsUrl ? "hidden" : string.Empty)" data-sync-panel="metagap-deck-text">
+                    <span>Deck export text</span>
+                    <textarea autocomplete="off" name="DeckText" spellcheck="false">@Model.Request.DeckText</textarea>
+                    <small class="sync-column__hint">Paste Moxfield, Archidekt, or MTG Arena deck export text.</small>
                 </label>
                 @await Html.PartialAsync("_DeckFlowBridgeHint")
                 @await Html.PartialAsync("_MoxfieldBulkEditHint", "Run Gap Analysis")

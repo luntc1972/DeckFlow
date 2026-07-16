@@ -85,7 +85,10 @@ public sealed class DeckPacketController : DeckToolControllerBase
         {
             ActiveTab = DeckPageTab.DeckAnalysis,
             CommandZoneAwarenessEnabled = IsCommandZoneAwarenessEnabled(),
-            Request = new DeckAnalysisRequest(),
+            // Default the page to URL import so the deck-URL box is the first thing shown,
+            // matching the other deck tools. The model default stays PasteText for the JSON
+            // API path (AnalysisPromptApiController sets the mode explicitly).
+            Request = new DeckAnalysisRequest { DeckInputSource = DeckInputSource.PublicUrl },
         });
     }
 
@@ -414,6 +417,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
     public async Task<IActionResult> DeckComparison(DeckComparisonRequest request)
     {
         request ??= new DeckComparisonRequest();
+        request.NormalizeDeckSources();
         if (!ModelState.IsValid)
         {
             return View("DeckComparison", new DeckComparisonViewModel
@@ -631,6 +635,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
         {
             using var stream = zipFile.OpenReadStream();
             var restored = PacketArtifactStore.LoadComparisonFromZip(stream, request);
+            request.NormalizeDeckSources();
 
             // Partial-zip case: response JSON not yet present (user downloaded
             // mid-workflow). Render the form on the WorkflowStep the loader
@@ -707,6 +712,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
     public async Task<IActionResult> CedhMetaGap(MetaGapRequest request)
     {
         request ??= new MetaGapRequest();
+        request.NormalizeDeckSource();
         if (!ModelState.IsValid)
         {
             return View("CedhMetaGap", new MetaGapViewModel
@@ -896,6 +902,7 @@ public sealed class DeckPacketController : DeckToolControllerBase
         {
             using var stream = zipFile.OpenReadStream();
             var restored = PacketArtifactStore.LoadCedhMetaGapFromZip(stream, request);
+            request.NormalizeDeckSource();
 
             // Phase 10-05: round-trip the fetched entries through the next form
             // submit so the service can skip the edhtop16 re-fetch (also

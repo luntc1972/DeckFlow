@@ -95,6 +95,27 @@ const panelConfigs: PanelConfig[] = [
     urlSelector: '[data-sync-panel="bracket-deck-url"]',
     textSelector: '[data-sync-panel="bracket-deck-text"]',
   },
+  {
+    // cEDH Meta-Gap reuses the DeckInputSource select; its panels are absent on other
+    // tools so this config no-ops there (togglePanel ignores missing selectors).
+    selectName: 'DeckInputSource',
+    urlSelector: '[data-sync-panel="metagap-deck-url"]',
+    textSelector: '[data-sync-panel="metagap-deck-text"]',
+  },
+  {
+    // Deck Comparison Deck A panels are absent on other tools so this config no-ops
+    // there (togglePanel ignores missing selectors).
+    selectName: 'DeckAInputSource',
+    urlSelector: '[data-sync-panel="comparison-deckA-url"]',
+    textSelector: '[data-sync-panel="comparison-deckA-text"]',
+  },
+  {
+    // Deck Comparison Deck B panels are absent on other tools so this config no-ops
+    // there (togglePanel ignores missing selectors).
+    selectName: 'DeckBInputSource',
+    urlSelector: '[data-sync-panel="comparison-deckB-url"]',
+    textSelector: '[data-sync-panel="comparison-deckB-text"]',
+  },
 ];
 
 const updateSyncInputModeUi = (): void => {
@@ -223,7 +244,7 @@ const initializeSyncInputModeUi = (): void => {
   }
 
   syncInputModeInitialized = true;
-  const inputSelectors = document.querySelectorAll<HTMLSelectElement>('select[name="MoxfieldInputSource"], select[name="ArchidektInputSource"], select[name="DeckInputSource"]');
+  const inputSelectors = document.querySelectorAll<HTMLSelectElement>('select[name="MoxfieldInputSource"], select[name="ArchidektInputSource"], select[name="DeckInputSource"], select[name="DeckAInputSource"], select[name="DeckBInputSource"]');
   inputSelectors.forEach(element => {
     element.addEventListener('change', updateSyncInputModeUi);
   });

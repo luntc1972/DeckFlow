@@ -7,6 +7,10 @@ public sealed class DeckComparisonRequest
 {
     private string _deckASource = string.Empty;
     private string _deckBSource = string.Empty;
+    private string _deckAUrl = string.Empty;
+    private string _deckAText = string.Empty;
+    private string _deckBUrl = string.Empty;
+    private string _deckBText = string.Empty;
     private string _deckAName = string.Empty;
     private string _deckBName = string.Empty;
     private string _deckABracket = string.Empty;
@@ -29,12 +33,58 @@ public sealed class DeckComparisonRequest
     }
 
     /// <summary>
+    /// Selects whether deck A is supplied via a public URL or pasted export text.
+    /// </summary>
+    public DeckInputSource DeckAInputSource { get; set; } = DeckInputSource.PublicUrl;
+
+    /// <summary>
+    /// Public deck URL used when <see cref="DeckAInputSource"/> is <see cref="DeckInputSource.PublicUrl"/>.
+    /// </summary>
+    public string DeckAUrl
+    {
+        get => _deckAUrl;
+        set => _deckAUrl = value ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Pasted deck export text used when <see cref="DeckAInputSource"/> is <see cref="DeckInputSource.PasteText"/>.
+    /// </summary>
+    public string DeckAText
+    {
+        get => _deckAText;
+        set => _deckAText = value ?? string.Empty;
+    }
+
+    /// <summary>
     /// Raw input for deck B (public URL or pasted export text).
     /// </summary>
     public string DeckBSource
     {
         get => _deckBSource;
         set => _deckBSource = value ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Selects whether deck B is supplied via a public URL or pasted export text.
+    /// </summary>
+    public DeckInputSource DeckBInputSource { get; set; } = DeckInputSource.PublicUrl;
+
+    /// <summary>
+    /// Public deck URL used when <see cref="DeckBInputSource"/> is <see cref="DeckInputSource.PublicUrl"/>.
+    /// </summary>
+    public string DeckBUrl
+    {
+        get => _deckBUrl;
+        set => _deckBUrl = value ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Pasted deck export text used when <see cref="DeckBInputSource"/> is <see cref="DeckInputSource.PasteText"/>.
+    /// </summary>
+    public string DeckBText
+    {
+        get => _deckBText;
+        set => _deckBText = value ?? string.Empty;
     }
 
     /// <summary>
@@ -94,5 +144,16 @@ public sealed class DeckComparisonRequest
     {
         get => _targetAiPlatform;
         set => _targetAiPlatform = AiPlatform.Normalize(value).Key;
+    }
+
+    /// <summary>
+    /// Reconciles the split deck-input fields with the canonical deck-source values.
+    /// </summary>
+    public void NormalizeDeckSources()
+    {
+        (DeckAInputSource, DeckAUrl, DeckAText, DeckASource) =
+            DeckInputReconciler.Reconcile(DeckAInputSource, DeckAUrl, DeckAText, DeckASource);
+        (DeckBInputSource, DeckBUrl, DeckBText, DeckBSource) =
+            DeckInputReconciler.Reconcile(DeckBInputSource, DeckBUrl, DeckBText, DeckBSource);
     }
 }
