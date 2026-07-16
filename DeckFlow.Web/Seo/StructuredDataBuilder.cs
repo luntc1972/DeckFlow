@@ -33,7 +33,7 @@ public static class StructuredDataBuilder
     public static string ForPath(string path, string canonicalUrl, string baseUrl, string? rawTitle, string description)
     {
         var name = string.IsNullOrWhiteSpace(rawTitle) ? "DeckFlow" : rawTitle!;
-        var normalized = NormalizePath(path);
+        var normalized = SeoPaths.Normalize(path);
 
         object graph =
             normalized == "/" ? HomeGraph(baseUrl, description)
@@ -46,22 +46,6 @@ public static class StructuredDataBuilder
 
     private static bool IsHelpDetail(string normalized) =>
         normalized.StartsWith("/help/", StringComparison.Ordinal) && normalized.Length > "/help/".Length;
-
-    private static string NormalizePath(string? path)
-    {
-        if (string.IsNullOrEmpty(path))
-        {
-            return "/";
-        }
-
-        var lower = path.ToLowerInvariant();
-        if (lower.Length > 1 && lower.EndsWith('/'))
-        {
-            lower = lower.TrimEnd('/');
-        }
-
-        return lower.Length == 0 ? "/" : lower;
-    }
 
     private static Dictionary<string, object?> WebSiteNode() => new()
     {

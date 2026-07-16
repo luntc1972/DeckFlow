@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace DeckFlow.Web.Seo;
@@ -57,4 +58,34 @@ public static class SeoPaths
         "/bracket",
         "/content-kb",
     };
+
+    /// <summary>
+    /// Normalizes a request path for matching: lower-invariant, trailing slash stripped
+    /// (except root). Null/empty becomes "/".
+    /// </summary>
+    public static string Normalize(string? path)
+    {
+        if (string.IsNullOrEmpty(path))
+        {
+            return "/";
+        }
+
+        var lower = path.ToLowerInvariant();
+        if (lower.Length > 1 && lower.EndsWith('/'))
+        {
+            lower = lower.TrimEnd('/');
+        }
+
+        return lower.Length == 0 ? "/" : lower;
+    }
+
+    /// <summary>
+    /// True when the path is the home page or one of the tool pages — the pages that
+    /// carry the share bar.
+    /// </summary>
+    public static bool IsShareablePage(string? path)
+    {
+        var normalized = Normalize(path);
+        return normalized == "/" || Tools.Contains(normalized);
+    }
 }
