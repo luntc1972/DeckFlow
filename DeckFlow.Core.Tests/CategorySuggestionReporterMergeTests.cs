@@ -51,4 +51,16 @@ public sealed class CategorySuggestionReporterMergeTests
 
         Assert.Equal(["Ramp"], merged);
     }
+
+    [Fact]
+    public void Merge_SourceAuthorityBreaksSingleSourceTie()
+    {
+        var merged = CategorySuggestionReporter.Merge(
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            ["Aardvark", "Beaver"],
+            ["Zebra"]);
+
+        Assert.Equal(["Zebra", "Aardvark", "Beaver"], merged);
+    }
 }
