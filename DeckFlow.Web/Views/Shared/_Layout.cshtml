@@ -54,6 +54,10 @@
         $"{requestScheme}://{requestHost}",
         rawPageTitle,
         pageDescription);
+    var showShareBar = DeckFlow.Web.Seo.SeoPaths.IsShareablePage(requestPath.Value ?? "/");
+    var shareLinks = showShareBar
+        ? DeckFlow.Web.Seo.ShareLinkBuilder.Build(canonicalUrl, rawPageTitle)
+        : null;
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -103,6 +107,10 @@
             <main role="main" id="main-content" class="content-shell">
                 @RenderBody()
             </main>
+            @if (shareLinks is not null)
+            {
+                <partial name="_ShareBar" model="shareLinks" />
+            }
             <footer class="page-footer">
                 <a class="page-footer__link" href="@Url.Content("~/about")">About</a>
                 <a class="page-footer__link page-footer__link--support" href="https://ko-fi.com/deckflowgg" target="_blank" rel="noopener noreferrer"><span class="page-footer__heart" aria-hidden="true">♥</span> Support</a>
@@ -128,6 +136,10 @@
     <script src="~/js/site.js" asp-append-version="true"></script>
     <script src="~/js/df-select.js" asp-append-version="true"></script>
     <script src="~/js/df-typeahead.js" asp-append-version="true"></script>
+    @if (shareLinks is not null)
+    {
+        <script src="~/js/share-bar.js" asp-append-version="true"></script>
+    }
     @RenderSection("Scripts", required: false)
 </body>
 </html>
