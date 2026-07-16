@@ -87,6 +87,9 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
     /// <summary>Configurable per-card categories; empty by default so unset cards resolve to no roles.</summary>
     public Dictionary<string, IReadOnlyList<string>> CategoriesByName { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Configurable per-card weighted deck counts keyed by canonical category label.</summary>
+    public Dictionary<string, IReadOnlyDictionary<string, int>> CategoryDeckCountsByName { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Number of times the batch lookup ran — a plan-presence analysis must call it exactly once.</summary>
     public int GetCategoriesForNamesCalls { get; private set; }
 
@@ -94,6 +97,11 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         => Task.FromResult(CategoriesByName.TryGetValue(cardName, out var categories)
             ? categories
             : (IReadOnlyList<string>)Array.Empty<string>());
+
+    public Task<IReadOnlyDictionary<string, int>> GetCategoryDeckCountsAsync(string cardName, CancellationToken cancellationToken = default)
+        => Task.FromResult(CategoryDeckCountsByName.TryGetValue(cardName, out var categoryDeckCounts)
+            ? categoryDeckCounts
+            : (IReadOnlyDictionary<string, int>)new Dictionary<string, int>(StringComparer.Ordinal));
 
     public Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(IReadOnlyCollection<string> cardNames, CancellationToken cancellationToken = default)
     {

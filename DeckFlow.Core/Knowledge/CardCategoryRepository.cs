@@ -129,6 +129,57 @@ internal sealed class CardCategoryRepository
     }
 
     /// <summary>
+    /// Retrieves per-category deck counts for the specified card, keyed by canonical category label.
+    /// </summary>
+    /// <param name="cardName">Card name to look up.</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    internal async Task<IReadOnlyDictionary<string, int>> GetCategoryDeckCountsAsync(string cardName, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
+        await _schema.EnsureSchemaAsync(cancellationToken);
+
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var rows = await connection.QueryAsync<CategoryDeckCountRow>(new CommandDefinition(
+            """
+            SELECT o.category AS Category, SUM(o.deck_count) AS DeckCount
+            FROM card_category_observations o
+            JOIN cards c ON c.id = o.card_id
+            JOIN card_deck_totals t
+              ON t.source_id = o.source_id
+             AND t.card_id = o.card_id
+             AND t.board = o.board
+            WHERE c.normalized_card_name = @normalized
+            GROUP BY o.category
+            ORDER BY LOWER(o.category), o.category;
+            """,
+            new { normalized = CardNormalizer.Normalize(cardName) },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+        var countsByCategory = rows.ToDictionary(
+            row => row.Category,
+            row => checked((int)row.DeckCount),
+            StringComparer.OrdinalIgnoreCase);
+        var includedCategories = CategoryFilter.IncludedOrFallback(countsByCategory.Keys);
+        var canonicalCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var category in includedCategories)
+        {
+            if (!countsByCategory.TryGetValue(category, out var deckCount))
+            {
+                continue;
+            }
+
+            var canonicalKey = CategoryCanonicalizer.CanonicalKey(category);
+            canonicalCounts[canonicalKey] = canonicalCounts.TryGetValue(canonicalKey, out var existingCount)
+                ? checked(existingCount + deckCount)
+                : deckCount;
+        }
+
+        return canonicalCounts;
+    }
+
+    /// <summary>
     /// Batch equivalent of <see cref="GetCategoriesAsync"/>: resolves categories for many cards in a
     /// single round-trip (one <c>IN</c> query instead of one query per card). Returns a dictionary
     /// keyed by the ORIGINAL requested name (case-insensitive) so the caller can look each spell up by
@@ -837,6 +888,12 @@ internal sealed class CardCategoryRepository
     {
         public string Board { get; init; } = string.Empty;
         public long Total { get; init; }
+    }
+
+    private sealed class CategoryDeckCountRow
+    {
+        public string Category { get; init; } = string.Empty;
+        public long DeckCount { get; init; }
     }
 
     private sealed class CardCategoryNameRow

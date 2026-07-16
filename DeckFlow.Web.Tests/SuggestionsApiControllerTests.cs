@@ -63,6 +63,7 @@ public sealed class SuggestionsApiControllerTests
             new[] { "Draw", "Ramp" },
             Array.Empty<string>(),
             Array.Empty<string>(),
+            new Dictionary<string, int>(StringComparer.Ordinal),
             new CardDeckTotals(3, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["mainboard"] = 3 }),
             new[] { "cached store" },
             false);
@@ -93,6 +94,7 @@ public sealed class SuggestionsApiControllerTests
             Array.Empty<string>(),
             Array.Empty<string>(),
             new[] { "Protection", "Value" },
+            new Dictionary<string, int>(StringComparer.Ordinal),
             CardDeckTotals.Empty,
             new[] { "Scryfall Tagger" },
             false);

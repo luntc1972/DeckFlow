@@ -66,6 +66,14 @@ public sealed class CategoryKnowledgeRepository
         => _cardCategory.GetCategoriesAsync(cardName, cancellationToken);
 
     /// <summary>
+    /// Retrieves per-category deck counts for the specified card, keyed by canonical category label.
+    /// </summary>
+    /// <param name="cardName">Card name to look up.</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    public Task<IReadOnlyDictionary<string, int>> GetCategoryDeckCountsAsync(string cardName, CancellationToken cancellationToken = default)
+        => _cardCategory.GetCategoryDeckCountsAsync(cardName, cancellationToken);
+
+    /// <summary>
     /// Batch equivalent of <see cref="GetCategoriesAsync"/>: resolves categories for many cards in a
     /// single query. Returns a dictionary keyed by the original requested name (case-insensitive).
     /// </summary>

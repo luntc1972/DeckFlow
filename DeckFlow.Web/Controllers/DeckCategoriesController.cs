@@ -108,7 +108,8 @@ public sealed class DeckCategoriesController : DeckToolControllerBase
             using var timeoutCts = CreateTimeoutScope(SuggestionTimeout);
             var cancellationToken = timeoutCts.Token;
             var result = await _categorySuggestionService.SuggestAsync(request, cancellationToken);
-            var merged = CategorySuggestionReporter.Merge(
+            // One merge pass drives both the plain copy text and the weighted table.
+            var weighted = CategorySuggestionReporter.MergeWeighted(
                 result.ExactCategories,
                 result.InferredCategories,
                 result.EdhrecCategories,
@@ -120,7 +121,9 @@ public sealed class DeckCategoriesController : DeckToolControllerBase
             {
                 ActiveTab = DeckPageTab.SuggestCategories,
                 SuggestionRequest = request,
-                MergedCategoriesText = CategorySuggestionReporter.ToText(merged, result.CardName),
+                MergedCategoriesText = CategorySuggestionReporter.ToText(
+                    weighted.Select(weight => weight.Category), result.CardName),
+                WeightedCategories = BuildWeightedCategories(weighted, result),
                 ExactSuggestedCategoriesText = CategorySuggestionReporter.ToText(result.ExactCategories, result.CardName),
                 ExactSuggestionContextText = "These are exact card-name matches found in the Archidekt reference deck you provided.",
                 InferredCategoriesText = CategorySuggestionReporter.ToText(result.InferredCategories, result.CardName),
@@ -167,4 +170,33 @@ public sealed class DeckCategoriesController : DeckToolControllerBase
         => request.ArchidektInputSource == DeckInputSource.PublicUrl
             ? !string.IsNullOrWhiteSpace(request.ArchidektUrl)
             : !string.IsNullOrWhiteSpace(request.ArchidektText);
+
+    // Ranks the weighted merge rows for display: most agreed-on first, then by popularity
+    // (rows without a crawl percentage sink below those that have one), then alphabetical.
+    private static IReadOnlyList<CategoryWeightRow> BuildWeightedCategories(
+        IReadOnlyList<CategorySuggestionReporter.CategorySourceWeight> weighted,
+        CategorySuggestionResult result)
+        => weighted
+            .Select(weight => BuildCategoryWeightRow(weight, result.CategoryDeckCounts, result.CardDeckTotals.TotalDeckCount))
+            .OrderByDescending(row => row.SourceCount)
+            .ThenBy(row => row.Percent is null ? 1 : 0)
+            .ThenByDescending(row => row.Percent)
+            .ThenBy(row => row.Category, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private static CategoryWeightRow BuildCategoryWeightRow(
+        CategorySuggestionReporter.CategorySourceWeight weight,
+        IReadOnlyDictionary<string, int> categoryDeckCounts,
+        int totalDeckCount)
+    {
+        var canonicalKey = CategoryCanonicalizer.CanonicalKey(weight.Category);
+        if (!categoryDeckCounts.TryGetValue(canonicalKey, out var deckCount) || totalDeckCount <= 0)
+        {
+            return new CategoryWeightRow(weight.Category, null, null, weight.SourceCount, weight.SourceTotal);
+        }
+
+        var percent = (int)Math.Round((double)deckCount * 100d / totalDeckCount, MidpointRounding.AwayFromZero);
+        percent = Math.Clamp(percent, 0, 100);
+        return new CategoryWeightRow(weight.Category, deckCount, percent, weight.SourceCount, weight.SourceTotal);
+    }
 }
