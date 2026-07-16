@@ -98,4 +98,31 @@ public sealed class StructuredDataBuilderTests
         var json = StructuredDataBuilder.ForPath("/help", $"{BaseUrl}/help", BaseUrl, "Help", "Help index.");
         Assert.Equal("WebSite", Parse(json).GetProperty("@type").GetString());
     }
+
+    [Theory]
+    [InlineData("/")]
+    [InlineData("/manabase")]
+    [InlineData("/help/mana-base")]
+    [InlineData("/about")]
+    [InlineData("/feedback")]
+    public void Every_branch_emits_parseable_json(string path)
+    {
+        var json = StructuredDataBuilder.ForPath(path, $"{BaseUrl}{path}", BaseUrl, "Title", "Description.");
+
+        // Throws if the output is not valid JSON.
+        using var _ = JsonDocument.Parse(json);
+        Assert.StartsWith("{", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Title_with_script_tag_is_escaped_and_json_stays_valid()
+    {
+        var hostile = "Pwned</script><script>alert(1)</script>";
+
+        var json = StructuredDataBuilder.ForPath("/manabase", $"{BaseUrl}/manabase", BaseUrl, hostile, "Desc.");
+
+        using var _ = JsonDocument.Parse(json);
+        // The default encoder escapes '<' to <, so no literal closing tag survives.
+        Assert.DoesNotContain("</script>", json, StringComparison.OrdinalIgnoreCase);
+    }
 }
