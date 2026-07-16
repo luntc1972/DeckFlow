@@ -1,0 +1,21 @@
+@model DeckFlow.Web.Seo.ShareLinks
+<section class="share-bar" aria-label="Share DeckFlow" data-share-bar>
+    <span class="share-bar__label">Share DeckFlow</span>
+    <div class="share-bar__buttons">
+        <button type="button" class="share-bar__button share-bar__copy"
+                data-share-url="@Model.CanonicalUrl" data-share-text="@Model.ShareText">
+            Copy link
+        </button>
+        <button type="button" class="share-bar__button share-bar__native" hidden
+                data-share-url="@Model.CanonicalUrl" data-share-text="@Model.ShareText"
+                aria-label="Share via your device">
+            Share
+        </button>
+        <a class="share-bar__button share-bar__link" href="@Model.RedditUrl"
+           target="_blank" rel="noopener noreferrer">Reddit</a>
+        <a class="share-bar__button share-bar__link" href="@Model.XUrl"
+           target="_blank" rel="noopener noreferrer">X</a>
+        <a class="share-bar__button share-bar__link" href="@Model.BlueskyUrl"
+           target="_blank" rel="noopener noreferrer">Bluesky</a>
+    </div>
+</section>
