@@ -56,7 +56,7 @@
     <div class="field @(isUrl ? string.Empty : "hidden")" data-sync-panel="bracket-deck-url">
         <label for="bracket-deck-url">Archidekt or Moxfield deck URL</label>
         <input id="bracket-deck-url" type="url" name="DeckUrl" spellcheck="false" autocomplete="off"
-               placeholder="https://moxfield.com/decks/…" value="@Model.Request.DeckUrl" />
+               placeholder="https://moxfield.com/decks/… or https://archidekt.com/decks/…" value="@Model.Request.DeckUrl" />
         @await Html.PartialAsync("_DeckFlowBridgeHint")
     </div>
 
