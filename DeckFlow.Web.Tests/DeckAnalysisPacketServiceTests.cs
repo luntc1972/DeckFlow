@@ -1,5 +1,6 @@
 using System.Net;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using DeckFlow.Core.Bracket;
 using DeckFlow.Core.Integration;
@@ -48,6 +49,61 @@ Commander
         Assert.Contains("Atraxa, Praetors' Voice", result.InputSummary);
         Assert.Equal("Atraxa, Praetors' Voice | AI Deck Analysis", result.SuggestedChatTitle);
         Assert.Contains("\"game_plan\"", result.DeckProfileSchemaJson);
+    }
+
+    [Fact]
+    public async Task BuildAsync_UsesDeckNameForSuggestedTitleAndSummaryTitleLine_WhenPresent()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new DeckAnalysisRequest
+        {
+            DeckName = "  My Brew  ",
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+1 Arcane Signet
+"""
+        });
+
+        Assert.Equal("My Brew | AI Deck Analysis", result.SuggestedChatTitle);
+        Assert.StartsWith("Deck: My Brew\n\n", result.InputSummary.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildSuggestedChatTitle_PrefersDeckNameThenCommanderThenDefault()
+    {
+        Assert.Equal(
+            "Deck Name | AI Deck Analysis",
+            InvokeBuildSuggestedChatTitle(new DeckAnalysisRequest { DeckName = "  Deck Name  " }, "Atraxa, Praetors' Voice"));
+        Assert.Equal(
+            "Atraxa, Praetors' Voice | AI Deck Analysis",
+            InvokeBuildSuggestedChatTitle(new DeckAnalysisRequest { DeckName = "   " }, "  Atraxa, Praetors' Voice "));
+        Assert.Equal(
+            "Commander Deck | AI Deck Analysis",
+            InvokeBuildSuggestedChatTitle(new DeckAnalysisRequest { DeckName = "   " }, "   "));
+    }
+
+    [Fact]
+    public void BuildAnalysisSummaryFromSavedJson_PrependsDeckTitleLine_UsingCommanderFallback()
+    {
+        var withCommander = InvokeBuildAnalysisSummaryFromSavedJson(new DeckAnalysisResponse
+        {
+            Commander = "  Atraxa, Praetors' Voice ",
+            Format = "Commander",
+            GamePlan = "Value",
+            Speed = "Medium"
+        });
+        var withoutCommander = InvokeBuildAnalysisSummaryFromSavedJson(new DeckAnalysisResponse
+        {
+            Commander = "   ",
+            Format = "Commander"
+        });
+
+        Assert.StartsWith("Deck: Atraxa, Praetors' Voice\n\n", withCommander.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
+        Assert.StartsWith("Deck: Commander Deck\n\n", withoutCommander.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -2096,6 +2152,22 @@ Commander
                 result.SuggestedChatTitle,
                 result.ResolvedCommanderName
             }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private static string InvokeBuildSuggestedChatTitle(DeckAnalysisRequest request, string? commanderName)
+    {
+        MethodInfo method = typeof(DeckAnalysisPacketService).GetMethod("BuildSuggestedChatTitle", BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new Xunit.Sdk.XunitException("BuildSuggestedChatTitle not found.");
+
+        return (string)(method.Invoke(null, new object?[] { request, commanderName }) ?? throw new Xunit.Sdk.XunitException("BuildSuggestedChatTitle returned null."));
+    }
+
+    private static string InvokeBuildAnalysisSummaryFromSavedJson(DeckAnalysisResponse response)
+    {
+        MethodInfo method = typeof(DeckAnalysisPacketService).GetMethod("BuildAnalysisSummaryFromSavedJson", BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new Xunit.Sdk.XunitException("BuildAnalysisSummaryFromSavedJson not found.");
+
+        return (string)(method.Invoke(null, new object?[] { response }) ?? throw new Xunit.Sdk.XunitException("BuildAnalysisSummaryFromSavedJson returned null."));
+    }
 
     private static byte[] PacketBytes(DeckAnalysisPacketResult result)
         => Encoding.UTF8.GetBytes(FlattenPacketText(result));

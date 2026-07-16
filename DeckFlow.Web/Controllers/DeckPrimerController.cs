@@ -157,7 +157,9 @@ public sealed class DeckPrimerController : DeckToolControllerBase
                 result.DecklistText,
                 PacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource),
                 IsStaleDetectionEnabled() ? result.DeckMultisetHash : null);
-            var fileName = PacketArtifactStore.SuggestPrimerZipFileName(result.ResolvedCommanderName, request.TargetAiPlatform);
+            var fileName = PacketArtifactStore.SuggestPrimerZipFileName(
+                !string.IsNullOrWhiteSpace(request.DeckName) ? request.DeckName.Trim() : result.ResolvedCommanderName,
+                request.TargetAiPlatform);
             Response.Headers["X-DeckFlow-Filename"] = fileName;
             return File(bytes, "application/zip", fileName);
         }

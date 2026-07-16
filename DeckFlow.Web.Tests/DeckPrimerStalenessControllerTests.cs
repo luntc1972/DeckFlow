@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Text.RegularExpressions;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Controllers;
@@ -46,6 +47,32 @@ public sealed class DeckPrimerStalenessControllerTests
         Assert.Null(uploadModel.ChangedCardCount);
         Assert.DoesNotContain("02-primer-deck-hash.txt", ZipEntryNames(download.FileContents));
         Assert.True(loadCallCount > 0);
+    }
+
+    [Fact]
+    public async Task DeckPrimerDownload_UsesDeckNamePrefix_WhenPresent()
+    {
+        var service = CreateService(EntriesForSource);
+        var controller = CreateController(service, staleFlagEnabled: false);
+        var request = CreateRequest(DeckV1Text);
+        request.DeckName = "  Primer Deck  ";
+
+        var download = Assert.IsType<FileContentResult>(await controller.DeckPrimerDownload(request));
+
+        Assert.Matches(new Regex(@"^primer-deck-primer-chatgpt-\d{8}-\d{6}\.zip$"), download.FileDownloadName);
+    }
+
+    [Fact]
+    public async Task DeckPrimerDownload_UsesCommanderPrefix_WhenDeckNameBlank()
+    {
+        var service = CreateService(EntriesForSource);
+        var controller = CreateController(service, staleFlagEnabled: false);
+        var request = CreateRequest(DeckV1Text);
+        request.DeckName = "   ";
+
+        var download = Assert.IsType<FileContentResult>(await controller.DeckPrimerDownload(request));
+
+        Assert.Matches(new Regex(@"^atraxa--praetors--voice-primer-chatgpt-\d{8}-\d{6}\.zip$"), download.FileDownloadName);
     }
 
     [Fact]

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using DeckFlow.Core.Integration;
 using DeckFlow.Web.Controllers;
@@ -558,6 +559,137 @@ public sealed class DeckPacketControllerTests
         using var stream = new MemoryStream(fileResult.FileContents);
         using var archive = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Read);
         Assert.Contains(archive.Entries, e => string.Equals(e.FullName, "61-wincon-map.json", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task DeckAnalysisDownload_UsesDeckNamePrefix_WhenPresent()
+    {
+        var fakeService = new FakeDeckAnalysisPacketService
+        {
+            Result = new DeckAnalysisPacketResult(
+                "summary",
+                "Deck Title | AI Deck Analysis",
+                "{}",
+                "reference",
+                "analysis prompt text",
+                null,
+                null,
+                null,
+                ResolvedCommanderName: "Atraxa, Praetors' Voice")
+        };
+        var controller = new DeckPacketController(
+            fakeService,
+            new FakeDeckComparisonService(),
+            new StubMetaGapService(),
+            new PacketSessionCache(),
+            NullLogger<DeckPacketController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var file = Assert.IsType<FileContentResult>(await controller.DeckAnalysisDownload(new DeckAnalysisRequest
+        {
+            DeckName = "  My Brew  ",
+            DeckSource = "https://www.moxfield.com/decks/test-analysis-download-name",
+            TargetAiPlatform = "ChatGPT"
+        }));
+
+        Assert.Matches(new Regex(@"^my-brew-analysis-chatgpt-\d{8}-\d{6}\.zip$"), file.FileDownloadName);
+    }
+
+    [Fact]
+    public async Task DeckComparisonDownload_UsesDeckANamePrefix_WhenPresent()
+    {
+        var controller = new DeckPacketController(
+            new StubDeckAnalysisPacketService(),
+            new FakeDeckComparisonService
+            {
+                Result = new DeckComparisonResult(
+                    "summary",
+                    "deck a list",
+                    "deck b list",
+                    "deck a combos",
+                    "deck b combos",
+                    "comparison context",
+                    "comparison prompt",
+                    "comparison follow-up prompt",
+                    "{}",
+                    null,
+                    null,
+                    ResolvedDeckACommander: "Atraxa, Praetors' Voice",
+                    ResolvedDeckBCommander: "Atraxa, Praetors' Voice")
+            },
+            new StubMetaGapService(),
+            new PacketSessionCache(),
+            NullLogger<DeckPacketController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var file = Assert.IsType<FileContentResult>(await controller.DeckComparisonDownload(new DeckComparisonRequest
+        {
+            DeckAName = "  Alpha Deck  ",
+            DeckABracket = "Upgraded",
+            DeckASource = "Commander\n1 Atraxa, Praetors' Voice",
+            DeckBName = "Beta Deck",
+            DeckBBracket = "Upgraded",
+            DeckBSource = "Commander\n1 Atraxa, Praetors' Voice",
+            TargetAiPlatform = "ChatGPT"
+        }));
+
+        Assert.Matches(new Regex(@"^alpha-deck-comparison-chatgpt-\d{8}-\d{6}\.zip$"), file.FileDownloadName);
+    }
+
+    [Fact]
+    public async Task DeckComparisonDownload_UsesDeckBNamePrefix_WhenDeckANameBlank()
+    {
+        var controller = new DeckPacketController(
+            new StubDeckAnalysisPacketService(),
+            new FakeDeckComparisonService
+            {
+                Result = new DeckComparisonResult(
+                    "summary",
+                    "deck a list",
+                    "deck b list",
+                    "deck a combos",
+                    "deck b combos",
+                    "comparison context",
+                    "comparison prompt",
+                    "comparison follow-up prompt",
+                    "{}",
+                    null,
+                    null,
+                    ResolvedDeckACommander: "Atraxa, Praetors' Voice",
+                    ResolvedDeckBCommander: "Atraxa, Praetors' Voice")
+            },
+            new StubMetaGapService(),
+            new PacketSessionCache(),
+            NullLogger<DeckPacketController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var file = Assert.IsType<FileContentResult>(await controller.DeckComparisonDownload(new DeckComparisonRequest
+        {
+            DeckAName = "   ",
+            DeckABracket = "Upgraded",
+            DeckASource = "Commander\n1 Atraxa, Praetors' Voice",
+            DeckBName = "  Beta Deck  ",
+            DeckBBracket = "Upgraded",
+            DeckBSource = "Commander\n1 Atraxa, Praetors' Voice",
+            TargetAiPlatform = "ChatGPT"
+        }));
+
+        Assert.Matches(new Regex(@"^beta-deck-comparison-chatgpt-\d{8}-\d{6}\.zip$"), file.FileDownloadName);
     }
 
     /// <summary>

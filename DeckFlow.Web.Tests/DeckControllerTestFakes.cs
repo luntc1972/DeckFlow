@@ -46,31 +46,33 @@ internal sealed class StubDeckPrimerPacketService : IDeckPrimerPacketService
 
 internal sealed class FakeDeckComparisonService : IDeckComparisonService
 {
+    public DeckComparisonResult Result { get; set; } = new(
+        "comparison summary",
+        "deck a list",
+        "deck b list",
+        "deck a combos",
+        "deck b combos",
+        "comparison context",
+        "comparison prompt",
+        "comparison follow-up prompt",
+        "{}",
+        new DeckComparisonResponse
+        {
+            DeckAName = "Deck A",
+            DeckBName = "Deck B",
+            DeckACommander = "Atraxa, Praetors' Voice",
+            DeckBCommander = "Tymna the Weaver",
+            DeckAGameplan = "Snowball permanents.",
+            DeckBGameplan = "Interactive value.",
+            DeckABracket = "Bracket 3: Upgraded",
+            DeckBBracket = "Bracket 4: Optimized",
+            ManaConsistencyComparison = "Deck B is smoother.",
+            ComboComparison = "Deck A has the cleaner combo finish."
+        },
+        null);
+
     public Task<DeckComparisonResult> BuildAsync(DeckComparisonRequest request, CancellationToken cancellationToken = default)
-        => Task.FromResult(new DeckComparisonResult(
-            "comparison summary",
-            "deck a list",
-            "deck b list",
-            "deck a combos",
-            "deck b combos",
-            "comparison context",
-            "comparison prompt",
-            "comparison follow-up prompt",
-            "{}",
-            new DeckComparisonResponse
-            {
-                DeckAName = "Deck A",
-                DeckBName = "Deck B",
-                DeckACommander = "Atraxa, Praetors' Voice",
-                DeckBCommander = "Tymna the Weaver",
-                DeckAGameplan = "Snowball permanents.",
-                DeckBGameplan = "Interactive value.",
-                DeckABracket = "Bracket 3: Upgraded",
-                DeckBBracket = "Bracket 4: Optimized",
-                ManaConsistencyComparison = "Deck B is smoother.",
-                ComboComparison = "Deck A has the cleaner combo finish."
-            },
-            null));
+        => Task.FromResult(Result);
 
     public Task<string?> TryComputeCacheKeyAsync(DeckComparisonRequest request, CancellationToken cancellationToken)
         => Task.FromResult<string?>(null);

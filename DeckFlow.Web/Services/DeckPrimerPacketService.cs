@@ -666,6 +666,8 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
             .Where(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
             .Sum(entry => entry.Quantity);
         var builder = new StringBuilder();
+        builder.AppendLine($"Deck: {ResolveDisplayName(request.DeckName, commanderName, "Commander Deck")}");
+        builder.AppendLine();
         builder.AppendLine($"Format: {NormalizeSingleLine(request.Format, "Commander")}");
         builder.AppendLine($"Commander: {commanderName}");
         builder.AppendLine($"Main deck cards: {mainDeckCards}");
@@ -680,16 +682,22 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
         return builder.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// Suggests a conversation title derived from the deck name (falling back to commander).
+    /// </summary>
     private static string BuildSuggestedChatTitle(DeckPrimerRequest request, string commanderName)
     {
-        var primaryName = !string.IsNullOrWhiteSpace(commanderName)
-            ? commanderName.Trim()
-            : !string.IsNullOrWhiteSpace(request.DeckName)
-                ? request.DeckName.Trim()
-                : "Commander Deck";
+        var primaryName = ResolveDisplayName(request.DeckName, commanderName, "Commander Deck");
 
         return $"{primaryName} | Deck Primer";
     }
+
+    private static string ResolveDisplayName(string? deckName, string? commanderName, string fallback)
+        => !string.IsNullOrWhiteSpace(deckName)
+            ? deckName.Trim()
+            : !string.IsNullOrWhiteSpace(commanderName)
+                ? commanderName.Trim()
+                : fallback;
 
     private static string BuildRequestContextText(DeckPrimerRequest request, string commanderName, IReadOnlyList<string> selectedSectionIds)
     {

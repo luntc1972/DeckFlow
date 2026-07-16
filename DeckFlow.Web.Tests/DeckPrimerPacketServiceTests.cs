@@ -3,6 +3,7 @@ using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.PromptBuilders.Primer;
+using System.Reflection;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
@@ -55,6 +56,33 @@ public sealed class DeckPrimerPacketServiceTests
 
         var prompt = result.PromptTextsByPlatform["ChatGPT"];
         Assert.Contains("No verified combos available — treat all synergies as speculative.", prompt);
+    }
+
+    [Fact]
+    public async Task BuildAsync_UsesDeckNameForSuggestedTitleAndSummaryTitleLine_WhenPresent()
+    {
+        var service = CreateService();
+        var request = CreateRequest("Upgraded");
+        request.DeckName = "  Primer Deck  ";
+
+        var result = await service.BuildAsync(request);
+
+        Assert.Equal("Primer Deck | Deck Primer", result.SuggestedChatTitle);
+        Assert.StartsWith("Deck: Primer Deck\n\n", result.InputSummary.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildSuggestedChatTitle_PrefersDeckNameThenCommanderThenDefault()
+    {
+        Assert.Equal(
+            "Deck Name | Deck Primer",
+            InvokeBuildSuggestedChatTitle(new DeckPrimerRequest { DeckName = "  Deck Name  " }, "Atraxa, Praetors' Voice"));
+        Assert.Equal(
+            "Atraxa, Praetors' Voice | Deck Primer",
+            InvokeBuildSuggestedChatTitle(new DeckPrimerRequest { DeckName = "   " }, "  Atraxa, Praetors' Voice "));
+        Assert.Equal(
+            "Commander Deck | Deck Primer",
+            InvokeBuildSuggestedChatTitle(new DeckPrimerRequest { DeckName = "   " }, "   "));
     }
 
     [Fact]
@@ -400,6 +428,14 @@ public sealed class DeckPrimerPacketServiceTests
         }
 
         return count;
+    }
+
+    private static string InvokeBuildSuggestedChatTitle(DeckPrimerRequest request, string commanderName)
+    {
+        MethodInfo method = typeof(DeckPrimerPacketService).GetMethod("BuildSuggestedChatTitle", BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new Xunit.Sdk.XunitException("BuildSuggestedChatTitle not found.");
+
+        return (string)(method.Invoke(null, new object?[] { request, commanderName }) ?? throw new Xunit.Sdk.XunitException("BuildSuggestedChatTitle returned null."));
     }
 
     private sealed class TestPrimerPromptVariant : IPrimerPromptVariant

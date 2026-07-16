@@ -295,10 +295,13 @@ public sealed class MetaGapServiceTests
 
         Assert.Equal("Kinnan, Bonder Prodigy", result.ResolvedCommanderName);
         Assert.Equal(new[] { "Later Pilot", "Earlier Pilot" }, result.FetchedEntries.Select(entry => entry.PlayerName));
+        Assert.NotNull(result.InputSummary);
+        Assert.StartsWith("Deck: Kinnan, Bonder Prodigy\n\n", result.InputSummary.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
         Assert.Contains("Commander: Kinnan, Bonder Prodigy", result.InputSummary);
         Assert.Contains("Fetched EDH Top 16 entries: 2", result.InputSummary);
         // Why: AppendLine emits "\r\n" under Windows dotnet.exe; strip "\r" so the embedded
         // "\n\n" in ChatGptImmediateHeader matches on both Windows and CI (same as line ~631).
+        Assert.NotNull(result.PromptText);
         Assert.Contains(ChatGptImmediateHeader + "Title this chat: Kinnan, Bonder Prodigy | cEDH Meta Gap", result.PromptText.Replace("\r", string.Empty));
         Assert.Contains("ROLE:", result.PromptText);
         Assert.Contains("EVIDENCE PRIORITY:", result.PromptText);

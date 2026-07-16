@@ -75,6 +75,39 @@ Deck
     }
 
     [Fact]
+    public async Task BuildAsync_InputSummaryHeading_FallsBackToCommanderWhenDeckNameBlank()
+    {
+        var service = CreateService();
+
+        var result = await service.BuildAsync(new DeckComparisonRequest
+        {
+            WorkflowStep = 2,
+            DeckAName = "   ",
+            DeckABracket = "Upgraded",
+            DeckASource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+Deck
+1 Sol Ring
+1 Arcane Signet
+""",
+            DeckBName = "Deck B Label",
+            DeckBBracket = "Optimized",
+            DeckBSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+Deck
+1 Sol Ring
+1 Counterspell
+"""
+        });
+
+        Assert.StartsWith("Atraxa, Praetors' Voice\nCommander: Atraxa, Praetors' Voice", result.InputSummary.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task BuildAsync_ThrowsValidationError_WhenDeckAMissing()
     {
         var service = CreateService();
