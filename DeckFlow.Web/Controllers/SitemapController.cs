@@ -1,4 +1,5 @@
 using System.Xml.Linq;
+using DeckFlow.Web.Seo;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DeckFlow.Web.Controllers;
@@ -8,26 +9,6 @@ namespace DeckFlow.Web.Controllers;
 /// </summary>
 public sealed class SitemapController : Controller
 {
-    private static readonly string[] IndexablePaths =
-    {
-        "/",
-        "/sync",
-        "/convert",
-        "/card-lookup",
-        "/mechanic-lookup",
-        "/deck-analysis",
-        "/deck-comparison",
-        "/cedh-meta-gap",
-        "/deck-primer",
-        "/suggest-categories",
-        "/commander-categories",
-        "/judge-questions",
-        "/content-kb",
-        "/help",
-        "/about",
-        "/feedback",
-    };
-
     /// <summary>
     /// Returns the robots.txt crawl directives for the public site.
     /// </summary>
@@ -58,7 +39,7 @@ public sealed class SitemapController : Controller
         var document = new XDocument(
             new XElement(
                 ns + "urlset",
-                IndexablePaths.Select(path => new XElement(
+                SeoPaths.Indexable.Select(path => new XElement(
                     ns + "url",
                     new XElement(ns + "loc", BuildAbsoluteUrl(baseUrl, path))))));
 
