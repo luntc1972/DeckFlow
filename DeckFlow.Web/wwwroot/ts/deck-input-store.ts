@@ -194,44 +194,9 @@
     return true;
   };
 
-  const attachCombinedField = (): void => {
-    const combinedInput = document.querySelector<HTMLTextAreaElement>('textarea[name="DeckSource"]');
-    if (!combinedInput) {
-      return;
-    }
-
-    const stored = getLastDeck();
-    if (stored && combinedInput.value.trim() === '') {
-      const restoredValue = stored.inputSource === 'PublicUrl'
-        ? (stored.deckUrl || stored.deckText)
-        : (stored.deckText || stored.deckUrl);
-      if (restoredValue.trim() !== '') {
-        combinedInput.value = restoredValue;
-        const noticeAnchor = combinedInput.closest('.field') as HTMLElement | null;
-        insertRestoredNotice(noticeAnchor, () => {
-          combinedInput.value = '';
-          dispatchInputEvent(combinedInput);
-        });
-      }
-    }
-
-    combinedInput.addEventListener('input', () => {
-      const value = combinedInput.value;
-      const isUrl = /^https?:\/\//i.test(value.trim());
-
-      setLastDeck(isUrl
-        ? { inputSource: 'PublicUrl', deckUrl: value, deckText: '' }
-        : { inputSource: 'PasteText', deckUrl: '', deckText: value });
-    });
-  };
-
   const bootstrapDeckInputStore = (): void => {
     // Why: this script must load before deck-sync.js so deck-sync sees the restored input mode on init.
-    if (attachSplitFields()) {
-      return;
-    }
-
-    attachCombinedField();
+    attachSplitFields();
   };
 
   const win = window as DeckFlowWindow;

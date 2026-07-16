@@ -48,8 +48,10 @@ async function generateComparison(page: Page): Promise<boolean> {
   const response = await page.goto('/deck-comparison');
   expect(response?.ok()).toBeTruthy();
 
-  await page.locator('textarea[name="DeckASource"]').fill(winotaDeck);
-  await page.locator('textarea[name="DeckBSource"]').fill(winotaDeckVariant);
+  await page.locator('select[name="DeckAInputSource"]').selectOption('PasteText');
+  await page.locator('textarea[name="DeckAText"]').fill(winotaDeck);
+  await page.locator('select[name="DeckBInputSource"]').selectOption('PasteText');
+  await page.locator('textarea[name="DeckBText"]').fill(winotaDeckVariant);
   await page.locator('select[name="DeckABracket"]').selectOption('cEDH');
   await page.locator('select[name="DeckBBracket"]').selectOption('cEDH');
   await page.getByRole('button', { name: 'Next: Generate Packet' }).click();

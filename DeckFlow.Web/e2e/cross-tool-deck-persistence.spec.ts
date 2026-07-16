@@ -4,7 +4,6 @@ const THEME_STORAGE_KEY = 'deckflow-theme';
 const representativeThemes = ['site.css', 'site-azorius.css', 'site-nyx.css'] as const;
 const pastedDeck = '1 Sol Ring\n1 Arcane Signet';
 const urlDeck = 'https://moxfield.com/decks/abc123';
-const combinedUrlDeck = 'https://moxfield.com/decks/xyz';
 const storeValueDeck = 'STORE VALUE DECK';
 const postedDeck = 'POSTED DECK';
 
@@ -100,16 +99,6 @@ test('fresh browser contexts do not inherit another tab session deck', async ({ 
   await page.goto('/manabase');
   await expect(page.locator('textarea[name="DeckText"]')).toHaveValue('');
   await expect(page.locator('input[name="DeckUrl"]')).toHaveValue('');
-});
-
-test('combined deck source restores into split fields using the url heuristic', async ({ page }) => {
-  await page.goto('/cedh-meta-gap');
-  await page.locator('textarea[name="DeckSource"]').fill(combinedUrlDeck);
-
-  await page.goto('/deck-analysis');
-  await expect(page.locator('select[name="DeckInputSource"]')).toHaveValue('PublicUrl');
-  await expect(page.locator('input[name="DeckUrl"]')).toHaveValue(combinedUrlDeck);
-  await expect(page.locator('textarea[name="DeckText"]')).toHaveValue('');
 });
 
 test('start over clears the carried deck store', async ({ page }) => {
