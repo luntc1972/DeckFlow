@@ -157,6 +157,24 @@ public static class StructuredDataBuilder
         },
     };
 
-    private static Dictionary<string, object?> HelpArticleGraph(string canonicalUrl, string baseUrl, string name, string description) =>
-        WebSiteNode();
+    private static Dictionary<string, object?> HelpArticleGraph(string canonicalUrl, string baseUrl, string name, string description) => new()
+    {
+        ["@context"] = SchemaContext,
+        ["@graph"] = new object[]
+        {
+            new Dictionary<string, object?>
+            {
+                ["@type"] = "TechArticle",
+                ["headline"] = name,
+                ["description"] = description,
+                ["url"] = canonicalUrl,
+            },
+            Breadcrumb(new[]
+            {
+                ("Home", $"{baseUrl}/"),
+                ("Help", $"{baseUrl}/help"),
+                (name, canonicalUrl),
+            }),
+        },
+    };
 }
