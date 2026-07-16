@@ -74,6 +74,18 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     }
 
     /// <summary>
+    /// Gets cached per-category deck counts for a given card from the repository.
+    /// </summary>
+    /// <param name="cardName">Card name to resolve.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task<IReadOnlyDictionary<string, int>> GetCategoryDeckCountsAsync(string cardName, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
+        await EnsureSchemaReadyAsync(cancellationToken);
+        return await _repository.GetCategoryDeckCountsAsync(cardName, cancellationToken);
+    }
+
+    /// <summary>
     /// Gets cached categories for many cards from the repository in a single query.
     /// </summary>
     /// <param name="cardNames">Card names to resolve.</param>

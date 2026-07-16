@@ -317,6 +317,30 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetCategoryDeckCountsAsync_ReturnsCanonicalizedCountsAtCardDeckTotalsGrain()
+    {
+        var repository = CreateRepository();
+
+        await repository.PersistObservedCategoriesAsync("archidekt_live:deck-1", "Sol Ring", new[] { "Card Draw" }, board: "mainboard", deckCountIncrement: 3);
+        await repository.PersistObservedCategoriesAsync("archidekt_live:deck-1", "Sol Ring", new[] { "Ramp" }, board: "mainboard", deckCountIncrement: 2);
+        await repository.PersistCardDeckTotalsAsync("archidekt_live:deck-1", "Sol Ring", board: "mainboard", deckCountIncrement: 5);
+        await repository.PersistObservedCategoriesAsync("archidekt_live:deck-2", "Sol Ring", new[] { "Draw" }, board: "sideboard", deckCountIncrement: 2);
+        await repository.PersistCardDeckTotalsAsync("archidekt_live:deck-2", "Sol Ring", board: "sideboard", deckCountIncrement: 2);
+        await repository.PersistObservedCategoriesAsync("archidekt_live:deck-3", "Sol Ring", new[] { "Draw" }, board: "mainboard", deckCountIncrement: 99);
+        await repository.PersistObservedCategoriesAsync("archidekt_live:deck-4", "Sol Ring", new[] { "Artifact" }, board: "mainboard", deckCountIncrement: 1);
+        await repository.PersistCardDeckTotalsAsync("archidekt_live:deck-4", "Sol Ring", board: "mainboard", deckCountIncrement: 1);
+
+        var counts = await repository.GetCategoryDeckCountsAsync("Sol Ring");
+        var totals = await repository.GetCardDeckTotalsAsync("Sol Ring");
+
+        Assert.Equal(5, counts["draw"]);
+        Assert.Equal(2, counts["ramp"]);
+        Assert.DoesNotContain("artifact", counts.Keys);
+        Assert.True(counts.Values.All(count => count <= totals.TotalDeckCount));
+        Assert.Equal(8, totals.TotalDeckCount);
+    }
+
+    [Fact]
     public async Task EnsureSchemaAsync_CreatesDeckQueueIndexes()
     {
         var repository = CreateRepository();

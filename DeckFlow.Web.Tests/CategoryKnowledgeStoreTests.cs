@@ -91,6 +91,25 @@ public sealed class CategoryKnowledgeStoreTests
     [InlineData(null, typeof(ArgumentNullException))]
     [InlineData("", typeof(ArgumentException))]
     [InlineData("   ", typeof(ArgumentException))]
+    public async Task GetCategoryDeckCountsAsync_ThrowsForBlankCardName(string? cardName, Type expectedExceptionType)
+    {
+        var store = CreateStore();
+
+        if (expectedExceptionType == typeof(ArgumentNullException))
+        {
+            var nullException = await Assert.ThrowsAsync<ArgumentNullException>(() => store.GetCategoryDeckCountsAsync(cardName!));
+            Assert.Equal("cardName", nullException.ParamName);
+            return;
+        }
+
+        var valueException = await Assert.ThrowsAsync<ArgumentException>(() => store.GetCategoryDeckCountsAsync(cardName!));
+        Assert.Equal("cardName", valueException.ParamName);
+    }
+
+    [Theory]
+    [InlineData(null, typeof(ArgumentNullException))]
+    [InlineData("", typeof(ArgumentException))]
+    [InlineData("   ", typeof(ArgumentException))]
     public async Task GetCategoryRowsAsync_ThrowsForBlankCardName(string? cardName, Type expectedExceptionType)
     {
         var store = CreateStore();
@@ -244,6 +263,20 @@ public sealed class CategoryKnowledgeStoreTests
         Assert.Equal(7, row.DeckCount);
         Assert.Equal(3, fake.LastPagedCommanderPage);
         Assert.Equal(25, fake.LastPagedCommanderPageSize);
+    }
+
+    [Fact]
+    public async Task FakeCategoryKnowledgeStore_ReturnsConfiguredCategoryDeckCounts()
+    {
+        var fake = new FakeCategoryKnowledgeStore();
+        fake.CategoryDeckCountsByName["Sol Ring"] = new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["draw"] = 12
+        };
+
+        var counts = await fake.GetCategoryDeckCountsAsync("Sol Ring");
+
+        Assert.Equal(12, counts["draw"]);
     }
 
     [Theory]

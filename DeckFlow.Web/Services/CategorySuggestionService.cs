@@ -32,6 +32,7 @@ public sealed record CategorySuggestionResult(
     IReadOnlyList<string> InferredCategories,
     IReadOnlyList<string> EdhrecCategories,
     IReadOnlyList<string> TaggerCategories,
+    IReadOnlyDictionary<string, int> CategoryDeckCounts,
     CardDeckTotals CardDeckTotals,
     IReadOnlyList<string> UsedSources,
     bool NothingFound)
@@ -47,6 +48,7 @@ public sealed record CategorySuggestionResult(
         Array.Empty<string>(),
         Array.Empty<string>(),
         Array.Empty<string>(),
+        new Dictionary<string, int>(StringComparer.Ordinal),
         CardDeckTotals.Empty,
         Array.Empty<string>(),
         true);
@@ -114,6 +116,10 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
             ? await _knowledgeStore.GetCategoriesAsync(cardName, cancellationToken)
             : Array.Empty<string>();
 
+        var categoryDeckCounts = runCachedPath
+            ? await _knowledgeStore.GetCategoryDeckCountsAsync(cardName, cancellationToken)
+            : new Dictionary<string, int>(StringComparer.Ordinal);
+
         var cardTotals = runCachedPath
             ? await _knowledgeStore.GetCardDeckTotalsAsync(cardName, cancellationToken: cancellationToken)
             : CardDeckTotals.Empty;
@@ -156,6 +162,7 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
             inferredCategories,
             edhrecCategories,
             taggerCategories,
+            categoryDeckCounts,
             cardTotals,
             usedSources,
             nothingFound);

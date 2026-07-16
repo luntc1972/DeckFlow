@@ -29,8 +29,12 @@ public sealed class CategorySuggestionServiceTests
         {
             ["mainboard"] = 1
         });
+        var categoryDeckCounts = new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["ramp"] = 1
+        };
 
-        var store = new FakeKnowledgeStore(new[] { new[] { "Ramp" } }, processedDeckCount: 3, totals);
+        var store = new FakeKnowledgeStore(new[] { new[] { "Ramp" } }, processedDeckCount: 3, totals, categoryDeckCounts);
         var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), new FakeTaggerService());
 
         var request = new CategorySuggestionRequest
@@ -45,6 +49,7 @@ public sealed class CategorySuggestionServiceTests
         Assert.Contains("Ramp", result.InferredCategories);
         Assert.Equal(0, store.RunCacheSweepCalls);
         Assert.Equal(1, result.CardDeckTotals.TotalDeckCount);
+        Assert.Equal(1, result.CategoryDeckCounts["ramp"]);
     }
 
     [Fact]
@@ -155,13 +160,20 @@ public sealed class CategorySuggestionServiceTests
         public Exception? RunCacheSweepException { get; init; }
         private IReadOnlyList<string> _current = Array.Empty<string>();
 
-        public FakeKnowledgeStore(IEnumerable<IReadOnlyList<string>> responses, int processedDeckCount, CardDeckTotals totals)
+        public FakeKnowledgeStore(
+            IEnumerable<IReadOnlyList<string>> responses,
+            int processedDeckCount,
+            CardDeckTotals totals,
+            IReadOnlyDictionary<string, int>? categoryDeckCounts = null)
         {
             _responses = new Queue<IReadOnlyList<string>>(responses);
             ProcessedDeckCount = processedDeckCount;
             _totals = totals;
+            CategoryDeckCounts = categoryDeckCounts ?? new Dictionary<string, int>(StringComparer.Ordinal);
             _current = _responses.Count > 0 ? _responses.Dequeue() : Array.Empty<string>();
         }
+
+        public IReadOnlyDictionary<string, int> CategoryDeckCounts { get; }
 
         public Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<CategoryKnowledgeRow>>(Array.Empty<CategoryKnowledgeRow>());
@@ -184,6 +196,9 @@ public sealed class CategorySuggestionServiceTests
 
         public Task<IReadOnlyList<string>> GetCategoriesAsync(string cardName, CancellationToken cancellationToken = default)
             => Task.FromResult(_current);
+
+        public Task<IReadOnlyDictionary<string, int>> GetCategoryDeckCountsAsync(string cardName, CancellationToken cancellationToken = default)
+            => Task.FromResult(CategoryDeckCounts);
 
         public Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(IReadOnlyCollection<string> cardNames, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<string>>>(new Dictionary<string, IReadOnlyList<string>>());

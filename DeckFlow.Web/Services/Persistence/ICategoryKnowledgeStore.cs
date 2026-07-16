@@ -43,6 +43,12 @@ public interface ICategoryKnowledgeStore
     /// <param name="cancellationToken">Token used to cancel the query.</param>
     Task<IReadOnlyList<string>> GetCategoriesAsync(string cardName, CancellationToken cancellationToken = default);
     /// <summary>
+    /// Returns cached per-category deck counts for a card, keyed by canonical category label.
+    /// </summary>
+    /// <param name="cardName">Card name to query.</param>
+    /// <param name="cancellationToken">Token used to cancel the query.</param>
+    Task<IReadOnlyDictionary<string, int>> GetCategoryDeckCountsAsync(string cardName, CancellationToken cancellationToken = default);
+    /// <summary>
     /// Returns cached category names for many cards in a single round-trip. Prefer this over calling
     /// <see cref="GetCategoriesAsync"/> in a loop: a per-card loop over a full decklist issues one
     /// database query per card, which can exhaust a request timeout on a large deck. The result is

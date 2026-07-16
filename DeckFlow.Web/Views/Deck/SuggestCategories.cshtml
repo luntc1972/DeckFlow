@@ -7,6 +7,7 @@
         && (!string.IsNullOrWhiteSpace(Model.SuggestionRequest.ArchidektUrl) || !string.IsNullOrWhiteSpace(Model.SuggestionRequest.ArchidektText));
     var cardSpecified = !string.IsNullOrWhiteSpace(Model.SuggestionRequest.CardName);
     var hasMerged = !string.IsNullOrWhiteSpace(Model.MergedCategoriesText);
+    var hasWeightedCategories = Model.WeightedCategories.Count > 0;
     ViewData["Title"] = "MTG Deck Category & Tag Suggestions";
     ViewData["Description"] = "Get suggested categories and tags for every card in your Commander deck, drawn from DeckFlow's category knowledge base of public deck data. Speeds up Archidekt deck organization.";
 }
@@ -135,6 +136,30 @@
             </div>
             <button type="button" class="copy-button" data-copy-target="merged-categories-output">Copy</button>
         </div>
+        @if (hasWeightedCategories)
+        {
+            <table class="conflicts-table" aria-label="Weighted category suggestions">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Decks</th>
+                        <th>%</th>
+                        <th title="Sources that agreed / sources that contributed" aria-label="Sources that agreed / sources that contributed">Sources</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.WeightedCategories)
+                    {
+                        <tr>
+                            <td>@row.Category</td>
+                            <td>@(row.DeckCount?.ToString() ?? "—")</td>
+                            <td>@(row.Percent?.ToString() ?? "—")</td>
+                            <td>@row.SourceCount/@row.SourceTotal</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
         <textarea autocomplete="off" id="merged-categories-output" data-api-field="merged-text" readonly spellcheck="false">@Model.MergedCategoriesText</textarea>
     </section>
 </section>
