@@ -10,6 +10,15 @@ const DeckInputSource = {
   PublicUrl: 'PublicUrl',
 } as const;
 
+// Resolves the effective deck value from split URL/text inputs, mirroring the server-side
+// DeckInputReconciler: prefer the selected mode, then fall back to the other field if blank.
+const resolveSplitDeckValue = (form: HTMLFormElement, prefix: string): string => {
+  const source = form.querySelector<HTMLSelectElement>(`select[name="${prefix}InputSource"]`)?.value;
+  const url = form.querySelector<HTMLInputElement>(`input[name="${prefix}Url"]`)?.value.trim() ?? '';
+  const text = form.querySelector<HTMLTextAreaElement>(`textarea[name="${prefix}Text"]`)?.value.trim() ?? '';
+  return source === DeckInputSource.PublicUrl ? (url || text) : (text || url);
+};
+
 type DeckInputSourceValue = (typeof DeckInputSource)[keyof typeof DeckInputSource];
 
 type PanelConfig = {
@@ -1727,8 +1736,8 @@ const scrollPromptComparisonResults = (form: HTMLFormElement): void => {
 };
 
 const validatePromptComparisonStep = (form: HTMLFormElement, step: number): string | null => {
-  const deckASource = form.querySelector<HTMLTextAreaElement>('textarea[name="DeckASource"]')?.value.trim() ?? '';
-  const deckBSource = form.querySelector<HTMLTextAreaElement>('textarea[name="DeckBSource"]')?.value.trim() ?? '';
+  const deckASource = resolveSplitDeckValue(form, 'DeckA');
+  const deckBSource = resolveSplitDeckValue(form, 'DeckB');
   const deckABracket = form.querySelector<HTMLSelectElement>('select[name="DeckABracket"]')?.value.trim() ?? '';
   const deckBBracket = form.querySelector<HTMLSelectElement>('select[name="DeckBBracket"]')?.value.trim() ?? '';
   const comparisonResponseJson = form.querySelector<HTMLTextAreaElement>('textarea[name="ComparisonResponseJson"]')?.value.trim() ?? '';
@@ -1885,7 +1894,7 @@ const scrollPromptCedhResults = (form: HTMLFormElement): void => {
 
 const validatePromptCedhStep = (form: HTMLFormElement, step: number): string | null => {
   if (step === 1) {
-    const deckSource = form.querySelector<HTMLTextAreaElement>('textarea[name="DeckSource"]')?.value.trim() ?? '';
+    const deckSource = resolveSplitDeckValue(form, 'Deck');
     if (!deckSource) {
       return 'Paste your deck URL or deck text before fetching EDH Top 16 reference decks.';
     }

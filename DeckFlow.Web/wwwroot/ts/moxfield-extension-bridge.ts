@@ -248,13 +248,25 @@ const collectMoxfieldImportTasks = (form: HTMLFormElement): MoxfieldImportTask[]
 
   if (cacheKey === 'prompt-deck-comparison') {
     return [
-      createTextareaImportTask(form.querySelector<HTMLTextAreaElement>('textarea[name="DeckASource"]')!),
-      createTextareaImportTask(form.querySelector<HTMLTextAreaElement>('textarea[name="DeckBSource"]')!)
+      createSelectBackedImportTask(
+        form.querySelector<HTMLInputElement>('input[name="DeckAUrl"]')!,
+        form.querySelector<HTMLTextAreaElement>('textarea[name="DeckAText"]')!,
+        form.querySelector<HTMLSelectElement>('select[name="DeckAInputSource"]')!
+      ),
+      createSelectBackedImportTask(
+        form.querySelector<HTMLInputElement>('input[name="DeckBUrl"]')!,
+        form.querySelector<HTMLTextAreaElement>('textarea[name="DeckBText"]')!,
+        form.querySelector<HTMLSelectElement>('select[name="DeckBInputSource"]')!
+      )
     ].filter((task): task is MoxfieldImportTask => task !== null);
   }
 
   if (cacheKey === 'prompt-cedh-meta-gap') {
-    const task = createTextareaImportTask(form.querySelector<HTMLTextAreaElement>('textarea[name="DeckSource"]')!);
+    const task = createSelectBackedImportTask(
+      form.querySelector<HTMLInputElement>('input[name="DeckUrl"]')!,
+      form.querySelector<HTMLTextAreaElement>('textarea[name="DeckText"]')!,
+      form.querySelector<HTMLSelectElement>('select[name="DeckInputSource"]')!
+    );
     return task ? [task] : [];
   }
 
