@@ -35,7 +35,7 @@ public static class CategoryFilter
 
     /// <summary>Returns whether <paramref name="category"/> is syntactic junk rather than a useful strategy label.</summary>
     /// <param name="category">Category label to evaluate.</param>
-    /// <returns><see langword="true"/> when the category is null, blank, or matches the junk heuristics.</returns>
+    /// <returns><see langword="true"/> when the category is null, blank, contains digits or sentence punctuation, has five or more words, contains non-ASCII text, or otherwise matches the junk heuristics.</returns>
     public static bool IsJunk(string? category)
     {
         if (string.IsNullOrWhiteSpace(category))
@@ -44,12 +44,22 @@ public static class CategoryFilter
         }
 
         var trimmed = category.Trim();
-        if (char.IsAsciiDigit(trimmed[0]) || trimmed.Length <= 1 || trimmed.Length > 40)
+        if (trimmed.Any(char.IsAsciiDigit) || trimmed.Length <= 1 || trimmed.Length > 40)
         {
             return true;
         }
 
-        if (trimmed.Contains('?') || trimmed.Contains('!') || trimmed.Contains("...", StringComparison.Ordinal))
+        if (trimmed.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length >= 5)
+        {
+            return true;
+        }
+
+        if (trimmed.Contains('?') ||
+            trimmed.Contains('!') ||
+            trimmed.Contains("...", StringComparison.Ordinal) ||
+            trimmed.Contains(',') ||
+            trimmed.Contains(';') ||
+            trimmed.EndsWith(".", StringComparison.Ordinal))
         {
             return true;
         }

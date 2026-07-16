@@ -7,8 +7,14 @@ public sealed class CategoryFilterTests
     [Theory]
     [InlineData("3")]
     [InlineData("01")]
+    [InlineData("3-Drop")]
+    [InlineData("Turn 1")]
     [InlineData("x")]
+    [InlineData("cards that also draw more cards")]
     [InlineData("This category label is definitely longer than forty chars")]
+    [InlineData("Ramp, Fixing")]
+    [InlineData("Card Draw; Advantage")]
+    [InlineData("Board Wipe.")]
     [InlineData("Reanimate!")]
     [InlineData("WTF?")]
     [InlineData("Value...")]
@@ -17,6 +23,18 @@ public sealed class CategoryFilterTests
     public void IsJunk_JunkCategory_ReturnsTrue(string category)
     {
         Assert.True(CategoryFilter.IsJunk(category));
+    }
+
+    [Theory]
+    [InlineData("Draw Two Or More")]
+    [InlineData("Board Wipe")]
+    [InlineData("Card Advantage")]
+    [InlineData("Extra Combat Step")]
+    [InlineData("Aristocrat's Payoff")]
+    [InlineData("Enters-The-Battlefield")]
+    public void IsJunk_UsefulCategory_ReturnsFalse(string category)
+    {
+        Assert.False(CategoryFilter.IsJunk(category));
     }
 
     [Theory]

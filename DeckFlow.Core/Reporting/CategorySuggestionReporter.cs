@@ -52,6 +52,7 @@ public static class CategorySuggestionReporter
 
         return merged.Values
             .OrderByDescending(entry => entry.SourceCount)
+            .ThenByDescending(entry => entry.Authority)
             .ThenBy(entry => entry.DisplayLabel, StringComparer.OrdinalIgnoreCase)
             .Select(entry => entry.DisplayLabel)
             .ToList();
@@ -113,6 +114,7 @@ public static class CategorySuggestionReporter
             }
 
             entry.SourceCount++;
+            entry.Authority = Math.Max(entry.Authority, GetAuthority(source));
             if (source == SourceKind.Tagger)
             {
                 entry.DisplayLabel = category.DisplayLabel;
@@ -120,6 +122,15 @@ public static class CategorySuggestionReporter
             }
         }
     }
+
+    private static int GetAuthority(SourceKind source) => source switch
+    {
+        SourceKind.Tagger => 3,
+        SourceKind.Exact => 3,
+        SourceKind.Inferred => 2,
+        SourceKind.Edhrec => 1,
+        _ => 0,
+    };
 
     private enum SourceKind
     {
@@ -136,6 +147,7 @@ public static class CategorySuggestionReporter
             DisplayLabel = displayLabel;
             PreferredSource = preferredSource;
             SourceCount = 1;
+            Authority = GetAuthority(preferredSource);
         }
 
         public string DisplayLabel { get; set; }
@@ -143,5 +155,7 @@ public static class CategorySuggestionReporter
         public SourceKind PreferredSource { get; set; }
 
         public int SourceCount { get; set; }
+
+        public int Authority { get; set; }
     }
 }
