@@ -1,7 +1,6 @@
 @inject DeckFlow.Web.Services.FeatureFlags.IFeatureFlagCache FeatureFlagCache
 @{
     const string defaultDescription = "DeckFlow — Magic: The Gathering deck analysis for cEDH and Commander. Compare, analyze, and generate ChatGPT-ready deck prompts.";
-    const string structuredDataJson = "{\"@context\":\"https://schema.org\",\"@type\":\"WebSite\",\"name\":\"DeckFlow\",\"url\":\"https://www.deckflow.gg\",\"description\":\"DeckFlow — Magic: The Gathering deck analysis for cEDH and Commander. Compare, analyze, and generate ChatGPT-ready deck prompts.\"}";
     var themeOptions = new (string FileName, string Label)[]
     {
         ("site.css", "Classic"),
@@ -48,6 +47,13 @@
     var isFeedbackPage = string.Equals(requestPath.Value, "/feedback", StringComparison.OrdinalIgnoreCase);
     var canonicalUrl = $"{requestScheme}://{requestHost}{requestPathBase}{requestPath}";
     var openGraphImageUrl = $"{requestScheme}://{requestHost}{Url.Content("~/og-image.png")}";
+    var rawPageTitle = Convert.ToString(ViewData["Title"]);
+    var structuredDataJson = DeckFlow.Web.Seo.StructuredDataBuilder.ForPath(
+        requestPath.Value ?? "/",
+        canonicalUrl,
+        $"{requestScheme}://{requestHost}",
+        rawPageTitle,
+        pageDescription);
 }
 <!DOCTYPE html>
 <html lang="en">
