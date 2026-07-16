@@ -488,6 +488,8 @@ public sealed class MetaGapService : IMetaGapService
         IReadOnlyList<EdhTop16Entry> fetchedEntries)
     {
         var builder = new StringBuilder();
+        builder.AppendLine($"Deck: {(!string.IsNullOrWhiteSpace(resolvedCommanderName) ? resolvedCommanderName.Trim() : "cEDH Deck")}");
+        builder.AppendLine();
         builder.AppendLine($"Commander: {resolvedCommanderName}");
         builder.AppendLine($"Submitted cards: {loadedDeck.PlayableEntries.Sum(entry => entry.Quantity)}");
         builder.AppendLine($"Time period: {request.TimePeriod}");

@@ -523,7 +523,11 @@ public sealed class DeckComparisonService : IDeckComparisonService
 
     private static void AppendDeckBlock(StringBuilder builder, string label, DeckComparisonDeckSummary deck)
     {
-        var heading = string.IsNullOrWhiteSpace(deck.Name) ? label : $"{label} — {deck.Name}";
+        var heading = !string.IsNullOrWhiteSpace(deck.Name)
+            ? deck.Name.Trim()
+            : !string.IsNullOrWhiteSpace(deck.CommanderName)
+                ? deck.CommanderName.Trim()
+                : label;
         builder.AppendLine(heading);
         builder.AppendLine($"Commander: {FallbackText(deck.CommanderName, "Unknown")}");
         builder.AppendLine($"Bracket: {deck.Bracket.Label}");

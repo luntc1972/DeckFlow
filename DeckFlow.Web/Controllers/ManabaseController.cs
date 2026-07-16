@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
@@ -166,8 +167,17 @@ public sealed class ManabaseController : DeckToolControllerBase
                     return View("Manabase", BuildCommanderSelectionViewModel(request, result, focusedTierEnabled));
                 }
 
+                var commanderNames = result.Report.Castability
+                    .Where(row => row.IsCommander && !string.IsNullOrWhiteSpace(row.Name))
+                    .Select(row => row.Name.Trim())
+                    .ToList();
+                var displayName = !string.IsNullOrWhiteSpace(request.DeckName)
+                    ? request.DeckName.Trim()
+                    : commanderNames.Count > 0
+                        ? string.Join(" & ", commanderNames)
+                        : null;
                 string text = ManabaseReportTextBuilder.Build(
-                    result.Report, request.DeckName, decklistText: null, request.Mode, result.Verdict, result.Budget,
+                    result.Report, displayName, decklistText: null, request.Mode, result.Verdict, result.Budget,
                     tap: result.ShowTapAnalyzer ? result.Report.TapAnalysis : null,
                     interactionLens: result.Report.InteractionLens,
                     mulligan: result.ShowMulliganEval ? result.Report.MulliganEvaluation : null,
@@ -176,7 +186,9 @@ public sealed class ManabaseController : DeckToolControllerBase
                     includePlanPresence: result.ShowPlanPresence,
                     includeCedhKeepShapes: result.ShowKeepShapes);
                 string timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
-                string fileName = $"manabase-analysis-{timestamp}.txt";
+                string fileName = displayName is null
+                    ? $"manabase-analysis-{timestamp}.txt"
+                    : $"{SanitizeFileSegment(displayName)}-manabase-{timestamp}.txt";
                 Response.Headers["X-DeckFlow-Filename"] = fileName;
 
                 return File(
@@ -184,6 +196,19 @@ public sealed class ManabaseController : DeckToolControllerBase
                     "text/plain; charset=utf-8",
                     fileName);
             });
+    }
+
+    private static string SanitizeFileSegment(string value)
+    {
+        var lower = value.ToLowerInvariant();
+        var sanitized = Regex.Replace(lower, "[^a-z0-9]+", "-");
+        sanitized = Regex.Replace(sanitized, "-{2,}", "-").Trim('-');
+        if (sanitized.Length > 40)
+        {
+            sanitized = sanitized[..40].TrimEnd('-');
+        }
+
+        return string.IsNullOrWhiteSpace(sanitized) ? "manabase-analysis" : sanitized;
     }
 
     /// <summary>

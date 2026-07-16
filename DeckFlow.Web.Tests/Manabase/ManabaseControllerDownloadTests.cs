@@ -53,12 +53,46 @@ public sealed class ManabaseControllerDownloadTests
         var file = Assert.IsType<FileContentResult>(result);
         Assert.Equal("text/plain; charset=utf-8", file.ContentType);
 
-        // Filename must match the timestamped pattern
-        Assert.Matches(new Regex(@"^manabase-analysis-\d{8}-\d{6}\.txt$"), file.FileDownloadName);
+        // Filename must use the sanitized deck-name prefix plus the timestamped suffix.
+        Assert.Matches(new Regex(@"^test-deck-manabase-\d{8}-\d{6}\.txt$"), file.FileDownloadName);
 
         // Content must decode to a string containing the report summary
         string text = Encoding.UTF8.GetString(file.FileContents);
         Assert.Contains(CasualReport().Summary, text);
+    }
+
+    [Fact]
+    public async Task Download_UsesSanitizedDeckNamePrefix_WhenDeckNamePresent()
+    {
+        var service = new StubService(CasualReport());
+        var controller = BuildController(service);
+
+        var result = await controller.Download(new ManabaseRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "1 Sol Ring",
+            DeckName = "  T3st Deck!!! With Extra Words Past Forty  ",
+        });
+
+        var file = Assert.IsType<FileContentResult>(result);
+        Assert.Matches(new Regex(@"^t3st-deck-with-extra-words-past-forty-manabase-\d{8}-\d{6}\.txt$"), file.FileDownloadName);
+    }
+
+    [Fact]
+    public async Task Download_BlankDeckName_KeepsCurrentDefaultFileName()
+    {
+        var service = new StubService(CasualReport());
+        var controller = BuildController(service);
+
+        var result = await controller.Download(new ManabaseRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "1 Sol Ring",
+            DeckName = "   ",
+        });
+
+        var file = Assert.IsType<FileContentResult>(result);
+        Assert.Matches(new Regex(@"^manabase-analysis-\d{8}-\d{6}\.txt$"), file.FileDownloadName);
     }
 
     [Fact]

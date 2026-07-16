@@ -74,6 +74,18 @@ public sealed class DeckPacketController : DeckToolControllerBase
     private static string? SerializeForArtifact<T>(T? value) where T : class
         => value is null ? null : JsonSerializer.Serialize(value);
 
+    private static string? ResolveAnalysisDownloadLabel(DeckAnalysisRequest request, string? commanderName)
+        => !string.IsNullOrWhiteSpace(request.DeckName)
+            ? request.DeckName.Trim()
+            : commanderName;
+
+    private static string? ResolveComparisonDownloadLabel(DeckComparisonRequest request, string? fallbackCommanderName)
+        => !string.IsNullOrWhiteSpace(request.DeckAName)
+            ? request.DeckAName.Trim()
+            : !string.IsNullOrWhiteSpace(request.DeckBName)
+                ? request.DeckBName.Trim()
+                : fallbackCommanderName;
+
     /// <summary>
     /// Renders the staged deck-analysis packet workflow. Set options load asynchronously on the client.
     /// </summary>
@@ -259,7 +271,9 @@ public sealed class DeckPacketController : DeckToolControllerBase
                     originalDeckText: PacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource),
                     interactionAuditJson: cachedInteractionAuditJson,
                     winConMapJson: cachedWinConMapJson);
-                var cachedFileName = PacketArtifactStore.SuggestPacketZipFileName(cachedCommanderName, request.TargetAiPlatform);
+                var cachedFileName = PacketArtifactStore.SuggestPacketZipFileName(
+                    ResolveAnalysisDownloadLabel(request, cachedCommanderName),
+                    request.TargetAiPlatform);
                 Response.Headers["X-DeckFlow-Filename"] = cachedFileName;
                 return File(cachedBytes, "application/zip", cachedFileName);
             }
@@ -284,7 +298,9 @@ public sealed class DeckPacketController : DeckToolControllerBase
                 originalDeckText: PacketArtifactStore.OriginalDeckTextOrNull(request.DeckSource),
                 interactionAuditJson: freshInteractionAuditJson,
                 winConMapJson: freshWinConMapJson);
-            var fileName = PacketArtifactStore.SuggestPacketZipFileName(commanderName, request.TargetAiPlatform);
+            var fileName = PacketArtifactStore.SuggestPacketZipFileName(
+                ResolveAnalysisDownloadLabel(request, commanderName),
+                request.TargetAiPlatform);
             Response.Headers["X-DeckFlow-Filename"] = fileName;
             return File(bytes, "application/zip", fileName);
         }
@@ -502,7 +518,9 @@ public sealed class DeckPacketController : DeckToolControllerBase
                 && !string.IsNullOrWhiteSpace(request.ComparisonResponseJson))
             {
                 var fallbackCommander = !string.IsNullOrWhiteSpace(request.DeckAName) ? request.DeckAName : request.DeckBName;
-                var fallbackFileName = PacketArtifactStore.SuggestComparisonZipFileName(fallbackCommander, request.TargetAiPlatform);
+                var fallbackFileName = PacketArtifactStore.SuggestComparisonZipFileName(
+                    ResolveComparisonDownloadLabel(request, fallbackCommander),
+                    request.TargetAiPlatform);
                 Response.Headers["X-DeckFlow-Filename"] = fallbackFileName;
                 var fallbackBytes = PacketArtifactStore.BuildComparisonZip(
                     request,
@@ -544,7 +562,9 @@ public sealed class DeckPacketController : DeckToolControllerBase
                 var cachedFileNameCommander = !string.IsNullOrWhiteSpace(cachedResult.ResolvedDeckACommander)
                     ? cachedResult.ResolvedDeckACommander!
                     : (!string.IsNullOrWhiteSpace(request.DeckAName) ? request.DeckAName : request.DeckBName);
-                var cachedFileName = PacketArtifactStore.SuggestComparisonZipFileName(cachedFileNameCommander, request.TargetAiPlatform);
+                var cachedFileName = PacketArtifactStore.SuggestComparisonZipFileName(
+                    ResolveComparisonDownloadLabel(request, cachedFileNameCommander),
+                    request.TargetAiPlatform);
                 Response.Headers["X-DeckFlow-Filename"] = cachedFileName;
                 return File(cachedBytes, "application/zip", cachedFileName);
             }
@@ -569,7 +589,9 @@ public sealed class DeckPacketController : DeckToolControllerBase
             var fileNameCommander = !string.IsNullOrWhiteSpace(result.ResolvedDeckACommander)
                 ? result.ResolvedDeckACommander!
                 : (!string.IsNullOrWhiteSpace(request.DeckAName) ? request.DeckAName : request.DeckBName);
-            var fileName = PacketArtifactStore.SuggestComparisonZipFileName(fileNameCommander, request.TargetAiPlatform);
+            var fileName = PacketArtifactStore.SuggestComparisonZipFileName(
+                ResolveComparisonDownloadLabel(request, fileNameCommander),
+                request.TargetAiPlatform);
             Response.Headers["X-DeckFlow-Filename"] = fileName;
             return File(bytes, "application/zip", fileName);
         }

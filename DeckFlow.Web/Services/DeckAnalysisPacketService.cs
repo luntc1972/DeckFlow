@@ -1013,6 +1013,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             .Where(entry => string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase))
             .Sum(entry => entry.Quantity);
         var builder = new StringBuilder();
+        builder.AppendLine($"Deck: {ResolveDisplayName(request.DeckName, commanderName, "Commander Deck")}");
+        builder.AppendLine();
         builder.AppendLine($"Format: {NormalizeSingleLine(request.Format, "Commander")}");
         if (!string.IsNullOrWhiteSpace(request.DeckName))
         {
@@ -1104,15 +1106,11 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     }
 
     /// <summary>
-    /// Suggests a conversation title derived from the commander or deck name.
+    /// Suggests a conversation title derived from the deck name (falling back to commander).
     /// </summary>
     private static string BuildSuggestedChatTitle(DeckAnalysisRequest request, string? commanderName)
     {
-        var primaryName = !string.IsNullOrWhiteSpace(commanderName)
-            ? commanderName.Trim()
-            : !string.IsNullOrWhiteSpace(request.DeckName)
-                ? request.DeckName.Trim()
-                : "Commander Deck";
+        var primaryName = ResolveDisplayName(request.DeckName, commanderName, "Commander Deck");
 
         return $"{primaryName} | AI Deck Analysis";
     }
@@ -1120,6 +1118,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     private static string BuildAnalysisSummaryFromSavedJson(DeckAnalysisResponse analysisResponse)
     {
         var builder = new StringBuilder();
+        builder.AppendLine($"Deck: {ResolveDisplayName(null, analysisResponse.Commander, "Commander Deck")}");
+        builder.AppendLine();
         builder.AppendLine($"Format: {NormalizeSingleLine(analysisResponse.Format, "Commander")}");
 
         if (!string.IsNullOrWhiteSpace(analysisResponse.Commander))
@@ -1149,6 +1149,13 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
 
         return builder.ToString().TrimEnd();
     }
+
+    private static string ResolveDisplayName(string? deckName, string? commanderName, string fallback)
+        => !string.IsNullOrWhiteSpace(deckName)
+            ? deckName.Trim()
+            : !string.IsNullOrWhiteSpace(commanderName)
+                ? commanderName.Trim()
+                : fallback;
 
     /// <summary>
     /// Builds the authoritative card, mechanic, and banned-list reference bundle used during analysis.
