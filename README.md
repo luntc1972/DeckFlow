@@ -232,6 +232,7 @@ If `dotnet build DeckFlow.Web` reports a missing `tsc`, run the
 - `DeckFlow.Web/wwwroot/css/site-common.css` contains shared shell and view-level styles that apply regardless of the selected color theme.
 - `DeckFlow.Web/wwwroot/css/site*.css` files remain responsible for theme palettes and component styling.
 - `DeckFlow.Web/wwwroot/css/site-mobile.css` loads after the active theme stylesheet to apply mobile-breakpoint overrides for selectors that themes redefine (e.g., `.back-to-top-button`, `.page-shell`, `.sync-column`); cascade-safe mobile rules continue to live in `site-common.css`.
+- Tool pages plus the home page render a **Share DeckFlow** bar above the footer with Copy link, native device share (when supported), and Reddit / X / Bluesky actions.
 - The theme picker now includes all ten two-color guild themes in addition to the existing wedges, shards, and specialty themes.
 - Keep long-lived CSS out of Razor views; prefer shared stylesheets so caching and theme behavior stay predictable.
 
