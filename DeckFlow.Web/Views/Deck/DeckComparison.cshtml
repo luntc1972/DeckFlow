@@ -268,10 +268,29 @@ Deck B ([DECK B NAME]):
                     </select>
                     <small class="sync-column__hint">Required. This sets the expected power band and pacing for Deck A.</small>
                 </label>
+                @{
+                    var deckAIsUrl = Model.Request.DeckAInputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl;
+                }
                 <label class="field">
-                    <span>Deck A URL or deck text</span>
-                    <textarea autocomplete="off" name="DeckASource" spellcheck="false">@Model.Request.DeckASource</textarea>
-                    <small class="sync-column__hint">Required. Paste a public deck URL or raw deck export text.</small>
+                    <span>Import method</span>
+                    <select name="DeckAInputSource" data-df-select>
+                        <option value="@DeckFlow.Web.Models.DeckInputSource.PublicUrl" selected="@(deckAIsUrl ? "selected" : null)">Use public deck URL</option>
+                        <option value="@DeckFlow.Web.Models.DeckInputSource.PasteText" selected="@(!deckAIsUrl ? "selected" : null)">Paste text</option>
+                    </select>
+                </label>
+                <label class="field @(deckAIsUrl ? string.Empty : "hidden")" data-sync-panel="comparison-deckA-url">
+                    <span>Archidekt or Moxfield deck URL</span>
+                    <input type="url"
+                           name="DeckAUrl"
+                           value="@Model.Request.DeckAUrl"
+                           autocomplete="url"
+                           inputmode="url"
+                           placeholder="https://moxfield.com/decks/… or https://archidekt.com/decks/…" />
+                </label>
+                <label class="field @(deckAIsUrl ? "hidden" : string.Empty)" data-sync-panel="comparison-deckA-text">
+                    <span>Deck export text</span>
+                    <textarea autocomplete="off" name="DeckAText" spellcheck="false">@Model.Request.DeckAText</textarea>
+                    <small class="sync-column__hint">Paste Moxfield, Archidekt, or MTG Arena deck export text.</small>
                 </label>
             </section>
 
@@ -296,10 +315,29 @@ Deck B ([DECK B NAME]):
                     </select>
                     <small class="sync-column__hint">Required. This sets the expected power band and pacing for Deck B.</small>
                 </label>
+                @{
+                    var deckBIsUrl = Model.Request.DeckBInputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl;
+                }
                 <label class="field">
-                    <span>Deck B URL or deck text</span>
-                    <textarea autocomplete="off" name="DeckBSource" spellcheck="false">@Model.Request.DeckBSource</textarea>
-                    <small class="sync-column__hint">Required. Paste a public deck URL or raw deck export text.</small>
+                    <span>Import method</span>
+                    <select name="DeckBInputSource" data-df-select>
+                        <option value="@DeckFlow.Web.Models.DeckInputSource.PublicUrl" selected="@(deckBIsUrl ? "selected" : null)">Use public deck URL</option>
+                        <option value="@DeckFlow.Web.Models.DeckInputSource.PasteText" selected="@(!deckBIsUrl ? "selected" : null)">Paste text</option>
+                    </select>
+                </label>
+                <label class="field @(deckBIsUrl ? string.Empty : "hidden")" data-sync-panel="comparison-deckB-url">
+                    <span>Archidekt or Moxfield deck URL</span>
+                    <input type="url"
+                           name="DeckBUrl"
+                           value="@Model.Request.DeckBUrl"
+                           autocomplete="url"
+                           inputmode="url"
+                           placeholder="https://moxfield.com/decks/… or https://archidekt.com/decks/…" />
+                </label>
+                <label class="field @(deckBIsUrl ? "hidden" : string.Empty)" data-sync-panel="comparison-deckB-text">
+                    <span>Deck export text</span>
+                    <textarea autocomplete="off" name="DeckBText" spellcheck="false">@Model.Request.DeckBText</textarea>
+                    <small class="sync-column__hint">Paste Moxfield, Archidekt, or MTG Arena deck export text.</small>
                 </label>
             </section>
         </div>

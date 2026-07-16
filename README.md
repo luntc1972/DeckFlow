@@ -282,7 +282,7 @@ The Deck Analysis page (`/deck-analysis`) guides you through a 5-step workflow. 
 Three layouts are available via the toolbar: **Guided**, **Focused**, and **Expert**. They present the same underlying steps with different amounts of context and guidance text.
 
 ### Step 1 — Deck Setup
-Choose an **Input method** (paste text or public deck URL) and provide either a **Moxfield**/**Archidekt** deck URL or pasted deck export text. The chosen mode round-trips with the form so it survives refreshes and workflow-step navigation. The service:
+Choose an **Input method** — the page opens on **public deck URL** — and provide either a **Moxfield**/**Archidekt** deck URL or pasted deck export text. The chosen mode round-trips with the form so it survives refreshes and workflow-step navigation. The service:
 - Falls back to treating leading quantity-1 entries as the commander when no Commander section header is present (Moxfield plain-text exports), then validates the inferred commander against Scryfall before continuing.
 - Rejects inferred commanders that are not legal by the workflow rules: legendary creature, legendary Vehicle, or a planeswalker whose oracle text says it can be your commander.
 
@@ -406,7 +406,7 @@ When either combo question is selected, the service calls the Commander Spellboo
 The Deck Comparison page (`/deck-comparison`) generates structured AI prompts for comparing two Commander decklists side by side. It lives alongside the Deck Analysis page in the Deck Tools tabs.
 
 ### Step 1 — Deck Setup
-Paste two decklists (Moxfield/Archidekt URL or plain-text export) and select a Commander Bracket for each deck. Optionally name each deck — the service falls back to the commander name if left blank.
+For each deck, choose an **Input method** (public deck URL or paste text — each deck toggles independently) and provide a **Moxfield**/**Archidekt** deck URL or plain-text export, then select a Commander Bracket. Optionally name each deck — the service falls back to the commander name if left blank.
 
 ### Step 2 — Generate Comparison Packet
 The service:
@@ -452,7 +452,7 @@ The `prompt-templates/deck-comparison/` directory contains reference templates f
 The cEDH Meta Gap page (`/cedh-meta-gap`) generates a structured AI workflow for comparing your deck against recent EDH Top 16 lists for the same commander.
 
 ### Step 1 — Load Deck And Fetch References
-Paste a public Moxfield or Archidekt URL, or paste deck export text directly. You can optionally override the commander name. The page then queries EDH Top 16 using:
+Choose an **Input method** (public deck URL or paste text) and provide a public **Moxfield**/**Archidekt** URL or deck export text. You can optionally override the commander name. The page then queries EDH Top 16 using:
 
 - Time period
 - Sort by (`TOP` or `NEW`)
