@@ -36,7 +36,7 @@
 - `DeckFlow.Web/Services/Manabase/ManabaseAnalysisService.cs` — add `ManabaseAnalysisOptions.BracketSource`; extend `ResolveBaseline` to honor it.
 - `DeckFlow.Web/Models/ManabaseRequest.cs` — add `int? Bracket`.
 - `DeckFlow.Web/Controllers/ManabaseController.cs` — inject `IBracketClassificationService`; `NormalizeKnobs` bracket clamp; `ResolveEffectiveBracketAsync`; thread bracket+source into options; put `CommunityBaseline` on the view model.
-- `DeckFlow.Web/Models/ManabaseViewModel.cs` — add `CommunityBaseline`.
+- `DeckFlow.Web/Models/ManabaseViewModel.cs` — add `CommunityBaseline` + `ShowCommunityBaseline` (both in Task 3 Step 0).
 - `DeckFlow.Web/Views/Deck/Manabase.cshtml` — baseline line + B2–B5 selector.
 - `DeckFlow.Web/wwwroot/css/site-common.css` — any baseline-line layout (only if needed).
 - (Optional) `DeckFlow.Web/wwwroot/ts/manabase-overrides.ts` — submit-on-change for the selector.
