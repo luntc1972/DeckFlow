@@ -1,7 +1,7 @@
 # Manabase Community Baseline — Increment 2: Per-Commander from EDHREC averages dump
 
 **Date:** 2026-07-17
-**Status:** APPROVED-PENDING-REVIEW (user decisions locked 2026-07-17; Codex plan-review pending)
+**Status:** IMPLEMENTED 2026-07-17 (plan tasks 1-7; blind-verified)
 **Branch:** `feat/edhrec-bracket-land-target` (continues Increment 1a/1b)
 **Amends:** `.planning/specs/2026-07-17-manabase-bracket-baseline-v2-design.md` — this file **supersedes that spec's "Increment 2 — Map" section only**. Increment 1 content and disposition notes stand.
 
