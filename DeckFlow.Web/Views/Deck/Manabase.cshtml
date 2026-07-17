@@ -466,10 +466,11 @@
             {
                 var bracketName = ManabaseCommunityBaseline.BracketName(baseline.Bracket);
                 var detected = baseline.BracketSource == ManabaseBracketSource.Auto ? " (auto-detected)" : null;
+                @* Source attribution is intentionally omitted for the Increment-1 pilot data; it returns
+                   in Increment 2 as "Data from EDHREC" (muted) once EDHREC grants permission. *@
                 <p class="manabase-summary-lands manabase-community-baseline">
                     <strong>Community baseline</strong> · @bracketName@detected
                     (@baseline.DeckCount.ToString("N0") decks): <strong>~@baseline.AvgLands.ToString("F1") lands.</strong>
-                    <span class="manabase-baseline-source">Source: @(baseline.Source ?? "community sample").</span>
                 </p>
             }
             @* Biggest fix — the single most actionable change, chosen so it never contradicts the
