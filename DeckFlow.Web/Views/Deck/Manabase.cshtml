@@ -452,7 +452,8 @@
             }
             <p class="manabase-summary-lands">
                 <strong>Lands:</strong> @report.ActualLands vs ~@report.TargetLands.ToString("F1") recommended
-                @if (report.TargetLandsRangeLow is { } rangeLow
+                @if (report.HasCedhMetaRange
+                    && report.TargetLandsRangeLow is { } rangeLow
                     && report.TargetLandsRangeHigh is { } rangeHigh
                     && report.BaselineDeckCount is { } baselineDeckCount
                     && report.BaselineLandsMean is { } baselineMean
@@ -466,7 +467,7 @@
             {
                 var bracketName = ManabaseCommunityBaseline.BracketName(baseline.Bracket);
                 var detected = baseline.BracketSource == ManabaseBracketSource.Auto ? " (auto-detected)" : null;
-                var fromEdhrec = baseline.Source?.StartsWith("edhrec-averages", StringComparison.Ordinal) == true;
+                var fromEdhrec = baseline.ValueSource is ManabaseBaselineSource.Commander or ManabaseBaselineSource.Blended;
                 <p class="manabase-summary-lands manabase-community-baseline">
                     @if (baseline.CommanderDisplayName is { } commanderName)
                     {

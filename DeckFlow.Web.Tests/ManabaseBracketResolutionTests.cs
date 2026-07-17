@@ -111,7 +111,6 @@ public sealed class ManabaseBracketResolutionTests
         Assert.Equal(ManabaseBaselineSource.Commander, result.CommunityBaseline!.ValueSource);
         Assert.Equal(33, result.CommunityBaseline.AvgLands, 3);
         Assert.Equal(450, result.CommunityBaseline.DeckCount);
-        Assert.Equal(450, result.CommunityBaseline.CommanderDeckCount);
         Assert.Equal("Kinnan, Bonder Prodigy", result.CommunityBaseline.CommanderDisplayName);
         Assert.Equal("edhrec-averages", result.CommunityBaseline.Source);
     }
@@ -139,7 +138,6 @@ public sealed class ManabaseBracketResolutionTests
         Assert.Equal(ManabaseBaselineSource.Blended, result.CommunityBaseline!.ValueSource);
         Assert.Equal(((150d / 300d) * 34) + ((150d / 300d) * 35.5), result.CommunityBaseline.AvgLands, 3);
         Assert.Equal(250, result.CommunityBaseline.DeckCount);
-        Assert.Equal(250, result.CommunityBaseline.CommanderDeckCount);
         Assert.Equal("Kinnan, Bonder Prodigy", result.CommunityBaseline.CommanderDisplayName);
         Assert.Equal("edhrec-averages", result.CommunityBaseline.Source);
     }
@@ -167,7 +165,6 @@ public sealed class ManabaseBracketResolutionTests
         Assert.Equal(ManabaseBaselineSource.Global, result.CommunityBaseline!.ValueSource);
         Assert.Equal(35.9, result.CommunityBaseline.AvgLands, 3);
         Assert.Equal(124221, result.CommunityBaseline.DeckCount);
-        Assert.Null(result.CommunityBaseline.CommanderDeckCount);
         Assert.Null(result.CommunityBaseline.CommanderDisplayName);
         Assert.Equal("edhrec-pilot-aggregate", result.CommunityBaseline.Source);
     }
@@ -195,7 +192,6 @@ public sealed class ManabaseBracketResolutionTests
         Assert.NotNull(result.Report);
         Assert.NotNull(result.CommunityBaseline);
         Assert.Equal(ManabaseBaselineSource.Global, result.CommunityBaseline!.ValueSource);
-        Assert.Null(result.CommunityBaseline.CommanderDeckCount);
         Assert.Null(result.CommunityBaseline.CommanderDisplayName);
         Assert.Equal("edhrec-pilot-aggregate", result.CommunityBaseline.Source);
     }
@@ -224,7 +220,6 @@ public sealed class ManabaseBracketResolutionTests
         Assert.NotNull(result.CommunityBaseline);
         Assert.Equal(ManabaseBaselineSource.Global, result.CommunityBaseline!.ValueSource);
         Assert.Equal(35.9, result.CommunityBaseline.AvgLands, 3);
-        Assert.Null(result.CommunityBaseline.CommanderDeckCount);
         Assert.Null(result.CommunityBaseline.CommanderDisplayName);
     }
 

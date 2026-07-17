@@ -6,7 +6,7 @@ namespace DeckFlow.Core.Manabase;
 public static class EdhrecAveragesConverter
 {
     /// <summary>Parses the dump CSV, filters low-sample rows, deduplicates normalized commander keys, and orders deterministically.</summary>
-    public static EdhrecAveragesResult Convert(string csvText, int minDeckCount = 100)
+    public static EdhrecAveragesResult Convert(string csvText, int minDeckCount = ManabaseBaselineWeighting.LowDeckThreshold)
     {
         ArgumentNullException.ThrowIfNull(csvText);
         ArgumentOutOfRangeException.ThrowIfNegative(minDeckCount);
@@ -23,6 +23,7 @@ public static class EdhrecAveragesConverter
         int commander2Index = GetRequiredColumnIndex(header, "commander2");
         int avgLandIndex = GetRequiredColumnIndex(header, "avg_land");
         int deckCountIndex = GetRequiredColumnIndex(header, "number_decks");
+        int requiredFieldCount = Math.Max(Math.Max(commanderIndex, commander2Index), Math.Max(avgLandIndex, deckCountIndex)) + 1;
 
         var deduped = new Dictionary<string, ManabaseCommanderBaseline>(StringComparer.Ordinal);
         int skippedMalformed = 0;
@@ -37,7 +38,6 @@ public static class EdhrecAveragesConverter
             }
 
             List<string> fields = ParseCsvLine(line);
-            int requiredFieldCount = Math.Max(Math.Max(commanderIndex, commander2Index), Math.Max(avgLandIndex, deckCountIndex)) + 1;
             if (fields.Count < requiredFieldCount)
             {
                 skippedMalformed++;

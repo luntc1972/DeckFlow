@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 
 using DeckFlow.Core.Manabase;
@@ -11,8 +10,6 @@ namespace DeckFlow.CLI;
 /// </summary>
 internal static class CedhCalibrateCommandRunner
 {
-    private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
-
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -156,7 +153,7 @@ internal static class CedhCalibrateCommandRunner
                 Directory.CreateDirectory(outputDirectory);
             }
 
-            WriteLfFile(resolvedOutputPath, CedhCalibration.RenderMarkdown(report));
+            SnapshotFileWriter.WriteLfFile(resolvedOutputPath, CedhCalibration.RenderMarkdown(report));
 
             Console.WriteLine($"Wrote {resolvedOutputPath}");
             Console.WriteLine(CedhCalibration.RenderHeadline(report));
@@ -182,17 +179,6 @@ internal static class CedhCalibrateCommandRunner
                 facts.Add(ScryfallCardFactMapper.ToCardFact(card, quantity: 1, isCommander: isCommander));
             }
         }
-    }
-
-    private static void WriteLfFile(string path, string content)
-    {
-        string body = content.Replace("\r\n", "\n", StringComparison.Ordinal);
-        if (!body.EndsWith('\n'))
-        {
-            body += "\n";
-        }
-
-        File.WriteAllText(path, body, Utf8NoBom);
     }
 
     private sealed record CalibrationDeck
