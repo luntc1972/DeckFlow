@@ -55,7 +55,8 @@ public sealed class SitemapControllerTests
         Assert.Contains("https://deckflow.test/feedback", urls);
         Assert.Contains("https://deckflow.test/manabase", urls);
         Assert.Contains("https://deckflow.test/bracket", urls);
-        Assert.Equal(18, urls.Count);
+        Assert.Contains("https://deckflow.test/deck-history", urls);
+        Assert.Equal(19, urls.Count);
         Assert.All(urls, url => Assert.StartsWith("https://deckflow.test", url, StringComparison.Ordinal));
     }
 
