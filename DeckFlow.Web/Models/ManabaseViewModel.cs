@@ -77,6 +77,12 @@ public sealed class ManabaseViewModel
     /// <summary>Optional companion castability row surfaced outside the 99 table.</summary>
     public CardCastability? CompanionCallout { get; init; }
 
+    /// <summary>Optional empirical community land baseline (present only on a successful flag-on analysis).</summary>
+    public ManabaseCommunityBaseline? CommunityBaseline { get; init; }
+
+    /// <summary>Whether the community-baseline flag is on for this request (drives the bracket selector, even pre-analysis).</summary>
+    public bool ShowCommunityBaseline { get; init; }
+
     /// <summary>
     /// Override card names / lines that were NOT applied to the analysis: syntactically bad lines and
     /// valid lines whose card name matched nothing in the deck (a typo or a card not in the list).
