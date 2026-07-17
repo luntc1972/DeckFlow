@@ -83,7 +83,7 @@ Power bracket is the only driver of mana-base shape. Show the **empirical commun
 
 ### Error Handling (Increment 1)
 - Missing/ malformed data file → provider returns null → baseline line omitted; analysis proceeds. Log once.
-- Bracket classification failure/timeout → fall back to a mode-derived default bracket (Casual→3, Focused→3, Cedh→5) and mark `BracketSource = fallback`; never throw.
+- Bracket classification failure/timeout → fall back to a mode-derived default bracket (Casual→2, Focused→3, Cedh→5) and mark `BracketSource = fallback`; never throw.
 - Flag OFF → byte-identical.
 
 ### Testing (Increment 1)
@@ -121,7 +121,7 @@ Uses everything already shipped (P1 table + P2 weighting) rather than discarding
 ## Open Questions / Assumptions
 
 - **ToS comfort on the pilot seed:** Increment 1 bakes 5 aggregate land means derived from EDHREC data. Treated as aggregate statistics (not decklist redistribution). Owner (user) accepts this for Increment 1; full EDHREC use (Increment 2) waits for written permission.
-- **Bracket selector default when classifier is uncertain:** use the mode-derived fallback (Casual/Focused→3, Cedh→5) and flag `BracketSource=fallback`.
+- **Bracket selector default when classifier is uncertain:** use the mode-derived fallback (Casual→2, Focused→3, Cedh→5) and flag `BracketSource=fallback`.
 - **Commander Spellbook call on the manabase path:** new for that path but graceful; if latency is a concern, the classification can run only when the flag is ON.
 - **B1 unsupported:** Exhibition dropped (uncommon/wacky decks); B1 classification maps to the B2 baseline. **B5 caveat:** uses the genuine-cEDH mean (30.5), not thin casual-favorite cEDH cells — encoded as `note` in the data file.
 - **Ramp/draw are lands-only-deferred by data, not choice:** the pilot recorded only lands per bracket (50-cmdr sweep = `[slug,bracket,lands,deckCount]`); per-bracket ramp/draw means do not exist in the research and require a fresh EDHREC `average-decks` pull → Increment 2.
