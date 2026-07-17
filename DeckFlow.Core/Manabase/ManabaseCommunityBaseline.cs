@@ -73,6 +73,16 @@ public enum ManabaseBracketSource
 /// </summary>
 public sealed record ManabaseCommunityBaseline
 {
+    /// <summary>Maps a bracket number to the UI display name used for community baselines.</summary>
+    public static string BracketName(int bracket) => bracket switch
+    {
+        2 => "Core",
+        3 => "Upgraded",
+        4 => "Optimized",
+        5 => "cEDH",
+        _ => $"B{bracket}"
+    };
+
     /// <summary>The bracket (2-5) this baseline is for.</summary>
     public required int Bracket { get; init; }
 
