@@ -11,7 +11,10 @@ internal sealed class ChatGptEvolutionPromptVariant : IEvolutionPromptVariant
     public AiPlatform Platform => AiPlatform.ChatGpt;
 
     /// <inheritdoc />
-    public string Build(DeckHistoryFile history, CancellationToken cancellationToken = default)
+    public string Build(
+        DeckHistoryFile history,
+        IReadOnlyList<EvolutionCardReference>? cardReferences,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(history);
 
@@ -20,6 +23,19 @@ internal sealed class ChatGptEvolutionPromptVariant : IEvolutionPromptVariant
         builder.AppendLine("EXECUTE NOW: analyze how this deck has evolved across the versions below. Do not ask clarifying questions; work with exactly what is provided.");
         builder.AppendLine();
         builder.AppendLine(EvolutionHistoryRenderer.RenderHistoryBody(history));
+        if (cardReferences is not null && cardReferences.Count > 0)
+        {
+            builder.AppendLine("CARD REFERENCE (Scryfall Oracle):");
+            foreach (var cardReference in cardReferences)
+            {
+                builder.AppendLine($"Name: {cardReference.Name}");
+                builder.AppendLine($"Mana Cost: {cardReference.ManaCost}");
+                builder.AppendLine($"Type Line: {cardReference.TypeLine}");
+                builder.AppendLine($"Oracle Text: {cardReference.OracleText}");
+                builder.AppendLine();
+            }
+        }
+
         builder.AppendLine("Deliver, in order:");
         builder.AppendLine("1. TRAJECTORY — what the deck's game plan was in version 1 and what it is now, in two sentences each.");
         builder.AppendLine("2. CHANGE ANALYSIS — for each version, whether the notes' stated intent matches what the adds/cuts actually did.");

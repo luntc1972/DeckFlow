@@ -2,9 +2,14 @@ using DeckFlow.Core.History;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
+using DeckFlow.Core.Normalization;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Models;
+using DeckFlow.Web.Services.Packets;
 using DeckFlow.Web.Services.PromptBuilders.Evolution;
+using DeckFlow.Web.Services.Scryfall;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace DeckFlow.Web.Services;
 
@@ -66,6 +71,9 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
 {
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly EvolutionPromptVariantRegistry _evolutionPromptVariantRegistry;
+    private readonly IScryfallCardResolver _scryfallCardResolver;
+    private readonly ScryfallReferenceResolver _scryfallReferenceResolver;
+    private readonly ILogger<DeckHistoryPageService> _logger;
     private readonly Func<DateTimeOffset> _nowUtc;
 
     /// <summary>
@@ -73,10 +81,19 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
     /// </summary>
     /// <param name="deckEntryLoader">Shared deck loader used for public deck URLs and pasted exports.</param>
     /// <param name="evolutionPromptVariantRegistry">Evolution prompt variant registry.</param>
+    /// <param name="scryfallCardResolver">Shared Scryfall resolver used for card-reference enrichment.</param>
+    /// <param name="logger">Logger for non-blocking card-reference failures.</param>
     public DeckHistoryPageService(
         IDeckEntryLoader deckEntryLoader,
-        EvolutionPromptVariantRegistry evolutionPromptVariantRegistry)
-        : this(deckEntryLoader, evolutionPromptVariantRegistry, () => DateTimeOffset.UtcNow)
+        EvolutionPromptVariantRegistry evolutionPromptVariantRegistry,
+        IScryfallCardResolver scryfallCardResolver,
+        ILogger<DeckHistoryPageService> logger)
+        : this(
+            deckEntryLoader,
+            evolutionPromptVariantRegistry,
+            scryfallCardResolver,
+            logger,
+            () => DateTimeOffset.UtcNow)
     {
     }
 
@@ -85,18 +102,26 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
     /// </summary>
     /// <param name="deckEntryLoader">Shared deck loader used for public deck URLs and pasted exports.</param>
     /// <param name="evolutionPromptVariantRegistry">Evolution prompt variant registry.</param>
+    /// <param name="scryfallCardResolver">Shared Scryfall resolver used for card-reference enrichment.</param>
+    /// <param name="logger">Logger for non-blocking card-reference failures.</param>
     /// <param name="nowUtc">Clock used for new snapshots.</param>
     internal DeckHistoryPageService(
         IDeckEntryLoader deckEntryLoader,
         EvolutionPromptVariantRegistry evolutionPromptVariantRegistry,
+        IScryfallCardResolver scryfallCardResolver,
+        ILogger<DeckHistoryPageService>? logger,
         Func<DateTimeOffset> nowUtc)
     {
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
         ArgumentNullException.ThrowIfNull(evolutionPromptVariantRegistry);
+        ArgumentNullException.ThrowIfNull(scryfallCardResolver);
         ArgumentNullException.ThrowIfNull(nowUtc);
 
         _deckEntryLoader = deckEntryLoader;
         _evolutionPromptVariantRegistry = evolutionPromptVariantRegistry;
+        _scryfallCardResolver = scryfallCardResolver;
+        _scryfallReferenceResolver = new ScryfallReferenceResolver(scryfallCardResolver);
+        _logger = logger ?? NullLogger<DeckHistoryPageService>.Instance;
         _nowUtc = nowUtc;
     }
 
@@ -191,9 +216,31 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
         }
 
         var (pairOlderId, pairNewerId, pairDiff) = SelectPair(file, request);
-        var promptText = file is not null && file.Versions.Count >= 2
-            ? _evolutionPromptVariantRegistry.Build(AiPlatform.Normalize(request.TargetAiPlatform), file, cancellationToken)
-            : string.Empty;
+        string promptText;
+        if (file is not null && file.Versions.Count >= 2)
+        {
+            IReadOnlyList<EvolutionCardReference>? cardReferences = null;
+            try
+            {
+                cardReferences = await ResolveCardReferencesAsync(file, cancellationToken).ConfigureAwait(false);
+            }
+            catch (HttpRequestException exception)
+            {
+                var warning = BuildCardReferenceWarning(exception);
+                _logger.LogWarning(exception, "Scryfall card reference lookup failed while building the deck history evolution prompt.");
+                warnings.Add(warning);
+            }
+
+            promptText = _evolutionPromptVariantRegistry.Build(
+                AiPlatform.Normalize(request.TargetAiPlatform),
+                file,
+                cardReferences,
+                cancellationToken);
+        }
+        else
+        {
+            promptText = string.Empty;
+        }
 
         return new DeckHistoryProcessResult
         {
@@ -207,6 +254,97 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
             Warnings = warnings,
         };
     }
+
+    private async Task<IReadOnlyList<EvolutionCardReference>> ResolveCardReferencesAsync(
+        DeckHistoryFile file,
+        CancellationToken cancellationToken)
+    {
+        var requestNames = BuildCardReferenceRequestNames(file);
+        if (requestNames.Count == 0)
+        {
+            return Array.Empty<EvolutionCardReference>();
+        }
+
+        var batchResolution = await _scryfallReferenceResolver.ResolveBatchAsync(
+            requestNames,
+            SearchPrintingFallbackCardAsync,
+            normalizeForScryfall: true,
+            cancellationToken).ConfigureAwait(false);
+
+        return batchResolution.Resolutions
+            .Select(resolution => new EvolutionCardReference(
+                resolution.Card.Name,
+                resolution.Card.ManaCost ?? string.Empty,
+                resolution.Card.TypeLine,
+                resolution.Card.OracleText ?? string.Empty))
+            .ToList();
+    }
+
+    private static IReadOnlyList<string> BuildCardReferenceRequestNames(DeckHistoryFile file)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+
+        var orderedNames = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var latest = file.Versions[^1];
+
+        foreach (var commander in latest.Commander)
+        {
+            AddCardReferenceName(orderedNames, seen, commander);
+        }
+
+        foreach (var card in latest.Cards)
+        {
+            AddCardReferenceName(orderedNames, seen, card.Name);
+        }
+
+        foreach (var version in file.Versions)
+        {
+            if (version.Delta is null)
+            {
+                continue;
+            }
+
+            foreach (var add in version.Delta.Adds)
+            {
+                AddCardReferenceName(orderedNames, seen, add.Name);
+            }
+
+            foreach (var cut in version.Delta.Cuts)
+            {
+                AddCardReferenceName(orderedNames, seen, cut.Name);
+            }
+        }
+
+        return orderedNames;
+    }
+
+    private static void AddCardReferenceName(List<string> orderedNames, HashSet<string> seen, string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return;
+        }
+
+        var normalized = CardNormalizer.Normalize(name);
+        if (!seen.Add(normalized))
+        {
+            return;
+        }
+
+        orderedNames.Add(name.Trim());
+    }
+
+    private static string BuildCardReferenceWarning(HttpRequestException exception)
+    {
+        const string message = "Scryfall card lookup failed while building the card reference; the evolution prompt was generated without card details.";
+        return exception.StatusCode is { } statusCode
+            ? $"{message} HTTP {(int)statusCode}."
+            : message;
+    }
+
+    private Task<ScryfallCard?> SearchPrintingFallbackCardAsync(string cardName, CancellationToken cancellationToken)
+        => _scryfallCardResolver.SearchPrintingFallbackCardAsync(cardName, cancellationToken);
 
     private static DeckHistoryProcessResult Error(string message, IReadOnlyList<string>? warnings = null) =>
         new()
