@@ -76,6 +76,12 @@ public sealed class ManabaseAnalysisOptions
     /// picks the bracket); the controller sets it from deck classification / the selector in 1b.
     /// </summary>
     public int? Bracket { get; init; }
+
+    /// <summary>
+    /// How <see cref="Bracket"/> was chosen (Auto = deck-classified, Override = user selector).
+    /// Null lets the service label it (Override for an explicit bracket, Fallback for the mode default).
+    /// </summary>
+    public ManabaseBracketSource? BracketSource { get; init; }
 }
 
 /// <summary>The outcome of a mana-base analysis: the report plus presentation context.</summary>
@@ -560,7 +566,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     // (the controller sets it from classification / the selector in Increment 1b).
     private static (int Bracket, ManabaseBracketSource Source) ResolveBaseline(ManabaseAnalysisOptions options)
         => options.Bracket is int explicitBracket
-            ? (explicitBracket, ManabaseBracketSource.Override)
+            ? (explicitBracket, options.BracketSource ?? ManabaseBracketSource.Override)
             : (options.Mode switch
             {
                 ManabaseMode.Cedh => 5,
