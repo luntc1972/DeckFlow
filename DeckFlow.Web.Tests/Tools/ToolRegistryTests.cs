@@ -26,6 +26,7 @@ public sealed class ToolRegistryTests
             tool => AssertTool(tool, "deck-primer", "Deck Primer", "/deck-primer", ToolNavSection.Build, "tool.deck-primer.enabled", false, "Deck Primer", "Generate a staged, ChatGPT-ready primer that explains your deck's plan, lines, and key interactions.", "deck-primer", DeckPageTab.DeckPrimer, true),
             tool => AssertTool(tool, "deck-sync", "Deck Sync", "/sync", ToolNavSection.Build, "tool.deck-sync.enabled", false, "Deck Sync", "Reconcile a Moxfield deck against an Archidekt deck (either direction) and generate add/cut text for the target.", "deck-sync", DeckPageTab.Sync, false, "/resolve", "/api/deck/diff"),
             tool => AssertTool(tool, "convert", "Convert Deck", "/convert", ToolNavSection.Build, "tool.convert.enabled", false, "Convert Deck", "Convert deck export text or a public URL between Moxfield and Archidekt formats.", "convert", DeckPageTab.Convert, false),
+            tool => AssertTool(tool, "deck-history", "Deck History", "/deck-history", ToolNavSection.Build, "tool.deck-history.enabled", false, "Deck History", "Track your deck's evolution in a file you own — snapshot each change with a note, diff any two versions, and generate an AI prompt about how the deck has grown.", "deck-history", DeckPageTab.DeckHistory, false, "/deck-history/download"),
             tool => AssertTool(tool, "content-kb", "Knowledge Base", "/content-kb", ToolNavSection.Reference, "tool.knowledge-base.enabled", false, "Expert Knowledge Base", "Browse distilled creator advice, open any entry, and copy a ready-to-paste prompt from the Knowledge Base detail page.", "content-kb", DeckPageTab.ContentKb, true),
             tool => AssertTool(tool, "card-lookup", "Card Lookup", "/card-lookup", ToolNavSection.Reference, "tool.card-lookup.enabled", false, "Card Lookup", "Paste a card list and get back Oracle text and rulings for each match.", "card-lookup", DeckPageTab.CardLookup, false),
             tool => AssertTool(tool, "mechanic-lookup", "Mechanic Rules", "/mechanic-lookup", ToolNavSection.Reference, "tool.mechanic-lookup.enabled", false, "Mechanic Rules", "Look up official WOTC rules text for keyword mechanics found in your deck.", "mechanic-lookup", DeckPageTab.MechanicLookup, false, "/api/suggestions/mechanic"),
@@ -39,11 +40,11 @@ public sealed class ToolRegistryTests
     {
         var registry = new ToolRegistry();
 
-        Assert.Equal(14, registry.All.Count);
-        Assert.Equal(14, registry.All.Select(tool => tool.Key).Distinct(StringComparer.Ordinal).Count());
-        Assert.Equal(14, registry.All.Select(tool => tool.Route).Distinct(StringComparer.Ordinal).Count());
-        Assert.Equal(14, registry.All.Select(tool => tool.Tab).Distinct().Count());
-        Assert.Equal(19, registry.All.SelectMany(tool => tool.AdditionalRoutes.Prepend(tool.Route)).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(15, registry.All.Count);
+        Assert.Equal(15, registry.All.Select(tool => tool.Key).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(15, registry.All.Select(tool => tool.Route).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(15, registry.All.Select(tool => tool.Tab).Distinct().Count());
+        Assert.Equal(21, registry.All.SelectMany(tool => tool.AdditionalRoutes.Prepend(tool.Route)).Distinct(StringComparer.Ordinal).Count());
 
         var coreKeys = registry.All
             .Where(tool => tool.Core)
