@@ -158,7 +158,7 @@
                         <select id="history-older-version" name="OlderVersionId" data-df-select>
                             @foreach (var row in compareVersions)
                             {
-                                <option value="@row.Id" selected="@(Model.PairOlderId == row.Id ? "selected" : null)">V@row.Id (@row.Date.ToString("yyyy-MM-dd"))</option>
+                                <option value="@row.Id" selected="@(Model.PairOlderId == row.Id ? "selected" : null)">V@(row.Id) (@row.Date.ToString("yyyy-MM-dd"))</option>
                             }
                         </select>
                     </div>
@@ -168,7 +168,7 @@
                         <select id="history-newer-version" name="NewerVersionId" data-df-select>
                             @foreach (var row in compareVersions)
                             {
-                                <option value="@row.Id" selected="@(Model.PairNewerId == row.Id ? "selected" : null)">V@row.Id (@row.Date.ToString("yyyy-MM-dd"))</option>
+                                <option value="@row.Id" selected="@(Model.PairNewerId == row.Id ? "selected" : null)">V@(row.Id) (@row.Date.ToString("yyyy-MM-dd"))</option>
                             }
                         </select>
                     </div>
