@@ -27,6 +27,12 @@ public sealed class ManabaseRequest
     public ManabaseMode Mode { get; set; } = ManabaseMode.Casual;
 
     /// <summary>
+    /// Optional user-selected community-baseline bracket (2-5). Null = auto-classify from the deck.
+    /// Clamped to 2-5 in NormalizeKnobs (B1/Exhibition is unsupported -> treated as null).
+    /// </summary>
+    public int? Bracket { get; set; }
+
+    /// <summary>
     /// How heavily to weight the commander's colors. Defaults to
     /// <see cref="CommanderImportance.Standard"/>; <see cref="CommanderImportance.Central"/>
     /// holds the commander's colors to a stricter threshold.

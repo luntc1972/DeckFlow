@@ -1,14 +1,20 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
+using DeckFlow.Web.Controllers;
+using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Manabase;
 using DeckFlow.Web.Services.Scryfall;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 using RestSharp;
 using Xunit;
 
@@ -80,6 +86,29 @@ public sealed class ManabaseBracketResolutionTests
         Assert.Equal(ManabaseBracketSource.Fallback, result.CommunityBaseline.BracketSource);
     }
 
+    [Theory]
+    [InlineData(1, null)]
+    [InlineData(3, 3)]
+    [InlineData(6, null)]
+    public async Task Post_NormalizesBracketToSupportedRange_AndWritesBackOntoRequest(
+        int postedBracket,
+        int? expectedBracket)
+    {
+        var service = new CapturingAnalysisService(BuildReport(ManabaseMode.Casual));
+        ManabaseController controller = BuildController(service);
+        var request = new ManabaseRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "1 Sol Ring",
+            Bracket = postedBracket,
+        };
+
+        IActionResult result = await controller.Manabase(request);
+
+        Assert.Equal(expectedBracket, request.Bracket);
+        Assert.Equal(expectedBracket, ModelOf(result).Request.Bracket);
+    }
+
     private static async Task<ManabaseAnalysisResult> AnalyzeAsync(
         ManabaseAnalysisOptions options,
         IReadOnlyDictionary<int, ManabaseBracketBaseline> rows)
@@ -96,6 +125,40 @@ public sealed class ManabaseBracketResolutionTests
 
         return await service.AnalyzeAsync("paste", "Baseline Deck", options);
     }
+
+    private static ManabaseController BuildController(
+        IManabaseAnalysisService service,
+        FakeFeatureFlagCache? featureFlags = null)
+    {
+        var controller = new ManabaseController(
+            service,
+            new StubCardSearchService(),
+            featureFlags ?? new FakeFeatureFlagCache(),
+            NullLogger<ManabaseController>.Instance)
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
+        };
+        return controller;
+    }
+
+    private static ManabaseViewModel ModelOf(IActionResult result)
+    {
+        ViewResult view = Assert.IsType<ViewResult>(result);
+        return Assert.IsType<ManabaseViewModel>(view.Model);
+    }
+
+    private static ManabaseReport BuildReport(ManabaseMode mode) => new()
+    {
+        ActualLands = 36,
+        TargetLands = 37.0,
+        ColorFindings = [],
+        Mode = mode,
+        Castability =
+        [
+            new CardCastability { Name = "Counterspell", ManaValue = 2, OnCurveTurn = 2, CastPercent = 62, LimitingFactor = "color:U" },
+        ],
+        Summary = "ok",
+    };
 
     private static (List<DeckEntry> Entries, List<ScryfallCard> Cards) Fixture()
     {
@@ -199,6 +262,15 @@ public sealed class ManabaseBracketResolutionTests
             => Task.FromResult(_cards.FirstOrDefault(card => string.Equals(card.Name, cardName, System.StringComparison.OrdinalIgnoreCase)));
     }
 
+    private sealed class StubCardSearchService : ICardSearchService
+    {
+        public Task<IReadOnlyList<string>> SearchAsync(string query, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<string>>([]);
+
+        public Task<IReadOnlyList<string>> SearchCommandersAsync(string query, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<string>>([]);
+    }
+
     private sealed class FakeManabaseBaselineProvider : IManabaseBaselineProvider
     {
         private readonly IReadOnlyDictionary<int, ManabaseBracketBaseline> _rows;
@@ -214,5 +286,56 @@ public sealed class ManabaseBracketResolutionTests
 
         public ManabaseBracketBaseline? TryGetBracketBaseline(int bracket)
             => _rows.TryGetValue(bracket, out ManabaseBracketBaseline? row) ? row : null;
+    }
+
+    private sealed class CapturingAnalysisService : IManabaseAnalysisService
+    {
+        private readonly ManabaseReport _report;
+
+        public CapturingAnalysisService(ManabaseReport report)
+        {
+            _report = report;
+        }
+
+        public ManabaseAnalysisOptions? LastOptions { get; private set; }
+
+        public Task<ManabaseAnalysisResult> AnalyzeAsync(
+            string deckSource,
+            string? deckName,
+            ManabaseAnalysisOptions? options = null,
+            CancellationToken cancellationToken = default)
+        {
+            LastOptions = options ?? new ManabaseAnalysisOptions();
+            return Task.FromResult(CreateResult(
+                _report,
+                "1 cards · 36 lands",
+                "prompt",
+                [],
+                null,
+                null,
+                false));
+        }
+
+        public Task<ManabaseLoadResult> LoadAsync(
+            string deckSource,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new ManabaseLoadResult(
+                "1 cards · 36 lands", [], null, []));
+    }
+
+    private static ManabaseAnalysisResult CreateResult(
+        ManabaseReport report,
+        string inputSummary,
+        string chatGptSwapPrompt,
+        IReadOnlyList<CostSuggestion> suggestions,
+        ManabaseVerdict? verdict,
+        ManabaseRampDrawBudget? budget,
+        bool showPlainLanguage)
+    {
+        ConstructorInfo constructor = typeof(ManabaseAnalysisResult).GetConstructors().Single();
+        object?[] args = constructor.GetParameters().Length == 9
+            ? new object?[] { report, inputSummary, Array.Empty<string>(), null, chatGptSwapPrompt, suggestions, verdict, budget, showPlainLanguage }
+            : new object?[] { report, inputSummary, Array.Empty<string>(), null, chatGptSwapPrompt, suggestions };
+        return (ManabaseAnalysisResult)constructor.Invoke(args);
     }
 }

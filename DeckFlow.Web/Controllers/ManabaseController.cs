@@ -249,6 +249,7 @@ public sealed class ManabaseController : DeckToolControllerBase
         request.CommanderImportance = Enum.IsDefined(typeof(CommanderImportance), request.CommanderImportance)
             ? request.CommanderImportance
             : CommanderImportance.Standard;
+        request.Bracket = request.Bracket is >= 2 and <= 5 ? request.Bracket : null;
     }
 
     /// <summary>
