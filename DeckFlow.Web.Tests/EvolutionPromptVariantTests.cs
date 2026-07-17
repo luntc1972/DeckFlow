@@ -86,4 +86,55 @@ public sealed class EvolutionPromptVariantTests
         Assert.Contains("VERSION 1", body);
         Assert.DoesNotContain("LATEST", body);
     }
+
+    [Fact]
+    public void RenderHistoryBody_EmptyVersions_DoesNotThrow()
+    {
+        var history = new DeckHistoryFile
+        {
+            DeckName = "Tivit Ad Nauseam",
+            Versions = [],
+        };
+
+        var exception = Record.Exception(() => EvolutionHistoryRenderer.RenderHistoryBody(history));
+
+        Assert.Null(exception);
+        Assert.Contains("Versions: 0", EvolutionHistoryRenderer.RenderHistoryBody(history));
+    }
+
+    [Fact]
+    public void RenderHistoryBody_CommanderHeader_UsesLatestVersion()
+    {
+        var history = new DeckHistoryFile
+        {
+            DeckName = "Tivit Ad Nauseam",
+            Versions =
+            [
+                new DeckSnapshot
+                {
+                    Id = 1,
+                    Date = DateTimeOffset.Parse("2026-06-01T00:00:00Z"),
+                    Commander = [],
+                    Cards = [new SnapshotCard { Name = "Sol Ring", Qty = 1 }],
+                    Delta = new SnapshotDelta(),
+                },
+                new DeckSnapshot
+                {
+                    Id = 2,
+                    Date = DateTimeOffset.Parse("2026-07-01T00:00:00Z"),
+                    Commander = ["Tivit, Seller of Secrets"],
+                    Cards =
+                    [
+                        new SnapshotCard { Name = "Sol Ring", Qty = 1 },
+                        new SnapshotCard { Name = "Mystic Remora", Qty = 1 },
+                    ],
+                    Delta = new SnapshotDelta { Adds = [new SnapshotCard { Name = "Mystic Remora", Qty = 1 }] },
+                },
+            ],
+        };
+
+        var body = EvolutionHistoryRenderer.RenderHistoryBody(history);
+
+        Assert.Contains("Commander: Tivit, Seller of Secrets", body);
+    }
 }

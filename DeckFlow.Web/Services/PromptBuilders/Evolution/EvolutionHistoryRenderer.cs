@@ -20,7 +20,13 @@ internal static class EvolutionHistoryRenderer
         var builder = new StringBuilder();
         var versions = history.Versions;
         builder.AppendLine($"Deck: {history.DeckName}");
-        if (versions.Count > 0 && versions[0].Commander.Count > 0)
+        if (versions.Count == 0)
+        {
+            builder.AppendLine("Versions: 0");
+            return builder.ToString();
+        }
+
+        if (versions[^1].Commander.Count > 0)
         {
             builder.AppendLine($"Commander: {string.Join(" / ", versions[^1].Commander)}");
         }
