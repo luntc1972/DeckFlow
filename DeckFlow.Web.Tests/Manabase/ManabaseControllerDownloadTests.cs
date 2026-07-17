@@ -286,6 +286,7 @@ public sealed class ManabaseControllerDownloadTests
             service,
             new StubCardSearchService(),
             new FakeFeatureFlagCache(),
+            new FakeBracketClassificationService(),
             NullLogger<ManabaseController>.Instance)
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },

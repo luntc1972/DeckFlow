@@ -202,6 +202,7 @@ public sealed class ManabaseFocusedTierTests
             {
                 [ManabaseAnalysisService.FocusedTierFlagKey] = focusedTierEnabled,
             }),
+            new FakeBracketClassificationService(),
             NullLogger<ManabaseController>.Instance)
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },

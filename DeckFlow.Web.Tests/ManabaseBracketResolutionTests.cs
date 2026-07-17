@@ -5,11 +5,13 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using DeckFlow.Core.Loading;
+using DeckFlow.Core.Bracket;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
 using DeckFlow.Web.Controllers;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.Bracket;
 using DeckFlow.Web.Services.Manabase;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.AspNetCore.Http;
@@ -109,6 +111,123 @@ public sealed class ManabaseBracketResolutionTests
         Assert.Equal(expectedBracket, ModelOf(result).Request.Bracket);
     }
 
+    [Fact]
+    public async Task Post_ExplicitBracket_UsesOverrideSource_AndSkipsClassifier()
+    {
+        var service = new CapturingAnalysisService(BuildReport(ManabaseMode.Casual));
+        var classifier = new FakeBracketClassificationService
+        {
+            Result = FakeBracketClassificationService.CreateResult(4),
+        };
+        ManabaseController controller = BuildController(
+            service,
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.BaselineFlagKey] = true,
+            }),
+            classifier);
+
+        await controller.Manabase(new ManabaseRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "1 Sol Ring",
+            Bracket = 5,
+        });
+
+        Assert.NotNull(service.LastOptions);
+        Assert.Equal(5, service.LastOptions!.Bracket);
+        Assert.Equal(ManabaseBracketSource.Override, service.LastOptions.BracketSource);
+        Assert.Equal(0, classifier.CallCount);
+    }
+
+    [Fact]
+    public async Task Post_FlagOnWithoutOverride_AutoClassifies_AndMapsBracketOneToTwo()
+    {
+        var service = new CapturingAnalysisService(BuildReport(ManabaseMode.Casual));
+        var classifier = new FakeBracketClassificationService
+        {
+            Result = FakeBracketClassificationService.CreateResult(1),
+        };
+        ManabaseController controller = BuildController(
+            service,
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.BaselineFlagKey] = true,
+            }),
+            classifier);
+
+        await controller.Manabase(new ManabaseRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "1 Sol Ring",
+            DeckName = "Bracket Deck",
+        });
+
+        Assert.NotNull(service.LastOptions);
+        Assert.Equal(2, service.LastOptions!.Bracket);
+        Assert.Equal(ManabaseBracketSource.Auto, service.LastOptions.BracketSource);
+        Assert.Equal(1, classifier.CallCount);
+        Assert.Equal("1 Sol Ring", classifier.LastDeckSource);
+        Assert.Equal("Bracket Deck", classifier.LastDeckName);
+    }
+
+    [Fact]
+    public async Task Post_FlagOnClassifierFailure_FallsBackToModeDerivedBracket()
+    {
+        var service = new CapturingAnalysisService(BuildReport(ManabaseMode.Casual));
+        var classifier = new FakeBracketClassificationService
+        {
+            Exception = new InvalidOperationException("boom"),
+        };
+        ManabaseController controller = BuildController(
+            service,
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.BaselineFlagKey] = true,
+            }),
+            classifier);
+
+        await controller.Manabase(new ManabaseRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "1 Sol Ring",
+        });
+
+        Assert.NotNull(service.LastOptions);
+        Assert.Null(service.LastOptions!.Bracket);
+        Assert.Null(service.LastOptions.BracketSource);
+        Assert.Equal(1, classifier.CallCount);
+    }
+
+    [Fact]
+    public async Task Post_FlagOff_DoesNotCallClassifier_AndLeavesBracketNull()
+    {
+        var service = new CapturingAnalysisService(BuildReport(ManabaseMode.Casual));
+        var classifier = new FakeBracketClassificationService
+        {
+            Result = FakeBracketClassificationService.CreateResult(4),
+        };
+        ManabaseController controller = BuildController(
+            service,
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [ManabaseAnalysisService.BaselineFlagKey] = false,
+            }),
+            classifier);
+
+        IActionResult result = await controller.Manabase(new ManabaseRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "1 Sol Ring",
+        });
+
+        Assert.NotNull(service.LastOptions);
+        Assert.Null(service.LastOptions!.Bracket);
+        Assert.Null(service.LastOptions.BracketSource);
+        Assert.Equal(0, classifier.CallCount);
+        Assert.False(ModelOf(result).ShowCommunityBaseline);
+    }
+
     private static async Task<ManabaseAnalysisResult> AnalyzeAsync(
         ManabaseAnalysisOptions options,
         IReadOnlyDictionary<int, ManabaseBracketBaseline> rows)
@@ -128,12 +247,14 @@ public sealed class ManabaseBracketResolutionTests
 
     private static ManabaseController BuildController(
         IManabaseAnalysisService service,
-        FakeFeatureFlagCache? featureFlags = null)
+        FakeFeatureFlagCache? featureFlags = null,
+        IBracketClassificationService? bracketClassificationService = null)
     {
         var controller = new ManabaseController(
             service,
             new StubCardSearchService(),
             featureFlags ?? new FakeFeatureFlagCache(),
+            bracketClassificationService ?? new FakeBracketClassificationService(),
             NullLogger<ManabaseController>.Instance)
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
@@ -338,4 +459,51 @@ public sealed class ManabaseBracketResolutionTests
             : new object?[] { report, inputSummary, Array.Empty<string>(), null, chatGptSwapPrompt, suggestions };
         return (ManabaseAnalysisResult)constructor.Invoke(args);
     }
+}
+
+internal sealed class FakeBracketClassificationService : IBracketClassificationService
+{
+    public BracketClassificationResult Result { get; set; } = CreateResult(3);
+
+    public Exception? Exception { get; set; }
+
+    public int CallCount { get; private set; }
+
+    public string? LastDeckSource { get; private set; }
+
+    public string? LastDeckName { get; private set; }
+
+    public Task<BracketClassificationResult> ClassifyAsync(
+        string deckSource,
+        int? targetBracketNumber,
+        string platform,
+        string? deckName,
+        CancellationToken cancellationToken = default)
+    {
+        CallCount++;
+        LastDeckSource = deckSource;
+        LastDeckName = deckName;
+
+        if (Exception is not null)
+        {
+            throw Exception;
+        }
+
+        return Task.FromResult(Result);
+    }
+
+    public static BracketClassificationResult CreateResult(int bracketNumber)
+        => new(
+            new BracketClassification(
+                bracketNumber,
+                [],
+                [],
+                [],
+                [],
+                true,
+                "2026-07-17"),
+            [],
+            string.Empty,
+            null,
+            null);
 }

@@ -220,6 +220,7 @@ public sealed class ManabaseControllerModeTests
             service,
             cardSearchService ?? new StubCardSearchService(),
             new FakeFeatureFlagCache(),
+            new FakeBracketClassificationService(),
             NullLogger<ManabaseController>.Instance)
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },

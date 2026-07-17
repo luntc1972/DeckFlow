@@ -4,6 +4,7 @@ using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.Bracket;
 using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Manabase;
 using Microsoft.AspNetCore.Mvc;
@@ -20,6 +21,7 @@ public sealed class ManabaseController : DeckToolControllerBase
     private readonly IManabaseAnalysisService _manabaseAnalysisService;
     private readonly ICardSearchService _cardSearchService;
     private readonly IFeatureFlagCache _featureFlags;
+    private readonly IBracketClassificationService _bracketClassification;
     private readonly ILogger<ManabaseController> _logger;
 
     /// <summary>Creates the mana-base controller.</summary>
@@ -27,16 +29,19 @@ public sealed class ManabaseController : DeckToolControllerBase
         IManabaseAnalysisService manabaseAnalysisService,
         ICardSearchService cardSearchService,
         IFeatureFlagCache featureFlags,
+        IBracketClassificationService bracketClassification,
         ILogger<ManabaseController> logger)
     {
         ArgumentNullException.ThrowIfNull(manabaseAnalysisService);
         ArgumentNullException.ThrowIfNull(cardSearchService);
         ArgumentNullException.ThrowIfNull(featureFlags);
+        ArgumentNullException.ThrowIfNull(bracketClassification);
         ArgumentNullException.ThrowIfNull(logger);
 
         _manabaseAnalysisService = manabaseAnalysisService;
         _cardSearchService = cardSearchService;
         _featureFlags = featureFlags;
+        _bracketClassification = bracketClassification;
         _logger = logger;
     }
 
@@ -46,9 +51,11 @@ public sealed class ManabaseController : DeckToolControllerBase
     public IActionResult Manabase()
     {
         bool focusedTierEnabled = IsFocusedTierEnabled();
+        bool baselineEnabled = IsBaselineFlagEnabled();
         return View("Manabase", new ManabaseViewModel
         {
             ShowFocusedTier = focusedTierEnabled,
+            ShowCommunityBaseline = baselineEnabled,
         });
     }
 
@@ -64,9 +71,10 @@ public sealed class ManabaseController : DeckToolControllerBase
     {
         request ??= new ManabaseRequest();
         bool focusedTierEnabled = IsFocusedTierEnabled();
+        bool baselineEnabled = IsBaselineFlagEnabled();
         NormalizeKnobs(request, focusedTierEnabled);
 
-        return await RunGuardedAsync(request, focusedTierEnabled, "load",
+        return await RunGuardedAsync(request, focusedTierEnabled, baselineEnabled, "load",
             "Something went wrong loading that deck. Please try again.",
             async token =>
             {
@@ -81,6 +89,7 @@ public sealed class ManabaseController : DeckToolControllerBase
                     Suggestions = result.Suggestions,
                     Loaded = true,
                     ShowFocusedTier = focusedTierEnabled,
+                    ShowCommunityBaseline = baselineEnabled,
                 });
             });
     }
@@ -94,9 +103,10 @@ public sealed class ManabaseController : DeckToolControllerBase
     {
         request ??= new ManabaseRequest();
         bool focusedTierEnabled = IsFocusedTierEnabled();
+        bool baselineEnabled = IsBaselineFlagEnabled();
         NormalizeKnobs(request, focusedTierEnabled);
 
-        return await RunGuardedAsync(request, focusedTierEnabled, "analysis",
+        return await RunGuardedAsync(request, focusedTierEnabled, baselineEnabled, "analysis",
             "Something went wrong analyzing that deck. Please try again.",
             async token =>
             {
@@ -105,7 +115,7 @@ public sealed class ManabaseController : DeckToolControllerBase
                 var result = await RunAnalysisAsync(request, parsed.Overrides, token);
                 if (result.CommanderSelectionRequired || result.Report is null)
                 {
-                    return View("Manabase", BuildCommanderSelectionViewModel(request, result, focusedTierEnabled));
+                    return View("Manabase", BuildCommanderSelectionViewModel(request, result, focusedTierEnabled, baselineEnabled));
                 }
 
                 // "Not applied" = lines the parser rejected (bad syntax) plus valid lines whose card
@@ -135,6 +145,8 @@ public sealed class ManabaseController : DeckToolControllerBase
                     ShowSourceList = result.ShowSourceList,
                     ShowCedhInteractionLens = result.ShowCedhInteractionLens,
                     CompanionCallout = result.CompanionRow,
+                    CommunityBaseline = result.CommunityBaseline,
+                    ShowCommunityBaseline = baselineEnabled,
                     NotAppliedOverrides = notApplied,
                 });
             });
@@ -154,9 +166,10 @@ public sealed class ManabaseController : DeckToolControllerBase
     {
         request ??= new ManabaseRequest();
         bool focusedTierEnabled = IsFocusedTierEnabled();
+        bool baselineEnabled = IsBaselineFlagEnabled();
         NormalizeKnobs(request, focusedTierEnabled);
 
-        return await RunGuardedAsync(request, focusedTierEnabled, "download",
+        return await RunGuardedAsync(request, focusedTierEnabled, baselineEnabled, "download",
             "Something went wrong analyzing that deck. Please try again.",
             async token =>
             {
@@ -164,7 +177,7 @@ public sealed class ManabaseController : DeckToolControllerBase
                     request, ManabaseCostOverrideParser.Parse(request.CostOverridesText), token);
                 if (result.CommanderSelectionRequired || result.Report is null)
                 {
-                    return View("Manabase", BuildCommanderSelectionViewModel(request, result, focusedTierEnabled));
+                    return View("Manabase", BuildCommanderSelectionViewModel(request, result, focusedTierEnabled, baselineEnabled));
                 }
 
                 var commanderNames = result.Report.Castability
@@ -258,11 +271,15 @@ public sealed class ManabaseController : DeckToolControllerBase
     /// lines for "not applied" feedback; the download re-parses without diagnostics) so both paths
     /// feed the same analyzer with identical overrides.
     /// </summary>
-    private Task<ManabaseAnalysisResult> RunAnalysisAsync(
+    private async Task<ManabaseAnalysisResult> RunAnalysisAsync(
         ManabaseRequest request,
         IReadOnlyDictionary<string, string> overrides,
         CancellationToken cancellationToken)
-        => _manabaseAnalysisService.AnalyzeAsync(
+    {
+        (int? bracket, ManabaseBracketSource? bracketSource) =
+            await ResolveEffectiveBracketAsync(request, cancellationToken);
+
+        return await _manabaseAnalysisService.AnalyzeAsync(
             request.DeckSource,
             request.DeckName,
             new ManabaseAnalysisOptions
@@ -272,15 +289,19 @@ public sealed class ManabaseController : DeckToolControllerBase
                 CompanionDesignator = request.CompanionName,
                 SelectedCommander = request.SelectedCommander,
                 CostOverrides = overrides,
+                Bracket = bracket,
+                BracketSource = bracketSource,
             },
             cancellationToken);
+    }
 
     // Selecting a commander is a routine interactive prompt, not an error, so this leaves
     // ErrorMessage null (no role="alert" banner) — the picker panel is the sole message.
     private static ManabaseViewModel BuildCommanderSelectionViewModel(
         ManabaseRequest request,
         ManabaseAnalysisResult result,
-        bool focusedTierEnabled)
+        bool focusedTierEnabled,
+        bool baselineEnabled)
         => new()
         {
             Request = request,
@@ -298,6 +319,7 @@ public sealed class ManabaseController : DeckToolControllerBase
             ShowFocusedTier = focusedTierEnabled,
             ShowSourceList = result.ShowSourceList,
             ShowCedhInteractionLens = result.ShowCedhInteractionLens,
+            ShowCommunityBaseline = baselineEnabled,
         };
 
     /// <summary>
@@ -309,6 +331,7 @@ public sealed class ManabaseController : DeckToolControllerBase
     private async Task<IActionResult> RunGuardedAsync(
         ManabaseRequest request,
         bool focusedTierEnabled,
+        bool baselineEnabled,
         string operation,
         string unexpectedMessage,
         Func<CancellationToken, Task<IActionResult>> body)
@@ -327,6 +350,7 @@ public sealed class ManabaseController : DeckToolControllerBase
                 Request = request,
                 ErrorMessage = "The deck took too long to load. Try again in a moment.",
                 ShowFocusedTier = focusedTierEnabled,
+                ShowCommunityBaseline = baselineEnabled,
             });
         }
         catch (InvalidOperationException exception)
@@ -337,6 +361,7 @@ public sealed class ManabaseController : DeckToolControllerBase
                 Request = request,
                 ErrorMessage = exception.Message,
                 ShowFocusedTier = focusedTierEnabled,
+                ShowCommunityBaseline = baselineEnabled,
             });
         }
         catch (HttpRequestException exception)
@@ -347,6 +372,7 @@ public sealed class ManabaseController : DeckToolControllerBase
                 Request = request,
                 ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
                 ShowFocusedTier = focusedTierEnabled,
+                ShowCommunityBaseline = baselineEnabled,
             });
         }
         catch (Exception exception)
@@ -359,7 +385,44 @@ public sealed class ManabaseController : DeckToolControllerBase
                 Request = request,
                 ErrorMessage = unexpectedMessage,
                 ShowFocusedTier = focusedTierEnabled,
+                ShowCommunityBaseline = baselineEnabled,
             });
+        }
+    }
+
+    private bool IsBaselineFlagEnabled()
+        => _featureFlags.Snapshot().TryGetValue(ManabaseAnalysisService.BaselineFlagKey, out bool enabled)
+            && enabled;
+
+    private async Task<(int? Bracket, ManabaseBracketSource? Source)> ResolveEffectiveBracketAsync(
+        ManabaseRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request.Bracket is int chosen)
+        {
+            return (chosen, ManabaseBracketSource.Override);
+        }
+
+        if (!IsBaselineFlagEnabled())
+        {
+            return (null, null);
+        }
+
+        try
+        {
+            BracketClassificationResult classification = await _bracketClassification.ClassifyAsync(
+                request.DeckSource,
+                targetBracketNumber: null,
+                platform: "manabase",
+                deckName: request.DeckName,
+                cancellationToken);
+            int bracket = Math.Max(2, classification.Classification.BracketNumber);
+            return (bracket, ManabaseBracketSource.Auto);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogWarning(exception, "Manabase bracket auto-classification failed; using mode-derived bracket.");
+            return (null, null);
         }
     }
 
