@@ -176,6 +176,11 @@ Testcontainers.PostgreSql will start a `postgres:16-alpine` container, run the t
 - `scripts/publish-studio.ps1` — publishes `DeckFlow.Studio` as a self-contained win-x64 single-file executable (no .NET install required on the target machine). Run from Windows PowerShell; produces `artifacts/studio-release/` and `artifacts/DeckFlowStudio-<date>.zip`. See [DeckFlow.Studio/STUDIO-SETUP.md](DeckFlow.Studio/STUDIO-SETUP.md) for full setup, launch, and secrets configuration steps. The git-backed flows (Publish, Direct Push, Pull from Prod) run git from the process working directory; to publish from a distributed exe that lives outside the repo, set `DECKFLOW_REPO_ROOT` to the repo working tree (otherwise launch Studio from inside the repo).
 - `scripts/publish-studio.sh` — WSL bash wrapper that does the same publish via the Windows `dotnet.exe`.
 
+### Releasing (version + tag)
+- `scripts/release.sh 2026.07.6` or `.\scripts\release.ps1 2026.07.6` updates `DeckFlow.Web/DeckFlow.Web.csproj`, commits `chore(release): 2026.07.6`, and creates the matching lightweight git tag.
+- The scripts require a clean tracked working tree, reject invalid CalVer values (`YYYY.MM` or `YYYY.MM.N`), and refuse to reuse an existing tag.
+- They do not push. After the script succeeds, run `git push --follow-tags`. The About page will show the new version after the next deploy because production reads the tracked csproj version, not git metadata.
+
 ### Monthly cEDH land baseline
 
 DeckFlow commits a monthly cEDH land-baseline snapshot under `DeckFlow.Web/Data/cedh-land-baseline/` — the per-commander land-count sample the `analysis.manabase.cedh-land-target` hybrid target reads (see the mana-base analyzer notes). The pipeline is:
