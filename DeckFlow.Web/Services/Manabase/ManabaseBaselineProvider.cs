@@ -19,6 +19,10 @@ public interface IManabaseBaselineProvider
     /// <summary>Returns the bundled baseline row for a bracket, or null if absent/unavailable.</summary>
     /// <param name="bracket">Power bracket (2-5).</param>
     ManabaseBracketBaseline? TryGetBracketBaseline(int bracket);
+
+    /// <summary>Returns the bundled per-commander baseline row, or null if absent/unavailable.</summary>
+    /// <param name="commanderNames">1 (lone) or 2 (partner pair) commander names; other counts return null.</param>
+    ManabaseCommanderBaseline? TryGetCommanderBaseline(IReadOnlyList<string> commanderNames);
 }
 
 /// <inheritdoc />
@@ -61,7 +65,7 @@ public sealed class ManabaseBaselineProvider : IManabaseBaselineProvider
     /// <inheritdoc />
     public ManabaseBracketBaseline? TryGetBracketBaseline(int bracket)
     {
-        ManabaseBaselineSnapshot? snapshot = GetOrLoadSnapshot();
+        ManabaseBaselineSnapshot? snapshot = GetOrLoadSnapshot()?.Snapshot;
         if (snapshot is null)
         {
             return null;
@@ -80,18 +84,43 @@ public sealed class ManabaseBaselineProvider : IManabaseBaselineProvider
         return null;
     }
 
-    private ManabaseBaselineSnapshot? GetOrLoadSnapshot()
+    /// <inheritdoc />
+    public ManabaseCommanderBaseline? TryGetCommanderBaseline(IReadOnlyList<string> commanderNames)
+    {
+        ArgumentNullException.ThrowIfNull(commanderNames);
+
+        CacheEntry? cacheEntry = GetOrLoadSnapshot();
+        if (cacheEntry?.Commanders is null)
+        {
+            return null;
+        }
+
+        string key = commanderNames.Count switch
+        {
+            1 => ManabaseCommanderKey.Create(commanderNames[0]),
+            2 => ManabaseCommanderKey.Create(commanderNames[0], commanderNames[1]),
+            _ => string.Empty,
+        };
+
+        return key.Length > 0 && cacheEntry.Commanders.TryGetValue(key, out ManabaseCommanderBaseline? row)
+            ? row
+            : null;
+    }
+
+    private CacheEntry? GetOrLoadSnapshot()
     {
         if (_cache.TryGetValue<CacheEntry>(CacheKey, out CacheEntry? cached) && cached is not null)
         {
-            return cached.Snapshot;
+            return cached;
         }
 
         ManabaseBaselineSnapshot? snapshot = null;
+        IReadOnlyDictionary<string, ManabaseCommanderBaseline>? commanders = null;
         try
         {
             string json = File.ReadAllText(_dataFilePath);
             snapshot = JsonSerializer.Deserialize<ManabaseBaselineSnapshot>(json, JsonOptions);
+            commanders = BuildCommanders(snapshot);
         }
         catch (Exception exception) when (
             exception is IOException
@@ -101,8 +130,9 @@ public sealed class ManabaseBaselineProvider : IManabaseBaselineProvider
             LogLoadFailureOnce(exception);
         }
 
-        _cache.Set(CacheKey, new CacheEntry(snapshot), TimeSpan.FromHours(24));
-        return snapshot;
+        CacheEntry cacheEntry = new(snapshot, commanders);
+        _cache.Set(CacheKey, cacheEntry, TimeSpan.FromHours(24));
+        return cacheEntry;
     }
 
     private void LogLoadFailureOnce(Exception exception)
@@ -118,5 +148,29 @@ public sealed class ManabaseBaselineProvider : IManabaseBaselineProvider
             _dataFilePath);
     }
 
-    private sealed record CacheEntry(ManabaseBaselineSnapshot? Snapshot);
+    private static IReadOnlyDictionary<string, ManabaseCommanderBaseline>? BuildCommanders(ManabaseBaselineSnapshot? snapshot)
+    {
+        if (snapshot?.Commanders.Count is not > 0)
+        {
+            return null;
+        }
+
+        Dictionary<string, ManabaseCommanderBaseline> rows = new(StringComparer.Ordinal);
+        foreach (ManabaseCommanderBaseline row in snapshot.Commanders)
+        {
+            string key = ManabaseCommanderKey.Create(row.Name, row.PartnerName);
+            // The generator pre-dedupes, but keep the higher-deck-count row here too so lookup never
+            // depends on perfect input hygiene.
+            if (!rows.TryGetValue(key, out ManabaseCommanderBaseline? existing) || row.DeckCount > existing.DeckCount)
+            {
+                rows[key] = row;
+            }
+        }
+
+        return rows;
+    }
+
+    private sealed record CacheEntry(
+        ManabaseBaselineSnapshot? Snapshot,
+        IReadOnlyDictionary<string, ManabaseCommanderBaseline>? Commanders);
 }

@@ -236,5 +236,8 @@ public sealed class ManabaseCommunityBaselineWiringTests
 
         public ManabaseBracketBaseline? TryGetBracketBaseline(int bracket)
             => _rows.TryGetValue(bracket, out ManabaseBracketBaseline? row) ? row : null;
+
+        public ManabaseCommanderBaseline? TryGetCommanderBaseline(IReadOnlyList<string> commanderNames)
+            => null;
     }
 }
