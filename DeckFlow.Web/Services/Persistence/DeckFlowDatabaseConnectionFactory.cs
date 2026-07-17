@@ -53,6 +53,15 @@ public static class DeckFlowDatabaseConnectionFactory
         => CreateConnection(environment, "category-knowledge.db");
 
     /// <summary>
+    /// Returns the relational connection used by the manabase baseline store. Co-locates with the
+    /// category-knowledge database because the baseline is derived from that crawl corpus and the
+    /// Phase 3 aggregation job reads the corpus and writes the baseline together.
+    /// </summary>
+    /// <param name="environment">Web host environment used to resolve local artifact paths.</param>
+    public static RelationalDatabaseConnection CreateManabaseBaselineConnection(IWebHostEnvironment environment)
+        => CreateCategoryKnowledgeConnection(environment);
+
+    /// <summary>
     /// Returns the always-SQLite Content KB connection, ignoring the provider environment because transcripts,
     /// audio, and spend data are local-only and must never be uploaded to Render (D-14).
     /// </summary>
