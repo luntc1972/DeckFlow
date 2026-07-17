@@ -1,4 +1,5 @@
 using System.Text;
+using DeckFlow.Core.Content;
 using DeckFlow.Core.History;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
@@ -24,11 +25,7 @@ public sealed class DeckHistoryController : Controller
     /// <summary>Renders the empty Deck History form.</summary>
     [HttpGet("/deck-history")]
     [FeatureFlagGate("tool.deck-history.enabled")]
-    public IActionResult Index() => View("DeckHistory", new DeckHistoryViewModel
-    {
-        ActiveTab = DeckPageTab.DeckHistory,
-        Request = new DeckHistoryRequest(),
-    });
+    public IActionResult Index() => HistoryView(new DeckHistoryRequest(), null);
 
     /// <summary>Processes an upload/import/diff request and re-renders the page with results.</summary>
     /// <param name="historyFile">Optional previously downloaded history JSON file.</param>
@@ -90,28 +87,22 @@ public sealed class DeckHistoryController : Controller
         }
 
         var json = DeckHistorySerializer.Serialize(parsed.File);
-        var fileName = $"deck-history-{Slug(parsed.File.DeckName)}-{DateTime.UtcNow:yyyyMMdd}.json";
+        var slug = SlugifySourceName.Slugify(parsed.File.DeckName);
+        if (slug.Length > 40)
+        {
+            slug = slug[..40];
+        }
+
+        var fileName = $"deck-history-{slug}-{DateTime.UtcNow:yyyyMMdd}.json";
         Response.Headers["X-DeckFlow-Filename"] = fileName;
         return File(Encoding.UTF8.GetBytes(json), "application/json; charset=utf-8", fileName);
     }
 
-    private ViewResult HistoryView(DeckHistoryRequest request, string error) =>
+    private ViewResult HistoryView(DeckHistoryRequest request, string? error) =>
         View("DeckHistory", new DeckHistoryViewModel
         {
             ActiveTab = DeckPageTab.DeckHistory,
             Request = request,
             ErrorMessage = error,
         });
-
-    private static string Slug(string name)
-    {
-        var cleaned = new string(name.Trim().ToLowerInvariant()
-            .Select(c => char.IsAsciiLetterOrDigit(c) ? c : '-').ToArray()).Trim('-');
-        while (cleaned.Contains("--", StringComparison.Ordinal))
-        {
-            cleaned = cleaned.Replace("--", "-", StringComparison.Ordinal);
-        }
-
-        return string.IsNullOrEmpty(cleaned) ? "deck" : cleaned;
-    }
 }

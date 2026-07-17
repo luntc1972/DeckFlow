@@ -17,7 +17,18 @@ public static class VersionDiffProjector
         ArgumentNullException.ThrowIfNull(newer);
 
         var olderMap = BuildMap(older);
-        var newerMap = BuildMap(newer);
+        return Project(olderMap, newer, out _);
+    }
+
+    internal static VersionDiff Project(
+        IReadOnlyDictionary<string, (string Name, int Qty)> olderMap,
+        DeckSnapshot newer,
+        out Dictionary<string, (string Name, int Qty)> newerMap)
+    {
+        ArgumentNullException.ThrowIfNull(olderMap);
+        ArgumentNullException.ThrowIfNull(newer);
+
+        newerMap = BuildMap(newer);
 
         var adds = new List<SnapshotCard>();
         var cuts = new List<SnapshotCard>();
@@ -49,7 +60,7 @@ public static class VersionDiffProjector
             qtyChanges.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase).ToList());
     }
 
-    private static Dictionary<string, (string Name, int Qty)> BuildMap(DeckSnapshot snapshot)
+    internal static Dictionary<string, (string Name, int Qty)> BuildMap(DeckSnapshot snapshot)
     {
         var map = new Dictionary<string, (string Name, int Qty)>(StringComparer.Ordinal);
 

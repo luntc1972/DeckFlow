@@ -3,11 +3,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
+import { setToolEnabled } from './support/admin-tools';
 
 const baseUrl = 'http://localhost:5173';
-const adminUser = process.env.FEEDBACK_ADMIN_USER ?? 'admin';
-const adminPassword = process.env.FEEDBACK_ADMIN_PASSWORD ?? 'changeme-local';
-const adminToolsUrl = `http://${adminUser}:${adminPassword}@localhost:5173/Admin/Tools`;
 const screenshotDir = resolve(__dirname, '../../.planning/ui-design/deck-history/screenshots');
 
 const DECK_V1 = [
@@ -93,8 +91,8 @@ test('creates history, intercepts download, appends a second version, and captur
   await page.getByRole('button', { name: 'Update history' }).click();
 
   await expect(page.locator('.history-timeline')).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator('.history-warnings')).toContainText('Started a new history — version 1 saved.');
-  await expect(page.locator('.history-warnings')).toContainText(
+  await expect(page.locator('.warning-banner')).toContainText('Started a new history — version 1 saved.');
+  await expect(page.locator('.warning-banner')).toContainText(
     'Deck has 34 cards — Commander decks run 100. Snapshot saved anyway.',
   );
   await expect(page.locator('.history-timeline tbody tr').first()).toContainText('Initial list.');
@@ -106,10 +104,16 @@ test('creates history, intercepts download, appends a second version, and captur
   const downloadResponsePromise = page.waitForResponse((response) =>
     response.url().includes('/deck-history/download') && response.request().method() === 'POST',
   );
-  await page.locator('form[action="/deck-history/download"]').evaluate(async (form) => {
-    const response = await fetch((form as HTMLFormElement).action, {
-      method: 'POST',
-      body: new FormData(form as HTMLFormElement),
+  await page.locator('[data-prompt-download-submit]').evaluate(async (button) => {
+    const submitter = button as HTMLButtonElement;
+    const form = submitter.form;
+    if (!form) {
+      throw new Error('Download button must target a form.');
+    }
+
+    const response = await fetch(submitter.formAction, {
+      method: form.method,
+      body: new FormData(form),
       credentials: 'same-origin',
       headers: { Accept: 'application/zip,*/*' },
     });
@@ -133,7 +137,7 @@ test('creates history, intercepts download, appends a second version, and captur
   await page.getByRole('button', { name: 'Update history' }).click();
 
   await expect(page.locator('.history-timeline tbody tr')).toHaveCount(2, { timeout: 30_000 });
-  await expect(page.locator('.history-warnings')).toContainText('Version 2 added.');
+  await expect(page.locator('.warning-banner')).toContainText('Version 2 added.');
   await expect(page.locator('.history-diff')).toBeVisible();
 
   const addsPanel = page.locator('.history-diff__panel').filter({
@@ -186,43 +190,3 @@ test('with tool.deck-history.enabled OFF, /deck-history returns 404 and the Home
   await page.goto('/');
   await expect(page.locator('.hub-card[href$="/deck-history"]')).toHaveCount(0);
 });
-
-async function gotoAdminTools(page: import('@playwright/test').Page): Promise<void> {
-  const response = await page.goto(adminToolsUrl);
-  expect(response?.ok(), '/Admin/Tools must return 200').toBeTruthy();
-}
-
-async function setToolEnabled(
-  page: import('@playwright/test').Page,
-  label: string,
-  enabled: boolean,
-): Promise<void> {
-  await gotoAdminTools(page);
-
-  const row = page.locator('tbody tr').filter({
-    has: page.locator('td[data-label="Tool"] span', { hasText: label }),
-  });
-
-  const status = row.locator('[data-label="Status"]');
-  const currentStatus = (await status.textContent())?.trim();
-  const desiredStatus = enabled ? 'On' : 'Off';
-
-  if (currentStatus === desiredStatus) {
-    return;
-  }
-
-  const actionButton = row.getByRole('button', {
-    name: enabled ? 'Enable' : 'Disable',
-    exact: true,
-  });
-  await actionButton.click();
-  await expect(page.locator('.admin-banner--success')).toContainText(
-    `Tool '${label}' is now ${enabled ? 'enabled' : 'disabled'}.`,
-  );
-  await expect(
-    page
-      .locator('tbody tr')
-      .filter({ has: page.locator('td[data-label="Tool"] span', { hasText: label }) })
-      .locator('[data-label="Status"]'),
-  ).toHaveText(desiredStatus);
-}

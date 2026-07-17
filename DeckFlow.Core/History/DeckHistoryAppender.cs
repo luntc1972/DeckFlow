@@ -87,11 +87,20 @@ public static class DeckHistoryAppender
         ArgumentNullException.ThrowIfNull(file);
 
         var versions = new List<DeckSnapshot>(file.Versions.Count);
+        Dictionary<string, (string Name, int Qty)>? olderMap = null;
         for (var i = 0; i < file.Versions.Count; i++)
         {
-            var delta = i == 0
-                ? new SnapshotDelta()
-                : ToDelta(VersionDiffProjector.Project(file.Versions[i - 1], file.Versions[i]));
+            SnapshotDelta delta;
+            if (i == 0)
+            {
+                delta = new SnapshotDelta();
+                olderMap = VersionDiffProjector.BuildMap(file.Versions[i]);
+            }
+            else
+            {
+                delta = ToDelta(VersionDiffProjector.Project(olderMap!, file.Versions[i], out olderMap));
+            }
+
             versions.Add(file.Versions[i] with { Delta = delta });
         }
 

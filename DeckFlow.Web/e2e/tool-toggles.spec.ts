@@ -1,10 +1,10 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
+import { gotoAdminTools, setToolEnabled } from './support/admin-tools';
 
 const baseUrl = 'http://localhost:5173';
 const adminUser = process.env.FEEDBACK_ADMIN_USER ?? 'admin';
 const adminPassword = process.env.FEEDBACK_ADMIN_PASSWORD ?? 'changeme-local';
-const adminToolsUrl = `http://${adminUser}:${adminPassword}@localhost:5173/Admin/Tools`;
 const basicAuthHeader = `Basic ${Buffer.from(`${adminUser}:${adminPassword}`).toString('base64')}`;
 const representativeThemes = ['site.css', 'site-nyx.css'] as const;
 const deckAnalysisDownloadDeck = `Commander
@@ -170,29 +170,7 @@ async function restoreAllTogglesOn(page: Page): Promise<void> {
   }
 }
 
-async function gotoAdminTools(page: Page): Promise<void> {
-  const response = await page.goto(adminToolsUrl);
-  expect(response?.ok()).toBeTruthy();
-}
-
-async function setToolEnabled(page: Page, label: string, enabled: boolean): Promise<void> {
-  await gotoAdminTools(page);
-  const row = getAdminToolRow(page, label);
-  const status = row.locator('[data-label="Status"]');
-  const currentStatus = (await status.textContent())?.trim();
-  const desiredStatus = enabled ? 'On' : 'Off';
-
-  if (currentStatus === desiredStatus) {
-    return;
-  }
-
-  const actionButton = row.getByRole('button', { name: enabled ? 'Enable' : 'Disable', exact: true });
-  await actionButton.click();
-  await expect(page.locator('.admin-banner--success')).toContainText(`Tool '${label}' is now ${enabled ? 'enabled' : 'disabled'}.`);
-  await expect(getAdminToolRow(page, label).locator('[data-label="Status"]')).toHaveText(desiredStatus);
-}
-
-function getAdminToolRow(page: Page, label: string): Locator {
+function getAdminToolRow(page: Page, label: string) {
   return page.locator('tbody tr').filter({
     has: page.locator('td[data-label="Tool"] span', { hasText: label }),
   });
