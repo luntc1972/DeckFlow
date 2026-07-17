@@ -12,6 +12,7 @@ public sealed class SeoPathsTests
     [InlineData("/MANABASE", true)]
     [InlineData("/manabase/", true)]
     [InlineData("/bracket", true)]
+    [InlineData("/deck-history", true)]
     [InlineData("/help", false)]
     [InlineData("/about", false)]
     [InlineData("/help/mana-base", false)]

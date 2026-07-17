@@ -4,7 +4,9 @@ using DeckFlow.Web.Configuration;
 using DeckFlow.Web.Extensions;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
+using DeckFlow.Web.Services.PromptBuilders.Bracket;
 using DeckFlow.Web.Services.PromptBuilders.Comparison;
+using DeckFlow.Web.Services.PromptBuilders.Evolution;
 using DeckFlow.Web.Services.PromptBuilders.FollowUp;
 using DeckFlow.Web.Services.PromptBuilders.MetaGap;
 using DeckFlow.Web.Services.PromptBuilders.Primer;
@@ -22,7 +24,7 @@ namespace DeckFlow.Web.Tests.Extensions;
 /// <summary>
 /// Smoke test that builds a <see cref="ServiceProvider"/> with
 /// <see cref="ServiceProviderOptions.ValidateOnBuild"/> = true and resolves the four
-/// packet-service interfaces and six prompt-variant registries extracted from Program.cs.
+/// packet-service interfaces and eight prompt-variant registries extracted from Program.cs.
 /// </summary>
 /// <remarks>
 /// Why this test exists: the existing Web test suite does not boot the host/DI graph,
@@ -87,13 +89,15 @@ public sealed class DiCompositionExtensionsTests
         Assert.NotNull(sp.GetRequiredService<IMetaGapService>());
         Assert.NotNull(sp.GetRequiredService<IDeckPrimerPacketService>());
 
-        // Resolve the six prompt-variant registries (singletons)
+        // Resolve the eight prompt-variant registries (singletons)
         Assert.NotNull(sp.GetRequiredService<AnalysisPromptVariantRegistry>());
         Assert.NotNull(sp.GetRequiredService<SetUpgradePromptVariantRegistry>());
         Assert.NotNull(sp.GetRequiredService<ComparisonPromptVariantRegistry>());
         Assert.NotNull(sp.GetRequiredService<FollowUpPromptVariantRegistry>());
         Assert.NotNull(sp.GetRequiredService<MetaGapPromptVariantRegistry>());
         Assert.NotNull(sp.GetRequiredService<PrimerPromptVariantRegistry>());
+        Assert.NotNull(sp.GetRequiredService<BracketPromptVariantRegistry>());
+        Assert.NotNull(sp.GetRequiredService<EvolutionPromptVariantRegistry>());
     }
 
     private sealed class StubWebHostEnvironment(string contentRootPath) : IWebHostEnvironment

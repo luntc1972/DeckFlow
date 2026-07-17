@@ -1,0 +1,36 @@
+import { expect, type Locator, type Page } from '@playwright/test';
+
+const adminUser = process.env.FEEDBACK_ADMIN_USER ?? 'admin';
+const adminPassword = process.env.FEEDBACK_ADMIN_PASSWORD ?? 'changeme-local';
+const adminToolsUrl = `http://${adminUser}:${adminPassword}@localhost:5173/Admin/Tools`;
+
+export async function gotoAdminTools(page: Page): Promise<void> {
+  const response = await page.goto(adminToolsUrl);
+  expect(response?.ok(), '/Admin/Tools must return 200').toBeTruthy();
+}
+
+export async function setToolEnabled(page: Page, label: string, enabled: boolean): Promise<void> {
+  await gotoAdminTools(page);
+
+  const row = getAdminToolRow(page, label);
+  const status = row.locator('[data-label="Status"]');
+  const currentStatus = (await status.textContent())?.trim();
+  const desiredStatus = enabled ? 'On' : 'Off';
+
+  if (currentStatus === desiredStatus) {
+    return;
+  }
+
+  const actionButton = row.getByRole('button', { name: enabled ? 'Enable' : 'Disable', exact: true });
+  await actionButton.click();
+  await expect(page.locator('.admin-banner--success')).toContainText(
+    `Tool '${label}' is now ${enabled ? 'enabled' : 'disabled'}.`,
+  );
+  await expect(getAdminToolRow(page, label).locator('[data-label="Status"]')).toHaveText(desiredStatus);
+}
+
+function getAdminToolRow(page: Page, label: string): Locator {
+  return page.locator('tbody tr').filter({
+    has: page.locator('td[data-label="Tool"] span', { hasText: label }),
+  });
+}
