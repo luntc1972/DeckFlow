@@ -71,6 +71,24 @@ B1 exhibition: only 1 commander cleared the floor → excluded (too niche).
 - **Between-commander SD only ~1.4–1.6** → commander identity barely moves land count; confirms (n=50) that CMC/abilities don't drive it. Burgess floor + draw/ramp engine-credit remain rejected.
 - **Data floor answer:** with SD ≈ 1.5, ~20–30 commanders gives ±0.3–0.4 land; 50 → ±0.2. Past ~50 = negligible for the baseline.
 
+## DEFINITIVE — 100 commanders, abilities classified + joined to land counts
+
+Classified all top-100 commanders' oracle text (draw / cost-reduce / mana-produce / land-fetch, heuristic regex, spot-validated) and joined to EDHREC land counts. Raw: `2026-07-16-edhrec-100commander-classified-rows.json`. Counts: draw 27, cost-reduce 6, mana-produce 11, land-fetch 2.
+
+| Ability group | n | overall lands | B3 (upgraded, cleanest) |
+|---|--:|--:|--:|
+| draw only | 23 | 35.5 | 35.7 |
+| cost-reduce | 6 | 35.0 | 35.3 |
+| mana-produce / land-fetch | 13 | 33.9 (SD 2.81) | 35.0 |
+| none | 60 | 35.2 | 35.5 |
+| all | 100 | 35.1 | 35.5 |
+
+**Verdict (n=100): NO commander ability reduces land count once power level is controlled.**
+- Draw → no effect (35.7 vs 35.5). Cost-reduce → no effect (35.3).
+- Mana/land-fetch → the −1.2 "overall" signal is a mirage: the group is bimodal — low values are cEDH combo commanders (Kinnan 27, Urza 31, Vivi 31), high are casual (Choco 38, Omnath 37, Zaxara 36). In B3 (no cEDH) it collapses to 35.0 = baseline. Sméagol/Vivi were archetype/bracket confounds, not a mana-ability effect.
+
+**Every commander-ability manabase adjustment (draw/ramp engine-credit, cost floor, mana-producer credit) is REJECTED by data. Bracket is the only driver.** Only data-backed feature = bracket-graded land target (core 36 / upgraded 35.5 / optimized 34.5).
+
 ## Tool implications
 
 - **Land target should key off bracket/power level, not commander cost.** DeckFlow already has Standard vs cEDH modes; data says cEDH target ≈ **30**, casual ≈ **36**. Candidate feature: a 5-band bracket-graded target (~36/36/35/34/30), extending the recent focused-tier work. Verify `CedhLandBaseline` ≈ 30.
