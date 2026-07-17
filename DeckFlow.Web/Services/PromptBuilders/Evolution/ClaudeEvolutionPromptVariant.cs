@@ -11,7 +11,10 @@ internal sealed class ClaudeEvolutionPromptVariant : IEvolutionPromptVariant
     public AiPlatform Platform => AiPlatform.Claude;
 
     /// <inheritdoc />
-    public string Build(DeckHistoryFile history, CancellationToken cancellationToken = default)
+    public string Build(
+        DeckHistoryFile history,
+        IReadOnlyList<EvolutionCardReference>? cardReferences,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(history);
 
@@ -26,6 +29,24 @@ internal sealed class ClaudeEvolutionPromptVariant : IEvolutionPromptVariant
         builder.AppendLine(EvolutionHistoryRenderer.RenderHistoryBody(history));
         builder.AppendLine("</history>");
         builder.AppendLine();
+        if (cardReferences is not null && cardReferences.Count > 0)
+        {
+            builder.AppendLine("<card_reference>");
+            builder.AppendLine("<source>Scryfall Oracle</source>");
+            foreach (var cardReference in cardReferences)
+            {
+                builder.AppendLine("<card>");
+                builder.AppendLine($"<name>{cardReference.Name}</name>");
+                builder.AppendLine($"<mana_cost>{cardReference.ManaCost}</mana_cost>");
+                builder.AppendLine($"<type_line>{cardReference.TypeLine}</type_line>");
+                builder.AppendLine($"<oracle_text>{cardReference.OracleText}</oracle_text>");
+                builder.AppendLine("</card>");
+            }
+
+            builder.AppendLine("</card_reference>");
+            builder.AppendLine();
+        }
+
         builder.AppendLine("<analysis_tasks>");
         builder.AppendLine("1. TRAJECTORY — explain what the deck's game plan was in version 1 and what it is now, in two sentences each.");
         builder.AppendLine("2. CHANGE ANALYSIS — for each version, assess whether the notes' stated intent matches what the adds, cuts, and quantity changes actually did.");

@@ -11,7 +11,10 @@ internal sealed class GeminiEvolutionPromptVariant : IEvolutionPromptVariant
     public AiPlatform Platform => AiPlatform.Gemini;
 
     /// <inheritdoc />
-    public string Build(DeckHistoryFile history, CancellationToken cancellationToken = default)
+    public string Build(
+        DeckHistoryFile history,
+        IReadOnlyList<EvolutionCardReference>? cardReferences,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(history);
 
@@ -23,6 +26,21 @@ internal sealed class GeminiEvolutionPromptVariant : IEvolutionPromptVariant
         builder.AppendLine();
         builder.AppendLine("## DECK HISTORY");
         builder.AppendLine(EvolutionHistoryRenderer.RenderHistoryBody(history));
+        if (cardReferences is not null && cardReferences.Count > 0)
+        {
+            builder.AppendLine("## CARD REFERENCE");
+            builder.AppendLine("Source: Scryfall Oracle");
+            builder.AppendLine();
+            foreach (var cardReference in cardReferences)
+            {
+                builder.AppendLine($"Name: {cardReference.Name}");
+                builder.AppendLine($"Mana Cost: {cardReference.ManaCost}");
+                builder.AppendLine($"Type Line: {cardReference.TypeLine}");
+                builder.AppendLine($"Oracle Text: {cardReference.OracleText}");
+                builder.AppendLine();
+            }
+        }
+
         builder.AppendLine("## ANALYSIS TASKS");
         builder.AppendLine("1. TRAJECTORY — explain what the deck's game plan was in version 1 and what it is now, in two sentences each.");
         builder.AppendLine("2. CHANGE ANALYSIS — for each version, assess whether the notes' stated intent matches what the adds, cuts, and quantity changes actually did.");

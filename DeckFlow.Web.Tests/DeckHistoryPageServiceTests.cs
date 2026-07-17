@@ -1,12 +1,16 @@
 using System.Net;
+using System.Text.Json;
 using DeckFlow.Core.History;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Normalization;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Models;
+using DeckFlow.Web.Services.Scryfall;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.PromptBuilders.Evolution;
+using Microsoft.Extensions.Logging;
+using RestSharp;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
@@ -89,6 +93,101 @@ public sealed class DeckHistoryPageServiceTests
         Assert.True(result.Appended);
         Assert.Equal(2, result.File!.Versions.Count);
         Assert.False(string.IsNullOrWhiteSpace(result.PromptText));
+    }
+
+    [Fact]
+    public async Task ProcessAsync_PromptBuild_ResolvesDedupedUnionAcrossLatestListAndAllDeltas()
+    {
+        var resolver = new FakeScryfallCardResolver
+        {
+            OnExecuteCollectionAsync = request =>
+            {
+                var names = ExtractRequestBody(request);
+                Assert.Contains("Alela, Artful Provocateur", names, StringComparison.Ordinal);
+                Assert.Contains("Esper Sentinel", names, StringComparison.Ordinal);
+                Assert.Contains("Sol Ring", names, StringComparison.Ordinal);
+                Assert.Contains("Smothering Tithe", names, StringComparison.Ordinal);
+                Assert.Contains("Arcane Signet", names, StringComparison.Ordinal);
+                Assert.Contains("Mana Crypt", names, StringComparison.Ordinal);
+                Assert.Contains("Swords to Plowshares", names, StringComparison.Ordinal);
+
+                return Task.FromResult(CollectionResponse(
+                    ScryfallCard("Alela, Artful Provocateur", "{1}{W}{U}{B}", "Legendary Creature — Faerie Warlock", "Flying, deathtouch, lifelink"),
+                    ScryfallCard("Esper Sentinel", "{W}", "Artifact Creature — Human Soldier", "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is Esper Sentinel's power."),
+                    ScryfallCard("Sol Ring", "{1}", "Artifact", "{T}: Add {C}{C}."),
+                    ScryfallCard("Smothering Tithe", "{3}{W}", "Enchantment", "Whenever an opponent draws a card, that player may pay {2}. If the player doesn't, you create a Treasure token."),
+                    ScryfallCard("Arcane Signet", "{2}", "Artifact", "{T}: Add one mana of any color in your commander's color identity."),
+                    ScryfallCard("Mana Crypt", "{0}", "Artifact", "{T}: Add {C}{C}. At the beginning of your upkeep, flip a coin."),
+                    ScryfallCard("Swords to Plowshares", "{W}", "Instant", "Exile target creature. Its controller gains life equal to its power.")));
+            }
+        };
+        var service = CreateService(resolver: resolver);
+        var history = BuildHistoryJson(
+            Version(
+                1,
+                "2026-07-01T00:00:00Z",
+                ["Alela, Artful Provocateur"],
+                [Card("Sol Ring", 1), Card("Arcane Signet", 1), Card("Mana Crypt", 1), Card("Swords to Plowshares", 1)]),
+            Version(
+                2,
+                "2026-07-08T00:00:00Z",
+                ["Alela, Artful Provocateur"],
+                [Card("Sol Ring", 1), Card("Esper Sentinel", 1), Card("Mana Crypt", 1)],
+                notes: "Trimmed rocks for more pressure."),
+            Version(
+                3,
+                "2026-07-15T00:00:00Z",
+                ["Alela, Artful Provocateur"],
+                [Card("Sol Ring", 1), Card("Esper Sentinel", 1), Card("Smothering Tithe", 1), Card("Swords to Plowshares", 1)],
+                notes: "Added premium engine pieces."));
+
+        var result = await service.ProcessAsync(new DeckHistoryRequest
+        {
+            HistoryJson = history,
+            TargetAiPlatform = "ChatGPT",
+        }, uploadedHistoryJson: null);
+
+        Assert.Null(result.ErrorMessage);
+        Assert.Equal(1, resolver.ExecuteCollectionCallCount);
+        Assert.Contains("CARD REFERENCE", result.PromptText);
+        Assert.Contains("Name: Alela, Artful Provocateur", result.PromptText);
+        Assert.Contains("Name: Esper Sentinel", result.PromptText);
+        Assert.Contains("Name: Arcane Signet", result.PromptText);
+        Assert.Contains("Name: Smothering Tithe", result.PromptText);
+        Assert.Contains("Name: Mana Crypt", result.PromptText);
+        Assert.Equal(1, CountOccurrences(result.PromptText, "Name: Sol Ring"));
+        Assert.Equal(1, CountOccurrences(result.PromptText, "Name: Swords to Plowshares"));
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ScryfallReferenceFailure_AppendsWarningAndKeepsPrompt()
+    {
+        var logger = new FakeLogger<DeckHistoryPageService>();
+        var resolver = new FakeScryfallCardResolver
+        {
+            OnExecuteCollectionAsync = _ => throw new HttpRequestException(
+                "Scryfall card reference lookup (cards/collection) returned HTTP 503.",
+                null,
+                HttpStatusCode.ServiceUnavailable),
+        };
+        var service = CreateService(resolver: resolver, logger: logger);
+        var history = BuildHistoryJson(
+            Version(1, "2026-07-01T00:00:00Z", ["Atraxa, Praetors' Voice"], [Card("Sol Ring", 1)]),
+            Version(2, "2026-07-08T00:00:00Z", ["Atraxa, Praetors' Voice"], [Card("Sol Ring", 1), Card("Arcane Signet", 1)]));
+
+        var result = await service.ProcessAsync(new DeckHistoryRequest
+        {
+            HistoryJson = history,
+            TargetAiPlatform = "Gemini",
+        }, uploadedHistoryJson: null);
+
+        Assert.Null(result.ErrorMessage);
+        Assert.DoesNotContain("CARD REFERENCE", result.PromptText);
+        Assert.Contains(
+            "Scryfall card lookup failed while building the card reference; the evolution prompt was generated without card details. HTTP 503.",
+            result.Warnings);
+        var warning = Assert.Single(logger.Entries, entry => entry.Level == LogLevel.Warning);
+        Assert.Contains("Scryfall card reference lookup failed", warning.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -266,10 +365,35 @@ public sealed class DeckHistoryPageServiceTests
     }
 
     private static DeckHistoryPageService CreateService(params DeckEntry[] entries) =>
-        new(new FakeDeckEntryLoader(new DeckSourceLoadResult(entries.ToList(), FallbackNotice: null)), CreateRegistry(), () => FixedNow);
+        CreateServiceCore(new FakeScryfallCardResolver(), new FakeLogger<DeckHistoryPageService>(), entries);
+
+    private static DeckHistoryPageService CreateService(
+        FakeScryfallCardResolver? resolver = null,
+        FakeLogger<DeckHistoryPageService>? logger = null,
+        params DeckEntry[] entries) =>
+        CreateServiceCore(
+            resolver ?? new FakeScryfallCardResolver(),
+            logger ?? new FakeLogger<DeckHistoryPageService>(),
+            entries);
 
     private static DeckHistoryPageService CreateService(Exception exception) =>
-        new(new FakeDeckEntryLoader(exception), CreateRegistry(), () => FixedNow);
+        new(
+            new FakeDeckEntryLoader(exception),
+            CreateRegistry(),
+            new FakeScryfallCardResolver(),
+            new FakeLogger<DeckHistoryPageService>(),
+            () => FixedNow);
+
+    private static DeckHistoryPageService CreateServiceCore(
+        FakeScryfallCardResolver resolver,
+        FakeLogger<DeckHistoryPageService> logger,
+        params DeckEntry[] entries) =>
+        new(
+            new FakeDeckEntryLoader(new DeckSourceLoadResult(entries.ToList(), FallbackNotice: null)),
+            CreateRegistry(),
+            resolver,
+            logger,
+            () => FixedNow);
 
     private static EvolutionPromptVariantRegistry CreateRegistry() =>
         new([
@@ -289,12 +413,14 @@ public sealed class DeckHistoryPageServiceTests
         int id,
         string dateUtc,
         IReadOnlyList<string> commander,
-        IReadOnlyList<SnapshotCard> cards) => new()
+        IReadOnlyList<SnapshotCard> cards,
+        string? notes = null) => new()
         {
             Id = id,
             Date = DateTimeOffset.Parse(dateUtc),
             Commander = commander,
             Cards = cards,
+            Notes = notes,
         };
 
     private static SnapshotCard Card(string name, int qty) => new()
@@ -365,5 +491,74 @@ public sealed class DeckHistoryPageServiceTests
             int requiredDeckSize = 100)
         {
         }
+    }
+
+    private sealed class FakeScryfallCardResolver : IScryfallCardResolver
+    {
+        public Func<RestRequest, Task<RestResponse<ScryfallCollectionResponse>>>? OnExecuteCollectionAsync { get; init; }
+
+        public int ExecuteCollectionCallCount { get; private set; }
+
+        public Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken cancellationToken)
+        {
+            ExecuteCollectionCallCount++;
+            return OnExecuteCollectionAsync is null
+                ? Task.FromResult(CollectionResponse())
+                : OnExecuteCollectionAsync(request);
+        }
+
+        public Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
+            => Task.FromResult<ScryfallCard?>(null);
+
+        public Task<ScryfallCard?> SearchPrintingFallbackCardAsync(string cardName, CancellationToken cancellationToken)
+            => Task.FromResult<ScryfallCard?>(null);
+
+        public Task<ScryfallCard?> ResolveSingleAsync(string cardName, CancellationToken cancellationToken)
+            => Task.FromResult<ScryfallCard?>(null);
+    }
+
+    private static RestResponse<ScryfallCollectionResponse> CollectionResponse(params ScryfallCard[] cards) =>
+        new(new RestRequest("cards/collection", Method.Post))
+        {
+            StatusCode = HttpStatusCode.OK,
+            Data = new ScryfallCollectionResponse(cards.ToList(), null),
+        };
+
+    private static ScryfallCard ScryfallCard(string name, string manaCost, string typeLine, string oracleText) =>
+        new(
+            name,
+            manaCost,
+            typeLine,
+            oracleText,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
+
+    private static string ExtractRequestBody(RestRequest request)
+    {
+        var bodyParameter = request.Parameters.Single(parameter => parameter.Type == ParameterType.RequestBody);
+        return bodyParameter.Value switch
+        {
+            string body => body,
+            null => string.Empty,
+            _ => JsonSerializer.Serialize(bodyParameter.Value),
+        };
+    }
+
+    private static int CountOccurrences(string value, string fragment)
+    {
+        var count = 0;
+        var start = 0;
+        while ((start = value.IndexOf(fragment, start, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            start += fragment.Length;
+        }
+
+        return count;
     }
 }
