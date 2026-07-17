@@ -1,6 +1,11 @@
 @model ContentKbDetailViewModel
+@using DeckFlow.Web.Configuration
+@using DeckFlow.Web.Services.Tools
+@using Microsoft.Extensions.Options
+@inject IOptions<AiPlatformOptions> AiPlatformOptionsAccessor
 @{
     ViewData["Title"] = Model.Title;
+    var platformList = AiPlatformCopy.PlatformList(AiPlatformOptionsAccessor.Value.GeminiEnabled);
 }
 <nav class="help-breadcrumb" aria-label="Breadcrumb">
     <a href="@Url.Content("~/content-kb")">Knowledge Base</a>
@@ -32,7 +37,7 @@
     else
     {
         <p class="page-lede kb-artifact-hint">
-            This entry is a ready-to-use AI prompt — copy it and paste into ChatGPT, Claude, or Gemini.
+            This entry is a ready-to-use AI prompt — copy it and paste into @platformList.
         </p>
         <div class="prompt-sticky-download" role="region" aria-label="Copy artifact">
             <button type="button"

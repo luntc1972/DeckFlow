@@ -1,6 +1,10 @@
 @using DeckFlow.Core.Bracket
+@using DeckFlow.Web.Configuration
 @using DeckFlow.Web.Models
+@using DeckFlow.Web.Services.Tools
+@using Microsoft.Extensions.Options
 @model DeckFlow.Web.Models.BracketViewModel
+@inject IOptions<AiPlatformOptions> AiPlatformOptionsAccessor
 @{
     ViewData["Title"] = "Bracket Check";
     var isUrl = Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl;
@@ -21,6 +25,7 @@
         ? tiers.FirstOrDefault(t => t.Number == Model.TargetBracketNumber.Value)
         : null;
     var currentTier = cl is not null ? tiers.FirstOrDefault(t => t.Number == cl.BracketNumber) : null;
+    var platformSlashList = AiPlatformCopy.PlatformSlashList(AiPlatformOptionsAccessor.Value.GeminiEnabled);
 }
 
 <section class="hero">
@@ -304,7 +309,7 @@
         @if (!string.IsNullOrWhiteSpace(Model.PromptArtifact))
         {
             <details class="result-panel nested-panel">
-                <summary>Want fair swaps? Copy this prompt for ChatGPT / Claude / Gemini</summary>
+                <summary>Want fair swaps? Copy this prompt for @platformSlashList</summary>
                 <p class="manabase-help">The cuts above are a starting point. Paste this to have an AI replace each over-bracket card with a power-equivalent legal swap and re-confirm the bracket.</p>
                 <button type="button" class="copy-button" data-copy-target="bracket-prompt">Copy</button>
                 <textarea id="bracket-prompt" readonly spellcheck="false">@Model.PromptArtifact</textarea>

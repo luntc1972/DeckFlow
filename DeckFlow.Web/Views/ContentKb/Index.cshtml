@@ -1,12 +1,17 @@
 @model ContentKbBrowseViewModel
+@using DeckFlow.Web.Configuration
+@using DeckFlow.Web.Services.Tools
+@using Microsoft.Extensions.Options
+@inject IOptions<AiPlatformOptions> AiPlatformOptionsAccessor
 @{
     ViewData["Title"] = "cEDH & Commander Knowledge Base";
     ViewData["Description"] = "Browse curated cEDH and Commander content: deck tech, strategy, and creator videos distilled for serious Magic: The Gathering deck-builders.";
     var hasEntries = Model.Entries.Count > 0;
+    var platformList = AiPlatformCopy.PlatformList(AiPlatformOptionsAccessor.Value.GeminiEnabled);
 }
 <section aria-labelledby="content-kb-title">
     <h1 id="content-kb-title">Knowledge Base</h1>
-    <p class="page-lede">Distilled advice from Commander and cEDH content — ready to paste into ChatGPT, Claude, or Gemini.</p>
+    <p class="page-lede">Distilled advice from Commander and cEDH content — ready to paste into @platformList.</p>
     @await Html.PartialAsync("_DeckToolTabs", DeckFlow.Web.Models.DeckPageTab.ContentKb)
 
     <fieldset class="kb-filter-bar" @(hasEntries ? null : "disabled")>

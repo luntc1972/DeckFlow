@@ -7,7 +7,7 @@ requires_flag: tool.knowledge-base.enabled
 
 # Knowledge Base
 
-The Knowledge Base (`/content-kb`) is a browsable library of deck-building knowledge distilled from community Magic content. Each entry is a compact, AI-ready artifact derived from an expert video — a summary, key clips or takeaways, and tags — that you can read on the site or copy straight into ChatGPT, Claude, or Gemini as context for your own deck questions.
+The Knowledge Base (`/content-kb`) is a browsable library of deck-building knowledge distilled from community Magic content. Each entry is a compact, AI-ready artifact derived from an expert video — a summary, key clips or takeaways, and tags — that you can read on the site or copy straight into ChatGPT or Claude as context for your own deck questions.
 
 > The Knowledge Base is gated behind a feature flag. If it is turned off, visiting the page shows a short "Knowledge Base unavailable" notice instead.
 
@@ -34,4 +34,4 @@ Click an entry's title to open its detail page (`/content-kb/{id}`). The page sh
 
 ## Copying an entry into your AI
 
-A **Copy** button at the top of the article copies the clean artifact text to your clipboard. Paste it into ChatGPT, Claude, or Gemini to give your AI grounded, deck-relevant context before you ask it a question — for example, when analyzing a deck or asking how to play a given archetype.
+A **Copy** button at the top of the article copies the clean artifact text to your clipboard. Paste it into ChatGPT or Claude to give your AI grounded, deck-relevant context before you ask it a question — for example, when analyzing a deck or asking how to play a given archetype.
