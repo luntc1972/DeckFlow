@@ -92,9 +92,18 @@ test('creates history, intercepts download, appends a second version, and captur
 
   await expect(page.locator('.history-timeline')).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('.success-banner')).toContainText('Started a new history — version 1 saved.');
+  await expect(page.locator('.success-banner')).toContainText(
+    'To add the next version: update your deck, import it above, and press Update history again — your history carries forward on this page.',
+  );
   await expect(page.locator('.warning-banner')).toContainText(
     'Deck has 34 cards — Commander decks run 100. Snapshot saved anyway.',
   );
+  await expect(page.locator('.result-panel h2')).toHaveText([
+    'Timeline',
+    'Save your history',
+    'Compare versions',
+    'AI prompt — "How has this deck evolved?"',
+  ]);
   await expect(page.locator('.history-timeline tbody tr').first()).toContainText('Initial list.');
   const promptPanel = page.locator('.result-panel').filter({
     has: page.getByRole('heading', { name: 'AI prompt — "How has this deck evolved?"' }),
@@ -143,6 +152,9 @@ test('creates history, intercepts download, appends a second version, and captur
 
   await expect(page.locator('.history-timeline tbody tr')).toHaveCount(2, { timeout: 30_000 });
   await expect(page.locator('.success-banner')).toContainText('Version 2 added.');
+  await expect(page.locator('.success-banner')).toContainText(
+    'To add the next version: update your deck, import it above, and press Update history again — your history carries forward on this page.',
+  );
   await expect(page.locator('.history-diff')).toBeVisible();
   await expect(promptPanel).not.toContainText(
     'Add a second version to generate the evolution prompt.',

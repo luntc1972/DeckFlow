@@ -112,13 +112,13 @@
 
 @if (Model.HasResult)
 {
-    <section data-scroll-on-load>
+    <section class="deck-history-results" data-scroll-on-load>
         @if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
         {
             <div class="success-banner" role="status">
                 @Model.SuccessMessage
+                <span class="history-success-hint">To add the next version: update your deck, import it above, and press Update history again — your history carries forward on this page.</span>
             </div>
-            <p class="history-empty-compare">To add the next version: update your deck, import it above, and press Update history again — your history carries forward on this page.</p>
         }
 
         @if (Model.Warnings.Count > 0)
@@ -177,6 +177,14 @@
                         }
                     </tbody>
                 </table>
+            </div>
+        </section>
+
+        <section class="result-panel">
+            <h2>Save your history</h2>
+            <p>Download the updated file and keep it with your deck. Re-upload it next time to add the next version — or keep going right here; the page remembers your history until you leave.</p>
+            <div class="toolbar">
+                <button type="submit" class="run-button" form="deck-history-compare-form" formaction="@Url.Content("~/deck-history/download")" data-no-busy data-prompt-download-submit>Download deck history (.json)</button>
             </div>
         </section>
 
@@ -244,13 +252,6 @@
             }
         </section>
 
-        <section class="result-panel">
-            <h2>Save your history</h2>
-            <p>Download the updated file and keep it with your deck. Re-upload it next time to add the next version — or keep going right here; the page remembers your history until you leave.</p>
-            <div class="toolbar">
-                <button type="submit" class="run-button" form="deck-history-compare-form" formaction="@Url.Content("~/deck-history/download")" data-no-busy data-prompt-download-submit>Download deck history (.json)</button>
-            </div>
-        </section>
     </section>
 }
 
