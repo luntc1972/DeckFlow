@@ -92,6 +92,7 @@ public partial class Program
             builder.Services.AddSingleton<IHelpContentService, HelpContentService>();
             builder.Services.AddSingleton<IGameChangerCatalogService, GameChangerCatalogService>();
             builder.Services.AddSingleton<ICedhLandBaselineProvider, CedhLandBaselineProvider>();
+            builder.Services.AddSingleton<IManabaseBaselineProvider, ManabaseBaselineProvider>();
             builder.Services.AddSingleton<IVersionService, VersionService>();
             builder.Services.AddSingleton<IFeedbackStore, FeedbackStore>();
             // Why: foundation-only store registration for Phase 1; no consumer until Phase 3/4.
@@ -303,6 +304,8 @@ public partial class Program
             app.Logger.LogInformation("Warming cEDH land baseline into memory cache during startup.");
             app.Services.GetRequiredService<ICedhLandBaselineProvider>().EnsureLoaded();
             app.Logger.LogInformation("cEDH land baseline warm-loaded.");
+
+            app.Services.GetRequiredService<IManabaseBaselineProvider>().EnsureLoaded();
 
             // Resolve the IP-hash salt once at startup so the analytics middleware does not
             // perform DB I/O on the hot path. Uses CreateHarvestStateConnection for explicit
