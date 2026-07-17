@@ -56,7 +56,9 @@ public sealed class ManabaseBaselineWeightingTests
         Assert.Equal(34, r.Lands.Value);
         Assert.Equal(ManabaseBaselineSource.Commander, r.Lands.Source);
         Assert.Equal(10, r.Ramp.Value);
+        Assert.Equal(ManabaseBaselineSource.Commander, r.Ramp.Source);
         Assert.Equal(9, r.Draw.Value);
+        Assert.Equal(ManabaseBaselineSource.Commander, r.Draw.Source);
         Assert.Equal(44, r.TotalSources);          // lands + ramp
         Assert.Equal(500, r.CommanderDeckCount);
     }
@@ -71,7 +73,9 @@ public sealed class ManabaseBaselineWeightingTests
         Assert.Equal(35.5, r.Lands.Value);
         Assert.Equal(ManabaseBaselineSource.Global, r.Lands.Source);
         Assert.Equal(9, r.Ramp.Value);
+        Assert.Equal(ManabaseBaselineSource.Global, r.Ramp.Source);
         Assert.Equal(8, r.Draw.Value);
+        Assert.Equal(ManabaseBaselineSource.Global, r.Draw.Source);
     }
 
     [Fact]
@@ -85,7 +89,9 @@ public sealed class ManabaseBaselineWeightingTests
         Assert.Equal(33, r.Lands.Value, 3);        // 0.5*30 + 0.5*36
         Assert.Equal(ManabaseBaselineSource.Blended, r.Lands.Source);
         Assert.Equal(10, r.Ramp.Value, 3);         // 0.5*12 + 0.5*8
+        Assert.Equal(ManabaseBaselineSource.Blended, r.Ramp.Source);
         Assert.Equal(8, r.Draw.Value, 3);          // 0.5*10 + 0.5*6
+        Assert.Equal(ManabaseBaselineSource.Blended, r.Draw.Source);
     }
 
     [Fact]
@@ -127,15 +133,65 @@ public sealed class ManabaseBaselineWeightingTests
     }
 
     [Fact]
-    public void Blend_without_global_uses_commander_value()
+    public void Mid_sample_without_global_yields_none()
     {
-        // Mid sample but no global to blend against -> use the commander value as-is.
+        // Mid band but no global to blend against: we cannot express confidence, so omit the metric
+        // rather than upgrade a weak sample to full trust. (Degenerate — global is normally always present.)
         var r = ManabaseBaselineWeighting.Compute(
             commanderLands: 30, commanderRamp: 12, commanderDraw: 10, commanderDeckCount: 250,
             globalLands: null, globalRamp: null, globalDraw: null);
 
-        Assert.Equal(30, r.Lands.Value);
+        Assert.Null(r.Lands.Value);
+        Assert.Equal(ManabaseBaselineSource.None, r.Lands.Source);
+        Assert.Null(r.Ramp.Value);
+        Assert.Equal(ManabaseBaselineSource.None, r.Ramp.Source);
+        Assert.Null(r.TotalSources);
+    }
+
+    [Fact]
+    public void At_low_threshold_weight_is_zero_so_value_equals_global_but_source_is_blended()
+    {
+        // deckCount == LOW (100): NOT below LOW, so it enters the blend with w = 0 -> value == global,
+        // but the source is Blended (it went through the blend path, not the pure-global path).
+        var r = ManabaseBaselineWeighting.Compute(
+            commanderLands: 30, commanderRamp: 12, commanderDraw: 10, commanderDeckCount: 100,
+            globalLands: 36, globalRamp: 8, globalDraw: 6);
+
+        Assert.Equal(36, r.Lands.Value, 3);
+        Assert.Equal(ManabaseBaselineSource.Blended, r.Lands.Source);
+        Assert.Equal(8, r.Ramp.Value, 3);
+        Assert.Equal(ManabaseBaselineSource.Blended, r.Ramp.Source);
+    }
+
+    [Fact]
+    public void At_high_threshold_uses_commander()
+    {
+        // deckCount == HIGH (400): trusted fully.
+        var r = ManabaseBaselineWeighting.Compute(
+            commanderLands: 30, commanderRamp: 12, commanderDraw: 10, commanderDeckCount: 400,
+            globalLands: 36, globalRamp: 8, globalDraw: 6);
+
+        Assert.Equal(30, r.Lands.Value, 3);
         Assert.Equal(ManabaseBaselineSource.Commander, r.Lands.Source);
+        Assert.Equal(12, r.Ramp.Value, 3);
+        Assert.Equal(ManabaseBaselineSource.Commander, r.Ramp.Source);
+        Assert.Equal(10, r.Draw.Value, 3);
+        Assert.Equal(ManabaseBaselineSource.Commander, r.Draw.Source);
+    }
+
+    [Fact]
+    public void TotalSources_is_null_when_a_component_is_null()
+    {
+        // Solid sample, lands present but ramp missing -> ramp falls to global; if global ramp is also
+        // null, ramp is None/null and TotalSources cannot be summed.
+        var r = ManabaseBaselineWeighting.Compute(
+            commanderLands: 34, commanderRamp: null, commanderDraw: 9, commanderDeckCount: 500,
+            globalLands: 35.5, globalRamp: null, globalDraw: 8);
+
+        Assert.Equal(34, r.Lands.Value);
+        Assert.Null(r.Ramp.Value);
+        Assert.Equal(ManabaseBaselineSource.None, r.Ramp.Source);
+        Assert.Null(r.TotalSources);
     }
 }
 ```
@@ -186,7 +242,11 @@ public static class ManabaseBaselineWeighting
     /// <summary>At or above this deck count the commander cell is trusted fully.</summary>
     public const int HighDeckThreshold = 400;
 
-    /// <summary>Compute the weighted baseline for all three metrics.</summary>
+    /// <summary>
+    /// Compute the weighted baseline for all three metrics. A negative <paramref name="commanderDeckCount"/>
+    /// is treated as a thin sample (falls back to the global baseline). Metric averages are assumed
+    /// non-negative (guaranteed by the upstream corpus aggregation) and are not validated here.
+    /// </summary>
     public static ManabaseBaselineResult Compute(
         double? commanderLands, double? commanderRamp, double? commanderDraw, int commanderDeckCount,
         double? globalLands, double? globalRamp, double? globalDraw)
@@ -223,7 +283,11 @@ git commit -m "test(manabase): failing tests + type stubs for baseline weighting
 In `ManabaseBaselineWeighting`, replace the `Compute` body and add a private `WeighMetric`:
 
 ```csharp
-    /// <summary>Compute the weighted baseline for all three metrics.</summary>
+    /// <summary>
+    /// Compute the weighted baseline for all three metrics. A negative <paramref name="commanderDeckCount"/>
+    /// is treated as a thin sample (falls back to the global baseline). Metric averages are assumed
+    /// non-negative (guaranteed by the upstream corpus aggregation) and are not validated here.
+    /// </summary>
     public static ManabaseBaselineResult Compute(
         double? commanderLands, double? commanderRamp, double? commanderDraw, int commanderDeckCount,
         double? globalLands, double? globalRamp, double? globalDraw)
@@ -253,10 +317,11 @@ In `ManabaseBaselineWeighting`, replace the `Compute` body and add a private `We
             return new ManabaseBaselineMetric(commander, ManabaseBaselineSource.Commander);
         }
 
-        // Mid band -> blend toward the global baseline; if there is no global, use the commander value.
+        // Mid band -> blend toward the global baseline. Without a global we cannot express confidence,
+        // so omit rather than upgrade a weak sample to full trust. (Degenerate: global is normally present.)
         if (globalAvg is not double global)
         {
-            return new ManabaseBaselineMetric(commander, ManabaseBaselineSource.Commander);
+            return new ManabaseBaselineMetric(null, ManabaseBaselineSource.None);
         }
 
         double w = (double)(deckCount - LowDeckThreshold) / (HighDeckThreshold - LowDeckThreshold);
@@ -268,7 +333,7 @@ In `ManabaseBaselineWeighting`, replace the `Compute` body and add a private `We
 - [ ] **Step 2: Run tests to verify they pass**
 
 Run: `"/mnt/c/Program Files/dotnet/dotnet.exe" test DeckFlow.Core.Tests/DeckFlow.Core.Tests.csproj --filter "ManabaseBaselineWeightingTests"`
-Expected: PASS (7 tests).
+Expected: PASS (10 tests).
 
 - [ ] **Step 3: Full Core build + suite (no regressions)**
 
@@ -284,11 +349,11 @@ git commit -m "feat(manabase): implement confidence-weighted baseline (lands/ram
 
 ---
 
-## Task 3: `/simplify`
+## Task 3: Review for simplification
 
 **Files:** possibly `DeckFlow.Core/Manabase/ManabaseBaselineWeighting.cs`
 
-- [ ] **Step 1: Run `/simplify` on the branch diff.** Apply any reduction (e.g. collapsing the two commander-value returns). Keep the per-metric independence + the four sources intact.
+- [ ] **Step 1: Review the diff for simplification.** Look for reduction (e.g. collapsing repeated branch shapes in `WeighMetric`) without losing per-metric independence or any of the four sources. Apply only if it improves clarity. (If your harness has a `/simplify` command, run it; otherwise do the review by hand.)
 - [ ] **Step 2: Re-run** `--filter "ManabaseBaselineWeightingTests"` → PASS.
 - [ ] **Step 3: Commit if anything changed**
 
@@ -303,5 +368,7 @@ git add -A && git commit -m "chore(manabase): simplify baseline weighting" || ec
 - **Spec coverage:** implements spec Component 3 (`ManabaseBaselineWeighting`, per-metric blend by sample confidence, TotalSources = lands+ramp). Thresholds `LowDeckThreshold=100`/`HighDeckThreshold=400` are the spec's tunable consts. Storage (Phase 1), aggregation job (Phase 3), analyzer/UI (Phases 4/5) are out of scope here — the helper takes plain nullable doubles so it has zero dependency on the not-yet-built storage schema.
 - **Edge cases covered by tests:** solid / thin / mid-blend / missing-commander / missing-both / per-metric independence (null draw) / blend-without-global.
 - **Type consistency:** `Compute(double?, double?, double?, int, double?, double?, double?)` → `ManabaseBaselineResult(Lands, Ramp, Draw, TotalSources, CommanderDeckCount)` with `ManabaseBaselineMetric(double? Value, ManabaseBaselineSource Source)` and enum `{Commander, Blended, Global, None}`.
+- **Result-level source (downstream):** intentionally per-metric only. The analyzer/UI (Phases 4/5) derive any aggregate "source" label from the three metric sources (e.g. worst-of, or a per-metric badge) — no result-level source field is added here.
+- **Input assumptions (documented):** a negative `commanderDeckCount` is treated as thin (`< LowDeckThreshold` → global/none) — acceptable, no throw. Metric averages are assumed non-negative (the corpus aggregation guarantees it); the helper does not validate them. State both in the XML doc on `Compute`.
+- **Codex plan-review (gpt-5.5) folded:** HIGH — mid-band + missing global now returns `None` (was Commander); MEDIUM — added boundary tests (count==LOW → global-value/Blended-source, count==HIGH → Commander) and a TotalSources-null test; LOW — ramp/draw source asserts added to solid/thin/blended tests, negative-input behavior documented, `/simplify` step softened to "review for simplification".
 - **Constraints:** pure, no new deps, LF, additive (no existing type touched). Test namespace `DeckFlow.Core.Tests`, xUnit via global using.
-```
