@@ -180,6 +180,28 @@
             <p class="manabase-help">Focused keeps the Casual land target and display, but raises the color-support bar. cEDH = lower land count, fast-mana heavy. All modes show a per-card castability table.</p>
         </fieldset>
 
+        @if (Model.ShowCommunityBaseline)
+        {
+            var selectedBracket = Model.CommunityBaseline?.Bracket ?? Model.Request.Bracket;
+            <fieldset class="manabase-segmented" role="radiogroup">
+                <legend>Community baseline bracket</legend>
+                <div class="manabase-pills">
+                    @foreach (var (num, name) in new[] { (2, "Core"), (3, "Upgraded"), (4, "Optimized"), (5, "cEDH") })
+                    {
+                        <label class="manabase-pill @(selectedBracket == num ? "is-selected" : null)">
+                            <input type="radio" name="Bracket" value="@num"
+                                   checked="@(selectedBracket == num ? "checked" : null)" />
+                            <span>B@(num) @name</span>
+                        </label>
+                    }
+                    <label class="manabase-pill @(selectedBracket is null ? "is-selected" : null)">
+                        <input type="radio" name="Bracket" value="" checked="@(selectedBracket is null ? "checked" : null)" />
+                        <span>Auto</span>
+                    </label>
+                </div>
+            </fieldset>
+        }
+
         <fieldset class="manabase-segmented" role="radiogroup">
             <legend>How important is casting your commander?</legend>
             <div class="manabase-pills">
@@ -1051,6 +1073,7 @@
         <input type="hidden" name="DeckText" value="@Model.Request.DeckText" />
         <input type="hidden" name="DeckName" value="@Model.Request.DeckName" />
         <input type="hidden" name="Mode" value="@Model.Request.Mode" />
+        <input type="hidden" name="Bracket" value="@Model.Request.Bracket" />
         <input type="hidden" name="CommanderImportance" value="@Model.Request.CommanderImportance" />
         <input type="hidden" name="CompanionName" value="@Model.Request.CompanionName" />
         <input type="hidden" name="CostOverridesText" value="@Model.Request.CostOverridesText" />
