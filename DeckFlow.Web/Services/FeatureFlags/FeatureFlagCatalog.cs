@@ -38,6 +38,8 @@ public static class FeatureFlagCatalog
                 "Enable the Convert tool that rewrites a decklist between Moxfield and Archidekt formats.",
             ["tool.deck-primer.enabled"] =
                 "Enable the Deck Primer tool that generates a primer write-up prompt for a deck.",
+            ["tool.deck-history.enabled"] =
+                "Deck History tool: version a deck into a downloadable snapshot-history JSON file with notes, pair diffs, and an evolution prompt.",
             ["tool.card-lookup.enabled"] =
                 "Enable the Card Lookup tool that fetches Scryfall card details for a list of card names.",
             ["tool.mechanic-lookup.enabled"] =

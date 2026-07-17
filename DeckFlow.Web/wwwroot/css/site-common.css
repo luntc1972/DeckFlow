@@ -86,6 +86,16 @@ div.warning-banner {
   padding-left: 1rem;
 }
 
+div.success-banner {
+  border: 1px solid color-mix(in srgb, var(--success, #2f855a) 30%, var(--line, rgba(0, 0, 0, 0.18)));
+  border-left: 4px solid var(--success, #2f855a);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--success, #2f855a) 12%, var(--panel, #fff));
+  color: var(--ink);
+  padding: 0.9rem 1rem;
+  margin-bottom: 1rem;
+}
+
 /* Finding R: utility class for numeric columns (applied in later sweeps, e.g. WDG-06). */
 .tabular {
   font-variant-numeric: tabular-nums;
@@ -2372,11 +2382,6 @@ label.field > span,
   align-items: center;
 }
 
-/* Start over is an <a> styled as a button — drop the default link underline. */
-.manabase-start-over {
-  text-decoration: none;
-}
-
 /* Download analysis mini-form: left-aligned single-button toolbar matching manabase-actions
    spacing so it sits flush with the result panel content below the result section. */
 .toolbar.manabase-download {
@@ -3944,5 +3949,171 @@ label.field > span,
 @media (max-width: 640px) {
   .share-bar {
     flex-direction: column;
+  }
+}
+
+.history-timeline__wrap {
+  overflow-x: auto;
+}
+
+.history-timeline {
+  width: 100%;
+  min-width: 42rem;
+  border-collapse: collapse;
+}
+
+.history-timeline th,
+.history-timeline td {
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+  vertical-align: top;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.history-timeline th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.history-timeline tbody tr:nth-child(even) {
+  background: var(--panel-soft-bg, var(--panel));
+}
+
+.history-timeline td:nth-child(2),
+.history-timeline td:nth-child(5),
+.history-timeline td:nth-child(6) {
+  white-space: nowrap;
+}
+
+.history-timeline__label-inline {
+  display: none;
+  margin-right: 0.35rem;
+}
+
+.history-delta-add {
+  color: var(--success, #2f855a);
+  font-weight: 600;
+}
+
+.history-delta-cut {
+  color: var(--danger, #e53e3e);
+  font-weight: 600;
+  margin-left: 0.4rem;
+}
+
+.history-diff {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.deck-history-results > .success-banner,
+.deck-history-results > .warning-banner,
+.deck-history-results > .result-panel {
+  margin: 0;
+}
+
+.deck-history-results > .success-banner + .warning-banner,
+.deck-history-results > .success-banner + .result-panel,
+.deck-history-results > .warning-banner + .result-panel,
+.deck-history-results > .result-panel + .result-panel {
+  margin-top: 1rem;
+}
+
+.history-success-hint {
+  display: block;
+  margin-top: 0.4rem;
+}
+
+.deck-history-form .manabase-help {
+  margin-bottom: 0.85rem;
+}
+
+.deck-history-form .field + .field {
+  margin-top: 1rem;
+}
+
+#deck-history-notes {
+  min-height: 6rem;
+}
+
+.history-compare-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.85rem;
+}
+
+.history-compare-controls__field {
+  flex: 1 1 0;
+}
+
+.history-compare-controls__field label {
+  margin-bottom: 0;
+}
+
+.history-compare-controls__arrow {
+  color: var(--muted, #5a6472);
+  font-size: 1.25rem;
+  line-height: 1;
+  padding-bottom: 0.85rem;
+}
+
+.history-compare-controls__submit {
+  flex: 0 0 auto;
+}
+
+.history-compare-controls__submit .run-button {
+  width: auto;
+}
+
+.history-diff__panel {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+  border-radius: 12px;
+  background: var(--panel-soft-bg, var(--panel));
+}
+
+.history-diff__panel h3 {
+  margin-top: 0;
+  margin-bottom: 0.6rem;
+}
+
+.history-diff__panel ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.history-empty-compare {
+  margin: 0;
+  color: var(--muted, #5a6472);
+}
+
+@media (max-width: 640px) {
+  .history-timeline__label-col {
+    display: none;
+  }
+
+  .history-timeline__label-inline {
+    display: inline;
+  }
+
+  .history-compare-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .history-compare-controls__arrow {
+    display: none;
+  }
+
+  .history-compare-controls__submit .run-button {
+    width: 100%;
+  }
+
+  .history-diff {
+    grid-template-columns: 1fr;
   }
 }

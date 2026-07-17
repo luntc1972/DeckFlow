@@ -31,6 +31,7 @@ public static class SeoPaths
         "/judge-questions",
         "/manabase",
         "/bracket",
+        "/deck-history",
         "/content-kb",
         "/help",
         "/about",

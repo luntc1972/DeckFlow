@@ -5,7 +5,7 @@
 // `window.DeckInputSource` / `window.abortBridgeBusy?.()` rather than a bare cross-file identifier
 // — see busy-indicator.ts's header comment for why (Vitest's per-file ESM import graph does not
 // share bare top-level identifiers the way tsc's unified program + the browser's shared <script>
-// scope do). The `prompt-packets` / `prompt-deck-comparison` / `prompt-cedh-meta-gap`
+// scope do). The `prompt-packets` / `deck-history` / `prompt-deck-comparison` / `prompt-cedh-meta-gap`
 // cache-key string literals in collectMoxfieldImportTasks below were renamed in lockstep with
 // deck-sync.ts by the Phase 85 naming cleanup; they are read-only string comparisons that pick
 // which form inputs to wire, never the prompt-packets persistence/reset logic (which stays in
@@ -238,6 +238,15 @@ const collectMoxfieldImportTasks = (form: HTMLFormElement): MoxfieldImportTask[]
   }
 
   if (cacheKey === 'prompt-packets') {
+    const task = createSelectBackedImportTask(
+      form.querySelector<HTMLInputElement>('input[name="DeckUrl"]')!,
+      form.querySelector<HTMLTextAreaElement>('textarea[name="DeckText"]')!,
+      form.querySelector<HTMLSelectElement>('select[name="DeckInputSource"]')!
+    );
+    return task ? [task] : [];
+  }
+
+  if (cacheKey === 'deck-history') {
     const task = createSelectBackedImportTask(
       form.querySelector<HTMLInputElement>('input[name="DeckUrl"]')!,
       form.querySelector<HTMLTextAreaElement>('textarea[name="DeckText"]')!,

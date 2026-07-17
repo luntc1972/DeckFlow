@@ -132,6 +132,7 @@ Testcontainers.PostgreSql will start a `postgres:16-alpine` container, run the t
 - `DeckFlow.Core` contains parsers, diffing logic, exporters, and the Archidekt/Moxfield integrations.
 - `DeckFlow.Core.Loading` centralizes deck input loading and Commander deck-size validation so the web app and CLI share the same parsing/import rules.
 - `DeckFlow.Web` provides an ASP.NET Core MVC UI for running syncs, AI prompt building, deck-primer generation, cEDH meta-gap analysis, deck comparison prompt building, card lookup, commander category browsing, and category suggestions.
+- `Deck History` lets you version a deck into a JSON file you own, append labeled snapshots with notes, diff any two saved versions, and generate an AI prompt about how the list evolved.
 - The category suggestion UI now shows one merged, ranked, paste-ready card category list across sources, while commander category results show `% of decks` and cap the first 25 visible rows with an expander for the remainder.
 - `DeckFlow.CLI` exposes deck comparison, category harvesting, cache querying, and the local Content KB pipeline (source management, transcript harvest, LLM distillation, site-index export) in a console tool.
 

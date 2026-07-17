@@ -617,6 +617,7 @@ body[data-prompt-ui-mode="expert"] .prompt-global-note {
   border: 1px solid var(--line);
   color: var(--ink);
   align-items: flex-end;
+  text-decoration: none;
   padding: 0.6rem 0.9rem;
   border-radius: 8px;
   cursor: pointer;
