@@ -83,6 +83,8 @@ test('creates history, intercepts download, appends a second version, and captur
 }) => {
   mkdirSync(screenshotDir, { recursive: true });
 
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+
   const projectName = test.info().project.name;
   const downloadDir = mkdtempSync(join(tmpdir(), 'deck-history-smoke-'));
   const uploadJsonPath = join(downloadDir, `${projectName}-download.json`);
@@ -175,7 +177,15 @@ test('creates history, intercepts download, appends a second version, and captur
   await expect(addsPanel).toContainText('Mystic Remora');
   await expect(cutsPanel).toContainText('Brainstorm');
   await expect(promptTextarea).toBeVisible();
-  expect((await promptTextarea.inputValue()).trim()).not.toBe('');
+  const promptText = await promptTextarea.inputValue();
+  expect(promptText.trim()).not.toBe('');
+
+  const copyButton = promptPanel.locator('[data-copy-target="deck-history-prompt"]');
+  await copyButton.click();
+  await expect(copyButton).toHaveText('Copied');
+  const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
+  expect(clipboardText.startsWith('You are an expert Magic')).toBeTruthy();
+  expect(clipboardText.trimEnd()).toBe(promptText.trimEnd());
 
   const finalDownloadResponsePromise = page.waitForResponse((response) =>
     response.url().includes('/deck-history/download') && response.request().method() === 'POST',
