@@ -42,7 +42,6 @@ keattz explicitly: per-**bracket** and ramp/draw dumps are **not possible** on t
   "source": "edhrec-pilot-aggregate",
   "brackets": [ ...unchanged pilot rows... ],
   "commandersSource": "edhrec-averages",
-  "commandersGeneratedFromDump": "jul26",
   "commanders": [
     { "name": "The Ur-Dragon", "avgLands": 35, "deckCount": 48802 },
     { "name": "Halana, Kessig Ranger", "partnerName": "Alena, Kessig Trapper", "avgLands": 36, "deckCount": 1234 }
@@ -69,8 +68,10 @@ New CLI command (name at planning, e.g. `edhrec-averages`): input = path to extr
 `IManabaseBaselineProvider` gains:
 
 ```csharp
-ManabaseCommanderBaseline? TryGetCommanderBaseline(string commanderName, string? partnerName = null);
+ManabaseCommanderBaseline? TryGetCommanderBaseline(IReadOnlyList<string> commanderNames);
 ```
+
+(List-shaped — revised at plan review from the earlier `(string, string?)` sketch: the caller already holds `resolved.CommanderNames`, and `CedhLandBaselineProvider.TryGetBaseline` sets the same precedent. 1 name = lone, 2 = pair, anything else ⇒ null.)
 
 - **Lookup key algorithm (exact, both generator and provider use the same helper):**
   1. Normalize **each commander name separately** with `CardNormalizer.Normalize` (never after joining — `CardNormalizer` rewrites `" // "` to `" / "` and truncates at the first `" / "`, which would destroy a joined pair key; per-name it acceptably collapses an MDFC commander to its front face, and both the dump side and the deck side collapse identically).
@@ -121,6 +122,7 @@ ManabaseCommanderBaseline? TryGetCommanderBaseline(string commanderName, string?
 
 ## Open questions (for plan-review)
 
-1. Blended-line copy wording (one line, human, no "blended" jargon).
-2. Generator command name + whether it also refreshes `generatedUtc` on the snapshot root or only the commanders block.
-3. Whether `commandersGeneratedFromDump` (dump folder tag, e.g. `jul26`) is worth keeping vs just `generatedUtc`.
+All resolved at plan review (see `.planning/plans/2026-07-17-increment2-commander-baseline.md`):
+1. Blended-line copy: one commander-phrased human line, no "blended" jargon.
+2. Generator command `edhrec-averages`; refreshes `generatedUtc` at the snapshot root.
+3. `commandersGeneratedFromDump` dropped — `generatedUtc` suffices.
