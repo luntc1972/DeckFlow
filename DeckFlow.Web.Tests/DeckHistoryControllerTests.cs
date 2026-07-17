@@ -72,7 +72,7 @@ public sealed class DeckHistoryControllerTests
                 SerializedJson = BuildHistoryJson(),
                 Appended = true,
                 PromptText = "Explain how this deck evolved.",
-                Warnings = ["Started a new history - version 1 saved."],
+                Warnings = [],
             },
         };
         var controller = CreateController(service);
@@ -95,7 +95,7 @@ public sealed class DeckHistoryControllerTests
         Assert.True(model.HasResult);
         Assert.Equal("Explain how this deck evolved.", model.PromptText);
         Assert.Equal(BuildHistoryJson(), model.HistoryJson);
-        Assert.Contains("Started a new history - version 1 saved.", model.Warnings);
+        Assert.Equal("Started a new history — version 1 saved.", model.SuccessMessage);
     }
 
     [Fact]

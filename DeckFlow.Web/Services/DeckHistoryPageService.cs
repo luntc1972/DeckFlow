@@ -111,6 +111,7 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
         var warnings = new List<string>();
         var historyJson = ResolveHistoryJson(request, uploadedHistoryJson);
         DeckHistoryFile? file = null;
+        string? countWarning = null;
 
         if (historyJson is not null)
         {
@@ -156,7 +157,7 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
                 .Sum(entry => entry.Quantity);
             if (count != 100)
             {
-                warnings.Add($"Deck has {count} cards — Commander decks run 100. Snapshot saved anyway.");
+                countWarning = $"Deck has {count} cards — Commander decks run 100.";
             }
         }
 
@@ -174,6 +175,11 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
             var append = DeckHistoryAppender.Append(file, BuildSnapshot(load.Entries, request));
             file = append.File;
             appended = append.Appended;
+            if (countWarning is not null)
+            {
+                warnings.Add(appended ? $"{countWarning} Snapshot saved anyway." : countWarning);
+            }
+
             if (!string.IsNullOrWhiteSpace(append.Warning))
             {
                 warnings.Add(append.Warning);

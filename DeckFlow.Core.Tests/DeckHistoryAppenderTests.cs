@@ -79,7 +79,9 @@ public sealed class DeckHistoryAppenderTests
 
         Assert.False(result.Appended);
         Assert.Single(result.File.Versions);
-        Assert.Contains("identical", result.Warning, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(
+            "The imported deck is identical to the latest version — no new snapshot was added.",
+            result.Warning);
     }
 
     [Fact]

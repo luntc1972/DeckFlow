@@ -7,9 +7,9 @@
 
     async Task RenderVersionSelect(string id, string name, string label, int? selectedId)
     {
-        <div class="field">
-            <label for="@id">@label</label>
-            <select id="@id" name="@name" data-df-select>
+        <div class="field history-compare-controls__field">
+            <label for="@id" class="sr-only">@label</label>
+            <select id="@id" name="@name" aria-label="@label" data-df-select>
                 @foreach (var row in Model.TimelineRows)
                 {
                     <option value="@row.Id" selected="@(selectedId == row.Id ? "selected" : null)">V@(row.Id) (@row.Date.ToString("yyyy-MM-dd"))</option>
@@ -51,7 +51,7 @@
     @Model.ErrorMessage
 </div>
 
-<form method="post" action="@Url.Content("~/deck-history")" enctype="multipart/form-data" class="result-panel"
+<form method="post" action="@Url.Content("~/deck-history")" enctype="multipart/form-data" class="result-panel deck-history-form"
       data-busy-title="Updating history"
       data-busy-message="Loading the deck, reconciling the history file, and rebuilding the comparison."
       data-busy-progress="Loading the deck|Reconciling history|Comparing versions|Building the prompt">
@@ -113,6 +113,13 @@
 @if (Model.HasResult)
 {
     <section data-scroll-on-load>
+        @if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
+        {
+            <div class="success-banner" role="status">
+                @Model.SuccessMessage
+            </div>
+        }
+
         @if (Model.Warnings.Count > 0)
         {
             <div class="warning-banner" role="status">
@@ -174,17 +181,19 @@
 
         <section class="result-panel">
             <h2>Compare versions</h2>
-            <form id="deck-history-compare-form" method="post" action="@Url.Content("~/deck-history")">
+            <form id="deck-history-compare-form" class="deck-history-compare-form" method="post" action="@Url.Content("~/deck-history")">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="HistoryJson" value="@Model.HistoryJson" />
                 <input type="hidden" name="TargetAiPlatform" value="@Model.Request.TargetAiPlatform" />
                 @if (Model.PairDiff is not null && Model.TimelineRows.Count >= 2)
                 {
-                    await RenderVersionSelect("history-older-version", "OlderVersionId", "Older version", Model.PairOlderId);
-                    await RenderVersionSelect("history-newer-version", "NewerVersionId", "Newer version", Model.PairNewerId);
-
-                    <div class="toolbar">
-                        <button type="submit" class="run-button" data-no-busy>Compare</button>
+                    <div class="history-compare-controls">
+                        @{ await RenderVersionSelect("history-older-version", "OlderVersionId", "Older version", Model.PairOlderId); }
+                        <span class="history-compare-controls__arrow" aria-hidden="true">→</span>
+                        @{ await RenderVersionSelect("history-newer-version", "NewerVersionId", "Newer version", Model.PairNewerId); }
+                        <div class="history-compare-controls__submit">
+                            <button type="submit" class="run-button" data-no-busy>Compare</button>
+                        </div>
                     </div>
                 }
             </form>

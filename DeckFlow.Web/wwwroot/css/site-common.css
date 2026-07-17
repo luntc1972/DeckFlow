@@ -86,6 +86,16 @@ div.warning-banner {
   padding-left: 1rem;
 }
 
+div.success-banner {
+  border: 1px solid color-mix(in srgb, var(--success, #2f855a) 30%, var(--line, rgba(0, 0, 0, 0.18)));
+  border-left: 4px solid var(--success, #2f855a);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--success, #2f855a) 12%, var(--panel, #fff));
+  color: var(--ink);
+  padding: 0.9rem 1rem;
+  margin-bottom: 1rem;
+}
+
 /* Finding R: utility class for numeric columns (applied in later sweeps, e.g. WDG-06). */
 .tabular {
   font-variant-numeric: tabular-nums;
@@ -3953,6 +3963,7 @@ label.field > span,
 
 .history-timeline {
   width: 100%;
+  min-width: 42rem;
   border-collapse: collapse;
 }
 
@@ -3962,6 +3973,8 @@ label.field > span,
   text-align: left;
   border-bottom: 1px solid var(--line, rgba(0, 0, 0, 0.18));
   vertical-align: top;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .history-timeline th {
@@ -4002,6 +4015,47 @@ label.field > span,
   margin-top: 1rem;
 }
 
+.deck-history-form .manabase-help {
+  margin-bottom: 0.85rem;
+}
+
+.deck-history-form .field + .field {
+  margin-top: 1rem;
+}
+
+#deck-history-notes {
+  min-height: 6rem;
+}
+
+.history-compare-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.85rem;
+}
+
+.history-compare-controls__field {
+  flex: 1 1 0;
+}
+
+.history-compare-controls__field label {
+  margin-bottom: 0;
+}
+
+.history-compare-controls__arrow {
+  color: var(--muted, #5a6472);
+  font-size: 1.25rem;
+  line-height: 1;
+  padding-bottom: 0.85rem;
+}
+
+.history-compare-controls__submit {
+  flex: 0 0 auto;
+}
+
+.history-compare-controls__submit .run-button {
+  width: auto;
+}
+
 .history-diff__panel {
   padding: 0.85rem 1rem;
   border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
@@ -4031,6 +4085,19 @@ label.field > span,
 
   .history-timeline__label-inline {
     display: inline;
+  }
+
+  .history-compare-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .history-compare-controls__arrow {
+    display: none;
+  }
+
+  .history-compare-controls__submit .run-button {
+    width: 100%;
   }
 
   .history-diff {

@@ -70,6 +70,9 @@ public sealed record DeckHistoryViewModel
     /// <summary>The serialized history JSON used for compare/download round-trips.</summary>
     public string HistoryJson { get; init; } = string.Empty;
 
+    /// <summary>Positive append/create notice rendered separately from warnings.</summary>
+    public string? SuccessMessage { get; init; }
+
     /// <summary>Non-blocking notices and warnings for the current result.</summary>
     public IReadOnlyList<string> Warnings { get; init; } = [];
 
@@ -116,22 +119,21 @@ public sealed record DeckHistoryViewModel
             PairNewerId = result.PairNewerId,
             PromptText = result.PromptText,
             HistoryJson = result.SerializedJson ?? request.HistoryJson,
-            Warnings = BuildWarnings(result, file),
+            SuccessMessage = BuildSuccessMessage(result, file),
+            Warnings = result.Warnings,
             HasResult = file is not null,
         };
     }
 
-    private static IReadOnlyList<string> BuildWarnings(DeckHistoryProcessResult result, DeckHistoryFile? file)
+    private static string? BuildSuccessMessage(DeckHistoryProcessResult result, DeckHistoryFile? file)
     {
-        var warnings = new List<string>();
-        if (result.Appended && file is not null)
+        if (!result.Appended || file is null)
         {
-            warnings.Add(file.Versions.Count == 1
-                ? "Started a new history — version 1 saved."
-                : $"Version {file.Versions[^1].Id} added.");
+            return null;
         }
 
-        warnings.AddRange(result.Warnings);
-        return warnings;
+        return file.Versions.Count == 1
+            ? "Started a new history — version 1 saved."
+            : $"Version {file.Versions[^1].Id} added.";
     }
 }

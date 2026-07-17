@@ -71,7 +71,7 @@ public static class DeckHistoryAppender
         if (latest is not null && IsIdentical(VersionDiffProjector.Project(latest, candidate)))
         {
             return new DeckHistoryAppendResult(
-                file, false, "The imported deck is identical to the latest version - no new snapshot was added.");
+                file, false, "The imported deck is identical to the latest version — no new snapshot was added.");
         }
 
         var nextId = latest is null ? 1 : latest.Id + 1;

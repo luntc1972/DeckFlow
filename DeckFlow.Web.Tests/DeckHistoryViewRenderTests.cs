@@ -31,7 +31,7 @@ namespace DeckFlow.Web.Tests;
 public sealed class DeckHistoryViewRenderTests
 {
     [Fact]
-    public async Task ResultView_RendersWarningBannerAndTwoHistoryJsonFieldsOnly()
+    public async Task ResultView_RendersSeparateSuccessAndWarningBannersAndTwoHistoryJsonFieldsOnly()
     {
         var model = new DeckHistoryViewModel
         {
@@ -45,7 +45,8 @@ public sealed class DeckHistoryViewRenderTests
                 TargetAiPlatform = "ChatGPT",
             },
             HistoryJson = """{"format":"deckflow/history/v1"}""",
-            Warnings = ["Version 2 added."],
+            SuccessMessage = "Version 2 added.",
+            Warnings = ["Version ids were repaired (renumbered in date order)."],
             PairOlderId = 1,
             PairNewerId = 2,
             PairDiff = new VersionDiff(
@@ -84,10 +85,15 @@ public sealed class DeckHistoryViewRenderTests
         Assert.True(compareFormEnd > compareFormStart, "compare form should close");
         string compareFormHtml = html.Substring(compareFormStart, compareFormEnd - compareFormStart);
 
+        Assert.Contains("class=\"success-banner\"", html, StringComparison.Ordinal);
+        Assert.Contains("Version 2 added.", html, StringComparison.Ordinal);
         Assert.Contains("class=\"warning-banner\"", html, StringComparison.Ordinal);
+        Assert.Contains("Version ids were repaired (renumbered in date order).", html, StringComparison.Ordinal);
         Assert.DoesNotContain("history-warnings", html, StringComparison.Ordinal);
         Assert.Equal(2, Regex.Matches(html, "name=\"HistoryJson\"", RegexOptions.CultureInvariant).Count);
         Assert.Contains("id=\"deck-history-compare-form\"", html, StringComparison.Ordinal);
+        Assert.Contains("class=\"history-compare-controls\"", html, StringComparison.Ordinal);
+        Assert.Contains("class=\"history-compare-controls__arrow\"", html, StringComparison.Ordinal);
         Assert.Contains("form=\"deck-history-compare-form\"", html, StringComparison.Ordinal);
         Assert.Contains("formaction=\"/deck-history/download\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("name=\"DeckInputSource\"", compareFormHtml, StringComparison.Ordinal);
@@ -96,6 +102,8 @@ public sealed class DeckHistoryViewRenderTests
         Assert.DoesNotContain("name=\"DeckName\"", compareFormHtml, StringComparison.Ordinal);
         Assert.DoesNotContain("name=\"Label\"", compareFormHtml, StringComparison.Ordinal);
         Assert.DoesNotContain("name=\"Notes\"", compareFormHtml, StringComparison.Ordinal);
+        Assert.Contains("aria-label=\"Older version\"", html, StringComparison.Ordinal);
+        Assert.Contains("aria-label=\"Newer version\"", html, StringComparison.Ordinal);
     }
 
     private static string NeutralizeAntiforgery(string html) => Regex.Replace(
