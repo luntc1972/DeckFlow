@@ -48,6 +48,7 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
     [InlineData("analysis.manabase.colorless-snow", true)] // colorless/snow category requirements default ON
     [InlineData("analysis.manabase.restricted-lands", false)] // restricted-land approximation dark launch
     [InlineData("analysis.manabase.cedh-land-target", false)] // cEDH land-target dark launch
+    [InlineData("analysis.manabase.baseline", false)] // community baseline dark launch
     [InlineData("sync.directpush-gitbody", false)] // SYNC-07/D-05: seeded OFF
     [InlineData("sync.reconcile", false)] // SYNC-12: seeded OFF
     public async Task EnsureSchema_SeedsManabaseFlags_AtExpectedDefault(string key, bool expectedOn)
@@ -83,6 +84,7 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
         Assert.Contains("('analysis.manabase.colorless-snow', TRUE)", postgresSql, StringComparison.Ordinal);
         Assert.Contains("('analysis.manabase.restricted-lands', FALSE)", postgresSql, StringComparison.Ordinal);
         Assert.Contains("('analysis.manabase.cedh-land-target', FALSE)", postgresSql, StringComparison.Ordinal);
+        Assert.Contains("('analysis.manabase.baseline', FALSE)", postgresSql, StringComparison.Ordinal);
     }
 
     /// <summary>

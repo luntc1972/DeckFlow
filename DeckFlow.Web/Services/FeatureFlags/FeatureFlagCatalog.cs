@@ -151,6 +151,8 @@ public static class FeatureFlagCatalog
                 "Enable the hybrid cEDH land target: keep the Karsten curve anchor, but drop the flat 28 " +
                 "floor and optionally nudge toward the commander's committed cEDH land baseline when sample " +
                 "size is deep enough. cEDH only; off = byte-identical output.",
+            ["analysis.manabase.baseline"] =
+                "Manabase: show the empirical community land baseline (per bracket) beside the Karsten target.",
             ["sync.directpush-gitbody"] =
                 "Serve a Content-KB body exclusively from the git-shipped /app tree, dropping the legacy " +
                 "/data-SFTP-first overlay fallback. Off = today's byte-identical git-then-overlay serving.",
