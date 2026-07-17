@@ -3946,3 +3946,107 @@ label.field > span,
     flex-direction: column;
   }
 }
+
+.history-warnings {
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem 0.85rem 2rem;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+  border-left: 3px solid var(--gold-warning, var(--warning, #c8a040));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--gold-warning, var(--warning, #c8a040)) 12%, var(--panel-soft-bg, var(--panel)));
+  color: var(--ink, inherit);
+}
+
+.history-warnings li + li {
+  margin-top: 0.35rem;
+}
+
+.history-timeline__wrap {
+  overflow-x: auto;
+}
+
+.history-timeline {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.history-timeline th,
+.history-timeline td {
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+  vertical-align: top;
+}
+
+.history-timeline th {
+  font-weight: 600;
+}
+
+.history-timeline tbody tr:nth-child(even) {
+  background: var(--panel-soft-bg, var(--panel));
+}
+
+.history-timeline td:nth-child(2),
+.history-timeline td:nth-child(5),
+.history-timeline td:nth-child(6) {
+  white-space: nowrap;
+}
+
+.history-timeline__label-inline {
+  display: none;
+  margin-right: 0.35rem;
+}
+
+.history-delta-add {
+  color: var(--success, #2f855a);
+  font-weight: 600;
+}
+
+.history-delta-cut {
+  color: var(--danger, #e53e3e);
+  font-weight: 600;
+  margin-left: 0.4rem;
+}
+
+.history-diff {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.history-diff__panel {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+  border-radius: 12px;
+  background: var(--panel-soft-bg, var(--panel));
+}
+
+.history-diff__panel h3 {
+  margin-top: 0;
+  margin-bottom: 0.6rem;
+}
+
+.history-diff__panel ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.history-empty-compare {
+  margin: 0;
+  color: var(--muted, #5a6472);
+}
+
+@media (max-width: 640px) {
+  .history-timeline__label-col {
+    display: none;
+  }
+
+  .history-timeline__label-inline {
+    display: inline;
+  }
+
+  .history-diff {
+    grid-template-columns: 1fr;
+  }
+}
