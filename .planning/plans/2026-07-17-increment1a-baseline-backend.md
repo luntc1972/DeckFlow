@@ -475,7 +475,7 @@ And warm-load next to the cEDH warm-load (`:304`):
 ```
 (Add the matching `using DeckFlow.Web.Services.Manabase;` only if not already present — the cEDH provider is in the same namespace, so it likely is.)
 
-- [ ] **Step 4: Build + test.** `... build DeckFlow.Web/...` (0/0), then `... test DeckFlow.Web.Tests/... --filter "ManabaseBaselineProvider"` → 4 PASS.
+- [ ] **Step 4: Build + test.** `... build DeckFlow.Web/...` (0/0), then `... test DeckFlow.Web.Tests/... --filter "ManabaseBaselineProvider"` → 5 PASS.
 - [ ] **Step 5: Commit.** `git commit -m "feat(manabase): community-baseline provider + DI (mirror CedhLandBaselineProvider)"`
 
 ---
