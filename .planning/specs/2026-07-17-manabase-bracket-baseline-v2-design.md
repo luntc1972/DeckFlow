@@ -22,7 +22,7 @@ Power bracket is the only driver of mana-base shape. Show the **empirical commun
 
 | Increment | Content | Gated on |
 |---|---|---|
-| **1 (now)** | Bundled bracket **land** baseline (B1–B5), shown beside Karsten; deck bracket auto-classified with a selector override; flag-gated. Lands only, no per-commander. | Nothing |
+| **1 (now)** | Bundled bracket **land** baseline (B2–B5), shown beside Karsten; deck bracket auto-classified with a selector override; flag-gated. Lands only, no per-commander. | Nothing |
 | **2 (later)** | Per-commander rows + ramp/draw, offline-generated from EDHREC into the same file; **on-the-fly fetch** for cache-miss commanders (write-through to the `manabase_baseline` DB table); P2 weighting blends commander→bracket-global. | **EDHREC written permission** (outreach: `Downloads/DeckFlow-EDHREC-Outreach.docx`) |
 
 ## Non-Goals
@@ -45,7 +45,6 @@ Power bracket is the only driver of mana-base shape. Show the **empirical commun
   "generatedUtc": "2026-07-17T00:00:00Z",
   "source": "edhrec-pilot-aggregate",
   "brackets": [
-    { "bracket": 1, "avgLands": 36.0, "deckCount": 889,    "note": "B1 thin; read ~36 from B2" },
     { "bracket": 2, "avgLands": 35.9, "deckCount": 124221 },
     { "bracket": 3, "avgLands": 35.5, "deckCount": 140632 },
     { "bracket": 4, "avgLands": 34.5, "deckCount": 72399  },
@@ -54,6 +53,7 @@ Power bracket is the only driver of mana-base shape. Show the **empirical commun
 }
 ```
 - **Provenance:** the per-bracket land means already extracted in `.planning/research/2026-07-16-edhrec-bracket-land-data.md` (50-commander sweep, ≥400-deck floor). These are aggregate statistics, not EDHREC decklists. `source` records their origin for attribution/audit.
+- **Bracket 1 (Exhibition) is not supported** — uncommon/wacky decks, not worth a baseline. The file holds B2–B5 only; a deck that classifies as B1 falls back to the B2 (Core) baseline (see Component C).
 - Ramp/draw are **absent** in Increment 1 (no clean per-bracket ramp/draw means exist; they arrive with EDHREC in Increment 2). The file schema allows adding `avgRamp`/`avgDraw`/per-commander rows later without a breaking change.
 
 ### Component B — provider (Core or Web, mirror `CedhLandBaselineProvider`)
@@ -64,7 +64,8 @@ Power bracket is the only driver of mana-base shape. Show the **empirical commun
 
 ### Component C — deck-bracket determination (reuse existing)
 - Auto-classify the submitted deck via the existing `IBracketClassificationService.ClassifyAsync(deckSource)` (Game Changers local + Commander Spellbook combos [graceful-null] + mass land denial) → B1–B5.
-- The result **defaults** the bracket selector; the user may override.
+- **B1 (Exhibition) is not a supported baseline bracket** — a deck classified B1 defaults the selector to **B2 (Core)** (nearest supported; the pilot reads B1 ≈ B2 ≈ 36 anyway). The selector offers B2–B5 only.
+- The (possibly B1→B2-mapped) result **defaults** the bracket selector; the user may override within B2–B5.
 - Commander Spellbook unavailable → classifier still returns a bracket from local signals; never blocks the baseline.
 - This is the same rubric the *baseline* is bracketed by → apples-to-apples.
 
@@ -74,7 +75,7 @@ Power bracket is the only driver of mana-base shape. Show the **empirical commun
 - Flag `analysis.manabase.baseline` (seed **OFF**). Off or no data → block absent → **byte-identical** output.
 
 ### Component E — UI
-- **Bracket selector (1–5)** on the manabase page (new control; reuse `CommanderBracketCatalog.Options` labels: Exhibition/Core/Upgraded/Optimized/cEDH), defaulted to the auto-classified bracket, with a subtle "auto-detected" hint and override affordance.
+- **Bracket selector (B2–B5)** on the manabase page (new control; reuse `CommanderBracketCatalog.Options` labels but **omit Exhibition** → Core/Upgraded/Optimized/cEDH), defaulted to the auto-classified bracket (B1→B2), with a subtle "auto-detected" hint and override affordance.
 - Display line beside the Karsten result, e.g.:
   > **Community baseline · Upgraded (n ≈ 140k decks): ~35.5 lands.** Your deck: 33. *Karsten target: 35.*
 - Themes + mobile; absent when flag off.
@@ -122,5 +123,6 @@ Uses everything already shipped (P1 table + P2 weighting) rather than discarding
 - **ToS comfort on the pilot seed:** Increment 1 bakes 5 aggregate land means derived from EDHREC data. Treated as aggregate statistics (not decklist redistribution). Owner (user) accepts this for Increment 1; full EDHREC use (Increment 2) waits for written permission.
 - **Bracket selector default when classifier is uncertain:** use the mode-derived fallback (Casual/Focused→3, Cedh→5) and flag `BracketSource=fallback`.
 - **Commander Spellbook call on the manabase path:** new for that path but graceful; if latency is a concern, the classification can run only when the flag is ON.
-- **B1/B5 sample caveats:** B1 thin (read ~36 from B2), B5 uses the genuine-cEDH mean (30.5), not thin casual-favorite cEDH cells — encoded as `note` in the data file.
+- **B1 unsupported:** Exhibition dropped (uncommon/wacky decks); B1 classification maps to the B2 baseline. **B5 caveat:** uses the genuine-cEDH mean (30.5), not thin casual-favorite cEDH cells — encoded as `note` in the data file.
+- **Ramp/draw are lands-only-deferred by data, not choice:** the pilot recorded only lands per bracket (50-cmdr sweep = `[slug,bracket,lands,deckCount]`); per-bracket ramp/draw means do not exist in the research and require a fresh EDHREC `average-decks` pull → Increment 2.
 - **Provider home (Core vs Web):** mirror `CedhLandBaselineProvider` (currently `DeckFlow.Web/Services/Manabase/`); confirm at planning.
