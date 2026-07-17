@@ -16,7 +16,7 @@ public sealed class DeckHistoryPageServiceTests
     private static readonly DateTimeOffset FixedNow = DateTimeOffset.Parse("2026-07-17T12:00:00Z");
 
     [Fact]
-    public async Task ProcessAsync_DeckOnly_CreatesNewFileAppendsSnapshotAndBuildsPrompt()
+    public async Task ProcessAsync_DeckOnly_CreatesNewFileAppendsSnapshotAndLeavesPromptEmpty()
     {
         var service = CreateService(FullDeckEntries());
 
@@ -39,7 +39,7 @@ public sealed class DeckHistoryPageServiceTests
         Assert.Equal(FixedNow, result.File.Versions[0].Date);
         Assert.Equal("Initial import", result.File.Versions[0].Notes);
         Assert.Equal("v1", result.File.Versions[0].Label);
-        Assert.False(string.IsNullOrWhiteSpace(result.PromptText));
+        Assert.True(string.IsNullOrWhiteSpace(result.PromptText));
         Assert.False(string.IsNullOrWhiteSpace(result.SerializedJson));
     }
 
@@ -62,6 +62,32 @@ public sealed class DeckHistoryPageServiceTests
         Assert.False(result.Appended);
         Assert.NotNull(result.File!.Versions[1].Delta);
         Assert.Contains(result.File.Versions[1].Delta!.Adds, card => card.Name == "Arcane Signet");
+        Assert.False(string.IsNullOrWhiteSpace(result.PromptText));
+    }
+
+    [Fact]
+    public async Task ProcessAsync_HistoryAndDeckAtTwoVersions_BuildsPrompt()
+    {
+        var entries = FullDeckEntries();
+        var service = CreateService(entries);
+        var history = BuildHistoryJson(
+            Version(1, "2026-07-01T00:00:00Z", ["Atraxa, Praetors' Voice"], [Card("Sol Ring", 1)]));
+
+        var result = await service.ProcessAsync(new DeckHistoryRequest
+        {
+            HistoryJson = history,
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "updated deck",
+            DeckName = "Atraxa Midrange",
+            Notes = "Added more interaction",
+            Label = "v2",
+            TargetAiPlatform = "ChatGPT",
+        }, uploadedHistoryJson: null);
+
+        Assert.Null(result.ErrorMessage);
+        Assert.NotNull(result.File);
+        Assert.True(result.Appended);
+        Assert.Equal(2, result.File!.Versions.Count);
         Assert.False(string.IsNullOrWhiteSpace(result.PromptText));
     }
 
