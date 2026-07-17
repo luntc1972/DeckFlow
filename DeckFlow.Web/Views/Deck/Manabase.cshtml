@@ -440,6 +440,23 @@
                 }
                 <text> (@landNote).</text>
             </p>
+            @if (Model.CommunityBaseline is { } baseline)
+            {
+                var bracketName = baseline.Bracket switch
+                {
+                    2 => "Core",
+                    3 => "Upgraded",
+                    4 => "Optimized",
+                    5 => "cEDH",
+                    _ => $"B{baseline.Bracket}"
+                };
+                var detected = baseline.BracketSource == ManabaseBracketSource.Auto ? " (auto-detected)" : null;
+                <p class="manabase-summary-lands manabase-community-baseline">
+                    <strong>Community baseline</strong> · @bracketName@detected
+                    (@baseline.DeckCount.ToString("N0") decks): <strong>~@baseline.AvgLands.ToString("F1") lands.</strong>
+                    <span class="manabase-baseline-source">Source: @(baseline.Source ?? "community sample").</span>
+                </p>
+            }
             @* Biggest fix — the single most actionable change, chosen so it never contradicts the
                land/health line above (e.g. it won't tell you to add sources to an oversupplied
                color). Rendered here (not below the color table) so the fix sits with the verdict. *@
