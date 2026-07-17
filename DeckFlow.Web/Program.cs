@@ -94,6 +94,8 @@ public partial class Program
             builder.Services.AddSingleton<ICedhLandBaselineProvider, CedhLandBaselineProvider>();
             builder.Services.AddSingleton<IVersionService, VersionService>();
             builder.Services.AddSingleton<IFeedbackStore, FeedbackStore>();
+            // Why: foundation-only store registration for Phase 1; no consumer until Phase 3/4.
+            builder.Services.AddSingleton<IManabaseBaselineStore, ManabaseBaselineStore>();
             builder.Services.AddSingleton<DeckFlow.Core.Content.IContentSiteIndexStore>(_ =>
                 new DeckFlow.Core.Content.ContentSiteIndexStore(
                     DeckFlowDatabaseConnectionFactory.CreateContentSiteIndexConnection(builder.Environment)));
