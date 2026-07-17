@@ -54,6 +54,23 @@ Each EDHREC cell is itself an average over N decklists. Underlying deck counts f
 - **cEDH baseline (B5): sample ~20–30 commanders that are ACTUALLY cEDH-tier** (Kinnan, Thrasios/Tymna, Najeela, Rograkh/Silas, etc.) so their B5 cells hold thousands of decks — do NOT average thin cEDH cells of casual-favorite commanders.
 - **Drop B1** as a per-commander metric (read "casual ≈ 36" from B2/Core).
 
+## Large-sample confirmation (50 commanders, B1–B4, ≥400-deck floor, cEDH cut)
+
+Swept the EDHREC top-50 commanders; 148 cells cleared the ≥400-deck floor (~337k decks). Raw: `2026-07-16-edhrec-50commander-B1-B4-rows.json`.
+
+| Bracket | n | mean lands | SD | 95% CI | decks |
+|---|--:|--:|--:|--:|--:|
+| B2 core | 49 | 35.9 | 1.46 | ±0.4 | 124,221 |
+| B3 upgraded | 50 | 35.5 | 1.39 | ±0.4 | 140,632 |
+| B4 optimized | 48 | 34.5 | 1.57 | ±0.4 | 72,399 |
+| overall (all-bracket) | 50 | 35.1 | 1.68 | ±0.5 | — |
+
+B1 exhibition: only 1 commander cleared the floor → excluded (too niche).
+
+- **Baseline is nailed:** SE ≈ 0.2 land/bracket; each mean solid to ±0.4 at 95%. Curve **36 → 35.5 → 34.5** (core→optimized).
+- **Between-commander SD only ~1.4–1.6** → commander identity barely moves land count; confirms (n=50) that CMC/abilities don't drive it. Burgess floor + draw/ramp engine-credit remain rejected.
+- **Data floor answer:** with SD ≈ 1.5, ~20–30 commanders gives ±0.3–0.4 land; 50 → ±0.2. Past ~50 = negligible for the baseline.
+
 ## Tool implications
 
 - **Land target should key off bracket/power level, not commander cost.** DeckFlow already has Standard vs cEDH modes; data says cEDH target ≈ **30**, casual ≈ **36**. Candidate feature: a 5-band bracket-graded target (~36/36/35/34/30), extending the recent focused-tier work. Verify `CedhLandBaseline` ≈ 30.
