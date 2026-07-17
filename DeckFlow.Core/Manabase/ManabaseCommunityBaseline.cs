@@ -23,6 +23,14 @@ public sealed record ManabaseBaselineSnapshot
     /// <summary>Per-bracket rows (B2-B5 in Increment 1).</summary>
     [JsonPropertyName("brackets")]
     public IReadOnlyList<ManabaseBracketBaseline> Brackets { get; init; } = Array.Empty<ManabaseBracketBaseline>();
+
+    /// <summary>Provenance label for the commanders block (e.g. "edhrec-averages"). Absent pre-Increment-2.</summary>
+    [JsonPropertyName("commandersSource")]
+    public string? CommandersSource { get; init; }
+
+    /// <summary>Per-commander rows from the EDHREC averages dump (Increment 2; empty pre-Increment-2).</summary>
+    [JsonPropertyName("commanders")]
+    public IReadOnlyList<ManabaseCommanderBaseline> Commanders { get; init; } = Array.Empty<ManabaseCommanderBaseline>();
 }
 
 /// <summary>One per-bracket community baseline cell: the average land count real decks run at that bracket.</summary>
@@ -51,6 +59,26 @@ public sealed record ManabaseBracketBaseline
     /// <summary>Optional caveat note (e.g. thin/adjusted sample).</summary>
     [JsonPropertyName("note")]
     public string? Note { get; init; }
+}
+
+/// <summary>One per-commander (or partner-pair) community baseline cell from the EDHREC averages dump.</summary>
+public sealed record ManabaseCommanderBaseline
+{
+    /// <summary>Primary commander name as published by EDHREC.</summary>
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    /// <summary>Partner commander name, when the row is a pair.</summary>
+    [JsonPropertyName("partnerName")]
+    public string? PartnerName { get; init; }
+
+    /// <summary>Average land count across the sample (integer-rounded upstream).</summary>
+    [JsonPropertyName("avgLands")]
+    public required double AvgLands { get; init; }
+
+    /// <summary>Number of EDHREC decks behind the average.</summary>
+    [JsonPropertyName("deckCount")]
+    public required int DeckCount { get; init; }
 }
 
 /// <summary>How the effective bracket for a result was chosen (drives the UI "auto-detected" hint in 1b).</summary>
