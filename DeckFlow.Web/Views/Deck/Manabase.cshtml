@@ -186,12 +186,12 @@
             <fieldset class="manabase-segmented" role="radiogroup">
                 <legend>Community baseline bracket</legend>
                 <div class="manabase-pills">
-                    @foreach (var (num, name) in new[] { (2, "Core"), (3, "Upgraded"), (4, "Optimized"), (5, "cEDH") })
+                    @foreach (var num in new[] { 2, 3, 4, 5 })
                     {
                         <label class="manabase-pill @(selectedBracket == num ? "is-selected" : null)">
                             <input type="radio" name="Bracket" value="@num"
                                    checked="@(selectedBracket == num ? "checked" : null)" />
-                            <span>B@(num) @name</span>
+                            <span>B@(num) @ManabaseCommunityBaseline.BracketName(num)</span>
                         </label>
                     }
                     <label class="manabase-pill @(selectedBracket is null ? "is-selected" : null)">
@@ -464,14 +464,7 @@
             </p>
             @if (Model.CommunityBaseline is { } baseline)
             {
-                var bracketName = baseline.Bracket switch
-                {
-                    2 => "Core",
-                    3 => "Upgraded",
-                    4 => "Optimized",
-                    5 => "cEDH",
-                    _ => $"B{baseline.Bracket}"
-                };
+                var bracketName = ManabaseCommunityBaseline.BracketName(baseline.Bracket);
                 var detected = baseline.BracketSource == ManabaseBracketSource.Auto ? " (auto-detected)" : null;
                 <p class="manabase-summary-lands manabase-community-baseline">
                     <strong>Community baseline</strong> · @bracketName@detected
