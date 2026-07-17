@@ -407,6 +407,9 @@ public sealed class ManabaseBracketResolutionTests
 
         public ManabaseBracketBaseline? TryGetBracketBaseline(int bracket)
             => _rows.TryGetValue(bracket, out ManabaseBracketBaseline? row) ? row : null;
+
+        public ManabaseCommanderBaseline? TryGetCommanderBaseline(IReadOnlyList<string> commanderNames)
+            => null;
     }
 
     private sealed class CapturingAnalysisService : IManabaseAnalysisService
