@@ -8,7 +8,7 @@
 
 **Tech Stack:** .NET 10, ASP.NET Core MVC, System.Text.Json, xUnit, Playwright.
 
-**Spec:** `.planning/deck-history-design.md` (approved 2026-07-16).
+**Spec:** `.planning/deck-history-design.md` (approved 2026-07-16). **UI design:** `.planning/deck-history-ui-spec.md` (binding for Task 7 markup/CSS/copy and Task 8 screenshots).
 
 ## Global Constraints
 
@@ -1592,7 +1592,7 @@ public sealed class DeckHistoryController : Controller
 
 **ViewModel** — `DeckHistoryViewModel` with `ActiveTab`, `Request`, `ErrorMessage`, plus display projections: `TimelineRows` (Id, Date, Label, Notes, CardCount = commander count + sum of card qtys, AddsSummary/CutsSummary short strings), `PairDiff`, `PairOlderId`, `PairNewerId`, `PromptText`, `HistoryJson`, `Warnings`, `HasResult`. Include a static `From(DeckHistoryRequest, DeckHistoryProcessResult)` mapper. All `{ get; init; }`.
 
-**View** — `Views/Deck/DeckHistory.cshtml`. Mirror `Bracket.cshtml`'s skeleton precisely:
+**View** — `Views/Deck/DeckHistory.cshtml`. Follow the UI design spec `.planning/deck-history-ui-spec.md` (layout, states, exact copy strings, classes, a11y) and mirror `Bracket.cshtml`'s skeleton precisely:
 - `_DeckToolTabs` at top via the shared layout conventions; intro `<p>` explaining the file-you-own model (no account needed; DeckFlow never stores your history).
 - Form (`method="post"`, `enctype="multipart/form-data"`, `action="/deck-history"`):
   - `<input type="file" name="historyFile" accept=".json,application/json">` with a hint row "First visit? Skip this and just import your deck."
