@@ -169,6 +169,17 @@ public sealed class DeckHistorySerializerTests
     }
 
     [Fact]
+    public void Parse_OversizedContent_ReturnsError()
+    {
+        var padding = new string('x', DeckHistorySerializer.MaxUploadBytes);
+        var result = DeckHistorySerializer.Parse(
+            $"{{\"format\":\"deckflow-history\",\"formatVersion\":\"1.0\",\"deckName\":\"{padding}\",\"versions\":[]}}");
+
+        Assert.Null(result.File);
+        Assert.Contains("too large", result.Error);
+    }
+
+    [Fact]
     public void Parse_NullCollections_NormalizeToEmpty()
     {
         var json = """
@@ -391,6 +402,12 @@ public static class DeckHistorySerializer
     /// <param name="json">Raw file content.</param>
     public static DeckHistoryParseResult Parse(string json)
     {
+        ArgumentNullException.ThrowIfNull(json);
+        if (System.Text.Encoding.UTF8.GetByteCount(json) > MaxUploadBytes)
+        {
+            return new DeckHistoryParseResult(null, "History file is too large (limit 1 MB).", []);
+        }
+
         DeckHistoryFile? file;
         try
         {
@@ -479,7 +496,7 @@ Note: the `?? []` guards look redundant against the record defaults but are requ
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `"/mnt/c/Program Files/dotnet/dotnet.exe" test DeckFlow.Core.Tests/DeckFlow.Core.Tests.csproj --filter DeckHistorySerializerTests -v minimal`
-Expected: PASS (9 tests).
+Expected: PASS (10 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -709,12 +726,12 @@ public static class VersionDiffProjector
 Run: `"/mnt/c/Program Files/dotnet/dotnet.exe" test DeckFlow.Core.Tests/DeckFlow.Core.Tests.csproj --filter VersionDiffProjectorTests -v minimal`
 Expected: PASS (6 tests).
 
-- [ ] **Step 5: Update the spec's projector line and commit**
+- [ ] **Step 5: Commit**
 
-In `.planning/deck-history-design.md`, replace the `VersionDiffProjector` table row description with: "Compares two snapshots directly via `CardNormalizer`-keyed maps and returns `VersionDiff(Adds, Cuts, QuantityChanges)`. (Direct comparison replaced the originally sketched `DiffEngine` adaptation — snapshots are name+qty only, so board/printing machinery added conversion cost without signal.)"
+(The spec's projector row was already amended pre-execution to match this direct-comparison design — plan-review finding 1. No spec edit in this task.)
 
 ```bash
-git add DeckFlow.Core/History/VersionDiff.cs DeckFlow.Core/History/VersionDiffProjector.cs DeckFlow.Core.Tests/VersionDiffProjectorTests.cs .planning/deck-history-design.md
+git add DeckFlow.Core/History/VersionDiff.cs DeckFlow.Core/History/VersionDiffProjector.cs DeckFlow.Core.Tests/VersionDiffProjectorTests.cs
 git commit -m "feat(deck-history): add snapshot pair diff projector"
 ```
 
@@ -1063,10 +1080,12 @@ public sealed class EvolutionPromptVariantTests
         ],
     };
 
+    // AiPlatform.Normalize is case-sensitive ("ChatGPT"/"Claude"/"Gemini"; anything else
+    // falls back to Default) — use the exact keys or the tests silently all hit ChatGPT.
     [Theory]
-    [InlineData("chatgpt")]
-    [InlineData("claude")]
-    [InlineData("gemini")]
+    [InlineData("ChatGPT")]
+    [InlineData("Claude")]
+    [InlineData("Gemini")]
     public void Build_ContainsHeaderTimelineAndBothFullLists(string platformKey)
     {
         var registry = new EvolutionPromptVariantRegistry(
@@ -1084,6 +1103,19 @@ public sealed class EvolutionPromptVariantTests
         Assert.Contains("Mystic Remora", prompt);
         Assert.Contains("Cut nothing, added Remora.", prompt);
         Assert.Contains("Commander: Tivit, Seller of Secrets", prompt);
+    }
+
+    [Fact]
+    public void Build_EachPlatform_UsesItsOwnVariant()
+    {
+        // Distinguishing framing: only the ChatGPT variant carries EXECUTE NOW.
+        var claude = new ClaudeEvolutionPromptVariant().Build(History());
+        var gemini = new GeminiEvolutionPromptVariant().Build(History());
+
+        Assert.Equal(AiPlatform.Claude, new ClaudeEvolutionPromptVariant().Platform);
+        Assert.Equal(AiPlatform.Gemini, new GeminiEvolutionPromptVariant().Platform);
+        Assert.DoesNotContain("EXECUTE NOW", claude);
+        Assert.DoesNotContain("EXECUTE NOW", gemini);
     }
 
     [Fact]
@@ -1279,7 +1311,7 @@ Check `AiPlatform.cs` for the exact static instance names (`AiPlatform.ChatGpt` 
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `"/mnt/c/Program Files/dotnet/dotnet.exe" test DeckFlow.Web.Tests/DeckFlow.Web.Tests.csproj --filter EvolutionPromptVariantTests -v minimal`
-Expected: PASS (5 tests).
+Expected: PASS (6 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1299,7 +1331,7 @@ git commit -m "feat(deck-history): add evolution prompt variants for ChatGPT, Cl
 - Test: `DeckFlow.Web.Tests/DeckHistoryPageServiceTests.cs`
 
 **Interfaces:**
-- Consumes: Tasks 1–4; `IDeckEntryLoader.LoadFromSourceAsync(string, UnrecognizedPasteBehavior, CancellationToken)` + `ValidateCommanderDeckSize`; `DeckInputReconciler.Reconcile`; `AiPlatform.Normalize`.
+- Consumes: Tasks 1–4; `IDeckEntryLoader.LoadFromSourceAsync(string, UnrecognizedPasteBehavior, CancellationToken)`; `DeckSourceHost` (`DeckFlow.Core.Integration`); `DeckInputReconciler.Reconcile`; `AiPlatform.Normalize`.
 - Produces:
 
 ```csharp
@@ -1347,9 +1379,9 @@ public sealed class DeckHistoryRequest
 
 1. Resolve history JSON: `uploadedHistoryJson` (file upload wins) else `request.HistoryJson` else none.
 2. If history JSON present: `DeckHistorySerializer.Parse`. Hard error → result with `ErrorMessage`, stop. Collect warnings.
-3. If `request.DeckSource` non-blank: `LoadFromSourceAsync(request.DeckSource, ..., ct)`, then `ValidateCommanderDeckSize("Deck History", entries)`. Catch `DeckParseException` / `InvalidOperationException` → `ErrorMessage` (exception message), stop. Catch `HttpRequestException` → `UpstreamErrorMessageBuilder`-style copy, stop.
+3. If `request.DeckSource` non-blank: `LoadFromSourceAsync(request.DeckSource, ..., ct)`. Catch `DeckParseException` / `InvalidOperationException` → `ErrorMessage` (exception message), stop. Catch `HttpRequestException` → `UpstreamErrorMessageBuilder`-style copy, stop. Do NOT call `ValidateCommanderDeckSize` — deck size is a warning, not a gate (spec decision, matches Bracket/Primer): when the non-maybeboard quantity sum ≠ 100, add warning `$"Deck has {count} cards — Commander decks run 100. Snapshot saved anyway."` and continue.
 4. Cases:
-   - deck + no history → `CreateNew(deckName, source)` then `Append`. Deck name: `request.DeckName` if non-blank else `"Commander Deck"`. Source: `new DeckHistorySource { Site = null, Url = request.DeckInputSource == DeckInputSource.PublicUrl ? request.DeckUrl : null }`.
+   - deck + no history → `CreateNew(deckName, source)` then `Append`. Deck name: `request.DeckName` if non-blank else `"Commander Deck"`. Source: when `request.DeckInputSource == DeckInputSource.PublicUrl` and `Uri.TryCreate(request.DeckUrl, UriKind.Absolute, out var uri)` succeeds → `new DeckHistorySource { Site = DeckSourceHost.IsMoxfield(uri) ? "moxfield" : DeckSourceHost.IsArchidekt(uri) ? "archidekt" : null, Url = request.DeckUrl }` (`DeckSourceHost` lives in `DeckFlow.Core.Integration`, already used by `DeckEntryLoader`); paste mode → `null` source.
    - deck + history → `BuildSnapshot` + `Append` (identical-deck warning flows into `Warnings`, `Appended=false`).
    - history only → `RecomputeDeltas` (inspect mode).
    - neither → `ErrorMessage = "Upload a history file, import a deck, or both."`.
@@ -1365,7 +1397,9 @@ public sealed class DeckHistoryRequest
 - neither → `ErrorMessage` set.
 - corrupted history JSON → `ErrorMessage` contains "not a DeckFlow history file".
 - pair selection: explicit valid ids honored; invalid ids fall back to latest-vs-previous.
-- deck loader throwing `InvalidOperationException("Deck History deck must contain exactly 100 cards...")` surfaces as `ErrorMessage`.
+- deck loader throwing `InvalidOperationException` (e.g. unrecognized paste) surfaces as `ErrorMessage`.
+- Moxfield URL import → `File.Source.Site == "moxfield"` and `Url` preserved; paste import → `Source` null.
+- 63-card deck → warning contains "63 cards", snapshot still appended.
 
 - [ ] **Step 1: Write the failing tests** (per list above; construct fake loader returning canned `DeckSourceLoadResult`)
 - [ ] **Step 2: Run** `"/mnt/c/Program Files/dotnet/dotnet.exe" test DeckFlow.Web.Tests/DeckFlow.Web.Tests.csproj --filter DeckHistoryPageServiceTests -v minimal` — Expected: FAIL.
@@ -1428,7 +1462,7 @@ git commit -m "feat(deck-history): add page service orchestrating parse, append,
                 "Deck History tool: version a deck into a downloadable snapshot-history JSON file with notes, pair diffs, and an evolution prompt.",
 ```
 
-`FeatureFlagStore.cs` — append `('tool.deck-history.enabled', FALSE),` to the Postgres seed list and `('tool.deck-history.enabled', 0),` to the SQLite seed list (keep each list's trailing-comma/ordering conventions).
+`FeatureFlagStore.cs` — the seed lists have NO trailing comma on their final row (a dangling comma before `ON CONFLICT` breaks seed execution). To append: add a comma to the current final row, then add the new row LAST without a trailing comma — Postgres list: `('tool.deck-history.enabled', FALSE)`; SQLite list: `('tool.deck-history.enabled', 0)`. Verify by eye that each list still ends comma-free before its `ON CONFLICT`/terminator.
 
 `SeoPaths.cs` — add `"/deck-history",` to `Indexable` (after `"/bracket",`) and to `Tools`.
 
@@ -1645,9 +1679,25 @@ git commit -m "feat(deck-history): add controller, page, and themed styles"
 Model the spec directly on `bracket-smoke.spec.ts` (read it first; reuse its admin-lock + flag toggle scaffolding verbatim). Cover:
 
 1. Flag ON: `GET /deck-history` renders the form (file input, source select, notes).
-2. New history: paste a small Commander deck (reuse the `HIGH_POWER_DECK`-style inline list pattern — commander + ~100 filler lines is unnecessary; the page service validates 100 cards, so paste a filler deck that sums to exactly 100 across commander+mainboard: 1 commander + `10 Plains` × 9 + `9 Island` = adjust to total 100), add a note, submit → timeline shows VERSION 1, prompt textarea non-empty.
+2. New history: paste this exact deck (deck size is warn-only, so a small list is fine — assert the "cards — Commander decks run 100" warning ALSO renders), add note "Initial list.", submit → timeline shows VERSION 1, prompt textarea non-empty:
+
+```ts
+const DECK_V1 = [
+  'Commander',
+  '1 Zur the Enchanter',
+  '',
+  'Deck',
+  '1 Sol Ring',
+  '1 Arcane Signet',
+  '1 Brainstorm',
+  '10 Plains',
+  '10 Island',
+  '10 Swamp',
+].join('\n');
+// DECK_V2 for the append step: same list with '1 Brainstorm' replaced by '1 Mystic Remora'.
+```
 3. Download: click the download button → intercepted blob download; assert the response carried `X-DeckFlow-Filename` (via `page.waitForResponse` on `/deck-history/download`).
-4. Append: re-submit the same page with one card swapped in the pasted list plus the previous step's downloaded JSON re-uploaded via `setInputFiles` → timeline shows 2 versions and the diff block lists the swap.
+4. Append: re-submit with `DECK_V2` pasted plus the previous step's downloaded JSON re-uploaded via `setInputFiles` → timeline shows 2 versions and the diff block lists Mystic Remora under Adds and Brainstorm under Cuts.
 5. Screenshots: form + results at the current project viewport across Classic / Azorius / Nyx theme cookies (copy the bracket spec's `themes` loop) into `.planning/ui-design/deck-history/screenshots/`.
 6. Flag OFF: `/deck-history` → 404 and no Home tile.
 
@@ -1679,5 +1729,5 @@ git commit -m "test(deck-history): add e2e smoke with flag toggle, download inte
 ## Self-Review Notes
 
 - Spec coverage: format (T1), diff (T2), append/identical/repair (T1/T3), prompts (T4), modes + errors (T5/T7), wiring/SEO/flag/help/README (T6), download/upload + mobile intercept (T7), e2e/screenshots (T8). Divergent-copies = no-op by design (no task needed). Out-of-scope items untouched.
-- Known judgment calls: projector bypasses DiffEngine (documented in Task 2, spec updated); `ValidateCommanderDeckSize` enforced on import (matches sibling tools; e2e deck must sum to exactly 100).
+- Known judgment calls (both folded back into the spec pre-execution after plan review): projector compares snapshots directly instead of adapting `DiffEngine` (Task 2 note; spec amended); deck size ≠ 100 is a non-blocking warning, not a rejection (spec error table row added).
 - Type consistency: `SnapshotDelta.QtyChanges` (file) vs `VersionDiff.QuantityChanges` (in-memory) is intentional — file property serializes as `qtyChanges` per spec example.
