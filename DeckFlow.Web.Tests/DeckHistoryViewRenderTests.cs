@@ -124,6 +124,36 @@ public sealed class DeckHistoryViewRenderTests
         Assert.Contains("aria-label=\"Newer version\"", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task InputForm_RendersDeckHistoryCacheKey_AndBridgeHintOnUrlField()
+    {
+        var model = new DeckHistoryViewModel
+        {
+            ActiveTab = DeckPageTab.DeckHistory,
+            Request = new DeckHistoryRequest
+            {
+                DeckInputSource = DeckInputSource.PublicUrl,
+                DeckUrl = "https://www.moxfield.com/decks/example",
+                DeckName = "Zur Logbook",
+                TargetAiPlatform = "ChatGPT",
+            },
+        };
+
+        string html = NeutralizeAntiforgery(await RenderAsync(model));
+        int formStart = html.IndexOf("<form method=\"post\" action=\"/deck-history\"", StringComparison.Ordinal);
+        Assert.True(formStart >= 0, "main deck-history form should render");
+        int formEnd = html.IndexOf("</form>", formStart, StringComparison.Ordinal);
+        Assert.True(formEnd > formStart, "main deck-history form should close");
+        string formHtml = html.Substring(formStart, formEnd - formStart);
+
+        Assert.Contains("data-cache-key=\"deck-history\"", formHtml, StringComparison.Ordinal);
+        Assert.Contains("name=\"DeckInputSource\"", formHtml, StringComparison.Ordinal);
+        Assert.Contains("name=\"DeckUrl\"", formHtml, StringComparison.Ordinal);
+        Assert.Contains("name=\"DeckText\"", formHtml, StringComparison.Ordinal);
+        Assert.Contains("details class=\"deckflow-bridge-hint\"", formHtml, StringComparison.Ordinal);
+        Assert.Contains("DeckFlow Bridge extension", formHtml, StringComparison.Ordinal);
+    }
+
     private static string NeutralizeAntiforgery(string html) => Regex.Replace(
         html,
         "(name=\"__RequestVerificationToken\"[^>]*value=\")[^\"]*\"",

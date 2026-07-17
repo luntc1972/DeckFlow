@@ -68,7 +68,13 @@ test('/deck-history renders the form when the flag is ON', async ({ page }) => {
   await expect(page.locator('input[type="file"][name="historyFile"]')).toBeVisible();
   await expect(page.locator('#deck-history-input-source')).toBeVisible();
   await expect(page.locator('#deck-history-notes')).toBeVisible();
-  await expect(page.locator('form[action="/deck-history"]')).toBeVisible();
+  const mainForm = page.locator('form[action="/deck-history"]').first();
+  await expect(mainForm).toBeVisible();
+  await expect(mainForm).toHaveAttribute('data-cache-key', 'deck-history');
+  await page.locator('#deck-history-input-source').selectOption('PublicUrl');
+  const bridgeHint = page.locator('details.deckflow-bridge-hint');
+  await expect(bridgeHint).toBeAttached();
+  await expect(bridgeHint.locator('summary')).toContainText('DeckFlow Bridge extension');
   await expect(page.locator('.history-timeline')).toHaveCount(0);
 });
 
@@ -171,15 +177,38 @@ test('creates history, intercepts download, appends a second version, and captur
   await expect(promptTextarea).toBeVisible();
   expect((await promptTextarea.inputValue()).trim()).not.toBe('');
 
-  const finalHistoryJson = await page
-    .locator('form[action="/deck-history"].result-panel input[name="HistoryJson"]')
-    .inputValue();
-  writeFileSync(finalHistoryJsonPath, finalHistoryJson, 'utf8');
+  const finalDownloadResponsePromise = page.waitForResponse((response) =>
+    response.url().includes('/deck-history/download') && response.request().method() === 'POST',
+  );
+  await page.locator('[data-prompt-download-submit]').evaluate(async (button) => {
+    const submitter = button as HTMLButtonElement;
+    const form = submitter.form;
+    if (!form) {
+      throw new Error('Download button must target a form.');
+    }
+
+    const response = await fetch(submitter.formAction, {
+      method: form.method,
+      body: new FormData(form),
+      credentials: 'same-origin',
+      headers: { Accept: 'application/zip,*/*' },
+    });
+    await response.arrayBuffer();
+  });
+  const finalDownloadResponse = await finalDownloadResponsePromise;
+  expect(finalDownloadResponse.ok(), 'final download response should succeed').toBeTruthy();
+  writeFileSync(finalHistoryJsonPath, await finalDownloadResponse.text(), 'utf8');
 
   for (const theme of themes) {
     await page.context().clearCookies();
     await page.context().addCookies([{ name: 'deckflow-theme', value: theme.cookie, url: baseUrl }]);
 
+    await page.goto('/deck-history');
+    await page.evaluate(() => {
+      window.sessionStorage.removeItem('decksync-form-state-deck-history');
+      window.sessionStorage.removeItem('decksync-form-state-deck-history:savedAt');
+      window.sessionStorage.removeItem('deckflow.last-deck');
+    });
     await page.goto('/deck-history');
     await expect(page.locator('h1')).toHaveText('Deck History');
 
