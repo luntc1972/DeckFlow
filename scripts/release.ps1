@@ -54,7 +54,8 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "Creating git tag $Version ..."
-& git tag $Version
+# Annotated so `git push --follow-tags` (the hint below) actually pushes it.
+& git tag -a $Version -m "DeckFlow $Version"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "Tagged $Version. Now run: git push --follow-tags"
