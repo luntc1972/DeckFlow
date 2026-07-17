@@ -150,6 +150,14 @@ public sealed record ManabaseBracketBaseline
     [JsonPropertyName("deckCount")]
     public int DeckCount { get; init; }
 
+    /// <summary>
+    /// Optional per-row provenance. Absent in Increment 1 (the file carries one snapshot-level
+    /// <see cref="ManabaseBaselineSnapshot.Source"/>); the provider backfills this from the snapshot
+    /// source when the row omits it. Increment 2 may set it per row (corpus vs edhrec).
+    /// </summary>
+    [JsonPropertyName("source")]
+    public string? Source { get; init; }
+
     /// <summary>Optional caveat note (e.g. thin/adjusted sample).</summary>
     [JsonPropertyName("note")]
     public string? Note { get; init; }
@@ -297,6 +305,15 @@ public sealed class ManabaseBaselineProviderTests : IDisposable
     }
 
     [Fact]
+    public void Row_backfills_snapshot_source()
+    {
+        WriteFile(SampleJson); // rows omit their own "source"; snapshot source is edhrec-pilot-aggregate
+        var row = CreateProvider().TryGetBracketBaseline(2);
+        Assert.NotNull(row);
+        Assert.Equal("edhrec-pilot-aggregate", row!.Source);
+    }
+
+    [Fact]
     public void Unknown_bracket_returns_null()
     {
         WriteFile(SampleJson);
@@ -394,7 +411,9 @@ public sealed class ManabaseBaselineProvider : IManabaseBaselineProvider
         {
             if (row.Bracket == bracket)
             {
-                return row;
+                // Backfill provenance from the snapshot-level source when the row omits its own
+                // (Increment 1 rows share one source; Increment 2 may set per-row).
+                return row.Source is null ? row with { Source = snapshot.Source } : row;
             }
         }
 
@@ -494,8 +513,11 @@ And the SQLite seed list (near `:287`, matching `('key', 0),`):
         ["analysis.manabase.baseline"] = "Manabase: show the empirical community land baseline (per bracket) beside the Karsten target.",
 ```
 
-- [ ] **Step 4: Build + run the catalog/flag tests.** `... build DeckFlow.Web/...` (0/0), then `... test DeckFlow.Web.Tests/... --filter "FeatureFlagCatalog"` → PASS (proves the key has a description and the catalog stays consistent). Run the full flag store/seed tests too if present (`--filter "FeatureFlag"`).
-- [ ] **Step 5: Commit.** `git commit -m "feat(manabase): register analysis.manabase.baseline flag (seeded OFF)"`
+- [ ] **Step 4: Update the flag tests (they are hard-coded, not reflective).** `FeatureFlagCatalogTests` uses explicit `[InlineData]` rows and `FeatureFlagStoreSeedTests` asserts specific seeded keys/values — neither auto-detects the new key, so add it to both:
+  - In `DeckFlow.Web.Tests/.../FeatureFlagCatalogTests.cs`: add an `[InlineData("analysis.manabase.baseline")]` (or the exact row shape the existing cases use — open the file and mirror a sibling `analysis.manabase.*` case, e.g. `analysis.manabase.cedh-land-target`).
+  - In `DeckFlow.Web.Tests/FeatureFlagStoreSeedTests.cs`: add an assertion that `analysis.manabase.baseline` seeds to `false`/OFF, mirroring the existing `analysis.manabase.cedh-land-target` seed assertion (including the Postgres-literal assertion if that test class checks the SQL text).
+- [ ] **Step 5: Build + run the flag tests.** `... build DeckFlow.Web/...` (0/0), then `... test DeckFlow.Web.Tests/... --filter "FeatureFlag"` → PASS (catalog description present, seed OFF in both dialects, no exact-count assertion tripped).
+- [ ] **Step 6: Commit.** `git commit -m "feat(manabase): register analysis.manabase.baseline flag (seeded OFF)"`
 
 ---
 
@@ -561,7 +583,7 @@ And the SQLite seed list (near `:287`, matching `('key', 0),`):
     }
 ```
 
-- [ ] **Step 5: Attach the block at the successful-analysis result construction.** Locate where the report-bearing `ManabaseAnalysisResult` is built in the analyze path (the `new ManabaseAnalysisResult(...) { ... }` with the `Show*` init props set). Add `CommunityBaseline = BuildCommunityBaseline(options),` to that initializer. Leave any early-return commander-selection-required result (no report) with `CommunityBaseline` unset (null) — the baseline is meaningless without a report.
+- [ ] **Step 5: Attach the block at ONLY the successful-analysis result construction.** `ManabaseAnalysisService` builds `ManabaseAnalysisResult` in two places: the early **commander-selection-required** return (around `:378`, no report) and the **success** return (around `:493`, with the `Show*` init props). Add `CommunityBaseline = BuildCommunityBaseline(options),` to the **success initializer (~:493) only**. Leave the early-return (~:378) with `CommunityBaseline` unset (null) — the baseline is meaningless without a report. (Line numbers are approximate — anchor on the initializer that sets `ShowFocusedTier`/`CompanionRow`.)
 
 - [ ] **Step 6: Write the wiring tests.** Create `DeckFlow.Web.Tests/ManabaseCommunityBaselineWiringTests.cs`. Mirror the construction of existing `ManabaseAnalysisService` tests (find a sibling test that builds the service with a fake `IFeatureFlagCache`); inject a fake `IManabaseBaselineProvider` returning canned rows and a fake flag cache toggling `analysis.manabase.baseline`. If the existing tests exercise the service end-to-end, prefer a **focused** test of `BuildCommunityBaseline` via a small deck; otherwise test through the public analyze entrypoint. Cover:
   1. **Flag OFF → `result.Report is not null` but `result.CommunityBaseline is null`** (byte-identical: the block is the only new output and it is absent).
@@ -593,4 +615,5 @@ And the SQLite seed list (near `:287`, matching `('key', 0),`):
 - **Distinct types:** `ManabaseCommunityBaseline` (this result block) is separate from P1's `ManabaseBaselineRow` (DB row, has commander/ramp/draw) and P2's `ManabaseBaselineWeighting`/`ManabaseBaselineSource` enum (weighting provenance) — different concepts, no name reuse. `ManabaseBracketSource` (Auto/Override/Fallback) is new and unrelated to P2's `ManabaseBaselineSource`.
 - **Mode→bracket map:** Casual→2, Focused→3, Cedh→5 (monotonic, distinct). This is the 1a fallback; 1b replaces it with real classification via `options.Bracket`.
 - **Constraints:** no new deps, LF, changed-lines format gate. New files LF. Compiled JS untouched (no UI in 1a). Do not touch lockfiles.
+- **Plan-review (Codex gpt-5.5) folded:** BLOCK — `ManabaseBracketBaseline` gained a nullable `Source` (was snapshot-level only) so `row.Source` compiles; provider backfills it from `snapshot.Source`. MEDIUM — added explicit updates to `FeatureFlagCatalogTests` + `FeatureFlagStoreSeedTests` (they're hard-coded `[InlineData]`, not reflective). LOW — named the two result-construction sites (early ~:378 stays null; success ~:493 gets the block). All other checks (provider injection, `IsFlagOn` fail-safe-OFF, JSON/`IReadOnlyList` deserialize, csproj `Content Update`, byte-identical-OFF, scope) confirmed sound against the repo.
 - **Open for 1b:** controller auto-classify (`IBracketClassificationService.ClassifyAsync(deckSource)` — re-loads the deck; run only when flag ON), `ManabaseRequest.Bracket` + `NormalizeKnobs` clamp to 2-5, selector (reuse `BracketTier.Number`, filter B1) + display beside Karsten (`Manabase.cshtml:432`), themes/mobile.
