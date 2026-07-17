@@ -85,8 +85,41 @@ public sealed class DeckHistoryPageServiceTests
 
         Assert.Null(result.ErrorMessage);
         Assert.False(result.Appended);
-        Assert.Contains(result.Warnings, warning => warning.Contains("identical", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(
+            "The imported deck is identical to the latest version — no new snapshot was added.",
+            result.Warnings);
         Assert.Equal(2, result.File!.Versions.Count);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_IdenticalNonHundredCardDeck_DropsSavedAnywaySuffix()
+    {
+        var entries = SixtyThreeCardDeckEntries();
+        var service = CreateService(entries);
+        var history = BuildHistoryJson(
+            Version(
+                1,
+                "2026-07-01T00:00:00Z",
+                ["Atraxa, Praetors' Voice"],
+                [Card("Arcane Signet", 1), Card("Plains", 60), Card("Sol Ring", 1)]));
+
+        var result = await service.ProcessAsync(new DeckHistoryRequest
+        {
+            HistoryJson = history,
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "same short deck",
+            Notes = "No change",
+            TargetAiPlatform = "ChatGPT",
+        }, uploadedHistoryJson: null);
+
+        Assert.False(result.Appended);
+        Assert.Contains("Deck has 63 cards — Commander decks run 100.", result.Warnings);
+        Assert.DoesNotContain(
+            result.Warnings,
+            warning => warning.Contains("Snapshot saved anyway.", StringComparison.Ordinal));
+        Assert.Contains(
+            "The imported deck is identical to the latest version — no new snapshot was added.",
+            result.Warnings);
     }
 
     [Fact]
@@ -201,7 +234,9 @@ public sealed class DeckHistoryPageServiceTests
         }, uploadedHistoryJson: null);
 
         Assert.True(result.Appended);
-        Assert.Contains(result.Warnings, warning => warning.Contains("63 cards", StringComparison.Ordinal));
+        Assert.Contains(
+            "Deck has 63 cards — Commander decks run 100. Snapshot saved anyway.",
+            result.Warnings);
     }
 
     private static DeckHistoryPageService CreateService(params DeckEntry[] entries) =>

@@ -91,7 +91,7 @@ test('creates history, intercepts download, appends a second version, and captur
   await page.getByRole('button', { name: 'Update history' }).click();
 
   await expect(page.locator('.history-timeline')).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator('.warning-banner')).toContainText('Started a new history — version 1 saved.');
+  await expect(page.locator('.success-banner')).toContainText('Started a new history — version 1 saved.');
   await expect(page.locator('.warning-banner')).toContainText(
     'Deck has 34 cards — Commander decks run 100. Snapshot saved anyway.',
   );
@@ -137,7 +137,7 @@ test('creates history, intercepts download, appends a second version, and captur
   await page.getByRole('button', { name: 'Update history' }).click();
 
   await expect(page.locator('.history-timeline tbody tr')).toHaveCount(2, { timeout: 30_000 });
-  await expect(page.locator('.warning-banner')).toContainText('Version 2 added.');
+  await expect(page.locator('.success-banner')).toContainText('Version 2 added.');
   await expect(page.locator('.history-diff')).toBeVisible();
 
   const addsPanel = page.locator('.history-diff__panel').filter({
