@@ -48,9 +48,40 @@ public static class ManabaseBaselineWeighting
         double? commanderLands, double? commanderRamp, double? commanderDraw, int commanderDeckCount,
         double? globalLands, double? globalRamp, double? globalDraw)
     {
-        var lands = new ManabaseBaselineMetric(null, ManabaseBaselineSource.None);
-        var ramp = new ManabaseBaselineMetric(null, ManabaseBaselineSource.None);
-        var draw = new ManabaseBaselineMetric(null, ManabaseBaselineSource.None);
-        return new ManabaseBaselineResult(lands, ramp, draw, null, commanderDeckCount);
+        ManabaseBaselineMetric lands = WeighMetric(commanderLands, commanderDeckCount, globalLands);
+        ManabaseBaselineMetric ramp = WeighMetric(commanderRamp, commanderDeckCount, globalRamp);
+        ManabaseBaselineMetric draw = WeighMetric(commanderDraw, commanderDeckCount, globalDraw);
+
+        double? totalSources = lands.Value is double l && ramp.Value is double r ? l + r : null;
+
+        return new ManabaseBaselineResult(lands, ramp, draw, totalSources, commanderDeckCount);
+    }
+
+    private static ManabaseBaselineMetric WeighMetric(double? commanderAvg, int deckCount, double? globalAvg)
+    {
+        // Commander cell missing or too thin -> lean on the global baseline (or nothing).
+        if (commanderAvg is not double commander || deckCount < LowDeckThreshold)
+        {
+            return globalAvg is double g
+                ? new ManabaseBaselineMetric(g, ManabaseBaselineSource.Global)
+                : new ManabaseBaselineMetric(null, ManabaseBaselineSource.None);
+        }
+
+        // Solid sample -> trust the commander cell.
+        if (deckCount >= HighDeckThreshold)
+        {
+            return new ManabaseBaselineMetric(commander, ManabaseBaselineSource.Commander);
+        }
+
+        // Mid band -> blend toward the global baseline. Without a global we cannot express confidence,
+        // so omit rather than upgrade a weak sample to full trust. (Degenerate: global is normally present.)
+        if (globalAvg is not double global)
+        {
+            return new ManabaseBaselineMetric(null, ManabaseBaselineSource.None);
+        }
+
+        double w = (double)(deckCount - LowDeckThreshold) / (HighDeckThreshold - LowDeckThreshold);
+        double blended = (w * commander) + ((1.0 - w) * global);
+        return new ManabaseBaselineMetric(blended, ManabaseBaselineSource.Blended);
     }
 }
