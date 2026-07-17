@@ -20,7 +20,6 @@ using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Analytics;
 using DeckFlow.Web.Services.Bracket;
 using DeckFlow.Web.Services.Harvest;
-using DeckFlow.Web.Services.PromptBuilders.Evolution;
 using DeckFlow.Web.Services.PromptBuilders.Bracket;
 using DeckFlow.Web.Services.Http;
 using DeckFlow.Web.Services.Manabase;
@@ -167,10 +166,6 @@ public partial class Program
                 }
             });
             builder.Services.AddDeckFlowPromptVariants();
-            builder.Services.AddSingleton<IEvolutionPromptVariant, ChatGptEvolutionPromptVariant>();
-            builder.Services.AddSingleton<IEvolutionPromptVariant, ClaudeEvolutionPromptVariant>();
-            builder.Services.AddSingleton<IEvolutionPromptVariant, GeminiEvolutionPromptVariant>();
-            builder.Services.AddSingleton<EvolutionPromptVariantRegistry>();
             builder.Services.AddSingleton<ICategoryKnowledgeStore, CategoryKnowledgeStore>();
             builder.Services.AddDeckFlowPacketServices();
             builder.Services.AddSingleton<ArchidektCacheJobService>();

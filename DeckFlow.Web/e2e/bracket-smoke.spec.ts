@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
+import { setToolEnabled } from './support/admin-tools';
 
 // Live smoke spec for the /bracket Bracket Check tool (flag-gated, tool.bracket.enabled).
 //
@@ -23,9 +24,6 @@ import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admi
 // A transient flag toggle is used for this run (reverted in afterEach). No prod flag seed change.
 
 const baseUrl = 'http://localhost:5173';
-const adminUser = process.env.FEEDBACK_ADMIN_USER ?? 'admin';
-const adminPassword = process.env.FEEDBACK_ADMIN_PASSWORD ?? 'changeme-local';
-const adminToolsUrl = `http://${adminUser}:${adminPassword}@localhost:5173/Admin/Tools`;
 
 // Why: __dirname is DeckFlow.Web/e2e → resolve up 2 levels for the repo root, then into
 // .planning/ui-design/cycle13/screenshots/ where Phase 75 screenshots already live.
@@ -241,45 +239,3 @@ test('with tool.bracket.enabled OFF, /bracket returns 404 and the tile/tab are a
   await page.goto('/deck-analysis');
   await expect(page.locator('#deck-tool-nav a[href$="/bracket"]')).toHaveCount(0);
 });
-
-// ── Helpers (lock + admin toggle — mirrored from tool-toggles.spec.ts) ────────────────────────
-
-async function gotoAdminTools(page: import('@playwright/test').Page): Promise<void> {
-  const response = await page.goto(adminToolsUrl);
-  expect(response?.ok(), '/Admin/Tools must return 200').toBeTruthy();
-}
-
-async function setToolEnabled(
-  page: import('@playwright/test').Page,
-  label: string,
-  enabled: boolean,
-): Promise<void> {
-  await gotoAdminTools(page);
-
-  const row = page.locator('tbody tr').filter({
-    has: page.locator('td[data-label="Tool"] span', { hasText: label }),
-  });
-
-  const status = row.locator('[data-label="Status"]');
-  const currentStatus = (await status.textContent())?.trim();
-  const desiredStatus = enabled ? 'On' : 'Off';
-
-  if (currentStatus === desiredStatus) {
-    return;
-  }
-
-  const actionButton = row.getByRole('button', {
-    name: enabled ? 'Enable' : 'Disable',
-    exact: true,
-  });
-  await actionButton.click();
-  await expect(page.locator('.admin-banner--success')).toContainText(
-    `Tool '${label}' is now ${enabled ? 'enabled' : 'disabled'}.`,
-  );
-  await expect(
-    page
-      .locator('tbody tr')
-      .filter({ has: page.locator('td[data-label="Tool"] span', { hasText: label }) })
-      .locator('[data-label="Status"]'),
-  ).toHaveText(desiredStatus);
-}

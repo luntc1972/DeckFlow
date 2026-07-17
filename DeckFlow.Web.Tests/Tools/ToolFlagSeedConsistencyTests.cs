@@ -12,6 +12,17 @@ namespace DeckFlow.Web.Tests.Tools;
 /// </summary>
 public sealed class ToolFlagSeedConsistencyTests : IDisposable
 {
+    // Why: some tool flags are intentionally dark-launched (seeded present but disabled
+    // so the UI stays byte-identical before the operator flips them on): tool.bracket.enabled
+    // (BRACKET-05), tool.primer.stale-flag (PRIMER-01, phase 78), and
+    // tool.deck-history.enabled. All other tool flags default to enabled.
+    private static readonly HashSet<string> DarkLaunchedFlags =
+    [
+        "tool.bracket.enabled",
+        "tool.primer.stale-flag",
+        "tool.deck-history.enabled",
+    ];
+
     private readonly string _databasePath = Path.Combine(Path.GetTempPath(), $"tool-flags-{Guid.NewGuid():N}.db");
 
     public void Dispose()
@@ -35,16 +46,11 @@ public sealed class ToolFlagSeedConsistencyTests : IDisposable
 
         var seeded = await store.GetAllAsync();
 
-        // Why: some tool flags are intentionally dark-launched (seeded present but disabled
-        // so the UI stays byte-identical before the operator flips them on): tool.bracket.enabled
-        // (BRACKET-05), tool.primer.stale-flag (PRIMER-01, phase 78), and
-        // tool.deck-history.enabled. All other tool flags
-        // default to enabled.
         Assert.Equal(17, expectedKeys.Count);
         Assert.All(expectedKeys, key =>
         {
             Assert.True(seeded.TryGetValue(key, out var enabled), $"Missing seeded key '{key}'.");
-            if (key == "tool.bracket.enabled" || key == "tool.primer.stale-flag" || key == "tool.deck-history.enabled")
+            if (DarkLaunchedFlags.Contains(key))
                 Assert.False(enabled, $"'{key}' is a dark-launched tool flag: seeded present but disabled.");
             else
                 Assert.True(enabled, $"Seeded key '{key}' should default to enabled.");

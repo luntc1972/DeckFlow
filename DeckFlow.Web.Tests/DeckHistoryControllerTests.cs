@@ -119,6 +119,27 @@ public sealed class DeckHistoryControllerTests
     }
 
     [Fact]
+    public void Download_LongDeckName_UsesSlugifiedNameCappedAtFortyChars()
+    {
+        var controller = CreateController(new FakeDeckHistoryPageService());
+        var request = new DeckHistoryRequest
+        {
+            HistoryJson = DeckHistorySerializer.Serialize(new DeckHistoryFile
+            {
+                DeckName = "Atraxa Midrange Control Primer Notes Extended Edition",
+                Versions = BuildHistoryFile().Versions,
+            }),
+        };
+
+        var result = controller.Download(request);
+
+        var file = Assert.IsType<FileContentResult>(result);
+        Assert.Equal(
+            $"deck-history-atraxa-midrange-control-primer-notes-ext-{DateTime.UtcNow:yyyyMMdd}.json",
+            file.FileDownloadName);
+    }
+
+    [Fact]
     public void Download_BlankHistoryJson_ReturnsErrorView()
     {
         var controller = CreateController(new FakeDeckHistoryPageService());

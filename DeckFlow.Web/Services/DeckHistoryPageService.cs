@@ -117,11 +117,7 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
             var parse = DeckHistorySerializer.Parse(historyJson);
             if (!string.IsNullOrWhiteSpace(parse.Error))
             {
-                return new DeckHistoryProcessResult
-                {
-                    ErrorMessage = parse.Error,
-                    Warnings = parse.Warnings,
-                };
+                return Error(parse.Error, parse.Warnings);
             }
 
             file = parse.File;
@@ -141,29 +137,13 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
             {
                 load = await _deckEntryLoader.LoadFromSourceAsync(deckSource, cancellationToken: cancellationToken).ConfigureAwait(false);
             }
-            catch (DeckParseException exception)
+            catch (Exception exception) when (exception is DeckParseException or InvalidOperationException)
             {
-                return new DeckHistoryProcessResult
-                {
-                    ErrorMessage = exception.Message,
-                    Warnings = warnings,
-                };
-            }
-            catch (InvalidOperationException exception)
-            {
-                return new DeckHistoryProcessResult
-                {
-                    ErrorMessage = exception.Message,
-                    Warnings = warnings,
-                };
+                return Error(exception.Message, warnings);
             }
             catch (HttpRequestException exception)
             {
-                return new DeckHistoryProcessResult
-                {
-                    ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
-                    Warnings = warnings,
-                };
+                return Error(UpstreamErrorMessageBuilder.BuildScryfallMessage(exception), warnings);
             }
 
             if (!string.IsNullOrWhiteSpace(load.FallbackNotice))
@@ -180,10 +160,15 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
             }
         }
 
-        var appended = false;
-        if (load is not null && file is null)
+        if (load is null && file is null)
         {
-            file = DeckHistoryAppender.CreateNew(
+            return Error("Upload a history file, import a deck, or both.", warnings);
+        }
+
+        var appended = false;
+        if (load is not null)
+        {
+            file ??= DeckHistoryAppender.CreateNew(
                 string.IsNullOrWhiteSpace(request.DeckName) ? "Commander Deck" : request.DeckName.Trim(),
                 BuildSource(request.DeckInputSource, url));
             var append = DeckHistoryAppender.Append(file, BuildSnapshot(load.Entries, request));
@@ -194,27 +179,9 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
                 warnings.Add(append.Warning);
             }
         }
-        else if (load is not null && file is not null)
-        {
-            var append = DeckHistoryAppender.Append(file, BuildSnapshot(load.Entries, request));
-            file = append.File;
-            appended = append.Appended;
-            if (!string.IsNullOrWhiteSpace(append.Warning))
-            {
-                warnings.Add(append.Warning);
-            }
-        }
-        else if (load is null && file is not null)
-        {
-            file = DeckHistoryAppender.RecomputeDeltas(file);
-        }
         else
         {
-            return new DeckHistoryProcessResult
-            {
-                ErrorMessage = "Upload a history file, import a deck, or both.",
-                Warnings = warnings,
-            };
+            file = DeckHistoryAppender.RecomputeDeltas(file!);
         }
 
         var (pairOlderId, pairNewerId, pairDiff) = SelectPair(file, request);
@@ -234,6 +201,13 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
             Warnings = warnings,
         };
     }
+
+    private static DeckHistoryProcessResult Error(string message, IReadOnlyList<string>? warnings = null) =>
+        new()
+        {
+            ErrorMessage = message,
+            Warnings = warnings ?? [],
+        };
 
     private DeckSnapshot BuildSnapshot(IReadOnlyList<DeckEntry> entries, DeckHistoryRequest request) =>
         DeckHistoryAppender.BuildSnapshot(entries, request.Notes, request.Label, _nowUtc());
@@ -289,13 +263,12 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
         {
             older = explicitOlder;
             newer = explicitNewer;
-        }
-        else
-        {
-            older = file.Versions[^2];
-            newer = file.Versions[^1];
+            return (older.Id, newer.Id, VersionDiffProjector.Project(older, newer));
         }
 
-        return (older.Id, newer.Id, VersionDiffProjector.Project(older, newer));
+        older = file.Versions[^2];
+        newer = file.Versions[^1];
+        var delta = newer.Delta ?? new SnapshotDelta();
+        return (older.Id, newer.Id, new VersionDiff(delta.Adds, delta.Cuts, delta.QtyChanges));
     }
 }

@@ -3,6 +3,40 @@ using DeckFlow.Web.Services;
 
 namespace DeckFlow.Web.Models;
 
+/// <summary>Rendered timeline row for a single saved history version.</summary>
+public sealed record TimelineRow
+{
+    /// <summary>DeckFlow-assigned version id.</summary>
+    public int Id { get; init; }
+
+    /// <summary>Version timestamp.</summary>
+    public DateTimeOffset Date { get; init; }
+
+    /// <summary>Optional short label for the version.</summary>
+    public string? Label { get; init; }
+
+    /// <summary>Optional notes explaining the change.</summary>
+    public string? Notes { get; init; }
+
+    /// <summary>Total commander plus mainboard card count shown in the timeline.</summary>
+    public int CardCount { get; init; }
+
+    /// <summary>Number of cards added versus the prior version.</summary>
+    public int AddsCount { get; init; }
+
+    /// <summary>Number of cards cut versus the prior version.</summary>
+    public int CutsCount { get; init; }
+
+    /// <summary>Display text for adds, derived from <see cref="AddsCount"/>.</summary>
+    public string AddsText => AddsCount > 0 ? $"+{AddsCount}" : string.Empty;
+
+    /// <summary>Display text for cuts, derived from <see cref="CutsCount"/>.</summary>
+    public string CutsText => CutsCount > 0 ? $"−{CutsCount}" : string.Empty;
+
+    /// <summary>True when either adds or cuts are non-zero.</summary>
+    public bool HasDelta => AddsCount > 0 || CutsCount > 0;
+}
+
 /// <summary>
 /// View model for the Deck History page, including the current request, any processing error,
 /// timeline projections, the selected pair diff, prompt text, and the serialized history JSON.
@@ -19,7 +53,7 @@ public sealed record DeckHistoryViewModel
     public string? ErrorMessage { get; init; }
 
     /// <summary>Newest-first timeline rows for the rendered history table.</summary>
-    public IReadOnlyList<(int Id, DateTimeOffset Date, string? Label, string? Notes, int CardCount, string AddsSummary, string CutsSummary)> TimelineRows { get; init; } = [];
+    public IReadOnlyList<TimelineRow> TimelineRows { get; init; } = [];
 
     /// <summary>The currently selected pairwise diff, when at least two versions exist.</summary>
     public VersionDiff? PairDiff { get; init; }
@@ -58,14 +92,16 @@ public sealed record DeckHistoryViewModel
             {
                 var addsCount = version.Delta?.Adds.Count ?? 0;
                 var cutsCount = version.Delta?.Cuts.Count ?? 0;
-                return (
-                    version.Id,
-                    version.Date,
-                    version.Label,
-                    version.Notes,
-                    (version.Commander?.Count ?? 0) + (version.Cards?.Sum(card => card.Qty) ?? 0),
-                    addsCount > 0 ? $"+{addsCount}" : "—",
-                    cutsCount > 0 ? $"−{cutsCount}" : "—");
+                return new TimelineRow
+                {
+                    Id = version.Id,
+                    Date = version.Date,
+                    Label = version.Label,
+                    Notes = version.Notes,
+                    CardCount = (version.Commander?.Count ?? 0) + (version.Cards?.Sum(card => card.Qty) ?? 0),
+                    AddsCount = addsCount,
+                    CutsCount = cutsCount,
+                };
             })
             .ToArray() ?? [];
 
@@ -78,10 +114,10 @@ public sealed record DeckHistoryViewModel
             PairDiff = result.PairDiff,
             PairOlderId = result.PairOlderId,
             PairNewerId = result.PairNewerId,
-            PromptText = result.PromptText ?? string.Empty,
-            HistoryJson = result.SerializedJson ?? request.HistoryJson ?? string.Empty,
+            PromptText = result.PromptText,
+            HistoryJson = result.SerializedJson ?? request.HistoryJson,
             Warnings = BuildWarnings(result, file),
-            HasResult = file is not null && !string.IsNullOrWhiteSpace(result.SerializedJson),
+            HasResult = file is not null,
         };
     }
 

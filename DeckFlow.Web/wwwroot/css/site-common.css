@@ -3947,20 +3947,6 @@ label.field > span,
   }
 }
 
-.history-warnings {
-  margin: 0 0 1rem;
-  padding: 0.85rem 1rem 0.85rem 2rem;
-  border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
-  border-left: 3px solid var(--gold-warning, var(--warning, #c8a040));
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--gold-warning, var(--warning, #c8a040)) 12%, var(--panel-soft-bg, var(--panel)));
-  color: var(--ink, inherit);
-}
-
-.history-warnings li + li {
-  margin-top: 0.35rem;
-}
-
 .history-timeline__wrap {
   overflow-x: auto;
 }
