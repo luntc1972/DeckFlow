@@ -86,11 +86,11 @@ public sealed class ManabaseBaselineWeightingTests
             commanderLands: 30, commanderRamp: 12, commanderDraw: 10, commanderDeckCount: 250,
             globalLands: 36, globalRamp: 8, globalDraw: 6);
 
-        Assert.Equal(33, r.Lands.Value, 3);        // 0.5*30 + 0.5*36
+        Assert.Equal(33, r.Lands.Value.Value, 3);        // 0.5*30 + 0.5*36
         Assert.Equal(ManabaseBaselineSource.Blended, r.Lands.Source);
-        Assert.Equal(10, r.Ramp.Value, 3);         // 0.5*12 + 0.5*8
+        Assert.Equal(10, r.Ramp.Value.Value, 3);         // 0.5*12 + 0.5*8
         Assert.Equal(ManabaseBaselineSource.Blended, r.Ramp.Source);
-        Assert.Equal(8, r.Draw.Value, 3);          // 0.5*10 + 0.5*6
+        Assert.Equal(8, r.Draw.Value.Value, 3);          // 0.5*10 + 0.5*6
         Assert.Equal(ManabaseBaselineSource.Blended, r.Draw.Source);
     }
 
@@ -103,7 +103,7 @@ public sealed class ManabaseBaselineWeightingTests
 
         Assert.Equal(35.5, r.Lands.Value);
         Assert.Equal(ManabaseBaselineSource.Global, r.Lands.Source);
-        Assert.Equal(44.5, r.TotalSources, 3);     // 35.5 + 9
+        Assert.Equal(44.5, r.TotalSources.Value, 3);     // 35.5 + 9
     }
 
     [Fact]
@@ -157,9 +157,9 @@ public sealed class ManabaseBaselineWeightingTests
             commanderLands: 30, commanderRamp: 12, commanderDraw: 10, commanderDeckCount: 100,
             globalLands: 36, globalRamp: 8, globalDraw: 6);
 
-        Assert.Equal(36, r.Lands.Value, 3);
+        Assert.Equal(36, r.Lands.Value.Value, 3);
         Assert.Equal(ManabaseBaselineSource.Blended, r.Lands.Source);
-        Assert.Equal(8, r.Ramp.Value, 3);
+        Assert.Equal(8, r.Ramp.Value.Value, 3);
         Assert.Equal(ManabaseBaselineSource.Blended, r.Ramp.Source);
     }
 
@@ -171,11 +171,11 @@ public sealed class ManabaseBaselineWeightingTests
             commanderLands: 30, commanderRamp: 12, commanderDraw: 10, commanderDeckCount: 400,
             globalLands: 36, globalRamp: 8, globalDraw: 6);
 
-        Assert.Equal(30, r.Lands.Value, 3);
+        Assert.Equal(30, r.Lands.Value.Value, 3);
         Assert.Equal(ManabaseBaselineSource.Commander, r.Lands.Source);
-        Assert.Equal(12, r.Ramp.Value, 3);
+        Assert.Equal(12, r.Ramp.Value.Value, 3);
         Assert.Equal(ManabaseBaselineSource.Commander, r.Ramp.Source);
-        Assert.Equal(10, r.Draw.Value, 3);
+        Assert.Equal(10, r.Draw.Value.Value, 3);
         Assert.Equal(ManabaseBaselineSource.Commander, r.Draw.Source);
     }
 
@@ -372,3 +372,4 @@ git add -A && git commit -m "chore(manabase): simplify baseline weighting" || ec
 - **Input assumptions (documented):** a negative `commanderDeckCount` is treated as thin (`< LowDeckThreshold` → global/none) — acceptable, no throw. Metric averages are assumed non-negative (the corpus aggregation guarantees it); the helper does not validate them. State both in the XML doc on `Compute`.
 - **Codex plan-review (gpt-5.5) folded:** HIGH — mid-band + missing global now returns `None` (was Commander); MEDIUM — added boundary tests (count==LOW → global-value/Blended-source, count==HIGH → Commander) and a TotalSources-null test; LOW — ramp/draw source asserts added to solid/thin/blended tests, negative-input behavior documented, `/simplify` step softened to "review for simplification".
 - **Constraints:** pure, no new deps, LF, additive (no existing type touched). Test namespace `DeckFlow.Core.Tests`, xUnit via global using.
+- **Compile-fix (foreman, post-dispatch):** the precision asserts (`Assert.Equal(expected, actual, 3)`) originally passed `r.<Metric>.Value` / `r.TotalSources` (type `double?`) into xUnit's non-generic `Assert.Equal(double, double, int)` overload → `CS1503` (no implicit `double?`→`double`). Unwrapped to `.Value.Value` / `.TotalSources.Value` on the 9 precision asserts. Mechanical build-fix to test code only; no design/behavior change, so no re-review required.
