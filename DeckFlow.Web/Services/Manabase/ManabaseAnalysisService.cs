@@ -521,7 +521,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             CommanderChoices = resolved.CommanderChoices,
             CommanderCastabilityEnabled = commanderCastability,
             CompanionRow = companionRow,
-            CommunityBaseline = BuildCommunityBaseline(options),
+            CommunityBaseline = BuildCommunityBaseline(options, resolved.CommanderNames, report),
             ShowFocusedTier = showFocusedTier,
             ShowTapAnalyzer = showTapAnalyzer,
             ShowMulliganEval = showMulliganEval,
@@ -574,7 +574,10 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 _ => 2,
             }, ManabaseBracketSource.Fallback);
 
-    private ManabaseCommunityBaseline? BuildCommunityBaseline(ManabaseAnalysisOptions options)
+    private ManabaseCommunityBaseline? BuildCommunityBaseline(
+        ManabaseAnalysisOptions options,
+        IReadOnlyList<string> commanderNames,
+        ManabaseReport report)
     {
         if (!IsFlagOn(BaselineFlagKey) || _manabaseBaseline is null)
         {
@@ -588,13 +591,44 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             return null;
         }
 
+        // The commander-keyed cEDH meta range (CedhLandBaselineProvider) supersedes the community
+        // line — never show two differently-sourced community baselines at once. This predicate must
+        // mirror the view's meta-range render condition MEMBER-FOR-MEMBER.
+        if (report.TargetLandsRangeLow is not null
+            && report.TargetLandsRangeHigh is not null
+            && report.BaselineDeckCount is not null
+            && report.BaselineLandsMean is not null
+            && report.BaselineLandsSd is not null)
+        {
+            return null;
+        }
+
+        // Commander cell participates only at brackets 2-3: dump means are bracket-agnostic and the
+        // EDHREC population is casual-dominated, so a popular commander's mean would drown the
+        // optimized/cEDH bracket signal.
+        ManabaseCommanderBaseline? commanderRow = bracket is 2 or 3 && commanderNames.Count is 1 or 2
+            ? _manabaseBaseline.TryGetCommanderBaseline(commanderNames)
+            : null;
+
+        ManabaseBaselineResult weighted = ManabaseBaselineWeighting.Compute(
+            commanderRow?.AvgLands, null, null, commanderRow?.DeckCount ?? 0,
+            row.AvgLands, null, null);
+
+        bool commanderContributed = weighted.Lands.Source
+            is ManabaseBaselineSource.Commander or ManabaseBaselineSource.Blended;
+
         return new ManabaseCommunityBaseline
         {
             Bracket = bracket,
-            AvgLands = row.AvgLands,
-            DeckCount = row.DeckCount,
-            Source = row.Source,
+            AvgLands = weighted.Lands.Value ?? row.AvgLands,
+            DeckCount = commanderContributed ? commanderRow!.DeckCount : row.DeckCount,
+            Source = commanderContributed ? "edhrec-averages" : row.Source,
             BracketSource = bracketSource,
+            ValueSource = weighted.Lands.Source,
+            CommanderDeckCount = commanderContributed ? commanderRow!.DeckCount : null,
+            CommanderDisplayName = commanderContributed
+                ? commanderRow!.PartnerName is null ? commanderRow.Name : $"{commanderRow.Name} + {commanderRow.PartnerName}"
+                : null,
         };
     }
 

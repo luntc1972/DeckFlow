@@ -125,4 +125,13 @@ public sealed record ManabaseCommunityBaseline
 
     /// <summary>How the bracket was chosen.</summary>
     public required ManabaseBracketSource BracketSource { get; init; }
+
+    /// <summary>Where the displayed land value came from (commander cell, blend, or bracket-global).</summary>
+    public required ManabaseBaselineSource ValueSource { get; init; }
+
+    /// <summary>EDHREC deck count behind the commander cell when it contributed (Commander/Blended); null for Global.</summary>
+    public int? CommanderDeckCount { get; init; }
+
+    /// <summary>Display name(s) for the commander cell when it contributed (e.g. "The Ur-Dragon"); null for Global.</summary>
+    public string? CommanderDisplayName { get; init; }
 }
