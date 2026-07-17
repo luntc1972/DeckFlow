@@ -22,9 +22,9 @@ file. The page renders a version timeline, an adds/cuts diff between any two
 versions, and a ChatGPT-ready "how has this deck evolved" prompt artifact.
 
 Storage model is **snapshot-per-version** (full decklist in every version), per
-the research report: snapshots let any two versions diff directly with the
-existing `DiffEngine`, survive hand-edits and truncation gracefully, and cost
-~2–3 KB per version at Commander scale. Delta formats (RFC 6902 JSON Patch,
+the research report: snapshots let any two versions diff directly (via
+`VersionDiffProjector` — see Architecture), survive hand-edits and truncation
+gracefully, and cost ~2–3 KB per version at Commander scale. Delta formats (RFC 6902 JSON Patch,
 RFC 7396 Merge Patch) were evaluated and rejected as the stored representation;
 per-version deltas appear in the file only as a **derived convenience block**
 that DeckFlow recomputes on every upload and never trusts.
