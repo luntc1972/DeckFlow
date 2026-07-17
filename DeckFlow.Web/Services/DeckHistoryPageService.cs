@@ -226,7 +226,7 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
             }
             catch (HttpRequestException exception)
             {
-                var warning = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception);
+                var warning = BuildCardReferenceWarning(exception);
                 _logger.LogWarning(exception, "Scryfall card reference lookup failed while building the deck history evolution prompt.");
                 warnings.Add(warning);
             }
@@ -333,6 +333,14 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
         }
 
         orderedNames.Add(name.Trim());
+    }
+
+    private static string BuildCardReferenceWarning(HttpRequestException exception)
+    {
+        const string message = "Scryfall card lookup failed while building the card reference; the evolution prompt was generated without card details.";
+        return exception.StatusCode is { } statusCode
+            ? $"{message} HTTP {(int)statusCode}."
+            : message;
     }
 
     private Task<ScryfallCard?> SearchPrintingFallbackCardAsync(string cardName, CancellationToken cancellationToken)
