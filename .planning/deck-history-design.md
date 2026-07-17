@@ -99,8 +99,8 @@ Format rules:
 |---|---|
 | `DeckHistoryFile`, `DeckSnapshot`, `SnapshotCard`, `SnapshotDelta` | `sealed record` types mirroring the format. `{ get; init; }` (never `{ get; }` — STJ carve-out). `[JsonExtensionData]` on `DeckHistoryFile` and `DeckSnapshot`. |
 | `DeckHistorySerializer` | `Parse(string json)` → file or structured failure (bad JSON, wrong `format`, major-version mismatch, cap exceeded). Normalizes/repairs: missing ids reassigned, versions re-sorted by date when ids are broken, null collections → empty. `Serialize(DeckHistoryFile)` → indented camelCase JSON. |
-| `DeckHistoryAppender` | Builds a `DeckSnapshot` from `List<DeckEntry>` (commander = entries with `Board == "commander"`, mainboard → cards); detects "identical to latest" (normalized name + qty set equality); assigns next id + UTC date; recomputes **all** deltas via `DiffEngine`. |
-| `VersionDiffProjector` | Runs `DiffEngine.Compare(older, newer)` and projects `DeckDiff` (whose field names are Moxfield/Archidekt-centric) into `VersionDiff(Adds, Cuts, QuantityChanges)` for old-vs-new semantics. Used both for the pair-diff view and for delta recomputation. |
+| `DeckHistoryAppender` | Builds a `DeckSnapshot` from `List<DeckEntry>` (commander = entries with `Board == "commander"`, mainboard → cards); detects "identical to latest" (normalized name + qty set equality); assigns next id + UTC date; recomputes **all** deltas via `VersionDiffProjector`. |
+| `VersionDiffProjector` | Compares two snapshots directly via `CardNormalizer`-keyed maps and returns `VersionDiff(Adds, Cuts, QuantityChanges)`. (Amended pre-execution from the original `DiffEngine.Compare` adaptation: snapshots are name+qty only, so `DiffEngine`'s board/printing machinery added conversion cost without signal, and `DeckDiff` splits quantity deltas across two lists that would need dictionary reassembly anyway. Same normalized-name matching semantics.) |
 
 `CardNormalizer` provides the comparison key, consistent with the rest of the
 site.
@@ -151,6 +151,7 @@ site.
 | Major version ahead of app | Explicit message: file was created by a newer DeckFlow |
 | File over size cap | Friendly reject |
 | Deck import failure (Moxfield/Archidekt/parse) | Existing `UpstreamErrorMessageBuilder` / `DeckParseException` copy, house pattern |
+| Deck not exactly 100 cards | Non-blocking warning ("Deck has N cards — Commander decks run 100."); snapshot still saved. Matches Bracket/Primer's lenient stance (only Deck Sync hard-enforces 100) and the tool's hand-edit-tolerant philosophy — mid-brew lists are trackable. |
 | Timeout | `OperationCanceledException` → existing timeout copy |
 | Repairable hand-edit damage (bad ids, missing arrays, stale deltas) | Repair silently or with a non-blocking warning list on the result view |
 
