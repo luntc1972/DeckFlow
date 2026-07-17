@@ -109,6 +109,7 @@ public sealed class DeckHistoryPageServiceTests
                 Assert.Contains("Smothering Tithe", names, StringComparison.Ordinal);
                 Assert.Contains("Arcane Signet", names, StringComparison.Ordinal);
                 Assert.Contains("Mana Crypt", names, StringComparison.Ordinal);
+                Assert.Contains("Swords to Plowshares", names, StringComparison.Ordinal);
 
                 return Task.FromResult(CollectionResponse(
                     ScryfallCard("Alela, Artful Provocateur", "{1}{W}{U}{B}", "Legendary Creature — Faerie Warlock", "Flying, deathtouch, lifelink"),
@@ -116,7 +117,8 @@ public sealed class DeckHistoryPageServiceTests
                     ScryfallCard("Sol Ring", "{1}", "Artifact", "{T}: Add {C}{C}."),
                     ScryfallCard("Smothering Tithe", "{3}{W}", "Enchantment", "Whenever an opponent draws a card, that player may pay {2}. If the player doesn't, you create a Treasure token."),
                     ScryfallCard("Arcane Signet", "{2}", "Artifact", "{T}: Add one mana of any color in your commander's color identity."),
-                    ScryfallCard("Mana Crypt", "{0}", "Artifact", "{T}: Add {C}{C}. At the beginning of your upkeep, flip a coin.")));
+                    ScryfallCard("Mana Crypt", "{0}", "Artifact", "{T}: Add {C}{C}. At the beginning of your upkeep, flip a coin."),
+                    ScryfallCard("Swords to Plowshares", "{W}", "Instant", "Exile target creature. Its controller gains life equal to its power.")));
             }
         };
         var service = CreateService(resolver: resolver);
@@ -125,7 +127,7 @@ public sealed class DeckHistoryPageServiceTests
                 1,
                 "2026-07-01T00:00:00Z",
                 ["Alela, Artful Provocateur"],
-                [Card("Sol Ring", 1), Card("Arcane Signet", 1), Card("Mana Crypt", 1)]),
+                [Card("Sol Ring", 1), Card("Arcane Signet", 1), Card("Mana Crypt", 1), Card("Swords to Plowshares", 1)]),
             Version(
                 2,
                 "2026-07-08T00:00:00Z",
@@ -136,7 +138,7 @@ public sealed class DeckHistoryPageServiceTests
                 3,
                 "2026-07-15T00:00:00Z",
                 ["Alela, Artful Provocateur"],
-                [Card("Sol Ring", 1), Card("Esper Sentinel", 1), Card("Smothering Tithe", 1)],
+                [Card("Sol Ring", 1), Card("Esper Sentinel", 1), Card("Smothering Tithe", 1), Card("Swords to Plowshares", 1)],
                 notes: "Added premium engine pieces."));
 
         var result = await service.ProcessAsync(new DeckHistoryRequest
@@ -154,6 +156,7 @@ public sealed class DeckHistoryPageServiceTests
         Assert.Contains("Name: Smothering Tithe", result.PromptText);
         Assert.Contains("Name: Mana Crypt", result.PromptText);
         Assert.Equal(1, CountOccurrences(result.PromptText, "Name: Sol Ring"));
+        Assert.Equal(1, CountOccurrences(result.PromptText, "Name: Swords to Plowshares"));
     }
 
     [Fact]
@@ -181,7 +184,7 @@ public sealed class DeckHistoryPageServiceTests
         Assert.Null(result.ErrorMessage);
         Assert.DoesNotContain("CARD REFERENCE", result.PromptText);
         Assert.Contains(
-            "Scryfall card reference lookup failed while building the analysis packet with HTTP 503. Try again shortly.",
+            "Scryfall card lookup failed while building the card reference; the evolution prompt was generated without card details. HTTP 503.",
             result.Warnings);
         var warning = Assert.Single(logger.Entries, entry => entry.Level == LogLevel.Warning);
         Assert.Contains("Scryfall card reference lookup failed", warning.Message, StringComparison.Ordinal);
