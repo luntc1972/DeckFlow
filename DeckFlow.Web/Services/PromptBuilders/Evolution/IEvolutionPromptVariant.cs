@@ -11,7 +11,11 @@ internal interface IEvolutionPromptVariant
 
     /// <summary>Builds the deck-evolution prompt for the supplied history.</summary>
     /// <param name="history">Parsed, delta-recomputed history file.</param>
+    /// <param name="cardReferences">Resolved Scryfall card references to embed, when available.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The rendered deck-evolution prompt for the target platform.</returns>
-    string Build(DeckHistoryFile history, CancellationToken cancellationToken = default);
+    string Build(
+        DeckHistoryFile history,
+        IReadOnlyList<EvolutionCardReference>? cardReferences,
+        CancellationToken cancellationToken = default);
 }

@@ -28,16 +28,18 @@ internal sealed class EvolutionPromptVariantRegistry
     /// </summary>
     /// <param name="platform">AI platform to render for.</param>
     /// <param name="history">Parsed, delta-recomputed history file.</param>
+    /// <param name="cardReferences">Resolved Scryfall card references to embed, when available.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The rendered evolution prompt body for the target platform.</returns>
     public string Build(
         AiPlatform platform,
         DeckHistoryFile history,
+        IReadOnlyList<EvolutionCardReference>? cardReferences,
         CancellationToken cancellationToken = default)
     {
         var variant = _variants.TryGetValue(platform, out var found)
             ? found
             : _variants[AiPlatform.Default];
-        return variant.Build(history, cancellationToken);
+        return variant.Build(history, cardReferences, cancellationToken);
     }
 }
