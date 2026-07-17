@@ -594,11 +594,8 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         // The commander-keyed cEDH meta range (CedhLandBaselineProvider) supersedes the community
         // line — never show two differently-sourced community baselines at once. This predicate must
         // mirror the view's meta-range render condition MEMBER-FOR-MEMBER.
-        if (report.TargetLandsRangeLow is not null
-            && report.TargetLandsRangeHigh is not null
-            && report.BaselineDeckCount is not null
-            && report.BaselineLandsMean is not null
-            && report.BaselineLandsSd is not null)
+        // Suppression = the range renders.
+        if (report.HasCedhMetaRange)
         {
             return null;
         }
@@ -622,10 +619,9 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             Bracket = bracket,
             AvgLands = weighted.Lands.Value ?? row.AvgLands,
             DeckCount = commanderContributed ? commanderRow!.DeckCount : row.DeckCount,
-            Source = commanderContributed ? "edhrec-averages" : row.Source,
+            Source = commanderContributed ? ManabaseBaselineSnapshot.EdhrecAveragesSource : row.Source,
             BracketSource = bracketSource,
             ValueSource = weighted.Lands.Source,
-            CommanderDeckCount = commanderContributed ? commanderRow!.DeckCount : null,
             CommanderDisplayName = commanderContributed
                 ? commanderRow!.PartnerName is null ? commanderRow.Name : $"{commanderRow.Name} + {commanderRow.PartnerName}"
                 : null,

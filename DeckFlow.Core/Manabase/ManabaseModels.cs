@@ -945,6 +945,13 @@ public sealed record ManabaseReport
     /// </summary>
     public double? BaselineLandsSd { get; init; }
 
+    /// <summary>True when the commander-keyed cEDH meta range is present and will render.</summary>
+    public bool HasCedhMetaRange => TargetLandsRangeLow is not null
+        && TargetLandsRangeHigh is not null
+        && BaselineDeckCount is not null
+        && BaselineLandsMean is not null
+        && BaselineLandsSd is not null;
+
     /// <summary>
     /// Snapshot month for the matched cEDH baseline sample (for example <c>2026-07</c>), or null
     /// when no usable cEDH baseline was available.

@@ -91,12 +91,32 @@ public sealed class ManabaseViewRenderTests
                     Source = "edhrec-averages",
                     BracketSource = ManabaseBracketSource.Fallback,
                     ValueSource = ManabaseBaselineSource.Commander,
-                    CommanderDeckCount = 48802,
                     CommanderDisplayName = "The Ur-Dragon",
                 }));
 
         Assert.Contains("EDHREC decks for The Ur-Dragon average", html, StringComparison.Ordinal);
         Assert.Contains("class=\"manabase-baseline-source\">Data from EDHREC</span>", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CommunityBaseline_BlendedValueSource_RendersEdhrecAttribution_WithoutSourcePrefix()
+    {
+        string html = await RenderManabaseViewAsync(
+            BuildPopulatedModel(
+                showTapAnalyzer: false,
+                showCommunityBaseline: true,
+                communityBaseline: new ManabaseCommunityBaseline
+                {
+                    Bracket = 3,
+                    AvgLands = 35.2,
+                    DeckCount = 250,
+                    Source = "edhrec-pilot-aggregate",
+                    BracketSource = ManabaseBracketSource.Fallback,
+                    ValueSource = ManabaseBaselineSource.Blended,
+                    CommanderDisplayName = "Kinnan, Bonder Prodigy",
+                }));
+
+        Assert.Contains("Data from EDHREC", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -120,6 +140,26 @@ public sealed class ManabaseViewRenderTests
         Assert.Contains("Core", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Data from EDHREC", html, StringComparison.Ordinal);
         Assert.DoesNotContain("EDHREC decks for", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CommunityBaseline_GlobalValueSource_DoesNotRenderEdhrecAttribution_WhenSourceMatchesPrefix()
+    {
+        string html = await RenderManabaseViewAsync(
+            BuildPopulatedModel(
+                showTapAnalyzer: false,
+                showCommunityBaseline: true,
+                communityBaseline: new ManabaseCommunityBaseline
+                {
+                    Bracket = 2,
+                    AvgLands = 35.9,
+                    DeckCount = 124221,
+                    Source = "edhrec-averages",
+                    BracketSource = ManabaseBracketSource.Fallback,
+                    ValueSource = ManabaseBaselineSource.Global,
+                }));
+
+        Assert.DoesNotContain("Data from EDHREC", html, StringComparison.Ordinal);
     }
 
     [Fact]

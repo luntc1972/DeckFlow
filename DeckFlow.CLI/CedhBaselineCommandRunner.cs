@@ -15,8 +15,6 @@ namespace DeckFlow.CLI;
 internal static class CedhBaselineCommandRunner
 {
     private static readonly Regex MonthLabelRegex = new(@"^\d{4}-\d{2}$", RegexOptions.Compiled);
-    private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
-
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -111,10 +109,10 @@ internal static class CedhBaselineCommandRunner
             string monthlyJsonPath = Path.Combine(outputDirectory, $"{month}.json");
             string latestJsonPath = Path.Combine(outputDirectory, "latest.json");
 
-            WriteLfFile(markdownPath, BuildMarkdownReport(result));
+            SnapshotFileWriter.WriteLfFile(markdownPath, BuildMarkdownReport(result));
             string snapshotJson = JsonSerializer.Serialize(snapshot, JsonOptions);
-            WriteLfFile(monthlyJsonPath, snapshotJson);
-            WriteLfFile(latestJsonPath, snapshotJson);
+            SnapshotFileWriter.WriteLfFile(monthlyJsonPath, snapshotJson);
+            SnapshotFileWriter.WriteLfFile(latestJsonPath, snapshotJson);
 
             Console.WriteLine($"Wrote {markdownPath}");
             Console.WriteLine($"Wrote {monthlyJsonPath}");
@@ -194,17 +192,6 @@ internal static class CedhBaselineCommandRunner
     }
 
     private static string EscapePipe(string value) => value.Replace("|", "\\|", StringComparison.Ordinal);
-
-    private static void WriteLfFile(string path, string content)
-    {
-        string body = content.Replace("\r\n", "\n", StringComparison.Ordinal);
-        if (!body.EndsWith('\n'))
-        {
-            body += "\n";
-        }
-
-        File.WriteAllText(path, body, Utf8NoBom);
-    }
 
     private sealed record CalibrationDeck
     {

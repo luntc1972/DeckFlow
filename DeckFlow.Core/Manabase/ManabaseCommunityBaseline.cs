@@ -8,6 +8,9 @@ namespace DeckFlow.Core.Manabase;
 /// </summary>
 public sealed record ManabaseBaselineSnapshot
 {
+    /// <summary>Canonical provenance label for commander rows sourced from the EDHREC averages dump.</summary>
+    public const string EdhrecAveragesSource = "edhrec-averages";
+
     /// <summary>Schema version of the data file (currently 1).</summary>
     [JsonPropertyName("schemaVersion")]
     public int SchemaVersion { get; init; }
@@ -128,9 +131,6 @@ public sealed record ManabaseCommunityBaseline
 
     /// <summary>Where the displayed land value came from (commander cell, blend, or bracket-global).</summary>
     public required ManabaseBaselineSource ValueSource { get; init; }
-
-    /// <summary>EDHREC deck count behind the commander cell when it contributed (Commander/Blended); null for Global.</summary>
-    public int? CommanderDeckCount { get; init; }
 
     /// <summary>Display name(s) for the commander cell when it contributed (e.g. "The Ur-Dragon"); null for Global.</summary>
     public string? CommanderDisplayName { get; init; }

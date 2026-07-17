@@ -39,18 +39,12 @@ internal static class EdhrecAveragesCommandRunner
             ManabaseBaselineSnapshot updated = existing with
             {
                 GeneratedUtc = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                CommandersSource = "edhrec-averages",
+                CommandersSource = ManabaseBaselineSnapshot.EdhrecAveragesSource,
                 Commanders = result.Commanders,
             };
 
             string updatedJsonText = JsonSerializer.Serialize(updated, jsonOptions);
-            updatedJsonText = ReplaceBracketsBlock(updatedJsonText, existingJsonText);
-            if (existingJsonText.EndsWith('\n') && !updatedJsonText.EndsWith('\n'))
-            {
-                updatedJsonText += "\n";
-            }
-
-            await File.WriteAllTextAsync(dataFilePath, updatedJsonText).ConfigureAwait(false);
+            SnapshotFileWriter.WriteLfFile(dataFilePath, updatedJsonText);
 
             Log.Information(
                 "Wrote {Count} commander baselines ({Skipped} malformed skipped, {Collisions} duplicate collisions) to {Path}",
@@ -66,86 +60,5 @@ internal static class EdhrecAveragesCommandRunner
             Console.Error.WriteLine(exception.Message);
             return 1;
         }
-    }
-
-    private static string ReplaceBracketsBlock(string updatedJsonText, string existingJsonText)
-    {
-        (int existingStart, int existingEnd) = FindBracketsBlock(existingJsonText);
-        (int updatedStart, int updatedEnd) = FindBracketsBlock(updatedJsonText);
-        string existingBlock = existingJsonText[existingStart..existingEnd];
-        return string.Concat(
-            updatedJsonText.AsSpan(0, updatedStart),
-            existingBlock,
-            updatedJsonText.AsSpan(updatedEnd));
-    }
-
-    private static (int Start, int End) FindBracketsBlock(string jsonText)
-    {
-        const string propertyName = "\"brackets\"";
-        int propertyIndex = jsonText.IndexOf(propertyName, StringComparison.Ordinal);
-        if (propertyIndex < 0)
-        {
-            throw new InvalidOperationException("Snapshot JSON does not contain a brackets block.");
-        }
-
-        int arrayStart = jsonText.IndexOf('[', propertyIndex);
-        if (arrayStart < 0)
-        {
-            throw new InvalidOperationException("Snapshot JSON brackets block is malformed.");
-        }
-
-        bool inString = false;
-        bool escaping = false;
-        int depth = 0;
-        for (int index = arrayStart; index < jsonText.Length; index++)
-        {
-            char ch = jsonText[index];
-            if (inString)
-            {
-                if (escaping)
-                {
-                    escaping = false;
-                    continue;
-                }
-
-                if (ch == '\\')
-                {
-                    escaping = true;
-                    continue;
-                }
-
-                if (ch == '"')
-                {
-                    inString = false;
-                }
-
-                continue;
-            }
-
-            if (ch == '"')
-            {
-                inString = true;
-                continue;
-            }
-
-            if (ch == '[')
-            {
-                depth++;
-                continue;
-            }
-
-            if (ch != ']')
-            {
-                continue;
-            }
-
-            depth--;
-            if (depth == 0)
-            {
-                return (propertyIndex, index + 1);
-            }
-        }
-
-        throw new InvalidOperationException("Snapshot JSON brackets block is unterminated.");
     }
 }
