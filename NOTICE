@@ -1,0 +1,21 @@
+DeckFlow
+Copyright 2026 Chris Lunt
+
+This product is licensed under the Apache License, Version 2.0 (the "License").
+You may obtain a copy of the License in the LICENSE file or at
+http://www.apache.org/licenses/LICENSE-2.0
+
+The Apache License 2.0 covers the source code of this project only. It does NOT
+grant any right to use the "DeckFlow" name, logo, or brand. Under Section 6 of
+the Apache License 2.0, trademarks are expressly excluded from the license grant.
+
+"DeckFlow" and the DeckFlow name and logo are trademarks of Chris Lunt. If you
+use, modify, or self-host this software, you may not:
+
+  - name your instance or derivative "DeckFlow";
+  - use the DeckFlow logo or branding;
+  - represent your deployment as the official DeckFlow, as originating from
+    deckflow.gg, or as endorsed by or affiliated with DeckFlow.
+
+Anyone redistributing this software, in source or binary form, must reproduce
+this NOTICE file in their distribution.

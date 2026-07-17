@@ -931,3 +931,21 @@ Follow-up accuracy fixes (always on):
 ## License
 
 DeckFlow is licensed under the [Apache License 2.0](LICENSE). Copyright 2026 Chris Lunt.
+
+### Code vs. brand
+
+The Apache 2.0 license covers the **source code only**. You are free to use,
+modify, and self-host it — including commercially — provided you keep the
+license and copyright notices and reproduce the [`NOTICE`](NOTICE) file in any
+redistribution.
+
+The license does **not** grant any right to the DeckFlow name, logo, or brand.
+Under Apache 2.0 §6, trademarks are excluded from the grant. If you fork or
+self-host, you must:
+
+- not name your instance or derivative "DeckFlow";
+- not use the DeckFlow logo or branding;
+- not represent your deployment as the official DeckFlow, as originating from
+  `deckflow.gg`, or as endorsed by or affiliated with DeckFlow.
+
+"DeckFlow" is a trademark of Chris Lunt.
