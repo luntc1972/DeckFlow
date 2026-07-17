@@ -554,15 +554,19 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             resolved.InputSummary, resolved.Unresolved, resolved.FallbackNotice, resolved.Deck.CostSuggestions);
     }
 
-    // Map the 3-value analysis mode to a supported bracket (2-5) when no explicit bracket is given.
-    // Casual -> Core(2), Focused -> Upgraded(3), Cedh -> cEDH(5). Overridden by options.Bracket in 1b.
-    private static int ResolveBaselineBracket(ManabaseAnalysisOptions options)
-        => options.Bracket ?? options.Mode switch
-        {
-            ManabaseMode.Cedh => 5,
-            ManabaseMode.Focused => 3,
-            _ => 2,
-        };
+    // Decide the baseline bracket AND how it was chosen in one place, so the value and its
+    // provenance label can never disagree. Casual -> Core(2), Focused -> Upgraded(3), Cedh -> cEDH(5)
+    // when no explicit bracket is given (Fallback); an explicit options.Bracket is an Override
+    // (the controller sets it from classification / the selector in Increment 1b).
+    private static (int Bracket, ManabaseBracketSource Source) ResolveBaseline(ManabaseAnalysisOptions options)
+        => options.Bracket is int explicitBracket
+            ? (explicitBracket, ManabaseBracketSource.Override)
+            : (options.Mode switch
+            {
+                ManabaseMode.Cedh => 5,
+                ManabaseMode.Focused => 3,
+                _ => 2,
+            }, ManabaseBracketSource.Fallback);
 
     private ManabaseCommunityBaseline? BuildCommunityBaseline(ManabaseAnalysisOptions options)
     {
@@ -571,7 +575,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             return null;
         }
 
-        int bracket = ResolveBaselineBracket(options);
+        (int bracket, ManabaseBracketSource bracketSource) = ResolveBaseline(options);
         ManabaseBracketBaseline? row = _manabaseBaseline.TryGetBracketBaseline(bracket);
         if (row is null)
         {
@@ -584,8 +588,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             AvgLands = row.AvgLands,
             DeckCount = row.DeckCount,
             Source = row.Source,
-            // 1a: no override/classification yet, so the bracket came from the mode.
-            BracketSource = options.Bracket is null ? ManabaseBracketSource.Fallback : ManabaseBracketSource.Override,
+            BracketSource = bracketSource,
         };
     }
 
