@@ -554,11 +554,6 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             resolved.InputSummary, resolved.Unresolved, resolved.FallbackNotice, resolved.Deck.CostSuggestions);
     }
 
-    // Shared front half of both entry points: validate input, load + board-filter the deck, resolve
-    // every card through Scryfall, and classify it into a ManabaseDeck (which carries the detected
-    // cost suggestions). Stops short of the castability simulation so Load can reuse it cheaply.
-    // True only when the named flag exists in the snapshot AND is enabled. Fail-safe OFF: a missing
-    // key returns false (unlike IFeatureFlagCache.IsEnabled, which defaults missing keys ON).
     // Map the 3-value analysis mode to a supported bracket (2-5) when no explicit bracket is given.
     // Casual -> Core(2), Focused -> Upgraded(3), Cedh -> cEDH(5). Overridden by options.Bracket in 1b.
     private static int ResolveBaselineBracket(ManabaseAnalysisOptions options)
@@ -594,11 +589,16 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         };
     }
 
+    // True only when the named flag exists in the snapshot AND is enabled. Fail-safe OFF: a missing
+    // key returns false (unlike IFeatureFlagCache.IsEnabled, which defaults missing keys ON).
     private bool IsFlagOn(string key)
         => _featureFlags is { } flags
             && flags.Snapshot().TryGetValue(key, out bool enabled)
             && enabled;
 
+    // Shared front half of both entry points: validate input, load + board-filter the deck, resolve
+    // every card through Scryfall, and classify it into a ManabaseDeck (which carries the detected
+    // cost suggestions). Stops short of the castability simulation so Load can reuse it cheaply.
     private async Task<ResolvedManabaseDeck> ResolveAndClassifyAsync(
         string deckSource,
         bool rampCreditV2,
