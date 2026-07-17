@@ -31,7 +31,7 @@ namespace DeckFlow.Web.Tests;
 public sealed class DeckHistoryViewRenderTests
 {
     [Fact]
-    public async Task ResultView_RendersSeparateSuccessAndWarningBannersAndTwoHistoryJsonFieldsOnly()
+    public async Task ResultView_RendersSuccessHintInsideBanner_AndPlacesDownloadPanelBetweenTimelineAndCompare()
     {
         var model = new DeckHistoryViewModel
         {
@@ -84,18 +84,36 @@ public sealed class DeckHistoryViewRenderTests
         int compareFormEnd = html.IndexOf("</form>", compareFormStart, StringComparison.Ordinal);
         Assert.True(compareFormEnd > compareFormStart, "compare form should close");
         string compareFormHtml = html.Substring(compareFormStart, compareFormEnd - compareFormStart);
+        int successBannerStart = html.IndexOf("class=\"success-banner\"", StringComparison.Ordinal);
+        Assert.True(successBannerStart >= 0, "success banner should render");
+        int successBannerEnd = html.IndexOf("</div>", successBannerStart, StringComparison.Ordinal);
+        Assert.True(successBannerEnd > successBannerStart, "success banner should close");
+        string successBannerHtml = html.Substring(successBannerStart, successBannerEnd - successBannerStart);
+        int timelineStart = html.IndexOf("<h2>Timeline</h2>", StringComparison.Ordinal);
+        int saveHistoryStart = html.IndexOf("<h2>Save your history</h2>", StringComparison.Ordinal);
+        int compareStart = html.IndexOf("<h2>Compare versions</h2>", StringComparison.Ordinal);
 
-        Assert.Contains("class=\"success-banner\"", html, StringComparison.Ordinal);
         Assert.Contains("Version 2 added.", html, StringComparison.Ordinal);
+        Assert.Contains(
+            "To add the next version: update your deck, import it above, and press Update history again — your history carries forward on this page.",
+            successBannerHtml,
+            StringComparison.Ordinal);
         Assert.Contains("class=\"warning-banner\"", html, StringComparison.Ordinal);
         Assert.Contains("Version ids were repaired (renumbered in date order).", html, StringComparison.Ordinal);
         Assert.DoesNotContain("history-warnings", html, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "<p class=\"history-empty-compare\">To add the next version: update your deck, import it above, and press Update history again — your history carries forward on this page.</p>",
+            html,
+            StringComparison.Ordinal);
         Assert.Equal(2, Regex.Matches(html, "name=\"HistoryJson\"", RegexOptions.CultureInvariant).Count);
         Assert.Contains("id=\"deck-history-compare-form\"", html, StringComparison.Ordinal);
         Assert.Contains("class=\"history-compare-controls\"", html, StringComparison.Ordinal);
         Assert.Contains("class=\"history-compare-controls__arrow\"", html, StringComparison.Ordinal);
         Assert.Contains("form=\"deck-history-compare-form\"", html, StringComparison.Ordinal);
         Assert.Contains("formaction=\"/deck-history/download\"", html, StringComparison.Ordinal);
+        Assert.True(timelineStart >= 0, "timeline panel should render");
+        Assert.True(saveHistoryStart > timelineStart, "download panel should follow timeline");
+        Assert.True(compareStart > saveHistoryStart, "compare panel should follow download");
         Assert.DoesNotContain("name=\"DeckInputSource\"", compareFormHtml, StringComparison.Ordinal);
         Assert.DoesNotContain("name=\"DeckUrl\"", compareFormHtml, StringComparison.Ordinal);
         Assert.DoesNotContain("name=\"DeckText\"", compareFormHtml, StringComparison.Ordinal);

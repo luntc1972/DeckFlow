@@ -2382,11 +2382,6 @@ label.field > span,
   align-items: center;
 }
 
-/* Start over is an <a> styled as a button — drop the default link underline. */
-.manabase-start-over {
-  text-decoration: none;
-}
-
 /* Download analysis mini-form: left-aligned single-button toolbar matching manabase-actions
    spacing so it sits flush with the result panel content below the result section. */
 .toolbar.manabase-download {
@@ -4013,6 +4008,24 @@ label.field > span,
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.85rem;
   margin-top: 1rem;
+}
+
+.deck-history-results > .success-banner,
+.deck-history-results > .warning-banner,
+.deck-history-results > .result-panel {
+  margin: 0;
+}
+
+.deck-history-results > .success-banner + .warning-banner,
+.deck-history-results > .success-banner + .result-panel,
+.deck-history-results > .warning-banner + .result-panel,
+.deck-history-results > .result-panel + .result-panel {
+  margin-top: 1rem;
+}
+
+.history-success-hint {
+  display: block;
+  margin-top: 0.4rem;
 }
 
 .deck-history-form .manabase-help {
