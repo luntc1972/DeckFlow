@@ -59,6 +59,9 @@ var manabaseArchidektUrlOption = new Option<string?>("--archidekt-url") { Descri
 var manabaseMoxfieldUrlOption = new Option<string?>("--moxfield-url") { Description = "Public Moxfield deck URL." };
 var manabaseModeOption = new Option<string>("--mode", () => "casual") { Description = "Analysis profile: casual | focused | cedh (focused keeps Casual surfaces with an 85% color bar; cedh lowers the land target)." };
 var manabaseSwapPromptOption = new Option<bool>("--swap-prompt") { Description = "Also print a paste-ready LLM prompt asking for specific land swaps." };
+var edhrecAveragesCommand = new Command("edhrec-averages", "Convert an EDHREC averages.csv dump into the bundled manabase-baseline data file.");
+var edhrecAveragesCsvOption = new Option<string>("--csv") { Description = "Path to the extracted averages.csv dump.", IsRequired = true };
+var edhrecAveragesDataFileOption = new Option<string>("--data-file", () => Path.Combine("DeckFlow.Web", "Data", "manabase-baseline", "latest.json")) { Description = "Path to the bundled manabase-baseline snapshot JSON." };
 var cedhLandCalibrateCommand = new Command("cedh-land-calibrate", "Replay cached cEDH decks against the old and new land targets.");
 var cedhLandCalibrateDataOption = new Option<string>("--data", () => "_calib") { Description = "Directory containing decks_all.json and cards_full.json." };
 var cedhLandCalibrateBaselineOption = new Option<string>("--baseline", () => Path.Combine("DeckFlow.Web", "Data", "cedh-land-baseline", "latest.json")) { Description = "Path to the committed cEDH baseline snapshot JSON." };
@@ -141,6 +144,8 @@ manabaseCommand.AddOption(manabaseArchidektUrlOption);
 manabaseCommand.AddOption(manabaseMoxfieldUrlOption);
 manabaseCommand.AddOption(manabaseModeOption);
 manabaseCommand.AddOption(manabaseSwapPromptOption);
+edhrecAveragesCommand.AddOption(edhrecAveragesCsvOption);
+edhrecAveragesCommand.AddOption(edhrecAveragesDataFileOption);
 cedhLandCalibrateCommand.AddOption(cedhLandCalibrateDataOption);
 cedhLandCalibrateCommand.AddOption(cedhLandCalibrateBaselineOption);
 cedhLandCalibrateCommand.AddOption(cedhLandCalibrateOutOption);
@@ -225,6 +230,7 @@ rootCommand.AddCommand(archidektCacheCommand);
 rootCommand.AddCommand(categoryFindCommand);
 rootCommand.AddCommand(cardLookupCommand);
 rootCommand.AddCommand(manabaseCommand);
+rootCommand.AddCommand(edhrecAveragesCommand);
 rootCommand.AddCommand(cedhLandCalibrateCommand);
 rootCommand.AddCommand(cedhLandBaselineCommand);
 rootCommand.AddCommand(scryfallProbeCommand);
@@ -284,6 +290,11 @@ manabaseCommand.SetHandler((string? archidektUrl, string? moxfieldUrl, string mo
 {
     Environment.ExitCode = ManabaseCommandRunner.RunAsync(archidektUrl, moxfieldUrl, mode, swapPrompt).GetAwaiter().GetResult();
 }, manabaseArchidektUrlOption, manabaseMoxfieldUrlOption, manabaseModeOption, manabaseSwapPromptOption);
+
+edhrecAveragesCommand.SetHandler((string csvPath, string dataFilePath) =>
+{
+    Environment.ExitCode = EdhrecAveragesCommandRunner.RunEdhrecAveragesAsync(csvPath, dataFilePath).GetAwaiter().GetResult();
+}, edhrecAveragesCsvOption, edhrecAveragesDataFileOption);
 
 cedhLandCalibrateCommand.SetHandler((string dataDirectory, string baselinePath, string? outputPath) =>
 {
