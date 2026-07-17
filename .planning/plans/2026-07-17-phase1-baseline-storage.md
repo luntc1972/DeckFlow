@@ -122,19 +122,31 @@ using DeckFlow.Core.Storage;
 namespace DeckFlow.Web.Services;
 
 /// <summary>
-/// Provides the one manabase-baseline SQL fragment that differs by provider: the
-/// <c>computed_utc</c> column type. Upsert and select SQL are portable (both engines support
-/// <c>ON CONFLICT ... DO UPDATE SET c = excluded.c</c>) and live in the store.
+/// Provides the manabase-baseline SQL fragments that differ by provider: the <c>computed_utc</c>
+/// timestamp column type and the 8-byte floating-point column type for the averages. Upsert and
+/// select SQL are portable (both engines support <c>ON CONFLICT ... DO UPDATE SET c = excluded.c</c>)
+/// and live in the store.
 /// </summary>
 public sealed class ManabaseBaselineDialect
 {
     /// <summary>Gets the SQL column type for the <c>computed_utc</c> timestamp.</summary>
     public string ComputedUtcColumnType { get; }
 
-    private ManabaseBaselineDialect(string computedUtcColumnType) => ComputedUtcColumnType = computedUtcColumnType;
+    /// <summary>
+    /// Gets the SQL column type for the 8-byte floating-point averages. SQLite <c>REAL</c> is already
+    /// 8-byte; Postgres <c>REAL</c> is float4, so Postgres must use <c>DOUBLE PRECISION</c> or values
+    /// like 35.9 round-trip to a different <see cref="double"/> (plan-review MEDIUM).
+    /// </summary>
+    public string RealColumnType { get; }
 
-    private static readonly ManabaseBaselineDialect SqliteInstance = new("TEXT");
-    private static readonly ManabaseBaselineDialect PostgresInstance = new("TIMESTAMPTZ");
+    private ManabaseBaselineDialect(string computedUtcColumnType, string realColumnType)
+    {
+        ComputedUtcColumnType = computedUtcColumnType;
+        RealColumnType = realColumnType;
+    }
+
+    private static readonly ManabaseBaselineDialect SqliteInstance = new("TEXT", "REAL");
+    private static readonly ManabaseBaselineDialect PostgresInstance = new("TIMESTAMPTZ", "DOUBLE PRECISION");
 
     /// <summary>Returns the dialect helper for the connection's provider.</summary>
     /// <param name="connection">Connection whose provider selects the dialect.</param>
@@ -348,15 +360,16 @@ public sealed class ManabaseBaselineStore : IManabaseBaselineStore
                       commander_slug TEXT    NOT NULL,
                       bracket        INTEGER NOT NULL,
                       source         TEXT    NOT NULL,
-                      avg_lands      REAL    NOT NULL,
-                      avg_ramp       REAL    NOT NULL,
-                      avg_draw       REAL    NOT NULL,
+                      avg_lands      __REAL_COLUMN_TYPE__ NOT NULL,
+                      avg_ramp       __REAL_COLUMN_TYPE__ NOT NULL,
+                      avg_draw       __REAL_COLUMN_TYPE__ NOT NULL,
                       deck_count     INTEGER NOT NULL,
                       computed_utc   __COMPUTED_UTC_COLUMN_TYPE__ NOT NULL,
                       PRIMARY KEY (commander_slug, bracket, source)
                     );
                     """;
                 create.CommandText = create.CommandText
+                    .Replace("__REAL_COLUMN_TYPE__", _dialect.RealColumnType, StringComparison.Ordinal)
                     .Replace("__COMPUTED_UTC_COLUMN_TYPE__", _dialect.ComputedUtcColumnType, StringComparison.Ordinal);
                 await create.ExecuteNonQueryAsync(cancellationToken);
             }
@@ -412,7 +425,7 @@ public sealed class ManabaseBaselineStore : IManabaseBaselineStore
   3. **Get_returns_all_sources_for_cell** — upsert a `corpus` and an `edhrec` row for the same (slug,bracket); `GetAsync` returns both (assert count 2 and both sources present).
   4. **Get_unknown_returns_empty** — `GetAsync("nobody", 1)` returns an empty list (not null).
   5. **Global_row_roundtrips** — upsert a row with `CommanderSlug = ManabaseBaselineSources.GlobalCommanderSlug` ("*"), bracket 2; `GetAsync("*", 2)` returns it.
-  6. **ComputedUtc_roundtrips_utc** — upsert with a known `DateTime.UtcNow`; on read assert the value is within ~1s and (where the provider preserves it) `Kind`/value round-trips. (SQLite stores TEXT; assert the round-tripped instant matches to the second.)
+  6. **ComputedUtc_roundtrips_utc** — upsert with a known `DateTime.UtcNow`; on read assert the instant matches to the second **and** `Kind == DateTimeKind.Utc`. (Plan-review LOW: `DapperTypeHandlers` writes SQLite DateTime with `"O"` and parses with `RoundtripKind`, so `Kind=Utc` is preserved on SQLite too — assert it; if it ever proves flaky on SQLite, fall back to instant-only.)
   7. **UpsertRange_persists_all** — `UpsertRangeAsync` with 3 rows across 2 brackets; `GetAsync` per (slug,bracket) returns the expected rows; empty collection is a no-op.
   8. **Get_scopes_by_bracket** — same slug+source at bracket 3 and bracket 4; `GetAsync(slug,3)` returns only the bracket-3 row.
 
@@ -435,10 +448,11 @@ public sealed class ManabaseBaselineStore : IManabaseBaselineStore
 
 - **Spec coverage:** implements spec Component 1 (`manabase_baseline` table, dialect-guarded, PK `(commander_slug,bracket,source)`, columns per the spec table) + the store to write/read it. Components 2-6 are later phases; the store exposes exactly what Phase 3 (write via `UpsertRangeAsync`) and Phase 4 (read via `GetAsync(slug,bracket)` + `GetAsync("*",bracket)`) need.
 - **Co-location decision:** baseline lives in `category-knowledge.db` (via `CreateManabaseBaselineConnection => CreateCategoryKnowledgeConnection`) — same DB as the corpus it is derived from, so Phase 3 reads+writes in one place. Matches the factory's established "small operational stores share a DB" idiom.
-- **Dialect surface is minimal:** only `computed_utc`'s column type forks (TEXT/TIMESTAMPTZ). Upsert + select SQL are portable (`ON CONFLICT ... excluded.*` works on both engines), so they are `const` in the store, not per-dialect. This is deliberately smaller than `FeedbackDialect` (which also forks order-by + insert-returning).
+- **Dialect surface is small:** two column types fork — `computed_utc` (TEXT/TIMESTAMPTZ) and the averages (`REAL`/`DOUBLE PRECISION`; plan-review MEDIUM — Postgres `REAL` is float4 and would round-trip `35.9` to a different `double`). Upsert + select SQL are portable (`ON CONFLICT ... excluded.*` works on both engines), so they are `const` in the store, not per-dialect. Still deliberately smaller than `FeedbackDialect` (which also forks order-by + insert-returning).
 - **`source` as string constants, not an enum:** avoids Dapper enum⇄text mapping on a greenfield table and keeps the DB value identical to the spec (`corpus`/`edhrec`). Distinct from Phase 2's `ManabaseBaselineSource` enum (weighting provenance: commander/blended/global/none) — different concept, avoided a name clash.
 - **No timestamp comparison anywhere:** `computed_utc` is write+read only (no WHERE/ORDER BY on it), so the prior Postgres `::timestamptz`-cast bug (F-51-PG-01, which bit a timestamp *comparison*) cannot arise here. If a freshness filter is added later, revisit.
-- **DateTime round-trip risk:** relies on the same `DapperTypeHandlers` path `FeedbackStore` uses. The `ComputedUtc_roundtrips_utc` SQLite test and the `[PostgresFact]` `DateTimeKind.Utc` assertion are the guards; if SQLite TEXT loses `Kind`, assert on the instant (to the second) rather than `Kind`.
+- **DateTime round-trip:** relies on the same `DapperTypeHandlers` path `FeedbackStore` uses (`"O"` round-trip text + `RoundtripKind` on SQLite; TIMESTAMPTZ on PG), so `Kind=Utc` is preserved on both. The SQLite `ComputedUtc_roundtrips_utc` test and the `[PostgresFact]` `DateTimeKind.Utc` assertion are the guards.
+- **Plan-review (Codex gpt-5.5) folded:** MEDIUM — averages now `DOUBLE PRECISION` on Postgres (was `REAL`=float4) via `ManabaseBaselineDialect.RealColumnType`; LOW — SQLite timestamp test now asserts `Kind=Utc` (handler preserves it). Verdict was APPROVE_WITH_NITS (no BLOCK/HIGH); Dapper mapping, upsert portability, transaction API, DI lifetime, and startup-validation safety all confirmed against the real repo.
 - **Additive / no behavior change:** new table + new store + one factory method + one DI line; nothing existing is modified in behavior. Full Core + Web suites stay green; only the skipped-PG count rises.
 - **Constraints:** no new deps, LF, changed-lines format gate. New files LF. Do not touch compiled JS, lockfiles, or unrelated code.
 - **Open item for Phase 3 (not this phase):** the corpus currently stores no per-deck decklists, land/ramp/draw counts, or bracket signal (see scout findings) — so *populating* `corpus` rows is a separate design problem. Phase 1 only builds the container.
