@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "generatedUtc": "2026-07-17T00:00:00Z",
+  "source": "edhrec-pilot-aggregate",
+  "brackets": [
+    { "bracket": 2, "avgLands": 35.9, "deckCount": 124221 },
+    { "bracket": 3, "avgLands": 35.5, "deckCount": 140632 },
+    { "bracket": 4, "avgLands": 34.5, "deckCount": 72399 },
+    { "bracket": 5, "avgLands": 30.5, "deckCount": 4761, "note": "genuine-cEDH mean; thin casual-favorite cEDH cells excluded" }
+  ]
+}
