@@ -2748,6 +2748,12 @@ label.field > span,
   font-weight: 600;
 }
 
+.manabase-baseline-source {
+  margin-left: 0.5rem;
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
 .manabase-lens-note {
   margin: 0.55rem 0 0;
   font-size: 0.8rem;

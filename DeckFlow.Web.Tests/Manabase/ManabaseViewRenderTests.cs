@@ -77,6 +77,64 @@ public sealed class ManabaseViewRenderTests
     }
 
     [Fact]
+    public async Task CommunityBaseline_CommanderSource_RendersCommanderCopy_AndEdhrecAttribution()
+    {
+        string html = await RenderManabaseViewAsync(
+            BuildPopulatedModel(
+                showTapAnalyzer: false,
+                showCommunityBaseline: true,
+                communityBaseline: new ManabaseCommunityBaseline
+                {
+                    Bracket = 2,
+                    AvgLands = 35,
+                    DeckCount = 48802,
+                    Source = "edhrec-averages",
+                    BracketSource = ManabaseBracketSource.Fallback,
+                    ValueSource = ManabaseBaselineSource.Commander,
+                    CommanderDeckCount = 48802,
+                    CommanderDisplayName = "The Ur-Dragon",
+                }));
+
+        Assert.Contains("EDHREC decks for The Ur-Dragon average", html, StringComparison.Ordinal);
+        Assert.Contains("class=\"manabase-baseline-source\">Data from EDHREC</span>", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CommunityBaseline_GlobalSource_RendersBracketCopy_WithoutAttribution()
+    {
+        string html = await RenderManabaseViewAsync(
+            BuildPopulatedModel(
+                showTapAnalyzer: false,
+                showCommunityBaseline: true,
+                communityBaseline: new ManabaseCommunityBaseline
+                {
+                    Bracket = 2,
+                    AvgLands = 35.9,
+                    DeckCount = 124221,
+                    Source = "edhrec-pilot-aggregate",
+                    BracketSource = ManabaseBracketSource.Fallback,
+                    ValueSource = ManabaseBaselineSource.Global,
+                }));
+
+        Assert.Contains("Community baseline", html, StringComparison.Ordinal);
+        Assert.Contains("Core", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Data from EDHREC", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("EDHREC decks for", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CommunityBaseline_FlagOff_RendersNoCommanderCopy_OrAttribution()
+    {
+        string html = await RenderManabaseViewAsync(
+            BuildPopulatedModel(
+                showTapAnalyzer: false,
+                showCommunityBaseline: false));
+
+        Assert.DoesNotContain("EDHREC decks for The Ur-Dragon average", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Data from EDHREC", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task OnState_SourceListFlagTrue_RendersManaSourceAndTappedSourceDisclosures()
     {
         var model = BuildPopulatedModel(showTapAnalyzer: true, showSourceList: true);
@@ -703,6 +761,8 @@ public sealed class ManabaseViewRenderTests
         bool showPlanPresence = false,
         bool showKeepShapes = false,
         bool showSourceList = false,
+        bool showCommunityBaseline = false,
+        ManabaseCommunityBaseline? communityBaseline = null,
         ManabaseRampDrawBudget? rampDrawBudget = null,
         ManabaseMode mode = ManabaseMode.Casual,
         bool includeCedhRange = false,
@@ -737,6 +797,8 @@ public sealed class ManabaseViewRenderTests
             ShowPlanPresence = showPlanPresence,
             ShowKeepShapes = showKeepShapes,
             ShowSourceList = showSourceList,
+            CommunityBaseline = communityBaseline,
+            ShowCommunityBaseline = showCommunityBaseline,
             RampDrawBudget = rampDrawBudget,
         };
 
