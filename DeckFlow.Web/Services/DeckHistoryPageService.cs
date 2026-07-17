@@ -191,7 +191,7 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
         }
 
         var (pairOlderId, pairNewerId, pairDiff) = SelectPair(file, request);
-        var promptText = file is not null && file.Versions.Count > 0
+        var promptText = file is not null && file.Versions.Count >= 2
             ? _evolutionPromptVariantRegistry.Build(AiPlatform.Normalize(request.TargetAiPlatform), file, cancellationToken)
             : string.Empty;
 

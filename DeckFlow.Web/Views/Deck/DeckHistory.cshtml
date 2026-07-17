@@ -118,6 +118,7 @@
             <div class="success-banner" role="status">
                 @Model.SuccessMessage
             </div>
+            <p class="history-empty-compare">To add the next version: update your deck, import it above, and press Update history again — your history carries forward on this page.</p>
         }
 
         @if (Model.Warnings.Count > 0)
@@ -230,15 +231,22 @@
 
         <section class="result-panel">
             <h2>AI prompt — "How has this deck evolved?"</h2>
-            <div class="toolbar">
-                <button type="button" class="copy-button" data-copy-target="#deck-history-prompt">Copy</button>
-            </div>
-            <textarea id="deck-history-prompt" readonly rows="14" spellcheck="false">@Model.PromptText</textarea>
+            @if (string.IsNullOrWhiteSpace(Model.PromptText))
+            {
+                <p class="history-empty-compare">Add a second version to generate the evolution prompt.</p>
+            }
+            else
+            {
+                <div class="toolbar">
+                    <button type="button" class="copy-button" data-copy-target="#deck-history-prompt">Copy</button>
+                </div>
+                <textarea id="deck-history-prompt" readonly rows="14" spellcheck="false">@Model.PromptText</textarea>
+            }
         </section>
 
         <section class="result-panel">
             <h2>Save your history</h2>
-            <p>Download the updated file and keep it with your deck. Re-upload it next time to add the next version.</p>
+            <p>Download the updated file and keep it with your deck. Re-upload it next time to add the next version — or keep going right here; the page remembers your history until you leave.</p>
             <div class="toolbar">
                 <button type="submit" class="run-button" form="deck-history-compare-form" formaction="@Url.Content("~/deck-history/download")" data-no-busy data-prompt-download-submit>Download deck history (.json)</button>
             </div>

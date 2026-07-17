@@ -96,10 +96,15 @@ test('creates history, intercepts download, appends a second version, and captur
     'Deck has 34 cards — Commander decks run 100. Snapshot saved anyway.',
   );
   await expect(page.locator('.history-timeline tbody tr').first()).toContainText('Initial list.');
+  const promptPanel = page.locator('.result-panel').filter({
+    has: page.getByRole('heading', { name: 'AI prompt — "How has this deck evolved?"' }),
+  });
+  await expect(promptPanel).toContainText(
+    'Add a second version to generate the evolution prompt.',
+  );
 
   const promptTextarea = page.locator('#deck-history-prompt');
-  await expect(promptTextarea).toBeVisible();
-  expect((await promptTextarea.inputValue()).trim()).not.toBe('');
+  await expect(promptTextarea).toHaveCount(0);
 
   const downloadResponsePromise = page.waitForResponse((response) =>
     response.url().includes('/deck-history/download') && response.request().method() === 'POST',
@@ -139,6 +144,9 @@ test('creates history, intercepts download, appends a second version, and captur
   await expect(page.locator('.history-timeline tbody tr')).toHaveCount(2, { timeout: 30_000 });
   await expect(page.locator('.success-banner')).toContainText('Version 2 added.');
   await expect(page.locator('.history-diff')).toBeVisible();
+  await expect(promptPanel).not.toContainText(
+    'Add a second version to generate the evolution prompt.',
+  );
 
   const addsPanel = page.locator('.history-diff__panel').filter({
     has: page.getByRole('heading', { name: 'Adds' }),
@@ -148,6 +156,8 @@ test('creates history, intercepts download, appends a second version, and captur
   });
   await expect(addsPanel).toContainText('Mystic Remora');
   await expect(cutsPanel).toContainText('Brainstorm');
+  await expect(promptTextarea).toBeVisible();
+  expect((await promptTextarea.inputValue()).trim()).not.toBe('');
 
   const finalHistoryJson = await page
     .locator('form[action="/deck-history"].result-panel input[name="HistoryJson"]')
