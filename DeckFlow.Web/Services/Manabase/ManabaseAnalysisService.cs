@@ -70,6 +70,12 @@ public sealed class ManabaseAnalysisOptions
     /// commander flags, but the selected card must still pass commander eligibility validation.
     /// </summary>
     public string? SelectedCommander { get; init; }
+
+    /// <summary>
+    /// Optional explicit bracket (2-5) for the community baseline. Null in Increment 1a (the mode
+    /// picks the bracket); the controller sets it from deck classification / the selector in 1b.
+    /// </summary>
+    public int? Bracket { get; init; }
 }
 
 /// <summary>The outcome of a mana-base analysis: the report plus presentation context.</summary>
@@ -134,6 +140,9 @@ public sealed record ManabaseAnalysisResult(
 
     /// <summary>Optional companion castability row modeled outside the analyzed 99.</summary>
     public CardCastability? CompanionRow { get; init; }
+
+    /// <summary>Optional empirical per-bracket community land baseline (present only when the flag is on).</summary>
+    public ManabaseCommunityBaseline? CommunityBaseline { get; init; }
 
     /// <summary>
     /// Override card names that matched no card in the analyzed deck (typo or not-in-deck), so their
@@ -299,6 +308,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     private readonly ICommanderSpellbookService? _spellbook;
     private readonly ILogger<ManabaseAnalysisService> _logger;
     private readonly ICedhLandBaselineProvider? _cedhLandBaseline;
+    private readonly IManabaseBaselineProvider? _manabaseBaseline;
 
     /// <summary>Creates the analysis service.</summary>
     public ManabaseAnalysisService(
@@ -308,7 +318,8 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         ICategoryKnowledgeStore? categoryKnowledge = null,
         ICommanderSpellbookService? spellbook = null,
         ILogger<ManabaseAnalysisService>? logger = null,
-        ICedhLandBaselineProvider? cedhLandBaseline = null)
+        ICedhLandBaselineProvider? cedhLandBaseline = null,
+        IManabaseBaselineProvider? manabaseBaseline = null)
     {
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
         ArgumentNullException.ThrowIfNull(scryfallCardResolver);
@@ -320,6 +331,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         _spellbook = spellbook;
         _logger = logger ?? NullLogger<ManabaseAnalysisService>.Instance;
         _cedhLandBaseline = cedhLandBaseline;
+        _manabaseBaseline = manabaseBaseline;
     }
 
     /// <inheritdoc />
@@ -503,6 +515,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             CommanderChoices = resolved.CommanderChoices,
             CommanderCastabilityEnabled = commanderCastability,
             CompanionRow = companionRow,
+            CommunityBaseline = BuildCommunityBaseline(options),
             ShowFocusedTier = showFocusedTier,
             ShowTapAnalyzer = showTapAnalyzer,
             ShowMulliganEval = showMulliganEval,
@@ -546,6 +559,41 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     // cost suggestions). Stops short of the castability simulation so Load can reuse it cheaply.
     // True only when the named flag exists in the snapshot AND is enabled. Fail-safe OFF: a missing
     // key returns false (unlike IFeatureFlagCache.IsEnabled, which defaults missing keys ON).
+    // Map the 3-value analysis mode to a supported bracket (2-5) when no explicit bracket is given.
+    // Casual -> Core(2), Focused -> Upgraded(3), Cedh -> cEDH(5). Overridden by options.Bracket in 1b.
+    private static int ResolveBaselineBracket(ManabaseAnalysisOptions options)
+        => options.Bracket ?? options.Mode switch
+        {
+            ManabaseMode.Cedh => 5,
+            ManabaseMode.Focused => 3,
+            _ => 2,
+        };
+
+    private ManabaseCommunityBaseline? BuildCommunityBaseline(ManabaseAnalysisOptions options)
+    {
+        if (!IsFlagOn(BaselineFlagKey) || _manabaseBaseline is null)
+        {
+            return null;
+        }
+
+        int bracket = ResolveBaselineBracket(options);
+        ManabaseBracketBaseline? row = _manabaseBaseline.TryGetBracketBaseline(bracket);
+        if (row is null)
+        {
+            return null;
+        }
+
+        return new ManabaseCommunityBaseline
+        {
+            Bracket = bracket,
+            AvgLands = row.AvgLands,
+            DeckCount = row.DeckCount,
+            Source = row.Source,
+            // 1a: no override/classification yet, so the bracket came from the mode.
+            BracketSource = options.Bracket is null ? ManabaseBracketSource.Fallback : ManabaseBracketSource.Override,
+        };
+    }
+
     private bool IsFlagOn(string key)
         => _featureFlags is { } flags
             && flags.Snapshot().TryGetValue(key, out bool enabled)
