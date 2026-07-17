@@ -39,7 +39,8 @@ git add "$CSPROJ"
 git commit -m "chore(release): $VERSION"
 
 echo "Creating git tag $VERSION ..."
-git tag "$VERSION"
+# Annotated so `git push --follow-tags` (the hint below) actually pushes it.
+git tag -a "$VERSION" -m "DeckFlow $VERSION"
 
 echo "Tagged $VERSION. Now run: git push --follow-tags"
 echo "The About page will show $VERSION after the next deploy."
