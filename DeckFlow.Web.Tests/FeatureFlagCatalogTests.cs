@@ -49,6 +49,7 @@ public sealed class FeatureFlagCatalogTests
     [InlineData("analysis.manabase.colorless-snow")]
     [InlineData("analysis.manabase.restricted-lands")]
     [InlineData("analysis.manabase.cedh-land-target")]
+    [InlineData("analysis.manabase.baseline")]
     [InlineData("sync.directpush-gitbody")]
     [InlineData("sync.reconcile")]
     public void Describe_EverySeededFlag_HasNonEmptyDescription(string key)

@@ -286,6 +286,12 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     /// </summary>
     public const string CedhLandTargetFlagKey = "analysis.manabase.cedh-land-target";
 
+    /// <summary>
+    /// Community-baseline flag key: when ON, attaches the empirical per-bracket land baseline block
+    /// to the result (display-only, beside Karsten). Seeded OFF; OFF → byte-identical output.
+    /// </summary>
+    public const string BaselineFlagKey = "analysis.manabase.baseline";
+
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IScryfallCardResolver _scryfallCardResolver;
     private readonly IFeatureFlagCache? _featureFlags;

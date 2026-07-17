@@ -237,6 +237,7 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('analysis.manabase.colorless-snow', TRUE),
           ('analysis.manabase.restricted-lands', FALSE),
           ('analysis.manabase.cedh-land-target', FALSE),
+          ('analysis.manabase.baseline', FALSE),
           ('tool.primer.stale-flag', FALSE),
           ('sync.directpush-gitbody', FALSE),
           ('sync.reconcile', FALSE)
@@ -285,6 +286,7 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('analysis.manabase.colorless-snow', 1),
           ('analysis.manabase.restricted-lands', 0),
           ('analysis.manabase.cedh-land-target', 0),
+          ('analysis.manabase.baseline', 0),
           ('tool.primer.stale-flag', 0),
           ('sync.directpush-gitbody', 0),
           ('sync.reconcile', 0)
