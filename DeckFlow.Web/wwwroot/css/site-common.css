@@ -3980,6 +3980,7 @@ label.field > span,
 
 .history-timeline th {
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .history-timeline tbody tr:nth-child(even) {
