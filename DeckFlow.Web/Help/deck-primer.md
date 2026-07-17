@@ -7,7 +7,7 @@ requires_flag: tool.deck-primer.enabled
 
 # Deck Primer
 
-The Deck Primer page (`/deck-primer`) builds a prompt you paste into ChatGPT, Claude, or Gemini to get back a **deck primer** — a structured, pilot-facing guide for playing a Commander deck. A primer can cover the commander's identity and role, win conditions and card choices, verified combo lines, gameplay sequencing and mulligan rules, matchup strategy, budget cuts and upgrade paths, and common-mistake reminders.
+The Deck Primer page (`/deck-primer`) builds a prompt you paste into ChatGPT or Claude to get back a **deck primer** — a structured, pilot-facing guide for playing a Commander deck. A primer can cover the commander's identity and role, win conditions and card choices, verified combo lines, gameplay sequencing and mulligan rules, matchup strategy, budget cuts and upgrade paths, and common-mistake reminders.
 
 DeckFlow does not write the primer itself. It assembles a prompt grounded in your real decklist, live combo data, and metagame context, so the AI answers from facts instead of guessing. You pick which sections you want, copy the prompt, and paste it into your AI.
 
@@ -28,7 +28,7 @@ Configure the primer:
 
 | Setting | Purpose |
 |---|---|
-| **AI platform** | ChatGPT, Claude, or Gemini. This selects which prompt variant Step 3 shows — the wording is tuned per platform. |
+| **AI platform** | ChatGPT or Claude. This selects which prompt variant Step 3 shows — the wording is tuned per platform. |
 | **Target Commander Bracket** | Exhibition, Core, Upgraded, Optimized (default), or cEDH. The bracket controls which sections are available and which matchup/meta context is pulled in. |
 | **Primer style** | **Standard** (clean, paste-anywhere markdown) or **Moxfield-style rich** (adds a clickable table of contents, callout boxes, collapsible combo lines, matchup tables, and ASCII/markdown visuals for pasting into a Moxfield description). At the **cEDH** bracket a third option, **Full cEDH primer**, appears: it uses the rich formatting, forces full cEDH section coverage, and asks for extra competitive depth (fast-mana lines, operating under stax, free-interaction counts, win-by-turn windows, and named-archetype matchups). |
 | **Primer sections** | The parts of the primer you want the AI to write. |
@@ -52,7 +52,7 @@ Step 3 shows three things:
 - **Deck summary** — mainboard/maybeboard/sideboard counts, commander, bracket and format, and the ramp/draw/tutor/interaction breakdown when it could be grounded.
 - **Primer prompt** — the prompt to paste into your AI, with a copy button and an approximate size (for example `~2.5 KB`). If the prompt is large enough to risk exceeding the platform's paste limit, a caution appears suggesting you trim sections or paste in parts.
 
-Copy the prompt, paste it into ChatGPT, Claude, or Gemini, and the AI returns the finished primer inside a single fenced `markdown` block, with sections in the order you selected. With **Moxfield-style rich** or **Full cEDH primer** selected, the prompt also asks for a table of contents, callout boxes, collapsible combo lines, tables, and ASCII/markdown visuals.
+Copy the prompt, paste it into ChatGPT or Claude, and the AI returns the finished primer inside a single fenced `markdown` block, with sections in the order you selected. With **Moxfield-style rich** or **Full cEDH primer** selected, the prompt also asks for a table of contents, callout boxes, collapsible combo lines, tables, and ASCII/markdown visuals.
 
 ## Saving and resuming a session
 

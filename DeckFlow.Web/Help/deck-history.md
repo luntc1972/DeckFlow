@@ -40,7 +40,7 @@ If the file is still recognizable as a DeckFlow history file but some derived di
 
 ## AI evolution prompt
 
-Once a history file has multiple snapshots, DeckFlow can generate an **evolution prompt** for ChatGPT, Claude, or Gemini. The prompt summarizes the saved progression and asks the AI to reason about how the deck's plan, curve, interaction, or win conditions changed across versions.
+Once a history file has multiple snapshots, DeckFlow can generate an **evolution prompt** for ChatGPT or Claude. The prompt summarizes the saved progression and asks the AI to reason about how the deck's plan, curve, interaction, or win conditions changed across versions.
 
 Use this when you want help answering questions like:
 

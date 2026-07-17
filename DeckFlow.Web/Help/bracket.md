@@ -51,4 +51,4 @@ The Game Changers list used for classification is dated and shown on the result 
 
 ## AI Platform
 
-If you request a balancer prompt (by selecting a target bracket), choose your AI platform — the prompt is pre-formatted for **ChatGPT**, **Claude**, or **Gemini**. Paste it directly into a new conversation to get fair, power-equivalent card swaps and a re-confirmed bracket.
+If you request a balancer prompt (by selecting a target bracket), choose your AI platform — the prompt is pre-formatted for **ChatGPT** or **Claude**. Paste it directly into a new conversation to get fair, power-equivalent card swaps and a re-confirmed bracket.
