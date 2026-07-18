@@ -154,7 +154,11 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
   2. A constrained-selection whitelist builder assembles only legal, real candidate cards for any downstream suggestion surface to pick from (never a free-text card name).
   3. Singleton-legality, color-identity, and castability checks reject any suggestion that fails them.
   4. The guard is one reusable, cached service (not duplicated per caller), consumed by Phase 99, with tests including known-hallucination fixtures that previously would have shipped a fake or illegal card.
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 98-01-PLAN.md — Core contracts + pure legality/identity/singleton/castability rules (CS-23)
+- [ ] 98-02-PLAN.md — Strict CardGroundingGuard + Legalities/ScryfallErrorResponse DTOs + DI (CS-21, CS-24)
+- [ ] 98-03-PLAN.md — CreatorWhitelistPoolBuilder: corpus-only, frequency-ranked, guard-validated (CS-22)
+- [ ] 98-04-PLAN.md — Known-hallucination fixture regression suite (CS-25)
 
 ### Phase 99: Creator-Style Artifact Engine
 **Goal**: A deterministic C# rubric that scores a submitted deck against a creator's fused profile and assembles the artifact content to inject — no LLM call, no user-facing page yet. This is the "engine" half of the Codex-mandated 2-phase split of the prompt-artifact deliverable.
@@ -190,7 +194,7 @@ Phase 94 -> {Phase 95, Phase 96 in parallel} -> {Phase 97 (needs 95+96), Phase 9
 | 95. Measured-Style Extractor | Cycle 17 | 7/7 | Complete   | 2026-07-12 |
 | 96. Stated-Rules Distiller | Cycle 17 | 8/8 | Complete   | 2026-07-12 |
 | 97. Profile Fusion + Conflict Ledger | Cycle 17 | 0/7 | Not started | - |
-| 98. Card-Grounding Guard | Cycle 17 | 0/0 | Not started | - |
+| 98. Card-Grounding Guard | Cycle 17 | 0/4 | Not started | - |
 | 99. Creator-Style Artifact Engine | Cycle 17 | 0/0 | Not started | - |
 | 100. Creator-Style Tool Surface | Cycle 17 | 0/0 | Not started | - |
 
