@@ -431,7 +431,7 @@ but `api.scryfall.com` (the actual API host, as opposed to the docs host) was ne
 session and is very likely reachable from the execution environment the same way every other Scryfall call
 in this codebase already succeeds.
 
-## Open Questions
+## Open Questions (RESOLVED at planning)
 
 1. **Exact whitelist cap value (D-07, Claude's Discretion)**
    - What we know: the packet must stay "paste-sized"; P95's `MeasuredStyleProfileBuilder` caps lift
@@ -441,6 +441,7 @@ in this codebase already succeeds.
      shape (P99 doesn't exist yet).
    - Recommendation: planner should pick a cap in the same range (15-30 candidates) as a starting point
      and note it as adjustable once P99's actual packet token budget is measured.
+   - RESOLVED: cap = 25, set in 98-03 Task 1 (`CreatorWhitelistPoolBuilder`), matching `MaxLiftMetrics = 25` house style; noted adjustable for P99.
 
 2. **"Usable floor" threshold for the 503 escalation (D-12, Claude's Discretion)**
    - What we know: if per-card rejects push required content below a usable floor (e.g. the commander
@@ -451,6 +452,7 @@ in this codebase already succeeds.
    - Recommendation: scope this decision to P99 (the actual packet assembler) rather than Phase 98 itself
      — the guard's job is to return accurate verdicts; the escalation threshold is a P99 policy decision
      that consumes the guard's aggregate result.
+   - RESOLVED: deferred to P99 as recommended — no Phase 98 plan implements an escalation threshold; the guard returns per-card + aggregate verdicts only (98-02).
 
 3. **Whether mana-value sanity is included in the pip check v1 (D-11, Claude's Discretion)**
    - What we know: D-11 frames it as optional; the core check (color identity ⊆ commander identity + ≥1
@@ -459,6 +461,7 @@ in this codebase already succeeds.
      7-drop to a deck with only 30 lands, technically "castable" by the pip check but impractical).
    - Recommendation: defer to v1-without-mana-value-sanity per D-11's explicit "optional" framing; this
      matches the phase's "lightweight, not Karsten simulation" scope boundary.
+   - RESOLVED: mana-value sanity excluded from v1 — 98-01 Task 2 implements the pip check without it and cites this Open Question explicitly.
 
 ## Environment Availability
 
