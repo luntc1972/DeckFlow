@@ -134,6 +134,86 @@ public sealed class CastabilitySimulatorTests
         Assert.Equal(100, colorlessHoldablePercent);
     }
 
+    [Fact]
+    public void Simulate_CommanderEarlyCastPercents_LengthMatchesOnCurveMinusOne()
+    {
+        ManabaseDeck deck = BuildCommanderEarlyCastDeck(includeFastMana: false);
+        SpellRequirement commander = deck.Spells.Single(s => s.IsCommander);
+
+        CardCastability row = CastabilitySimulator.Simulate(
+            deck,
+            deck.TotalCards - deck.CommanderCount,
+            commander,
+            commander.ManaValue,
+            genericReduction: 0,
+            trials: 2000,
+            useManaQuantity: true);
+
+        Assert.Equal(commander.ManaValue - 1, row.EarlyCastPercents.Count);
+    }
+
+    [Fact]
+    public void Simulate_CommanderWithoutRamp_HasZeroEarlyCastPercents()
+    {
+        ManabaseDeck deck = BuildCommanderEarlyCastDeck(includeFastMana: false);
+        SpellRequirement commander = deck.Spells.Single(s => s.IsCommander);
+
+        CardCastability row = CastabilitySimulator.Simulate(
+            deck,
+            deck.TotalCards - deck.CommanderCount,
+            commander,
+            commander.ManaValue,
+            genericReduction: 0,
+            trials: 2000,
+            useManaQuantity: true);
+
+        Assert.Equal(new[] { 0, 0, 0 }, row.EarlyCastPercents);
+    }
+
+    [Fact]
+    public void Simulate_CommanderWithFastMana_CanBeCastBeforeOnCurveTurn()
+    {
+        ManabaseDeck deck = BuildCommanderEarlyCastDeck(includeFastMana: true);
+        SpellRequirement commander = deck.Spells.Single(s => s.IsCommander);
+
+        CardCastability row = CastabilitySimulator.Simulate(
+            deck,
+            deck.TotalCards - deck.CommanderCount,
+            commander,
+            commander.ManaValue,
+            genericReduction: 0,
+            trials: 5000,
+            useManaQuantity: true);
+
+        Assert.Equal(commander.ManaValue - 1, row.EarlyCastPercents.Count);
+        Assert.True(
+            row.EarlyCastPercents[2] > 0,
+            $"expected some turn-3 early commander casts, got [{string.Join(", ", row.EarlyCastPercents)}]");
+    }
+
+    [Fact]
+    public void Simulate_NonCommanderRows_HaveEmptyEarlyCastPercents()
+    {
+        ManabaseDeck deck = BuildCommanderEarlyCastDeck(includeFastMana: true);
+        SpellRequirement spell = new()
+        {
+            Name = "Cultivate",
+            ManaValue = 3,
+            Pips = Pip((ManaColor.Green, 1)),
+        };
+
+        CardCastability row = CastabilitySimulator.Simulate(
+            deck,
+            deck.TotalCards - deck.CommanderCount,
+            spell,
+            spell.ManaValue,
+            genericReduction: 0,
+            trials: 2000,
+            useManaQuantity: true);
+
+        Assert.Empty(row.EarlyCastPercents);
+    }
+
     private static ManabaseDeck BuildCompanionDeck()
     {
         var sources = new List<ManaSource>();
@@ -199,6 +279,115 @@ public sealed class CastabilitySimulatorTests
                     IsCommander = true,
                 },
             },
+            IsSingleton = true,
+        };
+    }
+
+    private static ManabaseDeck BuildCommanderEarlyCastDeck(bool includeFastMana)
+    {
+        var sources = new List<ManaSource>();
+        for (int i = 0; i < 18; i++)
+        {
+            sources.Add(new ManaSource
+            {
+                Name = $"Mountain {i}",
+                Produces = new[] { ManaColor.Red },
+                IsLand = true,
+            });
+        }
+
+        for (int i = 0; i < 17; i++)
+        {
+            sources.Add(new ManaSource
+            {
+                Name = $"Forest {i}",
+                Produces = new[] { ManaColor.Green },
+                IsLand = true,
+            });
+        }
+
+        if (includeFastMana)
+        {
+            sources.Add(new ManaSource
+            {
+                Name = "Mana Crypt",
+                Produces = Array.Empty<ManaColor>(),
+                IsLand = false,
+                ProducesColorless = true,
+                ManaAmount = 2,
+            });
+            sources.Add(new ManaSource
+            {
+                Name = "Sol Ring",
+                Produces = Array.Empty<ManaColor>(),
+                IsLand = false,
+                ProducesColorless = true,
+                ManaAmount = 2,
+            });
+            sources.Add(new ManaSource
+            {
+                Name = "Arcane Signet",
+                Produces = new[] { ManaColor.Red, ManaColor.Green },
+                IsLand = false,
+            });
+            sources.Add(new ManaSource
+            {
+                Name = "Talisman of Impulse",
+                Produces = new[] { ManaColor.Red, ManaColor.Green },
+                IsLand = false,
+            });
+        }
+
+        var spells = new List<SpellRequirement>
+        {
+            new()
+            {
+                Name = "Commander",
+                ManaValue = 4,
+                Pips = Pip((ManaColor.Red, 1), (ManaColor.Green, 1)),
+                IsCommander = true,
+            },
+        };
+
+        if (includeFastMana)
+        {
+            spells.Add(new SpellRequirement
+            {
+                Name = "Mana Crypt",
+                ManaValue = 0,
+                Pips = Pip(),
+                IsManaSource = true,
+            });
+            spells.Add(new SpellRequirement
+            {
+                Name = "Sol Ring",
+                ManaValue = 1,
+                Pips = Pip(),
+                IsManaSource = true,
+            });
+            spells.Add(new SpellRequirement
+            {
+                Name = "Arcane Signet",
+                ManaValue = 2,
+                Pips = Pip(),
+                IsManaSource = true,
+            });
+            spells.Add(new SpellRequirement
+            {
+                Name = "Talisman of Impulse",
+                ManaValue = 2,
+                Pips = Pip(),
+                IsManaSource = true,
+            });
+        }
+
+        return new ManabaseDeck
+        {
+            TotalCards = 100,
+            CommanderCount = 1,
+            AverageManaValue = 2.5,
+            Sources = sources,
+            Spells = spells,
             IsSingleton = true,
         };
     }
