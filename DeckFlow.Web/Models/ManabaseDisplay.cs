@@ -234,6 +234,38 @@ public static class ManabaseDisplay
     }
 
     /// <summary>
+    /// Formats the command-zone early-cast summary line from cumulative per-turn percentages,
+    /// trimming leading zero-percent turns and returning null when no earlier turn ever applies.
+    /// </summary>
+    public static string? EarlyCastSummary(IReadOnlyList<int> earlyCastPercents)
+    {
+        ArgumentNullException.ThrowIfNull(earlyCastPercents);
+
+        int firstNonZeroIndex = -1;
+        for (int i = 0; i < earlyCastPercents.Count; i++)
+        {
+            if (earlyCastPercents[i] > 0)
+            {
+                firstNonZeroIndex = i;
+                break;
+            }
+        }
+
+        if (firstNonZeroIndex < 0)
+        {
+            return null;
+        }
+
+        var parts = new string[earlyCastPercents.Count - firstNonZeroIndex];
+        for (int i = firstNonZeroIndex; i < earlyCastPercents.Count; i++)
+        {
+            parts[i - firstNonZeroIndex] = $"T{i + 1} {earlyCastPercents[i]}%";
+        }
+
+        return $"Earlier turns: {string.Join(" · ", parts)}";
+    }
+
+    /// <summary>
     /// Karsten source-check for the left lens of the two-lens header. <c>Met</c> uses the raw
     /// (weighted, fractional) <see cref="ColorSourceFinding.ActualSources"/> against the integer
     /// requirement, with a one-source tolerance so anything within 1.0 of the requirement counts

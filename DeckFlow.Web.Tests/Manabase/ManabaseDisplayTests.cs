@@ -96,6 +96,34 @@ public sealed class ManabaseDisplayTests
     }
 
     [Fact]
+    public void EarlyCastSummary_EmptyList_ReturnsNull()
+    {
+        Assert.Null(ManabaseDisplay.EarlyCastSummary(Array.Empty<int>()));
+    }
+
+    [Fact]
+    public void EarlyCastSummary_AllZeroPercents_ReturnsNull()
+    {
+        Assert.Null(ManabaseDisplay.EarlyCastSummary(new[] { 0, 0, 0 }));
+    }
+
+    [Fact]
+    public void EarlyCastSummary_TrimsLeadingZeros_AndFormatsRemainingTurns()
+    {
+        string? summary = ManabaseDisplay.EarlyCastSummary(new[] { 0, 12, 48 });
+
+        Assert.Equal("Earlier turns: T2 12% · T3 48%", summary);
+    }
+
+    [Fact]
+    public void EarlyCastSummary_SingleTurn_FormatsOneEntry()
+    {
+        string? summary = ManabaseDisplay.EarlyCastSummary(new[] { 35 });
+
+        Assert.Equal("Earlier turns: T1 35%", summary);
+    }
+
+    [Fact]
     public void AvgManaValueText_UsesInvariantCulture_MatchesPasteArtifact()
     {
         // The paste artifact formats every figure with InvariantCulture; the on-page lens card must
