@@ -888,14 +888,11 @@
                 @if (commanderRows.Count == 1)
                 {
                     var commander = commanderRows[0];
-                    var earlyTurns = commander.EarlyCastPercents
-                        .Select((percent, index) => new { Turn = index + 1, Percent = percent })
-                        .SkipWhile(x => x.Percent == 0)
-                        .ToList();
+                    string? earlyCastSummary = ManabaseDisplay.EarlyCastSummary(commander.EarlyCastPercents);
                     <div class="manabase-lens-big manabase-lens-big--soft">@commander.CastPercent%<span>by on-curve turn @commander.OnCurveTurn</span></div>
-                    @if (earlyTurns.Any())
+                    @if (earlyCastSummary is not null)
                     {
-                        <div class="manabase-cmd-early-cast">Earlier turns: @string.Join(" · ", earlyTurns.Select(x => $"T{x.Turn} {x.Percent}%"))</div>
+                        <p class="manabase-lens-note">@earlyCastSummary</p>
                     }
                 }
                 @foreach (var c in commanderRows)
