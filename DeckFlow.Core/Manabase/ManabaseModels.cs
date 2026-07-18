@@ -261,6 +261,13 @@ public sealed record CardCastability
     public required int CastPercent { get; init; }
 
     /// <summary>
+    /// Commander-only cumulative early-cast chance by turn, indexed from turn 1 at element 0 and
+    /// ending at <see cref="OnCurveTurn"/> - 1. Additive — defaults to empty so existing construction
+    /// and JSON round-trips are unaffected.
+    /// </summary>
+    public IReadOnlyList<int> EarlyCastPercents { get; init; } = Array.Empty<int>();
+
+    /// <summary>
     /// The bottleneck: <c>"mana"</c>, <c>"color:&lt;X&gt;"</c>, or <c>"both"</c> when the
     /// mana-quantity and color-access probabilities are within a few points.
     /// </summary>

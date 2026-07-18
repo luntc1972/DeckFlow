@@ -317,6 +317,7 @@ public static class CastabilitySimulator
         int manaShortFailures = 0; // had wrong/short mana count regardless of colors
         int colorShortFailures = 0; // had enough total mana but couldn't cover the pips
         long delaySum = 0; // sum of max(0, firstCastableTurn - onCurveTurn) over all trials
+        int[] earlyCastByTurn = spell.IsCommander && turn > 1 ? new int[turn - 1] : Array.Empty<int>();
         int turn1UntappedSuccesses = 0; // TAP-02: trials with >=1 untapped/usable source on turn 1
         int byTurn3HoldableSuccesses = 0; // cEDH lens seed: trials castable from online sources on turns 1-3
 
@@ -411,7 +412,8 @@ public static class CastabilitySimulator
 
             bool success = SimulateGame(
                 library, shuffled, active, handCount, turn, effectiveCost, pipReq, availableColors, byTurn3Colors, onlineLandMasks,
-                gateRampOnCastable, ritualBurst, out bool manaShort, out bool colorShort, out int firstCastableTurn,
+                gateRampOnCastable, ritualBurst, spell.IsCommander, out bool manaShort, out bool colorShort, out int firstCastableTurn,
+                out int firstEarlyCastableTurn,
                 out bool hadUntappedT1, out bool hadByTurn3Holdable);
 
             // MULLIGAN STAGE 2 (pure observation, no rng draw): build the sample now that
@@ -439,6 +441,14 @@ public static class CastabilitySimulator
             // (a spell never tests as castable before its on-curve turn, so this is already >= 0).
             delaySum += Math.Max(0, firstCastableTurn - turn);
 
+            if (firstEarlyCastableTurn > 0 && firstEarlyCastableTurn < turn)
+            {
+                for (int earlyTurn = firstEarlyCastableTurn; earlyTurn < turn; earlyTurn++)
+                {
+                    earlyCastByTurn[earlyTurn - 1]++;
+                }
+            }
+
             if (hadUntappedT1)
             {
                 turn1UntappedSuccesses++;
@@ -464,6 +474,9 @@ public static class CastabilitySimulator
         }
 
         int castPercent = Math.Clamp((int)Math.Round(100.0 * successes / trials), 0, 100);
+        IReadOnlyList<int> earlyCastPercents = earlyCastByTurn.Length == 0
+            ? Array.Empty<int>()
+            : earlyCastByTurn.Select(count => Math.Clamp((int)Math.Round(100.0 * count / trials), 0, 100)).ToArray();
         string limiting = DeriveLimitingFactor(pipReq.Length == 0, manaShortFailures, colorShortFailures, spell);
         double averageDelay = trials > 0 ? Math.Round((double)delaySum / trials, 1) : 0;
 
@@ -473,6 +486,7 @@ public static class CastabilitySimulator
             ManaValue = spell.ManaValue,
             OnCurveTurn = turn,
             CastPercent = castPercent,
+            EarlyCastPercents = earlyCastPercents,
             LimitingFactor = limiting,
             IsCommander = spell.IsCommander,
             IsCostOverridden = spell.IsCostOverridden,
@@ -684,8 +698,8 @@ public static class CastabilitySimulator
                 (int Bit, int Count)[] pips = planCard.PlanPips ?? Array.Empty<(int, int)>();
                 bool castable = SimulateGame(
                     library, shuffled, active, handCount, planTurn, planTurn, pips,
-                    availableColors, null, onlineLandMasks, gateRampOnCastable, ritualBurst,
-                    out _, out _, out int firstCastableTurn, out _, out _);
+                    availableColors, null, onlineLandMasks, gateRampOnCastable, ritualBurst, false,
+                    out _, out _, out int firstCastableTurn, out _, out _, out _);
 
                 if (castable && firstCastableTurn <= planTurn)
                 {
@@ -711,8 +725,8 @@ public static class CastabilitySimulator
                         CedhMulliganCalibration.TurnCapExplosive,
                         planTurn,
                         pips,
-                        availableColors, null, onlineLandMasks, gateRampOnCastable, ritualBurst,
-                        out _, out _, out int firstExplosiveTurn, out _, out _);
+                        availableColors, null, onlineLandMasks, gateRampOnCastable, ritualBurst, false,
+                        out _, out _, out int firstExplosiveTurn, out _, out _, out _);
                     shapeExplosive = castableExplosive && firstExplosiveTurn <= CedhMulliganCalibration.TurnCapExplosive;
                 }
 
@@ -725,8 +739,8 @@ public static class CastabilitySimulator
                         CedhMulliganCalibration.TurnCapEngine,
                         planTurn,
                         pips,
-                        availableColors, null, onlineLandMasks, gateRampOnCastable, ritualBurst,
-                        out _, out _, out int firstEngineTurn, out _, out _);
+                        availableColors, null, onlineLandMasks, gateRampOnCastable, ritualBurst, false,
+                        out _, out _, out int firstEngineTurn, out _, out _, out _);
                     shapeEngine = castableEngine && firstEngineTurn <= CedhMulliganCalibration.TurnCapEngine;
                 }
             }
@@ -751,8 +765,8 @@ public static class CastabilitySimulator
                             commanderTargetTurn,
                             Math.Max(1, commander.ManaValue),
                             PipArray(commander, colorlessSnow),
-                            availableColors, null, onlineLandMasks, gateRampOnCastable, ritualBurst,
-                            out _, out _, out int firstCommanderTurn, out _, out _);
+                            availableColors, null, onlineLandMasks, gateRampOnCastable, ritualBurst, false,
+                            out _, out _, out int firstCommanderTurn, out _, out _, out _);
                         if (castableCommander && firstCommanderTurn <= commanderTargetTurn)
                         {
                             shapeExplosive = true;
@@ -938,8 +952,8 @@ public static class CastabilitySimulator
                     bool castable = SimulateGame(
                         library, shuffled, active, handCount, turn, spellCard.PlanManaValue,
                         spellCard.PlanPips ?? Array.Empty<(int, int)>(),
-                        availableColors, null, onlineLandMasks, gateRampOnCastable, ritualBurst,
-                        out _, out _, out int firstCastableTurn, out _, out _);
+                        availableColors, null, onlineLandMasks, gateRampOnCastable, ritualBurst, false,
+                        out _, out _, out int firstCastableTurn, out _, out _, out _);
                     if (castable && firstCastableTurn <= turn)
                     {
                         coveredTurns++;
@@ -1473,9 +1487,11 @@ public static class CastabilitySimulator
         List<int> onlineLandMasks,
         bool gateRampOnCastable,
         bool ritualBurst,
+        bool trackEarlyCast,
         out bool manaShort,
         out bool colorShort,
         out int firstCastableTurn,
+        out int firstEarlyCastableTurn,
         out bool hadUntappedT1,
         out bool hadByTurn3Holdable)
     {
@@ -1483,6 +1499,7 @@ public static class CastabilitySimulator
         colorShort = false;
         hadUntappedT1 = false;
         hadByTurn3Holdable = false;
+        firstEarlyCastableTurn = 0;
 
         // Snail's metric forgives a short delay; lower drops get a slightly wider window (a 1-drop is
         // rarely cast exactly on turn 1, but a player will still happily cast it on turn 2-3). The
@@ -1614,7 +1631,18 @@ public static class CastabilitySimulator
             if (!hadByTurn3Holdable && currentTurn <= 3 && byTurn3Colors is not null)
             {
                 BuildOnlineSourceView(landsOnBoard, rampOnBoard, currentTurn, byTurn3Colors);
-                hadByTurn3Holdable = ColorsCoverable(byTurn3Colors, pipReq, effectiveCost);
+                hadByTurn3Holdable = TotalMana(byTurn3Colors) >= effectiveCost
+                    && ColorsCoverable(byTurn3Colors, pipReq, effectiveCost);
+            }
+
+            if (trackEarlyCast && firstEarlyCastableTurn == 0 && currentTurn < turn)
+            {
+                BuildOnlineSourceView(landsOnBoard, rampOnBoard, currentTurn, availableColors);
+                if (TotalMana(availableColors) >= effectiveCost
+                    && ColorsCoverable(availableColors, pipReq, effectiveCost))
+                {
+                    firstEarlyCastableTurn = currentTurn;
+                }
             }
 
             // From the effective turn onward, test castability; succeed on the first turn it lands.
