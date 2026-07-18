@@ -21,6 +21,11 @@ public static class StructuredDataBuilder
 
     private const string SchemaContext = "https://schema.org";
 
+    // The WebSite fallback graph is entirely constant, so serialize it once instead of rebuilding
+    // + reflection-serializing a fresh dictionary on every request that falls through (about/help
+    // index/feedback and any non-indexed page).
+    private static readonly string WebSiteJson = JsonSerializer.Serialize(WebSiteNode(), SerializerOptions);
+
     /// <summary>
     /// Returns a JSON-LD string for the given request path. Never returns null;
     /// unmapped paths get the site-wide WebSite node (legacy behavior).
@@ -35,13 +40,13 @@ public static class StructuredDataBuilder
         var name = string.IsNullOrWhiteSpace(rawTitle) ? "DeckFlow" : rawTitle!;
         var normalized = SeoPaths.Normalize(path);
 
-        object graph =
+        Dictionary<string, object?>? graph =
             normalized == "/" ? HomeGraph(baseUrl, description)
             : IsHelpDetail(normalized) ? HelpArticleGraph(canonicalUrl, baseUrl, name, description)
             : SeoPaths.Tools.Contains(normalized) ? ToolPageGraph(canonicalUrl, baseUrl, name, description)
-            : WebSiteNode();
+            : null;
 
-        return JsonSerializer.Serialize(graph, SerializerOptions);
+        return graph is null ? WebSiteJson : JsonSerializer.Serialize(graph, SerializerOptions);
     }
 
     private static bool IsHelpDetail(string normalized) =>
@@ -56,46 +61,48 @@ public static class StructuredDataBuilder
         ["description"] = "DeckFlow — Magic: The Gathering deck analysis for cEDH and Commander. Compare, analyze, and generate ChatGPT-ready deck prompts.",
     };
 
-    private static Dictionary<string, object?> HomeGraph(string baseUrl, string description) => new()
+    // Wraps schema.org nodes in the shared @context/@graph envelope. params object[] serializes
+    // identically to an explicit object[], so the emitted JSON is unchanged.
+    private static Dictionary<string, object?> Graph(params object[] nodes) => new()
     {
         ["@context"] = SchemaContext,
-        ["@graph"] = new object[]
-        {
-            new Dictionary<string, object?>
-            {
-                ["@type"] = "WebSite",
-                ["@id"] = $"{baseUrl}/#website",
-                ["name"] = "DeckFlow",
-                ["url"] = $"{baseUrl}/",
-                ["description"] = description,
-                ["publisher"] = new Dictionary<string, object?> { ["@id"] = $"{baseUrl}/#organization" },
-            },
-            new Dictionary<string, object?>
-            {
-                ["@type"] = "Organization",
-                ["@id"] = $"{baseUrl}/#organization",
-                ["name"] = "DeckFlow",
-                ["url"] = $"{baseUrl}/",
-                ["logo"] = $"{baseUrl}/og-image.png",
-            },
-            new Dictionary<string, object?>
-            {
-                ["@type"] = "SoftwareApplication",
-                ["@id"] = $"{baseUrl}/#app",
-                ["name"] = "DeckFlow",
-                ["url"] = $"{baseUrl}/",
-                ["applicationCategory"] = "GameApplication",
-                ["operatingSystem"] = "Web",
-                ["description"] = description,
-                ["offers"] = new Dictionary<string, object?>
-                {
-                    ["@type"] = "Offer",
-                    ["price"] = "0",
-                    ["priceCurrency"] = "USD",
-                },
-            },
-        },
+        ["@graph"] = nodes,
     };
+
+    private static Dictionary<string, object?> HomeGraph(string baseUrl, string description) => Graph(
+        new Dictionary<string, object?>
+        {
+            ["@type"] = "WebSite",
+            ["@id"] = $"{baseUrl}/#website",
+            ["name"] = "DeckFlow",
+            ["url"] = $"{baseUrl}/",
+            ["description"] = description,
+            ["publisher"] = new Dictionary<string, object?> { ["@id"] = $"{baseUrl}/#organization" },
+        },
+        new Dictionary<string, object?>
+        {
+            ["@type"] = "Organization",
+            ["@id"] = $"{baseUrl}/#organization",
+            ["name"] = "DeckFlow",
+            ["url"] = $"{baseUrl}/",
+            ["logo"] = $"{baseUrl}/og-image.png",
+        },
+        new Dictionary<string, object?>
+        {
+            ["@type"] = "SoftwareApplication",
+            ["@id"] = $"{baseUrl}/#app",
+            ["name"] = "DeckFlow",
+            ["url"] = $"{baseUrl}/",
+            ["applicationCategory"] = "GameApplication",
+            ["operatingSystem"] = "Web",
+            ["description"] = description,
+            ["offers"] = new Dictionary<string, object?>
+            {
+                ["@type"] = "Offer",
+                ["price"] = "0",
+                ["priceCurrency"] = "USD",
+            },
+        });
 
     private static Dictionary<string, object?> Breadcrumb(IReadOnlyList<(string Name, string Url)> items)
     {
@@ -118,47 +125,34 @@ public static class StructuredDataBuilder
         };
     }
 
-    // Placeholder members completed in Tasks 3 and 4; declared here so the file compiles.
-    private static Dictionary<string, object?> ToolPageGraph(string canonicalUrl, string baseUrl, string name, string description) => new()
-    {
-        ["@context"] = SchemaContext,
-        ["@graph"] = new object[]
+    private static Dictionary<string, object?> ToolPageGraph(string canonicalUrl, string baseUrl, string name, string description) => Graph(
+        new Dictionary<string, object?>
         {
-            new Dictionary<string, object?>
-            {
-                ["@type"] = "WebPage",
-                ["@id"] = $"{canonicalUrl}#webpage",
-                ["name"] = name,
-                ["description"] = description,
-                ["url"] = canonicalUrl,
-                ["isPartOf"] = new Dictionary<string, object?> { ["@id"] = $"{baseUrl}/#website" },
-            },
-            Breadcrumb(new[]
-            {
-                ("Home", $"{baseUrl}/"),
-                (name, canonicalUrl),
-            }),
+            ["@type"] = "WebPage",
+            ["@id"] = $"{canonicalUrl}#webpage",
+            ["name"] = name,
+            ["description"] = description,
+            ["url"] = canonicalUrl,
+            ["isPartOf"] = new Dictionary<string, object?> { ["@id"] = $"{baseUrl}/#website" },
         },
-    };
+        Breadcrumb(new[]
+        {
+            ("Home", $"{baseUrl}/"),
+            (name, canonicalUrl),
+        }));
 
-    private static Dictionary<string, object?> HelpArticleGraph(string canonicalUrl, string baseUrl, string name, string description) => new()
-    {
-        ["@context"] = SchemaContext,
-        ["@graph"] = new object[]
+    private static Dictionary<string, object?> HelpArticleGraph(string canonicalUrl, string baseUrl, string name, string description) => Graph(
+        new Dictionary<string, object?>
         {
-            new Dictionary<string, object?>
-            {
-                ["@type"] = "TechArticle",
-                ["headline"] = name,
-                ["description"] = description,
-                ["url"] = canonicalUrl,
-            },
-            Breadcrumb(new[]
-            {
-                ("Home", $"{baseUrl}/"),
-                ("Help", $"{baseUrl}/help"),
-                (name, canonicalUrl),
-            }),
+            ["@type"] = "TechArticle",
+            ["headline"] = name,
+            ["description"] = description,
+            ["url"] = canonicalUrl,
         },
-    };
+        Breadcrumb(new[]
+        {
+            ("Home", $"{baseUrl}/"),
+            ("Help", $"{baseUrl}/help"),
+            (name, canonicalUrl),
+        }));
 }

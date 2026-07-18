@@ -280,17 +280,18 @@ const setAllPrintingChoices = (value: string): void => {
 };
 
 const copyElementValue = async (targetId: string): Promise<void> => {
-  const target = document.getElementById(targetId);
+  const normalizedTargetId = targetId.startsWith('#') ? targetId.slice(1) : targetId;
+  const target = document.getElementById(normalizedTargetId);
   if (!target) {
-    return;
+    throw new Error(`Copy target "${normalizedTargetId}" was not found.`);
   }
 
   const text = target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement
     ? target.value
     : target.textContent ?? '';
 
-  if (!text) {
-    return;
+  if (!text.trim()) {
+    throw new Error(`Copy target "${normalizedTargetId}" had no text.`);
   }
 
   await navigator.clipboard.writeText(text);

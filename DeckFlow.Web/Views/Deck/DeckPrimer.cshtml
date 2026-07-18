@@ -1,10 +1,15 @@
 @using System.Text
 @using System.Text.Json
+@using DeckFlow.Web.Configuration
+@using DeckFlow.Web.Services.Tools
+@using Microsoft.Extensions.Options
 @model DeckFlow.Web.Models.DeckPrimerViewModel
+@inject IOptions<AiPlatformOptions> AiPlatformOptionsAccessor
 @{
     ViewData["Title"] = "Generate an MTG Commander Deck Primer";
     ViewData["Description"] = "Turn your Commander decklist into a ChatGPT-ready primer prompt covering strategy, lines, and key combos. Paste from Archidekt or Moxfield.";
     var aiPlatform = AiPlatform.Normalize(Model.Request.TargetAiPlatform);
+    var platformList = AiPlatformCopy.PlatformList(AiPlatformOptionsAccessor.Value.GeminiEnabled);
     var commanderBrackets = DeckFlow.Web.Models.CommanderBracketCatalog.Options;
     var selectedBracket = DeckFlow.Web.Models.CommanderBracketCatalog.Find(Model.Request.TargetCommanderBracket)
         ?? DeckFlow.Web.Models.CommanderBracketCatalog.Find("Optimized")
@@ -39,7 +44,7 @@
 
 <section class="hero">
     <h1>Deck Primer</h1>
-    <p class="page-lede">Generate a paste-ready deck primer prompt for ChatGPT, Claude, or Gemini.</p>
+    <p class="page-lede">Generate a paste-ready deck primer prompt for @platformList.</p>
     <p class="lede">Import the deck, choose the bracket and primer sections, then generate the prompt text you want your AI to expand into a polished deck primer.</p>
 </section>
 

@@ -89,7 +89,7 @@ test('Start over link resets the form to a fresh empty page', async ({ page }) =
   await expect(page.locator('#manabase-deck-text')).toHaveValue('1 Sol Ring');
 
   // The Start over control navigates to a clean GET /manabase (no persisted input).
-  const startOver = page.locator('.manabase-start-over');
+  const startOver = page.locator('a.clear-cache-button', { hasText: 'Start over' });
   await expect(startOver).toHaveAttribute('href', /\/manabase$/);
   await startOver.click();
 

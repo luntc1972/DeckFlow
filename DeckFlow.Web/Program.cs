@@ -177,6 +177,7 @@ public partial class Program
             builder.Services.AddScoped<ICategorySuggestionService, CategorySuggestionService>();
             builder.Services.AddScoped<ICommanderCategoryService, CommanderCategoryService>();
             builder.Services.AddScoped<IDeckSyncService, DeckSyncService>();
+            builder.Services.AddScoped<IDeckHistoryPageService, DeckHistoryPageService>();
             builder.Services.AddScoped<IDeckConvertService>(sp =>
                 new DeckConvertService(
                     sp.GetRequiredService<IScryfallRestClientFactory>(),
