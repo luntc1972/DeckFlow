@@ -46,7 +46,7 @@ On a full four-deck comparison, ChatGPT sometimes breaks the reply into parts, o
 - Or shrink the input: select fewer reference decks in Step 2. Fewer lists means a smaller answer.
 - **Do not** paste a partial or split response into Step 3. The page needs one complete `meta_gap` object and cannot merge parts — a truncated block is rejected as invalid JSON. Get the whole block in ChatGPT first, then paste once.
 
-Claude and Gemini rarely split this prompt, so switching the target AI in Step 2 is another option.
+Claude also rarely splits this prompt, so switching the target AI in Step 2 is another option.
 
 ## Step 3 — Paste Returned JSON
 

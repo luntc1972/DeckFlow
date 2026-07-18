@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace DeckFlow.Web.Seo;
 
@@ -30,6 +31,7 @@ public static class SeoPaths
         "/judge-questions",
         "/manabase",
         "/bracket",
+        "/deck-history",
         "/content-kb",
         "/help",
         "/about",
@@ -37,27 +39,25 @@ public static class SeoPaths
     };
 
     /// <summary>
-    /// The tool pages that receive WebPage + BreadcrumbList structured data.
-    /// Excludes the home page (richer graph), the help index, about, and
-    /// feedback (which fall back to the site-wide WebSite node).
+    /// The framing pages in <see cref="Indexable"/> that are NOT tool pages: the home page
+    /// (richer JSON-LD graph), the help index, about, and feedback.
     /// </summary>
-    public static readonly IReadOnlySet<string> Tools = new HashSet<string>(StringComparer.Ordinal)
+    private static readonly IReadOnlySet<string> NonToolPages = new HashSet<string>(StringComparer.Ordinal)
     {
-        "/sync",
-        "/convert",
-        "/card-lookup",
-        "/mechanic-lookup",
-        "/deck-analysis",
-        "/deck-comparison",
-        "/cedh-meta-gap",
-        "/deck-primer",
-        "/suggest-categories",
-        "/commander-categories",
-        "/judge-questions",
-        "/manabase",
-        "/bracket",
-        "/content-kb",
+        "/",
+        "/help",
+        "/about",
+        "/feedback",
     };
+
+    /// <summary>
+    /// The tool pages that receive WebPage + BreadcrumbList structured data. Derived from
+    /// <see cref="Indexable"/> (minus <see cref="NonToolPages"/>) so a new tool page is added
+    /// in exactly one place and the two views cannot drift.
+    /// </summary>
+    public static readonly IReadOnlySet<string> Tools = new HashSet<string>(
+        Indexable.Where(path => !NonToolPages.Contains(path)),
+        StringComparer.Ordinal);
 
     /// <summary>
     /// Normalizes a request path for matching: lower-invariant, trailing slash stripped

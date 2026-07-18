@@ -31,11 +31,11 @@ public sealed class ToolVisibilityTests
         Assert.Collection(
             sections,
             section => AssertSection(section, ToolNavSection.Analyze, "deck-analysis", "manabase", "deck-comparison", "cedh-meta-gap", "bracket"),
-            section => AssertSection(section, ToolNavSection.Build, "deck-primer", "deck-sync", "convert"),
+            section => AssertSection(section, ToolNavSection.Build, "deck-history", "deck-primer", "deck-sync", "convert"),
             section => AssertSection(section, ToolNavSection.Reference, "content-kb", "card-lookup", "mechanic-lookup", "judge-questions"),
             section => AssertSection(section, ToolNavSection.Categories, "suggest-categories", "commander-categories"));
 
-        Assert.Equal(14, sections.Sum(section => section.Tools.Count));
+        Assert.Equal(15, sections.Sum(section => section.Tools.Count));
     }
 
     [Fact]

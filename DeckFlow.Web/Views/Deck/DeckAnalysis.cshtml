@@ -1,9 +1,14 @@
 @model DeckFlow.Web.Models.DeckAnalysisViewModel
 @using DeckFlow.Core.Analysis
+@using DeckFlow.Web.Configuration
+@using DeckFlow.Web.Services.Tools
+@using Microsoft.Extensions.Options
+@inject IOptions<AiPlatformOptions> AiPlatformOptionsAccessor
 @{
     ViewData["Title"] = "MTG Commander Deck Analysis for ChatGPT";
     ViewData["Description"] = "Generate a ChatGPT-ready analysis prompt for your Commander deck. Paste an Archidekt or Moxfield deck and get a structured AI review in one round-trip.";
     var aiPlatform = AiPlatform.Normalize(Model.Request.TargetAiPlatform);
+    var platformList = AiPlatformCopy.PlatformList(AiPlatformOptionsAccessor.Value.GeminiEnabled);
     var currentStep = Math.Clamp(Model.Request.WorkflowStep, 1, 5);
     var commanderBrackets = DeckFlow.Web.Models.CommanderBracketCatalog.Options;
     var questionBuckets = DeckFlow.Web.Models.AnalysisQuestionCatalog.Buckets;
@@ -50,7 +55,7 @@ Do not omit any fields from the schema.
 
 <section class="hero">
     <h1>Deck Analysis</h1>
-    <p class="page-lede">Generate a prompt to paste into ChatGPT, Claude, or Gemini.</p>
+    <p class="page-lede">Generate a prompt to paste into @platformList.</p>
     <p class="lede">Paste your deck, choose your analysis questions, generate the prompt, and paste back the results. The set-upgrade step is optional.</p>
 </section>
 

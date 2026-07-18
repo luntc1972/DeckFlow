@@ -49,4 +49,7 @@ public enum DeckPageTab
 
     /// <summary>Bracket classifier and balancer page.</summary>
     Bracket = 15,
+
+    /// <summary>Deck version-history tracking page.</summary>
+    DeckHistory = 16,
 }

@@ -109,7 +109,7 @@ test('content kb detail copy button signals it builds an AI prompt', async ({ pa
 
   const hint = page.locator('.kb-artifact-hint');
   await expect(hint).toBeVisible();
-  await expect(hint).toContainText(/ChatGPT|Claude|Gemini/i);
+  await expect(hint).toContainText(/ChatGPT|Claude/i);
 
   // The longer label must not overflow the viewport or wrap to a giant button
   // on the 390px mobile project. Use viewport-relative rect coords.

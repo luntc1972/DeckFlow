@@ -1,0 +1,264 @@
+@using DeckFlow.Web.Models
+@using DeckFlow.Core.History
+@model DeckFlow.Web.Models.DeckHistoryViewModel
+@{
+    ViewData["Title"] = "Deck History";
+    var isUrl = Model.Request.DeckInputSource == DeckInputSource.PublicUrl;
+
+    async Task RenderVersionSelect(string id, string name, string label, int? selectedId)
+    {
+        <div class="field history-compare-controls__field">
+            <label for="@id" class="sr-only">@label</label>
+            <select id="@id" name="@name" aria-label="@label" data-df-select>
+                @foreach (var row in Model.TimelineRows)
+                {
+                    <option value="@row.Id" selected="@(selectedId == row.Id ? "selected" : null)">V@(row.Id) (@row.Date.ToString("yyyy-MM-dd"))</option>
+                }
+            </select>
+        </div>
+    }
+
+    async Task RenderDiffPanel(string heading, IReadOnlyList<SnapshotCard> cards)
+    {
+        <section class="history-diff__panel">
+            <h3>@heading</h3>
+            @if (cards.Count > 0)
+            {
+                <ul>
+                    @foreach (var card in cards)
+                    {
+                        <li>@card.Qty × @card.Name</li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p>—</p>
+            }
+        </section>
+    }
+}
+
+<section class="hero">
+    <h1>Deck History</h1>
+    <p class="lede">Track your deck's evolution in a file you own. DeckFlow never stores your history — download the file, keep it with your deck, and bring it back whenever the list changes.</p>
+</section>
+
+@await Html.PartialAsync("_BusyIndicator")
+@await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
+
+<div class="error-banner @(string.IsNullOrWhiteSpace(Model.ErrorMessage) ? "hidden" : string.Empty)" role="alert">
+    @Model.ErrorMessage
+</div>
+
+<form method="post" action="@Url.Content("~/deck-history")" enctype="multipart/form-data" class="result-panel deck-history-form"
+      data-cache-key="deck-history"
+      data-busy-title="Updating history"
+      data-busy-message="Loading the deck, reconciling the history file, and rebuilding the comparison."
+      data-busy-progress="Loading the deck|Reconciling history|Comparing versions|Building the prompt">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="HistoryJson" value="@Model.HistoryJson" />
+
+    <div class="field">
+        <label for="history-file">History file (optional)</label>
+        <input id="history-file" type="file" name="historyFile" accept=".json,application/json" />
+        <small class="manabase-help">First visit? Skip this — import your deck below and download your new history file.</small>
+    </div>
+
+    <div class="field">
+        <label for="deck-history-input-source">Input method</label>
+        <select id="deck-history-input-source" name="DeckInputSource" data-df-select>
+            <option value="@DeckFlow.Web.Models.DeckInputSource.PublicUrl" selected="@(isUrl ? "selected" : null)">Use public deck URL</option>
+            <option value="@DeckFlow.Web.Models.DeckInputSource.PasteText" selected="@(!isUrl ? "selected" : null)">Paste text</option>
+        </select>
+    </div>
+
+    <div class="field @(isUrl ? string.Empty : "hidden")" data-sync-panel="bracket-deck-url">
+        <label for="deck-history-deck-url">Archidekt or Moxfield deck URL</label>
+        <input id="deck-history-deck-url" type="url" name="DeckUrl" spellcheck="false" autocomplete="off"
+               placeholder="https://moxfield.com/decks/… or https://archidekt.com/decks/…" value="@Model.Request.DeckUrl" />
+        @await Html.PartialAsync("_DeckFlowBridgeHint")
+    </div>
+
+    <div class="field @(isUrl ? "hidden" : string.Empty)" data-sync-panel="bracket-deck-text">
+        <label for="deck-history-deck-text">Paste a decklist (one card per line)</label>
+        <textarea id="deck-history-deck-text" name="DeckText" rows="6" spellcheck="false" autocomplete="off"
+                  placeholder="1 Sol Ring&#10;1 Command Tower&#10;…">@Model.Request.DeckText</textarea>
+    </div>
+
+    <div class="field">
+        <label for="deck-history-deck-name">Deck name (optional — used when starting a new history)</label>
+        <input id="deck-history-deck-name" type="text" name="DeckName" spellcheck="false" autocomplete="off"
+               placeholder="e.g. Tivit Ad Nauseam" value="@Model.Request.DeckName" />
+    </div>
+
+    <div class="field">
+        <label for="deck-history-label">Label (optional)</label>
+        <input id="deck-history-label" type="text" name="Label" spellcheck="false" autocomplete="off"
+               placeholder="e.g. post-ban" value="@Model.Request.Label" />
+    </div>
+
+    <div class="field">
+        <label for="deck-history-notes">Notes — why did the deck change?</label>
+        <textarea id="deck-history-notes" name="Notes" rows="3" spellcheck="true">@Model.Request.Notes</textarea>
+    </div>
+
+    @await Html.PartialAsync("_AiSelector", Model.Request.TargetAiPlatform)
+
+    <div class="toolbar">
+        <button type="submit" class="run-button">Update history</button>
+        <a href="@Url.Content("~/deck-history")" class="clear-cache-button" role="button" data-no-busy>Start over</a>
+    </div>
+</form>
+
+@if (Model.HasResult)
+{
+    <section class="deck-history-results" data-scroll-on-load>
+        @if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
+        {
+            <div class="success-banner" role="status">
+                @Model.SuccessMessage
+                <span class="history-success-hint">To add the next version: update your deck, import it above, and press Update history again — your history carries forward on this page.</span>
+            </div>
+        }
+
+        @if (Model.Warnings.Count > 0)
+        {
+            <div class="warning-banner" role="status">
+                <ul>
+                    @foreach (var warning in Model.Warnings)
+                    {
+                        <li>@warning</li>
+                    }
+                </ul>
+            </div>
+        }
+
+        <section class="result-panel">
+            <h2>Timeline</h2>
+            <div class="history-timeline__wrap">
+                <table class="history-timeline">
+                    <thead>
+                        <tr>
+                            <th scope="col">V#</th>
+                            <th scope="col">Date</th>
+                            <th scope="col" class="history-timeline__label-col">Label</th>
+                            <th scope="col">Notes</th>
+                            <th scope="col">Cards</th>
+                            <th scope="col">Δ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.TimelineRows)
+                        {
+                            <tr>
+                                <td>@row.Id</td>
+                                <td>@row.Date.ToString("yyyy-MM-dd")</td>
+                                <td class="history-timeline__label-col">@row.Label</td>
+                                <td>
+                                    @if (!string.IsNullOrWhiteSpace(row.Label))
+                                    {
+                                        <strong class="history-timeline__label-inline">@row.Label</strong>
+                                    }
+                                    @(string.IsNullOrWhiteSpace(row.Notes) ? "—" : row.Notes)
+                                </td>
+                                <td>@row.CardCount</td>
+                                <td>
+                                    @if (row.HasDelta)
+                                    {
+                                        <span class="history-delta-add">@row.AddsText</span>
+                                        <span class="history-delta-cut">@row.CutsText</span>
+                                    }
+                                    else
+                                    {
+                                        <span>—</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="result-panel">
+            <h2>Save your history</h2>
+            <p>Download the updated file and keep it with your deck. Re-upload it next time to add the next version — or keep going right here; the page remembers your history until you leave.</p>
+            <div class="toolbar">
+                <button type="submit" class="run-button" form="deck-history-compare-form" formaction="@Url.Content("~/deck-history/download")" data-no-busy data-prompt-download-submit>Download deck history (.json)</button>
+            </div>
+        </section>
+
+        <section class="result-panel">
+            <h2>Compare versions</h2>
+            <form id="deck-history-compare-form" class="deck-history-compare-form" method="post" action="@Url.Content("~/deck-history")">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="HistoryJson" value="@Model.HistoryJson" />
+                <input type="hidden" name="TargetAiPlatform" value="@Model.Request.TargetAiPlatform" />
+                @if (Model.PairDiff is not null && Model.TimelineRows.Count >= 2)
+                {
+                    <div class="history-compare-controls">
+                        @{ await RenderVersionSelect("history-older-version", "OlderVersionId", "Older version", Model.PairOlderId); }
+                        <span class="history-compare-controls__arrow" aria-hidden="true">→</span>
+                        @{ await RenderVersionSelect("history-newer-version", "NewerVersionId", "Newer version", Model.PairNewerId); }
+                        <div class="history-compare-controls__submit">
+                            <button type="submit" class="run-button" data-no-busy>Compare</button>
+                        </div>
+                    </div>
+                }
+            </form>
+
+            @if (Model.PairDiff is not null && Model.TimelineRows.Count >= 2)
+            {
+                <div class="history-diff">
+                    @{ await RenderDiffPanel("Adds", Model.PairDiff.Adds); }
+                    @{ await RenderDiffPanel("Cuts", Model.PairDiff.Cuts); }
+
+                    <section class="history-diff__panel">
+                        <h3>Qty changes</h3>
+                        @if (Model.PairDiff.QuantityChanges.Count > 0)
+                        {
+                            <ul>
+                                @foreach (var change in Model.PairDiff.QuantityChanges)
+                                {
+                                    <li>@change.Name @change.From→@change.To</li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p>—</p>
+                        }
+                    </section>
+                </div>
+            }
+            else
+            {
+                <p class="history-empty-compare">Add a second version to compare.</p>
+            }
+        </section>
+
+        <section class="result-panel">
+            <h2>AI prompt — "How has this deck evolved?"</h2>
+            @if (string.IsNullOrWhiteSpace(Model.PromptText))
+            {
+                <p class="history-empty-compare">Add a second version to generate the evolution prompt.</p>
+            }
+            else
+            {
+                <div class="toolbar">
+                    <button type="button" class="copy-button" data-copy-target="deck-history-prompt">Copy</button>
+                </div>
+                <textarea id="deck-history-prompt" readonly rows="14" spellcheck="false">@Model.PromptText</textarea>
+            }
+        </section>
+
+    </section>
+}
+
+@section Scripts {
+    <script src="~/js/deck-input-store.js" asp-append-version="true"></script>
+    <script src="~/js/busy-indicator.js" asp-append-version="true"></script>
+    <script src="~/js/moxfield-extension-bridge.js" asp-append-version="true"></script>
+    <script src="~/js/deck-sync.js" asp-append-version="true"></script>
+}
