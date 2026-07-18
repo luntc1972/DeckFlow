@@ -73,7 +73,7 @@ A dark-launch beta flag, `analysis.manabase.ritual-burst-mana` (default OFF), ca
 
 ### Command zone callout and companion handling
 
-By default (the `analysis.manabase.commander-castability` flag, on — an admin can hide it), the report adds a **command zone** callout above the per-card Castability table. That callout lists each commander card that starts outside the 99, including partner pairs and Backgrounds, with its estimated chance to be cast on curve. Those cards move out of the per-card table for display only; the underlying health verdict and color findings stay the same.
+By default (the `analysis.manabase.commander-castability` flag, on — an admin can hide it), the report adds a **command zone** callout above the per-card Castability table. That callout lists each commander card that starts outside the 99, including partner pairs and Backgrounds, with its estimated chance to be cast on curve. Those cards move out of the per-card table for display only; the underlying health verdict and color findings stay the same. For a single commander, a small **Earlier turns** line under the headline shows the cumulative chance your ramp and fast mana could pay for the commander *before* its on-curve turn (for example `T2 12% · T3 48%` for a four-drop) — turns with a 0% chance are simply omitted, so a ramp-less deck shows no line at all.
 
 Companions are handled separately from the command zone cards. DeckFlow can auto-detect a companion from the **Moxfield direct API**. Archidekt does not expose a reliable Companion category, so Archidekt decks, pasted lists, and the Moxfield Commander Spellbook fallback path rely on the manual companion designator instead.
 
