@@ -2,7 +2,7 @@
 
 **Researched:** 2026-07-18
 **Domain:** Scryfall-backed card validation / anti-hallucination guard (C#, ASP.NET Core Web host + pure-Core decision logic)
-**Confidence:** HIGH (existing codebase substrate verified by direct source read) / MEDIUM (Scryfall fuzzy-endpoint ambiguity semantics — official docs blocked by Cloudflare, corroborated via WebSearch + the project's own prior research doc)
+**Confidence:** HIGH (existing codebase substrate verified by direct source read; Scryfall fuzzy-404 error-body semantics AND `legalities`/`color_identity` JSON shape verified live against api.scryfall.com 2026-07-18 — see Pitfall 1 for captured bodies; discriminator is `type: "ambiguous"`, not `code`)
 
 ## Summary
 
@@ -15,14 +15,15 @@ checker, an `IMemoryCache`-backed verdict cache mirroring `ScryfallCardNameGroun
 pattern, and a whitelist builder that reads the already-cached P95 creator deck corpus
 (`ICreatorDeckCacheStore`) with zero additional Scryfall traffic for pool assembly.
 
-The one real external unknown is Scryfall's `/cards/named?fuzzy=` **ambiguous-vs-not-found** distinction:
-both conditions return HTTP 404, and the only place they diverge is the `code` field inside the JSON
-Error object (documented values include `"ambiguous"` and `"not_found"`). This codebase does not yet parse
-that Error object anywhere — every existing caller (`ScryfallCardResolver`, `CardLookupService`,
+The one real external unknown — Scryfall's `/cards/named?fuzzy=` **ambiguous-vs-not-found** distinction —
+was **resolved live 2026-07-18** (orchestrator curl, both bodies captured in Pitfall 1): both conditions
+return HTTP 404 with `"code": "not_found"`; the ambiguous case is distinguished ONLY by an extra
+`"type": "ambiguous"` field in the error body. This codebase does not yet parse that Error object
+anywhere — every existing caller (`ScryfallCardResolver`, `CardLookupService`,
 `ScryfallTaggerLookupService`) only checks the status code range and treats any non-2xx as a miss. CS-25's
 `Ambiguous` vs `NotFound` reject-reason split (D-13) requires a **net-new** `ScryfallErrorResponse` DTO
-parse step that does not exist in any current caller — flag this for the planner as new code, not a
-copy-paste of an existing pattern.
+(with nullable `type`) parse step that does not exist in any current caller — flag this for the planner as
+new code, not a copy-paste of an existing pattern.
 
 **Primary recommendation:** Build `ICardGroundingGuard`/`CardGroundingGuard` as a thin strict-mode
 composition over the *existing* `IScryfallCardResolver`, add a `Legalities` field to `ScryfallCard`, add a
@@ -135,7 +136,7 @@ DeckFlow.Web/
     └── Scryfall/
         ├── CardGroundingGuard.cs           # implements ICardGroundingGuard; composes
         │                                   #   IScryfallCardResolver + IMemoryCache (D-14 cache)
-        ├── ScryfallErrorResponse.cs        # NEW DTO: {object, code, status, details} for 404 parse
+        ├── ScryfallErrorResponse.cs        # NEW DTO: {object, code, type?, status, details} for 404 parse (branch on type=="ambiguous")
         └── ScryfallDtos.cs                 # MODIFIED: add Legalities to ScryfallCard (D-09)
 
 DeckFlow.Web/
@@ -260,24 +261,33 @@ in this codebase today) treats any non-2xx as "reject, no reason," which satisfi
 accept/reject behavior but NOT CS-25's requirement for a fixture asserting the specific `Ambiguous` reject
 reason (D-13).
 **Why it happens:** Scryfall's fuzzy endpoint always returns exactly one card (200) or a single Error
-object (404); the distinguishing signal lives inside the JSON body's `code` field
-(`"ambiguous"` vs `"not_found"`), which none of the three existing call sites in this repo parse today —
-they all just branch on status code range.
-**How to avoid:** Add a small `ScryfallErrorResponse` DTO (`{object, code, status, details}`) and, on a 404
-from the strict fuzzy call specifically, deserialize `response.Content` (RestSharp still exposes the raw
-body even when the typed `Data` is null) and branch on `code == "ambiguous"` vs everything else →
-`NotFound`. This is genuinely new code, not a copy of an existing pattern — flag as a specific planner task.
+object (404); the distinguishing signal lives inside the JSON body — **verified live 2026-07-18 against
+`api.scryfall.com` (orchestrator curl):** BOTH conditions return `"code": "not_found"`, so `code` alone
+CANNOT distinguish them. The ambiguous case carries an ADDITIONAL `"type": "ambiguous"` field that the
+plain not-found case omits entirely:
+
+```json
+// fuzzy=aust+com (ambiguous):
+{ "object": "error", "code": "not_found", "type": "ambiguous", "status": 404,
+  "details": "Too many cards match ambiguous name “aust com”. Add more words to refine your search." }
+// fuzzy=zzzznotacardzzz (not found):
+{ "object": "error", "code": "not_found", "status": 404,
+  "details": "No cards found matching “zzzznotacardzzz”" }
+```
+
+None of the three existing call sites in this repo parse the error body today — they all just branch on
+status code range.
+**How to avoid:** Add a small `ScryfallErrorResponse` DTO (`{object, code, type, status, details}` — `type`
+nullable) and, on a 404 from the strict fuzzy call specifically, deserialize `response.Content` (RestSharp
+still exposes the raw body even when the typed `Data` is null) and branch on `type == "ambiguous"` →
+`Ambiguous`, everything else → `NotFound`. Do NOT branch on `code` — it is `"not_found"` in both cases.
+This is genuinely new code, not a copy of an existing pattern — flag as a specific planner task.
 **Warning signs:** A CS-25 fixture for "two cards fuzzy-match ambiguously" (if one is chosen — e.g. a name
 overlap edge case) returning `RejectReason.NotFound` instead of `RejectReason.Ambiguous` because the parse
 step was skipped.
-**Confidence:** `[CITED: docs/research/creator-style-llm-system.md:103, citing Scryfall API "verified
-live" [63]]` for the fuzzy-endpoint 200/404 split; `[ASSUMED]` for the exact `code` string values
-(`"ambiguous"`/`"not_found"`) since scryfall.com/docs/api/errors returned HTTP 403 (Cloudflare) to this
-session's direct fetch attempts and could not be independently re-verified live — WebSearch corroborates
-the `code` field's existence and that `"ambiguous"` is a documented value, but the planner should have the
-implementer do one live `curl` against `api.scryfall.com/cards/named?fuzzy=<ambiguous-string>` before
-locking the parse logic, since a 403/Cloudflare block did not occur against `api.scryfall.com` in prior
-project usage (only `scryfall.com/docs/*` was blocked in this session).
+**Confidence:** `[VERIFIED: live curl against api.scryfall.com, 2026-07-18, both error bodies captured
+verbatim above]`. The earlier assumption that `code` distinguishes the cases was WRONG — discriminator is
+the presence of `"type": "ambiguous"`. Planner must encode the `type`-field branch, not a `code` branch.
 
 ### Pitfall 2: Singleton check needs a basic-land exemption list that does not exist in the codebase yet
 **What goes wrong:** D-10 requires basics (including snow-covered) to be exempt from the "already in deck"
@@ -381,9 +391,10 @@ public sealed record ScryfallCard(
 ```
 Scryfall's `legalities` object is keyed by format (`"standard"`, `"commander"`, `"duel"`, `"oathbreaker"`,
 `"brawl"`, `"gladiator"`, ...) with string values `"legal" | "not_legal" | "restricted" | "banned"`.
-`[ASSUMED — training-knowledge shape, not re-verified live this session due to scryfall.com/docs 403;
-cross-check one live `GET https://api.scryfall.com/cards/named?exact=Sol%20Ring` response at
-implementation time to confirm exact key casing before locking the DTO.]`
+`[VERIFIED: live curl `GET api.scryfall.com/cards/named?fuzzy=lightning+bolt` 2026-07-18 — response
+carries `"legalities": {"standard": ..., "future": ..., "historic": ..., "timeless": ..., "gladiator": ...,
+"pioneer": ..., "commander": "legal", ...}` (lowercase format keys, lowercase string values; `commander`
+key present) plus `"color_identity": ["R"]`, `"type_line"`, `"mana_cost"`, `"cmc"`.]`
 
 ### Whitelist pool source — existing store call (D-05)
 ```csharp
