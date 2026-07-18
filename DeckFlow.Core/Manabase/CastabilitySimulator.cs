@@ -1631,15 +1631,16 @@ public static class CastabilitySimulator
             if (!hadByTurn3Holdable && currentTurn <= 3 && byTurn3Colors is not null)
             {
                 BuildOnlineSourceView(landsOnBoard, rampOnBoard, currentTurn, byTurn3Colors);
-                hadByTurn3Holdable = TotalMana(byTurn3Colors) >= effectiveCost
-                    && ColorsCoverable(byTurn3Colors, pipReq, effectiveCost);
+                hadByTurn3Holdable = ColorsCoverable(byTurn3Colors, pipReq, effectiveCost);
             }
 
+            // Early-cast observation (commander rows): before the on-curve turn, note the first turn the
+            // board could already pay for the spell (ColorsCoverable includes the total-mana gate). Pure
+            // read on the availableColors scratch — every consumer rebuilds it before use.
             if (trackEarlyCast && firstEarlyCastableTurn == 0 && currentTurn < turn)
             {
                 BuildOnlineSourceView(landsOnBoard, rampOnBoard, currentTurn, availableColors);
-                if (TotalMana(availableColors) >= effectiveCost
-                    && ColorsCoverable(availableColors, pipReq, effectiveCost))
+                if (ColorsCoverable(availableColors, pipReq, effectiveCost))
                 {
                     firstEarlyCastableTurn = currentTurn;
                 }
