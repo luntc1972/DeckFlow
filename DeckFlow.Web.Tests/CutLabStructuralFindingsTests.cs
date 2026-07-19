@@ -51,6 +51,28 @@ public sealed class CutLabStructuralFindingsTests
     }
 
     [Fact]
+    public void Compute_CurveCongestion_WeightsQuantitiesForBucketCountAndShare()
+    {
+        List<CutLabAnalyzedCard> pool = [];
+        pool.AddRange(Enumerable.Range(1, 4).Select(index => Card($"Three Drop {index}", 3, false, quantity: 3)));
+        pool.AddRange(Enumerable.Range(1, 11).Select(index => Card($"Two Drop {index}", 2, false)));
+        pool.AddRange(Enumerable.Range(1, 9).Select(index => Card($"Four Drop {index}", 4, false)));
+        pool.AddRange(Enumerable.Range(1, 8).Select(index => Card($"Five Drop {index}", 5, false)));
+
+        CutLabStructuralFindingsResult result = CutLabStructuralFindings.Compute(
+            pool,
+            Array.Empty<SpellbookAlmostCombo>(),
+            Floors(),
+            comboDataAvailable: true,
+            categoryDataAvailable: true);
+
+        CutLabFinding finding = Assert.Single(result.Findings);
+        Assert.Equal(CutLabFindingKind.CurveCongestion, finding.Kind);
+        Assert.Equal("12 nonland cards sit at mana value 3 — 30% of your nonland pool.", finding.Lead);
+        Assert.Equal(["Three Drop 1", "Three Drop 2", "Three Drop 3", "Three Drop 4"], finding.Evidence.Select(e => e.CardName));
+    }
+
+    [Fact]
     public void Compute_StrandedSubtheme_UsesSharedClassifierVocabularyExclusion()
     {
         IReadOnlyList<CutLabAnalyzedCard> pool =
@@ -264,6 +286,7 @@ public sealed class CutLabStructuralFindingsTests
         string name,
         double manaValue,
         bool isLand,
+        int quantity = 1,
         IReadOnlyList<string>? roles = null,
         IReadOnlyList<string>? categories = null)
         => new(
@@ -271,7 +294,10 @@ public sealed class CutLabStructuralFindingsTests
             manaValue,
             isLand,
             roles ?? Array.Empty<string>(),
-            categories ?? Array.Empty<string>());
+            categories ?? Array.Empty<string>())
+        {
+            Quantity = quantity,
+        };
 
     private static IReadOnlyDictionary<string, int> Floors(params (string Role, int Count)[] overrides)
     {
