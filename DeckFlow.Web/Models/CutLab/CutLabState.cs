@@ -15,6 +15,12 @@ public sealed record CutLabState
     /// <summary>Named packages that can lock or unlock their assigned member cards as a unit.</summary>
     public IReadOnlyList<CutLabPackage> Packages { get; init; } = [];
 
+    /// <summary>
+    /// User-adjusted role floors plus their user-set flags. Derived defaults are recomputed per POST,
+    /// never persisted, and the empty initializer keeps pre-102 JSON blobs deserializing cleanly.
+    /// </summary>
+    public IReadOnlyList<CutLabRoleFloor> RoleFloors { get; init; } = [];
+
     /// <summary>Declared target intent for the finished 100-card deck.</summary>
     public CutLabIntent Intent { get; init; } = new();
 }
@@ -52,6 +58,19 @@ public sealed record CutLabPackage
 
     /// <summary>True when the package is currently locked as a unit.</summary>
     public bool Locked { get; init; }
+}
+
+/// <summary>Serializable user floor override for one stable Cut Lab role key.</summary>
+public sealed record CutLabRoleFloor
+{
+    /// <summary>Stable serialized role key: lands, ramp, draw, interaction, protection, engines, payoffs, or wincons.</summary>
+    public string Role { get; init; } = string.Empty;
+
+    /// <summary>Minimum allowed count for the role in the finished deck.</summary>
+    public int Floor { get; init; }
+
+    /// <summary>True when the user explicitly adjusted this floor away from the derived default.</summary>
+    public bool IsUserSet { get; init; }
 }
 
 /// <summary>Serializable declared intent for the finished 100-card deck.</summary>
