@@ -156,7 +156,7 @@ public sealed class CutLabStructuralFindingsTests
     }
 
     [Fact]
-    public void Compute_EnablerStarved_RequiresTwoCardsInDeckAndPluralizesLead()
+    public void Compute_EnablerStarved_UsesInDeckCardsAsPluralSubjectAndMissingCardAsPartner()
     {
         IReadOnlyList<SpellbookAlmostCombo> nearCombos =
         [
@@ -174,7 +174,7 @@ public sealed class CutLabStructuralFindingsTests
         CutLabFinding finding = Assert.Single(result.Findings);
         Assert.Equal(CutLabFindingKind.EnablerStarved, finding.Kind);
         Assert.Equal("Enabler-starved cards", finding.Heading);
-        Assert.Equal("Thassa's Oracle is missing its combo partners: Demonic Consultation, Tainted Pact.", finding.Lead);
+        Assert.Equal("Demonic Consultation and Tainted Pact are missing their combo partner: Thassa's Oracle.", finding.Lead);
     }
 
     [Fact]

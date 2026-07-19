@@ -258,13 +258,12 @@ public static class CutLabStructuralFindings
                 continue;
             }
 
-            string partnerSuffix = combo.CardsInDeck.Count == 1 ? string.Empty : "s";
-            string missing = string.Join(", ", combo.CardsInDeck);
+            string cardsInDeck = JoinCardNames(combo.CardsInDeck);
 
             yield return new CutLabFinding(
                 CutLabFindingKind.EnablerStarved,
                 "Enabler-starved cards",
-                $"{combo.MissingCard} is missing its combo partner{partnerSuffix}: {missing}.",
+                $"{cardsInDeck} are missing their combo partner: {combo.MissingCard}.",
                 combo.CardsInDeck.Select(cardName => new CutLabFindingEvidence(cardName, null)).ToArray());
         }
     }
@@ -274,6 +273,15 @@ public static class CutLabStructuralFindings
 
     private static int FloorFor(IReadOnlyDictionary<string, int> floors, string roleKey)
         => floors.TryGetValue(roleKey, out int floor) ? floor : 0;
+
+    private static string JoinCardNames(IReadOnlyList<string> cardNames)
+        => cardNames.Count switch
+        {
+            0 => string.Empty,
+            1 => cardNames[0],
+            2 => $"{cardNames[0]} and {cardNames[1]}",
+            _ => $"{string.Join(", ", cardNames.Take(cardNames.Count - 1))} and {cardNames[^1]}",
+        };
 
     private static string ManaValueBucket(double manaValue)
     {
