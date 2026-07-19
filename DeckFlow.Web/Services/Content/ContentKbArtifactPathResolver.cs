@@ -116,7 +116,7 @@ public sealed class ContentKbArtifactPathResolver
         // SYNC-07/D-01/D-11: under the flag, git is the ONLY body source - a git-tree miss is a
         // real miss, never masked by the legacy /data-SFTP-first overlay. Flag OFF (default)
         // preserves the byte-identical git-then-overlay fallback below.
-        if (_flagCache.IsEnabled("sync.directpush-gitbody"))
+        if (_flagCache.IsEnabled(ContentKbFeatureFlagKeys.DirectPushGitBody))
         {
             return ContentKbArtifactResolution.MissingFile;
         }

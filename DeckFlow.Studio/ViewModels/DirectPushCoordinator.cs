@@ -41,11 +41,6 @@ public sealed class DirectPushCoordinator
     // (D-09) — keeping it under the flag would permanently strand every row awaiting confirm.
     private const string RenderSkipPhrase = "[skip render]";
 
-    // Why: the web-DB feature flag key (D-04) — the SAME key ContentKbArtifactPathResolver /
-    // ContentKbController read on the web side (90-01). Single source of truth; no duplicate
-    // Studio-local flag.
-    private const string DirectPushGitBodyFlagKey = "sync.directpush-gitbody";
-
     // Why: the fixed subject prefix of every durability commit. Shared by the commit-message template
     // AND the classifier regex so the two can never drift (refuted-but-noted dup from review).
     private const string CommitSubjectPrefix = "content: direct-push";
@@ -628,7 +623,7 @@ public sealed class DirectPushCoordinator
     private Task<bool> ReadDirectPushGitBodyFlagAsync(CancellationToken cancellationToken)
         => _prodReader.ReadFlagAsync(
             _prodConnection.ConnectionString,
-            DirectPushGitBodyFlagKey,
+            ContentKbFeatureFlagKeys.DirectPushGitBody,
             cancellationToken);
 
     // Why (Codex re-review HIGH): the TRI-STATE twin of ReadDirectPushGitBodyFlagAsync used by the
@@ -639,7 +634,7 @@ public sealed class DirectPushCoordinator
     private Task<bool?> TryReadDirectPushGitBodyFlagAsync(CancellationToken cancellationToken)
         => _prodReader.TryReadFlagAsync(
             _prodConnection.ConnectionString,
-            DirectPushGitBodyFlagKey,
+            ContentKbFeatureFlagKeys.DirectPushGitBody,
             cancellationToken);
 
     private async Task PushOrWrapAsync(
