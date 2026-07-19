@@ -64,145 +64,137 @@ public static class ProfileFusionEngine
 
         if (!string.IsNullOrWhiteSpace(rule.Condition))
         {
-            return new FusedTarget
-            {
-                Metric = rule.Metric,
-                Condition = rule.Condition,
-                Value = measured?.Value ?? statedValue,
-                Weight = 1.0,
-                Source = MeasuredSource,
-                StatedMin = statedMin,
-                StatedMax = statedMax,
-                MeasuredValue = measured?.Value,
-                NumDecks = measured?.NumDecks,
-                EffectiveSampleSize = measured?.EffectiveSampleSize,
-                Verdict = "insufficient-measured",
-                VerdictReason = "no-condition-breakdown",
-                SourceClip = rule.SourceClip,
-                VideoDateUtc = rule.VideoDateUtc,
-                Confidence = ToConfidenceBand(rule.Confidence),
-                Conflict = null,
-            };
+            return CreateFusedTarget(
+                rule,
+                value: measured?.Value ?? statedValue,
+                source: MeasuredSource,
+                statedMin: statedMin,
+                statedMax: statedMax,
+                measuredValue: measured?.Value,
+                numDecks: measured?.NumDecks,
+                effectiveSampleSize: measured?.EffectiveSampleSize,
+                verdict: "insufficient-measured",
+                verdictReason: "no-condition-breakdown",
+                conflict: null);
         }
 
         if (measured is null)
         {
-            return new FusedTarget
-            {
-                Metric = rule.Metric,
-                Condition = rule.Condition,
-                Value = statedValue,
-                Weight = 1.0,
-                Source = MeasuredSource,
-                StatedMin = statedMin,
-                StatedMax = statedMax,
-                MeasuredValue = null,
-                NumDecks = null,
-                EffectiveSampleSize = null,
-                Verdict = "insufficient-measured",
-                VerdictReason = null,
-                SourceClip = rule.SourceClip,
-                VideoDateUtc = rule.VideoDateUtc,
-                Confidence = ToConfidenceBand(rule.Confidence),
-                Conflict = null,
-            };
+            return CreateFusedTarget(
+                rule,
+                value: statedValue,
+                source: MeasuredSource,
+                statedMin: statedMin,
+                statedMax: statedMax,
+                measuredValue: null,
+                numDecks: null,
+                effectiveSampleSize: null,
+                verdict: "insufficient-measured",
+                verdictReason: null,
+                conflict: null);
         }
 
         MeasuredResolution matched = measured.Value;
 
         if (!IsSupportedComparator(rule.Comparator))
         {
-            return new FusedTarget
-            {
-                Metric = rule.Metric,
-                Condition = rule.Condition,
-                Value = matched.Value,
-                Weight = 1.0,
-                Source = MeasuredSource,
-                StatedMin = statedMin,
-                StatedMax = statedMax,
-                MeasuredValue = matched.Value,
-                NumDecks = matched.NumDecks,
-                EffectiveSampleSize = matched.EffectiveSampleSize,
-                Verdict = "insufficient-measured",
-                VerdictReason = null,
-                SourceClip = rule.SourceClip,
-                VideoDateUtc = rule.VideoDateUtc,
-                Confidence = ToConfidenceBand(rule.Confidence),
-                Conflict = null,
-            };
+            return CreateFusedTarget(
+                rule,
+                value: matched.Value,
+                source: MeasuredSource,
+                statedMin: statedMin,
+                statedMax: statedMax,
+                measuredValue: matched.Value,
+                numDecks: matched.NumDecks,
+                effectiveSampleSize: matched.EffectiveSampleSize,
+                verdict: "insufficient-measured",
+                verdictReason: null,
+                conflict: null);
         }
 
         ConflictCalculationResult conflict = ConflictCalculator.Evaluate(rule, matched.Value, matched.EffectiveSampleSize);
 
-        return new FusedTarget
-        {
-            Metric = rule.Metric,
-            Condition = rule.Condition,
-            Value = matched.Value,
-            Weight = 1.0,
-            Source = MeasuredSource,
-            StatedMin = statedMin,
-            StatedMax = statedMax,
-            MeasuredValue = matched.Value,
-            NumDecks = matched.NumDecks,
-            EffectiveSampleSize = matched.EffectiveSampleSize,
-            Verdict = conflict.Verdict,
-            VerdictReason = conflict.VerdictReason,
-            SourceClip = rule.SourceClip,
-            VideoDateUtc = rule.VideoDateUtc,
-            Confidence = ToConfidenceBand(rule.Confidence),
-            Conflict = conflict.Conflict,
-        };
+        return CreateFusedTarget(
+            rule,
+            value: matched.Value,
+            source: MeasuredSource,
+            statedMin: statedMin,
+            statedMax: statedMax,
+            measuredValue: matched.Value,
+            numDecks: matched.NumDecks,
+            effectiveSampleSize: matched.EffectiveSampleSize,
+            verdict: conflict.Verdict,
+            verdictReason: conflict.VerdictReason,
+            conflict: conflict.Conflict);
     }
 
     private static FusedTarget CreateStatedTarget(StatedRuleCandidate rule, string verdict, string source)
     {
         (double? statedMin, double? statedMax) = GetStatedBand(rule);
 
-        return new FusedTarget
-        {
-            Metric = rule.Metric,
-            Condition = rule.Condition,
-            Value = GetRepresentativeStatedValue(rule),
-            Weight = 1.0,
-            Source = source,
-            StatedMin = statedMin,
-            StatedMax = statedMax,
-            MeasuredValue = null,
-            NumDecks = null,
-            EffectiveSampleSize = null,
-            Verdict = verdict,
-            VerdictReason = null,
-            SourceClip = rule.SourceClip,
-            VideoDateUtc = rule.VideoDateUtc,
-            Confidence = ToConfidenceBand(rule.Confidence),
-            Conflict = null,
-        };
+        return CreateFusedTarget(
+            rule,
+            value: GetRepresentativeStatedValue(rule),
+            source: source,
+            statedMin: statedMin,
+            statedMax: statedMax,
+            measuredValue: null,
+            numDecks: null,
+            effectiveSampleSize: null,
+            verdict: verdict,
+            verdictReason: null,
+            conflict: null);
     }
 
     private static FusedTarget CreateSupersededHistory(StatedRuleCandidate rule)
     {
         (double? statedMin, double? statedMax) = GetStatedBand(rule);
 
+        return CreateFusedTarget(
+            rule,
+            value: GetRepresentativeStatedValue(rule),
+            source: SupersededSource,
+            statedMin: statedMin,
+            statedMax: statedMax,
+            measuredValue: null,
+            numDecks: null,
+            effectiveSampleSize: null,
+            verdict: "superseded",
+            verdictReason: null,
+            conflict: null);
+    }
+
+    private static FusedTarget CreateFusedTarget(
+        StatedRuleCandidate rule,
+        double value,
+        string source,
+        double? statedMin,
+        double? statedMax,
+        double? measuredValue,
+        int? numDecks,
+        double? effectiveSampleSize,
+        string verdict,
+        string? verdictReason,
+        FusedConflict? conflict)
+    {
         return new FusedTarget
         {
             Metric = rule.Metric,
             Condition = rule.Condition,
-            Value = GetRepresentativeStatedValue(rule),
+            Value = value,
             Weight = 1.0,
-            Source = SupersededSource,
+            Source = source,
             StatedMin = statedMin,
             StatedMax = statedMax,
-            MeasuredValue = null,
-            NumDecks = null,
-            EffectiveSampleSize = null,
-            Verdict = "superseded",
-            VerdictReason = null,
+            MeasuredValue = measuredValue,
+            NumDecks = numDecks,
+            EffectiveSampleSize = effectiveSampleSize,
+            Verdict = verdict,
+            VerdictReason = verdictReason,
             SourceClip = rule.SourceClip,
             VideoDateUtc = rule.VideoDateUtc,
             Confidence = ToConfidenceBand(rule.Confidence),
-            Conflict = null,
+            Conflict = conflict,
         };
     }
 

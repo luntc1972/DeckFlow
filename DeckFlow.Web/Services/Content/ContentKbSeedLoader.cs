@@ -9,12 +9,6 @@ namespace DeckFlow.Web.Services;
 /// </summary>
 public sealed class ContentKbSeedLoader : IContentKbSeedLoader
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-    };
-
     private readonly ContentKbArtifactPathResolver _resolver;
     private readonly IContentSiteIndexStore _store;
     private readonly ILogger<ContentKbSeedLoader> _logger;
@@ -51,7 +45,7 @@ public sealed class ContentKbSeedLoader : IContentKbSeedLoader
 
         await using var stream = File.OpenRead(seedFilePath);
         var entries = await JsonSerializer
-            .DeserializeAsync<ContentKbSeedEntry[]>(stream, JsonOptions, cancellationToken)
+            .DeserializeAsync<ContentKbSeedEntry[]>(stream, SeedJson.Options, cancellationToken)
             .ConfigureAwait(false)
             ?? Array.Empty<ContentKbSeedEntry>();
 

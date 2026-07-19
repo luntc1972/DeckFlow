@@ -128,6 +128,29 @@ public sealed class CreatorWhitelistPoolBuilderTests
     }
 
     [Fact]
+    public async Task BuildAsync_BlankNormalizedName_UsesCanonicalCardNormalizerFallback()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var store = new FakeCreatorDeckCacheStore(
+            Deck("normalized", "deck-1",
+                new DeckEntry
+                {
+                    Name = "Mystic Remora ★",
+                    NormalizedName = string.Empty,
+                    Quantity = 1,
+                    Board = "mainboard",
+                }),
+            Deck("normalized", "deck-2", Mainboard("Mystic Remora")));
+        var guard = new FakeCardGroundingGuard();
+        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache);
+
+        IReadOnlyList<string> whitelist = (await sut.BuildWithDiagnosticsAsync("normalized", EmptyDeckContext())).AcceptedNames;
+
+        Assert.Equal(["Mystic Remora"], whitelist);
+        Assert.Equal(["Mystic Remora"], Assert.Single(guard.ValidatedBatches));
+    }
+
+    [Fact]
     public void ServiceCollection_ValidateOnBuild_ResolvesCreatorWhitelistPoolBuilder()
     {
         var tempDirectory = Path.Combine(Path.GetTempPath(), "deckflow-98-03-di", Guid.NewGuid().ToString("N"));

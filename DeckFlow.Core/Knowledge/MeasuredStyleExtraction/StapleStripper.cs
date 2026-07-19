@@ -7,7 +7,7 @@ namespace DeckFlow.Core.Knowledge.MeasuredStyleExtraction;
 /// </summary>
 public static class StapleStripper
 {
-    private const int MaxDeckSize = 105;
+    internal const int MaxDeckSize = 105;
     private const double NearPreconJaccardThreshold = 0.70; // Why: CONTEXT D-03 / RESEARCH Pitfall 5 left the near-precon cut to Claude's discretion, so this plan documents a conservative >0.70 overlap rule instead of pretending the number was locked.
 
     /// <summary>

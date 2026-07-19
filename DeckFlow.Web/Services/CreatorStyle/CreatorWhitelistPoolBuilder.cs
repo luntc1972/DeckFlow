@@ -1,5 +1,6 @@
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge.CardGrounding;
+using DeckFlow.Core.Normalization;
 using DeckFlow.Core.Models;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -30,7 +31,7 @@ public sealed class CreatorWhitelistPoolBuilder
 {
     private const string CacheKeyPrefix = "creator-whitelist-pool:";
     private static readonly TimeSpan RawPoolCacheTtl = TimeSpan.FromHours(1);
-    private const int WhitelistCap = 25; // Why: matches the existing MaxLiftMetrics prompt-embed cap and stays adjustable once Phase 99 token budget is measured.
+    private const int WhitelistCap = 25; // Why: 25 keeps the whitelist materially useful while bounding grounding latency and packet size even when lift-metric count changes independently.
 
     private readonly ICreatorDeckCacheStore _creatorDeckCacheStore;
     private readonly ICardGroundingGuard _cardGroundingGuard;
@@ -168,7 +169,7 @@ public sealed class CreatorWhitelistPoolBuilder
             }
 
             var normalizedName = string.IsNullOrWhiteSpace(entry.NormalizedName)
-                ? entry.Name.Trim().ToLowerInvariant()
+                ? CardNormalizer.Normalize(entry.Name)
                 : entry.NormalizedName.Trim();
             if (string.IsNullOrWhiteSpace(normalizedName))
             {

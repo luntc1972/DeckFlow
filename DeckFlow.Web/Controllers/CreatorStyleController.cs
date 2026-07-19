@@ -47,7 +47,7 @@ public sealed class CreatorStyleController : DeckToolControllerBase
     /// Renders the creator-style form or the empty-store info state.
     /// </summary>
     [HttpGet("/creator-style")]
-    [FeatureFlagGate("tool.creator-style.enabled")]
+    [FeatureFlagGate(CreatorStylePacketService.CreatorStyleToolEnabledFlag)]
     public async Task<IActionResult> CreatorStyle()
     {
         var options = await BuildPickerOptionsAsync(HttpContext.RequestAborted);
@@ -64,7 +64,7 @@ public sealed class CreatorStyleController : DeckToolControllerBase
     /// <param name="request">The form-bound creator-style request.</param>
     [HttpPost("/creator-style")]
     [ValidateAntiForgeryToken]
-    [FeatureFlagGate("tool.creator-style.enabled")]
+    [FeatureFlagGate(CreatorStylePacketService.CreatorStyleToolEnabledFlag)]
     public async Task<IActionResult> CreatorStyle(CreatorStyleRequest request)
     {
         request ??= new CreatorStyleRequest();
@@ -99,13 +99,17 @@ public sealed class CreatorStyleController : DeckToolControllerBase
 
     private async Task<IReadOnlyList<CreatorStyleViewModel.CreatorPickerOption>> BuildPickerOptionsAsync(CancellationToken cancellationToken)
     {
-        var summaries = await _profileStore.GetAllAsync(cancellationToken);
+        Task<IReadOnlyList<CreatorStyleProfileSummary>> summariesTask = _profileStore.GetAllAsync(cancellationToken);
+        Task<IReadOnlyList<ContentSiteIndexRow>> publishedRowsTask = _siteIndexStore.GetPublishedRowsAsync(cancellationToken);
+        await Task.WhenAll(summariesTask, publishedRowsTask);
+
+        var summaries = await summariesTask;
         if (summaries.Count == 0)
         {
             return Array.Empty<CreatorStyleViewModel.CreatorPickerOption>();
         }
 
-        var publishedRows = await _siteIndexStore.GetPublishedRowsAsync(cancellationToken);
+        var publishedRows = await publishedRowsTask;
         var videoCountsBySlug = publishedRows
             .GroupBy(row => SlugifySourceName.Slugify(row.Source), StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
@@ -141,6 +145,15 @@ public sealed class CreatorStyleController : DeckToolControllerBase
         Func<CancellationToken, Task<IActionResult>> body)
     {
         using var timeoutScope = CreateTimeoutScope(LookupTimeout);
+        async Task<IActionResult> ErrorViewAsync(string message)
+        {
+            return View("CreatorStyle", new CreatorStyleViewModel
+            {
+                Request = request,
+                AvailableCreators = await BuildPickerOptionsAsync(CancellationToken.None),
+                ErrorMessage = message,
+            });
+        }
 
         try
         {
@@ -149,42 +162,22 @@ public sealed class CreatorStyleController : DeckToolControllerBase
         catch (OperationCanceledException) when (timeoutScope.IsCancellationRequested)
         {
             _logger.LogInformation("Creator-style {Operation} timed out.", operation);
-            return View("CreatorStyle", new CreatorStyleViewModel
-            {
-                Request = request,
-                AvailableCreators = await BuildPickerOptionsAsync(CancellationToken.None),
-                ErrorMessage = "The deck took too long to load. Try again in a moment.",
-            });
+            return await ErrorViewAsync("The deck took too long to load. Try again in a moment.");
         }
         catch (InvalidOperationException exception)
         {
             _logger.LogInformation(exception, "Creator-style {Operation} failed validation.", operation);
-            return View("CreatorStyle", new CreatorStyleViewModel
-            {
-                Request = request,
-                AvailableCreators = await BuildPickerOptionsAsync(CancellationToken.None),
-                ErrorMessage = exception.Message,
-            });
+            return await ErrorViewAsync(exception.Message);
         }
         catch (HttpRequestException exception)
         {
             _logger.LogWarning(exception, "Creator-style {Operation} hit an upstream dependency.", operation);
-            return View("CreatorStyle", new CreatorStyleViewModel
-            {
-                Request = request,
-                AvailableCreators = await BuildPickerOptionsAsync(CancellationToken.None),
-                ErrorMessage = UpstreamErrorMessageBuilder.BuildScryfallMessage(exception),
-            });
+            return await ErrorViewAsync(UpstreamErrorMessageBuilder.BuildScryfallMessage(exception));
         }
         catch (Exception exception)
         {
             _logger.LogError(exception, "Creator-style {Operation} failed unexpectedly.", operation);
-            return View("CreatorStyle", new CreatorStyleViewModel
-            {
-                Request = request,
-                AvailableCreators = await BuildPickerOptionsAsync(CancellationToken.None),
-                ErrorMessage = unexpectedMessage,
-            });
+            return await ErrorViewAsync(unexpectedMessage);
         }
     }
 }
