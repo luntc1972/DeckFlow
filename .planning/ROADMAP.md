@@ -41,7 +41,7 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
 - [ ] **Phase 95: Measured-Style Extractor** - Compute a creator's measured style from their own Archidekt decks (staple-stripped, lift-weighted, folder-segmented); substrate only.
 - [x] **Phase 96: Stated-Rules Distiller** - Transcripts to structured, clip-tied stated rules; substrate only.
 - [ ] **Phase 97: Profile Fusion + Conflict Ledger** - Reconcile stated vs measured into weighted numeric targets + say-vs-do ledger; admin-visible, no public UI.
-- [ ] **Phase 98: Card-Grounding Guard** - Reusable Scryfall validator + constrained-selection whitelist so no hallucinated/illegal card ever ships; cross-cutting substrate.
+- [x] **Phase 98: Card-Grounding Guard** - Reusable Scryfall validator + constrained-selection whitelist so no hallucinated/illegal card ever ships; cross-cutting substrate.
 - [ ] **Phase 99: Creator-Style Artifact Engine** - Deterministic C# rubric diffing a submitted deck vs fused targets + assembled artifact content; no LLM call, no page yet.
 - [ ] **Phase 100: Creator-Style Tool Surface** - The $0 paste-ready tool page/controller, flag `creator.style-artifact` (OFF), full web bundle. **Only phase that ships user-visible value.**
 
@@ -155,10 +155,10 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
   3. Singleton-legality, color-identity, and castability checks reject any suggestion that fails them.
   4. The guard is one reusable, cached service (not duplicated per caller), consumed by Phase 99, with tests including known-hallucination fixtures that previously would have shipped a fake or illegal card.
 **Plans**: 4 plans
-- [ ] 98-01-PLAN.md — Core contracts + pure legality/identity/singleton/castability rules (CS-23)
-- [ ] 98-02-PLAN.md — Strict CardGroundingGuard + Legalities/ScryfallErrorResponse DTOs + DI (CS-21, CS-24)
-- [ ] 98-03-PLAN.md — CreatorWhitelistPoolBuilder: corpus-only, frequency-ranked, guard-validated (CS-22)
-- [ ] 98-04-PLAN.md — Known-hallucination fixture regression suite (CS-25)
+- [x] 98-01-PLAN.md — Core contracts + pure legality/identity/singleton/castability rules (CS-23)
+- [x] 98-02-PLAN.md — Strict CardGroundingGuard + Legalities/ScryfallErrorResponse DTOs + DI (CS-21, CS-24)
+- [x] 98-03-PLAN.md — CreatorWhitelistPoolBuilder: corpus-only, frequency-ranked, guard-validated (CS-22)
+- [x] 98-04-PLAN.md — Known-hallucination fixture regression suite (CS-25)
 
 ### Phase 99: Creator-Style Artifact Engine
 **Goal**: A deterministic C# rubric that scores a submitted deck against a creator's fused profile and assembles the artifact content to inject — no LLM call, no user-facing page yet. This is the "engine" half of the Codex-mandated 2-phase split of the prompt-artifact deliverable.
