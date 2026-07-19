@@ -1,0 +1,71 @@
+namespace DeckFlow.Web.Models.CutLab;
+
+/// <summary>
+/// Serializable working-session envelope for an imported Cut Lab pool, its package/lock state,
+/// and the declared deck intent that travels with the session.
+/// </summary>
+public sealed record CutLabState
+{
+    /// <summary>Resolved commander name for the working session, or empty when unknown.</summary>
+    public string Commander { get; init; } = string.Empty;
+
+    /// <summary>Imported pool cards, including commander identity and lock/package assignment state.</summary>
+    public IReadOnlyList<CutLabPoolCard> Pool { get; init; } = [];
+
+    /// <summary>Named packages that can lock or unlock their assigned member cards as a unit.</summary>
+    public IReadOnlyList<CutLabPackage> Packages { get; init; } = [];
+
+    /// <summary>Declared target intent for the finished 100-card deck.</summary>
+    public CutLabIntent Intent { get; init; } = new();
+}
+
+/// <summary>Serializable pool card entry tracked in the Cut Lab working session.</summary>
+public sealed record CutLabPoolCard
+{
+    /// <summary>Display card name.</summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>Quantity of this card in the imported pool.</summary>
+    public int Quantity { get; init; }
+
+    /// <summary>Resolved type line used for bulk role-group lock rules.</summary>
+    public string TypeLine { get; init; } = string.Empty;
+
+    /// <summary>True when this card is the resolved commander for the imported pool.</summary>
+    public bool IsCommander { get; init; }
+
+    /// <summary>True when this card is protected from future cuts.</summary>
+    public bool IsLocked { get; init; }
+
+    /// <summary>Optional package identifier grouping this card with other protected cards.</summary>
+    public string? PackageId { get; init; }
+}
+
+/// <summary>Serializable named package that can lock or unlock its assigned member cards together.</summary>
+public sealed record CutLabPackage
+{
+    /// <summary>Stable package identifier referenced by assigned pool cards.</summary>
+    public string Id { get; init; } = string.Empty;
+
+    /// <summary>User-facing package name.</summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>True when the package is currently locked as a unit.</summary>
+    public bool Locked { get; init; }
+}
+
+/// <summary>Serializable declared intent for the finished 100-card deck.</summary>
+public sealed record CutLabIntent
+{
+    /// <summary>Required primary plan for the intended finished deck.</summary>
+    public string PrimaryPlan { get; init; } = string.Empty;
+
+    /// <summary>Optional secondary plan supporting the primary plan.</summary>
+    public string? SecondaryPlan { get; init; }
+
+    /// <summary>Optional target Commander bracket for the finished deck.</summary>
+    public int? Bracket { get; init; }
+
+    /// <summary>Desired play experience for the finished deck.</summary>
+    public string PlayExperience { get; init; } = string.Empty;
+}
