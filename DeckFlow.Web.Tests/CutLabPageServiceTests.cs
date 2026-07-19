@@ -168,6 +168,40 @@ public sealed class CutLabPageServiceTests
         Assert.DoesNotContain(result.State!.Pool, card => card.IsCommander);
     }
 
+    [Fact]
+    public async Task ProcessAsync_NonEmptyPoolWithoutResolvedCommander_ReturnsFallbackSelectionRequired()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Forest", "mainboard") with { Quantity = 10 },
+            Entry("Atraxa, Praetors' Voice", "mainboard"),
+        };
+        entries.AddRange(BuildBasicMainboard(start: 1, count: 100));
+        var cards = new List<ScryfallCard>
+        {
+            Spell("Forest", "Basic Land — Forest"),
+            Spell("Atraxa, Praetors' Voice", "Legendary Creature — Phyrexian Angel Horror"),
+        };
+        cards.AddRange(BuildBasicResolvedCards(start: 1, count: 100));
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.Null(result.ErrorMessage);
+        Assert.True(result.HasResult);
+        Assert.True(result.CommanderSelectionRequired);
+        Assert.NotEmpty(result.CommanderChoices);
+        Assert.Contains("Atraxa, Praetors' Voice", result.CommanderChoices);
+    }
+
     [Theory]
     [InlineData(100, "This pool already has 100 cards or fewer — Cut Lab is for trimming an oversized pool down to 100. Try Deck Sync or Deck Analysis instead.")]
     [InlineData(151, "This pool has too many cards for Cut Lab (limit 150 plus commander). Trim it closer to 150 before importing.")]
@@ -230,6 +264,42 @@ public sealed class CutLabPageServiceTests
         Assert.Null(result.ErrorMessage);
         Assert.Equal(150, result.CardCount);
         Assert.True(result.HasResult);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_SelectedCommanderFromMainboard_IsExcludedFromPoolCountAndLocked()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Forest", "mainboard") with { Quantity = 2 },
+            Entry("Atraxa, Praetors' Voice", "mainboard"),
+        };
+        entries.AddRange(BuildBasicMainboard(start: 1, count: 148));
+        var cards = new List<ScryfallCard>
+        {
+            Spell("Forest", "Basic Land — Forest"),
+            Spell("Atraxa, Praetors' Voice", "Legendary Creature — Phyrexian Angel Horror"),
+        };
+        cards.AddRange(BuildBasicResolvedCards(start: 1, count: 148));
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            SelectedCommander = "Atraxa, Praetors' Voice",
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.Null(result.ErrorMessage);
+        Assert.True(result.HasResult);
+        Assert.Equal(150, result.CardCount);
+        var commander = Assert.Single(result.State!.Pool, card => card.IsCommander);
+        Assert.Equal("Atraxa, Praetors' Voice", commander.Name);
+        Assert.True(commander.IsLocked);
     }
 
     private static List<DeckEntry> BuildPoolEntries(int nonCommanderCount, string commanderName)
