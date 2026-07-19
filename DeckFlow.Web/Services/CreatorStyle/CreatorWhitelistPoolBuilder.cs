@@ -61,19 +61,6 @@ public sealed class CreatorWhitelistPoolBuilder
     }
 
     /// <summary>
-    /// Builds a guard-validated creator whitelist for the supplied creator slug and deck context.
-    /// </summary>
-    /// <param name="creatorSlug">Creator slug.</param>
-    /// <param name="deckContext">Deck-context inputs used by the guard.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Accepted canonical card names in ranked order.</returns>
-    public async Task<IReadOnlyList<string>> BuildAsync(
-        string creatorSlug,
-        CardGroundingDeckContext deckContext,
-        CancellationToken cancellationToken = default)
-        => (await BuildWithDiagnosticsAsync(creatorSlug, deckContext, cancellationToken).ConfigureAwait(false)).AcceptedNames;
-
-    /// <summary>
     /// Builds a guard-validated creator whitelist and returns the upstream-failure diagnostic from the validation batch.
     /// </summary>
     /// <param name="creatorSlug">Creator slug.</param>

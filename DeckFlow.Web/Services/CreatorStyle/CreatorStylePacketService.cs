@@ -6,6 +6,7 @@ using DeckFlow.Core.Models;
 using DeckFlow.Web.Models;
 using System.Globalization;
 using System.Text;
+using DeckFlow.Web.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -100,13 +101,13 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
 {
     private const int MaxUserTextLength = 200;
     private const string CritiqueInstruction = "Critique this deck ONLY using the cards provided above. Do not invent, suggest, or reference any card that is not listed here.";
+    private const string SupersededVerdict = "superseded";
 
     private readonly ICreatorStyleProfileStore? _creatorStyleProfileStore;
     private readonly ISubmittedDeckStatsBuilder? _submittedDeckStatsBuilder;
     private readonly CreatorWhitelistPoolBuilder? _creatorWhitelistPoolBuilder;
     private readonly ICardGroundingGuard? _cardGroundingGuard;
     private readonly ICreatorDeckCacheStore? _creatorDeckCacheStore;
-    private readonly ICommanderSpellbookService? _commanderSpellbookService;
     private readonly ILogger<CreatorStylePacketService> _logger;
     private readonly Func<string, CancellationToken, Task<CreatorStyleProfile?>>? _getProfileAsyncOverride;
     private readonly Func<string, CancellationToken, Task<SubmittedDeckAnalysis>>? _buildSubmittedDeckAsyncOverride;
@@ -124,7 +125,6 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         CreatorWhitelistPoolBuilder creatorWhitelistPoolBuilder,
         ICardGroundingGuard cardGroundingGuard,
         ICreatorDeckCacheStore creatorDeckCacheStore,
-        ICommanderSpellbookService commanderSpellbookService,
         ILogger<CreatorStylePacketService>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(creatorStyleProfileStore);
@@ -132,15 +132,12 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         ArgumentNullException.ThrowIfNull(creatorWhitelistPoolBuilder);
         ArgumentNullException.ThrowIfNull(cardGroundingGuard);
         ArgumentNullException.ThrowIfNull(creatorDeckCacheStore);
-        ArgumentNullException.ThrowIfNull(commanderSpellbookService);
 
         _creatorStyleProfileStore = creatorStyleProfileStore;
         _submittedDeckStatsBuilder = submittedDeckStatsBuilder;
         _creatorWhitelistPoolBuilder = creatorWhitelistPoolBuilder;
         _cardGroundingGuard = cardGroundingGuard;
         _creatorDeckCacheStore = creatorDeckCacheStore;
-        // Why: this dependency is retained for DI-registration stability; combo cards are now precomputed in SubmittedDeckAnalysis.
-        _commanderSpellbookService = commanderSpellbookService;
         _logger = logger ?? NullLogger<CreatorStylePacketService>.Instance;
     }
 
@@ -178,16 +175,17 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
             return CreateUnavailableResult("The creator style profile sample is insufficient for artifact generation.");
         }
 
+        Task<IReadOnlyList<CreatorDeckCacheEntry>> creatorDecksTask = GetCreatorDecksAsync(request.CreatorSlug, cancellationToken);
         SubmittedDeckAnalysis analysis = await BuildSubmittedDeckAsync(request.DeckSource, cancellationToken).ConfigureAwait(false);
         IReadOnlyList<FusedTarget> scoreableTargets = profile.FusedTargets
-            .Where(static target => !string.Equals(target.Verdict, "superseded", StringComparison.OrdinalIgnoreCase))
+            .Where(static target => !IsSuperseded(target))
             .Where(static target => string.IsNullOrWhiteSpace(target.Condition))
             .ToArray();
         RubricScoreResult rubricScores = _scoreRubricOverride is not null
             ? _scoreRubricOverride(request.CreatorSlug, scoreableTargets, analysis.Stats)
             : CreatorStyleRubricScorer.Score(request.CreatorSlug, scoreableTargets, analysis.Stats);
 
-        IReadOnlyList<CreatorDeckCacheEntry> creatorDecks = await GetCreatorDecksAsync(request.CreatorSlug, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<CreatorDeckCacheEntry> creatorDecks = await creatorDecksTask.ConfigureAwait(false);
         IReadOnlyList<CreatorDeckCacheEntry> selectedExemplars = CreatorDeckExemplarSelector.SelectExemplars(creatorDecks, analysis.Stats.DeckSize);
 
         CreatorWhitelistPoolBuildResult whitelist = await BuildWhitelistAsync(
@@ -230,8 +228,8 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
             .ToArray();
 
         IReadOnlyList<string> validatedComboCards = comboCandidates
-            .Where(cardName => acceptedByOriginal.ContainsKey(cardName))
-            .Select(cardName => acceptedByOriginal[cardName])
+            .Select(cardName => ResolveAcceptedCardName(cardName, whitelistSet, acceptedByOriginal))
+            .OfType<string>()
             .Distinct(StringComparer.Ordinal)
             .ToArray();
 
@@ -329,6 +327,9 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
             : null;
     }
 
+    private static bool IsSuperseded(FusedTarget target)
+        => string.Equals(target.Verdict, SupersededVerdict, StringComparison.OrdinalIgnoreCase);
+
     private static string BuildArtifactText(
         CreatorStyleRequest request,
         CreatorStyleProfile profile,
@@ -354,11 +355,12 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         sb.AppendLine(sanitizedCreatorSlug);
         foreach (FusedTarget target in profile.FusedTargets)
         {
-            if (string.Equals(target.Verdict, "superseded", StringComparison.OrdinalIgnoreCase))
+            if (IsSuperseded(target))
             {
                 continue;
             }
 
+            // Why: conditional targets are rendered (labeled) but intentionally excluded from scoring — the scorer cannot evaluate conditions.
             sb.Append("- Metric: ");
             sb.Append(target.Metric);
             sb.Append("; Value: ");
@@ -454,8 +456,8 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
 
     private static string SanitizeUserText(string? value, string fallback)
     {
-        string candidate = string.IsNullOrWhiteSpace(value) ? fallback : value;
-        string singleLine = CollapseWhitespace(candidate.Replace('\r', '\n')).Trim();
+        // Why: folder and card names in the artifact are guard/whitelist-grounded; only the raw request slug is untrusted free text, hence the single sanitize site.
+        string singleLine = JsonTextFormatterService.NormalizeSingleLine(value, fallback).Trim();
         if (singleLine.Length == 0)
         {
             return fallback;
@@ -465,10 +467,6 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
             ? singleLine
             : singleLine[..MaxUserTextLength];
     }
-
-    private static string CollapseWhitespace(string value)
-        => string.Join(" ", value
-            .Split(['\n', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
     private async Task<CreatorStyleProfile?> GetProfileAsync(string creatorSlug, CancellationToken cancellationToken)
     {

@@ -26,7 +26,7 @@ public sealed class CreatorWhitelistPoolBuilderTests
         var guard = new FakeCardGroundingGuard();
         var sut = new CreatorWhitelistPoolBuilder(store, guard, cache);
 
-        IReadOnlyList<string> whitelist = await sut.BuildAsync("ranker", EmptyDeckContext());
+        IReadOnlyList<string> whitelist = (await sut.BuildWithDiagnosticsAsync("ranker", EmptyDeckContext())).AcceptedNames;
 
         Assert.Equal(
             ["Arcane Signet", "Boros Signet", "Lightning Greaves", "Swords to Plowshares"],
@@ -47,7 +47,7 @@ public sealed class CreatorWhitelistPoolBuilderTests
         var guard = new FakeCardGroundingGuard();
         var sut = new CreatorWhitelistPoolBuilder(store, guard, cache);
 
-        IReadOnlyList<string> whitelist = await sut.BuildAsync("capped", EmptyDeckContext());
+        IReadOnlyList<string> whitelist = (await sut.BuildWithDiagnosticsAsync("capped", EmptyDeckContext())).AcceptedNames;
 
         IReadOnlyList<string> validated = Assert.Single(guard.ValidatedBatches);
         Assert.Equal(25, validated.Count);
@@ -68,7 +68,7 @@ public sealed class CreatorWhitelistPoolBuilderTests
         });
         var sut = new CreatorWhitelistPoolBuilder(store, guard, cache);
 
-        IReadOnlyList<string> whitelist = await sut.BuildAsync("guarded", EmptyDeckContext());
+        IReadOnlyList<string> whitelist = (await sut.BuildWithDiagnosticsAsync("guarded", EmptyDeckContext())).AcceptedNames;
 
         Assert.Equal(["Arcane Signet", "Mystic Remora Prime"], whitelist);
         Assert.DoesNotContain("Hullbreacher", whitelist);
@@ -82,7 +82,7 @@ public sealed class CreatorWhitelistPoolBuilderTests
         var guard = new FakeCardGroundingGuard();
         var sut = new CreatorWhitelistPoolBuilder(store, guard, cache);
 
-        IReadOnlyList<string> whitelist = await sut.BuildAsync("empty", EmptyDeckContext());
+        IReadOnlyList<string> whitelist = (await sut.BuildWithDiagnosticsAsync("empty", EmptyDeckContext())).AcceptedNames;
 
         Assert.Empty(whitelist);
         Assert.Empty(guard.ValidatedBatches);
@@ -98,8 +98,8 @@ public sealed class CreatorWhitelistPoolBuilderTests
         var guard = new FakeCardGroundingGuard();
         var sut = new CreatorWhitelistPoolBuilder(store, guard, cache);
 
-        IReadOnlyList<string> first = await sut.BuildAsync("cache-me", EmptyDeckContext(["arcane signet"]));
-        IReadOnlyList<string> second = await sut.BuildAsync(" cache-me ", EmptyDeckContext(["swiftfoot boots"]));
+        IReadOnlyList<string> first = (await sut.BuildWithDiagnosticsAsync("cache-me", EmptyDeckContext(["arcane signet"]))).AcceptedNames;
+        IReadOnlyList<string> second = (await sut.BuildWithDiagnosticsAsync(" cache-me ", EmptyDeckContext(["swiftfoot boots"]))).AcceptedNames;
 
         Assert.Equal(1, store.GetByCreatorCallCount);
         Assert.Equal(2, guard.ValidatedBatches.Count);

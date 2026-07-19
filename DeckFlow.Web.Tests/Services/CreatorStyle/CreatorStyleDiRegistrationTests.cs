@@ -63,7 +63,6 @@ public sealed class CreatorStyleDiRegistrationTests
                     sp.GetRequiredService<CreatorWhitelistPoolBuilder>(),
                     sp.GetRequiredService<ICardGroundingGuard>(),
                     sp.GetRequiredService<ICreatorDeckCacheStore>(),
-                    sp.GetRequiredService<ICommanderSpellbookService>(),
                     sp.GetService<Microsoft.Extensions.Logging.ILogger<CreatorStylePacketService>>()));
 
             using ServiceProvider provider = services.BuildServiceProvider(new ServiceProviderOptions
