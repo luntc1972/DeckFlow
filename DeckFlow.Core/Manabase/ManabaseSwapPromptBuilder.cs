@@ -181,7 +181,7 @@ public static class ManabaseSwapPromptBuilder
 
     private static string BuildThresholdProxy(ManabaseRampDrawThresholdSource thresholdSource) => thresholdSource switch
     {
-        ManabaseRampDrawThresholdSource.CommanderManaValue => "your commander's mana value",
-        _ => "your curve's 75th-percentile mana value, since you have no single commander",
+        ManabaseRampDrawThresholdSource.CommanderManaValue => "the commander's mana value",
+        _ => "the curve's 75th-percentile mana value (no single commander)",
     };
 }

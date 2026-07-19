@@ -14,12 +14,12 @@ public sealed class ManabaseSwapPromptBuilderTests
     private static readonly ManabaseVerdict IssueVerdict = new()
     {
         HasIssues = true,
-        Headline = "Reading your deck",
+        Headline = "Reading the deck",
         NoIssueReason = string.Empty,
         Lines =
         [
             "You're ~3 White sources short - heuristic guidance: add ~3 White-producing lands/rocks; consider cutting a colorless utility land.",
-            "Ramp looks light: you run ~6 ramp vs a ~12/12 split for a ~MV4 threshold (your commander's mana value) - add ~6 ramp pieces (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
+            "Ramp looks light: the deck runs ~6 ramp vs a ~12/12 split for a ~MV4 threshold (the commander's mana value) - add ~6 ramp pieces (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
         ],
     };
 
@@ -245,14 +245,14 @@ public sealed class ManabaseSwapPromptBuilderTests
             IssueVerdict,
             Budget);
 
-        int verdictIndex = prompt.IndexOf("Reading your deck:", global::System.StringComparison.Ordinal);
+        int verdictIndex = prompt.IndexOf("Reading the deck:", global::System.StringComparison.Ordinal);
         int askIndex = prompt.IndexOf("Please recommend SPECIFIC lands", global::System.StringComparison.Ordinal);
 
         Assert.True(verdictIndex >= 0);
         Assert.True(askIndex > verdictIndex);
         Assert.Contains("1. You're ~3 White sources short - heuristic guidance:", prompt);
-        Assert.Contains("2. Ramp looks light: you run ~6 ramp", prompt);
-        Assert.Contains("Ramp/draw: ~6 ramp / ~12 draw vs a ~12/12 community target for a ~MV4 threshold (your commander's mana value); (1 do both). community heuristic, not Karsten math.", prompt);
+        Assert.Contains("2. Ramp looks light: the deck runs ~6 ramp", prompt);
+        Assert.Contains("Ramp/draw: ~6 ramp / ~12 draw vs a ~12/12 community target for a ~MV4 threshold (the commander's mana value); (1 do both). community heuristic, not Karsten math.", prompt);
     }
 
     [Fact]

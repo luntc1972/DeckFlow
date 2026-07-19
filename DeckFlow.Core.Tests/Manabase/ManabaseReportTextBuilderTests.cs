@@ -16,12 +16,12 @@ public sealed class ManabaseReportTextBuilderTests
     private static readonly ManabaseVerdict IssueVerdict = new()
     {
         HasIssues = true,
-        Headline = "Reading your deck",
+        Headline = "Reading the deck",
         NoIssueReason = string.Empty,
         Lines =
         [
             "You're ~3 White sources short - heuristic guidance: add ~3 White-producing lands/rocks; consider cutting a colorless utility land.",
-            "Ramp looks light: you run ~6 ramp vs a ~12/12 split for a ~MV4 threshold (your commander's mana value) - add ~6 ramp pieces (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
+            "Ramp looks light: the deck runs ~6 ramp vs a ~12/12 split for a ~MV4 threshold (the commander's mana value) - add ~6 ramp pieces (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
         ],
     };
 
@@ -306,7 +306,7 @@ public sealed class ManabaseReportTextBuilderTests
         Assert.Contains("Swan Song", output, StringComparison.Ordinal);
         Assert.Contains("61%", output, StringComparison.Ordinal);
         Assert.Contains("An Offer You Can't Refuse", output, StringComparison.Ordinal);
-        Assert.Contains("assumes you hold mana open", output, StringComparison.Ordinal);
+        Assert.Contains("assumes mana is held open", output, StringComparison.Ordinal);
         Assert.Contains("First-pass read only", output, StringComparison.Ordinal);
     }
 
@@ -533,14 +533,14 @@ public sealed class ManabaseReportTextBuilderTests
             Budget);
 
         int summaryIndex = output.IndexOf("Mana base is well-built.", StringComparison.Ordinal);
-        int verdictIndex = output.IndexOf("Reading your deck:", StringComparison.Ordinal);
+        int verdictIndex = output.IndexOf("Reading the deck:", StringComparison.Ordinal);
         int colorSourcesIndex = output.IndexOf("Color Sources (per-color shortfalls are heuristic guidance):", StringComparison.Ordinal);
 
         Assert.True(verdictIndex > summaryIndex);
         Assert.True(colorSourcesIndex > verdictIndex);
         Assert.Contains("1. You're ~3 White sources short - heuristic guidance:", output);
-        Assert.Contains("2. Ramp looks light: you run ~6 ramp", output);
-        Assert.Contains("Ramp/draw: ~6 ramp / ~12 draw vs a ~12/12 community target for a ~MV4 threshold (your commander's mana value); (1 do both). community heuristic, not Karsten math.", output);
+        Assert.Contains("2. Ramp looks light: the deck runs ~6 ramp", output);
+        Assert.Contains("Ramp/draw: ~6 ramp / ~12 draw vs a ~12/12 community target for a ~MV4 threshold (the commander's mana value); (1 do both). community heuristic, not Karsten math.", output);
     }
 
     [Fact]
@@ -549,7 +549,7 @@ public sealed class ManabaseReportTextBuilderTests
         ManabaseVerdict verdict = new()
         {
             HasIssues = true,
-            Headline = "Reading your deck",
+            Headline = "Reading the deck",
             NoIssueReason = string.Empty,
             Lines =
             [

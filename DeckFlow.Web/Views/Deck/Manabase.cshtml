@@ -284,7 +284,7 @@
         ("manabase-karsten-source-check", "Karsten source check", showLeftLens),
         ("manabase-simulated-cast-rate", "Simulated cast rate", showRightLens),
         ("manabase-early-interaction", "Early interaction", showInteractionLens),
-        ("manabase-reading-your-deck", "Reading your deck", showReadingYourDeckSection),
+        ("manabase-reading-your-deck", "Reading the deck", showReadingYourDeckSection),
         ("manabase-ramp-draw", "Ramp & draw", showRampSection),
         ("manabase-command-zone-castability", "Command-zone castability", showCommanderCastabilitySection),
         ("manabase-color-findings", "Color findings", true),
@@ -489,7 +489,7 @@
             @switch (primaryFix.Kind)
             {
                 case ManabaseFixKind.ColorSources:
-                    <p class="manabase-summary-fix"><strong>Biggest fix:</strong> add ~@primaryFix.Amount more <strong>@primaryFix.CategoryName</strong> @(primaryFix.Amount == 1 ? "source" : "sources") — you have @primaryFix.ActualSources.ToString("F1") vs @primaryFix.RequiredSources needed for @primaryFix.Spell.</p>
+                    <p class="manabase-summary-fix"><strong>Biggest fix:</strong> add ~@primaryFix.Amount more <strong>@primaryFix.CategoryName</strong> @(primaryFix.Amount == 1 ? "source" : "sources") — the deck has @primaryFix.ActualSources.ToString("F1") vs @primaryFix.RequiredSources needed for @primaryFix.Spell.</p>
                     break;
                 case ManabaseFixKind.Lands:
                     <p class="manabase-summary-fix"><strong>Biggest fix:</strong> add ~@primaryFix.Amount more <strong>@(primaryFix.Amount == 1 ? "land" : "lands")</strong> — each color is individually well-supported, but the base is ~@primaryFix.Amount @(primaryFix.Amount == 1 ? "land" : "lands") short of the curve.</p>
@@ -521,7 +521,7 @@
         @if (showReadingYourDeckSection && Model.PlainLanguageVerdict is { } verdict)
         {
             <section id="manabase-reading-your-deck" class="manabase-verdict @(verdict.HasIssues ? "manabase-verdict--issues" : "manabase-verdict--fine")">
-                <h3 class="manabase-verdict-heading">Reading your deck</h3>
+                <h3 class="manabase-verdict-heading">Reading the deck</h3>
                 <p class="manabase-verdict-summary">@verdict.Headline</p>
                 @if (verdict.HasIssues)
                 {
@@ -622,7 +622,7 @@
                                     }
                                 </details>
                             }
-                            <p class="manabase-lens-note">Raw availability only — assumes you hold mana open on turns 1-3. @ManabaseDisplay.InteractionSummaryText(report.InteractionLens.Rows, visibleInteractionRowCount)</p>
+                            <p class="manabase-lens-note">Raw availability only — assumes mana is held open on turns 1-3. @ManabaseDisplay.InteractionSummaryText(report.InteractionLens.Rows, visibleInteractionRowCount)</p>
                             @if (showPlainLanguage)
                             {
                                 <p class="manabase-lens-gloss">@ManabaseDisplay.CedhInteractionLensGloss</p>
@@ -668,7 +668,7 @@
                         }
                     </div>
                 </div>
-                <p class="manabase-lens-note">How often a colored source can be spent the turn it's available — tapped lands (Temples, tri-lands, taplands) can't make mana the turn they enter, so they push back your earliest castable turn. Drawn from the same simulation as the cast rate above, so it never contradicts it.</p>
+                <p class="manabase-lens-note">How often a colored source can be spent the turn it's available — tapped lands (Temples, tri-lands, taplands) can't make mana the turn they enter, so they push back the earliest castable turn. Drawn from the same simulation as the cast rate above, so it never contradicts it.</p>
                 @if (showPlainLanguage)
                 {
                     <p class="manabase-lens-gloss">@ManabaseDisplay.TapAnalyzerGloss</p>
@@ -859,9 +859,9 @@
                 <p class="manabase-rampdraw-line">
                     @if (budget.IsBalanced)
                     {
-                        <span>Your ramp/draw split looks balanced. </span>
+                        <span>Ramp/draw split looks balanced. </span>
                     }
-                    <span>You run <strong>@budget.RampCount.ToString("0.#")</strong> ramp / <strong>@budget.DrawCount.ToString("0.#")</strong> draw; for a ~MV@(budget.Threshold.ToString("0.#")) threshold a common split is @budget.TargetRamp / @budget.TargetDraw.</span>
+                    <span>The deck runs <strong>@budget.RampCount.ToString("0.#")</strong> ramp / <strong>@budget.DrawCount.ToString("0.#")</strong> draw; for a ~MV@(budget.Threshold.ToString("0.#")) threshold a common split is @budget.TargetRamp / @budget.TargetDraw.</span>
                     @if (budget.OverlapCount > 0)
                     {
                         <span> (@budget.OverlapCount do both)</span>
@@ -1099,7 +1099,7 @@
             <div class="panel-heading">
                 <div>
                     <h3>Swap-suggestion prompt</h3>
-                    <p>The math above tells you which colors are short. Paste this to have an AI name specific lands to add and weak cards to cut.</p>
+                    <p>The math above shows which colors are short. Paste this to have an AI name specific lands to add and weak cards to cut.</p>
                 </div>
                 <button type="button" class="copy-button" data-copy-target="manabase-prompt-output">Copy</button>
             </div>
@@ -1112,11 +1112,11 @@
 <details id="manabase-details" class="result-panel nested-panel manabase-formula" data-manabase-formula="how">
     <summary>How the analysis works</summary>
     <div class="manabase-formula-body">
-        <p>The land count comes from <strong>Frank Karsten's source-count regression</strong> for singleton (Commander) decks: a target driven by average mana value, ramp and card draw at three mana or less, and fast mana, with a credit for each commander. Modal double-faced land-backs count directly toward your actual land total rather than adjusting this target. cEDH mode lowers that target for the faster competitive format (about a 3.5-land cut, crediting fast mana fully); when there is enough cEDH tournament data for your commander, the recommendation is nudged toward that real-deck land mean and shown as a range.</p>
-        <p>Each spell's <strong>castability</strong> comes from a Monte-Carlo simulation. It draws an opening seven and applies the <strong>London mulligan</strong>, including <strong>Commander's free first mulligan</strong> — the first mulligan keeps seven at no cost; only later ones bottom a card (lowest-impact first, never your lands). It then <strong>draws every turn, including turn 1</strong>. A card is judged on its mana-value turn, so by turn N it has seen its opening 7 plus one card per turn (7 + N cards). Each turn it deploys ramp as it comes online, credits fetchlands to the colors they can fetch, and applies any always-on cost reducers — then asks, on that turn, whether there is enough <strong>mana and the right colored pips together</strong> (a joint check, not two independent odds). The reported number is the share of simulated games where the card was castable on curve.</p>
+        <p>The land count comes from <strong>Frank Karsten's source-count regression</strong> for singleton (Commander) decks: a target driven by average mana value, ramp and card draw at three mana or less, and fast mana, with a credit for each commander. Modal double-faced land-backs count directly toward the actual land total rather than adjusting this target. cEDH mode lowers that target for the faster competitive format (about a 3.5-land cut, crediting fast mana fully); when there is enough cEDH tournament data for the commander, the recommendation is nudged toward that real-deck land mean and shown as a range.</p>
+        <p>Each spell's <strong>castability</strong> comes from a Monte-Carlo simulation. It draws an opening seven and applies the <strong>London mulligan</strong>, including <strong>Commander's free first mulligan</strong> — the first mulligan keeps seven at no cost; only later ones bottom a card (lowest-impact first, never lands). It then <strong>draws every turn, including turn 1</strong>. A card is judged on its mana-value turn, so by turn N it has seen its opening 7 plus one card per turn (7 + N cards). Each turn it deploys ramp as it comes online, credits fetchlands to the colors they can fetch, and applies any always-on cost reducers — then asks, on that turn, whether there is enough <strong>mana and the right colored pips together</strong> (a joint check, not two independent odds). The reported number is the share of simulated games where the card was castable on curve.</p>
         @if (Model.HasResult && report is { Mode: ManabaseMode.Cedh, InteractionLens: not null } && Model.ShowCedhInteractionLens)
         {
-            <p>In cEDH mode, the <strong>Early interaction</strong> lens reuses that same simulation for cheap interaction spells (tagged <strong>Interaction</strong>, effective MV ≤ 2) and asks whether each one was holdable with untapped mana on at least one of turns 1-3. The headline counts how many clear the @report.InteractionLens!.Threshold% target and assumes you chose to hold mana open.</p>
+            <p>In cEDH mode, the <strong>Early interaction</strong> lens reuses that same simulation for cheap interaction spells (tagged <strong>Interaction</strong>, effective MV ≤ 2) and asks whether each one was holdable with untapped mana on at least one of turns 1-3. The headline counts how many clear the @report.InteractionLens!.Threshold% target and assumes mana was held open.</p>
         }
         <p class="manabase-help">The sim plays going first for board development (one land drop per turn, no earlier plays), which is the <strong>conservative</strong> case for land sequencing — but it draws every turn, so the card count matches real games.</p>
         <p>Colored-source findings combine a <strong>worst-driver</strong> spell (the hardest single card for a color) with a <strong>population</strong> view (how many of that color's cards are under-supported and their mean castability). The weakest color surfaces tail risk first. The <strong>commander-importance</strong> setting weights the commander's colors more or less heavily — Central holds them to a stricter, cEDH-style threshold.</p>
@@ -1165,7 +1165,7 @@
             }
             <p class="manabase-help">Commander importance applied: <strong>@ManabaseDisplay.ImportanceLabel(importance)</strong> (weights the commander's colors; does not move the land target).</p>
 
-            <p><strong>Per-color sources.</strong> Effective colored sources counted for each color (duals, any-color and fetch sources credited to every color they can make, per Karsten). The breakdown splits that total into <em>direct</em> (sources that make only this color), <em>shared</em> (multi-color fixers also feeding your other colors — one makes one mana per turn), and <em>conditional</em> (granted any-color sources the sim only fires part of the time):</p>
+            <p><strong>Per-color sources.</strong> Effective colored sources counted for each color (duals, any-color and fetch sources credited to every color they can make, per Karsten). The breakdown splits that total into <em>direct</em> (sources that make only this color), <em>shared</em> (multi-color fixers also feeding the deck's other colors — one makes one mana per turn), and <em>conditional</em> (granted any-color sources the sim only fires part of the time):</p>
             <ul class="manabase-formula-list">
                 @if (report.ScrySourceCreditCopies > 0)
                 {
@@ -1183,7 +1183,7 @@
             </ul>
 
             <p><strong>Simulation parameters.</strong> Goes <strong>first for board development</strong> (one land drop per turn) but <strong>draws every turn including turn 1</strong>. A card on its mana-value turn N has seen 7 + N cards (its opening seven plus one per turn). <strong>London mulligan including Commander's free first mulligan</strong> — the first mulligan keeps seven at no cost; only the second and third bottom a card (to six then five, lowest-impact non-lands first). ~20,000 trials per spell; each spell measured on its effective on-curve turn after any cost reduction. Cast % above is the share of trials where the card was castable on curve.</p>
-            <p class="manabase-help">"Show the work": every verdict above traces back to these counts and the simulation, so you can audit why a color or a card was flagged.</p>
+            <p class="manabase-help">"Show the work": every verdict above traces back to these counts and the simulation, so every flagged color or card can be audited back to a number.</p>
         </div>
     </details>
 }

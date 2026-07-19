@@ -282,7 +282,7 @@ public sealed class ManabaseDisplayTests
     [Fact]
     public void CedhInteractionLensGloss_ContainsHoldManaOpenCaveat()
     {
-        Assert.Contains("assumes you hold mana open", ManabaseDisplay.CedhInteractionLensGloss);
+        Assert.Contains("assumes mana is held open", ManabaseDisplay.CedhInteractionLensGloss);
     }
 
     [Theory]

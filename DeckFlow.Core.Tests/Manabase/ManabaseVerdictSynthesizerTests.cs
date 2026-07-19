@@ -24,7 +24,7 @@ public sealed class ManabaseVerdictSynthesizerTests
             ManabaseMode.Casual);
 
         Assert.True(verdict.HasIssues);
-        Assert.Equal("Reading your deck", verdict.Headline);
+        Assert.Equal("Reading the deck", verdict.Headline);
         Assert.Equal(
             "You're ~3 White sources short - heuristic guidance: add ~3 White-producing lands/rocks; consider cutting a colorless utility land.",
             Assert.Single(verdict.Lines));
@@ -55,7 +55,7 @@ public sealed class ManabaseVerdictSynthesizerTests
             "Add ~3 more lands - the base is short for this curve.",
             verdict.Lines[1]);
         Assert.Equal(
-            "Ramp looks light: you run ~6 ramp vs a ~12/12 split for a ~MV4 threshold (your commander's mana value) - add ~6 ramp pieces (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
+            "Ramp looks light: the deck runs ~6 ramp vs a ~12/12 split for a ~MV4 threshold (the commander's mana value) - add ~6 ramp pieces (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
             verdict.Lines[2]);
         Assert.DoesNotContain(verdict.Lines, line => line.Contains("plus", System.StringComparison.Ordinal));
     }
@@ -79,7 +79,7 @@ public sealed class ManabaseVerdictSynthesizerTests
         Assert.False(verdict.HasIssues);
         Assert.Empty(verdict.Lines);
         Assert.Equal(
-            "White and Blue both clear their Karsten source targets and your 87% avg on-curve cast rate is healthy for Casual - and ramp/draw (12 / 12) is in balance - no changes needed.",
+            "White and Blue both clear their Karsten source targets and the 87% avg on-curve cast rate is healthy for Casual - and ramp/draw (12 / 12) is in balance - no changes needed.",
             verdict.NoIssueReason);
     }
 
@@ -143,7 +143,7 @@ public sealed class ManabaseVerdictSynthesizerTests
             "Add ~5 more lands - the base is short for this curve.",
             verdict.Lines[1]);
         Assert.Equal(
-            "Ramp looks light: you run ~7 ramp vs a ~12/12 split for a ~MV5 threshold (your curve's 75th-percentile mana value, since you have no single commander) - add ~5 ramp pieces (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
+            "Ramp looks light: the deck runs ~7 ramp vs a ~12/12 split for a ~MV5 threshold (the curve's 75th-percentile mana value (no single commander)) - add ~5 ramp pieces (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
             verdict.Lines[2]);
         Assert.Equal("…plus 1 more", verdict.Lines[3]);
     }

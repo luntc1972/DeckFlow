@@ -101,7 +101,7 @@ public sealed class ManabaseControllerDownloadTests
         var verdict = new ManabaseVerdict
         {
             HasIssues = true,
-            Headline = "Reading your deck",
+            Headline = "Reading the deck",
             Lines = new[] { "Issue line from test" },
             NoIssueReason = string.Empty,
         };
@@ -133,7 +133,7 @@ public sealed class ManabaseControllerDownloadTests
 
         var file = Assert.IsType<FileContentResult>(result);
         string text = Encoding.UTF8.GetString(file.FileContents);
-        Assert.Contains("Reading your deck", text);
+        Assert.Contains("Reading the deck", text);
         Assert.Contains("Issue line from test", text);
         Assert.Contains("Ramp/draw:", text);
     }

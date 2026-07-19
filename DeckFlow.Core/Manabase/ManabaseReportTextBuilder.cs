@@ -160,7 +160,7 @@ public static class ManabaseReportTextBuilder
             case ManabaseFixKind.ColorSources:
                 int sourceFixAmount = fix.Amount;
                 sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
-                    $"Biggest fix: add ~{sourceFixAmount} more {fix.CategoryName} {ManabaseWording.Pluralize("source", sourceFixAmount)} — you have {fix.ActualSources:F1} vs {fix.RequiredSources} needed for {fix.Spell}."));
+                    $"Biggest fix: add ~{sourceFixAmount} more {fix.CategoryName} {ManabaseWording.Pluralize("source", sourceFixAmount)} — the deck has {fix.ActualSources:F1} vs {fix.RequiredSources} needed for {fix.Spell}."));
                 break;
 
             case ManabaseFixKind.Lands:
@@ -383,7 +383,7 @@ public static class ManabaseReportTextBuilder
                 $"  - {row.Name}: {row.HoldablePercent}%"));
         }
 
-        sb.AppendLine("Raw availability only - assumes you hold mana open.");
+        sb.AppendLine("Raw availability only - assumes mana is held open.");
         sb.AppendLine("First-pass read only - informational signal, not a recommendation.");
     }
 
@@ -419,7 +419,7 @@ public static class ManabaseReportTextBuilder
 
     private static string BuildThresholdProxy(ManabaseRampDrawThresholdSource thresholdSource) => thresholdSource switch
     {
-        ManabaseRampDrawThresholdSource.CommanderManaValue => "your commander's mana value",
-        _ => "your curve's 75th-percentile mana value, since you have no single commander",
+        ManabaseRampDrawThresholdSource.CommanderManaValue => "the commander's mana value",
+        _ => "the curve's 75th-percentile mana value (no single commander)",
     };
 }

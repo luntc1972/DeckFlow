@@ -1500,7 +1500,7 @@ public sealed class ManabaseAnalysisServiceTests
         Assert.True(GetResultShowPlainLanguage(result));
         Assert.NotNull(GetResultVerdict(result));
         Assert.NotNull(GetResultBudget(result));
-        Assert.Contains("Reading your deck", result.PromptSwapPrompt);
+        Assert.Contains("Reading the deck", result.PromptSwapPrompt);
     }
 
     [Fact]
@@ -1521,7 +1521,7 @@ public sealed class ManabaseAnalysisServiceTests
         Assert.True(GetResultShowPlainLanguage(result));
         Assert.Null(GetResultVerdict(result));
         Assert.Null(GetResultBudget(result));
-        Assert.DoesNotContain("Reading your deck", result.PromptSwapPrompt);
+        Assert.DoesNotContain("Reading the deck", result.PromptSwapPrompt);
     }
 
     [Fact]

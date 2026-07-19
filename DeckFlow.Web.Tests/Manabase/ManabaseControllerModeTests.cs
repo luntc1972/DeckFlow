@@ -139,7 +139,7 @@ public sealed class ManabaseControllerModeTests
         var verdict = new ManabaseVerdict
         {
             HasIssues = true,
-            Headline = "Reading your deck",
+            Headline = "Reading the deck",
             Lines = new[] { "Issue line" },
             NoIssueReason = string.Empty,
         };

@@ -7,7 +7,7 @@ namespace DeckFlow.Core.Manabase;
 /// </summary>
 public static class ManabaseVerdictSynthesizer
 {
-    private const string DefaultHeadline = "Reading your deck";
+    private const string DefaultHeadline = "Reading the deck";
 
     /// <summary>
     /// Build a deterministic plain-language verdict from the computed report and optional casual ramp/draw budget.
@@ -135,7 +135,7 @@ public static class ManabaseVerdictSynthesizer
     {
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"{prefix}: you run ~{count:0.#} {countLabel} vs a ~{targetRamp}/{targetDraw} split for a ~MV{threshold:0.#} threshold ({BuildThresholdProxy(thresholdSource)}) - add ~{shortfall} {countLabel} {ManabaseWording.Pluralize("piece", shortfall)} (e.g. {example}). (community heuristic, not Karsten math)");
+            $"{prefix}: the deck runs ~{count:0.#} {countLabel} vs a ~{targetRamp}/{targetDraw} split for a ~MV{threshold:0.#} threshold ({BuildThresholdProxy(thresholdSource)}) - add ~{shortfall} {countLabel} {ManabaseWording.Pluralize("piece", shortfall)} (e.g. {example}). (community heuristic, not Karsten math)");
     }
 
     private static string BuildNoIssueReason(
@@ -146,7 +146,7 @@ public static class ManabaseVerdictSynthesizer
         string colorsClause = BuildColorsClause(report.ColorFindings.Where(finding => finding.IsAdequate).Select(finding => finding.Color.ToString()).ToList());
         string castRateClause = string.Create(
             CultureInfo.InvariantCulture,
-            $"your {report.AvgOnCurvePercent}% avg on-curve cast rate is healthy for {ManabaseLabels.Mode(mode)}");
+            $"the {report.AvgOnCurvePercent}% avg on-curve cast rate is healthy for {ManabaseLabels.Mode(mode)}");
 
         if (budget is null)
         {
@@ -193,7 +193,7 @@ public static class ManabaseVerdictSynthesizer
 
     private static string BuildThresholdProxy(ManabaseRampDrawThresholdSource thresholdSource) => thresholdSource switch
     {
-        ManabaseRampDrawThresholdSource.CommanderManaValue => "your commander's mana value",
-        _ => "your curve's 75th-percentile mana value, since you have no single commander",
+        ManabaseRampDrawThresholdSource.CommanderManaValue => "the commander's mana value",
+        _ => "the curve's 75th-percentile mana value (no single commander)",
     };
 }

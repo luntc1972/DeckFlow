@@ -40,7 +40,7 @@ public static class ManabaseDisplay
 
     /// <summary>UI-only gloss for the cEDH early-interaction metric.</summary>
     public const string CedhInteractionLensGloss =
-        "By-turn-3 untapped interaction availability assumes you hold mana open.";
+        "By-turn-3 untapped interaction availability assumes mana is held open.";
 
     /// <summary>UI-only gloss for the weakest-color callout.</summary>
     public const string WeakestColorGloss =
