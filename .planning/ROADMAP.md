@@ -172,7 +172,7 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
 **Plans**: 3 plans
 - [x] 99-01-PLAN.md — Pure Core rubric scorer + models + exemplar-deck selector (CS-27, CS-28)
 - [x] 99-02-PLAN.md — SubmittedDeckStatsBuilder: apples-to-apples deck stats + card-grounding deck context (CS-27, CS-29)
-- [ ] 99-03-PLAN.md — CreatorStylePacketService: 5-element artifact assembly + fail-closed guard gate + DI tripwire (CS-26, CS-28, CS-29)
+- [x] 99-03-PLAN.md — CreatorStylePacketService: 5-element artifact assembly + fail-closed guard gate + DI tripwire (CS-26, CS-28, CS-29)
 
 ### Phase 100: Creator-Style Tool Surface
 **Goal**: Ship the $0 paste-ready Creator-Style tool end-to-end — new page, controller, flag `creator.style-artifact` (seeded OFF), packet-cache-bypass wiring, and the full web-change bundle. **The only phase in this milestone that ships user-visible value.**
@@ -198,7 +198,7 @@ Phase 94 -> {Phase 95, Phase 96 in parallel} -> {Phase 97 (needs 95+96), Phase 9
 | 96. Stated-Rules Distiller | Cycle 17 | 8/8 | Complete   | 2026-07-12 |
 | 97. Profile Fusion + Conflict Ledger | Cycle 17 | 0/7 | Not started | - |
 | 98. Card-Grounding Guard | Cycle 17 | 0/4 | Not started | - |
-| 99. Creator-Style Artifact Engine | Cycle 17 | 2/3 | In Progress|  |
+| 99. Creator-Style Artifact Engine | Cycle 17 | 3/3 | Complete    | 2026-07-19 |
 | 100. Creator-Style Tool Surface | Cycle 17 | 0/0 | Not started | - |
 
 Cycle 16 progress (Phases 82-93): see `.planning/milestones/cycle16-ROADMAP.md` and `.planning/milestones/2026.07.2-ROADMAP.md`.
