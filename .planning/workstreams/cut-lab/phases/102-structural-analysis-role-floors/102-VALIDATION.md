@@ -43,9 +43,9 @@ created: 2026-07-19
 | 102-01-T1 | 102-01 | 1 | FLOOR-02 | T-102-01-01 | ClampFloors drops unknown keys, clamps tampered floors | unit | `dotnet test DeckFlow.Web.Tests --filter "FullyQualifiedName~CutLabFloorRulesTests" --nologo` | ✅ | ⬜ pending |
 | 102-01-T2 | 102-01 | 1 | FLOOR-02 | T-102-01-01 | Clamp chained at the serializer choke point (EnforceCommanderLock pattern) | unit | `dotnet test DeckFlow.Web.Tests --filter "FullyQualifiedName~CutLabStateSerializerTests" --nologo` | ✅ | ⬜ pending |
 | 102-01-T3 | 102-01 | 1 | FLOOR-01 | — | — | unit + build | `dotnet test DeckFlow.Web.Tests --filter "FullyQualifiedName~CutLabFloorDefaultsTests" --nologo && dotnet build DeckFlow.Core/DeckFlow.Core.csproj -c Debug --nologo -clp:ErrorsOnly` | ✅ | ⬜ pending |
-| 102-02-T1 | 102-02 | 1 | SLOT-01 | T-102-02-03 | Role input is server-computed only; no client channel by construction | unit | `dotnet test DeckFlow.Web.Tests --filter "FullyQualifiedName~CutLabRoleAssignerTests" --nologo` | ✅ | ⬜ pending |
-| 102-02-T2 | 102-02 | 1 | SLOT-02 | T-102-02-01 | Degradation flags prevent fabricated findings from absent upstream data | unit | `dotnet test DeckFlow.Web.Tests --filter "FullyQualifiedName~CutLabStructuralFindingsTests" --nologo` | ✅ | ⬜ pending |
-| 102-03-T1 | 102-03 | 2 | SLOT-01, SLOT-02 | T-102-03-02, T-102-03-03 | Fail-open batched I/O; exactly one category call site; cancellation propagates | unit | `dotnet test DeckFlow.Web.Tests --filter "FullyQualifiedName~CutLabPageServiceTests" --nologo` | ✅ | ⬜ pending |
+| 102-02-T1 | 102-02 | 1 | SLOT-01 | T-102-02-03 | Role input is server-computed only; no client channel by construction; ramp land-gated (lands never double-count as ramp) | unit | `dotnet test DeckFlow.Web.Tests --filter "FullyQualifiedName~CutLabRoleAssignerTests" --nologo` | ✅ | ⬜ pending |
+| 102-02-T2 | 102-02 | 1 | SLOT-02 | T-102-02-01 | Degradation flags prevent fabricated findings from absent upstream data; stranded-subtheme exclusion via shared CategoryMapsToPlanRole helper (drift-guarded, FromCategories behavior-preserving) | unit | `dotnet test DeckFlow.Web.Tests --filter "FullyQualifiedName~CutLabStructuralFindingsTests\|FullyQualifiedName~PlanRoleClassifierTests" --nologo` | ✅ | ⬜ pending |
+| 102-03-T1 | 102-03 | 2 | SLOT-01, SLOT-02 | T-102-03-02, T-102-03-03, T-102-03-04 | Fail-open batched I/O; exactly one category call site; cancellation propagates; DI-guard test (HasStructuralAnalysisDependencies + negative control) pins the four optional-dep registrations | unit | `dotnet test DeckFlow.Web.Tests --filter "FullyQualifiedName~CutLabPageServiceTests" --nologo` | ✅ | ⬜ pending |
 | 102-03-T2 | 102-03 | 2 | SLOT-01, SLOT-02, FLOOR-01, FLOOR-02 | T-102-03-01 | Roles/findings recomputed server-side; only user-set floors persist | unit + build | `dotnet test DeckFlow.Web.Tests --filter "FullyQualifiedName~CutLabPageServiceTests" --nologo && dotnet build DeckFlow.Web/DeckFlow.Web.csproj -c Debug --nologo -clp:ErrorsOnly` | ✅ | ⬜ pending |
 | 102-04-T1 | 102-04 | 3 | SLOT-01, SLOT-02, FLOOR-01 | T-102-04-02 | Razor default encoding on all new sections; no Html.Raw | build | `dotnet build DeckFlow.Web/DeckFlow.Web.csproj -c Debug --nologo -clp:ErrorsOnly` | ✅ | ⬜ pending |
 | 102-04-T2 | 102-04 | 3 | FLOOR-02 | T-102-04-01 | Client clamp is UX-only; server re-clamps authoritatively | type-check | `cd DeckFlow.Web && npx --no-install tsc -p tsconfig.json --noEmit` | ✅ | ⬜ pending |
@@ -59,7 +59,7 @@ created: 2026-07-19
 
 ## Wave 0 Requirements
 
-Existing infrastructure covers all phase requirements — Phase 101 established CutLab test files (CutLabStateSerializerTests, CutLabControllerTests, CutLabLockRules tests, cut-lab Vitest suite, cut-lab-smoke.spec.ts e2e). New test files for role-floor rules and structural findings follow the same patterns and are created inside their own tasks; no framework install needed, no Wave 0 scaffold plans.
+Existing infrastructure covers all phase requirements — Phase 101 established CutLab test files (CutLabStateSerializerTests, CutLabControllerTests, CutLabLockRules tests, cut-lab Vitest suite, cut-lab-smoke.spec.ts e2e). New test files for role-floor rules and structural findings follow the same patterns and are created inside their own tasks; the existing DeckFlow.Web.Tests/Manabase/PlanRoleClassifierTests.cs is extended in place (drift-guard for the shared CategoryMapsToPlanRole helper); no framework install needed, no Wave 0 scaffold plans.
 
 ---
 
@@ -80,4 +80,4 @@ Existing infrastructure covers all phase requirements — Phase 101 established 
 - [x] Feedback latency < 300s
 - [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** approved 2026-07-19
+**Approval:** approved 2026-07-19 · revised 2026-07-19 (codex plan-review fold: 102-02-T2 command adds PlanRoleClassifierTests; 102-03-T1 adds DI-guard threat T-102-03-04)
