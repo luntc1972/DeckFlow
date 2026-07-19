@@ -422,22 +422,25 @@ public sealed record SpellbookAlmostCombo(
 | A4 | Recomputing classification + findings on every POST (lock toggle, floor tweak) is acceptable on the 512 MB tier given batching + Spellbook/banlist caching and the 150-card cap | Pitfall 3 | If POST latency proves annoying (Spellbook cold call ~1 network round-trip), the mitigation is memory-caching classification per pool hash — an optimization, not a redesign [ASSUMED] |
 | A5 | Floor-role keys serialized as stable strings (not enum ints) in `CutLabStateJson`, so Phase 103/104 schema evolution doesn't renumber user data | Pattern 4 | Low — planner may choose an enum with `JsonStringEnumConverter`; either works if decided once [ASSUMED] |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Payoffs vs win-conditions boundary (two of the eight floors)**
    - What we know: `PlanRole.Payoff` is permanent-gated (`Torment of Hailfire` earns nothing post-gate); `IsClosingPowerCard` is ungated; Spellbook combo membership marks combo wins. The requirement lists both roles separately.
    - What's unclear: The product definition distinguishing them for floor counting and slot grouping.
    - Recommendation: Win conditions = `IsClosingPowerCard` OR included-combo member (ungated — a win con doesn't need to be a permanent); payoffs = `PlanRole.Payoff` (permanent-gated plan read). Overlap allowed and labeled. Lock in planning; cheap to change before UI copy exists.
+   - **RESOLVED (planning):** Locked per the recommendation in the DECISIONS blocks of 102-01-PLAN and 102-02-PLAN — wincons = `IsClosingPowerCard` OR included-combo member (ungated); payoffs = `PlanRole.Payoff` (permanent-gated); overlap allowed, no precedence rule.
 
 2. **Where the interaction-mode gate reads from (bracket vs play experience)**
    - What we know: `ManabaseMode` gates whether pure counterspells count as interaction; Cut Lab captures BOTH `Bracket` (1-5, optional) and `PlayExperience` ("Casual"/"Focused"/"cEDH"). Manabase maps mode→bracket (Cedh→5/Focused→3/else 2) but Cut Lab needs the reverse.
    - What's unclear: Which intent field wins when they disagree (e.g. B4 + "Casual").
    - Recommendation: `PlayExperience` → `ManabaseMode` for classification (it IS the mode vocabulary), bracket → numeric floor defaults. Document the mapping in help copy.
+   - **RESOLVED (planning):** Locked per the recommendation in the DECISIONS blocks of 102-01/102-02/102-03-PLAN — `PlayExperience` drives `ManabaseMode` for classification (PlayExperience wins on disagreement); bracket drives the numeric floor defaults.
 
 3. **UI shape for slot groups vs the Phase 101 pool table**
    - What we know: The pool table with lock checkboxes shipped in 101; role groups re-present the same cards; UI hint = yes; every UI change needs theme×viewport e2e screenshots.
    - What's unclear: Replace the flat table with grouped sections, or add groups alongside it (duplication → Pitfall 8).
    - Recommendation: Planner decides with the UI design pass; prefer one canonical card row (grouped view) over duplicated rows, and keep `data-cut-lab-role` attributes as the grouping key the existing bulk-land-lock TS already uses.
+   - **RESOLVED (UI design pass):** 102-UI-SPEC Component Contract 1 — role groups render as display-only accordions ALONGSIDE the pool table, which stays the sole lock surface (per-group pills drive the pool-table checkboxes; multi-role token `data-cut-lab-role` attribute).
 
 ## Environment Availability
 
