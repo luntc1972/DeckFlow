@@ -74,7 +74,7 @@ public static class CreatorStyleRubricScorer
 
     private static string GetVerdict(double delta)
     {
-        if (delta == 0)
+        if (Math.Abs(delta) < 0.0005)
         {
             return "on-target";
         }

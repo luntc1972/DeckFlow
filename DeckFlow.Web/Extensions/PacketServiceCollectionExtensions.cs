@@ -108,6 +108,8 @@ public static class PacketServiceCollectionExtensions
                 sp.GetRequiredService<CreatorWhitelistPoolBuilder>(),
                 sp.GetRequiredService<ICardGroundingGuard>(),
                 sp.GetRequiredService<ICreatorDeckCacheStore>(),
+                sp.GetRequiredService<PacketSessionCache>(),
+                sp.GetService<IFeatureFlagCache>(),
                 sp.GetService<ILogger<CreatorStylePacketService>>()));
 
         return services;
