@@ -361,14 +361,16 @@ Create("deck-history", "Deck History", "/deck-history", ToolNavSection.Build,
 
 **If this table is empty:** N/A — see above.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Exact multi-page state-carry mechanism across Phases 101→105**
+> Both open questions were resolved as explicit planning decisions during Phase 101 planning (2026-07-19). See the inline `RESOLVED:` notes below and the referenced plan files.
+
+1. **Exact multi-page state-carry mechanism across Phases 101→105** — **RESOLVED (101-02-PLAN.md):** Option (a) — a single serializable `CutLabState` envelope carried as a hidden-field JSON round-trip (`CutLabStateJson`), no ASP.NET Session, no DB this phase. Phases 102+ consume and re-emit the same envelope; DB-backed saved scenarios are deferred to Phase 104 (GOAL-02).
    - What we know: Phase 101 alone can be satisfied with a single-page hidden-field JSON round-trip (matches `DeckHistoryRequest.HistoryJson`). Phase 104 (GOAL-02) explicitly needs "save and reload named scenarios," which strongly implies real DB persistence (a new table, following the `FeedbackStore`/`CategoryKnowledgeStore` + `IRelationalDialect` pattern) by Phase 104 at the latest.
    - What's unclear: Whether Phase 101's locks/intent need to be *retrievable* by Phase 102/103 pages via a stable identifier (e.g., a session/draft ID passed in the URL) or whether the whole pool+locks blob is expected to keep round-tripping through every subsequent phase's forms as one growing hidden field.
    - Recommendation: The Phase 101 plan should pick ONE of: (a) pure hidden-field round-trip that Phase 102 also consumes and re-emits (matches existing zero-DB convention, but couples every future phase's form to carry an ever-growing blob), or (b) introduce a lightweight server-side draft store now (even just an `IMemoryCache`-backed session envelope keyed by a GUID in the URL, given the existing `IMemoryCache` DI registration) so Phases 102+ don't have to round-trip the same growing state through hidden fields repeatedly. This is squarely a planning decision, not something research can resolve alone — recommend raising it explicitly in the Phase 101 plan's design section.
 
-2. **Where does the commander get identified when the pool is submitted as a plain paste (no explicit `Commander` board header)?**
+2. **Where does the commander get identified when the pool is submitted as a plain paste (no explicit `Commander` board header)?** — **RESOLVED (101-03-PLAN.md):** Reuse the `ReflagInferredCommanders` leading-card inference heuristic for the common case, with the `CommanderSelectionRequired` fallback UI (Manabase pattern, `SelectedCommander`) for the ambiguous case; whichever commander is resolved is unconditionally force-locked server-side via `CutLabLockRules.EnforceCommanderLock` on every POST.
    - What we know: `ManabaseAnalysisService.ReflagInferredCommanders` (referenced at `ManabaseAnalysisService.cs:681`) already solves "Moxfield plaintext exports carry no Commander section header — the commander is simply the leading card," reflagging it to the commander board.
    - What's unclear: Whether Cut Lab should reuse this exact heuristic (it's Manabase-specific naming but generically applicable) or whether Cut Lab needs its own commander-selection UI (like Manabase's `CommanderSelectionRequired` picker, `Manabase.cshtml:87-123`) given the auto-lock requirement (LOCK-01: "the commander is always auto-locked and cannot be unlocked" — a wrong auto-detected commander would auto-lock the wrong card).
    - Recommendation: Reuse both: the `ReflagInferredCommanders`-style heuristic for the common case, AND the `CommanderSelectionRequired` fallback UI pattern for the ambiguous case, since LOCK-01's correctness depends on getting the commander right.

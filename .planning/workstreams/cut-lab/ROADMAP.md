@@ -28,7 +28,11 @@ Cycle 18 ships a deterministic decision-support loop that takes a builder from a
   2. User can declare primary plan, optional secondary plan, target bracket, and desired play experience, and the declaration persists with the working session
   3. A pool that is already at or below 100 cards, or exceeds the supported cap, produces a clear, actionable message instead of a broken workflow
   4. User can lock individual cards, group cards into named packages and lock/unlock a package as a unit, and bulk-lock an entire role group (e.g. all lands) in one action; the commander is always auto-locked and cannot be unlocked
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 101-01-PLAN.md — Register Cut Lab tool (ToolRegistry, DeckPageTab, feature flag OFF both dialects, tile icon)
+- [ ] 101-02-PLAN.md — Lock domain model, 101-150 pool validator, commander/package/land lock rules
+- [ ] 101-03-PLAN.md — State serializer, page service (load/validate/resolve/legality/auto-lock), flag-gated controller
+- [ ] 101-04-PLAN.md — Cut Lab Razor page, lock interactions TS, CSS, e2e smoke
 **UI hint**: yes
 
 ### Phase 102: Structural Analysis & Role Floors
@@ -84,7 +88,7 @@ Phases execute in numeric order: 101 -> 102 -> 103 -> 104 -> 105
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 101. Intake & Protection Foundation | 0/TBD | Not started | - |
+| 101. Intake & Protection Foundation | 0/4 | Not started | - |
 | 102. Structural Analysis & Role Floors | 0/TBD | Not started | - |
 | 103. Simulation Engine & Guided Cut Rounds | 0/TBD | Not started | - |
 | 104. Goals & What-If Scenarios | 0/TBD | Not started | - |
