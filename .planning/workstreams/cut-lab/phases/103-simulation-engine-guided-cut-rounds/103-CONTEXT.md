@@ -37,6 +37,9 @@ A builder works through cuts in a fixed, evidence-backed order (obvious cuts →
 - **D-15:** Defer = **parked until loop-around**: deferred cards sit out until all rounds exhaust; the loop-around pass re-proposes deferred (then rejected) cards if still >100.
 - **D-16:** Undo via **cuts-made list with restore-any**: every accepted cut is individually restorable — card returns to the working list, metrics recalculate, counter updates. Order-independent.
 
+### Scope addendum (2026-07-19)
+- **D-17 (addendum 2026-07-19):** SIM-01 "per-goal category-by-turn probability" = fixed `CedhMulliganCalibration` turn-cap defaults (commander-by-3, engine-by-2, representative-line-by-4) in Phase 103; user-editable turn-based goals deferred to Phase 104/GOAL-01 — user confirmed 2026-07-19.
+
 ### Claude's Discretion
 - Exact noise-floor threshold values and per-metric formatting precision.
 - In-loop vs full-fidelity iteration counts (set from researcher's measured engine cost).
