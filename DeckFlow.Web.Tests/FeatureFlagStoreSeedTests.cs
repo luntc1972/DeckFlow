@@ -39,6 +39,7 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
     [InlineData("analysis.multi-axis-score", false)] // SCORE-01: seeded OFF
     [InlineData("tool.primer.stale-flag", false)] // PRIMER: seeded OFF
     [InlineData("tool.deck-history.enabled", false)] // seeded OFF
+    [InlineData("tool.cut-lab.enabled", false)] // seeded OFF
     [InlineData("analysis.manabase.mulligan-eval", true)] // renamed + default ON
     [InlineData("analysis.manabase.plan-presence", true)] // default ON (gated also on mulligan-eval)
     [InlineData("analysis.manabase.keep-shapes", false)] // keep-shapes dark launch; flip after UAT
