@@ -20,18 +20,31 @@ interface CutLabIntentSnapshot {
   playExperience: string;
 }
 
+interface CutLabRoleFloorSnapshot {
+  role: string;
+  floor: number;
+  isUserSet: boolean;
+}
+
 interface CutLabStateSnapshot {
   commander: string;
   pool: CutLabPoolSnapshotCard[];
   packages: CutLabPackageSnapshot[];
   intent: CutLabIntentSnapshot;
+  roleFloors: CutLabRoleFloorSnapshot[];
 }
 
 type PackageCheckboxState = 'checked' | 'unchecked' | 'indeterminate';
 
+interface CutLabFloorDomRow {
+  row: HTMLTableRowElement;
+  input: HTMLInputElement;
+}
+
 interface CutLabApi {
   computePackageCheckboxState(memberLocked: boolean[]): PackageCheckboxState;
-  isLandRole(role: string | null | undefined): boolean;
+  hasRoleToken(roleList: string | null | undefined, role: string): boolean;
+  isLandRole(roleList: string | null | undefined): boolean;
   buildCutLabStateJson(snapshot: CutLabStateSnapshot): string;
 }
 
@@ -62,8 +75,21 @@ const unlockedPoolOptionValue = '';
       return allUnlocked ? 'unchecked' : 'indeterminate';
     },
 
-    isLandRole(role: string | null | undefined): boolean {
-      return (role ?? '').trim().toLowerCase() === 'land';
+    hasRoleToken(roleList: string | null | undefined, role: string): boolean {
+      const normalizedRole = role.trim().toLowerCase();
+      if (normalizedRole === '') {
+        return false;
+      }
+
+      return (roleList ?? '')
+        .split(/\s+/)
+        .map(token => token.trim().toLowerCase())
+        .filter(token => token !== '')
+        .includes(normalizedRole);
+    },
+
+    isLandRole(roleList: string | null | undefined): boolean {
+      return api.hasRoleToken(roleList, 'lands');
     },
 
     buildCutLabStateJson(snapshot: CutLabStateSnapshot): string {
@@ -88,6 +114,13 @@ const unlockedPoolOptionValue = '';
           bracket: snapshot.intent.bracket,
           playExperience: snapshot.intent.playExperience,
         },
+        roleFloors: snapshot.roleFloors
+          .filter(row => row.isUserSet)
+          .map(row => ({
+            role: row.role,
+            floor: Math.trunc(row.floor),
+            isUserSet: row.isUserSet,
+          })),
       };
 
       return JSON.stringify(normalizedSnapshot);
@@ -100,7 +133,7 @@ const unlockedPoolOptionValue = '';
   let generatedPackageCounter = 0;
 
   const getForm = (): HTMLFormElement | null =>
-    document.querySelector<HTMLFormElement>('form[action="/cut-lab"]');
+    document.querySelector<HTMLFormElement>('form[data-cache-key="cut-lab"]');
 
   const getStateInput = (form: HTMLFormElement): HTMLInputElement | null =>
     form.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]');
@@ -110,6 +143,17 @@ const unlockedPoolOptionValue = '';
 
   const getPackageContainers = (): HTMLDivElement[] =>
     Array.from(document.querySelectorAll<HTMLDivElement>('[data-cut-lab-package-id]'));
+
+  const getRoleLockButtons = (): HTMLButtonElement[] =>
+    Array.from(document.querySelectorAll<HTMLButtonElement>('[data-cut-lab-lock-role]'));
+
+  const getFloorRows = (): CutLabFloorDomRow[] =>
+    Array.from(document.querySelectorAll<HTMLTableRowElement>('tr[data-cut-lab-floor-row]'))
+      .map(row => {
+        const input = row.querySelector<HTMLInputElement>('input[data-cut-lab-floor]');
+        return input ? { row, input } : null;
+      })
+      .filter((entry): entry is CutLabFloorDomRow => entry !== null);
 
   const getLockCheckbox = (row: HTMLTableRowElement): HTMLInputElement | null =>
     row.querySelector<HTMLInputElement>('input[data-cut-lab-lock-card]');
@@ -149,7 +193,7 @@ const unlockedPoolOptionValue = '';
   };
 
   const updateLockedCountChip = (): void => {
-    const summary = document.querySelector<HTMLElement>('.prompt-size-note');
+    const summary = document.querySelector<HTMLElement>('[data-cut-lab-lock-count]');
     if (!summary) {
       return;
     }
@@ -163,7 +207,63 @@ const unlockedPoolOptionValue = '';
       return checkbox?.checked ? total + 1 : total;
     }, 0);
 
-    summary.textContent = `${nonCommanderCount} cards in pool · ${lockedCount} locked (protected from any future cut)`;
+    summary.textContent = `${nonCommanderCount} cards in pool · ${lockedCount} locked`;
+  };
+
+  const parseIntegerAttribute = (element: HTMLElement, name: string, fallback: number): number => {
+    const rawValue = element.dataset[name] ?? '';
+    const parsed = Number.parseInt(rawValue, 10);
+    return Number.isNaN(parsed) ? fallback : parsed;
+  };
+
+  const clampFloorValue = (input: HTMLInputElement): number => {
+    const min = input.min === '' ? 0 : Number.parseInt(input.min, 10);
+    const max = input.max === '' ? Number.MAX_SAFE_INTEGER : Number.parseInt(input.max, 10);
+    const parsed = Number.parseInt(input.value, 10);
+    const fallback = Number.isNaN(parsed) ? min : parsed;
+    const clamped = Math.min(Math.max(fallback, min), max);
+    input.value = `${clamped}`;
+    return clamped;
+  };
+
+  const setFloorUserSetState = (row: HTMLTableRowElement, isUserSet: boolean): void => {
+    row.dataset.cutLabFloorUserSet = isUserSet ? 'true' : 'false';
+
+    const defaultLabel = row.querySelector<HTMLElement>('[data-cut-lab-floor-source-default]');
+    const adjustedBadge = row.querySelector<HTMLElement>('[data-cut-lab-floor-adjusted-badge]');
+    const resetButton = row.querySelector<HTMLElement>('[data-cut-lab-floor-reset]');
+
+    defaultLabel?.classList.toggle('hidden', isUserSet);
+    adjustedBadge?.classList.toggle('hidden', !isUserSet);
+    resetButton?.classList.toggle('hidden', !isUserSet);
+  };
+
+  const updateFloorRowMarker = (row: HTMLTableRowElement, floor: number): void => {
+    const inPoolCount = parseIntegerAttribute(row, 'cutLabFloorCount', 0);
+    const marker = row.querySelector<HTMLElement>('[data-cut-lab-floor-at-marker]');
+    if (!marker) {
+      return;
+    }
+
+    const atFloor = inPoolCount <= floor + 1;
+    marker.classList.toggle('hidden', !atFloor);
+    marker.textContent = '· at floor';
+  };
+
+  const syncRoleLockButtons = (): void => {
+    getRoleLockButtons().forEach(button => {
+      const roleKey = button.dataset.cutLabLockRole ?? '';
+      if (roleKey === '') {
+        return;
+      }
+
+      const memberRows = getPoolRows().filter(row => api.hasRoleToken(row.dataset.cutLabRole, roleKey));
+      const lockableMembers = memberRows
+        .map(row => getLockCheckbox(row))
+        .filter((checkbox): checkbox is HTMLInputElement => checkbox !== null && !checkbox.disabled);
+      const allLocked = lockableMembers.length > 0 && lockableMembers.every(checkbox => checkbox.checked);
+      button.classList.toggle('is-selected', allLocked);
+    });
   };
 
   const buildSnapshotFromDom = (): CutLabStateSnapshot => {
@@ -203,6 +303,13 @@ const unlockedPoolOptionValue = '';
         bracket: bracketValue === '' ? null : Number.parseInt(bracketValue, 10),
         playExperience: readCheckedValue('PlayExperience'),
       },
+      roleFloors: getFloorRows()
+        .filter(({ row }) => row.dataset.cutLabFloorUserSet === 'true')
+        .map(({ row, input }) => ({
+          role: input.dataset.cutLabFloor ?? '',
+          floor: clampFloorValue(input),
+          isUserSet: true,
+        })),
     };
   };
 
@@ -348,9 +455,9 @@ const unlockedPoolOptionValue = '';
     refreshAndSerialize();
   };
 
-  const lockAllLands = (): void => {
+  const lockAllRole = (roleKey: string): void => {
     getPoolRows().forEach(row => {
-      if (!api.isLandRole(row.dataset.cutLabRole)) {
+      if (!api.hasRoleToken(row.dataset.cutLabRole, roleKey)) {
         return;
       }
 
@@ -362,8 +469,13 @@ const unlockedPoolOptionValue = '';
       checkbox.checked = true;
     });
 
-    syncAllPackageStates();
     refreshAndSerialize();
+  };
+
+  const updateFloorRow = (row: HTMLTableRowElement, input: HTMLInputElement, isUserSet: boolean): void => {
+    const floor = clampFloorValue(input);
+    setFloorUserSetState(row, isUserSet);
+    updateFloorRowMarker(row, floor);
   };
 
   const clearPendingNewPackageUi = (): void => {
@@ -544,6 +656,7 @@ const unlockedPoolOptionValue = '';
   const refreshAndSerialize = (): void => {
     updateLockedCountChip();
     syncAllPackageStates();
+    syncRoleLockButtons();
     writeStateToHiddenInput();
   };
 
@@ -562,6 +675,16 @@ const unlockedPoolOptionValue = '';
           handlePackageSelectChange(select);
         });
       }
+    });
+
+    getFloorRows().forEach(({ row, input }) => {
+      const handleFloorChange = (): void => {
+        updateFloorRow(row, input, true);
+        refreshAndSerialize();
+      };
+
+      input.addEventListener('input', handleFloorChange);
+      input.addEventListener('change', handleFloorChange);
     });
   };
 
@@ -586,9 +709,22 @@ const unlockedPoolOptionValue = '';
         return;
       }
 
-      const lockAllButton = target.closest<HTMLElement>('[data-cut-lab-lock-all-lands]');
-      if (lockAllButton) {
-        lockAllLands();
+      const lockRoleButton = target.closest<HTMLElement>('[data-cut-lab-lock-role]');
+      if (lockRoleButton?.dataset.cutLabLockRole) {
+        lockAllRole(lockRoleButton.dataset.cutLabLockRole);
+        return;
+      }
+
+      const floorResetButton = target.closest<HTMLElement>('[data-cut-lab-floor-reset]');
+      if (floorResetButton?.dataset.cutLabFloorReset) {
+        const row = floorResetButton.closest<HTMLTableRowElement>('tr[data-cut-lab-floor-row]');
+        const input = row?.querySelector<HTMLInputElement>('input[data-cut-lab-floor]');
+        const defaultValue = floorResetButton.dataset.cutLabFloorDefault ?? '';
+        if (row && input) {
+          input.value = defaultValue;
+          updateFloorRow(row, input, false);
+          refreshAndSerialize();
+        }
         return;
       }
 
@@ -605,6 +741,11 @@ const unlockedPoolOptionValue = '';
 
       if (target.closest('[data-cut-lab-new-package-cancel]')) {
         clearPendingNewPackageUi();
+        return;
+      }
+
+      if (target.closest('[data-cut-lab-recalculate]')) {
+        getForm()?.requestSubmit();
       }
     });
 
