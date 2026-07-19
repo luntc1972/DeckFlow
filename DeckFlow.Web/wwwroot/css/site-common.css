@@ -4197,6 +4197,12 @@ label.field > span,
   color: var(--ink, inherit);
 }
 
+.cutlab-finding__item + .cutlab-finding__item {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+
 .cutlab-finding__heading,
 .cutlab-finding__lead,
 .cutlab-degradation-note {
@@ -4205,6 +4211,18 @@ label.field > span,
 
 .cutlab-finding__heading {
   font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.cutlab-findings-count {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel));
+  color: var(--ink, inherit);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 24%, var(--panel));
   font-weight: 600;
 }
 

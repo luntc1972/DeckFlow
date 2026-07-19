@@ -253,7 +253,9 @@ public static class CutLabStructuralFindings
             yield return new CutLabFinding(
                 CutLabFindingKind.WeakFloorCase,
                 "Weak floor cases",
-                $"{RoleDisplayName(roleKey)} is at {count} against a floor of {floor} — every card in this role is effectively protected already.",
+                count == 0
+                    ? $"You have no {RoleDisplayName(roleKey).ToLowerInvariant()} cards yet; the suggested floor is {floor}."
+                    : $"{RoleDisplayName(roleKey)} is at {count} against a floor of {floor} — every card in this role is effectively protected already.",
                 cards.Select(card => new CutLabFindingEvidence(card.Name, null)).ToArray());
         }
     }
