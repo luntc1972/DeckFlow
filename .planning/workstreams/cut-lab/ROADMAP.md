@@ -63,7 +63,7 @@ Cycle 18 ships a deterministic decision-support loop that takes a builder from a
   4. User can accept, reject, or defer each proposed cut individually, with a running cards-remaining-to-100 count always visible
   5. User can view a before/after comparison between the original pool baseline and the current working list at any point in the process
 **Plans**: 10 plans
-- [ ] 103-01-PLAN.md — Metric contract (7 families) + D-08 determinism guard + D-11 timing spike
+- [x] 103-01-PLAN.md — Metric contract (7 families) + D-08 determinism guard + D-11 timing spike
 - [ ] 103-02-PLAN.md — CutLabState extension: decision history (D-16) + baseline snapshot (D-12) + immutable-Pool derived-working-list helper (HIGH-1) + bounded serializer
 - [ ] 103-03-PLAN.md — Resolved-card cache (D-09 gap) + delta cache (D-10), dedicated bounded instances + DI
 - [ ] 103-04-PLAN.md — Cut round engine over the derived working list: CUT-01 fixed order, D-04 loop-around, Pitfall-3 finding tally
@@ -105,6 +105,6 @@ Phases execute in numeric order: 101 -> 102 -> 103 -> 104 -> 105
 |-------|----------------|--------|-----------|
 | 101. Intake & Protection Foundation | 4/4 | Complete   | 2026-07-19 |
 | 102. Structural Analysis & Role Floors | 5/5 | Complete    | 2026-07-19 |
-| 103. Simulation Engine & Guided Cut Rounds | 0/10 | Not started | - |
+| 103. Simulation Engine & Guided Cut Rounds | 1/10 | In Progress|  |
 | 104. Goals & What-If Scenarios | 0/TBD | Not started | - |
 | 105. Builder-Compatible Export | 0/TBD | Not started | - |
