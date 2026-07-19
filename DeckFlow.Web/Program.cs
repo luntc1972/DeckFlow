@@ -288,7 +288,7 @@ public partial class Program
             await app.Services.GetRequiredService<DeckFlow.Core.Content.IContentSiteIndexStore>().EnsureSchemaAsync();
             Task contentKbSeedTask = app.Services.GetRequiredService<IContentKbSeedLoader>().LoadIfPresentAsync();
             Task creatorStyleSeedTask = app.Services.GetRequiredService<ICreatorStyleSeedLoader>().LoadIfPresentAsync();
-            await Task.WhenAll(contentKbSeedTask, creatorStyleSeedTask);
+            await AwaitStartupSeedTasksAsync(contentKbSeedTask, creatorStyleSeedTask, app.Logger);
             app.Logger.LogInformation("Content site-index schema ensured and seed load completed during startup.");
 
             // D-08: one-time deterministic body_sha256 backfill, third step after schema-ensure
@@ -387,6 +387,41 @@ public partial class Program
     /// </summary>
     internal static string DeriveAdminPartitionKey(HttpContext context)
         => "admin:" + DeriveCloudflareClientIp(context);
+
+    internal static async Task AwaitStartupSeedTasksAsync(
+        Task contentKbSeedTask,
+        Task creatorStyleSeedTask,
+        Microsoft.Extensions.Logging.ILogger logger)
+    {
+        ArgumentNullException.ThrowIfNull(contentKbSeedTask);
+        ArgumentNullException.ThrowIfNull(creatorStyleSeedTask);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        try
+        {
+            await Task.WhenAll(contentKbSeedTask, creatorStyleSeedTask);
+        }
+        catch
+        {
+            LogFaultedSeedTask(logger, contentKbSeedTask, nameof(contentKbSeedTask));
+            LogFaultedSeedTask(logger, creatorStyleSeedTask, nameof(creatorStyleSeedTask));
+            throw;
+        }
+    }
+
+    private static void LogFaultedSeedTask(
+        Microsoft.Extensions.Logging.ILogger logger,
+        Task seedTask,
+        string taskName)
+    {
+        if (!seedTask.IsFaulted
+            || seedTask.Exception is null)
+        {
+            return;
+        }
+
+        logger.LogError(seedTask.Exception, "Startup seed task {SeedTaskName} failed.", taskName);
+    }
 
     private static async Task ValidateDatabaseConnectionsAsync(IServiceProvider services, IWebHostEnvironment environment, Microsoft.Extensions.Logging.ILogger logger)
     {

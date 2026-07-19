@@ -14,6 +14,8 @@ namespace DeckFlow.Web.Controllers;
 /// </summary>
 public sealed class CreatorStyleController : DeckToolControllerBase
 {
+    private static readonly TimeSpan ErrorViewPickerTimeout = TimeSpan.FromSeconds(5);
+
     private readonly ICreatorStylePacketService _packetService;
     private readonly ICreatorStyleProfileStore _profileStore;
     private readonly IContentSiteIndexStore _siteIndexStore;
@@ -147,10 +149,27 @@ public sealed class CreatorStyleController : DeckToolControllerBase
         using var timeoutScope = CreateTimeoutScope(LookupTimeout);
         async Task<IActionResult> ErrorViewAsync(string message)
         {
+            IReadOnlyList<CreatorStyleViewModel.CreatorPickerOption> availableCreators;
+            try
+            {
+                using var pickerTimeoutScope = CreateTimeoutScope(ErrorViewPickerTimeout);
+                availableCreators = await BuildPickerOptionsAsync(pickerTimeoutScope.Token);
+            }
+            catch (OperationCanceledException exception)
+            {
+                _logger.LogWarning(exception, "Creator-style {Operation} error-view picker rebuild timed out.", operation);
+                availableCreators = Array.Empty<CreatorStyleViewModel.CreatorPickerOption>();
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(exception, "Creator-style {Operation} error-view picker rebuild failed.", operation);
+                availableCreators = Array.Empty<CreatorStyleViewModel.CreatorPickerOption>();
+            }
+
             return View("CreatorStyle", new CreatorStyleViewModel
             {
                 Request = request,
-                AvailableCreators = await BuildPickerOptionsAsync(CancellationToken.None),
+                AvailableCreators = availableCreators,
                 ErrorMessage = message,
             });
         }
