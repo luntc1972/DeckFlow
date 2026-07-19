@@ -1,12 +1,23 @@
+using System.Diagnostics;
 using System.Text.Json;
 using DeckFlow.Core.Manabase;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace DeckFlow.Web.Tests;
 
 /// <summary>Guards the existing manabase engine's deterministic behavior for Cut Lab simulation work.</summary>
 public sealed class CutLabEngineDeterminismTests
 {
+    private readonly ITestOutputHelper _output;
+
+    /// <summary>Initializes a new test sink for timing output.</summary>
+    /// <param name="output">xUnit output writer.</param>
+    public CutLabEngineDeterminismTests(ITestOutputHelper output)
+    {
+        _output = output;
+    }
+
     /// <summary>Two analyses of the same card facts produce a byte-identical numeric projection.</summary>
     [Fact]
     public void Analyze_SameFactsTwice_ProducesByteIdenticalNumericSnapshot()
@@ -44,6 +55,22 @@ public sealed class CutLabEngineDeterminismTests
         string reordered = SerializeProjection(AnalyzeFacts(shuffled));
 
         Assert.Equal(original, reordered);
+    }
+
+    /// <summary>Measures one default-trial analyze pass for a realistic oversized singleton pool.</summary>
+    [Fact]
+    public void TimingSpike_DefaultTrialAnalyze_OnLargeSingletonPool_EmitsElapsedMilliseconds()
+    {
+        IReadOnlyList<CardFact> facts = BuildTimingFacts();
+
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        ManabaseReport report = AnalyzeFacts(facts);
+        stopwatch.Stop();
+
+        long elapsedMilliseconds = stopwatch.ElapsedMilliseconds;
+        _output.WriteLine($"Cut Lab timing spike (~130-card Analyze): {elapsedMilliseconds} ms");
+        Assert.True(elapsedMilliseconds >= 0);
+        Assert.NotNull(report.MulliganEvaluation);
     }
 
     private static ManabaseReport AnalyzeFacts(IReadOnlyList<CardFact> facts)
@@ -112,6 +139,52 @@ public sealed class CutLabEngineDeterminismTests
             Creature("Thassa's Oracle", "{U}{U}", 2, "Creature — Merfolk Wizard"),
             Enchantment("Mystic Remora", "{U}", 1, "Cumulative upkeep {1}. Whenever an opponent casts a noncreature spell, you may draw a card unless that player pays {4}."),
         ];
+    }
+
+    private static IReadOnlyList<CardFact> BuildTimingFacts()
+    {
+        var facts = new List<CardFact>
+        {
+            Creature("Kinnan, Bonder Prodigy", "{G}{U}", 2, "Legendary Creature — Human Druid", isCommander: true),
+        };
+
+        for (int i = 1; i <= 18; i++)
+        {
+            facts.Add(Land($"Forest {i:00}", "{T}: Add {G}.", "G"));
+            facts.Add(Land($"Island {i:00}", "{T}: Add {U}.", "U"));
+        }
+
+        for (int i = 1; i <= 4; i++)
+        {
+            facts.Add(Land($"Dual Grove {i:00}", "{T}: Add {G} or {U}.", "G", "U"));
+        }
+
+        for (int i = 1; i <= 20; i++)
+        {
+            facts.Add(Artifact($"Mana Rock {i:00}", "{2}", 2, "{T}: Add one mana of any color."));
+        }
+
+        for (int i = 1; i <= 20; i++)
+        {
+            facts.Add(Instant($"Interaction {i:00}", "{U}", 1, "Counter target spell."));
+        }
+
+        for (int i = 1; i <= 25; i++)
+        {
+            facts.Add(Enchantment($"Engine {i:00}", "{2}{U}", 3, "Whenever you cast a spell, draw a card."));
+        }
+
+        for (int i = 1; i <= 24; i++)
+        {
+            facts.Add(Creature($"Payoff {i:00}", "{3}{G}{U}", 5, "Creature — Beast"));
+        }
+
+        for (int i = 1; i <= 17; i++)
+        {
+            facts.Add(Sorcery($"Support {i:00}", "{1}{G}", 2, "Draw a card."));
+        }
+
+        return facts;
     }
 
     private static CardFact Land(string name, string oracleText, params string[] producedMana)
