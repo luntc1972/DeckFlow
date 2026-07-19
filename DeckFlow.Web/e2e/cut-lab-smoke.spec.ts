@@ -59,7 +59,8 @@ const importPool = async (page: Page): Promise<void> => {
   await page.getByRole('button', { name: 'Import pool' }).click();
 
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator('[data-cut-lab-lock-all-lands]')).toBeVisible();
+  await page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' }).locator('summary').click();
+  await expect(page.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
 };
 
@@ -96,7 +97,7 @@ test('/cut-lab renders the intake, intent controls, and hidden state field when 
 test('imports a pool, locks lands and a package, then preserves those edits across a resubmit', async ({ page }) => {
   await importPool(page);
 
-  await page.locator('[data-cut-lab-lock-all-lands]').click();
+  await page.locator('[data-cut-lab-lock-role="lands"]').click();
   await expect(page.locator('tr[data-cut-lab-card="Plains"] input[data-cut-lab-lock-card]')).toBeChecked();
   await expect(page.locator('tr[data-cut-lab-card="Island"] input[data-cut-lab-lock-card]')).toBeChecked();
 
@@ -122,7 +123,7 @@ test('imports a pool, locks lands and a package, then preserves those edits acro
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"] .cutlab-lock-badge--commander')).toContainText('Commander · Always locked');
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"] input[data-cut-lab-lock-card]')).toBeChecked();
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"] input[data-cut-lab-lock-card]')).toBeDisabled();
-  await expect(page.locator('.prompt-size-note')).toContainText('locked (protected from any future cut)');
+  await expect(page.locator('[data-cut-lab-lock-count]').locator('..')).toContainText('locked (protected from any future cut)');
   await expect(page.getByText('No banned cards found')).toBeVisible();
 });
 
