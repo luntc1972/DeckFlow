@@ -112,6 +112,7 @@ Ship the $0 paste-ready Creator-Style tool end-to-end: new page + controller whe
 - **Claude/Gemini prompt arms** for creator-style packet — after tool proves value (D-100-14).
 - **P99 hygiene backlog items not folded**: IN-02 (metric-key vocabulary), IN-05 (stale XML docs), IN-06 (test namespace), IN-07 (dead overload), IN-09 (scorer TryAdd), IN-10 (unless bundled) — carry to next cycle's review backlog.
 - **deck-input-store restore desync** — pre-existing backlog item for all split-input tools; queued post-ship on its own branch.
+- **Sitemap/SEO wiring for the new tool page** — user decision 2026-07-19 (planning): `SeoPaths` does not exist on this branch (diverged before main's SEO slices); defer the sitemap entry to a tiny post-merge follow-up once cycle-17 rebases onto main. Phase 100 plans MUST NOT touch `SitemapController` or reference `SeoPaths`.
 
 </deferred>
 
