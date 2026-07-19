@@ -241,7 +241,8 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('tool.primer.stale-flag', FALSE),
           ('sync.directpush-gitbody', FALSE),
           ('sync.reconcile', FALSE),
-          ('tool.deck-history.enabled', FALSE)
+          ('tool.deck-history.enabled', FALSE),
+          ('tool.cut-lab.enabled', FALSE)
         ON CONFLICT (key) DO NOTHING;
         """;
 
@@ -291,7 +292,8 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('tool.primer.stale-flag', 0),
           ('sync.directpush-gitbody', 0),
           ('sync.reconcile', 0),
-          ('tool.deck-history.enabled', 0)
+          ('tool.deck-history.enabled', 0),
+          ('tool.cut-lab.enabled', 0)
         ON CONFLICT (key) DO NOTHING;
         """;
 
