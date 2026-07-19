@@ -145,19 +145,6 @@ internal sealed class CutLabPageService : ICutLabPageService
             return Error("No mainboard or commander cards were found in that deck.", warnings);
         }
 
-        var nonCommanderCardCount = analyzedEntries
-            .Where(entry => !string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
-            .Sum(entry => entry.Quantity);
-
-        try
-        {
-            CutLabPoolValidator.ValidateCardCount(nonCommanderCardCount);
-        }
-        catch (InvalidOperationException exception)
-        {
-            return Error(exception.Message, warnings);
-        }
-
         List<ResolvedCutLabEntry> resolvedEntries;
         try
         {
@@ -169,6 +156,16 @@ internal sealed class CutLabPageService : ICutLabPageService
         }
 
         var commanderResolution = ResolveCommanderSelection(resolvedEntries, request.SelectedCommander);
+        int nonCommanderCardCount = CountNonCommanderCards(analyzedEntries, commanderResolution.CommanderNames);
+        try
+        {
+            CutLabPoolValidator.ValidateCardCount(nonCommanderCardCount);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Error(exception.Message, warnings);
+        }
+
         var bannedCardsPresent = await ResolveBannedCardsPresentAsync(resolvedEntries, cancellationToken).ConfigureAwait(false);
         var priorState = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
         var state = BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request);
@@ -331,9 +328,26 @@ internal sealed class CutLabPageService : ICutLabPageService
             return new CommanderResolution(validatedFlaggedCommanders, commanderChoices, false);
         }
 
-        bool hadFlaggedCommander = entries.Any(entry => entry.IsCommander);
-        bool selectionRequired = commanderChoices.Count > 0 && (selectedCommanderSupplied || hadFlaggedCommander);
-        return new CommanderResolution([], commanderChoices, selectionRequired);
+        if (commanderChoices.Count > 0)
+        {
+            return new CommanderResolution([], commanderChoices, true);
+        }
+
+        var fallbackChoices = entries
+            .Select(entry => entry.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        return new CommanderResolution([], fallbackChoices, fallbackChoices.Length > 0);
+    }
+
+    private static int CountNonCommanderCards(
+        IReadOnlyList<DeckEntry> entries,
+        IReadOnlyList<string> commanderNames)
+    {
+        var commanderNameSet = commanderNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return entries
+            .Where(entry => !commanderNameSet.Contains(entry.Name))
+            .Sum(entry => entry.Quantity);
     }
 
     private static CutLabState BuildState(
