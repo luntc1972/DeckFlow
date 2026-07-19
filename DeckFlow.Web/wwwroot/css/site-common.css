@@ -4226,9 +4226,29 @@ label.field > span,
 
 .cutlab-floor-reset {
   margin-left: 0.5rem;
-  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0.35rem 0;
   border: 0;
   background: transparent;
   cursor: pointer;
   text-decoration: underline;
+}
+
+input[data-cut-lab-floor] {
+  width: 5.5rem;
+  min-height: 44px;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-soft-bg, var(--panel));
+  color: var(--ink);
+  font: inherit;
+}
+
+input[data-cut-lab-floor]:focus-visible {
+  outline: 2px solid var(--focus, var(--accent));
+  outline-offset: 2px;
+  border-color: var(--focus, var(--accent));
 }
