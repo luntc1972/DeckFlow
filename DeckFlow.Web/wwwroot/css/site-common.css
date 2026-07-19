@@ -4137,3 +4137,11 @@ label.field > span,
     grid-template-columns: 1fr;
   }
 }
+
+.cutlab-lock-badge--commander {
+  border-left: 3px solid var(--commander-gold, #d4af37);
+}
+
+.cutlab-package--locked {
+  border-left: 3px solid var(--accent);
+}
