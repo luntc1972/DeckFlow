@@ -88,7 +88,7 @@ public sealed class CutLabDeltaCache
             _logger.LogInformation(
                 "Cut Lab delta cache {Outcome} for {KeyPrefix} ({SizeBytes} bytes)",
                 "evicted",
-                ((string)evictedKey)[..KeyPrefixLength],
+                GetKeyPrefix(evictedKey as string ?? string.Empty),
                 evictedSize);
         });
 

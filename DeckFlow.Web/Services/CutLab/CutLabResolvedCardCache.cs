@@ -101,7 +101,7 @@ public sealed class CutLabResolvedCardCache
             _logger.LogInformation(
                 "Cut Lab resolved-card cache {Outcome} for {KeyPrefix} ({SizeBytes} bytes)",
                 "evicted",
-                ((string)evictedKey)[..KeyPrefixLength],
+                GetKeyPrefix(evictedKey as string ?? string.Empty),
                 evictedSize);
         });
 
