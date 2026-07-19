@@ -45,8 +45,8 @@ Cycle 18 ships a deterministic decision-support loop that takes a builder from a
   3. User sees default structural role floors (lands, ramp, draw, interaction, protection, engines, payoffs, win conditions) derived from their declared bracket and plan
   4. User can adjust any role floor, and no later cut suggestion may silently break a floor — breaking one always carries an explicit warning
 **Plans**: 5 plans
-- [ ] 102-01-PLAN.md — Floor domain layer: RoleFloors state extension, serializer clamp, CutLabFloorRules (Phase 103 contract), CutLabFloorDefaults + CalculateTargetRamp promotion
-- [ ] 102-02-PLAN.md — Pure analysis rules: CutLabRoleAssigner (8-role assignment) + CutLabStructuralFindings (5 detectors with degradation flags)
+- [x] 102-01-PLAN.md — Floor domain layer: RoleFloors state extension, serializer clamp, CutLabFloorRules (Phase 103 contract), CutLabFloorDefaults + CalculateTargetRamp promotion
+- [x] 102-02-PLAN.md — Pure analysis rules: CutLabRoleAssigner (8-role assignment) + CutLabStructuralFindings (5 detectors with degradation flags)
 - [ ] 102-03-PLAN.md — Page-service orchestration: classification I/O (fail-open, batched), stages A-F wiring, view model extension, PoolStatusText cleanup
 - [ ] 102-04-PLAN.md — UI: three Razor sections, floor editor TS, multi-role pool table, CSS, Vitest/e2e fixture updates
 - [ ] 102-05-PLAN.md — E2e structure spec, floor-persistence round-trip proof, theme×viewport screenshots, full phase test gate
@@ -94,7 +94,7 @@ Phases execute in numeric order: 101 -> 102 -> 103 -> 104 -> 105
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 101. Intake & Protection Foundation | 4/4 | Complete   | 2026-07-19 |
-| 102. Structural Analysis & Role Floors | 0/5 | Not started | - |
+| 102. Structural Analysis & Role Floors | 2/5 | In Progress|  |
 | 103. Simulation Engine & Guided Cut Rounds | 0/TBD | Not started | - |
 | 104. Goals & What-If Scenarios | 0/TBD | Not started | - |
 | 105. Builder-Compatible Export | 0/TBD | Not started | - |
