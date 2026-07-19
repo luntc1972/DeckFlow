@@ -17,7 +17,7 @@
 | 5. Spacing | 2/4 | Pixel-measured the "Lock all {role}" pill at ~21px tall on the rendered desktop page — under half the UI-SPEC's explicit 44×44px minimum touch target, which names "per-group 'Lock all {role}' pills" specifically. All other new controls (accordion summary, floor input, reset button) do carry the required `min-height: 44px`. |
 | 6. Experience Design | 4/4 | Full state coverage confirmed: fail-open degradation lines for both combo and category data (rendered, not banners), per-role empty state, all-clear zero-findings state, disabled+explained commander checkbox, preserved `window.confirm()` on package delete, reversible no-confirm floor reset — all present in code and screenshots. |
 
-**Overall: 18/24**
+**Overall: 18/24** *(cross-AI adjusted: 17/24 — see Cross-AI Verification Addendum)*
 
 ---
 
@@ -108,3 +108,34 @@
 - `.planning/workstreams/cut-lab/phases/102-structural-analysis-role-floors/102-0{1..5}-PLAN.md` (102-04 read in full; others skimmed for scope/interfaces)
 - `.planning/workstreams/cut-lab/phases/102-structural-analysis-role-floors/102-0{1..5}-SUMMARY.md`
 - Screenshots: `.planning/ui-design/cut-lab/screenshots/structure-{classic,azorius,nyx}-{desktop,mobile}.png` (all 6, viewed full-size plus targeted pixel crops for the commander-overlap and touch-target measurements)
+
+---
+
+## Cross-AI Verification Addendum (Codex gpt-5.5, 2026-07-19)
+
+Independent read-only cross-review by Codex (screenshots attached, all 3 themes × 2 viewports). Full output: dispatched via `codex exec -s read-only`.
+
+### Verdicts on this review's findings
+
+| Finding | Verdict | Evidence |
+|---|---|---|
+| P1 commander-lock badge/helper mobile overlap | CONFIRMED | 2-col mobile grid `site-common.css:1230`; Card cell has 3 real children `CutLab.cshtml:204`; nowrap `.kb-chip` (`site-common.css:569`) overflows the 6.5rem label column |
+| P2 "Lock all {role}" pill below 44px | CONFIRMED | Spec names per-group pills in 44×44 list (`102-UI-SPEC.md:49`); `.cutlab-role-group__body .manabase-pill` (`site-common.css:4178`) adds only margin; base `.manabase-pill` (`:2492`) has no min-height |
+| P3 findings repetition + count=0 copy + chip not elevated | CONFIRMED | Weak-floor emitted for `count <= floor+1` incl. 0 (`CutLabStructuralFindings.cs:248`); lead copy unconditional (`:253`); findings count uses same `.prompt-size-note` as lock count (`CutLab.cshtml:129`, `:359`) |
+| Minor: copy strings verbatim | CONFIRMED | Headings/CTA verbatim in Razor (`CutLab.cshtml:310/356/405/455`) |
+| Minor: all finding types share one gold treatment | CONFIRMED | Single `.cutlab-finding` class (`CutLab.cshtml:371`; `site-common.css:4192`) |
+| Minor: typography contract-compliant | CONFIRMED | Token-only sizes/weights (`site-common.css:4149`) — no further deduction |
+
+### Findings Codex added (missed in original audit)
+
+- **MED — bulk "Lock all {role}" does not toggle.** UI-SPEC says click toggles underlying checkboxes (`102-UI-SPEC.md:127`); implementation only sets them `true`, never unlocks (`cut-lab.ts:507`). Selected pill state is a dead-end action.
+- **LOW — role pill state not exposed to AT.** No `aria-pressed` in Razor (`CutLab.cshtml:322`); TS toggles `.is-selected` visual only (`cut-lab.ts:267`).
+- **LOW — locked evidence chips can't show accent border per spec** (`102-UI-SPEC.md:140`): Razor renders plain `.kb-chip` (`CutLab.cshtml:376`); view model flattens evidence to strings (`CutLabViewModel.cs:94`).
+
+### Score adjustment
+
+Experience Design 4/4 → **3/4** (bulk-lock toggle contract violation + missing state exposure). **Adjusted overall: 17/24.**
+
+### Cross-AI bottom line
+
+Claude's review sound on the three big visual/copy issues; missed one real interaction contract bug. Pre-flag-flip fix list: mobile commander cell collision, 44px role pill target, weak-floor zero-copy/repetition, bulk-role toggle + `aria-pressed`.
