@@ -61,6 +61,51 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public void From_GroupsWeakFloorFindingsIntoSingleBlock()
+    {
+        var request = new CutLabRequest();
+        var result = new CutLabProcessResult
+        {
+            HasResult = true,
+            Findings = new CutLabStructuralFindingsResult(
+                [
+                    new CutLabFinding(
+                        CutLabFindingKind.WeakFloorCase,
+                        "Weak floor cases",
+                        "Interaction is at 8 against a floor of 7 — every card in this role is effectively protected already.",
+                        [new CutLabFindingEvidence("Swords to Plowshares", null)]),
+                    new CutLabFinding(
+                        CutLabFindingKind.WeakFloorCase,
+                        "Weak floor cases",
+                        "Payoffs is at 0 against a floor of 6 — every card in this role is effectively protected already.",
+                        []),
+                    new CutLabFinding(
+                        CutLabFindingKind.RedundantFinishers,
+                        "Redundant finishers",
+                        "6 win conditions against a floor of 3 — more than one game usually needs.",
+                        [new CutLabFindingEvidence("Torment of Hailfire", null)]),
+                ],
+                true,
+                true),
+        };
+
+        CutLabViewModel model = CutLabViewModel.From(request, result);
+
+        Assert.Equal(2, model.FindingGroups.Count);
+        CutLabFindingGroupView weakFloorGroup = Assert.Single(model.FindingGroups, group => group.Kind == CutLabFindingKind.WeakFloorCase);
+        Assert.Equal("Weak floor cases", weakFloorGroup.Heading);
+        Assert.Equal(2, weakFloorGroup.Items.Count);
+        Assert.Equal(
+            [
+                "Interaction is at 8 against a floor of 7 — every card in this role is effectively protected already.",
+                "Payoffs is at 0 against a floor of 6 — every card in this role is effectively protected already.",
+            ],
+            weakFloorGroup.Items.Select(item => item.Lead));
+        Assert.Equal(["Swords to Plowshares"], weakFloorGroup.Items[0].Evidence);
+        Assert.Empty(weakFloorGroup.Items[1].Evidence);
+    }
+
+    [Fact]
     public async Task ProcessAsync_BannedCardsPresent_ReturnsIllegalSummary()
     {
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");

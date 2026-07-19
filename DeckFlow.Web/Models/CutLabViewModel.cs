@@ -64,6 +64,9 @@ public sealed record CutLabViewModel
     /// <summary>Structural findings rendered for the current pool.</summary>
     public IReadOnlyList<CutLabFindingView> Findings { get; init; } = [];
 
+    /// <summary>Structural findings grouped for display in the findings panel.</summary>
+    public IReadOnlyList<CutLabFindingGroupView> FindingGroups { get; init; } = [];
+
     /// <summary>True when combo-backed findings are incomplete because combo lookup was unavailable.</summary>
     public bool ComboDataUnavailable { get; init; }
 
@@ -94,6 +97,7 @@ public sealed record CutLabViewModel
         IReadOnlyList<CutLabFindingView> findings = result.Findings.Findings
             .Select(finding => new CutLabFindingView
             {
+                Kind = finding.Kind,
                 Heading = finding.Heading,
                 Lead = finding.Lead,
                 Evidence = finding.Evidence
@@ -103,6 +107,7 @@ public sealed record CutLabViewModel
                     .ToArray(),
             })
             .ToArray();
+        IReadOnlyList<CutLabFindingGroupView> findingGroups = BuildFindingGroups(findings);
         IReadOnlyList<CutLabFloorRowView> floorRows = BuildFloorRows(pool, result.ResolvedFloors, result.RoleAssignmentsByCardName, request.PlayExperience);
         IReadOnlyDictionary<string, string> roleListByCardName = BuildRoleListByCardName(pool, result.RoleAssignmentsByCardName);
         IReadOnlyDictionary<string, string> roleKeysByCardName = BuildRoleKeysByCardName(pool, result.RoleAssignmentsByCardName);
@@ -124,6 +129,7 @@ public sealed record CutLabViewModel
             Packages = result.State?.Packages ?? [],
             RoleGroups = roleGroups,
             Findings = findings,
+            FindingGroups = findingGroups,
             ComboDataUnavailable = result.HasResult && !result.Findings.ComboDataAvailable,
             CategoryDataUnavailable = result.HasResult && !result.Findings.CategoryDataAvailable,
             FloorRows = floorRows,
@@ -219,6 +225,47 @@ public sealed record CutLabViewModel
         return result;
     }
 
+    private static IReadOnlyList<CutLabFindingGroupView> BuildFindingGroups(IReadOnlyList<CutLabFindingView> findings)
+    {
+        List<CutLabFindingGroupView> groups = [];
+        List<CutLabFindingView>? weakFloorItems = null;
+        int weakFloorInsertIndex = -1;
+
+        foreach (CutLabFindingView finding in findings)
+        {
+            if (finding.Kind == CutLabFindingKind.WeakFloorCase)
+            {
+                weakFloorItems ??= [];
+                if (weakFloorInsertIndex < 0)
+                {
+                    weakFloorInsertIndex = groups.Count;
+                }
+
+                weakFloorItems.Add(finding);
+                continue;
+            }
+
+            groups.Add(new CutLabFindingGroupView
+            {
+                Kind = finding.Kind,
+                Heading = finding.Heading,
+                Items = [finding],
+            });
+        }
+
+        if (weakFloorItems is { Count: > 0 })
+        {
+            groups.Insert(weakFloorInsertIndex, new CutLabFindingGroupView
+            {
+                Kind = CutLabFindingKind.WeakFloorCase,
+                Heading = weakFloorItems[0].Heading,
+                Items = weakFloorItems.ToArray(),
+            });
+        }
+
+        return groups;
+    }
+
     private static Dictionary<string, int> CountRoles(
         IReadOnlyList<CutLabPoolCard> pool,
         IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName)
@@ -294,6 +341,9 @@ public sealed record CutLabRoleMemberView
 /// <summary>View-ready structural finding with preformatted evidence text.</summary>
 public sealed record CutLabFindingView
 {
+    /// <summary>Underlying finding kind used for display grouping.</summary>
+    public CutLabFindingKind Kind { get; init; }
+
     /// <summary>UI heading for the finding.</summary>
     public string Heading { get; init; } = string.Empty;
 
@@ -302,6 +352,19 @@ public sealed record CutLabFindingView
 
     /// <summary>Preformatted supporting evidence lines for the finding.</summary>
     public IReadOnlyList<string> Evidence { get; init; } = [];
+}
+
+/// <summary>View-ready group of one or more structural findings for panel rendering.</summary>
+public sealed record CutLabFindingGroupView
+{
+    /// <summary>Underlying finding kind represented by this rendered block.</summary>
+    public CutLabFindingKind Kind { get; init; }
+
+    /// <summary>UI heading for the rendered group.</summary>
+    public string Heading { get; init; } = string.Empty;
+
+    /// <summary>One or more findings rendered inside the group.</summary>
+    public IReadOnlyList<CutLabFindingView> Items { get; init; } = [];
 }
 
 /// <summary>View-ready role-floor row including count state and provenance text.</summary>

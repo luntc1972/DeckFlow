@@ -189,7 +189,7 @@ public sealed class CutLabStructuralFindingsTests
 
         CutLabFinding finding = Assert.Single(result.Findings);
         Assert.Equal(CutLabFindingKind.WeakFloorCase, finding.Kind);
-        Assert.Equal("Interaction is at 0 against a floor of 7 — every card in this role is effectively protected already.", finding.Lead);
+        Assert.Equal("You have no interaction cards yet; the suggested floor is 7.", finding.Lead);
         Assert.Empty(finding.Evidence);
     }
 

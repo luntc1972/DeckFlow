@@ -359,24 +359,29 @@
                 @if (totalStructuralFindings > 0)
                 {
                     <div class="panel-heading__actions">
-                        <span class="prompt-size-note">@totalStructuralFindings structural findings</span>
+                        <span class="prompt-size-note cutlab-findings-count">@totalStructuralFindings structural findings</span>
                     </div>
                 }
             </div>
 
             @if (totalStructuralFindings > 0)
             {
-                @foreach (var finding in Model.Findings)
+                @foreach (var findingGroup in Model.FindingGroups)
                 {
                     <div class="cutlab-finding">
-                        <p class="cutlab-finding__heading">@finding.Heading</p>
-                        <p class="cutlab-finding__lead">@finding.Lead</p>
-                        @if (finding.Evidence.Count > 0)
+                        <p class="cutlab-finding__heading">@findingGroup.Heading</p>
+                        @foreach (var finding in findingGroup.Items)
                         {
-                            <div class="kb-chip-area__chips">
-                                @foreach (var evidence in finding.Evidence)
+                            <div class="cutlab-finding__item">
+                                <p class="cutlab-finding__lead">@finding.Lead</p>
+                                @if (finding.Evidence.Count > 0)
                                 {
-                                    <span class="kb-chip">@evidence</span>
+                                    <div class="kb-chip-area__chips">
+                                        @foreach (var evidence in finding.Evidence)
+                                        {
+                                            <span class="kb-chip">@evidence</span>
+                                        }
+                                    </div>
                                 }
                             </div>
                         }
