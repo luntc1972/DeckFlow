@@ -227,6 +227,8 @@ public sealed class MeasuredStyleProfileBuilderTests
             var crawler = new CreatorProfileDeckCrawler(
                 ownerClient,
                 importer,
+                new FakeMoxfieldOwnerClient(),
+                new FakeMoxfieldDeckImporter(),
                 SourceStore,
                 CacheStore,
                 freshnessWindow: TimeSpan.Zero,
@@ -298,6 +300,18 @@ public sealed class MeasuredStyleProfileBuilderTests
 
             return cards;
         }
+    }
+
+    private sealed class FakeMoxfieldOwnerClient : IMoxfieldOwnerClient
+    {
+        public Task<IReadOnlyList<MoxfieldDeckSummary>> ListDeckSummariesAsync(string username, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<MoxfieldDeckSummary>>([]);
+    }
+
+    private sealed class FakeMoxfieldDeckImporter : IMoxfieldDeckImporter
+    {
+        public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+            => Task.FromResult(new List<DeckEntry>());
     }
 
     private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> CardCategoryMap =

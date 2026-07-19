@@ -32,6 +32,15 @@ public static class HttpClientServiceCollectionExtensions
             c.DefaultRequestHeaders.Accept.ParseAdd("application/json;q=0.9,*/*;q=0.8");
         });
 
+        services.AddHttpClient("moxfield-owner", c =>
+        {
+            c.BaseAddress = new Uri("https://api2.moxfield.com/");
+            c.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36");
+            c.DefaultRequestHeaders.Accept.ParseAdd("application/json, text/plain, */*");
+            c.DefaultRequestHeaders.Referrer = new Uri("https://moxfield.com/");
+            c.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
+        });
+
         services.AddHttpClient("commander-banlist", c =>
         {
             c.BaseAddress = new Uri("https://mtgcommander.net/");

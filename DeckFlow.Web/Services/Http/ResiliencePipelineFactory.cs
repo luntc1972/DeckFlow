@@ -25,6 +25,7 @@ namespace DeckFlow.Web.Services.Http
         public static IServiceCollection AddDeckFlowResiliencePipelines(this IServiceCollection services)
         {
             DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "archidekt", builder => BuildArchidekt(builder));
+            DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "moxfield", builder => BuildMoxfield(builder));
             DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "banlist", builder => BuildBanList(builder));
             DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "spellbook", builder => BuildSpellbook(builder));
             DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "tagger", builder => BuildTagger(builder));
@@ -56,6 +57,23 @@ namespace DeckFlow.Web.Services.Http
             {
                 Timeout = TimeSpan.FromSeconds(30),
                 Name = "archidekt-total",
+            })
+            .AddRetry(new RetryStrategyOptions<RestResponse>
+            {
+                MaxRetryAttempts = 2,
+                BackoffType = DelayBackoffType.Exponential,
+                UseJitter = true,
+                ShouldHandle = new PredicateBuilder<RestResponse>()
+                    .HandleResult(static r => r.StatusCode >= HttpStatusCode.InternalServerError)
+                    .Handle<Exception>(static ex => IsTransientException(ex)),
+            });
+
+        /// <summary>Moxfield owner crawl uses the same total-timeout + 5xx retry tuning as Archidekt.</summary>
+        private static void BuildMoxfield(ResiliencePipelineBuilder<RestResponse> builder) => builder
+            .AddTimeout(new TimeoutStrategyOptions
+            {
+                Timeout = TimeSpan.FromSeconds(30),
+                Name = "moxfield-total",
             })
             .AddRetry(new RetryStrategyOptions<RestResponse>
             {

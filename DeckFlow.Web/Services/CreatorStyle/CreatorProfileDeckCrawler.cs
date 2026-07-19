@@ -15,9 +15,12 @@ namespace DeckFlow.Web.Services.CreatorStyle;
 public sealed class CreatorProfileDeckCrawler
 {
     private const string ConfidenceMarker = "ok";
+    private static readonly TimeSpan MoxfieldImportInterval = TimeSpan.FromMilliseconds(500);
 
-    private readonly IArchidektOwnerClient _ownerClient;
-    private readonly IArchidektDeckImporter _deckImporter;
+    private readonly IArchidektOwnerClient _archidektOwnerClient;
+    private readonly IArchidektDeckImporter _archidektDeckImporter;
+    private readonly IMoxfieldOwnerClient _moxfieldOwnerClient;
+    private readonly IMoxfieldDeckImporter _moxfieldDeckImporter;
     private readonly ICreatorProfileSourceStore _profileSourceStore;
     private readonly ICreatorDeckCacheStore _deckCacheStore;
     private readonly ILogger<CreatorProfileDeckCrawler> _logger;
@@ -30,6 +33,8 @@ public sealed class CreatorProfileDeckCrawler
     public CreatorProfileDeckCrawler(
         IArchidektOwnerClient ownerClient,
         IArchidektDeckImporter deckImporter,
+        IMoxfieldOwnerClient moxfieldOwnerClient,
+        IMoxfieldDeckImporter moxfieldDeckImporter,
         ICreatorProfileSourceStore profileSourceStore,
         ICreatorDeckCacheStore deckCacheStore,
         ILogger<CreatorProfileDeckCrawler>? logger = null,
@@ -38,10 +43,14 @@ public sealed class CreatorProfileDeckCrawler
     {
         ArgumentNullException.ThrowIfNull(ownerClient);
         ArgumentNullException.ThrowIfNull(deckImporter);
+        ArgumentNullException.ThrowIfNull(moxfieldOwnerClient);
+        ArgumentNullException.ThrowIfNull(moxfieldDeckImporter);
         ArgumentNullException.ThrowIfNull(profileSourceStore);
         ArgumentNullException.ThrowIfNull(deckCacheStore);
-        _ownerClient = ownerClient;
-        _deckImporter = deckImporter;
+        _archidektOwnerClient = ownerClient;
+        _archidektDeckImporter = deckImporter;
+        _moxfieldOwnerClient = moxfieldOwnerClient;
+        _moxfieldDeckImporter = moxfieldDeckImporter;
         _profileSourceStore = profileSourceStore;
         _deckCacheStore = deckCacheStore;
         _logger = logger ?? NullLogger<CreatorProfileDeckCrawler>.Instance;
@@ -75,7 +84,17 @@ public sealed class CreatorProfileDeckCrawler
             return RebuildSamplesFromCache(warmEntries, source);
         }
 
-        var resolvedUsername = await _ownerClient.ResolveUsernameAsync(source.ProfileUsername, cancellationToken).ConfigureAwait(false);
+        var cacheEntries = await _deckCacheStore.GetByCreatorAsync(creatorSlug, cancellationToken).ConfigureAwait(false);
+        var cacheByDeckId = cacheEntries.ToDictionary(entry => entry.DeckId, StringComparer.Ordinal);
+
+        if (string.Equals(source.Platform, "moxfield", StringComparison.OrdinalIgnoreCase))
+        {
+            var moxfieldSamples = await CrawlMoxfieldAsync(creatorSlug, source, cacheByDeckId, cancellationToken).ConfigureAwait(false);
+            await _profileSourceStore.SetLastCrawledAsync(creatorSlug, _nowUtc(), cancellationToken).ConfigureAwait(false);
+            return moxfieldSamples;
+        }
+
+        var resolvedUsername = await _archidektOwnerClient.ResolveUsernameAsync(source.ProfileUsername, cancellationToken).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(resolvedUsername))
         {
             var fallbackInput = source.ProfileUrl ?? source.ProfileUsername;
@@ -85,11 +104,8 @@ public sealed class CreatorProfileDeckCrawler
             }
         }
 
-        var summaries = await _ownerClient.ListDeckSummariesAsync(resolvedUsername, cancellationToken).ConfigureAwait(false);
-        var cacheEntries = await _deckCacheStore.GetByCreatorAsync(creatorSlug, cancellationToken).ConfigureAwait(false);
-        var cacheByDeckId = cacheEntries.ToDictionary(entry => entry.DeckId, StringComparer.Ordinal);
+        var summaries = await _archidektOwnerClient.ListDeckSummariesAsync(resolvedUsername, cancellationToken).ConfigureAwait(false);
         var samples = new List<CreatorDeckSample>();
-
         foreach (var summary in summaries)
         {
             if (summary.Size > StapleStripper.MaxDeckSize)
@@ -97,33 +113,87 @@ public sealed class CreatorProfileDeckCrawler
                 continue;
             }
 
-            if (cacheByDeckId.TryGetValue(summary.Id, out var cachedEntry)
-                && !string.IsNullOrWhiteSpace(cachedEntry.ContentHash))
-            {
-                samples.Add(RebuildSampleFromCache(cachedEntry, source));
-                continue;
-            }
-
-            var importedEntries = await _deckImporter.ImportAsync(summary.Id, cancellationToken).ConfigureAwait(false);
-            var cacheEntry = new CreatorDeckCacheEntry
-            {
-                CreatorSlug = creatorSlug,
-                DeckId = summary.Id,
-                ContentHash = ComputeCanonicalHash(importedEntries),
-                FolderId = summary.ParentFolderId,
-                FolderName = summary.ParentFolderName,
-                Size = summary.Size,
-                ConfidenceMarker = ConfidenceMarker,
-                Entries = importedEntries,
-                CachedUtc = _nowUtc()
-            };
-
-            await _deckCacheStore.UpsertAsync(cacheEntry, cancellationToken).ConfigureAwait(false);
-            samples.Add(RebuildSampleFromCache(cacheEntry, source));
+            samples.Add(await GetOrImportSampleAsync(
+                creatorSlug,
+                source,
+                cacheByDeckId,
+                summary.Id,
+                summary.Size,
+                summary.ParentFolderId,
+                summary.ParentFolderName,
+                ct => _archidektDeckImporter.ImportAsync(summary.Id, ct),
+                cancellationToken).ConfigureAwait(false));
         }
 
         await _profileSourceStore.SetLastCrawledAsync(creatorSlug, _nowUtc(), cancellationToken).ConfigureAwait(false);
         return samples;
+    }
+
+    private async Task<IReadOnlyList<CreatorDeckSample>> CrawlMoxfieldAsync(
+        string creatorSlug,
+        CreatorProfileSource source,
+        IReadOnlyDictionary<string, CreatorDeckCacheEntry> cacheByDeckId,
+        CancellationToken cancellationToken)
+    {
+        var summaries = await _moxfieldOwnerClient.ListDeckSummariesAsync(source.ProfileUsername, cancellationToken).ConfigureAwait(false);
+        var samples = new List<CreatorDeckSample>();
+
+        for (var index = 0; index < summaries.Count; index++)
+        {
+            var summary = summaries[index];
+            if (index > 0)
+            {
+                await Task.Delay(MoxfieldImportInterval, cancellationToken).ConfigureAwait(false);
+            }
+
+            samples.Add(await GetOrImportSampleAsync(
+                creatorSlug,
+                source,
+                cacheByDeckId,
+                summary.PublicId,
+                null,
+                null,
+                null,
+                ct => _moxfieldDeckImporter.ImportAsync(summary.PublicId, ct),
+                cancellationToken).ConfigureAwait(false));
+        }
+
+        return samples;
+    }
+
+    private async Task<CreatorDeckSample> GetOrImportSampleAsync(
+        string creatorSlug,
+        CreatorProfileSource source,
+        IReadOnlyDictionary<string, CreatorDeckCacheEntry> cacheByDeckId,
+        string deckId,
+        int? summarySize,
+        int? folderId,
+        string? folderName,
+        Func<CancellationToken, Task<List<DeckEntry>>> importAsync,
+        CancellationToken cancellationToken)
+    {
+        if (cacheByDeckId.TryGetValue(deckId, out var cachedEntry)
+            && !string.IsNullOrWhiteSpace(cachedEntry.ContentHash))
+        {
+            return RebuildSampleFromCache(cachedEntry, source);
+        }
+
+        var importedEntries = await importAsync(cancellationToken).ConfigureAwait(false);
+        var cacheEntry = new CreatorDeckCacheEntry
+        {
+            CreatorSlug = creatorSlug,
+            DeckId = deckId,
+            ContentHash = ComputeCanonicalHash(importedEntries),
+            FolderId = folderId,
+            FolderName = folderName,
+            Size = summarySize ?? importedEntries.Sum(entry => entry.Quantity),
+            ConfidenceMarker = ConfidenceMarker,
+            Entries = importedEntries,
+            CachedUtc = _nowUtc()
+        };
+
+        await _deckCacheStore.UpsertAsync(cacheEntry, cancellationToken).ConfigureAwait(false);
+        return RebuildSampleFromCache(cacheEntry, source);
     }
 
     private static IReadOnlyList<CreatorDeckSample> RebuildSamplesFromCache(
