@@ -62,7 +62,17 @@ Cycle 18 ships a deterministic decision-support loop that takes a builder from a
   3. Every proposed cut shows its measurable tradeoff deltas before the user decides, and the tool never labels a card objectively worse
   4. User can accept, reject, or defer each proposed cut individually, with a running cards-remaining-to-100 count always visible
   5. User can view a before/after comparison between the original pool baseline and the current working list at any point in the process
-**Plans**: TBD
+**Plans**: 10 plans
+- [ ] 103-01-PLAN.md — Metric contract (7 families) + D-08 determinism guard + D-11 timing spike
+- [ ] 103-02-PLAN.md — CutLabState extension: decision history (D-16) + baseline snapshot (D-12) + bounded serializer
+- [ ] 103-03-PLAN.md — Resolved-card cache (D-09 gap) + delta cache (D-10), dedicated bounded instances + DI
+- [ ] 103-04-PLAN.md — Cut round engine: CUT-01 fixed order, D-04 loop-around, Pitfall-3 finding tally
+- [ ] 103-05-PLAN.md — Simulation service: 7-family projection (SIM-01) + baseline builder, cached + noise-floored
+- [ ] 103-06-PLAN.md — Page-service intake: populate resolved-card cache + compute/store baseline + initial round plan
+- [ ] 103-07-PLAN.md — POST /api/cut-lab/decide endpoint (accept/reject/defer/restore), same-origin + FLOOR-02 gate
+- [ ] 103-08-PLAN.md — ViewModel + Razor: Cut rounds / Cuts made / Compare-to-baseline sections (no-JS render)
+- [ ] 103-09-PLAN.md — cut-lab.ts async decision fetch/patch + site-common.css layout + Vitest
+- [ ] 103-10-PLAN.md — e2e rounds/decision/compare flow + full-suite gate + human verify
 **UI hint**: yes
 
 ### Phase 104: Goals & What-If Scenarios
@@ -95,6 +105,6 @@ Phases execute in numeric order: 101 -> 102 -> 103 -> 104 -> 105
 |-------|----------------|--------|-----------|
 | 101. Intake & Protection Foundation | 4/4 | Complete   | 2026-07-19 |
 | 102. Structural Analysis & Role Floors | 5/5 | Complete    | 2026-07-19 |
-| 103. Simulation Engine & Guided Cut Rounds | 0/TBD | Not started | - |
+| 103. Simulation Engine & Guided Cut Rounds | 0/10 | Not started | - |
 | 104. Goals & What-If Scenarios | 0/TBD | Not started | - |
 | 105. Builder-Compatible Export | 0/TBD | Not started | - |
