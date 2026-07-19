@@ -474,10 +474,133 @@ public sealed class CutLabPageServiceTests
         Assert.False(service.HasStructuralAnalysisDependencies);
     }
 
+    [Fact]
+    public async Task ProcessAsync_StructuralAnalysis_WiresRolesFloorsFindingsAndUserFloorPersistence()
+    {
+        var entries = BuildStructuralAnalysisPoolEntries(includeUnresolvedCard: true);
+        var cards = BuildStructuralAnalysisResolvedCards();
+        var categoryStore = new FakeCategoryKnowledgeStore();
+        categoryStore.CategoriesByName["Value Engine"] = ["value engine"];
+        categoryStore.CategoriesByName["Closer Beast"] = ["finisher"];
+        var spellbook = new FakeSpellbookService
+        {
+            Result = new CommanderSpellbookResult(
+                [new SpellbookCombo(["Combo Piece A", "Combo Piece B"], ["Win the game"], "Assemble the pair.")],
+                [new SpellbookAlmostCombo("Combo Piece C", ["Combo Piece A", "Combo Piece B"], ["Win the game"], "Missing the third piece.")]),
+        };
+        var priorState = new CutLabState
+        {
+            Commander = "Focused Commander",
+            Pool =
+            [
+                new CutLabPoolCard
+                {
+                    Name = "Answer Charm",
+                    Quantity = 1,
+                    TypeLine = "Instant",
+                    IsLocked = true,
+                },
+            ],
+            RoleFloors =
+            [
+                new CutLabRoleFloor
+                {
+                    Role = "interaction",
+                    Floor = 15,
+                    IsUserSet = true,
+                },
+                new CutLabRoleFloor
+                {
+                    Role = "draw",
+                    Floor = 99,
+                    IsUserSet = false,
+                },
+            ],
+        };
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]),
+            categoryStore,
+            spellbook,
+            new FakeManabaseBaselineProvider(new ManabaseBracketBaseline
+            {
+                Bracket = 4,
+                AvgLands = 38.0,
+                DeckCount = 100,
+            }),
+            new FakeCedhLandBaselineProvider());
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            Bracket = 4,
+            PlayExperience = "Focused",
+            CutLabStateJson = CutLabStateSerializer.Serialize(priorState),
+        };
+
+        var result = await service.ProcessAsync(request);
+        var model = CutLabViewModel.From(request, result);
+
+        Assert.True(result.HasResult);
+        Assert.Equal(CutLabFloorRules.RoleKeys, result.ResolvedFloors.Select(floor => floor.Role).ToArray());
+        Assert.Equal(CutLabFloorRules.RoleKeys, model.RoleGroups.Select(group => group.RoleKey).ToArray());
+        Assert.False(model.ComboDataUnavailable);
+        Assert.False(model.CategoryDataUnavailable);
+        Assert.NotEmpty(model.Findings);
+        Assert.Equal(8, model.FloorRows.Count);
+        Assert.Equal("Card draw · Engines", model.RoleListByCardName["Value Engine"]);
+        Assert.Equal("draw engines", model.RoleKeysByCardName["Value Engine"]);
+        Assert.Equal(string.Empty, model.RoleListByCardName["Unresolved Card"]);
+        Assert.Empty(result.RoleAssignmentsByCardName["Unresolved Card"]);
+        Assert.Contains(model.RoleGroups.Single(group => group.RoleKey == "draw").Members, member => member.Name == "Value Engine");
+        Assert.Contains(model.RoleGroups.Single(group => group.RoleKey == "engines").Members, member => member.Name == "Value Engine");
+        Assert.Equal(1, model.RoleGroups.Single(group => group.RoleKey == "interaction").LockedCount);
+
+        CutLabFloorRowView interactionRow = Assert.Single(model.FloorRows, row => row.RoleKey == "interaction");
+        Assert.Equal("Interaction", interactionRow.DisplayLabel);
+        Assert.Equal(2, interactionRow.InPoolCount);
+        Assert.Equal(15, interactionRow.Floor);
+        Assert.Equal(10, interactionRow.DefaultValue);
+        Assert.True(interactionRow.IsUserSet);
+        Assert.True(interactionRow.AtFloor);
+        Assert.Equal("Default for B4: 10", interactionRow.SourceLabel);
+
+        CutLabRoleFloor persistedFloor = Assert.Single(result.State!.RoleFloors);
+        Assert.Equal("interaction", persistedFloor.Role);
+        Assert.Equal(15, persistedFloor.Floor);
+        Assert.True(persistedFloor.IsUserSet);
+        Assert.DoesNotContain(result.State.RoleFloors, floor => floor.Role == "draw");
+    }
+
     private static List<DeckEntry> BuildPoolEntries(int nonCommanderCount, string commanderName)
     {
         var entries = new List<DeckEntry> { Entry(commanderName, "commander") };
         entries.AddRange(BuildBasicMainboard(start: 1, count: nonCommanderCount));
+        return entries;
+    }
+
+    private static List<DeckEntry> BuildStructuralAnalysisPoolEntries(bool includeUnresolvedCard)
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Focused Commander", "commander"),
+            Entry("Forest", "mainboard"),
+            Entry("Rampant Growth", "mainboard"),
+            Entry("Value Engine", "mainboard"),
+            Entry("Answer Charm", "mainboard"),
+            Entry("Protection Aura", "mainboard"),
+            Entry("Closer Beast", "mainboard"),
+            Entry("Combo Piece A", "mainboard"),
+            Entry("Combo Piece B", "mainboard"),
+        };
+
+        if (includeUnresolvedCard)
+        {
+            entries.Add(Entry("Unresolved Card", "mainboard"));
+        }
+
+        entries.AddRange(BuildBasicMainboard(start: 1, count: 120 - entries.Count));
         return entries;
     }
 
@@ -497,6 +620,50 @@ public sealed class CutLabPageServiceTests
             .Select(index => Spell($"Card {index:000}", "Artifact"))
             .ToList();
 
+    private static List<ScryfallCard> BuildStructuralAnalysisResolvedCards()
+    {
+        var cards = new List<ScryfallCard>
+        {
+            Spell("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{G}{U}", cmc: 3),
+            Spell("Forest", "Basic Land — Forest"),
+            Spell(
+                "Rampant Growth",
+                "Sorcery",
+                manaCost: "{1}{G}",
+                oracleText: "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+                cmc: 2),
+            Spell(
+                "Value Engine",
+                "Enchantment",
+                manaCost: "{2}{U}",
+                oracleText: "At the beginning of your upkeep, draw a card.",
+                cmc: 3),
+            Spell(
+                "Answer Charm",
+                "Instant",
+                manaCost: "{1}{W}",
+                oracleText: "Destroy target artifact.",
+                cmc: 2),
+            Spell(
+                "Protection Aura",
+                "Instant",
+                manaCost: "{G}",
+                oracleText: "Target creature gains hexproof until end of turn.",
+                cmc: 1),
+            Spell(
+                "Closer Beast",
+                "Creature — Beast",
+                manaCost: "{5}{G}",
+                oracleText: "Whenever this creature attacks, creatures you control get +X/+X until end of turn.",
+                power: "6",
+                cmc: 6),
+            Spell("Combo Piece A", "Artifact", manaCost: "{2}", cmc: 2),
+            Spell("Combo Piece B", "Artifact", manaCost: "{2}", cmc: 2),
+        };
+        cards.AddRange(BuildBasicResolvedCards(start: 1, count: 110));
+        return cards;
+    }
+
     private static DeckEntry Entry(string name, string board, string? set = null, string? collectorNumber = null)
         => new()
         {
@@ -508,19 +675,28 @@ public sealed class CutLabPageServiceTests
             CollectorNumber = collectorNumber,
         };
 
-    private static ScryfallCard Spell(string name, string typeLine, string? set = null, string? collectorNumber = null)
+    private static ScryfallCard Spell(
+        string name,
+        string typeLine,
+        string? set = null,
+        string? collectorNumber = null,
+        string? manaCost = null,
+        string? oracleText = null,
+        string? power = null,
+        double cmc = 0)
         => new(
             name,
-            null,
+            manaCost,
             typeLine,
-            null,
-            null,
+            oracleText,
+            power,
             null,
             null,
             null,
             set,
             null,
-            collectorNumber);
+            collectorNumber,
+            Cmc: cmc);
 
     private static ServiceProvider BuildDiGuardProvider(bool omitCategoryKnowledge = false)
     {
@@ -670,14 +846,14 @@ public sealed class CutLabPageServiceTests
             => throw new NotSupportedException();
     }
 
-    private sealed class FakeManabaseBaselineProvider : IManabaseBaselineProvider
+    private sealed class FakeManabaseBaselineProvider(ManabaseBracketBaseline? baseline = null) : IManabaseBaselineProvider
     {
         public void EnsureLoaded()
         {
         }
 
         public ManabaseBracketBaseline? TryGetBracketBaseline(int bracket)
-            => null;
+            => baseline;
 
         public ManabaseCommanderBaseline? TryGetCommanderBaseline(IReadOnlyList<string> commanderNames)
             => null;

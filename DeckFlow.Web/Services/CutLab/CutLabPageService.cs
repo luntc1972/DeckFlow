@@ -56,6 +56,17 @@ public sealed record CutLabProcessResult
     /// <summary>True when category lookup completed successfully for this result.</summary>
     public bool CategoryDataAvailable { get; init; }
 
+    /// <summary>Per-card structural role assignments keyed by card name.</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> RoleAssignmentsByCardName { get; init; } =
+        new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Resolved role-floor rows, including default provenance and user overrides.</summary>
+    public IReadOnlyList<CutLabResolvedFloor> ResolvedFloors { get; init; } = [];
+
+    /// <summary>Computed structural findings for the current pool.</summary>
+    public CutLabStructuralFindingsResult Findings { get; init; } =
+        new([], ComboDataAvailable: false, CategoryDataAvailable: false);
+
     /// <summary>User-facing error for a hard failure, null on success.</summary>
     public string? ErrorMessage { get; init; }
 
@@ -196,6 +207,15 @@ internal sealed class CutLabPageService : ICutLabPageService
             resolvedEntries,
             commanderResolution.CommanderNames,
             cancellationToken).ConfigureAwait(false);
+
+        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName = BuildRoleAssignments(
+            resolvedEntries,
+            commanderResolution.CommanderNames,
+            request.PlayExperience,
+            classification,
+            out IReadOnlyList<CutLabAnalyzedCard> analyzedCards,
+            out double commanderManaValue);
+
         int nonCommanderCardCount = CountNonCommanderCards(analyzedEntries, commanderResolution.CommanderNames);
         try
         {
@@ -208,7 +228,25 @@ internal sealed class CutLabPageService : ICutLabPageService
 
         var bannedCardsPresent = await ResolveBannedCardsPresentAsync(resolvedEntries, cancellationToken).ConfigureAwait(false);
         var priorState = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
-        var state = BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request);
+        IReadOnlyList<CutLabResolvedFloor> resolvedFloors = CutLabFloorDefaults.ResolveDefaults(
+            request.Bracket,
+            request.PlayExperience,
+            commanderManaValue,
+            commanderResolution.CommanderNames,
+            _manabaseBaseline,
+            _cedhBaseline,
+            priorState.RoleFloors);
+        IReadOnlyDictionary<string, int> floorByRole = resolvedFloors.ToDictionary(
+            floor => floor.Role,
+            floor => floor.Floor,
+            StringComparer.OrdinalIgnoreCase);
+        CutLabStructuralFindingsResult findings = CutLabStructuralFindings.Compute(
+            analyzedCards,
+            classification.AlmostIncludedCombos,
+            floorByRole,
+            classification.ComboDataAvailable,
+            classification.CategoryDataAvailable);
+        var state = BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, resolvedFloors);
         state = CutLabLockRules.EnforceCommanderLock(state);
 
         string serializedStateJson;
@@ -233,6 +271,9 @@ internal sealed class CutLabPageService : ICutLabPageService
             Warnings = warnings,
             ComboDataAvailable = classification.ComboDataAvailable,
             CategoryDataAvailable = classification.CategoryDataAvailable,
+            RoleAssignmentsByCardName = roleAssignmentsByCardName,
+            ResolvedFloors = resolvedFloors,
+            Findings = findings,
             HasResult = true,
         };
     }
@@ -393,6 +434,67 @@ internal sealed class CutLabPageService : ICutLabPageService
             .Sum(entry => entry.Quantity);
     }
 
+    private static IReadOnlyDictionary<string, IReadOnlyList<string>> BuildRoleAssignments(
+        IReadOnlyList<ResolvedCutLabEntry> resolvedEntries,
+        IReadOnlyList<string> commanderNames,
+        string playExperience,
+        ClassificationInputs classification,
+        out IReadOnlyList<CutLabAnalyzedCard> analyzedCards,
+        out double commanderManaValue)
+    {
+        ArgumentNullException.ThrowIfNull(resolvedEntries);
+        ArgumentNullException.ThrowIfNull(commanderNames);
+        ArgumentNullException.ThrowIfNull(playExperience);
+        ArgumentNullException.ThrowIfNull(classification);
+
+        HashSet<string> commanderNameSet = commanderNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        ManabaseMode mode = CutLabRoleAssigner.ResolveMode(playExperience);
+        Dictionary<string, IReadOnlyList<string>> rolesByCardName = new(StringComparer.OrdinalIgnoreCase);
+        List<CutLabAnalyzedCard> analyzed = new(resolvedEntries.Count);
+        commanderManaValue = 0;
+        bool commanderManaValueResolved = false;
+
+        foreach (ResolvedCutLabEntry entry in resolvedEntries)
+        {
+            IReadOnlyList<string> categories = classification.CategoriesByName.TryGetValue(entry.Name, out IReadOnlyList<string>? hit)
+                ? hit
+                : Array.Empty<string>();
+            IReadOnlyList<string> roles = [];
+            double manaValue = 0;
+
+            if (entry.Card is not null)
+            {
+                CardFact fact = ScryfallCardFactMapper.ToCardFact(
+                    entry.Card,
+                    entry.Quantity,
+                    commanderNameSet.Contains(entry.Name));
+                roles = CutLabRoleAssigner.AssignRoles(
+                    fact,
+                    categories,
+                    classification.ComboNames.Contains(entry.Name),
+                    mode);
+                manaValue = fact.ManaValue;
+
+                if (!commanderManaValueResolved && commanderNameSet.Contains(entry.Name))
+                {
+                    commanderManaValue = fact.ManaValue;
+                    commanderManaValueResolved = true;
+                }
+            }
+
+            rolesByCardName[entry.Name] = roles;
+            analyzed.Add(new CutLabAnalyzedCard(
+                entry.Name,
+                manaValue,
+                roles.Contains("lands", StringComparer.Ordinal),
+                roles,
+                categories));
+        }
+
+        analyzedCards = analyzed;
+        return rolesByCardName;
+    }
+
     private async Task<ClassificationInputs> LoadClassificationInputsAsync(
         IReadOnlyList<ResolvedCutLabEntry> resolvedEntries,
         IReadOnlyList<string> commanderNames,
@@ -501,7 +603,8 @@ internal sealed class CutLabPageService : ICutLabPageService
         CutLabState priorState,
         IReadOnlyList<ResolvedCutLabEntry> resolvedEntries,
         IReadOnlyList<string> commanderNames,
-        CutLabRequest request)
+        CutLabRequest request,
+        IReadOnlyList<CutLabResolvedFloor> resolvedFloors)
     {
         var priorCards = priorState.Pool
             .GroupBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
@@ -530,6 +633,15 @@ internal sealed class CutLabPageService : ICutLabPageService
             Commander = commanderNames.Count == 0 ? string.Empty : commanderNames[0],
             Pool = pool,
             Packages = priorState.Packages,
+            RoleFloors = resolvedFloors
+                .Where(floor => floor.IsUserSet)
+                .Select(floor => new CutLabRoleFloor
+                {
+                    Role = floor.Role,
+                    Floor = floor.Floor,
+                    IsUserSet = true,
+                })
+                .ToArray(),
             Intent = new CutLabIntent
             {
                 PrimaryPlan = request.PrimaryPlan,
