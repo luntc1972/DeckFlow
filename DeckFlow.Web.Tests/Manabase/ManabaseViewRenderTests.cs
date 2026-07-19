@@ -95,7 +95,7 @@ public sealed class ManabaseViewRenderTests
                 }));
 
         Assert.Contains("EDHREC decks for The Ur-Dragon average", html, StringComparison.Ordinal);
-        Assert.Contains("class=\"manabase-baseline-source\">Data from EDHREC</span>", html, StringComparison.Ordinal);
+        Assert.Contains("class=\"manabase-baseline-source\">Data from <a href=\"https://edhrec.com\" target=\"_blank\" rel=\"noopener noreferrer\">EDHREC</a></span>", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public sealed class ManabaseViewRenderTests
                     CommanderDisplayName = "Kinnan, Bonder Prodigy",
                 }));
 
-        Assert.Contains("Data from EDHREC", html, StringComparison.Ordinal);
+        Assert.Contains("Data from <a href=\"https://edhrec.com\" target=\"_blank\" rel=\"noopener noreferrer\">EDHREC</a>", html, StringComparison.Ordinal);
     }
 
     [Fact]
