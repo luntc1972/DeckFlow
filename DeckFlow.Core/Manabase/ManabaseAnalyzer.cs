@@ -163,6 +163,10 @@ public static class ManabaseAnalyzer
     /// <see cref="CastabilitySimulator.SimulatePlanPresence"/>. Off by default so existing callers
     /// remain byte-identical until the Web flag is wired.
     /// </param>
+    /// <param name="trialsOverride">
+    /// Optional override for the existing simulator trial count. When omitted, the analyzer uses
+    /// <see cref="CastabilitySimulator.DefaultTrials"/> and remains byte-identical to prior behavior.
+    /// </param>
     public static ManabaseReport Analyze(
         ManabaseDeck deck,
         ManabaseMode mode,
@@ -179,9 +183,15 @@ public static class ManabaseAnalyzer
         bool keepShapes = false,
         bool useHealthBandCastability = false,
         bool useHealthBandHeadlineFloor = false,
-        CedhLandContext cedhContext = default)
+        CedhLandContext cedhContext = default,
+        int? trialsOverride = null)
     {
         ArgumentNullException.ThrowIfNull(deck);
+
+        // Why: HIGH-3 is pure parameterization of the existing simulator cost. Cut Lab's in-loop delta
+        // path may pass a reduced trial count for the D-11 latency budget; every existing caller passes
+        // null and stays byte-identical to the current DefaultTrials behavior.
+        int trials = trialsOverride ?? CastabilitySimulator.DefaultTrials;
 
         // Apply user cost overrides BEFORE anything reads the spell list: substitute each affected
         // spell with an effective requirement (new MV + pips from the override cost). Every
@@ -209,7 +219,7 @@ public static class ManabaseAnalyzer
         // Per-spell castability comes FIRST; the color findings then consume these rows so the
         // table and the color verdict never drift apart.
         var castabilityByName = new Dictionary<string, CardCastability>(StringComparer.Ordinal);
-        IReadOnlyList<CardCastability> castability = BuildCastability(deck, librarySize, actualLands, castabilityByName, useManaQuantity, colorAwareMulligan, gateRampOnCastable, ritualBurstActive, colorlessSnow);
+        IReadOnlyList<CardCastability> castability = BuildCastability(deck, librarySize, actualLands, castabilityByName, useManaQuantity, colorAwareMulligan, gateRampOnCastable, ritualBurstActive, colorlessSnow, trials);
 
         var colorSpellCounts = new Dictionary<ManaColor, int>();
         var demandingByName = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -260,7 +270,7 @@ public static class ManabaseAnalyzer
         // the flag-off path adds no sim and stays byte-identical.
         ManabasePlanPresence? planPresence = deck.Spells.Any(s => s.PlanRoles != PlanRole.None)
             ? CastabilitySimulator.SimulatePlanPresence(
-                deck, librarySize, CastabilitySimulator.DefaultTrials, useManaQuantity, colorAwareMulligan, gateRampOnCastable, ritualBurstActive, colorlessSnow, mode, keepShapes)
+                deck, librarySize, trials, useManaQuantity, colorAwareMulligan, gateRampOnCastable, ritualBurstActive, colorlessSnow, mode, keepShapes)
             : null;
 
         return new ManabaseReport
@@ -284,13 +294,13 @@ public static class ManabaseAnalyzer
             LandTarget = landTarget,
             // TAP-01/TAP-02: tap-quality metrics derived from the same castability rows + color
             // findings (no second sim). Always computed in Core; the Web layer flag-gates display.
-            TapAnalysis = ComputeTapAnalysis(deck, findings, castability, CastabilitySimulator.DefaultTrials, scrySourceCreditAmount),
+            TapAnalysis = ComputeTapAnalysis(deck, findings, castability, trials, scrySourceCreditAmount),
             // MULLIGAN-01..05: opening-hand / mulligan evaluation derived from the same castability
             // rows (no second sim). Always computed in Core; the Web layer flag-gates display.
             MulliganEvaluation = ComputeMulliganEvaluation(
                 deck,
                 castability,
-                CastabilitySimulator.DefaultTrials,
+                trials,
                 librarySize,
                 mode,
                 importance,
@@ -302,7 +312,7 @@ public static class ManabaseAnalyzer
                 colorlessSnow,
                 planPresence),
             InteractionLens = interactionLensActive
-                ? ComputeInteractionLens(deck, castability, CastabilitySimulator.DefaultTrials, CedhSupportThreshold)
+                ? ComputeInteractionLens(deck, castability, trials, CedhSupportThreshold)
                 : null,
             DemandingCards = demandingCards,
             // Genuine mana rocks/dorks only: artifacts/creatures that tap for mana (weight 0.5 dork
@@ -596,7 +606,8 @@ public static class ManabaseAnalyzer
         bool colorAwareMulligan,
         bool gateRampOnCastable,
         bool ritualBurst,
-        bool colorlessSnow)
+        bool colorlessSnow,
+        int trials = CastabilitySimulator.DefaultTrials)
     {
         var rows = new List<CardCastability>();
 
@@ -617,7 +628,7 @@ public static class ManabaseAnalyzer
 
             CardCastability row = CastabilitySimulator.Simulate(
                 deck, librarySize, spell, onCurveTurn, genericReduction,
-                useManaQuantity: useManaQuantity, colorAwareMulligan: colorAwareMulligan, gateRampOnCastable: gateRampOnCastable, ritualBurst: ritualBurst, colorlessSnow: colorlessSnow);
+                useManaQuantity: useManaQuantity, colorAwareMulligan: colorAwareMulligan, gateRampOnCastable: gateRampOnCastable, ritualBurst: ritualBurst, colorlessSnow: colorlessSnow, trials: trials);
             rows.Add(row);
             byName[spell.Name] = row;
         }
