@@ -9,6 +9,7 @@ public static class CutLabStateSerializer
 {
     /// <summary>Maximum allowed UTF-8 payload size for the serialized working-session JSON.</summary>
     public const int MaxUploadBytes = 262_144;
+    private const int MaxPackages = 50;
 
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
     {
@@ -36,7 +37,7 @@ public static class CutLabStateSerializer
     /// <returns>The deserialized state, or an empty state when input is blank or malformed.</returns>
     public static CutLabState Deserialize(string? json)
     {
-        if (string.IsNullOrWhiteSpace(json))
+        if (string.IsNullOrWhiteSpace(json) || Encoding.UTF8.GetByteCount(json) > MaxUploadBytes)
         {
             return new CutLabState();
         }
@@ -44,6 +45,14 @@ public static class CutLabStateSerializer
         try
         {
             var state = JsonSerializer.Deserialize<CutLabState>(json, Options) ?? new CutLabState();
+            state = state with
+            {
+                Packages = state.Packages
+                    .Where(package => !string.IsNullOrWhiteSpace(package.Name))
+                    .Take(MaxPackages)
+                    .ToArray(),
+            };
+
             return CutLabFloorRules.ClampFloors(CutLabLockRules.EnforceCommanderLock(state));
         }
         catch (JsonException)
