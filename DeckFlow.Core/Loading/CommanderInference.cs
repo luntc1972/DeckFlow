@@ -61,4 +61,35 @@ public static class CommanderInference
             ? leadingOneOfs.Select(entry => entry.Name).ToList()
             : Array.Empty<string>();
     }
+
+    /// <summary>
+    /// Reflags inferred leading commander entries onto the <c>commander</c> board.
+    /// </summary>
+    /// <param name="entries">Parsed deck entries in source order.</param>
+    /// <returns>
+    /// The original list when an explicit commander board already exists or none can be inferred;
+    /// otherwise a new list with the inferred commander entry or entries reflagged.
+    /// </returns>
+    public static List<DeckEntry> ReflagInferredCommanders(List<DeckEntry> entries)
+    {
+        ArgumentNullException.ThrowIfNull(entries);
+
+        IReadOnlyList<string> commanderNames = InferLeadingCommanderNames(entries);
+        if (commanderNames.Count == 0)
+        {
+            return entries;
+        }
+
+        var commanderNameSet = commanderNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // Only reflag the analyzed boards. The inferred commander is always a leading mainboard
+        // entry, so restricting the promotion here keeps a same-named sideboard/maybeboard copy
+        // from being pulled into the analyzed set as a second "commander".
+        return entries
+            .Select(entry => commanderNameSet.Contains(entry.Name)
+                && !string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase)
+                ? entry with { Board = "commander" }
+                : entry)
+            .ToList();
+    }
 }

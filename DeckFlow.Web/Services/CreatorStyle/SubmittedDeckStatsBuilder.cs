@@ -140,16 +140,18 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
         ArgumentException.ThrowIfNullOrWhiteSpace(deckSource);
 
         DeckSourceLoadResult loaded = await LoadDeckAsync(deckSource, cancellationToken).ConfigureAwait(false);
-        List<DeckEntry> flaggedEntries = ReflagInferredCommanders(loaded.Entries.ToList());
+        List<DeckEntry> flaggedEntries = CommanderInference.ReflagInferredCommanders(loaded.Entries.ToList());
         List<DeckEntry> analyzedEntries = flaggedEntries
             .Where(entry => AnalyzedBoards.Contains(entry.Board))
             .ToList();
 
+        Task<CommanderSpellbookResult?> comboTask = ResolveCombosAsync(analyzedEntries, cancellationToken);
+        Task<SubmittedDeckResolution> resolutionTask = ResolveSubmittedDeckAsync(analyzedEntries, cancellationToken);
         IReadOnlyDictionary<string, IReadOnlyList<string>> cardCategories =
             await ResolveCategoriesAsync(analyzedEntries, cancellationToken).ConfigureAwait(false);
         IReadOnlyDictionary<string, int> categoryCounts = CountCategories(analyzedEntries, cardCategories);
-        CommanderSpellbookResult? comboResult = await ResolveCombosAsync(analyzedEntries, cancellationToken).ConfigureAwait(false);
-        SubmittedDeckResolution resolution = await ResolveSubmittedDeckAsync(analyzedEntries, cancellationToken).ConfigureAwait(false);
+        CommanderSpellbookResult? comboResult = await comboTask.ConfigureAwait(false);
+        SubmittedDeckResolution resolution = await resolutionTask.ConfigureAwait(false);
 
         var metrics = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
         foreach (string category in ContentTagVocabulary.CardCategories)
@@ -287,24 +289,23 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
         IReadOnlyList<DeckEntry> entries,
         CancellationToken cancellationToken)
     {
-        ResolvedScryfallCardIndex index = await ResolveCardsAsync(entries, cancellationToken).ConfigureAwait(false);
+        ResolvedScryfallCards resolvedCards = await ResolveCardsAsync(entries, cancellationToken).ConfigureAwait(false);
         var deckEntries = new List<DeckCardEntry>(entries.Count);
         ScryfallCard? resolvedCommanderCard = null;
 
         foreach (DeckEntry entry in entries)
         {
-            ResolvedScryfallCard? resolvedCard;
-            if (!index.TryResolve(entry.Name, entry.SetCode, entry.CollectorNumber, out resolvedCard))
+            if (!resolvedCards.TryResolve(entry.Name, entry.SetCode, entry.CollectorNumber, out ScryfallCardData? resolvedCardData))
             {
                 ScryfallCard? fallback = await SearchFallbackCardAsync(entry.Name, cancellationToken).ConfigureAwait(false);
                 if (fallback is not null)
                 {
-                    resolvedCard = new ResolvedScryfallCard(fallback, ScryfallCardDataMapper.ToCardData(fallback));
-                    index.Add(resolvedCard);
+                    resolvedCards.Add(fallback);
+                    resolvedCards.TryResolve(entry.Name, entry.SetCode, entry.CollectorNumber, out resolvedCardData);
                 }
             }
 
-            if (resolvedCard is null)
+            if (resolvedCardData is null)
             {
                 _logger.LogDebug("Skipping unresolved submitted-deck manabase card {CardName}.", entry.Name);
                 continue;
@@ -313,12 +314,12 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
             bool isCommander = string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase);
             if (isCommander && resolvedCommanderCard is null)
             {
-                resolvedCommanderCard = resolvedCard.Card;
+                resolvedCommanderCard = resolvedCards.GetRawCard(resolvedCardData);
             }
 
             deckEntries.Add(new DeckCardEntry
             {
-                Card = resolvedCard.Data,
+                Card = resolvedCardData,
                 Quantity = entry.Quantity,
                 IsCommander = isCommander
             });
@@ -358,7 +359,7 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
         };
     }
 
-    private async Task<ResolvedScryfallCardIndex> ResolveCardsAsync(
+    private async Task<ResolvedScryfallCards> ResolveCardsAsync(
         IReadOnlyList<DeckEntry> deckCards,
         CancellationToken cancellationToken)
     {
@@ -378,7 +379,7 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
                 : (object)new { name = entry.Name });
         }
 
-        var index = new ResolvedScryfallCardIndex();
+        var resolvedCards = new ResolvedScryfallCards();
         for (int offset = 0; offset < identifiers.Count; offset += ScryfallBatchSize)
         {
             object[] batch = identifiers.Skip(offset).Take(ScryfallBatchSize).ToArray();
@@ -396,11 +397,11 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
 
             foreach (ScryfallCard card in response.Data.Data)
             {
-                index.Add(new ResolvedScryfallCard(card, ScryfallCardDataMapper.ToCardData(card)));
+                resolvedCards.Add(card);
             }
         }
 
-        return index;
+        return resolvedCards;
     }
 
     private async Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(
@@ -427,24 +428,6 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
         return await _scryfallCardResolver!
             .SearchFallbackCardAsync(cardName, cancellationToken)
             .ConfigureAwait(false);
-    }
-
-    private static List<DeckEntry> ReflagInferredCommanders(List<DeckEntry> entries)
-    {
-        IReadOnlyList<string> commanderNames = CommanderInference.InferLeadingCommanderNames(entries);
-        if (commanderNames.Count == 0)
-        {
-            return entries;
-        }
-
-        HashSet<string> commanderNameSet = commanderNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        return entries
-            .Select(entry => commanderNameSet.Contains(entry.Name)
-                && !string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase)
-                ? entry with { Board = "commander" }
-                : entry)
-            .ToList();
     }
 
     private static double ToHealthScore(ManabaseHealth health)
@@ -510,66 +493,35 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
             Summary = string.Empty
         };
 
-    private sealed class ResolvedScryfallCardIndex
+    private sealed class ResolvedScryfallCards
     {
-        private readonly ScryfallCardNameIndex _index = new();
-        private readonly Dictionary<string, ResolvedScryfallCard> _byName = new(StringComparer.Ordinal);
-        private readonly Dictionary<string, ResolvedScryfallCard> _byFrontFace = new(StringComparer.Ordinal);
-        private readonly Dictionary<string, ResolvedScryfallCard> _byPrinting = new(StringComparer.Ordinal);
+        private readonly ScryfallCardNameIndex _nameIndex = new();
+        private readonly Dictionary<ScryfallCardData, ScryfallCard> _rawCardsByData = new(ReferenceEqualityComparer.Instance);
 
-        public void Add(ResolvedScryfallCard card)
+        public void Add(ScryfallCard card)
         {
             ArgumentNullException.ThrowIfNull(card);
 
-            _index.Add(card.Data);
-
-            string? printing = ScryfallCardNameIndex.PrintingKey(card.Card.SetCode, card.Card.CollectorNumber);
-            if (printing is not null)
-            {
-                _byPrinting[printing] = card;
-            }
-
-            _byName[Normalize(card.Card.Name)] = card;
-            string? frontFace = FrontFace(card.Card.Name);
-            if (frontFace is not null)
-            {
-                _byFrontFace[Normalize(frontFace)] = card;
-            }
+            ScryfallCardData cardData = ScryfallCardDataMapper.ToCardData(card);
+            _nameIndex.Add(cardData);
+            _rawCardsByData[cardData] = card;
         }
 
-        public bool TryResolve(string name, string? setCode, string? collectorNumber, out ResolvedScryfallCard? card)
+        public bool TryResolve(string name, string? setCode, string? collectorNumber, out ScryfallCardData? card)
         {
             ArgumentNullException.ThrowIfNull(name);
 
-            string? printing = ScryfallCardNameIndex.PrintingKey(setCode, collectorNumber);
-            if (printing is not null && _byPrinting.TryGetValue(printing, out ResolvedScryfallCard? printingHit))
-            {
-                card = printingHit;
-                return true;
-            }
-
-            string normalized = Normalize(name);
-            string? frontFace = FrontFace(name);
-            if (_byName.TryGetValue(normalized, out ResolvedScryfallCard? exactHit)
-                || (frontFace is not null && _byName.TryGetValue(Normalize(frontFace), out exactHit))
-                || _byFrontFace.TryGetValue(normalized, out exactHit)
-                || (frontFace is not null && _byFrontFace.TryGetValue(Normalize(frontFace), out exactHit)))
-            {
-                card = exactHit;
-                return true;
-            }
-
-            card = null;
-            return false;
+            return _nameIndex.TryResolve(name, setCode, collectorNumber, out card);
         }
 
-        private static string Normalize(string value) => value.Trim().ToLowerInvariant();
-
-        private static string? FrontFace(string name)
+        public ScryfallCard GetRawCard(ScryfallCardData cardData)
         {
-            const string faceSeparator = "//";
-            int split = name.IndexOf(faceSeparator, StringComparison.Ordinal);
-            return split > 0 ? name[..split] : null;
+            if (_rawCardsByData.TryGetValue(cardData, out ScryfallCard? rawCard))
+            {
+                return rawCard;
+            }
+
+            throw new InvalidOperationException("Resolved submitted-deck card data did not have a matching raw Scryfall card.");
         }
     }
 }
@@ -584,5 +536,3 @@ internal sealed record SubmittedDeckResolution
 
     public required bool HasResolvedDeck { get; init; }
 }
-
-internal sealed record ResolvedScryfallCard(ScryfallCard Card, ScryfallCardData Data);
