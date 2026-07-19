@@ -23,7 +23,7 @@ public static class CutLabPoolValidator
     }
 
     /// <summary>Rejects non-commander pool sizes outside Cut Lab's supported 101-150 inclusive range.</summary>
-    /// <param name="nonCommanderCardCount">Loaded non-commander pool card count, excluding the commander plus one.</param>
+    /// <param name="nonCommanderCardCount">Loaded non-commander pool card count, excluding the commander — the commander is the plus one.</param>
     public static void ValidateCardCount(int nonCommanderCardCount)
     {
         if (nonCommanderCardCount < MinPoolCards)
