@@ -19,13 +19,13 @@
 
 ### Structural Analysis (SLOT)
 
-- [ ] **SLOT-01**: User sees pool cards grouped by functional slot competition — cards competing for the same role — using existing role/category inference
-- [ ] **SLOT-02**: User sees structural findings with supporting evidence: curve congestion, stranded subthemes, redundant finishers, weak floor cases, and enabler-starved cards
+- [x] **SLOT-01**: User sees pool cards grouped by functional slot competition — cards competing for the same role — using existing role/category inference
+- [x] **SLOT-02**: User sees structural findings with supporting evidence: curve congestion, stranded subthemes, redundant finishers, weak floor cases, and enabler-starved cards
 
 ### Role Floors (FLOOR)
 
-- [ ] **FLOOR-01**: User sees default structural role floors (lands, ramp, draw, interaction, protection, engines, payoffs, win conditions) derived from declared bracket and plan
-- [ ] **FLOOR-02**: User can adjust each role floor, and no cut suggestion may silently break a floor — breaking one always carries an explicit warning
+- [x] **FLOOR-01**: User sees default structural role floors (lands, ramp, draw, interaction, protection, engines, payoffs, win conditions) derived from declared bracket and plan
+- [x] **FLOOR-02**: User can adjust each role floor, and no cut suggestion may silently break a floor — breaking one always carries an explicit warning
 
 ### Cut Rounds (CUT)
 
@@ -76,10 +76,10 @@
 | LOCK-01 | Phase 101 | Pending |
 | LOCK-02 | Phase 101 | Pending |
 | LOCK-03 | Phase 101 | Pending |
-| SLOT-01 | Phase 102 | Pending |
-| SLOT-02 | Phase 102 | Pending |
-| FLOOR-01 | Phase 102 | Pending |
-| FLOOR-02 | Phase 102 | Pending |
+| SLOT-01 | Phase 102 | Complete |
+| SLOT-02 | Phase 102 | Complete |
+| FLOOR-01 | Phase 102 | Complete |
+| FLOOR-02 | Phase 102 | Complete |
 | CUT-01 | Phase 103 | Pending |
 | CUT-02 | Phase 103 | Pending |
 | CUT-03 | Phase 103 | Pending |
