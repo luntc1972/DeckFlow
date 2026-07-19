@@ -3,7 +3,7 @@ using DeckFlow.Web.Models.CutLab;
 
 namespace DeckFlow.Web.Services.CutLab;
 
-/// <summary>Pure immutable lock-state mutation rules for Cut Lab pool cards, packages, and bulk land locks.</summary>
+/// <summary>Pure immutable lock-state mutation rules for Cut Lab pool cards and packages.</summary>
 public static class CutLabLockRules
 {
     /// <summary>Forces every commander card in the pool to remain locked, even if client state was tampered.</summary>
@@ -92,27 +92,6 @@ public static class CutLabLockRules
                 .ToArray(),
             Pool = state.Pool
                 .Select(card => PackageIdsMatch(card.PackageId, packageId) && !card.IsCommander ? card with { IsLocked = false } : card)
-                .ToArray(),
-        });
-    }
-
-    /// <summary>Locks every card in the supported role group for this phase.</summary>
-    /// <param name="state">Current Cut Lab working-session state.</param>
-    /// <param name="roleGroup">Case-insensitive role-group name; only <c>lands</c> is supported in this phase.</param>
-    /// <returns>A new state with the supported role-group cards locked, or the original state for unsupported groups.</returns>
-    public static CutLabState BulkLockRoleGroup(CutLabState state, string roleGroup)
-    {
-        ArgumentNullException.ThrowIfNull(state);
-
-        if (!string.Equals(roleGroup, "lands", StringComparison.OrdinalIgnoreCase))
-        {
-            return state;
-        }
-
-        return EnforceCommanderLock(state with
-        {
-            Pool = state.Pool
-                .Select(card => IsLand(card.TypeLine) ? card with { IsLocked = true } : card)
                 .ToArray(),
         });
     }
