@@ -147,6 +147,12 @@ const unlockedPoolOptionValue = '';
   const getRoleLockButtons = (): HTMLButtonElement[] =>
     Array.from(document.querySelectorAll<HTMLButtonElement>('[data-cut-lab-lock-role]'));
 
+  const getRoleGroupLockedCount = (roleKey: string): HTMLElement | null =>
+    document.querySelector<HTMLElement>(`[data-cut-lab-group-locked="${cssEscape(roleKey)}"]`);
+
+  const getRoleGroupChips = (cardName: string): HTMLElement[] =>
+    Array.from(document.querySelectorAll<HTMLElement>(`[data-cut-lab-chip-card="${cssEscape(cardName)}"]`));
+
   const getFloorRows = (): CutLabFloorDomRow[] =>
     Array.from(document.querySelectorAll<HTMLTableRowElement>('tr[data-cut-lab-floor-row]'))
       .map(row => {
@@ -263,6 +269,41 @@ const unlockedPoolOptionValue = '';
         .filter((checkbox): checkbox is HTMLInputElement => checkbox !== null && !checkbox.disabled);
       const allLocked = lockableMembers.length > 0 && lockableMembers.every(checkbox => checkbox.checked);
       button.classList.toggle('is-selected', allLocked);
+    });
+  };
+
+  const syncRoleGroupLockState = (): void => {
+    const lockedCounts = new Map<string, number>();
+
+    getPoolRows().forEach(row => {
+      const cardName = row.dataset.cutLabCard ?? '';
+      const checkbox = getLockCheckbox(row);
+      const isLocked = checkbox?.checked ?? false;
+
+      getRoleGroupChips(cardName).forEach(chip => {
+        chip.classList.toggle('cutlab-role-chip--locked', isLocked);
+      });
+
+      (row.dataset.cutLabRole ?? '')
+        .split(/\s+/)
+        .map(token => token.trim())
+        .filter(token => token !== '')
+        .forEach(roleKey => {
+          const previous = lockedCounts.get(roleKey) ?? 0;
+          lockedCounts.set(roleKey, previous + (isLocked ? 1 : 0));
+        });
+    });
+
+    getRoleLockButtons().forEach(button => {
+      const roleKey = button.dataset.cutLabLockRole ?? '';
+      if (roleKey === '') {
+        return;
+      }
+
+      const count = getRoleGroupLockedCount(roleKey);
+      if (count) {
+        count.textContent = `${lockedCounts.get(roleKey) ?? 0}`;
+      }
     });
   };
 
@@ -656,6 +697,7 @@ const unlockedPoolOptionValue = '';
   const refreshAndSerialize = (): void => {
     updateLockedCountChip();
     syncAllPackageStates();
+    syncRoleGroupLockState();
     syncRoleLockButtons();
     writeStateToHiddenInput();
   };

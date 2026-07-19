@@ -316,7 +316,7 @@
                 var allLockableMembersLocked = memberCount > 0 && group.Members.Where(member => !member.IsCommander).All(member => member.IsLocked);
                 var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
                 <details class="cutlab-role-group">
-                    <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · @group.LockedCount locked</summary>
+                    <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
                     <div class="cutlab-role-group__body">
                         <button type="button"
                                 class="manabase-pill @(allLockableMembersLocked ? "is-selected" : null)"
@@ -331,7 +331,7 @@
                                     var chipClasses = member.IsCommander
                                         ? "kb-chip cutlab-lock-badge--commander"
                                         : $"kb-chip{(member.IsLocked ? " cutlab-role-chip--locked" : string.Empty)}";
-                                    <span class="@chipClasses">@member.Name</span>
+                                    <span class="@chipClasses" data-cut-lab-chip-card="@member.Name">@member.Name</span>
                                 }
                             </div>
                         }

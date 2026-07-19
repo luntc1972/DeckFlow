@@ -305,4 +305,76 @@ describe('DeckFlowCutLab', () => {
       },
     ]);
   });
+
+  it('syncs role-group chip classes and locked counts from pool-table checkbox state', () => {
+    document.body.innerHTML = `
+      <form data-cache-key="cut-lab">
+        <input type="hidden" name="CutLabStateJson" value="" />
+        <textarea name="PrimaryPlan">Keep the lands online.</textarea>
+        <textarea name="SecondaryPlan"></textarea>
+        <input type="radio" name="Bracket" value="3" checked />
+        <input type="radio" name="PlayExperience" value="Focused" checked />
+        <details class="cutlab-role-group" open>
+          <summary class="cutlab-role-group__summary">
+            Lands · 2 cards · <span data-cut-lab-group-locked="lands">0</span> locked
+          </summary>
+          <div class="cutlab-role-group__body">
+            <button type="button" data-cut-lab-lock-role="lands">Lock all lands</button>
+            <div class="kb-chip-area__chips">
+              <span class="kb-chip" data-cut-lab-chip-card="Command Tower">Command Tower</span>
+              <span class="kb-chip" data-cut-lab-chip-card="Flooded Strand">Flooded Strand</span>
+            </div>
+          </div>
+        </details>
+        <table>
+          <tbody>
+            <tr data-cut-lab-card="Command Tower" data-cut-lab-type-line="Land" data-cut-lab-role="lands ramp" data-cut-lab-commander="false">
+              <td data-label="Select"><input type="checkbox" data-cut-lab-lock-card="Command Tower" /></td>
+              <td data-label="Card"><strong>1 × Command Tower</strong></td>
+              <td data-label="Package assignment">
+                <select data-cut-lab-package-card="Command Tower">
+                  <option value="">Unlocked pool</option>
+                  <option value="__new__">+ New package…</option>
+                </select>
+              </td>
+            </tr>
+            <tr data-cut-lab-card="Flooded Strand" data-cut-lab-type-line="Land" data-cut-lab-role="lands" data-cut-lab-commander="false">
+              <td data-label="Select"><input type="checkbox" data-cut-lab-lock-card="Flooded Strand" /></td>
+              <td data-label="Card"><strong>1 × Flooded Strand</strong></td>
+              <td data-label="Package assignment">
+                <select data-cut-lab-package-card="Flooded Strand">
+                  <option value="">Unlocked pool</option>
+                  <option value="__new__">+ New package…</option>
+                </select>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <section class="result-panel nested-panel">
+          <div class="card-picker__rows">
+            <div class="card-picker__row hidden" data-cut-lab-new-package-row>
+              <div class="card-picker__input-shell">
+                <input class="card-picker__input" type="text" data-cut-lab-new-package-input />
+              </div>
+              <button type="button" data-cut-lab-new-package-save>+</button>
+              <button type="button" data-cut-lab-new-package-cancel>x</button>
+            </div>
+          </div>
+        </section>
+      </form>
+    `;
+
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+
+    const lockAllButton = document.querySelector<HTMLButtonElement>('[data-cut-lab-lock-role="lands"]');
+    const firstChip = document.querySelector<HTMLElement>('[data-cut-lab-chip-card="Command Tower"]');
+    const secondChip = document.querySelector<HTMLElement>('[data-cut-lab-chip-card="Flooded Strand"]');
+    const lockedCount = document.querySelector<HTMLElement>('[data-cut-lab-group-locked="lands"]');
+
+    lockAllButton?.click();
+
+    expect(firstChip?.classList.contains('cutlab-role-chip--locked')).toBe(true);
+    expect(secondChip?.classList.contains('cutlab-role-chip--locked')).toBe(true);
+    expect(lockedCount?.textContent).toBe('2');
+  });
 });
