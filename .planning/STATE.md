@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 Phase: 88
 Plan: Not started
 Status: Ready to plan
-Last activity: 2026-07-18 - Completed quick task 260718-qjx: WotC Fan Content Policy footer disclaimer
+Last activity: 2026-07-18 - Completed quick task 260718-rgp: AI-framing copy sweep + manabase voice sweep
 
 Progress: [█████████░] 93%
 
@@ -189,6 +189,7 @@ Carried forward, plus Cycle-16 operator gates acknowledged at close (2026-07-11)
 | 2026-07-14 | Manabase UX LOW-8/9: Ramp/draw + Command-zone folded into lens-card system (soft commander headline, breakdown inside section), cast-rate distribution-shape line (≥90/70–89/<70) in Simulated cast rate lens; repaired 2 stale live-only e2e assertions; 24 theme×viewport screenshots verified — closes backlog §4 (LOW-10 skipped by design) | quick/manabase-ux-low89 | bf146343+ba289760 |
 | 2026-07-14 | e2e flag-restore hardening: manabase-mulligan + restricted-lands specs now capture pre-test flag state and restore it (retry + lock-safe fallback) instead of hard-restoring to false — ends shared flag-store contamination between flag-gated specs/runs | quick/e2e-flag-restore | f8f58586 |
 | 2026-07-18 | WotC Fan Content Policy disclaimer in shared footer (all pages) — mandatory FCP notice, linked to official policy; flex-wrap fix for mobile; README note | quick/wotc-fcp-disclaimer | a9b1eb93 |
+| 2026-07-18 | AI-framing copy sweep (deterministic-first descriptions, hero option 1, /help/ai-methodology page, GitHub repo description) + manabase deck-not-pilot voice sweep across view/export/prompt builders | quick/ai-framing-copy | 8c5b1b93, dc3d4847 |
 | 2026-07-15 | Category junk filter + ranking: IsJunk now rejects embedded digits, ≥5-word phrases, and sentence punctuation (comma/semicolon/trailing period) — helps both Commander Reference and Suggest surfaces; CategorySuggestionReporter.Merge adds source-authority tie-break (Tagger/Exact=3, cached=2, EDHREC=1) so Suggest list stops looking alphabetical. Core 1547 + Web category subset green | quick/category-junk-rank | 6fbf1ab6, b25cd21a |
 
 ## Session Continuity
