@@ -13,7 +13,7 @@
         <div class="error-banner" role="alert">@Model.ErrorMessage</div>
     }
 
-    @if (Model.ProfileSummary?.InsufficientSample == true)
+    @if (Model.Profile?.InsufficientSample == true)
     {
         <div class="warning-banner" role="status">
             The measured profile sample is below the minimum deck floor. Review the partial results carefully.
@@ -64,7 +64,7 @@
     </form>
 </section>
 
-@if (Model.ProfileSummary is not null)
+@if (Model.Profile is not null)
 {
     <section class="admin-tools__section" aria-labelledby="creator-profile-summary">
         <h2 id="creator-profile-summary">Profile Summary</h2>
@@ -73,23 +73,23 @@
             <tbody>
                 <tr>
                     <th scope="row">Slug</th>
-                    <td>@Model.ProfileSummary.Slug</td>
+                    <td>@Model.Profile.Slug</td>
                 </tr>
                 <tr>
                     <th scope="row">Platform</th>
-                    <td>@Model.ProfileSummary.Platform</td>
+                    <td>@Model.Profile.Platform</td>
                 </tr>
                 <tr>
                     <th scope="row">Min Decks</th>
-                    <td>@Model.ProfileSummary.MinDecks</td>
+                    <td>@Model.Profile.MinDecks</td>
                 </tr>
                 <tr>
                     <th scope="row">Insufficient Sample</th>
-                    <td>@Model.ProfileSummary.InsufficientSample</td>
+                    <td>@Model.Profile.InsufficientSample</td>
                 </tr>
                 <tr>
                     <th scope="row">Updated (UTC)</th>
-                    <td>@Model.ProfileSummary.UpdatedUtc.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)</td>
+                    <td>@Model.Profile.UpdatedUtc.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)</td>
                 </tr>
             </tbody>
         </table>

@@ -1,8 +1,8 @@
-using System.Globalization;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Knowledge.MeasuredStyleExtraction;
 using DeckFlow.Web.Services.CreatorStyle;
+using DeckFlow.Web.Security;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -27,36 +27,12 @@ public class AdminCreatorProfileInputModel
 }
 
 /// <summary>
-/// Profile summary rendered above the measured metrics and tendency sections.
-/// </summary>
-public sealed record AdminCreatorProfileSummary
-{
-    /// <summary>Creator slug.</summary>
-    public required string Slug { get; init; }
-
-    /// <summary>Platform identifier.</summary>
-    public required string Platform { get; init; }
-
-    /// <summary>Measured profile deck count.</summary>
-    public required int MinDecks { get; init; }
-
-    /// <summary>Whether the measured profile fell below the minimum deck floor.</summary>
-    public required bool InsufficientSample { get; init; }
-
-    /// <summary>UTC timestamp when the measured profile was updated.</summary>
-    public required DateTimeOffset UpdatedUtc { get; init; }
-}
-
-/// <summary>
 /// View model for the creator-profile admin page.
 /// </summary>
 public sealed class AdminCreatorProfileViewModel : AdminCreatorProfileInputModel
 {
     /// <summary>Action-boundary error surfaced back to the operator.</summary>
     public string? ErrorMessage { get; init; }
-
-    /// <summary>Optional summary derived from the built measured profile.</summary>
-    public AdminCreatorProfileSummary? ProfileSummary { get; init; }
 
     /// <summary>Persisted measured style profile returned by the builder.</summary>
     public CreatorStyleProfile? Profile { get; init; }
@@ -80,10 +56,7 @@ public sealed class AdminCreatorProfileController : Controller
     };
 
     private readonly ICreatorProfileSourceStore _sourceStore;
-    private readonly Func<string, string, CancellationToken, Task<CreatorStyleProfile>> _buildAsync;
-    private readonly Func<string, bool, CancellationToken, Task<IReadOnlyList<CreatorDeckSample>>> _crawlAsync;
-    private readonly Func<IReadOnlyList<CreatorDeckSample>, CancellationToken, Task<IReadOnlyDictionary<string, IReadOnlyList<string>>>> _resolveAsync;
-    private readonly Func<CancellationToken, Task<GlobalCategoryBaseline>> _getBaselineAsync;
+    private readonly Func<string, string, CancellationToken, Task<MeasuredStyleBuildResult>> _buildDetailedAsync;
     private readonly Func<DateTimeOffset> _nowUtc;
     private readonly ILogger<AdminCreatorProfileController> _logger;
 
@@ -93,16 +66,10 @@ public sealed class AdminCreatorProfileController : Controller
     public AdminCreatorProfileController(
         ICreatorProfileSourceStore sourceStore,
         MeasuredStyleProfileBuilder builder,
-        CreatorProfileDeckCrawler crawler,
-        CreatorDeckCategoryResolver resolver,
-        CategoryKnowledgeRepository categoryKnowledgeRepository,
         ILogger<AdminCreatorProfileController>? logger = null)
         : this(
             sourceStore,
-            (slug, platform, cancellationToken) => builder.BuildAsync(slug, platform, cancellationToken),
-            (slug, forceRefresh, cancellationToken) => crawler.CrawlAsync(slug, forceRefresh, cancellationToken),
-            (samples, cancellationToken) => resolver.ResolveAsync(samples, cancellationToken),
-            cancellationToken => categoryKnowledgeRepository.GetGlobalCategoryBaselineAsync(cancellationToken),
+            (slug, platform, cancellationToken) => builder.BuildDetailedAsync(slug, platform, cancellationToken),
             null,
             logger)
     {
@@ -110,23 +77,14 @@ public sealed class AdminCreatorProfileController : Controller
 
     internal AdminCreatorProfileController(
         ICreatorProfileSourceStore sourceStore,
-        Func<string, string, CancellationToken, Task<CreatorStyleProfile>> buildAsync,
-        Func<string, bool, CancellationToken, Task<IReadOnlyList<CreatorDeckSample>>> crawlAsync,
-        Func<IReadOnlyList<CreatorDeckSample>, CancellationToken, Task<IReadOnlyDictionary<string, IReadOnlyList<string>>>> resolveAsync,
-        Func<CancellationToken, Task<GlobalCategoryBaseline>> getBaselineAsync,
+        Func<string, string, CancellationToken, Task<MeasuredStyleBuildResult>> buildDetailedAsync,
         Func<DateTimeOffset>? nowUtc,
         ILogger<AdminCreatorProfileController>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(sourceStore);
-        ArgumentNullException.ThrowIfNull(buildAsync);
-        ArgumentNullException.ThrowIfNull(crawlAsync);
-        ArgumentNullException.ThrowIfNull(resolveAsync);
-        ArgumentNullException.ThrowIfNull(getBaselineAsync);
+        ArgumentNullException.ThrowIfNull(buildDetailedAsync);
         _sourceStore = sourceStore;
-        _buildAsync = buildAsync;
-        _crawlAsync = crawlAsync;
-        _resolveAsync = resolveAsync;
-        _getBaselineAsync = getBaselineAsync;
+        _buildDetailedAsync = buildDetailedAsync;
         _nowUtc = nowUtc ?? (() => DateTimeOffset.UtcNow);
         _logger = logger ?? NullLogger<AdminCreatorProfileController>.Instance;
     }
@@ -147,6 +105,11 @@ public sealed class AdminCreatorProfileController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Run(AdminCreatorProfileInputModel input)
     {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, SameOriginRequestValidator.GetForbiddenMessage());
+        }
+
         input ??= new AdminCreatorProfileInputModel();
 
         string normalizedSlug = NormalizeSlug(input.Slug);
@@ -213,28 +176,9 @@ public sealed class AdminCreatorProfileController : Controller
 
             await _sourceStore.UpsertAsync(upsertedSource, cancellationToken).ConfigureAwait(false);
 
-            if (input.ForceRefresh)
-            {
-                _logger.LogInformation("Force-refreshing creator crawl cache for {CreatorSlug}.", normalizedSlug);
-                await _crawlAsync(normalizedSlug, true, cancellationToken).ConfigureAwait(false);
-            }
-
-            CreatorStyleProfile profile = await _buildAsync(normalizedSlug, normalizedPlatform, cancellationToken).ConfigureAwait(false);
-            IReadOnlyList<CreatorDeckSample> samples = await _crawlAsync(normalizedSlug, false, cancellationToken).ConfigureAwait(false);
-            IReadOnlyDictionary<string, IReadOnlyList<string>> categories = await _resolveAsync(samples, cancellationToken).ConfigureAwait(false);
-
-            GlobalCategoryBaseline? baseline = null;
-            try
-            {
-                baseline = await _getBaselineAsync(cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception exception)
-            {
-                _logger.LogWarning(exception, "Failed to load category baseline for creator {CreatorSlug}. Rendering report without baseline.", normalizedSlug);
-            }
-
-            DeckTendenciesReport report = DeckTendenciesReportBuilder.Build(samples, categories, baseline);
-            return View("Index", BuildViewModel(normalizedInput, profile, report));
+            MeasuredStyleBuildResult result = await _buildDetailedAsync(normalizedSlug, normalizedPlatform, cancellationToken).ConfigureAwait(false);
+            DeckTendenciesReport report = DeckTendenciesReportBuilder.Build(result.Samples, result.CardCategories, result.Baseline);
+            return View("Index", BuildViewModel(normalizedInput, result.Profile, report));
         }
         catch (OperationCanceledException exception)
         {
@@ -262,18 +206,6 @@ public sealed class AdminCreatorProfileController : Controller
         return (platform ?? string.Empty).Trim().ToLowerInvariant();
     }
 
-    private static AdminCreatorProfileSummary BuildSummary(CreatorStyleProfile profile)
-    {
-        return new AdminCreatorProfileSummary
-        {
-            Slug = profile.Slug,
-            Platform = profile.Platform,
-            MinDecks = profile.MinDecks,
-            InsufficientSample = profile.InsufficientSample,
-            UpdatedUtc = profile.UpdatedUtc,
-        };
-    }
-
     private static AdminCreatorProfileViewModel BuildViewModel(
         AdminCreatorProfileInputModel input,
         CreatorStyleProfile? profile = null,
@@ -288,7 +220,6 @@ public sealed class AdminCreatorProfileController : Controller
             ForceRefresh = input.ForceRefresh,
             ErrorMessage = errorMessage,
             Profile = profile,
-            ProfileSummary = profile is null ? null : BuildSummary(profile),
             Report = report,
         };
     }

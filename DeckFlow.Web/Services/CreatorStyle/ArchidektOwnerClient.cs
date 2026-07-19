@@ -1,5 +1,4 @@
 using System.Net.Http;
-using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -100,7 +99,15 @@ public sealed class ArchidektOwnerClient : IArchidektOwnerClient
             return null;
         }
 
-        if (!TryGetResponseContent(response, "resolve", out var content))
+        if (!OwnerClientJson.TryGetResponseContent(
+                response,
+                MaxResponseBytes,
+                out var content,
+                byteCount => _logger.LogWarning(
+                    "Archidekt owner {Operation} payload exceeded the {MaxResponseBytes} byte cap ({ByteCount}).",
+                    "resolve",
+                    MaxResponseBytes,
+                    byteCount)))
         {
             return null;
         }
@@ -161,7 +168,15 @@ public sealed class ArchidektOwnerClient : IArchidektOwnerClient
                 return Array.Empty<ArchidektDeckSummary>();
             }
 
-            if (!TryGetResponseContent(response, "list", out var content))
+            if (!OwnerClientJson.TryGetResponseContent(
+                    response,
+                    MaxResponseBytes,
+                    out var content,
+                    byteCount => _logger.LogWarning(
+                        "Archidekt owner {Operation} payload exceeded the {MaxResponseBytes} byte cap ({ByteCount}).",
+                        "list",
+                        MaxResponseBytes,
+                        byteCount)))
             {
                 return Array.Empty<ArchidektDeckSummary>();
             }
@@ -182,11 +197,11 @@ public sealed class ArchidektOwnerClient : IArchidektOwnerClient
                 {
                     var summary = new ArchidektDeckSummary
                     {
-                        Id = ReadString(item, "id"),
-                        Name = ReadString(item, "name"),
-                        Size = ReadInt32(item, "size"),
-                        ParentFolderId = ReadNullableInt32(item, "parentFolderId"),
-                        ParentFolderName = ReadNullableString(item, "parentFolderName")
+                        Id = OwnerClientJson.ReadString(item, "id"),
+                        Name = OwnerClientJson.ReadString(item, "name"),
+                        Size = OwnerClientJson.ReadInt32(item, "size"),
+                        ParentFolderId = OwnerClientJson.ReadNullableInt32(item, "parentFolderId"),
+                        ParentFolderName = OwnerClientJson.ReadNullableString(item, "parentFolderName")
                     };
 
                     if (string.IsNullOrWhiteSpace(summary.Id) || string.IsNullOrWhiteSpace(summary.Name))
@@ -211,65 +226,6 @@ public sealed class ArchidektOwnerClient : IArchidektOwnerClient
         }
 
         return decks;
-    }
-
-    private bool TryGetResponseContent(RestResponse response, string operation, out string content)
-    {
-        content = response.Content ?? string.Empty;
-        var byteCount = response.RawBytes?.LongLength ?? Encoding.UTF8.GetByteCount(content);
-        if (byteCount > MaxResponseBytes)
-        {
-            _logger.LogWarning(
-                "Archidekt owner {Operation} payload exceeded the {MaxResponseBytes} byte cap ({ByteCount}).",
-                operation,
-                MaxResponseBytes,
-                byteCount);
-            return false;
-        }
-
-        return true;
-    }
-
-    private static string ReadString(JsonElement item, string propertyName)
-    {
-        return ReadNullableString(item, propertyName) ?? string.Empty;
-    }
-
-    private static string? ReadNullableString(JsonElement item, string propertyName)
-    {
-        if (!item.TryGetProperty(propertyName, out var property) || property.ValueKind == JsonValueKind.Null)
-        {
-            return null;
-        }
-
-        return property.ValueKind == JsonValueKind.String
-            ? property.GetString()
-            : property.GetRawText();
-    }
-
-    private static int ReadInt32(JsonElement item, string propertyName)
-    {
-        return ReadNullableInt32(item, propertyName) ?? 0;
-    }
-
-    private static int? ReadNullableInt32(JsonElement item, string propertyName)
-    {
-        if (!item.TryGetProperty(propertyName, out var property) || property.ValueKind == JsonValueKind.Null)
-        {
-            return null;
-        }
-
-        if (property.ValueKind == JsonValueKind.Number && property.TryGetInt32(out var value))
-        {
-            return value;
-        }
-
-        if (property.ValueKind == JsonValueKind.String && int.TryParse(property.GetString(), out value))
-        {
-            return value;
-        }
-
-        return null;
     }
 }
 

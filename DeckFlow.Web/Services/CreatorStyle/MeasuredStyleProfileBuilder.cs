@@ -96,6 +96,21 @@ public sealed class MeasuredStyleProfileBuilder
         string platform,
         CancellationToken cancellationToken = default)
     {
+        return (await BuildDetailedAsync(creatorSlug, platform, cancellationToken).ConfigureAwait(false)).Profile;
+    }
+
+    /// <summary>
+    /// Builds and persists a measured creator style profile plus the detailed crawl inputs used to derive it.
+    /// </summary>
+    /// <param name="creatorSlug">Creator slug.</param>
+    /// <param name="platform">Creator platform identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The persisted measured creator style profile and its detailed inputs.</returns>
+    public async Task<MeasuredStyleBuildResult> BuildDetailedAsync(
+        string creatorSlug,
+        string platform,
+        CancellationToken cancellationToken = default)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(creatorSlug);
         ArgumentException.ThrowIfNullOrWhiteSpace(platform);
 
@@ -120,12 +135,27 @@ public sealed class MeasuredStyleProfileBuilder
 
         int rawDeckCount = FolderWeighting.RawDeckCount(weightedSamples);
         double effectiveSampleSize = FolderWeighting.EffectiveSampleSize(weightedSamples);
-        GlobalCategoryBaseline baseline = await _categoryKnowledgeRepository
-            .GetGlobalCategoryBaselineAsync(cancellationToken)
-            .ConfigureAwait(false);
+        GlobalCategoryBaseline? baseline = null;
+        try
+        {
+            baseline = await _categoryKnowledgeRepository
+                .GetGlobalCategoryBaselineAsync(cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Failed to load category baseline for creator {CreatorSlug}. Continuing without baseline.",
+                creatorSlug);
+        }
 
         List<MeasuredMetric> metrics = BuildCategoryMetrics(weightedSamples, cardCategories, rawDeckCount, effectiveSampleSize);
-        metrics.AddRange(BuildLiftMetrics(weightedSamples, cardCategories, baseline, rawDeckCount, effectiveSampleSize));
+        if (baseline is not null)
+        {
+            metrics.AddRange(BuildLiftMetrics(weightedSamples, cardCategories, baseline, rawDeckCount, effectiveSampleSize));
+        }
+
         Task<MeasuredMetric> comboDensityTask = BuildComboDensityMetricAsync(weightedSamples, rawDeckCount, effectiveSampleSize, cancellationToken);
         Task<IReadOnlyList<MeasuredMetric>> karstenMetricsTask = BuildKarstenMetricsAsync(weightedSamples, rawDeckCount, effectiveSampleSize, cancellationToken);
         metrics.Add(await comboDensityTask.ConfigureAwait(false));
@@ -147,7 +177,7 @@ public sealed class MeasuredStyleProfileBuilder
         };
 
         await _profileStore.UpsertAsync(profile, cancellationToken).ConfigureAwait(false);
-        return profile;
+        return new MeasuredStyleBuildResult(profile, filteredSamples, cardCategories, baseline);
     }
 
     private static List<MeasuredMetric> BuildCategoryMetrics(
@@ -333,3 +363,16 @@ public sealed class MeasuredStyleProfileBuilder
     }
 
 }
+
+/// <summary>
+/// Detailed measured-style build payload used by admin reporting.
+/// </summary>
+/// <param name="Profile">Persisted measured style profile.</param>
+/// <param name="Samples">Crawled creator samples after oversized-deck filtering.</param>
+/// <param name="CardCategories">Resolved card-category map used during extraction.</param>
+/// <param name="Baseline">Optional global category baseline.</param>
+public sealed record MeasuredStyleBuildResult(
+    CreatorStyleProfile Profile,
+    IReadOnlyList<CreatorDeckSample> Samples,
+    IReadOnlyDictionary<string, IReadOnlyList<string>> CardCategories,
+    GlobalCategoryBaseline? Baseline);
