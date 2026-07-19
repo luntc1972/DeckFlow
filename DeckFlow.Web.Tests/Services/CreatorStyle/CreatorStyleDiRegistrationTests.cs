@@ -39,6 +39,8 @@ public sealed class CreatorStyleDiRegistrationTests
                 new CategoryKnowledgeRepository(RelationalDatabaseConnection.FromSqlitePath(Path.Combine(tempDirectory, "category-knowledge.db"))));
             services.AddSingleton<IArchidektOwnerClient, FakeArchidektOwnerClient>();
             services.AddSingleton<IArchidektDeckImporter, FakeArchidektDeckImporter>();
+            services.AddSingleton<IMoxfieldOwnerClient, FakeMoxfieldOwnerClient>();
+            services.AddSingleton<IMoxfieldDeckImporter, FakeMoxfieldDeckImporter>();
             services.AddSingleton<IScryfallTaggerLookupService, FakeScryfallTaggerLookupService>();
             services.AddSingleton<ICommanderSpellbookService, FakeCommanderSpellbookService>();
             services.AddSingleton<IScryfallCardResolver, FakeScryfallCardResolver>();
@@ -102,6 +104,18 @@ public sealed class CreatorStyleDiRegistrationTests
     }
 
     private sealed class FakeArchidektDeckImporter : IArchidektDeckImporter
+    {
+        public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+            => Task.FromResult(new List<DeckEntry>());
+    }
+
+    private sealed class FakeMoxfieldOwnerClient : IMoxfieldOwnerClient
+    {
+        public Task<IReadOnlyList<MoxfieldDeckSummary>> ListDeckSummariesAsync(string username, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<MoxfieldDeckSummary>>([]);
+    }
+
+    private sealed class FakeMoxfieldDeckImporter : IMoxfieldDeckImporter
     {
         public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
             => Task.FromResult(new List<DeckEntry>());

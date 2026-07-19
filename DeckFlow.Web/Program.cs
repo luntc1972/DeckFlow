@@ -205,6 +205,7 @@ public partial class Program
             builder.Services.AddSingleton<IMoxfieldDeckImporter, MoxfieldApiDeckImporter>();
             builder.Services.AddSingleton<IArchidektDeckImporter, ArchidektApiDeckImporter>();
             builder.Services.AddSingleton<DeckFlow.Web.Services.CreatorStyle.IArchidektOwnerClient, DeckFlow.Web.Services.CreatorStyle.ArchidektOwnerClient>();
+            builder.Services.AddSingleton<DeckFlow.Web.Services.CreatorStyle.IMoxfieldOwnerClient, DeckFlow.Web.Services.CreatorStyle.MoxfieldOwnerClient>();
             builder.Services.AddScoped<DeckFlow.Web.Services.CreatorStyle.CreatorProfileDeckCrawler>();
             builder.Services.AddScoped<DeckFlow.Web.Services.CreatorStyle.CreatorDeckCategoryResolver>();
             builder.Services.AddScoped<DeckFlow.Web.Services.CreatorStyle.MeasuredStyleProfileBuilder>();
