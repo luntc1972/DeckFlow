@@ -44,7 +44,7 @@ public static class CutLabStateSerializer
         try
         {
             var state = JsonSerializer.Deserialize<CutLabState>(json, Options) ?? new CutLabState();
-            return CutLabLockRules.EnforceCommanderLock(state);
+            return CutLabFloorRules.ClampFloors(CutLabLockRules.EnforceCommanderLock(state));
         }
         catch (JsonException)
         {
