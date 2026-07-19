@@ -4,6 +4,8 @@
 **Domain:** ASP.NET Core MVC tool-page wiring (controller + view + flag + cache-bypass + CLI seed export) on top of an already-complete Phase 99 engine
 **Confidence:** HIGH (existing code directly inspected for every pattern below; no external libraries involved)
 
+> **SUPERSESSION NOTE (user decision 2026-07-19, post-research):** All sitemap/SEO wiring is DEFERRED to a post-merge follow-up. Every recommendation below that says to edit `SitemapController.cs` (Pitfall 2, D-100-07 gating, directory-tree "edit" marker, Open Question 3) is superseded: Phase 100 plans must NOT touch `SitemapController.cs` or reference `SeoPaths`. `/creator-style` is absent from the existing `IndexablePaths` array, so the sitemap already does not advertise the flagged-off route — D-100-07's acceptance bar is met by inaction. D-100-07's remaining live parts (tile/nav hidden + route 404) are unchanged. See CONTEXT.md `<deferred>`.
+
 <user_constraints>
 ## User Constraints (from CONTEXT.md)
 
