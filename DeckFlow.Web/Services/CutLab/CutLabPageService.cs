@@ -226,7 +226,22 @@ internal sealed class CutLabPageService : ICutLabPageService
             return Error(exception.Message, warnings);
         }
 
-        var bannedCardsPresent = await ResolveBannedCardsPresentAsync(resolvedEntries, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<string> bannedCardsPresent;
+        try
+        {
+            bannedCardsPresent = await ResolveBannedCardsPresentAsync(resolvedEntries, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (HttpRequestException exception)
+        {
+            _logger.LogWarning(exception, "Cut Lab: banlist fetch failed; continuing without legality check.");
+            bannedCardsPresent = [];
+            warnings.Add("Banned-card check unavailable right now - legality was not verified for this import.");
+        }
+
         var priorState = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
         IReadOnlyList<CutLabResolvedFloor> resolvedFloors = CutLabFloorDefaults.ResolveDefaults(
             request.Bracket,

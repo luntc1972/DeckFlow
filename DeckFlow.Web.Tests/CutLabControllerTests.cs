@@ -81,6 +81,23 @@ public sealed class CutLabControllerTests
         Assert.Equal("The request timed out. Try again.", model.ErrorMessage);
     }
 
+    [Fact]
+    public async Task Process_UnexpectedException_PreservesPostedCutLabStateJson()
+    {
+        var controller = CreateController(new ThrowingCutLabPageService(new Exception("boom")));
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = "{\"pool\":[{\"name\":\"Arcane Signet\"}]}",
+        };
+
+        var result = await controller.Process(request);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        Assert.Equal(request.CutLabStateJson, model.CutLabStateJson);
+        Assert.Equal("Something went wrong processing the pool. Try again.", model.ErrorMessage);
+    }
+
     private static CutLabController CreateController(ICutLabPageService service) =>
         new(service, new FakeLogger<CutLabController>())
         {

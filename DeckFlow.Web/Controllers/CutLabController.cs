@@ -60,5 +60,6 @@ public sealed class CutLabController : Controller
             ActiveTab = DeckPageTab.CutLab,
             Request = request,
             ErrorMessage = error,
+            CutLabStateJson = request.CutLabStateJson,
         });
 }
