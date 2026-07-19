@@ -1,0 +1,142 @@
+@model DeckFlow.Web.Models.CreatorStyleViewModel
+@{
+    ViewData["Title"] = "Creator-Style Deck Critique";
+    ViewData["Description"] = "Critique your deck against a creator's measured build style and get a ChatGPT-ready packet grounded in exemplars and weighted targets.";
+    var isUrl = Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl;
+    var result = Model.Result;
+    var verdicts = result?.RubricScores.MetricScores
+        .Select(score => score.Verdict)
+        .Where(verdict => !string.IsNullOrWhiteSpace(verdict))
+        .Distinct(StringComparer.Ordinal)
+        .ToArray() ?? Array.Empty<string>();
+    var exemplarNames = result?.Exemplars
+        .Select(exemplar => string.IsNullOrWhiteSpace(exemplar.FolderName) ? exemplar.DeckId : exemplar.FolderName!)
+        .Where(name => !string.IsNullOrWhiteSpace(name))
+        .ToArray() ?? Array.Empty<string>();
+}
+
+<section class="hero">
+    <h1>Creator-Style Deck Critique</h1>
+    <p class="page-lede">Critique your deck against a creator's measured build style — real exemplars and weighted numeric targets, not a vibe.</p>
+    <p class="lede">Pick a creator, submit your deck, and get a ChatGPT-ready packet that scores your deck against their actual deckbuilding patterns.</p>
+</section>
+
+@await Html.PartialAsync("_BusyIndicator")
+@await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
+
+<div class="error-banner @(string.IsNullOrWhiteSpace(Model.ErrorMessage) ? "hidden" : string.Empty)" role="alert">
+    @Model.ErrorMessage
+</div>
+
+@if (Model.NoProfilesLoaded)
+{
+    <div class="info-banner">
+        <strong>No creator profiles loaded yet.</strong>
+        <p>This tool needs at least one creator profile before it can run. Check back soon.</p>
+    </div>
+}
+else
+{
+    <form method="post" action="@Url.Content("~/creator-style")" class="result-panel"
+          data-busy-title="Building creator-style critique"
+          data-busy-message="Loading the creator profile and assembling the critique packet."
+          data-busy-progress="Loading creator profile|Loading your deck|Scoring rubric|Building packet"
+          data-busy-hold-final-step="true"
+          data-busy-min-ms="500">
+        @Html.AntiForgeryToken()
+
+        <div class="field">
+            <label for="creator-style-creator">Creator</label>
+            <select id="creator-style-creator" name="CreatorSlug" data-df-select>
+                @foreach (var option in Model.AvailableCreators)
+                {
+                    <option value="@option.Slug" selected="@(string.Equals(Model.Request.CreatorSlug, option.Slug, StringComparison.Ordinal) ? "selected" : null)">@option.DisplayLabel</option>
+                }
+            </select>
+        </div>
+
+        <div class="sync-columns">
+            <section class="sync-column">
+                <div class="sync-column__header">
+                    <p>Your Deck</p>
+                    <span class="sync-column__status">Required</span>
+                </div>
+
+                <div class="field">
+                    <label for="creator-style-input-source">Input method</label>
+                    <select id="creator-style-input-source" name="DeckInputSource" data-df-select>
+                        <option value="@DeckFlow.Web.Models.DeckInputSource.PublicUrl" selected="@(isUrl ? "selected" : null)">Use public deck URL</option>
+                        <option value="@DeckFlow.Web.Models.DeckInputSource.PasteText" selected="@(!isUrl ? "selected" : null)">Paste text</option>
+                    </select>
+                </div>
+
+                <div class="field @(isUrl ? string.Empty : "hidden")" data-sync-panel="creator-style-deck-url">
+                    <label for="creator-style-deck-url">Archidekt or Moxfield deck URL</label>
+                    <input id="creator-style-deck-url" type="url" name="DeckUrl" spellcheck="false" autocomplete="off"
+                           placeholder="https://archidekt.com/decks/…" value="@Model.Request.DeckUrl" />
+                    @await Html.PartialAsync("_DeckFlowBridgeHint")
+                </div>
+
+                <div class="field @(!isUrl ? string.Empty : "hidden")" data-sync-panel="creator-style-deck-text">
+                    <label for="creator-style-deck-text">Paste a decklist (one card per line, with set/collector if you have it)</label>
+                    <textarea id="creator-style-deck-text" name="DeckText" rows="6" spellcheck="false" autocomplete="off"
+                              placeholder="1 Sol Ring&#10;1 Command Tower&#10;…">@Model.Request.DeckText</textarea>
+                </div>
+            </section>
+        </div>
+
+        <div class="toolbar">
+            <button type="submit" class="run-button">Build Critique Packet</button>
+        </div>
+    </form>
+}
+
+@if (Model.Result?.ProfileUnavailable == true)
+{
+    <div class="info-banner" data-scroll-on-load>
+        @Model.Result.Notice
+    </div>
+}
+
+@if (Model.HasResult && result is not null)
+{
+    <section class="result-panel" data-scroll-on-load>
+        <div class="panel-heading">
+            <div>
+                <h2>Result</h2>
+            </div>
+        </div>
+
+        @if (result.GroundingDegraded && !string.IsNullOrWhiteSpace(result.Notice))
+        {
+            <div class="warning-banner" role="status">@result.Notice</div>
+        }
+
+        @if (verdicts.Length > 0 || exemplarNames.Length > 0)
+        {
+            <div class="field">
+                @foreach (var verdict in verdicts)
+                {
+                    <span class="manabase-chip">@verdict</span>
+                }
+                @if (exemplarNames.Length > 0)
+                {
+                    <p>Exemplars: @string.Join(", ", exemplarNames)</p>
+                }
+            </div>
+        }
+
+        <div class="field">
+            <div class="toolbar">
+                <button type="button" class="copy-button" data-copy-target="creator-style-packet-output">Copy</button>
+            </div>
+            <textarea id="creator-style-packet-output" readonly spellcheck="false">@result.ArtifactText</textarea>
+        </div>
+    </section>
+}
+
+@section Scripts {
+    <script src="~/js/busy-indicator.js" asp-append-version="true"></script>
+    <script src="~/js/moxfield-extension-bridge.js" asp-append-version="true"></script>
+    <script src="~/js/deck-sync.js" asp-append-version="true"></script>
+}
