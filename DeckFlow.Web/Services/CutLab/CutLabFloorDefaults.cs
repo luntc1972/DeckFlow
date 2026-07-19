@@ -7,7 +7,7 @@ namespace DeckFlow.Web.Services.CutLab;
 /// <summary>Pure bracket- and play-experience-derived default floor rules for the eight Cut Lab roles.</summary>
 public static class CutLabFloorDefaults
 {
-    /// <summary>Fallback lands floor when no baseline row is available.</summary>
+    /// <summary>[ASSUMED] Fallback lands floor when no baseline row is available.</summary>
     public const int FallbackLands = 36;
 
     /// <summary>Resolves the effective floor bracket from the declared bracket and play experience.</summary>
