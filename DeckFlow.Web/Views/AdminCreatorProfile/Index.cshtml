@@ -1,0 +1,271 @@
+@model DeckFlow.Web.Controllers.Admin.AdminCreatorProfileViewModel
+@using System.Globalization
+@{
+    ViewData["Title"] = "Creator Profile";
+}
+
+<section class="admin-tools">
+    <h1>Creator Profile</h1>
+    <p>Upsert a creator source, run crawl plus measurement, and render the current deck tendencies report.</p>
+
+    @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+    {
+        <div class="error-banner" role="alert">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.ProfileSummary?.InsufficientSample == true)
+    {
+        <div class="warning-banner" role="status">
+            The measured profile sample is below the minimum deck floor. Review the partial results carefully.
+        </div>
+    }
+
+    <form method="post" asp-action="Run" class="admin-action-form">
+        @Html.AntiForgeryToken()
+        <table class="admin-table admin-table--card">
+            <caption class="sr-only">Creator profile run form</caption>
+            <tbody>
+                <tr>
+                    <th scope="row"><label asp-for="Slug">Slug</label></th>
+                    <td>
+                        <input asp-for="Slug" autocomplete="off" />
+                        <span asp-validation-for="Slug"></span>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label asp-for="Username">Username</label></th>
+                    <td>
+                        <input asp-for="Username" autocomplete="off" />
+                        <span asp-validation-for="Username"></span>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label asp-for="Platform">Platform</label></th>
+                    <td>
+                        <select asp-for="Platform">
+                            <option value="archidekt">archidekt</option>
+                            <option value="moxfield">moxfield</option>
+                        </select>
+                        <span asp-validation-for="Platform"></span>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label asp-for="ForceRefresh">Force Refresh</label></th>
+                    <td>
+                        <input asp-for="ForceRefresh" />
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Run</th>
+                    <td><button type="submit">Run Crawl + Measure</button></td>
+                </tr>
+            </tbody>
+        </table>
+    </form>
+</section>
+
+@if (Model.ProfileSummary is not null)
+{
+    <section class="admin-tools__section" aria-labelledby="creator-profile-summary">
+        <h2 id="creator-profile-summary">Profile Summary</h2>
+        <table class="admin-table admin-table--card">
+            <caption class="sr-only">Measured creator profile summary</caption>
+            <tbody>
+                <tr>
+                    <th scope="row">Slug</th>
+                    <td>@Model.ProfileSummary.Slug</td>
+                </tr>
+                <tr>
+                    <th scope="row">Platform</th>
+                    <td>@Model.ProfileSummary.Platform</td>
+                </tr>
+                <tr>
+                    <th scope="row">Min Decks</th>
+                    <td>@Model.ProfileSummary.MinDecks</td>
+                </tr>
+                <tr>
+                    <th scope="row">Insufficient Sample</th>
+                    <td>@Model.ProfileSummary.InsufficientSample</td>
+                </tr>
+                <tr>
+                    <th scope="row">Updated (UTC)</th>
+                    <td>@Model.ProfileSummary.UpdatedUtc.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+}
+
+@if (Model.Profile?.MeasuredMetrics.Count > 0)
+{
+    <section class="admin-tools__section" aria-labelledby="creator-profile-metrics">
+        <h2 id="creator-profile-metrics">Measured Metrics</h2>
+        <table class="admin-table admin-table--card">
+            <caption class="sr-only">Measured profile metrics</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Metric</th>
+                    <th scope="col">Value</th>
+                    <th scope="col">Num Decks</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var metric in Model.Profile.MeasuredMetrics)
+                {
+                    <tr>
+                        <td data-label="Metric"><code>@metric.Metric</code></td>
+                        <td data-label="Value">@metric.Value.ToString("0.###", CultureInfo.InvariantCulture)</td>
+                        <td data-label="Num Decks">@metric.NumDecks</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </section>
+}
+
+@if (Model.Report is not null)
+{
+    <section class="admin-tools__section" aria-labelledby="creator-profile-repeat-cards">
+        <h2 id="creator-profile-repeat-cards">Repeat Cards</h2>
+        <table class="admin-table admin-table--card">
+            <caption class="sr-only">Repeated non-commander cards across the creator sample</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Card Name</th>
+                    <th scope="col">Deck Count</th>
+                    <th scope="col">Frequency</th>
+                    <th scope="col">Staple</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Report.RepeatCards.Count == 0)
+                {
+                    <tr>
+                        <td colspan="4">No repeat cards.</td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var row in Model.Report.RepeatCards)
+                    {
+                        <tr>
+                            <td data-label="Card Name">@row.CardName</td>
+                            <td data-label="Deck Count">@row.DeckCount</td>
+                            <td data-label="Frequency">@row.Frequency.ToString("P0", CultureInfo.InvariantCulture)</td>
+                            <td data-label="Staple">@(row.IsPersonalStaple ? "Staple" : "—")</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </section>
+
+    <section class="admin-tools__section" aria-labelledby="creator-profile-repeat-commanders">
+        <h2 id="creator-profile-repeat-commanders">Repeat Commanders</h2>
+        <table class="admin-table admin-table--card">
+            <caption class="sr-only">Repeated commander-board cards across the creator sample</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Card Name</th>
+                    <th scope="col">Deck Count</th>
+                    <th scope="col">Frequency</th>
+                    <th scope="col">Staple</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Report.RepeatCommanders.Count == 0)
+                {
+                    <tr>
+                        <td colspan="4">No repeat commanders.</td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var row in Model.Report.RepeatCommanders)
+                    {
+                        <tr>
+                            <td data-label="Card Name">@row.CardName</td>
+                            <td data-label="Deck Count">@row.DeckCount</td>
+                            <td data-label="Frequency">@row.Frequency.ToString("P0", CultureInfo.InvariantCulture)</td>
+                            <td data-label="Staple">@(row.IsPersonalStaple ? "Staple" : "—")</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </section>
+
+    <section class="admin-tools__section" aria-labelledby="creator-profile-category-tendencies">
+        <h2 id="creator-profile-category-tendencies">Category Tendencies</h2>
+        <table class="admin-table admin-table--card">
+            <caption class="sr-only">Category tendencies for the creator sample</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Category</th>
+                    <th scope="col">Average Count Per Deck</th>
+                    <th scope="col">Presence Ratio</th>
+                    <th scope="col">Baseline Presence Ratio</th>
+                    <th scope="col">Lift</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Report.CategoryTendencies.Count == 0)
+                {
+                    <tr>
+                        <td colspan="5">No category tendencies.</td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var row in Model.Report.CategoryTendencies)
+                    {
+                        <tr>
+                            <td data-label="Category">@row.Category</td>
+                            <td data-label="Average Count Per Deck">@row.AverageCountPerDeck.ToString("0.###", CultureInfo.InvariantCulture)</td>
+                            <td data-label="Presence Ratio">@row.PresenceRatio.ToString("P0", CultureInfo.InvariantCulture)</td>
+                            <td data-label="Baseline Presence Ratio">@(row.BaselinePresenceRatio.HasValue ? row.BaselinePresenceRatio.Value.ToString("P0", CultureInfo.InvariantCulture) : "—")</td>
+                            <td data-label="Lift">@(row.Lift.HasValue ? row.Lift.Value.ToString("0.00×", CultureInfo.InvariantCulture) : "—")</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </section>
+
+    <section class="admin-tools__section" aria-labelledby="creator-profile-decks">
+        <h2 id="creator-profile-decks">Decks</h2>
+        <table class="admin-table admin-table--card">
+            <caption class="sr-only">Deck rows used in the creator tendencies report</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Deck Id</th>
+                    <th scope="col">Deck Name</th>
+                    <th scope="col">Card Count</th>
+                    <th scope="col">Folder Name</th>
+                    <th scope="col">Commanders</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Report.Decks.Count == 0)
+                {
+                    <tr>
+                        <td colspan="5">No decks.</td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var row in Model.Report.Decks)
+                    {
+                        <tr>
+                            <td data-label="Deck Id"><code>@row.DeckId</code></td>
+                            <td data-label="Deck Name">@(string.IsNullOrWhiteSpace(row.DeckName) ? "—" : row.DeckName)</td>
+                            <td data-label="Card Count">@row.CardCount</td>
+                            <td data-label="Folder Name">@(string.IsNullOrWhiteSpace(row.FolderName) ? "—" : row.FolderName)</td>
+                            <td data-label="Commanders">@(row.Commanders.Count == 0 ? "—" : string.Join(", ", row.Commanders))</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </section>
+}
