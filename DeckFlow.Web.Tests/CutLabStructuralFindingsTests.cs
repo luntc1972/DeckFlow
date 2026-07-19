@@ -156,6 +156,35 @@ public sealed class CutLabStructuralFindingsTests
     }
 
     [Fact]
+    public void Compute_WeakFloorCase_ReportsZeroCountAgainstPositiveFloor()
+    {
+        CutLabStructuralFindingsResult result = CutLabStructuralFindings.Compute(
+            Array.Empty<CutLabAnalyzedCard>(),
+            Array.Empty<SpellbookAlmostCombo>(),
+            Floors(("interaction", 7)),
+            comboDataAvailable: true,
+            categoryDataAvailable: true);
+
+        CutLabFinding finding = Assert.Single(result.Findings);
+        Assert.Equal(CutLabFindingKind.WeakFloorCase, finding.Kind);
+        Assert.Equal("Interaction is at 0 against a floor of 7 — every card in this role is effectively protected already.", finding.Lead);
+        Assert.Empty(finding.Evidence);
+    }
+
+    [Fact]
+    public void Compute_WeakFloorCase_SkipsZeroFloorEvenWhenRoleCountIsZero()
+    {
+        CutLabStructuralFindingsResult result = CutLabStructuralFindings.Compute(
+            Array.Empty<CutLabAnalyzedCard>(),
+            Array.Empty<SpellbookAlmostCombo>(),
+            Floors(("interaction", 0)),
+            comboDataAvailable: true,
+            categoryDataAvailable: true);
+
+        Assert.Empty(result.Findings);
+    }
+
+    [Fact]
     public void Compute_EnablerStarved_UsesInDeckCardsAsPluralSubjectAndMissingCardAsPartner()
     {
         IReadOnlyList<SpellbookAlmostCombo> nearCombos =
