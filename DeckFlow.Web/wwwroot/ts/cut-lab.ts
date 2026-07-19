@@ -187,6 +187,14 @@ const unlockedPoolOptionValue = '';
   };
 
   const parseRowQuantity = (row: HTMLTableRowElement): number => {
+    const datasetQuantity = row.dataset.cutLabQuantity?.trim() ?? '';
+    if (datasetQuantity !== '') {
+      const parsedQuantity = Number.parseInt(datasetQuantity, 10);
+      if (!Number.isNaN(parsedQuantity)) {
+        return parsedQuantity;
+      }
+    }
+
     const cardCell = row.querySelector<HTMLTableCellElement>('td[data-label="Card"] strong');
     const text = cardCell?.textContent?.trim() ?? '';
     const match = /^(\d+)\s×/.exec(text);
@@ -210,7 +218,7 @@ const unlockedPoolOptionValue = '';
       .reduce((total, row) => total + parseRowQuantity(row), 0);
     const lockedCount = rows.reduce((total, row) => {
       const checkbox = getLockCheckbox(row);
-      return checkbox?.checked ? total + 1 : total;
+      return checkbox?.checked ? total + parseRowQuantity(row) : total;
     }, 0);
 
     summary.textContent = `${nonCommanderCount} cards in pool · ${lockedCount} locked`;
@@ -290,7 +298,7 @@ const unlockedPoolOptionValue = '';
         .filter(token => token !== '')
         .forEach(roleKey => {
           const previous = lockedCounts.get(roleKey) ?? 0;
-          lockedCounts.set(roleKey, previous + (isLocked ? 1 : 0));
+          lockedCounts.set(roleKey, previous + (isLocked ? parseRowQuantity(row) : 0));
         });
     });
 
