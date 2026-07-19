@@ -1,0 +1,154 @@
+import { expect, test, type Page } from '@playwright/test';
+import { mkdirSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
+import { setToolEnabled } from './support/admin-tools';
+
+const baseUrl = 'http://localhost:5173';
+const screenshotDir = resolve(__dirname, '../../.planning/ui-design/cut-lab/screenshots');
+
+const themes = [
+  { name: 'classic', cookie: 'site.css' },
+  { name: 'azorius', cookie: 'site-azorius.css' },
+  { name: 'nyx', cookie: 'site-nyx.css' },
+] as const;
+
+const viewports = [
+  { name: 'desktop', width: 1440, height: 2200 },
+  { name: 'mobile', width: 430, height: 2200 },
+] as const;
+
+const oversizedPool = [
+  'Commander',
+  '1 Zur the Enchanter',
+  '',
+  'Deck',
+  '36 Plains',
+  '36 Island',
+  '20 Swamp',
+  '1 Sol Ring',
+  '1 Arcane Signet',
+  '1 Fellwar Stone',
+  '1 Mystic Remora',
+  '1 Rhystic Study',
+  '1 Swords to Plowshares',
+  '1 Path to Exile',
+  '1 Counterspell',
+  '1 Dovin\'s Veto',
+  '1 Demonic Tutor',
+  '1 Enlightened Tutor',
+  '1 Command Tower',
+  '1 Exotic Orchard',
+].join('\n');
+
+type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
+
+let heldLock: LockHandle | null = null;
+
+test.describe.configure({ mode: 'serial' });
+
+const importPool = async (page: Page): Promise<void> => {
+  await page.goto('/cut-lab');
+  await expect(page.locator('h1')).toHaveText('Cut Lab');
+  await page.locator('#cut-lab-input-source').selectOption('PasteText');
+  await page.locator('#cut-lab-deck-text').fill(oversizedPool);
+  await page.locator('#cut-lab-primary-plan').fill('Protect the control shell, then trim to the cleanest Zur line.');
+  await page.locator('#cut-lab-secondary-plan').fill('Keep the fast mana package intact.');
+  await page.locator('input[name="Bracket"][value="4"]').check();
+  await page.locator('input[name="PlayExperience"][value="Focused"]').check();
+  await page.getByRole('button', { name: 'Import pool' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('[data-cut-lab-lock-all-lands]')).toBeVisible();
+  await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
+};
+
+test.beforeEach(async ({ page }) => {
+  heldLock = await acquireAdminLockForTest(page);
+  await setToolEnabled(page, 'Cut Lab', true);
+});
+
+test.afterEach(async ({ page }) => {
+  try {
+    await setToolEnabled(page, 'Cut Lab', false);
+  } finally {
+    await releaseAdminLockForTest(heldLock);
+    heldLock = null;
+  }
+});
+
+test('/cut-lab renders the intake, intent controls, and hidden state field when the flag is ON', async ({ page }) => {
+  const response = await page.goto('/cut-lab');
+  expect(response?.ok(), '/cut-lab should return 200 with flag ON').toBeTruthy();
+
+  await expect(page.locator('h1')).toHaveText('Cut Lab');
+  await expect(page.locator('form[action="/cut-lab"]').first()).toHaveAttribute('data-cache-key', 'cut-lab');
+  await expect(page.locator('input[name="CutLabStateJson"]')).toHaveCount(1);
+  await expect(page.locator('#cut-lab-input-source')).toBeVisible();
+  await expect(page.locator('#cut-lab-deck-url')).toBeVisible();
+  await expect(page.locator('#cut-lab-primary-plan')).toBeVisible();
+  await expect(page.locator('#cut-lab-secondary-plan')).toBeVisible();
+  await expect(page.locator('input[name="Bracket"][value="1"]')).toBeVisible();
+  await expect(page.locator('input[name="PlayExperience"][value="Focused"]')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'No pool imported yet' })).toBeVisible();
+});
+
+test('imports a pool, locks lands and a package, then preserves those edits across a resubmit', async ({ page }) => {
+  await importPool(page);
+
+  await page.locator('[data-cut-lab-lock-all-lands]').click();
+  await expect(page.locator('tr[data-cut-lab-card="Plains"] input[data-cut-lab-lock-card]')).toBeChecked();
+  await expect(page.locator('tr[data-cut-lab-card="Island"] input[data-cut-lab-lock-card]')).toBeChecked();
+
+  const solRingPackageSelect = page.locator('select[data-cut-lab-package-card="Sol Ring"]');
+  await solRingPackageSelect.selectOption('__new__');
+  await page.locator('[data-cut-lab-new-package-input]').fill('Fast mana');
+  await page.locator('[data-cut-lab-new-package-save]').click();
+  await page.locator('select[data-cut-lab-package-card="Arcane Signet"]').selectOption({ label: 'Fast mana' });
+  await page.locator('[data-cut-lab-package-id]').filter({ hasText: 'Fast mana' }).locator('input[data-cut-lab-package-toggle]').check();
+
+  const hiddenState = page.locator('input[name="CutLabStateJson"]');
+  await expect(hiddenState).toHaveValue(/"commander":"Zur the Enchanter"/);
+  await expect(hiddenState).toHaveValue(/"name":"Plains".*"isLocked":true/);
+  await expect(hiddenState).toHaveValue(/"name":"Fast mana"/);
+
+  await page.locator('#cut-lab-primary-plan').fill('Protect the mana and tutor core before trimming.');
+  await page.getByRole('button', { name: 'Import pool' }).click();
+
+  await expect(page.locator('[data-cut-lab-package-id]').filter({ hasText: 'Fast mana' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('[data-cut-lab-package-id]').filter({ hasText: 'Fast mana' }).locator('input[data-cut-lab-package-toggle]')).toBeChecked();
+  await expect(page.locator('tr[data-cut-lab-card="Plains"] input[data-cut-lab-lock-card]')).toBeChecked();
+  await expect(page.locator('tr[data-cut-lab-card="Island"] input[data-cut-lab-lock-card]')).toBeChecked();
+  await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"] .cutlab-lock-badge--commander')).toContainText('Commander · Always locked');
+  await expect(page.locator('.prompt-size-note')).toContainText('locked (protected from any future cut)');
+});
+
+test('captures imported Cut Lab screenshots across themes and viewports', async ({ page }) => {
+  mkdirSync(screenshotDir, { recursive: true });
+
+  for (const viewport of viewports) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+
+    for (const theme of themes) {
+      await page.context().clearCookies();
+      await page.context().addCookies([{ name: 'deckflow-theme', value: theme.cookie, url: baseUrl }]);
+      await importPool(page);
+
+      const screenshotPath = join(
+        screenshotDir,
+        `cut-lab-${theme.name}-${viewport.name}-${test.info().project.name}.png`,
+      );
+      await page.screenshot({ path: screenshotPath, fullPage: true });
+    }
+  }
+});
+
+test('with tool.cut-lab.enabled OFF, /cut-lab returns 404 and the Home tile is absent', async ({ page }) => {
+  await setToolEnabled(page, 'Cut Lab', false);
+
+  const response = await page.goto('/cut-lab');
+  expect(response?.status(), '/cut-lab should be 404 with flag OFF').toBe(404);
+
+  await page.goto('/');
+  await expect(page.locator('.hub-card[href$="/cut-lab"]')).toHaveCount(0);
+});
