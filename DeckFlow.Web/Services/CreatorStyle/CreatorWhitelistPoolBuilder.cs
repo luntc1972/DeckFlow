@@ -1,7 +1,7 @@
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge.CardGrounding;
-using DeckFlow.Core.Normalization;
 using DeckFlow.Core.Models;
+using DeckFlow.Core.Normalization;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;

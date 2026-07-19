@@ -128,7 +128,6 @@ public sealed class MeasuredStyleProfileBuilder
         metrics.AddRange(BuildLiftMetrics(weightedSamples, cardCategories, baseline, rawDeckCount, effectiveSampleSize));
         Task<MeasuredMetric> comboDensityTask = BuildComboDensityMetricAsync(weightedSamples, rawDeckCount, effectiveSampleSize, cancellationToken);
         Task<IReadOnlyList<MeasuredMetric>> karstenMetricsTask = BuildKarstenMetricsAsync(weightedSamples, rawDeckCount, effectiveSampleSize, cancellationToken);
-        await Task.WhenAll(comboDensityTask, karstenMetricsTask).ConfigureAwait(false);
         metrics.Add(await comboDensityTask.ConfigureAwait(false));
         metrics.AddRange(await karstenMetricsTask.ConfigureAwait(false));
         metrics = metrics

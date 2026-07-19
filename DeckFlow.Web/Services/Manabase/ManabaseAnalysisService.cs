@@ -552,51 +552,19 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         return card is null ? null : ScryfallCardDataMapper.ToCardData(card);
     }
 
-    // Batch-resolve the deck's cards through Scryfall's collection endpoint, preferring an exact
-    // printing (set + collector number) so alternate / flavor names still resolve.
     private async Task<ScryfallCardNameIndex> ResolveCardsAsync(
         IReadOnlyList<DeckEntry> deckCards,
         CancellationToken cancellationToken)
     {
-        // Distinct identifiers: printing key when known, else a name key.
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var identifiers = new List<object>();
-        foreach (DeckEntry entry in deckCards)
-        {
-            string? printing = ScryfallCardNameIndex.PrintingKey(entry.SetCode, entry.CollectorNumber);
-            string key = printing ?? $"name:{entry.Name}";
-            if (!seen.Add(key))
-            {
-                continue;
-            }
-
-            identifiers.Add(printing is not null
-                ? new { set = entry.SetCode, collector_number = entry.CollectorNumber }
-                : (object)new { name = entry.Name });
-        }
-
         var index = new ScryfallCardNameIndex();
-        for (int offset = 0; offset < identifiers.Count; offset += ScryfallLimits.CollectionBatchSize)
+        IReadOnlyList<ScryfallCard> cards = await ScryfallCollectionResolver.ResolveCardsAsync(
+            deckCards,
+            _scryfallCardResolver.ExecuteCollectionAsync,
+            "mana-base analysis.",
+            cancellationToken).ConfigureAwait(false);
+        foreach (ScryfallCard card in cards)
         {
-            var batch = identifiers.Skip(offset).Take(ScryfallLimits.CollectionBatchSize).ToArray();
-            var request = new RestRequest("cards/collection", Method.Post);
-            request.AddJsonBody(new { identifiers = batch });
-
-            RestResponse<ScryfallCollectionResponse> response =
-                await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
-
-            if (response.StatusCode is < HttpStatusCode.OK or >= HttpStatusCode.MultipleChoices || response.Data is null)
-            {
-                throw new HttpRequestException(
-                    $"Scryfall card lookup (cards/collection) returned HTTP {(int)response.StatusCode} during mana-base analysis.",
-                    inner: null,
-                    statusCode: response.StatusCode);
-            }
-
-            foreach (ScryfallCard card in response.Data.Data)
-            {
-                index.Add(ScryfallCardDataMapper.ToCardData(card));
-            }
+            index.Add(ScryfallCardDataMapper.ToCardData(card));
         }
 
         return index;

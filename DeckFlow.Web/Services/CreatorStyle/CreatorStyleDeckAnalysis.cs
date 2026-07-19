@@ -28,43 +28,16 @@ internal static class CreatorStyleDeckAnalysis
         ArgumentNullException.ThrowIfNull(unresolvedCardLogger);
         ArgumentException.ThrowIfNullOrWhiteSpace(errorMessageSuffix);
 
-        ResolvedScryfallCards resolvedCards = await ResolveCardsAsync(entries, executeCollectionAsync, errorMessageSuffix, cancellationToken).ConfigureAwait(false);
-        var deckEntries = new List<DeckCardEntry>(entries.Count);
-        ScryfallCard? resolvedCommanderCard = null;
+        ResolvedDeckEntries resolvedDeck = await ResolveDeckEntriesAsync(
+            entries,
+            executeCollectionAsync,
+            searchFallbackCardAsync,
+            unresolvedCardLogger,
+            errorMessageSuffix,
+            includeCommanderCard: true,
+            cancellationToken).ConfigureAwait(false);
 
-        foreach (DeckEntry entry in entries)
-        {
-            if (!resolvedCards.TryResolve(entry.Name, entry.SetCode, entry.CollectorNumber, out ScryfallCardData? resolvedCardData))
-            {
-                ScryfallCard? fallback = await searchFallbackCardAsync(entry.Name, cancellationToken).ConfigureAwait(false);
-                if (fallback is not null)
-                {
-                    resolvedCards.Add(fallback);
-                    resolvedCards.TryResolve(entry.Name, entry.SetCode, entry.CollectorNumber, out resolvedCardData);
-                }
-            }
-
-            if (resolvedCardData is null)
-            {
-                unresolvedCardLogger(entry.Name);
-                continue;
-            }
-
-            bool isCommander = string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase);
-            if (isCommander && resolvedCommanderCard is null)
-            {
-                resolvedCommanderCard = resolvedCards.GetRawCard(resolvedCardData);
-            }
-
-            deckEntries.Add(new DeckCardEntry
-            {
-                Card = resolvedCardData,
-                Quantity = entry.Quantity,
-                IsCommander = isCommander
-            });
-        }
-
-        if (deckEntries.Count == 0)
+        if (resolvedDeck.Entries.Count == 0)
         {
             return new SubmittedDeckResolution
             {
@@ -80,7 +53,7 @@ internal static class CreatorStyleDeckAnalysis
             };
         }
 
-        ManabaseDeck deck = Classify(deckEntries);
+        ManabaseDeck deck = Classify(resolvedDeck.Entries);
         ManabaseReport report = Analyze(deck);
 
         return new SubmittedDeckResolution
@@ -88,7 +61,7 @@ internal static class CreatorStyleDeckAnalysis
             Report = report,
             DeckContext = new CardGroundingDeckContext
             {
-                CommanderColorIdentity = resolvedCommanderCard?.ColorIdentity?
+                CommanderColorIdentity = resolvedDeck.ResolvedCommanderCard?.ColorIdentity?
                     .Where(IsWubrgSymbol)
                     .ToHashSet(StringComparer.Ordinal)
                     ?? new HashSet<string>(StringComparer.Ordinal),
@@ -101,7 +74,7 @@ internal static class CreatorStyleDeckAnalysis
                     .Select(entry => CardNormalizer.Normalize(entry.Name))
                     .ToHashSet(StringComparer.Ordinal)
             },
-            ResolvedCommanderName = resolvedCommanderCard?.Name,
+            ResolvedCommanderName = resolvedDeck.ResolvedCommanderCard?.Name,
             HasResolvedDeck = true
         };
     }
@@ -120,8 +93,39 @@ internal static class CreatorStyleDeckAnalysis
         ArgumentNullException.ThrowIfNull(unresolvedCardLogger);
         ArgumentException.ThrowIfNullOrWhiteSpace(errorMessageSuffix);
 
-        ResolvedScryfallCards resolvedCards = await ResolveCardsAsync(entries, executeCollectionAsync, errorMessageSuffix, cancellationToken).ConfigureAwait(false);
+        ResolvedDeckEntries resolvedDeck = await ResolveDeckEntriesAsync(
+            entries,
+            executeCollectionAsync,
+            searchFallbackCardAsync,
+            unresolvedCardLogger,
+            errorMessageSuffix,
+            includeCommanderCard: false,
+            cancellationToken).ConfigureAwait(false);
+
+        if (resolvedDeck.Entries.Count == 0)
+        {
+            return EmptyReport();
+        }
+
+        return Analyze(Classify(resolvedDeck.Entries));
+    }
+
+    private static async Task<ResolvedDeckEntries> ResolveDeckEntriesAsync(
+        IReadOnlyList<DeckEntry> entries,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> executeCollectionAsync,
+        Func<string, CancellationToken, Task<ScryfallCard?>> searchFallbackCardAsync,
+        Action<string> unresolvedCardLogger,
+        string errorMessageSuffix,
+        bool includeCommanderCard,
+        CancellationToken cancellationToken)
+    {
+        ResolvedScryfallCards resolvedCards = await ResolveCardsAsync(
+            entries,
+            executeCollectionAsync,
+            errorMessageSuffix,
+            cancellationToken).ConfigureAwait(false);
         var deckEntries = new List<DeckCardEntry>(entries.Count);
+        ScryfallCard? resolvedCommanderCard = null;
 
         foreach (DeckEntry entry in entries)
         {
@@ -141,20 +145,21 @@ internal static class CreatorStyleDeckAnalysis
                 continue;
             }
 
+            bool isCommander = string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase);
+            if (includeCommanderCard && isCommander && resolvedCommanderCard is null)
+            {
+                resolvedCommanderCard = resolvedCards.GetRawCard(card);
+            }
+
             deckEntries.Add(new DeckCardEntry
             {
                 Card = card,
                 Quantity = entry.Quantity,
-                IsCommander = string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase)
+                IsCommander = isCommander
             });
         }
 
-        if (deckEntries.Count == 0)
-        {
-            return EmptyReport();
-        }
-
-        return Analyze(Classify(deckEntries));
+        return new ResolvedDeckEntries(deckEntries, resolvedCommanderCard);
     }
 
     internal static async Task<ResolvedScryfallCards> ResolveCardsAsync(
@@ -167,42 +172,15 @@ internal static class CreatorStyleDeckAnalysis
         ArgumentNullException.ThrowIfNull(executeCollectionAsync);
         ArgumentException.ThrowIfNullOrWhiteSpace(errorMessageSuffix);
 
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var identifiers = new List<object>();
-        foreach (DeckEntry entry in deckCards)
-        {
-            string? printing = ScryfallCardNameIndex.PrintingKey(entry.SetCode, entry.CollectorNumber);
-            string key = printing ?? $"name:{entry.Name}";
-            if (!seen.Add(key))
-            {
-                continue;
-            }
-
-            identifiers.Add(printing is not null
-                ? new { set = entry.SetCode, collector_number = entry.CollectorNumber }
-                : (object)new { name = entry.Name });
-        }
-
         var resolvedCards = new ResolvedScryfallCards();
-        for (int offset = 0; offset < identifiers.Count; offset += ScryfallLimits.CollectionBatchSize)
+        IReadOnlyList<ScryfallCard> cards = await ScryfallCollectionResolver.ResolveCardsAsync(
+            deckCards,
+            executeCollectionAsync,
+            errorMessageSuffix,
+            cancellationToken).ConfigureAwait(false);
+        foreach (ScryfallCard card in cards)
         {
-            object[] batch = identifiers.Skip(offset).Take(ScryfallLimits.CollectionBatchSize).ToArray();
-            var request = new RestRequest("cards/collection", Method.Post);
-            request.AddJsonBody(new { identifiers = batch });
-
-            RestResponse<ScryfallCollectionResponse> response = await executeCollectionAsync(request, cancellationToken).ConfigureAwait(false);
-            if (response.StatusCode is < HttpStatusCode.OK or >= HttpStatusCode.MultipleChoices || response.Data is null)
-            {
-                throw new HttpRequestException(
-                    $"Scryfall card lookup (cards/collection) returned HTTP {(int)response.StatusCode} during {errorMessageSuffix}",
-                    inner: null,
-                    statusCode: response.StatusCode);
-            }
-
-            foreach (ScryfallCard card in response.Data.Data)
-            {
-                resolvedCards.Add(card);
-            }
+            resolvedCards.Add(card);
         }
 
         return resolvedCards;
@@ -260,6 +238,10 @@ internal static class CreatorStyleDeckAnalysis
             _ => '\0'
         };
     }
+
+    private sealed record ResolvedDeckEntries(
+        IReadOnlyList<DeckCardEntry> Entries,
+        ScryfallCard? ResolvedCommanderCard);
 
     internal sealed class ResolvedScryfallCards
     {
