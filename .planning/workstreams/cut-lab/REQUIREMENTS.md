@@ -68,4 +68,28 @@
 
 ## Traceability
 
-(filled by roadmap)
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| INTAKE-01 | Phase 101 | Pending |
+| INTAKE-02 | Phase 101 | Pending |
+| INTAKE-03 | Phase 101 | Pending |
+| LOCK-01 | Phase 101 | Pending |
+| LOCK-02 | Phase 101 | Pending |
+| LOCK-03 | Phase 101 | Pending |
+| SLOT-01 | Phase 102 | Pending |
+| SLOT-02 | Phase 102 | Pending |
+| FLOOR-01 | Phase 102 | Pending |
+| FLOOR-02 | Phase 102 | Pending |
+| CUT-01 | Phase 103 | Pending |
+| CUT-02 | Phase 103 | Pending |
+| CUT-03 | Phase 103 | Pending |
+| SIM-01 | Phase 103 | Pending |
+| SIM-02 | Phase 103 | Pending |
+| GOAL-01 | Phase 104 | Pending |
+| GOAL-02 | Phase 104 | Pending |
+| GOAL-03 | Phase 104 | Pending |
+| EXPORT-01 | Phase 105 | Pending |
+| EXPORT-02 | Phase 105 | Pending |
+| EXPORT-03 | Phase 105 | Pending |
+
+**Coverage:** 21/21 v1 requirements mapped to a phase. No orphans.
