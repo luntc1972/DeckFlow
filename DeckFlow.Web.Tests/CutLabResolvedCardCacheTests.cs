@@ -75,6 +75,68 @@ public sealed class CutLabResolvedCardCacheTests
         Assert.Null(cards);
     }
 
+    /// <summary>Entries larger than the configured cache budget are not retained.</summary>
+    [Fact]
+    public void Set_EntryLargerThanSizeLimit_DoesNotRetainCards()
+    {
+        var cache = new CutLabResolvedCardCache(sizeLimitBytes: 10);
+        string key = CutLabResolvedCardCache.ComputePoolKey([("Ancient Tomb", 1)]);
+        IReadOnlyList<ScryfallCardData> cards =
+        [
+            new ScryfallCardData
+            {
+                Name = "Ancient Tomb",
+                TypeLine = "Land",
+                OracleText = "{T}: Add {C}{C}. Ancient Tomb deals 2 damage to you.",
+            },
+        ];
+
+        cache.Set(key, cards);
+
+        bool found = cache.TryGet(key, out var cachedCards);
+
+        Assert.False(found);
+        Assert.Null(cachedCards);
+    }
+
+    /// <summary>Storing beyond the configured budget causes the overflow write to miss.</summary>
+    [Fact]
+    public void Set_PastSizeLimit_DoesNotRetainOverflowEntry()
+    {
+        var cache = new CutLabResolvedCardCache(sizeLimitBytes: 70);
+        string firstKey = CutLabResolvedCardCache.ComputePoolKey([("Island", 1)]);
+        string secondKey = CutLabResolvedCardCache.ComputePoolKey([("Mountain", 1)]);
+        IReadOnlyList<ScryfallCardData> firstCards =
+        [
+            new ScryfallCardData
+            {
+                Name = "A",
+                TypeLine = "B",
+                OracleText = new string('x', 20),
+            },
+        ];
+        IReadOnlyList<ScryfallCardData> secondCards =
+        [
+            new ScryfallCardData
+            {
+                Name = "C",
+                TypeLine = "D",
+                OracleText = new string('y', 60),
+            },
+        ];
+
+        cache.Set(firstKey, firstCards);
+        cache.Set(secondKey, secondCards);
+
+        bool secondFound = cache.TryGet(secondKey, out var cachedSecondCards);
+        bool firstFound = cache.TryGet(firstKey, out var cachedFirstCards);
+
+        Assert.False(secondFound);
+        Assert.Null(cachedSecondCards);
+        Assert.True(firstFound);
+        Assert.Same(firstCards, cachedFirstCards);
+    }
+
     /// <summary>Resolved-card and delta caches use separate backing MemoryCache instances.</summary>
     [Fact]
     public void Constructor_UsesDedicatedMemoryCacheInstance()

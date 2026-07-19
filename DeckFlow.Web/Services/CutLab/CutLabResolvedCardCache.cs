@@ -25,10 +25,15 @@ public sealed class CutLabResolvedCardCache
     /// </summary>
     /// <param name="logger">Optional structured logger.</param>
     public CutLabResolvedCardCache(ILogger<CutLabResolvedCardCache>? logger = null)
+        : this(CacheCapacityBytes, logger)
+    {
+    }
+
+    internal CutLabResolvedCardCache(int sizeLimitBytes, ILogger<CutLabResolvedCardCache>? logger = null)
     {
         _logger = logger ?? NullLogger<CutLabResolvedCardCache>.Instance;
         // Why: the 512 MB render cap requires Cut Lab cache pressure to stay isolated from the shared app cache.
-        _cache = new MemoryCache(new MemoryCacheOptions { SizeLimit = CacheCapacityBytes });
+        _cache = new MemoryCache(new MemoryCacheOptions { SizeLimit = sizeLimitBytes });
     }
 
     /// <summary>
