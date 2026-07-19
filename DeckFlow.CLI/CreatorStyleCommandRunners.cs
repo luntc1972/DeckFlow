@@ -63,7 +63,7 @@ public static class CreatorStyleCommandRunners
         ArgumentNullException.ThrowIfNull(deckCacheStore);
         ArgumentNullException.ThrowIfNull(explicitSlugs);
 
-        var slugs = await ResolveProfileSlugsAsync(profileStore, explicitSlugs).ConfigureAwait(false);
+        var slugs = await ResolveProfileSlugsAsync(profileStore, explicitSlugs, cancellationToken).ConfigureAwait(false);
         var profiles = new List<CreatorStyleProfile>(slugs.Count);
         var deckCacheRows = new List<CreatorDeckCacheEntry>();
 
@@ -105,7 +105,8 @@ public static class CreatorStyleCommandRunners
 
     private static Task<IReadOnlyList<string>> ResolveProfileSlugsAsync(
         ICreatorStyleProfileStore store,
-        IReadOnlyList<string> explicitSlugs)
+        IReadOnlyList<string> explicitSlugs,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(explicitSlugs);
@@ -115,7 +116,24 @@ public static class CreatorStyleCommandRunners
             .Select(slug => slug.Trim())
             .Distinct(StringComparer.Ordinal)
             .ToArray();
-        return Task.FromResult(slugs);
+        if (slugs.Count > 0)
+        {
+            return Task.FromResult(slugs);
+        }
+
+        return ResolveAllProfileSlugsAsync(store, cancellationToken);
+    }
+
+    private static async Task<IReadOnlyList<string>> ResolveAllProfileSlugsAsync(
+        ICreatorStyleProfileStore store,
+        CancellationToken cancellationToken)
+    {
+        var summaries = await store.GetAllAsync(cancellationToken).ConfigureAwait(false);
+        return summaries
+            .Select(summary => summary.Slug)
+            .Where(slug => !string.IsNullOrWhiteSpace(slug))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
     }
 
     private static (string ProfileOutputPath, string DeckCacheOutputPath) ResolveOutputPaths(FileInfo? output)

@@ -27,4 +27,13 @@ public interface ICreatorStyleProfileStore
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The creator style profile when found; otherwise <see langword="null"/>.</returns>
     Task<CreatorStyleProfile?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets lightweight summaries for all stored creator style profiles.
+    /// Implementations backing the creator picker/export must override this member.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Stored creator style profile summaries, or an empty list when none exist.</returns>
+    Task<IReadOnlyList<CreatorStyleProfileSummary>> GetAllAsync(CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("GetAllAsync is not supported by this implementation.");
 }

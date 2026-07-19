@@ -189,6 +189,9 @@ public sealed class CreatorStyleDiRegistrationTests
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
+        public Task<IReadOnlyList<CreatorStyleProfileSummary>> GetAllAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<CreatorStyleProfileSummary>>(Array.Empty<CreatorStyleProfileSummary>());
+
         public Task<CreatorStyleProfile?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
             => Task.FromResult<CreatorStyleProfile?>(null);
 
