@@ -95,6 +95,10 @@ public partial class Program
             builder.Services.AddSingleton<DeckFlow.Core.Content.IContentSiteIndexStore>(_ =>
                 new DeckFlow.Core.Content.ContentSiteIndexStore(
                     DeckFlowDatabaseConnectionFactory.CreateContentSiteIndexConnection(builder.Environment)));
+            builder.Services.AddSingleton<DeckFlow.Core.Content.ICreatorDeckCacheStore>(_ =>
+                new DeckFlow.Core.Content.CreatorDeckCacheStore(
+                    DeckFlowDatabaseConnectionFactory.CreateCreatorDeckCacheConnection(builder.Environment)));
+            builder.Services.AddSingleton<DeckFlow.Web.Services.CreatorStyle.CreatorWhitelistPoolBuilder>();
             builder.Services.AddSingleton<ContentKbArtifactPathResolver>();
             builder.Services.AddSingleton<IContentKbSeedLoader, ContentKbSeedLoader>();
             builder.Services.AddSingleton<DeckFlow.Core.Content.IContentArtifactBodyResolver, ContentKbArtifactBodyResolver>();

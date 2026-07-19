@@ -70,6 +70,12 @@ public static class DeckFlowDatabaseConnectionFactory
     public static RelationalDatabaseConnection CreateContentSiteIndexConnection(IWebHostEnvironment environment)
         => CreateConnection(environment, "content-site-index.db");
 
+    /// <summary>
+    /// Returns the provider-aware creator deck-cache connection used by creator corpus readers.
+    /// </summary>
+    public static RelationalDatabaseConnection CreateCreatorDeckCacheConnection(IWebHostEnvironment environment)
+        => CreateConnection(environment, "creator-deck-cache.db");
+
     private static RelationalDatabaseConnection CreateConnection(IWebHostEnvironment environment, string sqliteFileName)
     {
         var providerText = Environment.GetEnvironmentVariable(DatabaseProviderEnvVar);
