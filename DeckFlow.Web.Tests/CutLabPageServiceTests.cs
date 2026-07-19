@@ -376,6 +376,40 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_PartnerCommanders_UseMaxCommanderManaValueForRampAndDrawFloors()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Kediss, Emberclaw Familiar", "commander"),
+            Entry("Brinelin, the Moon Kraken", "commander"),
+        };
+        entries.AddRange(BuildBasicMainboard(start: 1, count: 120));
+        var cards = new List<ScryfallCard>
+        {
+            Spell("Kediss, Emberclaw Familiar", "Legendary Creature — Elemental Lizard", manaCost: "{1}{R}", cmc: 2),
+            Spell("Brinelin, the Moon Kraken", "Legendary Creature — Kraken", manaCost: "{4}{U}", cmc: 5),
+        };
+        cards.AddRange(BuildBasicResolvedCards(start: 1, count: 120));
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            Bracket = 4,
+            PlayExperience = "Focused",
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.True(result.HasResult);
+        Assert.Equal(13, Assert.Single(result.ResolvedFloors, floor => floor.Role == "ramp").DefaultValue);
+        Assert.Equal(11, Assert.Single(result.ResolvedFloors, floor => floor.Role == "draw").DefaultValue);
+    }
+
+    [Fact]
     public async Task ProcessAsync_BatchedCategoryLookupRunsOnceForWholePool()
     {
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");

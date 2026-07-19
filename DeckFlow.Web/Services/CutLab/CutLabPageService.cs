@@ -467,7 +467,6 @@ internal sealed class CutLabPageService : ICutLabPageService
         Dictionary<string, IReadOnlyList<string>> rolesByCardName = new(StringComparer.OrdinalIgnoreCase);
         List<CutLabAnalyzedCard> analyzed = new(resolvedEntries.Count);
         commanderManaValue = 0;
-        bool commanderManaValueResolved = false;
 
         foreach (ResolvedCutLabEntry entry in resolvedEntries)
         {
@@ -490,10 +489,9 @@ internal sealed class CutLabPageService : ICutLabPageService
                     mode);
                 manaValue = fact.ManaValue;
 
-                if (!commanderManaValueResolved && commanderNameSet.Contains(entry.Name))
+                if (commanderNameSet.Contains(entry.Name))
                 {
-                    commanderManaValue = fact.ManaValue;
-                    commanderManaValueResolved = true;
+                    commanderManaValue = Math.Max(commanderManaValue, fact.ManaValue);
                 }
             }
 
