@@ -61,4 +61,80 @@ public sealed class CutLabDeltaCacheTests
         Assert.False(found);
         Assert.Null(deltas);
     }
+
+    /// <summary>Entries larger than the configured cache budget are not retained.</summary>
+    [Fact]
+    public void Set_EntryLargerThanSizeLimit_DoesNotRetainDeltas()
+    {
+        var cache = new CutLabDeltaCache(sizeLimitBytes: 20);
+        string poolKey = CutLabResolvedCardCache.ComputePoolKey([("Mana Crypt", 1)]);
+        var deltas = new CutLabProposalDeltas
+        {
+            CardName = "Mana Crypt",
+            ChangedFamilyCount = 2,
+            Deltas =
+            [
+                new CutLabMetricDelta
+                {
+                    Kind = CutLabMetricKind.CommanderOnTime,
+                    Family = CutLabMetricFamily.CommanderOnTime,
+                    Label = "Commander on time",
+                    Before = 81.0,
+                    After = 77.0,
+                    Delta = -4.0,
+                    Direction = CutLabMetricDirection.Down,
+                    IsMeaningful = true,
+                },
+            ],
+        };
+
+        cache.Set(poolKey, "Mana Crypt", deltas);
+
+        bool found = cache.TryGet(poolKey, "Mana Crypt", out var cachedDeltas);
+
+        Assert.False(found);
+        Assert.Null(cachedDeltas);
+    }
+
+    /// <summary>Storing beyond the configured budget causes the overflow write to miss.</summary>
+    [Fact]
+    public void Set_PastSizeLimit_DoesNotRetainOverflowEntry()
+    {
+        var cache = new CutLabDeltaCache(sizeLimitBytes: 80);
+        string poolKey = CutLabResolvedCardCache.ComputePoolKey([("Mana Crypt", 1), ("Island", 3)]);
+        var firstDeltas = CreateProposalDeltas("A", "short");
+        var secondDeltas = CreateProposalDeltas("B", new string('x', 25));
+
+        cache.Set(poolKey, "Mana Crypt", firstDeltas);
+        cache.Set(poolKey, "Sol Ring", secondDeltas);
+
+        bool secondFound = cache.TryGet(poolKey, "Sol Ring", out var cachedSecondDeltas);
+        bool firstFound = cache.TryGet(poolKey, "Mana Crypt", out var cachedFirstDeltas);
+
+        Assert.False(secondFound);
+        Assert.Null(cachedSecondDeltas);
+        Assert.True(firstFound);
+        Assert.Same(firstDeltas, cachedFirstDeltas);
+    }
+
+    private static CutLabProposalDeltas CreateProposalDeltas(string cardName, string label) =>
+        new()
+        {
+            CardName = cardName,
+            ChangedFamilyCount = 2,
+            Deltas =
+            [
+                new CutLabMetricDelta
+                {
+                    Kind = CutLabMetricKind.CommanderOnTime,
+                    Family = CutLabMetricFamily.CommanderOnTime,
+                    Label = label,
+                    Before = 81.0,
+                    After = 77.0,
+                    Delta = -4.0,
+                    Direction = CutLabMetricDirection.Down,
+                    IsMeaningful = true,
+                },
+            ],
+        };
 }

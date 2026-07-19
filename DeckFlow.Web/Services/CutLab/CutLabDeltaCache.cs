@@ -24,10 +24,15 @@ public sealed class CutLabDeltaCache
     /// </summary>
     /// <param name="logger">Optional structured logger.</param>
     public CutLabDeltaCache(ILogger<CutLabDeltaCache>? logger = null)
+        : this(CacheCapacityBytes, logger)
+    {
+    }
+
+    internal CutLabDeltaCache(int sizeLimitBytes, ILogger<CutLabDeltaCache>? logger = null)
     {
         _logger = logger ?? NullLogger<CutLabDeltaCache>.Instance;
         // Why: the 512 MB render cap requires disposable proposal deltas to evict independently of every other cache.
-        _cache = new MemoryCache(new MemoryCacheOptions { SizeLimit = CacheCapacityBytes });
+        _cache = new MemoryCache(new MemoryCacheOptions { SizeLimit = sizeLimitBytes });
     }
 
     /// <summary>
