@@ -23,6 +23,7 @@ public sealed class ToolRegistryTests
             tool => AssertTool(tool, "cedh-meta-gap", "cEDH Meta Gap", "/cedh-meta-gap", ToolNavSection.Analyze, "tool.cedh-meta-gap.enabled", true, "cEDH Meta Gap", "Measure your cEDH deck against top meta decks and surface the cards, lines, and roles you're missing.", "cedh-meta-gap", DeckPageTab.CedhMetaGap, false),
             tool => AssertTool(tool, "manabase", "Mana Base", "/manabase", ToolNavSection.Analyze, "tool.manabase.enabled", false, "Mana Base", "Score a deck's lands and colored sources — Frank Karsten's source-count math, extended to weight rocks, dorks, and MDFCs and to count tapped vs. untapped lands. No AI needed.", "manabase", DeckPageTab.Manabase, false),
             tool => AssertTool(tool, "bracket", "Bracket Check", "/bracket", ToolNavSection.Analyze, "tool.bracket.enabled", false, "Bracket Check", "Classify a Commander deck into its official 1–5 bracket using Game Changers, two-card combos, and mass land denial — computed locally, no AI needed.", "bracket", DeckPageTab.Bracket, false),
+            tool => AssertTool(tool, "creator-style", "Creator-Style Critique", "/creator-style", ToolNavSection.Analyze, "tool.creator-style.enabled", false, "Creator-Style Critique", "Critique your deck against a creator's measured build style — real exemplars, weighted targets, no vibes.", "creator-style", DeckPageTab.CreatorStyle, false),
             tool => AssertTool(tool, "deck-sync", "Deck Sync", "/sync", ToolNavSection.Build, "tool.deck-sync.enabled", false, "Deck Sync", "Reconcile a Moxfield deck against an Archidekt deck (either direction) and generate add/cut text for the target.", "deck-sync", DeckPageTab.Sync, true, "/resolve", "/api/deck/diff"),
             tool => AssertTool(tool, "convert", "Convert Deck", "/convert", ToolNavSection.Build, "tool.convert.enabled", false, "Convert Deck", "Convert deck export text or a public URL between Moxfield and Archidekt formats.", "convert", DeckPageTab.Convert, false),
             tool => AssertTool(tool, "deck-primer", "Deck Primer", "/deck-primer", ToolNavSection.Build, "tool.deck-primer.enabled", false, "Deck Primer", "Generate a staged, ChatGPT-ready primer that explains your deck's plan, lines, and key interactions.", "deck-primer", DeckPageTab.DeckPrimer, false),
@@ -39,11 +40,11 @@ public sealed class ToolRegistryTests
     {
         var registry = new ToolRegistry();
 
-        Assert.Equal(14, registry.All.Count);
-        Assert.Equal(14, registry.All.Select(tool => tool.Key).Distinct(StringComparer.Ordinal).Count());
-        Assert.Equal(14, registry.All.Select(tool => tool.Route).Distinct(StringComparer.Ordinal).Count());
-        Assert.Equal(14, registry.All.Select(tool => tool.Tab).Distinct().Count());
-        Assert.Equal(19, registry.All.SelectMany(tool => tool.AdditionalRoutes.Prepend(tool.Route)).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(15, registry.All.Count);
+        Assert.Equal(15, registry.All.Select(tool => tool.Key).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(15, registry.All.Select(tool => tool.Route).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(15, registry.All.Select(tool => tool.Tab).Distinct().Count());
+        Assert.Equal(20, registry.All.SelectMany(tool => tool.AdditionalRoutes.Prepend(tool.Route)).Distinct(StringComparer.Ordinal).Count());
 
         var coreKeys = registry.All
             .Where(tool => tool.Core)
