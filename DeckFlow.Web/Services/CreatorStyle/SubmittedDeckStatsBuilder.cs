@@ -50,6 +50,16 @@ public sealed record SubmittedDeckAnalysis
     public required IReadOnlyList<DeckEntry> Entries { get; init; }
 
     /// <summary>
+    /// Gets the distinct combo-card names from included Spellbook combos over the analyzed mainboard+commander entries.
+    /// </summary>
+    public required IReadOnlyList<string> IncludedComboCardNames { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the analyzed deck entries could not be fully resolved for manabase analysis.
+    /// </summary>
+    public required bool DeckResolutionDegraded { get; init; }
+
+    /// <summary>
     /// Gets the resolved commander name when card resolution succeeds.
     /// </summary>
     public string? ResolvedCommanderName { get; init; }
@@ -138,7 +148,7 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
         IReadOnlyDictionary<string, IReadOnlyList<string>> cardCategories =
             await ResolveCategoriesAsync(analyzedEntries, cancellationToken).ConfigureAwait(false);
         IReadOnlyDictionary<string, int> categoryCounts = CountCategories(analyzedEntries, cardCategories);
-        double comboCount = await ResolveComboCountAsync(analyzedEntries, cancellationToken).ConfigureAwait(false);
+        CommanderSpellbookResult? comboResult = await ResolveCombosAsync(analyzedEntries, cancellationToken).ConfigureAwait(false);
         SubmittedDeckResolution resolution = await ResolveSubmittedDeckAsync(analyzedEntries, cancellationToken).ConfigureAwait(false);
 
         var metrics = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
@@ -149,12 +159,13 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
                 : 0d;
         }
 
-        metrics["combo_density:included_per_deck"] = comboCount;
-        metrics["karsten:land_delta"] = resolution.Report.LandDelta;
-        metrics["karsten:target_lands"] = resolution.Report.TargetLands;
-        metrics["karsten:health_score"] = resolution.HasResolvedDeck
-            ? ToHealthScore(resolution.Report.Health)
-            : 0d;
+        metrics["combo_density:included_per_deck"] = comboResult?.IncludedCombos.Count ?? 0;
+        if (resolution.HasResolvedDeck)
+        {
+            metrics["karsten:land_delta"] = resolution.Report.LandDelta;
+            metrics["karsten:target_lands"] = resolution.Report.TargetLands;
+            metrics["karsten:health_score"] = ToHealthScore(resolution.Report.Health);
+        }
 
         return new SubmittedDeckAnalysis
         {
@@ -168,6 +179,11 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
             },
             DeckContext = resolution.DeckContext,
             Entries = flaggedEntries,
+            IncludedComboCardNames = comboResult?.IncludedCombos
+                .SelectMany(combo => combo.CardNames)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray() ?? [],
+            DeckResolutionDegraded = !resolution.HasResolvedDeck,
             ResolvedCommanderName = resolution.ResolvedCommanderName,
             ImportNotice = loaded.FallbackNotice
         };
@@ -233,22 +249,20 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
         return CategoryCounter.CountPerDeck(sample, cardCategories);
     }
 
-    private async Task<double> ResolveComboCountAsync(IReadOnlyList<DeckEntry> entries, CancellationToken cancellationToken)
+    private async Task<CommanderSpellbookResult?> ResolveCombosAsync(IReadOnlyList<DeckEntry> entries, CancellationToken cancellationToken)
     {
         try
         {
-            CommanderSpellbookResult? result = _findCombosAsyncOverride is not null
+            return _findCombosAsyncOverride is not null
                 ? await _findCombosAsyncOverride(entries, cancellationToken).ConfigureAwait(false)
                 : await _commanderSpellbookService!
                     .FindCombosAsync(entries, cancellationToken)
                     .ConfigureAwait(false);
-
-            return result?.IncludedCombos.Count ?? 0;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "Commander Spellbook lookup failed; continuing without combo density.");
-            return 0;
+            return null;
         }
     }
 

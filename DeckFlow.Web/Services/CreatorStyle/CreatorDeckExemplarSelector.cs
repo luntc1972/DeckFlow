@@ -23,10 +23,20 @@ public static class CreatorDeckExemplarSelector
 
         // Why: this selector returns whole exemplar decklists, not the flat card-name pool used by CreatorWhitelistPoolBuilder.
         return creatorDecks
-            .OrderByDescending(deck => deck.ConfidenceMarker, StringComparer.Ordinal)
+            .OrderBy(deck => Rank(deck.ConfidenceMarker))
             .ThenBy(deck => Math.Abs(deck.Size - submittedDeckSize))
             .ThenBy(deck => deck.DeckId, StringComparer.Ordinal)
             .Take(maxExemplars)
             .ToArray();
+    }
+
+    private static int Rank(string marker)
+    {
+        return marker switch
+        {
+            "ok" => 0,
+            "near-precon" => 1,
+            _ => 2,
+        };
     }
 }
