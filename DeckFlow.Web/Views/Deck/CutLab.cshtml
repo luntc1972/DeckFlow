@@ -355,9 +355,12 @@
                     <h2>Structural findings</h2>
                     <p>Measured observations about your pool's shape. Nothing here says a card is bad — it says what the numbers show.</p>
                 </div>
-                <div class="panel-heading__actions">
-                    <span class="prompt-size-note">@totalStructuralFindings structural findings</span>
-                </div>
+                @if (totalStructuralFindings > 0)
+                {
+                    <div class="panel-heading__actions">
+                        <span class="prompt-size-note">@totalStructuralFindings structural findings</span>
+                    </div>
+                }
             </div>
 
             @if (totalStructuralFindings > 0)
