@@ -10,9 +10,44 @@
         .Distinct(StringComparer.Ordinal)
         .ToArray() ?? Array.Empty<string>();
     var exemplarNames = result?.Exemplars
-        .Select(exemplar => string.IsNullOrWhiteSpace(exemplar.FolderName) ? exemplar.DeckId : exemplar.FolderName!)
+        .Select((exemplar, index) => GetExemplarDisplayName(exemplar, index, result?.RubricScores.CreatorSlug ?? Model.Request.CreatorSlug))
         .Where(name => !string.IsNullOrWhiteSpace(name))
         .ToArray() ?? Array.Empty<string>();
+
+    static string GetVerdictModifier(string verdict) => verdict switch
+    {
+        "on-target" => "manabase-chip--good",
+        "good" => "manabase-chip--good",
+        "over" => "manabase-chip--caution",
+        "under" => "manabase-chip--low",
+        "insufficient" => "manabase-chip--neutral",
+        _ => string.Empty,
+    };
+
+    static string GetExemplarDisplayName(DeckFlow.Web.Services.CreatorStyle.CreatorStyleExemplarDeck exemplar, int index, string? creatorSlug)
+    {
+        if (!string.IsNullOrWhiteSpace(exemplar.FolderName))
+        {
+            return exemplar.FolderName!;
+        }
+
+        if (!string.IsNullOrWhiteSpace(creatorSlug))
+        {
+            return $"{HumanizeSlug(creatorSlug)} deck {index + 1}";
+        }
+
+        return $"Exemplar deck {index + 1}";
+    }
+
+    static string HumanizeSlug(string slug)
+    {
+        if (string.IsNullOrWhiteSpace(slug))
+        {
+            return "Creator";
+        }
+
+        return System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(slug.Replace('-', ' '));
+    }
 }
 
 <section class="hero">
@@ -115,9 +150,14 @@ else
         @if (verdicts.Length > 0 || exemplarNames.Length > 0)
         {
             <div class="field">
-                @foreach (var verdict in verdicts)
+                @if (verdicts.Length > 0)
                 {
-                    <span class="manabase-chip">@verdict</span>
+                    <div class="toolbar">
+                        @foreach (var verdict in verdicts)
+                        {
+                            <span class="manabase-chip @GetVerdictModifier(verdict)">@verdict</span>
+                        }
+                    </div>
                 }
                 @if (exemplarNames.Length > 0)
                 {

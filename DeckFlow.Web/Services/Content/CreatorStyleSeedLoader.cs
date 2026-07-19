@@ -9,12 +9,6 @@ namespace DeckFlow.Web.Services;
 /// </summary>
 public sealed class CreatorStyleSeedLoader : ICreatorStyleSeedLoader
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-    };
-
     private readonly ContentKbArtifactPathResolver _resolver;
     private readonly ICreatorStyleProfileStore _profileStore;
     private readonly ICreatorDeckCacheStore _deckCacheStore;
@@ -71,7 +65,7 @@ public sealed class CreatorStyleSeedLoader : ICreatorStyleSeedLoader
 
         await using var stream = File.OpenRead(seedFilePath);
         var profiles = await JsonSerializer
-            .DeserializeAsync<CreatorStyleProfile[]>(stream, JsonOptions, cancellationToken)
+            .DeserializeAsync<CreatorStyleProfile[]>(stream, SeedJson.Options, cancellationToken)
             .ConfigureAwait(false)
             ?? Array.Empty<CreatorStyleProfile>();
 
@@ -94,7 +88,7 @@ public sealed class CreatorStyleSeedLoader : ICreatorStyleSeedLoader
 
         await using var stream = File.OpenRead(seedFilePath);
         var entries = await JsonSerializer
-            .DeserializeAsync<CreatorDeckCacheEntry[]>(stream, JsonOptions, cancellationToken)
+            .DeserializeAsync<CreatorDeckCacheEntry[]>(stream, SeedJson.Options, cancellationToken)
             .ConfigureAwait(false)
             ?? Array.Empty<CreatorDeckCacheEntry>();
 

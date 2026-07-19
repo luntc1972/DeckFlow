@@ -286,8 +286,9 @@ public partial class Program
             await ValidateDatabaseConnectionsAsync(app.Services, app.Environment, app.Logger);
             app.Logger.LogInformation("Ensuring content site-index schema during startup.");
             await app.Services.GetRequiredService<DeckFlow.Core.Content.IContentSiteIndexStore>().EnsureSchemaAsync();
-            await app.Services.GetRequiredService<IContentKbSeedLoader>().LoadIfPresentAsync();
-            await app.Services.GetRequiredService<ICreatorStyleSeedLoader>().LoadIfPresentAsync();
+            Task contentKbSeedTask = app.Services.GetRequiredService<IContentKbSeedLoader>().LoadIfPresentAsync();
+            Task creatorStyleSeedTask = app.Services.GetRequiredService<ICreatorStyleSeedLoader>().LoadIfPresentAsync();
+            await Task.WhenAll(contentKbSeedTask, creatorStyleSeedTask);
             app.Logger.LogInformation("Content site-index schema ensured and seed load completed during startup.");
 
             // D-08: one-time deterministic body_sha256 backfill, third step after schema-ensure

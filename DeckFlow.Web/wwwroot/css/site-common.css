@@ -2591,6 +2591,18 @@ label.field > span,
   color: var(--ink, #2d3748);
 }
 
+.manabase-chip--caution {
+  background: color-mix(in srgb, var(--warning, #d69e2e) 18%, transparent);
+  border-color: var(--warning, #d69e2e);
+  color: var(--warning, #d69e2e);
+}
+
+.manabase-chip--neutral {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  border-color: var(--line, rgba(0, 0, 0, 0.18));
+  color: var(--muted, #5a6472);
+}
+
 /* Health-verdict chips: fixed, theme-independent filled status colors (WCAG-AA contrast with the
    baked-in text color) so the four levels stay legible on every guild theme — the per-theme
    --info/--warning/--success tokens are surface colors, not status colors, and bled into the chip

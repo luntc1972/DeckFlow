@@ -92,7 +92,7 @@ public sealed class CreatorProfileDeckCrawler
 
         foreach (var summary in summaries)
         {
-            if (summary.Size > 105)
+            if (summary.Size > StapleStripper.MaxDeckSize)
             {
                 continue;
             }

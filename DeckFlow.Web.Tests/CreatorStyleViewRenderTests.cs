@@ -73,27 +73,93 @@ public sealed class CreatorStyleViewRenderTests
         Assert.DoesNotContain("form action=\"/creator-style\"", html, StringComparison.Ordinal);
     }
 
-    private static CreatorStylePacketResult CreatePacketResult() => new()
+    [Fact]
+    public async Task PopulatedResult_RendersVerdictStripWithMappedChipModifiers()
     {
-        ArtifactText = "packet",
-        RubricScores = new RubricScoreResult
+        string html = await RenderCreatorStyleViewAsync(new CreatorStyleViewModel
         {
-            CreatorSlug = "salubrious-snail",
-            MetricScores =
+            Request = new CreatorStyleRequest
+            {
+                CreatorSlug = "salubrious-snail",
+            },
+            AvailableCreators =
             [
-                new RubricMetricScore
+                new CreatorStyleViewModel.CreatorPickerOption
                 {
-                    Metric = "category_ratio:ramp",
-                    TargetValue = 12,
-                    SubmittedValue = 10,
-                    Delta = -2,
-                    Weight = 1,
-                    Verdict = "under",
-                    Confidence = "high",
+                    Slug = "salubrious-snail",
+                    DisplayLabel = "Salubrious Snail — 39 decks · 12 videos",
                 },
             ],
-        },
-        Exemplars =
+            Result = CreatePacketResult(
+                exemplars:
+                [
+                    new CreatorStyleExemplarDeck
+                    {
+                        DeckId = "deck-1",
+                        ConfidenceMarker = "high",
+                        CardNames = ["Sol Ring"],
+                    },
+                ],
+                metricScores:
+                [
+                    MetricScore("category_ratio:ramp", "on-target"),
+                    MetricScore("category_ratio:draw", "over"),
+                    MetricScore("category_ratio:interaction", "under"),
+                    MetricScore("category_ratio:flex", "insufficient"),
+                ]),
+        });
+
+        Assert.Contains("<div class=\"toolbar\">", html, StringComparison.Ordinal);
+        Assert.Contains("manabase-chip manabase-chip--good", html, StringComparison.Ordinal);
+        Assert.Contains("manabase-chip manabase-chip--caution", html, StringComparison.Ordinal);
+        Assert.Contains("manabase-chip manabase-chip--low", html, StringComparison.Ordinal);
+        Assert.Contains("manabase-chip manabase-chip--neutral", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PopulatedResult_UsesPresentableExemplarFallbackInsteadOfDeckId()
+    {
+        string html = await RenderCreatorStyleViewAsync(new CreatorStyleViewModel
+        {
+            Request = new CreatorStyleRequest
+            {
+                CreatorSlug = "salubrious-snail",
+            },
+            AvailableCreators =
+            [
+                new CreatorStyleViewModel.CreatorPickerOption
+                {
+                    Slug = "salubrious-snail",
+                    DisplayLabel = "Salubrious Snail — 39 decks · 12 videos",
+                },
+            ],
+            Result = CreatePacketResult(
+                exemplars:
+                [
+                    new CreatorStyleExemplarDeck
+                    {
+                        DeckId = "internal-deck-id-123",
+                        ConfidenceMarker = "high",
+                        CardNames = ["Sol Ring"],
+                    },
+                ]),
+        });
+
+        Assert.Contains("Exemplars: Salubrious Snail deck 1", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("internal-deck-id-123", html, StringComparison.Ordinal);
+    }
+
+    private static CreatorStylePacketResult CreatePacketResult(
+        IReadOnlyList<CreatorStyleExemplarDeck>? exemplars = null,
+        IReadOnlyList<RubricMetricScore>? metricScores = null) => new()
+        {
+            ArtifactText = "packet",
+            RubricScores = new RubricScoreResult
+            {
+                CreatorSlug = "salubrious-snail",
+                MetricScores = metricScores ?? [MetricScore("category_ratio:ramp", "under")],
+            },
+            Exemplars = exemplars ??
         [
             new CreatorStyleExemplarDeck
             {
@@ -102,9 +168,20 @@ public sealed class CreatorStyleViewRenderTests
                 CardNames = ["Sol Ring"],
             },
         ],
-        ValidatedWhitelist = ["Sol Ring"],
-        ValidatedComboCards = ["Dockside Extortionist"],
-        GroundingDegraded = false,
+            ValidatedWhitelist = ["Sol Ring"],
+            ValidatedComboCards = ["Dockside Extortionist"],
+            GroundingDegraded = false,
+        };
+
+    private static RubricMetricScore MetricScore(string metric, string verdict) => new()
+    {
+        Metric = metric,
+        TargetValue = 12,
+        SubmittedValue = 10,
+        Delta = -2,
+        Weight = 1,
+        Verdict = verdict,
+        Confidence = "high",
     };
 
     private static string NormalizeAntiForgery(string html) => Regex.Replace(
