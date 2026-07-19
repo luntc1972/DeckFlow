@@ -126,6 +126,26 @@ public sealed class CreatorStyleProfileStore : ICreatorStyleProfileStore
         return row is null ? null : CreatorStyleProfileMapper.ToProfile(row);
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<CreatorStyleProfileSummary>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        var rows = await connection.QueryAsync<CreatorStyleProfileSummary>(new CommandDefinition(
+            """
+            SELECT slug AS Slug,
+                   platform AS Platform,
+                   min_decks AS MinDecks,
+                   insufficient_sample AS InsufficientSample,
+                   updated_utc AS UpdatedUtc
+              FROM creator_style_profile
+             ORDER BY updated_utc DESC;
+            """,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return rows.AsList();
+    }
+
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
     {
         if (_connectionFactoryOverride is not null)

@@ -45,6 +45,85 @@ public sealed class CreatorStyleProfileStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task GetAllAsync_EmptyStore_ReturnsEmptyNonNullList()
+    {
+        var profiles = await _store.GetAllAsync();
+
+        Assert.NotNull(profiles);
+        Assert.Empty(profiles);
+    }
+
+    [Fact]
+    public async Task InterfaceDefaultGetAllAsync_WithoutOverride_ThrowsNotSupportedException()
+    {
+        ICreatorStyleProfileStore store = new MissingGetAllCreatorStyleProfileStore();
+
+        var exception = await Assert.ThrowsAsync<NotSupportedException>(() => store.GetAllAsync());
+
+        Assert.Equal("GetAllAsync is not supported by this implementation.", exception.Message);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_AfterUpsertingProfiles_ReturnsMatchingSummaries()
+    {
+        var alpha = CreatorStyleProfileTestData.CreateFullProfile("alpha") with
+        {
+            MinDecks = 39,
+            InsufficientSample = false,
+            UpdatedUtc = DateTimeOffset.Parse("2026-07-18T10:00:00Z")
+        };
+        var beta = CreatorStyleProfileTestData.CreateFullProfile("beta") with
+        {
+            MinDecks = 12,
+            InsufficientSample = true,
+            UpdatedUtc = DateTimeOffset.Parse("2026-07-18T11:00:00Z")
+        };
+        var gamma = CreatorStyleProfileTestData.CreateFullProfile("gamma") with
+        {
+            MinDecks = 3,
+            InsufficientSample = true,
+            UpdatedUtc = DateTimeOffset.Parse("2026-07-18T12:00:00Z")
+        };
+
+        await _store.UpsertAsync(alpha);
+        await _store.UpsertAsync(beta);
+        await _store.UpsertAsync(gamma);
+
+        var summaries = await _store.GetAllAsync();
+
+        Assert.NotNull(summaries);
+        Assert.Equal(3, summaries.Count);
+
+        var bySlug = summaries.ToDictionary(summary => summary.Slug, StringComparer.Ordinal);
+        Assert.Collection(
+            new[] { alpha, beta, gamma },
+            profile =>
+            {
+                var summary = Assert.Contains(profile.Slug, bySlug);
+                Assert.Equal(profile.Platform, summary.Platform);
+                Assert.Equal(profile.MinDecks, summary.MinDecks);
+                Assert.Equal(profile.InsufficientSample, summary.InsufficientSample);
+                CreatorStyleProfileTestData.AssertCloseTo(profile.UpdatedUtc, summary.UpdatedUtc);
+            },
+            profile =>
+            {
+                var summary = Assert.Contains(profile.Slug, bySlug);
+                Assert.Equal(profile.Platform, summary.Platform);
+                Assert.Equal(profile.MinDecks, summary.MinDecks);
+                Assert.Equal(profile.InsufficientSample, summary.InsufficientSample);
+                CreatorStyleProfileTestData.AssertCloseTo(profile.UpdatedUtc, summary.UpdatedUtc);
+            },
+            profile =>
+            {
+                var summary = Assert.Contains(profile.Slug, bySlug);
+                Assert.Equal(profile.Platform, summary.Platform);
+                Assert.Equal(profile.MinDecks, summary.MinDecks);
+                Assert.Equal(profile.InsufficientSample, summary.InsufficientSample);
+                CreatorStyleProfileTestData.AssertCloseTo(profile.UpdatedUtc, summary.UpdatedUtc);
+            });
+    }
+
+    [Fact]
     public async Task UpsertAsync_ThenGetBySlug_RoundTripsFullShape()
     {
         var expected = CreatorStyleProfileTestData.CreateFullProfile("full-round-trip");
@@ -207,6 +286,17 @@ public sealed class CreatorStyleProfileStoreTests : IDisposable
 
         var count = await command.ExecuteScalarAsync();
         return Convert.ToInt32(count);
+    }
+
+    private sealed class MissingGetAllCreatorStyleProfileStore : ICreatorStyleProfileStore
+    {
+        public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task<CreatorStyleProfile?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
+            => Task.FromResult<CreatorStyleProfile?>(null);
+
+        public Task UpsertAsync(CreatorStyleProfile profile, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
     }
 
 }
