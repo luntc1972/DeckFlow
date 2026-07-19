@@ -169,7 +169,10 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
   2. Assembled artifact content includes all five required elements: fused profile as weighted numeric targets, 2-3 real creator-deck exemplars, validated synergy/combo context, rubric scores, and a "critique only with the provided cards" instruction.
   3. Every card referenced anywhere in the assembled content has passed the Phase 98 card-grounding guard before assembly returns.
   4. xUnit tests cover rubric scoring and artifact assembly in isolation, with no controller or page dependency.
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 99-01-PLAN.md — Pure Core rubric scorer + models + exemplar-deck selector (CS-27, CS-28)
+- [ ] 99-02-PLAN.md — SubmittedDeckStatsBuilder: apples-to-apples deck stats + card-grounding deck context (CS-27, CS-29)
+- [ ] 99-03-PLAN.md — CreatorStylePacketService: 5-element artifact assembly + fail-closed guard gate + DI tripwire (CS-26, CS-28, CS-29)
 
 ### Phase 100: Creator-Style Tool Surface
 **Goal**: Ship the $0 paste-ready Creator-Style tool end-to-end — new page, controller, flag `creator.style-artifact` (seeded OFF), packet-cache-bypass wiring, and the full web-change bundle. **The only phase in this milestone that ships user-visible value.**

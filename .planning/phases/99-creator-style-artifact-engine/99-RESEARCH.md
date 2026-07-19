@@ -352,20 +352,22 @@ CardGroundingBatchResult validation = await _cardGroundingGuard
 
 **If this table is empty:** N/A — populated above.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **How deep should the "Karsten math" half of the rubric go?**
+> All three questions were resolved at planning time (2026-07-18); resolutions recorded inline below and implemented in plans 99-01..99-03.
+
+1. **How deep should the "Karsten math" half of the rubric go?** — **RESOLVED:** Plan 99-02 goes deeper than the scalar recommendation below: the submitted deck runs through the exact `ManabaseClassifier.Classify(isSingleton: true)` + `ManabaseAnalyzer.Analyze(ManabaseMode.Casual)` pipeline that `MeasuredStyleProfileBuilder.AnalyzeDeckAsync` used for the creator side, so the `karsten:*` diff is apples-to-apples. No new castability simulation is built; the existing analyzer is reused.
    - What we know: `KarstenManabase` exposes scalar land-target formulas (`SingletonLandTarget`, `CedhLandTarget`) and a per-spell consistency/sources-needed pair (`ConsistencyThreshold`, `CastConsistency`, `SourcesNeeded`). The fused profile already stores `karsten:target_lands`/`karsten:land_delta`/`karsten:health_score` as scalar `MeasuredMetric`/`FusedTarget` values from the creator's own decks.
    - What's unclear: whether CS-27's "Karsten math" means (a) comparing the submitted deck's own computed land target against the creator's fused target-land value (cheap, scalar), or (b) running a fuller per-color castability check against the submitted deck's actual mana sources (needs Scryfall-resolved card data, closer to what `ManabaseAnalysisService` already does for the manabase tool).
    - Recommendation: default to (a) for Phase 99 scope — it's a direct, cheap reuse of already-computed fused values and matches the phase's "no LLM, deterministic diff" framing without duplicating the manabase tool's heavier simulation. Confirm with the user at discuss-phase; this is a scope-sizing question, not a technical unknown.
 
-2. **Should `CreatorStylePacketService.BuildAsync` be publicly callable/exposed at all in Phase 99, given there's no controller yet?**
+2. **Should `CreatorStylePacketService.BuildAsync` be publicly callable/exposed at all in Phase 99, given there's no controller yet?** — **RESOLVED:** Yes. Plan 99-03 Task 3 registers `CreatorStylePacketService` (and its dependency graph) in DI this phase and extends the `CreatorStyleDiRegistrationTests` tripwire, per the recommendation below and the Phase 98-05 gap-closure lesson.
    - What we know: SC #4 requires "xUnit tests cover rubric scoring and artifact assembly in isolation, with no controller or page dependency" — this is satisfiable whether or not the service method is `public`.
    - What's unclear: whether the planner should still wire the DI registration (`PacketServiceCollectionExtensions.cs` or equivalent) this phase, or defer registration entirely to Phase 100 alongside the controller.
    - Recommendation: register the service in DI this phase (with the mandatory tripwire test per Pattern 4) so Phase 100 only has to add a controller/page, not debug a fresh DI graph under time pressure — this mirrors how Phase 98's `ICardGroundingGuard` was registered a full phase before Phase 99 (its only consumer) needed it.
 
-3. **Fail-open vs. fail-closed on upstream Scryfall failure during card-grounding validation (CS-29)?**
-   - See Assumptions Log A4 / Pitfall 2. Needs an explicit product decision, not a research answer.
+3. **Fail-open vs. fail-closed on upstream Scryfall failure during card-grounding validation (CS-29)?** — **RESOLVED:** Fail-closed. Plan 99-03 excludes any card that cannot be positively verified (rejected or upstream-unavailable) from the assembled artifact content and surfaces a flag on the result; no unverified card name is ever emitted. Confirms Assumptions Log A4.
+   - See Assumptions Log A4 / Pitfall 2. (Product decision made at planning time: fail-closed, exclude-and-flag.)
 
 ## Environment Availability
 
