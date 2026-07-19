@@ -573,6 +573,71 @@ public sealed class CutLabPageServiceTests
         Assert.DoesNotContain(result.State.RoleFloors, floor => floor.Role == "draw");
     }
 
+    [Fact]
+    public async Task ProcessAsync_StackedBasics_WeightLandsCountsAcrossFindingsAndFloorViews()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Focused Commander", "commander"),
+            Entry("Forest", "mainboard") with { Quantity = 38 },
+        };
+        entries.AddRange(BuildBasicMainboard(start: 1, count: 63));
+
+        var cards = new List<ScryfallCard>
+        {
+            Spell("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{G}{U}", cmc: 3),
+            Spell("Forest", "Basic Land — Forest"),
+        };
+        cards.AddRange(BuildBasicResolvedCards(start: 1, count: 63));
+
+        var priorState = new CutLabState
+        {
+            Commander = "Focused Commander",
+            Pool =
+            [
+                new CutLabPoolCard
+                {
+                    Name = "Forest",
+                    Quantity = 38,
+                    TypeLine = "Basic Land — Forest",
+                    IsLocked = true,
+                },
+            ],
+        };
+
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]),
+            manabaseBaseline: new FakeManabaseBaselineProvider(new ManabaseBracketBaseline
+            {
+                Bracket = 4,
+                AvgLands = 36.0,
+                DeckCount = 100,
+            }),
+            cedhBaseline: new FakeCedhLandBaselineProvider());
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            Bracket = 4,
+            PlayExperience = "Focused",
+            CutLabStateJson = CutLabStateSerializer.Serialize(priorState),
+        };
+
+        var result = await service.ProcessAsync(request);
+        var model = CutLabViewModel.From(request, result);
+
+        CutLabFloorRowView landsRow = Assert.Single(model.FloorRows, row => row.RoleKey == "lands");
+        Assert.Equal(38, landsRow.InPoolCount);
+        Assert.False(landsRow.AtFloor);
+        Assert.Equal(38, model.RoleGroups.Single(group => group.RoleKey == "lands").LockedCount);
+        Assert.DoesNotContain(
+            result.Findings.Findings,
+            finding => finding.Kind == CutLabFindingKind.WeakFloorCase
+                && finding.Lead.StartsWith("Lands is at ", StringComparison.Ordinal));
+    }
+
     private static List<DeckEntry> BuildPoolEntries(int nonCommanderCount, string commanderName)
     {
         var entries = new List<DeckEntry> { Entry(commanderName, "commander") };

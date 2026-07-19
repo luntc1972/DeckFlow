@@ -488,7 +488,10 @@ internal sealed class CutLabPageService : ICutLabPageService
                 manaValue,
                 roles.Contains("lands", StringComparer.Ordinal),
                 roles,
-                categories));
+                categories)
+            {
+                Quantity = entry.Quantity,
+            });
         }
 
         analyzedCards = analyzed;
