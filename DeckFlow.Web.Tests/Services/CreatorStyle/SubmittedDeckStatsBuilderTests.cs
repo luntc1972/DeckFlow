@@ -58,8 +58,10 @@ public sealed class SubmittedDeckStatsBuilderTests
 
         Assert.Equal(4d, result.Stats.Metrics["category_ratio:ramp"]);
         Assert.Equal(2d, result.Stats.Metrics["combo_density:included_per_deck"]);
+        Assert.Equal(["Card A", "Card B"], result.IncludedComboCardNames);
         Assert.Equal(5, result.Stats.DeckSize);
         Assert.Equal(1, result.Stats.CommanderCount);
+        Assert.True(result.DeckResolutionDegraded);
         Assert.Equal("Tatyova, Benthic Druid", result.Entries.Single(entry => entry.Board == "commander").Name);
         Assert.Equal("fallback notice", result.ImportNotice);
         Assert.Equal(1, categoryLookupCounts["Tatyova, Benthic Druid"]);
@@ -136,6 +138,7 @@ public sealed class SubmittedDeckStatsBuilderTests
         Assert.Equal(expectedReport.TargetLands, result.Stats.Metrics["karsten:target_lands"], 6);
         Assert.Equal(expectedReport.LandDelta, result.Stats.Metrics["karsten:land_delta"], 6);
         Assert.Equal(ToExpectedHealthScore(expectedReport.Health), result.Stats.Metrics["karsten:health_score"]);
+        Assert.False(result.DeckResolutionDegraded);
         Assert.Equal("Tatyova, Benthic Druid", result.ResolvedCommanderName);
         Assert.Equal(["G", "U"], result.DeckContext.CommanderColorIdentity.OrderBy(static color => color, StringComparer.Ordinal).ToArray());
         Assert.Equal(expectedProducedColors.OrderBy(static color => color).ToArray(), result.DeckContext.DeckProducedColors.OrderBy(static color => color).ToArray());
@@ -176,7 +179,7 @@ public sealed class SubmittedDeckStatsBuilderTests
     }
 
     [Fact]
-    public async Task BuildAsync_UnresolvableDeck_ReturnsZeroedKarstenAndEmptyDeckContext()
+    public async Task BuildAsync_UnresolvableDeck_OmitsKarstenMetricsAndMarksResolutionDegraded()
     {
         DeckEntry[] entries =
         [
@@ -197,9 +200,10 @@ public sealed class SubmittedDeckStatsBuilderTests
 
         SubmittedDeckAnalysis result = await builder.BuildAsync("fixture");
 
-        Assert.Equal(0d, result.Stats.Metrics["karsten:target_lands"]);
-        Assert.Equal(0d, result.Stats.Metrics["karsten:land_delta"]);
-        Assert.Equal(0d, result.Stats.Metrics["karsten:health_score"]);
+        Assert.DoesNotContain("karsten:target_lands", result.Stats.Metrics.Keys);
+        Assert.DoesNotContain("karsten:land_delta", result.Stats.Metrics.Keys);
+        Assert.DoesNotContain("karsten:health_score", result.Stats.Metrics.Keys);
+        Assert.True(result.DeckResolutionDegraded);
         Assert.Empty(result.DeckContext.CommanderColorIdentity);
         Assert.Empty(result.DeckContext.DeckProducedColors);
         Assert.Empty(result.DeckContext.DeckCardNames);

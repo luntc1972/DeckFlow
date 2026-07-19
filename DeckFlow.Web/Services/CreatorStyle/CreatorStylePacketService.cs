@@ -113,7 +113,6 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
     private readonly Func<string, CardGroundingDeckContext, CancellationToken, Task<CreatorWhitelistPoolBuildResult>>? _buildWhitelistAsyncOverride;
     private readonly Func<IReadOnlyList<string>, CardGroundingDeckContext, CancellationToken, Task<CardGroundingBatchResult>>? _validateAdditionalCardsAsyncOverride;
     private readonly Func<string, CancellationToken, Task<IReadOnlyList<CreatorDeckCacheEntry>>>? _getCreatorDecksAsyncOverride;
-    private readonly Func<IReadOnlyList<DeckEntry>, CancellationToken, Task<CommanderSpellbookResult?>>? _findCombosAsyncOverride;
     private readonly Func<string, IReadOnlyList<FusedTarget>, SubmittedDeckStats, RubricScoreResult>? _scoreRubricOverride;
 
     /// <summary>
@@ -140,6 +139,7 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         _creatorWhitelistPoolBuilder = creatorWhitelistPoolBuilder;
         _cardGroundingGuard = cardGroundingGuard;
         _creatorDeckCacheStore = creatorDeckCacheStore;
+        // Why: this dependency is retained for DI-registration stability; combo cards are now precomputed in SubmittedDeckAnalysis.
         _commanderSpellbookService = commanderSpellbookService;
         _logger = logger ?? NullLogger<CreatorStylePacketService>.Instance;
     }
@@ -150,7 +150,6 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         Func<string, CardGroundingDeckContext, CancellationToken, Task<CreatorWhitelistPoolBuildResult>>? buildWhitelistAsync = null,
         Func<IReadOnlyList<string>, CardGroundingDeckContext, CancellationToken, Task<CardGroundingBatchResult>>? validateAdditionalCardsAsync = null,
         Func<string, CancellationToken, Task<IReadOnlyList<CreatorDeckCacheEntry>>>? getCreatorDecksAsync = null,
-        Func<IReadOnlyList<DeckEntry>, CancellationToken, Task<CommanderSpellbookResult?>>? findCombosAsync = null,
         Func<string, IReadOnlyList<FusedTarget>, SubmittedDeckStats, RubricScoreResult>? scoreRubric = null,
         ILogger<CreatorStylePacketService>? logger = null)
     {
@@ -159,7 +158,6 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         _buildWhitelistAsyncOverride = buildWhitelistAsync;
         _validateAdditionalCardsAsyncOverride = validateAdditionalCardsAsync;
         _getCreatorDecksAsyncOverride = getCreatorDecksAsync;
-        _findCombosAsyncOverride = findCombosAsync;
         _scoreRubricOverride = scoreRubric;
         _logger = logger ?? NullLogger<CreatorStylePacketService>.Instance;
     }
@@ -181,9 +179,13 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         }
 
         SubmittedDeckAnalysis analysis = await BuildSubmittedDeckAsync(request.DeckSource, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<FusedTarget> scoreableTargets = profile.FusedTargets
+            .Where(static target => !string.Equals(target.Verdict, "superseded", StringComparison.OrdinalIgnoreCase))
+            .Where(static target => string.IsNullOrWhiteSpace(target.Condition))
+            .ToArray();
         RubricScoreResult rubricScores = _scoreRubricOverride is not null
-            ? _scoreRubricOverride(request.CreatorSlug, profile.FusedTargets, analysis.Stats)
-            : CreatorStyleRubricScorer.Score(request.CreatorSlug, profile.FusedTargets, analysis.Stats);
+            ? _scoreRubricOverride(request.CreatorSlug, scoreableTargets, analysis.Stats)
+            : CreatorStyleRubricScorer.Score(request.CreatorSlug, scoreableTargets, analysis.Stats);
 
         IReadOnlyList<CreatorDeckCacheEntry> creatorDecks = await GetCreatorDecksAsync(request.CreatorSlug, cancellationToken).ConfigureAwait(false);
         IReadOnlyList<CreatorDeckCacheEntry> selectedExemplars = CreatorDeckExemplarSelector.SelectExemplars(creatorDecks, analysis.Stats.DeckSize);
@@ -193,11 +195,7 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
             analysis.DeckContext,
             cancellationToken).ConfigureAwait(false);
 
-        CommanderSpellbookResult? comboResult = await FindCombosAsync(analysis.Entries, cancellationToken).ConfigureAwait(false);
-        IReadOnlyList<string> comboCandidates = comboResult?.IncludedCombos
-            .SelectMany(combo => combo.CardNames)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray() ?? [];
+        IReadOnlyList<string> comboCandidates = analysis.IncludedComboCardNames;
 
         HashSet<string> whitelistSet = new(whitelist.AcceptedNames, StringComparer.Ordinal);
         IReadOnlyList<string> additionalCandidates = selectedExemplars
@@ -238,11 +236,15 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
             .ToArray();
 
         int excludedCount = additionalCandidates.Count - acceptedByOriginal.Count;
+        bool deckResolutionDegraded = analysis.DeckResolutionDegraded;
         bool groundingDegraded = whitelist.HasUpstreamFailure
             || additionalValidation.HasUpstreamFailure
-            || excludedCount > 0;
+            || excludedCount > 0
+            || deckResolutionDegraded;
         string? notice = groundingDegraded
-            ? "Some candidate cards were withheld because grounding could not fully validate them."
+            ? deckResolutionDegraded
+                ? "The submitted deck could not be fully resolved for grounding-sensitive analysis."
+                : "Some candidate cards were withheld because grounding could not fully validate them."
             : null;
 
         if (groundingDegraded)
@@ -294,9 +296,14 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         IReadOnlyList<string> candidateNames,
         IReadOnlyList<CardGroundingVerdict> verdicts)
     {
+        if (verdicts.Count != candidateNames.Count)
+        {
+            throw new InvalidOperationException(
+                $"Card grounding returned {verdicts.Count} verdicts for {candidateNames.Count} candidates; ordered verdicts must match the submitted candidate batch exactly.");
+        }
+
         var accepted = new Dictionary<string, string>(StringComparer.Ordinal);
-        int count = Math.Min(candidateNames.Count, verdicts.Count);
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < candidateNames.Count; i++)
         {
             if (verdicts[i].Accepted)
             {
@@ -347,6 +354,11 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         sb.AppendLine(sanitizedCreatorSlug);
         foreach (FusedTarget target in profile.FusedTargets)
         {
+            if (string.Equals(target.Verdict, "superseded", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             sb.Append("- Metric: ");
             sb.Append(target.Metric);
             sb.Append("; Value: ");
@@ -364,6 +376,12 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
             {
                 sb.Append("; StatedMax: ");
                 sb.Append(FormatNumber(target.StatedMax.Value));
+            }
+
+            if (!string.IsNullOrWhiteSpace(target.Condition))
+            {
+                sb.Append("; Condition: ");
+                sb.Append(target.Condition);
             }
 
             sb.AppendLine();
@@ -432,7 +450,7 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
     }
 
     private static string FormatNumber(double value)
-        => value.ToString(CultureInfo.InvariantCulture);
+        => value.ToString("0.###", CultureInfo.InvariantCulture);
 
     private static string SanitizeUserText(string? value, string fallback)
     {
@@ -518,15 +536,4 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
             .ConfigureAwait(false);
     }
 
-    private async Task<CommanderSpellbookResult?> FindCombosAsync(IReadOnlyList<DeckEntry> entries, CancellationToken cancellationToken)
-    {
-        if (_findCombosAsyncOverride is not null)
-        {
-            return await _findCombosAsyncOverride(entries, cancellationToken).ConfigureAwait(false);
-        }
-
-        return await _commanderSpellbookService!
-            .FindCombosAsync(entries, cancellationToken)
-            .ConfigureAwait(false);
-    }
 }

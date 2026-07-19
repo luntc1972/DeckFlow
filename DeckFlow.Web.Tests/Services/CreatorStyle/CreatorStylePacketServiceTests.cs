@@ -29,7 +29,8 @@ public sealed class CreatorStylePacketServiceTests
             [
                 DeckEntry("Commander One", 1, "commander"),
                 DeckEntry("Arcane Signet", 1, "mainboard"),
-            ]);
+            ],
+            includedComboCardNames: ["Dockside Extortionist"]);
         var expectedRubric = new RubricScoreResult
         {
             CreatorSlug = "alpha",
@@ -70,11 +71,6 @@ public sealed class CreatorStylePacketServiceTests
             [
                 CreatorDeck("deck-1", "trusted-folder", "high", "Commander One", "Arcane Signet"),
             ]),
-            findCombosAsync: (_, _) => Task.FromResult<CommanderSpellbookResult?>(new CommanderSpellbookResult(
-            [
-                new SpellbookCombo(["Dockside Extortionist", "Sol Ring"], ["Treasure"], "Do the thing."),
-            ],
-            [])),
             scoreRubric: (_, _, _) => expectedRubric);
 
         CreatorStylePacketResult result = await sut.BuildAsync(request);
@@ -103,7 +99,8 @@ public sealed class CreatorStylePacketServiceTests
             [
                 DeckEntry("Commander One", 1, "commander"),
                 DeckEntry("Arcane Signet", 1, "mainboard"),
-            ]);
+            ],
+            includedComboCardNames: ["Jeska's Will"]);
 
         var sut = new CreatorStylePacketService(
             getProfileAsync: (_, _) => Task.FromResult<CreatorStyleProfile?>(CreateProfile("alpha")),
@@ -128,11 +125,6 @@ public sealed class CreatorStylePacketServiceTests
             [
                 CreatorDeck("deck-1", "trusted-folder", "high", "Commander One", "Arcane Signet", "Hullbreacher"),
             ]),
-            findCombosAsync: (_, _) => Task.FromResult<CommanderSpellbookResult?>(new CommanderSpellbookResult(
-            [
-                new SpellbookCombo(["Jeska's Will", "Sol Ring"], ["Treasure"], "Do the thing."),
-            ],
-            [])),
             scoreRubric: (_, _, _) => EmptyRubric("alpha"));
 
         CreatorStylePacketResult result = await sut.BuildAsync(request);
@@ -159,7 +151,8 @@ public sealed class CreatorStylePacketServiceTests
             [
                 DeckEntry("Commander One", 1, "commander"),
                 DeckEntry("Arcane Signet", 1, "mainboard"),
-            ]);
+            ],
+            includedComboCardNames: ["Smothering Tithe", "Dockside Extortionist"]);
         List<IReadOnlyList<string>> validationBatches = [];
 
         var sut = new CreatorStylePacketService(
@@ -183,11 +176,6 @@ public sealed class CreatorStylePacketServiceTests
             [
                 CreatorDeck("deck-1", "trusted-folder", "high", "Commander One", "Arcane Signet", "Sol Ring", "Smothering Tithe"),
             ]),
-            findCombosAsync: (_, _) => Task.FromResult<CommanderSpellbookResult?>(new CommanderSpellbookResult(
-            [
-                new SpellbookCombo(["Smothering Tithe", "Dockside Extortionist", "Sol Ring"], ["Treasure"], "Loop."),
-            ],
-            [])),
             scoreRubric: (_, _, _) => EmptyRubric("alpha"));
 
         CreatorStylePacketResult result = await sut.BuildAsync(request);
@@ -237,7 +225,6 @@ public sealed class CreatorStylePacketServiceTests
             [
                 CreatorDeck("deck-1", "trusted-folder", "high", "Commander One", "Arcane Signet"),
             ]),
-            findCombosAsync: (_, _) => Task.FromResult<CommanderSpellbookResult?>(null),
             scoreRubric: (_, _, _) => EmptyRubric("alpha"));
 
         CreatorStylePacketResult result = await sut.BuildAsync(request);
@@ -267,7 +254,6 @@ public sealed class CreatorStylePacketServiceTests
             buildWhitelistAsync: (_, _, _) => throw new Xunit.Sdk.XunitException("Whitelist should not run."),
             validateAdditionalCardsAsync: (_, _, _) => throw new Xunit.Sdk.XunitException("Guard should not run."),
             getCreatorDecksAsync: (_, _) => throw new Xunit.Sdk.XunitException("Deck cache should not run."),
-            findCombosAsync: (_, _) => throw new Xunit.Sdk.XunitException("Spellbook should not run."),
             scoreRubric: (_, _, _) => throw new Xunit.Sdk.XunitException("Rubric should not run."));
 
         CreatorStylePacketResult result = await sut.BuildAsync(request);
@@ -294,7 +280,8 @@ public sealed class CreatorStylePacketServiceTests
             [
                 DeckEntry("Commander One", 1, "commander"),
                 DeckEntry("Arcane Signet", 1, "mainboard"),
-            ]);
+            ],
+            includedComboCardNames: ["Dockside Extortionist", "Hullbreacher"]);
         RubricScoreResult rubric = new()
         {
             CreatorSlug = "alpha",
@@ -321,26 +308,19 @@ public sealed class CreatorStylePacketServiceTests
                 AcceptedNames = ["Sol Ring"],
                 HasUpstreamFailure = false,
             }),
-            validateAdditionalCardsAsync: (_, _, _) => Task.FromResult(new CardGroundingBatchResult
+            validateAdditionalCardsAsync: (candidateNames, _, _) => Task.FromResult(new CardGroundingBatchResult
             {
-                Verdicts =
-                [
-                    Accepted("Arcane Signet"),
-                    Accepted("Commander One"),
-                    Accepted("Dockside Extortionist"),
-                    Rejected("Hullbreacher", CardGroundingRejectReason.NotLegal),
-                ],
+                Verdicts = candidateNames.Select(candidateName => candidateName switch
+                {
+                    "Hullbreacher" => Rejected("Hullbreacher", CardGroundingRejectReason.NotLegal),
+                    _ => Accepted(candidateName),
+                }).ToArray(),
                 HasUpstreamFailure = false,
             }),
             getCreatorDecksAsync: (_, _) => Task.FromResult<IReadOnlyList<CreatorDeckCacheEntry>>(
             [
                 CreatorDeck("deck-1", "trusted-folder", "high", "Commander One", "Arcane Signet", "Hullbreacher"),
             ]),
-            findCombosAsync: (_, _) => Task.FromResult<CommanderSpellbookResult?>(new CommanderSpellbookResult(
-            [
-                new SpellbookCombo(["Dockside Extortionist", "Sol Ring", "Hullbreacher"], ["Treasure"], "Loop."),
-            ],
-            [])),
             scoreRubric: (_, _, _) => rubric);
 
         CreatorStylePacketResult result = await sut.BuildAsync(request);
@@ -389,7 +369,6 @@ public sealed class CreatorStylePacketServiceTests
             [
                 CreatorDeck("deck-1", "trusted-folder", "high", "Commander One"),
             ]),
-            findCombosAsync: (_, _) => Task.FromResult<CommanderSpellbookResult?>(null),
             scoreRubric: (_, _, _) => EmptyRubric("alpha"));
 
         CreatorStylePacketResult result = await sut.BuildAsync(request);
@@ -431,7 +410,6 @@ public sealed class CreatorStylePacketServiceTests
                 [
                     Accepted("Commander One"),
                     Accepted("Arcane Signet"),
-                    Accepted("Dockside Extortionist"),
                 ],
                 HasUpstreamFailure = false,
             }),
@@ -439,11 +417,6 @@ public sealed class CreatorStylePacketServiceTests
             [
                 CreatorDeck("deck-1", "trusted-folder", "high", "Commander One", "Arcane Signet"),
             ]),
-            findCombosAsync: (_, _) => Task.FromResult<CommanderSpellbookResult?>(new CommanderSpellbookResult(
-            [
-                new SpellbookCombo(["Dockside Extortionist", "Sol Ring"], ["Treasure"], "Loop."),
-            ],
-            [])),
             scoreRubric: (_, _, _) => new RubricScoreResult
             {
                 CreatorSlug = "alpha",
@@ -470,14 +443,19 @@ public sealed class CreatorStylePacketServiceTests
         Assert.DoesNotContain("12,5", germanArtifact, StringComparison.Ordinal);
     }
 
-    private static CreatorStyleProfile CreateProfile(string slug, bool insufficientSample = false)
-        => new()
+    [Fact]
+    public async Task BuildAsync_SupersededTarget_DoesNotScoreOrRender()
+    {
+        var request = new CreatorStyleRequest
         {
-            Slug = slug,
-            Platform = "archidekt",
-            MinDecks = 12,
-            InsufficientSample = insufficientSample,
-            FusedTargets =
+            CreatorSlug = "alpha",
+            DeckText = "1 Arcane Signet",
+        };
+
+        IReadOnlyList<FusedTarget>? scoredTargets = null;
+        CreatorStyleProfile profile = CreateProfile(
+            "alpha",
+            fusedTargets:
             [
                 new FusedTarget
                 {
@@ -485,15 +463,369 @@ public sealed class CreatorStylePacketServiceTests
                     Value = 12.5,
                     Weight = 0.8,
                     Source = "fused",
-                    StatedMin = 10,
-                    StatedMax = 15,
+                    Confidence = "high",
+                },
+                new FusedTarget
+                {
+                    Metric = "category_ratio:ramp",
+                    Value = 45,
+                    Weight = 1.0,
+                    Source = "superseded",
+                    Verdict = "superseded",
+                    Confidence = "low",
+                },
+            ]);
+
+        var sut = new CreatorStylePacketService(
+            getProfileAsync: (_, _) => Task.FromResult<CreatorStyleProfile?>(profile),
+            buildSubmittedDeckAsync: (_, _) => Task.FromResult(CreateAnalysis(
+                deckSize: 99,
+                entries:
+                [
+                    DeckEntry("Commander One", 1, "commander"),
+                ])),
+            buildWhitelistAsync: (_, _, _) => Task.FromResult(new CreatorWhitelistPoolBuildResult
+            {
+                AcceptedNames = [],
+                HasUpstreamFailure = false,
+            }),
+            validateAdditionalCardsAsync: (_, _, _) => Task.FromResult(new CardGroundingBatchResult
+            {
+                Verdicts = [Accepted("Commander One")],
+                HasUpstreamFailure = false,
+            }),
+            getCreatorDecksAsync: (_, _) => Task.FromResult<IReadOnlyList<CreatorDeckCacheEntry>>(
+            [
+                CreatorDeck("deck-1", "trusted-folder", "ok", "Commander One"),
+            ]),
+            scoreRubric: (_, targets, _) =>
+            {
+                scoredTargets = targets;
+                return EmptyRubric("alpha");
+            });
+
+        CreatorStylePacketResult result = await sut.BuildAsync(request);
+
+        Assert.NotNull(scoredTargets);
+        Assert.Single(scoredTargets!);
+        Assert.DoesNotContain(scoredTargets!, target => string.Equals(target.Verdict, "superseded", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain("Value: 45", result.ArtifactText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task BuildAsync_ConditionalTarget_RendersConditionButDoesNotScore()
+    {
+        var request = new CreatorStyleRequest
+        {
+            CreatorSlug = "alpha",
+            DeckText = "1 Arcane Signet",
+        };
+
+        RubricScoreResult rubric = new()
+        {
+            CreatorSlug = "alpha",
+            MetricScores =
+            [
+                new RubricMetricScore
+                {
+                    Metric = "category_ratio:ramp",
+                    TargetValue = 12.5,
+                    SubmittedValue = 10.5,
+                    Delta = -2,
+                    Weight = 0.8,
+                    Verdict = "under",
                     Confidence = "high",
                 },
             ],
+        };
+        IReadOnlyList<FusedTarget>? scoredTargets = null;
+        CreatorStyleProfile profile = CreateProfile(
+            "alpha",
+            fusedTargets:
+            [
+                new FusedTarget
+                {
+                    Metric = "category_ratio:ramp",
+                    Value = 12.5,
+                    Weight = 0.8,
+                    Source = "fused",
+                    Confidence = "high",
+                },
+                new FusedTarget
+                {
+                    Metric = "karsten:target_lands",
+                    Value = 37,
+                    Weight = 0.6,
+                    Source = "fused",
+                    Condition = "Only when landfall",
+                    Confidence = "medium",
+                },
+            ]);
+
+        var sut = new CreatorStylePacketService(
+            getProfileAsync: (_, _) => Task.FromResult<CreatorStyleProfile?>(profile),
+            buildSubmittedDeckAsync: (_, _) => Task.FromResult(CreateAnalysis(
+                deckSize: 99,
+                entries:
+                [
+                    DeckEntry("Commander One", 1, "commander"),
+                ])),
+            buildWhitelistAsync: (_, _, _) => Task.FromResult(new CreatorWhitelistPoolBuildResult
+            {
+                AcceptedNames = [],
+                HasUpstreamFailure = false,
+            }),
+            validateAdditionalCardsAsync: (_, _, _) => Task.FromResult(new CardGroundingBatchResult
+            {
+                Verdicts = [Accepted("Commander One")],
+                HasUpstreamFailure = false,
+            }),
+            getCreatorDecksAsync: (_, _) => Task.FromResult<IReadOnlyList<CreatorDeckCacheEntry>>(
+            [
+                CreatorDeck("deck-1", "trusted-folder", "ok", "Commander One"),
+            ]),
+            scoreRubric: (_, targets, _) =>
+            {
+                scoredTargets = targets;
+                return rubric;
+            });
+
+        CreatorStylePacketResult result = await sut.BuildAsync(request);
+
+        Assert.NotNull(scoredTargets);
+        Assert.Single(scoredTargets!);
+        Assert.DoesNotContain(scoredTargets!, target => !string.IsNullOrWhiteSpace(target.Condition));
+        Assert.Contains("Condition: Only when landfall", result.ArtifactText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Metric: karsten:target_lands; Target:", result.ArtifactText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task BuildAsync_DeckResolutionDegraded_SetsGroundingNotice()
+    {
+        var request = new CreatorStyleRequest
+        {
+            CreatorSlug = "alpha",
+            DeckText = "1 Arcane Signet",
+        };
+
+        SubmittedDeckAnalysis analysis = CreateAnalysis(
+            deckSize: 99,
+            entries:
+            [
+                DeckEntry("Commander One", 1, "commander"),
+            ],
+            deckResolutionDegraded: true);
+
+        var sut = new CreatorStylePacketService(
+            getProfileAsync: (_, _) => Task.FromResult<CreatorStyleProfile?>(CreateProfile("alpha")),
+            buildSubmittedDeckAsync: (_, _) => Task.FromResult(analysis),
+            buildWhitelistAsync: (_, _, _) => Task.FromResult(new CreatorWhitelistPoolBuildResult
+            {
+                AcceptedNames = [],
+                HasUpstreamFailure = false,
+            }),
+            validateAdditionalCardsAsync: (_, _, _) => Task.FromResult(new CardGroundingBatchResult
+            {
+                Verdicts = [Accepted("Commander One")],
+                HasUpstreamFailure = false,
+            }),
+            getCreatorDecksAsync: (_, _) => Task.FromResult<IReadOnlyList<CreatorDeckCacheEntry>>(
+            [
+                CreatorDeck("deck-1", "trusted-folder", "ok", "Commander One"),
+            ]),
+            scoreRubric: (_, _, _) => EmptyRubric("alpha"));
+
+        CreatorStylePacketResult result = await sut.BuildAsync(request);
+
+        Assert.True(result.GroundingDegraded);
+        Assert.Equal("The submitted deck could not be fully resolved for grounding-sensitive analysis.", result.Notice);
+        Assert.NotNull(result.Notice);
+        Assert.Contains(result.Notice, result.ArtifactText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task BuildAsync_ValidationCountMismatch_ThrowsInvalidOperationException()
+    {
+        var request = new CreatorStyleRequest
+        {
+            CreatorSlug = "alpha",
+            DeckText = "1 Arcane Signet",
+        };
+
+        var sut = new CreatorStylePacketService(
+            getProfileAsync: (_, _) => Task.FromResult<CreatorStyleProfile?>(CreateProfile("alpha")),
+            buildSubmittedDeckAsync: (_, _) => Task.FromResult(CreateAnalysis(
+                deckSize: 99,
+                entries:
+                [
+                    DeckEntry("Commander One", 1, "commander"),
+                ])),
+            buildWhitelistAsync: (_, _, _) => Task.FromResult(new CreatorWhitelistPoolBuildResult
+            {
+                AcceptedNames = [],
+                HasUpstreamFailure = false,
+            }),
+            validateAdditionalCardsAsync: (_, _, _) => Task.FromResult(new CardGroundingBatchResult
+            {
+                Verdicts = [],
+                HasUpstreamFailure = false,
+            }),
+            getCreatorDecksAsync: (_, _) => Task.FromResult<IReadOnlyList<CreatorDeckCacheEntry>>(
+            [
+                CreatorDeck("deck-1", "trusted-folder", "ok", "Commander One"),
+            ]),
+            scoreRubric: (_, _, _) => EmptyRubric("alpha"));
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() => sut.BuildAsync(request));
+
+        Assert.Contains("verdict", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("candidate", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task BuildAsync_ArtifactTextRoundsDisplayedNumbersToThreeDecimals()
+    {
+        var request = new CreatorStyleRequest
+        {
+            CreatorSlug = "alpha",
+            DeckText = "1 Arcane Signet",
+        };
+
+        CreatorStyleProfile profile = CreateProfile(
+            "alpha",
+            fusedTargets:
+            [
+                new FusedTarget
+                {
+                    Metric = "category_ratio:ramp",
+                    Value = 12.333333333333334d,
+                    Weight = 0.8,
+                    Source = "fused",
+                    Confidence = "high",
+                },
+            ]);
+
+        RubricScoreResult rubric = new()
+        {
+            CreatorSlug = "alpha",
+            MetricScores =
+            [
+                new RubricMetricScore
+                {
+                    Metric = "category_ratio:ramp",
+                    TargetValue = 12.333333333333334d,
+                    SubmittedValue = 10.033333333333333d,
+                    Delta = -2.3000000000000007d,
+                    Weight = 0.8,
+                    Verdict = "under",
+                    Confidence = "high",
+                },
+            ],
+        };
+
+        var sut = new CreatorStylePacketService(
+            getProfileAsync: (_, _) => Task.FromResult<CreatorStyleProfile?>(profile),
+            buildSubmittedDeckAsync: (_, _) => Task.FromResult(CreateAnalysis(
+                deckSize: 99,
+                entries:
+                [
+                    DeckEntry("Commander One", 1, "commander"),
+                ])),
+            buildWhitelistAsync: (_, _, _) => Task.FromResult(new CreatorWhitelistPoolBuildResult
+            {
+                AcceptedNames = [],
+                HasUpstreamFailure = false,
+            }),
+            validateAdditionalCardsAsync: (_, _, _) => Task.FromResult(new CardGroundingBatchResult
+            {
+                Verdicts = [Accepted("Commander One")],
+                HasUpstreamFailure = false,
+            }),
+            getCreatorDecksAsync: (_, _) => Task.FromResult<IReadOnlyList<CreatorDeckCacheEntry>>(
+            [
+                CreatorDeck("deck-1", "trusted-folder", "ok", "Commander One"),
+            ]),
+            scoreRubric: (_, _, _) => rubric);
+
+        CreatorStylePacketResult result = await sut.BuildAsync(request);
+
+        Assert.Contains("Value: 12.333", result.ArtifactText, StringComparison.Ordinal);
+        Assert.Contains("Delta: -2.3", result.ArtifactText, StringComparison.Ordinal);
+        Assert.DoesNotContain("12.333333333333334", result.ArtifactText, StringComparison.Ordinal);
+        Assert.DoesNotContain("-2.3000000000000007", result.ArtifactText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task BuildAsync_RejectedCandidateWithoutUpstreamFailure_StillSetsGroundingDegraded()
+    {
+        var request = new CreatorStyleRequest
+        {
+            CreatorSlug = "alpha",
+            DeckText = "1 Arcane Signet",
+        };
+
+        var sut = new CreatorStylePacketService(
+            getProfileAsync: (_, _) => Task.FromResult<CreatorStyleProfile?>(CreateProfile("alpha")),
+            buildSubmittedDeckAsync: (_, _) => Task.FromResult(CreateAnalysis(
+                deckSize: 99,
+                entries:
+                [
+                    DeckEntry("Commander One", 1, "commander"),
+                ],
+                includedComboCardNames: ["Hullbreacher"])),
+            buildWhitelistAsync: (_, _, _) => Task.FromResult(new CreatorWhitelistPoolBuildResult
+            {
+                AcceptedNames = [],
+                HasUpstreamFailure = false,
+            }),
+            validateAdditionalCardsAsync: (candidateNames, _, _) => Task.FromResult(new CardGroundingBatchResult
+            {
+                Verdicts = candidateNames.Select(candidateName => candidateName switch
+                {
+                    "Hullbreacher" => Rejected("Hullbreacher", CardGroundingRejectReason.NotLegal),
+                    _ => Accepted(candidateName),
+                }).ToArray(),
+                HasUpstreamFailure = false,
+            }),
+            getCreatorDecksAsync: (_, _) => Task.FromResult<IReadOnlyList<CreatorDeckCacheEntry>>(
+            [
+                CreatorDeck("deck-1", "trusted-folder", "ok", "Commander One"),
+            ]),
+            scoreRubric: (_, _, _) => EmptyRubric("alpha"));
+
+        CreatorStylePacketResult result = await sut.BuildAsync(request);
+
+        Assert.True(result.GroundingDegraded);
+    }
+
+    private static CreatorStyleProfile CreateProfile(string slug, bool insufficientSample = false, IReadOnlyList<FusedTarget>? fusedTargets = null)
+        => new()
+        {
+            Slug = slug,
+            Platform = "archidekt",
+            MinDecks = 12,
+            InsufficientSample = insufficientSample,
+            FusedTargets = fusedTargets ??
+                [
+                    new FusedTarget
+                    {
+                        Metric = "category_ratio:ramp",
+                        Value = 12.5,
+                        Weight = 0.8,
+                        Source = "fused",
+                        StatedMin = 10,
+                        StatedMax = 15,
+                        Confidence = "high",
+                    },
+                ],
             UpdatedUtc = new DateTimeOffset(2026, 7, 19, 0, 0, 0, TimeSpan.Zero),
         };
 
-    private static SubmittedDeckAnalysis CreateAnalysis(int deckSize, IReadOnlyList<DeckEntry> entries)
+    private static SubmittedDeckAnalysis CreateAnalysis(
+        int deckSize,
+        IReadOnlyList<DeckEntry> entries,
+        IReadOnlyList<string>? includedComboCardNames = null,
+        bool deckResolutionDegraded = false)
         => new()
         {
             Stats = new SubmittedDeckStats
@@ -512,6 +844,8 @@ public sealed class CreatorStylePacketServiceTests
                 DeckCardNames = entries.Select(entry => CardNormalizer.Normalize(entry.Name)).ToHashSet(StringComparer.Ordinal),
             },
             Entries = entries,
+            IncludedComboCardNames = includedComboCardNames ?? [],
+            DeckResolutionDegraded = deckResolutionDegraded,
             ResolvedCommanderName = "Commander One",
             ImportNotice = null,
         };
