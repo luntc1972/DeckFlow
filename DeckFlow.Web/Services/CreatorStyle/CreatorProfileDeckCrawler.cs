@@ -137,25 +137,41 @@ public sealed class CreatorProfileDeckCrawler
     {
         var summaries = await _moxfieldOwnerClient.ListDeckSummariesAsync(source.ProfileUsername, cancellationToken).ConfigureAwait(false);
         var samples = new List<CreatorDeckSample>();
+        var hasImportedDeck = false;
 
-        for (var index = 0; index < summaries.Count; index++)
+        foreach (var summary in summaries)
         {
-            var summary = summaries[index];
-            if (index > 0)
+            CreatorDeckSample sample;
+            if (TryGetCachedSample(cacheByDeckId, summary.PublicId, source, out var cachedSample))
             {
-                await Task.Delay(MoxfieldImportInterval, cancellationToken).ConfigureAwait(false);
+                sample = cachedSample;
+            }
+            else
+            {
+                if (hasImportedDeck)
+                {
+                    await Task.Delay(MoxfieldImportInterval, cancellationToken).ConfigureAwait(false);
+                }
+
+                sample = await GetOrImportSampleAsync(
+                    creatorSlug,
+                    source,
+                    cacheByDeckId,
+                    summary.PublicId,
+                    null,
+                    null,
+                    null,
+                    ct => _moxfieldDeckImporter.ImportAsync(summary.PublicId, ct),
+                    cancellationToken).ConfigureAwait(false);
+                hasImportedDeck = true;
             }
 
-            samples.Add(await GetOrImportSampleAsync(
-                creatorSlug,
-                source,
-                cacheByDeckId,
-                summary.PublicId,
-                null,
-                null,
-                null,
-                ct => _moxfieldDeckImporter.ImportAsync(summary.PublicId, ct),
-                cancellationToken).ConfigureAwait(false));
+            if (sample.CardCount > StapleStripper.MaxDeckSize)
+            {
+                continue;
+            }
+
+            samples.Add(sample);
         }
 
         return samples;
@@ -172,10 +188,9 @@ public sealed class CreatorProfileDeckCrawler
         Func<CancellationToken, Task<List<DeckEntry>>> importAsync,
         CancellationToken cancellationToken)
     {
-        if (cacheByDeckId.TryGetValue(deckId, out var cachedEntry)
-            && !string.IsNullOrWhiteSpace(cachedEntry.ContentHash))
+        if (TryGetCachedSample(cacheByDeckId, deckId, source, out var cachedSample))
         {
-            return RebuildSampleFromCache(cachedEntry, source);
+            return cachedSample;
         }
 
         var importedEntries = await importAsync(cancellationToken).ConfigureAwait(false);
@@ -194,6 +209,23 @@ public sealed class CreatorProfileDeckCrawler
 
         await _deckCacheStore.UpsertAsync(cacheEntry, cancellationToken).ConfigureAwait(false);
         return RebuildSampleFromCache(cacheEntry, source);
+    }
+
+    private static bool TryGetCachedSample(
+        IReadOnlyDictionary<string, CreatorDeckCacheEntry> cacheByDeckId,
+        string deckId,
+        CreatorProfileSource source,
+        out CreatorDeckSample sample)
+    {
+        if (cacheByDeckId.TryGetValue(deckId, out var cachedEntry)
+            && !string.IsNullOrWhiteSpace(cachedEntry.ContentHash))
+        {
+            sample = RebuildSampleFromCache(cachedEntry, source);
+            return true;
+        }
+
+        sample = default!;
+        return false;
     }
 
     private static IReadOnlyList<CreatorDeckSample> RebuildSamplesFromCache(

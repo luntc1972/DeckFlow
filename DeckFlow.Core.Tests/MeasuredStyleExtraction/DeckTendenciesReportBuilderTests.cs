@@ -245,6 +245,37 @@ public sealed class DeckTendenciesReportBuilderTests
     }
 
     /// <summary>
+    /// Verifies a zero baseline deck count is treated as missing instead of a zero denominator.
+    /// </summary>
+    [Fact]
+    public void Build_LeavesBaselinePresenceAndLiftNullWhenBaselineCategoryDeckCountIsZero()
+    {
+        var samples = new[]
+        {
+            Sample("deck-1", Entry("Cultivate")),
+            Sample("deck-2"),
+        };
+        var cardCategories = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Cultivate"] = ["Ramp"],
+        };
+        var baseline = new GlobalCategoryBaseline
+        {
+            TotalDecks = 10,
+            DecksWithCategory = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Ramp"] = 0,
+            },
+            DecksWithCategoryPair = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase),
+        };
+
+        var row = Assert.Single(DeckTendenciesReportBuilder.Build(samples, cardCategories, baseline).CategoryTendencies);
+
+        Assert.Equal(0.0, row.BaselinePresenceRatio);
+        Assert.Null(row.Lift);
+    }
+
+    /// <summary>
     /// Verifies empty samples return an empty report instead of throwing.
     /// </summary>
     [Fact]

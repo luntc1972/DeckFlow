@@ -3,6 +3,7 @@ using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge.MeasuredStyleExtraction;
 using DeckFlow.Core.Models;
 using DeckFlow.Web.Services.CreatorStyle;
+using System.Diagnostics;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
@@ -420,6 +421,102 @@ public sealed class CreatorProfileDeckCrawlerTests
         Assert.Equal(0, importer.ImportCalls);
         Assert.Equal(0, moxfieldOwnerClient.ListDeckSummariesCalls);
         Assert.Equal(0, moxfieldImporter.ImportCalls);
+    }
+
+    [Fact]
+    public async Task CrawlAsync_MoxfieldOversizedImportedDeck_IsCachedButExcludedFromReturnedSamples()
+    {
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        await using var harness = await CreateHarnessAsync();
+        await harness.ProfileStore.UpsertAsync(new CreatorProfileSource
+        {
+            Slug = "snail",
+            Platform = "moxfield",
+            ProfileUsername = "snail",
+            UpdatedUtc = now
+        });
+
+        var ownerClient = new CountingOwnerClient();
+        var importer = new CountingDeckImporter();
+        var moxfieldOwnerClient = new CountingMoxfieldOwnerClient
+        {
+            DeckSummaries =
+            [
+                new MoxfieldDeckSummary("public-oversized", "Too Big", "commander", "public")
+            ]
+        };
+        var moxfieldImporter = new CountingMoxfieldDeckImporter();
+        moxfieldImporter.Decks["public-oversized"] = Enumerable.Range(0, 106)
+            .Select(index => MainboardEntry($"Card {index}"))
+            .ToList();
+        var sut = CreateCrawler(harness, ownerClient, importer, moxfieldOwnerClient, moxfieldImporter, now);
+
+        var samples = await sut.CrawlAsync("snail");
+        var cacheEntries = await harness.CacheStore.GetByCreatorAsync("snail");
+
+        Assert.Empty(samples);
+        var cacheEntry = Assert.Single(cacheEntries);
+        Assert.Equal("public-oversized", cacheEntry.DeckId);
+        Assert.Equal(106, cacheEntry.Size);
+        Assert.Equal(1, moxfieldImporter.ImportCalls);
+    }
+
+    [Fact]
+    public async Task CrawlAsync_MoxfieldReenumeration_AllCacheHits_DoesNotPayImportDelay()
+    {
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        await using var harness = await CreateHarnessAsync();
+        await harness.ProfileStore.UpsertAsync(new CreatorProfileSource
+        {
+            Slug = "snail",
+            Platform = "moxfield",
+            ProfileUsername = "snail",
+            LastCrawledUtc = now.AddDays(-2),
+            UpdatedUtc = now.AddDays(-2)
+        });
+        await harness.CacheStore.UpsertAsync(new CreatorDeckCacheEntry
+        {
+            CreatorSlug = "snail",
+            DeckId = "public-1",
+            ContentHash = "hash-1",
+            Size = 100,
+            ConfidenceMarker = "cached-1",
+            Entries = [MainboardEntry("Command Tower")],
+            CachedUtc = now.AddDays(-2)
+        });
+        await harness.CacheStore.UpsertAsync(new CreatorDeckCacheEntry
+        {
+            CreatorSlug = "snail",
+            DeckId = "public-2",
+            ContentHash = "hash-2",
+            Size = 100,
+            ConfidenceMarker = "cached-2",
+            Entries = [MainboardEntry("Sol Ring")],
+            CachedUtc = now.AddDays(-2)
+        });
+
+        var ownerClient = new CountingOwnerClient();
+        var importer = new CountingDeckImporter();
+        var moxfieldOwnerClient = new CountingMoxfieldOwnerClient
+        {
+            DeckSummaries =
+            [
+                new MoxfieldDeckSummary("public-1", "Deck One", "commander", "public"),
+                new MoxfieldDeckSummary("public-2", "Deck Two", "commander", "public")
+            ]
+        };
+        var moxfieldImporter = new CountingMoxfieldDeckImporter();
+        var sut = CreateCrawler(harness, ownerClient, importer, moxfieldOwnerClient, moxfieldImporter, now);
+        var stopwatch = Stopwatch.StartNew();
+
+        var samples = await sut.CrawlAsync("snail");
+
+        stopwatch.Stop();
+        Assert.Equal(2, samples.Count);
+        Assert.Equal(0, moxfieldImporter.ImportCalls);
+        Assert.True(
+            stopwatch.Elapsed < TimeSpan.FromMilliseconds(300),
+            $"Expected cached crawl to avoid the 500ms import delay, but elapsed {stopwatch.Elapsed.TotalMilliseconds:F1}ms.");
     }
 
     private static CreatorProfileDeckCrawler CreateCrawler(
