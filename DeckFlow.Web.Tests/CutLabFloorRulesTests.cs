@@ -141,6 +141,29 @@ public sealed class CutLabFloorRulesTests
         Assert.Empty(warnings);
     }
 
+    [Fact]
+    public void Evaluate_QuantityCut_UsesProvidedQuantityAndClampsAtZero()
+    {
+        var warnings = CutLabFloorRules.Evaluate(
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["lands"] = 36,
+            },
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["lands"] = 36,
+            },
+            ["lands"],
+            "Plains",
+            quantity: 36);
+
+        var warning = Assert.Single(warnings);
+        Assert.Equal("lands", warning.Role);
+        Assert.Equal(0, warning.NewCount);
+        Assert.Equal(36, warning.Floor);
+        Assert.Equal("Cutting Plains drops lands to 0, below your floor of 36.", warning.Message);
+    }
+
     private static CutLabState CreateState(params CutLabRoleFloor[] roleFloors)
         => new()
         {

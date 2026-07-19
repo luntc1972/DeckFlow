@@ -90,12 +90,14 @@ public static class CutLabFloorRules
     /// <param name="floors">Active floors by stable role key.</param>
     /// <param name="candidateCutRoles">Every role the candidate cut card belongs to.</param>
     /// <param name="cardName">Display name of the card being considered for cutting.</param>
+    /// <param name="quantity">Number of cards the proposed cut removes. Phase 103 must pass the real cut quantity.</param>
     /// <returns>One warning per broken floor, or an empty list when the cut stays above all floors.</returns>
     public static IReadOnlyList<CutLabFloorWarning> Evaluate(
         IReadOnlyDictionary<string, int> roleCounts,
         IReadOnlyDictionary<string, int> floors,
         IReadOnlyCollection<string> candidateCutRoles,
-        string cardName)
+        string cardName,
+        int quantity = 1)
     {
         ArgumentNullException.ThrowIfNull(roleCounts);
         ArgumentNullException.ThrowIfNull(floors);
@@ -120,7 +122,7 @@ public static class CutLabFloorRules
             }
 
             int currentCount = normalizedRoleCounts.TryGetValue(canonicalRole, out int count) ? count : 0;
-            int newCount = currentCount - 1;
+            int newCount = Math.Max(0, currentCount - quantity);
             if (newCount >= floor)
             {
                 continue;
