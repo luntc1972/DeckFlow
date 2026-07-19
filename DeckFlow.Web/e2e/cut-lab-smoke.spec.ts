@@ -97,9 +97,12 @@ test('/cut-lab renders the intake, intent controls, and hidden state field when 
 test('imports a pool, locks lands and a package, then preserves those edits across a resubmit', async ({ page }) => {
   await importPool(page);
 
-  await page.locator('[data-cut-lab-lock-role="lands"]').click();
+  const landsLockButton = page.locator('[data-cut-lab-lock-role="lands"]');
+  await expect(landsLockButton).toHaveAttribute('aria-pressed', 'false');
+  await landsLockButton.click();
   await expect(page.locator('tr[data-cut-lab-card="Plains"] input[data-cut-lab-lock-card]')).toBeChecked();
   await expect(page.locator('tr[data-cut-lab-card="Island"] input[data-cut-lab-lock-card]')).toBeChecked();
+  await expect(landsLockButton).toHaveAttribute('aria-pressed', 'true');
 
   const solRingPackageSelect = page.locator('select[data-cut-lab-package-card="Sol Ring"]');
   await solRingPackageSelect.selectOption('__new__');

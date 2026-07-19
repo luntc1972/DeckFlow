@@ -136,7 +136,7 @@ describe('DeckFlowCutLab', () => {
     );
   });
 
-  it('bulk-locks matching role rows and writes live role floors to CutLabStateJson', () => {
+  it('toggles matching role rows, syncs aria-pressed, and writes live role floors to CutLabStateJson', () => {
     document.body.innerHTML = `
       <form data-cache-key="cut-lab">
         <input type="hidden" name="CutLabStateJson" value="" />
@@ -147,7 +147,7 @@ describe('DeckFlowCutLab', () => {
         <p class="prompt-size-note"><span data-cut-lab-lock-count></span><span>(protected from any future cut)</span></p>
         <details open>
           <summary>Lands</summary>
-          <button type="button" data-cut-lab-lock-role="lands">Lock all lands</button>
+          <button type="button" data-cut-lab-lock-role="lands" aria-pressed="false">Lock all lands</button>
         </details>
         <table>
           <tbody>
@@ -238,6 +238,12 @@ describe('DeckFlowCutLab', () => {
     const floorMarker = document.querySelector<HTMLElement>('[data-cut-lab-floor-at-marker]');
     const adjustedBadge = document.querySelector<HTMLElement>('[data-cut-lab-floor-adjusted-badge]');
     const resetButton = document.querySelector<HTMLButtonElement>('[data-cut-lab-floor-reset="interaction"]');
+
+    button?.click();
+    expect(button?.getAttribute('aria-pressed')).toBe('true');
+
+    button?.click();
+    expect(button?.getAttribute('aria-pressed')).toBe('false');
 
     button?.click();
     floorInput?.setAttribute('value', '15');

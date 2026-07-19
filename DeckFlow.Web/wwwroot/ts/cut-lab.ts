@@ -131,6 +131,7 @@ const unlockedPoolOptionValue = '';
 
   let pendingNewPackageTarget: PendingNewPackageTarget | null = null;
   let generatedPackageCounter = 0;
+  let packageHandlersAttached = false;
 
   const getForm = (): HTMLFormElement | null =>
     document.querySelector<HTMLFormElement>('form[data-cache-key="cut-lab"]');
@@ -264,6 +265,11 @@ const unlockedPoolOptionValue = '';
     marker.textContent = '· at floor';
   };
 
+  const setRoleLockButtonState = (button: HTMLButtonElement, isPressed: boolean): void => {
+    button.classList.toggle('is-selected', isPressed);
+    button.setAttribute('aria-pressed', isPressed ? 'true' : 'false');
+  };
+
   const syncRoleLockButtons = (): void => {
     getRoleLockButtons().forEach(button => {
       const roleKey = button.dataset.cutLabLockRole ?? '';
@@ -276,7 +282,7 @@ const unlockedPoolOptionValue = '';
         .map(row => getLockCheckbox(row))
         .filter((checkbox): checkbox is HTMLInputElement => checkbox !== null && !checkbox.disabled);
       const allLocked = lockableMembers.length > 0 && lockableMembers.every(checkbox => checkbox.checked);
-      button.classList.toggle('is-selected', allLocked);
+      setRoleLockButtonState(button, allLocked);
     });
   };
 
@@ -504,18 +510,15 @@ const unlockedPoolOptionValue = '';
     refreshAndSerialize();
   };
 
-  const lockAllRole = (roleKey: string): void => {
-    getPoolRows().forEach(row => {
-      if (!api.hasRoleToken(row.dataset.cutLabRole, roleKey)) {
-        return;
-      }
+  const toggleRoleLock = (roleKey: string): void => {
+    const roleRows = getPoolRows().filter(row => api.hasRoleToken(row.dataset.cutLabRole, roleKey));
+    const lockableMembers = roleRows
+      .map(row => getLockCheckbox(row))
+      .filter((checkbox): checkbox is HTMLInputElement => checkbox !== null && !checkbox.disabled);
+    const nextLockedState = !(lockableMembers.length > 0 && lockableMembers.every(checkbox => checkbox.checked));
 
-      const checkbox = getLockCheckbox(row);
-      if (!checkbox || checkbox.disabled) {
-        return;
-      }
-
-      checkbox.checked = true;
+    lockableMembers.forEach(checkbox => {
+      checkbox.checked = nextLockedState;
     });
 
     refreshAndSerialize();
@@ -739,6 +742,12 @@ const unlockedPoolOptionValue = '';
   };
 
   const attachPackageHandlers = (): void => {
+    if (packageHandlersAttached) {
+      return;
+    }
+
+    packageHandlersAttached = true;
+
     document.addEventListener('change', event => {
       const target = event.target;
       if (!(target instanceof HTMLInputElement)) {
@@ -761,7 +770,7 @@ const unlockedPoolOptionValue = '';
 
       const lockRoleButton = target.closest<HTMLElement>('[data-cut-lab-lock-role]');
       if (lockRoleButton?.dataset.cutLabLockRole) {
-        lockAllRole(lockRoleButton.dataset.cutLabLockRole);
+        toggleRoleLock(lockRoleButton.dataset.cutLabLockRole);
         return;
       }
 
