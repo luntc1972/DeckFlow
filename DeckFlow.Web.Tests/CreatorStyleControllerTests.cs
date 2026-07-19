@@ -144,6 +144,50 @@ public sealed class CreatorStyleControllerTests
     }
 
     [Fact]
+    public async Task Post_WhenErrorViewPickerRebuildCancels_ReturnsFriendlyErrorWithEmptyPicker()
+    {
+        var packetService = new ThrowingCreatorStylePacketService(
+            new HttpRequestException("Scryfall returned HTTP 503.", null, System.Net.HttpStatusCode.ServiceUnavailable));
+        var controller = CreateController(
+            packetService: packetService,
+            profileStore: new CancellationAwareCreatorStyleProfileStore(),
+            siteIndexStore: new FakeContentSiteIndexStore());
+
+        var response = await controller.CreatorStyle(new CreatorStyleRequest
+        {
+            CreatorSlug = "salubrious-snail",
+            DeckText = "1 Sol Ring",
+        });
+
+        var view = Assert.IsType<ViewResult>(response);
+        var model = Assert.IsType<CreatorStyleViewModel>(view.Model);
+        Assert.Equal("Scryfall returned HTTP 503. Try again shortly.", model.ErrorMessage);
+        Assert.Empty(model.AvailableCreators);
+    }
+
+    [Fact]
+    public async Task Post_WhenErrorViewPickerRebuildThrows_ReturnsFriendlyErrorWithEmptyPicker()
+    {
+        var packetService = new ThrowingCreatorStylePacketService(
+            new InvalidOperationException("Packet build failed."));
+        var controller = CreateController(
+            packetService: packetService,
+            profileStore: new ThrowingCreatorStyleProfileStore(new InvalidOperationException("Picker rebuild failed.")),
+            siteIndexStore: new FakeContentSiteIndexStore());
+
+        var response = await controller.CreatorStyle(new CreatorStyleRequest
+        {
+            CreatorSlug = "salubrious-snail",
+            DeckText = "1 Sol Ring",
+        });
+
+        var view = Assert.IsType<ViewResult>(response);
+        var model = Assert.IsType<CreatorStyleViewModel>(view.Model);
+        Assert.Equal("Packet build failed.", model.ErrorMessage);
+        Assert.Empty(model.AvailableCreators);
+    }
+
+    [Fact]
     public async Task Post_WhenRequestIsCanceled_ReturnsTimeoutMessage()
     {
         using var cts = new CancellationTokenSource();
@@ -371,5 +415,45 @@ public sealed class CreatorStyleControllerTests
             GetAllCallCount++;
             return Task.FromResult(_summaries);
         }
+    }
+
+    private sealed class CancellationAwareCreatorStyleProfileStore : ICreatorStyleProfileStore
+    {
+        public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task UpsertAsync(DeckFlow.Core.Knowledge.CreatorStyleProfile profile, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task<DeckFlow.Core.Knowledge.CreatorStyleProfile?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
+            => Task.FromResult<DeckFlow.Core.Knowledge.CreatorStyleProfile?>(null);
+
+        public Task<IReadOnlyList<CreatorStyleProfileSummary>> GetAllAsync(CancellationToken cancellationToken = default)
+        {
+            if (!cancellationToken.CanBeCanceled)
+            {
+                throw new InvalidOperationException("Expected a bounded cancellation token.");
+            }
+
+            return Task.FromCanceled<IReadOnlyList<CreatorStyleProfileSummary>>(new CancellationToken(canceled: true));
+        }
+    }
+
+    private sealed class ThrowingCreatorStyleProfileStore : ICreatorStyleProfileStore
+    {
+        private readonly Exception _exception;
+
+        public ThrowingCreatorStyleProfileStore(Exception exception)
+        {
+            _exception = exception;
+        }
+
+        public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task UpsertAsync(DeckFlow.Core.Knowledge.CreatorStyleProfile profile, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task<DeckFlow.Core.Knowledge.CreatorStyleProfile?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
+            => Task.FromResult<DeckFlow.Core.Knowledge.CreatorStyleProfile?>(null);
+
+        public Task<IReadOnlyList<CreatorStyleProfileSummary>> GetAllAsync(CancellationToken cancellationToken = default)
+            => Task.FromException<IReadOnlyList<CreatorStyleProfileSummary>>(_exception);
     }
 }
