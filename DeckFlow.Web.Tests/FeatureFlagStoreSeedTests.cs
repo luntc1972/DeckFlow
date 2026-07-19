@@ -40,6 +40,7 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
     [InlineData("analysis.manabase.tap-analyzer", false)] // TAP-04: seeded OFF
     [InlineData("analysis.command-zone-awareness", false)]
     [InlineData("tool.bracket.enabled", false)] // BRACKET-05: seeded OFF
+    [InlineData("tool.creator-style.enabled", false)] // CS-30: seeded OFF
     [InlineData("analysis.multi-axis-score", false)] // SCORE-01: seeded OFF
     [InlineData("tool.primer.stale-flag", false)] // PRIMER: seeded OFF
     [InlineData("analysis.mulligan-eval", false)] // MULLIGAN-06: seeded OFF

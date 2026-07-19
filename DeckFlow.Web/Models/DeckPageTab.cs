@@ -49,4 +49,7 @@ public enum DeckPageTab
 
     /// <summary>Bracket classifier and balancer page.</summary>
     Bracket = 15,
+
+    /// <summary>Creator-style critique artifact generator page.</summary>
+    CreatorStyle = 16,
 }

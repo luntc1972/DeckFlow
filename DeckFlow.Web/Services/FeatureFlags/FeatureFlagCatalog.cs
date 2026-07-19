@@ -74,6 +74,8 @@ public static class FeatureFlagCatalog
             ["tool.bracket.enabled"] =
                 "Enable the Bracket Check tool — auto-classify a Commander deck into its official 1-5 bracket " +
                 "and generate a balancer prompt. Off = byte-identical to pre-Phase-76.",
+            ["tool.creator-style.enabled"] =
+                "Enable the Creator-Style Critique tool that builds a ChatGPT-ready packet scoring a submitted deck against a chosen creator's measured build style.",
             ["analysis.multi-axis-score"] =
                 "Show a four-axis Power/Speed/Control/Consistency score block in the deck-analysis " +
                 "Step-3 results and include the score in all three prompt artifacts. Off = byte-identical.",

@@ -42,6 +42,7 @@ public sealed class FeatureFlagCatalogTests
     [InlineData("analysis.manabase.tap-analyzer")]
     [InlineData("analysis.command-zone-awareness")]
     [InlineData("tool.bracket.enabled")]
+    [InlineData("tool.creator-style.enabled")]
     [InlineData("analysis.multi-axis-score")]
     [InlineData("analysis.mulligan-eval")]
     [InlineData("sync.directpush-gitbody")]
