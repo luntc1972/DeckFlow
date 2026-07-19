@@ -98,6 +98,17 @@ public partial class Program
             builder.Services.AddSingleton<DeckFlow.Core.Content.ICreatorDeckCacheStore>(_ =>
                 new DeckFlow.Core.Content.CreatorDeckCacheStore(
                     DeckFlowDatabaseConnectionFactory.CreateCreatorDeckCacheConnection(builder.Environment)));
+            builder.Services.AddSingleton<DeckFlow.Core.Content.ICreatorProfileSourceStore>(_ =>
+                // Why: creator_profile_source is P95 crawl-state and co-locates with creator-deck-cache.db beside the deck cache tables.
+                new DeckFlow.Core.Content.CreatorProfileSourceStore(
+                    DeckFlowDatabaseConnectionFactory.CreateCreatorDeckCacheConnection(builder.Environment)));
+            builder.Services.AddSingleton<DeckFlow.Core.Knowledge.CategoryKnowledgeRepository>(_ =>
+                new DeckFlow.Core.Knowledge.CategoryKnowledgeRepository(
+                    DeckFlowDatabaseConnectionFactory.CreateCategoryKnowledgeConnection(builder.Environment)));
+            builder.Services.AddSingleton<DeckFlow.Core.Content.ICreatorStyleProfileStore>(_ =>
+                // Why: creator-style profiles live in the local-only content-kb.db per the CLI (ContentKbCommandRunners) and Studio (Program.cs:92) convention (D-14: content-kb never ships to Render).
+                new DeckFlow.Core.Content.CreatorStyleProfileStore(
+                    DeckFlowDatabaseConnectionFactory.CreateLocalContentKbConnection(builder.Environment)));
             builder.Services.AddSingleton<DeckFlow.Web.Services.CreatorStyle.CreatorWhitelistPoolBuilder>();
             builder.Services.AddSingleton<ContentKbArtifactPathResolver>();
             builder.Services.AddSingleton<IContentKbSeedLoader, ContentKbSeedLoader>();
