@@ -92,6 +92,24 @@ public static class PlanRoleClassifier
     private const PlanRole PermanentOnlyRoles = PlanRole.Payoff | PlanRole.Interaction;
 
     /// <summary>
+    /// Returns <see langword="true"/> when a category string belongs to this classifier's own
+    /// plan-role vocabulary. Cut Lab structural findings uses this helper so its stranded-subtheme
+    /// exclusion cannot drift from <see cref="FromCategories(IReadOnlyList{string}, ManabaseMode)"/>.
+    /// </summary>
+    /// <param name="categoryName">A free-text category tag.</param>
+    internal static bool CategoryMapsToPlanRole(string categoryName)
+    {
+        ArgumentNullException.ThrowIfNull(categoryName);
+
+        string c = categoryName.ToLowerInvariant();
+        return IsPayoffCategory(c)
+            || IsTutorComboCategory(c)
+            || IsInteractionCategory(c)
+            || IsCounterCategory(c)
+            || IsEngineCategory(c);
+    }
+
+    /// <summary>
     /// Map a card's free-text category tags to roles by keyword. User-typed Archidekt tags are not a
     /// controlled vocabulary, so this is substring matching over the common role words, not an exact
     /// switch. A card tagged both "Win Condition" and "Card Draw" earns Payoff | Engine. Ramp / land /
@@ -109,31 +127,31 @@ public static class PlanRoleClassifier
         {
             string c = category.ToLowerInvariant();
 
-            if (Has(c, "win", "finisher", "payoff", "wincon", "win con", "win-con", "closer", "beater"))
+            if (IsPayoffCategory(c))
             {
                 roles |= PlanRole.Payoff;
             }
 
-            if (Has(c, "tutor", "combo"))
+            if (IsTutorComboCategory(c))
             {
                 roles |= PlanRole.TutorCombo;
             }
 
-            if (Has(c, "removal", "interaction", "protect", "wipe", "answer"))
+            if (IsInteractionCategory(c))
             {
                 roles |= PlanRole.Interaction;
             }
 
             // A counterspell tag advances the plan only in competitive play. In casual a counter is
             // reactive insurance, not a card that furthers the win plan, so it earns no role there.
-            if (countsCounters && Has(c, "counter"))
+            if (countsCounters && IsCounterCategory(c))
             {
                 roles |= PlanRole.Interaction;
             }
 
             // Draw/advantage/engine tags earn Engine — but only when the tag is NOT itself a ramp/mana
             // tag (e.g. "mana ramp / card draw" would already be split into separate tags upstream).
-            if (Has(c, "engine", "advantage", "card draw", "value") || (Has(c, "draw") && !Has(c, "ramp", "mana")))
+            if (IsEngineCategory(c))
             {
                 roles |= PlanRole.Engine;
             }
@@ -214,6 +232,22 @@ public static class PlanRoleClassifier
     private static bool CountersASpell(string oracle)
         => oracle.Contains("counter target", StringComparison.OrdinalIgnoreCase)
             && oracle.Contains("spell", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsPayoffCategory(string category)
+        => Has(category, "win", "finisher", "payoff", "wincon", "win con", "win-con", "closer", "beater");
+
+    private static bool IsTutorComboCategory(string category)
+        => Has(category, "tutor", "combo");
+
+    private static bool IsInteractionCategory(string category)
+        => Has(category, "removal", "interaction", "protect", "wipe", "answer");
+
+    private static bool IsCounterCategory(string category)
+        => Has(category, "counter");
+
+    private static bool IsEngineCategory(string category)
+        => Has(category, "engine", "advantage", "card draw", "value")
+            || (Has(category, "draw") && !Has(category, "ramp", "mana"));
 
     private static bool Has(string haystack, params string[] needles)
     {

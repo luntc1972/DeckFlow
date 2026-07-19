@@ -284,4 +284,20 @@ public sealed class PlanRoleClassifierTests
             PlanRole.Payoff,
             PlanRoleClassifier.Classify(dfc, new[] { "Win Condition" }, isComboPiece: false, ManabaseMode.Casual));
     }
+
+    [Theory]
+    [InlineData("Win Condition")]
+    [InlineData("Card Draw")]
+    [InlineData("Removal")]
+    [InlineData("counterspells")]
+    [InlineData("tutor")]
+    [InlineData("Ramp")]
+    [InlineData("landfall")]
+    [InlineData("tokens")]
+    public void CategoryMapsToPlanRole_MatchesCedhFromCategories(string categoryName)
+    {
+        Assert.Equal(
+            PlanRoleClassifier.CategoryMapsToPlanRole(categoryName),
+            PlanRoleClassifier.FromCategories(new[] { categoryName }, ManabaseMode.Cedh) != PlanRole.None);
+    }
 }
