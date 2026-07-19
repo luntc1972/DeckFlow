@@ -218,6 +218,17 @@ test('content kb search box is not oversized on desktop', async ({ page }) => {
   expect(searchBox!.height).toBeLessThanOrEqual(60);
 });
 
+test('content kb enhanced filters do not create desktop horizontal overflow', async ({ page }) => {
+  if (test.info().project.name.includes('mobile')) {
+    test.skip();
+  }
+
+  const response = await gotoOk(page, '/content-kb');
+  expect(response?.ok()).toBeTruthy();
+
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
+});
+
 for (const route of ['/deck-analysis', '/deck-primer', '/sync', '/card-lookup']) {
   test(`no horizontal overflow on key pages: ${route}`, async ({ page }) => {
     const response = await gotoOk(page, route);
