@@ -105,22 +105,33 @@ test('renders the three structure sections with 8 collapsed role groups and 8 fl
   await expect(roleGroups).toHaveCount(8);
   await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+  await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+  await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
 });
 
-test('opens the Lands group, shows member chips, and locks land rows from the group pill', async ({ page }) => {
+test('opens the Lands group, shows member chips, and toggles land rows from the group pill', async ({ page }) => {
   await importPool(page);
 
   const landsGroup = page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' });
   await landsGroup.locator('summary').click();
+  const lockAllButton = landsGroup.locator('[data-cut-lab-lock-role="lands"]');
 
   await expect(landsGroup.locator('[data-cut-lab-chip-card="Plains"]')).toBeVisible();
   await expect(landsGroup.locator('[data-cut-lab-chip-card="Island"]')).toBeVisible();
-  await expect(landsGroup.locator('[data-cut-lab-lock-role="lands"]')).toContainText('Lock all lands');
+  await expect(lockAllButton).toContainText('Lock all lands');
+  await expect(lockAllButton).toHaveAttribute('aria-pressed', 'false');
 
-  await landsGroup.locator('[data-cut-lab-lock-role="lands"]').click();
+  await lockAllButton.click();
   await expect(page.locator('tr[data-cut-lab-card="Plains"] input[data-cut-lab-lock-card]')).toBeChecked();
   await expect(page.locator('tr[data-cut-lab-card="Island"] input[data-cut-lab-lock-card]')).toBeChecked();
   await expect(page.locator('tr[data-cut-lab-card="Command Tower"] input[data-cut-lab-lock-card]')).toBeChecked();
+  await expect(lockAllButton).toHaveAttribute('aria-pressed', 'true');
+
+  await lockAllButton.click();
+  await expect(page.locator('tr[data-cut-lab-card="Plains"] input[data-cut-lab-lock-card]')).not.toBeChecked();
+  await expect(page.locator('tr[data-cut-lab-card="Island"] input[data-cut-lab-lock-card]')).not.toBeChecked();
+  await expect(page.locator('tr[data-cut-lab-card="Command Tower"] input[data-cut-lab-lock-card]')).not.toBeChecked();
+  await expect(lockAllButton).toHaveAttribute('aria-pressed', 'false');
 });
 
 test('marks interaction as adjusted after floor edits and writes roleFloors into hidden state', async ({ page }) => {

@@ -1251,6 +1251,11 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
     white-space: nowrap;
   }
 
+  table[data-prompt-cedh-reference-table] tr[data-cut-lab-commander="true"] td[data-label="Card"] > strong,
+  table[data-prompt-cedh-reference-table] tr[data-cut-lab-commander="true"] td[data-label="Card"] > .cutlab-commander-card-cell__details {
+    grid-column: 2;
+  }
+
   /* "Open" decklist link — comfortable tap target (WIG: hit area). */
   table[data-prompt-cedh-reference-table] td[data-label="Decklist"] a {
     display: inline-block;
@@ -4177,6 +4182,9 @@ label.field > span,
 
 .cutlab-role-group__body .manabase-pill {
   margin-bottom: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 
 .cutlab-role-group__help {

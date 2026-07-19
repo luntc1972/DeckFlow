@@ -205,10 +205,12 @@
                                     <strong>@card.Quantity × @card.Name</strong>
                                     @if (card.IsCommander)
                                     {
-                                        <div>
-                                            <span class="kb-chip cutlab-lock-badge--commander">Commander · Always locked</span>
+                                        <div class="cutlab-commander-card-cell__details">
+                                            <div>
+                                                <span class="kb-chip cutlab-lock-badge--commander">Commander · Always locked</span>
+                                            </div>
+                                            <div>Your commander is always locked and can't be cut.</div>
                                         </div>
-                                        <div>Your commander is always locked and can't be cut.</div>
                                     }
                                 </td>
                                 <td data-label="Type / role">
@@ -321,7 +323,8 @@
                     <div class="cutlab-role-group__body">
                         <button type="button"
                                 class="manabase-pill @(allLockableMembersLocked ? "is-selected" : null)"
-                                data-cut-lab-lock-role="@group.RoleKey">
+                                data-cut-lab-lock-role="@group.RoleKey"
+                                aria-pressed="@(allLockableMembersLocked ? "true" : "false")">
                             <span>Lock all @lowerDisplayLabel</span>
                         </button>
                         @if (memberCount > 0)
