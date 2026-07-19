@@ -8,6 +8,7 @@ using DeckFlow.Core.Models;
 using DeckFlow.Core.Storage;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CreatorStyle;
+using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Caching.Memory;
@@ -45,6 +46,7 @@ public sealed class CreatorStyleDiRegistrationTests
             services.AddSingleton<ICardGroundingGuard, FakeCardGroundingGuard>();
             services.AddSingleton<IDeckEntryLoader, FakeDeckEntryLoader>();
             services.AddMemoryCache();
+            services.AddSingleton<PacketSessionCache>();
             services.AddSingleton<CreatorWhitelistPoolBuilder>();
             services.AddScoped<CreatorProfileDeckCrawler>();
             services.AddScoped<CreatorDeckCategoryResolver>();
@@ -63,6 +65,8 @@ public sealed class CreatorStyleDiRegistrationTests
                     sp.GetRequiredService<CreatorWhitelistPoolBuilder>(),
                     sp.GetRequiredService<ICardGroundingGuard>(),
                     sp.GetRequiredService<ICreatorDeckCacheStore>(),
+                    sp.GetRequiredService<PacketSessionCache>(),
+                    sp.GetService<IFeatureFlagCache>(),
                     sp.GetService<Microsoft.Extensions.Logging.ILogger<CreatorStylePacketService>>()));
 
             using ServiceProvider provider = services.BuildServiceProvider(new ServiceProviderOptions

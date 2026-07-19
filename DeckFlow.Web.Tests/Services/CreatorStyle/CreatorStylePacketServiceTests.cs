@@ -7,6 +7,7 @@ using DeckFlow.Core.Normalization;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CreatorStyle;
+using DeckFlow.Web.Services.FeatureFlags;
 using System.Globalization;
 using Xunit;
 
@@ -14,6 +15,9 @@ namespace DeckFlow.Web.Tests.Services.CreatorStyle;
 
 public sealed class CreatorStylePacketServiceTests
 {
+    private const string CardsWithheldNotice = "Some cards couldn't be validated and were left out of this packet. The critique below still reflects your deck's core build — just with a smaller card pool than usual.";
+    private const string UpstreamOutageNotice = "Card validation is temporarily unavailable, so this packet uses a reduced card pool. Try again in a few minutes for the full picture.";
+
     [Fact]
     public async Task BuildAsync_ProfileExists_ReturnsRubricScoresAndAcceptedCollections()
     {
@@ -225,6 +229,71 @@ public sealed class CreatorStylePacketServiceTests
         CreatorStylePacketResult result = await sut.BuildAsync(request);
 
         Assert.True(result.GroundingDegraded);
+        Assert.Equal(UpstreamOutageNotice, result.Notice);
+    }
+
+    [Fact]
+    public async Task TryComputeCacheKeyAsync_FlagOn_ReturnsNull()
+    {
+        var request = CreateCacheRequest();
+        CreatorStylePacketService sut = CreateSut(flagCache: new FakeFeatureFlagCache(new Dictionary<string, bool>
+        {
+            [CreatorStylePacketService.CreatorStyleToolEnabledFlag] = true,
+        }));
+
+        string? key = await sut.TryComputeCacheKeyAsync(request, CancellationToken.None);
+
+        Assert.Null(key);
+    }
+
+    [Fact]
+    public async Task TryComputeCacheKeyAsync_FlagOff_Returns64CharacterKey()
+    {
+        var request = CreateCacheRequest();
+        CreatorStylePacketService sut = CreateSut(flagCache: new FakeFeatureFlagCache(new Dictionary<string, bool>
+        {
+            [CreatorStylePacketService.CreatorStyleToolEnabledFlag] = false,
+        }));
+
+        string? key = await sut.TryComputeCacheKeyAsync(request, CancellationToken.None);
+
+        Assert.NotNull(key);
+        Assert.Equal(64, key!.Length);
+    }
+
+    [Fact]
+    public async Task BuildAsync_FlagFlipsOffMidRequest_WriteSideSkipsCacheBasedOnLatchedBypass()
+    {
+        var packetCache = new PacketSessionCache();
+        var request = CreateCacheRequest();
+        CreatorStylePacketService sut = CreateSut(
+            packetCache: packetCache,
+            flagCache: new FlipAfterNSnapshotsFeatureFlagCache(CreatorStylePacketService.CreatorStyleToolEnabledFlag, trueCallCount: 1),
+            analysis: CreateAnalysis(
+                deckSize: 99,
+                entries:
+                [
+                    DeckEntry("Commander One", 1, "commander"),
+                    DeckEntry("Arcane Signet", 1, "mainboard"),
+                ]),
+            creatorDecks:
+            [
+                CreatorDeck("deck-1", "trusted-folder", "ok", "Commander One", "Arcane Signet"),
+            ]);
+
+        CreatorStylePacketResult result = await sut.BuildAsync(request, CancellationToken.None);
+
+        Assert.NotEmpty(result.ArtifactText);
+
+        CreatorStylePacketService probe = CreateSut(
+            packetCache: packetCache,
+            flagCache: new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [CreatorStylePacketService.CreatorStyleToolEnabledFlag] = false,
+            }));
+        string? cacheKey = await probe.TryComputeCacheKeyAsync(request, CancellationToken.None);
+        Assert.NotNull(cacheKey);
+        Assert.False(packetCache.TryGet<CreatorStylePacketResult>(cacheKey!, out _));
     }
 
     [Theory]
@@ -253,10 +322,12 @@ public sealed class CreatorStylePacketServiceTests
 
         CreatorStylePacketResult result = await sut.BuildAsync(request);
 
-        Assert.True(result.GroundingDegraded);
+        Assert.False(result.GroundingDegraded);
+        Assert.True(result.ProfileUnavailable);
         Assert.Empty(result.Exemplars);
         Assert.Empty(result.ValidatedWhitelist);
         Assert.Empty(result.ValidatedComboCards);
+        Assert.Empty(result.ArtifactText);
         Assert.NotNull(result.Notice);
     }
 
@@ -361,6 +432,7 @@ public sealed class CreatorStylePacketServiceTests
 
         Assert.True(result.GroundingDegraded);
         Assert.Contains("Grounding caveat", result.ArtifactText, StringComparison.Ordinal);
+        Assert.Contains(UpstreamOutageNotice, result.ArtifactText, StringComparison.Ordinal);
         Assert.DoesNotContain("creator\nsecond-line", result.ArtifactText, StringComparison.Ordinal);
         Assert.DoesNotContain(longSlug, result.ArtifactText, StringComparison.Ordinal);
         Assert.Contains("second-line", result.ArtifactText, StringComparison.Ordinal);
@@ -744,6 +816,29 @@ public sealed class CreatorStylePacketServiceTests
         CreatorStylePacketResult result = await sut.BuildAsync(request);
 
         Assert.True(result.GroundingDegraded);
+        Assert.Equal(CardsWithheldNotice, result.Notice);
+    }
+
+    [Fact]
+    public async Task BuildAsync_ExemplarCardNames_DeduplicatesOrdinalDuplicates()
+    {
+        var request = new CreatorStyleRequest
+        {
+            CreatorSlug = "alpha",
+            DeckText = "1 Arcane Signet",
+        };
+
+        CreatorStylePacketService sut = CreateSut(
+            creatorDecks:
+            [
+                CreatorDeck("deck-1", "trusted-folder", "ok", "Arcane Signet", "Arcane Signet", "Commander One"),
+            ]);
+
+        CreatorStylePacketResult result = await sut.BuildAsync(request);
+
+        Assert.Equal(
+            ["Arcane Signet", "Commander One"],
+            Assert.Single(result.Exemplars).CardNames.OrderBy(static cardName => cardName, StringComparer.Ordinal).ToArray());
     }
 
     private static CreatorStyleProfile CreateProfile(string slug, bool insufficientSample = false, IReadOnlyList<FusedTarget>? fusedTargets = null)
@@ -858,7 +953,9 @@ public sealed class CreatorStylePacketServiceTests
         Func<string, CardGroundingDeckContext, CancellationToken, Task<CreatorWhitelistPoolBuildResult>>? buildWhitelistAsync = null,
         Func<string, CancellationToken, Task<IReadOnlyList<CreatorDeckCacheEntry>>>? getCreatorDecksAsync = null,
         Func<string, IReadOnlyList<FusedTarget>, SubmittedDeckStats, RubricScoreResult>? scoreRubricFunc = null,
-        Action<IReadOnlyList<FusedTarget>>? onScoreTargets = null)
+        Action<IReadOnlyList<FusedTarget>>? onScoreTargets = null,
+        PacketSessionCache? packetCache = null,
+        IFeatureFlagCache? flagCache = null)
     {
         CreatorStyleProfile defaultProfile = profile ?? CreateProfile("alpha");
         SubmittedDeckAnalysis defaultAnalysis = analysis ?? CreateAnalysis(
@@ -892,7 +989,59 @@ public sealed class CreatorStylePacketServiceTests
             {
                 onScoreTargets?.Invoke(targets);
                 return scoreRubric ?? defaultRubric;
-            }));
+            }),
+            packetCache: packetCache,
+            flagCache: flagCache);
+    }
+
+    private static CreatorStyleRequest CreateCacheRequest()
+        => new()
+        {
+            CreatorSlug = "alpha",
+            DeckText = "1 Arcane Signet",
+            Format = "Commander",
+        };
+
+    private sealed class FakeFeatureFlagCache : IFeatureFlagCache
+    {
+        public FakeFeatureFlagCache(IReadOnlyDictionary<string, bool> flags)
+        {
+            Flags = new Dictionary<string, bool>(flags, StringComparer.Ordinal);
+        }
+
+        public Dictionary<string, bool> Flags { get; }
+
+        public bool IsEnabled(string key) => Snapshot().TryGetValue(key, out bool enabled) && enabled;
+
+        public IReadOnlyDictionary<string, bool> Snapshot() => Flags;
+
+        public Task ReloadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    private sealed class FlipAfterNSnapshotsFeatureFlagCache : IFeatureFlagCache
+    {
+        private readonly string _flagKey;
+        private readonly int _trueCallCount;
+        private int _callCount;
+
+        public FlipAfterNSnapshotsFeatureFlagCache(string flagKey, int trueCallCount)
+        {
+            _flagKey = flagKey;
+            _trueCallCount = trueCallCount;
+        }
+
+        public bool IsEnabled(string key) => Snapshot().TryGetValue(key, out bool enabled) && enabled;
+
+        public IReadOnlyDictionary<string, bool> Snapshot()
+        {
+            _callCount++;
+            return new Dictionary<string, bool>(StringComparer.Ordinal)
+            {
+                [_flagKey] = _callCount <= _trueCallCount,
+            };
+        }
+
+        public Task ReloadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private static async Task<string> WithCultureAsync(CultureInfo culture, Func<Task<string>> action)

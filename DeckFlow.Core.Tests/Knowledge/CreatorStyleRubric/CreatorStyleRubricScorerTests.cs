@@ -150,6 +150,30 @@ public sealed class CreatorStyleRubricScorerTests
     }
 
     [Fact]
+    public void Score_SubEpsilonDelta_ReturnsOnTarget()
+    {
+        FusedTarget[] creatorTargets =
+        [
+            CreateTarget("ramp", 10),
+            CreateTarget("draw", 10),
+            CreateTarget("karsten:target_lands", 10),
+        ];
+        SubmittedDeckStats submittedStats = CreateSubmittedDeckStats(
+            new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["category_ratio:ramp"] = 10.000001,
+                ["category_ratio:draw"] = 9.999,
+                ["karsten:target_lands"] = 10.001,
+            });
+
+        RubricScoreResult result = CreatorStyleRubricScorer.Score("snail", creatorTargets, submittedStats);
+
+        Assert.Equal(
+            ["under", "on-target", "over"],
+            result.MetricScores.Select(static score => score.Verdict).ToArray());
+    }
+
+    [Fact]
     public void Score_NullArguments_ThrowsArgumentNullException()
     {
         SubmittedDeckStats submittedStats = CreateSubmittedDeckStats(new Dictionary<string, double>());
