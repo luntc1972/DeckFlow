@@ -124,7 +124,7 @@ public sealed class ManabaseViewModelTests
         var verdict = new ManabaseVerdict
         {
             HasIssues = false,
-            Headline = "Reading your deck",
+            Headline = "Reading the deck",
             Lines = new List<string>(),
             NoIssueReason = "Looks fine.",
         };
