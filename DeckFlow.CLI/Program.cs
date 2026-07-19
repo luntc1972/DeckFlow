@@ -102,6 +102,10 @@ var fuseProfileDbOption = new Option<FileInfo?>("--db") { Description = "Path to
 var contentIndexExportCommand = new Command("content-index-export", "Exports the local content_site_index to a tracked JSON seed file for commit-then-deploy.");
 var contentIndexExportDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
 var contentIndexExportOutputOption = new Option<FileInfo?>("--output", () => new FileInfo(ContentKbPaths.SeedRelativePath)) { Description = "Path to the JSON seed file. Defaults to content-kb/seed/index-seed.json." };
+var creatorStyleIndexExportCommand = new Command("creator-style-index-export", "Exports local creator style profiles and creator deck-cache rows to tracked JSON seed files for commit-then-deploy.");
+var creatorStyleIndexExportDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
+var creatorStyleIndexExportOutputOption = new Option<FileInfo?>("--output", () => new FileInfo("content-kb/seed")) { Description = "Directory for the two JSON seed files. Defaults to content-kb/seed/." };
+var creatorStyleIndexExportSlugsOption = new Option<string[]>("--slugs", () => Array.Empty<string>()) { Description = "Explicit creator slugs to export." };
 var contentKbCheckCommand = new Command("content-kb-check", "Checks content_site_index rows against local artifact files and reports orphans (read-only; exits 1 when a published orphan exists).");
 var contentKbCheckDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
 var contentKbCheckArtifactRootOption = new Option<DirectoryInfo?>("--artifact-root") { Description = "Artifact directory: either the data-root parent of content-kb/ or the content-kb directory itself (both are normalized). Defaults to the MTG_DATA_DIR/content-kb resolution." };
@@ -168,6 +172,9 @@ fuseProfileCommand.AddOption(fuseProfileSlugOption);
 fuseProfileCommand.AddOption(fuseProfileDbOption);
 contentIndexExportCommand.AddOption(contentIndexExportDbOption);
 contentIndexExportCommand.AddOption(contentIndexExportOutputOption);
+creatorStyleIndexExportCommand.AddOption(creatorStyleIndexExportDbOption);
+creatorStyleIndexExportCommand.AddOption(creatorStyleIndexExportOutputOption);
+creatorStyleIndexExportCommand.AddOption(creatorStyleIndexExportSlugsOption);
 contentKbCheckCommand.AddOption(contentKbCheckDbOption);
 contentKbCheckCommand.AddOption(contentKbCheckArtifactRootOption);
 
@@ -227,6 +234,7 @@ rootCommand.AddCommand(corpusResetCommand);
 rootCommand.AddCommand(distillCommand);
 rootCommand.AddCommand(fuseProfileCommand);
 rootCommand.AddCommand(contentIndexExportCommand);
+rootCommand.AddCommand(creatorStyleIndexExportCommand);
 rootCommand.AddCommand(contentKbCheckCommand);
 
 probeCommand.SetHandler((string url, FileInfo? output) =>
@@ -339,6 +347,11 @@ contentIndexExportCommand.SetHandler((FileInfo? db, FileInfo? output) =>
 {
     Environment.ExitCode = ContentKbCommandRunners.RunContentIndexExportAsync(db, output).GetAwaiter().GetResult();
 }, contentIndexExportDbOption, contentIndexExportOutputOption);
+
+creatorStyleIndexExportCommand.SetHandler((FileInfo? db, FileInfo? output, string[] slugs) =>
+{
+    Environment.ExitCode = CreatorStyleCommandRunners.RunCreatorStyleIndexExportAsync(db, output, slugs).GetAwaiter().GetResult();
+}, creatorStyleIndexExportDbOption, creatorStyleIndexExportOutputOption, creatorStyleIndexExportSlugsOption);
 
 contentKbCheckCommand.SetHandler((FileInfo? db, DirectoryInfo? artifactRoot) =>
 {

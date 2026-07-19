@@ -112,6 +112,7 @@ public partial class Program
             builder.Services.AddSingleton<DeckFlow.Web.Services.CreatorStyle.CreatorWhitelistPoolBuilder>();
             builder.Services.AddSingleton<ContentKbArtifactPathResolver>();
             builder.Services.AddSingleton<IContentKbSeedLoader, ContentKbSeedLoader>();
+            builder.Services.AddSingleton<ICreatorStyleSeedLoader, CreatorStyleSeedLoader>();
             builder.Services.AddSingleton<DeckFlow.Core.Content.IContentArtifactBodyResolver, ContentKbArtifactBodyResolver>();
             builder.Services.AddSingleton<DeckFlow.Core.Content.ContentBodyHashBackfill>();
             builder.Services.AddSingleton<DeckFlow.Core.Content.ISeedKeyMembershipSource, WebSeedKeyMembershipSource>();
@@ -286,6 +287,7 @@ public partial class Program
             app.Logger.LogInformation("Ensuring content site-index schema during startup.");
             await app.Services.GetRequiredService<DeckFlow.Core.Content.IContentSiteIndexStore>().EnsureSchemaAsync();
             await app.Services.GetRequiredService<IContentKbSeedLoader>().LoadIfPresentAsync();
+            await app.Services.GetRequiredService<ICreatorStyleSeedLoader>().LoadIfPresentAsync();
             app.Logger.LogInformation("Content site-index schema ensured and seed load completed during startup.");
 
             // D-08: one-time deterministic body_sha256 backfill, third step after schema-ensure
