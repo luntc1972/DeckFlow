@@ -23,7 +23,7 @@ public sealed class ReconcileCoordinator
     public const string FullScopeTag = "full";
 
     // Why (D-10): the web-DB feature flag key that gates ONLY the destructive Apply — the SAME
-    // convention DirectPushCoordinator.DirectPushGitBodyFlagKey follows. Single source of truth;
+    // convention ContentKbFeatureFlagKeys.DirectPushGitBody follows. Single source of truth;
     // no duplicate Studio-local flag.
     private const string ReconcileFlagKey = "sync.reconcile";
 

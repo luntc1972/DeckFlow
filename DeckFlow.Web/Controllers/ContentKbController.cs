@@ -125,7 +125,7 @@ public sealed class ContentKbController : Controller
             // SYNC-07/D-01/D-11: under the flag, git is the only body source, so a missing body
             // is a real serving failure - return an honest 404 instead of the legacy 200
             // "artifact unavailable" shell. Flag OFF (default) preserves the 200 shell.
-            if (_flagCache.IsEnabled("sync.directpush-gitbody"))
+            if (_flagCache.IsEnabled(ContentKbFeatureFlagKeys.DirectPushGitBody))
             {
                 return NotFound();
             }
