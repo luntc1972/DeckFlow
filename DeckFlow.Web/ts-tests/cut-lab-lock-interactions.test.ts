@@ -306,7 +306,7 @@ describe('DeckFlowCutLab', () => {
     ]);
   });
 
-  it('syncs role-group chip classes and locked counts from pool-table checkbox state', () => {
+  it('syncs role-group chip classes and quantity-weighted locked counts from pool-table checkbox state', () => {
     document.body.innerHTML = `
       <form data-cache-key="cut-lab">
         <input type="hidden" name="CutLabStateJson" value="" />
@@ -328,7 +328,7 @@ describe('DeckFlowCutLab', () => {
         </details>
         <table>
           <tbody>
-            <tr data-cut-lab-card="Command Tower" data-cut-lab-type-line="Land" data-cut-lab-role="lands ramp" data-cut-lab-commander="false">
+            <tr data-cut-lab-card="Command Tower" data-cut-lab-type-line="Land" data-cut-lab-role="lands ramp" data-cut-lab-quantity="1" data-cut-lab-commander="false">
               <td data-label="Select"><input type="checkbox" data-cut-lab-lock-card="Command Tower" /></td>
               <td data-label="Card"><strong>1 × Command Tower</strong></td>
               <td data-label="Package assignment">
@@ -338,9 +338,9 @@ describe('DeckFlowCutLab', () => {
                 </select>
               </td>
             </tr>
-            <tr data-cut-lab-card="Flooded Strand" data-cut-lab-type-line="Land" data-cut-lab-role="lands" data-cut-lab-commander="false">
+            <tr data-cut-lab-card="Flooded Strand" data-cut-lab-type-line="Land" data-cut-lab-role="lands" data-cut-lab-quantity="3" data-cut-lab-commander="false">
               <td data-label="Select"><input type="checkbox" data-cut-lab-lock-card="Flooded Strand" /></td>
-              <td data-label="Card"><strong>1 × Flooded Strand</strong></td>
+              <td data-label="Card"><strong>3 × Flooded Strand</strong></td>
               <td data-label="Package assignment">
                 <select data-cut-lab-package-card="Flooded Strand">
                   <option value="">Unlocked pool</option>
@@ -375,6 +375,6 @@ describe('DeckFlowCutLab', () => {
 
     expect(firstChip?.classList.contains('cutlab-role-chip--locked')).toBe(true);
     expect(secondChip?.classList.contains('cutlab-role-chip--locked')).toBe(true);
-    expect(lockedCount?.textContent).toBe('2');
+    expect(lockedCount?.textContent).toBe('4');
   });
 });
