@@ -112,6 +112,13 @@ const panelConfigs: PanelConfig[] = [
     textSelector: '[data-sync-panel="metagap-deck-text"]',
   },
   {
+    // Cut Lab reuses the DeckInputSource select; its panels are absent on other
+    // tools so this config no-ops there (togglePanel ignores missing selectors).
+    selectName: 'DeckInputSource',
+    urlSelector: '[data-sync-panel="cut-lab-deck-url"]',
+    textSelector: '[data-sync-panel="cut-lab-deck-text"]',
+  },
+  {
     // Deck Comparison Deck A panels are absent on other tools so this config no-ops
     // there (togglePanel ignores missing selectors).
     selectName: 'DeckAInputSource',
