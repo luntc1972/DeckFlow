@@ -183,7 +183,12 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
   2. Flag `creator.style-artifact` is seeded OFF on both dialects at ship; toggling it changes only whether the tool is reachable — every existing artifact stays byte-identical.
   3. The flag is registered in the packet prompt-mutating cache-bypass set, so a stale cached packet can never be served across a flag flip.
   4. xUnit + Playwright e2e (desktop + mobile, across themes) cover the new page/controller; README documents the new workflow; the byte-identical prose gate passes on every pre-existing artifact.
-**Plans**: TBD
+**Plans**: 5 plans
+- [ ] 100-01-PLAN.md — Flag + tool registration: `tool.creator-style.enabled` seeded OFF (both dialects), ToolRegistry/catalog/enum (CS-30, D-100-05/12)
+- [ ] 100-02-PLAN.md — PacketSessionCache cache-bypass wiring + fold IN-01/03/04/08 correctness items (CS-30, D-100-06/08/15/16)
+- [ ] 100-03-PLAN.md — `ICreatorStyleProfileStore.GetAllAsync` + summary DTO for the picker (CS-31, D-100-09)
+- [ ] 100-04-PLAN.md — D-14 seed loader (2 files) + startup hydration + CLI export command (CS-31, D-100-01..04)
+- [ ] 100-05-PLAN.md — Controller + view + picker/toggle/result + desktop+mobile e2e + README (CS-31, D-100-09..16)
 **UI hint**: yes
 
 ## Progress
@@ -199,7 +204,7 @@ Phase 94 -> {Phase 95, Phase 96 in parallel} -> {Phase 97 (needs 95+96), Phase 9
 | 97. Profile Fusion + Conflict Ledger | Cycle 17 | 0/7 | Not started | - |
 | 98. Card-Grounding Guard | Cycle 17 | 0/4 | Not started | - |
 | 99. Creator-Style Artifact Engine | Cycle 17 | 3/3 | Complete    | 2026-07-19 |
-| 100. Creator-Style Tool Surface | Cycle 17 | 0/0 | Not started | - |
+| 100. Creator-Style Tool Surface | Cycle 17 | 0/5 | Planned | - |
 
 Cycle 16 progress (Phases 82-93): see `.planning/milestones/cycle16-ROADMAP.md` and `.planning/milestones/2026.07.2-ROADMAP.md`.
 
