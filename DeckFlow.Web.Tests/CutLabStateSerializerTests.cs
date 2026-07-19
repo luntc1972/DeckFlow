@@ -184,6 +184,52 @@ public sealed class CutLabStateSerializerTests
     }
 
     [Fact]
+    public void Deserialize_OversizedJson_ReturnsEmptyState()
+    {
+        var oversizedName = new string('A', CutLabStateSerializer.MaxUploadBytes);
+        var state = CutLabStateSerializer.Deserialize($"{{\"commander\":\"{oversizedName}\"}}");
+
+        Assert.Equal(string.Empty, state.Commander);
+        Assert.Empty(state.Pool);
+        Assert.Empty(state.Packages);
+    }
+
+    [Fact]
+    public void Deserialize_TamperedPackages_DropsEmptyNamesAndCapsAtFifty()
+    {
+        string packagesJson = string.Join(
+            ",",
+            Enumerable.Range(1, 52).Select(index =>
+                $$"""{"id":"pkg-{{index}}","name":"Package {{index}}","locked":{{(index % 2 == 0).ToString().ToLowerInvariant()}}}"""));
+        string json =
+            $$"""
+            {
+              "commander": "Atraxa, Praetors' Voice",
+              "pool": [],
+              "packages": [
+                {"id":"blank-1","name":"","locked":false},
+                {"id":"blank-2","name":"   ","locked":true},
+                {{packagesJson}}
+              ],
+              "roleFloors": [],
+              "intent": {
+                "primaryPlan": "Counters",
+                "secondaryPlan": null,
+                "bracket": 3,
+                "playExperience": "Focused"
+              }
+            }
+            """;
+
+        var state = CutLabStateSerializer.Deserialize(json);
+
+        Assert.Equal(50, state.Packages.Count);
+        Assert.DoesNotContain(state.Packages, package => string.IsNullOrWhiteSpace(package.Name));
+        Assert.Equal("pkg-1", state.Packages[0].Id);
+        Assert.Equal("pkg-50", state.Packages[^1].Id);
+    }
+
+    [Fact]
     public void Serialize_StateExceedsMaxUploadBytes_ThrowsInvalidOperationException()
     {
         var oversizedName = new string('A', CutLabStateSerializer.MaxUploadBytes);
