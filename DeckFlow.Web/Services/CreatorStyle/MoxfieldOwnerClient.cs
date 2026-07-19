@@ -1,5 +1,4 @@
 using System.Net.Http;
-using System.Text;
 using System.Text.Json;
 using Polly;
 using Polly.Registry;
@@ -31,11 +30,11 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
     internal const int MaxResponseBytes = 5 * 1024 * 1024;
 
     private static readonly TimeSpan MinInterval = TimeSpan.FromMilliseconds(500);
-    private static readonly SemaphoreSlim Gate = new(1, 1);
-    private static DateTime _lastRequestUtc = DateTime.MinValue;
 
     private readonly RestClient _restClient;
     private readonly ResiliencePipeline<RestResponse> _resiliencePipeline;
+    private readonly SemaphoreSlim _gate = new(1, 1);
+    private DateTime _lastRequestUtc = DateTime.MinValue;
 
     /// <summary>
     /// Creates a Moxfield owner client.
@@ -95,14 +94,14 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
                     statusCode: response.StatusCode);
             }
 
-            if (!TryGetResponseContent(response, out var content))
+            if (!OwnerClientJson.TryGetResponseContent(response, MaxResponseBytes, out var content))
             {
                 return Array.Empty<MoxfieldDeckSummary>();
             }
 
             using var document = JsonDocument.Parse(content);
             var root = document.RootElement;
-            var totalPages = ReadInt32(root, "totalPages");
+            var totalPages = OwnerClientJson.ReadInt32(root, "totalPages");
 
             if (!root.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array)
             {
@@ -112,10 +111,10 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
             foreach (var item in data.EnumerateArray())
             {
                 var summary = new MoxfieldDeckSummary(
-                    ReadString(item, "publicId"),
-                    ReadString(item, "name"),
-                    ReadString(item, "format"),
-                    ReadNullableString(item, "visibility"));
+                    OwnerClientJson.ReadString(item, "publicId"),
+                    OwnerClientJson.ReadString(item, "name"),
+                    OwnerClientJson.ReadString(item, "format"),
+                    OwnerClientJson.ReadNullableString(item, "visibility"));
 
                 if (string.IsNullOrWhiteSpace(summary.PublicId)
                     || string.IsNullOrWhiteSpace(summary.Name)
@@ -137,11 +136,11 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
         return decks;
     }
 
-    private static async Task<RestResponse> ExecuteWithThrottleAsync(
+    private async Task<RestResponse> ExecuteWithThrottleAsync(
         Func<CancellationToken, Task<RestResponse>> execute,
         CancellationToken cancellationToken)
     {
-        await Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             var elapsedSinceLast = DateTime.UtcNow - _lastRequestUtc;
@@ -156,47 +155,8 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
         }
         finally
         {
-            Gate.Release();
+            _gate.Release();
         }
-    }
-
-    private static bool TryGetResponseContent(RestResponse response, out string content)
-    {
-        content = response.Content ?? string.Empty;
-        var byteCount = response.RawBytes?.LongLength ?? Encoding.UTF8.GetByteCount(content);
-        return byteCount <= MaxResponseBytes;
-    }
-
-    private static string ReadString(JsonElement item, string propertyName)
-    {
-        return ReadNullableString(item, propertyName) ?? string.Empty;
-    }
-
-    private static string? ReadNullableString(JsonElement item, string propertyName)
-    {
-        if (!item.TryGetProperty(propertyName, out var property) || property.ValueKind == JsonValueKind.Null)
-        {
-            return null;
-        }
-
-        return property.ValueKind == JsonValueKind.String
-            ? property.GetString()
-            : property.GetRawText();
-    }
-
-    private static int ReadInt32(JsonElement item, string propertyName)
-    {
-        if (!item.TryGetProperty(propertyName, out var property) || property.ValueKind == JsonValueKind.Null)
-        {
-            return 0;
-        }
-
-        if (property.ValueKind == JsonValueKind.Number && property.TryGetInt32(out var value))
-        {
-            return value;
-        }
-
-        return int.TryParse(property.GetRawText(), out value) ? value : 0;
     }
 }
 

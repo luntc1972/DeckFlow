@@ -47,25 +47,13 @@ public static class DeckTendenciesReportBuilder
         ArgumentNullException.ThrowIfNull(samples);
         ArgumentNullException.ThrowIfNull(cardCategories);
 
-        if (samples.Count == 0)
-        {
-            return new DeckTendenciesReport
-            {
-                DeckCount = 0,
-                Decks = Array.Empty<DeckTendencyDeckRow>(),
-                RepeatCards = Array.Empty<RepeatCardRow>(),
-                RepeatCommanders = Array.Empty<RepeatCardRow>(),
-                CategoryTendencies = Array.Empty<CategoryTendencyRow>(),
-            };
-        }
-
         var includedSamples = samples.Select(FilterIncludedBoards).ToArray();
         var stapleSet = StapleStripper.ComputePersonalStaples(includedSamples);
 
         return new DeckTendenciesReport
         {
             DeckCount = samples.Count,
-            Decks = BuildDeckRows(samples, includedSamples, deckNames),
+            Decks = BuildDeckRows(samples, deckNames),
             RepeatCards = BuildRepeatRows(
                 includedSamples,
                 stapleSet,
@@ -82,7 +70,6 @@ public static class DeckTendenciesReportBuilder
 
     private static IReadOnlyList<DeckTendencyDeckRow> BuildDeckRows(
         IReadOnlyList<CreatorDeckSample> originalSamples,
-        IReadOnlyList<CreatorDeckSample> includedSamples,
         IReadOnlyDictionary<string, string>? deckNames)
     {
         var rows = new DeckTendencyDeckRow[originalSamples.Count];
@@ -90,7 +77,6 @@ public static class DeckTendenciesReportBuilder
         for (var i = 0; i < originalSamples.Count; i++)
         {
             var sample = originalSamples[i];
-            var includedSample = includedSamples[i];
 
             rows[i] = new DeckTendencyDeckRow
             {
@@ -98,7 +84,7 @@ public static class DeckTendenciesReportBuilder
                 DeckName = TryGetDeckName(sample.DeckId, deckNames),
                 CardCount = sample.CardCount,
                 FolderName = sample.FolderName,
-                Commanders = includedSample.Entries
+                Commanders = sample.Entries
                     .Where(entry => IsBoard(entry, "commander"))
                     .Select(entry => entry.Name)
                     .ToArray(),
@@ -167,7 +153,7 @@ public static class DeckTendenciesReportBuilder
         GlobalCategoryBaseline? baseline)
     {
         var totalDecks = samples.Count;
-        var totalCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        IReadOnlyDictionary<string, double> averageCounts = CategoryCounter.AggregateCounts(samples, cardCategories);
         var presenceCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var sample in samples)
@@ -176,8 +162,6 @@ public static class DeckTendenciesReportBuilder
 
             foreach (var pair in counts)
             {
-                totalCounts[pair.Key] = totalCounts.TryGetValue(pair.Key, out var total) ? total + pair.Value : pair.Value;
-
                 if (pair.Value > 0)
                 {
                     presenceCounts[pair.Key] = presenceCounts.TryGetValue(pair.Key, out var present) ? present + 1 : 1;
@@ -185,7 +169,7 @@ public static class DeckTendenciesReportBuilder
             }
         }
 
-        return totalCounts
+        return averageCounts
             .Select(pair => BuildCategoryRow(pair.Key, pair.Value, totalDecks, presenceCounts, baseline))
             .OrderByDescending(row => row.AverageCountPerDeck)
             .ThenBy(row => row.Category, StringComparer.Ordinal)
@@ -194,7 +178,7 @@ public static class DeckTendenciesReportBuilder
 
     private static CategoryTendencyRow BuildCategoryRow(
         string category,
-        int totalCount,
+        double averageCountPerDeck,
         int totalDecks,
         IReadOnlyDictionary<string, int> presenceCounts,
         GlobalCategoryBaseline? baseline)
@@ -208,7 +192,7 @@ public static class DeckTendenciesReportBuilder
         return new CategoryTendencyRow
         {
             Category = category,
-            AverageCountPerDeck = totalCount / (double)totalDecks,
+            AverageCountPerDeck = averageCountPerDeck,
             PresenceRatio = presenceRatio,
             BaselinePresenceRatio = baselinePresenceRatio,
             Lift = baselinePresenceRatio is > 0 ? presenceRatio / baselinePresenceRatio.Value : null,

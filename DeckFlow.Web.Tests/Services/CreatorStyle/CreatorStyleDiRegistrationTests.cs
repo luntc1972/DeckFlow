@@ -14,6 +14,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using DeckFlow.Web.Tests.Services.CreatorStyle;
 
 namespace DeckFlow.Web.Tests.Services.CreatorStyle;
 
@@ -104,18 +105,6 @@ public sealed class CreatorStyleDiRegistrationTests
     }
 
     private sealed class FakeArchidektDeckImporter : IArchidektDeckImporter
-    {
-        public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
-            => Task.FromResult(new List<DeckEntry>());
-    }
-
-    private sealed class FakeMoxfieldOwnerClient : IMoxfieldOwnerClient
-    {
-        public Task<IReadOnlyList<MoxfieldDeckSummary>> ListDeckSummariesAsync(string username, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<MoxfieldDeckSummary>>([]);
-    }
-
-    private sealed class FakeMoxfieldDeckImporter : IMoxfieldDeckImporter
     {
         public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
             => Task.FromResult(new List<DeckEntry>());

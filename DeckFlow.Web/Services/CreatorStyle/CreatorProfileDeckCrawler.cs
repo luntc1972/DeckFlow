@@ -122,6 +122,7 @@ public sealed class CreatorProfileDeckCrawler
                 summary.ParentFolderId,
                 summary.ParentFolderName,
                 ct => _archidektDeckImporter.ImportAsync(summary.Id, ct),
+                null,
                 cancellationToken).ConfigureAwait(false));
         }
 
@@ -141,30 +142,29 @@ public sealed class CreatorProfileDeckCrawler
 
         foreach (var summary in summaries)
         {
-            CreatorDeckSample sample;
-            if (TryGetCachedSample(cacheByDeckId, summary.PublicId, source, out var cachedSample))
+            var importedThisDeck = false;
+            CreatorDeckSample sample = await GetOrImportSampleAsync(
+                creatorSlug,
+                source,
+                cacheByDeckId,
+                summary.PublicId,
+                null,
+                null,
+                null,
+                ct => _moxfieldDeckImporter.ImportAsync(summary.PublicId, ct),
+                hasImportedDeck
+                    ? async ct =>
+                    {
+                        importedThisDeck = true;
+                        await Task.Delay(MoxfieldImportInterval, ct).ConfigureAwait(false);
+                    }
+            : ct =>
             {
-                sample = cachedSample;
-            }
-            else
-            {
-                if (hasImportedDeck)
-                {
-                    await Task.Delay(MoxfieldImportInterval, cancellationToken).ConfigureAwait(false);
-                }
-
-                sample = await GetOrImportSampleAsync(
-                    creatorSlug,
-                    source,
-                    cacheByDeckId,
-                    summary.PublicId,
-                    null,
-                    null,
-                    null,
-                    ct => _moxfieldDeckImporter.ImportAsync(summary.PublicId, ct),
-                    cancellationToken).ConfigureAwait(false);
-                hasImportedDeck = true;
-            }
+                importedThisDeck = true;
+                return Task.CompletedTask;
+            },
+                cancellationToken).ConfigureAwait(false);
+            hasImportedDeck |= importedThisDeck;
 
             if (sample.CardCount > StapleStripper.MaxDeckSize)
             {
@@ -186,11 +186,17 @@ public sealed class CreatorProfileDeckCrawler
         int? folderId,
         string? folderName,
         Func<CancellationToken, Task<List<DeckEntry>>> importAsync,
+        Func<CancellationToken, Task>? beforeImportAsync,
         CancellationToken cancellationToken)
     {
         if (TryGetCachedSample(cacheByDeckId, deckId, source, out var cachedSample))
         {
             return cachedSample;
+        }
+
+        if (beforeImportAsync is not null)
+        {
+            await beforeImportAsync(cancellationToken).ConfigureAwait(false);
         }
 
         var importedEntries = await importAsync(cancellationToken).ConfigureAwait(false);

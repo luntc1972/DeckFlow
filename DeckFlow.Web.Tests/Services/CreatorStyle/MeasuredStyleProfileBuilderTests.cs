@@ -11,6 +11,7 @@ using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Data.Sqlite;
 using RestSharp;
 using Xunit;
+using DeckFlow.Web.Tests.Services.CreatorStyle;
 
 namespace DeckFlow.Web.Tests;
 
@@ -69,6 +70,46 @@ public sealed class MeasuredStyleProfileBuilderTests
         var liftMetric = stored.MeasuredMetrics.FirstOrDefault(metric => metric.Metric.StartsWith("lift:", StringComparison.Ordinal));
         Assert.NotNull(liftMetric);
         Assert.Contains(stored.MeasuredMetrics, metric => metric.Metric == "category_ratio:ramp");
+    }
+
+    [Fact]
+    public async Task BuildDetailedAsync_SurfacesReportInputs_AndBuildAsyncStillReturnsSameProfile()
+    {
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        await using var harness = await TestHarness.CreateAsync(now);
+        await harness.SeedSourceAsync(
+            "builder-detailed",
+            "builder-detailed",
+            SnailSeedCorpusFixture.DeckSummaries,
+            SnailSeedCorpusFixture.Samples);
+        await harness.SeedCategoriesAsync();
+        await harness.SeedBaselineAsync();
+
+        var builder = harness.CreateBuilder(new FakeCommanderSpellbookService(new Dictionary<string, CommanderSpellbookResult?>(StringComparer.Ordinal)));
+
+        var detailed = await builder.BuildDetailedAsync("builder-detailed", SnailSeedCorpusFixture.Platform);
+        var profile = await builder.BuildAsync("builder-detailed", SnailSeedCorpusFixture.Platform);
+        var stored = await harness.ProfileStore.GetBySlugAsync("builder-detailed");
+
+        Assert.NotNull(stored);
+        Assert.Equal(profile.Slug, detailed.Profile.Slug);
+        Assert.Equal(profile.Platform, detailed.Profile.Platform);
+        Assert.Equal(profile.MinDecks, detailed.Profile.MinDecks);
+        Assert.Equal(profile.InsufficientSample, detailed.Profile.InsufficientSample);
+        Assert.Equal(profile.UpdatedUtc, detailed.Profile.UpdatedUtc);
+        Assert.True(profile.MeasuredMetrics.SequenceEqual(detailed.Profile.MeasuredMetrics));
+        Assert.Equal(profile.Slug, stored!.Slug);
+        Assert.Equal(profile.Platform, stored.Platform);
+        Assert.Equal(profile.MinDecks, stored.MinDecks);
+        Assert.Equal(profile.InsufficientSample, stored.InsufficientSample);
+        Assert.Equal(profile.UpdatedUtc, stored.UpdatedUtc);
+        Assert.True(profile.MeasuredMetrics.SequenceEqual(stored.MeasuredMetrics));
+        Assert.Equal(SnailSeedCorpusFixture.Samples.Count, detailed.Samples.Count);
+        Assert.All(detailed.Samples, sample => Assert.True(sample.CardCount <= 105));
+        Assert.NotEmpty(detailed.CardCategories);
+        Assert.Contains("Arcane Signet", detailed.CardCategories.Keys, StringComparer.OrdinalIgnoreCase);
+        Assert.NotNull(detailed.Baseline);
+        Assert.True(detailed.Baseline!.TotalDecks > 0);
     }
 
     [Fact]
@@ -300,18 +341,6 @@ public sealed class MeasuredStyleProfileBuilderTests
 
             return cards;
         }
-    }
-
-    private sealed class FakeMoxfieldOwnerClient : IMoxfieldOwnerClient
-    {
-        public Task<IReadOnlyList<MoxfieldDeckSummary>> ListDeckSummariesAsync(string username, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<MoxfieldDeckSummary>>([]);
-    }
-
-    private sealed class FakeMoxfieldDeckImporter : IMoxfieldDeckImporter
-    {
-        public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
-            => Task.FromResult(new List<DeckEntry>());
     }
 
     private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> CardCategoryMap =

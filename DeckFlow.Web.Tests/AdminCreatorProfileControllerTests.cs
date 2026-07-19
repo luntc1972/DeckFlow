@@ -3,6 +3,8 @@ using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Knowledge.MeasuredStyleExtraction;
 using DeckFlow.Core.Models;
 using DeckFlow.Web.Controllers.Admin;
+using DeckFlow.Web.Security;
+using DeckFlow.Web.Services.CreatorStyle;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -37,25 +39,10 @@ public sealed class AdminCreatorProfileControllerTests
         var calls = new List<string>();
         var controller = Build(
             store,
-            buildAsync: (slug, platform, ct) =>
+            buildDetailedAsync: (slug, platform, ct) =>
             {
                 calls.Add("build");
-                return Task.FromResult(NewProfile(slug, platform));
-            },
-            crawlAsync: (slug, forceRefresh, ct) =>
-            {
-                calls.Add(forceRefresh ? "crawl-force" : "crawl");
-                return Task.FromResult<IReadOnlyList<CreatorDeckSample>>(Array.Empty<CreatorDeckSample>());
-            },
-            resolveAsync: (samples, ct) =>
-            {
-                calls.Add("resolve");
-                return Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<string>>>(new Dictionary<string, IReadOnlyList<string>>());
-            },
-            getBaselineAsync: ct =>
-            {
-                calls.Add("baseline");
-                return Task.FromResult(NewBaseline());
+                return Task.FromResult(NewBuildResult(slug, platform));
             });
 
         var result = await controller.Run(new AdminCreatorProfileInputModel
@@ -81,42 +68,28 @@ public sealed class AdminCreatorProfileControllerTests
         var callOrder = new List<string>();
         var samples = NewSamples();
         var profile = NewProfile("new-slug", "moxfield");
+        var categories = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Sol Ring"] = ["Ramp"],
+            ["Arcane Signet"] = ["Ramp"],
+            ["Atraxa, Praetors' Voice"] = ["Commander"],
+            ["Derevi, Empyrial Tactician"] = ["Commander"],
+        };
+        var baseline = new GlobalCategoryBaseline
+        {
+            TotalDecks = 100,
+            DecksWithCategory = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Ramp"] = 50,
+            },
+            DecksWithCategoryPair = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase),
+        };
         var controller = Build(
             store,
-            buildAsync: (slug, platform, ct) =>
+            buildDetailedAsync: (slug, platform, ct) =>
             {
                 callOrder.Add("build");
-                return Task.FromResult(profile);
-            },
-            crawlAsync: (slug, forceRefresh, ct) =>
-            {
-                callOrder.Add(forceRefresh ? "crawl-force" : "crawl");
-                return Task.FromResult<IReadOnlyList<CreatorDeckSample>>(samples);
-            },
-            resolveAsync: (resolvedSamples, ct) =>
-            {
-                callOrder.Add("resolve");
-                Assert.Same(samples, resolvedSamples);
-                return Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<string>>>(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
-                {
-                    ["Sol Ring"] = ["Ramp"],
-                    ["Arcane Signet"] = ["Ramp"],
-                    ["Atraxa, Praetors' Voice"] = ["Commander"],
-                    ["Derevi, Empyrial Tactician"] = ["Commander"],
-                });
-            },
-            getBaselineAsync: ct =>
-            {
-                callOrder.Add("baseline");
-                return Task.FromResult(new GlobalCategoryBaseline
-                {
-                    TotalDecks = 100,
-                    DecksWithCategory = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
-                    {
-                        ["Ramp"] = 50,
-                    },
-                    DecksWithCategoryPair = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase),
-                });
+                return Task.FromResult(new MeasuredStyleBuildResult(profile, samples, categories, baseline));
             },
             nowUtc: () => new DateTimeOffset(2026, 7, 19, 12, 0, 0, TimeSpan.Zero));
 
@@ -136,17 +109,17 @@ public sealed class AdminCreatorProfileControllerTests
         Assert.Equal("CreatorUser", store.Upserts[0].ProfileUsername);
         Assert.True(store.Upserts[0].WeightsUncurated);
         Assert.Null(store.Upserts[0].ProfileUrl);
-        Assert.Equal(["build", "crawl", "resolve", "baseline"], callOrder);
+        Assert.Equal(["build"], callOrder);
         Assert.Same(profile, model.Profile);
         Assert.NotNull(model.Report);
         Assert.Equal(2, model.Report!.DeckCount);
-        Assert.Equal("new-slug", model.ProfileSummary!.Slug);
-        Assert.Equal("moxfield", model.ProfileSummary.Platform);
-        Assert.False(model.ProfileSummary.InsufficientSample);
+        Assert.Equal("new-slug", model.Profile!.Slug);
+        Assert.Equal("moxfield", model.Profile.Platform);
+        Assert.False(model.Profile.InsufficientSample);
     }
 
     [Fact]
-    public async Task Run_ForceRefresh_ClearsLastCrawled_AndPrewarmsCache()
+    public async Task Run_ForceRefresh_ClearsLastCrawled()
     {
         var existing = new CreatorProfileSource
         {
@@ -164,25 +137,10 @@ public sealed class AdminCreatorProfileControllerTests
         var calls = new List<string>();
         var controller = Build(
             store,
-            buildAsync: (slug, platform, ct) =>
+            buildDetailedAsync: (slug, platform, ct) =>
             {
                 calls.Add("build");
-                return Task.FromResult(NewProfile(slug, platform));
-            },
-            crawlAsync: (slug, forceRefresh, ct) =>
-            {
-                calls.Add(forceRefresh ? "crawl-force" : "crawl");
-                return Task.FromResult<IReadOnlyList<CreatorDeckSample>>(NewSamples());
-            },
-            resolveAsync: (samples, ct) =>
-            {
-                calls.Add("resolve");
-                return Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<string>>>(new Dictionary<string, IReadOnlyList<string>>());
-            },
-            getBaselineAsync: ct =>
-            {
-                calls.Add("baseline");
-                return Task.FromResult(NewBaseline());
+                return Task.FromResult(NewBuildResult(slug, platform));
             });
 
         await controller.Run(new AdminCreatorProfileInputModel
@@ -197,7 +155,7 @@ public sealed class AdminCreatorProfileControllerTests
         Assert.Equal(existing.FolderWeights, store.Upserts[0].FolderWeights);
         Assert.False(store.Upserts[0].WeightsUncurated);
         Assert.Equal(existing.ProfileUrl, store.Upserts[0].ProfileUrl);
-        Assert.Equal(["crawl-force", "build", "crawl", "resolve", "baseline"], calls);
+        Assert.Equal(["build"], calls);
     }
 
     [Fact]
@@ -218,10 +176,7 @@ public sealed class AdminCreatorProfileControllerTests
         var store = new RecordingSourceStore(existing);
         var controller = Build(
             store,
-            buildAsync: (slug, platform, ct) => Task.FromResult(NewProfile(slug, platform)),
-            crawlAsync: (slug, forceRefresh, ct) => Task.FromResult<IReadOnlyList<CreatorDeckSample>>(NewSamples()),
-            resolveAsync: (samples, ct) => Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<string>>>(new Dictionary<string, IReadOnlyList<string>>()),
-            getBaselineAsync: ct => Task.FromResult(NewBaseline()));
+            buildDetailedAsync: (slug, platform, ct) => Task.FromResult(NewBuildResult(slug, platform)));
 
         await controller.Run(new AdminCreatorProfileInputModel
         {
@@ -239,10 +194,7 @@ public sealed class AdminCreatorProfileControllerTests
         var store = new RecordingSourceStore();
         var controller = Build(
             store,
-            buildAsync: (slug, platform, ct) => Task.FromException<CreatorStyleProfile>(new InvalidOperationException("boom")),
-            crawlAsync: (slug, forceRefresh, ct) => Task.FromResult<IReadOnlyList<CreatorDeckSample>>(Array.Empty<CreatorDeckSample>()),
-            resolveAsync: (samples, ct) => Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<string>>>(new Dictionary<string, IReadOnlyList<string>>()),
-            getBaselineAsync: ct => Task.FromResult(NewBaseline()));
+            buildDetailedAsync: (slug, platform, ct) => Task.FromException<MeasuredStyleBuildResult>(new InvalidOperationException("boom")));
 
         var result = await controller.Run(new AdminCreatorProfileInputModel
         {
@@ -261,21 +213,51 @@ public sealed class AdminCreatorProfileControllerTests
         Assert.Null(model.Report);
     }
 
+    [Fact]
+    public async Task Run_CrossOriginRequest_ReturnsForbidden()
+    {
+        var store = new RecordingSourceStore();
+        var calls = new List<string>();
+        var controller = Build(
+            store,
+            buildDetailedAsync: (slug, platform, ct) =>
+            {
+                calls.Add("build");
+                return Task.FromResult(NewBuildResult(slug, platform));
+            },
+            origin: "https://evil.test");
+
+        var result = await controller.Run(new AdminCreatorProfileInputModel
+        {
+            Slug = "slug",
+            Username = "user",
+            Platform = "archidekt",
+        });
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, objectResult.StatusCode);
+        Assert.Equal(SameOriginRequestValidator.GetForbiddenMessage(), objectResult.Value);
+        Assert.Empty(store.Upserts);
+        Assert.Empty(calls);
+    }
+
     private static AdminCreatorProfileController Build(
         ICreatorProfileSourceStore? store = null,
-        Func<string, string, CancellationToken, Task<CreatorStyleProfile>>? buildAsync = null,
-        Func<string, bool, CancellationToken, Task<IReadOnlyList<CreatorDeckSample>>>? crawlAsync = null,
-        Func<IReadOnlyList<CreatorDeckSample>, CancellationToken, Task<IReadOnlyDictionary<string, IReadOnlyList<string>>>>? resolveAsync = null,
-        Func<CancellationToken, Task<GlobalCategoryBaseline>>? getBaselineAsync = null,
-        Func<DateTimeOffset>? nowUtc = null)
+        Func<string, string, CancellationToken, Task<MeasuredStyleBuildResult>>? buildDetailedAsync = null,
+        Func<DateTimeOffset>? nowUtc = null,
+        string? origin = "https://deckflow.test")
     {
         var httpContext = new DefaultHttpContext();
+        httpContext.Request.Scheme = "https";
+        httpContext.Request.Host = new HostString("deckflow.test");
+        if (!string.IsNullOrWhiteSpace(origin))
+        {
+            httpContext.Request.Headers.Origin = origin;
+        }
+
         return new AdminCreatorProfileController(
             store ?? new RecordingSourceStore(),
-            buildAsync ?? ((slug, platform, ct) => Task.FromResult(NewProfile(slug, platform))),
-            crawlAsync ?? ((slug, forceRefresh, ct) => Task.FromResult<IReadOnlyList<CreatorDeckSample>>(Array.Empty<CreatorDeckSample>())),
-            resolveAsync ?? ((samples, ct) => Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<string>>>(new Dictionary<string, IReadOnlyList<string>>())),
-            getBaselineAsync ?? (ct => Task.FromResult(NewBaseline())),
+            buildDetailedAsync ?? ((slug, platform, ct) => Task.FromResult(NewBuildResult(slug, platform))),
             nowUtc ?? (() => new DateTimeOffset(2026, 7, 19, 12, 0, 0, TimeSpan.Zero)),
             NullLogger<AdminCreatorProfileController>.Instance)
         {
@@ -300,14 +282,6 @@ public sealed class AdminCreatorProfileControllerTests
                 }
             ],
             UpdatedUtc = new DateTimeOffset(2026, 7, 19, 12, 0, 0, TimeSpan.Zero),
-        };
-
-    private static GlobalCategoryBaseline NewBaseline() =>
-        new()
-        {
-            TotalDecks = 10,
-            DecksWithCategory = new Dictionary<string, int>(),
-            DecksWithCategoryPair = new Dictionary<string, int>(),
         };
 
     private static IReadOnlyList<CreatorDeckSample> NewSamples() =>
@@ -348,6 +322,27 @@ public sealed class AdminCreatorProfileControllerTests
             Quantity = 1,
             Board = board,
         };
+
+    private static MeasuredStyleBuildResult NewBuildResult(string slug, string platform)
+    {
+        var samples = NewSamples();
+        return new MeasuredStyleBuildResult(
+            NewProfile(slug, platform),
+            samples,
+            new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Sol Ring"] = ["Ramp"],
+                ["Arcane Signet"] = ["Ramp"],
+                ["Atraxa, Praetors' Voice"] = ["Commander"],
+                ["Derevi, Empyrial Tactician"] = ["Commander"],
+            },
+            new GlobalCategoryBaseline
+            {
+                TotalDecks = 10,
+                DecksWithCategory = new Dictionary<string, int>(),
+                DecksWithCategoryPair = new Dictionary<string, int>(),
+            });
+    }
 
     private sealed class RecordingSourceStore : ICreatorProfileSourceStore
     {
