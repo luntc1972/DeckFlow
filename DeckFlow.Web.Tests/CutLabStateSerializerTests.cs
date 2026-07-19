@@ -41,6 +41,21 @@ public sealed class CutLabStateSerializerTests
                     Locked = true,
                 },
             ],
+            RoleFloors =
+            [
+                new CutLabRoleFloor
+                {
+                    Role = "interaction",
+                    Floor = 7,
+                    IsUserSet = true,
+                },
+                new CutLabRoleFloor
+                {
+                    Role = "draw",
+                    Floor = 12,
+                    IsUserSet = false,
+                },
+            ],
             Intent = new CutLabIntent
             {
                 PrimaryPlan = "Counters",
@@ -53,15 +68,94 @@ public sealed class CutLabStateSerializerTests
         var json = CutLabStateSerializer.Serialize(state);
         var roundTripped = CutLabStateSerializer.Deserialize(json);
 
+        Assert.Contains("\"roleFloors\"", json);
         Assert.Equal("Atraxa, Praetors' Voice", roundTripped.Commander);
         Assert.Equal(2, roundTripped.Pool.Count);
         Assert.Equal("ramp", Assert.Single(roundTripped.Packages).Id);
+        Assert.Equal(state.RoleFloors, roundTripped.RoleFloors);
         Assert.Equal("Counters", roundTripped.Intent.PrimaryPlan);
         Assert.Equal("Blink", roundTripped.Intent.SecondaryPlan);
         Assert.Equal(3, roundTripped.Intent.Bracket);
         Assert.Equal("Resilient midrange", roundTripped.Intent.PlayExperience);
         Assert.True(Assert.Single(roundTripped.Pool, card => card.IsCommander).IsLocked);
         Assert.True(Assert.Single(roundTripped.Pool, card => card.Name == "Arcane Signet").IsLocked);
+    }
+
+    [Fact]
+    public void Deserialize_Pre102JsonWithoutRoleFloors_ReturnsEmptyRoleFloors_AndReLocksCommander()
+    {
+        const string json =
+            """
+            {
+              "commander": "Atraxa, Praetors' Voice",
+              "pool": [
+                {
+                  "name": "Atraxa, Praetors' Voice",
+                  "quantity": 1,
+                  "typeLine": "Legendary Creature — Phyrexian Angel Horror",
+                  "isCommander": true,
+                  "isLocked": false
+                },
+                {
+                  "name": "Arcane Signet",
+                  "quantity": 1,
+                  "typeLine": "Artifact",
+                  "isCommander": false,
+                  "isLocked": true
+                }
+              ],
+              "packages": [],
+              "intent": {
+                "primaryPlan": "Counters",
+                "secondaryPlan": null,
+                "bracket": 3,
+                "playExperience": "Focused"
+              }
+            }
+            """;
+
+        var state = CutLabStateSerializer.Deserialize(json);
+
+        Assert.Empty(state.RoleFloors);
+        Assert.True(Assert.Single(state.Pool, card => card.IsCommander).IsLocked);
+    }
+
+    [Fact]
+    public void Deserialize_TamperedRoleFloors_ClampsAndDropsInvalidEntries()
+    {
+        const string json =
+            """
+            {
+              "commander": "Atraxa, Praetors' Voice",
+              "pool": [],
+              "packages": [],
+              "roleFloors": [
+                {
+                  "role": "wincons",
+                  "floor": -3,
+                  "isUserSet": true
+                },
+                {
+                  "role": "battlecruiser",
+                  "floor": 5,
+                  "isUserSet": true
+                }
+              ],
+              "intent": {
+                "primaryPlan": "Counters",
+                "secondaryPlan": null,
+                "bracket": 3,
+                "playExperience": "Focused"
+              }
+            }
+            """;
+
+        var state = CutLabStateSerializer.Deserialize(json);
+
+        var floor = Assert.Single(state.RoleFloors);
+        Assert.Equal("wincons", floor.Role);
+        Assert.Equal(0, floor.Floor);
+        Assert.True(floor.IsUserSet);
     }
 
     [Theory]
