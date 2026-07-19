@@ -1,3 +1,4 @@
+using DeckFlow.Core.Knowledge.CardGrounding;
 using DeckFlow.Core.Knowledge.StatedRulesExtraction;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Scryfall;
@@ -57,6 +58,7 @@ public static class ScryfallServiceCollectionExtensions
                 sp.GetRequiredService<IScryfallRestClientFactory>(),
                 sp.GetRequiredService<ResiliencePipelineProvider<string>>()));
         services.AddSingleton<ICardNameGrounder, ScryfallCardNameGrounder>();
+        services.AddSingleton<ICardGroundingGuard, CardGroundingGuard>();
         services.AddSingleton<IMechanicLookupService, WotcMechanicLookupService>();
         services.AddSingleton<ICommanderBanListService>(sp =>
             new CommanderBanListService(
