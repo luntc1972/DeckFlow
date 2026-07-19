@@ -18,7 +18,7 @@ reviewed_at: 2026-07-19
 
 **Closest sibling templates** (Claude's Discretion, resolved):
 - **Page/form shape:** `DeckFlow.Web/Views/Deck/Manabase.cshtml` — single `<form>` → result panel below, no `_WorkflowStepTabs` multi-step strip (matches D-100-11).
-- **Deck-input columns:** `DeckFlow.Web/Views/Deck/DeckComparison.cshtml` (`.sync-columns` / `.sync-column` / `data-sync-panel` toggle pattern) — matches D-100-10's "standardized import component (site dropdown + URL/paste toggle)".
+- **Deck-input columns:** `DeckFlow.Web/Views/Deck/Manabase.cshtml` (`.sync-columns` / `.sync-column` / `data-sync-panel` URL/paste toggle pattern — correction: `DeckComparison.cshtml` has no `data-sync-panel` toggle; see RESEARCH.md Pitfall 1 / PATTERNS.md) — matches D-100-10's "standardized import component (site dropdown + URL/paste toggle)".
 - **Controller/service orchestration shape:** `DeckAnalysisPacketService.cs` (`PromptMutatingAnalysisFlags` / `ShouldBypassPacketCache()` cache-bypass latch, lines ~156–394) — mirror exactly per D-100-06 and canonical_refs.
 
 ---
@@ -131,11 +131,11 @@ Not applicable — no shadcn, no component registry, no third-party UI package i
 These are project-specific interaction contracts the checker/executor need beyond generic copy/color/spacing, extracted from locked CONTEXT.md decisions:
 
 - **Page structure:** single `<form>` → result panel appended below on POST, matching `Manabase.cshtml` exactly. No `_WorkflowStepTabs` partial, no multi-step state machine (D-100-11).
-- **Deck input:** reuse `.sync-columns`/`.sync-column` two-column layout with `data-sync-panel` URL/paste toggle exactly as `DeckComparison.cshtml` implements it (D-100-10). Do not fix the known deck-input-store restore desync bug in this phase — it is explicitly deferred backlog, inherited as-is.
+- **Deck input:** reuse `.sync-columns`/`.sync-column` two-column layout with `data-sync-panel` URL/paste toggle exactly as `Manabase.cshtml` implements it (D-100-10; DeckComparison.cshtml lacks the toggle — RESEARCH.md Pitfall 1). Do not fix the known deck-input-store restore desync bug in this phase — it is explicitly deferred backlog, inherited as-is.
 - **Creator picker:** native `<select>` with `data-df-select` (matches every sibling `<select>` in this codebase — e.g. `Mode`, `SortBy` in `CedhMetaGap.cshtml`), populated server-side only from creators actually present in `ICreatorStyleProfileStore`. No free-text entry, no client-side autocomplete/datalist (unlike the commander-name field in `CedhMetaGap.cshtml`, which does use a `<datalist>` — that pattern is NOT appropriate here since D-100-09 requires the picker itself to be the source of truth).
 - **Result content:** copy-ready packet block (`<textarea readonly>` + `.copy-button` targeting it, matching `#cedh-meta-gap-prompt-output` pattern exactly) plus a small summary strip above it (rubric verdict chips + exemplar deck names) — never a full rendered report duplicating the ChatGPT response (D-100-13).
 - **Mobile re-download:** reuse the existing fetch-intercept download pattern (see project memory: mobile-refresh re-download fix) if this page offers a "Download packet" affordance mirroring `.manabase-download` / `.prompt-sticky-download` sibling patterns.
-- **Flag-off state:** tile hidden from Home, route 404s, and the route is absent from the sitemap (SeoPaths/`SitemapController` gated on `tool.creator-style.enabled`) — mirrors D-100-07/D-100-05. This is a behavioral contract, not a visual one, but the checker should verify no orphan nav link or sitemap entry exists while the flag is OFF.
+- **Flag-off state:** tile hidden from Home and route 404s (`tool.creator-style.enabled`) — mirrors D-100-07/D-100-05. Sitemap note: sitemap/SEO wiring is DEFERRED post-merge (user decision 2026-07-19); `SitemapController` is not touched this phase and its `IndexablePaths` already omits `/creator-style`, so no sitemap entry exists while the flag is OFF. Checker should verify no orphan nav link exists while the flag is OFF.
 - **Themes/viewports:** this page must render correctly across all 15 guild theme forks and at desktop + the existing mobile breakpoints (`site-mobile.css`: 900px / 768px / 600px / 480px). No page-specific media queries beyond what sibling tools already use — reuse `.sync-columns` responsive collapse behavior verbatim.
 
 ---
