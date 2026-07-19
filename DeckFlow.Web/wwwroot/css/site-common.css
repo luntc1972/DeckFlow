@@ -426,7 +426,7 @@ summary:focus-visible,
 }
 
 .kb-filter-bar input,
-.kb-filter-bar select {
+.kb-filter-bar select:not(.df-select__native) {
   width: 100%;
   min-height: 44px;
 }
