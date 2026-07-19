@@ -29,8 +29,8 @@ public sealed class SubmittedDeckStatsBuilderTests
         ];
 
         var builder = new SubmittedDeckStatsBuilder(
-            loadDeckAsyncOverride: (_, _) => Task.FromResult(new DeckSourceLoadResult(entries.ToList(), "fallback notice")),
-            getCategoriesAsyncOverride: (cardName, _) =>
+            loadDeckAsync: (_, _) => Task.FromResult(new DeckSourceLoadResult(entries.ToList(), "fallback notice")),
+            getCategoriesAsync: (cardName, _) =>
             {
                 categoryLookupCounts[cardName] = categoryLookupCounts.TryGetValue(cardName, out int count)
                     ? count + 1
@@ -46,13 +46,13 @@ public sealed class SubmittedDeckStatsBuilderTests
 
                 return Task.FromResult(categories);
             },
-            findCombosAsyncOverride: (_, _) => Task.FromResult<CommanderSpellbookResult?>(new CommanderSpellbookResult(
+            findCombosAsync: (_, _) => Task.FromResult<CommanderSpellbookResult?>(new CommanderSpellbookResult(
                 [
                     new SpellbookCombo(["Card A"], ["Result A"], "Line A"),
                     new SpellbookCombo(["Card B"], ["Result B"], "Line B"),
                 ],
                 [])),
-            analyzeSubmittedDeckAsyncOverride: (_, _) => Task.FromResult(EmptyAnalysis()));
+            analyzeSubmittedDeckAsync: (_, _) => Task.FromResult(EmptyAnalysis()));
 
         SubmittedDeckAnalysis result = await builder.BuildAsync("fixture");
 
@@ -82,10 +82,10 @@ public sealed class SubmittedDeckStatsBuilderTests
         ];
 
         var builder = new SubmittedDeckStatsBuilder(
-            loadDeckAsyncOverride: (_, _) => Task.FromResult(new DeckSourceLoadResult(entries.ToList(), null)),
-            getCategoriesAsyncOverride: (_, _) => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>()),
-            findCombosAsyncOverride: (_, _) => Task.FromResult<CommanderSpellbookResult?>(null),
-            analyzeSubmittedDeckAsyncOverride: (_, _) => Task.FromResult(EmptyAnalysis()));
+            loadDeckAsync: (_, _) => Task.FromResult(new DeckSourceLoadResult(entries.ToList(), null)),
+            getCategoriesAsync: (_, _) => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>()),
+            findCombosAsync: (_, _) => Task.FromResult<CommanderSpellbookResult?>(null),
+            analyzeSubmittedDeckAsync: (_, _) => Task.FromResult(EmptyAnalysis()));
 
         SubmittedDeckAnalysis result = await builder.BuildAsync("fixture");
 
@@ -123,15 +123,15 @@ public sealed class SubmittedDeckStatsBuilderTests
             .ToHashSet();
 
         var builder = new SubmittedDeckStatsBuilder(
-            loadDeckAsyncOverride: (_, _) => Task.FromResult(new DeckSourceLoadResult(entries.ToList(), null)),
-            getCategoriesAsyncOverride: (_, _) => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>()),
-            findCombosAsyncOverride: (_, _) => Task.FromResult<CommanderSpellbookResult?>(null),
-            executeCollectionAsyncOverride: (request, _) => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+            loadDeckAsync: (_, _) => Task.FromResult(new DeckSourceLoadResult(entries.ToList(), null)),
+            getCategoriesAsync: (_, _) => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>()),
+            findCombosAsync: (_, _) => Task.FromResult<CommanderSpellbookResult?>(null),
+            executeCollectionAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
             {
                 StatusCode = HttpStatusCode.OK,
                 Data = new ScryfallCollectionResponse(cardsByName.Values.ToList(), null)
             }),
-            searchFallbackCardAsyncOverride: (cardName, _) => Task.FromResult(cardsByName.TryGetValue(cardName, out ScryfallCard? card) ? card : null));
+            searchFallbackCardAsync: (cardName, _) => Task.FromResult(cardsByName.TryGetValue(cardName, out ScryfallCard? card) ? card : null));
 
         SubmittedDeckAnalysis result = await builder.BuildAsync("fixture");
 
@@ -160,10 +160,10 @@ public sealed class SubmittedDeckStatsBuilderTests
         ];
 
         var builder = new SubmittedDeckStatsBuilder(
-            loadDeckAsyncOverride: (_, _) => Task.FromResult(new DeckSourceLoadResult(entries.ToList(), null)),
-            getCategoriesAsyncOverride: (_, _) => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>()),
-            findCombosAsyncOverride: (_, _) => Task.FromResult<CommanderSpellbookResult?>(null),
-            analyzeSubmittedDeckAsyncOverride: (_, _) => Task.FromResult(CreateAnalysis(
+            loadDeckAsync: (_, _) => Task.FromResult(new DeckSourceLoadResult(entries.ToList(), null)),
+            getCategoriesAsync: (_, _) => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>()),
+            findCombosAsync: (_, _) => Task.FromResult<CommanderSpellbookResult?>(null),
+            analyzeSubmittedDeckAsync: (_, _) => Task.FromResult(CreateAnalysis(
                 CreateReport(health),
                 new CardGroundingDeckContext
                 {
@@ -188,15 +188,15 @@ public sealed class SubmittedDeckStatsBuilderTests
         ];
 
         var builder = new SubmittedDeckStatsBuilder(
-            loadDeckAsyncOverride: (_, _) => Task.FromResult(new DeckSourceLoadResult(entries.ToList(), null)),
-            getCategoriesAsyncOverride: (_, _) => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>()),
-            findCombosAsyncOverride: (_, _) => Task.FromResult<CommanderSpellbookResult?>(null),
-            executeCollectionAsyncOverride: (request, _) => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+            loadDeckAsync: (_, _) => Task.FromResult(new DeckSourceLoadResult(entries.ToList(), null)),
+            getCategoriesAsync: (_, _) => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>()),
+            findCombosAsync: (_, _) => Task.FromResult<CommanderSpellbookResult?>(null),
+            executeCollectionAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
             {
                 StatusCode = HttpStatusCode.OK,
                 Data = new ScryfallCollectionResponse([], null)
             }),
-            searchFallbackCardAsyncOverride: (_, _) => Task.FromResult<ScryfallCard?>(null));
+            searchFallbackCardAsync: (_, _) => Task.FromResult<ScryfallCard?>(null));
 
         SubmittedDeckAnalysis result = await builder.BuildAsync("fixture");
 

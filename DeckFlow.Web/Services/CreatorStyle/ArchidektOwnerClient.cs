@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Polly;
 using Polly.Registry;
 using RestSharp;
+using System.Net.Http;
 
 namespace DeckFlow.Web.Services.CreatorStyle;
 
@@ -47,21 +48,30 @@ public sealed class ArchidektOwnerClient : IArchidektOwnerClient
     /// <summary>
     /// Creates an Archidekt owner client.
     /// </summary>
+    /// <param name="httpClientFactory">Named HTTP client factory.</param>
     /// <param name="pipelineProvider">Named resilience pipeline provider.</param>
-    /// <param name="restClient">Optional RestClient for test injection.</param>
     /// <param name="logger">Optional logger.</param>
     public ArchidektOwnerClient(
+        IHttpClientFactory httpClientFactory,
         ResiliencePipelineProvider<string> pipelineProvider,
-        RestClient? restClient = null,
+        ILogger<ArchidektOwnerClient>? logger = null)
+        : this(
+            pipelineProvider,
+            new RestClient(httpClientFactory.CreateClient("archidekt-owner")),
+            logger)
+    {
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
+    }
+
+    internal ArchidektOwnerClient(
+        ResiliencePipelineProvider<string> pipelineProvider,
+        RestClient restClient,
         ILogger<ArchidektOwnerClient>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(pipelineProvider);
-        _restClient = restClient ?? new RestClient(new RestClientOptions
-        {
-            BaseUrl = new Uri("https://archidekt.com"),
-            ThrowOnAnyError = false,
-        });
-        _resiliencePipeline = pipelineProvider.GetPipeline<RestResponse>("banlist") ?? ResiliencePipeline<RestResponse>.Empty;
+        ArgumentNullException.ThrowIfNull(restClient);
+        _restClient = restClient;
+        _resiliencePipeline = pipelineProvider.GetPipeline<RestResponse>("archidekt") ?? ResiliencePipeline<RestResponse>.Empty;
         _logger = logger ?? NullLogger<ArchidektOwnerClient>.Instance;
     }
 

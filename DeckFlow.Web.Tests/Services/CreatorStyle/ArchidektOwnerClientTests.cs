@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using DeckFlow.Web.Services.CreatorStyle;
+using Polly;
+using Polly.Registry;
 using RestSharp;
 using Xunit;
 
@@ -68,6 +70,27 @@ public sealed class ArchidektOwnerClientTests
         Assert.Single(stub.RecordedRequests);
         Assert.Equal("/api/users/", stub.RecordedRequests[0].RequestUri?.AbsolutePath);
         Assert.Equal("username=snail", stub.RecordedRequests[0].RequestUri?.Query.TrimStart('?'));
+    }
+
+    [Fact]
+    public async Task ResolveUsernameAsync_UsesArchidektNamedHttpClientAndPipeline()
+    {
+        var stub = new StubHttpMessageHandler();
+        stub.Enqueue(JsonResponse("""{ "results": [] }"""));
+        var httpClient = new HttpClient(stub, disposeHandler: false)
+        {
+            BaseAddress = new Uri("https://archidekt.com/")
+        };
+        var httpClientFactory = new RecordingHttpClientFactory(httpClient);
+        var pipelineProvider = new RecordingPipelineProvider();
+        var sut = new ArchidektOwnerClient(httpClientFactory, pipelineProvider);
+
+        await sut.ResolveUsernameAsync("snail");
+
+        Assert.Equal("archidekt-owner", httpClientFactory.LastClientName);
+        Assert.Equal("archidekt", pipelineProvider.LastPipelineName);
+        Assert.Single(stub.RecordedRequests);
+        Assert.Equal("https://archidekt.com/api/users/?username=snail", stub.RecordedRequests[0].RequestUri?.ToString());
     }
 
     [Fact]
@@ -227,5 +250,48 @@ public sealed class ArchidektOwnerClientTests
 
         builder.Append("]}");
         return builder.ToString();
+    }
+
+    private sealed class RecordingHttpClientFactory : IHttpClientFactory
+    {
+        private readonly HttpClient _httpClient;
+
+        public RecordingHttpClientFactory(HttpClient httpClient)
+        {
+            _httpClient = httpClient;
+        }
+
+        public string? LastClientName { get; private set; }
+
+        public HttpClient CreateClient(string name)
+        {
+            LastClientName = name;
+            return _httpClient;
+        }
+    }
+
+    private sealed class RecordingPipelineProvider : ResiliencePipelineProvider<string>
+    {
+        public string? LastPipelineName { get; private set; }
+
+        public override ResiliencePipeline<T> GetPipeline<T>(string key)
+        {
+            LastPipelineName = key;
+            return ResiliencePipeline<T>.Empty;
+        }
+
+        public override bool TryGetPipeline<T>(string key, out ResiliencePipeline<T> pipeline)
+        {
+            LastPipelineName = key;
+            pipeline = ResiliencePipeline<T>.Empty;
+            return true;
+        }
+
+        public override bool TryGetPipeline(string key, out ResiliencePipeline pipeline)
+        {
+            LastPipelineName = key;
+            pipeline = ResiliencePipeline.Empty;
+            return true;
+        }
     }
 }

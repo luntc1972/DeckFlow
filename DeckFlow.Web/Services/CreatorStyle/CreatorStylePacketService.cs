@@ -124,20 +124,15 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         CreatorStyleToolEnabledFlag,
     };
 
-    private readonly ICreatorStyleProfileStore? _creatorStyleProfileStore;
-    private readonly ISubmittedDeckStatsBuilder? _submittedDeckStatsBuilder;
-    private readonly CreatorWhitelistPoolBuilder? _creatorWhitelistPoolBuilder;
-    private readonly ICardGroundingGuard? _cardGroundingGuard;
-    private readonly ICreatorDeckCacheStore? _creatorDeckCacheStore;
+    private readonly Func<string, CancellationToken, Task<CreatorStyleProfile?>> _getProfileAsync;
+    private readonly Func<string, CancellationToken, Task<SubmittedDeckAnalysis>> _buildSubmittedDeckAsync;
+    private readonly Func<string, CardGroundingDeckContext, CancellationToken, Task<CreatorWhitelistPoolBuildResult>> _buildWhitelistAsync;
+    private readonly Func<IReadOnlyList<string>, CardGroundingDeckContext, CancellationToken, Task<CardGroundingBatchResult>> _validateAdditionalCardsAsync;
+    private readonly Func<string, CancellationToken, Task<IReadOnlyList<CreatorDeckCacheEntry>>> _getCreatorDecksAsync;
+    private readonly Func<string, IReadOnlyList<FusedTarget>, SubmittedDeckStats, RubricScoreResult> _scoreRubric;
     private readonly PacketSessionCache? _packetCache;
     private readonly IFeatureFlagCache? _flagCache;
     private readonly ILogger<CreatorStylePacketService> _logger;
-    private readonly Func<string, CancellationToken, Task<CreatorStyleProfile?>>? _getProfileAsyncOverride;
-    private readonly Func<string, CancellationToken, Task<SubmittedDeckAnalysis>>? _buildSubmittedDeckAsyncOverride;
-    private readonly Func<string, CardGroundingDeckContext, CancellationToken, Task<CreatorWhitelistPoolBuildResult>>? _buildWhitelistAsyncOverride;
-    private readonly Func<IReadOnlyList<string>, CardGroundingDeckContext, CancellationToken, Task<CardGroundingBatchResult>>? _validateAdditionalCardsAsyncOverride;
-    private readonly Func<string, CancellationToken, Task<IReadOnlyList<CreatorDeckCacheEntry>>>? _getCreatorDecksAsyncOverride;
-    private readonly Func<string, IReadOnlyList<FusedTarget>, SubmittedDeckStats, RubricScoreResult>? _scoreRubricOverride;
 
     /// <summary>
     /// Creates the production creator-style packet service.
@@ -159,33 +154,40 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         ArgumentNullException.ThrowIfNull(creatorDeckCacheStore);
         ArgumentNullException.ThrowIfNull(packetCache);
 
-        _creatorStyleProfileStore = creatorStyleProfileStore;
-        _submittedDeckStatsBuilder = submittedDeckStatsBuilder;
-        _creatorWhitelistPoolBuilder = creatorWhitelistPoolBuilder;
-        _cardGroundingGuard = cardGroundingGuard;
-        _creatorDeckCacheStore = creatorDeckCacheStore;
+        _getProfileAsync = (creatorSlug, cancellationToken) => creatorStyleProfileStore.GetBySlugAsync(creatorSlug, cancellationToken);
+        _buildSubmittedDeckAsync = (deckSource, cancellationToken) => submittedDeckStatsBuilder.BuildAsync(deckSource, cancellationToken);
+        _buildWhitelistAsync = (creatorSlug, deckContext, cancellationToken) => creatorWhitelistPoolBuilder.BuildWithDiagnosticsAsync(creatorSlug, deckContext, cancellationToken);
+        _validateAdditionalCardsAsync = (candidateNames, deckContext, cancellationToken) => cardGroundingGuard.ValidateAllAsync(candidateNames, deckContext, cancellationToken);
+        _getCreatorDecksAsync = (creatorSlug, cancellationToken) => creatorDeckCacheStore.GetByCreatorAsync(creatorSlug, cancellationToken);
+        _scoreRubric = (creatorSlug, targets, stats) => CreatorStyleRubricScorer.Score(creatorSlug, targets, stats);
         _packetCache = packetCache;
         _flagCache = flagCache;
         _logger = logger ?? NullLogger<CreatorStylePacketService>.Instance;
     }
 
     internal CreatorStylePacketService(
-        Func<string, CancellationToken, Task<CreatorStyleProfile?>>? getProfileAsync = null,
-        Func<string, CancellationToken, Task<SubmittedDeckAnalysis>>? buildSubmittedDeckAsync = null,
-        Func<string, CardGroundingDeckContext, CancellationToken, Task<CreatorWhitelistPoolBuildResult>>? buildWhitelistAsync = null,
-        Func<IReadOnlyList<string>, CardGroundingDeckContext, CancellationToken, Task<CardGroundingBatchResult>>? validateAdditionalCardsAsync = null,
-        Func<string, CancellationToken, Task<IReadOnlyList<CreatorDeckCacheEntry>>>? getCreatorDecksAsync = null,
-        Func<string, IReadOnlyList<FusedTarget>, SubmittedDeckStats, RubricScoreResult>? scoreRubric = null,
+        Func<string, CancellationToken, Task<CreatorStyleProfile?>> getProfileAsync,
+        Func<string, CancellationToken, Task<SubmittedDeckAnalysis>> buildSubmittedDeckAsync,
+        Func<string, CardGroundingDeckContext, CancellationToken, Task<CreatorWhitelistPoolBuildResult>> buildWhitelistAsync,
+        Func<IReadOnlyList<string>, CardGroundingDeckContext, CancellationToken, Task<CardGroundingBatchResult>> validateAdditionalCardsAsync,
+        Func<string, CancellationToken, Task<IReadOnlyList<CreatorDeckCacheEntry>>> getCreatorDecksAsync,
+        Func<string, IReadOnlyList<FusedTarget>, SubmittedDeckStats, RubricScoreResult> scoreRubric,
         PacketSessionCache? packetCache = null,
         IFeatureFlagCache? flagCache = null,
         ILogger<CreatorStylePacketService>? logger = null)
     {
-        _getProfileAsyncOverride = getProfileAsync;
-        _buildSubmittedDeckAsyncOverride = buildSubmittedDeckAsync;
-        _buildWhitelistAsyncOverride = buildWhitelistAsync;
-        _validateAdditionalCardsAsyncOverride = validateAdditionalCardsAsync;
-        _getCreatorDecksAsyncOverride = getCreatorDecksAsync;
-        _scoreRubricOverride = scoreRubric;
+        ArgumentNullException.ThrowIfNull(getProfileAsync);
+        ArgumentNullException.ThrowIfNull(buildSubmittedDeckAsync);
+        ArgumentNullException.ThrowIfNull(buildWhitelistAsync);
+        ArgumentNullException.ThrowIfNull(validateAdditionalCardsAsync);
+        ArgumentNullException.ThrowIfNull(getCreatorDecksAsync);
+        ArgumentNullException.ThrowIfNull(scoreRubric);
+        _getProfileAsync = getProfileAsync;
+        _buildSubmittedDeckAsync = buildSubmittedDeckAsync;
+        _buildWhitelistAsync = buildWhitelistAsync;
+        _validateAdditionalCardsAsync = validateAdditionalCardsAsync;
+        _getCreatorDecksAsync = getCreatorDecksAsync;
+        _scoreRubric = scoreRubric;
         _packetCache = packetCache;
         _flagCache = flagCache;
         _logger = logger ?? NullLogger<CreatorStylePacketService>.Instance;
@@ -210,7 +212,7 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         ArgumentNullException.ThrowIfNull(request);
         bool bypassCacheWrite = ShouldBypassPacketCache();
 
-        CreatorStyleProfile? profile = await GetProfileAsync(request.CreatorSlug, cancellationToken).ConfigureAwait(false);
+        CreatorStyleProfile? profile = await _getProfileAsync(request.CreatorSlug, cancellationToken).ConfigureAwait(false);
         if (profile is null)
         {
             return FinalizeResult(CreateUnavailableResult("No creator style profile is available for the supplied creator slug."));
@@ -221,20 +223,18 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
             return FinalizeResult(CreateUnavailableResult("The creator style profile sample is insufficient for artifact generation."));
         }
 
-        Task<IReadOnlyList<CreatorDeckCacheEntry>> creatorDecksTask = GetCreatorDecksAsync(request.CreatorSlug, cancellationToken);
-        SubmittedDeckAnalysis analysis = await BuildSubmittedDeckAsync(request.DeckSource, cancellationToken).ConfigureAwait(false);
+        Task<IReadOnlyList<CreatorDeckCacheEntry>> creatorDecksTask = _getCreatorDecksAsync(request.CreatorSlug, cancellationToken);
+        SubmittedDeckAnalysis analysis = await _buildSubmittedDeckAsync(request.DeckSource, cancellationToken).ConfigureAwait(false);
         IReadOnlyList<FusedTarget> scoreableTargets = profile.FusedTargets
             .Where(static target => !IsSuperseded(target))
             .Where(static target => string.IsNullOrWhiteSpace(target.Condition))
             .ToArray();
-        RubricScoreResult rubricScores = _scoreRubricOverride is not null
-            ? _scoreRubricOverride(request.CreatorSlug, scoreableTargets, analysis.Stats)
-            : CreatorStyleRubricScorer.Score(request.CreatorSlug, scoreableTargets, analysis.Stats);
+        RubricScoreResult rubricScores = _scoreRubric(request.CreatorSlug, scoreableTargets, analysis.Stats);
 
         IReadOnlyList<CreatorDeckCacheEntry> creatorDecks = await creatorDecksTask.ConfigureAwait(false);
         IReadOnlyList<CreatorDeckCacheEntry> selectedExemplars = CreatorDeckExemplarSelector.SelectExemplars(creatorDecks, analysis.Stats.DeckSize);
 
-        CreatorWhitelistPoolBuildResult whitelist = await BuildWhitelistAsync(
+        CreatorWhitelistPoolBuildResult whitelist = await _buildWhitelistAsync(
             request.CreatorSlug,
             analysis.DeckContext,
             cancellationToken).ConfigureAwait(false);
@@ -256,7 +256,7 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
                 Verdicts = [],
                 HasUpstreamFailure = false,
             }
-            : await ValidateAdditionalCardsAsync(additionalCandidates, analysis.DeckContext, cancellationToken).ConfigureAwait(false);
+            : await _validateAdditionalCardsAsync(additionalCandidates, analysis.DeckContext, cancellationToken).ConfigureAwait(false);
 
         Dictionary<string, string> acceptedByOriginal = BuildAcceptedByOriginal(additionalCandidates, additionalValidation.Verdicts);
         IReadOnlyList<CreatorStyleExemplarDeck> exemplars = selectedExemplars
@@ -546,72 +546,6 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         return singleLine.Length <= MaxUserTextLength
             ? singleLine
             : singleLine[..MaxUserTextLength];
-    }
-
-    private async Task<CreatorStyleProfile?> GetProfileAsync(string creatorSlug, CancellationToken cancellationToken)
-    {
-        if (_getProfileAsyncOverride is not null)
-        {
-            return await _getProfileAsyncOverride(creatorSlug, cancellationToken).ConfigureAwait(false);
-        }
-
-        return await _creatorStyleProfileStore!
-            .GetBySlugAsync(creatorSlug, cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    private async Task<SubmittedDeckAnalysis> BuildSubmittedDeckAsync(string deckSource, CancellationToken cancellationToken)
-    {
-        if (_buildSubmittedDeckAsyncOverride is not null)
-        {
-            return await _buildSubmittedDeckAsyncOverride(deckSource, cancellationToken).ConfigureAwait(false);
-        }
-
-        return await _submittedDeckStatsBuilder!
-            .BuildAsync(deckSource, cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    private async Task<CreatorWhitelistPoolBuildResult> BuildWhitelistAsync(
-        string creatorSlug,
-        CardGroundingDeckContext deckContext,
-        CancellationToken cancellationToken)
-    {
-        if (_buildWhitelistAsyncOverride is not null)
-        {
-            return await _buildWhitelistAsyncOverride(creatorSlug, deckContext, cancellationToken).ConfigureAwait(false);
-        }
-
-        return await _creatorWhitelistPoolBuilder!
-            .BuildWithDiagnosticsAsync(creatorSlug, deckContext, cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    private async Task<CardGroundingBatchResult> ValidateAdditionalCardsAsync(
-        IReadOnlyList<string> candidateNames,
-        CardGroundingDeckContext deckContext,
-        CancellationToken cancellationToken)
-    {
-        if (_validateAdditionalCardsAsyncOverride is not null)
-        {
-            return await _validateAdditionalCardsAsyncOverride(candidateNames, deckContext, cancellationToken).ConfigureAwait(false);
-        }
-
-        return await _cardGroundingGuard!
-            .ValidateAllAsync(candidateNames, deckContext, cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    private async Task<IReadOnlyList<CreatorDeckCacheEntry>> GetCreatorDecksAsync(string creatorSlug, CancellationToken cancellationToken)
-    {
-        if (_getCreatorDecksAsyncOverride is not null)
-        {
-            return await _getCreatorDecksAsyncOverride(creatorSlug, cancellationToken).ConfigureAwait(false);
-        }
-
-        return await _creatorDeckCacheStore!
-            .GetByCreatorAsync(creatorSlug, cancellationToken)
-            .ConfigureAwait(false);
     }
 
 }
