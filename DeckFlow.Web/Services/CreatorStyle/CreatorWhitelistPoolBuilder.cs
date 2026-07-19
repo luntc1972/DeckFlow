@@ -8,6 +8,22 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace DeckFlow.Web.Services.CreatorStyle;
 
 /// <summary>
+/// Carries the accepted whitelist names plus the upstream-failure diagnostic from the validation batch.
+/// </summary>
+public sealed record CreatorWhitelistPoolBuildResult
+{
+    /// <summary>
+    /// Gets the accepted canonical whitelist names in ranked order.
+    /// </summary>
+    public required IReadOnlyList<string> AcceptedNames { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the grounding batch experienced any upstream failures.
+    /// </summary>
+    public required bool HasUpstreamFailure { get; init; }
+}
+
+/// <summary>
 /// Builds a constrained creator-whitelist candidate pool from the creator's cached deck corpus.
 /// </summary>
 public sealed class CreatorWhitelistPoolBuilder
@@ -55,6 +71,19 @@ public sealed class CreatorWhitelistPoolBuilder
         string creatorSlug,
         CardGroundingDeckContext deckContext,
         CancellationToken cancellationToken = default)
+        => (await BuildWithDiagnosticsAsync(creatorSlug, deckContext, cancellationToken).ConfigureAwait(false)).AcceptedNames;
+
+    /// <summary>
+    /// Builds a guard-validated creator whitelist and returns the upstream-failure diagnostic from the validation batch.
+    /// </summary>
+    /// <param name="creatorSlug">Creator slug.</param>
+    /// <param name="deckContext">Deck-context inputs used by the guard.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Accepted canonical card names plus upstream-failure diagnostics.</returns>
+    public async Task<CreatorWhitelistPoolBuildResult> BuildWithDiagnosticsAsync(
+        string creatorSlug,
+        CardGroundingDeckContext deckContext,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(creatorSlug);
         ArgumentNullException.ThrowIfNull(deckContext);
@@ -62,7 +91,11 @@ public sealed class CreatorWhitelistPoolBuilder
         IReadOnlyList<string> rawPool = await GetOrBuildRawPoolAsync(creatorSlug, cancellationToken).ConfigureAwait(false);
         if (rawPool.Count == 0)
         {
-            return [];
+            return new CreatorWhitelistPoolBuildResult
+            {
+                AcceptedNames = [],
+                HasUpstreamFailure = false,
+            };
         }
 
         CardGroundingBatchResult validation = await _cardGroundingGuard
@@ -76,10 +109,14 @@ public sealed class CreatorWhitelistPoolBuilder
                 creatorSlug);
         }
 
-        return validation.Verdicts
-            .Where(verdict => verdict.Accepted)
-            .Select(verdict => verdict.CanonicalName)
-            .ToArray();
+        return new CreatorWhitelistPoolBuildResult
+        {
+            AcceptedNames = validation.Verdicts
+                .Where(verdict => verdict.Accepted)
+                .Select(verdict => verdict.CanonicalName)
+                .ToArray(),
+            HasUpstreamFailure = validation.HasUpstreamFailure,
+        };
     }
 
     private Task<IReadOnlyList<string>> GetOrBuildRawPoolAsync(string creatorSlug, CancellationToken cancellationToken)

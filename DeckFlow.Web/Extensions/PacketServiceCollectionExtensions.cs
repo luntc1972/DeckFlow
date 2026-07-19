@@ -1,7 +1,11 @@
+using DeckFlow.Core.Content;
+using DeckFlow.Core.Knowledge;
+using DeckFlow.Core.Knowledge.CardGrounding;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Configuration;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.CreatorStyle;
 using DeckFlow.Web.Services.Bracket;
 using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
@@ -89,6 +93,23 @@ public static class PacketServiceCollectionExtensions
                 sp.GetRequiredService<MoxfieldParser>(),
                 sp.GetRequiredService<ArchidektParser>(),
                 sp.GetService<ILogger<DeckPrimerPacketService>>()));
+        services.AddScoped<ISubmittedDeckStatsBuilder>(sp =>
+            new SubmittedDeckStatsBuilder(
+                sp.GetRequiredService<IDeckEntryLoader>(),
+                sp.GetRequiredService<CategoryKnowledgeRepository>(),
+                sp.GetRequiredService<ICommanderSpellbookService>(),
+                sp.GetRequiredService<IScryfallCardResolver>(),
+                sp.GetService<ILogger<SubmittedDeckStatsBuilder>>()));
+        services.AddScoped<ICreatorStylePacketService>(sp =>
+            new CreatorStylePacketService(
+                // Why: ICreatorStyleProfileStore is bound to the local-only content-kb.db in production (D-14).
+                sp.GetRequiredService<ICreatorStyleProfileStore>(),
+                sp.GetRequiredService<ISubmittedDeckStatsBuilder>(),
+                sp.GetRequiredService<CreatorWhitelistPoolBuilder>(),
+                sp.GetRequiredService<ICardGroundingGuard>(),
+                sp.GetRequiredService<ICreatorDeckCacheStore>(),
+                sp.GetRequiredService<ICommanderSpellbookService>(),
+                sp.GetService<ILogger<CreatorStylePacketService>>()));
 
         return services;
     }
