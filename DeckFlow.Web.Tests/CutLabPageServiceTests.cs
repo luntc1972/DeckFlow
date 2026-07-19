@@ -82,6 +82,72 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_BanListFetchHttpFailure_FailsOpenPreservesStateAndAddsWarning()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var logger = new FakeLogger<CutLabPageService>();
+        var priorState = new CutLabState
+        {
+            Commander = "Atraxa, Praetors' Voice",
+            Pool =
+            [
+                new CutLabPoolCard
+                {
+                    Name = "Atraxa, Praetors' Voice",
+                    Quantity = 1,
+                    TypeLine = "Legendary Creature — Phyrexian Angel Horror",
+                    IsCommander = true,
+                    IsLocked = true,
+                },
+                new CutLabPoolCard
+                {
+                    Name = "Card 010",
+                    Quantity = 1,
+                    TypeLine = "Artifact",
+                    IsLocked = true,
+                    PackageId = "ramp",
+                },
+            ],
+            Packages =
+            [
+                new CutLabPackage
+                {
+                    Id = "ramp",
+                    Name = "Ramp Core",
+                    Locked = true,
+                },
+            ],
+        };
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new ThrowingBanListService(new HttpRequestException("banlist down")),
+            logger: logger);
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            CutLabStateJson = CutLabStateSerializer.Serialize(priorState),
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.True(result.HasResult);
+        Assert.True(result.IsLegal);
+        Assert.Empty(result.BannedCardsPresent);
+        Assert.Contains(result.Warnings, warning => warning.Contains("legality was not verified", StringComparison.Ordinal));
+        Assert.Contains(logger.Warnings, warning => warning.Contains("banlist fetch failed", StringComparison.Ordinal));
+        var carriedCard = Assert.Single(result.State!.Pool, card => card.Name == "Card 010");
+        Assert.True(carriedCard.IsLocked);
+        Assert.Equal("ramp", carriedCard.PackageId);
+        var roundTrippedState = CutLabStateSerializer.Deserialize(result.SerializedStateJson);
+        Assert.Equal("Atraxa, Praetors' Voice", roundTrippedState.Commander);
+        Assert.Contains(roundTrippedState.Pool, card => card.Name == "Card 010" && card.IsLocked && card.PackageId == "ramp");
+        Assert.Contains(roundTrippedState.Packages, package => package.Id == "ramp" && package.Locked);
+    }
+
+    [Fact]
     public async Task ProcessAsync_SubmittedStateJsonCarriesForwardLocksAndPackages()
     {
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
@@ -840,6 +906,12 @@ public sealed class CutLabPageServiceTests
     {
         public Task<IReadOnlyList<string>> GetBannedCardsAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(bannedCards);
+    }
+
+    private sealed class ThrowingBanListService(Exception exception) : ICommanderBanListService
+    {
+        public Task<IReadOnlyList<string>> GetBannedCardsAsync(CancellationToken cancellationToken = default)
+            => Task.FromException<IReadOnlyList<string>>(exception);
     }
 
     private sealed class FakeSpellbookService : ICommanderSpellbookService
