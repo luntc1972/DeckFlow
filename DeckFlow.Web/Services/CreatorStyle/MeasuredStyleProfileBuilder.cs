@@ -19,7 +19,6 @@ namespace DeckFlow.Web.Services.CreatorStyle;
 /// </summary>
 public sealed class MeasuredStyleProfileBuilder
 {
-    private const int ScryfallBatchSize = 75;
     private const int MaxLiftMetrics = 25;
     private static readonly HashSet<string> AnalyzedBoards = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -229,7 +228,7 @@ public sealed class MeasuredStyleProfileBuilder
 
         IReadOnlyList<double> landDelta = reports.Select(report => report.LandDelta).ToArray();
         IReadOnlyList<double> targetLands = reports.Select(report => report.TargetLands).ToArray();
-        IReadOnlyList<double> healthScores = reports.Select(report => ToHealthScore(report.Health)).ToArray();
+        IReadOnlyList<double> healthScores = reports.Select(report => CreatorStyleDeckAnalysis.ToHealthScore(report.Health)).ToArray();
 
         return
         [
@@ -275,100 +274,18 @@ public sealed class MeasuredStyleProfileBuilder
 
         if (deckCards.Count == 0)
         {
-            return EmptyReport();
+            return CreatorStyleDeckAnalysis.EmptyReport();
         }
 
-        ScryfallCardNameIndex index = await ResolveCardsAsync(deckCards, cancellationToken).ConfigureAwait(false);
-        var deckEntries = new List<DeckCardEntry>();
-
-        foreach (DeckEntry entry in deckCards)
-        {
-            ScryfallCardData? card;
-            if (!index.TryResolve(entry.Name, entry.SetCode, entry.CollectorNumber, out card))
-            {
-                ScryfallCard? fallback = await _scryfallCardResolver
-                    .SearchFallbackCardAsync(entry.Name, cancellationToken)
-                    .ConfigureAwait(false);
-                if (fallback is not null)
-                {
-                    card = ScryfallCardDataMapper.ToCardData(fallback);
-                    index.Add(card);
-                }
-            }
-
-            if (card is null)
-            {
-                _logger.LogDebug("Skipping unresolved creator-style manabase card {CardName}.", entry.Name);
-                continue;
-            }
-
-            deckEntries.Add(new DeckCardEntry
-            {
-                Card = card,
-                Quantity = entry.Quantity,
-                IsCommander = string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase)
-            });
-        }
-
-        if (deckEntries.Count == 0)
-        {
-            return EmptyReport();
-        }
-
-        IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
-        ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true);
-        // Why: the measured-style substrate must stay deterministic and creator-to-creator comparable,
-        // so it fixes Karsten to Casual and leaves every experimental Analyze flag at its default false
-        // value; any future cEDH-mode fusion belongs above this substrate, not inside it.
-        return ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual);
-    }
-
-    private async Task<ScryfallCardNameIndex> ResolveCardsAsync(
-        IReadOnlyList<DeckEntry> deckCards,
-        CancellationToken cancellationToken)
-    {
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var identifiers = new List<object>();
-        foreach (DeckEntry entry in deckCards)
-        {
-            string? printing = ScryfallCardNameIndex.PrintingKey(entry.SetCode, entry.CollectorNumber);
-            string key = printing ?? $"name:{entry.Name}";
-            if (!seen.Add(key))
-            {
-                continue;
-            }
-
-            identifiers.Add(printing is not null
-                ? new { set = entry.SetCode, collector_number = entry.CollectorNumber }
-                : (object)new { name = entry.Name });
-        }
-
-        var index = new ScryfallCardNameIndex();
-        for (int offset = 0; offset < identifiers.Count; offset += ScryfallBatchSize)
-        {
-            object[] batch = identifiers.Skip(offset).Take(ScryfallBatchSize).ToArray();
-            var request = new RestRequest("cards/collection", Method.Post);
-            request.AddJsonBody(new { identifiers = batch });
-
-            RestResponse<ScryfallCollectionResponse> response = await _scryfallCardResolver
-                .ExecuteCollectionAsync(request, cancellationToken)
-                .ConfigureAwait(false);
-
-            if (response.StatusCode is < HttpStatusCode.OK or >= HttpStatusCode.MultipleChoices || response.Data is null)
-            {
-                throw new HttpRequestException(
-                    $"Scryfall card lookup (cards/collection) returned HTTP {(int)response.StatusCode} during creator-style manabase analysis.",
-                    inner: null,
-                    statusCode: response.StatusCode);
-            }
-
-            foreach (ScryfallCard card in response.Data.Data)
-            {
-                index.Add(ScryfallCardDataMapper.ToCardData(card));
-            }
-        }
-
-        return index;
+        // Shared with SubmittedDeckStatsBuilder; keep creator-style manabase resolution behavior
+        // aligned in CreatorStyleDeckAnalysis.
+        return await CreatorStyleDeckAnalysis.AnalyzeDeckAsync(
+            deckCards,
+            _scryfallCardResolver.ExecuteCollectionAsync,
+            _scryfallCardResolver.SearchFallbackCardAsync,
+            cardName => _logger.LogDebug("Skipping unresolved creator-style manabase card {CardName}.", cardName),
+            "creator-style manabase analysis.",
+            cancellationToken).ConfigureAwait(false);
     }
 
     private static List<DeckEntry> ReflagInferredCommanders(List<DeckEntry> entries)
@@ -416,32 +333,4 @@ public sealed class MeasuredStyleProfileBuilder
         };
     }
 
-    private static double ToHealthScore(ManabaseHealth health)
-        => health switch
-        {
-            ManabaseHealth.Healthy => 3,
-            ManabaseHealth.Functional => 2,
-            ManabaseHealth.Workable => 1,
-            _ => 0
-        };
-
-    private static ManabaseReport EmptyReport()
-        => new()
-        {
-            ActualLands = 0,
-            TargetLands = 0,
-            ColorFindings = Array.Empty<ColorSourceFinding>(),
-            Mode = ManabaseMode.Casual,
-            Castability = Array.Empty<CardCastability>(),
-            ColorSpellCounts = new Dictionary<ManaColor, int>(),
-            CommanderColors = Array.Empty<ManaColor>(),
-            LandTarget = null,
-            TapAnalysis = null,
-            MulliganEvaluation = null,
-            DemandingCards = Array.Empty<DemandingCard>(),
-            RampSourceNames = Array.Empty<string>(),
-            RampAndDrawNames = Array.Empty<string>(),
-            UnsupportedInteractions = Array.Empty<UnsupportedInteraction>(),
-            Summary = string.Empty
-        };
 }

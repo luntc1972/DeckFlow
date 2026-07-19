@@ -75,7 +75,6 @@ public sealed record SubmittedDeckAnalysis
 /// </summary>
 public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
 {
-    private const int ScryfallBatchSize = 75;
     private static readonly HashSet<string> AnalyzedBoards = new(StringComparer.OrdinalIgnoreCase)
     {
         "mainboard",
@@ -166,7 +165,7 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
         {
             metrics["karsten:land_delta"] = resolution.Report.LandDelta;
             metrics["karsten:target_lands"] = resolution.Report.TargetLands;
-            metrics["karsten:health_score"] = ToHealthScore(resolution.Report.Health);
+            metrics["karsten:health_score"] = CreatorStyleDeckAnalysis.ToHealthScore(resolution.Report.Health);
         }
 
         return new SubmittedDeckAnalysis
@@ -282,126 +281,13 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
             return EmptyResolution();
         }
 
-        return await AnalyzeSubmittedDeckAsync(entries, cancellationToken).ConfigureAwait(false);
-    }
-
-    private async Task<SubmittedDeckResolution> AnalyzeSubmittedDeckAsync(
-        IReadOnlyList<DeckEntry> entries,
-        CancellationToken cancellationToken)
-    {
-        ResolvedScryfallCards resolvedCards = await ResolveCardsAsync(entries, cancellationToken).ConfigureAwait(false);
-        var deckEntries = new List<DeckCardEntry>(entries.Count);
-        ScryfallCard? resolvedCommanderCard = null;
-
-        foreach (DeckEntry entry in entries)
-        {
-            if (!resolvedCards.TryResolve(entry.Name, entry.SetCode, entry.CollectorNumber, out ScryfallCardData? resolvedCardData))
-            {
-                ScryfallCard? fallback = await SearchFallbackCardAsync(entry.Name, cancellationToken).ConfigureAwait(false);
-                if (fallback is not null)
-                {
-                    resolvedCards.Add(fallback);
-                    resolvedCards.TryResolve(entry.Name, entry.SetCode, entry.CollectorNumber, out resolvedCardData);
-                }
-            }
-
-            if (resolvedCardData is null)
-            {
-                _logger.LogDebug("Skipping unresolved submitted-deck manabase card {CardName}.", entry.Name);
-                continue;
-            }
-
-            bool isCommander = string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase);
-            if (isCommander && resolvedCommanderCard is null)
-            {
-                resolvedCommanderCard = resolvedCards.GetRawCard(resolvedCardData);
-            }
-
-            deckEntries.Add(new DeckCardEntry
-            {
-                Card = resolvedCardData,
-                Quantity = entry.Quantity,
-                IsCommander = isCommander
-            });
-        }
-
-        if (deckEntries.Count == 0)
-        {
-            return EmptyResolution();
-        }
-
-        IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
-        ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true);
-        // Why: this must match MeasuredStyleProfileBuilder's isSingleton:true + Casual path exactly
-        // so submitted-deck karsten metrics stay apples-to-apples with the fused creator targets.
-        ManabaseReport report = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual);
-
-        return new SubmittedDeckResolution
-        {
-            Report = report,
-            DeckContext = new CardGroundingDeckContext
-            {
-                CommanderColorIdentity = resolvedCommanderCard?.ColorIdentity?
-                    .Where(IsWubrgSymbol)
-                    .ToHashSet(StringComparer.Ordinal)
-                    ?? new HashSet<string>(StringComparer.Ordinal),
-                DeckProducedColors = deck.Sources
-                    .SelectMany(source => source.Produces)
-                    .Select(ToWubrgChar)
-                    .Where(color => color != '\0')
-                    .ToHashSet(),
-                DeckCardNames = entries
-                    .Select(entry => CardNormalizer.Normalize(entry.Name))
-                    .ToHashSet(StringComparer.Ordinal)
-            },
-            ResolvedCommanderName = resolvedCommanderCard?.Name,
-            HasResolvedDeck = true
-        };
-    }
-
-    private async Task<ResolvedScryfallCards> ResolveCardsAsync(
-        IReadOnlyList<DeckEntry> deckCards,
-        CancellationToken cancellationToken)
-    {
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var identifiers = new List<object>();
-        foreach (DeckEntry entry in deckCards)
-        {
-            string? printing = ScryfallCardNameIndex.PrintingKey(entry.SetCode, entry.CollectorNumber);
-            string key = printing ?? $"name:{entry.Name}";
-            if (!seen.Add(key))
-            {
-                continue;
-            }
-
-            identifiers.Add(printing is not null
-                ? new { set = entry.SetCode, collector_number = entry.CollectorNumber }
-                : (object)new { name = entry.Name });
-        }
-
-        var resolvedCards = new ResolvedScryfallCards();
-        for (int offset = 0; offset < identifiers.Count; offset += ScryfallBatchSize)
-        {
-            object[] batch = identifiers.Skip(offset).Take(ScryfallBatchSize).ToArray();
-            var request = new RestRequest("cards/collection", Method.Post);
-            request.AddJsonBody(new { identifiers = batch });
-
-            RestResponse<ScryfallCollectionResponse> response = await ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
-            if (response.StatusCode is < HttpStatusCode.OK or >= HttpStatusCode.MultipleChoices || response.Data is null)
-            {
-                throw new HttpRequestException(
-                    $"Scryfall card lookup (cards/collection) returned HTTP {(int)response.StatusCode} during submitted-deck manabase analysis.",
-                    inner: null,
-                    statusCode: response.StatusCode);
-            }
-
-            foreach (ScryfallCard card in response.Data.Data)
-            {
-                resolvedCards.Add(card);
-            }
-        }
-
-        return resolvedCards;
+        return await CreatorStyleDeckAnalysis.AnalyzeSubmittedDeckAsync(
+            entries,
+            ExecuteCollectionAsync,
+            SearchFallbackCardAsync,
+            cardName => _logger.LogDebug("Skipping unresolved submitted-deck manabase card {CardName}.", cardName),
+            "submitted-deck manabase analysis.",
+            cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(
@@ -430,38 +316,11 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
             .ConfigureAwait(false);
     }
 
-    private static double ToHealthScore(ManabaseHealth health)
-    {
-        return health switch
-        {
-            ManabaseHealth.Healthy => 3,
-            ManabaseHealth.Functional => 2,
-            ManabaseHealth.Workable => 1,
-            _ => 0
-        };
-    }
-
-    private static bool IsWubrgSymbol(string symbol)
-        => symbol is "W" or "U" or "B" or "R" or "G";
-
-    private static char ToWubrgChar(ManaColor color)
-    {
-        return color switch
-        {
-            ManaColor.White => 'W',
-            ManaColor.Blue => 'U',
-            ManaColor.Black => 'B',
-            ManaColor.Red => 'R',
-            ManaColor.Green => 'G',
-            _ => '\0'
-        };
-    }
-
     private static SubmittedDeckResolution EmptyResolution()
     {
         return new SubmittedDeckResolution
         {
-            Report = EmptyReport(),
+            Report = CreatorStyleDeckAnalysis.EmptyReport(),
             DeckContext = new CardGroundingDeckContext
             {
                 CommanderColorIdentity = new HashSet<string>(StringComparer.Ordinal),
@@ -471,58 +330,6 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
             ResolvedCommanderName = null,
             HasResolvedDeck = false
         };
-    }
-
-    private static ManabaseReport EmptyReport()
-        => new()
-        {
-            ActualLands = 0,
-            TargetLands = 0,
-            ColorFindings = Array.Empty<ColorSourceFinding>(),
-            Mode = ManabaseMode.Casual,
-            Castability = Array.Empty<CardCastability>(),
-            ColorSpellCounts = new Dictionary<ManaColor, int>(),
-            CommanderColors = Array.Empty<ManaColor>(),
-            LandTarget = null,
-            TapAnalysis = null,
-            MulliganEvaluation = null,
-            DemandingCards = Array.Empty<DemandingCard>(),
-            RampSourceNames = Array.Empty<string>(),
-            RampAndDrawNames = Array.Empty<string>(),
-            UnsupportedInteractions = Array.Empty<UnsupportedInteraction>(),
-            Summary = string.Empty
-        };
-
-    private sealed class ResolvedScryfallCards
-    {
-        private readonly ScryfallCardNameIndex _nameIndex = new();
-        private readonly Dictionary<ScryfallCardData, ScryfallCard> _rawCardsByData = new(ReferenceEqualityComparer.Instance);
-
-        public void Add(ScryfallCard card)
-        {
-            ArgumentNullException.ThrowIfNull(card);
-
-            ScryfallCardData cardData = ScryfallCardDataMapper.ToCardData(card);
-            _nameIndex.Add(cardData);
-            _rawCardsByData[cardData] = card;
-        }
-
-        public bool TryResolve(string name, string? setCode, string? collectorNumber, out ScryfallCardData? card)
-        {
-            ArgumentNullException.ThrowIfNull(name);
-
-            return _nameIndex.TryResolve(name, setCode, collectorNumber, out card);
-        }
-
-        public ScryfallCard GetRawCard(ScryfallCardData cardData)
-        {
-            if (_rawCardsByData.TryGetValue(cardData, out ScryfallCard? rawCard))
-            {
-                return rawCard;
-            }
-
-            throw new InvalidOperationException("Resolved submitted-deck card data did not have a matching raw Scryfall card.");
-        }
     }
 }
 

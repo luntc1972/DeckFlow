@@ -72,8 +72,6 @@ internal sealed record ScryfallBatchResolution(
 /// </remarks>
 internal sealed class ScryfallReferenceResolver
 {
-    private const int ScryfallBatchSize = 75;
-
     private readonly IScryfallCardResolver _scryfallCardResolver;
 
     public ScryfallReferenceResolver(IScryfallCardResolver scryfallCardResolver)
@@ -113,7 +111,7 @@ internal sealed class ScryfallReferenceResolver
         var resolved = new Dictionary<string, ScryfallReferenceResolution>(StringComparer.OrdinalIgnoreCase);
         var oracleNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var chunk in Chunk(requestNames, ScryfallBatchSize))
+        foreach (var chunk in Chunk(requestNames, ScryfallLimits.CollectionBatchSize))
         {
             var request = new RestRequest("cards/collection", Method.Post);
             request.AddJsonBody(new

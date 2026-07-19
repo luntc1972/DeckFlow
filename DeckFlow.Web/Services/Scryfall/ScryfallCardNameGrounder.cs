@@ -8,8 +8,7 @@ namespace DeckFlow.Web.Services.Scryfall;
 /// </summary>
 public sealed class ScryfallCardNameGrounder(IScryfallCardResolver resolver, IMemoryCache cache) : ICardNameGrounder
 {
-    private static readonly TimeSpan PositiveCacheTtl = TimeSpan.FromHours(24);
-    private static readonly TimeSpan NegativeCacheTtl = TimeSpan.FromHours(1);
+    private const string CacheKeyPrefix = "card-grounder:";
 
     /// <inheritdoc />
     public async Task<CardGroundingResult> TryGroundAsync(string candidateName, CancellationToken cancellationToken = default)
@@ -19,33 +18,21 @@ public sealed class ScryfallCardNameGrounder(IScryfallCardResolver resolver, IMe
             return new CardGroundingResult(false, candidateName);
         }
 
-        var cacheKey = BuildCacheKey(candidateName);
-        if (cache.TryGetValue<CardGroundingResult>(cacheKey, out var cachedResult))
-        {
-            return cachedResult!;
-        }
-
-        CardGroundingResult result;
-        try
-        {
-            var card = await resolver.SearchPrintingFallbackCardAsync(candidateName, cancellationToken).ConfigureAwait(false);
-            result = card is not null
-                ? new CardGroundingResult(true, card.Name)
-                : new CardGroundingResult(false, candidateName);
-        }
-        catch
-        {
-            result = new CardGroundingResult(false, candidateName);
-        }
-
-        cache.Set(
-            cacheKey,
-            result,
-            result.Resolved ? PositiveCacheTtl : NegativeCacheTtl);
-
-        return result;
+        return await CachedNameResolution.GetOrAddAsync(
+            cache,
+            CacheKeyPrefix,
+            candidateName,
+            async ct =>
+            {
+                ScryfallCard? card = await resolver.SearchPrintingFallbackCardAsync(candidateName, ct).ConfigureAwait(false);
+                return card is not null
+                    ? new CardGroundingResult(true, card.Name)
+                    : new CardGroundingResult(false, candidateName);
+            },
+            _ => new CardGroundingResult(false, candidateName),
+            static result => result.Resolved
+                ? CachedNameResolution.PositiveCacheTtl
+                : CachedNameResolution.NegativeCacheTtl,
+            cancellationToken).ConfigureAwait(false);
     }
-
-    private static string BuildCacheKey(string candidateName)
-        => "card-grounder:" + candidateName.Trim().ToLowerInvariant();
 }
