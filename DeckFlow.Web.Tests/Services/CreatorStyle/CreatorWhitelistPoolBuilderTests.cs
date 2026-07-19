@@ -110,6 +110,24 @@ public sealed class CreatorWhitelistPoolBuilderTests
     }
 
     [Fact]
+    public async Task BuildWithDiagnosticsAsync_UpstreamFailure_SurfacesDiagnosticFlag()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var store = new FakeCreatorDeckCacheStore(Deck("guarded", "deck-1", Mainboard("Arcane Signet", "Jeska's Will")));
+        var guard = new FakeCardGroundingGuard(new Dictionary<string, CardGroundingVerdict>(StringComparer.Ordinal)
+        {
+            ["Arcane Signet"] = Accepted("Arcane Signet"),
+            ["Jeska's Will"] = Rejected("Jeska's Will", CardGroundingRejectReason.UpstreamUnavailable),
+        });
+        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache);
+
+        CreatorWhitelistPoolBuildResult result = await sut.BuildWithDiagnosticsAsync("guarded", EmptyDeckContext());
+
+        Assert.True(result.HasUpstreamFailure);
+        Assert.Equal(["Arcane Signet"], result.AcceptedNames);
+    }
+
+    [Fact]
     public void ServiceCollection_ValidateOnBuild_ResolvesCreatorWhitelistPoolBuilder()
     {
         var tempDirectory = Path.Combine(Path.GetTempPath(), "deckflow-98-03-di", Guid.NewGuid().ToString("N"));

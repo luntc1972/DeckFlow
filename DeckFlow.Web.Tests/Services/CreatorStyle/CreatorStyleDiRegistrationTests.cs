@@ -2,12 +2,15 @@ using DeckFlow.Core.Content;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Knowledge.MeasuredStyleExtraction;
+using DeckFlow.Core.Knowledge.CardGrounding;
+using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Storage;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CreatorStyle;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -39,9 +42,29 @@ public sealed class CreatorStyleDiRegistrationTests
             services.AddSingleton<ICommanderSpellbookService, FakeCommanderSpellbookService>();
             services.AddSingleton<IScryfallCardResolver, FakeScryfallCardResolver>();
             services.AddSingleton<ICreatorStyleProfileStore, FakeCreatorStyleProfileStore>();
+            services.AddSingleton<ICardGroundingGuard, FakeCardGroundingGuard>();
+            services.AddSingleton<IDeckEntryLoader, FakeDeckEntryLoader>();
+            services.AddMemoryCache();
+            services.AddSingleton<CreatorWhitelistPoolBuilder>();
             services.AddScoped<CreatorProfileDeckCrawler>();
             services.AddScoped<CreatorDeckCategoryResolver>();
             services.AddScoped<MeasuredStyleProfileBuilder>();
+            services.AddScoped<ISubmittedDeckStatsBuilder>(sp =>
+                new SubmittedDeckStatsBuilder(
+                    sp.GetRequiredService<IDeckEntryLoader>(),
+                    sp.GetRequiredService<CategoryKnowledgeRepository>(),
+                    sp.GetRequiredService<ICommanderSpellbookService>(),
+                    sp.GetRequiredService<IScryfallCardResolver>(),
+                    sp.GetService<Microsoft.Extensions.Logging.ILogger<SubmittedDeckStatsBuilder>>()));
+            services.AddScoped<ICreatorStylePacketService>(sp =>
+                new CreatorStylePacketService(
+                    sp.GetRequiredService<ICreatorStyleProfileStore>(),
+                    sp.GetRequiredService<ISubmittedDeckStatsBuilder>(),
+                    sp.GetRequiredService<CreatorWhitelistPoolBuilder>(),
+                    sp.GetRequiredService<ICardGroundingGuard>(),
+                    sp.GetRequiredService<ICreatorDeckCacheStore>(),
+                    sp.GetRequiredService<ICommanderSpellbookService>(),
+                    sp.GetService<Microsoft.Extensions.Logging.ILogger<CreatorStylePacketService>>()));
 
             using ServiceProvider provider = services.BuildServiceProvider(new ServiceProviderOptions
             {
@@ -54,6 +77,7 @@ public sealed class CreatorStyleDiRegistrationTests
             Assert.NotNull(scope.ServiceProvider.GetRequiredService<CreatorProfileDeckCrawler>());
             Assert.NotNull(scope.ServiceProvider.GetRequiredService<CreatorDeckCategoryResolver>());
             Assert.NotNull(scope.ServiceProvider.GetRequiredService<MeasuredStyleProfileBuilder>());
+            Assert.NotNull(scope.ServiceProvider.GetRequiredService<ICreatorStylePacketService>());
         }
         finally
         {
@@ -90,6 +114,53 @@ public sealed class CreatorStyleDiRegistrationTests
     {
         public Task<CommanderSpellbookResult?> FindCombosAsync(IReadOnlyList<DeckEntry> entries, CancellationToken cancellationToken = default)
             => Task.FromResult<CommanderSpellbookResult?>(null);
+    }
+
+    private sealed class FakeCardGroundingGuard : ICardGroundingGuard
+    {
+        public Task<CardGroundingVerdict> TryValidateAsync(
+            string candidateName,
+            CardGroundingDeckContext deckContext,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new CardGroundingVerdict
+            {
+                Accepted = true,
+                CanonicalName = candidateName,
+                RejectReason = CardGroundingRejectReason.None,
+            });
+
+        public Task<CardGroundingBatchResult> ValidateAllAsync(
+            IReadOnlyList<string> candidateNames,
+            CardGroundingDeckContext deckContext,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new CardGroundingBatchResult
+            {
+                Verdicts = candidateNames
+                    .Select(candidateName => new CardGroundingVerdict
+                    {
+                        Accepted = true,
+                        CanonicalName = candidateName,
+                        RejectReason = CardGroundingRejectReason.None,
+                    })
+                    .ToArray(),
+                HasUpstreamFailure = false,
+            });
+    }
+
+    private sealed class FakeDeckEntryLoader : IDeckEntryLoader
+    {
+        public Task<List<DeckEntry>> LoadAsync(DeckLoadRequest request, CancellationToken cancellationToken = default)
+            => Task.FromResult(new List<DeckEntry>());
+
+        public Task<DeckSourceLoadResult> LoadFromSourceAsync(
+            string deckSource,
+            UnrecognizedPasteBehavior unrecognizedBehavior = UnrecognizedPasteBehavior.ThrowNotRecognized,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new DeckSourceLoadResult(new List<DeckEntry>(), null));
+
+        public void ValidateCommanderDeckSize(string systemName, IReadOnlyList<DeckEntry> entries, int requiredDeckSize = 100)
+        {
+        }
     }
 
     private sealed class FakeScryfallCardResolver : IScryfallCardResolver
