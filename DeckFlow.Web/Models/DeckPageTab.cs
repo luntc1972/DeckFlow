@@ -52,4 +52,7 @@ public enum DeckPageTab
 
     /// <summary>Deck version-history tracking page.</summary>
     DeckHistory = 16,
+
+    /// <summary>Cut Lab intake, protection, and cut-recommendation page.</summary>
+    CutLab = 17,
 }
