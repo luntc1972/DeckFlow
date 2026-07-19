@@ -103,7 +103,7 @@ public sealed record CutLabViewModel
                     .ToArray(),
             })
             .ToArray();
-        IReadOnlyList<CutLabFloorRowView> floorRows = BuildFloorRows(result.ResolvedFloors, result.RoleAssignmentsByCardName, request.PlayExperience);
+        IReadOnlyList<CutLabFloorRowView> floorRows = BuildFloorRows(pool, result.ResolvedFloors, result.RoleAssignmentsByCardName, request.PlayExperience);
         IReadOnlyDictionary<string, string> roleListByCardName = BuildRoleListByCardName(pool, result.RoleAssignmentsByCardName);
         IReadOnlyDictionary<string, string> roleKeysByCardName = BuildRoleKeysByCardName(pool, result.RoleAssignmentsByCardName);
 
@@ -155,18 +155,23 @@ public sealed record CutLabViewModel
                     RoleKey = roleKey,
                     DisplayLabel = DisplayLabelFor(roleKey),
                     Members = members,
-                    LockedCount = members.Count(member => member.IsLocked),
+                    LockedCount = pool
+                        .Where(card => card.IsLocked
+                            && roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles)
+                            && roles.Contains(roleKey, StringComparer.Ordinal))
+                        .Sum(card => card.Quantity),
                 };
             })
             .ToArray();
     }
 
     private static IReadOnlyList<CutLabFloorRowView> BuildFloorRows(
+        IReadOnlyList<CutLabPoolCard> pool,
         IReadOnlyList<CutLabResolvedFloor> resolvedFloors,
         IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName,
         string playExperience)
     {
-        Dictionary<string, int> countsByRole = CountRoles(roleAssignmentsByCardName);
+        Dictionary<string, int> countsByRole = CountRoles(pool, roleAssignmentsByCardName);
         return resolvedFloors
             .Select(floor => new CutLabFloorRowView
             {
@@ -214,7 +219,9 @@ public sealed record CutLabViewModel
         return result;
     }
 
-    private static Dictionary<string, int> CountRoles(IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName)
+    private static Dictionary<string, int> CountRoles(
+        IReadOnlyList<CutLabPoolCard> pool,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName)
     {
         Dictionary<string, int> counts = new(StringComparer.Ordinal);
         foreach (string roleKey in CutLabFloorRules.RoleKeys)
@@ -222,13 +229,18 @@ public sealed record CutLabViewModel
             counts[roleKey] = 0;
         }
 
-        foreach (IReadOnlyList<string> roles in roleAssignmentsByCardName.Values)
+        foreach (CutLabPoolCard card in pool)
         {
+            if (!roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles))
+            {
+                continue;
+            }
+
             foreach (string role in roles)
             {
                 if (counts.ContainsKey(role))
                 {
-                    counts[role]++;
+                    counts[role] += card.Quantity;
                 }
             }
         }
