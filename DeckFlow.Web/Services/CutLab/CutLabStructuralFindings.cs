@@ -57,7 +57,14 @@ public sealed record CutLabAnalyzedCard(
     double ManaValue,
     bool IsLand,
     IReadOnlyList<string> Roles,
-    IReadOnlyList<string> Categories);
+    IReadOnlyList<string> Categories)
+{
+    /// <summary>
+    /// Copies of this card in the pool. Defaults to 1 so existing construction sites keep compiling
+    /// while structural counts still weight stacked basics and other quantity-bearing entries correctly.
+    /// </summary>
+    public int Quantity { get; init; } = 1;
+}
 
 /// <summary>
 /// [ASSUMED] Computes Cut Lab's structural findings from the analyzed pool using fixed product
@@ -151,7 +158,8 @@ public static class CutLabStructuralFindings
     private static IEnumerable<CutLabFinding> ComputeCurveCongestion(IReadOnlyList<CutLabAnalyzedCard> pool)
     {
         IReadOnlyList<CutLabAnalyzedCard> nonlands = pool.Where(card => !card.IsLand).ToArray();
-        if (nonlands.Count == 0)
+        int nonlandCount = nonlands.Sum(card => card.Quantity);
+        if (nonlandCount == 0)
         {
             yield break;
         }
@@ -160,8 +168,8 @@ public static class CutLabStructuralFindings
             .GroupBy(card => ManaValueBucket(card.ManaValue))
             .OrderBy(group => BucketSortKey(group.Key)))
         {
-            int count = bucket.Count();
-            double share = (double)count / nonlands.Count;
+            int count = bucket.Sum(card => card.Quantity);
+            double share = (double)count / nonlandCount;
             if (share < CongestionShareThreshold || count < CongestionMinimumCards)
             {
                 continue;
@@ -187,7 +195,7 @@ public static class CutLabStructuralFindings
 
         foreach (IGrouping<string, (string Category, CutLabAnalyzedCard Card)> theme in groupedCategories)
         {
-            int count = theme.Count();
+            int count = theme.Sum(entry => entry.Card.Quantity);
             if (count < StrandedThemeMinCards || count > StrandedThemeMaxCards)
             {
                 continue;
@@ -214,7 +222,8 @@ public static class CutLabStructuralFindings
     {
         IReadOnlyList<CutLabAnalyzedCard> wincons = CardsInRole(pool, WinconsRole);
         int floor = FloorFor(floors, WinconsRole);
-        if (wincons.Count < floor + RedundantFinisherMargin)
+        int count = wincons.Sum(card => card.Quantity);
+        if (count < floor + RedundantFinisherMargin)
         {
             yield break;
         }
@@ -222,7 +231,7 @@ public static class CutLabStructuralFindings
         yield return new CutLabFinding(
             CutLabFindingKind.RedundantFinishers,
             "Redundant finishers",
-            $"{wincons.Count} win conditions against a floor of {floor} — more than one game usually needs.",
+            $"{count} win conditions against a floor of {floor} — more than one game usually needs.",
             wincons.Select(card => new CutLabFindingEvidence(card.Name, null)).ToArray());
     }
 
@@ -234,7 +243,7 @@ public static class CutLabStructuralFindings
         {
             int floor = FloorFor(floors, roleKey);
             IReadOnlyList<CutLabAnalyzedCard> cards = CardsInRole(pool, roleKey);
-            int count = cards.Count;
+            int count = cards.Sum(card => card.Quantity);
 
             if (floor <= 0 || count > floor + WeakFloorMargin)
             {
