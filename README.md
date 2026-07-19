@@ -21,7 +21,9 @@ Set these environment variables (via the Render env var UI):
 - `FEEDBACK_ADMIN_PASSWORD` — basic auth password.
 - `FEEDBACK_IP_SALT` (optional) — salt for hashing submitter IPs. If unset, a random 32-byte salt is generated on first run and persisted in the feedback metadata table.
 
-Basic auth covers the whole admin shell: Dashboard (`/Admin`), Feedback, Flags, Harvest, Analytics, Content KB curation, and YouTube Export. If `FEEDBACK_ADMIN_USER` or `FEEDBACK_ADMIN_PASSWORD` are not set, `/Admin/*` returns **503 Service Unavailable**. The public `/feedback` form continues to accept submissions.
+Basic auth covers the whole admin shell: Dashboard (`/Admin`), Feedback, Flags, Harvest, Analytics, Content KB curation, YouTube Export, and Creator Profile. If `FEEDBACK_ADMIN_USER` or `FEEDBACK_ADMIN_PASSWORD` are not set, `/Admin/*` returns **503 Service Unavailable**. The public `/feedback` form continues to accept submissions.
+
+On `/Admin/CreatorProfile`, an operator can register a creator (slug + platform username, Archidekt or Moxfield), run the crawl + measure pipeline against that account's public Commander decks, and inspect the resulting deck-tendencies report: repeat cards ranked by cross-deck presence (personal staples flagged at the 60% threshold), repeat commanders, quantity-weighted category tendencies with presence lift against the harvested crowd baseline (lift is omitted when the local `category-knowledge.db` is absent), and a per-deck breakdown. The measured style profile is persisted to the creator style store on every run; **Force refresh** bypasses the 24-hour crawl cache, and changing a creator's platform or username invalidates it automatically. The Moxfield path lists decks via the author search API with browser-style headers and a politeness throttle, so it is intended for crawling your own account from a residential connection.
 
 On `/Admin/Flags`, operators can now narrow the table instantly in-browser with a starts-with key filter plus namespace chips for `tool.`, `service.`, and `analysis.`; the current filter is kept in `sessionStorage` across admin page reloads within the session.
 
