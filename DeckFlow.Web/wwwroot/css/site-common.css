@@ -2591,12 +2591,6 @@ label.field > span,
   color: var(--ink, #2d3748);
 }
 
-.manabase-chip--caution {
-  background: color-mix(in srgb, var(--warning, #d69e2e) 18%, transparent);
-  border-color: var(--warning, #d69e2e);
-  color: var(--warning, #d69e2e);
-}
-
 .manabase-chip--neutral {
   background: color-mix(in srgb, currentColor 10%, transparent);
   border-color: var(--line, rgba(0, 0, 0, 0.18));

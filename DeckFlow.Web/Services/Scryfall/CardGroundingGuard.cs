@@ -103,7 +103,7 @@ public sealed class CardGroundingGuard(IScryfallCardResolver resolver, IMemoryCa
             }
         }
 
-        foreach (var batch in Chunk(uniqueCandidates, ScryfallLimits.CollectionBatchSize))
+        foreach (var batch in ScryfallBatching.Chunk(uniqueCandidates, ScryfallLimits.CollectionBatchSize))
         {
             await ResolveBatchChunkAsync(batch, resolutions, cancellationToken).ConfigureAwait(false);
         }
@@ -412,20 +412,5 @@ public sealed class CardGroundingGuard(IScryfallCardResolver resolver, IMemoryCa
         public required string TypeLine { get; init; }
 
         public required CardGroundingRejectReason ResolutionReason { get; init; }
-    }
-
-    private static IEnumerable<List<T>> Chunk<T>(IReadOnlyList<T> values, int size)
-    {
-        for (var index = 0; index < values.Count; index += size)
-        {
-            var count = Math.Min(size, values.Count - index);
-            var chunk = new List<T>(count);
-            for (var itemIndex = 0; itemIndex < count; itemIndex++)
-            {
-                chunk.Add(values[index + itemIndex]);
-            }
-
-            yield return chunk;
-        }
     }
 }

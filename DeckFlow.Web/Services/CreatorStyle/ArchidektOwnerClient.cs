@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -5,7 +6,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Polly;
 using Polly.Registry;
 using RestSharp;
-using System.Net.Http;
 
 namespace DeckFlow.Web.Services.CreatorStyle;
 

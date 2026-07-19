@@ -111,8 +111,7 @@ public sealed class CreatorStyleViewRenderTests
 
         Assert.Contains("<div class=\"toolbar\">", html, StringComparison.Ordinal);
         Assert.Contains("manabase-chip manabase-chip--good", html, StringComparison.Ordinal);
-        Assert.Contains("manabase-chip manabase-chip--caution", html, StringComparison.Ordinal);
-        Assert.Contains("manabase-chip manabase-chip--low", html, StringComparison.Ordinal);
+        Assert.Contains("manabase-chip manabase-chip--ok", html, StringComparison.Ordinal);
         Assert.Contains("manabase-chip manabase-chip--neutral", html, StringComparison.Ordinal);
     }
 

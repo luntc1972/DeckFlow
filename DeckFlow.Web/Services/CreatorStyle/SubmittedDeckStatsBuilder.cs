@@ -145,7 +145,7 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
             .ToList();
 
         Task<CommanderSpellbookResult?> comboTask = ResolveCombosAsync(analyzedEntries, cancellationToken);
-        Task<SubmittedDeckResolution> resolutionTask = ResolveSubmittedDeckAsync(analyzedEntries, cancellationToken);
+        Task<SubmittedDeckResolution> resolutionTask = _analyzeSubmittedDeckAsync(analyzedEntries, cancellationToken);
         IReadOnlyDictionary<string, IReadOnlyList<string>> cardCategories =
             await ResolveCategoriesAsync(analyzedEntries, cancellationToken).ConfigureAwait(false);
         IReadOnlyDictionary<string, int> categoryCounts = CountCategories(analyzedEntries, cardCategories);
@@ -239,11 +239,6 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
         }
     }
 
-    private Task<SubmittedDeckResolution> ResolveSubmittedDeckAsync(
-        IReadOnlyList<DeckEntry> entries,
-        CancellationToken cancellationToken) =>
-        _analyzeSubmittedDeckAsync(entries, cancellationToken);
-
     private async Task<SubmittedDeckResolution> AnalyzeSubmittedDeckAsync(
         IReadOnlyList<DeckEntry> entries,
         CancellationToken cancellationToken)
@@ -255,20 +250,12 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
 
         return await CreatorStyleDeckAnalysis.AnalyzeSubmittedDeckAsync(
             entries,
-            ExecuteCollectionAsync,
-            SearchFallbackCardAsync,
+            _executeCollectionAsync,
+            _searchFallbackCardAsync,
             cardName => _logger.LogDebug("Skipping unresolved submitted-deck manabase card {CardName}.", cardName),
             "submitted-deck manabase analysis.",
             cancellationToken).ConfigureAwait(false);
     }
-
-    private Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(
-        RestRequest request,
-        CancellationToken cancellationToken) =>
-        _executeCollectionAsync(request, cancellationToken);
-
-    private Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken) =>
-        _searchFallbackCardAsync(cardName, cancellationToken);
 
     private static SubmittedDeckResolution EmptyResolution()
     {

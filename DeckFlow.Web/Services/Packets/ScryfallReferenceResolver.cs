@@ -111,7 +111,7 @@ internal sealed class ScryfallReferenceResolver
         var resolved = new Dictionary<string, ScryfallReferenceResolution>(StringComparer.OrdinalIgnoreCase);
         var oracleNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var chunk in Chunk(requestNames, ScryfallLimits.CollectionBatchSize))
+        foreach (var chunk in ScryfallBatching.Chunk(requestNames, ScryfallLimits.CollectionBatchSize))
         {
             var request = new RestRequest("cards/collection", Method.Post);
             request.AddJsonBody(new
@@ -160,20 +160,5 @@ internal sealed class ScryfallReferenceResolver
             .ToList();
 
         return new ScryfallBatchResolution(orderedResolutions, oracleNameMap);
-    }
-
-    private static IEnumerable<List<T>> Chunk<T>(IReadOnlyList<T> values, int size)
-    {
-        for (var index = 0; index < values.Count; index += size)
-        {
-            var count = Math.Min(size, values.Count - index);
-            var chunk = new List<T>(count);
-            for (var itemIndex = 0; itemIndex < count; itemIndex++)
-            {
-                chunk.Add(values[index + itemIndex]);
-            }
-
-            yield return chunk;
-        }
     }
 }
