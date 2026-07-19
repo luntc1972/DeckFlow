@@ -117,9 +117,6 @@ public sealed record ManabaseLoadResult(
 /// <inheritdoc />
 public sealed class ManabaseAnalysisService : IManabaseAnalysisService
 {
-    // Scryfall's collection endpoint accepts at most 75 identifiers per request.
-    private const int ScryfallBatchSize = 75;
-
     // Abuse caps for this anonymous public endpoint: bound the pasted payload and the number
     // of cards so one request can't force unbounded allocations or upstream Scryfall calls.
     // A Commander deck is ~100 cards; these leave generous headroom while rejecting abuse.
@@ -579,9 +576,9 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         }
 
         var index = new ScryfallCardNameIndex();
-        for (int offset = 0; offset < identifiers.Count; offset += ScryfallBatchSize)
+        for (int offset = 0; offset < identifiers.Count; offset += ScryfallLimits.CollectionBatchSize)
         {
-            var batch = identifiers.Skip(offset).Take(ScryfallBatchSize).ToArray();
+            var batch = identifiers.Skip(offset).Take(ScryfallLimits.CollectionBatchSize).ToArray();
             var request = new RestRequest("cards/collection", Method.Post);
             request.AddJsonBody(new { identifiers = batch });
 

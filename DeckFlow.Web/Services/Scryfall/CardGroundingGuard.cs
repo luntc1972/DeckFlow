@@ -13,9 +13,7 @@ namespace DeckFlow.Web.Services.Scryfall;
 /// </summary>
 public sealed class CardGroundingGuard(IScryfallCardResolver resolver, IMemoryCache cache) : ICardGroundingGuard
 {
-    private const int ScryfallBatchSize = 75;
-    private static readonly TimeSpan PositiveCacheTtl = TimeSpan.FromHours(24);
-    private static readonly TimeSpan NegativeCacheTtl = TimeSpan.FromHours(1);
+    private const string CacheKeyPrefix = "card-grounding-guard:";
 
     /// <inheritdoc />
     public async Task<CardGroundingVerdict> TryValidateAsync(
@@ -30,8 +28,8 @@ public sealed class CardGroundingGuard(IScryfallCardResolver resolver, IMemoryCa
             return CreateRejectedVerdict(candidateName, CardGroundingRejectReason.NotFound);
         }
 
-        var resolution = await GetOrFetchResolutionAsync(candidateName, cancellationToken).ConfigureAwait(false);
-        return CreateVerdict(candidateName, resolution, deckContext);
+        CardGroundingBatchResult result = await ValidateAllAsync([candidateName], deckContext, cancellationToken).ConfigureAwait(false);
+        return result.Verdicts[0];
     }
 
     /// <inheritdoc />
@@ -92,7 +90,7 @@ public sealed class CardGroundingGuard(IScryfallCardResolver resolver, IMemoryCa
                 continue;
             }
 
-            var cacheKey = BuildCacheKey(candidateName);
+            string cacheKey = CachedNameResolution.BuildCacheKey(CacheKeyPrefix, candidateName);
             if (cache.TryGetValue<CardResolution>(cacheKey, out var cachedResolution))
             {
                 resolutions[candidateName] = cachedResolution!;
@@ -105,9 +103,8 @@ public sealed class CardGroundingGuard(IScryfallCardResolver resolver, IMemoryCa
             }
         }
 
-        for (var offset = 0; offset < uniqueCandidates.Count; offset += ScryfallBatchSize)
+        foreach (var batch in Chunk(uniqueCandidates, ScryfallLimits.CollectionBatchSize))
         {
-            IReadOnlyList<string> batch = uniqueCandidates.Skip(offset).Take(ScryfallBatchSize).ToArray();
             await ResolveBatchChunkAsync(batch, resolutions, cancellationToken).ConfigureAwait(false);
         }
 
@@ -115,6 +112,12 @@ public sealed class CardGroundingGuard(IScryfallCardResolver resolver, IMemoryCa
         {
             if (string.IsNullOrWhiteSpace(candidateName) || resolutions.ContainsKey(candidateName))
             {
+                continue;
+            }
+
+            if (TryGetCachedResolution(candidateName, out CardResolution cachedResolution))
+            {
+                resolutions[candidateName] = cachedResolution;
                 continue;
             }
 
@@ -197,49 +200,58 @@ public sealed class CardGroundingGuard(IScryfallCardResolver resolver, IMemoryCa
         }
     }
 
-    private async Task<CardResolution> GetOrFetchResolutionAsync(string candidateName, CancellationToken cancellationToken)
+    private bool TryGetCachedResolution(string candidateName, out CardResolution resolution)
     {
-        var cacheKey = BuildCacheKey(candidateName);
+        string cacheKey = CachedNameResolution.BuildCacheKey(CacheKeyPrefix, candidateName);
         if (cache.TryGetValue<CardResolution>(cacheKey, out var cachedResolution))
         {
-            return cachedResolution!;
+            resolution = cachedResolution!;
+            return true;
         }
 
-        try
-        {
-            var request = new RestRequest("cards/collection", Method.Post);
-            request.AddJsonBody(new { identifiers = new object[] { new { name = candidateName } } });
-
-            RestResponse<ScryfallCollectionResponse> response =
-                await resolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
-
-            ScryfallThrottle.ThrowIfUpstreamUnavailable(response.StatusCode);
-            if (response.StatusCode is < HttpStatusCode.OK or >= HttpStatusCode.MultipleChoices || response.Data is null)
-            {
-                throw new HttpRequestException(
-                    $"Scryfall card lookup (cards/collection) returned HTTP {(int)response.StatusCode} during card grounding.",
-                    inner: null,
-                    statusCode: response.StatusCode);
-            }
-
-            var exactCard = response.Data.Data.FirstOrDefault(card =>
-                string.Equals(CardNormalizer.Normalize(card.Name), CardNormalizer.Normalize(candidateName), StringComparison.Ordinal));
-            if (exactCard is not null)
-            {
-                var exactResolution = CreateResolvedCard(exactCard);
-                CacheResolution(candidateName, exactResolution);
-                return exactResolution;
-            }
-
-            var fuzzyResolution = await ResolveFuzzyOnlyAsync(candidateName, cancellationToken).ConfigureAwait(false);
-            CacheResolution(candidateName, fuzzyResolution);
-            return fuzzyResolution;
-        }
-        catch
-        {
-            return CreateUnresolvedCard(candidateName, CardGroundingRejectReason.UpstreamUnavailable);
-        }
+        resolution = null!;
+        return false;
     }
+
+    private Task<CardResolution> GetOrFetchResolutionAsync(string candidateName, CancellationToken cancellationToken)
+        => CachedNameResolution.GetOrAddAsync(
+            cache,
+            CacheKeyPrefix,
+            candidateName,
+            async ct =>
+            {
+                var request = new RestRequest("cards/collection", Method.Post);
+                request.AddJsonBody(new { identifiers = new object[] { new { name = candidateName } } });
+
+                RestResponse<ScryfallCollectionResponse> response =
+                    await resolver.ExecuteCollectionAsync(request, ct).ConfigureAwait(false);
+
+                ScryfallThrottle.ThrowIfUpstreamUnavailable(response.StatusCode);
+                if (response.StatusCode is < HttpStatusCode.OK or >= HttpStatusCode.MultipleChoices || response.Data is null)
+                {
+                    throw new HttpRequestException(
+                        $"Scryfall card lookup (cards/collection) returned HTTP {(int)response.StatusCode} during card grounding.",
+                        inner: null,
+                        statusCode: response.StatusCode);
+                }
+
+                ScryfallCard? exactCard = response.Data.Data.FirstOrDefault(card =>
+                    string.Equals(CardNormalizer.Normalize(card.Name), CardNormalizer.Normalize(candidateName), StringComparison.Ordinal));
+                if (exactCard is not null)
+                {
+                    return CreateResolvedCard(exactCard);
+                }
+
+                return await ResolveFuzzyOnlyAsync(candidateName, ct).ConfigureAwait(false);
+            },
+            _ => CreateUnresolvedCard(candidateName, CardGroundingRejectReason.UpstreamUnavailable),
+            static resolution => resolution.ResolutionReason switch
+            {
+                CardGroundingRejectReason.None => CachedNameResolution.PositiveCacheTtl,
+                CardGroundingRejectReason.UpstreamUnavailable => null,
+                _ => CachedNameResolution.NegativeCacheTtl,
+            },
+            cancellationToken);
 
     private async Task<CardResolution> ResolveFuzzyOnlyAsync(string candidateName, CancellationToken cancellationToken)
     {
@@ -380,13 +392,12 @@ public sealed class CardGroundingGuard(IScryfallCardResolver resolver, IMemoryCa
         }
 
         cache.Set(
-            BuildCacheKey(candidateName),
+            CachedNameResolution.BuildCacheKey(CacheKeyPrefix, candidateName),
             resolution,
-            resolution.ResolutionReason == CardGroundingRejectReason.None ? PositiveCacheTtl : NegativeCacheTtl);
+            resolution.ResolutionReason == CardGroundingRejectReason.None
+                ? CachedNameResolution.PositiveCacheTtl
+                : CachedNameResolution.NegativeCacheTtl);
     }
-
-    private static string BuildCacheKey(string candidateName)
-        => "card-grounding-guard:" + candidateName.Trim().ToLowerInvariant();
 
     private sealed record CardResolution
     {
@@ -401,5 +412,20 @@ public sealed class CardGroundingGuard(IScryfallCardResolver resolver, IMemoryCa
         public required string TypeLine { get; init; }
 
         public required CardGroundingRejectReason ResolutionReason { get; init; }
+    }
+
+    private static IEnumerable<List<T>> Chunk<T>(IReadOnlyList<T> values, int size)
+    {
+        for (var index = 0; index < values.Count; index += size)
+        {
+            var count = Math.Min(size, values.Count - index);
+            var chunk = new List<T>(count);
+            for (var itemIndex = 0; itemIndex < count; itemIndex++)
+            {
+                chunk.Add(values[index + itemIndex]);
+            }
+
+            yield return chunk;
+        }
     }
 }
