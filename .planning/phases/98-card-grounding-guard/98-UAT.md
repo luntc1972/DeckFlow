@@ -1,9 +1,9 @@
 ---
-status: diagnosed
+status: complete
 phase: 98-card-grounding-guard
 source: [98-01-SUMMARY.md, 98-02-SUMMARY.md, 98-03-SUMMARY.md, 98-04-SUMMARY.md]
 started: 2026-07-19T01:05:00Z
-updated: 2026-07-19T01:35:00Z
+updated: 2026-07-19T01:45:00Z
 ---
 
 ## Current Test
@@ -12,14 +12,14 @@ updated: 2026-07-19T01:35:00Z
 number: 4
 name: complete
 expected: all tests processed
-awaiting: gap-fix execution
+awaiting: nothing — gap fixed and re-verified
 
 ## Tests
 
 ### 1. Cold Start Smoke Test
 expected: Kill any running server. Fresh boot via scripts/run-web-test.sh: server boots without errors, homepage 200, creator-deck-cache.db schema creation does not fault startup, no DI resolution failures.
-result: issue
-severity: major
+result: pass (after GAP-98-01 fix dba95cad; re-run: clean boot :5199, "Now listening", homepage+manabase 200 from our process)
+originally: issue (major)
 reported: |
   Dev cold start CRASHES at Program.cs:200 Build() — Development ValidateOnBuild rejects
   3 scoped registrations with unregistered ctor deps: CreatorProfileDeckCrawler +
@@ -50,8 +50,8 @@ evidence: 7/7 named results — PlausibleFakeName=>NotFound, Dockside=>NotLegal,
 ## Summary
 
 total: 4
-passed: 3
-issues: 1
+passed: 4
+issues: 0 (1 found, fixed via 98-05, re-verified)
 pending: 0
 skipped: 0
 
@@ -61,3 +61,4 @@ skipped: 0
 - Root cause: Program.cs:192-194 (P95) registers CreatorProfileDeckCrawler, CreatorDeckCategoryResolver, MeasuredStyleProfileBuilder as scoped services, but ICreatorProfileSourceStore and CategoryKnowledgeRepository were never registered in Web DI. Development's default ValidateOnBuild crashes the boot; Production is not affected (no validation, services unresolved-only-if-used).
 - Fix plan: 98-05-PLAN.md (gap_closure: true) — register both deps in Program.cs beside the ICreatorDeckCacheStore registration; regression-lock with a full-Program DI smoke test or documented cold-start check.
 - Route: /gsd-execute-phase 98 --gaps-only
+- STATUS: CLOSED — fix commit dba95cad (3 registrations + CreatorStyleDiRegistrationTests ValidateOnBuild lock); cold start re-verified clean on :5199; full Web suite 1317/1331.
