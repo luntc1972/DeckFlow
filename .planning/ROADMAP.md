@@ -43,7 +43,7 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
 - [ ] **Phase 97: Profile Fusion + Conflict Ledger** - Reconcile stated vs measured into weighted numeric targets + say-vs-do ledger; admin-visible, no public UI.
 - [x] **Phase 98: Card-Grounding Guard** - Reusable Scryfall validator + constrained-selection whitelist so no hallucinated/illegal card ever ships; cross-cutting substrate.
 - [ ] **Phase 99: Creator-Style Artifact Engine** - Deterministic C# rubric diffing a submitted deck vs fused targets + assembled artifact content; no LLM call, no page yet.
-- [ ] **Phase 100: Creator-Style Tool Surface** - The $0 paste-ready tool page/controller, flag `creator.style-artifact` (OFF), full web bundle. **Only phase that ships user-visible value.**
+- [x] **Phase 100: Creator-Style Tool Surface** - The $0 paste-ready tool page/controller, flag `tool.creator-style.enabled` (OFF), full web bundle. **Only phase that ships user-visible value.**
 
 <details>
 <summary>Cycle 16 (Phases 88-93) - SHIPPED 2026-07-11 (2026.07.3)</summary>
@@ -175,20 +175,20 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
 - [x] 99-03-PLAN.md — CreatorStylePacketService: 5-element artifact assembly + fail-closed guard gate + DI tripwire (CS-26, CS-28, CS-29)
 
 ### Phase 100: Creator-Style Tool Surface
-**Goal**: Ship the $0 paste-ready Creator-Style tool end-to-end — new page, controller, flag `creator.style-artifact` (seeded OFF), packet-cache-bypass wiring, and the full web-change bundle. **The only phase in this milestone that ships user-visible value.**
+**Goal**: Ship the $0 paste-ready Creator-Style tool end-to-end — new page, controller, flag `tool.creator-style.enabled` (seeded OFF), packet-cache-bypass wiring, and the full web-change bundle. **The only phase in this milestone that ships user-visible value.**
 **Depends on**: Phase 99 (Artifact Engine)
 **Requirements**: CS-30, CS-31
 **Success Criteria** (what must be TRUE):
-  1. With `creator.style-artifact` ON, a user can pick a creator, submit a deck, and receive a ChatGPT-ready critique packet in one round-trip on a new tool page.
-  2. Flag `creator.style-artifact` is seeded OFF on both dialects at ship; toggling it changes only whether the tool is reachable — every existing artifact stays byte-identical.
+  1. With `tool.creator-style.enabled` ON, a user can pick a creator, submit a deck, and receive a ChatGPT-ready critique packet in one round-trip on a new tool page.
+  2. Flag `tool.creator-style.enabled` is seeded OFF on both dialects at ship; toggling it changes only whether the tool is reachable — every existing artifact stays byte-identical.
   3. The flag is registered in the packet prompt-mutating cache-bypass set, so a stale cached packet can never be served across a flag flip.
   4. xUnit + Playwright e2e (desktop + mobile, across themes) cover the new page/controller; README documents the new workflow; the byte-identical prose gate passes on every pre-existing artifact.
 **Plans**: 5 plans
-- [ ] 100-01-PLAN.md — Flag + tool registration: `tool.creator-style.enabled` seeded OFF (both dialects), ToolRegistry/catalog/enum (CS-30, D-100-05/12)
-- [ ] 100-02-PLAN.md — PacketSessionCache cache-bypass wiring + fold IN-01/03/04/08 correctness items (CS-30, D-100-06/08/15/16)
-- [ ] 100-03-PLAN.md — `ICreatorStyleProfileStore.GetAllAsync` + summary DTO for the picker (CS-31, D-100-09)
-- [ ] 100-04-PLAN.md — D-14 seed loader (2 files) + startup hydration + CLI export command (CS-31, D-100-01..04)
-- [ ] 100-05-PLAN.md — Controller + view + picker/toggle/result + desktop+mobile e2e + README (CS-31, D-100-09..16)
+- [x] 100-01-PLAN.md — Flag + tool registration: `tool.creator-style.enabled` seeded OFF (both dialects), ToolRegistry/catalog/enum (CS-30, D-100-05/12)
+- [x] 100-02-PLAN.md — PacketSessionCache cache-bypass wiring + fold IN-01/03/04/08 correctness items (CS-30, D-100-06/08/15/16)
+- [x] 100-03-PLAN.md — `ICreatorStyleProfileStore.GetAllAsync` + summary DTO for the picker (CS-31, D-100-09)
+- [x] 100-04-PLAN.md — D-14 seed loader (2 files) + startup hydration + CLI export command (CS-31, D-100-01..04)
+- [x] 100-05-PLAN.md — Controller + view + picker/toggle/result + desktop+mobile e2e + README (CS-31, D-100-09..16)
 **UI hint**: yes
 
 ## Progress
@@ -204,7 +204,7 @@ Phase 94 -> {Phase 95, Phase 96 in parallel} -> {Phase 97 (needs 95+96), Phase 9
 | 97. Profile Fusion + Conflict Ledger | Cycle 17 | 0/7 | Not started | - |
 | 98. Card-Grounding Guard | Cycle 17 | 0/4 | Not started | - |
 | 99. Creator-Style Artifact Engine | Cycle 17 | 3/3 | Complete    | 2026-07-19 |
-| 100. Creator-Style Tool Surface | Cycle 17 | 0/5 | Planned | - |
+| 100. Creator-Style Tool Surface | Cycle 17 | 5/5 | Complete   | 2026-07-19 |
 
 Cycle 16 progress (Phases 82-93): see `.planning/milestones/cycle16-ROADMAP.md` and `.planning/milestones/2026.07.2-ROADMAP.md`.
 

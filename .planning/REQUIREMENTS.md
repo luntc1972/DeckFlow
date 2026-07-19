@@ -70,15 +70,15 @@ profile; lift over raw synergy; confidence/`numDecks` next to every stat.
 - [ ] **CS-24**: reusable service consumed by the artifact tool (and future critique); cache validated names.
 - [ ] **CS-25**: tests incl. known-hallucination fixtures.
 
-### Creator-Style Prompt Artifact (flag `creator.style-artifact`, OFF) — primary $0 deliverable
+### Creator-Style Prompt Artifact (flag `tool.creator-style.enabled` — renamed from creator.style-artifact per D-100-05, OFF) — primary $0 deliverable
 <!-- Codex HIGH: this is ≥2 phases — split artifact engine vs tool surface/cache/flag at roadmap time. -->
 
 - [x] **CS-26**: new tool page + `CreatorStylePacketService` (mirror `DeckAnalysisPacketService`).
 - [x] **CS-27**: deterministic C# rubric scoring — diff submitted deck vs fused targets + Karsten math (no LLM).
 - [x] **CS-28**: artifact injects (a) fused profile as weighted numeric targets, (b) 2–3 real creator-deck exemplars, (c) validated synergy/combo context (CS-21..25), (d) rubric scores, (e) "critique only with the provided cards" instruction.
 - [x] **CS-29**: all cards validated via the card-grounding guard pre-ship.
-- [ ] **CS-30**: flag `creator.style-artifact` seeded OFF (both dialects); operator flips in prod. Prompt-mutating flag → wire into the packet cache-bypass set.
-- [ ] **CS-31**: full web-change bundle — xUnit + Playwright e2e desktop+mobile across themes; README; byte-identical prose gate.
+- [x] **CS-30**: flag `tool.creator-style.enabled` seeded OFF (both dialects); operator flips in prod. Prompt-mutating flag → wire into the packet cache-bypass set.
+- [x] **CS-31**: full web-change bundle — xUnit + Playwright e2e desktop+mobile across themes; README; byte-identical prose gate.
 
 ## Traceability
 
@@ -123,8 +123,8 @@ profile; lift over raw synergy; confidence/`numDecks` next to every stat.
 | CS-27 | Phase 99 — Creator-Style Artifact Engine | Complete |
 | CS-28 | Phase 99 — Creator-Style Artifact Engine | Complete |
 | CS-29 | Phase 99 — Creator-Style Artifact Engine | Complete |
-| CS-30 | Phase 100 — Creator-Style Tool Surface | Pending |
-| CS-31 | Phase 100 — Creator-Style Tool Surface | Pending |
+| CS-30 | Phase 100 — Creator-Style Tool Surface | Complete |
+| CS-31 | Phase 100 — Creator-Style Tool Surface | Complete |
 
 **Coverage:** 39/39 requirements mapped to exactly one phase (94-100). No orphans, no duplicates.
 
