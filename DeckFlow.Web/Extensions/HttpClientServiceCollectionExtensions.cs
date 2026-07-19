@@ -11,7 +11,7 @@ namespace DeckFlow.Web.Extensions;
 public static class HttpClientServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers all named HttpClients (commander-banlist, commander-spellbook, scryfall-rest,
+    /// Registers all named HttpClients (archidekt-owner, commander-banlist, commander-spellbook, scryfall-rest,
     /// scryfall-tagger, youtube-metadata), the <see cref="System.Net.CookieContainer"/> singleton,
     /// and the <see cref="ScryfallTaggerHttpClient"/> typed-client singletons.
     /// </summary>
@@ -24,6 +24,13 @@ public static class HttpClientServiceCollectionExtensions
     public static IServiceCollection AddDeckFlowHttpClients(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+
+        services.AddHttpClient("archidekt-owner", c =>
+        {
+            c.BaseAddress = new Uri("https://archidekt.com/");
+            c.DefaultRequestHeaders.UserAgent.ParseAdd("DeckFlow/1.0");
+            c.DefaultRequestHeaders.Accept.ParseAdd("application/json;q=0.9,*/*;q=0.8");
+        });
 
         services.AddHttpClient("commander-banlist", c =>
         {

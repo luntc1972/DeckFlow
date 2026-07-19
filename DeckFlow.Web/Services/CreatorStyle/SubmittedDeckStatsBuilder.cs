@@ -81,17 +81,13 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
         "commander"
     };
 
-    private readonly IDeckEntryLoader? _deckEntryLoader;
-    private readonly CategoryKnowledgeRepository? _categoryKnowledgeRepository;
-    private readonly ICommanderSpellbookService? _commanderSpellbookService;
-    private readonly IScryfallCardResolver? _scryfallCardResolver;
+    private readonly Func<string, CancellationToken, Task<DeckSourceLoadResult>> _loadDeckAsync;
+    private readonly Func<string, CancellationToken, Task<IReadOnlyList<string>>> _getCategoriesAsync;
+    private readonly Func<IReadOnlyList<DeckEntry>, CancellationToken, Task<CommanderSpellbookResult?>> _findCombosAsync;
+    private readonly Func<IReadOnlyList<DeckEntry>, CancellationToken, Task<SubmittedDeckResolution>> _analyzeSubmittedDeckAsync;
+    private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
+    private readonly Func<string, CancellationToken, Task<ScryfallCard?>> _searchFallbackCardAsync;
     private readonly ILogger<SubmittedDeckStatsBuilder> _logger;
-    private readonly Func<string, CancellationToken, Task<DeckSourceLoadResult>>? _loadDeckAsyncOverride;
-    private readonly Func<string, CancellationToken, Task<IReadOnlyList<string>>>? _getCategoriesAsyncOverride;
-    private readonly Func<IReadOnlyList<DeckEntry>, CancellationToken, Task<CommanderSpellbookResult?>>? _findCombosAsyncOverride;
-    private readonly Func<IReadOnlyList<DeckEntry>, CancellationToken, Task<SubmittedDeckResolution>>? _analyzeSubmittedDeckAsyncOverride;
-    private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? _executeCollectionAsyncOverride;
-    private readonly Func<string, CancellationToken, Task<ScryfallCard?>>? _searchFallbackCardAsyncOverride;
 
     /// <summary>
     /// Creates a submitted-deck stats builder using the production dependencies.
@@ -108,29 +104,33 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
         ArgumentNullException.ThrowIfNull(commanderSpellbookService);
         ArgumentNullException.ThrowIfNull(scryfallCardResolver);
 
-        _deckEntryLoader = deckEntryLoader;
-        _categoryKnowledgeRepository = categoryKnowledgeRepository;
-        _commanderSpellbookService = commanderSpellbookService;
-        _scryfallCardResolver = scryfallCardResolver;
+        _loadDeckAsync = (deckSource, cancellationToken) => deckEntryLoader.LoadFromSourceAsync(deckSource, cancellationToken: cancellationToken);
+        _getCategoriesAsync = (cardName, cancellationToken) => categoryKnowledgeRepository.GetCategoriesAsync(cardName, cancellationToken);
+        _findCombosAsync = (entries, cancellationToken) => commanderSpellbookService.FindCombosAsync(entries, cancellationToken);
+        _analyzeSubmittedDeckAsync = AnalyzeSubmittedDeckAsync;
+        _executeCollectionAsync = (request, cancellationToken) => scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken);
+        _searchFallbackCardAsync = (cardName, cancellationToken) => scryfallCardResolver.SearchFallbackCardAsync(cardName, cancellationToken);
         _logger = logger ?? NullLogger<SubmittedDeckStatsBuilder>.Instance;
     }
 
     internal SubmittedDeckStatsBuilder(
-        Func<string, CancellationToken, Task<DeckSourceLoadResult>>? loadDeckAsyncOverride = null,
-        Func<string, CancellationToken, Task<IReadOnlyList<string>>>? getCategoriesAsyncOverride = null,
-        Func<IReadOnlyList<DeckEntry>, CancellationToken, Task<CommanderSpellbookResult?>>? findCombosAsyncOverride = null,
-        Func<IReadOnlyList<DeckEntry>, CancellationToken, Task<SubmittedDeckResolution>>? analyzeSubmittedDeckAsyncOverride = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride = null,
-        Func<string, CancellationToken, Task<ScryfallCard?>>? searchFallbackCardAsyncOverride = null,
+        Func<string, CancellationToken, Task<DeckSourceLoadResult>>? loadDeckAsync = null,
+        Func<string, CancellationToken, Task<IReadOnlyList<string>>>? getCategoriesAsync = null,
+        Func<IReadOnlyList<DeckEntry>, CancellationToken, Task<CommanderSpellbookResult?>>? findCombosAsync = null,
+        Func<IReadOnlyList<DeckEntry>, CancellationToken, Task<SubmittedDeckResolution>>? analyzeSubmittedDeckAsync = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
+        Func<string, CancellationToken, Task<ScryfallCard?>>? searchFallbackCardAsync = null,
         ILogger<SubmittedDeckStatsBuilder>? logger = null)
     {
         _logger = logger ?? NullLogger<SubmittedDeckStatsBuilder>.Instance;
-        _loadDeckAsyncOverride = loadDeckAsyncOverride;
-        _getCategoriesAsyncOverride = getCategoriesAsyncOverride;
-        _findCombosAsyncOverride = findCombosAsyncOverride;
-        _analyzeSubmittedDeckAsyncOverride = analyzeSubmittedDeckAsyncOverride;
-        _executeCollectionAsyncOverride = executeCollectionAsyncOverride;
-        _searchFallbackCardAsyncOverride = searchFallbackCardAsyncOverride;
+        _loadDeckAsync = loadDeckAsync ?? throw new ArgumentNullException(nameof(loadDeckAsync));
+        _getCategoriesAsync = getCategoriesAsync ?? throw new ArgumentNullException(nameof(getCategoriesAsync));
+        _findCombosAsync = findCombosAsync ?? throw new ArgumentNullException(nameof(findCombosAsync));
+        _analyzeSubmittedDeckAsync = analyzeSubmittedDeckAsync ?? AnalyzeSubmittedDeckAsync;
+        _executeCollectionAsync = executeCollectionAsync ?? ((_, _) =>
+            throw new InvalidOperationException("executeCollectionAsync must be supplied when the built-in submitted-deck analysis path is used."));
+        _searchFallbackCardAsync = searchFallbackCardAsync ?? ((_, _) =>
+            throw new InvalidOperationException("searchFallbackCardAsync must be supplied when the built-in submitted-deck analysis path is used."));
     }
 
     /// <inheritdoc />
@@ -138,7 +138,7 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(deckSource);
 
-        DeckSourceLoadResult loaded = await LoadDeckAsync(deckSource, cancellationToken).ConfigureAwait(false);
+        DeckSourceLoadResult loaded = await _loadDeckAsync(deckSource, cancellationToken).ConfigureAwait(false);
         List<DeckEntry> flaggedEntries = CommanderInference.ReflagInferredCommanders(loaded.Entries.ToList());
         List<DeckEntry> analyzedEntries = flaggedEntries
             .Where(entry => AnalyzedBoards.Contains(entry.Board))
@@ -190,18 +190,6 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
         };
     }
 
-    private async Task<DeckSourceLoadResult> LoadDeckAsync(string deckSource, CancellationToken cancellationToken)
-    {
-        if (_loadDeckAsyncOverride is not null)
-        {
-            return await _loadDeckAsyncOverride(deckSource, cancellationToken).ConfigureAwait(false);
-        }
-
-        return await _deckEntryLoader!
-            .LoadFromSourceAsync(deckSource, cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
-    }
-
     private async Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> ResolveCategoriesAsync(
         IReadOnlyList<DeckEntry> entries,
         CancellationToken cancellationToken)
@@ -211,23 +199,11 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
                      .Select(entry => entry.Name)
                      .Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            IReadOnlyList<string> categories = await GetCategoriesAsync(cardName, cancellationToken).ConfigureAwait(false);
+            IReadOnlyList<string> categories = await _getCategoriesAsync(cardName, cancellationToken).ConfigureAwait(false);
             categoryMap[cardName] = categories;
         }
 
         return categoryMap;
-    }
-
-    private async Task<IReadOnlyList<string>> GetCategoriesAsync(string cardName, CancellationToken cancellationToken)
-    {
-        if (_getCategoriesAsyncOverride is not null)
-        {
-            return await _getCategoriesAsyncOverride(cardName, cancellationToken).ConfigureAwait(false);
-        }
-
-        return await _categoryKnowledgeRepository!
-            .GetCategoriesAsync(cardName, cancellationToken)
-            .ConfigureAwait(false);
     }
 
     private static IReadOnlyDictionary<string, int> CountCategories(
@@ -254,11 +230,7 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
     {
         try
         {
-            return _findCombosAsyncOverride is not null
-                ? await _findCombosAsyncOverride(entries, cancellationToken).ConfigureAwait(false)
-                : await _commanderSpellbookService!
-                    .FindCombosAsync(entries, cancellationToken)
-                    .ConfigureAwait(false);
+            return await _findCombosAsync(entries, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -267,15 +239,15 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
         }
     }
 
-    private async Task<SubmittedDeckResolution> ResolveSubmittedDeckAsync(
+    private Task<SubmittedDeckResolution> ResolveSubmittedDeckAsync(
+        IReadOnlyList<DeckEntry> entries,
+        CancellationToken cancellationToken) =>
+        _analyzeSubmittedDeckAsync(entries, cancellationToken);
+
+    private async Task<SubmittedDeckResolution> AnalyzeSubmittedDeckAsync(
         IReadOnlyList<DeckEntry> entries,
         CancellationToken cancellationToken)
     {
-        if (_analyzeSubmittedDeckAsyncOverride is not null)
-        {
-            return await _analyzeSubmittedDeckAsyncOverride(entries, cancellationToken).ConfigureAwait(false);
-        }
-
         if (entries.Count == 0)
         {
             return EmptyResolution();
@@ -290,31 +262,13 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
             cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(
+    private Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(
         RestRequest request,
-        CancellationToken cancellationToken)
-    {
-        if (_executeCollectionAsyncOverride is not null)
-        {
-            return await _executeCollectionAsyncOverride(request, cancellationToken).ConfigureAwait(false);
-        }
+        CancellationToken cancellationToken) =>
+        _executeCollectionAsync(request, cancellationToken);
 
-        return await _scryfallCardResolver!
-            .ExecuteCollectionAsync(request, cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    private async Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
-    {
-        if (_searchFallbackCardAsyncOverride is not null)
-        {
-            return await _searchFallbackCardAsyncOverride(cardName, cancellationToken).ConfigureAwait(false);
-        }
-
-        return await _scryfallCardResolver!
-            .SearchFallbackCardAsync(cardName, cancellationToken)
-            .ConfigureAwait(false);
-    }
+    private Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken) =>
+        _searchFallbackCardAsync(cardName, cancellationToken);
 
     private static SubmittedDeckResolution EmptyResolution()
     {

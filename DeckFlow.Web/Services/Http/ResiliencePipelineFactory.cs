@@ -17,13 +17,14 @@ namespace DeckFlow.Web.Services.Http
     /// IResiliencePipelineRegistry&lt;string&gt; per the tuning matrix locked in 01-CONTEXT.md (D-04).
     /// Pipelines are constructed once at composition time (Program.cs) and resolved per-service
     /// via ResiliencePipelineProvider&lt;string&gt;.GetPipeline&lt;RestResponse&gt;(name) (D-05) - never
-/// rebuilt per call. Replaces the keyed-services attribute approach (checker B2).
+    /// rebuilt per call. Replaces the keyed-services attribute approach (checker B2).
     /// </summary>
     public static class ResiliencePipelineFactory
     {
-        /// <summary>Registers all five named pipelines into the supplied IServiceCollection.</summary>
+        /// <summary>Registers all six named pipelines into the supplied IServiceCollection.</summary>
         public static IServiceCollection AddDeckFlowResiliencePipelines(this IServiceCollection services)
         {
+            DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "archidekt", builder => BuildArchidekt(builder));
             DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "banlist", builder => BuildBanList(builder));
             DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "spellbook", builder => BuildSpellbook(builder));
             DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "tagger", builder => BuildTagger(builder));
@@ -44,6 +45,27 @@ namespace DeckFlow.Web.Services.Http
                     .Handle<Exception>(static ex => IsTransientException(ex)),
             })
             .AddTimeout(TimeSpan.FromSeconds(5));
+
+        /// <summary>
+        /// Archidekt owner crawl: use the Scryfall-shaped total-budget wrapper so a multi-page
+        /// public-API crawl gets a single end-to-end retry budget instead of the banlist's
+        /// one-shot lightweight GET tuning.
+        /// </summary>
+        private static void BuildArchidekt(ResiliencePipelineBuilder<RestResponse> builder) => builder
+            .AddTimeout(new TimeoutStrategyOptions
+            {
+                Timeout = TimeSpan.FromSeconds(30),
+                Name = "archidekt-total",
+            })
+            .AddRetry(new RetryStrategyOptions<RestResponse>
+            {
+                MaxRetryAttempts = 2,
+                BackoffType = DelayBackoffType.Exponential,
+                UseJitter = true,
+                ShouldHandle = new PredicateBuilder<RestResponse>()
+                    .HandleResult(static r => r.StatusCode >= HttpStatusCode.InternalServerError)
+                    .Handle<Exception>(static ex => IsTransientException(ex)),
+            });
 
         /// <summary>Spellbook: Retry(3, exponential+jitter), AttemptTimeout(10s), CB(50% / 30s).</summary>
         private static void BuildSpellbook(ResiliencePipelineBuilder<RestResponse> builder) => builder
