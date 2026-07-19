@@ -1010,6 +1010,7 @@ summary:focus-visible,
     padding: 1rem 0;
     border-top: 1px solid currentColor;
     display: flex;
+    flex-wrap: wrap;
     justify-content: flex-end;
     align-items: center;
     gap: 1rem;
@@ -1032,6 +1033,19 @@ summary:focus-visible,
     color: var(--muted);
     text-decoration: none;
     cursor: default;
+}
+.page-footer__legal {
+    margin: 0.25rem 0 0 auto;
+    flex-basis: 100%;
+    max-width: 70ch;
+    color: var(--muted);
+    font-size: 0.78rem;
+    line-height: 1.5;
+    text-align: center;
+}
+.page-footer__legal a {
+    color: inherit;
+    text-decoration: underline;
 }
 /* Phase 84: decorative brand emphasis, intentionally stays on --accent-strong (D2) */
 .page-footer__link--cta {
