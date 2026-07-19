@@ -334,27 +334,31 @@ public void Set<TResult>(string key, TResult result, int sizeBytes) where TResul
 | A3 | A ~120-card pool's full `ManabaseAnalyzer.Analyze()` call will NOT complete inside the ~1s D-11 budget at `DefaultTrials=20,000`/`SourceSearchTrials=5,000` without either trial-count reduction or per-card scoped reruns — no timing benchmark exists in the repo to confirm the actual wall-clock cost. | Common Pitfalls (Pitfall 2) | If the real cost turns out to be well under 1s already (e.g., trials are cheap integer-array simulations, not allocation-heavy), the planner may over-engineer a reduced-trial/partial-rerun strategy that isn't needed. A Wave 0 timing spike is the correct way to resolve this, not more research-time guessing. |
 | A4 | `CutLabFindingKind.WeakFloorCase` and `RedundantFinishers` evidence should NOT count toward a card's D-01 "flagged by 2+ findings" tally on their own (or should count differently from `CurveCongestion`/`StrandedSubtheme`/`EnablerStarved`), because they flag entire role memberships uniformly rather than discriminating cards. | Common Pitfalls (Pitfall 3) | If the planner treats all 5 finding kinds identically for the D-01 tally, Round 1 ("obvious cuts") could end up containing every card in a thin role rather than a small, genuinely obvious set — directly undermining the "obvious cut" UX promise. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Does "per-goal category-by-turn probability" mean user-defined goals (Phase 104's GOAL-01) or a fixed default set of category/turn pairs for Phase 103?**
    - What we know: ROADMAP.md Phase 103 success criteria literally include "per-goal category-by-turn probability" in its SIM-01 recalculation list, but GOAL-01 ("User can define turn-based goals") is explicitly scoped to Phase 104, which "depends on Phase 103 (reuses its simulation/metrics engine)."
    - What's unclear: Whether Phase 103 needs to build the category-by-turn machinery generically now (with Phase 104 only adding the UI to let users pick goals), or whether Phase 103 should use a small fixed set of categories/turns (e.g., ramp by turn 2, interaction by turn 2, commander by turn 3, engine+payoff by turn 6 — mirroring `CedhMulliganCalibration`'s constants) as a non-editable preview.
    - Recommendation: Plan for the FIXED-default interpretation (A2 above) since it reuses `CedhMulliganCalibration`'s existing constants and keeps "no new simulation math" true; flag this explicitly to the user/planner as a scope decision rather than resolving it silently, since it changes what "recalculates after every cut" concretely renders.
+   - **RESOLVED:** per-goal category-by-turn = FIXED `CedhMulliganCalibration` turn caps (3/2/4) in Phase 103; user-editable turn-based goals deferred to Phase 104/GOAL-01 — **USER CONFIRMED 2026-07-19** (see CONTEXT D-17). Implemented in 103-01 (contract) + 103-05 (projection).
 
 2. **What exactly composes "flood/screw/curve risk" as a single delta-displayable metric?**
    - What we know: No `ManabaseReport` field is named this. Candidate components exist: `LandDelta` (flood if positive/large, screw risk if negative), `MulliganEvaluation.MulliganTo5Percent` (mulligan-to-5 rate as a screw proxy), Phase 102's `CutLabFindingKind.CurveCongestion` (curve proxy, pool-level not working-list-delta-level today).
    - What's unclear: Whether these three should be shown as three separate changed-only lines (consistent with D-05's "changed-only compact deltas" — this may actually be the natural answer, since D-05 already expects multiple metric lines, not one composite number) or combined into one derived score.
    - Recommendation: Treat as three separate lines within the existing "7-family" delta table rather than inventing a composite score — this requires zero new math and fits D-05's display model directly.
+   - **RESOLVED:** flood/screw/curve = three separate changed-only delta lines (Flood/Screw/Curve kinds), never a composite score. Implemented in 103-01 (contract) + 103-05 (projection).
 
 3. **What is the actual per-decision wall-clock cost of `ManabaseAnalyzer.Analyze` at default trial counts for a ~100-150 card pool?**
    - What we know: `DefaultTrials = 20_000` per spell's `CastabilitySimulator.Simulate` call; `SourceSearchTrials = 5_000` per color per unique (color, pips, turn, threshold) signature during the binary search for `RequiredSources`; `SimulatePlanPresence` runs one more full-trial pass when plan roles are tagged. No benchmark/timing test exists in `DeckFlow.Core.Tests` to cite a real number.
    - What's unclear: Whether this comfortably clears D-11's ~1s target/3s hard cap as-is, or needs the "reduce iterations for in-loop deltas" fallback D-11 explicitly authorizes.
    - Recommendation: Wave 0 timing spike — call `ManabaseAnalyzer.Analyze` against a realistic ~130-card Cut Lab pool fixture and record milliseconds before committing to a specific reduced-trial-count design. Do not guess a trial count in the plan without this measurement.
+   - **RESOLVED:** Wave 0 timing spike lives in 103-01 (measures ~130-card `Analyze` ms and gates the in-loop trial count); 103-05 consumes the measured value via 103-01-SUMMARY.
 
 4. **Where does the resolved-card cache live in the DI/lifetime model, and what invalidates it?**
    - What we know: `CutLabPageService` is registered `Scoped` (`Program.cs:181`); Cut Lab intake happens via full-page POST today with no session/user identity concept beyond the hidden `CutLabStateJson` field round-trip (no auth, no server session store observed for Cut Lab).
    - What's unclear: What key uniquely and safely identifies "this browser's current Cut Lab working session" for a server-side `IMemoryCache` entry, given there's no login/session ID today — likely a hash of the pool's card-name+quantity set (deterministic, matches D-10's "working-list hash" language) rather than a server session ID.
    - Recommendation: Use a deterministic hash of the (sorted) pool card list as the cache key (mirroring `PacketSessionCache.ComputeKey`), scoped to a TTL long enough to survive a normal cut session (tens of minutes) but short enough not to accumulate unboundedly across many users/pools under the 512MB cap.
+   - **RESOLVED:** resolved-card cache = pool-hash-keyed, size-bounded dedicated `MemoryCache` following the `PacketSessionCache.ComputeKey` pattern. Implemented in 103-03 (cache) + 103-06 (intake population).
 
 ## Environment Availability
 
