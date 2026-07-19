@@ -44,6 +44,8 @@ public class AboutControllerTests
         Assert.Contains("Wizards of the Coast", names);
         Assert.Contains("Archidekt", names);
         Assert.Contains("Moxfield", names);
+        Assert.Contains("EDHREC", names);
+        Assert.Contains("Scryfall Tagger", names);
     }
 
     [Fact]

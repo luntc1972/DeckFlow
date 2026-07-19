@@ -61,12 +61,13 @@ public static class HttpClientServiceCollectionExtensions
         services.AddHttpClient("scryfall-tagger", c =>
         {
             c.BaseAddress = new Uri("https://tagger.scryfall.com/");
-            c.DefaultRequestHeaders.UserAgent.ParseAdd("DeckFlow/1.0");
+            c.DefaultRequestHeaders.UserAgent.ParseAdd("DeckFlow/1.0 (+https://www.deckflow.gg)");
             // Phase 5 BUG-01 follow-up: browser-mimicking request headers to clear
             // Cloudflare's Browser Integrity Check on tagger.scryfall.com. The host
             // appears to 404 requests from Render's egress IP that lack these signals,
-            // even though the same UA from a residential IP succeeds. UA stays as
-            // "DeckFlow/1.0" per Scryfall API-consumer guidelines (descriptive UA).
+            // even though the same UA from a residential IP succeeds. UA stays descriptive
+            // per Scryfall API-consumer guidelines and now also carries a contact URL so
+            // Scryfall can reach the operator if needed.
             c.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
             c.DefaultRequestHeaders.AcceptEncoding.ParseAdd("gzip");
             c.DefaultRequestHeaders.AcceptEncoding.ParseAdd("deflate");
