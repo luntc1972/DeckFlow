@@ -120,7 +120,10 @@ test('imports a pool, locks lands and a package, then preserves those edits acro
   await expect(page.locator('tr[data-cut-lab-card="Plains"] input[data-cut-lab-lock-card]')).toBeChecked();
   await expect(page.locator('tr[data-cut-lab-card="Island"] input[data-cut-lab-lock-card]')).toBeChecked();
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"] .cutlab-lock-badge--commander')).toContainText('Commander · Always locked');
+  await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"] input[data-cut-lab-lock-card]')).toBeChecked();
+  await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"] input[data-cut-lab-lock-card]')).toBeDisabled();
   await expect(page.locator('.prompt-size-note')).toContainText('locked (protected from any future cut)');
+  await expect(page.getByText('No banned cards found')).toBeVisible();
 });
 
 test('captures imported Cut Lab screenshots across themes and viewports', async ({ page }) => {
