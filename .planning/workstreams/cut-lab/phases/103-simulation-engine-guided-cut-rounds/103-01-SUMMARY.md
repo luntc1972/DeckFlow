@@ -2,7 +2,7 @@
 
 ## Measured Timing
 
-- Measured `ManabaseAnalyzer.Analyze` wall-clock on a ~130-card singleton pool at the default trial count (`20_000`): `5164 ms`.
+- Measured `ManabaseAnalyzer.Analyze` wall-clock on a 147-card singleton pool at the default trial count (`20_000`): `5164 ms`. (Fixture sums to 147 cards, not the plan's nominal ~130 — conservative: larger pool measures slower, so the reduced in-loop trial choice below is safe.)
 
 ## In-Loop Trial-Count Decision
 
