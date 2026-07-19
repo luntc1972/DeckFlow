@@ -236,7 +236,7 @@ public static class CutLabStructuralFindings
             IReadOnlyList<CutLabAnalyzedCard> cards = CardsInRole(pool, roleKey);
             int count = cards.Count;
 
-            if (floor <= 0 || count == 0 || count > floor + WeakFloorMargin)
+            if (floor <= 0 || count > floor + WeakFloorMargin)
             {
                 continue;
             }
