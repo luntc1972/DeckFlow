@@ -10,6 +10,9 @@ public static class CutLabStateSerializer
     /// <summary>Maximum allowed UTF-8 payload size for the serialized working-session JSON.</summary>
     public const int MaxUploadBytes = 262_144;
     private const int MaxPackages = 50;
+    // Why: a 150-card pool can accumulate multiple decision records per card across loop-around
+    // passes, so this keeps realistic history intact while staying comfortably under the byte cap.
+    private const int MaxDecisions = 500;
 
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
     {
@@ -50,6 +53,10 @@ public static class CutLabStateSerializer
                 Packages = state.Packages
                     .Where(package => !string.IsNullOrWhiteSpace(package.Name))
                     .Take(MaxPackages)
+                    .ToArray(),
+                Decisions = state.Decisions
+                    .Where(decision => !string.IsNullOrWhiteSpace(decision.CardName))
+                    .Take(MaxDecisions)
                     .ToArray(),
             };
 
