@@ -110,7 +110,8 @@ public static class ManabaseRampDrawBudgetCalculator
         };
     }
 
-    internal static int CalculateTargetRamp(double threshold)
+    /// <summary>Also consumed by CutLabFloorDefaults for Cut Lab ramp/draw floor derivation.</summary>
+    public static int CalculateTargetRamp(double threshold)
     {
         double rampTarget = threshold switch
         {
