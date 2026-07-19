@@ -5,7 +5,7 @@
 @inject IOptions<AiPlatformOptions> AiPlatformOptionsAccessor
 @{
     ViewData["Title"] = "cEDH Meta Gap Analysis for Your Deck";
-    ViewData["Description"] = "Find what your cEDH deck is missing versus the competitive Commander metagame. Generates a ChatGPT-ready gap-analysis prompt from your decklist.";
+    ViewData["Description"] = "Find what your cEDH deck is missing versus the competitive Commander metagame. Includes a one-paste gap-analysis prompt from your decklist.";
     var currentStep = Math.Clamp(Model.Request.WorkflowStep, 1, 3);
     var aiPlatform = AiPlatform.Normalize(Model.Request.TargetAiPlatform);
     var platformList = AiPlatformCopy.PlatformList(AiPlatformOptionsAccessor.Value.GeminiEnabled);

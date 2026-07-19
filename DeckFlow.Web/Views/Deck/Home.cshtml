@@ -7,7 +7,7 @@
 @inject IOptions<AiPlatformOptions> AiPlatformOptionsAccessor
 @{
     ViewData["Title"] = "MTG Deck Analysis Tools for Commander & cEDH";
-    ViewData["Description"] = "Free Magic: The Gathering deck tools for Commander and cEDH. Sync, compare, and analyze decks, then generate ChatGPT-ready prompts in one paste.";
+    ViewData["Description"] = "Free Magic: The Gathering deck tools for Commander and cEDH. Manabase math, bracket check, meta gap, and deck history — with optional one-paste AI prompt export.";
     var sections = ToolVisibility.VisibleBySection(ToolRegistry.All, FlagCache);
     var platformList = AiPlatformCopy.PlatformList(AiPlatformOptionsAccessor.Value.GeminiEnabled);
     var headlineWorkflow = sections
@@ -24,7 +24,7 @@
     <a class="hub-hero hub-hero--primary" href="@Url.Content("~" + headlineWorkflow.Route)">
         <span class="hub-hero__eyebrow">Headline workflow</span>
         <span class="hub-hero__title">Analyze Your Deck</span>
-        <span class="hub-hero__description">Five-step workflow: load your deck, pick your questions, copy the prompt, paste into @platformList, review the structured response.</span>
+        <span class="hub-hero__description">Five-step workflow: load your deck, pick your questions, and get back a structured review — one paste, one round-trip.</span>
     </a>
 }
 

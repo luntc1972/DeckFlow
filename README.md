@@ -1,11 +1,11 @@
 # DeckFlow
 
-DeckFlow helps deck builders translate decks between Moxfield and Archidekt without manual editing. It also provides AI prompt-building workflows for single-deck analysis, cEDH meta-gap analysis, head-to-head deck comparison, and deck-primer generation; a deterministic mana-base analyzer and a local bracket classifier; Commander Spellbook combo lookup, Scryfall card and mechanic references, an Ask-a-Judge handoff flow, public feedback capture, and a cache-backed category suggestion engine.
+DeckFlow helps deck builders translate decks between Moxfield and Archidekt without manual editing. It provides a deterministic mana-base analyzer and a local bracket classifier; AI prompt-building workflows for single-deck analysis, cEDH meta-gap analysis, head-to-head deck comparison, and deck-primer generation; Commander Spellbook combo lookup, Scryfall card and mechanic references, an Ask-a-Judge handoff flow, public feedback capture, and a cache-backed category suggestion engine.
 
 ## User help
 End-user documentation is served by the running web app at `/help` (feature guides) and `/about` (version, source, credits). This README keeps the developer-facing material (build, publish, API, CLI, deployment).
 
-**Repository description (≤350 characters):** DeckFlow unifies Moxfield/Archidekt decks and generates paste-ready AI prompts (analysis, deck primer, comparison, cEDH meta-gap), plus a mana-base analyzer, bracket check, deck diffs, card/mechanic lookup, Ask-a-Judge handoff, and a browsable MTG creator knowledge base. Live at deckflow.gg.
+**Repository description (≤350 characters):** DeckFlow unifies Moxfield/Archidekt decks with a deterministic mana-base analyzer, bracket check, and deck diffs — plus paste-ready AI prompts (analysis, primer, comparison, cEDH meta-gap), card/mechanic lookup, Ask-a-Judge handoff, and a browsable MTG creator knowledge base. Live at deckflow.gg.
 
 ## User Feedback
 
