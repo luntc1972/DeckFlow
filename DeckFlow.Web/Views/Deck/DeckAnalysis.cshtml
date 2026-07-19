@@ -6,7 +6,7 @@
 @inject IOptions<AiPlatformOptions> AiPlatformOptionsAccessor
 @{
     ViewData["Title"] = "MTG Commander Deck Analysis for ChatGPT";
-    ViewData["Description"] = "Generate a ChatGPT-ready analysis prompt for your Commander deck. Paste an Archidekt or Moxfield deck and get a structured AI review in one round-trip.";
+    ViewData["Description"] = "Get a structured review of your Commander deck — strengths, weaknesses, and upgrade paths. One-paste prompt workflow for ChatGPT or Claude.";
     var aiPlatform = AiPlatform.Normalize(Model.Request.TargetAiPlatform);
     var platformList = AiPlatformCopy.PlatformList(AiPlatformOptionsAccessor.Value.GeminiEnabled);
     var currentStep = Math.Clamp(Model.Request.WorkflowStep, 1, 5);

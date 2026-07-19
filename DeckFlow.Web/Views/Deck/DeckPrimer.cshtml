@@ -7,7 +7,7 @@
 @inject IOptions<AiPlatformOptions> AiPlatformOptionsAccessor
 @{
     ViewData["Title"] = "Generate an MTG Commander Deck Primer";
-    ViewData["Description"] = "Turn your Commander decklist into a ChatGPT-ready primer prompt covering strategy, lines, and key combos. Paste from Archidekt or Moxfield.";
+    ViewData["Description"] = "Build a primer for your Commander deck — strategy, lines, and key combos — as a one-paste ChatGPT prompt.";
     var aiPlatform = AiPlatform.Normalize(Model.Request.TargetAiPlatform);
     var platformList = AiPlatformCopy.PlatformList(AiPlatformOptionsAccessor.Value.GeminiEnabled);
     var commanderBrackets = DeckFlow.Web.Models.CommanderBracketCatalog.Options;
