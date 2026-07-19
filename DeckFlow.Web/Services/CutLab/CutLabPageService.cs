@@ -5,6 +5,7 @@ using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.CutLab;
+using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Manabase;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.Logging;
@@ -49,6 +50,12 @@ public sealed record CutLabProcessResult
     /// <summary>Non-blocking warnings collected during processing.</summary>
     public IReadOnlyList<string> Warnings { get; init; } = [];
 
+    /// <summary>True when combo lookup completed successfully for this result.</summary>
+    public bool ComboDataAvailable { get; init; }
+
+    /// <summary>True when category lookup completed successfully for this result.</summary>
+    public bool CategoryDataAvailable { get; init; }
+
     /// <summary>User-facing error for a hard failure, null on success.</summary>
     public string? ErrorMessage { get; init; }
 
@@ -61,23 +68,38 @@ internal sealed class CutLabPageService : ICutLabPageService
 {
     private const int ScryfallBatchSize = 75;
 
+    private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> EmptyCategories =
+        new Dictionary<string, IReadOnlyList<string>>();
+
     private static readonly HashSet<string> AnalyzedBoards =
         new(StringComparer.OrdinalIgnoreCase) { "mainboard", "commander" };
 
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IScryfallCardResolver _cardResolver;
     private readonly ICommanderBanListService _banListService;
+    private readonly ICategoryKnowledgeStore? _categoryKnowledge;
+    private readonly ICommanderSpellbookService? _spellbook;
+    private readonly IManabaseBaselineProvider? _manabaseBaseline;
+    private readonly ICedhLandBaselineProvider? _cedhBaseline;
     private readonly ILogger<CutLabPageService> _logger;
 
     /// <summary>Creates the Cut Lab page service.</summary>
     /// <param name="deckEntryLoader">Deck loader for URL/paste imports.</param>
     /// <param name="cardResolver">Scryfall resolver for type-line lookup.</param>
     /// <param name="banListService">Commander banlist service.</param>
+    /// <param name="categoryKnowledge">Optional batched category lookup dependency for structural analysis.</param>
+    /// <param name="spellbook">Optional combo lookup dependency for structural analysis.</param>
+    /// <param name="manabaseBaseline">Optional bracket baseline dependency for structural analysis.</param>
+    /// <param name="cedhBaseline">Optional cEDH commander baseline dependency for structural analysis.</param>
     /// <param name="logger">Optional logger for non-blocking diagnostics.</param>
     public CutLabPageService(
         IDeckEntryLoader deckEntryLoader,
         IScryfallCardResolver cardResolver,
         ICommanderBanListService banListService,
+        ICategoryKnowledgeStore? categoryKnowledge = null,
+        ICommanderSpellbookService? spellbook = null,
+        IManabaseBaselineProvider? manabaseBaseline = null,
+        ICedhLandBaselineProvider? cedhBaseline = null,
         ILogger<CutLabPageService>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
@@ -87,8 +109,22 @@ internal sealed class CutLabPageService : ICutLabPageService
         _deckEntryLoader = deckEntryLoader;
         _cardResolver = cardResolver;
         _banListService = banListService;
+        _categoryKnowledge = categoryKnowledge;
+        _spellbook = spellbook;
+        _manabaseBaseline = manabaseBaseline;
+        _cedhBaseline = cedhBaseline;
         _logger = logger ?? NullLogger<CutLabPageService>.Instance;
     }
+
+    /// <summary>
+    /// Test-only probe for the DI guard that verifies the optional structural-analysis services are
+    /// actually registered in the production container shape.
+    /// </summary>
+    internal bool HasStructuralAnalysisDependencies =>
+        _categoryKnowledge is not null
+        && _spellbook is not null
+        && _manabaseBaseline is not null
+        && _cedhBaseline is not null;
 
     /// <inheritdoc />
     public async Task<CutLabProcessResult> ProcessAsync(CutLabRequest request, CancellationToken cancellationToken = default)
@@ -156,6 +192,10 @@ internal sealed class CutLabPageService : ICutLabPageService
         }
 
         var commanderResolution = ResolveCommanderSelection(resolvedEntries, request.SelectedCommander);
+        ClassificationInputs classification = await LoadClassificationInputsAsync(
+            resolvedEntries,
+            commanderResolution.CommanderNames,
+            cancellationToken).ConfigureAwait(false);
         int nonCommanderCardCount = CountNonCommanderCards(analyzedEntries, commanderResolution.CommanderNames);
         try
         {
@@ -191,6 +231,8 @@ internal sealed class CutLabPageService : ICutLabPageService
             CommanderSelectionRequired = commanderResolution.SelectionRequired,
             CommanderChoices = commanderResolution.CommanderChoices,
             Warnings = warnings,
+            ComboDataAvailable = classification.ComboDataAvailable,
+            CategoryDataAvailable = classification.CategoryDataAvailable,
             HasResult = true,
         };
     }
@@ -218,7 +260,8 @@ internal sealed class CutLabPageService : ICutLabPageService
                 entry.Name,
                 entry.Quantity,
                 card?.TypeLine ?? string.Empty,
-                string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase)));
+                string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase),
+                card));
         }
 
         return resolvedEntries;
@@ -350,6 +393,110 @@ internal sealed class CutLabPageService : ICutLabPageService
             .Sum(entry => entry.Quantity);
     }
 
+    private async Task<ClassificationInputs> LoadClassificationInputsAsync(
+        IReadOnlyList<ResolvedCutLabEntry> resolvedEntries,
+        IReadOnlyList<string> commanderNames,
+        CancellationToken cancellationToken)
+    {
+        HashSet<string> comboNames = new(StringComparer.OrdinalIgnoreCase);
+        IReadOnlyList<SpellbookAlmostCombo> almostIncludedCombos = [];
+        bool comboDataAvailable = false;
+
+        if (_spellbook is not null)
+        {
+            try
+            {
+                CommanderSpellbookResult? combos =
+                    await _spellbook.FindCombosAsync(
+                        BuildSpellbookEntries(resolvedEntries, commanderNames),
+                        cancellationToken).ConfigureAwait(false);
+                comboDataAvailable = combos is not null;
+                if (combos is not null)
+                {
+                    almostIncludedCombos = combos.AlmostIncludedCombos;
+                    foreach (SpellbookCombo combo in combos.IncludedCombos)
+                    {
+                        foreach (string cardName in combo.CardNames)
+                        {
+                            comboNames.Add(cardName);
+                        }
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(exception, "Cut Lab: Commander Spellbook fetch failed; continuing without combo roles.");
+            }
+        }
+
+        // ONE batched lookup for the whole pool. A per-card loop here previously caused ~65
+        // sequential queries and pushed request time toward ~20 seconds, so this must stay batched.
+        CategoryLookupResult categories = await GetCategoriesFailOpenAsync(
+            resolvedEntries
+                .Select(entry => entry.Name)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray(),
+            cancellationToken).ConfigureAwait(false);
+
+        return new ClassificationInputs(
+            comboNames,
+            almostIncludedCombos,
+            categories.CategoriesByName,
+            comboDataAvailable,
+            categories.CategoryDataAvailable);
+    }
+
+    private async Task<CategoryLookupResult> GetCategoriesFailOpenAsync(
+        IReadOnlyCollection<string> cardNames,
+        CancellationToken cancellationToken)
+    {
+        if (_categoryKnowledge is null || cardNames.Count == 0)
+        {
+            return new CategoryLookupResult(EmptyCategories, false);
+        }
+
+        try
+        {
+            IReadOnlyDictionary<string, IReadOnlyList<string>> categories =
+                await _categoryKnowledge.GetCategoriesForNamesAsync(cardNames, cancellationToken).ConfigureAwait(false);
+            return new CategoryLookupResult(categories, true);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Cut Lab: batch category lookup failed; using heuristics only.");
+            return new CategoryLookupResult(EmptyCategories, false);
+        }
+    }
+
+    private static List<DeckEntry> BuildSpellbookEntries(
+        IReadOnlyList<ResolvedCutLabEntry> resolvedEntries,
+        IReadOnlyList<string> commanderNames)
+    {
+        HashSet<string> commanderNameSet = commanderNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        List<DeckEntry> spellbookEntries = new(resolvedEntries.Count);
+
+        foreach (ResolvedCutLabEntry entry in resolvedEntries)
+        {
+            spellbookEntries.Add(new DeckEntry
+            {
+                Name = entry.Name,
+                NormalizedName = entry.Name.ToLowerInvariant(),
+                Quantity = entry.Quantity,
+                Board = commanderNameSet.Contains(entry.Name) ? "commander" : "mainboard",
+            });
+        }
+
+        return spellbookEntries;
+    }
+
     private static CutLabState BuildState(
         CutLabState priorState,
         IReadOnlyList<ResolvedCutLabEntry> resolvedEntries,
@@ -425,7 +572,19 @@ internal sealed class CutLabPageService : ICutLabPageService
         string Name,
         int Quantity,
         string TypeLine,
-        bool IsCommander);
+        bool IsCommander,
+        ScryfallCardData? Card);
+
+    private sealed record ClassificationInputs(
+        IReadOnlySet<string> ComboNames,
+        IReadOnlyList<SpellbookAlmostCombo> AlmostIncludedCombos,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> CategoriesByName,
+        bool ComboDataAvailable,
+        bool CategoryDataAvailable);
+
+    private sealed record CategoryLookupResult(
+        IReadOnlyDictionary<string, IReadOnlyList<string>> CategoriesByName,
+        bool CategoryDataAvailable);
 
     private sealed record CommanderResolution(
         IReadOnlyList<string> CommanderNames,
