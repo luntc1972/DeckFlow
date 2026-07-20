@@ -7,6 +7,7 @@
     'https://www.deckflow.gg',
     'http://localhost',
     'https://localhost',
+    'http://localhost:5173',
     'http://127.0.0.1',
     'https://127.0.0.1'
   ];
