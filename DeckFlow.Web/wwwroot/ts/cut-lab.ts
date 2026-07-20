@@ -784,15 +784,13 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
       return;
     }
 
-    const serializedState = api.buildCutLabStateJson(buildSnapshotFromDom());
-    const stateInputs = getDecisionStateInputs();
-    if (stateInputs.length === 0) {
+    const stateInput = getStateInput(form);
+    if (!stateInput) {
       return;
     }
 
-    stateInputs.forEach(input => {
-      input.value = serializedState;
-    });
+    const serializedState = api.buildCutLabStateJson(buildSnapshotFromDom());
+    stateInput.value = serializedState;
   };
 
   const writeDecisionStateToHiddenInputs = (serializedState: string): void => {
@@ -1366,13 +1364,25 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
   const isWhatifForm = (form: HTMLFormElement): boolean =>
     form.hasAttribute('data-cut-lab-whatif-form');
 
-  const extractWhatifPayload = (form: HTMLFormElement): { cutLabStateJson: string; cardOut: string; cardIn: string } | null => {
+  const syncWhatifStateInputFromMainForm = (form: HTMLFormElement): string => {
     writeStateToHiddenInput();
 
-    const stateInput = getStateInput(form);
+    const mainForm = getForm();
+    const mainStateInput = mainForm ? getStateInput(mainForm) : null;
+    const serializedState = mainStateInput?.value ?? '';
+    const whatifStateInput = getStateInput(form);
+    if (whatifStateInput) {
+      whatifStateInput.value = serializedState;
+      return whatifStateInput.value;
+    }
+
+    return serializedState;
+  };
+
+  const extractWhatifPayload = (form: HTMLFormElement): { cutLabStateJson: string; cardOut: string; cardIn: string } | null => {
     const cardOut = getWhatifCardOutSelect()?.value.trim() ?? '';
     const cardIn = getWhatifCardInSelect()?.value.trim() ?? '';
-    const cutLabStateJson = stateInput?.value ?? '';
+    const cutLabStateJson = syncWhatifStateInputFromMainForm(form);
     if (cutLabStateJson === '' || cardOut === '' || cardIn === '') {
       return null;
     }
