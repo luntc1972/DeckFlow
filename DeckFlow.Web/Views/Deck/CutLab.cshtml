@@ -624,6 +624,102 @@
         <section class="result-panel">
             <div class="panel-heading">
                 <div>
+                    <h2>What-if swap</h2>
+                    <p>Swap one unlocked working-list card for one card from your cut pile, preview the metric deltas, then keep or discard the change.</p>
+                </div>
+            </div>
+            <form method="post" action="@Url.Content("~/cut-lab/whatif")" data-cut-lab-whatif-form>
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
+                <div class="cutlab-whatif">
+                    <div class="field">
+                        <label for="cut-lab-whatif-card-out">Working-list card to cut</label>
+                        <select id="cut-lab-whatif-card-out" name="cardOut" data-df-select data-cut-lab-whatif-card-out>
+                            <option value="">Choose a card</option>
+                            @foreach (var cardName in Model.WhatifCardOutOptions)
+                            {
+                                <option value="@cardName" selected="@(string.Equals(Model.Whatif.CardOut, cardName, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
+                                    @cardName
+                                </option>
+                            }
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="cut-lab-whatif-card-in">Cut-pile card to restore</label>
+                        <select id="cut-lab-whatif-card-in" name="cardIn" data-df-select data-cut-lab-whatif-card-in>
+                            <option value="">Choose a card</option>
+                            @foreach (var cardName in Model.WhatifCardInOptions)
+                            {
+                                <option value="@cardName" selected="@(string.Equals(Model.Whatif.CardIn, cardName, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
+                                    @cardName
+                                </option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                @if (Model.Whatif.HasPreview)
+                {
+                    <div class="cutlab-whatif__preview" data-cut-lab-whatif-preview>
+                        <p class="cutlab-whatif__selection" data-cut-lab-whatif-selection>Previewing: cut <strong>@Model.Whatif.CardOut</strong>, restore <strong>@Model.Whatif.CardIn</strong>.</p>
+                        <div class="history-timeline__wrap">
+                            <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Metric</th>
+                                        <th scope="col">Before</th>
+                                        <th scope="col">After</th>
+                                        <th scope="col">Delta</th>
+                                    </tr>
+                                </thead>
+                                <tbody data-cut-lab-whatif-delta-body>
+                                    @foreach (var row in Model.Whatif.DeltaRows)
+                                    {
+                                        <tr>
+                                            <td data-label="Metric">
+                                                <strong>@row.MetricLabel</strong>
+                                            </td>
+                                            <td data-label="Before">@row.BaselineValue</td>
+                                            <td data-label="After">@row.CurrentValue</td>
+                                            <td data-label="Delta">
+                                                @{ await RenderDeltaValue(row.Direction, row.DeltaValueToken); }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="cutlab-whatif__preview hidden" data-cut-lab-whatif-preview>
+                        <p class="cutlab-whatif__selection hidden" data-cut-lab-whatif-selection></p>
+                        <div class="history-timeline__wrap">
+                            <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Metric</th>
+                                        <th scope="col">Before</th>
+                                        <th scope="col">After</th>
+                                        <th scope="col">Delta</th>
+                                    </tr>
+                                </thead>
+                                <tbody data-cut-lab-whatif-delta-body></tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+                <div class="toolbar cutlab-whatif__actions">
+                    <button type="submit" class="run-button" name="intent" value="preview" data-cut-lab-whatif-preview-submit>Preview swap</button>
+                    <button type="submit" class="run-button" name="intent" value="keep" data-cut-lab-whatif-keep-submit>Keep swap</button>
+                    <button type="button" class="clear-cache-button @(Model.Whatif.HasPreview ? string.Empty : "hidden")" data-cut-lab-whatif-discard>Discard preview</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="result-panel">
+            <div class="panel-heading">
+                <div>
                     <h2>Cut rounds</h2>
                     <p>Work through proposed cuts in order. Every proposal shows what actually changes — nothing here says a card is bad.</p>
                 </div>
