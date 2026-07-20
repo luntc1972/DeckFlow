@@ -86,11 +86,15 @@ public sealed class CutLabPageServiceTests
         Assert.Equal(101, result.CardCount);
         Assert.DoesNotContain(result.State!.Pool, card => card.Name == "Sideboard Card");
         Assert.DoesNotContain(result.State.Pool, card => card.Name == "Maybeboard Card");
-        Assert.False(result.State.Intent.IncludeSideboardAndMaybeboard);
+        Assert.False(result.State.Intent.IncludeSideboard);
+        Assert.False(result.State.Intent.IncludeMaybeboard);
+        Assert.Equal(102, result.MainboardCardCount);
+        Assert.Equal(2, result.SideboardCardCount);
+        Assert.Equal(1, result.MaybeboardCardCount);
     }
 
     [Fact]
-    public async Task ProcessAsync_IncludeSideboardAndMaybeboardOn_IncludesExtraBoardsAndPersistsIntent()
+    public async Task ProcessAsync_IncludeSideboardOnly_IncludesSideboardExcludesMaybeboardAndPersistsIntent()
     {
         var entries = BuildPoolEntries(nonCommanderCount: 101, commanderName: "Atraxa, Praetors' Voice");
         entries.Add(Entry("Sideboard Card", "sideboard") with { Quantity = 2 });
@@ -104,22 +108,82 @@ public sealed class CutLabPageServiceTests
         {
             DeckInputSource = DeckInputSource.PasteText,
             DeckText = "pool",
-            IncludeSideboardAndMaybeboard = true,
+            IncludeSideboard = true,
         };
 
         var result = await service.ProcessAsync(request);
         var roundTrippedState = CutLabStateSerializer.Deserialize(result.SerializedStateJson);
 
         Assert.True(result.HasResult);
-        Assert.Equal(104, result.CardCount);
+        Assert.Equal(103, result.CardCount);
         Assert.Contains(result.State!.Pool, card => card.Name == "Sideboard Card" && card.Quantity == 2);
-        Assert.Contains(result.State.Pool, card => card.Name == "Maybeboard Card");
-        Assert.True(result.State.Intent.IncludeSideboardAndMaybeboard);
-        Assert.True(roundTrippedState.Intent.IncludeSideboardAndMaybeboard);
+        Assert.DoesNotContain(result.State.Pool, card => card.Name == "Maybeboard Card");
+        Assert.True(result.State.Intent.IncludeSideboard);
+        Assert.False(result.State.Intent.IncludeMaybeboard);
+        Assert.True(roundTrippedState.Intent.IncludeSideboard);
+        Assert.False(roundTrippedState.Intent.IncludeMaybeboard);
     }
 
     [Fact]
-    public async Task ProcessAsync_IncludeSideboardAndMaybeboardOn_DoesNotAutoFlagMaybeboardCommander()
+    public async Task ProcessAsync_IncludeMaybeboardOnly_IncludesMaybeboardExcludesSideboardAndPersistsIntent()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 101, commanderName: "Atraxa, Praetors' Voice");
+        entries.Add(Entry("Sideboard Card", "sideboard") with { Quantity = 2 });
+        entries.Add(Entry("Maybeboard Card", "maybeboard"));
+        var cards = BuildResolvedCards(entries);
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            IncludeMaybeboard = true,
+        };
+
+        var result = await service.ProcessAsync(request);
+        var roundTrippedState = CutLabStateSerializer.Deserialize(result.SerializedStateJson);
+
+        Assert.True(result.HasResult);
+        Assert.Equal(102, result.CardCount);
+        Assert.DoesNotContain(result.State!.Pool, card => card.Name == "Sideboard Card");
+        Assert.Contains(result.State.Pool, card => card.Name == "Maybeboard Card");
+        Assert.False(result.State.Intent.IncludeSideboard);
+        Assert.True(result.State.Intent.IncludeMaybeboard);
+        Assert.False(roundTrippedState.Intent.IncludeSideboard);
+        Assert.True(roundTrippedState.Intent.IncludeMaybeboard);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_IncludeSideboardAndMaybeboardTogether_IncludesBothBoards()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 101, commanderName: "Atraxa, Praetors' Voice");
+        entries.Add(Entry("Sideboard Card", "sideboard") with { Quantity = 2 });
+        entries.Add(Entry("Maybeboard Card", "maybeboard"));
+        var cards = BuildResolvedCards(entries);
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            IncludeSideboard = true,
+            IncludeMaybeboard = true,
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.True(result.HasResult);
+        Assert.Equal(104, result.CardCount);
+        Assert.Contains(result.State!.Pool, card => card.Name == "Sideboard Card" && card.Quantity == 2);
+        Assert.Contains(result.State.Pool, card => card.Name == "Maybeboard Card");
+    }
+
+    [Fact]
+    public async Task ProcessAsync_IncludeMaybeboardOn_DoesNotAutoFlagMaybeboardCommander()
     {
         var entries = BuildPoolEntries(nonCommanderCount: 101, commanderName: "Atraxa, Praetors' Voice");
         entries.Add(Entry("Captain Sisay", "maybeboard"));
@@ -134,7 +198,7 @@ public sealed class CutLabPageServiceTests
         {
             DeckInputSource = DeckInputSource.PasteText,
             DeckText = "pool",
-            IncludeSideboardAndMaybeboard = true,
+            IncludeMaybeboard = true,
         };
 
         var result = await service.ProcessAsync(request);
@@ -142,6 +206,115 @@ public sealed class CutLabPageServiceTests
         Assert.True(result.HasResult);
         Assert.Contains(result.State!.Pool, card => card.Name == "Captain Sisay" && !card.IsCommander);
         Assert.Equal("Atraxa, Praetors' Voice", Assert.Single(result.State.Pool, card => card.IsCommander).Name);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_BoardCounts_AppearOnResultAndViewModel()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Atraxa, Praetors' Voice", "commander"),
+            Entry("Main Stack", "mainboard") with { Quantity = 101 },
+            Entry("Sideboard Card", "sideboard") with { Quantity = 3 },
+            Entry("Maybe Card", "maybeboard") with { Quantity = 4 },
+        };
+        var cards = BuildResolvedCards(entries);
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+        };
+
+        var result = await service.ProcessAsync(request);
+        var model = CutLabViewModel.From(request, result);
+
+        Assert.True(result.HasResult);
+        Assert.Equal(102, result.MainboardCardCount);
+        Assert.Equal(3, result.SideboardCardCount);
+        Assert.Equal(4, result.MaybeboardCardCount);
+        Assert.Equal(102, model.MainboardCardCount);
+        Assert.Equal(3, model.SideboardCardCount);
+        Assert.Equal(4, model.MaybeboardCardCount);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_TooManyPoolCount_ReturnsBoardBreakdownMessage()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Atraxa, Praetors' Voice", "commander"),
+            Entry("Main Stack", "mainboard") with { Quantity = 130 },
+            Entry("Sideboard Card", "sideboard") with { Quantity = 12 },
+            Entry("Maybe Card", "maybeboard") with { Quantity = 11 },
+        };
+        var cards = BuildResolvedCards(entries);
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            IncludeSideboard = true,
+            IncludeMaybeboard = true,
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.Equal(
+            "This pool has 153 non-commander cards — over Cut Lab's 150 max. Main 131 · Sideboard 12 · Considering/Maybe 11. Deselect the sideboard or considering list to fit.",
+            result.ErrorMessage);
+        Assert.False(result.HasResult);
+    }
+
+    [Fact]
+    public void CutLabStateSerializer_LegacyCombinedBoardFlag_DeserializesToBothNewFlags()
+    {
+        const string legacyJson = """
+            {
+              "commander": "Atraxa, Praetors' Voice",
+              "pool": [],
+              "packages": [],
+              "decisions": [],
+              "roleFloors": [],
+              "intent": {
+                "primaryPlan": "Counters",
+                "includeSideboardAndMaybeboard": true
+              }
+            }
+            """;
+
+        var state = CutLabStateSerializer.Deserialize(legacyJson);
+
+        Assert.True(state.Intent.IncludeSideboard);
+        Assert.True(state.Intent.IncludeMaybeboard);
+    }
+
+    [Fact]
+    public void CutLabStateSerializer_MissingBoardFlags_DefaultsBothToFalse()
+    {
+        const string legacyJson = """
+            {
+              "commander": "Atraxa, Praetors' Voice",
+              "pool": [],
+              "packages": [],
+              "decisions": [],
+              "roleFloors": [],
+              "intent": {
+                "primaryPlan": "Counters"
+              }
+            }
+            """;
+
+        var state = CutLabStateSerializer.Deserialize(legacyJson);
+
+        Assert.False(state.Intent.IncludeSideboard);
+        Assert.False(state.Intent.IncludeMaybeboard);
     }
 
     [Fact]
@@ -406,7 +579,7 @@ public sealed class CutLabPageServiceTests
 
     [Theory]
     [InlineData(100, "This pool already has 100 cards or fewer — Cut Lab is for trimming an oversized pool down to 100. Try Deck Sync or Deck Analysis instead.")]
-    [InlineData(151, "This pool has too many cards for Cut Lab (limit 150 plus commander). Trim it closer to 150 before importing.")]
+    [InlineData(151, "This pool has 151 non-commander cards — over Cut Lab's 150 max. Main 152 · Sideboard 0 · Considering/Maybe 0. Deselect the sideboard or considering list to fit.")]
     public async Task ProcessAsync_InvalidPoolCount_ReturnsValidatorMessage(int nonCommanderCount, string expectedMessage)
     {
         var entries = BuildPoolEntries(nonCommanderCount, "Atraxa, Praetors' Voice");
