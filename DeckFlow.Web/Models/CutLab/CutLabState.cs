@@ -39,6 +39,12 @@ public sealed record CutLabState
     /// </summary>
     public IReadOnlyList<CutLabRoleFloor> RoleFloors { get; init; } = [];
 
+    /// <summary>
+    /// User-adjusted turn goals for the three existing by-turn metrics, and the default initializer
+    /// keeps pre-104 JSON blobs deserializing cleanly with seeded turn targets.
+    /// </summary>
+    public CutLabGoalSettings Goals { get; init; } = new();
+
     /// <summary>Declared target intent for the finished 100-card deck.</summary>
     public CutLabIntent Intent { get; init; } = new();
 }
