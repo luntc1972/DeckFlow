@@ -138,6 +138,55 @@ public sealed class CutLabWorkingListTests
         Assert.False(acceptedCardNames.Contains("Arcane Signet"));
     }
 
+    [Fact]
+    public void AcceptedCardNames_ReturnsSwapCandidatesFromCutPileOnly()
+    {
+        var pool =
+            new[]
+            {
+                new CutLabPoolCard
+                {
+                    Name = "Commander",
+                    Quantity = 1,
+                    TypeLine = "Legendary Creature",
+                    IsCommander = true,
+                    IsLocked = true,
+                },
+                new CutLabPoolCard
+                {
+                    Name = "Working Card",
+                    Quantity = 1,
+                    TypeLine = "Spell",
+                },
+                new CutLabPoolCard
+                {
+                    Name = "Cut Card",
+                    Quantity = 1,
+                    TypeLine = "Spell",
+                },
+            };
+        CutLabDecision[] decisions =
+        [
+            new CutLabDecision
+            {
+                CardName = "Cut Card",
+                Kind = CutLabDecisionKind.Accepted,
+                Round = CutLabCutRoundEngine.Round1Key,
+                Ordinal = 1,
+            },
+        ];
+
+        var workingList = CutLabWorkingList.Derive(pool, decisions);
+        var swapCandidates = pool
+            .Where(card => CutLabWorkingList.AcceptedCardNames(decisions).Contains(card.Name))
+            .Select(card => card.Name)
+            .ToArray();
+
+        Assert.Equal(["Commander", "Working Card"], workingList.Select(card => card.Name).ToArray());
+        Assert.Equal(["Cut Card"], swapCandidates);
+        Assert.DoesNotContain("Working Card", swapCandidates);
+    }
+
     private static IReadOnlyList<CutLabPoolCard> CreatePool()
         =>
         [
