@@ -4330,6 +4330,30 @@ input[data-cut-lab-floor] {
   flex-wrap: wrap;
 }
 
+.cutlab-whatif {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.cutlab-whatif__preview {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 94%, var(--accent) 6%);
+}
+
+.cutlab-whatif__selection {
+  margin: 0;
+}
+
+.cutlab-whatif__actions {
+  margin-top: 1rem;
+}
+
 input[data-cut-lab-goal] {
   width: 5.5rem;
   min-height: 44px;
@@ -4599,6 +4623,10 @@ input[data-cut-lab-floor]:focus-visible {
   .cutlab-scenarios__item {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .cutlab-whatif {
+    grid-template-columns: 1fr;
   }
 
   .cutlab-proposal__actions {

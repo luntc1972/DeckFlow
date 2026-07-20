@@ -18,6 +18,8 @@ interface CutLabIntentSnapshot {
   secondaryPlan: string | null;
   bracket: number | null;
   playExperience: string;
+  includeSideboard: boolean;
+  includeMaybeboard: boolean;
 }
 
 interface CutLabRoleFloorSnapshot {
@@ -30,6 +32,8 @@ interface CutLabStateSnapshot {
   commander: string;
   pool: CutLabPoolSnapshotCard[];
   packages: CutLabPackageSnapshot[];
+  decisions?: CutLabStateDecision[];
+  baselineSnapshot?: unknown;
   intent: CutLabIntentSnapshot;
   roleFloors: CutLabRoleFloorSnapshot[];
   goals: {
@@ -37,6 +41,13 @@ interface CutLabStateSnapshot {
     engineByTurn: number;
     representativeLineByTurn: number;
   };
+}
+
+interface CutLabStateDecision {
+  cardName: string;
+  kind: 'Accepted' | 'Rejected' | 'Deferred';
+  round: string;
+  ordinal: number;
 }
 
 type CutLabDecisionAction = 'accept' | 'reject' | 'defer' | 'restore';
@@ -115,6 +126,14 @@ interface CutLabDecisionResponse {
   cutsMade: CutLabDecisionCutRecord[];
 }
 
+interface CutLabWhatifResponse {
+  cutLabStateJson: string | null;
+  cardOut: string;
+  cardIn: string;
+  deltas: CutLabDecisionMetricDelta[];
+  changedFamilyCount: number;
+}
+
 type PackageCheckboxState = 'checked' | 'unchecked' | 'indeterminate';
 
 interface CutLabFloorDomRow {
@@ -127,6 +146,7 @@ interface CutLabApi {
   hasRoleToken(roleList: string | null | undefined, role: string): boolean;
   isLandRole(roleList: string | null | undefined): boolean;
   buildCutLabStateJson(snapshot: CutLabStateSnapshot): string;
+  syncDecisionState(serializedState: string): void;
   saveScenario(name: string, stateJson: string): SaveScenarioResult;
   listScenarios(): ScenarioIndexEntry[];
   loadScenario(id: string): string | null;
@@ -145,10 +165,15 @@ const newPackageOptionValue = '__new__';
 const unlockedPoolOptionValue = '';
 const cutLabAntiForgeryFieldName = '__RequestVerificationToken';
 const cutLabDecisionApiEndpoint = '/api/cut-lab/decide';
+const cutLabWhatifApiEndpoint = '/api/cut-lab/whatif';
+const cutLabWhatifCommitApiEndpoint = '/api/cut-lab/whatif/commit';
 const cutLabDecisionTimeoutMs = 3000;
 const cutLabDecisionBusyCopy = 'Recalculating…';
 const cutLabDecisionErrorCopy = "Couldn't recalculate this cut — nothing changed. Try again.";
 const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try again in a moment.';
+const cutLabWhatifPreviewErrorCopy = "Couldn't preview this swap — nothing changed. Try again.";
+const cutLabWhatifKeepErrorCopy = "Couldn't keep this swap — nothing changed. Try again.";
+const cutLabWhatifPreviewSummaryCopy = 'metric families changed meaningfully.';
 const SCENARIO_INDEX_KEY = 'deckflow.cutlab.scenario-index';
 const SCENARIO_SLOT_PREFIX = 'deckflow.cutlab.scenario.';
 const MAX_SCENARIO_SLOTS = 20;
@@ -260,11 +285,15 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
           name: pkg.name,
           locked: pkg.locked,
         })),
+        decisions: snapshot.decisions ?? [],
+        baselineSnapshot: snapshot.baselineSnapshot,
         intent: {
           primaryPlan: snapshot.intent.primaryPlan,
           secondaryPlan: snapshot.intent.secondaryPlan,
           bracket: snapshot.intent.bracket,
           playExperience: snapshot.intent.playExperience,
+          includeSideboard: snapshot.intent.includeSideboard,
+          includeMaybeboard: snapshot.intent.includeMaybeboard,
         },
         roleFloors: snapshot.roleFloors
           .filter(row => row.isUserSet)
@@ -281,6 +310,10 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
       };
 
       return JSON.stringify(normalizedSnapshot);
+    },
+
+    syncDecisionState(serializedState: string): void {
+      writeDecisionStateToHiddenInputs(serializedState);
     },
 
     saveScenario(name: string, stateJson: string): SaveScenarioResult {
@@ -366,7 +399,9 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
   let packageHandlersAttached = false;
   let decisionHandlersAttached = false;
   let scenarioHandlersAttached = false;
+  let whatifHandlersAttached = false;
   let decisionSubmitInFlight = false;
+  let whatifSubmitInFlight = false;
 
   const getForm = (): HTMLFormElement | null =>
     document.querySelector<HTMLFormElement>('form[data-cache-key="cut-lab"]');
@@ -448,6 +483,33 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
 
   const getScenarioStatus = (): HTMLElement | null =>
     document.querySelector<HTMLElement>('[data-cut-lab-scenario-status]');
+
+  const getWhatifForm = (): HTMLFormElement | null =>
+    document.querySelector<HTMLFormElement>('form[data-cut-lab-whatif-form]');
+
+  const getWhatifCardOutSelect = (): HTMLSelectElement | null =>
+    document.querySelector<HTMLSelectElement>('select[data-cut-lab-whatif-card-out]');
+
+  const getWhatifCardInSelect = (): HTMLSelectElement | null =>
+    document.querySelector<HTMLSelectElement>('select[data-cut-lab-whatif-card-in]');
+
+  const getWhatifPreviewContainer = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cut-lab-whatif-preview]');
+
+  const getWhatifSelection = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cut-lab-whatif-selection]');
+
+  const getWhatifDeltaBody = (): HTMLTableSectionElement | null =>
+    document.querySelector<HTMLTableSectionElement>('[data-cut-lab-whatif-delta-body]');
+
+  const getWhatifPreviewButton = (): HTMLButtonElement | null =>
+    document.querySelector<HTMLButtonElement>('[data-cut-lab-whatif-preview-submit]');
+
+  const getWhatifKeepButton = (): HTMLButtonElement | null =>
+    document.querySelector<HTMLButtonElement>('[data-cut-lab-whatif-keep-submit]');
+
+  const getWhatifDiscardButton = (): HTMLButtonElement | null =>
+    document.querySelector<HTMLButtonElement>('[data-cut-lab-whatif-discard]');
 
   const getLockCheckbox = (row: HTMLTableRowElement): HTMLInputElement | null =>
     row.querySelector<HTMLInputElement>('input[data-cut-lab-lock-card]');
@@ -541,6 +603,22 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     return clamped;
   };
 
+  const tryReadSerializedState = (): Partial<CutLabStateSnapshot> | null => {
+    const form = getForm();
+    const stateInput = form ? getStateInput(form) : null;
+    const raw = stateInput?.value.trim() ?? '';
+    if (raw === '') {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      return parsed && typeof parsed === 'object' ? parsed as Partial<CutLabStateSnapshot> : null;
+    } catch {
+      return null;
+    }
+  };
+
   const setFloorUserSetState = (row: HTMLTableRowElement, isUserSet: boolean): void => {
     row.dataset.cutLabFloorUserSet = isUserSet ? 'true' : 'false';
 
@@ -623,6 +701,7 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
 
   const buildSnapshotFromDom = (): CutLabStateSnapshot => {
     const rows = getPoolRows();
+    const persistedState = tryReadSerializedState();
     const selectedCommander = document.querySelector<HTMLSelectElement>('select[name="SelectedCommander"]');
     const commanderFromRow = rows.find(row => row.dataset.cutLabCommander === 'true')?.dataset.cutLabCard ?? '';
     const bracketInput = document.querySelector<HTMLInputElement>('input[name="Bracket"]:checked');
@@ -652,11 +731,15 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
           locked: toggle?.checked ?? false,
         };
       }),
+      decisions: Array.isArray(persistedState?.decisions) ? persistedState.decisions : [],
+      baselineSnapshot: persistedState?.baselineSnapshot,
       intent: {
         primaryPlan: readNamedFieldValue('PrimaryPlan'),
         secondaryPlan: secondaryPlan === '' ? null : secondaryPlan,
         bracket: bracketValue === '' ? null : Number.parseInt(bracketValue, 10),
         playExperience: readCheckedValue('PlayExperience'),
+        includeSideboard: readCheckedBoolean('IncludeSideboard'),
+        includeMaybeboard: readCheckedBoolean('IncludeMaybeboard'),
       },
       roleFloors: getFloorRows()
         .filter(({ row }) => row.dataset.cutLabFloorUserSet === 'true')
@@ -683,6 +766,9 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     return element?.value ?? '';
   };
 
+  const readCheckedBoolean = (name: string): boolean =>
+    document.querySelector<HTMLInputElement>(`input[name="${name}"]`)?.checked ?? false;
+
   const normalizePackageId = (packageId: string): string | null => {
     const trimmed = packageId.trim();
     if (trimmed === '' || trimmed === newPackageOptionValue) {
@@ -698,12 +784,15 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
       return;
     }
 
-    const stateInput = getStateInput(form);
-    if (!stateInput) {
+    const serializedState = api.buildCutLabStateJson(buildSnapshotFromDom());
+    const stateInputs = getDecisionStateInputs();
+    if (stateInputs.length === 0) {
       return;
     }
 
-    stateInput.value = api.buildCutLabStateJson(buildSnapshotFromDom());
+    stateInputs.forEach(input => {
+      input.value = serializedState;
+    });
   };
 
   const writeDecisionStateToHiddenInputs = (serializedState: string): void => {
@@ -755,6 +844,9 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     const rounded = Math.round(Math.abs(value));
     return `${rounded} card${rounded === 1 ? '' : 's'}`;
   };
+
+  const formatMetricValue = (value: number, unit: CutLabMetricUnit): string =>
+    unit === 'Cards' ? formatCardValue(value) : `${value.toFixed(1)}%`;
 
   const formatDeltaToken = (delta: number, unit: CutLabMetricUnit): string => {
     const magnitude = Math.abs(delta);
@@ -1269,6 +1361,328 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     document.querySelectorAll<HTMLElement>('[data-cut-lab-decision-error]').forEach(element => {
       element.remove();
     });
+  };
+
+  const isWhatifForm = (form: HTMLFormElement): boolean =>
+    form.hasAttribute('data-cut-lab-whatif-form');
+
+  const extractWhatifPayload = (form: HTMLFormElement): { cutLabStateJson: string; cardOut: string; cardIn: string } | null => {
+    writeStateToHiddenInput();
+
+    const stateInput = getStateInput(form);
+    const cardOut = getWhatifCardOutSelect()?.value.trim() ?? '';
+    const cardIn = getWhatifCardInSelect()?.value.trim() ?? '';
+    const cutLabStateJson = stateInput?.value ?? '';
+    if (cutLabStateJson === '' || cardOut === '' || cardIn === '') {
+      return null;
+    }
+
+    return {
+      cutLabStateJson,
+      cardOut,
+      cardIn,
+    };
+  };
+
+  const setWhatifControlsVisible = (hasPreview: boolean): void => {
+    getWhatifPreviewContainer()?.classList.toggle('hidden', !hasPreview);
+    getWhatifKeepButton()?.classList.toggle('hidden', !hasPreview);
+    getWhatifDiscardButton()?.classList.toggle('hidden', !hasPreview);
+  };
+
+  const renderWhatifError = (message: string): void => {
+    const container = getWhatifPreviewContainer();
+    if (!container) {
+      return;
+    }
+
+    let errorLine = container.querySelector<HTMLElement>('[data-cut-lab-whatif-error]');
+    if (!errorLine) {
+      errorLine = document.createElement('p');
+      errorLine.className = 'cutlab-degradation-note';
+      errorLine.dataset.cutLabWhatifError = 'true';
+      container.appendChild(errorLine);
+    }
+
+    errorLine.textContent = message;
+  };
+
+  const clearWhatifError = (): void => {
+    document.querySelectorAll<HTMLElement>('[data-cut-lab-whatif-error]').forEach(element => {
+      element.remove();
+    });
+  };
+
+  const createWhatifDeltaRow = (delta: CutLabDecisionMetricDelta): HTMLTableRowElement => {
+    const row = document.createElement('tr');
+
+    const metricCell = document.createElement('td');
+    metricCell.setAttribute('data-label', 'Metric');
+    const metricStrong = document.createElement('strong');
+    metricStrong.textContent = delta.label;
+    metricCell.appendChild(metricStrong);
+
+    const beforeCell = document.createElement('td');
+    beforeCell.setAttribute('data-label', 'Before');
+    beforeCell.textContent = formatMetricValue(delta.before, delta.unit);
+
+    const afterCell = document.createElement('td');
+    afterCell.setAttribute('data-label', 'After');
+    afterCell.textContent = formatMetricValue(delta.after, delta.unit);
+
+    const deltaCell = document.createElement('td');
+    deltaCell.setAttribute('data-label', 'Delta');
+    const value = document.createElement('span');
+    value.className = `cutlab-delta__value ${deltaClassFor(delta.direction)}`;
+    if (delta.direction !== 'None') {
+      const glyph = document.createElement('span');
+      glyph.setAttribute('aria-hidden', 'true');
+      glyph.textContent = glyphFor(delta.direction);
+      value.appendChild(glyph);
+    }
+
+    const token = document.createElement('span');
+    token.textContent = formatDeltaToken(delta.delta, delta.unit);
+    value.appendChild(token);
+    deltaCell.appendChild(value);
+
+    row.append(metricCell, beforeCell, afterCell, deltaCell);
+    return row;
+  };
+
+  const renderWhatifPreview = (response: CutLabWhatifResponse): void => {
+    const container = getWhatifPreviewContainer();
+    const selection = getWhatifSelection();
+    const deltaBody = getWhatifDeltaBody();
+    if (!container || !selection || !deltaBody) {
+      return;
+    }
+
+    clearWhatifError();
+    selection.classList.remove('hidden');
+    selection.innerHTML =
+      `Previewing: cut <strong>${escapeHtml(response.cardOut)}</strong>, restore <strong>${escapeHtml(response.cardIn)}</strong>. ` +
+      `${response.changedFamilyCount} ${cutLabWhatifPreviewSummaryCopy}`;
+
+    replaceChildren(deltaBody, response.deltas.map(createWhatifDeltaRow));
+    setWhatifControlsVisible(true);
+  };
+
+  const clearWhatifPreview = (): void => {
+    clearWhatifError();
+    const selection = getWhatifSelection();
+    const deltaBody = getWhatifDeltaBody();
+    if (selection) {
+      selection.textContent = '';
+      selection.classList.add('hidden');
+    }
+
+    if (deltaBody) {
+      replaceChildren(deltaBody, []);
+    }
+
+    setWhatifControlsVisible(false);
+  };
+
+  const setWhatifBusyState = (form: HTMLFormElement, submitter: HTMLButtonElement | null): (() => void) => {
+    const originalButtonStates = [
+      getWhatifPreviewButton(),
+      getWhatifKeepButton(),
+      getWhatifDiscardButton(),
+    ].filter((button): button is HTMLButtonElement => button !== null)
+      .map(button => ({ button, wasDisabled: button.disabled }));
+    const originalSelectStates = [
+      getWhatifCardOutSelect(),
+      getWhatifCardInSelect(),
+    ].filter((select): select is HTMLSelectElement => select !== null)
+      .map(select => ({ select, wasDisabled: select.disabled }));
+
+    originalButtonStates.forEach(({ button }) => {
+      button.disabled = true;
+    });
+    originalSelectStates.forEach(({ select }) => {
+      select.disabled = true;
+    });
+    form.setAttribute('aria-busy', 'true');
+
+    const restoreSubmitter = submitter ? setSubmitterBusyState(submitter) : () => undefined;
+    return () => {
+      originalButtonStates.forEach(({ button, wasDisabled }) => {
+        button.disabled = wasDisabled;
+      });
+      originalSelectStates.forEach(({ select, wasDisabled }) => {
+        select.disabled = wasDisabled;
+      });
+      form.removeAttribute('aria-busy');
+      restoreSubmitter();
+    };
+  };
+
+  const parseDecisionState = (serializedState: string): CutLabStateDecision[] => {
+    try {
+      const parsed = JSON.parse(serializedState) as Partial<CutLabStateSnapshot>;
+      return Array.isArray(parsed.decisions) ? parsed.decisions : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const buildCutsMadeFromSerializedState = (serializedState: string): CutLabDecisionCutRecord[] =>
+    parseDecisionState(serializedState)
+      .filter(decision => decision.kind === 'Accepted')
+      .sort((left, right) => right.ordinal - left.ordinal)
+      .map(decision => ({
+        cardName: decision.cardName,
+        roundKey: decision.round,
+        roundLabel: decision.round === 'whatif-swap' ? 'What-if swap' : decision.round,
+        ordinal: decision.ordinal,
+      }));
+
+  const patchStickyAcceptedCount = (acceptedCount: number): void => {
+    const stickyAccepted = getStickyAccepted();
+    if (!stickyAccepted) {
+      return;
+    }
+
+    stickyAccepted.textContent = formatCutsAcceptedSoFar(acceptedCount);
+  };
+
+  const updateWhatifSelectOptionsAfterKeep = (cardOut: string, cardIn: string): void => {
+    const cardOutSelect = getWhatifCardOutSelect();
+    const cardInSelect = getWhatifCardInSelect();
+    if (!cardOutSelect || !cardInSelect) {
+      return;
+    }
+
+    Array.from(cardOutSelect.options)
+      .filter(option => option.value === cardOut)
+      .forEach(option => option.remove());
+    Array.from(cardInSelect.options)
+      .filter(option => option.value === cardIn)
+      .forEach(option => option.remove());
+
+    if (!Array.from(cardOutSelect.options).some(option => option.value === cardIn)) {
+      cardOutSelect.add(new Option(cardIn, cardIn));
+    }
+
+    if (!Array.from(cardInSelect.options).some(option => option.value === cardOut)) {
+      cardInSelect.add(new Option(cardOut, cardOut));
+    }
+
+    cardOutSelect.value = '';
+    cardInSelect.value = '';
+  };
+
+  const handleWhatifPreview = async (form: HTMLFormElement, submitter: HTMLButtonElement | null): Promise<void> => {
+    if (whatifSubmitInFlight) {
+      return;
+    }
+
+    const payload = extractWhatifPayload(form);
+    if (!payload) {
+      renderWhatifError(cutLabWhatifPreviewErrorCopy);
+      return;
+    }
+
+    whatifSubmitInFlight = true;
+    clearWhatifError();
+    const antiForgeryToken = getAntiForgeryToken(form);
+    const restoreBusyState = setWhatifBusyState(form, submitter);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), cutLabDecisionTimeoutMs);
+
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (antiForgeryToken !== '') {
+        headers.RequestVerificationToken = antiForgeryToken;
+      }
+
+      const response = await fetch(cutLabWhatifApiEndpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        renderWhatifError(await readErrorMessage(response));
+        return;
+      }
+
+      const data = await response.json() as CutLabWhatifResponse;
+      renderWhatifPreview(data);
+    } catch (error) {
+      renderWhatifError(error instanceof DOMException && error.name === 'AbortError'
+        ? cutLabDecisionTimeoutCopy
+        : cutLabWhatifPreviewErrorCopy);
+    } finally {
+      window.clearTimeout(timeoutId);
+      whatifSubmitInFlight = false;
+      restoreBusyState();
+    }
+  };
+
+  const handleWhatifKeep = async (form: HTMLFormElement, submitter: HTMLButtonElement | null): Promise<void> => {
+    if (whatifSubmitInFlight) {
+      return;
+    }
+
+    const payload = extractWhatifPayload(form);
+    if (!payload) {
+      renderWhatifError(cutLabWhatifKeepErrorCopy);
+      return;
+    }
+
+    whatifSubmitInFlight = true;
+    clearWhatifError();
+    const antiForgeryToken = getAntiForgeryToken(form);
+    const restoreBusyState = setWhatifBusyState(form, submitter);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), cutLabDecisionTimeoutMs);
+
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (antiForgeryToken !== '') {
+        headers.RequestVerificationToken = antiForgeryToken;
+      }
+
+      const response = await fetch(cutLabWhatifCommitApiEndpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        renderWhatifError(await readErrorMessage(response));
+        return;
+      }
+
+      const data = await response.json() as CutLabWhatifResponse;
+      if (!data.cutLabStateJson) {
+        renderWhatifError(cutLabWhatifKeepErrorCopy);
+        return;
+      }
+
+      api.syncDecisionState(data.cutLabStateJson);
+      const cutsMade = buildCutsMadeFromSerializedState(data.cutLabStateJson);
+      renderCutsMade(cutsMade, data.cutLabStateJson, antiForgeryToken, false);
+      patchStickyAcceptedCount(cutsMade.length);
+      updateWhatifSelectOptionsAfterKeep(data.cardOut, data.cardIn);
+      clearWhatifPreview();
+    } catch (error) {
+      renderWhatifError(error instanceof DOMException && error.name === 'AbortError'
+        ? cutLabDecisionTimeoutCopy
+        : cutLabWhatifKeepErrorCopy);
+    } finally {
+      window.clearTimeout(timeoutId);
+      whatifSubmitInFlight = false;
+      restoreBusyState();
+    }
   };
 
   const patchStickyBar = (response: CutLabDecisionResponse): void => {
@@ -1918,6 +2332,46 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     });
   };
 
+  const attachWhatifSubmitHandler = (): void => {
+    if (whatifHandlersAttached) {
+      return;
+    }
+
+    whatifHandlersAttached = true;
+
+    document.addEventListener('submit', event => {
+      const target = event.target;
+      if (!(target instanceof HTMLFormElement) || !isWhatifForm(target)) {
+        return;
+      }
+
+      const submitter = event instanceof SubmitEvent && event.submitter instanceof HTMLButtonElement
+        ? event.submitter
+        : null;
+      const intent = submitter?.value.trim().toLowerCase() ?? '';
+      if (intent !== 'preview' && intent !== 'keep') {
+        return;
+      }
+
+      event.preventDefault();
+      if (intent === 'preview') {
+        void handleWhatifPreview(target, submitter);
+        return;
+      }
+
+      void handleWhatifKeep(target, submitter);
+    });
+
+    document.addEventListener('click', event => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || !target.closest('[data-cut-lab-whatif-discard]')) {
+        return;
+      }
+
+      clearWhatifPreview();
+    });
+  };
+
   const attachGoalSubmitHandler = (): void => {
     document.addEventListener('submit', event => {
       const target = event.target;
@@ -1953,9 +2407,11 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     attachDecisionSubmitHandler();
     attachGoalSubmitHandler();
     attachScenarioHandlers();
+    attachWhatifSubmitHandler();
     attachSubmitHandler();
     refreshAndSerialize();
     renderScenarioList();
+    setWhatifControlsVisible((getWhatifDeltaBody()?.children.length ?? 0) > 0);
   };
 
   document.addEventListener('DOMContentLoaded', initializeCutLab);
