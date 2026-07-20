@@ -190,6 +190,51 @@ public sealed class CutLabSimulationServiceTests
         Assert.Equal(expectedSnapshot.Metrics, cachedSnapshot.Metrics);
     }
 
+    [Fact]
+    public async Task ComputeProposalDeltas_ReusesPriorAfterSnapshotForNextBeforeSnapshot()
+    {
+        TestPool pool = BuildCedhPool();
+        var sharedResolvedCardCache = new CutLabResolvedCardCache();
+        var sharedDeltaCache = new CutLabDeltaCache();
+        var resolver = new FakeResolver(pool.Cards);
+        var analysisCounter = new CountingSnapshotBuilder();
+        var service = new CutLabSimulationService(
+            sharedResolvedCardCache,
+            sharedDeltaCache,
+            resolver,
+            NullLogger<CutLabSimulationService>.Instance,
+            analysisCounter.Build);
+
+        _ = await service.ComputeProposalDeltas(pool.WorkingList, "Utility Land", "cEDH");
+
+        IReadOnlyList<CutLabPoolCard> afterWorkingList = RemoveCandidate(pool.WorkingList, "Utility Land");
+        _ = await service.ComputeProposalDeltas(afterWorkingList, "Filler 01", "cEDH");
+
+        Assert.Equal(3, analysisCounter.CallCount);
+        Assert.Equal(1, analysisCounter.CountCallsForPool(afterWorkingList));
+    }
+
+    [Fact]
+    public async Task ComputeProposalDeltas_DistinctTrialsOverrideValuesDoNotReuseSnapshotCacheEntries()
+    {
+        TestPool pool = BuildCedhPool();
+        var sharedResolvedCardCache = new CutLabResolvedCardCache();
+        var sharedDeltaCache = new CutLabDeltaCache();
+        var resolver = new FakeResolver(pool.Cards);
+        var analysisCounter = new CountingSnapshotBuilder();
+        var service = new CutLabSimulationService(
+            sharedResolvedCardCache,
+            sharedDeltaCache,
+            resolver,
+            NullLogger<CutLabSimulationService>.Instance,
+            analysisCounter.Build);
+
+        _ = await service.ComputeProposalDeltas(pool.WorkingList, "Utility Land", "cEDH", trialsOverride: 4000);
+        _ = await service.ComputeProposalDeltas(pool.WorkingList, "Utility Land", "cEDH", trialsOverride: null);
+
+        Assert.Equal(4, analysisCounter.CallCount);
+    }
+
     private static CutLabSimulationService CreateService(FakeResolver resolver)
         => new(
             new CutLabResolvedCardCache(),
@@ -347,6 +392,25 @@ public sealed class CutLabSimulationServiceTests
             IsLocked = isCommander,
         };
 
+    private static IReadOnlyList<CutLabPoolCard> RemoveCandidate(
+        IReadOnlyList<CutLabPoolCard> currentWorkingList,
+        string candidateCardName)
+    {
+        bool removed = false;
+        return currentWorkingList
+            .Where(card =>
+            {
+                if (!removed && string.Equals(card.Name, candidateCardName, StringComparison.OrdinalIgnoreCase))
+                {
+                    removed = true;
+                    return false;
+                }
+
+                return true;
+            })
+            .ToArray();
+    }
+
     private static ScryfallCard Spell(
         string name,
         string typeLine,
@@ -393,6 +457,48 @@ public sealed class CutLabSimulationServiceTests
         {
             ResolveSingleCalls++;
             return Task.FromResult(cards.FirstOrDefault(card => string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase)));
+        }
+    }
+
+    private sealed class CountingSnapshotBuilder
+    {
+        private readonly Dictionary<string, int> _callsByPoolKey = new(StringComparer.Ordinal);
+
+        public int CallCount { get; private set; }
+
+        public CutLabMetricSnapshot Build(
+            IReadOnlyList<DeckCardEntry> deckEntries,
+            string? playExperience,
+            int? trialsOverride)
+        {
+            ArgumentNullException.ThrowIfNull(deckEntries);
+
+            CallCount++;
+            string poolKey = CutLabResolvedCardCache.ComputePoolKey(
+                deckEntries.Select(entry => (entry.Card.Name, entry.Quantity)).ToArray());
+            _callsByPoolKey.TryGetValue(poolKey, out int calls);
+            _callsByPoolKey[poolKey] = calls + 1;
+
+            return new CutLabMetricSnapshot
+            {
+                Metrics =
+                [
+                    new CutLabMetricValue
+                    {
+                        Kind = CutLabMetricKind.KeepableHand,
+                        Family = CutLabMetricFamily.KeepableHand,
+                        Label = "Keepable hand",
+                        Value = deckEntries.Sum(entry => entry.Quantity) + (trialsOverride ?? 20_000),
+                        Unit = CutLabMetricUnit.Percent,
+                    },
+                ],
+            };
+        }
+
+        public int CountCallsForPool(IReadOnlyList<CutLabPoolCard> workingList)
+        {
+            string poolKey = CutLabResolvedCardCache.ComputePoolKey(workingList.Select(card => (card.Name, card.Quantity)).ToArray());
+            return _callsByPoolKey.TryGetValue(poolKey, out int calls) ? calls : 0;
         }
     }
 }
