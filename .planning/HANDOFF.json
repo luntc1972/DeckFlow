@@ -1,0 +1,47 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-07-20T05:05:41.091Z",
+  "phase": "103",
+  "phase_name": "simulation-engine-guided-cut-rounds",
+  "phase_dir": ".planning/workstreams/cut-lab/phases/103-simulation-engine-guided-cut-rounds",
+  "workstream": "cut-lab",
+  "plan": 10,
+  "task": 3,
+  "total_tasks": 3,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": "103-01", "name": "Metric contract + determinism/timing", "status": "done", "commit": "396569be", "verify": "PASS_WITH_NOTES"},
+    {"id": "103-02", "name": "State envelope + working list", "status": "done", "commit": "23b9cdc0", "verify": "PASS_WITH_NOTES"},
+    {"id": "103-03", "name": "Resolved-card + delta caches", "status": "done", "commit": "8c63c0fa", "verify": "PASS_WITH_NOTES + fix batch"},
+    {"id": "103-04", "name": "Cut round engine", "status": "done", "commit": "74b82ec3", "verify": "PASS"},
+    {"id": "103-05", "name": "Simulation service + trials override", "status": "done", "commit": "89534f55", "verify": "PASS_WITH_NOTES + F1-F5 fixes + latency fixes 7f568f28/431b0440"},
+    {"id": "103-06", "name": "Analysis context builder + intake wiring", "status": "done", "commit": "0e123240", "verify": "R1 FAIL -> fixes 04e0f942/6c9ccf74 -> R2 PASS_WITH_NOTES"},
+    {"id": "103-07", "name": "Decide endpoints (JSON + no-JS)", "status": "done", "commit": "4468a36c", "verify": "R1 FAIL -> fixes c78b4c6a/8904761c/5f61445e/d37b8e83 + no-JS rehydration 3ad761e3 -> PASS_WITH_NOTES"},
+    {"id": "103-08", "name": "UI sections (workspace/cuts-made/compare)", "status": "done", "commit": "39161e60", "verify": "PASS_WITH_NOTES"},
+    {"id": "103-09", "name": "TS hydration + CSS", "status": "done", "commit": "37734744", "verify": "PASS_WITH_NOTES + fixes 3aff8bf0/f488eefa"},
+    {"id": "103-10-T1", "name": "e2e spec extension", "status": "done", "commit": "fa13f6f9 + e2150630 + 0191ba47", "verify": "e2e 20/20 green"},
+    {"id": "103-10-T2", "name": "Full-suite phase gate", "status": "done", "commit": "afa6f94d", "verify": "build 0 warn; CutLab 210/210; Manabase Core 394/394; vitest 56/56; tsc clean; e2e 20/20"},
+    {"id": "simplify", "name": "/simplify cleanup batch (16 findings)", "status": "done", "commit": "1d239402 + 5e05de3a", "verify": "all gates re-run green"}
+  ],
+  "remaining_tasks": [
+    {"id": "103-10-T3", "name": "Human verify: delta readability + neutral framing + perceived latency (blocking checkpoint)", "status": "awaiting_user"},
+    {"id": "phase-close", "name": "After approval: code_review_gate (gsd-code-review 103), regression_gate, gsd-verifier, update_roadmap/STATE/REQUIREMENTS, close todos, PROJECT.md evolve", "status": "not_started"}
+  ],
+  "blockers": [
+    {"description": "Human-verify checkpoint (103-10 Task 3) — UAT walkthrough required before phase completion", "type": "human_action", "workaround": "none; blocking by design"}
+  ],
+  "human_actions_pending": [
+    {"action": "UAT: run scripts/run-web-test.sh, enable tool.cut-lab.enabled, walk 5 decisions on >100 pool, check deltas/copy/latency (~1s target, 3s cap), compare panel, restore, 2 themes x 2 viewports", "context": "103-10 Task 3 blocking gate; screenshots already at .planning/ui-design/cut-lab/screenshots/", "blocking": true}
+  ],
+  "decisions": [
+    {"decision": "In-loop trials 4000, baseline/summaries 20000; source-search trials scale proportionally with override (min 500)", "rationale": "D-11: 5164ms measured at defaults on 147-card pool; fixed SourceSearchTrials=5000 dominated cost until scaled; decide now 1634ms first / ~4ms cached", "phase": "103"},
+    {"decision": "Non-finite metrics OMITTED from snapshots/deltas (not NaN)", "rationale": "JsonSerializerDefaults.Web throws on NaN; Casual/Focused lack InteractionLens", "phase": "103"},
+    {"decision": "All Cut Lab name joins keyed via CutLabCardNames.Normalize (CardNormalizer front-face)", "rationale": "DFC/split resolver names ('A // B') vs typed front-face names broke joins silently", "phase": "103"},
+    {"decision": "No-JS decide rehydrates intake from CutLabState (deck text reconstructed from pool)", "rationale": "Decision mini-forms post only hidden fields; ProcessAsync starved -> 'No pool imported yet'", "phase": "103"},
+    {"decision": "Structural-analysis table rows intentionally NOT live-patched on JS decisions", "rationale": "103-09 patch contract = proposal card + sticky + deltas + cuts-made; table refreshes on server render; accepted residual", "phase": "103"},
+    {"decision": "Compare table renders 10 per-kind rows (not 7)", "rationale": "7 families expand: Flood/Screw/Curve x3 + category-by-turn x3, EarlyInteraction omitted non-cEDH; plan's '7 rows' was a plan error", "phase": "103"}
+  ],
+  "uncommitted_files": [],
+  "next_action": "Present/re-run the 103-10 Task 3 human-verify checkpoint to the user; on 'approved' run phase-close chain (code review gate -> regression gate -> gsd-verifier -> roadmap/state updates)",
+  "context_notes": "Cross-AI execution: Codex gpt-5.4 medium implemented all plans via codex exec (danger-full-access); Claude orchestrated + blind-verified each wave (foreman pattern). Waves 4 and 5 FAILED first blind verify and were fixed+re-verified. Ledger at .foreman/ledger.md (untracked). Server port 5173 free; no background processes left running."
+}
