@@ -62,6 +62,34 @@ const importPool = async (page: Page): Promise<void> => {
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
 };
 
+const waitForCutRounds = async (page: Page): Promise<void> => {
+  await expect(page.getByRole('heading', { name: 'Cut rounds' })).toBeVisible();
+  await expect(page.locator('.cutlab-round-banner .cutlab-finding__heading')).toBeVisible();
+  await expect(page.locator('[data-cut-lab-sticky-remaining]')).toBeVisible();
+  await expect(page.locator('.cutlab-proposal')).toBeVisible();
+};
+
+const getStickyRemainingCount = async (page: Page): Promise<number> => {
+  const stickyText = await page.locator('[data-cut-lab-sticky-remaining]').textContent();
+  const match = stickyText?.match(/^(\d+) to cut$/);
+  return Number.parseInt(match?.[1] ?? '0', 10);
+};
+
+const getStickyAcceptedCount = async (page: Page): Promise<number> => {
+  const stickyText = await page.locator('[data-cut-lab-sticky-accepted]').textContent();
+  const match = stickyText?.match(/^(\d+) cut so far$/);
+  return Number.parseInt(match?.[1] ?? '0', 10);
+};
+
+const acceptCurrentProposal = async (page: Page): Promise<string> => {
+  const proposal = page.locator('.cutlab-proposal');
+  const heading = proposal.locator('.cutlab-proposal__heading');
+  const proposalHeading = await heading.textContent();
+  const cardName = proposalHeading?.replace(/^Proposed cut:\s*/, '').trim() ?? '';
+  await proposal.locator('.cutlab-decision-btn--accept').click();
+  return cardName;
+};
+
 const getRoleFloorRow = (page: Page, roleKey: string): Locator =>
   page.locator(`tr[data-cut-lab-floor-row="${roleKey}"]`);
 
@@ -149,7 +177,7 @@ test('marks interaction as adjusted after floor edits and writes roleFloors into
   await interactionInput.blur();
 
   await expect(interactionRow.locator('[data-cut-lab-floor-adjusted-badge]')).toBeVisible();
-  await expect(page.locator('input[name="CutLabStateJson"]')).toHaveValue(
+  await expect(page.locator('input[name="CutLabStateJson"]').first()).toHaveValue(
     /"roleFloors":\[.*"role":"interaction".*"isUserSet":true/,
   );
 });
@@ -204,6 +232,100 @@ test('resets an adjusted role floor back to its default value', async ({ page })
   await expect(interactionRow.locator('[data-cut-lab-floor-adjusted-badge]')).toBeHidden();
 });
 
+test('accepts a proposal without a reload, keeps copy neutral, and shows a 7-row compare table', async ({ page }) => {
+  await importPool(page);
+  await waitForCutRounds(page);
+
+  const startingRemaining = await getStickyRemainingCount(page);
+  const startingAccepted = await getStickyAcceptedCount(page);
+  const startingProposalHeading = await page.locator('.cutlab-proposal__heading').textContent();
+  const mainFrameNavigations: string[] = [];
+  const navigationListener = (frame: { parentFrame: () => object | null; url: () => string }): void => {
+    if (frame.parentFrame() === null) {
+      mainFrameNavigations.push(frame.url());
+    }
+  };
+
+  page.on('framenavigated', navigationListener);
+
+  const acceptedCardName = await acceptCurrentProposal(page);
+
+  await expect(page.locator('[data-cut-lab-sticky-remaining]')).toContainText(`${startingRemaining - 1} to cut`);
+  await expect(page.locator('[data-cut-lab-sticky-accepted]')).toContainText(`${startingAccepted + 1} cut so far`);
+  await expect(page.locator('.cutlab-cuts-made__row')).toContainText(acceptedCardName);
+  await expect(page.locator('.cutlab-round-banner .cutlab-finding__heading')).toBeVisible();
+  await expect(page.locator('.cutlab-proposal__heading')).not.toHaveText(startingProposalHeading ?? '');
+
+  page.off('framenavigated', navigationListener);
+  expect(mainFrameNavigations).toHaveLength(0);
+  await expect(page.locator('.cutlab-proposal')).toContainText(/^(?!.*\b(?:worse|bad|better)\b).*/s);
+  await expect(page.locator('.cutlab-delta')).toContainText(/^(?!.*\b(?:worse|bad|better)\b).*/s);
+
+  const compareDetails = page.locator('details.cutlab-compare');
+  await compareDetails.locator('summary').click();
+  await expect(compareDetails.locator('table[data-prompt-cedh-reference-table]')).toBeVisible();
+  await expect(compareDetails.locator('thead th')).toHaveText(['Metric', 'Baseline', 'Current', 'Delta']);
+  await expect(compareDetails.locator('tbody tr')).toHaveCount(7);
+});
+
+test('restores an accepted cut and reverts the working list counts', async ({ page }) => {
+  await importPool(page);
+  await waitForCutRounds(page);
+
+  const startingRemaining = await getStickyRemainingCount(page);
+  const startingAccepted = await getStickyAcceptedCount(page);
+  const acceptedCardName = await page.locator('.cutlab-proposal__heading').textContent();
+  const normalizedCardName = acceptedCardName?.replace(/^Proposed cut:\s*/, '').trim() ?? '';
+
+  await acceptCurrentProposal(page);
+  await expect(page.locator(`tr[data-cut-lab-card="${normalizedCardName}"]`)).toHaveCount(0);
+  await expect(page.locator('.cutlab-cuts-made__row')).toContainText(normalizedCardName);
+
+  await page.locator('.cutlab-cuts-made__row', { hasText: normalizedCardName }).locator('.cutlab-restore-btn').click();
+
+  await expect(page.locator('[data-cut-lab-sticky-remaining]')).toContainText(`${startingRemaining} to cut`);
+  await expect(page.locator('[data-cut-lab-sticky-accepted]')).toContainText(`${startingAccepted} cut so far`);
+  await expect(page.locator('.cutlab-cuts-made__row')).toHaveCount(0);
+  await expect(page.locator(`tr[data-cut-lab-card="${normalizedCardName}"]`)).toHaveCount(1);
+});
+
+test('submits the accept form through the no-JS fallback and re-renders with the cut applied', async ({ browser }) => {
+  const context = await browser.newContext({
+    javaScriptEnabled: false,
+    viewport: { width: 1280, height: 900 },
+    httpCredentials: {
+      username: process.env.FEEDBACK_ADMIN_USER ?? 'admin',
+      password: process.env.FEEDBACK_ADMIN_PASSWORD ?? 'changeme-local',
+      send: 'always',
+    },
+  });
+  const noJsPage = await context.newPage();
+
+  try {
+    await importPool(noJsPage);
+    await waitForCutRounds(noJsPage);
+
+    const startingProposalHeading = await noJsPage.locator('.cutlab-proposal__heading').textContent();
+    const startingCardName = startingProposalHeading?.replace(/^Proposed cut:\s*/, '').trim() ?? '';
+    const decideRequestPromise = noJsPage.waitForRequest(request =>
+      request.isNavigationRequest()
+      && request.method() === 'POST'
+      && request.url().includes('/cut-lab/decide'),
+    );
+    const navigationPromise = noJsPage.waitForNavigation({ waitUntil: 'domcontentloaded' });
+
+    await noJsPage.locator('.cutlab-proposal .cutlab-decision-btn--accept').click();
+
+    const [decideRequest] = await Promise.all([decideRequestPromise, navigationPromise]);
+    expect(decideRequest.url()).toContain('/cut-lab/decide');
+
+    await expect(noJsPage.locator('.cutlab-cuts-made__row')).toContainText(startingCardName);
+    await expect(noJsPage.locator('.cutlab-proposal__heading')).not.toHaveText(startingProposalHeading ?? '');
+  } finally {
+    await context.close();
+  }
+});
+
 test('captures the structure screenshot matrix across themes and viewports', async ({ page }) => {
   mkdirSync(screenshotDir, { recursive: true });
 
@@ -220,6 +342,25 @@ test('captures the structure screenshot matrix across themes and viewports', asy
       await page.screenshot({
         path: join(screenshotDir, `structure-${theme.name}-${viewport.name}.png`),
         fullPage: true,
+      });
+
+      await waitForCutRounds(page);
+      await page.locator('.cutlab-sticky-bar').scrollIntoViewIfNeeded();
+      await page.locator('.cutlab-sticky-bar').screenshot({
+        path: join(screenshotDir, `rounds-${theme.name}-${viewport.name}.png`),
+      });
+
+      await acceptCurrentProposal(page);
+      await page.locator('details.cutlab-cuts-made').scrollIntoViewIfNeeded();
+      await page.locator('details.cutlab-cuts-made').screenshot({
+        path: join(screenshotDir, `cuts-made-${theme.name}-${viewport.name}.png`),
+      });
+
+      const compareDetails = page.locator('details.cutlab-compare');
+      await compareDetails.locator('summary').click();
+      await compareDetails.scrollIntoViewIfNeeded();
+      await compareDetails.screenshot({
+        path: join(screenshotDir, `compare-${theme.name}-${viewport.name}.png`),
       });
     }
   }
