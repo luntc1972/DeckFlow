@@ -154,6 +154,77 @@ public sealed class CutLabSimulationServiceTests
     }
 
     [Fact]
+    public async Task BuildSnapshot_GoalTurnAtOrBeyondOnCurveTurn_UsesCommanderCastPercent()
+    {
+        TestPool pool = BuildLateCommanderPool();
+        var service = CreateService(new FakeResolver(pool.Cards));
+
+        CutLabMetricSnapshot snapshot = await service.BuildSnapshot(
+            pool.WorkingList,
+            "cEDH",
+            goals: new CutLabGoalSettings { CommanderByTurn = 6 });
+        ManabaseReport report = BuildDirectReport(pool.WorkingList, "cEDH", trialsOverride: 4000, pool.Cards);
+
+        CutLabMetricValue commanderByTurn = Assert.Single(snapshot.Metrics, metric => metric.Kind == CutLabMetricKind.CommanderByTurn);
+        CardCastability commander = Assert.Single(report.Castability, row => row.IsCommander);
+        Assert.Equal("Commander by turn 6", commanderByTurn.Label);
+        Assert.Equal(commander.CastPercent, commanderByTurn.Value);
+    }
+
+    [Fact]
+    public async Task BuildSnapshot_ChangedGoalTurn_UpdatesCommanderLabelAndValue()
+    {
+        TestPool pool = BuildLateCommanderPool();
+        var service = CreateService(new FakeResolver(pool.Cards));
+
+        CutLabMetricSnapshot earlyGoal = await service.BuildSnapshot(
+            pool.WorkingList,
+            "cEDH",
+            goals: new CutLabGoalSettings { CommanderByTurn = 3 });
+        CutLabMetricSnapshot lateGoal = await service.BuildSnapshot(
+            pool.WorkingList,
+            "cEDH",
+            goals: new CutLabGoalSettings { CommanderByTurn = 6 });
+
+        CutLabMetricValue earlyCommander = Assert.Single(earlyGoal.Metrics, metric => metric.Kind == CutLabMetricKind.CommanderByTurn);
+        CutLabMetricValue lateCommander = Assert.Single(lateGoal.Metrics, metric => metric.Kind == CutLabMetricKind.CommanderByTurn);
+
+        Assert.Equal("Commander by turn 3", earlyCommander.Label);
+        Assert.Equal("Commander by turn 6", lateCommander.Label);
+        Assert.NotEqual(earlyCommander.Value, lateCommander.Value);
+    }
+
+    [Fact]
+    public async Task BuildSnapshot_NullGoals_MatchesDefaultGoalMetrics()
+    {
+        TestPool pool = BuildCedhPool();
+        var service = CreateService(new FakeResolver(pool.Cards));
+
+        CutLabMetricSnapshot withNullGoals = await service.BuildSnapshot(pool.WorkingList, "cEDH", goals: null);
+        CutLabMetricSnapshot withDefaultGoals = await service.BuildSnapshot(pool.WorkingList, "cEDH", goals: new CutLabGoalSettings());
+
+        Assert.Equal(withDefaultGoals.Metrics, withNullGoals.Metrics);
+    }
+
+    [Fact]
+    public async Task ComputeProposalDeltas_SameInputsAndGoals_RemainsDeterministic()
+    {
+        TestPool pool = BuildCedhPool();
+        var service = CreateService(new FakeResolver(pool.Cards));
+        var goals = new CutLabGoalSettings
+        {
+            CommanderByTurn = 5,
+            EngineByTurn = 3,
+            RepresentativeLineByTurn = 7,
+        };
+
+        CutLabProposalDeltas first = await service.ComputeProposalDeltas(pool.WorkingList, "Utility Land", "cEDH", goals: goals);
+        CutLabProposalDeltas second = await service.ComputeProposalDeltas(pool.WorkingList, "Utility Land", "cEDH", goals: goals);
+
+        Assert.Equal(first, second);
+    }
+
+    [Fact]
     public async Task BuildSnapshot_ReorderedPoolCacheHitAlignsCardsByName()
     {
         TestPool orderedPool = BuildCacheAlignmentPool();
@@ -232,6 +303,64 @@ public sealed class CutLabSimulationServiceTests
         _ = await service.ComputeProposalDeltas(pool.WorkingList, "Utility Land", "cEDH", trialsOverride: 4000);
         _ = await service.ComputeProposalDeltas(pool.WorkingList, "Utility Land", "cEDH", trialsOverride: null);
 
+        Assert.Equal(4, analysisCounter.CallCount);
+    }
+
+    [Fact]
+    public async Task BuildSnapshot_DifferentGoalsOnSamePool_DoNotReuseSnapshotCacheEntries()
+    {
+        TestPool pool = BuildCedhPool();
+        var sharedResolvedCardCache = new CutLabResolvedCardCache();
+        var sharedDeltaCache = new CutLabDeltaCache();
+        var resolver = new FakeResolver(pool.Cards);
+        var analysisCounter = new CountingSnapshotBuilder();
+        var service = new CutLabSimulationService(
+            sharedResolvedCardCache,
+            sharedDeltaCache,
+            resolver,
+            NullLogger<CutLabSimulationService>.Instance,
+            analysisCounter.Build);
+
+        CutLabMetricSnapshot earlyGoal = await service.BuildSnapshot(
+            pool.WorkingList,
+            "cEDH",
+            goals: new CutLabGoalSettings { CommanderByTurn = 3 });
+        CutLabMetricSnapshot lateGoal = await service.BuildSnapshot(
+            pool.WorkingList,
+            "cEDH",
+            goals: new CutLabGoalSettings { CommanderByTurn = 9 });
+
+        Assert.NotEqual(earlyGoal.Metrics, lateGoal.Metrics);
+        Assert.Equal(2, analysisCounter.CallCount);
+    }
+
+    [Fact]
+    public async Task ComputeProposalDeltas_DifferentGoalsOnSamePool_DoNotReuseDeltaCacheEntries()
+    {
+        TestPool pool = BuildCedhPool();
+        var sharedResolvedCardCache = new CutLabResolvedCardCache();
+        var sharedDeltaCache = new CutLabDeltaCache();
+        var resolver = new FakeResolver(pool.Cards);
+        var analysisCounter = new CountingSnapshotBuilder();
+        var service = new CutLabSimulationService(
+            sharedResolvedCardCache,
+            sharedDeltaCache,
+            resolver,
+            NullLogger<CutLabSimulationService>.Instance,
+            analysisCounter.Build);
+
+        CutLabProposalDeltas earlyGoal = await service.ComputeProposalDeltas(
+            pool.WorkingList,
+            "Utility Land",
+            "cEDH",
+            goals: new CutLabGoalSettings { CommanderByTurn = 3 });
+        CutLabProposalDeltas lateGoal = await service.ComputeProposalDeltas(
+            pool.WorkingList,
+            "Utility Land",
+            "cEDH",
+            goals: new CutLabGoalSettings { CommanderByTurn = 9 });
+
+        Assert.NotEqual(earlyGoal.Deltas, lateGoal.Deltas);
         Assert.Equal(4, analysisCounter.CallCount);
     }
 
@@ -371,11 +500,47 @@ public sealed class CutLabSimulationServiceTests
                 Spell("Mismatch Threat", "Creature — Dragon", manaCost: "{6}{U}", oracleText: "Flying", power: "7", cmc: 7),
             ]);
 
+    private static TestPool BuildLateCommanderPool()
+    {
+        List<CutLabPoolCard> workingList =
+        [
+            PoolCard("Late Commander", "Legendary Creature — Human Wizard", isCommander: true),
+            PoolCard("Island", "Basic Land — Island", quantity: 35),
+            PoolCard("Swamp", "Basic Land — Swamp", quantity: 29),
+            PoolCard("Fast Interaction", "Instant"),
+            PoolCard("Value Engine", "Enchantment"),
+            PoolCard("Combo Tutor", "Sorcery"),
+            PoolCard("Closing Threat", "Creature — Leviathan"),
+        ];
+
+        workingList.AddRange(Enumerable.Range(1, 27).Select(index => PoolCard($"Late Filler {index:00}", "Artifact")));
+
+        List<ScryfallCard> cards =
+        [
+            Spell("Late Commander", "Legendary Creature — Human Wizard", manaCost: "{4}{U}{B}", oracleText: "Whenever you cast your second spell each turn, draw a card.", power: "5", cmc: 6),
+            Spell("Island", "Basic Land — Island", oracleText: "{T}: Add {U}.", producedMana: ["U"]),
+            Spell("Swamp", "Basic Land — Swamp", oracleText: "{T}: Add {B}.", producedMana: ["B"]),
+            Spell("Fast Interaction", "Instant", manaCost: "{U}", oracleText: "Counter target spell.", cmc: 1),
+            Spell("Value Engine", "Enchantment", manaCost: "{1}{U}", oracleText: "At the beginning of your upkeep, draw a card.", cmc: 2),
+            Spell("Combo Tutor", "Sorcery", manaCost: "{1}{B}", oracleText: "Search your library for a card, put that card into your hand, then shuffle.", cmc: 2),
+            Spell("Closing Threat", "Creature — Leviathan", manaCost: "{5}{U}", oracleText: "Whenever this creature attacks, creatures you control get +6/+6 until end of turn.", power: "6", cmc: 6),
+        ];
+
+        cards.AddRange(Enumerable.Range(1, 27).Select(index => Spell($"Late Filler {index:00}", "Artifact", manaCost: "{2}", oracleText: "A test artifact.", cmc: 2)));
+
+        return new TestPool(workingList, cards);
+    }
+
     private static double PercentByTurn(CardCastability row, int turn)
     {
         if (row.EarlyCastPercents.Count == 0)
         {
             return turn >= row.OnCurveTurn ? row.CastPercent : 0;
+        }
+
+        if (turn >= row.OnCurveTurn)
+        {
+            return row.CastPercent;
         }
 
         int index = Math.Clamp(turn - 1, 0, row.EarlyCastPercents.Count - 1);
@@ -469,7 +634,8 @@ public sealed class CutLabSimulationServiceTests
         public CutLabMetricSnapshot Build(
             IReadOnlyList<DeckCardEntry> deckEntries,
             string? playExperience,
-            int? trialsOverride)
+            int? trialsOverride,
+            CutLabGoalSettings? goals)
         {
             ArgumentNullException.ThrowIfNull(deckEntries);
 
@@ -485,10 +651,12 @@ public sealed class CutLabSimulationServiceTests
                 [
                     new CutLabMetricValue
                     {
-                        Kind = CutLabMetricKind.KeepableHand,
-                        Family = CutLabMetricFamily.KeepableHand,
-                        Label = "Keepable hand",
-                        Value = deckEntries.Sum(entry => entry.Quantity) + (trialsOverride ?? 20_000),
+                        Kind = CutLabMetricKind.CommanderByTurn,
+                        Family = CutLabMetricFamily.CategoryByTurn,
+                        Label = $"Commander by turn {goals?.CommanderByTurn ?? CutLabGoalDefaults.CommanderByTurn}",
+                        Value = deckEntries.Sum(entry => entry.Quantity)
+                            + (trialsOverride ?? 20_000)
+                            + (goals?.CommanderByTurn ?? CutLabGoalDefaults.CommanderByTurn),
                         Unit = CutLabMetricUnit.Percent,
                     },
                 ],
