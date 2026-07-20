@@ -18,7 +18,7 @@ public sealed class CutLabResolvedCardCache
     private readonly IMemoryCache _cache;
     private readonly ILogger<CutLabResolvedCardCache> _logger;
 
-    private sealed record CachedEntry(IReadOnlyList<ScryfallCardData> Cards, int SizeBytes);
+    private sealed record CachedEntry(IReadOnlyList<ScryfallCardData> Cards, IReadOnlySet<string> MissingCardNames, int SizeBytes);
 
     /// <summary>
     /// Initializes a new <see cref="CutLabResolvedCardCache"/>.
@@ -84,13 +84,10 @@ public sealed class CutLabResolvedCardCache
                 continue;
             }
 
-            if (!sourceByName.TryGetValue(normalizedName, out ScryfallCardData? card))
+            if (sourceByName.TryGetValue(normalizedName, out ScryfallCardData? card))
             {
-                seededCards = null;
-                return false;
+                filteredCards.Add(card);
             }
-
-            filteredCards.Add(card);
         }
 
         seededCards = filteredCards;
@@ -120,18 +117,40 @@ public sealed class CutLabResolvedCardCache
         return true;
     }
 
+    internal bool TryGetKnownMissingNames(string poolKey, out IReadOnlySet<string>? missingCardNames)
+    {
+        ArgumentNullException.ThrowIfNull(poolKey);
+
+        if (!_cache.TryGetValue(poolKey, out var raw) || raw is not CachedEntry entry)
+        {
+            missingCardNames = null;
+            return false;
+        }
+
+        missingCardNames = entry.MissingCardNames;
+        return true;
+    }
+
     /// <summary>
     /// Stores the resolved cards for a pool hash.
     /// </summary>
     /// <param name="poolKey">The deterministic working-pool hash.</param>
     /// <param name="cards">The resolved cards to cache.</param>
-    public void Set(string poolKey, IReadOnlyList<ScryfallCardData> cards)
+    public void Set(
+        string poolKey,
+        IReadOnlyList<ScryfallCardData> cards,
+        IReadOnlyCollection<string>? missingCardNames = null)
     {
         ArgumentNullException.ThrowIfNull(poolKey);
         ArgumentNullException.ThrowIfNull(cards);
 
         int sizeBytes = EstimateSizeBytes(cards);
-        var entry = new CachedEntry(cards, sizeBytes);
+        IReadOnlySet<string> normalizedMissingCardNames = missingCardNames is null
+            ? new HashSet<string>(CutLabCardNames.Comparer)
+            : missingCardNames
+                .Select(CutLabCardNames.Normalize)
+                .ToHashSet(CutLabCardNames.Comparer);
+        var entry = new CachedEntry(cards, normalizedMissingCardNames, sizeBytes);
         var options = new MemoryCacheEntryOptions
         {
             // Why: resolved Scryfall payloads should survive a normal cut session without repeated refetches.

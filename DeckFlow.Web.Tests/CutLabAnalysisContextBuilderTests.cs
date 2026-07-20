@@ -233,6 +233,82 @@ public sealed class CutLabAnalysisContextBuilderTests
     }
 
     [Fact]
+    public async Task BuildAsync_PreResolvedCardsMissingOneCard_OnlyResolvesTheMissingCard()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList =
+        [
+            PoolCard("Focused Commander", "Legendary Creature — Human Wizard", isCommander: true),
+            PoolCard("Counterspell", "Instant"),
+            PoolCard("Typo Card", "Sorcery"),
+        ];
+        IReadOnlyList<ScryfallCardData> preResolvedCards =
+        [
+            CardData("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{G}{U}", cmc: 3),
+            CardData("Counterspell", "Instant", manaCost: "{U}{U}", cmc: 2),
+        ];
+        var resolver = new CountingResolver(
+        [
+            Spell("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{G}{U}", cmc: 3),
+            Spell("Counterspell", "Instant", manaCost: "{U}{U}", cmc: 2),
+        ]);
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache());
+
+        CutLabAnalysisContext context = await builder.BuildAsync(
+            workingList,
+            "Focused",
+            ["Focused Commander"],
+            preResolvedCards: preResolvedCards);
+
+        Assert.Equal(1, resolver.ResolveSingleCalls);
+        Assert.Equal(1, resolver.ResolveSingleCallsByName["Typo Card"]);
+        Assert.DoesNotContain("Focused Commander", resolver.ResolveSingleCallsByName.Keys);
+        Assert.DoesNotContain("Counterspell", resolver.ResolveSingleCallsByName.Keys);
+        Assert.Equal(["Focused Commander", "Counterspell"], context.ResolvedCards.Select(card => card.Name));
+    }
+
+    [Fact]
+    public async Task BuildAsync_AfterDecisionWithWarmCacheAndOneUnresolvableCard_OnlyRetriesTheMissingCard()
+    {
+        IReadOnlyList<CutLabPoolCard> beforeWorkingList =
+        [
+            PoolCard("Focused Commander", "Legendary Creature — Human Wizard", isCommander: true),
+            PoolCard("Arcane Signet", "Artifact"),
+            PoolCard("Counterspell", "Instant"),
+            PoolCard("Typo Card", "Sorcery"),
+        ];
+        IReadOnlyList<CutLabPoolCard> afterWorkingList =
+        [
+            PoolCard("Focused Commander", "Legendary Creature — Human Wizard", isCommander: true),
+            PoolCard("Counterspell", "Instant"),
+            PoolCard("Typo Card", "Sorcery"),
+        ];
+        var resolver = new CountingResolver(
+        [
+            Spell("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{G}{U}", cmc: 3),
+            Spell("Arcane Signet", "Artifact", manaCost: "{2}", cmc: 2),
+            Spell("Counterspell", "Instant", manaCost: "{U}{U}", cmc: 2),
+        ]);
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache());
+
+        CutLabAnalysisContext beforeContext = await builder.BuildAsync(
+            beforeWorkingList,
+            "Focused",
+            ["Focused Commander"]);
+        CutLabAnalysisContext afterContext = await builder.BuildAsync(
+            afterWorkingList,
+            "Focused",
+            ["Focused Commander"],
+            preResolvedCards: beforeContext.ResolvedCards);
+
+        Assert.Equal(5, resolver.ResolveSingleCalls);
+        Assert.Equal(1, resolver.ResolveSingleCallsByName["Focused Commander"]);
+        Assert.Equal(1, resolver.ResolveSingleCallsByName["Arcane Signet"]);
+        Assert.Equal(1, resolver.ResolveSingleCallsByName["Counterspell"]);
+        Assert.Equal(2, resolver.ResolveSingleCallsByName["Typo Card"]);
+        Assert.Equal(["Focused Commander", "Counterspell"], afterContext.ResolvedCards.Select(card => card.Name));
+    }
+
+    [Fact]
     public async Task TrySeedDerivedPool_RestoreWithWarmFullPoolCache_AvoidsAdditionalResolverCalls()
     {
         IReadOnlyList<CutLabPoolCard> fullPool =
@@ -328,6 +404,8 @@ public sealed class CutLabAnalysisContextBuilderTests
     {
         public int ResolveSingleCalls { get; private set; }
 
+        public Dictionary<string, int> ResolveSingleCallsByName { get; } = new(StringComparer.OrdinalIgnoreCase);
+
         public Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken cancellationToken)
             => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
             {
@@ -344,6 +422,9 @@ public sealed class CutLabAnalysisContextBuilderTests
         public Task<ScryfallCard?> ResolveSingleAsync(string cardName, CancellationToken cancellationToken)
         {
             ResolveSingleCalls++;
+            ResolveSingleCallsByName[cardName] = ResolveSingleCallsByName.TryGetValue(cardName, out int count)
+                ? count + 1
+                : 1;
             return SearchFallbackCardAsync(cardName, cancellationToken);
         }
     }

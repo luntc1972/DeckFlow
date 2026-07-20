@@ -204,26 +204,45 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         return _resolvedCardCache.TrySeedFromSuperset(ToPoolKeyEntries(workingList), sourceCards, out seededCards);
     }
 
+    internal void PrimeResolvedCardsCache(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        IReadOnlyList<ScryfallCardData> resolvedCards,
+        IReadOnlyCollection<string>? unresolvedCardNames = null)
+    {
+        ArgumentNullException.ThrowIfNull(workingList);
+        ArgumentNullException.ThrowIfNull(resolvedCards);
+
+        _resolvedCardCache.Set(ComputePoolKey(workingList), resolvedCards, unresolvedCardNames);
+    }
+
     private async Task<IReadOnlyList<ScryfallCardData>> ResolveCardsAsync(
         IReadOnlyList<CutLabPoolCard> workingList,
         string poolKey,
         IReadOnlyList<ScryfallCardData>? preResolvedCards,
         CancellationToken cancellationToken)
     {
-        if (preResolvedCards is not null
-            && _resolvedCardCache.TrySeedFromSuperset(ToPoolKeyEntries(workingList), preResolvedCards, out IReadOnlyList<ScryfallCardData>? seededCards)
-            && seededCards is not null)
+        if (preResolvedCards is not null)
         {
-            return seededCards;
+            _resolvedCardCache.TrySeedFromSuperset(ToPoolKeyEntries(workingList), preResolvedCards, out _);
         }
 
+        Dictionary<string, ScryfallCardData> resolvedByName = new(CutLabCardNames.Comparer);
+        IReadOnlySet<string> knownMissingNames = new HashSet<string>(CutLabCardNames.Comparer);
         if (_resolvedCardCache.TryGet(poolKey, out IReadOnlyList<ScryfallCardData>? cachedCards) && cachedCards is not null)
         {
-            return cachedCards;
+            foreach (ScryfallCardData cachedCard in cachedCards)
+            {
+                resolvedByName[CutLabCardNames.Normalize(cachedCard.Name)] = cachedCard;
+            }
+
+            if (_resolvedCardCache.TryGetKnownMissingNames(poolKey, out IReadOnlySet<string>? cachedMissingNames)
+                && cachedMissingNames is not null)
+            {
+                knownMissingNames = cachedMissingNames;
+            }
         }
 
-        List<ScryfallCardData> resolvedCards = new(workingList.Count);
-        foreach (CutLabPoolCard poolCard in workingList)
+        foreach (CutLabPoolCard poolCard in EnumerateMissingPoolCards(workingList, resolvedByName, knownMissingNames))
         {
             try
             {
@@ -234,7 +253,8 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
                     continue;
                 }
 
-                resolvedCards.Add(ScryfallCardDataMapper.ToCardData(resolved));
+                ScryfallCardData cardData = ScryfallCardDataMapper.ToCardData(resolved);
+                resolvedByName[CutLabCardNames.Normalize(cardData.Name)] = cardData;
             }
             catch (OperationCanceledException)
             {
@@ -246,8 +266,55 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
             }
         }
 
+        List<ScryfallCardData> resolvedCards = BuildOrderedResolvedCards(workingList, resolvedByName);
         _resolvedCardCache.Set(poolKey, resolvedCards);
         return resolvedCards;
+    }
+
+    private static List<CutLabPoolCard> EnumerateMissingPoolCards(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        IReadOnlyDictionary<string, ScryfallCardData> resolvedByName,
+        IReadOnlySet<string> knownMissingNames)
+    {
+        List<CutLabPoolCard> missing = new(workingList.Count);
+        HashSet<string> seen = new(CutLabCardNames.Comparer);
+
+        foreach (CutLabPoolCard poolCard in workingList)
+        {
+            string normalizedName = CutLabCardNames.Normalize(poolCard.Name);
+            if (!seen.Add(normalizedName)
+                || resolvedByName.ContainsKey(normalizedName)
+                || knownMissingNames.Contains(normalizedName))
+            {
+                continue;
+            }
+
+            missing.Add(poolCard);
+        }
+
+        return missing;
+    }
+
+    private static List<ScryfallCardData> BuildOrderedResolvedCards(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        IReadOnlyDictionary<string, ScryfallCardData> resolvedByName)
+    {
+        List<ScryfallCardData> orderedCards = new(workingList.Count);
+        HashSet<string> seen = new(CutLabCardNames.Comparer);
+
+        foreach (CutLabPoolCard poolCard in workingList)
+        {
+            string normalizedName = CutLabCardNames.Normalize(poolCard.Name);
+            if (!seen.Add(normalizedName)
+                || !resolvedByName.TryGetValue(normalizedName, out ScryfallCardData? resolvedCard))
+            {
+                continue;
+            }
+
+            orderedCards.Add(resolvedCard);
+        }
+
+        return orderedCards;
     }
 
     private static string ComputePoolKey(IReadOnlyList<CutLabPoolCard> workingList)
