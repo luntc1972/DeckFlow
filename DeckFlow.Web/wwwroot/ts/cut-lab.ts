@@ -133,6 +133,13 @@ const cutLabDecisionBusyCopy = 'Recalculating…';
 const cutLabDecisionErrorCopy = "Couldn't recalculate this cut — nothing changed. Try again.";
 const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try again in a moment.';
 
+const formatCountLabel = (count: number, singular: string, plural: string): string =>
+  count === 1 ? `1 ${singular}` : `${count} ${plural}`;
+
+const formatCutsMadeCount = (count: number): string => formatCountLabel(count, 'card', 'cards');
+
+const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(count, 'cut', 'cuts')} so far`;
+
 (function (root: CutLabRoot): void {
   const api: CutLabApi = {
     computePackageCheckboxState(memberLocked: boolean[]): PackageCheckboxState {
@@ -812,7 +819,7 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
     details.open = cutsMade.length <= 5;
 
     const summary = details.querySelector('summary') ?? document.createElement('summary');
-    summary.textContent = `Cuts made · ${cutsMade.length} cards`;
+    summary.textContent = `Cuts made · ${formatCutsMadeCount(cutsMade.length)}`;
     if (!summary.parentElement) {
       details.appendChild(summary);
     }
@@ -983,7 +990,7 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
 
     const stickyAccepted = getStickyAccepted();
     if (stickyAccepted) {
-      stickyAccepted.textContent = `${response.cutsMade.length} cut so far`;
+      stickyAccepted.textContent = formatCutsAcceptedSoFar(response.cutsMade.length);
     }
   };
 

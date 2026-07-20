@@ -4397,11 +4397,11 @@ input[data-cut-lab-floor]:focus-visible {
 }
 
 .cutlab-delta__value--up {
-  color: var(--success);
+  color: var(--cutlab-delta-up, var(--success));
 }
 
 .cutlab-delta__value--down {
-  color: var(--danger);
+  color: var(--cutlab-delta-down, var(--danger));
 }
 
 .cutlab-delta__value--none {

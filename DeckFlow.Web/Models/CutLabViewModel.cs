@@ -193,6 +193,12 @@ public sealed record CutLabViewModel
         };
     }
 
+    internal static string FormatCutsMadeCount(int count)
+        => FormatCountLabel(count, "card", "cards");
+
+    internal static string FormatCutsAcceptedSoFar(int count)
+        => $"{FormatCountLabel(count, "cut", "cuts")} so far";
+
     private static IReadOnlyList<CutLabRoleGroupView> BuildRoleGroups(
         IReadOnlyList<CutLabPoolCard> pool,
         IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName)
@@ -568,6 +574,9 @@ public sealed record CutLabViewModel
         string count = $"{rounded:0}";
         return rounded == 1d ? $"{count} card" : $"{count} cards";
     }
+
+    private static string FormatCountLabel(int count, string singular, string plural)
+        => count == 1 ? $"1 {singular}" : $"{count} {plural}";
 
     private static string DirectionVerbFor(CutLabMetricDirection direction)
         => direction == CutLabMetricDirection.Down ? "lowers" : "raises";
