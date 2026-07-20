@@ -1,3 +1,4 @@
+using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models.Api;
 using DeckFlow.Web.Models.CutLab;
@@ -12,6 +13,9 @@ namespace DeckFlow.Web.Controllers.Api;
 [Route("api/cut-lab")]
 public sealed class CutLabApiController : ControllerBase
 {
+    private const string NoChangeMessage = "Couldn't recalculate this cut — nothing changed. Try again.";
+    private const string InvalidStateMessage = "Cut Lab state is invalid. Re-import the pool and try again.";
+
     private readonly ICutLabAnalysisContextBuilder _contextBuilder;
     private readonly ICutLabSimulationService _simulationService;
     private readonly ILogger<CutLabApiController> _logger;
@@ -60,8 +64,14 @@ public sealed class CutLabApiController : ControllerBase
         try
         {
             CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            if (state.Pool.Count == 0)
+            {
+                return BadRequest(new { Message = InvalidStateMessage });
+            }
+
             IReadOnlyList<string> commanderNames = GetCommanderNames(state);
             IReadOnlyDictionary<string, int> floorByRole = BuildFloorMap(state.RoleFloors);
+            IReadOnlyList<CutLabPoolCard> fullPool = state.Pool;
 
             IReadOnlyList<CutLabPoolCard> beforeWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions);
             CutLabAnalysisContext beforeContext = await _contextBuilder.BuildAsync(
@@ -88,10 +98,15 @@ public sealed class CutLabApiController : ControllerBase
             state = CutLabDecisionApplier.Apply(state, request.CardName, request.Decision, roundKey);
 
             IReadOnlyList<CutLabPoolCard> afterWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions);
+            IReadOnlyList<ScryfallCardData>? afterPreResolvedCards = TryBuildAfterPreResolvedCards(
+                fullPool,
+                afterWorkingList,
+                beforeContext.ResolvedCards);
             CutLabAnalysisContext afterContext = await _contextBuilder.BuildAsync(
                 afterWorkingList,
                 state.Intent.PlayExperience,
                 commanderNames,
+                afterPreResolvedCards,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
             CutLabStructuralFindingsResult afterFindings = CutLabStructuralFindings.Compute(
                 afterContext.AnalyzedCards,
@@ -131,8 +146,30 @@ public sealed class CutLabApiController : ControllerBase
         catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
         {
             _logger.LogWarning(exception, "Cut Lab decide API request failed.");
-            return BadRequest(new { Message = "Couldn't recalculate this cut - nothing changed. Try again." });
+            return BadRequest(new { Message = NoChangeMessage });
         }
+    }
+
+    private IReadOnlyList<ScryfallCardData>? TryBuildAfterPreResolvedCards(
+        IReadOnlyList<CutLabPoolCard> fullPool,
+        IReadOnlyList<CutLabPoolCard> afterWorkingList,
+        IReadOnlyList<ScryfallCardData> beforeResolvedCards)
+    {
+        if (_contextBuilder.TrySeedDerivedPool(afterWorkingList, beforeResolvedCards, out IReadOnlyList<ScryfallCardData>? seededCards)
+            && seededCards is not null)
+        {
+            return seededCards;
+        }
+
+        if (_contextBuilder.TryGetCachedResolvedCards(fullPool, out IReadOnlyList<ScryfallCardData>? fullPoolCards)
+            && fullPoolCards is not null
+            && _contextBuilder.TrySeedDerivedPool(afterWorkingList, fullPoolCards, out seededCards)
+            && seededCards is not null)
+        {
+            return seededCards;
+        }
+
+        return null;
     }
 
     private static IReadOnlyList<string> GetCommanderNames(CutLabState state)
