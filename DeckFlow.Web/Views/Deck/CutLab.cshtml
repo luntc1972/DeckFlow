@@ -517,27 +517,17 @@
                         }
                     </div>
 
-                    <div class="cutlab-delta">
-                        <p>@Model.Proposal.ChangedFamilyCount of 7 metric families changed meaningfully.</p>
-                        @foreach (var line in Model.Proposal.ChangedDeltaLines)
-                        {
-                            <div class="cutlab-delta__line">
-                                <span class="cutlab-delta__sentence">@line.Sentence</span>
-                                <span class="cutlab-delta__value @DeltaValueClass(line.Direction)">
-                                    @if (line.Direction != CutLabMetricDirection.None)
-                                    {
-                                        <span aria-hidden="true">@DeltaGlyph(line.Direction)</span>
-                                    }
-                                    <span class="@DeltaValueClass(line.Direction)">@DeltaNumericToken(line.FormattedValueToken)</span>
-                                </span>
-                            </div>
-                        }
-                    </div>
-
-                    <details data-cut-lab-delta-expander>
-                        <summary>Show full metric breakdown</summary>
+                    @if (!string.IsNullOrWhiteSpace(Model.Proposal.DeltaUnavailableMessage))
+                    {
+                        <div class="cutlab-finding cutlab-proposal__floor-warning">
+                            <p class="cutlab-finding__lead">@Model.Proposal.DeltaUnavailableMessage</p>
+                        </div>
+                    }
+                    else
+                    {
                         <div class="cutlab-delta">
-                            @foreach (var line in Model.Proposal.FullDeltaLines)
+                            <p>@Model.Proposal.ChangedFamilyCount of 7 metric families changed meaningfully.</p>
+                            @foreach (var line in Model.Proposal.ChangedDeltaLines)
                             {
                                 <div class="cutlab-delta__line">
                                     <span class="cutlab-delta__sentence">@line.Sentence</span>
@@ -551,7 +541,26 @@
                                 </div>
                             }
                         </div>
-                    </details>
+
+                        <details data-cut-lab-delta-expander>
+                            <summary>Show full metric breakdown</summary>
+                            <div class="cutlab-delta">
+                                @foreach (var line in Model.Proposal.FullDeltaLines)
+                                {
+                                    <div class="cutlab-delta__line">
+                                        <span class="cutlab-delta__sentence">@line.Sentence</span>
+                                        <span class="cutlab-delta__value @DeltaValueClass(line.Direction)">
+                                            @if (line.Direction != CutLabMetricDirection.None)
+                                            {
+                                                <span aria-hidden="true">@DeltaGlyph(line.Direction)</span>
+                                            }
+                                            <span class="@DeltaValueClass(line.Direction)">@DeltaNumericToken(line.FormattedValueToken)</span>
+                                        </span>
+                                    </div>
+                                }
+                            </div>
+                        </details>
+                    }
 
                     @if (Model.Proposal.FloorWarnings.Count > 0)
                     {
@@ -568,6 +577,7 @@
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
                             <input type="hidden" name="CardName" value="@Model.Proposal.CardName" />
+                            <input type="hidden" name="RoundKey" value="@Model.Proposal.RoundKey" />
                             <input type="hidden" name="Decision" value="accept" />
                             <button type="submit"
                                     class="cutlab-decision-btn cutlab-decision-btn--accept"
@@ -579,6 +589,7 @@
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
                             <input type="hidden" name="CardName" value="@Model.Proposal.CardName" />
+                            <input type="hidden" name="RoundKey" value="@Model.Proposal.RoundKey" />
                             <input type="hidden" name="Decision" value="reject" />
                             <button type="submit"
                                     class="cutlab-decision-btn cutlab-decision-btn--reject"
@@ -590,6 +601,7 @@
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
                             <input type="hidden" name="CardName" value="@Model.Proposal.CardName" />
+                            <input type="hidden" name="RoundKey" value="@Model.Proposal.RoundKey" />
                             <input type="hidden" name="Decision" value="defer" />
                             <button type="submit"
                                     class="cutlab-decision-btn cutlab-decision-btn--defer"
@@ -636,6 +648,7 @@
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
                                 <input type="hidden" name="CardName" value="@row.CardName" />
+                                <input type="hidden" name="RoundKey" value="@row.RoundKey" />
                                 <input type="hidden" name="Decision" value="restore" />
                                 <button type="submit"
                                         class="cutlab-restore-btn"
