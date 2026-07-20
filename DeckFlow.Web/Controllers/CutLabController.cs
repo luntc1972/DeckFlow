@@ -81,6 +81,7 @@ public sealed class CutLabController : Controller
             CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
             string resolvedRoundKey = DetermineRoundKey(state, cardName, decision, roundKey);
             state = CutLabDecisionApplier.Apply(state, cardName, decision, resolvedRoundKey);
+            RehydrateIntakeRequestFromState(request, state);
             request.CutLabStateJson = CutLabStateSerializer.Serialize(state);
 
             var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
@@ -132,6 +133,74 @@ public sealed class CutLabController : Controller
             or CutLabCutRoundEngine.Round3Key
             or CutLabCutRoundEngine.SecondPassDeferredKey
             or CutLabCutRoundEngine.SecondPassRejectedKey;
+
+    private static void RehydrateIntakeRequestFromState(CutLabRequest request, CutLabState state)
+    {
+        if (!NeedsDeckInputRehydration(request, state))
+        {
+            return;
+        }
+
+        request.DeckInputSource = DeckInputSource.PasteText;
+        request.DeckUrl = string.Empty;
+        request.DeckText = BuildDeckText(state);
+        request.PrimaryPlan = state.Intent.PrimaryPlan;
+        request.SecondaryPlan = state.Intent.SecondaryPlan ?? string.Empty;
+        request.Bracket = state.Intent.Bracket;
+        request.PlayExperience = state.Intent.PlayExperience;
+        request.SelectedCommander = state.Commander;
+    }
+
+    private static bool NeedsDeckInputRehydration(CutLabRequest request, CutLabState state)
+        => string.IsNullOrWhiteSpace(request.DeckText)
+            && string.IsNullOrWhiteSpace(request.DeckUrl)
+            && state.Pool.Count > 0;
+
+    private static string BuildDeckText(CutLabState state)
+    {
+        IReadOnlyList<CutLabPoolCard> commanderCards = GetCommanderCards(state);
+        IReadOnlyList<CutLabPoolCard> mainboardCards = state.Pool
+            .Except(commanderCards)
+            .ToArray();
+
+        var lines = new List<string>(state.Pool.Count + 3);
+        if (commanderCards.Count > 0)
+        {
+            lines.Add("Commander");
+            lines.AddRange(commanderCards.Select(FormatDeckLine));
+            lines.Add(string.Empty);
+        }
+
+        lines.Add("Deck");
+        lines.AddRange(mainboardCards.Select(FormatDeckLine));
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static IReadOnlyList<CutLabPoolCard> GetCommanderCards(CutLabState state)
+    {
+        CutLabPoolCard[] flaggedCommanders = state.Pool
+            .Where(card => card.IsCommander)
+            .ToArray();
+        if (flaggedCommanders.Length > 0)
+        {
+            return flaggedCommanders;
+        }
+
+        if (!string.IsNullOrWhiteSpace(state.Commander))
+        {
+            CutLabPoolCard[] matchedCommander = state.Pool
+                .Where(card => string.Equals(card.Name, state.Commander, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            if (matchedCommander.Length > 0)
+            {
+                return matchedCommander;
+            }
+        }
+
+        return [];
+    }
+
+    private static string FormatDeckLine(CutLabPoolCard card) => $"{card.Quantity} {card.Name}";
 
     private ViewResult CutLabView(CutLabRequest request, string? error) =>
         View("CutLab", new CutLabViewModel
