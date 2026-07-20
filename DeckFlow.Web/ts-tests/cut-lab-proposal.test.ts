@@ -49,6 +49,18 @@ const flushDecisionSubmit = async (): Promise<void> => {
   await new Promise(resolve => window.setTimeout(resolve, 0));
 };
 
+const deferred = <T,>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} => {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(pendingResolve => {
+    resolve = pendingResolve;
+  });
+
+  return { promise, resolve };
+};
+
 const buildDecisionFixture = (): void => {
   document.body.innerHTML = `
     <form data-cache-key="cut-lab">
@@ -331,5 +343,144 @@ describe('cut-lab proposal enhancement', () => {
     expect(document.querySelector<HTMLElement>('[data-cut-lab-sticky-remaining]')?.textContent).toBe('12 to cut');
     expect(document.querySelector<HTMLElement>('[data-cut-lab-sticky-accepted]')?.textContent).toBe('0 cut so far');
     expect(document.querySelector('details.cutlab-cuts-made')).toBeNull();
+  });
+
+  it('renders restore errors beside the cuts-made list and keeps the row intact on a non-OK response', async () => {
+    buildDecisionFixture();
+    fetchMock.mockResolvedValue({
+      ok: false,
+      json: async () => ({}),
+    });
+
+    const restoreForm = document.querySelectorAll<HTMLFormElement>('form[action="/cut-lab/decide"]')[3];
+    const restoreButton = restoreForm.querySelector<HTMLButtonElement>('[data-cut-lab-restore]');
+
+    restoreForm.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: restoreButton ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    const cutsMade = document.querySelector<HTMLDetailsElement>('details.cutlab-cuts-made');
+    expect(cutsMade?.querySelector<HTMLElement>('[data-cut-lab-decision-error]')?.textContent).toBe("Couldn't recalculate this cut — nothing changed. Try again.");
+    expect(cutsMade?.querySelectorAll('.cutlab-cuts-made__row')).toHaveLength(1);
+    expect(cutsMade?.textContent).toContain('Mana Crypt');
+  });
+
+  it('blocks cross-form submissions while any decision request is in flight', async () => {
+    buildDecisionFixture();
+    const pendingResponse = deferred<{ ok: boolean; json: () => Promise<CutLabDecideResponse> }>();
+    fetchMock.mockReturnValue(pendingResponse.promise);
+
+    const forms = document.querySelectorAll<HTMLFormElement>('form[action="/cut-lab/decide"]');
+    const acceptForm = forms[0];
+    const acceptButton = acceptForm.querySelector<HTMLButtonElement>('[data-cut-lab-decision="accept"]');
+    const restoreForm = forms[3];
+    const restoreButton = restoreForm.querySelector<HTMLButtonElement>('[data-cut-lab-restore]');
+
+    acceptForm.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: acceptButton ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    const allButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('button[type="submit"]'));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(allButtons.every(button => button.disabled)).toBe(true);
+
+    restoreForm.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: restoreButton ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    pendingResponse.resolve({
+      ok: true,
+      json: async () => buildResponse(),
+    });
+    await flushDecisionSubmit();
+
+    expect(Array.from(document.querySelectorAll<HTMLButtonElement>('button[type="submit"]')).every(button => !button.disabled)).toBe(true);
+  });
+
+  it('hides the sticky bar when a terminal response arrives', async () => {
+    buildDecisionFixture();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => buildResponse({
+        nextProposal: {
+          isTerminal: true,
+          isAtTarget: true,
+          isNothingToCut: false,
+          cardName: '',
+          roundKey: '',
+          roundLabel: '',
+          findingCount: 0,
+          findingChips: [],
+        },
+        proposalDeltas: null,
+        floorWarnings: [],
+        cardsRemaining: 0,
+      }),
+    });
+
+    const form = document.querySelector<HTMLFormElement>('form[action="/cut-lab/decide"]');
+    const button = form?.querySelector<HTMLButtonElement>('[data-cut-lab-decision="accept"]');
+
+    form?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: button ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    expect(document.querySelector('.cutlab-sticky-bar')).toBeNull();
+  });
+
+  it('shows restore confirmation copy with the card name and clears it after the next successful patch', async () => {
+    buildDecisionFixture();
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => buildResponse({
+          cutLabStateJson: '{"version":3}',
+          cardsRemaining: 12,
+          cutsMade: [],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => buildResponse(),
+      });
+
+    const forms = document.querySelectorAll<HTMLFormElement>('form[action="/cut-lab/decide"]');
+    const restoreForm = forms[3];
+    const restoreButton = restoreForm.querySelector<HTMLButtonElement>('[data-cut-lab-restore]');
+
+    restoreForm.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: restoreButton ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-restore-confirmation]')?.textContent).toBe('Mana Crypt restored — metrics recalculating…');
+
+    const acceptForm = document.querySelector<HTMLFormElement>('form[action="/cut-lab/decide"]');
+    const acceptButton = acceptForm?.querySelector<HTMLButtonElement>('[data-cut-lab-decision="accept"]');
+
+    acceptForm?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: acceptButton ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    expect(document.querySelector('[data-cut-lab-restore-confirmation]')).toBeNull();
   });
 });
