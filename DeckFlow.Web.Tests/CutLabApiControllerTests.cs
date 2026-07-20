@@ -322,8 +322,8 @@ public sealed class CutLabApiControllerTests
         OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
         CutLabDecideApiResponse payload = Assert.IsType<CutLabDecideApiResponse>(ok.Value);
         CutLabDecideMetricDeltaDto delta = Assert.Single(payload.ProposalDeltas!.Deltas);
-        Assert.Equal(CutLabMetricKind.KeepableHand, delta.Kind);
-        Assert.Equal("Keepable hand", delta.Label);
+        Assert.Equal(CutLabMetricKind.CommanderByTurn, delta.Kind);
+        Assert.Equal("Commander by turn 3", delta.Label);
         Assert.Equal(CutLabMetricDirection.Down, delta.Direction);
     }
 
@@ -636,12 +636,31 @@ public sealed class CutLabApiControllerTests
             CancellationToken cancellationToken = default)
             => Task.FromResult(new CutLabMetricSnapshot());
 
+        public Task<CutLabMetricSnapshot> BuildSnapshot(
+            IReadOnlyList<CutLabPoolCard> workingList,
+            string? playExperience,
+            int? trialsOverride,
+            string? poolKey,
+            CutLabGoalSettings? goals,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new CutLabMetricSnapshot());
+
         public Task<CutLabProposalDeltas> ComputeProposalDeltas(
             IReadOnlyList<CutLabPoolCard> currentWorkingList,
             string candidateCardName,
             string? playExperience,
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
+            CancellationToken cancellationToken = default)
+            => ComputeProposalDeltas(currentWorkingList, candidateCardName, playExperience, trialsOverride, poolKey, goals: null, cancellationToken);
+
+        public Task<CutLabProposalDeltas> ComputeProposalDeltas(
+            IReadOnlyList<CutLabPoolCard> currentWorkingList,
+            string candidateCardName,
+            string? playExperience,
+            int? trialsOverride,
+            string? poolKey,
+            CutLabGoalSettings? goals,
             CancellationToken cancellationToken = default)
         {
             DeltaCalls++;
@@ -653,11 +672,11 @@ public sealed class CutLabApiControllerTests
                 [
                     new CutLabMetricDelta
                     {
-                        Kind = CutLabMetricKind.KeepableHand,
-                        Family = CutLabMetricFamily.KeepableHand,
-                        Label = "Keepable hand",
-                        Before = 60,
-                        After = 58,
+                        Kind = CutLabMetricKind.CommanderByTurn,
+                        Family = CutLabMetricFamily.CategoryByTurn,
+                        Label = $"Commander by turn {goals?.CommanderByTurn ?? CutLabGoalDefaults.CommanderByTurn}",
+                        Before = goals?.CommanderByTurn ?? CutLabGoalDefaults.CommanderByTurn,
+                        After = (goals?.CommanderByTurn ?? CutLabGoalDefaults.CommanderByTurn) - 2,
                         Delta = -2,
                         Unit = CutLabMetricUnit.Percent,
                         Direction = CutLabMetricDirection.Down,
