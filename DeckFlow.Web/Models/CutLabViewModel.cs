@@ -1,3 +1,4 @@
+using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services.CutLab;
 
@@ -88,6 +89,9 @@ public sealed record CutLabViewModel
     /// <summary>Role floor rows rendered in the fixed Cut Lab order.</summary>
     public IReadOnlyList<CutLabFloorRowView> FloorRows { get; init; } = [];
 
+    /// <summary>Editable goal rows rendered in the fixed Cut Lab order.</summary>
+    public IReadOnlyList<CutLabGoalRowView> GoalRows { get; init; } = [];
+
     /// <summary>Sticky round/count bar values for the Cut rounds workspace.</summary>
     public CutLabStickyBarView StickyBar { get; init; } = new();
 
@@ -146,6 +150,11 @@ public sealed record CutLabViewModel
         IReadOnlyList<CutLabCutMadeRowView> cutsMade = BuildCutsMade(result.State?.Decisions);
         int baselineCount = pool.Sum(card => card.Quantity);
         int currentCount = CutLabWorkingList.Derive(pool, result.State?.Decisions ?? []).Sum(card => card.Quantity);
+        IReadOnlyList<CutLabGoalRowView> goalRows = BuildGoalRows(
+            result.State?.Goals ?? new(),
+            result.CurrentSnapshot,
+            result.State?.BaselineSnapshot,
+            request.PlayExperience);
         CutLabStickyBarView stickyBar = BuildStickyBar(result.RoundPlan, result.State?.Decisions);
         CutLabProposalView proposal = BuildProposal(
             result.RoundPlan,
@@ -182,6 +191,7 @@ public sealed record CutLabViewModel
             ComboDataUnavailable = result.HasResult && !result.Findings.ComboDataAvailable,
             CategoryDataUnavailable = result.HasResult && !result.Findings.CategoryDataAvailable,
             FloorRows = floorRows,
+            GoalRows = goalRows,
             StickyBar = stickyBar,
             Proposal = proposal,
             CutsMade = cutsMade,
@@ -256,6 +266,49 @@ public sealed record CutLabViewModel
                 };
             })
             .ToArray();
+    }
+
+    private static IReadOnlyList<CutLabGoalRowView> BuildGoalRows(
+        CutLabGoalSettings goals,
+        CutLabMetricSnapshot? currentSnapshot,
+        CutLabMetricSnapshot? baselineSnapshot,
+        string playExperience)
+    {
+        ArgumentNullException.ThrowIfNull(goals);
+
+        bool representativeLineIsUncapped = CutLabRoleAssigner.ResolveMode(playExperience) != ManabaseMode.Cedh;
+        IReadOnlyDictionary<CutLabMetricKind, CutLabMetricValue> currentByKind = currentSnapshot?.Metrics
+            .ToDictionary(metric => metric.Kind) ?? new Dictionary<CutLabMetricKind, CutLabMetricValue>();
+        IReadOnlyDictionary<CutLabMetricKind, CutLabMetricValue> baselineByKind = baselineSnapshot?.Metrics
+            .ToDictionary(metric => metric.Kind) ?? new Dictionary<CutLabMetricKind, CutLabMetricValue>();
+
+        return
+        [
+            BuildGoalRow(
+                CutLabMetricKind.CommanderByTurn,
+                "commander",
+                "GoalCommanderByTurn",
+                goals.CommanderByTurn,
+                currentByKind,
+                baselineByKind,
+                isUncappedInCasual: false),
+            BuildGoalRow(
+                CutLabMetricKind.EngineByTurn,
+                "engine",
+                "GoalEngineByTurn",
+                goals.EngineByTurn,
+                currentByKind,
+                baselineByKind,
+                isUncappedInCasual: false),
+            BuildGoalRow(
+                CutLabMetricKind.RepresentativeLineByTurn,
+                "representative-line",
+                "GoalPlanByTurn",
+                goals.RepresentativeLineByTurn,
+                currentByKind,
+                baselineByKind,
+                representativeLineIsUncapped),
+        ];
     }
 
     private static IReadOnlyDictionary<string, string> BuildRoleListByCardName(
@@ -522,6 +575,36 @@ public sealed record CutLabViewModel
             .ToArray();
     }
 
+    private static CutLabGoalRowView BuildGoalRow(
+        CutLabMetricKind kind,
+        string goalKey,
+        string fieldName,
+        int turnValue,
+        IReadOnlyDictionary<CutLabMetricKind, CutLabMetricValue> currentByKind,
+        IReadOnlyDictionary<CutLabMetricKind, CutLabMetricValue> baselineByKind,
+        bool isUncappedInCasual)
+    {
+        currentByKind.TryGetValue(kind, out CutLabMetricValue? currentMetric);
+        baselineByKind.TryGetValue(kind, out CutLabMetricValue? baselineMetric);
+        CutLabMetricDelta? delta = currentMetric is not null && baselineMetric is not null
+            ? CutLabMetricDelta.Between(baselineMetric, currentMetric)
+            : null;
+
+        return new CutLabGoalRowView
+        {
+            Kind = kind,
+            GoalKey = goalKey,
+            FieldName = fieldName,
+            Label = BuildGoalLabel(kind, turnValue),
+            TurnValue = turnValue,
+            CurrentProbability = currentMetric is null ? string.Empty : FormatMetricValue(currentMetric.Value, currentMetric.Unit),
+            BaselineProbability = baselineMetric is null ? string.Empty : FormatMetricValue(baselineMetric.Value, baselineMetric.Unit),
+            Direction = delta?.Direction ?? CutLabMetricDirection.None,
+            DeltaValueToken = delta is null ? string.Empty : FormatDeltaToken(delta.Delta, delta.Unit),
+            IsUncappedInCasual = isUncappedInCasual,
+        };
+    }
+
     private static Dictionary<string, int> CountRoles(
         IReadOnlyList<CutLabPoolCard> pool,
         IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName)
@@ -553,6 +636,15 @@ public sealed record CutLabViewModel
 
     private static string DisplayLabelFor(string roleKey)
         => RoleDisplayLabels.TryGetValue(roleKey, out string? label) ? label : roleKey;
+
+    private static string BuildGoalLabel(CutLabMetricKind kind, int turnValue)
+        => kind switch
+        {
+            CutLabMetricKind.CommanderByTurn => $"Commander by turn {turnValue}",
+            CutLabMetricKind.EngineByTurn => $"Engine by turn {turnValue}",
+            CutLabMetricKind.RepresentativeLineByTurn => $"Representative line by turn {turnValue}",
+            _ => kind.ToString(),
+        };
 
     private static string FormatMetricValue(double value, CutLabMetricUnit unit)
         => unit == CutLabMetricUnit.Cards
@@ -679,6 +771,40 @@ public sealed record CutLabFloorRowView
 
     /// <summary>Prebuilt UI copy describing the floor's default source.</summary>
     public string SourceLabel { get; init; } = string.Empty;
+}
+
+/// <summary>View-ready goal row including editable turn target and baseline/current trend.</summary>
+public sealed record CutLabGoalRowView
+{
+    /// <summary>Underlying by-turn metric represented by the goal row.</summary>
+    public CutLabMetricKind Kind { get; init; }
+
+    /// <summary>Stable DOM/data slug for the goal row.</summary>
+    public string GoalKey { get; init; } = string.Empty;
+
+    /// <summary>Named no-JS field used to bind the posted turn target.</summary>
+    public string FieldName { get; init; } = string.Empty;
+
+    /// <summary>User-facing label for the goal at its current turn target.</summary>
+    public string Label { get; init; } = string.Empty;
+
+    /// <summary>The editable turn target value.</summary>
+    public int TurnValue { get; init; }
+
+    /// <summary>Current working-list probability text for the goal metric.</summary>
+    public string CurrentProbability { get; init; } = string.Empty;
+
+    /// <summary>Original-pool baseline probability text for the goal metric.</summary>
+    public string BaselineProbability { get; init; } = string.Empty;
+
+    /// <summary>Direction of the current-vs-baseline change.</summary>
+    public CutLabMetricDirection Direction { get; init; }
+
+    /// <summary>Magnitude token for the current-vs-baseline change.</summary>
+    public string DeltaValueToken { get; init; } = string.Empty;
+
+    /// <summary>True when the representative-line goal should be annotated as uncapped in casual play.</summary>
+    public bool IsUncappedInCasual { get; init; }
 }
 
 /// <summary>Sticky round/count bar state for the Cut rounds workspace.</summary>

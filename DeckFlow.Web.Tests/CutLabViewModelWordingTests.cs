@@ -1,3 +1,5 @@
+using DeckFlow.Web.Models.CutLab;
+using DeckFlow.Web.Services.CutLab;
 using DeckFlow.Web.Models;
 using Xunit;
 
@@ -22,4 +24,110 @@ public sealed class CutLabViewModelWordingTests
     {
         Assert.Equal(expected, CutLabViewModel.FormatCutsAcceptedSoFar(count));
     }
+
+    [Fact]
+    public void From_BuildsThreeGoalRowsInFixedOrderWithDynamicLabels()
+    {
+        var request = new CutLabRequest
+        {
+            PlayExperience = "Focused",
+        };
+        var result = new CutLabProcessResult
+        {
+            State = new CutLabState
+            {
+                Goals = new CutLabGoalSettings
+                {
+                    CommanderByTurn = 5,
+                    EngineByTurn = 4,
+                    RepresentativeLineByTurn = 7,
+                },
+                BaselineSnapshot = BuildSnapshot(42.1, 65.4, 51.6),
+            },
+            CurrentSnapshot = BuildSnapshot(57.4, 71.2, 62.8),
+        };
+
+        CutLabViewModel model = CutLabViewModel.From(request, result);
+
+        Assert.Collection(
+            model.GoalRows,
+            row =>
+            {
+                Assert.Equal(CutLabMetricKind.CommanderByTurn, row.Kind);
+                Assert.Equal("commander", row.GoalKey);
+                Assert.Equal("GoalCommanderByTurn", row.FieldName);
+                Assert.Equal("Commander by turn 5", row.Label);
+                Assert.Equal(5, row.TurnValue);
+            },
+            row =>
+            {
+                Assert.Equal(CutLabMetricKind.EngineByTurn, row.Kind);
+                Assert.Equal("engine", row.GoalKey);
+                Assert.Equal("GoalEngineByTurn", row.FieldName);
+                Assert.Equal("Engine by turn 4", row.Label);
+                Assert.Equal(4, row.TurnValue);
+            },
+            row =>
+            {
+                Assert.Equal(CutLabMetricKind.RepresentativeLineByTurn, row.Kind);
+                Assert.Equal("representative-line", row.GoalKey);
+                Assert.Equal("GoalPlanByTurn", row.FieldName);
+                Assert.Equal("Representative line by turn 7", row.Label);
+                Assert.Equal(7, row.TurnValue);
+            });
+    }
+
+    [Fact]
+    public void From_FlagsRepresentativeLineGoalAsUncappedForCasualPlayOnly()
+    {
+        var casualRequest = new CutLabRequest
+        {
+            PlayExperience = "Casual",
+        };
+        var casualResult = new CutLabProcessResult
+        {
+            State = new CutLabState
+            {
+                Goals = new CutLabGoalSettings(),
+                BaselineSnapshot = BuildSnapshot(40, 50, 60),
+            },
+            CurrentSnapshot = BuildSnapshot(41, 51, 61),
+        };
+
+        CutLabViewModel casualModel = CutLabViewModel.From(casualRequest, casualResult);
+
+        Assert.False(casualModel.GoalRows[0].IsUncappedInCasual);
+        Assert.False(casualModel.GoalRows[1].IsUncappedInCasual);
+        Assert.True(casualModel.GoalRows[2].IsUncappedInCasual);
+
+        var cedhRequest = new CutLabRequest
+        {
+            PlayExperience = "cEDH",
+        };
+
+        CutLabViewModel cedhModel = CutLabViewModel.From(cedhRequest, casualResult);
+
+        Assert.All(cedhModel.GoalRows, row => Assert.False(row.IsUncappedInCasual));
+    }
+
+    private static CutLabMetricSnapshot BuildSnapshot(double commander, double engine, double representativeLine)
+        => new()
+        {
+            Metrics =
+            [
+                BuildMetric(CutLabMetricKind.CommanderByTurn, "Commander by turn", commander),
+                BuildMetric(CutLabMetricKind.EngineByTurn, "Engine by turn", engine),
+                BuildMetric(CutLabMetricKind.RepresentativeLineByTurn, "Representative line by turn", representativeLine),
+            ],
+        };
+
+    private static CutLabMetricValue BuildMetric(CutLabMetricKind kind, string label, double value)
+        => new()
+        {
+            Kind = kind,
+            Family = CutLabMetricFamily.CategoryByTurn,
+            Label = label,
+            Value = value,
+            Unit = CutLabMetricUnit.Percent,
+        };
 }
