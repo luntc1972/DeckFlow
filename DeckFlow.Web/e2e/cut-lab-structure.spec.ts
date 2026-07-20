@@ -259,7 +259,11 @@ test('accepts a proposal without a reload, keeps copy neutral, and shows a 7-row
   page.off('framenavigated', navigationListener);
   expect(mainFrameNavigations).toHaveLength(0);
   await expect(page.locator('.cutlab-proposal')).toContainText(/^(?!.*\b(?:worse|bad|better)\b).*/s);
-  await expect(page.locator('.cutlab-delta')).toContainText(/^(?!.*\b(?:worse|bad|better)\b).*/s);
+  const deltaTexts = await page.locator('.cutlab-delta').allTextContents();
+  expect(deltaTexts).not.toHaveLength(0);
+  for (const deltaText of deltaTexts) {
+    expect(deltaText).not.toMatch(/\b(?:worse|bad|better)\b/i);
+  }
 
   const compareDetails = page.locator('details.cutlab-compare');
   await compareDetails.locator('summary').click();
