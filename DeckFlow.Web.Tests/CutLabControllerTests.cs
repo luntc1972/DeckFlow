@@ -122,13 +122,14 @@ public sealed class CutLabControllerTests
             PlayExperience = "Focused",
         };
 
-        var result = await controller.Decide(request, "Arcane Signet", CutLabDecideAction.Accept);
+        var result = await controller.Decide(request, "Arcane Signet", CutLabDecideAction.Accept, CutLabCutRoundEngine.Round2Key);
 
         var view = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<CutLabViewModel>(view.Model);
         var updatedState = CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson);
         var accepted = Assert.Single(updatedState.Decisions);
         Assert.Equal(CutLabDecisionKind.Accepted, accepted.Kind);
+        Assert.Equal(CutLabCutRoundEngine.Round2Key, accepted.Round);
         Assert.Equal(1, service.CallCount);
         Assert.True(model.HasResult);
         Assert.Equal(3, updatedState.Pool.Count);
@@ -168,7 +169,7 @@ public sealed class CutLabControllerTests
             PlayExperience = "Focused",
         };
 
-        var result = await controller.Decide(request, "Arcane Signet", CutLabDecideAction.Restore);
+        var result = await controller.Decide(request, "Arcane Signet", CutLabDecideAction.Restore, CutLabCutRoundEngine.Round2Key);
 
         var view = Assert.IsType<ViewResult>(result);
         Assert.Equal("CutLab", view.ViewName);
@@ -187,11 +188,11 @@ public sealed class CutLabControllerTests
 
         var controller = CreateController(new FakeCutLabPageService());
 
-        var result = await controller.Decide(new CutLabRequest(), "Arcane Signet", CutLabDecideAction.Accept);
+        var result = await controller.Decide(new CutLabRequest(), "Arcane Signet", CutLabDecideAction.Accept, CutLabCutRoundEngine.Round1Key);
 
         var view = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<CutLabViewModel>(view.Model);
-        Assert.Equal("Couldn't recalculate this cut - nothing changed. Try again.", model.ErrorMessage);
+        Assert.Equal("Couldn't recalculate this cut — nothing changed. Try again.", model.ErrorMessage);
     }
 
     private static CutLabController CreateController(ICutLabPageService service) =>

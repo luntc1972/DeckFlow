@@ -71,6 +71,24 @@ public sealed class CutLabApiControllerTests
     }
 
     [Fact]
+    public async Task PostDecideAsync_ReturnsBadRequest_WhenPostedStateIsGarbage()
+    {
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()), new FakeSimulationService());
+
+        ActionResult<CutLabDecideApiResponse> response = await controller.PostDecideAsync(
+            new CutLabDecideApiRequest
+            {
+                CutLabStateJson = "not-json",
+                CardName = "Arcane Signet",
+                Decision = CutLabDecideAction.Accept,
+            },
+            CancellationToken.None);
+
+        BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(response.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+    }
+
+    [Fact]
     public async Task PostDecideAsync_Accept_AppendsAcceptedDecisionAndRoundTripsState()
     {
         CutLabState state = CreateState();
@@ -120,6 +138,8 @@ public sealed class CutLabApiControllerTests
         Assert.Equal(2, builder.BuildCalls);
         Assert.Equal(101, builder.LastWorkingListCount);
         Assert.DoesNotContain(builder.LastWorkingListNames, name => string.Equals(name, "Arcane Signet", StringComparison.OrdinalIgnoreCase));
+        Assert.NotNull(builder.LastPreResolvedCards);
+        Assert.Equal(["Commander", "Counterspell"], builder.LastPreResolvedCards.Select(card => card.Name));
     }
 
     [Fact]
@@ -241,7 +261,9 @@ public sealed class CutLabApiControllerTests
                     Ordinal = 3,
                 },
             ]);
-        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)), new FakeSimulationService());
+        FakeAnalysisContextBuilder builder = new(workingList => CreateAnalysisContext(workingList));
+        builder.SeedCachedResolvedCards(state.Pool);
+        CutLabApiController controller = CreateController(builder, new FakeSimulationService());
 
         ActionResult<CutLabDecideApiResponse> response = await controller.PostDecideAsync(
             new CutLabDecideApiRequest
@@ -257,6 +279,8 @@ public sealed class CutLabApiControllerTests
         CutLabState updated = CutLabStateSerializer.Deserialize(payload.CutLabStateJson);
         Assert.DoesNotContain(updated.Decisions, decision => string.Equals(decision.CardName, "Arcane Signet", StringComparison.OrdinalIgnoreCase));
         Assert.Equal(1, payload.CardsRemaining);
+        Assert.NotNull(builder.LastPreResolvedCards);
+        Assert.Equal(["Commander", "Arcane Signet", "Counterspell"], builder.LastPreResolvedCards.Select(card => card.Name));
     }
 
     [Fact]
@@ -389,16 +413,37 @@ public sealed class CutLabApiControllerTests
                 true,
                 true,
                 new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase),
-                new HashSet<string>(StringComparer.OrdinalIgnoreCase)));
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase)),
+            cards
+                .Select(card => new ScryfallCardData
+                {
+                    Name = card.Name,
+                    TypeLine = card.TypeLine,
+                    Cmc = card.Name switch
+                    {
+                        "Counterspell" => 2,
+                        "Round 1 Card" => 1,
+                        "Helper Card" => 4,
+                        "Round 2 Card" => 3,
+                        "Support Card" => 4,
+                        "Deferred Card" => 5,
+                        _ => 1,
+                    },
+                })
+                .ToArray());
     }
 
     private sealed class FakeAnalysisContextBuilder(Func<IReadOnlyList<CutLabPoolCard>, CutLabAnalysisContext> factory) : ICutLabAnalysisContextBuilder
     {
+        private readonly Dictionary<string, IReadOnlyList<ScryfallCardData>> _cache = new(StringComparer.Ordinal);
+
         public int BuildCalls { get; private set; }
 
         public int LastWorkingListCount { get; private set; }
 
         public IReadOnlyList<string> LastWorkingListNames { get; private set; } = [];
+
+        public IReadOnlyList<ScryfallCardData>? LastPreResolvedCards { get; private set; }
 
         public Task<CutLabAnalysisContext> BuildAsync(
             IReadOnlyList<CutLabPoolCard> workingList,
@@ -410,7 +455,36 @@ public sealed class CutLabApiControllerTests
             BuildCalls++;
             LastWorkingListCount = workingList.Sum(card => card.Quantity);
             LastWorkingListNames = workingList.Select(card => card.Name).ToArray();
-            return Task.FromResult(factory(workingList));
+            LastPreResolvedCards = preResolvedCards;
+            CutLabAnalysisContext context = factory(workingList);
+            _cache[CutLabResolvedCardCache.ComputePoolKey(workingList.Select(card => (card.Name, card.Quantity)).ToArray())] = context.ResolvedCards;
+            return Task.FromResult(context);
+        }
+
+        public bool TryGetCachedResolvedCards(IReadOnlyList<CutLabPoolCard> workingList, out IReadOnlyList<ScryfallCardData>? cards)
+        {
+            return _cache.TryGetValue(
+                CutLabResolvedCardCache.ComputePoolKey(workingList.Select(card => (card.Name, card.Quantity)).ToArray()),
+                out cards);
+        }
+
+        public bool TrySeedDerivedPool(
+            IReadOnlyList<CutLabPoolCard> workingList,
+            IReadOnlyList<ScryfallCardData> sourceCards,
+            out IReadOnlyList<ScryfallCardData>? seededCards)
+        {
+            seededCards = workingList
+                .Select(card => sourceCards.FirstOrDefault(source => string.Equals(source.Name, card.Name, StringComparison.OrdinalIgnoreCase)))
+                .Where(card => card is not null)
+                .Cast<ScryfallCardData>()
+                .ToArray();
+            return seededCards.Count == workingList.Count;
+        }
+
+        public void SeedCachedResolvedCards(IReadOnlyList<CutLabPoolCard> workingList)
+        {
+            _cache[CutLabResolvedCardCache.ComputePoolKey(workingList.Select(card => (card.Name, card.Quantity)).ToArray())] =
+                factory(workingList).ResolvedCards;
         }
     }
 
