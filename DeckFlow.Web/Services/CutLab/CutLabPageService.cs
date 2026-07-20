@@ -86,6 +86,8 @@ internal sealed class CutLabPageService : ICutLabPageService
 {
     private static readonly HashSet<string> AnalyzedBoards =
         new(StringComparer.OrdinalIgnoreCase) { "mainboard", "commander" };
+    private static readonly HashSet<string> ExpandedAnalyzedBoards =
+        new(StringComparer.OrdinalIgnoreCase) { "mainboard", "commander", "sideboard", "maybeboard" };
 
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IScryfallCardResolver _cardResolver;
@@ -203,8 +205,11 @@ internal sealed class CutLabPageService : ICutLabPageService
         }
 
         var entries = ReflagInferredCommanders(load.Entries);
+        IReadOnlySet<string> analyzedBoards = request.IncludeSideboardAndMaybeboard
+            ? ExpandedAnalyzedBoards
+            : AnalyzedBoards;
         var analyzedEntries = entries
-            .Where(entry => AnalyzedBoards.Contains(entry.Board))
+            .Where(entry => analyzedBoards.Contains(entry.Board))
             .ToList();
 
         if (analyzedEntries.Count == 0)
@@ -612,6 +617,7 @@ internal sealed class CutLabPageService : ICutLabPageService
                 SecondaryPlan = string.IsNullOrWhiteSpace(request.SecondaryPlan) ? null : request.SecondaryPlan,
                 Bracket = request.Bracket,
                 PlayExperience = request.PlayExperience,
+                IncludeSideboardAndMaybeboard = request.IncludeSideboardAndMaybeboard,
             },
         };
     }

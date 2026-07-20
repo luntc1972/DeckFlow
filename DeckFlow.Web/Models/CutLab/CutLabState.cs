@@ -132,4 +132,10 @@ public sealed record CutLabIntent
 
     /// <summary>Desired play experience for the finished deck.</summary>
     public string PlayExperience { get; init; } = string.Empty;
+
+    /// <summary>
+    /// When true, includes the deck's sideboard and maybeboard cards in the Cut Lab pool
+    /// as candidate cards to trim alongside the main deck.
+    /// </summary>
+    public bool IncludeSideboardAndMaybeboard { get; init; }
 }

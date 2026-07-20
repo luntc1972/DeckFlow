@@ -131,6 +131,7 @@ public sealed class CutLabController : Controller
         request.SecondaryPlan = state.Intent.SecondaryPlan ?? string.Empty;
         request.Bracket = state.Intent.Bracket;
         request.PlayExperience = state.Intent.PlayExperience;
+        request.IncludeSideboardAndMaybeboard = state.Intent.IncludeSideboardAndMaybeboard;
         request.SelectedCommander = state.Commander;
     }
 
