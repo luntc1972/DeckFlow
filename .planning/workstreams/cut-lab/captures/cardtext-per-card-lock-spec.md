@@ -22,15 +22,16 @@ The Phase 102 design deliberately made the pool table the **single canonical loc
 
 ### 1. Data (server)
 
-- **Source:** the resolved-card cache already holds `ScryfallCardData.OracleText`, `TypeLine`, `ManaCost` per pool card (populated at intake; DFC faces merged by `ScryfallCardDataMapper.ToCardData`).
-- **Change:** thread `TypeLine`, `ManaCost`, `OracleText` onto each `CutLabViewModel` pool row, sourced from the cache.
-- **Fail-open:** a card the cache could not resolve renders with its text simply absent — never a crash, never a blank-required field.
-- Text is rendered **once per card**, in the pool-table row (a card appears once in the table, but in N role groups — embed at the single table location).
+- **Source:** the resolved-card cache already holds `ScryfallCardData.OracleText`, `TypeLine`, `ManaCost`, **`Set` (set code, e.g. "iko")**, and **`CollectorNumber`** per pool card (populated at intake; `ScryfallCardDataMapper.ToCardData` maps `Set = card.SetCode` + `CollectorNumber`; DFC faces merged).
+- **Change:** thread `TypeLine`, `ManaCost`, `OracleText`, `Set`, `CollectorNumber` onto each `CutLabViewModel` pool row, sourced from the cache.
+- **Set display:** show the printing as **set code + collector number** (e.g. "IKO · #211") — both are already in hand, zero new fetch. The full set *name* ("Ikoria: Lair of Behemoths") is NOT on `ScryfallCardData`; if a friendlier label is wanted later, map the code via the existing `IScryfallSetService` (code→name) — treat that as optional enrichment, not required for this feature (avoids an extra lookup/cache on the hot intake path).
+- **Fail-open:** a card the cache could not resolve renders with its text/set simply absent — never a crash, never a blank-required field. A resolved card missing `Set` (rare) omits the set line only.
+- Text + set are rendered **once per card**, in the pool-table row (a card appears once in the table, but in N role groups — embed at the single table location).
 
 ### 2. View (`CutLab.cshtml`)
 
-- **Pool "Lock your pool" grid:** each row gains a native `<details>`/`<summary>` "card text" disclosure showing type line · mana cost · oracle text. Native element ⇒ readable with **no JS**.
-- **Role-group chips:** each `data-cut-lab-chip-card` member becomes a real `<button>`. With JS it opens **one shared popover element** anchored to the clicked chip, showing that card's text (read from the embedded per-card block, matched by card name) plus a **Lock / Unlock** button.
+- **Pool "Lock your pool" grid:** each row gains a native `<details>`/`<summary>` "card text" disclosure showing type line · mana cost · **set code + collector number** · oracle text. Native element ⇒ readable with **no JS**.
+- **Role-group chips:** each `data-cut-lab-chip-card` member becomes a real `<button>`. With JS it opens **one shared popover element** anchored to the clicked chip, showing that card's text + **set/printing** (read from the embedded per-card block, matched by card name) plus a **Lock / Unlock** button.
 - **Commander:** text viewable everywhere; the lock control is absent/disabled with the existing "Commander · Always locked" treatment.
 
 ### 3. Client (`cut-lab.ts`) — single-source lock model
@@ -57,7 +58,7 @@ Result: a multi-membership card locked from group A immediately shows locked in 
 ### 5. Testing
 
 - **Vitest (`cut-lab-proposal.test.ts` or a sibling):** chip-lock flips the canonical checkbox; a multi-membership card locked in group A updates its chip in group B and both group counts; a commander chip exposes no lock toggle; the popover renders the correct card's text.
-- **xUnit (`CutLabPageServiceTests` / view-model tests):** pool row carries type line/mana/oracle text from the cache; an unresolved card yields absent text with no throw; commander flagged non-lockable.
+- **xUnit (`CutLabPageServiceTests` / view-model tests):** pool row carries type line/mana/oracle text/**set code + collector number** from the cache; an unresolved card (or one missing `Set`) yields absent text/set with no throw; commander flagged non-lockable.
 - **e2e (`cut-lab-structure.spec.ts`):** open a chip popover, lock one card, assert the canonical checkbox + pool-table row + the card's chip in another group + the group locked-count all sync; open card text from a pool-table row; commander shows always-locked; capture theme×viewport screenshots.
 
 ### 6. Scope & boundaries
