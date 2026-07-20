@@ -17,7 +17,9 @@ A typical setup is:
 
 - Load a public list URL or paste the pool text directly.
 - Include the commander and an oversized 101-150 card non-commander pool.
-- Optionally include the deck's sideboard plus maybeboard/considering cards when the real candidate pool lives outside the mainboard, such as Commander options or extra cuts that turn an exact-100 list into a trim-ready 101-150 pool.
+- Optionally include the deck's sideboard, considering list, or both when the real candidate pool lives outside the mainboard, such as Commander options or extra cuts that turn an exact-100 list into a trim-ready 101-150 pool.
+- Review the per-board breakdown after import: Main, Sideboard, and Considering/Maybe counts are shown so you can see where the pool size is coming from.
+- If the selected boards push the pool above 150 non-commander cards, Cut Lab tells you the Main, Sideboard, and Considering/Maybe counts in the error so you know what to deselect.
 - Review the parsed workspace before deciding what must stay.
 
 ## Declare build intent
