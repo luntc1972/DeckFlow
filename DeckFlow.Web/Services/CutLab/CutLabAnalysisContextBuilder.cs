@@ -16,6 +16,7 @@ public interface ICutLabAnalysisContextBuilder
     /// <param name="playExperience">Cut Lab play-experience label used to resolve the shared role mode.</param>
     /// <param name="commanderNames">Resolved commander names for the current session.</param>
     /// <param name="preResolvedCards">Optional pre-resolved cards already loaded for this intake.</param>
+    /// <param name="poolKey">Optional precomputed pool key for the working list.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The analyzed cards, role assignments, and classification inputs for this working list.</returns>
     Task<CutLabAnalysisContext> BuildAsync(
@@ -23,6 +24,7 @@ public interface ICutLabAnalysisContextBuilder
         string playExperience,
         IReadOnlyList<string> commanderNames,
         IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
+        string? poolKey = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>Attempts to retrieve cached resolved cards for the provided pool.</summary>
@@ -103,19 +105,19 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         string playExperience,
         IReadOnlyList<string> commanderNames,
         IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
+        string? poolKey = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(workingList);
         ArgumentNullException.ThrowIfNull(playExperience);
         ArgumentNullException.ThrowIfNull(commanderNames);
 
-        string poolKey = CutLabResolvedCardCache.ComputePoolKey(
-            workingList.Select(card => (card.Name, card.Quantity)).ToArray());
-        IReadOnlyList<ScryfallCardData> resolvedCards = await ResolveCardsAsync(workingList, poolKey, preResolvedCards, cancellationToken).ConfigureAwait(false);
-        CutLabClassificationContext classification = await LoadClassificationContextAsync(
-            workingList,
-            commanderNames,
-            cancellationToken).ConfigureAwait(false);
+        string resolvedPoolKey = poolKey ?? ComputePoolKey(workingList);
+        Task<IReadOnlyList<ScryfallCardData>> resolvedCardsTask = ResolveCardsAsync(workingList, resolvedPoolKey, preResolvedCards, cancellationToken);
+        Task<CutLabClassificationContext> classificationTask = LoadClassificationContextAsync(workingList, commanderNames, cancellationToken);
+        await Task.WhenAll(resolvedCardsTask, classificationTask).ConfigureAwait(false);
+        IReadOnlyList<ScryfallCardData> resolvedCards = await resolvedCardsTask.ConfigureAwait(false);
+        CutLabClassificationContext classification = await classificationTask.ConfigureAwait(false);
 
         HashSet<string> commanderNameSet = commanderNames
             .Select(CutLabCardNames.Normalize)
@@ -224,7 +226,12 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
     {
         if (preResolvedCards is not null)
         {
-            _resolvedCardCache.TrySeedFromSuperset(ToPoolKeyEntries(workingList), preResolvedCards, out _);
+            IReadOnlyDictionary<string, ScryfallCardData> preResolvedByName = CutLabCardNames.ToLastWinsDictionary(
+                preResolvedCards,
+                card => card.Name,
+                card => card);
+            IReadOnlyList<ScryfallCardData> preResolvedForPool = BuildOrderedResolvedCards(workingList, preResolvedByName);
+            _resolvedCardCache.Set(poolKey, preResolvedForPool);
         }
 
         Dictionary<string, ScryfallCardData> resolvedByName = new(CutLabCardNames.Comparer);
@@ -329,56 +336,70 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         IReadOnlyList<string> commanderNames,
         CancellationToken cancellationToken)
     {
-        HashSet<string> comboNames = new(CutLabCardNames.Comparer);
-        IReadOnlyList<SpellbookAlmostCombo> almostIncludedCombos = [];
-        bool comboDataAvailable = false;
-
-        if (_spellbook is not null)
-        {
-            try
-            {
-                CommanderSpellbookResult? combos = await _spellbook.FindCombosAsync(
-                    BuildSpellbookEntries(workingList, commanderNames),
-                    cancellationToken).ConfigureAwait(false);
-                comboDataAvailable = combos is not null;
-                if (combos is not null)
-                {
-                    almostIncludedCombos = combos.AlmostIncludedCombos;
-                    foreach (SpellbookCombo combo in combos.IncludedCombos)
-                    {
-                        foreach (string cardName in combo.CardNames)
-                        {
-                            comboNames.Add(CutLabCardNames.Normalize(cardName));
-                        }
-                    }
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                _logger.LogWarning(exception, "Cut Lab: Commander Spellbook fetch failed; continuing without combo roles.");
-            }
-        }
-
-        CategoryLookupResult categories = await GetCategoriesFailOpenAsync(
+        Task<SpellbookLookupResult> spellbookTask = LoadSpellbookFailOpenAsync(workingList, commanderNames, cancellationToken);
+        Task<CategoryLookupResult> categoriesTask = GetCategoriesFailOpenAsync(
             workingList
                 .Select(card => card.Name)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray(),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
+        await Task.WhenAll(spellbookTask, categoriesTask).ConfigureAwait(false);
+        SpellbookLookupResult spellbook = await spellbookTask.ConfigureAwait(false);
+        CategoryLookupResult categories = await categoriesTask.ConfigureAwait(false);
 
         return new CutLabClassificationContext(
-            almostIncludedCombos,
-            comboDataAvailable,
+            spellbook.AlmostIncludedCombos,
+            spellbook.ComboDataAvailable,
             categories.CategoryDataAvailable,
             CutLabCardNames.ToLastWinsDictionary(
                 categories.CategoriesByName,
                 pair => pair.Key,
                 pair => pair.Value),
-            comboNames);
+            spellbook.ComboNames);
+    }
+
+    private async Task<SpellbookLookupResult> LoadSpellbookFailOpenAsync(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        IReadOnlyList<string> commanderNames,
+        CancellationToken cancellationToken)
+    {
+        HashSet<string> comboNames = new(CutLabCardNames.Comparer);
+        IReadOnlyList<SpellbookAlmostCombo> almostIncludedCombos = [];
+        bool comboDataAvailable = false;
+
+        if (_spellbook is null)
+        {
+            return new SpellbookLookupResult(almostIncludedCombos, comboDataAvailable, comboNames);
+        }
+
+        try
+        {
+            CommanderSpellbookResult? combos = await _spellbook.FindCombosAsync(
+                BuildSpellbookEntries(workingList, commanderNames),
+                cancellationToken).ConfigureAwait(false);
+            comboDataAvailable = combos is not null;
+            if (combos is not null)
+            {
+                almostIncludedCombos = combos.AlmostIncludedCombos;
+                foreach (SpellbookCombo combo in combos.IncludedCombos)
+                {
+                    foreach (string cardName in combo.CardNames)
+                    {
+                        comboNames.Add(CutLabCardNames.Normalize(cardName));
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Cut Lab: Commander Spellbook fetch failed; continuing without combo roles.");
+        }
+
+        return new SpellbookLookupResult(almostIncludedCombos, comboDataAvailable, comboNames);
     }
 
     private async Task<CategoryLookupResult> GetCategoriesFailOpenAsync(
@@ -433,4 +454,9 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
     private sealed record CategoryLookupResult(
         IReadOnlyDictionary<string, IReadOnlyList<string>> CategoriesByName,
         bool CategoryDataAvailable);
+
+    private sealed record SpellbookLookupResult(
+        IReadOnlyList<SpellbookAlmostCombo> AlmostIncludedCombos,
+        bool ComboDataAvailable,
+        IReadOnlySet<string> ComboNames);
 }

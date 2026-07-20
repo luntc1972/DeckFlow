@@ -11,7 +11,6 @@ namespace DeckFlow.Web.Services.CutLab;
 public sealed class CutLabDeltaCache
 {
     private const int CacheCapacityBytes = 5_000_000;
-    private const int KeyPrefixLength = 8;
     private static readonly TimeSpan EntryTtl = TimeSpan.FromMinutes(10);
 
     private readonly IMemoryCache _cache;
@@ -90,7 +89,7 @@ public sealed class CutLabDeltaCache
             _logger.LogInformation(
                 "Cut Lab delta cache {Outcome} for {KeyPrefix} ({SizeBytes} bytes)",
                 "evicted",
-                GetKeyPrefix(evictedKey as string ?? string.Empty),
+                PacketSessionCache.GetKeyPrefix(evictedKey as string ?? string.Empty),
                 evictedSize);
         });
 
@@ -150,7 +149,7 @@ public sealed class CutLabDeltaCache
             _logger.LogInformation(
                 "Cut Lab delta cache {Outcome} for {KeyPrefix} ({SizeBytes} bytes)",
                 "evicted",
-                GetKeyPrefix(evictedKey as string ?? string.Empty),
+                PacketSessionCache.GetKeyPrefix(evictedKey as string ?? string.Empty),
                 evictedSize);
         });
 
@@ -175,12 +174,9 @@ public sealed class CutLabDeltaCache
         _logger.LogInformation(
             "Cut Lab delta cache {Outcome} for {KeyPrefix} ({SizeBytes} bytes)",
             outcome,
-            GetKeyPrefix(key),
+            PacketSessionCache.GetKeyPrefix(key),
             sizeBytes);
     }
-
-    private static string GetKeyPrefix(string key)
-        => key.Length <= KeyPrefixLength ? key : key[..KeyPrefixLength];
 
     private static int EstimateSizeBytes(CutLabProposalDeltas deltas)
     {
