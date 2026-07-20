@@ -156,10 +156,14 @@
 
     <div class="result-panel nested-panel">
         <label class="prompt-question-option">
-            <input type="checkbox" name="IncludeSideboardAndMaybeboard" value="true" @(Model.Request.IncludeSideboardAndMaybeboard ? "checked" : "") />
-            <span>Include sideboard &amp; maybeboard cards</span>
+            <input type="checkbox" name="IncludeSideboard" value="true" @(Model.Request.IncludeSideboard ? "checked" : "") />
+            <span>Include sideboard</span>
         </label>
-        <p class="manabase-help">Pulls your deck's sideboard and maybeboard ("considering") cards into the pool — use this when your extra candidate cards live there.</p>
+        <label class="prompt-question-option">
+            <input type="checkbox" name="IncludeMaybeboard" value="true" @(Model.Request.IncludeMaybeboard ? "checked" : "") />
+            <span>Include considering / maybeboard</span>
+        </label>
+        <p class="manabase-help">Moxfield calls this "Considering"; Archidekt calls it "Maybeboard".</p>
     </div>
 
     <div class="toolbar">
@@ -191,6 +195,7 @@
                         <span data-cut-lab-lock-count>@Model.CardCount cards in pool · @lockedCount locked</span>
                         <span>(protected from any future cut)</span>
                     </p>
+                    <p class="prompt-size-note">Main @Model.MainboardCardCount · Sideboard @Model.SideboardCardCount · Considering/Maybe @Model.MaybeboardCardCount</p>
                     <p>@(Model.IsLegal ? "No banned cards found" : $"Banned cards present: {string.Join(", ", Model.BannedCardsPresent)}")</p>
                 </div>
             </div>
