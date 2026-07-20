@@ -14,6 +14,7 @@ using DeckFlow.Web.Services.Manabase;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using RestSharp;
 using Xunit;
 
@@ -544,6 +545,126 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_DfcFrontFaceInput_AssignsRolesBuildsBaselineAndComputesDeltasWithoutWarnings()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        entries[1] = Entry("Malakir Rebirth", "mainboard");
+        var cards = BuildResolvedCards(entries);
+        cards.RemoveAll(card => string.Equals(card.Name, "Malakir Rebirth", StringComparison.OrdinalIgnoreCase));
+        cards.Add(Spell(
+            "Malakir Rebirth // Malakir Mire",
+            "Instant",
+            manaCost: "{B}",
+            oracleText: "Choose target creature. You lose 2 life. Until end of turn, that creature gains \"When this creature dies, return it to the battlefield tapped under its owner's control.\"",
+            cmc: 1));
+        var resolver = new CountingNormalizerResolver(cards);
+        var cache = new CutLabResolvedCardCache();
+        var simulationService = new CutLabSimulationService(
+            cache,
+            new CutLabDeltaCache(),
+            resolver,
+            NullLogger<CutLabSimulationService>.Instance);
+        var analysisBuilder = new CutLabAnalysisContextBuilder(
+            resolver,
+            cache,
+            new FakeSpellbookService(),
+            new FakeCategoryKnowledgeStore());
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            resolver,
+            new FakeBanListService([]),
+            new FakeCategoryKnowledgeStore(),
+            new FakeSpellbookService(),
+            new FakeManabaseBaselineProvider(),
+            new FakeCedhLandBaselineProvider(),
+            analysisBuilder,
+            simulationService,
+            new CutLabBaselineSnapshot(simulationService));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            PlayExperience = "Focused",
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.True(result.HasResult);
+        Assert.NotEmpty(result.RoleAssignmentsByCardName["Malakir Rebirth"]);
+        Assert.NotNull(result.State!.BaselineSnapshot);
+        Assert.NotEmpty(result.State.BaselineSnapshot!.Metrics);
+        Assert.NotNull(result.CurrentSnapshot);
+        Assert.NotNull(result.InitialProposalDeltas);
+        Assert.DoesNotContain(result.Warnings, warning => warning.Contains("unavailable", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ResolvesEachUniqueCardExactlyOnceAcrossAnalysisAndDeltas()
+    {
+        List<DeckEntry> entries =
+        [
+            Entry("Focused Commander", "commander"),
+            Entry("Island", "mainboard") with { Quantity = 40 },
+            Entry("Swamp", "mainboard") with { Quantity = 20 },
+            Entry("Arcane Signet", "mainboard") with { Quantity = 10 },
+            Entry("Sol Ring", "mainboard") with { Quantity = 10 },
+            Entry("Value Engine", "mainboard") with { Quantity = 10 },
+            Entry("Combo Tutor", "mainboard") with { Quantity = 10 },
+            Entry("Fast Interaction", "mainboard") with { Quantity = 8 },
+            Entry("Closing Threat", "mainboard") with { Quantity = 7 },
+            Entry("Utility Land", "mainboard") with { Quantity = 5 },
+        ];
+        List<ScryfallCard> cards =
+        [
+            Spell("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{U}{B}", oracleText: "Whenever you cast your second spell each turn, draw a card.", power: "3", cmc: 3),
+            Spell("Island", "Basic Land — Island", oracleText: "{T}: Add {U}."),
+            Spell("Swamp", "Basic Land — Swamp", oracleText: "{T}: Add {B}."),
+            Spell("Arcane Signet", "Artifact", manaCost: "{2}", oracleText: "{T}: Add one mana of any color in your commander's color identity.", cmc: 2),
+            Spell("Sol Ring", "Artifact", manaCost: "{1}", oracleText: "{T}: Add {C}{C}.", cmc: 1),
+            Spell("Value Engine", "Enchantment", manaCost: "{1}{U}", oracleText: "At the beginning of your upkeep, draw a card.", cmc: 2),
+            Spell("Combo Tutor", "Sorcery", manaCost: "{1}{B}", oracleText: "Search your library for a card, put that card into your hand, then shuffle.", cmc: 2),
+            Spell("Fast Interaction", "Instant", manaCost: "{U}", oracleText: "Counter target spell.", cmc: 1),
+            Spell("Closing Threat", "Creature — Leviathan", manaCost: "{5}{U}", oracleText: "Whenever this creature attacks, creatures you control get +6/+6 until end of turn.", power: "6", cmc: 6),
+            Spell("Utility Land", "Land", oracleText: "{T}: Add {U} or {B}."),
+        ];
+        var resolver = new CountingNormalizerResolver(cards);
+        var cache = new CutLabResolvedCardCache();
+        var simulationService = new CutLabSimulationService(
+            cache,
+            new CutLabDeltaCache(),
+            resolver,
+            NullLogger<CutLabSimulationService>.Instance);
+        var analysisBuilder = new CutLabAnalysisContextBuilder(
+            resolver,
+            cache,
+            new FakeSpellbookService(),
+            new FakeCategoryKnowledgeStore());
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            resolver,
+            new FakeBanListService([]),
+            new FakeCategoryKnowledgeStore(),
+            new FakeSpellbookService(),
+            new FakeManabaseBaselineProvider(),
+            new FakeCedhLandBaselineProvider(),
+            analysisBuilder,
+            simulationService,
+            new CutLabBaselineSnapshot(simulationService));
+
+        var result = await service.ProcessAsync(new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            PlayExperience = "cEDH",
+        });
+
+        Assert.True(result.HasResult);
+        Assert.NotNull(result.InitialProposalDeltas);
+        Assert.Equal(10, resolver.ResolveSingleCallsByName.Count);
+        Assert.All(resolver.ResolveSingleCallsByName.Values, count => Assert.Equal(1, count));
+    }
+
+    [Fact]
     public async Task ProcessAsync_PersistsBaselineSnapshotAndReusesItAsCurrentSnapshotAtIntake()
     {
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
@@ -895,6 +1016,17 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public void CutLabPageService_DiGuardFailsWhenSimulationRegistrationDrops()
+    {
+        using ServiceProvider provider = BuildDiGuardProvider(omitSimulationService: true);
+        using IServiceScope scope = provider.CreateScope();
+
+        var service = Assert.IsType<CutLabPageService>(scope.ServiceProvider.GetRequiredService<ICutLabPageService>());
+
+        Assert.False(service.HasStructuralAnalysisDependencies);
+    }
+
+    [Fact]
     public async Task ProcessAsync_StructuralAnalysis_WiresRolesFloorsFindingsAndUserFloorPersistence()
     {
         var entries = BuildStructuralAnalysisPoolEntries(includeUnresolvedCard: true);
@@ -1183,7 +1315,7 @@ public sealed class CutLabPageServiceTests
             collectorNumber,
             Cmc: cmc);
 
-    private static ServiceProvider BuildDiGuardProvider(bool omitCategoryKnowledge = false)
+    private static ServiceProvider BuildDiGuardProvider(bool omitCategoryKnowledge = false, bool omitSimulationService = false)
     {
         var services = new ServiceCollection();
         services.AddSingleton<IDeckEntryLoader>(new FakeLoader([]));
@@ -1198,7 +1330,15 @@ public sealed class CutLabPageServiceTests
         services.AddSingleton<IManabaseBaselineProvider>(new FakeManabaseBaselineProvider());
         services.AddSingleton<ICedhLandBaselineProvider>(new FakeCedhLandBaselineProvider());
         services.AddLogging();
-        services.AddDeckFlowCutLabServices();
+        services.AddSingleton<CutLabResolvedCardCache>();
+        services.AddSingleton<CutLabDeltaCache>();
+        services.AddScoped<ICutLabAnalysisContextBuilder, CutLabAnalysisContextBuilder>();
+        if (!omitSimulationService)
+        {
+            services.AddScoped<ICutLabSimulationService, CutLabSimulationService>();
+            services.AddScoped<CutLabBaselineSnapshot>();
+        }
+
         // Optional ctor params default to null when a registration is missing; this guard catches
         // a Program.cs regression by proving the plain AddScoped shape still resolves all four deps.
         services.AddScoped<ICutLabPageService, CutLabPageService>();
@@ -1368,6 +1508,37 @@ public sealed class CutLabPageServiceTests
             => SearchFallbackCardAsync(cardName, cancellationToken);
     }
 
+    private sealed class CountingNormalizerResolver(IReadOnlyList<ScryfallCard> cards) : IScryfallCardResolver
+    {
+        public Dictionary<string, int> ResolveSingleCallsByName { get; } = new(StringComparer.Ordinal);
+
+        public Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken cancellationToken)
+            => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+            {
+                StatusCode = HttpStatusCode.OK,
+                Data = new ScryfallCollectionResponse(cards.ToList(), []),
+            });
+
+        public Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
+            => ResolveSingleAsync(cardName, cancellationToken);
+
+        public Task<ScryfallCard?> SearchPrintingFallbackCardAsync(string cardName, CancellationToken cancellationToken)
+            => ResolveSingleAsync(cardName, cancellationToken);
+
+        public Task<ScryfallCard?> ResolveSingleAsync(string cardName, CancellationToken cancellationToken)
+        {
+            string normalizedName = DeckFlow.Core.Normalization.CardNormalizer.Normalize(cardName);
+            ResolveSingleCallsByName[normalizedName] = ResolveSingleCallsByName.TryGetValue(normalizedName, out int count)
+                ? count + 1
+                : 1;
+            return Task.FromResult(cards.FirstOrDefault(card =>
+                string.Equals(
+                    DeckFlow.Core.Normalization.CardNormalizer.Normalize(card.Name),
+                    normalizedName,
+                    StringComparison.Ordinal)));
+        }
+    }
+
     private sealed class FakeAnalysisContextBuilder(Func<IReadOnlyList<CutLabPoolCard>, string, IReadOnlyList<string>, CutLabAnalysisContext> factory) : ICutLabAnalysisContextBuilder
     {
         public int BuildCalls { get; private set; }
@@ -1378,6 +1549,7 @@ public sealed class CutLabPageServiceTests
             IReadOnlyList<CutLabPoolCard> workingList,
             string playExperience,
             IReadOnlyList<string> commanderNames,
+            IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
             CancellationToken cancellationToken = default)
         {
             BuildCalls++;

@@ -160,6 +160,41 @@ public sealed class CutLabAnalysisContextBuilderTests
         Assert.Equal(5, context.CommanderManaValue);
     }
 
+    [Fact]
+    public async Task BuildAsync_PreResolvedDfcFrontFaceMatchAndDuplicateResolvedNames_LastWinsWithoutThrow()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList =
+        [
+            PoolCard("Focused Commander", "Legendary Creature — Human Wizard", isCommander: true),
+            PoolCard("Malakir Rebirth", "Instant"),
+            PoolCard("Value Engine", "Enchantment"),
+        ];
+        IReadOnlyList<ScryfallCardData> preResolvedCards =
+        [
+            CardData("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{G}{U}", cmc: 3),
+            CardData("Malakir Rebirth // Malakir Mire", "Instant", manaCost: "{B}", cmc: 1),
+            CardData("Value Engine", "Creature — Wall", manaCost: "{3}", cmc: 3),
+            CardData("Value Engine", "Enchantment", manaCost: "{2}{U}", cmc: 4),
+        ];
+        var categoryStore = new FakeCategoryKnowledgeStore();
+        categoryStore.CategoriesByName["Malakir Rebirth"] = ["interaction"];
+        var builder = new CutLabAnalysisContextBuilder(
+            new CountingResolver([]),
+            new CutLabResolvedCardCache(),
+            categoryKnowledge: categoryStore);
+
+        CutLabAnalysisContext context = await builder.BuildAsync(
+            workingList,
+            "Focused",
+            ["Focused Commander"],
+            preResolvedCards: preResolvedCards);
+
+        CutLabAnalyzedCard malakir = Assert.Single(context.AnalyzedCards, card => card.Name == "Malakir Rebirth");
+        CutLabAnalyzedCard valueEngine = Assert.Single(context.AnalyzedCards, card => card.Name == "Value Engine");
+        Assert.NotEmpty(context.RolesByCardName["Malakir Rebirth"]);
+        Assert.Equal(4, valueEngine.ManaValue);
+    }
+
     private static CutLabPoolCard PoolCard(string name, string typeLine, int quantity = 1, bool isCommander = false)
         => new()
         {
