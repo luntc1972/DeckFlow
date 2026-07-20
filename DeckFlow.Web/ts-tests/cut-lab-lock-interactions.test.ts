@@ -21,6 +21,8 @@ interface CutLabIntentSnapshot {
   secondaryPlan: string | null;
   bracket: number | null;
   playExperience: string;
+  includeSideboard: boolean;
+  includeMaybeboard: boolean;
 }
 
 interface CutLabRoleFloorSnapshot {
@@ -35,6 +37,11 @@ interface CutLabStateSnapshot {
   packages: CutLabPackageSnapshot[];
   intent: CutLabIntentSnapshot;
   roleFloors: CutLabRoleFloorSnapshot[];
+  goals: {
+    commanderByTurn: number;
+    engineByTurn: number;
+    representativeLineByTurn: number;
+  };
 }
 
 interface CutLabApi {
@@ -97,6 +104,8 @@ describe('DeckFlowCutLab', () => {
         secondaryPlan: 'Protect the board with proliferate value.',
         bracket: 4,
         playExperience: 'Focused',
+        includeSideboard: false,
+        includeMaybeboard: false,
       },
       roleFloors: [
         {
@@ -110,10 +119,15 @@ describe('DeckFlowCutLab', () => {
           isUserSet: false,
         },
       ],
+      goals: {
+        commanderByTurn: 3,
+        engineByTurn: 2,
+        representativeLineByTurn: 4,
+      },
     });
 
     expect(json).toBe(
-      '{"commander":"Atraxa, Praetors\' Voice","pool":[{"name":"Atraxa, Praetors\' Voice","quantity":1,"typeLine":"Legendary Creature — Angel Horror","isCommander":true,"isLocked":true,"packageId":null},{"name":"Command Tower","quantity":1,"typeLine":"Land","isCommander":false,"isLocked":true,"packageId":"pkg-lands-1"}],"packages":[{"id":"pkg-lands-1","name":"Mana base","locked":true}],"intent":{"primaryPlan":"Stick Atraxa and snowball card advantage.","secondaryPlan":"Protect the board with proliferate value.","bracket":4,"playExperience":"Focused"},"roleFloors":[{"role":"interaction","floor":15,"isUserSet":true}]}',
+      '{"commander":"Atraxa, Praetors\' Voice","pool":[{"name":"Atraxa, Praetors\' Voice","quantity":1,"typeLine":"Legendary Creature — Angel Horror","isCommander":true,"isLocked":true,"packageId":null},{"name":"Command Tower","quantity":1,"typeLine":"Land","isCommander":false,"isLocked":true,"packageId":"pkg-lands-1"}],"packages":[{"id":"pkg-lands-1","name":"Mana base","locked":true}],"decisions":[],"intent":{"primaryPlan":"Stick Atraxa and snowball card advantage.","secondaryPlan":"Protect the board with proliferate value.","bracket":4,"playExperience":"Focused","includeSideboard":false,"includeMaybeboard":false},"roleFloors":[{"role":"interaction","floor":15,"isUserSet":true}],"goals":{"commanderByTurn":3,"engineByTurn":2,"representativeLineByTurn":4}}',
     );
   });
 
@@ -127,12 +141,19 @@ describe('DeckFlowCutLab', () => {
         secondaryPlan: null,
         bracket: 3,
         playExperience: 'Focused',
+        includeSideboard: false,
+        includeMaybeboard: false,
       },
       roleFloors: [],
+      goals: {
+        commanderByTurn: 4,
+        engineByTurn: 3,
+        representativeLineByTurn: 5,
+      },
     });
 
     expect(json).toBe(
-      '{"commander":"Zur the Enchanter","pool":[],"packages":[],"intent":{"primaryPlan":"Trim to the cleanest control shell.","secondaryPlan":null,"bracket":3,"playExperience":"Focused"},"roleFloors":[]}',
+      '{"commander":"Zur the Enchanter","pool":[],"packages":[],"decisions":[],"intent":{"primaryPlan":"Trim to the cleanest control shell.","secondaryPlan":null,"bracket":3,"playExperience":"Focused","includeSideboard":false,"includeMaybeboard":false},"roleFloors":[],"goals":{"commanderByTurn":4,"engineByTurn":3,"representativeLineByTurn":5}}',
     );
   });
 
@@ -302,6 +323,8 @@ describe('DeckFlowCutLab', () => {
       secondaryPlan: 'Win through inevitability.',
       bracket: 3,
       playExperience: 'Focused',
+      includeSideboard: false,
+      includeMaybeboard: false,
     });
     expect(parsed.roleFloors).toEqual([
       {
@@ -310,6 +333,11 @@ describe('DeckFlowCutLab', () => {
         isUserSet: true,
       },
     ]);
+    expect(parsed.goals).toEqual({
+      commanderByTurn: 3,
+      engineByTurn: 2,
+      representativeLineByTurn: 4,
+    });
   });
 
   it('syncs role-group chip classes and quantity-weighted locked counts from pool-table checkbox state', () => {
