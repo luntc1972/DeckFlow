@@ -32,6 +32,12 @@ Plan: 1 of 10
 **Phases Complete:** 0/5
 **Current Plan:** 1
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 260720-f3o | Add a Cut Lab intake option to include sideboard + maybeboard cards in the pool | 2026-07-20 | 7283978d | Verified (blind PASS) | [260720-f3o-add-a-option-to-use-the-sideboard-as-par](./quick/260720-f3o-add-a-option-to-use-the-sideboard-as-par/) |
+
 ## Session Continuity
 
 **Stopped At:** Phase 103 UI-SPEC approved
