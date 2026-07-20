@@ -1,7 +1,11 @@
 using DeckFlow.Web.Controllers;
+using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
+using DeckFlow.Web.Models.Api;
+using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services.CutLab;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Mvc;
 using Xunit;
 
@@ -98,6 +102,98 @@ public sealed class CutLabControllerTests
         Assert.Equal("Something went wrong processing the pool. Try again.", model.ErrorMessage);
     }
 
+    [Fact]
+    public async Task Decide_Accept_MutatesStateAndReRendersViaProcessAsync()
+    {
+        var service = new FakeCutLabPageService
+        {
+            Result = new CutLabProcessResult
+            {
+                State = new CutLabState(),
+                SerializedStateJson = "{\"pool\":[]}",
+                CardCount = 100,
+                HasResult = true,
+            },
+        };
+        var controller = CreateController(service);
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()),
+            PlayExperience = "Focused",
+        };
+
+        var result = await controller.Decide(request, "Arcane Signet", CutLabDecideAction.Accept);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        var updatedState = CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson);
+        var accepted = Assert.Single(updatedState.Decisions);
+        Assert.Equal(CutLabDecisionKind.Accepted, accepted.Kind);
+        Assert.Equal(1, service.CallCount);
+        Assert.True(model.HasResult);
+        Assert.Equal(3, updatedState.Pool.Count);
+    }
+
+    [Fact]
+    public async Task Decide_Restore_RemovesAllDecisionRecordsBeforeReRender()
+    {
+        var service = new FakeCutLabPageService
+        {
+            Result = new CutLabProcessResult
+            {
+                State = new CutLabState(),
+                SerializedStateJson = "{\"pool\":[]}",
+                CardCount = 101,
+                HasResult = true,
+            },
+        };
+        var controller = CreateController(service);
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(CreateState(
+                new CutLabDecision
+                {
+                    CardName = "Arcane Signet",
+                    Kind = CutLabDecisionKind.Deferred,
+                    Round = CutLabCutRoundEngine.Round2Key,
+                    Ordinal = 1,
+                },
+                new CutLabDecision
+                {
+                    CardName = "Arcane Signet",
+                    Kind = CutLabDecisionKind.Accepted,
+                    Round = CutLabCutRoundEngine.Round1Key,
+                    Ordinal = 2,
+                })),
+            PlayExperience = "Focused",
+        };
+
+        var result = await controller.Decide(request, "Arcane Signet", CutLabDecideAction.Restore);
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("CutLab", view.ViewName);
+        var updatedState = CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson);
+        Assert.DoesNotContain(updatedState.Decisions, decision => decision.CardName == "Arcane Signet");
+    }
+
+    [Fact]
+    public async Task Decide_RequiresFeatureGateAndAntiforgery_AndReturnsErrorViewForMissingState()
+    {
+        var method = typeof(CutLabController).GetMethod(nameof(CutLabController.Decide));
+
+        Assert.NotNull(method);
+        Assert.NotNull(method!.GetCustomAttributes(typeof(FeatureFlagGateAttribute), inherit: true).SingleOrDefault());
+        Assert.NotNull(method.GetCustomAttributes(typeof(ValidateAntiForgeryTokenAttribute), inherit: true).SingleOrDefault());
+
+        var controller = CreateController(new FakeCutLabPageService());
+
+        var result = await controller.Decide(new CutLabRequest(), "Arcane Signet", CutLabDecideAction.Accept);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        Assert.Equal("Couldn't recalculate this cut - nothing changed. Try again.", model.ErrorMessage);
+    }
+
     private static CutLabController CreateController(ICutLabPageService service) =>
         new(service, new FakeLogger<CutLabController>())
         {
@@ -128,4 +224,39 @@ public sealed class CutLabControllerTests
         public Task<CutLabProcessResult> ProcessAsync(CutLabRequest request, CancellationToken cancellationToken = default)
             => Task.FromException<CutLabProcessResult>(exception);
     }
+
+    private static CutLabState CreateState(params CutLabDecision[] decisions)
+        => new()
+        {
+            Commander = "Commander",
+            Pool =
+            [
+                new CutLabPoolCard
+                {
+                    Name = "Commander",
+                    Quantity = 1,
+                    TypeLine = "Legendary Creature",
+                    IsCommander = true,
+                    IsLocked = true,
+                },
+                new CutLabPoolCard
+                {
+                    Name = "Arcane Signet",
+                    Quantity = 1,
+                    TypeLine = "Artifact",
+                },
+                new CutLabPoolCard
+                {
+                    Name = "Counterspell",
+                    Quantity = 100,
+                    TypeLine = "Instant",
+                },
+            ],
+            Decisions = decisions,
+            Intent = new CutLabIntent
+            {
+                PlayExperience = "Focused",
+                Bracket = 3,
+            },
+        };
 }
