@@ -600,6 +600,30 @@
         <section class="result-panel">
             <div class="panel-heading">
                 <div>
+                    <h2>Scenarios</h2>
+                    <p>Save this entire Cut Lab session in this browser, then reload it later to compare different goal, lock, and cut setups.</p>
+                </div>
+            </div>
+            <noscript>
+                <p class="cutlab-degradation-note">Named scenarios require JavaScript.</p>
+            </noscript>
+            <div class="cutlab-scenarios">
+                <div class="cutlab-scenarios__save-row">
+                    <label class="sr-only" for="cut-lab-scenario-name">Scenario name</label>
+                    <input id="cut-lab-scenario-name"
+                           type="text"
+                           placeholder="e.g. Greedy keep line"
+                           data-cut-lab-scenario-name />
+                    <button type="button" class="run-button" data-cut-lab-scenario-save>Save scenario</button>
+                </div>
+                <p class="prompt-size-note cutlab-scenarios__status" role="status" data-cut-lab-scenario-status></p>
+                <div class="cutlab-scenarios__list" data-cut-lab-scenario-list></div>
+            </div>
+        </section>
+
+        <section class="result-panel">
+            <div class="panel-heading">
+                <div>
                     <h2>Cut rounds</h2>
                     <p>Work through proposed cuts in order. Every proposal shows what actually changes — nothing here says a card is bad.</p>
                 </div>
