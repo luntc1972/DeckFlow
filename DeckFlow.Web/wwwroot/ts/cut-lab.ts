@@ -32,6 +32,11 @@ interface CutLabStateSnapshot {
   packages: CutLabPackageSnapshot[];
   intent: CutLabIntentSnapshot;
   roleFloors: CutLabRoleFloorSnapshot[];
+  goals: {
+    commanderByTurn: number;
+    engineByTurn: number;
+    representativeLineByTurn: number;
+  };
 }
 
 type CutLabDecisionAction = 'accept' | 'reject' | 'defer' | 'restore';
@@ -202,6 +207,11 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
             floor: Math.trunc(row.floor),
             isUserSet: row.isUserSet,
           })),
+        goals: {
+          commanderByTurn: Math.trunc(snapshot.goals.commanderByTurn),
+          engineByTurn: Math.trunc(snapshot.goals.engineByTurn),
+          representativeLineByTurn: Math.trunc(snapshot.goals.representativeLineByTurn),
+        },
       };
 
       return JSON.stringify(normalizedSnapshot);
@@ -285,6 +295,9 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
       })
       .filter((entry): entry is CutLabFloorDomRow => entry !== null);
 
+  const getGoalInput = (goalKey: string): HTMLInputElement | null =>
+    document.querySelector<HTMLInputElement>(`input[data-cut-lab-goal="${cssEscape(goalKey)}"]`);
+
   const getLockCheckbox = (row: HTMLTableRowElement): HTMLInputElement | null =>
     row.querySelector<HTMLInputElement>('input[data-cut-lab-lock-card]');
 
@@ -360,6 +373,19 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     const parsed = Number.parseInt(input.value, 10);
     const fallback = Number.isNaN(parsed) ? min : parsed;
     const clamped = Math.min(Math.max(fallback, min), max);
+    input.value = `${clamped}`;
+    return clamped;
+  };
+
+  const clampGoalValue = (input: HTMLInputElement, fallback: number): number => {
+    const min = input.min === '' ? 1 : Number.parseInt(input.min, 10);
+    const max = input.max === '' ? Number.MAX_SAFE_INTEGER : Number.parseInt(input.max, 10);
+    const parsed = Number.parseInt(input.value, 10);
+    const attributeValue = input.getAttribute('value')?.trim() ?? '';
+    const attributeParsed = Number.parseInt(attributeValue, 10);
+    const resolvedFallback = Number.isNaN(attributeParsed) ? fallback : attributeParsed;
+    const normalized = Number.isNaN(parsed) ? resolvedFallback : parsed;
+    const clamped = Math.min(Math.max(normalized, min), max);
     input.value = `${clamped}`;
     return clamped;
   };
@@ -488,6 +514,11 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
           floor: clampFloorValue(input),
           isUserSet: true,
         })),
+      goals: {
+        commanderByTurn: clampGoalValue(getGoalInput('commander') ?? document.createElement('input'), 3),
+        engineByTurn: clampGoalValue(getGoalInput('engine') ?? document.createElement('input'), 2),
+        representativeLineByTurn: clampGoalValue(getGoalInput('representative-line') ?? document.createElement('input'), 4),
+      },
     };
   };
 
@@ -1576,6 +1607,19 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     });
   };
 
+  const attachGoalSubmitHandler = (): void => {
+    document.addEventListener('submit', event => {
+      const target = event.target;
+      if (!(target instanceof HTMLFormElement) || !target.hasAttribute('data-cut-lab-goals-form')) {
+        return;
+      }
+
+      event.preventDefault();
+      writeStateToHiddenInput();
+      getForm()?.requestSubmit();
+    });
+  };
+
   const attachSubmitHandler = (): void => {
     const form = getForm();
     if (!form) {
@@ -1596,6 +1640,7 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     attachRowHandlers();
     attachPackageHandlers();
     attachDecisionSubmitHandler();
+    attachGoalSubmitHandler();
     attachSubmitHandler();
     refreshAndSerialize();
   };

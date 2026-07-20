@@ -4273,6 +4273,22 @@ input[data-cut-lab-floor] {
   font: inherit;
 }
 
+.cutlab-goal-row__trend {
+  display: grid;
+  gap: 0.35rem;
+}
+
+input[data-cut-lab-goal] {
+  width: 5.5rem;
+  min-height: 44px;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-soft-bg, var(--panel));
+  color: var(--ink);
+  font: inherit;
+}
+
 input[data-cut-lab-floor]:focus-visible {
   outline: 2px solid var(--focus, var(--accent));
   outline-offset: 2px;
