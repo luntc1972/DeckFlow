@@ -41,6 +41,15 @@ public sealed class CutLabRequest
     /// <summary>Hidden round-trip working-session JSON field for the Cut Lab state envelope.</summary>
     public string CutLabStateJson { get; set; } = string.Empty;
 
+    /// <summary>Optional posted commander-goal turn for the no-JS goals form.</summary>
+    public int? GoalCommanderByTurn { get; set; }
+
+    /// <summary>Optional posted engine-goal turn for the no-JS goals form.</summary>
+    public int? GoalEngineByTurn { get; set; }
+
+    /// <summary>Optional posted representative-line-goal turn for the no-JS goals form.</summary>
+    public int? GoalPlanByTurn { get; set; }
+
     /// <summary>
     /// The raw deck input the user provided — the pasted text or the public URL, whichever
     /// matches <see cref="DeckInputSource"/>.

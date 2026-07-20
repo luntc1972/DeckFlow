@@ -256,6 +256,72 @@ public sealed class CutLabControllerTests
         Assert.Equal("Couldn't recalculate this cut — nothing changed. Try again.", model.ErrorMessage);
     }
 
+    [Fact]
+    public async Task Goals_PostedCommanderTurn_UpdatesStateAndGoalRow()
+    {
+        var service = new GoalStateAwareCutLabPageService();
+        var controller = CreateController(service);
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()),
+            GoalCommanderByTurn = 6,
+        };
+
+        var result = await controller.Goals(request);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        CutLabState updatedState = CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson);
+        Assert.Equal(6, updatedState.Goals.CommanderByTurn);
+        CutLabGoalRowView commanderRow = Assert.Single(model.GoalRows, row => row.Kind == CutLabMetricKind.CommanderByTurn);
+        Assert.Equal(6, commanderRow.TurnValue);
+        Assert.Equal("Commander by turn 6", commanderRow.Label);
+    }
+
+    [Fact]
+    public async Task Goals_OutOfRangeTurn_ClampsToFifteen()
+    {
+        var service = new GoalStateAwareCutLabPageService();
+        var controller = CreateController(service);
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()),
+            GoalCommanderByTurn = 99,
+        };
+
+        await controller.Goals(request);
+
+        CutLabState updatedState = CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson);
+        Assert.Equal(15, updatedState.Goals.CommanderByTurn);
+    }
+
+    [Fact]
+    public async Task Goals_OmittedField_PreservesPriorTurn()
+    {
+        var service = new GoalStateAwareCutLabPageService();
+        var controller = CreateController(service);
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(CreateState() with
+            {
+                Goals = new CutLabGoalSettings
+                {
+                    CommanderByTurn = 8,
+                    EngineByTurn = 4,
+                    RepresentativeLineByTurn = 5,
+                },
+            }),
+            GoalEngineByTurn = 7,
+        };
+
+        await controller.Goals(request);
+
+        CutLabState updatedState = CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson);
+        Assert.Equal(8, updatedState.Goals.CommanderByTurn);
+        Assert.Equal(7, updatedState.Goals.EngineByTurn);
+        Assert.Equal(5, updatedState.Goals.RepresentativeLineByTurn);
+    }
+
     private static CutLabController CreateController(ICutLabPageService service) =>
         new(service, new FakeLogger<CutLabController>())
         {
@@ -317,6 +383,27 @@ public sealed class CutLabControllerTests
         }
     }
 
+    private sealed class GoalStateAwareCutLabPageService : ICutLabPageService
+    {
+        public CutLabRequest? LastRequest { get; private set; }
+
+        public Task<CutLabProcessResult> ProcessAsync(CutLabRequest request, CancellationToken cancellationToken = default)
+        {
+            LastRequest = request;
+            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            return Task.FromResult(new CutLabProcessResult
+            {
+                State = state,
+                SerializedStateJson = request.CutLabStateJson,
+                CardCount = 100,
+                HasResult = true,
+                IsLegal = true,
+                Findings = new CutLabStructuralFindingsResult([], true, true),
+                CurrentSnapshot = BuildGoalSnapshot(state.Goals, 64, 71, 58),
+            });
+        }
+    }
+
     private static CutLabState CreateState(params CutLabDecision[] decisions)
         => new()
         {
@@ -345,11 +432,44 @@ public sealed class CutLabControllerTests
                 },
             ],
             Decisions = decisions,
+            BaselineSnapshot = BuildGoalSnapshot(new CutLabGoalSettings(), 57, 68, 52),
             Intent = new CutLabIntent
             {
                 PrimaryPlan = "Value enchantments",
                 PlayExperience = "Focused",
                 Bracket = 3,
             },
+        };
+
+    private static CutLabMetricSnapshot BuildGoalSnapshot(CutLabGoalSettings goals, double commander, double engine, double representativeLine)
+        => new()
+        {
+            Metrics =
+            [
+                new CutLabMetricValue
+                {
+                    Kind = CutLabMetricKind.CommanderByTurn,
+                    Family = CutLabMetricFamily.CategoryByTurn,
+                    Label = $"Commander by turn {goals.CommanderByTurn}",
+                    Value = commander,
+                    Unit = CutLabMetricUnit.Percent,
+                },
+                new CutLabMetricValue
+                {
+                    Kind = CutLabMetricKind.EngineByTurn,
+                    Family = CutLabMetricFamily.CategoryByTurn,
+                    Label = $"Engine by turn {goals.EngineByTurn}",
+                    Value = engine,
+                    Unit = CutLabMetricUnit.Percent,
+                },
+                new CutLabMetricValue
+                {
+                    Kind = CutLabMetricKind.RepresentativeLineByTurn,
+                    Family = CutLabMetricFamily.CategoryByTurn,
+                    Label = $"Representative line by turn {goals.RepresentativeLineByTurn}",
+                    Value = representativeLine,
+                    Unit = CutLabMetricUnit.Percent,
+                },
+            ],
         };
 }
