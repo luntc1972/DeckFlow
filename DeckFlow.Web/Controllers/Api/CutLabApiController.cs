@@ -74,10 +74,12 @@ public sealed class CutLabApiController : ControllerBase
             IReadOnlyList<CutLabPoolCard> fullPool = state.Pool;
 
             IReadOnlyList<CutLabPoolCard> beforeWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions);
+            string beforePoolKey = ComputePoolKey(beforeWorkingList);
             CutLabAnalysisContext beforeContext = await _contextBuilder.BuildAsync(
                 beforeWorkingList,
                 state.Intent.PlayExperience,
                 commanderNames,
+                poolKey: beforePoolKey,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
             CutLabStructuralFindingsResult beforeFindings = CutLabStructuralFindings.Compute(
                 beforeContext.AnalyzedCards,
@@ -98,6 +100,7 @@ public sealed class CutLabApiController : ControllerBase
             state = CutLabDecisionApplier.Apply(state, request.CardName, request.Decision, roundKey);
 
             IReadOnlyList<CutLabPoolCard> afterWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions);
+            string afterPoolKey = ComputePoolKey(afterWorkingList);
             IReadOnlyList<ScryfallCardData>? afterPreResolvedCards = TryBuildAfterPreResolvedCards(
                 fullPool,
                 afterWorkingList,
@@ -107,6 +110,7 @@ public sealed class CutLabApiController : ControllerBase
                 state.Intent.PlayExperience,
                 commanderNames,
                 afterPreResolvedCards,
+                afterPoolKey,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
             CutLabStructuralFindingsResult afterFindings = CutLabStructuralFindings.Compute(
                 afterContext.AnalyzedCards,
@@ -127,6 +131,7 @@ public sealed class CutLabApiController : ControllerBase
                     afterWorkingList,
                     roundPlan.NextProposal.CardName,
                     state.Intent.PlayExperience,
+                    poolKey: afterPoolKey,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
             }
 
@@ -169,7 +174,7 @@ public sealed class CutLabApiController : ControllerBase
             return seededCards;
         }
 
-        return null;
+        return BuildPartialResolvedSubset(afterWorkingList, fullPoolCards ?? beforeResolvedCards);
     }
 
     private static IReadOnlyList<string> GetCommanderNames(CutLabState state)
@@ -193,12 +198,7 @@ public sealed class CutLabApiController : ControllerBase
     {
         if (request.Decision == CutLabDecideAction.Restore)
         {
-            return state.Decisions
-                .Where(decision => string.Equals(decision.CardName, request.CardName, StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(decision => decision.Ordinal)
-                .Select(decision => decision.Round)
-                .FirstOrDefault()
-                ?? CutLabCutRoundEngine.Round1Key;
+            return CutLabDecisionApplier.LatestRoundForCard(state, request.CardName);
         }
 
         if (roundPlan.NextProposal is not null
@@ -210,12 +210,7 @@ public sealed class CutLabApiController : ControllerBase
         return roundPlan.Queue
             .FirstOrDefault(item => string.Equals(item.CardName, request.CardName, StringComparison.OrdinalIgnoreCase))
             ?.RoundKey
-            ?? state.Decisions
-                .Where(decision => string.Equals(decision.CardName, request.CardName, StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(decision => decision.Ordinal)
-                .Select(decision => decision.Round)
-                .FirstOrDefault()
-            ?? CutLabCutRoundEngine.Round1Key;
+            ?? CutLabDecisionApplier.LatestRoundForCard(state, request.CardName);
     }
 
     private static IReadOnlyList<CutLabDecideFloorWarningDto> BuildFloorWarnings(
@@ -268,6 +263,25 @@ public sealed class CutLabApiController : ControllerBase
             .ToArray();
     }
 
+    private static IReadOnlyList<ScryfallCardData>? BuildPartialResolvedSubset(
+        IReadOnlyList<CutLabPoolCard> targetPool,
+        IReadOnlyList<ScryfallCardData> sourceCards)
+    {
+        IReadOnlyDictionary<string, ScryfallCardData> sourceByName = CutLabCardNames.ToLastWinsDictionary(
+            sourceCards,
+            card => card.Name,
+            card => card);
+        return targetPool
+            .Select(card => sourceByName.TryGetValue(CutLabCardNames.Normalize(card.Name), out ScryfallCardData? resolvedCard) ? resolvedCard : null)
+            .Where(card => card is not null)
+            .Cast<ScryfallCardData>()
+            .DistinctBy(card => CutLabCardNames.Normalize(card.Name))
+            .ToArray();
+    }
+
+    private static string ComputePoolKey(IReadOnlyList<CutLabPoolCard> pool)
+        => CutLabResolvedCardCache.ComputePoolKey(pool.Select(card => (card.Name, card.Quantity)).ToArray());
+
     private static CutLabDecideNextProposalDto BuildNextProposal(CutLabRoundPlan roundPlan, CutLabStructuralFindingsResult findings)
     {
         if (roundPlan.NextProposal is null)
@@ -291,6 +305,7 @@ public sealed class CutLabApiController : ControllerBase
             CardName = roundPlan.NextProposal.CardName,
             RoundKey = roundPlan.NextProposal.RoundKey,
             RoundLabel = roundPlan.NextProposal.RoundLabel,
+            RoundBannerBody = CutLabCutRoundEngine.RoundBannerBodyFor(roundPlan.NextProposal.RoundKey),
             FindingCount = roundPlan.NextProposal.FindingCount,
             FindingChips = chips,
         };
@@ -309,6 +324,7 @@ public sealed class CutLabApiController : ControllerBase
                     Before = delta.Before,
                     After = delta.After,
                     Delta = delta.Delta,
+                    Unit = delta.Unit,
                     Direction = delta.Direction,
                     IsMeaningful = delta.IsMeaningful,
                 })
@@ -323,19 +339,8 @@ public sealed class CutLabApiController : ControllerBase
             {
                 CardName = decision.CardName,
                 RoundKey = decision.Round,
-                RoundLabel = RoundLabelFor(decision.Round),
+                RoundLabel = CutLabCutRoundEngine.LabelFor(decision.Round),
                 Ordinal = decision.Ordinal,
             })
             .ToArray();
-
-    private static string RoundLabelFor(string roundKey)
-        => roundKey switch
-        {
-            CutLabCutRoundEngine.Round1Key => CutLabCutRoundEngine.Round1Label,
-            CutLabCutRoundEngine.Round2Key => CutLabCutRoundEngine.Round2Label,
-            CutLabCutRoundEngine.Round3Key => CutLabCutRoundEngine.Round3Label,
-            CutLabCutRoundEngine.SecondPassDeferredKey => CutLabCutRoundEngine.SecondPassDeferredLabel,
-            CutLabCutRoundEngine.SecondPassRejectedKey => CutLabCutRoundEngine.SecondPassRejectedLabel,
-            _ => roundKey,
-        };
 }

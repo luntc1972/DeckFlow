@@ -25,6 +25,6 @@ public sealed class CutLabBaselineSnapshot
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(originalPool);
-        return _simulationService.BuildSnapshot(originalPool, playExperience, trialsOverride: null, cancellationToken);
+        return _simulationService.BuildSnapshot(originalPool, playExperience, trialsOverride: null, cancellationToken: cancellationToken);
     }
 }

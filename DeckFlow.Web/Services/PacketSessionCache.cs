@@ -58,6 +58,15 @@ public sealed class PacketSessionCache
         return Convert.ToHexString(hashBytes).ToLowerInvariant();
     }
 
+    /// <summary>Returns the short log-safe prefix for a cache key.</summary>
+    /// <param name="key">Full cache key.</param>
+    /// <returns>The first eight characters, or the whole key when shorter.</returns>
+    public static string GetKeyPrefix(string key)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        return key.Length <= KeyPrefixLength ? key : key[..KeyPrefixLength];
+    }
+
     /// <summary>
     /// Attempts to retrieve a previously cached packet result.
     /// </summary>
@@ -106,7 +115,7 @@ public sealed class PacketSessionCache
             _logger.LogInformation(
                 "Packet cache {Outcome} for {KeyPrefix} ({SizeBytes} bytes)",
                 "evicted",
-                ((string)evictedKey)[..KeyPrefixLength],
+                GetKeyPrefix((string)evictedKey),
                 evictedSize);
         });
 
@@ -119,7 +128,7 @@ public sealed class PacketSessionCache
         _logger.LogInformation(
             "Packet cache {Outcome} for {KeyPrefix} ({SizeBytes} bytes)",
             outcome,
-            key[..KeyPrefixLength],
+            GetKeyPrefix(key),
             sizeBytes);
     }
 }

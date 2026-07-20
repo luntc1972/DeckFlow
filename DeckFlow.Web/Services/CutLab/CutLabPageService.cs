@@ -276,6 +276,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             request.PlayExperience,
             commanderResolution.CommanderNames,
             preAnalysisState.Decisions.Count == 0 ? null : preResolvedCards,
+            poolKey: null,
             cancellationToken).ConfigureAwait(false);
         IReadOnlyList<CutLabResolvedFloor> resolvedFloors = CutLabFloorDefaults.ResolveDefaults(
             request.Bracket,
@@ -665,6 +666,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             IReadOnlyList<CutLabPoolCard> workingList,
             string? playExperience,
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
+            string? poolKey = null,
             CancellationToken cancellationToken = default)
             => Task.FromResult(new CutLabMetricSnapshot());
 
@@ -673,6 +675,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             string candidateCardName,
             string? playExperience,
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
+            string? poolKey = null,
             CancellationToken cancellationToken = default)
             => Task.FromResult(new CutLabProposalDeltas
             {

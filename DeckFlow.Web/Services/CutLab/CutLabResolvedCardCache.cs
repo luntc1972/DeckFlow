@@ -12,7 +12,6 @@ namespace DeckFlow.Web.Services.CutLab;
 public sealed class CutLabResolvedCardCache
 {
     private const int CacheCapacityBytes = 20_000_000;
-    private const int KeyPrefixLength = 8;
     private static readonly TimeSpan EntryTtl = TimeSpan.FromMinutes(30);
 
     private readonly IMemoryCache _cache;
@@ -91,6 +90,15 @@ public sealed class CutLabResolvedCardCache
         }
 
         seededCards = filteredCards;
+        int distinctTargetCount = targetPool
+            .Select(entry => CutLabCardNames.Normalize(entry.Name))
+            .Distinct(CutLabCardNames.Comparer)
+            .Count();
+        if (filteredCards.Count != distinctTargetCount)
+        {
+            return false;
+        }
+
         Set(ComputePoolKey(targetPool), filteredCards);
         return true;
     }
@@ -165,7 +173,7 @@ public sealed class CutLabResolvedCardCache
             _logger.LogInformation(
                 "Cut Lab resolved-card cache {Outcome} for {KeyPrefix} ({SizeBytes} bytes)",
                 "evicted",
-                GetKeyPrefix(evictedKey as string ?? string.Empty),
+                PacketSessionCache.GetKeyPrefix(evictedKey as string ?? string.Empty),
                 evictedSize);
         });
 
@@ -178,12 +186,9 @@ public sealed class CutLabResolvedCardCache
         _logger.LogInformation(
             "Cut Lab resolved-card cache {Outcome} for {KeyPrefix} ({SizeBytes} bytes)",
             outcome,
-            GetKeyPrefix(key),
+            PacketSessionCache.GetKeyPrefix(key),
             sizeBytes);
     }
-
-    private static string GetKeyPrefix(string key)
-        => key.Length <= KeyPrefixLength ? key : key[..KeyPrefixLength];
 
     private static int EstimateSizeBytes(IReadOnlyList<ScryfallCardData> cards)
     {

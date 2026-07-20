@@ -13,12 +13,14 @@ public interface ICutLabSimulationService
     /// <param name="workingList">Current working pool cards.</param>
     /// <param name="playExperience">Cut Lab play-experience label used to resolve the shared manabase mode.</param>
     /// <param name="trialsOverride">Optional simulation trial count override; null keeps the engine default.</param>
+    /// <param name="poolKey">Optional precomputed pool key for the working list.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The projected seven-family metric snapshot.</returns>
     Task<CutLabMetricSnapshot> BuildSnapshot(
         IReadOnlyList<CutLabPoolCard> workingList,
         string? playExperience,
         int? trialsOverride = InLoopTrials,
+        string? poolKey = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>Builds proposal deltas for removing a candidate card from the current working list.</summary>
@@ -26,6 +28,7 @@ public interface ICutLabSimulationService
     /// <param name="candidateCardName">Candidate card to remove from the current working list.</param>
     /// <param name="playExperience">Cut Lab play-experience label used to resolve the shared manabase mode.</param>
     /// <param name="trialsOverride">Optional simulation trial count override; null keeps the engine default.</param>
+    /// <param name="poolKey">Optional precomputed pool key for the current working list.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The noise-floored proposal deltas keyed to the current working list.</returns>
     Task<CutLabProposalDeltas> ComputeProposalDeltas(
@@ -33,6 +36,7 @@ public interface ICutLabSimulationService
         string candidateCardName,
         string? playExperience,
         int? trialsOverride = InLoopTrials,
+        string? poolKey = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>Default in-loop trial count for Task 103-05 delta snapshots.</summary>
@@ -83,11 +87,12 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         IReadOnlyList<CutLabPoolCard> workingList,
         string? playExperience,
         int? trialsOverride = ICutLabSimulationService.InLoopTrials,
+        string? poolKey = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(workingList);
 
-        return await GetOrBuildSnapshot(workingList, playExperience, trialsOverride, cancellationToken).ConfigureAwait(false);
+        return await GetOrBuildSnapshot(workingList, playExperience, trialsOverride, cancellationToken, poolKey).ConfigureAwait(false);
     }
 
     private static CutLabMetricSnapshot BuildSnapshot(
@@ -139,29 +144,29 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         string candidateCardName,
         string? playExperience,
         int? trialsOverride = ICutLabSimulationService.InLoopTrials,
+        string? poolKey = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(currentWorkingList);
         ArgumentException.ThrowIfNullOrWhiteSpace(candidateCardName);
 
-        string poolKey = ComputePoolKey(currentWorkingList);
-        if (_deltaCache.TryGet(poolKey, candidateCardName, out CutLabProposalDeltas? cached, trialsOverride) && cached is not null)
+        string currentPoolKey = poolKey ?? ComputePoolKey(currentWorkingList);
+        if (_deltaCache.TryGet(currentPoolKey, candidateCardName, out CutLabProposalDeltas? cached, trialsOverride) && cached is not null)
         {
             return cached;
         }
 
-        IReadOnlyList<CutLabPoolCard> afterWorkingList = RemoveCandidate(currentWorkingList, candidateCardName);
-        string afterPoolKey = ComputePoolKey(afterWorkingList);
-        IReadOnlyList<DeckCardEntry> beforeEntries = await ResolveDeckEntries(currentWorkingList, cancellationToken).ConfigureAwait(false);
-        CutLabMetricSnapshot before = GetOrBuildSnapshot(beforeEntries, poolKey, playExperience, trialsOverride);
+        IReadOnlyList<DeckCardEntry> beforeEntries = await ResolveDeckEntries(currentWorkingList, currentPoolKey, cancellationToken).ConfigureAwait(false);
+        CutLabMetricSnapshot before = GetOrBuildSnapshot(beforeEntries, currentPoolKey, playExperience, trialsOverride);
         IReadOnlyList<DeckCardEntry> afterEntries = RemoveCandidate(beforeEntries, candidateCardName);
+        string afterPoolKey = CutLabResolvedCardCache.ComputePoolKey(afterEntries.Select(entry => (entry.Card.Name, entry.Quantity)).ToArray());
         CutLabMetricSnapshot after = GetOrBuildSnapshot(afterEntries, afterPoolKey, playExperience, trialsOverride);
 
         IReadOnlyDictionary<CutLabMetricKind, CutLabMetricValue> afterMetrics = after.Metrics
             .ToDictionary(metric => metric.Kind);
         IReadOnlyList<CutLabMetricDelta> deltas = before.Metrics
             .Where(metric => afterMetrics.ContainsKey(metric.Kind))
-            .Select(metric => CreateDelta(metric, afterMetrics[metric.Kind]))
+            .Select(metric => CutLabMetricDelta.Between(metric, afterMetrics[metric.Kind]))
             .Where(delta => delta is not null)
             .Cast<CutLabMetricDelta>()
             .ToArray();
@@ -173,9 +178,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
             ChangedFamilyCount = deltas.Where(delta => delta.IsMeaningful).Select(delta => delta.Family).Distinct().Count(),
         };
 
-        _deltaCache.SetSnapshot(poolKey, playExperience, trialsOverride, before);
-        _deltaCache.SetSnapshot(afterPoolKey, playExperience, trialsOverride, after);
-        _deltaCache.Set(poolKey, candidateCardName, computed, trialsOverride);
+        _deltaCache.Set(currentPoolKey, candidateCardName, computed, trialsOverride);
         return computed;
     }
 
@@ -203,15 +206,15 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         string? poolKeyOverride = null)
     {
         string poolKey = poolKeyOverride ?? ComputePoolKey(workingList);
-        IReadOnlyList<DeckCardEntry> deckEntries = await ResolveDeckEntries(workingList, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<DeckCardEntry> deckEntries = await ResolveDeckEntries(workingList, poolKey, cancellationToken).ConfigureAwait(false);
         return GetOrBuildSnapshot(deckEntries, poolKey, playExperience, trialsOverride);
     }
 
     private async Task<IReadOnlyList<DeckCardEntry>> ResolveDeckEntries(
         IReadOnlyList<CutLabPoolCard> workingList,
+        string poolKey,
         CancellationToken cancellationToken)
     {
-        string poolKey = ComputePoolKey(workingList);
         IReadOnlyList<ScryfallCardData>? cachedCards;
         IReadOnlyList<ScryfallCardData> cards;
         if (!_resolvedCardCache.TryGet(poolKey, out cachedCards) || cachedCards is null)
@@ -303,58 +306,8 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
             Unit = unit,
         };
 
-    private static CutLabMetricDelta? CreateDelta(CutLabMetricValue before, CutLabMetricValue after)
-    {
-        if (!double.IsFinite(before.Value) || !double.IsFinite(after.Value))
-        {
-            return null;
-        }
-
-        double delta = after.Value - before.Value;
-        double threshold = before.Unit == CutLabMetricUnit.Cards
-            ? CutLabNoiseFloor.Cards
-            : CutLabNoiseFloor.PercentPoints;
-        bool isMeaningful = Math.Abs(delta) > threshold;
-        CutLabMetricDirection direction = !isMeaningful
-            ? CutLabMetricDirection.None
-            : delta > 0
-                ? CutLabMetricDirection.Up
-                : CutLabMetricDirection.Down;
-
-        return new CutLabMetricDelta
-        {
-            Kind = before.Kind,
-            Family = before.Family,
-            Label = before.Label,
-            Before = before.Value,
-            After = after.Value,
-            Delta = delta,
-            Direction = direction,
-            IsMeaningful = isMeaningful,
-        };
-    }
-
     private static string ComputePoolKey(IReadOnlyList<CutLabPoolCard> pool)
         => CutLabResolvedCardCache.ComputePoolKey(pool.Select(card => (card.Name, card.Quantity)).ToArray());
-
-    private static IReadOnlyList<CutLabPoolCard> RemoveCandidate(
-        IReadOnlyList<CutLabPoolCard> currentWorkingList,
-        string candidateCardName)
-    {
-        bool removed = false;
-        return currentWorkingList
-            .Where(card =>
-            {
-                if (!removed && string.Equals(card.Name, candidateCardName, StringComparison.OrdinalIgnoreCase))
-                {
-                    removed = true;
-                    return false;
-                }
-
-                return true;
-            })
-            .ToArray();
-    }
 
     private static IReadOnlyList<DeckCardEntry> RemoveCandidate(
         IReadOnlyList<DeckCardEntry> currentEntries,
