@@ -162,6 +162,8 @@ public sealed class CutLabSimulationServiceTests
         CutLabMetricSnapshot snapshot = await service.BuildSnapshot(
             pool.WorkingList,
             "cEDH",
+            trialsOverride: ICutLabSimulationService.InLoopTrials,
+            poolKey: null,
             goals: new CutLabGoalSettings { CommanderByTurn = 6 });
         ManabaseReport report = BuildDirectReport(pool.WorkingList, "cEDH", trialsOverride: 4000, pool.Cards);
 
@@ -180,10 +182,14 @@ public sealed class CutLabSimulationServiceTests
         CutLabMetricSnapshot earlyGoal = await service.BuildSnapshot(
             pool.WorkingList,
             "cEDH",
+            trialsOverride: ICutLabSimulationService.InLoopTrials,
+            poolKey: null,
             goals: new CutLabGoalSettings { CommanderByTurn = 3 });
         CutLabMetricSnapshot lateGoal = await service.BuildSnapshot(
             pool.WorkingList,
             "cEDH",
+            trialsOverride: ICutLabSimulationService.InLoopTrials,
+            poolKey: null,
             goals: new CutLabGoalSettings { CommanderByTurn = 6 });
 
         CutLabMetricValue earlyCommander = Assert.Single(earlyGoal.Metrics, metric => metric.Kind == CutLabMetricKind.CommanderByTurn);
@@ -200,8 +206,18 @@ public sealed class CutLabSimulationServiceTests
         TestPool pool = BuildCedhPool();
         var service = CreateService(new FakeResolver(pool.Cards));
 
-        CutLabMetricSnapshot withNullGoals = await service.BuildSnapshot(pool.WorkingList, "cEDH", goals: null);
-        CutLabMetricSnapshot withDefaultGoals = await service.BuildSnapshot(pool.WorkingList, "cEDH", goals: new CutLabGoalSettings());
+        CutLabMetricSnapshot withNullGoals = await service.BuildSnapshot(
+            pool.WorkingList,
+            "cEDH",
+            trialsOverride: ICutLabSimulationService.InLoopTrials,
+            poolKey: null,
+            goals: null);
+        CutLabMetricSnapshot withDefaultGoals = await service.BuildSnapshot(
+            pool.WorkingList,
+            "cEDH",
+            trialsOverride: ICutLabSimulationService.InLoopTrials,
+            poolKey: null,
+            goals: new CutLabGoalSettings());
 
         Assert.Equal(withDefaultGoals.Metrics, withNullGoals.Metrics);
     }
@@ -218,8 +234,20 @@ public sealed class CutLabSimulationServiceTests
             RepresentativeLineByTurn = 7,
         };
 
-        CutLabProposalDeltas first = await service.ComputeProposalDeltas(pool.WorkingList, "Utility Land", "cEDH", goals: goals);
-        CutLabProposalDeltas second = await service.ComputeProposalDeltas(pool.WorkingList, "Utility Land", "cEDH", goals: goals);
+        CutLabProposalDeltas first = await service.ComputeProposalDeltas(
+            pool.WorkingList,
+            "Utility Land",
+            "cEDH",
+            trialsOverride: ICutLabSimulationService.InLoopTrials,
+            poolKey: null,
+            goals: goals);
+        CutLabProposalDeltas second = await service.ComputeProposalDeltas(
+            pool.WorkingList,
+            "Utility Land",
+            "cEDH",
+            trialsOverride: ICutLabSimulationService.InLoopTrials,
+            poolKey: null,
+            goals: goals);
 
         Assert.Equal(first, second);
     }
@@ -324,10 +352,14 @@ public sealed class CutLabSimulationServiceTests
         CutLabMetricSnapshot earlyGoal = await service.BuildSnapshot(
             pool.WorkingList,
             "cEDH",
+            trialsOverride: ICutLabSimulationService.InLoopTrials,
+            poolKey: null,
             goals: new CutLabGoalSettings { CommanderByTurn = 3 });
         CutLabMetricSnapshot lateGoal = await service.BuildSnapshot(
             pool.WorkingList,
             "cEDH",
+            trialsOverride: ICutLabSimulationService.InLoopTrials,
+            poolKey: null,
             goals: new CutLabGoalSettings { CommanderByTurn = 9 });
 
         Assert.NotEqual(earlyGoal.Metrics, lateGoal.Metrics);
@@ -353,11 +385,15 @@ public sealed class CutLabSimulationServiceTests
             pool.WorkingList,
             "Utility Land",
             "cEDH",
+            trialsOverride: ICutLabSimulationService.InLoopTrials,
+            poolKey: null,
             goals: new CutLabGoalSettings { CommanderByTurn = 3 });
         CutLabProposalDeltas lateGoal = await service.ComputeProposalDeltas(
             pool.WorkingList,
             "Utility Land",
             "cEDH",
+            trialsOverride: ICutLabSimulationService.InLoopTrials,
+            poolKey: null,
             goals: new CutLabGoalSettings { CommanderByTurn = 9 });
 
         Assert.NotEqual(earlyGoal.Deltas, lateGoal.Deltas);

@@ -41,13 +41,14 @@ public sealed class CutLabDeltaCache
     /// <param name="cardName">The proposed card name.</param>
     /// <param name="deltas">The cached delta payload when present; otherwise <see langword="null"/>.</param>
     /// <param name="trialsOverride">The simulation trial override that produced the cached deltas.</param>
+    /// <param name="goals">Optional by-turn goal overrides folded into the cache key.</param>
     /// <returns><see langword="true"/> on cache hit; otherwise <see langword="false"/>.</returns>
-    public bool TryGet(string poolKey, string cardName, out CutLabProposalDeltas? deltas, int? trialsOverride = null)
+    public bool TryGet(string poolKey, string cardName, out CutLabProposalDeltas? deltas, int? trialsOverride = null, CutLabGoalSettings? goals = null)
     {
         ArgumentNullException.ThrowIfNull(poolKey);
         ArgumentNullException.ThrowIfNull(cardName);
 
-        string key = ComputeDeltaEntryKey(poolKey, cardName, trialsOverride);
+        string key = ComputeDeltaEntryKey(poolKey, cardName, trialsOverride, goals);
         if (!_cache.TryGetValue(key, out var raw) || raw is not CachedEntry<CutLabProposalDeltas> entry)
         {
             deltas = null;
@@ -67,13 +68,14 @@ public sealed class CutLabDeltaCache
     /// <param name="cardName">The proposed card name.</param>
     /// <param name="deltas">The delta payload to cache.</param>
     /// <param name="trialsOverride">The simulation trial override that produced the delta payload.</param>
-    public void Set(string poolKey, string cardName, CutLabProposalDeltas deltas, int? trialsOverride = null)
+    /// <param name="goals">Optional by-turn goal overrides folded into the cache key.</param>
+    public void Set(string poolKey, string cardName, CutLabProposalDeltas deltas, int? trialsOverride = null, CutLabGoalSettings? goals = null)
     {
         ArgumentNullException.ThrowIfNull(poolKey);
         ArgumentNullException.ThrowIfNull(cardName);
         ArgumentNullException.ThrowIfNull(deltas);
 
-        string key = ComputeDeltaEntryKey(poolKey, cardName, trialsOverride);
+        string key = ComputeDeltaEntryKey(poolKey, cardName, trialsOverride, goals);
         int sizeBytes = EstimateSizeBytes(deltas);
         var entry = new CachedEntry<CutLabProposalDeltas>(deltas, sizeBytes);
         var options = new MemoryCacheEntryOptions
@@ -95,12 +97,13 @@ public sealed class CutLabDeltaCache
     /// <param name="playExperience">The Cut Lab play-experience label.</param>
     /// <param name="trialsOverride">The simulation trial override that produced the snapshot.</param>
     /// <param name="snapshot">The cached snapshot when present; otherwise <see langword="null"/>.</param>
+    /// <param name="goals">Optional by-turn goal overrides folded into the cache key.</param>
     /// <returns><see langword="true"/> on cache hit; otherwise <see langword="false"/>.</returns>
-    public bool TryGetSnapshot(string poolKey, string? playExperience, int? trialsOverride, out CutLabMetricSnapshot? snapshot)
+    public bool TryGetSnapshot(string poolKey, string? playExperience, int? trialsOverride, out CutLabMetricSnapshot? snapshot, CutLabGoalSettings? goals = null)
     {
         ArgumentNullException.ThrowIfNull(poolKey);
 
-        string key = ComputeSnapshotEntryKey(poolKey, playExperience, trialsOverride);
+        string key = ComputeSnapshotEntryKey(poolKey, playExperience, trialsOverride, goals);
         if (!_cache.TryGetValue(key, out var raw) || raw is not CachedEntry<CutLabMetricSnapshot> entry)
         {
             snapshot = null;
@@ -120,12 +123,13 @@ public sealed class CutLabDeltaCache
     /// <param name="playExperience">The Cut Lab play-experience label.</param>
     /// <param name="trialsOverride">The simulation trial override that produced the snapshot.</param>
     /// <param name="snapshot">The snapshot to cache.</param>
-    public void SetSnapshot(string poolKey, string? playExperience, int? trialsOverride, CutLabMetricSnapshot snapshot)
+    /// <param name="goals">Optional by-turn goal overrides folded into the cache key.</param>
+    public void SetSnapshot(string poolKey, string? playExperience, int? trialsOverride, CutLabMetricSnapshot snapshot, CutLabGoalSettings? goals = null)
     {
         ArgumentNullException.ThrowIfNull(poolKey);
         ArgumentNullException.ThrowIfNull(snapshot);
 
-        string key = ComputeSnapshotEntryKey(poolKey, playExperience, trialsOverride);
+        string key = ComputeSnapshotEntryKey(poolKey, playExperience, trialsOverride, goals);
         int sizeBytes = EstimateSizeBytes(snapshot);
         var entry = new CachedEntry<CutLabMetricSnapshot>(snapshot, sizeBytes);
         var options = new MemoryCacheEntryOptions
@@ -139,17 +143,30 @@ public sealed class CutLabDeltaCache
         LogCacheEvent("write", key, sizeBytes);
     }
 
-    private static string ComputeDeltaEntryKey(string poolKey, string cardName, int? trialsOverride)
-        => PacketSessionCache.ComputeKey(new DeltaCacheKey(poolKey, NormalizeCardName(cardName), trialsOverride));
+    private static string ComputeDeltaEntryKey(string poolKey, string cardName, int? trialsOverride, CutLabGoalSettings? goals)
+        => PacketSessionCache.ComputeKey(new DeltaCacheKey(poolKey, NormalizeCardName(cardName), trialsOverride, NormalizeGoalsKey(goals)));
 
-    private static string ComputeSnapshotEntryKey(string poolKey, string? playExperience, int? trialsOverride)
-        => PacketSessionCache.ComputeKey(new SnapshotCacheKey(poolKey, NormalizePlayExperience(playExperience), trialsOverride));
+    private static string ComputeSnapshotEntryKey(string poolKey, string? playExperience, int? trialsOverride, CutLabGoalSettings? goals)
+        => PacketSessionCache.ComputeKey(new SnapshotCacheKey(poolKey, NormalizePlayExperience(playExperience), trialsOverride, NormalizeGoalsKey(goals)));
 
     private static string NormalizeCardName(string cardName)
         => cardName.ToUpperInvariant();
 
     private static string NormalizePlayExperience(string? playExperience)
         => string.IsNullOrWhiteSpace(playExperience) ? string.Empty : playExperience.Trim().ToUpperInvariant();
+
+    private static string NormalizeGoalsKey(CutLabGoalSettings? goals)
+    {
+        if (goals is null)
+        {
+            return string.Empty;
+        }
+
+        int commanderByTurn = Math.Clamp(goals.CommanderByTurn, CutLabGoalDefaults.MinGoalTurn, CutLabGoalDefaults.MaxGoalTurn);
+        int engineByTurn = Math.Clamp(goals.EngineByTurn, CutLabGoalDefaults.MinGoalTurn, CutLabGoalDefaults.MaxGoalTurn);
+        int representativeLineByTurn = Math.Clamp(goals.RepresentativeLineByTurn, CutLabGoalDefaults.MinGoalTurn, CutLabGoalDefaults.MaxGoalTurn);
+        return $"{commanderByTurn}-{engineByTurn}-{representativeLineByTurn}";
+    }
 
     private void LogCacheEvent(string outcome, string key, int sizeBytes)
     {
@@ -193,6 +210,6 @@ public sealed class CutLabDeltaCache
         return Math.Max(total, 1);
     }
 
-    private sealed record DeltaCacheKey(string PoolKey, string CardName, int? TrialsOverride);
-    private sealed record SnapshotCacheKey(string PoolKey, string PlayExperience, int? TrialsOverride);
+    private sealed record DeltaCacheKey(string PoolKey, string CardName, int? TrialsOverride, string GoalsKey);
+    private sealed record SnapshotCacheKey(string PoolKey, string PlayExperience, int? TrialsOverride, string GoalsKey);
 }
