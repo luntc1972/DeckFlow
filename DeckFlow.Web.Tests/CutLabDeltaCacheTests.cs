@@ -133,6 +133,35 @@ public sealed class CutLabDeltaCacheTests
         Assert.Same(firstDeltas, cachedFirstDeltas);
     }
 
+    /// <summary>Snapshot cache entries do not collide across distinct trial overrides.</summary>
+    [Fact]
+    public void TryGetSnapshot_DifferentTrialsOverride_Misses()
+    {
+        var cache = new CutLabDeltaCache();
+        string poolKey = CutLabResolvedCardCache.ComputePoolKey([("Mana Crypt", 1), ("Island", 3)]);
+        var snapshot = new CutLabMetricSnapshot
+        {
+            Metrics =
+            [
+                new CutLabMetricValue
+                {
+                    Kind = CutLabMetricKind.KeepableHand,
+                    Family = CutLabMetricFamily.KeepableHand,
+                    Label = "Keepable hand",
+                    Value = 77,
+                    Unit = CutLabMetricUnit.Percent,
+                },
+            ],
+        };
+
+        cache.SetSnapshot(poolKey, "cEDH", 4000, snapshot);
+
+        bool found = cache.TryGetSnapshot(poolKey, "cEDH", null, out var cachedSnapshot);
+
+        Assert.False(found);
+        Assert.Null(cachedSnapshot);
+    }
+
     private static CutLabProposalDeltas CreateProposalDeltas(string cardName, string label) =>
         new()
         {

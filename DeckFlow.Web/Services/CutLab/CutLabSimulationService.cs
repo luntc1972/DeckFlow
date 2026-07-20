@@ -48,6 +48,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
     private readonly CutLabDeltaCache _deltaCache;
     private readonly IScryfallCardResolver _resolver;
     private readonly ILogger<CutLabSimulationService> _logger;
+    private readonly Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabMetricSnapshot> _snapshotBuilder;
 
     /// <summary>Creates a new <see cref="CutLabSimulationService"/>.</summary>
     /// <param name="resolvedCardCache">Resolved-card cache for working pools.</param>
@@ -59,11 +60,22 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         CutLabDeltaCache deltaCache,
         IScryfallCardResolver resolver,
         ILogger<CutLabSimulationService> logger)
+        : this(resolvedCardCache, deltaCache, resolver, logger, BuildSnapshot)
+    {
+    }
+
+    internal CutLabSimulationService(
+        CutLabResolvedCardCache resolvedCardCache,
+        CutLabDeltaCache deltaCache,
+        IScryfallCardResolver resolver,
+        ILogger<CutLabSimulationService> logger,
+        Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabMetricSnapshot> snapshotBuilder)
     {
         _resolvedCardCache = resolvedCardCache ?? throw new ArgumentNullException(nameof(resolvedCardCache));
         _deltaCache = deltaCache ?? throw new ArgumentNullException(nameof(deltaCache));
         _resolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _snapshotBuilder = snapshotBuilder ?? throw new ArgumentNullException(nameof(snapshotBuilder));
     }
 
     /// <inheritdoc />
@@ -75,8 +87,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
     {
         ArgumentNullException.ThrowIfNull(workingList);
 
-        IReadOnlyList<DeckCardEntry> deckEntries = await ResolveDeckEntries(workingList, cancellationToken).ConfigureAwait(false);
-        return BuildSnapshot(deckEntries, playExperience, trialsOverride);
+        return await GetOrBuildSnapshot(workingList, playExperience, trialsOverride, cancellationToken).ConfigureAwait(false);
     }
 
     private static CutLabMetricSnapshot BuildSnapshot(
@@ -134,16 +145,17 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         ArgumentException.ThrowIfNullOrWhiteSpace(candidateCardName);
 
         string poolKey = ComputePoolKey(currentWorkingList);
-        if (_deltaCache.TryGet(poolKey, candidateCardName, out CutLabProposalDeltas? cached) && cached is not null)
+        if (_deltaCache.TryGet(poolKey, candidateCardName, out CutLabProposalDeltas? cached, trialsOverride) && cached is not null)
         {
             return cached;
         }
 
-        IReadOnlyList<DeckCardEntry> beforeEntries = await ResolveDeckEntries(currentWorkingList, cancellationToken).ConfigureAwait(false);
-        CutLabMetricSnapshot before = BuildSnapshot(beforeEntries, playExperience, trialsOverride);
         IReadOnlyList<CutLabPoolCard> afterWorkingList = RemoveCandidate(currentWorkingList, candidateCardName);
+        string afterPoolKey = ComputePoolKey(afterWorkingList);
+        IReadOnlyList<DeckCardEntry> beforeEntries = await ResolveDeckEntries(currentWorkingList, cancellationToken).ConfigureAwait(false);
+        CutLabMetricSnapshot before = GetOrBuildSnapshot(beforeEntries, poolKey, playExperience, trialsOverride);
         IReadOnlyList<DeckCardEntry> afterEntries = RemoveCandidate(beforeEntries, candidateCardName);
-        CutLabMetricSnapshot after = BuildSnapshot(afterEntries, playExperience, trialsOverride);
+        CutLabMetricSnapshot after = GetOrBuildSnapshot(afterEntries, afterPoolKey, playExperience, trialsOverride);
 
         IReadOnlyDictionary<CutLabMetricKind, CutLabMetricValue> afterMetrics = after.Metrics
             .ToDictionary(metric => metric.Kind);
@@ -161,8 +173,38 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
             ChangedFamilyCount = deltas.Where(delta => delta.IsMeaningful).Select(delta => delta.Family).Distinct().Count(),
         };
 
-        _deltaCache.Set(poolKey, candidateCardName, computed);
+        _deltaCache.SetSnapshot(poolKey, playExperience, trialsOverride, before);
+        _deltaCache.SetSnapshot(afterPoolKey, playExperience, trialsOverride, after);
+        _deltaCache.Set(poolKey, candidateCardName, computed, trialsOverride);
         return computed;
+    }
+
+    private CutLabMetricSnapshot GetOrBuildSnapshot(
+        IReadOnlyList<DeckCardEntry> deckEntries,
+        string poolKey,
+        string? playExperience,
+        int? trialsOverride)
+    {
+        if (_deltaCache.TryGetSnapshot(poolKey, playExperience, trialsOverride, out CutLabMetricSnapshot? cached) && cached is not null)
+        {
+            return cached;
+        }
+
+        CutLabMetricSnapshot snapshot = _snapshotBuilder(deckEntries, playExperience, trialsOverride);
+        _deltaCache.SetSnapshot(poolKey, playExperience, trialsOverride, snapshot);
+        return snapshot;
+    }
+
+    private async Task<CutLabMetricSnapshot> GetOrBuildSnapshot(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        string? playExperience,
+        int? trialsOverride,
+        CancellationToken cancellationToken,
+        string? poolKeyOverride = null)
+    {
+        string poolKey = poolKeyOverride ?? ComputePoolKey(workingList);
+        IReadOnlyList<DeckCardEntry> deckEntries = await ResolveDeckEntries(workingList, cancellationToken).ConfigureAwait(false);
+        return GetOrBuildSnapshot(deckEntries, poolKey, playExperience, trialsOverride);
     }
 
     private async Task<IReadOnlyList<DeckCardEntry>> ResolveDeckEntries(
