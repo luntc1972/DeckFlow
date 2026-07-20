@@ -1,0 +1,376 @@
+using DeckFlow.Core.Manabase;
+using DeckFlow.Web.Models.CutLab;
+using DeckFlow.Web.Services.Manabase;
+using DeckFlow.Web.Services.Scryfall;
+using Microsoft.Extensions.Logging;
+
+namespace DeckFlow.Web.Services.CutLab;
+
+/// <summary>Builds Cut Lab metric snapshots and proposal deltas by reusing the existing manabase engine.</summary>
+public interface ICutLabSimulationService
+{
+    /// <summary>Builds the metric snapshot for the current working list.</summary>
+    /// <param name="workingList">Current working pool cards.</param>
+    /// <param name="playExperience">Cut Lab play-experience label used to resolve the shared manabase mode.</param>
+    /// <param name="trialsOverride">Optional simulation trial count override; null keeps the engine default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The projected seven-family metric snapshot.</returns>
+    Task<CutLabMetricSnapshot> BuildSnapshot(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        string? playExperience,
+        int? trialsOverride = InLoopTrials,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Builds proposal deltas for removing a candidate card from the current working list.</summary>
+    /// <param name="currentWorkingList">Current working pool cards.</param>
+    /// <param name="candidateCardName">Candidate card to remove from the current working list.</param>
+    /// <param name="playExperience">Cut Lab play-experience label used to resolve the shared manabase mode.</param>
+    /// <param name="trialsOverride">Optional simulation trial count override; null keeps the engine default.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The noise-floored proposal deltas keyed to the current working list.</returns>
+    Task<CutLabProposalDeltas> ComputeProposalDeltas(
+        IReadOnlyList<CutLabPoolCard> currentWorkingList,
+        string candidateCardName,
+        string? playExperience,
+        int? trialsOverride = InLoopTrials,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Default in-loop trial count for Task 103-05 delta snapshots.</summary>
+    public const int InLoopTrials = 4000;
+}
+
+/// <summary>Cut Lab simulation service that projects existing engine output into the shared metric contract.</summary>
+public sealed class CutLabSimulationService : ICutLabSimulationService
+{
+    private static readonly IReadOnlyDictionary<string, int> EmptyFloors = new Dictionary<string, int>();
+
+    private readonly CutLabResolvedCardCache _resolvedCardCache;
+    private readonly CutLabDeltaCache _deltaCache;
+    private readonly IScryfallCardResolver _resolver;
+    private readonly ILogger<CutLabSimulationService> _logger;
+
+    /// <summary>Creates a new <see cref="CutLabSimulationService"/>.</summary>
+    /// <param name="resolvedCardCache">Resolved-card cache for working pools.</param>
+    /// <param name="deltaCache">Proposal-delta cache for repeated card renders.</param>
+    /// <param name="resolver">Shared Scryfall resolver pipeline.</param>
+    /// <param name="logger">Structured logger.</param>
+    public CutLabSimulationService(
+        CutLabResolvedCardCache resolvedCardCache,
+        CutLabDeltaCache deltaCache,
+        IScryfallCardResolver resolver,
+        ILogger<CutLabSimulationService> logger)
+    {
+        _resolvedCardCache = resolvedCardCache ?? throw new ArgumentNullException(nameof(resolvedCardCache));
+        _deltaCache = deltaCache ?? throw new ArgumentNullException(nameof(deltaCache));
+        _resolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
+
+    /// <inheritdoc />
+    public async Task<CutLabMetricSnapshot> BuildSnapshot(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        string? playExperience,
+        int? trialsOverride = ICutLabSimulationService.InLoopTrials,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(workingList);
+
+        ManabaseMode mode = CutLabRoleAssigner.ResolveMode(playExperience);
+        IReadOnlyList<DeckCardEntry> deckEntries = await ResolveDeckEntries(workingList, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
+        ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true);
+        deck = TagPlanRoles(deck, facts, mode);
+
+        // Why: 103-01 measured 5,164 ms at DefaultTrials on a 147-card pool. In-loop Cut Lab deltas
+        // therefore default to 4,000 trials here, while callers can pass null for full-fidelity runs.
+        ManabaseReport report = ManabaseAnalyzer.Analyze(
+            deck,
+            mode,
+            gateRampOnCastable: true,
+            keepShapes: true,
+            interactionLens: mode == ManabaseMode.Cedh,
+            trialsOverride: trialsOverride);
+
+        IReadOnlyList<CutLabMetricValue> metrics = BuildMetrics(report, deck, facts, mode);
+        return new CutLabMetricSnapshot { Metrics = metrics };
+    }
+
+    /// <inheritdoc />
+    public async Task<CutLabProposalDeltas> ComputeProposalDeltas(
+        IReadOnlyList<CutLabPoolCard> currentWorkingList,
+        string candidateCardName,
+        string? playExperience,
+        int? trialsOverride = ICutLabSimulationService.InLoopTrials,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(currentWorkingList);
+        ArgumentException.ThrowIfNullOrWhiteSpace(candidateCardName);
+
+        string poolKey = ComputePoolKey(currentWorkingList);
+        if (_deltaCache.TryGet(poolKey, candidateCardName, out CutLabProposalDeltas? cached) && cached is not null)
+        {
+            return cached;
+        }
+
+        CutLabMetricSnapshot before = await BuildSnapshot(currentWorkingList, playExperience, trialsOverride, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<CutLabPoolCard> afterWorkingList = RemoveCandidate(currentWorkingList, candidateCardName);
+        CutLabMetricSnapshot after = await BuildSnapshot(afterWorkingList, playExperience, trialsOverride, cancellationToken).ConfigureAwait(false);
+
+        IReadOnlyList<CutLabMetricDelta> deltas = before.Metrics
+            .Select(metric => CreateDelta(metric, after.Metrics.Single(afterMetric => afterMetric.Kind == metric.Kind)))
+            .ToArray();
+
+        CutLabProposalDeltas computed = new()
+        {
+            CardName = candidateCardName,
+            Deltas = deltas,
+            ChangedFamilyCount = deltas.Where(delta => delta.IsMeaningful).Select(delta => delta.Family).Distinct().Count(),
+        };
+
+        _deltaCache.Set(poolKey, candidateCardName, computed);
+        return computed;
+    }
+
+    private async Task<IReadOnlyList<DeckCardEntry>> ResolveDeckEntries(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        CancellationToken cancellationToken)
+    {
+        string poolKey = ComputePoolKey(workingList);
+        IReadOnlyList<ScryfallCardData>? cachedCards;
+        IReadOnlyList<ScryfallCardData> cards;
+        if (!_resolvedCardCache.TryGet(poolKey, out cachedCards) || cachedCards is null)
+        {
+            var resolvedCards = new List<ScryfallCardData>(workingList.Count);
+            foreach (CutLabPoolCard poolCard in workingList)
+            {
+                ScryfallCard? resolved = await _resolver.ResolveSingleAsync(poolCard.Name, cancellationToken).ConfigureAwait(false);
+                if (resolved is null)
+                {
+                    throw new InvalidOperationException($"Cut Lab simulation could not resolve '{poolCard.Name}'.");
+                }
+
+                resolvedCards.Add(ScryfallCardDataMapper.ToCardData(resolved));
+            }
+
+            cards = resolvedCards;
+            _resolvedCardCache.Set(poolKey, cards);
+            _logger.LogInformation("Resolved {CardCount} Cut Lab cards for snapshot pool {PoolKey}.", cards.Count, poolKey);
+        }
+        else
+        {
+            cards = cachedCards;
+        }
+
+        return workingList
+            .Zip(
+                cards,
+                (poolCard, card) => new DeckCardEntry
+                {
+                    Card = card,
+                    Quantity = poolCard.Quantity,
+                    IsCommander = poolCard.IsCommander,
+                })
+            .ToArray();
+    }
+
+    private static IReadOnlyList<CutLabMetricValue> BuildMetrics(
+        ManabaseReport report,
+        ManabaseDeck deck,
+        IReadOnlyList<CardFact> facts,
+        ManabaseMode mode)
+    {
+        CardCastability? commander = report.Castability.FirstOrDefault(row => row.IsCommander);
+        CardCastability[] engineRows = PlanRows(deck, report, PlanRole.Engine);
+        CardCastability[] lineRows = PlanRows(deck, report, PlanRole.Engine | PlanRole.Payoff | PlanRole.TutorCombo | PlanRole.Interaction);
+        CutLabMetricValue[] metrics =
+        [
+            Metric(CutLabMetricKind.CommanderOnTime, CutLabMetricFamily.CommanderOnTime, "Commander on time", commander?.CastPercent ?? 0, CutLabMetricUnit.Percent),
+            Metric(CutLabMetricKind.KeepableHand, CutLabMetricFamily.KeepableHand, "Keepable hand", report.MulliganEvaluation?.KeepableHandPercent ?? 0, CutLabMetricUnit.Percent),
+            Metric(CutLabMetricKind.ManaColorReliability, CutLabMetricFamily.ManaColorReliability, "Mana and color reliability", report.ColorFindings.FirstOrDefault()?.AverageCastPercent ?? 0, CutLabMetricUnit.Percent),
+            Metric(CutLabMetricKind.EarlyInteraction, CutLabMetricFamily.EarlyInteraction, "Early interaction", EarlyInteractionValue(report.InteractionLens), CutLabMetricUnit.Percent),
+            Metric(CutLabMetricKind.PlanPresence, CutLabMetricFamily.PlanPresence, "Plan presence", report.MulliganEvaluation?.PlanPresence?.PlanPresencePercent ?? 0, CutLabMetricUnit.Percent),
+            Metric(CutLabMetricKind.CommanderByTurn, CutLabMetricFamily.CategoryByTurn, "Commander by turn 3", PercentByTurn(commander, CutLabCategoryByTurnDefaults.CommanderByTurn), CutLabMetricUnit.Percent),
+            Metric(CutLabMetricKind.EngineByTurn, CutLabMetricFamily.CategoryByTurn, "Engine by turn 2", MaxPercentByTurn(engineRows, CutLabCategoryByTurnDefaults.EngineByTurn), CutLabMetricUnit.Percent),
+            Metric(CutLabMetricKind.RepresentativeLineByTurn, CutLabMetricFamily.CategoryByTurn, "Representative line by turn 4", MaxPercentByTurn(lineRows, CutLabCategoryByTurnDefaults.RepresentativeLineByTurn), CutLabMetricUnit.Percent),
+            Metric(CutLabMetricKind.Flood, CutLabMetricFamily.FloodScrewCurveRisk, "Flood", Math.Max(0, report.LandDelta), CutLabMetricUnit.Cards),
+            Metric(CutLabMetricKind.Screw, CutLabMetricFamily.FloodScrewCurveRisk, "Screw", report.MulliganEvaluation?.MulliganTo5Percent ?? 0, CutLabMetricUnit.Percent),
+            Metric(CutLabMetricKind.Curve, CutLabMetricFamily.FloodScrewCurveRisk, "Curve", CurveCongestionValue(facts, mode), CutLabMetricUnit.Cards),
+        ];
+
+        return metrics;
+    }
+
+    private static CutLabMetricValue Metric(
+        CutLabMetricKind kind,
+        CutLabMetricFamily family,
+        string label,
+        double value,
+        CutLabMetricUnit unit)
+        => new()
+        {
+            Kind = kind,
+            Family = family,
+            Label = label,
+            Value = value,
+            Unit = unit,
+        };
+
+    private static CutLabMetricDelta CreateDelta(CutLabMetricValue before, CutLabMetricValue after)
+    {
+        if (double.IsNaN(before.Value) || double.IsNaN(after.Value))
+        {
+            return new CutLabMetricDelta
+            {
+                Kind = before.Kind,
+                Family = before.Family,
+                Label = before.Label,
+                Before = before.Value,
+                After = after.Value,
+                Delta = 0,
+                Direction = CutLabMetricDirection.None,
+                IsMeaningful = false,
+            };
+        }
+
+        double delta = after.Value - before.Value;
+        double threshold = before.Unit == CutLabMetricUnit.Cards
+            ? CutLabNoiseFloor.Cards
+            : CutLabNoiseFloor.PercentPoints;
+        bool isMeaningful = Math.Abs(delta) > threshold;
+        CutLabMetricDirection direction = !isMeaningful
+            ? CutLabMetricDirection.None
+            : delta > 0
+                ? CutLabMetricDirection.Up
+                : CutLabMetricDirection.Down;
+
+        return new CutLabMetricDelta
+        {
+            Kind = before.Kind,
+            Family = before.Family,
+            Label = before.Label,
+            Before = before.Value,
+            After = after.Value,
+            Delta = delta,
+            Direction = direction,
+            IsMeaningful = isMeaningful,
+        };
+    }
+
+    private static string ComputePoolKey(IReadOnlyList<CutLabPoolCard> pool)
+        => CutLabResolvedCardCache.ComputePoolKey(pool.Select(card => (card.Name, card.Quantity)).ToArray());
+
+    private static IReadOnlyList<CutLabPoolCard> RemoveCandidate(
+        IReadOnlyList<CutLabPoolCard> currentWorkingList,
+        string candidateCardName)
+    {
+        bool removed = false;
+        return currentWorkingList
+            .Where(card =>
+            {
+                if (!removed && string.Equals(card.Name, candidateCardName, StringComparison.OrdinalIgnoreCase))
+                {
+                    removed = true;
+                    return false;
+                }
+
+                return true;
+            })
+            .ToArray();
+    }
+
+    private static ManabaseDeck TagPlanRoles(
+        ManabaseDeck deck,
+        IReadOnlyList<CardFact> facts,
+        ManabaseMode mode)
+    {
+        var factsByName = facts.ToDictionary(fact => fact.Name, StringComparer.OrdinalIgnoreCase);
+        return deck with
+        {
+            Spells = deck.Spells
+                .Select(spell =>
+                {
+                    if (!factsByName.TryGetValue(spell.Name, out CardFact? fact))
+                    {
+                        return spell;
+                    }
+
+                    // Why: this service is intentionally scoped to resolver/cache/logger dependencies.
+                    // With no category or Spellbook sources available, mirror ManabaseAnalysisService's
+                    // heuristic fallback tier and leave the richer upstream sources fail-open.
+                    PlanRole roles = PlanRoleClassifier.Classify(fact, [], false, mode, out bool interactionMeritPreGate);
+                    return spell with { PlanRoles = roles, IsInteractionSpell = interactionMeritPreGate };
+                })
+                .ToArray(),
+        };
+    }
+
+    private static CardCastability[] PlanRows(ManabaseDeck deck, ManabaseReport report, PlanRole roles)
+    {
+        var rowsByName = report.Castability.ToDictionary(row => row.Name, StringComparer.OrdinalIgnoreCase);
+        return deck.Spells
+            .Where(spell => spell.PlanRoles.HasFlag(roles))
+            .Select(spell => rowsByName.TryGetValue(spell.Name, out CardCastability? row) ? row : null)
+            .Where(row => row is not null)
+            .Cast<CardCastability>()
+            .ToArray();
+    }
+
+    private static double EarlyInteractionValue(ManabaseInteractionLens? lens)
+    {
+        if (lens is null)
+        {
+            return double.NaN;
+        }
+
+        return lens.QualifyingCount == 0
+            ? 0
+            : Math.Round((100.0 * lens.OnTargetCount) / lens.QualifyingCount, 1);
+    }
+
+    private static double MaxPercentByTurn(IReadOnlyList<CardCastability> rows, int turn)
+        => rows.Count == 0 ? 0 : rows.Max(row => PercentByTurn(row, turn));
+
+    private static double PercentByTurn(CardCastability? row, int turn)
+    {
+        if (row is null)
+        {
+            return 0;
+        }
+
+        if (row.EarlyCastPercents.Count == 0)
+        {
+            return turn >= row.OnCurveTurn ? row.CastPercent : 0;
+        }
+
+        int index = Math.Clamp(turn - 1, 0, row.EarlyCastPercents.Count - 1);
+        return row.EarlyCastPercents[index];
+    }
+
+    private static double CurveCongestionValue(IReadOnlyList<CardFact> facts, ManabaseMode mode)
+    {
+        CutLabAnalyzedCard[] analyzedCards = facts
+            .Select(fact => new CutLabAnalyzedCard(
+                fact.Name,
+                fact.ManaValue,
+                CutLabLockRules.IsLand(fact.TypeLine),
+                CutLabRoleAssigner.AssignRoles(fact, [], false, mode),
+                [])
+            {
+                Quantity = fact.Quantity,
+            })
+            .ToArray();
+
+        CutLabStructuralFindingsResult findings = CutLabStructuralFindings.Compute(
+            analyzedCards,
+            [],
+            EmptyFloors,
+            comboDataAvailable: false,
+            categoryDataAvailable: false);
+
+        return findings.Findings
+            .Where(finding => finding.Kind == CutLabFindingKind.CurveCongestion)
+            .Select(finding => (double)finding.Evidence.Count)
+            .DefaultIfEmpty(0)
+            .Max();
+    }
+}
