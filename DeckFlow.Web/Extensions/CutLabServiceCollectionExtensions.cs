@@ -19,6 +19,8 @@ public static class CutLabServiceCollectionExtensions
 
         services.AddSingleton<CutLabResolvedCardCache>();
         services.AddSingleton<CutLabDeltaCache>();
+        services.AddScoped<ICutLabSimulationService, CutLabSimulationService>();
+        services.AddScoped<CutLabBaselineSnapshot>();
 
         return services;
     }
