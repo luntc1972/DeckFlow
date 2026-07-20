@@ -254,6 +254,24 @@ public sealed class CutLabStateSerializerTests
     }
 
     [Fact]
+    public void Serialize_FreshState_DoesNotWriteLegacyCombinedBoardFlag()
+    {
+        var state = new CutLabState
+        {
+            Intent = new CutLabIntent
+            {
+                PrimaryPlan = "Counters",
+                IncludeSideboard = true,
+                IncludeMaybeboard = true,
+            },
+        };
+
+        var json = CutLabStateSerializer.Serialize(state);
+
+        Assert.DoesNotContain("includeSideboardAndMaybeboard", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SerializeDeserialize_RoundTripsDecisionsAndBaselineSnapshot_WithoutMutatingPool()
     {
         var state = new CutLabState
