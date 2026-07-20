@@ -33,10 +33,11 @@ public sealed class CutLabPoolValidatorTests
     [InlineData(300)]
     public void ValidateCardCount_CountAboveSupportedRange_ThrowsExceedsCapMessage(int nonCommanderCardCount)
     {
-        var exception = Assert.Throws<InvalidOperationException>(() => CutLabPoolValidator.ValidateCardCount(nonCommanderCardCount));
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => CutLabPoolValidator.ValidateCardCount(nonCommanderCardCount, nonCommanderCardCount, sideboardCount: 0, maybeboardCount: 0));
 
         Assert.Equal(
-            "This pool has too many cards for Cut Lab (limit 150 plus commander). Trim it closer to 150 before importing.",
+            $"This pool has {nonCommanderCardCount} non-commander cards — over Cut Lab's 150 max. Main {nonCommanderCardCount} · Sideboard 0 · Considering/Maybe 0. Deselect the sideboard or considering list to fit.",
             exception.Message);
     }
 
@@ -44,9 +45,21 @@ public sealed class CutLabPoolValidatorTests
     public void ValidateCardCount_OutOfRangeBranches_UseDistinctMessages()
     {
         var tooSmall = Assert.Throws<InvalidOperationException>(() => CutLabPoolValidator.ValidateCardCount(100));
-        var tooLarge = Assert.Throws<InvalidOperationException>(() => CutLabPoolValidator.ValidateCardCount(151));
+        var tooLarge = Assert.Throws<InvalidOperationException>(
+            () => CutLabPoolValidator.ValidateCardCount(151, mainboardCount: 120, sideboardCount: 20, maybeboardCount: 11));
 
         Assert.NotEqual(tooSmall.Message, tooLarge.Message);
+    }
+
+    [Fact]
+    public void ValidateCardCount_CountAboveSupportedRange_ReportsBoardBreakdown()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => CutLabPoolValidator.ValidateCardCount(154, mainboardCount: 120, sideboardCount: 22, maybeboardCount: 12));
+
+        Assert.Contains("Main 120", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("Sideboard 22", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("Considering/Maybe 12", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
