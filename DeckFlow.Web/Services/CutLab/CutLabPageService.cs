@@ -254,15 +254,28 @@ internal sealed class CutLabPageService : ICutLabPageService
         var preAnalysisState = BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, []);
         preAnalysisState = CutLabLockRules.EnforceCommanderLock(preAnalysisState);
         IReadOnlyList<CutLabPoolCard> derivedWorkingList = CutLabWorkingList.Derive(preAnalysisState.Pool, preAnalysisState.Decisions);
+        IReadOnlyList<ScryfallCardData> preResolvedCards = resolvedEntries
+            .Select(entry => entry.Card)
+            .Where(card => card is not null)
+            .Cast<ScryfallCardData>()
+            .ToArray();
+        if (_analysisContextBuilder is CutLabAnalysisContextBuilder concreteAnalysisBuilder)
+        {
+            concreteAnalysisBuilder.PrimeResolvedCardsCache(
+                preAnalysisState.Pool,
+                preResolvedCards,
+                resolvedEntries
+                    .Where(entry => entry.Card is null)
+                    .Select(entry => entry.Name)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray());
+        }
+
         CutLabAnalysisContext analysisContext = await _analysisContextBuilder.BuildAsync(
             derivedWorkingList,
             request.PlayExperience,
             commanderResolution.CommanderNames,
-            resolvedEntries
-                .Select(entry => entry.Card)
-                .Where(card => card is not null)
-                .Cast<ScryfallCardData>()
-                .ToArray(),
+            preAnalysisState.Decisions.Count == 0 ? null : preResolvedCards,
             cancellationToken).ConfigureAwait(false);
         IReadOnlyList<CutLabResolvedFloor> resolvedFloors = CutLabFloorDefaults.ResolveDefaults(
             request.Bracket,

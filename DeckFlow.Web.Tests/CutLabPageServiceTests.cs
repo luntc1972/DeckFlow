@@ -917,6 +917,71 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_IntakeWithOneUnresolvableCard_ResolvesEachUniqueCardOnlyOnce()
+    {
+        List<DeckEntry> entries =
+        [
+            Entry("Focused Commander", "commander"),
+            Entry("Island", "mainboard") with { Quantity = 40 },
+            Entry("Swamp", "mainboard") with { Quantity = 20 },
+            Entry("Arcane Signet", "mainboard") with { Quantity = 10 },
+            Entry("Sol Ring", "mainboard") with { Quantity = 10 },
+            Entry("Value Engine", "mainboard") with { Quantity = 10 },
+            Entry("Combo Tutor", "mainboard") with { Quantity = 10 },
+            Entry("Fast Interaction", "mainboard") with { Quantity = 8 },
+            Entry("Closing Threat", "mainboard") with { Quantity = 6 },
+            Entry("Typo Card", "mainboard") with { Quantity = 7 },
+        ];
+        List<ScryfallCard> cards =
+        [
+            Spell("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{U}{B}", oracleText: "Whenever you cast your second spell each turn, draw a card.", power: "3", cmc: 3),
+            Spell("Island", "Basic Land — Island", oracleText: "{T}: Add {U}."),
+            Spell("Swamp", "Basic Land — Swamp", oracleText: "{T}: Add {B}."),
+            Spell("Arcane Signet", "Artifact", manaCost: "{2}", oracleText: "{T}: Add one mana of any color in your commander's color identity.", cmc: 2),
+            Spell("Sol Ring", "Artifact", manaCost: "{1}", oracleText: "{T}: Add {C}{C}.", cmc: 1),
+            Spell("Value Engine", "Enchantment", manaCost: "{1}{U}", oracleText: "At the beginning of your upkeep, draw a card.", cmc: 2),
+            Spell("Combo Tutor", "Sorcery", manaCost: "{1}{B}", oracleText: "Search your library for a card, put that card into your hand, then shuffle.", cmc: 2),
+            Spell("Fast Interaction", "Instant", manaCost: "{U}", oracleText: "Counter target spell.", cmc: 1),
+            Spell("Closing Threat", "Creature — Leviathan", manaCost: "{5}{U}", oracleText: "Whenever this creature attacks, creatures you control get +6/+6 until end of turn.", power: "6", cmc: 6),
+        ];
+        var resolver = new CountingNormalizerResolver(cards);
+        var cache = new CutLabResolvedCardCache();
+        var simulationService = new CutLabSimulationService(
+            cache,
+            new CutLabDeltaCache(),
+            resolver,
+            NullLogger<CutLabSimulationService>.Instance);
+        var analysisBuilder = new CutLabAnalysisContextBuilder(
+            resolver,
+            cache,
+            new FakeSpellbookService(),
+            new FakeCategoryKnowledgeStore());
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            resolver,
+            new FakeBanListService([]),
+            new FakeCategoryKnowledgeStore(),
+            new FakeSpellbookService(),
+            new FakeManabaseBaselineProvider(),
+            new FakeCedhLandBaselineProvider(),
+            analysisBuilder,
+            simulationService,
+            new CutLabBaselineSnapshot(simulationService));
+
+        var result = await service.ProcessAsync(new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            PlayExperience = "cEDH",
+        });
+
+        Assert.True(result.HasResult);
+        Assert.Equal(10, resolver.ResolveSingleCallsByName.Count);
+        Assert.All(resolver.ResolveSingleCallsByName.Values, count => Assert.Equal(1, count));
+        Assert.Equal(1, resolver.ResolveSingleCallsByName["typo card"]);
+    }
+
+    [Fact]
     public void From_WhenProposalDeltasUnavailable_StillBuildsProposalCardWithFallbackMessage()
     {
         var request = new CutLabRequest();
