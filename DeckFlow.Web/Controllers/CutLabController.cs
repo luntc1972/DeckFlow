@@ -100,6 +100,55 @@ public sealed class CutLabController : Controller
         }
     }
 
+    /// <summary>Applies posted goal turns and re-renders the full page for the no-JS fallback.</summary>
+    /// <param name="request">Posted Cut Lab form fields.</param>
+    [HttpPost("/cut-lab/goals")]
+    [FeatureFlagGate("tool.cut-lab.enabled")]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(2 * 1024 * 1024)]
+    public async Task<IActionResult> Goals(CutLabRequest request)
+    {
+        request ??= new CutLabRequest();
+
+        if (string.IsNullOrWhiteSpace(request.CutLabStateJson))
+        {
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+        }
+
+        try
+        {
+            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            state = state with
+            {
+                Goals = new CutLabGoalSettings
+                {
+                    CommanderByTurn = request.GoalCommanderByTurn ?? state.Goals.CommanderByTurn,
+                    EngineByTurn = request.GoalEngineByTurn ?? state.Goals.EngineByTurn,
+                    RepresentativeLineByTurn = request.GoalPlanByTurn ?? state.Goals.RepresentativeLineByTurn,
+                },
+            };
+            state = CutLabGoalRules.ClampGoals(state);
+            RehydrateIntakeRequestFromState(request, state);
+            request.CutLabStateJson = CutLabStateSerializer.Serialize(state);
+
+            var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
+            return View("CutLab", CutLabViewModel.From(request, result));
+        }
+        catch (InvalidOperationException exception)
+        {
+            return CutLabView(request, error: exception.Message);
+        }
+        catch (OperationCanceledException)
+        {
+            return CutLabView(request, error: "The request timed out. Try again.");
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Cut Lab goals fallback failed.");
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+        }
+    }
+
     private static string DetermineRoundKey(CutLabState state, string cardName, CutLabDecideAction decision, string? postedRoundKey)
     {
         if (CutLabCutRoundEngine.IsKnownRoundKey(postedRoundKey))
