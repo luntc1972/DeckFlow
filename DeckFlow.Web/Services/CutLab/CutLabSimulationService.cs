@@ -78,17 +78,36 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         ManabaseMode mode = CutLabRoleAssigner.ResolveMode(playExperience);
         IReadOnlyList<DeckCardEntry> deckEntries = await ResolveDeckEntries(workingList, cancellationToken).ConfigureAwait(false);
         IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
-        ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true);
+        ManabaseDeck deck = ManabaseClassifier.Classify(
+            facts,
+            isSingleton: true,
+            rampCreditV2: true,
+            landRampSim: true,
+            payLifeUntapped: true,
+            checkLandUntapped: true,
+            restrictedLands: true);
         deck = TagPlanRoles(deck, facts, mode);
+        CedhLandContext cedhContext = mode == ManabaseMode.Cedh
+            ? new CedhLandContext(null, 0, Enabled: true)
+            : CedhLandContext.Disabled;
 
         // Why: 103-01 measured 5,164 ms at DefaultTrials on a 147-card pool. In-loop Cut Lab deltas
         // therefore default to 4,000 trials here, while callers can pass null for full-fidelity runs.
         ManabaseReport report = ManabaseAnalyzer.Analyze(
             deck,
             mode,
+            useManaQuantity: true,
+            colorAwareMulligan: true,
             gateRampOnCastable: true,
+            ritualBurst: true,
+            ritualLandCredit: true,
+            scryCredit: true,
+            colorlessSnow: true,
             keepShapes: true,
             interactionLens: mode == ManabaseMode.Cedh,
+            useHealthBandCastability: true,
+            useHealthBandHeadlineFloor: true,
+            cedhContext: cedhContext,
             trialsOverride: trialsOverride);
 
         IReadOnlyList<CutLabMetricValue> metrics = BuildMetrics(report, deck, facts, mode);
@@ -116,8 +135,13 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         IReadOnlyList<CutLabPoolCard> afterWorkingList = RemoveCandidate(currentWorkingList, candidateCardName);
         CutLabMetricSnapshot after = await BuildSnapshot(afterWorkingList, playExperience, trialsOverride, cancellationToken).ConfigureAwait(false);
 
+        IReadOnlyDictionary<CutLabMetricKind, CutLabMetricValue> afterMetrics = after.Metrics
+            .ToDictionary(metric => metric.Kind);
         IReadOnlyList<CutLabMetricDelta> deltas = before.Metrics
-            .Select(metric => CreateDelta(metric, after.Metrics.Single(afterMetric => afterMetric.Kind == metric.Kind)))
+            .Where(metric => afterMetrics.ContainsKey(metric.Kind))
+            .Select(metric => CreateDelta(metric, afterMetrics[metric.Kind]))
+            .Where(delta => delta is not null)
+            .Cast<CutLabMetricDelta>()
             .ToArray();
 
         CutLabProposalDeltas computed = new()
@@ -158,7 +182,13 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         }
         else
         {
-            cards = cachedCards;
+            IReadOnlyDictionary<string, ScryfallCardData> cardsByName = cachedCards
+                .ToDictionary(card => card.Name, StringComparer.OrdinalIgnoreCase);
+            cards = workingList
+                .Select(poolCard => cardsByName.TryGetValue(poolCard.Name, out ScryfallCardData? card)
+                    ? card
+                    : throw new InvalidOperationException($"Cut Lab resolved-card cache was missing '{poolCard.Name}' for pool {poolKey}."))
+                .ToArray();
         }
 
         return workingList
@@ -197,7 +227,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
             Metric(CutLabMetricKind.Curve, CutLabMetricFamily.FloodScrewCurveRisk, "Curve", CurveCongestionValue(facts, mode), CutLabMetricUnit.Cards),
         ];
 
-        return metrics;
+        return metrics.Where(metric => double.IsFinite(metric.Value)).ToArray();
     }
 
     private static CutLabMetricValue Metric(
@@ -215,21 +245,11 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
             Unit = unit,
         };
 
-    private static CutLabMetricDelta CreateDelta(CutLabMetricValue before, CutLabMetricValue after)
+    private static CutLabMetricDelta? CreateDelta(CutLabMetricValue before, CutLabMetricValue after)
     {
-        if (double.IsNaN(before.Value) || double.IsNaN(after.Value))
+        if (!double.IsFinite(before.Value) || !double.IsFinite(after.Value))
         {
-            return new CutLabMetricDelta
-            {
-                Kind = before.Kind,
-                Family = before.Family,
-                Label = before.Label,
-                Before = before.Value,
-                After = after.Value,
-                Delta = 0,
-                Direction = CutLabMetricDirection.None,
-                IsMeaningful = false,
-            };
+            return null;
         }
 
         double delta = after.Value - before.Value;
@@ -308,7 +328,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
     {
         var rowsByName = report.Castability.ToDictionary(row => row.Name, StringComparer.OrdinalIgnoreCase);
         return deck.Spells
-            .Where(spell => spell.PlanRoles.HasFlag(roles))
+            .Where(spell => (spell.PlanRoles & roles) != 0)
             .Select(spell => rowsByName.TryGetValue(spell.Name, out CardCastability? row) ? row : null)
             .Where(row => row is not null)
             .Cast<CardCastability>()
@@ -319,7 +339,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
     {
         if (lens is null)
         {
-            return double.NaN;
+            return double.NegativeInfinity;
         }
 
         return lens.QualifyingCount == 0

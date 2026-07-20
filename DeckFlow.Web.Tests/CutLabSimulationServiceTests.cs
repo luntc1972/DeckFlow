@@ -53,8 +53,29 @@ public sealed class CutLabSimulationServiceTests
 
         CutLabMetricSnapshot snapshot = await service.BuildSnapshot(pool.WorkingList, "Casual");
 
-        CutLabMetricValue earlyInteraction = Assert.Single(snapshot.Metrics, metric => metric.Kind == CutLabMetricKind.EarlyInteraction);
-        Assert.True(double.IsNaN(earlyInteraction.Value));
+        Assert.DoesNotContain(snapshot.Metrics, metric => metric.Kind == CutLabMetricKind.EarlyInteraction);
+    }
+
+    [Fact]
+    public async Task BuildSnapshot_UsesAnyOfPlanRolesForRepresentativeLine()
+    {
+        TestPool pool = BuildCedhPool();
+        var service = CreateService(new FakeResolver(pool.Cards));
+
+        CutLabMetricSnapshot snapshot = await service.BuildSnapshot(pool.WorkingList, "cEDH");
+        (ManabaseDeck deck, ManabaseReport report) = BuildDirectProjection(pool.WorkingList, "cEDH", trialsOverride: 4000, pool.Cards);
+
+        PlanRole lineRoles = PlanRole.Engine | PlanRole.Payoff | PlanRole.TutorCombo | PlanRole.Interaction;
+        CardCastability[] expectedRows = deck.Spells
+            .Where(spell => (spell.PlanRoles & lineRoles) != 0)
+            .Select(spell => report.Castability.Single(row => string.Equals(row.Name, spell.Name, StringComparison.OrdinalIgnoreCase)))
+            .ToArray();
+        double expected = expectedRows.Max(row => PercentByTurn(row, CutLabCategoryByTurnDefaults.RepresentativeLineByTurn));
+
+        CutLabMetricValue representativeLine = Assert.Single(snapshot.Metrics, metric => metric.Kind == CutLabMetricKind.RepresentativeLineByTurn);
+        Assert.NotEmpty(expectedRows);
+        Assert.True(expected > 0);
+        Assert.Equal(expected, representativeLine.Value);
     }
 
     [Fact]
@@ -132,6 +153,43 @@ public sealed class CutLabSimulationServiceTests
                 || metric.Label.Contains("bad", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public async Task BuildSnapshot_ReorderedPoolCacheHitAlignsCardsByName()
+    {
+        TestPool orderedPool = BuildCacheAlignmentPool();
+        TestPool shuffledPool = orderedPool with
+        {
+            WorkingList =
+            [
+                orderedPool.WorkingList[2],
+                orderedPool.WorkingList[0],
+                orderedPool.WorkingList[3],
+                orderedPool.WorkingList[1],
+            ],
+        };
+        var sharedResolvedCardCache = new CutLabResolvedCardCache();
+        var warmResolver = new FakeResolver(orderedPool.Cards);
+        var warmService = new CutLabSimulationService(
+            sharedResolvedCardCache,
+            new CutLabDeltaCache(),
+            warmResolver,
+            NullLogger<CutLabSimulationService>.Instance);
+        var cachedResolver = new FakeResolver(orderedPool.Cards);
+        var cachedService = new CutLabSimulationService(
+            sharedResolvedCardCache,
+            new CutLabDeltaCache(),
+            cachedResolver,
+            NullLogger<CutLabSimulationService>.Instance);
+        var expectedService = CreateService(new FakeResolver(orderedPool.Cards));
+
+        _ = await warmService.BuildSnapshot(orderedPool.WorkingList, "cEDH");
+        CutLabMetricSnapshot cachedSnapshot = await cachedService.BuildSnapshot(shuffledPool.WorkingList, "cEDH");
+        CutLabMetricSnapshot expectedSnapshot = await expectedService.BuildSnapshot(shuffledPool.WorkingList, "cEDH");
+
+        Assert.Equal(0, cachedResolver.ResolveSingleCalls);
+        Assert.Equal(expectedSnapshot.Metrics, cachedSnapshot.Metrics);
+    }
+
     private static CutLabSimulationService CreateService(FakeResolver resolver)
         => new(
             new CutLabResolvedCardCache(),
@@ -140,6 +198,13 @@ public sealed class CutLabSimulationServiceTests
             NullLogger<CutLabSimulationService>.Instance);
 
     private static ManabaseReport BuildDirectReport(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        string playExperience,
+        int? trialsOverride,
+        IReadOnlyList<ScryfallCard> cards)
+        => BuildDirectProjection(workingList, playExperience, trialsOverride, cards).Report;
+
+    private static (ManabaseDeck Deck, ManabaseReport Report) BuildDirectProjection(
         IReadOnlyList<CutLabPoolCard> workingList,
         string playExperience,
         int? trialsOverride,
@@ -157,7 +222,14 @@ public sealed class CutLabSimulationServiceTests
 
         IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
         ManabaseMode mode = CutLabRoleAssigner.ResolveMode(playExperience);
-        ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true);
+        ManabaseDeck deck = ManabaseClassifier.Classify(
+            facts,
+            isSingleton: true,
+            rampCreditV2: true,
+            landRampSim: true,
+            payLifeUntapped: true,
+            checkLandUntapped: true,
+            restrictedLands: true);
         deck = deck with
         {
             Spells = deck.Spells
@@ -169,14 +241,27 @@ public sealed class CutLabSimulationServiceTests
                 })
                 .ToArray(),
         };
+        CedhLandContext cedhContext = mode == ManabaseMode.Cedh
+            ? new CedhLandContext(null, 0, Enabled: true)
+            : CedhLandContext.Disabled;
 
-        return ManabaseAnalyzer.Analyze(
+        ManabaseReport report = ManabaseAnalyzer.Analyze(
             deck,
             mode,
+            useManaQuantity: true,
+            colorAwareMulligan: true,
             gateRampOnCastable: true,
+            ritualBurst: true,
+            ritualLandCredit: true,
+            scryCredit: true,
+            colorlessSnow: true,
             keepShapes: true,
             interactionLens: mode == ManabaseMode.Cedh,
+            useHealthBandCastability: true,
+            useHealthBandHeadlineFloor: true,
+            cedhContext: cedhContext,
             trialsOverride: trialsOverride);
+        return (deck, report);
     }
 
     private static TestPool BuildCedhPool()
@@ -224,6 +309,32 @@ public sealed class CutLabSimulationServiceTests
                 .Where(card => !string.Equals(card.Name, "Fast Interaction", StringComparison.OrdinalIgnoreCase))
                 .ToArray(),
         };
+    }
+
+    private static TestPool BuildCacheAlignmentPool()
+        => new(
+            [
+                PoolCard("Mismatch Commander", "Legendary Creature — Human Wizard", isCommander: true),
+                PoolCard("Mismatch Land", "Land", quantity: 34),
+                PoolCard("Mismatch Interaction", "Instant"),
+                PoolCard("Mismatch Threat", "Creature — Dragon"),
+            ],
+            [
+                Spell("Mismatch Commander", "Legendary Creature — Human Wizard", manaCost: "{2}{U}", oracleText: "Flying", power: "3", cmc: 3),
+                Spell("Mismatch Land", "Land", oracleText: "{T}: Add {U}.", producedMana: ["U"]),
+                Spell("Mismatch Interaction", "Instant", manaCost: "{U}", oracleText: "Counter target spell.", cmc: 1),
+                Spell("Mismatch Threat", "Creature — Dragon", manaCost: "{6}{U}", oracleText: "Flying", power: "7", cmc: 7),
+            ]);
+
+    private static double PercentByTurn(CardCastability row, int turn)
+    {
+        if (row.EarlyCastPercents.Count == 0)
+        {
+            return turn >= row.OnCurveTurn ? row.CastPercent : 0;
+        }
+
+        int index = Math.Clamp(turn - 1, 0, row.EarlyCastPercents.Count - 1);
+        return row.EarlyCastPercents[index];
     }
 
     private static CutLabPoolCard PoolCard(string name, string typeLine, int quantity = 1, bool isCommander = false)

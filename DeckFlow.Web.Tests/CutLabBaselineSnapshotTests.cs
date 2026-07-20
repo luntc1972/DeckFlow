@@ -58,6 +58,25 @@ public sealed class CutLabBaselineSnapshotTests
     }
 
     [Fact]
+    public async Task Build_CasualBaselineRoundTripsThroughCutLabStateSerializer()
+    {
+        TestPool pool = BuildCasualPool();
+        var baseline = await CreateBuilder(pool).Build(pool.WorkingList, "Casual");
+        var state = new CutLabState
+        {
+            Commander = "Cut Lab Commander",
+            Pool = pool.WorkingList,
+            BaselineSnapshot = baseline,
+        };
+
+        string json = CutLabStateSerializer.Serialize(state);
+        CutLabState roundTripped = CutLabStateSerializer.Deserialize(json);
+
+        Assert.NotNull(roundTripped.BaselineSnapshot);
+        Assert.DoesNotContain(roundTripped.BaselineSnapshot!.Metrics, metric => metric.Kind == CutLabMetricKind.EarlyInteraction);
+    }
+
+    [Fact]
     public async Task Build_IsDeterministicForSameOriginalPool()
     {
         TestPool pool = BuildPool();
@@ -126,6 +145,20 @@ public sealed class CutLabBaselineSnapshotTests
         cards.AddRange(Enumerable.Range(1, 62).Select(index => Spell($"Filler {index:00}", "Artifact", manaCost: "{2}", oracleText: "A test artifact.", cmc: 2)));
 
         return new TestPool(workingList, cards);
+    }
+
+    private static TestPool BuildCasualPool()
+    {
+        TestPool cedh = BuildPool();
+        return cedh with
+        {
+            WorkingList = cedh.WorkingList
+                .Where(card => !string.Equals(card.Name, "Fast Interaction", StringComparison.OrdinalIgnoreCase))
+                .ToArray(),
+            Cards = cedh.Cards
+                .Where(card => !string.Equals(card.Name, "Fast Interaction", StringComparison.OrdinalIgnoreCase))
+                .ToArray(),
+        };
     }
 
     private static CutLabPoolCard PoolCard(string name, string typeLine, int quantity = 1, bool isCommander = false)
