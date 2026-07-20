@@ -4278,3 +4278,266 @@ input[data-cut-lab-floor]:focus-visible {
   outline-offset: 2px;
   border-color: var(--focus, var(--accent));
 }
+
+.cutlab-sticky-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 44px;
+  max-height: 44px;
+  padding: 0 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+.cutlab-sticky-bar__round,
+.cutlab-sticky-bar__count,
+.cutlab-sticky-bar__accepted {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-sm);
+}
+
+.cutlab-sticky-bar__round {
+  flex: 1 1 auto;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.cutlab-sticky-bar__count {
+  flex: 0 0 auto;
+  color: var(--ink, inherit);
+}
+
+.cutlab-sticky-bar__accepted {
+  flex: 0 0 auto;
+  color: var(--muted, inherit);
+}
+
+.cutlab-round-banner {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border-left: 3px solid var(--gold-warning, var(--warning, #c8a040));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--gold-warning, var(--warning, #c8a040)) 10%, var(--panel-soft-bg, var(--panel)));
+  color: var(--ink, inherit);
+}
+
+.cutlab-round-banner p {
+  margin: 0;
+}
+
+.cutlab-round-banner p + p {
+  margin-top: 0.5rem;
+}
+
+.cutlab-proposal {
+  margin-top: 1rem;
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.cutlab-proposal__heading,
+.cutlab-proposal__evidence > p,
+.cutlab-delta > p,
+.cutlab-proposal__floor-warning .cutlab-finding__lead {
+  margin-top: 0;
+}
+
+.cutlab-proposal__heading {
+  margin-bottom: 1rem;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.cutlab-proposal__evidence {
+  margin-bottom: 1rem;
+}
+
+.cutlab-proposal__evidence .kb-chip-area__chips {
+  margin-top: 0.5rem;
+}
+
+.cutlab-proposal__floor-warning {
+  margin-top: 1rem;
+}
+
+.cutlab-delta {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.cutlab-delta__line {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.cutlab-delta__sentence {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cutlab-delta__value {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+
+.cutlab-delta__value--up {
+  color: var(--success);
+}
+
+.cutlab-delta__value--down {
+  color: var(--danger);
+}
+
+.cutlab-delta__value--none {
+  color: var(--muted);
+}
+
+.cutlab-proposal details[data-cut-lab-delta-expander] {
+  margin-top: 1rem;
+}
+
+.cutlab-proposal details[data-cut-lab-delta-expander] > summary,
+.cutlab-cuts-made > summary,
+.cutlab-compare > summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding: 0.75rem 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.cutlab-proposal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.cutlab-proposal__actions form,
+.cutlab-cuts-made__row form {
+  display: contents;
+}
+
+.cutlab-decision-btn,
+.cutlab-restore-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.65rem 1rem;
+  border-radius: 10px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.cutlab-decision-btn {
+  border: 1px solid var(--line);
+  background: var(--panel-soft-bg, var(--panel));
+  color: var(--ink, inherit);
+}
+
+.cutlab-decision-btn--accept {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent, #fff);
+}
+
+.cutlab-decision-btn--reject,
+.cutlab-decision-btn--defer,
+.cutlab-restore-btn {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink, inherit);
+}
+
+.cutlab-decision-btn:disabled,
+.cutlab-restore-btn:disabled {
+  cursor: progress;
+  opacity: 0.72;
+}
+
+.cutlab-busy-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  border-radius: 999px;
+  animation: busy-spin 0.8s linear infinite;
+}
+
+.cutlab-cuts-made {
+  margin-top: 1rem;
+}
+
+.cutlab-cuts-made__row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.cutlab-cuts-made__row > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cutlab-restore-btn {
+  margin-left: auto;
+}
+
+.cutlab-compare {
+  margin-top: 1rem;
+}
+
+.cutlab-compare > p {
+  margin: 0 0 1rem;
+  color: var(--muted, inherit);
+}
+
+.cutlab-compare table[data-prompt-cedh-reference-table] td:last-child .cutlab-delta__value {
+  justify-content: flex-end;
+}
+
+@media (max-width: 640px) {
+  .cutlab-sticky-bar {
+    gap: 0.5rem;
+    padding: 0 0.75rem;
+  }
+
+  .cutlab-delta__line,
+  .cutlab-cuts-made__row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .cutlab-proposal__actions {
+    flex-direction: column;
+  }
+
+  .cutlab-proposal__actions .cutlab-decision-btn,
+  .cutlab-cuts-made__row .cutlab-restore-btn {
+    width: 100%;
+  }
+
+  .cutlab-restore-btn {
+    margin-left: 0;
+  }
+}
