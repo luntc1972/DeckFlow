@@ -1,11 +1,25 @@
 @using DeckFlow.Core.Manabase
 @using DeckFlow.Web.Models
+@using DeckFlow.Web.Models.CutLab
 @model DeckFlow.Web.Models.CutLabViewModel
 @{
     ViewData["Title"] = "Cut Lab";
     var isUrl = Model.Request.DeckInputSource == DeckInputSource.PublicUrl;
     var lockedCount = Model.Pool.Count(card => card.IsLocked);
     var totalStructuralFindings = Model.Findings.Count;
+    string DeltaValueClass(CutLabMetricDirection direction) => direction switch
+    {
+        CutLabMetricDirection.Up => "cutlab-delta__value--up",
+        CutLabMetricDirection.Down => "cutlab-delta__value--down",
+        _ => "cutlab-delta__value--none",
+    };
+    string DeltaGlyph(CutLabMetricDirection direction) => direction switch
+    {
+        CutLabMetricDirection.Up => "▲",
+        CutLabMetricDirection.Down => "▼",
+        _ => string.Empty,
+    };
+    string DeltaNumericToken(string token) => token.TrimStart('▲', '▼');
 }
 
 <section class="hero">
@@ -463,6 +477,226 @@
                 <button type="button" class="run-button" data-cut-lab-recalculate>Recalculate analysis</button>
             </div>
         </section>
+
+        <section class="result-panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>Cut rounds</h2>
+                    <p>Work through proposed cuts in order. Every proposal shows what actually changes — nothing here says a card is bad.</p>
+                </div>
+            </div>
+
+            @if (Model.StickyBar.HasStickyBar)
+            {
+                <div class="cutlab-sticky-bar">
+                    <span class="cutlab-sticky-bar__round" data-cut-lab-sticky-round>@Model.StickyBar.RoundLabel</span>
+                    <span class="cutlab-sticky-bar__count" data-cut-lab-sticky-remaining>@Model.StickyBar.CardsRemainingToCut to cut</span>
+                    <span class="cutlab-sticky-bar__accepted" data-cut-lab-sticky-accepted>@Model.StickyBar.CutsAcceptedCount cut so far</span>
+                </div>
+            }
+
+            @if (Model.Proposal.HasProposal)
+            {
+                <div class="cutlab-round-banner">
+                    <p class="cutlab-finding__heading">@Model.Proposal.RoundLabel</p>
+                    <p>@Model.Proposal.RoundBannerBody</p>
+                </div>
+
+                <div class="cutlab-proposal" data-cut-lab-card="@Model.Proposal.CardName" data-cut-lab-round="@Model.Proposal.RoundKey">
+                    <p class="cutlab-proposal__heading">Proposed cut: @Model.Proposal.CardName</p>
+                    <div class="cutlab-proposal__evidence">
+                        <p>@Model.Proposal.FindingSummary</p>
+                        @if (Model.Proposal.FindingChips.Count > 0)
+                        {
+                            <div class="kb-chip-area__chips">
+                                @foreach (var chip in Model.Proposal.FindingChips)
+                                {
+                                    <span class="kb-chip">@chip</span>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <div class="cutlab-delta">
+                        <p>@Model.Proposal.ChangedFamilyCount of 7 metric families changed meaningfully.</p>
+                        @foreach (var line in Model.Proposal.ChangedDeltaLines)
+                        {
+                            <div class="cutlab-delta__line">
+                                <span class="cutlab-delta__sentence">@line.Sentence</span>
+                                <span class="cutlab-delta__value @DeltaValueClass(line.Direction)">
+                                    @if (line.Direction != CutLabMetricDirection.None)
+                                    {
+                                        <span aria-hidden="true">@DeltaGlyph(line.Direction)</span>
+                                    }
+                                    <span class="@DeltaValueClass(line.Direction)">@DeltaNumericToken(line.FormattedValueToken)</span>
+                                </span>
+                            </div>
+                        }
+                    </div>
+
+                    <details data-cut-lab-delta-expander>
+                        <summary>Show full metric breakdown</summary>
+                        <div class="cutlab-delta">
+                            @foreach (var line in Model.Proposal.FullDeltaLines)
+                            {
+                                <div class="cutlab-delta__line">
+                                    <span class="cutlab-delta__sentence">@line.Sentence</span>
+                                    <span class="cutlab-delta__value @DeltaValueClass(line.Direction)">
+                                        @if (line.Direction != CutLabMetricDirection.None)
+                                        {
+                                            <span aria-hidden="true">@DeltaGlyph(line.Direction)</span>
+                                        }
+                                        <span class="@DeltaValueClass(line.Direction)">@DeltaNumericToken(line.FormattedValueToken)</span>
+                                    </span>
+                                </div>
+                            }
+                        </div>
+                    </details>
+
+                    @if (Model.Proposal.FloorWarnings.Count > 0)
+                    {
+                        @foreach (var warning in Model.Proposal.FloorWarnings)
+                        {
+                            <div class="cutlab-finding cutlab-proposal__floor-warning">
+                                <p class="cutlab-finding__lead">@warning</p>
+                            </div>
+                        }
+                    }
+
+                    <div class="cutlab-proposal__actions">
+                        <form method="post" action="@Url.Content("~/cut-lab/decide")">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
+                            <input type="hidden" name="CardName" value="@Model.Proposal.CardName" />
+                            <input type="hidden" name="Decision" value="accept" />
+                            <button type="submit"
+                                    class="cutlab-decision-btn cutlab-decision-btn--accept"
+                                    aria-label="Accept cut for @Model.Proposal.CardName"
+                                    data-cut-lab-decision="accept"
+                                    data-cut-lab-card="@Model.Proposal.CardName">Accept cut</button>
+                        </form>
+                        <form method="post" action="@Url.Content("~/cut-lab/decide")">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
+                            <input type="hidden" name="CardName" value="@Model.Proposal.CardName" />
+                            <input type="hidden" name="Decision" value="reject" />
+                            <button type="submit"
+                                    class="cutlab-decision-btn cutlab-decision-btn--reject"
+                                    aria-label="Reject cut for @Model.Proposal.CardName"
+                                    data-cut-lab-decision="reject"
+                                    data-cut-lab-card="@Model.Proposal.CardName">Reject cut</button>
+                        </form>
+                        <form method="post" action="@Url.Content("~/cut-lab/decide")">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
+                            <input type="hidden" name="CardName" value="@Model.Proposal.CardName" />
+                            <input type="hidden" name="Decision" value="defer" />
+                            <button type="submit"
+                                    class="cutlab-decision-btn cutlab-decision-btn--defer"
+                                    aria-label="Defer cut for @Model.Proposal.CardName"
+                                    data-cut-lab-decision="defer"
+                                    data-cut-lab-card="@Model.Proposal.CardName">Defer decision</button>
+                        </form>
+                    </div>
+                </div>
+            }
+            else if (Model.Proposal.IsAtTarget)
+            {
+                <div class="cutlab-proposal">
+                    <p class="cutlab-proposal__heading">You're at 100 cards</p>
+                    <p>Review the cuts you made below, or reopen a card from the Cuts made list if you want to reconsider.</p>
+                </div>
+            }
+            else if (Model.Proposal.IsNothingToCut)
+            {
+                <div class="cutlab-proposal">
+                    <p class="cutlab-proposal__heading">Nothing to cut</p>
+                    <p>Every remaining card is either locked or your working list is already at 100 cards. Review your locks and packages above, or adjust a role floor if you want to reconsider.</p>
+                </div>
+            }
+        </section>
+
+        @if (Model.CutsMade.Count > 0)
+        {
+            <section class="result-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h2>Cuts made</h2>
+                        <p>Every accepted cut, restorable any time — order doesn't matter.</p>
+                    </div>
+                </div>
+                <details class="cutlab-cuts-made" open="@(Model.CutsMade.Count <= 5 ? "open" : null)">
+                    <summary>Cuts made · @Model.CutsMade.Count cards</summary>
+                    @foreach (var row in Model.CutsMade)
+                    {
+                        <div class="cutlab-cuts-made__row">
+                            <span>@row.CardName</span>
+                            <span class="prompt-size-note">cut in @row.RoundLabel</span>
+                            <form method="post" action="@Url.Content("~/cut-lab/decide")">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
+                                <input type="hidden" name="CardName" value="@row.CardName" />
+                                <input type="hidden" name="Decision" value="restore" />
+                                <button type="submit"
+                                        class="cutlab-restore-btn"
+                                        aria-label="Restore @row.CardName"
+                                        data-cut-lab-restore
+                                        data-cut-lab-card="@row.CardName">Restore</button>
+                            </form>
+                        </div>
+                    }
+                </details>
+            </section>
+        }
+
+        @if (Model.CompareRows.Count > 0)
+        {
+            <section class="result-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h2>Compare to baseline</h2>
+                        <p>Your original pool vs. your current working list, side by side. Available any time — you don't have to finish cutting first.</p>
+                    </div>
+                </div>
+                <details class="cutlab-compare">
+                    <summary>Compare to baseline</summary>
+                    <p>@Model.BaselineCount cards → @Model.CurrentCount cards</p>
+                    <div class="history-timeline__wrap">
+                        <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Metric</th>
+                                    <th scope="col">Baseline</th>
+                                    <th scope="col">Current</th>
+                                    <th scope="col">Delta</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in Model.CompareRows)
+                                {
+                                    <tr>
+                                        <td data-label="Metric">
+                                            <strong>@row.MetricLabel</strong>
+                                        </td>
+                                        <td data-label="Baseline">@row.BaselineValue</td>
+                                        <td data-label="Current">@row.CurrentValue</td>
+                                        <td data-label="Delta">
+                                            <span class="cutlab-delta__value @DeltaValueClass(row.Direction)">
+                                                @if (row.Direction != CutLabMetricDirection.None)
+                                                {
+                                                    <span aria-hidden="true">@DeltaGlyph(row.Direction)</span>
+                                                }
+                                                <span class="@DeltaValueClass(row.Direction)">@DeltaNumericToken(row.DeltaValueToken)</span>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
+            </section>
+        }
     </section>
 }
 else if (string.IsNullOrWhiteSpace(Model.ErrorMessage))

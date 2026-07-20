@@ -76,6 +76,24 @@ public sealed record CutLabViewModel
     /// <summary>Role floor rows rendered in the fixed Cut Lab order.</summary>
     public IReadOnlyList<CutLabFloorRowView> FloorRows { get; init; } = [];
 
+    /// <summary>Sticky round/count bar values for the Cut rounds workspace.</summary>
+    public CutLabStickyBarView StickyBar { get; init; } = new();
+
+    /// <summary>Current one-at-a-time proposal state for the Cut rounds workspace.</summary>
+    public CutLabProposalView Proposal { get; init; } = new();
+
+    /// <summary>Accepted cuts rendered in restore-list order.</summary>
+    public IReadOnlyList<CutLabCutMadeRowView> CutsMade { get; init; } = [];
+
+    /// <summary>Baseline-versus-current comparison rows.</summary>
+    public IReadOnlyList<CutLabCompareRowView> CompareRows { get; init; } = [];
+
+    /// <summary>Total card count of the original imported pool.</summary>
+    public int BaselineCount { get; init; }
+
+    /// <summary>Total card count of the current derived working list.</summary>
+    public int CurrentCount { get; init; }
+
     /// <summary>Per-card display labels for the pool table, keyed by card name.</summary>
     public IReadOnlyDictionary<string, string> RoleListByCardName { get; init; } =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -111,6 +129,19 @@ public sealed record CutLabViewModel
         IReadOnlyList<CutLabFloorRowView> floorRows = BuildFloorRows(pool, result.ResolvedFloors, result.RoleAssignmentsByCardName, request.PlayExperience);
         IReadOnlyDictionary<string, string> roleListByCardName = BuildRoleListByCardName(pool, result.RoleAssignmentsByCardName);
         IReadOnlyDictionary<string, string> roleKeysByCardName = BuildRoleKeysByCardName(pool, result.RoleAssignmentsByCardName);
+        IReadOnlyDictionary<CutLabFindingKind, string> findingHeadingsByKind = BuildFindingHeadingsByKind(result.Findings.Findings);
+        IReadOnlyList<CutLabCutMadeRowView> cutsMade = BuildCutsMade(result.State?.Decisions);
+        int baselineCount = pool.Sum(card => card.Quantity);
+        int currentCount = CutLabWorkingList.Derive(pool, result.State?.Decisions ?? []).Sum(card => card.Quantity);
+        CutLabStickyBarView stickyBar = BuildStickyBar(result.RoundPlan, result.State?.Decisions);
+        CutLabProposalView proposal = BuildProposal(
+            result.RoundPlan,
+            result.InitialProposalDeltas,
+            result.State,
+            result.ResolvedFloors,
+            result.RoleAssignmentsByCardName,
+            findingHeadingsByKind);
+        IReadOnlyList<CutLabCompareRowView> compareRows = BuildCompareRows(result.State?.BaselineSnapshot, result.CurrentSnapshot);
 
         return new CutLabViewModel
         {
@@ -133,6 +164,12 @@ public sealed record CutLabViewModel
             ComboDataUnavailable = result.HasResult && !result.Findings.ComboDataAvailable,
             CategoryDataUnavailable = result.HasResult && !result.Findings.CategoryDataAvailable,
             FloorRows = floorRows,
+            StickyBar = stickyBar,
+            Proposal = proposal,
+            CutsMade = cutsMade,
+            CompareRows = compareRows,
+            BaselineCount = baselineCount,
+            CurrentCount = currentCount,
             RoleListByCardName = roleListByCardName,
             RoleKeysByCardName = roleKeysByCardName,
         };
@@ -266,6 +303,217 @@ public sealed record CutLabViewModel
         return groups;
     }
 
+    private static IReadOnlyDictionary<CutLabFindingKind, string> BuildFindingHeadingsByKind(IReadOnlyList<CutLabFinding> findings)
+    {
+        Dictionary<CutLabFindingKind, string> result = [];
+        foreach (CutLabFinding finding in findings)
+        {
+            if (!result.ContainsKey(finding.Kind))
+            {
+                result[finding.Kind] = finding.Heading;
+            }
+        }
+
+        return result;
+    }
+
+    private static CutLabStickyBarView BuildStickyBar(
+        CutLabRoundPlan? roundPlan,
+        IReadOnlyList<CutLabDecision>? decisions)
+    {
+        CutLabRoundQueueItem? nextProposal = roundPlan?.NextProposal;
+        return new CutLabStickyBarView
+        {
+            HasStickyBar = nextProposal is not null,
+            RoundLabel = nextProposal?.RoundLabel ?? string.Empty,
+            CardsRemainingToCut = roundPlan?.CardsRemainingToTarget ?? 0,
+            CutsAcceptedCount = decisions?.Count(decision => decision.Kind == CutLabDecisionKind.Accepted) ?? 0,
+        };
+    }
+
+    private static CutLabProposalView BuildProposal(
+        CutLabRoundPlan? roundPlan,
+        CutLabProposalDeltas? proposalDeltas,
+        CutLabState? state,
+        IReadOnlyList<CutLabResolvedFloor> resolvedFloors,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName,
+        IReadOnlyDictionary<CutLabFindingKind, string> findingHeadingsByKind)
+    {
+        CutLabRoundQueueItem? nextProposal = roundPlan?.NextProposal;
+        if (nextProposal is null)
+        {
+            bool isAtTarget = (roundPlan?.CardsRemainingToTarget ?? 0) == 0;
+            return new CutLabProposalView
+            {
+                HasProposal = false,
+                IsTerminal = true,
+                IsAtTarget = isAtTarget,
+                IsNothingToCut = !isAtTarget,
+            };
+        }
+
+        if (proposalDeltas is null)
+        {
+            return new CutLabProposalView();
+        }
+
+        IReadOnlyList<CutLabDeltaLineView> fullDeltaLines = BuildDeltaLines(nextProposal.CardName, proposalDeltas?.Deltas ?? []);
+        IReadOnlyList<CutLabDeltaLineView> changedDeltaLines = fullDeltaLines
+            .Where(line => line.IsMeaningful)
+            .ToArray();
+        IReadOnlyList<string> findingChips = nextProposal.DiscriminatingFindingKinds
+            .Where(findingHeadingsByKind.ContainsKey)
+            .Select(kind => findingHeadingsByKind[kind])
+            .ToArray();
+        IReadOnlyList<string> floorWarnings = BuildFloorWarnings(nextProposal.CardName, state, resolvedFloors, roleAssignmentsByCardName);
+
+        return new CutLabProposalView
+        {
+            HasProposal = true,
+            CardName = nextProposal.CardName,
+            RoundKey = nextProposal.RoundKey,
+            RoundLabel = nextProposal.RoundLabel,
+            RoundBannerBody = RoundBannerBodyFor(nextProposal.RoundKey),
+            FindingCount = nextProposal.FindingCount,
+            FindingSummary = nextProposal.FindingCount > 0
+                ? $"Flagged by {nextProposal.FindingCount} findings:"
+                : "No structural finding flags this card — it's a preference call.",
+            FindingChips = findingChips,
+            ChangedDeltaLines = changedDeltaLines,
+            FullDeltaLines = fullDeltaLines,
+            ChangedFamilyCount = proposalDeltas?.ChangedFamilyCount ?? 0,
+            FloorWarnings = floorWarnings,
+        };
+    }
+
+    private static IReadOnlyList<CutLabDeltaLineView> BuildDeltaLines(
+        string cardName,
+        IReadOnlyList<CutLabMetricDelta> deltas)
+    {
+        return deltas
+            .Select(delta =>
+            {
+                CutLabMetricUnit unit = MetricUnitFor(delta.Kind);
+                return new CutLabDeltaLineView
+                {
+                    MetricLabel = delta.Label,
+                    Direction = delta.Direction,
+                    FormattedValueToken = FormatDeltaToken(delta.Delta, unit),
+                    IsMeaningful = delta.IsMeaningful,
+                    Sentence = delta.IsMeaningful
+                        ? $"cutting {cardName} {DirectionVerbFor(delta.Direction)} {delta.Label.ToLowerInvariant()} by {FormatDeltaToken(delta.Delta, unit, includeDirectionGlyph: false)}."
+                        : $"{delta.Label}: no meaningful change",
+                };
+            })
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> BuildFloorWarnings(
+        string cardName,
+        CutLabState? state,
+        IReadOnlyList<CutLabResolvedFloor> resolvedFloors,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName)
+    {
+        if (state is null)
+        {
+            return [];
+        }
+
+        Dictionary<string, int> floorByRole = resolvedFloors.ToDictionary(
+            floor => floor.Role,
+            floor => floor.Floor,
+            StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, int> countsByRole = CountRoles(state.Pool, roleAssignmentsByCardName);
+        CutLabPoolCard? card = state.Pool.FirstOrDefault(poolCard => string.Equals(poolCard.Name, cardName, StringComparison.OrdinalIgnoreCase));
+        if (card is null || !roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles))
+        {
+            return [];
+        }
+
+        return CutLabFloorRules.Evaluate(countsByRole, floorByRole, roles, cardName, card.Quantity)
+            .Select(warning => warning.Message)
+            .ToArray();
+    }
+
+    private static IReadOnlyList<CutLabCutMadeRowView> BuildCutsMade(IReadOnlyList<CutLabDecision>? decisions)
+    {
+        if (decisions is null)
+        {
+            return [];
+        }
+
+        return decisions
+            .Where(decision => decision.Kind == CutLabDecisionKind.Accepted)
+            .OrderByDescending(decision => decision.Ordinal)
+            .Select(decision => new CutLabCutMadeRowView
+            {
+                CardName = decision.CardName,
+                RoundKey = decision.Round,
+                RoundLabel = RoundLabelFor(decision.Round),
+            })
+            .ToArray();
+    }
+
+    private static IReadOnlyList<CutLabCompareRowView> BuildCompareRows(
+        CutLabMetricSnapshot? baselineSnapshot,
+        CutLabMetricSnapshot? currentSnapshot)
+    {
+        if (baselineSnapshot is null || currentSnapshot is null)
+        {
+            return [];
+        }
+
+        IReadOnlyDictionary<CutLabMetricKind, CutLabMetricValue> currentByKind = currentSnapshot.Metrics
+            .ToDictionary(metric => metric.Kind);
+        return baselineSnapshot.Metrics
+            .Where(metric => currentByKind.ContainsKey(metric.Kind))
+            .Select(metric =>
+            {
+                CutLabMetricValue current = currentByKind[metric.Kind];
+                CutLabMetricDelta? delta = CreateCompareDelta(metric, current);
+                return new CutLabCompareRowView
+                {
+                    MetricLabel = metric.Label,
+                    BaselineValue = FormatMetricValue(metric.Value, metric.Unit),
+                    CurrentValue = FormatMetricValue(current.Value, current.Unit),
+                    DeltaValueToken = delta is null ? string.Empty : FormatDeltaToken(delta.Delta, metric.Unit),
+                    Direction = delta?.Direction ?? CutLabMetricDirection.None,
+                };
+            })
+            .ToArray();
+    }
+
+    private static CutLabMetricDelta? CreateCompareDelta(CutLabMetricValue baseline, CutLabMetricValue current)
+    {
+        if (!double.IsFinite(baseline.Value) || !double.IsFinite(current.Value))
+        {
+            return null;
+        }
+
+        double delta = current.Value - baseline.Value;
+        double threshold = baseline.Unit == CutLabMetricUnit.Cards
+            ? CutLabNoiseFloor.Cards
+            : CutLabNoiseFloor.PercentPoints;
+        bool isMeaningful = Math.Abs(delta) > threshold;
+        CutLabMetricDirection direction = !isMeaningful
+            ? CutLabMetricDirection.None
+            : delta > 0
+                ? CutLabMetricDirection.Up
+                : CutLabMetricDirection.Down;
+
+        return new CutLabMetricDelta
+        {
+            Kind = baseline.Kind,
+            Family = baseline.Family,
+            Label = baseline.Label,
+            Before = baseline.Value,
+            After = current.Value,
+            Delta = delta,
+            Direction = direction,
+            IsMeaningful = isMeaningful,
+        };
+    }
+
     private static Dictionary<string, int> CountRoles(
         IReadOnlyList<CutLabPoolCard> pool,
         IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName)
@@ -297,6 +545,63 @@ public sealed record CutLabViewModel
 
     private static string DisplayLabelFor(string roleKey)
         => RoleDisplayLabels.TryGetValue(roleKey, out string? label) ? label : roleKey;
+
+    private static CutLabMetricUnit MetricUnitFor(CutLabMetricKind kind)
+        => kind is CutLabMetricKind.Flood or CutLabMetricKind.Curve
+            ? CutLabMetricUnit.Cards
+            : CutLabMetricUnit.Percent;
+
+    private static string FormatMetricValue(double value, CutLabMetricUnit unit)
+        => unit == CutLabMetricUnit.Cards
+            ? FormatCardValue(value)
+            : $"{value:0.0}%";
+
+    private static string FormatDeltaToken(double delta, CutLabMetricUnit unit, bool includeDirectionGlyph = true)
+    {
+        double magnitude = Math.Abs(delta);
+        string prefix = includeDirectionGlyph
+            ? delta > 0
+                ? "▲"
+                : delta < 0
+                    ? "▼"
+                    : string.Empty
+            : string.Empty;
+
+        return unit == CutLabMetricUnit.Cards
+            ? $"{prefix}{FormatCardValue(magnitude)}"
+            : $"{prefix}{magnitude:0.0}%";
+    }
+
+    private static string FormatCardValue(double value)
+    {
+        double rounded = Math.Round(value, 0, MidpointRounding.AwayFromZero);
+        string count = $"{rounded:0}";
+        return rounded == 1d ? $"{count} card" : $"{count} cards";
+    }
+
+    private static string DirectionVerbFor(CutLabMetricDirection direction)
+        => direction == CutLabMetricDirection.Down ? "lowers" : "raises";
+
+    private static string RoundBannerBodyFor(string roundKey)
+        => roundKey switch
+        {
+            CutLabCutRoundEngine.Round1Key => "Cards flagged by 2 or more structural findings from the section above.",
+            CutLabCutRoundEngine.Round2Key => "Cards flagged by exactly one structural finding.",
+            CutLabCutRoundEngine.Round3Key => "Everything else, ordered by smallest measurable tradeoff first.",
+            CutLabCutRoundEngine.SecondPassDeferredKey or CutLabCutRoundEngine.SecondPassRejectedKey => "Still over 100 cards. These were deferred or kept earlier; take another look.",
+            _ => string.Empty,
+        };
+
+    private static string RoundLabelFor(string roundKey)
+        => roundKey switch
+        {
+            CutLabCutRoundEngine.Round1Key => CutLabCutRoundEngine.Round1Label,
+            CutLabCutRoundEngine.Round2Key => CutLabCutRoundEngine.Round2Label,
+            CutLabCutRoundEngine.Round3Key => CutLabCutRoundEngine.Round3Label,
+            CutLabCutRoundEngine.SecondPassDeferredKey => CutLabCutRoundEngine.SecondPassDeferredLabel,
+            CutLabCutRoundEngine.SecondPassRejectedKey => CutLabCutRoundEngine.SecondPassRejectedLabel,
+            _ => roundKey,
+        };
 
     private static string FallbackSource(string playExperience)
     {
@@ -393,4 +698,120 @@ public sealed record CutLabFloorRowView
 
     /// <summary>Prebuilt UI copy describing the floor's default source.</summary>
     public string SourceLabel { get; init; } = string.Empty;
+}
+
+/// <summary>Sticky round/count bar state for the Cut rounds workspace.</summary>
+public sealed record CutLabStickyBarView
+{
+    /// <summary>True when a current round exists and the sticky bar should render.</summary>
+    public bool HasStickyBar { get; init; }
+
+    /// <summary>Round label shown in the left slot of the sticky bar.</summary>
+    public string RoundLabel { get; init; } = string.Empty;
+
+    /// <summary>Cards still remaining to cut to reach the target size.</summary>
+    public int CardsRemainingToCut { get; init; }
+
+    /// <summary>Accepted cuts recorded in the current session.</summary>
+    public int CutsAcceptedCount { get; init; }
+}
+
+/// <summary>Current one-at-a-time proposal state for the Cut rounds workspace.</summary>
+public sealed record CutLabProposalView
+{
+    /// <summary>True when there is a proposal card to render.</summary>
+    public bool HasProposal { get; init; }
+
+    /// <summary>True when the queue is terminal and there is no next proposal.</summary>
+    public bool IsTerminal { get; init; }
+
+    /// <summary>True when the terminal state means the working list is already at 100 cards.</summary>
+    public bool IsAtTarget { get; init; }
+
+    /// <summary>True when the terminal state means all remaining cards are locked or protected.</summary>
+    public bool IsNothingToCut { get; init; }
+
+    /// <summary>Display card name for the current proposal.</summary>
+    public string CardName { get; init; } = string.Empty;
+
+    /// <summary>Stable round key for decision routing and restore context.</summary>
+    public string RoundKey { get; init; } = string.Empty;
+
+    /// <summary>Round banner heading copy.</summary>
+    public string RoundLabel { get; init; } = string.Empty;
+
+    /// <summary>Round banner supporting copy.</summary>
+    public string RoundBannerBody { get; init; } = string.Empty;
+
+    /// <summary>Count of discriminating findings attached to the proposal.</summary>
+    public int FindingCount { get; init; }
+
+    /// <summary>Evidence-line sentence shown above the finding chips.</summary>
+    public string FindingSummary { get; init; } = string.Empty;
+
+    /// <summary>Neutral evidence chips naming the findings attached to the proposal.</summary>
+    public IReadOnlyList<string> FindingChips { get; init; } = [];
+
+    /// <summary>Meaningful delta lines shown in the compact proposal summary.</summary>
+    public IReadOnlyList<CutLabDeltaLineView> ChangedDeltaLines { get; init; } = [];
+
+    /// <summary>All proposal delta lines rendered in the full metric breakdown expander.</summary>
+    public IReadOnlyList<CutLabDeltaLineView> FullDeltaLines { get; init; } = [];
+
+    /// <summary>Count of metric families whose deltas exceeded the noise floor.</summary>
+    public int ChangedFamilyCount { get; init; }
+
+    /// <summary>Non-blocking floor-warning copy for the proposed cut.</summary>
+    public IReadOnlyList<string> FloorWarnings { get; init; } = [];
+}
+
+/// <summary>One rendered metric delta sentence for the proposal workspace.</summary>
+public sealed record CutLabDeltaLineView
+{
+    /// <summary>User-facing metric label.</summary>
+    public string MetricLabel { get; init; } = string.Empty;
+
+    /// <summary>Meaningful display direction for the numeric token.</summary>
+    public CutLabMetricDirection Direction { get; init; }
+
+    /// <summary>Formatted numeric token including any directional glyph.</summary>
+    public string FormattedValueToken { get; init; } = string.Empty;
+
+    /// <summary>True when the delta exceeds the configured noise floor.</summary>
+    public bool IsMeaningful { get; init; }
+
+    /// <summary>Neutral sentence or no-change label shown beside the numeric token.</summary>
+    public string Sentence { get; init; } = string.Empty;
+}
+
+/// <summary>One restore-list row for an accepted cut.</summary>
+public sealed record CutLabCutMadeRowView
+{
+    /// <summary>Display card name for the accepted cut.</summary>
+    public string CardName { get; init; } = string.Empty;
+
+    /// <summary>Stable round key where the cut was recorded.</summary>
+    public string RoundKey { get; init; } = string.Empty;
+
+    /// <summary>User-facing round label for the row's muted context text.</summary>
+    public string RoundLabel { get; init; } = string.Empty;
+}
+
+/// <summary>One baseline-versus-current comparison table row.</summary>
+public sealed record CutLabCompareRowView
+{
+    /// <summary>User-facing metric label.</summary>
+    public string MetricLabel { get; init; } = string.Empty;
+
+    /// <summary>Formatted baseline snapshot value.</summary>
+    public string BaselineValue { get; init; } = string.Empty;
+
+    /// <summary>Formatted current working-list value.</summary>
+    public string CurrentValue { get; init; } = string.Empty;
+
+    /// <summary>Formatted delta token including any directional glyph.</summary>
+    public string DeltaValueToken { get; init; } = string.Empty;
+
+    /// <summary>Display direction for the delta token.</summary>
+    public CutLabMetricDirection Direction { get; init; }
 }
