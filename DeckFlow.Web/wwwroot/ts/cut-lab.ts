@@ -98,6 +98,14 @@ interface CutLabDecisionCutRecord {
   ordinal: number;
 }
 
+interface ScenarioIndexEntry {
+  id: string;
+  name: string;
+  savedAt: string;
+}
+
+type SaveScenarioResult = 'ok' | 'invalid' | 'cap-reached' | 'quota-exceeded' | 'disabled';
+
 interface CutLabDecisionResponse {
   cutLabStateJson: string;
   nextProposal: CutLabDecisionNextProposal;
@@ -119,6 +127,10 @@ interface CutLabApi {
   hasRoleToken(roleList: string | null | undefined, role: string): boolean;
   isLandRole(roleList: string | null | undefined): boolean;
   buildCutLabStateJson(snapshot: CutLabStateSnapshot): string;
+  saveScenario(name: string, stateJson: string): SaveScenarioResult;
+  listScenarios(): ScenarioIndexEntry[];
+  loadScenario(id: string): string | null;
+  deleteScenario(id: string): boolean;
 }
 
 interface CutLabRoot {
@@ -137,6 +149,9 @@ const cutLabDecisionTimeoutMs = 3000;
 const cutLabDecisionBusyCopy = 'Recalculating…';
 const cutLabDecisionErrorCopy = "Couldn't recalculate this cut — nothing changed. Try again.";
 const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try again in a moment.';
+const SCENARIO_INDEX_KEY = 'deckflow.cutlab.scenario-index';
+const SCENARIO_SLOT_PREFIX = 'deckflow.cutlab.scenario.';
+const MAX_SCENARIO_SLOTS = 20;
 
 const formatCountLabel = (count: number, singular: string, plural: string): string =>
   count === 1 ? `1 ${singular}` : `${count} ${plural}`;
@@ -146,6 +161,57 @@ const formatCutsMadeCount = (count: number): string => formatCountLabel(count, '
 const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(count, 'cut', 'cuts')} so far`;
 
 (function (root: CutLabRoot): void {
+  const getScenarioSlotKey = (id: string): string => `${SCENARIO_SLOT_PREFIX}${id}`;
+
+  const getLocalStorage = (): Storage | null => {
+    try {
+      return window.localStorage;
+    } catch {
+      return null;
+    }
+  };
+
+  const isQuotaExceededError = (error: unknown): boolean =>
+    error instanceof DOMException && (error.name === 'QuotaExceededError' || error.code === 22);
+
+  const readScenarioIndex = (): ScenarioIndexEntry[] => {
+    try {
+      const storage = getLocalStorage();
+      if (!storage) {
+        return [];
+      }
+
+      const raw = storage.getItem(SCENARIO_INDEX_KEY);
+      if (!raw) {
+        return [];
+      }
+
+      const parsed = JSON.parse(raw) as unknown;
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+
+      return parsed
+        .filter((entry): entry is Partial<ScenarioIndexEntry> => !!entry && typeof entry === 'object')
+        .filter((entry): entry is ScenarioIndexEntry =>
+          typeof entry.id === 'string'
+          && typeof entry.name === 'string'
+          && typeof entry.savedAt === 'string')
+        .map(entry => ({
+          id: entry.id,
+          name: entry.name,
+          savedAt: entry.savedAt,
+        }));
+    } catch {
+      return [];
+    }
+  };
+
+  const newScenarioId = (): string =>
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `s-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
   const api: CutLabApi = {
     computePackageCheckboxState(memberLocked: boolean[]): PackageCheckboxState {
       if (memberLocked.length === 0) {
@@ -215,6 +281,81 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
       };
 
       return JSON.stringify(normalizedSnapshot);
+    },
+
+    saveScenario(name: string, stateJson: string): SaveScenarioResult {
+      const trimmedName = name.trim();
+      if (trimmedName === '') {
+        return 'invalid';
+      }
+
+      const storage = getLocalStorage();
+      if (!storage) {
+        return 'disabled';
+      }
+
+      const index = readScenarioIndex();
+      if (index.length >= MAX_SCENARIO_SLOTS) {
+        return 'cap-reached';
+      }
+
+      const entry: ScenarioIndexEntry = {
+        id: newScenarioId(),
+        name: trimmedName,
+        savedAt: new Date().toISOString(),
+      };
+
+      try {
+        storage.setItem(getScenarioSlotKey(entry.id), stateJson);
+        storage.setItem(SCENARIO_INDEX_KEY, JSON.stringify([...index, entry]));
+        return 'ok';
+      } catch (error) {
+        try {
+          storage.removeItem(getScenarioSlotKey(entry.id));
+        } catch {
+          // localStorage may be disabled or quota-limited; skip persistence silently.
+        }
+
+        return isQuotaExceededError(error) ? 'quota-exceeded' : 'disabled';
+      }
+    },
+
+    listScenarios(): ScenarioIndexEntry[] {
+      return readScenarioIndex();
+    },
+
+    loadScenario(id: string): string | null {
+      try {
+        const storage = getLocalStorage();
+        if (!storage) {
+          return null;
+        }
+
+        return storage.getItem(getScenarioSlotKey(id));
+      } catch {
+        return null;
+      }
+    },
+
+    deleteScenario(id: string): boolean {
+      try {
+        const storage = getLocalStorage();
+        if (!storage) {
+          return false;
+        }
+
+        const index = readScenarioIndex();
+        const nextIndex = index.filter(entry => entry.id !== id);
+        if (nextIndex.length === index.length) {
+          return false;
+        }
+
+        storage.removeItem(getScenarioSlotKey(id));
+        storage.setItem(SCENARIO_INDEX_KEY, JSON.stringify(nextIndex));
+        return true;
+      } catch {
+        return false;
+      }
     },
   };
 
