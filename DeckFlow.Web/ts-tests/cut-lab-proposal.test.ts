@@ -289,6 +289,7 @@ describe('cut-lab proposal enhancement', () => {
     expect(document.querySelector<HTMLElement>('.cutlab-proposal__evidence p')?.textContent).toBe('Flagged by 1 findings:');
     expect(document.querySelectorAll('.cutlab-delta__line')).toHaveLength(3);
     expect(document.querySelector<HTMLElement>('.cutlab-proposal__floor-warning .cutlab-finding__lead')?.textContent).toBe('Cutting Arcane Signet drops ramp to 9, below your floor of 10.');
+    expect(document.querySelector<HTMLDetailsElement>('details.cutlab-cuts-made summary')?.textContent).toBe('Cuts made · 1 card');
   });
 
   it('re-enables buttons and renders the neutral error line on a non-OK response without mutating state', async () => {
@@ -387,8 +388,34 @@ describe('cut-lab proposal enhancement', () => {
       }),
     }));
     expect(document.querySelector<HTMLElement>('[data-cut-lab-sticky-remaining]')?.textContent).toBe('12 to cut');
-    expect(document.querySelector<HTMLElement>('[data-cut-lab-sticky-accepted]')?.textContent).toBe('0 cut so far');
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-sticky-accepted]')?.textContent).toBe('0 cuts so far');
     expect(document.querySelector('details.cutlab-cuts-made')).toBeNull();
+  });
+
+  it('pluralizes sticky and cuts-made wording for many counts', async () => {
+    buildDecisionFixture();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => buildResponse({
+        cardsRemaining: 10,
+        cutsMade: [
+          { cardName: 'Sol Ring', roundKey: 'round-1', roundLabel: 'Round 1 · Obvious cuts', ordinal: 2 },
+          { cardName: 'Mana Crypt', roundKey: 'round-1', roundLabel: 'Round 1 · Obvious cuts', ordinal: 1 },
+        ],
+      }),
+    });
+
+    const acceptButton = document.querySelector<HTMLButtonElement>('.cutlab-proposal [data-cut-lab-decision="accept"]');
+    const acceptForm = acceptButton?.closest('form');
+    acceptForm?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: acceptButton ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-sticky-accepted]')?.textContent).toBe('2 cuts so far');
+    expect(document.querySelector<HTMLDetailsElement>('details.cutlab-cuts-made summary')?.textContent).toBe('Cuts made · 2 cards');
   });
 
   it('renders restore errors beside the cuts-made list and keeps the row intact on a non-OK response', async () => {
