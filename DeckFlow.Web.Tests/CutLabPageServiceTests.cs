@@ -4,6 +4,7 @@ using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Core.Reporting;
+using DeckFlow.Web.Extensions;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services;
@@ -482,18 +483,287 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
-    public async Task ProcessAsync_SpellbookFailure_FailsOpenAndLogsWarning()
+    public async Task ProcessAsync_DelegatesStructuralAnalysisToSharedBuilder()
     {
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
         var cards = BuildResolvedCards(entries);
+        var analysisBuilder = new FakeAnalysisContextBuilder((workingList, _, commanderNames) => BuildAnalysisContext(workingList, commanderNames, comboDataAvailable: true));
+        var simulationService = new FakeSimulationService();
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]),
+            analysisContextBuilder: analysisBuilder,
+            simulationService: simulationService,
+            baselineSnapshot: new CutLabBaselineSnapshot(simulationService));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.True(result.HasResult);
+        Assert.Equal(1, analysisBuilder.BuildCalls);
+        Assert.Equal(121, analysisBuilder.LastWorkingListCount);
+        Assert.Equal(["draw", "engines"], result.RoleAssignmentsByCardName["Card 001"]);
+        Assert.True(result.ComboDataAvailable);
+        Assert.False(result.CategoryDataAvailable);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_PopulatesResolvedCardCacheThroughBuilder()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var cache = new CutLabResolvedCardCache();
+        var analysisBuilder = new CutLabAnalysisContextBuilder(new FakeResolver(cards), cache);
+        var simulationService = new FakeSimulationService();
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]),
+            analysisContextBuilder: analysisBuilder,
+            simulationService: simulationService,
+            baselineSnapshot: new CutLabBaselineSnapshot(simulationService));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+        };
+
+        var result = await service.ProcessAsync(request);
+        string poolKey = CutLabResolvedCardCache.ComputePoolKey(
+            result.State!.Pool.Select(card => (card.Name, card.Quantity)).ToArray());
+
+        Assert.True(result.HasResult);
+        Assert.True(cache.TryGet(poolKey, out IReadOnlyList<ScryfallCardData>? cachedCards));
+        Assert.NotNull(cachedCards);
+        Assert.Equal(result.State.Pool.Count, Assert.IsAssignableFrom<IReadOnlyList<ScryfallCardData>>(cachedCards).Count);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_PersistsBaselineSnapshotAndReusesItAsCurrentSnapshotAtIntake()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var analysisBuilder = new FakeAnalysisContextBuilder((workingList, _, commanderNames) => BuildAnalysisContext(workingList, commanderNames));
+        var simulationService = new FakeSimulationService
+        {
+            SnapshotFactory = (_, _, trialsOverride) => BuildSevenMetricSnapshot(trialsOverride is null ? 10 : 20),
+            DeltasFactory = (_, candidateCardName, _) => BuildDeltas(candidateCardName),
+        };
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]),
+            analysisContextBuilder: analysisBuilder,
+            simulationService: simulationService,
+            baselineSnapshot: new CutLabBaselineSnapshot(simulationService));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+        };
+
+        var result = await service.ProcessAsync(request);
+        var roundTrippedState = CutLabStateSerializer.Deserialize(result.SerializedStateJson);
+
+        Assert.True(result.HasResult);
+        Assert.NotNull(result.State!.BaselineSnapshot);
+        Assert.Equal(7, result.State.BaselineSnapshot!.Metrics.Count);
+        Assert.Same(result.State.BaselineSnapshot, result.CurrentSnapshot);
+        Assert.NotNull(roundTrippedState.BaselineSnapshot);
+        Assert.Equal(7, roundTrippedState.BaselineSnapshot!.Metrics.Count);
+        Assert.True(result.SerializedStateJson!.Length < 256_000);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_BaselineFailure_FailsOpenAndKeepsResult()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var analysisBuilder = new FakeAnalysisContextBuilder((workingList, _, commanderNames) => BuildAnalysisContext(workingList, commanderNames));
+        var simulationService = new FakeSimulationService
+        {
+            BuildSnapshotException = new InvalidOperationException("baseline down"),
+            ComputeProposalDeltasException = new InvalidOperationException("deltas down"),
+        };
         var logger = new FakeLogger<CutLabPageService>();
         var service = new CutLabPageService(
             new FakeLoader(entries),
             new FakeResolver(cards),
             new FakeBanListService([]),
-            new FakeCategoryKnowledgeStore(),
-            new FakeSpellbookService { Exception = new InvalidOperationException("spellbook down") },
+            analysisContextBuilder: analysisBuilder,
+            simulationService: simulationService,
+            baselineSnapshot: new CutLabBaselineSnapshot(simulationService),
             logger: logger);
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.True(result.HasResult);
+        Assert.Null(result.State!.BaselineSnapshot);
+        Assert.Contains(result.Warnings, warning => warning.Contains("Baseline snapshot unavailable", StringComparison.Ordinal));
+        Assert.Contains(logger.Warnings, warning => warning.Contains("baseline snapshot failed", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ProvidesRoundPlanInitialDeltasAndCurrentSnapshotServerSide()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var analysisBuilder = new FakeAnalysisContextBuilder((workingList, _, commanderNames) => BuildAnalysisContext(workingList, commanderNames));
+        var simulationService = new FakeSimulationService
+        {
+            SnapshotFactory = (_, _, trialsOverride) => BuildSevenMetricSnapshot(trialsOverride is null ? 10 : 20),
+            DeltasFactory = (_, candidateCardName, _) => BuildDeltas(candidateCardName),
+        };
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]),
+            analysisContextBuilder: analysisBuilder,
+            simulationService: simulationService,
+            baselineSnapshot: new CutLabBaselineSnapshot(simulationService));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.True(result.HasResult);
+        Assert.NotNull(result.RoundPlan);
+        Assert.NotNull(result.RoundPlan!.NextProposal);
+        Assert.Equal(21, result.RoundPlan.CardsRemainingToTarget);
+        Assert.NotNull(result.InitialProposalDeltas);
+        Assert.Equal(result.RoundPlan.NextProposal!.CardName, result.InitialProposalDeltas!.CardName);
+        Assert.NotNull(result.CurrentSnapshot);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_WithAcceptedCutsAtTarget_ReturnsNothingToCutPlan()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var priorState = new CutLabState
+        {
+            Decisions = Enumerable.Range(1, 21)
+                .Select(index => new CutLabDecision
+                {
+                    CardName = $"Card {index:000}",
+                    Kind = CutLabDecisionKind.Accepted,
+                    Round = CutLabCutRoundEngine.Round1Key,
+                    Ordinal = index,
+                })
+                .ToArray(),
+            BaselineSnapshot = BuildSevenMetricSnapshot(10),
+        };
+        var analysisBuilder = new FakeAnalysisContextBuilder((workingList, _, commanderNames) => BuildAnalysisContext(workingList, commanderNames));
+        var simulationService = new FakeSimulationService
+        {
+            SnapshotFactory = (_, _, _) => BuildSevenMetricSnapshot(20),
+            DeltasFactory = (_, candidateCardName, _) => BuildDeltas(candidateCardName),
+        };
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]),
+            analysisContextBuilder: analysisBuilder,
+            simulationService: simulationService,
+            baselineSnapshot: new CutLabBaselineSnapshot(simulationService));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            CutLabStateJson = CutLabStateSerializer.Serialize(priorState),
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.True(result.HasResult);
+        Assert.NotNull(result.RoundPlan);
+        Assert.Null(result.RoundPlan!.NextProposal);
+        Assert.Equal(0, result.RoundPlan.CardsRemainingToTarget);
+        Assert.Null(result.InitialProposalDeltas);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_CurrentSnapshotAndDeltasFailure_FailsOpenOnDecisionRender()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var priorState = new CutLabState
+        {
+            Decisions =
+            [
+                new CutLabDecision
+                {
+                    CardName = "Card 001",
+                    Kind = CutLabDecisionKind.Accepted,
+                    Round = CutLabCutRoundEngine.Round1Key,
+                    Ordinal = 1,
+                },
+            ],
+            BaselineSnapshot = BuildSevenMetricSnapshot(10),
+        };
+        var analysisBuilder = new FakeAnalysisContextBuilder((workingList, _, commanderNames) => BuildAnalysisContext(workingList, commanderNames));
+        var simulationService = new FakeSimulationService
+        {
+            BuildSnapshotException = new InvalidOperationException("snapshot down"),
+            ComputeProposalDeltasException = new InvalidOperationException("deltas down"),
+        };
+        var logger = new FakeLogger<CutLabPageService>();
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]),
+            analysisContextBuilder: analysisBuilder,
+            simulationService: simulationService,
+            baselineSnapshot: new CutLabBaselineSnapshot(simulationService),
+            logger: logger);
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            CutLabStateJson = CutLabStateSerializer.Serialize(priorState),
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.True(result.HasResult);
+        Assert.Null(result.CurrentSnapshot);
+        Assert.Null(result.InitialProposalDeltas);
+        Assert.Contains(result.Warnings, warning => warning.Contains("Current working snapshot unavailable", StringComparison.Ordinal));
+        Assert.Contains(result.Warnings, warning => warning.Contains("Proposal delta preview unavailable", StringComparison.Ordinal));
+        Assert.Contains(logger.Warnings, warning => warning.Contains("current working snapshot failed", StringComparison.Ordinal));
+        Assert.Contains(logger.Warnings, warning => warning.Contains("proposal deltas failed", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ProcessAsync_SpellbookFailure_FailsOpenAndLogsWarning()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var logger = new FakeLogger<CutLabAnalysisContextBuilder>();
+        var analysisBuilder = new CutLabAnalysisContextBuilder(
+            new FakeResolver(cards),
+            new CutLabResolvedCardCache(),
+            new FakeSpellbookService { Exception = new InvalidOperationException("spellbook down") },
+            new FakeCategoryKnowledgeStore(),
+            logger);
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]),
+            analysisContextBuilder: analysisBuilder);
         var request = new CutLabRequest
         {
             DeckInputSource = DeckInputSource.PasteText,
@@ -513,14 +783,18 @@ public sealed class CutLabPageServiceTests
     {
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
         var cards = BuildResolvedCards(entries);
-        var logger = new FakeLogger<CutLabPageService>();
+        var logger = new FakeLogger<CutLabAnalysisContextBuilder>();
+        var analysisBuilder = new CutLabAnalysisContextBuilder(
+            new FakeResolver(cards),
+            new CutLabResolvedCardCache(),
+            new FakeSpellbookService(),
+            new ThrowingCategoryKnowledgeStore(new InvalidOperationException("db down")),
+            logger);
         var service = new CutLabPageService(
             new FakeLoader(entries),
             new FakeResolver(cards),
             new FakeBanListService([]),
-            new ThrowingCategoryKnowledgeStore(new InvalidOperationException("db down")),
-            new FakeSpellbookService(),
-            logger: logger);
+            analysisContextBuilder: analysisBuilder);
         var request = new CutLabRequest
         {
             DeckInputSource = DeckInputSource.PasteText,
@@ -606,6 +880,7 @@ public sealed class CutLabPageServiceTests
         var service = Assert.IsType<CutLabPageService>(scope.ServiceProvider.GetRequiredService<ICutLabPageService>());
 
         Assert.True(service.HasStructuralAnalysisDependencies);
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<ICutLabAnalysisContextBuilder>());
     }
 
     [Fact]
@@ -923,11 +1198,123 @@ public sealed class CutLabPageServiceTests
         services.AddSingleton<IManabaseBaselineProvider>(new FakeManabaseBaselineProvider());
         services.AddSingleton<ICedhLandBaselineProvider>(new FakeCedhLandBaselineProvider());
         services.AddLogging();
+        services.AddDeckFlowCutLabServices();
         // Optional ctor params default to null when a registration is missing; this guard catches
         // a Program.cs regression by proving the plain AddScoped shape still resolves all four deps.
         services.AddScoped<ICutLabPageService, CutLabPageService>();
         return services.BuildServiceProvider();
     }
+
+    private static CutLabAnalysisContext BuildAnalysisContext(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        IReadOnlyList<string> commanderNames,
+        bool comboDataAvailable = false,
+        bool categoryDataAvailable = false)
+    {
+        HashSet<string> commanderNameSet = commanderNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, IReadOnlyList<string>> rolesByCardName = new(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, int> roleCounts = new(StringComparer.OrdinalIgnoreCase);
+        List<CutLabAnalyzedCard> analyzedCards = new(workingList.Count);
+        double commanderManaValue = 0;
+
+        foreach (CutLabPoolCard card in workingList)
+        {
+            bool isCommander = commanderNameSet.Contains(card.Name);
+            IReadOnlyList<string> roles = card.Name switch
+            {
+                "Card 001" => ["draw", "engines"],
+                "Card 002" => ["interaction"],
+                _ when card.TypeLine.Contains("Land", StringComparison.OrdinalIgnoreCase) => ["lands"],
+                _ => [],
+            };
+            foreach (string role in roles)
+            {
+                roleCounts[role] = roleCounts.TryGetValue(role, out int count)
+                    ? count + card.Quantity
+                    : card.Quantity;
+            }
+
+            double manaValue = isCommander ? 4 : roles.Contains("lands", StringComparer.Ordinal) ? 0 : 2;
+            if (isCommander)
+            {
+                commanderManaValue = Math.Max(commanderManaValue, manaValue);
+            }
+
+            rolesByCardName[card.Name] = roles;
+            analyzedCards.Add(new CutLabAnalyzedCard(
+                card.Name,
+                manaValue,
+                roles.Contains("lands", StringComparer.Ordinal),
+                roles,
+                [])
+            {
+                Quantity = card.Quantity,
+            });
+        }
+
+        return new CutLabAnalysisContext(
+            analyzedCards,
+            rolesByCardName,
+            roleCounts,
+            commanderManaValue,
+            ManabaseMode.Casual,
+            new CutLabClassificationContext(
+                [],
+                comboDataAvailable,
+                categoryDataAvailable,
+                new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase),
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase)));
+    }
+
+    private static CutLabMetricSnapshot BuildSevenMetricSnapshot(double seed)
+        => new()
+        {
+            Metrics =
+            [
+                Metric(CutLabMetricKind.CommanderOnTime, CutLabMetricFamily.CommanderOnTime, seed + 1),
+                Metric(CutLabMetricKind.KeepableHand, CutLabMetricFamily.KeepableHand, seed + 2),
+                Metric(CutLabMetricKind.ManaColorReliability, CutLabMetricFamily.ManaColorReliability, seed + 3),
+                Metric(CutLabMetricKind.EarlyInteraction, CutLabMetricFamily.EarlyInteraction, seed + 4),
+                Metric(CutLabMetricKind.PlanPresence, CutLabMetricFamily.PlanPresence, seed + 5),
+                Metric(CutLabMetricKind.CommanderByTurn, CutLabMetricFamily.CategoryByTurn, seed + 6),
+                Metric(CutLabMetricKind.Flood, CutLabMetricFamily.FloodScrewCurveRisk, seed + 7, CutLabMetricUnit.Cards),
+            ],
+        };
+
+    private static CutLabMetricValue Metric(
+        CutLabMetricKind kind,
+        CutLabMetricFamily family,
+        double value,
+        CutLabMetricUnit unit = CutLabMetricUnit.Percent)
+        => new()
+        {
+            Kind = kind,
+            Family = family,
+            Label = kind.ToString(),
+            Value = value,
+            Unit = unit,
+        };
+
+    private static CutLabProposalDeltas BuildDeltas(string candidateCardName)
+        => new()
+        {
+            CardName = candidateCardName,
+            ChangedFamilyCount = 1,
+            Deltas =
+            [
+                new CutLabMetricDelta
+                {
+                    Kind = CutLabMetricKind.KeepableHand,
+                    Family = CutLabMetricFamily.KeepableHand,
+                    Label = "Keepable hand",
+                    Before = 60,
+                    After = 58,
+                    Delta = -2,
+                    Direction = CutLabMetricDirection.Down,
+                    IsMeaningful = true,
+                },
+            ],
+        };
 
     private sealed class FakeLoader(List<DeckEntry> entries) : IDeckEntryLoader
     {
@@ -979,6 +1366,64 @@ public sealed class CutLabPageServiceTests
 
         public Task<ScryfallCard?> ResolveSingleAsync(string cardName, CancellationToken cancellationToken)
             => SearchFallbackCardAsync(cardName, cancellationToken);
+    }
+
+    private sealed class FakeAnalysisContextBuilder(Func<IReadOnlyList<CutLabPoolCard>, string, IReadOnlyList<string>, CutLabAnalysisContext> factory) : ICutLabAnalysisContextBuilder
+    {
+        public int BuildCalls { get; private set; }
+
+        public int LastWorkingListCount { get; private set; }
+
+        public Task<CutLabAnalysisContext> BuildAsync(
+            IReadOnlyList<CutLabPoolCard> workingList,
+            string playExperience,
+            IReadOnlyList<string> commanderNames,
+            CancellationToken cancellationToken = default)
+        {
+            BuildCalls++;
+            LastWorkingListCount = workingList.Sum(card => card.Quantity);
+            return Task.FromResult(factory(workingList, playExperience, commanderNames));
+        }
+    }
+
+    private sealed class FakeSimulationService : ICutLabSimulationService
+    {
+        public Func<IReadOnlyList<CutLabPoolCard>, string?, int?, CutLabMetricSnapshot>? SnapshotFactory { get; set; }
+
+        public Func<IReadOnlyList<CutLabPoolCard>, string, string?, CutLabProposalDeltas>? DeltasFactory { get; set; }
+
+        public Exception? BuildSnapshotException { get; set; }
+
+        public Exception? ComputeProposalDeltasException { get; set; }
+
+        public Task<CutLabMetricSnapshot> BuildSnapshot(
+            IReadOnlyList<CutLabPoolCard> workingList,
+            string? playExperience,
+            int? trialsOverride = ICutLabSimulationService.InLoopTrials,
+            CancellationToken cancellationToken = default)
+        {
+            if (BuildSnapshotException is not null)
+            {
+                return Task.FromException<CutLabMetricSnapshot>(BuildSnapshotException);
+            }
+
+            return Task.FromResult(SnapshotFactory?.Invoke(workingList, playExperience, trialsOverride) ?? BuildSevenMetricSnapshot(10));
+        }
+
+        public Task<CutLabProposalDeltas> ComputeProposalDeltas(
+            IReadOnlyList<CutLabPoolCard> currentWorkingList,
+            string candidateCardName,
+            string? playExperience,
+            int? trialsOverride = ICutLabSimulationService.InLoopTrials,
+            CancellationToken cancellationToken = default)
+        {
+            if (ComputeProposalDeltasException is not null)
+            {
+                return Task.FromException<CutLabProposalDeltas>(ComputeProposalDeltasException);
+            }
+
+            return Task.FromResult(DeltasFactory?.Invoke(currentWorkingList, candidateCardName, playExperience) ?? BuildDeltas(candidateCardName));
+        }
     }
 
     private sealed class FakeBanListService(IReadOnlyList<string> bannedCards) : ICommanderBanListService

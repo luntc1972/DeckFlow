@@ -1,4 +1,3 @@
-using System.Net;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
@@ -10,7 +9,6 @@ using DeckFlow.Web.Services.Manabase;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using RestSharp;
 
 namespace DeckFlow.Web.Services.CutLab;
 
@@ -67,6 +65,15 @@ public sealed record CutLabProcessResult
     public CutLabStructuralFindingsResult Findings { get; init; } =
         new([], ComboDataAvailable: false, CategoryDataAvailable: false);
 
+    /// <summary>The current derived working-list round plan for the rendered state.</summary>
+    public CutLabRoundPlan? RoundPlan { get; init; }
+
+    /// <summary>The server-computed deltas for the next proposal on the rendered state.</summary>
+    public CutLabProposalDeltas? InitialProposalDeltas { get; init; }
+
+    /// <summary>The server-computed metric snapshot for the current derived working list.</summary>
+    public CutLabMetricSnapshot? CurrentSnapshot { get; init; }
+
     /// <summary>User-facing error for a hard failure, null on success.</summary>
     public string? ErrorMessage { get; init; }
 
@@ -77,11 +84,6 @@ public sealed record CutLabProcessResult
 /// <summary>Default Cut Lab page-service orchestrator.</summary>
 internal sealed class CutLabPageService : ICutLabPageService
 {
-    private const int ScryfallBatchSize = 75;
-
-    private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> EmptyCategories =
-        new Dictionary<string, IReadOnlyList<string>>();
-
     private static readonly HashSet<string> AnalyzedBoards =
         new(StringComparer.OrdinalIgnoreCase) { "mainboard", "commander" };
 
@@ -92,6 +94,9 @@ internal sealed class CutLabPageService : ICutLabPageService
     private readonly ICommanderSpellbookService? _spellbook;
     private readonly IManabaseBaselineProvider? _manabaseBaseline;
     private readonly ICedhLandBaselineProvider? _cedhBaseline;
+    private readonly ICutLabAnalysisContextBuilder _analysisContextBuilder;
+    private readonly ICutLabSimulationService _simulationService;
+    private readonly CutLabBaselineSnapshot _baselineSnapshot;
     private readonly ILogger<CutLabPageService> _logger;
 
     /// <summary>Creates the Cut Lab page service.</summary>
@@ -102,6 +107,9 @@ internal sealed class CutLabPageService : ICutLabPageService
     /// <param name="spellbook">Optional combo lookup dependency for structural analysis.</param>
     /// <param name="manabaseBaseline">Optional bracket baseline dependency for structural analysis.</param>
     /// <param name="cedhBaseline">Optional cEDH commander baseline dependency for structural analysis.</param>
+    /// <param name="analysisContextBuilder">Optional shared builder for resolved-card, classification, and role-assignment analysis.</param>
+    /// <param name="simulationService">Optional simulation service for baseline, current snapshot, and proposal-delta computation.</param>
+    /// <param name="baselineSnapshot">Optional baseline snapshot builder.</param>
     /// <param name="logger">Optional logger for non-blocking diagnostics.</param>
     public CutLabPageService(
         IDeckEntryLoader deckEntryLoader,
@@ -111,6 +119,9 @@ internal sealed class CutLabPageService : ICutLabPageService
         ICommanderSpellbookService? spellbook = null,
         IManabaseBaselineProvider? manabaseBaseline = null,
         ICedhLandBaselineProvider? cedhBaseline = null,
+        ICutLabAnalysisContextBuilder? analysisContextBuilder = null,
+        ICutLabSimulationService? simulationService = null,
+        CutLabBaselineSnapshot? baselineSnapshot = null,
         ILogger<CutLabPageService>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
@@ -124,6 +135,12 @@ internal sealed class CutLabPageService : ICutLabPageService
         _spellbook = spellbook;
         _manabaseBaseline = manabaseBaseline;
         _cedhBaseline = cedhBaseline;
+        CutLabResolvedCardCache sharedResolvedCardCache = new();
+        _analysisContextBuilder = analysisContextBuilder
+            ?? new CutLabAnalysisContextBuilder(cardResolver, sharedResolvedCardCache, spellbook, categoryKnowledge);
+        _simulationService = simulationService
+            ?? NoOpCutLabSimulationService.Instance;
+        _baselineSnapshot = baselineSnapshot ?? new CutLabBaselineSnapshot(_simulationService);
         _logger = logger ?? NullLogger<CutLabPageService>.Instance;
     }
 
@@ -203,18 +220,6 @@ internal sealed class CutLabPageService : ICutLabPageService
         }
 
         var commanderResolution = ResolveCommanderSelection(resolvedEntries, request.SelectedCommander);
-        ClassificationInputs classification = await LoadClassificationInputsAsync(
-            resolvedEntries,
-            commanderResolution.CommanderNames,
-            cancellationToken).ConfigureAwait(false);
-
-        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName = BuildRoleAssignments(
-            resolvedEntries,
-            commanderResolution.CommanderNames,
-            request.PlayExperience,
-            classification,
-            out IReadOnlyList<CutLabAnalyzedCard> analyzedCards,
-            out double commanderManaValue);
 
         int nonCommanderCardCount = CountNonCommanderCards(analyzedEntries, commanderResolution.CommanderNames);
         try
@@ -243,10 +248,18 @@ internal sealed class CutLabPageService : ICutLabPageService
         }
 
         var priorState = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+        var preAnalysisState = BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, []);
+        preAnalysisState = CutLabLockRules.EnforceCommanderLock(preAnalysisState);
+        IReadOnlyList<CutLabPoolCard> derivedWorkingList = CutLabWorkingList.Derive(preAnalysisState.Pool, preAnalysisState.Decisions);
+        CutLabAnalysisContext analysisContext = await _analysisContextBuilder.BuildAsync(
+            derivedWorkingList,
+            request.PlayExperience,
+            commanderResolution.CommanderNames,
+            cancellationToken).ConfigureAwait(false);
         IReadOnlyList<CutLabResolvedFloor> resolvedFloors = CutLabFloorDefaults.ResolveDefaults(
             request.Bracket,
             request.PlayExperience,
-            commanderManaValue,
+            analysisContext.CommanderManaValue,
             commanderResolution.CommanderNames,
             _manabaseBaseline,
             _cedhBaseline,
@@ -256,13 +269,88 @@ internal sealed class CutLabPageService : ICutLabPageService
             floor => floor.Floor,
             StringComparer.OrdinalIgnoreCase);
         CutLabStructuralFindingsResult findings = CutLabStructuralFindings.Compute(
-            analyzedCards,
-            classification.AlmostIncludedCombos,
+            analysisContext.AnalyzedCards,
+            analysisContext.Classification.AlmostIncludedCombos,
             floorByRole,
-            classification.ComboDataAvailable,
-            classification.CategoryDataAvailable);
+            analysisContext.Classification.ComboDataAvailable,
+            analysisContext.Classification.CategoryDataAvailable);
         var state = BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, resolvedFloors);
         state = CutLabLockRules.EnforceCommanderLock(state);
+
+        if (state.BaselineSnapshot is null)
+        {
+            try
+            {
+                CutLabMetricSnapshot baselineSnapshot = await _baselineSnapshot.Build(
+                    state.Pool,
+                    request.PlayExperience,
+                    cancellationToken).ConfigureAwait(false);
+                state = state with { BaselineSnapshot = baselineSnapshot };
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(exception, "Cut Lab: baseline snapshot failed; continuing without D-12 baseline.");
+                warnings.Add("Baseline snapshot unavailable right now - continuing without original-pool metrics.");
+            }
+        }
+
+        derivedWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions);
+        CutLabRoundPlan roundPlan = CutLabCutRoundEngine.BuildQueue(
+            BuildRoundInputs(derivedWorkingList, analysisContext.AnalyzedCards),
+            findings,
+            state.Decisions,
+            derivedWorkingList.Sum(card => card.Quantity) - 100);
+
+        CutLabMetricSnapshot? currentSnapshot = null;
+        if (state.Decisions.Count == 0 && state.BaselineSnapshot is not null)
+        {
+            currentSnapshot = state.BaselineSnapshot;
+        }
+        else
+        {
+            try
+            {
+                currentSnapshot = await _simulationService.BuildSnapshot(
+                    derivedWorkingList,
+                    request.PlayExperience,
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(exception, "Cut Lab: current working snapshot failed; continuing without current metrics.");
+                warnings.Add("Current working snapshot unavailable right now - continuing without live metrics.");
+            }
+        }
+
+        CutLabProposalDeltas? initialProposalDeltas = null;
+        if (roundPlan.NextProposal is not null)
+        {
+            try
+            {
+                initialProposalDeltas = await _simulationService.ComputeProposalDeltas(
+                    derivedWorkingList,
+                    roundPlan.NextProposal.CardName,
+                    request.PlayExperience,
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(exception, "Cut Lab: proposal deltas failed for {CardName}; continuing without deltas.", roundPlan.NextProposal.CardName);
+                warnings.Add("Proposal delta preview unavailable right now - continuing without cut-impact metrics.");
+            }
+        }
 
         string serializedStateJson;
         try
@@ -284,11 +372,14 @@ internal sealed class CutLabPageService : ICutLabPageService
             CommanderSelectionRequired = commanderResolution.SelectionRequired,
             CommanderChoices = commanderResolution.CommanderChoices,
             Warnings = warnings,
-            ComboDataAvailable = classification.ComboDataAvailable,
-            CategoryDataAvailable = classification.CategoryDataAvailable,
-            RoleAssignmentsByCardName = roleAssignmentsByCardName,
+            ComboDataAvailable = analysisContext.Classification.ComboDataAvailable,
+            CategoryDataAvailable = analysisContext.Classification.CategoryDataAvailable,
+            RoleAssignmentsByCardName = analysisContext.RolesByCardName,
             ResolvedFloors = resolvedFloors,
             Findings = findings,
+            RoundPlan = roundPlan,
+            InitialProposalDeltas = initialProposalDeltas,
+            CurrentSnapshot = currentSnapshot,
             HasResult = true,
         };
     }
@@ -297,19 +388,15 @@ internal sealed class CutLabPageService : ICutLabPageService
         IReadOnlyList<DeckEntry> entries,
         CancellationToken cancellationToken)
     {
-        var index = await ResolveCardsAsync(entries, cancellationToken).ConfigureAwait(false);
         var resolvedEntries = new List<ResolvedCutLabEntry>(entries.Count);
 
         foreach (DeckEntry entry in entries)
         {
-            if (!index.TryResolve(entry.Name, entry.SetCode, entry.CollectorNumber, out ScryfallCardData? card))
+            ScryfallCardData? card = null;
+            ScryfallCard? resolved = await _cardResolver.ResolveSingleAsync(entry.Name, cancellationToken).ConfigureAwait(false);
+            if (resolved is not null)
             {
-                ScryfallCard? fallback = await _cardResolver.SearchFallbackCardAsync(entry.Name, cancellationToken).ConfigureAwait(false);
-                if (fallback is not null)
-                {
-                    card = ScryfallCardDataMapper.ToCardData(fallback);
-                    index.Add(card);
-                }
+                card = ScryfallCardDataMapper.ToCardData(resolved);
             }
 
             resolvedEntries.Add(new ResolvedCutLabEntry(
@@ -321,52 +408,6 @@ internal sealed class CutLabPageService : ICutLabPageService
         }
 
         return resolvedEntries;
-    }
-
-    private async Task<ScryfallCardNameIndex> ResolveCardsAsync(
-        IReadOnlyList<DeckEntry> entries,
-        CancellationToken cancellationToken)
-    {
-        var identifiers = new List<object>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (DeckEntry entry in entries)
-        {
-            string? printing = ScryfallCardNameIndex.PrintingKey(entry.SetCode, entry.CollectorNumber);
-            string key = printing ?? $"name:{entry.Name}";
-            if (!seen.Add(key))
-            {
-                continue;
-            }
-
-            identifiers.Add(printing is not null
-                ? new { set = entry.SetCode, collector_number = entry.CollectorNumber }
-                : (object)new { name = entry.Name });
-        }
-
-        var index = new ScryfallCardNameIndex();
-        for (int offset = 0; offset < identifiers.Count; offset += ScryfallBatchSize)
-        {
-            var batch = identifiers.Skip(offset).Take(ScryfallBatchSize).ToArray();
-            var request = new RestRequest("cards/collection", Method.Post);
-            request.AddJsonBody(new { identifiers = batch });
-
-            RestResponse<ScryfallCollectionResponse> response =
-                await _cardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
-            if (response.StatusCode is < HttpStatusCode.OK or >= HttpStatusCode.MultipleChoices || response.Data is null)
-            {
-                throw new HttpRequestException(
-                    $"Scryfall card lookup (cards/collection) returned HTTP {(int)response.StatusCode} during cut-lab intake.",
-                    inner: null,
-                    statusCode: response.StatusCode);
-            }
-
-            foreach (ScryfallCard card in response.Data.Data)
-            {
-                index.Add(ScryfallCardDataMapper.ToCardData(card));
-            }
-        }
-
-        return index;
     }
 
     private static List<DeckEntry> ReflagInferredCommanders(List<DeckEntry> entries)
@@ -449,172 +490,6 @@ internal sealed class CutLabPageService : ICutLabPageService
             .Sum(entry => entry.Quantity);
     }
 
-    private static IReadOnlyDictionary<string, IReadOnlyList<string>> BuildRoleAssignments(
-        IReadOnlyList<ResolvedCutLabEntry> resolvedEntries,
-        IReadOnlyList<string> commanderNames,
-        string playExperience,
-        ClassificationInputs classification,
-        out IReadOnlyList<CutLabAnalyzedCard> analyzedCards,
-        out double commanderManaValue)
-    {
-        ArgumentNullException.ThrowIfNull(resolvedEntries);
-        ArgumentNullException.ThrowIfNull(commanderNames);
-        ArgumentNullException.ThrowIfNull(playExperience);
-        ArgumentNullException.ThrowIfNull(classification);
-
-        HashSet<string> commanderNameSet = commanderNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        ManabaseMode mode = CutLabRoleAssigner.ResolveMode(playExperience);
-        Dictionary<string, IReadOnlyList<string>> rolesByCardName = new(StringComparer.OrdinalIgnoreCase);
-        List<CutLabAnalyzedCard> analyzed = new(resolvedEntries.Count);
-        commanderManaValue = 0;
-
-        foreach (ResolvedCutLabEntry entry in resolvedEntries)
-        {
-            IReadOnlyList<string> categories = classification.CategoriesByName.TryGetValue(entry.Name, out IReadOnlyList<string>? hit)
-                ? hit
-                : Array.Empty<string>();
-            IReadOnlyList<string> roles = [];
-            double manaValue = 0;
-
-            if (entry.Card is not null)
-            {
-                CardFact fact = ScryfallCardFactMapper.ToCardFact(
-                    entry.Card,
-                    entry.Quantity,
-                    commanderNameSet.Contains(entry.Name));
-                roles = CutLabRoleAssigner.AssignRoles(
-                    fact,
-                    categories,
-                    classification.ComboNames.Contains(entry.Name),
-                    mode);
-                manaValue = fact.ManaValue;
-
-                if (commanderNameSet.Contains(entry.Name))
-                {
-                    commanderManaValue = Math.Max(commanderManaValue, fact.ManaValue);
-                }
-            }
-
-            rolesByCardName[entry.Name] = roles;
-            analyzed.Add(new CutLabAnalyzedCard(
-                entry.Name,
-                manaValue,
-                roles.Contains("lands", StringComparer.Ordinal),
-                roles,
-                categories)
-            {
-                Quantity = entry.Quantity,
-            });
-        }
-
-        analyzedCards = analyzed;
-        return rolesByCardName;
-    }
-
-    private async Task<ClassificationInputs> LoadClassificationInputsAsync(
-        IReadOnlyList<ResolvedCutLabEntry> resolvedEntries,
-        IReadOnlyList<string> commanderNames,
-        CancellationToken cancellationToken)
-    {
-        HashSet<string> comboNames = new(StringComparer.OrdinalIgnoreCase);
-        IReadOnlyList<SpellbookAlmostCombo> almostIncludedCombos = [];
-        bool comboDataAvailable = false;
-
-        if (_spellbook is not null)
-        {
-            try
-            {
-                CommanderSpellbookResult? combos =
-                    await _spellbook.FindCombosAsync(
-                        BuildSpellbookEntries(resolvedEntries, commanderNames),
-                        cancellationToken).ConfigureAwait(false);
-                comboDataAvailable = combos is not null;
-                if (combos is not null)
-                {
-                    almostIncludedCombos = combos.AlmostIncludedCombos;
-                    foreach (SpellbookCombo combo in combos.IncludedCombos)
-                    {
-                        foreach (string cardName in combo.CardNames)
-                        {
-                            comboNames.Add(cardName);
-                        }
-                    }
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                _logger.LogWarning(exception, "Cut Lab: Commander Spellbook fetch failed; continuing without combo roles.");
-            }
-        }
-
-        // ONE batched lookup for the whole pool. A per-card loop here previously caused ~65
-        // sequential queries and pushed request time toward ~20 seconds, so this must stay batched.
-        CategoryLookupResult categories = await GetCategoriesFailOpenAsync(
-            resolvedEntries
-                .Select(entry => entry.Name)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray(),
-            cancellationToken).ConfigureAwait(false);
-
-        return new ClassificationInputs(
-            comboNames,
-            almostIncludedCombos,
-            categories.CategoriesByName,
-            comboDataAvailable,
-            categories.CategoryDataAvailable);
-    }
-
-    private async Task<CategoryLookupResult> GetCategoriesFailOpenAsync(
-        IReadOnlyCollection<string> cardNames,
-        CancellationToken cancellationToken)
-    {
-        if (_categoryKnowledge is null || cardNames.Count == 0)
-        {
-            return new CategoryLookupResult(EmptyCategories, false);
-        }
-
-        try
-        {
-            IReadOnlyDictionary<string, IReadOnlyList<string>> categories =
-                await _categoryKnowledge.GetCategoriesForNamesAsync(cardNames, cancellationToken).ConfigureAwait(false);
-            return new CategoryLookupResult(categories, true);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception exception)
-        {
-            _logger.LogWarning(exception, "Cut Lab: batch category lookup failed; using heuristics only.");
-            return new CategoryLookupResult(EmptyCategories, false);
-        }
-    }
-
-    private static List<DeckEntry> BuildSpellbookEntries(
-        IReadOnlyList<ResolvedCutLabEntry> resolvedEntries,
-        IReadOnlyList<string> commanderNames)
-    {
-        HashSet<string> commanderNameSet = commanderNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        List<DeckEntry> spellbookEntries = new(resolvedEntries.Count);
-
-        foreach (ResolvedCutLabEntry entry in resolvedEntries)
-        {
-            spellbookEntries.Add(new DeckEntry
-            {
-                Name = entry.Name,
-                NormalizedName = entry.Name.ToLowerInvariant(),
-                Quantity = entry.Quantity,
-                Board = commanderNameSet.Contains(entry.Name) ? "commander" : "mainboard",
-            });
-        }
-
-        return spellbookEntries;
-    }
-
     private static CutLabState BuildState(
         CutLabState priorState,
         IReadOnlyList<ResolvedCutLabEntry> resolvedEntries,
@@ -649,6 +524,8 @@ internal sealed class CutLabPageService : ICutLabPageService
             Commander = commanderNames.Count == 0 ? string.Empty : commanderNames[0],
             Pool = pool,
             Packages = priorState.Packages,
+            Decisions = priorState.Decisions,
+            BaselineSnapshot = priorState.BaselineSnapshot,
             RoleFloors = resolvedFloors
                 .Where(floor => floor.IsUserSet)
                 .Select(floor => new CutLabRoleFloor
@@ -666,6 +543,32 @@ internal sealed class CutLabPageService : ICutLabPageService
                 PlayExperience = request.PlayExperience,
             },
         };
+    }
+
+    private static IReadOnlyList<CutLabRoundInputCard> BuildRoundInputs(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        IReadOnlyList<CutLabAnalyzedCard> analyzedCards)
+    {
+        IReadOnlyDictionary<string, CutLabAnalyzedCard> analyzedByName = analyzedCards.ToDictionary(
+            card => card.Name,
+            StringComparer.OrdinalIgnoreCase);
+
+        return workingList
+            .Select(card =>
+            {
+                analyzedByName.TryGetValue(card.Name, out CutLabAnalyzedCard? analyzedCard);
+                return new CutLabRoundInputCard(
+                    card.Name,
+                    card.Quantity,
+                    card.TypeLine,
+                    card.IsCommander,
+                    card.IsLocked,
+                    analyzedCard?.ManaValue ?? 0,
+                    analyzedCard?.IsLand ?? false,
+                    analyzedCard?.Roles ?? [],
+                    analyzedCard?.Categories ?? []);
+            })
+            .ToArray();
     }
 
     private async Task<IReadOnlyList<string>> ResolveBannedCardsPresentAsync(
@@ -703,19 +606,31 @@ internal sealed class CutLabPageService : ICutLabPageService
         bool IsCommander,
         ScryfallCardData? Card);
 
-    private sealed record ClassificationInputs(
-        IReadOnlySet<string> ComboNames,
-        IReadOnlyList<SpellbookAlmostCombo> AlmostIncludedCombos,
-        IReadOnlyDictionary<string, IReadOnlyList<string>> CategoriesByName,
-        bool ComboDataAvailable,
-        bool CategoryDataAvailable);
-
-    private sealed record CategoryLookupResult(
-        IReadOnlyDictionary<string, IReadOnlyList<string>> CategoriesByName,
-        bool CategoryDataAvailable);
-
     private sealed record CommanderResolution(
         IReadOnlyList<string> CommanderNames,
         IReadOnlyList<string> CommanderChoices,
         bool SelectionRequired);
+
+    private sealed class NoOpCutLabSimulationService : ICutLabSimulationService
+    {
+        public static NoOpCutLabSimulationService Instance { get; } = new();
+
+        public Task<CutLabMetricSnapshot> BuildSnapshot(
+            IReadOnlyList<CutLabPoolCard> workingList,
+            string? playExperience,
+            int? trialsOverride = ICutLabSimulationService.InLoopTrials,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new CutLabMetricSnapshot());
+
+        public Task<CutLabProposalDeltas> ComputeProposalDeltas(
+            IReadOnlyList<CutLabPoolCard> currentWorkingList,
+            string candidateCardName,
+            string? playExperience,
+            int? trialsOverride = ICutLabSimulationService.InLoopTrials,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new CutLabProposalDeltas
+            {
+                CardName = candidateCardName,
+            });
+    }
 }
