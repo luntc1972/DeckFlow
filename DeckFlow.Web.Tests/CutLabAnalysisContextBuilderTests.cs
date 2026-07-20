@@ -127,10 +127,37 @@ public sealed class CutLabAnalysisContextBuilderTests
         Assert.True(hit);
         Assert.NotNull(cachedCards);
         Assert.Equal(2, Assert.IsAssignableFrom<IReadOnlyList<ScryfallCardData>>(cachedCards).Count);
-        Assert.Equal(2, resolver.ResolveSingleCalls);
+        Assert.Equal(1, resolver.ExecuteCollectionCalls);
+        Assert.Equal(0, resolver.ResolveSingleCalls);
         Assert.False(context.Classification.ComboDataAvailable);
         Assert.False(context.Classification.CategoryDataAvailable);
         Assert.Equal(1, context.RoleCounts["ramp"]);
+    }
+
+    [Fact]
+    public async Task BuildAsync_ColdPoolWithOneHundredTwentyDistinctCards_UsesTwoCollectionCalls()
+    {
+        List<ScryfallCard> cards =
+        [
+            Spell("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{G}{U}", cmc: 3),
+        ];
+        IReadOnlyList<CutLabPoolCard> workingList =
+        [
+            PoolCard("Focused Commander", "Legendary Creature — Human Wizard", isCommander: true),
+            .. Enumerable.Range(1, 119).Select(index => PoolCard($"Card {index:000}", "Artifact")),
+        ];
+        cards.AddRange(Enumerable.Range(1, 119).Select(index => Spell($"Card {index:000}", "Artifact", manaCost: "{2}", cmc: 2)));
+        var resolver = new CountingResolver(cards);
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache());
+
+        CutLabAnalysisContext context = await builder.BuildAsync(
+            workingList,
+            "Focused",
+            ["Focused Commander"]);
+
+        Assert.Equal(120, context.ResolvedCards.Count);
+        Assert.Equal(2, resolver.ExecuteCollectionCalls);
+        Assert.Equal(0, resolver.ResolveSingleCalls);
     }
 
     [Fact]
@@ -228,7 +255,8 @@ public sealed class CutLabAnalysisContextBuilderTests
             ["Focused Commander"],
             preResolvedCards: beforeContext.ResolvedCards);
 
-        Assert.Equal(3, resolver.ResolveSingleCalls);
+        Assert.Equal(1, resolver.ExecuteCollectionCalls);
+        Assert.Equal(0, resolver.ResolveSingleCalls);
         Assert.Equal(["Focused Commander", "Counterspell"], afterContext.ResolvedCards.Select(card => card.Name));
     }
 
@@ -267,18 +295,12 @@ public sealed class CutLabAnalysisContextBuilderTests
     }
 
     [Fact]
-    public async Task BuildAsync_AfterDecisionWithWarmCacheAndOneUnresolvableCard_OnlyRetriesTheMissingCard()
+    public async Task BuildAsync_SamePoolWithOneUnresolvableCard_FallsBackOnceAndCachesKnownMissing()
     {
-        IReadOnlyList<CutLabPoolCard> beforeWorkingList =
+        IReadOnlyList<CutLabPoolCard> workingList =
         [
             PoolCard("Focused Commander", "Legendary Creature — Human Wizard", isCommander: true),
             PoolCard("Arcane Signet", "Artifact"),
-            PoolCard("Counterspell", "Instant"),
-            PoolCard("Typo Card", "Sorcery"),
-        ];
-        IReadOnlyList<CutLabPoolCard> afterWorkingList =
-        [
-            PoolCard("Focused Commander", "Legendary Creature — Human Wizard", isCommander: true),
             PoolCard("Counterspell", "Instant"),
             PoolCard("Typo Card", "Sorcery"),
         ];
@@ -288,24 +310,28 @@ public sealed class CutLabAnalysisContextBuilderTests
             Spell("Arcane Signet", "Artifact", manaCost: "{2}", cmc: 2),
             Spell("Counterspell", "Instant", manaCost: "{U}{U}", cmc: 2),
         ]);
-        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache());
+        var cache = new CutLabResolvedCardCache();
+        var builder = new CutLabAnalysisContextBuilder(resolver, cache);
 
-        CutLabAnalysisContext beforeContext = await builder.BuildAsync(
-            beforeWorkingList,
+        CutLabAnalysisContext first = await builder.BuildAsync(
+            workingList,
             "Focused",
             ["Focused Commander"]);
-        CutLabAnalysisContext afterContext = await builder.BuildAsync(
-            afterWorkingList,
+        CutLabAnalysisContext second = await builder.BuildAsync(
+            workingList,
             "Focused",
-            ["Focused Commander"],
-            preResolvedCards: beforeContext.ResolvedCards);
+            ["Focused Commander"]);
+        string poolKey = CutLabResolvedCardCache.ComputePoolKey(workingList.Select(card => (card.Name, card.Quantity)).ToArray());
 
-        Assert.Equal(5, resolver.ResolveSingleCalls);
-        Assert.Equal(1, resolver.ResolveSingleCallsByName["Focused Commander"]);
-        Assert.Equal(1, resolver.ResolveSingleCallsByName["Arcane Signet"]);
-        Assert.Equal(1, resolver.ResolveSingleCallsByName["Counterspell"]);
-        Assert.Equal(2, resolver.ResolveSingleCallsByName["Typo Card"]);
-        Assert.Equal(["Focused Commander", "Counterspell"], afterContext.ResolvedCards.Select(card => card.Name));
+        Assert.Equal(["Focused Commander", "Arcane Signet", "Counterspell"], first.ResolvedCards.Select(card => card.Name));
+        Assert.Equal(["Focused Commander", "Arcane Signet", "Counterspell"], second.ResolvedCards.Select(card => card.Name));
+        Assert.Equal(1, resolver.ExecuteCollectionCalls);
+        Assert.Equal(1, resolver.ResolveSingleCalls);
+        Assert.Single(resolver.ResolveSingleCallsByName);
+        Assert.Equal(1, resolver.ResolveSingleCallsByName["Typo Card"]);
+        Assert.True(cache.TryGetKnownMissingNames(poolKey, out IReadOnlySet<string>? missingNames));
+        Assert.NotNull(missingNames);
+        Assert.Contains(CutLabCardNames.Normalize("Typo Card"), missingNames!);
     }
 
     [Fact]
@@ -353,7 +379,8 @@ public sealed class CutLabAnalysisContextBuilderTests
         Assert.True(seededBeforeRestore);
         Assert.True(seeded);
         Assert.NotNull(restoredCards);
-        Assert.Equal(3, resolver.ResolveSingleCalls);
+        Assert.Equal(1, resolver.ExecuteCollectionCalls);
+        Assert.Equal(0, resolver.ResolveSingleCalls);
         Assert.Equal(2, beforeRestoreContext.ResolvedCards.Count);
         Assert.Equal(3, restoredContext.ResolvedCards.Count);
     }
@@ -402,16 +429,21 @@ public sealed class CutLabAnalysisContextBuilderTests
 
     private sealed class CountingResolver(IReadOnlyList<ScryfallCard> cards) : IScryfallCardResolver
     {
+        public int ExecuteCollectionCalls { get; private set; }
+
         public int ResolveSingleCalls { get; private set; }
 
         public Dictionary<string, int> ResolveSingleCallsByName { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         public Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken cancellationToken)
-            => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+        {
+            ExecuteCollectionCalls++;
+            return Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
             {
                 StatusCode = HttpStatusCode.OK,
                 Data = new ScryfallCollectionResponse(cards.ToList(), []),
             });
+        }
 
         public Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
             => Task.FromResult(cards.FirstOrDefault(card => string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase)));
