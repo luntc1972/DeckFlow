@@ -23,6 +23,23 @@ public interface ICutLabSimulationService
         string? poolKey = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Builds the metric snapshot for the current working list with optional goal overrides.</summary>
+    /// <param name="workingList">Current working pool cards.</param>
+    /// <param name="playExperience">Cut Lab play-experience label used to resolve the shared manabase mode.</param>
+    /// <param name="trialsOverride">Optional simulation trial count override; null keeps the engine default.</param>
+    /// <param name="poolKey">Optional precomputed pool key for the working list.</param>
+    /// <param name="goals">Optional by-turn goal overrides; null keeps the seeded defaults.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The projected seven-family metric snapshot.</returns>
+    Task<CutLabMetricSnapshot> BuildSnapshot(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        string? playExperience,
+        int? trialsOverride,
+        string? poolKey,
+        CutLabGoalSettings? goals,
+        CancellationToken cancellationToken = default)
+        => BuildSnapshot(workingList, playExperience, trialsOverride, poolKey, cancellationToken);
+
     /// <summary>Builds proposal deltas for removing a candidate card from the current working list.</summary>
     /// <param name="currentWorkingList">Current working pool cards.</param>
     /// <param name="candidateCardName">Candidate card to remove from the current working list.</param>
@@ -39,6 +56,25 @@ public interface ICutLabSimulationService
         string? poolKey = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Builds proposal deltas for removing a candidate card with optional goal overrides.</summary>
+    /// <param name="currentWorkingList">Current working pool cards.</param>
+    /// <param name="candidateCardName">Candidate card to remove from the current working list.</param>
+    /// <param name="playExperience">Cut Lab play-experience label used to resolve the shared manabase mode.</param>
+    /// <param name="trialsOverride">Optional simulation trial count override; null keeps the engine default.</param>
+    /// <param name="poolKey">Optional precomputed pool key for the current working list.</param>
+    /// <param name="goals">Optional by-turn goal overrides; null keeps the seeded defaults.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The noise-floored proposal deltas keyed to the current working list.</returns>
+    Task<CutLabProposalDeltas> ComputeProposalDeltas(
+        IReadOnlyList<CutLabPoolCard> currentWorkingList,
+        string candidateCardName,
+        string? playExperience,
+        int? trialsOverride,
+        string? poolKey,
+        CutLabGoalSettings? goals,
+        CancellationToken cancellationToken = default)
+        => ComputeProposalDeltas(currentWorkingList, candidateCardName, playExperience, trialsOverride, poolKey, cancellationToken);
+
     /// <summary>Default in-loop trial count for Task 103-05 delta snapshots.</summary>
     public const int InLoopTrials = 4000;
 }
@@ -52,7 +88,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
     private readonly CutLabDeltaCache _deltaCache;
     private readonly IScryfallCardResolver _resolver;
     private readonly ILogger<CutLabSimulationService> _logger;
-    private readonly Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabMetricSnapshot> _snapshotBuilder;
+    private readonly Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabGoalSettings?, CutLabMetricSnapshot> _snapshotBuilder;
 
     /// <summary>Creates a new <see cref="CutLabSimulationService"/>.</summary>
     /// <param name="resolvedCardCache">Resolved-card cache for working pools.</param>
@@ -73,7 +109,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         CutLabDeltaCache deltaCache,
         IScryfallCardResolver resolver,
         ILogger<CutLabSimulationService> logger,
-        Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabMetricSnapshot> snapshotBuilder)
+        Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabGoalSettings?, CutLabMetricSnapshot> snapshotBuilder)
     {
         _resolvedCardCache = resolvedCardCache ?? throw new ArgumentNullException(nameof(resolvedCardCache));
         _deltaCache = deltaCache ?? throw new ArgumentNullException(nameof(deltaCache));
@@ -89,16 +125,34 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         int? trialsOverride = ICutLabSimulationService.InLoopTrials,
         string? poolKey = null,
         CancellationToken cancellationToken = default)
+        => await BuildSnapshot(workingList, playExperience, trialsOverride, poolKey, goals: null, cancellationToken).ConfigureAwait(false);
+
+    /// <summary>Builds the metric snapshot for the current working list with optional goal overrides.</summary>
+    /// <param name="workingList">Current working pool cards.</param>
+    /// <param name="playExperience">Cut Lab play-experience label used to resolve the shared manabase mode.</param>
+    /// <param name="trialsOverride">Optional simulation trial count override; null keeps the engine default.</param>
+    /// <param name="poolKey">Optional precomputed pool key for the working list.</param>
+    /// <param name="goals">Optional by-turn goal overrides; null keeps the seeded defaults.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The projected seven-family metric snapshot.</returns>
+    public async Task<CutLabMetricSnapshot> BuildSnapshot(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        string? playExperience,
+        int? trialsOverride,
+        string? poolKey,
+        CutLabGoalSettings? goals,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(workingList);
 
-        return await GetOrBuildSnapshot(workingList, playExperience, trialsOverride, cancellationToken, poolKey).ConfigureAwait(false);
+        return await GetOrBuildSnapshot(workingList, playExperience, trialsOverride, goals, cancellationToken, poolKey).ConfigureAwait(false);
     }
 
     private static CutLabMetricSnapshot BuildSnapshot(
         IReadOnlyList<DeckCardEntry> deckEntries,
         string? playExperience,
-        int? trialsOverride)
+        int? trialsOverride,
+        CutLabGoalSettings? goals)
     {
         ManabaseMode mode = CutLabRoleAssigner.ResolveMode(playExperience);
         IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
@@ -134,7 +188,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
             cedhContext: cedhContext,
             trialsOverride: trialsOverride);
 
-        IReadOnlyList<CutLabMetricValue> metrics = BuildMetrics(report, deck, facts, mode);
+        IReadOnlyList<CutLabMetricValue> metrics = BuildMetrics(report, deck, facts, mode, goals);
         return new CutLabMetricSnapshot { Metrics = metrics };
     }
 
@@ -146,21 +200,40 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         int? trialsOverride = ICutLabSimulationService.InLoopTrials,
         string? poolKey = null,
         CancellationToken cancellationToken = default)
+        => await ComputeProposalDeltas(currentWorkingList, candidateCardName, playExperience, trialsOverride, poolKey, goals: null, cancellationToken).ConfigureAwait(false);
+
+    /// <summary>Builds proposal deltas for removing a candidate card with optional goal overrides.</summary>
+    /// <param name="currentWorkingList">Current working pool cards.</param>
+    /// <param name="candidateCardName">Candidate card to remove from the current working list.</param>
+    /// <param name="playExperience">Cut Lab play-experience label used to resolve the shared manabase mode.</param>
+    /// <param name="trialsOverride">Optional simulation trial count override; null keeps the engine default.</param>
+    /// <param name="poolKey">Optional precomputed pool key for the current working list.</param>
+    /// <param name="goals">Optional by-turn goal overrides; null keeps the seeded defaults.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The noise-floored proposal deltas keyed to the current working list.</returns>
+    public async Task<CutLabProposalDeltas> ComputeProposalDeltas(
+        IReadOnlyList<CutLabPoolCard> currentWorkingList,
+        string candidateCardName,
+        string? playExperience,
+        int? trialsOverride,
+        string? poolKey,
+        CutLabGoalSettings? goals,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(currentWorkingList);
         ArgumentException.ThrowIfNullOrWhiteSpace(candidateCardName);
 
         string currentPoolKey = poolKey ?? CutLabResolvedCardCache.ComputePoolKey(currentWorkingList);
-        if (_deltaCache.TryGet(currentPoolKey, candidateCardName, out CutLabProposalDeltas? cached, trialsOverride) && cached is not null)
+        if (_deltaCache.TryGet(currentPoolKey, candidateCardName, out CutLabProposalDeltas? cached, trialsOverride, goals) && cached is not null)
         {
             return cached;
         }
 
         IReadOnlyList<DeckCardEntry> beforeEntries = await ResolveDeckEntries(currentWorkingList, currentPoolKey, cancellationToken).ConfigureAwait(false);
-        CutLabMetricSnapshot before = GetOrBuildSnapshot(beforeEntries, currentPoolKey, playExperience, trialsOverride);
+        CutLabMetricSnapshot before = GetOrBuildSnapshot(beforeEntries, currentPoolKey, playExperience, trialsOverride, goals);
         IReadOnlyList<DeckCardEntry> afterEntries = RemoveCandidate(beforeEntries, candidateCardName);
         string afterPoolKey = CutLabResolvedCardCache.ComputePoolKey(afterEntries.Select(entry => (entry.Card.Name, entry.Quantity)).ToArray());
-        CutLabMetricSnapshot after = GetOrBuildSnapshot(afterEntries, afterPoolKey, playExperience, trialsOverride);
+        CutLabMetricSnapshot after = GetOrBuildSnapshot(afterEntries, afterPoolKey, playExperience, trialsOverride, goals);
 
         IReadOnlyDictionary<CutLabMetricKind, CutLabMetricValue> afterMetrics = after.Metrics
             .ToDictionary(metric => metric.Kind);
@@ -179,7 +252,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
             ChangedFamilyCount = deltas.Where(delta => delta.IsMeaningful).Select(delta => delta.Family).Distinct().Count(),
         };
 
-        _deltaCache.Set(currentPoolKey, candidateCardName, computed, trialsOverride);
+        _deltaCache.Set(currentPoolKey, candidateCardName, computed, trialsOverride, goals);
         return computed;
     }
 
@@ -187,15 +260,16 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         IReadOnlyList<DeckCardEntry> deckEntries,
         string poolKey,
         string? playExperience,
-        int? trialsOverride)
+        int? trialsOverride,
+        CutLabGoalSettings? goals)
     {
-        if (_deltaCache.TryGetSnapshot(poolKey, playExperience, trialsOverride, out CutLabMetricSnapshot? cached) && cached is not null)
+        if (_deltaCache.TryGetSnapshot(poolKey, playExperience, trialsOverride, out CutLabMetricSnapshot? cached, goals) && cached is not null)
         {
             return cached;
         }
 
-        CutLabMetricSnapshot snapshot = _snapshotBuilder(deckEntries, playExperience, trialsOverride);
-        _deltaCache.SetSnapshot(poolKey, playExperience, trialsOverride, snapshot);
+        CutLabMetricSnapshot snapshot = _snapshotBuilder(deckEntries, playExperience, trialsOverride, goals);
+        _deltaCache.SetSnapshot(poolKey, playExperience, trialsOverride, snapshot, goals);
         return snapshot;
     }
 
@@ -203,12 +277,13 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         IReadOnlyList<CutLabPoolCard> workingList,
         string? playExperience,
         int? trialsOverride,
+        CutLabGoalSettings? goals,
         CancellationToken cancellationToken,
         string? poolKeyOverride = null)
     {
         string poolKey = poolKeyOverride ?? CutLabResolvedCardCache.ComputePoolKey(workingList);
         IReadOnlyList<DeckCardEntry> deckEntries = await ResolveDeckEntries(workingList, poolKey, cancellationToken).ConfigureAwait(false);
-        return GetOrBuildSnapshot(deckEntries, poolKey, playExperience, trialsOverride);
+        return GetOrBuildSnapshot(deckEntries, poolKey, playExperience, trialsOverride, goals);
     }
 
     private async Task<IReadOnlyList<DeckCardEntry>> ResolveDeckEntries(
@@ -269,8 +344,10 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         ManabaseReport report,
         ManabaseDeck deck,
         IReadOnlyList<CardFact> facts,
-        ManabaseMode mode)
+        ManabaseMode mode,
+        CutLabGoalSettings? goals)
     {
+        goals ??= new CutLabGoalSettings();
         CardCastability? commander = report.Castability.FirstOrDefault(row => row.IsCommander);
         CardCastability[] engineRows = PlanRows(deck, report, PlanRole.Engine);
         CardCastability[] lineRows = PlanRows(deck, report, PlanRole.Engine | PlanRole.Payoff | PlanRole.TutorCombo | PlanRole.Interaction);
@@ -281,9 +358,9 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
             Metric(CutLabMetricKind.ManaColorReliability, CutLabMetricFamily.ManaColorReliability, "Mana and color reliability", report.ColorFindings.FirstOrDefault()?.AverageCastPercent ?? 0, CutLabMetricUnit.Percent),
             Metric(CutLabMetricKind.EarlyInteraction, CutLabMetricFamily.EarlyInteraction, "Early interaction", EarlyInteractionValue(report.InteractionLens), CutLabMetricUnit.Percent),
             Metric(CutLabMetricKind.PlanPresence, CutLabMetricFamily.PlanPresence, "Plan presence", report.MulliganEvaluation?.PlanPresence?.PlanPresencePercent ?? 0, CutLabMetricUnit.Percent),
-            Metric(CutLabMetricKind.CommanderByTurn, CutLabMetricFamily.CategoryByTurn, "Commander by turn 3", PercentByTurn(commander, CutLabCategoryByTurnDefaults.CommanderByTurn), CutLabMetricUnit.Percent),
-            Metric(CutLabMetricKind.EngineByTurn, CutLabMetricFamily.CategoryByTurn, "Engine by turn 2", MaxPercentByTurn(engineRows, CutLabCategoryByTurnDefaults.EngineByTurn), CutLabMetricUnit.Percent),
-            Metric(CutLabMetricKind.RepresentativeLineByTurn, CutLabMetricFamily.CategoryByTurn, "Representative line by turn 4", MaxPercentByTurn(lineRows, CutLabCategoryByTurnDefaults.RepresentativeLineByTurn), CutLabMetricUnit.Percent),
+            Metric(CutLabMetricKind.CommanderByTurn, CutLabMetricFamily.CategoryByTurn, $"Commander by turn {goals.CommanderByTurn}", PercentByTurn(commander, goals.CommanderByTurn), CutLabMetricUnit.Percent),
+            Metric(CutLabMetricKind.EngineByTurn, CutLabMetricFamily.CategoryByTurn, $"Engine by turn {goals.EngineByTurn}", MaxPercentByTurn(engineRows, goals.EngineByTurn), CutLabMetricUnit.Percent),
+            Metric(CutLabMetricKind.RepresentativeLineByTurn, CutLabMetricFamily.CategoryByTurn, $"Representative line by turn {goals.RepresentativeLineByTurn}", MaxPercentByTurn(lineRows, goals.RepresentativeLineByTurn), CutLabMetricUnit.Percent),
             Metric(CutLabMetricKind.Flood, CutLabMetricFamily.FloodScrewCurveRisk, "Flood", Math.Max(0, report.LandDelta), CutLabMetricUnit.Cards),
             Metric(CutLabMetricKind.Screw, CutLabMetricFamily.FloodScrewCurveRisk, "Screw", report.MulliganEvaluation?.MulliganTo5Percent ?? 0, CutLabMetricUnit.Percent),
             Metric(CutLabMetricKind.Curve, CutLabMetricFamily.FloodScrewCurveRisk, "Curve", CurveCongestionValue(facts, mode), CutLabMetricUnit.Cards),
@@ -392,6 +469,11 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         if (row.EarlyCastPercents.Count == 0)
         {
             return turn >= row.OnCurveTurn ? row.CastPercent : 0;
+        }
+
+        if (turn >= row.OnCurveTurn)
+        {
+            return row.CastPercent;
         }
 
         int index = Math.Clamp(turn - 1, 0, row.EarlyCastPercents.Count - 1);
