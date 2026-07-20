@@ -750,8 +750,7 @@ public sealed class CutLabPageServiceTests
             new FakeResolver(cards),
             new FakeBanListService([]),
             analysisContextBuilder: analysisBuilder,
-            simulationService: simulationService,
-            baselineSnapshot: new CutLabBaselineSnapshot(simulationService));
+            simulationService: simulationService);
         var request = new CutLabRequest
         {
             DeckInputSource = DeckInputSource.PasteText,
@@ -781,8 +780,7 @@ public sealed class CutLabPageServiceTests
             new FakeResolver(cards),
             new FakeBanListService([]),
             analysisContextBuilder: analysisBuilder,
-            simulationService: simulationService,
-            baselineSnapshot: new CutLabBaselineSnapshot(simulationService));
+            simulationService: simulationService);
         var request = new CutLabRequest
         {
             DeckInputSource = DeckInputSource.PasteText,
@@ -833,8 +831,7 @@ public sealed class CutLabPageServiceTests
             new FakeManabaseBaselineProvider(),
             new FakeCedhLandBaselineProvider(),
             analysisBuilder,
-            simulationService,
-            new CutLabBaselineSnapshot(simulationService));
+            simulationService);
         var request = new CutLabRequest
         {
             DeckInputSource = DeckInputSource.PasteText,
@@ -903,8 +900,7 @@ public sealed class CutLabPageServiceTests
             new FakeManabaseBaselineProvider(),
             new FakeCedhLandBaselineProvider(),
             analysisBuilder,
-            simulationService,
-            new CutLabBaselineSnapshot(simulationService));
+            simulationService);
 
         var result = await service.ProcessAsync(new CutLabRequest
         {
@@ -935,8 +931,7 @@ public sealed class CutLabPageServiceTests
             new FakeResolver(cards),
             new FakeBanListService([]),
             analysisContextBuilder: analysisBuilder,
-            simulationService: simulationService,
-            baselineSnapshot: new CutLabBaselineSnapshot(simulationService));
+            simulationService: simulationService);
         var request = new CutLabRequest
         {
             DeckInputSource = DeckInputSource.PasteText,
@@ -973,7 +968,6 @@ public sealed class CutLabPageServiceTests
             new FakeBanListService([]),
             analysisContextBuilder: analysisBuilder,
             simulationService: simulationService,
-            baselineSnapshot: new CutLabBaselineSnapshot(simulationService),
             logger: logger);
         var request = new CutLabRequest
         {
@@ -1005,8 +999,7 @@ public sealed class CutLabPageServiceTests
             new FakeResolver(cards),
             new FakeBanListService([]),
             analysisContextBuilder: analysisBuilder,
-            simulationService: simulationService,
-            baselineSnapshot: new CutLabBaselineSnapshot(simulationService));
+            simulationService: simulationService);
         var request = new CutLabRequest
         {
             DeckInputSource = DeckInputSource.PasteText,
@@ -1053,8 +1046,7 @@ public sealed class CutLabPageServiceTests
             new FakeResolver(cards),
             new FakeBanListService([]),
             analysisContextBuilder: analysisBuilder,
-            simulationService: simulationService,
-            baselineSnapshot: new CutLabBaselineSnapshot(simulationService));
+            simulationService: simulationService);
         var request = new CutLabRequest
         {
             DeckInputSource = DeckInputSource.PasteText,
@@ -1103,7 +1095,6 @@ public sealed class CutLabPageServiceTests
             new FakeBanListService([]),
             analysisContextBuilder: analysisBuilder,
             simulationService: simulationService,
-            baselineSnapshot: new CutLabBaselineSnapshot(simulationService),
             logger: logger);
         var request = new CutLabRequest
         {
@@ -1149,8 +1140,7 @@ public sealed class CutLabPageServiceTests
             new FakeManabaseBaselineProvider(),
             new FakeCedhLandBaselineProvider(),
             analysisBuilder,
-            simulationService,
-            new CutLabBaselineSnapshot(simulationService));
+            simulationService);
         var request = new CutLabRequest
         {
             DeckInputSource = DeckInputSource.PasteText,
@@ -1200,8 +1190,7 @@ public sealed class CutLabPageServiceTests
             new FakeManabaseBaselineProvider(),
             new FakeCedhLandBaselineProvider(),
             analysisBuilder,
-            simulationService,
-            new CutLabBaselineSnapshot(simulationService));
+            simulationService);
 
         var result = await service.ProcessAsync(new CutLabRequest
         {
@@ -1264,8 +1253,7 @@ public sealed class CutLabPageServiceTests
             new FakeManabaseBaselineProvider(),
             new FakeCedhLandBaselineProvider(),
             analysisBuilder,
-            simulationService,
-            new CutLabBaselineSnapshot(simulationService));
+            simulationService);
 
         var request = new CutLabRequest
         {
@@ -1877,7 +1865,6 @@ public sealed class CutLabPageServiceTests
         if (!omitSimulationService)
         {
             services.AddScoped<ICutLabSimulationService, CutLabSimulationService>();
-            services.AddScoped<CutLabBaselineSnapshot>();
         }
 
         // Optional ctor params default to null when a registration is missing; this guard catches

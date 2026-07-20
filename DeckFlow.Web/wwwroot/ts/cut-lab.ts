@@ -540,9 +540,6 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
     return decision === 'accept' || decision === 'reject' || decision === 'defer' || decision === 'restore';
   };
 
-  const isDecisionDirection = (direction: CutLabMetricDirection): direction is 'Up' | 'Down' | 'None' =>
-    direction === 'Up' || direction === 'Down' || direction === 'None';
-
   const deltaClassFor = (direction: CutLabMetricDirection): string => {
     switch (direction) {
       case 'Up':
@@ -570,10 +567,9 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
     return `${rounded} card${rounded === 1 ? '' : 's'}`;
   };
 
-  const formatDeltaToken = (delta: number, unit: CutLabMetricUnit, includeDirectionGlyph = true): string => {
+  const formatDeltaToken = (delta: number, unit: CutLabMetricUnit): string => {
     const magnitude = Math.abs(delta);
-    const prefix = includeDirectionGlyph ? glyphFor(delta > 0 ? 'Up' : delta < 0 ? 'Down' : 'None') : '';
-    return unit === 'Cards' ? `${prefix}${formatCardValue(magnitude)}` : `${prefix}${magnitude.toFixed(1)}%`;
+    return unit === 'Cards' ? formatCardValue(magnitude) : `${magnitude.toFixed(1)}%`;
   };
 
   const directionVerbFor = (direction: CutLabMetricDirection): string =>
@@ -631,7 +627,7 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
     const sentence = document.createElement('span');
     sentence.className = 'cutlab-delta__sentence';
     sentence.textContent = delta.isMeaningful
-      ? `cutting ${cardName} ${directionVerbFor(delta.direction)} ${delta.label.toLowerCase()} by ${formatDeltaToken(delta.delta, delta.unit, false)}.`
+      ? `cutting ${cardName} ${directionVerbFor(delta.direction)} ${delta.label.toLowerCase()} by ${formatDeltaToken(delta.delta, delta.unit)}.`
       : `${delta.label}: no meaningful change`;
 
     const value = document.createElement('span');
@@ -645,7 +641,7 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
 
     const token = document.createElement('span');
     token.className = deltaClassFor(delta.direction);
-    token.textContent = delta.isMeaningful ? formatDeltaToken(delta.delta, delta.unit, false) : formatDeltaToken(0, delta.unit, false);
+    token.textContent = delta.isMeaningful ? formatDeltaToken(delta.delta, delta.unit) : formatDeltaToken(0, delta.unit);
     value.appendChild(token);
 
     line.appendChild(sentence);
@@ -653,12 +649,10 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
     container.appendChild(line);
   };
 
-  const createDecisionForm = (
-    action: CutLabDecisionAction,
-    buttonText: string,
-    buttonClassName: string,
+  const buildDecisionFormBase = (
     cardName: string,
     roundKey: string,
+    decisionValue: CutLabDecisionAction,
     serializedState: string,
     antiForgeryToken: string,
   ): HTMLFormElement => {
@@ -681,8 +675,21 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
     appendHiddenInput('CutLabStateJson', serializedState);
     appendHiddenInput('CardName', cardName);
     appendHiddenInput('RoundKey', roundKey);
-    appendHiddenInput('Decision', action);
+    appendHiddenInput('Decision', decisionValue);
 
+    return form;
+  };
+
+  const createDecisionForm = (
+    action: CutLabDecisionAction,
+    buttonText: string,
+    buttonClassName: string,
+    cardName: string,
+    roundKey: string,
+    serializedState: string,
+    antiForgeryToken: string,
+  ): HTMLFormElement => {
+    const form = buildDecisionFormBase(cardName, roundKey, action, serializedState, antiForgeryToken);
     const button = document.createElement('button');
     button.type = 'submit';
     button.className = `cutlab-decision-btn ${buttonClassName}`;
@@ -700,27 +707,7 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
     serializedState: string,
     antiForgeryToken: string,
   ): HTMLFormElement => {
-    const form = document.createElement('form');
-    form.method = 'post';
-    form.action = '/cut-lab/decide';
-
-    const appendHiddenInput = (name: string, value: string): void => {
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = name;
-      input.value = value;
-      form.appendChild(input);
-    };
-
-    if (antiForgeryToken !== '') {
-      appendHiddenInput(cutLabAntiForgeryFieldName, antiForgeryToken);
-    }
-
-    appendHiddenInput('CutLabStateJson', serializedState);
-    appendHiddenInput('CardName', cut.cardName);
-    appendHiddenInput('RoundKey', cut.roundKey);
-    appendHiddenInput('Decision', 'restore');
-
+    const form = buildDecisionFormBase(cut.cardName, cut.roundKey, 'restore', serializedState, antiForgeryToken);
     const button = document.createElement('button');
     button.type = 'submit';
     button.className = 'cutlab-restore-btn';
@@ -916,7 +903,7 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
     proposal.appendChild(evidence);
 
     if (response.proposalDeltas) {
-      const changedLines = response.proposalDeltas.deltas.filter(delta => delta.isMeaningful && isDecisionDirection(delta.direction));
+      const changedLines = response.proposalDeltas.deltas.filter(delta => delta.isMeaningful);
       const deltaSummary = document.createElement('div');
       deltaSummary.className = 'cutlab-delta';
       deltaSummary.appendChild(createTextElement('p', '', `${response.proposalDeltas.changedFamilyCount} of 7 metric families changed meaningfully.`));
@@ -984,16 +971,19 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
       return;
     }
 
-    if (getStickyRound()) {
-      getStickyRound()!.textContent = response.nextProposal.roundLabel;
+    const stickyRound = getStickyRound();
+    if (stickyRound) {
+      stickyRound.textContent = response.nextProposal.roundLabel;
     }
 
-    if (getStickyRemaining()) {
-      getStickyRemaining()!.textContent = `${response.cardsRemaining} to cut`;
+    const stickyRemaining = getStickyRemaining();
+    if (stickyRemaining) {
+      stickyRemaining.textContent = `${response.cardsRemaining} to cut`;
     }
 
-    if (getStickyAccepted()) {
-      getStickyAccepted()!.textContent = `${response.cutsMade.length} cut so far`;
+    const stickyAccepted = getStickyAccepted();
+    if (stickyAccepted) {
+      stickyAccepted.textContent = `${response.cutsMade.length} cut so far`;
     }
   };
 

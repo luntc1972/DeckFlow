@@ -82,16 +82,7 @@ public sealed class CutLabDeltaCache
             AbsoluteExpirationRelativeToNow = EntryTtl,
             Size = sizeBytes,
         };
-
-        options.RegisterPostEvictionCallback((evictedKey, evictedValue, _, _) =>
-        {
-            var evictedSize = (evictedValue as CachedEntry<CutLabProposalDeltas>)?.SizeBytes ?? 0;
-            _logger.LogInformation(
-                "Cut Lab delta cache {Outcome} for {KeyPrefix} ({SizeBytes} bytes)",
-                "evicted",
-                PacketSessionCache.GetKeyPrefix(evictedKey as string ?? string.Empty),
-                evictedSize);
-        });
+        RegisterEvictionLogging<CutLabProposalDeltas>(options);
 
         _cache.Set(key, entry, options);
         LogCacheEvent("write", key, sizeBytes);
@@ -142,16 +133,7 @@ public sealed class CutLabDeltaCache
             AbsoluteExpirationRelativeToNow = EntryTtl,
             Size = sizeBytes,
         };
-
-        options.RegisterPostEvictionCallback((evictedKey, evictedValue, _, _) =>
-        {
-            var evictedSize = (evictedValue as CachedEntry<CutLabMetricSnapshot>)?.SizeBytes ?? 0;
-            _logger.LogInformation(
-                "Cut Lab delta cache {Outcome} for {KeyPrefix} ({SizeBytes} bytes)",
-                "evicted",
-                PacketSessionCache.GetKeyPrefix(evictedKey as string ?? string.Empty),
-                evictedSize);
-        });
+        RegisterEvictionLogging<CutLabMetricSnapshot>(options);
 
         _cache.Set(key, entry, options);
         LogCacheEvent("write", key, sizeBytes);
@@ -176,6 +158,15 @@ public sealed class CutLabDeltaCache
             outcome,
             PacketSessionCache.GetKeyPrefix(key),
             sizeBytes);
+    }
+
+    private void RegisterEvictionLogging<TValue>(MemoryCacheEntryOptions options) where TValue : class
+    {
+        options.RegisterPostEvictionCallback((evictedKey, evictedValue, _, _) =>
+        {
+            int evictedSize = (evictedValue as CachedEntry<TValue>)?.SizeBytes ?? 0;
+            LogCacheEvent("evicted", evictedKey as string ?? string.Empty, evictedSize);
+        });
     }
 
     private static int EstimateSizeBytes(CutLabProposalDeltas deltas)

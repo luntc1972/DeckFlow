@@ -157,53 +157,69 @@ public static class CutLabCutRoundEngine
             };
         }
 
-        IReadOnlySet<string> acceptedCardNames = CutLabWorkingList.AcceptedCardNames(decisions);
-        IReadOnlyDictionary<string, CardFindingTally> findingTallies = BuildFindingTallies(findings.Findings);
         IReadOnlyDictionary<string, CutLabDecision> latestDecisions = CutLabWorkingList.LatestDecisionsByCard(decisions);
+        IReadOnlySet<string> acceptedCardNames = latestDecisions
+            .Where(entry => entry.Value.Kind == CutLabDecisionKind.Accepted)
+            .Select(entry => entry.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        IReadOnlyDictionary<string, CardFindingTally> findingTallies = BuildFindingTallies(findings.Findings);
 
         IReadOnlyList<CutLabRoundInputCard> eligibleCards = workingList
             .Where(card => !card.IsLocked && !card.IsCommander && !acceptedCardNames.Contains(card.Name))
             .ToArray();
 
-        IReadOnlyList<CutLabRoundInputCard> firstPassCards = eligibleCards
+        IReadOnlyList<(CutLabRoundInputCard Card, CardFindingTally Tally)> firstPassCards = eligibleCards
             .Where(card => !latestDecisions.TryGetValue(card.Name, out CutLabDecision? latestDecision) || latestDecision.Kind == CutLabDecisionKind.Accepted)
+            .Select(card => (card, TallyFor(findingTallies, card.Name)))
             .ToArray();
 
         IReadOnlyList<CutLabRoundQueueItem> round1 = firstPassCards
-            .Where(card => TallyFor(findingTallies, card.Name).Count >= 2)
-            .OrderByDescending(card => TallyFor(findingTallies, card.Name).Count)
-            .ThenBy(card => card.ManaValue)
-            .ThenBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(card => ToQueueItem(card.Name, Round1Key, TallyFor(findingTallies, card.Name)))
+            .Where(entry => entry.Tally.Count >= 2)
+            .OrderByDescending(entry => entry.Tally.Count)
+            .ThenBy(entry => entry.Card.ManaValue)
+            .ThenBy(entry => entry.Card.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(entry => ToQueueItem(entry.Card.Name, Round1Key, entry.Tally))
             .ToArray();
 
         IReadOnlyList<CutLabRoundQueueItem> round2 = firstPassCards
-            .Where(card => TallyFor(findingTallies, card.Name).Count == 1)
-            .OrderBy(card => card.ManaValue)
-            .ThenBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(card => ToQueueItem(card.Name, Round2Key, TallyFor(findingTallies, card.Name)))
+            .Where(entry => entry.Tally.Count == 1)
+            .OrderBy(entry => entry.Card.ManaValue)
+            .ThenBy(entry => entry.Card.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(entry => ToQueueItem(entry.Card.Name, Round2Key, entry.Tally))
             .ToArray();
 
         IReadOnlyList<CutLabRoundQueueItem> round3 = firstPassCards
-            .Where(card => TallyFor(findingTallies, card.Name).Count == 0)
-            .OrderBy(card => Round3DeltaMagnitudeFor(round3DeltaMagnitudes, card.Name))
-            .ThenBy(card => card.ManaValue)
-            .ThenBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(card => ToQueueItem(card.Name, Round3Key, TallyFor(findingTallies, card.Name)))
+            .Where(entry => entry.Tally.Count == 0)
+            .OrderBy(entry => Round3DeltaMagnitudeFor(round3DeltaMagnitudes, entry.Card.Name))
+            .ThenBy(entry => entry.Card.ManaValue)
+            .ThenBy(entry => entry.Card.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(entry => ToQueueItem(entry.Card.Name, Round3Key, entry.Tally))
             .ToArray();
 
-        IReadOnlyList<CutLabRoundQueueItem> deferredPass = eligibleCards
-            .Where(card => latestDecisions.TryGetValue(card.Name, out CutLabDecision? latestDecision) && latestDecision.Kind == CutLabDecisionKind.Deferred)
-            .OrderBy(card => latestDecisions[card.Name].Ordinal)
-            .ThenBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(card => ToQueueItem(card.Name, SecondPassDeferredKey, TallyFor(findingTallies, card.Name)))
+        IReadOnlyList<(CutLabRoundInputCard Card, CardFindingTally Tally, CutLabDecision Decision)> deferredCards = eligibleCards
+            .Select(card => latestDecisions.TryGetValue(card.Name, out CutLabDecision? latestDecision)
+                ? (Card: card, Tally: TallyFor(findingTallies, card.Name), Decision: latestDecision)
+                : ((CutLabRoundInputCard Card, CardFindingTally Tally, CutLabDecision Decision)?)null)
+            .Where(entry => entry is not null && entry.Value.Decision.Kind == CutLabDecisionKind.Deferred)
+            .Select(entry => entry!.Value)
+            .ToArray();
+        IReadOnlyList<CutLabRoundQueueItem> deferredPass = deferredCards
+            .OrderBy(entry => entry.Decision.Ordinal)
+            .ThenBy(entry => entry.Card.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(entry => ToQueueItem(entry.Card.Name, SecondPassDeferredKey, entry.Tally))
             .ToArray();
 
-        IReadOnlyList<CutLabRoundQueueItem> rejectedPass = eligibleCards
-            .Where(card => latestDecisions.TryGetValue(card.Name, out CutLabDecision? latestDecision) && latestDecision.Kind == CutLabDecisionKind.Rejected)
-            .OrderBy(card => latestDecisions[card.Name].Ordinal)
-            .ThenBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(card => ToQueueItem(card.Name, SecondPassRejectedKey, TallyFor(findingTallies, card.Name)))
+        IReadOnlyList<(CutLabRoundInputCard Card, CardFindingTally Tally, CutLabDecision Decision)> rejectedCards = eligibleCards
+            .Select(card => latestDecisions.TryGetValue(card.Name, out CutLabDecision? latestDecision)
+                ? (Card: card, Tally: TallyFor(findingTallies, card.Name), Decision: latestDecision)
+                : ((CutLabRoundInputCard Card, CardFindingTally Tally, CutLabDecision Decision)?)null)
+            .Where(entry => entry is not null && entry.Value.Decision.Kind == CutLabDecisionKind.Rejected)
+            .Select(entry => entry!.Value)
+            .ToArray();
+        IReadOnlyList<CutLabRoundQueueItem> rejectedPass = rejectedCards
+            .OrderBy(entry => entry.Decision.Ordinal)
+            .ThenBy(entry => entry.Card.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(entry => ToQueueItem(entry.Card.Name, SecondPassRejectedKey, entry.Tally))
             .ToArray();
 
         IReadOnlyList<CutLabRoundQueueItem> queue = round1
@@ -219,6 +235,60 @@ public static class CutLabCutRoundEngine
             NextProposal = queue.FirstOrDefault(),
             CardsRemainingToTarget = cardsRemainingToTarget,
         };
+    }
+
+    internal static IReadOnlyList<CutLabRoundInputCard> BuildInputs(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        IReadOnlyList<CutLabAnalyzedCard> analyzedCards)
+    {
+        IReadOnlyDictionary<string, CutLabAnalyzedCard> analyzedByName = CutLabCardNames.ToLastWinsDictionary(
+            analyzedCards,
+            card => card.Name,
+            card => card);
+
+        return workingList
+            .Select(card =>
+            {
+                analyzedByName.TryGetValue(CutLabCardNames.Normalize(card.Name), out CutLabAnalyzedCard? analyzedCard);
+                return new CutLabRoundInputCard(
+                    card.Name,
+                    card.Quantity,
+                    card.TypeLine,
+                    card.IsCommander,
+                    card.IsLocked,
+                    analyzedCard?.ManaValue ?? 0,
+                    analyzedCard?.IsLand ?? false,
+                    analyzedCard?.Roles ?? [],
+                    analyzedCard?.Categories ?? []);
+            })
+            .ToArray();
+    }
+
+    internal static (CutLabStructuralFindingsResult Findings, CutLabRoundPlan RoundPlan) BuildFindingsAndRoundPlan(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        CutLabAnalysisContext context,
+        IReadOnlyDictionary<string, int> floorByRole,
+        IReadOnlyList<CutLabDecision> decisions,
+        IReadOnlyDictionary<string, double>? round3DeltaMagnitudes = null)
+    {
+        ArgumentNullException.ThrowIfNull(workingList);
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(floorByRole);
+        ArgumentNullException.ThrowIfNull(decisions);
+
+        CutLabStructuralFindingsResult findings = CutLabStructuralFindings.Compute(
+            context.AnalyzedCards,
+            context.Classification.AlmostIncludedCombos,
+            floorByRole,
+            context.Classification.ComboDataAvailable,
+            context.Classification.CategoryDataAvailable);
+        CutLabRoundPlan roundPlan = BuildQueue(
+            BuildInputs(workingList, context.AnalyzedCards),
+            findings,
+            decisions,
+            workingList.Sum(card => card.Quantity) - 100,
+            round3DeltaMagnitudes);
+        return (findings, roundPlan);
     }
 
     private static IReadOnlyDictionary<string, CardFindingTally> BuildFindingTallies(IReadOnlyList<CutLabFinding> findings)

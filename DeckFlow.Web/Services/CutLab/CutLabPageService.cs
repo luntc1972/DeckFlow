@@ -108,7 +108,6 @@ internal sealed class CutLabPageService : ICutLabPageService
     private readonly ICedhLandBaselineProvider? _cedhBaseline;
     private readonly ICutLabAnalysisContextBuilder _analysisContextBuilder;
     private readonly ICutLabSimulationService _simulationService;
-    private readonly CutLabBaselineSnapshot _baselineSnapshot;
     private readonly ILogger<CutLabPageService> _logger;
 
     /// <summary>Creates the Cut Lab page service.</summary>
@@ -121,7 +120,6 @@ internal sealed class CutLabPageService : ICutLabPageService
     /// <param name="cedhBaseline">Optional cEDH commander baseline dependency for structural analysis.</param>
     /// <param name="analysisContextBuilder">Optional shared builder for resolved-card, classification, and role-assignment analysis.</param>
     /// <param name="simulationService">Optional simulation service for baseline, current snapshot, and proposal-delta computation.</param>
-    /// <param name="baselineSnapshot">Optional baseline snapshot builder.</param>
     /// <param name="logger">Optional logger for non-blocking diagnostics.</param>
     public CutLabPageService(
         IDeckEntryLoader deckEntryLoader,
@@ -133,7 +131,6 @@ internal sealed class CutLabPageService : ICutLabPageService
         ICedhLandBaselineProvider? cedhBaseline = null,
         ICutLabAnalysisContextBuilder? analysisContextBuilder = null,
         ICutLabSimulationService? simulationService = null,
-        CutLabBaselineSnapshot? baselineSnapshot = null,
         ILogger<CutLabPageService>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
@@ -152,7 +149,6 @@ internal sealed class CutLabPageService : ICutLabPageService
             ?? new CutLabAnalysisContextBuilder(cardResolver, sharedResolvedCardCache, spellbook, categoryKnowledge);
         _simulationService = simulationService
             ?? NoOpCutLabSimulationService.Instance;
-        _baselineSnapshot = baselineSnapshot ?? new CutLabBaselineSnapshot(_simulationService);
         _logger = logger ?? NullLogger<CutLabPageService>.Instance;
     }
 
@@ -165,9 +161,7 @@ internal sealed class CutLabPageService : ICutLabPageService
         && _spellbook is not null
         && _manabaseBaseline is not null
         && _cedhBaseline is not null
-        && _analysisContextBuilder is not null
-        && !ReferenceEquals(_simulationService, NoOpCutLabSimulationService.Instance)
-        && _baselineSnapshot is not null;
+        && !ReferenceEquals(_simulationService, NoOpCutLabSimulationService.Instance);
 
     /// <inheritdoc />
     public async Task<CutLabProcessResult> ProcessAsync(CutLabRequest request, CancellationToken cancellationToken = default)
@@ -266,8 +260,8 @@ internal sealed class CutLabPageService : ICutLabPageService
         }
 
         var priorState = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
-        var preAnalysisState = BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, []);
-        preAnalysisState = CutLabLockRules.EnforceCommanderLock(preAnalysisState);
+        var preAnalysisState = CutLabLockRules.EnforceCommanderLock(
+            BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, []));
         IReadOnlyList<CutLabPoolCard> derivedWorkingList = CutLabWorkingList.Derive(preAnalysisState.Pool, preAnalysisState.Decisions);
         IReadOnlyList<ScryfallCardData> preResolvedCards = resolvedEntries
             .Select(entry => entry.Card)
@@ -305,23 +299,28 @@ internal sealed class CutLabPageService : ICutLabPageService
             floor => floor.Role,
             floor => floor.Floor,
             StringComparer.OrdinalIgnoreCase);
-        CutLabStructuralFindingsResult findings = CutLabStructuralFindings.Compute(
-            analysisContext.AnalyzedCards,
-            analysisContext.Classification.AlmostIncludedCombos,
-            floorByRole,
-            analysisContext.Classification.ComboDataAvailable,
-            analysisContext.Classification.CategoryDataAvailable);
-        var state = BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, resolvedFloors);
-        state = CutLabLockRules.EnforceCommanderLock(state);
+        var state = preAnalysisState with
+        {
+            RoleFloors = resolvedFloors
+                .Where(floor => floor.IsUserSet)
+                .Select(floor => new CutLabRoleFloor
+                {
+                    Role = floor.Role,
+                    Floor = floor.Floor,
+                    IsUserSet = true,
+                })
+                .ToArray(),
+        };
 
         if (state.BaselineSnapshot is null)
         {
             try
             {
-                CutLabMetricSnapshot baselineSnapshot = await _baselineSnapshot.Build(
+                CutLabMetricSnapshot baselineSnapshot = await _simulationService.BuildSnapshot(
                     state.Pool,
                     request.PlayExperience,
-                    cancellationToken).ConfigureAwait(false);
+                    trialsOverride: null,
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
                 state = state with { BaselineSnapshot = baselineSnapshot };
             }
             catch (OperationCanceledException)
@@ -335,12 +334,11 @@ internal sealed class CutLabPageService : ICutLabPageService
             }
         }
 
-        derivedWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions);
-        CutLabRoundPlan roundPlan = CutLabCutRoundEngine.BuildQueue(
-            BuildRoundInputs(derivedWorkingList, analysisContext.AnalyzedCards),
-            findings,
-            state.Decisions,
-            derivedWorkingList.Sum(card => card.Quantity) - 100);
+        (CutLabStructuralFindingsResult findings, CutLabRoundPlan roundPlan) = CutLabCutRoundEngine.BuildFindingsAndRoundPlan(
+            derivedWorkingList,
+            analysisContext,
+            floorByRole,
+            state.Decisions);
 
         CutLabMetricSnapshot? currentSnapshot = null;
         if (state.Decisions.Count == 0 && state.BaselineSnapshot is not null)
@@ -705,33 +703,6 @@ internal sealed class CutLabPageService : ICutLabPageService
                 IncludeMaybeboard = request.IncludeMaybeboard,
             },
         };
-    }
-
-    private static IReadOnlyList<CutLabRoundInputCard> BuildRoundInputs(
-        IReadOnlyList<CutLabPoolCard> workingList,
-        IReadOnlyList<CutLabAnalyzedCard> analyzedCards)
-    {
-        IReadOnlyDictionary<string, CutLabAnalyzedCard> analyzedByName = CutLabCardNames.ToLastWinsDictionary(
-            analyzedCards,
-            card => card.Name,
-            card => card);
-
-        return workingList
-            .Select(card =>
-            {
-                analyzedByName.TryGetValue(CutLabCardNames.Normalize(card.Name), out CutLabAnalyzedCard? analyzedCard);
-                return new CutLabRoundInputCard(
-                    card.Name,
-                    card.Quantity,
-                    card.TypeLine,
-                    card.IsCommander,
-                    card.IsLocked,
-                    analyzedCard?.ManaValue ?? 0,
-                    analyzedCard?.IsLand ?? false,
-                    analyzedCard?.Roles ?? [],
-                    analyzedCard?.Categories ?? []);
-            })
-            .ToArray();
     }
 
     private async Task<IReadOnlyList<string>> ResolveBannedCardsPresentAsync(

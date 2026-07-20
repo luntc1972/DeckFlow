@@ -10,8 +10,6 @@ namespace DeckFlow.Web.Controllers;
 /// <summary>Cut Lab tool: load an oversized pool, preserve working-session state, and guide trimming.</summary>
 public sealed class CutLabController : Controller
 {
-    private const string NoChangeMessage = "Couldn't recalculate this cut — nothing changed. Try again.";
-
     private readonly ICutLabPageService _pageService;
     private readonly ILogger<CutLabController> _logger;
 
@@ -73,7 +71,7 @@ public sealed class CutLabController : Controller
 
         if (string.IsNullOrWhiteSpace(request.CutLabStateJson) || string.IsNullOrWhiteSpace(cardName))
         {
-            return CutLabView(request, error: NoChangeMessage);
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
         }
 
         try
@@ -98,7 +96,7 @@ public sealed class CutLabController : Controller
         catch (Exception exception)
         {
             _logger.LogError(exception, "Cut Lab decision fallback failed.");
-            return CutLabView(request, error: NoChangeMessage);
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
         }
     }
 
@@ -107,11 +105,6 @@ public sealed class CutLabController : Controller
         if (CutLabCutRoundEngine.IsKnownRoundKey(postedRoundKey))
         {
             return postedRoundKey!;
-        }
-
-        if (decision == CutLabDecideAction.Restore)
-        {
-            return CutLabDecisionApplier.LatestRoundForCard(state, cardName);
         }
 
         return CutLabDecisionApplier.LatestRoundForCard(state, cardName);
