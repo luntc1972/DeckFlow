@@ -661,8 +661,8 @@ public sealed class CutLabPageServiceTests
 
         Assert.True(result.HasResult);
         Assert.NotNull(result.InitialProposalDeltas);
-        Assert.Equal(10, resolver.ResolveSingleCallsByName.Count);
-        Assert.All(resolver.ResolveSingleCallsByName.Values, count => Assert.Equal(1, count));
+        Assert.Equal(1, resolver.ExecuteCollectionCalls);
+        Assert.Empty(resolver.ResolveSingleCallsByName);
     }
 
     [Fact]
@@ -917,7 +917,52 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
-    public async Task ProcessAsync_IntakeWithOneUnresolvableCard_ResolvesEachUniqueCardOnlyOnce()
+    public async Task ProcessAsync_ColdIntakeWithOneHundredTwentyDistinctCards_UsesTwoCollectionBatches()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 119, commanderName: "Focused Commander");
+        List<ScryfallCard> cards =
+        [
+            Spell("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{U}{B}", oracleText: "Whenever you cast your second spell each turn, draw a card.", power: "3", cmc: 3),
+        ];
+        cards.AddRange(Enumerable.Range(1, 119).Select(index => Spell($"Card {index:000}", "Artifact", manaCost: "{2}", cmc: 2)));
+        var resolver = new CountingNormalizerResolver(cards);
+        var cache = new CutLabResolvedCardCache();
+        var simulationService = new CutLabSimulationService(
+            cache,
+            new CutLabDeltaCache(),
+            resolver,
+            NullLogger<CutLabSimulationService>.Instance);
+        var analysisBuilder = new CutLabAnalysisContextBuilder(
+            resolver,
+            cache,
+            new FakeSpellbookService(),
+            new FakeCategoryKnowledgeStore());
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            resolver,
+            new FakeBanListService([]),
+            new FakeCategoryKnowledgeStore(),
+            new FakeSpellbookService(),
+            new FakeManabaseBaselineProvider(),
+            new FakeCedhLandBaselineProvider(),
+            analysisBuilder,
+            simulationService,
+            new CutLabBaselineSnapshot(simulationService));
+
+        var result = await service.ProcessAsync(new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            PlayExperience = "cEDH",
+        });
+
+        Assert.True(result.HasResult);
+        Assert.Equal(2, resolver.ExecuteCollectionCalls);
+        Assert.Empty(resolver.ResolveSingleCallsByName);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_IntakeWithOneUnresolvableCard_FallsBackOnceAndDoesNotRefetchKnownMissingOnRepeatBuild()
     {
         List<DeckEntry> entries =
         [
@@ -968,16 +1013,20 @@ public sealed class CutLabPageServiceTests
             simulationService,
             new CutLabBaselineSnapshot(simulationService));
 
-        var result = await service.ProcessAsync(new CutLabRequest
+        var request = new CutLabRequest
         {
             DeckInputSource = DeckInputSource.PasteText,
             DeckText = "pool",
             PlayExperience = "cEDH",
-        });
+        };
 
-        Assert.True(result.HasResult);
-        Assert.Equal(10, resolver.ResolveSingleCallsByName.Count);
-        Assert.All(resolver.ResolveSingleCallsByName.Values, count => Assert.Equal(1, count));
+        var first = await service.ProcessAsync(request);
+        var second = await service.ProcessAsync(request);
+
+        Assert.True(first.HasResult);
+        Assert.True(second.HasResult);
+        Assert.Equal(1, resolver.ExecuteCollectionCalls);
+        Assert.Single(resolver.ResolveSingleCallsByName);
         Assert.Equal(1, resolver.ResolveSingleCallsByName["typo card"]);
     }
 
@@ -1757,14 +1806,19 @@ public sealed class CutLabPageServiceTests
 
     private sealed class CountingNormalizerResolver(IReadOnlyList<ScryfallCard> cards) : IScryfallCardResolver
     {
+        public int ExecuteCollectionCalls { get; private set; }
+
         public Dictionary<string, int> ResolveSingleCallsByName { get; } = new(StringComparer.Ordinal);
 
         public Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken cancellationToken)
-            => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+        {
+            ExecuteCollectionCalls++;
+            return Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
             {
                 StatusCode = HttpStatusCode.OK,
                 Data = new ScryfallCollectionResponse(cards.ToList(), []),
             });
+        }
 
         public Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
             => ResolveSingleAsync(cardName, cancellationToken);
