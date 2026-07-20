@@ -69,8 +69,8 @@ Cycle 18 ships a deterministic decision-support loop that takes a builder from a
 - [x] 103-04-PLAN.md — Cut round engine over the derived working list: CUT-01 fixed order, D-04 loop-around, Pitfall-3 finding tally
 - [x] 103-05-PLAN.md — Trials-override parameterization (HIGH-3) + simulation service: 7-family projection (SIM-01) + baseline builder, cached + noise-floored
 - [x] 103-06-PLAN.md — Shared CutLabAnalysisContextBuilder (HIGH-2) + intake: cache/baseline + initial round plan + server-computed initial deltas (HIGH-4)
-- [ ] 103-07-PLAN.md — Shared decision applier + POST /api/cut-lab/decide (JSON) + no-JS /cut-lab/decide form fallback (HIGH-5), context rebuild (HIGH-2) + FLOOR-02 gate
-- [ ] 103-08-PLAN.md — ViewModel + Razor: Cut rounds / Cuts made / Compare sections with ready-made deltas + real no-JS decision forms
+- [x] 103-07-PLAN.md — Shared decision applier + POST /api/cut-lab/decide (JSON) + no-JS /cut-lab/decide form fallback (HIGH-5), context rebuild (HIGH-2) + FLOOR-02 gate
+- [x] 103-08-PLAN.md — ViewModel + Razor: Cut rounds / Cuts made / Compare sections with ready-made deltas + real no-JS decision forms
 - [ ] 103-09-PLAN.md — cut-lab.ts decision-form submit interception (fetch/patch) + site-common.css layout + Vitest
 - [ ] 103-10-PLAN.md — e2e rounds/decision/restore/compare + no-JS fallback + full-suite gate + human verify
 **UI hint**: yes
@@ -105,6 +105,6 @@ Phases execute in numeric order: 101 -> 102 -> 103 -> 104 -> 105
 |-------|----------------|--------|-----------|
 | 101. Intake & Protection Foundation | 4/4 | Complete   | 2026-07-19 |
 | 102. Structural Analysis & Role Floors | 5/5 | Complete    | 2026-07-19 |
-| 103. Simulation Engine & Guided Cut Rounds | 6/10 | In Progress|  |
+| 103. Simulation Engine & Guided Cut Rounds | 8/10 | In Progress|  |
 | 104. Goals & What-If Scenarios | 0/TBD | Not started | - |
 | 105. Builder-Compatible Export | 0/TBD | Not started | - |
