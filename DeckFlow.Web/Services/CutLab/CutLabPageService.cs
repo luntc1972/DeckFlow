@@ -417,15 +417,47 @@ internal sealed class CutLabPageService : ICutLabPageService
                 Quantity = entry.Quantity,
             })
             .ToArray();
-        IReadOnlyDictionary<string, ScryfallCardData> cachedCardsByName = new Dictionary<string, ScryfallCardData>(StringComparer.OrdinalIgnoreCase);
+
+        IReadOnlyList<ScryfallCardData>? resolvedCards = null;
         if (_analysisContextBuilder.TryGetCachedResolvedCards(cacheLookupPool, out IReadOnlyList<ScryfallCardData>? cachedCards)
             && cachedCards is not null)
         {
-            cachedCardsByName = CutLabCardNames.ToLastWinsDictionary(
-                cachedCards,
-                card => card.Name,
-                card => card);
+            resolvedCards = cachedCards;
         }
+        else if (_analysisContextBuilder is CutLabAnalysisContextBuilder concreteAnalysisBuilder)
+        {
+            resolvedCards = await concreteAnalysisBuilder.ResolvePoolCardsAsync(
+                cacheLookupPool,
+                failOpenOnLookupErrors: false,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            var fallbackResolvedEntries = new List<ResolvedCutLabEntry>(entries.Count);
+            foreach (DeckEntry entry in entries)
+            {
+                ScryfallCardData? card = null;
+                ScryfallCard? resolved = await _cardResolver.ResolveSingleAsync(entry.Name, cancellationToken).ConfigureAwait(false);
+                if (resolved is not null)
+                {
+                    card = ScryfallCardDataMapper.ToCardData(resolved);
+                }
+
+                fallbackResolvedEntries.Add(new ResolvedCutLabEntry(
+                    entry.Name,
+                    entry.Quantity,
+                    card?.TypeLine ?? string.Empty,
+                    string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase),
+                    card));
+            }
+
+            return fallbackResolvedEntries;
+        }
+
+        IReadOnlyDictionary<string, ScryfallCardData> cachedCardsByName = CutLabCardNames.ToLastWinsDictionary(
+            resolvedCards,
+            card => card.Name,
+            card => card);
 
         var resolvedEntries = new List<ResolvedCutLabEntry>(entries.Count);
 
@@ -433,14 +465,7 @@ internal sealed class CutLabPageService : ICutLabPageService
         {
             ScryfallCardData? card = null;
             string normalizedName = CutLabCardNames.Normalize(entry.Name);
-            if (!cachedCardsByName.TryGetValue(normalizedName, out card))
-            {
-                ScryfallCard? resolved = await _cardResolver.ResolveSingleAsync(entry.Name, cancellationToken).ConfigureAwait(false);
-                if (resolved is not null)
-                {
-                    card = ScryfallCardDataMapper.ToCardData(resolved);
-                }
-            }
+            cachedCardsByName.TryGetValue(normalizedName, out card);
 
             resolvedEntries.Add(new ResolvedCutLabEntry(
                 entry.Name,

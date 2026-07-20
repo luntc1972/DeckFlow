@@ -2,6 +2,7 @@ using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
 using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services.Manabase;
+using DeckFlow.Web.Services.Packets;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -70,6 +71,8 @@ public sealed record CutLabClassificationContext(
 /// <summary>Default shared builder for Cut Lab analysis context.</summary>
 public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
 {
+    private const int ScryfallBatchSize = 75;
+
     private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> EmptyCategories =
         new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
 
@@ -113,7 +116,12 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         ArgumentNullException.ThrowIfNull(commanderNames);
 
         string resolvedPoolKey = poolKey ?? ComputePoolKey(workingList);
-        Task<IReadOnlyList<ScryfallCardData>> resolvedCardsTask = ResolveCardsAsync(workingList, resolvedPoolKey, preResolvedCards, cancellationToken);
+        Task<IReadOnlyList<ScryfallCardData>> resolvedCardsTask = ResolveCardsAsync(
+            workingList,
+            resolvedPoolKey,
+            preResolvedCards,
+            failOpenOnLookupErrors: true,
+            cancellationToken);
         Task<CutLabClassificationContext> classificationTask = LoadClassificationContextAsync(workingList, commanderNames, cancellationToken);
         await Task.WhenAll(resolvedCardsTask, classificationTask).ConfigureAwait(false);
         IReadOnlyList<ScryfallCardData> resolvedCards = await resolvedCardsTask.ConfigureAwait(false);
@@ -218,10 +226,28 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         _resolvedCardCache.Set(ComputePoolKey(workingList), resolvedCards, unresolvedCardNames);
     }
 
+    internal Task<IReadOnlyList<ScryfallCardData>> ResolvePoolCardsAsync(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
+        string? poolKey = null,
+        bool failOpenOnLookupErrors = true,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(workingList);
+
+        return ResolveCardsAsync(
+            workingList,
+            poolKey ?? ComputePoolKey(workingList),
+            preResolvedCards,
+            failOpenOnLookupErrors,
+            cancellationToken);
+    }
+
     private async Task<IReadOnlyList<ScryfallCardData>> ResolveCardsAsync(
         IReadOnlyList<CutLabPoolCard> workingList,
         string poolKey,
         IReadOnlyList<ScryfallCardData>? preResolvedCards,
+        bool failOpenOnLookupErrors,
         CancellationToken cancellationToken)
     {
         if (preResolvedCards is not null)
@@ -250,19 +276,33 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
             }
         }
 
-        foreach (CutLabPoolCard poolCard in EnumerateMissingPoolCards(workingList, resolvedByName, knownMissingNames))
+        var batchResolver = new ScryfallReferenceResolver(_cardResolver);
+        List<CutLabPoolCard> missingPoolCards = EnumerateMissingPoolCards(workingList, resolvedByName, knownMissingNames);
+        HashSet<string> knownMissingNamesSet = knownMissingNames.ToHashSet(CutLabCardNames.Comparer);
+
+        foreach (List<string> requestNames in ChunkDistinctNames(missingPoolCards))
         {
             try
             {
-                ScryfallCard? resolved = await _cardResolver.ResolveSingleAsync(poolCard.Name, cancellationToken).ConfigureAwait(false);
-                if (resolved is null)
+                ScryfallBatchResolution batchResolution = await batchResolver.ResolveBatchAsync(
+                    requestNames,
+                    (name, ct) => _cardResolver.ResolveSingleAsync(name, ct),
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
+                HashSet<string> resolvedRequestNames = batchResolution.Resolutions
+                    .Select(resolution => CutLabCardNames.Normalize(resolution.RequestName))
+                    .ToHashSet(CutLabCardNames.Comparer);
+
+                foreach (ScryfallReferenceResolution resolution in batchResolution.Resolutions)
                 {
-                    _logger.LogWarning("Cut Lab analysis context could not resolve {CardName}; continuing without card facts.", poolCard.Name);
-                    continue;
+                    ScryfallCardData cardData = ScryfallCardDataMapper.ToCardData(resolution.Card);
+                    resolvedByName[CutLabCardNames.Normalize(cardData.Name)] = cardData;
                 }
 
-                ScryfallCardData cardData = ScryfallCardDataMapper.ToCardData(resolved);
-                resolvedByName[CutLabCardNames.Normalize(cardData.Name)] = cardData;
+                foreach (string unresolvedName in requestNames.Where(name => !resolvedRequestNames.Contains(CutLabCardNames.Normalize(name))))
+                {
+                    knownMissingNamesSet.Add(CutLabCardNames.Normalize(unresolvedName));
+                    _logger.LogWarning("Cut Lab analysis context could not resolve {CardName}; continuing without card facts.", unresolvedName);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -270,12 +310,20 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
             }
             catch (Exception exception)
             {
-                _logger.LogWarning(exception, "Cut Lab analysis context failed resolving {CardName}; continuing fail-open.", poolCard.Name);
+                if (!failOpenOnLookupErrors)
+                {
+                    throw;
+                }
+
+                foreach (string requestName in requestNames)
+                {
+                    _logger.LogWarning(exception, "Cut Lab analysis context failed resolving {CardName}; continuing fail-open.", requestName);
+                }
             }
         }
 
         List<ScryfallCardData> resolvedCards = BuildOrderedResolvedCards(workingList, resolvedByName);
-        _resolvedCardCache.Set(poolKey, resolvedCards);
+        _resolvedCardCache.Set(poolKey, resolvedCards, knownMissingNamesSet);
         return resolvedCards;
     }
 
@@ -323,6 +371,25 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         }
 
         return orderedCards;
+    }
+
+    private static IEnumerable<List<string>> ChunkDistinctNames(IReadOnlyList<CutLabPoolCard> poolCards)
+    {
+        List<string> chunk = new(ScryfallBatchSize);
+        foreach (CutLabPoolCard poolCard in poolCards)
+        {
+            chunk.Add(poolCard.Name);
+            if (chunk.Count == ScryfallBatchSize)
+            {
+                yield return chunk;
+                chunk = new List<string>(ScryfallBatchSize);
+            }
+        }
+
+        if (chunk.Count > 0)
+        {
+            yield return chunk;
+        }
     }
 
     private static string ComputePoolKey(IReadOnlyList<CutLabPoolCard> workingList)
