@@ -327,6 +327,119 @@ public sealed class CutLabApiControllerTests
         Assert.Equal(CutLabMetricDirection.Down, delta.Direction);
     }
 
+    [Fact]
+    public async Task PostDecideAsync_UsesStateGoalsForProposalDeltas()
+    {
+        CutLabState state = CreateState() with
+        {
+            Goals = new CutLabGoalSettings
+            {
+                CommanderByTurn = 9,
+            },
+        };
+        FakeSimulationService simulation = new();
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)), simulation);
+
+        ActionResult<CutLabDecideApiResponse> response = await controller.PostDecideAsync(
+            new CutLabDecideApiRequest
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(state),
+                CardName = "Arcane Signet",
+                Decision = CutLabDecideAction.Accept,
+            },
+            CancellationToken.None);
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
+        CutLabDecideApiResponse payload = Assert.IsType<CutLabDecideApiResponse>(ok.Value);
+        CutLabDecideMetricDeltaDto delta = Assert.Single(payload.ProposalDeltas!.Deltas);
+        Assert.Equal("Commander by turn 9", delta.Label);
+    }
+
+    [Fact]
+    public async Task PostWhatifCommitAsync_SwapsCardsAtomicallyAndTagsAcceptedCutWithWhatifRound()
+    {
+        CutLabState state = new()
+        {
+            Commander = "Commander",
+            Pool = [Card("Commander", isCommander: true, isLocked: true), Card("Working Card"), Card("Cut Card")],
+            Decisions =
+            [
+                new CutLabDecision
+                {
+                    CardName = "Cut Card",
+                    Kind = CutLabDecisionKind.Accepted,
+                    Round = CutLabCutRoundEngine.Round1Key,
+                    Ordinal = 1,
+                },
+            ],
+            Intent = new CutLabIntent
+            {
+                PlayExperience = "Focused",
+                Bracket = 3,
+            },
+        };
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)), new FakeSimulationService());
+
+        ActionResult<CutLabWhatifApiResponse> response = await controller.PostWhatifCommitAsync(
+            new CutLabWhatifApiRequest
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(state),
+                CardOut = "Working Card",
+                CardIn = "Cut Card",
+            },
+            CancellationToken.None);
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
+        CutLabWhatifApiResponse payload = Assert.IsType<CutLabWhatifApiResponse>(ok.Value);
+        CutLabState updated = CutLabStateSerializer.Deserialize(payload.CutLabStateJson!);
+        CutLabDecision accepted = Assert.Single(updated.Decisions);
+        Assert.Equal("Working Card", accepted.CardName);
+        Assert.Equal(CutLabCutRoundEngine.WhatifSwapKey, accepted.Round);
+        Assert.Equal(CutLabCutRoundEngine.WhatifSwapLabel, CutLabCutRoundEngine.LabelFor(accepted.Round));
+        Assert.DoesNotContain(CutLabWorkingList.Derive(updated.Pool, updated.Decisions), card => string.Equals(card.Name, "Working Card", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(CutLabWorkingList.Derive(updated.Pool, updated.Decisions), card => string.Equals(card.Name, "Cut Card", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task PostWhatifCommitAsync_ReturnsBadRequestForLockedCardOutWithoutChangingState()
+    {
+        CutLabState state = new()
+        {
+            Commander = "Commander",
+            Pool = [Card("Commander", isCommander: true, isLocked: true), Card("Locked Working Card", isLocked: true), Card("Cut Card")],
+            Decisions =
+            [
+                new CutLabDecision
+                {
+                    CardName = "Cut Card",
+                    Kind = CutLabDecisionKind.Accepted,
+                    Round = CutLabCutRoundEngine.Round1Key,
+                    Ordinal = 1,
+                },
+            ],
+            Intent = new CutLabIntent
+            {
+                PlayExperience = "Focused",
+                Bracket = 3,
+            },
+        };
+        string serializedBefore = CutLabStateSerializer.Serialize(state);
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)), new FakeSimulationService());
+
+        ActionResult<CutLabWhatifApiResponse> response = await controller.PostWhatifCommitAsync(
+            new CutLabWhatifApiRequest
+            {
+                CutLabStateJson = serializedBefore,
+                CardOut = "Locked Working Card",
+                CardIn = "Cut Card",
+            },
+            CancellationToken.None);
+
+        BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(response.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+        Assert.Equal(serializedBefore, CutLabStateSerializer.Serialize(state));
+    }
+
     private static CutLabApiController CreateController(
         FakeAnalysisContextBuilder builder,
         FakeSimulationService simulation,
