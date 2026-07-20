@@ -83,7 +83,13 @@ Cycle 18 ships a deterministic decision-support loop that takes a builder from a
   1. User can define turn-based goals (e.g. cast commander by turn 3, see ramp by turn 2, hold interaction by turn 2, engine and payoff by turn 6)
   2. User can save and reload named scenarios that capture goals, locks, and deck intent together
   3. User can run a what-if swap (replace card A with card B) and immediately see all goal and consistency metrics recalculated using the Phase 103 engine
-**Plans**: TBD
+**Plans**: 6 plans
+- [ ] 104-01-PLAN.md — GOAL-01 backend: goal domain + serializer clamp + engine threading + Pitfall-1 fix
+- [ ] 104-02-PLAN.md — GOAL-01 UI: goals editor + per-goal results (view model, Razor, TS snapshot)
+- [ ] 104-03-PLAN.md — GOAL-03 backend: whatif preview + atomic commit endpoints + whatif-swap round key
+- [ ] 104-04-PLAN.md — GOAL-02 scenarios: localStorage store + Scenarios panel (JS-only, noscript)
+- [ ] 104-05-PLAN.md — GOAL-03 UI: swap pickers + preview/keep/discard + no-JS whatif form
+- [ ] 104-06-PLAN.md — E2e scenarios + whatif specs, full-suite gate, theme/viewport screenshots, human verify
 **UI hint**: yes
 
 ### Phase 105: Builder-Compatible Export
@@ -106,5 +112,5 @@ Phases execute in numeric order: 101 -> 102 -> 103 -> 104 -> 105
 | 101. Intake & Protection Foundation | 4/4 | Complete   | 2026-07-19 |
 | 102. Structural Analysis & Role Floors | 5/5 | Complete    | 2026-07-19 |
 | 103. Simulation Engine & Guided Cut Rounds | 10/10 | Complete | 2026-07-20 |
-| 104. Goals & What-If Scenarios | 0/TBD | Not started | - |
+| 104. Goals & What-If Scenarios | 0/6 | Not started | - |
 | 105. Builder-Compatible Export | 0/TBD | Not started | - |
