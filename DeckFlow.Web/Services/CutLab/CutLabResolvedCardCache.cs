@@ -46,9 +46,9 @@ public sealed class CutLabResolvedCardCache
         ArgumentNullException.ThrowIfNull(pool);
 
         var normalized = pool
-            .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(entry => new PoolKeyEntry(CutLabCardNames.Normalize(entry.Name), entry.Quantity))
+            .OrderBy(entry => entry.Name, StringComparer.Ordinal)
             .ThenBy(entry => entry.Quantity)
-            .Select(entry => new PoolKeyEntry(entry.Name, entry.Quantity))
             .ToArray();
 
         return PacketSessionCache.ComputeKey(normalized);
