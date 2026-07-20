@@ -154,6 +154,14 @@
         <p class="manabase-help">Your play experience sets how roles are read (counterspells count as interaction only in cEDH) and, with your bracket, sets the default role floors below.</p>
     </fieldset>
 
+    <div class="result-panel nested-panel">
+        <label class="prompt-question-option">
+            <input type="checkbox" name="IncludeSideboardAndMaybeboard" value="true" @(Model.Request.IncludeSideboardAndMaybeboard ? "checked" : "") />
+            <span>Include sideboard &amp; maybeboard cards</span>
+        </label>
+        <p class="manabase-help">Pulls your deck's sideboard and maybeboard ("considering") cards into the pool — use this when your extra candidate cards live there.</p>
+    </div>
+
     <div class="toolbar">
         <button type="submit" class="run-button">Import pool</button>
         <a href="@Url.Content("~/cut-lab")" class="clear-cache-button" role="button" data-no-busy>Start over</a>
