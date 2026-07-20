@@ -1,3 +1,5 @@
+using DeckFlow.Web.Models.CutLab;
+
 namespace DeckFlow.Web.Services.CutLab;
 
 /// <summary>Validation guards for Cut Lab deck-source length and oversized-pool card-count intake rules.</summary>
@@ -24,14 +26,8 @@ public static class CutLabPoolValidator
 
     /// <summary>Rejects non-commander pool sizes outside Cut Lab's supported 101-150 inclusive range.</summary>
     /// <param name="nonCommanderCardCount">Loaded non-commander pool card count, excluding the commander — the commander is the plus one.</param>
-    /// <param name="mainboardCount">Loaded mainboard plus commander card count.</param>
-    /// <param name="sideboardCount">Loaded sideboard card count.</param>
-    /// <param name="maybeboardCount">Loaded considering or maybeboard card count.</param>
-    public static void ValidateCardCount(
-        int nonCommanderCardCount,
-        int mainboardCount = 0,
-        int sideboardCount = 0,
-        int maybeboardCount = 0)
+    /// <param name="boardCounts">Loaded per-board counts used for the breakdown display.</param>
+    public static void ValidateCardCount(int nonCommanderCardCount, BoardCounts? boardCounts = null)
     {
         if (nonCommanderCardCount < MinPoolCards)
         {
@@ -40,8 +36,9 @@ public static class CutLabPoolValidator
 
         if (nonCommanderCardCount > MaxPoolCards)
         {
+            string breakdown = (boardCounts ?? new BoardCounts()).ToBreakdown();
             throw new InvalidOperationException(
-                $"This pool has {nonCommanderCardCount} non-commander cards — over Cut Lab's 150 max. Main {mainboardCount} · Sideboard {sideboardCount} · Considering/Maybe {maybeboardCount}. Deselect the sideboard or considering list to fit.");
+                $"This pool has {nonCommanderCardCount} non-commander cards — over Cut Lab's 150 max. {breakdown}. Deselect the sideboard or considering list to fit.");
         }
     }
 }

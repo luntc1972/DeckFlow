@@ -88,7 +88,7 @@ public sealed class CutLabPageServiceTests
         Assert.DoesNotContain(result.State.Pool, card => card.Name == "Maybeboard Card");
         Assert.False(result.State.Intent.IncludeSideboard);
         Assert.False(result.State.Intent.IncludeMaybeboard);
-        Assert.Equal(102, result.MainboardCardCount);
+        Assert.Equal(101, result.MainboardCardCount);
         Assert.Equal(2, result.SideboardCardCount);
         Assert.Equal(1, result.MaybeboardCardCount);
     }
@@ -233,10 +233,10 @@ public sealed class CutLabPageServiceTests
         var model = CutLabViewModel.From(request, result);
 
         Assert.True(result.HasResult);
-        Assert.Equal(102, result.MainboardCardCount);
+        Assert.Equal(101, result.MainboardCardCount);
         Assert.Equal(3, result.SideboardCardCount);
         Assert.Equal(4, result.MaybeboardCardCount);
-        Assert.Equal(102, model.MainboardCardCount);
+        Assert.Equal(101, model.MainboardCardCount);
         Assert.Equal(3, model.SideboardCardCount);
         Assert.Equal(4, model.MaybeboardCardCount);
     }
@@ -267,7 +267,7 @@ public sealed class CutLabPageServiceTests
         var result = await service.ProcessAsync(request);
 
         Assert.Equal(
-            "This pool has 153 non-commander cards — over Cut Lab's 150 max. Main 131 · Sideboard 12 · Considering/Maybe 11. Deselect the sideboard or considering list to fit.",
+            "This pool has 153 non-commander cards — over Cut Lab's 150 max. Main 130 · Sideboard 12 · Considering/Maybe 11. Deselect the sideboard or considering list to fit.",
             result.ErrorMessage);
         Assert.False(result.HasResult);
     }
@@ -579,7 +579,7 @@ public sealed class CutLabPageServiceTests
 
     [Theory]
     [InlineData(100, "This pool already has 100 cards or fewer — Cut Lab is for trimming an oversized pool down to 100. Try Deck Sync or Deck Analysis instead.")]
-    [InlineData(151, "This pool has 151 non-commander cards — over Cut Lab's 150 max. Main 152 · Sideboard 0 · Considering/Maybe 0. Deselect the sideboard or considering list to fit.")]
+    [InlineData(151, "This pool has 151 non-commander cards — over Cut Lab's 150 max. Main 151 · Sideboard 0 · Considering/Maybe 0. Deselect the sideboard or considering list to fit.")]
     public async Task ProcessAsync_InvalidPoolCount_ReturnsValidatorMessage(int nonCommanderCount, string expectedMessage)
     {
         var entries = BuildPoolEntries(nonCommanderCount, "Atraxa, Praetors' Voice");

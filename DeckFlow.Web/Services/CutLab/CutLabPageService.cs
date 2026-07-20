@@ -33,7 +33,7 @@ public sealed record CutLabProcessResult
     /// <summary>Non-commander pool count used by the 101-150 validation gate.</summary>
     public int CardCount { get; init; }
 
-    /// <summary>Mainboard plus commander quantity loaded from the source before any Cut Lab board filtering.</summary>
+    /// <summary>Mainboard-only quantity loaded from the source before any Cut Lab board filtering.</summary>
     public int MainboardCardCount { get; init; }
 
     /// <summary>Sideboard quantity loaded from the source before any Cut Lab board filtering.</summary>
@@ -41,6 +41,9 @@ public sealed record CutLabProcessResult
 
     /// <summary>Considering or maybeboard quantity loaded from the source before any Cut Lab board filtering.</summary>
     public int MaybeboardCardCount { get; init; }
+
+    /// <summary>Per-board counts used for shared breakdown rendering and validation.</summary>
+    public BoardCounts BoardCounts { get; init; } = new();
 
     /// <summary>Commander-banlist card names present in the rendered pool.</summary>
     public IReadOnlyList<string> BannedCardsPresent { get; init; } = [];
@@ -212,11 +215,10 @@ internal sealed class CutLabPageService : ICutLabPageService
         }
 
         var entries = ReflagInferredCommanders(load.Entries);
-        BoardCounts boardCounts = CountBoards(entries);
         IReadOnlySet<string> analyzedBoards = BuildAnalyzedBoards(request);
-        var analyzedEntries = entries
-            .Where(entry => analyzedBoards.Contains(entry.Board))
-            .ToList();
+        EntryAnalysis analysis = AnalyzeEntries(entries, analyzedBoards);
+        BoardCounts boardCounts = analysis.BoardCounts;
+        List<DeckEntry> analyzedEntries = analysis.AnalyzedEntries;
 
         if (analyzedEntries.Count == 0)
         {
@@ -240,9 +242,7 @@ internal sealed class CutLabPageService : ICutLabPageService
         {
             CutLabPoolValidator.ValidateCardCount(
                 nonCommanderCardCount,
-                boardCounts.MainboardCount,
-                boardCounts.SideboardCount,
-                boardCounts.MaybeboardCount);
+                boardCounts);
         }
         catch (InvalidOperationException exception)
         {
@@ -407,6 +407,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             MainboardCardCount = boardCounts.MainboardCount,
             SideboardCardCount = boardCounts.SideboardCount,
             MaybeboardCardCount = boardCounts.MaybeboardCount,
+            BoardCounts = boardCounts,
             BannedCardsPresent = bannedCardsPresent,
             IsLegal = bannedCardsPresent.Count == 0,
             CommanderSelectionRequired = commanderResolution.SelectionRequired,
@@ -578,6 +579,11 @@ internal sealed class CutLabPageService : ICutLabPageService
 
     private static IReadOnlySet<string> BuildAnalyzedBoards(CutLabRequest request)
     {
+        if (!request.IncludeSideboard && !request.IncludeMaybeboard)
+        {
+            return AnalyzedBoards;
+        }
+
         var boards = new HashSet<string>(AnalyzedBoards, StringComparer.OrdinalIgnoreCase);
         if (request.IncludeSideboard)
         {
@@ -592,18 +598,28 @@ internal sealed class CutLabPageService : ICutLabPageService
         return boards;
     }
 
-    private static BoardCounts CountBoards(IReadOnlyList<DeckEntry> entries)
+    private static EntryAnalysis AnalyzeEntries(IReadOnlyList<DeckEntry> entries, IReadOnlySet<string> analyzedBoards)
     {
         int mainboardCount = 0;
         int sideboardCount = 0;
         int maybeboardCount = 0;
+        var analyzedEntries = new List<DeckEntry>(entries.Count);
 
         foreach (DeckEntry entry in entries)
         {
-            if (string.Equals(entry.Board, "mainboard", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
+            if (analyzedBoards.Contains(entry.Board))
+            {
+                analyzedEntries.Add(entry);
+            }
+
+            if (string.Equals(entry.Board, "mainboard", StringComparison.OrdinalIgnoreCase))
             {
                 mainboardCount += entry.Quantity;
+                continue;
+            }
+
+            if (AnalyzedBoards.Contains(entry.Board))
+            {
                 continue;
             }
 
@@ -619,7 +635,16 @@ internal sealed class CutLabPageService : ICutLabPageService
             }
         }
 
-        return new BoardCounts(mainboardCount, sideboardCount, maybeboardCount);
+        return new EntryAnalysis
+        {
+            BoardCounts = new BoardCounts
+            {
+                MainboardCount = mainboardCount,
+                SideboardCount = sideboardCount,
+                MaybeboardCount = maybeboardCount,
+            },
+            AnalyzedEntries = analyzedEntries,
+        };
     }
 
     private static CutLabState BuildState(
@@ -749,10 +774,12 @@ internal sealed class CutLabPageService : ICutLabPageService
         IReadOnlyList<string> CommanderChoices,
         bool SelectionRequired);
 
-    private sealed record BoardCounts(
-        int MainboardCount,
-        int SideboardCount,
-        int MaybeboardCount);
+    private sealed record EntryAnalysis
+    {
+        public required BoardCounts BoardCounts { get; init; }
+
+        public required List<DeckEntry> AnalyzedEntries { get; init; }
+    }
 
     private sealed class NoOpCutLabSimulationService : ICutLabSimulationService
     {

@@ -1,5 +1,6 @@
 using DeckFlow.Web.Services.CutLab;
 using Xunit;
+using DeckFlow.Web.Models.CutLab;
 
 namespace DeckFlow.Web.Tests;
 
@@ -34,7 +35,10 @@ public sealed class CutLabPoolValidatorTests
     public void ValidateCardCount_CountAboveSupportedRange_ThrowsExceedsCapMessage(int nonCommanderCardCount)
     {
         var exception = Assert.Throws<InvalidOperationException>(
-            () => CutLabPoolValidator.ValidateCardCount(nonCommanderCardCount, nonCommanderCardCount, sideboardCount: 0, maybeboardCount: 0));
+            () => CutLabPoolValidator.ValidateCardCount(nonCommanderCardCount, new BoardCounts
+            {
+                MainboardCount = nonCommanderCardCount,
+            }));
 
         Assert.Equal(
             $"This pool has {nonCommanderCardCount} non-commander cards — over Cut Lab's 150 max. Main {nonCommanderCardCount} · Sideboard 0 · Considering/Maybe 0. Deselect the sideboard or considering list to fit.",
@@ -46,7 +50,12 @@ public sealed class CutLabPoolValidatorTests
     {
         var tooSmall = Assert.Throws<InvalidOperationException>(() => CutLabPoolValidator.ValidateCardCount(100));
         var tooLarge = Assert.Throws<InvalidOperationException>(
-            () => CutLabPoolValidator.ValidateCardCount(151, mainboardCount: 120, sideboardCount: 20, maybeboardCount: 11));
+            () => CutLabPoolValidator.ValidateCardCount(151, new BoardCounts
+            {
+                MainboardCount = 120,
+                SideboardCount = 20,
+                MaybeboardCount = 11,
+            }));
 
         Assert.NotEqual(tooSmall.Message, tooLarge.Message);
     }
@@ -55,7 +64,12 @@ public sealed class CutLabPoolValidatorTests
     public void ValidateCardCount_CountAboveSupportedRange_ReportsBoardBreakdown()
     {
         var exception = Assert.Throws<InvalidOperationException>(
-            () => CutLabPoolValidator.ValidateCardCount(154, mainboardCount: 120, sideboardCount: 22, maybeboardCount: 12));
+            () => CutLabPoolValidator.ValidateCardCount(154, new BoardCounts
+            {
+                MainboardCount = 120,
+                SideboardCount = 22,
+                MaybeboardCount = 12,
+            }));
 
         Assert.Contains("Main 120", exception.Message, StringComparison.Ordinal);
         Assert.Contains("Sideboard 22", exception.Message, StringComparison.Ordinal);
