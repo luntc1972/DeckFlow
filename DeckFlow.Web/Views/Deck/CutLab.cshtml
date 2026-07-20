@@ -101,12 +101,16 @@
 
     <div class="field">
         <label for="cut-lab-primary-plan">Primary plan</label>
-        <textarea id="cut-lab-primary-plan" name="PrimaryPlan" rows="2" spellcheck="true">@Model.Request.PrimaryPlan</textarea>
+        <p class="manabase-help">How the deck actually wins — its main line.</p>
+        <textarea id="cut-lab-primary-plan" name="PrimaryPlan" rows="2" spellcheck="true"
+                  placeholder="e.g. Resolve Zur, then tutor up and protect a Thassa's Oracle win.">@Model.Request.PrimaryPlan</textarea>
     </div>
 
     <div class="field">
         <label for="cut-lab-secondary-plan">Secondary plan <span>(optional)</span></label>
-        <textarea id="cut-lab-secondary-plan" name="SecondaryPlan" rows="2" spellcheck="true">@Model.Request.SecondaryPlan</textarea>
+        <p class="manabase-help">A backup line if the primary gets answered. Optional.</p>
+        <textarea id="cut-lab-secondary-plan" name="SecondaryPlan" rows="2" spellcheck="true"
+                  placeholder="e.g. Grind card advantage with enchantress draw and close with commander damage.">@Model.Request.SecondaryPlan</textarea>
     </div>
 
     <fieldset class="manabase-segmented" role="radiogroup">
