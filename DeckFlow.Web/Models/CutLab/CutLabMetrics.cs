@@ -134,11 +134,53 @@ public sealed record CutLabMetricDelta
     /// <summary>Signed numeric delta between <see cref="After"/> and <see cref="Before"/>.</summary>
     public double Delta { get; init; }
 
+    /// <summary>Display unit for the before/after values and computed delta.</summary>
+    public CutLabMetricUnit Unit { get; init; }
+
     /// <summary>Display direction for the delta.</summary>
     public CutLabMetricDirection Direction { get; init; }
 
     /// <summary>True when the delta exceeds the configured noise floor.</summary>
     public bool IsMeaningful { get; init; }
+
+    /// <summary>Builds a delta from two compatible metric values.</summary>
+    /// <param name="before">Baseline or pre-change metric.</param>
+    /// <param name="after">Current or post-change metric.</param>
+    /// <returns>The computed delta, or <see langword="null"/> when either value is not finite.</returns>
+    public static CutLabMetricDelta? Between(CutLabMetricValue before, CutLabMetricValue after)
+    {
+        ArgumentNullException.ThrowIfNull(before);
+        ArgumentNullException.ThrowIfNull(after);
+
+        if (!double.IsFinite(before.Value) || !double.IsFinite(after.Value))
+        {
+            return null;
+        }
+
+        double delta = after.Value - before.Value;
+        double threshold = before.Unit == CutLabMetricUnit.Cards
+            ? CutLabNoiseFloor.Cards
+            : CutLabNoiseFloor.PercentPoints;
+        bool isMeaningful = Math.Abs(delta) > threshold;
+        CutLabMetricDirection direction = !isMeaningful
+            ? CutLabMetricDirection.None
+            : delta > 0
+                ? CutLabMetricDirection.Up
+                : CutLabMetricDirection.Down;
+
+        return new CutLabMetricDelta
+        {
+            Kind = before.Kind,
+            Family = before.Family,
+            Label = before.Label,
+            Before = before.Value,
+            After = after.Value,
+            Delta = delta,
+            Unit = before.Unit,
+            Direction = direction,
+            IsMeaningful = isMeaningful,
+        };
+    }
 }
 
 /// <summary>All metric deltas surfaced for one proposed card cut.</summary>

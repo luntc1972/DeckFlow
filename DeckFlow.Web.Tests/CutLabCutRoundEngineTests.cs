@@ -246,6 +246,30 @@ public sealed class CutLabCutRoundEngineTests
         Assert.Equal(plan.Queue[0], plan.NextProposal);
     }
 
+    [Theory]
+    [InlineData(CutLabCutRoundEngine.Round1Key, CutLabCutRoundEngine.Round1Label, "Cards flagged by 2 or more structural findings from the section above.")]
+    [InlineData(CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round2Label, "Cards flagged by exactly one structural finding.")]
+    [InlineData(CutLabCutRoundEngine.Round3Key, CutLabCutRoundEngine.Round3Label, "Everything else, ordered by smallest measurable tradeoff first.")]
+    [InlineData(CutLabCutRoundEngine.SecondPassDeferredKey, CutLabCutRoundEngine.SecondPassDeferredLabel, "Still over 100 cards. These were deferred or kept earlier; take another look.")]
+    [InlineData(CutLabCutRoundEngine.SecondPassRejectedKey, CutLabCutRoundEngine.SecondPassRejectedLabel, "Still over 100 cards. These were deferred or kept earlier; take another look.")]
+    public void RoundHelpers_KnownRoundKeys_ReturnExpectedLabelAndBannerBody(string roundKey, string expectedLabel, string expectedBannerBody)
+    {
+        Assert.True(CutLabCutRoundEngine.IsKnownRoundKey(roundKey));
+        Assert.Equal(expectedLabel, CutLabCutRoundEngine.LabelFor(roundKey));
+        Assert.Equal(expectedBannerBody, CutLabCutRoundEngine.RoundBannerBodyFor(roundKey));
+    }
+
+    [Fact]
+    public void RoundHelpers_UnknownRoundKey_FallsBackPredictably()
+    {
+        const string unknownRoundKey = "mystery-round";
+
+        Assert.False(CutLabCutRoundEngine.IsKnownRoundKey(unknownRoundKey));
+        Assert.False(CutLabCutRoundEngine.IsKnownRoundKey(null));
+        Assert.Equal(unknownRoundKey, CutLabCutRoundEngine.LabelFor(unknownRoundKey));
+        Assert.Equal(string.Empty, CutLabCutRoundEngine.RoundBannerBodyFor(unknownRoundKey));
+    }
+
     private static CutLabRoundInputCard Card(
         string name,
         double manaValue,

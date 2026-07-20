@@ -91,6 +91,43 @@ public static class CutLabCutRoundEngine
             CutLabFindingKind.RedundantFinishers,
         };
 
+    /// <summary>Returns the fixed round label for a stable round key.</summary>
+    /// <param name="roundKey">Stable round key.</param>
+    /// <returns>The fixed label for known rounds, or the original key when unknown.</returns>
+    public static string LabelFor(string roundKey)
+        => roundKey switch
+        {
+            Round1Key => Round1Label,
+            Round2Key => Round2Label,
+            Round3Key => Round3Label,
+            SecondPassDeferredKey => SecondPassDeferredLabel,
+            SecondPassRejectedKey => SecondPassRejectedLabel,
+            _ => roundKey,
+        };
+
+    /// <summary>Returns the fixed banner body copy for a stable round key.</summary>
+    /// <param name="roundKey">Stable round key.</param>
+    /// <returns>The supporting banner copy for known rounds, or empty when unknown.</returns>
+    public static string RoundBannerBodyFor(string roundKey)
+        => roundKey switch
+        {
+            Round1Key => "Cards flagged by 2 or more structural findings from the section above.",
+            Round2Key => "Cards flagged by exactly one structural finding.",
+            Round3Key => "Everything else, ordered by smallest measurable tradeoff first.",
+            SecondPassDeferredKey or SecondPassRejectedKey => "Still over 100 cards. These were deferred or kept earlier; take another look.",
+            _ => string.Empty,
+        };
+
+    /// <summary>Returns whether the provided value is one of Cut Lab's stable round keys.</summary>
+    /// <param name="roundKey">Candidate round key.</param>
+    /// <returns><see langword="true"/> when the key is a known round key.</returns>
+    public static bool IsKnownRoundKey(string? roundKey)
+        => roundKey is Round1Key
+            or Round2Key
+            or Round3Key
+            or SecondPassDeferredKey
+            or SecondPassRejectedKey;
+
     /// <summary>Builds the deterministic ordered proposal queue for the current working list.</summary>
     /// <param name="workingList">Derived working-list cards for the current session state.</param>
     /// <param name="findings">Structural findings already computed for the current working list.</param>
@@ -122,7 +159,7 @@ public static class CutLabCutRoundEngine
 
         IReadOnlySet<string> acceptedCardNames = CutLabWorkingList.AcceptedCardNames(decisions);
         IReadOnlyDictionary<string, CardFindingTally> findingTallies = BuildFindingTallies(findings.Findings);
-        IReadOnlyDictionary<string, CutLabDecision> latestDecisions = BuildLatestDecisions(decisions);
+        IReadOnlyDictionary<string, CutLabDecision> latestDecisions = CutLabWorkingList.LatestDecisionsByCard(decisions);
 
         IReadOnlyList<CutLabRoundInputCard> eligibleCards = workingList
             .Where(card => !card.IsLocked && !card.IsCommander && !acceptedCardNames.Contains(card.Name))
@@ -137,14 +174,14 @@ public static class CutLabCutRoundEngine
             .OrderByDescending(card => TallyFor(findingTallies, card.Name).Count)
             .ThenBy(card => card.ManaValue)
             .ThenBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(card => ToQueueItem(card.Name, Round1Key, Round1Label, TallyFor(findingTallies, card.Name)))
+            .Select(card => ToQueueItem(card.Name, Round1Key, TallyFor(findingTallies, card.Name)))
             .ToArray();
 
         IReadOnlyList<CutLabRoundQueueItem> round2 = firstPassCards
             .Where(card => TallyFor(findingTallies, card.Name).Count == 1)
             .OrderBy(card => card.ManaValue)
             .ThenBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(card => ToQueueItem(card.Name, Round2Key, Round2Label, TallyFor(findingTallies, card.Name)))
+            .Select(card => ToQueueItem(card.Name, Round2Key, TallyFor(findingTallies, card.Name)))
             .ToArray();
 
         IReadOnlyList<CutLabRoundQueueItem> round3 = firstPassCards
@@ -152,21 +189,21 @@ public static class CutLabCutRoundEngine
             .OrderBy(card => Round3DeltaMagnitudeFor(round3DeltaMagnitudes, card.Name))
             .ThenBy(card => card.ManaValue)
             .ThenBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(card => ToQueueItem(card.Name, Round3Key, Round3Label, TallyFor(findingTallies, card.Name)))
+            .Select(card => ToQueueItem(card.Name, Round3Key, TallyFor(findingTallies, card.Name)))
             .ToArray();
 
         IReadOnlyList<CutLabRoundQueueItem> deferredPass = eligibleCards
             .Where(card => latestDecisions.TryGetValue(card.Name, out CutLabDecision? latestDecision) && latestDecision.Kind == CutLabDecisionKind.Deferred)
             .OrderBy(card => latestDecisions[card.Name].Ordinal)
             .ThenBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(card => ToQueueItem(card.Name, SecondPassDeferredKey, SecondPassDeferredLabel, TallyFor(findingTallies, card.Name)))
+            .Select(card => ToQueueItem(card.Name, SecondPassDeferredKey, TallyFor(findingTallies, card.Name)))
             .ToArray();
 
         IReadOnlyList<CutLabRoundQueueItem> rejectedPass = eligibleCards
             .Where(card => latestDecisions.TryGetValue(card.Name, out CutLabDecision? latestDecision) && latestDecision.Kind == CutLabDecisionKind.Rejected)
             .OrderBy(card => latestDecisions[card.Name].Ordinal)
             .ThenBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(card => ToQueueItem(card.Name, SecondPassRejectedKey, SecondPassRejectedLabel, TallyFor(findingTallies, card.Name)))
+            .Select(card => ToQueueItem(card.Name, SecondPassRejectedKey, TallyFor(findingTallies, card.Name)))
             .ToArray();
 
         IReadOnlyList<CutLabRoundQueueItem> queue = round1
@@ -221,28 +258,8 @@ public static class CutLabCutRoundEngine
             StringComparer.OrdinalIgnoreCase);
     }
 
-    private static IReadOnlyDictionary<string, CutLabDecision> BuildLatestDecisions(IReadOnlyList<CutLabDecision> decisions)
-    {
-        Dictionary<string, CutLabDecision> latestDecisions = new(StringComparer.OrdinalIgnoreCase);
-
-        foreach (CutLabDecision decision in decisions)
-        {
-            if (string.IsNullOrWhiteSpace(decision.CardName))
-            {
-                continue;
-            }
-
-            if (!latestDecisions.TryGetValue(decision.CardName, out CutLabDecision? current) || decision.Ordinal >= current.Ordinal)
-            {
-                latestDecisions[decision.CardName] = decision;
-            }
-        }
-
-        return latestDecisions;
-    }
-
-    private static CutLabRoundQueueItem ToQueueItem(string cardName, string roundKey, string roundLabel, CardFindingTally tally)
-        => new(cardName, roundKey, roundLabel, tally.Count, tally.Kinds);
+    private static CutLabRoundQueueItem ToQueueItem(string cardName, string roundKey, CardFindingTally tally)
+        => new(cardName, roundKey, LabelFor(roundKey), tally.Count, tally.Kinds);
 
     private static CardFindingTally TallyFor(IReadOnlyDictionary<string, CardFindingTally> tallies, string cardName)
         => tallies.TryGetValue(cardName, out CardFindingTally? tally)

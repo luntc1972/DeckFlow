@@ -30,6 +30,19 @@ public static class CutLabWorkingList
     {
         ArgumentNullException.ThrowIfNull(decisions);
 
+        return LatestDecisionsByCard(decisions)
+            .Where(entry => entry.Value.Kind == CutLabDecisionKind.Accepted)
+            .Select(entry => entry.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Returns the latest decision for each card name keyed by highest ordinal.</summary>
+    /// <param name="decisions">Persisted decision log.</param>
+    /// <returns>The latest-decision fold keyed by card name.</returns>
+    public static IReadOnlyDictionary<string, CutLabDecision> LatestDecisionsByCard(IReadOnlyList<CutLabDecision> decisions)
+    {
+        ArgumentNullException.ThrowIfNull(decisions);
+
         Dictionary<string, CutLabDecision> latestDecisions = new(StringComparer.OrdinalIgnoreCase);
 
         foreach (CutLabDecision decision in decisions)
@@ -45,9 +58,6 @@ public static class CutLabWorkingList
             }
         }
 
-        return latestDecisions
-            .Where(entry => entry.Value.Kind == CutLabDecisionKind.Accepted)
-            .Select(entry => entry.Key)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return latestDecisions;
     }
 }

@@ -104,35 +104,18 @@ public sealed class CutLabController : Controller
 
     private static string DetermineRoundKey(CutLabState state, string cardName, CutLabDecideAction decision, string? postedRoundKey)
     {
-        if (IsKnownRoundKey(postedRoundKey))
+        if (CutLabCutRoundEngine.IsKnownRoundKey(postedRoundKey))
         {
             return postedRoundKey!;
         }
 
         if (decision == CutLabDecideAction.Restore)
         {
-            return state.Decisions
-                .Where(item => string.Equals(item.CardName, cardName, StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(item => item.Ordinal)
-                .Select(item => item.Round)
-                .FirstOrDefault()
-                ?? CutLabCutRoundEngine.Round1Key;
+            return CutLabDecisionApplier.LatestRoundForCard(state, cardName);
         }
 
-        return state.Decisions
-            .Where(item => string.Equals(item.CardName, cardName, StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(item => item.Ordinal)
-            .Select(item => item.Round)
-            .FirstOrDefault()
-            ?? CutLabCutRoundEngine.Round1Key;
+        return CutLabDecisionApplier.LatestRoundForCard(state, cardName);
     }
-
-    private static bool IsKnownRoundKey(string? roundKey)
-        => roundKey is CutLabCutRoundEngine.Round1Key
-            or CutLabCutRoundEngine.Round2Key
-            or CutLabCutRoundEngine.Round3Key
-            or CutLabCutRoundEngine.SecondPassDeferredKey
-            or CutLabCutRoundEngine.SecondPassRejectedKey;
 
     private static void RehydrateIntakeRequestFromState(CutLabRequest request, CutLabState state)
     {

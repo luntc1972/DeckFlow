@@ -1018,6 +1018,92 @@ public sealed class CutLabPageServiceTests
         Assert.True(model.Proposal.HasProposal);
         Assert.Equal("Arcane Signet", model.Proposal.CardName);
         Assert.Equal("Couldn't recalculate this cut — nothing changed. Try again.", model.Proposal.DeltaUnavailableMessage);
+        Assert.Equal("Cards flagged by exactly one structural finding.", model.Proposal.RoundBannerBody);
+    }
+
+    [Fact]
+    public void From_UsesAuthoritativeMetricUnitForProposalAndCompareDeltas()
+    {
+        var request = new CutLabRequest();
+        var result = new CutLabProcessResult
+        {
+            HasResult = true,
+            State = new CutLabState
+            {
+                Pool =
+                [
+                    new CutLabPoolCard
+                    {
+                        Name = "Arcane Signet",
+                        Quantity = 1,
+                    },
+                ],
+                BaselineSnapshot = new CutLabMetricSnapshot
+                {
+                    Metrics =
+                    [
+                        new CutLabMetricValue
+                        {
+                            Kind = CutLabMetricKind.Screw,
+                            Family = CutLabMetricFamily.FloodScrewCurveRisk,
+                            Label = "Screw",
+                            Value = 10,
+                            Unit = CutLabMetricUnit.Percent,
+                        },
+                    ],
+                },
+            },
+            CurrentSnapshot = new CutLabMetricSnapshot
+            {
+                Metrics =
+                [
+                    new CutLabMetricValue
+                    {
+                        Kind = CutLabMetricKind.Screw,
+                        Family = CutLabMetricFamily.FloodScrewCurveRisk,
+                        Label = "Screw",
+                        Value = 13,
+                        Unit = CutLabMetricUnit.Percent,
+                    },
+                ],
+            },
+            RoleAssignmentsByCardName = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase),
+            Findings = new CutLabStructuralFindingsResult([], true, true),
+            RoundPlan = new CutLabRoundPlan
+            {
+                Queue =
+                [
+                    new CutLabRoundQueueItem("Arcane Signet", CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round2Label, 0, []),
+                ],
+                NextProposal = new CutLabRoundQueueItem("Arcane Signet", CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round2Label, 0, []),
+                CardsRemainingToTarget = 1,
+            },
+            InitialProposalDeltas = new CutLabProposalDeltas
+            {
+                CardName = "Arcane Signet",
+                ChangedFamilyCount = 1,
+                Deltas =
+                [
+                    new CutLabMetricDelta
+                    {
+                        Kind = CutLabMetricKind.Screw,
+                        Family = CutLabMetricFamily.FloodScrewCurveRisk,
+                        Label = "Screw",
+                        Before = 10,
+                        After = 13,
+                        Delta = 3,
+                        Unit = CutLabMetricUnit.Percent,
+                        Direction = CutLabMetricDirection.Up,
+                        IsMeaningful = true,
+                    },
+                ],
+            },
+        };
+
+        CutLabViewModel model = CutLabViewModel.From(request, result);
+
+        Assert.Equal("3.0%", Assert.Single(model.Proposal.ChangedDeltaLines).FormattedValueToken);
+        Assert.Equal("3.0%", Assert.Single(model.CompareRows).DeltaValueToken);
     }
 
     [Fact]
@@ -1610,6 +1696,7 @@ public sealed class CutLabPageServiceTests
                     Before = 60,
                     After = 58,
                     Delta = -2,
+                    Unit = CutLabMetricUnit.Percent,
                     Direction = CutLabMetricDirection.Down,
                     IsMeaningful = true,
                 },
@@ -1710,6 +1797,7 @@ public sealed class CutLabPageServiceTests
             string playExperience,
             IReadOnlyList<string> commanderNames,
             IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
+            string? poolKey = null,
             CancellationToken cancellationToken = default)
         {
             BuildCalls++;
@@ -1751,6 +1839,7 @@ public sealed class CutLabPageServiceTests
             IReadOnlyList<CutLabPoolCard> workingList,
             string? playExperience,
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
+            string? poolKey = null,
             CancellationToken cancellationToken = default)
         {
             if (BuildSnapshotException is not null)
@@ -1766,6 +1855,7 @@ public sealed class CutLabPageServiceTests
             string candidateCardName,
             string? playExperience,
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
+            string? poolKey = null,
             CancellationToken cancellationToken = default)
         {
             if (ComputeProposalDeltasException is not null)

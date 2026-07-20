@@ -7,6 +7,7 @@ interface CutLabDecideMetricDeltaDto {
   direction: 'Up' | 'Down' | 'None';
   isMeaningful: boolean;
   kind: string;
+  unit: 'Percent' | 'Cards';
 }
 
 interface CutLabDecideResponse {
@@ -18,6 +19,7 @@ interface CutLabDecideResponse {
     cardName: string;
     roundKey: string;
     roundLabel: string;
+    roundBannerBody: string;
     findingCount: number;
     findingChips: string[];
   };
@@ -186,6 +188,7 @@ const buildResponse = (overrides: Partial<CutLabDecideResponse> = {}): CutLabDec
     cardName: 'Arcane Signet',
     roundKey: 'round-2',
     roundLabel: 'Round 2 · Structural choices',
+    roundBannerBody: 'Cards flagged by exactly one structural finding.',
     findingCount: 1,
     findingChips: ['Redundant finishers'],
   },
@@ -199,6 +202,7 @@ const buildResponse = (overrides: Partial<CutLabDecideResponse> = {}): CutLabDec
         direction: 'Down',
         isMeaningful: true,
         kind: 'KeepableHand',
+        unit: 'Percent',
       },
       {
         label: 'Flood risk',
@@ -206,6 +210,7 @@ const buildResponse = (overrides: Partial<CutLabDecideResponse> = {}): CutLabDec
         direction: 'None',
         isMeaningful: false,
         kind: 'Flood',
+        unit: 'Cards',
       },
     ],
   },
@@ -309,6 +314,47 @@ describe('cut-lab proposal enhancement', () => {
     expect(document.querySelector<HTMLElement>('[data-cut-lab-decision-error]')?.textContent).toBe('Could not apply decision.');
     expect(Array.from(document.querySelectorAll<HTMLInputElement>('input[name="CutLabStateJson"]')).map(input => input.value)).toEqual(originalStateValues);
     expect(document.querySelector<HTMLElement>('.cutlab-proposal__heading')?.textContent).toBe('Proposed cut: Sol Ring');
+  });
+
+  it('uses server-provided round banner copy and authoritative metric units when patching deltas', async () => {
+    buildDecisionFixture();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => buildResponse({
+        nextProposal: {
+          ...buildResponse().nextProposal,
+          roundBannerBody: 'Server banner copy wins.',
+        },
+        proposalDeltas: {
+          cardName: 'Arcane Signet',
+          changedFamilyCount: 1,
+          deltas: [
+            {
+              label: 'Screw',
+              delta: 2.5,
+              direction: 'Up',
+              isMeaningful: true,
+              kind: 'Screw',
+              unit: 'Percent',
+            },
+          ],
+        },
+      }),
+    });
+
+    const form = document.querySelector<HTMLFormElement>('form[action="/cut-lab/decide"]');
+    const button = form?.querySelector<HTMLButtonElement>('[data-cut-lab-decision="accept"]');
+
+    form?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: button ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    expect(document.querySelector<HTMLElement>('.cutlab-round-banner p:last-child')?.textContent).toBe('Server banner copy wins.');
+    expect(document.querySelector<HTMLElement>('.cutlab-delta__sentence')?.textContent).toContain('2.5%');
+    expect(document.querySelector<HTMLElement>('.cutlab-delta__value span:last-child')?.textContent).toBe('2.5%');
   });
 
   it('posts restore decisions and removes the row while updating sticky counts on success', async () => {
