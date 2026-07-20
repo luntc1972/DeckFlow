@@ -542,6 +542,64 @@
         <section class="result-panel">
             <div class="panel-heading">
                 <div>
+                    <h2>Goals</h2>
+                    <p>Set the turn targets you care about, then compare your current working list to the original pool baseline. In casual play, the representative line stays visible as an informational goal.</p>
+                </div>
+            </div>
+            <form method="post" action="@Url.Content("~/cut-lab/goals")" data-cut-lab-goals-form>
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
+                <div class="history-timeline__wrap">
+                    <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Goal</th>
+                                <th scope="col">Turn target</th>
+                                <th scope="col">Current</th>
+                                <th scope="col">Baseline trend</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Model.GoalRows)
+                            {
+                                <tr class="cutlab-goal-row">
+                                    <td data-label="Goal">
+                                        <strong>@row.Label</strong>
+                                        @if (row.IsUncappedInCasual)
+                                        {
+                                            <div class="cutlab-floor-source-default">Casual games are uncapped — this goal is informational only.</div>
+                                        }
+                                    </td>
+                                    <td data-label="Turn target">
+                                        <input type="number"
+                                               min="1"
+                                               max="15"
+                                               step="1"
+                                               name="@row.FieldName"
+                                               data-cut-lab-goal="@row.GoalKey"
+                                               value="@row.TurnValue" />
+                                    </td>
+                                    <td data-label="Current">
+                                        <span class="tabular">@row.CurrentProbability</span>
+                                    </td>
+                                    <td data-label="Baseline trend" class="cutlab-goal-row__trend">
+                                        <span class="prompt-size-note">vs @row.BaselineProbability baseline</span>
+                                        @{ await RenderDeltaValue(row.Direction, row.DeltaValueToken); }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="toolbar">
+                    <button type="submit" class="run-button">Recalculate goals</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="result-panel">
+            <div class="panel-heading">
+                <div>
                     <h2>Cut rounds</h2>
                     <p>Work through proposed cuts in order. Every proposal shows what actually changes — nothing here says a card is bad.</p>
                 </div>
