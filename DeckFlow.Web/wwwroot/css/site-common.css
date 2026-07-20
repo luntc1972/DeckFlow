@@ -4278,6 +4278,58 @@ input[data-cut-lab-floor] {
   gap: 0.35rem;
 }
 
+.cutlab-scenarios {
+  display: grid;
+  gap: 1rem;
+}
+
+.cutlab-scenarios__save-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.cutlab-scenarios__save-row input[type="text"] {
+  flex: 1 1 16rem;
+}
+
+.cutlab-scenarios__status,
+.cutlab-scenarios__empty {
+  margin: 0;
+}
+
+.cutlab-scenarios__status {
+  min-height: 1.25rem;
+}
+
+.cutlab-scenarios__list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.cutlab-scenarios__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 92%, var(--accent) 8%);
+}
+
+.cutlab-scenarios__copy {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.cutlab-scenarios__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 input[data-cut-lab-goal] {
   width: 5.5rem;
   min-height: 44px;
@@ -4540,6 +4592,11 @@ input[data-cut-lab-floor]:focus-visible {
 
   .cutlab-delta__line,
   .cutlab-cuts-made__row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .cutlab-scenarios__item {
     flex-direction: column;
     align-items: flex-start;
   }

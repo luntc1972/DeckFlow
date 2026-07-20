@@ -365,6 +365,7 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
   let generatedPackageCounter = 0;
   let packageHandlersAttached = false;
   let decisionHandlersAttached = false;
+  let scenarioHandlersAttached = false;
   let decisionSubmitInFlight = false;
 
   const getForm = (): HTMLFormElement | null =>
@@ -438,6 +439,15 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
 
   const getGoalInput = (goalKey: string): HTMLInputElement | null =>
     document.querySelector<HTMLInputElement>(`input[data-cut-lab-goal="${cssEscape(goalKey)}"]`);
+
+  const getScenarioNameInput = (): HTMLInputElement | null =>
+    document.querySelector<HTMLInputElement>('input[data-cut-lab-scenario-name]');
+
+  const getScenarioList = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cut-lab-scenario-list]');
+
+  const getScenarioStatus = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cut-lab-scenario-status]');
 
   const getLockCheckbox = (row: HTMLTableRowElement): HTMLInputElement | null =>
     row.querySelector<HTMLInputElement>('input[data-cut-lab-lock-card]');
@@ -776,6 +786,123 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     children.forEach(child => {
       element.appendChild(child);
     });
+  };
+
+  const formatScenarioSavedAt = (savedAt: string): string => {
+    const parsed = new Date(savedAt);
+    return Number.isNaN(parsed.getTime()) ? savedAt : parsed.toLocaleString();
+  };
+
+  const renderScenarioStatus = (message: string): void => {
+    const status = getScenarioStatus();
+    if (!status) {
+      return;
+    }
+
+    status.textContent = message;
+  };
+
+  const renderScenarioList = (): void => {
+    const list = getScenarioList();
+    if (!list) {
+      return;
+    }
+
+    const scenarios = api.listScenarios();
+    if (scenarios.length === 0) {
+      replaceChildren(list, [
+        createTextElement('p', 'cutlab-scenarios__empty prompt-size-note', 'No saved scenarios yet.'),
+      ]);
+      return;
+    }
+
+    replaceChildren(list, scenarios.map(scenario => {
+      const row = document.createElement('div');
+      row.className = 'cutlab-scenarios__item';
+
+      const copy = document.createElement('div');
+      copy.className = 'cutlab-scenarios__copy';
+      copy.appendChild(createTextElement('strong', 'cutlab-scenarios__name', scenario.name));
+
+      const timestamp = document.createElement('time');
+      timestamp.className = 'prompt-size-note cutlab-scenarios__saved-at';
+      timestamp.dateTime = scenario.savedAt;
+      timestamp.textContent = formatScenarioSavedAt(scenario.savedAt);
+      copy.appendChild(timestamp);
+
+      const actions = document.createElement('div');
+      actions.className = 'cutlab-scenarios__actions';
+
+      const loadButton = document.createElement('button');
+      loadButton.type = 'button';
+      loadButton.className = 'run-button';
+      loadButton.dataset.cutLabScenarioLoad = scenario.id;
+      loadButton.textContent = 'Load';
+
+      const deleteButton = document.createElement('button');
+      deleteButton.type = 'button';
+      deleteButton.className = 'clear-cache-button';
+      deleteButton.dataset.cutLabScenarioDelete = scenario.id;
+      deleteButton.textContent = 'Delete';
+
+      actions.append(loadButton, deleteButton);
+      row.append(copy, actions);
+      return row;
+    }));
+  };
+
+  const saveCurrentScenario = (): void => {
+    const nameInput = getScenarioNameInput();
+    const form = getForm();
+    const stateInput = form ? getStateInput(form) : null;
+    if (!nameInput || !form || !stateInput) {
+      return;
+    }
+
+    writeStateToHiddenInput();
+    const result = api.saveScenario(nameInput.value, stateInput.value);
+    switch (result) {
+      case 'ok':
+        nameInput.value = '';
+        renderScenarioList();
+        renderScenarioStatus('Scenario saved.');
+        break;
+      case 'cap-reached':
+      case 'quota-exceeded':
+        renderScenarioStatus('Delete a scenario first (max 20).');
+        break;
+      case 'disabled':
+        renderScenarioStatus('Your browser blocked local storage.');
+        break;
+      case 'invalid':
+        renderScenarioStatus('Name required.');
+        break;
+    }
+  };
+
+  const loadSavedScenario = (scenarioId: string): void => {
+    const form = getForm();
+    const stateInput = form ? getStateInput(form) : null;
+    if (!form || !stateInput) {
+      return;
+    }
+
+    const stateJson = api.loadScenario(scenarioId);
+    if (!stateJson) {
+      renderScenarioStatus('Scenario unavailable in this browser.');
+      renderScenarioList();
+      return;
+    }
+
+    stateInput.value = stateJson;
+    renderScenarioStatus('Scenario loaded. Rebuilding Cut Lab…');
+    form.requestSubmit();
+  };
+
+  const deleteSavedScenario = (scenarioId: string): void => {
+    const deleted = api.deleteScenario(scenarioId);
+    renderScenarioList();
+    renderScenarioStatus(deleted ? 'Scenario deleted.' : 'Scenario unavailable in this browser.');
   };
 
   const renderRoundBanner = (nextProposal: CutLabDecisionNextProposal): void => {
@@ -1748,6 +1875,49 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     });
   };
 
+  const attachScenarioHandlers = (): void => {
+    if (scenarioHandlersAttached) {
+      return;
+    }
+
+    scenarioHandlersAttached = true;
+
+    document.addEventListener('click', event => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+
+      if (target.closest('[data-cut-lab-scenario-save]')) {
+        saveCurrentScenario();
+        return;
+      }
+
+      const loadButton = target.closest<HTMLElement>('[data-cut-lab-scenario-load]');
+      if (loadButton?.dataset.cutLabScenarioLoad) {
+        loadSavedScenario(loadButton.dataset.cutLabScenarioLoad);
+        return;
+      }
+
+      const deleteButton = target.closest<HTMLElement>('[data-cut-lab-scenario-delete]');
+      if (deleteButton?.dataset.cutLabScenarioDelete) {
+        deleteSavedScenario(deleteButton.dataset.cutLabScenarioDelete);
+      }
+    });
+
+    document.addEventListener('keydown', event => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement) || !target.hasAttribute('data-cut-lab-scenario-name')) {
+        return;
+      }
+
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        saveCurrentScenario();
+      }
+    });
+  };
+
   const attachGoalSubmitHandler = (): void => {
     document.addEventListener('submit', event => {
       const target = event.target;
@@ -1782,8 +1952,10 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     attachPackageHandlers();
     attachDecisionSubmitHandler();
     attachGoalSubmitHandler();
+    attachScenarioHandlers();
     attachSubmitHandler();
     refreshAndSerialize();
+    renderScenarioList();
   };
 
   document.addEventListener('DOMContentLoaded', initializeCutLab);
