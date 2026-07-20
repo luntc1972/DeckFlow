@@ -15,12 +15,14 @@ public interface ICutLabAnalysisContextBuilder
     /// <param name="workingList">Current working-list cards.</param>
     /// <param name="playExperience">Cut Lab play-experience label used to resolve the shared role mode.</param>
     /// <param name="commanderNames">Resolved commander names for the current session.</param>
+    /// <param name="preResolvedCards">Optional pre-resolved cards already loaded for this intake.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The analyzed cards, role assignments, and classification inputs for this working list.</returns>
     Task<CutLabAnalysisContext> BuildAsync(
         IReadOnlyList<CutLabPoolCard> workingList,
         string playExperience,
         IReadOnlyList<string> commanderNames,
+        IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
         CancellationToken cancellationToken = default);
 }
 
@@ -89,6 +91,7 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         IReadOnlyList<CutLabPoolCard> workingList,
         string playExperience,
         IReadOnlyList<string> commanderNames,
+        IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(workingList);
@@ -97,16 +100,19 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
 
         string poolKey = CutLabResolvedCardCache.ComputePoolKey(
             workingList.Select(card => (card.Name, card.Quantity)).ToArray());
-        IReadOnlyList<ScryfallCardData> resolvedCards = await ResolveCardsAsync(workingList, poolKey, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<ScryfallCardData> resolvedCards = await ResolveCardsAsync(workingList, poolKey, preResolvedCards, cancellationToken).ConfigureAwait(false);
         CutLabClassificationContext classification = await LoadClassificationContextAsync(
             workingList,
             commanderNames,
             cancellationToken).ConfigureAwait(false);
 
-        HashSet<string> commanderNameSet = commanderNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        IReadOnlyDictionary<string, ScryfallCardData> cardsByName = resolvedCards.ToDictionary(
+        HashSet<string> commanderNameSet = commanderNames
+            .Select(CutLabCardNames.Normalize)
+            .ToHashSet(CutLabCardNames.Comparer);
+        IReadOnlyDictionary<string, ScryfallCardData> cardsByName = CutLabCardNames.ToLastWinsDictionary(
+            resolvedCards,
             card => card.Name,
-            StringComparer.OrdinalIgnoreCase);
+            card => card);
         ManabaseMode mode = CutLabRoleAssigner.ResolveMode(playExperience);
         Dictionary<string, IReadOnlyList<string>> rolesByCardName = new(StringComparer.OrdinalIgnoreCase);
         Dictionary<string, int> roleCounts = new(StringComparer.OrdinalIgnoreCase);
@@ -115,19 +121,21 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
 
         foreach (CutLabPoolCard entry in workingList)
         {
-            IReadOnlyList<string> categories = classification.CategoriesByName.TryGetValue(entry.Name, out IReadOnlyList<string>? hit)
+            string normalizedEntryName = CutLabCardNames.Normalize(entry.Name);
+            IReadOnlyList<string> categories = classification.CategoriesByName.TryGetValue(normalizedEntryName, out IReadOnlyList<string>? hit)
                 ? hit
                 : Array.Empty<string>();
             IReadOnlyList<string> roles = [];
             double manaValue = 0;
 
-            if (cardsByName.TryGetValue(entry.Name, out ScryfallCardData? card))
+            if (cardsByName.TryGetValue(normalizedEntryName, out ScryfallCardData? card))
             {
-                CardFact fact = ScryfallCardFactMapper.ToCardFact(card, entry.Quantity, commanderNameSet.Contains(entry.Name));
+                bool isCommander = commanderNameSet.Contains(normalizedEntryName);
+                CardFact fact = ScryfallCardFactMapper.ToCardFact(card, entry.Quantity, isCommander);
                 roles = CutLabRoleAssigner.AssignRoles(
                     fact,
                     categories,
-                    classification.ComboNames.Contains(entry.Name),
+                    classification.ComboNames.Contains(normalizedEntryName),
                     mode);
                 manaValue = fact.ManaValue;
 
@@ -138,7 +146,7 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
                         : entry.Quantity;
                 }
 
-                if (commanderNameSet.Contains(entry.Name))
+                if (isCommander)
                 {
                     commanderManaValue = Math.Max(commanderManaValue, fact.ManaValue);
                 }
@@ -168,8 +176,15 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
     private async Task<IReadOnlyList<ScryfallCardData>> ResolveCardsAsync(
         IReadOnlyList<CutLabPoolCard> workingList,
         string poolKey,
+        IReadOnlyList<ScryfallCardData>? preResolvedCards,
         CancellationToken cancellationToken)
     {
+        if (preResolvedCards is not null)
+        {
+            _resolvedCardCache.Set(poolKey, preResolvedCards);
+            return preResolvedCards;
+        }
+
         if (_resolvedCardCache.TryGet(poolKey, out IReadOnlyList<ScryfallCardData>? cachedCards) && cachedCards is not null)
         {
             return cachedCards;
@@ -208,7 +223,7 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         IReadOnlyList<string> commanderNames,
         CancellationToken cancellationToken)
     {
-        HashSet<string> comboNames = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> comboNames = new(CutLabCardNames.Comparer);
         IReadOnlyList<SpellbookAlmostCombo> almostIncludedCombos = [];
         bool comboDataAvailable = false;
 
@@ -227,7 +242,7 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
                     {
                         foreach (string cardName in combo.CardNames)
                         {
-                            comboNames.Add(cardName);
+                            comboNames.Add(CutLabCardNames.Normalize(cardName));
                         }
                     }
                 }
@@ -253,7 +268,10 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
             almostIncludedCombos,
             comboDataAvailable,
             categories.CategoryDataAvailable,
-            categories.CategoriesByName,
+            CutLabCardNames.ToLastWinsDictionary(
+                categories.CategoriesByName,
+                pair => pair.Key,
+                pair => pair.Value),
             comboNames);
     }
 
@@ -287,7 +305,9 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         IReadOnlyList<CutLabPoolCard> workingList,
         IReadOnlyList<string> commanderNames)
     {
-        HashSet<string> commanderNameSet = commanderNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> commanderNameSet = commanderNames
+            .Select(CutLabCardNames.Normalize)
+            .ToHashSet(CutLabCardNames.Comparer);
         List<DeckEntry> entries = new(workingList.Count);
 
         foreach (CutLabPoolCard card in workingList)
@@ -295,9 +315,9 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
             entries.Add(new DeckEntry
             {
                 Name = card.Name,
-                NormalizedName = card.Name.ToLowerInvariant(),
+                NormalizedName = CutLabCardNames.Normalize(card.Name),
                 Quantity = card.Quantity,
-                Board = commanderNameSet.Contains(card.Name) ? "commander" : "mainboard",
+                Board = commanderNameSet.Contains(CutLabCardNames.Normalize(card.Name)) ? "commander" : "mainboard",
             });
         }
 

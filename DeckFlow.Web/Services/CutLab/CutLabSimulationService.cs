@@ -75,8 +75,16 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
     {
         ArgumentNullException.ThrowIfNull(workingList);
 
-        ManabaseMode mode = CutLabRoleAssigner.ResolveMode(playExperience);
         IReadOnlyList<DeckCardEntry> deckEntries = await ResolveDeckEntries(workingList, cancellationToken).ConfigureAwait(false);
+        return BuildSnapshot(deckEntries, playExperience, trialsOverride);
+    }
+
+    private static CutLabMetricSnapshot BuildSnapshot(
+        IReadOnlyList<DeckCardEntry> deckEntries,
+        string? playExperience,
+        int? trialsOverride)
+    {
+        ManabaseMode mode = CutLabRoleAssigner.ResolveMode(playExperience);
         IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
         ManabaseDeck deck = ManabaseClassifier.Classify(
             facts,
@@ -131,9 +139,11 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
             return cached;
         }
 
-        CutLabMetricSnapshot before = await BuildSnapshot(currentWorkingList, playExperience, trialsOverride, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<DeckCardEntry> beforeEntries = await ResolveDeckEntries(currentWorkingList, cancellationToken).ConfigureAwait(false);
+        CutLabMetricSnapshot before = BuildSnapshot(beforeEntries, playExperience, trialsOverride);
         IReadOnlyList<CutLabPoolCard> afterWorkingList = RemoveCandidate(currentWorkingList, candidateCardName);
-        CutLabMetricSnapshot after = await BuildSnapshot(afterWorkingList, playExperience, trialsOverride, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<DeckCardEntry> afterEntries = RemoveCandidate(beforeEntries, candidateCardName);
+        CutLabMetricSnapshot after = BuildSnapshot(afterEntries, playExperience, trialsOverride);
 
         IReadOnlyDictionary<CutLabMetricKind, CutLabMetricValue> afterMetrics = after.Metrics
             .ToDictionary(metric => metric.Kind);
@@ -182,12 +192,18 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         }
         else
         {
-            IReadOnlyDictionary<string, ScryfallCardData> cardsByName = cachedCards
-                .ToDictionary(card => card.Name, StringComparer.OrdinalIgnoreCase);
+            IReadOnlyDictionary<string, ScryfallCardData> cardsByName = CutLabCardNames.ToLastWinsDictionary(
+                cachedCards,
+                card => card.Name,
+                card => card);
             cards = workingList
-                .Select(poolCard => cardsByName.TryGetValue(poolCard.Name, out ScryfallCardData? card)
+                .Select(poolCard =>
+                {
+                    string normalizedName = CutLabCardNames.Normalize(poolCard.Name);
+                    return cardsByName.TryGetValue(normalizedName, out ScryfallCardData? card)
                     ? card
-                    : throw new InvalidOperationException($"Cut Lab resolved-card cache was missing '{poolCard.Name}' for pool {poolKey}."))
+                    : throw new InvalidOperationException($"Cut Lab resolved-card cache was missing '{poolCard.Name}' for pool {poolKey}.");
+                })
                 .ToArray();
         }
 
@@ -298,18 +314,41 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
             .ToArray();
     }
 
+    private static IReadOnlyList<DeckCardEntry> RemoveCandidate(
+        IReadOnlyList<DeckCardEntry> currentEntries,
+        string candidateCardName)
+    {
+        string normalizedCandidateName = CutLabCardNames.Normalize(candidateCardName);
+        bool removed = false;
+        return currentEntries
+            .Where(entry =>
+            {
+                if (!removed && string.Equals(CutLabCardNames.Normalize(entry.Card.Name), normalizedCandidateName, StringComparison.Ordinal))
+                {
+                    removed = true;
+                    return false;
+                }
+
+                return true;
+            })
+            .ToArray();
+    }
+
     private static ManabaseDeck TagPlanRoles(
         ManabaseDeck deck,
         IReadOnlyList<CardFact> facts,
         ManabaseMode mode)
     {
-        var factsByName = facts.ToDictionary(fact => fact.Name, StringComparer.OrdinalIgnoreCase);
+        IReadOnlyDictionary<string, CardFact> factsByName = CutLabCardNames.ToLastWinsDictionary(
+            facts,
+            fact => fact.Name,
+            fact => fact);
         return deck with
         {
             Spells = deck.Spells
                 .Select(spell =>
                 {
-                    if (!factsByName.TryGetValue(spell.Name, out CardFact? fact))
+                    if (!factsByName.TryGetValue(CutLabCardNames.Normalize(spell.Name), out CardFact? fact))
                     {
                         return spell;
                     }

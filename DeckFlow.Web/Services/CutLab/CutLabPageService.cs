@@ -152,7 +152,10 @@ internal sealed class CutLabPageService : ICutLabPageService
         _categoryKnowledge is not null
         && _spellbook is not null
         && _manabaseBaseline is not null
-        && _cedhBaseline is not null;
+        && _cedhBaseline is not null
+        && _analysisContextBuilder is not null
+        && !ReferenceEquals(_simulationService, NoOpCutLabSimulationService.Instance)
+        && _baselineSnapshot is not null;
 
     /// <inheritdoc />
     public async Task<CutLabProcessResult> ProcessAsync(CutLabRequest request, CancellationToken cancellationToken = default)
@@ -255,6 +258,11 @@ internal sealed class CutLabPageService : ICutLabPageService
             derivedWorkingList,
             request.PlayExperience,
             commanderResolution.CommanderNames,
+            resolvedEntries
+                .Select(entry => entry.Card)
+                .Where(card => card is not null)
+                .Cast<ScryfallCardData>()
+                .ToArray(),
             cancellationToken).ConfigureAwait(false);
         IReadOnlyList<CutLabResolvedFloor> resolvedFloors = CutLabFloorDefaults.ResolveDefaults(
             request.Bracket,
@@ -498,15 +506,18 @@ internal sealed class CutLabPageService : ICutLabPageService
         IReadOnlyList<CutLabResolvedFloor> resolvedFloors)
     {
         var priorCards = priorState.Pool
-            .GroupBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
-        var commanderNameSet = commanderNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            .GroupBy(card => CutLabCardNames.Normalize(card.Name), CutLabCardNames.Comparer)
+            .ToDictionary(group => group.Key, group => group.Last(), CutLabCardNames.Comparer);
+        var commanderNameSet = commanderNames
+            .Select(CutLabCardNames.Normalize)
+            .ToHashSet(CutLabCardNames.Comparer);
 
         var pool = resolvedEntries
             .Select(entry =>
             {
-                bool isCommander = commanderNameSet.Contains(entry.Name);
-                priorCards.TryGetValue(entry.Name, out CutLabPoolCard? priorCard);
+                string normalizedName = CutLabCardNames.Normalize(entry.Name);
+                bool isCommander = commanderNameSet.Contains(normalizedName);
+                priorCards.TryGetValue(normalizedName, out CutLabPoolCard? priorCard);
                 return new CutLabPoolCard
                 {
                     Name = entry.Name,
@@ -549,14 +560,15 @@ internal sealed class CutLabPageService : ICutLabPageService
         IReadOnlyList<CutLabPoolCard> workingList,
         IReadOnlyList<CutLabAnalyzedCard> analyzedCards)
     {
-        IReadOnlyDictionary<string, CutLabAnalyzedCard> analyzedByName = analyzedCards.ToDictionary(
+        IReadOnlyDictionary<string, CutLabAnalyzedCard> analyzedByName = CutLabCardNames.ToLastWinsDictionary(
+            analyzedCards,
             card => card.Name,
-            StringComparer.OrdinalIgnoreCase);
+            card => card);
 
         return workingList
             .Select(card =>
             {
-                analyzedByName.TryGetValue(card.Name, out CutLabAnalyzedCard? analyzedCard);
+                analyzedByName.TryGetValue(CutLabCardNames.Normalize(card.Name), out CutLabAnalyzedCard? analyzedCard);
                 return new CutLabRoundInputCard(
                     card.Name,
                     card.Quantity,
