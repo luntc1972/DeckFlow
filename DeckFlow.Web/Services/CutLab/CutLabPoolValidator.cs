@@ -24,7 +24,14 @@ public static class CutLabPoolValidator
 
     /// <summary>Rejects non-commander pool sizes outside Cut Lab's supported 101-150 inclusive range.</summary>
     /// <param name="nonCommanderCardCount">Loaded non-commander pool card count, excluding the commander — the commander is the plus one.</param>
-    public static void ValidateCardCount(int nonCommanderCardCount)
+    /// <param name="mainboardCount">Loaded mainboard plus commander card count.</param>
+    /// <param name="sideboardCount">Loaded sideboard card count.</param>
+    /// <param name="maybeboardCount">Loaded considering or maybeboard card count.</param>
+    public static void ValidateCardCount(
+        int nonCommanderCardCount,
+        int mainboardCount = 0,
+        int sideboardCount = 0,
+        int maybeboardCount = 0)
     {
         if (nonCommanderCardCount < MinPoolCards)
         {
@@ -33,7 +40,8 @@ public static class CutLabPoolValidator
 
         if (nonCommanderCardCount > MaxPoolCards)
         {
-            throw new InvalidOperationException("This pool has too many cards for Cut Lab (limit 150 plus commander). Trim it closer to 150 before importing.");
+            throw new InvalidOperationException(
+                $"This pool has {nonCommanderCardCount} non-commander cards — over Cut Lab's 150 max. Main {mainboardCount} · Sideboard {sideboardCount} · Considering/Maybe {maybeboardCount}. Deselect the sideboard or considering list to fit.");
         }
     }
 }
