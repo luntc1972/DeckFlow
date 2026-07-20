@@ -396,15 +396,36 @@ internal sealed class CutLabPageService : ICutLabPageService
         IReadOnlyList<DeckEntry> entries,
         CancellationToken cancellationToken)
     {
+        IReadOnlyList<CutLabPoolCard> cacheLookupPool = entries
+            .Select(entry => new CutLabPoolCard
+            {
+                Name = entry.Name,
+                Quantity = entry.Quantity,
+            })
+            .ToArray();
+        IReadOnlyDictionary<string, ScryfallCardData> cachedCardsByName = new Dictionary<string, ScryfallCardData>(StringComparer.OrdinalIgnoreCase);
+        if (_analysisContextBuilder.TryGetCachedResolvedCards(cacheLookupPool, out IReadOnlyList<ScryfallCardData>? cachedCards)
+            && cachedCards is not null)
+        {
+            cachedCardsByName = CutLabCardNames.ToLastWinsDictionary(
+                cachedCards,
+                card => card.Name,
+                card => card);
+        }
+
         var resolvedEntries = new List<ResolvedCutLabEntry>(entries.Count);
 
         foreach (DeckEntry entry in entries)
         {
             ScryfallCardData? card = null;
-            ScryfallCard? resolved = await _cardResolver.ResolveSingleAsync(entry.Name, cancellationToken).ConfigureAwait(false);
-            if (resolved is not null)
+            string normalizedName = CutLabCardNames.Normalize(entry.Name);
+            if (!cachedCardsByName.TryGetValue(normalizedName, out card))
             {
-                card = ScryfallCardDataMapper.ToCardData(resolved);
+                ScryfallCard? resolved = await _cardResolver.ResolveSingleAsync(entry.Name, cancellationToken).ConfigureAwait(false);
+                if (resolved is not null)
+                {
+                    card = ScryfallCardDataMapper.ToCardData(resolved);
+                }
             }
 
             resolvedEntries.Add(new ResolvedCutLabEntry(

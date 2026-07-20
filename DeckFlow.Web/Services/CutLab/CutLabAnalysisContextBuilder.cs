@@ -24,6 +24,15 @@ public interface ICutLabAnalysisContextBuilder
         IReadOnlyList<string> commanderNames,
         IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Attempts to retrieve cached resolved cards for the provided pool.</summary>
+    bool TryGetCachedResolvedCards(IReadOnlyList<CutLabPoolCard> workingList, out IReadOnlyList<ScryfallCardData>? cards);
+
+    /// <summary>Seeds the provided pool from a previously resolved superset payload when possible.</summary>
+    bool TrySeedDerivedPool(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        IReadOnlyList<ScryfallCardData> sourceCards,
+        out IReadOnlyList<ScryfallCardData>? seededCards);
 }
 
 /// <summary>Shared Cut Lab analysis context used by intake and decision flows.</summary>
@@ -39,7 +48,8 @@ public sealed record CutLabAnalysisContext(
     IReadOnlyDictionary<string, int> RoleCounts,
     double CommanderManaValue,
     ManabaseMode Mode,
-    CutLabClassificationContext Classification);
+    CutLabClassificationContext Classification,
+    IReadOnlyList<ScryfallCardData> ResolvedCards);
 
 /// <summary>Classification inputs reused by Cut Lab structural findings.</summary>
 /// <param name="AlmostIncludedCombos">Near-combo findings from Commander Spellbook.</param>
@@ -170,7 +180,28 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
             roleCounts,
             commanderManaValue,
             mode,
-            classification);
+            classification,
+            resolvedCards);
+    }
+
+    /// <inheritdoc />
+    public bool TryGetCachedResolvedCards(IReadOnlyList<CutLabPoolCard> workingList, out IReadOnlyList<ScryfallCardData>? cards)
+    {
+        ArgumentNullException.ThrowIfNull(workingList);
+
+        return _resolvedCardCache.TryGet(ComputePoolKey(workingList), out cards);
+    }
+
+    /// <inheritdoc />
+    public bool TrySeedDerivedPool(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        IReadOnlyList<ScryfallCardData> sourceCards,
+        out IReadOnlyList<ScryfallCardData>? seededCards)
+    {
+        ArgumentNullException.ThrowIfNull(workingList);
+        ArgumentNullException.ThrowIfNull(sourceCards);
+
+        return _resolvedCardCache.TrySeedFromSuperset(ToPoolKeyEntries(workingList), sourceCards, out seededCards);
     }
 
     private async Task<IReadOnlyList<ScryfallCardData>> ResolveCardsAsync(
@@ -179,10 +210,11 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         IReadOnlyList<ScryfallCardData>? preResolvedCards,
         CancellationToken cancellationToken)
     {
-        if (preResolvedCards is not null)
+        if (preResolvedCards is not null
+            && _resolvedCardCache.TrySeedFromSuperset(ToPoolKeyEntries(workingList), preResolvedCards, out IReadOnlyList<ScryfallCardData>? seededCards)
+            && seededCards is not null)
         {
-            _resolvedCardCache.Set(poolKey, preResolvedCards);
-            return preResolvedCards;
+            return seededCards;
         }
 
         if (_resolvedCardCache.TryGet(poolKey, out IReadOnlyList<ScryfallCardData>? cachedCards) && cachedCards is not null)
@@ -217,6 +249,12 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         _resolvedCardCache.Set(poolKey, resolvedCards);
         return resolvedCards;
     }
+
+    private static string ComputePoolKey(IReadOnlyList<CutLabPoolCard> workingList)
+        => CutLabResolvedCardCache.ComputePoolKey(ToPoolKeyEntries(workingList));
+
+    private static IReadOnlyList<(string Name, int Quantity)> ToPoolKeyEntries(IReadOnlyList<CutLabPoolCard> workingList)
+        => workingList.Select(card => (card.Name, card.Quantity)).ToArray();
 
     private async Task<CutLabClassificationContext> LoadClassificationContextAsync(
         IReadOnlyList<CutLabPoolCard> workingList,
