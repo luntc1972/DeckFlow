@@ -97,7 +97,10 @@ public sealed class CutLabDeltaCache
     }
 
     private static string ComputeEntryKey(string poolKey, string cardName)
-        => PacketSessionCache.ComputeKey(new CacheKey(poolKey, cardName));
+        => PacketSessionCache.ComputeKey(new CacheKey(poolKey, NormalizeCardName(cardName)));
+
+    private static string NormalizeCardName(string cardName)
+        => cardName.ToUpperInvariant();
 
     private void LogCacheEvent(string outcome, string key, int sizeBytes)
     {
