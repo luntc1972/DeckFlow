@@ -1,12 +1,17 @@
+using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Controllers;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.Api;
 using DeckFlow.Web.Models.CutLab;
+using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CutLab;
+using DeckFlow.Web.Services.Scryfall;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
+using RestSharp;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
@@ -322,8 +327,195 @@ public sealed class CutLabControllerTests
         Assert.Equal(5, updatedState.Goals.RepresentativeLineByTurn);
     }
 
-    private static CutLabController CreateController(ICutLabPageService service) =>
-        new(service, new FakeLogger<CutLabController>())
+    [Fact]
+    public async Task Whatif_Preview_RendersDeltaRowsWithoutMutatingPersistedState()
+    {
+        var service = new WhatifStateAwareCutLabPageService();
+        var previewService = new FakeWhatifPreviewService
+        {
+            Preview = new CutLabWhatifPreview
+            {
+                CardOut = "Arcane Signet",
+                CardIn = "Counterspell",
+                ChangedFamilyCount = 1,
+                Deltas =
+                [
+                    new CutLabMetricDelta
+                    {
+                        Kind = CutLabMetricKind.CommanderByTurn,
+                        Family = CutLabMetricFamily.CategoryByTurn,
+                        Label = "Commander by turn 3",
+                        Before = 57,
+                        After = 61,
+                        Delta = 4,
+                        Unit = CutLabMetricUnit.Percent,
+                        Direction = CutLabMetricDirection.Up,
+                        IsMeaningful = true,
+                    },
+                ],
+            },
+        };
+        var controller = CreateController(service, previewService);
+        var originalStateJson = CutLabStateSerializer.Serialize(CreateState(
+            new CutLabDecision
+            {
+                CardName = "Counterspell",
+                Kind = CutLabDecisionKind.Accepted,
+                Round = CutLabCutRoundEngine.Round1Key,
+                Ordinal = 1,
+            }));
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = originalStateJson,
+        };
+
+        var result = await controller.Whatif(request, "Arcane Signet", "Counterspell", "preview");
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        Assert.True(model.Whatif.HasPreview);
+        Assert.Equal("Arcane Signet", model.Whatif.CardOut);
+        Assert.Equal("Counterspell", model.Whatif.CardIn);
+        Assert.Single(model.Whatif.DeltaRows);
+        Assert.Equal(originalStateJson, service.LastRequest!.CutLabStateJson);
+        CutLabState updatedState = CutLabStateSerializer.Deserialize(service.LastRequest.CutLabStateJson);
+        Assert.Single(updatedState.Decisions);
+    }
+
+    [Fact]
+    public async Task Whatif_Keep_CommitsRestoreAndAcceptUnderWhatifRound()
+    {
+        var service = new WhatifStateAwareCutLabPageService();
+        var controller = CreateController(service, new FakeWhatifPreviewService());
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(CreateState(
+                new CutLabDecision
+                {
+                    CardName = "Counterspell",
+                    Kind = CutLabDecisionKind.Accepted,
+                    Round = CutLabCutRoundEngine.Round1Key,
+                    Ordinal = 1,
+                })),
+        };
+
+        var result = await controller.Whatif(request, "Arcane Signet", "Counterspell", "keep");
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        Assert.True(model.HasResult);
+        CutLabState updatedState = CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson);
+        CutLabDecision accepted = Assert.Single(updatedState.Decisions);
+        Assert.Equal("Arcane Signet", accepted.CardName);
+        Assert.Equal(CutLabDecisionKind.Accepted, accepted.Kind);
+        Assert.Equal(CutLabCutRoundEngine.WhatifSwapKey, accepted.Round);
+        IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(updatedState.Pool, updatedState.Decisions);
+        Assert.Contains(workingList, card => card.Name == "Counterspell");
+        Assert.DoesNotContain(workingList, card => card.Name == "Arcane Signet");
+    }
+
+    [Fact]
+    public async Task Whatif_LockedCardOut_RerendersNoChangeAndLeavesStateUnchanged()
+    {
+        var service = new WhatifStateAwareCutLabPageService();
+        var controller = CreateController(service, new FakeWhatifPreviewService());
+        var state = CreateState(
+            new CutLabDecision
+            {
+                CardName = "Counterspell",
+                Kind = CutLabDecisionKind.Accepted,
+                Round = CutLabCutRoundEngine.Round1Key,
+                Ordinal = 1,
+            }) with
+        {
+            Pool =
+            [
+                new CutLabPoolCard
+                {
+                    Name = "Zur the Enchanter",
+                    Quantity = 1,
+                    TypeLine = "Legendary Creature",
+                    IsCommander = true,
+                    IsLocked = true,
+                },
+                new CutLabPoolCard
+                {
+                    Name = "Locked Card",
+                    Quantity = 1,
+                    TypeLine = "Artifact",
+                    IsLocked = true,
+                },
+                new CutLabPoolCard
+                {
+                    Name = "Counterspell",
+                    Quantity = 99,
+                    TypeLine = "Instant",
+                },
+            ],
+        };
+        var originalStateJson = CutLabStateSerializer.Serialize(state);
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = originalStateJson,
+        };
+
+        var result = await controller.Whatif(request, "Locked Card", "Counterspell", "keep");
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        Assert.Equal(CutLabMessages.NoChangeMessage, model.ErrorMessage);
+        Assert.Equal(originalStateJson, service.LastRequest!.CutLabStateJson);
+    }
+
+    [Fact]
+    public async Task Whatif_Preview_UsesSharedServiceWithoutResolveSingleCalls()
+    {
+        CutLabState state = CreateState(
+            new CutLabDecision
+            {
+                CardName = "Counterspell",
+                Kind = CutLabDecisionKind.Accepted,
+                Round = CutLabCutRoundEngine.Round1Key,
+                Ordinal = 1,
+            }) with
+        {
+            Goals = new CutLabGoalSettings
+            {
+                CommanderByTurn = 7,
+            },
+        };
+        var service = new WhatifStateAwareCutLabPageService();
+        CutLabResolvedCardCache resolvedCardCache = new();
+        FakeAnalysisContextBuilder contextBuilder = new();
+        contextBuilder.SeedFullPool(state.Pool);
+        ThrowingResolver resolver = new();
+        CutLabSimulationService simulationService = new(
+            resolvedCardCache,
+            new CutLabDeltaCache(),
+            resolver,
+            NullLogger<CutLabSimulationService>.Instance,
+            BuildWhatifSnapshot);
+        ICutLabWhatifPreviewService previewService = new CutLabWhatifPreviewService(
+            simulationService,
+            contextBuilder,
+            resolvedCardCache);
+        var controller = CreateController(service, previewService);
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(state),
+        };
+
+        var result = await controller.Whatif(request, "Arcane Signet", "Counterspell", "preview");
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        Assert.True(model.Whatif.HasPreview);
+        Assert.Equal(0, resolver.ResolveSingleCalls);
+        Assert.Contains(model.Whatif.DeltaRows, row => row.MetricLabel == "Commander by turn 7");
+    }
+
+    private static CutLabController CreateController(ICutLabPageService service, ICutLabWhatifPreviewService? whatifPreviewService = null) =>
+        new(service, whatifPreviewService ?? new FakeWhatifPreviewService(), new FakeLogger<CutLabController>())
         {
             ControllerContext = new ControllerContext
             {
@@ -404,6 +596,42 @@ public sealed class CutLabControllerTests
         }
     }
 
+    private sealed class WhatifStateAwareCutLabPageService : ICutLabPageService
+    {
+        public CutLabRequest? LastRequest { get; private set; }
+
+        public Task<CutLabProcessResult> ProcessAsync(CutLabRequest request, CancellationToken cancellationToken = default)
+        {
+            LastRequest = request;
+            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson) with
+            {
+                BaselineSnapshot = BuildGoalSnapshot(new CutLabGoalSettings(), 57, 68, 52),
+            };
+            return Task.FromResult(new CutLabProcessResult
+            {
+                State = state,
+                SerializedStateJson = request.CutLabStateJson,
+                CardCount = 100,
+                HasResult = true,
+                IsLegal = true,
+                Findings = new CutLabStructuralFindingsResult([], true, true),
+                CurrentSnapshot = BuildGoalSnapshot(state.Goals, 64, 71, 58),
+            });
+        }
+    }
+
+    private sealed class FakeWhatifPreviewService : ICutLabWhatifPreviewService
+    {
+        public CutLabWhatifPreview Preview { get; set; } = new();
+
+        public Task<CutLabWhatifPreview> ComputeSwapPreviewAsync(CutLabState state, string cardOut, string cardIn, CancellationToken cancellationToken)
+            => Task.FromResult(Preview with
+            {
+                CardOut = Preview.CardOut == string.Empty ? cardOut : Preview.CardOut,
+                CardIn = Preview.CardIn == string.Empty ? cardIn : Preview.CardIn,
+            });
+    }
+
     private static CutLabState CreateState(params CutLabDecision[] decisions)
         => new()
         {
@@ -472,4 +700,89 @@ public sealed class CutLabControllerTests
                 },
             ],
         };
+
+    private static CutLabMetricSnapshot BuildWhatifSnapshot(
+        IReadOnlyList<DeckCardEntry> deckEntries,
+        string? playExperience,
+        int? trialsOverride,
+        CutLabGoalSettings? goals)
+    {
+        double commander = deckEntries.Any(entry => entry.Card.Name == "Arcane Signet") ? 3 : 7;
+        int goalTurn = goals?.CommanderByTurn ?? 3;
+        return new CutLabMetricSnapshot
+        {
+            Metrics =
+            [
+                new CutLabMetricValue
+                {
+                    Kind = CutLabMetricKind.CommanderByTurn,
+                    Family = CutLabMetricFamily.CategoryByTurn,
+                    Label = $"Commander by turn {goalTurn}",
+                    Value = commander,
+                    Unit = CutLabMetricUnit.Percent,
+                },
+            ],
+        };
+    }
+
+    private sealed class FakeAnalysisContextBuilder : ICutLabAnalysisContextBuilder
+    {
+        private readonly Dictionary<string, IReadOnlyList<ScryfallCardData>> _cachedCards = new(StringComparer.Ordinal);
+
+        public Task<CutLabAnalysisContext> BuildAsync(
+            IReadOnlyList<CutLabPoolCard> workingList,
+            string playExperience,
+            IReadOnlyList<string> commanderNames,
+            IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
+            string? poolKey = null,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public bool TryGetCachedResolvedCards(IReadOnlyList<CutLabPoolCard> workingList, out IReadOnlyList<ScryfallCardData>? cards)
+            => _cachedCards.TryGetValue(CutLabResolvedCardCache.ComputePoolKey(workingList), out cards);
+
+        public bool TrySeedDerivedPool(
+            IReadOnlyList<CutLabPoolCard> workingList,
+            IReadOnlyList<ScryfallCardData> sourceCards,
+            out IReadOnlyList<ScryfallCardData>? seededCards)
+        {
+            seededCards = workingList
+                .Select(card => sourceCards.FirstOrDefault(source => string.Equals(source.Name, card.Name, StringComparison.OrdinalIgnoreCase)))
+                .Where(card => card is not null)
+                .Cast<ScryfallCardData>()
+                .ToArray();
+            return seededCards.Count == workingList.Count;
+        }
+
+        public void SeedFullPool(IReadOnlyList<CutLabPoolCard> pool)
+        {
+            _cachedCards[CutLabResolvedCardCache.ComputePoolKey(pool)] = pool
+                .Select(card => new ScryfallCardData
+                {
+                    Name = card.Name,
+                    TypeLine = card.TypeLine,
+                })
+                .ToArray();
+        }
+    }
+
+    private sealed class ThrowingResolver : IScryfallCardResolver
+    {
+        public int ResolveSingleCalls { get; private set; }
+
+        public Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken cancellationToken)
+            => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request));
+
+        public Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
+            => Task.FromResult<ScryfallCard?>(null);
+
+        public Task<ScryfallCard?> SearchPrintingFallbackCardAsync(string cardName, CancellationToken cancellationToken)
+            => Task.FromResult<ScryfallCard?>(null);
+
+        public Task<ScryfallCard?> ResolveSingleAsync(string cardName, CancellationToken cancellationToken = default)
+        {
+            ResolveSingleCalls++;
+            throw new InvalidOperationException("ResolveSingleAsync should not run for what-if preview.");
+        }
+    }
 }

@@ -104,6 +104,15 @@ public sealed record CutLabViewModel
     /// <summary>Baseline-versus-current comparison rows.</summary>
     public IReadOnlyList<CutLabCompareRowView> CompareRows { get; init; } = [];
 
+    /// <summary>Server-rendered what-if preview state for the no-JS swap flow.</summary>
+    public CutLabWhatifPreviewView Whatif { get; init; } = new();
+
+    /// <summary>Working-list card options eligible to be swapped out.</summary>
+    public IReadOnlyList<string> WhatifCardOutOptions { get; init; } = [];
+
+    /// <summary>Cut-pile card options eligible to be swapped in.</summary>
+    public IReadOnlyList<string> WhatifCardInOptions { get; init; } = [];
+
     /// <summary>Total card count of the original imported pool.</summary>
     public int BaselineCount { get; init; }
 
@@ -121,7 +130,11 @@ public sealed record CutLabViewModel
     /// <summary>Builds the page model from the request and service result.</summary>
     /// <param name="request">Current request values.</param>
     /// <param name="result">Processed Cut Lab result.</param>
-    public static CutLabViewModel From(CutLabRequest request, CutLabProcessResult result)
+    /// <param name="whatif">Optional server-rendered what-if preview state.</param>
+    public static CutLabViewModel From(
+        CutLabRequest request,
+        CutLabProcessResult result,
+        CutLabWhatifPreviewView? whatif = null)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(result);
@@ -150,6 +163,8 @@ public sealed record CutLabViewModel
         IReadOnlyList<CutLabCutMadeRowView> cutsMade = BuildCutsMade(result.State?.Decisions);
         int baselineCount = pool.Sum(card => card.Quantity);
         int currentCount = CutLabWorkingList.Derive(pool, result.State?.Decisions ?? []).Sum(card => card.Quantity);
+        IReadOnlyList<string> whatifCardOutOptions = BuildWhatifCardOutOptions(pool, result.State?.Decisions);
+        IReadOnlyList<string> whatifCardInOptions = BuildWhatifCardInOptions(pool, result.State?.Decisions);
         IReadOnlyList<CutLabGoalRowView> goalRows = BuildGoalRows(
             result.State?.Goals ?? new(),
             result.CurrentSnapshot,
@@ -196,6 +211,9 @@ public sealed record CutLabViewModel
             Proposal = proposal,
             CutsMade = cutsMade,
             CompareRows = compareRows,
+            Whatif = whatif ?? new(),
+            WhatifCardOutOptions = whatifCardOutOptions,
+            WhatifCardInOptions = whatifCardInOptions,
             BaselineCount = baselineCount,
             CurrentCount = currentCount,
             RoleListByCardName = roleListByCardName,
@@ -575,6 +593,57 @@ public sealed record CutLabViewModel
             .ToArray();
     }
 
+    internal static IReadOnlyList<CutLabCompareRowView> BuildCompareRows(IReadOnlyList<CutLabMetricDelta> deltas)
+    {
+        ArgumentNullException.ThrowIfNull(deltas);
+
+        return deltas
+            .Select(delta => new CutLabCompareRowView
+            {
+                MetricLabel = delta.Label,
+                BaselineValue = FormatMetricValue(delta.Before, delta.Unit),
+                CurrentValue = FormatMetricValue(delta.After, delta.Unit),
+                DeltaValueToken = FormatDeltaToken(delta.Delta, delta.Unit),
+                Direction = delta.Direction,
+            })
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> BuildWhatifCardOutOptions(
+        IReadOnlyList<CutLabPoolCard> pool,
+        IReadOnlyList<CutLabDecision>? decisions)
+    {
+        if (pool.Count == 0)
+        {
+            return [];
+        }
+
+        return CutLabWorkingList.Derive(pool, decisions ?? [])
+            .Where(card => !card.IsLocked && !card.IsCommander)
+            .Select(card => card.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> BuildWhatifCardInOptions(
+        IReadOnlyList<CutLabPoolCard> pool,
+        IReadOnlyList<CutLabDecision>? decisions)
+    {
+        if (pool.Count == 0)
+        {
+            return [];
+        }
+
+        IReadOnlySet<string> accepted = CutLabWorkingList.AcceptedCardNames(decisions ?? []);
+        return pool
+            .Where(card => accepted.Contains(card.Name))
+            .Select(card => card.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
     private static CutLabGoalRowView BuildGoalRow(
         CutLabMetricKind kind,
         string goalKey,
@@ -924,4 +993,20 @@ public sealed record CutLabCompareRowView
 
     /// <summary>Display direction for the delta token.</summary>
     public CutLabMetricDirection Direction { get; init; }
+}
+
+/// <summary>Server-rendered what-if preview state for the no-JS swap form.</summary>
+public sealed record CutLabWhatifPreviewView
+{
+    /// <summary>The working-list card selected to leave the deck.</summary>
+    public string CardOut { get; init; } = string.Empty;
+
+    /// <summary>The cut-pile card selected to re-enter the deck.</summary>
+    public string CardIn { get; init; } = string.Empty;
+
+    /// <summary>Compare-table rows describing the preview deltas.</summary>
+    public IReadOnlyList<CutLabCompareRowView> DeltaRows { get; init; } = [];
+
+    /// <summary>True when a server-rendered what-if preview is available.</summary>
+    public bool HasPreview { get; init; }
 }

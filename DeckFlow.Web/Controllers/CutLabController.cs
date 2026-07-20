@@ -11,13 +11,19 @@ namespace DeckFlow.Web.Controllers;
 public sealed class CutLabController : Controller
 {
     private readonly ICutLabPageService _pageService;
+    private readonly ICutLabWhatifPreviewService _whatifPreviewService;
     private readonly ILogger<CutLabController> _logger;
 
     /// <summary>Creates the controller with its page service and logger.</summary>
-    public CutLabController(ICutLabPageService pageService, ILogger<CutLabController> logger)
+    public CutLabController(
+        ICutLabPageService pageService,
+        ICutLabWhatifPreviewService whatifPreviewService,
+        ILogger<CutLabController> logger)
     {
         ArgumentNullException.ThrowIfNull(pageService);
+        ArgumentNullException.ThrowIfNull(whatifPreviewService);
         _pageService = pageService;
+        _whatifPreviewService = whatifPreviewService;
         _logger = logger;
     }
 
@@ -149,6 +155,81 @@ public sealed class CutLabController : Controller
         }
     }
 
+    /// <summary>Previews or commits a what-if swap and re-renders the full page for the no-JS fallback.</summary>
+    /// <param name="request">Posted Cut Lab form fields.</param>
+    /// <param name="cardOut">Working-list card to remove.</param>
+    /// <param name="cardIn">Cut-pile card to restore.</param>
+    /// <param name="intent">Preview or keep intent.</param>
+    [HttpPost("/cut-lab/whatif")]
+    [FeatureFlagGate("tool.cut-lab.enabled")]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(2 * 1024 * 1024)]
+    public async Task<IActionResult> Whatif(CutLabRequest request, string cardOut, string cardIn, string intent)
+    {
+        request ??= new CutLabRequest();
+
+        if (string.IsNullOrWhiteSpace(request.CutLabStateJson)
+            || string.IsNullOrWhiteSpace(cardOut)
+            || string.IsNullOrWhiteSpace(cardIn)
+            || !IsWhatifIntent(intent))
+        {
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+        }
+
+        try
+        {
+            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            if (!IsValidWhatifPair(state, cardOut, cardIn))
+            {
+                return await RenderWhatifViewAsync(request, state, null, CutLabMessages.NoChangeMessage);
+            }
+
+            if (string.Equals(intent, "preview", StringComparison.OrdinalIgnoreCase))
+            {
+                CutLabWhatifPreview preview = await _whatifPreviewService
+                    .ComputeSwapPreviewAsync(state, cardOut, cardIn, HttpContext.RequestAborted)
+                    .ConfigureAwait(false);
+                return await RenderWhatifViewAsync(request, state, preview, null);
+            }
+
+            CutLabPoolCard? cardOutPoolCard = state.Pool.FirstOrDefault(card => string.Equals(card.Name, cardOut, StringComparison.OrdinalIgnoreCase));
+            if (cardOutPoolCard is null || cardOutPoolCard.IsLocked || cardOutPoolCard.IsCommander)
+            {
+                return await RenderWhatifViewAsync(request, state, null, CutLabMessages.NoChangeMessage);
+            }
+
+            CutLabState afterRestore = CutLabDecisionApplier.Apply(
+                state,
+                cardIn,
+                CutLabDecideAction.Restore,
+                CutLabCutRoundEngine.WhatifSwapKey);
+            CutLabState afterSwap = CutLabDecisionApplier.Apply(
+                afterRestore,
+                cardOut,
+                CutLabDecideAction.Accept,
+                CutLabCutRoundEngine.WhatifSwapKey);
+
+            RehydrateIntakeRequestFromState(request, afterSwap);
+            request.CutLabStateJson = CutLabStateSerializer.Serialize(afterSwap);
+
+            var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
+            return View("CutLab", CutLabViewModel.From(request, result));
+        }
+        catch (InvalidOperationException exception)
+        {
+            return CutLabView(request, error: exception.Message);
+        }
+        catch (OperationCanceledException)
+        {
+            return CutLabView(request, error: "The request timed out. Try again.");
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Cut Lab what-if fallback failed.");
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+        }
+    }
+
     private static string DetermineRoundKey(CutLabState state, string cardName, CutLabDecideAction decision, string? postedRoundKey)
     {
         if (CutLabCutRoundEngine.IsKnownRoundKey(postedRoundKey))
@@ -157,6 +238,58 @@ public sealed class CutLabController : Controller
         }
 
         return CutLabDecisionApplier.LatestRoundForCard(state, cardName);
+    }
+
+    private async Task<ViewResult> RenderWhatifViewAsync(
+        CutLabRequest request,
+        CutLabState state,
+        CutLabWhatifPreview? preview,
+        string? error)
+    {
+        RehydrateIntakeRequestFromState(request, state);
+        request.CutLabStateJson = CutLabStateSerializer.Serialize(state);
+
+        var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
+        CutLabViewModel viewModel = CutLabViewModel.From(request, result, BuildWhatifPreviewView(preview));
+        return View("CutLab", string.IsNullOrWhiteSpace(error) ? viewModel : viewModel with { ErrorMessage = error });
+    }
+
+    private static CutLabWhatifPreviewView BuildWhatifPreviewView(CutLabWhatifPreview? preview)
+    {
+        if (preview is null)
+        {
+            return new CutLabWhatifPreviewView();
+        }
+
+        return new CutLabWhatifPreviewView
+        {
+            CardOut = preview.CardOut,
+            CardIn = preview.CardIn,
+            DeltaRows = CutLabViewModel.BuildCompareRows(preview.Deltas),
+            HasPreview = true,
+        };
+    }
+
+    private static bool IsWhatifIntent(string intent)
+        => string.Equals(intent, "preview", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(intent, "keep", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsValidWhatifPair(CutLabState state, string cardOut, string cardIn)
+    {
+        IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(state.Pool, state.Decisions);
+        bool validCardOut = workingList.Any(card =>
+            string.Equals(card.Name, cardOut, StringComparison.OrdinalIgnoreCase)
+            && !card.IsLocked
+            && !card.IsCommander);
+        if (!validCardOut)
+        {
+            return false;
+        }
+
+        IReadOnlySet<string> cutPile = CutLabWorkingList.AcceptedCardNames(state.Decisions);
+        return state.Pool.Any(card =>
+            string.Equals(card.Name, cardIn, StringComparison.OrdinalIgnoreCase)
+            && cutPile.Contains(card.Name));
     }
 
     private static void RehydrateIntakeRequestFromState(CutLabRequest request, CutLabState state)
