@@ -27,11 +27,13 @@ public sealed class CutLabRequest
     /// <summary>Desired play experience for the finished deck.</summary>
     public string PlayExperience { get; set; } = string.Empty;
 
+    /// <summary>When true, includes the deck's sideboard cards in the Cut Lab pool as trim candidates.</summary>
+    public bool IncludeSideboard { get; set; }
+
     /// <summary>
-    /// When true, includes the deck's sideboard and maybeboard cards in the Cut Lab pool
-    /// as candidate cards to trim alongside the main deck.
+    /// When true, includes the deck's considering or maybeboard cards in the Cut Lab pool as trim candidates.
     /// </summary>
-    public bool IncludeSideboardAndMaybeboard { get; set; }
+    public bool IncludeMaybeboard { get; set; }
 
     /// <summary>Explicit commander selection when automatic inference is ambiguous.</summary>
     public string SelectedCommander { get; set; } = string.Empty;

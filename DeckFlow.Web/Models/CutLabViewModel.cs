@@ -33,6 +33,15 @@ public sealed record CutLabViewModel
     /// <summary>Non-commander pool count returned by the service.</summary>
     public int CardCount { get; init; }
 
+    /// <summary>Mainboard plus commander quantity loaded from the source deck.</summary>
+    public int MainboardCardCount { get; init; }
+
+    /// <summary>Sideboard quantity loaded from the source deck.</summary>
+    public int SideboardCardCount { get; init; }
+
+    /// <summary>Considering or maybeboard quantity loaded from the source deck.</summary>
+    public int MaybeboardCardCount { get; init; }
+
     /// <summary>Commander banned-card names present in the current pool.</summary>
     public IReadOnlyList<string> BannedCardsPresent { get; init; } = [];
 
@@ -151,6 +160,9 @@ public sealed record CutLabViewModel
             Request = request,
             ErrorMessage = result.ErrorMessage,
             CardCount = result.CardCount,
+            MainboardCardCount = result.MainboardCardCount,
+            SideboardCardCount = result.SideboardCardCount,
+            MaybeboardCardCount = result.MaybeboardCardCount,
             BannedCardsPresent = result.BannedCardsPresent,
             IsLegal = result.IsLegal,
             CommanderSelectionRequired = result.CommanderSelectionRequired,

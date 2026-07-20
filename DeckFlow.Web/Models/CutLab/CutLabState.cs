@@ -121,6 +121,9 @@ public sealed record CutLabRoleFloor
 /// <summary>Serializable declared intent for the finished 100-card deck.</summary>
 public sealed record CutLabIntent
 {
+    private bool _includeSideboard;
+    private bool _includeMaybeboard;
+
     /// <summary>Required primary plan for the intended finished deck.</summary>
     public string PrimaryPlan { get; init; } = string.Empty;
 
@@ -133,9 +136,35 @@ public sealed record CutLabIntent
     /// <summary>Desired play experience for the finished deck.</summary>
     public string PlayExperience { get; init; } = string.Empty;
 
+    /// <summary>When true, includes the deck's sideboard cards in the Cut Lab pool as trim candidates.</summary>
+    public bool IncludeSideboard
+    {
+        get => _includeSideboard;
+        init => _includeSideboard = value || IncludeSideboardAndMaybeboard;
+    }
+
     /// <summary>
-    /// When true, includes the deck's sideboard and maybeboard cards in the Cut Lab pool
-    /// as candidate cards to trim alongside the main deck.
+    /// When true, includes the deck's considering or maybeboard cards in the Cut Lab pool as trim candidates.
     /// </summary>
-    public bool IncludeSideboardAndMaybeboard { get; init; }
+    public bool IncludeMaybeboard
+    {
+        get => _includeMaybeboard;
+        init => _includeMaybeboard = value || IncludeSideboardAndMaybeboard;
+    }
+
+    /// <summary>Legacy combined board flag bridge for session JSON created before the split-toggle refinement.</summary>
+    public bool IncludeSideboardAndMaybeboard
+    {
+        get => IncludeSideboard && IncludeMaybeboard;
+        init
+        {
+            if (!value)
+            {
+                return;
+            }
+
+            _includeSideboard = true;
+            _includeMaybeboard = true;
+        }
+    }
 }
