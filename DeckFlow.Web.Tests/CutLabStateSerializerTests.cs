@@ -408,6 +408,112 @@ public sealed class CutLabStateSerializerTests
     }
 
     [Fact]
+    public void NewState_Goals_DefaultToSeededTurns()
+    {
+        var state = new CutLabState();
+
+        Assert.Equal(3, state.Goals.CommanderByTurn);
+        Assert.Equal(2, state.Goals.EngineByTurn);
+        Assert.Equal(4, state.Goals.RepresentativeLineByTurn);
+    }
+
+    [Fact]
+    public void Deserialize_Pre104JsonWithoutGoals_ReturnsSeededGoalDefaults()
+    {
+        const string json =
+            """
+            {
+              "commander": "Atraxa, Praetors' Voice",
+              "pool": [],
+              "packages": [],
+              "decisions": [],
+              "roleFloors": [],
+              "intent": {
+                "primaryPlan": "Counters",
+                "secondaryPlan": null,
+                "bracket": 3,
+                "playExperience": "Focused"
+              }
+            }
+            """;
+
+        var state = CutLabStateSerializer.Deserialize(json);
+
+        Assert.Equal(3, state.Goals.CommanderByTurn);
+        Assert.Equal(2, state.Goals.EngineByTurn);
+        Assert.Equal(4, state.Goals.RepresentativeLineByTurn);
+    }
+
+    [Fact]
+    public void Deserialize_TamperedGoals_ClampsToSupportedRange()
+    {
+        const string json =
+            """
+            {
+              "commander": "Atraxa, Praetors' Voice",
+              "pool": [],
+              "packages": [],
+              "decisions": [],
+              "goals": {
+                "commanderByTurn": 0,
+                "engineByTurn": 99,
+                "representativeLineByTurn": -4
+              },
+              "roleFloors": [],
+              "intent": {
+                "primaryPlan": "Counters",
+                "secondaryPlan": null,
+                "bracket": 3,
+                "playExperience": "Focused"
+              }
+            }
+            """;
+
+        var state = CutLabStateSerializer.Deserialize(json);
+
+        Assert.Equal(1, state.Goals.CommanderByTurn);
+        Assert.Equal(15, state.Goals.EngineByTurn);
+        Assert.Equal(1, state.Goals.RepresentativeLineByTurn);
+    }
+
+    [Fact]
+    public void SerializeDeserialize_ValidGoals_RoundTripUnchanged()
+    {
+        var state = new CutLabState
+        {
+            Goals = new CutLabGoalSettings
+            {
+                CommanderByTurn = 5,
+                EngineByTurn = 3,
+                RepresentativeLineByTurn = 7,
+            },
+        };
+
+        string json = CutLabStateSerializer.Serialize(state);
+        CutLabState roundTripped = CutLabStateSerializer.Deserialize(json);
+
+        Assert.Equal(state.Goals, roundTripped.Goals);
+    }
+
+    [Fact]
+    public void ClampGoals_WhenAlreadyValid_ReturnsSameStateInstance()
+    {
+        var state = new CutLabState
+        {
+            Goals = new CutLabGoalSettings
+            {
+                CommanderByTurn = 5,
+                EngineByTurn = 3,
+                RepresentativeLineByTurn = 7,
+            },
+        };
+
+        CutLabState clamped = CutLabGoalRules.ClampGoals(state);
+
+        Assert.Same(state, clamped);
+    }
+
+    [Fact]
     public void Serialize_WorstCaseDecisionHistoryAndBaselineSnapshot_StaysUnderMaxUploadBytes()
     {
         var pool = Enumerable.Range(1, 150)
