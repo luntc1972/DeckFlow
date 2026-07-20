@@ -192,6 +192,9 @@ public static class ManabaseAnalyzer
         // path may pass a reduced trial count for the D-11 latency budget; every existing caller passes
         // null and stays byte-identical to the current DefaultTrials behavior.
         int trials = trialsOverride ?? CastabilitySimulator.DefaultTrials;
+        int sourceSearchTrials = trialsOverride is null
+            ? SourceSearchTrials
+            : Math.Max(500, (int)((long)SourceSearchTrials * trials / CastabilitySimulator.DefaultTrials));
 
         // Apply user cost overrides BEFORE anything reads the spell list: substitute each affected
         // spell with an effective requirement (new MV + pips from the override cost). Every
@@ -235,7 +238,9 @@ public static class ManabaseAnalyzer
             colorSpellCounts,
             demandingByName,
             scrySourceCreditAmount,
-            colorlessSnow);
+            colorlessSnow,
+            sourceSearchTrials,
+            trials);
 
         // Demanding cards (below their color's bar) worst-first — surfaced by the two-tier verdict.
         IReadOnlyList<DemandingCard> demandingCards = demandingByName
@@ -712,7 +717,9 @@ public static class ManabaseAnalyzer
         Dictionary<ManaColor, int> colorSpellCounts,
         Dictionary<string, int> demandingByName,
         double scrySourceCredit,
-        bool colorlessSnow)
+        bool colorlessSnow,
+        int sourceSearchTrials,
+        int sourceSearchBoundaryTrials)
     {
         var findings = new List<ColorSourceFinding>();
         var commanderColors = CommanderColors(deck);
@@ -789,7 +796,7 @@ public static class ManabaseAnalyzer
                 {
                     simNeed = SimRequiredSources(
                         librarySize, totalLands, color, pips, onCurveTurn,
-                        deck.AverageManaValue, deck.IsSingleton, threshold);
+                        deck.AverageManaValue, deck.IsSingleton, threshold, sourceSearchTrials, sourceSearchBoundaryTrials);
                     simRequiredCache[sig] = simNeed;
                 }
 
@@ -930,7 +937,9 @@ public static class ManabaseAnalyzer
                     structuralCheapNames,
                     sourceFixableNames,
                     effectiveTurnBySpellName,
-                    category);
+                    category,
+                    sourceSearchTrials,
+                    sourceSearchBoundaryTrials);
             }
         }
 
@@ -960,7 +969,9 @@ public static class ManabaseAnalyzer
         HashSet<string> structuralCheapNames,
         HashSet<string> sourceFixableNames,
         IReadOnlyDictionary<string, int> effectiveTurnBySpellName,
-        SourceRequirementCategory category)
+        SourceRequirementCategory category,
+        int sourceSearchTrials,
+        int sourceSearchBoundaryTrials)
     {
         double allSources = EffectiveSources(deck, SourceQualifier(category), untappedOnly: false);
         double untappedSources = EffectiveSources(deck, SourceQualifier(category), untappedOnly: true);
@@ -999,7 +1010,7 @@ public static class ManabaseAnalyzer
             {
                 simNeed = SimRequiredSpecialSources(
                     librarySize, totalLands, category, categoryPips, onCurveTurn,
-                    deck.AverageManaValue, deck.IsSingleton, threshold);
+                    deck.AverageManaValue, deck.IsSingleton, threshold, sourceSearchTrials, sourceSearchBoundaryTrials);
                 simRequiredCache[sig] = simNeed;
             }
 
@@ -1081,7 +1092,7 @@ public static class ManabaseAnalyzer
     // confirmed at full trials so reduced-trial noise cannot off-by-one the deficit.
     private static int SimRequiredSources(
         int librarySize, int totalLands, ManaColor color, int pips, int onCurveTurn,
-        double averageManaValue, bool isSingleton, int threshold)
+        double averageManaValue, bool isSingleton, int threshold, int sourceSearchTrials, int sourceSearchBoundaryTrials)
         => SimRequiredSourcesCore(
             librarySize,
             totalLands,
@@ -1089,12 +1100,14 @@ public static class ManabaseAnalyzer
             onCurveTurn,
             isSingleton,
             threshold,
+            sourceSearchTrials,
+            sourceSearchBoundaryTrials,
             (sources, trials) => SimColorCast(
                 librarySize, totalLands, color, pips, onCurveTurn, averageManaValue, isSingleton, sources, trials));
 
     private static int SimRequiredSpecialSources(
         int librarySize, int totalLands, SourceRequirementCategory category, int pips, int onCurveTurn,
-        double averageManaValue, bool isSingleton, int threshold)
+        double averageManaValue, bool isSingleton, int threshold, int sourceSearchTrials, int sourceSearchBoundaryTrials)
     {
         if (pips <= 0 || totalLands <= 0)
         {
@@ -1108,6 +1121,8 @@ public static class ManabaseAnalyzer
             onCurveTurn,
             isSingleton,
             threshold,
+            sourceSearchTrials,
+            sourceSearchBoundaryTrials,
             (sources, trials) => SimSpecialCategoryCast(
                 librarySize, totalLands, category, pips, onCurveTurn, averageManaValue, isSingleton, sources, trials));
     }
@@ -1119,6 +1134,8 @@ public static class ManabaseAnalyzer
         int onCurveTurn,
         bool isSingleton,
         int threshold,
+        int sourceSearchTrials,
+        int sourceSearchBoundaryTrials,
         Func<int, int, int> simCast)
     {
         if (pips <= 0 || totalLands <= 0)
@@ -1132,7 +1149,7 @@ public static class ManabaseAnalyzer
         while (lo <= hi)
         {
             int mid = (lo + hi) / 2;
-            int pct = simCast(mid, SourceSearchTrials);
+            int pct = simCast(mid, sourceSearchTrials);
             if (pct >= threshold)
             {
                 result = mid;
@@ -1149,17 +1166,17 @@ public static class ManabaseAnalyzer
         // and that difficulty already shows up in its castability %. Reporting "needs ~totalLands" here
         // would resurrect the phantom deficit this phase set out to kill (e.g. a turn-4 commander on a
         // ramp-free isolation deck), so clamp the requirement to the irreducible minimum (the pips).
-        if (result >= totalLands && simCast(totalLands, CastabilitySimulator.DefaultTrials) < threshold)
+        if (result >= totalLands && simCast(totalLands, sourceSearchBoundaryTrials) < threshold)
         {
             return pips;
         }
 
         // Boundary confirm at full trials (reduced-trial noise can mis-place the crossing by one).
-        if (result > pips && simCast(result - 1, CastabilitySimulator.DefaultTrials) >= threshold)
+        if (result > pips && simCast(result - 1, sourceSearchBoundaryTrials) >= threshold)
         {
             result -= 1;
         }
-        else if (result < totalLands && simCast(result, CastabilitySimulator.DefaultTrials) < threshold)
+        else if (result < totalLands && simCast(result, sourceSearchBoundaryTrials) < threshold)
         {
             result += 1;
         }
