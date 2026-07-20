@@ -150,7 +150,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         ArgumentNullException.ThrowIfNull(currentWorkingList);
         ArgumentException.ThrowIfNullOrWhiteSpace(candidateCardName);
 
-        string currentPoolKey = poolKey ?? ComputePoolKey(currentWorkingList);
+        string currentPoolKey = poolKey ?? CutLabResolvedCardCache.ComputePoolKey(currentWorkingList);
         if (_deltaCache.TryGet(currentPoolKey, candidateCardName, out CutLabProposalDeltas? cached, trialsOverride) && cached is not null)
         {
             return cached;
@@ -165,8 +165,9 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         IReadOnlyDictionary<CutLabMetricKind, CutLabMetricValue> afterMetrics = after.Metrics
             .ToDictionary(metric => metric.Kind);
         IReadOnlyList<CutLabMetricDelta> deltas = before.Metrics
-            .Where(metric => afterMetrics.ContainsKey(metric.Kind))
-            .Select(metric => CutLabMetricDelta.Between(metric, afterMetrics[metric.Kind]))
+            .Select(metric => afterMetrics.TryGetValue(metric.Kind, out CutLabMetricValue? afterMetric)
+                ? CutLabMetricDelta.Between(metric, afterMetric)
+                : null)
             .Where(delta => delta is not null)
             .Cast<CutLabMetricDelta>()
             .ToArray();
@@ -205,7 +206,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         CancellationToken cancellationToken,
         string? poolKeyOverride = null)
     {
-        string poolKey = poolKeyOverride ?? ComputePoolKey(workingList);
+        string poolKey = poolKeyOverride ?? CutLabResolvedCardCache.ComputePoolKey(workingList);
         IReadOnlyList<DeckCardEntry> deckEntries = await ResolveDeckEntries(workingList, poolKey, cancellationToken).ConfigureAwait(false);
         return GetOrBuildSnapshot(deckEntries, poolKey, playExperience, trialsOverride);
     }
@@ -306,27 +307,24 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
             Unit = unit,
         };
 
-    private static string ComputePoolKey(IReadOnlyList<CutLabPoolCard> pool)
-        => CutLabResolvedCardCache.ComputePoolKey(pool.Select(card => (card.Name, card.Quantity)).ToArray());
-
     private static IReadOnlyList<DeckCardEntry> RemoveCandidate(
         IReadOnlyList<DeckCardEntry> currentEntries,
         string candidateCardName)
     {
         string normalizedCandidateName = CutLabCardNames.Normalize(candidateCardName);
-        bool removed = false;
-        return currentEntries
-            .Where(entry =>
+        List<DeckCardEntry> remainingEntries = new(currentEntries.Count);
+        foreach (DeckCardEntry entry in currentEntries)
+        {
+            if (string.Equals(CutLabCardNames.Normalize(entry.Card.Name), normalizedCandidateName, StringComparison.Ordinal))
             {
-                if (!removed && string.Equals(CutLabCardNames.Normalize(entry.Card.Name), normalizedCandidateName, StringComparison.Ordinal))
-                {
-                    removed = true;
-                    return false;
-                }
+                remainingEntries.AddRange(currentEntries.Skip(remainingEntries.Count + 1));
+                return remainingEntries;
+            }
 
-                return true;
-            })
-            .ToArray();
+            remainingEntries.Add(entry);
+        }
+
+        return remainingEntries;
     }
 
     private static ManabaseDeck TagPlanRoles(

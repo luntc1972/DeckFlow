@@ -41,7 +41,7 @@ public sealed class PacketSessionCache
     public PacketSessionCache(ILogger<PacketSessionCache>? logger = null)
     {
         _logger = logger ?? NullLogger<PacketSessionCache>.Instance;
-        _cache = new MemoryCache(new MemoryCacheOptions { SizeLimit = 10_000_000 });
+        _cache = new MemoryCache(new MemoryCacheOptions { SizeLimit = CacheCapacityBytes });
     }
 
     /// <summary>
@@ -105,7 +105,7 @@ public sealed class PacketSessionCache
         var entry = new CachedEntry<TResult>(result, sizeBytes);
         var options = new MemoryCacheEntryOptions
         {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5),
+            AbsoluteExpirationRelativeToNow = EntryTtl,
             Size = sizeBytes,
         };
 

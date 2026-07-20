@@ -1,4 +1,5 @@
 using DeckFlow.Core.Manabase;
+using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -51,6 +52,18 @@ public sealed class CutLabResolvedCardCache
             .ToArray();
 
         return PacketSessionCache.ComputeKey(normalized);
+    }
+
+    /// <summary>
+    /// Computes the canonical pool key for Cut Lab working-pool cards.
+    /// </summary>
+    /// <param name="pool">The working-pool cards to hash by name and quantity.</param>
+    /// <returns>A lowercase SHA-256 pool hash.</returns>
+    public static string ComputePoolKey(IReadOnlyList<CutLabPoolCard> pool)
+    {
+        ArgumentNullException.ThrowIfNull(pool);
+
+        return ComputePoolKey(pool.Select(card => (card.Name, card.Quantity)).ToArray());
     }
 
     /// <summary>

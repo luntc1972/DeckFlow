@@ -13,7 +13,6 @@ namespace DeckFlow.Web.Controllers.Api;
 [Route("api/cut-lab")]
 public sealed class CutLabApiController : ControllerBase
 {
-    private const string NoChangeMessage = "Couldn't recalculate this cut — nothing changed. Try again.";
     private const string InvalidStateMessage = "Cut Lab state is invalid. Re-import the pool and try again.";
 
     private readonly ICutLabAnalysisContextBuilder _contextBuilder;
@@ -74,24 +73,18 @@ public sealed class CutLabApiController : ControllerBase
             IReadOnlyList<CutLabPoolCard> fullPool = state.Pool;
 
             IReadOnlyList<CutLabPoolCard> beforeWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions);
-            string beforePoolKey = ComputePoolKey(beforeWorkingList);
+            string beforePoolKey = CutLabResolvedCardCache.ComputePoolKey(beforeWorkingList);
             CutLabAnalysisContext beforeContext = await _contextBuilder.BuildAsync(
                 beforeWorkingList,
                 state.Intent.PlayExperience,
                 commanderNames,
                 poolKey: beforePoolKey,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
-            CutLabStructuralFindingsResult beforeFindings = CutLabStructuralFindings.Compute(
-                beforeContext.AnalyzedCards,
-                beforeContext.Classification.AlmostIncludedCombos,
+            (_, CutLabRoundPlan beforeRoundPlan) = CutLabCutRoundEngine.BuildFindingsAndRoundPlan(
+                beforeWorkingList,
+                beforeContext,
                 floorByRole,
-                beforeContext.Classification.ComboDataAvailable,
-                beforeContext.Classification.CategoryDataAvailable);
-            CutLabRoundPlan beforeRoundPlan = CutLabCutRoundEngine.BuildQueue(
-                BuildRoundInputs(beforeWorkingList, beforeContext.AnalyzedCards),
-                beforeFindings,
-                state.Decisions,
-                beforeWorkingList.Sum(card => card.Quantity) - 100);
+                state.Decisions);
 
             string roundKey = DetermineRoundKey(state, request, beforeRoundPlan);
             IReadOnlyList<CutLabDecideFloorWarningDto> floorWarnings = request.Decision == CutLabDecideAction.Accept
@@ -100,7 +93,7 @@ public sealed class CutLabApiController : ControllerBase
             state = CutLabDecisionApplier.Apply(state, request.CardName, request.Decision, roundKey);
 
             IReadOnlyList<CutLabPoolCard> afterWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions);
-            string afterPoolKey = ComputePoolKey(afterWorkingList);
+            string afterPoolKey = CutLabResolvedCardCache.ComputePoolKey(afterWorkingList);
             IReadOnlyList<ScryfallCardData>? afterPreResolvedCards = TryBuildAfterPreResolvedCards(
                 fullPool,
                 afterWorkingList,
@@ -112,17 +105,11 @@ public sealed class CutLabApiController : ControllerBase
                 afterPreResolvedCards,
                 afterPoolKey,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
-            CutLabStructuralFindingsResult afterFindings = CutLabStructuralFindings.Compute(
-                afterContext.AnalyzedCards,
-                afterContext.Classification.AlmostIncludedCombos,
+            (CutLabStructuralFindingsResult afterFindings, CutLabRoundPlan roundPlan) = CutLabCutRoundEngine.BuildFindingsAndRoundPlan(
+                afterWorkingList,
+                afterContext,
                 floorByRole,
-                afterContext.Classification.ComboDataAvailable,
-                afterContext.Classification.CategoryDataAvailable);
-            CutLabRoundPlan roundPlan = CutLabCutRoundEngine.BuildQueue(
-                BuildRoundInputs(afterWorkingList, afterContext.AnalyzedCards),
-                afterFindings,
-                state.Decisions,
-                afterWorkingList.Sum(card => card.Quantity) - 100);
+                state.Decisions);
 
             CutLabProposalDeltas? proposalDeltas = null;
             if (roundPlan.NextProposal is not null)
@@ -151,7 +138,7 @@ public sealed class CutLabApiController : ControllerBase
         catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
         {
             _logger.LogWarning(exception, "Cut Lab decide API request failed.");
-            return BadRequest(new { Message = NoChangeMessage });
+            return BadRequest(new { Message = CutLabMessages.NoChangeMessage });
         }
     }
 
@@ -236,33 +223,6 @@ public sealed class CutLabApiController : ControllerBase
             .ToArray();
     }
 
-    private static IReadOnlyList<CutLabRoundInputCard> BuildRoundInputs(
-        IReadOnlyList<CutLabPoolCard> workingList,
-        IReadOnlyList<CutLabAnalyzedCard> analyzedCards)
-    {
-        IReadOnlyDictionary<string, CutLabAnalyzedCard> analyzedByName = CutLabCardNames.ToLastWinsDictionary(
-            analyzedCards,
-            card => card.Name,
-            card => card);
-
-        return workingList
-            .Select(card =>
-            {
-                analyzedByName.TryGetValue(CutLabCardNames.Normalize(card.Name), out CutLabAnalyzedCard? analyzedCard);
-                return new CutLabRoundInputCard(
-                    card.Name,
-                    card.Quantity,
-                    card.TypeLine,
-                    card.IsCommander,
-                    card.IsLocked,
-                    analyzedCard?.ManaValue ?? 0,
-                    analyzedCard?.IsLand ?? false,
-                    analyzedCard?.Roles ?? [],
-                    analyzedCard?.Categories ?? []);
-            })
-            .ToArray();
-    }
-
     private static IReadOnlyList<ScryfallCardData>? BuildPartialResolvedSubset(
         IReadOnlyList<CutLabPoolCard> targetPool,
         IReadOnlyList<ScryfallCardData> sourceCards)
@@ -278,9 +238,6 @@ public sealed class CutLabApiController : ControllerBase
             .DistinctBy(card => CutLabCardNames.Normalize(card.Name))
             .ToArray();
     }
-
-    private static string ComputePoolKey(IReadOnlyList<CutLabPoolCard> pool)
-        => CutLabResolvedCardCache.ComputePoolKey(pool.Select(card => (card.Name, card.Quantity)).ToArray());
 
     private static CutLabDecideNextProposalDto BuildNextProposal(CutLabRoundPlan roundPlan, CutLabStructuralFindingsResult findings)
     {

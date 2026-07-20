@@ -60,11 +60,9 @@ public static class CutLabDecisionApplier
         ArgumentNullException.ThrowIfNull(state);
         ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
 
-        return CutLabWorkingList.LatestDecisionsByCard(state.Decisions)
-            .Where(entry => string.Equals(entry.Key, cardName, StringComparison.OrdinalIgnoreCase))
-            .Select(entry => entry.Value.Round)
-            .FirstOrDefault()
-            ?? CutLabCutRoundEngine.Round1Key;
+        return CutLabWorkingList.LatestDecisionsByCard(state.Decisions).TryGetValue(cardName, out CutLabDecision? decision)
+            ? decision.Round
+            : CutLabCutRoundEngine.Round1Key;
     }
 
     private static CutLabState Restore(CutLabState state, string cardName)

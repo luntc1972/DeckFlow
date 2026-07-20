@@ -115,7 +115,7 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         ArgumentNullException.ThrowIfNull(playExperience);
         ArgumentNullException.ThrowIfNull(commanderNames);
 
-        string resolvedPoolKey = poolKey ?? ComputePoolKey(workingList);
+        string resolvedPoolKey = poolKey ?? CutLabResolvedCardCache.ComputePoolKey(workingList);
         Task<IReadOnlyList<ScryfallCardData>> resolvedCardsTask = ResolveCardsAsync(
             workingList,
             resolvedPoolKey,
@@ -200,7 +200,7 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
     {
         ArgumentNullException.ThrowIfNull(workingList);
 
-        return _resolvedCardCache.TryGet(ComputePoolKey(workingList), out cards);
+        return _resolvedCardCache.TryGet(CutLabResolvedCardCache.ComputePoolKey(workingList), out cards);
     }
 
     /// <inheritdoc />
@@ -223,7 +223,7 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         ArgumentNullException.ThrowIfNull(workingList);
         ArgumentNullException.ThrowIfNull(resolvedCards);
 
-        _resolvedCardCache.Set(ComputePoolKey(workingList), resolvedCards, unresolvedCardNames);
+        _resolvedCardCache.Set(CutLabResolvedCardCache.ComputePoolKey(workingList), resolvedCards, unresolvedCardNames);
     }
 
     internal Task<IReadOnlyList<ScryfallCardData>> ResolvePoolCardsAsync(
@@ -237,7 +237,7 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
 
         return ResolveCardsAsync(
             workingList,
-            poolKey ?? ComputePoolKey(workingList),
+            poolKey ?? CutLabResolvedCardCache.ComputePoolKey(workingList),
             preResolvedCards,
             failOpenOnLookupErrors,
             cancellationToken);
@@ -391,9 +391,6 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
             yield return chunk;
         }
     }
-
-    private static string ComputePoolKey(IReadOnlyList<CutLabPoolCard> workingList)
-        => CutLabResolvedCardCache.ComputePoolKey(ToPoolKeyEntries(workingList));
 
     private static IReadOnlyList<(string Name, int Quantity)> ToPoolKeyEntries(IReadOnlyList<CutLabPoolCard> workingList)
         => workingList.Select(card => (card.Name, card.Quantity)).ToArray();

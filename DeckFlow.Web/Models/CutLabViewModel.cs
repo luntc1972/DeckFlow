@@ -6,8 +6,6 @@ namespace DeckFlow.Web.Models;
 /// <summary>View model for the Cut Lab page.</summary>
 public sealed record CutLabViewModel
 {
-    private const string ProposalDeltaUnavailableMessage = "Couldn't recalculate this cut — nothing changed. Try again.";
-
     private static readonly IReadOnlyDictionary<string, string> RoleDisplayLabels =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -140,7 +138,8 @@ public sealed record CutLabViewModel
             })
             .ToArray();
         IReadOnlyList<CutLabFindingGroupView> findingGroups = BuildFindingGroups(findings);
-        IReadOnlyList<CutLabFloorRowView> floorRows = BuildFloorRows(pool, result.ResolvedFloors, result.RoleAssignmentsByCardName, request.PlayExperience);
+        Dictionary<string, int> countsByRole = CountRoles(pool, result.RoleAssignmentsByCardName);
+        IReadOnlyList<CutLabFloorRowView> floorRows = BuildFloorRows(result.ResolvedFloors, countsByRole, request.PlayExperience);
         IReadOnlyDictionary<string, string> roleListByCardName = BuildRoleListByCardName(pool, result.RoleAssignmentsByCardName);
         IReadOnlyDictionary<string, string> roleKeysByCardName = BuildRoleKeysByCardName(pool, result.RoleAssignmentsByCardName);
         IReadOnlyDictionary<CutLabFindingKind, string> findingHeadingsByKind = BuildFindingHeadingsByKind(result.Findings.Findings);
@@ -154,6 +153,7 @@ public sealed record CutLabViewModel
             result.State,
             result.ResolvedFloors,
             result.RoleAssignmentsByCardName,
+            countsByRole,
             findingHeadingsByKind);
         IReadOnlyList<CutLabCompareRowView> compareRows = BuildCompareRows(result.State?.BaselineSnapshot, result.CurrentSnapshot);
 
@@ -227,25 +227,27 @@ public sealed record CutLabViewModel
     }
 
     private static IReadOnlyList<CutLabFloorRowView> BuildFloorRows(
-        IReadOnlyList<CutLabPoolCard> pool,
         IReadOnlyList<CutLabResolvedFloor> resolvedFloors,
-        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName,
+        IReadOnlyDictionary<string, int> countsByRole,
         string playExperience)
     {
-        Dictionary<string, int> countsByRole = CountRoles(pool, roleAssignmentsByCardName);
         return resolvedFloors
-            .Select(floor => new CutLabFloorRowView
+            .Select(floor =>
             {
-                RoleKey = floor.Role,
-                DisplayLabel = DisplayLabelFor(floor.Role),
-                InPoolCount = countsByRole.TryGetValue(floor.Role, out int count) ? count : 0,
-                Floor = floor.Floor,
-                DefaultValue = floor.DefaultValue,
-                IsUserSet = floor.IsUserSet,
-                AtFloor = (countsByRole.TryGetValue(floor.Role, out count) ? count : 0) <= floor.Floor + 1,
-                SourceLabel = floor.BracketWasFallback
-                    ? $"Default: {floor.DefaultValue} — based on {FallbackSource(playExperience)}"
-                    : $"Default for B{floor.ResolvedBracket}: {floor.DefaultValue}",
+                int inPoolCount = countsByRole.TryGetValue(floor.Role, out int count) ? count : 0;
+                return new CutLabFloorRowView
+                {
+                    RoleKey = floor.Role,
+                    DisplayLabel = DisplayLabelFor(floor.Role),
+                    InPoolCount = inPoolCount,
+                    Floor = floor.Floor,
+                    DefaultValue = floor.DefaultValue,
+                    IsUserSet = floor.IsUserSet,
+                    AtFloor = inPoolCount <= floor.Floor + 1,
+                    SourceLabel = floor.BracketWasFallback
+                        ? $"Default: {floor.DefaultValue} — based on {FallbackSource(playExperience)}"
+                        : $"Default for B{floor.ResolvedBracket}: {floor.DefaultValue}",
+                };
             })
             .ToArray();
     }
@@ -355,6 +357,7 @@ public sealed record CutLabViewModel
         CutLabState? state,
         IReadOnlyList<CutLabResolvedFloor> resolvedFloors,
         IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName,
+        IReadOnlyDictionary<string, int> countsByRole,
         IReadOnlyDictionary<CutLabFindingKind, string> findingHeadingsByKind)
     {
         CutLabRoundQueueItem? nextProposal = roundPlan?.NextProposal;
@@ -370,13 +373,16 @@ public sealed record CutLabViewModel
             };
         }
 
+        IReadOnlyList<string> findingChips = nextProposal.DiscriminatingFindingKinds
+            .Where(findingHeadingsByKind.ContainsKey)
+            .Select(kind => findingHeadingsByKind[kind])
+            .ToArray();
+        IReadOnlyList<string> floorWarnings = BuildFloorWarnings(nextProposal.CardName, state, resolvedFloors, roleAssignmentsByCardName, countsByRole);
+        string findingSummary = nextProposal.FindingCount > 0
+            ? $"Flagged by {nextProposal.FindingCount} findings:"
+            : "No structural finding flags this card — it's a preference call.";
         if (proposalDeltas is null)
         {
-            IReadOnlyList<string> fallbackFindingChips = nextProposal.DiscriminatingFindingKinds
-                .Where(findingHeadingsByKind.ContainsKey)
-                .Select(kind => findingHeadingsByKind[kind])
-                .ToArray();
-            IReadOnlyList<string> fallbackFloorWarnings = BuildFloorWarnings(nextProposal.CardName, state, resolvedFloors, roleAssignmentsByCardName);
             return new CutLabProposalView
             {
                 HasProposal = true,
@@ -385,24 +391,17 @@ public sealed record CutLabViewModel
                 RoundLabel = nextProposal.RoundLabel,
                 RoundBannerBody = CutLabCutRoundEngine.RoundBannerBodyFor(nextProposal.RoundKey),
                 FindingCount = nextProposal.FindingCount,
-                FindingSummary = nextProposal.FindingCount > 0
-                    ? $"Flagged by {nextProposal.FindingCount} findings:"
-                    : "No structural finding flags this card — it's a preference call.",
-                FindingChips = fallbackFindingChips,
-                DeltaUnavailableMessage = ProposalDeltaUnavailableMessage,
-                FloorWarnings = fallbackFloorWarnings,
+                FindingSummary = findingSummary,
+                FindingChips = findingChips,
+                DeltaUnavailableMessage = CutLabMessages.NoChangeMessage,
+                FloorWarnings = floorWarnings,
             };
         }
 
-        IReadOnlyList<CutLabDeltaLineView> fullDeltaLines = BuildDeltaLines(nextProposal.CardName, proposalDeltas?.Deltas ?? []);
+        IReadOnlyList<CutLabDeltaLineView> fullDeltaLines = BuildDeltaLines(nextProposal.CardName, proposalDeltas.Deltas);
         IReadOnlyList<CutLabDeltaLineView> changedDeltaLines = fullDeltaLines
             .Where(line => line.IsMeaningful)
             .ToArray();
-        IReadOnlyList<string> findingChips = nextProposal.DiscriminatingFindingKinds
-            .Where(findingHeadingsByKind.ContainsKey)
-            .Select(kind => findingHeadingsByKind[kind])
-            .ToArray();
-        IReadOnlyList<string> floorWarnings = BuildFloorWarnings(nextProposal.CardName, state, resolvedFloors, roleAssignmentsByCardName);
 
         return new CutLabProposalView
         {
@@ -412,13 +411,11 @@ public sealed record CutLabViewModel
             RoundLabel = nextProposal.RoundLabel,
             RoundBannerBody = CutLabCutRoundEngine.RoundBannerBodyFor(nextProposal.RoundKey),
             FindingCount = nextProposal.FindingCount,
-            FindingSummary = nextProposal.FindingCount > 0
-                ? $"Flagged by {nextProposal.FindingCount} findings:"
-                : "No structural finding flags this card — it's a preference call.",
+            FindingSummary = findingSummary,
             FindingChips = findingChips,
             ChangedDeltaLines = changedDeltaLines,
             FullDeltaLines = fullDeltaLines,
-            ChangedFamilyCount = proposalDeltas?.ChangedFamilyCount ?? 0,
+            ChangedFamilyCount = proposalDeltas.ChangedFamilyCount,
             FloorWarnings = floorWarnings,
         };
     }
@@ -434,10 +431,10 @@ public sealed record CutLabViewModel
                 {
                     MetricLabel = delta.Label,
                     Direction = delta.Direction,
-                    FormattedValueToken = FormatDeltaToken(delta.Delta, delta.Unit, includeDirectionGlyph: false),
+                    FormattedValueToken = FormatDeltaToken(delta.Delta, delta.Unit),
                     IsMeaningful = delta.IsMeaningful,
                     Sentence = delta.IsMeaningful
-                        ? $"cutting {cardName} {DirectionVerbFor(delta.Direction)} {delta.Label.ToLowerInvariant()} by {FormatDeltaToken(delta.Delta, delta.Unit, includeDirectionGlyph: false)}."
+                        ? $"cutting {cardName} {DirectionVerbFor(delta.Direction)} {delta.Label.ToLowerInvariant()} by {FormatDeltaToken(delta.Delta, delta.Unit)}."
                         : $"{delta.Label}: no meaningful change",
                 };
             })
@@ -448,7 +445,8 @@ public sealed record CutLabViewModel
         string cardName,
         CutLabState? state,
         IReadOnlyList<CutLabResolvedFloor> resolvedFloors,
-        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName)
+        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName,
+        IReadOnlyDictionary<string, int> countsByRole)
     {
         if (state is null)
         {
@@ -459,7 +457,6 @@ public sealed record CutLabViewModel
             floor => floor.Role,
             floor => floor.Floor,
             StringComparer.OrdinalIgnoreCase);
-        Dictionary<string, int> countsByRole = CountRoles(state.Pool, roleAssignmentsByCardName);
         CutLabPoolCard? card = state.Pool.FirstOrDefault(poolCard => string.Equals(poolCard.Name, cardName, StringComparison.OrdinalIgnoreCase));
         if (card is null || !roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles))
         {
@@ -512,7 +509,7 @@ public sealed record CutLabViewModel
                     MetricLabel = metric.Label,
                     BaselineValue = FormatMetricValue(metric.Value, metric.Unit),
                     CurrentValue = FormatMetricValue(current.Value, current.Unit),
-                    DeltaValueToken = delta is null ? string.Empty : FormatDeltaToken(delta.Delta, delta.Unit, includeDirectionGlyph: false),
+                    DeltaValueToken = delta is null ? string.Empty : FormatDeltaToken(delta.Delta, delta.Unit),
                     Direction = delta?.Direction ?? CutLabMetricDirection.None,
                 };
             })
@@ -556,20 +553,13 @@ public sealed record CutLabViewModel
             ? FormatCardValue(value)
             : $"{value:0.0}%";
 
-    private static string FormatDeltaToken(double delta, CutLabMetricUnit unit, bool includeDirectionGlyph = true)
+    private static string FormatDeltaToken(double delta, CutLabMetricUnit unit)
     {
         double magnitude = Math.Abs(delta);
-        string prefix = includeDirectionGlyph
-            ? delta > 0
-                ? "▲"
-                : delta < 0
-                    ? "▼"
-                    : string.Empty
-            : string.Empty;
 
         return unit == CutLabMetricUnit.Cards
-            ? $"{prefix}{FormatCardValue(magnitude)}"
-            : $"{prefix}{magnitude:0.0}%";
+            ? FormatCardValue(magnitude)
+            : $"{magnitude:0.0}%";
     }
 
     private static string FormatCardValue(double value)
@@ -607,6 +597,9 @@ public sealed record CutLabRoleGroupView
 
     /// <summary>Number of locked cards inside the role group.</summary>
     public int LockedCount { get; init; }
+
+    /// <summary>True when every non-commander member in the role group is locked.</summary>
+    public bool AllLockableMembersLocked => Members.Count > 0 && Members.Where(member => !member.IsCommander).All(member => member.IsLocked);
 }
 
 /// <summary>View-ready role-group member entry for a single pool card.</summary>

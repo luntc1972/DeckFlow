@@ -55,6 +55,16 @@
             <span>@token</span>
         </span>
     }
+    async Task RenderDeltaLines(IEnumerable<CutLabDeltaLineView> lines)
+    {
+        foreach (var line in lines)
+        {
+            <div class="cutlab-delta__line">
+                <span class="cutlab-delta__sentence">@line.Sentence</span>
+                @{ await RenderDeltaValue(line.Direction, line.FormattedValueToken); }
+            </div>
+        }
+    }
 }
 
 <section class="hero">
@@ -382,15 +392,14 @@
             @foreach (var group in Model.RoleGroups)
             {
                 var memberCount = group.Members.Count;
-                var allLockableMembersLocked = memberCount > 0 && group.Members.Where(member => !member.IsCommander).All(member => member.IsLocked);
                 var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
                 <details class="cutlab-role-group">
                     <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
                     <div class="cutlab-role-group__body">
                         <button type="button"
-                                class="manabase-pill @(allLockableMembersLocked ? "is-selected" : null)"
+                                class="manabase-pill @(group.AllLockableMembersLocked ? "is-selected" : null)"
                                 data-cut-lab-lock-role="@group.RoleKey"
-                                aria-pressed="@(allLockableMembersLocked ? "true" : "false")">
+                                aria-pressed="@(group.AllLockableMembersLocked ? "true" : "false")">
                             <span>Lock all @lowerDisplayLabel</span>
                         </button>
                         @if (memberCount > 0)
@@ -579,25 +588,13 @@
                     {
                         <div class="cutlab-delta">
                             <p>@Model.Proposal.ChangedFamilyCount of 7 metric families changed meaningfully.</p>
-                            @foreach (var line in Model.Proposal.ChangedDeltaLines)
-                            {
-                                <div class="cutlab-delta__line">
-                                    <span class="cutlab-delta__sentence">@line.Sentence</span>
-                                    @{ await RenderDeltaValue(line.Direction, line.FormattedValueToken); }
-                                </div>
-                            }
+                            @{ await RenderDeltaLines(Model.Proposal.ChangedDeltaLines); }
                         </div>
 
                         <details data-cut-lab-delta-expander>
                             <summary>Show full metric breakdown</summary>
                             <div class="cutlab-delta">
-                                @foreach (var line in Model.Proposal.FullDeltaLines)
-                                {
-                                    <div class="cutlab-delta__line">
-                                        <span class="cutlab-delta__sentence">@line.Sentence</span>
-                                        @{ await RenderDeltaValue(line.Direction, line.FormattedValueToken); }
-                                    </div>
-                                }
+                                @{ await RenderDeltaLines(Model.Proposal.FullDeltaLines); }
                             </div>
                         </details>
                     }
