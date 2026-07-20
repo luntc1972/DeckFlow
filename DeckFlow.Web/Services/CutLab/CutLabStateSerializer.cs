@@ -60,7 +60,7 @@ public static class CutLabStateSerializer
                     .ToArray(),
             };
 
-            return CutLabFloorRules.ClampFloors(CutLabLockRules.EnforceCommanderLock(state));
+            return CutLabGoalRules.ClampGoals(CutLabFloorRules.ClampFloors(CutLabLockRules.EnforceCommanderLock(state)));
         }
         catch (JsonException)
         {
