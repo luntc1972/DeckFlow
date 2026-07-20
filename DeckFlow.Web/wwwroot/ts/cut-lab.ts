@@ -204,6 +204,7 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
   let generatedPackageCounter = 0;
   let packageHandlersAttached = false;
   let decisionHandlersAttached = false;
+  let decisionSubmitInFlight = false;
 
   const getForm = (): HTMLFormElement | null =>
     document.querySelector<HTMLFormElement>('form[data-cache-key="cut-lab"]');
@@ -225,6 +226,9 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
   const getStickyRound = (): HTMLElement | null =>
     document.querySelector<HTMLElement>('[data-cut-lab-sticky-round]');
 
+  const getStickyBar = (): HTMLDivElement | null =>
+    document.querySelector<HTMLDivElement>('.cutlab-sticky-bar');
+
   const getStickyRemaining = (): HTMLElement | null =>
     document.querySelector<HTMLElement>('[data-cut-lab-sticky-remaining]');
 
@@ -239,6 +243,17 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
 
   const getCutsMadeDetails = (): HTMLDetailsElement | null =>
     document.querySelector<HTMLDetailsElement>('details.cutlab-cuts-made');
+
+  const getCutsMadeSection = (): HTMLElement | null => {
+    const markedSection = document.querySelector<HTMLElement>('[data-cut-lab-cuts-made-section]');
+    if (markedSection) {
+      return markedSection;
+    }
+
+    const section = getCutsMadeDetails()?.closest<HTMLElement>('section.result-panel') ?? null;
+    section?.setAttribute('data-cut-lab-cuts-made-section', 'true');
+    return section;
+  };
 
   const getPackageContainers = (): HTMLDivElement[] =>
     Array.from(document.querySelectorAll<HTMLDivElement>('[data-cut-lab-package-id]'));
@@ -737,6 +752,7 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
   const ensureCutsMadeSection = (): HTMLDetailsElement | null => {
     const existing = getCutsMadeDetails();
     if (existing) {
+      existing.closest('section.result-panel')?.setAttribute('data-cut-lab-cuts-made-section', 'true');
       return existing;
     }
 
@@ -747,6 +763,7 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
 
     const section = document.createElement('section');
     section.className = 'result-panel';
+    section.setAttribute('data-cut-lab-cuts-made-section', 'true');
 
     const panelHeading = document.createElement('div');
     panelHeading.className = 'panel-heading';
@@ -767,14 +784,52 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
     return details;
   };
 
+  const renderCutsMadeStatus = (
+    attributeName: 'data-cut-lab-decision-error' | 'data-cut-lab-restore-confirmation',
+    message: string,
+  ): void => {
+    const section = getCutsMadeSection();
+    if (!section) {
+      return;
+    }
+
+    const details = section.querySelector<HTMLDetailsElement>('details.cutlab-cuts-made');
+    const statusContainer: HTMLElement = details ?? section;
+    let messageLine = statusContainer.querySelector<HTMLElement>(`[${attributeName}]`);
+    if (!messageLine) {
+      messageLine = document.createElement('p');
+      messageLine.className = 'cutlab-degradation-note';
+      messageLine.setAttribute(attributeName, 'true');
+      if (details) {
+        details.insertBefore(messageLine, details.querySelector('.cutlab-cuts-made__row'));
+      } else {
+        section.appendChild(messageLine);
+      }
+    }
+
+    messageLine.textContent = message;
+  };
+
+  const clearRestoreConfirmation = (): void => {
+    document.querySelectorAll<HTMLElement>('[data-cut-lab-restore-confirmation]').forEach(element => {
+      element.remove();
+    });
+  };
+
   const renderCutsMade = (
     cutsMade: CutLabDecisionCutRecord[],
     serializedState: string,
     antiForgeryToken: string,
+    preserveSection: boolean = false,
   ): void => {
     const existing = getCutsMadeDetails();
+    const section = getCutsMadeSection();
+    section?.setAttribute('data-cut-lab-cuts-made-section', 'true');
     if (cutsMade.length === 0) {
-      existing?.closest('section.result-panel')?.remove();
+      existing?.remove();
+      if (!preserveSection && section && !section.querySelector('[data-cut-lab-restore-confirmation]')) {
+        section.remove();
+      }
       return;
     }
 
@@ -916,6 +971,9 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
   const renderDecisionError = (form: HTMLFormElement, message: string): void => {
     const proposal = form.closest<HTMLDivElement>('.cutlab-proposal');
     if (!proposal) {
+      if (form.closest('.cutlab-cuts-made__row') || form.closest('details.cutlab-cuts-made')) {
+        renderCutsMadeStatus('data-cut-lab-decision-error', message);
+      }
       return;
     }
 
@@ -937,6 +995,11 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
   };
 
   const patchStickyBar = (response: CutLabDecisionResponse): void => {
+    if (response.nextProposal.isTerminal || response.nextProposal.roundLabel.trim() === '') {
+      getStickyBar()?.remove();
+      return;
+    }
+
     if (getStickyRound()) {
       getStickyRound()!.textContent = response.nextProposal.roundLabel;
     }
@@ -992,11 +1055,13 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
 
   const setDecisionButtonsBusy = (form: HTMLFormElement, submitter: HTMLButtonElement | null): (() => void) => {
     const proposal = form.closest<HTMLDivElement>('.cutlab-proposal');
-    const buttons = proposal
-      ? Array.from(proposal.querySelectorAll<HTMLButtonElement>('button[type="submit"]'))
-      : Array.from(form.querySelectorAll<HTMLButtonElement>('button[type="submit"]'));
+    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('form[action="/cut-lab/decide"] button[type="submit"]'));
+    const originalStates = buttons.map(button => ({
+      button,
+      wasDisabled: button.disabled,
+    }));
 
-    buttons.forEach(button => {
+    originalStates.forEach(({ button }) => {
       button.disabled = true;
     });
 
@@ -1006,8 +1071,8 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
 
     const restoreSubmitter = submitter ? setSubmitterBusyState(submitter) : () => undefined;
     return () => {
-      buttons.forEach(button => {
-        button.disabled = false;
+      originalStates.forEach(({ button, wasDisabled }) => {
+        button.disabled = wasDisabled;
       });
 
       restoreSubmitter();
@@ -1025,11 +1090,16 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
   };
 
   const handleDecisionSubmit = async (form: HTMLFormElement, submitter: HTMLButtonElement | null): Promise<void> => {
+    if (decisionSubmitInFlight) {
+      return;
+    }
+
     const payload = extractDecisionPayload(form);
     if (!payload) {
       return;
     }
 
+    decisionSubmitInFlight = true;
     clearDecisionError();
 
     const antiForgeryToken = getAntiForgeryToken(form);
@@ -1058,17 +1128,22 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
       }
 
       const data = await response.json() as CutLabDecisionResponse;
+      clearRestoreConfirmation();
       writeDecisionStateToHiddenInputs(data.cutLabStateJson);
       patchStickyBar(data);
       renderRoundBanner(data.nextProposal);
       renderProposalCard(data, antiForgeryToken);
-      renderCutsMade(data.cutsMade, data.cutLabStateJson, antiForgeryToken);
+      renderCutsMade(data.cutsMade, data.cutLabStateJson, antiForgeryToken, payload.decision === 'restore');
+      if (payload.decision === 'restore') {
+        renderCutsMadeStatus('data-cut-lab-restore-confirmation', `${payload.cardName} restored — metrics recalculating…`);
+      }
     } catch (error) {
       renderDecisionError(form, error instanceof DOMException && error.name === 'AbortError'
         ? cutLabDecisionTimeoutCopy
         : cutLabDecisionErrorCopy);
     } finally {
       window.clearTimeout(timeoutId);
+      decisionSubmitInFlight = false;
       restoreBusyState();
     }
   };
@@ -1509,6 +1584,10 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
       }
 
       event.preventDefault();
+      if (decisionSubmitInFlight) {
+        return;
+      }
+
       void handleDecisionSubmit(
         target,
         event instanceof SubmitEvent && event.submitter instanceof HTMLButtonElement ? event.submitter : null,
