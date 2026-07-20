@@ -36,6 +36,7 @@ interface CutLabStateSnapshot {
 
 type CutLabDecisionAction = 'accept' | 'reject' | 'defer' | 'restore';
 type CutLabMetricDirection = 'Up' | 'Down' | 'None';
+type CutLabMetricUnit = 'Percent' | 'Cards';
 type CutLabMetricKind =
   | 'CommanderOnTime'
   | 'KeepableHand'
@@ -56,6 +57,7 @@ interface CutLabDecisionNextProposal {
   cardName: string;
   roundKey: string;
   roundLabel: string;
+  roundBannerBody: string;
   findingCount: number;
   findingChips: string[];
 }
@@ -66,6 +68,7 @@ interface CutLabDecisionMetricDelta {
   before: number;
   after: number;
   delta: number;
+  unit: CutLabMetricUnit;
   direction: CutLabMetricDirection;
   isMeaningful: boolean;
 }
@@ -562,38 +565,19 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
     }
   };
 
-  const metricUsesCardUnit = (kind: CutLabMetricKind): boolean =>
-    kind === 'Flood' || kind === 'Screw' || kind === 'Curve';
-
   const formatCardValue = (value: number): string => {
     const rounded = Math.round(Math.abs(value));
     return `${rounded} card${rounded === 1 ? '' : 's'}`;
   };
 
-  const formatDeltaToken = (delta: number, kind: CutLabMetricKind, includeDirectionGlyph = true): string => {
+  const formatDeltaToken = (delta: number, unit: CutLabMetricUnit, includeDirectionGlyph = true): string => {
     const magnitude = Math.abs(delta);
     const prefix = includeDirectionGlyph ? glyphFor(delta > 0 ? 'Up' : delta < 0 ? 'Down' : 'None') : '';
-    return metricUsesCardUnit(kind) ? `${prefix}${formatCardValue(magnitude)}` : `${prefix}${magnitude.toFixed(1)}%`;
+    return unit === 'Cards' ? `${prefix}${formatCardValue(magnitude)}` : `${prefix}${magnitude.toFixed(1)}%`;
   };
 
   const directionVerbFor = (direction: CutLabMetricDirection): string =>
     direction === 'Down' ? 'lowers' : 'raises';
-
-  const roundBannerBodyFor = (roundKey: string): string => {
-    switch (roundKey) {
-      case 'round-1':
-        return 'Cards flagged by 2 or more structural findings from the section above.';
-      case 'round-2':
-        return 'Cards flagged by exactly one structural finding.';
-      case 'round-3':
-        return 'Everything else, ordered by smallest measurable tradeoff first.';
-      case 'second-pass-deferred':
-      case 'second-pass-rejected':
-        return 'Still over 100 cards. These were deferred or kept earlier; take another look.';
-      default:
-        return '';
-    }
-  };
 
   const createTextElement = <T extends keyof HTMLElementTagNameMap>(
     tagName: T,
@@ -632,7 +616,7 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
 
     replaceChildren(banner, [
       createTextElement('p', 'cutlab-finding__heading', nextProposal.roundLabel),
-      createTextElement('p', '', roundBannerBodyFor(nextProposal.roundKey)),
+      createTextElement('p', '', nextProposal.roundBannerBody),
     ]);
   };
 
@@ -647,7 +631,7 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
     const sentence = document.createElement('span');
     sentence.className = 'cutlab-delta__sentence';
     sentence.textContent = delta.isMeaningful
-      ? `cutting ${cardName} ${directionVerbFor(delta.direction)} ${delta.label.toLowerCase()} by ${formatDeltaToken(delta.delta, delta.kind, false)}.`
+      ? `cutting ${cardName} ${directionVerbFor(delta.direction)} ${delta.label.toLowerCase()} by ${formatDeltaToken(delta.delta, delta.unit, false)}.`
       : `${delta.label}: no meaningful change`;
 
     const value = document.createElement('span');
@@ -661,7 +645,7 @@ const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try agai
 
     const token = document.createElement('span');
     token.className = deltaClassFor(delta.direction);
-    token.textContent = delta.isMeaningful ? formatDeltaToken(delta.delta, delta.kind, false) : formatDeltaToken(0, delta.kind, false);
+    token.textContent = delta.isMeaningful ? formatDeltaToken(delta.delta, delta.unit, false) : formatDeltaToken(0, delta.unit, false);
     value.appendChild(token);
 
     line.appendChild(sentence);

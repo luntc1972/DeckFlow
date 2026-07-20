@@ -178,6 +178,40 @@ public sealed class CutLabControllerTests
     }
 
     [Fact]
+    public async Task Decide_InvalidPostedRoundKey_FallsBackToLatestDecisionRound()
+    {
+        var service = new FakeCutLabPageService
+        {
+            Result = new CutLabProcessResult
+            {
+                State = new CutLabState(),
+                SerializedStateJson = "{\"pool\":[]}",
+                CardCount = 101,
+                HasResult = true,
+            },
+        };
+        var controller = CreateController(service);
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(CreateState(
+                new CutLabDecision
+                {
+                    CardName = "Arcane Signet",
+                    Kind = CutLabDecisionKind.Deferred,
+                    Round = CutLabCutRoundEngine.Round2Key,
+                    Ordinal = 1,
+                })),
+            PlayExperience = "Focused",
+        };
+
+        await controller.Decide(request, "Arcane Signet", CutLabDecideAction.Accept, "not-a-round");
+
+        var updatedState = CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson);
+        CutLabDecision accepted = Assert.Single(updatedState.Decisions, decision => decision.Kind == CutLabDecisionKind.Accepted);
+        Assert.Equal(CutLabCutRoundEngine.Round2Key, accepted.Round);
+    }
+
+    [Fact]
     public async Task Decide_StateOnlyRequest_ReconstructsIntakeAndRendersWorkspace()
     {
         var service = new StateAwareCutLabPageService();

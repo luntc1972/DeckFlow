@@ -143,6 +143,28 @@ public sealed class CutLabApiControllerTests
     }
 
     [Fact]
+    public async Task PostDecideAsync_ReturnsRoundBannerBodyFromServerResponse()
+    {
+        FakeAnalysisContextBuilder builder = new(workingList => CreateAnalysisContext(workingList));
+        CutLabApiController controller = CreateController(builder, new FakeSimulationService());
+
+        ActionResult<CutLabDecideApiResponse> response = await controller.PostDecideAsync(
+            new CutLabDecideApiRequest
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()),
+                CardName = "Arcane Signet",
+                Decision = CutLabDecideAction.Accept,
+            },
+            CancellationToken.None);
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
+        CutLabDecideApiResponse payload = Assert.IsType<CutLabDecideApiResponse>(ok.Value);
+        Assert.Equal(
+            "Cards flagged by exactly one structural finding.",
+            payload.NextProposal.RoundBannerBody);
+    }
+
+    [Fact]
     public async Task PostDecideAsync_ReturnsFloorWarningsInSuccessBody_WhenProposalBreaksFloor()
     {
         CutLabState state = CreateState(
@@ -450,6 +472,7 @@ public sealed class CutLabApiControllerTests
             string playExperience,
             IReadOnlyList<string> commanderNames,
             IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
+            string? poolKey = null,
             CancellationToken cancellationToken = default)
         {
             BuildCalls++;
@@ -496,6 +519,7 @@ public sealed class CutLabApiControllerTests
             IReadOnlyList<CutLabPoolCard> workingList,
             string? playExperience,
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
+            string? poolKey = null,
             CancellationToken cancellationToken = default)
             => Task.FromResult(new CutLabMetricSnapshot());
 
@@ -504,6 +528,7 @@ public sealed class CutLabApiControllerTests
             string candidateCardName,
             string? playExperience,
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
+            string? poolKey = null,
             CancellationToken cancellationToken = default)
         {
             DeltaCalls++;
@@ -521,6 +546,7 @@ public sealed class CutLabApiControllerTests
                         Before = 60,
                         After = 58,
                         Delta = -2,
+                        Unit = CutLabMetricUnit.Percent,
                         Direction = CutLabMetricDirection.Down,
                         IsMeaningful = true,
                     },

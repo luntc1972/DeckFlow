@@ -45,6 +45,9 @@ public sealed record CutLabDecideNextProposalDto
     /// <summary>Fixed UI round label or banner text.</summary>
     public string RoundLabel { get; init; } = string.Empty;
 
+    /// <summary>Fixed round-banner supporting copy.</summary>
+    public string RoundBannerBody { get; init; } = string.Empty;
+
     /// <summary>Count of discriminating findings attached to the proposed card.</summary>
     public int FindingCount { get; init; }
 
@@ -82,6 +85,9 @@ public sealed record CutLabDecideMetricDeltaDto
 
     /// <summary>Signed numeric delta.</summary>
     public double Delta { get; init; }
+
+    /// <summary>Display unit used for the delta values.</summary>
+    public CutLabMetricUnit Unit { get; init; }
 
     /// <summary>Display direction for the numeric delta.</summary>
     public CutLabMetricDirection Direction { get; init; }

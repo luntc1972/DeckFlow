@@ -186,7 +186,7 @@ public sealed class CutLabResolvedCardCacheTests
 
     /// <summary>Derived working-list keys keep the resolvable subset when the superset is missing a card.</summary>
     [Fact]
-    public void TrySeedFromSuperset_WhenSupersetIsMissingCard_CachesResolvableSubset()
+    public void TrySeedFromSuperset_WhenSupersetIsMissingCard_ReturnsFalseAndDoesNotWrite()
     {
         var cache = new CutLabResolvedCardCache();
         IReadOnlyList<(string Name, int Quantity)> afterPool =
@@ -212,12 +212,11 @@ public sealed class CutLabResolvedCardCacheTests
         bool seeded = cache.TrySeedFromSuperset(afterPool, resolvedCards, out IReadOnlyList<ScryfallCardData>? seededCards);
         bool found = cache.TryGet(CutLabResolvedCardCache.ComputePoolKey(afterPool), out IReadOnlyList<ScryfallCardData>? cachedCards);
 
-        Assert.True(seeded);
+        Assert.False(seeded);
         Assert.NotNull(seededCards);
-        Assert.True(found);
-        Assert.NotNull(cachedCards);
+        Assert.False(found);
+        Assert.Null(cachedCards);
         Assert.Equal(["Commander", "Counterspell"], seededCards.Select(card => card.Name));
-        Assert.Equal(["Commander", "Counterspell"], cachedCards.Select(card => card.Name));
     }
 
     /// <summary>Resolved-card and delta caches use separate backing MemoryCache instances.</summary>

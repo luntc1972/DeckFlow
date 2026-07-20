@@ -367,7 +367,7 @@ public sealed record CutLabViewModel
                 CardName = nextProposal.CardName,
                 RoundKey = nextProposal.RoundKey,
                 RoundLabel = nextProposal.RoundLabel,
-                RoundBannerBody = RoundBannerBodyFor(nextProposal.RoundKey),
+                RoundBannerBody = CutLabCutRoundEngine.RoundBannerBodyFor(nextProposal.RoundKey),
                 FindingCount = nextProposal.FindingCount,
                 FindingSummary = nextProposal.FindingCount > 0
                     ? $"Flagged by {nextProposal.FindingCount} findings:"
@@ -394,7 +394,7 @@ public sealed record CutLabViewModel
             CardName = nextProposal.CardName,
             RoundKey = nextProposal.RoundKey,
             RoundLabel = nextProposal.RoundLabel,
-            RoundBannerBody = RoundBannerBodyFor(nextProposal.RoundKey),
+            RoundBannerBody = CutLabCutRoundEngine.RoundBannerBodyFor(nextProposal.RoundKey),
             FindingCount = nextProposal.FindingCount,
             FindingSummary = nextProposal.FindingCount > 0
                 ? $"Flagged by {nextProposal.FindingCount} findings:"
@@ -414,15 +414,14 @@ public sealed record CutLabViewModel
         return deltas
             .Select(delta =>
             {
-                CutLabMetricUnit unit = MetricUnitFor(delta.Kind);
                 return new CutLabDeltaLineView
                 {
                     MetricLabel = delta.Label,
                     Direction = delta.Direction,
-                    FormattedValueToken = FormatDeltaToken(delta.Delta, unit),
+                    FormattedValueToken = FormatDeltaToken(delta.Delta, delta.Unit, includeDirectionGlyph: false),
                     IsMeaningful = delta.IsMeaningful,
                     Sentence = delta.IsMeaningful
-                        ? $"cutting {cardName} {DirectionVerbFor(delta.Direction)} {delta.Label.ToLowerInvariant()} by {FormatDeltaToken(delta.Delta, unit, includeDirectionGlyph: false)}."
+                        ? $"cutting {cardName} {DirectionVerbFor(delta.Direction)} {delta.Label.ToLowerInvariant()} by {FormatDeltaToken(delta.Delta, delta.Unit, includeDirectionGlyph: false)}."
                         : $"{delta.Label}: no meaningful change",
                 };
             })
@@ -470,7 +469,7 @@ public sealed record CutLabViewModel
             {
                 CardName = decision.CardName,
                 RoundKey = decision.Round,
-                RoundLabel = RoundLabelFor(decision.Round),
+                RoundLabel = CutLabCutRoundEngine.LabelFor(decision.Round),
             })
             .ToArray();
     }
@@ -491,48 +490,17 @@ public sealed record CutLabViewModel
             .Select(metric =>
             {
                 CutLabMetricValue current = currentByKind[metric.Kind];
-                CutLabMetricDelta? delta = CreateCompareDelta(metric, current);
+                CutLabMetricDelta? delta = CutLabMetricDelta.Between(metric, current);
                 return new CutLabCompareRowView
                 {
                     MetricLabel = metric.Label,
                     BaselineValue = FormatMetricValue(metric.Value, metric.Unit),
                     CurrentValue = FormatMetricValue(current.Value, current.Unit),
-                    DeltaValueToken = delta is null ? string.Empty : FormatDeltaToken(delta.Delta, metric.Unit),
+                    DeltaValueToken = delta is null ? string.Empty : FormatDeltaToken(delta.Delta, delta.Unit, includeDirectionGlyph: false),
                     Direction = delta?.Direction ?? CutLabMetricDirection.None,
                 };
             })
             .ToArray();
-    }
-
-    private static CutLabMetricDelta? CreateCompareDelta(CutLabMetricValue baseline, CutLabMetricValue current)
-    {
-        if (!double.IsFinite(baseline.Value) || !double.IsFinite(current.Value))
-        {
-            return null;
-        }
-
-        double delta = current.Value - baseline.Value;
-        double threshold = baseline.Unit == CutLabMetricUnit.Cards
-            ? CutLabNoiseFloor.Cards
-            : CutLabNoiseFloor.PercentPoints;
-        bool isMeaningful = Math.Abs(delta) > threshold;
-        CutLabMetricDirection direction = !isMeaningful
-            ? CutLabMetricDirection.None
-            : delta > 0
-                ? CutLabMetricDirection.Up
-                : CutLabMetricDirection.Down;
-
-        return new CutLabMetricDelta
-        {
-            Kind = baseline.Kind,
-            Family = baseline.Family,
-            Label = baseline.Label,
-            Before = baseline.Value,
-            After = current.Value,
-            Delta = delta,
-            Direction = direction,
-            IsMeaningful = isMeaningful,
-        };
     }
 
     private static Dictionary<string, int> CountRoles(
@@ -567,11 +535,6 @@ public sealed record CutLabViewModel
     private static string DisplayLabelFor(string roleKey)
         => RoleDisplayLabels.TryGetValue(roleKey, out string? label) ? label : roleKey;
 
-    private static CutLabMetricUnit MetricUnitFor(CutLabMetricKind kind)
-        => kind is CutLabMetricKind.Flood or CutLabMetricKind.Curve
-            ? CutLabMetricUnit.Cards
-            : CutLabMetricUnit.Percent;
-
     private static string FormatMetricValue(double value, CutLabMetricUnit unit)
         => unit == CutLabMetricUnit.Cards
             ? FormatCardValue(value)
@@ -602,27 +565,6 @@ public sealed record CutLabViewModel
 
     private static string DirectionVerbFor(CutLabMetricDirection direction)
         => direction == CutLabMetricDirection.Down ? "lowers" : "raises";
-
-    private static string RoundBannerBodyFor(string roundKey)
-        => roundKey switch
-        {
-            CutLabCutRoundEngine.Round1Key => "Cards flagged by 2 or more structural findings from the section above.",
-            CutLabCutRoundEngine.Round2Key => "Cards flagged by exactly one structural finding.",
-            CutLabCutRoundEngine.Round3Key => "Everything else, ordered by smallest measurable tradeoff first.",
-            CutLabCutRoundEngine.SecondPassDeferredKey or CutLabCutRoundEngine.SecondPassRejectedKey => "Still over 100 cards. These were deferred or kept earlier; take another look.",
-            _ => string.Empty,
-        };
-
-    private static string RoundLabelFor(string roundKey)
-        => roundKey switch
-        {
-            CutLabCutRoundEngine.Round1Key => CutLabCutRoundEngine.Round1Label,
-            CutLabCutRoundEngine.Round2Key => CutLabCutRoundEngine.Round2Label,
-            CutLabCutRoundEngine.Round3Key => CutLabCutRoundEngine.Round3Label,
-            CutLabCutRoundEngine.SecondPassDeferredKey => CutLabCutRoundEngine.SecondPassDeferredLabel,
-            CutLabCutRoundEngine.SecondPassRejectedKey => CutLabCutRoundEngine.SecondPassRejectedLabel,
-            _ => roundKey,
-        };
 
     private static string FallbackSource(string playExperience)
     {

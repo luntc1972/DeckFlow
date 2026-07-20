@@ -19,7 +19,42 @@
         CutLabMetricDirection.Down => "▼",
         _ => string.Empty,
     };
-    string DeltaNumericToken(string token) => token.TrimStart('▲', '▼');
+    async Task RenderDecisionForm(string cardName, string roundKey, string decisionValue, string buttonText, string classSuffix, string ariaLabel)
+    {
+        <form method="post" action="@Url.Content("~/cut-lab/decide")">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
+            <input type="hidden" name="CardName" value="@cardName" />
+            <input type="hidden" name="RoundKey" value="@roundKey" />
+            <input type="hidden" name="Decision" value="@decisionValue" />
+            @if (decisionValue == "restore")
+            {
+                <button type="submit"
+                        class="cutlab-restore-btn"
+                        aria-label="@ariaLabel"
+                        data-cut-lab-restore
+                        data-cut-lab-card="@cardName">@buttonText</button>
+            }
+            else
+            {
+                <button type="submit"
+                        class="cutlab-decision-btn cutlab-decision-btn--@classSuffix"
+                        aria-label="@ariaLabel"
+                        data-cut-lab-decision="@decisionValue"
+                        data-cut-lab-card="@cardName">@buttonText</button>
+            }
+        </form>
+    }
+    async Task RenderDeltaValue(CutLabMetricDirection direction, string token)
+    {
+        <span class="cutlab-delta__value @DeltaValueClass(direction)">
+            @if (direction != CutLabMetricDirection.None)
+            {
+                <span aria-hidden="true">@DeltaGlyph(direction)</span>
+            }
+            <span>@token</span>
+        </span>
+    }
 }
 
 <section class="hero">
@@ -531,13 +566,7 @@
                             {
                                 <div class="cutlab-delta__line">
                                     <span class="cutlab-delta__sentence">@line.Sentence</span>
-                                    <span class="cutlab-delta__value @DeltaValueClass(line.Direction)">
-                                        @if (line.Direction != CutLabMetricDirection.None)
-                                        {
-                                            <span aria-hidden="true">@DeltaGlyph(line.Direction)</span>
-                                        }
-                                        <span class="@DeltaValueClass(line.Direction)">@DeltaNumericToken(line.FormattedValueToken)</span>
-                                    </span>
+                                    @{ await RenderDeltaValue(line.Direction, line.FormattedValueToken); }
                                 </div>
                             }
                         </div>
@@ -549,13 +578,7 @@
                                 {
                                     <div class="cutlab-delta__line">
                                         <span class="cutlab-delta__sentence">@line.Sentence</span>
-                                        <span class="cutlab-delta__value @DeltaValueClass(line.Direction)">
-                                            @if (line.Direction != CutLabMetricDirection.None)
-                                            {
-                                                <span aria-hidden="true">@DeltaGlyph(line.Direction)</span>
-                                            }
-                                            <span class="@DeltaValueClass(line.Direction)">@DeltaNumericToken(line.FormattedValueToken)</span>
-                                        </span>
+                                        @{ await RenderDeltaValue(line.Direction, line.FormattedValueToken); }
                                     </div>
                                 }
                             </div>
@@ -573,42 +596,9 @@
                     }
 
                     <div class="cutlab-proposal__actions">
-                        <form method="post" action="@Url.Content("~/cut-lab/decide")">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
-                            <input type="hidden" name="CardName" value="@Model.Proposal.CardName" />
-                            <input type="hidden" name="RoundKey" value="@Model.Proposal.RoundKey" />
-                            <input type="hidden" name="Decision" value="accept" />
-                            <button type="submit"
-                                    class="cutlab-decision-btn cutlab-decision-btn--accept"
-                                    aria-label="Accept cut for @Model.Proposal.CardName"
-                                    data-cut-lab-decision="accept"
-                                    data-cut-lab-card="@Model.Proposal.CardName">Accept cut</button>
-                        </form>
-                        <form method="post" action="@Url.Content("~/cut-lab/decide")">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
-                            <input type="hidden" name="CardName" value="@Model.Proposal.CardName" />
-                            <input type="hidden" name="RoundKey" value="@Model.Proposal.RoundKey" />
-                            <input type="hidden" name="Decision" value="reject" />
-                            <button type="submit"
-                                    class="cutlab-decision-btn cutlab-decision-btn--reject"
-                                    aria-label="Reject cut for @Model.Proposal.CardName"
-                                    data-cut-lab-decision="reject"
-                                    data-cut-lab-card="@Model.Proposal.CardName">Reject cut</button>
-                        </form>
-                        <form method="post" action="@Url.Content("~/cut-lab/decide")">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
-                            <input type="hidden" name="CardName" value="@Model.Proposal.CardName" />
-                            <input type="hidden" name="RoundKey" value="@Model.Proposal.RoundKey" />
-                            <input type="hidden" name="Decision" value="defer" />
-                            <button type="submit"
-                                    class="cutlab-decision-btn cutlab-decision-btn--defer"
-                                    aria-label="Defer cut for @Model.Proposal.CardName"
-                                    data-cut-lab-decision="defer"
-                                    data-cut-lab-card="@Model.Proposal.CardName">Defer decision</button>
-                        </form>
+                        @{ await RenderDecisionForm(Model.Proposal.CardName, Model.Proposal.RoundKey, "accept", "Accept cut", "accept", $"Accept cut for {Model.Proposal.CardName}"); }
+                        @{ await RenderDecisionForm(Model.Proposal.CardName, Model.Proposal.RoundKey, "reject", "Reject cut", "reject", $"Reject cut for {Model.Proposal.CardName}"); }
+                        @{ await RenderDecisionForm(Model.Proposal.CardName, Model.Proposal.RoundKey, "defer", "Defer decision", "defer", $"Defer cut for {Model.Proposal.CardName}"); }
                     </div>
                 </div>
             }
@@ -644,18 +634,7 @@
                         <div class="cutlab-cuts-made__row">
                             <span>@row.CardName</span>
                             <span class="prompt-size-note">cut in @row.RoundLabel</span>
-                            <form method="post" action="@Url.Content("~/cut-lab/decide")">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
-                                <input type="hidden" name="CardName" value="@row.CardName" />
-                                <input type="hidden" name="RoundKey" value="@row.RoundKey" />
-                                <input type="hidden" name="Decision" value="restore" />
-                                <button type="submit"
-                                        class="cutlab-restore-btn"
-                                        aria-label="Restore @row.CardName"
-                                        data-cut-lab-restore
-                                        data-cut-lab-card="@row.CardName">Restore</button>
-                            </form>
+                            @{ await RenderDecisionForm(row.CardName, row.RoundKey, "restore", "Restore", string.Empty, $"Restore {row.CardName}"); }
                         </div>
                     }
                 </details>
@@ -694,13 +673,7 @@
                                         <td data-label="Baseline">@row.BaselineValue</td>
                                         <td data-label="Current">@row.CurrentValue</td>
                                         <td data-label="Delta">
-                                            <span class="cutlab-delta__value @DeltaValueClass(row.Direction)">
-                                                @if (row.Direction != CutLabMetricDirection.None)
-                                                {
-                                                    <span aria-hidden="true">@DeltaGlyph(row.Direction)</span>
-                                                }
-                                                <span class="@DeltaValueClass(row.Direction)">@DeltaNumericToken(row.DeltaValueToken)</span>
-                                            </span>
+                                            @{ await RenderDeltaValue(row.Direction, row.DeltaValueToken); }
                                         </td>
                                     </tr>
                                 }

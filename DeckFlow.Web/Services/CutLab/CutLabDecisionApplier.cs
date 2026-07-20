@@ -51,6 +51,22 @@ public static class CutLabDecisionApplier
         });
     }
 
+    /// <summary>Returns the latest recorded round for the card, or round 1 when none exists.</summary>
+    /// <param name="state">Current working-session state.</param>
+    /// <param name="cardName">Card to inspect.</param>
+    /// <returns>The latest decision round for the card, or <see cref="CutLabCutRoundEngine.Round1Key"/>.</returns>
+    public static string LatestRoundForCard(CutLabState state, string cardName)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
+
+        return CutLabWorkingList.LatestDecisionsByCard(state.Decisions)
+            .Where(entry => string.Equals(entry.Key, cardName, StringComparison.OrdinalIgnoreCase))
+            .Select(entry => entry.Value.Round)
+            .FirstOrDefault()
+            ?? CutLabCutRoundEngine.Round1Key;
+    }
+
     private static CutLabState Restore(CutLabState state, string cardName)
     {
         IReadOnlyList<CutLabDecision> remainingDecisions = state.Decisions

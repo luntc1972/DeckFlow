@@ -109,6 +109,36 @@ public sealed class CutLabDecisionApplierTests
         Assert.Equal([1, 2, 3], accepted.Decisions.Select(decision => decision.Ordinal).ToArray());
     }
 
+    [Fact]
+    public void LatestRoundForCard_UsesHighestOrdinalRoundAndFallsBackToRound1()
+    {
+        CutLabState state = BuildState(
+            new CutLabDecision
+            {
+                CardName = "Arcane Signet",
+                Kind = CutLabDecisionKind.Deferred,
+                Round = CutLabCutRoundEngine.Round2Key,
+                Ordinal = 1,
+            },
+            new CutLabDecision
+            {
+                CardName = "Arcane Signet",
+                Kind = CutLabDecisionKind.Rejected,
+                Round = CutLabCutRoundEngine.Round3Key,
+                Ordinal = 4,
+            },
+            new CutLabDecision
+            {
+                CardName = "Counterspell",
+                Kind = CutLabDecisionKind.Accepted,
+                Round = CutLabCutRoundEngine.Round1Key,
+                Ordinal = 3,
+            });
+
+        Assert.Equal(CutLabCutRoundEngine.Round3Key, CutLabDecisionApplier.LatestRoundForCard(state, "Arcane Signet"));
+        Assert.Equal(CutLabCutRoundEngine.Round1Key, CutLabDecisionApplier.LatestRoundForCard(state, "Lightning Greaves"));
+    }
+
     private static CutLabState BuildState(params CutLabDecision[] decisions)
         => new()
         {
