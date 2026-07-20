@@ -6,6 +6,8 @@ namespace DeckFlow.Web.Models;
 /// <summary>View model for the Cut Lab page.</summary>
 public sealed record CutLabViewModel
 {
+    private const string ProposalDeltaUnavailableMessage = "Couldn't recalculate this cut — nothing changed. Try again.";
+
     private static readonly IReadOnlyDictionary<string, string> RoleDisplayLabels =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -354,7 +356,26 @@ public sealed record CutLabViewModel
 
         if (proposalDeltas is null)
         {
-            return new CutLabProposalView();
+            IReadOnlyList<string> fallbackFindingChips = nextProposal.DiscriminatingFindingKinds
+                .Where(findingHeadingsByKind.ContainsKey)
+                .Select(kind => findingHeadingsByKind[kind])
+                .ToArray();
+            IReadOnlyList<string> fallbackFloorWarnings = BuildFloorWarnings(nextProposal.CardName, state, resolvedFloors, roleAssignmentsByCardName);
+            return new CutLabProposalView
+            {
+                HasProposal = true,
+                CardName = nextProposal.CardName,
+                RoundKey = nextProposal.RoundKey,
+                RoundLabel = nextProposal.RoundLabel,
+                RoundBannerBody = RoundBannerBodyFor(nextProposal.RoundKey),
+                FindingCount = nextProposal.FindingCount,
+                FindingSummary = nextProposal.FindingCount > 0
+                    ? $"Flagged by {nextProposal.FindingCount} findings:"
+                    : "No structural finding flags this card — it's a preference call.",
+                FindingChips = fallbackFindingChips,
+                DeltaUnavailableMessage = ProposalDeltaUnavailableMessage,
+                FloorWarnings = fallbackFloorWarnings,
+            };
         }
 
         IReadOnlyList<CutLabDeltaLineView> fullDeltaLines = BuildDeltaLines(nextProposal.CardName, proposalDeltas?.Deltas ?? []);
@@ -760,6 +781,9 @@ public sealed record CutLabProposalView
 
     /// <summary>Count of metric families whose deltas exceeded the noise floor.</summary>
     public int ChangedFamilyCount { get; init; }
+
+    /// <summary>Fallback copy shown when the proposal renders without delta data.</summary>
+    public string DeltaUnavailableMessage { get; init; } = string.Empty;
 
     /// <summary>Non-blocking floor-warning copy for the proposed cut.</summary>
     public IReadOnlyList<string> FloorWarnings { get; init; } = [];

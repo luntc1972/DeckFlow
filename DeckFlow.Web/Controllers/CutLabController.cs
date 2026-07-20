@@ -10,6 +10,8 @@ namespace DeckFlow.Web.Controllers;
 /// <summary>Cut Lab tool: load an oversized pool, preserve working-session state, and guide trimming.</summary>
 public sealed class CutLabController : Controller
 {
+    private const string NoChangeMessage = "Couldn't recalculate this cut — nothing changed. Try again.";
+
     private readonly ICutLabPageService _pageService;
     private readonly ILogger<CutLabController> _logger;
 
@@ -64,20 +66,20 @@ public sealed class CutLabController : Controller
     [FeatureFlagGate("tool.cut-lab.enabled")]
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(2 * 1024 * 1024)]
-    public async Task<IActionResult> Decide(CutLabRequest request, string cardName, CutLabDecideAction decision)
+    public async Task<IActionResult> Decide(CutLabRequest request, string cardName, CutLabDecideAction decision, string? roundKey = null)
     {
         request ??= new CutLabRequest();
 
         if (string.IsNullOrWhiteSpace(request.CutLabStateJson) || string.IsNullOrWhiteSpace(cardName))
         {
-            return CutLabView(request, error: "Couldn't recalculate this cut - nothing changed. Try again.");
+            return CutLabView(request, error: NoChangeMessage);
         }
 
         try
         {
             CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
-            string roundKey = DetermineRoundKey(state, cardName, decision);
-            state = CutLabDecisionApplier.Apply(state, cardName, decision, roundKey);
+            string resolvedRoundKey = DetermineRoundKey(state, cardName, decision, roundKey);
+            state = CutLabDecisionApplier.Apply(state, cardName, decision, resolvedRoundKey);
             request.CutLabStateJson = CutLabStateSerializer.Serialize(state);
 
             var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
@@ -94,12 +96,17 @@ public sealed class CutLabController : Controller
         catch (Exception exception)
         {
             _logger.LogError(exception, "Cut Lab decision fallback failed.");
-            return CutLabView(request, error: "Couldn't recalculate this cut - nothing changed. Try again.");
+            return CutLabView(request, error: NoChangeMessage);
         }
     }
 
-    private static string DetermineRoundKey(CutLabState state, string cardName, CutLabDecideAction decision)
+    private static string DetermineRoundKey(CutLabState state, string cardName, CutLabDecideAction decision, string? postedRoundKey)
     {
+        if (IsKnownRoundKey(postedRoundKey))
+        {
+            return postedRoundKey!;
+        }
+
         if (decision == CutLabDecideAction.Restore)
         {
             return state.Decisions
@@ -117,6 +124,13 @@ public sealed class CutLabController : Controller
             .FirstOrDefault()
             ?? CutLabCutRoundEngine.Round1Key;
     }
+
+    private static bool IsKnownRoundKey(string? roundKey)
+        => roundKey is CutLabCutRoundEngine.Round1Key
+            or CutLabCutRoundEngine.Round2Key
+            or CutLabCutRoundEngine.Round3Key
+            or CutLabCutRoundEngine.SecondPassDeferredKey
+            or CutLabCutRoundEngine.SecondPassRejectedKey;
 
     private ViewResult CutLabView(CutLabRequest request, string? error) =>
         View("CutLab", new CutLabViewModel
