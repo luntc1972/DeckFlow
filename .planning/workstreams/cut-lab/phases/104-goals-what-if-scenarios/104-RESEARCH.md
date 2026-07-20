@@ -407,22 +407,21 @@ const setLastDeck = (state: LastDeckState): void => {
 
 **If this table is empty:** N/A — see entries above; all are flagged for planner/user confirmation before being treated as locked.
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+All three questions were settled during planning (2026-07-20). Retained here with their resolutions for audit.
 
 1. **Does the planner pick Option A or Option B for D-02?**
+   - **RESOLVED:** Option A, locked by the user 2026-07-20 — see `104-CONTEXT.md` D-02 ("RESOLVED 2026-07-20 — Option A locked by user"). Exactly 3 editable turn goals on the existing `CategoryByTurn` metrics; no new `CutLabMetricKind` values; the blended metric is relabeled honestly in the goals UI. Option B is a deferred fast-follow only if UAT asks for literal ramp/interaction rows.
    - What we know: Both are SIM-01 compliant and technically feasible; Option A is lower-risk/lower-effort.
-   - What's unclear: Whether the user's mental model (from the CONTEXT's literal "ramp/interaction/payoff" wording) requires separately-tracked metrics, or whether the existing blended `RepresentativeLineByTurn` satisfies "define a goal for ramp/interaction/payoff" well enough in the UI copy.
-   - Recommendation: Default to Option A in the plan, but have the plan-checker/user explicitly sign off on the family list before execution, since this determines the shape of `CutLabGoalSettings` and the goals-editor UI.
 
 2. **What exact round key/label does a committed swap use in the Cuts-made list?**
+   - **RESOLVED:** Dedicated round key `"whatif-swap"` with a `LabelFor` case ("What-if swap") — implemented in plan `104-03` (Task 2 / `CutLabCutRoundEngine` label addition). Chosen per the recommendation for clarity in the Cuts-made list.
    - What we know: `CutLabCutRoundEngine.LabelFor` falls back to the raw key string for unknown keys (`CutLabCutRoundEngine.cs:97-106`); Round1/2/3 and the two second-pass keys are the only labeled ones today.
-   - What's unclear: Whether the planner wants a new registered round key (e.g., `"whatif-swap"` with a `LabelFor` case added, e.g. "What-if swap") or wants swap-committed cuts to inherit whatever round the card would have naturally landed in (via `CutLabDecisionApplier.LatestRoundForCard`).
-   - Recommendation: Register a dedicated round key + label ("What-if swap") for clarity in the Cuts-made list, since it's a materially different user action from the guided cut-round flow.
 
 3. **Does the what-if swap need a dedicated `/api/cut-lab/whatif` (preview) + separate commit call, or can commit reuse `/api/cut-lab/decide` with two sequential requests?**
+   - **RESOLVED:** One atomic commit endpoint (`PostWhatifCommitAsync` in plan `104-03` Task 2) applies Restore(B)+Accept(A) together and returns a single updated state; a separate `PostWhatifAsync` preview action computes deltas without persisting. Avoids the partial-apply failure mode entirely, per the recommendation.
    - What we know: The preview must not persist anything server-side; the commit needs two `CutLabDecisionApplier` operations applied together (not as two round-trips, to avoid a half-applied state if the second call fails).
-   - What's unclear: Whether the planner wants one atomic "commit swap" endpoint (apply both decisions in one request/response, as Pattern 3 shows) versus reusing the existing `/api/cut-lab/decide` endpoint twice from the client (simpler server code, but risks a partial-apply if the second call fails and the client doesn't roll back the first).
-   - Recommendation: One atomic endpoint (new `PostWhatifCommitAsync` action) that applies Restore+Accept together and returns a single updated state — avoids the partial-apply failure mode entirely.
 
 ## Environment Availability
 

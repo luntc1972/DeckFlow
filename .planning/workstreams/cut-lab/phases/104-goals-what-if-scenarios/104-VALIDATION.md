@@ -1,8 +1,8 @@
 ---
 phase: 104
 slug: goals-what-if-scenarios
-status: draft
-nyquist_compliant: false
+status: mapped
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-07-20
 ---
@@ -80,11 +80,11 @@ created: 2026-07-20
 
 ## Validation Sign-Off
 
-- [ ] All requirements have an automated verify or a Wave 0 dependency
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 90s
-- [ ] `nyquist_compliant: true` set in frontmatter (after planner maps task IDs)
+- [x] All requirements have an automated verify or a Wave 0 dependency
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 90s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** mapped 2026-07-20 (plan-checker confirmed every Wave-0 gap has a covering plan task; `wave_0_complete` flips true once those tasks land during execution)
