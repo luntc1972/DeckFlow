@@ -55,12 +55,12 @@ public sealed class CutLabResolvedCardCache
     }
 
     /// <summary>
-    /// Seeds a derived working-list key from a resolved superset payload when every target card is present.
+    /// Seeds a derived working-list key from a resolved superset payload using every target card that is present.
     /// </summary>
     /// <param name="targetPool">The target working-list multiset to seed.</param>
     /// <param name="sourceCards">Resolved cards from a larger or equal pool.</param>
-    /// <param name="seededCards">The filtered payload written under the target key when successful.</param>
-    /// <returns><see langword="true"/> when the target key was seeded; otherwise <see langword="false"/>.</returns>
+    /// <param name="seededCards">The filtered payload written under the target key.</param>
+    /// <returns><see langword="true"/> when the target key was seeded.</returns>
     public bool TrySeedFromSuperset(
         IReadOnlyList<(string Name, int Quantity)> targetPool,
         IReadOnlyList<ScryfallCardData> sourceCards,
@@ -136,6 +136,7 @@ public sealed class CutLabResolvedCardCache
     /// </summary>
     /// <param name="poolKey">The deterministic working-pool hash.</param>
     /// <param name="cards">The resolved cards to cache.</param>
+    /// <param name="missingCardNames">Optional normalized misses already attempted for this exact pool.</param>
     public void Set(
         string poolKey,
         IReadOnlyList<ScryfallCardData> cards,

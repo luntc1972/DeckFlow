@@ -62,6 +62,7 @@ public sealed class CutLabController : Controller
     /// <param name="request">Posted Cut Lab form fields.</param>
     /// <param name="cardName">Card receiving the decision.</param>
     /// <param name="decision">Decision to apply.</param>
+    /// <param name="roundKey">Optional posted round key for the current decision button.</param>
     [HttpPost("/cut-lab/decide")]
     [FeatureFlagGate("tool.cut-lab.enabled")]
     [ValidateAntiForgeryToken]

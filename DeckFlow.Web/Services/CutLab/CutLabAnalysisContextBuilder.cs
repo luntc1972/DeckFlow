@@ -42,6 +42,7 @@ public interface ICutLabAnalysisContextBuilder
 /// <param name="CommanderManaValue">Maximum mana value among resolved commander cards.</param>
 /// <param name="Mode">Resolved structural-analysis mode.</param>
 /// <param name="Classification">Combo and category inputs for structural findings.</param>
+/// <param name="ResolvedCards">Resolved card payload reused by downstream Cut Lab flows.</param>
 public sealed record CutLabAnalysisContext(
     IReadOnlyList<CutLabAnalyzedCard> AnalyzedCards,
     IReadOnlyDictionary<string, IReadOnlyList<string>> RolesByCardName,
