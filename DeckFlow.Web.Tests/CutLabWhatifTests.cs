@@ -148,6 +148,7 @@ public sealed class CutLabWhatifTests
     public async Task PostWhatifAsync_ReturnsGoalAwareDeltasWithoutPersistingDecisions()
     {
         CutLabState state = CreateState();
+        int originalDecisionCount = state.Decisions.Count;
         CutLabApiController controller = CreateController();
 
         ActionResult<CutLabWhatifApiResponse> response = await controller.PostWhatifAsync(
@@ -171,7 +172,7 @@ public sealed class CutLabWhatifTests
         Assert.Equal("Commander by turn 7", delta.Label);
         Assert.Equal(3, delta.Before);
         Assert.Equal(7, delta.After);
-        Assert.Empty(state.Decisions);
+        Assert.Equal(originalDecisionCount, state.Decisions.Count);
     }
 
     private static CutLabApiController CreateController(bool sameOrigin = true)

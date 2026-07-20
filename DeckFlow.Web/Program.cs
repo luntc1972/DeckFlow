@@ -180,6 +180,7 @@ public partial class Program
             builder.Services.AddScoped<IDeckHistoryPageService, DeckHistoryPageService>();
             builder.Services.AddScoped<DeckFlow.Web.Services.CutLab.ICutLabPageService, DeckFlow.Web.Services.CutLab.CutLabPageService>();
             builder.Services.AddDeckFlowCutLabServices();
+            builder.Services.AddScoped<DeckFlow.Web.Services.CutLab.ICutLabWhatifPreviewService, DeckFlow.Web.Services.CutLab.CutLabWhatifPreviewService>();
             builder.Services.AddScoped<IDeckConvertService>(sp =>
                 new DeckConvertService(
                     sp.GetRequiredService<IScryfallRestClientFactory>(),

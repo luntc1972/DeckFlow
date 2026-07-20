@@ -17,19 +17,23 @@ public sealed class CutLabApiController : ControllerBase
 
     private readonly ICutLabAnalysisContextBuilder _contextBuilder;
     private readonly ICutLabSimulationService _simulationService;
+    private readonly ICutLabWhatifPreviewService _whatifPreviewService;
     private readonly ILogger<CutLabApiController> _logger;
 
     /// <summary>Creates the Cut Lab API controller.</summary>
     /// <param name="contextBuilder">Shared analysis-context builder reused by intake and decision flows.</param>
     /// <param name="simulationService">Simulation service used for proposal deltas.</param>
+    /// <param name="whatifPreviewService">Shared what-if preview service reused by API and no-JS swap flows.</param>
     /// <param name="logger">Logger used for non-fatal API warnings.</param>
     public CutLabApiController(
         ICutLabAnalysisContextBuilder contextBuilder,
         ICutLabSimulationService simulationService,
+        ICutLabWhatifPreviewService whatifPreviewService,
         ILogger<CutLabApiController> logger)
     {
         _contextBuilder = contextBuilder ?? throw new ArgumentNullException(nameof(contextBuilder));
         _simulationService = simulationService ?? throw new ArgumentNullException(nameof(simulationService));
+        _whatifPreviewService = whatifPreviewService ?? throw new ArgumentNullException(nameof(whatifPreviewService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -118,7 +122,9 @@ public sealed class CutLabApiController : ControllerBase
                     afterWorkingList,
                     roundPlan.NextProposal.CardName,
                     state.Intent.PlayExperience,
+                    trialsOverride: ICutLabSimulationService.InLoopTrials,
                     poolKey: afterPoolKey,
+                    goals: state.Goals,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
             }
 
@@ -139,6 +145,129 @@ public sealed class CutLabApiController : ControllerBase
         {
             _logger.LogWarning(exception, "Cut Lab decide API request failed.");
             return BadRequest(new { Message = CutLabMessages.NoChangeMessage });
+        }
+    }
+
+    /// <summary>Builds a non-mutating what-if swap preview and returns the metric deltas.</summary>
+    /// <param name="request">What-if swap request payload.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The side-effect-free preview payload.</returns>
+    [HttpPost("whatif")]
+    [FeatureFlagGate("tool.cut-lab.enabled")]
+    [RequestSizeLimit(2 * 1024 * 1024)]
+    [ProducesResponseType(typeof(CutLabWhatifApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<CutLabWhatifApiResponse>> PostWhatifAsync([FromBody] CutLabWhatifApiRequest request, CancellationToken cancellationToken)
+    {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { Message = SameOriginRequestValidator.GetForbiddenMessage() });
+        }
+
+        if (request is null)
+        {
+            return BadRequest(new { Message = "Request body is required." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.CutLabStateJson) || string.IsNullOrWhiteSpace(request.CardOut) || string.IsNullOrWhiteSpace(request.CardIn))
+        {
+            return BadRequest(new { Message = "Cut Lab state, card out, and card in are required." });
+        }
+
+        try
+        {
+            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            if (state.Pool.Count == 0)
+            {
+                return BadRequest(new { Message = InvalidStateMessage });
+            }
+
+            ValidateWhatifPair(state, request.CardOut, request.CardIn);
+            CutLabWhatifPreview preview = await _whatifPreviewService
+                .ComputeSwapPreviewAsync(state, request.CardOut, request.CardIn, cancellationToken)
+                .ConfigureAwait(false);
+
+            return Ok(new CutLabWhatifApiResponse
+            {
+                CardOut = preview.CardOut,
+                CardIn = preview.CardIn,
+                Deltas = BuildMetricDeltas(preview.Deltas),
+                ChangedFamilyCount = preview.ChangedFamilyCount,
+                CutLabStateJson = null,
+            });
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
+        {
+            _logger.LogWarning(exception, "Cut Lab what-if preview API request failed.");
+            return BadRequest(new { Message = CutLabMessages.NoChangeMessage });
+        }
+    }
+
+    /// <summary>Commits a validated what-if swap by restoring B and accepting A atomically.</summary>
+    /// <param name="request">What-if swap request payload.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The updated serialized Cut Lab state.</returns>
+    [HttpPost("whatif/commit")]
+    [FeatureFlagGate("tool.cut-lab.enabled")]
+    [RequestSizeLimit(2 * 1024 * 1024)]
+    [ProducesResponseType(typeof(CutLabWhatifApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public Task<ActionResult<CutLabWhatifApiResponse>> PostWhatifCommitAsync([FromBody] CutLabWhatifApiRequest request, CancellationToken cancellationToken)
+    {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return Task.FromResult<ActionResult<CutLabWhatifApiResponse>>(StatusCode(StatusCodes.Status403Forbidden, new { Message = SameOriginRequestValidator.GetForbiddenMessage() }));
+        }
+
+        if (request is null)
+        {
+            return Task.FromResult<ActionResult<CutLabWhatifApiResponse>>(BadRequest(new { Message = "Request body is required." }));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.CutLabStateJson) || string.IsNullOrWhiteSpace(request.CardOut) || string.IsNullOrWhiteSpace(request.CardIn))
+        {
+            return Task.FromResult<ActionResult<CutLabWhatifApiResponse>>(BadRequest(new { Message = "Cut Lab state, card out, and card in are required." }));
+        }
+
+        try
+        {
+            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            if (state.Pool.Count == 0)
+            {
+                return Task.FromResult<ActionResult<CutLabWhatifApiResponse>>(BadRequest(new { Message = InvalidStateMessage }));
+            }
+
+            ValidateWhatifPair(state, request.CardOut, request.CardIn);
+            CutLabPoolCard? cardOutPoolCard = state.Pool.FirstOrDefault(card => string.Equals(card.Name, request.CardOut, StringComparison.OrdinalIgnoreCase));
+            if (cardOutPoolCard is null || cardOutPoolCard.IsLocked)
+            {
+                return Task.FromResult<ActionResult<CutLabWhatifApiResponse>>(BadRequest(new { Message = CutLabMessages.NoChangeMessage }));
+            }
+
+            CutLabState afterRestore = CutLabDecisionApplier.Apply(
+                state,
+                request.CardIn,
+                CutLabDecideAction.Restore,
+                CutLabCutRoundEngine.WhatifSwapKey);
+            CutLabState afterSwap = CutLabDecisionApplier.Apply(
+                afterRestore,
+                request.CardOut,
+                CutLabDecideAction.Accept,
+                CutLabCutRoundEngine.WhatifSwapKey);
+
+            return Task.FromResult<ActionResult<CutLabWhatifApiResponse>>(Ok(new CutLabWhatifApiResponse
+            {
+                CardOut = request.CardOut,
+                CardIn = request.CardIn,
+                CutLabStateJson = CutLabStateSerializer.Serialize(afterSwap),
+            }));
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
+        {
+            _logger.LogWarning(exception, "Cut Lab what-if commit API request failed.");
+            return Task.FromResult<ActionResult<CutLabWhatifApiResponse>>(BadRequest(new { Message = CutLabMessages.NoChangeMessage }));
         }
     }
 
@@ -273,20 +402,23 @@ public sealed class CutLabApiController : ControllerBase
         {
             CardName = proposalDeltas.CardName,
             ChangedFamilyCount = proposalDeltas.ChangedFamilyCount,
-            Deltas = proposalDeltas.Deltas
-                .Select(delta => new CutLabDecideMetricDeltaDto
-                {
-                    Kind = delta.Kind,
-                    Label = delta.Label,
-                    Before = delta.Before,
-                    After = delta.After,
-                    Delta = delta.Delta,
-                    Unit = delta.Unit,
-                    Direction = delta.Direction,
-                    IsMeaningful = delta.IsMeaningful,
-                })
-                .ToArray(),
+            Deltas = BuildMetricDeltas(proposalDeltas.Deltas),
         };
+
+    private static IReadOnlyList<CutLabDecideMetricDeltaDto> BuildMetricDeltas(IReadOnlyList<CutLabMetricDelta> deltas)
+        => deltas
+            .Select(delta => new CutLabDecideMetricDeltaDto
+            {
+                Kind = delta.Kind,
+                Label = delta.Label,
+                Before = delta.Before,
+                After = delta.After,
+                Delta = delta.Delta,
+                Unit = delta.Unit,
+                Direction = delta.Direction,
+                IsMeaningful = delta.IsMeaningful,
+            })
+            .ToArray();
 
     private static IReadOnlyList<CutLabDecideCutRecordDto> BuildCutsMade(IReadOnlyList<CutLabDecision> decisions)
         => decisions
@@ -300,4 +432,20 @@ public sealed class CutLabApiController : ControllerBase
                 Ordinal = decision.Ordinal,
             })
             .ToArray();
+
+    private static void ValidateWhatifPair(CutLabState state, string cardOut, string cardIn)
+    {
+        IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(state.Pool, state.Decisions);
+        CutLabPoolCard? cardOutPoolCard = workingList.FirstOrDefault(card => string.Equals(card.Name, cardOut, StringComparison.OrdinalIgnoreCase));
+        if (cardOutPoolCard is null || cardOutPoolCard.IsLocked)
+        {
+            throw new InvalidOperationException(CutLabMessages.NoChangeMessage);
+        }
+
+        IReadOnlySet<string> cutPile = CutLabWorkingList.AcceptedCardNames(state.Decisions);
+        if (!cutPile.Contains(cardIn))
+        {
+            throw new InvalidOperationException(CutLabMessages.NoChangeMessage);
+        }
+    }
 }

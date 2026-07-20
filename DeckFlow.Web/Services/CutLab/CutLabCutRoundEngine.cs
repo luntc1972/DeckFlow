@@ -67,6 +67,9 @@ public static class CutLabCutRoundEngine
     /// <summary>Stable round key for revisiting earlier rejected cards.</summary>
     public const string SecondPassRejectedKey = "second-pass-rejected";
 
+    /// <summary>Stable round key for committed what-if swaps.</summary>
+    public const string WhatifSwapKey = "whatif-swap";
+
     /// <summary>Fixed UI banner copy for round 1.</summary>
     public const string Round1Label = "Round 1 · Obvious cuts";
 
@@ -81,6 +84,9 @@ public static class CutLabCutRoundEngine
 
     /// <summary>Fixed UI banner copy for the rejected second pass.</summary>
     public const string SecondPassRejectedLabel = "Second pass · Revisiting earlier decisions";
+
+    /// <summary>Fixed UI banner copy for committed what-if swaps.</summary>
+    public const string WhatifSwapLabel = "What-if swap";
 
     // Why: "Obvious cuts" should reflect findings that discriminate among cards, not role-wide
     // warnings that attach to every member of a protected or redundant role uniformly.
@@ -102,6 +108,7 @@ public static class CutLabCutRoundEngine
             Round3Key => Round3Label,
             SecondPassDeferredKey => SecondPassDeferredLabel,
             SecondPassRejectedKey => SecondPassRejectedLabel,
+            WhatifSwapKey => WhatifSwapLabel,
             _ => roundKey,
         };
 
@@ -115,6 +122,7 @@ public static class CutLabCutRoundEngine
             Round2Key => "Cards flagged by exactly one structural finding.",
             Round3Key => "Everything else, ordered by smallest measurable tradeoff first.",
             SecondPassDeferredKey or SecondPassRejectedKey => "Still over 100 cards. These were deferred or kept earlier; take another look.",
+            WhatifSwapKey => "A hypothetical swap you kept.",
             _ => string.Empty,
         };
 
@@ -126,7 +134,8 @@ public static class CutLabCutRoundEngine
             or Round2Key
             or Round3Key
             or SecondPassDeferredKey
-            or SecondPassRejectedKey;
+            or SecondPassRejectedKey
+            or WhatifSwapKey;
 
     /// <summary>Builds the deterministic ordered proposal queue for the current working list.</summary>
     /// <param name="workingList">Derived working-list cards for the current session state.</param>

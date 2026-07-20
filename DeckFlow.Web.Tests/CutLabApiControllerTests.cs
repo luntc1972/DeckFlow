@@ -332,7 +332,7 @@ public sealed class CutLabApiControllerTests
         FakeSimulationService simulation,
         bool sameOrigin = true)
     {
-        CutLabApiController controller = new(builder, simulation, NullLogger<CutLabApiController>.Instance)
+        CutLabApiController controller = new(builder, simulation, new FakeWhatifPreviewService(), NullLogger<CutLabApiController>.Instance)
         {
             ControllerContext = new ControllerContext
             {
@@ -553,5 +553,15 @@ public sealed class CutLabApiControllerTests
                 ],
             });
         }
+    }
+
+    private sealed class FakeWhatifPreviewService : ICutLabWhatifPreviewService
+    {
+        public Task<CutLabWhatifPreview> ComputeSwapPreviewAsync(CutLabState state, string cardOut, string cardIn, CancellationToken cancellationToken)
+            => Task.FromResult(new CutLabWhatifPreview
+            {
+                CardOut = cardOut,
+                CardIn = cardIn,
+            });
     }
 }
