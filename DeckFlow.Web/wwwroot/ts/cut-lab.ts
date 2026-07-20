@@ -34,6 +34,71 @@ interface CutLabStateSnapshot {
   roleFloors: CutLabRoleFloorSnapshot[];
 }
 
+type CutLabDecisionAction = 'accept' | 'reject' | 'defer' | 'restore';
+type CutLabMetricDirection = 'Up' | 'Down' | 'None';
+type CutLabMetricKind =
+  | 'CommanderOnTime'
+  | 'KeepableHand'
+  | 'ManaColorReliability'
+  | 'EarlyInteraction'
+  | 'PlanPresence'
+  | 'CommanderByTurn'
+  | 'EngineByTurn'
+  | 'RepresentativeLineByTurn'
+  | 'Flood'
+  | 'Screw'
+  | 'Curve';
+
+interface CutLabDecisionNextProposal {
+  isTerminal: boolean;
+  isAtTarget: boolean;
+  isNothingToCut: boolean;
+  cardName: string;
+  roundKey: string;
+  roundLabel: string;
+  findingCount: number;
+  findingChips: string[];
+}
+
+interface CutLabDecisionMetricDelta {
+  kind: CutLabMetricKind;
+  label: string;
+  before: number;
+  after: number;
+  delta: number;
+  direction: CutLabMetricDirection;
+  isMeaningful: boolean;
+}
+
+interface CutLabDecisionProposalDeltas {
+  cardName: string;
+  changedFamilyCount: number;
+  deltas: CutLabDecisionMetricDelta[];
+}
+
+interface CutLabDecisionFloorWarning {
+  role: string;
+  newCount: number;
+  floor: number;
+  message: string;
+}
+
+interface CutLabDecisionCutRecord {
+  cardName: string;
+  roundKey: string;
+  roundLabel: string;
+  ordinal: number;
+}
+
+interface CutLabDecisionResponse {
+  cutLabStateJson: string;
+  nextProposal: CutLabDecisionNextProposal;
+  proposalDeltas: CutLabDecisionProposalDeltas | null;
+  floorWarnings: CutLabDecisionFloorWarning[];
+  cardsRemaining: number;
+  cutsMade: CutLabDecisionCutRecord[];
+}
+
 type PackageCheckboxState = 'checked' | 'unchecked' | 'indeterminate';
 
 interface CutLabFloorDomRow {
@@ -58,6 +123,12 @@ interface PendingNewPackageTarget {
 
 const newPackageOptionValue = '__new__';
 const unlockedPoolOptionValue = '';
+const cutLabAntiForgeryFieldName = '__RequestVerificationToken';
+const cutLabDecisionApiEndpoint = '/api/cut-lab/decide';
+const cutLabDecisionTimeoutMs = 3000;
+const cutLabDecisionBusyCopy = 'Recalculating…';
+const cutLabDecisionErrorCopy = "Couldn't recalculate this cut — nothing changed. Try again.";
+const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try again in a moment.';
 
 (function (root: CutLabRoot): void {
   const api: CutLabApi = {
@@ -132,6 +203,7 @@ const unlockedPoolOptionValue = '';
   let pendingNewPackageTarget: PendingNewPackageTarget | null = null;
   let generatedPackageCounter = 0;
   let packageHandlersAttached = false;
+  let decisionHandlersAttached = false;
 
   const getForm = (): HTMLFormElement | null =>
     document.querySelector<HTMLFormElement>('form[data-cache-key="cut-lab"]');
@@ -139,8 +211,34 @@ const unlockedPoolOptionValue = '';
   const getStateInput = (form: HTMLFormElement): HTMLInputElement | null =>
     form.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]');
 
+  const getDecisionStateInputs = (): HTMLInputElement[] =>
+    Array.from(document.querySelectorAll<HTMLInputElement>('input[name="CutLabStateJson"]'));
+
   const getPoolRows = (): HTMLTableRowElement[] =>
     Array.from(document.querySelectorAll<HTMLTableRowElement>('tr[data-cut-lab-card]'));
+
+  const getCutRoundsSection = (): HTMLElement | null =>
+    Array.from(document.querySelectorAll<HTMLElement>('section.result-panel'))
+      .find(section => section.querySelector('.cutlab-proposal, .cutlab-sticky-bar, .cutlab-round-banner') !== null)
+      ?? null;
+
+  const getStickyRound = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cut-lab-sticky-round]');
+
+  const getStickyRemaining = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cut-lab-sticky-remaining]');
+
+  const getStickyAccepted = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cut-lab-sticky-accepted]');
+
+  const getRoundBanner = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('.cutlab-round-banner');
+
+  const getProposalCard = (): HTMLDivElement | null =>
+    document.querySelector<HTMLDivElement>('.cutlab-proposal');
+
+  const getCutsMadeDetails = (): HTMLDetailsElement | null =>
+    document.querySelector<HTMLDetailsElement>('details.cutlab-cuts-made');
 
   const getPackageContainers = (): HTMLDivElement[] =>
     Array.from(document.querySelectorAll<HTMLDivElement>('[data-cut-lab-package-id]'));
@@ -399,6 +497,580 @@ const unlockedPoolOptionValue = '';
     }
 
     stateInput.value = api.buildCutLabStateJson(buildSnapshotFromDom());
+  };
+
+  const writeDecisionStateToHiddenInputs = (serializedState: string): void => {
+    getDecisionStateInputs().forEach(input => {
+      input.value = serializedState;
+    });
+  };
+
+  const getDecisionInput = (form: HTMLFormElement): HTMLInputElement | null =>
+    form.querySelector<HTMLInputElement>('input[name="Decision"]');
+
+  const getCardNameInput = (form: HTMLFormElement): HTMLInputElement | null =>
+    form.querySelector<HTMLInputElement>('input[name="CardName"]');
+
+  const getRoundKeyInput = (form: HTMLFormElement): HTMLInputElement | null =>
+    form.querySelector<HTMLInputElement>('input[name="RoundKey"]');
+
+  const getAntiForgeryToken = (form: HTMLFormElement): string =>
+    form.querySelector<HTMLInputElement>(`input[name="${cutLabAntiForgeryFieldName}"]`)?.value ?? '';
+
+  const isDecisionForm = (form: HTMLFormElement): boolean => {
+    const decision = getDecisionInput(form)?.value.trim().toLowerCase();
+    return decision === 'accept' || decision === 'reject' || decision === 'defer' || decision === 'restore';
+  };
+
+  const isDecisionDirection = (direction: CutLabMetricDirection): direction is 'Up' | 'Down' | 'None' =>
+    direction === 'Up' || direction === 'Down' || direction === 'None';
+
+  const deltaClassFor = (direction: CutLabMetricDirection): string => {
+    switch (direction) {
+      case 'Up':
+        return 'cutlab-delta__value--up';
+      case 'Down':
+        return 'cutlab-delta__value--down';
+      default:
+        return 'cutlab-delta__value--none';
+    }
+  };
+
+  const glyphFor = (direction: CutLabMetricDirection): string => {
+    switch (direction) {
+      case 'Up':
+        return '▲';
+      case 'Down':
+        return '▼';
+      default:
+        return '';
+    }
+  };
+
+  const metricUsesCardUnit = (kind: CutLabMetricKind): boolean =>
+    kind === 'Flood' || kind === 'Screw' || kind === 'Curve';
+
+  const formatCardValue = (value: number): string => {
+    const rounded = Math.round(Math.abs(value));
+    return `${rounded} card${rounded === 1 ? '' : 's'}`;
+  };
+
+  const formatDeltaToken = (delta: number, kind: CutLabMetricKind, includeDirectionGlyph = true): string => {
+    const magnitude = Math.abs(delta);
+    const prefix = includeDirectionGlyph ? glyphFor(delta > 0 ? 'Up' : delta < 0 ? 'Down' : 'None') : '';
+    return metricUsesCardUnit(kind) ? `${prefix}${formatCardValue(magnitude)}` : `${prefix}${magnitude.toFixed(1)}%`;
+  };
+
+  const directionVerbFor = (direction: CutLabMetricDirection): string =>
+    direction === 'Down' ? 'lowers' : 'raises';
+
+  const roundBannerBodyFor = (roundKey: string): string => {
+    switch (roundKey) {
+      case 'round-1':
+        return 'Cards flagged by 2 or more structural findings from the section above.';
+      case 'round-2':
+        return 'Cards flagged by exactly one structural finding.';
+      case 'round-3':
+        return 'Everything else, ordered by smallest measurable tradeoff first.';
+      case 'second-pass-deferred':
+      case 'second-pass-rejected':
+        return 'Still over 100 cards. These were deferred or kept earlier; take another look.';
+      default:
+        return '';
+    }
+  };
+
+  const createTextElement = <T extends keyof HTMLElementTagNameMap>(
+    tagName: T,
+    className: string,
+    text: string,
+  ): HTMLElementTagNameMap[T] => {
+    const element = document.createElement(tagName);
+    if (className !== '') {
+      element.className = className;
+    }
+
+    element.textContent = text;
+    return element;
+  };
+
+  const replaceChildren = (element: Element, children: Node[]): void => {
+    while (element.firstChild) {
+      element.removeChild(element.firstChild);
+    }
+
+    children.forEach(child => {
+      element.appendChild(child);
+    });
+  };
+
+  const renderRoundBanner = (nextProposal: CutLabDecisionNextProposal): void => {
+    const banner = getRoundBanner();
+    if (!banner) {
+      return;
+    }
+
+    if (nextProposal.isTerminal) {
+      banner.remove();
+      return;
+    }
+
+    replaceChildren(banner, [
+      createTextElement('p', 'cutlab-finding__heading', nextProposal.roundLabel),
+      createTextElement('p', '', roundBannerBodyFor(nextProposal.roundKey)),
+    ]);
+  };
+
+  const appendDeltaLine = (
+    container: HTMLElement,
+    cardName: string,
+    delta: CutLabDecisionMetricDelta,
+  ): void => {
+    const line = document.createElement('div');
+    line.className = 'cutlab-delta__line';
+
+    const sentence = document.createElement('span');
+    sentence.className = 'cutlab-delta__sentence';
+    sentence.textContent = delta.isMeaningful
+      ? `cutting ${cardName} ${directionVerbFor(delta.direction)} ${delta.label.toLowerCase()} by ${formatDeltaToken(delta.delta, delta.kind, false)}.`
+      : `${delta.label}: no meaningful change`;
+
+    const value = document.createElement('span');
+    value.className = `cutlab-delta__value ${deltaClassFor(delta.direction)}`;
+    if (delta.direction !== 'None') {
+      const glyph = document.createElement('span');
+      glyph.setAttribute('aria-hidden', 'true');
+      glyph.textContent = glyphFor(delta.direction);
+      value.appendChild(glyph);
+    }
+
+    const token = document.createElement('span');
+    token.className = deltaClassFor(delta.direction);
+    token.textContent = delta.isMeaningful ? formatDeltaToken(delta.delta, delta.kind, false) : formatDeltaToken(0, delta.kind, false);
+    value.appendChild(token);
+
+    line.appendChild(sentence);
+    line.appendChild(value);
+    container.appendChild(line);
+  };
+
+  const createDecisionForm = (
+    action: CutLabDecisionAction,
+    buttonText: string,
+    buttonClassName: string,
+    cardName: string,
+    roundKey: string,
+    serializedState: string,
+    antiForgeryToken: string,
+  ): HTMLFormElement => {
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.action = '/cut-lab/decide';
+
+    const appendHiddenInput = (name: string, value: string): void => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = name;
+      input.value = value;
+      form.appendChild(input);
+    };
+
+    if (antiForgeryToken !== '') {
+      appendHiddenInput(cutLabAntiForgeryFieldName, antiForgeryToken);
+    }
+
+    appendHiddenInput('CutLabStateJson', serializedState);
+    appendHiddenInput('CardName', cardName);
+    appendHiddenInput('RoundKey', roundKey);
+    appendHiddenInput('Decision', action);
+
+    const button = document.createElement('button');
+    button.type = 'submit';
+    button.className = `cutlab-decision-btn ${buttonClassName}`;
+    button.setAttribute('aria-label', `${buttonText} for ${cardName}`);
+    button.dataset.cutLabDecision = action;
+    button.dataset.cutLabCard = cardName;
+    button.textContent = buttonText;
+    form.appendChild(button);
+
+    return form;
+  };
+
+  const createRestoreForm = (
+    cut: CutLabDecisionCutRecord,
+    serializedState: string,
+    antiForgeryToken: string,
+  ): HTMLFormElement => {
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.action = '/cut-lab/decide';
+
+    const appendHiddenInput = (name: string, value: string): void => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = name;
+      input.value = value;
+      form.appendChild(input);
+    };
+
+    if (antiForgeryToken !== '') {
+      appendHiddenInput(cutLabAntiForgeryFieldName, antiForgeryToken);
+    }
+
+    appendHiddenInput('CutLabStateJson', serializedState);
+    appendHiddenInput('CardName', cut.cardName);
+    appendHiddenInput('RoundKey', cut.roundKey);
+    appendHiddenInput('Decision', 'restore');
+
+    const button = document.createElement('button');
+    button.type = 'submit';
+    button.className = 'cutlab-restore-btn';
+    button.setAttribute('aria-label', `Restore ${cut.cardName}`);
+    button.dataset.cutLabRestore = '';
+    button.dataset.cutLabCard = cut.cardName;
+    button.textContent = 'Restore';
+    form.appendChild(button);
+
+    return form;
+  };
+
+  const ensureCutsMadeSection = (): HTMLDetailsElement | null => {
+    const existing = getCutsMadeDetails();
+    if (existing) {
+      return existing;
+    }
+
+    const cutRoundsSection = getCutRoundsSection();
+    if (!cutRoundsSection || !cutRoundsSection.parentElement) {
+      return null;
+    }
+
+    const section = document.createElement('section');
+    section.className = 'result-panel';
+
+    const panelHeading = document.createElement('div');
+    panelHeading.className = 'panel-heading';
+    const headingCopy = document.createElement('div');
+    headingCopy.appendChild(createTextElement('h2', '', 'Cuts made'));
+    headingCopy.appendChild(createTextElement('p', '', 'Every accepted cut, restorable any time — order doesn\'t matter.'));
+    panelHeading.appendChild(headingCopy);
+
+    const details = document.createElement('details');
+    details.className = 'cutlab-cuts-made';
+
+    const summary = document.createElement('summary');
+    details.appendChild(summary);
+
+    section.appendChild(panelHeading);
+    section.appendChild(details);
+    cutRoundsSection.insertAdjacentElement('afterend', section);
+    return details;
+  };
+
+  const renderCutsMade = (
+    cutsMade: CutLabDecisionCutRecord[],
+    serializedState: string,
+    antiForgeryToken: string,
+  ): void => {
+    const existing = getCutsMadeDetails();
+    if (cutsMade.length === 0) {
+      existing?.closest('section.result-panel')?.remove();
+      return;
+    }
+
+    const details = ensureCutsMadeSection();
+    if (!details) {
+      return;
+    }
+
+    details.open = cutsMade.length <= 5;
+
+    const summary = details.querySelector('summary') ?? document.createElement('summary');
+    summary.textContent = `Cuts made · ${cutsMade.length} cards`;
+    if (!summary.parentElement) {
+      details.appendChild(summary);
+    }
+
+    Array.from(details.querySelectorAll('.cutlab-cuts-made__row')).forEach(row => {
+      row.remove();
+    });
+
+    cutsMade.forEach(cut => {
+      const row = document.createElement('div');
+      row.className = 'cutlab-cuts-made__row';
+      row.appendChild(createTextElement('span', '', cut.cardName));
+      row.appendChild(createTextElement('span', 'prompt-size-note', `cut in ${cut.roundLabel}`));
+      row.appendChild(createRestoreForm(cut, serializedState, antiForgeryToken));
+      details.appendChild(row);
+    });
+  };
+
+  const renderFloorWarnings = (proposal: HTMLDivElement, warnings: CutLabDecisionFloorWarning[]): void => {
+    proposal.querySelectorAll('.cutlab-proposal__floor-warning').forEach(node => {
+      node.remove();
+    });
+
+    warnings.forEach(warning => {
+      const warningPanel = document.createElement('div');
+      warningPanel.className = 'cutlab-finding cutlab-proposal__floor-warning';
+      warningPanel.appendChild(createTextElement('p', 'cutlab-finding__lead', warning.message));
+      proposal.appendChild(warningPanel);
+    });
+  };
+
+  const renderProposalTerminalState = (proposal: HTMLDivElement, heading: string, body: string): void => {
+    proposal.removeAttribute('data-cut-lab-card');
+    proposal.removeAttribute('data-cut-lab-round');
+    replaceChildren(proposal, [
+      createTextElement('p', 'cutlab-proposal__heading', heading),
+      createTextElement('p', '', body),
+    ]);
+  };
+
+  const renderProposalCard = (
+    response: CutLabDecisionResponse,
+    antiForgeryToken: string,
+  ): void => {
+    const proposal = getProposalCard();
+    if (!proposal) {
+      return;
+    }
+
+    const nextProposal = response.nextProposal;
+    if (nextProposal.isTerminal) {
+      renderProposalTerminalState(
+        proposal,
+        nextProposal.isAtTarget ? "You're at 100 cards" : 'Nothing to cut',
+        nextProposal.isAtTarget
+          ? 'Review the cuts you made below, or reopen a card from the Cuts made list if you want to reconsider.'
+          : 'Every remaining card is either locked or your working list is already at 100 cards. Review your locks and packages above, or adjust a role floor if you want to reconsider.',
+      );
+      renderFloorWarnings(proposal, []);
+      return;
+    }
+
+    proposal.dataset.cutLabCard = nextProposal.cardName;
+    proposal.dataset.cutLabRound = nextProposal.roundKey;
+    proposal.textContent = '';
+
+    proposal.appendChild(createTextElement('p', 'cutlab-proposal__heading', `Proposed cut: ${nextProposal.cardName}`));
+
+    const evidence = document.createElement('div');
+    evidence.className = 'cutlab-proposal__evidence';
+    evidence.appendChild(createTextElement(
+      'p',
+      '',
+      nextProposal.findingCount > 0
+        ? `Flagged by ${nextProposal.findingCount} findings:`
+        : 'No structural finding flags this card — it\'s a preference call.',
+    ));
+
+    if (nextProposal.findingChips.length > 0) {
+      const chips = document.createElement('div');
+      chips.className = 'kb-chip-area__chips';
+      nextProposal.findingChips.forEach(chipText => {
+        chips.appendChild(createTextElement('span', 'kb-chip', chipText));
+      });
+      evidence.appendChild(chips);
+    }
+
+    proposal.appendChild(evidence);
+
+    if (response.proposalDeltas) {
+      const changedLines = response.proposalDeltas.deltas.filter(delta => delta.isMeaningful && isDecisionDirection(delta.direction));
+      const deltaSummary = document.createElement('div');
+      deltaSummary.className = 'cutlab-delta';
+      deltaSummary.appendChild(createTextElement('p', '', `${response.proposalDeltas.changedFamilyCount} of 7 metric families changed meaningfully.`));
+      changedLines.forEach(delta => {
+        appendDeltaLine(deltaSummary, nextProposal.cardName, delta);
+      });
+      proposal.appendChild(deltaSummary);
+
+      const details = document.createElement('details');
+      details.dataset.cutLabDeltaExpander = '';
+      details.appendChild(createTextElement('summary', '', 'Show full metric breakdown'));
+      const fullDelta = document.createElement('div');
+      fullDelta.className = 'cutlab-delta';
+      response.proposalDeltas.deltas.forEach(delta => {
+        appendDeltaLine(fullDelta, nextProposal.cardName, delta);
+      });
+      details.appendChild(fullDelta);
+      proposal.appendChild(details);
+    } else {
+      const unavailable = document.createElement('div');
+      unavailable.className = 'cutlab-finding cutlab-proposal__floor-warning';
+      unavailable.appendChild(createTextElement('p', 'cutlab-finding__lead', cutLabDecisionErrorCopy));
+      proposal.appendChild(unavailable);
+    }
+
+    renderFloorWarnings(proposal, response.floorWarnings);
+
+    const actions = document.createElement('div');
+    actions.className = 'cutlab-proposal__actions';
+    actions.appendChild(createDecisionForm('accept', 'Accept cut', 'cutlab-decision-btn--accept', nextProposal.cardName, nextProposal.roundKey, response.cutLabStateJson, antiForgeryToken));
+    actions.appendChild(createDecisionForm('reject', 'Reject cut', 'cutlab-decision-btn--reject', nextProposal.cardName, nextProposal.roundKey, response.cutLabStateJson, antiForgeryToken));
+    actions.appendChild(createDecisionForm('defer', 'Defer decision', 'cutlab-decision-btn--defer', nextProposal.cardName, nextProposal.roundKey, response.cutLabStateJson, antiForgeryToken));
+    proposal.appendChild(actions);
+  };
+
+  const renderDecisionError = (form: HTMLFormElement, message: string): void => {
+    const proposal = form.closest<HTMLDivElement>('.cutlab-proposal');
+    if (!proposal) {
+      return;
+    }
+
+    let errorLine = proposal.querySelector<HTMLElement>('[data-cut-lab-decision-error]');
+    if (!errorLine) {
+      errorLine = document.createElement('p');
+      errorLine.dataset.cutLabDecisionError = 'true';
+      errorLine.className = 'cutlab-degradation-note';
+      proposal.appendChild(errorLine);
+    }
+
+    errorLine.textContent = message;
+  };
+
+  const clearDecisionError = (): void => {
+    document.querySelectorAll<HTMLElement>('[data-cut-lab-decision-error]').forEach(element => {
+      element.remove();
+    });
+  };
+
+  const patchStickyBar = (response: CutLabDecisionResponse): void => {
+    if (getStickyRound()) {
+      getStickyRound()!.textContent = response.nextProposal.roundLabel;
+    }
+
+    if (getStickyRemaining()) {
+      getStickyRemaining()!.textContent = `${response.cardsRemaining} to cut`;
+    }
+
+    if (getStickyAccepted()) {
+      getStickyAccepted()!.textContent = `${response.cutsMade.length} cut so far`;
+    }
+  };
+
+  const extractDecisionPayload = (form: HTMLFormElement): { cutLabStateJson: string; cardName: string; decision: CutLabDecisionAction } | null => {
+    const stateInput = getStateInput(form);
+    const cardNameInput = getCardNameInput(form);
+    const decisionInput = getDecisionInput(form);
+    const decision = decisionInput?.value.trim().toLowerCase();
+
+    if (!stateInput || !cardNameInput || !decisionInput) {
+      return null;
+    }
+
+    if (decision !== 'accept' && decision !== 'reject' && decision !== 'defer' && decision !== 'restore') {
+      return null;
+    }
+
+    return {
+      cutLabStateJson: stateInput.value,
+      cardName: cardNameInput.value,
+      decision,
+    };
+  };
+
+  const setSubmitterBusyState = (button: HTMLButtonElement): (() => void) => {
+    const originalText = button.textContent ?? '';
+    button.disabled = true;
+    button.textContent = '';
+
+    const spinner = document.createElement('span');
+    spinner.className = 'cutlab-busy-spinner';
+    spinner.setAttribute('aria-hidden', 'true');
+    const label = document.createElement('span');
+    label.textContent = cutLabDecisionBusyCopy;
+    button.appendChild(spinner);
+    button.appendChild(label);
+
+    return () => {
+      button.disabled = false;
+      button.textContent = originalText;
+    };
+  };
+
+  const setDecisionButtonsBusy = (form: HTMLFormElement, submitter: HTMLButtonElement | null): (() => void) => {
+    const proposal = form.closest<HTMLDivElement>('.cutlab-proposal');
+    const buttons = proposal
+      ? Array.from(proposal.querySelectorAll<HTMLButtonElement>('button[type="submit"]'))
+      : Array.from(form.querySelectorAll<HTMLButtonElement>('button[type="submit"]'));
+
+    buttons.forEach(button => {
+      button.disabled = true;
+    });
+
+    if (proposal) {
+      proposal.setAttribute('aria-busy', 'true');
+    }
+
+    const restoreSubmitter = submitter ? setSubmitterBusyState(submitter) : () => undefined;
+    return () => {
+      buttons.forEach(button => {
+        button.disabled = false;
+      });
+
+      restoreSubmitter();
+      proposal?.removeAttribute('aria-busy');
+    };
+  };
+
+  const readErrorMessage = async (response: Response): Promise<string> => {
+    try {
+      const payload = await response.json() as { message?: string; Message?: string };
+      return payload.message ?? payload.Message ?? cutLabDecisionErrorCopy;
+    } catch {
+      return cutLabDecisionErrorCopy;
+    }
+  };
+
+  const handleDecisionSubmit = async (form: HTMLFormElement, submitter: HTMLButtonElement | null): Promise<void> => {
+    const payload = extractDecisionPayload(form);
+    if (!payload) {
+      return;
+    }
+
+    clearDecisionError();
+
+    const antiForgeryToken = getAntiForgeryToken(form);
+    const restoreBusyState = setDecisionButtonsBusy(form, submitter);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), cutLabDecisionTimeoutMs);
+
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (antiForgeryToken !== '') {
+        headers.RequestVerificationToken = antiForgeryToken;
+      }
+
+      const response = await fetch(cutLabDecisionApiEndpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        renderDecisionError(form, await readErrorMessage(response));
+        return;
+      }
+
+      const data = await response.json() as CutLabDecisionResponse;
+      writeDecisionStateToHiddenInputs(data.cutLabStateJson);
+      patchStickyBar(data);
+      renderRoundBanner(data.nextProposal);
+      renderProposalCard(data, antiForgeryToken);
+      renderCutsMade(data.cutsMade, data.cutLabStateJson, antiForgeryToken);
+    } catch (error) {
+      renderDecisionError(form, error instanceof DOMException && error.name === 'AbortError'
+        ? cutLabDecisionTimeoutCopy
+        : cutLabDecisionErrorCopy);
+    } finally {
+      window.clearTimeout(timeoutId);
+      restoreBusyState();
+    }
   };
 
   const updatePackageContainerVisualState = (container: HTMLDivElement, state: PackageCheckboxState): void => {
@@ -823,6 +1495,27 @@ const unlockedPoolOptionValue = '';
     }
   };
 
+  const attachDecisionSubmitHandler = (): void => {
+    if (decisionHandlersAttached) {
+      return;
+    }
+
+    decisionHandlersAttached = true;
+
+    document.addEventListener('submit', event => {
+      const target = event.target;
+      if (!(target instanceof HTMLFormElement) || !isDecisionForm(target)) {
+        return;
+      }
+
+      event.preventDefault();
+      void handleDecisionSubmit(
+        target,
+        event instanceof SubmitEvent && event.submitter instanceof HTMLButtonElement ? event.submitter : null,
+      );
+    });
+  };
+
   const attachSubmitHandler = (): void => {
     const form = getForm();
     if (!form) {
@@ -842,6 +1535,7 @@ const unlockedPoolOptionValue = '';
 
     attachRowHandlers();
     attachPackageHandlers();
+    attachDecisionSubmitHandler();
     attachSubmitHandler();
     refreshAndSerialize();
   };
