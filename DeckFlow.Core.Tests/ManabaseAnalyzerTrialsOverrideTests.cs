@@ -58,6 +58,42 @@ public sealed class ManabaseAnalyzerTrialsOverrideTests
         Assert.NotNull(report.InteractionLens);
     }
 
+    [Fact]
+    public void Analyze_ReducedTrialsOverride_IsDeterministicAcrossRepeatedRuns()
+    {
+        ManabaseDeck deck = BuildDeck();
+
+        ManabaseReport first = ManabaseAnalyzer.Analyze(
+            deck,
+            ManabaseMode.Cedh,
+            keepShapes: true,
+            interactionLens: true,
+            trialsOverride: 2000);
+        ManabaseReport second = ManabaseAnalyzer.Analyze(
+            deck,
+            ManabaseMode.Cedh,
+            keepShapes: true,
+            interactionLens: true,
+            trialsOverride: 2000);
+
+        Assert.NotNull(first.MulliganEvaluation);
+        Assert.NotNull(second.MulliganEvaluation);
+
+        Assert.Equal(first.MulliganEvaluation!.KeepableHandPercent, second.MulliganEvaluation!.KeepableHandPercent);
+        Assert.Equal(first.LandDelta, second.LandDelta);
+        Assert.Equal(
+            first.MulliganEvaluation.PlanPresence?.PlanPresencePercent,
+            second.MulliganEvaluation.PlanPresence?.PlanPresencePercent);
+
+        Assert.Equal(
+            first.ColorFindings.Select(finding => (finding.Color, finding.AverageCastPercent)),
+            second.ColorFindings.Select(finding => (finding.Color, finding.AverageCastPercent)));
+
+        Assert.Equal(
+            first.Castability.Select(row => (row.Name, row.CastPercent, row.OnCurveTurn)),
+            second.Castability.Select(row => (row.Name, row.CastPercent, row.OnCurveTurn)));
+    }
+
     private static ManabaseDeck BuildDeck()
     {
         var sources = new List<ManaSource>();
