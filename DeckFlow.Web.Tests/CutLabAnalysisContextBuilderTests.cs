@@ -195,6 +195,93 @@ public sealed class CutLabAnalysisContextBuilderTests
         Assert.Equal(4, valueEngine.ManaValue);
     }
 
+    [Fact]
+    public async Task BuildAsync_AfterDecisionWithPreResolvedCards_UsesWarmCacheWithoutAdditionalResolverCalls()
+    {
+        IReadOnlyList<CutLabPoolCard> beforeWorkingList =
+        [
+            PoolCard("Focused Commander", "Legendary Creature — Human Wizard", isCommander: true),
+            PoolCard("Arcane Signet", "Artifact"),
+            PoolCard("Counterspell", "Instant"),
+        ];
+        IReadOnlyList<CutLabPoolCard> afterWorkingList =
+        [
+            PoolCard("Focused Commander", "Legendary Creature — Human Wizard", isCommander: true),
+            PoolCard("Counterspell", "Instant"),
+        ];
+        List<ScryfallCard> cards =
+        [
+            Spell("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{G}{U}", cmc: 3),
+            Spell("Arcane Signet", "Artifact", manaCost: "{2}", cmc: 2),
+            Spell("Counterspell", "Instant", manaCost: "{U}{U}", cmc: 2),
+        ];
+        var resolver = new CountingResolver(cards);
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache());
+
+        CutLabAnalysisContext beforeContext = await builder.BuildAsync(
+            beforeWorkingList,
+            "Focused",
+            ["Focused Commander"]);
+        CutLabAnalysisContext afterContext = await builder.BuildAsync(
+            afterWorkingList,
+            "Focused",
+            ["Focused Commander"],
+            preResolvedCards: beforeContext.ResolvedCards);
+
+        Assert.Equal(3, resolver.ResolveSingleCalls);
+        Assert.Equal(["Focused Commander", "Counterspell"], afterContext.ResolvedCards.Select(card => card.Name));
+    }
+
+    [Fact]
+    public async Task TrySeedDerivedPool_RestoreWithWarmFullPoolCache_AvoidsAdditionalResolverCalls()
+    {
+        IReadOnlyList<CutLabPoolCard> fullPool =
+        [
+            PoolCard("Focused Commander", "Legendary Creature — Human Wizard", isCommander: true),
+            PoolCard("Arcane Signet", "Artifact"),
+            PoolCard("Counterspell", "Instant"),
+        ];
+        IReadOnlyList<CutLabPoolCard> beforeRestoreWorkingList =
+        [
+            PoolCard("Focused Commander", "Legendary Creature — Human Wizard", isCommander: true),
+            PoolCard("Counterspell", "Instant"),
+        ];
+        var resolver = new CountingResolver(
+        [
+            Spell("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{G}{U}", cmc: 3),
+            Spell("Arcane Signet", "Artifact", manaCost: "{2}", cmc: 2),
+            Spell("Counterspell", "Instant", manaCost: "{U}{U}", cmc: 2),
+        ]);
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache());
+
+        CutLabAnalysisContext fullPoolContext = await builder.BuildAsync(
+            fullPool,
+            "Focused",
+            ["Focused Commander"]);
+        bool seededBeforeRestore = builder.TrySeedDerivedPool(
+            beforeRestoreWorkingList,
+            fullPoolContext.ResolvedCards,
+            out IReadOnlyList<ScryfallCardData>? beforeRestoreCards);
+        CutLabAnalysisContext beforeRestoreContext = await builder.BuildAsync(
+            beforeRestoreWorkingList,
+            "Focused",
+            ["Focused Commander"],
+            preResolvedCards: beforeRestoreCards);
+        bool seeded = builder.TrySeedDerivedPool(fullPool, fullPoolContext.ResolvedCards, out IReadOnlyList<ScryfallCardData>? restoredCards);
+        CutLabAnalysisContext restoredContext = await builder.BuildAsync(
+            fullPool,
+            "Focused",
+            ["Focused Commander"],
+            preResolvedCards: restoredCards);
+
+        Assert.True(seededBeforeRestore);
+        Assert.True(seeded);
+        Assert.NotNull(restoredCards);
+        Assert.Equal(3, resolver.ResolveSingleCalls);
+        Assert.Equal(2, beforeRestoreContext.ResolvedCards.Count);
+        Assert.Equal(3, restoredContext.ResolvedCards.Count);
+    }
+
     private static CutLabPoolCard PoolCard(string name, string typeLine, int quantity = 1, bool isCommander = false)
         => new()
         {

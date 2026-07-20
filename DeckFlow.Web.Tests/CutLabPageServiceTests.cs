@@ -6,6 +6,7 @@ using DeckFlow.Core.Parsing;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Extensions;
 using DeckFlow.Web.Models;
+using DeckFlow.Web.Models.Api;
 using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CutLab;
@@ -869,6 +870,92 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_DecisionRoundTripWithWarmCache_PerformsZeroAdditionalLiveResolves()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var resolver = new CountingNormalizerResolver(cards);
+        var cache = new CutLabResolvedCardCache();
+        var simulationService = new CutLabSimulationService(
+            cache,
+            new CutLabDeltaCache(),
+            resolver,
+            NullLogger<CutLabSimulationService>.Instance);
+        var analysisBuilder = new CutLabAnalysisContextBuilder(
+            resolver,
+            cache,
+            new FakeSpellbookService(),
+            new FakeCategoryKnowledgeStore());
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            resolver,
+            new FakeBanListService([]),
+            new FakeCategoryKnowledgeStore(),
+            new FakeSpellbookService(),
+            new FakeManabaseBaselineProvider(),
+            new FakeCedhLandBaselineProvider(),
+            analysisBuilder,
+            simulationService,
+            new CutLabBaselineSnapshot(simulationService));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            PlayExperience = "Focused",
+        };
+
+        CutLabProcessResult intake = await service.ProcessAsync(request);
+        int callsAfterIntake = resolver.ResolveSingleCallsByName.Values.Sum();
+        CutLabState state = CutLabStateSerializer.Deserialize(intake.SerializedStateJson);
+        state = CutLabDecisionApplier.Apply(state, "Card 001", CutLabDecideAction.Accept, CutLabCutRoundEngine.Round1Key);
+        request.CutLabStateJson = CutLabStateSerializer.Serialize(state);
+
+        CutLabProcessResult afterDecision = await service.ProcessAsync(request);
+
+        Assert.True(afterDecision.HasResult);
+        Assert.Equal(callsAfterIntake, resolver.ResolveSingleCallsByName.Values.Sum());
+    }
+
+    [Fact]
+    public void From_WhenProposalDeltasUnavailable_StillBuildsProposalCardWithFallbackMessage()
+    {
+        var request = new CutLabRequest();
+        var result = new CutLabProcessResult
+        {
+            HasResult = true,
+            State = new CutLabState
+            {
+                Pool =
+                [
+                    new CutLabPoolCard
+                    {
+                        Name = "Arcane Signet",
+                        Quantity = 1,
+                    },
+                ],
+            },
+            RoleAssignmentsByCardName = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase),
+            Findings = new CutLabStructuralFindingsResult([], true, true),
+            RoundPlan = new CutLabRoundPlan
+            {
+                Queue =
+                [
+                    new CutLabRoundQueueItem("Arcane Signet", CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round2Label, 1, []),
+                ],
+                NextProposal = new CutLabRoundQueueItem("Arcane Signet", CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round2Label, 1, []),
+                CardsRemainingToTarget = 1,
+            },
+            InitialProposalDeltas = null,
+        };
+
+        CutLabViewModel model = CutLabViewModel.From(request, result);
+
+        Assert.True(model.Proposal.HasProposal);
+        Assert.Equal("Arcane Signet", model.Proposal.CardName);
+        Assert.Equal("Couldn't recalculate this cut — nothing changed. Try again.", model.Proposal.DeltaUnavailableMessage);
+    }
+
+    [Fact]
     public async Task ProcessAsync_SpellbookFailure_FailsOpenAndLogsWarning()
     {
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
@@ -1403,7 +1490,15 @@ public sealed class CutLabPageServiceTests
                 comboDataAvailable,
                 categoryDataAvailable,
                 new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase),
-                new HashSet<string>(StringComparer.OrdinalIgnoreCase)));
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase)),
+            workingList
+                .Select(card => new ScryfallCardData
+                {
+                    Name = card.Name,
+                    TypeLine = card.TypeLine,
+                    Cmc = card.Name == commanderNames.FirstOrDefault() ? 4 : 2,
+                })
+                .ToArray());
     }
 
     private static CutLabMetricSnapshot BuildSevenMetricSnapshot(double seed)
@@ -1555,6 +1650,25 @@ public sealed class CutLabPageServiceTests
             BuildCalls++;
             LastWorkingListCount = workingList.Sum(card => card.Quantity);
             return Task.FromResult(factory(workingList, playExperience, commanderNames));
+        }
+
+        public bool TryGetCachedResolvedCards(IReadOnlyList<CutLabPoolCard> workingList, out IReadOnlyList<ScryfallCardData>? cards)
+        {
+            cards = null;
+            return false;
+        }
+
+        public bool TrySeedDerivedPool(
+            IReadOnlyList<CutLabPoolCard> workingList,
+            IReadOnlyList<ScryfallCardData> sourceCards,
+            out IReadOnlyList<ScryfallCardData>? seededCards)
+        {
+            seededCards = workingList
+                .Select(card => sourceCards.FirstOrDefault(source => string.Equals(source.Name, card.Name, StringComparison.OrdinalIgnoreCase)))
+                .Where(card => card is not null)
+                .Cast<ScryfallCardData>()
+                .ToArray();
+            return seededCards.Count == workingList.Count;
         }
     }
 
