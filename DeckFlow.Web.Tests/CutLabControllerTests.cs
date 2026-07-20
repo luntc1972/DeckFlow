@@ -178,6 +178,33 @@ public sealed class CutLabControllerTests
     }
 
     [Fact]
+    public async Task Decide_StateOnlyRequest_ReconstructsIntakeAndRendersWorkspace()
+    {
+        var service = new StateAwareCutLabPageService();
+        var controller = CreateController(service);
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()),
+        };
+
+        var result = await controller.Decide(request, "Arcane Signet", CutLabDecideAction.Accept, CutLabCutRoundEngine.Round1Key);
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("CutLab", view.ViewName);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        Assert.True(model.HasResult);
+        Assert.NotNull(model.Proposal);
+        Assert.Single(model.CutsMade);
+        Assert.Equal("Zur the Enchanter", service.LastRequest!.SelectedCommander);
+        Assert.Equal(3, service.LastRequest.Bracket);
+        Assert.Equal("Focused", service.LastRequest.PlayExperience);
+        Assert.Contains("Commander", service.LastRequest.DeckText, StringComparison.Ordinal);
+        Assert.Contains("1 Zur the Enchanter", service.LastRequest.DeckText, StringComparison.Ordinal);
+        Assert.Contains("1 Arcane Signet", service.LastRequest.DeckText, StringComparison.Ordinal);
+        Assert.Contains("99 Counterspell", service.LastRequest.DeckText, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Decide_RequiresFeatureGateAndAntiforgery_AndReturnsErrorViewForMissingState()
     {
         var method = typeof(CutLabController).GetMethod(nameof(CutLabController.Decide));
@@ -226,15 +253,45 @@ public sealed class CutLabControllerTests
             => Task.FromException<CutLabProcessResult>(exception);
     }
 
+    private sealed class StateAwareCutLabPageService : ICutLabPageService
+    {
+        public CutLabRequest? LastRequest { get; private set; }
+
+        public Task<CutLabProcessResult> ProcessAsync(CutLabRequest request, CancellationToken cancellationToken = default)
+        {
+            LastRequest = request;
+            if (string.IsNullOrWhiteSpace(request.DeckText))
+            {
+                return Task.FromResult(new CutLabProcessResult());
+            }
+
+            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            return Task.FromResult(new CutLabProcessResult
+            {
+                State = state,
+                SerializedStateJson = request.CutLabStateJson,
+                CardCount = 100,
+                HasResult = true,
+                IsLegal = true,
+                Findings = new CutLabStructuralFindingsResult([], true, true),
+                RoundPlan = new CutLabRoundPlan
+                {
+                    Queue = [],
+                    CardsRemainingToTarget = 0,
+                },
+            });
+        }
+    }
+
     private static CutLabState CreateState(params CutLabDecision[] decisions)
         => new()
         {
-            Commander = "Commander",
+            Commander = "Zur the Enchanter",
             Pool =
             [
                 new CutLabPoolCard
                 {
-                    Name = "Commander",
+                    Name = "Zur the Enchanter",
                     Quantity = 1,
                     TypeLine = "Legendary Creature",
                     IsCommander = true,
@@ -249,13 +306,14 @@ public sealed class CutLabControllerTests
                 new CutLabPoolCard
                 {
                     Name = "Counterspell",
-                    Quantity = 100,
+                    Quantity = 99,
                     TypeLine = "Instant",
                 },
             ],
             Decisions = decisions,
             Intent = new CutLabIntent
             {
+                PrimaryPlan = "Value enchantments",
                 PlayExperience = "Focused",
                 Bracket = 3,
             },
