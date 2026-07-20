@@ -62,6 +62,22 @@ public sealed class CutLabDeltaCacheTests
         Assert.Null(deltas);
     }
 
+    /// <summary>Card-name cache keys are case-insensitive to avoid duplicate proposal sims.</summary>
+    [Fact]
+    public void TryGet_SameCardNameDifferentCase_HitsStoredDeltas()
+    {
+        var cache = new CutLabDeltaCache();
+        string poolKey = CutLabResolvedCardCache.ComputePoolKey([("Mana Crypt", 1), ("Island", 3)]);
+        var deltas = CreateProposalDeltas("Mana Crypt", "short");
+
+        cache.Set(poolKey, "Mana Crypt", deltas);
+
+        bool found = cache.TryGet(poolKey, "mana crypt", out var cachedDeltas);
+
+        Assert.True(found);
+        Assert.Same(deltas, cachedDeltas);
+    }
+
     /// <summary>Entries larger than the configured cache budget are not retained.</summary>
     [Fact]
     public void Set_EntryLargerThanSizeLimit_DoesNotRetainDeltas()
