@@ -168,7 +168,7 @@ test('saves a named scenario, then restores the saved session after a fresh impo
   await expect(page.locator('tr[data-cut-lab-card="Rhystic Study"] input[data-cut-lab-lock-card]')).toBeChecked();
   await expect(page.locator('[data-cut-lab-sticky-accepted]')).toContainText('1 cut so far');
   await expect(page.locator('.cutlab-cuts-made__row').filter({ hasText: acceptedCard })).toContainText(acceptedCard);
-  expect(await page.locator('select[data-cut-lab-whatif-card-in] option').allTextContents()).toContain(acceptedCard);
+  expect((await page.locator('select[data-cut-lab-whatif-card-in] option').allTextContents()).map(text => text.trim())).toContain(acceptedCard);
   await expect(getScenarioRow(page, scenarioName)).toBeVisible();
 });
 
