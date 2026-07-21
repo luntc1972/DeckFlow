@@ -405,6 +405,7 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
   let whatifHandlersAttached = false;
   let decisionSubmitInFlight = false;
   let whatifSubmitInFlight = false;
+  let copyHandlersAttached = false;
 
   const getForm = (): HTMLFormElement | null =>
     document.querySelector<HTMLFormElement>('form[data-cache-key="cut-lab"]');
@@ -2538,6 +2539,62 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     });
   };
 
+  const copyExportText = async (button: HTMLButtonElement): Promise<void> => {
+    const targetId = button.dataset.copyTarget?.trim();
+    if (!targetId) {
+      return;
+    }
+
+    const target = document.getElementById(targetId);
+    if (!(target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement || target instanceof HTMLElement)) {
+      return;
+    }
+
+    const text = target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement
+      ? target.value
+      : target.textContent ?? '';
+    if (text.trim().length === 0) {
+      return;
+    }
+
+    const originalLabel = button.textContent ?? 'Copy';
+
+    try {
+      await navigator.clipboard.writeText(text);
+      button.textContent = 'Copied';
+      button.classList.add('is-copied');
+    } catch {
+      button.textContent = 'Copy failed';
+      button.classList.add('is-copy-failed');
+    }
+
+    window.setTimeout(() => {
+      button.textContent = originalLabel;
+      button.classList.remove('is-copied', 'is-copy-failed');
+    }, 1500);
+  };
+
+  const attachCopyHandlers = (): void => {
+    if (copyHandlersAttached) {
+      return;
+    }
+
+    copyHandlersAttached = true;
+
+    document.addEventListener('click', event => {
+      const target = event.target;
+      const button = target instanceof HTMLElement
+        ? target.closest<HTMLButtonElement>('button[data-copy-target]')
+        : null;
+      if (!(button instanceof HTMLButtonElement) || button.disabled) {
+        return;
+      }
+
+      event.preventDefault();
+      void copyExportText(button);
+    });
+  };
+
   const attachSubmitHandler = (): void => {
     const form = getForm();
     if (!form) {
@@ -2561,6 +2618,7 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     attachGoalSubmitHandler();
     attachScenarioHandlers();
     attachWhatifSubmitHandler();
+    attachCopyHandlers();
     attachSubmitHandler();
     refreshAndSerialize();
     renderScenarioList();

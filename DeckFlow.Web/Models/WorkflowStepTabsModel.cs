@@ -4,7 +4,9 @@ namespace DeckFlow.Web.Models;
 /// <param name="Step">One-based step number represented by the tab.</param>
 /// <param name="Label">Display label for the workflow tab.</param>
 /// <param name="IsComplete">Whether the workflow step has been completed.</param>
-public sealed record WorkflowStepTab(int Step, string Label, bool IsComplete);
+/// <param name="IsEnabled">Whether the workflow step can be activated.</param>
+/// <param name="SubmitFormId">Optional form id to bind as a submit activator instead of a client-side button.</param>
+public sealed record WorkflowStepTab(int Step, string Label, bool IsComplete, bool IsEnabled = true, string? SubmitFormId = null);
 
 /// <summary>Configuration for rendering shared workflow step tabs.</summary>
 /// <param name="AriaLabel">Accessible label for the tab list.</param>

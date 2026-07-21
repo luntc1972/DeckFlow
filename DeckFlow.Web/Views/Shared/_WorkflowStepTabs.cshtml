@@ -3,24 +3,34 @@
     // WDG-03 (Phase 11 Sweep 9): pre-select the current step server-side so keyboard users
     // have a valid tablist entry point even when JavaScript fails or is disabled.
     // ARIA tablist pattern requires exactly one tab with aria-selected="true" tabindex="0".
-    // The model exposes per-step IsComplete; the natural "current step" is the first
-    // not-yet-complete step (the user's next action). If every step is complete, fall back
-    // to step 1 so the tablist still has a focusable entry point.
-    var firstIncomplete = Model.Steps.FirstOrDefault(s => !s.IsComplete);
-    var currentStep = firstIncomplete?.Step ?? (Model.Steps.Count > 0 ? Model.Steps[0].Step : 0);
+    // The model exposes per-step IsComplete/IsEnabled; the natural "current step" is the first
+    // enabled step that is not yet complete (the user's next action). If every enabled step is
+    // complete, fall back to the first enabled step, then step 1 so the tablist still has a
+    // focusable entry point.
+    var firstIncomplete = Model.Steps.FirstOrDefault(s => !s.IsComplete && s.IsEnabled);
+    var firstEnabled = Model.Steps.FirstOrDefault(s => s.IsEnabled);
+    var currentStep = firstIncomplete?.Step ?? firstEnabled?.Step ?? (Model.Steps.Count > 0 ? Model.Steps[0].Step : 0);
 }
 
 <div class="prompt-step-nav" role="tablist" aria-label="@Model.AriaLabel">
     @foreach (var step in Model.Steps)
     {
         var cls = step.IsComplete ? "prompt-step-tab is-complete" : "prompt-step-tab";
-        <button type="button"
+        if (!step.IsEnabled)
+        {
+            cls += " is-disabled";
+        }
+
+        <button type="@(step.SubmitFormId is null ? "button" : "submit")"
                 class="@cls"
                 role="tab"
                 id="@($"{Model.TabIdPrefix}-{step.Step}")"
                 aria-controls="@($"{Model.PanelIdPrefix}-{step.Step}")"
                 aria-selected="@(step.Step == currentStep ? "true" : "false")"
                 tabindex="@(step.Step == currentStep ? "0" : "-1")"
+                aria-disabled="@(!step.IsEnabled ? "true" : "false")"
+                disabled="@(!step.IsEnabled ? "disabled" : null)"
+                form="@step.SubmitFormId"
                 data-@(Model.DataShowStepAttribute)="@step.Step"><span class="prompt-step-tab__num" aria-hidden="true">@step.Step</span><span class="prompt-step-tab__label">@step.Label</span></button>
     }
 </div>

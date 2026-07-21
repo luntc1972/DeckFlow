@@ -1980,6 +1980,17 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
     display: none;
 }
 
+.prompt-step-tab.is-disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.prompt-step-tab.is-disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
 .ai-selector__heading {
     font-size: var(--fs-lg);
     font-weight: 600;
@@ -4354,6 +4365,61 @@ input[data-cut-lab-floor] {
   margin-top: 1rem;
 }
 
+.cutlab-export {
+  display: grid;
+  gap: 1rem;
+}
+
+.cutlab-export__summary {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.cutlab-export__status,
+.cutlab-export__warning {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 94%, var(--accent) 6%);
+}
+
+.cutlab-export__warning ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.cutlab-export__hint {
+  margin: 0;
+  color: var(--muted, inherit);
+}
+
+.cutlab-export__copy-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.cutlab-export__block {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 96%, var(--accent) 4%);
+}
+
+.cutlab-export__textarea {
+  min-height: 14rem;
+  resize: vertical;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Consolas, monospace);
+}
+
+.cutlab-export__actions {
+  margin-top: 0.25rem;
+}
+
 input[data-cut-lab-goal] {
   width: 5.5rem;
   min-height: 44px;
@@ -4626,6 +4692,10 @@ input[data-cut-lab-floor]:focus-visible {
   }
 
   .cutlab-whatif {
+    grid-template-columns: 1fr;
+  }
+
+  .cutlab-export__copy-grid {
     grid-template-columns: 1fr;
   }
 

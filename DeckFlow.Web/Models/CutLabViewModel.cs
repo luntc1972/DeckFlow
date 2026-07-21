@@ -107,6 +107,9 @@ public sealed record CutLabViewModel
     /// <summary>Server-rendered what-if preview state for the no-JS swap flow.</summary>
     public CutLabWhatifPreviewView Whatif { get; init; } = new();
 
+    /// <summary>Server-rendered export state for the no-JS export flow.</summary>
+    public CutLabExportView Export { get; init; } = new();
+
     /// <summary>Working-list card options eligible to be swapped out.</summary>
     public IReadOnlyList<string> WhatifCardOutOptions { get; init; } = [];
 
@@ -131,10 +134,12 @@ public sealed record CutLabViewModel
     /// <param name="request">Current request values.</param>
     /// <param name="result">Processed Cut Lab result.</param>
     /// <param name="whatif">Optional server-rendered what-if preview state.</param>
+    /// <param name="export">Optional server-rendered export state.</param>
     public static CutLabViewModel From(
         CutLabRequest request,
         CutLabProcessResult result,
-        CutLabWhatifPreviewView? whatif = null)
+        CutLabWhatifPreviewView? whatif = null,
+        CutLabExportView? export = null)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(result);
@@ -212,6 +217,7 @@ public sealed record CutLabViewModel
             CutsMade = cutsMade,
             CompareRows = compareRows,
             Whatif = whatif ?? new(),
+            Export = export ?? new(),
             WhatifCardOutOptions = whatifCardOutOptions,
             WhatifCardInOptions = whatifCardInOptions,
             BaselineCount = baselineCount,
@@ -1009,4 +1015,47 @@ public sealed record CutLabWhatifPreviewView
 
     /// <summary>True when a server-rendered what-if preview is available.</summary>
     public bool HasPreview { get; init; }
+}
+
+/// <summary>Server-rendered export payload for the Cut Lab export flow.</summary>
+public sealed record CutLabExportView
+{
+    /// <summary>True when a server-rendered export payload is available.</summary>
+    public bool HasExport { get; init; }
+
+    /// <summary>Finished-list export text for Moxfield.</summary>
+    public string MoxfieldFullListText { get; init; } = string.Empty;
+
+    /// <summary>Finished-list export text for Archidekt.</summary>
+    public string ArchidektFullListText { get; init; } = string.Empty;
+
+    /// <summary>CUT/ADD patch text for Moxfield.</summary>
+    public string MoxfieldPatchText { get; init; } = string.Empty;
+
+    /// <summary>CUT/ADD patch text for Archidekt.</summary>
+    public string ArchidektPatchText { get; init; } = string.Empty;
+
+    /// <summary>True when the finished list has exactly 100 cards.</summary>
+    public bool CountOk { get; init; }
+
+    /// <summary>Signed difference from the expected 100-card total.</summary>
+    public int OffCount { get; init; }
+
+    /// <summary>True when final-list copy must stay blocked.</summary>
+    public bool HardBlock { get; init; }
+
+    /// <summary>Cards confirmed outside the commander's color identity.</summary>
+    public IReadOnlyList<string> IllegalColorIdentity { get; init; } = [];
+
+    /// <summary>Cards whose color identity could not be verified.</summary>
+    public IReadOnlyList<string> UnverifiedColorIdentity { get; init; } = [];
+
+    /// <summary>Cards present in the finished list that are on the Commander banlist.</summary>
+    public IReadOnlyList<string> BanlistOffenders { get; init; } = [];
+
+    /// <summary>Warnings produced while reconstructing the original deck-entry metadata.</summary>
+    public IReadOnlyList<string> ReconstructionWarnings { get; init; } = [];
+
+    /// <summary>Additional non-blocking export warnings.</summary>
+    public IReadOnlyList<string> Warnings { get; init; } = [];
 }
