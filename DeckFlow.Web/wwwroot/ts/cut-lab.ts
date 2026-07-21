@@ -45,7 +45,7 @@ interface CutLabStateSnapshot {
 
 interface CutLabStateDecision {
   cardName: string;
-  kind: 'Accepted' | 'Rejected' | 'Deferred';
+  kind: 'Accepted' | 'Rejected' | 'Deferred' | 0 | 1 | 2;
   round: string;
   ordinal: number;
 }
@@ -511,6 +511,15 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
   const getWhatifDiscardButton = (): HTMLButtonElement | null =>
     document.querySelector<HTMLButtonElement>('[data-cut-lab-whatif-discard]');
 
+  const getDeckInputSourceSelect = (): HTMLSelectElement | null =>
+    document.querySelector<HTMLSelectElement>('#cut-lab-input-source');
+
+  const getDeckUrlInput = (): HTMLInputElement | null =>
+    document.querySelector<HTMLInputElement>('#cut-lab-deck-url');
+
+  const getDeckTextInput = (): HTMLTextAreaElement | null =>
+    document.querySelector<HTMLTextAreaElement>('#cut-lab-deck-text');
+
   const getLockCheckbox = (row: HTMLTableRowElement): HTMLInputElement | null =>
     row.querySelector<HTMLInputElement>('input[data-cut-lab-lock-card]');
 
@@ -783,6 +792,9 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     if (!form) {
       return;
     }
+    if (form.dataset.cutLabPreserveSubmittedState === 'true') {
+      return;
+    }
 
     const stateInput = getStateInput(form);
     if (!stateInput) {
@@ -794,6 +806,12 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
   };
 
   const writeDecisionStateToHiddenInputs = (serializedState: string): void => {
+    const form = getForm();
+    const mainStateInput = form ? getStateInput(form) : null;
+    if (mainStateInput) {
+      mainStateInput.value = serializedState;
+    }
+
     getDecisionStateInputs().forEach(input => {
       input.value = serializedState;
     });
@@ -985,6 +1003,22 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     }
 
     stateInput.value = stateJson;
+    form.dataset.cutLabPreserveSubmittedState = 'true';
+    const deckInputSource = getDeckInputSourceSelect();
+    if (deckInputSource) {
+      deckInputSource.value = 'PasteText';
+    }
+
+    const deckUrlInput = getDeckUrlInput();
+    if (deckUrlInput) {
+      deckUrlInput.value = '';
+    }
+
+    const deckTextInput = getDeckTextInput();
+    if (deckTextInput) {
+      deckTextInput.value = '';
+    }
+
     renderScenarioStatus('Scenario loaded. Rebuilding Cut Lab…');
     form.requestSubmit();
   };
@@ -1537,9 +1571,90 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     }
   };
 
+  const parseStateSnapshot = (serializedState: string): CutLabStateSnapshot | null => {
+    try {
+      return JSON.parse(serializedState) as CutLabStateSnapshot;
+    } catch {
+      return null;
+    }
+  };
+
+  const latestDecisionsByCardName = (decisions: CutLabStateDecision[]): Map<string, CutLabStateDecision> => {
+    const latest = new Map<string, CutLabStateDecision>();
+    decisions.forEach(decision => {
+      const cardName = decision.cardName.trim();
+      if (cardName === '') {
+        return;
+      }
+
+      const current = latest.get(cardName.toLowerCase());
+      if (!current || decision.ordinal >= current.ordinal) {
+        latest.set(cardName.toLowerCase(), decision);
+      }
+    });
+    return latest;
+  };
+
+  const isAcceptedDecisionKind = (kind: CutLabStateDecision['kind']): boolean =>
+    kind === 'Accepted' || kind === 0;
+
+  const acceptedCardNamesFromDecisions = (decisions: CutLabStateDecision[]): Set<string> => {
+    const accepted = new Set<string>();
+    latestDecisionsByCardName(decisions).forEach(decision => {
+      if (isAcceptedDecisionKind(decision.kind)) {
+        accepted.add(decision.cardName);
+      }
+    });
+    return accepted;
+  };
+
+  const sortCardNames = (cardNames: Iterable<string>): string[] =>
+    Array.from(cardNames).sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'accent' }));
+
+  const replaceWhatifSelectOptions = (select: HTMLSelectElement, cardNames: string[]): void => {
+    const emptyOptionLabel = Array.from(select.options).find(option => option.value === '')?.text ?? '';
+    replaceChildren(select, [
+      new Option(emptyOptionLabel, ''),
+      ...cardNames.map(cardName => new Option(cardName, cardName)),
+    ]);
+    select.value = '';
+  };
+
+  const rebuildWhatifSelectOptionsFromState = (serializedState: string): void => {
+    const cardOutSelect = getWhatifCardOutSelect();
+    const cardInSelect = getWhatifCardInSelect();
+    if (!cardOutSelect || !cardInSelect) {
+      return;
+    }
+
+    const snapshot = parseStateSnapshot(serializedState);
+    if (!snapshot || !Array.isArray(snapshot.pool)) {
+      return;
+    }
+
+    const acceptedCardNames = acceptedCardNamesFromDecisions(Array.isArray(snapshot.decisions) ? snapshot.decisions : []);
+    const cardOutOptions = sortCardNames(
+      new Set(
+        snapshot.pool
+          .filter(card => !acceptedCardNames.has(card.name) && !card.isLocked && !card.isCommander)
+          .map(card => card.name),
+      ),
+    );
+    const cardInOptions = sortCardNames(
+      new Set(
+        snapshot.pool
+          .filter(card => acceptedCardNames.has(card.name))
+          .map(card => card.name),
+      ),
+    );
+
+    replaceWhatifSelectOptions(cardOutSelect, cardOutOptions);
+    replaceWhatifSelectOptions(cardInSelect, cardInOptions);
+  };
+
   const buildCutsMadeFromSerializedState = (serializedState: string): CutLabDecisionCutRecord[] =>
     parseDecisionState(serializedState)
-      .filter(decision => decision.kind === 'Accepted')
+      .filter(decision => isAcceptedDecisionKind(decision.kind))
       .sort((left, right) => right.ordinal - left.ordinal)
       .map(decision => ({
         cardName: decision.cardName,
@@ -1834,6 +1949,7 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
       const data = await response.json() as CutLabDecisionResponse;
       clearRestoreConfirmation();
       writeDecisionStateToHiddenInputs(data.cutLabStateJson);
+      rebuildWhatifSelectOptionsFromState(data.cutLabStateJson);
       patchStickyBar(data);
       renderRoundBanner(data.nextProposal);
       renderProposalCard(data, antiForgeryToken);
