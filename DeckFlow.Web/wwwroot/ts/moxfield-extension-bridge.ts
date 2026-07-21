@@ -279,6 +279,33 @@ const collectMoxfieldImportTasks = (form: HTMLFormElement): MoxfieldImportTask[]
     return task ? [task] : [];
   }
 
+  if (cacheKey === 'cut-lab') {
+    const task = createSelectBackedImportTask(
+      form.querySelector<HTMLInputElement>('input[name="DeckUrl"]')!,
+      form.querySelector<HTMLTextAreaElement>('textarea[name="DeckText"]')!,
+      form.querySelector<HTMLSelectElement>('select[name="DeckInputSource"]')!
+    );
+    if (!task) {
+      return [];
+    }
+
+    return [{
+      url: task.url,
+      applyImportedText: (deckText: string) => {
+        task.applyImportedText(deckText);
+
+        const includeSideboard = form.querySelector<HTMLInputElement>('input[name="IncludeSideboard"]');
+        // Why: a Cut Lab import is an oversized pool, and Moxfield's sideboard is the overflow,
+        // so importing via the bridge opts that sideboard into the pool by default. The user can
+        // still uncheck it before analyzing.
+        if (includeSideboard && !includeSideboard.checked) {
+          includeSideboard.checked = true;
+          includeSideboard.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }
+    }];
+  }
+
   return [];
 };
 
@@ -370,6 +397,12 @@ const attachMoxfieldExtensionImport = (): void => {
 interface Window {
   attachMoxfieldExtensionImport?: () => void;
   DeckInputSource?: typeof DeckInputSource;
+  DeckFlowMoxfieldExtensionBridgeTest?: {
+    collectMoxfieldImportTasks: (form: HTMLFormElement) => MoxfieldImportTask[];
+  };
 }
 
+window.DeckFlowMoxfieldExtensionBridgeTest = {
+  collectMoxfieldImportTasks,
+};
 window.attachMoxfieldExtensionImport = attachMoxfieldExtensionImport;
