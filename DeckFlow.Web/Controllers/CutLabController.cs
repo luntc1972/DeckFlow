@@ -12,18 +12,22 @@ public sealed class CutLabController : Controller
 {
     private readonly ICutLabPageService _pageService;
     private readonly ICutLabWhatifPreviewService _whatifPreviewService;
+    private readonly ICutLabExportService _exportService;
     private readonly ILogger<CutLabController> _logger;
 
     /// <summary>Creates the controller with its page service and logger.</summary>
     public CutLabController(
         ICutLabPageService pageService,
         ICutLabWhatifPreviewService whatifPreviewService,
+        ICutLabExportService exportService,
         ILogger<CutLabController> logger)
     {
         ArgumentNullException.ThrowIfNull(pageService);
         ArgumentNullException.ThrowIfNull(whatifPreviewService);
+        ArgumentNullException.ThrowIfNull(exportService);
         _pageService = pageService;
         _whatifPreviewService = whatifPreviewService;
+        _exportService = exportService;
         _logger = logger;
     }
 
@@ -160,6 +164,51 @@ public sealed class CutLabController : Controller
         catch (Exception exception)
         {
             _logger.LogError(exception, "Cut Lab goals fallback failed.");
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+        }
+    }
+
+    /// <summary>Builds the export surface and re-renders the full page for the no-JS fallback.</summary>
+    /// <param name="request">Posted Cut Lab form fields.</param>
+    [HttpPost("/cut-lab/export")]
+    [FeatureFlagGate("tool.cut-lab.enabled")]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(2 * 1024 * 1024)]
+    public async Task<IActionResult> Export(CutLabRequest request)
+    {
+        request ??= new CutLabRequest();
+
+        if (string.IsNullOrWhiteSpace(request.CutLabStateJson))
+        {
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+        }
+
+        try
+        {
+            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            RehydrateIntakeRequestFromState(request, state);
+            request.CutLabStateJson = CutLabStateSerializer.Serialize(state);
+
+            var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
+            CutLabState exportState = result.State ?? state;
+            CutLabExportView export = await _exportService.BuildExportAsync(
+                exportState,
+                request.PlayExperience,
+                BuildCommanderNames(exportState),
+                HttpContext.RequestAborted).ConfigureAwait(false);
+            return View("CutLab", CutLabViewModel.From(request, result, export: export));
+        }
+        catch (InvalidOperationException exception)
+        {
+            return CutLabView(request, error: exception.Message);
+        }
+        catch (OperationCanceledException)
+        {
+            return CutLabView(request, error: "The request timed out. Try again.");
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Cut Lab export fallback failed.");
             return CutLabView(request, error: CutLabMessages.NoChangeMessage);
         }
     }
@@ -367,6 +416,20 @@ public sealed class CutLabController : Controller
         }
 
         return [];
+    }
+
+    private static IReadOnlyList<string> BuildCommanderNames(CutLabState state)
+    {
+        IReadOnlyList<string> commanderNames = GetCommanderCards(state)
+            .Select(card => card.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (commanderNames.Count > 0)
+        {
+            return commanderNames;
+        }
+
+        return string.IsNullOrWhiteSpace(state.Commander) ? [] : [state.Commander];
     }
 
     private static string FormatDeckLine(CutLabPoolCard card) => $"{card.Quantity} {card.Name}";

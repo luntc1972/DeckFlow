@@ -404,6 +404,67 @@ public sealed class CutLabControllerTests
     }
 
     [Fact]
+    public async Task Export_RehydratesStateAndAttachesExportViewModel()
+    {
+        var service = new StateAwareCutLabPageService();
+        var exportService = new FakeExportService
+        {
+            View = new CutLabExportView
+            {
+                HasExport = true,
+                CountOk = true,
+                MoxfieldFullListText = "1 Arcane Signet",
+            },
+        };
+        var controller = CreateController(service, exportService: exportService);
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()),
+        };
+
+        var result = await controller.Export(request);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        Assert.True(model.Export.HasExport);
+        Assert.Equal("1 Arcane Signet", model.Export.MoxfieldFullListText);
+        Assert.NotNull(exportService.LastState);
+        Assert.Equal("Zur the Enchanter", exportService.LastState!.Commander);
+        Assert.Equal("Focused", service.LastRequest!.PlayExperience);
+    }
+
+    [Fact]
+    public async Task Export_OffCountStillReturnsCutLabViewWithHardBlockPanel()
+    {
+        var service = new StateAwareCutLabPageService();
+        var exportService = new FakeExportService
+        {
+            View = new CutLabExportView
+            {
+                HasExport = true,
+                CountOk = false,
+                OffCount = 2,
+                HardBlock = true,
+                Warnings = ["Reach 100 cards to export."],
+            },
+        };
+        var controller = CreateController(service, exportService: exportService);
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()),
+        };
+
+        var result = await controller.Export(request);
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("CutLab", view.ViewName);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        Assert.True(model.Export.HasExport);
+        Assert.True(model.Export.HardBlock);
+        Assert.Equal(2, model.Export.OffCount);
+    }
+
+    [Fact]
     public async Task Whatif_Preview_RendersDeltaRowsWithoutMutatingPersistedState()
     {
         var service = new WhatifStateAwareCutLabPageService();
@@ -590,8 +651,11 @@ public sealed class CutLabControllerTests
         Assert.Contains(model.Whatif.DeltaRows, row => row.MetricLabel == "Commander by turn 7");
     }
 
-    private static CutLabController CreateController(ICutLabPageService service, ICutLabWhatifPreviewService? whatifPreviewService = null) =>
-        new(service, whatifPreviewService ?? new FakeWhatifPreviewService(), new FakeLogger<CutLabController>())
+    private static CutLabController CreateController(
+        ICutLabPageService service,
+        ICutLabWhatifPreviewService? whatifPreviewService = null,
+        ICutLabExportService? exportService = null) =>
+        new(service, whatifPreviewService ?? new FakeWhatifPreviewService(), exportService ?? new FakeExportService(), new FakeLogger<CutLabController>())
         {
             ControllerContext = new ControllerContext
             {
@@ -708,6 +772,25 @@ public sealed class CutLabControllerTests
             });
     }
 
+    private sealed class FakeExportService : ICutLabExportService
+    {
+        public CutLabExportView View { get; set; } = new();
+
+        public CutLabState? LastState { get; private set; }
+
+        public string? LastPlayExperience { get; private set; }
+
+        public IReadOnlyList<string>? LastCommanderNames { get; private set; }
+
+        public Task<CutLabExportView> BuildExportAsync(CutLabState state, string playExperience, IReadOnlyList<string> commanderNames, CancellationToken cancellationToken)
+        {
+            LastState = state;
+            LastPlayExperience = playExperience;
+            LastCommanderNames = commanderNames;
+            return Task.FromResult(View);
+        }
+    }
+
     private static CutLabState CreateState(params CutLabDecision[] decisions)
         => new()
         {
@@ -736,6 +819,27 @@ public sealed class CutLabControllerTests
                 },
             ],
             Decisions = decisions,
+            OriginalEntries =
+            [
+                new CutLabOriginalEntry
+                {
+                    Name = "Zur the Enchanter",
+                    Quantity = 1,
+                    Board = "commander",
+                },
+                new CutLabOriginalEntry
+                {
+                    Name = "Arcane Signet",
+                    Quantity = 1,
+                    Board = "mainboard",
+                },
+                new CutLabOriginalEntry
+                {
+                    Name = "Counterspell",
+                    Quantity = 99,
+                    Board = "mainboard",
+                },
+            ],
             BaselineSnapshot = BuildGoalSnapshot(new CutLabGoalSettings(), 57, 68, 52),
             Intent = new CutLabIntent
             {
