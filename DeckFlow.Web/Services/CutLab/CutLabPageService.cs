@@ -770,16 +770,8 @@ internal sealed class CutLabPageService : ICutLabPageService
             string? playExperience,
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
+            CutLabGoalSettings? goals = null,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(new CutLabMetricSnapshot());
-
-        public Task<CutLabMetricSnapshot> BuildSnapshot(
-            IReadOnlyList<CutLabPoolCard> workingList,
-            string? playExperience,
-            int? trialsOverride,
-            string? poolKey,
-            CutLabGoalSettings? goals,
-            CancellationToken cancellationToken)
             => Task.FromResult(new CutLabMetricSnapshot());
 
         public Task<CutLabProposalDeltas> ComputeProposalDeltas(
@@ -788,20 +780,8 @@ internal sealed class CutLabPageService : ICutLabPageService
             string? playExperience,
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
+            CutLabGoalSettings? goals = null,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(new CutLabProposalDeltas
-            {
-                CardName = candidateCardName,
-            });
-
-        public Task<CutLabProposalDeltas> ComputeProposalDeltas(
-            IReadOnlyList<CutLabPoolCard> currentWorkingList,
-            string candidateCardName,
-            string? playExperience,
-            int? trialsOverride,
-            string? poolKey,
-            CutLabGoalSettings? goals,
-            CancellationToken cancellationToken)
             => Task.FromResult(new CutLabProposalDeltas
             {
                 CardName = candidateCardName,

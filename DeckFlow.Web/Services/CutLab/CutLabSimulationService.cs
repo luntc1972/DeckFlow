@@ -14,6 +14,7 @@ public interface ICutLabSimulationService
     /// <param name="playExperience">Cut Lab play-experience label used to resolve the shared manabase mode.</param>
     /// <param name="trialsOverride">Optional simulation trial count override; null keeps the engine default.</param>
     /// <param name="poolKey">Optional precomputed pool key for the working list.</param>
+    /// <param name="goals">Optional by-turn goal overrides; null keeps the seeded defaults.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The projected seven-family metric snapshot.</returns>
     Task<CutLabMetricSnapshot> BuildSnapshot(
@@ -21,24 +22,8 @@ public interface ICutLabSimulationService
         string? playExperience,
         int? trialsOverride = InLoopTrials,
         string? poolKey = null,
+        CutLabGoalSettings? goals = null,
         CancellationToken cancellationToken = default);
-
-    /// <summary>Builds the metric snapshot for the current working list with optional goal overrides.</summary>
-    /// <param name="workingList">Current working pool cards.</param>
-    /// <param name="playExperience">Cut Lab play-experience label used to resolve the shared manabase mode.</param>
-    /// <param name="trialsOverride">Optional simulation trial count override; null keeps the engine default.</param>
-    /// <param name="poolKey">Optional precomputed pool key for the working list.</param>
-    /// <param name="goals">Optional by-turn goal overrides; null keeps the seeded defaults.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The projected seven-family metric snapshot.</returns>
-    Task<CutLabMetricSnapshot> BuildSnapshot(
-        IReadOnlyList<CutLabPoolCard> workingList,
-        string? playExperience,
-        int? trialsOverride,
-        string? poolKey,
-        CutLabGoalSettings? goals,
-        CancellationToken cancellationToken = default)
-        => BuildSnapshot(workingList, playExperience, trialsOverride, poolKey, cancellationToken);
 
     /// <summary>Builds proposal deltas for removing a candidate card from the current working list.</summary>
     /// <param name="currentWorkingList">Current working pool cards.</param>
@@ -46,6 +31,7 @@ public interface ICutLabSimulationService
     /// <param name="playExperience">Cut Lab play-experience label used to resolve the shared manabase mode.</param>
     /// <param name="trialsOverride">Optional simulation trial count override; null keeps the engine default.</param>
     /// <param name="poolKey">Optional precomputed pool key for the current working list.</param>
+    /// <param name="goals">Optional by-turn goal overrides; null keeps the seeded defaults.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The noise-floored proposal deltas keyed to the current working list.</returns>
     Task<CutLabProposalDeltas> ComputeProposalDeltas(
@@ -54,26 +40,8 @@ public interface ICutLabSimulationService
         string? playExperience,
         int? trialsOverride = InLoopTrials,
         string? poolKey = null,
+        CutLabGoalSettings? goals = null,
         CancellationToken cancellationToken = default);
-
-    /// <summary>Builds proposal deltas for removing a candidate card with optional goal overrides.</summary>
-    /// <param name="currentWorkingList">Current working pool cards.</param>
-    /// <param name="candidateCardName">Candidate card to remove from the current working list.</param>
-    /// <param name="playExperience">Cut Lab play-experience label used to resolve the shared manabase mode.</param>
-    /// <param name="trialsOverride">Optional simulation trial count override; null keeps the engine default.</param>
-    /// <param name="poolKey">Optional precomputed pool key for the current working list.</param>
-    /// <param name="goals">Optional by-turn goal overrides; null keeps the seeded defaults.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The noise-floored proposal deltas keyed to the current working list.</returns>
-    Task<CutLabProposalDeltas> ComputeProposalDeltas(
-        IReadOnlyList<CutLabPoolCard> currentWorkingList,
-        string candidateCardName,
-        string? playExperience,
-        int? trialsOverride,
-        string? poolKey,
-        CutLabGoalSettings? goals,
-        CancellationToken cancellationToken = default)
-        => ComputeProposalDeltas(currentWorkingList, candidateCardName, playExperience, trialsOverride, poolKey, cancellationToken);
 
     /// <summary>Default in-loop trial count for Task 103-05 delta snapshots.</summary>
     public const int InLoopTrials = 4000;
@@ -124,23 +92,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         string? playExperience,
         int? trialsOverride = ICutLabSimulationService.InLoopTrials,
         string? poolKey = null,
-        CancellationToken cancellationToken = default)
-        => await BuildSnapshot(workingList, playExperience, trialsOverride, poolKey, goals: null, cancellationToken).ConfigureAwait(false);
-
-    /// <summary>Builds the metric snapshot for the current working list with optional goal overrides.</summary>
-    /// <param name="workingList">Current working pool cards.</param>
-    /// <param name="playExperience">Cut Lab play-experience label used to resolve the shared manabase mode.</param>
-    /// <param name="trialsOverride">Optional simulation trial count override; null keeps the engine default.</param>
-    /// <param name="poolKey">Optional precomputed pool key for the working list.</param>
-    /// <param name="goals">Optional by-turn goal overrides; null keeps the seeded defaults.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The projected seven-family metric snapshot.</returns>
-    public async Task<CutLabMetricSnapshot> BuildSnapshot(
-        IReadOnlyList<CutLabPoolCard> workingList,
-        string? playExperience,
-        int? trialsOverride,
-        string? poolKey,
-        CutLabGoalSettings? goals,
+        CutLabGoalSettings? goals = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(workingList);
@@ -199,25 +151,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         string? playExperience,
         int? trialsOverride = ICutLabSimulationService.InLoopTrials,
         string? poolKey = null,
-        CancellationToken cancellationToken = default)
-        => await ComputeProposalDeltas(currentWorkingList, candidateCardName, playExperience, trialsOverride, poolKey, goals: null, cancellationToken).ConfigureAwait(false);
-
-    /// <summary>Builds proposal deltas for removing a candidate card with optional goal overrides.</summary>
-    /// <param name="currentWorkingList">Current working pool cards.</param>
-    /// <param name="candidateCardName">Candidate card to remove from the current working list.</param>
-    /// <param name="playExperience">Cut Lab play-experience label used to resolve the shared manabase mode.</param>
-    /// <param name="trialsOverride">Optional simulation trial count override; null keeps the engine default.</param>
-    /// <param name="poolKey">Optional precomputed pool key for the current working list.</param>
-    /// <param name="goals">Optional by-turn goal overrides; null keeps the seeded defaults.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The noise-floored proposal deltas keyed to the current working list.</returns>
-    public async Task<CutLabProposalDeltas> ComputeProposalDeltas(
-        IReadOnlyList<CutLabPoolCard> currentWorkingList,
-        string candidateCardName,
-        string? playExperience,
-        int? trialsOverride,
-        string? poolKey,
-        CutLabGoalSettings? goals,
+        CutLabGoalSettings? goals = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(currentWorkingList);

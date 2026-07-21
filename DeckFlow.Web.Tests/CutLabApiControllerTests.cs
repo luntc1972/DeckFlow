@@ -633,15 +633,7 @@ public sealed class CutLabApiControllerTests
             string? playExperience,
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
-            CancellationToken cancellationToken = default)
-            => Task.FromResult(new CutLabMetricSnapshot());
-
-        public Task<CutLabMetricSnapshot> BuildSnapshot(
-            IReadOnlyList<CutLabPoolCard> workingList,
-            string? playExperience,
-            int? trialsOverride,
-            string? poolKey,
-            CutLabGoalSettings? goals,
+            CutLabGoalSettings? goals = null,
             CancellationToken cancellationToken = default)
             => Task.FromResult(new CutLabMetricSnapshot());
 
@@ -651,16 +643,7 @@ public sealed class CutLabApiControllerTests
             string? playExperience,
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
-            CancellationToken cancellationToken = default)
-            => ComputeProposalDeltas(currentWorkingList, candidateCardName, playExperience, trialsOverride, poolKey, goals: null, cancellationToken);
-
-        public Task<CutLabProposalDeltas> ComputeProposalDeltas(
-            IReadOnlyList<CutLabPoolCard> currentWorkingList,
-            string candidateCardName,
-            string? playExperience,
-            int? trialsOverride,
-            string? poolKey,
-            CutLabGoalSettings? goals,
+            CutLabGoalSettings? goals = null,
             CancellationToken cancellationToken = default)
         {
             DeltaCalls++;
