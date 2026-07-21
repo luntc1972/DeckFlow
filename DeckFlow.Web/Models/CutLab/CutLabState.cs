@@ -28,6 +28,12 @@ public sealed record CutLabState
     public IReadOnlyList<CutLabDecision> Decisions { get; init; } = [];
 
     /// <summary>
+    /// Original imported deck entries captured once at intake and preserved as the immutable
+    /// baseline for builder-compatible add/cut export.
+    /// </summary>
+    public IReadOnlyList<CutLabOriginalEntry> OriginalEntries { get; init; } = [];
+
+    /// <summary>
     /// Original-pool compact numeric baseline snapshot computed once at pool intake and persisted
     /// with the working session, or <see langword="null"/> when not yet captured.
     /// </summary>
@@ -76,6 +82,28 @@ public sealed record CutLabDecision
 
     /// <summary>Monotonic decision order used for restore-any and most-recent evaluation.</summary>
     public int Ordinal { get; init; }
+}
+
+/// <summary>Serializable light snapshot of one original imported deck entry.</summary>
+public sealed record CutLabOriginalEntry
+{
+    /// <summary>Display card name.</summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>Quantity of this card in the original imported list.</summary>
+    public int Quantity { get; init; }
+
+    /// <summary>Original builder board placement for this entry.</summary>
+    public string Board { get; init; } = string.Empty;
+
+    /// <summary>Optional original printing set code.</summary>
+    public string? SetCode { get; init; }
+
+    /// <summary>Optional original printing collector number.</summary>
+    public string? CollectorNumber { get; init; }
+
+    /// <summary>Optional original builder category tag or label.</summary>
+    public string? Category { get; init; }
 }
 
 /// <summary>Serializable pool card entry tracked in the Cut Lab working session.</summary>
