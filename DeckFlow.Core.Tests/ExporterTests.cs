@@ -1,6 +1,7 @@
 using DeckFlow.Core.Exporting;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Models;
+using DeckFlow.Core.Normalization;
 using DeckFlow.Core.Parsing;
 
 namespace DeckFlow.Core.Tests;
@@ -225,5 +226,24 @@ public sealed class ExporterTests
         var text = FullImportExporter.ToText(source, target, MatchMode.Loose, "Archidekt", categoryMode: CategorySyncMode.Combined);
 
         Assert.Contains("[Draw,Ramp]", text);
+    }
+
+    [Fact]
+    public void FullImportExporter_WritesCutLabShapedArchidektFullList()
+    {
+        var source = new List<DeckEntry>
+        {
+            new() { Name = "Kinnan, Bonder Prodigy", NormalizedName = CardNormalizer.Normalize("Kinnan, Bonder Prodigy"), Quantity = 1, Board = "commander", SetCode = "iko", CollectorNumber = "192" },
+            new() { Name = "Bridgeworks Battle / Tanglespan Bridgeworks", NormalizedName = CardNormalizer.Normalize("Bridgeworks Battle / Tanglespan Bridgeworks"), Quantity = 1, Board = "mainboard", SetCode = "mh3", CollectorNumber = "249", Category = "Lands" },
+            new() { Name = "Forest", NormalizedName = CardNormalizer.Normalize("Forest"), Quantity = 98, Board = "mainboard", SetCode = "ktk", CollectorNumber = "258" },
+        };
+
+        var text = FullImportExporter.ToText(source, [], MatchMode.Loose, "Archidekt", categoryMode: CategorySyncMode.SourceTags);
+
+        Assert.Contains("// Commander", text);
+        Assert.Contains("1 Kinnan, Bonder Prodigy (iko) 192 [Commander]", text);
+        Assert.Contains("// Mainboard", text);
+        Assert.Contains("1 Bridgeworks Battle // Tanglespan Bridgeworks (mh3) 249 [Lands]", text);
+        Assert.Contains("98 Forest (ktk) 258", text);
     }
 }
