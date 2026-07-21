@@ -34,6 +34,10 @@ public sealed record ScryfallCardData
     [JsonPropertyName("produced_mana")]
     public IReadOnlyList<string>? ProducedMana { get; init; }
 
+    /// <summary>Scryfall <c>color_identity</c> letters (e.g. ["W","U"]); the commander's deckbuilding colors for this card.</summary>
+    [JsonPropertyName("color_identity")]
+    public IReadOnlyList<string>? ColorIdentity { get; init; }
+
     /// <summary>Rarity ("common", "uncommon", "rare", "mythic").</summary>
     [JsonPropertyName("rarity")]
     public string? Rarity { get; init; }
