@@ -977,8 +977,8 @@ public sealed class CutLabPageServiceTests
         var analysisBuilder = new FakeAnalysisContextBuilder((workingList, _, commanderNames) => BuildAnalysisContext(workingList, commanderNames));
         var simulationService = new FakeSimulationService
         {
-            SnapshotFactory = (_, _, trialsOverride) => BuildSevenMetricSnapshot(trialsOverride is null ? 10 : 20),
-            DeltasFactory = (_, candidateCardName, _) => BuildDeltas(candidateCardName),
+            SnapshotFactory = (_, _, trialsOverride, _) => BuildSevenMetricSnapshot(trialsOverride is null ? 10 : 20),
+            DeltasFactory = (_, candidateCardName, _, _) => BuildDeltas(candidateCardName),
         };
         var service = new CutLabPageService(
             new FakeLoader(entries),
@@ -1045,8 +1045,8 @@ public sealed class CutLabPageServiceTests
         var analysisBuilder = new FakeAnalysisContextBuilder((workingList, _, commanderNames) => BuildAnalysisContext(workingList, commanderNames));
         var simulationService = new FakeSimulationService
         {
-            SnapshotFactory = (_, _, trialsOverride) => BuildSevenMetricSnapshot(trialsOverride is null ? 10 : 20),
-            DeltasFactory = (_, candidateCardName, _) => BuildDeltas(candidateCardName),
+            SnapshotFactory = (_, _, trialsOverride, _) => BuildSevenMetricSnapshot(trialsOverride is null ? 10 : 20),
+            DeltasFactory = (_, candidateCardName, _, _) => BuildDeltas(candidateCardName),
         };
         var service = new CutLabPageService(
             new FakeLoader(entries),
@@ -1092,8 +1092,8 @@ public sealed class CutLabPageServiceTests
         var analysisBuilder = new FakeAnalysisContextBuilder((workingList, _, commanderNames) => BuildAnalysisContext(workingList, commanderNames));
         var simulationService = new FakeSimulationService
         {
-            SnapshotFactory = (_, _, _) => BuildSevenMetricSnapshot(20),
-            DeltasFactory = (_, candidateCardName, _) => BuildDeltas(candidateCardName),
+            SnapshotFactory = (_, _, _, _) => BuildSevenMetricSnapshot(20),
+            DeltasFactory = (_, candidateCardName, _, _) => BuildDeltas(candidateCardName),
         };
         var service = new CutLabPageService(
             new FakeLoader(entries),
@@ -2176,9 +2176,9 @@ public sealed class CutLabPageServiceTests
 
     private sealed class FakeSimulationService : ICutLabSimulationService
     {
-        public Func<IReadOnlyList<CutLabPoolCard>, string?, int?, CutLabMetricSnapshot>? SnapshotFactory { get; set; }
+        public Func<IReadOnlyList<CutLabPoolCard>, string?, int?, CutLabGoalSettings?, CutLabMetricSnapshot>? SnapshotFactory { get; set; }
 
-        public Func<IReadOnlyList<CutLabPoolCard>, string, string?, CutLabProposalDeltas>? DeltasFactory { get; set; }
+        public Func<IReadOnlyList<CutLabPoolCard>, string, string?, CutLabGoalSettings?, CutLabProposalDeltas>? DeltasFactory { get; set; }
 
         public Exception? BuildSnapshotException { get; set; }
 
@@ -2189,6 +2189,7 @@ public sealed class CutLabPageServiceTests
             string? playExperience,
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
+            CutLabGoalSettings? goals = null,
             CancellationToken cancellationToken = default)
         {
             if (BuildSnapshotException is not null)
@@ -2196,7 +2197,7 @@ public sealed class CutLabPageServiceTests
                 return Task.FromException<CutLabMetricSnapshot>(BuildSnapshotException);
             }
 
-            return Task.FromResult(SnapshotFactory?.Invoke(workingList, playExperience, trialsOverride) ?? BuildSevenMetricSnapshot(10));
+            return Task.FromResult(SnapshotFactory?.Invoke(workingList, playExperience, trialsOverride, goals) ?? BuildSevenMetricSnapshot(10));
         }
 
         public Task<CutLabProposalDeltas> ComputeProposalDeltas(
@@ -2205,6 +2206,7 @@ public sealed class CutLabPageServiceTests
             string? playExperience,
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
+            CutLabGoalSettings? goals = null,
             CancellationToken cancellationToken = default)
         {
             if (ComputeProposalDeltasException is not null)
@@ -2212,7 +2214,7 @@ public sealed class CutLabPageServiceTests
                 return Task.FromException<CutLabProposalDeltas>(ComputeProposalDeltasException);
             }
 
-            return Task.FromResult(DeltasFactory?.Invoke(currentWorkingList, candidateCardName, playExperience) ?? BuildDeltas(candidateCardName));
+            return Task.FromResult(DeltasFactory?.Invoke(currentWorkingList, candidateCardName, playExperience, goals) ?? BuildDeltas(candidateCardName));
         }
     }
 
