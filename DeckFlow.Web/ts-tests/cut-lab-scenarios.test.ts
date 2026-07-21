@@ -53,6 +53,7 @@ const quotaExceeded = (): DOMException => {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  document.body.innerHTML = '';
   if (originalLocalStorageDescriptor) {
     Object.defineProperty(window, 'localStorage', originalLocalStorageDescriptor);
   }
@@ -123,5 +124,45 @@ describe('cut-lab scenario storage', () => {
     const scenarios = api.listScenarios();
     expect(scenarios).toHaveLength(1);
     expect(scenarios[0].id).toMatch(/^s-/);
+  });
+
+  it('clears deck inputs before submitting a loaded scenario so the server rehydrates from state', () => {
+    const api = scenarioApi();
+    const savedStateJson = '{"pool":[{"name":"Sol Ring","quantity":1}],"goals":{"commanderByTurn":5}}';
+    expect(api.saveScenario('Rehydrate me', savedStateJson)).toBe('ok');
+    const [savedScenario] = api.listScenarios();
+
+    document.body.innerHTML = `
+      <form data-cache-key="cut-lab">
+        <select id="cut-lab-input-source" name="DeckInputSource">
+          <option value="PublicUrl" selected>URL</option>
+          <option value="PasteText">Paste</option>
+        </select>
+        <input id="cut-lab-deck-url" name="DeckUrl" value="https://www.moxfield.com/decks/current" />
+        <textarea id="cut-lab-deck-text" name="DeckText">1 Current Card</textarea>
+        <input type="hidden" name="CutLabStateJson" value="" />
+      </form>
+      <div data-cut-lab-scenario-list>
+        <button type="button" data-cut-lab-scenario-load="${savedScenario.id}">Load</button>
+      </div>
+      <p data-cut-lab-scenario-status></p>
+    `;
+
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+
+    const form = document.querySelector<HTMLFormElement>('form[data-cache-key="cut-lab"]');
+    const requestSubmitSpy = vi.fn();
+    Object.defineProperty(form!, 'requestSubmit', {
+      configurable: true,
+      value: requestSubmitSpy,
+    });
+
+    document.querySelector<HTMLElement>('[data-cut-lab-scenario-load]')?.click();
+
+    expect(document.querySelector<HTMLSelectElement>('#cut-lab-input-source')?.value).toBe('PasteText');
+    expect(document.querySelector<HTMLInputElement>('#cut-lab-deck-url')?.value).toBe('');
+    expect(document.querySelector<HTMLTextAreaElement>('#cut-lab-deck-text')?.value).toBe('');
+    expect(document.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]')?.value).toBe(savedStateJson);
+    expect(requestSubmitSpy).toHaveBeenCalledOnce();
   });
 });

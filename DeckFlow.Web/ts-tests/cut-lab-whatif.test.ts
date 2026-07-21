@@ -30,15 +30,18 @@ const flushWhatifSubmit = async (): Promise<void> => {
   await new Promise(resolve => window.setTimeout(resolve, 0));
 };
 
-const buildStateJson = (): string => JSON.stringify({
+const buildStateJson = (overrides: Partial<{
+  pool: Array<{ name: string; quantity: number; typeLine: string; isCommander: boolean; isLocked: boolean; packageId: string | null }>;
+  decisions: Array<{ cardName: string; kind: 'Accepted' | 'Rejected' | 'Deferred' | 0 | 1 | 2; round: string; ordinal: number }>;
+}> = {}): string => JSON.stringify({
   commander: 'Commander',
-  pool: [
+  pool: overrides.pool ?? [
     { name: 'Commander', quantity: 1, typeLine: 'Legendary Creature', isCommander: true, isLocked: true, packageId: null },
     { name: 'Working Card', quantity: 1, typeLine: 'Artifact', isCommander: false, isLocked: false, packageId: null },
     { name: 'Cut Card', quantity: 1, typeLine: 'Instant', isCommander: false, isLocked: false, packageId: null },
   ],
   packages: [],
-  decisions: [
+  decisions: overrides.decisions ?? [
     { cardName: 'Cut Card', kind: 'Accepted', round: 'round-1', ordinal: 1 },
   ],
   baselineSnapshot: {
@@ -133,6 +136,25 @@ const buildFixture = (): void => {
       <details class="cutlab-cuts-made" open>
         <summary>Cuts made · 1 card</summary>
       </details>
+    </section>
+    <section class="result-panel">
+      <div class="cutlab-round-banner">
+        <p class="cutlab-finding__heading">Round 1</p>
+        <p>Cards flagged by structural findings.</p>
+      </div>
+      <div class="cutlab-proposal" data-cut-lab-card="Working Card" data-cut-lab-round="round-1">
+        <p class="cutlab-proposal__heading">Proposed cut: Working Card</p>
+        <div class="cutlab-proposal__actions">
+          <form method="post" action="/cut-lab/decide">
+            <input type="hidden" name="__RequestVerificationToken" value="token-123" />
+            <input type="hidden" name="CutLabStateJson" value='${stateJson}' />
+            <input type="hidden" name="CardName" value="Working Card" />
+            <input type="hidden" name="RoundKey" value="round-1" />
+            <input type="hidden" name="Decision" value="accept" />
+            <button type="submit" class="cutlab-decision-btn cutlab-decision-btn--accept" data-cut-lab-decision="accept" data-cut-lab-card="Working Card">Accept cut</button>
+          </form>
+        </div>
+      </div>
     </section>
   `;
 
@@ -242,5 +264,62 @@ describe('cut-lab what-if enhancement', () => {
     expect(Array.from(document.querySelectorAll<HTMLInputElement>('input[name="CutLabStateJson"]')).every(input => input.value === committedStateJson)).toBe(true);
     expect(document.querySelector('[data-cut-lab-sticky-accepted]')?.textContent).toBe('1 cut so far');
     expect(document.querySelector('.cutlab-cuts-made__row')?.textContent).toContain('Working Card');
+  });
+
+  it('rebuilds what-if select options from the returned decision state after an accepted cut', async () => {
+    buildFixture();
+    const refreshedStateJson = buildStateJson({
+      pool: [
+        { name: 'Commander', quantity: 1, typeLine: 'Legendary Creature', isCommander: true, isLocked: true, packageId: null },
+        { name: 'Working Card', quantity: 1, typeLine: 'Artifact', isCommander: false, isLocked: false, packageId: null },
+        { name: 'Alternate Working', quantity: 1, typeLine: 'Sorcery', isCommander: false, isLocked: false, packageId: null },
+        { name: 'Locked Working', quantity: 1, typeLine: 'Artifact', isCommander: false, isLocked: true, packageId: null },
+        { name: 'Cut Card', quantity: 1, typeLine: 'Instant', isCommander: false, isLocked: false, packageId: null },
+      ],
+      decisions: [
+        { cardName: 'Cut Card', kind: 0, round: 'round-1', ordinal: 1 },
+        { cardName: 'Working Card', kind: 0, round: 'round-2', ordinal: 2 },
+      ],
+    });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        cutLabStateJson: refreshedStateJson,
+        nextProposal: {
+          isTerminal: false,
+          isAtTarget: false,
+          isNothingToCut: false,
+          cardName: 'Alternate Working',
+          roundKey: 'round-2',
+          roundLabel: 'Round 2',
+          roundBannerBody: 'More cuts.',
+          findingCount: 0,
+          findingChips: [],
+        },
+        proposalDeltas: null,
+        floorWarnings: [],
+        cardsRemaining: 0,
+        cutsMade: [
+          { cardName: 'Working Card', roundKey: 'round-2', roundLabel: 'Round 2', ordinal: 2 },
+          { cardName: 'Cut Card', roundKey: 'round-1', roundLabel: 'Round 1', ordinal: 1 },
+        ],
+      }),
+    });
+
+    const form = document.querySelector<HTMLFormElement>('form[action="/cut-lab/decide"]');
+    const button = form?.querySelector<HTMLButtonElement>('[data-cut-lab-decision="accept"]');
+    form?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: button ?? undefined,
+    }));
+    await flushWhatifSubmit();
+
+    const cardOutOptions = Array.from(document.querySelectorAll<HTMLOptionElement>('select[data-cut-lab-whatif-card-out] option')).map(option => option.value);
+    const cardInOptions = Array.from(document.querySelectorAll<HTMLOptionElement>('select[data-cut-lab-whatif-card-in] option')).map(option => option.value);
+
+    expect(Array.from(document.querySelectorAll<HTMLInputElement>('input[name="CutLabStateJson"]')).every(input => input.value === refreshedStateJson)).toBe(true);
+    expect(cardOutOptions).toEqual(['', 'Alternate Working']);
+    expect(cardInOptions).toEqual(['', 'Cut Card', 'Working Card']);
   });
 });
