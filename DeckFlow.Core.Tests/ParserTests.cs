@@ -32,7 +32,7 @@ public sealed class ParserTests
 
         Assert.True(success);
         Assert.Equal("fNC0NaQftkO8uWFMD8O49g", deckId);
-        Assert.Equal("https://api.moxfield.com/v2/decks/all/fNC0NaQftkO8uWFMD8O49g", MoxfieldApiUrl.BuildDeckApiUri(deckId).ToString());
+        Assert.Equal("https://api2.moxfield.com/v3/decks/all/fNC0NaQftkO8uWFMD8O49g", MoxfieldApiUrl.BuildDeckApiUri(deckId).ToString());
     }
 
     [Fact]

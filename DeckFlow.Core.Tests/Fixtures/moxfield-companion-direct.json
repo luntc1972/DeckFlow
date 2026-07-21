@@ -1,58 +1,82 @@
 {
-  "commanders": {
-    "678001": {
-      "quantity": 1,
-      "card": {
-        "name": "Kraum, Ludevic's Opus",
-        "set": "c16",
-        "cn": "39"
-      }
-    }
-  },
-  "companions": {
-    "678002": {
-      "quantity": 1,
-      "card": {
-        "name": "Jegantha, the Wellspring",
-        "set": "iko",
-        "cn": "189"
-      }
-    }
-  },
-  "mainboard": {
-    "678003": {
-      "quantity": 1,
-      "card": {
-        "name": "Sol Ring",
-        "set": "c16",
-        "cn": "272"
+  "boards": {
+    "commanders": {
+      "cards": {
+        "678001": {
+          "quantity": 1,
+          "card": {
+            "name": "Kraum, Ludevic's Opus",
+            "set": "c16",
+            "cn": "39"
+          }
+        }
       }
     },
-    "678004": {
-      "quantity": 1,
-      "card": {
-        "name": "Arcane Signet",
-        "set": "eld",
-        "cn": "331"
+    "companions": {
+      "cards": {
+        "678002": {
+          "quantity": 1,
+          "card": {
+            "name": "Jegantha, the Wellspring",
+            "set": "iko",
+            "cn": "189"
+          }
+        }
       }
     },
-    "678005": {
-      "quantity": 1,
-      "card": {
-        "name": "Command Tower",
-        "set": "c16",
-        "cn": "285"
+    "mainboard": {
+      "cards": {
+        "678003": {
+          "quantity": 1,
+          "card": {
+            "name": "Sol Ring",
+            "set": "c16",
+            "cn": "272"
+          }
+        },
+        "678004": {
+          "quantity": 1,
+          "card": {
+            "name": "Arcane Signet",
+            "set": "eld",
+            "cn": "331"
+          }
+        },
+        "678005": {
+          "quantity": 1,
+          "card": {
+            "name": "Command Tower",
+            "set": "c16",
+            "cn": "285"
+          }
+        },
+        "678006": {
+          "quantity": 1,
+          "card": {
+            "name": "Ponder",
+            "set": "c21",
+            "cn": "118"
+          }
+        }
       }
     },
-    "678006": {
-      "quantity": 1,
-      "card": {
-        "name": "Ponder",
-        "set": "c21",
-        "cn": "118"
-      }
+    "sideboard": {
+      "cards": {}
+    },
+    "maybeboard": {
+      "cards": {}
     }
   },
-  "sideboard": {},
-  "maybeboard": {}
+  "authorTags": {
+    "Ramp": [
+      "Sol Ring",
+      "Arcane Signet"
+    ],
+    "Lands": [
+      "Command Tower"
+    ],
+    "Cantrip": [
+      "Ponder"
+    ]
+  }
 }
