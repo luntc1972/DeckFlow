@@ -1110,6 +1110,7 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     const form = document.createElement('form');
     form.method = 'post';
     form.action = '/cut-lab/decide';
+    form.dataset.cutLabDecideForm = 'true';
 
     const appendHiddenInput = (name: string, value: string): void => {
       const input = document.createElement('input');
@@ -1895,7 +1896,12 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
 
   const setDecisionButtonsBusy = (form: HTMLFormElement, submitter: HTMLButtonElement | null): (() => void) => {
     const proposal = form.closest<HTMLDivElement>('.cutlab-proposal');
-    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('form[action="/cut-lab/decide"] button[type="submit"]'));
+    Array.from(document.querySelectorAll<HTMLFormElement>('form'))
+      .filter(candidate => isDecisionForm(candidate))
+      .forEach(candidate => {
+        candidate.dataset.cutLabDecideForm = 'true';
+      });
+    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('form[data-cut-lab-decide-form] button[type="submit"]'));
     const originalStates = buttons.map(button => ({
       button,
       wasDisabled: button.disabled,

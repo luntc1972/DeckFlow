@@ -21,7 +21,7 @@
     };
     async Task RenderDecisionForm(string cardName, string roundKey, string decisionValue, string buttonText, string classSuffix, string ariaLabel)
     {
-        <form method="post" action="@Url.Content("~/cut-lab/decide")">
+        <form method="post" action="@Url.Content("~/cut-lab/decide")" data-cut-lab-decide-form>
             @Html.AntiForgeryToken()
             <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
             <input type="hidden" name="CardName" value="@cardName" />
