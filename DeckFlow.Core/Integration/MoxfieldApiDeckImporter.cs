@@ -7,7 +7,7 @@ using DeckFlow.Core.Normalization;
 namespace DeckFlow.Core.Integration;
 
 /// <summary>
-/// Fetches and parses a Moxfield deck from the Moxfield v2 API with Commander Spellbook proxy fallback.
+/// Fetches and parses a Moxfield deck from the Moxfield v3 API with Commander Spellbook proxy fallback.
 /// </summary>
 public sealed class MoxfieldApiDeckImporter : IMoxfieldDeckImporter
 {
@@ -206,7 +206,7 @@ public sealed class MoxfieldApiDeckImporter : IMoxfieldDeckImporter
     /// <param name="entries">Accumulator for parsed entries.</param>
     private static void AddBoardEntries(JsonElement root, string propertyName, string board, Dictionary<string, string?> authorTags, List<DeckEntry> entries)
     {
-        if (!root.TryGetProperty(propertyName, out var boardElement) || boardElement.ValueKind != JsonValueKind.Object)
+        if (!TryGetBoardCardsElement(root, propertyName, out var boardElement))
         {
             return;
         }
@@ -240,7 +240,7 @@ public sealed class MoxfieldApiDeckImporter : IMoxfieldDeckImporter
 
     private static string? ReadFirstCompanionName(JsonElement root)
     {
-        if (!root.TryGetProperty("companions", out var companionsElement) || companionsElement.ValueKind != JsonValueKind.Object)
+        if (!TryGetBoardCardsElement(root, "companions", out var companionsElement))
         {
             return null;
         }
@@ -261,6 +261,27 @@ public sealed class MoxfieldApiDeckImporter : IMoxfieldDeckImporter
         }
 
         return null;
+    }
+
+    private static bool TryGetBoardCardsElement(JsonElement root, string boardName, out JsonElement cardsElement)
+    {
+        cardsElement = default;
+        if (!root.TryGetProperty("boards", out var boardsElement) || boardsElement.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        if (!boardsElement.TryGetProperty(boardName, out var boardElement) || boardElement.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        if (!boardElement.TryGetProperty("cards", out cardsElement) || cardsElement.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private static string? SanitizeDetectedName(string? name)

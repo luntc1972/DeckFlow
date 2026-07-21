@@ -43,6 +43,6 @@ public static class MoxfieldApiUrl
     public static Uri BuildDeckApiUri(string deckId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(deckId);
-        return new Uri($"https://api.moxfield.com/v2/decks/all/{deckId}", UriKind.Absolute);
+        return new Uri($"https://api2.moxfield.com/v3/decks/all/{deckId}", UriKind.Absolute);
     }
 }
