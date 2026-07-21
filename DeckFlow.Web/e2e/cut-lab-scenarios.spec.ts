@@ -36,16 +36,20 @@ test.describe.configure({ mode: 'serial' });
 const importPool = async (page: Page, primaryPlan: string): Promise<void> => {
   await page.goto(`${baseUrl}/cut-lab`);
   await expect(page.locator('h1')).toHaveText('Cut Lab');
+  await fillImportForm(page, primaryPlan);
+  await page.getByRole('button', { name: 'Import pool' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
+};
+
+const fillImportForm = async (page: Page, primaryPlan: string): Promise<void> => {
   await page.locator('#cut-lab-input-source').selectOption('PasteText');
   await page.locator('#cut-lab-deck-text').fill(oversizedPool);
   await page.locator('#cut-lab-primary-plan').fill(primaryPlan);
   await page.locator('#cut-lab-secondary-plan').fill('Keep the fast mana package intact.');
   await page.locator('input[name="Bracket"][value="4"]').check();
   await page.locator('input[name="PlayExperience"][value="Focused"]').check();
-  await page.getByRole('button', { name: 'Import pool' }).click();
-
-  await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
 };
 
 const waitForCutRounds = async (page: Page): Promise<void> => {
@@ -91,6 +95,14 @@ const clearScenarioStorage = async (page: Page): Promise<void> => {
   }
 };
 
+const clearCutLabSessionCache = async (page: Page): Promise<void> => {
+  await page.evaluate(() => {
+    window.sessionStorage.removeItem('decksync-form-state-cut-lab');
+    window.sessionStorage.removeItem('decksync-form-state-cut-lab:savedAt');
+    window.sessionStorage.removeItem('deckflow.last-deck');
+  });
+};
+
 test.beforeEach(async ({ page }) => {
   heldLock = await acquireAdminLockForTest(page);
   await setToolEnabled(page, 'Cut Lab', true);
@@ -99,7 +111,6 @@ test.beforeEach(async ({ page }) => {
 test.afterEach(async ({ page }) => {
   try {
     await clearScenarioStorage(page);
-    await setToolEnabled(page, 'Cut Lab', false);
   } finally {
     await releaseAdminLockForTest(heldLock);
     heldLock = null;
@@ -130,7 +141,17 @@ test('saves a named scenario, then restores the saved session after a fresh impo
   await expect(getMainStateInput(page)).toHaveValue(/"name":"Rhystic Study".*"isLocked":true/);
   await expect(getMainStateInput(page)).toHaveValue(/"goals":\{"commanderByTurn":5/);
 
-  await importPool(page, freshPrimaryPlan);
+  await page.locator('[data-clear-cache]').click();
+  await expect(page.getByRole('heading', { name: 'No pool imported yet' })).toBeVisible({ timeout: 30_000 });
+  await clearCutLabSessionCache(page);
+  await page.evaluate(() => {
+    const stateInput = document.querySelector<HTMLInputElement>('form[data-cache-key="cut-lab"] input[name="CutLabStateJson"]');
+    if (stateInput) {
+      stateInput.value = '';
+    }
+  });
+  await fillImportForm(page, freshPrimaryPlan);
+  await page.getByRole('button', { name: 'Import pool' }).click();
   await waitForCutRounds(page);
 
   await expect(page.locator('[data-cut-lab-sticky-accepted]')).toContainText('0 cuts so far');

@@ -69,22 +69,19 @@ test.beforeEach(async ({ page }) => {
   await setToolEnabled(page, 'Cut Lab', true);
 });
 
-test.afterEach(async ({ page }) => {
-  try {
-    await setToolEnabled(page, 'Cut Lab', false);
-  } finally {
-    await releaseAdminLockForTest(heldLock);
-    heldLock = null;
-  }
+test.afterEach(async () => {
+  await releaseAdminLockForTest(heldLock);
+  heldLock = null;
 });
 
 test('/cut-lab renders the intake, intent controls, and hidden state field when the flag is ON', async ({ page }) => {
   const response = await page.goto('/cut-lab');
   expect(response?.ok(), '/cut-lab should return 200 with flag ON').toBeTruthy();
 
+  const mainStateInput = page.locator('form[data-cache-key="cut-lab"] input[name="CutLabStateJson"]');
   await expect(page.locator('h1')).toHaveText('Cut Lab');
   await expect(page.locator('form[action="/cut-lab"]').first()).toHaveAttribute('data-cache-key', 'cut-lab');
-  await expect(page.locator('input[name="CutLabStateJson"]')).toHaveCount(1);
+  await expect(mainStateInput).toHaveCount(1);
   await expect(page.locator('#cut-lab-input-source')).toBeVisible();
   await expect(page.locator('#cut-lab-deck-url')).toBeVisible();
   await expect(page.locator('#cut-lab-primary-plan')).toBeVisible();
@@ -111,7 +108,7 @@ test('imports a pool, locks lands and a package, then preserves those edits acro
   await page.locator('select[data-cut-lab-package-card="Arcane Signet"]').selectOption({ label: 'Fast mana' });
   await page.locator('[data-cut-lab-package-id]').filter({ hasText: 'Fast mana' }).locator('input[data-cut-lab-package-toggle]').check();
 
-  const hiddenState = page.locator('input[name="CutLabStateJson"]');
+  const hiddenState = page.locator('form[data-cache-key="cut-lab"] input[name="CutLabStateJson"]');
   await expect(hiddenState).toHaveValue(/"commander":"Zur the Enchanter"/);
   await expect(hiddenState).toHaveValue(/"name":"Plains".*"isLocked":true/);
   await expect(hiddenState).toHaveValue(/"name":"Fast mana"/);
