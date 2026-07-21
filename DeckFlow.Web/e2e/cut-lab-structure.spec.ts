@@ -77,9 +77,12 @@ const getStickyRemainingCount = async (page: Page): Promise<number> => {
 
 const getStickyAcceptedCount = async (page: Page): Promise<number> => {
   const stickyText = await page.locator('[data-cut-lab-sticky-accepted]').textContent();
-  const match = stickyText?.match(/^(\d+) cut so far$/);
+  const match = stickyText?.match(/^(\d+) cuts? so far$/);
   return Number.parseInt(match?.[1] ?? '0', 10);
 };
+
+const formatAcceptedCountLabel = (count: number): string =>
+  `${count} ${count === 1 ? 'cut' : 'cuts'} so far`;
 
 const acceptCurrentProposal = async (page: Page): Promise<string> => {
   const proposal = page.locator('.cutlab-proposal');
@@ -113,13 +116,9 @@ test.beforeEach(async ({ page }) => {
   await setToolEnabled(page, 'Cut Lab', true);
 });
 
-test.afterEach(async ({ page }) => {
-  try {
-    await setToolEnabled(page, 'Cut Lab', false);
-  } finally {
-    await releaseAdminLockForTest(heldLock);
-    heldLock = null;
-  }
+test.afterEach(async () => {
+  await releaseAdminLockForTest(heldLock);
+  heldLock = null;
 });
 
 test('renders the three structure sections with 8 collapsed role groups and 8 floor inputs', async ({ page }) => {
@@ -251,7 +250,7 @@ test('accepts a proposal without a reload, keeps copy neutral, and shows a 7-row
   const acceptedCardName = await acceptCurrentProposal(page);
 
   await expect(page.locator('[data-cut-lab-sticky-remaining]')).toContainText(`${startingRemaining - 1} to cut`);
-  await expect(page.locator('[data-cut-lab-sticky-accepted]')).toContainText(`${startingAccepted + 1} cut so far`);
+  await expect(page.locator('[data-cut-lab-sticky-accepted]')).toContainText(formatAcceptedCountLabel(startingAccepted + 1));
   await expect(page.locator('.cutlab-cuts-made__row')).toContainText(acceptedCardName);
   await expect(page.locator('.cutlab-round-banner .cutlab-finding__heading')).toBeVisible();
   await expect(page.locator('.cutlab-proposal__heading')).not.toHaveText(startingProposalHeading ?? '');
@@ -292,7 +291,7 @@ test('restores an accepted cut and reverts the working list counts', async ({ pa
   await page.locator('.cutlab-cuts-made__row', { hasText: normalizedCardName }).locator('.cutlab-restore-btn').click();
 
   await expect(page.locator('[data-cut-lab-sticky-remaining]')).toContainText(`${startingRemaining} to cut`);
-  await expect(page.locator('[data-cut-lab-sticky-accepted]')).toContainText(`${startingAccepted} cut so far`);
+  await expect(page.locator('[data-cut-lab-sticky-accepted]')).toContainText(formatAcceptedCountLabel(startingAccepted));
   await expect(page.locator('.cutlab-cuts-made__row')).toHaveCount(0);
 });
 
