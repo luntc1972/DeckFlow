@@ -65,4 +65,48 @@ public sealed class DiffEngineTests
         var toAdd = Assert.Single(diff.ToAdd);
         Assert.Equal(1, toAdd.Quantity);
     }
+
+    [Fact]
+    public void Compare_CutOnlyScenario_PutsRemovedCardsInOnlyInArchidekt()
+    {
+        var finalEntries = new List<DeckEntry>
+        {
+            new() { Name = "Kinnan, Bonder Prodigy", NormalizedName = "kinnan bonder prodigy", Quantity = 1, Board = "commander" },
+            new() { Name = "Forest", NormalizedName = "forest", Quantity = 99, Board = "mainboard" },
+        };
+        var originalEntries = new List<DeckEntry>
+        {
+            new() { Name = "Kinnan, Bonder Prodigy", NormalizedName = "kinnan bonder prodigy", Quantity = 1, Board = "commander" },
+            new() { Name = "Forest", NormalizedName = "forest", Quantity = 99, Board = "mainboard" },
+            new() { Name = "Llanowar Elves", NormalizedName = "llanowar elves", Quantity = 1, Board = "sideboard" },
+        };
+
+        var diff = new DiffEngine(MatchMode.Loose).Compare(finalEntries, originalEntries);
+
+        Assert.Empty(diff.ToAdd);
+        var cut = Assert.Single(diff.OnlyInArchidekt);
+        Assert.Equal("Llanowar Elves", cut.Name);
+        Assert.Equal(1, cut.Quantity);
+    }
+
+    [Fact]
+    public void Compare_QuantityDecrease_PutsRemovedCountInCountMismatch()
+    {
+        var finalEntries = new List<DeckEntry>
+        {
+            new() { Name = "Forest", NormalizedName = "forest", Quantity = 7, Board = "mainboard" },
+        };
+        var originalEntries = new List<DeckEntry>
+        {
+            new() { Name = "Forest", NormalizedName = "forest", Quantity = 10, Board = "mainboard" },
+        };
+
+        var diff = new DiffEngine(MatchMode.Loose).Compare(finalEntries, originalEntries);
+
+        Assert.Empty(diff.ToAdd);
+        Assert.Empty(diff.OnlyInArchidekt);
+        var mismatch = Assert.Single(diff.CountMismatch);
+        Assert.Equal("Forest", mismatch.Name);
+        Assert.Equal(3, mismatch.Quantity);
+    }
 }
