@@ -13,6 +13,7 @@ public static class CutLabStateSerializer
     // Why: a 150-card pool can accumulate multiple decision records per card across loop-around
     // passes, so this keeps realistic history intact while staying comfortably under the byte cap.
     private const int MaxDecisions = 500;
+    private const int MaxOriginalEntries = 200;
 
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
     {
@@ -57,6 +58,10 @@ public static class CutLabStateSerializer
                 Decisions = state.Decisions
                     .Where(decision => !string.IsNullOrWhiteSpace(decision.CardName))
                     .Take(MaxDecisions)
+                    .ToArray(),
+                OriginalEntries = state.OriginalEntries
+                    .Where(entry => !string.IsNullOrWhiteSpace(entry.Name))
+                    .Take(MaxOriginalEntries)
                     .ToArray(),
             };
 

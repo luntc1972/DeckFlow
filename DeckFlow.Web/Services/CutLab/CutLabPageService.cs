@@ -312,6 +312,24 @@ internal sealed class CutLabPageService : ICutLabPageService
                 .ToArray(),
         };
 
+        if (state.OriginalEntries.Count == 0)
+        {
+            state = state with
+            {
+                OriginalEntries = analyzedEntries
+                    .Select(static entry => new CutLabOriginalEntry
+                    {
+                        Name = entry.Name,
+                        Quantity = entry.Quantity,
+                        Board = entry.Board,
+                        SetCode = entry.SetCode,
+                        CollectorNumber = entry.CollectorNumber,
+                        Category = entry.Category,
+                    })
+                    .ToArray(),
+            };
+        }
+
         if (state.BaselineSnapshot is null)
         {
             try
@@ -691,6 +709,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             Pool = pool,
             Packages = priorState.Packages,
             Decisions = priorState.Decisions,
+            OriginalEntries = priorState.OriginalEntries,
             Goals = priorState.Goals,
             BaselineSnapshot = priorState.BaselineSnapshot,
             RoleFloors = resolvedFloors
