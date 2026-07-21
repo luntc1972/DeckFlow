@@ -25,6 +25,7 @@ public sealed class ScryfallCardDataMapperTests
         Assert.Equal("Breeding Pool", data.Name);
         Assert.Equal(0, data.Cmc);
         Assert.Equal(new[] { "G", "U" }, data.ProducedMana);
+        Assert.Null(data.ColorIdentity);
         Assert.Equal("rare", data.Rarity);
         Assert.Equal("grn", data.Set);
         Assert.Equal("246", data.CollectorNumber);
@@ -53,5 +54,19 @@ public sealed class ScryfallCardDataMapperTests
         Assert.Equal("Fire", data.CardFaces[0].Name);
         Assert.Equal("{1}{R}", data.CardFaces[0].ManaCost);
         Assert.Equal("Ice", data.CardFaces[1].Name);
+    }
+
+    [Fact]
+    public void ToCardData_CopiesColorIdentity()
+    {
+        var card = new ScryfallCard(
+            Name: "Grand Arbiter Augustin IV", ManaCost: "{2}{W}{U}", TypeLine: "Legendary Creature — Human Advisor", OracleText: "White spells you cast cost {1} less to cast.",
+            Power: "2", Toughness: "3", Keywords: null, ColorIdentity: new[] { "W", "U" },
+            SetCode: "dis", SetName: "Dissension", CollectorNumber: "112", CardFaces: null, Id: null,
+            Layout: "normal", Cmc: 4, ProducedMana: null, Rarity: "rare");
+
+        var data = ScryfallCardDataMapper.ToCardData(card);
+
+        Assert.Equal(new[] { "W", "U" }, data.ColorIdentity);
     }
 }

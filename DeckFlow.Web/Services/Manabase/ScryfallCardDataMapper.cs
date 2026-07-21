@@ -24,6 +24,7 @@ public static class ScryfallCardDataMapper
             TypeLine = card.TypeLine,
             OracleText = card.OracleText,
             ProducedMana = card.ProducedMana,
+            ColorIdentity = card.ColorIdentity,
             Rarity = card.Rarity,
             Set = card.SetCode,
             CollectorNumber = card.CollectorNumber,
