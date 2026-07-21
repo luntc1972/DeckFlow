@@ -397,12 +397,6 @@ const attachMoxfieldExtensionImport = (): void => {
 interface Window {
   attachMoxfieldExtensionImport?: () => void;
   DeckInputSource?: typeof DeckInputSource;
-  DeckFlowMoxfieldExtensionBridgeTest?: {
-    collectMoxfieldImportTasks: (form: HTMLFormElement) => MoxfieldImportTask[];
-  };
 }
 
-window.DeckFlowMoxfieldExtensionBridgeTest = {
-  collectMoxfieldImportTasks,
-};
 window.attachMoxfieldExtensionImport = attachMoxfieldExtensionImport;
