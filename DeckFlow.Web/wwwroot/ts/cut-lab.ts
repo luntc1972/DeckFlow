@@ -1024,10 +1024,12 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
 
     try {
       const formCacheKey = form.dataset.cacheKey?.trim() || 'cut-lab';
-      window.localStorage.removeItem(`decksync-form-state-${formCacheKey}`);
-      window.localStorage.removeItem(`decksync-form-state-${formCacheKey}:savedAt`);
+      form.dataset.skipPersistence = 'true';
+      window.sessionStorage.removeItem(`decksync-form-state-${formCacheKey}`);
+      window.sessionStorage.removeItem(`decksync-form-state-${formCacheKey}:savedAt`);
     } catch {
-      // Why: scenario load should reflect only the server-restored session, even if storage is unavailable.
+      // Why: deck-sync persists intake form-state in sessionStorage; clear it (and skip re-persist)
+      // so the scenario-load page reflects only the server-restored session.
     }
 
     try {
