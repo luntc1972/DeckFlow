@@ -507,6 +507,60 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_SubmittedStateJsonCarriesForwardGoals()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var priorState = new CutLabState
+        {
+            Commander = "Atraxa, Praetors' Voice",
+            Goals = new CutLabGoalSettings
+            {
+                CommanderByTurn = 5,
+                EngineByTurn = 7,
+                RepresentativeLineByTurn = 9,
+            },
+        };
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            CutLabStateJson = CutLabStateSerializer.Serialize(priorState),
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.Equal(5, result.State!.Goals.CommanderByTurn);
+        Assert.Equal(5, CutLabStateSerializer.Deserialize(result.SerializedStateJson).Goals.CommanderByTurn);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_FreshImport_SeedsDefaultGoals()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.Equal(3, result.State!.Goals.CommanderByTurn);
+        Assert.Equal(2, result.State.Goals.EngineByTurn);
+        Assert.Equal(4, result.State.Goals.RepresentativeLineByTurn);
+    }
+
+    [Fact]
     public async Task ProcessAsync_AmbiguousCommanderInference_ReturnsSelectionRequired()
     {
         var entries = new List<DeckEntry>

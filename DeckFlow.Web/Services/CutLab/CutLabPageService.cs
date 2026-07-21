@@ -691,6 +691,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             Pool = pool,
             Packages = priorState.Packages,
             Decisions = priorState.Decisions,
+            Goals = priorState.Goals,
             BaselineSnapshot = priorState.BaselineSnapshot,
             RoleFloors = resolvedFloors
                 .Where(floor => floor.IsUserSet)
