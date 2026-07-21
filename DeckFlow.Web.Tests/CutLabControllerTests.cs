@@ -67,6 +67,82 @@ public sealed class CutLabControllerTests
     }
 
     [Fact]
+    public async Task Process_StateOnlyRequest_RehydratesSavedScenarioBeforeProcessAsync()
+    {
+        var service = new StateAwareCutLabPageService();
+        var controller = CreateController(service);
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(CreateState(
+                new CutLabDecision
+                {
+                    CardName = "Arcane Signet",
+                    Kind = CutLabDecisionKind.Accepted,
+                    Round = CutLabCutRoundEngine.Round1Key,
+                    Ordinal = 1,
+                }) with
+            {
+                Goals = new CutLabGoalSettings
+                {
+                    CommanderByTurn = 8,
+                    EngineByTurn = 5,
+                    RepresentativeLineByTurn = 6,
+                },
+            }),
+        };
+
+        var result = await controller.Process(request);
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("CutLab", view.ViewName);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        Assert.True(model.HasResult);
+        Assert.NotNull(model.Proposal);
+        CutLabState restoredState = CutLabStateSerializer.Deserialize(model.CutLabStateJson);
+        Assert.Equal(3, restoredState.Pool.Count);
+        CutLabDecision restoredDecision = Assert.Single(restoredState.Decisions);
+        Assert.Equal("Arcane Signet", restoredDecision.CardName);
+        Assert.Equal(CutLabDecisionKind.Accepted, restoredDecision.Kind);
+        Assert.Equal(8, restoredState.Goals.CommanderByTurn);
+        Assert.Equal("Zur the Enchanter", service.LastRequest!.SelectedCommander);
+        Assert.Equal(3, service.LastRequest.Bracket);
+        Assert.Equal("Focused", service.LastRequest.PlayExperience);
+        Assert.Contains("Commander", service.LastRequest.DeckText, StringComparison.Ordinal);
+        Assert.Contains("1 Zur the Enchanter", service.LastRequest.DeckText, StringComparison.Ordinal);
+        Assert.Contains("1 Arcane Signet", service.LastRequest.DeckText, StringComparison.Ordinal);
+        Assert.Contains("99 Counterspell", service.LastRequest.DeckText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Process_NormalImport_LeavesPostedDeckInputUntouched()
+    {
+        var service = new FakeCutLabPageService
+        {
+            Result = new CutLabProcessResult
+            {
+                State = new CutLabState(),
+                SerializedStateJson = "{\"pool\":[]}",
+                CardCount = 120,
+                IsLegal = true,
+                HasResult = true,
+            },
+        };
+        var controller = CreateController(service);
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "Deck\n1 Sol Ring",
+            CutLabStateJson = string.Empty,
+        };
+
+        await controller.Process(request);
+
+        Assert.Equal("Deck\n1 Sol Ring", service.LastRequest!.DeckText);
+        Assert.Equal(string.Empty, service.LastRequest.CutLabStateJson);
+        Assert.Equal(DeckInputSource.PasteText, service.LastRequest.DeckInputSource);
+    }
+
+    [Fact]
     public async Task Process_InvalidOperationException_ReturnsErrorView()
     {
         var controller = CreateController(new ThrowingCutLabPageService(new InvalidOperationException("Bad pool.")));
