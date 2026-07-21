@@ -44,6 +44,15 @@ public sealed class CutLabController : Controller
 
         try
         {
+            // Why: restore a saved scenario posted back through the main intake form as state-only data.
+            if (!string.IsNullOrWhiteSpace(request.CutLabStateJson)
+                && string.IsNullOrWhiteSpace(request.DeckText)
+                && string.IsNullOrWhiteSpace(request.DeckUrl))
+            {
+                CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+                RehydrateIntakeRequestFromState(request, state);
+            }
+
             var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
             return View("CutLab", CutLabViewModel.From(request, result));
         }
