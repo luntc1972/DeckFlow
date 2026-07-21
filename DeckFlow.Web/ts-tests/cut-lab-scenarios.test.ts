@@ -131,6 +131,13 @@ describe('cut-lab scenario storage', () => {
     const savedStateJson = '{"pool":[{"name":"Sol Ring","quantity":1}],"goals":{"commanderByTurn":5}}';
     expect(api.saveScenario('Rehydrate me', savedStateJson)).toBe('ok');
     const [savedScenario] = api.listScenarios();
+    const removeItemSpy = vi.spyOn(Storage.prototype, 'removeItem');
+    const clearLastDeckSpy = vi.fn();
+    Object.assign(window, {
+      DeckFlow: {
+        clearLastDeck: clearLastDeckSpy,
+      },
+    });
 
     document.body.innerHTML = `
       <form data-cache-key="cut-lab">
@@ -163,6 +170,9 @@ describe('cut-lab scenario storage', () => {
     expect(document.querySelector<HTMLInputElement>('#cut-lab-deck-url')?.value).toBe('');
     expect(document.querySelector<HTMLTextAreaElement>('#cut-lab-deck-text')?.value).toBe('');
     expect(document.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]')?.value).toBe(savedStateJson);
+    expect(removeItemSpy).toHaveBeenCalledWith('decksync-form-state-cut-lab');
+    expect(removeItemSpy).toHaveBeenCalledWith('decksync-form-state-cut-lab:savedAt');
+    expect(clearLastDeckSpy).toHaveBeenCalledOnce();
     expect(requestSubmitSpy).toHaveBeenCalledOnce();
   });
 });

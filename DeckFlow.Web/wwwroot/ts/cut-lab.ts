@@ -155,6 +155,9 @@ interface CutLabApi {
 
 interface CutLabRoot {
   DeckFlowCutLab?: CutLabApi;
+  DeckFlow?: {
+    clearLastDeck?: () => void;
+  };
 }
 
 interface PendingNewPackageTarget {
@@ -1017,6 +1020,22 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     const deckTextInput = getDeckTextInput();
     if (deckTextInput) {
       deckTextInput.value = '';
+    }
+
+    try {
+      const formCacheKey = form.dataset.cacheKey?.trim() || 'cut-lab';
+      window.localStorage.removeItem(`decksync-form-state-${formCacheKey}`);
+      window.localStorage.removeItem(`decksync-form-state-${formCacheKey}:savedAt`);
+    } catch {
+      // Why: scenario load should reflect only the server-restored session, even if storage is unavailable.
+    }
+
+    try {
+      if (typeof root.DeckFlow?.clearLastDeck === 'function') {
+        root.DeckFlow.clearLastDeck();
+      }
+    } catch {
+      // Why: scenario load should not rehydrate stale pasted deck input from client cache.
     }
 
     renderScenarioStatus('Scenario loaded. Rebuilding Cut Lab…');
