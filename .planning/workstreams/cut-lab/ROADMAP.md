@@ -100,7 +100,12 @@ Cycle 18 ships a deterministic decision-support loop that takes a builder from a
   1. User can export the finished 100-card list in Moxfield-compatible and Archidekt-compatible text formats
   2. User can export an add/cut patch describing exactly which cards to remove and add relative to their original builder list
   3. The finished list is validated before export — exactly 100 cards, color-identity legal, and Commander-banlist clean — reusing existing diff/export and banlist infrastructure
-**Plans**: TBD
+**Plans**: 5 plans
+- [ ] 105-01-PLAN.md — Capture-once OriginalEntries baseline on CutLabState (+ serializer clamp, survives scenario reload)
+- [ ] 105-02-PLAN.md — Thread color_identity through ScryfallCardData + mapper (no new Scryfall call)
+- [ ] 105-03-PLAN.md — CutLabExportComposer (Core): both-dialect full list + CUT/ADD patch + validation summary, unit-tested
+- [ ] 105-04-PLAN.md — Wire-up: export service, /cut-lab/export action, Export panel + step tab (gated at 100), copy + CSS
+- [ ] 105-05-PLAN.md — e2e export spec, full-suite gate, theme/viewport screenshots, human verify
 
 ## Progress
 
@@ -113,4 +118,4 @@ Phases execute in numeric order: 101 -> 102 -> 103 -> 104 -> 105
 | 102. Structural Analysis & Role Floors | 5/5 | Complete    | 2026-07-19 |
 | 103. Simulation Engine & Guided Cut Rounds | 10/10 | Complete | 2026-07-20 |
 | 104. Goals & What-If Scenarios | 0/6 | Not started | - |
-| 105. Builder-Compatible Export | 0/TBD | Not started | - |
+| 105. Builder-Compatible Export | 0/5 | Planned | - |

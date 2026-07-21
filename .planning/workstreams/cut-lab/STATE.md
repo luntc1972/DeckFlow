@@ -4,9 +4,9 @@ milestone: Cycle 18
 milestone_name: milestone
 current_phase: 105
 current_plan: none
-status: completed
-stopped_at: Phase 104 complete — human-verify UAT PASS (incl. Moxfield sideboard import via bridge)
-last_updated: "2026-07-21T16:20:00.000Z"
+status: planned
+stopped_at: Phase 105 planned — 5 plans / 4 waves, converged (Claude plan-check + 3-round Codex review); ready to execute
+last_updated: "2026-07-21T18:10:00.000Z"
 last_activity: 2026-07-21
 progress:
   total_phases: 5
@@ -20,12 +20,12 @@ progress:
 
 ## Current Position
 
-Phase: 105 (builder-compatible export) — READY TO PLAN
-Plan: none active
-**Status:** Phase 104 complete — ready to discuss/plan Phase 105
+Phase: 105 (builder-compatible export) — PLANNED, ready to execute
+Plan: none active (5 plans authored: 105-01..105-05)
+**Status:** Phase 105 planned + converged — ready for /gsd-execute-phase 105
 **Current Phase:** 105
 **Last Activity:** 2026-07-21
-**Last Activity Description:** Phase 104 closed after human-verify UAT (turn goals + named scenarios + what-if swap + reset). Two UAT-driven fixes shipped on branch: Moxfield importer v2→v3 (d3601109), and Cut Lab wired into the deckflow-bridge extension with auto-included sideboard (25ed5bce) — the real fix for the "pool ≤100" sideboard-import failure (root cause: Cloudflare 403s the .NET client by TLS fingerprint on both v2/v3; the browser extension is the un-blocked path). Milestone at 4/5 phases.
+**Last Activity Description:** Phase 105 planned. Research (HIGH-confidence reuse map) → CONTEXT (D1 Export step tab gated at 100; D2 hard-block only on count≠100, color/banlist warn-not-block; D3 CUT/ADD patch both dialects) → 5 plans / 4 waves → Claude plan-check (3 blockers/4 warnings closed) → 3-round Codex plan-review CONVERGED. Codex caught real correctness bugs now fixed in the plan: finished-list board-normalization (sideboard/maybeboard kept cards must export as mainboard), CUT patch must include CountMismatch quantity decreases, controller-ctor test blast radius, duplicate-entry quantity consolidation. Reuse-first: FullImportExporter/DeltaExporter (targetSystem branch = both dialects), DiffEngine.Compare, CommanderBanListService; two new data seams (capture-once CutLabState.OriginalEntries baseline; ColorIdentity threaded into ScryfallCardData). Milestone at 4/5 phases (planning-complete on the 5th).
 
 ## Progress
 
@@ -41,5 +41,5 @@ Plan: none active
 
 ## Session Continuity
 
-**Stopped At:** Phase 104 complete (UAT PASS) — next: /gsd-plan-phase 105 (builder-compatible export)
-**Resume File:** .planning/workstreams/cut-lab/ROADMAP.md (Phase 105 section)
+**Stopped At:** Phase 105 planned + converged — next: /gsd-execute-phase 105
+**Resume File:** .planning/workstreams/cut-lab/phases/105-builder-compatible-export/ (105-01..105-05 PLANs, 105-CONTEXT/RESEARCH/VALIDATION)
