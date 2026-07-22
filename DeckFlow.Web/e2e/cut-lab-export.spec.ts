@@ -84,7 +84,8 @@ const cutToTarget = async (page: Page): Promise<void> => {
     }
 
     await accept.first().click();
-    await expect(headingLocator).not.toHaveText(heading, { timeout: 15_000 });
+    // The first decide pays cold JIT + cold sim-cache cost; allow headroom on slow CI.
+    await expect(headingLocator).not.toHaveText(heading, { timeout: 30_000 });
   }
 
   throw new Error('Expected to reach exactly 100 cards within 12 accepted cuts.');

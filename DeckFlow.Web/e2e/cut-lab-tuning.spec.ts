@@ -128,8 +128,9 @@ const acceptUntilRemainingBySingleCopyCuts = async (page: Page, targetRemaining:
 
     const heading = (await headingLocator.textContent())?.trim() ?? '';
     await page.locator('.cutlab-proposal .cutlab-decision-btn--accept').first().click();
-    await expect(page.locator('[data-cut-lab-sticky-remaining]')).toHaveText(`${remaining - 1} to cut`, { timeout: 15_000 });
-    await expect(headingLocator).not.toHaveText(heading, { timeout: 15_000 });
+    // The first decide pays cold JIT + cold sim-cache cost; allow headroom on slow CI.
+    await expect(page.locator('[data-cut-lab-sticky-remaining]')).toHaveText(`${remaining - 1} to cut`, { timeout: 30_000 });
+    await expect(headingLocator).not.toHaveText(heading, { timeout: 30_000 });
   }
 
   throw new Error(`Expected to reach ${targetRemaining} cards remaining to cut within 12 accepts.`);
@@ -315,6 +316,9 @@ test('tunes to exactly 100 with basic steppers, then reloads a saved scenario wi
 });
 
 test('captures the tuner screenshot matrix across guild themes and desktop/mobile viewports', async ({ page }) => {
+  // 7 themes x 2 viewports, each driving a full tune-to-100 flow — legitimately
+  // slow on the 2-core CI runner. Triple the default timeout rather than race it.
+  test.slow();
   mkdirSync(screenshotDir, { recursive: true });
 
   for (const viewport of viewports) {

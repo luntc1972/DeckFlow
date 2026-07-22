@@ -9,11 +9,11 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
-  // Every admin/cut-lab spec serializes on a single global admin lock (see
-  // e2e/support/admin-lock.ts), so extra CI workers only pile up on that lock
-  // — on the slow 2-core runner the queue depth blows the 90s lock timeout and
-  // starves in-flight decide re-renders. Run CI e2e single-worker to match the
-  // effective serialization; local dev keeps Playwright's core-count default.
+  // Single-worker on CI: the cut-lab decide/tuning specs each drive a
+  // simulation-heavy /api/cut-lab/decide loop, and on the 2-core CI runner
+  // parallel workers starve each other's decide computation past the per-accept
+  // timeout. One worker gives each sim-heavy request the full 2 cores. Local dev
+  // (fast, many cores) keeps Playwright's core-count default.
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
@@ -58,7 +58,14 @@ export default defineConfig({
     // profile's environmentVariables, which `dotnet run` applies in-process
     // Windows-side — the only reliable suppression across WSL interop. The env
     // block below is kept as belt-and-suspenders for native-Linux/CI runs.
-    command: `${dotnetCommand} run --launch-profile http-no-browser`,
+    //
+    // CI runs the server in Release (reusing the Release build the workflow
+    // already produced via --no-build). `dotnet run` otherwise defaults to a
+    // Debug build, whose un-optimized, cold-JIT simulation code makes the first
+    // /api/cut-lab/decide take >15s on the 2-core runner and deterministically
+    // times out the cut-lab decide/tuning specs. Local dev keeps the default
+    // Debug build (fast enough on dev hardware, no Release build required).
+    command: `${dotnetCommand} run${process.env.CI ? ' -c Release --no-build' : ''} --launch-profile http-no-browser`,
     url: 'http://localhost:5173',
     reuseExistingServer,
     timeout: 120_000,
