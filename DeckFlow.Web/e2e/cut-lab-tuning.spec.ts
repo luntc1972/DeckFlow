@@ -316,9 +316,12 @@ test('tunes to exactly 100 with basic steppers, then reloads a saved scenario wi
 });
 
 test('captures the tuner screenshot matrix across guild themes and desktop/mobile viewports', async ({ page }) => {
-  // 7 themes x 2 viewports, each driving a full tune-to-100 flow — legitimately
-  // slow on the 2-core CI runner. Triple the default timeout rather than race it.
-  test.slow();
+  // Capture-only test: it asserts nothing, it just writes screenshots for local
+  // visual UAT. 7 themes x 2 viewports x a full sim-heavy tune-to-100 flow each
+  // takes ~6min on the 2-core CI runner and blows any sane test budget, while
+  // adding zero behavioral coverage (tuning behavior is covered by the tests
+  // above). Skip it on CI; run it locally to regenerate the screenshot matrix.
+  test.skip(Boolean(process.env.CI), 'screenshot capture — slow + non-behavioral; run locally for visual UAT');
   mkdirSync(screenshotDir, { recursive: true });
 
   for (const viewport of viewports) {
