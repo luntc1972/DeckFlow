@@ -357,6 +357,104 @@ public sealed class CutLabApiControllerTests
     }
 
     [Fact]
+    public async Task PostAdjustAsync_ReturnsForbidden_WhenOriginIsCrossSite()
+    {
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)), new FakeSimulationService(), sameOrigin: false);
+
+        ActionResult<CutLabAdjustApiResponse> response = await controller.PostAdjustAsync(
+            new CutLabAdjustApiRequest
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()),
+                CardName = "Island",
+                Delta = 2,
+                IsAddedBasic = true,
+            },
+            CancellationToken.None);
+
+        ObjectResult forbidden = Assert.IsType<ObjectResult>(response.Result);
+        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+    }
+
+    [Fact]
+    public async Task PostAdjustAsync_AddBasic_ReturnsUpdatedStateAndCardsRemaining()
+    {
+        CutLabState state = CreateState(
+            pool:
+            [
+                Card("Commander", quantity: 1, isCommander: true, isLocked: true),
+                Card("Arcane Signet", quantity: 1),
+                Card("Counterspell", quantity: 96, isLocked: true),
+            ]);
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)), new FakeSimulationService());
+
+        ActionResult<CutLabAdjustApiResponse> response = await controller.PostAdjustAsync(
+            new CutLabAdjustApiRequest
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(state),
+                CardName = "Island",
+                Delta = 2,
+                IsAddedBasic = true,
+            },
+            CancellationToken.None);
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
+        CutLabAdjustApiResponse payload = Assert.IsType<CutLabAdjustApiResponse>(ok.Value);
+        CutLabState updated = CutLabStateSerializer.Deserialize(payload.CutLabStateJson);
+        CutLabQuantityAdjustment adjustment = Assert.Single(updated.QuantityAdjustments);
+        Assert.Equal("Island", adjustment.Name);
+        Assert.Equal(2, adjustment.Delta);
+        Assert.True(adjustment.IsAddedBasic);
+        Assert.Equal(0, payload.CardsRemaining);
+    }
+
+    [Fact]
+    public async Task PostAdjustAsync_SingletonIncrease_ReturnsBadRequest()
+    {
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)), new FakeSimulationService());
+
+        ActionResult<CutLabAdjustApiResponse> response = await controller.PostAdjustAsync(
+            new CutLabAdjustApiRequest
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()),
+                CardName = "Arcane Signet",
+                Delta = 1,
+                IsAddedBasic = false,
+            },
+            CancellationToken.None);
+
+        BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(response.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+        string? message = badRequest.Value?.GetType().GetProperty("Message")?.GetValue(badRequest.Value) as string;
+        Assert.Equal(CutLabMessages.NoChangeMessage, message);
+    }
+
+    [Fact]
+    public async Task PostAdjustAsync_IntMaxValueDelta_ReturnsBoundedCardsRemaining()
+    {
+        CutLabState state = CreateState(
+            pool:
+            [
+                Card("Commander", quantity: 1, isCommander: true, isLocked: true),
+                Card("Counterspell", quantity: 97, isLocked: true),
+            ]);
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)), new FakeSimulationService());
+
+        ActionResult<CutLabAdjustApiResponse> response = await controller.PostAdjustAsync(
+            new CutLabAdjustApiRequest
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(state),
+                CardName = "Island",
+                Delta = int.MaxValue,
+                IsAddedBasic = true,
+            },
+            CancellationToken.None);
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
+        CutLabAdjustApiResponse payload = Assert.IsType<CutLabAdjustApiResponse>(ok.Value);
+        Assert.Equal(148, payload.CardsRemaining);
+    }
+
+    [Fact]
     public async Task PostWhatifCommitAsync_SwapsCardsAtomicallyAndTagsAcceptedCutWithWhatifRound()
     {
         CutLabState state = new()

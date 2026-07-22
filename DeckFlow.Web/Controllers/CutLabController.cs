@@ -119,6 +119,49 @@ public sealed class CutLabController : Controller
         }
     }
 
+    /// <summary>Applies one quantity adjustment and re-renders the full page for the no-JS fallback.</summary>
+    /// <param name="request">Posted Cut Lab form fields.</param>
+    /// <param name="cardName">Card receiving the quantity adjustment.</param>
+    /// <param name="delta">Signed quantity delta to apply.</param>
+    /// <param name="isAddedBasic">True when materializing a known added basic.</param>
+    [HttpPost("/cut-lab/adjust")]
+    [FeatureFlagGate("tool.cut-lab.enabled")]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(2 * 1024 * 1024)]
+    public async Task<IActionResult> Adjust(CutLabRequest request, string cardName, int delta, bool isAddedBasic)
+    {
+        request ??= new CutLabRequest();
+
+        if (string.IsNullOrWhiteSpace(request.CutLabStateJson) || string.IsNullOrWhiteSpace(cardName))
+        {
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+        }
+
+        try
+        {
+            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            state = CutLabAdjustmentApplier.Apply(state, cardName, delta, isAddedBasic);
+            RehydrateIntakeRequestFromState(request, state);
+            request.CutLabStateJson = CutLabStateSerializer.Serialize(state);
+
+            var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
+            return View("CutLab", CutLabViewModel.From(request, result));
+        }
+        catch (InvalidOperationException exception)
+        {
+            return CutLabView(request, error: exception.Message);
+        }
+        catch (OperationCanceledException)
+        {
+            return CutLabView(request, error: "The request timed out. Try again.");
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Cut Lab adjustment fallback failed.");
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+        }
+    }
+
     /// <summary>Applies posted goal turns and re-renders the full page for the no-JS fallback.</summary>
     /// <param name="request">Posted Cut Lab form fields.</param>
     [HttpPost("/cut-lab/goals")]

@@ -338,6 +338,48 @@ public sealed class CutLabControllerTests
     }
 
     [Fact]
+    public async Task Adjust_RequiresFeatureGateAndAntiforgery_AndReturnsErrorViewForMissingState()
+    {
+        var method = typeof(CutLabController).GetMethod(nameof(CutLabController.Adjust));
+
+        Assert.NotNull(method);
+        Assert.NotNull(method!.GetCustomAttributes(typeof(FeatureFlagGateAttribute), inherit: true).SingleOrDefault());
+        Assert.NotNull(method.GetCustomAttributes(typeof(ValidateAntiForgeryTokenAttribute), inherit: true).SingleOrDefault());
+
+        var controller = CreateController(new FakeCutLabPageService());
+
+        var result = await controller.Adjust(new CutLabRequest(), "Island", 2, true);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        Assert.Equal(CutLabMessages.NoChangeMessage, model.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Adjust_AddBasic_RehydratesStateAndRerendersUpdatedCount()
+    {
+        var service = new AdjustmentStateAwareCutLabPageService();
+        var controller = CreateController(service);
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(CreateAdjustmentState()),
+        };
+
+        var result = await controller.Adjust(request, "Island", 2, true);
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("CutLab", view.ViewName);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        CutLabState updatedState = CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson);
+        CutLabQuantityAdjustment adjustment = Assert.Single(updatedState.QuantityAdjustments);
+        Assert.Equal("Island", adjustment.Name);
+        Assert.Equal(2, adjustment.Delta);
+        Assert.True(adjustment.IsAddedBasic);
+        Assert.Equal(100, model.CardCount);
+        Assert.True(model.HasResult);
+    }
+
+    [Fact]
     public async Task Goals_PostedCommanderTurn_UpdatesStateAndGoalRow()
     {
         var service = new GoalStateAwareCutLabPageService();
@@ -760,6 +802,28 @@ public sealed class CutLabControllerTests
         }
     }
 
+    private sealed class AdjustmentStateAwareCutLabPageService : ICutLabPageService
+    {
+        public CutLabRequest? LastRequest { get; private set; }
+
+        public Task<CutLabProcessResult> ProcessAsync(CutLabRequest request, CancellationToken cancellationToken = default)
+        {
+            LastRequest = request;
+            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
+            return Task.FromResult(new CutLabProcessResult
+            {
+                State = state,
+                SerializedStateJson = request.CutLabStateJson,
+                CardCount = workingList.Sum(card => card.Quantity),
+                HasResult = true,
+                IsLegal = true,
+                Findings = new CutLabStructuralFindingsResult([], true, true),
+                CurrentSnapshot = BuildGoalSnapshot(state.Goals, 64, 71, 58),
+            });
+        }
+    }
+
     private sealed class FakeWhatifPreviewService : ICutLabWhatifPreviewService
     {
         public CutLabWhatifPreview Preview { get; set; } = new();
@@ -837,6 +901,51 @@ public sealed class CutLabControllerTests
                 {
                     Name = "Counterspell",
                     Quantity = 99,
+                    Board = "mainboard",
+                },
+            ],
+            BaselineSnapshot = BuildGoalSnapshot(new CutLabGoalSettings(), 57, 68, 52),
+            Intent = new CutLabIntent
+            {
+                PrimaryPlan = "Value enchantments",
+                PlayExperience = "Focused",
+                Bracket = 3,
+            },
+        };
+
+    private static CutLabState CreateAdjustmentState()
+        => new()
+        {
+            Commander = "Zur the Enchanter",
+            Pool =
+            [
+                new CutLabPoolCard
+                {
+                    Name = "Zur the Enchanter",
+                    Quantity = 1,
+                    TypeLine = "Legendary Creature",
+                    IsCommander = true,
+                    IsLocked = true,
+                },
+                new CutLabPoolCard
+                {
+                    Name = "Counterspell",
+                    Quantity = 97,
+                    TypeLine = "Instant",
+                },
+            ],
+            OriginalEntries =
+            [
+                new CutLabOriginalEntry
+                {
+                    Name = "Zur the Enchanter",
+                    Quantity = 1,
+                    Board = "commander",
+                },
+                new CutLabOriginalEntry
+                {
+                    Name = "Counterspell",
+                    Quantity = 97,
                     Board = "mainboard",
                 },
             ],
