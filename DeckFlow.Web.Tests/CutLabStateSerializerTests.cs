@@ -408,6 +408,156 @@ public sealed class CutLabStateSerializerTests
     }
 
     [Fact]
+    public void SerializeDeserialize_QuantityAdjustments_RoundTripUnchanged()
+    {
+        var state = new CutLabState
+        {
+            QuantityAdjustments =
+            [
+                new CutLabQuantityAdjustment
+                {
+                    Name = "Island",
+                    Delta = -3,
+                    IsAddedBasic = false,
+                },
+                new CutLabQuantityAdjustment
+                {
+                    Name = "Wastes",
+                    Delta = 2,
+                    IsAddedBasic = true,
+                },
+            ],
+        };
+
+        string json = CutLabStateSerializer.Serialize(state);
+        CutLabState roundTripped = CutLabStateSerializer.Deserialize(json);
+
+        Assert.Equal(state.QuantityAdjustments, roundTripped.QuantityAdjustments);
+    }
+
+    [Fact]
+    public void Deserialize_Pre106JsonWithoutQuantityAdjustments_ReturnsEmptyList()
+    {
+        const string json =
+            """
+            {
+              "commander": "Atraxa, Praetors' Voice",
+              "pool": [],
+              "packages": [],
+              "decisions": [],
+              "roleFloors": [],
+              "goals": {
+                "commanderByTurn": 3,
+                "engineByTurn": 2,
+                "representativeLineByTurn": 4
+              },
+              "intent": {
+                "primaryPlan": "Counters",
+                "secondaryPlan": null,
+                "bracket": 3,
+                "playExperience": "Focused"
+              }
+            }
+            """;
+
+        CutLabState state = CutLabStateSerializer.Deserialize(json);
+
+        Assert.Empty(state.QuantityAdjustments);
+    }
+
+    [Fact]
+    public void Deserialize_QuantityAdjustmentsOverMax_TruncatesToThreeHundredNonBlankEntries()
+    {
+        string adjustmentsJson = string.Join(
+            ",",
+            Enumerable.Range(1, 303).Select(index =>
+                $$"""{"name":"Card {{index}}","delta":{{index}},"isAddedBasic":false}"""));
+        string json =
+            $$"""
+            {
+              "commander": "Atraxa, Praetors' Voice",
+              "pool": [],
+              "packages": [],
+              "decisions": [],
+              "quantityAdjustments": [
+                {"name":"","delta":1,"isAddedBasic":false},
+                {"name":"   ","delta":-1,"isAddedBasic":true},
+                {{adjustmentsJson}}
+              ],
+              "roleFloors": [],
+              "intent": {
+                "primaryPlan": "Counters",
+                "secondaryPlan": null,
+                "bracket": 3,
+                "playExperience": "Focused"
+              }
+            }
+            """;
+
+        CutLabState state = CutLabStateSerializer.Deserialize(json);
+
+        Assert.Equal(300, state.QuantityAdjustments.Count);
+        Assert.DoesNotContain(state.QuantityAdjustments, adjustment => string.IsNullOrWhiteSpace(adjustment.Name));
+        Assert.Equal("Card 1", state.QuantityAdjustments[0].Name);
+        Assert.Equal("Card 300", state.QuantityAdjustments[^1].Name);
+    }
+
+    [Fact]
+    public void Deserialize_QuantityAdjustments_ClampsDeltaAndDropsBlankNames()
+    {
+        const string json =
+            """
+            {
+              "commander": "Atraxa, Praetors' Voice",
+              "pool": [],
+              "packages": [],
+              "decisions": [],
+              "quantityAdjustments": [
+                {
+                  "name": "Island",
+                  "delta": -999,
+                  "isAddedBasic": false
+                },
+                {
+                  "name": "Wastes",
+                  "delta": 999,
+                  "isAddedBasic": true
+                },
+                {
+                  "name": "",
+                  "delta": 4,
+                  "isAddedBasic": true
+                }
+              ],
+              "roleFloors": [],
+              "intent": {
+                "primaryPlan": "Counters",
+                "secondaryPlan": null,
+                "bracket": 3,
+                "playExperience": "Focused"
+              }
+            }
+            """;
+
+        CutLabState state = CutLabStateSerializer.Deserialize(json);
+
+        Assert.Collection(
+            state.QuantityAdjustments,
+            island =>
+            {
+                Assert.Equal("Island", island.Name);
+                Assert.Equal(-150, island.Delta);
+                Assert.False(island.IsAddedBasic);
+            },
+            wastes =>
+            {
+                Assert.Equal("Wastes", wastes.Name);
+                Assert.Equal(150, wastes.Delta);
+                Assert.True(wastes.IsAddedBasic);
+            });
+    }
+
+    [Fact]
     public void NewState_Goals_DefaultToSeededTurns()
     {
         var state = new CutLabState();

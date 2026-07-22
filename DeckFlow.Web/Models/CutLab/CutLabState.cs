@@ -28,6 +28,12 @@ public sealed record CutLabState
     public IReadOnlyList<CutLabDecision> Decisions { get; init; } = [];
 
     /// <summary>
+    /// Persisted per-name copy deltas applied after whole-entry decisions, and the empty
+    /// initializer keeps pre-106 JSON blobs deserializing cleanly.
+    /// </summary>
+    public IReadOnlyList<CutLabQuantityAdjustment> QuantityAdjustments { get; init; } = [];
+
+    /// <summary>
     /// Original imported deck entries captured once at intake and preserved as the immutable
     /// baseline for builder-compatible add/cut export.
     /// </summary>
@@ -82,6 +88,19 @@ public sealed record CutLabDecision
 
     /// <summary>Monotonic decision order used for restore-any and most-recent evaluation.</summary>
     public int Ordinal { get; init; }
+}
+
+/// <summary>Compact persisted copy-delta adjustment for one card name in the working list.</summary>
+public sealed record CutLabQuantityAdjustment
+{
+    /// <summary>Display card name this adjustment applies to.</summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>Signed net copy delta applied on top of the decision-derived quantity.</summary>
+    public int Delta { get; init; }
+
+    /// <summary>True when this adjustment can materialize a basic land not present in the imported pool.</summary>
+    public bool IsAddedBasic { get; init; }
 }
 
 /// <summary>Serializable light snapshot of one original imported deck entry.</summary>
