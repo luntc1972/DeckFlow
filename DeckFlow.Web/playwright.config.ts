@@ -9,6 +9,12 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
+  // Every admin/cut-lab spec serializes on a single global admin lock (see
+  // e2e/support/admin-lock.ts), so extra CI workers only pile up on that lock
+  // — on the slow 2-core runner the queue depth blows the 90s lock timeout and
+  // starves in-flight decide re-renders. Run CI e2e single-worker to match the
+  // effective serialization; local dev keeps Playwright's core-count default.
+  workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
     // Force headless so a local WSL run never surfaces a browser window on the Windows host via WSLg.
