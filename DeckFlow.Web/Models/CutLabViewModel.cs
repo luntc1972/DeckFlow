@@ -159,8 +159,8 @@ public sealed record CutLabViewModel
         IReadOnlyList<CutLabTunableRowView> workingListRows = BuildWorkingListRows(derivedWorkingList, pool, result.RoleAssignmentsByCardName);
         IReadOnlyList<string> addableBasics = BuildAddableBasics(workingListRows);
         IReadOnlyList<CutLabRoleGroupView> roleGroups = BuildRoleGroups(pool, result.RoleAssignmentsByCardName);
-        IReadOnlyList<CutLabFindingView> findings = BuildFindings(result.Findings.Findings);
-        IReadOnlyList<CutLabFindingGroupView> findingGroups = BuildFindingGroups(findings);
+        IReadOnlyList<CutLabFindingView> findings = CutLabFindingPresenter.BuildFindings(result.Findings.Findings);
+        IReadOnlyList<CutLabFindingGroupView> findingGroups = CutLabFindingPresenter.BuildFindingGroups(findings);
         Dictionary<string, int> countsByRole = CountRoles(derivedWorkingList, result.RoleAssignmentsByCardName);
         IReadOnlyList<CutLabFloorRowView> floorRows = BuildFloorRows(result.ResolvedFloors, countsByRole, request.PlayExperience);
         IReadOnlyDictionary<string, string> roleListByCardName = BuildRoleListByCardName(pool, result.RoleAssignmentsByCardName);
@@ -374,66 +374,6 @@ public sealed record CutLabViewModel
         }
 
         return result;
-    }
-
-    internal static IReadOnlyList<CutLabFindingView> BuildFindings(IReadOnlyList<CutLabFinding> findings)
-    {
-        ArgumentNullException.ThrowIfNull(findings);
-
-        return findings
-            .Select(finding => new CutLabFindingView
-            {
-                Kind = finding.Kind,
-                Heading = finding.Heading,
-                Lead = finding.Lead,
-                Evidence = finding.Evidence
-                    .Select(evidence => evidence.ManaValue is double manaValue
-                        ? $"{evidence.CardName} · MV {manaValue:0.##}"
-                        : evidence.CardName)
-                    .ToArray(),
-            })
-            .ToArray();
-    }
-
-    internal static IReadOnlyList<CutLabFindingGroupView> BuildFindingGroups(IReadOnlyList<CutLabFindingView> findings)
-    {
-        List<CutLabFindingGroupView> groups = [];
-        List<CutLabFindingView>? weakFloorItems = null;
-        int weakFloorInsertIndex = -1;
-
-        foreach (CutLabFindingView finding in findings)
-        {
-            if (finding.Kind == CutLabFindingKind.WeakFloorCase)
-            {
-                weakFloorItems ??= [];
-                if (weakFloorInsertIndex < 0)
-                {
-                    weakFloorInsertIndex = groups.Count;
-                }
-
-                weakFloorItems.Add(finding);
-                continue;
-            }
-
-            groups.Add(new CutLabFindingGroupView
-            {
-                Kind = finding.Kind,
-                Heading = finding.Heading,
-                Items = [finding],
-            });
-        }
-
-        if (weakFloorItems is { Count: > 0 })
-        {
-            groups.Insert(weakFloorInsertIndex, new CutLabFindingGroupView
-            {
-                Kind = CutLabFindingKind.WeakFloorCase,
-                Heading = weakFloorItems[0].Heading,
-                Items = weakFloorItems.ToArray(),
-            });
-        }
-
-        return groups;
     }
 
     private static IReadOnlyDictionary<CutLabFindingKind, string> BuildFindingHeadingsByKind(IReadOnlyList<CutLabFinding> findings)
