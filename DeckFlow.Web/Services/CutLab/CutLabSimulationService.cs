@@ -169,21 +169,13 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         string afterPoolKey = CutLabResolvedCardCache.ComputePoolKey(afterEntries.Select(entry => (entry.Card.Name, entry.Quantity)).ToArray());
         CutLabMetricSnapshot after = GetOrBuildSnapshot(afterEntries, afterPoolKey, playExperience, trialsOverride, goals);
 
-        IReadOnlyDictionary<CutLabMetricKind, CutLabMetricValue> afterMetrics = after.Metrics
-            .ToDictionary(metric => metric.Kind);
-        IReadOnlyList<CutLabMetricDelta> deltas = before.Metrics
-            .Select(metric => afterMetrics.TryGetValue(metric.Kind, out CutLabMetricValue? afterMetric)
-                ? CutLabMetricDelta.Between(metric, afterMetric)
-                : null)
-            .Where(delta => delta is not null)
-            .Cast<CutLabMetricDelta>()
-            .ToArray();
+        CutLabMetricDeltaSet metricDeltaSet = CutLabMetricDeltaSet.From(before.Metrics, after.Metrics);
 
         CutLabProposalDeltas computed = new()
         {
             CardName = candidateCardName,
-            Deltas = deltas,
-            ChangedFamilyCount = deltas.Where(delta => delta.IsMeaningful).Select(delta => delta.Family).Distinct().Count(),
+            Deltas = metricDeltaSet.Deltas,
+            ChangedFamilyCount = metricDeltaSet.ChangedFamilyCount,
         };
 
         _deltaCache.Set(currentPoolKey, candidateCardName, computed, trialsOverride, goals);

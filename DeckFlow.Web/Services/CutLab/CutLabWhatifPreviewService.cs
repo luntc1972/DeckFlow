@@ -111,22 +111,14 @@ public sealed class CutLabWhatifPreviewService : ICutLabWhatifPreviewService
             state.Goals,
             cancellationToken).ConfigureAwait(false);
 
-        IReadOnlyDictionary<CutLabMetricKind, CutLabMetricValue> afterMetrics = after.Metrics
-            .ToDictionary(metric => metric.Kind);
-        IReadOnlyList<CutLabMetricDelta> deltas = before.Metrics
-            .Select(metric => afterMetrics.TryGetValue(metric.Kind, out CutLabMetricValue? afterMetric)
-                ? CutLabMetricDelta.Between(metric, afterMetric)
-                : null)
-            .Where(delta => delta is not null)
-            .Cast<CutLabMetricDelta>()
-            .ToArray();
+        CutLabMetricDeltaSet metricDeltaSet = CutLabMetricDeltaSet.From(before.Metrics, after.Metrics);
 
         return new CutLabWhatifPreview
         {
             CardOut = cardOutPoolCard.Name,
             CardIn = cardInPoolCard.Name,
-            Deltas = deltas,
-            ChangedFamilyCount = deltas.Where(delta => delta.IsMeaningful).Select(delta => delta.Family).Distinct().Count(),
+            Deltas = metricDeltaSet.Deltas,
+            ChangedFamilyCount = metricDeltaSet.ChangedFamilyCount,
         };
     }
 
