@@ -69,6 +69,43 @@ public sealed class CutLabWhatifTests
     }
 
     [Fact]
+    public async Task ComputeSwapPreviewAsync_AddedBasicCardOut_UsesSyntheticResolvedCardWithoutPreSeedFailure()
+    {
+        CutLabState state = CreateState() with
+        {
+            QuantityAdjustments =
+            [
+                new CutLabQuantityAdjustment
+                {
+                    Name = "Island",
+                    Delta = 1,
+                    IsAddedBasic = true,
+                },
+            ],
+        };
+        FakeAnalysisContextBuilder contextBuilder = new();
+        contextBuilder.SeedFullPool(state.Pool);
+        ThrowingResolver resolver = new();
+        CutLabResolvedCardCache resolvedCardCache = new();
+        CutLabSimulationService simulationService = new(
+            resolvedCardCache,
+            new CutLabDeltaCache(),
+            resolver,
+            NullLogger<CutLabSimulationService>.Instance,
+            BuildSnapshotForWhatifTests);
+        ICutLabWhatifPreviewService service = new CutLabWhatifPreviewService(
+            simulationService,
+            contextBuilder,
+            resolvedCardCache);
+
+        CutLabWhatifPreview preview = await service.ComputeSwapPreviewAsync(state, "Island", "Cut Card", CancellationToken.None);
+
+        Assert.Equal("Island", preview.CardOut);
+        Assert.Equal("Cut Card", preview.CardIn);
+        Assert.Equal(0, resolver.ResolveSingleCalls);
+    }
+
+    [Fact]
     public async Task PostWhatifAsync_ReturnsForbidden_WhenOriginIsCrossSite()
     {
         CutLabApiController controller = CreateController(sameOrigin: false);

@@ -261,6 +261,33 @@ public sealed class CutLabAnalysisContextBuilderTests
     }
 
     [Fact]
+    public async Task BuildAsync_AddedBasicWithoutPreResolvedCard_UsesSyntheticCardDataWithoutResolverCall()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList =
+        [
+            PoolCard("Focused Commander", "Legendary Creature — Human Wizard", isCommander: true),
+            PoolCard("Wastes", "Basic Land", quantity: 2),
+        ];
+        IReadOnlyList<ScryfallCardData> preResolvedCards =
+        [
+            CardData("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{G}{U}", cmc: 3),
+        ];
+        var builder = new CutLabAnalysisContextBuilder(new ThrowingResolver(), new CutLabResolvedCardCache());
+
+        CutLabAnalysisContext context = await builder.BuildAsync(
+            workingList,
+            "Focused",
+            ["Focused Commander"],
+            preResolvedCards: preResolvedCards);
+
+        CutLabAnalyzedCard wastes = Assert.Single(context.AnalyzedCards, card => card.Name == "Wastes");
+        Assert.True(wastes.IsLand);
+        Assert.Contains("lands", context.RolesByCardName["Wastes"]);
+        Assert.Equal(2, context.RoleCounts["lands"]);
+        Assert.Contains(context.ResolvedCards, card => card.Name == "Wastes" && card.TypeLine == "Basic Land");
+    }
+
+    [Fact]
     public async Task BuildAsync_PreResolvedCardsMissingOneCard_OnlyResolvesTheMissingCard()
     {
         IReadOnlyList<CutLabPoolCard> workingList =
@@ -459,6 +486,21 @@ public sealed class CutLabAnalysisContextBuilderTests
                 : 1;
             return SearchFallbackCardAsync(cardName, cancellationToken);
         }
+    }
+
+    private sealed class ThrowingResolver : IScryfallCardResolver
+    {
+        public Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken cancellationToken)
+            => throw new Xunit.Sdk.XunitException("ExecuteCollectionAsync should not be called for synthetic basics.");
+
+        public Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
+            => throw new Xunit.Sdk.XunitException("SearchFallbackCardAsync should not be called for synthetic basics.");
+
+        public Task<ScryfallCard?> SearchPrintingFallbackCardAsync(string cardName, CancellationToken cancellationToken)
+            => throw new Xunit.Sdk.XunitException("SearchPrintingFallbackCardAsync should not be called for synthetic basics.");
+
+        public Task<ScryfallCard?> ResolveSingleAsync(string cardName, CancellationToken cancellationToken)
+            => throw new Xunit.Sdk.XunitException("ResolveSingleAsync should not be called for synthetic basics.");
     }
 
     private sealed class LocalSpellbookService : ICommanderSpellbookService

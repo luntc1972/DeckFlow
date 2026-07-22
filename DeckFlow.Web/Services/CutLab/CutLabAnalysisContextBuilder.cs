@@ -212,7 +212,30 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         ArgumentNullException.ThrowIfNull(workingList);
         ArgumentNullException.ThrowIfNull(sourceCards);
 
-        return _resolvedCardCache.TrySeedFromSuperset(ToPoolKeyEntries(workingList), sourceCards, out seededCards);
+        IReadOnlyDictionary<string, ScryfallCardData> sourceByName = CutLabCardNames.ToLastWinsDictionary(
+            sourceCards,
+            card => card.Name,
+            card => card);
+        List<ScryfallCardData> filteredCards = new(workingList.Count);
+        HashSet<string> seen = new(CutLabCardNames.Comparer);
+
+        foreach (CutLabPoolCard poolCard in workingList)
+        {
+            string normalizedName = CutLabCardNames.Normalize(poolCard.Name);
+            if (!seen.Add(normalizedName)
+                || !sourceByName.TryGetValue(normalizedName, out ScryfallCardData? card))
+            {
+                continue;
+            }
+
+            filteredCards.Add(card);
+        }
+
+        seededCards = AugmentResolvedCardsWithSyntheticBasics(workingList, filteredCards);
+        return seededCards.Count == workingList
+            .Select(card => CutLabCardNames.Normalize(card.Name))
+            .Distinct(CutLabCardNames.Comparer)
+            .Count();
     }
 
     internal void PrimeResolvedCardsCache(
@@ -224,6 +247,38 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         ArgumentNullException.ThrowIfNull(resolvedCards);
 
         _resolvedCardCache.Set(CutLabResolvedCardCache.ComputePoolKey(workingList), resolvedCards, unresolvedCardNames);
+    }
+
+    internal static IReadOnlyList<ScryfallCardData> AugmentResolvedCardsWithSyntheticBasics(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        IReadOnlyList<ScryfallCardData> resolvedCards)
+    {
+        ArgumentNullException.ThrowIfNull(workingList);
+        ArgumentNullException.ThrowIfNull(resolvedCards);
+
+        HashSet<string> resolvedNames = resolvedCards
+            .Select(card => CutLabCardNames.Normalize(card.Name))
+            .ToHashSet(CutLabCardNames.Comparer);
+        List<ScryfallCardData>? augmented = null;
+
+        foreach (CutLabPoolCard poolCard in workingList)
+        {
+            if (!CutLabBasicLands.Contains(poolCard.Name))
+            {
+                continue;
+            }
+
+            string normalizedName = CutLabCardNames.Normalize(poolCard.Name);
+            if (!resolvedNames.Add(normalizedName))
+            {
+                continue;
+            }
+
+            augmented ??= new List<ScryfallCardData>(resolvedCards);
+            augmented.Add(CutLabBasicLands.SyntheticCardData(poolCard.Name));
+        }
+
+        return augmented ?? resolvedCards;
     }
 
     internal Task<IReadOnlyList<ScryfallCardData>> ResolvePoolCardsAsync(
@@ -256,7 +311,9 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
                 preResolvedCards,
                 card => card.Name,
                 card => card);
-            IReadOnlyList<ScryfallCardData> preResolvedForPool = BuildOrderedResolvedCards(workingList, preResolvedByName);
+            IReadOnlyList<ScryfallCardData> preResolvedForPool = AugmentResolvedCardsWithSyntheticBasics(
+                workingList,
+                BuildOrderedResolvedCards(workingList, preResolvedByName));
             _resolvedCardCache.Set(poolKey, preResolvedForPool);
         }
 
@@ -274,6 +331,11 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
             {
                 knownMissingNames = cachedMissingNames;
             }
+        }
+
+        foreach (ScryfallCardData resolvedCard in AugmentResolvedCardsWithSyntheticBasics(workingList, resolvedByName.Values.ToArray()))
+        {
+            resolvedByName[CutLabCardNames.Normalize(resolvedCard.Name)] = resolvedCard;
         }
 
         var batchResolver = new ScryfallReferenceResolver(_cardResolver);
@@ -322,7 +384,9 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
             }
         }
 
-        List<ScryfallCardData> resolvedCards = BuildOrderedResolvedCards(workingList, resolvedByName);
+        IReadOnlyList<ScryfallCardData> resolvedCards = AugmentResolvedCardsWithSyntheticBasics(
+            workingList,
+            BuildOrderedResolvedCards(workingList, resolvedByName));
         _resolvedCardCache.Set(poolKey, resolvedCards, knownMissingNamesSet);
         return resolvedCards;
     }
