@@ -5,7 +5,6 @@
 @{
     ViewData["Title"] = "Cut Lab";
     var isUrl = Model.Request.DeckInputSource == DeckInputSource.PublicUrl;
-    var lockedCount = Model.Pool.Count(card => card.IsLocked);
     var totalStructuralFindings = Model.Findings.Count;
     var cardsRemainingToTarget = Model.StickyBar.CardsRemainingToCut;
     var currentCount = Model.CurrentCount;
@@ -114,6 +113,8 @@
 
 <form method="post" action="@Url.Content("~/cut-lab")" class="result-panel"
       data-cache-key="cut-lab"
+      data-cut-lab-decide-action="@Url.Content("~/cut-lab/decide")"
+      data-cut-lab-decide-api="@Url.Content("~/api/cut-lab/decide")"
       data-busy-title="Importing pool"
       data-busy-message="Loading the deck, resolving cards, and rebuilding your protected pool."
       data-busy-progress="Loading the deck|Resolving cards via Scryfall|Checking commander + legality|Building the cut workspace">
@@ -237,7 +238,7 @@
                 <div>
                     <h2>Lock your pool</h2>
                     <p class="prompt-size-note">
-                        <span data-cut-lab-lock-count>@Model.CardCount cards in pool · @lockedCount locked</span>
+                        <span data-cut-lab-lock-count>@Model.PoolStatusText</span>
                         <span>(protected from any future cut)</span>
                     </p>
                     <p class="prompt-size-note">@Model.BoardCounts.ToBreakdown()</p>

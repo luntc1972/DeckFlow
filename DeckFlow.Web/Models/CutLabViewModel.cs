@@ -122,6 +122,9 @@ public sealed record CutLabViewModel
     /// <summary>Total card count of the current derived working list.</summary>
     public int CurrentCount { get; init; }
 
+    /// <summary>Server-rendered pool summary for the lock-status chip.</summary>
+    public string PoolStatusText { get; init; } = string.Empty;
+
     /// <summary>Adjustment-derived working-list rows eligible for inline quantity tuning.</summary>
     public IReadOnlyList<CutLabTunableRowView> WorkingListRows { get; init; } = [];
 
@@ -178,6 +181,7 @@ public sealed record CutLabViewModel
         IReadOnlyList<CutLabCutMadeRowView> cutsMade = BuildCutsMade(result.State?.Decisions);
         int baselineCount = pool.Sum(card => card.Quantity);
         int currentCount = derivedWorkingList.Sum(card => card.Quantity);
+        int lockedCount = pool.Where(card => card.IsLocked).Sum(card => card.Quantity);
         IReadOnlyList<string> whatifCardOutOptions = BuildWhatifCardOutOptions(derivedWorkingList);
         IReadOnlyList<string> whatifCardInOptions = BuildWhatifCardInOptions(pool, result.State?.Decisions);
         IReadOnlyList<CutLabGoalRowView> goalRows = BuildGoalRows(
@@ -232,6 +236,7 @@ public sealed record CutLabViewModel
             WhatifCardInOptions = whatifCardInOptions,
             BaselineCount = baselineCount,
             CurrentCount = currentCount,
+            PoolStatusText = $"{baselineCount} cards in pool · {lockedCount} locked",
             WorkingListRows = workingListRows,
             AddableBasics = addableBasics,
             RoleListByCardName = roleListByCardName,
@@ -240,10 +245,10 @@ public sealed record CutLabViewModel
     }
 
     internal static string FormatCutsMadeCount(int count)
-        => FormatCountLabel(count, "card", "cards");
+        => $"{count} {ManabaseWording.Pluralize("card", count)}";
 
     internal static string FormatCutsAcceptedSoFar(int count)
-        => $"{FormatCountLabel(count, "cut", "cuts")} so far";
+        => $"{count} {ManabaseWording.Pluralize("cut", count)} so far";
 
     private static IReadOnlyList<CutLabRoleGroupView> BuildRoleGroups(
         IReadOnlyList<CutLabPoolCard> pool,
@@ -794,9 +799,6 @@ public sealed record CutLabViewModel
         string count = $"{rounded:0}";
         return rounded == 1d ? $"{count} card" : $"{count} cards";
     }
-
-    private static string FormatCountLabel(int count, string singular, string plural)
-        => count == 1 ? $"1 {singular}" : $"{count} {plural}";
 
     private static string DirectionVerbFor(CutLabMetricDirection direction)
         => direction == CutLabMetricDirection.Down ? "lowers" : "raises";

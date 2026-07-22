@@ -263,6 +263,57 @@ public sealed class CutLabViewModelWordingTests
         Assert.Equal(40, Assert.Single(model.WorkingListRows, row => row.Name == "Island").CurrentQuantity);
     }
 
+    [Fact]
+    public void From_BuildsPoolStatusTextFromCommanderInclusiveBaselineCount()
+    {
+        var request = new CutLabRequest
+        {
+            PlayExperience = "Focused",
+        };
+        var result = new CutLabProcessResult
+        {
+            HasResult = true,
+            State = new CutLabState
+            {
+                Pool =
+                [
+                    new CutLabPoolCard
+                    {
+                        Name = "Commander",
+                        Quantity = 1,
+                        TypeLine = "Legendary Creature",
+                        IsCommander = true,
+                        IsLocked = true,
+                    },
+                    new CutLabPoolCard
+                    {
+                        Name = "Island",
+                        Quantity = 148,
+                        TypeLine = "Basic Land — Island",
+                    },
+                    new CutLabPoolCard
+                    {
+                        Name = "Mana Crypt",
+                        Quantity = 1,
+                        TypeLine = "Artifact",
+                        IsLocked = true,
+                    },
+                ],
+            },
+            RoleAssignmentsByCardName = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Commander"] = [],
+                ["Island"] = ["lands"],
+                ["Mana Crypt"] = ["ramp"],
+            },
+        };
+
+        CutLabViewModel model = CutLabViewModel.From(request, result);
+
+        Assert.Equal(150, model.BaselineCount);
+        Assert.Equal($"{model.BaselineCount} cards in pool · 2 locked", model.PoolStatusText);
+    }
+
     private static CutLabMetricSnapshot BuildSnapshot(double commander, double engine, double representativeLine)
         => new()
         {

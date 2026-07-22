@@ -174,7 +174,6 @@ interface PendingNewPackageTarget {
 const newPackageOptionValue = '__new__';
 const unlockedPoolOptionValue = '';
 const cutLabAntiForgeryFieldName = '__RequestVerificationToken';
-const cutLabDecisionApiEndpoint = '/api/cut-lab/decide';
 const cutLabAdjustApiEndpoint = '/api/cut-lab/adjust';
 const cutLabWhatifApiEndpoint = '/api/cut-lab/whatif';
 const cutLabWhatifCommitApiEndpoint = '/api/cut-lab/whatif/commit';
@@ -423,6 +422,12 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
   const getForm = (): HTMLFormElement | null =>
     document.querySelector<HTMLFormElement>('form[data-cache-key="cut-lab"]');
 
+  const getCutLabDecideAction = (): string =>
+    getForm()?.dataset.cutLabDecideAction?.trim() || '/cut-lab/decide';
+
+  const getCutLabDecideApi = (): string =>
+    getForm()?.dataset.cutLabDecideApi?.trim() || '/api/cut-lab/decide';
+
   const getStateInput = (form: HTMLFormElement): HTMLInputElement | null =>
     form.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]');
 
@@ -598,15 +603,15 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     }
 
     const rows = getPoolRows();
-    const nonCommanderCount = rows
-      .filter(row => row.dataset.cutLabCommander !== 'true')
-      .reduce((total, row) => total + parseRowQuantity(row), 0);
+    const poolCount = rows.reduce((total, row) => total + parseRowQuantity(row), 0);
     const lockedCount = rows.reduce((total, row) => {
       const checkbox = getLockCheckbox(row);
       return checkbox?.checked ? total + parseRowQuantity(row) : total;
     }, 0);
 
-    summary.textContent = `${nonCommanderCount} cards in pool · ${lockedCount} locked`;
+    // Why: this chip mirrors the imported protected pool (commander-inclusive) and does not
+    // re-sum after adjust-path quantity tuning; the sticky bar owns that live working-list total.
+    summary.textContent = `${poolCount} cards in pool · ${lockedCount} locked`;
   };
 
   const parseIntegerAttribute = (element: HTMLElement, name: string, fallback: number): number => {
@@ -1056,6 +1061,8 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     }
 
     try {
+      // Why: the main Cut Lab form always renders data-cache-key; this literal only guards
+      // unexpected markup drift so scenario-load cleanup still targets the default storage slot.
       const formCacheKey = form.dataset.cacheKey?.trim() || 'cut-lab';
       form.dataset.skipPersistence = 'true';
       window.sessionStorage.removeItem(`decksync-form-state-${formCacheKey}`);
@@ -1142,7 +1149,7 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
   ): HTMLFormElement => {
     const form = document.createElement('form');
     form.method = 'post';
-    form.action = '/cut-lab/decide';
+    form.action = getCutLabDecideAction();
     form.dataset.cutLabDecideForm = 'true';
 
     const appendHiddenInput = (name: string, value: string): void => {
@@ -2095,7 +2102,7 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
         headers.RequestVerificationToken = antiForgeryToken;
       }
 
-      const response = await fetch(cutLabDecisionApiEndpoint, {
+      const response = await fetch(getCutLabDecideApi(), {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
