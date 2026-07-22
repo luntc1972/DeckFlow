@@ -150,6 +150,90 @@ public sealed class CutLabExportServiceTests
         Assert.Contains("1 Mystic Remora", result.ArchidektFullListText, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task BuildExportAsync_AddedBasicExportsAsAddWithoutMetadataWarningInBothDialects()
+    {
+        var service = CreateService(
+            contextBuilder: new FakeAnalysisContextBuilder
+            {
+                Result = BuildAnalysisContext(
+                    CreateResolvedCard("Zur the Enchanter", "Legendary Creature", ["W", "U", "B"]),
+                    CreateResolvedCard("Arcane Signet", "Artifact", []),
+                    CreateResolvedCard("Wastes", "Basic Land", []))
+            });
+        var state = CreateState() with
+        {
+            Pool =
+            [
+                CreatePoolCard("Zur the Enchanter", "Legendary Creature", quantity: 1, isCommander: true, isLocked: true),
+                CreatePoolCard("Arcane Signet", "Artifact", quantity: 96),
+            ],
+            OriginalEntries =
+            [
+                CreateOriginalEntry("Zur the Enchanter", 1, "commander"),
+                CreateOriginalEntry("Arcane Signet", 96, "mainboard"),
+            ],
+            QuantityAdjustments =
+            [
+                new CutLabQuantityAdjustment
+                {
+                    Name = "Wastes",
+                    Delta = 3,
+                    IsAddedBasic = true,
+                },
+            ],
+        };
+
+        CutLabExportView result = await service.BuildExportAsync(state, "Focused", ["Zur the Enchanter"], CancellationToken.None);
+
+        Assert.DoesNotContain(result.ReconstructionWarnings, warning => warning.Contains("Wastes", StringComparison.Ordinal));
+        Assert.Contains("ADD", result.MoxfieldPatchText, StringComparison.Ordinal);
+        Assert.Contains("3 Wastes", result.MoxfieldPatchText, StringComparison.Ordinal);
+        Assert.Contains("ADD", result.ArchidektPatchText, StringComparison.Ordinal);
+        Assert.Contains("3 Wastes", result.ArchidektPatchText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task BuildExportAsync_TrimmedBasicExportsAsCutInBothDialects()
+    {
+        var service = CreateService(
+            contextBuilder: new FakeAnalysisContextBuilder
+            {
+                Result = BuildAnalysisContext(
+                    CreateResolvedCard("Zur the Enchanter", "Legendary Creature", ["W", "U", "B"]),
+                    CreateResolvedCard("Island", "Basic Land — Island", ["U"]))
+            });
+        var state = CreateState() with
+        {
+            Pool =
+            [
+                CreatePoolCard("Zur the Enchanter", "Legendary Creature", quantity: 1, isCommander: true, isLocked: true),
+                CreatePoolCard("Island", "Basic Land — Island", quantity: 102),
+            ],
+            OriginalEntries =
+            [
+                CreateOriginalEntry("Zur the Enchanter", 1, "commander"),
+                CreateOriginalEntry("Island", 102, "mainboard"),
+            ],
+            QuantityAdjustments =
+            [
+                new CutLabQuantityAdjustment
+                {
+                    Name = "Island",
+                    Delta = -3,
+                    IsAddedBasic = false,
+                },
+            ],
+        };
+
+        CutLabExportView result = await service.BuildExportAsync(state, "Focused", ["Zur the Enchanter"], CancellationToken.None);
+
+        Assert.Contains("CUT", result.MoxfieldPatchText, StringComparison.Ordinal);
+        Assert.Contains("3 Island", result.MoxfieldPatchText, StringComparison.Ordinal);
+        Assert.Contains("CUT", result.ArchidektPatchText, StringComparison.Ordinal);
+        Assert.Contains("3 Island", result.ArchidektPatchText, StringComparison.Ordinal);
+    }
+
     private static CutLabExportService CreateService(
         FakeAnalysisContextBuilder? contextBuilder = null,
         ICommanderBanListService? banListService = null)

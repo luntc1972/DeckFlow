@@ -106,6 +106,116 @@ public sealed class CutLabWhatifTests
     }
 
     [Fact]
+    public async Task ComputeSwapPreviewAsync_AddedBasicCardOut_RecomputesMetricsFromAdjustmentDerivedList()
+    {
+        CutLabState state = new()
+        {
+            Commander = "Commander",
+            Pool =
+            [
+                Card("Commander", isCommander: true, isLocked: true),
+                Card("Cut Card"),
+            ],
+            Decisions =
+            [
+                new CutLabDecision
+                {
+                    CardName = "Cut Card",
+                    Kind = CutLabDecisionKind.Accepted,
+                    Round = CutLabCutRoundEngine.Round1Key,
+                    Ordinal = 1,
+                },
+            ],
+            QuantityAdjustments =
+            [
+                new CutLabQuantityAdjustment
+                {
+                    Name = "Island",
+                    Delta = 1,
+                    IsAddedBasic = true,
+                },
+            ],
+            Goals = new CutLabGoalSettings
+            {
+                CommanderByTurn = 7,
+            },
+            Intent = new CutLabIntent
+            {
+                PlayExperience = "Focused",
+                Bracket = 3,
+            },
+        };
+        FakeAnalysisContextBuilder contextBuilder = new();
+        contextBuilder.SeedFullPool(state.Pool);
+        ThrowingResolver resolver = new();
+        CutLabResolvedCardCache resolvedCardCache = new();
+        CutLabSimulationService simulationService = new(
+            resolvedCardCache,
+            new CutLabDeltaCache(),
+            resolver,
+            NullLogger<CutLabSimulationService>.Instance,
+            BuildSnapshotForWhatifTests);
+        ICutLabWhatifPreviewService service = new CutLabWhatifPreviewService(
+            simulationService,
+            contextBuilder,
+            resolvedCardCache);
+
+        CutLabWhatifPreview preview = await service.ComputeSwapPreviewAsync(state, "Island", "Cut Card", CancellationToken.None);
+
+        CutLabMetricDelta delta = Assert.Single(preview.Deltas);
+        Assert.Equal(CutLabMetricKind.CommanderByTurn, delta.Kind);
+        Assert.Equal(5, delta.Before);
+        Assert.Equal(7, delta.After);
+        Assert.Equal(0, resolver.ResolveSingleCalls);
+    }
+
+    [Fact]
+    public void Restore_ComposesDeterministicallyWithQuantityAdjustments()
+    {
+        CutLabState state = new()
+        {
+            Commander = "Commander",
+            Pool =
+            [
+                Card("Commander", isCommander: true, isLocked: true),
+                new CutLabPoolCard
+                {
+                    Name = "Island",
+                    Quantity = 35,
+                    TypeLine = "Basic Land — Island",
+                },
+                Card("Cut Card"),
+            ],
+            Decisions =
+            [
+                new CutLabDecision
+                {
+                    CardName = "Island",
+                    Kind = CutLabDecisionKind.Accepted,
+                    Round = CutLabCutRoundEngine.Round1Key,
+                    Ordinal = 1,
+                },
+            ],
+            QuantityAdjustments =
+            [
+                new CutLabQuantityAdjustment
+                {
+                    Name = "Island",
+                    Delta = -3,
+                    IsAddedBasic = false,
+                },
+            ],
+        };
+
+        CutLabState restored = CutLabDecisionApplier.Apply(state, "Island", CutLabDecideAction.Restore, CutLabCutRoundEngine.Round1Key);
+        IReadOnlyList<CutLabPoolCard> restoredWorkingList = CutLabWorkingList.Derive(restored.Pool, restored.Decisions, restored.QuantityAdjustments);
+        IReadOnlyList<CutLabPoolCard> expectedWorkingList = CutLabWorkingList.Derive(state.Pool, [], state.QuantityAdjustments);
+
+        Assert.Equal(expectedWorkingList, restoredWorkingList);
+        Assert.Equal(32, Assert.Single(restoredWorkingList, card => card.Name == "Island").Quantity);
+    }
+
+    [Fact]
     public async Task PostWhatifAsync_ReturnsForbidden_WhenOriginIsCrossSite()
     {
         CutLabApiController controller = CreateController(sameOrigin: false);
@@ -291,7 +401,9 @@ public sealed class CutLabWhatifTests
         int? trialsOverride,
         CutLabGoalSettings? goals)
     {
-        double before = deckEntries.Any(entry => entry.Card.Name == "Working Card") ? 3 : 7;
+        double before = deckEntries.Any(entry => entry.Card.Name == "Working Card")
+            ? 3
+            : deckEntries.Any(entry => entry.Card.Name == "Island") ? 5 : 7;
         int goalTurn = goals?.CommanderByTurn ?? 3;
 
         return new CutLabMetricSnapshot
