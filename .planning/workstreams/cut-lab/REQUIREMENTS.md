@@ -50,7 +50,16 @@
 - [ ] **EXPORT-02**: User can export an add/cut patch describing exactly which cards to remove/add relative to their original builder list
 - [ ] **EXPORT-03**: The finished list is validated before export: exactly 100 cards, color-identity legal, and Commander-banlist clean
 
+### Copy-Count Editing (EDIT) — Cycle 18 addendum (added 2026-07-22)
+
+- [ ] **EDIT-01**: User can cut or add copies of a legal-multiple card in the working list (basics + the "any number" cards) one copy at a time, instead of the whole entry all-or-nothing
+- [ ] **EDIT-02**: User can add brand-new basic lands (the five basics, Snow-Covered variants, and Wastes) that were not in the imported pool, resolved from known constants with no card lookup
+- [ ] **EDIT-03**: Copy edits enforce Commander singleton legality (quantity > 1 only for basics and the recognized any-number cards) and let the working list reach exactly 100 by tuning counts, not only by whole-entry cuts
+
 ## Future Requirements (deferred)
+
+- Add arbitrary new nonbasic cards to the working list (needs Scryfall name-resolution + full role/floor/sim/color/banlist re-analysis) — the larger half of "full editor", deferred from EDIT scope
+- Undersized-pool intake (accept a paste/URL under 101 cards and build up to 100) — changes the INTAKE 101–150 oversized premise
 
 - Deck Experiment Journal (game observations on Deck History) — next in research sequence
 - Pod Fit / Rule Zero Passport — compatibility matrix across decks
@@ -91,5 +100,8 @@
 | EXPORT-01 | Phase 105 | Pending |
 | EXPORT-02 | Phase 105 | Pending |
 | EXPORT-03 | Phase 105 | Pending |
+| EDIT-01 | Phase 106 | Pending |
+| EDIT-02 | Phase 106 | Pending |
+| EDIT-03 | Phase 106 | Pending |
 
-**Coverage:** 21/21 v1 requirements mapped to a phase. No orphans.
+**Coverage:** 24/24 requirements mapped to a phase (21 v1 + 3 EDIT addendum). Phase 107 is cleanup/tech-debt (no new requirements). No orphans.
