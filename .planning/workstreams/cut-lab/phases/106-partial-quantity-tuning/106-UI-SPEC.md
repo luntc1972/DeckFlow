@@ -43,8 +43,7 @@ DeckFlow's existing rem-based scale (16px root ⇒ these are 4px-grid-aligned). 
 |-------|-------------------|----------------------|
 | xs | 0.25rem / 4px | Icon-to-label gap inside a stepper button (n/a — glyph is the whole label) |
 | sm | 0.5rem | Gap between the `−` button, count, and `+` button inside `.cutlab-stepper` |
-| sm+ | 0.75rem | Gap between table cells' internal stacked lines (role label under card name) |
-| md | 1rem | `.cutlab-stepper-row` cell padding (matches existing `.conflicts-table td` 0.7rem 0.5rem — see Component contract) |
+| — | 0.7rem 0.5rem | Tuner-row `<td>` padding — inherited, unmodified `.conflicts-table td`/`th` padding (verified identical across every theme file, e.g. `site-nyx.css:1082`); no new `.cutlab-stepper-row` class exists or is needed |
 | lg | 1.5rem | Vertical gap between the tuner table and the add-basic toolbar |
 
 **Exception (locked precedent, reused not introduced):** all interactive controls in this phase — stepper
@@ -345,14 +344,27 @@ to fix the endpoint contract inside 106-04 — that would reopen a locked 106-03
 - **Added-basic vs. ordinary legal-multiple row:** visually identical except the `Added` `kb-chip` badge + accent
   left-rail (Component 1) — both get the same stepper behavior once materialized; there is no second-class
   treatment after creation.
-- **Count-gate correctness fix (required, in-scope for 106-04 Task 2, additive-only — does not touch
-  `CutLabViewModel` or any 106-01/103 contract):** the `WorkflowStepTab(4, "Export", …)` `IsEnabled` condition at
-  `CutLab.cshtml:22` currently reads `cardsRemainingToTarget == 0`. Because 106 introduces the ability to tune
-  **under** 100 (impossible before 106, since the Option-A engine only ever proposed cuts that kept the count
-  ≥ 100), this condition must change to `currentCount == 100` (the `currentCount` local var, `Model.CurrentCount`,
-  already exists at line 11 and is the true derived-list total) so the Export tab does not enable prematurely
-  when the working list has been tuned below target. This is a one-line, additive, non-contradicting fix to a
-  Razor-only file already in 106-04's `files_modified` list.
+- **Count-gate correctness fix (required — has TWO parts, one ViewModel-level and one Razor-level; both are
+  in-scope for 106-04 and must ship together, or the gate is a no-op):**
+  1. **`CutLabViewModel.CurrentCount` must become adjustment-aware first.** As written today,
+     `CutLabViewModel.cs:170` computes `currentCount` via the 2-arg
+     `CutLabWorkingList.Derive(pool, result.State?.Decisions ?? [])` — it never folds
+     `result.State?.QuantityAdjustments`, so `Model.CurrentCount` (assigned at `CutLabViewModel.cs:224`) does not
+     move when a stepper or add-basic changes the working list. Any gate keyed off `currentCount` is a no-op
+     until this is fixed. **Required fix:** switch line 170 to the 3-arg overload —
+     `CutLabWorkingList.Derive(pool, result.State?.Decisions ?? [], result.State?.QuantityAdjustments ?? [])` —
+     ideally by computing the adjustment-derived working list **once** and reusing it for both `CurrentCount` and
+     `WorkingListRows` (Task 1 already builds this list for `WorkingListRows`; do not derive it twice). This
+     requirement must be added to 106-04 Task 1's acceptance criteria (the orchestrator patches the plan
+     separately — this spec only states the requirement).
+  2. **Once `CurrentCount` is adjustment-aware, both stale gates must key off it — not just one.** There are TWO
+     identical `cardsRemainingToTarget == 0` conditions in `CutLab.cshtml`, and both must change to
+     `currentCount == 100` together, or the tab and the in-panel submit button can disagree (e.g. at
+     `currentCount == 95`, tab disabled but the submit button still clickable):
+     - `CutLab.cshtml:22` — the `WorkflowStepTab(4, "Export", …)` `IsEnabled` condition.
+     - `CutLab.cshtml:768` — the "Build export" submit button's `@(cardsRemainingToTarget == 0 ? null : "disabled")`.
+     Both are one-line, additive, non-contradicting changes in a Razor-only file already in 106-04's
+     `files_modified` list; `currentCount` (`Model.CurrentCount`) is already an in-scope local var at line 11.
 - **New proposal-panel branch (required, additive-only, Razor-only):** insert an `else if (currentCount < 100)`
   branch **before** the existing `else if (Model.Proposal.IsAtTarget)` check in the `Model.Proposal.HasProposal`
   chain (lines 971–984), using the copy from the Copywriting Contract ("You're under 100 cards" / "Add copies or
