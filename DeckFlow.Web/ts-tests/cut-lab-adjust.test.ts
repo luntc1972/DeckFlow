@@ -1,8 +1,6 @@
-declare function require(name: string): any;
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-const { afterEach, beforeAll, describe, expect, it, vi } = require('vitest');
-
-require('../cut-lab');
+import '../wwwroot/ts/cut-lab';
 
 let fetchMock: any;
 
@@ -99,6 +97,7 @@ const buildFixture = (): void => {
 describe('cut-lab adjust enhancement', () => {
   it('patches sticky count and exact-100 export gates after a successful stepper adjust', async () => {
     buildFixture();
+    const originalState = buildStateJson(98);
     const nextStateJson = buildStateJson(98, 1);
     fetchMock.mockResolvedValue({
       ok: true,
@@ -120,7 +119,7 @@ describe('cut-lab adjust enhancement', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][0]).toBe('/api/cut-lab/adjust');
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
-      cutLabStateJson: stateJsonFromInputs(),
+      cutLabStateJson: originalState,
       cardName: 'Island',
       delta: 1,
       isAddedBasic: false,
