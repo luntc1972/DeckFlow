@@ -457,34 +457,12 @@ internal sealed class CutLabPageService : ICutLabPageService
         {
             resolvedCards = cachedCards;
         }
-        else if (_analysisContextBuilder is CutLabAnalysisContextBuilder concreteAnalysisBuilder)
+        else
         {
-            resolvedCards = await concreteAnalysisBuilder.ResolvePoolCardsAsync(
+            resolvedCards = await _analysisContextBuilder.ResolvePoolCardsAsync(
                 cacheLookupPool,
                 failOpenOnLookupErrors: false,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
-        }
-        else
-        {
-            var fallbackResolvedEntries = new List<ResolvedCutLabEntry>(entries.Count);
-            foreach (DeckEntry entry in entries)
-            {
-                ScryfallCardData? card = null;
-                ScryfallCard? resolved = await _cardResolver.ResolveSingleAsync(entry.Name, cancellationToken).ConfigureAwait(false);
-                if (resolved is not null)
-                {
-                    card = ScryfallCardDataMapper.ToCardData(resolved);
-                }
-
-                fallbackResolvedEntries.Add(new ResolvedCutLabEntry(
-                    entry.Name,
-                    entry.Quantity,
-                    card?.TypeLine ?? string.Empty,
-                    string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase),
-                    card));
-            }
-
-            return fallbackResolvedEntries;
         }
 
         IReadOnlyDictionary<string, ScryfallCardData> cachedCardsByName = CutLabCardNames.ToLastWinsDictionary(
