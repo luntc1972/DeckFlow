@@ -122,6 +122,12 @@ public sealed record CutLabViewModel
     /// <summary>Total card count of the current derived working list.</summary>
     public int CurrentCount { get; init; }
 
+    /// <summary>Adjustment-derived working-list rows eligible for inline quantity tuning.</summary>
+    public IReadOnlyList<CutLabTunableRowView> WorkingListRows { get; init; } = [];
+
+    /// <summary>Known basic lands not currently present in the derived working list.</summary>
+    public IReadOnlyList<string> AddableBasics { get; init; } = [];
+
     /// <summary>Per-card display labels for the pool table, keyed by card name.</summary>
     public IReadOnlyDictionary<string, string> RoleListByCardName { get; init; } =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -147,6 +153,8 @@ public sealed record CutLabViewModel
         IReadOnlyList<CutLabPoolCard> pool = result.State?.Pool ?? [];
         IReadOnlyList<CutLabQuantityAdjustment> adjustments = result.State?.QuantityAdjustments ?? [];
         IReadOnlyList<CutLabPoolCard> derivedWorkingList = CutLabWorkingList.Derive(pool, result.State?.Decisions ?? [], adjustments);
+        IReadOnlyList<CutLabTunableRowView> workingListRows = BuildWorkingListRows(derivedWorkingList, pool, result.RoleAssignmentsByCardName);
+        IReadOnlyList<string> addableBasics = BuildAddableBasics(workingListRows);
         IReadOnlyList<CutLabRoleGroupView> roleGroups = BuildRoleGroups(pool, result.RoleAssignmentsByCardName);
         IReadOnlyList<CutLabFindingView> findings = result.Findings.Findings
             .Select(finding => new CutLabFindingView
@@ -224,6 +232,8 @@ public sealed record CutLabViewModel
             WhatifCardInOptions = whatifCardInOptions,
             BaselineCount = baselineCount,
             CurrentCount = currentCount,
+            WorkingListRows = workingListRows,
+            AddableBasics = addableBasics,
             RoleListByCardName = roleListByCardName,
             RoleKeysByCardName = roleKeysByCardName,
         };
@@ -601,6 +611,49 @@ public sealed record CutLabViewModel
             .ToArray();
     }
 
+    private static IReadOnlyList<CutLabTunableRowView> BuildWorkingListRows(
+        IReadOnlyList<CutLabPoolCard> derivedWorkingList,
+        IReadOnlyList<CutLabPoolCard> pool,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName)
+    {
+        HashSet<string> originalPoolNames = pool
+            .Select(card => CutLabCardNames.Normalize(card.Name))
+            .ToHashSet(CutLabCardNames.Comparer);
+
+        return derivedWorkingList
+            .Select(card =>
+            {
+                bool isLegalMultiple = CutLabLegality.IsLegalMultiple(card.Name);
+                bool isAddedBasic = CutLabBasicLands.Contains(card.Name)
+                    && !originalPoolNames.Contains(CutLabCardNames.Normalize(card.Name));
+                string roleLabel = roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles)
+                    ? string.Join(" · ", roles.Select(DisplayLabelFor))
+                    : string.Empty;
+
+                return new CutLabTunableRowView
+                {
+                    Name = card.Name,
+                    RoleLabel = roleLabel,
+                    CurrentQuantity = card.Quantity,
+                    IsLegalMultiple = isLegalMultiple,
+                    LegalMax = CutLabLegality.LegalMax(card.Name),
+                    IsAddedBasic = isAddedBasic,
+                };
+            })
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> BuildAddableBasics(IReadOnlyList<CutLabTunableRowView> workingListRows)
+    {
+        HashSet<string> presentBasicNames = workingListRows
+            .Select(row => CutLabCardNames.Normalize(row.Name))
+            .ToHashSet(CutLabCardNames.Comparer);
+
+        return CutLabBasicLands.Names
+            .Where(name => !presentBasicNames.Contains(CutLabCardNames.Normalize(name)))
+            .ToArray();
+    }
+
     internal static IReadOnlyList<CutLabCompareRowView> BuildCompareRows(IReadOnlyList<CutLabMetricDelta> deltas)
     {
         ArgumentNullException.ThrowIfNull(deltas);
@@ -883,6 +936,28 @@ public sealed record CutLabGoalRowView
 
     /// <summary>True when the representative-line goal should be annotated as uncapped in casual play.</summary>
     public bool IsUncappedInCasual { get; init; }
+}
+
+/// <summary>View-ready working-list row for the inline quantity tuner.</summary>
+public sealed record CutLabTunableRowView
+{
+    /// <summary>Display card name.</summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>User-facing role label string for the row.</summary>
+    public string RoleLabel { get; init; } = string.Empty;
+
+    /// <summary>Current quantity from the adjustment-derived working list.</summary>
+    public int CurrentQuantity { get; init; }
+
+    /// <summary>True when the card can legally appear in multiple copies.</summary>
+    public bool IsLegalMultiple { get; init; }
+
+    /// <summary>Legal upper bound for the row's quantity.</summary>
+    public int LegalMax { get; init; }
+
+    /// <summary>True when this row was materialized from an added-basic adjustment.</summary>
+    public bool IsAddedBasic { get; init; }
 }
 
 /// <summary>Sticky round/count bar state for the Cut rounds workspace.</summary>

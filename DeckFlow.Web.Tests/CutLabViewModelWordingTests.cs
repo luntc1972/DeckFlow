@@ -110,6 +110,159 @@ public sealed class CutLabViewModelWordingTests
         Assert.All(cedhModel.GoalRows, row => Assert.False(row.IsUncappedInCasual));
     }
 
+    [Fact]
+    public void From_BuildsWorkingListRowsFromDerivedListAndFiltersAddableBasics()
+    {
+        var request = new CutLabRequest
+        {
+            PlayExperience = "Focused",
+        };
+        var result = new CutLabProcessResult
+        {
+            HasResult = true,
+            State = new CutLabState
+            {
+                Pool =
+                [
+                    new CutLabPoolCard
+                    {
+                        Name = "Commander",
+                        Quantity = 1,
+                        TypeLine = "Legendary Creature",
+                        IsCommander = true,
+                        IsLocked = true,
+                    },
+                    new CutLabPoolCard
+                    {
+                        Name = "Island",
+                        Quantity = 3,
+                        TypeLine = "Basic Land — Island",
+                    },
+                    new CutLabPoolCard
+                    {
+                        Name = "Relentless Rats",
+                        Quantity = 2,
+                        TypeLine = "Creature — Rat",
+                    },
+                    new CutLabPoolCard
+                    {
+                        Name = "Sol Ring",
+                        Quantity = 1,
+                        TypeLine = "Artifact",
+                    },
+                ],
+                Decisions =
+                [
+                    new CutLabDecision
+                    {
+                        CardName = "Sol Ring",
+                        Kind = CutLabDecisionKind.Accepted,
+                        Round = "round-1",
+                        Ordinal = 1,
+                    },
+                ],
+                QuantityAdjustments =
+                [
+                    new CutLabQuantityAdjustment
+                    {
+                        Name = "Island",
+                        Delta = 2,
+                    },
+                    new CutLabQuantityAdjustment
+                    {
+                        Name = "Forest",
+                        Delta = 1,
+                        IsAddedBasic = true,
+                    },
+                ],
+            },
+            RoleAssignmentsByCardName = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Commander"] = [],
+                ["Island"] = ["lands"],
+                ["Relentless Rats"] = ["engines"],
+                ["Forest"] = ["lands"],
+                ["Sol Ring"] = ["ramp"],
+            },
+        };
+
+        CutLabViewModel model = CutLabViewModel.From(request, result);
+
+        CutLabTunableRowView island = Assert.Single(model.WorkingListRows, row => row.Name == "Island");
+        Assert.Equal(5, island.CurrentQuantity);
+        Assert.True(island.IsLegalMultiple);
+        Assert.Equal(CutLabLegality.LegalMax("Island"), island.LegalMax);
+        Assert.False(island.IsAddedBasic);
+
+        CutLabTunableRowView forest = Assert.Single(model.WorkingListRows, row => row.Name == "Forest");
+        Assert.Equal(1, forest.CurrentQuantity);
+        Assert.True(forest.IsAddedBasic);
+        Assert.Equal("Lands", forest.RoleLabel);
+
+        CutLabTunableRowView rats = Assert.Single(model.WorkingListRows, row => row.Name == "Relentless Rats");
+        Assert.Equal(2, rats.CurrentQuantity);
+        Assert.True(rats.IsLegalMultiple);
+        Assert.Equal(CutLabLegality.LegalMax("Relentless Rats"), rats.LegalMax);
+
+        Assert.DoesNotContain(model.WorkingListRows, row => row.Name == "Sol Ring");
+        Assert.DoesNotContain(model.AddableBasics, name => string.Equals(name, "Island", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(model.AddableBasics, name => string.Equals(name, "Forest", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("Wastes", model.AddableBasics);
+        string[] addableBasics = model.AddableBasics.ToArray();
+        Assert.True(Array.IndexOf(addableBasics, "Plains") < Array.IndexOf(addableBasics, "Wastes"));
+    }
+
+    [Fact]
+    public void From_UsesDerivedWorkingListForCurrentCount()
+    {
+        var request = new CutLabRequest
+        {
+            PlayExperience = "Focused",
+        };
+        var result = new CutLabProcessResult
+        {
+            HasResult = true,
+            State = new CutLabState
+            {
+                Pool =
+                [
+                    new CutLabPoolCard
+                    {
+                        Name = "Commander",
+                        Quantity = 1,
+                        TypeLine = "Legendary Creature",
+                        IsCommander = true,
+                        IsLocked = true,
+                    },
+                    new CutLabPoolCard
+                    {
+                        Name = "Island",
+                        Quantity = 38,
+                        TypeLine = "Basic Land — Island",
+                    },
+                ],
+                QuantityAdjustments =
+                [
+                    new CutLabQuantityAdjustment
+                    {
+                        Name = "Island",
+                        Delta = 2,
+                    },
+                ],
+            },
+            RoleAssignmentsByCardName = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Commander"] = [],
+                ["Island"] = ["lands"],
+            },
+        };
+
+        CutLabViewModel model = CutLabViewModel.From(request, result);
+
+        Assert.Equal(41, model.CurrentCount);
+        Assert.Equal(40, Assert.Single(model.WorkingListRows, row => row.Name == "Island").CurrentQuantity);
+    }
+
     private static CutLabMetricSnapshot BuildSnapshot(double commander, double engine, double representativeLine)
         => new()
         {

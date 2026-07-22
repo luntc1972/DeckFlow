@@ -28,11 +28,18 @@ interface CutLabRoleFloorSnapshot {
   isUserSet: boolean;
 }
 
+interface CutLabQuantityAdjustmentSnapshot {
+  name: string;
+  delta: number;
+  isAddedBasic?: boolean;
+}
+
 interface CutLabStateSnapshot {
   commander: string;
   pool: CutLabPoolSnapshotCard[];
   packages: CutLabPackageSnapshot[];
   decisions?: CutLabStateDecision[];
+  quantityAdjustments?: CutLabQuantityAdjustmentSnapshot[];
   baselineSnapshot?: unknown;
   intent: CutLabIntentSnapshot;
   roleFloors: CutLabRoleFloorSnapshot[];
@@ -168,6 +175,7 @@ const newPackageOptionValue = '__new__';
 const unlockedPoolOptionValue = '';
 const cutLabAntiForgeryFieldName = '__RequestVerificationToken';
 const cutLabDecisionApiEndpoint = '/api/cut-lab/decide';
+const cutLabAdjustApiEndpoint = '/api/cut-lab/adjust';
 const cutLabWhatifApiEndpoint = '/api/cut-lab/whatif';
 const cutLabWhatifCommitApiEndpoint = '/api/cut-lab/whatif/commit';
 const cutLabDecisionTimeoutMs = 3000;
@@ -312,6 +320,10 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
         },
       };
 
+      if ((snapshot.quantityAdjustments ?? []).length > 0) {
+        normalizedSnapshot.quantityAdjustments = snapshot.quantityAdjustments ?? [];
+      }
+
       return JSON.stringify(normalizedSnapshot);
     },
 
@@ -404,6 +416,7 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
   let scenarioHandlersAttached = false;
   let whatifHandlersAttached = false;
   let decisionSubmitInFlight = false;
+  let adjustSubmitInFlight = false;
   let whatifSubmitInFlight = false;
   let copyHandlersAttached = false;
 
@@ -439,6 +452,9 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
   const getExportStepTab = (): HTMLButtonElement | null =>
     document.getElementById('cut-lab-step-tab-4') as HTMLButtonElement | null;
 
+  const getBuildExportSubmit = (): HTMLButtonElement | null =>
+    document.querySelector<HTMLButtonElement>('#cut-lab-export-form button[type="submit"]');
+
   const getRoundBanner = (): HTMLElement | null =>
     document.querySelector<HTMLElement>('.cutlab-round-banner');
 
@@ -458,6 +474,9 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     section?.setAttribute('data-cut-lab-cuts-made-section', 'true');
     return section;
   };
+
+  const getErrorBanner = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('.error-banner');
 
   const getPackageContainers = (): HTMLDivElement[] =>
     Array.from(document.querySelectorAll<HTMLDivElement>('[data-cut-lab-package-id]'));
@@ -833,6 +852,12 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
   const getRoundKeyInput = (form: HTMLFormElement): HTMLInputElement | null =>
     form.querySelector<HTMLInputElement>('input[name="RoundKey"]');
 
+  const getDeltaInput = (form: HTMLFormElement): HTMLInputElement | null =>
+    form.querySelector<HTMLInputElement>('input[name="Delta"]');
+
+  const getIsAddedBasicInput = (form: HTMLFormElement): HTMLInputElement | null =>
+    form.querySelector<HTMLInputElement>('input[name="IsAddedBasic"]');
+
   const getAntiForgeryToken = (form: HTMLFormElement): string =>
     form.querySelector<HTMLInputElement>(`input[name="${cutLabAntiForgeryFieldName}"]`)?.value ?? '';
 
@@ -840,6 +865,9 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     const decision = getDecisionInput(form)?.value.trim().toLowerCase();
     return decision === 'accept' || decision === 'reject' || decision === 'defer' || decision === 'restore';
   };
+
+  const isAdjustForm = (form: HTMLFormElement): boolean =>
+    form.hasAttribute('data-cut-lab-adjust-form');
 
   const deltaClassFor = (direction: CutLabMetricDirection): string => {
     switch (direction) {
@@ -1400,6 +1428,13 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     if (!proposal) {
       if (form.closest('.cutlab-cuts-made__row') || form.closest('details.cutlab-cuts-made')) {
         renderCutsMadeStatus('data-cut-lab-decision-error', message);
+        return;
+      }
+
+      const errorBanner = getErrorBanner();
+      if (errorBanner) {
+        errorBanner.textContent = message;
+        errorBanner.classList.remove('hidden');
       }
       return;
     }
@@ -1419,6 +1454,12 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     document.querySelectorAll<HTMLElement>('[data-cut-lab-decision-error]').forEach(element => {
       element.remove();
     });
+
+    const errorBanner = getErrorBanner();
+    if (errorBanner) {
+      errorBanner.textContent = '';
+      errorBanner.classList.add('hidden');
+    }
   };
 
   const isWhatifForm = (form: HTMLFormElement): boolean =>
@@ -1634,6 +1675,64 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     return accepted;
   };
 
+  const normalizeCardName = (name: string): string =>
+    name.trim().toLowerCase();
+
+  const currentCountFromSerializedState = (serializedState: string): number | null => {
+    const snapshot = parseStateSnapshot(serializedState);
+    if (!snapshot || !Array.isArray(snapshot.pool)) {
+      return null;
+    }
+
+    const acceptedCardNames = acceptedCardNamesFromDecisions(Array.isArray(snapshot.decisions) ? snapshot.decisions : []);
+    const adjustments = new Map<string, { delta: number; isAddedBasic: boolean }>();
+
+    (Array.isArray(snapshot.quantityAdjustments) ? snapshot.quantityAdjustments : []).forEach(adjustment => {
+      const normalizedName = normalizeCardName(adjustment.name ?? '');
+      if (normalizedName === '') {
+        return;
+      }
+
+      const current = adjustments.get(normalizedName);
+      if (current) {
+        current.delta += adjustment.delta;
+        current.isAddedBasic = current.isAddedBasic || adjustment.isAddedBasic === true;
+        return;
+      }
+
+      adjustments.set(normalizedName, {
+        delta: adjustment.delta,
+        isAddedBasic: adjustment.isAddedBasic === true,
+      });
+    });
+
+    let currentCount = 0;
+    const matchedAdjustments = new Set<string>();
+
+    snapshot.pool
+      .filter(card => !acceptedCardNames.has(card.name))
+      .forEach(card => {
+        const normalizedName = normalizeCardName(card.name);
+        const adjustment = adjustments.get(normalizedName);
+        const adjustedQuantity = Math.max(card.quantity + (adjustment?.delta ?? 0), 0);
+        if (adjustment) {
+          matchedAdjustments.add(normalizedName);
+        }
+
+        currentCount += adjustedQuantity;
+      });
+
+    adjustments.forEach((adjustment, normalizedName) => {
+      if (matchedAdjustments.has(normalizedName) || !adjustment.isAddedBasic || adjustment.delta <= 0) {
+        return;
+      }
+
+      currentCount += adjustment.delta;
+    });
+
+    return currentCount;
+  };
+
   const sortCardNames = (cardNames: Iterable<string>): string[] =>
     Array.from(cardNames).sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'accent' }));
 
@@ -1690,28 +1789,26 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
       }));
 
   const cardsRemainingFromSerializedState = (serializedState: string): number | null => {
-    const snapshot = parseStateSnapshot(serializedState);
-    if (!snapshot || !Array.isArray(snapshot.pool)) {
+    const currentCount = currentCountFromSerializedState(serializedState);
+    if (currentCount === null) {
       return null;
     }
 
-    const acceptedCardNames = acceptedCardNamesFromDecisions(Array.isArray(snapshot.decisions) ? snapshot.decisions : []);
-    const workingCount = snapshot.pool
-      .filter(card => !acceptedCardNames.has(card.name))
-      .reduce((sum, card) => sum + card.quantity, 0);
-
-    return Math.max(workingCount - 100, 0);
+    return Math.max(currentCount - 100, 0);
   };
 
-  const setExportTabEnabled = (atTarget: boolean): void => {
+  const setExportEnabled = (atTarget: boolean): void => {
     const exportTab = getExportStepTab();
-    if (!exportTab) {
-      return;
+    if (exportTab) {
+      exportTab.disabled = !atTarget;
+      exportTab.setAttribute('aria-disabled', atTarget ? 'false' : 'true');
+      exportTab.classList.toggle('is-disabled', !atTarget);
     }
 
-    exportTab.disabled = !atTarget;
-    exportTab.setAttribute('aria-disabled', atTarget ? 'false' : 'true');
-    exportTab.classList.toggle('is-disabled', !atTarget);
+    const buildExportSubmit = getBuildExportSubmit();
+    if (buildExportSubmit) {
+      buildExportSubmit.disabled = !atTarget;
+    }
   };
 
   const patchStickyAcceptedCount = (acceptedCount: number): void => {
@@ -1850,7 +1947,8 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
       patchStickyAcceptedCount(cutsMade.length);
       const cardsRemaining = cardsRemainingFromSerializedState(data.cutLabStateJson);
       if (cardsRemaining !== null) {
-        setExportTabEnabled(cardsRemaining === 0);
+        const currentCount = currentCountFromSerializedState(data.cutLabStateJson);
+        setExportEnabled(currentCount === null ? cardsRemaining === 0 : currentCount === 100);
       }
       updateWhatifSelectOptionsAfterKeep(data.cardOut, data.cardIn);
       clearWhatifPreview();
@@ -1866,7 +1964,8 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
   };
 
   const patchStickyBar = (response: CutLabDecisionResponse): void => {
-    setExportTabEnabled(response.cardsRemaining === 0);
+    const currentCount = currentCountFromSerializedState(response.cutLabStateJson);
+    setExportEnabled(currentCount === null ? response.cardsRemaining === 0 : currentCount === 100);
 
     if (response.nextProposal.isTerminal || response.nextProposal.roundLabel.trim() === '') {
       getStickyBar()?.remove();
@@ -2026,6 +2125,134 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     } finally {
       window.clearTimeout(timeoutId);
       decisionSubmitInFlight = false;
+      restoreBusyState();
+    }
+  };
+
+  const extractAdjustPayload = (form: HTMLFormElement): { cutLabStateJson: string; cardName: string; delta: number; isAddedBasic: boolean } | null => {
+    const stateInput = getStateInput(form);
+    const cardNameInput = getCardNameInput(form);
+    const deltaInput = getDeltaInput(form);
+    const isAddedBasicInput = getIsAddedBasicInput(form);
+    const delta = Number.parseInt(deltaInput?.value ?? '', 10);
+
+    if (!stateInput || !cardNameInput || Number.isNaN(delta)) {
+      return null;
+    }
+
+    return {
+      cutLabStateJson: stateInput.value,
+      cardName: cardNameInput.value,
+      delta,
+      isAddedBasic: isAddedBasicInput?.value.trim().toLowerCase() === 'true',
+    };
+  };
+
+  const setAdjustBusyState = (form: HTMLFormElement, submitter: HTMLButtonElement | null): (() => void) => {
+    const row = form.closest<HTMLElement>('tr[data-cut-lab-tuner-row]');
+    const buttons = row
+      ? Array.from(row.querySelectorAll<HTMLButtonElement>('button[type="submit"]'))
+      : Array.from(form.querySelectorAll<HTMLButtonElement>('button[type="submit"]'));
+    const originalStates = buttons.map(button => ({
+      button,
+      wasDisabled: button.disabled,
+    }));
+
+    originalStates.forEach(({ button }) => {
+      button.disabled = true;
+    });
+
+    const restoreSubmitter = submitter ? setSubmitterBusyState(submitter) : () => undefined;
+    row?.setAttribute('aria-busy', 'true');
+    return () => {
+      originalStates.forEach(({ button, wasDisabled }) => {
+        button.disabled = wasDisabled;
+      });
+
+      restoreSubmitter();
+      row?.removeAttribute('aria-busy');
+    };
+  };
+
+  const patchAdjustRow = (cardName: string, delta: number): void => {
+    const row = document.querySelector<HTMLTableRowElement>(`tr[data-cut-lab-tuner-row="${cssEscape(cardName)}"]`);
+    if (!row) {
+      return;
+    }
+
+    const currentQuantity = parseIntegerAttribute(row, 'cutLabQuantity', 0);
+    const legalMax = parseIntegerAttribute(row, 'cutLabLegalMax', 1);
+    const nextQuantity = Math.min(Math.max(currentQuantity + delta, 0), legalMax);
+
+    row.dataset.cutLabQuantity = `${nextQuantity}`;
+    const quantityValue = row.querySelector<HTMLElement>('[data-cut-lab-quantity-value]');
+    if (quantityValue) {
+      quantityValue.textContent = `${nextQuantity}`;
+    }
+
+    row.querySelectorAll<HTMLButtonElement>('[data-cut-lab-adjust]').forEach(button => {
+      const buttonDelta = Number.parseInt(button.dataset.cutLabDelta ?? '', 10);
+      const shouldDisable = buttonDelta < 0 ? nextQuantity <= 0 : nextQuantity >= legalMax;
+      button.disabled = shouldDisable;
+      button.setAttribute('aria-disabled', shouldDisable ? 'true' : 'false');
+    });
+  };
+
+  const handleAdjustSubmit = async (form: HTMLFormElement, submitter: HTMLButtonElement | null): Promise<void> => {
+    if (adjustSubmitInFlight) {
+      return;
+    }
+
+    const payload = extractAdjustPayload(form);
+    if (!payload) {
+      return;
+    }
+
+    adjustSubmitInFlight = true;
+    clearDecisionError();
+
+    const antiForgeryToken = getAntiForgeryToken(form);
+    const restoreBusyState = setAdjustBusyState(form, submitter);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), cutLabDecisionTimeoutMs);
+
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (antiForgeryToken !== '') {
+        headers.RequestVerificationToken = antiForgeryToken;
+      }
+
+      const response = await fetch(cutLabAdjustApiEndpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        renderDecisionError(form, await readErrorMessage(response));
+        return;
+      }
+
+      const data = await response.json() as { cutLabStateJson: string; cardsRemaining: number };
+      writeDecisionStateToHiddenInputs(data.cutLabStateJson);
+      const exactCurrentCount = currentCountFromSerializedState(data.cutLabStateJson);
+      const stickyRemaining = getStickyRemaining();
+      if (stickyRemaining) {
+        stickyRemaining.textContent = `${exactCurrentCount === null ? data.cardsRemaining : Math.max(exactCurrentCount - 100, 0)} to cut`;
+      }
+
+      setExportEnabled(exactCurrentCount === 100);
+      patchAdjustRow(payload.cardName, payload.delta);
+    } catch (error) {
+      renderDecisionError(form, error instanceof DOMException && error.name === 'AbortError'
+        ? cutLabDecisionTimeoutCopy
+        : cutLabDecisionErrorCopy);
+    } finally {
+      window.clearTimeout(timeoutId);
+      adjustSubmitInFlight = false;
       restoreBusyState();
     }
   };
@@ -2477,6 +2704,29 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     });
   };
 
+  const attachAdjustSubmitHandler = (): void => {
+    document.addEventListener('submit', event => {
+      const target = event.target;
+      if (!(target instanceof HTMLFormElement) || !isAdjustForm(target)) {
+        return;
+      }
+
+      const submitter = event instanceof SubmitEvent && event.submitter instanceof HTMLButtonElement
+        ? event.submitter
+        : null;
+      if (submitter?.hasAttribute('data-cut-lab-add-basic')) {
+        return;
+      }
+
+      event.preventDefault();
+      if (adjustSubmitInFlight) {
+        return;
+      }
+
+      void handleAdjustSubmit(target, submitter);
+    });
+  };
+
   const attachScenarioHandlers = (): void => {
     if (scenarioHandlersAttached) {
       return;
@@ -2649,6 +2899,7 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     attachRowHandlers();
     attachPackageHandlers();
     attachDecisionSubmitHandler();
+    attachAdjustSubmitHandler();
     attachGoalSubmitHandler();
     attachScenarioHandlers();
     attachWhatifSubmitHandler();
