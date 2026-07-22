@@ -216,6 +216,18 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 (function (root: CutLabRoot): void {
   const getScenarioSlotKey = (id: string): string => `${SCENARIO_SLOT_PREFIX}${id}`;
 
+  const collapseMobileCollapsiblesOnLoad = (): void => {
+    if (typeof window.matchMedia !== 'function' || !window.matchMedia('(max-width: 767px)').matches) {
+      return;
+    }
+
+    document
+      .querySelectorAll<HTMLDetailsElement>('details[data-cutlab-mobile-collapse]')
+      .forEach(details => {
+        details.removeAttribute('open');
+      });
+  };
+
   const getLocalStorage = (): Storage | null => {
     try {
       return window.localStorage;
@@ -2512,8 +2524,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const createPackageContainer = (packageId: string, packageName: string): HTMLDivElement | null => {
-    const packageSection = document.querySelector<HTMLElement>('[data-cut-lab-new-package-row]')?.closest('.result-panel.nested-panel');
-    if (!packageSection) {
+    const insertionPoint = document.querySelector<HTMLElement>('[data-cut-lab-new-package-row]')?.closest<HTMLElement>('.card-picker__rows');
+    const packageContainerParent = insertionPoint?.parentElement;
+    if (!insertionPoint || !packageContainerParent) {
       return null;
     }
 
@@ -2534,12 +2547,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       `<div class="kb-chip-area__chips"></div>` +
       `<p class="kb-chip-area__empty-hint">No cards assigned yet.</p>`;
 
-    const insertionPoint = packageSection.querySelector<HTMLElement>('.card-picker__rows');
-    if (!insertionPoint) {
-      return null;
-    }
-
-    packageSection.insertBefore(container, insertionPoint);
+    packageContainerParent.insertBefore(container, insertionPoint);
     return container;
   };
 
@@ -2974,6 +2982,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const initializeCutLab = (): void => {
+    collapseMobileCollapsiblesOnLoad();
+
     const form = getForm();
     if (!form) {
       return;

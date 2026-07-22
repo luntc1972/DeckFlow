@@ -4428,6 +4428,22 @@ input[data-cut-lab-floor] {
   margin-top: 0.25rem;
 }
 
+.cutlab-collapsible {
+  display: block;
+}
+
+.cutlab-collapsible__summary {
+  cursor: pointer;
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+
+.cutlab-collapsible[open] > .cutlab-collapsible__summary {
+  margin-bottom: 0.75rem;
+}
+
 input[data-cut-lab-goal] {
   width: 5.5rem;
   min-height: 44px;
