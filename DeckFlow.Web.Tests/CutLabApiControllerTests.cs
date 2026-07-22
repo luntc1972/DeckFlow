@@ -197,6 +197,73 @@ public sealed class CutLabApiControllerTests
     }
 
     [Fact]
+    public async Task PostDecideAsync_ReturnsGroupedStructuralFindingsFromAfterState()
+    {
+        CutLabState state = CreateState(
+            pool:
+            [
+                Card("Commander", quantity: 1, isCommander: true, isLocked: true),
+                Card("Arcane Signet", quantity: 1),
+                Card("Counterspell", quantity: 1),
+                Card("Basic Filler", quantity: 99, isLocked: true),
+            ],
+            roleFloors:
+            [
+                new CutLabRoleFloor
+                {
+                    Role = "ramp",
+                    Floor = 1,
+                    IsUserSet = true,
+                },
+                new CutLabRoleFloor
+                {
+                    Role = "interaction",
+                    Floor = 2,
+                    IsUserSet = true,
+                },
+            ]);
+        FakeAnalysisContextBuilder builder = new(workingList => CreateAnalysisContext(
+            workingList,
+            comboDataAvailable: false,
+            categoryDataAvailable: false));
+        CutLabApiController controller = CreateController(builder, new FakeSimulationService());
+
+        ActionResult<CutLabDecideApiResponse> response = await controller.PostDecideAsync(
+            new CutLabDecideApiRequest
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(state),
+                CardName = "Arcane Signet",
+                Decision = CutLabDecideAction.Accept,
+            },
+            CancellationToken.None);
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
+        CutLabDecideApiResponse payload = Assert.IsType<CutLabDecideApiResponse>(ok.Value);
+        Assert.False(payload.ComboDataAvailable);
+        Assert.False(payload.CategoryDataAvailable);
+        CutLabDecideFindingGroupDto weakFloorGroup = Assert.Single(
+            payload.StructuralFindings,
+            group => group.Kind == CutLabFindingKind.WeakFloorCase);
+        Assert.Equal("Weak floor cases", weakFloorGroup.Heading);
+        Assert.Collection(
+            weakFloorGroup.Items,
+            item =>
+            {
+                Assert.Equal(CutLabFindingKind.WeakFloorCase, item.Kind);
+                Assert.Equal("Weak floor cases", item.Heading);
+                Assert.Equal("You have no ramp cards yet; the suggested floor is 1.", item.Lead);
+                Assert.Empty(item.Evidence);
+            },
+            item =>
+            {
+                Assert.Equal(CutLabFindingKind.WeakFloorCase, item.Kind);
+                Assert.Equal("Weak floor cases", item.Heading);
+                Assert.Equal("Interaction is at 1 against a floor of 2 — every card in this role is effectively protected already.", item.Lead);
+                Assert.Equal(["Counterspell"], item.Evidence);
+            });
+    }
+
+    [Fact]
     public async Task PostDecideAsync_AutoAdvancesToNextRoundAndSecondPass()
     {
         CutLabState state = CreateState(
@@ -628,7 +695,10 @@ public sealed class CutLabApiControllerTests
             IsLocked = isLocked,
         };
 
-    private static CutLabAnalysisContext CreateAnalysisContext(IReadOnlyList<CutLabPoolCard>? workingList = null)
+    private static CutLabAnalysisContext CreateAnalysisContext(
+        IReadOnlyList<CutLabPoolCard>? workingList = null,
+        bool comboDataAvailable = true,
+        bool categoryDataAvailable = true)
     {
         IReadOnlyList<CutLabPoolCard> cards = workingList ?? [Card("Commander", quantity: 1, isCommander: true, isLocked: true), Card("Counterspell", quantity: 1), Card("Basic Filler", quantity: 99, isLocked: true)];
         List<CutLabAnalyzedCard> analyzedCards = [];
@@ -688,8 +758,8 @@ public sealed class CutLabApiControllerTests
             ManabaseMode.Focused,
             new CutLabClassificationContext(
                 almostCombos,
-                true,
-                true,
+                comboDataAvailable,
+                categoryDataAvailable,
                 new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase),
                 new HashSet<string>(StringComparer.OrdinalIgnoreCase)),
             cards

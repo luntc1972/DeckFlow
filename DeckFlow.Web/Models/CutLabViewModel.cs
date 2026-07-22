@@ -159,19 +159,7 @@ public sealed record CutLabViewModel
         IReadOnlyList<CutLabTunableRowView> workingListRows = BuildWorkingListRows(derivedWorkingList, pool, result.RoleAssignmentsByCardName);
         IReadOnlyList<string> addableBasics = BuildAddableBasics(workingListRows);
         IReadOnlyList<CutLabRoleGroupView> roleGroups = BuildRoleGroups(pool, result.RoleAssignmentsByCardName);
-        IReadOnlyList<CutLabFindingView> findings = result.Findings.Findings
-            .Select(finding => new CutLabFindingView
-            {
-                Kind = finding.Kind,
-                Heading = finding.Heading,
-                Lead = finding.Lead,
-                Evidence = finding.Evidence
-                    .Select(evidence => evidence.ManaValue is double manaValue
-                        ? $"{evidence.CardName} · MV {manaValue:0.##}"
-                        : evidence.CardName)
-                    .ToArray(),
-            })
-            .ToArray();
+        IReadOnlyList<CutLabFindingView> findings = BuildFindings(result.Findings.Findings);
         IReadOnlyList<CutLabFindingGroupView> findingGroups = BuildFindingGroups(findings);
         Dictionary<string, int> countsByRole = CountRoles(derivedWorkingList, result.RoleAssignmentsByCardName);
         IReadOnlyList<CutLabFloorRowView> floorRows = BuildFloorRows(result.ResolvedFloors, countsByRole, request.PlayExperience);
@@ -388,7 +376,26 @@ public sealed record CutLabViewModel
         return result;
     }
 
-    private static IReadOnlyList<CutLabFindingGroupView> BuildFindingGroups(IReadOnlyList<CutLabFindingView> findings)
+    internal static IReadOnlyList<CutLabFindingView> BuildFindings(IReadOnlyList<CutLabFinding> findings)
+    {
+        ArgumentNullException.ThrowIfNull(findings);
+
+        return findings
+            .Select(finding => new CutLabFindingView
+            {
+                Kind = finding.Kind,
+                Heading = finding.Heading,
+                Lead = finding.Lead,
+                Evidence = finding.Evidence
+                    .Select(evidence => evidence.ManaValue is double manaValue
+                        ? $"{evidence.CardName} · MV {manaValue:0.##}"
+                        : evidence.CardName)
+                    .ToArray(),
+            })
+            .ToArray();
+    }
+
+    internal static IReadOnlyList<CutLabFindingGroupView> BuildFindingGroups(IReadOnlyList<CutLabFindingView> findings)
     {
         List<CutLabFindingGroupView> groups = [];
         List<CutLabFindingView>? weakFloorItems = null;

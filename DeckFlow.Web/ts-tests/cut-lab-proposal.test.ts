@@ -10,6 +10,19 @@ interface CutLabDecideMetricDeltaDto {
   unit: 'Percent' | 'Cards';
 }
 
+interface CutLabDecideFindingDto {
+  kind: string;
+  heading: string;
+  lead: string;
+  evidence: string[];
+}
+
+interface CutLabDecideFindingGroupDto {
+  kind: string;
+  heading: string;
+  items: CutLabDecideFindingDto[];
+}
+
 interface CutLabDecideResponse {
   cutLabStateJson: string;
   nextProposal: {
@@ -31,6 +44,9 @@ interface CutLabDecideResponse {
   floorWarnings: Array<{ message: string }>;
   cardsRemaining: number;
   cutsMade: Array<{ cardName: string; roundKey: string; roundLabel: string; ordinal: number }>;
+  structuralFindings: CutLabDecideFindingGroupDto[];
+  comboDataAvailable: boolean;
+  categoryDataAvailable: boolean;
 }
 
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -158,6 +174,30 @@ const buildDecisionFixture = (): void => {
         </div>
       </div>
     </section>
+    <section class="result-panel" data-cut-lab-structural-findings>
+      <div class="panel-heading">
+        <div>
+          <h2>Structural findings</h2>
+          <p>Measured observations about your pool's shape. Nothing here says a card is bad — it says what the numbers show.</p>
+        </div>
+        <div class="panel-heading__actions" data-cut-lab-findings-count-slot>
+          <span class="prompt-size-note cutlab-findings-count">1 structural finding</span>
+        </div>
+      </div>
+      <div data-cut-lab-structural-findings-body>
+        <div class="cutlab-finding">
+          <p class="cutlab-finding__heading">Weak floor cases</p>
+          <div class="cutlab-finding__item">
+            <p class="cutlab-finding__lead">Ramp is at 1 against a floor of 2.</p>
+            <div class="kb-chip-area__chips">
+              <span class="kb-chip">Arcane Signet</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="cutlab-degradation-note hidden" data-cut-lab-degradation="combo">Combo data unavailable right now.</p>
+      <p class="cutlab-degradation-note" data-cut-lab-degradation="category">Community category data unavailable.</p>
+    </section>
     <section class="result-panel">
       <details class="cutlab-cuts-made" open>
         <summary>Cuts made · 1 cards</summary>
@@ -218,6 +258,22 @@ const buildResponse = (overrides: Partial<CutLabDecideResponse> = {}): CutLabDec
   floorWarnings: [{ message: 'Cutting Arcane Signet drops ramp to 9, below your floor of 10.' }],
   cardsRemaining: 11,
   cutsMade: [{ cardName: 'Sol Ring', roundKey: 'round-1', roundLabel: 'Round 1 · Obvious cuts', ordinal: 2 }],
+  structuralFindings: [
+    {
+      kind: 'WeakFloorCase',
+      heading: 'Weak floor cases',
+      items: [
+        {
+          kind: 'WeakFloorCase',
+          heading: 'Weak floor cases',
+          lead: 'Interaction is at 1 against a floor of 2 — every card in this role is effectively protected already.',
+          evidence: ['Counterspell'],
+        },
+      ],
+    },
+  ],
+  comboDataAvailable: true,
+  categoryDataAvailable: true,
   ...overrides,
 });
 
@@ -291,6 +347,82 @@ describe('cut-lab proposal enhancement', () => {
     expect(document.querySelectorAll('.cutlab-delta__line')).toHaveLength(3);
     expect(document.querySelector<HTMLElement>('.cutlab-proposal__floor-warning .cutlab-finding__lead')?.textContent).toBe('Cutting Arcane Signet drops ramp to 9, below your floor of 10.');
     expect(document.querySelector<HTMLDetailsElement>('details.cutlab-cuts-made summary')?.textContent).toBe('Cuts made · 1 card');
+  });
+
+  it('live-patches only the structural findings body, count slot, and degradation notes after a decision', async () => {
+    buildDecisionFixture();
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => buildResponse({
+          structuralFindings: [
+            {
+              kind: 'WeakFloorCase',
+              heading: 'Weak floor cases',
+              items: [
+                {
+                  kind: 'WeakFloorCase',
+                  heading: 'Weak floor cases',
+                  lead: 'You have no ramp cards yet; the suggested floor is 1.',
+                  evidence: [],
+                },
+                {
+                  kind: 'WeakFloorCase',
+                  heading: 'Weak floor cases',
+                  lead: 'Interaction is at 1 against a floor of 2 — every card in this role is effectively protected already.',
+                  evidence: ['Counterspell'],
+                },
+              ],
+            },
+          ],
+          comboDataAvailable: false,
+          categoryDataAvailable: true,
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => buildResponse({
+          structuralFindings: [],
+          comboDataAvailable: true,
+          categoryDataAvailable: true,
+        }),
+      });
+
+    const acceptForm = document.querySelector<HTMLFormElement>('form[action="/cut-lab/decide"]');
+    const acceptButton = acceptForm?.querySelector<HTMLButtonElement>('[data-cut-lab-decision="accept"]');
+    const sectionHeading = document.querySelector<HTMLElement>('[data-cut-lab-structural-findings] h2');
+
+    let activeForm = document.querySelector<HTMLFormElement>('form[action="/cut-lab/decide"]');
+    let activeButton = activeForm?.querySelector<HTMLButtonElement>('[data-cut-lab-decision="accept"]');
+
+    activeForm?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: activeButton ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    expect(sectionHeading?.textContent).toBe('Structural findings');
+    expect(document.querySelector<HTMLElement>('.cutlab-findings-count')?.textContent).toBe('2 structural findings');
+    expect(document.querySelectorAll('[data-cut-lab-structural-findings-body] .cutlab-finding__heading')).toHaveLength(1);
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-structural-findings-body] .cutlab-finding__lead')?.textContent).toBe('You have no ramp cards yet; the suggested floor is 1.');
+    expect(document.querySelectorAll('[data-cut-lab-structural-findings-body] .kb-chip')).toHaveLength(1);
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-degradation="combo"]')?.classList.contains('hidden')).toBe(false);
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-degradation="category"]')?.classList.contains('hidden')).toBe(true);
+
+    activeForm = document.querySelector<HTMLFormElement>('form[action="/cut-lab/decide"]');
+    activeButton = activeForm?.querySelector<HTMLButtonElement>('[data-cut-lab-decision="accept"]');
+    activeForm?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: activeButton ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-findings-count-slot] .cutlab-findings-count')?.textContent).toBe('');
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-findings-count-slot] .cutlab-findings-count')?.classList.contains('hidden')).toBe(true);
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-structural-findings-body] p')?.textContent).toBe("No structural issues found. Your pool's curve, themes, finishers, and role coverage all look self-supporting at the current floors.");
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-degradation="combo"]')?.classList.contains('hidden')).toBe(true);
   });
 
   it('re-enables buttons and renders the neutral error line on a non-OK response without mutating state', async () => {

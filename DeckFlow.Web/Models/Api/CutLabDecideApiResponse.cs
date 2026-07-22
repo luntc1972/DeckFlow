@@ -1,4 +1,5 @@
 using DeckFlow.Web.Models.CutLab;
+using DeckFlow.Web.Services.CutLab;
 
 namespace DeckFlow.Web.Models.Api;
 
@@ -22,6 +23,15 @@ public sealed record CutLabDecideApiResponse
 
     /// <summary>Accepted cuts shown in the restore list.</summary>
     public IReadOnlyList<CutLabDecideCutRecordDto> CutsMade { get; init; } = [];
+
+    /// <summary>Server-grouped structural findings for the updated working list.</summary>
+    public IReadOnlyList<CutLabDecideFindingGroupDto> StructuralFindings { get; init; } = [];
+
+    /// <summary>True when combo-backed findings were computed for this response.</summary>
+    public bool ComboDataAvailable { get; init; }
+
+    /// <summary>True when category-backed findings were computed for this response.</summary>
+    public bool CategoryDataAvailable { get; init; }
 }
 
 /// <summary>Represents the next proposal card or a terminal no-more-cuts state.</summary>
@@ -126,4 +136,33 @@ public sealed record CutLabDecideCutRecordDto
 
     /// <summary>Monotonic decision ordinal for stable restore ordering.</summary>
     public int Ordinal { get; init; }
+}
+
+/// <summary>One structural finding rendered for the decide-response live patch.</summary>
+public sealed record CutLabDecideFindingDto
+{
+    /// <summary>Underlying finding kind represented by this item.</summary>
+    public CutLabFindingKind Kind { get; init; }
+
+    /// <summary>UI heading for the finding.</summary>
+    public string Heading { get; init; } = string.Empty;
+
+    /// <summary>Lead sentence describing the measured issue.</summary>
+    public string Lead { get; init; } = string.Empty;
+
+    /// <summary>Preformatted supporting evidence lines for the finding.</summary>
+    public IReadOnlyList<string> Evidence { get; init; } = [];
+}
+
+/// <summary>One grouped structural-finding block rendered for the decide-response live patch.</summary>
+public sealed record CutLabDecideFindingGroupDto
+{
+    /// <summary>Underlying finding kind represented by this rendered block.</summary>
+    public CutLabFindingKind Kind { get; init; }
+
+    /// <summary>UI heading for the rendered group.</summary>
+    public string Heading { get; init; } = string.Empty;
+
+    /// <summary>One or more findings rendered inside the group.</summary>
+    public IReadOnlyList<CutLabDecideFindingDto> Items { get; init; } = [];
 }

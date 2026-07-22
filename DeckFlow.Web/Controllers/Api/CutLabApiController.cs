@@ -1,5 +1,6 @@
 using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Infrastructure;
+using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.Api;
 using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Security;
@@ -137,6 +138,9 @@ public sealed class CutLabApiController : ControllerBase
                 FloorWarnings = floorWarnings,
                 CardsRemaining = roundPlan.CardsRemainingToTarget,
                 CutsMade = BuildCutsMade(state.Decisions),
+                StructuralFindings = BuildStructuralFindings(afterFindings),
+                ComboDataAvailable = afterFindings.ComboDataAvailable,
+                CategoryDataAvailable = afterFindings.CategoryDataAvailable,
             };
 
             return Ok(response);
@@ -501,6 +505,24 @@ public sealed class CutLabApiController : ControllerBase
                 RoundKey = decision.Round,
                 RoundLabel = CutLabCutRoundEngine.LabelFor(decision.Round),
                 Ordinal = decision.Ordinal,
+            })
+            .ToArray();
+
+    private static IReadOnlyList<CutLabDecideFindingGroupDto> BuildStructuralFindings(CutLabStructuralFindingsResult findings)
+        => CutLabViewModel.BuildFindingGroups(CutLabViewModel.BuildFindings(findings.Findings))
+            .Select(group => new CutLabDecideFindingGroupDto
+            {
+                Kind = group.Kind,
+                Heading = group.Heading,
+                Items = group.Items
+                    .Select(item => new CutLabDecideFindingDto
+                    {
+                        Kind = item.Kind,
+                        Heading = item.Heading,
+                        Lead = item.Lead,
+                        Evidence = item.Evidence,
+                    })
+                    .ToArray(),
             })
             .ToArray();
 
