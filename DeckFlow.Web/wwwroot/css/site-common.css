@@ -4592,6 +4592,75 @@ input[data-cut-lab-floor]:focus-visible {
   display: contents;
 }
 
+.cutlab-tuner {
+  margin-top: 1.5rem;
+}
+
+.cutlab-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+}
+
+.cutlab-stepper form {
+  display: contents;
+}
+
+.cutlab-stepper-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-soft-bg, var(--panel));
+  color: var(--ink, inherit);
+  font: inherit;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cutlab-stepper-btn:hover:not(:disabled) {
+  border-color: var(--accent-strong, var(--accent));
+}
+
+.cutlab-stepper-btn:disabled,
+.cutlab-stepper-btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.cutlab-stepper__count {
+  min-width: 1.75rem;
+  text-align: center;
+  font-weight: 600;
+}
+
+.cutlab-tuner-badge--added {
+  margin-left: 0.5rem;
+}
+
+tr[data-cut-lab-tuner-row]:has(.cutlab-tuner-badge--added) {
+  border-left: 3px solid var(--accent);
+}
+
+.cutlab-tuner__add-basic {
+  margin-top: 1.5rem;
+}
+
+.cutlab-tuner__add-basic .df-select {
+  min-width: 0;
+  width: 100%;
+}
+
+.cutlab-tuner__add-basic .df-select__trigger {
+  width: 100%;
+}
+
 .cutlab-decision-btn,
 .cutlab-restore-btn {
   display: inline-flex;

@@ -19,7 +19,7 @@
             new WorkflowStepTab(1, "Process", IsComplete: Model.HasResult),
             new WorkflowStepTab(2, "Decide", IsComplete: cardsRemainingToTarget == 0),
             new WorkflowStepTab(3, "Goals", IsComplete: true),
-            new WorkflowStepTab(4, "Export", IsComplete: Model.Export.HasExport, IsEnabled: cardsRemainingToTarget == 0, SubmitFormId: "cut-lab-export-form"),
+            new WorkflowStepTab(4, "Export", IsComplete: Model.Export.HasExport, IsEnabled: currentCount == 100, SubmitFormId: "cut-lab-export-form"),
         ]);
     string DeltaValueClass(CutLabMetricDirection direction) => direction switch
     {
@@ -57,6 +57,25 @@
                         data-cut-lab-decision="@decisionValue"
                         data-cut-lab-card="@cardName">@buttonText</button>
             }
+        </form>
+    }
+    async Task RenderAdjustForm(string cardName, int delta, bool isAddedBasic, string buttonText, string className, string ariaLabel, bool isDisabled)
+    {
+        <form method="post" action="@Url.Content("~/cut-lab/adjust")" data-cut-lab-adjust-form>
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
+            <input type="hidden" name="CardName" value="@cardName" />
+            <input type="hidden" name="Delta" value="@delta" />
+            <input type="hidden" name="IsAddedBasic" value="@(isAddedBasic ? "true" : "false")" />
+            <button type="submit"
+                    class="@className"
+                    aria-label="@ariaLabel"
+                    data-cut-lab-adjust
+                    data-cut-lab-card="@cardName"
+                    data-cut-lab-delta="@delta"
+                    data-cut-lab-added-basic="@(isAddedBasic ? "true" : "false")"
+                    disabled="@(isDisabled ? "disabled" : null)"
+                    aria-disabled="@(isDisabled ? "true" : "false")">@buttonText</button>
         </form>
     }
     async Task RenderDeltaValue(CutLabMetricDirection direction, string token)
@@ -765,7 +784,7 @@
                     </div>
 
                     <div class="toolbar cutlab-export__actions">
-                        <button type="submit" class="run-button" @(cardsRemainingToTarget == 0 ? null : "disabled")>Build export</button>
+                        <button type="submit" class="run-button" @(currentCount == 100 ? null : "disabled")>Build export</button>
                     </div>
                 </div>
             </form>
@@ -903,7 +922,7 @@
             {
                 <div class="cutlab-sticky-bar">
                     <span class="cutlab-sticky-bar__round" data-cut-lab-sticky-round>@Model.StickyBar.RoundLabel</span>
-                    <span class="cutlab-sticky-bar__count" data-cut-lab-sticky-remaining>@Model.StickyBar.CardsRemainingToCut to cut</span>
+                    <span class="cutlab-sticky-bar__count" data-cut-lab-sticky-remaining aria-live="polite" aria-atomic="true">@Model.StickyBar.CardsRemainingToCut to cut</span>
                     <span class="cutlab-sticky-bar__accepted" data-cut-lab-sticky-accepted>@CutLabViewModel.FormatCutsAcceptedSoFar(Model.StickyBar.CutsAcceptedCount)</span>
                 </div>
             }
@@ -968,6 +987,13 @@
                     </div>
                 </div>
             }
+            else if (currentCount < 100)
+            {
+                <div class="cutlab-proposal">
+                    <p class="cutlab-proposal__heading">You're under 100 cards</p>
+                    <p>Add copies or a basic land in the Tune quantities section below to reach exactly 100.</p>
+                </div>
+            }
             else if (Model.Proposal.IsAtTarget)
             {
                 <div class="cutlab-proposal">
@@ -982,6 +1008,80 @@
                     <p>Every remaining card is either locked or your working list is already at 100 cards. Review your locks and packages above, or adjust a role floor if you want to reconsider.</p>
                 </div>
             }
+
+            <section class="result-panel nested-panel cutlab-tuner">
+                <div class="panel-heading">
+                    <div>
+                        <h2>Tune quantities</h2>
+                        <p>Cut or add copies of basics and other legal-multiple cards one at a time, or add a new basic land, to land on exactly 100.</p>
+                    </div>
+                </div>
+                <div class="history-timeline__wrap">
+                    <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Card</th>
+                                <th scope="col">Role</th>
+                                <th scope="col">Quantity</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Model.WorkingListRows)
+                            {
+                                if (!row.IsLegalMultiple)
+                                {
+                                    continue;
+                                }
+
+                                var removeDisabled = row.CurrentQuantity == 0;
+                                var addDisabled = row.CurrentQuantity >= row.LegalMax;
+
+                                <tr data-cut-lab-tuner-row="@row.Name"
+                                    data-cut-lab-quantity="@row.CurrentQuantity"
+                                    data-cut-lab-legal-max="@row.LegalMax">
+                                    <td data-label="Card">
+                                        <strong>@row.Name</strong>
+                                        @if (row.IsAddedBasic)
+                                        {
+                                            <span class="kb-chip cutlab-tuner-badge--added">Added</span>
+                                        }
+                                    </td>
+                                    <td data-label="Role">@row.RoleLabel</td>
+                                    <td data-label="Quantity">
+                                        <div class="cutlab-stepper">
+                                            @{ await RenderAdjustForm(row.Name, -1, false, "−", "cutlab-stepper-btn", $"Remove one {row.Name}", removeDisabled); }
+                                            <span class="cutlab-stepper__count tabular" data-cut-lab-quantity-value>@row.CurrentQuantity</span>
+                                            @{ await RenderAdjustForm(row.Name, 1, false, "+", "cutlab-stepper-btn", $"Add one {row.Name}", addDisabled); }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                @if (Model.AddableBasics.Count > 0)
+                {
+                    <form method="post" action="@Url.Content("~/cut-lab/adjust")" data-cut-lab-adjust-form class="toolbar cutlab-tuner__add-basic">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
+                        <input type="hidden" name="Delta" value="1" />
+                        <input type="hidden" name="IsAddedBasic" value="true" />
+                        <label for="cut-lab-add-basic-select">Add a basic land</label>
+                        <select id="cut-lab-add-basic-select" name="CardName" data-df-select data-cut-lab-add-basic-select required>
+                            <option value="" selected disabled>Choose a basic…</option>
+                            @foreach (var basic in Model.AddableBasics)
+                            {
+                                <option value="@basic">@basic</option>
+                            }
+                        </select>
+                        <button type="submit" class="run-button" data-cut-lab-adjust data-cut-lab-add-basic data-cut-lab-delta="1" data-cut-lab-added-basic="true">Add basic land</button>
+                    </form>
+                }
+                else
+                {
+                    <p class="cutlab-floor-source-default">All basic land types are already in your working list. Use the steppers above to add more copies.</p>
+                }
+            </section>
         </section>
 
         @if (Model.CutsMade.Count > 0)
