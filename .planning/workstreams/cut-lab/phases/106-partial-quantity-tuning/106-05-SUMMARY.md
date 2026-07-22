@@ -99,4 +99,33 @@ None - no external service configuration required.
 
 ## Self-Check: PASSED
 
+## Reviewer Addendum (Claude, 2026-07-22)
+
+The deferred live e2e was run during review and it **surfaced a real Phase 106 app
+defect** (good — the spec earned its keep):
+
+- **Defect:** `cut-lab.ts` `buildSnapshotFromDom()` rebuilt `CutLabState` from the pool-table
+  DOM and carried `decisions`/`baselineSnapshot` forward from the persisted hidden state but
+  **omitted `quantityAdjustments`**. Every `writeStateToHiddenInput()` caller (scenario save +
+  ~4 interaction points) therefore wiped tuner adjustments — the client-side twin of the
+  106-02 server `BuildState` hazard. Saving a scenario persisted an adjustment-less state, so
+  reload lost the tuning. Unit serializer round-trips passed because they never exercise the
+  DOM→state rebuild.
+- **Fix (commit `b6228046`):** one-line passthrough in `buildSnapshotFromDom` mirroring the
+  existing `decisions` line — `quantityAdjustments: Array.isArray(persistedState?.quantityAdjustments) ? persistedState.quantityAdjustments : []` — plus a vitest regression in
+  `ts-tests/cut-lab-scenarios.test.ts`. The snapshot type / serializer / restore consumer
+  already handled the field; only the DOM population was missing.
+- **e2e (commit `b8988184`):** the original fixture was also incoherent — it locked ALL lands
+  (incl. the basics it needed to stepper-trim; the applier rejects adjustments on locked cards)
+  and left too few cuttable cards, stalling the cut phase on a locked-land proposal. Rewritten
+  so trimmed basics stay unlocked and the cut phase accepts only budget-fitting single-copy
+  cuts.
+
+**Independently re-verified (Claude, blind of Codex's claim):** `tsc` clean; `vitest run` =
+18 files / 72 tests green (incl. the new persistence regression); `playwright test
+e2e/cut-lab-tuning.spec.ts` = **6 passed** (chromium-desktop + chromium-mobile: export CUT/ADD,
+tune-to-exactly-100 + scenario-reload persistence, theme×viewport screenshot matrix);
+`dotnet build DeckFlow.sln` 0/0 (pre-existing Core.Tests CS8629 only). Live e2e is NO LONGER
+deferred — it passes headless. EOL LF on all touched files; no compiled `wwwroot/js` committed.
+
 The plan's code and test artifacts are implemented inside the fence, the required unit/build/tsc verification is green, and the live e2e run was attempted once then explicitly deferred under the plan's environment-blocked allowance.
