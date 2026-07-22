@@ -62,6 +62,94 @@ afterEach(() => {
 });
 
 describe('cut-lab scenario storage', () => {
+  it('preserves quantity adjustments when scenario save rebuilds hidden state from the DOM', () => {
+    document.body.innerHTML = `
+      <form data-cache-key="cut-lab">
+        <input type="hidden" name="CutLabStateJson" value='${JSON.stringify({
+          commander: 'Zur the Enchanter',
+          pool: [
+            {
+              name: 'Zur the Enchanter',
+              quantity: 1,
+              typeLine: 'Legendary Creature',
+              isCommander: true,
+              isLocked: true,
+              packageId: null,
+            },
+            {
+              name: 'Island',
+              quantity: 36,
+              typeLine: 'Basic Land - Island',
+              isCommander: false,
+              isLocked: false,
+              packageId: null,
+            },
+          ],
+          packages: [],
+          decisions: [],
+          quantityAdjustments: [{ name: 'Island', delta: -2, isAddedBasic: false }],
+          baselineSnapshot: { source: 'seeded' },
+          intent: {
+            primaryPlan: 'Trim to exactly 100.',
+            secondaryPlan: null,
+            bracket: 4,
+            playExperience: 'Focused',
+            includeSideboard: false,
+            includeMaybeboard: false,
+          },
+          roleFloors: [],
+          goals: {
+            commanderByTurn: 3,
+            engineByTurn: 2,
+            representativeLineByTurn: 4,
+          },
+        })}' />
+        <textarea name="PrimaryPlan">Trim to exactly 100.</textarea>
+        <textarea name="SecondaryPlan"></textarea>
+        <input type="radio" name="Bracket" value="4" checked />
+        <input type="radio" name="PlayExperience" value="Focused" checked />
+        <input data-cut-lab-goal="commander" value="3" />
+        <input data-cut-lab-goal="engine" value="2" />
+        <input data-cut-lab-goal="representative-line" value="4" />
+      </form>
+      <table>
+        <tbody>
+          <tr
+            data-cut-lab-card="Zur the Enchanter"
+            data-cut-lab-quantity="1"
+            data-cut-lab-type-line="Legendary Creature"
+            data-cut-lab-commander="true">
+            <td data-label="Card"><strong>1 × Zur the Enchanter</strong></td>
+            <td><input type="checkbox" data-cut-lab-lock-card checked /></td>
+            <td><select data-cut-lab-package-card><option value="" selected>Unassigned</option></select></td>
+          </tr>
+          <tr
+            data-cut-lab-card="Island"
+            data-cut-lab-quantity="36"
+            data-cut-lab-type-line="Basic Land - Island"
+            data-cut-lab-role="Lands">
+            <td data-label="Card"><strong>36 × Island</strong></td>
+            <td><input type="checkbox" data-cut-lab-lock-card /></td>
+            <td><select data-cut-lab-package-card><option value="" selected>Unassigned</option></select></td>
+          </tr>
+        </tbody>
+      </table>
+      <input data-cut-lab-scenario-name value="Exact 100" />
+      <button type="button" data-cut-lab-scenario-save>Save</button>
+      <div data-cut-lab-scenario-list></div>
+      <p data-cut-lab-scenario-status></p>
+    `;
+
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+    document.querySelector<HTMLElement>('[data-cut-lab-scenario-save]')?.click();
+
+    const [scenario] = scenarioApi().listScenarios();
+    expect(scenario).toBeDefined();
+
+    const savedState = scenarioApi().loadScenario(scenario.id);
+    expect(savedState).toContain('"quantityAdjustments":[{"name":"Island","delta":-2,"isAddedBasic":false}]');
+  });
+
   it('saves, lists, loads, and deletes a scenario using the exact state JSON', () => {
     const api = scenarioApi();
     const stateJson = '{"goals":{"commanderByTurn":3},"pool":["Sol Ring"]}';
