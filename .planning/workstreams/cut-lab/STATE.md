@@ -4,16 +4,16 @@ milestone: Cycle 18
 milestone_name: milestone
 current_phase: 106
 current_plan: none
-status: ready_to_plan
-stopped_at: Phases 101–105 complete; milestone REOPENED 2026-07-22 with Phase 106 (partial-quantity tuning + add basics) and Phase 107 (cleanup). Phase 106 designed (brainstorm-approved), ready to plan.
-last_updated: "2026-07-22T08:00:00.000Z"
+status: phase_complete
+stopped_at: Phase 106 (partial-quantity tuning + add basics) EXECUTED & VERIFIED 2026-07-22 — all 5 waves built by Codex, reviewed/verified by Claude. Adjustment layer (signed copy-delta + add-basics) live: model+Derive fold (01), consumer fold + synthetic basics + BuildState preserve (02), overflow-safe legality endpoints (03), inline tuner UI + exact-100 export gates + under-100 branch (04), interactions/export polish + tune-to-100 e2e (05). Review caught + fixed a real defect (JS buildSnapshotFromDom dropped QuantityAdjustments → scenario save wiped tuning; one-line passthrough + vitest regression). Gates: build 0 err (9 pre-existing CS8629 only), CutLab xUnit 354/0, vitest 18f/72, tuning e2e 6/6 (desktop+mobile). NEXT — Phase 107 (cleanup) OR close: user push (25 commits unpushed on gsd/cycle18-cut-lab, flag tool.cut-lab.enabled OFF). Debt for phase-end /simplify: unused normalizedCardName local in CutLabAdjustmentApplier; Codex commit bodies carry literal \n.
+last_updated: "2026-07-22T14:30:00.000Z"
 last_activity: 2026-07-22
 progress:
   total_phases: 7
-  completed_phases: 5
-  total_plans: 25
-  completed_plans: 25
-  percent: 71
+  completed_phases: 6
+  total_plans: 30
+  completed_plans: 30
+  percent: 86
 ---
 
 # Project State
