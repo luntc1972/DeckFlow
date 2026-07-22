@@ -990,6 +990,7 @@ public sealed class CutLabPageServiceTests
 
         Assert.True(result.HasResult);
         Assert.Equal(1, analysisBuilder.BuildCalls);
+        Assert.Equal(1, analysisBuilder.PrimeResolvedCardsCacheCalls);
         Assert.Equal(121, analysisBuilder.LastWorkingListCount);
         Assert.Equal(["draw", "engines"], result.RoleAssignmentsByCardName["Card 001"]);
         Assert.True(result.ComboDataAvailable);
@@ -2380,6 +2381,8 @@ public sealed class CutLabPageServiceTests
     {
         public int BuildCalls { get; private set; }
 
+        public int PrimeResolvedCardsCacheCalls { get; private set; }
+
         public int LastWorkingListCount { get; private set; }
 
         public Task<CutLabAnalysisContext> BuildAsync(
@@ -2408,6 +2411,14 @@ public sealed class CutLabPageServiceTests
             bool failOpenOnLookupErrors = true,
             CancellationToken cancellationToken = default)
             => Task.FromResult(factory(workingList, string.Empty, []).ResolvedCards);
+
+        public void PrimeResolvedCardsCache(
+            IReadOnlyList<CutLabPoolCard> workingList,
+            IReadOnlyList<ScryfallCardData> resolvedCards,
+            IReadOnlyCollection<string>? unresolvedCardNames = null)
+        {
+            PrimeResolvedCardsCacheCalls++;
+        }
 
         public bool TrySeedDerivedPool(
             IReadOnlyList<CutLabPoolCard> workingList,

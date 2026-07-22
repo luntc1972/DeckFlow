@@ -39,6 +39,12 @@ public interface ICutLabAnalysisContextBuilder
         bool failOpenOnLookupErrors = true,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Seeds the resolved-card cache for the provided working pool.</summary>
+    void PrimeResolvedCardsCache(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        IReadOnlyList<ScryfallCardData> resolvedCards,
+        IReadOnlyCollection<string>? unresolvedCardNames = null);
+
     /// <summary>Seeds the provided pool from a previously resolved superset payload when possible.</summary>
     bool TrySeedDerivedPool(
         IReadOnlyList<CutLabPoolCard> workingList,
@@ -247,7 +253,8 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         return seededCards.Count == seen.Count;
     }
 
-    internal void PrimeResolvedCardsCache(
+    /// <inheritdoc />
+    public void PrimeResolvedCardsCache(
         IReadOnlyList<CutLabPoolCard> workingList,
         IReadOnlyList<ScryfallCardData> resolvedCards,
         IReadOnlyCollection<string>? unresolvedCardNames = null)
