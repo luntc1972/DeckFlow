@@ -28,11 +28,7 @@ public static class CutLabBasicLands
     public sealed record Definition(
         string TypeLine,
         IReadOnlyList<string> ColorIdentity,
-        IReadOnlyList<string> ProducedMana)
-    {
-        /// <summary>Always true because every definition in this table is a land.</summary>
-        public bool IsLand { get; init; } = true;
-    }
+        IReadOnlyList<string> ProducedMana);
 
     /// <summary>Known basic-land names that can be added without a live lookup.</summary>
     public static IReadOnlyCollection<string> Names { get; } = Definitions.Keys.ToArray();

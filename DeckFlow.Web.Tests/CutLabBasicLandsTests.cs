@@ -32,7 +32,6 @@ public sealed class CutLabBasicLandsTests
         Assert.Equal(expectedTypeLine, definition.TypeLine);
         Assert.Equal(expectedColorIdentity, definition.ColorIdentity);
         Assert.Equal(expectedProducedMana, definition.ProducedMana);
-        Assert.True(definition.IsLand);
         Assert.True(CutLabBasicLands.Contains(name));
         Assert.Contains(name, CutLabBasicLands.Names);
         Assert.True(CutLabLockRules.IsLand(definition.TypeLine));
