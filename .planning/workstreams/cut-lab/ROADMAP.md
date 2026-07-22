@@ -119,3 +119,10 @@ Phases execute in numeric order: 101 -> 102 -> 103 -> 104 -> 105
 | 103. Simulation Engine & Guided Cut Rounds | 10/10 | Complete | 2026-07-20 |
 | 104. Goals & What-If Scenarios | 0/6 | Not started | - |
 | 105. Builder-Compatible Export | 0/5 | Planned | - |
+
+## Backlog / Future
+
+### Partial-Copy Cuts (deferred feature — arose from the Phase 105 export fix)
+**Status**: Backlog — not scheduled. Logged 2026-07-22.
+**Why**: The Cut Lab decision model is name-keyed with no per-copy quantity, so `CutLabWorkingList.Derive` cuts a whole entry (all copies of a name) on accept. A multi-copy entry (e.g. `35 Island`) is therefore all-or-nothing: it can only be cut when its full quantity fits the remaining budget. Phase 105 shipped the contained "Option A" fix — the cut engine excludes any entry whose `Quantity > cardsRemainingToTarget` from proposals (with an applier defense-in-depth guard) so the working list converges on exactly 100. Consequence/limitation: a large basic-land stack can't be trimmed a few copies at a time near the target; basics near 100 are effectively uncuttable.
+**Scope if built (Option B)**: add per-copy cut support — `CutLabDecision.Quantity`, quantity-subtracting `Derive`, serializer bounds, per-copy apply/restore, per-copy proposals/target-decrement, quantity-aware what-if + deltas + export, and UI to cut N of a stack ("cut 1 of 35"). ~9 source files + broad tests across both projects; touches the P103 state contract and P104 what-if/restore invariants — treat as its own phase, not a bug fix.
