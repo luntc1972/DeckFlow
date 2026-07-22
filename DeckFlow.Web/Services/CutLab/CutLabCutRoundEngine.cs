@@ -174,7 +174,12 @@ public static class CutLabCutRoundEngine
         IReadOnlyDictionary<string, CardFindingTally> findingTallies = BuildFindingTallies(findings.Findings);
 
         IReadOnlyList<CutLabRoundInputCard> eligibleCards = workingList
-            .Where(card => !card.IsLocked && !card.IsCommander && !acceptedCardNames.Contains(card.Name))
+            .Where(card =>
+                !card.IsLocked
+                && !card.IsCommander
+                && !acceptedCardNames.Contains(card.Name)
+                // Why: the current decision model cuts whole working-list entries, never partial quantities.
+                && card.Quantity <= cardsRemainingToTarget)
             .ToArray();
 
         IReadOnlyList<(CutLabRoundInputCard Card, CardFindingTally Tally)> firstPassCards = eligibleCards

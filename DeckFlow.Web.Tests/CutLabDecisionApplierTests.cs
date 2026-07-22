@@ -24,6 +24,29 @@ public sealed class CutLabDecisionApplierTests
         Assert.DoesNotContain(CutLabWorkingList.Derive(updated.Pool, updated.Decisions), card => card.Name == "Arcane Signet");
     }
 
+    [Fact]
+    public void Apply_Accept_OvershootingCard_ReturnsStateUnchanged()
+    {
+        CutLabState state = BuildStateWithQuantities(cardQuantity: 3, remainingCardsToCut: 1);
+
+        CutLabState updated = CutLabDecisionApplier.Apply(state, "Arcane Signet", CutLabDecideAction.Accept, "round-1");
+
+        Assert.Same(state, updated);
+        Assert.Empty(updated.Decisions);
+    }
+
+    [Fact]
+    public void Apply_Accept_FittingCard_AppendsAcceptedDecision()
+    {
+        CutLabState state = BuildStateWithQuantities(cardQuantity: 1, remainingCardsToCut: 1);
+
+        CutLabState updated = CutLabDecisionApplier.Apply(state, "Arcane Signet", CutLabDecideAction.Accept, "round-1");
+
+        CutLabDecision decision = Assert.Single(updated.Decisions);
+        Assert.Equal("Arcane Signet", decision.CardName);
+        Assert.Equal(CutLabDecisionKind.Accepted, decision.Kind);
+    }
+
     [Theory]
     [InlineData(CutLabDecideAction.Reject, CutLabDecisionKind.Rejected)]
     [InlineData(CutLabDecideAction.Defer, CutLabDecisionKind.Deferred)]
@@ -163,7 +186,7 @@ public sealed class CutLabDecisionApplierTests
                 new CutLabPoolCard
                 {
                     Name = "Counterspell",
-                    Quantity = 1,
+                    Quantity = 99,
                     TypeLine = "Instant",
                 },
                 new CutLabPoolCard
@@ -175,4 +198,40 @@ public sealed class CutLabDecisionApplierTests
             ],
             Decisions = decisions,
         };
+
+    private static CutLabState BuildStateWithQuantities(int cardQuantity, int remainingCardsToCut)
+    {
+        int fillerQuantity = 99 + remainingCardsToCut - cardQuantity;
+        CutLabPoolCard[] pool =
+        [
+            new CutLabPoolCard
+            {
+                Name = "Commander",
+                Quantity = 1,
+                TypeLine = "Legendary Creature",
+                IsCommander = true,
+                IsLocked = true,
+            },
+            new CutLabPoolCard
+            {
+                Name = "Arcane Signet",
+                Quantity = cardQuantity,
+                TypeLine = "Artifact",
+                PackageId = "pkg-1",
+            },
+            new CutLabPoolCard
+            {
+                Name = "Filler Card",
+                Quantity = fillerQuantity,
+                TypeLine = "Instant",
+            },
+        ];
+
+        return new CutLabState
+        {
+            Commander = "Commander",
+            Pool = pool,
+            Decisions = [],
+        };
+    }
 }

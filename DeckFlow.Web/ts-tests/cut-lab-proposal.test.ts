@@ -103,6 +103,7 @@ const buildDecisionFixture = (): void => {
         <span class="cutlab-sticky-bar__count" data-cut-lab-sticky-remaining>12 to cut</span>
         <span class="cutlab-sticky-bar__accepted" data-cut-lab-sticky-accepted>0 cut so far</span>
       </div>
+      <button type="button" id="cut-lab-step-tab-4" class="is-disabled" disabled aria-disabled="true">Export</button>
       <div class="cutlab-round-banner">
         <p class="cutlab-finding__heading">Round 1 · Obvious cuts</p>
         <p>Cards flagged by 2 or more structural findings from the section above.</p>
@@ -370,7 +371,7 @@ describe('cut-lab proposal enhancement', () => {
     });
 
     const forms = document.querySelectorAll<HTMLFormElement>('form[action="/cut-lab/decide"]');
-    const restoreForm = forms[3];
+    const restoreForm = document.querySelectorAll<HTMLFormElement>('form[action="/cut-lab/decide"]')[3];
     const restoreButton = restoreForm.querySelector<HTMLButtonElement>('[data-cut-lab-restore]');
 
     restoreForm.dispatchEvent(new SubmitEvent('submit', {
@@ -513,6 +514,64 @@ describe('cut-lab proposal enhancement', () => {
     await flushDecisionSubmit();
 
     expect(document.querySelector('.cutlab-sticky-bar')).toBeNull();
+  });
+
+  it('toggles the export tab enabled state based on cards remaining after a decision', async () => {
+    buildDecisionFixture();
+    const exportTab = document.getElementById('cut-lab-step-tab-4') as HTMLButtonElement | null;
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => buildResponse({
+          nextProposal: {
+            isTerminal: true,
+            isAtTarget: true,
+            isNothingToCut: false,
+            cardName: '',
+            roundKey: '',
+            roundLabel: '',
+            roundBannerBody: '',
+            findingCount: 0,
+            findingChips: [],
+          },
+          proposalDeltas: null,
+          floorWarnings: [],
+          cardsRemaining: 0,
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => buildResponse({
+          cardsRemaining: 3,
+        }),
+      });
+
+    const forms = document.querySelectorAll<HTMLFormElement>('form[action="/cut-lab/decide"]');
+    const acceptForm = forms[0];
+    const acceptButton = acceptForm.querySelector<HTMLButtonElement>('[data-cut-lab-decision="accept"]');
+    acceptForm.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: acceptButton ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    expect(exportTab?.disabled).toBe(false);
+    expect(exportTab?.getAttribute('aria-disabled')).toBe('false');
+    expect(exportTab?.classList.contains('is-disabled')).toBe(false);
+
+    const restoreButton = document.querySelector<HTMLButtonElement>('[data-cut-lab-restore]');
+    const restoreForm = restoreButton?.closest('form');
+    restoreForm.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: restoreButton ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    expect(exportTab?.disabled).toBe(true);
+    expect(exportTab?.getAttribute('aria-disabled')).toBe('true');
+    expect(exportTab?.classList.contains('is-disabled')).toBe(true);
   });
 
   it('shows restore confirmation copy with the card name and clears it after the next successful patch', async () => {
