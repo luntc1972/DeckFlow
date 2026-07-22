@@ -2401,6 +2401,14 @@ public sealed class CutLabPageServiceTests
             return false;
         }
 
+        public Task<IReadOnlyList<ScryfallCardData>> ResolvePoolCardsAsync(
+            IReadOnlyList<CutLabPoolCard> workingList,
+            IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
+            string? poolKey = null,
+            bool failOpenOnLookupErrors = true,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(factory(workingList, string.Empty, []).ResolvedCards);
+
         public bool TrySeedDerivedPool(
             IReadOnlyList<CutLabPoolCard> workingList,
             IReadOnlyList<ScryfallCardData> sourceCards,

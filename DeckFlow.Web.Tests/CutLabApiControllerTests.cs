@@ -817,6 +817,18 @@ public sealed class CutLabApiControllerTests
                 out cards);
         }
 
+        public Task<IReadOnlyList<ScryfallCardData>> ResolvePoolCardsAsync(
+            IReadOnlyList<CutLabPoolCard> workingList,
+            IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
+            string? poolKey = null,
+            bool failOpenOnLookupErrors = true,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(_cache.TryGetValue(
+                CutLabResolvedCardCache.ComputePoolKey(workingList.Select(card => (card.Name, card.Quantity)).ToArray()),
+                out IReadOnlyList<ScryfallCardData>? cards)
+                ? cards
+                : Array.Empty<ScryfallCardData>());
+
         public bool TrySeedDerivedPool(
             IReadOnlyList<CutLabPoolCard> workingList,
             IReadOnlyList<ScryfallCardData> sourceCards,

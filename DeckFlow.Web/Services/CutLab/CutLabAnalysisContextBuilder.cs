@@ -31,6 +31,14 @@ public interface ICutLabAnalysisContextBuilder
     /// <summary>Attempts to retrieve cached resolved cards for the provided pool.</summary>
     bool TryGetCachedResolvedCards(IReadOnlyList<CutLabPoolCard> workingList, out IReadOnlyList<ScryfallCardData>? cards);
 
+    /// <summary>Resolves the current pool into reusable Scryfall card payloads.</summary>
+    Task<IReadOnlyList<ScryfallCardData>> ResolvePoolCardsAsync(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
+        string? poolKey = null,
+        bool failOpenOnLookupErrors = true,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Seeds the provided pool from a previously resolved superset payload when possible.</summary>
     bool TrySeedDerivedPool(
         IReadOnlyList<CutLabPoolCard> workingList,
@@ -282,7 +290,8 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         return augmented ?? resolvedCards;
     }
 
-    internal Task<IReadOnlyList<ScryfallCardData>> ResolvePoolCardsAsync(
+    /// <inheritdoc />
+    public Task<IReadOnlyList<ScryfallCardData>> ResolvePoolCardsAsync(
         IReadOnlyList<CutLabPoolCard> workingList,
         IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
         string? poolKey = null,
