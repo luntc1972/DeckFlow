@@ -67,56 +67,6 @@ public sealed class CutLabResolvedCardCache
     }
 
     /// <summary>
-    /// Seeds a derived working-list key from a resolved superset payload using every target card that is present.
-    /// </summary>
-    /// <param name="targetPool">The target working-list multiset to seed.</param>
-    /// <param name="sourceCards">Resolved cards from a larger or equal pool.</param>
-    /// <param name="seededCards">The filtered payload written under the target key.</param>
-    /// <returns><see langword="true"/> when the target key was seeded.</returns>
-    public bool TrySeedFromSuperset(
-        IReadOnlyList<(string Name, int Quantity)> targetPool,
-        IReadOnlyList<ScryfallCardData> sourceCards,
-        out IReadOnlyList<ScryfallCardData>? seededCards)
-    {
-        ArgumentNullException.ThrowIfNull(targetPool);
-        ArgumentNullException.ThrowIfNull(sourceCards);
-
-        IReadOnlyDictionary<string, ScryfallCardData> sourceByName = CutLabCardNames.ToLastWinsDictionary(
-            sourceCards,
-            card => card.Name,
-            card => card);
-        List<ScryfallCardData> filteredCards = new(targetPool.Count);
-        HashSet<string> seen = new(CutLabCardNames.Comparer);
-
-        foreach ((string Name, _) in targetPool)
-        {
-            string normalizedName = CutLabCardNames.Normalize(Name);
-            if (!seen.Add(normalizedName))
-            {
-                continue;
-            }
-
-            if (sourceByName.TryGetValue(normalizedName, out ScryfallCardData? card))
-            {
-                filteredCards.Add(card);
-            }
-        }
-
-        seededCards = filteredCards;
-        int distinctTargetCount = targetPool
-            .Select(entry => CutLabCardNames.Normalize(entry.Name))
-            .Distinct(CutLabCardNames.Comparer)
-            .Count();
-        if (filteredCards.Count != distinctTargetCount)
-        {
-            return false;
-        }
-
-        Set(ComputePoolKey(targetPool), filteredCards);
-        return true;
-    }
-
-    /// <summary>
     /// Attempts to retrieve the resolved cards for a pool hash.
     /// </summary>
     /// <param name="poolKey">The deterministic working-pool hash.</param>
