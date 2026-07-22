@@ -1773,6 +1773,70 @@ public sealed class CutLabPageServiceTests
                 && finding.Lead.StartsWith("Lands is at ", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void From_QuantityAdjustmentsDriveCurrentCountAndLandFloorDisplay()
+    {
+        var request = new CutLabRequest
+        {
+            Bracket = 4,
+            PlayExperience = "Focused",
+        };
+        var result = new CutLabProcessResult
+        {
+            HasResult = true,
+            State = new CutLabState
+            {
+                Commander = "Focused Commander",
+                Pool =
+                [
+                    new CutLabPoolCard
+                    {
+                        Name = "Focused Commander",
+                        Quantity = 1,
+                        TypeLine = "Legendary Creature — Human Wizard",
+                        IsCommander = true,
+                        IsLocked = true,
+                    },
+                    new CutLabPoolCard
+                    {
+                        Name = "Island",
+                        Quantity = 38,
+                        TypeLine = "Basic Land — Island",
+                    },
+                ],
+                QuantityAdjustments =
+                [
+                    new CutLabQuantityAdjustment
+                    {
+                        Name = "Island",
+                        Delta = 2,
+                    },
+                ],
+            },
+            RoleAssignmentsByCardName = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Focused Commander"] = [],
+                ["Island"] = ["lands"],
+            },
+            ResolvedFloors =
+            [
+                new CutLabResolvedFloor
+                {
+                    Role = "lands",
+                    Floor = 36,
+                    DefaultValue = 36,
+                    ResolvedBracket = 4,
+                },
+            ],
+        };
+
+        CutLabViewModel model = CutLabViewModel.From(request, result);
+
+        CutLabFloorRowView landsRow = Assert.Single(model.FloorRows, row => row.RoleKey == "lands");
+        Assert.Equal(41, model.CurrentCount);
+        Assert.Equal(40, landsRow.InPoolCount);
+    }
+
     private static List<DeckEntry> BuildPoolEntries(int nonCommanderCount, string commanderName)
     {
         var entries = new List<DeckEntry> { Entry(commanderName, "commander") };

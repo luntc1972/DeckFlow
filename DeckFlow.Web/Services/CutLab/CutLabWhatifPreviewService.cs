@@ -68,7 +68,7 @@ public sealed class CutLabWhatifPreviewService : ICutLabWhatifPreviewService
             throw new InvalidOperationException("Cut Lab what-if preview requires a non-empty pool.");
         }
 
-        IReadOnlyList<CutLabPoolCard> beforeWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions);
+        IReadOnlyList<CutLabPoolCard> beforeWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
         CutLabPoolCard cardOutPoolCard = beforeWorkingList.FirstOrDefault(card => string.Equals(card.Name, cardOut, StringComparison.OrdinalIgnoreCase))
             ?? throw new InvalidOperationException(CutLabMessages.NoChangeMessage);
         if (cardOutPoolCard.IsLocked)
