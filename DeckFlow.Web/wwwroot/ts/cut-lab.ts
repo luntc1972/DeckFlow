@@ -767,6 +767,7 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
         };
       }),
       decisions: Array.isArray(persistedState?.decisions) ? persistedState.decisions : [],
+      quantityAdjustments: Array.isArray(persistedState?.quantityAdjustments) ? persistedState.quantityAdjustments : [],
       baselineSnapshot: persistedState?.baselineSnapshot,
       intent: {
         primaryPlan: readNamedFieldValue('PrimaryPlan'),
