@@ -41,6 +41,15 @@ public sealed class CutLabRequest
     /// <summary>Hidden round-trip working-session JSON field for the Cut Lab state envelope.</summary>
     public string CutLabStateJson { get; set; } = string.Empty;
 
+    /// <summary>Optional posted card name for the no-JS quantity-adjustment form.</summary>
+    public string CardName { get; set; } = string.Empty;
+
+    /// <summary>Optional posted signed quantity delta for the no-JS quantity-adjustment form.</summary>
+    public int Delta { get; set; }
+
+    /// <summary>Optional posted added-basic flag for the no-JS quantity-adjustment form.</summary>
+    public bool IsAddedBasic { get; set; }
+
     /// <summary>Optional posted commander-goal turn for the no-JS goals form.</summary>
     public int? GoalCommanderByTurn { get; set; }
 

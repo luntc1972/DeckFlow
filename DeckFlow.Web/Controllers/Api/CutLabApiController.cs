@@ -148,6 +148,72 @@ public sealed class CutLabApiController : ControllerBase
         }
     }
 
+    /// <summary>Applies one Cut Lab quantity adjustment and returns the updated state plus card count.</summary>
+    /// <param name="request">Quantity-adjustment request payload.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The updated serialized state plus cards remaining to target.</returns>
+    [HttpPost("adjust")]
+    [FeatureFlagGate("tool.cut-lab.enabled")]
+    [RequestSizeLimit(2 * 1024 * 1024)]
+    [ProducesResponseType(typeof(CutLabAdjustApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<CutLabAdjustApiResponse>> PostAdjustAsync([FromBody] CutLabAdjustApiRequest request, CancellationToken cancellationToken)
+    {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { Message = SameOriginRequestValidator.GetForbiddenMessage() });
+        }
+
+        if (request is null)
+        {
+            return BadRequest(new { Message = "Request body is required." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.CutLabStateJson) || string.IsNullOrWhiteSpace(request.CardName))
+        {
+            return BadRequest(new { Message = "Cut Lab state and card name are required." });
+        }
+
+        try
+        {
+            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            if (state.Pool.Count == 0)
+            {
+                return BadRequest(new { Message = InvalidStateMessage });
+            }
+
+            IReadOnlyList<string> commanderNames = GetCommanderNames(state);
+            IReadOnlyDictionary<string, int> floorByRole = BuildFloorMap(state.RoleFloors);
+            state = CutLabAdjustmentApplier.Apply(state, request.CardName, request.Delta, request.IsAddedBasic);
+
+            IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
+            string poolKey = CutLabResolvedCardCache.ComputePoolKey(workingList);
+            CutLabAnalysisContext context = await _contextBuilder.BuildAsync(
+                workingList,
+                state.Intent.PlayExperience,
+                commanderNames,
+                poolKey: poolKey,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+            (_, CutLabRoundPlan roundPlan) = CutLabCutRoundEngine.BuildFindingsAndRoundPlan(
+                workingList,
+                context,
+                floorByRole,
+                state.Decisions);
+
+            return Ok(new CutLabAdjustApiResponse
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(state),
+                CardsRemaining = roundPlan.CardsRemainingToTarget,
+            });
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
+        {
+            _logger.LogWarning(exception, "Cut Lab adjust API request failed.");
+            return BadRequest(new { Message = CutLabMessages.NoChangeMessage });
+        }
+    }
+
     /// <summary>Builds a non-mutating what-if swap preview and returns the metric deltas.</summary>
     /// <param name="request">What-if swap request payload.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
