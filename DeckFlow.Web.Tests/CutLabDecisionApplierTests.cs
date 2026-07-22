@@ -47,6 +47,29 @@ public sealed class CutLabDecisionApplierTests
         Assert.Equal(CutLabDecisionKind.Accepted, decision.Kind);
     }
 
+    [Fact]
+    public void Apply_Accept_AddedBasicAdjustmentCountsTowardOvershootBudget()
+    {
+        CutLabState state = BuildStateWithQuantities(cardQuantity: 1, remainingCardsToCut: 0) with
+        {
+            QuantityAdjustments =
+            [
+                new CutLabQuantityAdjustment
+                {
+                    Name = "Island",
+                    Delta = 1,
+                    IsAddedBasic = true,
+                },
+            ],
+        };
+
+        CutLabState updated = CutLabDecisionApplier.Apply(state, "Arcane Signet", CutLabDecideAction.Accept, "round-1");
+
+        CutLabDecision decision = Assert.Single(updated.Decisions);
+        Assert.Equal("Arcane Signet", decision.CardName);
+        Assert.Equal(CutLabDecisionKind.Accepted, decision.Kind);
+    }
+
     [Theory]
     [InlineData(CutLabDecideAction.Reject, CutLabDecisionKind.Rejected)]
     [InlineData(CutLabDecideAction.Defer, CutLabDecisionKind.Deferred)]

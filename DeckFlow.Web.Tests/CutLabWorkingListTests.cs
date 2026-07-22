@@ -272,6 +272,43 @@ public sealed class CutLabWorkingListTests
         Assert.True(CutLabLockRules.IsLand(island.TypeLine));
     }
 
+    [Theory]
+    [InlineData(2, 42, 43)]
+    [InlineData(-3, 37, 38)]
+    public void Derive_AdjustmentDelta_ChangesWorkingListCountByDelta(int delta, int expectedIslandQuantity, int expectedTotalCount)
+    {
+        IReadOnlyList<CutLabPoolCard> pool =
+        [
+            new CutLabPoolCard
+            {
+                Name = "Commander",
+                Quantity = 1,
+                TypeLine = "Legendary Creature",
+                IsCommander = true,
+                IsLocked = true,
+            },
+            new CutLabPoolCard
+            {
+                Name = "Island",
+                Quantity = 40,
+                TypeLine = "Basic Land — Island",
+            },
+        ];
+        CutLabQuantityAdjustment[] adjustments =
+        [
+            new CutLabQuantityAdjustment
+            {
+                Name = "Island",
+                Delta = delta,
+            },
+        ];
+
+        IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(pool, [], adjustments);
+
+        Assert.Equal(expectedIslandQuantity, Assert.Single(workingList, card => card.Name == "Island").Quantity);
+        Assert.Equal(expectedTotalCount, workingList.Sum(card => card.Quantity));
+    }
+
     [Fact]
     public void Derive_AppliesDecisionsBeforeAdjustments()
     {

@@ -594,6 +594,122 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_QuantityAdjustmentRaisesDerivedCountAndCardsRemainingToTarget()
+    {
+        var entries = new List<DeckEntry>
+        {
+            Entry("Focused Commander", "commander"),
+            Entry("Island", "mainboard") with { Quantity = 101 },
+        };
+        var cards = new List<ScryfallCard>
+        {
+            Spell("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{G}{U}", cmc: 3),
+            Spell("Island", "Basic Land — Island"),
+        };
+        var priorState = new CutLabState
+        {
+            Commander = "Focused Commander",
+            QuantityAdjustments =
+            [
+                new CutLabQuantityAdjustment
+                {
+                    Name = "Island",
+                    Delta = 2,
+                },
+            ],
+        };
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            PlayExperience = "Focused",
+            CutLabStateJson = CutLabStateSerializer.Serialize(priorState),
+        };
+
+        var result = await service.ProcessAsync(request);
+        IReadOnlyList<CutLabPoolCard> derivedWorkingList = CutLabWorkingList.Derive(
+            result.State!.Pool,
+            result.State.Decisions,
+            result.State.QuantityAdjustments);
+
+        Assert.Equal(104, derivedWorkingList.Sum(card => card.Quantity));
+        Assert.NotNull(result.RoundPlan);
+        Assert.Equal(4, result.RoundPlan!.CardsRemainingToTarget);
+    }
+
+    [Fact]
+    public async Task BuildExportAsync_QuantityAdjustmentAddedBasicAppearsInFinalEntries()
+    {
+        CutLabState state = new()
+        {
+            Commander = "Focused Commander",
+            Pool =
+            [
+                new CutLabPoolCard
+                {
+                    Name = "Focused Commander",
+                    Quantity = 1,
+                    TypeLine = "Legendary Creature — Human Wizard",
+                    IsCommander = true,
+                    IsLocked = true,
+                },
+                new CutLabPoolCard
+                {
+                    Name = "Arcane Signet",
+                    Quantity = 98,
+                    TypeLine = "Artifact",
+                },
+            ],
+            OriginalEntries =
+            [
+                new CutLabOriginalEntry
+                {
+                    Name = "Focused Commander",
+                    Quantity = 1,
+                    Board = "commander",
+                },
+                new CutLabOriginalEntry
+                {
+                    Name = "Arcane Signet",
+                    Quantity = 98,
+                    Board = "mainboard",
+                },
+            ],
+            QuantityAdjustments =
+            [
+                new CutLabQuantityAdjustment
+                {
+                    Name = "Island",
+                    Delta = 1,
+                    IsAddedBasic = true,
+                },
+            ],
+        };
+        IReadOnlyList<ScryfallCard> cards =
+        [
+            Spell("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{G}{U}", cmc: 3),
+            Spell("Arcane Signet", "Artifact", manaCost: "{2}", cmc: 2),
+        ];
+        CutLabResolvedCardCache resolvedCardCache = new();
+        var contextBuilder = new CutLabAnalysisContextBuilder(new FakeResolver(cards), resolvedCardCache);
+        var service = new CutLabExportService(
+            contextBuilder,
+            resolvedCardCache,
+            new FakeBanListService([]));
+
+        CutLabExportView result = await service.BuildExportAsync(state, "Focused", ["Focused Commander"], CancellationToken.None);
+
+        Assert.True(result.HasExport);
+        Assert.True(result.CountOk);
+        Assert.Contains("1 Island", result.MoxfieldFullListText, StringComparison.Ordinal);
+        Assert.Contains("1 Island", result.ArchidektFullListText, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ProcessAsync_FreshImport_SeedsDefaultGoals()
     {
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
