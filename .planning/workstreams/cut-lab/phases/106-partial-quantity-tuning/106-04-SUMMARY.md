@@ -89,4 +89,14 @@ completed: 2026-07-22
 - The UI work is in place for Phase 106 follow-up QA and screenshots.
 - If Phase 106 or later needs the new adjust vitest to run under the default suite, `DeckFlow.Web/vitest.config.ts` or the test location will need an out-of-fence update.
 
-## Self-Check: FAILED
+## Self-Check: PASSED
+
+Reviewer note (Claude, 2026-07-22): flipped FAILED→PASSED after resolving the sole
+failing criterion. The adjust vitest was authored at `wwwroot/ts/__tests__/cut-lab.adjust.test.ts`,
+a path the repo's `vitest.config.ts` (`include: ['ts-tests/**/*.test.ts']`) does not
+discover — the plan's declared path was wrong. Follow-up commit `0220d965` relocated it to
+`ts-tests/cut-lab-adjust.test.ts` (sibling convention, ES imports), no config edit. Full
+suite now 18 files / 71 tests, all green (was 17/69) — the 2 new adjust tests run and pass.
+tsc clean, dotnet build 0/0, CutLabViewModelWordingTests 10/10. Both export gates exact-100,
+under-100 branch copy exact, steppers iterate WorkingListRows, no compiled JS committed,
+site.css untouched, EOL LF.
