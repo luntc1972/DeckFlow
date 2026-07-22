@@ -266,6 +266,11 @@ public sealed class CutLabController : Controller
                 cardOut,
                 CutLabDecideAction.Accept,
                 CutLabCutRoundEngine.WhatifSwapKey);
+            // Why: the overshoot guard can refuse the replacement cut, so a half-applied swap must be rejected.
+            if (afterSwap.Decisions.Count == afterRestore.Decisions.Count)
+            {
+                return await RenderWhatifViewAsync(request, state, null, CutLabMessages.NoChangeMessage);
+            }
 
             RehydrateIntakeRequestFromState(request, afterSwap);
             request.CutLabStateJson = CutLabStateSerializer.Serialize(afterSwap);

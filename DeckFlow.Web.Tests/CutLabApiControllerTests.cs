@@ -441,6 +441,50 @@ public sealed class CutLabApiControllerTests
         Assert.Equal(serializedBefore, CutLabStateSerializer.Serialize(state));
     }
 
+    [Fact]
+    public async Task PostWhatifCommitAsync_ReturnsBadRequest_WhenReplacementCutWouldOvershootRemainingBudget()
+    {
+        CutLabState state = CreateState(
+            pool:
+            [
+                Card("Commander", quantity: 1, isCommander: true, isLocked: true),
+                Card("Cut Card", quantity: 1),
+                Card("Multi Copy Working Card", quantity: 2),
+                // Filler sized so the working list sits at exactly 100 with "Cut Card" cut, so
+                // restoring it (+1 -> remaining 1) makes the 2-copy replacement cut overshoot.
+                Card("Basic Filler", quantity: 97, isLocked: true),
+            ],
+            decisions:
+            [
+                new CutLabDecision
+                {
+                    CardName = "Cut Card",
+                    Kind = CutLabDecisionKind.Accepted,
+                    Round = CutLabCutRoundEngine.Round1Key,
+                    Ordinal = 1,
+                },
+            ]);
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)), new FakeSimulationService());
+
+        ActionResult<CutLabWhatifApiResponse> response = await controller.PostWhatifCommitAsync(
+            new CutLabWhatifApiRequest
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(state),
+                CardOut = "Multi Copy Working Card",
+                CardIn = "Cut Card",
+            },
+            CancellationToken.None);
+
+        BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(response.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+        Assert.NotNull(badRequest.Value);
+        object value = badRequest.Value!;
+        string? message = value.GetType().GetProperty("Message")?.GetValue(value) as string;
+        Assert.Equal(CutLabMessages.NoChangeMessage, message);
+        Assert.NotNull(response.Result);
+        Assert.IsNotType<OkObjectResult>(response.Result);
+    }
+
     private static CutLabApiController CreateController(
         FakeAnalysisContextBuilder builder,
         FakeSimulationService simulation,
