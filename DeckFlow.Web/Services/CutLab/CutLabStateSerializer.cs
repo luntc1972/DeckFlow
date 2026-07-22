@@ -14,6 +14,10 @@ public static class CutLabStateSerializer
     // passes, so this keeps realistic history intact while staying comfortably under the byte cap.
     private const int MaxDecisions = 500;
     private const int MaxOriginalEntries = 200;
+    // Why: mirrors the decision-history headroom while remaining comfortably under the byte cap.
+    private const int MaxQuantityAdjustments = 300;
+    // Why: a 150-card pool bounds any single legal copy delta.
+    private const int MaxCopyDelta = 150;
 
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
     {
@@ -58,6 +62,14 @@ public static class CutLabStateSerializer
                 Decisions = state.Decisions
                     .Where(decision => !string.IsNullOrWhiteSpace(decision.CardName))
                     .Take(MaxDecisions)
+                    .ToArray(),
+                QuantityAdjustments = state.QuantityAdjustments
+                    .Where(adjustment => !string.IsNullOrWhiteSpace(adjustment.Name))
+                    .Select(adjustment => adjustment with
+                    {
+                        Delta = Math.Clamp(adjustment.Delta, -MaxCopyDelta, MaxCopyDelta),
+                    })
+                    .Take(MaxQuantityAdjustments)
                     .ToArray(),
                 OriginalEntries = state.OriginalEntries
                     .Where(entry => !string.IsNullOrWhiteSpace(entry.Name))
