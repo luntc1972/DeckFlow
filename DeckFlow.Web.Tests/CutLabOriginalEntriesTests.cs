@@ -251,12 +251,10 @@ public sealed class CutLabOriginalEntriesTests
             new FakeLoader(entries),
             resolver,
             new FakeBanListService([]),
-            new FakeCategoryKnowledgeStore(),
-            new FakeSpellbookService(),
             new FakeManabaseBaselineProvider(),
             new FakeCedhLandBaselineProvider(),
-            analysisBuilder,
-            simulationService);
+            analysisContextBuilder: analysisBuilder,
+            simulationService: simulationService);
     }
 
     private static List<DeckEntry> BuildMainboard(int start, int count) =>
