@@ -539,6 +539,61 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_SubmittedStateJsonCarriesForwardQuantityAdjustmentsAtTargetCount()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 101, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var priorState = new CutLabState
+        {
+            Commander = "Atraxa, Praetors' Voice",
+            Decisions =
+            [
+                new CutLabDecision
+                {
+                    CardName = "Card 001",
+                    Kind = CutLabDecisionKind.Accepted,
+                    Round = CutLabCutRoundEngine.Round1Key,
+                    Ordinal = 1,
+                },
+            ],
+            QuantityAdjustments =
+            [
+                new CutLabQuantityAdjustment
+                {
+                    Name = "Card 002",
+                    Delta = -1,
+                },
+            ],
+        };
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            CutLabStateJson = CutLabStateSerializer.Serialize(priorState),
+        };
+
+        var result = await service.ProcessAsync(request);
+        CutLabState roundTrippedState = CutLabStateSerializer.Deserialize(result.SerializedStateJson);
+        IReadOnlyList<CutLabPoolCard> derivedWorkingList = CutLabWorkingList.Derive(
+            result.State!.Pool,
+            result.State.Decisions,
+            result.State.QuantityAdjustments);
+
+        CutLabQuantityAdjustment adjustment = Assert.Single(result.State.QuantityAdjustments);
+        Assert.Equal("Card 002", adjustment.Name);
+        Assert.Equal(-1, adjustment.Delta);
+        Assert.Equal(100, derivedWorkingList.Sum(card => card.Quantity));
+        Assert.NotNull(result.RoundPlan);
+        Assert.Equal(0, result.RoundPlan!.CardsRemainingToTarget);
+        Assert.Single(roundTrippedState.QuantityAdjustments);
+        Assert.Equal("Card 002", roundTrippedState.QuantityAdjustments[0].Name);
+    }
+
+    [Fact]
     public async Task ProcessAsync_FreshImport_SeedsDefaultGoals()
     {
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
