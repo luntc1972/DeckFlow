@@ -258,17 +258,14 @@ internal sealed class CutLabPageService : ICutLabPageService
             .Where(card => card is not null)
             .Cast<ScryfallCardData>()
             .ToArray();
-        if (_analysisContextBuilder is CutLabAnalysisContextBuilder concreteAnalysisBuilder)
-        {
-            concreteAnalysisBuilder.PrimeResolvedCardsCache(
-                preAnalysisState.Pool,
-                preResolvedCards,
-                resolvedEntries
-                    .Where(entry => entry.Card is null)
-                    .Select(entry => entry.Name)
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToArray());
-        }
+        _analysisContextBuilder.PrimeResolvedCardsCache(
+            preAnalysisState.Pool,
+            preResolvedCards,
+            resolvedEntries
+                .Where(entry => entry.Card is null)
+                .Select(entry => entry.Name)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray());
 
         CutLabAnalysisContext analysisContext = await _analysisContextBuilder.BuildAsync(
             derivedWorkingList,

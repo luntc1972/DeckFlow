@@ -448,6 +448,14 @@ public sealed class CutLabWhatifTests
                 ? cards
                 : Array.Empty<ScryfallCardData>());
 
+        public void PrimeResolvedCardsCache(
+            IReadOnlyList<CutLabPoolCard> workingList,
+            IReadOnlyList<ScryfallCardData> resolvedCards,
+            IReadOnlyCollection<string>? unresolvedCardNames = null)
+        {
+            _cachedCards[CutLabResolvedCardCache.ComputePoolKey(workingList)] = resolvedCards;
+        }
+
         public bool TrySeedDerivedPool(
             IReadOnlyList<CutLabPoolCard> workingList,
             IReadOnlyList<ScryfallCardData> sourceCards,

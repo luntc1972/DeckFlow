@@ -829,6 +829,14 @@ public sealed class CutLabApiControllerTests
                 ? cards
                 : Array.Empty<ScryfallCardData>());
 
+        public void PrimeResolvedCardsCache(
+            IReadOnlyList<CutLabPoolCard> workingList,
+            IReadOnlyList<ScryfallCardData> resolvedCards,
+            IReadOnlyCollection<string>? unresolvedCardNames = null)
+        {
+            _cache[CutLabResolvedCardCache.ComputePoolKey(workingList.Select(card => (card.Name, card.Quantity)).ToArray())] = resolvedCards;
+        }
+
         public bool TrySeedDerivedPool(
             IReadOnlyList<CutLabPoolCard> workingList,
             IReadOnlyList<ScryfallCardData> sourceCards,

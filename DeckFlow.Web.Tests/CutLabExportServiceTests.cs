@@ -341,6 +341,13 @@ public sealed class CutLabExportServiceTests
             CancellationToken cancellationToken = default)
             => Task.FromResult(Result.ResolvedCards);
 
+        public void PrimeResolvedCardsCache(
+            IReadOnlyList<CutLabPoolCard> workingList,
+            IReadOnlyList<ScryfallCardData> resolvedCards,
+            IReadOnlyCollection<string>? unresolvedCardNames = null)
+        {
+        }
+
         public bool TrySeedDerivedPool(
             IReadOnlyList<CutLabPoolCard> workingList,
             IReadOnlyList<ScryfallCardData> sourceCards,
