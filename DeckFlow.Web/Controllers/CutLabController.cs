@@ -339,7 +339,7 @@ public sealed class CutLabController : Controller
 
     private static bool IsValidWhatifPair(CutLabState state, string cardOut, string cardIn)
     {
-        IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(state.Pool, state.Decisions);
+        IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
         bool validCardOut = workingList.Any(card =>
             string.Equals(card.Name, cardOut, StringComparison.OrdinalIgnoreCase)
             && !card.IsLocked

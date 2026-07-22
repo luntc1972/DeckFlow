@@ -76,7 +76,7 @@ public sealed class CutLabApiController : ControllerBase
             IReadOnlyDictionary<string, int> floorByRole = BuildFloorMap(state.RoleFloors);
             IReadOnlyList<CutLabPoolCard> fullPool = state.Pool;
 
-            IReadOnlyList<CutLabPoolCard> beforeWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions);
+            IReadOnlyList<CutLabPoolCard> beforeWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
             string beforePoolKey = CutLabResolvedCardCache.ComputePoolKey(beforeWorkingList);
             CutLabAnalysisContext beforeContext = await _contextBuilder.BuildAsync(
                 beforeWorkingList,
@@ -96,7 +96,7 @@ public sealed class CutLabApiController : ControllerBase
                 : [];
             state = CutLabDecisionApplier.Apply(state, request.CardName, request.Decision, roundKey);
 
-            IReadOnlyList<CutLabPoolCard> afterWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions);
+            IReadOnlyList<CutLabPoolCard> afterWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
             string afterPoolKey = CutLabResolvedCardCache.ComputePoolKey(afterWorkingList);
             IReadOnlyList<ScryfallCardData>? afterPreResolvedCards = TryBuildAfterPreResolvedCards(
                 fullPool,
@@ -440,7 +440,7 @@ public sealed class CutLabApiController : ControllerBase
 
     private static void ValidateWhatifPair(CutLabState state, string cardOut, string cardIn)
     {
-        IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(state.Pool, state.Decisions);
+        IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
         CutLabPoolCard? cardOutPoolCard = workingList.FirstOrDefault(card => string.Equals(card.Name, cardOut, StringComparison.OrdinalIgnoreCase));
         if (cardOutPoolCard is null || cardOutPoolCard.IsLocked)
         {

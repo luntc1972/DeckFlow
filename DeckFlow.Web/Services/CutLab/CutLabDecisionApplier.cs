@@ -39,7 +39,7 @@ public static class CutLabDecisionApplier
 
         if (action == CutLabDecideAction.Accept)
         {
-            IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(state.Pool, state.Decisions);
+            IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
             int remaining = workingList.Sum(card => card.Quantity) - 100;
             CutLabPoolCard? workingCard = workingList.FirstOrDefault(card => string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase));
             if (workingCard is not null && workingCard.Quantity > remaining)

@@ -262,7 +262,7 @@ internal sealed class CutLabPageService : ICutLabPageService
         var priorState = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
         var preAnalysisState = CutLabLockRules.EnforceCommanderLock(
             BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, []));
-        IReadOnlyList<CutLabPoolCard> derivedWorkingList = CutLabWorkingList.Derive(preAnalysisState.Pool, preAnalysisState.Decisions);
+        IReadOnlyList<CutLabPoolCard> derivedWorkingList = CutLabWorkingList.Derive(preAnalysisState.Pool, preAnalysisState.Decisions, preAnalysisState.QuantityAdjustments);
         IReadOnlyList<ScryfallCardData> preResolvedCards = resolvedEntries
             .Select(entry => entry.Card)
             .Where(card => card is not null)

@@ -145,6 +145,8 @@ public sealed record CutLabViewModel
         ArgumentNullException.ThrowIfNull(result);
 
         IReadOnlyList<CutLabPoolCard> pool = result.State?.Pool ?? [];
+        IReadOnlyList<CutLabQuantityAdjustment> adjustments = result.State?.QuantityAdjustments ?? [];
+        IReadOnlyList<CutLabPoolCard> derivedWorkingList = CutLabWorkingList.Derive(pool, result.State?.Decisions ?? [], adjustments);
         IReadOnlyList<CutLabRoleGroupView> roleGroups = BuildRoleGroups(pool, result.RoleAssignmentsByCardName);
         IReadOnlyList<CutLabFindingView> findings = result.Findings.Findings
             .Select(finding => new CutLabFindingView
@@ -160,15 +162,15 @@ public sealed record CutLabViewModel
             })
             .ToArray();
         IReadOnlyList<CutLabFindingGroupView> findingGroups = BuildFindingGroups(findings);
-        Dictionary<string, int> countsByRole = CountRoles(pool, result.RoleAssignmentsByCardName);
+        Dictionary<string, int> countsByRole = CountRoles(derivedWorkingList, result.RoleAssignmentsByCardName);
         IReadOnlyList<CutLabFloorRowView> floorRows = BuildFloorRows(result.ResolvedFloors, countsByRole, request.PlayExperience);
         IReadOnlyDictionary<string, string> roleListByCardName = BuildRoleListByCardName(pool, result.RoleAssignmentsByCardName);
         IReadOnlyDictionary<string, string> roleKeysByCardName = BuildRoleKeysByCardName(pool, result.RoleAssignmentsByCardName);
         IReadOnlyDictionary<CutLabFindingKind, string> findingHeadingsByKind = BuildFindingHeadingsByKind(result.Findings.Findings);
         IReadOnlyList<CutLabCutMadeRowView> cutsMade = BuildCutsMade(result.State?.Decisions);
         int baselineCount = pool.Sum(card => card.Quantity);
-        int currentCount = CutLabWorkingList.Derive(pool, result.State?.Decisions ?? []).Sum(card => card.Quantity);
-        IReadOnlyList<string> whatifCardOutOptions = BuildWhatifCardOutOptions(pool, result.State?.Decisions);
+        int currentCount = derivedWorkingList.Sum(card => card.Quantity);
+        IReadOnlyList<string> whatifCardOutOptions = BuildWhatifCardOutOptions(pool, result.State?.Decisions, adjustments);
         IReadOnlyList<string> whatifCardInOptions = BuildWhatifCardInOptions(pool, result.State?.Decisions);
         IReadOnlyList<CutLabGoalRowView> goalRows = BuildGoalRows(
             result.State?.Goals ?? new(),
@@ -617,14 +619,15 @@ public sealed record CutLabViewModel
 
     private static IReadOnlyList<string> BuildWhatifCardOutOptions(
         IReadOnlyList<CutLabPoolCard> pool,
-        IReadOnlyList<CutLabDecision>? decisions)
+        IReadOnlyList<CutLabDecision>? decisions,
+        IReadOnlyList<CutLabQuantityAdjustment>? adjustments)
     {
         if (pool.Count == 0)
         {
             return [];
         }
 
-        return CutLabWorkingList.Derive(pool, decisions ?? [])
+        return CutLabWorkingList.Derive(pool, decisions ?? [], adjustments ?? [])
             .Where(card => !card.IsLocked && !card.IsCommander)
             .Select(card => card.Name)
             .Distinct(StringComparer.OrdinalIgnoreCase)

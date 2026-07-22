@@ -52,7 +52,7 @@ public sealed class CutLabExportService : ICutLabExportService
         ArgumentNullException.ThrowIfNull(playExperience);
         ArgumentNullException.ThrowIfNull(commanderNames);
 
-        IReadOnlyList<CutLabPoolCard> keptWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions);
+        IReadOnlyList<CutLabPoolCard> keptWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
         IReadOnlyList<DeckEntry> finalEntries = ReconstructFinalEntries(keptWorkingList, state.OriginalEntries, out IReadOnlyList<string> reconstructionWarnings);
         IReadOnlyList<DeckEntry> originalEntries = ToDeckEntries(state.OriginalEntries);
 
