@@ -106,12 +106,40 @@ Cycle 18 ships a deterministic decision-support loop that takes a builder from a
 - [x] 105-03-PLAN.md — CutLabExportComposer (Core): both-dialect full list + CUT/ADD patch + validation summary, unit-tested
 - [x] 105-04-PLAN.md — Wire-up: export service, /cut-lab/export action, Export panel + step tab (gated at 100), copy + CSS
 - [x] 105-05-PLAN.md — e2e export spec, full-suite gate, theme/viewport screenshots, human verify
-  - Wave-4 e2e surfaced a real defect: JS-cutting a multi-copy entry to reach 100 overshot (whole-entry cut) and the Export tab never unlocked. Fixed in this phase (engine overshoot filter + applier guard + JS tab-wire + atomic what-if keep). Partial-copy cuts deferred to backlog (Option B).
+  - Wave-4 e2e surfaced a real defect: JS-cutting a multi-copy entry to reach 100 overshot (whole-entry cut) and the Export tab never unlocked. Fixed in this phase (engine overshoot filter + applier guard + JS tab-wire + atomic what-if keep). Partial-copy tuning promoted from backlog to Phase 106.
+
+### Phase 106: Partial-Quantity Tuning & Add Basics
+**Goal**: Within a Cut Lab session, the builder fine-tunes copy counts — cut or add copies of basics and other legal-multiple cards, and add brand-new basic lands — to land on exactly 100, lifting the whole-entry all-or-nothing limitation from Phase 105.
+**Depends on**: Phase 103 (working list + Derive), Phase 105 (OriginalEntries baseline + quantity-aware export patch)
+**Requirements**: EDIT-01, EDIT-02, EDIT-03
+**Design (approved 2026-07-22 — "Approach B", inline UI):**
+- New `CutLabState.QuantityAdjustments`: signed per-name copy deltas (+ added-basic flag), serializer-bounded. `CutLabWorkingList.Derive` gains a second pass — apply whole-entry `Decisions` (unchanged), then apply adjustments (clamp each entry ≥ 0, materialize added basics as land entries). All consumers read the derived list.
+- No Scryfall resolution: basics (5 + Snow-Covered + Wastes) have known color identity + land type as constants; copy-deltas touch already-resolved pool cards only.
+- UI is INLINE in the Decide workspace: +/- steppers on basic / legal-multiple rows + an "add basic land" control; posts adjustments, sticky count + validation update. No new step tab.
+- Legality enforced: quantity > 1 only for basics + the any-number cards (Persistent Petitioners, Dragon's Approach, Relentless Rats, Rat Colony, Shadowborn Apostle, Slime Against Humanity, Templar Knights, Nazgûl, Seven Dwarves); everything else capped at 1.
+- Export unchanged: `DiffEngine` already diffs quantities vs the OriginalEntries baseline, so add/cut-copy flows through both dialects for free.
+**Success Criteria** (what must be TRUE):
+  1. User can cut/add copies of a legal-multiple card one at a time (trim/pad `35 Island`)
+  2. User can add new basic lands not in the imported pool, resolved from constants
+  3. Singleton legality is enforced and the working list can reach exactly 100 by tuning counts
+**Out of scope (deferred)**: arbitrary new nonbasic cards (needs Scryfall resolution + re-analysis); undersized-pool intake.
+
+### Phase 107: Cut Lab Tech-Debt Cleanup
+**Goal**: Retire the tracked Cut Lab cleanup/tech-debt identified across Cycle 18. No new user requirements — quality only.
+**Depends on**: Phases 101–106 (touches their surfaces)
+**Cleanup items:**
+  1. Dead `_spellbook` + `_categoryKnowledge` fields in `CutLabPageService` (test-only DI-probe, unused) — remove or justify (deferred from 103 C5 + 104 /simplify)
+  2. Pool-status chip: two sites disagree (total vs non-commander count) — reconcile
+  3. Dark-theme delta contrast: only Nyx has `--cutlab-delta-up/down` overrides; other dark guild themes inherit sub-AA global success/danger — add 2 overrides each (token seam exists)
+  4. 101-VERIFICATION open items: validator xmldoc garble; Manabase castability-copy leaking onto Cut Lab; Nyx-mobile badge overlap; Lock-all-lands contrast; mobile pool-row "Package assignment" label truncation
+  5. 104-simplify notes: cacheKey→data-attr, route path-base safety, shared pluralizer (server + JS)
+  6. Decide: structural-analysis table isn't live-patched on JS decide (server-render refresh only) — live-patch or keep documented
+**Success Criteria**: each item fixed or explicitly closed-with-reason; full suite + e2e green; no behavior regression.
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 101 -> 102 -> 103 -> 104 -> 105
+Phases execute in numeric order: 101 -> 102 -> 103 -> 104 -> 105 -> 106 -> 107
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -120,10 +148,12 @@ Phases execute in numeric order: 101 -> 102 -> 103 -> 104 -> 105
 | 103. Simulation Engine & Guided Cut Rounds | 10/10 | Complete | 2026-07-20 |
 | 104. Goals & What-If Scenarios | 6/6 | Complete | 2026-07-21 |
 | 105. Builder-Compatible Export | 5/5 | Complete | 2026-07-22 |
+| 106. Partial-Quantity Tuning & Add Basics | 0/? | Not started | - |
+| 107. Cut Lab Tech-Debt Cleanup | 0/? | Not started | - |
 
 ## Backlog / Future
 
-### Partial-Copy Cuts (deferred feature — arose from the Phase 105 export fix)
-**Status**: Backlog — not scheduled. Logged 2026-07-22.
+### Partial-Copy Cuts (arose from the Phase 105 export fix)
+**Status**: PROMOTED to Phase 106 (2026-07-22) — scoped as "Approach B" quantity-adjustment layer + add-basics, see the Phase 106 entry above. This note kept for the origin rationale.
 **Why**: The Cut Lab decision model is name-keyed with no per-copy quantity, so `CutLabWorkingList.Derive` cuts a whole entry (all copies of a name) on accept. A multi-copy entry (e.g. `35 Island`) is therefore all-or-nothing: it can only be cut when its full quantity fits the remaining budget. Phase 105 shipped the contained "Option A" fix — the cut engine excludes any entry whose `Quantity > cardsRemainingToTarget` from proposals (with an applier defense-in-depth guard) so the working list converges on exactly 100. Consequence/limitation: a large basic-land stack can't be trimmed a few copies at a time near the target; basics near 100 are effectively uncuttable.
 **Scope if built (Option B)**: add per-copy cut support — `CutLabDecision.Quantity`, quantity-subtracting `Derive`, serializer bounds, per-copy apply/restore, per-copy proposals/target-decrement, quantity-aware what-if + deltas + export, and UI to cut N of a stack ("cut 1 of 35"). ~9 source files + broad tests across both projects; touches the P103 state contract and P104 what-if/restore invariants — treat as its own phase, not a bug fix.
