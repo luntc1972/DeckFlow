@@ -148,7 +148,7 @@ Phases execute in numeric order: 101 -> 102 -> 103 -> 104 -> 105 -> 106 -> 107
 | 103. Simulation Engine & Guided Cut Rounds | 10/10 | Complete | 2026-07-20 |
 | 104. Goals & What-If Scenarios | 6/6 | Complete | 2026-07-21 |
 | 105. Builder-Compatible Export | 5/5 | Complete | 2026-07-22 |
-| 106. Partial-Quantity Tuning & Add Basics | 0/? | Not started | - |
+| 106. Partial-Quantity Tuning & Add Basics | 2/5 | In Progress | - |
 | 107. Cut Lab Tech-Debt Cleanup | 0/? | Not started | - |
 
 ## Backlog / Future
