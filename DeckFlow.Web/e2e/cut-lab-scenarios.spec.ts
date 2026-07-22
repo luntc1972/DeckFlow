@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
+import { expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 
 const baseUrl = 'http://localhost:5173';
 
@@ -124,6 +125,7 @@ test('saves a named scenario, then restores the saved session after a fresh impo
 
   await importPool(page, savedPrimaryPlan);
   await waitForCutRounds(page);
+  await expandMobileCollapsibles(page);
 
   await page.locator('tr[data-cut-lab-card="Rhystic Study"] input[data-cut-lab-lock-card]').check();
   await page.locator('input[data-cut-lab-goal="commander"]').fill('5');
@@ -153,6 +155,7 @@ test('saves a named scenario, then restores the saved session after a fresh impo
   await fillImportForm(page, freshPrimaryPlan);
   await page.getByRole('button', { name: 'Import pool' }).click();
   await waitForCutRounds(page);
+  await expandMobileCollapsibles(page);
 
   await expect(page.locator('[data-cut-lab-sticky-accepted]')).toContainText('0 cuts so far');
   await expect(page.locator('.cutlab-cuts-made__row')).toHaveCount(0);
@@ -163,6 +166,7 @@ test('saves a named scenario, then restores the saved session after a fresh impo
   await getScenarioRow(page, scenarioName).getByRole('button', { name: 'Load' }).click();
 
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
+  await expandMobileCollapsibles(page);
   await expect(page.locator('#cut-lab-primary-plan')).toHaveValue(savedPrimaryPlan);
   await expect(page.locator('input[data-cut-lab-goal="commander"]')).toHaveValue('5');
   await expect(page.locator('tr[data-cut-lab-card="Rhystic Study"] input[data-cut-lab-lock-card]')).toBeChecked();
@@ -175,6 +179,7 @@ test('saves a named scenario, then restores the saved session after a fresh impo
 test('blocks the 21st saved scenario with the documented cap message', async ({ page }) => {
   await importPool(page, 'Save-cap coverage for local scenario storage.');
   await waitForCutRounds(page);
+  await expandMobileCollapsibles(page);
 
   const stateJson = await getMainStateInput(page).inputValue();
   await page.evaluate((savedState) => {

@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
+import { expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 
 const baseUrl = 'http://localhost:5173';
 const screenshotDir = resolve(__dirname, '../../.planning/ui-design/cut-lab/screenshots');
@@ -93,6 +94,7 @@ test('/cut-lab renders the intake, intent controls, and hidden state field when 
 
 test('imports a pool, locks lands and a package, then preserves those edits across a resubmit', async ({ page }) => {
   await importPool(page);
+  await expandMobileCollapsibles(page);
 
   const landsLockButton = page.locator('[data-cut-lab-lock-role="lands"]');
   await expect(landsLockButton).toHaveAttribute('aria-pressed', 'false');
@@ -115,6 +117,8 @@ test('imports a pool, locks lands and a package, then preserves those edits acro
 
   await page.locator('#cut-lab-primary-plan').fill('Protect the mana and tutor core before trimming.');
   await page.getByRole('button', { name: 'Import pool' }).click();
+  await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
+  await expandMobileCollapsibles(page);
 
   await expect(page.locator('[data-cut-lab-package-id]').filter({ hasText: 'Fast mana' })).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('[data-cut-lab-package-id]').filter({ hasText: 'Fast mana' }).locator('input[data-cut-lab-package-toggle]')).toBeChecked();

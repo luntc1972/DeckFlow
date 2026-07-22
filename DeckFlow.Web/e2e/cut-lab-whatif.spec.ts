@@ -1,6 +1,7 @@
 import { expect, test, type Browser, type Locator, type Page } from '@playwright/test';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
+import { expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 
 const baseUrl = 'http://localhost:5173';
 
@@ -124,6 +125,7 @@ test.afterEach(async () => {
 test('previews, discards, and keeps a what-if swap without mutating state until Keep', async ({ page }) => {
   await importPool(page);
   await waitForCutRounds(page);
+  await expandMobileCollapsibles(page);
 
   await page.locator('tr[data-cut-lab-card="Plains"] input[data-cut-lab-lock-card]').check();
   const cutPileCard = await acceptCurrentProposal(page);
