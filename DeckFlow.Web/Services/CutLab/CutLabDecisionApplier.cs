@@ -37,6 +37,18 @@ public static class CutLabDecisionApplier
             _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unsupported Cut Lab decision action."),
         };
 
+        if (action == CutLabDecideAction.Accept)
+        {
+            IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(state.Pool, state.Decisions);
+            int remaining = workingList.Sum(card => card.Quantity) - 100;
+            CutLabPoolCard? workingCard = workingList.FirstOrDefault(card => string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase));
+            if (workingCard is not null && workingCard.Quantity > remaining)
+            {
+                // Why: accepts remove whole working-list entries, so stale/manual requests must not overshoot 100.
+                return state;
+            }
+        }
+
         CutLabDecision decision = new()
         {
             CardName = cardName,

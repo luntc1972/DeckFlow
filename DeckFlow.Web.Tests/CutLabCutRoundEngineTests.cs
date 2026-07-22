@@ -142,6 +142,64 @@ public sealed class CutLabCutRoundEngineTests
     }
 
     [Fact]
+    public void BuildQueue_CardQuantityExceedsRemainingTarget_ExcludesCardFromQueueAndNextProposal()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Overshoots Target", quantity: 35, manaValue: 1),
+            Card("Fits Target", quantity: 2, manaValue: 2),
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(),
+            [],
+            cardsToCutTarget: 2);
+
+        Assert.DoesNotContain(plan.Queue, item => item.CardName == "Overshoots Target");
+        Assert.NotNull(plan.NextProposal);
+        Assert.Equal("Fits Target", plan.NextProposal!.CardName);
+    }
+
+    [Fact]
+    public void BuildQueue_CardQuantityFitsRemainingTarget_IncludesCardInQueue()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Fits Target", quantity: 2, manaValue: 1),
+            Card("Later Card", quantity: 1, manaValue: 2),
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(),
+            [],
+            cardsToCutTarget: 2);
+
+        Assert.Contains(plan.Queue, item => item.CardName == "Fits Target");
+        Assert.Equal("Fits Target", plan.NextProposal?.CardName);
+    }
+
+    [Fact]
+    public void BuildQueue_SingleCopyCardWithinRemainingTarget_StillIncludesCardInQueue()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Single Copy", quantity: 1, manaValue: 1),
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(),
+            [],
+            cardsToCutTarget: 1);
+
+        CutLabRoundQueueItem item = Assert.Single(plan.Queue);
+        Assert.Equal("Single Copy", item.CardName);
+        Assert.Equal("Single Copy", plan.NextProposal?.CardName);
+    }
+
+    [Fact]
     public void BuildQueue_Round3UsesDeltaOrderAndDeterministicFallback()
     {
         IReadOnlyList<CutLabRoundInputCard> workingList =
@@ -273,6 +331,7 @@ public sealed class CutLabCutRoundEngineTests
     private static CutLabRoundInputCard Card(
         string name,
         double manaValue,
+        int quantity = 1,
         bool isLocked = false,
         bool isCommander = false,
         bool isLand = false,
@@ -280,7 +339,7 @@ public sealed class CutLabCutRoundEngineTests
         IReadOnlyList<string>? categories = null)
         => new(
             name,
-            1,
+            quantity,
             isLand ? "Land" : "Spell",
             isCommander,
             isLocked,

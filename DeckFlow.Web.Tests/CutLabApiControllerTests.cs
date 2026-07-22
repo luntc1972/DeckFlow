@@ -139,7 +139,7 @@ public sealed class CutLabApiControllerTests
         Assert.Equal(101, builder.LastWorkingListCount);
         Assert.DoesNotContain(builder.LastWorkingListNames, name => string.Equals(name, "Arcane Signet", StringComparison.OrdinalIgnoreCase));
         Assert.NotNull(builder.LastPreResolvedCards);
-        Assert.Equal(["Commander", "Counterspell"], builder.LastPreResolvedCards.Select(card => card.Name));
+        Assert.Equal(["Commander", "Counterspell", "Basic Filler"], builder.LastPreResolvedCards.Select(card => card.Name));
     }
 
     [Fact]
@@ -160,7 +160,7 @@ public sealed class CutLabApiControllerTests
         OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
         CutLabDecideApiResponse payload = Assert.IsType<CutLabDecideApiResponse>(ok.Value);
         Assert.Equal(
-            "Cards flagged by exactly one structural finding.",
+            "Everything else, ordered by smallest measurable tradeoff first.",
             payload.NextProposal.RoundBannerBody);
     }
 
@@ -203,11 +203,12 @@ public sealed class CutLabApiControllerTests
             pool:
             [
                 Card("Commander", quantity: 1, isCommander: true, isLocked: true),
-                Card("Round 1 Card", quantity: 45),
+                Card("Round 1 Card", quantity: 1),
                 Card("Helper Card", quantity: 1, isLocked: true),
+                Card("Basic Filler", quantity: 97, isLocked: true),
                 Card("Round 2 Card", quantity: 1),
                 Card("Support Card", quantity: 1, isLocked: true),
-                Card("Deferred Card", quantity: 101),
+                Card("Deferred Card", quantity: 1),
             ],
             decisions:
             [
@@ -361,7 +362,7 @@ public sealed class CutLabApiControllerTests
         CutLabState state = new()
         {
             Commander = "Commander",
-            Pool = [Card("Commander", isCommander: true, isLocked: true), Card("Working Card"), Card("Cut Card")],
+            Pool = [Card("Commander", isCommander: true, isLocked: true), Card("Basic Filler", quantity: 98, isLocked: true), Card("Working Card"), Card("Cut Card")],
             Decisions =
             [
                 new CutLabDecision
@@ -465,7 +466,7 @@ public sealed class CutLabApiControllerTests
         => new()
         {
             Commander = "Commander",
-            Pool = pool ?? [Card("Commander", quantity: 1, isCommander: true, isLocked: true), Card("Arcane Signet", quantity: 1), Card("Counterspell", quantity: 100)],
+            Pool = pool ?? [Card("Commander", quantity: 1, isCommander: true, isLocked: true), Card("Arcane Signet", quantity: 1), Card("Counterspell", quantity: 1), Card("Basic Filler", quantity: 99, isLocked: true)],
             Decisions = decisions ?? [],
             RoleFloors = roleFloors ?? [],
             Intent = new CutLabIntent
@@ -487,7 +488,7 @@ public sealed class CutLabApiControllerTests
 
     private static CutLabAnalysisContext CreateAnalysisContext(IReadOnlyList<CutLabPoolCard>? workingList = null)
     {
-        IReadOnlyList<CutLabPoolCard> cards = workingList ?? [Card("Commander", quantity: 1, isCommander: true, isLocked: true), Card("Counterspell", quantity: 100)];
+        IReadOnlyList<CutLabPoolCard> cards = workingList ?? [Card("Commander", quantity: 1, isCommander: true, isLocked: true), Card("Counterspell", quantity: 1), Card("Basic Filler", quantity: 99, isLocked: true)];
         List<CutLabAnalyzedCard> analyzedCards = [];
         Dictionary<string, IReadOnlyList<string>> rolesByCardName = new(StringComparer.OrdinalIgnoreCase);
         Dictionary<string, int> roleCounts = new(StringComparer.OrdinalIgnoreCase);

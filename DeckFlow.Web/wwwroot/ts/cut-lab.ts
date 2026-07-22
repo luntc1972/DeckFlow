@@ -436,6 +436,9 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
   const getStickyAccepted = (): HTMLElement | null =>
     document.querySelector<HTMLElement>('[data-cut-lab-sticky-accepted]');
 
+  const getExportStepTab = (): HTMLButtonElement | null =>
+    document.getElementById('cut-lab-step-tab-4') as HTMLButtonElement | null;
+
   const getRoundBanner = (): HTMLElement | null =>
     document.querySelector<HTMLElement>('.cutlab-round-banner');
 
@@ -1686,6 +1689,31 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
         ordinal: decision.ordinal,
       }));
 
+  const cardsRemainingFromSerializedState = (serializedState: string): number | null => {
+    const snapshot = parseStateSnapshot(serializedState);
+    if (!snapshot || !Array.isArray(snapshot.pool)) {
+      return null;
+    }
+
+    const acceptedCardNames = acceptedCardNamesFromDecisions(Array.isArray(snapshot.decisions) ? snapshot.decisions : []);
+    const workingCount = snapshot.pool
+      .filter(card => !acceptedCardNames.has(card.name))
+      .reduce((sum, card) => sum + card.quantity, 0);
+
+    return Math.max(workingCount - 100, 0);
+  };
+
+  const setExportTabEnabled = (atTarget: boolean): void => {
+    const exportTab = getExportStepTab();
+    if (!exportTab) {
+      return;
+    }
+
+    exportTab.disabled = !atTarget;
+    exportTab.setAttribute('aria-disabled', atTarget ? 'false' : 'true');
+    exportTab.classList.toggle('is-disabled', !atTarget);
+  };
+
   const patchStickyAcceptedCount = (acceptedCount: number): void => {
     const stickyAccepted = getStickyAccepted();
     if (!stickyAccepted) {
@@ -1820,6 +1848,10 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
       const cutsMade = buildCutsMadeFromSerializedState(data.cutLabStateJson);
       renderCutsMade(cutsMade, data.cutLabStateJson, antiForgeryToken, false);
       patchStickyAcceptedCount(cutsMade.length);
+      const cardsRemaining = cardsRemainingFromSerializedState(data.cutLabStateJson);
+      if (cardsRemaining !== null) {
+        setExportTabEnabled(cardsRemaining === 0);
+      }
       updateWhatifSelectOptionsAfterKeep(data.cardOut, data.cardIn);
       clearWhatifPreview();
     } catch (error) {
@@ -1834,6 +1866,8 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
   };
 
   const patchStickyBar = (response: CutLabDecisionResponse): void => {
+    setExportTabEnabled(response.cardsRemaining === 0);
+
     if (response.nextProposal.isTerminal || response.nextProposal.roundLabel.trim() === '') {
       getStickyBar()?.remove();
       return;
