@@ -509,7 +509,7 @@ public sealed class CutLabApiController : ControllerBase
             .ToArray();
 
     private static IReadOnlyList<CutLabDecideFindingGroupDto> BuildStructuralFindings(CutLabStructuralFindingsResult findings)
-        => CutLabViewModel.BuildFindingGroups(CutLabViewModel.BuildFindings(findings.Findings))
+        => CutLabFindingPresenter.BuildFindingGroups(CutLabFindingPresenter.BuildFindings(findings.Findings))
             .Select(group => new CutLabDecideFindingGroupDto
             {
                 Kind = group.Kind,
