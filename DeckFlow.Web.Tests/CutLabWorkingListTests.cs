@@ -187,6 +187,127 @@ public sealed class CutLabWorkingListTests
         Assert.DoesNotContain("Working Card", swapCandidates);
     }
 
+    [Fact]
+    public void Derive_WithEmptyAdjustments_MatchesTwoArgumentOverload()
+    {
+        var pool = CreatePool();
+        CutLabDecision[] decisions =
+        [
+            new CutLabDecision
+            {
+                CardName = "Brainstorm",
+                Kind = CutLabDecisionKind.Rejected,
+                Round = "round-1",
+                Ordinal = 1,
+            },
+        ];
+
+        IReadOnlyList<CutLabPoolCard> fromOldOverload = CutLabWorkingList.Derive(pool, decisions);
+        IReadOnlyList<CutLabPoolCard> fromNewOverload = CutLabWorkingList.Derive(pool, decisions, []);
+
+        Assert.Equal(fromOldOverload, fromNewOverload);
+    }
+
+    [Fact]
+    public void Derive_AdjustmentOnExistingEntry_ClampsToLegalMax()
+    {
+        var pool = CreatePool();
+        CutLabQuantityAdjustment[] adjustments =
+        [
+            new CutLabQuantityAdjustment
+            {
+                Name = "Arcane Signet",
+                Delta = 4,
+                IsAddedBasic = false,
+            },
+        ];
+
+        IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(pool, [], adjustments);
+
+        CutLabPoolCard adjusted = Assert.Single(workingList, card => card.Name == "Arcane Signet");
+        Assert.Equal(1, adjusted.Quantity);
+    }
+
+    [Fact]
+    public void Derive_AdjustmentToZero_DropsEntry()
+    {
+        var pool = CreatePool();
+        CutLabQuantityAdjustment[] adjustments =
+        [
+            new CutLabQuantityAdjustment
+            {
+                Name = "Brainstorm",
+                Delta = -1,
+                IsAddedBasic = false,
+            },
+        ];
+
+        IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(pool, [], adjustments);
+
+        Assert.DoesNotContain(workingList, card => card.Name == "Brainstorm");
+    }
+
+    [Fact]
+    public void Derive_AddedBasicWithoutMatchingEntry_MaterializesLandAtStableTailPosition()
+    {
+        var pool = CreatePool();
+        CutLabQuantityAdjustment[] adjustments =
+        [
+            new CutLabQuantityAdjustment
+            {
+                Name = "Island",
+                Delta = 2,
+                IsAddedBasic = true,
+            },
+        ];
+
+        IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(pool, [], adjustments);
+
+        CutLabPoolCard island = Assert.Single(workingList, card => card.Name == "Island");
+        Assert.Equal(2, island.Quantity);
+        Assert.Equal("Basic Land — Island", island.TypeLine);
+        Assert.False(island.IsCommander);
+        Assert.False(island.IsLocked);
+        Assert.Equal("Island", workingList[^1].Name);
+        Assert.True(CutLabLockRules.IsLand(island.TypeLine));
+    }
+
+    [Fact]
+    public void Derive_AppliesDecisionsBeforeAdjustments()
+    {
+        var pool = CreatePool();
+        CutLabDecision[] decisions =
+        [
+            new CutLabDecision
+            {
+                CardName = "Brainstorm",
+                Kind = CutLabDecisionKind.Accepted,
+                Round = "round-1",
+                Ordinal = 1,
+            },
+        ];
+        CutLabQuantityAdjustment[] adjustments =
+        [
+            new CutLabQuantityAdjustment
+            {
+                Name = "Brainstorm",
+                Delta = 1,
+                IsAddedBasic = false,
+            },
+            new CutLabQuantityAdjustment
+            {
+                Name = "Island",
+                Delta = 1,
+                IsAddedBasic = true,
+            },
+        ];
+
+        IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(pool, decisions, adjustments);
+
+        Assert.DoesNotContain(workingList, card => card.Name == "Brainstorm");
+        Assert.Equal("Island", workingList[^1].Name);
+    }
+
     private static IReadOnlyList<CutLabPoolCard> CreatePool()
         =>
         [
