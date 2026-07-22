@@ -229,7 +229,8 @@ public sealed class CutLabExportService : ICutLabExportService
                 Board = keptCard.IsCommander ? "commander" : "mainboard",
             });
 
-            if (!keptCard.IsCommander)
+            if (!keptCard.IsCommander
+                && !CutLabBasicLands.Contains(keptCard.Name))
             {
                 warnings.Add($"Original export metadata was unavailable for {keptCard.Name}; exported it as mainboard.");
             }

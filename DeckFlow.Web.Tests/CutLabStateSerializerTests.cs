@@ -412,6 +412,24 @@ public sealed class CutLabStateSerializerTests
     {
         var state = new CutLabState
         {
+            Commander = "Atraxa, Praetors' Voice",
+            Pool =
+            [
+                new CutLabPoolCard
+                {
+                    Name = "Atraxa, Praetors' Voice",
+                    Quantity = 1,
+                    TypeLine = "Legendary Creature — Phyrexian Angel Horror",
+                    IsCommander = true,
+                    IsLocked = true,
+                },
+                new CutLabPoolCard
+                {
+                    Name = "Island",
+                    Quantity = 35,
+                    TypeLine = "Basic Land — Island",
+                },
+            ],
             QuantityAdjustments =
             [
                 new CutLabQuantityAdjustment
