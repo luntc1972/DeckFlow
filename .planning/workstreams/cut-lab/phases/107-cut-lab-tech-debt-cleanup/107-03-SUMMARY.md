@@ -17,7 +17,7 @@
 - `dotnet build DeckFlow.sln` passed clean with `0 Warning(s)` and `0 Error(s)`.
 - `dotnet test DeckFlow.sln --filter "FullyQualifiedName~CutLabViewModel"` passed with `11` matching `DeckFlow.Web.Tests` tests green.
 - `cd DeckFlow.Web && npx --no-install tsc -p tsconfig.json --noEmit` passed clean.
-- `cd DeckFlow.Web && npx --no-install vitest run` did not pass because `ts-tests/cut-lab-lock-interactions.test.ts` still expects the old non-commander chip text (`"3 cards in pool · 3 locked"`). The implemented behavior now returns the planned commander-inclusive text (`"4 cards in pool · 3 locked"`). Updating that out-of-scope test fixture was not done under this plan's file restrictions.
+- `cd DeckFlow.Web && npx --no-install vitest run`: **72/72 green** after the orchestrator updated the one existing assertion in `ts-tests/cut-lab-lock-interactions.test.ts` from the old non-commander chip text (`"3 cards in pool · 3 locked"`) to the intended commander-inclusive text (`"4 cards in pool · 3 locked"`). This expected-value update reflects the deliberate Item-2 behavior change (chip is now commander-inclusive to match the Compare panel) — not a regression.
 
 ## Scope / Safety Notes
 

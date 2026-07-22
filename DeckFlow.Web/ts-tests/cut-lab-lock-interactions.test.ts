@@ -276,7 +276,8 @@ describe('DeckFlowCutLab', () => {
     expect(landCheckbox?.checked).toBe(true);
     expect(fetchLandCheckbox?.checked).toBe(true);
     expect(spellCheckbox?.checked).toBe(false);
-    expect(summary?.textContent).toBe('3 cards in pool · 3 locked');
+    // 107-03: pool-status chip is now commander-inclusive (matches Compare panel basis) — 3 non-commander + Zur = 4.
+    expect(summary?.textContent).toBe('4 cards in pool · 3 locked');
     expect(floorMarker?.classList.contains('hidden')).toBe(false);
     expect(adjustedBadge?.classList.contains('hidden')).toBe(false);
     expect(resetButton?.classList.contains('hidden')).toBe(false);
