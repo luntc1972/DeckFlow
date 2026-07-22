@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: Cycle 18
 milestone_name: milestone
-current_phase: 106
+current_phase: 106 (ready to plan)
 current_plan: none
-status: phase_complete
-stopped_at: Phase 106 (partial-quantity tuning + add basics) EXECUTED & VERIFIED 2026-07-22 — all 5 waves built by Codex, reviewed/verified by Claude. Adjustment layer (signed copy-delta + add-basics) live: model+Derive fold (01), consumer fold + synthetic basics + BuildState preserve (02), overflow-safe legality endpoints (03), inline tuner UI + exact-100 export gates + under-100 branch (04), interactions/export polish + tune-to-100 e2e (05). Review caught + fixed a real defect (JS buildSnapshotFromDom dropped QuantityAdjustments → scenario save wiped tuning; one-line passthrough + vitest regression). Gates: build 0 err (9 pre-existing CS8629 only), CutLab xUnit 354/0, vitest 18f/72, tuning e2e 6/6 (desktop+mobile). NEXT — Phase 107 (cleanup) OR close: user push (25 commits unpushed on gsd/cycle18-cut-lab, flag tool.cut-lab.enabled OFF). Debt for phase-end /simplify: unused normalizedCardName local in CutLabAdjustmentApplier; Codex commit bodies carry literal \n.
-last_updated: "2026-07-22T14:30:00.000Z"
+status: "Milestone reopened — Phases 106 (feature) + 107 (cleanup) added. Phase 106 design approved: Approach B (`CutLabState.QuantityAdjustments` signed copy-delta layer + `Derive` second pass), inline +/- steppers on the Decide workspace, add-basics from constants (no Scryfall), singleton legality enforced, export patch already quantity-aware. Next: `/gsd-plan-phase 106`."
+stopped_at: Phase 107 context gathered
+last_updated: "2026-07-22T17:20:21.756Z"
 last_activity: 2026-07-22
 progress:
   total_phases: 7
   completed_phases: 6
-  total_plans: 30
-  completed_plans: 30
+  total_plans: 35
+  completed_plans: 35
   percent: 86
 ---
 
@@ -41,5 +41,5 @@ Plan: none active
 
 ## Session Continuity
 
-**Stopped At:** Phase 105 planned + converged — next: /gsd-execute-phase 105
-**Resume File:** .planning/workstreams/cut-lab/phases/105-builder-compatible-export/ (105-01..105-05 PLANs, 105-CONTEXT/RESEARCH/VALIDATION)
+**Stopped At:** Phase 107 context gathered
+**Resume File:** .planning/workstreams/cut-lab/phases/107-cut-lab-tech-debt-cleanup/107-CONTEXT.md
