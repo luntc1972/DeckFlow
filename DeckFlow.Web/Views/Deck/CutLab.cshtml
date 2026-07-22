@@ -464,57 +464,56 @@
             }
         </section>
 
-        <section class="result-panel">
+        <section class="result-panel" data-cut-lab-structural-findings>
             <div class="panel-heading">
                 <div>
                     <h2>Structural findings</h2>
                     <p>Measured observations about your pool's shape. Nothing here says a card is bad — it says what the numbers show.</p>
                 </div>
+                    <div class="panel-heading__actions" data-cut-lab-findings-count-slot>
+                        <span class="prompt-size-note cutlab-findings-count@(totalStructuralFindings > 0 ? string.Empty : " hidden")">@(totalStructuralFindings > 0 ? $"{totalStructuralFindings} structural findings" : string.Empty)</span>
+                    </div>
+            </div>
+
+            <div data-cut-lab-structural-findings-body>
                 @if (totalStructuralFindings > 0)
                 {
-                    <div class="panel-heading__actions">
-                        <span class="prompt-size-note cutlab-findings-count">@totalStructuralFindings structural findings</span>
-                    </div>
+                    @foreach (var findingGroup in Model.FindingGroups)
+                    {
+                        <div class="cutlab-finding">
+                            <p class="cutlab-finding__heading">@findingGroup.Heading</p>
+                            @foreach (var finding in findingGroup.Items)
+                            {
+                                <div class="cutlab-finding__item">
+                                    <p class="cutlab-finding__lead">@finding.Lead</p>
+                                    @if (finding.Evidence.Count > 0)
+                                    {
+                                        <div class="kb-chip-area__chips">
+                                            @foreach (var evidence in finding.Evidence)
+                                            {
+                                                <span class="kb-chip">@evidence</span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <p>No structural issues found. Your pool's curve, themes, finishers, and role coverage all look self-supporting at the current floors.</p>
                 }
             </div>
 
-            @if (totalStructuralFindings > 0)
-            {
-                @foreach (var findingGroup in Model.FindingGroups)
-                {
-                    <div class="cutlab-finding">
-                        <p class="cutlab-finding__heading">@findingGroup.Heading</p>
-                        @foreach (var finding in findingGroup.Items)
-                        {
-                            <div class="cutlab-finding__item">
-                                <p class="cutlab-finding__lead">@finding.Lead</p>
-                                @if (finding.Evidence.Count > 0)
-                                {
-                                    <div class="kb-chip-area__chips">
-                                        @foreach (var evidence in finding.Evidence)
-                                        {
-                                            <span class="kb-chip">@evidence</span>
-                                        }
-                                    </div>
-                                }
-                            </div>
-                        }
-                    </div>
-                }
-            }
-            else
-            {
-                <p>No structural issues found. Your pool's curve, themes, finishers, and role coverage all look self-supporting at the current floors.</p>
-            }
-
             @if (Model.ComboDataUnavailable)
             {
-                <p class="cutlab-degradation-note">Combo data unavailable right now — win-condition and enabler-starved reads are incomplete. Re-run the import to try again.</p>
+                <p class="cutlab-degradation-note" data-cut-lab-degradation="combo">Combo data unavailable right now — win-condition and enabler-starved reads are incomplete. Re-run the import to try again.</p>
             }
 
             @if (Model.CategoryDataUnavailable)
             {
-                <p class="cutlab-degradation-note">Community category data unavailable — subtheme detection fell back to card-text heuristics only.</p>
+                <p class="cutlab-degradation-note" data-cut-lab-degradation="category">Community category data unavailable — subtheme detection fell back to card-text heuristics only.</p>
             }
         </section>
 

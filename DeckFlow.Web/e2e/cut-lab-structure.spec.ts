@@ -136,6 +136,30 @@ test('renders the three structure sections with 8 collapsed role groups and 8 fl
   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
 });
 
+test('live-patches the structural findings section after a JS decide without a reload', async ({ page }) => {
+  await importPool(page);
+  await waitForCutRounds(page);
+
+  const findingsSection = page.locator('[data-cut-lab-structural-findings]');
+  const findingsBody = findingsSection.locator('[data-cut-lab-structural-findings-body]');
+  const beforeBodyText = await findingsBody.textContent();
+  const beforeSectionText = await findingsSection.textContent();
+  const navigationCountBefore = await page.evaluate(() => performance.getEntriesByType('navigation').length);
+
+  const responsePromise = page.waitForResponse(response =>
+    response.url().includes('/api/cut-lab/decide') && response.request().method() === 'POST');
+
+  await acceptCurrentProposal(page);
+
+  const response = await responsePromise;
+  expect(response.ok()).toBeTruthy();
+
+  await expect(findingsBody).not.toHaveText(beforeBodyText ?? '');
+  await expect(findingsSection).not.toHaveText(beforeSectionText ?? '');
+  expect(await page.evaluate(() => performance.getEntriesByType('navigation').length)).toBe(navigationCountBefore);
+  await expect(page).toHaveURL(`${baseUrl}/cut-lab`);
+});
+
 test('opens the Lands group, shows member chips, and toggles land rows from the group pill', async ({ page }) => {
   await importPool(page);
 

@@ -116,6 +116,19 @@ interface CutLabDecisionCutRecord {
   ordinal: number;
 }
 
+interface CutLabDecisionFinding {
+  kind: string;
+  heading: string;
+  lead: string;
+  evidence: string[];
+}
+
+interface CutLabDecisionFindingGroup {
+  kind: string;
+  heading: string;
+  items: CutLabDecisionFinding[];
+}
+
 interface ScenarioIndexEntry {
   id: string;
   name: string;
@@ -131,6 +144,9 @@ interface CutLabDecisionResponse {
   floorWarnings: CutLabDecisionFloorWarning[];
   cardsRemaining: number;
   cutsMade: CutLabDecisionCutRecord[];
+  structuralFindings: CutLabDecisionFindingGroup[];
+  comboDataAvailable: boolean;
+  categoryDataAvailable: boolean;
 }
 
 interface CutLabWhatifResponse {
@@ -194,6 +210,8 @@ const formatCountLabel = (count: number, singular: string, plural: string): stri
 const formatCutsMadeCount = (count: number): string => formatCountLabel(count, 'card', 'cards');
 
 const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(count, 'cut', 'cuts')} so far`;
+
+const formatStructuralFindingsCount = (count: number): string => formatCountLabel(count, 'structural finding', 'structural findings');
 
 (function (root: CutLabRoot): void {
   const getScenarioSlotKey = (id: string): string => `${SCENARIO_SLOT_PREFIX}${id}`;
@@ -479,6 +497,12 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     section?.setAttribute('data-cut-lab-cuts-made-section', 'true');
     return section;
   };
+
+  const getStructuralFindingsSection = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cut-lab-structural-findings]');
+
+  const getStructuralFindingsBody = (): HTMLDivElement | null =>
+    document.querySelector<HTMLDivElement>('[data-cut-lab-structural-findings-body]');
 
   const getErrorBanner = (): HTMLElement | null =>
     document.querySelector<HTMLElement>('.error-banner');
@@ -1323,6 +1347,57 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
     });
   };
 
+  const renderStructuralFindings = (response: CutLabDecisionResponse): void => {
+    const section = getStructuralFindingsSection();
+    const body = getStructuralFindingsBody();
+    if (!section || !body) {
+      return;
+    }
+
+    const totalFindings = response.structuralFindings.reduce((count, group) => count + group.items.length, 0);
+    const countBadge = section.querySelector<HTMLElement>('[data-cut-lab-findings-count-slot] .cutlab-findings-count');
+    if (countBadge) {
+      countBadge.textContent = totalFindings > 0 ? formatStructuralFindingsCount(totalFindings) : '';
+      countBadge.classList.toggle('hidden', totalFindings === 0);
+    }
+
+    if (totalFindings === 0) {
+      replaceChildren(body, [
+        createTextElement('p', '', "No structural issues found. Your pool's curve, themes, finishers, and role coverage all look self-supporting at the current floors."),
+      ]);
+    } else {
+      replaceChildren(body, response.structuralFindings.map(group => {
+        const groupElement = document.createElement('div');
+        groupElement.className = 'cutlab-finding';
+        groupElement.appendChild(createTextElement('p', 'cutlab-finding__heading', group.heading));
+
+        group.items.forEach(item => {
+          const itemElement = document.createElement('div');
+          itemElement.className = 'cutlab-finding__item';
+          itemElement.appendChild(createTextElement('p', 'cutlab-finding__lead', item.lead));
+
+          if (item.evidence.length > 0) {
+            const chips = document.createElement('div');
+            chips.className = 'kb-chip-area__chips';
+            item.evidence.forEach(evidence => {
+              chips.appendChild(createTextElement('span', 'kb-chip', evidence));
+            });
+            itemElement.appendChild(chips);
+          }
+
+          groupElement.appendChild(itemElement);
+        });
+
+        return groupElement;
+      }));
+    }
+
+    section.querySelector<HTMLElement>('[data-cut-lab-degradation="combo"]')
+      ?.classList.toggle('hidden', response.comboDataAvailable);
+    section.querySelector<HTMLElement>('[data-cut-lab-degradation="category"]')
+      ?.classList.toggle('hidden', response.categoryDataAvailable);
+  };
+
   const renderFloorWarnings = (proposal: HTMLDivElement, warnings: CutLabDecisionFloorWarning[]): void => {
     proposal.querySelectorAll('.cutlab-proposal__floor-warning').forEach(node => {
       node.remove();
@@ -2122,6 +2197,7 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
       renderRoundBanner(data.nextProposal);
       renderProposalCard(data, antiForgeryToken);
       renderCutsMade(data.cutsMade, data.cutLabStateJson, antiForgeryToken, payload.decision === 'restore');
+      renderStructuralFindings(data);
       if (payload.decision === 'restore') {
         renderCutsMadeStatus('data-cut-lab-restore-confirmation', `${payload.cardName} restored — metrics recalculating…`);
       }
