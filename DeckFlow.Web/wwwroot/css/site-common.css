@@ -4649,6 +4649,10 @@ tr[data-cut-lab-tuner-row]:has(.cutlab-tuner-badge--added) {
 }
 
 .cutlab-tuner__add-basic {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
   margin-top: 1.5rem;
 }
 
