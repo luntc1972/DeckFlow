@@ -709,6 +709,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             Pool = pool,
             Packages = priorState.Packages,
             Decisions = priorState.Decisions,
+            QuantityAdjustments = priorState.QuantityAdjustments,
             OriginalEntries = priorState.OriginalEntries,
             Goals = priorState.Goals,
             BaselineSnapshot = priorState.BaselineSnapshot,
