@@ -102,8 +102,6 @@ internal sealed class CutLabPageService : ICutLabPageService
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IScryfallCardResolver _cardResolver;
     private readonly ICommanderBanListService _banListService;
-    private readonly ICategoryKnowledgeStore? _categoryKnowledge;
-    private readonly ICommanderSpellbookService? _spellbook;
     private readonly IManabaseBaselineProvider? _manabaseBaseline;
     private readonly ICedhLandBaselineProvider? _cedhBaseline;
     private readonly ICutLabAnalysisContextBuilder _analysisContextBuilder;
@@ -114,8 +112,6 @@ internal sealed class CutLabPageService : ICutLabPageService
     /// <param name="deckEntryLoader">Deck loader for URL/paste imports.</param>
     /// <param name="cardResolver">Scryfall resolver for type-line lookup.</param>
     /// <param name="banListService">Commander banlist service.</param>
-    /// <param name="categoryKnowledge">Optional batched category lookup dependency for structural analysis.</param>
-    /// <param name="spellbook">Optional combo lookup dependency for structural analysis.</param>
     /// <param name="manabaseBaseline">Optional bracket baseline dependency for structural analysis.</param>
     /// <param name="cedhBaseline">Optional cEDH commander baseline dependency for structural analysis.</param>
     /// <param name="analysisContextBuilder">Optional shared builder for resolved-card, classification, and role-assignment analysis.</param>
@@ -125,8 +121,6 @@ internal sealed class CutLabPageService : ICutLabPageService
         IDeckEntryLoader deckEntryLoader,
         IScryfallCardResolver cardResolver,
         ICommanderBanListService banListService,
-        ICategoryKnowledgeStore? categoryKnowledge = null,
-        ICommanderSpellbookService? spellbook = null,
         IManabaseBaselineProvider? manabaseBaseline = null,
         ICedhLandBaselineProvider? cedhBaseline = null,
         ICutLabAnalysisContextBuilder? analysisContextBuilder = null,
@@ -140,13 +134,11 @@ internal sealed class CutLabPageService : ICutLabPageService
         _deckEntryLoader = deckEntryLoader;
         _cardResolver = cardResolver;
         _banListService = banListService;
-        _categoryKnowledge = categoryKnowledge;
-        _spellbook = spellbook;
         _manabaseBaseline = manabaseBaseline;
         _cedhBaseline = cedhBaseline;
         CutLabResolvedCardCache sharedResolvedCardCache = new();
         _analysisContextBuilder = analysisContextBuilder
-            ?? new CutLabAnalysisContextBuilder(cardResolver, sharedResolvedCardCache, spellbook, categoryKnowledge);
+            ?? new CutLabAnalysisContextBuilder(cardResolver, sharedResolvedCardCache);
         _simulationService = simulationService
             ?? NoOpCutLabSimulationService.Instance;
         _logger = logger ?? NullLogger<CutLabPageService>.Instance;
@@ -157,9 +149,7 @@ internal sealed class CutLabPageService : ICutLabPageService
     /// actually registered in the production container shape.
     /// </summary>
     internal bool HasStructuralAnalysisDependencies =>
-        _categoryKnowledge is not null
-        && _spellbook is not null
-        && _manabaseBaseline is not null
+        _manabaseBaseline is not null
         && _cedhBaseline is not null
         && !ReferenceEquals(_simulationService, NoOpCutLabSimulationService.Instance);
 

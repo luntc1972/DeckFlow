@@ -943,12 +943,16 @@ public sealed class CutLabPageServiceTests
         var cards = BuildResolvedCards(entries);
         var categoryStore = new FakeCategoryKnowledgeStore();
         var spellbook = new FakeSpellbookService();
+        var analysisBuilder = new CutLabAnalysisContextBuilder(
+            new FakeResolver(cards),
+            new CutLabResolvedCardCache(),
+            spellbook,
+            categoryStore);
         var service = new CutLabPageService(
             new FakeLoader(entries),
             new FakeResolver(cards),
             new FakeBanListService([]),
-            categoryStore,
-            spellbook);
+            analysisContextBuilder: analysisBuilder);
         var request = new CutLabRequest
         {
             DeckInputSource = DeckInputSource.PasteText,
@@ -1051,12 +1055,10 @@ public sealed class CutLabPageServiceTests
             new FakeLoader(entries),
             resolver,
             new FakeBanListService([]),
-            new FakeCategoryKnowledgeStore(),
-            new FakeSpellbookService(),
             new FakeManabaseBaselineProvider(),
             new FakeCedhLandBaselineProvider(),
-            analysisBuilder,
-            simulationService);
+            analysisContextBuilder: analysisBuilder,
+            simulationService: simulationService);
         var request = new CutLabRequest
         {
             DeckInputSource = DeckInputSource.PasteText,
@@ -1120,12 +1122,10 @@ public sealed class CutLabPageServiceTests
             new FakeLoader(entries),
             resolver,
             new FakeBanListService([]),
-            new FakeCategoryKnowledgeStore(),
-            new FakeSpellbookService(),
             new FakeManabaseBaselineProvider(),
             new FakeCedhLandBaselineProvider(),
-            analysisBuilder,
-            simulationService);
+            analysisContextBuilder: analysisBuilder,
+            simulationService: simulationService);
 
         var result = await service.ProcessAsync(new CutLabRequest
         {
@@ -1360,12 +1360,10 @@ public sealed class CutLabPageServiceTests
             new FakeLoader(entries),
             resolver,
             new FakeBanListService([]),
-            new FakeCategoryKnowledgeStore(),
-            new FakeSpellbookService(),
             new FakeManabaseBaselineProvider(),
             new FakeCedhLandBaselineProvider(),
-            analysisBuilder,
-            simulationService);
+            analysisContextBuilder: analysisBuilder,
+            simulationService: simulationService);
         var request = new CutLabRequest
         {
             DeckInputSource = DeckInputSource.PasteText,
@@ -1410,12 +1408,10 @@ public sealed class CutLabPageServiceTests
             new FakeLoader(entries),
             resolver,
             new FakeBanListService([]),
-            new FakeCategoryKnowledgeStore(),
-            new FakeSpellbookService(),
             new FakeManabaseBaselineProvider(),
             new FakeCedhLandBaselineProvider(),
-            analysisBuilder,
-            simulationService);
+            analysisContextBuilder: analysisBuilder,
+            simulationService: simulationService);
 
         var result = await service.ProcessAsync(new CutLabRequest
         {
@@ -1473,12 +1469,10 @@ public sealed class CutLabPageServiceTests
             new FakeLoader(entries),
             resolver,
             new FakeBanListService([]),
-            new FakeCategoryKnowledgeStore(),
-            new FakeSpellbookService(),
             new FakeManabaseBaselineProvider(),
             new FakeCedhLandBaselineProvider(),
-            analysisBuilder,
-            simulationService);
+            analysisContextBuilder: analysisBuilder,
+            simulationService: simulationService);
 
         var request = new CutLabRequest
         {
@@ -1711,12 +1705,16 @@ public sealed class CutLabPageServiceTests
     {
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
         var cards = BuildResolvedCards(entries);
+        var analysisBuilder = new CutLabAnalysisContextBuilder(
+            new FakeResolver(cards),
+            new CutLabResolvedCardCache(),
+            new FakeSpellbookService { Exception = new OperationCanceledException("cancel spellbook") },
+            new FakeCategoryKnowledgeStore());
         var service = new CutLabPageService(
             new FakeLoader(entries),
             new FakeResolver(cards),
             new FakeBanListService([]),
-            new FakeCategoryKnowledgeStore(),
-            new FakeSpellbookService { Exception = new OperationCanceledException("cancel spellbook") });
+            analysisContextBuilder: analysisBuilder);
         var request = new CutLabRequest
         {
             DeckInputSource = DeckInputSource.PasteText,
@@ -1731,12 +1729,16 @@ public sealed class CutLabPageServiceTests
     {
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
         var cards = BuildResolvedCards(entries);
+        var analysisBuilder = new CutLabAnalysisContextBuilder(
+            new FakeResolver(cards),
+            new CutLabResolvedCardCache(),
+            new FakeSpellbookService(),
+            new ThrowingCategoryKnowledgeStore(new OperationCanceledException("cancel categories")));
         var service = new CutLabPageService(
             new FakeLoader(entries),
             new FakeResolver(cards),
             new FakeBanListService([]),
-            new ThrowingCategoryKnowledgeStore(new OperationCanceledException("cancel categories")),
-            new FakeSpellbookService());
+            analysisContextBuilder: analysisBuilder);
         var request = new CutLabRequest
         {
             DeckInputSource = DeckInputSource.PasteText,
@@ -1761,7 +1763,7 @@ public sealed class CutLabPageServiceTests
     [Fact]
     public void CutLabPageService_DiGuardFailsWhenOptionalAnalysisRegistrationDrops()
     {
-        using ServiceProvider provider = BuildDiGuardProvider(omitCategoryKnowledge: true);
+        using ServiceProvider provider = BuildDiGuardProvider(omitManabaseBaseline: true);
         using IServiceScope scope = provider.CreateScope();
 
         var service = Assert.IsType<CutLabPageService>(scope.ServiceProvider.GetRequiredService<ICutLabPageService>());
@@ -1827,15 +1829,18 @@ public sealed class CutLabPageServiceTests
             new FakeLoader(entries),
             new FakeResolver(cards),
             new FakeBanListService([]),
-            categoryStore,
-            spellbook,
             new FakeManabaseBaselineProvider(new ManabaseBracketBaseline
             {
                 Bracket = 4,
                 AvgLands = 38.0,
                 DeckCount = 100,
             }),
-            new FakeCedhLandBaselineProvider());
+            new FakeCedhLandBaselineProvider(),
+            analysisContextBuilder: new CutLabAnalysisContextBuilder(
+                new FakeResolver(cards),
+                new CutLabResolvedCardCache(),
+                spellbook,
+                categoryStore));
         var request = new CutLabRequest
         {
             DeckInputSource = DeckInputSource.PasteText,
@@ -2133,31 +2138,32 @@ public sealed class CutLabPageServiceTests
             collectorNumber,
             Cmc: cmc);
 
-    private static ServiceProvider BuildDiGuardProvider(bool omitCategoryKnowledge = false, bool omitSimulationService = false)
+    private static ServiceProvider BuildDiGuardProvider(bool omitManabaseBaseline = false, bool omitSimulationService = false)
     {
         var services = new ServiceCollection();
         services.AddSingleton<IDeckEntryLoader>(new FakeLoader([]));
         services.AddSingleton<IScryfallCardResolver>(new FakeResolver([]));
         services.AddSingleton<ICommanderBanListService>(new FakeBanListService([]));
-        if (!omitCategoryKnowledge)
+        if (!omitManabaseBaseline)
         {
-            services.AddSingleton<ICategoryKnowledgeStore>(new FakeCategoryKnowledgeStore());
+            services.AddSingleton<IManabaseBaselineProvider>(new FakeManabaseBaselineProvider());
         }
 
-        services.AddSingleton<ICommanderSpellbookService>(new FakeSpellbookService());
-        services.AddSingleton<IManabaseBaselineProvider>(new FakeManabaseBaselineProvider());
         services.AddSingleton<ICedhLandBaselineProvider>(new FakeCedhLandBaselineProvider());
         services.AddLogging();
         services.AddSingleton<CutLabResolvedCardCache>();
         services.AddSingleton<CutLabDeltaCache>();
         services.AddScoped<ICutLabAnalysisContextBuilder, CutLabAnalysisContextBuilder>();
+        services.AddSingleton<ICategoryKnowledgeStore>(new FakeCategoryKnowledgeStore());
+        services.AddSingleton<ICommanderSpellbookService>(new FakeSpellbookService());
         if (!omitSimulationService)
         {
             services.AddScoped<ICutLabSimulationService, CutLabSimulationService>();
         }
 
         // Optional ctor params default to null when a registration is missing; this guard catches
-        // a Program.cs regression by proving the plain AddScoped shape still resolves all four deps.
+        // a Program.cs regression by proving the plain AddScoped shape still resolves the builder,
+        // baselines, and simulation dependencies.
         services.AddScoped<ICutLabPageService, CutLabPageService>();
         return services.BuildServiceProvider();
     }
