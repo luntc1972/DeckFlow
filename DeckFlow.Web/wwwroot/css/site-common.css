@@ -2549,6 +2549,14 @@ label.field > span,
   font-weight: 600;
 }
 
+/* Why: button-only because radio pills stay :has()-driven. */
+button.manabase-pill.is-selected {
+  background: var(--accent, #3858a6);
+  border-color: var(--accent, #3858a6);
+  color: var(--on-accent, #fff);
+  font-weight: 600;
+}
+
 /* Keyboard focus must be visible even though the native radio is hidden. */
 .manabase-pill > input:focus-visible + span {
   outline: 2px solid var(--focus, var(--accent-strong, var(--accent, #3858a6)));

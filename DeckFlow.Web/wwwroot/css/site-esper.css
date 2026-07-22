@@ -46,6 +46,7 @@
   /* semantic color tokens (UI-VS-02) — defaults track each theme's --accent */
   --link:        var(--accent-strong);
   --danger:      #c53030;
+  --cutlab-delta-down: #fc8181;
   --cta-border:  var(--accent-strong);
   --focus:       var(--accent-strong);
 
@@ -55,6 +56,7 @@
   --bg-default:      var(--bg);
   --info-default:    var(--info);
   --success:         #2f855a;
+  --cutlab-delta-up: #4ade80;
   --error-strong:    #c53030;
   --gold-warning:    #c8a040;
   --line-cool:       #8aaac8;
