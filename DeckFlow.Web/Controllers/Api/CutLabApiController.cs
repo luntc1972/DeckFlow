@@ -256,6 +256,11 @@ public sealed class CutLabApiController : ControllerBase
                 request.CardOut,
                 CutLabDecideAction.Accept,
                 CutLabCutRoundEngine.WhatifSwapKey);
+            // Why: the overshoot guard can refuse the replacement cut, so a half-applied swap must be rejected.
+            if (afterSwap.Decisions.Count == afterRestore.Decisions.Count)
+            {
+                return Task.FromResult<ActionResult<CutLabWhatifApiResponse>>(BadRequest(new { Message = CutLabMessages.NoChangeMessage }));
+            }
 
             return Task.FromResult<ActionResult<CutLabWhatifApiResponse>>(Ok(new CutLabWhatifApiResponse
             {
