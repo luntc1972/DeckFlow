@@ -1,3 +1,5 @@
+using DeckFlow.Web.Services.CutLab;
+
 namespace DeckFlow.Web.Models;
 
 /// <summary>Shared presenter for Cut Lab structural findings across Razor and JSON surfaces.</summary>
