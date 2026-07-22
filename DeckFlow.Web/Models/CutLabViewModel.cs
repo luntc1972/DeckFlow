@@ -178,7 +178,7 @@ public sealed record CutLabViewModel
         IReadOnlyList<CutLabCutMadeRowView> cutsMade = BuildCutsMade(result.State?.Decisions);
         int baselineCount = pool.Sum(card => card.Quantity);
         int currentCount = derivedWorkingList.Sum(card => card.Quantity);
-        IReadOnlyList<string> whatifCardOutOptions = BuildWhatifCardOutOptions(pool, result.State?.Decisions, adjustments);
+        IReadOnlyList<string> whatifCardOutOptions = BuildWhatifCardOutOptions(derivedWorkingList);
         IReadOnlyList<string> whatifCardInOptions = BuildWhatifCardInOptions(pool, result.State?.Decisions);
         IReadOnlyList<CutLabGoalRowView> goalRows = BuildGoalRows(
             result.State?.Goals ?? new(),
@@ -354,13 +354,19 @@ public sealed record CutLabViewModel
         Dictionary<string, string> result = new(StringComparer.OrdinalIgnoreCase);
         foreach (CutLabPoolCard card in pool)
         {
-            result[card.Name] = roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles)
-                ? string.Join(" · ", roles.Select(DisplayLabelFor))
-                : string.Empty;
+            result[card.Name] = RoleLabelFor(card.Name, roleAssignmentsByCardName);
         }
 
         return result;
     }
+
+    /// <summary>Formats a card's assigned roles into the shared " · "-joined display label.</summary>
+    private static string RoleLabelFor(
+        string cardName,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName)
+        => roleAssignmentsByCardName.TryGetValue(cardName, out IReadOnlyList<string>? roles)
+            ? string.Join(" · ", roles.Select(DisplayLabelFor))
+            : string.Empty;
 
     private static IReadOnlyDictionary<string, string> BuildRoleKeysByCardName(
         IReadOnlyList<CutLabPoolCard> pool,
@@ -626,9 +632,7 @@ public sealed record CutLabViewModel
                 bool isLegalMultiple = CutLabLegality.IsLegalMultiple(card.Name);
                 bool isAddedBasic = CutLabBasicLands.Contains(card.Name)
                     && !originalPoolNames.Contains(CutLabCardNames.Normalize(card.Name));
-                string roleLabel = roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles)
-                    ? string.Join(" · ", roles.Select(DisplayLabelFor))
-                    : string.Empty;
+                string roleLabel = RoleLabelFor(card.Name, roleAssignmentsByCardName);
 
                 return new CutLabTunableRowView
                 {
@@ -671,16 +675,9 @@ public sealed record CutLabViewModel
     }
 
     private static IReadOnlyList<string> BuildWhatifCardOutOptions(
-        IReadOnlyList<CutLabPoolCard> pool,
-        IReadOnlyList<CutLabDecision>? decisions,
-        IReadOnlyList<CutLabQuantityAdjustment>? adjustments)
+        IReadOnlyList<CutLabPoolCard> derivedWorkingList)
     {
-        if (pool.Count == 0)
-        {
-            return [];
-        }
-
-        return CutLabWorkingList.Derive(pool, decisions ?? [], adjustments ?? [])
+        return derivedWorkingList
             .Where(card => !card.IsLocked && !card.IsCommander)
             .Select(card => card.Name)
             .Distinct(StringComparer.OrdinalIgnoreCase)

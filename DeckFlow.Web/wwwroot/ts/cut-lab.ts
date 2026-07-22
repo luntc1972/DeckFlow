@@ -1946,10 +1946,9 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
       const cutsMade = buildCutsMadeFromSerializedState(data.cutLabStateJson);
       renderCutsMade(cutsMade, data.cutLabStateJson, antiForgeryToken, false);
       patchStickyAcceptedCount(cutsMade.length);
-      const cardsRemaining = cardsRemainingFromSerializedState(data.cutLabStateJson);
-      if (cardsRemaining !== null) {
-        const currentCount = currentCountFromSerializedState(data.cutLabStateJson);
-        setExportEnabled(currentCount === null ? cardsRemaining === 0 : currentCount === 100);
+      const currentCount = currentCountFromSerializedState(data.cutLabStateJson);
+      if (currentCount !== null) {
+        setExportEnabled(currentCount === 100);
       }
       updateWhatifSelectOptionsAfterKeep(data.cardOut, data.cardIn);
       clearWhatifPreview();

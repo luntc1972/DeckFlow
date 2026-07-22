@@ -232,10 +232,11 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         }
 
         seededCards = AugmentResolvedCardsWithSyntheticBasics(workingList, filteredCards);
-        return seededCards.Count == workingList
-            .Select(card => CutLabCardNames.Normalize(card.Name))
-            .Distinct(CutLabCardNames.Comparer)
-            .Count();
+
+        // `seen` already holds every distinct normalized working-list name (its Add runs for
+        // each card as the first operand of the || above), so reuse its count instead of a
+        // second normalize+distinct pass over the whole working list.
+        return seededCards.Count == seen.Count;
     }
 
     internal void PrimeResolvedCardsCache(

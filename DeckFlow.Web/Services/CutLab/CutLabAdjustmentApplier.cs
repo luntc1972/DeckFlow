@@ -18,7 +18,6 @@ public static class CutLabAdjustmentApplier
         ArgumentNullException.ThrowIfNull(state);
         ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
 
-        string normalizedCardName = CutLabCardNames.Normalize(cardName);
         CutLabPoolCard? poolCard = state.Pool.FirstOrDefault(card => string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase));
         if (poolCard is not null && poolCard.IsLocked)
         {
