@@ -2,6 +2,7 @@
 
 ## Milestones
 
+- [ACTIVE] **Cycle 19 - Cut Lab Upgrade Hardening** - Phases 108-111 (started 2026-07-23) - promotes `.planning/milestones/ws-cut-lab-2026-07-23/BACKLOG-cut-lab-followups-2026-07-22.md`
 - [SHIPPED] **Cycle 16 - Content-KB Prod<->Git<->Studio Sync Hardening** - Phases 88-93 (shipped 2026-07-11, `2026.07.3`) - see `.planning/milestones/cycle16-ROADMAP.md`
 - â **2026.07.2 Cycle 15 â Cleanup, Refactor & Visual Polish** â Phases 82â87 (shipped 2026-07-05) â see .planning/milestones/2026.07.2-ROADMAP.md
 - â **Cycle 14 â Deeper Deck Evaluation** â Phases 79-81 (shipped 2026-07-03, `2026.07.1`) â see `.planning/milestones/cycle14-ROADMAP.md`
@@ -23,10 +24,17 @@
 ## Phases
 
 **Phase Numbering:**
-- Integer phases (88, 89, ...): Planned milestone work
-- Decimal phases (88.1, 88.2): Urgent insertions (marked with INSERTED)
+- Integer phases (108, 109, ...): Planned Cycle 19 milestone work
+- Decimal phases (108.1, 108.2): Urgent insertions (marked with INSERTED)
 
-Decimal phases appear between their surrounding integers in numeric order. Numbering continues from Cycle 15's Phase 87.
+Decimal phases appear between their surrounding integers in numeric order. Numbering continues after shipped Cut Lab phases 101-107.
+
+### Cycle 19: Cut Lab Upgrade Hardening
+
+- [ ] **Phase 108: Server-Authored Cut Lab UI Patch Contract** - Replace client-side domain re-derivation in `cut-lab.ts` with patch DTOs returned by Cut Lab mutation endpoints.
+- [ ] **Phase 109: What-If Service Consolidation** - Move preview and commit behavior into one service shared by JSON and no-JS paths.
+- [ ] **Phase 110: Mobile Step Navigation** - Add Cut-Lab-scoped sticky jump navigation for mobile while preserving server-submit tabs and no-JS behavior.
+- [ ] **Phase 111: Cut Lab Upgrade Regression Gate** - Verify card-pill locking, Structural evidence behavior, themes, and full Cut Lab suites across the upgraded surfaces.
 
 <details>
 <summary>Cycle 16 (Phases 88-93) - SHIPPED 2026-07-11 (2026.07.3)</summary>
@@ -56,15 +64,53 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
 
 ## Phase Details
 
-All Cycle 16 phase details are archived in `.planning/milestones/cycle16-ROADMAP.md`.
+### Phase 108: Server-Authored Cut Lab UI Patch Contract
+**Goal**: Cut Lab's live UI renders server-authored state after every mutation instead of rebuilding C# domain rules in TypeScript.
+**Depends on**: Cycle 18 Cut Lab shipped archive; current structural card-pill fix on `main`
+**Requirements**: CLUP-01, CLUP-02, CLUP-03
+**Success Criteria**:
+  1. JSON decide/adjust/what-if mutations return a typed patch DTO with serialized state, count, cards remaining, export eligibility, proposal/finding rows, and what-if options.
+  2. `cut-lab.ts` stops computing quantity legality, accepted-cut summaries, and export eligibility independently where the patch supplies those values.
+  3. JSON and no-JS round trips produce matching visible state for counts, export eligibility, and floor/quantity warnings.
+
+### Phase 109: What-If Service Consolidation
+**Goal**: One service owns Cut Lab what-if preview and commit rules for both transport paths.
+**Depends on**: Phase 108
+**Requirements**: CLUP-04, CLUP-05
+**Success Criteria**:
+  1. `ICutLabWhatifService` exposes preview and commit operations consumed by the API controller and no-JS controller action.
+  2. Commit remains atomic and preview remains non-destructive.
+  3. Commander locks, quantity legality, floor warnings, and swap eligibility are covered by shared tests rather than duplicate controller assertions.
+
+### Phase 110: Mobile Step Navigation
+**Goal**: Mobile users can move between Cut Lab sections without scrolling through the full long page manually.
+**Depends on**: Phase 108
+**Requirements**: CLUP-06, CLUP-07, CLUP-08
+**Success Criteria**:
+  1. Process, Decide, Goals, and Export sections have stable anchors and mobile-friendly jump controls.
+  2. Existing submit-driven workflow tabs still submit when they need server work; JS enhancement only scrolls when it is safe to do so.
+  3. Classic, Nyx, and Commander Table mobile screenshots show no text overlap or unreadable control states.
+
+### Phase 111: Cut Lab Upgrade Regression Gate
+**Goal**: Prove the hardening did not regress shipped Cut Lab flows or the newly fixed card-pill locking behavior.
+**Depends on**: Phases 108-110
+**Requirements**: CLUP-09, CLUP-10
+**Success Criteria**:
+  1. Role-group and Structural evidence card pills lock/unlock canonical pool cards; unmatched Structural evidence is inert.
+  2. Full relevant xUnit, Vitest, TypeScript compile, and focused browser smoke gates pass.
+  3. Findings from verification are either fixed or explicitly recorded as deferred with rationale.
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 88 â 89 â 90 â 91 â 92 â 93
+Phases execute in numeric order: 108 -> 109 -> 110 -> 111
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
+| 108. Server-Authored Cut Lab UI Patch Contract | Cycle 19 | 0/0 | Pending | - |
+| 109. What-If Service Consolidation | Cycle 19 | 0/0 | Pending | - |
+| 110. Mobile Step Navigation | Cycle 19 | 0/0 | Pending | - |
+| 111. Cut Lab Upgrade Regression Gate | Cycle 19 | 0/0 | Pending | - |
 | 82. Refactor-Review Sweep & UI Baseline Audit | 2026.07.2 | 3/3 | Complete | 2026-07-04 |
 | 83. Packet-Service SRP Split | 2026.07.2 | 7/7 | Complete | 2026-07-04 |
 | 84. Theme Semantic-Token Migration | 2026.07.2 | 2/2 | Complete | 2026-07-05 |

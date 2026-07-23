@@ -16,6 +16,18 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 
 **Next:** **Cycle 17 — Creator-Style Deck Intelligence** (`docs/research/creator-style-roadmap.md`) is pre-planned and ships next (creator-style builds KB-derived features on top of a KB that Cycle 16 just made drift-proof). Operator debt from Cycles 12–14 (manual prod deploy + 7 flag flips) is **DONE** (confirmed 2026-07-04). Cycle-16 operator gates outstanding: push branch + squash→main + tag `2026.07.3`, and the FU-3 pre-flip walk before flipping `sync.*` ON (both flags ship OFF). Carry-forward backlog still open: scheduled/bulk harvest (AUTO-03/04), SEO/growth lane (SEO-01..05), matchup/meta-threat read (cedh-meta-gap lane), ADMIN-01 (Flags sorting), a future manabase-engine refactor (needs a numeric-parity harness first), and a KB "commander advice" content class for filtered videos.
 
+## Current Milestone: Cycle 19 — Cut Lab Upgrade Hardening
+
+**Goal:** Reduce Cut Lab drift risk and improve the mobile/operator workflow before the tool moves from dark launch toward broader use.
+
+**Target features:**
+- Replace client-side Cut Lab domain re-derivation with server-authored UI patch DTOs so counts, export eligibility, proposals, finding rows, and serialized state come from one source of truth.
+- Consolidate what-if preview and commit behavior behind a single service used by both JSON and no-JS controller paths.
+- Add Cut-Lab-scoped mobile jump navigation that preserves the current server-submit step behavior and no-JS fallback.
+- Preserve today's shipped card-pill behavior: role-group and Structural card evidence pills lock/unlock canonical pool cards, while non-card evidence remains inert.
+
+**Key context:** Cycle 18 shipped and is archived at `.planning/milestones/ws-cut-lab-2026-07-23/`. This milestone promotes the archived follow-up backlog (`BACKLOG-cut-lab-followups-2026-07-22.md`) into active GSD work. Phase numbering continues after the shipped Cut Lab phases 101-107, so Cycle 19 starts at Phase 108. Cycle 17 remains a separate worktree thread and is not part of this milestone.
+
 ## Shipped Milestone: Cycle 16 — Content-KB Prod↔Git↔Studio Sync Hardening (SHIPPED 2026-07-11, `2026.07.3`)
 
 **Goal:** Make the Content-KB publish loop convergent and drift-proof — git is the single source of truth for bodies, the prod index row is subordinate and reconstructable from git, and every sync path (Publish, DirectPush, Pull, seed reload) is an idempotent, body-hash-verified one-way keyed upsert.
