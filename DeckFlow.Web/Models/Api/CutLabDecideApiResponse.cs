@@ -6,6 +6,9 @@ namespace DeckFlow.Web.Models.Api;
 /// <summary>JSON response payload for one applied Cut Lab decision.</summary>
 public sealed record CutLabDecideApiResponse
 {
+    /// <summary>Server-authored live UI patch for the post-decision state.</summary>
+    public CutLabUiPatchDto Patch { get; init; } = new();
+
     /// <summary>Re-serialized working-session state after applying the decision.</summary>
     public string CutLabStateJson { get; init; } = string.Empty;
 
