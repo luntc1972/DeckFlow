@@ -78,20 +78,30 @@ Research finding:
 - Avoid hover-only tooltip behavior for essential card text because it is fragile on mobile and keyboard.
 - Avoid modal-first behavior because Cut Lab users need repeated scan/compare actions inside tables and sections.
 
-Pending requirement decisions:
+Requirement decisions:
 
 | id | question | current recommended default | status |
 |----|----------|-----------------------------|--------|
-| F-C19-Q1 | Should lock/search filters apply only to the main "Lock your pool" table, or also role groups and structural evidence chips? | Main table first; chips remain lock/unlock controls, not filtered views. | OPEN |
-| F-C19-Q2 | Should collapsed sections remember their state during the session, across reloads, or reset each page load? | Remember in browser local storage per deck/page. | OPEN |
-| F-C19-Q3 | Should anchor links mirror Manabase as a top sticky nav, an in-page compact nav, or both desktop/mobile variants? | Compact in-page nav with mobile sticky behavior. | OPEN |
-| F-C19-Q4 | Should oracle text appear in the lock pool only, structural findings only, or every card surface that has a lockable card pill? | Lock pool rows first, then structural/combo evidence via the same disclosure component. | OPEN |
-| F-C19-Q5 | For combo recognition, should the UI show complete combos, near-combos, or both? | Both: complete combo membership and near-combo missing partner state. | OPEN |
-| F-C19-Q6 | Should package assignment directions be a short static help block, inline helper text by the select, or an expandable mini-guide? | Short static help block plus one-line inline helper near the package select. | OPEN |
+| F-C19-Q1 | Should lock/search filters apply only to the main "Lock your pool" table, or also role groups and structural evidence chips? | Main table first; chips remain lock/unlock controls, not filtered views. | APPROVED |
+| F-C19-Q2 | Should collapsed sections remember their state during the session, across reloads, or reset each page load? | Remember in browser local storage per deck/page. | APPROVED |
+| F-C19-Q3 | Should anchor links mirror Manabase as a top sticky nav, an in-page compact nav, or both desktop/mobile variants? | Compact in-page nav with mobile sticky behavior. | APPROVED |
+| F-C19-Q4 | Should oracle text appear in the lock pool only, structural findings only, or every card surface that has a lockable card pill? | Lock pool rows first, then structural/combo evidence via the same disclosure component. | APPROVED |
+| F-C19-Q5 | For combo recognition, should the UI show complete combos, near-combos, or both? | Both: complete combo membership and near-combo missing partner state. | APPROVED |
+| F-C19-Q6 | Should package assignment directions be a short static help block, inline helper text by the select, or an expandable mini-guide? | Short static help block plus one-line inline helper near the package select. | APPROVED |
 
 Approved requirement decisions:
-- None yet for the 2026-07-23 expanded Cycle 19 intake.
+- Main Lock your pool table gets locked-state filtering and card search first; role-group and structural chips remain lock/unlock controls, not separately filtered views.
+- Collapsed section state persists in browser local storage per deck/page.
+- Cut Lab uses compact in-page anchors with mobile sticky jump behavior, borrowing the Manabase page pattern.
+- Oracle context is text-first: lock pool rows first, then structural/combo evidence via the same disclosure component.
+- Combo recognition shows both complete combo membership and near-combo missing partner state.
+- Package assignment gets a short static help block plus one-line inline helper near the package select.
+
+GSD propagation:
+- Approved decisions map to Phase 110, renamed/expanded to Cut Lab Navigation and Pool Discovery.
+- Phase 111 remains the final regression gate and must cover the expanded Phase 110 surfaces.
+- Propagated to `.planning/REQUIREMENTS.md`, `.planning/ROADMAP.md`, `.planning/PROJECT.md`, and `.planning/STATE.md` on 2026-07-23.
 
 ## Next Step
 
-Resolve the Foreman pending requirement decisions above. Then update GSD requirements/roadmap from the approved Foreman entries before running `/gsd-plan-phase 108`.
+Run `/gsd-plan-phase 108` when ready to start implementation planning.
