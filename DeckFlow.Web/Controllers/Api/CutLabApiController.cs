@@ -149,21 +149,23 @@ public sealed class CutLabApiController : ControllerBase
     [ProducesResponseType(typeof(CutLabAdjustApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<ActionResult<CutLabAdjustApiResponse>> PostAdjustAsync([FromBody] CutLabAdjustApiRequest request, CancellationToken cancellationToken)
+    public Task<ActionResult<CutLabAdjustApiResponse>> PostAdjustAsync([FromBody] CutLabAdjustApiRequest request, CancellationToken cancellationToken)
     {
+        _ = cancellationToken;
+
         if (!SameOriginRequestValidator.IsValid(Request))
         {
-            return StatusCode(StatusCodes.Status403Forbidden, new { Message = SameOriginRequestValidator.GetForbiddenMessage() });
+            return Task.FromResult<ActionResult<CutLabAdjustApiResponse>>(StatusCode(StatusCodes.Status403Forbidden, new { Message = SameOriginRequestValidator.GetForbiddenMessage() }));
         }
 
         if (request is null)
         {
-            return BadRequest(new { Message = "Request body is required." });
+            return Task.FromResult<ActionResult<CutLabAdjustApiResponse>>(BadRequest(new { Message = "Request body is required." }));
         }
 
         if (string.IsNullOrWhiteSpace(request.CutLabStateJson) || string.IsNullOrWhiteSpace(request.CardName))
         {
-            return BadRequest(new { Message = "Cut Lab state and card name are required." });
+            return Task.FromResult<ActionResult<CutLabAdjustApiResponse>>(BadRequest(new { Message = "Cut Lab state and card name are required." }));
         }
 
         try
@@ -171,41 +173,29 @@ public sealed class CutLabApiController : ControllerBase
             CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
             if (state.Pool.Count == 0)
             {
-                return BadRequest(new { Message = InvalidStateMessage });
+                return Task.FromResult<ActionResult<CutLabAdjustApiResponse>>(BadRequest(new { Message = InvalidStateMessage }));
             }
 
             IReadOnlyList<string> commanderNames = GetCommanderNames(state);
-            IReadOnlyDictionary<string, int> floorByRole = BuildFloorMap(state.RoleFloors);
             state = CutLabAdjustmentApplier.Apply(state, request.CardName, request.Delta, request.IsAddedBasic);
+            if (_patchBuilder is not CutLabUiPatchBuilder adjustPatchBuilder)
+            {
+                throw new InvalidOperationException("Cut Lab adjust requests require the default UI patch builder.");
+            }
 
-            IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
-            string poolKey = CutLabResolvedCardCache.ComputePoolKey(workingList);
-            CutLabAnalysisContext context = await _contextBuilder.BuildAsync(
-                workingList,
-                state.Intent.PlayExperience,
-                commanderNames,
-                poolKey: poolKey,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-            CutLabUiPatchDto patch = await _patchBuilder.BuildAsync(
-                state,
-                state.Intent.PlayExperience,
-                commanderNames,
-                floorByRole,
-                context.ResolvedCards,
-                poolKey,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
+            CutLabUiPatchDto patch = adjustPatchBuilder.BuildAdjustPatch(state, commanderNames);
 
-            return Ok(new CutLabAdjustApiResponse
+            return Task.FromResult<ActionResult<CutLabAdjustApiResponse>>(Ok(new CutLabAdjustApiResponse
             {
                 Patch = patch,
                 CutLabStateJson = patch.CutLabStateJson,
                 CardsRemaining = patch.CardsRemaining,
-            });
+            }));
         }
         catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
         {
             _logger.LogWarning(exception, "Cut Lab adjust API request failed.");
-            return BadRequest(new { Message = CutLabMessages.NoChangeMessage });
+            return Task.FromResult<ActionResult<CutLabAdjustApiResponse>>(BadRequest(new { Message = CutLabMessages.NoChangeMessage }));
         }
     }
 
