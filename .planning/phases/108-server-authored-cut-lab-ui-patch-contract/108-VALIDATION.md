@@ -5,7 +5,7 @@ status: draft
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-07-23
-review_status: pending_claude_review
+review_status: claude_plan_checker_passed
 ---
 
 # Phase 108 — Validation Strategy
@@ -19,26 +19,29 @@ review_status: pending_claude_review
 | Framework | xUnit, Vitest, TypeScript compiler, Playwright |
 | Config file | `DeckFlow.Web/vitest.config.ts`, `DeckFlow.Web/tsconfig.json`, `DeckFlow.Web/playwright.config.ts` |
 | Quick run command | `dotnet.exe test DeckFlow.Web.Tests --filter CutLabApiControllerTests` |
-| Full suite command | `dotnet.exe test DeckFlow.Web.Tests --filter CutLab && npm test -- --run && node_modules/.bin/tsc --noEmit` |
+| Full suite command | `dotnet.exe test DeckFlow.Web.Tests --filter CutLab && (cd DeckFlow.Web && npm test -- --run) && (cd DeckFlow.Web && node_modules/.bin/tsc --noEmit)` |
 | Estimated runtime | ~120-240 seconds locally |
 
 ## Sampling Rate
 
 - After every task commit: run the task-specific xUnit or Vitest file named in the task.
-- After every plan wave: run `dotnet.exe test DeckFlow.Web.Tests --filter CutLab && npm test -- --run`.
-- Before `/gsd-verify-work`: run `dotnet.exe test DeckFlow.Web.Tests --filter CutLab`, `npm test -- --run`, and `node_modules/.bin/tsc --noEmit`.
+- After every plan wave: run `dotnet.exe test DeckFlow.Web.Tests --filter CutLab && (cd DeckFlow.Web && npm test -- --run)`.
+- Before `/gsd-verify-work`: run `dotnet.exe test DeckFlow.Web.Tests --filter CutLab`, `cd DeckFlow.Web && npm test -- --run`, and `cd DeckFlow.Web && node_modules/.bin/tsc --noEmit`.
 - Max feedback latency: one task should not go more than one commit without an automated server or TS check.
 
 ## Per-Task Verification Map
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 108-01-01 | 01 | 1 | CLUP-01 | T-108-01 | Reject invalid state through existing API validation before patch building | unit | `dotnet.exe test DeckFlow.Web.Tests --filter CutLabUiPatchBuilderTests` | ❌ W1 | pending |
-| 108-01-02 | 01 | 1 | CLUP-01, CLUP-03 | T-108-02 | Patch exposes only derived display state, not secrets or arbitrary request echo | unit | `dotnet.exe test DeckFlow.Web.Tests --filter CutLabUiPatchBuilderTests` | ❌ W1 | pending |
-| 108-02-01 | 02 | 2 | CLUP-01, CLUP-03 | T-108-03 | Same-origin and feature-flag gates remain on mutation endpoints | unit | `dotnet.exe test DeckFlow.Web.Tests --filter CutLabApiControllerTests` | ✅ | pending |
-| 108-02-02 | 02 | 2 | CLUP-01, CLUP-03 | T-108-04 | What-if commit remains atomic; rejected half-swaps do not return success patches | unit | `dotnet.exe test DeckFlow.Web.Tests --filter CutLabApiControllerTests` | ✅ | pending |
-| 108-03-01 | 03 | 3 | CLUP-02, CLUP-03 | — | Client renders server patch fields and does not recompute live mutation counts/options | unit | `npm test -- --run cut-lab-adjust cut-lab-whatif cut-lab-proposal` | ✅ | pending |
-| 108-03-02 | 03 | 3 | CLUP-02, CLUP-03 | — | TypeScript API interfaces match server response shape | compile | `node_modules/.bin/tsc --noEmit` | ✅ | pending |
+| 108-01-01 | 01 | 1 | CLUP-01, CLUP-03 | T-108-01, T-108-02 | Patch DTO contains only server-authored display fields, including quantity tuner row state | compile/unit | `dotnet.exe test DeckFlow.Web.Tests --filter CutLabApiControllerTests` | ❌ W1 | pending |
+| 108-01-02 | 01 | 1 | CLUP-01, CLUP-03 | T-108-01, T-108-02 | Patch builder derives counts, export readiness, proposal, floor warnings, cuts, findings, what-if options, and quantity legality from C# services | unit | `dotnet.exe test DeckFlow.Web.Tests --filter CutLabUiPatchBuilderTests` | ❌ W1 | pending |
+| 108-01-03 | 01 | 1 | CLUP-01, CLUP-03 | T-108-01, T-108-02 | Patch-vs-`CutLabViewModel` parity proves no-JS visible state matches for counts, export eligibility, floor warnings, cuts made, what-if options, and quantity tuner rows | unit | `dotnet.exe test DeckFlow.Web.Tests --filter CutLabUiPatchBuilderTests` | ❌ W1 | pending |
+| 108-02-01 | 02 | 2 | CLUP-01, CLUP-03 | T-108-03 | Decide endpoint keeps same-origin/feature-flag/request-size gates and returns patch fields that mirror any legacy transition fields | unit | `dotnet.exe test DeckFlow.Web.Tests --filter "CutLabApiControllerTests|CutLabWhatifTests"` | ✅ | pending |
+| 108-02-02 | 02 | 2 | CLUP-01, CLUP-03 | T-108-03 | Adjust endpoint returns server-authored counts, export eligibility, and quantity tuner row legality instead of requiring client recomputation | unit | `dotnet.exe test DeckFlow.Web.Tests --filter CutLabApiControllerTests` | ✅ | pending |
+| 108-02-03 | 02 | 2 | CLUP-01, CLUP-03 | T-108-04 | What-if preview stays non-mutating; commit remains atomic and returns patch only after restore-then-accept succeeds | unit | `dotnet.exe test DeckFlow.Web.Tests --filter "CutLabApiControllerTests|CutLabWhatifTests"` | ✅ | pending |
+| 108-03-01 | 03 | 3 | CLUP-02, CLUP-03 | T-108-05, T-108-06 | TypeScript patch interface matches server DTO and renderer updates all visible patch fields, including tuner rows | compile | `cd DeckFlow.Web && node_modules/.bin/tsc --noEmit` | ✅ | pending |
+| 108-03-02 | 03 | 3 | CLUP-02, CLUP-03 | T-108-05, T-108-06 | Decide/adjust handlers render patch data and do not call serialized-state count/export or optimistic row patch helpers in live success paths | unit | `cd DeckFlow.Web && npm test -- --run cut-lab-adjust cut-lab-proposal` | ✅ | pending |
+| 108-03-03 | 03 | 3 | CLUP-02, CLUP-03 | T-108-05, T-108-06 | What-if commit renders patch data, preview behavior remains unchanged, and legacy derivation helpers are quarantined outside live mutation success paths | unit/compile | `(cd DeckFlow.Web && npm test -- --run cut-lab-whatif) && (cd DeckFlow.Web && node_modules/.bin/tsc --noEmit)` | ✅ | pending |
 
 ## Wave 0 Requirements
 
@@ -59,4 +62,4 @@ Existing infrastructure covers all phase requirements.
 - [x] Feedback latency target recorded.
 - [x] `nyquist_compliant: true` set in frontmatter.
 
-Approval: pending Claude/GSD review after Claude availability resumes.
+Approval: approved 2026-07-23 by GSD plan checker.
