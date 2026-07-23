@@ -4,6 +4,45 @@ import '../wwwroot/ts/cut-lab';
 
 let fetchMock: any;
 
+interface CutLabUiPatch {
+  cutLabStateJson: string;
+  currentCount: number;
+  cardsRemaining: number;
+  canBuildExport: boolean;
+  nextProposal: {
+    isTerminal: boolean;
+    isAtTarget: boolean;
+    isNothingToCut: boolean;
+    cardName: string;
+    roundKey: string;
+    roundLabel: string;
+    roundBannerBody: string;
+    findingCount: number;
+    findingChips: string[];
+  };
+  proposalDeltas: null;
+  floorWarnings: Array<unknown>;
+  cutsMade: Array<unknown>;
+  structuralFindings: Array<unknown>;
+  comboDataAvailable: boolean;
+  categoryDataAvailable: boolean;
+  whatifCardOutOptions: string[];
+  whatifCardInOptions: string[];
+  quantityTuners: Array<{
+    cardName: string;
+    currentQuantity: number;
+    legalMax: number;
+    removeDisabled: boolean;
+    addDisabled: boolean;
+    isLockedOrCommander: boolean;
+    isVisible: boolean;
+    roleLabel: string;
+    isLegalMultiple: boolean;
+    isAddedBasic: boolean;
+  }>;
+  addableBasics: string[];
+}
+
 beforeAll(() => {
   fetchMock = vi.fn();
   vi.stubGlobal('fetch', fetchMock);
@@ -46,8 +85,97 @@ const buildStateJson = (islandQuantity: number, adjustmentDelta = 0): string => 
   },
 });
 
-const buildFixture = (): void => {
+const buildPatch = (
+  stateJson: string,
+  overrides: Partial<CutLabUiPatch> = {},
+): CutLabUiPatch => ({
+  cutLabStateJson: stateJson,
+  currentCount: 99,
+  cardsRemaining: 0,
+  canBuildExport: false,
+  nextProposal: {
+    isTerminal: false,
+    isAtTarget: false,
+    isNothingToCut: false,
+    cardName: 'Island',
+    roundKey: 'round-1',
+    roundLabel: 'Round 1',
+    roundBannerBody: 'Keep tuning basics.',
+    findingCount: 0,
+    findingChips: [],
+  },
+  proposalDeltas: null,
+  floorWarnings: [],
+  cutsMade: [],
+  structuralFindings: [],
+  comboDataAvailable: true,
+  categoryDataAvailable: true,
+  whatifCardOutOptions: [],
+  whatifCardInOptions: [],
+  quantityTuners: [
+    {
+      cardName: 'Island',
+      currentQuantity: 98,
+      legalMax: 150,
+      removeDisabled: false,
+      addDisabled: false,
+      isLockedOrCommander: false,
+      isVisible: true,
+      roleLabel: 'Lands',
+      isLegalMultiple: true,
+      isAddedBasic: false,
+    },
+  ],
+  addableBasics: ['Plains', 'Swamp'],
+  ...overrides,
+});
+
+const buildFixture = (options: { includePlainsRow?: boolean; addableBasics?: string[] } = {}): void => {
   const stateJson = buildStateJson(98);
+  const addableBasics = options.addableBasics ?? ['Plains', 'Swamp'];
+  const addBasicFormMarkup = addableBasics.length > 0
+    ? `
+      <form method="post" action="/cut-lab/adjust" data-cut-lab-adjust-form class="toolbar cutlab-tuner__add-basic">
+        <input type="hidden" name="__RequestVerificationToken" value="token-123" />
+        <input type="hidden" name="CutLabStateJson" value='${stateJson}' />
+        <input type="hidden" name="Delta" value="1" />
+        <input type="hidden" name="IsAddedBasic" value="true" />
+        <label for="cut-lab-add-basic-select">Add a basic land</label>
+        <select id="cut-lab-add-basic-select" name="CardName" data-cut-lab-add-basic-select required>
+          <option value="" selected disabled>Choose a basic…</option>
+          ${addableBasics.map(cardName => `<option value="${cardName}">${cardName}</option>`).join('')}
+        </select>
+        <button type="submit" class="run-button" data-cut-lab-adjust data-cut-lab-add-basic data-cut-lab-delta="1" data-cut-lab-added-basic="true">Add basic land</button>
+      </form>`
+    : '<p class="cutlab-floor-source-default">All basic land types are already in your working list. Use the steppers above to add more copies.</p>';
+  const plainsRowMarkup = options.includePlainsRow
+    ? `
+        <tr data-cut-lab-tuner-row="Plains" data-cut-lab-quantity="1" data-cut-lab-legal-max="150">
+          <td data-label="Card"><strong>Plains</strong><span class="kb-chip cutlab-tuner-badge--added">Added</span></td>
+          <td data-label="Role">Lands</td>
+          <td data-label="Quantity">
+            <div class="cutlab-stepper">
+              <form method="post" action="/cut-lab/adjust" data-cut-lab-adjust-form>
+                <input type="hidden" name="__RequestVerificationToken" value="token-123" />
+                <input type="hidden" name="CutLabStateJson" value='${stateJson}' />
+                <input type="hidden" name="CardName" value="Plains" />
+                <input type="hidden" name="Delta" value="-1" />
+                <input type="hidden" name="IsAddedBasic" value="true" />
+                <button type="submit" class="cutlab-stepper-btn" data-cut-lab-adjust data-cut-lab-card="Plains" data-cut-lab-delta="-1">−</button>
+              </form>
+              <span class="cutlab-stepper__count tabular" data-cut-lab-quantity-value>1</span>
+              <form method="post" action="/cut-lab/adjust" data-cut-lab-adjust-form>
+                <input type="hidden" name="__RequestVerificationToken" value="token-123" />
+                <input type="hidden" name="CutLabStateJson" value='${stateJson}' />
+                <input type="hidden" name="CardName" value="Plains" />
+                <input type="hidden" name="Delta" value="1" />
+                <input type="hidden" name="IsAddedBasic" value="true" />
+                <button type="submit" class="cutlab-stepper-btn" data-cut-lab-adjust data-cut-lab-card="Plains" data-cut-lab-delta="1">+</button>
+              </form>
+            </div>
+          </td>
+        </tr>`
+    : '';
 
   document.body.innerHTML = `
     <div class="error-banner hidden" role="alert"></div>
@@ -70,25 +198,41 @@ const buildFixture = (): void => {
       </div>
       <button type="button" id="cut-lab-step-tab-4" class="is-disabled" disabled aria-disabled="true">Export</button>
     </section>
-    <table>
-      <tbody>
-        <tr data-cut-lab-tuner-row="Island" data-cut-lab-quantity="98" data-cut-lab-legal-max="150">
-          <td data-label="Quantity">
-            <div class="cutlab-stepper">
-              <form method="post" action="/cut-lab/adjust" data-cut-lab-adjust-form>
-                <input type="hidden" name="__RequestVerificationToken" value="token-123" />
-                <input type="hidden" name="CutLabStateJson" value='${stateJson}' />
-                <input type="hidden" name="CardName" value="Island" />
-                <input type="hidden" name="Delta" value="1" />
-                <input type="hidden" name="IsAddedBasic" value="false" />
-                <button type="submit" class="cutlab-stepper-btn" data-cut-lab-adjust data-cut-lab-card="Island" data-cut-lab-delta="1">+</button>
-              </form>
-            </div>
-            <span data-cut-lab-quantity-value>98</span>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <section class="result-panel nested-panel cutlab-tuner">
+      <div class="history-timeline__wrap">
+        <table>
+          <tbody>
+            <tr data-cut-lab-tuner-row="Island" data-cut-lab-quantity="98" data-cut-lab-legal-max="150">
+              <td data-label="Card"><strong>Island</strong></td>
+              <td data-label="Role">Lands</td>
+              <td data-label="Quantity">
+                <div class="cutlab-stepper">
+                  <form method="post" action="/cut-lab/adjust" data-cut-lab-adjust-form>
+                    <input type="hidden" name="__RequestVerificationToken" value="token-123" />
+                    <input type="hidden" name="CutLabStateJson" value='${stateJson}' />
+                    <input type="hidden" name="CardName" value="Island" />
+                    <input type="hidden" name="Delta" value="-1" />
+                    <input type="hidden" name="IsAddedBasic" value="false" />
+                    <button type="submit" class="cutlab-stepper-btn" data-cut-lab-adjust data-cut-lab-card="Island" data-cut-lab-delta="-1">−</button>
+                  </form>
+                  <span class="cutlab-stepper__count tabular" data-cut-lab-quantity-value>98</span>
+                  <form method="post" action="/cut-lab/adjust" data-cut-lab-adjust-form>
+                    <input type="hidden" name="__RequestVerificationToken" value="token-123" />
+                    <input type="hidden" name="CutLabStateJson" value='${stateJson}' />
+                    <input type="hidden" name="CardName" value="Island" />
+                    <input type="hidden" name="Delta" value="1" />
+                    <input type="hidden" name="IsAddedBasic" value="false" />
+                    <button type="submit" class="cutlab-stepper-btn" data-cut-lab-adjust data-cut-lab-card="Island" data-cut-lab-delta="1">+</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            ${plainsRowMarkup}
+          </tbody>
+        </table>
+      </div>
+      ${addBasicFormMarkup}
+    </section>
   `;
 
   document.dispatchEvent(new Event('DOMContentLoaded'));
@@ -102,13 +246,29 @@ describe('cut-lab adjust enhancement', () => {
     fetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({
-        cutLabStateJson: nextStateJson,
-        cardsRemaining: 0,
+        patch: buildPatch(nextStateJson, {
+          currentCount: 100,
+          canBuildExport: true,
+          quantityTuners: [
+            {
+              cardName: 'Island',
+              currentQuantity: 99,
+              legalMax: 99,
+              removeDisabled: false,
+              addDisabled: true,
+              isLockedOrCommander: false,
+              isVisible: true,
+              roleLabel: 'Lands',
+              isLegalMultiple: true,
+              isAddedBasic: false,
+            },
+          ],
+        }),
       }),
     });
 
-    const form = document.querySelector<HTMLFormElement>('form[data-cut-lab-adjust-form]');
-    const button = document.querySelector<HTMLButtonElement>('[data-cut-lab-adjust]');
+    const button = document.querySelector<HTMLButtonElement>('tr[data-cut-lab-tuner-row="Island"] [data-cut-lab-delta="1"]');
+    const form = button?.closest('form');
     form?.dispatchEvent(new SubmitEvent('submit', {
       bubbles: true,
       cancelable: true,
@@ -128,6 +288,9 @@ describe('cut-lab adjust enhancement', () => {
     expect(document.getElementById('cut-lab-step-tab-4')?.hasAttribute('disabled')).toBe(false);
     expect(document.querySelector('#cut-lab-export-form button[type="submit"]')?.hasAttribute('disabled')).toBe(false);
     expect(document.querySelector('[data-cut-lab-quantity-value]')?.textContent).toBe('99');
+    const rowButtons = document.querySelectorAll<HTMLButtonElement>('tr[data-cut-lab-tuner-row="Island"] [data-cut-lab-adjust]');
+    expect(rowButtons[0]?.disabled).toBe(false);
+    expect(rowButtons[1]?.disabled).toBe(true);
   });
 
   it('surfaces the server error and preserves hidden state on a failed adjust', async () => {
@@ -140,8 +303,8 @@ describe('cut-lab adjust enhancement', () => {
       }),
     });
 
-    const form = document.querySelector<HTMLFormElement>('form[data-cut-lab-adjust-form]');
-    const button = document.querySelector<HTMLButtonElement>('[data-cut-lab-adjust]');
+    const button = document.querySelector<HTMLButtonElement>('tr[data-cut-lab-tuner-row="Island"] [data-cut-lab-delta="1"]');
+    const form = button?.closest('form');
     form?.dispatchEvent(new SubmitEvent('submit', {
       bubbles: true,
       cancelable: true,
@@ -151,6 +314,115 @@ describe('cut-lab adjust enhancement', () => {
 
     expect(document.querySelector('.error-banner')?.textContent).toContain("Couldn't recalculate this cut");
     expect(stateJsonFromInputs()).toBe(originalState);
+  });
+
+  it('inserts a newly added basic row and rebuilds the add-basic dropdown from patch data', async () => {
+    buildFixture();
+    const nextStateJson = buildStateJson(99, 1);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        patch: buildPatch(nextStateJson, {
+          currentCount: 100,
+          canBuildExport: true,
+          quantityTuners: [
+            {
+              cardName: 'Island',
+              currentQuantity: 98,
+              legalMax: 150,
+              removeDisabled: false,
+              addDisabled: false,
+              isLockedOrCommander: false,
+              isVisible: true,
+              roleLabel: 'Lands',
+              isLegalMultiple: true,
+              isAddedBasic: false,
+            },
+            {
+              cardName: 'Plains',
+              currentQuantity: 1,
+              legalMax: 150,
+              removeDisabled: false,
+              addDisabled: false,
+              isLockedOrCommander: false,
+              isVisible: true,
+              roleLabel: 'Lands',
+              isLegalMultiple: true,
+              isAddedBasic: true,
+            },
+          ],
+          addableBasics: ['Swamp'],
+        }),
+      }),
+    });
+
+    const form = document.querySelector<HTMLFormElement>('form.cutlab-tuner__add-basic');
+    const select = document.querySelector<HTMLSelectElement>('[data-cut-lab-add-basic-select]');
+    const button = document.querySelector<HTMLButtonElement>('[data-cut-lab-add-basic]');
+    if (select) {
+      select.value = 'Plains';
+    }
+
+    form?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: button ?? undefined,
+    }));
+    await flushAdjustSubmit();
+
+    const rowNames = Array.from(document.querySelectorAll<HTMLTableRowElement>('tr[data-cut-lab-tuner-row] strong'))
+      .map(element => element.textContent);
+    expect(rowNames).toEqual(['Island', 'Plains']);
+    expect(document.querySelector('tr[data-cut-lab-tuner-row="Plains"] .cutlab-tuner-badge--added')?.textContent).toBe('Added');
+    const dropdownOptions = Array.from(document.querySelectorAll<HTMLOptionElement>('#cut-lab-add-basic-select option'))
+      .map(option => option.value);
+    expect(dropdownOptions).toEqual(['', 'Swamp']);
+    expect(document.querySelector<HTMLFormElement>('form.cutlab-tuner__add-basic')?.classList.contains('hidden')).toBe(false);
+  });
+
+  it('removes an absent basic row and returns it to the add-basic dropdown from patch data', async () => {
+    buildFixture({ includePlainsRow: true, addableBasics: ['Swamp'] });
+    const nextStateJson = buildStateJson(98);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        patch: buildPatch(nextStateJson, {
+          currentCount: 99,
+          canBuildExport: false,
+          quantityTuners: [
+            {
+              cardName: 'Island',
+              currentQuantity: 98,
+              legalMax: 150,
+              removeDisabled: false,
+              addDisabled: false,
+              isLockedOrCommander: false,
+              isVisible: true,
+              roleLabel: 'Lands',
+              isLegalMultiple: true,
+              isAddedBasic: false,
+            },
+          ],
+          addableBasics: ['Plains', 'Swamp'],
+        }),
+      }),
+    });
+
+    const form = Array.from(document.querySelectorAll<HTMLFormElement>('form[data-cut-lab-adjust-form]'))
+      .find(candidate => candidate.querySelector<HTMLInputElement>('input[name="CardName"]')?.value === 'Plains'
+        && candidate.querySelector<HTMLInputElement>('input[name="Delta"]')?.value === '-1');
+    const button = form?.querySelector<HTMLButtonElement>('[data-cut-lab-adjust]');
+    form?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: button ?? undefined,
+    }));
+    await flushAdjustSubmit();
+
+    expect(document.querySelector('tr[data-cut-lab-tuner-row="Plains"]')).toBeNull();
+    const dropdownOptions = Array.from(document.querySelectorAll<HTMLOptionElement>('#cut-lab-add-basic-select option'))
+      .map(option => option.value);
+    expect(dropdownOptions).toEqual(['', 'Plains', 'Swamp']);
   });
 });
 
