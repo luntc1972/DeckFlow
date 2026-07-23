@@ -1,14 +1,32 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import '../wwwroot/ts/cut-lab';
 
-interface CutLabApiWithSyncState {
-  syncDecisionState(serializedState: string): void;
-}
-
-declare global {
-  interface Window {
-    DeckFlowCutLab?: CutLabApiWithSyncState;
-  }
+interface CutLabUiPatch {
+  cutLabStateJson: string;
+  currentCount: number;
+  cardsRemaining: number;
+  canBuildExport: boolean;
+  nextProposal: {
+    isTerminal: boolean;
+    isAtTarget: boolean;
+    isNothingToCut: boolean;
+    cardName: string;
+    roundKey: string;
+    roundLabel: string;
+    roundBannerBody: string;
+    findingCount: number;
+    findingChips: string[];
+  };
+  proposalDeltas: null;
+  floorWarnings: Array<unknown>;
+  cutsMade: Array<{ cardName: string; roundKey: string; roundLabel: string; ordinal: number }>;
+  structuralFindings: Array<unknown>;
+  comboDataAvailable: boolean;
+  categoryDataAvailable: boolean;
+  whatifCardOutOptions: string[];
+  whatifCardInOptions: string[];
+  quantityTuners: Array<unknown>;
+  addableBasics: string[];
 }
 
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -161,10 +179,40 @@ const buildFixture = (): void => {
   document.dispatchEvent(new Event('DOMContentLoaded'));
 };
 
+const buildPatch = (stateJson: string, overrides: Partial<CutLabUiPatch> = {}): CutLabUiPatch => ({
+  cutLabStateJson: stateJson,
+  currentCount: 100,
+  cardsRemaining: 0,
+  canBuildExport: true,
+  nextProposal: {
+    isTerminal: false,
+    isAtTarget: false,
+    isNothingToCut: false,
+    cardName: 'Alternate Working',
+    roundKey: 'round-2',
+    roundLabel: 'Round 2',
+    roundBannerBody: 'More cuts.',
+    findingCount: 0,
+    findingChips: [],
+  },
+  proposalDeltas: null,
+  floorWarnings: [],
+  cutsMade: [
+    { cardName: 'Working Card', roundKey: 'whatif-swap', roundLabel: 'What-if swap', ordinal: 2 },
+  ],
+  structuralFindings: [],
+  comboDataAvailable: true,
+  categoryDataAvailable: true,
+  whatifCardOutOptions: ['Cut Card'],
+  whatifCardInOptions: ['Working Card'],
+  quantityTuners: [],
+  addableBasics: [],
+  ...overrides,
+});
+
 describe('cut-lab what-if enhancement', () => {
-  it('preview does not sync decision state', async () => {
+  it('preview leaves committed state untouched', async () => {
     buildFixture();
-    const syncSpy = vi.spyOn(window.DeckFlowCutLab!, 'syncDecisionState');
     fetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -206,12 +254,11 @@ describe('cut-lab what-if enhancement', () => {
       cardOut: 'Working Card',
       cardIn: 'Cut Card',
     });
-    expect(syncSpy).not.toHaveBeenCalled();
     expect(document.querySelector('[data-cut-lab-whatif-selection]')?.textContent).toContain('Working Card');
     expect(document.querySelectorAll('[data-cut-lab-whatif-delta-body] tr')).toHaveLength(1);
   });
 
-  it('keep syncs decision state on successful commit', async () => {
+  it('keep renders the returned patch on successful commit', async () => {
     buildFixture();
     const committedStateJson = JSON.stringify({
       commander: 'Commander',
@@ -236,7 +283,6 @@ describe('cut-lab what-if enhancement', () => {
         includeMaybeboard: false,
       },
     });
-    const syncSpy = vi.spyOn(window.DeckFlowCutLab!, 'syncDecisionState');
     fetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -245,6 +291,7 @@ describe('cut-lab what-if enhancement', () => {
         deltas: [],
         changedFamilyCount: 0,
         cutLabStateJson: committedStateJson,
+        patch: buildPatch(committedStateJson),
       }),
     });
 
@@ -259,14 +306,12 @@ describe('cut-lab what-if enhancement', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][0]).toBe('/api/cut-lab/whatif/commit');
-    expect(syncSpy).toHaveBeenCalledOnce();
-    expect(syncSpy).toHaveBeenCalledWith(committedStateJson);
     expect(Array.from(document.querySelectorAll<HTMLInputElement>('input[name="CutLabStateJson"]')).every(input => input.value === committedStateJson)).toBe(true);
     expect(document.querySelector('[data-cut-lab-sticky-accepted]')?.textContent).toBe('1 cut so far');
     expect(document.querySelector('.cutlab-cuts-made__row')?.textContent).toContain('Working Card');
   });
 
-  it('rebuilds what-if select options from the returned decision state after an accepted cut', async () => {
+  it('rebuilds what-if select options from the returned patch after an accepted cut', async () => {
     buildFixture();
     const refreshedStateJson = buildStateJson({
       pool: [
@@ -284,25 +329,14 @@ describe('cut-lab what-if enhancement', () => {
     fetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({
-        cutLabStateJson: refreshedStateJson,
-        nextProposal: {
-          isTerminal: false,
-          isAtTarget: false,
-          isNothingToCut: false,
-          cardName: 'Alternate Working',
-          roundKey: 'round-2',
-          roundLabel: 'Round 2',
-          roundBannerBody: 'More cuts.',
-          findingCount: 0,
-          findingChips: [],
-        },
-        proposalDeltas: null,
-        floorWarnings: [],
-        cardsRemaining: 0,
-        cutsMade: [
-          { cardName: 'Working Card', roundKey: 'round-2', roundLabel: 'Round 2', ordinal: 2 },
-          { cardName: 'Cut Card', roundKey: 'round-1', roundLabel: 'Round 1', ordinal: 1 },
-        ],
+        patch: buildPatch(refreshedStateJson, {
+          whatifCardOutOptions: ['Alternate Working'],
+          whatifCardInOptions: ['Cut Card', 'Working Card'],
+          cutsMade: [
+            { cardName: 'Working Card', roundKey: 'round-2', roundLabel: 'Round 2', ordinal: 2 },
+            { cardName: 'Cut Card', roundKey: 'round-1', roundLabel: 'Round 1', ordinal: 1 },
+          ],
+        }),
       }),
     });
 

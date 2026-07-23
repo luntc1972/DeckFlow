@@ -2232,20 +2232,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       }
 
       const data = await response.json() as CutLabWhatifResponse;
-      if (!data.cutLabStateJson) {
+      if (!data.patch?.cutLabStateJson) {
         renderWhatifError(cutLabWhatifKeepErrorCopy);
         return;
       }
 
-      api.syncDecisionState(data.cutLabStateJson);
-      const cutsMade = buildCutsMadeFromSerializedState(data.cutLabStateJson);
-      renderCutsMade(cutsMade, data.cutLabStateJson, antiForgeryToken, false);
-      patchStickyAcceptedCount(cutsMade.length);
-      const currentCount = currentCountFromSerializedState(data.cutLabStateJson);
-      if (currentCount !== null) {
-        setExportEnabled(currentCount === 100);
-      }
-      updateWhatifSelectOptionsAfterKeep(data.cardOut, data.cardIn);
+      applyServerPatch(data.patch, antiForgeryToken, { preserveCutsSection: false });
       clearWhatifPreview();
     } catch (error) {
       renderWhatifError(error instanceof DOMException && error.name === 'AbortError'
