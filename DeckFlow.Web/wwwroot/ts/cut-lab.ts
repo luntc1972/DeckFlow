@@ -129,6 +129,41 @@ interface CutLabDecisionFindingGroup {
   items: CutLabDecisionFinding[];
 }
 
+interface CutLabQuantityTunerRow {
+  cardName: string;
+  currentQuantity: number;
+  legalMax: number;
+  removeDisabled: boolean;
+  addDisabled: boolean;
+  isLockedOrCommander: boolean;
+  isVisible: boolean;
+  roleLabel: string;
+  isLegalMultiple: boolean;
+  isAddedBasic: boolean;
+}
+
+interface CutLabUiPatch {
+  cutLabStateJson: string;
+  currentCount: number;
+  cardsRemaining: number;
+  canBuildExport: boolean;
+  nextProposal: CutLabDecisionNextProposal;
+  proposalDeltas: CutLabDecisionProposalDeltas | null;
+  floorWarnings: CutLabDecisionFloorWarning[];
+  cutsMade: CutLabDecisionCutRecord[];
+  structuralFindings: CutLabDecisionFindingGroup[];
+  comboDataAvailable: boolean;
+  categoryDataAvailable: boolean;
+  whatifCardOutOptions: string[];
+  whatifCardInOptions: string[];
+  quantityTuners: CutLabQuantityTunerRow[];
+  addableBasics: string[];
+}
+
+interface CutLabPatchResponse {
+  patch?: CutLabUiPatch | null;
+}
+
 interface ScenarioIndexEntry {
   id: string;
   name: string;
@@ -137,19 +172,7 @@ interface ScenarioIndexEntry {
 
 type SaveScenarioResult = 'ok' | 'invalid' | 'cap-reached' | 'quota-exceeded' | 'disabled';
 
-interface CutLabDecisionResponse {
-  cutLabStateJson: string;
-  nextProposal: CutLabDecisionNextProposal;
-  proposalDeltas: CutLabDecisionProposalDeltas | null;
-  floorWarnings: CutLabDecisionFloorWarning[];
-  cardsRemaining: number;
-  cutsMade: CutLabDecisionCutRecord[];
-  structuralFindings: CutLabDecisionFindingGroup[];
-  comboDataAvailable: boolean;
-  categoryDataAvailable: boolean;
-}
-
-interface CutLabWhatifResponse {
+interface CutLabWhatifResponse extends CutLabPatchResponse {
   cutLabStateJson: string | null;
   cardOut: string;
   cardIn: string;
@@ -568,6 +591,18 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
   const getWhatifDeltaBody = (): HTMLTableSectionElement | null =>
     document.querySelector<HTMLTableSectionElement>('[data-cut-lab-whatif-delta-body]');
+
+  const getQuantityTunerSection = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('section.cutlab-tuner');
+
+  const getQuantityTunerBody = (): HTMLTableSectionElement | null =>
+    getQuantityTunerSection()?.querySelector<HTMLTableSectionElement>('tbody') ?? null;
+
+  const getAddBasicForm = (): HTMLFormElement | null =>
+    getQuantityTunerSection()?.querySelector<HTMLFormElement>('form.cutlab-tuner__add-basic[data-cut-lab-adjust-form]') ?? null;
+
+  const getAddBasicSelect = (): HTMLSelectElement | null =>
+    document.querySelector<HTMLSelectElement>('[data-cut-lab-add-basic-select]');
 
   const getWhatifPreviewButton = (): HTMLButtonElement | null =>
     document.querySelector<HTMLButtonElement>('[data-cut-lab-whatif-preview-submit]');
@@ -1430,14 +1465,14 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     });
   };
 
-  const renderStructuralFindings = (response: CutLabDecisionResponse): void => {
+  const renderStructuralFindings = (patch: CutLabUiPatch): void => {
     const section = getStructuralFindingsSection();
     const body = getStructuralFindingsBody();
     if (!section || !body) {
       return;
     }
 
-    const totalFindings = response.structuralFindings.reduce((count, group) => count + group.items.length, 0);
+    const totalFindings = patch.structuralFindings.reduce((count, group) => count + group.items.length, 0);
     const countBadge = section.querySelector<HTMLElement>('[data-cut-lab-findings-count-slot] .cutlab-findings-count');
     if (countBadge) {
       countBadge.textContent = totalFindings > 0 ? formatStructuralFindingsCount(totalFindings) : '';
@@ -1449,7 +1484,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         createTextElement('p', '', "No structural issues found. Your pool's curve, themes, finishers, and role coverage all look self-supporting at the current floors."),
       ]);
     } else {
-      replaceChildren(body, response.structuralFindings.map(group => {
+      replaceChildren(body, patch.structuralFindings.map(group => {
         const groupElement = document.createElement('div');
         groupElement.className = 'cutlab-finding';
         groupElement.appendChild(createTextElement('p', 'cutlab-finding__heading', group.heading));
@@ -1476,9 +1511,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
 
     section.querySelector<HTMLElement>('[data-cut-lab-degradation="combo"]')
-      ?.classList.toggle('hidden', response.comboDataAvailable);
+      ?.classList.toggle('hidden', patch.comboDataAvailable);
     section.querySelector<HTMLElement>('[data-cut-lab-degradation="category"]')
-      ?.classList.toggle('hidden', response.categoryDataAvailable);
+      ?.classList.toggle('hidden', patch.categoryDataAvailable);
   };
 
   const renderFloorWarnings = (proposal: HTMLDivElement, warnings: CutLabDecisionFloorWarning[]): void => {
@@ -1504,7 +1539,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const renderProposalCard = (
-    response: CutLabDecisionResponse,
+    patch: CutLabUiPatch,
     antiForgeryToken: string,
   ): void => {
     const proposal = getProposalCard();
@@ -1512,7 +1547,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
-    const nextProposal = response.nextProposal;
+    const nextProposal = patch.nextProposal;
     if (nextProposal.isTerminal) {
       renderProposalTerminalState(
         proposal,
@@ -1552,11 +1587,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     proposal.appendChild(evidence);
 
-    if (response.proposalDeltas) {
-      const changedLines = response.proposalDeltas.deltas.filter(delta => delta.isMeaningful);
+    if (patch.proposalDeltas) {
+      const changedLines = patch.proposalDeltas.deltas.filter(delta => delta.isMeaningful);
       const deltaSummary = document.createElement('div');
       deltaSummary.className = 'cutlab-delta';
-      deltaSummary.appendChild(createTextElement('p', '', `${response.proposalDeltas.changedFamilyCount} of 7 metric families changed meaningfully.`));
+      deltaSummary.appendChild(createTextElement('p', '', `${patch.proposalDeltas.changedFamilyCount} of 7 metric families changed meaningfully.`));
       changedLines.forEach(delta => {
         appendDeltaLine(deltaSummary, nextProposal.cardName, delta);
       });
@@ -1567,7 +1602,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       details.appendChild(createTextElement('summary', '', 'Show full metric breakdown'));
       const fullDelta = document.createElement('div');
       fullDelta.className = 'cutlab-delta';
-      response.proposalDeltas.deltas.forEach(delta => {
+      patch.proposalDeltas.deltas.forEach(delta => {
         appendDeltaLine(fullDelta, nextProposal.cardName, delta);
       });
       details.appendChild(fullDelta);
@@ -1579,13 +1614,13 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       proposal.appendChild(unavailable);
     }
 
-    renderFloorWarnings(proposal, response.floorWarnings);
+    renderFloorWarnings(proposal, patch.floorWarnings);
 
     const actions = document.createElement('div');
     actions.className = 'cutlab-proposal__actions';
-    actions.appendChild(createDecisionForm('accept', 'Accept cut', 'cutlab-decision-btn--accept', nextProposal.cardName, nextProposal.roundKey, response.cutLabStateJson, antiForgeryToken));
-    actions.appendChild(createDecisionForm('reject', 'Reject cut', 'cutlab-decision-btn--reject', nextProposal.cardName, nextProposal.roundKey, response.cutLabStateJson, antiForgeryToken));
-    actions.appendChild(createDecisionForm('defer', 'Defer decision', 'cutlab-decision-btn--defer', nextProposal.cardName, nextProposal.roundKey, response.cutLabStateJson, antiForgeryToken));
+    actions.appendChild(createDecisionForm('accept', 'Accept cut', 'cutlab-decision-btn--accept', nextProposal.cardName, nextProposal.roundKey, patch.cutLabStateJson, antiForgeryToken));
+    actions.appendChild(createDecisionForm('reject', 'Reject cut', 'cutlab-decision-btn--reject', nextProposal.cardName, nextProposal.roundKey, patch.cutLabStateJson, antiForgeryToken));
+    actions.appendChild(createDecisionForm('defer', 'Defer decision', 'cutlab-decision-btn--defer', nextProposal.cardName, nextProposal.roundKey, patch.cutLabStateJson, antiForgeryToken));
     proposal.appendChild(actions);
   };
 
@@ -1795,110 +1830,6 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     };
   };
 
-  const parseDecisionState = (serializedState: string): CutLabStateDecision[] => {
-    try {
-      const parsed = JSON.parse(serializedState) as Partial<CutLabStateSnapshot>;
-      return Array.isArray(parsed.decisions) ? parsed.decisions : [];
-    } catch {
-      return [];
-    }
-  };
-
-  const parseStateSnapshot = (serializedState: string): CutLabStateSnapshot | null => {
-    try {
-      return JSON.parse(serializedState) as CutLabStateSnapshot;
-    } catch {
-      return null;
-    }
-  };
-
-  const latestDecisionsByCardName = (decisions: CutLabStateDecision[]): Map<string, CutLabStateDecision> => {
-    const latest = new Map<string, CutLabStateDecision>();
-    decisions.forEach(decision => {
-      const cardName = decision.cardName.trim();
-      if (cardName === '') {
-        return;
-      }
-
-      const current = latest.get(cardName.toLowerCase());
-      if (!current || decision.ordinal >= current.ordinal) {
-        latest.set(cardName.toLowerCase(), decision);
-      }
-    });
-    return latest;
-  };
-
-  const isAcceptedDecisionKind = (kind: CutLabStateDecision['kind']): boolean =>
-    kind === 'Accepted' || kind === 0;
-
-  const acceptedCardNamesFromDecisions = (decisions: CutLabStateDecision[]): Set<string> => {
-    const accepted = new Set<string>();
-    latestDecisionsByCardName(decisions).forEach(decision => {
-      if (isAcceptedDecisionKind(decision.kind)) {
-        accepted.add(decision.cardName);
-      }
-    });
-    return accepted;
-  };
-
-  const normalizeCardName = (name: string): string =>
-    name.trim().toLowerCase();
-
-  const currentCountFromSerializedState = (serializedState: string): number | null => {
-    const snapshot = parseStateSnapshot(serializedState);
-    if (!snapshot || !Array.isArray(snapshot.pool)) {
-      return null;
-    }
-
-    const acceptedCardNames = acceptedCardNamesFromDecisions(Array.isArray(snapshot.decisions) ? snapshot.decisions : []);
-    const adjustments = new Map<string, { delta: number; isAddedBasic: boolean }>();
-
-    (Array.isArray(snapshot.quantityAdjustments) ? snapshot.quantityAdjustments : []).forEach(adjustment => {
-      const normalizedName = normalizeCardName(adjustment.name ?? '');
-      if (normalizedName === '') {
-        return;
-      }
-
-      const current = adjustments.get(normalizedName);
-      if (current) {
-        current.delta += adjustment.delta;
-        current.isAddedBasic = current.isAddedBasic || adjustment.isAddedBasic === true;
-        return;
-      }
-
-      adjustments.set(normalizedName, {
-        delta: adjustment.delta,
-        isAddedBasic: adjustment.isAddedBasic === true,
-      });
-    });
-
-    let currentCount = 0;
-    const matchedAdjustments = new Set<string>();
-
-    snapshot.pool
-      .filter(card => !acceptedCardNames.has(card.name))
-      .forEach(card => {
-        const normalizedName = normalizeCardName(card.name);
-        const adjustment = adjustments.get(normalizedName);
-        const adjustedQuantity = Math.max(card.quantity + (adjustment?.delta ?? 0), 0);
-        if (adjustment) {
-          matchedAdjustments.add(normalizedName);
-        }
-
-        currentCount += adjustedQuantity;
-      });
-
-    adjustments.forEach((adjustment, normalizedName) => {
-      if (matchedAdjustments.has(normalizedName) || !adjustment.isAddedBasic || adjustment.delta <= 0) {
-        return;
-      }
-
-      currentCount += adjustment.delta;
-    });
-
-    return currentCount;
-  };
-
   const sortCardNames = (cardNames: Iterable<string>): string[] =>
     Array.from(cardNames).sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'accent' }));
 
@@ -1911,56 +1842,15 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     select.value = '';
   };
 
-  const rebuildWhatifSelectOptionsFromState = (serializedState: string): void => {
+  const renderWhatifSelectOptions = (cardOutOptions: string[], cardInOptions: string[]): void => {
     const cardOutSelect = getWhatifCardOutSelect();
     const cardInSelect = getWhatifCardInSelect();
     if (!cardOutSelect || !cardInSelect) {
       return;
     }
 
-    const snapshot = parseStateSnapshot(serializedState);
-    if (!snapshot || !Array.isArray(snapshot.pool)) {
-      return;
-    }
-
-    const acceptedCardNames = acceptedCardNamesFromDecisions(Array.isArray(snapshot.decisions) ? snapshot.decisions : []);
-    const cardOutOptions = sortCardNames(
-      new Set(
-        snapshot.pool
-          .filter(card => !acceptedCardNames.has(card.name) && !card.isLocked && !card.isCommander)
-          .map(card => card.name),
-      ),
-    );
-    const cardInOptions = sortCardNames(
-      new Set(
-        snapshot.pool
-          .filter(card => acceptedCardNames.has(card.name))
-          .map(card => card.name),
-      ),
-    );
-
     replaceWhatifSelectOptions(cardOutSelect, cardOutOptions);
     replaceWhatifSelectOptions(cardInSelect, cardInOptions);
-  };
-
-  const buildCutsMadeFromSerializedState = (serializedState: string): CutLabDecisionCutRecord[] =>
-    parseDecisionState(serializedState)
-      .filter(decision => isAcceptedDecisionKind(decision.kind))
-      .sort((left, right) => right.ordinal - left.ordinal)
-      .map(decision => ({
-        cardName: decision.cardName,
-        roundKey: decision.round,
-        roundLabel: decision.round === 'whatif-swap' ? 'What-if swap' : decision.round,
-        ordinal: decision.ordinal,
-      }));
-
-  const cardsRemainingFromSerializedState = (serializedState: string): number | null => {
-    const currentCount = currentCountFromSerializedState(serializedState);
-    if (currentCount === null) {
-      return null;
-    }
-
-    return Math.max(currentCount - 100, 0);
   };
 
   const setExportEnabled = (atTarget: boolean): void => {
@@ -1977,39 +1867,279 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
   };
 
-  const patchStickyAcceptedCount = (acceptedCount: number): void => {
-    const stickyAccepted = getStickyAccepted();
-    if (!stickyAccepted) {
-      return;
-    }
-
-    stickyAccepted.textContent = formatCutsAcceptedSoFar(acceptedCount);
+  const createAdjustHiddenInput = (name: string, value: string): HTMLInputElement => {
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = name;
+    input.value = value;
+    return input;
   };
 
-  const updateWhatifSelectOptionsAfterKeep = (cardOut: string, cardIn: string): void => {
-    const cardOutSelect = getWhatifCardOutSelect();
-    const cardInSelect = getWhatifCardInSelect();
-    if (!cardOutSelect || !cardInSelect) {
+  const createAdjustSubmitButton = (
+    cardName: string,
+    delta: number,
+    isAddedBasic: boolean,
+    text: string,
+    ariaLabel: string,
+    disabled: boolean,
+  ): HTMLButtonElement => {
+    const button = document.createElement('button');
+    button.type = 'submit';
+    button.className = 'cutlab-stepper-btn';
+    button.setAttribute('aria-label', ariaLabel);
+    button.dataset.cutLabAdjust = '';
+    button.dataset.cutLabCard = cardName;
+    button.dataset.cutLabDelta = `${delta}`;
+    button.dataset.cutLabAddedBasic = isAddedBasic ? 'true' : 'false';
+    button.disabled = disabled;
+    button.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+    button.textContent = text;
+    return button;
+  };
+
+  const createAdjustForm = (
+    row: CutLabQuantityTunerRow,
+    delta: number,
+    antiForgeryToken: string,
+    serializedState: string,
+    disabled: boolean,
+  ): HTMLFormElement => {
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.action = '/cut-lab/adjust';
+    form.dataset.cutLabAdjustForm = '';
+
+    if (antiForgeryToken !== '') {
+      form.appendChild(createAdjustHiddenInput(cutLabAntiForgeryFieldName, antiForgeryToken));
+    }
+
+    form.appendChild(createAdjustHiddenInput('CutLabStateJson', serializedState));
+    form.appendChild(createAdjustHiddenInput('CardName', row.cardName));
+    form.appendChild(createAdjustHiddenInput('Delta', `${delta}`));
+    form.appendChild(createAdjustHiddenInput('IsAddedBasic', row.isAddedBasic ? 'true' : 'false'));
+    form.appendChild(createAdjustSubmitButton(
+      row.cardName,
+      delta,
+      row.isAddedBasic,
+      delta < 0 ? '−' : '+',
+      `${delta < 0 ? 'Remove' : 'Add'} one ${row.cardName}`,
+      disabled,
+    ));
+    return form;
+  };
+
+  const createQuantityTunerRow = (
+    row: CutLabQuantityTunerRow,
+    antiForgeryToken: string,
+    serializedState: string,
+  ): HTMLTableRowElement => {
+    const tunerRow = document.createElement('tr');
+    tunerRow.dataset.cutLabTunerRow = row.cardName;
+    tunerRow.dataset.cutLabQuantity = `${row.currentQuantity}`;
+    tunerRow.dataset.cutLabLegalMax = `${row.legalMax}`;
+
+    const cardCell = document.createElement('td');
+    cardCell.setAttribute('data-label', 'Card');
+    cardCell.appendChild(createTextElement('strong', '', row.cardName));
+    if (row.isAddedBasic) {
+      cardCell.appendChild(createTextElement('span', 'kb-chip cutlab-tuner-badge--added', 'Added'));
+    }
+
+    const roleCell = document.createElement('td');
+    roleCell.setAttribute('data-label', 'Role');
+    roleCell.textContent = row.roleLabel;
+
+    const quantityCell = document.createElement('td');
+    quantityCell.setAttribute('data-label', 'Quantity');
+    const stepper = document.createElement('div');
+    stepper.className = 'cutlab-stepper';
+    stepper.appendChild(createAdjustForm(row, -1, antiForgeryToken, serializedState, row.removeDisabled));
+    stepper.appendChild(createTextElement('span', 'cutlab-stepper__count tabular', `${row.currentQuantity}`));
+    stepper.lastElementChild?.setAttribute('data-cut-lab-quantity-value', '');
+    stepper.appendChild(createAdjustForm(row, 1, antiForgeryToken, serializedState, row.addDisabled));
+    quantityCell.appendChild(stepper);
+
+    tunerRow.append(cardCell, roleCell, quantityCell);
+    return tunerRow;
+  };
+
+  const ensureAddBasicFallbackNote = (): HTMLElement | null => {
+    const section = getQuantityTunerSection();
+    if (!section) {
+      return null;
+    }
+
+    const existing = section.querySelector<HTMLElement>('p.cutlab-floor-source-default');
+    if (existing) {
+      return existing;
+    }
+
+    const note = createTextElement(
+      'p',
+      'cutlab-floor-source-default',
+      'All basic land types are already in your working list. Use the steppers above to add more copies.',
+    );
+    section.appendChild(note);
+    return note;
+  };
+
+  const createAddBasicForm = (antiForgeryToken: string, serializedState: string): HTMLFormElement | null => {
+    const section = getQuantityTunerSection();
+    if (!section) {
+      return null;
+    }
+
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.action = '/cut-lab/adjust';
+    form.dataset.cutLabAdjustForm = '';
+    form.className = 'toolbar cutlab-tuner__add-basic';
+
+    if (antiForgeryToken !== '') {
+      form.appendChild(createAdjustHiddenInput(cutLabAntiForgeryFieldName, antiForgeryToken));
+    }
+
+    form.appendChild(createAdjustHiddenInput('CutLabStateJson', serializedState));
+    form.appendChild(createAdjustHiddenInput('Delta', '1'));
+    form.appendChild(createAdjustHiddenInput('IsAddedBasic', 'true'));
+
+    const label = document.createElement('label');
+    label.htmlFor = 'cut-lab-add-basic-select';
+    label.textContent = 'Add a basic land';
+    form.appendChild(label);
+
+    const select = document.createElement('select');
+    select.id = 'cut-lab-add-basic-select';
+    select.name = 'CardName';
+    select.dataset.dfSelect = '';
+    select.dataset.cutLabAddBasicSelect = '';
+    select.required = true;
+    form.appendChild(select);
+
+    const button = document.createElement('button');
+    button.type = 'submit';
+    button.className = 'run-button';
+    button.dataset.cutLabAdjust = '';
+    button.dataset.cutLabAddBasic = '';
+    button.dataset.cutLabDelta = '1';
+    button.dataset.cutLabAddedBasic = 'true';
+    button.textContent = 'Add basic land';
+    form.appendChild(button);
+
+    const fallbackNote = section.querySelector<HTMLElement>('p.cutlab-floor-source-default');
+    if (fallbackNote) {
+      section.insertBefore(form, fallbackNote);
+    } else {
+      section.appendChild(form);
+    }
+
+    return form;
+  };
+
+  const reconcileQuantityTuners = (
+    quantityTuners: CutLabQuantityTunerRow[],
+    antiForgeryToken: string,
+    serializedState: string,
+  ): void => {
+    const tunerBody = getQuantityTunerBody();
+    if (!tunerBody) {
       return;
     }
 
-    Array.from(cardOutSelect.options)
-      .filter(option => option.value === cardOut)
-      .forEach(option => option.remove());
-    Array.from(cardInSelect.options)
-      .filter(option => option.value === cardIn)
-      .forEach(option => option.remove());
+    const visibleRows = quantityTuners
+      .filter(row => row.isVisible && row.isLegalMultiple)
+      .map(row => createQuantityTunerRow(row, antiForgeryToken, serializedState));
+    replaceChildren(tunerBody, visibleRows);
+  };
 
-    if (!Array.from(cardOutSelect.options).some(option => option.value === cardIn)) {
-      cardOutSelect.add(new Option(cardIn, cardIn));
+  const reconcileAddableBasics = (
+    addableBasics: string[],
+    antiForgeryToken: string,
+    serializedState: string,
+  ): void => {
+    const section = getQuantityTunerSection();
+    if (!section) {
+      return;
     }
 
-    if (!Array.from(cardInSelect.options).some(option => option.value === cardOut)) {
-      cardInSelect.add(new Option(cardOut, cardOut));
+    const fallbackNote = ensureAddBasicFallbackNote();
+    let form = getAddBasicForm();
+    if (addableBasics.length === 0) {
+      form?.classList.add('hidden');
+      if (fallbackNote) {
+        fallbackNote.classList.remove('hidden');
+      }
+      return;
     }
 
-    cardOutSelect.value = '';
-    cardInSelect.value = '';
+    if (!form) {
+      form = createAddBasicForm(antiForgeryToken, serializedState);
+    }
+
+    if (!form) {
+      return;
+    }
+
+    Array.from(form.querySelectorAll<HTMLInputElement>('input[name="CutLabStateJson"]'))
+      .forEach(input => {
+        input.value = serializedState;
+      });
+
+    const select = getAddBasicSelect();
+    if (!select) {
+      return;
+    }
+
+    replaceChildren(select, [
+      new Option('Choose a basic…', ''),
+      ...addableBasics.map(cardName => new Option(cardName, cardName)),
+    ]);
+    select.options[0].disabled = true;
+    select.value = '';
+    form.classList.remove('hidden');
+    fallbackNote?.classList.add('hidden');
+  };
+
+  const patchStickyBar = (patch: CutLabUiPatch): void => {
+    setExportEnabled(patch.canBuildExport);
+
+    if (patch.nextProposal.isTerminal || patch.nextProposal.roundLabel.trim() === '') {
+      getStickyBar()?.remove();
+      return;
+    }
+
+    const stickyRound = getStickyRound();
+    if (stickyRound) {
+      stickyRound.textContent = patch.nextProposal.roundLabel;
+    }
+
+    const stickyRemaining = getStickyRemaining();
+    if (stickyRemaining) {
+      stickyRemaining.textContent = `${patch.cardsRemaining} to cut`;
+    }
+
+    const stickyAccepted = getStickyAccepted();
+    if (stickyAccepted) {
+      stickyAccepted.textContent = formatCutsAcceptedSoFar(patch.cutsMade.length);
+    }
+  };
+
+  const applyServerPatch = (
+    patch: CutLabUiPatch,
+    antiForgeryToken: string,
+    options: { preserveCutsSection?: boolean; adjustedCardName?: string } = {},
+  ): void => {
+    void options.adjustedCardName;
+    writeDecisionStateToHiddenInputs(patch.cutLabStateJson);
+    setExportEnabled(patch.canBuildExport);
+    renderWhatifSelectOptions(patch.whatifCardOutOptions, patch.whatifCardInOptions);
+    patchStickyBar(patch);
+    renderRoundBanner(patch.nextProposal);
+    renderProposalCard(patch, antiForgeryToken);
+    renderCutsMade(patch.cutsMade, patch.cutLabStateJson, antiForgeryToken, options.preserveCutsSection ?? false);
+    renderStructuralFindings(patch);
+    reconcileQuantityTuners(patch.quantityTuners, antiForgeryToken, patch.cutLabStateJson);
+    reconcileAddableBasics(patch.addableBasics, antiForgeryToken, patch.cutLabStateJson);
   };
 
   const handleWhatifPreview = async (form: HTMLFormElement, submitter: HTMLButtonElement | null): Promise<void> => {

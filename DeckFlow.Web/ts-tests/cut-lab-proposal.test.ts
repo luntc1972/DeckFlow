@@ -23,8 +23,10 @@ interface CutLabDecideFindingGroupDto {
   items: CutLabDecideFindingDto[];
 }
 
-interface CutLabDecideResponse {
+interface CutLabUiPatch {
   cutLabStateJson: string;
+  currentCount: number;
+  canBuildExport: boolean;
   nextProposal: {
     isTerminal: boolean;
     isAtTarget: boolean;
@@ -47,6 +49,14 @@ interface CutLabDecideResponse {
   structuralFindings: CutLabDecideFindingGroupDto[];
   comboDataAvailable: boolean;
   categoryDataAvailable: boolean;
+  whatifCardOutOptions: string[];
+  whatifCardInOptions: string[];
+  quantityTuners: Array<unknown>;
+  addableBasics: string[];
+}
+
+interface CutLabPatchResponse {
+  patch?: CutLabUiPatch | null;
 }
 
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -220,8 +230,10 @@ const buildDecisionFixture = (): void => {
   document.dispatchEvent(new Event('DOMContentLoaded'));
 };
 
-const buildResponse = (overrides: Partial<CutLabDecideResponse> = {}): CutLabDecideResponse => ({
+const buildPatch = (overrides: Partial<CutLabUiPatch> = {}): CutLabUiPatch => ({
   cutLabStateJson: '{"version":2}',
+  currentCount: 111,
+  canBuildExport: false,
   nextProposal: {
     isTerminal: false,
     isAtTarget: false,
@@ -274,13 +286,17 @@ const buildResponse = (overrides: Partial<CutLabDecideResponse> = {}): CutLabDec
   ],
   comboDataAvailable: true,
   categoryDataAvailable: true,
+  whatifCardOutOptions: [],
+  whatifCardInOptions: [],
+  quantityTuners: [],
+  addableBasics: [],
   ...overrides,
 });
 
 describe('cut-lab proposal enhancement', () => {
   it('intercepts decision-form submit, posts JSON, and syncs every hidden state field from the response', async () => {
     buildDecisionFixture();
-    const response = buildResponse();
+    const response: CutLabPatchResponse = { patch: buildPatch() };
     fetchMock.mockResolvedValue({
       ok: true,
       json: async () => response,
@@ -324,7 +340,7 @@ describe('cut-lab proposal enhancement', () => {
     buildDecisionFixture();
     fetchMock.mockResolvedValue({
       ok: true,
-      json: async () => buildResponse(),
+      json: async () => ({ patch: buildPatch() }),
     });
 
     const form = document.querySelector<HTMLFormElement>('form[action="/cut-lab/decide"]');
@@ -378,7 +394,7 @@ describe('cut-lab proposal enhancement', () => {
     fetchMock
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => buildResponse({
+        json: async () => ({ patch: buildPatch({
           structuralFindings: [
             {
               kind: 'WeakFloorCase',
@@ -409,15 +425,15 @@ describe('cut-lab proposal enhancement', () => {
           ],
           comboDataAvailable: false,
           categoryDataAvailable: true,
-        }),
+        }) }),
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => buildResponse({
+        json: async () => ({ patch: buildPatch({
           structuralFindings: [],
           comboDataAvailable: true,
           categoryDataAvailable: true,
-        }),
+        }) }),
       });
 
     const acceptForm = document.querySelector<HTMLFormElement>('form[action="/cut-lab/decide"]');
@@ -513,9 +529,9 @@ describe('cut-lab proposal enhancement', () => {
     buildDecisionFixture();
     fetchMock.mockResolvedValue({
       ok: true,
-      json: async () => buildResponse({
+      json: async () => ({ patch: buildPatch({
         nextProposal: {
-          ...buildResponse().nextProposal,
+          ...buildPatch().nextProposal,
           roundBannerBody: 'Server banner copy wins.',
         },
         proposalDeltas: {
@@ -532,7 +548,7 @@ describe('cut-lab proposal enhancement', () => {
             },
           ],
         },
-      }),
+      }) }),
     });
 
     const form = document.querySelector<HTMLFormElement>('form[action="/cut-lab/decide"]');
@@ -554,11 +570,11 @@ describe('cut-lab proposal enhancement', () => {
     buildDecisionFixture();
     fetchMock.mockResolvedValue({
       ok: true,
-      json: async () => buildResponse({
+      json: async () => ({ patch: buildPatch({
         cutLabStateJson: '{"version":3}',
         cardsRemaining: 12,
         cutsMade: [],
-      }),
+      }) }),
     });
 
     const forms = document.querySelectorAll<HTMLFormElement>('form[action="/cut-lab/decide"]');
@@ -588,13 +604,13 @@ describe('cut-lab proposal enhancement', () => {
     buildDecisionFixture();
     fetchMock.mockResolvedValue({
       ok: true,
-      json: async () => buildResponse({
+      json: async () => ({ patch: buildPatch({
         cardsRemaining: 10,
         cutsMade: [
           { cardName: 'Sol Ring', roundKey: 'round-1', roundLabel: 'Round 1 · Obvious cuts', ordinal: 2 },
           { cardName: 'Mana Crypt', roundKey: 'round-1', roundLabel: 'Round 1 · Obvious cuts', ordinal: 1 },
         ],
-      }),
+      }) }),
     });
 
     const acceptButton = document.querySelector<HTMLButtonElement>('.cutlab-proposal [data-cut-lab-decision="accept"]');
@@ -635,7 +651,7 @@ describe('cut-lab proposal enhancement', () => {
 
   it('blocks cross-form submissions while any decision request is in flight', async () => {
     buildDecisionFixture();
-    const pendingResponse = deferred<{ ok: boolean; json: () => Promise<CutLabDecideResponse> }>();
+    const pendingResponse = deferred<{ ok: boolean; json: () => Promise<CutLabPatchResponse> }>();
     fetchMock.mockReturnValue(pendingResponse.promise);
 
     const forms = document.querySelectorAll<HTMLFormElement>('form[action="/cut-lab/decide"]');
@@ -666,7 +682,7 @@ describe('cut-lab proposal enhancement', () => {
 
     pendingResponse.resolve({
       ok: true,
-      json: async () => buildResponse(),
+      json: async () => ({ patch: buildPatch() }),
     });
     await flushDecisionSubmit();
 
@@ -677,7 +693,7 @@ describe('cut-lab proposal enhancement', () => {
     buildDecisionFixture();
     fetchMock.mockResolvedValue({
       ok: true,
-      json: async () => buildResponse({
+      json: async () => ({ patch: buildPatch({
         nextProposal: {
           isTerminal: true,
           isAtTarget: true,
@@ -691,7 +707,8 @@ describe('cut-lab proposal enhancement', () => {
         proposalDeltas: null,
         floorWarnings: [],
         cardsRemaining: 0,
-      }),
+        canBuildExport: true,
+      }) }),
     });
 
     const form = document.querySelector<HTMLFormElement>('form[action="/cut-lab/decide"]');
@@ -713,7 +730,7 @@ describe('cut-lab proposal enhancement', () => {
     fetchMock
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => buildResponse({
+        json: async () => ({ patch: buildPatch({
           nextProposal: {
             isTerminal: true,
             isAtTarget: true,
@@ -728,13 +745,15 @@ describe('cut-lab proposal enhancement', () => {
           proposalDeltas: null,
           floorWarnings: [],
           cardsRemaining: 0,
-        }),
+          canBuildExport: true,
+        }) }),
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => buildResponse({
+        json: async () => ({ patch: buildPatch({
           cardsRemaining: 3,
-        }),
+          canBuildExport: false,
+        }) }),
       });
 
     const forms = document.querySelectorAll<HTMLFormElement>('form[action="/cut-lab/decide"]');
@@ -770,15 +789,15 @@ describe('cut-lab proposal enhancement', () => {
     fetchMock
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => buildResponse({
+        json: async () => ({ patch: buildPatch({
           cutLabStateJson: '{"version":3}',
           cardsRemaining: 12,
           cutsMade: [],
-        }),
+        }) }),
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => buildResponse(),
+        json: async () => ({ patch: buildPatch() }),
       });
 
     const forms = document.querySelectorAll<HTMLFormElement>('form[action="/cut-lab/decide"]');
