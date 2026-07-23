@@ -151,8 +151,14 @@ public sealed record CutLabViewModel
             .FirstOrDefault(card =>
             {
                 string normalizedCardName = NormalizeAsciiCase(card.Name);
-                return normalizedEvidence.Equals(normalizedCardName, StringComparison.Ordinal)
-                    || normalizedEvidence.StartsWith($"{normalizedCardName} · mv ", StringComparison.Ordinal);
+                if (normalizedEvidence.Equals(normalizedCardName, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+
+                string manaValuePrefix = $"{normalizedCardName} · mv ";
+                return normalizedEvidence.StartsWith(manaValuePrefix, StringComparison.Ordinal)
+                    && IsValidManaValueSuffix(normalizedEvidence.AsSpan(manaValuePrefix.Length));
             });
     }
 
@@ -167,6 +173,42 @@ public sealed record CutLabViewModel
                     : character;
             }
         });
+
+    private static bool IsValidManaValueSuffix(ReadOnlySpan<char> value)
+    {
+        int index = 0;
+        while (index < value.Length && IsAsciiDigit(value[index]))
+        {
+            index++;
+        }
+
+        if (index == 0)
+        {
+            return false;
+        }
+
+        if (index == value.Length)
+        {
+            return true;
+        }
+
+        if (value[index] != '.')
+        {
+            return false;
+        }
+
+        int fractionalStart = ++index;
+        while (index < value.Length && IsAsciiDigit(value[index]))
+        {
+            index++;
+        }
+
+        int fractionalDigits = index - fractionalStart;
+        return index == value.Length && fractionalDigits is >= 1 and <= 2;
+    }
+
+    private static bool IsAsciiDigit(char character) =>
+        character is >= '0' and <= '9';
 
     /// <summary>Builds the page model from the request and service result.</summary>
     /// <param name="request">Current request values.</param>
