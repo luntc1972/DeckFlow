@@ -339,6 +339,7 @@ public sealed class CutLabWhatifTests
             resolvedCardCache);
         CutLabApiController controller = new(
             contextBuilder,
+            new CutLabUiPatchBuilder(contextBuilder, simulationService),
             simulationService,
             whatifPreviewService,
             NullLogger<CutLabApiController>.Instance)

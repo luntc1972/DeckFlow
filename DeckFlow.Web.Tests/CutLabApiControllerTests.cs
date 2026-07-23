@@ -29,6 +29,17 @@ public sealed class CutLabApiControllerTests
     }
 
     [Fact]
+    public void Constructor_ThrowsArgumentNullException_WhenPatchBuilderIsNull()
+    {
+        Assert.Throws<ArgumentNullException>(() => new CutLabApiController(
+            new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()),
+            null!,
+            new FakeSimulationService(),
+            new FakeWhatifPreviewService(),
+            NullLogger<CutLabApiController>.Instance));
+    }
+
+    [Fact]
     public async Task PostDecideAsync_ReturnsForbidden_WhenOriginIsCrossSite()
     {
         FakeAnalysisContextBuilder builder = new(_ => CreateAnalysisContext());
@@ -107,15 +118,25 @@ public sealed class CutLabApiControllerTests
 
         OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
         CutLabDecideApiResponse payload = Assert.IsType<CutLabDecideApiResponse>(ok.Value);
-        CutLabState updated = CutLabStateSerializer.Deserialize(payload.CutLabStateJson);
+        CutLabState updated = CutLabStateSerializer.Deserialize(payload.Patch.CutLabStateJson);
 
         CutLabDecision accepted = Assert.Single(updated.Decisions);
         Assert.Equal(CutLabDecisionKind.Accepted, accepted.Kind);
         Assert.Equal(state.Pool.Count, updated.Pool.Count);
         Assert.Equal(state.Pool.Select(card => (card.Name, card.Quantity)), updated.Pool.Select(card => (card.Name, card.Quantity)));
+        Assert.Equal(payload.Patch.CutLabStateJson, payload.CutLabStateJson);
         Assert.Equal(1, payload.CardsRemaining);
+        Assert.Equal(payload.Patch.CardsRemaining, payload.CardsRemaining);
         Assert.Equal("Counterspell", payload.NextProposal.CardName);
+        Assert.Equal("Counterspell", payload.Patch.NextProposal.CardName);
         Assert.Equal("Counterspell", payload.ProposalDeltas!.CardName);
+        Assert.Equal(payload.Patch.ProposalDeltas!.CardName, payload.ProposalDeltas.CardName);
+        Assert.Equal(payload.Patch.FloorWarnings, payload.FloorWarnings);
+        Assert.Equal(payload.Patch.CutsMade, payload.CutsMade);
+        Assert.Equal(payload.Patch.StructuralFindings, payload.StructuralFindings);
+        Assert.Equal(payload.Patch.ComboDataAvailable, payload.ComboDataAvailable);
+        Assert.Equal(payload.Patch.CategoryDataAvailable, payload.CategoryDataAvailable);
+        Assert.Equal(1, simulation.DeltaCalls);
     }
 
     [Fact]
@@ -191,9 +212,10 @@ public sealed class CutLabApiControllerTests
 
         OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
         CutLabDecideApiResponse payload = Assert.IsType<CutLabDecideApiResponse>(ok.Value);
-        CutLabDecideFloorWarningDto warning = Assert.Single(payload.FloorWarnings);
+        CutLabDecideFloorWarningDto warning = Assert.Single(payload.Patch.FloorWarnings);
         Assert.Equal("ramp", warning.Role);
         Assert.Contains("Arcane Signet", warning.Message);
+        Assert.Equal(payload.Patch.FloorWarnings, payload.FloorWarnings);
     }
 
     [Fact]
@@ -655,7 +677,12 @@ public sealed class CutLabApiControllerTests
         FakeSimulationService simulation,
         bool sameOrigin = true)
     {
-        CutLabApiController controller = new(builder, simulation, new FakeWhatifPreviewService(), NullLogger<CutLabApiController>.Instance)
+        CutLabApiController controller = new(
+            builder,
+            new CutLabUiPatchBuilder(builder, simulation),
+            simulation,
+            new FakeWhatifPreviewService(),
+            NullLogger<CutLabApiController>.Instance)
         {
             ControllerContext = new ControllerContext
             {

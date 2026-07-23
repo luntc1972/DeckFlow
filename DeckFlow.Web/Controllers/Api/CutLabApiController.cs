@@ -17,22 +17,26 @@ public sealed class CutLabApiController : ControllerBase
     private const string InvalidStateMessage = "Cut Lab state is invalid. Re-import the pool and try again.";
 
     private readonly ICutLabAnalysisContextBuilder _contextBuilder;
+    private readonly ICutLabUiPatchBuilder _patchBuilder;
     private readonly ICutLabSimulationService _simulationService;
     private readonly ICutLabWhatifPreviewService _whatifPreviewService;
     private readonly ILogger<CutLabApiController> _logger;
 
     /// <summary>Creates the Cut Lab API controller.</summary>
     /// <param name="contextBuilder">Shared analysis-context builder reused by intake and decision flows.</param>
+    /// <param name="patchBuilder">Shared UI patch builder reused by mutation endpoints.</param>
     /// <param name="simulationService">Simulation service used for proposal deltas.</param>
     /// <param name="whatifPreviewService">Shared what-if preview service reused by API and no-JS swap flows.</param>
     /// <param name="logger">Logger used for non-fatal API warnings.</param>
     public CutLabApiController(
         ICutLabAnalysisContextBuilder contextBuilder,
+        ICutLabUiPatchBuilder patchBuilder,
         ICutLabSimulationService simulationService,
         ICutLabWhatifPreviewService whatifPreviewService,
         ILogger<CutLabApiController> logger)
     {
         _contextBuilder = contextBuilder ?? throw new ArgumentNullException(nameof(contextBuilder));
+        _patchBuilder = patchBuilder ?? throw new ArgumentNullException(nameof(patchBuilder));
         _simulationService = simulationService ?? throw new ArgumentNullException(nameof(simulationService));
         _whatifPreviewService = whatifPreviewService ?? throw new ArgumentNullException(nameof(whatifPreviewService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -103,44 +107,27 @@ public sealed class CutLabApiController : ControllerBase
                 fullPool,
                 afterWorkingList,
                 beforeContext.ResolvedCards);
-            CutLabAnalysisContext afterContext = await _contextBuilder.BuildAsync(
-                afterWorkingList,
+            CutLabUiPatchDto patch = await _patchBuilder.BuildAsync(
+                state,
                 state.Intent.PlayExperience,
                 commanderNames,
+                floorByRole,
                 afterPreResolvedCards,
                 afterPoolKey,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-            (CutLabStructuralFindingsResult afterFindings, CutLabRoundPlan roundPlan) = CutLabCutRoundEngine.BuildFindingsAndRoundPlan(
-                afterWorkingList,
-                afterContext,
-                floorByRole,
-                state.Decisions);
-
-            CutLabProposalDeltas? proposalDeltas = null;
-            if (roundPlan.NextProposal is not null)
-            {
-                proposalDeltas = await _simulationService.ComputeProposalDeltas(
-                    afterWorkingList,
-                    roundPlan.NextProposal.CardName,
-                    state.Intent.PlayExperience,
-                    trialsOverride: ICutLabSimulationService.InLoopTrials,
-                    poolKey: afterPoolKey,
-                    goals: state.Goals,
-                    cancellationToken: cancellationToken).ConfigureAwait(false);
-            }
-
-            string serializedState = CutLabStateSerializer.Serialize(state);
+                floorWarnings,
+                cancellationToken).ConfigureAwait(false);
             CutLabDecideApiResponse response = new()
             {
-                CutLabStateJson = serializedState,
-                NextProposal = BuildNextProposal(roundPlan, afterFindings),
-                ProposalDeltas = proposalDeltas is null ? null : BuildProposalDeltas(proposalDeltas),
-                FloorWarnings = floorWarnings,
-                CardsRemaining = roundPlan.CardsRemainingToTarget,
-                CutsMade = BuildCutsMade(state.Decisions),
-                StructuralFindings = BuildStructuralFindings(afterFindings),
-                ComboDataAvailable = afterFindings.ComboDataAvailable,
-                CategoryDataAvailable = afterFindings.CategoryDataAvailable,
+                Patch = patch,
+                CutLabStateJson = patch.CutLabStateJson,
+                NextProposal = patch.NextProposal,
+                ProposalDeltas = patch.ProposalDeltas,
+                FloorWarnings = patch.FloorWarnings,
+                CardsRemaining = patch.CardsRemaining,
+                CutsMade = patch.CutsMade,
+                StructuralFindings = patch.StructuralFindings,
+                ComboDataAvailable = patch.ComboDataAvailable,
+                CategoryDataAvailable = patch.CategoryDataAvailable,
             };
 
             return Ok(response);
@@ -471,14 +458,6 @@ public sealed class CutLabApiController : ControllerBase
             FindingChips = chips,
         };
     }
-
-    private static CutLabDecideProposalDeltasDto BuildProposalDeltas(CutLabProposalDeltas proposalDeltas)
-        => new()
-        {
-            CardName = proposalDeltas.CardName,
-            ChangedFamilyCount = proposalDeltas.ChangedFamilyCount,
-            Deltas = BuildMetricDeltas(proposalDeltas.Deltas),
-        };
 
     private static IReadOnlyList<CutLabDecideMetricDeltaDto> BuildMetricDeltas(IReadOnlyList<CutLabMetricDelta> deltas)
         => deltas
