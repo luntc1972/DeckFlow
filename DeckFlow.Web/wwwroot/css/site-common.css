@@ -2516,6 +2516,7 @@ label.field > span,
   padding: 0.3rem 0.85rem;
   cursor: pointer;
   background: var(--panel-soft-bg, var(--panel));
+  color: var(--ink, inherit);
   user-select: none;
 }
 
@@ -4214,6 +4215,16 @@ button.manabase-pill.is-selected {
 
 .cutlab-role-chip--locked {
   border-left: 3px solid var(--accent);
+}
+
+button.cutlab-role-chip {
+  color: var(--ink, inherit);
+  cursor: pointer;
+}
+
+button.cutlab-role-chip:hover,
+button.cutlab-role-chip:focus-visible {
+  border-color: var(--accent);
 }
 
 .cutlab-finding {
