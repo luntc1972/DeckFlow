@@ -966,6 +966,35 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     return element;
   };
 
+  const findLockablePoolCardForEvidence = (evidence: string): { cardName: string; checkbox: HTMLInputElement } | null => {
+    const normalizedEvidence = evidence.toLowerCase();
+    const matches = getPoolRows()
+      .map(row => {
+        const cardName = row.dataset.cutLabCard?.trim() ?? '';
+        const checkbox = getLockCheckbox(row);
+        return cardName !== '' && checkbox && !checkbox.disabled ? { cardName, checkbox } : null;
+      })
+      .filter((match): match is { cardName: string; checkbox: HTMLInputElement } => match !== null)
+      .sort((left, right) => right.cardName.length - left.cardName.length);
+
+    return matches.find(({ cardName }) => {
+      const normalizedCardName = cardName.toLowerCase();
+      return normalizedEvidence === normalizedCardName || normalizedEvidence.startsWith(`${normalizedCardName} · mv `);
+    }) ?? null;
+  };
+
+  const createStructuralEvidenceChip = (evidence: string): HTMLElement => {
+    const match = findLockablePoolCardForEvidence(evidence);
+    if (!match) return createTextElement('span', 'kb-chip', evidence);
+
+    const button = createTextElement('button', 'kb-chip cutlab-role-chip', evidence);
+    button.type = 'button';
+    button.dataset.cutLabChipCard = match.cardName;
+    button.setAttribute('aria-pressed', match.checkbox.checked ? 'true' : 'false');
+    button.classList.toggle('cutlab-role-chip--locked', match.checkbox.checked);
+    return button;
+  };
+
   const replaceChildren = (element: Element, children: Node[]): void => {
     while (element.firstChild) {
       element.removeChild(element.firstChild);
@@ -1395,7 +1424,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
             const chips = document.createElement('div');
             chips.className = 'kb-chip-area__chips';
             item.evidence.forEach(evidence => {
-              chips.appendChild(createTextElement('span', 'kb-chip', evidence));
+              chips.appendChild(createStructuralEvidenceChip(evidence));
             });
             itemElement.appendChild(chips);
           }
