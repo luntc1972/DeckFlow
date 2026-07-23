@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
+import { expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 
 const baseUrl = 'http://localhost:5173';
 const screenshotDir = resolve(__dirname, '../../.planning/ui-design/cut-lab/screenshots');
@@ -271,6 +272,7 @@ test('tunes to exactly 100 with basic steppers, then reloads a saved scenario wi
   const freshPrimaryPlan = 'Fresh import only: favor mana density before trimming.';
 
   await tuneToExactHundredWithExistingBasics(page);
+  await expandMobileCollapsibles(page);
 
   await expect(tunerRow(page, 'Island').locator('[data-cut-lab-quantity-value]')).toHaveText('33');
   await expect(tunerRow(page, 'Swamp').locator('[data-cut-lab-quantity-value]')).toHaveText('21');
@@ -299,6 +301,7 @@ test('tunes to exactly 100 with basic steppers, then reloads a saved scenario wi
   await fillImportForm(page, freshPrimaryPlan);
   await page.getByRole('button', { name: 'Import pool' }).click();
   await waitForCutRounds(page);
+  await expandMobileCollapsibles(page);
 
   await expect(page.locator('#cut-lab-primary-plan')).toHaveValue(freshPrimaryPlan);
   await expect(page.locator('[data-cut-lab-sticky-remaining]')).not.toHaveText('0 to cut');
