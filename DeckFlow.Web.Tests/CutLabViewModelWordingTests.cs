@@ -8,6 +8,45 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabViewModelWordingTests
 {
     [Theory]
+    [InlineData("Command Tower", "Command Tower")]
+    [InlineData("Command Tower · MV 0", "Command Tower")]
+    [InlineData("command tower · MV 0", "Command Tower")]
+    public void FindLockableEvidenceCard_MatchesSupportedCardLabels(string evidence, string expected)
+    {
+        var model = new CutLabViewModel
+        {
+            Pool =
+            [
+                new CutLabPoolCard { Name = "Commander", IsCommander = true, IsLocked = true },
+                new CutLabPoolCard { Name = "Command Tower" },
+            ],
+        };
+
+        CutLabPoolCard? match = model.FindLockableEvidenceCard(evidence);
+
+        Assert.NotNull(match);
+        Assert.Equal(expected, match.Name);
+    }
+
+    [Theory]
+    [InlineData("2 cards above the floor")]
+    [InlineData("Command")]
+    [InlineData("Commander")]
+    public void FindLockableEvidenceCard_LeavesNonCardAndCommanderEvidenceInert(string evidence)
+    {
+        var model = new CutLabViewModel
+        {
+            Pool =
+            [
+                new CutLabPoolCard { Name = "Commander", IsCommander = true, IsLocked = true },
+                new CutLabPoolCard { Name = "Command Tower" },
+            ],
+        };
+
+        Assert.Null(model.FindLockableEvidenceCard(evidence));
+    }
+
+    [Theory]
     [InlineData(0, "0 cards")]
     [InlineData(1, "1 card")]
     [InlineData(2, "2 cards")]

@@ -139,6 +139,19 @@ public sealed record CutLabViewModel
     public IReadOnlyDictionary<string, string> RoleKeysByCardName { get; init; } =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Finds the lockable pool card identified by a rendered Structural evidence label.</summary>
+    public CutLabPoolCard? FindLockableEvidenceCard(string evidence)
+    {
+        ArgumentNullException.ThrowIfNull(evidence);
+
+        return Pool
+            .Where(card => !card.IsCommander)
+            .OrderByDescending(card => card.Name.Length)
+            .FirstOrDefault(card =>
+                evidence.Equals(card.Name, StringComparison.OrdinalIgnoreCase)
+                || evidence.StartsWith($"{card.Name} · MV ", StringComparison.OrdinalIgnoreCase));
+    }
+
     /// <summary>Builds the page model from the request and service result.</summary>
     /// <param name="request">Current request values.</param>
     /// <param name="result">Processed Cut Lab result.</param>

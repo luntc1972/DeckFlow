@@ -498,7 +498,19 @@
                                         <div class="kb-chip-area__chips">
                                             @foreach (var evidence in finding.Evidence)
                                             {
-                                                <span class="kb-chip">@evidence</span>
+                                                var evidenceCard = Model.FindLockableEvidenceCard(evidence);
+                                                if (evidenceCard is null)
+                                                {
+                                                    <span class="kb-chip">@evidence</span>
+                                                }
+                                                else
+                                                {
+                                                    var chipClasses = $"kb-chip cutlab-role-chip{(evidenceCard.IsLocked ? " cutlab-role-chip--locked" : string.Empty)}";
+                                                    <button type="button"
+                                                            class="@chipClasses"
+                                                            data-cut-lab-chip-card="@evidenceCard.Name"
+                                                            aria-pressed="@(evidenceCard.IsLocked ? "true" : "false")">@evidence</button>
+                                                }
                                             }
                                         </div>
                                     }
