@@ -275,21 +275,21 @@ public sealed class CutLabApiController : ControllerBase
     [ProducesResponseType(typeof(CutLabWhatifApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public Task<ActionResult<CutLabWhatifApiResponse>> PostWhatifCommitAsync([FromBody] CutLabWhatifApiRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<CutLabWhatifApiResponse>> PostWhatifCommitAsync([FromBody] CutLabWhatifApiRequest request, CancellationToken cancellationToken)
     {
         if (!SameOriginRequestValidator.IsValid(Request))
         {
-            return Task.FromResult<ActionResult<CutLabWhatifApiResponse>>(StatusCode(StatusCodes.Status403Forbidden, new { Message = SameOriginRequestValidator.GetForbiddenMessage() }));
+            return StatusCode(StatusCodes.Status403Forbidden, new { Message = SameOriginRequestValidator.GetForbiddenMessage() });
         }
 
         if (request is null)
         {
-            return Task.FromResult<ActionResult<CutLabWhatifApiResponse>>(BadRequest(new { Message = "Request body is required." }));
+            return BadRequest(new { Message = "Request body is required." });
         }
 
         if (string.IsNullOrWhiteSpace(request.CutLabStateJson) || string.IsNullOrWhiteSpace(request.CardOut) || string.IsNullOrWhiteSpace(request.CardIn))
         {
-            return Task.FromResult<ActionResult<CutLabWhatifApiResponse>>(BadRequest(new { Message = "Cut Lab state, card out, and card in are required." }));
+            return BadRequest(new { Message = "Cut Lab state, card out, and card in are required." });
         }
 
         try
@@ -297,14 +297,14 @@ public sealed class CutLabApiController : ControllerBase
             CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
             if (state.Pool.Count == 0)
             {
-                return Task.FromResult<ActionResult<CutLabWhatifApiResponse>>(BadRequest(new { Message = InvalidStateMessage }));
+                return BadRequest(new { Message = InvalidStateMessage });
             }
 
             ValidateWhatifPair(state, request.CardOut, request.CardIn);
             CutLabPoolCard? cardOutPoolCard = state.Pool.FirstOrDefault(card => string.Equals(card.Name, request.CardOut, StringComparison.OrdinalIgnoreCase));
             if (cardOutPoolCard is null || cardOutPoolCard.IsLocked)
             {
-                return Task.FromResult<ActionResult<CutLabWhatifApiResponse>>(BadRequest(new { Message = CutLabMessages.NoChangeMessage }));
+                return BadRequest(new { Message = CutLabMessages.NoChangeMessage });
             }
 
             CutLabState afterRestore = CutLabDecisionApplier.Apply(
@@ -320,20 +320,30 @@ public sealed class CutLabApiController : ControllerBase
             // Why: the overshoot guard can refuse the replacement cut, so a half-applied swap must be rejected.
             if (afterSwap.Decisions.Count == afterRestore.Decisions.Count)
             {
-                return Task.FromResult<ActionResult<CutLabWhatifApiResponse>>(BadRequest(new { Message = CutLabMessages.NoChangeMessage }));
+                return BadRequest(new { Message = CutLabMessages.NoChangeMessage });
             }
 
-            return Task.FromResult<ActionResult<CutLabWhatifApiResponse>>(Ok(new CutLabWhatifApiResponse
+            IReadOnlyList<string> commanderNames = GetCommanderNames(afterSwap);
+            IReadOnlyDictionary<string, int> floorByRole = BuildFloorMap(afterSwap.RoleFloors);
+            CutLabUiPatchDto patch = await _patchBuilder.BuildAsync(
+                afterSwap,
+                afterSwap.Intent.PlayExperience,
+                commanderNames,
+                floorByRole,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            return Ok(new CutLabWhatifApiResponse
             {
                 CardOut = request.CardOut,
                 CardIn = request.CardIn,
-                CutLabStateJson = CutLabStateSerializer.Serialize(afterSwap),
-            }));
+                Patch = patch,
+                CutLabStateJson = patch.CutLabStateJson,
+            });
         }
         catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
         {
             _logger.LogWarning(exception, "Cut Lab what-if commit API request failed.");
-            return Task.FromResult<ActionResult<CutLabWhatifApiResponse>>(BadRequest(new { Message = CutLabMessages.NoChangeMessage }));
+            return BadRequest(new { Message = CutLabMessages.NoChangeMessage });
         }
     }
 

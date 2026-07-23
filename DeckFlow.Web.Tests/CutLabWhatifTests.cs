@@ -310,6 +310,7 @@ public sealed class CutLabWhatifTests
         OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
         CutLabWhatifApiResponse payload = Assert.IsType<CutLabWhatifApiResponse>(ok.Value);
 
+        Assert.Null(payload.Patch);
         Assert.Null(payload.CutLabStateJson);
         Assert.Equal(1, payload.ChangedFamilyCount);
         Assert.Equal("Working Card", payload.CardOut);

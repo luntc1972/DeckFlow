@@ -3,6 +3,9 @@ namespace DeckFlow.Web.Models.Api;
 /// <summary>JSON response payload for Cut Lab what-if swap preview and commit actions.</summary>
 public sealed record CutLabWhatifApiResponse
 {
+    /// <summary>Server-authored live UI patch for a committed what-if swap, or <see langword="null"/> for previews.</summary>
+    public CutLabUiPatchDto? Patch { get; init; }
+
     /// <summary>Preview deltas for the proposed swap.</summary>
     public IReadOnlyList<CutLabDecideMetricDeltaDto> Deltas { get; init; } = [];
 

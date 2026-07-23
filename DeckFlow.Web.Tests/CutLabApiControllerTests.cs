@@ -590,6 +590,8 @@ public sealed class CutLabApiControllerTests
 
         OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
         CutLabWhatifApiResponse payload = Assert.IsType<CutLabWhatifApiResponse>(ok.Value);
+        Assert.NotNull(payload.Patch);
+        Assert.Equal(payload.Patch!.CutLabStateJson, payload.CutLabStateJson);
         CutLabState updated = CutLabStateSerializer.Deserialize(payload.CutLabStateJson!);
         CutLabDecision accepted = Assert.Single(updated.Decisions);
         Assert.Equal("Working Card", accepted.CardName);
@@ -597,6 +599,8 @@ public sealed class CutLabApiControllerTests
         Assert.Equal(CutLabCutRoundEngine.WhatifSwapLabel, CutLabCutRoundEngine.LabelFor(accepted.Round));
         Assert.DoesNotContain(CutLabWorkingList.Derive(updated.Pool, updated.Decisions), card => string.Equals(card.Name, "Working Card", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(CutLabWorkingList.Derive(updated.Pool, updated.Decisions), card => string.Equals(card.Name, "Cut Card", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(payload.Patch.CutsMade, cut => cut.CardName == "Working Card" && cut.RoundLabel == "What-if swap");
+        Assert.Contains("Working Card", payload.Patch.WhatifCardInOptions);
     }
 
     [Fact]
@@ -662,7 +666,10 @@ public sealed class CutLabApiControllerTests
                     Ordinal = 1,
                 },
             ]);
-        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)), new FakeSimulationService());
+        FakeAnalysisContextBuilder builder = new(workingList => CreateAnalysisContext(workingList));
+        FakeSimulationService simulation = new();
+        ThrowingPatchBuilder patchBuilder = new();
+        CutLabApiController controller = CreateController(builder, simulation, patchBuilder);
 
         ActionResult<CutLabWhatifApiResponse> response = await controller.PostWhatifCommitAsync(
             new CutLabWhatifApiRequest
@@ -681,16 +688,18 @@ public sealed class CutLabApiControllerTests
         Assert.Equal(CutLabMessages.NoChangeMessage, message);
         Assert.NotNull(response.Result);
         Assert.IsNotType<OkObjectResult>(response.Result);
+        Assert.Equal(0, patchBuilder.BuildCalls);
     }
 
     private static CutLabApiController CreateController(
         FakeAnalysisContextBuilder builder,
         FakeSimulationService simulation,
+        ICutLabUiPatchBuilder? patchBuilder = null,
         bool sameOrigin = true)
     {
         CutLabApiController controller = new(
             builder,
-            new CutLabUiPatchBuilder(builder, simulation),
+            patchBuilder ?? new CutLabUiPatchBuilder(builder, simulation),
             simulation,
             new FakeWhatifPreviewService(),
             NullLogger<CutLabApiController>.Instance)
@@ -949,5 +958,24 @@ public sealed class CutLabApiControllerTests
                 CardOut = cardOut,
                 CardIn = cardIn,
             });
+    }
+
+    private sealed class ThrowingPatchBuilder : ICutLabUiPatchBuilder
+    {
+        public int BuildCalls { get; private set; }
+
+        public Task<CutLabUiPatchDto> BuildAsync(
+            CutLabState state,
+            string playExperience,
+            IReadOnlyList<string> commanderNames,
+            IReadOnlyDictionary<string, int> floorByRole,
+            IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
+            string? poolKey = null,
+            IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
+            CancellationToken cancellationToken = default)
+        {
+            BuildCalls++;
+            throw new Xunit.Sdk.XunitException("Patch builder should not run for rejected what-if commits.");
+        }
     }
 }
