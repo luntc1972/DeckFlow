@@ -315,9 +315,11 @@ This phase does not add new authentication, session, or cryptography surface —
 ### Secondary / Tertiary
 None used — this phase required no external library research; all findings are internal-codebase-only.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Should the interface actually be renamed, or should a new `CommitSwapAsync` simply be added to the existing `ICutLabWhatifPreviewService` name?**
+1. **RESOLVED: Rename the interface** to `ICutLabWhatifService` (do not merely add `CommitSwapAsync` under the old `Preview` name). See recommendation below; the plans (109-01) execute this. Original question retained for provenance:
+
+   **Should the interface actually be renamed, or should a new `CommitSwapAsync` simply be added to the existing `ICutLabWhatifPreviewService` name?**
    - What we know: CLUP-04 explicitly names the target interface `ICutLabWhatifService` (singular, transport-agnostic name, dropping "Preview").
    - What's unclear: Whether the planner wants a rename (touches 7 files listed in Blast Radius) or considers "add a method to the existing interface, keep the name" an equally valid reading of CLUP-04's "one `ICutLabWhatifService` path" wording (the requirement could be read as "one code path" rather than "one interface literally named that").
    - Recommendation: Rename — it is a mechanical, low-risk change (7 files, all internal, no serialization boundary crossed) and it makes the interface name accurately describe what it now does (preview + commit), avoiding a stale "Preview"-only name once commit logic joins it.
