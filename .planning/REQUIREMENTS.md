@@ -26,13 +26,16 @@
 - [ ] **CLUP-13**: Cut Lab sections can collapse and expand, with collapsed state remembered in browser local storage per deck/page.
 - [ ] **CLUP-14**: Cut Lab exposes compact in-page section anchors with mobile sticky jump behavior patterned after the Manabase page.
 - [ ] **CLUP-15**: Package assignment includes a short static help block and one-line inline helper text near the package select explaining how named groups work.
-- [ ] **CLUP-16**: Card oracle context is available through a reusable text-first per-card disclosure, starting in lock pool rows and reused for structural/combo evidence where card context is available.
+- [ ] **CLUP-16**: Card oracle context is available through a reusable text-first per-card disclosure, starting in lock pool rows and reused for structural/combo evidence where card context is available; placement must be validated against the Cycle 19 UI-audit recommendation that oracle text should be visible before optional card imagery.
 - [ ] **CLUP-17**: Structural/combo findings distinguish complete combo membership from near-combo missing-partner state, including weak-floor cases where combo context explains why cards are protected or missing.
+- [ ] **CLUP-18**: Structural findings identify when evidence cards are part of a combo, show the relevant combo role/context, and preserve lock/unlock behavior for matched card evidence chips.
+- [ ] **CLUP-19**: Cut Lab has a dedicated theme-readability regression check for all supported themes covering Lock All role pills, role/card chips, package chips, sticky status, warning/finding panels, selects, inputs, and primary buttons.
+- [ ] **CLUP-20**: Cut Lab UI verification includes representative desktop/mobile screenshots for Classic, Nyx, and Commander Table, with explicit pass/fail notes for usability, understandability, aesthetic hierarchy, and readability.
 
 ### Regression Preservation
 
 - [ ] **CLUP-09**: Role-group and Structural card evidence pills continue to lock/unlock canonical pool cards, while unmatched Structural evidence remains inert.
-- [ ] **CLUP-10**: Cut Lab full-suite verification covers xUnit, Vitest, TypeScript compile, and focused browser smoke for the changed surfaces, including pool filters/search, collapse state, anchors, oracle disclosures, combo labels, package helper copy, and theme readability.
+- [ ] **CLUP-10**: Cut Lab full-suite verification covers xUnit, Vitest, TypeScript compile, and focused browser smoke for the changed surfaces, including pool filters/search, collapse state, anchors, oracle disclosures, combo labels, package helper copy, theme readability, and the Cycle 19 UI-audit screenshot/contrast evidence.
 
 ## Out of Scope
 
@@ -62,14 +65,17 @@
 | CLUP-15 | Phase 110 | Pending |
 | CLUP-16 | Phase 110 | Pending |
 | CLUP-17 | Phase 110 | Pending |
+| CLUP-18 | Phase 110 | Pending |
+| CLUP-19 | Phase 111 | Pending |
+| CLUP-20 | Phase 111 | Pending |
 | CLUP-09 | Phase 111 | Pending |
 | CLUP-10 | Phase 111 | Pending |
 
 **Coverage:**
-- Cycle 19 requirements: 17 total
-- Mapped to phases: 17
+- Cycle 19 requirements: 20 total
+- Mapped to phases: 20
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-07-23*
-*Last updated: 2026-07-23 after Foreman-approved UI discovery requirements*
+*Last updated: 2026-07-23 after Cut Lab UI/theme audit findings were added*
