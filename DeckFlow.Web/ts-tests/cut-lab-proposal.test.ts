@@ -351,6 +351,30 @@ describe('cut-lab proposal enhancement', () => {
 
   it('live-patches only the structural findings body, count slot, and degradation notes after a decision', async () => {
     buildDecisionFixture();
+    document.querySelector('table tbody')?.insertAdjacentHTML('beforeend', `
+      <tr data-cut-lab-card="Counterspell"
+          data-cut-lab-type-line="Instant"
+          data-cut-lab-role="interaction"
+          data-cut-lab-quantity="1"
+          data-cut-lab-commander="false">
+        <td data-label="Select"><input type="checkbox" data-cut-lab-lock-card="Counterspell" /></td>
+        <td data-label="Card"><strong>1 × Counterspell</strong></td>
+        <td data-label="Package">
+          <select data-cut-lab-package-card="Counterspell"><option value="">Unlocked pool</option></select>
+        </td>
+      </tr>
+      <tr data-cut-lab-card="kommand tower"
+          data-cut-lab-type-line="Land"
+          data-cut-lab-role="mana"
+          data-cut-lab-quantity="1"
+          data-cut-lab-commander="false">
+        <td data-label="Select"><input type="checkbox" data-cut-lab-lock-card="kommand tower" /></td>
+        <td data-label="Card"><strong>1 × kommand tower</strong></td>
+        <td data-label="Package">
+          <select data-cut-lab-package-card="kommand tower"><option value="">Unlocked pool</option></select>
+        </td>
+      </tr>
+    `);
     fetchMock
       .mockResolvedValueOnce({
         ok: true,
@@ -370,7 +394,15 @@ describe('cut-lab proposal enhancement', () => {
                   kind: 'WeakFloorCase',
                   heading: 'Weak floor cases',
                   lead: 'Interaction is at 1 against a floor of 2 — every card in this role is effectively protected already.',
-                  evidence: ['Counterspell'],
+                  evidence: [
+                    'Counterspell · MV 2',
+                    '1 card below the floor',
+                    'Kommand Tower',
+                    'Counterspell · MV ',
+                    'Counterspell · MV unknown',
+                    'Counterspell · MV 2 extra',
+                    'Counterspell · MV 2.123',
+                  ],
                 },
               ],
             },
@@ -406,7 +438,34 @@ describe('cut-lab proposal enhancement', () => {
     expect(document.querySelector<HTMLElement>('.cutlab-findings-count')?.textContent).toBe('2 structural findings');
     expect(document.querySelectorAll('[data-cut-lab-structural-findings-body] .cutlab-finding__heading')).toHaveLength(1);
     expect(document.querySelector<HTMLElement>('[data-cut-lab-structural-findings-body] .cutlab-finding__lead')?.textContent).toBe('You have no ramp cards yet; the suggested floor is 1.');
-    expect(document.querySelectorAll('[data-cut-lab-structural-findings-body] .kb-chip')).toHaveLength(1);
+    expect(document.querySelectorAll('[data-cut-lab-structural-findings-body] .kb-chip')).toHaveLength(7);
+    const structuralCardPill = document.querySelector<HTMLButtonElement>('[data-cut-lab-structural-findings-body] button[data-cut-lab-chip-card="Counterspell"]');
+    const structuralCardPills = document.querySelectorAll<HTMLButtonElement>('[data-cut-lab-structural-findings-body] button[data-cut-lab-chip-card="Counterspell"]');
+    const structuralInertEvidence = Array.from(document.querySelectorAll<HTMLElement>('[data-cut-lab-structural-findings-body] span.kb-chip')).find(chip => chip.textContent === '1 card below the floor');
+    const structuralUnicodeEvidence = Array.from(document.querySelectorAll<HTMLElement>('[data-cut-lab-structural-findings-body] span.kb-chip')).find(chip => chip.textContent === 'Kommand Tower');
+    const structuralInvalidManaValueEvidence = Array.from(document.querySelectorAll<HTMLElement>('[data-cut-lab-structural-findings-body] span.kb-chip'))
+      .filter(chip => [
+        'Counterspell · MV ',
+        'Counterspell · MV unknown',
+        'Counterspell · MV 2 extra',
+        'Counterspell · MV 2.123',
+      ].includes(chip.textContent ?? ''));
+    const checkbox = document.querySelector<HTMLInputElement>('input[data-cut-lab-lock-card="Counterspell"]');
+    const hiddenInput = document.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]');
+    expect(structuralCardPill?.textContent).toBe('Counterspell · MV 2');
+    expect(structuralCardPills).toHaveLength(1);
+    expect(structuralCardPill?.getAttribute('aria-pressed')).toBe('false');
+    expect(structuralInertEvidence?.tagName).toBe('SPAN');
+    expect(structuralUnicodeEvidence?.tagName).toBe('SPAN');
+    expect(structuralInvalidManaValueEvidence).toHaveLength(4);
+    structuralCardPill?.click();
+    expect(checkbox?.checked).toBe(true);
+    expect(structuralCardPill?.getAttribute('aria-pressed')).toBe('true');
+    expect(structuralCardPill?.classList.contains('cutlab-role-chip--locked')).toBe(true);
+    expect(JSON.parse(hiddenInput?.value ?? '').pool.find((card: { name: string }) => card.name === 'Counterspell')?.isLocked).toBe(true);
+    structuralCardPill?.click();
+    expect(checkbox?.checked).toBe(false);
+    expect(structuralCardPill?.getAttribute('aria-pressed')).toBe('false');
     expect(document.querySelector<HTMLElement>('[data-cut-lab-degradation="combo"]')?.classList.contains('hidden')).toBe(false);
     expect(document.querySelector<HTMLElement>('[data-cut-lab-degradation="category"]')?.classList.contains('hidden')).toBe(true);
 

@@ -139,6 +139,77 @@ public sealed record CutLabViewModel
     public IReadOnlyDictionary<string, string> RoleKeysByCardName { get; init; } =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Finds the lockable pool card identified by a rendered Structural evidence label.</summary>
+    public CutLabPoolCard? FindLockableEvidenceCard(string evidence)
+    {
+        ArgumentNullException.ThrowIfNull(evidence);
+        string normalizedEvidence = NormalizeAsciiCase(evidence);
+
+        return Pool
+            .Where(card => !card.IsCommander)
+            .OrderByDescending(card => card.Name.Length)
+            .FirstOrDefault(card =>
+            {
+                string normalizedCardName = NormalizeAsciiCase(card.Name);
+                if (normalizedEvidence.Equals(normalizedCardName, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+
+                string manaValuePrefix = $"{normalizedCardName} · mv ";
+                return normalizedEvidence.StartsWith(manaValuePrefix, StringComparison.Ordinal)
+                    && IsValidManaValueSuffix(normalizedEvidence.AsSpan(manaValuePrefix.Length));
+            });
+    }
+
+    private static string NormalizeAsciiCase(string value) =>
+        string.Create(value.Length, value, static (characters, source) =>
+        {
+            for (int index = 0; index < source.Length; index++)
+            {
+                char character = source[index];
+                characters[index] = character is >= 'A' and <= 'Z'
+                    ? (char)(character + ('a' - 'A'))
+                    : character;
+            }
+        });
+
+    private static bool IsValidManaValueSuffix(ReadOnlySpan<char> value)
+    {
+        int index = 0;
+        while (index < value.Length && IsAsciiDigit(value[index]))
+        {
+            index++;
+        }
+
+        if (index == 0)
+        {
+            return false;
+        }
+
+        if (index == value.Length)
+        {
+            return true;
+        }
+
+        if (value[index] != '.')
+        {
+            return false;
+        }
+
+        int fractionalStart = ++index;
+        while (index < value.Length && IsAsciiDigit(value[index]))
+        {
+            index++;
+        }
+
+        int fractionalDigits = index - fractionalStart;
+        return index == value.Length && fractionalDigits is >= 1 and <= 2;
+    }
+
+    private static bool IsAsciiDigit(char character) =>
+        character is >= '0' and <= '9';
+
     /// <summary>Builds the page model from the request and service result.</summary>
     /// <param name="request">Current request values.</param>
     /// <param name="result">Processed Cut Lab result.</param>
