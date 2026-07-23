@@ -1465,6 +1465,33 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     });
   };
 
+  const removeRestoredCutRow = (cardName: string): void => {
+    const details = getCutsMadeDetails();
+    if (!details) {
+      return;
+    }
+
+    details.closest<HTMLElement>('section.result-panel')?.setAttribute('data-cut-lab-cuts-made-section', 'true');
+
+    const row = Array.from(details.querySelectorAll<HTMLDivElement>('.cutlab-cuts-made__row'))
+      .find(candidate => candidate.querySelector('span')?.textContent?.trim() === cardName);
+    if (!row) {
+      return;
+    }
+
+    row.remove();
+    const remainingCount = details.querySelectorAll('.cutlab-cuts-made__row').length;
+    if (remainingCount === 0) {
+      details.remove();
+      return;
+    }
+
+    const summary = details.querySelector('summary');
+    if (summary) {
+      summary.textContent = `Cuts made · ${formatCutsMadeCount(remainingCount)}`;
+    }
+  };
+
   const renderStructuralFindings = (patch: CutLabUiPatch): void => {
     const section = getStructuralFindingsSection();
     const body = getStructuralFindingsBody();
@@ -2122,7 +2149,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
 
     const stickyAccepted = getStickyAccepted();
-    if (stickyAccepted && !options.preserveCutsSection) {
+    if (stickyAccepted) {
       stickyAccepted.textContent = formatCutsAcceptedSoFar(patch.cutsMade.length);
     }
   };
@@ -2387,6 +2414,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       clearRestoreConfirmation();
       applyServerPatch(data.patch, antiForgeryToken, { preserveCutsSection: payload.decision === 'restore' });
       if (payload.decision === 'restore') {
+        removeRestoredCutRow(payload.cardName);
         renderCutsMadeStatus('data-cut-lab-restore-confirmation', `${payload.cardName} restored — metrics recalculating…`);
       }
     } catch (error) {
@@ -2494,7 +2522,6 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         adjustedCardName: payload.cardName,
         preserveProposal: true,
         preserveFindings: true,
-        preserveCutsSection: true,
       });
     } catch (error) {
       renderDecisionError(form, error instanceof DOMException && error.name === 'AbortError'

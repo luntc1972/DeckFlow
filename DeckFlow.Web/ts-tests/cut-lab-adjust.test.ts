@@ -344,7 +344,7 @@ describe('cut-lab adjust enhancement', () => {
           nextProposal: null as any,
           proposalDeltas: null,
           floorWarnings: [],
-          cutsMade: [],
+          cutsMade: [{ cardName: 'Old Cut', roundKey: 'round-1', roundLabel: 'Round 1', ordinal: 1 }],
           structuralFindings: [],
           comboDataAvailable: false,
           categoryDataAvailable: false,
@@ -383,7 +383,7 @@ describe('cut-lab adjust enhancement', () => {
     expect(document.querySelector('tr[data-cut-lab-tuner-row="Island"] [data-cut-lab-quantity-value]')?.textContent).toBe('99');
     expect(document.querySelector('[data-cut-lab-sticky-remaining]')?.textContent).toBe('0 to cut');
     expect(document.querySelector('[data-cut-lab-sticky-round]')?.textContent).toBe('Round 1');
-    expect(document.querySelector('[data-cut-lab-sticky-accepted]')?.textContent).toBe('0 cuts so far');
+    expect(document.querySelector('[data-cut-lab-sticky-accepted]')?.textContent).toBe('1 cut so far');
   });
 
   it('surfaces the server error and preserves hidden state on a failed adjust', async () => {
