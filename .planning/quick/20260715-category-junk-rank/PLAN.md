@@ -1,6 +1,6 @@
 ---
 slug: category-junk-rank
-status: in-progress
+status: complete
 date: 2026-07-15
 ---
 
