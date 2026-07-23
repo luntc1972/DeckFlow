@@ -86,3 +86,28 @@ None (single reviewer).
 
 ### Resolution plan
 Fold into a convergence replan: consolidate swap-pair validation into the shared `ICutLabWhatifService` (non-throwing) so BOTH preview and commit on BOTH transports route through it; update all four call sites (API preview+commit, no-JS preview+keep) when deleting the two helpers; add preview invalid-pair regression tests (locked/commander card-out) on both transports BEFORE deletion; specify the exact API projection-failure outcome (propagate, not swallow); resolve the cancellation-token note; add grep gate `rg "ValidateWhatifPair|IsValidWhatifPair" DeckFlow.Web/Controllers` → 0. Re-review with Codex until CONVERGED (no HIGH) before execution.
+
+---
+
+## Codex Re-Review — Convergence Round 2 (gpt-5.5, medium, read-only) — 2026-07-23T22:57:47Z
+
+Revised plans re-reviewed after folding round-1 findings (shared `TryValidateSwap` across all four call sites; API projection moved outside the catch; 109-02 restructured into two per-transport vertical slices; cancellation + casing addressed).
+
+**Prior Findings**
+
+- **HIGH-1: RESOLVED** — 109-02-01 explicitly migrates API preview `PostWhatifAsync` to `_whatifService.TryValidateSwap` before deleting `ValidateWhatifPair`, so the API preview call site is not broken.
+- **HIGH-2: RESOLVED** — 109-02-02 keeps the no-JS `Whatif` pre-check before both `preview` and `keep` branches, now via `TryValidateSwap`, preserving invalid-preview behavior.
+- **HIGH-3: RESOLVED** — 109-02-01 moves `_patchBuilder.BuildAsync` plus commander/floor projection outside the API commit validation catch and adds the propagation test.
+- **MEDIUM-1: RESOLVED** — preview validation is re-homed through `TryValidateSwap` for both API and no-JS preview paths in 109-02-01 and 109-02-02.
+- **MEDIUM-2: RESOLVED** — 109-01-01 requires `CommitSwapAsync` to call `cancellationToken.ThrowIfCancellationRequested()` at entry.
+- **LOW-1: RESOLVED** — 109-01-01 requires commit success to return input `CardOut`/`CardIn`, and 109-01-03 adds `CommitSwapAsync_ValidPair_ReturnsCardOutAndCardInMatchingInputCasing`.
+
+**New HIGH Concerns**
+
+None. The two-slice structure keeps each transport green by migrating code and tests atomically, and the final grep gate in 109-02-02 closes the helper-deletion proof after both slices land.
+
+One non-blocking note: `PreviewSwapAsync` remains defensively validating internally per the “rename only” constraint, so the “single validation source” claim is true for the four controller call sites, not literally for every internal guard in the service body. That is acceptable for this phase because 109-02 pre-validates both preview transports through `TryValidateSwap`.
+
+VERDICT: CONVERGED-GO
+
+**Convergence: reached.** All 3 HIGH + 2 MEDIUM + 1 LOW resolved; no new HIGH. One non-blocking note (PreviewSwapAsync keeps internal defensive validation — acceptable since both preview transports pre-validate via TryValidateSwap). Plans cleared for execution.
