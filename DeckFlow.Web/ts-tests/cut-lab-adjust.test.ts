@@ -198,6 +198,47 @@ const buildFixture = (options: { includePlainsRow?: boolean; addableBasics?: str
       </div>
       <button type="button" id="cut-lab-step-tab-4" class="is-disabled" disabled aria-disabled="true">Export</button>
     </section>
+    <section class="result-panel">
+      <div class="cutlab-round-banner">
+        <p class="cutlab-finding__heading">Round 1</p>
+        <p>Keep tuning basics.</p>
+      </div>
+      <div class="cutlab-proposal" data-cut-lab-card="Island" data-cut-lab-round="round-1">
+        <p class="cutlab-proposal__heading">Proposed cut: Island</p>
+        <div class="cutlab-proposal__evidence">
+          <p>Flagged by 1 findings:</p>
+          <div class="kb-chip-area__chips">
+            <span class="kb-chip">Mana</span>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="result-panel" data-cut-lab-structural-findings>
+      <div class="panel-heading">
+        <div data-cut-lab-findings-count-slot>
+          <span class="cutlab-findings-count">1 structural finding</span>
+        </div>
+      </div>
+      <div data-cut-lab-structural-findings-body>
+        <div class="cutlab-finding">
+          <p class="cutlab-finding__heading">Weak floor cases</p>
+          <div class="cutlab-finding__item">
+            <p class="cutlab-finding__lead">Existing structural issue.</p>
+          </div>
+        </div>
+      </div>
+      <p data-cut-lab-degradation="combo" class="hidden"></p>
+      <p data-cut-lab-degradation="category" class="hidden"></p>
+    </section>
+    <section class="result-panel" data-cut-lab-cuts-made-section="true">
+      <details class="cutlab-cuts-made" open>
+        <summary>Cuts made · 1 card</summary>
+        <div class="cutlab-cuts-made__row">
+          <span>Old Cut</span>
+          <span class="prompt-size-note">cut in Round 1</span>
+        </div>
+      </details>
+    </section>
     <section class="result-panel nested-panel cutlab-tuner">
       <div class="history-timeline__wrap">
         <table>
@@ -291,6 +332,58 @@ describe('cut-lab adjust enhancement', () => {
     const rowButtons = document.querySelectorAll<HTMLButtonElement>('tr[data-cut-lab-tuner-row="Island"] [data-cut-lab-adjust]');
     expect(rowButtons[0]?.disabled).toBe(false);
     expect(rowButtons[1]?.disabled).toBe(true);
+  });
+
+  it('preserves the existing proposal and findings panels when adjust returns a light patch', async () => {
+    buildFixture();
+    const nextStateJson = buildStateJson(98, 1);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        patch: buildPatch(nextStateJson, {
+          nextProposal: null as any,
+          proposalDeltas: null,
+          floorWarnings: [],
+          cutsMade: [],
+          structuralFindings: [],
+          comboDataAvailable: false,
+          categoryDataAvailable: false,
+          quantityTuners: [
+            {
+              cardName: 'Island',
+              currentQuantity: 99,
+              legalMax: 150,
+              removeDisabled: false,
+              addDisabled: false,
+              isLockedOrCommander: false,
+              isVisible: true,
+              roleLabel: 'Lands',
+              isLegalMultiple: true,
+              isAddedBasic: false,
+            },
+          ],
+          addableBasics: ['Plains', 'Swamp'],
+        }),
+      }),
+    });
+
+    const button = document.querySelector<HTMLButtonElement>('tr[data-cut-lab-tuner-row="Island"] [data-cut-lab-delta="1"]');
+    const form = button?.closest('form');
+    form?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: button ?? undefined,
+    }));
+    await flushAdjustSubmit();
+
+    expect(document.querySelector('.cutlab-round-banner .cutlab-finding__heading')?.textContent).toBe('Round 1');
+    expect(document.querySelector('.cutlab-proposal__heading')?.textContent).toBe('Proposed cut: Island');
+    expect(document.querySelector('[data-cut-lab-structural-findings-body]')?.textContent).toContain('Existing structural issue.');
+    expect(document.querySelector('.cutlab-cuts-made__row span')?.textContent).toBe('Old Cut');
+    expect(document.querySelector('tr[data-cut-lab-tuner-row="Island"] [data-cut-lab-quantity-value]')?.textContent).toBe('99');
+    expect(document.querySelector('[data-cut-lab-sticky-remaining]')?.textContent).toBe('0 to cut');
+    expect(document.querySelector('[data-cut-lab-sticky-round]')?.textContent).toBe('Round 1');
+    expect(document.querySelector('[data-cut-lab-sticky-accepted]')?.textContent).toBe('0 cuts so far');
   });
 
   it('surfaces the server error and preserves hidden state on a failed adjust', async () => {

@@ -2100,16 +2100,19 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     fallbackNote?.classList.add('hidden');
   };
 
-  const patchStickyBar = (patch: CutLabUiPatch): void => {
+  const patchStickyBar = (
+    patch: CutLabUiPatch,
+    options: { preserveProposal?: boolean; preserveCutsSection?: boolean } = {},
+  ): void => {
     setExportEnabled(patch.canBuildExport);
 
-    if (patch.nextProposal.isTerminal || patch.nextProposal.roundLabel.trim() === '') {
+    if (!options.preserveProposal && patch.nextProposal && (patch.nextProposal.isTerminal || patch.nextProposal.roundLabel.trim() === '')) {
       getStickyBar()?.remove();
       return;
     }
 
     const stickyRound = getStickyRound();
-    if (stickyRound) {
+    if (stickyRound && !options.preserveProposal && patch.nextProposal) {
       stickyRound.textContent = patch.nextProposal.roundLabel;
     }
 
@@ -2119,7 +2122,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
 
     const stickyAccepted = getStickyAccepted();
-    if (stickyAccepted) {
+    if (stickyAccepted && !options.preserveCutsSection) {
       stickyAccepted.textContent = formatCutsAcceptedSoFar(patch.cutsMade.length);
     }
   };
@@ -2127,17 +2130,23 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const applyServerPatch = (
     patch: CutLabUiPatch,
     antiForgeryToken: string,
-    options: { preserveCutsSection?: boolean; adjustedCardName?: string } = {},
+    options: { preserveCutsSection?: boolean; preserveProposal?: boolean; preserveFindings?: boolean; adjustedCardName?: string } = {},
   ): void => {
     void options.adjustedCardName;
     writeDecisionStateToHiddenInputs(patch.cutLabStateJson);
     setExportEnabled(patch.canBuildExport);
     renderWhatifSelectOptions(patch.whatifCardOutOptions, patch.whatifCardInOptions);
-    patchStickyBar(patch);
-    renderRoundBanner(patch.nextProposal);
-    renderProposalCard(patch, antiForgeryToken);
-    renderCutsMade(patch.cutsMade, patch.cutLabStateJson, antiForgeryToken, options.preserveCutsSection ?? false);
-    renderStructuralFindings(patch);
+    patchStickyBar(patch, options);
+    if (!options.preserveProposal && patch.nextProposal) {
+      renderRoundBanner(patch.nextProposal);
+      renderProposalCard(patch, antiForgeryToken);
+    }
+    if (!(options.preserveCutsSection && patch.cutsMade.length === 0)) {
+      renderCutsMade(patch.cutsMade, patch.cutLabStateJson, antiForgeryToken, options.preserveCutsSection ?? false);
+    }
+    if (!options.preserveFindings) {
+      renderStructuralFindings(patch);
+    }
     reconcileQuantityTuners(patch.quantityTuners, antiForgeryToken, patch.cutLabStateJson);
     reconcileAddableBasics(patch.addableBasics, antiForgeryToken, patch.cutLabStateJson);
   };
@@ -2481,7 +2490,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         return;
       }
 
-      applyServerPatch(data.patch, antiForgeryToken, { adjustedCardName: payload.cardName });
+      applyServerPatch(data.patch, antiForgeryToken, {
+        adjustedCardName: payload.cardName,
+        preserveProposal: true,
+        preserveFindings: true,
+        preserveCutsSection: true,
+      });
     } catch (error) {
       renderDecisionError(form, error instanceof DOMException && error.name === 'AbortError'
         ? cutLabDecisionTimeoutCopy
