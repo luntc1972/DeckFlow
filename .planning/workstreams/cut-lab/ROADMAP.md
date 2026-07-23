@@ -157,3 +157,10 @@ Phases execute in numeric order: 101 -> 102 -> 103 -> 104 -> 105 -> 106 -> 107
 **Status**: PROMOTED to Phase 106 (2026-07-22) — scoped as "Approach B" quantity-adjustment layer + add-basics, see the Phase 106 entry above. This note kept for the origin rationale.
 **Why**: The Cut Lab decision model is name-keyed with no per-copy quantity, so `CutLabWorkingList.Derive` cuts a whole entry (all copies of a name) on accept. A multi-copy entry (e.g. `35 Island`) is therefore all-or-nothing: it can only be cut when its full quantity fits the remaining budget. Phase 105 shipped the contained "Option A" fix — the cut engine excludes any entry whose `Quantity > cardsRemainingToTarget` from proposals (with an applier defense-in-depth guard) so the working list converges on exactly 100. Consequence/limitation: a large basic-land stack can't be trimmed a few copies at a time near the target; basics near 100 are effectively uncuttable.
 **Scope if built (Option B)**: add per-copy cut support — `CutLabDecision.Quantity`, quantity-subtracting `Derive`, serializer bounds, per-copy apply/restore, per-copy proposals/target-decrement, quantity-aware what-if + deltas + export, and UI to cut N of a stack ("cut 1 of 35"). ~9 source files + broad tests across both projects; touches the P103 state contract and P104 what-if/restore invariants — treat as its own phase, not a bug fix.
+
+### Post-Cycle-18 quality follow-ups (captured 2026-07-22)
+Deferred items from the milestone simplify audit + UI review — see
+`BACKLOG-cut-lab-followups-2026-07-22.md` for full detail/evidence:
+- **[High]** `cut-lab.ts` re-derives server domain state (drift risk) → server `CutLabUiPatch` DTOs. Own phase.
+- **[Med]** What-if preview/commit split across 3 sites → `ICutLabWhatifService.Preview/Commit`.
+- **[UX]** Mobile ~14k-px scroll → sticky step-nav + jump-to-section (collapse shipped, ~3% only).
