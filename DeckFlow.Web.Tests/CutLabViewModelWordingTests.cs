@@ -11,6 +11,8 @@ public sealed class CutLabViewModelWordingTests
     [InlineData("Command Tower", "Command Tower")]
     [InlineData("Command Tower · MV 0", "Command Tower")]
     [InlineData("command tower · MV 0", "Command Tower")]
+    [InlineData("Command Tower · MV 2.5", "Command Tower")]
+    [InlineData("Command Tower · MV 2.25", "Command Tower")]
     public void FindLockableEvidenceCard_MatchesSupportedCardLabels(string evidence, string expected)
     {
         var model = new CutLabViewModel
@@ -32,6 +34,10 @@ public sealed class CutLabViewModelWordingTests
     [InlineData("2 cards above the floor")]
     [InlineData("Command")]
     [InlineData("Commander")]
+    [InlineData("Command Tower · MV ")]
+    [InlineData("Command Tower · MV unknown")]
+    [InlineData("Command Tower · MV 2 extra")]
+    [InlineData("Command Tower · MV 2.123")]
     public void FindLockableEvidenceCard_LeavesNonCardAndCommanderEvidenceInert(string evidence)
     {
         var model = new CutLabViewModel
