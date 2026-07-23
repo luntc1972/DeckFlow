@@ -75,7 +75,8 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
         ArgumentNullException.ThrowIfNull(commanderNames);
         ArgumentNullException.ThrowIfNull(floorByRole);
 
-        IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
+        WorkingListProjection projection = BuildWorkingListProjection(state);
+        IReadOnlyList<CutLabPoolCard> workingList = projection.WorkingList;
         string resolvedPoolKey = poolKey ?? CutLabResolvedCardCache.ComputePoolKey(workingList);
         CutLabAnalysisContext context = await _analysisContextBuilder.BuildAsync(
             workingList,
@@ -104,15 +105,12 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             proposalDeltas = BuildProposalDeltas(deltas);
         }
 
-        IReadOnlyList<CutLabQuantityTunerRowDto> quantityTuners = BuildQuantityTuners(workingList, state.Pool, context.RolesByCardName);
-        int currentCount = workingList.Sum(card => card.Quantity);
-
         return new CutLabUiPatchDto
         {
             CutLabStateJson = CutLabStateSerializer.Serialize(state),
-            CurrentCount = currentCount,
-            CardsRemaining = Math.Max(currentCount - 100, 0),
-            CanBuildExport = currentCount == 100,
+            CurrentCount = projection.CurrentCount,
+            CardsRemaining = projection.CardsRemaining,
+            CanBuildExport = projection.CanBuildExport,
             NextProposal = BuildNextProposal(roundPlan, findings),
             ProposalDeltas = proposalDeltas,
             FloorWarnings = floorWarnings ?? BuildFloorWarningsForNextProposal(workingList, context, floorByRole, roundPlan),
@@ -120,10 +118,42 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             StructuralFindings = BuildStructuralFindings(findings),
             ComboDataAvailable = findings.ComboDataAvailable,
             CategoryDataAvailable = findings.CategoryDataAvailable,
-            WhatifCardOutOptions = BuildWhatifCardOutOptions(workingList),
-            WhatifCardInOptions = BuildWhatifCardInOptions(state.Pool, state.Decisions),
-            QuantityTuners = quantityTuners,
-            AddableBasics = BuildAddableBasics(quantityTuners),
+            WhatifCardOutOptions = projection.WhatifCardOutOptions,
+            WhatifCardInOptions = projection.WhatifCardInOptions,
+            QuantityTuners = BuildQuantityTuners(projection.WorkingList, projection.OriginalPoolNames, context.RolesByCardName),
+            AddableBasics = projection.AddableBasics,
+        };
+    }
+
+    /// <summary>Builds a light UI patch for quantity nudges without re-running analysis or simulation.</summary>
+    /// <param name="state">Current authoritative Cut Lab state.</param>
+    /// <param name="commanderNames">Resolved commander names for the current state.</param>
+    /// <returns>The server-authored live UI patch for the provided adjustment.</returns>
+    public CutLabUiPatchDto BuildAdjustPatch(CutLabState state, IReadOnlyList<string> commanderNames)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(commanderNames);
+
+        WorkingListProjection projection = BuildWorkingListProjection(state);
+        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName = BuildAdjustRoleAssignments(projection.WorkingList);
+
+        return new CutLabUiPatchDto
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(state),
+            CurrentCount = projection.CurrentCount,
+            CardsRemaining = projection.CardsRemaining,
+            CanBuildExport = projection.CanBuildExport,
+            NextProposal = null!,
+            ProposalDeltas = null,
+            FloorWarnings = [],
+            CutsMade = [],
+            StructuralFindings = [],
+            ComboDataAvailable = false,
+            CategoryDataAvailable = false,
+            WhatifCardOutOptions = projection.WhatifCardOutOptions,
+            WhatifCardInOptions = projection.WhatifCardInOptions,
+            QuantityTuners = BuildQuantityTuners(projection.WorkingList, projection.OriginalPoolNames, roleAssignmentsByCardName),
+            AddableBasics = projection.AddableBasics,
         };
     }
 
@@ -244,15 +274,33 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             })
             .ToArray();
 
-    private static IReadOnlyList<CutLabQuantityTunerRowDto> BuildQuantityTuners(
-        IReadOnlyList<CutLabPoolCard> workingList,
-        IReadOnlyList<CutLabPoolCard> pool,
-        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName)
+    private static WorkingListProjection BuildWorkingListProjection(CutLabState state)
     {
-        HashSet<string> originalPoolNames = pool
+        IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
+        IReadOnlySet<string> originalPoolNames = state.Pool
             .Select(card => CutLabCardNames.Normalize(card.Name))
             .ToHashSet(CutLabCardNames.Comparer);
+        IReadOnlyList<string> whatifCardOutOptions = BuildWhatifCardOutOptions(workingList);
+        IReadOnlyList<string> whatifCardInOptions = BuildWhatifCardInOptions(state.Pool, state.Decisions);
+        int currentCount = workingList.Sum(card => card.Quantity);
+        IReadOnlyList<string> addableBasics = BuildAddableBasics(workingList);
 
+        return new WorkingListProjection(
+            workingList,
+            originalPoolNames,
+            currentCount,
+            Math.Max(currentCount - 100, 0),
+            currentCount == 100,
+            whatifCardOutOptions,
+            whatifCardInOptions,
+            addableBasics);
+    }
+
+    private static IReadOnlyList<CutLabQuantityTunerRowDto> BuildQuantityTuners(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        IReadOnlySet<string> originalPoolNames,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName)
+    {
         return workingList
             .Select(card =>
             {
@@ -278,15 +326,33 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             .ToArray();
     }
 
-    private static IReadOnlyList<string> BuildAddableBasics(IReadOnlyList<CutLabQuantityTunerRowDto> quantityTuners)
+    private static IReadOnlyList<string> BuildAddableBasics(IReadOnlyList<CutLabPoolCard> workingList)
     {
-        HashSet<string> presentBasicNames = quantityTuners
-            .Select(row => CutLabCardNames.Normalize(row.CardName))
+        HashSet<string> presentBasicNames = workingList
+            .Select(card => CutLabCardNames.Normalize(card.Name))
             .ToHashSet(CutLabCardNames.Comparer);
 
         return CutLabBasicLands.Names
             .Where(name => !presentBasicNames.Contains(CutLabCardNames.Normalize(name)))
             .ToArray();
+    }
+
+    private static IReadOnlyDictionary<string, IReadOnlyList<string>> BuildAdjustRoleAssignments(IReadOnlyList<CutLabPoolCard> workingList)
+    {
+        Dictionary<string, IReadOnlyList<string>> result = new(StringComparer.OrdinalIgnoreCase);
+        foreach (CutLabPoolCard card in workingList)
+        {
+            if (CutLabBasicLands.Contains(card.Name)
+                || card.TypeLine.Contains("Land", StringComparison.OrdinalIgnoreCase))
+            {
+                result[card.Name] = ["lands"];
+                continue;
+            }
+
+            result[card.Name] = [];
+        }
+
+        return result;
     }
 
     private static string RoleLabelFor(
@@ -319,4 +385,14 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
+
+    private sealed record WorkingListProjection(
+        IReadOnlyList<CutLabPoolCard> WorkingList,
+        IReadOnlySet<string> OriginalPoolNames,
+        int CurrentCount,
+        int CardsRemaining,
+        bool CanBuildExport,
+        IReadOnlyList<string> WhatifCardOutOptions,
+        IReadOnlyList<string> WhatifCardInOptions,
+        IReadOnlyList<string> AddableBasics);
 }

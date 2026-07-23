@@ -328,6 +328,75 @@ public sealed class CutLabUiPatchBuilderTests
     }
 
     [Fact]
+    public void BuildAdjustPatch_ReturnsLightAdjustProjectionWithoutAnalysisOrSimulation()
+    {
+        CutLabState state = CreateState(
+            pool:
+            [
+                Card("Commander", quantity: 1, isCommander: true, isLocked: true, typeLine: "Legendary Creature"),
+                Card("Arcane Signet", quantity: 1, typeLine: "Artifact"),
+                Card("Cut Card", quantity: 1, typeLine: "Artifact"),
+                Card("Basic Filler", quantity: 99, isLocked: true, typeLine: "Artifact"),
+            ],
+            decisions:
+            [
+                new CutLabDecision
+                {
+                    CardName = "Cut Card",
+                    Kind = CutLabDecisionKind.Accepted,
+                    Round = CutLabCutRoundEngine.Round1Key,
+                    Ordinal = 1,
+                },
+            ],
+            quantityAdjustments:
+            [
+                new CutLabQuantityAdjustment
+                {
+                    Name = "Arcane Signet",
+                    Delta = 1,
+                },
+                new CutLabQuantityAdjustment
+                {
+                    Name = "Forest",
+                    Delta = 1,
+                    IsAddedBasic = true,
+                },
+            ]);
+        FakeAnalysisContextBuilder contextBuilder = new(workingList => CreateAnalysisContext(workingList))
+        {
+            ThrowOnBuild = true,
+        };
+        FakeSimulationService simulationService = new()
+        {
+            ThrowOnComputeProposalDeltas = true,
+        };
+        CutLabUiPatchBuilder builder = new(contextBuilder, simulationService);
+
+        CutLabUiPatchDto patch = builder.BuildAdjustPatch(state, ["Commander"]);
+
+        Assert.Equal(CutLabStateSerializer.Serialize(state), patch.CutLabStateJson);
+        Assert.Equal(102, patch.CurrentCount);
+        Assert.Equal(2, patch.CardsRemaining);
+        Assert.False(patch.CanBuildExport);
+        Assert.Null(patch.NextProposal);
+        Assert.Null(patch.ProposalDeltas);
+        Assert.Empty(patch.StructuralFindings);
+        Assert.Empty(patch.FloorWarnings);
+        Assert.Empty(patch.CutsMade);
+        Assert.False(patch.ComboDataAvailable);
+        Assert.False(patch.CategoryDataAvailable);
+        Assert.Equal(["Arcane Signet", "Forest"], patch.WhatifCardOutOptions);
+        Assert.Equal(["Cut Card"], patch.WhatifCardInOptions);
+        Assert.Equal(
+            CutLabBasicLands.Names.Where(name => !string.Equals(name, "Forest", StringComparison.OrdinalIgnoreCase)).ToArray(),
+            patch.AddableBasics);
+        Assert.Contains(patch.QuantityTuners, row => row.CardName == "Arcane Signet" && row.CurrentQuantity == 1 && row.AddDisabled);
+        Assert.Contains(patch.QuantityTuners, row => row.CardName == "Forest" && row.CurrentQuantity == 1 && row.IsAddedBasic && row.RoleLabel == "Lands");
+        Assert.Equal(0, contextBuilder.BuildCalls);
+        Assert.Equal(0, simulationService.ComputeProposalDeltasCalls);
+    }
+
+    [Fact]
     public void AddDeckFlowCutLabServices_RegistersCutLabUiPatchBuilder()
     {
         ServiceCollection services = new();
@@ -542,6 +611,8 @@ public sealed class CutLabUiPatchBuilderTests
     {
         public int BuildCalls { get; private set; }
 
+        public bool ThrowOnBuild { get; init; }
+
         public Task<CutLabAnalysisContext> BuildAsync(
             IReadOnlyList<CutLabPoolCard> workingList,
             string playExperience,
@@ -551,6 +622,11 @@ public sealed class CutLabUiPatchBuilderTests
             CancellationToken cancellationToken = default)
         {
             BuildCalls++;
+            if (ThrowOnBuild)
+            {
+                throw new Xunit.Sdk.XunitException("Analysis context builder should not run.");
+            }
+
             return Task.FromResult(factory(workingList));
         }
 
@@ -591,6 +667,10 @@ public sealed class CutLabUiPatchBuilderTests
 
     private sealed class FakeSimulationService : ICutLabSimulationService
     {
+        public int ComputeProposalDeltasCalls { get; private set; }
+
+        public bool ThrowOnComputeProposalDeltas { get; init; }
+
         public Task<CutLabMetricSnapshot> BuildSnapshot(
             IReadOnlyList<CutLabPoolCard> workingList,
             string? playExperience,
@@ -608,7 +688,14 @@ public sealed class CutLabUiPatchBuilderTests
             string? poolKey = null,
             CutLabGoalSettings? goals = null,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(new CutLabProposalDeltas
+        {
+            ComputeProposalDeltasCalls++;
+            if (ThrowOnComputeProposalDeltas)
+            {
+                throw new Xunit.Sdk.XunitException("Simulation service should not run.");
+            }
+
+            return Task.FromResult(new CutLabProposalDeltas
             {
                 CardName = candidateCardName,
                 ChangedFamilyCount = 1,
@@ -628,5 +715,6 @@ public sealed class CutLabUiPatchBuilderTests
                     },
                 ],
             });
+        }
     }
 }
