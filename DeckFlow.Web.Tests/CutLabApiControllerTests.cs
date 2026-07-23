@@ -488,12 +488,22 @@ public sealed class CutLabApiControllerTests
 
         OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
         CutLabAdjustApiResponse payload = Assert.IsType<CutLabAdjustApiResponse>(ok.Value);
-        CutLabState updated = CutLabStateSerializer.Deserialize(payload.CutLabStateJson);
+        CutLabState updated = CutLabStateSerializer.Deserialize(payload.Patch.CutLabStateJson);
         CutLabQuantityAdjustment adjustment = Assert.Single(updated.QuantityAdjustments);
         Assert.Equal("Island", adjustment.Name);
         Assert.Equal(2, adjustment.Delta);
         Assert.True(adjustment.IsAddedBasic);
+        Assert.Equal(payload.Patch.CutLabStateJson, payload.CutLabStateJson);
         Assert.Equal(0, payload.CardsRemaining);
+        Assert.Equal(payload.Patch.CardsRemaining, payload.CardsRemaining);
+        Assert.Equal(100, payload.Patch.CurrentCount);
+        Assert.True(payload.Patch.CanBuildExport);
+        CutLabQuantityTunerRowDto islandRow = Assert.Single(payload.Patch.QuantityTuners, row => row.CardName == "Island");
+        Assert.Equal(2, islandRow.CurrentQuantity);
+        Assert.Equal(150, islandRow.LegalMax);
+        Assert.False(islandRow.RemoveDisabled);
+        Assert.False(islandRow.AddDisabled);
+        Assert.True(islandRow.IsAddedBasic);
     }
 
     [Fact]
@@ -541,6 +551,7 @@ public sealed class CutLabApiControllerTests
         OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
         CutLabAdjustApiResponse payload = Assert.IsType<CutLabAdjustApiResponse>(ok.Value);
         Assert.Equal(148, payload.CardsRemaining);
+        Assert.Equal(payload.Patch.CardsRemaining, payload.CardsRemaining);
     }
 
     [Fact]
