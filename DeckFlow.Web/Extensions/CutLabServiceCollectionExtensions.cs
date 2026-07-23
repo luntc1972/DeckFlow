@@ -21,6 +21,7 @@ public static class CutLabServiceCollectionExtensions
         services.AddSingleton<CutLabDeltaCache>();
         services.AddScoped<ICutLabAnalysisContextBuilder, CutLabAnalysisContextBuilder>();
         services.AddScoped<ICutLabSimulationService, CutLabSimulationService>();
+        services.AddScoped<ICutLabUiPatchBuilder, CutLabUiPatchBuilder>();
 
         return services;
     }
