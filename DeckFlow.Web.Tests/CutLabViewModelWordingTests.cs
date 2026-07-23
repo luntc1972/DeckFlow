@@ -8,6 +8,68 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabViewModelWordingTests
 {
     [Theory]
+    [InlineData("Command Tower", "Command Tower")]
+    [InlineData("Command Tower · MV 0", "Command Tower")]
+    [InlineData("command tower · MV 0", "Command Tower")]
+    [InlineData("Command Tower · MV 2.5", "Command Tower")]
+    [InlineData("Command Tower · MV 2.25", "Command Tower")]
+    public void FindLockableEvidenceCard_MatchesSupportedCardLabels(string evidence, string expected)
+    {
+        var model = new CutLabViewModel
+        {
+            Pool =
+            [
+                new CutLabPoolCard { Name = "Commander", IsCommander = true, IsLocked = true },
+                new CutLabPoolCard { Name = "Command Tower" },
+            ],
+        };
+
+        CutLabPoolCard? match = model.FindLockableEvidenceCard(evidence);
+
+        Assert.NotNull(match);
+        Assert.Equal(expected, match.Name);
+    }
+
+    [Theory]
+    [InlineData("2 cards above the floor")]
+    [InlineData("Command")]
+    [InlineData("Commander")]
+    [InlineData("Command Tower · MV ")]
+    [InlineData("Command Tower · MV unknown")]
+    [InlineData("Command Tower · MV 2 extra")]
+    [InlineData("Command Tower · MV 2.123")]
+    public void FindLockableEvidenceCard_LeavesNonCardAndCommanderEvidenceInert(string evidence)
+    {
+        var model = new CutLabViewModel
+        {
+            Pool =
+            [
+                new CutLabPoolCard { Name = "Commander", IsCommander = true, IsLocked = true },
+                new CutLabPoolCard { Name = "Command Tower" },
+            ],
+        };
+
+        Assert.Null(model.FindLockableEvidenceCard(evidence));
+    }
+
+    [Theory]
+    [InlineData("Kommand Tower", "kommand tower")]
+    [InlineData("ſong", "song")]
+    [InlineData("Ωmega", "ωmega")]
+    public void FindLockableEvidenceCard_DoesNotApplyUnicodeCaseFolding(string evidence, string cardName)
+    {
+        var model = new CutLabViewModel
+        {
+            Pool =
+            [
+                new CutLabPoolCard { Name = cardName },
+            ],
+        };
+
+        Assert.Null(model.FindLockableEvidenceCard(evidence));
+    }
+
+    [Theory]
     [InlineData(0, "0 cards")]
     [InlineData(1, "1 card")]
     [InlineData(2, "2 cards")]
