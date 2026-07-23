@@ -146,7 +146,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             NextProposal = null!,
             ProposalDeltas = null,
             FloorWarnings = [],
-            CutsMade = [],
+            CutsMade = BuildCutsMade(state.Decisions),
             StructuralFindings = [],
             ComboDataAvailable = false,
             CategoryDataAvailable = false,

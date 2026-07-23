@@ -382,7 +382,15 @@ public sealed class CutLabUiPatchBuilderTests
         Assert.Null(patch.ProposalDeltas);
         Assert.Empty(patch.StructuralFindings);
         Assert.Empty(patch.FloorWarnings);
-        Assert.Empty(patch.CutsMade);
+        Assert.Collection(
+            patch.CutsMade,
+            cut =>
+            {
+                Assert.Equal("Cut Card", cut.CardName);
+                Assert.Equal(CutLabCutRoundEngine.Round1Key, cut.RoundKey);
+                Assert.Equal(CutLabCutRoundEngine.Round1Label, cut.RoundLabel);
+                Assert.Equal(1, cut.Ordinal);
+            });
         Assert.False(patch.ComboDataAvailable);
         Assert.False(patch.CategoryDataAvailable);
         Assert.Equal(["Arcane Signet", "Forest"], patch.WhatifCardOutOptions);
