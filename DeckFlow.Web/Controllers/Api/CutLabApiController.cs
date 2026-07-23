@@ -186,16 +186,20 @@ public sealed class CutLabApiController : ControllerBase
                 commanderNames,
                 poolKey: poolKey,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
-            (_, CutLabRoundPlan roundPlan) = CutLabCutRoundEngine.BuildFindingsAndRoundPlan(
-                workingList,
-                context,
+            CutLabUiPatchDto patch = await _patchBuilder.BuildAsync(
+                state,
+                state.Intent.PlayExperience,
+                commanderNames,
                 floorByRole,
-                state.Decisions);
+                context.ResolvedCards,
+                poolKey,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
             return Ok(new CutLabAdjustApiResponse
             {
-                CutLabStateJson = CutLabStateSerializer.Serialize(state),
-                CardsRemaining = roundPlan.CardsRemainingToTarget,
+                Patch = patch,
+                CutLabStateJson = patch.CutLabStateJson,
+                CardsRemaining = patch.CardsRemaining,
             });
         }
         catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
