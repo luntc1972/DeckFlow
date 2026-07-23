@@ -966,8 +966,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     return element;
   };
 
+  const normalizeAsciiCase = (value: string): string =>
+    value.replace(/[A-Z]/g, character => String.fromCharCode(character.charCodeAt(0) + 32));
+
   const findLockablePoolCardForEvidence = (evidence: string): { cardName: string; checkbox: HTMLInputElement } | null => {
-    const normalizedEvidence = evidence.toLowerCase();
+    const normalizedEvidence = normalizeAsciiCase(evidence);
     const matches = getPoolRows()
       .map(row => {
         const cardName = row.dataset.cutLabCard?.trim() ?? '';
@@ -978,7 +981,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       .sort((left, right) => right.cardName.length - left.cardName.length);
 
     return matches.find(({ cardName }) => {
-      const normalizedCardName = cardName.toLowerCase();
+      const normalizedCardName = normalizeAsciiCase(cardName);
       return normalizedEvidence === normalizedCardName || normalizedEvidence.startsWith(`${normalizedCardName} · mv `);
     }) ?? null;
   };

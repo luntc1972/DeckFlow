@@ -143,14 +143,30 @@ public sealed record CutLabViewModel
     public CutLabPoolCard? FindLockableEvidenceCard(string evidence)
     {
         ArgumentNullException.ThrowIfNull(evidence);
+        string normalizedEvidence = NormalizeAsciiCase(evidence);
 
         return Pool
             .Where(card => !card.IsCommander)
             .OrderByDescending(card => card.Name.Length)
             .FirstOrDefault(card =>
-                evidence.Equals(card.Name, StringComparison.OrdinalIgnoreCase)
-                || evidence.StartsWith($"{card.Name} · MV ", StringComparison.OrdinalIgnoreCase));
+            {
+                string normalizedCardName = NormalizeAsciiCase(card.Name);
+                return normalizedEvidence.Equals(normalizedCardName, StringComparison.Ordinal)
+                    || normalizedEvidence.StartsWith($"{normalizedCardName} · mv ", StringComparison.Ordinal);
+            });
     }
+
+    private static string NormalizeAsciiCase(string value) =>
+        string.Create(value.Length, value, static (characters, source) =>
+        {
+            for (int index = 0; index < source.Length; index++)
+            {
+                char character = source[index];
+                characters[index] = character is >= 'A' and <= 'Z'
+                    ? (char)(character + ('a' - 'A'))
+                    : character;
+            }
+        });
 
     /// <summary>Builds the page model from the request and service result.</summary>
     /// <param name="request">Current request values.</param>
