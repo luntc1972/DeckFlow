@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
 - [ ] **Phase 108: Server-Authored Cut Lab UI Patch Contract** - Replace client-side domain re-derivation in `cut-lab.ts` with patch DTOs returned by Cut Lab mutation endpoints.
 - [ ] **Phase 109: What-If Service Consolidation** - Move preview and commit behavior into one service shared by JSON and no-JS paths.
 - [ ] **Phase 110: Cut Lab Navigation and Pool Discovery** - Add Cut-Lab-scoped anchors, sticky mobile jump navigation, lock-pool filtering/search, collapsible sections, package assignment help, and text-first card/combo context disclosures.
-- [ ] **Phase 111: Cut Lab Upgrade Regression Gate** - Verify card-pill locking, Structural evidence behavior, themes, and full Cut Lab suites across the upgraded surfaces.
+- [ ] **Phase 111: Cut Lab Upgrade Regression Gate** - Verify card-pill locking, Structural evidence behavior, all-theme readability, screenshot-based UI evidence, and full Cut Lab suites across the upgraded surfaces.
 
 <details>
 <summary>Cycle 16 (Phases 88-93) - SHIPPED 2026-07-11 (2026.07.3)</summary>
@@ -85,26 +85,29 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
 ### Phase 110: Cut Lab Navigation and Pool Discovery
 **Goal**: Users can quickly find, inspect, and move through Cut Lab cards and sections without losing the existing lock/package workflow.
 **Depends on**: Phase 108
-**Requirements**: CLUP-06, CLUP-07, CLUP-08, CLUP-11, CLUP-12, CLUP-13, CLUP-14, CLUP-15, CLUP-16, CLUP-17
+**Requirements**: CLUP-06, CLUP-07, CLUP-08, CLUP-11, CLUP-12, CLUP-13, CLUP-14, CLUP-15, CLUP-16, CLUP-17, CLUP-18
 **Success Criteria**:
   1. Process, Decide, Goals, Export, and other primary Cut Lab sections have stable anchors plus compact jump controls patterned after Manabase.
   2. Existing submit-driven workflow tabs still submit when they need server work; JS enhancement only scrolls when it is safe to do so.
   3. The main Lock your pool table can filter by locked/all/unlocked and search by card name without changing lock/package state.
   4. Primary Cut Lab sections can collapse/expand and remember state in browser local storage per deck/page.
   5. Package assignment has concise helper copy explaining named groups and how cards remain in the pool.
-  6. Card oracle text is shown through reusable text-first disclosures, starting in lock pool rows and reused for structural/combo evidence where data is available.
+  6. Card oracle text is shown through reusable text-first disclosures, starting in lock pool rows and reused for structural/combo evidence where data is available; text is primary, imagery is optional/enhancement only.
   7. Structural/combo findings identify both complete combo membership and near-combo missing partner state, including weak-floor cases where combo context matters.
-  8. Classic, Nyx, and Commander Table mobile screenshots show no text overlap or unreadable control states.
+  8. Matched Structural evidence cards show combo role/context where available and keep the same canonical lock/unlock behavior as role-group card chips.
+  9. Classic, Nyx, and Commander Table mobile screenshots show no text overlap or unreadable control states.
 
 ### Phase 111: Cut Lab Upgrade Regression Gate
 **Goal**: Prove the hardening did not regress shipped Cut Lab flows or the newly fixed card-pill locking behavior.
 **Depends on**: Phases 108-110
-**Requirements**: CLUP-09, CLUP-10
+**Requirements**: CLUP-09, CLUP-10, CLUP-19, CLUP-20
 **Success Criteria**:
   1. Role-group and Structural evidence card pills lock/unlock canonical pool cards; unmatched Structural evidence is inert.
   2. Pool filters/search, collapse state, anchors, oracle disclosures, combo labels, package helper copy, and theme readability are covered by focused browser or unit smoke as appropriate.
   3. Full relevant xUnit, Vitest, TypeScript compile, and focused browser smoke gates pass.
-  4. Findings from verification are either fixed or explicitly recorded as deferred with rationale.
+  4. A Cut-Lab-specific all-theme readability check covers Lock All role pills, role/card chips, package chips, sticky status, warning/finding panels, selects, inputs, and primary buttons.
+  5. Representative Classic, Nyx, and Commander Table desktop/mobile screenshots are captured and reviewed for usability, understandability, aesthetic hierarchy, and readability.
+  6. Findings from verification are either fixed or explicitly recorded as deferred with rationale.
 
 ## Progress
 

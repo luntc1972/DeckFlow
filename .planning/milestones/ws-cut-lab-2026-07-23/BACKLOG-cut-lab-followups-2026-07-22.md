@@ -24,5 +24,11 @@ Surfaced during the post-Cycle-18 quality pass (milestone simplify audit + UI re
 **Why deferred / real fix:** collapse alone can't cut the scroll without hiding primary content. The impactful fix = **sticky step-nav + click→`scrollIntoView`** so mobile users skip past the long core tables without hiding them. Deferred because it touches the shared `_WorkflowStepTabs.cshtml` partial (used by all Deck tools) + the tabs' existing submit semantics — needs careful scoping to avoid regressing other tools. Must preserve the no-JS fallback.
 **Rough scope:** section anchors + a Cut-Lab-scoped sticky step-nav (position:sticky) + progressive-enhancement scroll-on-tab-click that doesn't fight submit tabs; themes × mobile verification. ~½ phase.
 
+## 4. [UX] Cycle 19 Cut Lab UI/theme audit follow-ups
+**Source:** Codex read-only Cut Lab UI/theme audit on 2026-07-23; captured screenshots and metrics under `.codex-audit/cut-lab-ui-review/`.
+**Evidence:** The live Cut Lab page is functionally usable but long and under-explained for real oversized pools. Representative screenshots confirmed no body-level mobile overflow and Commander Table "Lock all" pills are readable now, but the page lacks section anchors, lock-pool card search, lock-state filters, full mobile section collapse, and explicit combo/oracle context in Structural findings. Theme review also found the remaining risk is regression-prone transparent/inherited chip/status styling rather than one currently broken Commander Table pill.
+**Promoted into Cycle 19:** requirements CLUP-16 through CLUP-20 and Phase 110/111 acceptance criteria now explicitly cover text-first oracle disclosures, combo-aware Structural evidence, all-theme Cut Lab readability regression, and representative desktop/mobile screenshot review.
+**Rough scope:** Phase 110 owns UX implementation (anchors, filters/search, collapse, package help, text-first oracle/combo context); Phase 111 owns verification gates (all-theme readability sweep + Classic/Nyx/Commander Table screenshots). ~½ phase additional verification depth beyond the existing Phase 110 UI work.
+
 ---
 *Captured after Cycle 18 close. Not blocking. Promote via the milestone backlog when Cut Lab work resumes.*
