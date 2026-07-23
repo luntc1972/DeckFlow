@@ -750,6 +750,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
       getRoleGroupChips(cardName).forEach(chip => {
         chip.classList.toggle('cutlab-role-chip--locked', isLocked);
+        if (chip instanceof HTMLButtonElement) {
+          chip.setAttribute('aria-pressed', isLocked ? 'true' : 'false');
+        }
       });
 
       (row.dataset.cutLabRole ?? '')
@@ -2718,6 +2721,19 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       const lockRoleButton = target.closest<HTMLElement>('[data-cut-lab-lock-role]');
       if (lockRoleButton?.dataset.cutLabLockRole) {
         toggleRoleLock(lockRoleButton.dataset.cutLabLockRole);
+        return;
+      }
+
+      const roleChipButton = target.closest<HTMLButtonElement>('button[data-cut-lab-chip-card]');
+      if (roleChipButton?.dataset.cutLabChipCard) {
+        const row = document.querySelector<HTMLTableRowElement>(
+          `tr[data-cut-lab-card="${cssEscape(roleChipButton.dataset.cutLabChipCard)}"]`,
+        );
+        const checkbox = row ? getLockCheckbox(row) : null;
+        if (checkbox && !checkbox.disabled) {
+          checkbox.checked = !checkbox.checked;
+          refreshAndSerialize();
+        }
         return;
       }
 

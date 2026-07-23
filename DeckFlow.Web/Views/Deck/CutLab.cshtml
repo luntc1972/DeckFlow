@@ -441,10 +441,19 @@
                             <div class="kb-chip-area__chips">
                                 @foreach (var member in group.Members)
                                 {
-                                    var chipClasses = member.IsCommander
-                                        ? "kb-chip cutlab-lock-badge--commander"
-                                        : $"kb-chip{(member.IsLocked ? " cutlab-role-chip--locked" : string.Empty)}";
-                                    <span class="@chipClasses" data-cut-lab-chip-card="@member.Name">@member.Name</span>
+                                    if (member.IsCommander)
+                                    {
+                                        <span class="kb-chip cutlab-lock-badge--commander"
+                                              data-cut-lab-chip-card="@member.Name">@member.Name</span>
+                                    }
+                                    else
+                                    {
+                                        var chipClasses = $"kb-chip cutlab-role-chip{(member.IsLocked ? " cutlab-role-chip--locked" : string.Empty)}";
+                                        <button type="button"
+                                                class="@chipClasses"
+                                                data-cut-lab-chip-card="@member.Name"
+                                                aria-pressed="@(member.IsLocked ? "true" : "false")">@member.Name</button>
+                                    }
                                 }
                             </div>
                         }
