@@ -83,7 +83,7 @@ Requirement coverage:
   - Uses server `cardsRemaining` but overrides export eligibility with client-derived current count when available.
 - `handleAdjustSubmit`
   - Consumes minimal adjust response, then computes exact count and patches only the adjusted row.
-- `handleWhatifKeepSubmit`
+- `handleWhatifKeep`
   - After commit, rebuilds cuts made, current count, export state, and what-if select options from serialized state.
 
 Client-side helpers can remain for local scenario serialization, no-JS form hidden-state sync, and defensive fallback, but live JSON mutation rendering should prefer server patch fields.
@@ -223,7 +223,7 @@ Automated validation should cover three layers:
    - Adjust and commit no longer require client-side count/cuts/options derivation.
 
 3. TypeScript rendering tests
-   - `handleAdjustSubmit` and `handleWhatifKeepSubmit` consume server patch fields.
+   - `handleAdjustSubmit` and `handleWhatifKeep` consume server patch fields.
    - Legacy serialized-state helpers are not called in live mutation success paths, except for hidden-input sync or explicitly documented fallback.
    - Export enablement follows `patch.canBuildExport`.
 
