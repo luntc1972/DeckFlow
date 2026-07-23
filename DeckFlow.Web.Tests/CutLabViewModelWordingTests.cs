@@ -47,6 +47,23 @@ public sealed class CutLabViewModelWordingTests
     }
 
     [Theory]
+    [InlineData("Kommand Tower", "kommand tower")]
+    [InlineData("ſong", "song")]
+    [InlineData("Ωmega", "ωmega")]
+    public void FindLockableEvidenceCard_DoesNotApplyUnicodeCaseFolding(string evidence, string cardName)
+    {
+        var model = new CutLabViewModel
+        {
+            Pool =
+            [
+                new CutLabPoolCard { Name = cardName },
+            ],
+        };
+
+        Assert.Null(model.FindLockableEvidenceCard(evidence));
+    }
+
+    [Theory]
     [InlineData(0, "0 cards")]
     [InlineData(1, "1 card")]
     [InlineData(2, "2 cards")]
