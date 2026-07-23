@@ -8,8 +8,9 @@ text and keep the pool table checkbox as the single source of truth.
 
 ## Scope
 
-- Make Structural evidence interactive only when its text matches a lockable
-  card in the current pool, using case-insensitive card-name matching.
+- Make Structural evidence interactive only when its text identifies a
+  lockable card in the current pool. Match case-insensitively against either
+  the exact card name or the existing `Card Name · MV N` display format.
 - Leave non-card evidence, missing cards, and permanently locked cards
   non-interactive.
 - Support both Structural rendering paths:
@@ -30,9 +31,11 @@ row, toggle its enabled lock checkbox, then run the existing refresh and
 serialization path.
 
 The initial Razor renderer will compare each evidence value with the current
-pool. A matching, lockable card becomes a `button` with the shared card-pill
-classes, `data-cut-lab-chip-card`, and its current `aria-pressed` value.
-Everything else remains a `span`.
+pool. Matching is deterministic: the value must equal the card name or start
+with that exact card name followed by the established ` · MV ` delimiter. A
+matching, lockable card becomes a `button` with the shared card-pill classes,
+`data-cut-lab-chip-card`, and its current `aria-pressed` value. Everything else
+remains a `span`.
 
 The live TypeScript renderer will perform the same check against the current
 pool rows before creating each evidence element. It will create the same button
