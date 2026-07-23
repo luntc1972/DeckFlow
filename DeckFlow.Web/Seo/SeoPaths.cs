@@ -32,6 +32,7 @@ public static class SeoPaths
         "/manabase",
         "/bracket",
         "/deck-history",
+        "/cut-lab",
         "/content-kb",
         "/help",
         "/about",
