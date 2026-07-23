@@ -23,7 +23,7 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 **Target features:**
 - Replace client-side Cut Lab domain re-derivation with server-authored UI patch DTOs so counts, export eligibility, proposals, finding rows, and serialized state come from one source of truth.
 - Consolidate what-if preview and commit behavior behind a single service used by both JSON and no-JS controller paths.
-- Add Cut-Lab-scoped mobile jump navigation that preserves the current server-submit step behavior and no-JS fallback.
+- Add Cut-Lab-scoped anchors, mobile jump navigation, collapsible sections, lock-pool filtering/search, package assignment help, and text-first card/combo context disclosures.
 - Preserve today's shipped card-pill behavior: role-group and Structural card evidence pills lock/unlock canonical pool cards, while non-card evidence remains inert.
 
 **Key context:** Cycle 18 shipped and is archived at `.planning/milestones/ws-cut-lab-2026-07-23/`. This milestone promotes the archived follow-up backlog (`BACKLOG-cut-lab-followups-2026-07-22.md`) into active GSD work. Phase numbering continues after the shipped Cut Lab phases 101-107, so Cycle 19 starts at Phase 108. Cycle 17 remains a separate worktree thread and is not part of this milestone.

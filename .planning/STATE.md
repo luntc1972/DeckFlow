@@ -36,7 +36,7 @@ Last activity: 2026-07-23 — Milestone Cycle 19 started
 Scope:
 - Phase 108: server-authored Cut Lab UI patch DTOs replace client-side domain re-derivation.
 - Phase 109: shared what-if preview/commit service for JSON and no-JS paths.
-- Phase 110: Cut-Lab-scoped mobile sticky jump navigation.
+- Phase 110: Cut-Lab-scoped navigation and pool discovery: anchors, mobile sticky jump navigation, lock-pool filtering/search, collapsible sections, package helper copy, and text-first card/combo context disclosures.
 - Phase 111: regression gate covering card-pill locking, Structural evidence pills, themes, xUnit, Vitest, TypeScript, and browser smoke.
 
 Source backlog: `.planning/milestones/ws-cut-lab-2026-07-23/BACKLOG-cut-lab-followups-2026-07-22.md`
