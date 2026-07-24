@@ -70,6 +70,45 @@ public sealed class CutLabViewModelWordingTests
     }
 
     [Theory]
+    [InlineData("Counterspell", "Counterspell")]
+    [InlineData("Counterspell · MV 2", "Counterspell")]
+    public void FindLockableEvidenceCard_MatchesLockableNonCommanderCardAndManaValueLabels(string evidence, string expected)
+    {
+        var model = new CutLabViewModel
+        {
+            Pool =
+            [
+                new CutLabPoolCard { Name = "The Ur-Dragon", IsCommander = true, IsLocked = true },
+                new CutLabPoolCard { Name = "Counterspell" },
+                new CutLabPoolCard { Name = "Command Tower" },
+            ],
+        };
+
+        CutLabPoolCard? match = model.FindLockableEvidenceCard(evidence);
+
+        Assert.NotNull(match);
+        Assert.Equal(expected, match.Name);
+    }
+
+    [Theory]
+    [InlineData("The Ur-Dragon")]
+    [InlineData("Mana Drain")]
+    public void FindLockableEvidenceCard_ReturnsNullForCommanderOnlyAndMissingCardMatches(string evidence)
+    {
+        var model = new CutLabViewModel
+        {
+            Pool =
+            [
+                new CutLabPoolCard { Name = "The Ur-Dragon", IsCommander = true, IsLocked = true },
+                new CutLabPoolCard { Name = "Counterspell" },
+                new CutLabPoolCard { Name = "Command Tower" },
+            ],
+        };
+
+        Assert.Null(model.FindLockableEvidenceCard(evidence));
+    }
+
+    [Theory]
     [InlineData(0, "0 cards")]
     [InlineData(1, "1 card")]
     [InlineData(2, "2 cards")]
