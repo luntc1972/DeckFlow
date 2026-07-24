@@ -43,24 +43,24 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PORT-01 | TBD | Pending |
-| PORT-02 | TBD | Pending |
-| PORT-03 | TBD | Pending |
-| PORT-04 | TBD | Pending |
-| PTOOL-01 | TBD | Pending |
-| PTOOL-02 | TBD | Pending |
-| PTOOL-03 | TBD | Pending |
-| PTOOL-04 | TBD | Pending |
-| PSEED-01 | TBD | Pending |
-| PSEED-02 | TBD | Pending |
-| PSEED-03 | TBD | Pending |
-| PSEED-04 | TBD | Pending |
-| PSEED-05 | TBD | Pending |
+| PORT-01 | 112 | Pending |
+| PORT-02 | 112 | Pending |
+| PORT-03 | 113 | Pending |
+| PORT-04 | 114 | Pending |
+| PTOOL-01 | 114 | Pending |
+| PTOOL-02 | 114 | Pending |
+| PTOOL-03 | 114 | Pending |
+| PTOOL-04 | 114 | Pending |
+| PSEED-01 | 115 | Pending |
+| PSEED-02 | 115 | Pending |
+| PSEED-03 | 115 | Pending |
+| PSEED-04 | 115 | Pending |
+| PSEED-05 | 115 | Pending |
 
 **Coverage:**
 - Cycle 20 requirements: 13 total
-- Mapped to phases: 0 (roadmapper fills this)
-- Unmapped: 13
+- Mapped to phases: 13 (Phases 112-115)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-07-24*
