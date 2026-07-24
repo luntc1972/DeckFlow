@@ -24,6 +24,13 @@ export FEEDBACK_ADMIN_PASSWORD="${FEEDBACK_ADMIN_PASSWORD:-changeme-local}"
 
 PORT="${PORT:-5173}"
 
+if [ "${FORCE_RESTART:-0}" != "1" ] && command -v curl >/dev/null 2>&1; then
+  if curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' "http://localhost:${PORT}/" | grep -Eq '^[23][0-9][0-9]$'; then
+    echo "Reusing existing server on :${PORT} (set FORCE_RESTART=1 to replace)"
+    exit 0
+  fi
+fi
+
 # WSL exposes the Windows SDK as dotnet.exe; native Linux has dotnet. Prefer
 # whichever is on PATH so the same script runs from WSL or Linux.
 DOTNET="$(command -v dotnet 2>/dev/null || command -v dotnet.exe 2>/dev/null || true)"
