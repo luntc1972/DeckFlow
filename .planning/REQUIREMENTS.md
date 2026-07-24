@@ -64,8 +64,8 @@
 | CLUP-14 | Phase 110 | Pending |
 | CLUP-15 | Phase 110 | Pending |
 | CLUP-16 | Phase 110 | Pending |
-| CLUP-17 | Phase 110 | Pending |
-| CLUP-18 | Phase 110 | Pending |
+| CLUP-17 | Phase 110.1 | Pending |
+| CLUP-18 | Phase 110.1 | Pending |
 | CLUP-19 | Phase 111 | Pending |
 | CLUP-20 | Phase 111 | Pending |
 | CLUP-09 | Phase 111 | Pending |
