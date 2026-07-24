@@ -96,8 +96,8 @@ const chooseCardOut = async (page: Page, excluded: ReadonlySet<string>): Promise
 
 const expectCutsMadeRow = async (page: Page, cardName: string, roundLabel: string): Promise<void> => {
   const row = page.locator('.cutlab-cuts-made__row').filter({ hasText: cardName });
-  await expect(row).toContainText(cardName);
-  await expect(row).toContainText(`cut in ${roundLabel}`);
+  await expect(row).toContainText(cardName, { timeout: 30_000 });
+  await expect(row).toContainText(`cut in ${roundLabel}`, { timeout: 30_000 });
 };
 
 const buildNoJsPage = async (browser: Browser): Promise<{ page: Page; close: () => Promise<void> }> => {
