@@ -44,6 +44,8 @@ changed NO transport behavior (controllers still used their own helpers until 10
 
 ## Key files
 - modified: `DeckFlow.Web/Services/CutLab/CutLabWhatifPreviewService.cs` (+133)
+  — renamed post-phase to `CutLabWhatifService.cs` by the `/simplify` pass, so the
+  filename matches the type it now contains (it no longer holds a preview-only service)
 - modified: `DeckFlow.Web/Program.cs` (DI registration)
 - modified: `DeckFlow.Web/Controllers/Api/CutLabApiController.cs` (name-only)
 - modified: `DeckFlow.Web/Controllers/CutLabController.cs` (name-only)
