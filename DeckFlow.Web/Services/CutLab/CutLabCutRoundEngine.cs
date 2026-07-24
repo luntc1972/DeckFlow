@@ -95,6 +95,7 @@ public static class CutLabCutRoundEngine
         {
             CutLabFindingKind.WeakFloorCase,
             CutLabFindingKind.RedundantFinishers,
+            CutLabFindingKind.ComboProtected,
         };
 
     /// <summary>Returns the fixed round label for a stable round key.</summary>
@@ -295,7 +296,11 @@ public static class CutLabCutRoundEngine
             context.Classification.AlmostIncludedCombos,
             floorByRole,
             context.Classification.ComboDataAvailable,
-            context.Classification.CategoryDataAvailable);
+            context.Classification.CategoryDataAvailable,
+            completeCombos: context.Classification.CardComboMembership.Values
+                .SelectMany(membership => membership.CompleteCombos)
+                .Distinct()
+                .ToArray());
         CutLabRoundPlan roundPlan = BuildQueue(
             BuildInputs(workingList, context.AnalyzedCards),
             findings,

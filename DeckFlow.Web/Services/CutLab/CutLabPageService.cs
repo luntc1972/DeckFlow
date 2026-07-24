@@ -74,6 +74,10 @@ public sealed record CutLabProcessResult
     public IReadOnlyDictionary<string, CutLabCardTextView> CardTextByCardName { get; init; } =
         new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Per-card combo badge state and disclosure context keyed by normalized card name.</summary>
+    public IReadOnlyDictionary<string, CutLabComboBadgeView> ComboBadgeByCardName { get; init; } =
+        new Dictionary<string, CutLabComboBadgeView>(CutLabCardNames.Comparer);
+
     /// <summary>Resolved role-floor rows, including default provenance and user overrides.</summary>
     public IReadOnlyList<CutLabResolvedFloor> ResolvedFloors { get; init; } = [];
 
@@ -415,6 +419,8 @@ internal sealed class CutLabPageService : ICutLabPageService
         }
 
         IReadOnlyDictionary<string, CutLabCardTextView> cardTextByCardName = BuildCardTextByCardName(state.Pool, preResolvedCards);
+        IReadOnlyDictionary<string, CutLabComboBadgeView> comboBadgeByCardName = BuildComboBadgeByCardName(
+            analysisContext.Classification.CardComboMembership);
 
         return new CutLabProcessResult
         {
@@ -434,6 +440,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             CategoryDataAvailable = analysisContext.Classification.CategoryDataAvailable,
             RoleAssignmentsByCardName = analysisContext.RolesByCardName,
             CardTextByCardName = cardTextByCardName,
+            ComboBadgeByCardName = comboBadgeByCardName,
             ResolvedFloors = resolvedFloors,
             Findings = findings,
             RoundPlan = roundPlan,
@@ -733,6 +740,50 @@ internal sealed class CutLabPageService : ICutLabPageService
 
         return cardTextByCardName;
     }
+
+    private static IReadOnlyDictionary<string, CutLabComboBadgeView> BuildComboBadgeByCardName(
+        IReadOnlyDictionary<string, CutLabCardComboMembership> cardComboMembership)
+    {
+        Dictionary<string, CutLabComboBadgeView> comboBadgeByCardName = new(CutLabCardNames.Comparer);
+
+        foreach ((string normalizedCardName, CutLabCardComboMembership membership) in cardComboMembership)
+        {
+            if (membership.CompleteCombos.Count > 0)
+            {
+                comboBadgeByCardName[normalizedCardName] = new CutLabComboBadgeView
+                {
+                    BadgeState = ComboBadgeState.CompletePiece,
+                    Context = JoinCardNames(
+                        membership.CompleteCombos
+                            .SelectMany(combo => combo.Results)
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                            .OrderBy(result => result, StringComparer.OrdinalIgnoreCase)
+                            .ToArray()),
+                };
+                continue;
+            }
+
+            if (membership.NearCombos.Count > 0)
+            {
+                comboBadgeByCardName[normalizedCardName] = new CutLabComboBadgeView
+                {
+                    BadgeState = ComboBadgeState.NeedsPartner,
+                    Context = $"Needs {JoinCardNames(membership.NearCombos.Select(combo => combo.MissingCard).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(cardName => cardName, StringComparer.OrdinalIgnoreCase).ToArray())}",
+                };
+            }
+        }
+
+        return comboBadgeByCardName;
+    }
+
+    private static string JoinCardNames(IReadOnlyList<string> cardNames)
+        => cardNames.Count switch
+        {
+            0 => string.Empty,
+            1 => cardNames[0],
+            2 => $"{cardNames[0]} and {cardNames[1]}",
+            _ => $"{string.Join(", ", cardNames.Take(cardNames.Count - 1))} and {cardNames[^1]}",
+        };
 
     private async Task<IReadOnlyList<string>> ResolveBannedCardsPresentAsync(
         IReadOnlyList<ResolvedCutLabEntry> entries,

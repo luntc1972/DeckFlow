@@ -1,4 +1,5 @@
 using DeckFlow.Web.Models.CutLab;
+using DeckFlow.Web.Services.CutLab;
 
 namespace DeckFlow.Web.Models.Api;
 
@@ -32,6 +33,10 @@ public sealed record CutLabUiPatchDto
     /// <summary>Server-grouped structural findings for the updated working list.</summary>
     public IReadOnlyList<CutLabDecideFindingGroupDto> StructuralFindings { get; init; } = [];
 
+    /// <summary>Per-card combo badge state and context keyed by normalized card name.</summary>
+    public IReadOnlyDictionary<string, CutLabDecideComboBadgeDto> ComboBadgeByCardName { get; init; } =
+        new Dictionary<string, CutLabDecideComboBadgeDto>(CutLabCardNames.Comparer);
+
     /// <summary>True when combo-backed findings were computed for this response.</summary>
     public bool ComboDataAvailable { get; init; }
 
@@ -49,6 +54,16 @@ public sealed record CutLabUiPatchDto
 
     /// <summary>Known basic lands not currently present in the derived working list.</summary>
     public IReadOnlyList<string> AddableBasics { get; init; } = [];
+}
+
+/// <summary>Server-authored combo badge state and disclosure context for one card.</summary>
+public sealed record CutLabDecideComboBadgeDto
+{
+    /// <summary>Badge state for the card's combo membership.</summary>
+    public ComboBadgeState BadgeState { get; init; }
+
+    /// <summary>Required combo-context string for disclosure refresh on patch application.</summary>
+    public string Context { get; init; } = string.Empty;
 }
 
 /// <summary>Server-authored quantity tuner row for one visible working-list card.</summary>

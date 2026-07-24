@@ -23,6 +23,16 @@ public sealed record CutLabCardTextView
     public string? OracleText { get; init; }
 }
 
+/// <summary>Per-card combo badge state and disclosure context keyed by card name.</summary>
+public sealed record CutLabComboBadgeView
+{
+    /// <summary>Badge state for the card's combo membership.</summary>
+    public ComboBadgeState BadgeState { get; init; }
+
+    /// <summary>Short combo-context string for the disclosure body.</summary>
+    public string Context { get; init; } = string.Empty;
+}
+
 /// <summary>View model for the Cut Lab page.</summary>
 public sealed record CutLabViewModel
 {
@@ -162,6 +172,10 @@ public sealed record CutLabViewModel
     public IReadOnlyDictionary<string, CutLabCardTextView> CardTextByCardName { get; init; } =
         new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Per-card combo badge state and context keyed by card name.</summary>
+    public IReadOnlyDictionary<string, CutLabComboBadgeView> ComboBadgeByCardName { get; init; } =
+        new Dictionary<string, CutLabComboBadgeView>(CutLabCardNames.Comparer);
+
     /// <summary>Finds the lockable pool card identified by a rendered Structural evidence label.</summary>
     public CutLabPoolCard? FindLockableEvidenceCard(string evidence)
     {
@@ -260,6 +274,7 @@ public sealed record CutLabViewModel
         IReadOnlyDictionary<string, string> roleListByCardName = BuildRoleListByCardName(pool, result.RoleAssignmentsByCardName);
         IReadOnlyDictionary<string, string> roleKeysByCardName = BuildRoleKeysByCardName(pool, result.RoleAssignmentsByCardName);
         IReadOnlyDictionary<string, CutLabCardTextView> cardTextByCardName = result.CardTextByCardName;
+        IReadOnlyDictionary<string, CutLabComboBadgeView> comboBadgeByCardName = result.ComboBadgeByCardName;
         IReadOnlyDictionary<CutLabFindingKind, string> findingHeadingsByKind = BuildFindingHeadingsByKind(result.Findings.Findings);
         IReadOnlyList<CutLabCutMadeRowView> cutsMade = BuildCutsMade(result.State?.Decisions);
         int baselineCount = pool.Sum(card => card.Quantity);
@@ -325,6 +340,7 @@ public sealed record CutLabViewModel
             RoleListByCardName = roleListByCardName,
             RoleKeysByCardName = roleKeysByCardName,
             CardTextByCardName = cardTextByCardName,
+            ComboBadgeByCardName = comboBadgeByCardName,
         };
     }
 

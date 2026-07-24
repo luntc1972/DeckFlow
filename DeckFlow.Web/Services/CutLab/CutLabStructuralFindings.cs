@@ -17,14 +17,28 @@ public enum CutLabFindingKind
     /// <summary>A role sits at or near its floor, so each member is already structurally protected.</summary>
     WeakFloorCase,
 
+    /// <summary>A card is protected because it is part of a complete or near-combo line.</summary>
+    ComboProtected,
+
     /// <summary>A near-combo has enough in-deck pieces to surface the missing partner.</summary>
     EnablerStarved,
+}
+
+/// <summary>Combo badge state attached to structural finding evidence when combo context applies.</summary>
+public enum ComboBadgeState
+{
+    /// <summary>The card is part of a complete combo in the pool.</summary>
+    CompletePiece,
+
+    /// <summary>The card is one piece away from completing a combo line.</summary>
+    NeedsPartner,
 }
 
 /// <summary>Per-card evidence attached to a structural finding.</summary>
 /// <param name="CardName">Display card name.</param>
 /// <param name="ManaValue">Card mana value when the finding needs it, otherwise null.</param>
-public sealed record CutLabFindingEvidence(string CardName, double? ManaValue);
+/// <param name="BadgeState">Optional combo badge state for combo-protected evidence.</param>
+public sealed record CutLabFindingEvidence(string CardName, double? ManaValue, ComboBadgeState? BadgeState = null);
 
 /// <summary>A single structural finding with its lead sentence and supporting evidence.</summary>
 /// <param name="Kind">Finding type.</param>
@@ -124,16 +138,20 @@ public static class CutLabStructuralFindings
     /// <param name="floors">Role floors keyed by the eight fixed Cut Lab role keys.</param>
     /// <param name="comboDataAvailable"><see langword="true"/> when combo lookup ran (even if it found nothing); <see langword="false"/> when lookup failed/was unavailable.</param>
     /// <param name="categoryDataAvailable"><see langword="true"/> when category lookup ran (even if it found nothing); <see langword="false"/> when lookup failed/was unavailable.</param>
+    /// <param name="completeCombos">Resolved complete combos present in the pool when combo lookup succeeded.</param>
     public static CutLabStructuralFindingsResult Compute(
         IReadOnlyList<CutLabAnalyzedCard> pool,
         IReadOnlyList<SpellbookAlmostCombo> nearCombos,
         IReadOnlyDictionary<string, int> floors,
         bool comboDataAvailable,
-        bool categoryDataAvailable)
+        bool categoryDataAvailable,
+        IReadOnlyList<SpellbookCombo>? completeCombos = null)
     {
         ArgumentNullException.ThrowIfNull(pool);
         ArgumentNullException.ThrowIfNull(nearCombos);
         ArgumentNullException.ThrowIfNull(floors);
+
+        completeCombos ??= Array.Empty<SpellbookCombo>();
 
         List<CutLabFinding> findings = [];
 
@@ -149,6 +167,7 @@ public static class CutLabStructuralFindings
 
         if (comboDataAvailable)
         {
+            findings.AddRange(ComputeComboProtected(pool, completeCombos, nearCombos, floors));
             findings.AddRange(ComputeEnablerStarved(nearCombos));
         }
 
@@ -277,6 +296,90 @@ public static class CutLabStructuralFindings
                 $"{cardsInDeck} are missing their combo partner: {combo.MissingCard}.",
                 combo.CardsInDeck.Select(cardName => new CutLabFindingEvidence(cardName, null)).ToArray());
         }
+    }
+
+    private static IEnumerable<CutLabFinding> ComputeComboProtected(
+        IReadOnlyList<CutLabAnalyzedCard> pool,
+        IReadOnlyList<SpellbookCombo> completeCombos,
+        IReadOnlyList<SpellbookAlmostCombo> nearCombos,
+        IReadOnlyDictionary<string, int> floors)
+    {
+        HashSet<string> poolCardNames = pool
+            .Select(card => CutLabCardNames.Normalize(card.Name))
+            .ToHashSet(CutLabCardNames.Comparer);
+
+        foreach (SpellbookCombo combo in completeCombos)
+        {
+            string[] cardsInPool = combo.CardNames
+                .Where(cardName => poolCardNames.Contains(CutLabCardNames.Normalize(cardName)))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            if (cardsInPool.Length == 0)
+            {
+                continue;
+            }
+
+            string comboResults = JoinCardNames(combo.Results);
+            string lead = $"{JoinCardNames(cardsInPool)} are Combo piece cards for {comboResults}.";
+            // Why: advisory copy is already authored in this detector tier for every other Lead string,
+            // so keeping the round-1 guidance here avoids inventing a one-off presenter rule.
+            lead = $"{lead} Cutting this in round 1 is inadvisable.";
+
+            yield return new CutLabFinding(
+                CutLabFindingKind.ComboProtected,
+                "Combo-protected cards",
+                lead,
+                cardsInPool
+                    .Select(cardName =>
+                    {
+                        CutLabAnalyzedCard? poolCard = pool.FirstOrDefault(card =>
+                            string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase));
+                        return new CutLabFindingEvidence(cardName, poolCard?.ManaValue, ComboBadgeState.CompletePiece);
+                    })
+                    .ToArray());
+        }
+
+        foreach (IGrouping<string, SpellbookAlmostCombo> variantGroup in nearCombos
+            .Where(combo => combo.CardsInDeck.Count >= NearComboMinPiecesInDeck)
+            .GroupBy(
+                combo => string.Join(
+                    "|",
+                    combo.CardsInDeck
+                        .OrderBy(cardName => cardName, StringComparer.OrdinalIgnoreCase)),
+                StringComparer.Ordinal))
+        {
+            SpellbookAlmostCombo[] variants = variantGroup.ToArray();
+            string[] cardsInDeck = variants[0].CardsInDeck
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            string[] missingCards = variants
+                .Select(combo => combo.MissingCard)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(cardName => cardName, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            string[] results = variants
+                .SelectMany(combo => combo.Results)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(result => result, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            yield return new CutLabFinding(
+                CutLabFindingKind.ComboProtected,
+                "Combo-protected cards",
+                $"{JoinCardNames(cardsInDeck)} are Needs {JoinCardNames(missingCards)} combo cards for {JoinCardNames(results)}.",
+                cardsInDeck
+                    .Select(cardName =>
+                    {
+                        CutLabAnalyzedCard? poolCard = pool.FirstOrDefault(card =>
+                            string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase));
+                        return new CutLabFindingEvidence(cardName, poolCard?.ManaValue, ComboBadgeState.NeedsPartner);
+                    })
+                    .ToArray());
+        }
+
+        // Why: weak-floor overlap is explained by the combo-protected finding so the weak-floor detector
+        // stays stable; we keep both findings rather than threading combo knowledge into floor logic.
+        _ = floors;
     }
 
     private static IReadOnlyList<CutLabAnalyzedCard> CardsInRole(IReadOnlyList<CutLabAnalyzedCard> pool, string roleKey)

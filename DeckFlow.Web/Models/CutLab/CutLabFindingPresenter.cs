@@ -30,7 +30,9 @@ internal static class CutLabFindingPresenter
     {
         List<CutLabFindingGroupView> groups = [];
         List<CutLabFindingView>? weakFloorItems = null;
+        List<CutLabFindingView>? comboProtectedItems = null;
         int weakFloorInsertIndex = -1;
+        int comboProtectedInsertIndex = -1;
 
         foreach (CutLabFindingView finding in findings)
         {
@@ -43,6 +45,18 @@ internal static class CutLabFindingPresenter
                 }
 
                 weakFloorItems.Add(finding);
+                continue;
+            }
+
+            if (finding.Kind == CutLabFindingKind.ComboProtected)
+            {
+                comboProtectedItems ??= [];
+                if (comboProtectedInsertIndex < 0)
+                {
+                    comboProtectedInsertIndex = groups.Count;
+                }
+
+                comboProtectedItems.Add(finding);
                 continue;
             }
 
@@ -61,6 +75,16 @@ internal static class CutLabFindingPresenter
                 Kind = CutLabFindingKind.WeakFloorCase,
                 Heading = weakFloorItems[0].Heading,
                 Items = weakFloorItems.ToArray(),
+            });
+        }
+
+        if (comboProtectedItems is { Count: > 0 })
+        {
+            groups.Insert(comboProtectedInsertIndex, new CutLabFindingGroupView
+            {
+                Kind = CutLabFindingKind.ComboProtected,
+                Heading = comboProtectedItems[0].Heading,
+                Items = comboProtectedItems.ToArray(),
             });
         }
 
