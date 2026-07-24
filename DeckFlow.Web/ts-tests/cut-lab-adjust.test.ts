@@ -386,6 +386,96 @@ describe('cut-lab adjust enhancement', () => {
     expect(document.querySelector('[data-cut-lab-sticky-accepted]')?.textContent).toBe('1 cut so far');
   });
 
+  it('renders the terminal at-target proposal when adjust preserves proposals', async () => {
+    buildFixture();
+    const nextStateJson = buildStateJson(99, 1);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        patch: buildPatch(nextStateJson, {
+          currentCount: 100,
+          canBuildExport: true,
+          nextProposal: {
+            isTerminal: true,
+            isAtTarget: true,
+            isNothingToCut: false,
+            cardName: '',
+            roundKey: '',
+            roundLabel: '',
+            roundBannerBody: '',
+            findingCount: 0,
+            findingChips: [],
+          },
+          quantityTuners: [
+            {
+              cardName: 'Island',
+              currentQuantity: 99,
+              legalMax: 150,
+              removeDisabled: false,
+              addDisabled: false,
+              isLockedOrCommander: false,
+              isVisible: true,
+              roleLabel: 'Lands',
+              isLegalMultiple: true,
+              isAddedBasic: false,
+            },
+          ],
+        }),
+      }),
+    });
+
+    const button = document.querySelector<HTMLButtonElement>('tr[data-cut-lab-tuner-row="Island"] [data-cut-lab-delta="1"]');
+    const form = button?.closest('form');
+    form?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: button ?? undefined,
+    }));
+    await flushAdjustSubmit();
+
+    expect(document.querySelector('.cutlab-proposal__heading')?.textContent).toBe("You're at 100 cards");
+    expect(document.querySelector('.cutlab-round-banner')).toBeNull();
+    expect(document.querySelector('[data-cut-lab-sticky-remaining]')?.textContent).toBe('0 to cut');
+    expect(document.querySelector('[data-cut-lab-sticky-round]')?.textContent).toBe('Round 1');
+  });
+
+  it('preserves the existing proposal panel when adjust returns a non-terminal proposal', async () => {
+    buildFixture();
+    const nextStateJson = buildStateJson(98, 1);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        patch: buildPatch(nextStateJson, {
+          nextProposal: {
+            ...buildPatch(nextStateJson).nextProposal,
+            cardName: 'Plains',
+            roundLabel: 'Round 2',
+            roundBannerBody: 'Different round body.',
+          },
+          proposalDeltas: null,
+          floorWarnings: [],
+          cutsMade: [{ cardName: 'Old Cut', roundKey: 'round-1', roundLabel: 'Round 1', ordinal: 1 }],
+          structuralFindings: [],
+          comboDataAvailable: false,
+          categoryDataAvailable: false,
+        }),
+      }),
+    });
+
+    const button = document.querySelector<HTMLButtonElement>('tr[data-cut-lab-tuner-row="Island"] [data-cut-lab-delta="1"]');
+    const form = button?.closest('form');
+    form?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: button ?? undefined,
+    }));
+    await flushAdjustSubmit();
+
+    expect(document.querySelector('.cutlab-round-banner .cutlab-finding__heading')?.textContent).toBe('Round 1');
+    expect(document.querySelector('.cutlab-proposal__heading')?.textContent).toBe('Proposed cut: Island');
+    expect(document.querySelector('[data-cut-lab-sticky-round]')?.textContent).toBe('Round 1');
+  });
+
   it('surfaces the server error and preserves hidden state on a failed adjust', async () => {
     buildFixture();
     const originalState = stateJsonFromInputs();

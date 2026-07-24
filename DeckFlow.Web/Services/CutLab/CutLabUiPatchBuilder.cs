@@ -143,7 +143,13 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             CurrentCount = projection.CurrentCount,
             CardsRemaining = projection.CardsRemaining,
             CanBuildExport = projection.CanBuildExport,
-            NextProposal = null!,
+            NextProposal = projection.CanBuildExport
+                ? new CutLabDecideNextProposalDto
+                {
+                    IsTerminal = true,
+                    IsAtTarget = true,
+                }
+                : null!,
             ProposalDeltas = null,
             FloorWarnings = [],
             CutsMade = BuildCutsMade(state.Decisions),

@@ -2160,11 +2160,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     options: { preserveCutsSection?: boolean; preserveProposal?: boolean; preserveFindings?: boolean; adjustedCardName?: string } = {},
   ): void => {
     void options.adjustedCardName;
+    const shouldRenderProposal = Boolean(patch.nextProposal) && (!options.preserveProposal || patch.nextProposal.isTerminal);
     writeDecisionStateToHiddenInputs(patch.cutLabStateJson);
     setExportEnabled(patch.canBuildExport);
     renderWhatifSelectOptions(patch.whatifCardOutOptions, patch.whatifCardInOptions);
     patchStickyBar(patch, options);
-    if (!options.preserveProposal && patch.nextProposal) {
+    if (shouldRenderProposal) {
       renderRoundBanner(patch.nextProposal);
       renderProposalCard(patch, antiForgeryToken);
     }
