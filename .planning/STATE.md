@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: Cycle 19
 milestone_name: Cut Lab Upgrade Hardening
-status: completed
-stopped_at: Phase 110.1 complete (3/3 plans executed + verified; 1 self-authored regression fix)
-last_updated: "2026-07-24T15:45:00.000Z"
-last_activity: 2026-07-24 -- Phase 110.1 marked complete
+status: verifying
+stopped_at: Phase 110 UI-SPEC approved
+last_updated: "2026-07-24T19:36:18.802Z"
+last_activity: 2026-07-24 -- Phase 111 execution started
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 14
+  total_plans: 18
   completed_plans: 14
-  percent: 80
+  percent: 78
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 110.1 — cut-lab-combo-intelligence
+**Current focus:** Phase 111 shipped (gsd-verifier 6/6). Cycle 19 awaiting: push branch → CI green → merge to main → release 2026.07.9 → flag flip UAT
 
 ## Current Position
 
-Phase: 110.1 — COMPLETE
-Plan: 3 of 3
-Status: Phase 110.1 complete; next is Phase 111 (Cut Lab Upgrade Regression Gate)
-Last activity: 2026-07-24 -- Phase 110.1 marked complete
+Phase: 111 (cut-lab-upgrade-regression-gate) — EXECUTING
+Plan: 1 of 4
+Status: Cycle 19 complete — all phases (108-111) done + verified; ready to merge (user pushes)
+Last activity: 2026-07-24 -- Phase 111 execution started
 
 ## Active Milestone
 
