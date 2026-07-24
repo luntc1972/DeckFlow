@@ -248,6 +248,14 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
         }
     }
 
+    // Commander Spellbook variant shape notes for the deferred candidate-matching phase:
+    // - `requires[]` is the template-slot list (for example `template.name`, `template.scryfallQuery`,
+    //   and `template.scryfallApi` describe the "View N Cards" enumeration source for that slot).
+    // - `of[].id` is the parent/grouping key for "variants of this combo".
+    // - `includes[].id` records sub-combo composition and is distinct from `of`.
+    // - `variantCount` is the sibling variant count for the same grouped combo.
+    // - `popularity` is already parsed below and is the EDHREC deck-count source.
+    // TODO(follow-on phase): requires/of/includes shape — see 110.1-RESEARCH.md §1b
     private static IReadOnlyList<string> ExtractCardNames(JsonElement variant)
     {
         if (!variant.TryGetProperty("uses", out var uses) || uses.ValueKind != JsonValueKind.Array)

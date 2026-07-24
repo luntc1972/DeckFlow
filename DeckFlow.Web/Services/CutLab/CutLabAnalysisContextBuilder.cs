@@ -69,18 +69,60 @@ public sealed record CutLabAnalysisContext(
     CutLabClassificationContext Classification,
     IReadOnlyList<ScryfallCardData> ResolvedCards);
 
+/// <summary>Per-card combo membership from Commander Spellbook.</summary>
+/// <param name="CompleteCombos">Resolved complete combos that contain the card.</param>
+/// <param name="NearCombos">Resolved near-combos whose in-deck cards contain the card.</param>
+public sealed record CutLabCardComboMembership(
+    IReadOnlyList<SpellbookCombo> CompleteCombos,
+    IReadOnlyList<SpellbookAlmostCombo> NearCombos);
+
 /// <summary>Classification inputs reused by Cut Lab structural findings.</summary>
 /// <param name="AlmostIncludedCombos">Near-combo findings from Commander Spellbook.</param>
 /// <param name="ComboDataAvailable">Whether combo lookup completed successfully.</param>
 /// <param name="CategoryDataAvailable">Whether category lookup completed successfully.</param>
 /// <param name="CategoriesByName">Category tags keyed by card name.</param>
-/// <param name="ComboNames">Card names present in resolved included combos.</param>
+/// <param name="CardComboMembership">Per-card combo membership keyed by normalized card name.</param>
 public sealed record CutLabClassificationContext(
     IReadOnlyList<SpellbookAlmostCombo> AlmostIncludedCombos,
     bool ComboDataAvailable,
     bool CategoryDataAvailable,
     IReadOnlyDictionary<string, IReadOnlyList<string>> CategoriesByName,
-    IReadOnlySet<string> ComboNames);
+    IReadOnlyDictionary<string, CutLabCardComboMembership> CardComboMembership)
+{
+    /// <summary>Compatibility overload for callers that still provide name-only combo membership.</summary>
+    /// <param name="almostIncludedCombos">Near-combo findings from Commander Spellbook.</param>
+    /// <param name="comboDataAvailable">Whether combo lookup completed successfully.</param>
+    /// <param name="categoryDataAvailable">Whether category lookup completed successfully.</param>
+    /// <param name="categoriesByName">Category tags keyed by card name.</param>
+    /// <param name="comboNames">Card names present in resolved included combos.</param>
+    public CutLabClassificationContext(
+        IReadOnlyList<SpellbookAlmostCombo> almostIncludedCombos,
+        bool comboDataAvailable,
+        bool categoryDataAvailable,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> categoriesByName,
+        IReadOnlySet<string> comboNames)
+        : this(
+            almostIncludedCombos,
+            comboDataAvailable,
+            categoryDataAvailable,
+            categoriesByName,
+            BuildCompatibilityMembership(comboNames))
+    {
+    }
+
+    private static IReadOnlyDictionary<string, CutLabCardComboMembership> BuildCompatibilityMembership(IReadOnlySet<string> comboNames)
+    {
+        ArgumentNullException.ThrowIfNull(comboNames);
+
+        Dictionary<string, CutLabCardComboMembership> membership = new(CutLabCardNames.Comparer);
+        foreach (string cardName in comboNames)
+        {
+            membership[CutLabCardNames.Normalize(cardName)] = new CutLabCardComboMembership([], []);
+        }
+
+        return membership;
+    }
+}
 
 /// <summary>Default shared builder for Cut Lab analysis context.</summary>
 public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
@@ -170,7 +212,7 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
                 roles = CutLabRoleAssigner.AssignRoles(
                     fact,
                     categories,
-                    classification.ComboNames.Contains(normalizedEntryName),
+                    classification.CardComboMembership.ContainsKey(normalizedEntryName),
                     mode);
                 manaValue = fact.ManaValue;
 
@@ -500,7 +542,7 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
                 categories.CategoriesByName,
                 pair => pair.Key,
                 pair => pair.Value),
-            spellbook.ComboNames);
+            spellbook.CardComboMembership);
     }
 
     private async Task<SpellbookLookupResult> LoadSpellbookFailOpenAsync(
@@ -508,13 +550,17 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         IReadOnlyList<string> commanderNames,
         CancellationToken cancellationToken)
     {
-        HashSet<string> comboNames = new(CutLabCardNames.Comparer);
+        Dictionary<string, (List<SpellbookCombo> CompleteCombos, List<SpellbookAlmostCombo> NearCombos)> comboMembershipBuilder =
+            new(CutLabCardNames.Comparer);
         IReadOnlyList<SpellbookAlmostCombo> almostIncludedCombos = [];
         bool comboDataAvailable = false;
 
         if (_spellbook is null)
         {
-            return new SpellbookLookupResult(almostIncludedCombos, comboDataAvailable, comboNames);
+            return new SpellbookLookupResult(
+                almostIncludedCombos,
+                comboDataAvailable,
+                new Dictionary<string, CutLabCardComboMembership>(CutLabCardNames.Comparer));
         }
 
         try
@@ -530,7 +576,29 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
                 {
                     foreach (string cardName in combo.CardNames)
                     {
-                        comboNames.Add(CutLabCardNames.Normalize(cardName));
+                        string normalizedCardName = CutLabCardNames.Normalize(cardName);
+                        if (!comboMembershipBuilder.TryGetValue(normalizedCardName, out (List<SpellbookCombo> CompleteCombos, List<SpellbookAlmostCombo> NearCombos) membership))
+                        {
+                            membership = ([], []);
+                            comboMembershipBuilder[normalizedCardName] = membership;
+                        }
+
+                        membership.CompleteCombos.Add(combo);
+                    }
+                }
+
+                foreach (SpellbookAlmostCombo almostCombo in combos.AlmostIncludedCombos)
+                {
+                    foreach (string cardName in almostCombo.CardsInDeck)
+                    {
+                        string normalizedCardName = CutLabCardNames.Normalize(cardName);
+                        if (!comboMembershipBuilder.TryGetValue(normalizedCardName, out (List<SpellbookCombo> CompleteCombos, List<SpellbookAlmostCombo> NearCombos) membership))
+                        {
+                            membership = ([], []);
+                            comboMembershipBuilder[normalizedCardName] = membership;
+                        }
+
+                        membership.NearCombos.Add(almostCombo);
                     }
                 }
             }
@@ -544,7 +612,13 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
             _logger.LogWarning(exception, "Cut Lab: Commander Spellbook fetch failed; continuing without combo roles.");
         }
 
-        return new SpellbookLookupResult(almostIncludedCombos, comboDataAvailable, comboNames);
+        Dictionary<string, CutLabCardComboMembership> cardComboMembership = new(CutLabCardNames.Comparer);
+        foreach ((string normalizedCardName, (List<SpellbookCombo> CompleteCombos, List<SpellbookAlmostCombo> NearCombos) membership) in comboMembershipBuilder)
+        {
+            cardComboMembership[normalizedCardName] = new CutLabCardComboMembership(membership.CompleteCombos, membership.NearCombos);
+        }
+
+        return new SpellbookLookupResult(almostIncludedCombos, comboDataAvailable, cardComboMembership);
     }
 
     private async Task<CategoryLookupResult> GetCategoriesFailOpenAsync(
@@ -603,5 +677,5 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
     private sealed record SpellbookLookupResult(
         IReadOnlyList<SpellbookAlmostCombo> AlmostIncludedCombos,
         bool ComboDataAvailable,
-        IReadOnlySet<string> ComboNames);
+        IReadOnlyDictionary<string, CutLabCardComboMembership> CardComboMembership);
 }
