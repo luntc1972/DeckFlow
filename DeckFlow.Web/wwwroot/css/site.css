@@ -1184,18 +1184,6 @@ pre {
   }
 }
 
-/* Card Lookup mode picker */
-.card-lookup-mode-picker {
-  margin: 0.5rem 0 1rem 0;
-  gap: 0.5rem;
-}
-
-.card-lookup-mode-picker [data-card-lookup-mode-button].is-active {
-  background: var(--accent);
-  color: var(--on-accent);
-  border-color: transparent;
-}
-
 /* Ask a Judge page */
 .judge-primary {
   border-left: 4px solid var(--accent);
