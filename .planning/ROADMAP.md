@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
 - [x] **Phase 108: Server-Authored Cut Lab UI Patch Contract** - Replace client-side domain re-derivation in `cut-lab.ts` with patch DTOs returned by Cut Lab mutation endpoints. ✅ 2026-07-23
 - [x] **Phase 109: What-If Service Consolidation** - Move preview and commit behavior into one service shared by JSON and no-JS paths. ✅ 2026-07-23
 - [x] **Phase 110: Cut Lab Navigation and Pool Discovery** - Add Cut-Lab-scoped anchors, sticky mobile jump navigation, lock-pool filtering/search, collapsible sections, package assignment help, and text-first card disclosures. ✅ 2026-07-24
-- [ ] **Phase 110.1: Cut Lab Combo Intelligence** (INSERTED 2026-07-23) - Surface complete-combo and near-combo context in Structural findings, grouped by variant, reusing the Phase 110 disclosure component.
+- [x] **Phase 110.1: Cut Lab Combo Intelligence** (INSERTED 2026-07-23) - Surface complete-combo and near-combo context in Structural findings, grouped by variant, reusing the Phase 110 disclosure component.
 - [ ] **Phase 111: Cut Lab Upgrade Regression Gate** - Verify card-pill locking, Structural evidence behavior, all-theme readability, screenshot-based UI evidence, and full Cut Lab suites across the upgraded surfaces.
 
 <details>
@@ -117,9 +117,9 @@ Plans:
 **Plans:** 3 plans (3 waves)
 
 Plans:
-- [ ] 110.1-01-PLAN.md — Card→combo lookup replaces name-only ComboNames; record Spellbook requires/of shape (SC-4) [Wave 1]
-- [ ] 110.1-02-PLAN.md — ComboProtected finding kind, variant grouping, weak-floor cross-ref, tally exclusion, per-card combo-state map on view-model + patch DTO [Wave 2]
-- [ ] 110.1-03-PLAN.md — Chip combo badge + disclosure combo context + theme-readable CSS + what-if badge round-trip [Wave 3]
+- [x] 110.1-01-PLAN.md — Card→combo lookup replaces name-only ComboNames; record Spellbook requires/of shape (SC-4) [Wave 1]
+- [x] 110.1-02-PLAN.md — ComboProtected finding kind, variant grouping, weak-floor cross-ref, tally exclusion, per-card combo-state map on view-model + patch DTO [Wave 2]
+- [x] 110.1-03-PLAN.md — Chip combo badge + disclosure combo context + theme-readable CSS + what-if badge round-trip [Wave 3]
 
 **Split rationale**: Inserted during Phase 110 discuss-phase (2026-07-23). Phase 110 is view-layer only (Razor, TypeScript, `site-common.css`, one view-model dictionary); the combo work is data-layer (Spellbook parsing, a new finding kind, a changed evidence record, and a ripple into the Phase 108 patch DTO). Different risk profiles, different regression gates.
 
@@ -145,7 +145,7 @@ Phases execute in numeric order: 108 -> 109 -> 110 -> 110.1 -> 111
 | 108. Server-Authored Cut Lab UI Patch Contract | Cycle 19 | 3/3 | Complete   | 2026-07-23 |
 | 109. What-If Service Consolidation | Cycle 19 | 2/2 | Complete   | 2026-07-23 |
 | 110. Cut Lab Navigation and Pool Discovery | Cycle 19 | 6/6 | Complete   | 2026-07-24 |
-| 110.1. Cut Lab Combo Intelligence | Cycle 19 | 0/3 | Planned | - |
+| 110.1. Cut Lab Combo Intelligence | Cycle 19 | 3/3 | Complete   | 2026-07-24 |
 | 111. Cut Lab Upgrade Regression Gate | Cycle 19 | 0/0 | Pending | - |
 | 82. Refactor-Review Sweep & UI Baseline Audit | 2026.07.2 | 3/3 | Complete | 2026-07-04 |
 | 83. Packet-Service SRP Split | 2026.07.2 | 7/7 | Complete | 2026-07-04 |
