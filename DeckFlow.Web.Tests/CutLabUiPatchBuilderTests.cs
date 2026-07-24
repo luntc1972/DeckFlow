@@ -405,6 +405,92 @@ public sealed class CutLabUiPatchBuilderTests
     }
 
     [Fact]
+    public void BuildAdjustPatch_ReturnsTerminalAtTargetProposalWhenAdjustedWorkingListHitsOneHundred()
+    {
+        CutLabState state = CreateState(
+            pool:
+            [
+                Card("Commander", quantity: 1, isCommander: true, isLocked: true, typeLine: "Legendary Creature"),
+                Card("Forest", quantity: 1, typeLine: "Basic Land — Forest"),
+                Card("Basic Filler", quantity: 97, isLocked: true, typeLine: "Artifact"),
+            ],
+            quantityAdjustments:
+            [
+                new CutLabQuantityAdjustment
+                {
+                    Name = "Forest",
+                    Delta = 1,
+                },
+            ]);
+        FakeAnalysisContextBuilder contextBuilder = new(workingList => CreateAnalysisContext(workingList))
+        {
+            ThrowOnBuild = true,
+        };
+        FakeSimulationService simulationService = new()
+        {
+            ThrowOnComputeProposalDeltas = true,
+        };
+        CutLabUiPatchBuilder builder = new(contextBuilder, simulationService);
+
+        CutLabUiPatchDto patch = builder.BuildAdjustPatch(state, ["Commander"]);
+
+        Assert.Equal(100, patch.CurrentCount);
+        Assert.Equal(0, patch.CardsRemaining);
+        Assert.True(patch.CanBuildExport);
+        Assert.NotNull(patch.NextProposal);
+        Assert.True(patch.NextProposal.IsTerminal);
+        Assert.True(patch.NextProposal.IsAtTarget);
+        Assert.False(patch.NextProposal.IsNothingToCut);
+        Assert.Equal(0, contextBuilder.BuildCalls);
+        Assert.Equal(0, simulationService.ComputeProposalDeltasCalls);
+    }
+
+    [Theory]
+    [InlineData(97, 0, 99, false)]
+    [InlineData(98, 1, 101, false)]
+    public void BuildAdjustPatch_DoesNotReturnTerminalProposalWhenAdjustedWorkingListIsNotAtTarget(
+        int fillerQuantity,
+        int signetDelta,
+        int expectedCount,
+        bool expectedCanBuildExport)
+    {
+        CutLabState state = CreateState(
+            pool:
+            [
+                Card("Commander", quantity: 1, isCommander: true, isLocked: true, typeLine: "Legendary Creature"),
+                Card("Forest", quantity: 1, typeLine: "Basic Land — Forest"),
+                Card("Basic Filler", quantity: fillerQuantity, isLocked: true, typeLine: "Artifact"),
+            ],
+            quantityAdjustments: signetDelta == 0
+                ? []
+                :
+                [
+                    new CutLabQuantityAdjustment
+                    {
+                        Name = "Forest",
+                        Delta = signetDelta,
+                    },
+                ]);
+        FakeAnalysisContextBuilder contextBuilder = new(workingList => CreateAnalysisContext(workingList))
+        {
+            ThrowOnBuild = true,
+        };
+        FakeSimulationService simulationService = new()
+        {
+            ThrowOnComputeProposalDeltas = true,
+        };
+        CutLabUiPatchBuilder builder = new(contextBuilder, simulationService);
+
+        CutLabUiPatchDto patch = builder.BuildAdjustPatch(state, ["Commander"]);
+
+        Assert.Equal(expectedCount, patch.CurrentCount);
+        Assert.Equal(expectedCanBuildExport, patch.CanBuildExport);
+        Assert.Null(patch.NextProposal);
+        Assert.Equal(0, contextBuilder.BuildCalls);
+        Assert.Equal(0, simulationService.ComputeProposalDeltasCalls);
+    }
+
+    [Fact]
     public void AddDeckFlowCutLabServices_RegistersCutLabUiPatchBuilder()
     {
         ServiceCollection services = new();
