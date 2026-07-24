@@ -33,8 +33,27 @@ context that a reader can tell a real preference from a small-sample artifact.
 | D-01 | Baseline is **crowd play-rate, colour-adjusted** | A card is a pet only if the player runs it more than others who *could* run it. Flat rates penalise narrow colour identities. |
 | D-02 | Candidate gate is a **flat 3+ of the player's decks** | Keeps the row explainable ("in 3 of your 28"). 2+ admits coincidence; colour-scaled gates are hard to state in a table cell. |
 | D-03 | Colour identity resolved via **Scryfall for both sides** | One platform-agnostic path. Using Archidekt's payload for one side and Scryfall for the other is precisely how the colour-mapping bug below arose. |
-| D-04 | `edhrecRank` and `salt` stay **unread** | Available free in the Archidekt payload but deferred. Mixing an EDHREC-population baseline with the local-corpus baseline makes the report internally inconsistent. |
+| D-04 | `edhrecRank` and `salt` are captured and **displayed, never scored** | They are useful context next to a lift figure. They must not enter the ratio — see D-06. |
 | D-05 | No `edhrecRank` fallback tier for corpus gaps | YAGNI until UAT shows real gaps. The corpus covers 22,858 cards. |
+| D-06 | EDHREC population data must not drive any verdict | `.planning/quick/260718-nip/REPORT.md` established that EDHREC averages are casual-dominated; the manabase feature restricts them to brackets 2–3 and built a separate cEDH tournament corpus rather than trusting them. That report's conclusion — *"grounding toward the casual mean fights the product thesis. Do not."* — applies with equal force here. |
+
+### On D-04's reversal
+
+An earlier draft deferred both fields for baseline consistency. The concern was real but
+narrower than stated: the risk is EDHREC data entering the **denominator**, not appearing in
+the **table**. As descriptive columns they add signal at near-zero cost and are subject to
+D-06, which forbids the thing that was actually dangerous.
+
+The two fields have very different acquisition costs:
+
+- **`edhrecRank` is free.** Scryfall exposes `edhrec_rank` on the card object, so it arrives in
+  the same batched collection call already required for colour identity. No extra HTTP, no
+  schema change. (Verified: Moggcatcher → `edhrec_rank` 8816, which independently corroborates
+  its lift-83 pet ranking — the two signals agree.)
+- **`salt` is not free.** Scryfall does not carry it; it is EDHREC data that Archidekt relays
+  in `oracleCard`. Capturing it requires persisting per-card oracle data from the crawl, which
+  `CreatorDeckSample.Entries` (a plain `IReadOnlyList<DeckEntry>`) does not currently hold.
+  It is also Archidekt-only, so it is null for any future non-Archidekt source.
 
 ## Data sources (verified 2026-07-24)
 
@@ -53,9 +72,19 @@ but every deck response embeds an `oracleCard` with `colorIdentity`, `edhrecRank
 `gameChanger`, `tutor`, `massLandDenial`, `legalities`, `oTags`, `cmc`, `types`. Nothing in
 the repo reads any of it today.
 
-**Scryfall** supplies commander colour identity. The existing `ScryfallCollectionResolver`
-and `ScryfallBatching` already do 75-identifier batched collection lookups; 1,258 commanders
-is ~17 calls, cached.
+**Scryfall** supplies commander colour identity *and* `edhrec_rank`. The existing
+`ScryfallCollectionResolver` and `ScryfallBatching` already do 75-identifier batched collection
+lookups; 1,258 commanders is ~17 calls, cached. `salt` is absent from Scryfall.
+
+**Existing EDHREC assets on `main` were reviewed and are not usable here** — the granularity is
+wrong. `DeckFlow.Web/Data/manabase-baseline/latest.json` and `EdhrecAveragesConverter` are
+commander-keyed land averages (`commander, commander2, avg_land, number_decks`), and
+`EdhrecCardLookup` fetches per-card *category tags* from `json.edhrec.com`, not play rates.
+None is a card-level inclusion-rate source, so none can supplement or replace
+`card_deck_totals` for this feature.
+
+Note also that these assets live on `main`, which `feature/deck-tendencies` is ~700 commits
+behind. Nothing in this design depends on them, so no rebase is required for it.
 
 ## Algorithm
 
@@ -84,12 +113,15 @@ subset of every deck's, so their cohort is the full corpus.
 
 ## Components
 
-Four new units, two modified.
+Four new units, three modified. The crawler is only touched to capture `salt`; dropping that
+one field removes it from the change set entirely, which is the cheap way to descope if the
+persistence cost turns out higher than expected.
 
 | Unit | Layer | Purpose | Depends on |
 |------|-------|---------|------------|
 | `PetCardCandidateSelector` | Core, pure | Player decks → candidates in 3+ decks, basics and commander slot excluded | `CreatorDeckSample[]` |
-| `ColorCohortResolver` | Core interface, Web impl | Card or commander name → colour identity, batched and cached | `ScryfallCollectionResolver` |
+| `ColorCohortResolver` | Core interface, Web impl | Card or commander name → colour identity **and `edhrecRank`**, batched and cached | `ScryfallCollectionResolver` |
+| `CreatorProfileDeckCrawler` | Web, **modified** | Captures `salt` from the Archidekt `oracleCard` payload; null for other sources | Archidekt payload |
 | `CardPlayRateReader` | Core | Crowd numerators and colour-cohort denominators | `CardCategoryRepository` |
 | `PetCardCalculator` | Core, pure | Candidates + rates → ranked `PetCardRow[]` | none (pure math) |
 | `DeckTendenciesReportBuilder` | Core, **modified** | Emits `PetCards` alongside existing lists | the above |
@@ -130,7 +162,13 @@ profile, the cap yields to them and Notable is omitted entirely — a truncated 
 would be the one genuinely misleading outcome.
 
 Each row shows card name, tier, lift, the raw fraction on both sides (`4/17` vs `7/1607`),
-colour identity, and any guard flag.
+colour identity, `edhrecRank`, `salt`, and any guard flag.
+
+`edhrecRank` and `salt` are **presentational only** (D-04, D-06). They are not inputs to lift,
+not tie-breakers, and not filters. Their value is as a cross-check a reader performs: a high
+lift beside a deep `edhrecRank` is a corroborated pet, whereas a high lift beside a strong rank
+suggests the local corpus under-represents that card rather than that the player is unusual.
+Both fields render as "—" when unavailable, and an absent value never suppresses a row.
 
 ## Guards
 
@@ -186,7 +224,12 @@ exception thrown — so these are required, not optional.
 5. **Zero crowd count** → `unrated`, no divide-by-zero.
 6. **Low-sample flag** fires at `myEligible < 5` and not at 5.
 7. **Board exclusion:** maybeboard and commander rows do not reach either side of the ratio.
-8. **Golden fixture** from the validated prototype run.
+8. **`edhrecRank` and `salt` are display-only:** a test asserts that changing either value
+   leaves every lift, tier, and row ordering byte-identical. This is the executable form of
+   D-06 — without it, a later change could quietly promote them into the score.
+9. **Missing `edhrecRank` or `salt` renders "—" and never drops the row.** `salt` is null for
+   any non-Archidekt source, so this is the normal case, not an edge case.
+10. **Golden fixture** from the validated prototype run.
 
 ## Prototype evidence
 
@@ -208,10 +251,21 @@ Colour adjustment moved results materially in **both** directions versus a flat 
 confirming D-01 was worth the cost: Conduit of Worlds 6.1 → 15.6, Six 4.1 → 10.6,
 Terra 74.2 → 63.8, Moggcatcher 123.6 → 83.2.
 
+## Known limitations
+
+The 3,964-deck local corpus is a convenience sample from the category harvest, not a
+controlled one, and it plausibly carries the same casual skew D-06 attributes to EDHREC. Lift
+therefore means "unusual relative to the decks DeckFlow happened to crawl", not "unusual in
+Commander". The report must not imply the stronger claim. This is a limitation of the only
+card-level corpus available, not a solvable defect — the manabase feature hit the same wall and
+answered it by building a separate cEDH corpus, which is out of scope here.
+
+Consequently a low-lift result is weak evidence of anything, while a high-lift result with a
+healthy sample is reasonably trustworthy. The tiering reflects that asymmetry: only lift ≥ 5
+is shown at all.
+
 ## Deferred
 
-- `edhrecRank` and `salt` capture (D-04). Free in the payload; revisit if a second baseline
-  is ever wanted.
 - `edhrecRank` fallback tier for corpus gaps (D-05). Revisit only if UAT shows real gaps.
 - Moxfield as a crawl source. Blocked independently: Cloudflare 403s the server-side .NET
   client by TLS fingerprint on both API versions. Archidekt is the working path.
