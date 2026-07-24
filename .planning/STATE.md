@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: Cycle 19
 milestone_name: Cut Lab Upgrade Hardening
-status: verifying
+status: "Cycle 19 (Cut Lab Upgrade Hardening) SHIPPED 2026-07-24 (2026.07.9), merged to main + archived. No active cycle — next: /gsd-new-milestone"
 stopped_at: Phase 110 UI-SPEC approved
-last_updated: "2026-07-24T19:36:18.802Z"
+last_updated: "2026-07-24T20:06:29.739Z"
 last_activity: 2026-07-24 -- Phase 111 execution started
 progress:
   total_phases: 5
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 111 shipped (gsd-verifier 6/6). Cycle 19 awaiting: push branch → CI green → merge to main → release 2026.07.9 → flag flip UAT
+**Current focus:** Cycle 19 closed out. Owed (user): flip tool.cut-lab.enabled ON in prod /Admin/Tools for go-live UAT (currently OFF). Then delete branch gsd/cycle19-cut-lab-upgrade after UAT.
 
 ## Current Position
 
 Phase: 111 (cut-lab-upgrade-regression-gate) — EXECUTING
 Plan: 1 of 4
-Status: Cycle 19 complete — all phases (108-111) done + verified; ready to merge (user pushes)
+Status: Cycle 19 (Cut Lab Upgrade Hardening) SHIPPED 2026-07-24 (2026.07.9), merged to main + archived. No active cycle — next: /gsd-new-milestone
 Last activity: 2026-07-24 -- Phase 111 execution started
 
 ## Active Milestone
