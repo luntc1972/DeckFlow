@@ -280,9 +280,9 @@ public sealed class CutLabController : Controller
         try
         {
             CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
-            if (!IsValidWhatifPair(state, cardOut, cardIn))
+            if (!_whatifService.TryValidateSwap(state, cardOut, cardIn, out string? validationError))
             {
-                return await RenderWhatifViewAsync(request, state, null, CutLabMessages.NoChangeMessage);
+                return await RenderWhatifViewAsync(request, state, null, validationError ?? CutLabMessages.NoChangeMessage);
             }
 
             if (string.Equals(intent, "preview", StringComparison.OrdinalIgnoreCase))
@@ -293,33 +293,19 @@ public sealed class CutLabController : Controller
                 return await RenderWhatifViewAsync(request, state, preview, null);
             }
 
-            CutLabPoolCard? cardOutPoolCard = state.Pool.FirstOrDefault(card => string.Equals(card.Name, cardOut, StringComparison.OrdinalIgnoreCase));
-            if (cardOutPoolCard is null || cardOutPoolCard.IsLocked || cardOutPoolCard.IsCommander)
+            CutLabWhatifCommitResult result = await _whatifService
+                .CommitSwapAsync(state, cardOut, cardIn, HttpContext.RequestAborted)
+                .ConfigureAwait(false);
+            if (!result.Applied)
             {
-                return await RenderWhatifViewAsync(request, state, null, CutLabMessages.NoChangeMessage);
+                return await RenderWhatifViewAsync(request, state, null, result.ErrorMessage ?? CutLabMessages.NoChangeMessage);
             }
 
-            CutLabState afterRestore = CutLabDecisionApplier.Apply(
-                state,
-                cardIn,
-                CutLabDecideAction.Restore,
-                CutLabCutRoundEngine.WhatifSwapKey);
-            CutLabState afterSwap = CutLabDecisionApplier.Apply(
-                afterRestore,
-                cardOut,
-                CutLabDecideAction.Accept,
-                CutLabCutRoundEngine.WhatifSwapKey);
-            // Why: the overshoot guard can refuse the replacement cut, so a half-applied swap must be rejected.
-            if (afterSwap.Decisions.Count == afterRestore.Decisions.Count)
-            {
-                return await RenderWhatifViewAsync(request, state, null, CutLabMessages.NoChangeMessage);
-            }
+            RehydrateIntakeRequestFromState(request, result.State);
+            request.CutLabStateJson = CutLabStateSerializer.Serialize(result.State);
 
-            RehydrateIntakeRequestFromState(request, afterSwap);
-            request.CutLabStateJson = CutLabStateSerializer.Serialize(afterSwap);
-
-            var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
-            return View("CutLab", CutLabViewModel.From(request, result));
+            var pageResult = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
+            return View("CutLab", CutLabViewModel.From(request, pageResult));
         }
         catch (InvalidOperationException exception)
         {
@@ -379,24 +365,6 @@ public sealed class CutLabController : Controller
     private static bool IsWhatifIntent(string intent)
         => string.Equals(intent, "preview", StringComparison.OrdinalIgnoreCase)
             || string.Equals(intent, "keep", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsValidWhatifPair(CutLabState state, string cardOut, string cardIn)
-    {
-        IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
-        bool validCardOut = workingList.Any(card =>
-            string.Equals(card.Name, cardOut, StringComparison.OrdinalIgnoreCase)
-            && !card.IsLocked
-            && !card.IsCommander);
-        if (!validCardOut)
-        {
-            return false;
-        }
-
-        IReadOnlySet<string> cutPile = CutLabWorkingList.AcceptedCardNames(state.Decisions);
-        return state.Pool.Any(card =>
-            string.Equals(card.Name, cardIn, StringComparison.OrdinalIgnoreCase)
-            && cutPile.Contains(card.Name));
-    }
 
     private static void RehydrateIntakeRequestFromState(CutLabRequest request, CutLabState state)
     {
