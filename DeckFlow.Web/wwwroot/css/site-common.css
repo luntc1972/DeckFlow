@@ -29,6 +29,17 @@ button,
 a,
 summary {
   touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* WIG: balance headings to avoid widows */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  text-wrap: balance;
 }
 
 /* Form-control text color fallback. Without this, inputs inherit the UA default
