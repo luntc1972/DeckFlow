@@ -7,7 +7,7 @@
   --line: #506342;
   --accent: #7f9b56;           /* Abzan green / endurance crest */
   --accent-strong: #a3c776;
-  --accent-contrast: #080905;  /* white-on-accent measures 2.84:1, fails 4.5:1; own bg tone clears 7.04:1 */
+  --accent-contrast: #080905;  /* white-on-accent measures 3.12:1 (>=3.0 large-text AA), fails 4.5:1; own bg tone clears 7.04:1 */
   --abzan-charcoal: #060704;   /* Abzan black / weathered obsidian */
   --abzan-charcoal-soft: #59614f;
   --abzan-charcoal-bg: #0d1008;

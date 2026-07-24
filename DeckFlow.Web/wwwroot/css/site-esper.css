@@ -7,7 +7,7 @@
   --line: #3d5878;
   --accent: #5995d5;          /* Esper blue / etherium focus */
   --accent-strong: #86b7ee;
-  --accent-contrast: #06080c; /* white-on-accent measures 2.78:1, fails 4.5:1; own bg tone clears 7.21:1 */
+  --accent-contrast: #06080c; /* white-on-accent measures 3.14:1 (>=3.0 large-text AA), fails 4.5:1; own bg tone clears 7.21:1 */
   --esper-obsidian: #05070a;  /* Esper black / polished alloy shadow */
   --esper-obsidian-soft: #566171;
   --esper-obsidian-bg: #0b1017;
