@@ -132,7 +132,7 @@ Testcontainers.PostgreSql will start a `postgres:16-alpine` container, run the t
 - `DeckFlow.Core` contains parsers, diffing logic, exporters, and the Archidekt/Moxfield integrations.
 - `DeckFlow.Core.Loading` centralizes deck input loading and Commander deck-size validation so the web app and CLI share the same parsing/import rules.
 - `DeckFlow.Web` provides an ASP.NET Core MVC UI for running syncs, AI prompt building, deck-primer generation, cEDH meta-gap analysis, deck comparison prompt building, card lookup, commander category browsing, and category suggestions.
-- `Cut Lab` (`/cut-lab`) brings an oversized 101-150 card Commander pool into a trimming workspace, including separate intake toggles for sideboard and considering/maybeboard cards plus a post-import Main / Sideboard / Considering breakdown, oversize guidance, structural findings and configurable role floors, guided cut rounds that surface measurable tradeoffs, a goal-tuning loop, what-if swaps, inline `+/-` steppers and add-basics tuning to land exactly on 100, and builder-compatible Export output for the finished 100-card list plus CUT/ADD patches in both Moxfield and Archidekt text.
+- `Cut Lab` (`/cut-lab`) brings an oversized 101-150 card Commander pool into a trimming workspace, including separate intake toggles for sideboard and considering/maybeboard cards plus a post-import Main / Sideboard / Considering breakdown, oversize guidance, structural findings and configurable role floors, **Combo piece** badges with disclosure context for known Commander Spellbook combo cards so combo halves are not cut unknowingly, guided cut rounds that surface measurable tradeoffs, a goal-tuning loop, what-if swaps, inline `+/-` steppers and add-basics tuning to land exactly on 100, and builder-compatible Export output for the finished 100-card list plus CUT/ADD patches in both Moxfield and Archidekt text.
 - `Deck History` lets you version a deck into a JSON file you own, append labeled snapshots with notes, diff any two saved versions, and generate an AI prompt about how the list evolved; its evolution prompt now embeds Scryfall oracle text for every card seen in that history so AI models recognize newer cards.
 - The category suggestion UI now shows one merged, ranked, paste-ready card category list across sources, while commander category results show `% of decks` and cap the first 25 visible rows with an expander for the remainder.
 - `DeckFlow.CLI` exposes deck comparison, category harvesting, cache querying, and the local Content KB pipeline (source management, transcript harvest, LLM distillation, site-index export) in a console tool.
@@ -796,6 +796,13 @@ Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags ar
 
 ### Unreleased
 _No unreleased changes._
+
+### 2026.07.9 — Cut Lab Upgrade (2026-07-24)
+Cycle 19 upgrades **Cut Lab** (phases 108-111) without changing its operator stance: the tool remains behind the `tool.cut-lab.enabled` flag and ships **OFF** until an admin exposes `/cut-lab`.
+- **Combo intelligence:** cards that are part of a known Commander Spellbook combo now surface a **Combo piece** badge plus disclosure context naming the combo and what it does, so you do not cut one half unknowingly. This is advisory only; it does not auto-lock the card or alter the cut engine's proposals.
+- **Exact-100 quantity tuning:** inline `+/-` steppers and add-basics controls now tighten the last-mile count workflow so decks can be tuned cleanly to exactly 100 in place.
+- **What-if preview consolidation:** experimental keep/cut previews are consolidated into a cleaner what-if flow so comparison work stays in one place instead of scattering across the workspace.
+- **All-theme readability/accessibility hardening:** WCAG AA contrast and visible focus rings were regression-verified across all 24 guild themes, and several theme-specific focus-ring / contrast defects were fixed.
 
 ### 2026.07.8 — Cut Lab (2026-07-23)
 The **Cut Lab** tool ships (Cycle 18, seven phases). Cut Lab takes an over-100 Commander decklist and helps you get back to exactly 100 by proposing the weakest cards to cut, backed by category, curve, and interaction metrics — then produces a builder-ready trimmed list. Feature is gated behind the `tool.cut-lab.enabled` flag, which ships **OFF**; flip it in `/Admin/Flags` to expose the `/cut-lab` route.
