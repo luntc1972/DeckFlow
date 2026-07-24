@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: Cycle 19
 milestone_name: Cut Lab Upgrade Hardening
 status: completed
-stopped_at: Phase 110 complete (6/6 plans executed + verified, checkpoint approved)
-last_updated: "2026-07-24T13:33:20.109Z"
-last_activity: 2026-07-24 -- Phase 110 marked complete
+stopped_at: Phase 110.1 complete (3/3 plans executed + verified; 1 self-authored regression fix)
+last_updated: "2026-07-24T15:45:00.000Z"
+last_activity: 2026-07-24 -- Phase 110.1 marked complete
 progress:
   total_phases: 5
-  completed_phases: 3
-  total_plans: 11
-  completed_plans: 11
-  percent: 60
+  completed_phases: 4
+  total_plans: 14
+  completed_plans: 14
+  percent: 80
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 110 — cut-lab-navigation-and-pool-discovery
+**Current focus:** Phase 110.1 — cut-lab-combo-intelligence
 
 ## Current Position
 
-Phase: 110 — COMPLETE
-Plan: 1 of 6
-Status: Phase 110 complete
-Last activity: 2026-07-24 -- Phase 110 marked complete
+Phase: 110.1 — COMPLETE
+Plan: 3 of 3
+Status: Phase 110.1 complete; next is Phase 111 (Cut Lab Upgrade Regression Gate)
+Last activity: 2026-07-24 -- Phase 110.1 marked complete
 
 ## Active Milestone
 
