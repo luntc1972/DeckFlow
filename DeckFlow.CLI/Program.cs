@@ -62,6 +62,11 @@ var manabaseSwapPromptOption = new Option<bool>("--swap-prompt") { Description =
 var edhrecAveragesCommand = new Command("edhrec-averages", "Convert an EDHREC averages.csv dump into the bundled manabase-baseline data file.");
 var edhrecAveragesCsvOption = new Option<string>("--csv") { Description = "Path to the extracted averages.csv dump.", IsRequired = true };
 var edhrecAveragesDataFileOption = new Option<string>("--data-file", () => Path.Combine("DeckFlow.Web", "Data", "manabase-baseline", "latest.json")) { Description = "Path to the bundled manabase-baseline snapshot JSON." };
+var edhrecDownloadCommand = new Command("edhrec-download", "Download EDHREC's published averages.tgz and/or data.tgz dumps.");
+var edhrecDownloadDatasetOption = new Option<string>("--dataset", () => "all") { Description = "Dataset to download: all | averages | data." };
+var edhrecDownloadOutOption = new Option<string>("--out", () => Path.Combine("artifacts", "edhrec")) { Description = "Output directory for downloaded archives and extracted CSVs." };
+var edhrecDownloadExtractOption = new Option<bool>("--extract", () => true) { Description = "Extract the downloaded .tgz archive after downloading." };
+var edhrecDownloadOverwriteOption = new Option<bool>("--overwrite") { Description = "Overwrite existing archives and extracted files." };
 var cedhLandCalibrateCommand = new Command("cedh-land-calibrate", "Replay cached cEDH decks against the old and new land targets.");
 var cedhLandCalibrateDataOption = new Option<string>("--data", () => "_calib") { Description = "Directory containing decks_all.json and cards_full.json." };
 var cedhLandCalibrateBaselineOption = new Option<string>("--baseline", () => Path.Combine("DeckFlow.Web", "Data", "cedh-land-baseline", "latest.json")) { Description = "Path to the committed cEDH baseline snapshot JSON." };
@@ -146,6 +151,10 @@ manabaseCommand.AddOption(manabaseModeOption);
 manabaseCommand.AddOption(manabaseSwapPromptOption);
 edhrecAveragesCommand.AddOption(edhrecAveragesCsvOption);
 edhrecAveragesCommand.AddOption(edhrecAveragesDataFileOption);
+edhrecDownloadCommand.AddOption(edhrecDownloadDatasetOption);
+edhrecDownloadCommand.AddOption(edhrecDownloadOutOption);
+edhrecDownloadCommand.AddOption(edhrecDownloadExtractOption);
+edhrecDownloadCommand.AddOption(edhrecDownloadOverwriteOption);
 cedhLandCalibrateCommand.AddOption(cedhLandCalibrateDataOption);
 cedhLandCalibrateCommand.AddOption(cedhLandCalibrateBaselineOption);
 cedhLandCalibrateCommand.AddOption(cedhLandCalibrateOutOption);
@@ -231,6 +240,7 @@ rootCommand.AddCommand(categoryFindCommand);
 rootCommand.AddCommand(cardLookupCommand);
 rootCommand.AddCommand(manabaseCommand);
 rootCommand.AddCommand(edhrecAveragesCommand);
+rootCommand.AddCommand(edhrecDownloadCommand);
 rootCommand.AddCommand(cedhLandCalibrateCommand);
 rootCommand.AddCommand(cedhLandBaselineCommand);
 rootCommand.AddCommand(scryfallProbeCommand);
@@ -295,6 +305,11 @@ edhrecAveragesCommand.SetHandler((string csvPath, string dataFilePath) =>
 {
     Environment.ExitCode = EdhrecAveragesCommandRunner.RunEdhrecAveragesAsync(csvPath, dataFilePath).GetAwaiter().GetResult();
 }, edhrecAveragesCsvOption, edhrecAveragesDataFileOption);
+
+edhrecDownloadCommand.SetHandler((string dataset, string outputDirectory, bool extract, bool overwrite) =>
+{
+    Environment.ExitCode = EdhrecDataDownloadCommandRunner.RunAsync(outputDirectory, dataset, extract, overwrite).GetAwaiter().GetResult();
+}, edhrecDownloadDatasetOption, edhrecDownloadOutOption, edhrecDownloadExtractOption, edhrecDownloadOverwriteOption);
 
 cedhLandCalibrateCommand.SetHandler((string dataDirectory, string baselinePath, string? outputPath) =>
 {

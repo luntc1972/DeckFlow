@@ -51,3 +51,32 @@ e.g. `site-nyx.css` `--accent-contrast` carries a hand-measured "white-on-accent
 dark purple-black clears 4.73:1" note. Candidate: generalize the Phase 111 contrast harness beyond
 Cut Lab to a **site-wide** all-theme readability gate covering shared components (hub cards, nav,
 result panels, forms) across all 22 guild themes, so the manual per-token WCAG notes become a CI check.
+
+---
+
+## C20-03 — EDHREC community deck delta substrate and first surface
+
+**Origin:** User research thread 2026-07-24 after downloading EDHREC's published `data.tgz`
+and `averages.tgz` archives.
+
+**Full capture:** `.planning/captures/edhrec-data-feature-plans-2026-07-24.md`
+
+**Value thesis:** Do not recreate EDHREC pages. Use EDHREC's sanctioned aggregate data to explain
+the user's exact deck: present/missing commander staples, commander-signature cards, generic staple
+pressure, off-meta cards, and confidence/support. This fits DeckFlow's one-round-trip prompt artifact
+value better than a generic population dashboard.
+
+**Recommended first milestone slice:**
+
+1. EDHREC community-stat substrate for local `averages.csv` + `edhrec.csv` imports.
+2. Confidence/support labels, including partner-denominator caveats.
+3. Signature-vs-staple classifier using commander inclusion, global rate, and ubiquity.
+4. Deck Analysis "Community Delta" panel + prompt-artifact block.
+
+**Effort:** Medium-Large for the substrate, then Medium for the first user-visible surface.
+Small follow-ons include Commander Fit and confidence labels; Large/Large-XL follow-ons include
+missing-role analysis, budget replacements, commander comparison, and precon-effect detection.
+
+**Follow-on candidates from the capture:** missing-role-not-missing-card, Cut Lab statistical
+evidence, uniqueness/homogenization score, budget replacement finder, commander fit score,
+precon-effect detector, and commander comparison/build-direction tool.
