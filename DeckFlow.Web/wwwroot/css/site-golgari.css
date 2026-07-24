@@ -9,7 +9,7 @@
   --line: #425838;
   --accent: #67a138;
   --accent-strong: #4d7f28;
-  --accent-contrast: #0b0f0a; /* white-on-accent measures 2.88:1, fails 4.5:1; dark green-black clears 6.70:1 */
+  --accent-contrast: #0b0f0a; /* white-on-accent measures 3.12:1 (>=3.0 large-text AA), fails 4.5:1; dark green-black clears 6.70:1 */
 
   --panel-soft-bg: #182016;
   --golgari-moss: #94c75f;
