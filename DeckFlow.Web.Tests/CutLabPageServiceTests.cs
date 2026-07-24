@@ -64,6 +64,70 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_CardTextByCardName_UsesDisplayNameKeyAndResolvedFields()
+    {
+        const string commanderName = "Atraxa, Praetors' Voice";
+        var entries = new List<DeckEntry> { Entry(commanderName, "commander") };
+        entries.AddRange(BuildBasicMainboard(start: 1, count: 120));
+        var cards = BuildResolvedCards(entries);
+        cards.RemoveAll(card => string.Equals(card.Name, commanderName, StringComparison.OrdinalIgnoreCase));
+        cards.Add(Spell(
+            commanderName,
+            "Legendary Creature — Phyrexian Angel Horror",
+            set: "one",
+            collectorNumber: "196",
+            manaCost: "{G}{W}{U}{B}",
+            oracleText: "Flying, vigilance, deathtouch, lifelink",
+            power: "4",
+            cmc: 4));
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+        };
+
+        var result = await service.ProcessAsync(request);
+        var viewModel = CutLabViewModel.From(request, result);
+
+        Assert.True(result.CardTextByCardName.TryGetValue(commanderName, out CutLabCardTextView? cardText));
+        Assert.NotNull(cardText);
+        Assert.Equal("Legendary Creature — Phyrexian Angel Horror", cardText.TypeLine);
+        Assert.Equal("{G}{W}{U}{B}", cardText.ManaCost);
+        Assert.Equal("one", cardText.SetCode);
+        Assert.Equal("196", cardText.CollectorNumber);
+        Assert.Equal("Flying, vigilance, deathtouch, lifelink", cardText.OracleText);
+        Assert.True(viewModel.CardTextByCardName.TryGetValue(commanderName, out CutLabCardTextView? viewModelEntry));
+        Assert.Equal(cardText, viewModelEntry);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_CardTextByCardName_OmitsUnresolvedCards()
+    {
+        const string unresolvedCardName = "Unresolved, Punctuated Card";
+        var entries = BuildPoolEntries(nonCommanderCount: 119, commanderName: "Atraxa, Praetors' Voice");
+        entries.Add(Entry(unresolvedCardName, "mainboard"));
+        var cards = BuildResolvedCards(entries);
+        cards.RemoveAll(card => string.Equals(card.Name, unresolvedCardName, StringComparison.OrdinalIgnoreCase));
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.False(result.CardTextByCardName.TryGetValue(unresolvedCardName, out _));
+    }
+
+    [Fact]
     public async Task ProcessAsync_IncludeSideboardAndMaybeboardOff_ExcludesExtraBoardsFromPool()
     {
         var entries = BuildPoolEntries(nonCommanderCount: 101, commanderName: "Atraxa, Praetors' Voice");
