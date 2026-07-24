@@ -95,6 +95,14 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
   5. Package assignment has concise helper copy explaining named groups and how cards remain in the pool.
   6. Card oracle text is shown through reusable text-first disclosures in lock pool rows and under Structural evidence chips; text is primary, imagery is optional/enhancement only.
   7. Classic, Nyx, and Commander Table mobile screenshots show no text overlap or unreadable control states.
+**Plans**: 6 plans
+Plans:
+- [ ] 110-01-PLAN.md — Card-text view-model lookup (CardTextByCardName), fed to disclosures
+- [ ] 110-02-PLAN.md — Section ids + collapsible sections with localStorage persistence
+- [ ] 110-03-PLAN.md — Sticky mobile jump navigation + sticky-bar collision + safe scroll/focus
+- [ ] 110-04-PLAN.md — Lock-your-pool filter (all/locked/unlocked) + card-name search
+- [ ] 110-05-PLAN.md — Text-first card disclosures (pool rows + evidence chips) + package help copy
+- [ ] 110-06-PLAN.md — Cross-theme mobile screenshot verification (Classic/Nyx/Commander Table)
 
 ### Phase 110.1: Cut Lab Combo Intelligence (INSERTED 2026-07-23)
 **Goal**: Structural findings explain combo membership — complete, near-complete, and variant alternatives — so users understand why cards are protected.
