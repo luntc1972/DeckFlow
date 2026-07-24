@@ -34,6 +34,36 @@
         && Array.Exists(themeOptions, option => string.Equals(option.FileName, cookieTheme, StringComparison.OrdinalIgnoreCase))
             ? cookieTheme
             : defaultThemeFileName;
+    var themeColors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["site.css"] = "#e2e5ed",
+        ["site-abzan.css"] = "#080905",
+        ["site-azorius.css"] = "#d9e3f0",
+        ["site-bant.css"] = "#e0ece2",
+        ["site-boros.css"] = "#e8d8c8",
+        ["site-commander-table.css"] = "#e4dbc8",
+        ["site-dimir.css"] = "#0b1020",
+        ["site-esper.css"] = "#06080c",
+        ["site-golgari.css"] = "#0b0f0a",
+        ["site-grixis.css"] = "#181822",
+        ["site-gruul.css"] = "#c6d8ae",
+        ["site-izzet.css"] = "#d8dfe9",
+        ["site-jeskai.css"] = "#e2e5ed",
+        ["site-jund.css"] = "#1c1a17",
+        ["site-mardu.css"] = "#e6ddd8",
+        ["site-naya.css"] = "#e6e0d2",
+        ["site-nyx.css"] = "#13111c",
+        ["site-orzhov.css"] = "#ddd7cc",
+        ["site-planeswalker-dark.css"] = "#1a1e2e",
+        ["site-rakdos.css"] = "#12090c",
+        ["site-selesnya.css"] = "#d8e4d6",
+        ["site-simic.css"] = "#d0e2e8",
+        ["site-sultai.css"] = "#151d1d",
+        ["site-temur.css"] = "#d0e4e8",
+    };
+    var themeColor = themeColors.TryGetValue(selectedThemeFileName, out var resolvedThemeColor)
+        ? resolvedThemeColor
+        : "#e2e5ed";
     var defaultThemeHref = Url.Content($"~/css/{defaultThemeFileName}");
     var selectedThemeHref = Url.Content($"~/css/{selectedThemeFileName}");
     var pageDescription = Convert.ToString(ViewData["Description"]);
@@ -64,8 +94,8 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    @* Classic theme --bg; the no-JS fallback. site.ts (attachThemePicker) updates this to the active theme's live --bg on load and on theme change. *@
-    <meta name="theme-color" content="#eceef3" />
+    @* Active theme --bg for first paint / no-JS fallback. site.ts (attachThemePicker) still updates this to the live active theme --bg on load and on theme change. *@
+    <meta name="theme-color" content="@themeColor" />
     <meta name="description" content="@pageDescription" />
     <title>@pageTitle</title>
     <link rel="canonical" href="@canonicalUrl" />
