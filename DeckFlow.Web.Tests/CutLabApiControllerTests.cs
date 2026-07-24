@@ -555,13 +555,73 @@ public sealed class CutLabApiControllerTests
     }
 
     [Fact]
-    public async Task PostWhatifCommitAsync_SwapsCardsAtomicallyAndTagsAcceptedCutWithWhatifRound()
+    public async Task PostWhatifAsync_WhenValidationRejectsLockedCardOut_ReturnsBadRequestNoChange()
     {
-        CutLabState state = new()
+        FakeWhatifService whatifService = new()
         {
-            Commander = "Commander",
-            Pool = [Card("Commander", isCommander: true, isLocked: true), Card("Basic Filler", quantity: 98, isLocked: true), Card("Working Card"), Card("Cut Card")],
-            Decisions =
+            TryValidateSwapHandler = (CutLabState _, string _, string _, out string? error) =>
+            {
+                error = CutLabMessages.NoChangeMessage;
+                return false;
+            },
+        };
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)), new FakeSimulationService(), whatifService: whatifService);
+
+        ActionResult<CutLabWhatifApiResponse> response = await controller.PostWhatifAsync(
+            new CutLabWhatifApiRequest
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()),
+                CardOut = "Locked Working Card",
+                CardIn = "Cut Card",
+            },
+            CancellationToken.None);
+
+        BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(response.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+        string? message = badRequest.Value?.GetType().GetProperty("Message")?.GetValue(badRequest.Value) as string;
+        Assert.Equal(CutLabMessages.NoChangeMessage, message);
+    }
+
+    [Fact]
+    public async Task PostWhatifAsync_WhenValidationRejectsCommanderCardOut_ReturnsBadRequestNoChange()
+    {
+        FakeWhatifService whatifService = new()
+        {
+            TryValidateSwapHandler = (CutLabState _, string _, string _, out string? error) =>
+            {
+                error = CutLabMessages.NoChangeMessage;
+                return false;
+            },
+        };
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)), new FakeSimulationService(), whatifService: whatifService);
+
+        ActionResult<CutLabWhatifApiResponse> response = await controller.PostWhatifAsync(
+            new CutLabWhatifApiRequest
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()),
+                CardOut = "Commander",
+                CardIn = "Counterspell",
+            },
+            CancellationToken.None);
+
+        BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(response.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+        string? message = badRequest.Value?.GetType().GetProperty("Message")?.GetValue(badRequest.Value) as string;
+        Assert.Equal(CutLabMessages.NoChangeMessage, message);
+    }
+
+    [Fact]
+    public async Task PostWhatifCommitAsync_WhenServiceApplies_BuildsPatchFromCommittedState()
+    {
+        CutLabState state = CreateState(
+            pool:
+            [
+                Card("Commander", quantity: 1, isCommander: true, isLocked: true),
+                Card("Cut Card", quantity: 1),
+                Card("Basic Filler", quantity: 97, isLocked: true),
+                Card("Working Card", quantity: 1),
+            ],
+            decisions:
             [
                 new CutLabDecision
                 {
@@ -570,14 +630,36 @@ public sealed class CutLabApiControllerTests
                     Round = CutLabCutRoundEngine.Round1Key,
                     Ordinal = 1,
                 },
+            ]);
+        CutLabState committedState = state with
+        {
+            Decisions =
+            [
+                new CutLabDecision
+                {
+                    CardName = "Working Card",
+                    Kind = CutLabDecisionKind.Accepted,
+                    Round = CutLabCutRoundEngine.WhatifSwapKey,
+                    Ordinal = 2,
+                },
             ],
-            Intent = new CutLabIntent
+        };
+        FakeWhatifService whatifService = new()
+        {
+            CommitResultFactory = (_, cardOut, cardIn) => new CutLabWhatifCommitResult
             {
-                PlayExperience = "Focused",
-                Bracket = 3,
+                Applied = true,
+                State = committedState,
+                CardOut = cardOut,
+                CardIn = cardIn,
             },
         };
-        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)), new FakeSimulationService());
+        TrackingPatchBuilder patchBuilder = new();
+        CutLabApiController controller = CreateController(
+            new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)),
+            new FakeSimulationService(),
+            patchBuilder,
+            whatifService: whatifService);
 
         ActionResult<CutLabWhatifApiResponse> response = await controller.PostWhatifCommitAsync(
             new CutLabWhatifApiRequest
@@ -590,118 +672,88 @@ public sealed class CutLabApiControllerTests
 
         OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
         CutLabWhatifApiResponse payload = Assert.IsType<CutLabWhatifApiResponse>(ok.Value);
+        Assert.Equal(committedState, patchBuilder.LastState);
         Assert.NotNull(payload.Patch);
         Assert.Equal(payload.Patch!.CutLabStateJson, payload.CutLabStateJson);
-        CutLabState updated = CutLabStateSerializer.Deserialize(payload.CutLabStateJson!);
-        CutLabDecision accepted = Assert.Single(updated.Decisions);
-        Assert.Equal("Working Card", accepted.CardName);
-        Assert.Equal(CutLabCutRoundEngine.WhatifSwapKey, accepted.Round);
-        Assert.Equal(CutLabCutRoundEngine.WhatifSwapLabel, CutLabCutRoundEngine.LabelFor(accepted.Round));
-        Assert.DoesNotContain(CutLabWorkingList.Derive(updated.Pool, updated.Decisions), card => string.Equals(card.Name, "Working Card", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(CutLabWorkingList.Derive(updated.Pool, updated.Decisions), card => string.Equals(card.Name, "Cut Card", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(payload.Patch.CutsMade, cut => cut.CardName == "Working Card" && cut.RoundLabel == "What-if swap");
-        Assert.Contains("Working Card", payload.Patch.WhatifCardInOptions);
+        Assert.Contains("Cut Card", payload.Patch.WhatifCardInOptions);
+        Assert.Equal("Working Card", payload.CardOut);
+        Assert.Equal("Cut Card", payload.CardIn);
     }
 
     [Fact]
-    public async Task PostWhatifCommitAsync_ReturnsBadRequestForLockedCardOutWithoutChangingState()
+    public async Task PostWhatifCommitAsync_WhenServiceReturnsNotApplied_ReturnsBadRequestWithMessage()
     {
-        CutLabState state = new()
+        FakeWhatifService whatifService = new()
         {
-            Commander = "Commander",
-            Pool = [Card("Commander", isCommander: true, isLocked: true), Card("Locked Working Card", isLocked: true), Card("Cut Card")],
-            Decisions =
-            [
-                new CutLabDecision
-                {
-                    CardName = "Cut Card",
-                    Kind = CutLabDecisionKind.Accepted,
-                    Round = CutLabCutRoundEngine.Round1Key,
-                    Ordinal = 1,
-                },
-            ],
-            Intent = new CutLabIntent
+            CommitResultFactory = (state, _, _) => new CutLabWhatifCommitResult
             {
-                PlayExperience = "Focused",
-                Bracket = 3,
+                Applied = false,
+                State = state,
+                ErrorMessage = CutLabMessages.NoChangeMessage,
             },
         };
-        string serializedBefore = CutLabStateSerializer.Serialize(state);
-        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)), new FakeSimulationService());
+        CutLabApiController controller = CreateController(
+            new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)),
+            new FakeSimulationService(),
+            whatifService: whatifService);
 
         ActionResult<CutLabWhatifApiResponse> response = await controller.PostWhatifCommitAsync(
             new CutLabWhatifApiRequest
             {
-                CutLabStateJson = serializedBefore,
-                CardOut = "Locked Working Card",
-                CardIn = "Cut Card",
+                CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()),
+                CardOut = "Arcane Signet",
+                CardIn = "Counterspell",
             },
             CancellationToken.None);
 
         BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(response.Result);
         Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
-        Assert.Equal(serializedBefore, CutLabStateSerializer.Serialize(state));
+        string? message = badRequest.Value?.GetType().GetProperty("Message")?.GetValue(badRequest.Value) as string;
+        Assert.Equal(CutLabMessages.NoChangeMessage, message);
     }
 
     [Fact]
-    public async Task PostWhatifCommitAsync_ReturnsBadRequest_WhenReplacementCutWouldOvershootRemainingBudget()
+    public async Task PostWhatifCommitAsync_WhenPatchBuilderThrows_PropagatesAndDoesNotReturnGenericNoChange()
     {
-        CutLabState state = CreateState(
-            pool:
-            [
-                Card("Commander", quantity: 1, isCommander: true, isLocked: true),
-                Card("Cut Card", quantity: 1),
-                Card("Multi Copy Working Card", quantity: 2),
-                // Filler sized so the working list sits at exactly 100 with "Cut Card" cut, so
-                // restoring it (+1 -> remaining 1) makes the 2-copy replacement cut overshoot.
-                Card("Basic Filler", quantity: 97, isLocked: true),
-            ],
-            decisions:
-            [
-                new CutLabDecision
-                {
-                    CardName = "Cut Card",
-                    Kind = CutLabDecisionKind.Accepted,
-                    Round = CutLabCutRoundEngine.Round1Key,
-                    Ordinal = 1,
-                },
-            ]);
-        FakeAnalysisContextBuilder builder = new(workingList => CreateAnalysisContext(workingList));
-        FakeSimulationService simulation = new();
+        FakeWhatifService whatifService = new()
+        {
+            CommitResultFactory = (state, cardOut, cardIn) => new CutLabWhatifCommitResult
+            {
+                Applied = true,
+                State = state,
+                CardOut = cardOut,
+                CardIn = cardIn,
+            },
+        };
         ThrowingPatchBuilder patchBuilder = new();
-        CutLabApiController controller = CreateController(builder, simulation, patchBuilder);
+        CutLabApiController controller = CreateController(
+            new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)),
+            new FakeSimulationService(),
+            patchBuilder,
+            whatifService: whatifService);
 
-        ActionResult<CutLabWhatifApiResponse> response = await controller.PostWhatifCommitAsync(
+        await Assert.ThrowsAsync<InvalidOperationException>(() => controller.PostWhatifCommitAsync(
             new CutLabWhatifApiRequest
             {
-                CutLabStateJson = CutLabStateSerializer.Serialize(state),
-                CardOut = "Multi Copy Working Card",
-                CardIn = "Cut Card",
+                CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()),
+                CardOut = "Arcane Signet",
+                CardIn = "Counterspell",
             },
-            CancellationToken.None);
-
-        BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(response.Result);
-        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
-        Assert.NotNull(badRequest.Value);
-        object value = badRequest.Value!;
-        string? message = value.GetType().GetProperty("Message")?.GetValue(value) as string;
-        Assert.Equal(CutLabMessages.NoChangeMessage, message);
-        Assert.NotNull(response.Result);
-        Assert.IsNotType<OkObjectResult>(response.Result);
-        Assert.Equal(0, patchBuilder.BuildCalls);
+            CancellationToken.None));
     }
 
     private static CutLabApiController CreateController(
         FakeAnalysisContextBuilder builder,
         FakeSimulationService simulation,
         ICutLabUiPatchBuilder? patchBuilder = null,
-        bool sameOrigin = true)
+        bool sameOrigin = true,
+        ICutLabWhatifService? whatifService = null)
     {
         CutLabApiController controller = new(
             builder,
             patchBuilder ?? new CutLabUiPatchBuilder(builder, simulation),
             simulation,
-            new FakeWhatifService(),
+            whatifService ?? new FakeWhatifService(),
             NullLogger<CutLabApiController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -952,6 +1004,12 @@ public sealed class CutLabApiControllerTests
 
     private sealed class FakeWhatifService : ICutLabWhatifService
     {
+        public delegate bool TryValidateSwapCallback(CutLabState state, string cardOut, string cardIn, out string? error);
+
+        public TryValidateSwapCallback? TryValidateSwapHandler { get; set; }
+
+        public Func<CutLabState, string, string, CutLabWhatifCommitResult>? CommitResultFactory { get; set; }
+
         public Task<CutLabWhatifPreview> PreviewSwapAsync(CutLabState state, string cardOut, string cardIn, CancellationToken cancellationToken)
             => Task.FromResult(new CutLabWhatifPreview
             {
@@ -961,16 +1019,44 @@ public sealed class CutLabApiControllerTests
 
         public bool TryValidateSwap(CutLabState state, string cardOut, string cardIn, out string? error)
         {
+            if (TryValidateSwapHandler is not null)
+            {
+                return TryValidateSwapHandler(state, cardOut, cardIn, out error);
+            }
+
             error = null;
             return true;
         }
 
         public Task<CutLabWhatifCommitResult> CommitSwapAsync(CutLabState state, string cardOut, string cardIn, CancellationToken cancellationToken)
-            => Task.FromResult(new CutLabWhatifCommitResult
+            => Task.FromResult(CommitResultFactory?.Invoke(state, cardOut, cardIn) ?? new CutLabWhatifCommitResult
             {
                 Applied = false,
                 State = state,
             });
+    }
+
+    private sealed class TrackingPatchBuilder : ICutLabUiPatchBuilder
+    {
+        public CutLabState? LastState { get; private set; }
+
+        public Task<CutLabUiPatchDto> BuildAsync(
+            CutLabState state,
+            string playExperience,
+            IReadOnlyList<string> commanderNames,
+            IReadOnlyDictionary<string, int> floorByRole,
+            IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
+            string? poolKey = null,
+            IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
+            CancellationToken cancellationToken = default)
+        {
+            LastState = state;
+            return Task.FromResult(new CutLabUiPatchDto
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(state),
+                WhatifCardInOptions = ["Cut Card"],
+            });
+        }
     }
 
     private sealed class ThrowingPatchBuilder : ICutLabUiPatchBuilder
@@ -988,7 +1074,7 @@ public sealed class CutLabApiControllerTests
             CancellationToken cancellationToken = default)
         {
             BuildCalls++;
-            throw new Xunit.Sdk.XunitException("Patch builder should not run for rejected what-if commits.");
+            throw new InvalidOperationException("boom");
         }
     }
 }

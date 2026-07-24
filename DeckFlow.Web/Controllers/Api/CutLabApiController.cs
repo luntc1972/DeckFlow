@@ -234,7 +234,11 @@ public sealed class CutLabApiController : ControllerBase
                 return BadRequest(new { Message = InvalidStateMessage });
             }
 
-            ValidateWhatifPair(state, request.CardOut, request.CardIn);
+            if (!_whatifService.TryValidateSwap(state, request.CardOut, request.CardIn, out string? validationError))
+            {
+                return BadRequest(new { Message = validationError ?? CutLabMessages.NoChangeMessage });
+            }
+
             CutLabWhatifPreview preview = await _whatifService
                 .PreviewSwapAsync(state, request.CardOut, request.CardIn, cancellationToken)
                 .ConfigureAwait(false);
@@ -282,6 +286,7 @@ public sealed class CutLabApiController : ControllerBase
             return BadRequest(new { Message = "Cut Lab state, card out, and card in are required." });
         }
 
+        CutLabWhatifCommitResult result;
         try
         {
             CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
@@ -290,51 +295,39 @@ public sealed class CutLabApiController : ControllerBase
                 return BadRequest(new { Message = InvalidStateMessage });
             }
 
-            ValidateWhatifPair(state, request.CardOut, request.CardIn);
-            CutLabPoolCard? cardOutPoolCard = state.Pool.FirstOrDefault(card => string.Equals(card.Name, request.CardOut, StringComparison.OrdinalIgnoreCase));
-            if (cardOutPoolCard is null || cardOutPoolCard.IsLocked)
-            {
-                return BadRequest(new { Message = CutLabMessages.NoChangeMessage });
-            }
-
-            CutLabState afterRestore = CutLabDecisionApplier.Apply(
-                state,
-                request.CardIn,
-                CutLabDecideAction.Restore,
-                CutLabCutRoundEngine.WhatifSwapKey);
-            CutLabState afterSwap = CutLabDecisionApplier.Apply(
-                afterRestore,
-                request.CardOut,
-                CutLabDecideAction.Accept,
-                CutLabCutRoundEngine.WhatifSwapKey);
-            // Why: the overshoot guard can refuse the replacement cut, so a half-applied swap must be rejected.
-            if (afterSwap.Decisions.Count == afterRestore.Decisions.Count)
-            {
-                return BadRequest(new { Message = CutLabMessages.NoChangeMessage });
-            }
-
-            IReadOnlyList<string> commanderNames = GetCommanderNames(afterSwap);
-            IReadOnlyDictionary<string, int> floorByRole = BuildFloorMap(afterSwap.RoleFloors);
-            CutLabUiPatchDto patch = await _patchBuilder.BuildAsync(
-                afterSwap,
-                afterSwap.Intent.PlayExperience,
-                commanderNames,
-                floorByRole,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-
-            return Ok(new CutLabWhatifApiResponse
-            {
-                CardOut = request.CardOut,
-                CardIn = request.CardIn,
-                Patch = patch,
-                CutLabStateJson = patch.CutLabStateJson,
-            });
+            result = await _whatifService
+                .CommitSwapAsync(state, request.CardOut, request.CardIn, cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
         {
             _logger.LogWarning(exception, "Cut Lab what-if commit API request failed.");
             return BadRequest(new { Message = CutLabMessages.NoChangeMessage });
         }
+
+        if (!result.Applied)
+        {
+            return BadRequest(new { Message = result.ErrorMessage ?? CutLabMessages.NoChangeMessage });
+        }
+
+        IReadOnlyList<string> commanderNames = GetCommanderNames(result.State);
+        IReadOnlyDictionary<string, int> floorByRole = BuildFloorMap(result.State.RoleFloors);
+        string cardOut = result.CardOut ?? throw new InvalidOperationException("What-if commit must provide CardOut when applied.");
+        string cardIn = result.CardIn ?? throw new InvalidOperationException("What-if commit must provide CardIn when applied.");
+        CutLabUiPatchDto patch = await _patchBuilder.BuildAsync(
+            result.State,
+            result.State.Intent.PlayExperience,
+            commanderNames,
+            floorByRole,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+
+        return Ok(new CutLabWhatifApiResponse
+        {
+            CardOut = cardOut,
+            CardIn = cardIn,
+            Patch = patch,
+            CutLabStateJson = patch.CutLabStateJson,
+        });
     }
 
     private IReadOnlyList<ScryfallCardData>? TryBuildAfterPreResolvedCards(
@@ -509,19 +502,4 @@ public sealed class CutLabApiController : ControllerBase
             })
             .ToArray();
 
-    private static void ValidateWhatifPair(CutLabState state, string cardOut, string cardIn)
-    {
-        IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
-        CutLabPoolCard? cardOutPoolCard = workingList.FirstOrDefault(card => string.Equals(card.Name, cardOut, StringComparison.OrdinalIgnoreCase));
-        if (cardOutPoolCard is null || cardOutPoolCard.IsLocked)
-        {
-            throw new InvalidOperationException(CutLabMessages.NoChangeMessage);
-        }
-
-        IReadOnlySet<string> cutPile = CutLabWorkingList.AcceptedCardNames(state.Decisions);
-        if (!cutPile.Contains(cardIn))
-        {
-            throw new InvalidOperationException(CutLabMessages.NoChangeMessage);
-        }
-    }
 }
