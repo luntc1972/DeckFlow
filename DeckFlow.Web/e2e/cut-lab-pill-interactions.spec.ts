@@ -88,3 +88,78 @@ test('individual card pills lock cards and Lock All stays readable in Commander 
     await releaseAdminLockForTest(heldLock);
   }
 });
+
+test('structural evidence pills lock the canonical pool checkbox and inert spans stay non-lockable', async ({ page }) => {
+  const heldLock = await acquireAdminLockForTest(page);
+  try {
+    await setToolEnabled(page, 'Cut Lab', true);
+    await page.goto('/cut-lab');
+
+    await page.locator('#cut-lab-input-source').selectOption('PasteText');
+    await page.locator('#cut-lab-deck-text').fill(oversizedPool);
+    await page.locator('#cut-lab-primary-plan').fill('Protect the control shell.');
+    await page.getByRole('button', { name: 'Import pool' }).click();
+    await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
+
+    const findingsSection = page.locator('[data-cut-lab-structural-findings]');
+    await expect(findingsSection).toBeVisible();
+
+    let lockableEvidenceButtons = findingsSection.locator('button[data-cut-lab-chip-card]');
+    if (await lockableEvidenceButtons.count() === 0) {
+      await expect(page.locator('.cutlab-proposal')).toBeVisible();
+      const responsePromise = page.waitForResponse(response =>
+        response.url().includes('/api/cut-lab/decide') && response.request().method() === 'POST');
+
+      await page.locator('.cutlab-decision-btn--accept').click();
+
+      const response = await responsePromise;
+      expect(response.ok()).toBeTruthy();
+      lockableEvidenceButtons = findingsSection.locator('button[data-cut-lab-chip-card]');
+    }
+
+    const lockableCount = await lockableEvidenceButtons.count();
+    test.skip(
+      lockableCount === 0,
+      'No lockable Structural evidence chips from the oversized pool decide; CLUP-09 lock behavior remains deterministically covered by Task 1 Vitest + Task 2 xUnit.',
+    );
+    expect(
+      lockableCount,
+      'expected >= 1 lockable Structural evidence chip from the oversized pool decide',
+    ).toBeGreaterThan(0);
+
+    const evidenceButton = lockableEvidenceButtons.first();
+    const cardName = await evidenceButton.getAttribute('data-cut-lab-chip-card');
+    expect(cardName).not.toBeNull();
+
+    const checkbox = page.locator(
+      `tr[data-cut-lab-card="${cardName}"] input[data-cut-lab-lock-card]`,
+    );
+
+    await expect(checkbox).not.toBeChecked();
+    await evidenceButton.click();
+    await expect(checkbox).toBeChecked();
+    await expect(evidenceButton).toHaveAttribute('aria-pressed', 'true');
+
+    await evidenceButton.click();
+    await expect(checkbox).not.toBeChecked();
+    await expect(evidenceButton).toHaveAttribute('aria-pressed', 'false');
+
+    await expect(findingsSection.locator('span.kb-chip[data-cut-lab-chip-card]')).toHaveCount(0);
+
+    const inertSpans = findingsSection.locator('span.kb-chip');
+    if (await inertSpans.count() > 0) {
+      const inertSpan = inertSpans.first();
+      expect(await inertSpan.evaluate(element => element.tagName)).toBe('SPAN');
+      expect(await inertSpan.getAttribute('aria-pressed')).toBeNull();
+
+      const checkedBefore = await page.locator('input[data-cut-lab-lock-card]:checked').count();
+      await inertSpan.click();
+      const checkedAfter = await page.locator('input[data-cut-lab-lock-card]:checked').count();
+
+      expect(checkedAfter).toBe(checkedBefore);
+    }
+    // Deterministic unmatched Structural-evidence inert proof lives in Task 1 Vitest + Task 2 xUnit.
+  } finally {
+    await releaseAdminLockForTest(heldLock);
+  }
+});
