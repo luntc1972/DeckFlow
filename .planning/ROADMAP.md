@@ -33,7 +33,8 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
 
 - [x] **Phase 108: Server-Authored Cut Lab UI Patch Contract** - Replace client-side domain re-derivation in `cut-lab.ts` with patch DTOs returned by Cut Lab mutation endpoints. ✅ 2026-07-23
 - [x] **Phase 109: What-If Service Consolidation** - Move preview and commit behavior into one service shared by JSON and no-JS paths. ✅ 2026-07-23
-- [ ] **Phase 110: Cut Lab Navigation and Pool Discovery** - Add Cut-Lab-scoped anchors, sticky mobile jump navigation, lock-pool filtering/search, collapsible sections, package assignment help, and text-first card/combo context disclosures.
+- [ ] **Phase 110: Cut Lab Navigation and Pool Discovery** - Add Cut-Lab-scoped anchors, sticky mobile jump navigation, lock-pool filtering/search, collapsible sections, package assignment help, and text-first card disclosures.
+- [ ] **Phase 110.1: Cut Lab Combo Intelligence** (INSERTED 2026-07-23) - Surface complete-combo and near-combo context in Structural findings, grouped by variant, reusing the Phase 110 disclosure component.
 - [ ] **Phase 111: Cut Lab Upgrade Regression Gate** - Verify card-pill locking, Structural evidence behavior, all-theme readability, screenshot-based UI evidence, and full Cut Lab suites across the upgraded surfaces.
 
 <details>
@@ -85,21 +86,31 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
 ### Phase 110: Cut Lab Navigation and Pool Discovery
 **Goal**: Users can quickly find, inspect, and move through Cut Lab cards and sections without losing the existing lock/package workflow.
 **Depends on**: Phase 108
-**Requirements**: CLUP-06, CLUP-07, CLUP-08, CLUP-11, CLUP-12, CLUP-13, CLUP-14, CLUP-15, CLUP-16, CLUP-17, CLUP-18
+**Requirements**: CLUP-06, CLUP-07, CLUP-08, CLUP-11, CLUP-12, CLUP-13, CLUP-14, CLUP-15, CLUP-16
 **Success Criteria**:
   1. Process, Decide, Goals, Export, and other primary Cut Lab sections have stable anchors plus compact jump controls patterned after Manabase.
   2. Existing submit-driven workflow tabs still submit when they need server work; JS enhancement only scrolls when it is safe to do so.
   3. The main Lock your pool table can filter by locked/all/unlocked and search by card name without changing lock/package state.
   4. Primary Cut Lab sections can collapse/expand and remember state in browser local storage per deck/page.
   5. Package assignment has concise helper copy explaining named groups and how cards remain in the pool.
-  6. Card oracle text is shown through reusable text-first disclosures, starting in lock pool rows and reused for structural/combo evidence where data is available; text is primary, imagery is optional/enhancement only.
-  7. Structural/combo findings identify both complete combo membership and near-combo missing partner state, including weak-floor cases where combo context matters.
-  8. Matched Structural evidence cards show combo role/context where available and keep the same canonical lock/unlock behavior as role-group card chips.
-  9. Classic, Nyx, and Commander Table mobile screenshots show no text overlap or unreadable control states.
+  6. Card oracle text is shown through reusable text-first disclosures in lock pool rows and under Structural evidence chips; text is primary, imagery is optional/enhancement only.
+  7. Classic, Nyx, and Commander Table mobile screenshots show no text overlap or unreadable control states.
+
+### Phase 110.1: Cut Lab Combo Intelligence (INSERTED 2026-07-23)
+**Goal**: Structural findings explain combo membership — complete, near-complete, and variant alternatives — so users understand why cards are protected.
+**Depends on**: Phase 110
+**Requirements**: CLUP-17, CLUP-18
+**Success Criteria**:
+  1. Structural/combo findings distinguish complete combo membership from near-combo missing-partner state, including weak-floor cases where combo context explains why cards are protected.
+  2. Matched Structural evidence chips carry a combo state badge and expose combo role/context inside the Phase 110 disclosure, keeping the canonical lock/unlock behavior unchanged.
+  3. Near-combos that differ only by an interchangeable card are grouped into one finding listing the alternatives rather than one finding per variant.
+  4. Research records the Commander Spellbook API's template-slot (`requires`) and variant shapes so candidate matching can be scoped as follow-on work.
+
+**Split rationale**: Inserted during Phase 110 discuss-phase (2026-07-23). Phase 110 is view-layer only (Razor, TypeScript, `site-common.css`, one view-model dictionary); the combo work is data-layer (Spellbook parsing, a new finding kind, a changed evidence record, and a ripple into the Phase 108 patch DTO). Different risk profiles, different regression gates.
 
 ### Phase 111: Cut Lab Upgrade Regression Gate
 **Goal**: Prove the hardening did not regress shipped Cut Lab flows or the newly fixed card-pill locking behavior.
-**Depends on**: Phases 108-110
+**Depends on**: Phases 108-110.1
 **Requirements**: CLUP-09, CLUP-10, CLUP-19, CLUP-20
 **Success Criteria**:
   1. Role-group and Structural evidence card pills lock/unlock canonical pool cards; unmatched Structural evidence is inert.
@@ -112,7 +123,7 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 108 -> 109 -> 110 -> 111
+Phases execute in numeric order: 108 -> 109 -> 110 -> 110.1 -> 111
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
