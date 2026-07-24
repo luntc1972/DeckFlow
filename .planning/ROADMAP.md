@@ -114,6 +114,13 @@ Plans:
   3. Near-combos that differ only by an interchangeable card are grouped into one finding listing the alternatives rather than one finding per variant.
   4. Research records the Commander Spellbook API's template-slot (`requires`) and variant shapes so candidate matching can be scoped as follow-on work.
 
+**Plans:** 3 plans (3 waves)
+
+Plans:
+- [ ] 110.1-01-PLAN.md — Card→combo lookup replaces name-only ComboNames; record Spellbook requires/of shape (SC-4) [Wave 1]
+- [ ] 110.1-02-PLAN.md — ComboProtected finding kind, variant grouping, weak-floor cross-ref, tally exclusion, per-card combo-state map on view-model + patch DTO [Wave 2]
+- [ ] 110.1-03-PLAN.md — Chip combo badge + disclosure combo context + theme-readable CSS + what-if badge round-trip [Wave 3]
+
 **Split rationale**: Inserted during Phase 110 discuss-phase (2026-07-23). Phase 110 is view-layer only (Razor, TypeScript, `site-common.css`, one view-model dictionary); the combo work is data-layer (Spellbook parsing, a new finding kind, a changed evidence record, and a ripple into the Phase 108 patch DTO). Different risk profiles, different regression gates.
 
 ### Phase 111: Cut Lab Upgrade Regression Gate
