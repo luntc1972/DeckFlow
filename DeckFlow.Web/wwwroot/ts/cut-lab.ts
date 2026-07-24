@@ -225,6 +225,7 @@ const cutLabWhatifKeepErrorCopy = "Couldn't keep this swap — nothing changed. 
 const cutLabWhatifPreviewSummaryCopy = 'metric families changed meaningfully.';
 const SCENARIO_INDEX_KEY = 'deckflow.cutlab.scenario-index';
 const SCENARIO_SLOT_PREFIX = 'deckflow.cutlab.scenario.';
+const CUT_LAB_SECTION_STORAGE_KEY = 'deckflow.cutlab.sections';
 const MAX_SCENARIO_SLOTS = 20;
 
 const formatCountLabel = (count: number, singular: string, plural: string): string =>
@@ -238,6 +239,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
 (function (root: CutLabRoot): void {
   const getScenarioSlotKey = (id: string): string => `${SCENARIO_SLOT_PREFIX}${id}`;
+  const defaultMobileCollapsedSectionIds = new Set<string>([
+    'cut-lab-section-packages',
+    'cut-lab-section-scenarios',
+    'cut-lab-section-whatif',
+  ]);
 
   const collapseMobileCollapsiblesOnLoad = (): void => {
     if (typeof window.matchMedia !== 'function' || !window.matchMedia('(max-width: 767px)').matches) {
@@ -247,6 +253,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     document
       .querySelectorAll<HTMLDetailsElement>('details[data-cutlab-mobile-collapse]')
       .forEach(details => {
+        if (!defaultMobileCollapsedSectionIds.has(details.id)) {
+          return;
+        }
+
         details.removeAttribute('open');
       });
   };
@@ -261,6 +271,118 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
   const isQuotaExceededError = (error: unknown): boolean =>
     error instanceof DOMException && (error.name === 'QuotaExceededError' || error.code === 22);
+
+  const parseJsonStringArray = (value: string): string[] | null => {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      if (!Array.isArray(parsed)) {
+        return null;
+      }
+
+      const ids: string[] = [];
+      parsed.forEach(item => {
+        if (typeof item === 'string' && item.trim().length > 0) {
+          ids.push(item.trim());
+        }
+      });
+      return ids;
+    } catch {
+      return null;
+    }
+  };
+
+  const dedupeIds = (ids: string[]): string[] => {
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+
+    ids.forEach(id => {
+      const normalized = id.trim();
+      if (normalized === '' || seen.has(normalized)) {
+        return;
+      }
+
+      seen.add(normalized);
+      ordered.push(normalized);
+    });
+
+    return ordered;
+  };
+
+  const getSectionCollapsibles = (): HTMLDetailsElement[] =>
+    Array.from(document.querySelectorAll<HTMLDetailsElement>('details[data-cutlab-mobile-collapse]'))
+      .filter(details => details.id.trim().length > 0);
+
+  const readCollapsedSectionIds = (): string[] | null => {
+    try {
+      const storage = getLocalStorage();
+      if (!storage) {
+        return null;
+      }
+
+      const raw = storage.getItem(CUT_LAB_SECTION_STORAGE_KEY);
+      if (raw === null) {
+        return null;
+      }
+
+      const parsedIds = parseJsonStringArray(raw);
+      if (parsedIds === null) {
+        return null;
+      }
+
+      return dedupeIds(parsedIds);
+    } catch (error) {
+      if (isQuotaExceededError(error)) {
+        return null;
+      }
+
+      return null;
+    }
+  };
+
+  const writeCollapsedSectionIds = (collapsedIds: string[]): void => {
+    const storage = getLocalStorage();
+    if (!storage) {
+      return;
+    }
+
+    try {
+      storage.setItem(CUT_LAB_SECTION_STORAGE_KEY, JSON.stringify(dedupeIds(collapsedIds)));
+    } catch (error) {
+      if (isQuotaExceededError(error)) {
+        return;
+      }
+    }
+  };
+
+  const restoreSectionCollapseState = (): void => {
+    const collapsedIds = readCollapsedSectionIds();
+    if (collapsedIds === null) {
+      return;
+    }
+
+    const collapsedIdSet = new Set(collapsedIds);
+    getSectionCollapsibles().forEach(details => {
+      if (collapsedIdSet.has(details.id)) {
+        details.removeAttribute('open');
+        return;
+      }
+
+      details.setAttribute('open', 'open');
+    });
+  };
+
+  const persistSectionCollapseState = (): void => {
+    const collapsedIds = getSectionCollapsibles()
+      .filter(details => !details.open)
+      .map(details => details.id);
+    writeCollapsedSectionIds(collapsedIds);
+  };
+
+  const attachSectionCollapsePersistence = (): void => {
+    getSectionCollapsibles().forEach(details => {
+      details.addEventListener('toggle', persistSectionCollapseState);
+    });
+  };
 
   const readScenarioIndex = (): ScenarioIndexEntry[] => {
     try {
@@ -3175,6 +3297,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
   const initializeCutLab = (): void => {
     collapseMobileCollapsiblesOnLoad();
+    restoreSectionCollapseState();
+    attachSectionCollapsePersistence();
 
     const form = getForm();
     if (!form) {

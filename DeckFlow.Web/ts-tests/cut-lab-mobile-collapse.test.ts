@@ -21,9 +21,11 @@ afterEach(() => {
 });
 
 describe('cut-lab mobile collapse', () => {
-  it('removes open from mobile-collapse details on mobile', () => {
+  // D-23: on mobile only the three auxiliary sections (packages/scenarios/whatif)
+  // collapse by default; the primary sections stay open on mobile.
+  it('removes open from an auxiliary mobile-collapse section on mobile', () => {
     document.body.innerHTML = `
-      <details data-cutlab-mobile-collapse open>
+      <details id="cut-lab-section-packages" data-cutlab-mobile-collapse open>
         <summary>Packages</summary>
         <div>Body</div>
       </details>
@@ -32,12 +34,26 @@ describe('cut-lab mobile collapse', () => {
 
     document.dispatchEvent(new Event('DOMContentLoaded'));
 
-    expect(document.querySelector('details[data-cutlab-mobile-collapse]')?.hasAttribute('open')).toBe(false);
+    expect(document.querySelector('#cut-lab-section-packages')?.hasAttribute('open')).toBe(false);
   });
 
-  it('leaves mobile-collapse details open on desktop', () => {
+  it('leaves a primary mobile-collapse section open on mobile (D-23)', () => {
     document.body.innerHTML = `
-      <details data-cutlab-mobile-collapse open>
+      <details id="cut-lab-section-lock-pool" data-cutlab-mobile-collapse open>
+        <summary>Lock your pool</summary>
+        <div>Body</div>
+      </details>
+    `;
+    stubMatchMedia(true);
+
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+
+    expect(document.querySelector('#cut-lab-section-lock-pool')?.hasAttribute('open')).toBe(true);
+  });
+
+  it('leaves an auxiliary mobile-collapse section open on desktop', () => {
+    document.body.innerHTML = `
+      <details id="cut-lab-section-packages" data-cutlab-mobile-collapse open>
         <summary>Packages</summary>
         <div>Body</div>
       </details>
@@ -46,6 +62,6 @@ describe('cut-lab mobile collapse', () => {
 
     document.dispatchEvent(new Event('DOMContentLoaded'));
 
-    expect(document.querySelector('details[data-cutlab-mobile-collapse]')?.hasAttribute('open')).toBe(true);
+    expect(document.querySelector('#cut-lab-section-packages')?.hasAttribute('open')).toBe(true);
   });
 });
