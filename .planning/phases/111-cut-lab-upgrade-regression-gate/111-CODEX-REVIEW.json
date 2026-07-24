@@ -1,0 +1,38 @@
+{
+  "verdict": "REVISE",
+  "findings": [
+    {
+      "id": "H1",
+      "severity": "HIGH",
+      "plan": "111-03",
+      "summary": "CLUP-19 package-chip/package-toggle readability can be silently skipped because the planned import flow does not create any package, while real package rows only render when Model.Packages.Count > 0.",
+      "evidence": "DeckFlow.Web/Views/Deck/CutLab.cshtml:464 renders package rows only when Model.Packages.Count > 0; DeckFlow.Web/Views/Deck/CutLab.cshtml:478-483 contains the package toggle; DeckFlow.Web/e2e/cut-lab-nav-themes.spec.ts:51-60 importPool only imports the deck and never assigns a package; DeckFlow.Web/e2e/cut-lab-smoke.spec.ts:106-111 shows the existing package-creation pattern.",
+      "fix": "In cut-lab-theme-readability.spec.ts, create a deterministic package before assertions using the smoke-spec pattern, then require .cutlab-package-help, [data-cut-lab-package-id], input[data-cut-lab-package-toggle], and member .kb-chip contrast for every theme. Do not allow a no-package visibility fallback for CLUP-19 named package elements."
+    },
+    {
+      "id": "H2",
+      "severity": "HIGH",
+      "plan": "111-04",
+      "summary": "The screenshot plan claims package/combo chips appear after a decide, but the planned capture flow does not create packages, so the CLUP-20 reviewed screenshots can miss package UI evidence.",
+      "evidence": "DeckFlow.Web/Views/Deck/CutLab.cshtml:464-506 shows package rows/chips are absent when there are no packages; DeckFlow.Web/e2e/cut-lab-nav-themes.spec.ts:51-66 importPool never creates a package; DeckFlow.Web/e2e/cut-lab-smoke.spec.ts:106-111 is the real flow for creating and locking a package.",
+      "fix": "Before each Classic/Nyx/Commander-Table desktop and mobile capture, create a deterministic package such as Fast mana with Sol Ring and Arcane Signet, lock it, expand the Packages section, and only then capture screenshots and write review notes."
+    },
+    {
+      "id": "H3",
+      "severity": "HIGH",
+      "plan": "111-03",
+      "summary": "The plan's TypeScript compile gate is misrepresented for the new e2e helper/spec: tsc -p tsconfig.json does not compile e2e/support/contrast.ts or any Playwright specs in this repo.",
+      "evidence": "DeckFlow.Web/tsconfig.json:14 includes only wwwroot/ts/**/*.ts; DeckFlow.Web/playwright.config.ts:9 sets testDir to ./e2e; 111-03-PLAN.md:115 says tsc verifies the helper/spec compile.",
+      "fix": "Do not claim the app tsc gate compiles e2e files. Verify the helper through the Playwright spec itself, and add a Vitest math-only test under DeckFlow.Web/ts-tests if strict standalone coverage of parseCssColor/relativeLuminance/contrastRatio is required."
+    },
+    {
+      "id": "H4",
+      "severity": "MED",
+      "plan": "111-01",
+      "summary": "The e2e inert-evidence step does not actually prove an unmatched Structural evidence chip is inert; it only checks that no span.kb-chip has data-cut-lab-chip-card and that a span is not a button.",
+      "evidence": "DeckFlow.Web/Views/Deck/CutLab.cshtml:611-615 renders unmatched evidence as span.kb-chip; DeckFlow.Web/wwwroot/ts/cut-lab.ts:1348-1350 does the same live; 111-01-PLAN.md:184-187 only asserts span attr/type, not a deterministic unmatched evidence value or click no-op.",
+      "fix": "Either make the e2e test produce a deterministic unmatched Structural evidence item and assert its exact span.kb-chip text, missing aria-pressed/data-cut-lab-chip-card, and click no-op, or downgrade the e2e claim and state unmatched-inert proof is provided by the xUnit and Vitest layers only."
+    }
+  ],
+  "notes": "The core selectors and CLUP-09 implementation facts are real: matched Structural evidence becomes button[data-cut-lab-chip-card] and toggles tr[data-cut-lab-card] input[data-cut-lab-lock-card], while unmatched evidence is span.kb-chip. The repo gate commands mostly match package.json, CI, MSBuild, Playwright, admin-lock, setToolEnabled, and run-web-test.sh constraints. The blocking problems are coverage/executability gaps around package UI evidence and an incorrect tsc claim for e2e files; revise those before executing Phase 111."
+}

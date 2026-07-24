@@ -134,11 +134,23 @@ Plans:
   4. A Cut-Lab-specific all-theme readability check covers Lock All role pills, role/card chips, package chips, sticky status, warning/finding panels, selects, inputs, and primary buttons.
   5. Representative Classic, Nyx, and Commander Table desktop/mobile screenshots are captured and reviewed for usability, understandability, aesthetic hierarchy, and readability.
   6. Findings from verification are either fixed or explicitly recorded as deferred with rationale.
+**Plans**: 4 plans
+Plans:
+- [ ] 111-01-PLAN.md — CLUP-09 locking & Structural evidence regression (xUnit + Vitest + e2e) [Wave 1]
+- [ ] 111-02-PLAN.md — CLUP-10 full-suite smoke coverage matrix + canonical gate command list [Wave 1]
+- [ ] 111-03-PLAN.md — CLUP-19 all-theme Cut Lab readability spec + WCAG contrast helper [Wave 1]
+- [ ] 111-04-PLAN.md — CLUP-20 desktop/mobile screenshots + reviewed UI evidence + findings ledger [Wave 2]
 
 ## Progress
 
 **Execution Order:**
 Phases execute in numeric order: 108 -> 109 -> 110 -> 110.1 -> 111
+
+**Phase 111 wave note (MED-1):** Plans 111-01/02/03 are Wave 1, but the three that launch the
+e2e server (111-01 Task 3, 111-02 Task 3, 111-03 Task 2) MUST run SEQUENTIALLY, not truly
+concurrently — `scripts/run-web-test.sh` runs `fuser -k 5173/tcp` on start and would kill a
+sibling plan's server. Each plan's verify reuses an already-running :5173 server to make this
+safe. 111-04 is Wave 2 (depends on 01/02/03).
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -146,7 +158,7 @@ Phases execute in numeric order: 108 -> 109 -> 110 -> 110.1 -> 111
 | 109. What-If Service Consolidation | Cycle 19 | 2/2 | Complete   | 2026-07-23 |
 | 110. Cut Lab Navigation and Pool Discovery | Cycle 19 | 6/6 | Complete   | 2026-07-24 |
 | 110.1. Cut Lab Combo Intelligence | Cycle 19 | 3/3 | Complete   | 2026-07-24 |
-| 111. Cut Lab Upgrade Regression Gate | Cycle 19 | 0/0 | Pending | - |
+| 111. Cut Lab Upgrade Regression Gate | Cycle 19 | 0/4 | Planned | - |
 | 82. Refactor-Review Sweep & UI Baseline Audit | 2026.07.2 | 3/3 | Complete | 2026-07-04 |
 | 83. Packet-Service SRP Split | 2026.07.2 | 7/7 | Complete | 2026-07-04 |
 | 84. Theme Semantic-Token Migration | 2026.07.2 | 2/2 | Complete | 2026-07-05 |
