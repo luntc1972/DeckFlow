@@ -2608,6 +2608,11 @@ button.manabase-pill.is-selected {
   border-radius: 4px;
 }
 
+input[data-cut-lab-package-toggle]:checked:focus-visible {
+  outline-color: var(--on-accent, #fff);
+  outline-offset: -2px;
+}
+
 .manabase-help {
   margin: 0.45rem 0 0;
   font-size: var(--fs-sm, 0.82rem);
@@ -4715,6 +4720,18 @@ input[data-cut-lab-floor]:focus-visible {
   border-color: var(--focus, var(--accent));
 }
 
+/* Use --ink for these focus rings so dark themes get a high-contrast outline.
+   .df-select__trigger is intentionally fixed app-wide because the same dim ring
+   appeared outside Cut Lab on other dark-theme pages. */
+.df-select__trigger:focus-visible,
+button.cutlab-role-chip:focus-visible,
+[data-cut-lab-lock-role]:focus-visible,
+#cut-lab-primary-plan:focus-visible,
+#cut-lab-deck-text:focus-visible,
+input[data-cut-lab-floor]:focus-visible {
+  outline-color: var(--ink);
+}
+
 .cutlab-sticky-bar {
   position: sticky;
   top: 0;
@@ -4966,6 +4983,11 @@ tr[data-cut-lab-tuner-row]:has(.cutlab-tuner-badge--added) {
   border-color: var(--accent);
   background: var(--accent);
   color: var(--on-accent, #fff);
+}
+
+.cutlab-decision-btn--accept:focus-visible {
+  outline-color: var(--on-accent, #fff);
+  outline-offset: -4px;
 }
 
 .cutlab-decision-btn--reject,
