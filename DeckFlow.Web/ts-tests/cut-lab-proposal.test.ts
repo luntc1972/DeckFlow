@@ -284,6 +284,7 @@ const buildPatch = (overrides: Partial<CutLabUiPatch> = {}): CutLabUiPatch => ({
       ],
     },
   ],
+  comboBadgeByCardName: {},
   comboDataAvailable: true,
   categoryDataAvailable: true,
   whatifCardOutOptions: [],
