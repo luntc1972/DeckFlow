@@ -1550,6 +1550,38 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
   max-height: none;
 }
 
+/* Card Lookup mode picker + panels.
+   Why site-common: 11 of the 22 theme sheets are standalone forks that do NOT
+   @import site.css, so anything living only in site.css is missing on half the
+   themes. site-common.css loads for every theme, which is where shared layout
+   belongs. The panel chrome mirrors .deck-form so the mode panels read as the
+   same surface as every other tool page's form. */
+/* Compound .toolbar.card-lookup-mode-picker, not the bare class: the picker element
+   carries both classes, and site-common.css loads BEFORE the theme sheet, so a bare
+   .card-lookup-mode-picker (0,1,0) loses every tie to the theme's .toolbar (0,1,0)
+   on source order. That silently drops gap/margin and — the visible one —
+   justify-content, which .toolbar sets to space-between and which would otherwise
+   fling this two-button segmented control to opposite edges of the page. */
+.toolbar.card-lookup-mode-picker {
+  margin: 0.5rem 0 1rem 0;
+  gap: 0.5rem;
+  justify-content: flex-start;
+}
+
+.card-lookup-mode-picker [data-card-lookup-mode-button].is-active {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: transparent;
+}
+
+.card-lookup-mode-panel {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 1rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
 .card-lookup-mechanics-list {
   display: flex;
   flex-direction: column;
