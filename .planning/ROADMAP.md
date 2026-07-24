@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
 
 - [x] **Phase 108: Server-Authored Cut Lab UI Patch Contract** - Replace client-side domain re-derivation in `cut-lab.ts` with patch DTOs returned by Cut Lab mutation endpoints. ✅ 2026-07-23
 - [x] **Phase 109: What-If Service Consolidation** - Move preview and commit behavior into one service shared by JSON and no-JS paths. ✅ 2026-07-23
-- [ ] **Phase 110: Cut Lab Navigation and Pool Discovery** - Add Cut-Lab-scoped anchors, sticky mobile jump navigation, lock-pool filtering/search, collapsible sections, package assignment help, and text-first card disclosures.
+- [x] **Phase 110: Cut Lab Navigation and Pool Discovery** - Add Cut-Lab-scoped anchors, sticky mobile jump navigation, lock-pool filtering/search, collapsible sections, package assignment help, and text-first card disclosures. ✅ 2026-07-24
 - [ ] **Phase 110.1: Cut Lab Combo Intelligence** (INSERTED 2026-07-23) - Surface complete-combo and near-combo context in Structural findings, grouped by variant, reusing the Phase 110 disclosure component.
 - [ ] **Phase 111: Cut Lab Upgrade Regression Gate** - Verify card-pill locking, Structural evidence behavior, all-theme readability, screenshot-based UI evidence, and full Cut Lab suites across the upgraded surfaces.
 
@@ -97,12 +97,12 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
   7. Classic, Nyx, and Commander Table mobile screenshots show no text overlap or unreadable control states.
 **Plans**: 6 plans
 Plans:
-- [ ] 110-01-PLAN.md — Card-text view-model lookup (CardTextByCardName), fed to disclosures
-- [ ] 110-02-PLAN.md — Section ids + collapsible sections with localStorage persistence
-- [ ] 110-03-PLAN.md — Sticky mobile jump navigation + sticky-bar collision + safe scroll/focus
-- [ ] 110-04-PLAN.md — Lock-your-pool filter (all/locked/unlocked) + card-name search
-- [ ] 110-05-PLAN.md — Text-first card disclosures (pool rows + evidence chips) + package help copy
-- [ ] 110-06-PLAN.md — Cross-theme mobile screenshot verification (Classic/Nyx/Commander Table)
+- [x] 110-01-PLAN.md — Card-text view-model lookup (CardTextByCardName), fed to disclosures
+- [x] 110-02-PLAN.md — Section ids + collapsible sections with localStorage persistence
+- [x] 110-03-PLAN.md — Sticky mobile jump navigation + sticky-bar collision + safe scroll/focus
+- [x] 110-04-PLAN.md — Lock-your-pool filter (all/locked/unlocked) + card-name search
+- [x] 110-05-PLAN.md — Text-first card disclosures (pool rows + evidence chips) + package help copy
+- [x] 110-06-PLAN.md — Cross-theme mobile screenshot verification (Classic/Nyx/Commander Table)
 
 ### Phase 110.1: Cut Lab Combo Intelligence (INSERTED 2026-07-23)
 **Goal**: Structural findings explain combo membership — complete, near-complete, and variant alternatives — so users understand why cards are protected.
