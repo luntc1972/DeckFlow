@@ -78,3 +78,21 @@ cd DeckFlow.Web && env -u DISPLAY -u WAYLAND_DISPLAY npx --no-install playwright
   - Result: NOT RUN in this task; documented only.
 - Focused e2e command
   - Result: NOT RUN in this task per orchestrator instructions.
+
+---
+
+## Addendum (111 hardening) — server reuse + local worker guidance
+
+- **`run-web-test.sh` is now reuse-aware.** It curl-probes `:5173` and reuses a healthy server
+  instead of blindly `fuser -k`-ing it. The MED-1 "run the three Wave-1 e2e plans strictly
+  sequentially" requirement is **relaxed**: the script no longer cross-kills a sibling's server.
+  Force a fresh server with `FORCE_RESTART=1 bash scripts/run-web-test.sh`. Playwright's
+  `webServer.reuseExistingServer` (WSL-detected) also owns lifecycle, so a manual pre-start is
+  optional.
+- **Decide-heavy specs starve under local many-worker parallelism.** Running the full cut-lab
+  e2e set on many local workers can time out `Import pool → "Lock your pool"` (~30s) because
+  `/api/cut-lab/decide` is CPU-heavy. CI pins `workers: 1` + `retries: 1` and is the authoritative
+  gate. **Locally**, run the decide-heavy set with a bounded worker count, e.g.:
+  `cd DeckFlow.Web && env -u DISPLAY -u WAYLAND_DISPLAY npx --no-install playwright test e2e/cut-lab-*.spec.ts --workers=2`
+  or run `cut-lab-theme-readability.spec.ts` in its own pass (passes 24 themes × 2 viewports in isolation).
+- See `111-RELIABILITY.md` for the full flake taxonomy.

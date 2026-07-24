@@ -153,8 +153,9 @@ const assertContrastFloor = async (
   ).toBeGreaterThanOrEqual(minimumRatio);
 };
 
-const resolveFocusIndicator = async (locator: Locator): Promise<FocusIndicatorSnapshot> =>
-  locator.evaluate((element) => {
+const resolveFocusIndicator = async (page: Page, locator: Locator): Promise<FocusIndicatorSnapshot> => {
+  await page.keyboard.press('Tab');
+  return locator.evaluate((element) => {
     type BrowserRgbColor = { r: number; g: number; b: number };
     type BrowserRgbaColor = BrowserRgbColor & { a: number };
 
@@ -349,15 +350,17 @@ const resolveFocusIndicator = async (locator: Locator): Promise<FocusIndicatorSn
 
     return { focusVisible, source: 'none', background: backgroundBefore, indicator: null };
   });
+};
 
 const assertFocusIndicatorContrast = async (
   themeName: string,
   elementName: string,
+  page: Page,
   locator: Locator,
   minimumRatio: number,
 ): Promise<void> => {
   await expect(locator, `${themeName}: ${elementName} should be visible before focus-visible check`).toBeVisible();
-  const snapshot = await resolveFocusIndicator(locator);
+  const snapshot = await resolveFocusIndicator(page, locator);
   expect(snapshot.focusVisible, `${themeName}: ${elementName} should match :focus-visible after focus()`).toBe(true);
   expect(snapshot.indicator, `${themeName}: ${elementName} should expose a focus indicator color`).not.toBeNull();
 
@@ -431,11 +434,11 @@ test('keeps the Cut Lab named elements readable across every supported theme', a
     // Package member chips are pill/chip UI labels, so 3.0 is the AA floor for their emphasized text.
     await assertContrastFloor(theme.name, 'Fast mana package member chip', packageMemberChip, 3.0);
 
-    await assertFocusIndicatorContrast(theme.name, 'input source select trigger', selectTrigger, 3.0);
-    await assertFocusIndicatorContrast(theme.name, 'primary plan input', planInput, 3.0);
-    await assertFocusIndicatorContrast(theme.name, 'accept-cut button', decisionButton, 3.0);
-    await assertFocusIndicatorContrast(theme.name, 'Lock All lands pill', lockAllPill, 3.0);
-    await assertFocusIndicatorContrast(theme.name, 'Lands role chip', roleChip, 3.0);
-    await assertFocusIndicatorContrast(theme.name, 'Fast mana package toggle', packageToggle, 3.0);
+    await assertFocusIndicatorContrast(theme.name, 'input source select trigger', page, selectTrigger, 3.0);
+    await assertFocusIndicatorContrast(theme.name, 'primary plan input', page, planInput, 3.0);
+    await assertFocusIndicatorContrast(theme.name, 'accept-cut button', page, decisionButton, 3.0);
+    await assertFocusIndicatorContrast(theme.name, 'Lock All lands pill', page, lockAllPill, 3.0);
+    await assertFocusIndicatorContrast(theme.name, 'Lands role chip', page, roleChip, 3.0);
+    await assertFocusIndicatorContrast(theme.name, 'Fast mana package toggle', page, packageToggle, 3.0);
   }
 });
