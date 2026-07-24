@@ -1808,6 +1808,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
+    // A patch may omit the combo map (older/cached responses, light adjust path); treat a
+    // missing map as "no badges" so a stale fixture cannot abort the whole findings re-render.
+    const comboBadgeByCardName = patch.comboBadgeByCardName ?? {};
+
     const totalFindings = patch.structuralFindings.reduce((count, group) => count + group.items.length, 0);
     const countBadge = section.querySelector<HTMLElement>('[data-cut-lab-findings-count-slot] .cutlab-findings-count');
     if (countBadge) {
@@ -1834,13 +1838,13 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
             const chips = document.createElement('div');
             chips.className = 'kb-chip-area__chips';
             item.evidence.forEach(evidence => {
-              const chip = createStructuralEvidenceChip(evidence, patch.comboBadgeByCardName);
+              const chip = createStructuralEvidenceChip(evidence, comboBadgeByCardName);
               chips.appendChild(chip);
               if (chip instanceof HTMLButtonElement) {
                 const cardName = chip.dataset.cutLabChipCard ?? '';
                 const disclosure = clonePoolRowCardTextDisclosure(cardName);
                 if (disclosure) {
-                  syncDisclosureComboContext(disclosure, patch.comboBadgeByCardName, cardName);
+                  syncDisclosureComboContext(disclosure, comboBadgeByCardName, cardName);
                   chips.appendChild(disclosure);
                 }
               }
