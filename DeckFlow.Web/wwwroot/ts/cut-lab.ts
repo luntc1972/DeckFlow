@@ -279,10 +279,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         return null;
       }
 
+      // Type-guard to strings only; dedupeIds owns trimming/empty-filtering/dedupe.
       const ids: string[] = [];
       parsed.forEach(item => {
-        if (typeof item === 'string' && item.trim().length > 0) {
-          ids.push(item.trim());
+        if (typeof item === 'string') {
+          ids.push(item);
         }
       });
       return ids;
@@ -330,11 +331,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       }
 
       return dedupeIds(parsedIds);
-    } catch (error) {
-      if (isQuotaExceededError(error)) {
-        return null;
-      }
-
+    } catch {
+      // Any storage/parse failure falls open to defaults.
       return null;
     }
   };
@@ -347,10 +345,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     try {
       storage.setItem(CUT_LAB_SECTION_STORAGE_KEY, JSON.stringify(dedupeIds(collapsedIds)));
-    } catch (error) {
-      if (isQuotaExceededError(error)) {
-        return;
-      }
+    } catch {
+      // localStorage unavailable/quota-exceeded — persistence is best-effort, non-fatal.
     }
   };
 
@@ -394,6 +390,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
 
     target.open = true;
+    // Persist explicitly: the details 'toggle' event is not reliably dispatched
+    // synchronously across environments, so do not rely on the toggle listener
+    // to capture a jump-driven expand.
     persistSectionCollapseState();
   };
 
