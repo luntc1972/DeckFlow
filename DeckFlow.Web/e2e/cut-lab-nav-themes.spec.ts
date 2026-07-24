@@ -7,6 +7,7 @@ import { expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 
 const baseUrl = 'http://localhost:5173';
 const screenshotDir = resolve(__dirname, '../../.planning/ui-design/cut-lab/screenshots');
+const desktopViewport = { width: 1280, height: 900 };
 const mobileViewport = { width: 430, height: 2200 };
 
 const themes = [
@@ -101,6 +102,23 @@ const buildNoJsPage = async (browser: Browser): Promise<NoJsPageHandle> => {
   };
 };
 
+const clearClientState = async (page: Page): Promise<void> => {
+  await page.goto(baseUrl);
+  await page.evaluate(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
+};
+
+const ensureDetailsOpen = async (details: Locator): Promise<void> => {
+  if ((await details.getAttribute('open')) !== null) {
+    return;
+  }
+
+  await details.locator('summary').click();
+  await expect(details).toHaveAttribute('open', '');
+};
+
 const assertNoOverlap = (first: { x: number; y: number; width: number; height: number }, second: { x: number; y: number; width: number; height: number }, message: string): void => {
   const overlaps = !(
     first.x + first.width <= second.x
@@ -115,6 +133,59 @@ const getBoundingBox = async (locator: Locator, name: string): Promise<{ x: numb
   const box = await locator.boundingBox();
   expect(box, `${name} should have a bounding box`).not.toBeNull();
   return box!;
+};
+
+const createLockedFastManaPackage = async (page: Page): Promise<void> => {
+  const packagesDetails = page.locator('#cut-lab-section-packages');
+  await ensureDetailsOpen(packagesDetails);
+
+  const packagePanel = page.locator('[data-cut-lab-package-id]').filter({ hasText: 'Fast mana' });
+  if (!(await packagePanel.count())) {
+    await page.locator('select[data-cut-lab-package-card="Sol Ring"]').selectOption('__new__');
+    await page.locator('[data-cut-lab-new-package-input]').fill('Fast mana');
+    await page.locator('[data-cut-lab-new-package-save]').click();
+    await page.locator('select[data-cut-lab-package-card="Arcane Signet"]').selectOption({ label: 'Fast mana' });
+  }
+
+  const fastManaPanel = page.locator('[data-cut-lab-package-id]').filter({ hasText: 'Fast mana' });
+  await expect(fastManaPanel).toBeVisible({ timeout: 30_000 });
+  await fastManaPanel.locator('input[data-cut-lab-package-toggle]').check();
+  await expect(fastManaPanel.locator('input[data-cut-lab-package-toggle]')).toBeChecked();
+};
+
+const driveOneJsDecide = async (page: Page): Promise<void> => {
+  const decideResponse = page.waitForResponse(response =>
+    response.url().includes('/api/cut-lab/decide') && response.request().method() === 'POST');
+
+  await page.locator('.cutlab-proposal .cutlab-decision-btn--accept').click();
+
+  const response = await decideResponse;
+  expect(response.ok(), 'Cut Lab decide request must succeed before review capture').toBeTruthy();
+  await expect(page.locator('[data-cut-lab-structural-findings]')).toBeVisible();
+  expect(
+    await page.locator('.cutlab-proposal__evidence .kb-chip, [data-cut-lab-package-id] .kb-chip').count(),
+    'Review capture should include chips after one JS decide and package creation',
+  ).toBeGreaterThan(0);
+};
+
+const prepareReviewCapture = async (page: Page): Promise<void> => {
+  await importPool(page);
+  await expect(page.locator('[data-cut-lab-sticky-remaining]')).toBeVisible({ timeout: 30_000 });
+  await expandMobileCollapsibles(page);
+  await createLockedFastManaPackage(page);
+  await driveOneJsDecide(page);
+
+  const landsGroup = page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' });
+  await ensureDetailsOpen(landsGroup);
+  await expect(landsGroup.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
+  await expect(landsGroup.locator('[data-cut-lab-chip-card="Plains"]')).toBeVisible();
+  await expect(landsGroup.locator('[data-cut-lab-chip-card="Island"]')).toBeVisible();
+  await expect(page.locator('#cut-lab-section-packages')).toHaveAttribute('open', '');
+  await expect(page.locator('[data-cut-lab-package-id]').filter({ hasText: 'Fast mana' })).toBeVisible();
+
+  await page.locator('#cut-lab-section-cut-rounds').scrollIntoViewIfNeeded();
+  await expect(page.locator('.cutlab-sticky-bar')).toBeVisible();
+  await expect(page.locator('[data-cut-lab-sticky-remaining]')).toBeVisible();
 };
 
 const acceptProposalNoJs = async (page: Page): Promise<string> => {
@@ -223,6 +294,28 @@ test('captures cross-theme mobile chrome coverage for Cut Lab navigation and dis
       path: join(screenshotDir, `cut-lab-nav-${theme.name}-mobile.png`),
       fullPage: true,
     });
+  }
+});
+
+test('captures Lock your pool review screenshots across themes at desktop and mobile', async ({ page }) => {
+  mkdirSync(screenshotDir, { recursive: true });
+
+  for (const theme of themes) {
+    for (const viewport of [
+      { name: 'desktop', size: desktopViewport },
+      { name: 'mobile', size: mobileViewport },
+    ] as const) {
+      await page.setViewportSize(viewport.size);
+      await page.context().clearCookies();
+      await clearClientState(page);
+      await page.context().addCookies([{ name: 'deckflow-theme', value: theme.cookie, url: baseUrl }]);
+
+      await prepareReviewCapture(page);
+      await page.screenshot({
+        path: join(screenshotDir, `cut-lab-review-${theme.name}-${viewport.name}.png`),
+        fullPage: true,
+      });
+    }
   }
 });
 
