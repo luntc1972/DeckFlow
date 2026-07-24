@@ -35,7 +35,7 @@ public sealed class CutLabApiControllerTests
             new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()),
             null!,
             new FakeSimulationService(),
-            new FakeWhatifService(),
+            new FakeCutLabWhatifService(),
             NullLogger<CutLabApiController>.Instance));
     }
 
@@ -557,7 +557,7 @@ public sealed class CutLabApiControllerTests
     [Fact]
     public async Task PostWhatifAsync_WhenValidationRejectsLockedCardOut_ReturnsBadRequestNoChange()
     {
-        FakeWhatifService whatifService = new()
+        FakeCutLabWhatifService whatifService = new()
         {
             TryValidateSwapHandler = (CutLabState _, string _, string _, out string? error) =>
             {
@@ -585,7 +585,7 @@ public sealed class CutLabApiControllerTests
     [Fact]
     public async Task PostWhatifAsync_WhenValidationRejectsCommanderCardOut_ReturnsBadRequestNoChange()
     {
-        FakeWhatifService whatifService = new()
+        FakeCutLabWhatifService whatifService = new()
         {
             TryValidateSwapHandler = (CutLabState _, string _, string _, out string? error) =>
             {
@@ -644,7 +644,7 @@ public sealed class CutLabApiControllerTests
                 },
             ],
         };
-        FakeWhatifService whatifService = new()
+        FakeCutLabWhatifService whatifService = new()
         {
             CommitResultFactory = (_, cardOut, cardIn) => new CutLabWhatifCommitResult
             {
@@ -683,7 +683,7 @@ public sealed class CutLabApiControllerTests
     [Fact]
     public async Task PostWhatifCommitAsync_WhenServiceReturnsNotApplied_ReturnsBadRequestWithMessage()
     {
-        FakeWhatifService whatifService = new()
+        FakeCutLabWhatifService whatifService = new()
         {
             CommitResultFactory = (state, _, _) => new CutLabWhatifCommitResult
             {
@@ -715,7 +715,7 @@ public sealed class CutLabApiControllerTests
     [Fact]
     public async Task PostWhatifCommitAsync_WhenPatchBuilderThrows_PropagatesAndDoesNotReturnGenericNoChange()
     {
-        FakeWhatifService whatifService = new()
+        FakeCutLabWhatifService whatifService = new()
         {
             CommitResultFactory = (state, cardOut, cardIn) => new CutLabWhatifCommitResult
             {
@@ -753,7 +753,7 @@ public sealed class CutLabApiControllerTests
             builder,
             patchBuilder ?? new CutLabUiPatchBuilder(builder, simulation),
             simulation,
-            whatifService ?? new FakeWhatifService(),
+            whatifService ?? new FakeCutLabWhatifService(),
             NullLogger<CutLabApiController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -1002,40 +1002,6 @@ public sealed class CutLabApiControllerTests
         }
     }
 
-    private sealed class FakeWhatifService : ICutLabWhatifService
-    {
-        public delegate bool TryValidateSwapCallback(CutLabState state, string cardOut, string cardIn, out string? error);
-
-        public TryValidateSwapCallback? TryValidateSwapHandler { get; set; }
-
-        public Func<CutLabState, string, string, CutLabWhatifCommitResult>? CommitResultFactory { get; set; }
-
-        public Task<CutLabWhatifPreview> PreviewSwapAsync(CutLabState state, string cardOut, string cardIn, CancellationToken cancellationToken)
-            => Task.FromResult(new CutLabWhatifPreview
-            {
-                CardOut = cardOut,
-                CardIn = cardIn,
-            });
-
-        public bool TryValidateSwap(CutLabState state, string cardOut, string cardIn, out string? error)
-        {
-            if (TryValidateSwapHandler is not null)
-            {
-                return TryValidateSwapHandler(state, cardOut, cardIn, out error);
-            }
-
-            error = null;
-            return true;
-        }
-
-        public Task<CutLabWhatifCommitResult> CommitSwapAsync(CutLabState state, string cardOut, string cardIn, CancellationToken cancellationToken)
-            => Task.FromResult(CommitResultFactory?.Invoke(state, cardOut, cardIn) ?? new CutLabWhatifCommitResult
-            {
-                Applied = false,
-                State = state,
-            });
-    }
-
     private sealed class TrackingPatchBuilder : ICutLabUiPatchBuilder
     {
         public CutLabState? LastState { get; private set; }
@@ -1061,8 +1027,6 @@ public sealed class CutLabApiControllerTests
 
     private sealed class ThrowingPatchBuilder : ICutLabUiPatchBuilder
     {
-        public int BuildCalls { get; private set; }
-
         public Task<CutLabUiPatchDto> BuildAsync(
             CutLabState state,
             string playExperience,
@@ -1072,9 +1036,6 @@ public sealed class CutLabApiControllerTests
             string? poolKey = null,
             IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
             CancellationToken cancellationToken = default)
-        {
-            BuildCalls++;
-            throw new InvalidOperationException("boom");
-        }
+            => throw new InvalidOperationException("boom");
     }
 }

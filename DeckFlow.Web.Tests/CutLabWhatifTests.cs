@@ -612,9 +612,8 @@ public sealed class CutLabWhatifTests
         };
 
     private static CutLabState CreateOvershootSwapState()
-        => new()
+        => CreateState() with
         {
-            Commander = "Commander",
             Pool =
             [
                 Card("Commander", isCommander: true, isLocked: true),
@@ -633,27 +632,11 @@ public sealed class CutLabWhatifTests
                 },
                 Card("Cut Card"),
             ],
-            Decisions =
-            [
-                new CutLabDecision
-                {
-                    CardName = "Cut Card",
-                    Kind = CutLabDecisionKind.Accepted,
-                    Round = CutLabCutRoundEngine.Round1Key,
-                    Ordinal = 1,
-                },
-            ],
-            Intent = new CutLabIntent
-            {
-                PlayExperience = "Focused",
-                Bracket = 3,
-            },
         };
 
     private static CutLabState CreateCommitReadyState()
-        => new()
+        => CreateState() with
         {
-            Commander = "Commander",
             Pool =
             [
                 Card("Commander", isCommander: true, isLocked: true),
@@ -667,21 +650,6 @@ public sealed class CutLabWhatifTests
                 },
                 Card("Cut Card"),
             ],
-            Decisions =
-            [
-                new CutLabDecision
-                {
-                    CardName = "Cut Card",
-                    Kind = CutLabDecisionKind.Accepted,
-                    Round = CutLabCutRoundEngine.Round1Key,
-                    Ordinal = 1,
-                },
-            ],
-            Intent = new CutLabIntent
-            {
-                PlayExperience = "Focused",
-                Bracket = 3,
-            },
         };
 
     private static CutLabPoolCard Card(string name, bool isCommander = false, bool isLocked = false)

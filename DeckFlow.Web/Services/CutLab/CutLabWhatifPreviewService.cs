@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Models.Api;
 using DeckFlow.Web.Models.CutLab;
@@ -19,9 +20,9 @@ public interface ICutLabWhatifService
     /// <param name="state">Current Cut Lab state.</param>
     /// <param name="cardOut">Working-list card to remove.</param>
     /// <param name="cardIn">Cut-pile card to restore.</param>
-    /// <param name="error">Validation error when the pair is rejected.</param>
+    /// <param name="error">Validation error; non-null exactly when the method returns <see langword="false"/>.</param>
     /// <returns><see langword="true"/> when the swap pair is valid; otherwise <see langword="false"/>.</returns>
-    bool TryValidateSwap(CutLabState state, string cardOut, string cardIn, out string? error);
+    bool TryValidateSwap(CutLabState state, string cardOut, string cardIn, [NotNullWhen(false)] out string? error);
 
     /// <summary>Validates and atomically applies a what-if swap.</summary>
     /// <param name="state">Current Cut Lab state.</param>
@@ -104,24 +105,17 @@ public sealed class CutLabWhatifService : ICutLabWhatifService
             throw new InvalidOperationException("Cut Lab what-if preview requires a non-empty pool.");
         }
 
-        IReadOnlyList<CutLabPoolCard> beforeWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
-        CutLabPoolCard cardOutPoolCard = beforeWorkingList.FirstOrDefault(card => string.Equals(card.Name, cardOut, StringComparison.OrdinalIgnoreCase))
-            ?? throw new InvalidOperationException(CutLabMessages.NoChangeMessage);
-        if (cardOutPoolCard.IsLocked)
+        // Why: preview and commit MUST reject the same pairs. Both route through the one
+        // validator so the rules cannot drift (the pre-consolidation copies already had).
+        SwapValidation validation = ValidateSwapCore(state, cardOut, cardIn);
+        if (!validation.IsValid)
         {
-            throw new InvalidOperationException(CutLabMessages.NoChangeMessage);
+            throw new InvalidOperationException(validation.Error);
         }
 
-        IReadOnlySet<string> cutPile = CutLabWorkingList.AcceptedCardNames(state.Decisions);
-        if (!cutPile.Contains(cardIn))
-        {
-            throw new InvalidOperationException(CutLabMessages.NoChangeMessage);
-        }
-
-        CutLabPoolCard cardInPoolCard = state.Pool.FirstOrDefault(card =>
-                string.Equals(card.Name, cardIn, StringComparison.OrdinalIgnoreCase)
-                && cutPile.Contains(card.Name))
-            ?? throw new InvalidOperationException(CutLabMessages.NoChangeMessage);
+        IReadOnlyList<CutLabPoolCard> beforeWorkingList = validation.WorkingList;
+        CutLabPoolCard cardOutPoolCard = validation.CardOutPoolCard;
+        CutLabPoolCard cardInPoolCard = validation.CardInPoolCard;
         IReadOnlyList<CutLabPoolCard> afterWorkingList = beforeWorkingList
             .Where(card => !string.Equals(card.Name, cardOut, StringComparison.OrdinalIgnoreCase))
             .Append(cardInPoolCard)
@@ -159,7 +153,18 @@ public sealed class CutLabWhatifService : ICutLabWhatifService
     }
 
     /// <inheritdoc />
-    public bool TryValidateSwap(CutLabState state, string cardOut, string cardIn, out string? error)
+    public bool TryValidateSwap(CutLabState state, string cardOut, string cardIn, [NotNullWhen(false)] out string? error)
+    {
+        error = ValidateSwapCore(state, cardOut, cardIn).Error;
+        return error is null;
+    }
+
+    /// <summary>
+    /// The single what-if swap-pair rule set, shared by preview, commit, and both transports'
+    /// pre-checks. Returns the derived working list and matched cards alongside the verdict so
+    /// callers never re-derive them.
+    /// </summary>
+    private static SwapValidation ValidateSwapCore(CutLabState state, string cardOut, string cardIn)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentException.ThrowIfNullOrWhiteSpace(cardOut);
@@ -170,22 +175,55 @@ public sealed class CutLabWhatifService : ICutLabWhatifService
             string.Equals(card.Name, cardOut, StringComparison.OrdinalIgnoreCase));
         if (cardOutPoolCard is null || cardOutPoolCard.IsLocked || cardOutPoolCard.IsCommander)
         {
-            error = CutLabMessages.NoChangeMessage;
-            return false;
+            return SwapValidation.Rejected(workingList);
         }
 
         IReadOnlySet<string> cutPile = CutLabWorkingList.AcceptedCardNames(state.Decisions);
-        bool validCardIn = state.Pool.Any(card =>
+        CutLabPoolCard? cardInPoolCard = state.Pool.FirstOrDefault(card =>
             string.Equals(card.Name, cardIn, StringComparison.OrdinalIgnoreCase)
             && cutPile.Contains(card.Name));
-        if (!validCardIn)
+        return cardInPoolCard is null
+            ? SwapValidation.Rejected(workingList)
+            : SwapValidation.Valid(workingList, cardOutPoolCard, cardInPoolCard);
+    }
+
+    /// <summary>Outcome of <see cref="ValidateSwapCore"/>: the verdict plus the work already done to reach it.</summary>
+    private readonly record struct SwapValidation
+    {
+        private SwapValidation(
+            IReadOnlyList<CutLabPoolCard> workingList,
+            CutLabPoolCard? cardOutPoolCard,
+            CutLabPoolCard? cardInPoolCard,
+            string? error)
         {
-            error = CutLabMessages.NoChangeMessage;
-            return false;
+            WorkingList = workingList;
+            CardOutPoolCard = cardOutPoolCard;
+            CardInPoolCard = cardInPoolCard;
+            Error = error;
         }
 
-        error = null;
-        return true;
+        /// <summary>The derived working list, valid or not, so callers avoid a second derivation.</summary>
+        public IReadOnlyList<CutLabPoolCard> WorkingList { get; }
+
+        /// <summary>The matched working-list card to remove; non-null when <see cref="IsValid"/>.</summary>
+        public CutLabPoolCard? CardOutPoolCard { get; }
+
+        /// <summary>The matched cut-pile card to restore; non-null when <see cref="IsValid"/>.</summary>
+        public CutLabPoolCard? CardInPoolCard { get; }
+
+        /// <summary>The rejection message; null when <see cref="IsValid"/>.</summary>
+        public string? Error { get; }
+
+        /// <summary>Whether the swap pair passed every rule.</summary>
+        [MemberNotNullWhen(true, nameof(CardOutPoolCard), nameof(CardInPoolCard))]
+        [MemberNotNullWhen(false, nameof(Error))]
+        public bool IsValid => Error is null;
+
+        public static SwapValidation Valid(IReadOnlyList<CutLabPoolCard> workingList, CutLabPoolCard cardOutPoolCard, CutLabPoolCard cardInPoolCard)
+            => new(workingList, cardOutPoolCard, cardInPoolCard, null);
+
+        public static SwapValidation Rejected(IReadOnlyList<CutLabPoolCard> workingList)
+            => new(workingList, null, null, CutLabMessages.NoChangeMessage);
     }
 
     /// <inheritdoc />
@@ -196,17 +234,16 @@ public sealed class CutLabWhatifService : ICutLabWhatifService
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ArgumentNullException.ThrowIfNull(state);
-        ArgumentException.ThrowIfNullOrWhiteSpace(cardOut);
-        ArgumentException.ThrowIfNullOrWhiteSpace(cardIn);
 
-        if (!TryValidateSwap(state, cardOut, cardIn, out string? error))
+        // Why: ValidateSwapCore owns the argument guards as well as the rules, so they live in one place.
+        SwapValidation validation = ValidateSwapCore(state, cardOut, cardIn);
+        if (!validation.IsValid)
         {
             return Task.FromResult(new CutLabWhatifCommitResult
             {
                 Applied = false,
                 State = state,
-                ErrorMessage = error ?? CutLabMessages.NoChangeMessage,
+                ErrorMessage = validation.Error,
             });
         }
 

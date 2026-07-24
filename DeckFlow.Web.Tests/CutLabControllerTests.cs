@@ -510,7 +510,7 @@ public sealed class CutLabControllerTests
     public async Task Whatif_Preview_RendersDeltaRowsWithoutMutatingPersistedState()
     {
         var service = new WhatifStateAwareCutLabPageService();
-        var previewService = new FakeWhatifService
+        var previewService = new FakeCutLabWhatifService
         {
             Preview = new CutLabWhatifPreview
             {
@@ -565,7 +565,7 @@ public sealed class CutLabControllerTests
     public async Task Whatif_Preview_WhenValidationRejectsLockedCardOut_RerendersNoChange()
     {
         var service = new WhatifStateAwareCutLabPageService();
-        var whatifService = new FakeWhatifService
+        var whatifService = new FakeCutLabWhatifService
         {
             TryValidateSwapHandler = (CutLabState _, string _, string _, out string? error) =>
             {
@@ -599,7 +599,7 @@ public sealed class CutLabControllerTests
     public async Task Whatif_Preview_WhenValidationRejectsCommanderCardOut_RerendersNoChange()
     {
         var service = new WhatifStateAwareCutLabPageService();
-        var whatifService = new FakeWhatifService
+        var whatifService = new FakeCutLabWhatifService
         {
             TryValidateSwapHandler = (CutLabState _, string _, string _, out string? error) =>
             {
@@ -688,7 +688,7 @@ public sealed class CutLabControllerTests
                 Round = CutLabCutRoundEngine.WhatifSwapKey,
                 Ordinal = 2,
             });
-        var whatifService = new FakeWhatifService
+        var whatifService = new FakeCutLabWhatifService
         {
             CommitResultFactory = (_, _, _) => new CutLabWhatifCommitResult
             {
@@ -725,7 +725,7 @@ public sealed class CutLabControllerTests
     public async Task Whatif_Keep_WhenServiceReturnsNotApplied_RerendersWithErrorAndUnchangedState()
     {
         var service = new WhatifStateAwareCutLabPageService();
-        var whatifService = new FakeWhatifService
+        var whatifService = new FakeCutLabWhatifService
         {
             CommitResultFactory = (state, _, _) => new CutLabWhatifCommitResult
             {
@@ -760,7 +760,7 @@ public sealed class CutLabControllerTests
     public async Task Whatif_Keep_WhenPageServiceThrowsInvalidOperation_SurfacesRealMessage()
     {
         var service = new ThrowingCutLabPageService(new InvalidOperationException("boom"));
-        var whatifService = new FakeWhatifService
+        var whatifService = new FakeCutLabWhatifService
         {
             CommitResultFactory = (state, _, _) => new CutLabWhatifCommitResult
             {
@@ -794,7 +794,7 @@ public sealed class CutLabControllerTests
         ICutLabPageService service,
         ICutLabWhatifService? whatifService = null,
         ICutLabExportService? exportService = null) =>
-        new(service, whatifService ?? new FakeWhatifService(), exportService ?? new FakeExportService(), new FakeLogger<CutLabController>())
+        new(service, whatifService ?? new FakeCutLabWhatifService(), exportService ?? new FakeExportService(), new FakeLogger<CutLabController>())
         {
             ControllerContext = new ControllerContext
             {
@@ -919,42 +919,6 @@ public sealed class CutLabControllerTests
                 CurrentSnapshot = BuildGoalSnapshot(state.Goals, 64, 71, 58),
             });
         }
-    }
-
-    private sealed class FakeWhatifService : ICutLabWhatifService
-    {
-        public CutLabWhatifPreview Preview { get; set; } = new();
-
-        public delegate bool TryValidateSwapCallback(CutLabState state, string cardOut, string cardIn, out string? error);
-
-        public TryValidateSwapCallback? TryValidateSwapHandler { get; set; }
-
-        public Func<CutLabState, string, string, CutLabWhatifCommitResult>? CommitResultFactory { get; set; }
-
-        public Task<CutLabWhatifPreview> PreviewSwapAsync(CutLabState state, string cardOut, string cardIn, CancellationToken cancellationToken)
-            => Task.FromResult(Preview with
-            {
-                CardOut = Preview.CardOut == string.Empty ? cardOut : Preview.CardOut,
-                CardIn = Preview.CardIn == string.Empty ? cardIn : Preview.CardIn,
-            });
-
-        public bool TryValidateSwap(CutLabState state, string cardOut, string cardIn, out string? error)
-        {
-            if (TryValidateSwapHandler is not null)
-            {
-                return TryValidateSwapHandler(state, cardOut, cardIn, out error);
-            }
-
-            error = null;
-            return true;
-        }
-
-        public Task<CutLabWhatifCommitResult> CommitSwapAsync(CutLabState state, string cardOut, string cardIn, CancellationToken cancellationToken)
-            => Task.FromResult(CommitResultFactory?.Invoke(state, cardOut, cardIn) ?? new CutLabWhatifCommitResult
-            {
-                Applied = false,
-                State = state,
-            });
     }
 
     private sealed class FakeExportService : ICutLabExportService

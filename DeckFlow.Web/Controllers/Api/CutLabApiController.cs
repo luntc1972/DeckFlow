@@ -236,7 +236,7 @@ public sealed class CutLabApiController : ControllerBase
 
             if (!_whatifService.TryValidateSwap(state, request.CardOut, request.CardIn, out string? validationError))
             {
-                return BadRequest(new { Message = validationError ?? CutLabMessages.NoChangeMessage });
+                return BadRequest(new { Message = validationError });
             }
 
             CutLabWhatifPreview preview = await _whatifService
@@ -501,5 +501,4 @@ public sealed class CutLabApiController : ControllerBase
                     .ToArray(),
             })
             .ToArray();
-
 }
