@@ -233,18 +233,20 @@
             </div>
         }
 
-        <section class="result-panel">
-            <div class="panel-heading">
-                <div>
-                    <h2>Lock your pool</h2>
-                    <p class="prompt-size-note">
-                        <span data-cut-lab-lock-count>@Model.PoolStatusText</span>
-                        <span>(protected from any future cut)</span>
-                    </p>
-                    <p class="prompt-size-note">@Model.BoardCounts.ToBreakdown()</p>
-                    <p>@(Model.IsLegal ? "No banned cards found" : $"Banned cards present: {string.Join(", ", Model.BannedCardsPresent)}")</p>
+        <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-1" aria-labelledby="cut-lab-step-tab-1">
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-lock-pool">
+                <summary class="cutlab-collapsible__summary">Lock your pool</summary>
+                <div class="panel-heading">
+                    <div>
+                        <h2>Lock your pool</h2>
+                        <p class="prompt-size-note">
+                            <span data-cut-lab-lock-count>@Model.PoolStatusText</span>
+                            <span>(protected from any future cut)</span>
+                        </p>
+                        <p class="prompt-size-note">@Model.BoardCounts.ToBreakdown()</p>
+                        <p>@(Model.IsLegal ? "No banned cards found" : $"Banned cards present: {string.Join(", ", Model.BannedCardsPresent)}")</p>
+                    </div>
                 </div>
-            </div>
 
             @if (Model.CommanderSelectionRequired)
             {
@@ -351,7 +353,7 @@
             </div>
 
             <section class="result-panel nested-panel">
-                <details class="cutlab-collapsible" data-cutlab-mobile-collapse open>
+                <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-packages">
                     <summary class="cutlab-collapsible__summary">Packages</summary>
                     <p>Lock or unlock named groups as a unit. Cards stay in the pool if you delete a package.</p>
                     @if (Model.Packages.Count > 0)
@@ -414,6 +416,7 @@
                     </div>
                 </details>
             </section>
+            </details>
         </section>
 
         <section class="result-panel">
@@ -472,15 +475,17 @@
         </section>
 
         <section class="result-panel" data-cut-lab-structural-findings>
-            <div class="panel-heading">
-                <div>
-                    <h2>Structural findings</h2>
-                    <p>Measured observations about your pool's shape. Nothing here says a card is bad — it says what the numbers show.</p>
-                </div>
-                    <div class="panel-heading__actions" data-cut-lab-findings-count-slot>
-                        <span class="prompt-size-note cutlab-findings-count@(totalStructuralFindings > 0 ? string.Empty : " hidden")">@(totalStructuralFindings > 0 ? $"{totalStructuralFindings} structural findings" : string.Empty)</span>
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-structural">
+                <summary class="cutlab-collapsible__summary">Structural findings</summary>
+                <div class="panel-heading">
+                    <div>
+                        <h2>Structural findings</h2>
+                        <p>Measured observations about your pool's shape. Nothing here says a card is bad — it says what the numbers show.</p>
                     </div>
-            </div>
+                        <div class="panel-heading__actions" data-cut-lab-findings-count-slot>
+                            <span class="prompt-size-note cutlab-findings-count@(totalStructuralFindings > 0 ? string.Empty : " hidden")">@(totalStructuralFindings > 0 ? $"{totalStructuralFindings} structural findings" : string.Empty)</span>
+                        </div>
+                </div>
 
             <div data-cut-lab-structural-findings-body>
                 @if (totalStructuralFindings > 0)
@@ -534,15 +539,18 @@
             {
                 <p class="cutlab-degradation-note" data-cut-lab-degradation="category">Community category data unavailable — subtheme detection fell back to card-text heuristics only.</p>
             }
+            </details>
         </section>
 
         <section class="result-panel">
-            <div class="panel-heading">
-                <div>
-                    <h2>Role floors</h2>
-                    <p>Minimum counts the finished 100 should keep, derived from your bracket and play experience. Adjust any floor — later cut suggestions will warn you before breaking one, never silently.</p>
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-role-floors">
+                <summary class="cutlab-collapsible__summary">Role floors</summary>
+                <div class="panel-heading">
+                    <div>
+                        <h2>Role floors</h2>
+                        <p>Minimum counts the finished 100 should keep, derived from your bracket and play experience. Adjust any floor — later cut suggestions will warn you before breaking one, never silently.</p>
+                    </div>
                 </div>
-            </div>
             <div class="history-timeline__wrap">
                 <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
                     <thead>
@@ -591,9 +599,10 @@
             <div class="toolbar">
                 <button type="button" class="run-button" data-cut-lab-recalculate>Recalculate analysis</button>
             </div>
+            </details>
         </section>
 
-        <section class="result-panel">
+        <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-3" aria-labelledby="cut-lab-step-tab-3">
             <div class="panel-heading">
                 <div>
                     <h2>Goals</h2>
@@ -810,7 +819,7 @@
         </section>
 
         <section class="result-panel">
-            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open>
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-scenarios">
                 <summary class="cutlab-collapsible__summary">Scenarios</summary>
                 <p>Save this entire Cut Lab session in this browser, then reload it later to compare different goal, lock, and cut setups.</p>
                 <noscript>
@@ -832,7 +841,7 @@
         </section>
 
         <section class="result-panel">
-            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open>
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-whatif">
                 <summary class="cutlab-collapsible__summary">What-if swap</summary>
                 <p>Swap one unlocked working-list card for one card from your cut pile, preview the metric deltas, then keep or discard the change.</p>
                 <form method="post" action="@Url.Content("~/cut-lab/whatif")" data-cut-lab-whatif-form>
@@ -925,13 +934,15 @@
             </details>
         </section>
 
-        <section class="result-panel">
-            <div class="panel-heading">
-                <div>
-                    <h2>Cut rounds</h2>
-                    <p>Work through proposed cuts in order. Every proposal shows what actually changes — nothing here says a card is bad.</p>
+        <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-2" aria-labelledby="cut-lab-step-tab-2">
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-cut-rounds">
+                <summary class="cutlab-collapsible__summary">Cut rounds</summary>
+                <div class="panel-heading">
+                    <div>
+                        <h2>Cut rounds</h2>
+                        <p>Work through proposed cuts in order. Every proposal shows what actually changes — nothing here says a card is bad.</p>
+                    </div>
                 </div>
-            </div>
 
             @if (Model.StickyBar.HasStickyBar)
             {
@@ -1025,12 +1036,14 @@
             }
 
             <section class="result-panel nested-panel cutlab-tuner">
-                <div class="panel-heading">
-                    <div>
-                        <h2>Tune quantities</h2>
-                        <p>Cut or add copies of basics and other legal-multiple cards one at a time, or add a new basic land, to land on exactly 100.</p>
+                <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-tune">
+                    <summary class="cutlab-collapsible__summary">Tune quantities</summary>
+                    <div class="panel-heading">
+                        <div>
+                            <h2>Tune quantities</h2>
+                            <p>Cut or add copies of basics and other legal-multiple cards one at a time, or add a new basic land, to land on exactly 100.</p>
+                        </div>
                     </div>
-                </div>
                 <div class="history-timeline__wrap">
                     <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
                         <thead>
@@ -1096,28 +1109,33 @@
                 {
                     <p class="cutlab-floor-source-default">All basic land types are already in your working list. Use the steppers above to add more copies.</p>
                 }
+                </details>
             </section>
+            </details>
         </section>
 
         @if (Model.CutsMade.Count > 0)
         {
             <section class="result-panel">
-                <div class="panel-heading">
-                    <div>
-                        <h2>Cuts made</h2>
-                        <p>Every accepted cut, restorable any time — order doesn't matter.</p>
-                    </div>
-                </div>
-                <details class="cutlab-cuts-made" open="@(Model.CutsMade.Count <= 5 ? "open" : null)">
-                    <summary>Cuts made · @CutLabViewModel.FormatCutsMadeCount(Model.CutsMade.Count)</summary>
-                    @foreach (var row in Model.CutsMade)
-                    {
-                        <div class="cutlab-cuts-made__row">
-                            <span>@row.CardName</span>
-                            <span class="prompt-size-note">cut in @row.RoundLabel</span>
-                            @{ await RenderDecisionForm(row.CardName, row.RoundKey, "restore", "Restore", string.Empty, $"Restore {row.CardName}"); }
+                <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-cuts-made">
+                    <summary class="cutlab-collapsible__summary">Cuts made</summary>
+                    <div class="panel-heading">
+                        <div>
+                            <h2>Cuts made</h2>
+                            <p>Every accepted cut, restorable any time — order doesn't matter.</p>
                         </div>
-                    }
+                    </div>
+                    <details class="cutlab-cuts-made" open="@(Model.CutsMade.Count <= 5 ? "open" : null)">
+                        <summary>Cuts made · @CutLabViewModel.FormatCutsMadeCount(Model.CutsMade.Count)</summary>
+                        @foreach (var row in Model.CutsMade)
+                        {
+                            <div class="cutlab-cuts-made__row">
+                                <span>@row.CardName</span>
+                                <span class="prompt-size-note">cut in @row.RoundLabel</span>
+                                @{ await RenderDecisionForm(row.CardName, row.RoundKey, "restore", "Restore", string.Empty, $"Restore {row.CardName}"); }
+                            </div>
+                        }
+                    </details>
                 </details>
             </section>
         }
