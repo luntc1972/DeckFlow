@@ -70,6 +70,10 @@ public sealed record CutLabProcessResult
     public IReadOnlyDictionary<string, IReadOnlyList<string>> RoleAssignmentsByCardName { get; init; } =
         new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Per-card text and printing details keyed by rendered card name.</summary>
+    public IReadOnlyDictionary<string, CutLabCardTextView> CardTextByCardName { get; init; } =
+        new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Resolved role-floor rows, including default provenance and user overrides.</summary>
     public IReadOnlyList<CutLabResolvedFloor> ResolvedFloors { get; init; } = [];
 
@@ -410,6 +414,8 @@ internal sealed class CutLabPageService : ICutLabPageService
             return Error(exception.Message, warnings);
         }
 
+        IReadOnlyDictionary<string, CutLabCardTextView> cardTextByCardName = BuildCardTextByCardName(state.Pool, preResolvedCards);
+
         return new CutLabProcessResult
         {
             State = state,
@@ -427,6 +433,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             ComboDataAvailable = analysisContext.Classification.ComboDataAvailable,
             CategoryDataAvailable = analysisContext.Classification.CategoryDataAvailable,
             RoleAssignmentsByCardName = analysisContext.RolesByCardName,
+            CardTextByCardName = cardTextByCardName,
             ResolvedFloors = resolvedFloors,
             Findings = findings,
             RoundPlan = roundPlan,
@@ -697,6 +704,34 @@ internal sealed class CutLabPageService : ICutLabPageService
                 IncludeMaybeboard = request.IncludeMaybeboard,
             },
         };
+    }
+
+    private static IReadOnlyDictionary<string, CutLabCardTextView> BuildCardTextByCardName(
+        IReadOnlyList<CutLabPoolCard> pool,
+        IReadOnlyList<ScryfallCardData> preResolvedCards)
+    {
+        IReadOnlyDictionary<string, ScryfallCardData> resolvedByName = CutLabCardNames.ToLastWinsDictionary(
+            preResolvedCards,
+            card => card.Name,
+            card => card);
+        Dictionary<string, CutLabCardTextView> cardTextByCardName = new(StringComparer.OrdinalIgnoreCase);
+
+        foreach (CutLabPoolCard card in pool)
+        {
+            if (resolvedByName.TryGetValue(CutLabCardNames.Normalize(card.Name), out ScryfallCardData? resolvedCard))
+            {
+                cardTextByCardName[card.Name] = new CutLabCardTextView
+                {
+                    TypeLine = resolvedCard.TypeLine,
+                    ManaCost = resolvedCard.ManaCost,
+                    SetCode = resolvedCard.Set,
+                    CollectorNumber = resolvedCard.CollectorNumber,
+                    OracleText = resolvedCard.OracleText,
+                };
+            }
+        }
+
+        return cardTextByCardName;
     }
 
     private async Task<IReadOnlyList<string>> ResolveBannedCardsPresentAsync(

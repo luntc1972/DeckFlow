@@ -4,6 +4,25 @@ using DeckFlow.Web.Services.CutLab;
 
 namespace DeckFlow.Web.Models;
 
+/// <summary>View-only card text and printing details keyed by rendered card name.</summary>
+public sealed record CutLabCardTextView
+{
+    /// <summary>Resolved card type line.</summary>
+    public string? TypeLine { get; init; }
+
+    /// <summary>Resolved card mana cost.</summary>
+    public string? ManaCost { get; init; }
+
+    /// <summary>Resolved printing set code.</summary>
+    public string? SetCode { get; init; }
+
+    /// <summary>Resolved printing collector number.</summary>
+    public string? CollectorNumber { get; init; }
+
+    /// <summary>Resolved card oracle text.</summary>
+    public string? OracleText { get; init; }
+}
+
 /// <summary>View model for the Cut Lab page.</summary>
 public sealed record CutLabViewModel
 {
@@ -139,6 +158,10 @@ public sealed record CutLabViewModel
     public IReadOnlyDictionary<string, string> RoleKeysByCardName { get; init; } =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Per-card text and printing details for the pool table, keyed by card name.</summary>
+    public IReadOnlyDictionary<string, CutLabCardTextView> CardTextByCardName { get; init; } =
+        new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Finds the lockable pool card identified by a rendered Structural evidence label.</summary>
     public CutLabPoolCard? FindLockableEvidenceCard(string evidence)
     {
@@ -236,6 +259,7 @@ public sealed record CutLabViewModel
         IReadOnlyList<CutLabFloorRowView> floorRows = BuildFloorRows(result.ResolvedFloors, countsByRole, request.PlayExperience);
         IReadOnlyDictionary<string, string> roleListByCardName = BuildRoleListByCardName(pool, result.RoleAssignmentsByCardName);
         IReadOnlyDictionary<string, string> roleKeysByCardName = BuildRoleKeysByCardName(pool, result.RoleAssignmentsByCardName);
+        IReadOnlyDictionary<string, CutLabCardTextView> cardTextByCardName = result.CardTextByCardName;
         IReadOnlyDictionary<CutLabFindingKind, string> findingHeadingsByKind = BuildFindingHeadingsByKind(result.Findings.Findings);
         IReadOnlyList<CutLabCutMadeRowView> cutsMade = BuildCutsMade(result.State?.Decisions);
         int baselineCount = pool.Sum(card => card.Quantity);
@@ -300,6 +324,7 @@ public sealed record CutLabViewModel
             AddableBasics = addableBasics,
             RoleListByCardName = roleListByCardName,
             RoleKeysByCardName = roleKeysByCardName,
+            CardTextByCardName = cardTextByCardName,
         };
     }
 
