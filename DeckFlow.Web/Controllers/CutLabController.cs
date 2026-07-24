@@ -282,7 +282,7 @@ public sealed class CutLabController : Controller
             CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
             if (!_whatifService.TryValidateSwap(state, cardOut, cardIn, out string? validationError))
             {
-                return await RenderWhatifViewAsync(request, state, null, validationError ?? CutLabMessages.NoChangeMessage);
+                return await RenderWhatifViewAsync(request, state, null, validationError);
             }
 
             if (string.Equals(intent, "preview", StringComparison.OrdinalIgnoreCase))
