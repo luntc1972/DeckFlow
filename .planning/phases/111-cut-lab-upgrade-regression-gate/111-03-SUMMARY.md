@@ -55,7 +55,11 @@ completed: 2026-07-24
 ## Gates
 
 - `npm test -- cut-lab-contrast` → **1 file, 3 tests PASS** (pure-math gate).
-- e2e `cut-lab-theme-readability.spec.ts`: authored; run in consolidated Wave-1 e2e pass (shared :5173). Per H3, `tsc -p tsconfig.json --noEmit` does NOT type-check e2e/ — Playwright esbuild compiles the spec at run time.
+- e2e `cut-lab-theme-readability.spec.ts`: **PASSES all 24 themes × 2 viewports** (in isolation, ~24s). Per H3, `tsc -p tsconfig.json --noEmit` does NOT type-check e2e/ — Playwright esbuild compiles the spec at run time.
+
+## Deviations (findings surfaced + fixed)
+
+The gate did its job: once a deterministic focus-visible probe bug was fixed (programmatic `.focus()` never engages `:focus-visible` → press Tab first), the spec caught **real WCAG defects**, all fixed (commit `b1bcc34d`): filled accept-button + package-toggle focus rings (used `--on-accent` inset), accept-button text contrast on esper/abzan/golgari (accent darkened), and focus-ring contrast on 5 dark themes (dimir/grixis/jund/rakdos/sultai → `--ink`). Full detail + the UI-test reliability taxonomy in `111-RELIABILITY.md`.
 
 ## Verification
 
