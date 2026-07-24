@@ -35,7 +35,7 @@ Decimal phases appear between their surrounding integers in numeric order. Numbe
 - [x] **Phase 109: What-If Service Consolidation** - Move preview and commit behavior into one service shared by JSON and no-JS paths. ✅ 2026-07-23
 - [x] **Phase 110: Cut Lab Navigation and Pool Discovery** - Add Cut-Lab-scoped anchors, sticky mobile jump navigation, lock-pool filtering/search, collapsible sections, package assignment help, and text-first card disclosures. ✅ 2026-07-24
 - [x] **Phase 110.1: Cut Lab Combo Intelligence** (INSERTED 2026-07-23) - Surface complete-combo and near-combo context in Structural findings, grouped by variant, reusing the Phase 110 disclosure component.
-- [ ] **Phase 111: Cut Lab Upgrade Regression Gate** - Verify card-pill locking, Structural evidence behavior, all-theme readability, screenshot-based UI evidence, and full Cut Lab suites across the upgraded surfaces.
+- [x] **Phase 111: Cut Lab Upgrade Regression Gate** - Verify card-pill locking, Structural evidence behavior, all-theme readability, screenshot-based UI evidence, and full Cut Lab suites across the upgraded surfaces. ✅ 2026-07-24 (gsd-verifier 6/6; a11y defects caught+fixed)
 
 <details>
 <summary>Cycle 16 (Phases 88-93) - SHIPPED 2026-07-11 (2026.07.3)</summary>
@@ -136,10 +136,10 @@ Plans:
   6. Findings from verification are either fixed or explicitly recorded as deferred with rationale.
 **Plans**: 4 plans
 Plans:
-- [ ] 111-01-PLAN.md — CLUP-09 locking & Structural evidence regression (xUnit + Vitest + e2e) [Wave 1]
-- [ ] 111-02-PLAN.md — CLUP-10 full-suite smoke coverage matrix + canonical gate command list [Wave 1]
-- [ ] 111-03-PLAN.md — CLUP-19 all-theme Cut Lab readability spec + WCAG contrast helper [Wave 1]
-- [ ] 111-04-PLAN.md — CLUP-20 desktop/mobile screenshots + reviewed UI evidence + findings ledger [Wave 2]
+- [x] 111-01-PLAN.md — CLUP-09 locking & Structural evidence regression (xUnit + Vitest + e2e) [Wave 1]
+- [x] 111-02-PLAN.md — CLUP-10 full-suite smoke coverage matrix + canonical gate command list [Wave 1]
+- [x] 111-03-PLAN.md — CLUP-19 all-theme Cut Lab readability spec + WCAG contrast helper [Wave 1]
+- [x] 111-04-PLAN.md — CLUP-20 desktop/mobile screenshots + reviewed UI evidence + findings ledger [Wave 2]
 
 ## Progress
 
@@ -158,7 +158,7 @@ safe. 111-04 is Wave 2 (depends on 01/02/03).
 | 109. What-If Service Consolidation | Cycle 19 | 2/2 | Complete   | 2026-07-23 |
 | 110. Cut Lab Navigation and Pool Discovery | Cycle 19 | 6/6 | Complete   | 2026-07-24 |
 | 110.1. Cut Lab Combo Intelligence | Cycle 19 | 3/3 | Complete   | 2026-07-24 |
-| 111. Cut Lab Upgrade Regression Gate | Cycle 19 | 0/4 | Planned | - |
+| 111. Cut Lab Upgrade Regression Gate | Cycle 19 | 4/4 | Complete | 2026-07-24 |
 | 82. Refactor-Review Sweep & UI Baseline Audit | 2026.07.2 | 3/3 | Complete | 2026-07-04 |
 | 83. Packet-Service SRP Split | 2026.07.2 | 7/7 | Complete | 2026-07-04 |
 | 84. Theme Semantic-Token Migration | 2026.07.2 | 2/2 | Complete | 2026-07-05 |
