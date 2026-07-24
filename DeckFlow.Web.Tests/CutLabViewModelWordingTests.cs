@@ -376,6 +376,80 @@ public sealed class CutLabViewModelWordingTests
         Assert.Equal($"{model.BaselineCount} cards in pool · 2 locked", model.PoolStatusText);
     }
 
+    [Fact]
+    public void From_MergesComboProtectedFindingsIntoOneGroup()
+    {
+        var request = new CutLabRequest
+        {
+            PlayExperience = "Focused",
+        };
+        var result = new CutLabProcessResult
+        {
+            Findings = new CutLabStructuralFindingsResult(
+                [
+                    new(
+                        CutLabFindingKind.ComboProtected,
+                        "Combo-protected cards",
+                        "Card A is a Combo piece card for Infinite mana. Cutting this in round 1 is inadvisable.",
+                        [new CutLabFindingEvidence("Card A", 2, ComboBadgeState.CompletePiece)]),
+                    new(
+                        CutLabFindingKind.ComboProtected,
+                        "Combo-protected cards",
+                        "Card B is a Needs Missing Piece combo card for Infinite mana.",
+                        [new CutLabFindingEvidence("Card B", 3, ComboBadgeState.NeedsPartner)]),
+                    new(
+                        CutLabFindingKind.WeakFloorCase,
+                        "Weak floor cases",
+                        "Ramp is at 1 against a floor of 1 — every card in this role is effectively protected already.",
+                        [new CutLabFindingEvidence("Arcane Signet", null)]),
+                ],
+                ComboDataAvailable: true,
+                CategoryDataAvailable: true),
+        };
+
+        CutLabViewModel model = CutLabViewModel.From(request, result);
+
+        CutLabFindingGroupView comboGroup = Assert.Single(
+            model.FindingGroups,
+            group => group.Kind == CutLabFindingKind.ComboProtected);
+        Assert.Equal("Combo-protected cards", comboGroup.Heading);
+        Assert.Equal(2, comboGroup.Items.Count);
+    }
+
+    [Fact]
+    public void From_AssignsComboBadgeMapForInitialRender()
+    {
+        var request = new CutLabRequest
+        {
+            PlayExperience = "Focused",
+        };
+        Dictionary<string, CutLabComboBadgeView> comboBadgeByCardName = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Heliod, Sun-Crowned"] = new CutLabComboBadgeView
+            {
+                BadgeState = ComboBadgeState.CompletePiece,
+                Context = "Infinite damage",
+            },
+            ["Walking Ballista"] = new CutLabComboBadgeView
+            {
+                BadgeState = ComboBadgeState.NeedsPartner,
+                Context = "Needs Heliod, Sun-Crowned",
+            },
+        };
+        var result = new CutLabProcessResult
+        {
+            ComboBadgeByCardName = comboBadgeByCardName,
+        };
+
+        CutLabViewModel model = CutLabViewModel.From(request, result);
+
+        Assert.Same(comboBadgeByCardName, model.ComboBadgeByCardName);
+        Assert.Equal(ComboBadgeState.CompletePiece, model.ComboBadgeByCardName["Heliod, Sun-Crowned"].BadgeState);
+        Assert.Equal("Infinite damage", model.ComboBadgeByCardName["Heliod, Sun-Crowned"].Context);
+        Assert.Equal(ComboBadgeState.NeedsPartner, model.ComboBadgeByCardName["Walking Ballista"].BadgeState);
+        Assert.Equal("Needs Heliod, Sun-Crowned", model.ComboBadgeByCardName["Walking Ballista"].Context);
+    }
+
     private static CutLabMetricSnapshot BuildSnapshot(double commander, double engine, double representativeLine)
         => new()
         {

@@ -116,6 +116,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             FloorWarnings = floorWarnings ?? BuildFloorWarningsForNextProposal(workingList, context, floorByRole, roundPlan),
             CutsMade = BuildCutsMade(state.Decisions),
             StructuralFindings = BuildStructuralFindings(findings),
+            ComboBadgeByCardName = BuildComboBadgeByCardName(context.Classification.CardComboMembership),
             ComboDataAvailable = findings.ComboDataAvailable,
             CategoryDataAvailable = findings.CategoryDataAvailable,
             WhatifCardOutOptions = projection.WhatifCardOutOptions,
@@ -154,6 +155,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             FloorWarnings = [],
             CutsMade = BuildCutsMade(state.Decisions),
             StructuralFindings = [],
+            ComboBadgeByCardName = new Dictionary<string, CutLabDecideComboBadgeDto>(CutLabCardNames.Comparer),
             ComboDataAvailable = false,
             CategoryDataAvailable = false,
             WhatifCardOutOptions = projection.WhatifCardOutOptions,
@@ -280,6 +282,41 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             })
             .ToArray();
 
+    private static IReadOnlyDictionary<string, CutLabDecideComboBadgeDto> BuildComboBadgeByCardName(
+        IReadOnlyDictionary<string, CutLabCardComboMembership> cardComboMembership)
+    {
+        Dictionary<string, CutLabDecideComboBadgeDto> comboBadgeByCardName = new(CutLabCardNames.Comparer);
+
+        foreach ((string normalizedCardName, CutLabCardComboMembership membership) in cardComboMembership)
+        {
+            if (membership.CompleteCombos.Count > 0)
+            {
+                comboBadgeByCardName[normalizedCardName] = new CutLabDecideComboBadgeDto
+                {
+                    BadgeState = ComboBadgeState.CompletePiece,
+                    Context = JoinCardNames(
+                        membership.CompleteCombos
+                            .SelectMany(combo => combo.Results)
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                            .OrderBy(result => result, StringComparer.OrdinalIgnoreCase)
+                            .ToArray()),
+                };
+                continue;
+            }
+
+            if (membership.NearCombos.Count > 0)
+            {
+                comboBadgeByCardName[normalizedCardName] = new CutLabDecideComboBadgeDto
+                {
+                    BadgeState = ComboBadgeState.NeedsPartner,
+                    Context = $"Needs {JoinCardNames(membership.NearCombos.Select(combo => combo.MissingCard).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(cardName => cardName, StringComparer.OrdinalIgnoreCase).ToArray())}",
+                };
+            }
+        }
+
+        return comboBadgeByCardName;
+    }
+
     private static WorkingListProjection BuildWorkingListProjection(CutLabState state)
     {
         IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
@@ -367,6 +404,15 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
         => roleAssignmentsByCardName.TryGetValue(cardName, out IReadOnlyList<string>? roles)
             ? string.Join(" · ", roles.Select(DisplayLabelFor))
             : string.Empty;
+
+    private static string JoinCardNames(IReadOnlyList<string> cardNames)
+        => cardNames.Count switch
+        {
+            0 => string.Empty,
+            1 => cardNames[0],
+            2 => $"{cardNames[0]} and {cardNames[1]}",
+            _ => $"{string.Join(", ", cardNames.Take(cardNames.Count - 1))} and {cardNames[^1]}",
+        };
 
     private static string DisplayLabelFor(string roleKey)
         => RoleDisplayLabels.TryGetValue(roleKey, out string? label) ? label : roleKey;

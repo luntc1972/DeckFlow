@@ -169,6 +169,62 @@ public sealed class CutLabUiPatchBuilderTests
     }
 
     [Fact]
+    public async Task BuildAsync_RoundTripsCompleteComboBadgesAndComboProtectedFindings()
+    {
+        CutLabState state = CreateState(
+            pool:
+            [
+                Card("Commander", quantity: 1, isCommander: true, isLocked: true),
+                Card("Heliod, Sun-Crowned", quantity: 1),
+                Card("Walking Ballista", quantity: 1),
+                Card("Basic Filler", quantity: 97, isLocked: true),
+            ]);
+        FakeAnalysisContextBuilder contextBuilder = new(workingList => CreateAnalysisContext(workingList));
+        CutLabUiPatchBuilder builder = new(contextBuilder, new FakeSimulationService());
+
+        CutLabUiPatchDto patch = await builder.BuildAsync(
+            state,
+            state.Intent.PlayExperience,
+            ["Commander"],
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+
+        CutLabDecideFindingGroupDto comboGroup = Assert.Single(
+            patch.StructuralFindings,
+            group => group.Kind == CutLabFindingKind.ComboProtected);
+        Assert.Equal("Combo-protected cards", comboGroup.Heading);
+        CutLabDecideFindingDto comboFinding = Assert.Single(comboGroup.Items);
+        Assert.Equal(["Heliod, Sun-Crowned · MV 3", "Walking Ballista · MV 4"], comboFinding.Evidence);
+        Assert.Equal(ComboBadgeState.CompletePiece, patch.ComboBadgeByCardName[CutLabCardNames.Normalize("Heliod, Sun-Crowned")].BadgeState);
+        Assert.Equal("Infinite damage", patch.ComboBadgeByCardName[CutLabCardNames.Normalize("Heliod, Sun-Crowned")].Context);
+        Assert.Equal(ComboBadgeState.CompletePiece, patch.ComboBadgeByCardName[CutLabCardNames.Normalize("Walking Ballista")].BadgeState);
+    }
+
+    [Fact]
+    public async Task BuildAsync_RoundTripsNearComboNeedsPartnerBadge()
+    {
+        CutLabState state = CreateState(
+            pool:
+            [
+                Card("Commander", quantity: 1, isCommander: true, isLocked: true),
+                Card("Demonic Consultation", quantity: 1),
+                Card("Tainted Pact", quantity: 1),
+                Card("Basic Filler", quantity: 97, isLocked: true),
+            ]);
+        FakeAnalysisContextBuilder contextBuilder = new(workingList => CreateAnalysisContext(workingList));
+        CutLabUiPatchBuilder builder = new(contextBuilder, new FakeSimulationService());
+
+        CutLabUiPatchDto patch = await builder.BuildAsync(
+            state,
+            state.Intent.PlayExperience,
+            ["Commander"],
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+
+        Assert.Equal(ComboBadgeState.NeedsPartner, patch.ComboBadgeByCardName[CutLabCardNames.Normalize("Demonic Consultation")].BadgeState);
+        Assert.Equal("Needs Thassa's Oracle", patch.ComboBadgeByCardName[CutLabCardNames.Normalize("Demonic Consultation")].Context);
+        Assert.Equal(ComboBadgeState.NeedsPartner, patch.ComboBadgeByCardName[CutLabCardNames.Normalize("Tainted Pact")].BadgeState);
+    }
+
+    [Fact]
     public async Task BuildAsync_MatchesCutLabViewModelForNoJsParityFields()
     {
         CutLabState state = CreateState(
@@ -402,6 +458,30 @@ public sealed class CutLabUiPatchBuilderTests
         Assert.Contains(patch.QuantityTuners, row => row.CardName == "Forest" && row.CurrentQuantity == 1 && row.IsAddedBasic && row.RoleLabel == "Lands");
         Assert.Equal(0, contextBuilder.BuildCalls);
         Assert.Equal(0, simulationService.ComputeProposalDeltasCalls);
+    }
+
+    [Fact]
+    public void BuildAdjustPatch_LeavesComboBadgeMapEmpty()
+    {
+        CutLabState state = CreateState(
+            pool:
+            [
+                Card("Commander", quantity: 1, isCommander: true, isLocked: true),
+                Card("Heliod, Sun-Crowned", quantity: 1),
+                Card("Walking Ballista", quantity: 1),
+                Card("Basic Filler", quantity: 97, isLocked: true),
+            ]);
+        FakeAnalysisContextBuilder contextBuilder = new(workingList => CreateAnalysisContext(workingList))
+        {
+            ThrowOnBuild = true,
+        };
+        CutLabUiPatchBuilder builder = new(contextBuilder, new FakeSimulationService());
+
+        CutLabUiPatchDto patch = builder.BuildAdjustPatch(state, ["Commander"]);
+
+        Assert.Empty(patch.StructuralFindings);
+        Assert.Empty(patch.ComboBadgeByCardName);
+        Assert.False(patch.ComboDataAvailable);
     }
 
     [Fact]
@@ -643,6 +723,10 @@ public sealed class CutLabUiPatchBuilderTests
                 "Arcane Signet" => 2,
                 "Counterspell" => 2,
                 "Persistent Petitioners" => 2,
+                "Heliod, Sun-Crowned" => 3,
+                "Walking Ballista" => 4,
+                "Demonic Consultation" => 1,
+                "Tainted Pact" => 2,
                 "Round 1 Card" => 1,
                 "Helper Card" => 4,
                 "Round 2 Card" => 3,
@@ -658,6 +742,7 @@ public sealed class CutLabUiPatchBuilderTests
             });
         }
 
+        IReadOnlyList<SpellbookCombo> completeCombos = [];
         IReadOnlyList<SpellbookAlmostCombo> almostCombos = [];
         if (cards.Any(card => card.Name == "Round 1 Card") || cards.Any(card => card.Name == "Round 2 Card"))
         {
@@ -666,6 +751,55 @@ public sealed class CutLabUiPatchBuilderTests
                 new SpellbookAlmostCombo("Missing Piece A", ["Round 1 Card", "Helper Card"], ["Win"], "Assemble both."),
                 new SpellbookAlmostCombo("Missing Piece B", ["Round 2 Card", "Support Card"], ["Value"], "Assemble both."),
             ];
+        }
+        else if (cards.Any(card => card.Name == "Heliod, Sun-Crowned") && cards.Any(card => card.Name == "Walking Ballista"))
+        {
+            completeCombos =
+            [
+                new SpellbookCombo(["Heliod, Sun-Crowned", "Walking Ballista"], ["Infinite damage"], "Remove a counter to loop."),
+            ];
+        }
+        else if (cards.Any(card => card.Name == "Demonic Consultation") && cards.Any(card => card.Name == "Tainted Pact"))
+        {
+            almostCombos =
+            [
+                new SpellbookAlmostCombo("Thassa's Oracle", ["Demonic Consultation", "Tainted Pact"], ["Win the game"], "Cast both."),
+            ];
+        }
+
+        Dictionary<string, CutLabCardComboMembership> cardComboMembership = new(CutLabCardNames.Comparer);
+        foreach (SpellbookCombo combo in completeCombos)
+        {
+            foreach (string cardName in combo.CardNames)
+            {
+                string normalizedCardName = CutLabCardNames.Normalize(cardName);
+                if (!cardComboMembership.TryGetValue(normalizedCardName, out CutLabCardComboMembership? membership))
+                {
+                    membership = new CutLabCardComboMembership([], []);
+                }
+
+                cardComboMembership[normalizedCardName] = membership with
+                {
+                    CompleteCombos = membership.CompleteCombos.Concat([combo]).ToArray(),
+                };
+            }
+        }
+
+        foreach (SpellbookAlmostCombo combo in almostCombos)
+        {
+            foreach (string cardName in combo.CardsInDeck)
+            {
+                string normalizedCardName = CutLabCardNames.Normalize(cardName);
+                if (!cardComboMembership.TryGetValue(normalizedCardName, out CutLabCardComboMembership? membership))
+                {
+                    membership = new CutLabCardComboMembership([], []);
+                }
+
+                cardComboMembership[normalizedCardName] = membership with
+                {
+                    NearCombos = membership.NearCombos.Concat([combo]).ToArray(),
+                };
+            }
         }
 
         return new CutLabAnalysisContext(
@@ -679,7 +813,7 @@ public sealed class CutLabUiPatchBuilderTests
                 comboDataAvailable,
                 categoryDataAvailable,
                 new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase),
-                new HashSet<string>(StringComparer.OrdinalIgnoreCase)),
+                cardComboMembership),
             cards
                 .Select(card => new ScryfallCardData
                 {
@@ -690,6 +824,10 @@ public sealed class CutLabUiPatchBuilderTests
                         "Arcane Signet" => 2,
                         "Counterspell" => 2,
                         "Persistent Petitioners" => 2,
+                        "Heliod, Sun-Crowned" => 3,
+                        "Walking Ballista" => 4,
+                        "Demonic Consultation" => 1,
+                        "Tainted Pact" => 2,
                         "Round 1 Card" => 1,
                         "Helper Card" => 4,
                         "Round 2 Card" => 3,

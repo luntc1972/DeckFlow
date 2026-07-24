@@ -222,10 +222,160 @@ public sealed class CutLabStructuralFindingsTests
             comboDataAvailable: true,
             categoryDataAvailable: true);
 
-        CutLabFinding finding = Assert.Single(result.Findings);
+        CutLabFinding finding = Assert.Single(result.Findings, candidate => candidate.Kind == CutLabFindingKind.EnablerStarved);
         Assert.Equal(CutLabFindingKind.EnablerStarved, finding.Kind);
         Assert.Equal("Enabler-starved cards", finding.Heading);
         Assert.Equal("Demonic Consultation and Tainted Pact are missing their combo partner: Thassa's Oracle.", finding.Lead);
+    }
+
+    [Fact]
+    public void Compute_ComboProtected_ReportsCompleteComboPiecesWithBadgeStateAndRoundOneAdvisory()
+    {
+        IReadOnlyList<CutLabAnalyzedCard> pool =
+        [
+            Card("Heliod, Sun-Crowned", 3, false),
+            Card("Walking Ballista", 4, false),
+        ];
+        IReadOnlyList<SpellbookCombo> completeCombos =
+        [
+            new(["Heliod, Sun-Crowned", "Walking Ballista"], ["Infinite damage"], "Remove a counter to loop."),
+        ];
+
+        CutLabStructuralFindingsResult result = CutLabStructuralFindings.Compute(
+            pool,
+            Array.Empty<SpellbookAlmostCombo>(),
+            Floors(),
+            comboDataAvailable: true,
+            categoryDataAvailable: true,
+            completeCombos: completeCombos);
+
+        CutLabFinding finding = Assert.Single(result.Findings, candidate => candidate.Kind == CutLabFindingKind.ComboProtected);
+        Assert.Equal("Combo-protected cards", finding.Heading);
+        Assert.Contains("round 1", finding.Lead, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(["Heliod, Sun-Crowned", "Walking Ballista"], finding.Evidence.Select(evidence => evidence.CardName));
+        Assert.All(finding.Evidence, evidence => Assert.Equal(ComboBadgeState.CompletePiece, evidence.BadgeState));
+    }
+
+    [Fact]
+    public void Compute_ComboProtected_ReportsNearComboMissingPartnerBadgeState()
+    {
+        IReadOnlyList<SpellbookAlmostCombo> nearCombos =
+        [
+            new("Thassa's Oracle", ["Demonic Consultation", "Tainted Pact"], ["Win the game"], "Cast both."),
+        ];
+
+        CutLabStructuralFindingsResult result = CutLabStructuralFindings.Compute(
+            Array.Empty<CutLabAnalyzedCard>(),
+            nearCombos,
+            Floors(),
+            comboDataAvailable: true,
+            categoryDataAvailable: true);
+
+        CutLabFinding finding = Assert.Single(result.Findings, candidate => candidate.Kind == CutLabFindingKind.ComboProtected);
+        Assert.Equal(
+            [ComboBadgeState.NeedsPartner, ComboBadgeState.NeedsPartner],
+            finding.Evidence.Select(evidence => evidence.BadgeState));
+        Assert.Equal(["Demonic Consultation", "Tainted Pact"], finding.Evidence.Select(evidence => evidence.CardName));
+        Assert.Contains("Needs Thassa's Oracle", finding.Lead, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Compute_ComboProtected_GroupsNearComboVariantsByOrderInsensitiveCardsInDeck()
+    {
+        IReadOnlyList<SpellbookAlmostCombo> nearCombos =
+        [
+            new("Missing Piece A", ["Round 1 Card", "Helper Card"], ["Win"], "Assemble both."),
+            new("Missing Piece B", ["Helper Card", "Round 1 Card"], ["Win"], "Assemble both."),
+        ];
+
+        CutLabStructuralFindingsResult result = CutLabStructuralFindings.Compute(
+            Array.Empty<CutLabAnalyzedCard>(),
+            nearCombos,
+            Floors(),
+            comboDataAvailable: true,
+            categoryDataAvailable: true);
+
+        CutLabFinding finding = Assert.Single(result.Findings, candidate => candidate.Kind == CutLabFindingKind.ComboProtected);
+        Assert.Equal(["Round 1 Card", "Helper Card"], finding.Evidence.Select(evidence => evidence.CardName));
+        Assert.Contains("Missing Piece A", finding.Lead, StringComparison.Ordinal);
+        Assert.Contains("Missing Piece B", finding.Lead, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Compute_ComboProtected_CarriesComboContextWhenWeakFloorOverlapExists()
+    {
+        IReadOnlyList<CutLabAnalyzedCard> pool =
+        [
+            Card("Walking Ballista", 4, false, roles: ["interaction"]),
+            Card("Heliod, Sun-Crowned", 3, false),
+        ];
+        IReadOnlyList<SpellbookCombo> completeCombos =
+        [
+            new(["Heliod, Sun-Crowned", "Walking Ballista"], ["Infinite damage"], "Remove a counter to loop."),
+        ];
+
+        CutLabStructuralFindingsResult result = CutLabStructuralFindings.Compute(
+            pool,
+            Array.Empty<SpellbookAlmostCombo>(),
+            Floors(("interaction", 1)),
+            comboDataAvailable: true,
+            categoryDataAvailable: true,
+            completeCombos: completeCombos);
+
+        CutLabFinding comboFinding = Assert.Single(result.Findings, candidate => candidate.Kind == CutLabFindingKind.ComboProtected);
+        CutLabFinding weakFloorFinding = Assert.Single(result.Findings, candidate => candidate.Kind == CutLabFindingKind.WeakFloorCase);
+        Assert.Contains("Infinite damage", comboFinding.Lead, StringComparison.Ordinal);
+        Assert.Equal(["Walking Ballista"], weakFloorFinding.Evidence.Select(evidence => evidence.CardName));
+    }
+
+    [Fact]
+    public void BuildQueue_ComboProtectedOnlyEvidence_DoesNotIncreaseFindingTallies()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            new("Combo Card", 1, "Artifact", false, false, 2, false, [], []),
+        ];
+        CutLabStructuralFindingsResult findings = new(
+            [
+                new(
+                    CutLabFindingKind.ComboProtected,
+                    "Combo-protected cards",
+                    "Combo Card is a combo piece.",
+                    [new CutLabFindingEvidence("Combo Card", 2, ComboBadgeState.CompletePiece)]),
+            ],
+            ComboDataAvailable: true,
+            CategoryDataAvailable: true);
+
+        CutLabRoundPlan roundPlan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            findings,
+            [],
+            cardsToCutTarget: 1);
+
+        CutLabRoundQueueItem proposal = Assert.Single(roundPlan.Queue);
+        Assert.Equal("Combo Card", proposal.CardName);
+        Assert.Equal(0, proposal.FindingCount);
+        Assert.Empty(proposal.DiscriminatingFindingKinds);
+        Assert.Equal(CutLabCutRoundEngine.Round3Key, proposal.RoundKey);
+    }
+
+    [Fact]
+    public void Compute_ComboProtected_AndEnablerStarved_CoexistForNearComboData()
+    {
+        IReadOnlyList<SpellbookAlmostCombo> nearCombos =
+        [
+            new("Thassa's Oracle", ["Demonic Consultation", "Tainted Pact"], ["Win the game"], "Cast both."),
+        ];
+
+        CutLabStructuralFindingsResult result = CutLabStructuralFindings.Compute(
+            Array.Empty<CutLabAnalyzedCard>(),
+            nearCombos,
+            Floors(),
+            comboDataAvailable: true,
+            categoryDataAvailable: true);
+
+        Assert.Single(result.Findings, candidate => candidate.Kind == CutLabFindingKind.ComboProtected);
+        Assert.Single(result.Findings, candidate => candidate.Kind == CutLabFindingKind.EnablerStarved);
     }
 
     [Fact]
