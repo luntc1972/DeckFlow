@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: Cycle 19
-milestone_name: Cut Lab Upgrade Hardening
-status: "Cycle 19 (Cut Lab Upgrade Hardening) SHIPPED 2026-07-24 (2026.07.9), merged to main + archived. No active cycle — next: /gsd-new-milestone"
-stopped_at: Phase 110 UI-SPEC approved
-last_updated: "2026-07-24T20:06:29.739Z"
-last_activity: 2026-07-24 -- Phase 111 execution started
+milestone: Cycle 20
+milestone_name: Personal Tools
+status: planning
+last_updated: "2026-07-24T21:42:14.212Z"
+last_activity: 2026-07-24
 progress:
-  total_phases: 5
-  completed_phases: 4
-  total_plans: 18
-  completed_plans: 14
-  percent: 78
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,10 +24,10 @@ See: .planning/PROJECT.md
 
 ## Current Position
 
-Phase: 111 (cut-lab-upgrade-regression-gate) — EXECUTING
-Plan: 1 of 4
-Status: Cycle 19 (Cut Lab Upgrade Hardening) SHIPPED 2026-07-24 (2026.07.9), merged to main + archived. No active cycle — next: /gsd-new-milestone
-Last activity: 2026-07-24 -- Phase 111 execution started
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-07-24 — Milestone Cycle 20 started
 
 ## Active Milestone
 
