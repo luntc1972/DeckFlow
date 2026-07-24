@@ -144,7 +144,8 @@ Phases execute in numeric order: 108 -> 109 -> 110 -> 110.1 -> 111
 |-------|-----------|----------------|--------|-----------|
 | 108. Server-Authored Cut Lab UI Patch Contract | Cycle 19 | 3/3 | Complete   | 2026-07-23 |
 | 109. What-If Service Consolidation | Cycle 19 | 2/2 | Complete   | 2026-07-23 |
-| 110. Cut Lab Navigation and Pool Discovery | Cycle 19 | 0/0 | Pending | - |
+| 110. Cut Lab Navigation and Pool Discovery | Cycle 19 | 6/6 | Complete   | 2026-07-24 |
+| 110.1. Cut Lab Combo Intelligence | Cycle 19 | 0/3 | Planned | - |
 | 111. Cut Lab Upgrade Regression Gate | Cycle 19 | 0/0 | Pending | - |
 | 82. Refactor-Review Sweep & UI Baseline Audit | 2026.07.2 | 3/3 | Complete | 2026-07-04 |
 | 83. Packet-Service SRP Split | 2026.07.2 | 7/7 | Complete | 2026-07-04 |
