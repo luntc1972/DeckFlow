@@ -39,7 +39,7 @@ public sealed class CutLabWhatifTests
     }
 
     [Fact]
-    public async Task ComputeSwapPreviewAsync_UsesGoalAwareSnapshotsWithoutMutatingStateOrResolvingSingles()
+    public async Task PreviewSwapAsync_UsesGoalAwareSnapshotsWithoutMutatingStateOrResolvingSingles()
     {
         CutLabState state = CreateState();
         IReadOnlyList<CutLabPoolCard> beforeWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions);
@@ -53,12 +53,12 @@ public sealed class CutLabWhatifTests
             resolver,
             NullLogger<CutLabSimulationService>.Instance,
             BuildSnapshotForWhatifTests);
-        ICutLabWhatifPreviewService service = new CutLabWhatifPreviewService(
+        ICutLabWhatifService service = new CutLabWhatifService(
             simulationService,
             contextBuilder,
             resolvedCardCache);
 
-        CutLabWhatifPreview preview = await service.ComputeSwapPreviewAsync(state, "Working Card", "Cut Card", CancellationToken.None);
+        CutLabWhatifPreview preview = await service.PreviewSwapAsync(state, "Working Card", "Cut Card", CancellationToken.None);
 
         Assert.Equal(0, resolver.ResolveSingleCalls);
         Assert.Equal(1, preview.ChangedFamilyCount);
@@ -69,7 +69,7 @@ public sealed class CutLabWhatifTests
     }
 
     [Fact]
-    public async Task ComputeSwapPreviewAsync_AddedBasicCardOut_UsesSyntheticResolvedCardWithoutPreSeedFailure()
+    public async Task PreviewSwapAsync_AddedBasicCardOut_UsesSyntheticResolvedCardWithoutPreSeedFailure()
     {
         CutLabState state = CreateState() with
         {
@@ -93,12 +93,12 @@ public sealed class CutLabWhatifTests
             resolver,
             NullLogger<CutLabSimulationService>.Instance,
             BuildSnapshotForWhatifTests);
-        ICutLabWhatifPreviewService service = new CutLabWhatifPreviewService(
+        ICutLabWhatifService service = new CutLabWhatifService(
             simulationService,
             contextBuilder,
             resolvedCardCache);
 
-        CutLabWhatifPreview preview = await service.ComputeSwapPreviewAsync(state, "Island", "Cut Card", CancellationToken.None);
+        CutLabWhatifPreview preview = await service.PreviewSwapAsync(state, "Island", "Cut Card", CancellationToken.None);
 
         Assert.Equal("Island", preview.CardOut);
         Assert.Equal("Cut Card", preview.CardIn);
@@ -106,7 +106,7 @@ public sealed class CutLabWhatifTests
     }
 
     [Fact]
-    public async Task ComputeSwapPreviewAsync_AddedBasicCardOut_RecomputesMetricsFromAdjustmentDerivedList()
+    public async Task PreviewSwapAsync_AddedBasicCardOut_RecomputesMetricsFromAdjustmentDerivedList()
     {
         CutLabState state = new()
         {
@@ -155,12 +155,12 @@ public sealed class CutLabWhatifTests
             resolver,
             NullLogger<CutLabSimulationService>.Instance,
             BuildSnapshotForWhatifTests);
-        ICutLabWhatifPreviewService service = new CutLabWhatifPreviewService(
+        ICutLabWhatifService service = new CutLabWhatifService(
             simulationService,
             contextBuilder,
             resolvedCardCache);
 
-        CutLabWhatifPreview preview = await service.ComputeSwapPreviewAsync(state, "Island", "Cut Card", CancellationToken.None);
+        CutLabWhatifPreview preview = await service.PreviewSwapAsync(state, "Island", "Cut Card", CancellationToken.None);
 
         CutLabMetricDelta delta = Assert.Single(preview.Deltas);
         Assert.Equal(CutLabMetricKind.CommanderByTurn, delta.Kind);
@@ -323,6 +323,189 @@ public sealed class CutLabWhatifTests
         Assert.Equal(originalDecisionCount, state.Decisions.Count);
     }
 
+    [Fact]
+    public async Task PreviewSwapAsync_DoesNotMutateInputState()
+    {
+        CutLabState state = CreateState();
+        CutLabState originalState = state with
+        {
+            Pool = state.Pool.ToArray(),
+            Decisions = state.Decisions.ToArray(),
+        };
+        ICutLabWhatifService service = CreateWhatifService(state.Pool);
+
+        _ = await service.PreviewSwapAsync(state, "Working Card", "Cut Card", CancellationToken.None);
+
+        Assert.Equal(originalState.Pool, state.Pool);
+        Assert.Equal(originalState.Decisions, state.Decisions);
+    }
+
+    [Fact]
+    public void TryValidateSwap_ValidPair_ReturnsTrueWithNullError()
+    {
+        CutLabState state = CreateState();
+        ICutLabWhatifService service = CreateWhatifService(state.Pool);
+
+        bool valid = service.TryValidateSwap(state, "Working Card", "Cut Card", out string? error);
+
+        Assert.True(valid);
+        Assert.Null(error);
+    }
+
+    [Fact]
+    public void TryValidateSwap_LockedCardOut_ReturnsFalseWithNoChangeMessage()
+    {
+        CutLabState state = CreateLockedCardOutState();
+        ICutLabWhatifService service = CreateWhatifService(state.Pool);
+
+        bool valid = service.TryValidateSwap(state, "Locked Working Card", "Cut Card", out string? error);
+
+        Assert.False(valid);
+        Assert.Equal(CutLabMessages.NoChangeMessage, error);
+    }
+
+    [Fact]
+    public void TryValidateSwap_CommanderCardOut_ReturnsFalse()
+    {
+        CutLabState state = CreateCommanderCardOutState();
+        ICutLabWhatifService service = CreateWhatifService(state.Pool);
+
+        bool valid = service.TryValidateSwap(state, "Commander", "Cut Card", out string? error);
+
+        Assert.False(valid);
+        Assert.Equal(CutLabMessages.NoChangeMessage, error);
+    }
+
+    [Fact]
+    public void TryValidateSwap_CardInNotInCutPile_ReturnsFalse()
+    {
+        CutLabState state = CreateState();
+        ICutLabWhatifService service = CreateWhatifService(state.Pool);
+
+        bool valid = service.TryValidateSwap(state, "Working Card", "Bench Card", out string? error);
+
+        Assert.False(valid);
+        Assert.Equal(CutLabMessages.NoChangeMessage, error);
+    }
+
+    [Fact]
+    public async Task CommitSwapAsync_ValidPair_AppliesRestoreThenAcceptUnderWhatifRound()
+    {
+        CutLabState state = CreateCommitReadyState();
+        ICutLabWhatifService service = CreateWhatifService(state.Pool);
+
+        CutLabWhatifCommitResult result = await service.CommitSwapAsync(state, "Working Card", "Cut Card", CancellationToken.None);
+
+        Assert.True(result.Applied);
+        CutLabDecision accepted = Assert.Single(result.State.Decisions);
+        Assert.Equal("Working Card", accepted.CardName);
+        Assert.Equal(CutLabDecisionKind.Accepted, accepted.Kind);
+        Assert.Equal(CutLabCutRoundEngine.WhatifSwapKey, accepted.Round);
+        IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(result.State.Pool, result.State.Decisions, result.State.QuantityAdjustments);
+        Assert.Contains(workingList, card => card.Name == "Cut Card");
+        Assert.DoesNotContain(workingList, card => card.Name == "Working Card");
+    }
+
+    [Fact]
+    public async Task CommitSwapAsync_ValidPair_ReturnsCardOutAndCardInMatchingInputCasing()
+    {
+        CutLabState state = CreateCommitReadyState();
+        ICutLabWhatifService service = CreateWhatifService(state.Pool);
+
+        CutLabWhatifCommitResult result = await service.CommitSwapAsync(state, "working card", "cut card", CancellationToken.None);
+
+        Assert.True(result.Applied);
+        Assert.Equal("working card", result.CardOut);
+        Assert.Equal("cut card", result.CardIn);
+    }
+
+    [Fact]
+    public async Task CommitSwapAsync_LockedCardOut_ReturnsNotAppliedAndLeavesStateUnchanged()
+    {
+        CutLabState state = CreateLockedCardOutState();
+        ICutLabWhatifService service = CreateWhatifService(state.Pool);
+
+        CutLabWhatifCommitResult result = await service.CommitSwapAsync(state, "Locked Working Card", "Cut Card", CancellationToken.None);
+
+        Assert.False(result.Applied);
+        Assert.Equal(CutLabMessages.NoChangeMessage, result.ErrorMessage);
+        Assert.Same(state, result.State);
+    }
+
+    [Fact]
+    public async Task CommitSwapAsync_CommanderCardOut_ReturnsNotApplied()
+    {
+        CutLabState state = CreateCommanderCardOutState();
+        ICutLabWhatifService service = CreateWhatifService(state.Pool);
+
+        CutLabWhatifCommitResult result = await service.CommitSwapAsync(state, "Commander", "Cut Card", CancellationToken.None);
+
+        Assert.False(result.Applied);
+        Assert.Equal(CutLabMessages.NoChangeMessage, result.ErrorMessage);
+        Assert.Same(state, result.State);
+    }
+
+    [Fact]
+    public async Task CommitSwapAsync_CardInNotInCutPile_ReturnsNotApplied()
+    {
+        CutLabState state = CreateState();
+        ICutLabWhatifService service = CreateWhatifService(state.Pool);
+
+        CutLabWhatifCommitResult result = await service.CommitSwapAsync(state, "Working Card", "Bench Card", CancellationToken.None);
+
+        Assert.False(result.Applied);
+        Assert.Equal(CutLabMessages.NoChangeMessage, result.ErrorMessage);
+        Assert.Same(state, result.State);
+    }
+
+    [Fact]
+    public async Task CommitSwapAsync_OvershootReplacementCut_ReturnsNotAppliedWithNoHalfAppliedState()
+    {
+        CutLabState state = CreateOvershootSwapState();
+        ICutLabWhatifService service = CreateWhatifService(state.Pool);
+
+        CutLabWhatifCommitResult result = await service.CommitSwapAsync(state, "Working Trio", "Cut Card", CancellationToken.None);
+
+        Assert.False(result.Applied);
+        Assert.Equal(CutLabMessages.NoChangeMessage, result.ErrorMessage);
+        Assert.Same(state, result.State);
+        Assert.Equal(state.Decisions.Count, result.State.Decisions.Count);
+    }
+
+    [Fact]
+    public async Task CommitSwapAsync_PreservesRoleFloorsOnCommittedState()
+    {
+        CutLabState state = CreateCommitReadyState() with
+        {
+            RoleFloors =
+            [
+                new CutLabRoleFloor
+                {
+                    Role = "interaction",
+                    Floor = 7,
+                    IsUserSet = true,
+                },
+            ],
+        };
+        ICutLabWhatifService service = CreateWhatifService(state.Pool);
+
+        CutLabWhatifCommitResult result = await service.CommitSwapAsync(state, "Working Card", "Cut Card", CancellationToken.None);
+
+        Assert.True(result.Applied);
+        Assert.Equal(state.RoleFloors, result.State.RoleFloors);
+    }
+
+    [Fact]
+    public async Task CommitSwapAsync_InvalidPair_ReturnsResultWithoutThrowing()
+    {
+        CutLabState state = CreateLockedCardOutState();
+        ICutLabWhatifService service = CreateWhatifService(state.Pool);
+
+        Exception? exception = await Record.ExceptionAsync(() => service.CommitSwapAsync(state, "Locked Working Card", "Cut Card", CancellationToken.None));
+
+        Assert.Null(exception);
+    }
+
     private static CutLabApiController CreateController(bool sameOrigin = true)
     {
         CutLabResolvedCardCache resolvedCardCache = new();
@@ -334,7 +517,7 @@ public sealed class CutLabWhatifTests
             new ThrowingResolver(),
             NullLogger<CutLabSimulationService>.Instance,
             BuildSnapshotForWhatifTests);
-        ICutLabWhatifPreviewService whatifPreviewService = new CutLabWhatifPreviewService(
+        ICutLabWhatifService whatifService = new CutLabWhatifService(
             simulationService,
             contextBuilder,
             resolvedCardCache);
@@ -342,7 +525,7 @@ public sealed class CutLabWhatifTests
             contextBuilder,
             new CutLabUiPatchBuilder(contextBuilder, simulationService),
             simulationService,
-            whatifPreviewService,
+            whatifService,
             NullLogger<CutLabApiController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -356,6 +539,23 @@ public sealed class CutLabWhatifTests
         return controller;
     }
 
+    private static ICutLabWhatifService CreateWhatifService(IReadOnlyList<CutLabPoolCard> pool)
+    {
+        CutLabResolvedCardCache resolvedCardCache = new();
+        FakeAnalysisContextBuilder contextBuilder = new();
+        contextBuilder.SeedFullPool(pool);
+        CutLabSimulationService simulationService = new(
+            resolvedCardCache,
+            new CutLabDeltaCache(),
+            new ThrowingResolver(),
+            NullLogger<CutLabSimulationService>.Instance,
+            BuildSnapshotForWhatifTests);
+        return new CutLabWhatifService(
+            simulationService,
+            contextBuilder,
+            resolvedCardCache);
+    }
+
     private static CutLabState CreateState()
         => new()
         {
@@ -365,6 +565,7 @@ public sealed class CutLabWhatifTests
                 Card("Commander", isCommander: true, isLocked: true),
                 Card("Working Card"),
                 Card("Cut Card"),
+                Card("Bench Card"),
             ],
             Decisions =
             [
@@ -380,6 +581,102 @@ public sealed class CutLabWhatifTests
             {
                 CommanderByTurn = 7,
             },
+            Intent = new CutLabIntent
+            {
+                PlayExperience = "Focused",
+                Bracket = 3,
+            },
+        };
+
+    private static CutLabState CreateLockedCardOutState()
+        => CreateState() with
+        {
+            Pool =
+            [
+                Card("Commander", isCommander: true, isLocked: true),
+                Card("Locked Working Card", isLocked: true),
+                Card("Cut Card"),
+                Card("Bench Card"),
+            ],
+        };
+
+    private static CutLabState CreateCommanderCardOutState()
+        => CreateState() with
+        {
+            Pool =
+            [
+                Card("Commander", isCommander: true, isLocked: false),
+                Card("Cut Card"),
+                Card("Bench Card"),
+            ],
+        };
+
+    private static CutLabState CreateOvershootSwapState()
+        => new()
+        {
+            Commander = "Commander",
+            Pool =
+            [
+                Card("Commander", isCommander: true, isLocked: true),
+                new CutLabPoolCard
+                {
+                    Name = "Working Trio",
+                    Quantity = 3,
+                    TypeLine = "Spell",
+                },
+                new CutLabPoolCard
+                {
+                    Name = "Basic Filler",
+                    Quantity = 97,
+                    TypeLine = "Basic Land",
+                    IsLocked = true,
+                },
+                Card("Cut Card"),
+            ],
+            Decisions =
+            [
+                new CutLabDecision
+                {
+                    CardName = "Cut Card",
+                    Kind = CutLabDecisionKind.Accepted,
+                    Round = CutLabCutRoundEngine.Round1Key,
+                    Ordinal = 1,
+                },
+            ],
+            Intent = new CutLabIntent
+            {
+                PlayExperience = "Focused",
+                Bracket = 3,
+            },
+        };
+
+    private static CutLabState CreateCommitReadyState()
+        => new()
+        {
+            Commander = "Commander",
+            Pool =
+            [
+                Card("Commander", isCommander: true, isLocked: true),
+                Card("Working Card"),
+                new CutLabPoolCard
+                {
+                    Name = "Basic Filler",
+                    Quantity = 99,
+                    TypeLine = "Basic Land",
+                    IsLocked = true,
+                },
+                Card("Cut Card"),
+            ],
+            Decisions =
+            [
+                new CutLabDecision
+                {
+                    CardName = "Cut Card",
+                    Kind = CutLabDecisionKind.Accepted,
+                    Round = CutLabCutRoundEngine.Round1Key,
+                    Ordinal = 1,
+                },
+            ],
             Intent = new CutLabIntent
             {
                 PlayExperience = "Focused",
