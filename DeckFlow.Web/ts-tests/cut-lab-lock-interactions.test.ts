@@ -467,4 +467,61 @@ describe('DeckFlowCutLab', () => {
     expect(pill?.getAttribute('aria-pressed')).toBe('false');
     expect(pill?.classList.contains('cutlab-role-chip--locked')).toBe(false);
   });
+
+  it('toggles an individual card pill when a combo badge span is nested inside the button', () => {
+    document.body.innerHTML = `
+      <form data-cache-key="cut-lab">
+        <input type="hidden" name="CutLabStateJson" value="" />
+        <textarea name="PrimaryPlan">Keep the lands online.</textarea>
+        <textarea name="SecondaryPlan"></textarea>
+        <input type="radio" name="Bracket" value="3" checked />
+        <input type="radio" name="PlayExperience" value="Focused" checked />
+        <details class="cutlab-role-group" open>
+          <summary>Lands · 1 card · <span data-cut-lab-group-locked="lands">0</span> locked</summary>
+          <button type="button"
+                  class="kb-chip cutlab-role-chip"
+                  data-cut-lab-chip-card="Command Tower"
+                  aria-pressed="false">
+            <span>Command Tower</span>
+            <span class="cutlab-combo-badge cutlab-combo-badge--complete">Combo piece</span>
+          </button>
+        </details>
+        <table>
+          <tbody>
+            <tr data-cut-lab-card="Command Tower"
+                data-cut-lab-type-line="Land"
+                data-cut-lab-role="lands ramp"
+                data-cut-lab-quantity="1"
+                data-cut-lab-commander="false">
+              <td data-label="Select"><input type="checkbox" data-cut-lab-lock-card="Command Tower" /></td>
+              <td data-label="Card"><strong>1 × Command Tower</strong></td>
+              <td data-label="Package">
+                <select data-cut-lab-package-card="Command Tower">
+                  <option value="">Unlocked pool</option>
+                </select>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </form>
+    `;
+
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+
+    const pill = document.querySelector<HTMLButtonElement>('[data-cut-lab-chip-card="Command Tower"]');
+    const badge = pill?.querySelector<HTMLSpanElement>('.cutlab-combo-badge');
+    const checkbox = document.querySelector<HTMLInputElement>('[data-cut-lab-lock-card="Command Tower"]');
+
+    badge?.click();
+
+    expect(checkbox?.checked).toBe(true);
+    expect(pill?.getAttribute('aria-pressed')).toBe('true');
+    expect(pill?.classList.contains('cutlab-role-chip--locked')).toBe(true);
+
+    badge?.click();
+
+    expect(checkbox?.checked).toBe(false);
+    expect(pill?.getAttribute('aria-pressed')).toBe('false');
+    expect(pill?.classList.contains('cutlab-role-chip--locked')).toBe(false);
+  });
 });

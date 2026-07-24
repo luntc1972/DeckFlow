@@ -21,6 +21,7 @@ interface CutLabPatchResponse {
     floorWarnings: Array<{ message: string }>;
     cardsRemaining: number;
     cutsMade: Array<{ cardName: string; roundKey: string; roundLabel: string; ordinal: number }>;
+    comboBadgeByCardName: Record<string, { badgeState: 'CompletePiece' | 'NeedsPartner'; context: string }>;
     structuralFindings: Array<{
       kind: string;
       heading: string;
@@ -77,6 +78,7 @@ const buildFixture = (): void => {
                 <div class="cutlab-card-text__body">
                   <p class="cutlab-card-text__meta">Instant · {U}{U} · TMP #55</p>
                   <p class="cutlab-card-text__oracle">Counter target spell.</p>
+                  <p class="cutlab-card-text__combo">Infinite cards</p>
                 </div>
               </details>
             </td>
@@ -124,7 +126,7 @@ const buildFixture = (): void => {
   document.dispatchEvent(new Event('DOMContentLoaded'));
 };
 
-const buildPatch = (): CutLabPatchResponse => ({
+const buildPatch = (comboContext = 'Infinite cards'): CutLabPatchResponse => ({
   patch: {
     cutLabStateJson: '{"version":2}',
     currentCount: 111,
@@ -144,6 +146,12 @@ const buildPatch = (): CutLabPatchResponse => ({
     floorWarnings: [],
     cardsRemaining: 11,
     cutsMade: [],
+    comboBadgeByCardName: {
+      Counterspell: {
+        badgeState: 'CompletePiece',
+        context: comboContext,
+      },
+    },
     structuralFindings: [
       {
         kind: 'WeakFloorCase',
@@ -187,9 +195,33 @@ describe('cut-lab structural card text patching', () => {
 
     const rebuiltChip = document.querySelector<HTMLButtonElement>('[data-cut-lab-structural-findings-body] button[data-cut-lab-chip-card="Counterspell"]');
     const rebuiltDisclosure = document.querySelector<HTMLDetailsElement>('[data-cut-lab-structural-findings-body] .cutlab-card-text');
-    expect(rebuiltChip?.textContent).toBe('Counterspell');
+    const rebuiltBadge = rebuiltChip?.querySelector<HTMLSpanElement>('.cutlab-combo-badge');
+    expect(rebuiltChip?.childNodes[0]?.textContent).toBe('Counterspell');
+    expect(rebuiltBadge?.textContent).toBe('Combo piece');
     expect(rebuiltDisclosure).not.toBeNull();
     expect(rebuiltDisclosure?.open).toBe(false);
     expect(rebuiltDisclosure?.querySelector('.cutlab-card-text__oracle')?.textContent).toBe('Counter target spell.');
+    expect(rebuiltDisclosure?.querySelector('.cutlab-card-text__combo')?.textContent).toBe('Infinite cards');
+  });
+
+  it('refreshes the cloned disclosure combo context from the patch map when the combo context changes', async () => {
+    buildFixture();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => buildPatch('Infinite mana'),
+    });
+
+    const form = document.querySelector<HTMLFormElement>('form[action="/cut-lab/decide"]');
+    const button = form?.querySelector<HTMLButtonElement>('[data-cut-lab-decision="accept"]');
+
+    form?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: button ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    const rebuiltDisclosure = document.querySelector<HTMLDetailsElement>('[data-cut-lab-structural-findings-body] .cutlab-card-text');
+    expect(rebuiltDisclosure?.querySelector('.cutlab-card-text__combo')?.textContent).toBe('Infinite mana');
   });
 });

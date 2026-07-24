@@ -1,6 +1,7 @@
 @using DeckFlow.Core.Manabase
 @using DeckFlow.Web.Models
 @using DeckFlow.Web.Models.CutLab
+@using DeckFlow.Web.Services.CutLab
 @model DeckFlow.Web.Models.CutLabViewModel
 @{
     ViewData["Title"] = "Cut Lab";
@@ -99,29 +100,31 @@
     }
     async Task RenderCardTextDisclosure(string cardName)
     {
-        if (!Model.CardTextByCardName.TryGetValue(cardName, out var cardText))
+        var hasComboBadge = Model.ComboBadgeByCardName.TryGetValue(cardName, out var comboBadge);
+        var hasCardText = Model.CardTextByCardName.TryGetValue(cardName, out var cardText);
+        if (!hasCardText && !hasComboBadge)
         {
             return;
         }
 
         var metaParts = new List<string>();
-        if (!string.IsNullOrWhiteSpace(cardText.TypeLine))
+        if (!string.IsNullOrWhiteSpace(cardText?.TypeLine))
         {
             metaParts.Add(cardText.TypeLine);
         }
 
-        if (!string.IsNullOrWhiteSpace(cardText.ManaCost))
+        if (!string.IsNullOrWhiteSpace(cardText?.ManaCost))
         {
             metaParts.Add(cardText.ManaCost);
         }
 
         var printingParts = new List<string>();
-        if (!string.IsNullOrWhiteSpace(cardText.SetCode))
+        if (!string.IsNullOrWhiteSpace(cardText?.SetCode))
         {
             printingParts.Add(cardText.SetCode);
         }
 
-        if (!string.IsNullOrWhiteSpace(cardText.CollectorNumber))
+        if (!string.IsNullOrWhiteSpace(cardText?.CollectorNumber))
         {
             printingParts.Add($"#{cardText.CollectorNumber}");
         }
@@ -131,8 +134,9 @@
             metaParts.Add(string.Join(" ", printingParts));
         }
 
-        var oracleText = string.IsNullOrWhiteSpace(cardText.OracleText) ? null : cardText.OracleText;
-        if (metaParts.Count == 0 && oracleText is null)
+        var oracleText = string.IsNullOrWhiteSpace(cardText?.OracleText) ? null : cardText.OracleText;
+        var comboContext = string.IsNullOrWhiteSpace(comboBadge?.Context) ? null : comboBadge.Context;
+        if (metaParts.Count == 0 && oracleText is null && comboContext is null)
         {
             return;
         }
@@ -147,6 +151,10 @@
                 @if (oracleText is not null)
                 {
                     <p class="cutlab-card-text__oracle">@oracleText</p>
+                }
+                @if (comboContext is not null)
+                {
+                    <p class="cutlab-card-text__combo">@comboContext</p>
                 }
             </div>
         </details>
@@ -608,10 +616,27 @@
                                                 else
                                                 {
                                                     var chipClasses = $"kb-chip cutlab-role-chip{(evidenceCard.IsLocked ? " cutlab-role-chip--locked" : string.Empty)}";
+                                                    var hasComboBadge = Model.ComboBadgeByCardName.TryGetValue(evidenceCard.Name, out var comboBadge);
+                                                    var comboBadgeText = hasComboBadge
+                                                        ? comboBadge!.BadgeState == ComboBadgeState.CompletePiece
+                                                            ? "Combo piece"
+                                                            : comboBadge.Context
+                                                        : null;
+                                                    var comboBadgeClass = hasComboBadge
+                                                        ? comboBadge!.BadgeState == ComboBadgeState.CompletePiece
+                                                            ? "cutlab-combo-badge cutlab-combo-badge--complete"
+                                                            : "cutlab-combo-badge cutlab-combo-badge--near"
+                                                        : null;
                                                     <button type="button"
                                                             class="@chipClasses"
                                                             data-cut-lab-chip-card="@evidenceCard.Name"
-                                                            aria-pressed="@(evidenceCard.IsLocked ? "true" : "false")">@evidence</button>
+                                                            aria-pressed="@(evidenceCard.IsLocked ? "true" : "false")">
+                                                        <span>@evidence</span>
+                                                        @if (comboBadgeText is not null && comboBadgeClass is not null)
+                                                        {
+                                                            <span class="@comboBadgeClass">@comboBadgeText</span>
+                                                        }
+                                                    </button>
                                                     { await RenderCardTextDisclosure(evidenceCard.Name); }
                                                 }
                                             }

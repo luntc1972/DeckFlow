@@ -152,6 +152,7 @@ interface CutLabUiPatch {
   floorWarnings: CutLabDecisionFloorWarning[];
   cutsMade: CutLabDecisionCutRecord[];
   structuralFindings: CutLabDecisionFindingGroup[];
+  comboBadgeByCardName: Record<string, { badgeState: 'CompletePiece' | 'NeedsPartner'; context: string }>;
   comboDataAvailable: boolean;
   categoryDataAvailable: boolean;
   whatifCardOutOptions: string[];
@@ -1294,7 +1295,56 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }) ?? null;
   };
 
-  const createStructuralEvidenceChip = (evidence: string): HTMLElement => {
+  const getComboBadgeText = (comboBadge: { badgeState: 'CompletePiece' | 'NeedsPartner'; context: string }): string =>
+    comboBadge.badgeState === 'CompletePiece' ? 'Combo piece' : comboBadge.context;
+
+  const getComboBadgeClassName = (comboBadge: { badgeState: 'CompletePiece' | 'NeedsPartner'; context: string }): string =>
+    comboBadge.badgeState === 'CompletePiece'
+      ? 'cutlab-combo-badge cutlab-combo-badge--complete'
+      : 'cutlab-combo-badge cutlab-combo-badge--near';
+
+  const appendComboBadge = (
+    button: HTMLButtonElement,
+    comboBadgeByCardName: Record<string, { badgeState: 'CompletePiece' | 'NeedsPartner'; context: string }>,
+    cardName: string,
+  ): void => {
+    const comboBadge = comboBadgeByCardName[cardName];
+    if (!comboBadge) {
+      return;
+    }
+
+    button.appendChild(createTextElement('span', getComboBadgeClassName(comboBadge), getComboBadgeText(comboBadge)));
+  };
+
+  const syncDisclosureComboContext = (
+    disclosure: HTMLDetailsElement,
+    comboBadgeByCardName: Record<string, { badgeState: 'CompletePiece' | 'NeedsPartner'; context: string }>,
+    cardName: string,
+  ): void => {
+    const body = disclosure.querySelector<HTMLElement>('.cutlab-card-text__body');
+    if (!body) {
+      return;
+    }
+
+    const comboBadge = comboBadgeByCardName[cardName];
+    const existingParagraph = body.querySelector<HTMLParagraphElement>('.cutlab-card-text__combo');
+    if (!comboBadge) {
+      existingParagraph?.remove();
+      return;
+    }
+
+    if (existingParagraph) {
+      existingParagraph.textContent = comboBadge.context;
+      return;
+    }
+
+    body.appendChild(createTextElement('p', 'cutlab-card-text__combo', comboBadge.context));
+  };
+
+  const createStructuralEvidenceChip = (
+    evidence: string,
+    comboBadgeByCardName: Record<string, { badgeState: 'CompletePiece' | 'NeedsPartner'; context: string }>,
+  ): HTMLElement => {
     const match = findLockablePoolCardForEvidence(evidence);
     if (!match) return createTextElement('span', 'kb-chip', evidence);
 
@@ -1303,6 +1353,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     button.dataset.cutLabChipCard = match.cardName;
     button.setAttribute('aria-pressed', match.checkbox.checked ? 'true' : 'false');
     button.classList.toggle('cutlab-role-chip--locked', match.checkbox.checked);
+    appendComboBadge(button, comboBadgeByCardName, match.cardName);
     return button;
   };
 
@@ -1783,11 +1834,13 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
             const chips = document.createElement('div');
             chips.className = 'kb-chip-area__chips';
             item.evidence.forEach(evidence => {
-              const chip = createStructuralEvidenceChip(evidence);
+              const chip = createStructuralEvidenceChip(evidence, patch.comboBadgeByCardName);
               chips.appendChild(chip);
               if (chip instanceof HTMLButtonElement) {
-                const disclosure = clonePoolRowCardTextDisclosure(chip.dataset.cutLabChipCard ?? '');
+                const cardName = chip.dataset.cutLabChipCard ?? '';
+                const disclosure = clonePoolRowCardTextDisclosure(cardName);
                 if (disclosure) {
+                  syncDisclosureComboContext(disclosure, patch.comboBadgeByCardName, cardName);
                   chips.appendChild(disclosure);
                 }
               }

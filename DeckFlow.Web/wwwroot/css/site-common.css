@@ -2652,6 +2652,10 @@ details.cutlab-card-text > div.cutlab-card-text__body > p.cutlab-card-text__orac
   white-space: pre-line;
 }
 
+details.cutlab-card-text > div.cutlab-card-text__body > p.cutlab-card-text__combo {
+  color: var(--ink, inherit);
+}
+
 details.cutlab-collapsible > div.cutlab-package-help {
   margin-bottom: 0.75rem;
   padding: 0.85rem 1rem;
@@ -4358,6 +4362,9 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
 }
 
 button.cutlab-role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   color: var(--ink, inherit);
   cursor: pointer;
 }
@@ -4365,6 +4372,28 @@ button.cutlab-role-chip {
 button.cutlab-role-chip:hover,
 button.cutlab-role-chip:focus-visible {
   border-color: var(--accent);
+}
+
+.cutlab-combo-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-soft-bg, var(--panel));
+  color: var(--ink, inherit);
+  font-size: var(--fs-xs, 0.75rem);
+  line-height: 1.2;
+}
+
+.cutlab-combo-badge--complete {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel-soft-bg, var(--panel)));
+}
+
+.cutlab-combo-badge--near {
+  border-color: color-mix(in srgb, var(--gold-warning, var(--warning, #c8a040)) 45%, var(--line));
+  background: color-mix(in srgb, var(--gold-warning, var(--warning, #c8a040)) 16%, var(--panel-soft-bg, var(--panel)));
 }
 
 .cutlab-finding {
