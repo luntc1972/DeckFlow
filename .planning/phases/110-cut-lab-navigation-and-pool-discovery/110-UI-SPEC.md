@@ -1,10 +1,11 @@
 ---
 phase: 110
 slug: cut-lab-navigation-and-pool-discovery
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-07-23
+reviewed_at: 2026-07-23
 ---
 
 # Phase 110 — UI Design Contract
@@ -46,6 +47,15 @@ CSS must stay inside the **existing** rhythm already used by `.manabase-anchor-n
 | sm | `0.75rem`–`0.85rem` (12–13.6px) | Nav padding, chip padding, help-block padding |
 | md | `1rem` (16px) | Panel-heading gaps, disclosure padding, section vertical rhythm |
 | lg | `1.5rem` | Section-to-section spacing (existing `.cutlab-proposal` padding) |
+
+**Accepted deviation (checker FLAG, Dimension 5 — acknowledged, not a defect):** `0.4rem` (6.4px) and
+`0.85rem` (13.6px) are not multiples of 4 and fall outside the standard 4/8/16/24/32/48/64 grid. This is
+**inherited legacy convention**, not a scale invented for this phase — the values are the literal
+existing rhythm of `.manabase-anchor-nav` and `.cutlab-sticky-bar`, which render on the same page as the
+new chrome. Introducing a strict 4px grid locally would produce *visible* misalignment against that
+surrounding chrome, so conforming here would be worse than reusing. The ceilings that actually govern
+interaction quality are enforced: the 4rem sticky-nav budget and the 44px touch-target floor (44 **is** a
+multiple of 4).
 
 Exceptions:
 - The sticky jump-nav is capped at **≤4rem (64px) total height** including padding and border (D-05) —
@@ -156,6 +166,14 @@ checker can verify no ad-hoc one-off classes crept in.
 
 ## Layout & Responsive Contract
 
+**Visual hierarchy (checker FLAG, Dimension 2 — resolved):** every element this phase adds — jump-nav,
+pool filter/search, section collapse triggers, package help block, card text disclosures — is
+**intentionally secondary chrome**. The primary visual anchor of the Cut Lab page remains the pool table
+and its lock controls, which this phase does not touch. New chrome must therefore read as quieter than
+the pool table: no accent fills, no elevated surfaces, no type larger than an existing `<h2>`. If a new
+control ever competes with the pool table for first fixation, it is wrong regardless of how well it
+scores on the other dimensions.
+
 - **Breakpoint:** reuse the existing **640px** single-column threshold already used by
   `.manabase-anchor-nav` (implied by "collapses to a single column under 640px" per CONTEXT.md D-02)
   and the existing `@media (max-width: 600px)` rules in `site-common.css`. Do not invent a new
@@ -209,14 +227,19 @@ and several of Phase 110's success criteria are behavioral, not purely visual.
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS (not applicable — no component registry in this stack; verify instead that no new one-off classes were introduced outside the Component Inventory table above)
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS (FLAG resolved — visual-hierarchy statement added to Layout & Responsive Contract)
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS (4 sizes = at ceiling, not over; 2 weights)
+- [x] Dimension 5 Spacing: PASS (FLAG resolved — non-4px rhythm documented as accepted inherited-legacy deviation)
+- [x] Dimension 6 Registry Safety: PASS (not applicable — no component registry in this stack; verify instead that no new one-off classes were introduced outside the Component Inventory table above)
 
-**Approval:** pending
+**Approval:** APPROVED 2026-07-23 by gsd-ui-checker — 0 BLOCKs, 2 FLAGs (both folded in above).
+
+**Checker note carried forward for the planner:** REQUIREMENTS.md CLUP-13 says section collapse state is
+remembered "per deck/page"; D-21 and this spec resolve that to **page-scoped only** (localStorage key
+`deckflow.cutlab.sections`, no deck dimension) — no new view-model field, no unbounded key growth. The
+later-locked CONTEXT.md decision governs; the requirement wording is the looser earlier phrasing.
 
 ---
 
