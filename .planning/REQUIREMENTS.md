@@ -1,81 +1,66 @@
-# Requirements: Cycle 19 — Cut Lab Upgrade Hardening
+# Requirements: Cycle 20 — Personal Tools
 
-**Defined:** 2026-07-23
+**Defined:** 2026-07-24
 **Core Value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip, without the user reformatting anything.
+**Design spec:** `docs/research/personal-tools-admin-reframe-design.md` (approved 2026-07-24) is authoritative for this milestone.
 
-## Cycle 19 Requirements
+## Cycle 20 Requirements
 
-### Server-Authored Cut Lab State
+### Cycle 17 Code Port
 
-- [ ] **CLUP-01**: Cut Lab JSON mutation endpoints return a server-authored UI patch containing serialized state, current count, cards remaining, export eligibility, proposal rows, structural finding rows, and what-if option data.
-- [ ] **CLUP-02**: `cut-lab.ts` renders returned patch data instead of recomputing domain rules that already exist in C#.
-- [ ] **CLUP-03**: Quantity legality, accepted cuts, current counts, and export readiness display identically after JSON mutations and full no-JS server round trips.
+- [ ] **PORT-01**: Cycle 17's Core engine (Phases 94–98 — profile records and store, measured extraction, stated-rules extraction, profile fusion, card-grounding guard) is present on `feat/personal-tools` and the solution builds with no new errors or warnings.
+- [ ] **PORT-02**: Creator-style Web services (`Services/CreatorStyle/*`), the creator-style seed loader, and their DI registrations are ported and resolve at application startup.
+- [ ] **PORT-03**: Cycle 17's shared-infrastructure refactors are re-derived against current `main` — neutral `ScryfallCollectionResolver`, `ScryfallLimits.CollectionBatchSize`, shared `CachedNameResolution`, and a dedicated `archidekt` resilience pipeline — with the manabase and Scryfall test suites still green.
+- [ ] **PORT-04**: Ported Core and Web test suites pass, with Phase 100's public-surface tests (feature-flag lockstep, `ToolRegistry` counts, route-gate coverage, sitemap assertions) removed rather than carried forward.
 
-### What-If Service Consolidation
+### Admin Personal-Tools Surface
 
-- [ ] **CLUP-04**: What-if preview and commit logic live behind one `ICutLabWhatifService` path used by the JSON API and no-JS `/cut-lab/whatif` action.
-- [ ] **CLUP-05**: Preview remains non-destructive, commit remains atomic, and both paths enforce the same commander-lock, quantity, and floor-warning rules.
+- [ ] **PTOOL-01**: Creator-style is reachable only at `/Admin/CreatorStyle`, and an unauthenticated request is refused by the existing BasicAuth branch.
+- [ ] **PTOOL-02**: Phase 100's public plumbing is absent — no `tool.creator-style.enabled` flag, no `ToolRegistry` entry, no sitemap or `SeoPaths` entry, no public help topic, and no `PacketSessionCache` bypass-list entry.
+- [ ] **PTOOL-03**: The `/Admin` landing page lists a personal-tools section linking both personal tools.
+- [ ] **PTOOL-04**: Deck Tendencies is reachable at `/Admin/CreatorProfile` and is linked from that same section.
 
-### Navigation, Pool Discovery, and Card Context
+### Real Data
 
-- [ ] **CLUP-06**: On mobile, Cut Lab exposes a sticky step/jump affordance that scrolls users to Process, Decide, Goals, and Export sections without hiding primary tables.
-- [ ] **CLUP-07**: The jump behavior is progressive enhancement only; existing server-submit step buttons and no-JS fallback continue to work.
-- [ ] **CLUP-08**: Mobile navigation is verified across Classic, Nyx, and Commander Table themes without text overlap or unreadable pill/button states.
-- [ ] **CLUP-11**: The main "Lock your pool" table supports locked-state filtering so users can quickly show all, locked, or unlocked cards without changing card state.
-- [ ] **CLUP-12**: The main "Lock your pool" table supports card search by card name, preserving package assignment and lock controls for matching rows.
-- [ ] **CLUP-13**: Cut Lab sections can collapse and expand, with collapsed state remembered in browser local storage per deck/page.
-- [ ] **CLUP-14**: Cut Lab exposes compact in-page section anchors with mobile sticky jump behavior patterned after the Manabase page.
-- [ ] **CLUP-15**: Package assignment includes a short static help block and one-line inline helper text near the package select explaining how named groups work.
-- [ ] **CLUP-16**: Card oracle context is available through a reusable text-first per-card disclosure, starting in lock pool rows and reused for structural/combo evidence where card context is available; placement must be validated against the Cycle 19 UI-audit recommendation that oracle text should be visible before optional card imagery.
-- [ ] **CLUP-17**: Structural/combo findings distinguish complete combo membership from near-combo missing-partner state, including weak-floor cases where combo context explains why cards are protected or missing.
-- [ ] **CLUP-18**: Structural findings identify when evidence cards are part of a combo, show the relevant combo role/context, and preserve lock/unlock behavior for matched card evidence chips.
-- [ ] **CLUP-19**: Cut Lab has a dedicated theme-readability regression check for all supported themes covering Lock All role pills, role/card chips, package chips, sticky status, warning/finding panels, selects, inputs, and primary buttons.
-- [ ] **CLUP-20**: Cut Lab UI verification includes representative desktop/mobile screenshots for Classic, Nyx, and Commander Table, with explicit pass/fail notes for usability, understandability, aesthetic hierarchy, and readability.
-
-### Regression Preservation
-
-- [ ] **CLUP-09**: Role-group and Structural card evidence pills continue to lock/unlock canonical pool cards, while unmatched Structural evidence remains inert.
-- [ ] **CLUP-10**: Cut Lab full-suite verification covers xUnit, Vitest, TypeScript compile, and focused browser smoke for the changed surfaces, including pool filters/search, collapse state, anchors, oracle disclosures, combo labels, package helper copy, theme readability, and the Cycle 19 UI-audit screenshot/contrast evidence.
+- [ ] **PSEED-01**: A hand-authored stated-rules seed is committed at `content-kb/seed/creator-stated-rules.json`, with every rule marked `Provenance = "hand-authored"` so a later re-distill supersedes rather than duplicates it.
+- [ ] **PSEED-02**: The `creator-style-import-stated` CLI command loads that seed into `content_stated_rules` and the rules read back intact.
+- [ ] **PSEED-03**: `fuse-profile` produces `FusedTarget[]` plus a conflict ledger that reproduces the P89/P90 prototype verdicts, including the board-wipe "agreement, not hypocrisy" result.
+- [ ] **PSEED-04**: The operator run exports populated `creator-style-profiles.json` and `creator-deck-cache.json`, and both are committed to the repository.
+- [ ] **PSEED-05**: `/Admin/CreatorStyle` renders a real critique of a submitted deck against the seeded profile, not the empty-store state.
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Arbitrary nonbasic card additions | Needs Scryfall resolution and broader re-analysis; not part of the hardening backlog. |
-| Reopening shipped Cycle 18 phase archives | Cycle 18 is complete; this milestone consumes its follow-up backlog as new active work. |
-| Cycle 17 Creator-Style work | Separate worktree and milestone lane. |
-| Cut Lab public go-live flag flip | Operator UAT/release task, not implementation scope. |
+| Public launch of creator-style | The 2026-07-19 legal review turned creator-crawl off as a public feature. No flag, no tool tile, no sitemap entry, no help topic. This is the defining constraint of the milestone, not a deferral. |
+| Rebasing `plan/cycle-17-creator-style` | 777 commits behind `main` with a −57,732-line planning-doc diff that would conflict against Cycle 18/19 archival. Code is ported forward; the branch is preserved untouched at origin as the historical record. |
+| Installing the distill toolchain or re-distilling the 85-video corpus | `yt-dlp`/`ffmpeg`/`whisper` are absent from PATH; installing them is a new system dependency plus an unbounded transcription run, when the needed rules already exist in `docs/research/p89-p90-prototype-snail.md`. |
+| Postgres migration of the creator-style stores | They bind to the local `content-kb.db`; production hydrates from git-shipped seeds, sufficient for a single-operator tool. |
+| Pet-card detection | Spec superseded pending the EDHREC integration under consideration for a later cycle. |
+| Crawling from production | The crawl runs locally only and Render reads seeds, keeping the 512 MB tier and request timeouts out of scope. |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CLUP-01 | Phase 108 | Pending |
-| CLUP-02 | Phase 108 | Pending |
-| CLUP-03 | Phase 108 | Pending |
-| CLUP-04 | Phase 109 | Pending |
-| CLUP-05 | Phase 109 | Pending |
-| CLUP-06 | Phase 110 | Pending |
-| CLUP-07 | Phase 110 | Pending |
-| CLUP-08 | Phase 110 | Pending |
-| CLUP-11 | Phase 110 | Pending |
-| CLUP-12 | Phase 110 | Pending |
-| CLUP-13 | Phase 110 | Pending |
-| CLUP-14 | Phase 110 | Pending |
-| CLUP-15 | Phase 110 | Pending |
-| CLUP-16 | Phase 110 | Pending |
-| CLUP-17 | Phase 110.1 | Pending |
-| CLUP-18 | Phase 110.1 | Pending |
-| CLUP-19 | Phase 111 | Pending |
-| CLUP-20 | Phase 111 | Pending |
-| CLUP-09 | Phase 111 | Pending |
-| CLUP-10 | Phase 111 | Pending |
+| PORT-01 | TBD | Pending |
+| PORT-02 | TBD | Pending |
+| PORT-03 | TBD | Pending |
+| PORT-04 | TBD | Pending |
+| PTOOL-01 | TBD | Pending |
+| PTOOL-02 | TBD | Pending |
+| PTOOL-03 | TBD | Pending |
+| PTOOL-04 | TBD | Pending |
+| PSEED-01 | TBD | Pending |
+| PSEED-02 | TBD | Pending |
+| PSEED-03 | TBD | Pending |
+| PSEED-04 | TBD | Pending |
+| PSEED-05 | TBD | Pending |
 
 **Coverage:**
-- Cycle 19 requirements: 20 total
-- Mapped to phases: 20
-- Unmapped: 0
+- Cycle 20 requirements: 13 total
+- Mapped to phases: 0 (roadmapper fills this)
+- Unmapped: 13
 
 ---
-*Requirements defined: 2026-07-23*
-*Last updated: 2026-07-23 after Cut Lab UI/theme audit findings were added*
+*Requirements defined: 2026-07-24*
