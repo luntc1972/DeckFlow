@@ -4534,6 +4534,69 @@ input[data-cut-lab-goal] {
   font: inherit;
 }
 
+div.cutlab-pool-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+div.cutlab-pool-filter .cutlab-pool-filter__group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+div.cutlab-pool-filter .cutlab-pool-filter__label {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+div.cutlab-pool-filter .cutlab-pool-filter__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 44px;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-soft-bg, var(--panel));
+  color: var(--ink);
+  font-size: var(--fs-sm);
+}
+
+div.cutlab-pool-filter .cutlab-pool-filter__option input[type="radio"] {
+  margin: 0;
+}
+
+div.cutlab-pool-filter input.cutlab-pool-search {
+  min-height: 44px;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-soft-bg, var(--panel));
+  color: var(--ink);
+  font: inherit;
+}
+
+div.cutlab-pool-filter .cutlab-pool-match-count {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+tr.cutlab-pool-empty-row td {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-align: center;
+}
+
 input[data-cut-lab-floor]:focus-visible {
   outline: 2px solid var(--focus, var(--accent));
   outline-offset: 2px;

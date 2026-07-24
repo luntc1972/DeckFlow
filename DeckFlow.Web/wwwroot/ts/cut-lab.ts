@@ -807,6 +807,21 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const getPackageSelect = (row: HTMLTableRowElement): HTMLSelectElement | null =>
     row.querySelector<HTMLSelectElement>('select[data-cut-lab-package-card]');
 
+  const getPoolFilterContainer = (): HTMLDivElement | null =>
+    document.querySelector<HTMLDivElement>('#cut-lab-section-lock-pool .cutlab-pool-filter');
+
+  const getPoolSearchInput = (): HTMLInputElement | null =>
+    getPoolFilterContainer()?.querySelector<HTMLInputElement>('input.cutlab-pool-search') ?? null;
+
+  const getPoolMatchCount = (): HTMLElement | null =>
+    getPoolFilterContainer()?.querySelector<HTMLElement>('.cutlab-pool-match-count') ?? null;
+
+  const getPoolEmptyRow = (): HTMLTableRowElement | null =>
+    document.querySelector<HTMLTableRowElement>('#cut-lab-section-lock-pool tr.cutlab-pool-empty-row');
+
+  const getPoolFilterRows = (): HTMLTableRowElement[] =>
+    Array.from(document.querySelectorAll<HTMLTableRowElement>('#cut-lab-section-lock-pool tr[data-cut-lab-card]'));
+
   const getPackageToggle = (container: Element): HTMLInputElement | null =>
     container.querySelector<HTMLInputElement>('input[data-cut-lab-package-toggle]');
 
@@ -862,6 +877,50 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     // Why: this chip mirrors the imported protected pool (commander-inclusive) and does not
     // re-sum after adjust-path quantity tuning; the sticky bar owns that live working-list total.
     summary.textContent = `${poolCount} cards in pool · ${lockedCount} locked`;
+  };
+
+  const getSelectedPoolFilter = (): 'all' | 'locked' | 'unlocked' => {
+    const selected = getPoolFilterContainer()
+      ?.querySelector<HTMLInputElement>('input[name="CutLabPoolFilter"]:checked')
+      ?.value;
+    return selected === 'locked' || selected === 'unlocked' ? selected : 'all';
+  };
+
+  const updatePoolFilterState = (): void => {
+    const filterContainer = getPoolFilterContainer();
+    if (!filterContainer) {
+      return;
+    }
+
+    const rows = getPoolFilterRows();
+    const selectedFilter = getSelectedPoolFilter();
+    const searchTerm = normalizeAsciiCase(getPoolSearchInput()?.value.trim() ?? '');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+      const checkbox = getLockCheckbox(row);
+      const cardName = normalizeAsciiCase(row.dataset.cutLabCard ?? '');
+      const matchesLockedState = selectedFilter === 'all'
+        || (selectedFilter === 'locked' && (checkbox?.checked ?? false))
+        || (selectedFilter === 'unlocked' && !(checkbox?.checked ?? false));
+      const matchesSearch = searchTerm === '' || cardName.includes(searchTerm);
+      const isVisible = matchesLockedState && matchesSearch;
+      row.hidden = !isVisible;
+      if (isVisible) {
+        visibleCount++;
+      }
+    });
+
+    const totalCount = rows.length;
+    const matchCount = getPoolMatchCount();
+    if (matchCount) {
+      matchCount.textContent = `Showing ${visibleCount} of ${totalCount} cards`;
+    }
+
+    const emptyRow = getPoolEmptyRow();
+    if (emptyRow) {
+      emptyRow.hidden = visibleCount !== 0;
+    }
   };
 
   const parseIntegerAttribute = (element: HTMLElement, name: string, fallback: number): number => {
@@ -3016,6 +3075,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
   const refreshAndSerialize = (): void => {
     updateLockedCountChip();
+    updatePoolFilterState();
     syncAllPackageStates();
     syncRoleGroupLockState();
     syncRoleLockButtons();
@@ -3048,6 +3108,29 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       input.addEventListener('input', handleFloorChange);
       input.addEventListener('change', handleFloorChange);
     });
+  };
+
+  const attachPoolFilterHandlers = (): void => {
+    const filterContainer = getPoolFilterContainer();
+    if (!filterContainer) {
+      return;
+    }
+
+    filterContainer.hidden = false;
+
+    Array.from(filterContainer.querySelectorAll<HTMLInputElement>('input[name="CutLabPoolFilter"]'))
+      .forEach(input => {
+        input.addEventListener('change', () => {
+          updatePoolFilterState();
+        });
+      });
+
+    const searchInput = getPoolSearchInput();
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        updatePoolFilterState();
+      });
+    }
   };
 
   const attachPackageHandlers = (): void => {
@@ -3364,6 +3447,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
 
     attachRowHandlers();
+    attachPoolFilterHandlers();
     attachPackageHandlers();
     attachDecisionSubmitHandler();
     attachAdjustSubmitHandler();
