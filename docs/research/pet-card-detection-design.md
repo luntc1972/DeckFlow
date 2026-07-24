@@ -2,8 +2,44 @@
 
 - **Date:** 2026-07-24
 - **Branch:** `feature/deck-tendencies` (extends the Deck Tendencies personal tool)
-- **Status:** Approved design, pending implementation plan
+- **Status:** ⚠️ **Superseded in part — do not implement as-is.** See "Supersession" below.
 - **Scope:** local-only admin feature; no public surface, no feature flag
+
+## Supersession (added 2026-07-24, after this spec was written)
+
+This design chose the local 3,964-deck `card_deck_totals` corpus because no card-level
+inclusion-rate source was known to exist. **That premise is now false.** Commit `ad2c8389` on
+`gsd/cycle19-cut-lab-upgrade` adds an `edhrec-download` CLI for a second sanctioned EDHREC
+archive, `data.tgz` → `edhrec.csv`, holding `commander,card,count`:
+
+| | this spec's corpus | `edhrec.csv` |
+|---|---:|---:|
+| decks | 3,964 | 9,442,363 |
+| distinct cards | 22,858 | 31,788 |
+| rows | 349,596 | 14,150,219 |
+| commander-keyed | no | **yes** |
+
+`.planning/captures/edhrec-data-feature-plans-2026-07-24.md` already specifies this feature as
+**Feature Plan 3: Signature vs Staple Classifier**, on a shared EDHREC substrate, as a
+Cycle 20 candidate.
+
+**What still holds from this document:**
+
+- The colour-adjusted lift formula. Plan 3 concedes its `signatureProxy` is *not* EDHREC
+  synergy "because exact synergy needs same-color-identity background rates" — which is
+  precisely the adjustment specified here, and which was empirically shown to move results in
+  both directions (Conduit of Worlds 6.1 → 15.6; Moggcatcher 123.6 → 83.2).
+- All three boundary bugs and their regression tests. They are properties of name and colour
+  normalisation, not of which corpus is used, so they apply unchanged to an EDHREC-backed
+  implementation.
+- The low-sample guard, the zero-crowd `unrated` bucket, and D-06.
+- The validated prototype output, as a comparison fixture against any new baseline.
+
+**What is superseded:** the choice of `card_deck_totals` as the baseline, the Known Limitations
+section's framing, and the component split, which assumed a local-corpus reader.
+
+**Action:** reconcile with Feature Plan 3 rather than implementing this independently. Deferred
+until Cycle 19 lands on `main`.
 
 ## Problem
 
