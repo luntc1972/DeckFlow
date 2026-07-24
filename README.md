@@ -1,11 +1,11 @@
 # DeckFlow
 
-DeckFlow helps deck builders translate decks between Moxfield and Archidekt without manual editing. It provides a deterministic mana-base analyzer and a local bracket classifier; AI prompt-building workflows for single-deck analysis, cEDH meta-gap analysis, head-to-head deck comparison, and deck-primer generation; Commander Spellbook combo lookup, Scryfall card and mechanic references, an Ask-a-Judge handoff flow, public feedback capture, and a cache-backed category suggestion engine.
+DeckFlow helps deck builders translate decks between Moxfield and Archidekt without manual editing. It provides a deterministic mana-base analyzer and a local bracket classifier; a Cut Lab workspace for trimming an oversized Commander pool down to exactly 100 cards; a Deck History tool for versioning a deck and generating an evolution prompt; AI prompt-building workflows for single-deck analysis, cEDH meta-gap analysis, head-to-head deck comparison, and deck-primer generation; Commander Spellbook combo lookup, Scryfall card and mechanic references, an Ask-a-Judge handoff flow, public feedback capture, and a cache-backed category suggestion engine.
 
 ## User help
 End-user documentation is served by the running web app at `/help` (feature guides) and `/about` (version, source, credits). This README keeps the developer-facing material (build, publish, API, CLI, deployment).
 
-**Repository description (≤350 characters):** DeckFlow unifies Moxfield/Archidekt decks with a deterministic mana-base analyzer, bracket check, and deck diffs — plus paste-ready AI prompts (analysis, primer, comparison, cEDH meta-gap), card/mechanic lookup, Ask-a-Judge handoff, and a browsable MTG creator knowledge base. Live at deckflow.gg.
+**Repository description (≤350 characters):** DeckFlow unifies Moxfield/Archidekt decks with a deterministic mana-base analyzer, bracket check, Cut Lab trimmer, deck history, and diffs — plus paste-ready AI prompts (analysis, primer, comparison, cEDH meta-gap), card/mechanic lookup, Ask-a-Judge, and an MTG creator knowledge base. Live at deckflow.gg.
 
 ## User Feedback
 
@@ -781,8 +781,9 @@ See [`browser-extensions/deckflow-bridge/README.md`](browser-extensions/deckflow
 
 ### Visual themes
 A persistent theme picker in the shared layout lets users switch between visual themes. The selection is stored in `localStorage` and applied on page load. The shared layout now enhances that native select with an ARIA combobox button/listbox while preserving the original form control for form posts and keyboard fallback. Available themes:
-- **Default** — the base site stylesheet
-- **Abzan (WBG)**, **Bant (GWU)**, **Esper (WUB)**, **Grixis (UBR)**, **Jeskai (URW)**, **Jund (BRG)**, **Mardu (RWB)**, **Naya (RGW)**, **Sultai (BGU)**, **Temur (GUR)** — color-shard/wedge-inspired palettes
+- **Classic** — the base site stylesheet
+- **Azorius (WU)**, **Dimir (UB)**, **Rakdos (BR)**, **Gruul (RG)**, **Selesnya (GW)**, **Orzhov (WB)**, **Izzet (UR)**, **Golgari (BG)**, **Boros (RW)**, **Simic (GU)** — the ten two-color guild palettes
+- **Bant (GWU)**, **Abzan (WBG)**, **Sultai (BGU)**, **Mardu (RWB)**, **Temur (GUR)**, **Esper (WUB)**, **Grixis (UBR)**, **Jund (BRG)**, **Naya (RGW)**, **Jeskai (URW)** — the ten three-color shard/wedge palettes
 - **Nyx** — enchantment-themed dark palette
 - **Planeswalker Dark** — dark-mode palette
 - **Commander Table** — warm tabletop-inspired palette
@@ -794,6 +795,34 @@ A persistent theme picker in the shared layout lets users switch between visual 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
 ### Unreleased
+_No unreleased changes._
+
+### 2026.07.8 — Cut Lab (2026-07-23)
+The **Cut Lab** tool ships (Cycle 18, seven phases). Cut Lab takes an over-100 Commander decklist and helps you get back to exactly 100 by proposing the weakest cards to cut, backed by category, curve, and interaction metrics — then produces a builder-ready trimmed list. Feature is gated behind the `tool.cut-lab.enabled` flag, which ships **OFF**; flip it in `/Admin/Flags` to expose the `/cut-lab` route.
+- **Metric-backed cut proposals:** each candidate cut is scored against the deck's category coverage, mana curve, and interaction/ramp/draw counts so the suggested trims explain *why* they are weakest, not just *that* they are.
+- **Inline partial-quantity tuner + add-basics control:** adjust individual card quantities in place and add basic lands to hit exactly 100, with the count gate and export kept in sync as you tune.
+- **Builder-compatible export:** the trimmed list exports in Moxfield/Archidekt format that pastes straight back into your builder, with quantity adjustments carried through faithfully (no cut-overshoot or half-applied what-if states).
+- **What-if scenarios and mobile layout:** try keep/cut swaps before committing, on a page whose auxiliary sections (Packages, Scenarios, What-if) collapse on mobile to keep the core cut list front and center.
+
+### 2026.07.7 — Manabase Community Baseline & Deck History Oracle Text (2026-07-18)
+- **Manabase community land baseline (brackets 2–5):** `/manabase` can show a community land-count baseline beside the Karsten target, with a bracket selector (B2–B5) and a per-commander EDHREC blend for brackets 2–3, sourced from a bundled EDHREC averages dump and labeled with its attribution. Auto-classifies the deck's bracket with an override. Flag-gated (`analysis.manabase.baseline`) and mirrored into the `.txt` download.
+- **Deck History promoted to a Build flagship tile** on the home page, with release-tag annotations on the tool tiles.
+- **Evolution prompt embeds Scryfall oracle text:** the Deck History evolution prompt now includes Scryfall oracle text for every card seen across the saved history, so AI models recognize newer cards when reasoning about how the list changed.
+- **Gemini paste-artifact copy is honest:** UI copy mentions Gemini only where the platform selector actually offers that variant.
+
+### 2026.07.6 — Deck History, Per-Page Structured Data & Share Bar (2026-07-17)
+- **New tool — Deck History:** version a Commander deck into a JSON file you own, append labeled snapshots with notes, diff any two saved versions, and generate an AI prompt (ChatGPT / Claude / Gemini variants) about how the list evolved. The evolution prompt is gated behind having at least two versions; the file format tolerates hand edits. Registered with the Moxfield Bridge extension.
+- **Per-page structured data (JSON-LD):** each page emits page-appropriate schema — `WebPage` + `BreadcrumbList` for tool pages, `TechArticle` + `BreadcrumbList` for help detail pages, with a website fallback and a home-page graph — from a single `StructuredDataBuilder`. `SeoPaths` is now the shared source of truth, and manabase + bracket were added to the sitemap.
+- **Share bar** renders above the footer on tool and home pages, with reddit / X / Bluesky intent links plus native Web Share and copy-link buttons.
+- **About page shows the real version again:** the version is now kept in sync by the release script, correcting a stale value.
+- **Deck tools prefer the deck name over the commander** in page titles and download filenames.
+
+### 2026.07.5 — Manabase Tier-3, Focused Tier, Categories & Prompt Hardening (2026-07-16)
+A manabase gap-closure batch (tier-3 minors plus a new mid-power analysis tier), a category-suggestion rework, deck-import UI standardization, and a round of ChatGPT prompt hardening. New dark flags ship seeded **OFF**; flag-off manabase/prompt output stays byte-identical.
+- **New Focused (mid-power) manabase tier:** `/manabase` adds a third analysis tier between Casual and cEDH, targeting an ~85% castability bar for mid-power decks. Flag-gated, seeded OFF.
+- **Manabase tier-3 accuracy minors:** commander-legal conditional Moxen are modeled; true colorless `{C}` and snow `{S}` become first-class source categories (`analysis.manabase.colorless-snow`); qualifying cheap `scry N` spells add a small any-color source credit to the Karsten requirement lane (`analysis.manabase.scry-credit`); flag-gated mana-source and tapped-source disclosures were added. cEDH keep-shapes (`analysis.manabase.keep-shapes`) surface turn-capped, shape-labeled openers in the view and paste artifact, seeded OFF.
+- **Category suggestions rework:** a harder junk filter, a variant canonicalizer, source-authority ranking, a merged card list with commander percentage and a threshold, and a documented **% of decks** column computed from the distinct-deck union.
+- **Deck-import UI standardized on Meta Gap & Comparison:** both tools gain the import-method dropdown, and the URL box shows both Moxfield and Archidekt placeholders.
 - **Set-upgrade prompt drops the duplicate notes file:** the Step 4 set-upgrade prompt used to ask the AI for a second fenced ```` ```text ```` block named `discussion_summary.txt` alongside the `set_upgrade_report` JSON. That standalone notes document duplicated the readable per-set analysis and was never parsed by the app, so it is gone from all three platform variants (ChatGPT, Claude, Gemini). The AI now returns the readable per-set analysis followed by the JSON report only; step 4/5 help copy updated to match.
 - **Arena-format paste hardening:** pasted MTG Arena exports and Arena-shaped variants from MTGGoldfish / ManaBox / legacy `.dec` sideboard prefixes now route through the shared paste parser instead of failing or mis-parsing, and deck-tool help text now lists MTG Arena among the accepted export formats.
 - **ChatGPT prompts now execute in one paste, even when ChatGPT files them:** every ChatGPT prompt artifact (Deck Analysis, Comparison, Primer, Meta Gap, Bracket, Follow-Up, Set Upgrade) now opens with an `EXECUTE NOW` directive. ChatGPT's web UI silently converts large pastes into an attached `.txt` and then asks "which task do you want me to run?" instead of running it; the leading directive makes the packet execute immediately either way. A new invariant test suite guarantees every current and future ChatGPT variant carries the header. Claude/Gemini prompts are unchanged.
