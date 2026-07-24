@@ -384,6 +384,63 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     });
   };
 
+  const expandJumpTarget = (target: HTMLElement): void => {
+    if (!(target instanceof HTMLDetailsElement)) {
+      return;
+    }
+
+    if (!target.matches('details[data-cutlab-mobile-collapse]') || target.open) {
+      return;
+    }
+
+    target.open = true;
+    persistSectionCollapseState();
+  };
+
+  const focusJumpTarget = (target: HTMLElement): void => {
+    target.setAttribute('tabindex', '-1');
+    target.focus({ preventScroll: true });
+  };
+
+  const scrollJumpTargetIntoView = (target: HTMLElement): void => {
+    if (typeof target.scrollIntoView !== 'function') {
+      return;
+    }
+
+    const prefersReduced = typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    target.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'start' });
+  };
+
+  const attachAnchorNavHandler = (): void => {
+    const anchorNav = document.querySelector<HTMLElement>('.cutlab-anchor-nav');
+    if (!anchorNav) {
+      return;
+    }
+
+    anchorNav.querySelectorAll<HTMLAnchorElement>('a[href^="#"]').forEach(link => {
+      link.addEventListener('click', event => {
+        const hash = link.getAttribute('href');
+        if (!hash || hash === '#') {
+          return;
+        }
+
+        const target = document.getElementById(hash.slice(1));
+        if (!(target instanceof HTMLElement)) {
+          return;
+        }
+
+        event.preventDefault();
+        expandJumpTarget(target);
+        scrollJumpTargetIntoView(target);
+        focusJumpTarget(target);
+        if (window.location.hash !== hash) {
+          history.pushState(null, '', hash);
+        }
+      });
+    });
+  };
+
   const readScenarioIndex = (): ScenarioIndexEntry[] => {
     try {
       const storage = getLocalStorage();
@@ -3299,6 +3356,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     collapseMobileCollapsiblesOnLoad();
     restoreSectionCollapseState();
     attachSectionCollapsePersistence();
+    attachAnchorNavHandler();
 
     const form = getForm();
     if (!form) {
