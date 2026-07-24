@@ -562,83 +562,66 @@ public sealed class CutLabControllerTests
     }
 
     [Fact]
-    public async Task Whatif_Keep_CommitsRestoreAndAcceptUnderWhatifRound()
+    public async Task Whatif_Preview_WhenValidationRejectsLockedCardOut_RerendersNoChange()
     {
         var service = new WhatifStateAwareCutLabPageService();
-        var controller = CreateController(service, new FakeWhatifService());
-        var request = new CutLabRequest
+        var whatifService = new FakeWhatifService
         {
-            CutLabStateJson = CutLabStateSerializer.Serialize(CreateState(
-                new CutLabDecision
-                {
-                    CardName = "Counterspell",
-                    Kind = CutLabDecisionKind.Accepted,
-                    Round = CutLabCutRoundEngine.Round1Key,
-                    Ordinal = 1,
-                })),
+            TryValidateSwapHandler = (CutLabState _, string _, string _, out string? error) =>
+            {
+                error = CutLabMessages.NoChangeMessage;
+                return false;
+            },
         };
-
-        var result = await controller.Whatif(request, "Arcane Signet", "Counterspell", "keep");
-
-        var view = Assert.IsType<ViewResult>(result);
-        var model = Assert.IsType<CutLabViewModel>(view.Model);
-        Assert.True(model.HasResult);
-        CutLabState updatedState = CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson);
-        CutLabDecision accepted = Assert.Single(updatedState.Decisions);
-        Assert.Equal("Arcane Signet", accepted.CardName);
-        Assert.Equal(CutLabDecisionKind.Accepted, accepted.Kind);
-        Assert.Equal(CutLabCutRoundEngine.WhatifSwapKey, accepted.Round);
-        IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(updatedState.Pool, updatedState.Decisions);
-        Assert.Contains(workingList, card => card.Name == "Counterspell");
-        Assert.DoesNotContain(workingList, card => card.Name == "Arcane Signet");
-    }
-
-    [Fact]
-    public async Task Whatif_LockedCardOut_RerendersNoChangeAndLeavesStateUnchanged()
-    {
-        var service = new WhatifStateAwareCutLabPageService();
-        var controller = CreateController(service, new FakeWhatifService());
-        var state = CreateState(
+        var controller = CreateController(service, whatifService);
+        var originalStateJson = CutLabStateSerializer.Serialize(CreateState(
             new CutLabDecision
             {
                 CardName = "Counterspell",
                 Kind = CutLabDecisionKind.Accepted,
                 Round = CutLabCutRoundEngine.Round1Key,
                 Ordinal = 1,
-            }) with
-        {
-            Pool =
-            [
-                new CutLabPoolCard
-                {
-                    Name = "Zur the Enchanter",
-                    Quantity = 1,
-                    TypeLine = "Legendary Creature",
-                    IsCommander = true,
-                    IsLocked = true,
-                },
-                new CutLabPoolCard
-                {
-                    Name = "Locked Card",
-                    Quantity = 1,
-                    TypeLine = "Artifact",
-                    IsLocked = true,
-                },
-                new CutLabPoolCard
-                {
-                    Name = "Counterspell",
-                    Quantity = 99,
-                    TypeLine = "Instant",
-                },
-            ],
-        };
-        var originalStateJson = CutLabStateSerializer.Serialize(state);
+            }));
         var request = new CutLabRequest
         {
             CutLabStateJson = originalStateJson,
         };
 
-        var result = await controller.Whatif(request, "Locked Card", "Counterspell", "keep");
+        var result = await controller.Whatif(request, "Locked Card", "Counterspell", "preview");
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        Assert.Equal(CutLabMessages.NoChangeMessage, model.ErrorMessage);
+        Assert.Equal(originalStateJson, service.LastRequest!.CutLabStateJson);
+    }
+
+    [Fact]
+    public async Task Whatif_Preview_WhenValidationRejectsCommanderCardOut_RerendersNoChange()
+    {
+        var service = new WhatifStateAwareCutLabPageService();
+        var whatifService = new FakeWhatifService
+        {
+            TryValidateSwapHandler = (CutLabState _, string _, string _, out string? error) =>
+            {
+                error = CutLabMessages.NoChangeMessage;
+                return false;
+            },
+        };
+        var controller = CreateController(service, whatifService);
+        var originalStateJson = CutLabStateSerializer.Serialize(CreateState(
+            new CutLabDecision
+            {
+                CardName = "Counterspell",
+                Kind = CutLabDecisionKind.Accepted,
+                Round = CutLabCutRoundEngine.Round1Key,
+                Ordinal = 1,
+            }));
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = originalStateJson,
+        };
+
+        var result = await controller.Whatif(request, "Zur the Enchanter", "Counterspell", "preview");
 
         var view = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<CutLabViewModel>(view.Model);
@@ -691,6 +674,120 @@ public sealed class CutLabControllerTests
         Assert.True(model.Whatif.HasPreview);
         Assert.Equal(0, resolver.ResolveSingleCalls);
         Assert.Contains(model.Whatif.DeltaRows, row => row.MetricLabel == "Commander by turn 7");
+    }
+
+    [Fact]
+    public async Task Whatif_Keep_WhenServiceApplies_RerendersViaPageService()
+    {
+        var service = new WhatifStateAwareCutLabPageService();
+        var committedState = CreateState(
+            new CutLabDecision
+            {
+                CardName = "Arcane Signet",
+                Kind = CutLabDecisionKind.Accepted,
+                Round = CutLabCutRoundEngine.WhatifSwapKey,
+                Ordinal = 2,
+            });
+        var whatifService = new FakeWhatifService
+        {
+            CommitResultFactory = (_, _, _) => new CutLabWhatifCommitResult
+            {
+                Applied = true,
+                State = committedState,
+                CardOut = "Arcane Signet",
+                CardIn = "Counterspell",
+            },
+        };
+        var controller = CreateController(service, whatifService);
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(CreateState(
+                new CutLabDecision
+                {
+                    CardName = "Counterspell",
+                    Kind = CutLabDecisionKind.Accepted,
+                    Round = CutLabCutRoundEngine.Round1Key,
+                    Ordinal = 1,
+                })),
+        };
+
+        var result = await controller.Whatif(request, "Arcane Signet", "Counterspell", "keep");
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        Assert.True(model.HasResult);
+        Assert.Equal(CutLabStateSerializer.Serialize(committedState), service.LastRequest!.CutLabStateJson);
+        Assert.Contains("1 Arcane Signet", service.LastRequest.DeckText, StringComparison.Ordinal);
+        Assert.Contains("99 Counterspell", service.LastRequest.DeckText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Whatif_Keep_WhenServiceReturnsNotApplied_RerendersWithErrorAndUnchangedState()
+    {
+        var service = new WhatifStateAwareCutLabPageService();
+        var whatifService = new FakeWhatifService
+        {
+            CommitResultFactory = (state, _, _) => new CutLabWhatifCommitResult
+            {
+                Applied = false,
+                State = state,
+                ErrorMessage = CutLabMessages.NoChangeMessage,
+            },
+        };
+        var controller = CreateController(service, whatifService);
+        var originalStateJson = CutLabStateSerializer.Serialize(CreateState(
+            new CutLabDecision
+            {
+                CardName = "Counterspell",
+                Kind = CutLabDecisionKind.Accepted,
+                Round = CutLabCutRoundEngine.Round1Key,
+                Ordinal = 1,
+            }));
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = originalStateJson,
+        };
+
+        var result = await controller.Whatif(request, "Arcane Signet", "Counterspell", "keep");
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        Assert.Equal(CutLabMessages.NoChangeMessage, model.ErrorMessage);
+        Assert.Equal(originalStateJson, service.LastRequest!.CutLabStateJson);
+    }
+
+    [Fact]
+    public async Task Whatif_Keep_WhenPageServiceThrowsInvalidOperation_SurfacesRealMessage()
+    {
+        var service = new ThrowingCutLabPageService(new InvalidOperationException("boom"));
+        var whatifService = new FakeWhatifService
+        {
+            CommitResultFactory = (state, _, _) => new CutLabWhatifCommitResult
+            {
+                Applied = true,
+                State = state,
+                CardOut = "Arcane Signet",
+                CardIn = "Counterspell",
+            },
+        };
+        var controller = CreateController(service, whatifService);
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(CreateState(
+                new CutLabDecision
+                {
+                    CardName = "Counterspell",
+                    Kind = CutLabDecisionKind.Accepted,
+                    Round = CutLabCutRoundEngine.Round1Key,
+                    Ordinal = 1,
+                })),
+        };
+
+        var result = await controller.Whatif(request, "Arcane Signet", "Counterspell", "keep");
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        Assert.Equal("boom", model.ErrorMessage);
     }
 
     private static CutLabController CreateController(
@@ -828,6 +925,12 @@ public sealed class CutLabControllerTests
     {
         public CutLabWhatifPreview Preview { get; set; } = new();
 
+        public delegate bool TryValidateSwapCallback(CutLabState state, string cardOut, string cardIn, out string? error);
+
+        public TryValidateSwapCallback? TryValidateSwapHandler { get; set; }
+
+        public Func<CutLabState, string, string, CutLabWhatifCommitResult>? CommitResultFactory { get; set; }
+
         public Task<CutLabWhatifPreview> PreviewSwapAsync(CutLabState state, string cardOut, string cardIn, CancellationToken cancellationToken)
             => Task.FromResult(Preview with
             {
@@ -837,12 +940,17 @@ public sealed class CutLabControllerTests
 
         public bool TryValidateSwap(CutLabState state, string cardOut, string cardIn, out string? error)
         {
+            if (TryValidateSwapHandler is not null)
+            {
+                return TryValidateSwapHandler(state, cardOut, cardIn, out error);
+            }
+
             error = null;
             return true;
         }
 
         public Task<CutLabWhatifCommitResult> CommitSwapAsync(CutLabState state, string cardOut, string cardIn, CancellationToken cancellationToken)
-            => Task.FromResult(new CutLabWhatifCommitResult
+            => Task.FromResult(CommitResultFactory?.Invoke(state, cardOut, cardIn) ?? new CutLabWhatifCommitResult
             {
                 Applied = false,
                 State = state,
