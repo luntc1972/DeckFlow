@@ -261,6 +261,25 @@
                         </p>
                         <p class="prompt-size-note">@Model.BoardCounts.ToBreakdown()</p>
                         <p>@(Model.IsLegal ? "No banned cards found" : $"Banned cards present: {string.Join(", ", Model.BannedCardsPresent)}")</p>
+                        <div class="cutlab-pool-filter" hidden>
+                            <div class="cutlab-pool-filter__group" role="radiogroup" aria-label="Show">
+                                <span class="cutlab-pool-filter__label">Show:</span>
+                                <label class="cutlab-pool-filter__option">
+                                    <input type="radio" name="CutLabPoolFilter" value="all" checked />
+                                    <span>All</span>
+                                </label>
+                                <label class="cutlab-pool-filter__option">
+                                    <input type="radio" name="CutLabPoolFilter" value="locked" />
+                                    <span>Locked</span>
+                                </label>
+                                <label class="cutlab-pool-filter__option">
+                                    <input type="radio" name="CutLabPoolFilter" value="unlocked" />
+                                    <span>Unlocked</span>
+                                </label>
+                            </div>
+                            <input type="text" class="cutlab-pool-search" placeholder="Search card name…" aria-label="Search card name" />
+                            <p class="cutlab-pool-match-count">Showing @Model.Pool.Count of @Model.Pool.Count cards</p>
+                        </div>
                     </div>
                 </div>
 
@@ -364,6 +383,9 @@
                                 </td>
                             </tr>
                         }
+                        <tr class="cutlab-pool-empty-row" hidden>
+                            <td colspan="4">No cards match.</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
