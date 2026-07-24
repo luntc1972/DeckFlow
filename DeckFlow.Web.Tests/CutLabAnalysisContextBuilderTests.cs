@@ -66,6 +66,150 @@ public sealed class CutLabAnalysisContextBuilderTests
     }
 
     [Fact]
+    public async Task BuildAsync_CompleteComboCard_ResolvesMembershipWithCompleteCombos()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList =
+        [
+            PoolCard("Focused Commander", "Legendary Creature — Human Wizard", isCommander: true),
+            PoolCard("Value Engine", "Enchantment"),
+            PoolCard("Combo Partner", "Artifact"),
+        ];
+        List<ScryfallCard> cards =
+        [
+            Spell("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{G}{U}", cmc: 3),
+            Spell("Value Engine", "Enchantment", manaCost: "{2}{U}", cmc: 3),
+            Spell("Combo Partner", "Artifact", manaCost: "{2}", cmc: 2),
+        ];
+        SpellbookCombo combo = new(["Value Engine", "Combo Partner"], ["Infinite mana"], "Make infinite mana.");
+        var builder = new CutLabAnalysisContextBuilder(
+            new CountingResolver(cards),
+            new CutLabResolvedCardCache(),
+            new LocalSpellbookService
+            {
+                Result = new CommanderSpellbookResult([combo], []),
+            });
+
+        CutLabAnalysisContext context = await builder.BuildAsync(
+            workingList,
+            "Focused",
+            ["Focused Commander"]);
+
+        Assert.True(context.Classification.CardComboMembership.TryGetValue(
+            CutLabCardNames.Normalize("Value Engine"),
+            out CutLabCardComboMembership? membership));
+        Assert.NotNull(membership);
+        SpellbookCombo matchedCombo = Assert.Single(membership!.CompleteCombos);
+        Assert.Equal(["Value Engine", "Combo Partner"], matchedCombo.CardNames);
+        Assert.Equal(["Infinite mana"], matchedCombo.Results);
+        Assert.Empty(membership.NearCombos);
+    }
+
+    [Fact]
+    public async Task BuildAsync_NearComboCard_ResolvesMembershipWithMissingCard()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList =
+        [
+            PoolCard("Focused Commander", "Legendary Creature — Human Wizard", isCommander: true),
+            PoolCard("Near Piece", "Artifact"),
+        ];
+        List<ScryfallCard> cards =
+        [
+            Spell("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{G}{U}", cmc: 3),
+            Spell("Near Piece", "Artifact", manaCost: "{2}", cmc: 2),
+        ];
+        SpellbookAlmostCombo nearCombo = new("Missing Piece", ["Near Piece"], ["Draw your deck"], "Add the missing piece.");
+        var builder = new CutLabAnalysisContextBuilder(
+            new CountingResolver(cards),
+            new CutLabResolvedCardCache(),
+            new LocalSpellbookService
+            {
+                Result = new CommanderSpellbookResult([], [nearCombo]),
+            });
+
+        CutLabAnalysisContext context = await builder.BuildAsync(
+            workingList,
+            "Focused",
+            ["Focused Commander"]);
+
+        Assert.True(context.Classification.CardComboMembership.TryGetValue(
+            CutLabCardNames.Normalize("Near Piece"),
+            out CutLabCardComboMembership? membership));
+        Assert.NotNull(membership);
+        Assert.Empty(membership!.CompleteCombos);
+        SpellbookAlmostCombo matchedCombo = Assert.Single(membership.NearCombos);
+        Assert.Equal("Missing Piece", matchedCombo.MissingCard);
+    }
+
+    [Fact]
+    public async Task BuildAsync_CardOutsideCombos_HasNoMembershipAndNoComboWinconRole()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList =
+        [
+            PoolCard("Focused Commander", "Legendary Creature — Human Wizard", isCommander: true),
+            PoolCard("Value Engine", "Enchantment"),
+            PoolCard("Combo Partner", "Artifact"),
+            PoolCard("Plain Value", "Artifact"),
+        ];
+        List<ScryfallCard> cards =
+        [
+            Spell("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{G}{U}", cmc: 3),
+            Spell("Value Engine", "Enchantment", manaCost: "{2}{U}", cmc: 3),
+            Spell("Combo Partner", "Artifact", manaCost: "{2}", cmc: 2),
+            Spell("Plain Value", "Artifact", manaCost: "{3}", cmc: 3),
+        ];
+        var builder = new CutLabAnalysisContextBuilder(
+            new CountingResolver(cards),
+            new CutLabResolvedCardCache(),
+            new LocalSpellbookService
+            {
+                Result = new CommanderSpellbookResult(
+                    [new SpellbookCombo(["Value Engine", "Combo Partner"], ["Infinite mana"], "Make infinite mana.")],
+                    []),
+            });
+
+        CutLabAnalysisContext context = await builder.BuildAsync(
+            workingList,
+            "Focused",
+            ["Focused Commander"]);
+
+        Assert.False(context.Classification.CardComboMembership.ContainsKey(CutLabCardNames.Normalize("Plain Value")));
+        Assert.DoesNotContain("wincons", context.RolesByCardName["Plain Value"]);
+    }
+
+    [Fact]
+    public async Task BuildAsync_CompleteComboCard_PreservesComboWinconRoleSignal()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList =
+        [
+            PoolCard("Focused Commander", "Legendary Creature — Human Wizard", isCommander: true),
+            PoolCard("Value Engine", "Enchantment"),
+            PoolCard("Combo Partner", "Artifact"),
+        ];
+        List<ScryfallCard> cards =
+        [
+            Spell("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{G}{U}", cmc: 3),
+            Spell("Value Engine", "Enchantment", manaCost: "{2}{U}", cmc: 3),
+            Spell("Combo Partner", "Artifact", manaCost: "{2}", cmc: 2),
+        ];
+        var builder = new CutLabAnalysisContextBuilder(
+            new CountingResolver(cards),
+            new CutLabResolvedCardCache(),
+            new LocalSpellbookService
+            {
+                Result = new CommanderSpellbookResult(
+                    [new SpellbookCombo(["Value Engine", "Combo Partner"], ["Infinite mana"], "Make infinite mana.")],
+                    []),
+            });
+
+        CutLabAnalysisContext context = await builder.BuildAsync(
+            workingList,
+            "Focused",
+            ["Focused Commander"]);
+
+        Assert.Contains("wincons", context.RolesByCardName["Value Engine"]);
+    }
+
+    [Fact]
     public async Task BuildAsync_CacheHit_SkipsResolver()
     {
         IReadOnlyList<CutLabPoolCard> workingList =
