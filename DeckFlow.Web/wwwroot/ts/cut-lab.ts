@@ -1307,6 +1307,27 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     return button;
   };
 
+  const clonePoolRowCardTextDisclosure = (cardName: string): HTMLDetailsElement | null => {
+    if (cardName === '') {
+      return null;
+    }
+
+    const disclosure = document.querySelector<HTMLDetailsElement>(
+      `tr[data-cut-lab-card="${cssEscape(cardName)}"] .cutlab-card-text`,
+    );
+    if (!disclosure) {
+      return null;
+    }
+
+    const clone = disclosure.cloneNode(true);
+    if (!(clone instanceof HTMLDetailsElement)) {
+      return null;
+    }
+
+    clone.removeAttribute('open');
+    return clone;
+  };
+
   const replaceChildren = (element: Element, children: Node[]): void => {
     while (element.firstChild) {
       element.removeChild(element.firstChild);
@@ -1763,7 +1784,14 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
             const chips = document.createElement('div');
             chips.className = 'kb-chip-area__chips';
             item.evidence.forEach(evidence => {
-              chips.appendChild(createStructuralEvidenceChip(evidence));
+              const chip = createStructuralEvidenceChip(evidence);
+              chips.appendChild(chip);
+              if (chip instanceof HTMLButtonElement) {
+                const disclosure = clonePoolRowCardTextDisclosure(chip.dataset.cutLabChipCard ?? '');
+                if (disclosure) {
+                  chips.appendChild(disclosure);
+                }
+              }
             });
             itemElement.appendChild(chips);
           }
