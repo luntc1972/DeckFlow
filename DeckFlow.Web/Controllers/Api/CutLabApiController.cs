@@ -19,26 +19,26 @@ public sealed class CutLabApiController : ControllerBase
     private readonly ICutLabAnalysisContextBuilder _contextBuilder;
     private readonly ICutLabUiPatchBuilder _patchBuilder;
     private readonly ICutLabSimulationService _simulationService;
-    private readonly ICutLabWhatifPreviewService _whatifPreviewService;
+    private readonly ICutLabWhatifService _whatifService;
     private readonly ILogger<CutLabApiController> _logger;
 
     /// <summary>Creates the Cut Lab API controller.</summary>
     /// <param name="contextBuilder">Shared analysis-context builder reused by intake and decision flows.</param>
     /// <param name="patchBuilder">Shared UI patch builder reused by mutation endpoints.</param>
     /// <param name="simulationService">Simulation service used for proposal deltas.</param>
-    /// <param name="whatifPreviewService">Shared what-if preview service reused by API and no-JS swap flows.</param>
+    /// <param name="whatifService">Shared what-if preview service reused by API and no-JS swap flows.</param>
     /// <param name="logger">Logger used for non-fatal API warnings.</param>
     public CutLabApiController(
         ICutLabAnalysisContextBuilder contextBuilder,
         ICutLabUiPatchBuilder patchBuilder,
         ICutLabSimulationService simulationService,
-        ICutLabWhatifPreviewService whatifPreviewService,
+        ICutLabWhatifService whatifService,
         ILogger<CutLabApiController> logger)
     {
         _contextBuilder = contextBuilder ?? throw new ArgumentNullException(nameof(contextBuilder));
         _patchBuilder = patchBuilder ?? throw new ArgumentNullException(nameof(patchBuilder));
         _simulationService = simulationService ?? throw new ArgumentNullException(nameof(simulationService));
-        _whatifPreviewService = whatifPreviewService ?? throw new ArgumentNullException(nameof(whatifPreviewService));
+        _whatifService = whatifService ?? throw new ArgumentNullException(nameof(whatifService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -235,8 +235,8 @@ public sealed class CutLabApiController : ControllerBase
             }
 
             ValidateWhatifPair(state, request.CardOut, request.CardIn);
-            CutLabWhatifPreview preview = await _whatifPreviewService
-                .ComputeSwapPreviewAsync(state, request.CardOut, request.CardIn, cancellationToken)
+            CutLabWhatifPreview preview = await _whatifService
+                .PreviewSwapAsync(state, request.CardOut, request.CardIn, cancellationToken)
                 .ConfigureAwait(false);
 
             return Ok(new CutLabWhatifApiResponse

@@ -35,7 +35,7 @@ public sealed class CutLabApiControllerTests
             new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()),
             null!,
             new FakeSimulationService(),
-            new FakeWhatifPreviewService(),
+            new FakeWhatifService(),
             NullLogger<CutLabApiController>.Instance));
     }
 
@@ -701,7 +701,7 @@ public sealed class CutLabApiControllerTests
             builder,
             patchBuilder ?? new CutLabUiPatchBuilder(builder, simulation),
             simulation,
-            new FakeWhatifPreviewService(),
+            new FakeWhatifService(),
             NullLogger<CutLabApiController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -950,13 +950,26 @@ public sealed class CutLabApiControllerTests
         }
     }
 
-    private sealed class FakeWhatifPreviewService : ICutLabWhatifPreviewService
+    private sealed class FakeWhatifService : ICutLabWhatifService
     {
-        public Task<CutLabWhatifPreview> ComputeSwapPreviewAsync(CutLabState state, string cardOut, string cardIn, CancellationToken cancellationToken)
+        public Task<CutLabWhatifPreview> PreviewSwapAsync(CutLabState state, string cardOut, string cardIn, CancellationToken cancellationToken)
             => Task.FromResult(new CutLabWhatifPreview
             {
                 CardOut = cardOut,
                 CardIn = cardIn,
+            });
+
+        public bool TryValidateSwap(CutLabState state, string cardOut, string cardIn, out string? error)
+        {
+            error = null;
+            return true;
+        }
+
+        public Task<CutLabWhatifCommitResult> CommitSwapAsync(CutLabState state, string cardOut, string cardIn, CancellationToken cancellationToken)
+            => Task.FromResult(new CutLabWhatifCommitResult
+            {
+                Applied = false,
+                State = state,
             });
     }
 

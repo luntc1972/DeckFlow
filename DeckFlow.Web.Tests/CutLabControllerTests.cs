@@ -510,7 +510,7 @@ public sealed class CutLabControllerTests
     public async Task Whatif_Preview_RendersDeltaRowsWithoutMutatingPersistedState()
     {
         var service = new WhatifStateAwareCutLabPageService();
-        var previewService = new FakeWhatifPreviewService
+        var previewService = new FakeWhatifService
         {
             Preview = new CutLabWhatifPreview
             {
@@ -565,7 +565,7 @@ public sealed class CutLabControllerTests
     public async Task Whatif_Keep_CommitsRestoreAndAcceptUnderWhatifRound()
     {
         var service = new WhatifStateAwareCutLabPageService();
-        var controller = CreateController(service, new FakeWhatifPreviewService());
+        var controller = CreateController(service, new FakeWhatifService());
         var request = new CutLabRequest
         {
             CutLabStateJson = CutLabStateSerializer.Serialize(CreateState(
@@ -597,7 +597,7 @@ public sealed class CutLabControllerTests
     public async Task Whatif_LockedCardOut_RerendersNoChangeAndLeavesStateUnchanged()
     {
         var service = new WhatifStateAwareCutLabPageService();
-        var controller = CreateController(service, new FakeWhatifPreviewService());
+        var controller = CreateController(service, new FakeWhatifService());
         var state = CreateState(
             new CutLabDecision
             {
@@ -674,11 +674,11 @@ public sealed class CutLabControllerTests
             resolver,
             NullLogger<CutLabSimulationService>.Instance,
             BuildWhatifSnapshot);
-        ICutLabWhatifPreviewService previewService = new CutLabWhatifPreviewService(
+        ICutLabWhatifService whatifService = new CutLabWhatifService(
             simulationService,
             contextBuilder,
             resolvedCardCache);
-        var controller = CreateController(service, previewService);
+        var controller = CreateController(service, whatifService);
         var request = new CutLabRequest
         {
             CutLabStateJson = CutLabStateSerializer.Serialize(state),
@@ -695,9 +695,9 @@ public sealed class CutLabControllerTests
 
     private static CutLabController CreateController(
         ICutLabPageService service,
-        ICutLabWhatifPreviewService? whatifPreviewService = null,
+        ICutLabWhatifService? whatifService = null,
         ICutLabExportService? exportService = null) =>
-        new(service, whatifPreviewService ?? new FakeWhatifPreviewService(), exportService ?? new FakeExportService(), new FakeLogger<CutLabController>())
+        new(service, whatifService ?? new FakeWhatifService(), exportService ?? new FakeExportService(), new FakeLogger<CutLabController>())
         {
             ControllerContext = new ControllerContext
             {
@@ -824,15 +824,28 @@ public sealed class CutLabControllerTests
         }
     }
 
-    private sealed class FakeWhatifPreviewService : ICutLabWhatifPreviewService
+    private sealed class FakeWhatifService : ICutLabWhatifService
     {
         public CutLabWhatifPreview Preview { get; set; } = new();
 
-        public Task<CutLabWhatifPreview> ComputeSwapPreviewAsync(CutLabState state, string cardOut, string cardIn, CancellationToken cancellationToken)
+        public Task<CutLabWhatifPreview> PreviewSwapAsync(CutLabState state, string cardOut, string cardIn, CancellationToken cancellationToken)
             => Task.FromResult(Preview with
             {
                 CardOut = Preview.CardOut == string.Empty ? cardOut : Preview.CardOut,
                 CardIn = Preview.CardIn == string.Empty ? cardIn : Preview.CardIn,
+            });
+
+        public bool TryValidateSwap(CutLabState state, string cardOut, string cardIn, out string? error)
+        {
+            error = null;
+            return true;
+        }
+
+        public Task<CutLabWhatifCommitResult> CommitSwapAsync(CutLabState state, string cardOut, string cardIn, CancellationToken cancellationToken)
+            => Task.FromResult(new CutLabWhatifCommitResult
+            {
+                Applied = false,
+                State = state,
             });
     }
 

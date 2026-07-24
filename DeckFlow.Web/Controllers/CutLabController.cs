@@ -11,22 +11,22 @@ namespace DeckFlow.Web.Controllers;
 public sealed class CutLabController : Controller
 {
     private readonly ICutLabPageService _pageService;
-    private readonly ICutLabWhatifPreviewService _whatifPreviewService;
+    private readonly ICutLabWhatifService _whatifService;
     private readonly ICutLabExportService _exportService;
     private readonly ILogger<CutLabController> _logger;
 
     /// <summary>Creates the controller with its page service and logger.</summary>
     public CutLabController(
         ICutLabPageService pageService,
-        ICutLabWhatifPreviewService whatifPreviewService,
+        ICutLabWhatifService whatifService,
         ICutLabExportService exportService,
         ILogger<CutLabController> logger)
     {
         ArgumentNullException.ThrowIfNull(pageService);
-        ArgumentNullException.ThrowIfNull(whatifPreviewService);
+        ArgumentNullException.ThrowIfNull(whatifService);
         ArgumentNullException.ThrowIfNull(exportService);
         _pageService = pageService;
-        _whatifPreviewService = whatifPreviewService;
+        _whatifService = whatifService;
         _exportService = exportService;
         _logger = logger;
     }
@@ -287,8 +287,8 @@ public sealed class CutLabController : Controller
 
             if (string.Equals(intent, "preview", StringComparison.OrdinalIgnoreCase))
             {
-                CutLabWhatifPreview preview = await _whatifPreviewService
-                    .ComputeSwapPreviewAsync(state, cardOut, cardIn, HttpContext.RequestAborted)
+                CutLabWhatifPreview preview = await _whatifService
+                    .PreviewSwapAsync(state, cardOut, cardIn, HttpContext.RequestAborted)
                     .ConfigureAwait(false);
                 return await RenderWhatifViewAsync(request, state, preview, null);
             }
