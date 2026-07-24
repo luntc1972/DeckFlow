@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: Cycle 19
 milestone_name: Cut Lab Upgrade Hardening
 status: executing
-stopped_at: "Cycle 19 milestone created from Cut Lab follow-up backlog. Next: `/gsd-plan-phase 108`."
-last_updated: "2026-07-23T20:53:20.977Z"
-last_activity: 2026-07-23 -- Phase 108 execution started
+stopped_at: "Phase 109 executed + verified (2/2 plans). Next: `/gsd-plan-phase 110`."
+last_updated: "2026-07-24T01:45:00.000Z"
+last_activity: 2026-07-23 -- Phase 109 execution complete (what-if service consolidation)
 progress:
   total_phases: 4
-  completed_phases: 0
-  total_plans: 3
-  completed_plans: 0
-  percent: 0
+  completed_phases: 2
+  total_plans: 5
+  completed_plans: 5
+  percent: 50
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 108 — server-authored-cut-lab-ui-patch-contract
+**Current focus:** Phase 110 — cut-lab-navigation-and-pool-discovery (next to plan)
 
 ## Current Position
 
-Phase: 108 (server-authored-cut-lab-ui-patch-contract) — EXECUTING
-Plan: 1 of 3
-Status: Executing Phase 108
-Last activity: 2026-07-23 -- Phase 108 execution started
+Phase: 109 (what-if-service-consolidation) — COMPLETE
+Plan: 2 of 2
+Status: Phase 109 executed and verified; Phase 110 not yet planned
+Last activity: 2026-07-23 -- Phase 109 execution complete (what-if service consolidation)
 
 ## Active Milestone
 
@@ -64,9 +64,10 @@ Carried-forward operator gates and descoped items (still open):
 | Sync follow-ons | SYNC-F1 (retire DirectPush entirely) | Deferred — later-cycle decision |
 | Sync follow-ons | SYNC-F2 (scheduled/automatic reconcile runs) | Deferred — operator-triggered only today |
 | Cut Lab follow-ons | F1 (cut-lab.ts re-derives server state), F2 (what-if validation 3-site split), mobile jump-nav | Promoted to Cycle 19 |
+| Test hygiene | `FeatureFlagStoreMigrationTests.Dispose()` calls process-global `SqliteConnection.ClearAllPools()`; under xUnit's parallel class execution it can dispose pooled `sqlite3` handles out from under a concurrently-running test in another class (`ObjectDisposedException: 'SQLitePCL.sqlite3'`). Seen once during Phase 109; did not reproduce on re-run. | Deferred — pre-existing flake, needs collection-fixture isolation |
 
 ## Session Continuity
 
 Last session: 2026-07-23
-Stopped at: Cycle 19 milestone created from Cut Lab follow-up backlog. Next: `/gsd-plan-phase 108`.
+Stopped at: Phase 109 executed + independently verified (2/2 plans, 5 commits). Next: `/gsd-plan-phase 110`.
 Resume file: none
