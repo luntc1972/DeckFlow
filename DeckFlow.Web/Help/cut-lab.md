@@ -29,6 +29,8 @@ Some parts of the pool are non-negotiable. The commander is always locked. Beyon
 
 Use this step to remove "not up for debate" cards from the trimming conversation before the cut engine starts surfacing options.
 
+If a pool card is part of a known Commander Spellbook combo, Cut Lab also marks it with a **Combo piece** badge and an inline disclosure describing which combo it belongs to and what that combo does. This is advisory decision-support, not an automatic lock and not a hidden engine rule: the card can still be considered for cuts, but the workspace makes the combo context explicit so you do not cut one half unknowingly.
+
 ## See the pool's structure
 
 Once the pool is loaded and protected, Cut Lab reads the deck's functional composition. It surfaces structural findings such as role and slot competition, plus weak or unmet role floors that would make later cuts risky.
@@ -57,4 +59,4 @@ Singleton legality is still enforced, so this tuning step helps you finish the l
 
 Once the deck is a validated 100, export the finished list plus an add / cut patch in both Moxfield and Archidekt text formats. That makes the last step practical: copy the final list or patch straight back into your builder instead of manually reconstructing the cuts.
 
-Cut Lab is behind the `tool.cut-lab.enabled` feature flag. On small screens, the Packages, Scenarios, and What-if sections collapse into expandable panels so the workspace stays usable without dropping the shipped functionality.
+Cut Lab is behind the `tool.cut-lab.enabled` feature flag. On small screens, the Packages, Scenarios, and What-if sections collapse into expandable panels so the workspace stays usable without dropping the shipped functionality. The shipped workspace is also verified readable and keyboard-accessible across all supported guild themes.
