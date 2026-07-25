@@ -390,7 +390,7 @@ describe('cut-lab adjust enhancement', () => {
     expect(document.querySelector('.cutlab-round-banner .cutlab-finding__heading')?.textContent).toBe('Round 1');
     expect(document.querySelector('.cutlab-proposal__heading')?.textContent).toBe('Proposed cut: Island');
     expect(document.querySelector('[data-cut-lab-structural-findings-body]')?.textContent).toContain('Existing structural issue.');
-    expect(document.querySelector('.cutlab-cuts-made__row span')?.textContent).toBe('Old Cut');
+    expect(document.querySelector('.cutlab-cuts-made__row [data-cutlab-card-open]')?.textContent).toBe('Old Cut');
     expect(document.querySelector('tr[data-cut-lab-tuner-row="Island"] [data-cut-lab-quantity-value]')?.textContent).toBe('99');
     expect(document.querySelector('[data-cut-lab-sticky-remaining]')?.textContent).toBe('0 to cut');
     expect(document.querySelector('[data-cut-lab-sticky-round]')?.textContent).toBe('Round 1');

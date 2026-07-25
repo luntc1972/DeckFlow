@@ -143,6 +143,59 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_CardTextByCardName_CarriesCmcAndCastPercentWhenPresentAndLeavesLandsNull()
+    {
+        const string commanderName = "Atraxa, Praetors' Voice";
+        const string spellName = "Counterspell";
+        const string landName = "Command Tower";
+        var entries = new List<DeckEntry>
+        {
+            Entry(commanderName, "commander"),
+            Entry(spellName, "mainboard"),
+            Entry(landName, "mainboard"),
+        };
+        entries.AddRange(BuildBasicMainboard(start: 1, count: 118));
+        var cards = BuildResolvedCards(entries);
+        var simulation = new FakeSimulationService
+        {
+            SnapshotResultFactory = (_, _, _, _) => new CutLabSimulationResult
+            {
+                Snapshot = BuildSevenMetricSnapshot(10),
+                CastabilityByCardName = new Dictionary<string, CutLabSimulationCardView>(StringComparer.OrdinalIgnoreCase)
+                {
+                    [spellName] = new CutLabSimulationCardView
+                    {
+                        Cmc = 2,
+                        CastPercent = 82,
+                    },
+                },
+            },
+        };
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]),
+            simulationService: simulation);
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.True(result.CardTextByCardName.TryGetValue(spellName, out CutLabCardTextView? spellText));
+        Assert.NotNull(spellText);
+        Assert.Equal(2, spellText.Cmc);
+        Assert.Equal(82, spellText.CastPercent);
+
+        Assert.True(result.CardTextByCardName.TryGetValue(landName, out CutLabCardTextView? landText));
+        Assert.NotNull(landText);
+        Assert.Null(landText.Cmc);
+        Assert.Null(landText.CastPercent);
+    }
+
+    [Fact]
     public async Task ProcessAsync_CardTextByCardName_UsesFaceOracleTextWhenTopLevelOracleTextIsBlank()
     {
         const string commanderName = "Atraxa, Praetors' Voice";
@@ -2691,11 +2744,35 @@ public sealed class CutLabPageServiceTests
     {
         public Func<IReadOnlyList<CutLabPoolCard>, string?, int?, CutLabGoalSettings?, CutLabMetricSnapshot>? SnapshotFactory { get; set; }
 
+        public Func<IReadOnlyList<CutLabPoolCard>, string?, int?, CutLabGoalSettings?, CutLabSimulationResult>? SnapshotResultFactory { get; set; }
+
         public Func<IReadOnlyList<CutLabPoolCard>, string, string?, CutLabGoalSettings?, CutLabProposalDeltas>? DeltasFactory { get; set; }
 
         public Exception? BuildSnapshotException { get; set; }
 
         public Exception? ComputeProposalDeltasException { get; set; }
+
+        public Task<CutLabSimulationResult> BuildSnapshotResult(
+            IReadOnlyList<CutLabPoolCard> workingList,
+            string? playExperience,
+            int? trialsOverride = ICutLabSimulationService.InLoopTrials,
+            string? poolKey = null,
+            CutLabGoalSettings? goals = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (BuildSnapshotException is not null)
+            {
+                return Task.FromException<CutLabSimulationResult>(BuildSnapshotException);
+            }
+
+            if (SnapshotResultFactory is not null)
+            {
+                return Task.FromResult(SnapshotResultFactory.Invoke(workingList, playExperience, trialsOverride, goals));
+            }
+
+            CutLabMetricSnapshot snapshot = SnapshotFactory?.Invoke(workingList, playExperience, trialsOverride, goals) ?? BuildSevenMetricSnapshot(10);
+            return Task.FromResult(new CutLabSimulationResult { Snapshot = snapshot });
+        }
 
         public Task<CutLabMetricSnapshot> BuildSnapshot(
             IReadOnlyList<CutLabPoolCard> workingList,

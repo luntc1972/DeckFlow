@@ -91,6 +91,17 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             context,
             floorByRole,
             state.Decisions);
+        CutLabSimulationResult snapshotResult = await _simulationService.BuildSnapshotResult(
+            workingList,
+            playExperience,
+            trialsOverride: ICutLabSimulationService.InLoopTrials,
+            poolKey: resolvedPoolKey,
+            goals: state.Goals,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        state = state with
+        {
+            Pool = ApplySimulationCardData(state.Pool, snapshotResult.CastabilityByCardName),
+        };
 
         CutLabDecideProposalDeltasDto? proposalDeltas = null;
         if (roundPlan.NextProposal is not null)
@@ -111,12 +122,16 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             CutLabStateJson = CutLabStateSerializer.Serialize(state),
             CurrentCount = projection.CurrentCount,
             CardsRemaining = projection.CardsRemaining,
+            ActualLands = snapshotResult.ActualLands,
+            TargetLands = snapshotResult.TargetLands,
             CanBuildExport = projection.CanBuildExport,
+            CardTextByCardName = BuildPopupCardTextPatch(state.Pool),
             NextProposal = BuildNextProposal(roundPlan, findings),
             ProposalDeltas = proposalDeltas,
             FloorWarnings = floorWarnings ?? BuildFloorWarningsForNextProposal(workingList, context, floorByRole, roundPlan),
             CutsMade = BuildCutsMade(state.Decisions),
             StructuralFindings = BuildStructuralFindings(findings),
+            LockedOvershootAdvisory = BuildLockedOvershootAdvisory(roundPlan.LockedOvershootAdvisory),
             ComboBadgeByCardName = BuildComboBadgeByCardName(context.Classification.CardComboMembership),
             ComboDataAvailable = findings.ComboDataAvailable,
             CategoryDataAvailable = findings.CategoryDataAvailable,
@@ -145,6 +160,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             CurrentCount = projection.CurrentCount,
             CardsRemaining = projection.CardsRemaining,
             CanBuildExport = projection.CanBuildExport,
+            CardTextByCardName = BuildPopupCardTextPatch(state.Pool),
             NextProposal = projection.CanBuildExport
                 ? new CutLabDecideNextProposalDto
                 {
@@ -156,6 +172,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             FloorWarnings = [],
             CutsMade = BuildCutsMade(state.Decisions),
             StructuralFindings = [],
+            LockedOvershootAdvisory = null,
             ComboBadgeByCardName = new Dictionary<string, CutLabDecideComboBadgeDto>(CutLabCardNames.Comparer),
             ComboDataAvailable = false,
             CategoryDataAvailable = false,
@@ -163,6 +180,62 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             WhatifCardInOptions = projection.WhatifCardInOptions,
             QuantityTuners = BuildQuantityTuners(projection.WorkingList, projection.OriginalPoolNames, roleAssignmentsByCardName),
             AddableBasics = projection.AddableBasics,
+        };
+    }
+
+    private static IReadOnlyList<CutLabPoolCard> ApplySimulationCardData(
+        IReadOnlyList<CutLabPoolCard> pool,
+        IReadOnlyDictionary<string, CutLabSimulationCardView> castabilityByCardName)
+    {
+        return pool
+            .Select(card => castabilityByCardName.TryGetValue(card.Name, out CutLabSimulationCardView? popupData)
+                ? card with
+                {
+                    LastKnownCmc = popupData.Cmc,
+                    LastKnownCastPercent = popupData.CastPercent,
+                }
+                : card)
+            .ToArray();
+    }
+
+    private static IReadOnlyDictionary<string, CutLabCardTextView> BuildPopupCardTextPatch(IReadOnlyList<CutLabPoolCard> pool)
+    {
+        Dictionary<string, CutLabCardTextView> result = new(StringComparer.OrdinalIgnoreCase);
+        foreach (CutLabPoolCard card in pool)
+        {
+            if (card.LastKnownCmc is null && card.LastKnownCastPercent is null)
+            {
+                continue;
+            }
+
+            result[card.Name] = new CutLabCardTextView
+            {
+                Cmc = card.LastKnownCmc,
+                CastPercent = card.LastKnownCastPercent,
+            };
+        }
+
+        return result;
+    }
+
+    private static CutLabLockedOvershootAdvisoryDto? BuildLockedOvershootAdvisory(CutLabLockedOvershootAdvisory? advisory)
+    {
+        if (advisory is null)
+        {
+            return null;
+        }
+
+        return new CutLabLockedOvershootAdvisoryDto
+        {
+            CardsOverTarget = advisory.CardsOverTarget,
+            HiddenCount = advisory.HiddenCount,
+            Groups = advisory.Groups
+                .Select(group => new CutLabLockedOvershootGroupDto
+                {
+                    RoleLabel = DisplayLabelFor(group.RoleKey),
+                    CardNames = group.CardNames,
+                })
+                .ToArray(),
         };
     }
 

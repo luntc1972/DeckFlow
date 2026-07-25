@@ -66,6 +66,8 @@ interface CutLabCardTextEntry {
   collectorNumber?: string;
   oracleText?: string;
   comboContext?: string;
+  cmc?: number;
+  castPercent?: number;
 }
 
 interface Window {
@@ -165,6 +167,7 @@ interface CutLabUiPatch {
   currentCount: number;
   cardsRemaining: number;
   canBuildExport: boolean;
+  cardTextByCardName?: Record<string, CutLabCardTextEntry>;
   nextProposal: CutLabDecisionNextProposal;
   proposalDeltas: CutLabDecisionProposalDeltas | null;
   floorWarnings: CutLabDecisionFloorWarning[];
@@ -820,6 +823,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const getCardModalCombo = (): HTMLElement | null =>
     document.querySelector<HTMLElement>('[data-cutlab-modal-combo]');
 
+  const getCardModalCastability = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cutlab-modal-castability]');
+
+  const getCardModalActions = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('.cutlab-card-modal__actions');
+
   const getCardModalLockButton = (): HTMLButtonElement | null =>
     document.querySelector<HTMLButtonElement>('[data-cutlab-modal-lock]');
 
@@ -1460,6 +1469,20 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     });
   };
 
+  const syncCardTextData = (cardTextByCardName: Record<string, CutLabCardTextEntry> | undefined): void => {
+    if (!cardTextByCardName) {
+      return;
+    }
+
+    const cardTextData = getCardTextData();
+    Object.entries(cardTextByCardName).forEach(([cardName, entry]) => {
+      cardTextData[cardName] = {
+        ...(cardTextData[cardName] ?? {}),
+        ...entry,
+      };
+    });
+  };
+
   const getCardRowByName = (cardName: string): HTMLTableRowElement | null =>
     document.querySelector<HTMLTableRowElement>(`tr[data-cut-lab-card="${cssEscape(cardName)}"]`);
 
@@ -1499,8 +1522,34 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     return metaParts.join(' · ');
   };
 
-  const syncCardModalLockButton = (cardName: string): void => {
-    const lockButton = getCardModalLockButton();
+  const ensureCardModalLockButton = (): HTMLButtonElement | null => {
+    const existing = getCardModalLockButton();
+    if (existing) {
+      return existing;
+    }
+
+    const actions = getCardModalActions();
+    if (!actions) {
+      return null;
+    }
+
+    const closeButton = actions.querySelector<HTMLElement>('[data-cutlab-modal-close]');
+    const lockButton = document.createElement('button');
+    lockButton.type = 'button';
+    lockButton.className = 'cutlab-card-modal__button cutlab-card-modal__button--lock';
+    lockButton.dataset.cutlabModalLock = '';
+    lockButton.textContent = 'Lock';
+    actions.insertBefore(lockButton, closeButton);
+    return lockButton;
+  };
+
+  const syncCardModalLockButton = (cardName: string, viewOnly: boolean): void => {
+    if (viewOnly) {
+      getCardModalLockButton()?.remove();
+      return;
+    }
+
+    const lockButton = ensureCardModalLockButton();
     if (!lockButton) {
       return;
     }
@@ -1523,7 +1572,15 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     lockButton.textContent = checkbox.checked ? 'Unlock' : 'Lock';
   };
 
-  const openCardModal = (cardName: string): void => {
+  const getCardCastabilityLine = (entry: CutLabCardTextEntry | null): string => {
+    if (!entry || typeof entry.cmc !== 'number' || typeof entry.castPercent !== 'number') {
+      return '';
+    }
+
+    return `CMC ${entry.cmc} · Cast by turn ${entry.cmc}: ${Math.round(entry.castPercent)}% at your current pool size`;
+  };
+
+  const openCardModal = (cardName: string, viewOnly: boolean = false): void => {
     const dialog = getCardModal();
     const title = getCardModalTitle();
     const oracle = getCardModalOracle();
@@ -1536,13 +1593,20 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const metaLine = getCardMetaLine(entry);
     const oracleText = entry?.oracleText?.trim() ?? '';
     const comboText = entry?.comboContext?.trim() ?? '';
+    const castabilityText = getCardCastabilityLine(entry);
     const meta = getCardModalMeta();
     const combo = getCardModalCombo();
+    const castability = getCardModalCastability();
 
     title.textContent = cardName;
     if (meta) {
       meta.textContent = metaLine;
       meta.hidden = metaLine === '';
+    }
+
+    if (castability) {
+      castability.textContent = castabilityText;
+      castability.hidden = castabilityText === '';
     }
 
     oracle.textContent = oracleText !== '' ? oracleText : 'No card text available.';
@@ -1552,7 +1616,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       combo.hidden = comboText === '';
     }
 
-    syncCardModalLockButton(cardName);
+    syncCardModalLockButton(cardName, viewOnly);
 
     if (!dialog.hasAttribute('open')) {
       try {
@@ -2141,7 +2205,13 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     cutsMade.forEach(cut => {
       const row = document.createElement('div');
       row.className = 'cutlab-cuts-made__row';
-      row.appendChild(createTextElement('span', '', cut.cardName));
+      const trigger = document.createElement('button');
+      trigger.type = 'button';
+      trigger.className = 'cutlab-card-link';
+      trigger.dataset.cutlabCardOpen = cut.cardName;
+      trigger.dataset.cutlabCardViewOnly = 'true';
+      trigger.textContent = cut.cardName;
+      row.appendChild(trigger);
       row.appendChild(createTextElement('span', 'prompt-size-note', `cut in ${cut.roundLabel}`));
       row.appendChild(createRestoreForm(cut, serializedState, antiForgeryToken));
       details.appendChild(row);
@@ -2157,7 +2227,15 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     details.closest<HTMLElement>('section.result-panel')?.setAttribute('data-cut-lab-cuts-made-section', 'true');
 
     const row = Array.from(details.querySelectorAll<HTMLDivElement>('.cutlab-cuts-made__row'))
-      .find(candidate => candidate.querySelector('span')?.textContent?.trim() === cardName);
+      .find(candidate => {
+        const triggerText = candidate.querySelector<HTMLElement>('[data-cutlab-card-open]')?.textContent?.trim();
+        if (triggerText === cardName) {
+          return true;
+        }
+
+        const legacyLabel = candidate.querySelector<HTMLSpanElement>('span')?.textContent?.trim();
+        return legacyLabel === cardName;
+      });
     if (!row) {
       return;
     }
@@ -2185,6 +2263,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     // A patch may omit the combo map (older/cached responses, light adjust path); treat a
     // missing map as "no badges" so a stale fixture cannot abort the whole findings re-render.
     const comboBadgeByCardName = patch.comboBadgeByCardName ?? {};
+    syncCardTextData(patch.cardTextByCardName);
     syncCardTextComboContexts(comboBadgeByCardName);
 
     const totalFindings = patch.structuralFindings.reduce((count, group) => count + group.items.length, 0);
@@ -3937,7 +4016,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
         const openTrigger = target.closest<HTMLElement>('[data-cutlab-card-open]');
         if (openTrigger?.dataset.cutlabCardOpen) {
-          openCardModal(openTrigger.dataset.cutlabCardOpen);
+          openCardModal(openTrigger.dataset.cutlabCardOpen, openTrigger.dataset.cutlabCardViewOnly === 'true');
           return;
         }
 
@@ -3959,13 +4038,13 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         const row = getCardRowByName(cardName);
         const checkbox = row ? getLockCheckbox(row) : null;
         if (!checkbox || checkbox.disabled) {
-          syncCardModalLockButton(cardName);
+          syncCardModalLockButton(cardName, false);
           return;
         }
 
         checkbox.checked = !checkbox.checked;
         refreshAndSerialize();
-        syncCardModalLockButton(cardName);
+        syncCardModalLockButton(cardName, false);
       });
     }
 

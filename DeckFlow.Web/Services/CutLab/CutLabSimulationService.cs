@@ -9,6 +9,15 @@ namespace DeckFlow.Web.Services.CutLab;
 /// <summary>Builds Cut Lab metric snapshots and proposal deltas by reusing the existing manabase engine.</summary>
 public interface ICutLabSimulationService
 {
+    /// <summary>Builds the metric snapshot plus ancillary per-card and land-summary details for the current working list.</summary>
+    Task<CutLabSimulationResult> BuildSnapshotResult(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        string? playExperience,
+        int? trialsOverride = InLoopTrials,
+        string? poolKey = null,
+        CutLabGoalSettings? goals = null,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Builds the metric snapshot for the current working list.</summary>
     /// <param name="workingList">Current working pool cards.</param>
     /// <param name="playExperience">Cut Lab play-experience label used to resolve the shared manabase mode.</param>
@@ -45,6 +54,33 @@ public interface ICutLabSimulationService
 
     /// <summary>Default in-loop trial count for Task 103-05 delta snapshots.</summary>
     public const int InLoopTrials = 4000;
+}
+
+/// <summary>Per-card popup data projected from the shared manabase castability report.</summary>
+public sealed record CutLabSimulationCardView
+{
+    /// <summary>Rounded mana value shown as CMC in the card popup.</summary>
+    public int? Cmc { get; init; }
+
+    /// <summary>Castability percentage for the current working pool.</summary>
+    public double? CastPercent { get; init; }
+}
+
+/// <summary>Simulation result bundle reused by page render and live UI patching.</summary>
+public sealed record CutLabSimulationResult
+{
+    /// <summary>The seven-family metric snapshot for the simulated pool.</summary>
+    public CutLabMetricSnapshot Snapshot { get; init; } = new();
+
+    /// <summary>Per-card popup stats keyed by card name.</summary>
+    public IReadOnlyDictionary<string, CutLabSimulationCardView> CastabilityByCardName { get; init; } =
+        new Dictionary<string, CutLabSimulationCardView>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Actual lands counted in the current working pool.</summary>
+    public int ActualLands { get; init; }
+
+    /// <summary>Manabase target land count for the current working pool.</summary>
+    public double TargetLands { get; init; }
 }
 
 /// <summary>Cut Lab simulation service that projects existing engine output into the shared metric contract.</summary>
@@ -105,6 +141,31 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         string? playExperience,
         int? trialsOverride,
         CutLabGoalSettings? goals)
+        => BuildSnapshotResult(deckEntries, playExperience, trialsOverride, goals).Snapshot;
+
+    /// <inheritdoc />
+    public async Task<CutLabSimulationResult> BuildSnapshotResult(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        string? playExperience,
+        int? trialsOverride = ICutLabSimulationService.InLoopTrials,
+        string? poolKey = null,
+        CutLabGoalSettings? goals = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(workingList);
+
+        string resolvedPoolKey = poolKey ?? CutLabResolvedCardCache.ComputePoolKey(workingList);
+        IReadOnlyList<DeckCardEntry> deckEntries = await ResolveDeckEntries(workingList, resolvedPoolKey, cancellationToken).ConfigureAwait(false);
+        CutLabSimulationResult result = BuildSnapshotResult(deckEntries, playExperience, trialsOverride, goals);
+        _deltaCache.SetSnapshot(resolvedPoolKey, playExperience, trialsOverride, result.Snapshot, goals);
+        return result;
+    }
+
+    private static CutLabSimulationResult BuildSnapshotResult(
+        IReadOnlyList<DeckCardEntry> deckEntries,
+        string? playExperience,
+        int? trialsOverride,
+        CutLabGoalSettings? goals)
     {
         ManabaseMode mode = CutLabRoleAssigner.ResolveMode(playExperience);
         IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
@@ -141,7 +202,20 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
             trialsOverride: trialsOverride);
 
         IReadOnlyList<CutLabMetricValue> metrics = BuildMetrics(report, deck, facts, mode, goals);
-        return new CutLabMetricSnapshot { Metrics = metrics };
+        return new CutLabSimulationResult
+        {
+            Snapshot = new CutLabMetricSnapshot { Metrics = metrics },
+            CastabilityByCardName = report.Castability.ToDictionary(
+                row => row.Name,
+                row => new CutLabSimulationCardView
+                {
+                    Cmc = row.ManaValue,
+                    CastPercent = row.CastPercent,
+                },
+                StringComparer.OrdinalIgnoreCase),
+            ActualLands = report.ActualLands,
+            TargetLands = report.TargetLands,
+        };
     }
 
     /// <inheritdoc />

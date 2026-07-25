@@ -1364,7 +1364,7 @@
                         @foreach (var row in Model.CutsMade)
                         {
                             <div class="cutlab-cuts-made__row">
-                                <span>@row.CardName</span>
+                                <button type="button" class="cutlab-card-link" data-cutlab-card-open="@row.CardName" data-cutlab-card-view-only="true">@row.CardName</button>
                                 <span class="prompt-size-note">cut in @row.RoundLabel</span>
                                 @{ await RenderDecisionForm(row.CardName, row.RoundKey, "restore", "Restore", string.Empty, $"Restore {row.CardName}"); }
                             </div>
@@ -1416,7 +1416,21 @@
                 </details>
             </section>
         }
-        @await Html.PartialAsync("_CutLabCardModal")
+        <dialog id="cutlab-card-modal" class="cutlab-card-modal" aria-labelledby="cutlab-card-modal-title">
+            <div class="cutlab-card-modal__panel">
+                <h2 id="cutlab-card-modal-title" class="cutlab-card-modal__title"></h2>
+                <div class="cutlab-card-modal__body">
+                    <p class="cutlab-card-modal__meta" data-cutlab-modal-meta hidden></p>
+                    <p class="cutlab-card-modal__meta" data-cutlab-modal-castability hidden title="Based on your current working pool, not a finished 100-card verdict."></p>
+                    <p class="cutlab-card-modal__oracle" data-cutlab-modal-oracle></p>
+                    <p class="cutlab-card-modal__combo" data-cutlab-modal-combo hidden></p>
+                </div>
+                <div class="cutlab-card-modal__actions">
+                    <button type="button" class="cutlab-card-modal__button cutlab-card-modal__button--lock" data-cutlab-modal-lock>Lock</button>
+                    <button type="button" class="cutlab-card-modal__button cutlab-card-modal__button--close" data-cutlab-modal-close>Close</button>
+                </div>
+            </div>
+        </dialog>
     </section>
 }
 else if (string.IsNullOrWhiteSpace(Model.ErrorMessage))
