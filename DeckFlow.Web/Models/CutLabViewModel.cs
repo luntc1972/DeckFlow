@@ -64,7 +64,8 @@ public sealed record CutLabViewModel
 
     // Display order for the By-type groups. Must stay in sync with the priority list in
     // CardTypeLine.PrimaryType (this appends the "Other" fallback bucket).
-    private static readonly string[] TypeGroupOrder =
+    /// <summary>Shared primary-type display order used by Cut Lab groupings and advisory ranking.</summary>
+    public static readonly string[] TypeGroupOrder =
     [
         "Creature",
         "Planeswalker",
