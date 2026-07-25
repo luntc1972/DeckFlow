@@ -425,9 +425,9 @@ public static class CutLabCutRoundEngine
             : LockedOvershootRoleOrder.Length;
 
     private static int TypePriority(string primaryType)
-        => Array.IndexOf(CutLabViewModel.TypeGroupOrder, primaryType) is int index && index >= 0
+        => Array.IndexOf(CutLabRoleAssigner.TypeGroupOrder, primaryType) is int index && index >= 0
             ? index
-            : CutLabViewModel.TypeGroupOrder.Length;
+            : CutLabRoleAssigner.TypeGroupOrder.Length;
 
     private sealed record CardFindingTally(int Count, IReadOnlyList<CutLabFindingKind> Kinds)
     {

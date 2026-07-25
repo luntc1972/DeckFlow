@@ -35,6 +35,20 @@ public static class CutLabRoleAssigner
         WinconsRole,
     ];
 
+    // Shared primary-type order used both for UI grouping and deterministic service-side ranking.
+    internal static readonly string[] TypeGroupOrder =
+    [
+        "Creature",
+        "Planeswalker",
+        "Battle",
+        "Instant",
+        "Sorcery",
+        "Artifact",
+        "Enchantment",
+        "Land",
+        "Other",
+    ];
+
     /// <summary>Maps the Cut Lab play-experience string to the shared classifier mode.</summary>
     /// <param name="playExperience">User-selected play-experience label.</param>
     /// <returns>The matching mode, or <see cref="ManabaseMode.Casual"/> when unspecified or unknown.</returns>
