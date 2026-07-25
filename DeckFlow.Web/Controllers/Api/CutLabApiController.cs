@@ -116,21 +116,7 @@ public sealed class CutLabApiController : ControllerBase
                 afterPoolKey,
                 floorWarnings,
                 cancellationToken).ConfigureAwait(false);
-            CutLabDecideApiResponse response = new()
-            {
-                Patch = patch,
-                CutLabStateJson = patch.CutLabStateJson,
-                NextProposal = patch.NextProposal,
-                ProposalDeltas = patch.ProposalDeltas,
-                FloorWarnings = patch.FloorWarnings,
-                CardsRemaining = patch.CardsRemaining,
-                CutsMade = patch.CutsMade,
-                StructuralFindings = patch.StructuralFindings,
-                ComboDataAvailable = patch.ComboDataAvailable,
-                CategoryDataAvailable = patch.CategoryDataAvailable,
-            };
-
-            return Ok(response);
+            return Ok(BuildDecideApiResponse(patch));
         }
         catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
         {
@@ -245,19 +231,7 @@ public sealed class CutLabApiController : ControllerBase
                 floorByRole,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
 
-            return Ok(new CutLabDecideApiResponse
-            {
-                Patch = patch,
-                CutLabStateJson = patch.CutLabStateJson,
-                NextProposal = patch.NextProposal,
-                ProposalDeltas = patch.ProposalDeltas,
-                FloorWarnings = patch.FloorWarnings,
-                CardsRemaining = patch.CardsRemaining,
-                CutsMade = patch.CutsMade,
-                StructuralFindings = patch.StructuralFindings,
-                ComboDataAvailable = patch.ComboDataAvailable,
-                CategoryDataAvailable = patch.CategoryDataAvailable,
-            });
+            return Ok(BuildDecideApiResponse(patch));
         }
         catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
         {
@@ -418,6 +392,21 @@ public sealed class CutLabApiController : ControllerBase
 
         return BuildPartialResolvedSubset(afterWorkingList, fullPoolCards ?? beforeResolvedCards);
     }
+
+    private static CutLabDecideApiResponse BuildDecideApiResponse(CutLabUiPatchDto patch)
+        => new()
+        {
+            Patch = patch,
+            CutLabStateJson = patch.CutLabStateJson,
+            NextProposal = patch.NextProposal,
+            ProposalDeltas = patch.ProposalDeltas,
+            FloorWarnings = patch.FloorWarnings,
+            CardsRemaining = patch.CardsRemaining,
+            CutsMade = patch.CutsMade,
+            StructuralFindings = patch.StructuralFindings,
+            ComboDataAvailable = patch.ComboDataAvailable,
+            CategoryDataAvailable = patch.CategoryDataAvailable,
+        };
 
     private static IReadOnlyList<string> GetCommanderNames(CutLabState state)
         => string.IsNullOrWhiteSpace(state.Commander) ? [] : [state.Commander];
