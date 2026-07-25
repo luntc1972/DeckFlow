@@ -1,3 +1,4 @@
+using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Models.CutLab;
 
 namespace DeckFlow.Web.Services.CutLab;
@@ -47,7 +48,21 @@ public sealed record CutLabRoundPlan
 
     /// <summary>Cards still needing to be cut to reach 100, clamped at zero.</summary>
     public required int CardsRemainingToTarget { get; init; }
+
+    /// <summary>Read-only advisory list for locked-card overshoot states, when applicable.</summary>
+    public CutLabLockedOvershootAdvisory? LockedOvershootAdvisory { get; init; }
 }
+
+/// <summary>One grouped role bucket inside the locked-overshoot advisory.</summary>
+public sealed record CutLabLockedOvershootGroup(
+    string RoleKey,
+    IReadOnlyList<string> CardNames);
+
+/// <summary>Read-only suggestion list for locked-card overshoot states.</summary>
+public sealed record CutLabLockedOvershootAdvisory(
+    int CardsOverTarget,
+    int HiddenCount,
+    IReadOnlyList<CutLabLockedOvershootGroup> Groups);
 
 /// <summary>Builds Cut Lab's fixed-order cut proposal sequence from the derived working list.</summary>
 public static class CutLabCutRoundEngine
@@ -97,6 +112,25 @@ public static class CutLabCutRoundEngine
             CutLabFindingKind.RedundantFinishers,
             CutLabFindingKind.ComboProtected,
         };
+
+    private static readonly string[] LockedOvershootRoleOrder =
+    [
+        .. CutLabFloorRules.RoleKeys.Reverse(),
+        "other",
+    ];
+
+    private static readonly string[] LockedOvershootTypeOrder =
+    [
+        "Creature",
+        "Planeswalker",
+        "Battle",
+        "Instant",
+        "Sorcery",
+        "Artifact",
+        "Enchantment",
+        "Land",
+        "Other",
+    ];
 
     /// <summary>Returns the fixed round label for a stable round key.</summary>
     /// <param name="roundKey">Stable round key.</param>
@@ -164,6 +198,7 @@ public static class CutLabCutRoundEngine
                 Queue = [],
                 NextProposal = null,
                 CardsRemainingToTarget = 0,
+                LockedOvershootAdvisory = null,
             };
         }
 
@@ -243,12 +278,16 @@ public static class CutLabCutRoundEngine
             .Concat(deferredPass)
             .Concat(rejectedPass)
             .ToArray();
+        CutLabLockedOvershootAdvisory? lockedOvershootAdvisory = queue.Count == 0 && cardsRemainingToTarget > 0
+            ? BuildLockedOvershootAdvisory(workingList, cardsRemainingToTarget)
+            : null;
 
         return new CutLabRoundPlan
         {
             Queue = queue,
             NextProposal = queue.FirstOrDefault(),
             CardsRemainingToTarget = cardsRemainingToTarget,
+            LockedOvershootAdvisory = lockedOvershootAdvisory,
         };
     }
 
@@ -359,6 +398,48 @@ public static class CutLabCutRoundEngine
         => deltaMagnitudes is not null && deltaMagnitudes.TryGetValue(cardName, out double magnitude)
             ? magnitude
             : double.PositiveInfinity;
+
+    private static CutLabLockedOvershootAdvisory? BuildLockedOvershootAdvisory(
+        IReadOnlyList<CutLabRoundInputCard> workingList,
+        int cardsRemainingToTarget)
+    {
+        IReadOnlyList<CutLabRoundInputCard> lockedCards = workingList
+            .Where(card => card.IsLocked && !card.IsCommander)
+            .ToArray();
+        if (lockedCards.Count == 0)
+        {
+            return null;
+        }
+
+        IReadOnlyList<(string RoleKey, string Name)> rankedCards = lockedCards
+            .Select(card => (RoleKey: AdvisoryRoleFor(card.Roles), Name: card.Name, Type: CardTypeLine.PrimaryType(card.TypeLine)))
+            .OrderBy(entry => RolePriority(entry.RoleKey))
+            .ThenBy(entry => TypePriority(entry.Type))
+            .ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(entry => (entry.RoleKey, entry.Name))
+            .ToArray();
+
+        IReadOnlyList<(string RoleKey, string Name)> visibleCards = rankedCards.Take(20).ToArray();
+        IReadOnlyList<CutLabLockedOvershootGroup> groups = visibleCards
+            .GroupBy(entry => entry.RoleKey, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new CutLabLockedOvershootGroup(group.Key, group.Select(entry => entry.Name).ToArray()))
+            .ToArray();
+
+        return new CutLabLockedOvershootAdvisory(cardsRemainingToTarget, Math.Max(rankedCards.Count - visibleCards.Count, 0), groups);
+    }
+
+    private static string AdvisoryRoleFor(IReadOnlyList<string> roles)
+        => roles.OrderBy(RolePriority).FirstOrDefault() ?? "other";
+
+    private static int RolePriority(string roleKey)
+        => Array.IndexOf(LockedOvershootRoleOrder, roleKey is null ? "other" : roleKey.ToLowerInvariant()) is int index && index >= 0
+            ? index
+            : LockedOvershootRoleOrder.Length;
+
+    private static int TypePriority(string primaryType)
+        => Array.IndexOf(LockedOvershootTypeOrder, primaryType) is int index && index >= 0
+            ? index
+            : LockedOvershootTypeOrder.Length;
 
     private sealed record CardFindingTally(int Count, IReadOnlyList<CutLabFindingKind> Kinds)
     {
