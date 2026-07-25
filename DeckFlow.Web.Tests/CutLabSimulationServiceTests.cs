@@ -290,6 +290,28 @@ public sealed class CutLabSimulationServiceTests
     }
 
     [Fact]
+    public async Task BuildSnapshotResult_ReusesCachedFullResultBeforeResolvingOrReanalyzing()
+    {
+        TestPool pool = BuildCedhPool();
+        var resolver = new FakeResolver(pool.Cards);
+        var resultCounter = new CountingSimulationResultBuilder();
+        var service = new CutLabSimulationService(
+            new CutLabResolvedCardCache(),
+            new CutLabDeltaCache(),
+            resolver,
+            NullLogger<CutLabSimulationService>.Instance,
+            BuildCountingSnapshot,
+            resultCounter.Build);
+
+        CutLabSimulationResult first = await service.BuildSnapshotResult(pool.WorkingList, "cEDH");
+        CutLabSimulationResult second = await service.BuildSnapshotResult(pool.WorkingList, "cEDH");
+
+        Assert.Equal(1, resultCounter.CallCount);
+        Assert.Equal(pool.WorkingList.Count, resolver.ResolveSingleCalls);
+        Assert.Same(first, second);
+    }
+
+    [Fact]
     public async Task ComputeProposalDeltas_ReusesPriorAfterSnapshotForNextBeforeSnapshot()
     {
         TestPool pool = BuildCedhPool();
@@ -704,5 +726,59 @@ public sealed class CutLabSimulationServiceTests
             string poolKey = CutLabResolvedCardCache.ComputePoolKey(workingList.Select(card => (card.Name, card.Quantity)).ToArray());
             return _callsByPoolKey.TryGetValue(poolKey, out int calls) ? calls : 0;
         }
+    }
+
+    private sealed class CountingSimulationResultBuilder
+    {
+        public int CallCount { get; private set; }
+
+        public CutLabSimulationResult Build(
+            IReadOnlyList<DeckCardEntry> deckEntries,
+            string? playExperience,
+            int? trialsOverride,
+            CutLabGoalSettings? goals)
+        {
+            CallCount++;
+            CutLabMetricSnapshot snapshot = BuildCountingSnapshot(deckEntries, playExperience, trialsOverride, goals);
+            return new CutLabSimulationResult
+            {
+                Snapshot = snapshot,
+                CastabilityByCardName = deckEntries.ToDictionary(
+                    entry => entry.Card.Name,
+                    entry => new CutLabSimulationCardView
+                    {
+                        Cmc = entry.Card.Cmc,
+                        CastPercent = entry.Quantity,
+                    },
+                    StringComparer.OrdinalIgnoreCase),
+                ActualLands = deckEntries.Count(entry => CutLabLockRules.IsLand(entry.Card.TypeLine)),
+                TargetLands = deckEntries.Sum(entry => entry.Quantity),
+            };
+        }
+    }
+
+    private static CutLabMetricSnapshot BuildCountingSnapshot(
+        IReadOnlyList<DeckCardEntry> deckEntries,
+        string? playExperience,
+        int? trialsOverride,
+        CutLabGoalSettings? goals)
+    {
+        _ = playExperience;
+        return new CutLabMetricSnapshot
+        {
+            Metrics =
+            [
+                new CutLabMetricValue
+                {
+                    Kind = CutLabMetricKind.CommanderByTurn,
+                    Family = CutLabMetricFamily.CategoryByTurn,
+                    Label = $"Commander by turn {goals?.CommanderByTurn ?? CutLabGoalDefaults.CommanderByTurn}",
+                    Value = deckEntries.Sum(entry => entry.Quantity)
+                        + (trialsOverride ?? 20_000)
+                        + (goals?.CommanderByTurn ?? CutLabGoalDefaults.CommanderByTurn),
+                    Unit = CutLabMetricUnit.Percent,
+                },
+            ],
+        };
     }
 }
