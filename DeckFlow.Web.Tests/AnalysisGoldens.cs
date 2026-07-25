@@ -725,7 +725,7 @@ target_bracket: Bracket 3: Upgraded
 
 DECK SCORE (coarse 0-5 bands - magnitude, not quality)
   Power:       0/5  None      (0 Game Changers, combo data unavailable, 0 fast-mana sources)
-  Speed:       1/5  Low       (avg MV 1.33, 0 fast-mana, 2 ramp/draw under 3 MV)
+  Speed:       2/5  Modest    (avg MV 1.33, 0 fast-mana, 3 ramp/draw under 3 MV)
   Control:     0/5  None      (0 interaction pieces, 0 board wipes, 0 counters)
   Consistency: 0/5  None      (0 tutors, combo data unavailable, smooth 1.33 curve)
 Cross-check: Score aligns with the Bracket 2 classification.
@@ -1439,7 +1439,7 @@ lands: 1
 creatures: 0
 average_mana_value: 1.33 (nonland)
 mana_curve: 0-1=3 2=1 3=0 4=0 5+=0
-role_counts: ramp=1 draw=1 interaction=0 wipes=0 recursion=0 closing_power=0
+role_counts: ramp=2 draw=1 interaction=0 wipes=0 recursion=0 closing_power=0
 
 official_commander_banned_cards: Dockside Extortionist, Mana Crypt
 
@@ -1483,7 +1483,7 @@ target_bracket: Bracket 3: Upgraded
 
 DECK SCORE (coarse 0-5 bands - magnitude, not quality)
   Power:       0/5  None      (0 Game Changers, combo data unavailable, 0 fast-mana sources)
-  Speed:       1/5  Low       (avg MV 1.33, 0 fast-mana, 2 ramp/draw under 3 MV)
+  Speed:       2/5  Modest    (avg MV 1.33, 0 fast-mana, 3 ramp/draw under 3 MV)
   Control:     0/5  None      (0 interaction pieces, 0 board wipes, 0 counters)
   Consistency: 0/5  None      (0 tutors, combo data unavailable, smooth 1.33 curve)
 Cross-check: Score aligns with the Bracket 2 classification.
