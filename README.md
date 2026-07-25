@@ -132,7 +132,7 @@ Testcontainers.PostgreSql will start a `postgres:16-alpine` container, run the t
 - `DeckFlow.Core` contains parsers, diffing logic, exporters, and the Archidekt/Moxfield integrations.
 - `DeckFlow.Core.Loading` centralizes deck input loading and Commander deck-size validation so the web app and CLI share the same parsing/import rules.
 - `DeckFlow.Web` provides an ASP.NET Core MVC UI for running syncs, AI prompt building, deck-primer generation, cEDH meta-gap analysis, deck comparison prompt building, card lookup, commander category browsing, and category suggestions.
-- `Cut Lab` (`/cut-lab`) brings an oversized 101-150 card Commander pool into a trimming workspace, including separate intake toggles for sideboard and considering/maybeboard cards plus a post-import Main / Sideboard / Considering breakdown, oversize guidance, structural findings and configurable role floors, **Combo piece** badges with disclosure context for known Commander Spellbook combo cards so combo halves are not cut unknowingly, guided cut rounds that surface measurable tradeoffs, a goal-tuning loop, what-if swaps, inline `+/-` steppers and add-basics tuning to land exactly on 100, and builder-compatible Export output for the finished 100-card list plus CUT/ADD patches in both Moxfield and Archidekt text.
+- `Cut Lab` (`/cut-lab`) brings an oversized 101-150 card Commander pool into a trimming workspace, including separate intake toggles for sideboard and considering/maybeboard cards plus a post-import Main / Sideboard / Considering breakdown, oversize guidance, structural findings and configurable role floors, **Combo piece** badges with disclosure context for known Commander Spellbook combo cards so combo halves are not cut unknowingly, guided cut rounds that surface measurable tradeoffs, a card popup that shows any card's oracle text with inline Lock/Unlock, a goal-tuning loop, what-if swaps, portable session download/load to resume a run on another device, inline `+/-` steppers and add-basics tuning to land exactly on 100, and builder-compatible Export output for the finished 100-card list plus CUT/ADD patches in both Moxfield and Archidekt text.
 - `Deck History` lets you version a deck into a JSON file you own, append labeled snapshots with notes, diff any two saved versions, and generate an AI prompt about how the list evolved; its evolution prompt now embeds Scryfall oracle text for every card seen in that history so AI models recognize newer cards.
 - The category suggestion UI now shows one merged, ranked, paste-ready card category list across sources, while commander category results show `% of decks` and cap the first 25 visible rows with an expander for the remainder.
 - `DeckFlow.CLI` exposes deck comparison, category harvesting, cache querying, and the local Content KB pipeline (source management, transcript harvest, LLM distillation, site-index export) in a console tool.
@@ -795,7 +795,11 @@ A persistent theme picker in the shared layout lets users switch between visual 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
 ### Unreleased
-_No unreleased changes._
+### Unreleased
+Cut Lab UAT follow-ups (post-2026.07.9), still behind the `tool.cut-lab.enabled` flag:
+- **Card popup:** clicking any card — a role pill, a findings chip, a pool-row name, or a cut proposal — opens a card popup showing that card's oracle text plus **Lock / Unlock** and **Close**. Card text is served from an in-page JSON island, so opening a card costs no extra request.
+- **Portable session transfer:** download the current Cut Lab session as a `.json` file, and load a session file to resume the same run on another device, reusing the scenario-restore path. Sessions stay on your machine; nothing is retained server-side.
+- **Locked cards stay cut-proof:** fixed a bug where a card locked mid-session could still be surfaced as a cut proposal. Each decision now submits the current lock state, so a lock (or unlock) made through a card, package, floor, or the popup is always honored on the next proposal.
 
 ### 2026.07.9 — Cut Lab Upgrade (2026-07-24)
 Cycle 19 upgrades **Cut Lab** (phases 108-111) without changing its operator stance: the tool remains behind the `tool.cut-lab.enabled` flag and ships **OFF** until an admin exposes `/cut-lab`.

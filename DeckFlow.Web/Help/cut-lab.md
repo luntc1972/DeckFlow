@@ -37,6 +37,10 @@ Once the pool is loaded and protected, Cut Lab reads the deck's functional compo
 
 You can also set configurable minimums per role. Those floors become hard guardrails for the trimming process, so the deck does not accidentally cut below the baseline you want to preserve for lands, ramp, interaction, or any other tracked role.
 
+## Inspect any card
+
+Anywhere a card appears in the workspace — a role pill, a structural findings chip, a pool-row name, or a cut proposal — you can click it to open a card popup. The popup shows the card's oracle text so you can check what it actually does without leaving Cut Lab, and it carries **Lock / Unlock** and **Close** so you can protect or release the card on the spot. Card text is served from the page itself, so opening a card is instant and needs no extra lookup.
+
 ## Guided cut rounds
 
 Cut Lab then walks you through iterative cut rounds. As you make decisions, the simulation and metrics engine recalculates the deck's consistency numbers so the workspace stays current instead of showing stale advice from the opening snapshot.
@@ -59,6 +63,10 @@ Structural findings also use two combo-related labels that mean different things
 If you care about specific timing goals, pin them directly in the workspace. For example, you can track whether a payoff is online by a target turn and see those goal results recalculated by the same engine after each change.
 
 You can also save named scenarios locally in your browser, which makes it easy to compare different cut paths without losing your current line. For one-off experiments, run a what-if swap to replace card A with card B and immediately see every tracked goal and consistency metric recomputed before you decide whether to keep or discard the change.
+
+## Save and move sessions
+
+Named scenarios keep alternative cut paths side by side, but they live only in the browser you saved them in. When you want to continue on another device — or keep a durable copy of where a build stands — download the current session as a `.json` file. Loading that file elsewhere restores the same run through the same scenario-restore path. Sessions stay on your machine; nothing is stored server-side.
 
 ## Tune to exactly 100
 
