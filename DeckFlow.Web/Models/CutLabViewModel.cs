@@ -65,18 +65,7 @@ public sealed record CutLabViewModel
     // Display order for the By-type groups. Must stay in sync with the priority list in
     // CardTypeLine.PrimaryType (this appends the "Other" fallback bucket).
     /// <summary>Shared primary-type display order used by Cut Lab groupings and advisory ranking.</summary>
-    public static readonly string[] TypeGroupOrder =
-    [
-        "Creature",
-        "Planeswalker",
-        "Battle",
-        "Instant",
-        "Sorcery",
-        "Artifact",
-        "Enchantment",
-        "Land",
-        "Other",
-    ];
+    public static readonly string[] TypeGroupOrder = CutLabRoleAssigner.TypeGroupOrder;
 
     // Display order for the structural role groups. This mirrors CutLabFloorRules.RoleKeys and
     // appends the display-only fallback bucket.
