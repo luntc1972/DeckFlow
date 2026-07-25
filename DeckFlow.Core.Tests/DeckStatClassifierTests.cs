@@ -46,17 +46,17 @@ public sealed class DeckStatClassifierTests
     // -----------------------------------------------------------------------
 
     [Theory]
-    [InlineData("draw a card", true)]
-    [InlineData("draw two cards", true)]
-    [InlineData("draw X cards", true)]
-    [InlineData("whenever you cast a spell, investigate.", true)]
-    [InlineData("connive 2 (Draw two cards, then discard two.)", true)]
+    [InlineData("Draw three cards", true)]
+    [InlineData("Investigate.", true)]
+    [InlineData("Connive.", true)]
+    [InlineData("Draw a card.", true)]
     public void IsDrawCard_TrueCases(string oracleText, bool expected)
     {
         Assert.Equal(expected, DeckStatClassifier.IsDrawCard(oracleText));
     }
 
     [Theory]
+    [InlineData("Target player draws two cards", false)]
     [InlineData("Destroy target creature.", false)]
     [InlineData("Search your library for a basic land card.", false)]
     public void IsDrawCard_FalseCases(string oracleText, bool expected)

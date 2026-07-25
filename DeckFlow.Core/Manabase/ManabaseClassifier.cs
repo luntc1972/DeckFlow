@@ -1,5 +1,7 @@
 using System.Text.RegularExpressions;
 
+using DeckFlow.Core.Analysis;
+
 namespace DeckFlow.Core.Manabase;
 
 /// <summary>
@@ -48,22 +50,6 @@ public static class ManabaseClassifier
     private static readonly Regex GreatestPowerReducerRegex = new(
         @"this spell costs \{x\} less to cast,? where x is the greatest power among creatures you control",
         RegexOptions.Compiled);
-
-    // A card-draw effect that benefits YOU (efficacy R2 M7). Matches "draw(s) a/N card(s)" —
-    // imperative ("Draw a card"), activated ("<cost>: Draw a card"), "you (may) draw…", and
-    // symmetric wheels ("each player draws seven cards", where you are a player too) — but EXCLUDES:
-    //   * draws attributed to an opponent or an indeterminate other player ("target/that/another
-    //     player draws", "opponent(s) draw"), which are not card advantage for the caster; and
-    //   * draw-as-CONDITION, where the draw is a trigger/replacement rather than an effect
-    //     ("whenever/when you draw a card, …" payoffs; "if you would draw a card, …" replacements) —
-    //     those cards do not themselves draw. A real ETB draw ("When this enters, draw a card") has
-    //     no "you" between the trigger word and "draw", so it is still matched.
-    // Handling "draws?" (with the plural s) is the point: a "…draws two cards" card is now seen the
-    // same by the v2 land-target credit (IsRepeatableRampOrDraw) and the budget draw count
-    // (IsDrawPieceForBudget), instead of one subsystem crediting it while the other ignores it.
-    private static readonly Regex YouCardDrawRegex = new(
-        @"(?<!(?:opponent|opponents|target player|target opponent|that player|another player|whenever you|when you|would) )\bdraws?\s+(?:a|one|two|three|four|five|six|seven|eight|nine|ten|x|\d+)\s+cards?",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     // Cheap setup smoothing Karsten treats as a small any-color source credit. Reminder text is
     // stripped before matching, so parenthesized glossary text never fabricates a real scry effect.
@@ -1770,6 +1756,10 @@ public static class ManabaseClassifier
     // v1 (rampCreditV2 OFF) legacy baseline — DELIBERATELY FROZEN to the historic broad predicate
     // (ManaRampCreditTests guards "flag-off == historic"). The M7 you-anchored unification applies to
     // the ACTIVE v2 + budget paths only; this off-path is not prod and is left byte-identical.
+    // Why: Manabase's ramp predicates (this + IsRampPieceForBudget / IsRepeatableRampOrDraw /
+    // IsRockOrDork) are tuned + flag-gated for castability/land math and intentionally diverge from
+    // the broad role-tally DeckStatClassifier.IsRampCard. Do NOT unify. See ADR
+    // docs/decisions/0003-ramp-classifier-divergence.md.
     private static bool IsRampOrDraw(CardFact card)
     {
         string text = card.OracleText ?? string.Empty;
@@ -1796,9 +1786,9 @@ public static class ManabaseClassifier
     private static bool IsDrawPieceForBudget(CardFact card) =>
         IsYouCardDraw(card);
 
-    // Shared you-anchored card-draw predicate (M7). See YouCardDrawRegex.
+    // Shared you-anchored card-draw predicate (M7).
     private static bool IsYouCardDraw(CardFact card) =>
-        YouCardDrawRegex.IsMatch(card.OracleText ?? string.Empty);
+        DeckStatClassifier.MatchesYouCardDraw(card.OracleText ?? string.Empty);
 
     // MQ-03 (rampCreditV2): narrowed land-target credit. Only REPEATABLE ramp and true card draw earn
     // the Karsten −0.28 credit; one-shot rituals ("Add" on an instant/sorcery) and Treasure-makers do
