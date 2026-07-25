@@ -49,6 +49,20 @@ public static class CutLabRoleAssigner
         "Other",
     ];
 
+    internal static readonly IReadOnlyDictionary<string, string> RoleDisplayLabels =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["lands"] = "Lands",
+            ["ramp"] = "Ramp",
+            ["draw"] = "Card draw",
+            ["interaction"] = "Interaction",
+            ["protection"] = "Protection",
+            ["engines"] = "Engines",
+            ["payoffs"] = "Payoffs",
+            ["wincons"] = "Win conditions",
+            ["other"] = "Other",
+        };
+
     /// <summary>Maps the Cut Lab play-experience string to the shared classifier mode.</summary>
     /// <param name="playExperience">User-selected play-experience label.</param>
     /// <returns>The matching mode, or <see cref="ManabaseMode.Casual"/> when unspecified or unknown.</returns>
@@ -66,6 +80,9 @@ public static class CutLabRoleAssigner
 
         return ManabaseMode.Casual;
     }
+
+    internal static string DisplayLabelFor(string roleKey)
+        => RoleDisplayLabels.TryGetValue(roleKey, out string? label) ? label : roleKey;
 
     /// <summary>
     /// Assigns the fixed-order Cut Lab role keys for a card using only existing classifier signals.
