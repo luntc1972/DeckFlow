@@ -61,7 +61,7 @@ const importPool = async (page: Page): Promise<void> => {
   await page.getByRole('button', { name: 'Import pool' }).click();
 
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
-  await page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' }).locator('summary').click();
+  await page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' }).locator(':scope > summary').click();
   await expect(page.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
 };
@@ -115,7 +115,7 @@ const ensureDetailsOpen = async (details: Locator): Promise<void> => {
     return;
   }
 
-  await details.locator('summary').click();
+  await details.locator(':scope > summary').click();
   await expect(details).toHaveAttribute('open', '');
 };
 
@@ -188,6 +188,15 @@ const prepareReviewCapture = async (page: Page): Promise<void> => {
   await expect(page.locator('[data-cut-lab-sticky-remaining]')).toBeVisible();
 };
 
+const openCardModal = async (trigger: Locator, page: Page, cardName: string): Promise<Locator> => {
+  const modal = page.locator('dialog#cutlab-card-modal');
+  await trigger.click();
+  await expect(modal).toHaveAttribute('open', '');
+  await expect(modal.locator('#cutlab-card-modal-title')).toHaveText(cardName);
+  await expect(modal.locator('[data-cutlab-modal-oracle]')).toBeVisible();
+  return modal;
+};
+
 const acceptProposalNoJs = async (page: Page): Promise<string> => {
   const heading = await page.locator('.cutlab-proposal__heading').textContent();
   const cardName = heading?.replace(/^Proposed cut:\s*/, '').trim() ?? '';
@@ -233,7 +242,7 @@ test('captures cross-theme mobile chrome coverage for Cut Lab navigation and dis
     const backToTopButton = page.locator('#back-to-top-button');
     const poolFilter = page.locator('.cutlab-pool-filter');
     const poolTableHeader = page.locator('#cut-lab-section-lock-pool .conflicts-table thead');
-    const cardTextDetails = page.locator('.cutlab-card-text').first();
+    const commandTowerTrigger = page.locator('button.cutlab-card-link[data-cutlab-card-open="Command Tower"]').first();
 
     await expect(anchorNav).toBeVisible();
     await expect(anchorLinks.first()).toBeVisible();
@@ -285,10 +294,10 @@ test('captures cross-theme mobile chrome coverage for Cut Lab navigation and dis
     const poolHeaderBox = await getBoundingBox(poolTableHeader, 'Pool table header');
     expect(poolFilterBox.y + poolFilterBox.height, `${theme.name}: pool filter should sit above the table header`).toBeLessThanOrEqual(poolHeaderBox.y);
 
-    await expect(cardTextDetails).not.toHaveAttribute('open', '');
-    await cardTextDetails.locator('.cutlab-card-text__summary').click();
-    await expect(cardTextDetails).toHaveAttribute('open', '');
-    await expect(cardTextDetails.locator('.cutlab-card-text__body')).toBeVisible();
+    const cardModal = await openCardModal(commandTowerTrigger, page, 'Command Tower');
+    await expect(cardModal.locator('[data-cutlab-modal-oracle]')).toContainText('Add one mana');
+    await cardModal.locator('[data-cutlab-modal-close]').click();
+    await expect(cardModal).not.toHaveAttribute('open', '');
 
     await page.screenshot({
       path: join(screenshotDir, `cut-lab-nav-${theme.name}-mobile.png`),
@@ -319,7 +328,7 @@ test('captures Lock your pool review screenshots across themes at desktop and mo
   }
 });
 
-test('proves the no-JS Cut Lab navigation and disclosure fallbacks', async ({ browser }) => {
+test('proves the no-JS Cut Lab navigation and card-trigger fallbacks', async ({ browser }) => {
   // No-JS decide/adjust POSTs run the sim-heavy pipeline server-side on the
   // default Debug build; reaching the 100-card Export gate takes several native
   // round-trips, so this progressive-enhancement test needs headroom beyond the
@@ -374,15 +383,14 @@ test('proves the no-JS Cut Lab navigation and disclosure fallbacks', async ({ br
       rows.every(row => !row.hasAttribute('hidden') && getComputedStyle(row).display !== 'none'));
     expect(allRowsVisible).toBe(true);
 
-    // The collapse-toggle assertions above left the first section closed; re-open
-    // all collapsibles so the card-text disclosure (which lives inside a pool row)
-    // is in an expanded section and its native <details> body can render.
+    // The inline card-text disclosure was removed in favor of the JS-driven modal,
+    // so no-JS coverage now verifies the card trigger remains present after the
+    // collapsible sections are re-opened.
     await expandMobileCollapsibles(noJs.page);
-    const cardTextDetails = noJs.page.locator('.cutlab-card-text').first();
-    await expect(cardTextDetails).not.toHaveAttribute('open', '');
-    await cardTextDetails.locator('.cutlab-card-text__summary').click();
-    await expect(cardTextDetails).toHaveAttribute('open', '');
-    await expect(cardTextDetails.locator('.cutlab-card-text__body')).toBeVisible();
+    await expect(noJs.page.locator('.cutlab-card-text')).toHaveCount(0);
+    const commandTowerTrigger = noJs.page.locator('button.cutlab-card-link[data-cutlab-card-open="Command Tower"]').first();
+    await expect(commandTowerTrigger).toBeVisible();
+    await expect(commandTowerTrigger).toHaveAttribute('data-cutlab-card-open', 'Command Tower');
   } finally {
     await noJs.close();
   }

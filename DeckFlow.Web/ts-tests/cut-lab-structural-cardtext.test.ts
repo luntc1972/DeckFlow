@@ -42,15 +42,30 @@ interface CutLabPatchResponse {
 }
 
 let fetchMock: ReturnType<typeof vi.fn>;
+let showModalCalls = 0;
 
 beforeAll(() => {
   fetchMock = vi.fn();
   vi.stubGlobal('fetch', fetchMock);
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value(this: HTMLDialogElement) {
+      showModalCalls += 1;
+      this.setAttribute('open', '');
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+    configurable: true,
+    value(this: HTMLDialogElement) {
+      this.removeAttribute('open');
+    },
+  });
 });
 
 afterEach(() => {
   document.body.innerHTML = '';
   fetchMock.mockReset();
+  showModalCalls = 0;
 });
 
 const flushDecisionSubmit = async (): Promise<void> => {
@@ -71,17 +86,7 @@ const buildFixture = (): void => {
         <tbody>
           <tr data-cut-lab-card="Counterspell" data-cut-lab-type-line="Instant" data-cut-lab-role="interaction" data-cut-lab-quantity="1" data-cut-lab-commander="false">
             <td data-label="Select"><input type="checkbox" data-cut-lab-lock-card="Counterspell" /></td>
-            <td data-label="Card">
-              <strong>1 × Counterspell</strong>
-              <details class="cutlab-card-text" open>
-                <summary class="cutlab-card-text__summary">Card text</summary>
-                <div class="cutlab-card-text__body">
-                  <p class="cutlab-card-text__meta">Instant · {U}{U} · TMP #55</p>
-                  <p class="cutlab-card-text__oracle">Counter target spell.</p>
-                  <p class="cutlab-card-text__combo">Infinite cards</p>
-                </div>
-              </details>
-            </td>
+            <td data-label="Card"><strong>1 × Counterspell</strong></td>
             <td data-label="Package">
               <select data-cut-lab-package-card="Counterspell"><option value="">Unlocked pool</option></select>
             </td>
@@ -121,6 +126,15 @@ const buildFixture = (): void => {
     </div>
     <div class="cutlab-round-banner"></div>
     <button type="button" id="cut-lab-step-tab-4" class="is-disabled" disabled aria-disabled="true">Export</button>
+    <script type="application/json" id="cutlab-card-text-data">{"Counterspell":{"typeLine":"Instant","manaCost":"{U}{U}","setCode":"TMP","collectorNumber":"55","oracleText":"Counter target spell.","comboContext":"Infinite cards"}}</script>
+    <dialog id="cutlab-card-modal" aria-labelledby="cutlab-card-modal-title">
+      <h2 id="cutlab-card-modal-title"></h2>
+      <p data-cutlab-modal-meta hidden></p>
+      <p data-cutlab-modal-oracle></p>
+      <p data-cutlab-modal-combo hidden></p>
+      <button type="button" data-cutlab-modal-lock></button>
+      <button type="button" data-cutlab-modal-close>Close</button>
+    </dialog>
   `;
 
   document.dispatchEvent(new Event('DOMContentLoaded'));
@@ -175,8 +189,8 @@ const buildPatch = (comboContext = 'Infinite cards'): CutLabPatchResponse => ({
   },
 });
 
-describe('cut-lab structural card text patching', () => {
-  it('re-attaches the pool-row card text disclosure under a rebuilt structural evidence chip after decide', async () => {
+describe('cut-lab structural card popup data', () => {
+  it('rebuilds structural evidence chips as popup triggers that preserve combo badges', async () => {
     buildFixture();
     fetchMock.mockResolvedValue({
       ok: true,
@@ -194,17 +208,13 @@ describe('cut-lab structural card text patching', () => {
     await flushDecisionSubmit();
 
     const rebuiltChip = document.querySelector<HTMLButtonElement>('[data-cut-lab-structural-findings-body] button[data-cut-lab-chip-card="Counterspell"]');
-    const rebuiltDisclosure = document.querySelector<HTMLDetailsElement>('[data-cut-lab-structural-findings-body] .cutlab-card-text');
     const rebuiltBadge = rebuiltChip?.querySelector<HTMLSpanElement>('.cutlab-combo-badge');
     expect(rebuiltChip?.childNodes[0]?.textContent).toBe('Counterspell');
     expect(rebuiltBadge?.textContent).toBe('Combo piece');
-    expect(rebuiltDisclosure).not.toBeNull();
-    expect(rebuiltDisclosure?.open).toBe(false);
-    expect(rebuiltDisclosure?.querySelector('.cutlab-card-text__oracle')?.textContent).toBe('Counter target spell.');
-    expect(rebuiltDisclosure?.querySelector('.cutlab-card-text__combo')?.textContent).toBe('Infinite cards');
+    expect(rebuiltChip?.dataset.cutlabCardOpen).toBe('Counterspell');
   });
 
-  it('refreshes the cloned disclosure combo context from the patch map when the combo context changes', async () => {
+  it('refreshes popup combo context from the patch map when the combo context changes', async () => {
     buildFixture();
     fetchMock.mockResolvedValue({
       ok: true,
@@ -221,7 +231,12 @@ describe('cut-lab structural card text patching', () => {
     }));
     await flushDecisionSubmit();
 
-    const rebuiltDisclosure = document.querySelector<HTMLDetailsElement>('[data-cut-lab-structural-findings-body] .cutlab-card-text');
-    expect(rebuiltDisclosure?.querySelector('.cutlab-card-text__combo')?.textContent).toBe('Infinite mana');
+    const rebuiltChip = document.querySelector<HTMLButtonElement>('[data-cut-lab-structural-findings-body] button[data-cut-lab-chip-card="Counterspell"]');
+    const comboLine = document.querySelector<HTMLElement>('[data-cutlab-modal-combo]');
+
+    rebuiltChip?.click();
+
+    expect(showModalCalls).toBe(1);
+    expect(comboLine?.textContent).toBe('Infinite mana');
   });
 });

@@ -57,6 +57,15 @@ interface CutLabStateDecision {
   ordinal: number;
 }
 
+interface CutLabCardTextEntry {
+  typeLine?: string;
+  manaCost?: string;
+  setCode?: string;
+  collectorNumber?: string;
+  oracleText?: string;
+  comboContext?: string;
+}
+
 type CutLabDecisionAction = 'accept' | 'reject' | 'defer' | 'restore';
 type CutLabMetricDirection = 'Up' | 'Down' | 'None';
 type CutLabMetricUnit = 'Percent' | 'Cards';
@@ -650,6 +659,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   let adjustSubmitInFlight = false;
   let whatifSubmitInFlight = false;
   let copyHandlersAttached = false;
+  let cardModalHandlersAttached = false;
+  let cardTextByCardNameCache: Record<string, CutLabCardTextEntry> | null = null;
+  let activeModalCardName: string | null = null;
 
   const getForm = (): HTMLFormElement | null =>
     document.querySelector<HTMLFormElement>('form[data-cache-key="cut-lab"]');
@@ -733,6 +745,24 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const getRoleGroupChips = (cardName: string): HTMLElement[] =>
     Array.from(document.querySelectorAll<HTMLElement>(`[data-cut-lab-chip-card="${cssEscape(cardName)}"]`));
 
+  const getCardModal = (): HTMLDialogElement | null =>
+    document.getElementById('cutlab-card-modal') as HTMLDialogElement | null;
+
+  const getCardModalTitle = (): HTMLElement | null =>
+    document.getElementById('cutlab-card-modal-title');
+
+  const getCardModalMeta = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cutlab-modal-meta]');
+
+  const getCardModalOracle = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cutlab-modal-oracle]');
+
+  const getCardModalCombo = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cutlab-modal-combo]');
+
+  const getCardModalLockButton = (): HTMLButtonElement | null =>
+    document.querySelector<HTMLButtonElement>('[data-cutlab-modal-lock]');
+
   const getFloorRows = (): CutLabFloorDomRow[] =>
     Array.from(document.querySelectorAll<HTMLTableRowElement>('tr[data-cut-lab-floor-row]'))
       .map(row => {
@@ -752,6 +782,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
   const getScenarioStatus = (): HTMLElement | null =>
     document.querySelector<HTMLElement>('[data-cut-lab-scenario-status]');
+
+  const getSessionFileInput = (): HTMLInputElement | null =>
+    document.querySelector<HTMLInputElement>('input[data-cut-lab-session-file]');
 
   const getWhatifForm = (): HTMLFormElement | null =>
     document.querySelector<HTMLFormElement>('form[data-cut-lab-whatif-form]');
@@ -1131,7 +1164,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     return trimmed;
   };
 
-  const writeStateToHiddenInput = (): void => {
+  const writeStateToHiddenInput = (serializedState?: string): void => {
     const form = getForm();
     if (!form) {
       return;
@@ -1145,8 +1178,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
-    const serializedState = api.buildCutLabStateJson(buildSnapshotFromDom());
-    stateInput.value = serializedState;
+    stateInput.value = serializedState ?? api.buildCutLabStateJson(buildSnapshotFromDom());
   };
 
   const writeDecisionStateToHiddenInputs = (serializedState: string): void => {
@@ -1316,31 +1348,6 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     button.appendChild(createTextElement('span', getComboBadgeClassName(comboBadge), getComboBadgeText(comboBadge)));
   };
 
-  const syncDisclosureComboContext = (
-    disclosure: HTMLDetailsElement,
-    comboBadgeByCardName: Record<string, { badgeState: 'CompletePiece' | 'NeedsPartner'; context: string }>,
-    cardName: string,
-  ): void => {
-    const body = disclosure.querySelector<HTMLElement>('.cutlab-card-text__body');
-    if (!body) {
-      return;
-    }
-
-    const comboBadge = comboBadgeByCardName[cardName];
-    const existingParagraph = body.querySelector<HTMLParagraphElement>('.cutlab-card-text__combo');
-    if (!comboBadge) {
-      existingParagraph?.remove();
-      return;
-    }
-
-    if (existingParagraph) {
-      existingParagraph.textContent = comboBadge.context;
-      return;
-    }
-
-    body.appendChild(createTextElement('p', 'cutlab-card-text__combo', comboBadge.context));
-  };
-
   const createStructuralEvidenceChip = (
     evidence: string,
     comboBadgeByCardName: Record<string, { badgeState: 'CompletePiece' | 'NeedsPartner'; context: string }>,
@@ -1351,31 +1358,149 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const button = createTextElement('button', 'kb-chip cutlab-role-chip', evidence);
     button.type = 'button';
     button.dataset.cutLabChipCard = match.cardName;
+    button.dataset.cutlabCardOpen = match.cardName;
     button.setAttribute('aria-pressed', match.checkbox.checked ? 'true' : 'false');
     button.classList.toggle('cutlab-role-chip--locked', match.checkbox.checked);
     appendComboBadge(button, comboBadgeByCardName, match.cardName);
     return button;
   };
 
-  const clonePoolRowCardTextDisclosure = (cardName: string): HTMLDetailsElement | null => {
-    if (cardName === '') {
-      return null;
+  const getCardTextData = (): Record<string, CutLabCardTextEntry> => {
+    if (cardTextByCardNameCache) {
+      return cardTextByCardNameCache;
     }
 
-    const disclosure = document.querySelector<HTMLDetailsElement>(
-      `tr[data-cut-lab-card="${cssEscape(cardName)}"] .cutlab-card-text`,
-    );
-    if (!disclosure) {
-      return null;
+    const dataElement = document.getElementById('cutlab-card-text-data');
+    if (!dataElement) {
+      cardTextByCardNameCache = {};
+      return cardTextByCardNameCache;
     }
 
-    const clone = disclosure.cloneNode(true);
-    if (!(clone instanceof HTMLDetailsElement)) {
-      return null;
+    try {
+      const parsed = JSON.parse(dataElement.textContent ?? '') as unknown;
+      cardTextByCardNameCache = parsed && typeof parsed === 'object' ? parsed as Record<string, CutLabCardTextEntry> : {};
+    } catch {
+      cardTextByCardNameCache = {};
     }
 
-    clone.removeAttribute('open');
-    return clone;
+    return cardTextByCardNameCache;
+  };
+
+  const syncCardTextComboContexts = (
+    comboBadgeByCardName: Record<string, { badgeState: 'CompletePiece' | 'NeedsPartner'; context: string }>,
+  ): void => {
+    const cardTextData = getCardTextData();
+    Object.keys(comboBadgeByCardName).forEach(cardName => {
+      const existing = cardTextData[cardName] ?? {};
+      existing.comboContext = comboBadgeByCardName[cardName].context;
+      cardTextData[cardName] = existing;
+    });
+  };
+
+  const getCardRowByName = (cardName: string): HTMLTableRowElement | null =>
+    document.querySelector<HTMLTableRowElement>(`tr[data-cut-lab-card="${cssEscape(cardName)}"]`);
+
+  const getCardMetaLine = (entry: CutLabCardTextEntry | null): string => {
+    if (!entry) {
+      return '';
+    }
+
+    const metaParts: string[] = [];
+    if (entry.typeLine?.trim()) {
+      metaParts.push(entry.typeLine.trim());
+    }
+
+    if (entry.manaCost?.trim()) {
+      metaParts.push(entry.manaCost.trim());
+    }
+
+    const printingParts: string[] = [];
+    if (entry.setCode?.trim()) {
+      printingParts.push(entry.setCode.trim());
+    }
+
+    if (entry.collectorNumber?.trim()) {
+      printingParts.push(`#${entry.collectorNumber.trim()}`);
+    }
+
+    if (printingParts.length > 0) {
+      metaParts.push(printingParts.join(' '));
+    }
+
+    return metaParts.join(' · ');
+  };
+
+  const syncCardModalLockButton = (cardName: string): void => {
+    const lockButton = getCardModalLockButton();
+    if (!lockButton) {
+      return;
+    }
+
+    const row = getCardRowByName(cardName);
+    const checkbox = row ? getLockCheckbox(row) : null;
+    if (!checkbox) {
+      lockButton.disabled = true;
+      lockButton.textContent = 'Unavailable';
+      return;
+    }
+
+    if (checkbox.disabled) {
+      lockButton.disabled = true;
+      lockButton.textContent = 'Locked';
+      return;
+    }
+
+    lockButton.disabled = false;
+    lockButton.textContent = checkbox.checked ? 'Unlock' : 'Lock';
+  };
+
+  const openCardModal = (cardName: string): void => {
+    const dialog = getCardModal();
+    const title = getCardModalTitle();
+    const oracle = getCardModalOracle();
+    if (!dialog || !title || !oracle) {
+      return;
+    }
+
+    activeModalCardName = cardName;
+    const entry = getCardTextData()[cardName] ?? null;
+    const metaLine = getCardMetaLine(entry);
+    const oracleText = entry?.oracleText?.trim() ?? '';
+    const comboText = entry?.comboContext?.trim() ?? '';
+    const meta = getCardModalMeta();
+    const combo = getCardModalCombo();
+
+    title.textContent = cardName;
+    if (meta) {
+      meta.textContent = metaLine;
+      meta.hidden = metaLine === '';
+    }
+
+    oracle.textContent = oracleText !== '' ? oracleText : 'No card text available.';
+
+    if (combo) {
+      combo.textContent = comboText;
+      combo.hidden = comboText === '';
+    }
+
+    syncCardModalLockButton(cardName);
+
+    if (!dialog.hasAttribute('open')) {
+      try {
+        dialog.showModal();
+      } catch {
+        return;
+      }
+    }
+  };
+
+  const createCardOpenButton = (cardName: string, className: string): HTMLButtonElement => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = className;
+    button.dataset.cutlabCardOpen = cardName;
+    button.textContent = cardName;
+    return button;
   };
 
   const replaceChildren = (element: Element, children: Node[]): void => {
@@ -1451,46 +1576,19 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }));
   };
 
-  const saveCurrentScenario = (): void => {
-    const nameInput = getScenarioNameInput();
-    const form = getForm();
-    const stateInput = form ? getStateInput(form) : null;
-    if (!nameInput || !form || !stateInput) {
-      return;
+  const isPortableSessionState = (value: unknown): value is { pool?: unknown; version?: unknown } => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return false;
     }
 
-    writeStateToHiddenInput();
-    const result = api.saveScenario(nameInput.value, stateInput.value);
-    switch (result) {
-      case 'ok':
-        nameInput.value = '';
-        renderScenarioList();
-        renderScenarioStatus('Scenario saved.');
-        break;
-      case 'cap-reached':
-      case 'quota-exceeded':
-        renderScenarioStatus('Delete a scenario first (max 20).');
-        break;
-      case 'disabled':
-        renderScenarioStatus('Your browser blocked local storage.');
-        break;
-      case 'invalid':
-        renderScenarioStatus('Name required.');
-        break;
-    }
+    const state = value as { pool?: unknown; version?: unknown };
+    return Array.isArray(state.pool) || typeof state.version === 'number' || typeof state.version === 'string';
   };
 
-  const loadSavedScenario = (scenarioId: string): void => {
+  const restoreSessionFromStateJson = (stateJson: string): void => {
     const form = getForm();
     const stateInput = form ? getStateInput(form) : null;
     if (!form || !stateInput) {
-      return;
-    }
-
-    const stateJson = api.loadScenario(scenarioId);
-    if (!stateJson) {
-      renderScenarioStatus('Scenario unavailable in this browser.');
-      renderScenarioList();
       return;
     }
 
@@ -1533,6 +1631,145 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     renderScenarioStatus('Scenario loaded. Rebuilding Cut Lab…');
     form.requestSubmit();
+  };
+
+  const downloadPortableSession = (): void => {
+    if (typeof Blob !== 'function' || typeof URL.createObjectURL !== 'function' || typeof URL.revokeObjectURL !== 'function') {
+      renderScenarioStatus('This browser cannot download session files here.');
+      return;
+    }
+
+    const snapshot = buildSnapshotFromDom();
+    if (snapshot.pool.length === 0) {
+      renderScenarioStatus('Build or load a Cut Lab session first.');
+      return;
+    }
+
+    const stateJson = api.buildCutLabStateJson(snapshot);
+    const stamp = new Date();
+    const timestamp = [
+      stamp.getFullYear().toString(),
+      String(stamp.getMonth() + 1).padStart(2, '0'),
+      String(stamp.getDate()).padStart(2, '0'),
+    ].join('') + '-'
+      + [
+        String(stamp.getHours()).padStart(2, '0'),
+        String(stamp.getMinutes()).padStart(2, '0'),
+        String(stamp.getSeconds()).padStart(2, '0'),
+      ].join('');
+
+    const blob = new Blob([stateJson], { type: 'application/json' });
+    const objectUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = objectUrl;
+    anchor.download = `cutlab-session-${timestamp}.json`;
+    anchor.style.display = 'none';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(objectUrl);
+    renderScenarioStatus('Session file downloaded.');
+  };
+
+  const readPortableSessionFileText = (file: File): Promise<string> => {
+    if (typeof file.text === 'function') {
+      return file.text();
+    }
+
+    if (typeof FileReader !== 'function') {
+      return Promise.reject(new Error('file-reader-unavailable'));
+    }
+
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => {
+        reject(new Error('file-read-failed'));
+      };
+      reader.onload = () => {
+        resolve(typeof reader.result === 'string' ? reader.result : '');
+      };
+      reader.readAsText(file);
+    });
+  };
+
+  const loadPortableSessionFile = async (input: HTMLInputElement): Promise<void> => {
+    const file = input.files?.[0];
+    if (!file) {
+      renderScenarioStatus('Choose a session file first.');
+      return;
+    }
+
+    if (typeof file.text !== 'function' && typeof FileReader !== 'function') {
+      renderScenarioStatus('This browser cannot read session files here.');
+      input.value = '';
+      return;
+    }
+
+    let text = '';
+    try {
+      text = await readPortableSessionFileText(file);
+    } catch {
+      renderScenarioStatus('Unable to read that session file.');
+      input.value = '';
+      return;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      renderScenarioStatus('That file isn\'t a Cut Lab session.');
+      input.value = '';
+      return;
+    }
+
+    if (!isPortableSessionState(parsed)) {
+      renderScenarioStatus('That file isn\'t a Cut Lab session.');
+      input.value = '';
+      return;
+    }
+
+    input.value = '';
+    restoreSessionFromStateJson(text);
+  };
+
+  const saveCurrentScenario = (): void => {
+    const nameInput = getScenarioNameInput();
+    const form = getForm();
+    const stateInput = form ? getStateInput(form) : null;
+    if (!nameInput || !form || !stateInput) {
+      return;
+    }
+
+    writeStateToHiddenInput();
+    const result = api.saveScenario(nameInput.value, stateInput.value);
+    switch (result) {
+      case 'ok':
+        nameInput.value = '';
+        renderScenarioList();
+        renderScenarioStatus('Scenario saved.');
+        break;
+      case 'cap-reached':
+      case 'quota-exceeded':
+        renderScenarioStatus('Delete a scenario first (max 20).');
+        break;
+      case 'disabled':
+        renderScenarioStatus('Your browser blocked local storage.');
+        break;
+      case 'invalid':
+        renderScenarioStatus('Name required.');
+        break;
+    }
+  };
+
+  const loadSavedScenario = (scenarioId: string): void => {
+    const stateJson = api.loadScenario(scenarioId);
+    if (!stateJson) {
+      renderScenarioStatus('Scenario unavailable in this browser.');
+      renderScenarioList();
+      return;
+    }
+    restoreSessionFromStateJson(stateJson);
   };
 
   const deleteSavedScenario = (scenarioId: string): void => {
@@ -1811,6 +2048,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     // A patch may omit the combo map (older/cached responses, light adjust path); treat a
     // missing map as "no badges" so a stale fixture cannot abort the whole findings re-render.
     const comboBadgeByCardName = patch.comboBadgeByCardName ?? {};
+    syncCardTextComboContexts(comboBadgeByCardName);
 
     const totalFindings = patch.structuralFindings.reduce((count, group) => count + group.items.length, 0);
     const countBadge = section.querySelector<HTMLElement>('[data-cut-lab-findings-count-slot] .cutlab-findings-count');
@@ -1838,16 +2076,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
             const chips = document.createElement('div');
             chips.className = 'kb-chip-area__chips';
             item.evidence.forEach(evidence => {
-              const chip = createStructuralEvidenceChip(evidence, comboBadgeByCardName);
-              chips.appendChild(chip);
-              if (chip instanceof HTMLButtonElement) {
-                const cardName = chip.dataset.cutLabChipCard ?? '';
-                const disclosure = clonePoolRowCardTextDisclosure(cardName);
-                if (disclosure) {
-                  syncDisclosureComboContext(disclosure, comboBadgeByCardName, cardName);
-                  chips.appendChild(disclosure);
-                }
-              }
+              chips.appendChild(createStructuralEvidenceChip(evidence, comboBadgeByCardName));
             });
             itemElement.appendChild(chips);
           }
@@ -1913,7 +2142,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     proposal.dataset.cutLabRound = nextProposal.roundKey;
     proposal.textContent = '';
 
-    proposal.appendChild(createTextElement('p', 'cutlab-proposal__heading', `Proposed cut: ${nextProposal.cardName}`));
+    const heading = document.createElement('p');
+    heading.className = 'cutlab-proposal__heading';
+    heading.appendChild(document.createTextNode('Proposed cut: '));
+    heading.appendChild(createCardOpenButton(nextProposal.cardName, 'cutlab-card-link'));
+    proposal.appendChild(heading);
 
     const evidence = document.createElement('div');
     evidence.className = 'cutlab-proposal__evidence';
@@ -3157,13 +3390,17 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     refreshAndSerialize();
   };
 
-  const refreshAndSerialize = (): void => {
+  const refreshAndSerialize = (syncDecisionForms = true): void => {
     updateLockedCountChip();
     updatePoolFilterState();
     syncAllPackageStates();
     syncRoleGroupLockState();
     syncRoleLockButtons();
-    writeStateToHiddenInput();
+    const serializedState = api.buildCutLabStateJson(buildSnapshotFromDom());
+    writeStateToHiddenInput(serializedState);
+    if (syncDecisionForms) {
+      writeDecisionStateToHiddenInputs(serializedState);
+    }
   };
 
   const attachRowHandlers = (): void => {
@@ -3252,14 +3489,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
       const roleChipButton = target.closest<HTMLButtonElement>('button[data-cut-lab-chip-card]');
       if (roleChipButton?.dataset.cutLabChipCard) {
-        const row = document.querySelector<HTMLTableRowElement>(
-          `tr[data-cut-lab-card="${cssEscape(roleChipButton.dataset.cutLabChipCard)}"]`,
-        );
-        const checkbox = row ? getLockCheckbox(row) : null;
-        if (checkbox && !checkbox.disabled) {
-          checkbox.checked = !checkbox.checked;
-          refreshAndSerialize();
-        }
+        openCardModal(roleChipButton.dataset.cutLabChipCard);
         return;
       }
 
@@ -3374,6 +3604,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         return;
       }
 
+      if (target.closest('[data-cut-lab-session-download]')) {
+        downloadPortableSession();
+        return;
+      }
+
       const loadButton = target.closest<HTMLElement>('[data-cut-lab-scenario-load]');
       if (loadButton?.dataset.cutLabScenarioLoad) {
         loadSavedScenario(loadButton.dataset.cutLabScenarioLoad);
@@ -3396,6 +3631,76 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         event.preventDefault();
         saveCurrentScenario();
       }
+    });
+
+    document.addEventListener('change', event => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement) || target !== getSessionFileInput()) {
+        return;
+      }
+
+      void loadPortableSessionFile(target);
+    });
+  };
+
+  const attachCardModalHandlers = (): void => {
+    if (!cardModalHandlersAttached) {
+      cardModalHandlersAttached = true;
+
+      document.addEventListener('click', event => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) {
+          return;
+        }
+
+        const openTrigger = target.closest<HTMLElement>('[data-cutlab-card-open]');
+        if (openTrigger?.dataset.cutlabCardOpen) {
+          openCardModal(openTrigger.dataset.cutlabCardOpen);
+          return;
+        }
+
+        if (target.closest('[data-cutlab-modal-close]')) {
+          getCardModal()?.close();
+          activeModalCardName = null;
+          return;
+        }
+
+        if (!target.closest('[data-cutlab-modal-lock]')) {
+          return;
+        }
+
+        const cardName = activeModalCardName?.trim() ?? '';
+        if (cardName === '') {
+          return;
+        }
+
+        const row = getCardRowByName(cardName);
+        const checkbox = row ? getLockCheckbox(row) : null;
+        if (!checkbox || checkbox.disabled) {
+          syncCardModalLockButton(cardName);
+          return;
+        }
+
+        checkbox.checked = !checkbox.checked;
+        refreshAndSerialize();
+        syncCardModalLockButton(cardName);
+      });
+    }
+
+    const dialog = getCardModal();
+    if (!dialog || dialog.dataset.cutlabModalWired === 'true') {
+      return;
+    }
+
+    dialog.dataset.cutlabModalWired = 'true';
+    dialog.addEventListener('click', event => {
+      if (event.target === dialog) {
+        dialog.close();
+      }
+    });
+
+    dialog.addEventListener('close', () => {
+      activeModalCardName = null;
     });
   };
 
@@ -3524,6 +3829,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     restoreSectionCollapseState();
     attachSectionCollapsePersistence();
     attachAnchorNavHandler();
+    cardTextByCardNameCache = null;
+    activeModalCardName = null;
 
     const form = getForm();
     if (!form) {
@@ -3539,8 +3846,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     attachScenarioHandlers();
     attachWhatifSubmitHandler();
     attachCopyHandlers();
+    attachCardModalHandlers();
     attachSubmitHandler();
-    refreshAndSerialize();
+    syncCardTextComboContexts({});
+    refreshAndSerialize(false);
     renderScenarioList();
     setWhatifControlsVisible((getWhatifDeltaBody()?.children.length ?? 0) > 0);
   };

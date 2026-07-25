@@ -81,7 +81,7 @@ const importPool = async (page: Page): Promise<void> => {
   await page.getByRole('button', { name: 'Import pool' }).click();
 
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
-  await page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' }).locator('summary').click();
+  await page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' }).locator(':scope > summary').click();
   await expect(page.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
 };
@@ -91,7 +91,7 @@ const ensureDetailsOpen = async (details: Locator): Promise<void> => {
     return;
   }
 
-  await details.locator('summary').click();
+  await details.locator(':scope > summary').click();
   await expect(details).toHaveAttribute('open', '');
 };
 
@@ -137,6 +137,14 @@ const createFastManaPackage = async (page: Page): Promise<Locator> => {
   await packageToggle.check();
   await expect(packagePanel).toHaveClass(/cutlab-package--locked/);
   return packagePanel;
+};
+
+const openCardModal = async (trigger: Locator, page: Page): Promise<Locator> => {
+  const modal = page.locator('dialog#cutlab-card-modal');
+  await trigger.click();
+  await expect(modal).toHaveAttribute('open', '');
+  await expect(modal.locator('[data-cutlab-modal-oracle]')).toBeVisible();
+  return modal;
 };
 
 const assertContrastFloor = async (
@@ -425,6 +433,11 @@ test('keeps the Cut Lab named elements readable across every supported theme', a
     await assertContrastFloor(theme.name, 'primary plan input', planInput, 4.5);
     // Accept cut is a bold CTA button label, so the 3.0 large/bold UI-text floor applies.
     await assertContrastFloor(theme.name, 'accept-cut button', decisionButton, 3.0);
+    const cardPopup = await openCardModal(roleChip, page);
+    // The popup lock control is a bold CTA-style button label, so the 3.0 large/bold UI-text floor applies.
+    await assertContrastFloor(theme.name, 'card popup lock button', cardPopup.locator('[data-cutlab-modal-lock]'), 3.0);
+    await cardPopup.locator('[data-cutlab-modal-close]').click();
+    await expect(cardPopup).not.toHaveAttribute('open', '');
     // Package helper copy is explanatory body text, so it must clear the 4.5 AA body-text floor.
     await assertContrastFloor(theme.name, 'package helper copy', packageHelper, 4.5);
     // Package panels contain ordinary heading/body copy, so the conservative body-text floor is 4.5.

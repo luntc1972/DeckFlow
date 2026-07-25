@@ -25,6 +25,24 @@ const oversizedPool = [
   '1 Exotic Orchard',
 ].join('\n');
 
+const getCardModal = (page: Page): Locator =>
+  page.locator('dialog#cutlab-card-modal');
+
+const openCardModal = async (trigger: Locator, page: Page, cardName: string): Promise<Locator> => {
+  const modal = getCardModal(page);
+  await trigger.click();
+  await expect(modal).toHaveAttribute('open', '');
+  await expect(modal.locator('#cutlab-card-modal-title')).toHaveText(cardName);
+  await expect(modal.locator('[data-cutlab-modal-oracle]')).toBeVisible();
+  return modal;
+};
+
+const closeCardModal = async (page: Page): Promise<void> => {
+  const modal = getCardModal(page);
+  await modal.locator('[data-cutlab-modal-close]').click();
+  await expect(modal).not.toHaveAttribute('open', '');
+};
+
 test('individual card pills lock cards and Lock All stays readable in Commander Table dark OS mode', async ({ page, baseURL }) => {
   const heldLock = await acquireAdminLockForTest(page);
   try {
@@ -48,16 +66,19 @@ test('individual card pills lock cards and Lock All stays readable in Commander 
     await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
 
     const group = page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' });
-    await group.locator('summary').click();
+    await group.locator(':scope > summary').click();
     const lockAll = group.locator('[data-cut-lab-lock-role="lands"]');
     const commandTowerPill = group.locator('button[data-cut-lab-chip-card="Command Tower"]');
     const commandTowerCheckbox = page.locator(
       'tr[data-cut-lab-card="Command Tower"] input[data-cut-lab-lock-card]',
     );
 
-    await commandTowerPill.click();
+    const commandTowerModal = await openCardModal(commandTowerPill, page, 'Command Tower');
+    await expect(commandTowerModal.locator('[data-cutlab-modal-oracle]')).toContainText('Add one mana');
+    await commandTowerModal.locator('[data-cutlab-modal-lock]').click();
     await expect(commandTowerCheckbox).toBeChecked();
     await expect(commandTowerPill).toHaveAttribute('aria-pressed', 'true');
+    await closeCardModal(page);
 
     const before = await lockAll.evaluate(element => {
       const style = getComputedStyle(element);
@@ -136,13 +157,17 @@ test('structural evidence pills lock the canonical pool checkbox and inert spans
     );
 
     await expect(checkbox).not.toBeChecked();
-    await evidenceButton.click();
+    const evidenceModal = await openCardModal(evidenceButton, page, cardName!);
+    await evidenceModal.locator('[data-cutlab-modal-lock]').click();
     await expect(checkbox).toBeChecked();
     await expect(evidenceButton).toHaveAttribute('aria-pressed', 'true');
+    await closeCardModal(page);
 
-    await evidenceButton.click();
+    await openCardModal(evidenceButton, page, cardName!);
+    await getCardModal(page).locator('[data-cutlab-modal-lock]').click();
     await expect(checkbox).not.toBeChecked();
     await expect(evidenceButton).toHaveAttribute('aria-pressed', 'false');
+    await closeCardModal(page);
 
     await expect(findingsSection.locator('span.kb-chip[data-cut-lab-chip-card]')).toHaveCount(0);
 

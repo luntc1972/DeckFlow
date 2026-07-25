@@ -42,15 +42,30 @@ interface CutLabPatchResponse {
 }
 
 let fetchMock: ReturnType<typeof vi.fn>;
+let showModalCalls = 0;
 
 beforeAll(() => {
   fetchMock = vi.fn();
   vi.stubGlobal('fetch', fetchMock);
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value(this: HTMLDialogElement) {
+      showModalCalls += 1;
+      this.setAttribute('open', '');
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+    configurable: true,
+    value(this: HTMLDialogElement) {
+      this.removeAttribute('open');
+    },
+  });
 });
 
 afterEach(() => {
   document.body.innerHTML = '';
   fetchMock.mockReset();
+  showModalCalls = 0;
 });
 
 const flushDecisionSubmit = async (): Promise<void> => {
@@ -125,6 +140,15 @@ const buildFixture = (): void => {
     </div>
     <div class="cutlab-round-banner"></div>
     <button type="button" id="cut-lab-step-tab-4" class="is-disabled" disabled aria-disabled="true">Export</button>
+    <script type="application/json" id="cutlab-card-text-data">{"Counterspell":{"typeLine":"Instant","manaCost":"{U}{U}","setCode":"TMP","collectorNumber":"55","oracleText":"Counter target spell."}}</script>
+    <dialog id="cutlab-card-modal" aria-labelledby="cutlab-card-modal-title">
+      <h2 id="cutlab-card-modal-title"></h2>
+      <p data-cutlab-modal-meta hidden></p>
+      <p data-cutlab-modal-oracle></p>
+      <p data-cutlab-modal-combo hidden></p>
+      <button type="button" data-cutlab-modal-lock></button>
+      <button type="button" data-cutlab-modal-close>Close</button>
+    </dialog>
   `;
 
   document.dispatchEvent(new Event('DOMContentLoaded'));
@@ -212,22 +236,25 @@ describe('cut-lab structural evidence locking', () => {
     expect(findingsBody.querySelector('button[data-cut-lab-chip-card="Curve congestion at MV 2"]')).toBeNull();
   });
 
-  it('locks and unlocks the canonical pool checkbox from a matched chip while inert spans remain no-ops', async () => {
+  it('opens the modal from a matched chip and locks through the canonical pool checkbox while inert spans remain no-ops', async () => {
     const findingsBody = await applyStructuralPatch();
     const matchedSelector = 'button[data-cut-lab-chip-card="Counterspell"]';
     const counterspellCheckbox = document.querySelector<HTMLInputElement>('input[data-cut-lab-lock-card="Counterspell"]');
     const commandTowerCheckbox = document.querySelector<HTMLInputElement>('input[data-cut-lab-lock-card="Command Tower"]');
     const inertSpan = Array.from(findingsBody.querySelectorAll<HTMLSpanElement>('span.kb-chip'))
       .find(chip => chip.textContent === 'Curve congestion at MV 2');
+    const modalLockButton = document.querySelector<HTMLButtonElement>('[data-cutlab-modal-lock]');
 
     expect(counterspellCheckbox?.checked).toBe(false);
     expect(commandTowerCheckbox?.checked).toBe(false);
 
     document.querySelector<HTMLButtonElement>(matchedSelector)?.click();
+    expect(showModalCalls).toBe(1);
+    modalLockButton?.click();
     expect(counterspellCheckbox?.checked).toBe(true);
     expect(document.querySelector<HTMLButtonElement>(matchedSelector)?.getAttribute('aria-pressed')).toBe('true');
 
-    document.querySelector<HTMLButtonElement>(matchedSelector)?.click();
+    modalLockButton?.click();
     expect(counterspellCheckbox?.checked).toBe(false);
     expect(document.querySelector<HTMLButtonElement>(matchedSelector)?.getAttribute('aria-pressed')).toBe('false');
 

@@ -1,3 +1,4 @@
+@using System.Text.Json
 @using DeckFlow.Core.Manabase
 @using DeckFlow.Web.Models
 @using DeckFlow.Web.Models.CutLab
@@ -98,72 +99,20 @@
             </div>
         }
     }
-    async Task RenderCardTextDisclosure(string cardName)
-    {
-        var hasComboBadge = Model.ComboBadgeByCardName.TryGetValue(cardName, out var comboBadge);
-        var hasCardText = Model.CardTextByCardName.TryGetValue(cardName, out var cardText);
-        if (!hasCardText && !hasComboBadge)
-        {
-            return;
-        }
-
-        var metaParts = new List<string>();
-        if (!string.IsNullOrWhiteSpace(cardText?.TypeLine))
-        {
-            metaParts.Add(cardText.TypeLine);
-        }
-
-        if (!string.IsNullOrWhiteSpace(cardText?.ManaCost))
-        {
-            metaParts.Add(cardText.ManaCost);
-        }
-
-        var printingParts = new List<string>();
-        if (!string.IsNullOrWhiteSpace(cardText?.SetCode))
-        {
-            printingParts.Add(cardText.SetCode);
-        }
-
-        if (!string.IsNullOrWhiteSpace(cardText?.CollectorNumber))
-        {
-            printingParts.Add($"#{cardText.CollectorNumber}");
-        }
-
-        if (printingParts.Count > 0)
-        {
-            metaParts.Add(string.Join(" ", printingParts));
-        }
-
-        var oracleText = string.IsNullOrWhiteSpace(cardText?.OracleText) ? null : cardText.OracleText;
-        var comboContext = string.IsNullOrWhiteSpace(comboBadge?.Context) ? null : comboBadge.Context;
-        if (metaParts.Count == 0 && oracleText is null && comboContext is null)
-        {
-            return;
-        }
-
-        <details class="cutlab-card-text">
-            <summary class="cutlab-card-text__summary">Card text</summary>
-            <div class="cutlab-card-text__body">
-                @if (metaParts.Count > 0)
-                {
-                    <p class="cutlab-card-text__meta">@string.Join(" · ", metaParts)</p>
-                }
-                @if (oracleText is not null)
-                {
-                    <p class="cutlab-card-text__oracle">@oracleText</p>
-                }
-                @if (comboContext is not null)
-                {
-                    <p class="cutlab-card-text__combo">@comboContext</p>
-                }
-            </div>
-        </details>
-    }
 }
 
 <section class="hero">
     <h1>Cut Lab</h1>
     <p class="lede">Bring an oversized Commander pool into a workspace, declare what the finished 100 should do, then protect the cards that must survive every future cut.</p>
+    <details class="cutlab-collapsible" open>
+        <summary class="cutlab-collapsible__summary">How Cut Lab works</summary>
+        <ol>
+            <li>Lock the cards that must survive — tick a card to protect it.</li>
+            <li>Cut Lab proposes cuts one at a time — you don't pick cards, it does.</li>
+            <li>Accept / Reject / Defer each proposal until you reach 100.</li>
+            <li>Tune land / multiple-copy counts, then Export.</li>
+        </ol>
+    </details>
 </section>
 
 @await Html.PartialAsync("_BusyIndicator")
@@ -280,7 +229,52 @@
 
 @if (Model.HasResult)
 {
+    var cardTextData = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
+    foreach (var cardName in Model.CardTextByCardName.Keys.Concat(Model.ComboBadgeByCardName.Keys).Distinct(StringComparer.Ordinal))
+    {
+        var entry = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (Model.CardTextByCardName.TryGetValue(cardName, out var cardText))
+        {
+            if (!string.IsNullOrWhiteSpace(cardText.TypeLine))
+            {
+                entry["typeLine"] = cardText.TypeLine;
+            }
+
+            if (!string.IsNullOrWhiteSpace(cardText.ManaCost))
+            {
+                entry["manaCost"] = cardText.ManaCost;
+            }
+
+            if (!string.IsNullOrWhiteSpace(cardText.SetCode))
+            {
+                entry["setCode"] = cardText.SetCode;
+            }
+
+            if (!string.IsNullOrWhiteSpace(cardText.CollectorNumber))
+            {
+                entry["collectorNumber"] = cardText.CollectorNumber;
+            }
+
+            if (!string.IsNullOrWhiteSpace(cardText.OracleText))
+            {
+                entry["oracleText"] = cardText.OracleText;
+            }
+        }
+
+        if (Model.ComboBadgeByCardName.TryGetValue(cardName, out var comboBadge)
+            && !string.IsNullOrWhiteSpace(comboBadge.Context))
+        {
+            entry["comboContext"] = comboBadge.Context;
+        }
+
+        if (entry.Count > 0)
+        {
+            cardTextData[cardName] = entry;
+        }
+    }
+
     <section class="deck-history-results" data-scroll-on-load>
+        <script type="application/json" id="cutlab-card-text-data">@Html.Raw(JsonSerializer.Serialize(cardTextData))</script>
         @await Html.PartialAsync("_WorkflowStepTabs", exportTabs)
 
         @if (Model.Warnings.Count > 0)
@@ -323,6 +317,7 @@
                         </p>
                         <p class="prompt-size-note">@Model.BoardCounts.ToBreakdown()</p>
                         <p class="manabase-help">Assigning a package groups cards for bulk lock/unlock — it doesn't remove them from the pool.</p>
+                        <p class="manabase-help">Tick a card to LOCK it — locked cards are protected and never proposed for a cut.</p>
                         <p>@(Model.IsLegal ? "No banned cards found" : $"Banned cards present: {string.Join(", ", Model.BannedCardsPresent)}")</p>
                         <div class="cutlab-pool-filter" hidden>
                             <div class="cutlab-pool-filter__group" role="radiogroup" aria-label="Show">
@@ -388,7 +383,7 @@
                 <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
                     <thead>
                         <tr>
-                            <th scope="col">Lock</th>
+                            <th scope="col">Lock (keep)</th>
                             <th scope="col">Card</th>
                             <th scope="col">Type / role</th>
                             <th scope="col">Package assignment</th>
@@ -405,7 +400,7 @@
                                 data-cut-lab-role="@roleKeys"
                                 data-cut-lab-quantity="@card.Quantity"
                                 data-cut-lab-commander="@(card.IsCommander ? "true" : "false")">
-                                <td data-label="Select">
+                                <td data-label="Lock">
                                     <input type="checkbox"
                                            name="Lock_@card.Name"
                                            value="@card.Name"
@@ -414,8 +409,7 @@
                                            disabled="@(card.IsCommander ? "disabled" : null)" />
                                 </td>
                                 <td data-label="Card">
-                                    <strong>@card.Quantity × @card.Name</strong>
-                                    @{ await RenderCardTextDisclosure(card.Name); }
+                                    <strong>@card.Quantity × <button type="button" class="cutlab-card-link" data-cutlab-card-open="@card.Name">@card.Name</button></strong>
                                     @if (card.IsCommander)
                                     {
                                         <div class="cutlab-commander-card-cell__details">
@@ -552,6 +546,7 @@
                                     if (member.IsCommander)
                                     {
                                         <span class="kb-chip cutlab-lock-badge--commander"
+                                              data-cutlab-card-open="@member.Name"
                                               data-cut-lab-chip-card="@member.Name">@member.Name</span>
                                     }
                                     else
@@ -559,6 +554,7 @@
                                         var chipClasses = $"kb-chip cutlab-role-chip{(member.IsLocked ? " cutlab-role-chip--locked" : string.Empty)}";
                                         <button type="button"
                                                 class="@chipClasses"
+                                                data-cutlab-card-open="@member.Name"
                                                 data-cut-lab-chip-card="@member.Name"
                                                 aria-pressed="@(member.IsLocked ? "true" : "false")">@member.Name</button>
                                     }
@@ -599,6 +595,10 @@
                     {
                         <div class="cutlab-finding">
                             <p class="cutlab-finding__heading">@findingGroup.Heading</p>
+                            @if (findingGroup.Kind == CutLabFindingKind.EnablerStarved)
+                            {
+                                <p class="manabase-help">A card here is only missing a partner for THIS combo line — it may still be fully live in another combo, and can also appear under Combo-protected.</p>
+                            }
                             @foreach (var finding in findingGroup.Items)
                             {
                                 <div class="cutlab-finding__item">
@@ -629,6 +629,7 @@
                                                         : null;
                                                     <button type="button"
                                                             class="@chipClasses"
+                                                            data-cutlab-card-open="@evidenceCard.Name"
                                                             data-cut-lab-chip-card="@evidenceCard.Name"
                                                             aria-pressed="@(evidenceCard.IsLocked ? "true" : "false")">
                                                         <span>@evidence</span>
@@ -637,7 +638,6 @@
                                                             <span class="@comboBadgeClass">@comboBadgeText</span>
                                                         }
                                                     </button>
-                                                    { await RenderCardTextDisclosure(evidenceCard.Name); }
                                                 }
                                             }
                                         </div>
@@ -957,6 +957,18 @@
                                data-cut-lab-scenario-name />
                         <button type="button" class="run-button" data-cut-lab-scenario-save>Save scenario</button>
                     </div>
+                    <div class="cutlab-scenarios__portable-row">
+                        <p class="prompt-size-note cutlab-scenarios__portable-help">Download this session as a file, or load a session file to resume it on another device.</p>
+                        <div class="cutlab-scenarios__portable-actions">
+                            <button type="button" class="run-button" data-cut-lab-session-download>Download session</button>
+                            <label class="copy-button cutlab-scenarios__file-label" for="cut-lab-session-file">Load session file</label>
+                            <input id="cut-lab-session-file"
+                                   class="cutlab-scenarios__file-input"
+                                   type="file"
+                                   accept=".json,application/json"
+                                   data-cut-lab-session-file />
+                        </div>
+                    </div>
                     <p class="prompt-size-note cutlab-scenarios__status" role="status" data-cut-lab-scenario-status></p>
                     <div class="cutlab-scenarios__list" data-cut-lab-scenario-list></div>
                 </div>
@@ -1064,6 +1076,7 @@
                     <div>
                         <h2>Cut rounds</h2>
                         <p>Work through proposed cuts in order. Every proposal shows what actually changes — nothing here says a card is bad.</p>
+                        <p>Cut Lab picks each card for you. Accept cut removes it and proposes the next; Reject keeps it; Defer revisits it later.</p>
                     </div>
                 </div>
 
@@ -1084,7 +1097,7 @@
                 </div>
 
                 <div class="cutlab-proposal" data-cut-lab-card="@Model.Proposal.CardName" data-cut-lab-round="@Model.Proposal.RoundKey">
-                    <p class="cutlab-proposal__heading">Proposed cut: @Model.Proposal.CardName</p>
+                    <p class="cutlab-proposal__heading">Proposed cut: <button type="button" class="cutlab-card-link" data-cutlab-card-open="@Model.Proposal.CardName">@Model.Proposal.CardName</button></p>
                     <div class="cutlab-proposal__evidence">
                         <p>@Model.Proposal.FindingSummary</p>
                         @if (Model.Proposal.FindingChips.Count > 0)
@@ -1305,6 +1318,7 @@
                 </details>
             </section>
         }
+        @await Html.PartialAsync("_CutLabCardModal")
     </section>
 }
 else if (string.IsNullOrWhiteSpace(Model.ErrorMessage))

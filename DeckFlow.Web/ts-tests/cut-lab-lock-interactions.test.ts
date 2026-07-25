@@ -52,13 +52,28 @@ interface CutLabApi {
 }
 
 let api: CutLabApi;
+let showModalCalls = 0;
 
 beforeAll(() => {
   api = (globalThis as unknown as { DeckFlowCutLab: CutLabApi }).DeckFlowCutLab;
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value(this: HTMLDialogElement) {
+      showModalCalls += 1;
+      this.setAttribute('open', '');
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+    configurable: true,
+    value(this: HTMLDialogElement) {
+      this.removeAttribute('open');
+    },
+  });
 });
 
 afterEach(() => {
   document.body.innerHTML = '';
+  showModalCalls = 0;
 });
 
 describe('DeckFlowCutLab', () => {
@@ -413,7 +428,7 @@ describe('DeckFlowCutLab', () => {
     expect(lockedCount?.textContent).toBe('4');
   });
 
-  it('toggles an individual card pill through the canonical pool checkbox', () => {
+  it('opens an individual card pill in the modal and toggles through the canonical pool checkbox', () => {
     document.body.innerHTML = `
       <form data-cache-key="cut-lab">
         <input type="hidden" name="CutLabStateJson" value="" />
@@ -425,6 +440,7 @@ describe('DeckFlowCutLab', () => {
           <summary>Lands · 1 card · <span data-cut-lab-group-locked="lands">0</span> locked</summary>
           <button type="button"
                   class="kb-chip cutlab-role-chip"
+                  data-cutlab-card-open="Command Tower"
                   data-cut-lab-chip-card="Command Tower"
                   aria-pressed="false">Command Tower</button>
         </details>
@@ -446,6 +462,15 @@ describe('DeckFlowCutLab', () => {
           </tbody>
         </table>
       </form>
+      <script type="application/json" id="cutlab-card-text-data">{"Command Tower":{"typeLine":"Land","oracleText":"Add one mana of any color in your commander's color identity."}}</script>
+      <dialog id="cutlab-card-modal" aria-labelledby="cutlab-card-modal-title">
+        <h2 id="cutlab-card-modal-title"></h2>
+        <p data-cutlab-modal-meta hidden></p>
+        <p data-cutlab-modal-oracle></p>
+        <p data-cutlab-modal-combo hidden></p>
+        <button type="button" data-cutlab-modal-lock></button>
+        <button type="button" data-cutlab-modal-close>Close</button>
+      </dialog>
     `;
 
     document.dispatchEvent(new Event('DOMContentLoaded'));
@@ -453,22 +478,29 @@ describe('DeckFlowCutLab', () => {
     const pill = document.querySelector<HTMLButtonElement>('[data-cut-lab-chip-card="Command Tower"]');
     const checkbox = document.querySelector<HTMLInputElement>('[data-cut-lab-lock-card="Command Tower"]');
     const hiddenInput = document.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]');
+    const modalLockButton = document.querySelector<HTMLButtonElement>('[data-cutlab-modal-lock]');
 
     pill?.click();
+
+    expect(showModalCalls).toBe(1);
+    expect(modalLockButton?.textContent).toBe('Lock');
+    expect(checkbox?.checked).toBe(false);
+
+    modalLockButton?.click();
 
     expect(checkbox?.checked).toBe(true);
     expect(pill?.getAttribute('aria-pressed')).toBe('true');
     expect(pill?.classList.contains('cutlab-role-chip--locked')).toBe(true);
     expect(JSON.parse(hiddenInput?.value ?? '').pool[0].isLocked).toBe(true);
 
-    pill?.click();
+    modalLockButton?.click();
 
     expect(checkbox?.checked).toBe(false);
     expect(pill?.getAttribute('aria-pressed')).toBe('false');
     expect(pill?.classList.contains('cutlab-role-chip--locked')).toBe(false);
   });
 
-  it('toggles an individual card pill when a combo badge span is nested inside the button', () => {
+  it('opens the modal when a combo badge span is nested inside the card pill button', () => {
     document.body.innerHTML = `
       <form data-cache-key="cut-lab">
         <input type="hidden" name="CutLabStateJson" value="" />
@@ -480,6 +512,7 @@ describe('DeckFlowCutLab', () => {
           <summary>Lands · 1 card · <span data-cut-lab-group-locked="lands">0</span> locked</summary>
           <button type="button"
                   class="kb-chip cutlab-role-chip"
+                  data-cutlab-card-open="Command Tower"
                   data-cut-lab-chip-card="Command Tower"
                   aria-pressed="false">
             <span>Command Tower</span>
@@ -504,6 +537,15 @@ describe('DeckFlowCutLab', () => {
           </tbody>
         </table>
       </form>
+      <script type="application/json" id="cutlab-card-text-data">{"Command Tower":{"typeLine":"Land","oracleText":"Add one mana of any color in your commander's color identity."}}</script>
+      <dialog id="cutlab-card-modal" aria-labelledby="cutlab-card-modal-title">
+        <h2 id="cutlab-card-modal-title"></h2>
+        <p data-cutlab-modal-meta hidden></p>
+        <p data-cutlab-modal-oracle></p>
+        <p data-cutlab-modal-combo hidden></p>
+        <button type="button" data-cutlab-modal-lock></button>
+        <button type="button" data-cutlab-modal-close>Close</button>
+      </dialog>
     `;
 
     document.dispatchEvent(new Event('DOMContentLoaded'));
@@ -511,17 +553,113 @@ describe('DeckFlowCutLab', () => {
     const pill = document.querySelector<HTMLButtonElement>('[data-cut-lab-chip-card="Command Tower"]');
     const badge = pill?.querySelector<HTMLSpanElement>('.cutlab-combo-badge');
     const checkbox = document.querySelector<HTMLInputElement>('[data-cut-lab-lock-card="Command Tower"]');
+    const modalLockButton = document.querySelector<HTMLButtonElement>('[data-cutlab-modal-lock]');
 
     badge?.click();
+
+    expect(showModalCalls).toBe(1);
+    expect(checkbox?.checked).toBe(false);
+
+    modalLockButton?.click();
 
     expect(checkbox?.checked).toBe(true);
     expect(pill?.getAttribute('aria-pressed')).toBe('true');
     expect(pill?.classList.contains('cutlab-role-chip--locked')).toBe(true);
 
-    badge?.click();
+    modalLockButton?.click();
 
     expect(checkbox?.checked).toBe(false);
     expect(pill?.getAttribute('aria-pressed')).toBe('false');
     expect(pill?.classList.contains('cutlab-role-chip--locked')).toBe(false);
+  });
+
+  it('syncs every CutLabStateJson input when a pool lock changes', () => {
+    const staleSnapshot = api.buildCutLabStateJson({
+      commander: 'Aesi, Tyrant of Gyre Strait',
+      pool: [
+        {
+          name: 'Forest',
+          quantity: 1,
+          typeLine: 'Basic Land — Forest',
+          isCommander: false,
+          isLocked: false,
+          packageId: null,
+        },
+      ],
+      packages: [],
+      intent: {
+        primaryPlan: 'Keep the mana base stable.',
+        secondaryPlan: null,
+        bracket: 3,
+        playExperience: 'Focused',
+        includeSideboard: false,
+        includeMaybeboard: false,
+      },
+      roleFloors: [],
+      goals: {
+        commanderByTurn: 4,
+        engineByTurn: 3,
+        representativeLineByTurn: 5,
+      },
+    });
+
+    document.body.innerHTML = `
+      <form data-cache-key="cut-lab">
+        <input type="hidden" name="CutLabStateJson" value="" />
+        <textarea name="PrimaryPlan">Keep the mana base stable.</textarea>
+        <textarea name="SecondaryPlan"></textarea>
+        <input type="radio" name="Bracket" value="3" checked />
+        <input type="radio" name="PlayExperience" value="Focused" checked />
+        <table>
+          <tbody>
+            <tr data-cut-lab-card="Forest"
+                data-cut-lab-type-line="Basic Land — Forest"
+                data-cut-lab-role="lands"
+                data-cut-lab-quantity="1"
+                data-cut-lab-commander="false">
+              <td data-label="Lock"><input type="checkbox" data-cut-lab-lock-card="Forest" /></td>
+              <td data-label="Card"><strong>1 × Forest</strong></td>
+              <td data-label="Package">
+                <select data-cut-lab-package-card="Forest">
+                  <option value="">Unlocked pool</option>
+                </select>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </form>
+      <form data-cut-lab-decide-form>
+        <input type="hidden" name="CutLabStateJson" value="" />
+        <input type="hidden" name="CardName" value="Forest" />
+        <input type="hidden" name="Decision" value="accept" />
+      </form>
+    `;
+
+    Array.from(document.querySelectorAll<HTMLInputElement>('input[name="CutLabStateJson"]')).forEach(input => {
+      input.value = staleSnapshot;
+    });
+
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+
+    const checkbox = document.querySelector<HTMLInputElement>('[data-cut-lab-lock-card="Forest"]');
+    checkbox?.click();
+    checkbox?.dispatchEvent(new Event('change', { bubbles: true }));
+
+    const stateInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="CutLabStateJson"]'));
+    expect(stateInputs).toHaveLength(2);
+
+    stateInputs.forEach(input => {
+      const parsed = JSON.parse(input.value) as CutLabStateSnapshot;
+      expect(parsed.pool).toEqual([
+        {
+          name: 'Forest',
+          quantity: 1,
+          typeLine: 'Basic Land — Forest',
+          isCommander: false,
+          isLocked: true,
+          packageId: null,
+        },
+      ]);
+    });
   });
 });

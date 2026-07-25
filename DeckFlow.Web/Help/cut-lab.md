@@ -43,6 +43,17 @@ Cut Lab then walks you through iterative cut rounds. As you make decisions, the 
 
 The important part is the stance: the tool does not tell you that a card is bad. It shows the measurable tradeoff of removing that card. You see what each proposed cut changes in the deck's numbers, which makes Cut Lab a decision-support workspace rather than a judgment engine.
 
+## How it works
+
+The loop is straightforward once the pool is loaded:
+
+1. Lock the cards that must stay. Ticking a card protects it from future cut proposals, and the commander is always locked automatically.
+2. Cut Lab chooses the proposed cut. You do not pick the next card yourself; the engine surfaces one candidate at a time based on the current protected pool, findings, floors, and goals.
+3. Work through the proposal queue with **Accept**, **Reject**, or **Defer**. Accept removes that card and moves to the next proposal, Reject keeps it, and Defer pushes it back to revisit later.
+4. When you are close to 100, use the quantity tuner to adjust basics and other legal multiple-copy cards so the final list lands exactly where you want it.
+
+Structural findings also use two combo-related labels that mean different things. **Combo-protected** means all pieces for that combo line are present, so the workspace is warning you that the card is part of a currently live line. **Enabler-starved** means that specific line is missing a partner, but the card may still be fully live in another combo or still show up elsewhere as combo-protected.
+
 ## Goals and what-if swaps
 
 If you care about specific timing goals, pin them directly in the workspace. For example, you can track whether a payoff is online by a target turn and see those goal results recalculated by the same engine after each change.
