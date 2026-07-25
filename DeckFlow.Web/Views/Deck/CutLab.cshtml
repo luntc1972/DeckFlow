@@ -1186,6 +1186,15 @@
                     <span class="cutlab-sticky-bar__accepted" data-cut-lab-sticky-accepted>@CutLabViewModel.FormatCutsAcceptedSoFar(Model.StickyBar.CutsAcceptedCount)</span>
                 }
             </div>
+            @if (Model.CurrentActualLands is int actualLands && Model.CurrentTargetLands is double targetLands)
+            {
+                var roundedTargetLands = Math.Round(targetLands);
+                var landPercent = targetLands <= 0 ? 0 : (int)Math.Round((actualLands / targetLands) * 100, MidpointRounding.AwayFromZero);
+                <details class="cutlab-collapsible" data-cut-lab-lands-disclosure id="cut-lab-section-lands-now">
+                    <summary class="cutlab-collapsible__summary">Lands right now</summary>
+                    <p data-cut-lab-lands-text>Lands: @actualLands/@roundedTargetLands (@landPercent%) as your pool stands now (@Model.CurrentCount cards).</p>
+                </details>
+            }
 
             @if (Model.Proposal.HasProposal)
             {

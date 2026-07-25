@@ -166,6 +166,10 @@ const buildDecisionFixture = (): void => {
         <span class="cutlab-sticky-bar__count" data-cut-lab-sticky-remaining>12 to cut</span>
         <span class="cutlab-sticky-bar__accepted" data-cut-lab-sticky-accepted>0 cut so far</span>
       </div>
+      <details class="cutlab-collapsible" data-cut-lab-lands-disclosure>
+        <summary class="cutlab-collapsible__summary">Lands right now</summary>
+        <p data-cut-lab-lands-text>Lands: 37/39 (95%) as your pool stands now (112 cards).</p>
+      </details>
       <button type="button" id="cut-lab-step-tab-4" class="is-disabled" disabled aria-disabled="true">Export</button>
       <div class="cutlab-round-banner">
         <p class="cutlab-finding__heading">Round 1 · Obvious cuts</p>
@@ -293,6 +297,8 @@ const buildDecisionFixture = (): void => {
 const buildPatch = (overrides: Partial<CutLabUiPatch> = {}): CutLabUiPatch => ({
   cutLabStateJson: '{"version":2}',
   currentCount: 111,
+  actualLands: 38,
+  targetLands: 40,
   canBuildExport: false,
   nextProposal: {
     isTerminal: false,
@@ -689,6 +695,72 @@ describe('cut-lab proposal enhancement', () => {
 
     expect(document.querySelector<HTMLElement>('[data-cut-lab-sticky-accepted]')?.textContent).toBe('2 cuts so far');
     expect(document.querySelector<HTMLDetailsElement>('details.cutlab-cuts-made summary')?.textContent).toBe('Cuts made · 2 cards');
+  });
+
+  it('rebuilds cuts-made rows as popup triggers and omits the lock button for cut cards', async () => {
+    buildDecisionFixture();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ patch: buildPatch({
+        cardTextByCardName: {
+          'Sol Ring': {
+            typeLine: 'Artifact',
+            manaCost: '{1}',
+            oracleText: '{T}: Add {C}{C}.',
+            cmc: 1,
+            castPercent: 99,
+          },
+        },
+      }) }),
+    });
+
+    const acceptButton = document.querySelector<HTMLButtonElement>('.cutlab-proposal [data-cut-lab-decision="accept"]');
+    const acceptForm = acceptButton?.closest('form');
+    acceptForm?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: acceptButton ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    const cutTrigger = document.querySelector<HTMLElement>('.cutlab-cuts-made__row [data-cutlab-card-open="Sol Ring"]');
+    const castability = document.querySelector<HTMLElement>('[data-cutlab-modal-castability]');
+
+    expect(cutTrigger).not.toBeNull();
+
+    cutTrigger?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(showModalCalls).toBe(1);
+    expect(document.getElementById('cutlab-card-modal-title')?.textContent).toBe('Sol Ring');
+    expect(castability?.textContent).toBe('CMC 1 · Cast by turn 1: 99% at your current pool size');
+    expect(document.querySelector('[data-cutlab-modal-lock]')).toBeNull();
+  });
+
+  it('keeps the land disclosure collapsed by default and refreshes its text from the patch', async () => {
+    buildDecisionFixture();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ patch: buildPatch({
+        currentCount: 108,
+        actualLands: 38,
+        targetLands: 40,
+      }) }),
+    });
+
+    const disclosure = document.querySelector<HTMLDetailsElement>('[data-cut-lab-lands-disclosure]');
+    expect(disclosure?.open).toBe(false);
+
+    const acceptButton = document.querySelector<HTMLButtonElement>('.cutlab-proposal [data-cut-lab-decision="accept"]');
+    const acceptForm = acceptButton?.closest('form');
+    acceptForm?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: acceptButton ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    disclosure!.open = true;
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-lands-text]')?.textContent).toBe('Lands: 38/40 (95%) as your pool stands now (108 cards).');
   });
 
   it('renders restore errors beside the cuts-made list and keeps the row intact on a non-OK response', async () => {

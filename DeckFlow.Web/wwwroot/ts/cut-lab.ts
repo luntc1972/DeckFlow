@@ -166,6 +166,8 @@ interface CutLabUiPatch {
   cutLabStateJson: string;
   currentCount: number;
   cardsRemaining: number;
+  actualLands?: number;
+  targetLands?: number;
   canBuildExport: boolean;
   cardTextByCardName?: Record<string, CutLabCardTextEntry>;
   nextProposal: CutLabDecisionNextProposal;
@@ -831,6 +833,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
   const getCardModalLockButton = (): HTMLButtonElement | null =>
     document.querySelector<HTMLButtonElement>('[data-cutlab-modal-lock]');
+
+  const getLandDisclosure = (): HTMLDetailsElement | null =>
+    document.querySelector<HTMLDetailsElement>('[data-cut-lab-lands-disclosure]');
+
+  const getLandDisclosureText = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cut-lab-lands-text]');
 
   const getFloorRows = (): CutLabFloorDomRow[] =>
     Array.from(document.querySelectorAll<HTMLTableRowElement>('tr[data-cut-lab-floor-row]'))
@@ -2422,6 +2430,18 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     proposal.appendChild(actions);
   };
 
+  const renderLandDisclosure = (patch: CutLabUiPatch): void => {
+    const disclosure = getLandDisclosure();
+    const text = getLandDisclosureText();
+    if (!disclosure || !text || typeof patch.actualLands !== 'number' || typeof patch.targetLands !== 'number') {
+      return;
+    }
+
+    const roundedTarget = Math.round(patch.targetLands);
+    const percent = patch.targetLands <= 0 ? 0 : Math.round((patch.actualLands / patch.targetLands) * 100);
+    text.textContent = `Lands: ${patch.actualLands}/${roundedTarget} (${percent}%) as your pool stands now (${patch.currentCount} cards).`;
+  };
+
   const renderDecisionError = (form: HTMLFormElement, message: string): void => {
     const proposal = form.closest<HTMLDivElement>('.cutlab-proposal');
     if (!proposal) {
@@ -2973,6 +2993,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     patchExportCountStatus(patch.currentCount);
     renderWhatifSelectOptions(patch.whatifCardOutOptions, patch.whatifCardInOptions);
     patchStickyBar(patch, options);
+    renderLandDisclosure(patch);
     if (shouldRenderProposal) {
       renderRoundBanner(patch.nextProposal);
       renderProposalCard(patch, antiForgeryToken);
