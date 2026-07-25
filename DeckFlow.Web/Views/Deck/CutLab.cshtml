@@ -1176,7 +1176,7 @@
                 const int stickyBarTargetDeckSize = 100;
             }
             
-            <div class="cutlab-sticky-bar">
+            <div class="cutlab-sticky-bar" data-cut-lab-sticky-target="@stickyBarTargetDeckSize">
                 <span class="cutlab-sticky-bar__locked" data-cut-lab-sticky-locked>@Model.StickyBar.LockedCount locked</span>
                 <span class="cutlab-sticky-bar__current" data-cut-lab-sticky-current>@Model.StickyBar.CurrentCount/@stickyBarTargetDeckSize cards</span>
                 @if (Model.StickyBar.HasStickyBar)

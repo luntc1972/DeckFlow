@@ -768,6 +768,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const getStickyAccepted = (): HTMLElement | null =>
     document.querySelector<HTMLElement>('[data-cut-lab-sticky-accepted]');
 
+  const getStickyTargetDeckSize = (): number => {
+    const rawValue = document.querySelector<HTMLElement>('[data-cut-lab-sticky-target]')?.dataset.cutLabStickyTarget;
+    const parsedValue = rawValue ? Number.parseInt(rawValue, 10) : Number.NaN;
+    return Number.isFinite(parsedValue) ? parsedValue : 100;
+  };
+
   const getExportStepTab = (): HTMLButtonElement | null =>
     document.getElementById('cut-lab-step-tab-4') as HTMLButtonElement | null;
 
@@ -2974,41 +2980,48 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     patch: CutLabUiPatch,
     options: { preserveProposal?: boolean; preserveCutsSection?: boolean } = {},
   ): void => {
+    const setStickyField = (element: HTMLElement | null, text: string | null): void => {
+      if (!element) {
+        return;
+      }
+
+      if (text === null) {
+        element.setAttribute('hidden', '');
+        return;
+      }
+
+      element.textContent = text;
+      element.removeAttribute('hidden');
+    };
+
     setExportEnabled(patch.canBuildExport);
 
     const stickyRound = getStickyRound();
     const stickyRemaining = getStickyRemaining();
     const stickyAccepted = getStickyAccepted();
     const stickyCurrent = getStickyCurrent();
+    const stickyTargetDeckSize = getStickyTargetDeckSize();
     const shouldHideRoundFields = !options.preserveProposal
       && Boolean(patch.nextProposal)
       && (patch.nextProposal.isTerminal || patch.nextProposal.roundLabel.trim() === '');
 
     if (stickyCurrent) {
-      stickyCurrent.textContent = `${patch.currentCount}/100 cards`;
+      stickyCurrent.textContent = `${patch.currentCount}/${stickyTargetDeckSize} cards`;
     }
 
     if (shouldHideRoundFields) {
-      stickyRound?.setAttribute('hidden', '');
-      stickyRemaining?.setAttribute('hidden', '');
-      stickyAccepted?.setAttribute('hidden', '');
+      setStickyField(stickyRound, null);
+      setStickyField(stickyRemaining, null);
+      setStickyField(stickyAccepted, null);
       return;
     }
 
-    if (stickyRound && !options.preserveProposal && patch.nextProposal) {
-      stickyRound.textContent = patch.nextProposal.roundLabel;
-      stickyRound.removeAttribute('hidden');
+    if (!options.preserveProposal && patch.nextProposal) {
+      setStickyField(stickyRound, patch.nextProposal.roundLabel);
     }
 
-    if (stickyRemaining) {
-      stickyRemaining.textContent = `${patch.cardsRemaining} to cut`;
-      stickyRemaining.removeAttribute('hidden');
-    }
-
-    if (stickyAccepted) {
-      stickyAccepted.textContent = formatCutsAcceptedSoFar(patch.cutsMade.length);
-      stickyAccepted.removeAttribute('hidden');
-    }
+    setStickyField(stickyRemaining, `${patch.cardsRemaining} to cut`);
+    setStickyField(stickyAccepted, formatCutsAcceptedSoFar(patch.cutsMade.length));
   };
 
   const applyServerPatch = (
