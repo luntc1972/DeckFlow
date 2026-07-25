@@ -747,7 +747,7 @@ public sealed class CutLabSimulationServiceTests
                     entry => entry.Card.Name,
                     entry => new CutLabSimulationCardView
                     {
-                        Cmc = entry.Card.Cmc,
+                        Cmc = (int?)entry.Card.Cmc,
                         CastPercent = entry.Quantity,
                     },
                     StringComparer.OrdinalIgnoreCase),
