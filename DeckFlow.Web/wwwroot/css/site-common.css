@@ -2619,57 +2619,113 @@ input[data-cut-lab-package-toggle]:checked:focus-visible {
   color: var(--muted, #5a6472);
 }
 
-details.cutlab-card-text {
-  margin: 0.5rem 0 0;
-}
-
-td[data-label="Card"] > details.cutlab-card-text,
-div.kb-chip-area__chips > details.cutlab-card-text {
-  width: 100%;
-}
-
-div.kb-chip-area__chips > details.cutlab-card-text {
-  flex: 1 0 100%;
-}
-
-details.cutlab-card-text > summary.cutlab-card-text__summary {
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
+.cutlab-card-link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-strong, var(--accent, #3858a6));
+  font: inherit;
+  font-weight: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 0.14em;
   cursor: pointer;
-  color: var(--ink, inherit);
-  font-size: var(--fs-sm, 0.82rem);
 }
 
-details.cutlab-card-text > div.cutlab-card-text__body {
-  margin-top: 0.35rem;
-  padding: 0.75rem 0.85rem;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--panel-soft-bg, var(--panel));
-  color: var(--ink, inherit);
-  font-size: var(--fs-sm, 0.82rem);
+.cutlab-card-link:hover {
+  color: var(--accent, #3858a6);
 }
 
-details.cutlab-card-text > div.cutlab-card-text__body > p {
+.cutlab-card-link:focus-visible {
+  outline: 2px solid var(--focus, var(--accent-strong, var(--accent, #3858a6)));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+dialog.cutlab-card-modal {
+  width: min(40rem, calc(100vw - 3rem));
+  max-width: 42rem;
+  padding: 0;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  color: var(--ink, inherit);
+}
+
+dialog.cutlab-card-modal::backdrop {
+  background: color-mix(in srgb, #08101f 62%, transparent);
+}
+
+.cutlab-card-modal__panel {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.14));
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--panel, #fff) 96%, #fff 4%), var(--panel, #fff));
+  box-shadow: 0 1.5rem 3.5rem rgba(0, 0, 0, 0.28);
+}
+
+.cutlab-card-modal__title,
+.cutlab-card-modal__body > p {
   margin: 0;
 }
 
-details.cutlab-card-text > div.cutlab-card-text__body > p + p {
-  margin-top: 0.45rem;
+.cutlab-card-modal__meta {
+  color: var(--muted, #5a6472);
+  font-size: var(--fs-sm, 0.82rem);
 }
 
-details.cutlab-card-text > div.cutlab-card-text__body > p.cutlab-card-text__meta {
-  color: var(--muted, inherit);
-}
-
-details.cutlab-card-text > div.cutlab-card-text__body > p.cutlab-card-text__oracle {
-  color: var(--ink, inherit);
+.cutlab-card-modal__oracle,
+.cutlab-card-modal__combo {
   white-space: pre-line;
 }
 
-details.cutlab-card-text > div.cutlab-card-text__body > p.cutlab-card-text__combo {
+.cutlab-card-modal__body {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.cutlab-card-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.cutlab-card-modal__button {
+  min-width: 8rem;
+  min-height: 44px;
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.14));
+  border-radius: 999px;
+  background: var(--panel-soft-bg, var(--panel, #fff));
   color: var(--ink, inherit);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cutlab-card-modal__button:hover:not(:disabled) {
+  border-color: var(--accent, #3858a6);
+}
+
+.cutlab-card-modal__button:focus-visible {
+  outline: 2px solid var(--focus, var(--accent-strong, var(--accent, #3858a6)));
+  outline-offset: 2px;
+}
+
+.cutlab-card-modal__button:disabled {
+  opacity: 0.68;
+  cursor: not-allowed;
+}
+
+.cutlab-card-modal__button--lock {
+  background: var(--accent, #3858a6);
+  border-color: var(--accent, #3858a6);
+  color: var(--on-accent, #fff);
 }
 
 details.cutlab-collapsible > div.cutlab-package-help {
@@ -4507,6 +4563,34 @@ input[data-cut-lab-floor] {
 
 .cutlab-scenarios__save-row input[type="text"] {
   flex: 1 1 16rem;
+}
+
+.cutlab-scenarios__portable-row {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.cutlab-scenarios__portable-help {
+  margin: 0;
+}
+
+.cutlab-scenarios__portable-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.cutlab-scenarios__file-label {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cutlab-scenarios__file-input {
+  flex: 1 1 16rem;
+  min-height: 44px;
 }
 
 .cutlab-scenarios__status,

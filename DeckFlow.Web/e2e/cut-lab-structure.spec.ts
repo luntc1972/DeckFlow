@@ -164,7 +164,7 @@ test('opens the Lands group, shows member chips, and toggles land rows from the 
   await importPool(page);
 
   const landsGroup = page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' });
-  await landsGroup.locator('summary').click();
+  await landsGroup.locator(':scope > summary').click();
   const lockAllButton = landsGroup.locator('[data-cut-lab-lock-role="lands"]');
 
   await expect(landsGroup.locator('[data-cut-lab-chip-card="Plains"]')).toBeVisible();
@@ -289,7 +289,7 @@ test('accepts a proposal without a reload, keeps copy neutral, and shows a 7-row
   }
 
   const compareDetails = page.locator('details.cutlab-compare');
-  await compareDetails.locator('summary').click();
+  await compareDetails.locator(':scope > summary').click();
   await expect(compareDetails.locator('table[data-prompt-cedh-reference-table]')).toBeVisible();
   await expect(compareDetails.locator('thead th')).toHaveText(['Metric', 'Baseline', 'Current', 'Delta']);
   // 7 metric families expand to per-kind rows: 5 single-kind families (EarlyInteraction
@@ -382,7 +382,7 @@ test('captures the structure screenshot matrix across themes and viewports', asy
       await page.context().clearCookies();
       await page.context().addCookies([{ name: 'deckflow-theme', value: theme.cookie, url: baseUrl }]);
       await importPool(page);
-      await page.locator('details.cutlab-role-group').filter({ hasText: 'Interaction' }).locator('summary').click();
+      await page.locator('details.cutlab-role-group').filter({ hasText: 'Interaction' }).locator(':scope > summary').click();
       await page.locator('input[data-cut-lab-floor="interaction"]').scrollIntoViewIfNeeded();
 
       await page.screenshot({
@@ -403,7 +403,7 @@ test('captures the structure screenshot matrix across themes and viewports', asy
       });
 
       const compareDetails = page.locator('details.cutlab-compare');
-      await compareDetails.locator('summary').click();
+      await compareDetails.locator(':scope > summary').click();
       await compareDetails.scrollIntoViewIfNeeded();
       await compareDetails.screenshot({
         path: join(screenshotDir, `compare-${theme.name}-${viewport.name}.png`),

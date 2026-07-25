@@ -60,15 +60,30 @@ interface CutLabPatchResponse {
 }
 
 let fetchMock: ReturnType<typeof vi.fn>;
+let showModalCalls = 0;
 
 beforeAll(() => {
   fetchMock = vi.fn();
   vi.stubGlobal('fetch', fetchMock);
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value(this: HTMLDialogElement) {
+      showModalCalls += 1;
+      this.setAttribute('open', '');
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+    configurable: true,
+    value(this: HTMLDialogElement) {
+      this.removeAttribute('open');
+    },
+  });
 });
 
 afterEach(() => {
   document.body.innerHTML = '';
   fetchMock.mockReset();
+  showModalCalls = 0;
 });
 
 const flushDecisionSubmit = async (): Promise<void> => {
@@ -225,6 +240,15 @@ const buildDecisionFixture = (): void => {
         </div>
       </details>
     </section>
+    <script type="application/json" id="cutlab-card-text-data">{"Counterspell":{"typeLine":"Instant","manaCost":"{U}{U}","setCode":"TMP","collectorNumber":"55","oracleText":"Counter target spell.","comboContext":"Infinite cards"},"Sol Ring":{"typeLine":"Artifact","manaCost":"{1}","oracleText":"{T}: Add {C}{C}."}}</script>
+    <dialog id="cutlab-card-modal" aria-labelledby="cutlab-card-modal-title">
+      <h2 id="cutlab-card-modal-title"></h2>
+      <p data-cutlab-modal-meta hidden></p>
+      <p data-cutlab-modal-oracle></p>
+      <p data-cutlab-modal-combo hidden></p>
+      <button type="button" data-cutlab-modal-lock></button>
+      <button type="button" data-cutlab-modal-close>Close</button>
+    </dialog>
   `;
 
   document.dispatchEvent(new Event('DOMContentLoaded'));
@@ -469,6 +493,7 @@ describe('cut-lab proposal enhancement', () => {
       ].includes(chip.textContent ?? ''));
     const checkbox = document.querySelector<HTMLInputElement>('input[data-cut-lab-lock-card="Counterspell"]');
     const hiddenInput = document.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]');
+    const modalLockButton = document.querySelector<HTMLButtonElement>('[data-cutlab-modal-lock]');
     expect(structuralCardPill?.textContent).toBe('Counterspell · MV 2');
     expect(structuralCardPills).toHaveLength(1);
     expect(structuralCardPill?.getAttribute('aria-pressed')).toBe('false');
@@ -476,11 +501,13 @@ describe('cut-lab proposal enhancement', () => {
     expect(structuralUnicodeEvidence?.tagName).toBe('SPAN');
     expect(structuralInvalidManaValueEvidence).toHaveLength(4);
     structuralCardPill?.click();
+    expect(showModalCalls).toBe(1);
+    modalLockButton?.click();
     expect(checkbox?.checked).toBe(true);
     expect(structuralCardPill?.getAttribute('aria-pressed')).toBe('true');
     expect(structuralCardPill?.classList.contains('cutlab-role-chip--locked')).toBe(true);
     expect(JSON.parse(hiddenInput?.value ?? '').pool.find((card: { name: string }) => card.name === 'Counterspell')?.isLocked).toBe(true);
-    structuralCardPill?.click();
+    modalLockButton?.click();
     expect(checkbox?.checked).toBe(false);
     expect(structuralCardPill?.getAttribute('aria-pressed')).toBe('false');
     expect(document.querySelector<HTMLElement>('[data-cut-lab-degradation="combo"]')?.classList.contains('hidden')).toBe(false);

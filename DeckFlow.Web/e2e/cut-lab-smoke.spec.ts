@@ -60,7 +60,7 @@ const importPool = async (page: Page): Promise<void> => {
   await page.getByRole('button', { name: 'Import pool' }).click();
 
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
-  await page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' }).locator('summary').click();
+  await page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' }).locator(':scope > summary').click();
   await expect(page.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
 };
