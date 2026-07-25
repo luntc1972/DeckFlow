@@ -196,14 +196,16 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             return null;
         }
 
+        IReadOnlyList<CutLabLockedOvershootGroupProjection> groups = CutLabRoleAssigner.BuildLockedOvershootGroups(advisory.Groups);
+
         return new CutLabLockedOvershootAdvisoryDto
         {
             CardsOverTarget = advisory.CardsOverTarget,
             HiddenCount = advisory.HiddenCount,
-            Groups = advisory.Groups
+            Groups = groups
                 .Select(group => new CutLabLockedOvershootGroupDto
                 {
-                    RoleLabel = DisplayLabelFor(group.RoleKey),
+                    RoleLabel = group.RoleLabel,
                     CardNames = group.CardNames,
                 })
                 .ToArray(),

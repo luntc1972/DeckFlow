@@ -84,6 +84,18 @@ public static class CutLabRoleAssigner
     internal static string DisplayLabelFor(string roleKey)
         => RoleDisplayLabels.TryGetValue(roleKey, out string? label) ? label : roleKey;
 
+    internal static IReadOnlyList<CutLabLockedOvershootGroupProjection> BuildLockedOvershootGroups(
+        IReadOnlyList<CutLabLockedOvershootGroup> groups)
+    {
+        ArgumentNullException.ThrowIfNull(groups);
+
+        return groups
+            .Select(group => new CutLabLockedOvershootGroupProjection(
+                DisplayLabelFor(group.RoleKey),
+                group.CardNames))
+            .ToArray();
+    }
+
     /// <summary>
     /// Assigns the fixed-order Cut Lab role keys for a card using only existing classifier signals.
     /// </summary>
@@ -167,3 +179,7 @@ public static class CutLabRoleAssigner
         return assigned;
     }
 }
+
+internal sealed record CutLabLockedOvershootGroupProjection(
+    string RoleLabel,
+    IReadOnlyList<string> CardNames);

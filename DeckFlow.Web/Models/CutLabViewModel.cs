@@ -730,14 +730,16 @@ public sealed record CutLabViewModel
             return null;
         }
 
+        IReadOnlyList<CutLabLockedOvershootGroupProjection> groups = CutLabRoleAssigner.BuildLockedOvershootGroups(advisory.Groups);
+
         return new CutLabLockedOvershootAdvisoryView
         {
             CardsOverTarget = advisory.CardsOverTarget,
             HiddenCount = advisory.HiddenCount,
-            Groups = advisory.Groups
+            Groups = groups
                 .Select(group => new CutLabLockedOvershootGroupView
                 {
-                    RoleLabel = DisplayLabelFor(group.RoleKey),
+                    RoleLabel = group.RoleLabel,
                     CardNames = group.CardNames,
                 })
                 .ToArray(),
