@@ -169,4 +169,21 @@ public sealed class ManabaseRampDrawBudgetTests
         Assert.Equal(0, budget.RampShort);
         Assert.Equal(4, budget.DrawShort);
     }
+
+    [Fact]
+    public void Classify_InvestigateOnlyCard_DoesNotIncreaseDrawPieceCount()
+    {
+        var card = new CardFact
+        {
+            Name = "Clue Setup",
+            Quantity = 1,
+            ManaValue = 2,
+            TypeLine = "Sorcery",
+            OracleText = "Investigate.",
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify(new[] { card }, isSingleton: true);
+
+        Assert.Equal(0.0, deck.DrawPieceCount);
+    }
 }

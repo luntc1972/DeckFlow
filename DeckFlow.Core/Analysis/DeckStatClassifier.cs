@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace DeckFlow.Core.Analysis;
 
 /// <summary>
@@ -7,6 +9,25 @@ namespace DeckFlow.Core.Analysis;
 /// </summary>
 public static class DeckStatClassifier
 {
+    // A card-draw effect that benefits YOU (efficacy R2 M7). Matches "draw(s) a/N card(s)" —
+    // imperative ("Draw a card"), activated ("<cost>: Draw a card"), "you (may) draw…", and
+    // symmetric wheels ("each player draws seven cards", where you are a player too) — but EXCLUDES:
+    //   * draws attributed to an opponent or an indeterminate other player ("target/that/another
+    //     player draws", "opponent(s) draw"), which are not card advantage for the caster; and
+    //   * draw-as-CONDITION, where the draw is a trigger/replacement rather than an effect
+    //     ("whenever/when you draw a card, …" payoffs; "if you would draw a card, …" replacements) —
+    //     those cards do not themselves draw. A real ETB draw ("When this enters, draw a card") has
+    //     no "you" between the trigger word and "draw", so it is still matched.
+    // Handling "draws?" (with the plural s) is the point: a "…draws two cards" card is now seen the
+    // same by the v2 land-target credit (IsRepeatableRampOrDraw) and the budget draw count
+    // (IsDrawPieceForBudget), instead of one subsystem crediting it while the other ignores it.
+    private static readonly Regex YouCardDrawRegex = new(
+        @"(?<!(?:opponent|opponents|target player|target opponent|that player|another player|whenever you|when you|would) )\bdraws?\s+(?:a|one|two|three|four|five|six|seven|eight|nine|ten|x|\d+)\s+cards?",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // Why: broad role-tally ramp signal — intentionally distinct from the tuned, flag-gated
+    // Manabase ramp predicates (castability/land math). Do NOT unify the two. See ADR
+    // docs/decisions/0003-ramp-classifier-divergence.md.
     /// <summary>
     /// Returns <see langword="true"/> when the card is a ramp source: a land, an explicit
     /// mana-add effect, a mana-symbol producer (mana rocks, dorks, rituals), a land-search,
@@ -26,13 +47,20 @@ public static class DeckStatClassifier
             || oracleText.Contains("create a Treasure", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Returns <see langword="true"/> when the card draws cards or creates clue tokens.
+    /// Shared you-anchored literal card-draw predicate: "draw(s) a/N card(s)" that benefits YOU,
+    /// excluding opponent/trigger/replacement draws. Regex-only (no clue/connive union) so Manabase's
+    /// Karsten draw term can reuse the exact same signal without inheriting role-tally extras.
+    /// </summary>
+    /// <param name="oracleText">Normalized oracle text.</param>
+    internal static bool MatchesYouCardDraw(string oracleText) => YouCardDrawRegex.IsMatch(oracleText);
+
+    /// <summary>
+    /// Returns <see langword="true"/> when the card has you-anchored literal card draw (any count),
+    /// or is clue/connive card-advantage (investigate/connive). Role-tally draw signal.
     /// </summary>
     /// <param name="oracleText">Normalized oracle text.</param>
     public static bool IsDrawCard(string oracleText)
-        => oracleText.Contains("draw a card", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("draw two cards", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("draw X cards", StringComparison.OrdinalIgnoreCase)
+        => MatchesYouCardDraw(oracleText)
             || oracleText.Contains("investigate", StringComparison.OrdinalIgnoreCase)
             || oracleText.Contains("connive", StringComparison.OrdinalIgnoreCase);
 
