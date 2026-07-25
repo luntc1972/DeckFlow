@@ -85,7 +85,15 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
   2. `dotnet build` on the solution completes with no new errors and no new warnings.
   3. The application starts locally with all creator-style services resolving through DI (no missing-registration failures at startup).
   4. The ported Core test suite for the creator-style engine runs and passes.
-**Plans**: TBD
+**Plans**: 6 plans
+
+Plans:
+- [ ] 112-01-PLAN.md — Pre-port baseline capture and RESEARCH manifest drift preflight
+- [ ] 112-02-PLAN.md — Core file allowlist checkout, Postgres test trims, distillation-stack hunks
+- [ ] 112-03-PLAN.md — Remaining Core hunks, format/path gates, Commit 1
+- [ ] 112-04-PLAN.md — Web file allowlist checkout, seed placeholders, Web hunks, archidekt pipeline
+- [ ] 112-05-PLAN.md — AddDeckFlowCreatorStyle DI extension and the two Program.cs edits
+- [ ] 112-06-PLAN.md — Real-ArchidektOwnerClient DI test, headless boot smoke, Commit 2
 
 ### Phase 113: Shared-Infra Re-derivation
 **Goal**: Cycle 17's shared-infrastructure refactors — the neutral `ScryfallCollectionResolver`, `ScryfallLimits.CollectionBatchSize`, shared `CachedNameResolution`, and a dedicated `archidekt` resilience pipeline — are re-derived against current `main` line by line, not applied wholesale from a branch that Cycles 18-19 have since edited underneath.
