@@ -81,6 +81,25 @@ public sealed record CutLabSimulationResult
 
     /// <summary>Manabase target land count for the current working pool.</summary>
     public double TargetLands { get; init; }
+
+    /// <summary>Projects cached simulation popup stats back onto the shared pool-card shape.</summary>
+    internal static IReadOnlyList<CutLabPoolCard> ApplySimulationCardData(
+        IReadOnlyList<CutLabPoolCard> pool,
+        IReadOnlyDictionary<string, CutLabSimulationCardView> castabilityByCardName)
+    {
+        ArgumentNullException.ThrowIfNull(pool);
+        ArgumentNullException.ThrowIfNull(castabilityByCardName);
+
+        return pool
+            .Select(card => castabilityByCardName.TryGetValue(card.Name, out CutLabSimulationCardView? popupData)
+                ? card with
+                {
+                    LastKnownCmc = popupData.Cmc,
+                    LastKnownCastPercent = popupData.CastPercent,
+                }
+                : card)
+            .ToArray();
+    }
 }
 
 /// <summary>Cut Lab simulation service that projects existing engine output into the shared metric contract.</summary>

@@ -345,7 +345,7 @@ internal sealed class CutLabPageService : ICutLabPageService
                 state = state with
                 {
                     BaselineSnapshot = baselineResult.Snapshot,
-                    Pool = ApplySimulationCardData(state.Pool, baselineResult.CastabilityByCardName),
+                    Pool = CutLabSimulationResult.ApplySimulationCardData(state.Pool, baselineResult.CastabilityByCardName),
                 };
             }
             catch (OperationCanceledException)
@@ -388,7 +388,7 @@ internal sealed class CutLabPageService : ICutLabPageService
                 currentTargetLands = currentResult.TargetLands;
                 state = state with
                 {
-                    Pool = ApplySimulationCardData(state.Pool, currentResult.CastabilityByCardName),
+                    Pool = CutLabSimulationResult.ApplySimulationCardData(state.Pool, currentResult.CastabilityByCardName),
                 };
             }
             catch (OperationCanceledException)
@@ -823,24 +823,6 @@ internal sealed class CutLabPageService : ICutLabPageService
         return !string.IsNullOrWhiteSpace(power) && !string.IsNullOrWhiteSpace(toughness)
             ? toughness
             : null;
-    }
-
-    private static IReadOnlyList<CutLabPoolCard> ApplySimulationCardData(
-        IReadOnlyList<CutLabPoolCard> pool,
-        IReadOnlyDictionary<string, CutLabSimulationCardView> castabilityByCardName)
-    {
-        ArgumentNullException.ThrowIfNull(pool);
-        ArgumentNullException.ThrowIfNull(castabilityByCardName);
-
-        return pool
-            .Select(card => castabilityByCardName.TryGetValue(card.Name, out CutLabSimulationCardView? popupData)
-                ? card with
-                {
-                    LastKnownCmc = popupData.Cmc,
-                    LastKnownCastPercent = popupData.CastPercent,
-                }
-                : card)
-            .ToArray();
     }
 
     private static IReadOnlyDictionary<string, CutLabComboBadgeView> BuildComboBadgeByCardName(
