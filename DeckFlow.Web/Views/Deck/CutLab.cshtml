@@ -245,6 +245,16 @@
                 entry["manaCost"] = cardText.ManaCost;
             }
 
+            if (!string.IsNullOrWhiteSpace(cardText.Power))
+            {
+                entry["power"] = cardText.Power;
+            }
+
+            if (!string.IsNullOrWhiteSpace(cardText.Toughness))
+            {
+                entry["toughness"] = cardText.Toughness;
+            }
+
             if (!string.IsNullOrWhiteSpace(cardText.SetCode))
             {
                 entry["setCode"] = cardText.SetCode;

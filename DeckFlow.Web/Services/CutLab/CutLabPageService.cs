@@ -734,6 +734,8 @@ internal sealed class CutLabPageService : ICutLabPageService
                     SetCode = resolvedCard.Set,
                     CollectorNumber = resolvedCard.CollectorNumber,
                     OracleText = ResolveOracleText(resolvedCard),
+                    Power = ResolvePower(resolvedCard),
+                    Toughness = ResolveToughness(resolvedCard),
                 };
             }
         }
@@ -762,6 +764,40 @@ internal sealed class CutLabPageService : ICutLabPageService
                     : $"{face.Name}\n{face.OracleText!.Trim()}"));
 
         return joined.Length > 0 ? joined : card.OracleText;
+    }
+
+    private static string? ResolvePower(ScryfallCardData card)
+    {
+        var power = card.Power;
+        var toughness = card.Toughness;
+        if (string.IsNullOrWhiteSpace(card.OracleText)
+            && (string.IsNullOrWhiteSpace(power) || string.IsNullOrWhiteSpace(toughness))
+            && card.CardFaces is { Count: > 0 })
+        {
+            power = card.CardFaces[0].Power;
+            toughness = card.CardFaces[0].Toughness;
+        }
+
+        return !string.IsNullOrWhiteSpace(power) && !string.IsNullOrWhiteSpace(toughness)
+            ? power
+            : null;
+    }
+
+    private static string? ResolveToughness(ScryfallCardData card)
+    {
+        var power = card.Power;
+        var toughness = card.Toughness;
+        if (string.IsNullOrWhiteSpace(card.OracleText)
+            && (string.IsNullOrWhiteSpace(power) || string.IsNullOrWhiteSpace(toughness))
+            && card.CardFaces is { Count: > 0 })
+        {
+            power = card.CardFaces[0].Power;
+            toughness = card.CardFaces[0].Toughness;
+        }
+
+        return !string.IsNullOrWhiteSpace(power) && !string.IsNullOrWhiteSpace(toughness)
+            ? toughness
+            : null;
     }
 
     private static IReadOnlyDictionary<string, CutLabComboBadgeView> BuildComboBadgeByCardName(

@@ -58,6 +58,10 @@ public sealed record ScryfallCardData
     [JsonPropertyName("power")]
     public string? Power { get; init; }
 
+    /// <summary>Card-level printed toughness for single-faced creatures (e.g. "5", "*"); null otherwise.</summary>
+    [JsonPropertyName("toughness")]
+    public string? Toughness { get; init; }
+
     /// <summary>Per-face payloads for multi-faced cards (MDFC, split, adventure, transform).</summary>
     [JsonPropertyName("card_faces")]
     public IReadOnlyList<ScryfallFaceData>? CardFaces { get; init; }
@@ -85,4 +89,8 @@ public sealed record ScryfallFaceData
     /// <summary>Face printed power for a creature face (e.g. "5", "*"); null otherwise.</summary>
     [JsonPropertyName("power")]
     public string? Power { get; init; }
+
+    /// <summary>Face printed toughness for a creature face (e.g. "5", "*"); null otherwise.</summary>
+    [JsonPropertyName("toughness")]
+    public string? Toughness { get; init; }
 }

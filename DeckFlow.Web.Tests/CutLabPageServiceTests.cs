@@ -79,6 +79,7 @@ public sealed class CutLabPageServiceTests
             manaCost: "{G}{W}{U}{B}",
             oracleText: "Flying, vigilance, deathtouch, lifelink",
             power: "4",
+            toughness: "4",
             cmc: 4));
         var service = new CutLabPageService(
             new FakeLoader(entries),
@@ -100,8 +101,45 @@ public sealed class CutLabPageServiceTests
         Assert.Equal("one", cardText.SetCode);
         Assert.Equal("196", cardText.CollectorNumber);
         Assert.Equal("Flying, vigilance, deathtouch, lifelink", cardText.OracleText);
+        Assert.Equal("4", cardText.Power);
+        Assert.Equal("4", cardText.Toughness);
         Assert.True(viewModel.CardTextByCardName.TryGetValue(commanderName, out CutLabCardTextView? viewModelEntry));
         Assert.Equal(cardText, viewModelEntry);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_CardTextByCardName_OmitsPowerAndToughnessForNonCreatureCards()
+    {
+        const string commanderName = "Atraxa, Praetors' Voice";
+        const string spellName = "Counterspell";
+        var entries = new List<DeckEntry> { Entry(commanderName, "commander"), Entry(spellName, "mainboard") };
+        entries.AddRange(BuildBasicMainboard(start: 1, count: 119));
+        var cards = BuildResolvedCards(entries);
+        cards.RemoveAll(card => string.Equals(card.Name, spellName, StringComparison.OrdinalIgnoreCase));
+        cards.Add(Spell(
+            spellName,
+            "Instant",
+            set: "7ed",
+            collectorNumber: "67",
+            manaCost: "{U}{U}",
+            oracleText: "Counter target spell.",
+            cmc: 2));
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.True(result.CardTextByCardName.TryGetValue(spellName, out CutLabCardTextView? cardText));
+        Assert.NotNull(cardText);
+        Assert.Null(cardText.Power);
+        Assert.Null(cardText.Toughness);
     }
 
     [Fact]
@@ -196,6 +234,62 @@ public sealed class CutLabPageServiceTests
         Assert.Equal(
             "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is Esper Sentinel's power.",
             cardText.OracleText);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_CardTextByCardName_UsesFrontFacePowerAndToughnessFallbackWhenParentAndOracleAreBlank()
+    {
+        const string commanderName = "Atraxa, Praetors' Voice";
+        const string dfcName = "Delver of Secrets // Insectile Aberration";
+        var entries = new List<DeckEntry> { Entry(commanderName, "commander"), Entry(dfcName, "mainboard") };
+        entries.AddRange(BuildBasicMainboard(start: 1, count: 119));
+        var cards = BuildResolvedCards(entries);
+        cards.RemoveAll(card => string.Equals(card.Name, dfcName, StringComparison.OrdinalIgnoreCase));
+        cards.Add(new ScryfallCard(
+            dfcName,
+            "{U}",
+            "Creature — Human Wizard // Creature — Human Insect",
+            null,
+            null,
+            null,
+            null,
+            null,
+            "isd",
+            null,
+            "51",
+            [
+                new ScryfallCardFace(
+                    "Delver of Secrets",
+                    "{U}",
+                    "Creature — Human Wizard",
+                    "At the beginning of your upkeep, look at the top card of your library.",
+                    "1",
+                    "1"),
+                new ScryfallCardFace(
+                    "Insectile Aberration",
+                    null,
+                    "Creature — Human Insect",
+                    "Flying",
+                    "3",
+                    "2"),
+            ],
+            Cmc: 1));
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.True(result.CardTextByCardName.TryGetValue(dfcName, out CutLabCardTextView? cardText));
+        Assert.NotNull(cardText);
+        Assert.Equal("1", cardText.Power);
+        Assert.Equal("1", cardText.Toughness);
     }
 
     [Fact]
@@ -2282,6 +2376,7 @@ public sealed class CutLabPageServiceTests
         string? manaCost = null,
         string? oracleText = null,
         string? power = null,
+        string? toughness = null,
         double cmc = 0)
         => new(
             name,
@@ -2289,7 +2384,7 @@ public sealed class CutLabPageServiceTests
             typeLine,
             oracleText,
             power,
-            null,
+            toughness,
             null,
             null,
             set,

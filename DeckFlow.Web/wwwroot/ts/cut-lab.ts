@@ -60,6 +60,8 @@ interface CutLabStateDecision {
 interface CutLabCardTextEntry {
   typeLine?: string;
   manaCost?: string;
+  power?: string;
+  toughness?: string;
   setCode?: string;
   collectorNumber?: string;
   oracleText?: string;
@@ -1473,6 +1475,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     if (entry.manaCost?.trim()) {
       metaParts.push(entry.manaCost.trim());
+    }
+
+    const power = entry.power?.trim();
+    const toughness = entry.toughness?.trim();
+    if (power && toughness) {
+      metaParts.push(`${power}/${toughness}`);
     }
 
     const printingParts: string[] = [];

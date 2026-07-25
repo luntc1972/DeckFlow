@@ -21,6 +21,12 @@ public sealed record CutLabCardTextView
 
     /// <summary>Resolved card oracle text.</summary>
     public string? OracleText { get; init; }
+
+    /// <summary>Resolved card power.</summary>
+    public string? Power { get; init; }
+
+    /// <summary>Resolved card toughness.</summary>
+    public string? Toughness { get; init; }
 }
 
 /// <summary>Per-card combo badge state and disclosure context keyed by card name.</summary>

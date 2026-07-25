@@ -69,4 +69,42 @@ public sealed class ScryfallCardDataMapperTests
 
         Assert.Equal(new[] { "W", "U" }, data.ColorIdentity);
     }
+
+    [Fact]
+    public void ToCardData_CopiesCardLevelPowerAndToughness()
+    {
+        var card = new ScryfallCard(
+            Name: "Watchwolf", ManaCost: "{G}{W}", TypeLine: "Creature — Wolf", OracleText: null,
+            Power: "3", Toughness: "3", Keywords: null, ColorIdentity: new[] { "G", "W" },
+            SetCode: "rav", SetName: "Ravnica: City of Guilds", CollectorNumber: "233", CardFaces: null, Id: null,
+            Layout: "normal", Cmc: 2, ProducedMana: null, Rarity: "uncommon");
+
+        var data = ScryfallCardDataMapper.ToCardData(card);
+
+        Assert.Equal("3", data.Power);
+        Assert.Equal("3", data.Toughness);
+    }
+
+    [Fact]
+    public void ToCardData_CopiesFaceLevelPowerAndToughness()
+    {
+        var card = new ScryfallCard(
+            Name: "Delver of Secrets // Insectile Aberration", ManaCost: "{U}", TypeLine: "Creature — Human Wizard", OracleText: null,
+            Power: "1", Toughness: "1", Keywords: null, ColorIdentity: new[] { "U" },
+            SetCode: "isd", SetName: "Innistrad", CollectorNumber: "51",
+            CardFaces: new[]
+            {
+                new ScryfallCardFace("Delver of Secrets", "{U}", "Creature — Human Wizard", "At the beginning of your upkeep, look at the top card of your library.", "1", "1"),
+                new ScryfallCardFace("Insectile Aberration", null, "Creature — Human Insect", "Flying", "3", "2"),
+            },
+            Id: null, Layout: "transform", Cmc: 1, ProducedMana: null, Rarity: "common");
+
+        var data = ScryfallCardDataMapper.ToCardData(card);
+
+        Assert.NotNull(data.CardFaces);
+        Assert.Equal("1", data.CardFaces![0].Power);
+        Assert.Equal("1", data.CardFaces[0].Toughness);
+        Assert.Equal("3", data.CardFaces[1].Power);
+        Assert.Equal("2", data.CardFaces[1].Toughness);
+    }
 }
