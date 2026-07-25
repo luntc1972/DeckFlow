@@ -197,10 +197,18 @@ interface CutLabFloorDomRow {
   input: HTMLInputElement;
 }
 
+interface CutLabSubtypeEntry {
+  name: string;
+  typeLine: string;
+  isLocked: boolean;
+  isCommander: boolean;
+}
+
 interface CutLabApi {
   computePackageCheckboxState(memberLocked: boolean[]): PackageCheckboxState;
   hasRoleToken(roleList: string | null | undefined, role: string): boolean;
   isLandRole(roleList: string | null | undefined): boolean;
+  filterPoolBySubtype(entries: CutLabSubtypeEntry[], query: string): CutLabSubtypeEntry[];
   buildCutLabStateJson(snapshot: CutLabStateSnapshot): string;
   syncDecisionState(serializedState: string): void;
   saveScenario(name: string, stateJson: string): SaveScenarioResult;
@@ -248,6 +256,12 @@ const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(c
 const formatStructuralFindingsCount = (count: number): string => formatCountLabel(count, 'structural finding', 'structural findings');
 
 (function (root: CutLabRoot): void {
+  const normalizeAsciiCase = (value: string): string =>
+    value.replace(/[A-Z]/g, character => String.fromCharCode(character.charCodeAt(0) + 32));
+
+  const frontFaceTypeLine = (typeLine: string): string =>
+    typeLine.split('//')[0]?.trim() ?? '';
+
   const getScenarioSlotKey = (id: string): string => `${SCENARIO_SLOT_PREFIX}${id}`;
   const defaultMobileCollapsedSectionIds = new Set<string>([
     'cut-lab-section-packages',
@@ -520,6 +534,16 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return api.hasRoleToken(roleList, 'lands');
     },
 
+    filterPoolBySubtype(entries: CutLabSubtypeEntry[], query: string): CutLabSubtypeEntry[] {
+      const normalizedQuery = normalizeAsciiCase(query.trim());
+      if (normalizedQuery === '') {
+        return [];
+      }
+
+      return entries.filter(entry =>
+        normalizeAsciiCase(frontFaceTypeLine(entry.typeLine)).includes(normalizedQuery));
+    },
+
     buildCutLabStateJson(snapshot: CutLabStateSnapshot): string {
       const normalizedSnapshot: CutLabStateSnapshot = {
         commander: snapshot.commander,
@@ -680,6 +704,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
   const getPoolRows = (): HTMLTableRowElement[] =>
     Array.from(document.querySelectorAll<HTMLTableRowElement>('tr[data-cut-lab-card]'));
+
+  const getSubtypeSearchInput = (): HTMLInputElement | null =>
+    document.querySelector<HTMLInputElement>('input[data-cut-lab-subtype-search]');
+
+  const getSubtypeResults = (): HTMLDivElement | null =>
+    document.querySelector<HTMLDivElement>('[data-cut-lab-subtype-results]');
 
   const getCutRoundsSection = (): HTMLElement | null =>
     Array.from(document.querySelectorAll<HTMLElement>('section.result-panel'))
@@ -1271,9 +1301,6 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     return element;
   };
 
-  const normalizeAsciiCase = (value: string): string =>
-    value.replace(/[A-Z]/g, character => String.fromCharCode(character.charCodeAt(0) + 32));
-
   const isAsciiDigit = (character: string): boolean =>
     character >= '0' && character <= '9';
 
@@ -1511,6 +1538,74 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     children.forEach(child => {
       element.appendChild(child);
     });
+  };
+
+  const createPoolCardChip = (entry: CutLabSubtypeEntry): HTMLElement => {
+    if (entry.isCommander) {
+      const chip = createTextElement('span', 'kb-chip cutlab-lock-badge--commander', entry.name);
+      chip.dataset.cutlabCardOpen = entry.name;
+      chip.dataset.cutLabChipCard = entry.name;
+      return chip;
+    }
+
+    const className = `kb-chip cutlab-role-chip${entry.isLocked ? ' cutlab-role-chip--locked' : ''}`;
+    const chip = createTextElement('button', className, entry.name);
+    chip.type = 'button';
+    chip.dataset.cutlabCardOpen = entry.name;
+    chip.dataset.cutLabChipCard = entry.name;
+    chip.setAttribute('aria-pressed', entry.isLocked ? 'true' : 'false');
+    return chip;
+  };
+
+  const getPoolSubtypeEntries = (): CutLabSubtypeEntry[] =>
+    getPoolRows()
+      .filter(row => row.hasAttribute('data-cut-lab-type-line'))
+      .map(row => {
+        const name = row.dataset.cutLabCard?.trim() ?? '';
+        const typeLine = row.dataset.cutLabTypeLine?.trim() ?? '';
+        if (name === '' || typeLine === '') {
+          return null;
+        }
+
+        const checkbox = getLockCheckbox(row);
+        return {
+          name,
+          typeLine,
+          isLocked: checkbox?.checked ?? false,
+          isCommander: row.dataset.cutLabCommander === 'true',
+        } satisfies CutLabSubtypeEntry;
+      })
+      .filter((entry): entry is CutLabSubtypeEntry => entry !== null);
+
+  const renderSubtypeSearchResults = (): void => {
+    const results = getSubtypeResults();
+    const searchInput = getSubtypeSearchInput();
+    if (!results || !searchInput) {
+      return;
+    }
+
+    const query = searchInput.value.trim();
+    if (query === '') {
+      replaceChildren(results, []);
+      return;
+    }
+
+    const matches = api.filterPoolBySubtype(getPoolSubtypeEntries(), query);
+    if (matches.length === 0) {
+      replaceChildren(results, [
+        createTextElement('p', 'cutlab-subtype-results__empty', `No cards match '${query}'.`),
+      ]);
+      return;
+    }
+
+    const summary = createTextElement('p', 'cutlab-subtype-results__summary', `${query} · ${formatCountLabel(matches.length, 'card', 'cards')}`);
+    const chips = document.createElement('div');
+    chips.className = 'kb-chip-area__chips';
+    matches.forEach(entry => {
+      chips.appendChild(createPoolCardChip(entry));
+    });
+
+    replaceChildren(results, [summary, chips]);
   };
 
   const formatScenarioSavedAt = (savedAt: string): string => {
@@ -3454,6 +3549,20 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
   };
 
+  const attachSubtypeSearchHandlers = (): void => {
+    const searchInput = getSubtypeSearchInput();
+    if (!searchInput) {
+      return;
+    }
+
+    // Debounce so the pool scan + chip rebuild fires once per typing pause, not per keystroke.
+    let debounceId = 0;
+    searchInput.addEventListener('input', () => {
+      window.clearTimeout(debounceId);
+      debounceId = window.setTimeout(renderSubtypeSearchResults, 120);
+    });
+  };
+
   const attachPackageHandlers = (): void => {
     if (packageHandlersAttached) {
       return;
@@ -3839,6 +3948,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     attachRowHandlers();
     attachPoolFilterHandlers();
+    attachSubtypeSearchHandlers();
     attachPackageHandlers();
     attachDecisionSubmitHandler();
     attachAdjustSubmitHandler();
@@ -3850,6 +3960,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     attachSubmitHandler();
     syncCardTextComboContexts({});
     refreshAndSerialize(false);
+    renderSubtypeSearchResults();
     renderScenarioList();
     setWhatifControlsVisible((getWhatifDeltaBody()?.children.length ?? 0) > 0);
   };

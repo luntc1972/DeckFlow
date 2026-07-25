@@ -575,6 +575,60 @@
             }
         </section>
 
+        <section class="result-panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>By type</h2>
+                    <p>Your pool grouped by card type.</p>
+                </div>
+            </div>
+            @foreach (var group in Model.TypeGroups)
+            {
+                <details class="cutlab-role-group">
+                    <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                    <div class="cutlab-role-group__body">
+                        <div class="kb-chip-area__chips">
+                            @foreach (var member in group.Members)
+                            {
+                                if (member.IsCommander)
+                                {
+                                    <span class="kb-chip cutlab-lock-badge--commander"
+                                          data-cutlab-card-open="@member.Name"
+                                          data-cut-lab-chip-card="@member.Name">@member.Name</span>
+                                }
+                                else
+                                {
+                                    var chipClasses = $"kb-chip cutlab-role-chip{(member.IsLocked ? " cutlab-role-chip--locked" : string.Empty)}";
+                                    <button type="button"
+                                            class="@chipClasses"
+                                            data-cutlab-card-open="@member.Name"
+                                            data-cut-lab-chip-card="@member.Name"
+                                            aria-pressed="@(member.IsLocked ? "true" : "false")">@member.Name</button>
+                                }
+                            }
+                        </div>
+                    </div>
+                </details>
+            }
+        </section>
+
+        <section class="result-panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>By subtype</h2>
+                    <p>Search a subtype or supertype — e.g. Ally, Lesson, Legendary — to see how many you have.</p>
+                </div>
+            </div>
+            <div class="cutlab-subtype-search">
+                <label for="cut-lab-subtype-search">Subtype or supertype</label>
+                <input id="cut-lab-subtype-search"
+                       type="text"
+                       data-cut-lab-subtype-search
+                       placeholder="Search type line…" />
+            </div>
+            <div class="cutlab-subtype-results" data-cut-lab-subtype-results></div>
+        </section>
+
         <section class="result-panel" data-cut-lab-structural-findings>
             <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-structural">
                 <summary class="cutlab-collapsible__summary">Structural findings</summary>
