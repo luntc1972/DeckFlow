@@ -239,6 +239,7 @@ const newPackageOptionValue = '__new__';
 const unlockedPoolOptionValue = '';
 const cutLabAntiForgeryFieldName = '__RequestVerificationToken';
 const cutLabAdjustApiEndpoint = '/api/cut-lab/adjust';
+const cutLabRestartRoundsApiEndpoint = '/api/cut-lab/restart-rounds';
 const cutLabWhatifApiEndpoint = '/api/cut-lab/whatif';
 const cutLabWhatifCommitApiEndpoint = '/api/cut-lab/whatif/commit';
 const cutLabDecisionTimeoutMs = 20000;
@@ -691,6 +692,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   let generatedPackageCounter = 0;
   let packageHandlersAttached = false;
   let decisionHandlersAttached = false;
+  let restartRoundsHandlersAttached = false;
   let scenarioHandlersAttached = false;
   let whatifHandlersAttached = false;
   let decisionSubmitInFlight = false;
@@ -709,6 +711,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
   const getCutLabDecideApi = (): string =>
     getForm()?.dataset.cutLabDecideApi?.trim() || '/api/cut-lab/decide';
+
+  const getRestartRoundsForm = (): HTMLFormElement | null =>
+    document.querySelector<HTMLFormElement>('form[data-cut-lab-restart-rounds-form]');
+
+  const getCutLabRestartRoundsApi = (): string =>
+    getRestartRoundsForm()?.dataset.cutLabRestartRoundsApi?.trim() || cutLabRestartRoundsApiEndpoint;
 
   const getStateInput = (form: HTMLFormElement): HTMLInputElement | null =>
     form.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]');
@@ -1271,6 +1279,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
   const isAdjustForm = (form: HTMLFormElement): boolean =>
     form.hasAttribute('data-cut-lab-adjust-form');
+
+  const isRestartRoundsForm = (form: HTMLFormElement): boolean =>
+    form.hasAttribute('data-cut-lab-restart-rounds-form');
 
   const deltaClassFor = (direction: CutLabMetricDirection): string => {
     switch (direction) {
@@ -3140,6 +3151,69 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
   };
 
+  const handleRestartRoundsSubmit = async (form: HTMLFormElement, submitter: HTMLButtonElement | null): Promise<void> => {
+    if (decisionSubmitInFlight) {
+      return;
+    }
+
+    const stateInput = getStateInput(form);
+    if (!stateInput) {
+      return;
+    }
+
+    const confirmed = window.confirm("Reconsider rejected/deferred cards from Round 1 & 2 with today's findings?");
+    if (!confirmed) {
+      return;
+    }
+
+    decisionSubmitInFlight = true;
+    clearDecisionError();
+
+    const antiForgeryToken = getAntiForgeryToken(form);
+    const restoreBusyState = submitter ? setSubmitterBusyState(submitter) : () => undefined;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), cutLabDecisionTimeoutMs);
+
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (antiForgeryToken !== '') {
+        headers.RequestVerificationToken = antiForgeryToken;
+      }
+
+      const response = await fetch(getCutLabRestartRoundsApi(), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          cutLabStateJson: stateInput.value,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        renderDecisionError(form, await readErrorMessage(response));
+        return;
+      }
+
+      const data = await response.json() as CutLabPatchResponse;
+      if (!data.patch?.cutLabStateJson) {
+        renderDecisionError(form, cutLabDecisionErrorCopy);
+        return;
+      }
+
+      applyServerPatch(data.patch, antiForgeryToken);
+    } catch (error) {
+      renderDecisionError(form, error instanceof DOMException && error.name === 'AbortError'
+        ? cutLabDecisionTimeoutCopy
+        : cutLabDecisionErrorCopy);
+    } finally {
+      window.clearTimeout(timeoutId);
+      decisionSubmitInFlight = false;
+      restoreBusyState();
+    }
+  };
+
   const extractAdjustPayload = (form: HTMLFormElement): { cutLabStateJson: string; cardName: string; delta: number; isAddedBasic: boolean } | null => {
     const stateInput = getStateInput(form);
     const cardNameField = form.querySelector<HTMLInputElement | HTMLSelectElement>('[name="CardName"]');
@@ -3761,6 +3835,31 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     });
   };
 
+  const attachRestartRoundsSubmitHandler = (): void => {
+    if (restartRoundsHandlersAttached) {
+      return;
+    }
+
+    restartRoundsHandlersAttached = true;
+
+    document.addEventListener('submit', event => {
+      const target = event.target;
+      if (!(target instanceof HTMLFormElement) || !isRestartRoundsForm(target)) {
+        return;
+      }
+
+      event.preventDefault();
+      if (decisionSubmitInFlight) {
+        return;
+      }
+
+      void handleRestartRoundsSubmit(
+        target,
+        event instanceof SubmitEvent && event.submitter instanceof HTMLButtonElement ? event.submitter : null,
+      );
+    });
+  };
+
   const attachScenarioHandlers = (): void => {
     if (scenarioHandlersAttached) {
       return;
@@ -4018,6 +4117,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     attachPackageHandlers();
     attachDecisionSubmitHandler();
     attachAdjustSubmitHandler();
+    attachRestartRoundsSubmitHandler();
     attachGoalSubmitHandler();
     attachScenarioHandlers();
     attachWhatifSubmitHandler();

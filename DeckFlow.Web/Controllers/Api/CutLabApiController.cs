@@ -199,6 +199,73 @@ public sealed class CutLabApiController : ControllerBase
         }
     }
 
+    /// <summary>Re-surfaces prior round 1 and round 2 rejects/defers without undoing accepted cuts.</summary>
+    /// <param name="request">Restart request payload.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The updated state plus the next proposal surface.</returns>
+    [HttpPost("restart-rounds")]
+    [FeatureFlagGate("tool.cut-lab.enabled")]
+    [RequestSizeLimit(2 * 1024 * 1024)]
+    [ProducesResponseType(typeof(CutLabDecideApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<CutLabDecideApiResponse>> PostRestartRoundsAsync([FromBody] CutLabRestartRoundsApiRequest request, CancellationToken cancellationToken)
+    {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { Message = SameOriginRequestValidator.GetForbiddenMessage() });
+        }
+
+        if (request is null)
+        {
+            return BadRequest(new { Message = "Request body is required." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.CutLabStateJson))
+        {
+            return BadRequest(new { Message = "Cut Lab state is required." });
+        }
+
+        try
+        {
+            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            if (state.Pool.Count == 0)
+            {
+                return BadRequest(new { Message = InvalidStateMessage });
+            }
+
+            IReadOnlyList<string> commanderNames = GetCommanderNames(state);
+            IReadOnlyDictionary<string, int> floorByRole = BuildFloorMap(state.RoleFloors);
+            state = CutLabDecisionApplier.RestartRounds(state, [CutLabCutRoundEngine.Round1Key, CutLabCutRoundEngine.Round2Key]);
+
+            CutLabUiPatchDto patch = await _patchBuilder.BuildAsync(
+                state,
+                state.Intent.PlayExperience,
+                commanderNames,
+                floorByRole,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            return Ok(new CutLabDecideApiResponse
+            {
+                Patch = patch,
+                CutLabStateJson = patch.CutLabStateJson,
+                NextProposal = patch.NextProposal,
+                ProposalDeltas = patch.ProposalDeltas,
+                FloorWarnings = patch.FloorWarnings,
+                CardsRemaining = patch.CardsRemaining,
+                CutsMade = patch.CutsMade,
+                StructuralFindings = patch.StructuralFindings,
+                ComboDataAvailable = patch.ComboDataAvailable,
+                CategoryDataAvailable = patch.CategoryDataAvailable,
+            });
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
+        {
+            _logger.LogWarning(exception, "Cut Lab restart rounds API request failed.");
+            return BadRequest(new { Message = CutLabMessages.NoChangeMessage });
+        }
+    }
+
     /// <summary>Builds a non-mutating what-if swap preview and returns the metric deltas.</summary>
     /// <param name="request">What-if swap request payload.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

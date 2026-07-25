@@ -185,6 +185,81 @@ public sealed class CutLabDecisionApplierTests
         Assert.Equal(CutLabCutRoundEngine.Round1Key, CutLabDecisionApplier.LatestRoundForCard(state, "Lightning Greaves"));
     }
 
+    [Fact]
+    public void RestartRounds_RemovesOnlyRejectedAndDeferredRound1AndRound2Decisions()
+    {
+        CutLabState state = BuildState(
+            new CutLabDecision
+            {
+                CardName = "Round 1 Rejected",
+                Kind = CutLabDecisionKind.Rejected,
+                Round = CutLabCutRoundEngine.Round1Key,
+                Ordinal = 1,
+            },
+            new CutLabDecision
+            {
+                CardName = "Round 2 Deferred",
+                Kind = CutLabDecisionKind.Deferred,
+                Round = CutLabCutRoundEngine.Round2Key,
+                Ordinal = 2,
+            },
+            new CutLabDecision
+            {
+                CardName = "Round 1 Accepted",
+                Kind = CutLabDecisionKind.Accepted,
+                Round = CutLabCutRoundEngine.Round1Key,
+                Ordinal = 3,
+            },
+            new CutLabDecision
+            {
+                CardName = "Round 3 Rejected",
+                Kind = CutLabDecisionKind.Rejected,
+                Round = CutLabCutRoundEngine.Round3Key,
+                Ordinal = 4,
+            },
+            new CutLabDecision
+            {
+                CardName = "Second Pass Deferred",
+                Kind = CutLabDecisionKind.Deferred,
+                Round = CutLabCutRoundEngine.SecondPassDeferredKey,
+                Ordinal = 5,
+            },
+            new CutLabDecision
+            {
+                CardName = "Second Pass Rejected",
+                Kind = CutLabDecisionKind.Rejected,
+                Round = CutLabCutRoundEngine.SecondPassRejectedKey,
+                Ordinal = 6,
+            },
+            new CutLabDecision
+            {
+                CardName = "Whatif Deferred",
+                Kind = CutLabDecisionKind.Deferred,
+                Round = CutLabCutRoundEngine.WhatifSwapKey,
+                Ordinal = 7,
+            },
+            new CutLabDecision
+            {
+                CardName = "Other Accepted",
+                Kind = CutLabDecisionKind.Accepted,
+                Round = CutLabCutRoundEngine.Round2Key,
+                Ordinal = 8,
+            });
+
+        CutLabState updated = CutLabDecisionApplier.RestartRounds(
+            state,
+            [CutLabCutRoundEngine.Round1Key, CutLabCutRoundEngine.Round2Key]);
+
+        Assert.DoesNotContain(updated.Decisions, decision => decision.CardName == "Round 1 Rejected");
+        Assert.DoesNotContain(updated.Decisions, decision => decision.CardName == "Round 2 Deferred");
+        Assert.Contains(updated.Decisions, decision => decision.CardName == "Round 1 Accepted" && decision.Kind == CutLabDecisionKind.Accepted);
+        Assert.Contains(updated.Decisions, decision => decision.CardName == "Round 3 Rejected" && decision.Round == CutLabCutRoundEngine.Round3Key);
+        Assert.Contains(updated.Decisions, decision => decision.CardName == "Second Pass Deferred" && decision.Round == CutLabCutRoundEngine.SecondPassDeferredKey);
+        Assert.Contains(updated.Decisions, decision => decision.CardName == "Second Pass Rejected" && decision.Round == CutLabCutRoundEngine.SecondPassRejectedKey);
+        Assert.Contains(updated.Decisions, decision => decision.CardName == "Whatif Deferred" && decision.Round == CutLabCutRoundEngine.WhatifSwapKey);
+        Assert.Contains(updated.Decisions, decision => decision.CardName == "Other Accepted" && decision.Kind == CutLabDecisionKind.Accepted);
+    }
+
     private static CutLabState BuildState(params CutLabDecision[] decisions)
         => new()
         {

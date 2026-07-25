@@ -61,10 +61,13 @@ interface CutLabPatchResponse {
 
 let fetchMock: ReturnType<typeof vi.fn>;
 let showModalCalls = 0;
+let confirmMock: ReturnType<typeof vi.fn>;
 
 beforeAll(() => {
   fetchMock = vi.fn();
   vi.stubGlobal('fetch', fetchMock);
+  confirmMock = vi.fn();
+  vi.stubGlobal('confirm', confirmMock);
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
     configurable: true,
     value(this: HTMLDialogElement) {
@@ -83,6 +86,7 @@ beforeAll(() => {
 afterEach(() => {
   document.body.innerHTML = '';
   fetchMock.mockReset();
+  confirmMock.mockReset();
   showModalCalls = 0;
 });
 
@@ -139,6 +143,13 @@ const buildDecisionFixture = (): void => {
       </section>
     </form>
     <section class="result-panel">
+      <div class="panel-heading__actions">
+        <form method="post" action="/cut-lab/restart-rounds" data-cut-lab-restart-rounds-form>
+          <input type="hidden" name="__RequestVerificationToken" value="token-123" />
+          <input type="hidden" name="CutLabStateJson" value="{&quot;version&quot;:1}" />
+          <button type="submit" data-cut-lab-restart-rounds data-cut-lab-restart-rounds-api="/api/cut-lab/restart-rounds">Restart rounds 1 &amp; 2</button>
+        </form>
+      </div>
       <div class="cutlab-sticky-bar">
         <span class="cutlab-sticky-bar__locked" data-cut-lab-sticky-locked>1 locked</span>
         <span class="cutlab-sticky-bar__current" data-cut-lab-sticky-current>112/100 cards</span>
@@ -368,6 +379,7 @@ describe('cut-lab proposal enhancement', () => {
       }),
     }));
     expect(Array.from(document.querySelectorAll<HTMLInputElement>('input[name="CutLabStateJson"]')).map(input => input.value)).toEqual([
+      '{"version":2}',
       '{"version":2}',
       '{"version":2}',
       '{"version":2}',
@@ -952,5 +964,72 @@ describe('cut-lab proposal enhancement', () => {
     await flushDecisionSubmit();
 
     expect(document.querySelector('[data-cut-lab-restore-confirmation]')).toBeNull();
+  });
+
+  it('confirms restart rounds, posts JSON, and applies the returned patch', async () => {
+    buildDecisionFixture();
+    confirmMock.mockReturnValue(true);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ patch: buildPatch({
+        cutLabStateJson: '{"version":9}',
+        nextProposal: {
+          ...buildPatch().nextProposal,
+          cardName: 'Arcane Signet',
+          roundKey: 'round-2',
+          roundLabel: 'Round 2 · Structural choices',
+        },
+      }) }),
+    });
+
+    const form = document.querySelector<HTMLFormElement>('form[action="/cut-lab/restart-rounds"]');
+    const button = form?.querySelector<HTMLButtonElement>('[data-cut-lab-restart-rounds]');
+
+    form?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: button ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    expect(confirmMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith('/api/cut-lab/restart-rounds', expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({
+        'Content-Type': 'application/json',
+        RequestVerificationToken: 'token-123',
+      }),
+      body: JSON.stringify({
+        cutLabStateJson: '{"version":1}',
+      }),
+    }));
+    expect(document.querySelector<HTMLElement>('.cutlab-proposal__heading')?.textContent).toBe('Proposed cut: Arcane Signet');
+    expect(Array.from(document.querySelectorAll<HTMLInputElement>('input[name="CutLabStateJson"]')).map(input => input.value)).toEqual([
+      '{"version":9}',
+      '{"version":9}',
+      '{"version":9}',
+      '{"version":9}',
+      '{"version":9}',
+      '{"version":9}',
+    ]);
+  });
+
+  it('does nothing when restart rounds confirmation is cancelled', async () => {
+    buildDecisionFixture();
+    confirmMock.mockReturnValue(false);
+
+    const form = document.querySelector<HTMLFormElement>('form[action="/cut-lab/restart-rounds"]');
+    const button = form?.querySelector<HTMLButtonElement>('[data-cut-lab-restart-rounds]');
+
+    form?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: button ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    expect(confirmMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(document.querySelector<HTMLElement>('.cutlab-proposal__heading')?.textContent).toBe('Proposed cut: Sol Ring');
   });
 });

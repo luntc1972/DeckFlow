@@ -77,6 +77,30 @@ public static class CutLabDecisionApplier
             : CutLabCutRoundEngine.Round1Key;
     }
 
+    /// <summary>Removes rejected or deferred decisions recorded under the supplied rounds while keeping accepted cuts intact.</summary>
+    /// <param name="state">Current working-session state.</param>
+    /// <param name="roundKeys">Stable round keys eligible for restart.</param>
+    /// <returns>A new state with only restartable non-cut decisions removed.</returns>
+    public static CutLabState RestartRounds(CutLabState state, IReadOnlyList<string> roundKeys)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(roundKeys);
+
+        HashSet<string> restartableRounds = roundKeys
+            .Where(roundKey => !string.IsNullOrWhiteSpace(roundKey))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        IReadOnlyList<CutLabDecision> remainingDecisions = state.Decisions
+            .Where(decision => !restartableRounds.Contains(decision.Round)
+                || (decision.Kind != CutLabDecisionKind.Rejected && decision.Kind != CutLabDecisionKind.Deferred))
+            .ToArray();
+
+        return CutLabLockRules.EnforceCommanderLock(state with
+        {
+            Decisions = remainingDecisions,
+        });
+    }
+
     private static CutLabState Restore(CutLabState state, string cardName)
     {
         IReadOnlyList<CutLabDecision> remainingDecisions = state.Decisions

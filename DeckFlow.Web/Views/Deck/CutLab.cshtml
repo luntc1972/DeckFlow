@@ -1153,6 +1153,13 @@
                         <p>Work through proposed cuts in order. Every proposal shows what actually changes — nothing here says a card is bad.</p>
                         <p>Cut Lab picks each card for you. Accept cut removes it and proposes the next; Reject keeps it; Defer revisits it later.</p>
                     </div>
+                    <div class="panel-heading__actions">
+                        <form method="post" action="@Url.Content("~/cut-lab/restart-rounds")" data-cut-lab-restart-rounds-form data-cut-lab-restart-rounds-api="@Url.Content("~/api/cut-lab/restart-rounds")">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
+                            <button type="submit" class="clear-cache-button" data-cut-lab-restart-rounds>Restart rounds 1 &amp; 2</button>
+                        </form>
+                    </div>
                 </div>
 
             @{

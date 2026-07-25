@@ -93,6 +93,24 @@ const acceptCurrentProposal = async (page: Page): Promise<string> => {
   return cardName;
 };
 
+const rejectCurrentProposal = async (page: Page): Promise<string> => {
+  const proposal = page.locator('.cutlab-proposal');
+  const heading = proposal.locator('.cutlab-proposal__heading');
+  const proposalHeading = await heading.textContent();
+  const cardName = proposalHeading?.replace(/^Proposed cut:\s*/, '').trim() ?? '';
+  await proposal.locator('.cutlab-decision-btn--reject').click();
+  return cardName;
+};
+
+const deferCurrentProposal = async (page: Page): Promise<string> => {
+  const proposal = page.locator('.cutlab-proposal');
+  const heading = proposal.locator('.cutlab-proposal__heading');
+  const proposalHeading = await heading.textContent();
+  const cardName = proposalHeading?.replace(/^Proposed cut:\s*/, '').trim() ?? '';
+  await proposal.locator('.cutlab-decision-btn--defer').click();
+  return cardName;
+};
+
 const getRoleFloorRow = (page: Page, roleKey: string): Locator =>
   page.locator(`tr[data-cut-lab-floor-row="${roleKey}"]`);
 
@@ -320,6 +338,66 @@ test('restores an accepted cut and reverts the working list counts', async ({ pa
   await expect(page.locator('[data-cut-lab-sticky-remaining]')).toContainText(`${startingRemaining} to cut`);
   await expect(page.locator('[data-cut-lab-sticky-accepted]')).toContainText(formatAcceptedCountLabel(startingAccepted));
   await expect(page.locator('.cutlab-cuts-made__row')).toHaveCount(0);
+});
+
+test('restarts rounds 1 and 2 without undoing accepted cuts or touching later-round decisions', async ({ page }) => {
+  await importPool(page);
+  await waitForCutRounds(page);
+
+  const round1RejectedCard = 'Sol Ring';
+  const acceptedCard = 'Exotic Orchard';
+  const round2DeferredCard = 'Arcane Signet';
+  await page.evaluate(({ round1RejectedCard, acceptedCard, round2DeferredCard }) => {
+    const inputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="CutLabStateJson"]'));
+    for (const input of inputs) {
+      const state = JSON.parse(input.value) as {
+        decisions: Array<{ cardName: string; kind: number; round: string; ordinal: number }>;
+      };
+      state.decisions = [
+        { cardName: round1RejectedCard, kind: 1, round: 'round-1', ordinal: 1 },
+        { cardName: round2DeferredCard, kind: 2, round: 'round-2', ordinal: 2 },
+        { cardName: acceptedCard, kind: 0, round: 'round-3', ordinal: 3 },
+      ];
+      input.value = JSON.stringify(state);
+    }
+  }, { round1RejectedCard, acceptedCard, round2DeferredCard });
+
+  page.once('dialog', async dialog => {
+    expect(dialog.message()).toContain('Round 1 & 2');
+    await dialog.accept();
+  });
+  const restartResponse = page.waitForResponse(response =>
+    response.url().includes('/api/cut-lab/restart-rounds') && response.request().method() === 'POST');
+  await page.getByRole('button', { name: 'Restart rounds 1 & 2' }).click();
+  expect((await restartResponse).ok()).toBeTruthy();
+
+  const state = JSON.parse(await page.locator('input[name="CutLabStateJson"]').first().inputValue()) as {
+    decisions: Array<{ cardName: string; kind: number; round: string }>;
+  };
+  expect(state.decisions.some(decision => decision.cardName === acceptedCard && decision.kind === 0)).toBe(true);
+  expect(state.decisions.some(decision => decision.cardName === round1RejectedCard)).toBe(false);
+  expect(state.decisions.some(decision => decision.cardName === round2DeferredCard)).toBe(false);
+  await expect(page.locator('[data-cut-lab-sticky-current]')).toContainText('105/100 cards');
+  await expect(page.locator('[data-cut-lab-sticky-accepted]')).toContainText('1 cut so far');
+
+  const resurfaced = new Set<string>();
+  for (let guard = 0; guard < 10; guard += 1) {
+    const proposalHeading = await page.locator('.cutlab-proposal__heading').textContent();
+    const cardName = proposalHeading?.replace(/^Proposed cut:\s*/, '').trim() ?? '';
+    expect(cardName).not.toBe(acceptedCard);
+    if (cardName === round1RejectedCard || cardName === round2DeferredCard) {
+      resurfaced.add(cardName);
+    }
+
+    if (resurfaced.has(round1RejectedCard) && resurfaced.has(round2DeferredCard)) {
+      break;
+    }
+
+    await rejectCurrentProposal(page);
+  }
+
+  expect(resurfaced.has(round1RejectedCard)).toBe(true);
+  expect(resurfaced.has(round2DeferredCard)).toBe(true);
 });
 
 test('submits the accept form through the no-JS fallback and re-renders with the cut applied', async ({ browser }) => {
