@@ -2014,7 +2014,7 @@ public sealed class CutLabPageServiceTests
 
         Assert.True(result.HasResult);
         Assert.Equal(CutLabFloorRules.RoleKeys, result.ResolvedFloors.Select(floor => floor.Role).ToArray());
-        Assert.Equal(CutLabFloorRules.RoleKeys, model.RoleGroups.Select(group => group.RoleKey).ToArray());
+        Assert.Equal([.. CutLabFloorRules.RoleKeys, "other"], model.RoleGroups.Select(group => group.RoleKey).ToArray());
         Assert.False(model.ComboDataUnavailable);
         Assert.False(model.CategoryDataUnavailable);
         Assert.NotEmpty(model.Findings);

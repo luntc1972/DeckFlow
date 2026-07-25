@@ -21,6 +21,7 @@ public static class CutLabRoleAssigner
     private const string EnginesRole = "engines";
     private const string PayoffsRole = "payoffs";
     private const string WinconsRole = "wincons";
+    private const string OtherRole = "other";
 
     private static readonly string[] RoleKeys =
     [
@@ -70,8 +71,8 @@ public static class CutLabRoleAssigner
         ArgumentNullException.ThrowIfNull(categories);
 
         string typeLine = fact.TypeLine;
-        string oracle = fact.OracleText ?? fact.FrontFaceOracleText ?? string.Empty;
-        bool isLand = CutLabLockRules.IsLand(typeLine);
+        string oracle = fact.FrontFaceOracleText ?? fact.OracleText ?? string.Empty;
+        bool isLand = CutLabLockRules.IsLand(typeLine) || fact.HasLandFace;
         PlanRole roles = PlanRoleClassifier.Classify(fact, categories, isComboPiece, mode, out bool interactionMeritPreGate);
 
         List<string> assigned = new(RoleKeys.Length);
@@ -84,7 +85,7 @@ public static class CutLabRoleAssigner
         // Why: DeckStatClassifier.IsRampCard first returns true for every type line containing
         // "Land", so without the gate every land would double-count as ramp and inflate downstream
         // role counts. Lands and ramp stay disjoint by construction.
-        if (!CutLabLockRules.IsLand(typeLine) && DeckStatClassifier.IsRampCard(typeLine, oracle))
+        if (!isLand && DeckStatClassifier.IsRampCard(typeLine, oracle))
         {
             assigned.Add(RampRole);
         }
@@ -125,6 +126,11 @@ public static class CutLabRoleAssigner
         if (DeckStatClassifier.IsClosingPowerCard(typeLine, oracle) || isComboPiece)
         {
             assigned.Add(WinconsRole);
+        }
+
+        if (assigned.Count == 0)
+        {
+            assigned.Add(OtherRole);
         }
 
         return assigned;

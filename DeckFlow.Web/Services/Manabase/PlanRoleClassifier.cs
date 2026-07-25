@@ -173,7 +173,7 @@ public static class PlanRoleClassifier
         ArgumentNullException.ThrowIfNull(fact);
 
         string typeLine = fact.TypeLine;
-        string oracle = fact.OracleText ?? fact.FrontFaceOracleText ?? string.Empty;
+        string oracle = fact.FrontFaceOracleText ?? fact.OracleText ?? string.Empty;
 
         PlanRole roles = PlanRole.None;
 

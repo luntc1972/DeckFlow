@@ -77,6 +77,21 @@ public sealed class PlanRoleClassifierTests
     }
 
     [Fact]
+    public void FromHeuristic_UsesFrontFaceOracleTextBeforeJoinedOracleText()
+    {
+        CardFact fact = Fact("Battle // Artifact", "When this enters, scry 2.")
+            with
+        {
+            FrontFaceOracleText = "When this enters, scry 2.",
+            OracleText = "When this enters, scry 2. // At the beginning of your upkeep, draw a card.",
+        };
+
+        PlanRole roles = PlanRoleClassifier.FromHeuristic(fact, ManabaseMode.Casual);
+
+        Assert.False(roles.HasFlag(PlanRole.Engine));
+    }
+
+    [Fact]
     public void FromHeuristic_TutorAndInteractionAndPayoff_Detected()
     {
         Assert.True(PlanRoleClassifier.FromHeuristic(

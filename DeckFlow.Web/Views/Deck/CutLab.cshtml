@@ -532,12 +532,15 @@
                 <details class="cutlab-role-group">
                     <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
                     <div class="cutlab-role-group__body">
-                        <button type="button"
-                                class="manabase-pill @(group.AllLockableMembersLocked ? "is-selected" : null)"
-                                data-cut-lab-lock-role="@group.RoleKey"
-                                aria-pressed="@(group.AllLockableMembersLocked ? "true" : "false")">
-                            <span>Lock all @lowerDisplayLabel</span>
-                        </button>
+                        @if (!string.Equals(group.RoleKey, "other", StringComparison.Ordinal))
+                        {
+                            <button type="button"
+                                    class="manabase-pill @(group.AllLockableMembersLocked ? "is-selected" : null)"
+                                    data-cut-lab-lock-role="@group.RoleKey"
+                                    aria-pressed="@(group.AllLockableMembersLocked ? "true" : "false")">
+                                <span>Lock all @lowerDisplayLabel</span>
+                            </button>
+                        }
                         @if (memberCount > 0)
                         {
                             <div class="kb-chip-area__chips">

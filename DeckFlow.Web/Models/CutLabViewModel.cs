@@ -47,6 +47,7 @@ public sealed record CutLabViewModel
             ["engines"] = "Engines",
             ["payoffs"] = "Payoffs",
             ["wincons"] = "Win conditions",
+            ["other"] = "Other",
         };
 
     // Display order for the By-type groups. Must stay in sync with the priority list in
@@ -62,6 +63,14 @@ public sealed record CutLabViewModel
         "Enchantment",
         "Land",
         "Other",
+    ];
+
+    // Display order for the structural role groups. This mirrors CutLabFloorRules.RoleKeys and
+    // appends the display-only fallback bucket.
+    private static readonly string[] RoleGroupDisplayOrder =
+    [
+        .. CutLabFloorRules.RoleKeys,
+        "other",
     ];
 
     /// <summary>The active deck tool tab.</summary>
@@ -374,7 +383,7 @@ public sealed record CutLabViewModel
         IReadOnlyList<CutLabPoolCard> pool,
         IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName)
     {
-        return CutLabFloorRules.RoleKeys
+        return RoleGroupDisplayOrder
             .Select(roleKey =>
             {
                 IReadOnlyList<CutLabRoleMemberView> members = pool
