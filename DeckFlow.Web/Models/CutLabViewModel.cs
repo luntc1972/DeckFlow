@@ -397,6 +397,7 @@ public sealed record CutLabViewModel
                 {
                     RoleKey = roleKey,
                     DisplayLabel = DisplayLabelFor(roleKey),
+                    IsLockable = !string.Equals(roleKey, "other", StringComparison.Ordinal),
                     Members = members,
                     LockedCount = pool
                         .Where(card => card.IsLocked
@@ -984,6 +985,9 @@ public sealed record CutLabRoleGroupView
 
     /// <summary>Total card quantity in the group (sums multiple copies). Computed once at build time.</summary>
     public int CardCount { get; init; }
+
+    /// <summary>True when the role group supports bulk lock/unlock actions.</summary>
+    public bool IsLockable { get; init; } = true;
 
     /// <summary>True when every non-commander member in the role group is locked.</summary>
     public bool AllLockableMembersLocked => Members.Count > 0 && Members.Where(member => !member.IsCommander).All(member => member.IsLocked);

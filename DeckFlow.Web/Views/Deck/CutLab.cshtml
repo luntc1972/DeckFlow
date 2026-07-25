@@ -547,7 +547,7 @@
                     <details class="cutlab-role-group">
                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
                         <div class="cutlab-role-group__body">
-                            @if (!string.Equals(group.RoleKey, "other", StringComparison.Ordinal))
+                            @if (group.IsLockable)
                             {
                                 <button type="button"
                                         class="manabase-pill @(group.AllLockableMembersLocked ? "is-selected" : null)"
