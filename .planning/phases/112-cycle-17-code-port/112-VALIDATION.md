@@ -1,8 +1,8 @@
 ---
 phase: 112
 slug: cycle-17-code-port
-status: draft
-nyquist_compliant: false
+status: approved
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-07-24
 ---
@@ -85,11 +85,15 @@ Task IDs are assigned when plans are written; rows below are the requirement-lev
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 25s at task granularity
-- [ ] `nyquist_compliant: true` set in frontmatter
+Verified by `gsd-plan-checker` against the six PLAN.md files, 2026-07-24 (0 blockers).
 
-**Approval:** pending
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies — 14/14 tasks carry an executable command
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references — vacuous, no `<automated>MISSING</automated>` present
+- [x] No watch-mode flags
+- [x] Feedback latency < 25s at task granularity — **one exception**: plan 112-06 Task 2 (headless boot smoke) polls `curl` for up to ~120s while the app starts. Accepted deliberately: it automates what would otherwise be the phase's only manual verification, and a real host boot cannot be made faster. All other tasks are build/grep-bounded.
+- [x] `nyquist_compliant: true` set in frontmatter
+
+**Wave 0 remains open** — the three items above are real tasks inside plans 112-01/112-02/112-06, not yet executed. `wave_0_complete` flips at execution.
+
+**Approval:** approved 2026-07-24
