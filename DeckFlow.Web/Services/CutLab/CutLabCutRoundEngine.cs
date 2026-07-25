@@ -114,9 +114,18 @@ public static class CutLabCutRoundEngine
             CutLabFindingKind.ComboProtected,
         };
 
+    // Why: this advisory intentionally ranks from least-structural to most-structural roles so the
+    // "last cuts if you must unlock something" list stays stable even if the canonical floor order changes.
     private static readonly string[] LockedOvershootRoleOrder =
     [
-        .. CutLabFloorRules.RoleKeys.Reverse(),
+        "wincons",
+        "payoffs",
+        "engines",
+        "protection",
+        "interaction",
+        "draw",
+        "ramp",
+        "lands",
         "other",
     ];
 
