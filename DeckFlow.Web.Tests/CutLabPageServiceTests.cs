@@ -105,6 +105,100 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_CardTextByCardName_UsesFaceOracleTextWhenTopLevelOracleTextIsBlank()
+    {
+        const string commanderName = "Atraxa, Praetors' Voice";
+        const string dfcName = "Invasion of Arcavios // Invocation of the Founders";
+        var entries = new List<DeckEntry> { Entry(commanderName, "commander"), Entry(dfcName, "mainboard") };
+        entries.AddRange(BuildBasicMainboard(start: 1, count: 119));
+        var cards = BuildResolvedCards(entries);
+        cards.RemoveAll(card => string.Equals(card.Name, dfcName, StringComparison.OrdinalIgnoreCase));
+        cards.Add(new ScryfallCard(
+            dfcName,
+            "{3}{U}{U}",
+            "Battle — Siege // Enchantment",
+            null,
+            null,
+            null,
+            null,
+            null,
+            "mom",
+            null,
+            "61",
+            [
+                new ScryfallCardFace(
+                    "Invasion of Arcavios",
+                    "{3}{U}{U}",
+                    "Battle — Siege",
+                    "When Invasion of Arcavios enters, search your library, graveyard, and/or outside the game for an instant or sorcery card you own, reveal it, and put it into your hand. If you search your library this way, shuffle.",
+                    null,
+                    null),
+                new ScryfallCardFace(
+                    "Invocation of the Founders",
+                    null,
+                    "Enchantment",
+                    "Whenever you cast an instant or sorcery spell from your hand, you may copy that spell. You may choose new targets for the copy.",
+                    null,
+                    null),
+            ],
+            Cmc: 5));
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.True(result.CardTextByCardName.TryGetValue(dfcName, out CutLabCardTextView? cardText));
+        Assert.NotNull(cardText);
+        Assert.False(string.IsNullOrWhiteSpace(cardText.OracleText));
+        Assert.Contains("When Invasion of Arcavios enters", cardText.OracleText, StringComparison.Ordinal);
+        Assert.Contains("Whenever you cast an instant or sorcery spell from your hand", cardText.OracleText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_CardTextByCardName_PreservesTopLevelOracleTextForSingleFacedCards()
+    {
+        const string commanderName = "Atraxa, Praetors' Voice";
+        const string singleFacedName = "Esper Sentinel";
+        var entries = new List<DeckEntry> { Entry(commanderName, "commander"), Entry(singleFacedName, "mainboard") };
+        entries.AddRange(BuildBasicMainboard(start: 1, count: 119));
+        var cards = BuildResolvedCards(entries);
+        cards.RemoveAll(card => string.Equals(card.Name, singleFacedName, StringComparison.OrdinalIgnoreCase));
+        cards.Add(Spell(
+            singleFacedName,
+            "Artifact Creature — Human Soldier",
+            set: "mh2",
+            collectorNumber: "12",
+            manaCost: "{W}",
+            oracleText: "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is Esper Sentinel's power.",
+            power: "1",
+            cmc: 1));
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.True(result.CardTextByCardName.TryGetValue(singleFacedName, out CutLabCardTextView? cardText));
+        Assert.NotNull(cardText);
+        Assert.Equal(
+            "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is Esper Sentinel's power.",
+            cardText.OracleText);
+    }
+
+    [Fact]
     public async Task ProcessAsync_CardTextByCardName_OmitsUnresolvedCards()
     {
         const string unresolvedCardName = "Unresolved, Punctuated Card";
