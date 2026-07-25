@@ -49,6 +49,21 @@ public sealed record CutLabViewModel
             ["wincons"] = "Win conditions",
         };
 
+    // Display order for the By-type groups. Must stay in sync with the priority list in
+    // CardTypeLine.PrimaryType (this appends the "Other" fallback bucket).
+    private static readonly string[] TypeGroupOrder =
+    [
+        "Creature",
+        "Planeswalker",
+        "Battle",
+        "Instant",
+        "Sorcery",
+        "Artifact",
+        "Enchantment",
+        "Land",
+        "Other",
+    ];
+
     /// <summary>The active deck tool tab.</summary>
     public DeckPageTab ActiveTab { get; init; }
 
@@ -102,6 +117,9 @@ public sealed record CutLabViewModel
 
     /// <summary>Role-group views in the fixed structural analysis order.</summary>
     public IReadOnlyList<CutLabRoleGroupView> RoleGroups { get; init; } = [];
+
+    /// <summary>Type-group views in the fixed Cut Lab primary-type order.</summary>
+    public IReadOnlyList<CutLabRoleGroupView> TypeGroups { get; init; } = [];
 
     /// <summary>Structural findings rendered for the current pool.</summary>
     public IReadOnlyList<CutLabFindingView> Findings { get; init; } = [];
@@ -267,6 +285,7 @@ public sealed record CutLabViewModel
         IReadOnlyList<CutLabTunableRowView> workingListRows = BuildWorkingListRows(derivedWorkingList, pool, result.RoleAssignmentsByCardName);
         IReadOnlyList<string> addableBasics = BuildAddableBasics(workingListRows);
         IReadOnlyList<CutLabRoleGroupView> roleGroups = BuildRoleGroups(pool, result.RoleAssignmentsByCardName);
+        IReadOnlyList<CutLabRoleGroupView> typeGroups = BuildTypeGroups(pool);
         IReadOnlyList<CutLabFindingView> findings = CutLabFindingPresenter.BuildFindings(result.Findings.Findings);
         IReadOnlyList<CutLabFindingGroupView> findingGroups = CutLabFindingPresenter.BuildFindingGroups(findings);
         Dictionary<string, int> countsByRole = CountRoles(derivedWorkingList, result.RoleAssignmentsByCardName);
@@ -318,6 +337,7 @@ public sealed record CutLabViewModel
             Pool = pool,
             Packages = result.State?.Packages ?? [],
             RoleGroups = roleGroups,
+            TypeGroups = typeGroups,
             Findings = findings,
             FindingGroups = findingGroups,
             ComboDataUnavailable = result.HasResult && !result.Findings.ComboDataAvailable,
@@ -378,6 +398,47 @@ public sealed record CutLabViewModel
                             && roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles)
                             && roles.Contains(roleKey, StringComparer.Ordinal))
                         .Sum(card => card.Quantity),
+                };
+            })
+            .ToArray();
+    }
+
+    private static IReadOnlyList<CutLabRoleGroupView> BuildTypeGroups(IReadOnlyList<CutLabPoolCard> pool)
+    {
+        // Bucket each card once by primary type, then order the present buckets by TypeGroupOrder.
+        // Single-pass so PrimaryType runs once per card rather than once per (type x card).
+        Dictionary<string, List<CutLabPoolCard>> byPrimaryType = new(StringComparer.Ordinal);
+        foreach (CutLabPoolCard card in pool)
+        {
+            string primaryType = CardTypeLine.PrimaryType(card.TypeLine);
+            if (!byPrimaryType.TryGetValue(primaryType, out List<CutLabPoolCard>? bucket))
+            {
+                bucket = [];
+                byPrimaryType[primaryType] = bucket;
+            }
+
+            bucket.Add(card);
+        }
+
+        return TypeGroupOrder
+            .Where(byPrimaryType.ContainsKey)
+            .Select(typeLabel =>
+            {
+                List<CutLabPoolCard> cards = byPrimaryType[typeLabel];
+                return new CutLabRoleGroupView
+                {
+                    RoleKey = typeLabel,
+                    DisplayLabel = typeLabel,
+                    Members = cards
+                        .Select(card => new CutLabRoleMemberView
+                        {
+                            Name = card.Name,
+                            IsLocked = card.IsLocked,
+                            IsCommander = card.IsCommander,
+                        })
+                        .ToArray(),
+                    CardCount = cards.Sum(card => card.Quantity),
+                    LockedCount = cards.Where(card => card.IsLocked).Sum(card => card.Quantity),
                 };
             })
             .ToArray();
@@ -887,6 +948,9 @@ public sealed record CutLabRoleGroupView
 
     /// <summary>Number of locked cards inside the role group.</summary>
     public int LockedCount { get; init; }
+
+    /// <summary>Total card quantity in the group (sums multiple copies). Computed once at build time.</summary>
+    public int CardCount { get; init; }
 
     /// <summary>True when every non-commander member in the role group is locked.</summary>
     public bool AllLockableMembersLocked => Members.Count > 0 && Members.Where(member => !member.IsCommander).All(member => member.IsLocked);

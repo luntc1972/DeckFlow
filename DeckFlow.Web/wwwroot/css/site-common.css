@@ -4429,6 +4429,36 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
   font-size: var(--fs-base);
 }
 
+.cutlab-subtype-search {
+  display: grid;
+  gap: 0.5rem;
+}
+
+input[data-cut-lab-subtype-search] {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink, inherit);
+}
+
+.cutlab-subtype-results {
+  margin-top: 1rem;
+}
+
+.cutlab-subtype-results__summary {
+  margin: 0 0 0.75rem;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.cutlab-subtype-results__empty {
+  margin: 0;
+  color: var(--muted, inherit);
+}
+
 .cutlab-role-chip--locked {
   border-left: 3px solid var(--accent);
 }

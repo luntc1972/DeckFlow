@@ -30,4 +30,16 @@ public sealed class CardTypeLineTests
     [InlineData(null, false)]
     public void IsNonPermanentFront_JudgesFrontFaceOnly(string? typeLine, bool expected)
         => Assert.Equal(expected, CardTypeLine.IsNonPermanentFront(typeLine));
+
+    [Theory]
+    [InlineData("Legendary Creature — Elf Warrior", "Creature")]
+    [InlineData("Artifact Creature — Golem", "Creature")]
+    [InlineData("Basic Land — Forest", "Land")]
+    [InlineData("Sorcery", "Sorcery")]
+    [InlineData("Enchantment — Aura", "Enchantment")]
+    [InlineData("Creature — Elf // Instant — Adventure", "Creature")]
+    [InlineData(null, "Other")]
+    [InlineData("", "Other")]
+    public void PrimaryType_UsesFrontFacePriorityBuckets(string? typeLine, string expected)
+        => Assert.Equal(expected, CardTypeLine.PrimaryType(typeLine));
 }

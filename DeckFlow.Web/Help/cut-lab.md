@@ -35,6 +35,8 @@ If a pool card is part of a known Commander Spellbook combo, Cut Lab also marks 
 
 Once the pool is loaded and protected, Cut Lab reads the deck's functional composition. It surfaces structural findings such as role and slot competition, plus weak or unmet role floors that would make later cuts risky.
 
+The pool view is also explorable in two lighter-weight ways: a **By type** section groups every card into one primary card-type bucket, and a **By subtype** search lets you ask "how many Allies / Lessons / Legendary cards do I have?" from the rendered pool itself.
+
 You can also set configurable minimums per role. Those floors become hard guardrails for the trimming process, so the deck does not accidentally cut below the baseline you want to preserve for lands, ramp, interaction, or any other tracked role.
 
 ## Inspect any card
