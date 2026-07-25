@@ -10,7 +10,7 @@
 
 - [ ] **PORT-01**: Cycle 17's Core engine (Phases 94–98 — profile records and store, measured extraction, stated-rules extraction, profile fusion, card-grounding guard) is present on `feat/personal-tools` and the solution builds with no new errors or warnings.
 - [ ] **PORT-02**: Creator-style Web services (`Services/CreatorStyle/*`), the creator-style seed loader, and their DI registrations are ported and resolve at application startup.
-- [ ] **PORT-03**: Cycle 17's shared-infrastructure refactors are re-derived against current `main` — neutral `ScryfallCollectionResolver`, `ScryfallLimits.CollectionBatchSize`, shared `CachedNameResolution`, and a dedicated `archidekt` resilience pipeline — with the manabase and Scryfall test suites still green.
+- [ ] **PORT-03**: Cycle 17's shared-infrastructure refactors are re-derived against current `main` — neutral `ScryfallCollectionResolver`, `ScryfallLimits.CollectionBatchSize`, and shared `CachedNameResolution` — with the manabase and Scryfall test suites still green. (The `archidekt` resilience pipeline registration moved to Phase 112 / PORT-02 by ratified decision D-17; PORT-03 covers only its *use* by the archidekt import path.)
 - [ ] **PORT-04**: Ported Core and Web test suites pass, with Phase 100's public-surface tests (feature-flag lockstep, `ToolRegistry` counts, route-gate coverage, sitemap assertions) removed rather than carried forward.
 
 ### Admin Personal-Tools Surface

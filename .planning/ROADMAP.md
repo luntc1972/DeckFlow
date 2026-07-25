@@ -96,12 +96,12 @@ Plans:
 - [ ] 112-06-PLAN.md — Real-ArchidektOwnerClient DI test, headless boot smoke, Commit 2
 
 ### Phase 113: Shared-Infra Re-derivation
-**Goal**: Cycle 17's shared-infrastructure refactors — the neutral `ScryfallCollectionResolver`, `ScryfallLimits.CollectionBatchSize`, shared `CachedNameResolution`, and a dedicated `archidekt` resilience pipeline — are re-derived against current `main` line by line, not applied wholesale from a branch that Cycles 18-19 have since edited underneath.
+**Goal**: Cycle 17's shared-infrastructure refactors — the neutral `ScryfallCollectionResolver`, `ScryfallLimits.CollectionBatchSize`, and shared `CachedNameResolution` — are re-derived against current `main` line by line, not applied wholesale from a branch that Cycles 18-19 have since edited underneath. (The `archidekt` resilience pipeline moved to Phase 112 — see below.)
 **Depends on**: Phase 112
 **Requirements**: PORT-03
 **Success Criteria** (what must be TRUE):
   1. `ScryfallCollectionResolver` exists as a single neutral collaborator on `main`'s current shape — no duplicate copy is reintroduced into `ManabaseAnalysisService` or elsewhere.
-  2. A dedicated `archidekt` resilience pipeline is registered and used by the archidekt import path, alongside the existing named pipelines.
+  2. ~~A dedicated `archidekt` resilience pipeline is registered~~ — **moved to Phase 112** by ratified decision D-17 (2026-07-24). Phase 112 research proved Polly 8.6.6's `GetPipeline<T>` throws `KeyNotFoundException` in `ArchidektOwnerClient`'s constructor on the unregistered key, so the registration had to land with the code that resolves it or Phase 112's DI success criterion could not pass. Phase 113 only needs to confirm the archidekt import path *uses* the already-registered pipeline; it does not register it.
   3. The manabase test suite passes unchanged, with no regression against Cut Lab's Cycle 18/19 edits to the same files.
   4. The Scryfall-related test suites pass unchanged.
 **Plans**: TBD
