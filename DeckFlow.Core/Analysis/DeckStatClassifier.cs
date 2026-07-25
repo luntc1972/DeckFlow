@@ -9,7 +9,8 @@ public static class DeckStatClassifier
 {
     /// <summary>
     /// Returns <see langword="true"/> when the card is a ramp source: a land, an explicit
-    /// mana-add effect, a land-search, or a Treasure producer.
+    /// mana-add effect, a mana-symbol producer (mana rocks, dorks, rituals), a land-search,
+    /// or a Treasure producer.
     /// </summary>
     /// <param name="typeLine">Card type line (e.g. "Artifact — Treasure").</param>
     /// <param name="oracleText">Normalized oracle text.</param>
@@ -17,6 +18,8 @@ public static class DeckStatClassifier
         => typeLine.Contains("Land", StringComparison.OrdinalIgnoreCase)
             || oracleText.Contains("add one mana", StringComparison.OrdinalIgnoreCase)
             || oracleText.Contains("add two mana", StringComparison.OrdinalIgnoreCase)
+            || oracleText.Contains("{T}: Add", StringComparison.OrdinalIgnoreCase)
+            || oracleText.Contains("Add {", StringComparison.OrdinalIgnoreCase)
             || oracleText.Contains("search your library for a basic land", StringComparison.OrdinalIgnoreCase)
             || oracleText.Contains("search your library for up to", StringComparison.OrdinalIgnoreCase) && oracleText.Contains("land", StringComparison.OrdinalIgnoreCase)
             || oracleText.Contains("Treasure token", StringComparison.OrdinalIgnoreCase)

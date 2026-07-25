@@ -81,7 +81,7 @@ public sealed class DeckStatAggregatorTests
         Assert.Equal(1, summary.Tutors);
         Assert.Equal(2, summary.FastMana);              // quantity-weighted
         Assert.Equal(1, summary.Counters);
-        Assert.Equal(1, summary.RampDrawUnderThreeMv);
+        Assert.Equal(3, summary.RampDrawUnderThreeMv); // draw spell x1 + mana-symbol fast mana x2
     }
 
     [Fact]

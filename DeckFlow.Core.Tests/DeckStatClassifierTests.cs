@@ -21,6 +21,12 @@ public sealed class DeckStatClassifierTests
     [InlineData("", "create a Treasure token", true)]          // Treasure creation phrase 1
     [InlineData("", "you create a Treasure token.", true)]     // Treasure token phrase 2
     [InlineData("Artifact", "search your library for up to two basic land cards, put them", true)]  // up-to + land
+    [InlineData("Artifact", "{T}: Add {C}.", true)]            // Mind Stone / Talisman colorless line
+    [InlineData("Artifact", "{T}, Pay 1 life: Add {U} or {B}.", true)]  // Talisman of Dominance second line
+    [InlineData("Artifact", "{1}, {T}: Add {U}{B}.", true)]    // Dimir Signet
+    [InlineData("Artifact", "{T}: Add {C}{C}.", true)]         // Sol Ring
+    [InlineData("Creature — Elf", "{T}: Add {G}.", true)]      // mana dork (Llanowar Elves)
+    [InlineData("Instant", "Add {B}{B}{B}.", true)]            // Dark Ritual (ritual acceleration)
     public void IsRampCard_TrueCases(string typeLine, string oracleText, bool expected)
     {
         Assert.Equal(expected, DeckStatClassifier.IsRampCard(typeLine, oracleText));
