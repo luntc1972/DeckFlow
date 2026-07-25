@@ -1,4 +1,5 @@
 using DeckFlow.Core.Manabase;
+using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.CutLab;
 
 namespace DeckFlow.Web.Services.CutLab;
@@ -117,19 +118,6 @@ public static class CutLabCutRoundEngine
     [
         .. CutLabFloorRules.RoleKeys.Reverse(),
         "other",
-    ];
-
-    private static readonly string[] LockedOvershootTypeOrder =
-    [
-        "Creature",
-        "Planeswalker",
-        "Battle",
-        "Instant",
-        "Sorcery",
-        "Artifact",
-        "Enchantment",
-        "Land",
-        "Other",
     ];
 
     /// <summary>Returns the fixed round label for a stable round key.</summary>
@@ -437,9 +425,9 @@ public static class CutLabCutRoundEngine
             : LockedOvershootRoleOrder.Length;
 
     private static int TypePriority(string primaryType)
-        => Array.IndexOf(LockedOvershootTypeOrder, primaryType) is int index && index >= 0
+        => Array.IndexOf(CutLabViewModel.TypeGroupOrder, primaryType) is int index && index >= 0
             ? index
-            : LockedOvershootTypeOrder.Length;
+            : CutLabViewModel.TypeGroupOrder.Length;
 
     private sealed record CardFindingTally(int Count, IReadOnlyList<CutLabFindingKind> Kinds)
     {

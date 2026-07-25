@@ -1,3 +1,4 @@
+using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services.CutLab;
 using Xunit;
@@ -324,6 +325,9 @@ public sealed class CutLabCutRoundEngineTests
         Assert.Null(plan.NextProposal);
         CutLabLockedOvershootAdvisory advisory = Assert.IsType<CutLabLockedOvershootAdvisory>(plan.LockedOvershootAdvisory);
         Assert.Equal(2, advisory.CardsOverTarget);
+        Assert.Equal(
+            ["Creature", "Planeswalker", "Battle", "Instant", "Sorcery", "Artifact", "Enchantment", "Land", "Other"],
+            CutLabViewModel.TypeGroupOrder);
         Assert.Collection(
             advisory.Groups,
             group =>
