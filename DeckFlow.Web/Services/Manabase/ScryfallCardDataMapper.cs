@@ -23,6 +23,8 @@ public static class ScryfallCardDataMapper
             Cmc = card.Cmc,
             TypeLine = card.TypeLine,
             OracleText = card.OracleText,
+            Power = card.Power,
+            Toughness = card.Toughness,
             ProducedMana = card.ProducedMana,
             ColorIdentity = card.ColorIdentity,
             Rarity = card.Rarity,
@@ -41,5 +43,7 @@ public static class ScryfallCardDataMapper
         ManaCost = face.ManaCost,
         TypeLine = face.TypeLine,
         OracleText = face.OracleText,
+        Power = face.Power,
+        Toughness = face.Toughness,
     };
 }

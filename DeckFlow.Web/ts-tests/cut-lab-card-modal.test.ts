@@ -82,7 +82,7 @@ const buildFixture = (): void => {
         </button>
       </div>
     </form>
-    <script type="application/json" id="cutlab-card-text-data">{"Counterspell":{"typeLine":"Instant","manaCost":"{U}{U}","setCode":"TMP","collectorNumber":"55","oracleText":"Counter target spell.","comboContext":"Infinite cards"},"Atraxa, Praetors' Voice":{"typeLine":"Legendary Creature — Angel Horror","manaCost":"{G}{W}{U}{B}","oracleText":"Flying, vigilance, deathtouch, lifelink"}}</script>
+    <script type="application/json" id="cutlab-card-text-data">{"Counterspell":{"typeLine":"Instant","manaCost":"{U}{U}","setCode":"TMP","collectorNumber":"55","oracleText":"Counter target spell.","comboContext":"Infinite cards"},"Atraxa, Praetors' Voice":{"typeLine":"Legendary Creature — Angel Horror","manaCost":"{G}{W}{U}{B}","oracleText":"Flying, vigilance, deathtouch, lifelink","power":"4","toughness":"4"}}</script>
     <dialog id="cutlab-card-modal" class="cutlab-card-modal" aria-labelledby="cutlab-card-modal-title">
       <div class="cutlab-card-modal__panel">
         <h2 id="cutlab-card-modal-title"></h2>
@@ -108,6 +108,7 @@ describe('cut-lab card modal', () => {
 
     const trigger = document.querySelector<HTMLButtonElement>('button[data-cut-lab-chip-card="Counterspell"]');
     const title = document.getElementById('cutlab-card-modal-title');
+    const meta = document.querySelector<HTMLElement>('[data-cutlab-modal-meta]');
     const oracle = document.querySelector<HTMLElement>('[data-cutlab-modal-oracle]');
     const lockButton = document.querySelector<HTMLButtonElement>('[data-cutlab-modal-lock]');
     const closeButton = document.querySelector<HTMLButtonElement>('[data-cutlab-modal-close]');
@@ -117,6 +118,7 @@ describe('cut-lab card modal', () => {
 
     expect(showModalSpy).toHaveBeenCalledTimes(1);
     expect(title?.textContent).toBe('Counterspell');
+    expect(meta?.textContent).toBe('Instant · {U}{U} · TMP #55');
     expect(oracle?.textContent).toContain('Counter target spell.');
     expect(lockButton?.textContent).toBe('Lock');
     expect(checkbox?.checked).toBe(false);
@@ -141,16 +143,19 @@ describe('cut-lab card modal', () => {
 
     const mysteryTrigger = document.querySelector<HTMLButtonElement>('button[data-cutlab-card-open="Mystery Card"]');
     const commanderTrigger = document.querySelector<HTMLButtonElement>('button[data-cutlab-card-open="Atraxa, Praetors\\\' Voice"]');
+    const meta = document.querySelector<HTMLElement>('[data-cutlab-modal-meta]');
     const oracle = document.querySelector<HTMLElement>('[data-cutlab-modal-oracle]');
     const lockButton = document.querySelector<HTMLButtonElement>('[data-cutlab-modal-lock]');
 
     mysteryTrigger?.click();
 
+    expect(meta?.textContent).not.toContain('/');
     expect(oracle?.textContent).toBe('No card text available.');
     expect(lockButton?.disabled).toBe(false);
 
     commanderTrigger?.click();
 
+    expect(meta?.textContent).toBe('Legendary Creature — Angel Horror · {G}{W}{U}{B} · 4/4');
     expect(lockButton?.disabled).toBe(true);
     expect(lockButton?.textContent).toBe('Locked');
   });
