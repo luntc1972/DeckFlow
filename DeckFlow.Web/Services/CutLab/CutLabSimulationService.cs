@@ -112,6 +112,8 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
     private readonly IScryfallCardResolver _resolver;
     private readonly ILogger<CutLabSimulationService> _logger;
     private readonly Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabGoalSettings?, CutLabMetricSnapshot> _snapshotBuilder;
+    private readonly Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabGoalSettings?, CutLabSimulationResult> _simulationResultBuilder;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, CutLabSimulationResult> _snapshotResultCache = new(StringComparer.Ordinal);
 
     /// <summary>Creates a new <see cref="CutLabSimulationService"/>.</summary>
     /// <param name="resolvedCardCache">Resolved-card cache for working pools.</param>
@@ -123,7 +125,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         CutLabDeltaCache deltaCache,
         IScryfallCardResolver resolver,
         ILogger<CutLabSimulationService> logger)
-        : this(resolvedCardCache, deltaCache, resolver, logger, BuildSnapshot)
+        : this(resolvedCardCache, deltaCache, resolver, logger, BuildSnapshot, BuildSnapshotResult)
     {
     }
 
@@ -132,13 +134,15 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         CutLabDeltaCache deltaCache,
         IScryfallCardResolver resolver,
         ILogger<CutLabSimulationService> logger,
-        Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabGoalSettings?, CutLabMetricSnapshot> snapshotBuilder)
+        Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabGoalSettings?, CutLabMetricSnapshot> snapshotBuilder,
+        Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabGoalSettings?, CutLabSimulationResult>? simulationResultBuilder = null)
     {
         _resolvedCardCache = resolvedCardCache ?? throw new ArgumentNullException(nameof(resolvedCardCache));
         _deltaCache = deltaCache ?? throw new ArgumentNullException(nameof(deltaCache));
         _resolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _snapshotBuilder = snapshotBuilder ?? throw new ArgumentNullException(nameof(snapshotBuilder));
+        _simulationResultBuilder = simulationResultBuilder ?? BuildSnapshotResult;
     }
 
     /// <inheritdoc />
@@ -174,9 +178,16 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         ArgumentNullException.ThrowIfNull(workingList);
 
         string resolvedPoolKey = poolKey ?? CutLabResolvedCardCache.ComputePoolKey(workingList);
+        string cacheKey = ComputeSnapshotResultCacheKey(resolvedPoolKey, playExperience, trialsOverride, goals);
+        if (_snapshotResultCache.TryGetValue(cacheKey, out CutLabSimulationResult? cached))
+        {
+            return cached;
+        }
+
         IReadOnlyList<DeckCardEntry> deckEntries = await ResolveDeckEntries(workingList, resolvedPoolKey, cancellationToken).ConfigureAwait(false);
-        CutLabSimulationResult result = BuildSnapshotResult(deckEntries, playExperience, trialsOverride, goals);
+        CutLabSimulationResult result = _simulationResultBuilder(deckEntries, playExperience, trialsOverride, goals);
         _deltaCache.SetSnapshot(resolvedPoolKey, playExperience, trialsOverride, result.Snapshot, goals);
+        _snapshotResultCache[cacheKey] = result;
         return result;
     }
 
@@ -402,6 +413,36 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
             Value = value,
             Unit = unit,
         };
+
+    private static string ComputeSnapshotResultCacheKey(
+        string poolKey,
+        string? playExperience,
+        int? trialsOverride,
+        CutLabGoalSettings? goals)
+        => string.Concat(
+            poolKey,
+            "|",
+            NormalizePlayExperience(playExperience),
+            "|",
+            trialsOverride?.ToString() ?? string.Empty,
+            "|",
+            NormalizeGoalsKey(goals));
+
+    private static string NormalizePlayExperience(string? playExperience)
+        => string.IsNullOrWhiteSpace(playExperience) ? string.Empty : playExperience.Trim().ToUpperInvariant();
+
+    private static string NormalizeGoalsKey(CutLabGoalSettings? goals)
+    {
+        if (goals is null)
+        {
+            return string.Empty;
+        }
+
+        int commanderByTurn = Math.Clamp(goals.CommanderByTurn, CutLabGoalDefaults.MinGoalTurn, CutLabGoalDefaults.MaxGoalTurn);
+        int engineByTurn = Math.Clamp(goals.EngineByTurn, CutLabGoalDefaults.MinGoalTurn, CutLabGoalDefaults.MaxGoalTurn);
+        int representativeLineByTurn = Math.Clamp(goals.RepresentativeLineByTurn, CutLabGoalDefaults.MinGoalTurn, CutLabGoalDefaults.MaxGoalTurn);
+        return $"{commanderByTurn}-{engineByTurn}-{representativeLineByTurn}";
+    }
 
     private static IReadOnlyList<DeckCardEntry> RemoveCandidate(
         IReadOnlyList<DeckCardEntry> currentEntries,
