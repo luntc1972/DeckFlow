@@ -32,20 +32,6 @@ public interface ICutLabUiPatchBuilder
 /// <summary>Default Cut Lab live-patch projection service.</summary>
 public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
 {
-    private static readonly IReadOnlyDictionary<string, string> RoleDisplayLabels =
-        new Dictionary<string, string>(StringComparer.Ordinal)
-        {
-            ["lands"] = "Lands",
-            ["ramp"] = "Ramp",
-            ["draw"] = "Card draw",
-            ["interaction"] = "Interaction",
-            ["protection"] = "Protection",
-            ["engines"] = "Engines",
-            ["payoffs"] = "Payoffs",
-            ["wincons"] = "Win conditions",
-            ["other"] = "Other",
-        };
-
     private readonly ICutLabAnalysisContextBuilder _analysisContextBuilder;
     private readonly ICutLabSimulationService _simulationService;
 
@@ -474,7 +460,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
         };
 
     private static string DisplayLabelFor(string roleKey)
-        => RoleDisplayLabels.TryGetValue(roleKey, out string? label) ? label : roleKey;
+        => CutLabRoleAssigner.DisplayLabelFor(roleKey);
 
     private static IReadOnlyList<string> BuildWhatifCardOutOptions(IReadOnlyList<CutLabPoolCard> workingList)
         => workingList

@@ -48,20 +48,6 @@ public sealed record CutLabComboBadgeView
 /// <summary>View model for the Cut Lab page.</summary>
 public sealed record CutLabViewModel
 {
-    private static readonly IReadOnlyDictionary<string, string> RoleDisplayLabels =
-        new Dictionary<string, string>(StringComparer.Ordinal)
-        {
-            ["lands"] = "Lands",
-            ["ramp"] = "Ramp",
-            ["draw"] = "Card draw",
-            ["interaction"] = "Interaction",
-            ["protection"] = "Protection",
-            ["engines"] = "Engines",
-            ["payoffs"] = "Payoffs",
-            ["wincons"] = "Win conditions",
-            ["other"] = "Other",
-        };
-
     // Display order for the By-type groups. Must stay in sync with the priority list in
     // CardTypeLine.PrimaryType (this appends the "Other" fallback bucket).
     /// <summary>Shared primary-type display order used by Cut Lab groupings and advisory ranking.</summary>
@@ -933,7 +919,7 @@ public sealed record CutLabViewModel
     }
 
     private static string DisplayLabelFor(string roleKey)
-        => RoleDisplayLabels.TryGetValue(roleKey, out string? label) ? label : roleKey;
+        => CutLabRoleAssigner.DisplayLabelFor(roleKey);
 
     private static string BuildGoalLabel(CutLabMetricKind kind, int turnValue)
         => kind switch
