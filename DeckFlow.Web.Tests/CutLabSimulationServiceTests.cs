@@ -290,24 +290,34 @@ public sealed class CutLabSimulationServiceTests
     }
 
     [Fact]
-    public async Task BuildSnapshotResult_ReusesCachedFullResultBeforeResolvingOrReanalyzing()
+    public async Task BuildSnapshotResult_ReusesCachedFullResultAcrossScopedServiceInstances()
     {
         TestPool pool = BuildCedhPool();
-        var resolver = new FakeResolver(pool.Cards);
+        var sharedDeltaCache = new CutLabDeltaCache();
         var resultCounter = new CountingSimulationResultBuilder();
-        var service = new CutLabSimulationService(
+        var firstResolver = new FakeResolver(pool.Cards);
+        var secondResolver = new FakeResolver(pool.Cards);
+        var firstService = new CutLabSimulationService(
             new CutLabResolvedCardCache(),
-            new CutLabDeltaCache(),
-            resolver,
+            sharedDeltaCache,
+            firstResolver,
+            NullLogger<CutLabSimulationService>.Instance,
+            BuildCountingSnapshot,
+            resultCounter.Build);
+        var secondService = new CutLabSimulationService(
+            new CutLabResolvedCardCache(),
+            sharedDeltaCache,
+            secondResolver,
             NullLogger<CutLabSimulationService>.Instance,
             BuildCountingSnapshot,
             resultCounter.Build);
 
-        CutLabSimulationResult first = await service.BuildSnapshotResult(pool.WorkingList, "cEDH");
-        CutLabSimulationResult second = await service.BuildSnapshotResult(pool.WorkingList, "cEDH");
+        CutLabSimulationResult first = await firstService.BuildSnapshotResult(pool.WorkingList, "cEDH");
+        CutLabSimulationResult second = await secondService.BuildSnapshotResult(pool.WorkingList, "cEDH");
 
         Assert.Equal(1, resultCounter.CallCount);
-        Assert.Equal(pool.WorkingList.Count, resolver.ResolveSingleCalls);
+        Assert.Equal(pool.WorkingList.Count, firstResolver.ResolveSingleCalls);
+        Assert.Equal(0, secondResolver.ResolveSingleCalls);
         Assert.Same(first, second);
     }
 

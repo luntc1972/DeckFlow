@@ -143,11 +143,68 @@ public sealed class CutLabDeltaCache
         LogCacheEvent("write", key, sizeBytes);
     }
 
+    /// <summary>
+    /// Attempts to retrieve a cached Cut Lab simulation result for a pool/trials pair.
+    /// </summary>
+    /// <param name="poolKey">The deterministic working-pool hash.</param>
+    /// <param name="playExperience">The Cut Lab play-experience label.</param>
+    /// <param name="trialsOverride">The simulation trial override that produced the result.</param>
+    /// <param name="result">The cached result when present; otherwise <see langword="null"/>.</param>
+    /// <param name="goals">Optional by-turn goal overrides folded into the cache key.</param>
+    /// <returns><see langword="true"/> on cache hit; otherwise <see langword="false"/>.</returns>
+    public bool TryGetResult(string poolKey, string? playExperience, int? trialsOverride, out CutLabSimulationResult? result, CutLabGoalSettings? goals = null)
+    {
+        ArgumentNullException.ThrowIfNull(poolKey);
+
+        string key = ComputeResultEntryKey(poolKey, playExperience, trialsOverride, goals);
+        if (!_cache.TryGetValue(key, out var raw) || raw is not CachedEntry<CutLabSimulationResult> entry)
+        {
+            result = null;
+            LogCacheEvent("miss", key, 0);
+            return false;
+        }
+
+        result = entry.Value;
+        LogCacheEvent("hit", key, entry.SizeBytes);
+        return true;
+    }
+
+    /// <summary>
+    /// Stores a Cut Lab simulation result for a pool/trials pair.
+    /// </summary>
+    /// <param name="poolKey">The deterministic working-pool hash.</param>
+    /// <param name="playExperience">The Cut Lab play-experience label.</param>
+    /// <param name="trialsOverride">The simulation trial override that produced the result.</param>
+    /// <param name="result">The simulation result to cache.</param>
+    /// <param name="goals">Optional by-turn goal overrides folded into the cache key.</param>
+    public void SetResult(string poolKey, string? playExperience, int? trialsOverride, CutLabSimulationResult result, CutLabGoalSettings? goals = null)
+    {
+        ArgumentNullException.ThrowIfNull(poolKey);
+        ArgumentNullException.ThrowIfNull(result);
+
+        string key = ComputeResultEntryKey(poolKey, playExperience, trialsOverride, goals);
+        int sizeBytes = EstimateSizeBytes(result);
+        var entry = new CachedEntry<CutLabSimulationResult>(result, sizeBytes);
+        var options = new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = EntryTtl,
+            Size = sizeBytes,
+        };
+        RegisterEvictionLogging<CutLabSimulationResult>(options);
+
+        _cache.Set(key, entry, options);
+        LogCacheEvent("write", key, sizeBytes);
+        SetSnapshot(poolKey, playExperience, trialsOverride, result.Snapshot, goals);
+    }
+
     private static string ComputeDeltaEntryKey(string poolKey, string cardName, int? trialsOverride, CutLabGoalSettings? goals)
         => PacketSessionCache.ComputeKey(new DeltaCacheKey(poolKey, NormalizeCardName(cardName), trialsOverride, NormalizeGoalsKey(goals)));
 
     private static string ComputeSnapshotEntryKey(string poolKey, string? playExperience, int? trialsOverride, CutLabGoalSettings? goals)
         => PacketSessionCache.ComputeKey(new SnapshotCacheKey(poolKey, NormalizePlayExperience(playExperience), trialsOverride, NormalizeGoalsKey(goals)));
+
+    private static string ComputeResultEntryKey(string poolKey, string? playExperience, int? trialsOverride, CutLabGoalSettings? goals)
+        => PacketSessionCache.ComputeKey(new ResultCacheKey("result", poolKey, NormalizePlayExperience(playExperience), trialsOverride, NormalizeGoalsKey(goals)));
 
     private static string NormalizeCardName(string cardName)
         => cardName.ToUpperInvariant();
@@ -210,6 +267,20 @@ public sealed class CutLabDeltaCache
         return Math.Max(total, 1);
     }
 
+    private static int EstimateSizeBytes(CutLabSimulationResult result)
+    {
+        int total = EstimateSizeBytes(result.Snapshot) + 64;
+        foreach ((string cardName, CutLabSimulationCardView cardView) in result.CastabilityByCardName)
+        {
+            total += cardName.Length;
+            total += 32;
+            total += cardView.Cmc.HasValue ? 4 : 0;
+        }
+
+        return Math.Max(total, 1);
+    }
+
     private sealed record DeltaCacheKey(string PoolKey, string CardName, int? TrialsOverride, string GoalsKey);
     private sealed record SnapshotCacheKey(string PoolKey, string PlayExperience, int? TrialsOverride, string GoalsKey);
+    private sealed record ResultCacheKey(string EntryKind, string PoolKey, string PlayExperience, int? TrialsOverride, string GoalsKey);
 }
