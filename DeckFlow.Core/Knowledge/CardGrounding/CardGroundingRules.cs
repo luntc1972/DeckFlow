@@ -1,0 +1,107 @@
+using DeckFlow.Core.Normalization;
+
+namespace DeckFlow.Core.Knowledge.CardGrounding;
+
+/// <summary>
+/// Pure decision rules for strict card grounding.
+/// </summary>
+public static class CardGroundingRules
+{
+    private const string ColoredManaPips = "WUBRG";
+
+    /// <summary>
+    /// Determines whether a card is legal in Commander using Scryfall legality data.
+    /// </summary>
+    /// <param name="legalities">Scryfall legality map keyed by format name.</param>
+    /// <returns><see langword="true"/> only when the commander legality entry exists and is <c>legal</c>.</returns>
+    public static bool IsLegalForCommander(IReadOnlyDictionary<string, string>? legalities)
+    {
+        return legalities is not null
+            && legalities.TryGetValue("commander", out var status)
+            && string.Equals(status, "legal", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Determines whether a card's color identity fits within the commander's color identity.
+    /// </summary>
+    /// <param name="cardColorIdentity">Card color identity in Scryfall WUBRG string form.</param>
+    /// <param name="commanderIdentity">Commander's color identity in Scryfall WUBRG string form.</param>
+    /// <returns><see langword="true"/> when the card identity is colorless or a subset of the commander identity.</returns>
+    public static bool IsWithinColorIdentity(IReadOnlyList<string>? cardColorIdentity, IReadOnlySet<string> commanderIdentity)
+    {
+        ArgumentNullException.ThrowIfNull(commanderIdentity);
+
+        if (cardColorIdentity is null || cardColorIdentity.Count == 0)
+        {
+            return true;
+        }
+
+        foreach (var color in cardColorIdentity)
+        {
+            if (!commanderIdentity.Contains(color))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Determines whether a card would violate singleton constraints in the submitted deck.
+    /// </summary>
+    /// <param name="canonicalName">Canonical card name to check.</param>
+    /// <param name="typeLine">Resolved Scryfall type line.</param>
+    /// <param name="deckCardNames">
+    /// Existing deck names populated with <see cref="CardNormalizer.Normalize(string)"/> outputs so duplicate
+    /// checks match punctuation-collapsed, DFC-front-face, star/foil-stripped names exactly.
+    /// </param>
+    /// <returns><see langword="true"/> when the card is already present and not exempt as a basic land.</returns>
+    public static bool IsSingletonViolation(string canonicalName, string typeLine, IReadOnlySet<string> deckCardNames)
+    {
+        ArgumentNullException.ThrowIfNull(canonicalName);
+        ArgumentNullException.ThrowIfNull(typeLine);
+        ArgumentNullException.ThrowIfNull(deckCardNames);
+
+        // Why: Scryfall's type line is the authoritative marker for basic-land status, so this stays correct
+        // across named basics and snow basics without hardcoding a brittle card-name allowlist.
+        if (typeLine.Contains("Basic Land", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var normalizedName = CardNormalizer.Normalize(canonicalName);
+        return deckCardNames.Contains(normalizedName);
+    }
+
+    /// <summary>
+    /// Determines whether the deck can currently produce every colored mana pip in the card's mana cost.
+    /// </summary>
+    /// <param name="manaCost">Scryfall mana-cost string.</param>
+    /// <param name="deckProducedColors">WUBRG colors the submitted deck can already produce.</param>
+    /// <returns><see langword="true"/> when every colored pip required by the cost is already producible.</returns>
+    public static bool IsCastable(string? manaCost, IReadOnlySet<char> deckProducedColors)
+    {
+        ArgumentNullException.ThrowIfNull(deckProducedColors);
+
+        if (string.IsNullOrEmpty(manaCost))
+        {
+            return true;
+        }
+
+        foreach (var symbol in manaCost)
+        {
+            if (!ColoredManaPips.Contains(symbol))
+            {
+                continue;
+            }
+
+            if (!deckProducedColors.Contains(symbol))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}

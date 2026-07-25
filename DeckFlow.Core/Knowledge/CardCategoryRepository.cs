@@ -57,6 +57,78 @@ internal sealed class CardCategoryRepository
     }
 
     /// <summary>
+    /// Retrieves the processed-deck-only corpus baseline used for category lift calculations.
+    /// </summary>
+    internal async Task<GlobalCategoryBaseline> GetGlobalCategoryBaselineAsync(CancellationToken cancellationToken = default)
+    {
+        await _schema.EnsureSchemaAsync(cancellationToken);
+
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var rows = await connection.QueryAsync<GlobalCategoryBaselineRow>(new CommandDefinition(
+            """
+            WITH deck_categories AS (
+                SELECT DISTINCT q.id AS deck_id, o.category
+                FROM card_category_observations o
+                JOIN sources s ON s.id = o.source_id
+                JOIN deck_queue q ON q.id = s.deck_queue_id AND q.processed = 1
+            ),
+            total_decks AS (
+                SELECT COUNT(DISTINCT deck_id) AS deck_count
+                FROM deck_categories
+            ),
+            category_counts AS (
+                SELECT category, COUNT(DISTINCT deck_id) AS deck_count
+                FROM deck_categories
+                GROUP BY category
+            ),
+            pair_counts AS (
+                SELECT dc1.category AS category_a, dc2.category AS category_b, COUNT(DISTINCT dc1.deck_id) AS deck_count
+                FROM deck_categories dc1
+                JOIN deck_categories dc2 ON dc2.deck_id = dc1.deck_id AND dc1.category < dc2.category
+                GROUP BY dc1.category, dc2.category
+            )
+            SELECT 'total' AS row_type, CAST(NULL AS TEXT) AS category_a, CAST(NULL AS TEXT) AS category_b, deck_count
+            FROM total_decks
+            UNION ALL
+            SELECT 'category', category, CAST(NULL AS TEXT), deck_count
+            FROM category_counts
+            UNION ALL
+            SELECT 'pair', category_a, category_b, deck_count
+            FROM pair_counts;
+            """,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+        var decksWithCategory = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var decksWithCategoryPair = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var totalDecks = 0;
+
+        foreach (var row in rows)
+        {
+            switch (row.RowType)
+            {
+                case "total":
+                    totalDecks = checked((int)row.DeckCount);
+                    break;
+                case "category" when CategoryFilter.IsIncluded(row.CategoryA):
+                    decksWithCategory[row.CategoryA!] = checked((int)row.DeckCount);
+                    break;
+                case "pair" when CategoryFilter.IsIncluded(row.CategoryA) && CategoryFilter.IsIncluded(row.CategoryB):
+                    decksWithCategoryPair[BuildCategoryPairKey(row.CategoryA!, row.CategoryB!)] = checked((int)row.DeckCount);
+                    break;
+            }
+        }
+
+        return new GlobalCategoryBaseline
+        {
+            TotalDecks = totalDecks,
+            DecksWithCategory = decksWithCategory,
+            DecksWithCategoryPair = decksWithCategoryPair
+        };
+    }
+
+    /// <summary>
     /// Batch equivalent of <see cref="GetCategoriesAsync"/>: resolves categories for many cards in a
     /// single round-trip (one <c>IN</c> query instead of one query per card). Returns a dictionary
     /// keyed by the ORIGINAL requested name (case-insensitive) so the caller can look each spell up by
@@ -724,7 +796,22 @@ internal sealed class CardCategoryRepository
             .ToList();
     }
 
+    private static string BuildCategoryPairKey(string categoryA, string categoryB)
+    {
+        return string.Compare(categoryA, categoryB, StringComparison.OrdinalIgnoreCase) <= 0
+            ? string.Concat(categoryA, "|", categoryB)
+            : string.Concat(categoryB, "|", categoryA);
+    }
+
     private DbConnection CreateConnection() => _connectionInfo.CreateConnection();
+
+    private sealed class GlobalCategoryBaselineRow
+    {
+        public string RowType { get; init; } = string.Empty;
+        public string? CategoryA { get; init; }
+        public string? CategoryB { get; init; }
+        public long DeckCount { get; init; }
+    }
 
     private sealed class CategoryKnowledgeAggregateRow
     {
