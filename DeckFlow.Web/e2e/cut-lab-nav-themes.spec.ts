@@ -328,6 +328,27 @@ test('captures Lock your pool review screenshots across themes at desktop and mo
   }
 });
 
+test("shows a newly created package in another card's visible package widget without reload", async ({ page }) => {
+  await importPool(page);
+
+  const packagesDetails = page.locator('#cut-lab-section-packages');
+  await ensureDetailsOpen(packagesDetails);
+
+  await page.locator('select[data-cut-lab-package-card="Sol Ring"]').selectOption('__new__');
+  await page.locator('[data-cut-lab-new-package-input]').fill('Fast mana');
+  await page.locator('[data-cut-lab-new-package-save]').click();
+  await expect(page.locator('[data-cut-lab-package-id]').filter({ hasText: 'Fast mana' })).toBeVisible({ timeout: 30_000 });
+
+  const otherCardWidget = page
+    .locator('select[data-cut-lab-package-card="Fellwar Stone"]')
+    .locator('xpath=preceding-sibling::div[contains(@class, "df-select")][1]');
+  const otherCardTrigger = otherCardWidget.locator('button.df-select__trigger');
+  const otherCardListbox = otherCardWidget.getByRole('listbox');
+
+  await otherCardTrigger.click();
+  await expect(otherCardListbox.getByRole('option', { name: 'Fast mana' })).toBeVisible();
+});
+
 test('proves the no-JS Cut Lab navigation and card-trigger fallbacks', async ({ browser }) => {
   // No-JS decide/adjust POSTs run the sim-heavy pipeline server-side on the
   // default Debug build; reaching the 100-card Export gate takes several native

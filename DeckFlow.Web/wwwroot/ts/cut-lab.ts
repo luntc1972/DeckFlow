@@ -66,6 +66,13 @@ interface CutLabCardTextEntry {
   comboContext?: string;
 }
 
+interface Window {
+  DeckFlow?: {
+    attachDfSelect?: () => void;
+    refreshDfSelect?: (select: HTMLSelectElement) => void;
+  };
+}
+
 type CutLabDecisionAction = 'accept' | 'reject' | 'defer' | 'restore';
 type CutLabMetricDirection = 'Up' | 'Down' | 'None';
 type CutLabMetricUnit = 'Percent' | 'Cards';
@@ -2773,6 +2780,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     ]);
     select.options[0].disabled = true;
     select.value = '';
+    window.DeckFlow?.refreshDfSelect?.(select);
     form.classList.remove('hidden');
     fallbackNote?.classList.add('hidden');
   };
@@ -3329,6 +3337,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     document.querySelectorAll<HTMLSelectElement>('select[data-cut-lab-package-card]').forEach(select => {
       if (select.value === newPackageOptionValue) {
         select.value = unlockedPoolOptionValue;
+        window.DeckFlow?.refreshDfSelect?.(select);
       }
     });
   };
@@ -3398,6 +3407,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       } else {
         select.add(newOption);
       }
+
+      window.DeckFlow?.refreshDfSelect?.(select);
     });
   };
 
@@ -3434,6 +3445,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       Array.from(select.options)
         .filter(option => option.value === packageId)
         .forEach(option => option.remove());
+
+      window.DeckFlow?.refreshDfSelect?.(select);
     });
   };
 
