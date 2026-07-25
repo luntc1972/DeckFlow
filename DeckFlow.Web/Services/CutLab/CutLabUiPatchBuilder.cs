@@ -43,6 +43,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             ["engines"] = "Engines",
             ["payoffs"] = "Payoffs",
             ["wincons"] = "Win conditions",
+            ["other"] = "Other",
         };
 
     private readonly ICutLabAnalysisContextBuilder _analysisContextBuilder;

@@ -76,6 +76,67 @@ public sealed class CutLabRoleAssignerTests
     }
 
     [Fact]
+    public void AssignRoles_ModalDfcSpellFrontWithLandBack_MapsToLandsAndNotRamp()
+    {
+        CardFact fact = Fact(
+            "Sea Gate Restoration // Sea Gate, Reborn",
+            "Sorcery // Land",
+            oracle: "Draw cards equal to the number of cards in your hand plus one. You have no maximum hand size. // As Sea Gate, Reborn enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {U}.")
+            with
+        {
+            FrontFaceOracleText = "Draw cards equal to the number of cards in your hand plus one. You have no maximum hand size.",
+            HasLandFace = true,
+        };
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
+            fact,
+            Array.Empty<string>(),
+            isComboPiece: false,
+            ManabaseMode.Casual);
+
+        Assert.Contains("lands", roles);
+        Assert.DoesNotContain("ramp", roles);
+    }
+
+    [Fact]
+    public void AssignRoles_UsesFrontFaceOracleTextBeforeJoinedOracleText()
+    {
+        CardFact fact = Fact(
+            "Invasion of Insight // Insight Engine",
+            "Battle // Artifact",
+            oracle: "When Invasion of Insight enters, scry 2. // At the beginning of your upkeep, draw a card.")
+            with
+        {
+            FrontFaceOracleText = "When Invasion of Insight enters, scry 2.",
+        };
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
+            fact,
+            Array.Empty<string>(),
+            isComboPiece: false,
+            ManabaseMode.Casual);
+
+        Assert.DoesNotContain("draw", roles);
+    }
+
+    [Fact]
+    public void AssignRoles_UnclassifiedResolvedCard_FallsBackToOther()
+    {
+        CardFact fact = Fact(
+            "Hill Giant",
+            "Creature — Giant",
+            oracle: "A simple creature.");
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
+            fact,
+            Array.Empty<string>(),
+            isComboPiece: false,
+            ManabaseMode.Casual);
+
+        Assert.Equal(["other"], roles);
+    }
+
+    [Fact]
     public void AssignRoles_SwordsToPlowshares_IsInteractionInCasualViaPreGateSignal()
     {
         CardFact fact = Fact(
@@ -94,7 +155,7 @@ public sealed class CutLabRoleAssignerTests
 
     [Theory]
     [InlineData(ManabaseMode.Cedh, new[] { "interaction" })]
-    [InlineData(ManabaseMode.Casual, new string[0])]
+    [InlineData(ManabaseMode.Casual, new[] { "other" })]
     public void AssignRoles_Counterspell_RespectsModeGate(ManabaseMode mode, string[] expected)
     {
         CardFact fact = Fact(

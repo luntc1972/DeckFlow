@@ -25,6 +25,8 @@ public static class DeckStatClassifier
         @"(?<!(?:opponent|opponents|target player|target opponent|that player|another player|whenever you|when you|would) )\bdraws?\s+(?:a|one|two|three|four|five|six|seven|eight|nine|ten|x|\d+)\s+cards?",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    private static readonly Regex ReminderTextRegex = new(@"\([^)]*\)", RegexOptions.Compiled);
+
     // Why: broad role-tally ramp signal — intentionally distinct from the tuned, flag-gated
     // Manabase ramp predicates (castability/land math). Do NOT unify the two. See ADR
     // docs/decisions/0003-ramp-classifier-divergence.md.
@@ -52,7 +54,20 @@ public static class DeckStatClassifier
     /// Karsten draw term can reuse the exact same signal without inheriting role-tally extras.
     /// </summary>
     /// <param name="oracleText">Normalized oracle text.</param>
-    internal static bool MatchesYouCardDraw(string oracleText) => YouCardDrawRegex.IsMatch(oracleText);
+    internal static bool MatchesYouCardDraw(string oracleText)
+    {
+        // Strip reminder text so cycling's "(..., Discard this card: Draw a card.)" does not make
+        // every cycling card look like literal draw (for example, Raugrin Triome). Most oracle text
+        // has no parentheses at all, so skip the regex pass (and its allocation) when there's
+        // nothing to strip — this runs per card in the Cut Lab role-tally hot path.
+        if (oracleText.IndexOf('(', StringComparison.Ordinal) < 0)
+        {
+            return YouCardDrawRegex.IsMatch(oracleText);
+        }
+
+        string text = ReminderTextRegex.Replace(oracleText, string.Empty);
+        return YouCardDrawRegex.IsMatch(text);
+    }
 
     /// <summary>
     /// Returns <see langword="true"/> when the card has you-anchored literal card draw (any count),

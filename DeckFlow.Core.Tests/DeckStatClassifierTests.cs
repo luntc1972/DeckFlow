@@ -50,6 +50,7 @@ public sealed class DeckStatClassifierTests
     [InlineData("Investigate.", true)]
     [InlineData("Connive.", true)]
     [InlineData("Draw a card.", true)]
+    [InlineData("When this enters, draw a card.", true)]
     public void IsDrawCard_TrueCases(string oracleText, bool expected)
     {
         Assert.Equal(expected, DeckStatClassifier.IsDrawCard(oracleText));
@@ -59,6 +60,7 @@ public sealed class DeckStatClassifierTests
     [InlineData("Target player draws two cards", false)]
     [InlineData("Destroy target creature.", false)]
     [InlineData("Search your library for a basic land card.", false)]
+    [InlineData("Raugrin Triome enters the battlefield tapped.\n{T}: Add {R}, {U}, or {W}.\nCycling {3} ({3}, Discard this card: Draw a card.)", false)]
     public void IsDrawCard_FalseCases(string oracleText, bool expected)
     {
         Assert.Equal(expected, DeckStatClassifier.IsDrawCard(oracleText));
