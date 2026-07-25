@@ -25,6 +25,10 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <TargetPath>Fixtures/index-seed.golden.json</TargetPath>
     </None>
+    <None Include="StatedRulesExtraction/Fixtures/salubrious-snail-transcript.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>Fixtures/salubrious-snail-transcript.txt</TargetPath>
+    </None>
   </ItemGroup>
 
   <ItemGroup>

@@ -1,3 +1,5 @@
+using DeckFlow.Core.Knowledge.StatedRulesExtraction;
+
 namespace DeckFlow.Core.Knowledge;
 
 /// <summary>
@@ -49,6 +51,70 @@ public static class DistillationSchemas
             "bracket":{"type":"array","items":{"type":"string"}},
             "card_category":{"type":"array","items":{"type":"string"}}},
          "required":["archetype","bracket","card_category"]}
+        """;
+
+    /// <summary>
+    /// Strict schema for stated-rule claim selection.
+    /// </summary>
+    public const string StatedRulesSelectSchema = """
+        {"type":"object","additionalProperties":false,
+         "properties":{"claims":{"type":"array","items":{"type":"string"}}},
+         "required":["claims"]}
+        """;
+
+    /// <summary>
+    /// Strict schema for stated-rule claim disambiguation.
+    /// </summary>
+    public const string StatedRulesDisambiguateSchema = """
+        {"type":"object","additionalProperties":false,
+         "properties":{"claims":{"type":"array","items":{"type":"string"}}},
+         "required":["claims"]}
+        """;
+
+    /// <summary>
+    /// Strict schema for stated-rule decomposition.
+    /// </summary>
+    public const string StatedRulesDecomposeSchema = """
+        {"type":"object","additionalProperties":false,
+         "properties":{"rules":{"type":"array","items":{
+            "type":"object","additionalProperties":false,
+            "properties":{
+                "category":{"type":"string"},
+                "metric":{"type":"string"},
+                "value":{"type":["number","null"]},
+                "value_min":{"type":["number","null"]},
+                "value_max":{"type":["number","null"]},
+                "comparator":{"type":"string"},
+                "condition":{"type":["string","null"]},
+                "clip_timestamp_seconds":{"type":["integer","null"]},
+                "source_clip":{"type":"string"},
+                "confidence":{"type":"number"},
+                "card_reference":{"type":["string","null"]}},
+            "required":["category","metric","value","value_min","value_max","comparator","condition","clip_timestamp_seconds","source_clip","confidence"]}}},
+         "required":["rules"]}
+        """;
+
+    /// <summary>
+    /// Strict schema for stated-rule reduction.
+    /// </summary>
+    public const string StatedRulesReduceSchema = """
+        {"type":"object","additionalProperties":false,
+         "properties":{"rules":{"type":"array","items":{
+            "type":"object","additionalProperties":false,
+            "properties":{
+                "category":{"type":"string"},
+                "metric":{"type":"string"},
+                "value":{"type":["number","null"]},
+                "value_min":{"type":["number","null"]},
+                "value_max":{"type":["number","null"]},
+                "comparator":{"type":"string"},
+                "condition":{"type":["string","null"]},
+                "clip_timestamp_seconds":{"type":["integer","null"]},
+                "source_clip":{"type":"string"},
+                "confidence":{"type":"number"},
+                "card_reference":{"type":["string","null"]}},
+            "required":["category","metric","value","value_min","value_max","comparator","condition","clip_timestamp_seconds","source_clip","confidence"]}}},
+         "required":["rules"]}
         """;
 
     /// <summary>
@@ -112,6 +178,63 @@ public static class DistillationSchemas
         + $"Archetype: {FormatAllowlist(ContentTagVocabulary.Archetypes)}. "
         + $"Bracket: {FormatAllowlist(ContentTagVocabulary.Brackets)}. "
         + $"Card category: {FormatAllowlist(ContentTagVocabulary.CardCategories)}.";
+
+    /// <summary>System prompt for stated-rule claim selection.</summary>
+    public static string StatedRulesSelectSystemPrompt { get; } = """
+        You select transcript sentences that state concrete Magic: The Gathering deckbuilding rules or heuristics.
+        Output only JSON matching the supplied schema.
+        Keep only claims that assert a measurable deckbuilding target, threshold, comparison, include or cut rule, or conditional heuristic grounded in the transcript.
+        Drop opinions, jokes, questions, table-talk, sponsor reads, housekeeping, and instructions that do not state a deckbuilding rule.
+        Preserve the transcript's wording closely enough that later stages can trace the claim back to the source; do not add card names, numbers, or conditions that were not stated.
+        If a sentence is partly useful, keep only the rule-bearing portion rather than surrounding filler.
+        """;
+
+    /// <summary>System prompt for stated-rule claim disambiguation.</summary>
+    public static string StatedRulesDisambiguateSystemPrompt { get; } = """
+        You rewrite selected Magic: The Gathering deckbuilding claims so each one is explicit, self-contained, and ready for rule decomposition.
+        Output only JSON matching the supplied schema.
+        Resolve pronouns, shorthand, and vague references using nearby transcript context when the reference is clear.
+        Keep the claim faithful to the transcript; do not invent card names, numbers, archetypes, or conditions that were not stated.
+        If a claim remains irreducibly ambiguous after using local context, omit it instead of guessing.
+        Return only claims that can still be traced to a specific statement in the transcript.
+        """;
+
+    /// <summary>System prompt for stated-rule decomposition.</summary>
+    public static string StatedRulesDecomposeSystemPrompt
+    { get; } =
+        "You decompose Magic: The Gathering deckbuilding claims into atomic measurable stated rules. "
+        + "Output only JSON matching the supplied schema. "
+        + "Use only the transcript as evidence; do not add card names, thresholds, or conditions that were not stated. "
+        + "Emit one rule per distinct measurable claim. "
+        + "Choose metric ONLY from this allowlist: "
+        + $"{FormatAllowlist(StatedRulesMetricVocabulary.Metrics)}. "
+        + "Choose comparator ONLY from this allowlist: "
+        + $"{FormatAllowlist(StatedRulesMetricVocabulary.Comparators)}. "
+        + "Use value for gte, lte, or eq rules, and set value_min plus value_max for range rules. "
+        + "Leave condition null unless the transcript states a real qualifier such as an archetype, curve, color, bracket, or matchup constraint. "
+        + "Use clip_timestamp_seconds only when the transcript chunk includes an explicit nearby timestamp marker; otherwise return null. "
+        + "Set source_clip to a faithful quote or tight paraphrase of the supporting transcript span. "
+        + "Set confidence on a 0 to 1 scale. "
+        + "When a rule names a specific card, populate card_reference with that card name; otherwise omit card_reference or set it to null. "
+        + "If a claim cannot be expressed as an atomic measurable rule with these fields, omit it.";
+
+    /// <summary>System prompt for stated-rule reduction.</summary>
+    // Why: the reduce pass is a DeckFlow addition for cross-chunk dedupe, not part of Claimify.
+    public static string StatedRulesReduceSystemPrompt
+    { get; } =
+        "You merge near-duplicate Magic: The Gathering stated rules collected from multiple transcript chunks. "
+        + "Output only JSON matching the supplied schema. "
+        + "Use only the provided rule candidates; do not invent new evidence, card names, numbers, or conditions. "
+        + "Choose metric ONLY from this allowlist: "
+        + $"{FormatAllowlist(StatedRulesMetricVocabulary.Metrics)}. "
+        + "Choose comparator ONLY from this allowlist: "
+        + $"{FormatAllowlist(StatedRulesMetricVocabulary.Comparators)}. "
+        + "Merge candidates only when they express the same underlying rule; otherwise keep them separate. "
+        + "Prefer the clearest phrasing, preserve a stated condition when one materially narrows the rule, and keep card_reference only when the surviving rule still names a specific card. "
+        + "Use value for gte, lte, or eq rules, and value_min plus value_max for range rules. "
+        + "Carry forward clip_timestamp_seconds only from an explicit timestamp already present in the candidates; never invent one. "
+        + "Set source_clip to the best supporting quote or tight paraphrase among the provided candidates, and set confidence on a 0 to 1 scale. "
+        + "Return only the reduced rules.";
 
     /// <summary>System prompt for combined summary, clip, and tag extraction.</summary>
     public static string CombinedSystemPrompt

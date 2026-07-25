@@ -92,6 +92,12 @@ public sealed class CategoryKnowledgeRepository
         => _cardCategory.GetCategoryRowsForCommanderAsync(commanderName, cancellationToken);
 
     /// <summary>
+    /// Returns the processed-deck-only global baseline used for category lift calculations.
+    /// </summary>
+    public Task<GlobalCategoryBaseline> GetGlobalCategoryBaselineAsync(CancellationToken cancellationToken = default)
+        => _cardCategory.GetGlobalCategoryBaselineAsync(cancellationToken);
+
+    /// <summary>
     /// Returns per-deck card-category memberships from decks led by <paramref name="commanderName"/>.
     /// </summary>
     public Task<IReadOnlyList<CategoryDeckMembership>> GetCategoryDeckMembershipForCommanderAsync(string commanderName, CancellationToken cancellationToken = default)

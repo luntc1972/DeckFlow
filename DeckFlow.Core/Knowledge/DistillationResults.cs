@@ -1,3 +1,5 @@
+using DeckFlow.Core.Knowledge.StatedRulesExtraction;
+
 namespace DeckFlow.Core.Knowledge;
 
 /// <summary>
@@ -33,6 +35,26 @@ public sealed record TagsResult(
     IReadOnlyList<string> Bracket,
     IReadOnlyList<string> CardCategory,
     TokenUsage Usage);
+
+/// <summary>
+/// Stated-rule claim selection result with per-call token usage.
+/// </summary>
+public sealed record SelectResult(IReadOnlyList<string> Claims, TokenUsage Usage);
+
+/// <summary>
+/// Stated-rule claim disambiguation result with per-call token usage.
+/// </summary>
+public sealed record DisambiguateResult(IReadOnlyList<string> Claims, TokenUsage Usage);
+
+/// <summary>
+/// Stated-rule decomposition result with per-call token usage.
+/// </summary>
+public sealed record DecomposeResult(IReadOnlyList<StatedRuleCandidate> Rules, TokenUsage Usage);
+
+/// <summary>
+/// Stated-rule reduction result with per-call token usage.
+/// </summary>
+public sealed record ReduceResult(IReadOnlyList<StatedRuleCandidate> Rules, TokenUsage Usage);
 
 /// <summary>
 /// Combined summary, clip, and tag extraction result with per-call token usage.
