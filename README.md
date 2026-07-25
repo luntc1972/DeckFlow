@@ -795,11 +795,12 @@ A persistent theme picker in the shared layout lets users switch between visual 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
 ### Unreleased
-### Unreleased
 Cut Lab UAT follow-ups (post-2026.07.9), still behind the `tool.cut-lab.enabled` flag:
-- **Card popup:** clicking any card — a role pill, a findings chip, a pool-row name, or a cut proposal — opens a card popup showing that card's oracle text plus **Lock / Unlock** and **Close**. Card text is served from an in-page JSON island, so opening a card costs no extra request.
+- **Card popup:** clicking any card — a role pill, a findings chip, a pool-row name, or a cut proposal — opens a card popup showing that card's oracle text plus **Lock / Unlock** and **Close**. Card text is served from an in-page JSON island, so opening a card costs no extra request. Double-faced cards show the full front // back oracle text.
 - **Portable session transfer:** download the current Cut Lab session as a `.json` file, and load a session file to resume the same run on another device, reusing the scenario-restore path. Sessions stay on your machine; nothing is retained server-side.
 - **Locked cards stay cut-proof:** fixed a bug where a card locked mid-session could still be surfaced as a cut proposal. Each decision now submits the current lock state, so a lock (or unlock) made through a card, package, floor, or the popup is always honored on the next proposal.
+- **Pool grouping and subtype search:** a **By type** view buckets every pool card into one primary card-type group, and a **By subtype** search answers "how many Allies / Lessons / Legendary cards do I have?" straight from the rendered pool.
+- **Sharper role counts:** the ramp role now recognizes mana-symbol producers (Sol Ring, Talismans, mana dorks), the engines role is limited to repeatable permanent card-advantage (one-shot "draw two" spells no longer read as engines), and the draw role uses a you-anchored literal-draw signal (catches "draw three", ignores opponent draws) plus clue/connive. These affect Cut Lab and the analysis-prompt role tallies only — the Mana Base land math is deliberately unchanged (see `docs/decisions/0003-ramp-classifier-divergence.md`).
 
 ### 2026.07.9 — Cut Lab Upgrade (2026-07-24)
 Cycle 19 upgrades **Cut Lab** (phases 108-111) without changing its operator stance: the tool remains behind the `tool.cut-lab.enabled` flag and ships **OFF** until an admin exposes `/cut-lab`.

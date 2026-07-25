@@ -39,6 +39,8 @@ The pool view is also explorable in two lighter-weight ways: a **By type** secti
 
 You can also set configurable minimums per role. Those floors become hard guardrails for the trimming process, so the deck does not accidentally cut below the baseline you want to preserve for lands, ramp, interaction, or any other tracked role.
 
+Role counts are deliberately generous, since they are a decision aid rather than a verdict: ramp includes mana-symbol producers (rocks and dorks, not just "add one mana" text), draw counts you-anchored card draw of any size plus clue/connive card-advantage, and the engines role is limited to repeatable permanents so a one-shot "draw two" spell is not mistaken for an engine. These Cut Lab role tallies are intentionally separate from the Mana Base tool's mana-source math, which is tuned for castability rather than counting.
+
 ## Inspect any card
 
 Anywhere a card appears in the workspace — a role pill, a structural findings chip, a pool-row name, or a cut proposal — you can click it to open a card popup. The popup shows the card's oracle text so you can check what it actually does without leaving Cut Lab, and it carries **Lock / Unlock** and **Close** so you can protect or release the card on the spot. Card text is served from the page itself, so opening a card is instant and needs no extra lookup.
