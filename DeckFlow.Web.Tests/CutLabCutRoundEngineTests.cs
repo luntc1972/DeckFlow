@@ -304,6 +304,58 @@ public sealed class CutLabCutRoundEngineTests
         Assert.Equal(plan.Queue[0], plan.NextProposal);
     }
 
+    [Fact]
+    public void BuildQueue_LockedOvershootRanksLeastCriticalRolesThenPrimaryTypes()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Payoff Creature", 1, isLocked: true, roles: ["payoffs"], typeLine: "Creature"),
+            Card("Wincon Sorcery", 1, isLocked: true, roles: ["wincons"], typeLine: "Sorcery"),
+            Card("Wincon Artifact", 1, isLocked: true, roles: ["wincons"], typeLine: "Artifact"),
+            Card("Ramp Land", 1, isLocked: true, isLand: true, roles: ["lands"]),
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(),
+            [],
+            cardsToCutTarget: 2);
+
+        Assert.Null(plan.NextProposal);
+        CutLabLockedOvershootAdvisory advisory = Assert.IsType<CutLabLockedOvershootAdvisory>(plan.LockedOvershootAdvisory);
+        Assert.Equal(2, advisory.CardsOverTarget);
+        Assert.Collection(
+            advisory.Groups,
+            group =>
+            {
+                Assert.Equal("wincons", group.RoleKey);
+                Assert.Equal(["Wincon Sorcery", "Wincon Artifact"], group.CardNames);
+            },
+            group =>
+            {
+                Assert.Equal("payoffs", group.RoleKey);
+                Assert.Equal(["Payoff Creature"], group.CardNames);
+            },
+            group =>
+            {
+                Assert.Equal("lands", group.RoleKey);
+                Assert.Equal(["Ramp Land"], group.CardNames);
+            });
+    }
+
+    [Fact]
+    public void BuildQueue_AtTargetDoesNotProduceLockedOvershootAdvisory()
+    {
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            [Card("Locked Card", 1, isLocked: true, roles: ["wincons"])],
+            Findings(),
+            [],
+            cardsToCutTarget: 0);
+
+        Assert.Equal(0, plan.CardsRemainingToTarget);
+        Assert.Null(plan.LockedOvershootAdvisory);
+    }
+
     [Theory]
     [InlineData(CutLabCutRoundEngine.Round1Key, CutLabCutRoundEngine.Round1Label, "Cards flagged by 2 or more structural findings from the section above.")]
     [InlineData(CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round2Label, "Cards flagged by exactly one structural finding.")]
@@ -335,12 +387,13 @@ public sealed class CutLabCutRoundEngineTests
         bool isLocked = false,
         bool isCommander = false,
         bool isLand = false,
+        string? typeLine = null,
         IReadOnlyList<string>? roles = null,
         IReadOnlyList<string>? categories = null)
         => new(
             name,
             quantity,
-            isLand ? "Land" : "Spell",
+            typeLine ?? (isLand ? "Land" : "Spell"),
             isCommander,
             isLocked,
             manaValue,

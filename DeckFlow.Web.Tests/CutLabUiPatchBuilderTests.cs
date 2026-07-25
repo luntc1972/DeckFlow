@@ -225,6 +225,33 @@ public sealed class CutLabUiPatchBuilderTests
     }
 
     [Fact]
+    public async Task BuildAsync_LockedOvershootSetsNothingToCutAndReturnsAdvisory()
+    {
+        CutLabState state = CreateState(
+            pool:
+            [
+                Card("Commander", quantity: 1, isCommander: true, isLocked: true, typeLine: "Legendary Creature"),
+                Card("Wincon Sorcery", quantity: 1, isLocked: true, typeLine: "Sorcery"),
+                Card("Payoff Creature", quantity: 1, isLocked: true, typeLine: "Creature"),
+                Card("Basic Filler", quantity: 100, isLocked: true, typeLine: "Artifact"),
+            ]);
+        FakeAnalysisContextBuilder contextBuilder = new(workingList => CreateAnalysisContext(workingList));
+        CutLabUiPatchBuilder builder = new(contextBuilder, new FakeSimulationService());
+
+        CutLabUiPatchDto patch = await builder.BuildAsync(
+            state,
+            state.Intent.PlayExperience,
+            ["Commander"],
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+
+        Assert.True(patch.NextProposal.IsTerminal);
+        Assert.False(patch.NextProposal.IsAtTarget);
+        Assert.True(patch.NextProposal.IsNothingToCut);
+        Assert.NotNull(patch.LockedOvershootAdvisory);
+        Assert.NotEmpty(patch.LockedOvershootAdvisory!.Groups);
+    }
+
+    [Fact]
     public async Task BuildAsync_MatchesCutLabViewModelForNoJsParityFields()
     {
         CutLabState state = CreateState(
@@ -902,6 +929,15 @@ public sealed class CutLabUiPatchBuilderTests
         public int ComputeProposalDeltasCalls { get; private set; }
 
         public bool ThrowOnComputeProposalDeltas { get; init; }
+
+        public Task<CutLabSimulationResult> BuildSnapshotResult(
+            IReadOnlyList<CutLabPoolCard> workingList,
+            string? playExperience,
+            int? trialsOverride = ICutLabSimulationService.InLoopTrials,
+            string? poolKey = null,
+            CutLabGoalSettings? goals = null,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new CutLabSimulationResult());
 
         public Task<CutLabMetricSnapshot> BuildSnapshot(
             IReadOnlyList<CutLabPoolCard> workingList,

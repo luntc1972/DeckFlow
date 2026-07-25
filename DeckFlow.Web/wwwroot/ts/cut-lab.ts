@@ -172,6 +172,14 @@ interface CutLabUiPatch {
   cardTextByCardName?: Record<string, CutLabCardTextEntry>;
   nextProposal: CutLabDecisionNextProposal;
   proposalDeltas: CutLabDecisionProposalDeltas | null;
+  lockedOvershootAdvisory?: {
+    cardsOverTarget: number;
+    hiddenCount: number;
+    groups: Array<{
+      roleLabel: string;
+      cardNames: string[];
+    }>;
+  } | null;
   floorWarnings: CutLabDecisionFloorWarning[];
   cutsMade: CutLabDecisionCutRecord[];
   structuralFindings: CutLabDecisionFindingGroup[];
@@ -2331,13 +2339,32 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     });
   };
 
-  const renderProposalTerminalState = (proposal: HTMLDivElement, heading: string, body: string): void => {
+  const renderProposalTerminalState = (
+    proposal: HTMLDivElement,
+    heading: string,
+    body: string,
+    advisory: CutLabUiPatch['lockedOvershootAdvisory'] = null,
+  ): void => {
     proposal.removeAttribute('data-cut-lab-card');
     proposal.removeAttribute('data-cut-lab-round');
-    replaceChildren(proposal, [
+    const children: Node[] = [
       createTextElement('p', 'cutlab-proposal__heading', heading),
       createTextElement('p', '', body),
-    ]);
+    ];
+    if (advisory) {
+      advisory.groups.forEach(group => {
+        const panel = document.createElement('div');
+        panel.className = 'cutlab-finding cutlab-proposal__floor-warning';
+        panel.appendChild(createTextElement('p', 'cutlab-finding__heading', group.roleLabel));
+        panel.appendChild(createTextElement('p', 'cutlab-finding__lead', group.cardNames.join(', ')));
+        children.push(panel);
+      });
+      if (advisory.hiddenCount > 0) {
+        children.push(createTextElement('p', 'prompt-size-note', `+${advisory.hiddenCount} more locked cards ranked below these.`));
+      }
+    }
+
+    replaceChildren(proposal, children);
   };
 
   const renderProposalCard = (
@@ -2356,7 +2383,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         nextProposal.isAtTarget ? "You're at 100 cards" : 'Nothing to cut',
         nextProposal.isAtTarget
           ? 'Review the cuts you made below, or reopen a card from the Cuts made list if you want to reconsider.'
-          : 'Every remaining card is either locked or your working list is already at 100 cards. Review your locks and packages above, or adjust a role floor if you want to reconsider.',
+          : patch.lockedOvershootAdvisory
+            ? `You're ${patch.lockedOvershootAdvisory.cardsOverTarget} cards over target, and all remaining cards are locked. These locked cards look most cuttable as your pool stands now — unlock and cut them manually:`
+            : 'Every remaining card is either locked or your working list is already at 100 cards. Review your locks and packages above, or adjust a role floor if you want to reconsider.',
+        patch.lockedOvershootAdvisory ?? null,
       );
       renderFloorWarnings(proposal, []);
       return;
