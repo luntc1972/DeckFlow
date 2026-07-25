@@ -42,6 +42,23 @@ public sealed class CutLabRoleAssignerTests
     }
 
     [Fact]
+    public void AssignRoles_ManaSymbolRock_IncludesRamp()
+    {
+        CardFact fact = Fact(
+            "Talisman of Dominance",
+            "Artifact",
+            oracle: "{T}: Add {C}.\n{T}, Pay 1 life: Add {U} or {B}.");
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
+            fact,
+            Array.Empty<string>(),
+            isComboPiece: false,
+            ManabaseMode.Casual);
+
+        Assert.Contains("ramp", roles);
+    }
+
+    [Fact]
     public void AssignRoles_ModalDfcLandFront_MapsToLandsAndNotRamp()
     {
         CardFact fact = Fact(
