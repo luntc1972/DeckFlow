@@ -750,6 +750,7 @@ internal sealed class CutLabPageService : ICutLabPageService
         {
             if (resolvedByName.TryGetValue(CutLabCardNames.Normalize(card.Name), out ScryfallCardData? resolvedCard))
             {
+                (string? power, string? toughness) = ResolvePowerAndToughness(resolvedCard);
                 cardTextByCardName[card.Name] = new CutLabCardTextView
                 {
                     TypeLine = resolvedCard.TypeLine,
@@ -757,8 +758,8 @@ internal sealed class CutLabPageService : ICutLabPageService
                     SetCode = resolvedCard.Set,
                     CollectorNumber = resolvedCard.CollectorNumber,
                     OracleText = ResolveOracleText(resolvedCard),
-                    Power = ResolvePower(resolvedCard),
-                    Toughness = ResolveToughness(resolvedCard),
+                    Power = power,
+                    Toughness = toughness,
                     Cmc = card.LastKnownCmc,
                     CastPercent = card.LastKnownCastPercent,
                 };
@@ -791,7 +792,7 @@ internal sealed class CutLabPageService : ICutLabPageService
         return joined.Length > 0 ? joined : card.OracleText;
     }
 
-    private static string? ResolvePower(ScryfallCardData card)
+    private static (string? Power, string? Toughness) ResolvePowerAndToughness(ScryfallCardData card)
     {
         var power = card.Power;
         var toughness = card.Toughness;
@@ -804,25 +805,8 @@ internal sealed class CutLabPageService : ICutLabPageService
         }
 
         return !string.IsNullOrWhiteSpace(power) && !string.IsNullOrWhiteSpace(toughness)
-            ? power
-            : null;
-    }
-
-    private static string? ResolveToughness(ScryfallCardData card)
-    {
-        var power = card.Power;
-        var toughness = card.Toughness;
-        if (string.IsNullOrWhiteSpace(card.OracleText)
-            && (string.IsNullOrWhiteSpace(power) || string.IsNullOrWhiteSpace(toughness))
-            && card.CardFaces is { Count: > 0 })
-        {
-            power = card.CardFaces[0].Power;
-            toughness = card.CardFaces[0].Toughness;
-        }
-
-        return !string.IsNullOrWhiteSpace(power) && !string.IsNullOrWhiteSpace(toughness)
-            ? toughness
-            : null;
+            ? (power, toughness)
+            : (null, null);
     }
 
     private static IReadOnlyDictionary<string, CutLabComboBadgeView> BuildComboBadgeByCardName(
