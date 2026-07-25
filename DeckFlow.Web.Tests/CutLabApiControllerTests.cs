@@ -1039,6 +1039,15 @@ public sealed class CutLabApiControllerTests
     {
         public int DeltaCalls { get; private set; }
 
+        public Task<CutLabSimulationResult> BuildSnapshotResult(
+            IReadOnlyList<CutLabPoolCard> workingList,
+            string? playExperience,
+            int? trialsOverride = ICutLabSimulationService.InLoopTrials,
+            string? poolKey = null,
+            CutLabGoalSettings? goals = null,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new CutLabSimulationResult());
+
         public Task<CutLabMetricSnapshot> BuildSnapshot(
             IReadOnlyList<CutLabPoolCard> workingList,
             string? playExperience,

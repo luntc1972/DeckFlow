@@ -15,6 +15,12 @@ public sealed record CutLabUiPatchDto
     /// <summary>Cards still remaining to cut in order to reach 100 cards.</summary>
     public int CardsRemaining { get; init; }
 
+    /// <summary>Actual lands in the current working-pool simulation, when available.</summary>
+    public int? ActualLands { get; init; }
+
+    /// <summary>Target lands in the current working-pool simulation, when available.</summary>
+    public double? TargetLands { get; init; }
+
     /// <summary>True when the current working list is eligible for export.</summary>
     public bool CanBuildExport { get; init; }
 
@@ -24,6 +30,10 @@ public sealed record CutLabUiPatchDto
     /// <summary>Metric deltas for the current next proposal, when one exists.</summary>
     public CutLabDecideProposalDeltasDto? ProposalDeltas { get; init; }
 
+    /// <summary>Incremental card-popup data keyed by card name for live modal refreshes.</summary>
+    public IReadOnlyDictionary<string, CutLabCardTextView> CardTextByCardName { get; init; } =
+        new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Non-blocking floor warnings for the rendered proposal.</summary>
     public IReadOnlyList<CutLabDecideFloorWarningDto> FloorWarnings { get; init; } = [];
 
@@ -32,6 +42,9 @@ public sealed record CutLabUiPatchDto
 
     /// <summary>Server-grouped structural findings for the updated working list.</summary>
     public IReadOnlyList<CutLabDecideFindingGroupDto> StructuralFindings { get; init; } = [];
+
+    /// <summary>Read-only locked-overshoot advisory for terminal over-target states, when applicable.</summary>
+    public CutLabLockedOvershootAdvisoryDto? LockedOvershootAdvisory { get; init; }
 
     /// <summary>Per-card combo badge state and context keyed by normalized card name.</summary>
     public IReadOnlyDictionary<string, CutLabDecideComboBadgeDto> ComboBadgeByCardName { get; init; } =
@@ -98,4 +111,27 @@ public sealed record CutLabQuantityTunerRowDto
 
     /// <summary>True when this row was materialized from an added-basic adjustment.</summary>
     public bool IsAddedBasic { get; init; }
+}
+
+/// <summary>API contract for the locked-overshoot advisory.</summary>
+public sealed record CutLabLockedOvershootAdvisoryDto
+{
+    /// <summary>How many cards the pool remains over target.</summary>
+    public int CardsOverTarget { get; init; }
+
+    /// <summary>How many ranked cards were omitted after the top-20 cap.</summary>
+    public int HiddenCount { get; init; }
+
+    /// <summary>Grouped role buckets for the advisory.</summary>
+    public IReadOnlyList<CutLabLockedOvershootGroupDto> Groups { get; init; } = [];
+}
+
+/// <summary>One grouped role bucket in the locked-overshoot advisory.</summary>
+public sealed record CutLabLockedOvershootGroupDto
+{
+    /// <summary>User-facing role label.</summary>
+    public string RoleLabel { get; init; } = string.Empty;
+
+    /// <summary>Suggested card names in rank order for this role bucket.</summary>
+    public IReadOnlyList<string> CardNames { get; init; } = [];
 }

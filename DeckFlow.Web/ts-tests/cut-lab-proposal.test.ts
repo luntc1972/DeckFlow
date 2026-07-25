@@ -27,6 +27,15 @@ interface CutLabUiPatch {
   cutLabStateJson: string;
   currentCount: number;
   canBuildExport: boolean;
+  cardTextByCardName?: Record<string, {
+    typeLine?: string;
+    manaCost?: string;
+    oracleText?: string;
+    cmc?: number;
+    castPercent?: number;
+  }>;
+  actualLands?: number;
+  targetLands?: number;
   nextProposal: {
     isTerminal: boolean;
     isAtTarget: boolean;
@@ -270,6 +279,7 @@ const buildDecisionFixture = (): void => {
     <dialog id="cutlab-card-modal" aria-labelledby="cutlab-card-modal-title">
       <h2 id="cutlab-card-modal-title"></h2>
       <p data-cutlab-modal-meta hidden></p>
+      <p data-cutlab-modal-castability hidden></p>
       <p data-cutlab-modal-oracle></p>
       <p data-cutlab-modal-combo hidden></p>
       <button type="button" data-cutlab-modal-lock></button>

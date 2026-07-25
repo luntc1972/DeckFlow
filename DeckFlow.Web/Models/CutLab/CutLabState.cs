@@ -145,6 +145,12 @@ public sealed record CutLabPoolCard
 
     /// <summary>Optional package identifier grouping this card with other protected cards.</summary>
     public string? PackageId { get; init; }
+
+    /// <summary>Last known popup CMC captured from the current working-pool simulation, when available.</summary>
+    public int? LastKnownCmc { get; init; }
+
+    /// <summary>Last known popup castability percentage captured from the current working-pool simulation, when available.</summary>
+    public double? LastKnownCastPercent { get; init; }
 }
 
 /// <summary>Serializable named package that can lock or unlock its assigned member cards together.</summary>

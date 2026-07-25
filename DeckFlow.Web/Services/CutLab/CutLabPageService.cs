@@ -94,6 +94,12 @@ public sealed record CutLabProcessResult
     /// <summary>The server-computed metric snapshot for the current derived working list.</summary>
     public CutLabMetricSnapshot? CurrentSnapshot { get; init; }
 
+    /// <summary>Actual lands in the current working-pool simulation, when available.</summary>
+    public int? CurrentActualLands { get; init; }
+
+    /// <summary>Target lands in the current working-pool simulation, when available.</summary>
+    public double? CurrentTargetLands { get; init; }
+
     /// <summary>User-facing error for a hard failure, null on success.</summary>
     public string? ErrorMessage { get; init; }
 
@@ -329,14 +335,18 @@ internal sealed class CutLabPageService : ICutLabPageService
         {
             try
             {
-                CutLabMetricSnapshot baselineSnapshot = await _simulationService.BuildSnapshot(
+                CutLabSimulationResult baselineResult = await _simulationService.BuildSnapshotResult(
                     state.Pool,
                     request.PlayExperience,
                     trialsOverride: null,
                     poolKey: null,
                     goals: state.Goals,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
-                state = state with { BaselineSnapshot = baselineSnapshot };
+                state = state with
+                {
+                    BaselineSnapshot = baselineResult.Snapshot,
+                    Pool = ApplySimulationCardData(state.Pool, baselineResult.CastabilityByCardName),
+                };
             }
             catch (OperationCanceledException)
             {
@@ -356,6 +366,8 @@ internal sealed class CutLabPageService : ICutLabPageService
             state.Decisions);
 
         CutLabMetricSnapshot? currentSnapshot = null;
+        int? currentActualLands = null;
+        double? currentTargetLands = null;
         if (state.Decisions.Count == 0 && state.BaselineSnapshot is not null)
         {
             currentSnapshot = state.BaselineSnapshot;
@@ -364,13 +376,20 @@ internal sealed class CutLabPageService : ICutLabPageService
         {
             try
             {
-                currentSnapshot = await _simulationService.BuildSnapshot(
+                CutLabSimulationResult currentResult = await _simulationService.BuildSnapshotResult(
                     derivedWorkingList,
                     request.PlayExperience,
                     trialsOverride: ICutLabSimulationService.InLoopTrials,
                     poolKey: null,
                     goals: state.Goals,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
+                currentSnapshot = currentResult.Snapshot;
+                currentActualLands = currentResult.ActualLands;
+                currentTargetLands = currentResult.TargetLands;
+                state = state with
+                {
+                    Pool = ApplySimulationCardData(state.Pool, currentResult.CastabilityByCardName),
+                };
             }
             catch (OperationCanceledException)
             {
@@ -446,6 +465,8 @@ internal sealed class CutLabPageService : ICutLabPageService
             RoundPlan = roundPlan,
             InitialProposalDeltas = initialProposalDeltas,
             CurrentSnapshot = currentSnapshot,
+            CurrentActualLands = currentActualLands,
+            CurrentTargetLands = currentTargetLands,
             HasResult = true,
         };
     }
@@ -678,6 +699,8 @@ internal sealed class CutLabPageService : ICutLabPageService
                     IsCommander = isCommander,
                     IsLocked = !isCommander && priorCard is not null ? priorCard.IsLocked : isCommander,
                     PackageId = !isCommander && priorCard is not null ? priorCard.PackageId : null,
+                    LastKnownCmc = priorCard?.LastKnownCmc,
+                    LastKnownCastPercent = priorCard?.LastKnownCastPercent,
                 };
             })
             .ToArray();
@@ -736,6 +759,8 @@ internal sealed class CutLabPageService : ICutLabPageService
                     OracleText = ResolveOracleText(resolvedCard),
                     Power = ResolvePower(resolvedCard),
                     Toughness = ResolveToughness(resolvedCard),
+                    Cmc = card.LastKnownCmc,
+                    CastPercent = card.LastKnownCastPercent,
                 };
             }
         }
@@ -798,6 +823,24 @@ internal sealed class CutLabPageService : ICutLabPageService
         return !string.IsNullOrWhiteSpace(power) && !string.IsNullOrWhiteSpace(toughness)
             ? toughness
             : null;
+    }
+
+    private static IReadOnlyList<CutLabPoolCard> ApplySimulationCardData(
+        IReadOnlyList<CutLabPoolCard> pool,
+        IReadOnlyDictionary<string, CutLabSimulationCardView> castabilityByCardName)
+    {
+        ArgumentNullException.ThrowIfNull(pool);
+        ArgumentNullException.ThrowIfNull(castabilityByCardName);
+
+        return pool
+            .Select(card => castabilityByCardName.TryGetValue(card.Name, out CutLabSimulationCardView? popupData)
+                ? card with
+                {
+                    LastKnownCmc = popupData.Cmc,
+                    LastKnownCastPercent = popupData.CastPercent,
+                }
+                : card)
+            .ToArray();
     }
 
     private static IReadOnlyDictionary<string, CutLabComboBadgeView> BuildComboBadgeByCardName(
@@ -894,6 +937,15 @@ internal sealed class CutLabPageService : ICutLabPageService
     private sealed class NoOpCutLabSimulationService : ICutLabSimulationService
     {
         public static NoOpCutLabSimulationService Instance { get; } = new();
+
+        public Task<CutLabSimulationResult> BuildSnapshotResult(
+            IReadOnlyList<CutLabPoolCard> workingList,
+            string? playExperience,
+            int? trialsOverride = ICutLabSimulationService.InLoopTrials,
+            string? poolKey = null,
+            CutLabGoalSettings? goals = null,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new CutLabSimulationResult());
 
         public Task<CutLabMetricSnapshot> BuildSnapshot(
             IReadOnlyList<CutLabPoolCard> workingList,

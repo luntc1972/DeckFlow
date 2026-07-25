@@ -27,6 +27,12 @@ public sealed record CutLabCardTextView
 
     /// <summary>Resolved card toughness.</summary>
     public string? Toughness { get; init; }
+
+    /// <summary>Rounded mana value carried from the current working-pool castability report.</summary>
+    public int? Cmc { get; init; }
+
+    /// <summary>On-curve castability percentage carried from the current working-pool castability report.</summary>
+    public double? CastPercent { get; init; }
 }
 
 /// <summary>Per-card combo badge state and disclosure context keyed by card name.</summary>
@@ -156,6 +162,12 @@ public sealed record CutLabViewModel
 
     /// <summary>Sticky round/count bar values for the Cut rounds workspace.</summary>
     public CutLabStickyBarView StickyBar { get; init; } = new();
+
+    /// <summary>Actual lands in the current working-pool simulation, when available.</summary>
+    public int? CurrentActualLands { get; init; }
+
+    /// <summary>Target lands in the current working-pool simulation, when available.</summary>
+    public double? CurrentTargetLands { get; init; }
 
     /// <summary>Current one-at-a-time proposal state for the Cut rounds workspace.</summary>
     public CutLabProposalView Proposal { get; init; } = new();
@@ -360,6 +372,8 @@ public sealed record CutLabViewModel
             FloorRows = floorRows,
             GoalRows = goalRows,
             StickyBar = stickyBar,
+            CurrentActualLands = result.CurrentActualLands,
+            CurrentTargetLands = result.CurrentTargetLands,
             Proposal = proposal,
             CutsMade = cutsMade,
             CompareRows = compareRows,
@@ -615,6 +629,7 @@ public sealed record CutLabViewModel
                 IsTerminal = true,
                 IsAtTarget = isAtTarget,
                 IsNothingToCut = !isAtTarget,
+                LockedOvershootAdvisory = BuildLockedOvershootAdvisory(roundPlan?.LockedOvershootAdvisory),
             };
         }
 
@@ -730,6 +745,27 @@ public sealed record CutLabViewModel
                 RoundLabel = CutLabCutRoundEngine.LabelFor(decision.Round),
             })
             .ToArray();
+    }
+
+    private static CutLabLockedOvershootAdvisoryView? BuildLockedOvershootAdvisory(CutLabLockedOvershootAdvisory? advisory)
+    {
+        if (advisory is null)
+        {
+            return null;
+        }
+
+        return new CutLabLockedOvershootAdvisoryView
+        {
+            CardsOverTarget = advisory.CardsOverTarget,
+            HiddenCount = advisory.HiddenCount,
+            Groups = advisory.Groups
+                .Select(group => new CutLabLockedOvershootGroupView
+                {
+                    RoleLabel = DisplayLabelFor(group.RoleKey),
+                    CardNames = group.CardNames,
+                })
+                .ToArray(),
+        };
     }
 
     private static IReadOnlyList<CutLabCompareRowView> BuildCompareRows(
@@ -1173,6 +1209,32 @@ public sealed record CutLabProposalView
 
     /// <summary>Non-blocking floor-warning copy for the proposed cut.</summary>
     public IReadOnlyList<string> FloorWarnings { get; init; } = [];
+
+    /// <summary>Locked-overshoot advisory shown when the pool is still over target but every remaining card is locked.</summary>
+    public CutLabLockedOvershootAdvisoryView? LockedOvershootAdvisory { get; init; }
+}
+
+/// <summary>View-only locked-overshoot advisory grouping.</summary>
+public sealed record CutLabLockedOvershootAdvisoryView
+{
+    /// <summary>How many cards the working list is still over target.</summary>
+    public int CardsOverTarget { get; init; }
+
+    /// <summary>How many ranked cards were omitted after the top 20 cap.</summary>
+    public int HiddenCount { get; init; }
+
+    /// <summary>Role-grouped ranked suggestions.</summary>
+    public IReadOnlyList<CutLabLockedOvershootGroupView> Groups { get; init; } = [];
+}
+
+/// <summary>One role bucket in the locked-overshoot advisory.</summary>
+public sealed record CutLabLockedOvershootGroupView
+{
+    /// <summary>User-facing role label.</summary>
+    public string RoleLabel { get; init; } = string.Empty;
+
+    /// <summary>Suggested card names for this role bucket.</summary>
+    public IReadOnlyList<string> CardNames { get; init; } = [];
 }
 
 /// <summary>One rendered metric delta sentence for the proposal workspace.</summary>

@@ -88,6 +88,7 @@ const buildFixture = (): void => {
         <h2 id="cutlab-card-modal-title"></h2>
         <div class="cutlab-card-modal__body">
           <p data-cutlab-modal-meta></p>
+          <p data-cutlab-modal-castability hidden></p>
           <p data-cutlab-modal-oracle></p>
           <p data-cutlab-modal-combo></p>
         </div>
@@ -136,6 +137,67 @@ describe('cut-lab card modal', () => {
     closeButton?.click();
 
     expect(closeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders the castability line when popup data includes cmc and cast rate', () => {
+    document.body.innerHTML = `
+      <form data-cache-key="cut-lab">
+        <input type="hidden" name="CutLabStateJson" value="" />
+        <textarea name="PrimaryPlan"></textarea>
+        <textarea name="SecondaryPlan"></textarea>
+        <input type="radio" name="Bracket" value="3" checked />
+        <input type="radio" name="PlayExperience" value="Focused" checked />
+        <table>
+          <tbody>
+            <tr data-cut-lab-card="Counterspell" data-cut-lab-type-line="Instant" data-cut-lab-role="interaction" data-cut-lab-quantity="1" data-cut-lab-commander="false">
+              <td data-label="Lock"><input type="checkbox" data-cut-lab-lock-card="Counterspell" /></td>
+              <td data-label="Card">
+                <button type="button" data-cutlab-card-open="Counterspell">Counterspell</button>
+              </td>
+              <td data-label="Package">
+                <select data-cut-lab-package-card="Counterspell"><option value="">Unlocked pool</option></select>
+              </td>
+            </tr>
+            <tr data-cut-lab-card="Command Tower" data-cut-lab-type-line="Land" data-cut-lab-role="lands" data-cut-lab-quantity="1" data-cut-lab-commander="false">
+              <td data-label="Lock"><input type="checkbox" data-cut-lab-lock-card="Command Tower" /></td>
+              <td data-label="Card">
+                <button type="button" data-cutlab-card-open="Command Tower">Command Tower</button>
+              </td>
+              <td data-label="Package">
+                <select data-cut-lab-package-card="Command Tower"><option value="">Unlocked pool</option></select>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </form>
+      <script type="application/json" id="cutlab-card-text-data">{"Counterspell":{"typeLine":"Instant","manaCost":"{U}{U}","oracleText":"Counter target spell.","cmc":2,"castPercent":82},"Command Tower":{"typeLine":"Land","oracleText":"Add one mana of any color in your commander's color identity."}}</script>
+      <dialog id="cutlab-card-modal" class="cutlab-card-modal" aria-labelledby="cutlab-card-modal-title">
+        <div class="cutlab-card-modal__panel">
+          <h2 id="cutlab-card-modal-title"></h2>
+          <div class="cutlab-card-modal__body">
+            <p data-cutlab-modal-meta></p>
+            <p data-cutlab-modal-castability hidden></p>
+            <p data-cutlab-modal-oracle></p>
+          </div>
+          <div class="cutlab-card-modal__actions">
+            <button type="button" data-cutlab-modal-lock></button>
+            <button type="button" data-cutlab-modal-close>Close</button>
+          </div>
+        </div>
+      </dialog>
+    `;
+
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+
+    const castability = document.querySelector<HTMLElement>('[data-cutlab-modal-castability]');
+    document.querySelector<HTMLButtonElement>('button[data-cutlab-card-open="Counterspell"]')?.click();
+
+    expect(castability?.textContent).toBe('CMC 2 · Cast by turn 2: 82% at your current pool size');
+    expect(castability?.hidden).toBe(false);
+
+    document.querySelector<HTMLButtonElement>('button[data-cutlab-card-open="Command Tower"]')?.click();
+
+    expect(castability?.hidden).toBe(true);
   });
 
   it('renders the missing-data fallback and disables the modal lock button for commander cards', () => {
