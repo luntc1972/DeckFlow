@@ -733,12 +733,35 @@ internal sealed class CutLabPageService : ICutLabPageService
                     ManaCost = resolvedCard.ManaCost,
                     SetCode = resolvedCard.Set,
                     CollectorNumber = resolvedCard.CollectorNumber,
-                    OracleText = resolvedCard.OracleText,
+                    OracleText = ResolveOracleText(resolvedCard),
                 };
             }
         }
 
         return cardTextByCardName;
+    }
+
+    private static string? ResolveOracleText(ScryfallCardData card)
+    {
+        if (!string.IsNullOrWhiteSpace(card.OracleText))
+        {
+            return card.OracleText;
+        }
+
+        if (card.CardFaces is not { Count: > 0 } faces)
+        {
+            return card.OracleText;
+        }
+
+        string joined = string.Join(
+            "\n\n//\n\n",
+            faces
+                .Where(face => !string.IsNullOrWhiteSpace(face.OracleText))
+                .Select(face => string.IsNullOrWhiteSpace(face.Name)
+                    ? face.OracleText!.Trim()
+                    : $"{face.Name}\n{face.OracleText!.Trim()}"));
+
+        return joined.Length > 0 ? joined : card.OracleText;
     }
 
     private static IReadOnlyDictionary<string, CutLabComboBadgeView> BuildComboBadgeByCardName(
