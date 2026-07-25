@@ -315,7 +315,7 @@ public sealed record CutLabViewModel
             result.CurrentSnapshot,
             result.State?.BaselineSnapshot,
             request.PlayExperience);
-        CutLabStickyBarView stickyBar = BuildStickyBar(result.RoundPlan, result.State?.Decisions);
+        CutLabStickyBarView stickyBar = BuildStickyBar(result.RoundPlan, result.State?.Decisions, lockedCount, currentCount);
         CutLabProposalView proposal = BuildProposal(
             result.RoundPlan,
             result.InitialProposalDeltas,
@@ -574,12 +574,16 @@ public sealed record CutLabViewModel
 
     private static CutLabStickyBarView BuildStickyBar(
         CutLabRoundPlan? roundPlan,
-        IReadOnlyList<CutLabDecision>? decisions)
+        IReadOnlyList<CutLabDecision>? decisions,
+        int lockedCount,
+        int currentCount)
     {
         CutLabRoundQueueItem? nextProposal = roundPlan?.NextProposal;
         return new CutLabStickyBarView
         {
             HasStickyBar = nextProposal is not null,
+            LockedCount = lockedCount,
+            CurrentCount = currentCount,
             RoundLabel = nextProposal?.RoundLabel ?? string.Empty,
             CardsRemainingToCut = roundPlan?.CardsRemainingToTarget ?? 0,
             CutsAcceptedCount = decisions?.Count(decision => decision.Kind == CutLabDecisionKind.Accepted) ?? 0,
@@ -1096,6 +1100,12 @@ public sealed record CutLabStickyBarView
 {
     /// <summary>True when a current round exists and the sticky bar should render.</summary>
     public bool HasStickyBar { get; init; }
+
+    /// <summary>Commander-inclusive count of locked cards in the imported pool.</summary>
+    public int LockedCount { get; init; }
+
+    /// <summary>Current working-list total after accepted cuts and quantity adjustments.</summary>
+    public int CurrentCount { get; init; }
 
     /// <summary>Round label shown in the left slot of the sticky bar.</summary>
     public string RoundLabel { get; init; } = string.Empty;

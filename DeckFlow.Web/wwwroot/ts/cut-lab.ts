@@ -729,6 +729,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const getStickyBar = (): HTMLDivElement | null =>
     document.querySelector<HTMLDivElement>('.cutlab-sticky-bar');
 
+  const getStickyLocked = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cut-lab-sticky-locked]');
+
+  const getStickyCurrent = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cut-lab-sticky-current]');
+
   const getStickyRemaining = (): HTMLElement | null =>
     document.querySelector<HTMLElement>('[data-cut-lab-sticky-remaining]');
 
@@ -932,21 +938,24 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const updateLockedCountChip = (): void => {
-    const summary = document.querySelector<HTMLElement>('[data-cut-lab-lock-count]');
-    if (!summary) {
-      return;
-    }
-
     const rows = getPoolRows();
     const poolCount = rows.reduce((total, row) => total + parseRowQuantity(row), 0);
     const lockedCount = rows.reduce((total, row) => {
       const checkbox = getLockCheckbox(row);
       return checkbox?.checked ? total + parseRowQuantity(row) : total;
     }, 0);
+    const summary = document.querySelector<HTMLElement>('[data-cut-lab-lock-count]');
+    const stickyLocked = getStickyLocked();
 
     // Why: this chip mirrors the imported protected pool (commander-inclusive) and does not
     // re-sum after adjust-path quantity tuning; the sticky bar owns that live working-list total.
-    summary.textContent = `${poolCount} cards in pool · ${lockedCount} locked`;
+    if (summary) {
+      summary.textContent = `${poolCount} cards in pool · ${lockedCount} locked`;
+    }
+
+    if (stickyLocked) {
+      stickyLocked.textContent = `${lockedCount} locked`;
+    }
   };
 
   const getSelectedPoolFilter = (): 'all' | 'locked' | 'unlocked' => {
@@ -2791,24 +2800,38 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   ): void => {
     setExportEnabled(patch.canBuildExport);
 
-    if (!options.preserveProposal && patch.nextProposal && (patch.nextProposal.isTerminal || patch.nextProposal.roundLabel.trim() === '')) {
-      getStickyBar()?.remove();
+    const stickyRound = getStickyRound();
+    const stickyRemaining = getStickyRemaining();
+    const stickyAccepted = getStickyAccepted();
+    const stickyCurrent = getStickyCurrent();
+    const shouldHideRoundFields = !options.preserveProposal
+      && Boolean(patch.nextProposal)
+      && (patch.nextProposal.isTerminal || patch.nextProposal.roundLabel.trim() === '');
+
+    if (stickyCurrent) {
+      stickyCurrent.textContent = `${patch.currentCount}/100 cards`;
+    }
+
+    if (shouldHideRoundFields) {
+      stickyRound?.setAttribute('hidden', '');
+      stickyRemaining?.setAttribute('hidden', '');
+      stickyAccepted?.setAttribute('hidden', '');
       return;
     }
 
-    const stickyRound = getStickyRound();
     if (stickyRound && !options.preserveProposal && patch.nextProposal) {
       stickyRound.textContent = patch.nextProposal.roundLabel;
+      stickyRound.removeAttribute('hidden');
     }
 
-    const stickyRemaining = getStickyRemaining();
     if (stickyRemaining) {
       stickyRemaining.textContent = `${patch.cardsRemaining} to cut`;
+      stickyRemaining.removeAttribute('hidden');
     }
 
-    const stickyAccepted = getStickyAccepted();
     if (stickyAccepted) {
       stickyAccepted.textContent = formatCutsAcceptedSoFar(patch.cutsMade.length);
+      stickyAccepted.removeAttribute('hidden');
     }
   };
 
@@ -2835,6 +2858,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
     reconcileQuantityTuners(patch.quantityTuners, antiForgeryToken, patch.cutLabStateJson);
     reconcileAddableBasics(patch.addableBasics, antiForgeryToken, patch.cutLabStateJson);
+    updateLockedCountChip();
   };
 
   const handleWhatifPreview = async (form: HTMLFormElement, submitter: HTMLButtonElement | null): Promise<void> => {

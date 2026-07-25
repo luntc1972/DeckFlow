@@ -365,6 +365,59 @@ public sealed class CutLabViewModelWordingTests
     }
 
     [Fact]
+    public void From_PopulatesStickyBarLockedAndCurrentCounts()
+    {
+        var request = new CutLabRequest
+        {
+            PlayExperience = "Focused",
+        };
+        var result = new CutLabProcessResult
+        {
+            HasResult = true,
+            State = new CutLabState
+            {
+                Pool =
+                [
+                    new CutLabPoolCard
+                    {
+                        Name = "Commander",
+                        Quantity = 1,
+                        TypeLine = "Legendary Creature",
+                        IsCommander = true,
+                        IsLocked = true,
+                    },
+                    new CutLabPoolCard
+                    {
+                        Name = "Island",
+                        Quantity = 38,
+                        TypeLine = "Basic Land - Island",
+                    },
+                    new CutLabPoolCard
+                    {
+                        Name = "Mana Crypt",
+                        Quantity = 1,
+                        TypeLine = "Artifact",
+                        IsLocked = true,
+                    },
+                ],
+                QuantityAdjustments =
+                [
+                    new CutLabQuantityAdjustment
+                    {
+                        Name = "Island",
+                        Delta = 2,
+                    },
+                ],
+            },
+        };
+
+        CutLabViewModel model = CutLabViewModel.From(request, result);
+
+        Assert.Equal(2, model.StickyBar.LockedCount);
+        Assert.Equal(42, model.StickyBar.CurrentCount);
+    }
+
+    [Fact]
     public void From_BuildsPoolStatusTextFromCommanderInclusiveBaselineCount()
     {
         var request = new CutLabRequest

@@ -185,6 +185,15 @@ const buildFixture = (options: { includePlainsRow?: boolean; addableBasics?: str
       <textarea name="SecondaryPlan"></textarea>
       <input type="radio" name="Bracket" value="3" checked />
       <input type="radio" name="PlayExperience" value="Focused" checked />
+      <table>
+        <tbody>
+          <tr data-cut-lab-card="Commander" data-cut-lab-quantity="1" data-cut-lab-type-line="Legendary Creature" data-cut-lab-role="draw" data-cut-lab-commander="true">
+            <td data-label="Select"><input type="checkbox" data-cut-lab-lock-card="Commander" checked disabled /></td>
+            <td data-label="Card"><strong>1 × Commander</strong></td>
+            <td data-label="Package assignment"><select data-cut-lab-package-card="Commander"><option value="">Unlocked pool</option></select></td>
+          </tr>
+        </tbody>
+      </table>
     </form>
     <form id="cut-lab-export-form">
       <input type="hidden" name="CutLabStateJson" value='${stateJson}' />
@@ -192,6 +201,8 @@ const buildFixture = (options: { includePlainsRow?: boolean; addableBasics?: str
     </form>
     <section class="result-panel">
       <div class="cutlab-sticky-bar">
+        <span data-cut-lab-sticky-locked>1 locked</span>
+        <span data-cut-lab-sticky-current>99/100 cards</span>
         <span data-cut-lab-sticky-round>Round 1</span>
         <span data-cut-lab-sticky-remaining>1 to cut</span>
         <span data-cut-lab-sticky-accepted>0 cuts so far</span>
@@ -384,6 +395,8 @@ describe('cut-lab adjust enhancement', () => {
     expect(document.querySelector('[data-cut-lab-sticky-remaining]')?.textContent).toBe('0 to cut');
     expect(document.querySelector('[data-cut-lab-sticky-round]')?.textContent).toBe('Round 1');
     expect(document.querySelector('[data-cut-lab-sticky-accepted]')?.textContent).toBe('1 cut so far');
+    expect(document.querySelector('[data-cut-lab-sticky-locked]')?.textContent).toBe('1 locked');
+    expect(document.querySelector('[data-cut-lab-sticky-current]')?.textContent).toBe('99/100 cards');
   });
 
   it('renders the terminal at-target proposal when adjust preserves proposals', async () => {
