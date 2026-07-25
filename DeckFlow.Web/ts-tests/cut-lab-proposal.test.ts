@@ -242,6 +242,19 @@ const buildDecisionFixture = (): void => {
         </div>
       </details>
     </section>
+    <section class="result-panel" id="cut-lab-step-panel-4">
+      <form id="cut-lab-export-form">
+        <div class="cutlab-export">
+          <div class="cutlab-export__summary">
+            <div class="cutlab-export__status" data-cut-lab-export-count>
+              <strong>❌ Card count = 112</strong>
+              <span>Reach 100 cards to unlock the finished-list export.</span>
+            </div>
+          </div>
+          <button type="submit" disabled>Build export</button>
+        </div>
+      </form>
+    </section>
     <script type="application/json" id="cutlab-card-text-data">{"Counterspell":{"typeLine":"Instant","manaCost":"{U}{U}","setCode":"TMP","collectorNumber":"55","oracleText":"Counter target spell.","comboContext":"Infinite cards"},"Sol Ring":{"typeLine":"Artifact","manaCost":"{1}","oracleText":"{T}: Add {C}{C}."}}</script>
     <dialog id="cutlab-card-modal" aria-labelledby="cutlab-card-modal-title">
       <h2 id="cutlab-card-modal-title"></h2>
@@ -697,9 +710,11 @@ describe('cut-lab proposal enhancement', () => {
     }));
     await flushDecisionSubmit();
 
-    const allButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('button[type="submit"]'));
+    const decisionButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(
+      'form[action="/cut-lab/decide"] button[type="submit"]',
+    ));
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(allButtons.every(button => button.disabled)).toBe(true);
+    expect(decisionButtons.every(button => button.disabled)).toBe(true);
 
     restoreForm.dispatchEvent(new SubmitEvent('submit', {
       bubbles: true,
@@ -716,7 +731,9 @@ describe('cut-lab proposal enhancement', () => {
     });
     await flushDecisionSubmit();
 
-    expect(Array.from(document.querySelectorAll<HTMLButtonElement>('button[type="submit"]')).every(button => !button.disabled)).toBe(true);
+    expect(Array.from(document.querySelectorAll<HTMLButtonElement>(
+      'form[action="/cut-lab/decide"] button[type="submit"]',
+    )).every(button => !button.disabled)).toBe(true);
   });
 
   it('keeps sticky locked and current counts visible when a terminal response arrives', async () => {
@@ -818,6 +835,81 @@ describe('cut-lab proposal enhancement', () => {
     expect(exportTab?.disabled).toBe(true);
     expect(exportTab?.getAttribute('aria-disabled')).toBe('true');
     expect(exportTab?.classList.contains('is-disabled')).toBe(true);
+  });
+
+  it('updates the export card-count status from not-at-target to exactly 100 after a decision', async () => {
+    buildDecisionFixture();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ patch: buildPatch({
+        currentCount: 100,
+        canBuildExport: true,
+        cardsRemaining: 0,
+        nextProposal: {
+          isTerminal: true,
+          isAtTarget: true,
+          isNothingToCut: false,
+          cardName: '',
+          roundKey: '',
+          roundLabel: '',
+          roundBannerBody: '',
+          findingCount: 0,
+          findingChips: [],
+        },
+        proposalDeltas: null,
+        floorWarnings: [],
+      }) }),
+    });
+
+    const form = document.querySelector<HTMLFormElement>('form[action="/cut-lab/decide"]');
+    const button = form?.querySelector<HTMLButtonElement>('[data-cut-lab-decision="accept"]');
+
+    form?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: button ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    const exportStatus = document.querySelector<HTMLElement>('[data-cut-lab-export-count]');
+    expect(exportStatus?.textContent?.trim()).toBe('✅ Card count = 100');
+    expect(exportStatus?.querySelector('span')).toBeNull();
+  });
+
+  it('updates the export card-count status from exactly 100 back to not-at-target after a restore decision', async () => {
+    buildDecisionFixture();
+    const exportStatus = document.querySelector<HTMLElement>('[data-cut-lab-export-count]');
+    if (exportStatus) {
+      exportStatus.innerHTML = '<strong>✅ Card count = 100</strong>';
+    }
+
+    const exportTab = document.getElementById('cut-lab-step-tab-4') as HTMLButtonElement | null;
+    exportTab?.classList.remove('is-disabled');
+    if (exportTab) {
+      exportTab.disabled = false;
+      exportTab.setAttribute('aria-disabled', 'false');
+    }
+
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ patch: buildPatch({
+        currentCount: 101,
+        canBuildExport: false,
+        cardsRemaining: 1,
+      }) }),
+    });
+
+    const restoreButton = document.querySelector<HTMLButtonElement>('[data-cut-lab-restore]');
+    const restoreForm = restoreButton?.closest('form');
+    restoreForm?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: restoreButton ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    expect(exportStatus?.querySelector('strong')?.textContent).toBe('❌ Card count = 101');
+    expect(exportStatus?.querySelector('span')?.textContent).toBe('Reach 100 cards to unlock the finished-list export.');
   });
 
   it('shows restore confirmation copy with the card name and clears it after the next successful patch', async () => {
