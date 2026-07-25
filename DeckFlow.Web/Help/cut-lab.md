@@ -60,7 +60,7 @@ Structural findings also use two combo-related labels that mean different things
 
 ## Goals and what-if swaps
 
-If you care about specific timing goals, pin them directly in the workspace. For example, you can track whether a payoff is online by a target turn and see those goal results recalculated by the same engine after each change.
+If you care about specific timing goals, pin them directly in the workspace. Goal probabilities and the **Compare to baseline** table are point-in-time snapshots: use **Recalculate goals** and **Recalculate analysis** to refresh them after cuts, while cut counts and structural findings update live per cut.
 
 You can also save named scenarios locally in your browser, which makes it easy to compare different cut paths without losing your current line. For one-off experiments, run a what-if swap to replace card A with card B and immediately see every tracked goal and consistency metric recomputed before you decide whether to keep or discard the change.
 
