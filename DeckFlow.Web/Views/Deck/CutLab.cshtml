@@ -294,9 +294,12 @@
             <ul class="cutlab-anchor-nav-list">
                 <li><a href="#cut-lab-step-panel-1">Process</a></li>
                 <li><a href="#cut-lab-step-panel-2">Decide</a></li>
-                <li><a href="#cut-lab-step-panel-3">Goals</a></li>
-                <li><a href="#cut-lab-step-panel-4">Export</a></li>
+                <li><a href="#cut-lab-section-goals">Goals</a></li>
+                <li><a href="#cut-lab-section-export">Export</a></li>
                 <li><a href="#cut-lab-section-lock-pool">Lock your pool</a></li>
+                <li><a href="#cut-lab-section-competes">How your pool competes</a></li>
+                <li><a href="#cut-lab-section-by-type">By type</a></li>
+                <li><a href="#cut-lab-section-by-subtype">By subtype</a></li>
                 <li><a href="#cut-lab-section-structural">Structural findings</a></li>
                 <li><a href="#cut-lab-section-role-floors">Role floors</a></li>
                 <li><a href="#cut-lab-section-cut-rounds">Cut rounds</a></li>
@@ -519,30 +522,82 @@
         </section>
 
         <section class="result-panel">
-            <div class="panel-heading">
-                <div>
-                    <h2>How your pool competes</h2>
-                    <p>Cards grouped by the role they're fighting for. A card can fill more than one role — it appears in every group it competes in.</p>
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-competes">
+                <summary class="cutlab-collapsible__summary">How your pool competes</summary>
+                <div class="panel-heading">
+                    <div>
+                        <h2>How your pool competes</h2>
+                        <p>Cards grouped by the role they're fighting for. A card can fill more than one role — it appears in every group it competes in.</p>
+                    </div>
                 </div>
-            </div>
-            @foreach (var group in Model.RoleGroups)
-            {
-                var memberCount = group.Members.Count;
-                var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
-                <details class="cutlab-role-group">
-                    <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
-                    <div class="cutlab-role-group__body">
-                        @if (!string.Equals(group.RoleKey, "other", StringComparison.Ordinal))
-                        {
-                            <button type="button"
-                                    class="manabase-pill @(group.AllLockableMembersLocked ? "is-selected" : null)"
-                                    data-cut-lab-lock-role="@group.RoleKey"
-                                    aria-pressed="@(group.AllLockableMembersLocked ? "true" : "false")">
-                                <span>Lock all @lowerDisplayLabel</span>
-                            </button>
-                        }
-                        @if (memberCount > 0)
-                        {
+                @foreach (var group in Model.RoleGroups)
+                {
+                    var memberCount = group.Members.Count;
+                    var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+                    <details class="cutlab-role-group">
+                        <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                        <div class="cutlab-role-group__body">
+                            @if (!string.Equals(group.RoleKey, "other", StringComparison.Ordinal))
+                            {
+                                <button type="button"
+                                        class="manabase-pill @(group.AllLockableMembersLocked ? "is-selected" : null)"
+                                        data-cut-lab-lock-role="@group.RoleKey"
+                                        aria-pressed="@(group.AllLockableMembersLocked ? "true" : "false")">
+                                    <span>Lock all @lowerDisplayLabel</span>
+                                </button>
+                            }
+                            @if (memberCount > 0)
+                            {
+                                <div class="kb-chip-area__chips">
+                                    @foreach (var member in group.Members)
+                                    {
+                                        if (member.IsCommander)
+                                        {
+                                            <span class="kb-chip cutlab-lock-badge--commander"
+                                                  data-cutlab-card-open="@member.Name"
+                                                  data-cut-lab-chip-card="@member.Name">@member.Name</span>
+                                        }
+                                        else
+                                        {
+                                            var chipClasses = $"kb-chip cutlab-role-chip{(member.IsLocked ? " cutlab-role-chip--locked" : string.Empty)}";
+                                            <button type="button"
+                                                    class="@chipClasses"
+                                                    data-cutlab-card-open="@member.Name"
+                                                    data-cut-lab-chip-card="@member.Name"
+                                                    aria-pressed="@(member.IsLocked ? "true" : "false")">@member.Name</button>
+                                        }
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="kb-chip-area__empty-hint">No @lowerDisplayLabel cards detected in this pool.</p>
+                            }
+
+                            @if (string.Equals(group.RoleKey, "interaction", StringComparison.Ordinal))
+                            {
+                                <p class="cutlab-role-group__help">Interaction counts one-shot removal and wipes. Counterspells count as interaction only for a cEDH play experience.</p>
+                            }
+                        </div>
+                    </details>
+                }
+            </details>
+        </section>
+
+        <section class="result-panel">
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-by-type">
+                <summary class="cutlab-collapsible__summary">By type</summary>
+                <div class="panel-heading">
+                    <div>
+                        <h2>By type</h2>
+                        <p>Your pool grouped by card type.</p>
+                    </div>
+                </div>
+                @foreach (var group in Model.TypeGroups)
+                {
+                    <details class="cutlab-role-group">
+                        <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                        <div class="cutlab-role-group__body">
                             <div class="kb-chip-area__chips">
                                 @foreach (var member in group.Members)
                                 {
@@ -563,73 +618,30 @@
                                     }
                                 }
                             </div>
-                        }
-                        else
-                        {
-                            <p class="kb-chip-area__empty-hint">No @lowerDisplayLabel cards detected in this pool.</p>
-                        }
-
-                        @if (string.Equals(group.RoleKey, "interaction", StringComparison.Ordinal))
-                        {
-                            <p class="cutlab-role-group__help">Interaction counts one-shot removal and wipes. Counterspells count as interaction only for a cEDH play experience.</p>
-                        }
-                    </div>
-                </details>
-            }
-        </section>
-
-        <section class="result-panel">
-            <div class="panel-heading">
-                <div>
-                    <h2>By type</h2>
-                    <p>Your pool grouped by card type.</p>
-                </div>
-            </div>
-            @foreach (var group in Model.TypeGroups)
-            {
-                <details class="cutlab-role-group">
-                    <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
-                    <div class="cutlab-role-group__body">
-                        <div class="kb-chip-area__chips">
-                            @foreach (var member in group.Members)
-                            {
-                                if (member.IsCommander)
-                                {
-                                    <span class="kb-chip cutlab-lock-badge--commander"
-                                          data-cutlab-card-open="@member.Name"
-                                          data-cut-lab-chip-card="@member.Name">@member.Name</span>
-                                }
-                                else
-                                {
-                                    var chipClasses = $"kb-chip cutlab-role-chip{(member.IsLocked ? " cutlab-role-chip--locked" : string.Empty)}";
-                                    <button type="button"
-                                            class="@chipClasses"
-                                            data-cutlab-card-open="@member.Name"
-                                            data-cut-lab-chip-card="@member.Name"
-                                            aria-pressed="@(member.IsLocked ? "true" : "false")">@member.Name</button>
-                                }
-                            }
                         </div>
-                    </div>
-                </details>
-            }
+                    </details>
+                }
+            </details>
         </section>
 
         <section class="result-panel">
-            <div class="panel-heading">
-                <div>
-                    <h2>By subtype</h2>
-                    <p>Search a subtype or supertype — e.g. Ally, Lesson, Legendary — to see how many you have.</p>
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-by-subtype">
+                <summary class="cutlab-collapsible__summary">By subtype</summary>
+                <div class="panel-heading">
+                    <div>
+                        <h2>By subtype</h2>
+                        <p>Search a subtype or supertype — e.g. Ally, Lesson, Legendary — to see how many you have.</p>
+                    </div>
                 </div>
-            </div>
-            <div class="cutlab-subtype-search">
-                <label for="cut-lab-subtype-search">Subtype or supertype</label>
-                <input id="cut-lab-subtype-search"
-                       type="text"
-                       data-cut-lab-subtype-search
-                       placeholder="Search type line…" />
-            </div>
-            <div class="cutlab-subtype-results" data-cut-lab-subtype-results></div>
+                <div class="cutlab-subtype-search">
+                    <label for="cut-lab-subtype-search">Subtype or supertype</label>
+                    <input id="cut-lab-subtype-search"
+                           type="text"
+                           data-cut-lab-subtype-search
+                           placeholder="Search type line…" />
+                </div>
+                <div class="cutlab-subtype-results" data-cut-lab-subtype-results></div>
+            </details>
         </section>
 
         <section class="result-panel" data-cut-lab-structural-findings>
@@ -783,71 +795,76 @@
         </section>
 
         <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-3" aria-labelledby="cut-lab-step-tab-3">
-            <div class="panel-heading">
-                <div>
-                    <h2>Goals</h2>
-                    <p>Set the turn targets you care about, then compare your current working list to the original pool baseline. Goal results refresh when you press Recalculate goals; they do not update automatically after each cut. In casual play, the representative line stays visible as an informational goal.</p>
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-goals">
+                <summary class="cutlab-collapsible__summary">Goals</summary>
+                <div class="panel-heading">
+                    <div>
+                        <h2>Goals</h2>
+                        <p>Set the turn targets you care about, then compare your current working list to the original pool baseline. Goal results refresh when you press Recalculate goals; they do not update automatically after each cut. In casual play, the representative line stays visible as an informational goal.</p>
+                    </div>
                 </div>
-            </div>
-            <form method="post" action="@Url.Content("~/cut-lab/goals")" data-cut-lab-goals-form>
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
-                <div class="history-timeline__wrap">
-                    <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
-                        <thead>
-                            <tr>
-                                <th scope="col">Goal</th>
-                                <th scope="col">Turn target</th>
-                                <th scope="col">Current</th>
-                                <th scope="col">Baseline trend</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var row in Model.GoalRows)
-                            {
-                                <tr class="cutlab-goal-row">
-                                    <td data-label="Goal">
-                                        <strong>@row.Label</strong>
-                                        @if (row.IsUncappedInCasual)
-                                        {
-                                            <div class="cutlab-floor-source-default">Casual games are uncapped — this goal is informational only.</div>
-                                        }
-                                    </td>
-                                    <td data-label="Turn target">
-                                        <input type="number"
-                                               min="1"
-                                               max="15"
-                                               step="1"
-                                               name="@row.FieldName"
-                                               data-cut-lab-goal="@row.GoalKey"
-                                               value="@row.TurnValue" />
-                                    </td>
-                                    <td data-label="Current">
-                                        <span class="tabular">@row.CurrentProbability</span>
-                                    </td>
-                                    <td data-label="Baseline trend" class="cutlab-goal-row__trend">
-                                        <span class="prompt-size-note">vs @row.BaselineProbability baseline</span>
-                                        @{ await RenderDeltaValue(row.Direction, row.DeltaValueToken); }
-                                    </td>
+                <form method="post" action="@Url.Content("~/cut-lab/goals")" data-cut-lab-goals-form>
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
+                    <div class="history-timeline__wrap">
+                        <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Goal</th>
+                                    <th scope="col">Turn target</th>
+                                    <th scope="col">Current</th>
+                                    <th scope="col">Baseline trend</th>
                                 </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-                <div class="toolbar">
-                    <button type="submit" class="run-button">Recalculate goals</button>
-                </div>
-            </form>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in Model.GoalRows)
+                                {
+                                    <tr class="cutlab-goal-row">
+                                        <td data-label="Goal">
+                                            <strong>@row.Label</strong>
+                                            @if (row.IsUncappedInCasual)
+                                            {
+                                                <div class="cutlab-floor-source-default">Casual games are uncapped — this goal is informational only.</div>
+                                            }
+                                        </td>
+                                        <td data-label="Turn target">
+                                            <input type="number"
+                                                   min="1"
+                                                   max="15"
+                                                   step="1"
+                                                   name="@row.FieldName"
+                                                   data-cut-lab-goal="@row.GoalKey"
+                                                   value="@row.TurnValue" />
+                                        </td>
+                                        <td data-label="Current">
+                                            <span class="tabular">@row.CurrentProbability</span>
+                                        </td>
+                                        <td data-label="Baseline trend" class="cutlab-goal-row__trend">
+                                            <span class="prompt-size-note">vs @row.BaselineProbability baseline</span>
+                                            @{ await RenderDeltaValue(row.Direction, row.DeltaValueToken); }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="toolbar">
+                        <button type="submit" class="run-button">Recalculate goals</button>
+                    </div>
+                </form>
+            </details>
         </section>
 
         <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-4" aria-labelledby="cut-lab-step-tab-4" data-scroll-on-load="@(Model.Export.HasExport ? "true" : null)">
-            <div class="panel-heading">
-                <div>
-                    <h2>Export</h2>
-                    <p>Rebuild the finished list in builder-ready Moxfield and Archidekt text, plus CUT/ADD patches against the original imported list.</p>
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-export">
+                <summary class="cutlab-collapsible__summary">Export</summary>
+                <div class="panel-heading">
+                    <div>
+                        <h2>Export</h2>
+                        <p>Rebuild the finished list in builder-ready Moxfield and Archidekt text, plus CUT/ADD patches against the original imported list.</p>
+                    </div>
                 </div>
-            </div>
-            <form method="post" action="@Url.Content("~/cut-lab/export")" id="cut-lab-export-form">
+                <form method="post" action="@Url.Content("~/cut-lab/export")" id="cut-lab-export-form">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
 
@@ -995,7 +1012,8 @@
                         <button type="submit" class="run-button" @(currentCount == 100 ? null : "disabled")>Build export</button>
                     </div>
                 </div>
-            </form>
+                </form>
+            </details>
         </section>
 
         <section class="result-panel">
