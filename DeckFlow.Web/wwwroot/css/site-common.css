@@ -4863,6 +4863,8 @@ input[data-cut-lab-floor]:focus-visible {
 }
 
 .cutlab-sticky-bar__round,
+.cutlab-sticky-bar__locked,
+.cutlab-sticky-bar__current,
 .cutlab-sticky-bar__count,
 .cutlab-sticky-bar__accepted {
   min-width: 0;
@@ -4879,6 +4881,12 @@ input[data-cut-lab-floor]:focus-visible {
 }
 
 .cutlab-sticky-bar__count {
+  flex: 0 0 auto;
+  color: var(--ink, inherit);
+}
+
+.cutlab-sticky-bar__locked,
+.cutlab-sticky-bar__current {
   flex: 0 0 auto;
   color: var(--ink, inherit);
 }
@@ -5209,8 +5217,15 @@ tr[data-cut-lab-tuner-row]:has(.cutlab-tuner-badge--added) {
 
   .cutlab-sticky-bar {
     top: var(--cutlab-anchor-nav-stuck-height, 4rem);
+    flex-wrap: wrap;
     gap: 0.5rem;
-    padding: 0 0.75rem;
+    min-height: auto;
+    max-height: none;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .cutlab-sticky-bar__round {
+    flex-basis: 100%;
   }
 
   .cutlab-delta__line,

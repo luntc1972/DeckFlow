@@ -1155,14 +1155,20 @@
                     </div>
                 </div>
 
-            @if (Model.StickyBar.HasStickyBar)
-            {
-                <div class="cutlab-sticky-bar">
+            @{
+                const int stickyBarTargetDeckSize = 100;
+            }
+            
+            <div class="cutlab-sticky-bar">
+                <span class="cutlab-sticky-bar__locked" data-cut-lab-sticky-locked>@Model.StickyBar.LockedCount locked</span>
+                <span class="cutlab-sticky-bar__current" data-cut-lab-sticky-current>@Model.StickyBar.CurrentCount/@stickyBarTargetDeckSize cards</span>
+                @if (Model.StickyBar.HasStickyBar)
+                {
                     <span class="cutlab-sticky-bar__round" data-cut-lab-sticky-round>@Model.StickyBar.RoundLabel</span>
                     <span class="cutlab-sticky-bar__count" data-cut-lab-sticky-remaining aria-live="polite" aria-atomic="true">@Model.StickyBar.CardsRemainingToCut to cut</span>
                     <span class="cutlab-sticky-bar__accepted" data-cut-lab-sticky-accepted>@CutLabViewModel.FormatCutsAcceptedSoFar(Model.StickyBar.CutsAcceptedCount)</span>
-                </div>
-            }
+                }
+            </div>
 
             @if (Model.Proposal.HasProposal)
             {

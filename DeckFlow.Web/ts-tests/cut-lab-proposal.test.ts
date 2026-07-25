@@ -140,6 +140,8 @@ const buildDecisionFixture = (): void => {
     </form>
     <section class="result-panel">
       <div class="cutlab-sticky-bar">
+        <span class="cutlab-sticky-bar__locked" data-cut-lab-sticky-locked>1 locked</span>
+        <span class="cutlab-sticky-bar__current" data-cut-lab-sticky-current>112/100 cards</span>
         <span class="cutlab-sticky-bar__round" data-cut-lab-sticky-round>Round 1 · Obvious cuts</span>
         <span class="cutlab-sticky-bar__count" data-cut-lab-sticky-remaining>12 to cut</span>
         <span class="cutlab-sticky-bar__accepted" data-cut-lab-sticky-accepted>0 cut so far</span>
@@ -717,7 +719,7 @@ describe('cut-lab proposal enhancement', () => {
     expect(Array.from(document.querySelectorAll<HTMLButtonElement>('button[type="submit"]')).every(button => !button.disabled)).toBe(true);
   });
 
-  it('hides the sticky bar when a terminal response arrives', async () => {
+  it('keeps sticky locked and current counts visible when a terminal response arrives', async () => {
     buildDecisionFixture();
     fetchMock.mockResolvedValue({
       ok: true,
@@ -735,6 +737,7 @@ describe('cut-lab proposal enhancement', () => {
         proposalDeltas: null,
         floorWarnings: [],
         cardsRemaining: 0,
+        currentCount: 100,
         canBuildExport: true,
       }) }),
     });
@@ -749,7 +752,12 @@ describe('cut-lab proposal enhancement', () => {
     }));
     await flushDecisionSubmit();
 
-    expect(document.querySelector('.cutlab-sticky-bar')).toBeNull();
+    expect(document.querySelector('.cutlab-sticky-bar')).not.toBeNull();
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-sticky-locked]')?.textContent).toBe('1 locked');
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-sticky-current]')?.textContent).toBe('100/100 cards');
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-sticky-round]')?.hidden).toBe(true);
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-sticky-remaining]')?.hidden).toBe(true);
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-sticky-accepted]')?.hidden).toBe(true);
   });
 
   it('toggles the export tab enabled state based on cards remaining after a decision', async () => {
