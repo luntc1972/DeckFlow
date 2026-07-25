@@ -100,7 +100,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             cancellationToken: cancellationToken).ConfigureAwait(false);
         state = state with
         {
-            Pool = ApplySimulationCardData(state.Pool, snapshotResult.CastabilityByCardName),
+            Pool = CutLabSimulationResult.ApplySimulationCardData(state.Pool, snapshotResult.CastabilityByCardName),
         };
 
         CutLabDecideProposalDeltasDto? proposalDeltas = null;
@@ -181,21 +181,6 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             QuantityTuners = BuildQuantityTuners(projection.WorkingList, projection.OriginalPoolNames, roleAssignmentsByCardName),
             AddableBasics = projection.AddableBasics,
         };
-    }
-
-    private static IReadOnlyList<CutLabPoolCard> ApplySimulationCardData(
-        IReadOnlyList<CutLabPoolCard> pool,
-        IReadOnlyDictionary<string, CutLabSimulationCardView> castabilityByCardName)
-    {
-        return pool
-            .Select(card => castabilityByCardName.TryGetValue(card.Name, out CutLabSimulationCardView? popupData)
-                ? card with
-                {
-                    LastKnownCmc = popupData.Cmc,
-                    LastKnownCastPercent = popupData.CastPercent,
-                }
-                : card)
-            .ToArray();
     }
 
     private static IReadOnlyDictionary<string, CutLabCardTextView> BuildPopupCardTextPatch(IReadOnlyList<CutLabPoolCard> pool)
