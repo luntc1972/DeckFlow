@@ -180,7 +180,7 @@ deck_a:
   mana_curve: 0-1=1, 2=1, 3=0, 4=0, 5+=0
   color_identity: R, U
   categories: (none detected)
-  role_counts: ramp=1, draw=0, interaction=0, wipes=0, recursion=0, closing_power=0
+  role_counts: ramp=2, draw=0, interaction=0, wipes=0, recursion=0, closing_power=0
   combos_included: 0
   combos_almost_included: 0
   key_combos: (none found)
@@ -199,7 +199,7 @@ deck_b:
   mana_curve: 0-1=1, 2=1, 3=0, 4=0, 5+=0
   color_identity: R, U
   categories: (none detected)
-  role_counts: ramp=0, draw=0, interaction=1, wipes=0, recursion=0, closing_power=0
+  role_counts: ramp=1, draw=0, interaction=1, wipes=0, recursion=0, closing_power=0
   combos_included: 0
   combos_almost_included: 0
   key_combos: (none found)
@@ -207,7 +207,7 @@ deck_b:
 
 comparison_signals:
 shared_categories: (none)
-ramp_gap: Kraum Value 1 vs Atraxa Superfriends 0
+ramp_gap: Kraum Value 2 vs Atraxa Superfriends 1
 draw_gap: Kraum Value 0 vs Atraxa Superfriends 0
 interaction_gap: Kraum Value 0 vs Atraxa Superfriends 1
 wipe_gap: Kraum Value 0 vs Atraxa Superfriends 0
@@ -305,7 +305,7 @@ deck_a:
   mana_curve: 0-1=1, 2=1, 3=0, 4=0, 5+=0
   color_identity: R, U
   categories: (none detected)
-  role_counts: ramp=1, draw=0, interaction=0, wipes=0, recursion=0, closing_power=0
+  role_counts: ramp=2, draw=0, interaction=0, wipes=0, recursion=0, closing_power=0
   combos_included: 0
   combos_almost_included: 0
   key_combos: (none found)
@@ -324,7 +324,7 @@ deck_b:
   mana_curve: 0-1=1, 2=1, 3=0, 4=0, 5+=0
   color_identity: R, U
   categories: (none detected)
-  role_counts: ramp=0, draw=0, interaction=1, wipes=0, recursion=0, closing_power=0
+  role_counts: ramp=1, draw=0, interaction=1, wipes=0, recursion=0, closing_power=0
   combos_included: 0
   combos_almost_included: 0
   key_combos: (none found)
@@ -332,7 +332,7 @@ deck_b:
 
 comparison_signals:
 shared_categories: (none)
-ramp_gap: Kraum Value 1 vs Atraxa Superfriends 0
+ramp_gap: Kraum Value 2 vs Atraxa Superfriends 1
 draw_gap: Kraum Value 0 vs Atraxa Superfriends 0
 interaction_gap: Kraum Value 0 vs Atraxa Superfriends 1
 wipe_gap: Kraum Value 0 vs Atraxa Superfriends 0
@@ -591,7 +591,7 @@ deck_a:
   mana_curve: 0-1=1, 2=1, 3=0, 4=0, 5+=0
   color_identity: R, U
   categories: (none detected)
-  role_counts: ramp=1, draw=0, interaction=0, wipes=0, recursion=0, closing_power=0
+  role_counts: ramp=2, draw=0, interaction=0, wipes=0, recursion=0, closing_power=0
   combos_included: 0
   combos_almost_included: 0
   key_combos: (none found)
@@ -610,7 +610,7 @@ deck_b:
   mana_curve: 0-1=1, 2=1, 3=0, 4=0, 5+=0
   color_identity: R, U
   categories: (none detected)
-  role_counts: ramp=0, draw=0, interaction=1, wipes=0, recursion=0, closing_power=0
+  role_counts: ramp=1, draw=0, interaction=1, wipes=0, recursion=0, closing_power=0
   combos_included: 0
   combos_almost_included: 0
   key_combos: (none found)
@@ -618,7 +618,7 @@ deck_b:
 
 comparison_signals:
 shared_categories: (none)
-ramp_gap: Kraum Value 1 vs Atraxa Superfriends 0
+ramp_gap: Kraum Value 2 vs Atraxa Superfriends 1
 draw_gap: Kraum Value 0 vs Atraxa Superfriends 0
 interaction_gap: Kraum Value 0 vs Atraxa Superfriends 1
 wipe_gap: Kraum Value 0 vs Atraxa Superfriends 0
