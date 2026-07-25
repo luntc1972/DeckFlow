@@ -106,7 +106,13 @@ public static class CutLabRoleAssigner
             assigned.Add(ProtectionRole);
         }
 
-        if (roles.HasFlag(PlanRole.Engine))
+        // Why: the shared PlanRoleClassifier keeps Engine on one-shot card advantage for the manabase
+        // plan-presence lens (locked 2026-07-09), but Cut Lab's role display wants true repeatable
+        // engines. Gate locally on permanent + repeatable draw, mirroring FromHeuristic's Engine rule,
+        // so one-shot "draw two" spells tagged "card draw"/"value" no longer flood the engines role.
+        if (roles.HasFlag(PlanRole.Engine)
+            && !CardTypeLine.IsNonPermanentFront(typeLine)
+            && DeckStatClassifier.IsDrawCard(oracle))
         {
             assigned.Add(EnginesRole);
         }

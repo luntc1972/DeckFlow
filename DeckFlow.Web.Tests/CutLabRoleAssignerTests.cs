@@ -129,6 +129,40 @@ public sealed class CutLabRoleAssignerTests
     }
 
     [Fact]
+    public void AssignRoles_OneShotDrawSpell_NotEngine()
+    {
+        CardFact fact = Fact(
+            "Quick Study",
+            "Instant",
+            oracle: "Draw two cards.");
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
+            fact,
+            new[] { "Card Draw" },
+            isComboPiece: false,
+            ManabaseMode.Casual);
+
+        Assert.Equal(["draw"], roles);
+    }
+
+    [Fact]
+    public void AssignRoles_PermanentDrawEngine_IsEngine()
+    {
+        CardFact fact = Fact(
+            "Phyrexian Arena",
+            "Enchantment",
+            oracle: "At the beginning of your upkeep, draw a card and you lose 1 life.");
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
+            fact,
+            new[] { "Card Draw" },
+            isComboPiece: false,
+            ManabaseMode.Casual);
+
+        Assert.Equal(["draw", "engines"], roles);
+    }
+
+    [Fact]
     public void AssignRoles_ComboPiece_IsWinconEvenWithoutClosingPower()
     {
         CardFact fact = Fact(
