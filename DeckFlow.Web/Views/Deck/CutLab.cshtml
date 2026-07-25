@@ -870,15 +870,15 @@
 
                 <div class="cutlab-export">
                     <div class="cutlab-export__summary">
-                        <div class="cutlab-export__status">
+                        <div class="cutlab-export__status" data-cut-lab-export-count>
                             @if (currentCount == 100)
                             {
-                                <strong>✅ Card count = 100</strong>
+                                <strong data-cut-lab-export-count-text>✅ Card count = 100</strong>
                             }
                             else
                             {
-                                <strong>❌ Card count = @currentCount</strong>
-                                <span>Reach 100 cards to unlock the finished-list export.</span>
+                                <strong data-cut-lab-export-count-text>❌ Card count = @currentCount</strong>
+                                <span data-cut-lab-export-count-helper>Reach 100 cards to unlock the finished-list export.</span>
                             }
                         </div>
                         <div class="cutlab-export__status">

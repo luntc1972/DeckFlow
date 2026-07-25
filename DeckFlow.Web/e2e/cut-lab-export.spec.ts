@@ -120,6 +120,24 @@ test('keeps export disabled until the working list reaches exactly 100 cards', a
   await expect(exportPanel.locator('#cut-lab-export-archidekt-patch')).toHaveValue('');
 });
 
+test('live-updates the export panel card count after an AJAX cut decision without building the export', async ({ page }) => {
+  await importPool(page);
+  await waitForCutRounds(page);
+
+  const exportPanel = getExportPanel(page);
+  const headingLocator = page.locator('.cutlab-proposal__heading');
+  const initialHeading = (await headingLocator.textContent())?.trim() ?? '';
+
+  await expect(exportPanel.locator('.cutlab-export__status').first()).toContainText('Card count = 104');
+  await page.locator('.cutlab-proposal .cutlab-decision-btn--accept').first().click();
+
+  await expect(headingLocator).not.toHaveText(initialHeading, { timeout: 30_000 });
+  await expect(exportPanel.locator('.cutlab-export__status').first()).toContainText('Card count = 103');
+  await expect(exportPanel.locator('.cutlab-export__status').first()).toContainText('Reach 100 cards to unlock the finished-list export.');
+  await expect(exportPanel.locator('#cut-lab-export-moxfield-full')).toHaveCount(0);
+  await expect(exportPanel.locator('#cut-lab-export-archidekt-full')).toHaveCount(0);
+});
+
 test('builds the export once accepted cuts reach the target count and shows the validation summary', async ({ page }) => {
   await importPool(page);
   await waitForCutRounds(page);
@@ -132,8 +150,10 @@ test('builds the export once accepted cuts reach the target count and shows the 
   await expect(exportTab).toBeEnabled();
   await expect(exportTab).toHaveAttribute('aria-disabled', 'false');
   await expect(exportTab).not.toHaveClass(/is-disabled/);
-  // Before the export POST the panel is still server-stale: the JS decision only
-  // unlocks the tab, so the finished-list textareas are absent and the patch is empty.
+  await expect(exportPanel.locator('.cutlab-export__status').first()).toContainText('Card count = 100');
+  // Before the export POST, only the card-count line is live-patched by JS. The
+  // finished-list textareas and legality/verification status lines still require
+  // the real export submission, so the patch text remains empty here.
   await expect(exportPanel.locator('#cut-lab-export-moxfield-full')).toHaveCount(0);
   await expect(exportPanel.locator('#cut-lab-export-archidekt-full')).toHaveCount(0);
   await expect(exportPanel.locator('#cut-lab-export-moxfield-patch')).toHaveValue('');

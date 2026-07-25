@@ -1098,7 +1098,7 @@ public sealed record CutLabTunableRowView
 /// <summary>Sticky round/count bar state for the Cut rounds workspace.</summary>
 public sealed record CutLabStickyBarView
 {
-    /// <summary>True when a current round exists and the sticky bar should render.</summary>
+    /// <summary>True when a current round exists and the sticky bar's round-specific spans should render.</summary>
     public bool HasStickyBar { get; init; }
 
     /// <summary>Commander-inclusive count of locked cards in the imported pool.</summary>

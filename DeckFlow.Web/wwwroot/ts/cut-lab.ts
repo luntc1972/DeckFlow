@@ -260,6 +260,13 @@ const formatCutsMadeCount = (count: number): string => formatCountLabel(count, '
 
 const formatCutsAcceptedSoFar = (count: number): string => `${formatCountLabel(count, 'cut', 'cuts')} so far`;
 
+const cutLabExportCountReadyCopy = '✅ Card count = 100';
+
+const cutLabExportCountLockedHelperCopy = 'Reach 100 cards to unlock the finished-list export.';
+
+const formatCutLabExportCount = (currentCount: number): string =>
+  currentCount === 100 ? cutLabExportCountReadyCopy : `❌ Card count = ${currentCount}`;
+
 const formatStructuralFindingsCount = (count: number): string => formatCountLabel(count, 'structural finding', 'structural findings');
 
 (function (root: CutLabRoot): void {
@@ -726,9 +733,6 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const getStickyRound = (): HTMLElement | null =>
     document.querySelector<HTMLElement>('[data-cut-lab-sticky-round]');
 
-  const getStickyBar = (): HTMLDivElement | null =>
-    document.querySelector<HTMLDivElement>('.cutlab-sticky-bar');
-
   const getStickyLocked = (): HTMLElement | null =>
     document.querySelector<HTMLElement>('[data-cut-lab-sticky-locked]');
 
@@ -746,6 +750,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
   const getBuildExportSubmit = (): HTMLButtonElement | null =>
     document.querySelector<HTMLButtonElement>('#cut-lab-export-form button[type="submit"]');
+
+  const getExportCountStatus = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cut-lab-export-count]');
 
   const getRoundBanner = (): HTMLElement | null =>
     document.querySelector<HTMLElement>('.cutlab-round-banner');
@@ -2560,6 +2567,27 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
   };
 
+  const patchExportCountStatus = (currentCount: number): void => {
+    const exportCountStatus = getExportCountStatus();
+    if (!exportCountStatus) {
+      return;
+    }
+
+    const countText = document.createElement('strong');
+    countText.dataset.cutLabExportCountText = 'true';
+    countText.textContent = formatCutLabExportCount(currentCount);
+
+    const children: HTMLElement[] = [countText];
+    if (currentCount !== 100) {
+      const helper = document.createElement('span');
+      helper.dataset.cutLabExportCountHelper = 'true';
+      helper.textContent = cutLabExportCountLockedHelperCopy;
+      children.push(helper);
+    }
+
+    replaceChildren(exportCountStatus, children);
+  };
+
   const createAdjustHiddenInput = (name: string, value: string): HTMLInputElement => {
     const input = document.createElement('input');
     input.type = 'hidden';
@@ -2844,6 +2872,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const shouldRenderProposal = Boolean(patch.nextProposal) && (!options.preserveProposal || patch.nextProposal.isTerminal);
     writeDecisionStateToHiddenInputs(patch.cutLabStateJson);
     setExportEnabled(patch.canBuildExport);
+    patchExportCountStatus(patch.currentCount);
     renderWhatifSelectOptions(patch.whatifCardOutOptions, patch.whatifCardInOptions);
     patchStickyBar(patch, options);
     if (shouldRenderProposal) {
