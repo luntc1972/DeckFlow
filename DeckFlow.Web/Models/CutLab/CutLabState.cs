@@ -45,6 +45,12 @@ public sealed record CutLabState
     /// </summary>
     public CutLabMetricSnapshot? BaselineSnapshot { get; init; }
 
+    /// <summary>Original-pool actual land count paired with <see cref="BaselineSnapshot"/>, missing JSON deserializes to <see langword="null"/>, which is expected.</summary>
+    public int? BaselineActualLands { get; init; }
+
+    /// <summary>Original-pool target land count paired with <see cref="BaselineSnapshot"/>, missing JSON deserializes to <see langword="null"/>, which is expected.</summary>
+    public double? BaselineTargetLands { get; init; }
+
     /// <summary>
     /// User-adjusted role floors plus their user-set flags. Derived defaults are recomputed per POST,
     /// never persisted, and the empty initializer keeps pre-102 JSON blobs deserializing cleanly.

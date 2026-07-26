@@ -1449,12 +1449,19 @@ public sealed class CutLabPageServiceTests
     [Fact]
     public async Task ProcessAsync_PersistsBaselineSnapshotAndReusesItAsCurrentSnapshotAtIntake()
     {
+        const int expectedActualLands = 37;
+        const double expectedTargetLands = 36.5;
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
         var cards = BuildResolvedCards(entries);
         var analysisBuilder = new FakeAnalysisContextBuilder((workingList, _, commanderNames) => BuildAnalysisContext(workingList, commanderNames));
         var simulationService = new FakeSimulationService
         {
-            SnapshotFactory = (_, _, trialsOverride, _) => BuildSevenMetricSnapshot(trialsOverride is null ? 10 : 20),
+            SnapshotResultFactory = (_, _, trialsOverride, _) => new CutLabSimulationResult
+            {
+                Snapshot = BuildSevenMetricSnapshot(trialsOverride is null ? 10 : 20),
+                ActualLands = expectedActualLands,
+                TargetLands = expectedTargetLands,
+            },
             DeltasFactory = (_, candidateCardName, _, _) => BuildDeltas(candidateCardName),
         };
         var service = new CutLabPageService(
@@ -1476,9 +1483,54 @@ public sealed class CutLabPageServiceTests
         Assert.NotNull(result.State!.BaselineSnapshot);
         Assert.Equal(7, result.State.BaselineSnapshot!.Metrics.Count);
         Assert.Same(result.State.BaselineSnapshot, result.CurrentSnapshot);
+        Assert.Equal(expectedActualLands, result.CurrentActualLands);
+        Assert.Equal(expectedTargetLands, result.CurrentTargetLands);
         Assert.NotNull(roundTrippedState.BaselineSnapshot);
         Assert.Equal(7, roundTrippedState.BaselineSnapshot!.Metrics.Count);
+        Assert.Equal(expectedActualLands, roundTrippedState.BaselineActualLands);
+        Assert.Equal(expectedTargetLands, roundTrippedState.BaselineTargetLands);
         Assert.True(result.SerializedStateJson!.Length < 256_000);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ReusesPersistedBaselineLandCountsAsCurrentLandsWhenNoDecisionsExist()
+    {
+        const int expectedActualLands = 37;
+        const double expectedTargetLands = 36.5;
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var priorState = new CutLabState
+        {
+            BaselineSnapshot = BuildSevenMetricSnapshot(10),
+            BaselineActualLands = expectedActualLands,
+            BaselineTargetLands = expectedTargetLands,
+        };
+        var analysisBuilder = new FakeAnalysisContextBuilder((workingList, _, commanderNames) => BuildAnalysisContext(workingList, commanderNames));
+        var simulationService = new FakeSimulationService
+        {
+            SnapshotResultFactory = (_, _, _, _) => throw new InvalidOperationException("current snapshot should not be rebuilt"),
+            DeltasFactory = (_, candidateCardName, _, _) => BuildDeltas(candidateCardName),
+        };
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]),
+            analysisContextBuilder: analysisBuilder,
+            simulationService: simulationService);
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            CutLabStateJson = CutLabStateSerializer.Serialize(priorState),
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.True(result.HasResult);
+        Assert.NotNull(result.State!.BaselineSnapshot);
+        Assert.Same(result.State.BaselineSnapshot, result.CurrentSnapshot);
+        Assert.Equal(expectedActualLands, result.CurrentActualLands);
+        Assert.Equal(expectedTargetLands, result.CurrentTargetLands);
     }
 
     [Fact]
