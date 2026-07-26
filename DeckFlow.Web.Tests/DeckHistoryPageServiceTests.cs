@@ -364,6 +364,24 @@ public sealed class DeckHistoryPageServiceTests
             result.Warnings);
     }
 
+    [Fact]
+    public async Task ProcessAsync_HundredCardMainDeckWithSideboard_DoesNotWarn()
+    {
+        var service = CreateService(HundredMainDeckWithSideboardEntries());
+
+        var result = await service.ProcessAsync(new DeckHistoryRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "100-card deck plus sideboard",
+            TargetAiPlatform = "Gemini",
+        }, uploadedHistoryJson: null);
+
+        Assert.True(result.Appended);
+        Assert.DoesNotContain(
+            result.Warnings,
+            warning => warning.Contains("cards — Commander decks run 100", StringComparison.Ordinal));
+    }
+
     private static DeckHistoryPageService CreateService(params DeckEntry[] entries) =>
         CreateServiceCore(new FakeScryfallCardResolver(), new FakeLogger<DeckHistoryPageService>(), entries);
 
@@ -444,6 +462,15 @@ public sealed class DeckHistoryPageServiceTests
         Entry("Sol Ring", 1, "mainboard"),
         Entry("Arcane Signet", 1, "mainboard"),
         Entry("Plains", 60, "mainboard"),
+    ];
+
+    private static DeckEntry[] HundredMainDeckWithSideboardEntries() =>
+    [
+        Entry("Atraxa, Praetors' Voice", 1, "commander"),
+        Entry("Sol Ring", 1, "mainboard"),
+        Entry("Arcane Signet", 1, "mainboard"),
+        Entry("Plains", 97, "mainboard"),
+        Entry("Island", 41, "sideboard"),
     ];
 
     private static DeckEntry Entry(string name, int quantity, string board) => new()
