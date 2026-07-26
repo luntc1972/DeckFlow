@@ -754,8 +754,20 @@
                 <summary class="cutlab-collapsible__summary">Role floors</summary>
                 <div class="panel-heading">
                     <div>
+                        @{
+                            var roleFloorsBracketLabel = Model.Request.Bracket switch
+                            {
+                                1 => "B1 Exhibition",
+                                2 => "B2 Core",
+                                3 => "B3 Upgraded",
+                                4 => "B4 Optimized",
+                                5 => "B5 cEDH",
+                                _ => null
+                            };
+                        }
                         <h2>Role floors</h2>
                         <p>Minimum counts the finished 100 should keep, derived from your bracket and play experience. Adjust any floor — later cut suggestions will warn you before breaking one, never silently.</p>
+                        <p class="cutlab-role-floors-context">Defaults shown for <strong>@Model.Request.SelectedCommander</strong> — Bracket @Model.Request.Bracket (@roleFloorsBracketLabel) · @Model.Request.PlayExperience play.</p>
                     </div>
                 </div>
             <div class="history-timeline__wrap">
