@@ -345,6 +345,8 @@ internal sealed class CutLabPageService : ICutLabPageService
                 state = state with
                 {
                     BaselineSnapshot = baselineResult.Snapshot,
+                    BaselineActualLands = baselineResult.ActualLands,
+                    BaselineTargetLands = baselineResult.TargetLands,
                     Pool = CutLabSimulationResult.ApplySimulationCardData(state.Pool, baselineResult.CastabilityByCardName),
                 };
             }
@@ -371,6 +373,8 @@ internal sealed class CutLabPageService : ICutLabPageService
         if (state.Decisions.Count == 0 && state.BaselineSnapshot is not null)
         {
             currentSnapshot = state.BaselineSnapshot;
+            currentActualLands = state.BaselineActualLands;
+            currentTargetLands = state.BaselineTargetLands;
         }
         else
         {
@@ -715,6 +719,8 @@ internal sealed class CutLabPageService : ICutLabPageService
             OriginalEntries = priorState.OriginalEntries,
             Goals = priorState.Goals,
             BaselineSnapshot = priorState.BaselineSnapshot,
+            BaselineActualLands = priorState.BaselineActualLands,
+            BaselineTargetLands = priorState.BaselineTargetLands,
             RoleFloors = resolvedFloors
                 .Where(floor => floor.IsUserSet)
                 .Select(floor => new CutLabRoleFloor
