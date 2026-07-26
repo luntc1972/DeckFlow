@@ -73,8 +73,7 @@ a:focus-visible {
 .hub-card,
 .about-page,
 .help-index,
-.help-topic,
-.global-job-notice,
+.help-index,
 .busy-indicator__card {
   border-color: rgba(121, 174, 243, 0.14);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);

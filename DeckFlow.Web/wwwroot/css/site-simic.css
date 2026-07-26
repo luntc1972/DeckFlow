@@ -62,8 +62,7 @@ a:hover, a:focus-visible { color: #134d56; }
 .hub-card,
 .about-page,
 .help-index,
-.help-topic,
-.global-job-notice {
+.help-index {
   border-color: rgba(31, 120, 145, 0.18);
   background: rgba(247, 251, 252, 0.90);
   box-shadow: 0 10px 28px rgba(20, 61, 67, 0.08);

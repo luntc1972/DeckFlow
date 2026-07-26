@@ -141,16 +141,6 @@ summary:focus-visible,
   color: var(--muted);
 }
 
-.live-search-panel {
-  border-color: var(--panel-live-border);
-  background: var(--panel-live-bg);
-}
-
-.edhrec-panel {
-  border-color: var(--panel-edhrec-border);
-  background: var(--panel-edhrec-bg);
-}
-
 .summary-panel {
   border-color: var(--panel-summary-border);
   background: var(--panel-summary-bg);
@@ -262,11 +252,6 @@ summary:focus-visible,
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--naya-bone);
-}
-
-.swap-direction-button:hover {
-  background: var(--accent);
-  color: #fff;
 }
 
 .clear-cache-button {
@@ -588,8 +573,7 @@ a:focus-visible {
 .hub-card,
 .about-page,
 .help-index,
-.help-topic,
-.global-job-notice {
+.help-index {
   border-radius: 10px;
   border-color: rgba(109, 140, 71, 0.16);
   box-shadow: 0 10px 26px rgba(91, 73, 42, 0.07);
@@ -622,7 +606,6 @@ select {
   background: linear-gradient(180deg, #d97a51 0, #ab5b39 100%);
 }
 
-.edhrec-panel,
 .summary-panel {
   border-left: 4px solid var(--naya-green);
 }
