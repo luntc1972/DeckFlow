@@ -74,6 +74,81 @@ public sealed class CutLabViewRenderTests
         Assert.Contains("data-cut-lab-lock-count", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ResultView_RendersLockedTunerRowWithBothStepperButtonsDisabled()
+    {
+        var model = new CutLabViewModel
+        {
+            ActiveTab = DeckPageTab.CutLab,
+            HasResult = true,
+            IsLegal = true,
+            Request = new CutLabRequest
+            {
+                SelectedCommander = "Commander",
+                Bracket = 3,
+                PlayExperience = "Focused",
+            },
+            StickyBar = new CutLabStickyBarView
+            {
+                HasStickyBar = true,
+                LockedCount = 2,
+                CurrentCount = 99,
+                RoundLabel = "Round 1",
+                CardsRemainingToCut = 1,
+                CutsAcceptedCount = 0,
+            },
+            Pool =
+            [
+                new CutLabPoolCard
+                {
+                    Name = "Commander",
+                    Quantity = 1,
+                    TypeLine = "Legendary Creature",
+                    IsCommander = true,
+                    IsLocked = true,
+                },
+                new CutLabPoolCard
+                {
+                    Name = "Relentless Rats",
+                    Quantity = 2,
+                    TypeLine = "Creature — Rat",
+                    IsLocked = true,
+                },
+            ],
+            RoleListByCardName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Commander"] = "Commander",
+                ["Relentless Rats"] = "Engines",
+            },
+            RoleKeysByCardName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Commander"] = "commander",
+                ["Relentless Rats"] = "engines",
+            },
+            WorkingListRows =
+            [
+                new CutLabTunableRowView
+                {
+                    Name = "Relentless Rats",
+                    RoleLabel = "Engines",
+                    CurrentQuantity = 2,
+                    IsLegalMultiple = true,
+                    LegalMax = 10,
+                    IsLocked = true,
+                },
+            ],
+        };
+
+        string html = await RenderAsync(model);
+        string tunerRowHtml = ExtractRowMarkup(html, "Relentless Rats");
+
+        Assert.Contains("data-cut-lab-tuner-row=\"Relentless Rats\"", tunerRowHtml, StringComparison.Ordinal);
+        Assert.Contains("title=\"Relentless Rats is locked - unlock it to adjust quantity\"", tunerRowHtml, StringComparison.Ordinal);
+        Assert.Contains("aria-label=\"Relentless Rats is locked - unlock it to adjust quantity\"", tunerRowHtml, StringComparison.Ordinal);
+        Assert.Equal(2, CountOccurrences(tunerRowHtml, "data-cut-lab-card=\"Relentless Rats\""));
+        Assert.Equal(2, CountOccurrences(tunerRowHtml, "title=\"Relentless Rats is locked - unlock it to adjust quantity\""));
+    }
+
     private static async Task<string> RenderAsync(CutLabViewModel model)
     {
         var services = new ServiceCollection();
@@ -130,6 +205,35 @@ public sealed class CutLabViewRenderTests
             WebRootPath = contentRoot,
             WebRootFileProvider = fileProvider,
         };
+    }
+
+    private static int CountOccurrences(string html, string value)
+    {
+        int count = 0;
+        int startIndex = 0;
+
+        while ((startIndex = html.IndexOf(value, startIndex, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            startIndex += value.Length;
+        }
+
+        return count;
+    }
+
+    private static string ExtractRowMarkup(string html, string cardName)
+    {
+        string marker = $"data-cut-lab-tuner-row=\"{cardName}\"";
+        int rowStart = html.IndexOf(marker, StringComparison.Ordinal);
+        Assert.True(rowStart >= 0, $"Could not find tuner row for '{cardName}'.");
+
+        rowStart = html.LastIndexOf("<tr", rowStart, StringComparison.Ordinal);
+        Assert.True(rowStart >= 0, $"Could not find opening <tr> for '{cardName}'.");
+
+        int rowEnd = html.IndexOf("</tr>", rowStart, StringComparison.Ordinal);
+        Assert.True(rowEnd >= 0, $"Could not find closing </tr> for '{cardName}'.");
+
+        return html.Substring(rowStart, rowEnd + "</tr>".Length - rowStart);
     }
 
     private sealed class StubTempDataProvider : ITempDataProvider

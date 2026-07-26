@@ -396,6 +396,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             {
                 bool isLegalMultiple = CutLabLegality.IsLegalMultiple(card.Name);
                 int legalMax = CutLabLegality.LegalMax(card.Name);
+                bool isLockedOrCommander = card.IsLocked || card.IsCommander;
                 bool isAddedBasic = CutLabBasicLands.Contains(card.Name)
                     && !originalPoolNames.Contains(CutLabCardNames.Normalize(card.Name));
 
@@ -404,9 +405,9 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
                     CardName = card.Name,
                     CurrentQuantity = card.Quantity,
                     LegalMax = legalMax,
-                    RemoveDisabled = card.Quantity == 0,
-                    AddDisabled = card.Quantity >= legalMax,
-                    IsLockedOrCommander = card.IsLocked || card.IsCommander,
+                    RemoveDisabled = card.Quantity == 0 || isLockedOrCommander,
+                    AddDisabled = card.Quantity >= legalMax || isLockedOrCommander,
+                    IsLockedOrCommander = isLockedOrCommander,
                     IsVisible = true,
                     RoleLabel = RoleLabelFor(card.Name, roleAssignmentsByCardName),
                     IsLegalMultiple = isLegalMultiple,

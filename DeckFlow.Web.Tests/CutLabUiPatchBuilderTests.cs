@@ -334,7 +334,7 @@ public sealed class CutLabUiPatchBuilderTests
                 Assert.Equal(viewRow.IsAddedBasic, row.IsAddedBasic);
                 Assert.True(row.IsLockedOrCommander);
                 Assert.True(row.AddDisabled);
-                Assert.False(row.RemoveDisabled);
+                Assert.True(row.RemoveDisabled);
             },
             row =>
             {
@@ -370,7 +370,7 @@ public sealed class CutLabUiPatchBuilderTests
                 Assert.Equal(viewRow.IsLegalMultiple, row.IsLegalMultiple);
                 Assert.True(row.IsLockedOrCommander);
                 Assert.True(row.AddDisabled);
-                Assert.False(row.RemoveDisabled);
+                Assert.True(row.RemoveDisabled);
             });
     }
 

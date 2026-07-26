@@ -810,6 +810,7 @@ public sealed record CutLabViewModel
                     CurrentQuantity = card.Quantity,
                     IsLegalMultiple = isLegalMultiple,
                     LegalMax = CutLabLegality.LegalMax(card.Name),
+                    IsLocked = card.IsLocked,
                     IsAddedBasic = isAddedBasic,
                 };
             })
@@ -1124,6 +1125,9 @@ public sealed record CutLabTunableRowView
 
     /// <summary>Legal upper bound for the row's quantity.</summary>
     public int LegalMax { get; init; }
+
+    /// <summary>True when the row represents a locked card that cannot be quantity-tuned.</summary>
+    public bool IsLocked { get; init; }
 
     /// <summary>True when this row was materialized from an added-basic adjustment.</summary>
     public bool IsAddedBasic { get; init; }

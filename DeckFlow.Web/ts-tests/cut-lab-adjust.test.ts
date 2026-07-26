@@ -489,6 +489,48 @@ describe('cut-lab adjust enhancement', () => {
     expect(document.querySelector('[data-cut-lab-sticky-round]')?.textContent).toBe('Round 1');
   });
 
+  it('renders locked stepper buttons as disabled with lock guidance after a patch update', async () => {
+    buildFixture();
+    const nextStateJson = buildStateJson(98);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        patch: buildPatch(nextStateJson, {
+          quantityTuners: [
+            {
+              cardName: 'Island',
+              currentQuantity: 98,
+              legalMax: 150,
+              removeDisabled: true,
+              addDisabled: true,
+              isLockedOrCommander: true,
+              isVisible: true,
+              roleLabel: 'Lands',
+              isLegalMultiple: true,
+              isAddedBasic: false,
+            },
+          ],
+        }),
+      }),
+    });
+
+    const button = document.querySelector<HTMLButtonElement>('tr[data-cut-lab-tuner-row="Island"] [data-cut-lab-delta="1"]');
+    const form = button?.closest('form');
+    form?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: button ?? undefined,
+    }));
+    await flushAdjustSubmit();
+
+    const rowButtons = document.querySelectorAll<HTMLButtonElement>('tr[data-cut-lab-tuner-row="Island"] [data-cut-lab-adjust]');
+    expect(rowButtons).toHaveLength(2);
+    expect(rowButtons[0]?.disabled).toBe(true);
+    expect(rowButtons[1]?.disabled).toBe(true);
+    expect(rowButtons[0]?.getAttribute('title')).toBe('Island is locked - unlock it to adjust quantity');
+    expect(rowButtons[1]?.getAttribute('aria-label')).toBe('Island is locked - unlock it to adjust quantity');
+  });
+
   it('surfaces the server error and preserves hidden state on a failed adjust', async () => {
     buildFixture();
     const originalState = stateJsonFromInputs();
