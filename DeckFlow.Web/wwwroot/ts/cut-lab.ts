@@ -2796,11 +2796,15 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     text: string,
     ariaLabel: string,
     disabled: boolean,
+    title: string | null = null,
   ): HTMLButtonElement => {
     const button = document.createElement('button');
     button.type = 'submit';
     button.className = 'cutlab-stepper-btn';
     button.setAttribute('aria-label', ariaLabel);
+    if (title) {
+      button.title = title;
+    }
     button.dataset.cutLabAdjust = '';
     button.dataset.cutLabCard = cardName;
     button.dataset.cutLabDelta = `${delta}`;
@@ -2831,13 +2835,17 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     form.appendChild(createAdjustHiddenInput('CardName', row.cardName));
     form.appendChild(createAdjustHiddenInput('Delta', `${delta}`));
     form.appendChild(createAdjustHiddenInput('IsAddedBasic', row.isAddedBasic ? 'true' : 'false'));
+    const adjustGuidance = row.isLockedOrCommander
+      ? `${row.cardName} is locked - unlock it to adjust quantity`
+      : null;
     form.appendChild(createAdjustSubmitButton(
       row.cardName,
       delta,
       row.isAddedBasic,
       delta < 0 ? '−' : '+',
-      `${delta < 0 ? 'Remove' : 'Add'} one ${row.cardName}`,
+      adjustGuidance ?? `${delta < 0 ? 'Remove' : 'Add'} one ${row.cardName}`,
       disabled,
+      adjustGuidance,
     ));
     return form;
   };

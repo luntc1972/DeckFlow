@@ -60,7 +60,7 @@
             }
         </form>
     }
-    async Task RenderAdjustForm(string cardName, int delta, bool isAddedBasic, string buttonText, string className, string ariaLabel, bool isDisabled)
+    async Task RenderAdjustForm(string cardName, int delta, bool isAddedBasic, string buttonText, string className, string ariaLabel, bool isDisabled, string? title = null)
     {
         <form method="post" action="@Url.Content("~/cut-lab/adjust")" data-cut-lab-adjust-form>
             @Html.AntiForgeryToken()
@@ -71,6 +71,7 @@
             <button type="submit"
                     class="@className"
                     aria-label="@ariaLabel"
+                    title="@title"
                     data-cut-lab-adjust
                     data-cut-lab-card="@cardName"
                     data-cut-lab-delta="@delta"
@@ -1326,8 +1327,11 @@
                                     continue;
                                 }
 
-                                var removeDisabled = row.CurrentQuantity == 0;
-                                var addDisabled = row.CurrentQuantity >= row.LegalMax;
+                                var removeDisabled = row.CurrentQuantity == 0 || row.IsLocked;
+                                var addDisabled = row.CurrentQuantity >= row.LegalMax || row.IsLocked;
+                                var adjustAriaLabel = row.IsLocked
+                                    ? $"{row.Name} is locked - unlock it to adjust quantity"
+                                    : null;
 
                                 <tr data-cut-lab-tuner-row="@row.Name"
                                     data-cut-lab-quantity="@row.CurrentQuantity"
@@ -1342,9 +1346,9 @@
                                     <td data-label="Role">@row.RoleLabel</td>
                                     <td data-label="Quantity">
                                         <div class="cutlab-stepper">
-                                            @{ await RenderAdjustForm(row.Name, -1, false, "−", "cutlab-stepper-btn", $"Remove one {row.Name}", removeDisabled); }
+                                            @{ await RenderAdjustForm(row.Name, -1, false, "−", "cutlab-stepper-btn", adjustAriaLabel ?? $"Remove one {row.Name}", removeDisabled, adjustAriaLabel); }
                                             <span class="cutlab-stepper__count tabular" data-cut-lab-quantity-value>@row.CurrentQuantity</span>
-                                            @{ await RenderAdjustForm(row.Name, 1, false, "+", "cutlab-stepper-btn", $"Add one {row.Name}", addDisabled); }
+                                            @{ await RenderAdjustForm(row.Name, 1, false, "+", "cutlab-stepper-btn", adjustAriaLabel ?? $"Add one {row.Name}", addDisabled, adjustAriaLabel); }
                                         </div>
                                     </td>
                                 </tr>

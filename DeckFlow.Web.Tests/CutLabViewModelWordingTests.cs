@@ -304,6 +304,7 @@ public sealed class CutLabViewModelWordingTests
         Assert.Equal(2, rats.CurrentQuantity);
         Assert.True(rats.IsLegalMultiple);
         Assert.Equal(CutLabLegality.LegalMax("Relentless Rats"), rats.LegalMax);
+        Assert.False(rats.IsLocked);
 
         Assert.DoesNotContain(model.WorkingListRows, row => row.Name == "Sol Ring");
         Assert.DoesNotContain(model.AddableBasics, name => string.Equals(name, "Island", StringComparison.OrdinalIgnoreCase));
@@ -311,6 +312,53 @@ public sealed class CutLabViewModelWordingTests
         Assert.Contains("Wastes", model.AddableBasics);
         string[] addableBasics = model.AddableBasics.ToArray();
         Assert.True(Array.IndexOf(addableBasics, "Plains") < Array.IndexOf(addableBasics, "Wastes"));
+    }
+
+    [Fact]
+    public void From_BuildsWorkingListRowsWithLockStateForLockedLegalMultiples()
+    {
+        var request = new CutLabRequest
+        {
+            PlayExperience = "Focused",
+        };
+        var result = new CutLabProcessResult
+        {
+            HasResult = true,
+            State = new CutLabState
+            {
+                Pool =
+                [
+                    new CutLabPoolCard
+                    {
+                        Name = "Commander",
+                        Quantity = 1,
+                        TypeLine = "Legendary Creature",
+                        IsCommander = true,
+                        IsLocked = true,
+                    },
+                    new CutLabPoolCard
+                    {
+                        Name = "Relentless Rats",
+                        Quantity = 2,
+                        TypeLine = "Creature — Rat",
+                        IsLocked = true,
+                    },
+                ],
+            },
+            RoleAssignmentsByCardName = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Commander"] = [],
+                ["Relentless Rats"] = ["engines"],
+            },
+        };
+
+        CutLabViewModel model = CutLabViewModel.From(request, result);
+
+        CutLabTunableRowView rats = Assert.Single(model.WorkingListRows, row => row.Name == "Relentless Rats");
+        Assert.Equal(2, rats.CurrentQuantity);
+        Assert.True(rats.IsLegalMultiple);
+        Assert.True(rats.LegalMax > rats.CurrentQuantity);
+        Assert.True(rats.IsLocked);
     }
 
     [Fact]
