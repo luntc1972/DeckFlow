@@ -34,6 +34,7 @@ public sealed partial class MoxfieldParser : IParser
         ParseableBlock? currentBlock = null;
         var blockPrecededByBlankLine = false;
         var pendingHeader = false;
+        var stoppingSectionActive = false;
         var lines = content.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
 
         for (var i = 0; i < lines.Length; i++)
@@ -55,12 +56,14 @@ public sealed partial class MoxfieldParser : IParser
 
                 blockPrecededByBlankLine = foundEntries;
                 pendingHeader = false;
+                stoppingSectionActive = false;
                 continue;
             }
 
             if (IsStoppingLine(line) && foundEntries)
             {
-                break;
+                stoppingSectionActive = true;
+                continue;
             }
 
             if (TryGetBoardHeader(line, out var headerBoard))
@@ -74,6 +77,7 @@ public sealed partial class MoxfieldParser : IParser
                 board = headerBoard;
                 commanderSectionActive = headerBoard == "commander";
                 pendingHeader = true;
+                stoppingSectionActive = false;
                 continue;
             }
 
@@ -96,8 +100,14 @@ public sealed partial class MoxfieldParser : IParser
                 entryBoard = "sideboard";
             }
 
-            if (!TryParseEntry(entryLine, entryBoard, allowImplicitQuantity: true, out var entry))
+            var hasExplicitQuantity = QuantityRegex().IsMatch(entryLine);
+            if (!TryParseEntry(entryLine, entryBoard, allowImplicitQuantity: !stoppingSectionActive, out var entry))
             {
+                if (stoppingSectionActive && !hasExplicitQuantity)
+                {
+                    continue;
+                }
+
                 if (foundEntries && IsNonDeckTextLine(line))
                 {
                     continue;
@@ -118,6 +128,7 @@ public sealed partial class MoxfieldParser : IParser
             foundEntries = true;
             blockPrecededByBlankLine = false;
             pendingHeader = false;
+            stoppingSectionActive = false;
         }
 
         if (entries.Count == 0)
