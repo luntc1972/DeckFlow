@@ -141,16 +141,6 @@ summary:focus-visible,
   color: var(--muted);
 }
 
-.live-search-panel {
-  border-color: var(--panel-live-border);
-  background: var(--panel-live-bg);
-}
-
-.edhrec-panel {
-  border-color: var(--panel-edhrec-border);
-  background: var(--panel-edhrec-bg);
-}
-
 .summary-panel {
   border-color: var(--panel-summary-border);
   background: var(--panel-summary-bg);
@@ -262,11 +252,6 @@ summary:focus-visible,
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--mardu-bone);
-}
-
-.swap-direction-button:hover {
-  background: var(--accent);
-  color: #fff;
 }
 
 .clear-cache-button {
@@ -594,8 +579,7 @@ a:focus-visible {
 .hub-card,
 .about-page,
 .help-index,
-.help-topic,
-.global-job-notice {
+.help-index {
   border-radius: 7px;
   border-color: rgba(78, 64, 63, 0.22);
   box-shadow: 0 10px 28px rgba(68, 50, 45, 0.09);
@@ -627,8 +611,4 @@ select {
 .run-button:hover,
 .copy-button:hover {
   background: linear-gradient(180deg, #ca5f47 0, #9a4332 100%);
-}
-
-.edhrec-panel {
-  border-left: 4px solid var(--mardu-obsidian);
 }

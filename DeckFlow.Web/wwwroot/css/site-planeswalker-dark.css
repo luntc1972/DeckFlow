@@ -143,16 +143,6 @@ summary:focus-visible,
   color: var(--muted);
 }
 
-.live-search-panel {
-  border-color: var(--panel-live-border);
-  background: var(--panel-live-bg);
-}
-
-.edhrec-panel {
-  border-color: var(--panel-edhrec-border);
-  background: var(--panel-edhrec-bg);
-}
-
 .summary-panel {
   border-color: var(--panel-summary-border);
   background: var(--panel-summary-bg);
@@ -266,11 +256,6 @@ summary:focus-visible,
   border: 1px solid var(--line);
   border-radius: 10px;
   background: #1e2436;
-}
-
-.swap-direction-button:hover {
-  background: var(--accent);
-  color: #fff;
 }
 
 .clear-cache-button {
@@ -588,8 +573,7 @@ a:focus-visible {
 .hub-card,
 .about-page,
 .help-index,
-.help-topic,
-.global-job-notice,
+.help-index,
 .busy-indicator__card {
   border-color: rgba(106, 170, 224, 0.14);
   box-shadow: 0 12px 30px rgba(8, 11, 18, 0.34);

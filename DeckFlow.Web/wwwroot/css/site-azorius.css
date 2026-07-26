@@ -90,9 +90,7 @@ a:focus-visible {
 .prompt-card-specific-field,
 .hub-card,
 .about-page,
-.help-index,
-.help-topic,
-.global-job-notice {
+.help-index {
   border-radius: 6px;
 }
 
@@ -103,9 +101,7 @@ a:focus-visible {
 .timing-summary,
 .hub-card,
 .about-page,
-.help-index,
-.help-topic,
-.global-job-notice {
+.help-index {
   border-color: rgba(20, 55, 100, 0.2);
   box-shadow: 0 10px 26px rgba(19, 35, 62, 0.05);
 }
@@ -122,9 +118,7 @@ button,
 .run-button,
 .copy-button,
 .clear-cache-button,
-.swap-direction-button,
-.back-to-top-button,
-.global-job-notice__close {
+.back-to-top-button {
   border-radius: 6px;
 }
 

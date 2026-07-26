@@ -138,16 +138,6 @@ summary:focus-visible,
   color: var(--muted);
 }
 
-.live-search-panel {
-  border-color: var(--panel-live-border);
-  background: var(--panel-live-bg);
-}
-
-.edhrec-panel {
-  border-color: var(--panel-edhrec-border);
-  background: var(--panel-edhrec-bg);
-}
-
 .summary-panel {
   border-color: var(--panel-summary-border);
   background: var(--panel-summary-bg);
@@ -259,11 +249,6 @@ summary:focus-visible,
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--theme-surface);
-}
-
-.swap-direction-button:hover {
-  background: var(--accent);
-  color: #fff;
 }
 
 .clear-cache-button {
@@ -590,19 +575,16 @@ a:focus-visible {
 .hub-card,
 .about-page,
 .help-index,
-.help-topic,
-.global-job-notice {
+.help-index {
   border-color: rgba(43, 108, 176, 0.14);
   box-shadow: 0 10px 28px rgba(36, 57, 92, 0.07);
 }
 
-.warning-banner,
-.edhrec-panel {
+.warning-banner {
   border-left: 4px solid var(--accent);
 }
 
-.info-banner,
-.live-search-panel {
+.info-banner {
   border-left: 4px solid var(--jeskai-blue);
 }
 

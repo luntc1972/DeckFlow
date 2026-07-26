@@ -177,22 +177,6 @@ summary:focus-visible,
   white-space: pre-wrap;
 }
 
-.inferred-panel {
-  border-color: var(--panel-inferred-border);
-  border-style: dashed;
-  background: var(--panel-inferred-bg);
-}
-
-.live-search-panel {
-  border-color: var(--panel-live-border);
-  background: var(--panel-live-bg);
-}
-
-.edhrec-panel {
-  border-color: var(--panel-edhrec-border);
-  background: var(--panel-edhrec-bg);
-}
-
 .retry-panel {
   border-color: var(--panel-retry-border);
   background: var(--panel-retry-bg);
@@ -201,11 +185,6 @@ summary:focus-visible,
 .summary-panel {
   border-color: var(--panel-summary-border);
   background: var(--panel-summary-bg);
-}
-
-.fallback-panel {
-  border-color: var(--panel-fallback-border);
-  background: var(--panel-fallback-bg);
 }
 
 .nested-panel {
@@ -239,8 +218,7 @@ summary:focus-visible,
 }
 
 .toolbar,
-.panel-heading,
-.form-actions {
+.panel-heading {
   display: flex;
   justify-content: space-between;
   align-items: end;
@@ -416,18 +394,6 @@ summary:focus-visible,
   padding: 0.85rem;
 }
 
-.prompt-global-note {
-  transition: opacity 0.2s ease;
-}
-
-body:has(.prompt-packets-form[data-prompt-ui-mode="expert"]) .prompt-global-note {
-  display: none;
-}
-
-body[data-prompt-ui-mode="expert"] .prompt-global-note {
-  display: none;
-}
-
 .prompt-step-actions {
   align-items: center;
   padding-top: 0.5rem;
@@ -565,20 +531,6 @@ body[data-prompt-ui-mode="expert"] .prompt-global-note {
   display: flex;
   gap: 0.5rem;
   align-items: flex-end;
-}
-
-.swap-direction-button {
-  border: 1px solid var(--accent);
-  border-radius: 8px;
-  padding: 0.6rem 0.9rem;
-  cursor: pointer;
-  color: var(--accent);
-  background: var(--panel);
-}
-
-.swap-direction-button:hover {
-  background: var(--accent);
-  color: #fff;
 }
 
 .run-button.disabled,
@@ -792,10 +744,6 @@ body[data-prompt-ui-mode="expert"] .prompt-global-note {
 .tool-nav__link.is-active {
   color: var(--accent);
   font-weight: 600;
-}
-
-.tab-panel {
-  display: block;
 }
 
 .field-grid,
@@ -1108,7 +1056,6 @@ details summary {
 
   .toolbar,
   .panel-heading,
-  .form-actions,
   .conflict-actions {
     align-items: stretch;
     flex-direction: column;

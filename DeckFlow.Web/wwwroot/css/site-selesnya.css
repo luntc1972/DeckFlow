@@ -68,8 +68,7 @@ a:focus-visible {
 .hub-card,
 .about-page,
 .help-index,
-.help-topic,
-.global-job-notice {
+.help-index {
   border-color: rgba(58, 122, 82, 0.14);
   border-radius: 12px;
   box-shadow: 0 10px 26px rgba(39, 61, 42, 0.06);

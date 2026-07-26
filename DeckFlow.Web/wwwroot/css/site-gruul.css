@@ -62,8 +62,7 @@ body {
 .hub-card,
 .about-page,
 .help-index,
-.help-topic,
-.global-job-notice {
+.help-index {
   border-color: rgba(85, 123, 50, 0.20);
   box-shadow: 0 10px 24px rgba(45, 62, 28, 0.08);
 }

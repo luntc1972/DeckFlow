@@ -90,8 +90,6 @@ a:focus-visible {
 .hub-card,
 .about-page,
 .help-index,
-.help-topic,
-.global-job-notice,
 .busy-indicator__card {
   border-color: rgba(239, 106, 116, 0.16);
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
@@ -159,8 +157,7 @@ input::placeholder {
 .tool-nav__trigger,
 .prompt-step-tab,
 .prompt-question-bucket__toggle,
-.clear-cache-button,
-.swap-direction-button {
+.clear-cache-button {
   border-color: #613840;
   background: #241417;
   color: var(--ink);
@@ -192,8 +189,7 @@ input::placeholder {
   background: linear-gradient(180deg, #ea5a65 0, #c33545 100%);
 }
 
-.clear-cache-button:hover,
-.swap-direction-button:hover {
+.clear-cache-button:hover {
   border-color: var(--accent);
   background: rgba(209, 59, 71, 0.14);
   color: #ffd6d9;
