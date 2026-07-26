@@ -30,7 +30,11 @@ interface CutLabUiPatch {
   cardTextByCardName?: Record<string, {
     typeLine?: string;
     manaCost?: string;
+    setCode?: string;
+    collectorNumber?: string;
     oracleText?: string;
+    power?: string;
+    toughness?: string;
     cmc?: number;
     castPercent?: number;
   }>;
@@ -734,6 +738,38 @@ describe('cut-lab proposal enhancement', () => {
     expect(document.getElementById('cutlab-card-modal-title')?.textContent).toBe('Sol Ring');
     expect(castability?.textContent).toBe('CMC 1 · Cast by turn 1: 99% at your current pool size');
     expect(document.querySelector('[data-cutlab-modal-lock]')).toBeNull();
+  });
+
+  it('preserves cached popup card details when an ajax patch only updates castability fields', async () => {
+    buildDecisionFixture();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ patch: buildPatch({
+        cardTextByCardName: {
+          'Sol Ring': {
+            cmc: 4,
+            castPercent: 92.1,
+          },
+        },
+      }) }),
+    });
+
+    const acceptButton = document.querySelector<HTMLButtonElement>('.cutlab-proposal [data-cut-lab-decision="accept"]');
+    const acceptForm = acceptButton?.closest('form');
+    acceptForm?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: acceptButton ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    document.querySelector<HTMLButtonElement>('.cutlab-cuts-made__row [data-cutlab-card-open="Sol Ring"]')?.click();
+
+    expect(showModalCalls).toBe(1);
+    expect(document.querySelector<HTMLElement>('[data-cutlab-modal-meta]')?.textContent).toBe('Artifact · {1}');
+    expect(document.querySelector<HTMLElement>('[data-cutlab-modal-oracle]')?.textContent).toContain('{T}: Add {C}{C}.');
+    expect(document.querySelector<HTMLElement>('[data-cutlab-modal-castability]')?.textContent).toBe('CMC 4 · Cast by turn 4: 92% at your current pool size');
+    expect(document.querySelector<HTMLElement>('[data-cutlab-modal-castability]')?.hidden).toBe(false);
   });
 
   it('keeps the land disclosure collapsed by default and refreshes its text from the patch', async () => {

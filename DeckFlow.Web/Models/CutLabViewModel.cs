@@ -1,6 +1,7 @@
 using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services.CutLab;
+using System.Text.Json.Serialization;
 
 namespace DeckFlow.Web.Models;
 
@@ -8,30 +9,39 @@ namespace DeckFlow.Web.Models;
 public sealed record CutLabCardTextView
 {
     /// <summary>Resolved card type line.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? TypeLine { get; init; }
 
     /// <summary>Resolved card mana cost.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ManaCost { get; init; }
 
     /// <summary>Resolved printing set code.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SetCode { get; init; }
 
     /// <summary>Resolved printing collector number.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? CollectorNumber { get; init; }
 
     /// <summary>Resolved card oracle text.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? OracleText { get; init; }
 
     /// <summary>Resolved card power.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Power { get; init; }
 
     /// <summary>Resolved card toughness.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Toughness { get; init; }
 
     /// <summary>Rounded mana value carried from the current working-pool castability report.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? Cmc { get; init; }
 
     /// <summary>On-curve castability percentage carried from the current working-pool castability report.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public double? CastPercent { get; init; }
 }
 
