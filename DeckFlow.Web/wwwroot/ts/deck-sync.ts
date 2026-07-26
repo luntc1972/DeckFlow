@@ -511,6 +511,7 @@ const registerPromptPrintHandler = (): void => {
 
 const formStateStoragePrefix = 'decksync-form-state-';
 const antiForgeryFieldName = '__RequestVerificationToken';
+const nonPersistedFieldNames = new Set([antiForgeryFieldName, 'HistoryJson']);
 // Phase 10 (D-15 race fix): track the auto-clear timer per form so a
 // rapid second upload cancels the first upload's pending clear-timeout
 // instead of letting it fire later and clobber the second upload's
@@ -536,7 +537,7 @@ const serializePersistedFormFields = (form: HTMLFormElement): Record<string, str
       return;
     }
 
-    if (key === antiForgeryFieldName) {
+    if (nonPersistedFieldNames.has(key)) {
       return;
     }
 
@@ -790,7 +791,7 @@ const restoreFormFields = (form: HTMLFormElement, data: Record<string, string[]>
   restoreCardPickerFields(form, data);
 
   form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[name]').forEach(element => {
-    if (element.name === antiForgeryFieldName) {
+    if (nonPersistedFieldNames.has(element.name)) {
       return;
     }
 
