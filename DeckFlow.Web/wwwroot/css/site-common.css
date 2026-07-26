@@ -4429,6 +4429,12 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
   font-size: var(--fs-base);
 }
 
+.cutlab-role-floors-context {
+  margin: 0.75rem 0 0;
+  color: var(--muted, inherit);
+  font-size: var(--fs-base);
+}
+
 .cutlab-subtype-search {
   display: grid;
   gap: 0.5rem;
