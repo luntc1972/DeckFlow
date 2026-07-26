@@ -178,7 +178,8 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
             }
 
             var count = load.Entries
-                .Where(entry => !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase))
+                .Where(entry => string.Equals(entry.Board, "mainboard", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
                 .Sum(entry => entry.Quantity);
             if (count != 100)
             {
