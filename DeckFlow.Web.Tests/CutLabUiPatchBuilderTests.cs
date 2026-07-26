@@ -6,6 +6,8 @@ using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CutLab;
 using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
@@ -488,6 +490,30 @@ public sealed class CutLabUiPatchBuilderTests
     }
 
     [Fact]
+    public void BuildAdjustPatch_SerializesPopupCardTextPatchWithoutExplicitNullRichFields()
+    {
+        CutLabCardTextView view = new()
+        {
+            Cmc = 4,
+            CastPercent = 92.1,
+        };
+
+        string json = JsonSerializer.Serialize(view, CreateMvcJsonSerializerOptions());
+        using JsonDocument document = JsonDocument.Parse(json);
+        JsonElement root = document.RootElement;
+
+        Assert.False(root.TryGetProperty("typeLine", out _));
+        Assert.False(root.TryGetProperty("manaCost", out _));
+        Assert.False(root.TryGetProperty("setCode", out _));
+        Assert.False(root.TryGetProperty("collectorNumber", out _));
+        Assert.False(root.TryGetProperty("oracleText", out _));
+        Assert.False(root.TryGetProperty("power", out _));
+        Assert.False(root.TryGetProperty("toughness", out _));
+        Assert.Equal(4, root.GetProperty("cmc").GetInt32());
+        Assert.Equal(92.1, root.GetProperty("castPercent").GetDouble());
+    }
+
+    [Fact]
     public void BuildAdjustPatch_LeavesComboBadgeMapEmpty()
     {
         CutLabState state = CreateState(
@@ -679,6 +705,13 @@ public sealed class CutLabUiPatchBuilderTests
         }
 
         return floors;
+    }
+
+    private static JsonSerializerOptions CreateMvcJsonSerializerOptions()
+    {
+        JsonSerializerOptions options = new(JsonSerializerDefaults.Web);
+        options.Converters.Add(new JsonStringEnumConverter());
+        return options;
     }
 
     private static CutLabState CreateState(
