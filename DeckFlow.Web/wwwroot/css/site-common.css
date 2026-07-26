@@ -5234,6 +5234,8 @@ tr[data-cut-lab-tuner-row]:has(.cutlab-tuner-badge--added) {
   }
 
   .cutlab-sticky-bar--pool {
+    position: static;
+    top: auto;
     gap: 0.2rem;
   }
 
