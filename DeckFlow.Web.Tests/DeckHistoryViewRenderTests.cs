@@ -147,6 +147,7 @@ public sealed class DeckHistoryViewRenderTests
         string formHtml = html.Substring(formStart, formEnd - formStart);
 
         Assert.Contains("data-cache-key=\"deck-history\"", formHtml, StringComparison.Ordinal);
+        Assert.Contains("data-clear-cache", formHtml, StringComparison.Ordinal);
         Assert.Contains("name=\"DeckInputSource\"", formHtml, StringComparison.Ordinal);
         Assert.Contains("name=\"DeckUrl\"", formHtml, StringComparison.Ordinal);
         Assert.Contains("name=\"DeckText\"", formHtml, StringComparison.Ordinal);
