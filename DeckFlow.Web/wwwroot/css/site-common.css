@@ -194,8 +194,8 @@ summary:focus-visible,
 }
 
 .content-shell {
-  max-width: none;
-  margin: 0;
+  max-width: 1120px;
+  margin: 0 auto;
 }
 
 .theme-picker {
@@ -674,7 +674,7 @@ summary:focus-visible,
 /* Separate the Analysis questions picker from the candidate-references panel
    directly above it; the picker section itself only carries a bottom margin. */
 .prompt-question-picker {
-  margin-top: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 @media (max-width: 600px) {
@@ -758,11 +758,15 @@ summary:focus-visible,
 
 .prompt-page-toolbar {
   align-items: stretch;
-  justify-content: flex-end;
 }
 
 .prompt-step-footer {
-  flex-wrap: wrap;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
 }
 
 .prompt-layout-picker {
@@ -5280,4 +5284,606 @@ tr[data-cut-lab-tuner-row]:has(.cutlab-tuner-badge--added) {
   .cutlab-restore-btn {
     margin-left: 0;
   }
+}
+/* Hoisted from theme forks (2026-07-26): shared, non-color layout rules */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 15px;
+}
+
+.hero {
+  margin-bottom: 1rem;
+}
+
+.lede {
+  margin: 0;
+  color: var(--muted);
+}
+
+.warning-banner,
+.error-banner {
+  padding: 0.9rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.timing-summary summary {
+  cursor: pointer;
+  user-select: none;
+  font-weight: 500;
+}
+
+.timing-summary pre {
+  margin: 0.5rem 0 0;
+  font-family: monospace;
+  white-space: pre-wrap;
+}
+
+.inferred-panel {
+  border-color: var(--panel-inferred-border);
+  border-style: dashed;
+  background: var(--panel-inferred-bg);
+}
+
+.retry-panel {
+  border-color: var(--panel-retry-border);
+  background: var(--panel-retry-bg);
+}
+
+.fallback-panel {
+  border-color: var(--panel-fallback-border);
+  background: var(--panel-fallback-bg);
+}
+
+.nested-panel {
+  margin-top: 1rem;
+}
+
+.deck-form,
+.result-panel {
+  padding: 1rem;
+}
+
+.toolbar,
+.panel-heading,
+.form-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 1rem;
+}
+
+.toolbar {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.prompt-layout-picker__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  color: var(--muted);
+}
+
+.prompt-layout-picker__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.prompt-step-tab.is-active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast, #fff);
+  font-weight: 600;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.prompt-workflow-setup {
+  margin-bottom: 1rem;
+}
+
+.prompt-step-panel {
+  display: block;
+}
+
+.prompt-step-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+  margin-bottom: 1rem;
+}
+
+.prompt-step-heading p:last-child {
+  margin: 0;
+}
+
+.prompt-instructions strong {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.prompt-instructions ol {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.prompt-packets-form[data-prompt-ui-mode="focused"] .prompt-step-eyebrow,
+.prompt-packets-form[data-prompt-ui-mode="focused"] .prompt-step-badge,
+.prompt-packets-form[data-prompt-ui-mode="focused"] .prompt-step-note,
+.prompt-packets-form[data-prompt-ui-mode="focused"] .prompt-context-note,
+.prompt-packets-form[data-prompt-ui-mode="focused"] .prompt-question-picker__header p {
+  display: none;
+}
+
+.prompt-packets-form[data-prompt-ui-mode="focused"] .prompt-instructions {
+  padding: 0.6rem 0.7rem;
+}
+
+.prompt-packets-form[data-prompt-ui-mode="focused"] .prompt-step-heading {
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.prompt-packets-form[data-prompt-ui-mode="expert"] .prompt-step-eyebrow,
+.prompt-packets-form[data-prompt-ui-mode="expert"] .prompt-step-badge,
+.prompt-packets-form[data-prompt-ui-mode="expert"] .prompt-step-note,
+.prompt-packets-form[data-prompt-ui-mode="expert"] .prompt-context-note,
+.prompt-packets-form[data-prompt-ui-mode="expert"] .prompt-helper-panel,
+.prompt-packets-form[data-prompt-ui-mode="expert"] .prompt-question-picker__header p,
+.prompt-packets-form[data-prompt-ui-mode="expert"] .sync-column__hint,
+.prompt-packets-form[data-prompt-ui-mode="expert"] details.result-panel.nested-panel,
+.prompt-packets-form[data-prompt-ui-mode="expert"] .prompt-instructions {
+  display: none;
+}
+
+.prompt-packets-form[data-prompt-ui-mode="expert"] .prompt-step-heading {
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.prompt-packets-form[data-prompt-ui-mode="expert"] .result-panel {
+  padding: 0.85rem;
+}
+
+.prompt-global-note {
+  transition: opacity 0.2s ease;
+}
+
+body:has(.prompt-packets-form[data-prompt-ui-mode="expert"]) .prompt-global-note {
+  display: none;
+}
+
+body[data-prompt-ui-mode="expert"] .prompt-global-note {
+  display: none;
+}
+
+.prompt-step-actions {
+  align-items: center;
+  padding-top: 0.5rem;
+}
+
+.prompt-step-note {
+  color: var(--muted);
+  max-width: 44rem;
+}
+
+.prompt-context-note p {
+  margin: 0 0 0.75rem;
+}
+
+.prompt-context-note ul {
+  margin: 0 0 0.75rem 1.2rem;
+  padding: 0;
+}
+
+.prompt-context-note li + li {
+  margin-top: 0.4rem;
+}
+
+.prompt-question-picker__header h3 {
+  margin: 0 0 0.35rem;
+}
+
+.prompt-question-picker__header p {
+  margin: 0 0 1rem;
+  color: var(--muted);
+}
+
+.prompt-question-buckets {
+  display: grid;
+  gap: 1rem;
+}
+
+.prompt-question-bucket__label,
+.prompt-question-option {
+  display: flex;
+  align-items: start;
+  gap: 0.6rem;
+}
+
+.prompt-question-bucket__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.prompt-question-bucket__label {
+  font-weight: 600;
+  margin-bottom: 0;
+}
+
+.prompt-question-bucket__toggle {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-size: var(--fs-base);
+  color: var(--ink);
+  padding: 0.2rem 0.45rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.prompt-question-bucket__toggle[aria-expanded="false"]::after {
+  content: '▶';
+}
+
+.prompt-question-bucket__toggle[aria-expanded="true"]::after {
+  content: '▼';
+}
+
+.prompt-question-bucket__questions {
+  margin-top: 0.8rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.prompt-question-bucket__questions.hidden {
+  display: none;
+}
+
+.prompt-question-bucket input[type="checkbox"],
+.prompt-question-option input[type="checkbox"] {
+  width: auto;
+  margin-top: 0.1rem;
+}
+
+.prompt-question-option--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.prompt-question-option--disabled input[type="checkbox"] {
+  pointer-events: none;
+}
+
+.toolbar button {
+  align-self: flex-end;
+}
+
+.direction-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+}
+
+.swap-direction-button {
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  cursor: pointer;
+  color: var(--accent);
+  background: var(--panel);
+}
+
+.run-button.disabled,
+.clear-cache-button.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.stack {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.busy-indicator.hidden {
+  display: none;
+}
+
+.back-to-top-button.is-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.back-to-top-icon {
+  display: block;
+  overflow: visible;
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.tool-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.tool-nav__group {
+  position: relative;
+}
+
+.tool-nav__trigger::after {
+  content: '▾';
+  font-size: 0.75em;
+  opacity: 0.6;
+}
+
+.tool-nav__group.is-active .tool-nav__trigger {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--panel);
+}
+
+.tool-nav__group.is-open .tool-nav__trigger {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-color: transparent;
+  background: var(--panel);
+  z-index: 101;
+  position: relative;
+}
+
+.tool-nav__dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-top: none;
+  border-radius: 0 8px 8px 8px;
+  z-index: 100;
+  padding: 0.25rem 0;
+}
+
+.tool-nav__group.is-open .tool-nav__dropdown {
+  display: block;
+}
+
+.tool-nav__link.is-active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.tab-panel {
+  display: block;
+}
+
+.field-grid,
+.url-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.url-grid {
+  margin-bottom: 1rem;
+}
+
+.field,
+.mode-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.flex-grow {
+  flex: 1 1 auto;
+}
+
+.card-lookup-editor-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.card-lookup-editor-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.card-lookup-line-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.card-lookup-line-row {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.card-lookup-line-row__quantity {
+  width: 100%;
+}
+
+.card-lookup-line-row__name {
+  width: 100%;
+}
+
+.sync-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.sync-column__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.sync-column__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sync-column__input-field small {
+  display: block;
+  margin-top: 0.35rem;
+}
+
+.field span,
+.mode-picker span,
+.panel-heading p,
+.warning-banner,
+summary {
+  color: var(--muted);
+}
+
+textarea,
+input,
+select,
+button {
+  font: inherit;
+}
+
+.field textarea {
+  min-height: 18rem;
+  resize: vertical;
+}
+
+.result-panel {
+  /* Contain wide children so long unbroken strings never push the panel past the viewport. */
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.conflict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.conflicts-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+}
+
+.conflicts-table th,
+.conflicts-table td {
+  padding: 0.7rem 0.5rem;
+  border-top: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.choice-cell label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-right: 0.8rem;
+}
+
+details summary {
+  cursor: pointer;
+  margin-bottom: 0.75rem;
+}
+
+@keyframes busy-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 900px) {
+
+  .field-grid,
+  .url-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card-lookup-editor-note,
+  .card-lookup-line-row {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .prompt-step-heading {
+    flex-direction: column;
+  }
+
+  .prompt-step-badge {
+    white-space: normal;
+  }
+
+  .toolbar,
+  .panel-heading,
+  .form-actions,
+  .conflict-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+/* Mobile wrap + desktop-only hiders (appended for DeckFlow v1). */
+textarea,
+pre {
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+
+@media (max-width: 600px) {
+  .desktop-only {
+    display: none !important;
+  }
+
+  .prompt-step-nav {
+    gap: 0.4rem;
+  }
+}
+
+.mechanic-summary-panel pre {
+  min-height: auto;
+  padding: 0.5rem 0;
+}
+
+/* Workflow step tabs: check prefix when complete. */
+.prompt-step-tab.is-complete::before {
+  content: "\2713 ";
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.cache-pill__reset:hover,
+.cache-pill__reset:focus-visible {
+  color: var(--ink);
 }
