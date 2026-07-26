@@ -511,7 +511,19 @@ const registerPromptPrintHandler = (): void => {
 
 const formStateStoragePrefix = 'decksync-form-state-';
 const antiForgeryFieldName = '__RequestVerificationToken';
-const nonPersistedFieldNames = new Set([antiForgeryFieldName, 'HistoryJson']);
+// Why: these field names are server-computed authoritative state, not
+// recoverable user input. The cache captures form state on pagehide --
+// before a POST's response is rendered -- so restoring them unconditionally
+// silently reverts a freshly-rendered response to a stale pre-submit
+// snapshot. Same bug class already fixed for HistoryJson on Deck History;
+// see .planning/debug/resolved/deck-history-page-bugs.md.
+const nonPersistedFieldNames = new Set([
+  antiForgeryFieldName,
+  'HistoryJson',
+  'WorkflowStep',
+  'FetchedEntriesJson',
+  'MetaGapPromptText',
+]);
 // Phase 10 (D-15 race fix): track the auto-clear timer per form so a
 // rapid second upload cancels the first upload's pending clear-timeout
 // instead of letting it fire later and clobber the second upload's
