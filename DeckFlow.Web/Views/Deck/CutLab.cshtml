@@ -1200,6 +1200,24 @@
                 </details>
             }
 
+            @if (Model.Proposal.LockedOvershootAdvisory is { } advisory)
+            {
+                <div class="warning-banner cutlab-locked-overshoot-advisory" data-cut-lab-locked-overshoot-advisory>
+                    <p>Locked cards alone already put you @advisory.CardsOverTarget cards over the 100-card target. If you need to unlock something, start with these:</p>
+                    @foreach (var group in advisory.Groups)
+                    {
+                        <div class="cutlab-finding cutlab-proposal__floor-warning">
+                            <p class="cutlab-finding__heading">@group.RoleLabel</p>
+                            <p class="cutlab-finding__lead">@string.Join(", ", group.CardNames)</p>
+                        </div>
+                    }
+                    @if (advisory.HiddenCount > 0)
+                    {
+                        <p class="prompt-size-note">+@advisory.HiddenCount more locked cards ranked below these.</p>
+                    }
+                </div>
+            }
+
             @if (Model.Proposal.HasProposal)
             {
                 <div class="cutlab-round-banner">
@@ -1278,25 +1296,7 @@
             {
                 <div class="cutlab-proposal">
                     <p class="cutlab-proposal__heading">Nothing to cut</p>
-                    @if (Model.Proposal.LockedOvershootAdvisory is { } advisory)
-                    {
-                        <p>You're @advisory.CardsOverTarget cards over target, and all remaining cards are locked. These locked cards look most cuttable as your pool stands now — unlock and cut them manually:</p>
-                        @foreach (var group in advisory.Groups)
-                        {
-                            <div class="cutlab-finding cutlab-proposal__floor-warning">
-                                <p class="cutlab-finding__heading">@group.RoleLabel</p>
-                                <p class="cutlab-finding__lead">@string.Join(", ", group.CardNames)</p>
-                            </div>
-                        }
-                        @if (advisory.HiddenCount > 0)
-                        {
-                            <p class="prompt-size-note">+@advisory.HiddenCount more locked cards ranked below these.</p>
-                        }
-                    }
-                    else
-                    {
-                        <p>Every remaining card is either locked or your working list is already at 100 cards. Review your locks and packages above, or adjust a role floor if you want to reconsider.</p>
-                    }
+                    <p>Every remaining card is either locked or your working list is already at 100 cards. Review your locks and packages above, or adjust a role floor if you want to reconsider.</p>
                 </div>
             }
 

@@ -68,6 +68,8 @@ public sealed record CutLabLockedOvershootAdvisory(
 /// <summary>Builds Cut Lab's fixed-order cut proposal sequence from the derived working list.</summary>
 public static class CutLabCutRoundEngine
 {
+    private const int TargetDeckSize = 100;
+
     /// <summary>Stable round key for obvious-cut proposals.</summary>
     public const string Round1Key = "round-1";
 
@@ -275,9 +277,7 @@ public static class CutLabCutRoundEngine
             .Concat(deferredPass)
             .Concat(rejectedPass)
             .ToArray();
-        CutLabLockedOvershootAdvisory? lockedOvershootAdvisory = queue.Count == 0 && cardsRemainingToTarget > 0
-            ? BuildLockedOvershootAdvisory(workingList, cardsRemainingToTarget)
-            : null;
+        CutLabLockedOvershootAdvisory? lockedOvershootAdvisory = BuildLockedOvershootAdvisory(workingList);
 
         return new CutLabRoundPlan
         {
@@ -341,7 +341,7 @@ public static class CutLabCutRoundEngine
             BuildInputs(workingList, context.AnalyzedCards),
             findings,
             decisions,
-            workingList.Sum(card => card.Quantity) - 100,
+            workingList.Sum(card => card.Quantity) - TargetDeckSize,
             round3DeltaMagnitudes);
         return (findings, roundPlan);
     }
@@ -397,9 +397,16 @@ public static class CutLabCutRoundEngine
             : double.PositiveInfinity;
 
     private static CutLabLockedOvershootAdvisory? BuildLockedOvershootAdvisory(
-        IReadOnlyList<CutLabRoundInputCard> workingList,
-        int cardsRemainingToTarget)
+        IReadOnlyList<CutLabRoundInputCard> workingList)
     {
+        int lockedCardCount = workingList
+            .Where(card => card.IsLocked)
+            .Sum(card => card.Quantity);
+        if (lockedCardCount <= TargetDeckSize)
+        {
+            return null;
+        }
+
         IReadOnlyList<CutLabRoundInputCard> lockedCards = workingList
             .Where(card => card.IsLocked && !card.IsCommander)
             .ToArray();
@@ -422,7 +429,7 @@ public static class CutLabCutRoundEngine
             .Select(group => new CutLabLockedOvershootGroup(group.Key, group.Select(entry => entry.Name).ToArray()))
             .ToArray();
 
-        return new CutLabLockedOvershootAdvisory(cardsRemainingToTarget, Math.Max(rankedCards.Count - visibleCards.Count, 0), groups);
+        return new CutLabLockedOvershootAdvisory(lockedCardCount - TargetDeckSize, Math.Max(rankedCards.Count - visibleCards.Count, 0), groups);
     }
 
     private static string AdvisoryRoleFor(IReadOnlyList<string> roles)

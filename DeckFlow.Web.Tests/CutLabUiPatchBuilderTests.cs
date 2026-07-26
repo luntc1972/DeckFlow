@@ -254,6 +254,34 @@ public sealed class CutLabUiPatchBuilderTests
     }
 
     [Fact]
+    public async Task BuildAsync_ReturnsLockedOvershootAdvisoryAlongsideNextProposal()
+    {
+        CutLabState state = CreateState(
+            pool:
+            [
+                Card("Commander", quantity: 1, isCommander: true, isLocked: true, typeLine: "Legendary Creature"),
+                Card("Locked Stack", quantity: 105, isLocked: true, typeLine: "Artifact"),
+                Card("Immediate Proposal", quantity: 1, typeLine: "Creature"),
+                Card("Later Proposal", quantity: 1, typeLine: "Sorcery"),
+            ]);
+        FakeAnalysisContextBuilder contextBuilder = new(workingList => CreateAnalysisContext(workingList));
+        CutLabUiPatchBuilder builder = new(contextBuilder, new FakeSimulationService());
+
+        CutLabUiPatchDto patch = await builder.BuildAsync(
+            state,
+            state.Intent.PlayExperience,
+            ["Commander"],
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+
+        Assert.False(patch.NextProposal.IsTerminal);
+        Assert.Equal("Immediate Proposal", patch.NextProposal.CardName);
+        Assert.NotNull(patch.LockedOvershootAdvisory);
+        // Why: TargetDeckSize (100) counts the commander as one of the 100 slots, so a locked
+        // commander plus 105 other locked cards is 106 locked total, 6 over target - not 5.
+        Assert.Equal(6, patch.LockedOvershootAdvisory!.CardsOverTarget);
+    }
+
+    [Fact]
     public async Task BuildAsync_MatchesCutLabViewModelForNoJsParityFields()
     {
         CutLabState state = CreateState(

@@ -313,7 +313,7 @@ public sealed class CutLabCutRoundEngineTests
             Card("Payoff Creature", 1, isLocked: true, roles: ["payoffs"], typeLine: "Creature"),
             Card("Wincon Sorcery", 1, isLocked: true, roles: ["wincons"], typeLine: "Sorcery"),
             Card("Wincon Artifact", 1, isLocked: true, roles: ["wincons"], typeLine: "Artifact"),
-            Card("Ramp Land", 1, isLocked: true, isLand: true, roles: ["lands"]),
+            Card("Ramp Land", 1, quantity: 99, isLocked: true, isLand: true, roles: ["lands"]),
         ];
 
         CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
@@ -345,6 +345,29 @@ public sealed class CutLabCutRoundEngineTests
                 Assert.Equal("lands", group.RoleKey);
                 Assert.Equal(["Ramp Land"], group.CardNames);
             });
+    }
+
+    [Fact]
+    public void BuildQueue_LockedOvershootAdvisoryAppearsBeforeQueueIsExhausted()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Locked Stack", 1, quantity: 105, isLocked: true, roles: ["payoffs"], typeLine: "Artifact"),
+            Card("Immediate Proposal", 1, quantity: 1, typeLine: "Creature"),
+            Card("Later Proposal", 2, quantity: 1, typeLine: "Sorcery"),
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(),
+            [],
+            cardsToCutTarget: 7);
+
+        Assert.NotEmpty(plan.Queue);
+        Assert.NotNull(plan.NextProposal);
+        Assert.Equal("Immediate Proposal", plan.NextProposal!.CardName);
+        Assert.NotNull(plan.LockedOvershootAdvisory);
+        Assert.Equal(5, plan.LockedOvershootAdvisory!.CardsOverTarget);
     }
 
     [Fact]
