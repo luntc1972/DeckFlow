@@ -14,10 +14,10 @@ This is a small, two-phase milestone. Phase 2 is explicitly conditional on Phase
 
 ### Phase 1: Role-Floor Divergence Research
 **Goal**: We know, with a defined and applied statistical bar, whether any of the five Cut Lab role floors (interaction, protection, engines, payoffs, win conditions) diverge meaningfully by commander — and that answer is backed by the real production classifiers, not the throwaway Python reimplementation from the prior ad hoc session.
-**Depends on**: Nothing (first phase; extends the already-shipped Phase 102 bracket+plan role-floor work read-only)
+**Depends on**: Nothing (first phase; extends the already-shipped Phase 102 bracket+plan role-floor work, which it does not modify)
 **Requirements**: RFLR-01, RFLR-02, RFLR-03, RFLR-04
 **Success Criteria** (what must be TRUE):
-  1. A reproducible research harness (e.g. a throwaway `DeckFlow.CLI` command runner or standalone script under `DeckFlow.Core`/`scripts/`) calls the real `DeckStatClassifier` and `PlanRoleClassifier` types from `DeckFlow.Core`/`DeckFlow.Web` directly against the Postgres corpus (`CategoryKnowledgeRepository`/`deck_queue`/`card_deck_totals`) — no reimplemented classification logic — and this is stated and verifiable by inspection of the harness code.
+  1. A reproducible research harness (a throwaway `DeckFlow.CLI` command runner) calls the real `DeckStatClassifier`/`PlanRoleClassifier`/`CutLabRoleAssigner` types from `DeckFlow.Core`/`DeckFlow.Web` directly, classifying oracle-text-only (no Archidekt category tags, avoiding tag-circularity), against decks reconstructed from the Postgres corpus via `CategoryKnowledgeRepository.GetCategoryDeckMembershipForCommanderAsync` (public passthrough to `CardCategoryRepository`'s implementation; `card_category_observations` joined through `sources`/`deck_queue`) — no reimplemented classification logic — and this is stated and verifiable by inspection of the harness code.
   2. Per-commander role classification is produced for a defensible sample wider than the prior session's 4 commanders (Sokka, Edgar Markov, Krenko, Atraxa), with an explicit minimum-deck-count threshold stated and enforced before a commander is included.
   3. An explicit statistical bar (minimum sample size per commander and an effect-size/spread threshold, e.g. ratio or z-score vs. corpus-wide mean) is stated in writing and applied uniformly to all five roles — not eyeballed.
   4. A committed findings document (e.g. `.planning/workstreams/cutlab-role-floors/phases/01-research/RESEARCH-FINDINGS.md`) reports, per commander and per role, the count/spread data, which roles (if any) clear the statistical bar, and ends with an explicit "go" or "no-go" line naming exactly which roles (if any) are in scope for Phase 2.
@@ -55,8 +55,9 @@ This is a small, two-phase milestone. Phase 2 is explicitly conditional on Phase
 | RFLR-05 | Phase 2 (conditional) | Pending |
 | RFLR-06 | Phase 2 (conditional) | Pending |
 | RFLR-07 | Phase 2 (conditional) | Pending |
+| RFLR-08 | Phase 2 (conditional) | Pending |
 
-**Coverage:** 7/7 v1 requirements mapped. No orphans, no duplicates.
+**Coverage:** 8/8 v1 requirements mapped. No orphans, no duplicates.
 
 ---
 *Roadmap created: 2026-07-26*
