@@ -56,6 +56,14 @@ interface CutLabUiPatch {
     changedFamilyCount: number;
     deltas: CutLabDecideMetricDeltaDto[];
   } | null;
+  lockedOvershootAdvisory?: {
+    cardsOverTarget: number;
+    hiddenCount: number;
+    groups: Array<{
+      roleLabel: string;
+      cardNames: string[];
+    }>;
+  } | null;
   floorWarnings: Array<{ message: string }>;
   cardsRemaining: number;
   cutsMade: Array<{ cardName: string; roundKey: string; roundLabel: string; ordinal: number }>;
@@ -435,6 +443,48 @@ describe('cut-lab proposal enhancement', () => {
     expect(document.querySelectorAll('.cutlab-delta__line')).toHaveLength(3);
     expect(document.querySelector<HTMLElement>('.cutlab-proposal__floor-warning .cutlab-finding__lead')?.textContent).toBe('Cutting Arcane Signet drops ramp to 9, below your floor of 10.');
     expect(document.querySelector<HTMLDetailsElement>('details.cutlab-cuts-made summary')?.textContent).toBe('Cuts made · 1 card');
+  });
+
+  it('renders the locked overshoot advisory alongside a non-terminal proposal', async () => {
+    buildDecisionFixture();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ patch: buildPatch({
+        currentCount: 107,
+        cardsRemaining: 7,
+        nextProposal: {
+          ...buildPatch().nextProposal,
+          cardName: 'Arcane Signet',
+          roundKey: 'round-2',
+          roundLabel: 'Round 2 · Structural choices',
+          roundBannerBody: 'Cards flagged by exactly one structural finding.',
+        },
+        lockedOvershootAdvisory: {
+          cardsOverTarget: 5,
+          hiddenCount: 0,
+          groups: [
+            {
+              roleLabel: 'Payoffs',
+              cardNames: ['Locked Stack'],
+            },
+          ],
+        },
+      }) }),
+    });
+
+    const form = document.querySelector<HTMLFormElement>('form[action="/cut-lab/decide"]');
+    const button = form?.querySelector<HTMLButtonElement>('[data-cut-lab-decision="accept"]');
+
+    form?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: button ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-locked-overshoot-advisory]')).not.toBeNull();
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-locked-overshoot-advisory]')?.textContent).toContain('Locked Stack');
+    expect(document.querySelector<HTMLElement>('.cutlab-proposal__heading')?.textContent).toBe('Proposed cut: Arcane Signet');
   });
 
   it('live-patches only the structural findings body, count slot, and degradation notes after a decision', async () => {

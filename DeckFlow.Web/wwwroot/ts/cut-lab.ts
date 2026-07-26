@@ -789,6 +789,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const getProposalCard = (): HTMLDivElement | null =>
     document.querySelector<HTMLDivElement>('.cutlab-proposal');
 
+  const getLockedOvershootAdvisory = (): HTMLDivElement | null =>
+    document.querySelector<HTMLDivElement>('[data-cut-lab-locked-overshoot-advisory]');
+
   const getCutsMadeDetails = (): HTMLDetailsElement | null =>
     document.querySelector<HTMLDetailsElement>('details.cutlab-cuts-made');
 
@@ -2351,32 +2354,65 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     });
   };
 
+  const ensureLockedOvershootAdvisory = (): HTMLDivElement | null => {
+    const existing = getLockedOvershootAdvisory();
+    if (existing) {
+      return existing;
+    }
+
+    const reference = getRoundBanner() ?? getProposalCard();
+    if (!reference || !reference.parentElement) {
+      return null;
+    }
+
+    const advisory = document.createElement('div');
+    advisory.className = 'warning-banner cutlab-locked-overshoot-advisory';
+    advisory.dataset.cutLabLockedOvershootAdvisory = 'true';
+    reference.insertAdjacentElement('beforebegin', advisory);
+    return advisory;
+  };
+
+  const renderLockedOvershootAdvisory = (advisoryPatch: CutLabUiPatch['lockedOvershootAdvisory'] = null): void => {
+    if (!advisoryPatch) {
+      getLockedOvershootAdvisory()?.remove();
+      return;
+    }
+
+    const advisory = ensureLockedOvershootAdvisory();
+    if (!advisory) {
+      return;
+    }
+
+    const children: Node[] = [
+      createTextElement('p', '', `Locked cards alone already put you ${advisoryPatch.cardsOverTarget} cards over the 100-card target. If you need to unlock something, start with these:`),
+    ];
+
+    advisoryPatch.groups.forEach(group => {
+      const panel = document.createElement('div');
+      panel.className = 'cutlab-finding cutlab-proposal__floor-warning';
+      panel.appendChild(createTextElement('p', 'cutlab-finding__heading', group.roleLabel));
+      panel.appendChild(createTextElement('p', 'cutlab-finding__lead', group.cardNames.join(', ')));
+      children.push(panel);
+    });
+
+    if (advisoryPatch.hiddenCount > 0) {
+      children.push(createTextElement('p', 'prompt-size-note', `+${advisoryPatch.hiddenCount} more locked cards ranked below these.`));
+    }
+
+    replaceChildren(advisory, children);
+  };
+
   const renderProposalTerminalState = (
     proposal: HTMLDivElement,
     heading: string,
     body: string,
-    advisory: CutLabUiPatch['lockedOvershootAdvisory'] = null,
   ): void => {
     proposal.removeAttribute('data-cut-lab-card');
     proposal.removeAttribute('data-cut-lab-round');
-    const children: Node[] = [
+    replaceChildren(proposal, [
       createTextElement('p', 'cutlab-proposal__heading', heading),
       createTextElement('p', '', body),
-    ];
-    if (advisory) {
-      advisory.groups.forEach(group => {
-        const panel = document.createElement('div');
-        panel.className = 'cutlab-finding cutlab-proposal__floor-warning';
-        panel.appendChild(createTextElement('p', 'cutlab-finding__heading', group.roleLabel));
-        panel.appendChild(createTextElement('p', 'cutlab-finding__lead', group.cardNames.join(', ')));
-        children.push(panel);
-      });
-      if (advisory.hiddenCount > 0) {
-        children.push(createTextElement('p', 'prompt-size-note', `+${advisory.hiddenCount} more locked cards ranked below these.`));
-      }
-    }
-
-    replaceChildren(proposal, children);
+    ]);
   };
 
   const renderProposalCard = (
@@ -2395,10 +2431,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         nextProposal.isAtTarget ? "You're at 100 cards" : 'Nothing to cut',
         nextProposal.isAtTarget
           ? 'Review the cuts you made below, or reopen a card from the Cuts made list if you want to reconsider.'
-          : patch.lockedOvershootAdvisory
-            ? `You're ${patch.lockedOvershootAdvisory.cardsOverTarget} cards over target, and all remaining cards are locked. These locked cards look most cuttable as your pool stands now — unlock and cut them manually:`
-            : 'Every remaining card is either locked or your working list is already at 100 cards. Review your locks and packages above, or adjust a role floor if you want to reconsider.',
-        patch.lockedOvershootAdvisory ?? null,
+          : 'Every remaining card is either locked or your working list is already at 100 cards. Review your locks and packages above, or adjust a role floor if you want to reconsider.',
       );
       renderFloorWarnings(proposal, []);
       return;
@@ -3044,6 +3077,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     patchStickyBar(patch, options);
     renderLandDisclosure(patch);
     if (shouldRenderProposal) {
+      renderLockedOvershootAdvisory(patch.lockedOvershootAdvisory ?? null);
       renderRoundBanner(patch.nextProposal);
       renderProposalCard(patch, antiForgeryToken);
     }
