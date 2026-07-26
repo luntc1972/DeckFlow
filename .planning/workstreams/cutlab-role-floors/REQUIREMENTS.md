@@ -17,6 +17,7 @@
 - [ ] **RFLR-05**: Role-floor defaults for roles where RFLR-01–04 found real signal are computed via a priority chain (commander-specific data → existing bracket+plan fallback), mirroring the pattern already used for lands/ramp/draw in `CutLabFloorDefaults.cs`.
 - [ ] **RFLR-06**: Existing bracket+plan-only floor behavior is preserved unchanged for commanders without sufficient corpus data, and for any role that did not clear the statistical bar.
 - [ ] **RFLR-07**: New or changed floor-computation logic has unit test coverage in `DeckFlow.Core.Tests`.
+- [ ] **RFLR-08**: Each role-floor value shown in the Cut Lab UI is labeled with its provenance — commander-specific data or bracket+plan-derived fallback — using the same explicit source labeling already shown for lands (the per-row "Source" text, e.g. "Default for B4: 34"), so the user always knows whether a given floor came from their commander or from the bracket.
 
 ## Out of Scope
 
@@ -38,10 +39,11 @@
 | RFLR-05 | Phase 2 (conditional) | Pending |
 | RFLR-06 | Phase 2 (conditional) | Pending |
 | RFLR-07 | Phase 2 (conditional) | Pending |
+| RFLR-08 | Phase 2 (conditional) | Pending |
 
 **Coverage:**
-- Cycle 21 requirements: 7 total
-- Mapped to phases: 7
+- Cycle 21 requirements: 8 total
+- Mapped to phases: 8
 - Unmapped: 0
 
 ---
