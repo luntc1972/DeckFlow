@@ -39,7 +39,7 @@ public sealed partial class ArchidektParser : IParser
 
             if (IsStoppingLine(line) && foundEntries)
             {
-                break;
+                continue;
             }
 
             // Section headers switch the current board state so cards listed

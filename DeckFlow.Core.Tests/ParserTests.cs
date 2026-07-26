@@ -445,6 +445,44 @@ public sealed class ParserTests
     }
 
     [Fact]
+    public void MoxfieldParser_SkipsBareKeywordLinesAndContinuesParsingRemainingCards()
+    {
+        var entries = new MoxfieldParser().ParseText("""
+            1 Sol Ring
+            1 Arcane Signet
+            Notes
+            1 Swords to Plowshares
+            Description:
+            1 Path to Exile
+            1 Generous Gift
+            """);
+
+        Assert.Equal(5, entries.Count);
+        Assert.Equal("Sol Ring", entries[0].Name);
+        Assert.Equal("Arcane Signet", entries[1].Name);
+        Assert.Equal("Swords to Plowshares", entries[2].Name);
+        Assert.Equal("Path to Exile", entries[3].Name);
+        Assert.Equal("Generous Gift", entries[4].Name);
+    }
+
+    [Fact]
+    public void MoxfieldParser_IgnoresTrailingProseWithoutMisparsingItAsACard()
+    {
+        var entries = new MoxfieldParser().ParseText("""
+            1 Sol Ring
+            1 Arcane Signet
+            Notes:
+            Bring in artifact hate if the table is heavy on fast mana.
+            Description
+            Keep the curve low and pressure planeswalkers.
+            """);
+
+        Assert.Equal(2, entries.Count);
+        Assert.Equal("Sol Ring", entries[0].Name);
+        Assert.Equal("Arcane Signet", entries[1].Name);
+    }
+
+    [Fact]
     public void MoxfieldParser_UsesInlineHashtagsToAssignBoardsInFlatLists()
     {
         var entries = new MoxfieldParser().ParseText("""
@@ -527,6 +565,44 @@ public sealed class ParserTests
         Assert.Equal("Edgin, Larcenous Lutenist", entries[0].Name);
         Assert.Equal("Arcane Signet", entries[1].Name);
         Assert.Equal("Goblin Bombardment", entries[2].Name);
+    }
+
+    [Fact]
+    public void ArchidektParser_SkipsBareKeywordLinesAndContinuesParsingRemainingCards()
+    {
+        var entries = new ArchidektParser().ParseText("""
+            1 Sol Ring
+            1 Arcane Signet
+            Notes
+            1 Swords to Plowshares
+            Description:
+            1 Path to Exile
+            1 Generous Gift
+            """);
+
+        Assert.Equal(5, entries.Count);
+        Assert.Equal("Sol Ring", entries[0].Name);
+        Assert.Equal("Arcane Signet", entries[1].Name);
+        Assert.Equal("Swords to Plowshares", entries[2].Name);
+        Assert.Equal("Path to Exile", entries[3].Name);
+        Assert.Equal("Generous Gift", entries[4].Name);
+    }
+
+    [Fact]
+    public void ArchidektParser_IgnoresTrailingProseWithoutMisparsingItAsACard()
+    {
+        var entries = new ArchidektParser().ParseText("""
+            1 Sol Ring
+            1 Arcane Signet
+            Notes:
+            Bring in artifact hate if the table is heavy on fast mana.
+            Description
+            Keep the curve low and pressure planeswalkers.
+            """);
+
+        Assert.Equal(2, entries.Count);
+        Assert.Equal("Sol Ring", entries[0].Name);
+        Assert.Equal("Arcane Signet", entries[1].Name);
     }
 
     [Fact]
