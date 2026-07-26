@@ -27,11 +27,12 @@ This is a small, two-phase milestone. Phase 2 is explicitly conditional on Phase
 ### Phase 2: Commander-Aware Floor Defaults (CONDITIONAL on Phase 1 = go)
 **Goal**: For any role Phase 1 found real per-commander signal for, Cut Lab's floor defaults reflect that commander's own corpus data via a priority chain, exactly mirroring the pattern already proven for lands (`ManabaseBaselineProvider` → `CedhLandBaselineProvider` → fallback) and ramp/draw in `CutLabFloorDefaults.cs` — while every commander and role without qualifying signal keeps today's bracket+plan-derived floor unchanged.
 **Depends on**: Phase 1 — this phase is gated. It is only planned in detail (and only executed) if Phase 1's `RESEARCH-FINDINGS.md` records a "go" recommendation. If Phase 1 returns "no-go" for all five roles, this phase is descoped to a no-op closeout (documenting the negative result) and the milestone ends at Phase 1. Plan scope below assumes "go" and will be narrowed to whichever roles actually cleared the bar.
-**Requirements**: RFLR-05, RFLR-06, RFLR-07
+**Requirements**: RFLR-05, RFLR-06, RFLR-07, RFLR-08
 **Success Criteria** (what must be TRUE, assuming Phase 1 = go):
   1. For each role Phase 1 flagged as real signal, `CutLabFloorDefaults` resolves that role's default floor through a priority chain — commander-specific corpus data first, falling back to the existing bracket+plan-derived value — following the same `IManabaseBaselineProvider`/`ICedhLandBaselineProvider`-style pattern already used for lands.
   2. A commander with insufficient corpus data (below the Phase 1 statistical bar) or a role that did not clear the bar in Phase 1 produces byte-identical floor defaults to current shipped behavior — no regression to the bracket+plan fallback path.
   3. `DeckFlow.Core.Tests` (and/or `DeckFlow.Web.Tests`, matching where the new logic lives) has unit coverage for the new priority-chain resolution, including the commander-hit path, the fallback path, and the "role not in scope" path.
+  4. The Cut Lab UI shows, per role floor, whether the displayed value is commander-specific or bracket+plan-derived — reusing the existing lands "Source" text pattern (e.g. "Default for B4: 34") rather than inventing a new label style — so the user is never left guessing which values came from their commander and which came from the bracket.
 **Plans**: TBD
 
 ## Progress
