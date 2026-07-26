@@ -4862,6 +4862,15 @@ input[data-cut-lab-floor]:focus-visible {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
 }
 
+.cutlab-sticky-bar--pool {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-height: auto;
+  max-height: none;
+  padding: 0.55rem 1rem;
+}
+
 .cutlab-sticky-bar__round,
 .cutlab-sticky-bar__locked,
 .cutlab-sticky-bar__current,
@@ -5222,6 +5231,10 @@ tr[data-cut-lab-tuner-row]:has(.cutlab-tuner-badge--added) {
     min-height: auto;
     max-height: none;
     padding: 0.5rem 0.75rem;
+  }
+
+  .cutlab-sticky-bar--pool {
+    gap: 0.2rem;
   }
 
   .cutlab-sticky-bar__round {

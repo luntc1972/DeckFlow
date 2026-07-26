@@ -353,6 +353,10 @@
                         </div>
                     </div>
                 </div>
+                <div class="cutlab-sticky-bar cutlab-sticky-bar--pool">
+                    <span class="cutlab-sticky-bar__count" data-cut-lab-pool-sticky-count>@Model.PoolStatusText</span>
+                    <span class="cutlab-sticky-bar__accepted" data-cut-lab-pool-sticky-breakdown>@Model.BoardCounts.ToBreakdown()</span>
+                </div>
 
             @if (Model.CommanderSelectionRequired)
             {

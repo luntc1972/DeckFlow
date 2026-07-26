@@ -992,13 +992,19 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       const checkbox = getLockCheckbox(row);
       return checkbox?.checked ? total + parseRowQuantity(row) : total;
     }, 0);
+    const summaryText = `${poolCount} cards in pool · ${lockedCount} locked`;
     const summary = document.querySelector<HTMLElement>('[data-cut-lab-lock-count]');
+    const poolStickySummary = document.querySelector<HTMLElement>('[data-cut-lab-pool-sticky-count]');
     const stickyLocked = getStickyLocked();
 
     // Why: this chip mirrors the imported protected pool (commander-inclusive) and does not
     // re-sum after adjust-path quantity tuning; the sticky bar owns that live working-list total.
     if (summary) {
-      summary.textContent = `${poolCount} cards in pool · ${lockedCount} locked`;
+      summary.textContent = summaryText;
+    }
+
+    if (poolStickySummary) {
+      poolStickySummary.textContent = summaryText;
     }
 
     if (stickyLocked) {
