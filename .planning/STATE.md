@@ -69,8 +69,15 @@ Carried-forward operator gates and descoped items (still open):
 | Cycle 20 out-of-scope | Pet-card detection | Superseded pending EDHREC integration consideration |
 | Test hygiene | `FeatureFlagStoreMigrationTests.Dispose()` calls process-global `SqliteConnection.ClearAllPools()`; under xUnit's parallel class execution it can dispose pooled `sqlite3` handles out from under a concurrently-running test in another class (`ObjectDisposedException: 'SQLitePCL.sqlite3'`). Seen once during Phase 109; did not reproduce on re-run. | Deferred — pre-existing flake, needs collection-fixture isolation |
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260726-mug | Fix hidden-field cache clobber on cEDH Meta Gap page (exclude WorkflowStep/FetchedEntriesJson/MetaGapPromptText from deck-sync.ts generic form persistence) | 2026-07-26 | 71c7b616 | [260726-mug-fix-hidden-field-cache-clobber-on-cedh-m](./quick/260726-mug-fix-hidden-field-cache-clobber-on-cedh-m/) |
+
 ## Session Continuity
 
 Last session: 2026-07-24T22:49:17.433Z
 Stopped at: Phase 112 context gathered
 Resume file: .planning/phases/112-cycle-17-code-port/112-CONTEXT.md
+Last activity: 2026-07-26 - Completed quick task 260726-mug: Fix hidden-field cache clobber on cEDH Meta Gap page
