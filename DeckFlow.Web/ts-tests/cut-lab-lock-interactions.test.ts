@@ -181,6 +181,13 @@ describe('DeckFlowCutLab', () => {
         <input type="radio" name="Bracket" value="3" checked />
         <input type="radio" name="PlayExperience" value="Focused" checked />
         <p class="prompt-size-note"><span data-cut-lab-lock-count></span><span>(protected from any future cut)</span></p>
+        <div class="cutlab-sticky-bar cutlab-sticky-bar--pool">
+          <span class="cutlab-sticky-bar__count" data-cut-lab-pool-sticky-count></span>
+          <span class="cutlab-sticky-bar__accepted" data-cut-lab-pool-sticky-breakdown>Main 99 · Sideboard 0 · Considering/Maybe 0</span>
+        </div>
+        <div class="cutlab-sticky-bar">
+          <span class="cutlab-sticky-bar__locked" data-cut-lab-sticky-locked></span>
+        </div>
         <details open>
           <summary>Lands</summary>
           <button type="button" data-cut-lab-lock-role="lands" aria-pressed="false">Lock all lands</button>
@@ -266,6 +273,8 @@ describe('DeckFlowCutLab', () => {
 
     const button = document.querySelector<HTMLButtonElement>('[data-cut-lab-lock-role="lands"]');
     const summary = document.querySelector<HTMLElement>('[data-cut-lab-lock-count]');
+    const poolStickySummary = document.querySelector<HTMLElement>('[data-cut-lab-pool-sticky-count]');
+    const stickyLocked = document.querySelector<HTMLElement>('[data-cut-lab-sticky-locked]');
     const hiddenInput = document.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]');
     const landCheckbox = document.querySelector<HTMLInputElement>('input[data-cut-lab-lock-card="Command Tower"]');
     const fetchLandCheckbox = document.querySelector<HTMLInputElement>('input[data-cut-lab-lock-card="Flooded Strand"]');
@@ -293,6 +302,8 @@ describe('DeckFlowCutLab', () => {
     expect(spellCheckbox?.checked).toBe(false);
     // 107-03: pool-status chip is now commander-inclusive (matches Compare panel basis) — 3 non-commander + Zur = 4.
     expect(summary?.textContent).toBe('4 cards in pool · 3 locked');
+    expect(poolStickySummary?.textContent).toBe('4 cards in pool · 3 locked');
+    expect(stickyLocked?.textContent).toBe('3 locked');
     expect(floorMarker?.classList.contains('hidden')).toBe(false);
     expect(adjustedBadge?.classList.contains('hidden')).toBe(false);
     expect(resetButton?.classList.contains('hidden')).toBe(false);
