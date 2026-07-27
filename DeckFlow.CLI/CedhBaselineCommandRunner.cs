@@ -26,7 +26,7 @@ internal static class CedhBaselineCommandRunner
     /// <param name="dataDirectory">Directory containing <c>decks_all.json</c> and <c>cards_full.json</c>.</param>
     /// <param name="outputDirectory">Directory to write the monthly markdown/JSON artifacts into.</param>
     /// <param name="month">Month label in <c>YYYY-MM</c> form.</param>
-    public static Task<int> RunAsync(string dataDirectory, string outputDirectory, string month)
+    public static Task<int> RunAsync(string dataDirectory, string outputDirectory, string month, string thresholdsPath)
     {
         if (string.IsNullOrWhiteSpace(dataDirectory))
         {
@@ -103,11 +103,68 @@ internal static class CedhBaselineCommandRunner
                 return Task.FromResult(2);
             }
 
+            // Evaluate drift BEFORE writing anything. The 2026-07-27 corrupt run overwrote the
+            // committed artifacts and they had to be recovered from git; failing first leaves the
+            // last-known-good snapshot in place.
+            string latestPath = Path.Combine(outputDirectory, "latest.json");
+            if (File.Exists(latestPath))
+            {
+                if (!File.Exists(thresholdsPath))
+                {
+                    Console.Error.WriteLine($"Drift thresholds file not found at {thresholdsPath}.");
+                    return Task.FromResult(1);
+                }
+
+                CedhDriftThresholds thresholds;
+                CedhLandBaselineSnapshot? previous;
+                try
+                {
+                    thresholds = CedhDriftThresholds.FromJson(File.ReadAllText(thresholdsPath));
+                    previous = JsonSerializer.Deserialize<CedhLandBaselineSnapshot>(
+                        File.ReadAllText(latestPath),
+                        JsonOptions);
+                }
+                catch (JsonException ex)
+                {
+                    Console.Error.WriteLine($"Could not read drift inputs: {ex.Message}");
+                    return Task.FromResult(1);
+                }
+
+                if (previous is null)
+                {
+                    Console.Error.WriteLine($"Could not deserialize the committed snapshot at {latestPath}.");
+                    return Task.FromResult(1);
+                }
+
+                CedhDriftVerdict verdict = CedhBaselineDriftCheck.Evaluate(previous, snapshot, thresholds);
+                if (!verdict.Passed)
+                {
+                    Console.Error.WriteLine(
+                        $"Drift check FAILED with {verdict.Findings.Count} finding(s); no files written.");
+                    foreach (CedhDriftFinding finding in verdict.Findings)
+                    {
+                        string subject = finding.Commander is null ? finding.Rule : $"{finding.Rule} [{finding.Commander}]";
+                        Console.Error.WriteLine($"  {subject}: {finding.Detail}");
+                    }
+
+                    Console.Error.WriteLine(
+                        "If this reflects a genuine metagame shift, retune and commit "
+                        + $"{thresholdsPath}, then re-run.");
+                    return Task.FromResult(1);
+                }
+
+                Console.WriteLine($"Drift check passed against {latestPath}.");
+            }
+            else
+            {
+                Console.WriteLine($"No committed snapshot at {latestPath}; skipping drift check (bootstrap run).");
+            }
+
             Directory.CreateDirectory(outputDirectory);
 
             string markdownPath = Path.Combine(outputDirectory, $"{month}.md");
             string monthlyJsonPath = Path.Combine(outputDirectory, $"{month}.json");
-            string latestJsonPath = Path.Combine(outputDirectory, "latest.json");
+            string latestJsonPath = latestPath;
 
             SnapshotFileWriter.WriteLfFile(markdownPath, BuildMarkdownReport(result));
             string snapshotJson = JsonSerializer.Serialize(snapshot, JsonOptions);
