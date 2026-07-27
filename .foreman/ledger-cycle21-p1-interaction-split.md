@@ -32,7 +32,10 @@ Note: `-codex` model variants 400 on this ChatGPT-account login (established 202
 | id | state | owned paths | job id |
 |----|-------|-------------|--------|
 | T1 | **DONE — CONVERGED** | (read-only) | 3 dispatches |
-| T2 | PENDING | plan frontmatter files_modified (13 files) | — |
+| T2 | **DONE** — build 0/0, xUnit 2058+1630, vitest 120, format clean, EOL LF→LF | plan files_modified + `CutLabWhatifTests.cs` (grep-surfaced) | bg bmvtnzujf |
+| T2b | **DONE** — 7 sites → `[data-cut-lab-sticky-target]`, test-only | `e2e/cut-lab-{structure,theme-readability,nav-themes}.spec.ts` | bg bmbhcs11l |
+| T4 | **DONE — PASS** | (normalization + gates only) | inline |
+| T3 | BLOCKED — awaiting user go-ahead to spawn `foreman-verifier` (session directive: no Agent calls unless requested) | (read-only) | — |
 | T3 | PENDING | (read-only) | — |
 | T4 | PENDING | (normalization only) | — |
 
@@ -43,6 +46,11 @@ Note: `-codex` model variants 400 on this ChatGPT-account login (established 202
 | T1 | 1 | Codex gpt-5.4 read-only, medium | r1 | NEEDS-CHANGES — 1 BLOCKER, 1 HIGH, 2 MEDIUM | consumer grep, ClampFloors read, floor arithmetic | .foreman/scratch/c21p1-planreview.out.txt | 2026-07-26 |
 | T1 | 2 | Codex gpt-5.4 read-only, medium | r2 (4 findings folded) | NEEDS-CHANGES — BLOCKER not fully resolved (category-path wipe leak), 1 NEW MEDIUM (unreachable test), 1 NEW LOW | re-ran discovery greps, DeckStatClassifier read | .foreman/scratch/c21p1-planreview-r2.out.txt | 2026-07-26 |
 | T1 | 3 | Codex gpt-5.4 read-only, medium | r3 (all folded) | **CONVERGED** — no BLOCKER, no HIGH; 2 MEDIUM + 1 LOW non-blocking, all fixed post-verdict | all 3 discovery greps run by reviewer | .foreman/scratch/c21p1-planreview-r3.out.txt | 2026-07-26 |
+| T2 | 1 | Codex gpt-5.4 danger-full-access, medium | ticket v1 | **DONE** | build 0 err/0 warn; xUnit 2058+1630 pass/0 fail; vitest 120 pass; format-check-changed exit 0; `--stat` == `--ignore-all-space --stat` (no EOL churn); scope fence clean | .foreman/scratch/c21p1-t2-final.txt | 2026-07-26 |
+| T4a | 1 | Claude LEAD inline (user authorized e2e) | — | **6 FAIL — all PRE-EXISTING, not T2** | CI-mirror `CI=1` run: 46 pass / 6 fail / 14 masked. All 6 = `.cutlab-sticky-bar` strict-mode ambiguity. Proof: pool bar added `91999d07` AFTER locators written `2d47b756`; both `<div>`s present at HEAD; T2 diff does not touch sticky markup (`HEAD=9 WORK=9` occurrences). `cut-lab-export.spec.ts:104` failed only under parallel workers, passes in isolation → known decide-starvation flake | (inline) | 2026-07-26 |
+| T2b | 1 | Codex gpt-5.4 danger-full-access, medium | ticket v1 | **DONE** | 7 bare `.cutlab-sticky-bar` sites across 3 specs → `[data-cut-lab-sticky-target]`; per-site intent justified from surrounding assertions; test-only, no production file touched | .foreman/scratch/c21p1-t2b-final.txt | 2026-07-26 |
+| T4b | 1 | Claude LEAD inline | — | **PASS — 66/66 e2e green** | CI-mirror rerun after T2b: 66 passed, 0 failed, 0 masked (was 46/6/14) | inline | 2026-07-26 |
+| T4 | 1 | Claude LEAD inline | — | **PASS** | EOL: `--stat` == `--ignore-all-space --stat` (78 files, +572/-148) AND per-file CR-count vs `git show HEAD:<path>` — zero mismatches. Scope fence: zero out-of-scope files in diff. Format gate: `format-check-changed.sh staged` exit 0 via temp `GIT_INDEX_FILE`; real index verified still clean | inline | 2026-07-26 |
 
 ## Decisions
 
