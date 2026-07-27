@@ -20,6 +20,85 @@ public sealed class RoleFloorGuardsTests
         "wincons",
     ];
 
+    private sealed class StubAssignerWithPrivateStaticRoleKeys
+    {
+        private static readonly string[] RoleKeys = ["lands", "draw"];
+
+        public static string[] ExpectedRoleKeys => RoleKeys;
+    }
+
+    private sealed class StubAssignerWithoutRoleKeys
+    {
+    }
+
+    private sealed class StubAssignerWithWrongRoleKeyType
+    {
+        private static readonly int[] RoleKeys = [1, 2, 3];
+    }
+
+    private sealed class StubAssignerWithNullRoleKeys
+    {
+#pragma warning disable CS8618
+#pragma warning disable CS0414
+        private static readonly string[] RoleKeys = null!;
+#pragma warning restore CS0414
+#pragma warning restore CS8618
+    }
+
+    [Fact]
+    public void TryReadShippedRoleKeys_PrivateStaticStringArray_ReturnsKeys()
+    {
+        string? result = RoleFloorGuards.TryReadShippedRoleKeys(
+            typeof(StubAssignerWithPrivateStaticRoleKeys),
+            "RoleKeys",
+            out string[]? shippedRoleKeys);
+
+        Assert.Null(result);
+        Assert.Equal(StubAssignerWithPrivateStaticRoleKeys.ExpectedRoleKeys, shippedRoleKeys);
+    }
+
+    [Fact]
+    public void TryReadShippedRoleKeys_MissingField_ReportsTypeAndField()
+    {
+        string? result = RoleFloorGuards.TryReadShippedRoleKeys(
+            typeof(StubAssignerWithoutRoleKeys),
+            "RoleKeys",
+            out string[]? shippedRoleKeys);
+
+        Assert.NotNull(result);
+        Assert.Null(shippedRoleKeys);
+        Assert.Contains("StubAssignerWithoutRoleKeys.RoleKeys", result, StringComparison.Ordinal);
+        Assert.Contains("expected a static string[] field named RoleKeys", result, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TryReadShippedRoleKeys_WrongFieldType_ReportsTypeAndField()
+    {
+        string? result = RoleFloorGuards.TryReadShippedRoleKeys(
+            typeof(StubAssignerWithWrongRoleKeyType),
+            "RoleKeys",
+            out string[]? shippedRoleKeys);
+
+        Assert.NotNull(result);
+        Assert.Null(shippedRoleKeys);
+        Assert.Contains("StubAssignerWithWrongRoleKeyType.RoleKeys", result, StringComparison.Ordinal);
+        Assert.Contains("to be a string[] but was System.Int32[]", result, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TryReadShippedRoleKeys_NullFieldValue_ReportsTypeAndField()
+    {
+        string? result = RoleFloorGuards.TryReadShippedRoleKeys(
+            typeof(StubAssignerWithNullRoleKeys),
+            "RoleKeys",
+            out string[]? shippedRoleKeys);
+
+        Assert.NotNull(result);
+        Assert.Null(shippedRoleKeys);
+        Assert.Contains("StubAssignerWithNullRoleKeys.RoleKeys", result, StringComparison.Ordinal);
+        Assert.Contains("to hold a non-null string[]", result, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void FindTaxonomyDrift_CleanInputs_ReturnsNull()
     {

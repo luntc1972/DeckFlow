@@ -1,3 +1,5 @@
+using System.Reflection;
+
 namespace DeckFlow.Core.Research;
 
 /// <summary>
@@ -5,6 +7,49 @@ namespace DeckFlow.Core.Research;
 /// </summary>
 public static class RoleFloorGuards
 {
+    /// <summary>
+    /// Tries to read the shipped role-key field from the supplied assigner type.
+    /// </summary>
+    /// <param name="assignerType">The type that declares the shipped role-key field.</param>
+    /// <param name="fieldName">The field name to read from <paramref name="assignerType"/>.</param>
+    /// <param name="shippedRoleKeys">The shipped role keys when the field was read successfully; otherwise <see langword="null"/>.</param>
+    /// <returns>
+    /// <see langword="null"/> when the field was read successfully; otherwise an error message naming
+    /// the unreadable field.
+    /// </returns>
+    public static string? TryReadShippedRoleKeys(Type assignerType, string fieldName, out string[]? shippedRoleKeys)
+    {
+        ArgumentNullException.ThrowIfNull(assignerType);
+        ArgumentException.ThrowIfNullOrWhiteSpace(fieldName);
+
+        // Why: Core has no reference to the web assembly, so this reflection must stay
+        // parameterized by Type rather than naming the concrete assigner here; lifting it into
+        // Core is also what makes the field-unreadable branches unit-testable at all.
+        string typeDisplayName = assignerType.FullName ?? assignerType.Name;
+        FieldInfo? roleKeysField = assignerType.GetField(fieldName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+        if (roleKeysField is null)
+        {
+            shippedRoleKeys = null;
+            return $"Unable to read {typeDisplayName}.{fieldName}: expected a static string[] field named {fieldName}.";
+        }
+
+        object? rawValue = roleKeysField.GetValue(null);
+        if (rawValue is null)
+        {
+            shippedRoleKeys = null;
+            return $"Unable to read {typeDisplayName}.{fieldName}: expected the static field {fieldName} to hold a non-null string[].";
+        }
+
+        if (rawValue is not string[] typedRoleKeys)
+        {
+            shippedRoleKeys = null;
+            return $"Unable to read {typeDisplayName}.{fieldName}: expected the static field {fieldName} to be a string[] but was {rawValue.GetType().FullName ?? rawValue.GetType().Name}.";
+        }
+
+        shippedRoleKeys = typedRoleKeys;
+        return null;
+    }
+
     /// <summary>
     /// Returns a taxonomy-drift error when the shipped role keys, harness target roles, and probe
     /// emissions disagree; otherwise returns <see langword="null"/>.
