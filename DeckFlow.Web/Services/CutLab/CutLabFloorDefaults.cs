@@ -96,8 +96,7 @@ public static class CutLabFloorDefaults
         return resolved;
     }
 
-    /// <summary>[ASSUMED] Unsigned product constants for non-lands, non-ramp, non-draw role floors.</summary>
-    /// <remarks>User-adjustable via FLOOR-02; chosen during planning and awaiting product sign-off.</remarks>
+    /// <summary>Returns the default targeted-interaction floor for the requested bracket.</summary>
     internal static int GetDefaultInteractionTargetedFloor(int bracket)
     {
         int normalizedBracket = bracket switch
@@ -136,7 +135,9 @@ public static class CutLabFloorDefaults
         };
     }
 
-    internal static int GetBracketBand(string role, int bracket)
+    /// <summary>[ASSUMED] Unsigned product constants for non-lands, non-ramp, non-draw role floors.</summary>
+    /// <remarks>User-adjustable via FLOOR-02; chosen during planning and awaiting product sign-off.</remarks>
+    private static int GetBracketBand(string role, int bracket)
     {
         int normalizedBracket = bracket switch
         {
