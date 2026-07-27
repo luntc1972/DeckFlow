@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace DeckFlow.Core.Manabase;
 
 /// <summary>
@@ -8,6 +10,11 @@ namespace DeckFlow.Core.Manabase;
 /// </summary>
 public sealed record CedhDriftThresholds
 {
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
     /// <summary>Prior sample size at or above which a commander's disappearance is a failure.</summary>
     public required int MinEstablishedN { get; init; }
 
@@ -25,6 +32,17 @@ public sealed record CedhDriftThresholds
 
     /// <summary>Maximum tolerated percentage of movers travelling in the same direction.</summary>
     public required double MaxOneSidedPct { get; init; }
+
+    /// <summary>Parse thresholds from the committed configuration file's contents.</summary>
+    /// <param name="json">Raw JSON document.</param>
+    /// <returns>The parsed thresholds.</returns>
+    /// <exception cref="JsonException">
+    /// The document is malformed or omits any threshold. Missing values are fatal by design:
+    /// falling back to defaults would let a typo disable the guard silently.
+    /// </exception>
+    public static CedhDriftThresholds FromJson(string json) =>
+        JsonSerializer.Deserialize<CedhDriftThresholds>(json, JsonOptions)
+        ?? throw new JsonException("Drift thresholds document was null.");
 }
 
 /// <summary>One reason a candidate baseline was rejected.</summary>

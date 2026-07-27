@@ -1,4 +1,5 @@
 using DeckFlow.Core.Manabase;
+using System.Text.Json;
 using Xunit;
 
 namespace DeckFlow.Core.Tests.Manabase;
@@ -225,5 +226,52 @@ public sealed class CedhBaselineDriftCheckTests
         CedhDriftVerdict verdict = CedhBaselineDriftCheck.Evaluate(previous, candidate, Thresholds);
 
         Assert.True(verdict.Passed);
+    }
+
+    [Fact]
+    public void FromJson_CompleteDocument_BindsEveryThreshold()
+    {
+        const string Json = """
+            {
+              "minEstablishedN": 10,
+              "minPopulousN": 20,
+              "maxSampleDropPct": 40,
+              "moverThresholdLands": 0.5,
+              "minMoversForDirectionTest": 10,
+              "maxOneSidedPct": 90
+            }
+            """;
+
+        CedhDriftThresholds thresholds = CedhDriftThresholds.FromJson(Json);
+
+        Assert.Equal(10, thresholds.MinEstablishedN);
+        Assert.Equal(20, thresholds.MinPopulousN);
+        Assert.Equal(40, thresholds.MaxSampleDropPct);
+        Assert.Equal(0.5, thresholds.MoverThresholdLands);
+        Assert.Equal(10, thresholds.MinMoversForDirectionTest);
+        Assert.Equal(90, thresholds.MaxOneSidedPct);
+    }
+
+    [Fact]
+    public void FromJson_MissingProperty_Throws()
+    {
+        // A typo must not silently disable the guard, so there are no code-side defaults.
+        const string Json = """
+            {
+              "minEstablishedN": 10,
+              "minPopulousN": 20,
+              "maxSampleDropPct": 40,
+              "moverThresholdLands": 0.5,
+              "minMoversForDirectionTest": 10
+            }
+            """;
+
+        Assert.Throws<JsonException>(() => CedhDriftThresholds.FromJson(Json));
+    }
+
+    [Fact]
+    public void FromJson_Garbage_Throws()
+    {
+        Assert.Throws<JsonException>(() => CedhDriftThresholds.FromJson("{ nope"));
     }
 }
