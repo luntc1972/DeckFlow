@@ -188,6 +188,51 @@ public sealed class PlanRoleClassifierTests
             Fact("Instant", "Deal 3 damage to any target."), ManabaseMode.Casual).HasFlag(PlanRole.Interaction));
     }
 
+    [Theory]
+    [InlineData(ManabaseMode.Casual)]
+    [InlineData(ManabaseMode.Cedh)]
+    public void FromHeuristic_ProtectionPermanent_EarnsInteractionInBothModes(ManabaseMode mode)
+    {
+        // Why: spike 002 found this artifact case is invisible today because it is not an Instant so
+        // IsInteractionCard misses it, there is no destroy/exile verb so IsBoardWipeCard misses it,
+        // and IsTargetedRemovalCard excludes "you control".
+        Assert.True(PlanRoleClassifier.FromHeuristic(
+            Fact("Artifact", "{T}: Target creature you control gains hexproof until end of turn."), mode)
+            .HasFlag(PlanRole.Interaction));
+
+        Assert.True(PlanRoleClassifier.FromHeuristic(
+            Fact("Creature — Human Soldier", "{2}{W}: This creature gains indestructible until end of turn."), mode)
+            .HasFlag(PlanRole.Interaction));
+
+        Assert.True(PlanRoleClassifier.FromHeuristic(
+            Fact("Enchantment", "When this enters, permanents you control phase out until your next turn."), mode)
+            .HasFlag(PlanRole.Interaction));
+    }
+
+    [Fact]
+    public void Classify_ProtectionPermanent_IsInteractionAndNothingElse()
+    {
+        CardFact artifactFact = Fact("Artifact", "{T}: Target creature you control gains hexproof until end of turn.");
+
+        Assert.Equal(
+            PlanRole.Interaction,
+            PlanRoleClassifier.Classify(artifactFact, Array.Empty<string>(), isComboPiece: false, ManabaseMode.Casual));
+    }
+
+    [Fact]
+    public void Classify_ProtectionInstant_IsStillStrippedByPermanentGate()
+    {
+        CardFact instantFact = Fact(
+            "Instant",
+            "Permanents you control gain indestructible until end of turn.",
+            name: "Heroic Intervention");
+
+        Assert.True(PlanRoleClassifier.FromHeuristic(instantFact, ManabaseMode.Casual).HasFlag(PlanRole.Interaction));
+        Assert.Equal(
+            PlanRole.None,
+            PlanRoleClassifier.Classify(instantFact, Array.Empty<string>(), false, ManabaseMode.Casual));
+    }
+
     [Fact]
     public void FromHeuristic_PlainCreature_YieldsNone()
     {
