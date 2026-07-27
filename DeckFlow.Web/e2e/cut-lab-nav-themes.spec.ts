@@ -184,7 +184,7 @@ const prepareReviewCapture = async (page: Page): Promise<void> => {
   await expect(page.locator('[data-cut-lab-package-id]').filter({ hasText: 'Fast mana' })).toBeVisible();
 
   await page.locator('#cut-lab-section-cut-rounds').scrollIntoViewIfNeeded();
-  await expect(page.locator('.cutlab-sticky-bar')).toBeVisible();
+  await expect(page.locator('[data-cut-lab-sticky-target]')).toBeVisible();
   await expect(page.locator('[data-cut-lab-sticky-remaining]')).toBeVisible();
 };
 
@@ -238,7 +238,7 @@ test('captures cross-theme mobile chrome coverage for Cut Lab navigation and dis
 
     const anchorNav = page.locator('.cutlab-anchor-nav');
     const anchorLinks = page.locator('.cutlab-anchor-nav-list a');
-    const stickyBar = page.locator('.cutlab-sticky-bar');
+    const stickyBar = page.locator('[data-cut-lab-sticky-target]');
     const backToTopButton = page.locator('#back-to-top-button');
     const poolFilter = page.locator('.cutlab-pool-filter');
     const poolTableHeader = page.locator('#cut-lab-section-lock-pool .conflicts-table thead');

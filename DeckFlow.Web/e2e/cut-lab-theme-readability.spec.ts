@@ -99,7 +99,7 @@ const ensureCutRoundsVisible = async (page: Page): Promise<void> => {
   const findings = page.locator('[data-cut-lab-structural-findings]');
   await expect(findings).toBeVisible();
 
-  const stickyBar = page.locator('.cutlab-sticky-bar');
+  const stickyBar = page.locator('[data-cut-lab-sticky-target]');
   if (!(await stickyBar.isVisible())) {
     const acceptButton = page.locator('.cutlab-proposal .cutlab-decision-btn--accept');
     const decideResponse = page.waitForResponse(response =>
@@ -407,7 +407,7 @@ test('keeps the Cut Lab named elements readable across every supported theme', a
     const packageMemberChip = packagePanel.locator('.kb-chip-area__chips .kb-chip').first();
     const packageHelper = page.locator('.cutlab-package-help');
     const findingsPanel = page.locator('[data-cut-lab-structural-findings]');
-    const stickyBar = page.locator('.cutlab-sticky-bar');
+    const stickyBar = page.locator('[data-cut-lab-sticky-target]');
     const lockAllPill = page.locator('[data-cut-lab-lock-role="lands"]');
     const roleChip = landsGroup.locator('button.cutlab-role-chip').first();
     const selectTrigger = page.locator('.df-select__trigger').first();

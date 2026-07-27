@@ -275,7 +275,7 @@ test('resets an adjusted role floor back to its default value', async ({ page })
 
 test('accepts a proposal without a reload, keeps copy neutral, and shows a 7-row compare table', async ({ page }) => {
   await importPool(page);
-  await expect(page.locator('.cutlab-sticky-bar')).toBeVisible();
+  await expect(page.locator('[data-cut-lab-sticky-target]')).toBeVisible();
   await expect(page.locator('[data-cut-lab-sticky-locked]')).toContainText('1 locked');
   await expect(page.locator('[data-cut-lab-sticky-current]')).toContainText('106/100 cards');
   await waitForCutRounds(page);
@@ -472,8 +472,8 @@ test('captures the structure screenshot matrix across themes and viewports', asy
       });
 
       await waitForCutRounds(page);
-      await page.locator('.cutlab-sticky-bar').scrollIntoViewIfNeeded();
-      await page.locator('.cutlab-sticky-bar').screenshot({
+      await page.locator('[data-cut-lab-sticky-target]').scrollIntoViewIfNeeded();
+      await page.locator('[data-cut-lab-sticky-target]').screenshot({
         path: join(screenshotDir, `rounds-${theme.name}-${viewport.name}.png`),
       });
 
