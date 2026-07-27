@@ -201,7 +201,10 @@ internal sealed class CardCategoryRepository
         return FilterGenericCategoryRowsWithFallback(rows);
     }
 
-    internal async Task<IReadOnlyList<CategoryDeckMembership>> GetCategoryDeckMembershipForCommanderAsync(string commanderName, CancellationToken cancellationToken = default)
+    internal async Task<IReadOnlyList<CategoryDeckMembership>> GetCategoryDeckMembershipForCommanderAsync(
+        string commanderName,
+        CancellationToken cancellationToken = default,
+        string? boardFilter = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commanderName);
         await _schema.EnsureSchemaAsync(cancellationToken);
@@ -209,16 +212,25 @@ internal sealed class CardCategoryRepository
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
 
-        var memberships = await connection.QueryAsync<CategoryDeckMembership>(new CommandDefinition(
-            """
+        var queryTemplate = """
             SELECT DISTINCT o.category AS Category, o.card_name AS CardName, q.id AS DeckId
             FROM card_category_observations o
             JOIN sources s ON s.id = o.source_id
             JOIN deck_queue q ON q.id = s.deck_queue_id
             WHERE LOWER(q.commander_name) = LOWER(@commanderName)
-              AND q.processed = 1;
-            """,
-            new { commanderName },
+              AND q.processed = 1
+              {0};
+            """;
+        var filterClause = boardFilter is null
+            ? string.Empty
+            : "AND o.board = @board";
+        var memberships = await connection.QueryAsync<CategoryDeckMembership>(new CommandDefinition(
+            string.Format(queryTemplate, filterClause),
+            new
+            {
+                commanderName,
+                board = boardFilter is null ? null : NormalizeBoard(boardFilter)
+            },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
 
         return FilterGenericMembershipWithFallback(memberships.ToList());

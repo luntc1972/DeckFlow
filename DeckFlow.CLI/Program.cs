@@ -75,6 +75,13 @@ var cedhLandBaselineCommand = new Command("cedh-land-baseline", "Build the month
 var cedhLandBaselineDataOption = new Option<string>("--data") { Description = "Directory containing decks_all.json and cards_full.json.", IsRequired = true };
 var cedhLandBaselineOutOption = new Option<string>("--out", () => Path.Combine("DeckFlow.Web", "Data", "cedh-land-baseline")) { Description = "Output directory for the monthly markdown/JSON artifacts." };
 var cedhLandBaselineMonthOption = new Option<string>("--month") { Description = "Month label in YYYY-MM format.", IsRequired = true };
+var roleFloorResearchCommand = new Command("role-floor-research", "Reconstruct commander corpora, classify roles oracle-only, and measure role-floor divergence.");
+var roleFloorResearchConnectionStringOption = new Option<string>("--connection-string") { Description = "Postgres connection string for the category-knowledge corpus.", IsRequired = true };
+var roleFloorResearchMinDecksOption = new Option<int>("--min-decks", () => 40) { Description = "Minimum deduped deck count required for a commander to qualify." };
+var roleFloorResearchModeOption = new Option<string>("--mode", () => "cedh") { Description = "casual | focused | cedh -- resolved via CutLabRoleAssigner.ResolveMode" };
+var roleFloorResearchCardsCacheOption = new Option<string>("--cards-cache", () => Path.Combine("_role-floor-research", "cards_full.json")) { Description = "Path to the resumable Scryfall cards cache JSON." };
+var roleFloorResearchOutOption = new Option<string>("--out", () => Path.Combine(".planning", "workstreams", "cutlab-role-floors", "phases", "01-role-floor-divergence-research", "RESEARCH-FINDINGS.md")) { Description = "Markdown findings output path." };
+var roleFloorResearchOutJsonOption = new Option<string>("--out-json", () => Path.Combine(".planning", "workstreams", "cutlab-role-floors", "phases", "01-role-floor-divergence-research", "RESEARCH-FINDINGS.json")) { Description = "Machine-readable findings output path." };
 var scryfallProbeCommand = new Command("scryfall-probe", "Hit Scryfall once (or many times) and log the full response including headers.");
 var scryfallProbeEndpointOption = new Option<string>("--endpoint", () => "named") { Description = "named | search | random" };
 var scryfallProbeNameOption = new Option<string?>("--name") { Description = "Card name for named/search. Defaults to Sol Ring." };
@@ -161,6 +168,12 @@ cedhLandCalibrateCommand.AddOption(cedhLandCalibrateOutOption);
 cedhLandBaselineCommand.AddOption(cedhLandBaselineDataOption);
 cedhLandBaselineCommand.AddOption(cedhLandBaselineOutOption);
 cedhLandBaselineCommand.AddOption(cedhLandBaselineMonthOption);
+roleFloorResearchCommand.AddOption(roleFloorResearchConnectionStringOption);
+roleFloorResearchCommand.AddOption(roleFloorResearchMinDecksOption);
+roleFloorResearchCommand.AddOption(roleFloorResearchModeOption);
+roleFloorResearchCommand.AddOption(roleFloorResearchCardsCacheOption);
+roleFloorResearchCommand.AddOption(roleFloorResearchOutOption);
+roleFloorResearchCommand.AddOption(roleFloorResearchOutJsonOption);
 scryfallProbeCommand.AddOption(scryfallProbeEndpointOption);
 scryfallProbeCommand.AddOption(scryfallProbeNameOption);
 scryfallProbeCommand.AddOption(scryfallProbeRepeatOption);
@@ -243,6 +256,7 @@ rootCommand.AddCommand(edhrecAveragesCommand);
 rootCommand.AddCommand(edhrecDownloadCommand);
 rootCommand.AddCommand(cedhLandCalibrateCommand);
 rootCommand.AddCommand(cedhLandBaselineCommand);
+rootCommand.AddCommand(roleFloorResearchCommand);
 rootCommand.AddCommand(scryfallProbeCommand);
 rootCommand.AddCommand(contentSourceAddCommand);
 rootCommand.AddCommand(contentSourceSetEnabledCommand);
@@ -320,6 +334,11 @@ cedhLandBaselineCommand.SetHandler((string dataDirectory, string outputDirectory
 {
     Environment.ExitCode = CedhBaselineCommandRunner.RunAsync(dataDirectory, outputDirectory, month).GetAwaiter().GetResult();
 }, cedhLandBaselineDataOption, cedhLandBaselineOutOption, cedhLandBaselineMonthOption);
+
+roleFloorResearchCommand.SetHandler((string connectionString, int minDecks, string mode, string cardsCachePath, string outputPath, string outputJsonPath) =>
+{
+    Environment.ExitCode = RoleFloorResearchCommandRunner.RunAsync(connectionString, minDecks, mode, cardsCachePath, outputPath, outputJsonPath).GetAwaiter().GetResult();
+}, roleFloorResearchConnectionStringOption, roleFloorResearchMinDecksOption, roleFloorResearchModeOption, roleFloorResearchCardsCacheOption, roleFloorResearchOutOption, roleFloorResearchOutJsonOption);
 
 scryfallProbeCommand.SetHandler((string endpoint, string? cardName, int repeat) =>
 {
