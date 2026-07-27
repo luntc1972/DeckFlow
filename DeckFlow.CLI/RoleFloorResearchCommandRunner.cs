@@ -61,7 +61,7 @@ internal static class RoleFloorResearchCommandRunner
     };
 
     public static async Task<int> RunAsync(
-        string connectionString,
+        string? connectionString,
         int minDeckCount,
         string mode,
         string cardsCachePath,
@@ -69,9 +69,20 @@ internal static class RoleFloorResearchCommandRunner
         string outputJsonPath,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(connectionString))
+        const string connectionStringEnvironmentVariableName = "DECKFLOW_ROLE_FLOOR_CONNECTION_STRING";
+
+        // Why: argv is visible in the process list for the entire multi-hour run, so the
+        // environment path avoids forcing the credential into process listings; the flag remains
+        // only for backward compatibility and still wins when explicitly supplied.
+        string? resolvedConnectionString = RoleFloorProvenance.ResolveConnectionString(
+            connectionString,
+            Environment.GetEnvironmentVariable(connectionStringEnvironmentVariableName));
+
+        if (string.IsNullOrWhiteSpace(resolvedConnectionString))
         {
-            Console.Error.WriteLine("--connection-string is required.");
+            Console.Error.WriteLine(
+                FormattableString.Invariant(
+                    $"Either --connection-string or the {connectionStringEnvironmentVariableName} environment variable is required."));
             return 1;
         }
 
@@ -90,7 +101,7 @@ internal static class RoleFloorResearchCommandRunner
         try
         {
             string runTimestampUtc = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture);
-            string normalizedConnectionString = PostgresConnectionStringNormalizer.Normalize(connectionString);
+            string normalizedConnectionString = PostgresConnectionStringNormalizer.Normalize(resolvedConnectionString);
             string databaseHost = RoleFloorProvenance.DescribeDatabaseHost(normalizedConnectionString);
             string harnessCommitSha = DescribeHarnessCommitSha();
             var connectionInfo = new RelationalDatabaseConnection(

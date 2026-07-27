@@ -76,13 +76,16 @@ var cedhLandBaselineDataOption = new Option<string>("--data") { Description = "D
 var cedhLandBaselineOutOption = new Option<string>("--out", () => Path.Combine("DeckFlow.Web", "Data", "cedh-land-baseline")) { Description = "Output directory for the monthly markdown/JSON artifacts." };
 var cedhLandBaselineMonthOption = new Option<string>("--month") { Description = "Month label in YYYY-MM format.", IsRequired = true };
 var cedhLandBaselineThresholdsOption = new Option<string>("--thresholds", () => Path.Combine("scripts", "cedh-baseline", "drift-thresholds.json")) { Description = "Path to the committed drift-threshold configuration." };
-var roleFloorResearchCommand = new Command("role-floor-research", "Reconstruct commander corpora, classify roles oracle-only, and measure role-floor divergence.");
-var roleFloorResearchConnectionStringOption = new Option<string>("--connection-string") { Description = "Postgres connection string for the category-knowledge corpus.", IsRequired = true };
+var roleFloorResearchCommand = new Command("role-floor-research", "Reconstruct commander corpora, classify roles oracle-only, and measure role-floor divergence. The connection string may be supplied by --connection-string or by the DECKFLOW_ROLE_FLOOR_CONNECTION_STRING environment variable. Exit codes: 0 = success with at least one qualifying commander and artifacts written; 1 = bad arguments, taxonomy drift, or unhandled exception; 2 = ran successfully but zero commanders cleared the minimum deck count, so no artifact was written.");
+var roleFloorResearchConnectionStringOption = new Option<string?>("--connection-string") { Description = "Postgres connection string for the category-knowledge corpus. Optional on the command line; if omitted the value is read from the DECKFLOW_ROLE_FLOOR_CONNECTION_STRING environment variable. Prefer the environment variable because command-line arguments are visible in the process list. Supplying the flag overrides the environment variable.", IsRequired = false };
 var roleFloorResearchMinDecksOption = new Option<int>("--min-decks", () => 40) { Description = "Minimum deduped deck count required for a commander to qualify." };
 var roleFloorResearchModeOption = new Option<string>("--mode", () => "cedh") { Description = "casual | focused | cedh -- resolved via CutLabRoleAssigner.ResolveMode" };
 var roleFloorResearchCardsCacheOption = new Option<string>("--cards-cache", () => Path.Combine("_role-floor-research", "cards_full.json")) { Description = "Path to the resumable Scryfall cards cache JSON." };
-var roleFloorResearchOutOption = new Option<string>("--out", () => Path.Combine(".planning", "workstreams", "cutlab-role-floors", "phases", "01-role-floor-divergence-research", "RESEARCH-FINDINGS.md")) { Description = "Markdown findings output path." };
-var roleFloorResearchOutJsonOption = new Option<string>("--out-json", () => Path.Combine(".planning", "workstreams", "cutlab-role-floors", "phases", "01-role-floor-divergence-research", "RESEARCH-FINDINGS.json")) { Description = "Machine-readable findings output path." };
+// Why: this workstream was renamed from the older "cutlab role floors" slug to cycle21-cut-lab and the phase was
+// renumbered from 01 to 02 on 2026-07-26, so the old defaults wrote into a folder that no longer
+// exists in this workstream.
+var roleFloorResearchOutOption = new Option<string>("--out", () => Path.Combine(".planning", "workstreams", "cycle21-cut-lab", "phases", "02-role-floor-divergence-research", "RESEARCH-FINDINGS.md")) { Description = "Markdown findings output path." };
+var roleFloorResearchOutJsonOption = new Option<string>("--out-json", () => Path.Combine(".planning", "workstreams", "cycle21-cut-lab", "phases", "02-role-floor-divergence-research", "RESEARCH-FINDINGS.json")) { Description = "Machine-readable findings output path." };
 var scryfallProbeCommand = new Command("scryfall-probe", "Hit Scryfall once (or many times) and log the full response including headers.");
 var scryfallProbeEndpointOption = new Option<string>("--endpoint", () => "named") { Description = "named | search | random" };
 var scryfallProbeNameOption = new Option<string?>("--name") { Description = "Card name for named/search. Defaults to Sol Ring." };
@@ -337,7 +340,7 @@ cedhLandBaselineCommand.SetHandler((string dataDirectory, string outputDirectory
     Environment.ExitCode = CedhBaselineCommandRunner.RunAsync(dataDirectory, outputDirectory, month, thresholdsPath).GetAwaiter().GetResult();
 }, cedhLandBaselineDataOption, cedhLandBaselineOutOption, cedhLandBaselineMonthOption, cedhLandBaselineThresholdsOption);
 
-roleFloorResearchCommand.SetHandler((string connectionString, int minDecks, string mode, string cardsCachePath, string outputPath, string outputJsonPath) =>
+roleFloorResearchCommand.SetHandler((string? connectionString, int minDecks, string mode, string cardsCachePath, string outputPath, string outputJsonPath) =>
 {
     Environment.ExitCode = RoleFloorResearchCommandRunner.RunAsync(connectionString, minDecks, mode, cardsCachePath, outputPath, outputJsonPath).GetAwaiter().GetResult();
 }, roleFloorResearchConnectionStringOption, roleFloorResearchMinDecksOption, roleFloorResearchModeOption, roleFloorResearchCardsCacheOption, roleFloorResearchOutOption, roleFloorResearchOutJsonOption);
