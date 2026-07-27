@@ -41,3 +41,8 @@ run-studio.bat
 !.manabase-*-facts.json
 .manabase-harness-on
 archidekt-baseline-decks.json
+
+# cEDH baseline pipeline cache (scripts/cedh-baseline/fetch.py --outdir). Multi-MB EDHTop16 deck
+# dump + Scryfall card cache, regenerated every monthly refresh; only the derived artifacts under
+# DeckFlow.Web/Data/cedh-land-baseline/ are committed.
+_calib/
