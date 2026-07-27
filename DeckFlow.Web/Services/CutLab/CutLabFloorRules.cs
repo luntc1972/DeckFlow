@@ -15,7 +15,8 @@ public static class CutLabFloorRules
         "lands",
         "ramp",
         "draw",
-        "interaction",
+        "interaction-targeted",
+        "interaction-mass",
         "protection",
         "engines",
         "payoffs",
@@ -33,11 +34,12 @@ public static class CutLabFloorRules
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        IReadOnlyList<CutLabRoleFloor> sourceFloors = MigrateLegacyInteractionFloor(state);
         List<CutLabRoleFloor> normalized = [];
         HashSet<string> seenRoles = new(StringComparer.OrdinalIgnoreCase);
-        bool changed = false;
+        bool changed = !ReferenceEquals(sourceFloors, state.RoleFloors);
 
-        foreach (CutLabRoleFloor roleFloor in state.RoleFloors)
+        foreach (CutLabRoleFloor roleFloor in sourceFloors)
         {
             if (!TryGetCanonicalRole(roleFloor.Role, out string canonicalRole))
             {
@@ -67,6 +69,127 @@ public static class CutLabFloorRules
         {
             RoleFloors = normalized,
         };
+    }
+
+    internal static IReadOnlyList<CutLabRoleFloor> MigrateLegacyInteractionFloor(CutLabState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        IReadOnlyList<CutLabRoleFloor> roleFloors = state.RoleFloors;
+
+        CutLabRoleFloor? legacyInteraction = null;
+        bool hasUserSetTargeted = false;
+        bool hasUserSetMass = false;
+        bool hasNonUserSetTargeted = false;
+        bool hasNonUserSetMass = false;
+
+        foreach (CutLabRoleFloor floor in roleFloors)
+        {
+            if (string.Equals(floor.Role, "interaction", StringComparison.OrdinalIgnoreCase))
+            {
+                legacyInteraction ??= floor;
+                continue;
+            }
+
+            if (string.Equals(floor.Role, "interaction-targeted", StringComparison.OrdinalIgnoreCase))
+            {
+                hasUserSetTargeted |= floor.IsUserSet;
+                hasNonUserSetTargeted |= !floor.IsUserSet;
+                continue;
+            }
+
+            if (string.Equals(floor.Role, "interaction-mass", StringComparison.OrdinalIgnoreCase))
+            {
+                hasUserSetMass |= floor.IsUserSet;
+                hasNonUserSetMass |= !floor.IsUserSet;
+            }
+        }
+
+        if (legacyInteraction is null)
+        {
+            return roleFloors;
+        }
+
+        if (!legacyInteraction.IsUserSet)
+        {
+            List<CutLabRoleFloor> dropped = [];
+            bool changed = false;
+            foreach (CutLabRoleFloor floor in roleFloors)
+            {
+                if (string.Equals(floor.Role, "interaction", StringComparison.OrdinalIgnoreCase))
+                {
+                    changed = true;
+                    continue;
+                }
+
+                dropped.Add(floor);
+            }
+
+            return changed ? dropped : roleFloors;
+        }
+
+        if (hasUserSetTargeted || hasUserSetMass)
+        {
+            List<CutLabRoleFloor> explicitWins = [];
+            bool changed = false;
+            foreach (CutLabRoleFloor floor in roleFloors)
+            {
+                if (string.Equals(floor.Role, "interaction", StringComparison.OrdinalIgnoreCase))
+                {
+                    changed = true;
+                    continue;
+                }
+
+                explicitWins.Add(floor);
+            }
+
+            return changed ? explicitWins : roleFloors;
+        }
+
+        int resolvedBracket = CutLabFloorDefaults.ResolveBracket(state.Intent.Bracket, state.Intent.PlayExperience, out _);
+        int targetedDefault = CutLabFloorDefaults.GetDefaultInteractionTargetedFloor(resolvedBracket);
+        int massDefault = CutLabFloorDefaults.GetDefaultInteractionMassFloor(resolvedBracket);
+        int totalDefault = targetedDefault + massDefault;
+        int migratedTargeted = (int)Math.Round((double)legacyInteraction.Floor * targetedDefault / totalDefault, MidpointRounding.AwayFromZero);
+        int migratedMass = legacyInteraction.Floor - migratedTargeted;
+
+        List<CutLabRoleFloor> migrated = [];
+        bool inserted = false;
+
+        foreach (CutLabRoleFloor floor in roleFloors)
+        {
+            if (string.Equals(floor.Role, "interaction", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!inserted)
+                {
+                    migrated.Add(new CutLabRoleFloor
+                    {
+                        Role = "interaction-targeted",
+                        Floor = migratedTargeted,
+                        IsUserSet = true,
+                    });
+                    migrated.Add(new CutLabRoleFloor
+                    {
+                        Role = "interaction-mass",
+                        Floor = migratedMass,
+                        IsUserSet = true,
+                    });
+                    inserted = true;
+                }
+
+                continue;
+            }
+
+            if ((hasNonUserSetTargeted && string.Equals(floor.Role, "interaction-targeted", StringComparison.OrdinalIgnoreCase))
+                || (hasNonUserSetMass && string.Equals(floor.Role, "interaction-mass", StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            migrated.Add(floor);
+        }
+
+        return migrated;
     }
 
     /// <summary>Warning emitted when a proposed cut would drop a role below its floor.</summary>

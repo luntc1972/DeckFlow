@@ -481,7 +481,7 @@ public sealed class CutLabWhatifTests
             [
                 new CutLabRoleFloor
                 {
-                    Role = "interaction",
+                    Role = "interaction-targeted",
                     Floor = 7,
                     IsUserSet = true,
                 },

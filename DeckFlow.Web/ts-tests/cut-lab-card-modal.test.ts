@@ -47,7 +47,7 @@ const buildFixture = (): void => {
       <input type="radio" name="PlayExperience" value="Focused" checked />
       <table>
         <tbody>
-          <tr data-cut-lab-card="Counterspell" data-cut-lab-type-line="Instant" data-cut-lab-role="interaction" data-cut-lab-quantity="1" data-cut-lab-commander="false">
+          <tr data-cut-lab-card="Counterspell" data-cut-lab-type-line="Instant" data-cut-lab-role="interaction-targeted" data-cut-lab-quantity="1" data-cut-lab-commander="false">
             <td data-label="Lock"><input type="checkbox" data-cut-lab-lock-card="Counterspell" /></td>
             <td data-label="Card">
               <button type="button" data-cutlab-card-open="Counterspell">Counterspell</button>
@@ -149,7 +149,7 @@ describe('cut-lab card modal', () => {
         <input type="radio" name="PlayExperience" value="Focused" checked />
         <table>
           <tbody>
-            <tr data-cut-lab-card="Counterspell" data-cut-lab-type-line="Instant" data-cut-lab-role="interaction" data-cut-lab-quantity="1" data-cut-lab-commander="false">
+            <tr data-cut-lab-card="Counterspell" data-cut-lab-type-line="Instant" data-cut-lab-role="interaction-targeted" data-cut-lab-quantity="1" data-cut-lab-commander="false">
               <td data-label="Lock"><input type="checkbox" data-cut-lab-lock-card="Counterspell" /></td>
               <td data-label="Card">
                 <button type="button" data-cutlab-card-open="Counterspell">Counterspell</button>

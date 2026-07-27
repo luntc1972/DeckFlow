@@ -41,8 +41,8 @@ public sealed class CutLabCutRoundEngineTests
     {
         IReadOnlyList<CutLabRoundInputCard> workingList =
         [
-            Card("Role Mate A", 3, roles: ["interaction"]),
-            Card("Role Mate B", 4, roles: ["interaction"]),
+            Card("Role Mate A", 3, roles: ["interaction-targeted"]),
+            Card("Role Mate B", 4, roles: ["interaction-targeted"]),
             Card("Fallback", 5),
         ];
 
@@ -310,6 +310,8 @@ public sealed class CutLabCutRoundEngineTests
     {
         IReadOnlyList<CutLabRoundInputCard> workingList =
         [
+            Card("Mass Wipe", 1, isLocked: true, roles: ["interaction-mass"], typeLine: "Sorcery"),
+            Card("Targeted Answer", 1, isLocked: true, roles: ["interaction-targeted"], typeLine: "Instant"),
             Card("Payoff Creature", 1, isLocked: true, roles: ["payoffs"], typeLine: "Creature"),
             Card("Wincon Sorcery", 1, isLocked: true, roles: ["wincons"], typeLine: "Sorcery"),
             Card("Wincon Artifact", 1, isLocked: true, roles: ["wincons"], typeLine: "Artifact"),
@@ -324,7 +326,7 @@ public sealed class CutLabCutRoundEngineTests
 
         Assert.Null(plan.NextProposal);
         CutLabLockedOvershootAdvisory advisory = Assert.IsType<CutLabLockedOvershootAdvisory>(plan.LockedOvershootAdvisory);
-        Assert.Equal(2, advisory.CardsOverTarget);
+        Assert.Equal(4, advisory.CardsOverTarget);
         Assert.Equal(
             ["Creature", "Planeswalker", "Battle", "Instant", "Sorcery", "Artifact", "Enchantment", "Land", "Other"],
             CutLabViewModel.TypeGroupOrder);
@@ -339,6 +341,16 @@ public sealed class CutLabCutRoundEngineTests
             {
                 Assert.Equal("payoffs", group.RoleKey);
                 Assert.Equal(["Payoff Creature"], group.CardNames);
+            },
+            group =>
+            {
+                Assert.Equal("interaction-mass", group.RoleKey);
+                Assert.Equal(["Mass Wipe"], group.CardNames);
+            },
+            group =>
+            {
+                Assert.Equal("interaction-targeted", group.RoleKey);
+                Assert.Equal(["Targeted Answer"], group.CardNames);
             },
             group =>
             {

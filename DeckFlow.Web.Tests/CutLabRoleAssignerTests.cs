@@ -5,7 +5,7 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
-/// <summary>Coverage for pure Cut Lab role assignment across the eight fixed slot keys.</summary>
+/// <summary>Coverage for pure Cut Lab role assignment across the nine fixed slot keys.</summary>
 public sealed class CutLabRoleAssignerTests
 {
     [Fact]
@@ -137,7 +137,41 @@ public sealed class CutLabRoleAssignerTests
     }
 
     [Fact]
-    public void AssignRoles_SwordsToPlowshares_IsInteractionInCasualViaPreGateSignal()
+    public void AssignRoles_WipeByOracleHeuristic_IsMassOnly()
+    {
+        CardFact fact = Fact(
+            "Wrath of God",
+            "Sorcery",
+            oracle: "Destroy all creatures. They can't be regenerated.");
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
+            fact,
+            Array.Empty<string>(),
+            isComboPiece: false,
+            ManabaseMode.Casual);
+
+        Assert.Equal(["interaction-mass"], roles);
+    }
+
+    [Fact]
+    public void AssignRoles_WipeCategoryTagWithoutHeuristic_IsMassOnly()
+    {
+        CardFact fact = Fact(
+            "Selective Purge",
+            "Instant",
+            oracle: "Destroy target artifact.");
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
+            fact,
+            ["wipe"],
+            isComboPiece: false,
+            ManabaseMode.Casual);
+
+        Assert.Equal(["interaction-mass"], roles);
+    }
+
+    [Fact]
+    public void AssignRoles_SwordsToPlowshares_IsTargetedOnlyInCasualViaPreGateSignal()
     {
         CardFact fact = Fact(
             "Swords to Plowshares",
@@ -150,11 +184,11 @@ public sealed class CutLabRoleAssignerTests
             isComboPiece: false,
             ManabaseMode.Casual);
 
-        Assert.Equal(["interaction"], roles);
+        Assert.Equal(["interaction-targeted"], roles);
     }
 
     [Theory]
-    [InlineData(ManabaseMode.Cedh, new[] { "interaction" })]
+    [InlineData(ManabaseMode.Cedh, new[] { "interaction-targeted" })]
     [InlineData(ManabaseMode.Casual, new[] { "other" })]
     public void AssignRoles_Counterspell_RespectsModeGate(ManabaseMode mode, string[] expected)
     {
@@ -170,6 +204,62 @@ public sealed class CutLabRoleAssignerTests
             mode);
 
         Assert.Equal(expected, roles);
+    }
+
+    [Fact]
+    public void AssignRoles_GenericInteractionCategoryWithoutPredicate_IsTargetedOnly()
+    {
+        CardFact fact = Fact(
+            "Flexible Answer",
+            "Artifact",
+            oracle: "Artifacts you control enter untapped.");
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
+            fact,
+            ["answer"],
+            isComboPiece: false,
+            ManabaseMode.Casual);
+
+        Assert.Equal(["interaction-targeted"], roles);
+    }
+
+    [Fact]
+    public void AssignRoles_InteractionRolesStayMutuallyExclusiveAcrossRepresentativeCards()
+    {
+        (CardFact Fact, IReadOnlyList<string> Categories, bool IsComboPiece, ManabaseMode Mode)[] samples =
+        [
+            (Fact("Wrath of God", "Sorcery", "Destroy all creatures. They can't be regenerated."), Array.Empty<string>(), false, ManabaseMode.Casual),
+            (Fact("Selective Purge", "Instant", "Destroy target artifact."), ["wipe"], false, ManabaseMode.Casual),
+            (Fact("Swords to Plowshares", "Instant", "Exile target creature. Its controller gains life equal to its power."), Array.Empty<string>(), false, ManabaseMode.Casual),
+            (Fact("Counterspell", "Instant", "Counter target spell."), Array.Empty<string>(), false, ManabaseMode.Cedh),
+            (Fact("Flexible Answer", "Artifact", "Artifacts you control enter untapped."), ["answer"], false, ManabaseMode.Casual),
+        ];
+
+        foreach ((CardFact sampleFact, IReadOnlyList<string> categories, bool isComboPiece, ManabaseMode mode) in samples)
+        {
+            IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(sampleFact, categories, isComboPiece, mode);
+            Assert.False(
+                roles.Contains("interaction-targeted", StringComparer.Ordinal)
+                && roles.Contains("interaction-mass", StringComparer.Ordinal),
+                sampleFact.Name);
+        }
+    }
+
+    [Fact]
+    public void AssignRoles_CanonicalEmissionOrder_PutsTargetedBeforeLaterRoles()
+    {
+        CardFact fact = Fact(
+            "Swords to Plowshares",
+            "Instant",
+            oracle: "Exile target creature. Its controller gains life equal to its power.");
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
+            fact,
+            Array.Empty<string>(),
+            isComboPiece: true,
+            ManabaseMode.Casual);
+
+        Assert.Equal(["interaction-targeted", "wincons"], roles);
     }
 
     [Fact]
