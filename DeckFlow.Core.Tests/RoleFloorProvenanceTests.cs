@@ -156,15 +156,14 @@ public sealed class RoleFloorProvenanceTests
     }
 
     [Fact]
-    public void DescribeDatabaseHost_WhitespaceOnlyInput_DoesNotLeakCredentials()
+    public void DescribeDatabaseHost_WhitespaceOnlyInput_ReturnsUnavailable()
     {
-        const string password = "WhitespaceSecret!2026";
-        const string username = "whitespace_user";
+        // Why: whitespace-only input carries no credential to leak, so a DoesNotContain assertion
+        // here would be tautological. The credential-absence guarantee is covered by the cases that
+        // actually feed a secret in; this case pins only the degraded-value contract.
         string result = RoleFloorProvenance.DescribeDatabaseHost("   ");
 
         Assert.Equal("unavailable", result);
-        Assert.DoesNotContain(password, result, StringComparison.Ordinal);
-        Assert.DoesNotContain(username, result, StringComparison.Ordinal);
     }
 
     [Fact]
