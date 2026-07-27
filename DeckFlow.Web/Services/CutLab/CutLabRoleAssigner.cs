@@ -198,11 +198,12 @@ public static class CutLabRoleAssigner
 
     private static bool HasWipeCategoryTag(IReadOnlyList<string> categories)
     {
-        // Why: mirror PlanRoleClassifier.IsInteractionCategory's "wipe" vocabulary locally so the
-        // Cut Lab interaction split covers the category-tag path without changing the shared lens.
+        // Why: mirror PlanRoleClassifier.IsInteractionCategory's matching semantics for the
+        // "wipe" needle locally so Cut Lab's targeted/mass split covers the category-tag path
+        // without changing the shared lens.
         foreach (string category in categories)
         {
-            if (string.Equals(category, "wipe", StringComparison.OrdinalIgnoreCase))
+            if (category.ToLowerInvariant().Contains("wipe", StringComparison.Ordinal))
             {
                 return true;
             }
