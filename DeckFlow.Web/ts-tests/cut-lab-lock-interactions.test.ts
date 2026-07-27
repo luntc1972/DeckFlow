@@ -124,7 +124,7 @@ describe('DeckFlowCutLab', () => {
       },
       roleFloors: [
         {
-          role: 'interaction',
+          role: 'interaction-targeted',
           floor: 15,
           isUserSet: true,
         },
@@ -142,7 +142,7 @@ describe('DeckFlowCutLab', () => {
     });
 
     expect(json).toBe(
-      '{"commander":"Atraxa, Praetors\' Voice","pool":[{"name":"Atraxa, Praetors\' Voice","quantity":1,"typeLine":"Legendary Creature — Angel Horror","isCommander":true,"isLocked":true,"packageId":null},{"name":"Command Tower","quantity":1,"typeLine":"Land","isCommander":false,"isLocked":true,"packageId":"pkg-lands-1"}],"packages":[{"id":"pkg-lands-1","name":"Mana base","locked":true}],"decisions":[],"intent":{"primaryPlan":"Stick Atraxa and snowball card advantage.","secondaryPlan":"Protect the board with proliferate value.","bracket":4,"playExperience":"Focused","includeSideboard":false,"includeMaybeboard":false},"roleFloors":[{"role":"interaction","floor":15,"isUserSet":true}],"goals":{"commanderByTurn":3,"engineByTurn":2,"representativeLineByTurn":4}}',
+      '{"commander":"Atraxa, Praetors\' Voice","pool":[{"name":"Atraxa, Praetors\' Voice","quantity":1,"typeLine":"Legendary Creature — Angel Horror","isCommander":true,"isLocked":true,"packageId":null},{"name":"Command Tower","quantity":1,"typeLine":"Land","isCommander":false,"isLocked":true,"packageId":"pkg-lands-1"}],"packages":[{"id":"pkg-lands-1","name":"Mana base","locked":true}],"decisions":[],"intent":{"primaryPlan":"Stick Atraxa and snowball card advantage.","secondaryPlan":"Protect the board with proliferate value.","bracket":4,"playExperience":"Focused","includeSideboard":false,"includeMaybeboard":false},"roleFloors":[{"role":"interaction-targeted","floor":15,"isUserSet":true}],"goals":{"commanderByTurn":3,"engineByTurn":2,"representativeLineByTurn":4}}',
     );
   });
 
@@ -173,9 +173,11 @@ describe('DeckFlowCutLab', () => {
   });
 
   it('toggles matching role rows, syncs aria-pressed, and writes live role floors to CutLabStateJson', () => {
+    const legacyStateJson = '{"commander":"Atraxa, Praetors\\\' Voice","pool":[{"name":"Atraxa, Praetors\\\' Voice","quantity":1,"typeLine":"Legendary Creature — Angel Horror","isCommander":true,"isLocked":true,"packageId":null},{"name":"Command Tower","quantity":1,"typeLine":"Land","isCommander":false,"isLocked":true,"packageId":"pkg-lands-1"}],"packages":[{"id":"pkg-lands-1","name":"Mana base","locked":true}],"decisions":[],"intent":{"primaryPlan":"Stick Atraxa and snowball card advantage.","secondaryPlan":"Protect the board with proliferate value.","bracket":4,"playExperience":"Focused","includeSideboard":false,"includeMaybeboard":false},"roleFloors":[{"role":"interaction","floor":15,"isUserSet":true}],"goals":{"commanderByTurn":3,"engineByTurn":2,"representativeLineByTurn":4}}';
+
     document.body.innerHTML = `
       <form data-cache-key="cut-lab">
-        <input type="hidden" name="CutLabStateJson" value="" />
+        <input type="hidden" name="CutLabStateJson" value='${legacyStateJson}' />
         <textarea name="PrimaryPlan">Keep the control shell intact.</textarea>
         <textarea name="SecondaryPlan">Win through inevitability.</textarea>
         <input type="radio" name="Bracket" value="3" checked />
@@ -249,19 +251,19 @@ describe('DeckFlowCutLab', () => {
         </section>
         <table>
           <tbody>
-            <tr data-cut-lab-floor-row="interaction" data-cut-lab-floor-count="16" data-cut-lab-floor-default="12" data-cut-lab-floor-user-set="false">
-              <td data-label="Role">Interaction</td>
+            <tr data-cut-lab-floor-row="interaction-targeted" data-cut-lab-floor-count="16" data-cut-lab-floor-default="5" data-cut-lab-floor-user-set="false">
+              <td data-label="Role">Targeted removal</td>
               <td data-label="In pool">
                 <span data-cut-lab-floor-count-label>16 in pool</span>
                 <span class="cutlab-floor-state--at hidden" data-cut-lab-floor-at-marker>· at floor</span>
               </td>
               <td data-label="Floor">
-                <input type="number" min="0" max="99" step="1" data-cut-lab-floor="interaction" value="12" />
+                <input type="number" min="0" max="99" step="1" data-cut-lab-floor="interaction-targeted" value="5" />
               </td>
               <td data-label="Source">
-                <span data-cut-lab-floor-source-default>Default for B3: 12</span>
+                <span data-cut-lab-floor-source-default>Default for B3: 5</span>
                 <span class="hidden" data-cut-lab-floor-adjusted-badge>Adjusted</span>
-                <button type="button" class="hidden" data-cut-lab-floor-reset="interaction" data-cut-lab-floor-default="12">Reset to default</button>
+                <button type="button" class="hidden" data-cut-lab-floor-reset="interaction-targeted" data-cut-lab-floor-default="5">Reset to default</button>
               </td>
             </tr>
           </tbody>
@@ -279,10 +281,10 @@ describe('DeckFlowCutLab', () => {
     const landCheckbox = document.querySelector<HTMLInputElement>('input[data-cut-lab-lock-card="Command Tower"]');
     const fetchLandCheckbox = document.querySelector<HTMLInputElement>('input[data-cut-lab-lock-card="Flooded Strand"]');
     const spellCheckbox = document.querySelector<HTMLInputElement>('input[data-cut-lab-lock-card="Mystic Remora"]');
-    const floorInput = document.querySelector<HTMLInputElement>('input[data-cut-lab-floor="interaction"]');
+    const floorInput = document.querySelector<HTMLInputElement>('input[data-cut-lab-floor="interaction-targeted"]');
     const floorMarker = document.querySelector<HTMLElement>('[data-cut-lab-floor-at-marker]');
     const adjustedBadge = document.querySelector<HTMLElement>('[data-cut-lab-floor-adjusted-badge]');
-    const resetButton = document.querySelector<HTMLButtonElement>('[data-cut-lab-floor-reset="interaction"]');
+    const resetButton = document.querySelector<HTMLButtonElement>('[data-cut-lab-floor-reset="interaction-targeted"]');
 
     button?.click();
     expect(button?.getAttribute('aria-pressed')).toBe('true');
@@ -355,7 +357,7 @@ describe('DeckFlowCutLab', () => {
     });
     expect(parsed.roleFloors).toEqual([
       {
-        role: 'interaction',
+        role: 'interaction-targeted',
         floor: 15,
         isUserSet: true,
       },

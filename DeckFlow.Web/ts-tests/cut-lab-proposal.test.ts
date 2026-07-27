@@ -492,7 +492,7 @@ describe('cut-lab proposal enhancement', () => {
     document.querySelector('table tbody')?.insertAdjacentHTML('beforeend', `
       <tr data-cut-lab-card="Counterspell"
           data-cut-lab-type-line="Instant"
-          data-cut-lab-role="interaction"
+          data-cut-lab-role="interaction-targeted"
           data-cut-lab-quantity="1"
           data-cut-lab-commander="false">
         <td data-label="Select"><input type="checkbox" data-cut-lab-lock-card="Counterspell" /></td>

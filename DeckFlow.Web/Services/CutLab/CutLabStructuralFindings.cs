@@ -112,7 +112,8 @@ public static class CutLabStructuralFindings
     private const string LandsRole = "lands";
     private const string RampRole = "ramp";
     private const string DrawRole = "draw";
-    private const string InteractionRole = "interaction";
+    private const string InteractionTargetedRole = "interaction-targeted";
+    private const string InteractionMassRole = "interaction-mass";
     private const string ProtectionRole = "protection";
     private const string EnginesRole = "engines";
     private const string PayoffsRole = "payoffs";
@@ -123,7 +124,8 @@ public static class CutLabStructuralFindings
         LandsRole,
         RampRole,
         DrawRole,
-        InteractionRole,
+        InteractionTargetedRole,
+        InteractionMassRole,
         ProtectionRole,
         EnginesRole,
         PayoffsRole,
@@ -135,7 +137,7 @@ public static class CutLabStructuralFindings
     /// </summary>
     /// <param name="pool">Analyzed pool cards with their roles and categories.</param>
     /// <param name="nearCombos">One-card-away near-combos found for the pool.</param>
-    /// <param name="floors">Role floors keyed by the eight fixed Cut Lab role keys.</param>
+    /// <param name="floors">Role floors keyed by the nine fixed Cut Lab role keys.</param>
     /// <param name="comboDataAvailable"><see langword="true"/> when combo lookup ran (even if it found nothing); <see langword="false"/> when lookup failed/was unavailable.</param>
     /// <param name="categoryDataAvailable"><see langword="true"/> when category lookup ran (even if it found nothing); <see langword="false"/> when lookup failed/was unavailable.</param>
     /// <param name="completeCombos">Resolved complete combos present in the pool when combo lookup succeeded.</param>
@@ -460,7 +462,8 @@ public static class CutLabStructuralFindings
             LandsRole => "Lands",
             RampRole => "Ramp",
             DrawRole => "Card draw",
-            InteractionRole => "Interaction",
+            InteractionTargetedRole => "Targeted removal",
+            InteractionMassRole => "Mass removal",
             ProtectionRole => "Protection",
             EnginesRole => "Engines",
             PayoffsRole => "Payoffs",

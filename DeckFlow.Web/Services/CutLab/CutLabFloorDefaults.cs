@@ -4,7 +4,7 @@ using DeckFlow.Web.Services.Manabase;
 
 namespace DeckFlow.Web.Services.CutLab;
 
-/// <summary>Pure bracket- and play-experience-derived default floor rules for the eight Cut Lab roles.</summary>
+/// <summary>Pure bracket- and play-experience-derived default floor rules for the nine Cut Lab roles.</summary>
 public static class CutLabFloorDefaults
 {
     /// <summary>[ASSUMED] Fallback lands floor when no baseline row is available.</summary>
@@ -40,7 +40,7 @@ public static class CutLabFloorDefaults
         };
     }
 
-    /// <summary>Resolves all eight Cut Lab role floors in stable role order, merging in any user overrides.</summary>
+    /// <summary>Resolves all nine Cut Lab role floors in stable role order, merging in any user overrides.</summary>
     /// <param name="declaredBracket">User-declared bracket, when present.</param>
     /// <param name="playExperience">User-declared play-experience string.</param>
     /// <param name="commanderManaValue">Resolved commander mana value used for the ramp/draw split.</param>
@@ -98,7 +98,45 @@ public static class CutLabFloorDefaults
 
     /// <summary>[ASSUMED] Unsigned product constants for non-lands, non-ramp, non-draw role floors.</summary>
     /// <remarks>User-adjustable via FLOOR-02; chosen during planning and awaiting product sign-off.</remarks>
-    private static int GetBracketBand(string role, int bracket)
+    internal static int GetDefaultInteractionTargetedFloor(int bracket)
+    {
+        int normalizedBracket = bracket switch
+        {
+            <= 2 => 2,
+            3 => 3,
+            4 => 4,
+            _ => 5,
+        };
+
+        return normalizedBracket switch
+        {
+            2 => 4,
+            3 => 5,
+            4 => 7,
+            _ => 9,
+        };
+    }
+
+    internal static int GetDefaultInteractionMassFloor(int bracket)
+    {
+        int normalizedBracket = bracket switch
+        {
+            <= 2 => 2,
+            3 => 3,
+            4 => 4,
+            _ => 5,
+        };
+
+        return normalizedBracket switch
+        {
+            2 => 2,
+            3 => 3,
+            4 => 3,
+            _ => 3,
+        };
+    }
+
+    internal static int GetBracketBand(string role, int bracket)
     {
         int normalizedBracket = bracket switch
         {
@@ -110,8 +148,10 @@ public static class CutLabFloorDefaults
 
         return role switch
         {
-            // Why: higher brackets expect denser answers, so interaction climbs the fastest.
-            "interaction" => normalizedBracket switch { 2 => 6, 3 => 8, 4 => 10, _ => 12 },
+            // Why: the split preserves the shipped interaction budget while biasing higher brackets toward targeted answers.
+            "interaction-targeted" => GetDefaultInteractionTargetedFloor(normalizedBracket),
+            // Why: sweepers matter at every bracket, but the default demand flattens once decks optimize around narrower answers.
+            "interaction-mass" => GetDefaultInteractionMassFloor(normalizedBracket),
             // Why: protection scales with combo pressure but stays below interaction because it is narrower.
             "protection" => normalizedBracket switch { 2 => 2, 3 => 3, 4 => 4, _ => 5 },
             // Why: engine density rises through optimized play, then flattens because engines self-sustain.

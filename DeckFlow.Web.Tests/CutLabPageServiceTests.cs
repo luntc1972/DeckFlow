@@ -2723,28 +2723,36 @@ public sealed class CutLabPageServiceTests
         Assert.False(model.ComboDataUnavailable);
         Assert.False(model.CategoryDataUnavailable);
         Assert.NotEmpty(model.Findings);
-        Assert.Equal(8, model.FloorRows.Count);
+        Assert.Equal(9, model.FloorRows.Count);
         Assert.Equal("Card draw · Engines", model.RoleListByCardName["Value Engine"]);
         Assert.Equal("draw engines", model.RoleKeysByCardName["Value Engine"]);
         Assert.Equal(string.Empty, model.RoleListByCardName["Unresolved Card"]);
         Assert.Empty(result.RoleAssignmentsByCardName["Unresolved Card"]);
         Assert.Contains(model.RoleGroups.Single(group => group.RoleKey == "draw").Members, member => member.Name == "Value Engine");
         Assert.Contains(model.RoleGroups.Single(group => group.RoleKey == "engines").Members, member => member.Name == "Value Engine");
-        Assert.Equal(1, model.RoleGroups.Single(group => group.RoleKey == "interaction").LockedCount);
+        Assert.Equal(1, model.RoleGroups.Single(group => group.RoleKey == "interaction-targeted").LockedCount);
 
-        CutLabFloorRowView interactionRow = Assert.Single(model.FloorRows, row => row.RoleKey == "interaction");
-        Assert.Equal("Interaction", interactionRow.DisplayLabel);
-        Assert.Equal(2, interactionRow.InPoolCount);
-        Assert.Equal(15, interactionRow.Floor);
-        Assert.Equal(10, interactionRow.DefaultValue);
-        Assert.True(interactionRow.IsUserSet);
-        Assert.True(interactionRow.AtFloor);
-        Assert.Equal("Default for B4: 10", interactionRow.SourceLabel);
+        CutLabFloorRowView targetedRow = Assert.Single(model.FloorRows, row => row.RoleKey == "interaction-targeted");
+        Assert.Equal("Targeted removal", targetedRow.DisplayLabel);
+        Assert.Equal(2, targetedRow.InPoolCount);
+        Assert.Equal(10, targetedRow.Floor);
+        Assert.Equal(7, targetedRow.DefaultValue);
+        Assert.True(targetedRow.IsUserSet);
+        Assert.True(targetedRow.AtFloor);
+        Assert.Equal("Default for B4: 7", targetedRow.SourceLabel);
 
-        CutLabRoleFloor persistedFloor = Assert.Single(result.State!.RoleFloors);
-        Assert.Equal("interaction", persistedFloor.Role);
-        Assert.Equal(15, persistedFloor.Floor);
-        Assert.True(persistedFloor.IsUserSet);
+        CutLabFloorRowView massRow = Assert.Single(model.FloorRows, row => row.RoleKey == "interaction-mass");
+        Assert.Equal("Mass removal", massRow.DisplayLabel);
+        Assert.Equal(0, massRow.InPoolCount);
+        Assert.Equal(5, massRow.Floor);
+        Assert.Equal(3, massRow.DefaultValue);
+        Assert.True(massRow.IsUserSet);
+        Assert.True(massRow.AtFloor);
+        Assert.Equal("Default for B4: 3", massRow.SourceLabel);
+
+        Assert.Equal(2, result.State!.RoleFloors.Count);
+        Assert.Contains(result.State.RoleFloors, floor => floor.Role == "interaction-targeted" && floor.Floor == 10 && floor.IsUserSet);
+        Assert.Contains(result.State.RoleFloors, floor => floor.Role == "interaction-mass" && floor.Floor == 5 && floor.IsUserSet);
         Assert.DoesNotContain(result.State.RoleFloors, floor => floor.Role == "draw");
     }
 
@@ -3051,7 +3059,7 @@ public sealed class CutLabPageServiceTests
             IReadOnlyList<string> roles = card.Name switch
             {
                 "Card 001" => ["draw", "engines"],
-                "Card 002" => ["interaction"],
+                "Card 002" => ["interaction-targeted"],
                 _ when card.TypeLine.Contains("Land", StringComparison.OrdinalIgnoreCase) => ["lands"],
                 _ => [],
             };

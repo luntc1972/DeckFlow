@@ -25,11 +25,12 @@ public sealed class CutLabFloorDefaultsTests
         AssertFloor(resolved[0], "lands", 36, false, 36, 4, false);
         AssertFloor(resolved[1], "ramp", 10, false, 10, 4, false);
         AssertFloor(resolved[2], "draw", 14, false, 14, 4, false);
-        AssertFloor(resolved[3], "interaction", 10, false, 10, 4, false);
-        AssertFloor(resolved[4], "protection", 4, false, 4, 4, false);
-        AssertFloor(resolved[5], "engines", 6, false, 6, 4, false);
-        AssertFloor(resolved[6], "payoffs", 6, false, 6, 4, false);
-        AssertFloor(resolved[7], "wincons", 3, false, 3, 4, false);
+        AssertFloor(resolved[3], "interaction-targeted", 7, false, 7, 4, false);
+        AssertFloor(resolved[4], "interaction-mass", 3, false, 3, 4, false);
+        AssertFloor(resolved[5], "protection", 4, false, 4, 4, false);
+        AssertFloor(resolved[6], "engines", 6, false, 6, 4, false);
+        AssertFloor(resolved[7], "payoffs", 6, false, 6, 4, false);
+        AssertFloor(resolved[8], "wincons", 3, false, 3, 4, false);
     }
 
     [Fact]
@@ -74,11 +75,12 @@ public sealed class CutLabFloorDefaultsTests
         Assert.All(resolved, floor => Assert.Equal(2, floor.ResolvedBracket));
         Assert.All(resolved, floor => Assert.True(floor.BracketWasFallback));
         AssertFloor(resolved[0], "lands", 36, false, 36, 2, true);
-        AssertFloor(resolved[3], "interaction", 6, false, 6, 2, true);
-        AssertFloor(resolved[4], "protection", 2, false, 2, 2, true);
-        AssertFloor(resolved[5], "engines", 4, false, 4, 2, true);
-        AssertFloor(resolved[6], "payoffs", 4, false, 4, 2, true);
-        AssertFloor(resolved[7], "wincons", 2, false, 2, 2, true);
+        AssertFloor(resolved[3], "interaction-targeted", 4, false, 4, 2, true);
+        AssertFloor(resolved[4], "interaction-mass", 2, false, 2, 2, true);
+        AssertFloor(resolved[5], "protection", 2, false, 2, 2, true);
+        AssertFloor(resolved[6], "engines", 4, false, 4, 2, true);
+        AssertFloor(resolved[7], "payoffs", 4, false, 4, 2, true);
+        AssertFloor(resolved[8], "wincons", 2, false, 2, 2, true);
     }
 
     [Fact]
@@ -140,7 +142,7 @@ public sealed class CutLabFloorDefaultsTests
             [
                 new CutLabRoleFloor
                 {
-                    Role = "interaction",
+                    Role = "interaction-targeted",
                     Floor = 15,
                     IsUserSet = true,
                 },
@@ -152,8 +154,30 @@ public sealed class CutLabFloorDefaultsTests
                 },
             ]);
 
-        AssertFloor(resolved[3], "interaction", 15, true, 10, 4, false);
+        AssertFloor(resolved[3], "interaction-targeted", 15, true, 7, 4, false);
         AssertFloor(resolved[2], "draw", 14, false, 14, 4, false);
+    }
+
+    [Theory]
+    [InlineData(2, 6)]
+    [InlineData(3, 8)]
+    [InlineData(4, 10)]
+    [InlineData(5, 12)]
+    public void ResolveDefaults_InteractionSplitPreservesMergedBudgetPerBracket(int bracket, int expectedMergedFloor)
+    {
+        var resolved = CutLabFloorDefaults.ResolveDefaults(
+            declaredBracket: bracket,
+            playExperience: bracket == 5 ? "cEDH" : "Focused",
+            commanderManaValue: 3.0,
+            commanderNames: ["Atraxa, Praetors' Voice"],
+            baseline: new FakeBaselineProvider(new ManabaseBracketBaseline { Bracket = bracket, AvgLands = 36.4, DeckCount = 1000 }),
+            cedhBaseline: null,
+            priorFloors: []);
+
+        int targeted = resolved.Single(floor => floor.Role == "interaction-targeted").DefaultValue;
+        int mass = resolved.Single(floor => floor.Role == "interaction-mass").DefaultValue;
+
+        Assert.Equal(expectedMergedFloor, targeted + mass);
     }
 
     private static void AssertFloor(
