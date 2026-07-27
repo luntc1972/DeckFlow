@@ -29,12 +29,13 @@ public static class CutLabFloorRules
 
     /// <summary>Clamps, canonicalizes, and de-duplicates untrusted persisted role-floor entries.</summary>
     /// <param name="state">Current Cut Lab working-session state.</param>
+    /// <param name="bracketOverride">Optional bracket to use when migrating a legacy interaction floor.</param>
     /// <returns>The original state when already valid; otherwise a copy with corrected role floors.</returns>
-    public static CutLabState ClampFloors(CutLabState state)
+    public static CutLabState ClampFloors(CutLabState state, int? bracketOverride = null)
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        IReadOnlyList<CutLabRoleFloor> sourceFloors = MigrateLegacyInteractionFloor(state);
+        IReadOnlyList<CutLabRoleFloor> sourceFloors = MigrateLegacyInteractionFloor(state, bracketOverride);
         List<CutLabRoleFloor> normalized = [];
         HashSet<string> seenRoles = new(StringComparer.OrdinalIgnoreCase);
         bool changed = !ReferenceEquals(sourceFloors, state.RoleFloors);
@@ -71,7 +72,7 @@ public static class CutLabFloorRules
         };
     }
 
-    internal static IReadOnlyList<CutLabRoleFloor> MigrateLegacyInteractionFloor(CutLabState state)
+    internal static IReadOnlyList<CutLabRoleFloor> MigrateLegacyInteractionFloor(CutLabState state, int? bracketOverride = null)
     {
         ArgumentNullException.ThrowIfNull(state);
 
@@ -146,7 +147,8 @@ public static class CutLabFloorRules
             return changed ? explicitWins : roleFloors;
         }
 
-        int resolvedBracket = CutLabFloorDefaults.ResolveBracket(state.Intent.Bracket, state.Intent.PlayExperience, out _);
+        int? declaredBracket = bracketOverride ?? state.Intent.Bracket;
+        int resolvedBracket = CutLabFloorDefaults.ResolveBracket(declaredBracket, state.Intent.PlayExperience, out _);
         int targetedDefault = CutLabFloorDefaults.GetDefaultInteractionTargetedFloor(resolvedBracket);
         int massDefault = CutLabFloorDefaults.GetDefaultInteractionMassFloor(resolvedBracket);
         int totalDefault = targetedDefault + massDefault;
