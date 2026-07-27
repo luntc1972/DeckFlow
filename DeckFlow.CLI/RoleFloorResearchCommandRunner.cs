@@ -4,7 +4,6 @@ using System.Net;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
-using System.Reflection;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Normalization;
@@ -544,17 +543,17 @@ internal static class RoleFloorResearchCommandRunner
             : new Dictionary<string, ScryfallCardData>(persisted, StringComparer.OrdinalIgnoreCase);
     }
 
-    private static string? ValidateTaxonomyAgainstAssigner(ManabaseMode mode)
+    // Why: this seam is internal so DeckFlow.Core.Tests can exercise the real CLI guard through the
+    // existing InternalsVisibleTo, matching the project rule that CLI additions carry Core test coverage.
+    internal static string? ValidateTaxonomyAgainstAssigner(ManabaseMode mode)
     {
-        FieldInfo? roleKeysField = typeof(CutLabRoleAssigner).GetField("RoleKeys", BindingFlags.NonPublic | BindingFlags.Static);
-        if (roleKeysField is null)
+        string? roleKeyReadError = RoleFloorGuards.TryReadShippedRoleKeys(
+            typeof(CutLabRoleAssigner),
+            "RoleKeys",
+            out string[]? shippedRoleKeys);
+        if (roleKeyReadError is not null)
         {
-            return "Unable to read CutLabRoleAssigner.RoleKeys: expected a private static string[] field named RoleKeys.";
-        }
-
-        if (roleKeysField.GetValue(null) is not string[] shippedRoleKeys)
-        {
-            return "Unable to read CutLabRoleAssigner.RoleKeys: expected the private static field RoleKeys to be a non-null string[].";
+            return roleKeyReadError;
         }
 
         // Why: CutLabRoleAssigner.RoleKeys is private static readonly, so the harness reflects the
@@ -616,7 +615,8 @@ internal static class RoleFloorResearchCommandRunner
                 Quantity = 1,
                 TypeLine = "Enchantment",
                 OracleText = "At the beginning of your upkeep, draw a card and you lose 1 life.",
-                // Source: DeckFlow.Web.Tests/CutLabRoleAssignerTests.AssignRoles_PermanentDrawEngine_IsEngine
+                // Source: DeckFlow.Web.Tests/CutLabRoleAssignerTests.AssignRoles_PermanentDrawEngine_IsEngine;
+                // the guard passes empty categories, and this oracle text alone satisfies the heuristic path.
             },
             new()
             {
@@ -624,7 +624,8 @@ internal static class RoleFloorResearchCommandRunner
                 Quantity = 1,
                 TypeLine = "Creature — Avatar",
                 OracleText = "Whenever this attacks, each opponent loses 3 life.",
-                // Source: DeckFlow.Web.Tests/Manabase/PlanRoleClassifierTests.Classify_PermanentPayoff_IsKept
+                // Source: DeckFlow.Web.Tests/Manabase/PlanRoleClassifierTests.Classify_PermanentPayoff_IsKept;
+                // the guard passes empty categories, and this oracle text alone satisfies the heuristic path.
             },
             new()
             {
@@ -632,7 +633,8 @@ internal static class RoleFloorResearchCommandRunner
                 Quantity = 1,
                 TypeLine = "Sorcery",
                 OracleText = "Repeat the following process X times. Each opponent loses 3 life unless that player sacrifices a nonland permanent or discards a card.",
-                // Source: DeckFlow.Web.Tests/CutLabRoleAssignerTests.AssignRoles_TormentOfHailfire_IsWinconDespitePlanRolePermanentGate
+                // Source: DeckFlow.Web.Tests/CutLabRoleAssignerTests.AssignRoles_TormentOfHailfire_IsWinconDespitePlanRolePermanentGate;
+                // the guard passes empty categories, and this oracle text alone satisfies the heuristic path.
             },
         ];
 
@@ -645,7 +647,7 @@ internal static class RoleFloorResearchCommandRunner
             }
         }
 
-        return RoleFloorGuards.FindTaxonomyDrift(shippedRoleKeys, TargetRoles, emittedKeys, residualRoleKey: "other");
+        return RoleFloorGuards.FindTaxonomyDrift(shippedRoleKeys!, TargetRoles, emittedKeys, residualRoleKey: "other");
     }
 
     private static Dictionary<string, RoleBaseline> BuildCorpusBaseline(IEnumerable<CommanderDeckSet> commanderDecks)
