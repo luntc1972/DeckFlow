@@ -8,6 +8,60 @@ namespace DeckFlow.Core.Tests;
 public sealed class RoleFloorProvenanceTests
 {
     [Fact]
+    public void ResolveConnectionString_FlagOnly_ReturnsFlagValue()
+    {
+        string? result = RoleFloorProvenance.ResolveConnectionString("Host=flag", null);
+
+        Assert.Equal("Host=flag", result);
+    }
+
+    [Fact]
+    public void ResolveConnectionString_EnvironmentOnly_ReturnsEnvironmentValue()
+    {
+        string? result = RoleFloorProvenance.ResolveConnectionString(null, "Host=environment");
+
+        Assert.Equal("Host=environment", result);
+    }
+
+    [Fact]
+    public void ResolveConnectionString_BothSet_PrefersFlagValue()
+    {
+        string? result = RoleFloorProvenance.ResolveConnectionString("Host=flag", "Host=environment");
+
+        Assert.Equal("Host=flag", result);
+    }
+
+    [Fact]
+    public void ResolveConnectionString_NeitherSet_ReturnsNull()
+    {
+        string? result = RoleFloorProvenance.ResolveConnectionString(null, null);
+
+        Assert.Null(result);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void ResolveConnectionString_WhitespaceFlagWithEnvironment_ReturnsEnvironmentValue(string flagValue)
+    {
+        string? result = RoleFloorProvenance.ResolveConnectionString(flagValue, "Host=environment");
+
+        Assert.Equal("Host=environment", result);
+    }
+
+    [Theory]
+    [InlineData("", "")]
+    [InlineData("   ", "")]
+    [InlineData("", "   ")]
+    [InlineData("   ", "   ")]
+    public void ResolveConnectionString_BothEmptyOrWhitespace_ReturnsNull(string? flagValue, string? environmentValue)
+    {
+        string? result = RoleFloorProvenance.ResolveConnectionString(flagValue, environmentValue);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
     public void DescribeDatabaseHost_ConnectionStringWithPassword_DoesNotLeakCredentials()
     {
         const string password = "Sup3rSecret!2026";
