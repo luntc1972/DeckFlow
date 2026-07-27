@@ -37,7 +37,7 @@ Once the pool is loaded and protected, Cut Lab reads the deck's functional compo
 
 The pool view is also explorable in two lighter-weight ways: a **By type** section groups every card into one primary card-type bucket, and a **By subtype** search lets you ask "how many Allies / Lessons / Legendary cards do I have?" from the rendered pool itself.
 
-You can also set configurable minimums per role. Those floors become hard guardrails for the trimming process, so the deck does not accidentally cut below the baseline you want to preserve for lands, ramp, interaction, or any other tracked role.
+You can also set configurable minimums per role. Those floors become hard guardrails for the trimming process, so the deck does not accidentally cut below the baseline you want to preserve for lands, ramp, targeted removal, mass removal, or any other tracked role.
 
 Role counts are deliberately generous, since they are a decision aid rather than a verdict: ramp includes mana-symbol producers (rocks and dorks, not just "add one mana" text), draw counts you-anchored card draw of any size plus clue/connive card-advantage, and the engines role is limited to repeatable permanents so a one-shot "draw two" spell is not mistaken for an engine. These Cut Lab role tallies are intentionally separate from the Mana Base tool's mana-source math, which is tuned for castability rather than counting.
 
