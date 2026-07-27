@@ -9,6 +9,7 @@ everything else and can run in parallel with the 1→2→3 spine.
 ## Phases
 
 - [ ] **Phase 1: Interaction Taxonomy Split** - Split the merged `interaction` role into `interaction-targeted` and `interaction-mass` from the classifier calls that are already separate, so the taxonomy Phase 2 measures is the taxonomy that ships.
+- [ ] **Phase 01.1: Plan-Role Classifier Heuristic Fixes (INSERTED)** - Fix the Counters/counterspell substring collision and the missing protection-card check in `PlanRoleClassifier`'s oracle heuristic (spike 002 findings), before Phase 2 measures floors on top of this same classifier.
 - [ ] **Phase 2: Role-Floor Divergence Research** - Repair and actually run the research harness against the real Postgres corpus; delete the synthetic fixture writer; publish an honest go/no-go.
 - [ ] **Phase 3: Commander-Aware Floor Defaults (CONDITIONAL on Phase 2 = go)** - Extend `CutLabFloorDefaults` with a commander-specific priority-chain layer for the roles Phase 2 found signal for, showing bracket and commander floors side by side.
 - [ ] **Phase 4: Functional-Twins Detector (INDEPENDENT)** - Add the first discriminating structural finding: cards competing for the same slot at the same cost.
@@ -90,6 +91,16 @@ commanders that qualify — is likely the right answer. Resolve before writing p
   3. A `CutLabState` persisted with the legacy `interaction` floor key deserializes without exception and without silently dropping the user's override.
   4. Bracket default floors exist for both roles and their per-bracket sum is >= today's merged interaction floor (6/8/10/12 by bracket).
   5. Full suite green; no change to any non-interaction role's floor value.
+
+### Phase 01.1: Plan-Role Classifier Heuristic Fixes (INSERTED)
+
+**Goal:** Fix two concrete defects in `PlanRoleClassifier`'s oracle-text heuristic fallback found by spike 002 (branch `spike/role-classification-accuracy`, `.planning/spikes/002-corpus-category-signal/README.md`): the `Counters`/counterspell substring collision in `IsCounterCategory` (a +1/+1-counters synergy tag wrongly earns Interaction in cEDH), and the missing `DeckStatClassifier.IsProtectionCard` call in `FromHeuristic` (protection cards score `None` from the heuristic and depend entirely on a crowd tag). Must land before Phase 2, which counts roles per card via `CutLabRoleAssigner` — the same classifier — for its floor-divergence corpus analysis.
+**Requirements**: TBD
+**Depends on:** Phase 1
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 01.1 to break down)
 
 ### Phase 2: Role-Floor Divergence Research
 **Goal**: We know, from a run that provably touched the corpus, whether any Cut Lab role floor diverges meaningfully by commander — with an artifact that cannot be produced without querying data.
