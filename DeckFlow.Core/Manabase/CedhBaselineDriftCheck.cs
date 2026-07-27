@@ -30,7 +30,7 @@ public sealed record CedhDriftThresholds
     /// <summary>Minimum number of movers before the one-sidedness test is meaningful.</summary>
     public required int MinMoversForDirectionTest { get; init; }
 
-    /// <summary>Maximum tolerated percentage of movers travelling in the same direction.</summary>
+    /// <summary>Percentage at or above which same-direction movers fail the one-sidedness rule.</summary>
     public required double MaxOneSidedPct { get; init; }
 
     /// <summary>Parse thresholds from the committed configuration file's contents.</summary>
@@ -94,6 +94,19 @@ public static class CedhBaselineDriftCheck
         ArgumentNullException.ThrowIfNull(thresholds);
 
         List<CedhDriftFinding> findings = [];
+        if (previous.Commanders.Count == 0)
+        {
+            findings.Add(new CedhDriftFinding
+            {
+                Rule = "EmptyPreviousSnapshot",
+                Commander = null,
+                Detail =
+                    $"The committed snapshot ({previous.Generated}) has no commanders and cannot be compared against; it is treated as corrupt.",
+            });
+
+            return new CedhDriftVerdict { Passed = false, Findings = findings };
+        }
+
         AddDroppedEstablishedCommanders(previous, candidate, thresholds, findings);
         AddSampleCollapses(previous, candidate, thresholds, findings);
         AddOneSidedDrift(previous, candidate, thresholds, findings);

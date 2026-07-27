@@ -53,6 +53,20 @@ public sealed class CedhBaselineDriftCheckTests
     }
 
     [Fact]
+    public void Evaluate_EmptyPreviousSnapshot_Fails()
+    {
+        CedhLandBaselineSnapshot previous = Snapshot("2026-07");
+        CedhLandBaselineSnapshot candidate = Snapshot("2026-08", ("Kinnan, Bonder Prodigy", 337, 25.8));
+
+        CedhDriftVerdict verdict = CedhBaselineDriftCheck.Evaluate(previous, candidate, Thresholds);
+
+        Assert.False(verdict.Passed);
+        CedhDriftFinding finding = Assert.Single(verdict.Findings);
+        Assert.Equal("EmptyPreviousSnapshot", finding.Rule);
+        Assert.Null(finding.Commander);
+    }
+
+    [Fact]
     public void Evaluate_EstablishedCommanderDisappears_Fails()
     {
         // "The Cabbage Merchant" sat at n=18 and vanished entirely in the corrupt 2026-07 run.
@@ -213,6 +227,41 @@ public sealed class CedhBaselineDriftCheckTests
         CedhDriftVerdict verdict = CedhBaselineDriftCheck.Evaluate(previous, candidate, Thresholds);
 
         Assert.True(verdict.Passed);
+    }
+
+    [Fact]
+    public void Evaluate_MoversExactlyAtFloorAllSameDirection_Fails()
+    {
+        CedhLandBaselineSnapshot previous = MoverSnapshot(10, 0.0);
+        CedhLandBaselineSnapshot candidate = MoverSnapshot(10, -1.0);
+
+        CedhDriftVerdict verdict = CedhBaselineDriftCheck.Evaluate(previous, candidate, Thresholds);
+
+        Assert.False(verdict.Passed);
+        Assert.Equal("OneSidedDrift", Assert.Single(verdict.Findings).Rule);
+    }
+
+    [Fact]
+    public void Evaluate_OneBelowMoverFloorAllSameDirection_Passes()
+    {
+        CedhLandBaselineSnapshot previous = MoverSnapshot(9, 0.0);
+        CedhLandBaselineSnapshot candidate = MoverSnapshot(9, -1.0);
+
+        CedhDriftVerdict verdict = CedhBaselineDriftCheck.Evaluate(previous, candidate, Thresholds);
+
+        Assert.True(verdict.Passed);
+    }
+
+    [Fact]
+    public void Evaluate_MovementExactlyAtThresholdCountsAsMover_Fails()
+    {
+        CedhLandBaselineSnapshot previous = MoverSnapshot(10, 0.0);
+        CedhLandBaselineSnapshot candidate = MoverSnapshot(10, -0.5);
+
+        CedhDriftVerdict verdict = CedhBaselineDriftCheck.Evaluate(previous, candidate, Thresholds);
+
+        Assert.False(verdict.Passed);
+        Assert.Equal("OneSidedDrift", Assert.Single(verdict.Findings).Rule);
     }
 
     [Fact]
