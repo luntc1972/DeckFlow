@@ -25,7 +25,10 @@ public sealed class CedhLandBaselineProviderTests
 
         Assert.True(found);
         Assert.Equal(25.8, mean, 1);
-        Assert.Equal(337, n);
+        // Floor rather than equality: sample counts move every refresh as the 6-month window
+        // slides, which is churn, not signal. CedhBaselineDriftCheck now guards population sanity.
+        // 200 is ~60% of the 2026-07 value (337), mirroring the 40% maxSampleDropPct limit.
+        Assert.True(n >= 200, $"Kinnan sample fell to {n}; expected at least 200.");
         Assert.Equal(1.0, sd, 1);
         Assert.Equal("2026-07", generated);
     }
@@ -59,7 +62,8 @@ public sealed class CedhLandBaselineProviderTests
         Assert.True(forwardFound);
         Assert.Equal(27.3, reverseMean, 1);
         Assert.Equal(reverseMean, forwardMean, 1);
-        Assert.Equal(255, reverseN);
+        // Floor rather than equality; 150 is ~60% of the 2026-07 value (255).
+        Assert.True(reverseN >= 150, $"Rograkh/Thrasios sample fell to {reverseN}; expected at least 150.");
         Assert.Equal(reverseN, forwardN);
         Assert.Equal(1.5, reverseSd, 1);
         Assert.Equal(reverseSd, forwardSd, 1);
