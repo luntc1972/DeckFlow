@@ -30,7 +30,7 @@
 
 Decimal phases appear between their surrounding integers in numeric order. Numbering continues after shipped Cycle 19 phases 108-111.
 
-- [ ] **Phase 112: Cycle 17 Code Port** - Cycle 17's Core engine (profile records/store, measured + stated extraction, fusion, grounding guard) and creator-style Web services/seed loader/DI registrations land on `feat/personal-tools` and build clean
+- [ ] **Phase 112: Cycle 17 Code Port** - Cycle 17's Core engine (profile records/store, measured + stated extraction, fusion, grounding guard) and creator-style Web services/seed loader/DI registrations are ported and build clean. Waves 1-3 (Core) SHIPPED on `main` (`f23b7580`); waves 4-6 (Web) land on `gsd/cycle20-personal-tools`
 - [ ] **Phase 113: Shared-Infra Re-derivation** - Cycle 17's shared-infrastructure refactors are re-derived line-by-line against current `main`, not applied wholesale from the stale branch
 - [ ] **Phase 114: Port Verification & Admin Personal-Tools Surface** - Ported suites are clean of dead public-surface tests; both personal tools are reachable only through the BasicAuth-gated `/Admin` surface
 - [ ] **Phase 115: Real Data - Stated Rules & Operator Run** - The operator runs the pipeline end to end so `/Admin/CreatorStyle` renders a real critique
@@ -77,20 +77,23 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
 ## Phase Details
 
 ### Phase 112: Cycle 17 Code Port
-**Goal**: Cycle 17's Core engine (Phases 94-98 — profile records and store, measured extraction, stated-rules extraction, profile fusion, card-grounding guard) AND the creator-style Web services, seed loader, and DI registrations land on `feat/personal-tools` and the solution builds clean.
+**Goal**: Cycle 17's Core engine (Phases 94-98 — profile records and store, measured extraction, stated-rules extraction, profile fusion, card-grounding guard) AND the creator-style Web services, seed loader, and DI registrations are ported and the solution builds clean.
+
+**Branch note (corrected 2026-07-27)**: this phase originally named a `feat/personal-tools` branch. That branch was never created. Waves 1-3 (Core) executed straight onto `main` and are pushed (`f23b7580` and neighbours) — they cannot be relocated without rewriting published history. Waves 4-6 (Web) land on `gsd/cycle20-personal-tools`, cut from `main` at `1511dd95`. Grade criterion 1 against `main` + that branch, not against a branch that does not exist.
+
 **Depends on**: Nothing (first phase)
 **Requirements**: PORT-01, PORT-02
 **Success Criteria** (what must be TRUE):
-  1. The profile records/store, measured extraction, stated-rules extraction, fusion engine, and card-grounding guard code from Phases 94-98 (Core), plus `Services/CreatorStyle/*` and the creator-style seed loader (Web), are present on `feat/personal-tools`.
+  1. The profile records/store, measured extraction, stated-rules extraction, fusion engine, and card-grounding guard code from Phases 94-98 (Core) are present on `main` (done, waves 1-3), plus `Services/CreatorStyle/*` and the creator-style seed loader (Web) on `gsd/cycle20-personal-tools`.
   2. `dotnet build` on the solution completes with no new errors and no new warnings.
   3. The application starts locally with all creator-style services resolving through DI (no missing-registration failures at startup).
   4. The ported Core test suite for the creator-style engine runs and passes.
 **Plans**: 6 plans
 
 Plans:
-- [ ] 112-01-PLAN.md — Pre-port baseline capture and RESEARCH manifest drift preflight
-- [ ] 112-02-PLAN.md — Core file allowlist checkout, Postgres test trims, distillation-stack hunks
-- [ ] 112-03-PLAN.md — Remaining Core hunks, format/path gates, Commit 1
+- [x] 112-01-PLAN.md — Pre-port baseline capture and RESEARCH manifest drift preflight
+- [x] 112-02-PLAN.md — Core file allowlist checkout, Postgres test trims, distillation-stack hunks
+- [x] 112-03-PLAN.md — Remaining Core hunks, format/path gates, Commit 1
 - [ ] 112-04-PLAN.md — Web file allowlist checkout, seed placeholders, Web hunks, archidekt pipeline
 - [ ] 112-05-PLAN.md — AddDeckFlowCreatorStyle DI extension and the two Program.cs edits
 - [ ] 112-06-PLAN.md — Real-ArchidektOwnerClient DI test, headless boot smoke, Commit 2
