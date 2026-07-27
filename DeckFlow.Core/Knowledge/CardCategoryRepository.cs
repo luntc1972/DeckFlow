@@ -275,8 +275,8 @@ internal sealed class CardCategoryRepository
 
     internal async Task<IReadOnlyList<CategoryDeckMembership>> GetCategoryDeckMembershipForCommanderAsync(
         string commanderName,
-        CancellationToken cancellationToken = default,
-        string? boardFilter = null)
+        string? boardFilter = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commanderName);
         await _schema.EnsureSchemaAsync(cancellationToken);
