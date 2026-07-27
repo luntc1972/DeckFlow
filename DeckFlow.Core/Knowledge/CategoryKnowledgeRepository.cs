@@ -94,11 +94,14 @@ public sealed class CategoryKnowledgeRepository
     /// <summary>
     /// Returns per-deck card-category memberships from decks led by <paramref name="commanderName"/>.
     /// </summary>
+    /// <param name="commanderName">Commander name to query.</param>
+    /// <param name="boardFilter">Optional <c>mainboard</c>/<c>sideboard</c> filter; defaults to unfiltered.</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
     public Task<IReadOnlyList<CategoryDeckMembership>> GetCategoryDeckMembershipForCommanderAsync(
         string commanderName,
-        CancellationToken cancellationToken = default,
-        string? boardFilter = null)
-        => _cardCategory.GetCategoryDeckMembershipForCommanderAsync(commanderName, cancellationToken, boardFilter);
+        string? boardFilter = null,
+        CancellationToken cancellationToken = default)
+        => _cardCategory.GetCategoryDeckMembershipForCommanderAsync(commanderName, boardFilter, cancellationToken);
 
     /// <summary>
     /// Returns the count of processed decks in <c>deck_queue</c> that are led by <paramref name="commanderName"/>.

@@ -279,7 +279,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commanderName);
         await EnsureSchemaReadyAsync(cancellationToken);
-        return await _repository.GetCategoryDeckMembershipForCommanderAsync(commanderName, cancellationToken);
+        return await _repository.GetCategoryDeckMembershipForCommanderAsync(commanderName, cancellationToken: cancellationToken); // Why: production deliberately stays unfiltered so CommanderCategoryService behavior does not change.
     }
 
     /// <summary>
