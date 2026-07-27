@@ -105,7 +105,7 @@ const buildFixture = (): void => {
             <td data-label="Card"><strong>1 × Working Card</strong></td>
             <td data-label="Package assignment"><select data-cut-lab-package-card="Working Card"><option value="">Unlocked pool</option><option value="__new__">+ New package…</option></select></td>
           </tr>
-          <tr data-cut-lab-card="Cut Card" data-cut-lab-type-line="Instant" data-cut-lab-role="interaction" data-cut-lab-quantity="1" data-cut-lab-commander="false">
+          <tr data-cut-lab-card="Cut Card" data-cut-lab-type-line="Instant" data-cut-lab-role="interaction-targeted" data-cut-lab-quantity="1" data-cut-lab-commander="false">
             <td data-label="Select"><input type="checkbox" data-cut-lab-lock-card="Cut Card" /></td>
             <td data-label="Card"><strong>1 × Cut Card</strong></td>
             <td data-label="Package assignment"><select data-cut-lab-package-card="Cut Card"><option value="">Unlocked pool</option><option value="__new__">+ New package…</option></select></td>

@@ -239,7 +239,7 @@ public sealed class CutLabApiControllerTests
                 },
                 new CutLabRoleFloor
                 {
-                    Role = "interaction",
+                    Role = "interaction-targeted",
                     Floor = 2,
                     IsUserSet = true,
                 },
@@ -280,7 +280,7 @@ public sealed class CutLabApiControllerTests
             {
                 Assert.Equal(CutLabFindingKind.WeakFloorCase, item.Kind);
                 Assert.Equal("Weak floor cases", item.Heading);
-                Assert.Equal("Interaction is at 1 against a floor of 2 — every card in this role is effectively protected already.", item.Lead);
+                Assert.Equal("Targeted removal is at 1 against a floor of 2 — every card in this role is effectively protected already.", item.Lead);
                 Assert.Equal(["Counterspell"], item.Evidence);
             });
     }
@@ -888,7 +888,7 @@ public sealed class CutLabApiControllerTests
             IReadOnlyList<string> roles = card.Name switch
             {
                 "Arcane Signet" => ["ramp"],
-                "Counterspell" => ["interaction"],
+                "Counterspell" => ["interaction-targeted"],
                 "Round 1 Card" => ["engines"],
                 "Round 2 Card" => ["draw"],
                 "Deferred Card" => ["payoffs"],

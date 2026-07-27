@@ -589,9 +589,14 @@
                                 <p class="kb-chip-area__empty-hint">No @lowerDisplayLabel cards detected in this pool.</p>
                             }
 
-                            @if (string.Equals(group.RoleKey, "interaction", StringComparison.Ordinal))
+                            @if (string.Equals(group.RoleKey, "interaction-targeted", StringComparison.Ordinal))
                             {
-                                <p class="cutlab-role-group__help">Interaction counts one-shot removal and wipes. Counterspells count as interaction only for a cEDH play experience.</p>
+                                <p class="cutlab-role-group__help">One-shot removal aimed at a single permanent or spell. Counterspells count here only for a cEDH play experience.</p>
+                            }
+
+                            @if (string.Equals(group.RoleKey, "interaction-mass", StringComparison.Ordinal))
+                            {
+                                <p class="cutlab-role-group__help">Board wipes and other sweepers that hit multiple permanents at once.</p>
                             }
                         </div>
                     </details>
