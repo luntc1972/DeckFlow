@@ -100,6 +100,22 @@ def main() -> int:
     resolve_missing_cards(missing_names, card_cache, cards_path)
     print(f"Wrote {cards_path} with {len(card_cache)} cached cards.")
 
+    # Gate: the baseline builder counts lands off resolved cards, so an unresolved name is a
+    # silently dropped card, not a cosmetic warning. Modal-DFC lands resolving as "missing" once
+    # under-counted ~1.9 lands/deck across the whole 2026-07 snapshot. Fail closed instead.
+    unresolved = sorted(name for name in all_names if name not in card_cache)
+    if unresolved:
+        print(
+            f"ERROR: {len(unresolved)} of {len(all_names)} card names did not resolve. "
+            f"The baseline would under-count these cards, so refusing to continue.",
+            file=sys.stderr,
+        )
+        for name in unresolved[:20]:
+            print(f"  unresolved: {name}", file=sys.stderr)
+        if len(unresolved) > 20:
+            print(f"  ... and {len(unresolved) - 20} more.", file=sys.stderr)
+        return 1
+
     return 0
 
 
