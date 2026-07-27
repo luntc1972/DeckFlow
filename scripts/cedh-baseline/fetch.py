@@ -19,7 +19,8 @@ EDHTOP16_URL = "https://edhtop16.com/api/graphql"
 SCRYFALL_COLLECTION_URL = "https://api.scryfall.com/cards/collection"
 USER_AGENT = "DeckFlow-cEDH-baseline/1.0 (+https://github.com/luntc1972/DeckFlow)"
 COLLECTION_BATCH_SIZE = 75
-COLLECTION_BATCH_DELAY_SECONDS = 0.12
+# Mirror ScryfallThrottle's 200ms pace (~5 req/sec) to leave headroom for 429 burst detection.
+COLLECTION_BATCH_DELAY_SECONDS = 0.2
 PAGE_SIZE = 100
 SUPPLEMENT_LOOKBACK_MONTHS = 12
 # Commanders too low-play for the size-tiered fetch; pulled via commander-specific search.
@@ -320,7 +321,7 @@ def json_request(url: str, payload: dict[str, Any]) -> dict[str, Any]:
                 return json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             if exc.code in {429, 500, 502, 503, 504} and attempt < 3:
-                time.sleep(1.0 + attempt)
+                time.sleep(http_retry_delay_seconds(exc, attempt))
                 continue
             raise
         except urllib.error.URLError:
@@ -328,6 +329,19 @@ def json_request(url: str, payload: dict[str, Any]) -> dict[str, Any]:
                 time.sleep(1.0 + attempt)
                 continue
             raise
+
+
+def http_retry_delay_seconds(exc: urllib.error.HTTPError, attempt: int) -> float:
+    retry_after = exc.headers.get("Retry-After")
+    if retry_after is not None:
+        try:
+            # Honor upstream cooldowns when provided, but keep a single retry bounded.
+            return min(float(retry_after), 30.0)
+        except ValueError:
+            pass
+
+    # Exponential backoff gives Scryfall and Cloudflare more time to clear rate-limit windows.
+    return min(float(2 ** attempt), 30.0)
 
 
 def load_card_cache(cards_path: Path) -> dict[str, dict[str, Any]]:
@@ -372,6 +386,7 @@ def resolve_missing_cards(
                 if " // " in name
             }
             if retry_map:
+                time.sleep(COLLECTION_BATCH_DELAY_SECONDS)
                 retried, still_missing = resolve_collection_batch(list(retry_map.values()))
                 for original_name, front_face in retry_map.items():
                     if front_face in retried:
