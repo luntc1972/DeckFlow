@@ -423,6 +423,10 @@ def resolve_collection_batch(names: list[str]) -> tuple[dict[str, dict[str, Any]
     resolved: dict[str, dict[str, Any]] = {}
     for card in response.get("data", []):
         resolved[card["name"]] = card
+        # Scryfall echoes the full DFC name even when the query used only the front face.
+        front_face = card["name"].split(" // ", 1)[0]
+        if front_face != card["name"]:
+            resolved.setdefault(front_face, card)
 
     unresolved = []
     for missing in response.get("not_found", []):
