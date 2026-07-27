@@ -114,7 +114,8 @@ public static class PlanRoleClassifier
     /// Map a card's free-text category tags to roles by keyword. User-typed Archidekt tags are not a
     /// controlled vocabulary, so this is substring matching over the common role words, not an exact
     /// switch. A card tagged both "Win Condition" and "Card Draw" earns Payoff | Engine. Ramp / land /
-    /// fixing tags contribute nothing. A "counter" tag earns Interaction only in cEDH.
+    /// fixing tags contribute nothing. A "counter" tag earns Interaction only in cEDH, and the plural
+    /// counters-synergy sense does not count as a counterspell tag in either mode.
     /// </summary>
     /// <param name="categories">The card's crowd-sourced category tags (free text; may be empty).</param>
     /// <param name="mode">Analysis profile; gates whether a "counter" tag earns Interaction.</param>
