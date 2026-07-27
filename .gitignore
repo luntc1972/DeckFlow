@@ -11,7 +11,12 @@ artifacts/
 node_modules
 AGENTS.md
 DeckFlow.Web/wwwroot/extensions/*.zip
-DeckFlow.Web/wwwroot/js/*.js
+# Compiled TypeScript output. tsconfig.json maps rootDir wwwroot/ts -> outDir
+# wwwroot/js, and that is the only place tsc emits, so nothing under this dir is
+# ever authored by hand. Ignore the whole directory, not `*.js`: a glob matches
+# one path segment only and let emitted output in subdirectories (js/__tests__/)
+# escape into `git status`.
+DeckFlow.Web/wwwroot/js/
 /.codex
 docs/superpowers/
 .claude/worktrees/
