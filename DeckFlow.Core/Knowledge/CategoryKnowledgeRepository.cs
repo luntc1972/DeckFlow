@@ -100,8 +100,11 @@ public sealed class CategoryKnowledgeRepository
     /// <summary>
     /// Returns per-deck card-category memberships from decks led by <paramref name="commanderName"/>.
     /// </summary>
-    public Task<IReadOnlyList<CategoryDeckMembership>> GetCategoryDeckMembershipForCommanderAsync(string commanderName, CancellationToken cancellationToken = default)
-        => _cardCategory.GetCategoryDeckMembershipForCommanderAsync(commanderName, cancellationToken);
+    public Task<IReadOnlyList<CategoryDeckMembership>> GetCategoryDeckMembershipForCommanderAsync(
+        string commanderName,
+        CancellationToken cancellationToken = default,
+        string? boardFilter = null)
+        => _cardCategory.GetCategoryDeckMembershipForCommanderAsync(commanderName, cancellationToken, boardFilter);
 
     /// <summary>
     /// Returns the count of processed decks in <c>deck_queue</c> that are led by <paramref name="commanderName"/>.
@@ -257,6 +260,15 @@ public sealed class CategoryKnowledgeRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<string?> GetContentHashAsync(string deckId, CancellationToken cancellationToken = default)
         => _deckQueue.GetContentHashAsync(deckId, cancellationToken);
+
+    /// <summary>
+    /// Gets canonical content hashes for queued Archidekt decks keyed by <c>deck_queue.id</c>.
+    /// Missing rows are absent from the returned dictionary; existing rows with no hash map to null.
+    /// </summary>
+    public Task<IReadOnlyDictionary<long, string?>> GetContentHashesByIdsAsync(
+        IReadOnlyCollection<long> deckQueueIds,
+        CancellationToken cancellationToken = default)
+        => _deckQueue.GetContentHashesByIdsAsync(deckQueueIds, cancellationToken);
 
     /// <summary>
     /// Sets the stored canonical content hash for a queued Archidekt deck; passing null clears it.

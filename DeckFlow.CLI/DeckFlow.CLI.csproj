@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DeckFlow.Core\DeckFlow.Core.csproj" />
+    <ProjectReference Include="..\DeckFlow.Web\DeckFlow.Web.csproj" />
   </ItemGroup>
 
   <ItemGroup>
