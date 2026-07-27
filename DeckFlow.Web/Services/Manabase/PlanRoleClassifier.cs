@@ -17,9 +17,10 @@ namespace DeckFlow.Web.Services.Manabase;
 /// different axis already measured by keepable-% and on-curve castability. The <see cref="ManabaseMode"/>
 /// tunes one role: a pure counterspell counts as <see cref="PlanRole.Interaction"/> only in
 /// <see cref="ManabaseMode.Cedh"/> (it protects the combo turn); in Casual a counter is reactive
-/// insurance, not a card that advances the win plan, so it earns nothing. The classifier also exposes
-/// a pre-permanent-gate interaction signal for the cEDH early-interaction lens, while leaving the
-/// returned plan-presence roles unchanged.
+/// insurance, not a card that advances the win plan, so it earns nothing, and the plural
+/// counters-synergy sense does not count as a counterspell tag in either mode. The classifier also
+/// exposes a pre-permanent-gate interaction signal for the cEDH early-interaction lens, while
+/// leaving the returned plan-presence roles unchanged.
 /// </summary>
 public static class PlanRoleClassifier
 {
@@ -242,8 +243,14 @@ public static class PlanRoleClassifier
     private static bool IsInteractionCategory(string category)
         => Has(category, "removal", "interaction", "protect", "wipe", "answer");
 
+    // Why: spike 002 found that the bare "counter" substring collided with the crowd tag
+    // "Counters" (+1/+1-counters synergy on cards like Cordial Vampire and Blade of the
+    // Bloodchief), which wrongly earned PlanRole.Interaction in cEDH. The singular token is now
+    // word-bounded, while the closed compounds counterspell/countermagic stay explicit; and
+    // "counterspell" already prefixes "counterspells", so the plural needs no separate needle.
     private static bool IsCounterCategory(string category)
-        => Has(category, "counter");
+        => Has(category, "counterspell", "countermagic")
+            || HasWord(category, "counter");
 
     private static bool IsEngineCategory(string category)
         => Has(category, "engine", "advantage", "card draw", "value")
@@ -257,6 +264,31 @@ public static class PlanRoleClassifier
             {
                 return true;
             }
+        }
+
+        return false;
+    }
+
+    private static bool HasWord(string haystack, string needle)
+    {
+        int startIndex = 0;
+        while (startIndex <= haystack.Length - needle.Length)
+        {
+            int index = haystack.IndexOf(needle, startIndex, StringComparison.Ordinal);
+            if (index < 0)
+            {
+                return false;
+            }
+
+            bool startBounded = index == 0 || !char.IsAsciiLetterOrDigit(haystack[index - 1]);
+            int endIndex = index + needle.Length;
+            bool endBounded = endIndex == haystack.Length || !char.IsAsciiLetterOrDigit(haystack[endIndex]);
+            if (startBounded && endBounded)
+            {
+                return true;
+            }
+
+            startIndex = index + 1;
         }
 
         return false;
