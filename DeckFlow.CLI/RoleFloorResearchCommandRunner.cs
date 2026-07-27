@@ -112,8 +112,8 @@ internal static class RoleFloorResearchCommandRunner
                     IReadOnlyList<CategoryDeckMembership> memberships =
                         await repository.GetCategoryDeckMembershipForCommanderAsync(
                             commanderName,
-                            token,
-                            boardFilter: "mainboard").ConfigureAwait(false);
+                            boardFilter: "mainboard",
+                            cancellationToken: token).ConfigureAwait(false);
 
                     var rawDecks = memberships
                         .GroupBy(membership => membership.DeckId)

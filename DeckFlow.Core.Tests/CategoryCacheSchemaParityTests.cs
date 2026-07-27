@@ -304,8 +304,8 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
 
         var mainboardMemberships = await repository.GetCategoryDeckMembershipForCommanderAsync(
             "Kinnan, Bonder Prodigy",
-            CancellationToken.None,
-            boardFilter: "mainboard");
+            boardFilter: "mainboard",
+            cancellationToken: CancellationToken.None);
         var defaultMemberships = await repository.GetCategoryDeckMembershipForCommanderAsync("Kinnan, Bonder Prodigy");
 
         var mainboardMembership = Assert.Single(mainboardMemberships);
