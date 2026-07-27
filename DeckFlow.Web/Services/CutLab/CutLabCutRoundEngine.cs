@@ -118,13 +118,16 @@ public static class CutLabCutRoundEngine
 
     // Why: this advisory intentionally ranks from least-structural to most-structural roles so the
     // "last cuts if you must unlock something" list stays stable even if the canonical floor order changes.
+    // Within the interaction split, mass ranks before targeted because sweepers are more replaceable
+    // overshoot cuts than cheap point answers.
     private static readonly string[] LockedOvershootRoleOrder =
     [
         "wincons",
         "payoffs",
         "engines",
         "protection",
-        "interaction",
+        "interaction-mass",
+        "interaction-targeted",
         "draw",
         "ramp",
         "lands",

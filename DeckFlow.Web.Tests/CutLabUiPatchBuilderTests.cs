@@ -131,7 +131,7 @@ public sealed class CutLabUiPatchBuilderTests
                 },
                 new CutLabRoleFloor
                 {
-                    Role = "interaction",
+                    Role = "interaction-targeted",
                     Floor = 2,
                     IsUserSet = true,
                 },
@@ -165,7 +165,7 @@ public sealed class CutLabUiPatchBuilderTests
             item =>
             {
                 Assert.Equal(CutLabFindingKind.WeakFloorCase, item.Kind);
-                Assert.Equal("Interaction is at 1 against a floor of 2 — every card in this role is effectively protected already.", item.Lead);
+                Assert.Equal("Targeted removal is at 1 against a floor of 2 — every card in this role is effectively protected already.", item.Lead);
                 Assert.Equal(["Counterspell"], item.Evidence);
             });
     }
@@ -791,7 +791,7 @@ public sealed class CutLabUiPatchBuilderTests
             IReadOnlyList<string> roles = card.Name switch
             {
                 "Arcane Signet" => ["ramp"],
-                "Counterspell" => ["interaction"],
+                "Counterspell" => ["interaction-targeted"],
                 "Persistent Petitioners" => ["draw"],
                 "Forest" => ["lands"],
                 "Round 1 Card" => ["engines"],

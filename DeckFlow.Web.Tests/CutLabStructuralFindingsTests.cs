@@ -153,28 +153,22 @@ public sealed class CutLabStructuralFindingsTests
     {
         IReadOnlyList<CutLabAnalyzedCard> pool =
         [
-            Card("Interaction 1", 2, false, roles: ["interaction"]),
-            Card("Interaction 2", 2, false, roles: ["interaction"]),
-            Card("Interaction 3", 2, false, roles: ["interaction"]),
-            Card("Interaction 4", 2, false, roles: ["interaction"]),
-            Card("Interaction 5", 2, false, roles: ["interaction"]),
-            Card("Interaction 6", 2, false, roles: ["interaction"]),
-            Card("Interaction 7", 2, false, roles: ["interaction"]),
-            Card("Interaction 8", 2, false, roles: ["interaction"]),
+            Card("Wipe 1", 2, false, roles: ["interaction-mass"]),
+            Card("Wipe 2", 2, false, roles: ["interaction-mass"]),
         ];
 
         CutLabStructuralFindingsResult result = CutLabStructuralFindings.Compute(
             pool,
             Array.Empty<SpellbookAlmostCombo>(),
-            Floors(("interaction", 7)),
+            Floors(("interaction-mass", 3), ("interaction-targeted", 0)),
             comboDataAvailable: true,
             categoryDataAvailable: true);
 
         CutLabFinding finding = Assert.Single(result.Findings);
         Assert.Equal(CutLabFindingKind.WeakFloorCase, finding.Kind);
         Assert.Equal("Weak floor cases", finding.Heading);
-        Assert.Equal("Interaction is at 8 against a floor of 7 — every card in this role is effectively protected already.", finding.Lead);
-        Assert.Equal(8, finding.Evidence.Count);
+        Assert.Equal("Mass removal is at 2 against a floor of 3 — every card in this role is effectively protected already.", finding.Lead);
+        Assert.Equal(2, finding.Evidence.Count);
     }
 
     [Fact]
@@ -183,13 +177,13 @@ public sealed class CutLabStructuralFindingsTests
         CutLabStructuralFindingsResult result = CutLabStructuralFindings.Compute(
             Array.Empty<CutLabAnalyzedCard>(),
             Array.Empty<SpellbookAlmostCombo>(),
-            Floors(("interaction", 7)),
+            Floors(("interaction-targeted", 7)),
             comboDataAvailable: true,
             categoryDataAvailable: true);
 
         CutLabFinding finding = Assert.Single(result.Findings);
         Assert.Equal(CutLabFindingKind.WeakFloorCase, finding.Kind);
-        Assert.Equal("You have no interaction cards yet; the suggested floor is 7.", finding.Lead);
+        Assert.Equal("You have no targeted removal cards yet; the suggested floor is 7.", finding.Lead);
         Assert.Empty(finding.Evidence);
     }
 
@@ -199,7 +193,7 @@ public sealed class CutLabStructuralFindingsTests
         CutLabStructuralFindingsResult result = CutLabStructuralFindings.Compute(
             Array.Empty<CutLabAnalyzedCard>(),
             Array.Empty<SpellbookAlmostCombo>(),
-            Floors(("interaction", 0)),
+            Floors(("interaction-targeted", 0)),
             comboDataAvailable: true,
             categoryDataAvailable: true);
 
@@ -306,7 +300,7 @@ public sealed class CutLabStructuralFindingsTests
     {
         IReadOnlyList<CutLabAnalyzedCard> pool =
         [
-            Card("Walking Ballista", 4, false, roles: ["interaction"]),
+            Card("Walking Ballista", 4, false, roles: ["interaction-targeted"]),
             Card("Heliod, Sun-Crowned", 3, false),
         ];
         IReadOnlyList<SpellbookCombo> completeCombos =
@@ -317,7 +311,7 @@ public sealed class CutLabStructuralFindingsTests
         CutLabStructuralFindingsResult result = CutLabStructuralFindings.Compute(
             pool,
             Array.Empty<SpellbookAlmostCombo>(),
-            Floors(("interaction", 1)),
+            Floors(("interaction-targeted", 1)),
             comboDataAvailable: true,
             categoryDataAvailable: true,
             completeCombos: completeCombos);
@@ -414,7 +408,7 @@ public sealed class CutLabStructuralFindingsTests
         [
             Card("Ramp Spell", 2, false, roles: ["ramp"]),
             Card("Draw Spell", 2, false, roles: ["draw"]),
-            Card("Interaction Spell", 2, false, roles: ["interaction"]),
+            Card("Interaction Spell", 2, false, roles: ["interaction-targeted"]),
             Card("Engine", 4, false, roles: ["engines"]),
             Card("Payoff", 5, false, roles: ["payoffs"]),
             Card("Wincon", 6, false, roles: ["wincons"]),
@@ -423,7 +417,7 @@ public sealed class CutLabStructuralFindingsTests
         CutLabStructuralFindingsResult result = CutLabStructuralFindings.Compute(
             pool,
             Array.Empty<SpellbookAlmostCombo>(),
-            Floors(("ramp", 0), ("draw", 0), ("interaction", 0), ("engines", 0), ("payoffs", 0), ("wincons", 0)),
+            Floors(("ramp", 0), ("draw", 0), ("interaction-targeted", 0), ("interaction-mass", 0), ("engines", 0), ("payoffs", 0), ("wincons", 0)),
             comboDataAvailable: true,
             categoryDataAvailable: true);
 
@@ -456,7 +450,8 @@ public sealed class CutLabStructuralFindingsTests
             ["lands"] = 0,
             ["ramp"] = 0,
             ["draw"] = 0,
-            ["interaction"] = 0,
+            ["interaction-targeted"] = 0,
+            ["interaction-mass"] = 0,
             ["protection"] = 0,
             ["engines"] = 0,
             ["payoffs"] = 0,

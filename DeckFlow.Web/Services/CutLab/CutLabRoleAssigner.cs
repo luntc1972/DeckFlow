@@ -5,18 +5,21 @@ using DeckFlow.Web.Services.Manabase;
 namespace DeckFlow.Web.Services.CutLab;
 
 /// <summary>
-/// Assigns each pool card to zero or more of Cut Lab's eight structural role keys using only the
+/// Assigns each pool card to zero or more of Cut Lab's nine structural role keys using only the
 /// existing role and deck-stat classifiers. This taxonomy is wider than <see cref="PlanRole"/>:
 /// lands, ramp, and filler draw still matter for slot competition even though
-/// <see cref="PlanRoleClassifier"/> deliberately excludes them from plan-presence roles. Multi-role
-/// membership is allowed; cutting a card reduces every role count it currently fills.
+/// <see cref="PlanRoleClassifier"/> deliberately excludes them from plan-presence roles, and Cut
+/// Lab intentionally splits interaction more finely than the shared <see cref="PlanRole"/>
+/// taxonomy. Multi-role membership is allowed; cutting a card reduces every role count it
+/// currently fills.
 /// </summary>
 public static class CutLabRoleAssigner
 {
     private const string LandsRole = "lands";
     private const string RampRole = "ramp";
     private const string DrawRole = "draw";
-    private const string InteractionRole = "interaction";
+    private const string InteractionTargetedRole = "interaction-targeted";
+    private const string InteractionMassRole = "interaction-mass";
     private const string ProtectionRole = "protection";
     private const string EnginesRole = "engines";
     private const string PayoffsRole = "payoffs";
@@ -28,7 +31,8 @@ public static class CutLabRoleAssigner
         LandsRole,
         RampRole,
         DrawRole,
-        InteractionRole,
+        InteractionTargetedRole,
+        InteractionMassRole,
         ProtectionRole,
         EnginesRole,
         PayoffsRole,
@@ -55,7 +59,8 @@ public static class CutLabRoleAssigner
             ["lands"] = "Lands",
             ["ramp"] = "Ramp",
             ["draw"] = "Card draw",
-            ["interaction"] = "Interaction",
+            ["interaction-targeted"] = "Targeted removal",
+            ["interaction-mass"] = "Mass removal",
             ["protection"] = "Protection",
             ["engines"] = "Engines",
             ["payoffs"] = "Payoffs",
@@ -138,11 +143,23 @@ public static class CutLabRoleAssigner
             assigned.Add(DrawRole);
         }
 
-        if (interactionMeritPreGate
-            || DeckStatClassifier.IsBoardWipeCard(oracle)
-            || DeckStatClassifier.IsTargetedRemovalCard(typeLine, oracle))
+        // Why: interactionMeritPreGate is a SUPERSET signal -- PlanRoleClassifier sets
+        // PlanRole.Interaction from board wipes (GrantsInteraction) AND from the "wipe" category
+        // tag (IsInteractionCategory), so routing it to targeted unsubtracted would put every
+        // sweeper in the targeted bucket. Mass is computed first and subtracted.
+        // Why: targeted/mass are mutually exclusive -- IsTargetedRemovalCard already opens with
+        // !IsBoardWipeCard (DeckStatClassifier.cs:185); the !isMass gate makes that structural
+        // rather than emergent, and also covers the category-tag path.
+        bool isMass = DeckStatClassifier.IsBoardWipeCard(oracle) || HasWipeCategoryTag(categories);
+        if (!isMass
+            && (DeckStatClassifier.IsTargetedRemovalCard(typeLine, oracle) || interactionMeritPreGate))
         {
-            assigned.Add(InteractionRole);
+            assigned.Add(InteractionTargetedRole);
+        }
+
+        if (isMass)
+        {
+            assigned.Add(InteractionMassRole);
         }
 
         if (DeckStatClassifier.IsProtectionCard(fact.Name, oracle))
@@ -177,6 +194,21 @@ public static class CutLabRoleAssigner
         }
 
         return assigned;
+    }
+
+    private static bool HasWipeCategoryTag(IReadOnlyList<string> categories)
+    {
+        // Why: mirror PlanRoleClassifier.IsInteractionCategory's "wipe" vocabulary locally so the
+        // Cut Lab interaction split covers the category-tag path without changing the shared lens.
+        foreach (string category in categories)
+        {
+            if (string.Equals(category, "wipe", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 

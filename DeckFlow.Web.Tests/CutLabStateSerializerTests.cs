@@ -46,8 +46,14 @@ public sealed class CutLabStateSerializerTests
             [
                 new CutLabRoleFloor
                 {
-                    Role = "interaction",
-                    Floor = 7,
+                    Role = "interaction-targeted",
+                    Floor = 5,
+                    IsUserSet = true,
+                },
+                new CutLabRoleFloor
+                {
+                    Role = "interaction-mass",
+                    Floor = 2,
                     IsUserSet = true,
                 },
                 new CutLabRoleFloor

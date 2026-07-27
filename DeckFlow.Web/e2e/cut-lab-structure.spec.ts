@@ -139,7 +139,7 @@ test.afterEach(async () => {
   heldLock = null;
 });
 
-test('renders the three structure sections with 9 collapsed role groups and 8 floor inputs', async ({ page }) => {
+test('renders the three structure sections with 10 collapsed role groups and 9 floor inputs', async ({ page }) => {
   await importPool(page);
 
   await expect(page.getByRole('heading', { name: 'How your pool competes' })).toBeVisible();
@@ -147,9 +147,9 @@ test('renders the three structure sections with 9 collapsed role groups and 8 fl
   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
 
   const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
-  await expect(roleGroups).toHaveCount(9);
+  await expect(roleGroups).toHaveCount(10);
   await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
-  await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+  await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(9);
   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
 });
@@ -203,11 +203,11 @@ test('opens the Lands group, shows member chips, and toggles land rows from the 
   await expect(lockAllButton).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('marks interaction as adjusted after floor edits and writes roleFloors into hidden state', async ({ page }) => {
+test('marks interaction-targeted as adjusted after floor edits and writes roleFloors into hidden state', async ({ page }) => {
   await importPool(page);
 
-  const interactionRow = getRoleFloorRow(page, 'interaction');
-  const interactionInput = interactionRow.locator('input[data-cut-lab-floor="interaction"]');
+  const interactionRow = getRoleFloorRow(page, 'interaction-targeted');
+  const interactionInput = interactionRow.locator('input[data-cut-lab-floor="interaction-targeted"]');
   const interactionCount = await getFloorCount(interactionRow);
   const interactionDefault = await getFloorDefault(interactionRow);
   const validHighValue = Math.max(interactionDefault + 1, interactionCount - 1);
@@ -219,15 +219,15 @@ test('marks interaction as adjusted after floor edits and writes roleFloors into
 
   await expect(interactionRow.locator('[data-cut-lab-floor-adjusted-badge]')).toBeVisible();
   await expect(page.locator('input[name="CutLabStateJson"]').first()).toHaveValue(
-    /"roleFloors":\[.*"role":"interaction".*"isUserSet":true/,
+    /"roleFloors":\[.*"role":"interaction-targeted".*"isUserSet":true/,
   );
 });
 
-test('preserves the adjusted interaction floor and badge across Recalculate', async ({ page }) => {
+test('preserves the adjusted interaction-targeted floor and badge across Recalculate', async ({ page }) => {
   await importPool(page);
 
-  const interactionRow = getRoleFloorRow(page, 'interaction');
-  const interactionInput = interactionRow.locator('input[data-cut-lab-floor="interaction"]');
+  const interactionRow = getRoleFloorRow(page, 'interaction-targeted');
+  const interactionInput = interactionRow.locator('input[data-cut-lab-floor="interaction-targeted"]');
   const interactionCount = await getFloorCount(interactionRow);
   const persistedValue = Math.max((await getFloorDefault(interactionRow)) + 1, interactionCount - 1);
 
@@ -236,15 +236,15 @@ test('preserves the adjusted interaction floor and badge across Recalculate', as
   await page.locator('[data-cut-lab-recalculate]').click();
 
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
-  await expect(getRoleFloorRow(page, 'interaction').locator('input[data-cut-lab-floor="interaction"]')).toHaveValue(`${persistedValue}`);
-  await expect(getRoleFloorRow(page, 'interaction').locator('[data-cut-lab-floor-adjusted-badge]')).toBeVisible();
+  await expect(getRoleFloorRow(page, 'interaction-targeted').locator('input[data-cut-lab-floor="interaction-targeted"]')).toHaveValue(`${persistedValue}`);
+  await expect(getRoleFloorRow(page, 'interaction-targeted').locator('[data-cut-lab-floor-adjusted-badge]')).toBeVisible();
 });
 
 test('shows the at floor marker when a floor is raised to within 1 of the role count', async ({ page }) => {
   await importPool(page);
 
-  const interactionRow = getRoleFloorRow(page, 'interaction');
-  const interactionInput = interactionRow.locator('input[data-cut-lab-floor="interaction"]');
+  const interactionRow = getRoleFloorRow(page, 'interaction-targeted');
+  const interactionInput = interactionRow.locator('input[data-cut-lab-floor="interaction-targeted"]');
   const interactionCount = await getFloorCount(interactionRow);
   const atFloorValue = Math.max(0, interactionCount - 1);
 
@@ -254,11 +254,11 @@ test('shows the at floor marker when a floor is raised to within 1 of the role c
   await expect(interactionRow.locator('[data-cut-lab-floor-at-marker]')).toContainText('at floor');
 });
 
-test('resets an adjusted role floor back to its default value', async ({ page }) => {
+test('resets an adjusted interaction-targeted floor back to its default value', async ({ page }) => {
   await importPool(page);
 
-  const interactionRow = getRoleFloorRow(page, 'interaction');
-  const interactionInput = interactionRow.locator('input[data-cut-lab-floor="interaction"]');
+  const interactionRow = getRoleFloorRow(page, 'interaction-targeted');
+  const interactionInput = interactionRow.locator('input[data-cut-lab-floor="interaction-targeted"]');
   const defaultValue = await getFloorDefault(interactionRow);
   const interactionCount = await getFloorCount(interactionRow);
   const adjustedValue = Math.max(defaultValue + 1, interactionCount - 1);
@@ -267,7 +267,7 @@ test('resets an adjusted role floor back to its default value', async ({ page })
   await interactionInput.blur();
   await expect(interactionRow.locator('[data-cut-lab-floor-adjusted-badge]')).toBeVisible();
 
-  await interactionRow.locator('[data-cut-lab-floor-reset="interaction"]').click();
+  await interactionRow.locator('[data-cut-lab-floor-reset="interaction-targeted"]').click();
 
   await expect(interactionInput).toHaveValue(`${defaultValue}`);
   await expect(interactionRow.locator('[data-cut-lab-floor-adjusted-badge]')).toBeHidden();
@@ -463,8 +463,8 @@ test('captures the structure screenshot matrix across themes and viewports', asy
       await page.context().clearCookies();
       await page.context().addCookies([{ name: 'deckflow-theme', value: theme.cookie, url: baseUrl }]);
       await importPool(page);
-      await page.locator('details.cutlab-role-group').filter({ hasText: 'Interaction' }).locator(':scope > summary').click();
-      await page.locator('input[data-cut-lab-floor="interaction"]').scrollIntoViewIfNeeded();
+      await page.locator('details.cutlab-role-group').filter({ hasText: 'Targeted removal' }).locator(':scope > summary').click();
+      await page.locator('input[data-cut-lab-floor="interaction-targeted"]').scrollIntoViewIfNeeded();
 
       await page.screenshot({
         path: join(screenshotDir, `structure-${theme.name}-${viewport.name}.png`),
