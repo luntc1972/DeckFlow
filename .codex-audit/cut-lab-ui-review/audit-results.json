@@ -1,0 +1,285 @@
+[
+  {
+    "theme": "site.css",
+    "viewport": "desktop",
+    "metrics": {
+      "bodyScrollWidth": 1440,
+      "bodyClientWidth": 1440,
+      "h2s": [
+        "Lock your pool",
+        "How your pool competes",
+        "Structural findings",
+        "Role floors",
+        "Goals",
+        "Export",
+        "Cut rounds",
+        "Tune quantities",
+        "Compare to baseline"
+      ],
+      "navLinks": [
+        "Skip to main content"
+      ],
+      "mobileCollapsibles": [
+        "Packages\n                    Lock or unlock named ",
+        "Scenarios\n                Save this entire Cut Lab",
+        "What-if swap\n                Swap one unlocked wor"
+      ],
+      "lockSearchCount": 0,
+      "lockFilterCount": 0,
+      "liveStatuses": [
+        {
+          "text": "Working\n            Request in progress.",
+          "live": "polite",
+          "role": "status"
+        },
+        {
+          "text": "Restored from cache · just nowReset",
+          "live": null,
+          "role": "status"
+        },
+        {
+          "text": "",
+          "live": null,
+          "role": "status"
+        },
+        {
+          "text": "6 to cut",
+          "live": "polite",
+          "role": null
+        },
+        {
+          "text": "",
+          "live": "polite",
+          "role": "status"
+        }
+      ],
+      "duplicateCommanderSelects": 0
+    }
+  },
+  {
+    "theme": "site.css",
+    "viewport": "mobile",
+    "metrics": {
+      "bodyScrollWidth": 390,
+      "bodyClientWidth": 390,
+      "openDetails": [
+        "Packages",
+        "Scenarios",
+        "What-if swap"
+      ]
+    }
+  },
+  {
+    "theme": "site.css",
+    "viewport": "desktop",
+    "themeMetrics": {
+      "themeSelect": {
+        "text": "Classic\n                            Azorius (WU)\n           ",
+        "color": "rgb(26, 31, 46)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "borderColor": "rgb(26, 31, 46)",
+        "contrast": 16.414349828179432
+      },
+      "runButton": {
+        "text": "Download DeckFlow Bridge (.zip)",
+        "color": "rgb(255, 255, 255)",
+        "backgroundColor": "rgb(43, 108, 176)",
+        "borderColor": "rgb(30, 79, 130)",
+        "contrast": 5.419829074091685
+      },
+      "lockAllPill": {
+        "text": "Lock all lands",
+        "color": "rgb(26, 31, 46)",
+        "backgroundColor": "rgb(237, 243, 250)",
+        "borderColor": "rgb(176, 184, 200)",
+        "contrast": 14.695976358294658
+      },
+      "roleChip": {
+        "text": "Plains",
+        "color": "rgb(26, 31, 46)",
+        "backgroundColor": "rgb(237, 243, 250)",
+        "borderColor": "rgb(176, 184, 200)",
+        "contrast": 14.695976358294658
+      },
+      "lockedRoleChip": null,
+      "kbChip": {
+        "text": "Commander · Always locked",
+        "color": "rgb(26, 31, 46)",
+        "backgroundColor": "rgb(237, 243, 250)",
+        "borderColor": "rgb(176, 184, 200) rgb(176, 184, 200) rgb(176, 184, 200) rgb(212, 175, 55)",
+        "contrast": 14.695976358294658
+      },
+      "stickyCount": {
+        "text": "6 to cut",
+        "color": "rgb(26, 31, 46)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(26, 31, 46)",
+        "contrast": 1.2793683709572294
+      },
+      "numberInput": {
+        "text": "",
+        "color": "rgb(26, 31, 46)",
+        "backgroundColor": "rgb(237, 243, 250)",
+        "borderColor": "rgb(176, 184, 200)",
+        "contrast": 14.695976358294658
+      },
+      "packageSelect": {
+        "text": "Unlocked pool\n                                        + New ",
+        "color": "rgb(26, 31, 46)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "borderColor": "rgb(26, 31, 46)",
+        "contrast": 16.414349828179432
+      }
+    }
+  },
+  {
+    "theme": "site.css",
+    "viewport": "mobile",
+    "metrics": {
+      "bodyScrollWidth": 390,
+      "bodyClientWidth": 390
+    }
+  },
+  {
+    "theme": "site-nyx.css",
+    "viewport": "desktop",
+    "themeMetrics": {
+      "themeSelect": {
+        "text": "Classic\n                            Azorius (WU)\n           ",
+        "color": "rgb(212, 208, 228)",
+        "backgroundColor": "rgb(24, 22, 42)",
+        "borderColor": "rgb(212, 208, 228)",
+        "contrast": 11.745268145846428
+      },
+      "runButton": {
+        "text": "Download DeckFlow Bridge (.zip)",
+        "color": "rgb(255, 255, 255)",
+        "backgroundColor": "rgb(139, 108, 193)",
+        "borderColor": "rgb(139, 108, 193)",
+        "contrast": 4.189217413963152
+      },
+      "lockAllPill": {
+        "text": "Lock all lands",
+        "color": "rgb(212, 208, 228)",
+        "backgroundColor": "rgb(42, 38, 62)",
+        "borderColor": "rgb(80, 72, 112)",
+        "contrast": 9.646783009397621
+      },
+      "roleChip": {
+        "text": "Plains",
+        "color": "rgb(212, 208, 228)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(80, 72, 112)",
+        "contrast": 13.942047084617858
+      },
+      "lockedRoleChip": null,
+      "kbChip": {
+        "text": "Commander · Always locked",
+        "color": "rgb(212, 208, 228)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(80, 72, 112) rgb(80, 72, 112) rgb(80, 72, 112) rgb(212, 175, 55)",
+        "contrast": 13.942047084617858
+      },
+      "stickyCount": {
+        "text": "6 to cut",
+        "color": "rgb(212, 208, 228)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(212, 208, 228)",
+        "contrast": 13.942047084617858
+      },
+      "numberInput": {
+        "text": "",
+        "color": "rgb(212, 208, 228)",
+        "backgroundColor": "rgb(42, 38, 62)",
+        "borderColor": "rgb(80, 72, 112)",
+        "contrast": 9.646783009397621
+      },
+      "packageSelect": {
+        "text": "Unlocked pool\n                                        + New ",
+        "color": "rgb(212, 208, 228)",
+        "backgroundColor": "rgb(24, 22, 42)",
+        "borderColor": "rgb(212, 208, 228)",
+        "contrast": 11.745268145846428
+      }
+    }
+  },
+  {
+    "theme": "site-nyx.css",
+    "viewport": "mobile",
+    "metrics": {
+      "bodyScrollWidth": 390,
+      "bodyClientWidth": 390
+    }
+  },
+  {
+    "theme": "site-commander-table.css",
+    "viewport": "desktop",
+    "themeMetrics": {
+      "themeSelect": {
+        "text": "Classic\n                            Azorius (WU)\n           ",
+        "color": "rgb(26, 21, 16)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "borderColor": "rgb(26, 21, 16)",
+        "contrast": 18.124218130072293
+      },
+      "runButton": {
+        "text": "Download DeckFlow Bridge (.zip)",
+        "color": "rgb(255, 255, 255)",
+        "backgroundColor": "rgb(45, 122, 79)",
+        "borderColor": "rgb(45, 122, 79)",
+        "contrast": 5.239136964873328
+      },
+      "lockAllPill": {
+        "text": "Lock all lands",
+        "color": "rgb(26, 21, 16)",
+        "backgroundColor": "rgb(250, 248, 243)",
+        "borderColor": "rgb(184, 169, 142)",
+        "contrast": 17.076441807427827
+      },
+      "roleChip": {
+        "text": "Plains",
+        "color": "rgb(26, 21, 16)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(184, 169, 142)",
+        "contrast": 1.1586706719864575
+      },
+      "lockedRoleChip": null,
+      "kbChip": {
+        "text": "Commander · Always locked",
+        "color": "rgb(26, 21, 16)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(184, 169, 142) rgb(184, 169, 142) rgb(184, 169, 142) rgb(212, 175, 55)",
+        "contrast": 1.1586706719864575
+      },
+      "stickyCount": {
+        "text": "6 to cut",
+        "color": "rgb(26, 21, 16)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(26, 21, 16)",
+        "contrast": 1.1586706719864575
+      },
+      "numberInput": {
+        "text": "",
+        "color": "rgb(26, 21, 16)",
+        "backgroundColor": "rgb(250, 248, 243)",
+        "borderColor": "rgb(184, 169, 142)",
+        "contrast": 17.076441807427827
+      },
+      "packageSelect": {
+        "text": "Unlocked pool\n                                        + New ",
+        "color": "rgb(26, 21, 16)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "borderColor": "rgb(26, 21, 16)",
+        "contrast": 18.124218130072293
+      }
+    }
+  },
+  {
+    "theme": "site-commander-table.css",
+    "viewport": "mobile",
+    "metrics": {
+      "bodyScrollWidth": 390,
+      "bodyClientWidth": 390
+    }
+  }
+]

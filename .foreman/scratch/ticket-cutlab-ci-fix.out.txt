@@ -1,0 +1,1935 @@
+OpenAI Codex v0.145.0
+--------
+workdir: /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+model: gpt-5.4
+provider: openai
+approval: never
+sandbox: danger-full-access
+reasoning effort: medium
+reasoning summaries: none
+session id: 019f9c24-8c4e-7433-a6fb-66a4e8a9513b
+--------
+user
+TASK: Fix a CI e2e test failure in the DeckFlow repo caused by an ambiguous CSS class selector.
+
+CONTEXT:
+Commit 153d76a4 "feat(cut-lab): group the pool by type and search by subtype" added a new
+"By type" section in DeckFlow.Web/Views/Deck/CutLab.cshtml whose <details> elements reuse
+class="cutlab-role-group" — the same class used by the pre-existing "How your pool competes"
+role-groups section. The e2e test DeckFlow.Web/e2e/cut-lab-structure.spec.ts line 150 asserts
+`expect(page.locator('details.cutlab-role-group')).toHaveCount(8)` (written before the
+type-groups section existed, expecting only role groups). Now the selector matches both
+sections (8 role groups + 7 type groups = 15), failing CI's Playwright E2E smoke job on both
+chromium-desktop and chromium-mobile.
+
+Working directory: this repo checkout (branch feat/cutlab-fixes). NOTE: there are already
+OTHER uncommitted changes in this worktree (CutLab.cshtml has an unrelated sticky-bar diff
+around line ~353-360, plus modified cut-lab.ts, site-common.css, cut-lab-lock-interactions.test.ts,
+and new untracked files .foreman/ledger-*.md and CutLabViewRenderTests.cs). These are pre-existing
+in-progress work from a different task — DO NOT touch, revert, or commit them. Your change must
+be additive only to the specific lines below, and your commit must stage ONLY the two files this
+ticket names.
+
+MUST DO:
+1. In DeckFlow.Web/Views/Deck/CutLab.cshtml:
+   - Find the RoleGroups `<details class="cutlab-role-group">` in the "How your pool competes"
+     section (inside `@foreach (var group in Model.RoleGroups)`, roughly line 528-575). Add the
+     attribute `data-cutlab-group-kind="role"` to that `<details>` tag.
+   - Find the TypeGroups `<details class="cutlab-role-group">` in the "By type" section (inside
+     `@foreach (var group in Model.TypeGroups)`, roughly line 585-612). Add the attribute
+     `data-cutlab-group-kind="type"` to that `<details>` tag.
+   - Do NOT change the `cutlab-role-group` class itself, and do NOT touch site-common.css —
+     shared styling between the two sections is intentional.
+2. In DeckFlow.Web/e2e/cut-lab-structure.spec.ts, around line 150-151 (inside the test
+   "renders the three structure sections with 8 collapsed role groups and 8 floor inputs"):
+   - Change `const roleGroups = page.locator('details.cutlab-role-group');` to scope to only
+     role groups: `page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]')`.
+   - Change the very next assertion `page.locator('details.cutlab-role-group[open]')` the same
+     way, so it also scopes to `[data-cutlab-group-kind="role"][open]`.
+   - Do NOT change any other e2e spec file (cut-lab-pill-interactions.spec.ts,
+     cut-lab-nav-themes.spec.ts, cut-lab-smoke.spec.ts, cut-lab-theme-readability.spec.ts) —
+     they filter by unique visible text ("Lands"/"Interaction") and are not failing.
+
+MUST NOT:
+- Touch any file other than DeckFlow.Web/Views/Deck/CutLab.cshtml and
+  DeckFlow.Web/e2e/cut-lab-structure.spec.ts.
+- Stage or commit any of the pre-existing uncommitted changes already in this worktree.
+- Change line endings on touched lines — this repo is LF-enforced by .gitattributes; preserve
+  every other line byte-for-byte.
+- Rename, remove, or alter the `cutlab-role-group` class or any CSS.
+
+VERIFICATION REQUIRED:
+- Run `dotnet build` from the repo root; must be 0 errors, 0 new warnings.
+- If feasible in this environment, start the web app per scripts/run-web-test.sh
+  (sets DECKFLOW_DISABLE_AUTO_BROWSER=true) and run
+  `npx --no-install playwright test cut-lab-structure.spec.ts` from DeckFlow.Web. If a full
+  Playwright run isn't practical here, at minimum trace the DOM construction in
+  DeckFlow.Web/Models/CutLabViewModel.cs (RoleGroups/TypeGroups) to confirm exactly 8
+  RoleGroups entries will exist for the test's fixture pool, and run xUnit
+  (`dotnet test DeckFlow.Web.Tests`) + vitest (`npx --no-install vitest run` in DeckFlow.Web)
+  to confirm nothing else broke.
+- Report exactly what you ran and its result — do not claim a test passed without running it.
+
+OUTPUT FORMAT: start your final message with one of DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT /
+BLOCKED, then: the exact diff of both files, and the verification commands you ran with their
+results. Do NOT commit — leave the change staged/unstaged for review; the caller will commit.
+
+WRITE SET: DeckFlow.Web/Views/Deck/CutLab.cshtml, DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+
+warning: Under-development features enabled: default_mode_request_user_input. Under-development features are incomplete and may behave unpredictably. To suppress this warning, set `suppress_unstable_features_warning = true` in /home/clunt/.codex/config.toml.
+warning: Skill descriptions were shortened to fit the 2% skills context budget. Codex can still see every skill, but some descriptions are shorter. Disable unused skills or plugins to leave more room for the rest.
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart Completed
+hook: SessionStart Completed
+codex
+I’m checking the current worktree state and the exact target lines in the view and e2e spec before making the two scoped edits.
+exec
+/bin/bash -lc 'rg -n "cutlab-role-group|renders the three structure sections" DeckFlow.Web/Views/Deck/CutLab.cshtml DeckFlow.Web/e2e/cut-lab-structure.spec.ts' in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+DeckFlow.Web/e2e/cut-lab-structure.spec.ts:142:test('renders the three structure sections with 8 collapsed role groups and 8 floor inputs', async ({ page }) => {
+DeckFlow.Web/e2e/cut-lab-structure.spec.ts:149:  const roleGroups = page.locator('details.cutlab-role-group');
+DeckFlow.Web/e2e/cut-lab-structure.spec.ts:151:  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
+DeckFlow.Web/e2e/cut-lab-structure.spec.ts:184:  const landsGroup = page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' });
+DeckFlow.Web/e2e/cut-lab-structure.spec.ts:466:      await page.locator('details.cutlab-role-group').filter({ hasText: 'Interaction' }).locator(':scope > summary').click();
+DeckFlow.Web/Views/Deck/CutLab.cshtml:551:                    <details class="cutlab-role-group">
+DeckFlow.Web/Views/Deck/CutLab.cshtml:552:                        <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+DeckFlow.Web/Views/Deck/CutLab.cshtml:553:                        <div class="cutlab-role-group__body">
+DeckFlow.Web/Views/Deck/CutLab.cshtml:593:                                <p class="cutlab-role-group__help">Interaction counts one-shot removal and wipes. Counterspells count as interaction only for a cEDH play experience.</p>
+DeckFlow.Web/Views/Deck/CutLab.cshtml:612:                    <details class="cutlab-role-group">
+DeckFlow.Web/Views/Deck/CutLab.cshtml:613:                        <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+DeckFlow.Web/Views/Deck/CutLab.cshtml:614:                        <div class="cutlab-role-group__body">
+
+exec
+/bin/bash -lc 'git status --short' in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 1036ms:
+ M DeckFlow.Web/Views/Deck/CutLab.cshtml
+ M DeckFlow.Web/ts-tests/cut-lab-lock-interactions.test.ts
+ M DeckFlow.Web/wwwroot/css/site-common.css
+ M DeckFlow.Web/wwwroot/ts/cut-lab.ts
+?? .foreman/ledger-cutlab-lockpool-sticky-2026-07-25.md
+?? .foreman/ledger-cutlab-manabase-surface-2026-07-25.md
+?? DeckFlow.Web.Tests/CutLabViewRenderTests.cs
+
+codex
+The view already has unrelated local edits, so I’m reading just the affected hunks and will patch only the two `<details>` tags plus the two Playwright selectors.
+exec
+/bin/bash -lc "sed -n '540,620p' DeckFlow.Web/Views/Deck/CutLab.cshtml" in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+                <summary class="cutlab-collapsible__summary">How your pool competes</summary>
+                <div class="panel-heading">
+                    <div>
+                        <h2>How your pool competes</h2>
+                        <p>Cards grouped by the role they're fighting for. A card can fill more than one role — it appears in every group it competes in.</p>
+                    </div>
+                </div>
+                @foreach (var group in Model.RoleGroups)
+                {
+                    var memberCount = group.Members.Count;
+                    var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+                    <details class="cutlab-role-group">
+                        <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                        <div class="cutlab-role-group__body">
+                            @if (group.IsLockable)
+                            {
+                                <button type="button"
+                                        class="manabase-pill @(group.AllLockableMembersLocked ? "is-selected" : null)"
+                                        data-cut-lab-lock-role="@group.RoleKey"
+                                        aria-pressed="@(group.AllLockableMembersLocked ? "true" : "false")">
+                                    <span>Lock all @lowerDisplayLabel</span>
+                                </button>
+                            }
+                            @if (memberCount > 0)
+                            {
+                                <div class="kb-chip-area__chips">
+                                    @foreach (var member in group.Members)
+                                    {
+                                        if (member.IsCommander)
+                                        {
+                                            <span class="kb-chip cutlab-lock-badge--commander"
+                                                  data-cutlab-card-open="@member.Name"
+                                                  data-cut-lab-chip-card="@member.Name">@member.Name</span>
+                                        }
+                                        else
+                                        {
+                                            var chipClasses = $"kb-chip cutlab-role-chip{(member.IsLocked ? " cutlab-role-chip--locked" : string.Empty)}";
+                                            <button type="button"
+                                                    class="@chipClasses"
+                                                    data-cutlab-card-open="@member.Name"
+                                                    data-cut-lab-chip-card="@member.Name"
+                                                    aria-pressed="@(member.IsLocked ? "true" : "false")">@member.Name</button>
+                                        }
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="kb-chip-area__empty-hint">No @lowerDisplayLabel cards detected in this pool.</p>
+                            }
+
+                            @if (string.Equals(group.RoleKey, "interaction", StringComparison.Ordinal))
+                            {
+                                <p class="cutlab-role-group__help">Interaction counts one-shot removal and wipes. Counterspells count as interaction only for a cEDH play experience.</p>
+                            }
+                        </div>
+                    </details>
+                }
+            </details>
+        </section>
+
+        <section class="result-panel">
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-by-type">
+                <summary class="cutlab-collapsible__summary">By type</summary>
+                <div class="panel-heading">
+                    <div>
+                        <h2>By type</h2>
+                        <p>Your pool grouped by card type.</p>
+                    </div>
+                </div>
+                @foreach (var group in Model.TypeGroups)
+                {
+                    <details class="cutlab-role-group">
+                        <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                        <div class="cutlab-role-group__body">
+                            <div class="kb-chip-area__chips">
+                                @foreach (var member in group.Members)
+                                {
+                                    if (member.IsCommander)
+                                    {
+                                        <span class="kb-chip cutlab-lock-badge--commander"
+
+exec
+/bin/bash -lc "sed -n '142,154p' DeckFlow.Web/e2e/cut-lab-structure.spec.ts" in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+test('renders the three structure sections with 8 collapsed role groups and 8 floor inputs', async ({ page }) => {
+  await importPool(page);
+
+  await expect(page.getByRole('heading', { name: 'How your pool competes' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+
+  const roleGroups = page.locator('details.cutlab-role-group');
+  await expect(roleGroups).toHaveCount(8);
+  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
+  await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+  await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+  await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+exec
+/bin/bash -lc 'git diff -- DeckFlow.Web/Views/Deck/CutLab.cshtml' in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 1258f859..7915bbaa 100644
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -353,6 +353,10 @@
+                         </div>
+                     </div>
+                 </div>
++                <div class="cutlab-sticky-bar cutlab-sticky-bar--pool">
++                    <span class="cutlab-sticky-bar__count" data-cut-lab-pool-sticky-count>@Model.PoolStatusText</span>
++                    <span class="cutlab-sticky-bar__accepted" data-cut-lab-pool-sticky-breakdown>@Model.BoardCounts.ToBreakdown()</span>
++                </div>
+ 
+             @if (Model.CommanderSelectionRequired)
+             {
+
+codex
+I’ve isolated the existing unrelated hunk in `CutLab.cshtml`; the patch will stay confined to the two requested attributes and the two locator strings.
+apply patch
+patch: completed
+/mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes/DeckFlow.Web/Views/Deck/CutLab.cshtml
+/mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+codex
+The code change is in place. I’m verifying with the required build first, then I’ll try the targeted Playwright run against a locally started app and fall back to the additional test steps only if that isn’t practical here.
+exec
+/bin/bash -lc 'dotnet build' in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ exited 127 in 0ms:
+/bin/bash: line 1: dotnet: command not found
+
+exec
+/bin/bash -lc 'git diff -- DeckFlow.Web/Views/Deck/CutLab.cshtml DeckFlow.Web/e2e/cut-lab-structure.spec.ts' in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 1258f859..42da8bc4 100644
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -353,6 +353,10 @@
+                         </div>
+                     </div>
+                 </div>
++                <div class="cutlab-sticky-bar cutlab-sticky-bar--pool">
++                    <span class="cutlab-sticky-bar__count" data-cut-lab-pool-sticky-count>@Model.PoolStatusText</span>
++                    <span class="cutlab-sticky-bar__accepted" data-cut-lab-pool-sticky-breakdown>@Model.BoardCounts.ToBreakdown()</span>
++                </div>
+ 
+             @if (Model.CommanderSelectionRequired)
+             {
+@@ -544,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -605,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54..4d8a4616 100644
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@ test('renders the three structure sections with 8 collapsed role groups and 8 fl
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+codex
+`dotnet` isn’t on the current shell `PATH`, so I’m checking for the repo’s expected launch script and whether the Windows SDK binary is available from this environment before I conclude what can be verified here.
+exec
+/bin/bash -lc "command -v dotnet || which dotnet || ls '/mnt/c/Program Files/dotnet/dotnet.exe'" in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+/mnt/c/Program Files/dotnet/dotnet.exe
+
+exec
+/bin/bash -lc 'command -v node && command -v npm && command -v npx' in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+/usr/bin/node
+/usr/bin/npm
+/usr/bin/npx
+
+exec
+/bin/bash -lc "sed -n '1,220p' scripts/run-web-test.sh" in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+#!/usr/bin/env bash
+# Headless TEST launcher for DeckFlow web (http://localhost:5173).
+#
+# RULE: UI testing must NEVER open a browser on Windows. This script guarantees
+# that by exporting DECKFLOW_DISABLE_AUTO_BROWSER=true (the gate read in
+# Program.cs IsAutoBrowserDisabled) BEFORE starting the server, so no Edge/Chrome
+# window pops on each start during Playwright / curl / headless verification.
+# Use this for any automated or screenshot-driven UI testing instead of
+# run-web.sh / run-web-uat.sh (which may auto-launch a Windows browser in
+# Development).
+#
+# SECURITY: the admin creds below are local-machine-only PLACEHOLDERS, not
+# secrets. NEVER put a real/prod password here (public repo). Override by
+# exporting FEEDBACK_ADMIN_USER / FEEDBACK_ADMIN_PASSWORD before running.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+# THE point of this script: suppress the Development auto-browser launch.
+export DECKFLOW_DISABLE_AUTO_BROWSER=true
+export ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Development}"
+export FEEDBACK_ADMIN_USER="${FEEDBACK_ADMIN_USER:-admin}"
+export FEEDBACK_ADMIN_PASSWORD="${FEEDBACK_ADMIN_PASSWORD:-changeme-local}"
+
+PORT="${PORT:-5173}"
+
+if [ "${FORCE_RESTART:-0}" != "1" ] && command -v curl >/dev/null 2>&1; then
+  if curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' "http://localhost:${PORT}/" | grep -Eq '^[23][0-9][0-9]$'; then
+    echo "Reusing existing server on :${PORT} (set FORCE_RESTART=1 to replace)"
+    exit 0
+  fi
+fi
+
+# WSL exposes the Windows SDK as dotnet.exe; native Linux has dotnet. Prefer
+# whichever is on PATH so the same script runs from WSL or Linux.
+DOTNET="$(command -v dotnet 2>/dev/null || command -v dotnet.exe 2>/dev/null || true)"
+if [ -z "$DOTNET" ]; then
+  echo "error: neither 'dotnet' nor 'dotnet.exe' found on PATH" >&2
+  exit 1
+fi
+
+# WSL-exported vars do not cross into Windows .exe processes unless named in WSLENV.
+if [[ "$DOTNET" == *.exe || "$DOTNET" == *"/mnt/c/"* ]]; then
+  export WSLENV="${WSLENV:+${WSLENV}:}DECKFLOW_DISABLE_AUTO_BROWSER:ASPNETCORE_ENVIRONMENT:FEEDBACK_ADMIN_USER:FEEDBACK_ADMIN_PASSWORD"
+fi
+
+# Free the port so a stale server does not block the bind (best-effort).
+if command -v fuser >/dev/null 2>&1; then
+  fuser -k "${PORT}/tcp" 2>/dev/null || true
+  sleep 0.5
+fi
+
+echo "DeckFlow.Web (headless test mode) -> http://localhost:${PORT}"
+echo "Auto-browser: DISABLED (DECKFLOW_DISABLE_AUTO_BROWSER=true). No Windows browser will open."
+echo "Admin login: ${FEEDBACK_ADMIN_USER} / ${FEEDBACK_ADMIN_PASSWORD}"
+
+# Explicit --urls (not a launch profile) so no profile-driven browser launch.
+"$DOTNET" run --project DeckFlow.Web --urls "http://localhost:${PORT}"
+
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+codex
+The Windows SDK binary is present, so I’m switching to that path for the required .NET verification and then using the repo’s headless launcher for the Playwright check.
+exec
+/bin/bash -lc "'/mnt/c/Program Files/dotnet/dotnet.exe' build" in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+exec
+/bin/bash -lc 'git diff --unified=0 -- DeckFlow.Web/Views/Deck/CutLab.cshtml DeckFlow.Web/e2e/cut-lab-structure.spec.ts' in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 1258f859..42da8bc4 100644
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -355,0 +356,4 @@
++                <div class="cutlab-sticky-bar cutlab-sticky-bar--pool">
++                    <span class="cutlab-sticky-bar__count" data-cut-lab-pool-sticky-count>@Model.PoolStatusText</span>
++                    <span class="cutlab-sticky-bar__accepted" data-cut-lab-pool-sticky-breakdown>@Model.BoardCounts.ToBreakdown()</span>
++                </div>
+@@ -547 +551 @@
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+@@ -608 +612 @@
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54..4d8a4616 100644
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -149 +149 @@ test('renders the three structure sections with 8 collapsed role groups and 8 fl
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+@@ -151 +151 @@ test('renders the three structure sections with 8 collapsed role groups and 8 fl
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+ succeeded in 3695ms:
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  DeckFlow.Core -> C:\users\chrislunt\source\personal\deckflow-cutlab-fixes\DeckFlow.Core\bin\Debug\net10.0\DeckFlow.Core.dll
+  DeckFlow.CLI -> C:\users\chrislunt\source\personal\deckflow-cutlab-fixes\DeckFlow.CLI\bin\Debug\net10.0\DeckFlow.CLI.dll
+  DeckFlow.Core.Tests -> C:\users\chrislunt\source\personal\deckflow-cutlab-fixes\DeckFlow.Core.Tests\bin\Debug\net10.0\DeckFlow.Core.Tests.dll
+  DeckFlow.Studio -> C:\users\chrislunt\source\personal\deckflow-cutlab-fixes\DeckFlow.Studio\bin\Debug\net10.0\DeckFlow.Studio.dll
+  DeckFlow.Studio.Tests -> C:\users\chrislunt\source\personal\deckflow-cutlab-fixes\DeckFlow.Studio.Tests\bin\Debug\net10.0\DeckFlow.Studio.Tests.dll
+  DeckFlow.Web -> C:\users\chrislunt\source\personal\deckflow-cutlab-fixes\DeckFlow.Web\bin\Debug\net10.0\DeckFlow.Web.dll
+  Zipping directory "C:\users\chrislunt\source\personal\deckflow-cutlab-fixes\browser-extensions\deckflow-bridge" to "C:\users\chrislunt\source\personal\deckflow-cutlab-fixes\DeckFlow.Web\wwwroot\extensions\deckflow-bridge.zip".
+  DeckFlow.Web.Tests -> C:\users\chrislunt\source\personal\deckflow-cutlab-fixes\DeckFlow.Web.Tests\bin\Debug\net10.0\DeckFlow.Web.Tests.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:03.54
+
+codex
+`dotnet build` completed cleanly. I’m bringing up the app in headless test mode now and will run the single Playwright spec against it.
+exec
+/bin/bash -lc 'export PATH="$PATH:/mnt/c/Program Files/dotnet" && ./scripts/run-web-test.sh' in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+exec
+/bin/bash -lc 'curl -I --max-time 10 http://localhost:5173/' in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ exited 7 in 0ms:
+curl: (7) Failed to connect to localhost port 5173 after 0 ms: Could not connect to server
+
+exec
+/bin/bash -lc 'npx --no-install playwright test cut-lab-structure.spec.ts' in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes/DeckFlow.Web
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+codex
+The app did not come up on `localhost:5173` from that launcher invocation, so I’m checking whether the server process is actually healthy and whether Playwright is waiting or failing because the port never opened.
+exec
+/bin/bash -lc 'ps -ef | rg "DeckFlow.Web|dotnet|run-web-test"' in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+clunt    1627721 1623382  0 19:59 pts/4    00:00:00 bash ./scripts/run-web-test.sh
+clunt    1627793 1627721  0 19:59 pts/4    00:00:00 /init /mnt/c/Program Files/dotnet/dotnet.exe /mnt/c/Program Files/dotnet/dotnet.exe run --project DeckFlow.Web --urls http://localhost:5173
+clunt    1628313 1628312  8 19:59 ?        00:00:00 node /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes/DeckFlow.Web/node_modules/.bin/playwright test cut-lab-structure.spec.ts
+clunt    1628813 1628313  0 19:59 ?        00:00:00 /bin/sh -c "/mnt/c/Program Files/dotnet/dotnet.exe" run --launch-profile http-no-browser
+clunt    1628814 1628813  0 19:59 ?        00:00:00 /init /mnt/c/Program Files/dotnet/dotnet.exe /mnt/c/Program Files/dotnet/dotnet.exe run --launch-profile http-no-browser
+clunt    1628902 1623382  0 19:59 ?        00:00:00 /bin/bash -c ps -ef | rg "DeckFlow.Web|dotnet|run-web-test"
+clunt    1628904 1628902  0 19:59 ?        00:00:00 rg DeckFlow.Web|dotnet|run-web-test
+
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+codex
+Playwright is actively executing the spec file now. I’m waiting for the run to finish before deciding whether the fallback test set is still necessary.
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+ exited 1 in 26714ms:
+
+Running 24 tests using 2 workers
+
+(node:1628922) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1628921) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1628922) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1628921) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   2 [chromium-desktop] › e2e/cut-lab-structure.spec.ts:142:5 › renders the three structure sections with 8 collapsed role groups and 8 floor inputs (12.1s)
+  -   3 [chromium-desktop] › e2e/cut-lab-structure.spec.ts:157:5 › live-patches the structural findings section after a JS decide without a reload
+  -   4 [chromium-desktop] › e2e/cut-lab-structure.spec.ts:181:5 › opens the Lands group, shows member chips, and toggles land rows from the group pill
+  -   5 [chromium-desktop] › e2e/cut-lab-structure.spec.ts:206:5 › marks interaction as adjusted after floor edits and writes roleFloors into hidden state
+  -   6 [chromium-desktop] › e2e/cut-lab-structure.spec.ts:226:5 › preserves the adjusted interaction floor and badge across Recalculate
+  -   7 [chromium-desktop] › e2e/cut-lab-structure.spec.ts:243:5 › shows the at floor marker when a floor is raised to within 1 of the role count
+  -   8 [chromium-desktop] › e2e/cut-lab-structure.spec.ts:257:5 › resets an adjusted role floor back to its default value
+  -   9 [chromium-desktop] › e2e/cut-lab-structure.spec.ts:276:5 › accepts a proposal without a reload, keeps copy neutral, and shows a 7-row compare table
+  -  10 [chromium-desktop] › e2e/cut-lab-structure.spec.ts:321:5 › restores an accepted cut and reverts the working list counts
+  -  11 [chromium-desktop] › e2e/cut-lab-structure.spec.ts:343:5 › restarts rounds 1 and 2 without undoing accepted cuts or touching later-round decisions
+  -  12 [chromium-desktop] › e2e/cut-lab-structure.spec.ts:403:5 › submits the accept form through the no-JS fallback and re-renders with the cut applied
+  -  13 [chromium-desktop] › e2e/cut-lab-structure.spec.ts:456:5 › captures the structure screenshot matrix across themes and viewports
+  ✘   1 [chromium-mobile] › e2e/cut-lab-structure.spec.ts:142:5 › renders the three structure sections with 8 collapsed role groups and 8 floor inputs (17.5s)
+  -  14 [chromium-mobile] › e2e/cut-lab-structure.spec.ts:157:5 › live-patches the structural findings section after a JS decide without a reload
+  -  15 [chromium-mobile] › e2e/cut-lab-structure.spec.ts:181:5 › opens the Lands group, shows member chips, and toggles land rows from the group pill
+  -  16 [chromium-mobile] › e2e/cut-lab-structure.spec.ts:206:5 › marks interaction as adjusted after floor edits and writes roleFloors into hidden state
+  -  17 [chromium-mobile] › e2e/cut-lab-structure.spec.ts:226:5 › preserves the adjusted interaction floor and badge across Recalculate
+  -  18 [chromium-mobile] › e2e/cut-lab-structure.spec.ts:243:5 › shows the at floor marker when a floor is raised to within 1 of the role count
+  -  19 [chromium-mobile] › e2e/cut-lab-structure.spec.ts:257:5 › resets an adjusted role floor back to its default value
+  -  20 [chromium-mobile] › e2e/cut-lab-structure.spec.ts:276:5 › accepts a proposal without a reload, keeps copy neutral, and shows a 7-row compare table
+  -  21 [chromium-mobile] › e2e/cut-lab-structure.spec.ts:321:5 › restores an accepted cut and reverts the working list counts
+  -  22 [chromium-mobile] › e2e/cut-lab-structure.spec.ts:343:5 › restarts rounds 1 and 2 without undoing accepted cuts or touching later-round decisions
+  -  23 [chromium-mobile] › e2e/cut-lab-structure.spec.ts:403:5 › submits the accept form through the no-JS fallback and re-renders with the cut applied
+  -  24 [chromium-mobile] › e2e/cut-lab-structure.spec.ts:456:5 › captures the structure screenshot matrix across themes and viewports
+
+
+  1) [chromium-desktop] › e2e/cut-lab-structure.spec.ts:142:5 › renders the three structure sections with 8 collapsed role groups and 8 floor inputs 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveCount[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator:  locator('details.cutlab-role-group[data-cutlab-group-kind="role"]')
+    Expected: [32m8[39m
+    Received: [31m9[39m
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toHaveCount" with timeout 5000ms[22m
+    [2m  - waiting for locator('details.cutlab-role-group[data-cutlab-group-kind="role"]')[22m
+    [2m    14 × locator resolved to 9 elements[22m
+    [2m       - unexpected value "9"[22m
+
+
+      148 |
+      149 |   const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+    > 150 |   await expect(roleGroups).toHaveCount(8);
+          |                            ^
+      151 |   await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+      152 |   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+      153 |   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+        at /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes/DeckFlow.Web/e2e/cut-lab-structure.spec.ts:150:28
+
+    Error Context: test-results/cut-lab-structure-renders--f47ef-e-groups-and-8-floor-inputs-chromium-desktop/error-context.md
+
+  2) [chromium-mobile] › e2e/cut-lab-structure.spec.ts:142:5 › renders the three structure sections with 8 collapsed role groups and 8 floor inputs 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveCount[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator:  locator('details.cutlab-role-group[data-cutlab-group-kind="role"]')
+    Expected: [32m8[39m
+    Received: [31m9[39m
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toHaveCount" with timeout 5000ms[22m
+    [2m  - waiting for locator('details.cutlab-role-group[data-cutlab-group-kind="role"]')[22m
+    [2m    14 × locator resolved to 9 elements[22m
+    [2m       - unexpected value "9"[22m
+
+
+      148 |
+      149 |   const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+    > 150 |   await expect(roleGroups).toHaveCount(8);
+          |                            ^
+      151 |   await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+      152 |   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+      153 |   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+        at /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes/DeckFlow.Web/e2e/cut-lab-structure.spec.ts:150:28
+
+    Error Context: test-results/cut-lab-structure-renders--f47ef-e-groups-and-8-floor-inputs-chromium-mobile/error-context.md
+
+  2 failed
+    [chromium-desktop] › e2e/cut-lab-structure.spec.ts:142:5 › renders the three structure sections with 8 collapsed role groups and 8 floor inputs 
+    [chromium-mobile] › e2e/cut-lab-structure.spec.ts:142:5 › renders the three structure sections with 8 collapsed role groups and 8 floor inputs 
+  22 did not run
+
+codex
+The selector ambiguity is fixed, but the targeted Playwright spec still fails because the page now renders 9 `role` groups for this fixture, not 8. I’m tracing where that count comes from and running the requested fallback test commands so the result is complete and precise.
+exec
+/bin/bash -lc "rg -n \"RoleGroups|TypeGroups|new .*Role|role group|DisplayLabel\" DeckFlow.Web/Models/CutLabViewModel.cs DeckFlow.Web.Tests DeckFlow.Web/e2e -g '"'!**/bin/**'"' -g '"'!**/obj/**'"'" in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+DeckFlow.Web/Models/CutLabViewModel.cs:56:    // Display order for the structural role groups. This mirrors CutLabFloorRules.RoleKeys and
+DeckFlow.Web/Models/CutLabViewModel.cs:116:    public IReadOnlyList<CutLabRoleGroupView> RoleGroups { get; init; } = [];
+DeckFlow.Web/Models/CutLabViewModel.cs:119:    public IReadOnlyList<CutLabRoleGroupView> TypeGroups { get; init; } = [];
+DeckFlow.Web/Models/CutLabViewModel.cs:290:        IReadOnlyList<CutLabRoleGroupView> roleGroups = BuildRoleGroups(pool, result.RoleAssignmentsByCardName);
+DeckFlow.Web/Models/CutLabViewModel.cs:291:        IReadOnlyList<CutLabRoleGroupView> typeGroups = BuildTypeGroups(pool);
+DeckFlow.Web/Models/CutLabViewModel.cs:342:            RoleGroups = roleGroups,
+DeckFlow.Web/Models/CutLabViewModel.cs:343:            TypeGroups = typeGroups,
+DeckFlow.Web/Models/CutLabViewModel.cs:378:    private static IReadOnlyList<CutLabRoleGroupView> BuildRoleGroups(
+DeckFlow.Web/Models/CutLabViewModel.cs:388:                    .Select(card => new CutLabRoleMemberView
+DeckFlow.Web/Models/CutLabViewModel.cs:396:                return new CutLabRoleGroupView
+DeckFlow.Web/Models/CutLabViewModel.cs:399:                    DisplayLabel = DisplayLabelFor(roleKey),
+DeckFlow.Web/Models/CutLabViewModel.cs:412:    private static IReadOnlyList<CutLabRoleGroupView> BuildTypeGroups(IReadOnlyList<CutLabPoolCard> pool)
+DeckFlow.Web/Models/CutLabViewModel.cs:434:                return new CutLabRoleGroupView
+DeckFlow.Web/Models/CutLabViewModel.cs:437:                    DisplayLabel = typeLabel,
+DeckFlow.Web/Models/CutLabViewModel.cs:439:                        .Select(card => new CutLabRoleMemberView
+DeckFlow.Web/Models/CutLabViewModel.cs:465:                    DisplayLabel = DisplayLabelFor(floor.Role),
+DeckFlow.Web/Models/CutLabViewModel.cs:540:            ? string.Join(" · ", roles.Select(DisplayLabelFor))
+DeckFlow.Web/Models/CutLabViewModel.cs:924:    private static string DisplayLabelFor(string roleKey)
+DeckFlow.Web/Models/CutLabViewModel.cs:925:        => CutLabRoleAssigner.DisplayLabelFor(roleKey);
+DeckFlow.Web/Models/CutLabViewModel.cs:977:    /// <summary>User-facing label for the role group.</summary>
+DeckFlow.Web/Models/CutLabViewModel.cs:978:    public string DisplayLabel { get; init; } = string.Empty;
+DeckFlow.Web/Models/CutLabViewModel.cs:980:    /// <summary>Pool members that currently belong to the role group.</summary>
+DeckFlow.Web/Models/CutLabViewModel.cs:983:    /// <summary>Number of locked cards inside the role group.</summary>
+DeckFlow.Web/Models/CutLabViewModel.cs:989:    /// <summary>True when the role group supports bulk lock/unlock actions.</summary>
+DeckFlow.Web/Models/CutLabViewModel.cs:992:    /// <summary>True when every non-commander member in the role group is locked.</summary>
+DeckFlow.Web/Models/CutLabViewModel.cs:1045:    public string DisplayLabel { get; init; } = string.Empty;
+DeckFlow.Web.Tests/CutLabWhatifTests.cs:482:                new CutLabRoleFloor
+DeckFlow.Web.Tests/CutLabFloorRulesTests.cs:14:            new CutLabRoleFloor { Role = "wincons", Floor = -5, IsUserSet = true },
+DeckFlow.Web.Tests/CutLabFloorRulesTests.cs:15:            new CutLabRoleFloor { Role = "ramp", Floor = 1_000_000_000, IsUserSet = true });
+DeckFlow.Web.Tests/CutLabFloorRulesTests.cs:27:            new CutLabRoleFloor { Role = "battlecruiser", Floor = 4, IsUserSet = true },
+DeckFlow.Web.Tests/CutLabFloorRulesTests.cs:28:            new CutLabRoleFloor { Role = "draw", Floor = 9, IsUserSet = true });
+DeckFlow.Web.Tests/CutLabFloorRulesTests.cs:40:            new CutLabRoleFloor { Role = "Interaction", Floor = 7, IsUserSet = true },
+DeckFlow.Web.Tests/CutLabFloorRulesTests.cs:41:            new CutLabRoleFloor { Role = "interaction", Floor = 12, IsUserSet = false });
+DeckFlow.Web.Tests/CutLabFloorRulesTests.cs:55:            new CutLabRoleFloor { Role = "lands", Floor = 36, IsUserSet = false },
+DeckFlow.Web.Tests/CutLabFloorRulesTests.cs:56:            new CutLabRoleFloor { Role = "interaction", Floor = 9, IsUserSet = true });
+DeckFlow.Web.Tests/CutLabFloorDefaultsTests.cs:141:                new CutLabRoleFloor
+DeckFlow.Web.Tests/CutLabFloorDefaultsTests.cs:147:                new CutLabRoleFloor
+DeckFlow.Web.Tests/CutLabUiPatchBuilderTests.cs:124:                new CutLabRoleFloor
+DeckFlow.Web.Tests/CutLabUiPatchBuilderTests.cs:130:                new CutLabRoleFloor
+DeckFlow.Web.Tests/CutLabUiPatchBuilderTests.cs:267:                new CutLabRoleFloor
+DeckFlow.Web.Tests/CutLabPageServiceTests.cs:2120:                new CutLabRoleFloor
+DeckFlow.Web.Tests/CutLabPageServiceTests.cs:2126:                new CutLabRoleFloor
+DeckFlow.Web.Tests/CutLabPageServiceTests.cs:2164:        Assert.Equal([.. CutLabFloorRules.RoleKeys, "other"], model.RoleGroups.Select(group => group.RoleKey).ToArray());
+DeckFlow.Web.Tests/CutLabPageServiceTests.cs:2173:        Assert.Contains(model.RoleGroups.Single(group => group.RoleKey == "draw").Members, member => member.Name == "Value Engine");
+DeckFlow.Web.Tests/CutLabPageServiceTests.cs:2174:        Assert.Contains(model.RoleGroups.Single(group => group.RoleKey == "engines").Members, member => member.Name == "Value Engine");
+DeckFlow.Web.Tests/CutLabPageServiceTests.cs:2175:        Assert.Equal(1, model.RoleGroups.Single(group => group.RoleKey == "interaction").LockedCount);
+DeckFlow.Web.Tests/CutLabPageServiceTests.cs:2178:        Assert.Equal("Interaction", interactionRow.DisplayLabel);
+DeckFlow.Web.Tests/CutLabPageServiceTests.cs:2251:        Assert.Equal(38, model.RoleGroups.Single(group => group.RoleKey == "lands").LockedCount);
+DeckFlow.Web.Tests/CutLabStateSerializerTests.cs:47:                new CutLabRoleFloor
+DeckFlow.Web.Tests/CutLabStateSerializerTests.cs:53:                new CutLabRoleFloor
+DeckFlow.Web.Tests/CutLabApiControllerTests.cs:194:                new CutLabRoleFloor
+DeckFlow.Web.Tests/CutLabApiControllerTests.cs:234:                new CutLabRoleFloor
+DeckFlow.Web.Tests/CutLabApiControllerTests.cs:240:                new CutLabRoleFloor
+DeckFlow.Web.Tests/Manabase/ManabaseViewRenderTests.cs:1048:                    RolePercents = new Dictionary<PlanRole, int>
+DeckFlow.Web/e2e/cut-lab-structure.spec.ts:142:test('renders the three structure sections with 8 collapsed role groups and 8 floor inputs', async ({ page }) => {
+
+exec
+/bin/bash -lc "'/mnt/c/Program Files/dotnet/dotnet.exe' test DeckFlow.Web.Tests" in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+exec
+/bin/bash -lc 'npx --no-install vitest run' in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes/DeckFlow.Web
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+exec
+/bin/bash -lc "sed -n '56,110p' DeckFlow.Web/Models/CutLabViewModel.cs" in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+    // Display order for the structural role groups. This mirrors CutLabFloorRules.RoleKeys and
+    // appends the display-only fallback bucket.
+    private static readonly string[] RoleGroupDisplayOrder =
+    [
+        .. CutLabFloorRules.RoleKeys,
+        "other",
+    ];
+
+    /// <summary>The active deck tool tab.</summary>
+    public DeckPageTab ActiveTab { get; init; }
+
+    /// <summary>The current request values to re-render into the form.</summary>
+    public CutLabRequest Request { get; init; } = new();
+
+    /// <summary>User-facing error message for hard failures.</summary>
+    public string? ErrorMessage { get; init; }
+
+    /// <summary>Non-commander pool count returned by the service.</summary>
+    public int CardCount { get; init; }
+
+    /// <summary>Mainboard-only quantity loaded from the source deck.</summary>
+    public int MainboardCardCount { get; init; }
+
+    /// <summary>Sideboard quantity loaded from the source deck.</summary>
+    public int SideboardCardCount { get; init; }
+
+    /// <summary>Considering or maybeboard quantity loaded from the source deck.</summary>
+    public int MaybeboardCardCount { get; init; }
+
+    /// <summary>Per-board counts used for the shared pool breakdown display.</summary>
+    public BoardCounts BoardCounts { get; init; } = new();
+
+    /// <summary>Commander banned-card names present in the current pool.</summary>
+    public IReadOnlyList<string> BannedCardsPresent { get; init; } = [];
+
+    /// <summary>True when the current pool has no banned cards.</summary>
+    public bool IsLegal { get; init; }
+
+    /// <summary>True when the user must choose a commander manually.</summary>
+    public bool CommanderSelectionRequired { get; init; }
+
+    /// <summary>Commander-eligible choices to show when manual selection is required.</summary>
+    public IReadOnlyList<string> CommanderChoices { get; init; } = [];
+
+    /// <summary>Non-blocking warnings returned by the page service.</summary>
+    public IReadOnlyList<string> Warnings { get; init; } = [];
+
+    /// <summary>True when a resolved state is available to render.</summary>
+    public bool HasResult { get; init; }
+
+    /// <summary>Serialized hidden-field working-session JSON.</summary>
+    public string CutLabStateJson { get; init; } = string.Empty;
+
+    /// <summary>Resolved pool cards for the current working session.</summary>
+    public IReadOnlyList<CutLabPoolCard> Pool { get; init; } = [];
+
+exec
+/bin/bash -lc "sed -n '2148,2170p' DeckFlow.Web.Tests/CutLabPageServiceTests.cs" in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+                spellbook,
+                categoryStore));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            Bracket = 4,
+            PlayExperience = "Focused",
+            CutLabStateJson = CutLabStateSerializer.Serialize(priorState),
+        };
+
+        var result = await service.ProcessAsync(request);
+        var model = CutLabViewModel.From(request, result);
+
+        Assert.True(result.HasResult);
+        Assert.Equal(CutLabFloorRules.RoleKeys, result.ResolvedFloors.Select(floor => floor.Role).ToArray());
+        Assert.Equal([.. CutLabFloorRules.RoleKeys, "other"], model.RoleGroups.Select(group => group.RoleKey).ToArray());
+        Assert.False(model.ComboDataUnavailable);
+        Assert.False(model.CategoryDataUnavailable);
+        Assert.NotEmpty(model.Findings);
+        Assert.Equal(8, model.FloorRows.Count);
+        Assert.Equal("Card draw · Engines", model.RoleListByCardName["Value Engine"]);
+        Assert.Equal("draw engines", model.RoleKeysByCardName["Value Engine"]);
+
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+ succeeded in 25604ms:
+
+ RUN  v3.2.7 /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes/DeckFlow.Web
+
+ ✓ ts-tests/cut-lab-combo-package-copy.test.ts (1 test) 61ms
+ ✓ ts-tests/cut-lab-whatif.test.ts (3 tests) 133ms
+ ✓ ts-tests/cut-lab-adjust.test.ts (7 tests) 238ms
+ ✓ ts-tests/cut-lab-scenarios.test.ts (7 tests) 80ms
+ ✓ ts-tests/cut-lab-structural-cardtext.test.ts (2 tests) 91ms
+ ✓ ts-tests/cut-lab-card-modal.test.ts (3 tests) 93ms
+ ✓ ts-tests/cut-lab-lock-interactions.test.ts (9 tests) 137ms
+ ✓ ts-tests/moxfield-extension-bridge-cut-lab.test.ts (2 tests) 65ms
+ ✓ ts-tests/moxfield-extension-bridge-split-fields.test.ts (2 tests) 94ms
+ ✓ ts-tests/cut-lab-pool-filter.test.ts (1 test) 65ms
+ ✓ ts-tests/cut-lab-portable-session.test.ts (3 tests) 552ms
+   ✓ cut-lab portable session controls > downloads the current serialized session as a JSON file  423ms
+ ✓ ts-tests/cut-lab-proposal.test.ts (18 tests) 523ms
+ ✓ ts-tests/cut-lab-mobile-collapse.test.ts (3 tests) 24ms
+ ✓ ts-tests/cut-lab-jump-nav.test.ts (3 tests) 47ms
+ ✓ ts-tests/deck-sync-prompt-split-validation.test.ts (5 tests) 83ms
+ ✓ ts-tests/cedh-commander-typeahead.test.ts (3 tests) 1614ms
+   ✓ cEDH meta-gap commander typeahead > fetches suggestions and populates the datalist  406ms
+   ✓ cEDH meta-gap commander typeahead > does not fetch for queries shorter than 2 chars and clears the list  404ms
+   ✓ cEDH meta-gap commander typeahead > drops a stale response when the input moved on during the fetch  802ms
+ ✓ ts-tests/content-kb-admin-filter.test.ts (2 tests) 33ms
+ ✓ ts-tests/cut-lab-section-collapse.test.ts (4 tests) 45ms
+ ✓ ts-tests/cut-lab-structural-evidence-lock.test.ts (2 tests) 113ms
+ ✓ ts-tests/moxfield-extension-bridge-mobile.test.ts (1 test) 6ms
+ ✓ ts-tests/primer-scroll.test.ts (3 tests) 19ms
+ ✓ ts-tests/primer-copy.test.ts (2 tests) 15ms
+ ✓ ts-tests/content-kb-admin-twoclick.test.ts (2 tests) 17ms
+ ✓ ts-tests/busy-overlay-pageshow.test.ts (1 test) 4ms
+ ✓ ts-tests/busy-indicator-progress.test.ts (1 test) 9ms
+ ✓ ts-tests/cut-lab-subtype-filter.test.ts (5 tests) 3ms
+ ✓ ts-tests/cut-lab-contrast.test.ts (3 tests) 3ms
+ ✓ ts-tests/kb-entry-filter.test.ts (7 tests) 2ms
+ ✓ ts-tests/flag-filter.test.ts (12 tests) 3ms
+
+ Test Files  29 passed (29)
+      Tests  117 passed (117)
+   Start at  19:59:59
+   Duration  22.92s (transform 2.10s, setup 0ms, collect 6.23s, tests 4.17s, environment 343.99s, prepare 27.61s)
+
+
+codex
+The TS unit suite is green. I’m waiting on the xUnit run to finish so I can report the full fallback verification set cleanly.
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+codex
+The .NET test run is slower than the TS suite but still live. I’m giving it a bit longer before I decide whether it’s hung and needs a narrower rerun.
+exec
+/bin/bash -lc 'ps -ef | rg "DeckFlow.Web.Tests.dll|vstest|testhost|dotnet.exe test DeckFlow.Web.Tests"' in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+clunt    1630003 1623382  0 19:59 ?        00:00:00 /init /mnt/c/Program Files/dotnet/dotnet.exe /mnt/c/Program Files/dotnet/dotnet.exe test DeckFlow.Web.Tests
+clunt    1632379 1623382  0 20:00 ?        00:00:00 /bin/bash -c ps -ef | rg "DeckFlow.Web.Tests.dll|vstest|testhost|dotnet.exe test DeckFlow.Web.Tests"
+clunt    1632381 1632379  0 20:00 ?        00:00:00 rg DeckFlow.Web.Tests.dll|vstest|testhost|dotnet.exe test DeckFlow.Web.Tests
+
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+codex
+The `.NET` test invocation appears to be hanging after the initial skipped integration output, so I’m collecting the exact model evidence for the role-group count and then cleaning up the background processes.
+exec
+/bin/bash -lc "sed -n '378,412p' DeckFlow.Web/Models/CutLabViewModel.cs" in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+    private static IReadOnlyList<CutLabRoleGroupView> BuildRoleGroups(
+        IReadOnlyList<CutLabPoolCard> pool,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName)
+    {
+        return RoleGroupDisplayOrder
+            .Select(roleKey =>
+            {
+                IReadOnlyList<CutLabRoleMemberView> members = pool
+                    .Where(card => roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles)
+                        && roles.Contains(roleKey, StringComparer.Ordinal))
+                    .Select(card => new CutLabRoleMemberView
+                    {
+                        Name = card.Name,
+                        IsLocked = card.IsLocked,
+                        IsCommander = card.IsCommander,
+                    })
+                    .ToArray();
+
+                return new CutLabRoleGroupView
+                {
+                    RoleKey = roleKey,
+                    DisplayLabel = DisplayLabelFor(roleKey),
+                    IsLockable = !string.Equals(roleKey, "other", StringComparison.Ordinal),
+                    Members = members,
+                    LockedCount = pool
+                        .Where(card => card.IsLocked
+                            && roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles)
+                            && roles.Contains(roleKey, StringComparer.Ordinal))
+                        .Sum(card => card.Quantity),
+                };
+            })
+            .ToArray();
+    }
+
+    private static IReadOnlyList<CutLabRoleGroupView> BuildTypeGroups(IReadOnlyList<CutLabPoolCard> pool)
+
+ exited 1 in 98016ms:
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  DeckFlow.Core -> C:\users\chrislunt\source\personal\deckflow-cutlab-fixes\DeckFlow.Core\bin\Debug\net10.0\DeckFlow.Core.dll
+  DeckFlow.Web -> C:\users\chrislunt\source\personal\deckflow-cutlab-fixes\DeckFlow.Web\bin\Debug\net10.0\DeckFlow.Web.dll
+  Zipping directory "C:\users\chrislunt\source\personal\deckflow-cutlab-fixes\browser-extensions\deckflow-bridge" to "C:\users\chrislunt\source\personal\deckflow-cutlab-fixes\DeckFlow.Web\wwwroot\extensions\deckflow-bridge.zip".
+  DeckFlow.Studio -> C:\users\chrislunt\source\personal\deckflow-cutlab-fixes\DeckFlow.Studio\bin\Debug\net10.0\DeckFlow.Studio.dll
+  DeckFlow.Web.Tests -> C:\users\chrislunt\source\personal\deckflow-cutlab-fixes\DeckFlow.Web.Tests\bin\Debug\net10.0\DeckFlow.Web.Tests.dll
+Test run for C:\users\chrislunt\source\personal\deckflow-cutlab-fixes\DeckFlow.Web.Tests\bin\Debug\net10.0\DeckFlow.Web.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:00.57]     DeckFlow.Web.Tests.Integration.RoundTrip.RoundTripSyncLoopTests.RoundTrip_DistillToReconcile_HashMatchesEveryHop_NoRevertAfterReseed [SKIP]
+  Skipped DeckFlow.Web.Tests.Integration.RoundTrip.RoundTripSyncLoopTests.RoundTrip_DistillToReconcile_HashMatchesEveryHop_NoRevertAfterReseed [1 ms]
+[xUnit.net 00:00:00.64]     DeckFlow.Web.Tests.Integration.RoundTrip.RoundTripSmokeTests.Harness_Boots_Distill_Git_And_Postgres_Schema [SKIP]
+  Skipped DeckFlow.Web.Tests.Integration.RoundTrip.RoundTripSmokeTests.Harness_Boots_Distill_Git_And_Postgres_Schema [1 ms]
+[xUnit.net 00:00:00.86]     DeckFlow.Web.Tests.Integration.PostgresStorageTests.CategoryKnowledgeRepository_DeckQueue_AddClaimAndMarkProcessed_Roundtrips [SKIP]
+  Skipped DeckFlow.Web.Tests.Integration.PostgresStorageTests.CategoryKnowledgeRepository_DeckQueue_AddClaimAndMarkProcessed_Roundtrips [1 ms]
+[xUnit.net 00:00:00.87]     DeckFlow.Web.Tests.Integration.PostgresStorageTests.CategoryKnowledgeRepository_NonLiveSources_DoNotEnterCommanderAggregateOrQueue [SKIP]
+[xUnit.net 00:00:00.87]     DeckFlow.Web.Tests.Integration.PostgresStorageTests.FeedbackStore_Insert_Get_List_Update_Delete_Roundtrips [SKIP]
+[xUnit.net 00:00:00.87]     DeckFlow.Web.Tests.Integration.PostgresStorageTests.CategoryKnowledgeRepository_CommanderRows_UseLiveSourceIntegerLink [SKIP]
+[xUnit.net 00:00:00.87]     DeckFlow.Web.Tests.Integration.PostgresStorageTests.CategoryKnowledgeRepository_CrudAndDeckQueue_Roundtrips [SKIP]
+  Skipped DeckFlow.Web.Tests.Integration.PostgresStorageTests.CategoryKnowledgeRepository_NonLiveSources_DoNotEnterCommanderAggregateOrQueue [1 ms]
+  Skipped DeckFlow.Web.Tests.Integration.PostgresStorageTests.FeedbackStore_Insert_Get_List_Update_Delete_Roundtrips [1 ms]
+  Skipped DeckFlow.Web.Tests.Integration.PostgresStorageTests.CategoryKnowledgeRepository_CommanderRows_UseLiveSourceIntegerLink [1 ms]
+  Skipped DeckFlow.Web.Tests.Integration.PostgresStorageTests.CategoryKnowledgeRepository_CrudAndDeckQueue_Roundtrips [1 ms]
+[xUnit.net 00:00:01.07]     DeckFlow.Web.Tests.SitemapControllerTests.Security_headers_add_admin_noindex_only_for_admin_paths [SKIP]
+  Skipped DeckFlow.Web.Tests.SitemapControllerTests.Security_headers_add_admin_noindex_only_for_admin_paths [1 ms]
+[xUnit.net 00:00:01.30]     DeckFlow.Web.Tests.Integration.DapperTypeHandlerRoundTripTests.DateTimeOffsetHandler_RoundTrips_OnPostgres [SKIP]
+  Skipped DeckFlow.Web.Tests.Integration.DapperTypeHandlerRoundTripTests.DateTimeOffsetHandler_RoundTrips_OnPostgres [1 ms]
+[xUnit.net 00:00:01.38]     DeckFlow.Web.Tests.Integration.ManabaseBaselineStorePostgresTests.Upsert_then_Get_roundtrips_with_utc_kind [SKIP]
+[xUnit.net 00:00:01.39]     DeckFlow.Web.Tests.Integration.ManabaseBaselineStorePostgresTests.Upsert_same_key_updates_in_place [SKIP]
+  Skipped DeckFlow.Web.Tests.Integration.ManabaseBaselineStorePostgresTests.Upsert_then_Get_roundtrips_with_utc_kind [1 ms]
+  Skipped DeckFlow.Web.Tests.Integration.ManabaseBaselineStorePostgresTests.Upsert_same_key_updates_in_place [1 ms]
+[xUnit.net 00:00:01.39]     DeckFlow.Web.Tests.Integration.ToolFlagPostgresSeedTests.EnsureSchemaAsync_SeedsAllNewToolFlags_DefaultOn [SKIP]
+  Skipped DeckFlow.Web.Tests.Integration.ToolFlagPostgresSeedTests.EnsureSchemaAsync_SeedsAllNewToolFlags_DefaultOn [1 ms]
+[xUnit.net 00:00:01.53]     DeckFlow.Web.Tests.Integration.DapperTypeHandlerRoundTripTests.DateTimeHandler_RoundTrips_OnPostgres [SKIP]
+[xUnit.net 00:00:01.53]     DeckFlow.Web.Tests.Integration.DapperTypeHandlerRoundTripTests.DecimalHandler_RoundTrips_OnPostgres [SKIP]
+[xUnit.net 00:00:01.53]     DeckFlow.Web.Tests.Integration.DapperTypeHandlerRoundTripTests.BoolHandler_RoundTrips_OnPostgres [SKIP]
+  Skipped DeckFlow.Web.Tests.Integration.DapperTypeHandlerRoundTripTests.DateTimeHandler_RoundTrips_OnPostgres [1 ms]
+  Skipped DeckFlow.Web.Tests.Integration.DapperTypeHandlerRoundTripTests.DecimalHandler_RoundTrips_OnPostgres [1 ms]
+  Skipped DeckFlow.Web.Tests.Integration.DapperTypeHandlerRoundTripTests.BoolHandler_RoundTrips_OnPostgres [1 ms]
+[xUnit.net 00:00:01.69]     DeckFlow.Web.Tests.Integration.DapperTypeHandlerRoundTripTests.GuidHandler_RoundTrips_OnPostgres [SKIP]
+  Skipped DeckFlow.Web.Tests.Integration.DapperTypeHandlerRoundTripTests.GuidHandler_RoundTrips_OnPostgres [1 ms]
+
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+codex
+I’ve confirmed the model itself now defines 9 role groups: `CutLabFloorRules.RoleKeys` plus the appended `"other"` bucket. I’m making sure the background server process is stopped and then I’ll summarize the exact state without overstating any test result.
+exec
+/bin/bash -lc 'ps -ef | rg "run-web-test|dotnet.exe run --project DeckFlow.Web --urls http://localhost:5173|playwright test cut-lab-structure.spec.ts|dotnet.exe test DeckFlow.Web.Tests"' in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+clunt    1627721 1623382  0 19:59 pts/4    00:00:00 bash ./scripts/run-web-test.sh
+clunt    1627793 1627721  0 19:59 pts/4    00:00:00 /init /mnt/c/Program Files/dotnet/dotnet.exe /mnt/c/Program Files/dotnet/dotnet.exe run --project DeckFlow.Web --urls http://localhost:5173
+clunt    1633935 1623382  0 20:01 ?        00:00:00 /bin/bash -c ps -ef | rg "run-web-test|dotnet.exe run --project DeckFlow.Web --urls http://localhost:5173|playwright test cut-lab-structure.spec.ts|dotnet.exe test DeckFlow.Web.Tests"
+clunt    1633937 1633935  0 20:01 ?        00:00:00 rg run-web-test|dotnet.exe run --project DeckFlow.Web --urls http://localhost:5173|playwright test cut-lab-structure.spec.ts|dotnet.exe test DeckFlow.Web.Tests
+
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+exec
+/bin/bash -lc 'pkill -f "dotnet.exe run --project DeckFlow.Web --urls http://localhost:5173" || true' in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ exited 143 in 0ms:
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+ exited 143 in 169939ms:
+DeckFlow.Web (headless test mode) -> http://localhost:5173
+Auto-browser: DISABLED (DECKFLOW_DISABLE_AUTO_BROWSER=true). No Windows browser will open.
+Admin login: admin / changeme-local
+[6nTerminated
+
+exec
+/bin/bash -lc 'ps -ef | rg "run-web-test|dotnet.exe run --project DeckFlow.Web --urls http://localhost:5173|dotnet.exe test DeckFlow.Web.Tests"' in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+clunt    1634564 1623382  0 20:01 ?        00:00:00 /bin/bash -c ps -ef | rg "run-web-test|dotnet.exe run --project DeckFlow.Web --urls http://localhost:5173|dotnet.exe test DeckFlow.Web.Tests"
+clunt    1634566 1634564  0 20:01 ?        00:00:00 rg run-web-test|dotnet.exe run --project DeckFlow.Web --urls http://localhost:5173|dotnet.exe test DeckFlow.Web.Tests
+
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+codex
+DONE_WITH_CONCERNS
+
+```diff
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+@@
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+@@
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+```
+
+**Verification**
+
+- `'/mnt/c/Program Files/dotnet/dotnet.exe' build`
+  - Passed.
+  - Result: `Build succeeded. 0 Warning(s) 0 Error(s).`
+
+- `export PATH="$PATH:/mnt/c/Program Files/dotnet" && ./scripts/run-web-test.sh`
+  - Started the headless app process, then I stopped it after verification.
+
+- `npx --no-install playwright test cut-lab-structure.spec.ts` from `DeckFlow.Web`
+  - Failed in both `chromium-desktop` and `chromium-mobile`.
+  - Failure is no longer the ambiguous selector. The scoped selector matched `9` elements, not `15`.
+  - Error: `locator('details.cutlab-role-group[data-cutlab-group-kind="role"]') Expected: 8 Received: 9`.
+
+- `npx --no-install vitest run` from `DeckFlow.Web`
+  - Passed.
+  - Result: `29 passed`, `117 passed`.
+
+- `'/mnt/c/Program Files/dotnet/dotnet.exe' test DeckFlow.Web.Tests`
+  - Started and produced skipped integration-test output, but did not complete in this environment before I interrupted it.
+  - No pass/fail result to claim.
+
+**Concern**
+
+The ambiguity fix is in place, but the targeted Playwright spec still expects `8` role groups while the current codebase renders `9`. Local model/test evidence points to `RoleGroups = CutLabFloorRules.RoleKeys + "other"` in [DeckFlow.Web/Models/CutLabViewModel.cs](/mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes/DeckFlow.Web/Models/CutLabViewModel.cs:56) and [DeckFlow.Web.Tests/CutLabPageServiceTests.cs](/mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes/DeckFlow.Web.Tests/CutLabPageServiceTests.cs:2164).
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 7915bbaa914e620b8305b7054ef2516d090f48bd..42da8bc472a7f8f5bf69079b8d89f8aeeefc4433
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -548,7 +548,7 @@
+                 {
+                     var memberCount = group.Members.Count;
+                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             @if (group.IsLockable)
+@@ -609,7 +609,7 @@
+                 </div>
+                 @foreach (var group in Model.TypeGroups)
+                 {
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+                         <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                         <div class="cutlab-role-group__body">
+                             <div class="kb-chip-area__chips">
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+index 3869ba54ddc7dbdc32b8720c53355ef521ab796a..4d8a4616a795aa4a58b2d48e3f31f4c5b2c14dc3
+--- a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
++++ b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@ -146,9 +146,9 @@
+   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
+ 
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+   await expect(roleGroups).toHaveCount(8);
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(8);
+   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
+   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+
+tokens used
+49,069
+DONE_WITH_CONCERNS
+
+```diff
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
+@@
+-                    <details class="cutlab-role-group">
++                    <details class="cutlab-role-group" data-cutlab-group-kind="type">
+
+diff --git a/DeckFlow.Web/e2e/cut-lab-structure.spec.ts b/DeckFlow.Web/e2e/cut-lab-structure.spec.ts
+@@
+-  const roleGroups = page.locator('details.cutlab-role-group');
++  const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
+@@
+-  await expect(page.locator('details.cutlab-role-group[open]')).toHaveCount(0);
++  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
+```
+
+**Verification**
+
+- `'/mnt/c/Program Files/dotnet/dotnet.exe' build`
+  - Passed.
+  - Result: `Build succeeded. 0 Warning(s) 0 Error(s).`
+
+- `export PATH="$PATH:/mnt/c/Program Files/dotnet" && ./scripts/run-web-test.sh`
+  - Started the headless app process, then I stopped it after verification.
+
+- `npx --no-install playwright test cut-lab-structure.spec.ts` from `DeckFlow.Web`
+  - Failed in both `chromium-desktop` and `chromium-mobile`.
+  - Failure is no longer the ambiguous selector. The scoped selector matched `9` elements, not `15`.
+  - Error: `locator('details.cutlab-role-group[data-cutlab-group-kind="role"]') Expected: 8 Received: 9`.
+
+- `npx --no-install vitest run` from `DeckFlow.Web`
+  - Passed.
+  - Result: `29 passed`, `117 passed`.
+
+- `'/mnt/c/Program Files/dotnet/dotnet.exe' test DeckFlow.Web.Tests`
+  - Started and produced skipped integration-test output, but did not complete in this environment before I interrupted it.
+  - No pass/fail result to claim.
+
+**Concern**
+
+The ambiguity fix is in place, but the targeted Playwright spec still expects `8` role groups while the current codebase renders `9`. Local model/test evidence points to `RoleGroups = CutLabFloorRules.RoleKeys + "other"` in [DeckFlow.Web/Models/CutLabViewModel.cs](/mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes/DeckFlow.Web/Models/CutLabViewModel.cs:56) and [DeckFlow.Web.Tests/CutLabPageServiceTests.cs](/mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes/DeckFlow.Web.Tests/CutLabPageServiceTests.cs:2164).

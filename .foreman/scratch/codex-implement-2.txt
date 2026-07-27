@@ -1,0 +1,1123 @@
+OpenAI Codex v0.145.0
+--------
+workdir: /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+model: gpt-5.4
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: medium
+reasoning summaries: none
+session id: 019f99c7-25ff-7042-8253-0dc3138472c5
+--------
+user
+TASK: Continuation of the same Cut Lab classification fix (this is the SAME code you already edited in this worktree — your prior 9-file diff is still uncommitted and correct; do not redo it, only add the one missing piece below and then report).
+
+You previously stopped with NEEDS_CONTEXT because `DeckFlow.Web/Views/Deck/CutLab.cshtml` (around line 528) unconditionally renders a "Lock all X" button (`data-cut-lab-lock-role="@group.RoleKey"`) for every entry in `Model.RoleGroups`, which would make the new "other" display bucket lockable — violating the "other must be display-only, not floor/lockable" requirement. You were correct to stop rather than exceed your write set.
+
+MUST DO NOW:
+1. In `DeckFlow.Web/Views/Deck/CutLab.cshtml`, wrap ONLY the "Lock all @lowerDisplayLabel" `<button ... data-cut-lab-lock-role="@group.RoleKey">` element (around line 536-541) in a condition that skips it when `group.RoleKey` is `"other"` (e.g. `@if (!string.Equals(group.RoleKey, "other", StringComparison.Ordinal)) { <button>...</button> }`). Do NOT change anything else in this file — not the `<details>`/`<summary>` header, not the members chip list, not the empty-hint paragraph, not the existing "interaction" help-text block a few lines below. The "Other" group should still show its member cards and the "no cards" hint when empty — it just gets no lock button.
+2. Preserve this file's existing line endings exactly (check before editing — do not assume repo-wide LF or CRLF).
+3. Re-verify: grep the rest of `CutLab.cshtml` and any Cut Lab TypeScript under `DeckFlow.Web/wwwroot/ts/` for other places keyed on the 8 role strings (e.g. any hardcoded role-key list or `data-cut-lab-lock-role` JS handler) that might also need to special-case "other" — if you find one, report it in your output even if you judge it doesn't need a code change (out of your current write set) rather than editing it silently.
+4. Do NOT attempt to run `dotnet build`/`dotnet test` — your sandbox cannot invoke the .NET SDK here (already confirmed: `dotnet: command not found` and a WSL-interop vsock failure on the Windows dotnet.exe path). Claude will run the build/test suite independently after your report. Just make the file edit and report.
+
+MUST NOT: do not touch any file outside `DeckFlow.Web/Views/Deck/CutLab.cshtml`. Do not commit. Do not spawn subagents.
+
+OUTPUT FORMAT: First line exactly DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED. Then the exact diff hunk for CutLab.cshtml, and the result of the grep sweep from step 3.
+
+WRITE SET:
+- DeckFlow.Web/Views/Deck/CutLab.cshtml
+
+warning: Under-development features enabled: default_mode_request_user_input. Under-development features are incomplete and may behave unpredictably. To suppress this warning, set `suppress_unstable_features_warning = true` in /home/clunt/.codex/config.toml.
+warning: Skill descriptions were shortened to fit the 2% skills context budget. Codex can still see every skill, but some descriptions are shorter. Disable unused skills or plugins to leave more room for the rest.
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart Completed
+hook: SessionStart Completed
+codex
+Using the existing worktree state and limiting edits to `DeckFlow.Web/Views/Deck/CutLab.cshtml`. I’m checking the current line endings, locating the exact lock-button block, and sweeping the Cut Lab view/TS files for any other role-key assumptions before applying the minimal patch.
+exec
+/bin/bash -lc "file DeckFlow.Web/Views/Deck/CutLab.cshtml && rg -n -C 3 'data-cut-lab-lock-role|Lock all @lowerDisplayLabel|RoleKey|other' DeckFlow.Web/Views/Deck/CutLab.cshtml" in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+DeckFlow.Web/Views/Deck/CutLab.cshtml: Unicode text, UTF-8 text, with very long lines (317)
+394-                        {
+395-                            var frontTypeLine = CardTypeLine.FrontFace(card.TypeLine);
+396-                            var roleList = Model.RoleListByCardName.TryGetValue(card.Name, out var displayRoles) ? displayRoles : string.Empty;
+397:                            var roleKeys = Model.RoleKeysByCardName.TryGetValue(card.Name, out var rawRoleKeys) ? rawRoleKeys : string.Empty;
+398-                            <tr data-cut-lab-card="@card.Name"
+399-                                data-cut-lab-type-line="@card.TypeLine"
+400-                                data-cut-lab-role="@roleKeys"
+--
+530-                var memberCount = group.Members.Count;
+531-                var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
+532-                <details class="cutlab-role-group">
+533:                    <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+534-                    <div class="cutlab-role-group__body">
+535-                        <button type="button"
+536-                                class="manabase-pill @(group.AllLockableMembersLocked ? "is-selected" : null)"
+537:                                data-cut-lab-lock-role="@group.RoleKey"
+538-                                aria-pressed="@(group.AllLockableMembersLocked ? "true" : "false")">
+539:                            <span>Lock all @lowerDisplayLabel</span>
+540-                        </button>
+541-                        @if (memberCount > 0)
+542-                        {
+--
+566-                            <p class="kb-chip-area__empty-hint">No @lowerDisplayLabel cards detected in this pool.</p>
+567-                        }
+568-
+569:                        @if (string.Equals(group.RoleKey, "interaction", StringComparison.Ordinal))
+570-                        {
+571-                            <p class="cutlab-role-group__help">Interaction counts one-shot removal and wipes. Counterspells count as interaction only for a cEDH play experience.</p>
+572-                        }
+--
+651-                            <p class="cutlab-finding__heading">@findingGroup.Heading</p>
+652-                            @if (findingGroup.Kind == CutLabFindingKind.EnablerStarved)
+653-                            {
+654:                                <p class="manabase-help">A card here is only missing a partner for THIS combo line — it may still be fully live in another combo, and can also appear under Combo-protected.</p>
+655-                            }
+656-                            @foreach (var finding in findingGroup.Items)
+657-                            {
+--
+741-                    <tbody>
+742-                        @foreach (var row in Model.FloorRows)
+743-                        {
+744:                            <tr data-cut-lab-floor-row="@row.RoleKey"
+745-                                data-cut-lab-floor-count="@row.InPoolCount"
+746-                                data-cut-lab-floor-default="@row.DefaultValue"
+747-                                data-cut-lab-floor-user-set="@(row.IsUserSet ? "true" : "false")">
+--
+757-                                           min="0"
+758-                                           max="@Model.CardCount"
+759-                                           step="1"
+760:                                           data-cut-lab-floor="@row.RoleKey"
+761-                                           value="@row.Floor" />
+762-                                </td>
+763-                                <td data-label="Source">
+--
+765-                                    <span class="kb-chip cutlab-floor-badge--adjusted @(row.IsUserSet ? string.Empty : "hidden")" data-cut-lab-floor-adjusted-badge>Adjusted</span>
+766-                                    <button type="button"
+767-                                            class="cutlab-floor-reset @(row.IsUserSet ? string.Empty : "hidden")"
+768:                                            data-cut-lab-floor-reset="@row.RoleKey"
+769-                                            data-cut-lab-floor-default="@row.DefaultValue">Reset to default</button>
+770-                                </td>
+771-                            </tr>
+--
+1012-                        <button type="button" class="run-button" data-cut-lab-scenario-save>Save scenario</button>
+1013-                    </div>
+1014-                    <div class="cutlab-scenarios__portable-row">
+1015:                        <p class="prompt-size-note cutlab-scenarios__portable-help">Download this session as a file, or load a session file to resume it on another device.</p>
+1016-                        <div class="cutlab-scenarios__portable-actions">
+1017-                            <button type="button" class="run-button" data-cut-lab-session-download>Download session</button>
+1018-                            <label class="copy-button cutlab-scenarios__file-label" for="cut-lab-session-file">Load session file</label>
+--
+1231-                    <div class="panel-heading">
+1232-                        <div>
+1233-                            <h2>Tune quantities</h2>
+1234:                            <p>Cut or add copies of basics and other legal-multiple cards one at a time, or add a new basic land, to land on exactly 100.</p>
+1235-                        </div>
+1236-                    </div>
+1237-                <div class="history-timeline__wrap">
+
+exec
+/bin/bash -lc "rg -n 'data-cut-lab-lock-role|roleKey|RoleKey|other|cutter|cleaner|stacker|qc|loader|unloader|feeder|operator' DeckFlow.Web/wwwroot/ts/ DeckFlow.Web/Views/Deck/CutLab.cshtml" in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+DeckFlow.Web/Views/Deck/CutLab.cshtml:397:                            var roleKeys = Model.RoleKeysByCardName.TryGetValue(card.Name, out var rawRoleKeys) ? rawRoleKeys : string.Empty;
+DeckFlow.Web/Views/Deck/CutLab.cshtml:400:                                data-cut-lab-role="@roleKeys"
+DeckFlow.Web/Views/Deck/CutLab.cshtml:533:                    <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+DeckFlow.Web/Views/Deck/CutLab.cshtml:537:                                data-cut-lab-lock-role="@group.RoleKey"
+DeckFlow.Web/Views/Deck/CutLab.cshtml:569:                        @if (string.Equals(group.RoleKey, "interaction", StringComparison.Ordinal))
+DeckFlow.Web/Views/Deck/CutLab.cshtml:654:                                <p class="manabase-help">A card here is only missing a partner for THIS combo line — it may still be fully live in another combo, and can also appear under Combo-protected.</p>
+DeckFlow.Web/Views/Deck/CutLab.cshtml:744:                            <tr data-cut-lab-floor-row="@row.RoleKey"
+DeckFlow.Web/Views/Deck/CutLab.cshtml:760:                                           data-cut-lab-floor="@row.RoleKey"
+DeckFlow.Web/Views/Deck/CutLab.cshtml:768:                                            data-cut-lab-floor-reset="@row.RoleKey"
+DeckFlow.Web/Views/Deck/CutLab.cshtml:1015:                        <p class="prompt-size-note cutlab-scenarios__portable-help">Download this session as a file, or load a session file to resume it on another device.</p>
+DeckFlow.Web/Views/Deck/CutLab.cshtml:1234:                            <p>Cut or add copies of basics and other legal-multiple cards one at a time, or add a new basic land, to land on exactly 100.</p>
+DeckFlow.Web/wwwroot/ts/primer-selection.ts:253:  // The primer page is a single stacked form (not one-panel-at-a-time like the other deck tools),
+DeckFlow.Web/wwwroot/ts/busy-indicator.ts:162:      // re-fire it. Skipped when another handler already owns this submit (event.defaultPrevented —
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:770:    Array.from(document.querySelectorAll<HTMLButtonElement>('[data-cut-lab-lock-role]'));
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:772:  const getRoleGroupLockedCount = (roleKey: string): HTMLElement | null =>
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:773:    document.querySelector<HTMLElement>(`[data-cut-lab-group-locked="${cssEscape(roleKey)}"]`);
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:1065:      const roleKey = button.dataset.cutLabLockRole ?? '';
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:1066:      if (roleKey === '') {
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:1070:      const memberRows = getPoolRows().filter(row => api.hasRoleToken(row.dataset.cutLabRole, roleKey));
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:1098:        .forEach(roleKey => {
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:1099:          const previous = lockedCounts.get(roleKey) ?? 0;
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:1100:          lockedCounts.set(roleKey, previous + (isLocked ? parseRowQuantity(row) : 0));
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:1105:      const roleKey = button.dataset.cutLabLockRole ?? '';
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:1106:      if (roleKey === '') {
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:1110:      const count = getRoleGroupLockedCount(roleKey);
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:1112:        count.textContent = `${lockedCounts.get(roleKey) ?? 0}`;
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:3297:  const toggleRoleLock = (roleKey: string): void => {
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:3298:    const roleRows = getPoolRows().filter(row => api.hasRoleToken(row.dataset.cutLabRole, roleKey));
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:3593:      const lockRoleButton = target.closest<HTMLElement>('[data-cut-lab-lock-role]');
+DeckFlow.Web/wwwroot/ts/deck-sync.ts:14:// DeckInputReconciler: prefer the selected mode, then fall back to the other field if blank.
+DeckFlow.Web/wwwroot/ts/deck-sync.ts:94:    // other tools so this config no-ops there. Wires the Moxfield Bridge into Deck
+DeckFlow.Web/wwwroot/ts/deck-sync.ts:95:    // Primer so its public-URL import goes through the extension like the other tools.
+DeckFlow.Web/wwwroot/ts/deck-sync.ts:101:    // Bracket Check reuses the DeckInputSource select; its panels are absent on other
+DeckFlow.Web/wwwroot/ts/deck-sync.ts:108:    // cEDH Meta-Gap reuses the DeckInputSource select; its panels are absent on other
+DeckFlow.Web/wwwroot/ts/deck-sync.ts:115:    // Cut Lab reuses the DeckInputSource select; its panels are absent on other
+DeckFlow.Web/wwwroot/ts/deck-sync.ts:122:    // Deck Comparison Deck A panels are absent on other tools so this config no-ops
+DeckFlow.Web/wwwroot/ts/deck-sync.ts:129:    // Deck Comparison Deck B panels are absent on other tools so this config no-ops
+DeckFlow.Web/wwwroot/ts/deck-sync.ts:654:  addButton.setAttribute('aria-label', 'Add another card');
+DeckFlow.Web/wwwroot/ts/deck-sync.ts:2162:        // skipPersistence would otherwise stay true for the rest of the
+
+codex
+I’ve confirmed the view file is plain UTF-8 text without a CRLF marker from `file`, so I’m preserving its current LF endings. I’m checking the Cut Lab TypeScript lock/floor handling next so the report can call out any remaining `"other"`-sensitive logic before I make the one-line view change.
+exec
+/bin/bash -lc "sed -n '3288,3610p' DeckFlow.Web/wwwroot/ts/cut-lab.ts" in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+      }
+
+      checkbox.checked = locked;
+    });
+
+    syncPackageState(packageId);
+    refreshAndSerialize();
+  };
+
+  const toggleRoleLock = (roleKey: string): void => {
+    const roleRows = getPoolRows().filter(row => api.hasRoleToken(row.dataset.cutLabRole, roleKey));
+    const lockableMembers = roleRows
+      .map(row => getLockCheckbox(row))
+      .filter((checkbox): checkbox is HTMLInputElement => checkbox !== null && !checkbox.disabled);
+    const nextLockedState = !(lockableMembers.length > 0 && lockableMembers.every(checkbox => checkbox.checked));
+
+    lockableMembers.forEach(checkbox => {
+      checkbox.checked = nextLockedState;
+    });
+
+    refreshAndSerialize();
+  };
+
+  const updateFloorRow = (row: HTMLTableRowElement, input: HTMLInputElement, isUserSet: boolean): void => {
+    const floor = clampFloorValue(input);
+    setFloorUserSetState(row, isUserSet);
+    updateFloorRowMarker(row, floor);
+  };
+
+  const clearPendingNewPackageUi = (): void => {
+    pendingNewPackageTarget = null;
+    const row = document.querySelector<HTMLElement>('[data-cut-lab-new-package-row]');
+    const input = document.querySelector<HTMLInputElement>('[data-cut-lab-new-package-input]');
+    if (row) {
+      row.classList.add('hidden');
+    }
+
+    if (input) {
+      input.value = '';
+    }
+
+    document.querySelectorAll<HTMLSelectElement>('select[data-cut-lab-package-card]').forEach(select => {
+      if (select.value === newPackageOptionValue) {
+        select.value = unlockedPoolOptionValue;
+      }
+    });
+  };
+
+  const showNewPackageUi = (select: HTMLSelectElement): void => {
+    pendingNewPackageTarget = { select };
+    const row = document.querySelector<HTMLElement>('[data-cut-lab-new-package-row]');
+    const input = document.querySelector<HTMLInputElement>('[data-cut-lab-new-package-input]');
+    if (!row || !input) {
+      return;
+    }
+
+    row.classList.remove('hidden');
+    input.value = '';
+    input.focus();
+  };
+
+  const buildPackageId = (name: string): string => {
+    generatedPackageCounter += 1;
+    const slug = name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    return `pkg-${slug || 'package'}-${generatedPackageCounter}`;
+  };
+
+  const createPackageContainer = (packageId: string, packageName: string): HTMLDivElement | null => {
+    const insertionPoint = document.querySelector<HTMLElement>('[data-cut-lab-new-package-row]')?.closest<HTMLElement>('.card-picker__rows');
+    const packageContainerParent = insertionPoint?.parentElement;
+    if (!insertionPoint || !packageContainerParent) {
+      return null;
+    }
+
+    const container = document.createElement('div');
+    container.className = 'result-panel nested-panel';
+    container.dataset.cutLabPackageId = packageId;
+    container.dataset.cutLabPackageName = packageName;
+    container.innerHTML =
+      `<div class="panel-heading">` +
+      `<div><h2>${escapeHtml(packageName)}</h2><p>0 members</p></div>` +
+      `<div class="panel-heading__actions">` +
+      `<label class="kb-chip" for="cut-lab-package-lock-${escapeHtml(packageId)}">` +
+      `<input id="cut-lab-package-lock-${escapeHtml(packageId)}" type="checkbox" data-cut-lab-package-toggle="${escapeHtml(packageId)}" />` +
+      `<span>Lock package</span>` +
+      `</label>` +
+      `<button type="button" class="clear-cache-button" data-cut-lab-package-delete="${escapeHtml(packageId)}">Delete package</button>` +
+      `</div></div>` +
+      `<div class="kb-chip-area__chips"></div>` +
+      `<p class="kb-chip-area__empty-hint">No cards assigned yet.</p>`;
+
+    packageContainerParent.insertBefore(container, insertionPoint);
+    return container;
+  };
+
+  const addPackageOptionToSelects = (packageId: string, packageName: string): void => {
+    document.querySelectorAll<HTMLSelectElement>('select[data-cut-lab-package-card]').forEach(select => {
+      const hasExistingOption = Array.from(select.options).some(option => option.value === packageId);
+      if (hasExistingOption) {
+        return;
+      }
+
+      const newOption = new Option(packageName, packageId);
+      const newPackageOption = Array.from(select.options).find(option => option.value === newPackageOptionValue);
+      if (newPackageOption) {
+        select.add(newOption, newPackageOption);
+      } else {
+        select.add(newOption);
+      }
+    });
+  };
+
+  const savePendingNewPackage = (): void => {
+    if (!pendingNewPackageTarget) {
+      return;
+    }
+
+    const input = document.querySelector<HTMLInputElement>('[data-cut-lab-new-package-input]');
+    const packageName = input?.value.trim() ?? '';
+    if (packageName === '') {
+      input?.focus();
+      return;
+    }
+
+    const packageId = buildPackageId(packageName);
+    addPackageOptionToSelects(packageId, packageName);
+    pendingNewPackageTarget.select.value = packageId;
+    const container = createPackageContainer(packageId, packageName);
+    clearPendingNewPackageUi();
+    if (container) {
+      syncPackageState(packageId);
+    }
+
+    refreshAndSerialize();
+  };
+
+  const removePackageOptionFromSelects = (packageId: string): void => {
+    document.querySelectorAll<HTMLSelectElement>('select[data-cut-lab-package-card]').forEach(select => {
+      if (select.value === packageId) {
+        select.value = unlockedPoolOptionValue;
+      }
+
+      Array.from(select.options)
+        .filter(option => option.value === packageId)
+        .forEach(option => option.remove());
+    });
+  };
+
+  const deletePackage = (packageId: string): void => {
+    const packageName = getPackageName(packageId);
+    const confirmed = window.confirm(
+      `Delete package '${packageName}'? Cards return to the unlocked pool — this doesn't discard them.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    getPackageMemberRows(packageId).forEach(row => {
+      const checkbox = getLockCheckbox(row);
+      if (checkbox && !checkbox.disabled) {
+        checkbox.checked = false;
+      }
+    });
+
+    removePackageOptionFromSelects(packageId);
+    findPackageContainer(packageId)?.remove();
+    refreshAndSerialize();
+  };
+
+  const handlePackageSelectChange = (select: HTMLSelectElement): void => {
+    const row = select.closest<HTMLTableRowElement>('tr[data-cut-lab-card]');
+    if (!row) {
+      return;
+    }
+
+    const previousPackageId = Array.from(getPackageContainers())
+      .find(container => getPackageMemberRows(container.dataset.cutLabPackageId ?? '').some(member => member === row))
+      ?.dataset.cutLabPackageId;
+
+    if (select.value === newPackageOptionValue) {
+      showNewPackageUi(select);
+      return;
+    }
+
+    if (previousPackageId) {
+      syncPackageState(previousPackageId);
+    }
+
+    if (select.value !== '') {
+      syncPackageState(select.value);
+    }
+
+    clearPendingNewPackageUi();
+    refreshAndSerialize();
+  };
+
+  const refreshAndSerialize = (syncDecisionForms = true): void => {
+    updateLockedCountChip();
+    updatePoolFilterState();
+    syncAllPackageStates();
+    syncRoleGroupLockState();
+    syncRoleLockButtons();
+    const serializedState = api.buildCutLabStateJson(buildSnapshotFromDom());
+    writeStateToHiddenInput(serializedState);
+    if (syncDecisionForms) {
+      writeDecisionStateToHiddenInputs(serializedState);
+    }
+  };
+
+  const attachRowHandlers = (): void => {
+    getPoolRows().forEach(row => {
+      const checkbox = getLockCheckbox(row);
+      if (checkbox) {
+        checkbox.addEventListener('change', () => {
+          refreshAndSerialize();
+        });
+      }
+
+      const select = getPackageSelect(row);
+      if (select) {
+        select.addEventListener('change', () => {
+          handlePackageSelectChange(select);
+        });
+      }
+    });
+
+    getFloorRows().forEach(({ row, input }) => {
+      const handleFloorChange = (): void => {
+        updateFloorRow(row, input, true);
+        refreshAndSerialize();
+      };
+
+      input.addEventListener('input', handleFloorChange);
+      input.addEventListener('change', handleFloorChange);
+    });
+  };
+
+  const attachPoolFilterHandlers = (): void => {
+    const filterContainer = getPoolFilterContainer();
+    if (!filterContainer) {
+      return;
+    }
+
+    filterContainer.hidden = false;
+
+    Array.from(filterContainer.querySelectorAll<HTMLInputElement>('input[name="CutLabPoolFilter"]'))
+      .forEach(input => {
+        input.addEventListener('change', () => {
+          updatePoolFilterState();
+        });
+      });
+
+    const searchInput = getPoolSearchInput();
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        updatePoolFilterState();
+      });
+    }
+  };
+
+  const attachSubtypeSearchHandlers = (): void => {
+    const searchInput = getSubtypeSearchInput();
+    if (!searchInput) {
+      return;
+    }
+
+    // Debounce so the pool scan + chip rebuild fires once per typing pause, not per keystroke.
+    let debounceId = 0;
+    searchInput.addEventListener('input', () => {
+      window.clearTimeout(debounceId);
+      debounceId = window.setTimeout(renderSubtypeSearchResults, 120);
+    });
+  };
+
+  const attachPackageHandlers = (): void => {
+    if (packageHandlersAttached) {
+      return;
+    }
+
+    packageHandlersAttached = true;
+
+    document.addEventListener('change', event => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) {
+        return;
+      }
+
+      const packageId = target.dataset.cutLabPackageToggle;
+      if (!packageId) {
+        return;
+      }
+
+      applyPackageToggle(packageId, target.checked);
+    });
+
+    document.addEventListener('click', event => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+
+      const lockRoleButton = target.closest<HTMLElement>('[data-cut-lab-lock-role]');
+      if (lockRoleButton?.dataset.cutLabLockRole) {
+        toggleRoleLock(lockRoleButton.dataset.cutLabLockRole);
+        return;
+      }
+
+      const roleChipButton = target.closest<HTMLButtonElement>('button[data-cut-lab-chip-card]');
+      if (roleChipButton?.dataset.cutLabChipCard) {
+        openCardModal(roleChipButton.dataset.cutLabChipCard);
+        return;
+      }
+
+      const floorResetButton = target.closest<HTMLElement>('[data-cut-lab-floor-reset]');
+      if (floorResetButton?.dataset.cutLabFloorReset) {
+        const row = floorResetButton.closest<HTMLTableRowElement>('tr[data-cut-lab-floor-row]');
+        const input = row?.querySelector<HTMLInputElement>('input[data-cut-lab-floor]');
+        const defaultValue = floorResetButton.dataset.cutLabFloorDefault ?? '';
+        if (row && input) {
+
+exec
+/bin/bash -lc "sed -n '760,1125p' DeckFlow.Web/wwwroot/ts/cut-lab.ts" in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+  const getStructuralFindingsBody = (): HTMLDivElement | null =>
+    document.querySelector<HTMLDivElement>('[data-cut-lab-structural-findings-body]');
+
+  const getErrorBanner = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('.error-banner');
+
+  const getPackageContainers = (): HTMLDivElement[] =>
+    Array.from(document.querySelectorAll<HTMLDivElement>('[data-cut-lab-package-id]'));
+
+  const getRoleLockButtons = (): HTMLButtonElement[] =>
+    Array.from(document.querySelectorAll<HTMLButtonElement>('[data-cut-lab-lock-role]'));
+
+  const getRoleGroupLockedCount = (roleKey: string): HTMLElement | null =>
+    document.querySelector<HTMLElement>(`[data-cut-lab-group-locked="${cssEscape(roleKey)}"]`);
+
+  const getRoleGroupChips = (cardName: string): HTMLElement[] =>
+    Array.from(document.querySelectorAll<HTMLElement>(`[data-cut-lab-chip-card="${cssEscape(cardName)}"]`));
+
+  const getCardModal = (): HTMLDialogElement | null =>
+    document.getElementById('cutlab-card-modal') as HTMLDialogElement | null;
+
+  const getCardModalTitle = (): HTMLElement | null =>
+    document.getElementById('cutlab-card-modal-title');
+
+  const getCardModalMeta = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cutlab-modal-meta]');
+
+  const getCardModalOracle = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cutlab-modal-oracle]');
+
+  const getCardModalCombo = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cutlab-modal-combo]');
+
+  const getCardModalLockButton = (): HTMLButtonElement | null =>
+    document.querySelector<HTMLButtonElement>('[data-cutlab-modal-lock]');
+
+  const getFloorRows = (): CutLabFloorDomRow[] =>
+    Array.from(document.querySelectorAll<HTMLTableRowElement>('tr[data-cut-lab-floor-row]'))
+      .map(row => {
+        const input = row.querySelector<HTMLInputElement>('input[data-cut-lab-floor]');
+        return input ? { row, input } : null;
+      })
+      .filter((entry): entry is CutLabFloorDomRow => entry !== null);
+
+  const getGoalInput = (goalKey: string): HTMLInputElement | null =>
+    document.querySelector<HTMLInputElement>(`input[data-cut-lab-goal="${cssEscape(goalKey)}"]`);
+
+  const getScenarioNameInput = (): HTMLInputElement | null =>
+    document.querySelector<HTMLInputElement>('input[data-cut-lab-scenario-name]');
+
+  const getScenarioList = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cut-lab-scenario-list]');
+
+  const getScenarioStatus = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cut-lab-scenario-status]');
+
+  const getSessionFileInput = (): HTMLInputElement | null =>
+    document.querySelector<HTMLInputElement>('input[data-cut-lab-session-file]');
+
+  const getWhatifForm = (): HTMLFormElement | null =>
+    document.querySelector<HTMLFormElement>('form[data-cut-lab-whatif-form]');
+
+  const getWhatifCardOutSelect = (): HTMLSelectElement | null =>
+    document.querySelector<HTMLSelectElement>('select[data-cut-lab-whatif-card-out]');
+
+  const getWhatifCardInSelect = (): HTMLSelectElement | null =>
+    document.querySelector<HTMLSelectElement>('select[data-cut-lab-whatif-card-in]');
+
+  const getWhatifPreviewContainer = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cut-lab-whatif-preview]');
+
+  const getWhatifSelection = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cut-lab-whatif-selection]');
+
+  const getWhatifDeltaBody = (): HTMLTableSectionElement | null =>
+    document.querySelector<HTMLTableSectionElement>('[data-cut-lab-whatif-delta-body]');
+
+  const getQuantityTunerSection = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('section.cutlab-tuner');
+
+  const getQuantityTunerBody = (): HTMLTableSectionElement | null =>
+    getQuantityTunerSection()?.querySelector<HTMLTableSectionElement>('tbody') ?? null;
+
+  const getAddBasicForm = (): HTMLFormElement | null =>
+    getQuantityTunerSection()?.querySelector<HTMLFormElement>('form.cutlab-tuner__add-basic[data-cut-lab-adjust-form]') ?? null;
+
+  const getAddBasicSelect = (): HTMLSelectElement | null =>
+    document.querySelector<HTMLSelectElement>('[data-cut-lab-add-basic-select]');
+
+  const getWhatifPreviewButton = (): HTMLButtonElement | null =>
+    document.querySelector<HTMLButtonElement>('[data-cut-lab-whatif-preview-submit]');
+
+  const getWhatifKeepButton = (): HTMLButtonElement | null =>
+    document.querySelector<HTMLButtonElement>('[data-cut-lab-whatif-keep-submit]');
+
+  const getWhatifDiscardButton = (): HTMLButtonElement | null =>
+    document.querySelector<HTMLButtonElement>('[data-cut-lab-whatif-discard]');
+
+  const getDeckInputSourceSelect = (): HTMLSelectElement | null =>
+    document.querySelector<HTMLSelectElement>('#cut-lab-input-source');
+
+  const getDeckUrlInput = (): HTMLInputElement | null =>
+    document.querySelector<HTMLInputElement>('#cut-lab-deck-url');
+
+  const getDeckTextInput = (): HTMLTextAreaElement | null =>
+    document.querySelector<HTMLTextAreaElement>('#cut-lab-deck-text');
+
+  const getLockCheckbox = (row: HTMLTableRowElement): HTMLInputElement | null =>
+    row.querySelector<HTMLInputElement>('input[data-cut-lab-lock-card]');
+
+  const getPackageSelect = (row: HTMLTableRowElement): HTMLSelectElement | null =>
+    row.querySelector<HTMLSelectElement>('select[data-cut-lab-package-card]');
+
+  const getPoolFilterContainer = (): HTMLDivElement | null =>
+    document.querySelector<HTMLDivElement>('#cut-lab-section-lock-pool .cutlab-pool-filter');
+
+  const getPoolSearchInput = (): HTMLInputElement | null =>
+    getPoolFilterContainer()?.querySelector<HTMLInputElement>('input.cutlab-pool-search') ?? null;
+
+  const getPoolMatchCount = (): HTMLElement | null =>
+    getPoolFilterContainer()?.querySelector<HTMLElement>('.cutlab-pool-match-count') ?? null;
+
+  const getPoolEmptyRow = (): HTMLTableRowElement | null =>
+    document.querySelector<HTMLTableRowElement>('#cut-lab-section-lock-pool tr.cutlab-pool-empty-row');
+
+  const getPoolFilterRows = (): HTMLTableRowElement[] =>
+    Array.from(document.querySelectorAll<HTMLTableRowElement>('#cut-lab-section-lock-pool tr[data-cut-lab-card]'));
+
+  const getPackageToggle = (container: Element): HTMLInputElement | null =>
+    container.querySelector<HTMLInputElement>('input[data-cut-lab-package-toggle]');
+
+  const findPackageContainer = (packageId: string): HTMLDivElement | null =>
+    document.querySelector<HTMLDivElement>(`[data-cut-lab-package-id="${cssEscape(packageId)}"]`);
+
+  const getPackageName = (packageId: string): string => {
+    const container = findPackageContainer(packageId);
+    return container?.dataset.cutLabPackageName ?? packageId;
+  };
+
+  const cssEscape = (value: string): string => {
+    if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+      return CSS.escape(value);
+    }
+
+    return value.replace(/["\\]/g, '\\$&');
+  };
+
+  const parseRowQuantity = (row: HTMLTableRowElement): number => {
+    const datasetQuantity = row.dataset.cutLabQuantity?.trim() ?? '';
+    if (datasetQuantity !== '') {
+      const parsedQuantity = Number.parseInt(datasetQuantity, 10);
+      if (!Number.isNaN(parsedQuantity)) {
+        return parsedQuantity;
+      }
+    }
+
+    const cardCell = row.querySelector<HTMLTableCellElement>('td[data-label="Card"] strong');
+    const text = cardCell?.textContent?.trim() ?? '';
+    const match = /^(\d+)\s×/.exec(text);
+    if (!match) {
+      return 1;
+    }
+
+    const parsed = Number.parseInt(match[1], 10);
+    return Number.isNaN(parsed) ? 1 : parsed;
+  };
+
+  const updateLockedCountChip = (): void => {
+    const summary = document.querySelector<HTMLElement>('[data-cut-lab-lock-count]');
+    if (!summary) {
+      return;
+    }
+
+    const rows = getPoolRows();
+    const poolCount = rows.reduce((total, row) => total + parseRowQuantity(row), 0);
+    const lockedCount = rows.reduce((total, row) => {
+      const checkbox = getLockCheckbox(row);
+      return checkbox?.checked ? total + parseRowQuantity(row) : total;
+    }, 0);
+
+    // Why: this chip mirrors the imported protected pool (commander-inclusive) and does not
+    // re-sum after adjust-path quantity tuning; the sticky bar owns that live working-list total.
+    summary.textContent = `${poolCount} cards in pool · ${lockedCount} locked`;
+  };
+
+  const getSelectedPoolFilter = (): 'all' | 'locked' | 'unlocked' => {
+    const selected = getPoolFilterContainer()
+      ?.querySelector<HTMLInputElement>('input[name="CutLabPoolFilter"]:checked')
+      ?.value;
+    return selected === 'locked' || selected === 'unlocked' ? selected : 'all';
+  };
+
+  const updatePoolFilterState = (): void => {
+    const filterContainer = getPoolFilterContainer();
+    if (!filterContainer) {
+      return;
+    }
+
+    const rows = getPoolFilterRows();
+    const selectedFilter = getSelectedPoolFilter();
+    const searchTerm = normalizeAsciiCase(getPoolSearchInput()?.value.trim() ?? '');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+      const checkbox = getLockCheckbox(row);
+      const cardName = normalizeAsciiCase(row.dataset.cutLabCard ?? '');
+      const matchesLockedState = selectedFilter === 'all'
+        || (selectedFilter === 'locked' && (checkbox?.checked ?? false))
+        || (selectedFilter === 'unlocked' && !(checkbox?.checked ?? false));
+      const matchesSearch = searchTerm === '' || cardName.includes(searchTerm);
+      const isVisible = matchesLockedState && matchesSearch;
+      row.hidden = !isVisible;
+      if (isVisible) {
+        visibleCount++;
+      }
+    });
+
+    const totalCount = rows.length;
+    const matchCount = getPoolMatchCount();
+    if (matchCount) {
+      matchCount.textContent = `Showing ${visibleCount} of ${totalCount} cards`;
+    }
+
+    const emptyRow = getPoolEmptyRow();
+    if (emptyRow) {
+      emptyRow.hidden = visibleCount !== 0;
+    }
+  };
+
+  const parseIntegerAttribute = (element: HTMLElement, name: string, fallback: number): number => {
+    const rawValue = element.dataset[name] ?? '';
+    const parsed = Number.parseInt(rawValue, 10);
+    return Number.isNaN(parsed) ? fallback : parsed;
+  };
+
+  const clampFloorValue = (input: HTMLInputElement): number => {
+    const min = input.min === '' ? 0 : Number.parseInt(input.min, 10);
+    const max = input.max === '' ? Number.MAX_SAFE_INTEGER : Number.parseInt(input.max, 10);
+    const parsed = Number.parseInt(input.value, 10);
+    const fallback = Number.isNaN(parsed) ? min : parsed;
+    const clamped = Math.min(Math.max(fallback, min), max);
+    input.value = `${clamped}`;
+    return clamped;
+  };
+
+  const clampGoalValue = (input: HTMLInputElement, fallback: number): number => {
+    const min = input.min === '' ? 1 : Number.parseInt(input.min, 10);
+    const max = input.max === '' ? Number.MAX_SAFE_INTEGER : Number.parseInt(input.max, 10);
+    const parsed = Number.parseInt(input.value, 10);
+    const attributeValue = input.getAttribute('value')?.trim() ?? '';
+    const attributeParsed = Number.parseInt(attributeValue, 10);
+    const resolvedFallback = Number.isNaN(attributeParsed) ? fallback : attributeParsed;
+    const normalized = Number.isNaN(parsed) ? resolvedFallback : parsed;
+    const clamped = Math.min(Math.max(normalized, min), max);
+    input.value = `${clamped}`;
+    return clamped;
+  };
+
+  const tryReadSerializedState = (): Partial<CutLabStateSnapshot> | null => {
+    const form = getForm();
+    const stateInput = form ? getStateInput(form) : null;
+    const raw = stateInput?.value.trim() ?? '';
+    if (raw === '') {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      return parsed && typeof parsed === 'object' ? parsed as Partial<CutLabStateSnapshot> : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const setFloorUserSetState = (row: HTMLTableRowElement, isUserSet: boolean): void => {
+    row.dataset.cutLabFloorUserSet = isUserSet ? 'true' : 'false';
+
+    const defaultLabel = row.querySelector<HTMLElement>('[data-cut-lab-floor-source-default]');
+    const adjustedBadge = row.querySelector<HTMLElement>('[data-cut-lab-floor-adjusted-badge]');
+    const resetButton = row.querySelector<HTMLElement>('[data-cut-lab-floor-reset]');
+
+    defaultLabel?.classList.toggle('hidden', isUserSet);
+    adjustedBadge?.classList.toggle('hidden', !isUserSet);
+    resetButton?.classList.toggle('hidden', !isUserSet);
+  };
+
+  const updateFloorRowMarker = (row: HTMLTableRowElement, floor: number): void => {
+    const inPoolCount = parseIntegerAttribute(row, 'cutLabFloorCount', 0);
+    const marker = row.querySelector<HTMLElement>('[data-cut-lab-floor-at-marker]');
+    if (!marker) {
+      return;
+    }
+
+    const atFloor = inPoolCount <= floor + 1;
+    marker.classList.toggle('hidden', !atFloor);
+    marker.textContent = '· at floor';
+  };
+
+  const setRoleLockButtonState = (button: HTMLButtonElement, isPressed: boolean): void => {
+    button.classList.toggle('is-selected', isPressed);
+    button.setAttribute('aria-pressed', isPressed ? 'true' : 'false');
+  };
+
+  const syncRoleLockButtons = (): void => {
+    getRoleLockButtons().forEach(button => {
+      const roleKey = button.dataset.cutLabLockRole ?? '';
+      if (roleKey === '') {
+        return;
+      }
+
+      const memberRows = getPoolRows().filter(row => api.hasRoleToken(row.dataset.cutLabRole, roleKey));
+      const lockableMembers = memberRows
+        .map(row => getLockCheckbox(row))
+        .filter((checkbox): checkbox is HTMLInputElement => checkbox !== null && !checkbox.disabled);
+      const allLocked = lockableMembers.length > 0 && lockableMembers.every(checkbox => checkbox.checked);
+      setRoleLockButtonState(button, allLocked);
+    });
+  };
+
+  const syncRoleGroupLockState = (): void => {
+    const lockedCounts = new Map<string, number>();
+
+    getPoolRows().forEach(row => {
+      const cardName = row.dataset.cutLabCard ?? '';
+      const checkbox = getLockCheckbox(row);
+      const isLocked = checkbox?.checked ?? false;
+
+      getRoleGroupChips(cardName).forEach(chip => {
+        chip.classList.toggle('cutlab-role-chip--locked', isLocked);
+        if (chip instanceof HTMLButtonElement) {
+          chip.setAttribute('aria-pressed', isLocked ? 'true' : 'false');
+        }
+      });
+
+      (row.dataset.cutLabRole ?? '')
+        .split(/\s+/)
+        .map(token => token.trim())
+        .filter(token => token !== '')
+        .forEach(roleKey => {
+          const previous = lockedCounts.get(roleKey) ?? 0;
+          lockedCounts.set(roleKey, previous + (isLocked ? parseRowQuantity(row) : 0));
+        });
+    });
+
+    getRoleLockButtons().forEach(button => {
+      const roleKey = button.dataset.cutLabLockRole ?? '';
+      if (roleKey === '') {
+        return;
+      }
+
+      const count = getRoleGroupLockedCount(roleKey);
+      if (count) {
+        count.textContent = `${lockedCounts.get(roleKey) ?? 0}`;
+      }
+    });
+  };
+
+  const buildSnapshotFromDom = (): CutLabStateSnapshot => {
+    const rows = getPoolRows();
+    const persistedState = tryReadSerializedState();
+    const selectedCommander = document.querySelector<HTMLSelectElement>('select[name="SelectedCommander"]');
+    const commanderFromRow = rows.find(row => row.dataset.cutLabCommander === 'true')?.dataset.cutLabCard ?? '';
+    const bracketInput = document.querySelector<HTMLInputElement>('input[name="Bracket"]:checked');
+    const bracketValue = bracketInput?.value.trim() ?? '';
+    const secondaryPlan = readNamedFieldValue('SecondaryPlan');
+
+
+codex
+I’ve isolated the only relevant front-end behavior: the TypeScript lock handlers are generic and bind only to rendered `[data-cut-lab-lock-role]` buttons, so suppressing the `"other"` button in the view is the right minimal fix. I’m applying that exact conditional now and leaving the rest of the file untouched.
+apply patch
+patch: completed
+/mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes/DeckFlow.Web/Views/Deck/CutLab.cshtml
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 145188377db4da77b7ff1f2ca4bb93eb60bc7f3e..d6f0a58bc70b35f0c3cc459e19bf52b82643c24c
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -532,12 +532,15 @@
+                 <details class="cutlab-role-group">
+                     <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                     <div class="cutlab-role-group__body">
+-                        <button type="button"
+-                                class="manabase-pill @(group.AllLockableMembersLocked ? "is-selected" : null)"
+-                                data-cut-lab-lock-role="@group.RoleKey"
+-                                aria-pressed="@(group.AllLockableMembersLocked ? "true" : "false")">
+-                            <span>Lock all @lowerDisplayLabel</span>
+-                        </button>
++                        @if (!string.Equals(group.RoleKey, "other", StringComparison.Ordinal))
++                        {
++                            <button type="button"
++                                    class="manabase-pill @(group.AllLockableMembersLocked ? "is-selected" : null)"
++                                    data-cut-lab-lock-role="@group.RoleKey"
++                                    aria-pressed="@(group.AllLockableMembersLocked ? "true" : "false")">
++                                <span>Lock all @lowerDisplayLabel</span>
++                            </button>
++                        }
+                         @if (memberCount > 0)
+                         {
+                             <div class="kb-chip-area__chips">
+
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 145188377db4da77b7ff1f2ca4bb93eb60bc7f3e..d6f0a58bc70b35f0c3cc459e19bf52b82643c24c
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -532,12 +532,15 @@
+                 <details class="cutlab-role-group">
+                     <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                     <div class="cutlab-role-group__body">
+-                        <button type="button"
+-                                class="manabase-pill @(group.AllLockableMembersLocked ? "is-selected" : null)"
+-                                data-cut-lab-lock-role="@group.RoleKey"
+-                                aria-pressed="@(group.AllLockableMembersLocked ? "true" : "false")">
+-                            <span>Lock all @lowerDisplayLabel</span>
+-                        </button>
++                        @if (!string.Equals(group.RoleKey, "other", StringComparison.Ordinal))
++                        {
++                            <button type="button"
++                                    class="manabase-pill @(group.AllLockableMembersLocked ? "is-selected" : null)"
++                                    data-cut-lab-lock-role="@group.RoleKey"
++                                    aria-pressed="@(group.AllLockableMembersLocked ? "true" : "false")">
++                                <span>Lock all @lowerDisplayLabel</span>
++                            </button>
++                        }
+                         @if (memberCount > 0)
+                         {
+                             <div class="kb-chip-area__chips">
+
+codex
+The edit is in place with the file still using its existing LF line endings. I’m pulling the exact hunk and the sweep results now so the report matches your required output format exactly.
+exec
+/bin/bash -lc "rg -n 'data-cut-lab-lock-role|data-cut-lab-group-locked|data-cut-lab-floor|data-cut-lab-floor-reset|\\b(other|interaction|removal|carddraw|ramp|land|wipe|counterspell)\\b' DeckFlow.Web/Views/Deck/CutLab.cshtml DeckFlow.Web/wwwroot/ts/cut-lab.ts" in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+DeckFlow.Web/Views/Deck/CutLab.cshtml:113:            <li>Tune land / multiple-copy counts, then Export.</li>
+DeckFlow.Web/Views/Deck/CutLab.cshtml:209:        <p class="manabase-help">Your play experience sets how roles are read (counterspells count as interaction only in cEDH) and, with your bracket, sets the default role floors below.</p>
+DeckFlow.Web/Views/Deck/CutLab.cshtml:533:                    <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+DeckFlow.Web/Views/Deck/CutLab.cshtml:535:                        @if (!string.Equals(group.RoleKey, "other", StringComparison.Ordinal))
+DeckFlow.Web/Views/Deck/CutLab.cshtml:539:                                    data-cut-lab-lock-role="@group.RoleKey"
+DeckFlow.Web/Views/Deck/CutLab.cshtml:572:                        @if (string.Equals(group.RoleKey, "interaction", StringComparison.Ordinal))
+DeckFlow.Web/Views/Deck/CutLab.cshtml:574:                            <p class="cutlab-role-group__help">Interaction counts one-shot removal and wipes. Counterspells count as interaction only for a cEDH play experience.</p>
+DeckFlow.Web/Views/Deck/CutLab.cshtml:747:                            <tr data-cut-lab-floor-row="@row.RoleKey"
+DeckFlow.Web/Views/Deck/CutLab.cshtml:748:                                data-cut-lab-floor-count="@row.InPoolCount"
+DeckFlow.Web/Views/Deck/CutLab.cshtml:749:                                data-cut-lab-floor-default="@row.DefaultValue"
+DeckFlow.Web/Views/Deck/CutLab.cshtml:750:                                data-cut-lab-floor-user-set="@(row.IsUserSet ? "true" : "false")">
+DeckFlow.Web/Views/Deck/CutLab.cshtml:755:                                    <span data-cut-lab-floor-count-label>@row.InPoolCount in pool</span>
+DeckFlow.Web/Views/Deck/CutLab.cshtml:756:                                    <span class="cutlab-floor-state--at @(row.AtFloor ? string.Empty : "hidden")" data-cut-lab-floor-at-marker>· at floor</span>
+DeckFlow.Web/Views/Deck/CutLab.cshtml:763:                                           data-cut-lab-floor="@row.RoleKey"
+DeckFlow.Web/Views/Deck/CutLab.cshtml:767:                                    <span class="cutlab-floor-source-default @(row.IsUserSet ? "hidden" : string.Empty)" data-cut-lab-floor-source-default>@row.SourceLabel</span>
+DeckFlow.Web/Views/Deck/CutLab.cshtml:768:                                    <span class="kb-chip cutlab-floor-badge--adjusted @(row.IsUserSet ? string.Empty : "hidden")" data-cut-lab-floor-adjusted-badge>Adjusted</span>
+DeckFlow.Web/Views/Deck/CutLab.cshtml:771:                                            data-cut-lab-floor-reset="@row.RoleKey"
+DeckFlow.Web/Views/Deck/CutLab.cshtml:772:                                            data-cut-lab-floor-default="@row.DefaultValue">Reset to default</button>
+DeckFlow.Web/Views/Deck/CutLab.cshtml:1213:                    <p>Add copies or a basic land in the Tune quantities section below to reach exactly 100.</p>
+DeckFlow.Web/Views/Deck/CutLab.cshtml:1237:                            <p>Cut or add copies of basics and other legal-multiple cards one at a time, or add a new basic land, to land on exactly 100.</p>
+DeckFlow.Web/Views/Deck/CutLab.cshtml:1290:                        <label for="cut-lab-add-basic-select">Add a basic land</label>
+DeckFlow.Web/Views/Deck/CutLab.cshtml:1298:                        <button type="submit" class="run-button" data-cut-lab-adjust data-cut-lab-add-basic data-cut-lab-delta="1" data-cut-lab-added-basic="true">Add basic land</button>
+DeckFlow.Web/Views/Deck/CutLab.cshtml:1303:                    <p class="cutlab-floor-source-default">All basic land types are already in your working list. Use the steppers above to add more copies.</p>
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:770:    Array.from(document.querySelectorAll<HTMLButtonElement>('[data-cut-lab-lock-role]'));
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:773:    document.querySelector<HTMLElement>(`[data-cut-lab-group-locked="${cssEscape(roleKey)}"]`);
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:797:    Array.from(document.querySelectorAll<HTMLTableRowElement>('tr[data-cut-lab-floor-row]'))
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:799:        const input = row.querySelector<HTMLInputElement>('input[data-cut-lab-floor]');
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:1037:    const defaultLabel = row.querySelector<HTMLElement>('[data-cut-lab-floor-source-default]');
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:1038:    const adjustedBadge = row.querySelector<HTMLElement>('[data-cut-lab-floor-adjusted-badge]');
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:1039:    const resetButton = row.querySelector<HTMLElement>('[data-cut-lab-floor-reset]');
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:1048:    const marker = row.querySelector<HTMLElement>('[data-cut-lab-floor-at-marker]');
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:2657:      'All basic land types are already in your working list. Use the steppers above to add more copies.',
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:2685:    label.textContent = 'Add a basic land';
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:2703:    button.textContent = 'Add basic land';
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:3593:      const lockRoleButton = target.closest<HTMLElement>('[data-cut-lab-lock-role]');
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:3605:      const floorResetButton = target.closest<HTMLElement>('[data-cut-lab-floor-reset]');
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:3607:        const row = floorResetButton.closest<HTMLTableRowElement>('tr[data-cut-lab-floor-row]');
+DeckFlow.Web/wwwroot/ts/cut-lab.ts:3608:        const input = row?.querySelector<HTMLInputElement>('input[data-cut-lab-floor]');
+
+exec
+/bin/bash -lc 'git diff --unified=3 -- DeckFlow.Web/Views/Deck/CutLab.cshtml' in /mnt/c/users/chrislunt/source/personal/deckflow-cutlab-fixes
+ succeeded in 0ms:
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 14518837..d6f0a58b 100644
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -532,12 +532,15 @@
+                 <details class="cutlab-role-group">
+                     <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                     <div class="cutlab-role-group__body">
+-                        <button type="button"
+-                                class="manabase-pill @(group.AllLockableMembersLocked ? "is-selected" : null)"
+-                                data-cut-lab-lock-role="@group.RoleKey"
+-                                aria-pressed="@(group.AllLockableMembersLocked ? "true" : "false")">
+-                            <span>Lock all @lowerDisplayLabel</span>
+-                        </button>
++                        @if (!string.Equals(group.RoleKey, "other", StringComparison.Ordinal))
++                        {
++                            <button type="button"
++                                    class="manabase-pill @(group.AllLockableMembersLocked ? "is-selected" : null)"
++                                    data-cut-lab-lock-role="@group.RoleKey"
++                                    aria-pressed="@(group.AllLockableMembersLocked ? "true" : "false")">
++                                <span>Lock all @lowerDisplayLabel</span>
++                            </button>
++                        }
+                         @if (memberCount > 0)
+                         {
+                             <div class="kb-chip-area__chips">
+
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 145188377db4da77b7ff1f2ca4bb93eb60bc7f3e..d6f0a58bc70b35f0c3cc459e19bf52b82643c24c
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -532,12 +532,15 @@
+                 <details class="cutlab-role-group">
+                     <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                     <div class="cutlab-role-group__body">
+-                        <button type="button"
+-                                class="manabase-pill @(group.AllLockableMembersLocked ? "is-selected" : null)"
+-                                data-cut-lab-lock-role="@group.RoleKey"
+-                                aria-pressed="@(group.AllLockableMembersLocked ? "true" : "false")">
+-                            <span>Lock all @lowerDisplayLabel</span>
+-                        </button>
++                        @if (!string.Equals(group.RoleKey, "other", StringComparison.Ordinal))
++                        {
++                            <button type="button"
++                                    class="manabase-pill @(group.AllLockableMembersLocked ? "is-selected" : null)"
++                                    data-cut-lab-lock-role="@group.RoleKey"
++                                    aria-pressed="@(group.AllLockableMembersLocked ? "true" : "false")">
++                                <span>Lock all @lowerDisplayLabel</span>
++                            </button>
++                        }
+                         @if (memberCount > 0)
+                         {
+                             <div class="kb-chip-area__chips">
+
+codex
+DONE
+
+```diff
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 14518837..d6f0a58b 100644
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -532,12 +532,15 @@
+                 <details class="cutlab-role-group">
+                     <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                     <div class="cutlab-role-group__body">
+-                        <button type="button"
+-                                class="manabase-pill @(group.AllLockableMembersLocked ? "is-selected" : null)"
+-                                data-cut-lab-lock-role="@group.RoleKey"
+-                                aria-pressed="@(group.AllLockableMembersLocked ? "true" : "false")">
+-                            <span>Lock all @lowerDisplayLabel</span>
+-                        </button>
++                        @if (!string.Equals(group.RoleKey, "other", StringComparison.Ordinal))
++                        {
++                            <button type="button"
++                                    class="manabase-pill @(group.AllLockableMembersLocked ? "is-selected" : null)"
++                                    data-cut-lab-lock-role="@group.RoleKey"
++                                    aria-pressed="@(group.AllLockableMembersLocked ? "true" : "false")">
++                                <span>Lock all @lowerDisplayLabel</span>
++                            </button>
++                        }
+                         @if (memberCount > 0)
+                         {
+                             <div class="kb-chip-area__chips">
+```
+
+Grep sweep from step 3:
+
+- `DeckFlow.Web/Views/Deck/CutLab.cshtml:533` still renders `<span data-cut-lab-group-locked="@group.RoleKey">...` for every group, including `"other"`. This is display-only and does not create lock behavior.
+- `DeckFlow.Web/Views/Deck/CutLab.cshtml:747,763,771` still renders floor rows/inputs/reset buttons keyed by `@row.RoleKey`. I did not change these; whether `"other"` is excluded there depends on the server-side `Model.FloorRows` composition, not this write-set.
+- `DeckFlow.Web/wwwroot/ts/cut-lab.ts:770,1065-1112,3297-3307,3593-3596` contains the generic `[data-cut-lab-lock-role]` query/click/toggle/sync logic. It only acts on rendered lock buttons, so no TS change is needed once the `"other"` button is omitted from the view.
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 145188377db4da77b7ff1f2ca4bb93eb60bc7f3e..d6f0a58bc70b35f0c3cc459e19bf52b82643c24c
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -532,12 +532,15 @@
+                 <details class="cutlab-role-group">
+                     <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                     <div class="cutlab-role-group__body">
+-                        <button type="button"
+-                                class="manabase-pill @(group.AllLockableMembersLocked ? "is-selected" : null)"
+-                                data-cut-lab-lock-role="@group.RoleKey"
+-                                aria-pressed="@(group.AllLockableMembersLocked ? "true" : "false")">
+-                            <span>Lock all @lowerDisplayLabel</span>
+-                        </button>
++                        @if (!string.Equals(group.RoleKey, "other", StringComparison.Ordinal))
++                        {
++                            <button type="button"
++                                    class="manabase-pill @(group.AllLockableMembersLocked ? "is-selected" : null)"
++                                    data-cut-lab-lock-role="@group.RoleKey"
++                                    aria-pressed="@(group.AllLockableMembersLocked ? "true" : "false")">
++                                <span>Lock all @lowerDisplayLabel</span>
++                            </button>
++                        }
+                         @if (memberCount > 0)
+                         {
+                             <div class="kb-chip-area__chips">
+
+tokens used
+29,411
+DONE
+
+```diff
+diff --git a/DeckFlow.Web/Views/Deck/CutLab.cshtml b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+index 14518837..d6f0a58b 100644
+--- a/DeckFlow.Web/Views/Deck/CutLab.cshtml
++++ b/DeckFlow.Web/Views/Deck/CutLab.cshtml
+@@ -532,12 +532,15 @@
+                 <details class="cutlab-role-group">
+                     <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                     <div class="cutlab-role-group__body">
+-                        <button type="button"
+-                                class="manabase-pill @(group.AllLockableMembersLocked ? "is-selected" : null)"
+-                                data-cut-lab-lock-role="@group.RoleKey"
+-                                aria-pressed="@(group.AllLockableMembersLocked ? "true" : "false")">
+-                            <span>Lock all @lowerDisplayLabel</span>
+-                        </button>
++                        @if (!string.Equals(group.RoleKey, "other", StringComparison.Ordinal))
++                        {
++                            <button type="button"
++                                    class="manabase-pill @(group.AllLockableMembersLocked ? "is-selected" : null)"
++                                    data-cut-lab-lock-role="@group.RoleKey"
++                                    aria-pressed="@(group.AllLockableMembersLocked ? "true" : "false")">
++                                <span>Lock all @lowerDisplayLabel</span>
++                            </button>
++                        }
+                         @if (memberCount > 0)
+                         {
+                             <div class="kb-chip-area__chips">
+```
+
+Grep sweep from step 3:
+
+- `DeckFlow.Web/Views/Deck/CutLab.cshtml:533` still renders `<span data-cut-lab-group-locked="@group.RoleKey">...` for every group, including `"other"`. This is display-only and does not create lock behavior.
+- `DeckFlow.Web/Views/Deck/CutLab.cshtml:747,763,771` still renders floor rows/inputs/reset buttons keyed by `@row.RoleKey`. I did not change these; whether `"other"` is excluded there depends on the server-side `Model.FloorRows` composition, not this write-set.
+- `DeckFlow.Web/wwwroot/ts/cut-lab.ts:770,1065-1112,3297-3307,3593-3596` contains the generic `[data-cut-lab-lock-role]` query/click/toggle/sync logic. It only acts on rendered lock buttons, so no TS change is needed once the `"other"` button is omitted from the view.
