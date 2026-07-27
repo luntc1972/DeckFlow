@@ -2735,7 +2735,7 @@ public sealed class CutLabPageServiceTests
         CutLabFloorRowView targetedRow = Assert.Single(model.FloorRows, row => row.RoleKey == "interaction-targeted");
         Assert.Equal("Targeted removal", targetedRow.DisplayLabel);
         Assert.Equal(2, targetedRow.InPoolCount);
-        Assert.Equal(10, targetedRow.Floor);
+        Assert.Equal(11, targetedRow.Floor);
         Assert.Equal(7, targetedRow.DefaultValue);
         Assert.True(targetedRow.IsUserSet);
         Assert.True(targetedRow.AtFloor);
@@ -2744,15 +2744,15 @@ public sealed class CutLabPageServiceTests
         CutLabFloorRowView massRow = Assert.Single(model.FloorRows, row => row.RoleKey == "interaction-mass");
         Assert.Equal("Mass removal", massRow.DisplayLabel);
         Assert.Equal(0, massRow.InPoolCount);
-        Assert.Equal(5, massRow.Floor);
+        Assert.Equal(4, massRow.Floor);
         Assert.Equal(3, massRow.DefaultValue);
         Assert.True(massRow.IsUserSet);
         Assert.True(massRow.AtFloor);
         Assert.Equal("Default for B4: 3", massRow.SourceLabel);
 
         Assert.Equal(2, result.State!.RoleFloors.Count);
-        Assert.Contains(result.State.RoleFloors, floor => floor.Role == "interaction-targeted" && floor.Floor == 10 && floor.IsUserSet);
-        Assert.Contains(result.State.RoleFloors, floor => floor.Role == "interaction-mass" && floor.Floor == 5 && floor.IsUserSet);
+        Assert.Contains(result.State.RoleFloors, floor => floor.Role == "interaction-targeted" && floor.Floor == 11 && floor.IsUserSet);
+        Assert.Contains(result.State.RoleFloors, floor => floor.Role == "interaction-mass" && floor.Floor == 4 && floor.IsUserSet);
         Assert.DoesNotContain(result.State.RoleFloors, floor => floor.Role == "draw");
     }
 
