@@ -4,6 +4,7 @@ using System.Net;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using System.Reflection;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Normalization;
@@ -33,9 +34,19 @@ internal static class RoleFloorResearchCommandRunner
     private const int ScryfallRateLimitRetryMaxAttempts = 4;
     private static readonly TimeSpan HarnessFallbackSearchPacingDelay = TimeSpan.FromMilliseconds(350);
 
+    // Why: the prior five-role list was the pre-Phase-1 taxonomy, including merged
+    // "interaction", which CutLabRoleAssigner no longer emits; because the tally loop only
+    // increments keys already seeded, that stale key would have silently recorded zero for every
+    // deck and every commander. Decision D-C also requires lands and ramp, draw stays in because
+    // it is a shipped first-class role, and "other" stays out because its residual-bucket count
+    // would measure classifier coverage rather than deck construction.
     private static readonly string[] TargetRoles =
     [
-        "interaction",
+        "lands",
+        "ramp",
+        "draw",
+        "interaction-targeted",
+        "interaction-mass",
         "protection",
         "engines",
         "payoffs",
@@ -86,6 +97,12 @@ internal static class RoleFloorResearchCommandRunner
             using var serviceProvider = BuildScryfallServiceProvider();
             var resolver = serviceProvider.GetRequiredService<IScryfallCardResolver>();
             ManabaseMode resolvedMode = CutLabRoleAssigner.ResolveMode(mode);
+            string? taxonomyError = ValidateTaxonomyAgainstAssigner(resolvedMode);
+            if (taxonomyError is not null)
+            {
+                Console.Error.WriteLine(taxonomyError);
+                return 1;
+            }
 
             List<(string CommanderName, int DeckCount, string? LastProcessedUtc)> commanderRows =
                 await LoadCommanderRowsAsync(repository, cancellationToken).ConfigureAwait(false);
@@ -527,6 +544,110 @@ internal static class RoleFloorResearchCommandRunner
             : new Dictionary<string, ScryfallCardData>(persisted, StringComparer.OrdinalIgnoreCase);
     }
 
+    private static string? ValidateTaxonomyAgainstAssigner(ManabaseMode mode)
+    {
+        FieldInfo? roleKeysField = typeof(CutLabRoleAssigner).GetField("RoleKeys", BindingFlags.NonPublic | BindingFlags.Static);
+        if (roleKeysField is null)
+        {
+            return "Unable to read CutLabRoleAssigner.RoleKeys: expected a private static string[] field named RoleKeys.";
+        }
+
+        if (roleKeysField.GetValue(null) is not string[] shippedRoleKeys)
+        {
+            return "Unable to read CutLabRoleAssigner.RoleKeys: expected the private static field RoleKeys to be a non-null string[].";
+        }
+
+        // Why: CutLabRoleAssigner.RoleKeys is private static readonly, so the harness reflects the
+        // authoritative shipped list instead of hand-copying it; "other" is a separate const
+        // outside RoleKeys and is deliberately excluded per D-01; and this turns silent taxonomy
+        // drift from a corpus-wide zero into a startup abort for any of the nine shipped keys.
+        CardFact[] probes =
+        [
+            new()
+            {
+                Name = "Forest",
+                Quantity = 1,
+                TypeLine = "Basic Land — Forest",
+                // Source: DeckFlow.Web.Tests/CutLabRoleAssignerTests.AssignRoles_Forest_MapsToExactlyLands
+            },
+            new()
+            {
+                Name = "Cultivate",
+                Quantity = 1,
+                TypeLine = "Sorcery",
+                OracleText = "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.",
+                // Source: DeckFlow.Web.Tests/CutLabRoleAssignerTests.AssignRoles_Cultivate_MapsToRampOnly
+            },
+            new()
+            {
+                Name = "Quick Study",
+                Quantity = 1,
+                TypeLine = "Instant",
+                OracleText = "Draw two cards.",
+                // Source: DeckFlow.Web.Tests/CutLabRoleAssignerTests.AssignRoles_OneShotDrawSpell_NotEngine
+            },
+            new()
+            {
+                Name = "Swords to Plowshares",
+                Quantity = 1,
+                TypeLine = "Instant",
+                OracleText = "Exile target creature. Its controller gains life equal to its power.",
+                // Source: DeckFlow.Web.Tests/CutLabRoleAssignerTests.AssignRoles_SwordsToPlowshares_IsTargetedOnlyInCasualViaPreGateSignal
+            },
+            new()
+            {
+                Name = "Wrath of God",
+                Quantity = 1,
+                TypeLine = "Sorcery",
+                OracleText = "Destroy all creatures. They can't be regenerated.",
+                // Source: DeckFlow.Web.Tests/CutLabRoleAssignerTests.AssignRoles_WipeByOracleHeuristic_IsMassOnly
+            },
+            new()
+            {
+                Name = "Protection Wand",
+                Quantity = 1,
+                TypeLine = "Artifact",
+                OracleText = "{T}: Target creature you control gains hexproof until end of turn.",
+                // Source: DeckFlow.Web.Tests/Manabase/PlanRoleClassifierTests.Classify_ProtectionPermanent_IsInteractionAndNothingElse
+            },
+            new()
+            {
+                Name = "Phyrexian Arena",
+                Quantity = 1,
+                TypeLine = "Enchantment",
+                OracleText = "At the beginning of your upkeep, draw a card and you lose 1 life.",
+                // Source: DeckFlow.Web.Tests/CutLabRoleAssignerTests.AssignRoles_PermanentDrawEngine_IsEngine
+            },
+            new()
+            {
+                Name = "Avatar Finisher",
+                Quantity = 1,
+                TypeLine = "Creature — Avatar",
+                OracleText = "Whenever this attacks, each opponent loses 3 life.",
+                // Source: DeckFlow.Web.Tests/Manabase/PlanRoleClassifierTests.Classify_PermanentPayoff_IsKept
+            },
+            new()
+            {
+                Name = "Torment of Hailfire",
+                Quantity = 1,
+                TypeLine = "Sorcery",
+                OracleText = "Repeat the following process X times. Each opponent loses 3 life unless that player sacrifices a nonland permanent or discards a card.",
+                // Source: DeckFlow.Web.Tests/CutLabRoleAssignerTests.AssignRoles_TormentOfHailfire_IsWinconDespitePlanRolePermanentGate
+            },
+        ];
+
+        var emittedKeys = new HashSet<string>(StringComparer.Ordinal);
+        foreach (CardFact probe in probes)
+        {
+            foreach (string role in CutLabRoleAssigner.AssignRoles(probe, [], isComboPiece: false, mode))
+            {
+                emittedKeys.Add(role);
+            }
+        }
+
+        return RoleFloorGuards.FindTaxonomyDrift(shippedRoleKeys, TargetRoles, emittedKeys, residualRoleKey: "other");
+    }
+
     private static Dictionary<string, RoleBaseline> BuildCorpusBaseline(IEnumerable<CommanderDeckSet> commanderDecks)
     {
         var perRoleCounts = TargetRoles.ToDictionary(
@@ -656,6 +777,7 @@ internal static class RoleFloorResearchCommandRunner
         builder.AppendLine("- content_hash NULL dedup limitation: dedup is conservative, not perfect, because older deck_queue rows may still have NULL content_hash values.");
         builder.AppendLine("- `isComboPiece` is fixed to `false`, so combo-only win conditions can be undercounted.");
         builder.AppendLine("- ManabaseMode is fixed per run, so this pass does not compare role floors across multiple play-experience modes.");
+        builder.AppendLine("- The `other` residual role is deliberately excluded because it measures fallback classifier coverage rather than deck-construction structure.");
         builder.AppendLine("- Quantity is always treated as 1 when classifying cards, matching Commander singleton expectations for the target nonland roles.");
         builder.AppendLine("- Oracle-only classification means these findings do not reproduce today's category-aware production role output for a tagged decklist.");
         builder.AppendLine("- Cards that still fail after harness-side HTTP 429 retry are tracked separately as `rate_limited_after_retry`; like true `not_found` names, they are excluded from classification tallies, but this run distinguishes the two unresolved reasons.");
@@ -814,98 +936,6 @@ internal static class RoleFloorResearchCommandRunner
         double variance = values.Sum(value => Math.Pow(value - mean, 2)) / values.Count;
         return Math.Sqrt(variance);
     }
-
-    private static void WriteSyntheticVerificationOutputs(string outputPath, string outputJsonPath)
-    {
-        ResearchComputation computation = BuildSyntheticVerificationComputation();
-        WriteFindingsFiles(computation, outputPath, outputJsonPath);
-    }
-
-    private static ResearchComputation BuildSyntheticVerificationComputation()
-    {
-        var commanders = new Dictionary<string, CommanderResearch>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["Alpha"] = BuildSyntheticCommander("Alpha", rawN: 60, n: 50, interaction: true, protection: true, engines: false, payoffs: true, wincons: false),
-            ["Beta"] = BuildSyntheticCommander("Beta", rawN: 58, n: 48, interaction: true, protection: true, engines: false, payoffs: false, wincons: false),
-            ["Gamma"] = BuildSyntheticCommander("Gamma", rawN: 55, n: 44, interaction: true, protection: false, engines: false, payoffs: false, wincons: false),
-            ["Delta"] = BuildSyntheticCommander("Delta", rawN: 47, n: 41, interaction: false, protection: false, engines: false, payoffs: false, wincons: false),
-        };
-
-        var computation = new ResearchComputation
-        {
-            MinDeckCount = 40,
-            CommandersEnumerated = 6,
-            RawDeckCount = 240,
-            DedupedDeckCount = 183,
-            UnresolvedNotFoundCount = 2,
-            UnresolvedRateLimitedAfterRetryCount = 0,
-            CorpusBaseline = new Dictionary<string, RoleBaseline>(StringComparer.Ordinal)
-            {
-                ["interaction"] = new RoleBaseline { Mean = 12.0, StdDev = 3.0, P25 = 10.0 },
-                ["protection"] = new RoleBaseline { Mean = 4.0, StdDev = 1.2, P25 = 3.0 },
-                ["engines"] = new RoleBaseline { Mean = 6.0, StdDev = 1.8, P25 = 5.0 },
-                ["payoffs"] = new RoleBaseline { Mean = 5.0, StdDev = 1.5, P25 = 4.0 },
-                ["wincons"] = new RoleBaseline { Mean = 3.0, StdDev = 0.8, P25 = 2.0 },
-            },
-            Commanders = commanders,
-            ThresholdCounts = new Dictionary<int, int>
-            {
-                [15] = 4,
-                [20] = 4,
-                [25] = 4,
-                [30] = 4,
-                [40] = 4,
-                [50] = 1,
-                [75] = 0,
-                [100] = 0,
-            },
-        };
-        computation.GoNoGo = BuildGoNoGo(commanders);
-        return computation;
-    }
-
-    private static CommanderResearch BuildSyntheticCommander(
-        string commanderName,
-        int rawN,
-        int n,
-        bool interaction,
-        bool protection,
-        bool engines,
-        bool payoffs,
-        bool wincons)
-    {
-        return new CommanderResearch
-        {
-            CommanderName = commanderName,
-            RawN = rawN,
-            N = n,
-            Roles = new Dictionary<string, CommanderRoleStat>(StringComparer.Ordinal)
-            {
-                ["interaction"] = BuildSyntheticRoleStat(18.0, 16.0, 1.5, 6.4, 2.0, interaction),
-                ["protection"] = BuildSyntheticRoleStat(6.0, 5.0, 1.5, 4.2, 1.7, protection),
-                ["engines"] = BuildSyntheticRoleStat(6.2, 5.5, 1.033, 1.1, 0.11, engines),
-                ["payoffs"] = BuildSyntheticRoleStat(7.5, 6.0, 1.5, 5.0, 1.67, payoffs),
-                ["wincons"] = BuildSyntheticRoleStat(3.2, 3.0, 1.067, 0.9, 0.25, wincons),
-            },
-        };
-    }
-
-    private static CommanderRoleStat BuildSyntheticRoleStat(
-        double mean,
-        double p25,
-        double ratio,
-        double zScore,
-        double cohensD,
-        bool clearsBar)
-        => new()
-        {
-            Mean = mean,
-            P25 = p25,
-            Ratio = ratio,
-            ZScore = zScore,
-            CohensD = cohensD,
-            ClearsBar = clearsBar,
-        };
 
     private sealed class CommanderDeckSet
     {
