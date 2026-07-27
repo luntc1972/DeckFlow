@@ -22,6 +22,59 @@ public sealed class RoleFloorProvenanceTests
     }
 
     [Fact]
+    public void DescribeDatabaseHost_ConnectionStringWithPwdAlias_DoesNotLeakCredentials()
+    {
+        const string password = "AliasSecret!2026";
+        const string username = "alias_user";
+        string result = RoleFloorProvenance.DescribeDatabaseHost(
+            $"Host=db.example.com;Port=5432;Database=deckflow;Username={username};Pwd={password};SSL Mode=Require");
+
+        Assert.Equal("db.example.com:5432/deckflow", result);
+        Assert.DoesNotContain(password, result, StringComparison.Ordinal);
+        Assert.DoesNotContain(username, result, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DescribeDatabaseHost_UnixSocketHost_ReturnsExpectedRenderingWithoutLeakingCredentials()
+    {
+        const string password = "SocketSecret!2026";
+        const string username = "socket_user";
+        string result = RoleFloorProvenance.DescribeDatabaseHost(
+            $"Host=/var/run/postgresql;Port=5432;Database=cutlab;Username={username};Password={password}");
+
+        Assert.Equal("/var/run/postgresql:5432/cutlab", result);
+        Assert.DoesNotContain(password, result, StringComparison.Ordinal);
+        Assert.DoesNotContain(username, result, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DescribeDatabaseHost_QuotedPasswordWithSemicolon_DoesNotLeakCredentials()
+    {
+        const string password = "\"semi;colon secret\"";
+        const string username = "quoted_user";
+        string result = RoleFloorProvenance.DescribeDatabaseHost(
+            $"Host=db.example.com;Port=5432;Database=deckflow;Username={username};Password={password};SSL Mode=Require");
+
+        Assert.Equal("db.example.com:5432/deckflow", result);
+        Assert.DoesNotContain(password, result, StringComparison.Ordinal);
+        Assert.DoesNotContain("semi;colon", result, StringComparison.Ordinal);
+        Assert.DoesNotContain(username, result, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DescribeDatabaseHost_TrailingUnknownKey_ReturnsUnavailableWithoutLeakingCredentials()
+    {
+        const string password = "UnknownKeySecret!2026";
+        const string username = "unknown_key_user";
+        string result = RoleFloorProvenance.DescribeDatabaseHost(
+            $"Host=db.example.com;Port=5432;Database=deckflow;Username={username};Password={password};ExtraKey=still-here");
+
+        Assert.Equal("unavailable", result);
+        Assert.DoesNotContain(password, result, StringComparison.Ordinal);
+        Assert.DoesNotContain(username, result, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DescribeDatabaseHost_HostPortAndDatabase_ReturnsExpectedRendering()
     {
         string result = RoleFloorProvenance.DescribeDatabaseHost("Host=pg.internal;Port=15432;Database=cutlab");
@@ -46,6 +99,18 @@ public sealed class RoleFloorProvenanceTests
         string result = RoleFloorProvenance.DescribeDatabaseHost(normalizedConnectionString);
 
         Assert.Equal("unavailable", result);
+    }
+
+    [Fact]
+    public void DescribeDatabaseHost_WhitespaceOnlyInput_DoesNotLeakCredentials()
+    {
+        const string password = "WhitespaceSecret!2026";
+        const string username = "whitespace_user";
+        string result = RoleFloorProvenance.DescribeDatabaseHost("   ");
+
+        Assert.Equal("unavailable", result);
+        Assert.DoesNotContain(password, result, StringComparison.Ordinal);
+        Assert.DoesNotContain(username, result, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -109,6 +174,16 @@ public sealed class RoleFloorProvenanceTests
         Assert.Contains("120 raw decks", warning, StringComparison.Ordinal);
         Assert.Contains("100 deduped decks", warning, StringComparison.Ordinal);
         Assert.Contains("host could not be derived", warning, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BuildProvenanceWarnings_HostUnavailableWithoutDeckCounts_ReturnsSingleNoCorpusWarning()
+    {
+        IReadOnlyList<string> result = RoleFloorProvenance.BuildProvenanceWarnings("unavailable", "abc123", 0, 0);
+
+        string warning = Assert.Single(result);
+        Assert.Contains("did not reach any deck rows", warning, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("reached the corpus", warning, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
