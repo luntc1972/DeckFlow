@@ -1,0 +1,23 @@
+{
+  "_comment": "Reconstructed from the 2026-07-27 incident measurements, not raw pipeline output. See .planning/captures/cedh-baseline-drift-guard-design.md.",
+  "generated": "2026-07",
+  "sampleSize": 3200,
+  "overallMeanLands": 26.1,
+  "commanders": {
+    "Ral, Monsoon Mage // Ral, Leyline Prodigy": { "n": 7, "landsMean": 17.9, "landsSd": 1.2 },
+    "Vivi Ornitier": { "n": 28, "landsMean": 23.0, "landsSd": 1.0 },
+    "Magda, Brazen Outlaw": { "n": 10, "landsMean": 23.6, "landsSd": 1.0 },
+    "Filler 01": { "n": 50, "landsMean": 25.0, "landsSd": 1.0 },
+    "Filler 02": { "n": 50, "landsMean": 25.0, "landsSd": 1.0 },
+    "Filler 03": { "n": 50, "landsMean": 25.0, "landsSd": 1.0 },
+    "Filler 04": { "n": 50, "landsMean": 25.0, "landsSd": 1.0 },
+    "Filler 05": { "n": 50, "landsMean": 25.0, "landsSd": 1.0 },
+    "Filler 06": { "n": 50, "landsMean": 25.0, "landsSd": 1.0 },
+    "Filler 07": { "n": 50, "landsMean": 25.0, "landsSd": 1.0 },
+    "Filler 08": { "n": 50, "landsMean": 25.0, "landsSd": 1.0 },
+    "Filler 09": { "n": 50, "landsMean": 25.0, "landsSd": 1.0 },
+    "Filler 10": { "n": 50, "landsMean": 25.0, "landsSd": 1.0 },
+    "Filler 11": { "n": 50, "landsMean": 25.0, "landsSd": 1.0 },
+    "Filler 12": { "n": 50, "landsMean": 25.0, "landsSd": 1.0 }
+  }
+}

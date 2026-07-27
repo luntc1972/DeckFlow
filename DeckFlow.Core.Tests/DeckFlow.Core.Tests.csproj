@@ -29,6 +29,7 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <TargetPath>Fixtures/salubrious-snail-transcript.txt</TargetPath>
     </None>
+    <Content Include="Fixtures\cedh-drift\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
