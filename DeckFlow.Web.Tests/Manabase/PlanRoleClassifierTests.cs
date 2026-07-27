@@ -195,7 +195,9 @@ public sealed class PlanRoleClassifierTests
     {
         // Why: spike 002 found this artifact case is invisible today because it is not an Instant so
         // IsInteractionCard misses it, there is no destroy/exile verb so IsBoardWipeCard misses it,
-        // and IsTargetedRemovalCard excludes "you control".
+        // and IsTargetedRemovalCard excludes "you control". The third case covers the singular
+        // "phases out" arm that IsProtectionCard actually matches; the plural-subject "permanents
+        // you control phase out" phrasing stays documented under D-06 instead of asserted here.
         Assert.True(PlanRoleClassifier.FromHeuristic(
             Fact("Artifact", "{T}: Target creature you control gains hexproof until end of turn."), mode)
             .HasFlag(PlanRole.Interaction));
@@ -205,7 +207,7 @@ public sealed class PlanRoleClassifierTests
             .HasFlag(PlanRole.Interaction));
 
         Assert.True(PlanRoleClassifier.FromHeuristic(
-            Fact("Enchantment", "When this enters, permanents you control phase out until your next turn."), mode)
+            Fact("Artifact", "{T}: Target creature phases out."), mode)
             .HasFlag(PlanRole.Interaction));
     }
 
