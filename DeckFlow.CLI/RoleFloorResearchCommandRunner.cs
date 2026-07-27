@@ -89,9 +89,13 @@ internal static class RoleFloorResearchCommandRunner
 
         try
         {
+            string runTimestampUtc = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+            string normalizedConnectionString = PostgresConnectionStringNormalizer.Normalize(connectionString);
+            string databaseHost = RoleFloorProvenance.DescribeDatabaseHost(normalizedConnectionString);
+            string harnessCommitSha = DescribeHarnessCommitSha();
             var connectionInfo = new RelationalDatabaseConnection(
                 RelationalDatabaseProvider.Postgres,
-                PostgresConnectionStringNormalizer.Normalize(connectionString));
+                normalizedConnectionString);
             var repository = new CategoryKnowledgeRepository(connectionInfo);
             using var serviceProvider = BuildScryfallServiceProvider();
             var resolver = serviceProvider.GetRequiredService<IScryfallCardResolver>();
@@ -273,10 +277,31 @@ internal static class RoleFloorResearchCommandRunner
             Dictionary<int, int> thresholdCounts = DiagnosticThresholds.ToDictionary(
                 threshold => threshold,
                 threshold => commanderDecks.Values.Count(set => set.DedupedN >= threshold));
+            if (RoleFloorGuards.HasNoQualifyingCommanders(qualifyingCommanders.Count))
+            {
+                // Why: HasNoQualifyingCommanders is unit-tested in Core, but only plan 02-08's
+                // --min-decks 999999 smoke run proves this guard still sits before artifact writes
+                // rather than after BuildGoNoGo/WriteFindingsFiles.
+                Console.Error.WriteLine(FormattableString.Invariant(
+                    $"Zero commanders met the minimum deduped deck count of {minDeckCount}."));
+                Console.Error.WriteLine(FormattableString.Invariant(
+                    $"Commander rows enumerated: {commanderRows.Count}."));
+                Console.Error.WriteLine("ThresholdCounts:");
+                foreach ((int threshold, int count) in thresholdCounts.OrderBy(pair => pair.Key))
+                {
+                    Console.Error.WriteLine(FormattableString.Invariant($"  {threshold}: {count}"));
+                }
+
+                Console.Error.WriteLine("NO findings artifact was written.");
+                return 2;
+            }
 
             var computation = new ResearchComputation
             {
                 MinDeckCount = minDeckCount,
+                DatabaseHost = databaseHost,
+                RunTimestampUtc = runTimestampUtc,
+                HarnessCommitSha = harnessCommitSha,
                 CommandersEnumerated = commanderRows.Count,
                 RawDeckCount = commanderDecks.Values.Sum(set => set.RawN),
                 DedupedDeckCount = commanderDecks.Values.Sum(set => set.DedupedN),
@@ -320,6 +345,57 @@ internal static class RoleFloorResearchCommandRunner
                 serviceProvider.GetRequiredService<IScryfallRestClientFactory>(),
                 serviceProvider.GetRequiredService<ResiliencePipelineProvider<string>>()));
         return services.BuildServiceProvider();
+    }
+
+    private static string DescribeHarnessCommitSha()
+    {
+        try
+        {
+            (int revParseExitCode, string revParseStdout) = RunGitCommand("rev-parse", "--short", "HEAD");
+            int effectiveExitCode = revParseExitCode;
+            string? statusPorcelainStdout = null;
+            if (revParseExitCode == 0)
+            {
+                (int statusExitCode, string statusStdout) = RunGitCommand("status", "--porcelain");
+                effectiveExitCode = statusExitCode;
+                statusPorcelainStdout = statusStdout;
+            }
+
+            return RoleFloorProvenance.FormatCommitSha(effectiveExitCode, revParseStdout, statusPorcelainStdout);
+        }
+        catch
+        {
+            return RoleFloorProvenance.FormatCommitSha(exitCode: 1, revParseStdout: null, statusPorcelainStdout: null);
+        }
+    }
+
+    private static (int ExitCode, string Stdout) RunGitCommand(params string[] arguments)
+    {
+        var startInfo = new ProcessStartInfo("git")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+
+        foreach (string argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        using var process = new Process
+        {
+            StartInfo = startInfo,
+        };
+
+        process.Start();
+        string stdout = process.StandardOutput.ReadToEnd();
+        _ = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+
+        // Why: the harness may run from a dirty worktree, including its own local edits, and an
+        // artifact that claims a clean SHA in that state would misrepresent the code that produced it.
+        return (process.ExitCode, stdout);
     }
 
     private static async Task<List<(string CommanderName, int DeckCount, string? LastProcessedUtc)>> LoadCommanderRowsAsync(
@@ -756,7 +832,29 @@ internal static class RoleFloorResearchCommandRunner
     private static string BuildMarkdownReport(ResearchComputation computation)
     {
         var builder = new StringBuilder();
+        IReadOnlyList<string> provenanceWarnings = RoleFloorProvenance.BuildProvenanceWarnings(
+            computation.DatabaseHost,
+            computation.HarnessCommitSha,
+            computation.RawDeckCount,
+            computation.DedupedDeckCount);
+
         builder.AppendLine("# Role-Floor Divergence Research");
+        builder.AppendLine();
+        builder.AppendLine("## Run Provenance");
+        builder.AppendLine("| Field | Value |");
+        builder.AppendLine("|-------|-------|");
+        builder.AppendLine($"| Database Host | {EscapePipe(computation.DatabaseHost)} |");
+        builder.AppendLine($"| Run Timestamp (UTC) | {EscapePipe(computation.RunTimestampUtc)} |");
+        builder.AppendLine($"| Harness Commit SHA | {EscapePipe(computation.HarnessCommitSha)} |");
+        builder.AppendLine(FormattableString.Invariant($"| Commanders Enumerated | {computation.CommandersEnumerated} |"));
+        builder.AppendLine(FormattableString.Invariant($"| Raw Deck Count | {computation.RawDeckCount} |"));
+        builder.AppendLine(FormattableString.Invariant($"| Deduped Deck Count | {computation.DedupedDeckCount} |"));
+        builder.AppendLine(FormattableString.Invariant($"| Minimum Deck Count | {computation.MinDeckCount} |"));
+        foreach (string warning in provenanceWarnings)
+        {
+            builder.AppendLine($"> **WARNING — provenance degraded:** {warning}");
+        }
+
         builder.AppendLine();
         builder.AppendLine("## Methodology");
         builder.AppendLine(FormattableString.Invariant(
@@ -841,6 +939,15 @@ internal static class RoleFloorResearchCommandRunner
 
     private static object BuildJsonPayload(ResearchComputation computation)
     {
+        // Why: fallback provenance values must never block a run or leak a credential, so the
+        // warning array is emitted from the same resolved values to prevent "unavailable"/"unknown"
+        // from silently masquerading as complete provenance.
+        IReadOnlyList<string> provenanceWarnings = RoleFloorProvenance.BuildProvenanceWarnings(
+            computation.DatabaseHost,
+            computation.HarnessCommitSha,
+            computation.RawDeckCount,
+            computation.DedupedDeckCount);
+
         return new
         {
             methodology = new
@@ -850,12 +957,16 @@ internal static class RoleFloorResearchCommandRunner
                 ratioHigh = RatioHigh,
                 zThreshold = ZThreshold,
                 breadthMinimum = BreadthMinimum,
+                databaseHost = computation.DatabaseHost,
+                runTimestampUtc = computation.RunTimestampUtc,
+                harnessCommitSha = computation.HarnessCommitSha,
                 rawDeckCount = computation.RawDeckCount,
                 dedupedDeckCount = computation.DedupedDeckCount,
                 commandersEnumerated = computation.CommandersEnumerated,
                 unresolvedCardCount = computation.UnresolvedCardCount,
                 unresolvedNotFoundCount = computation.UnresolvedNotFoundCount,
                 unresolvedRateLimitedAfterRetryCount = computation.UnresolvedRateLimitedAfterRetryCount,
+                provenanceWarnings,
             },
             corpusBaseline = TargetRoles.ToDictionary(
                 role => role,
@@ -952,6 +1063,9 @@ internal static class RoleFloorResearchCommandRunner
     private sealed class ResearchComputation
     {
         public int MinDeckCount { get; init; }
+        public required string DatabaseHost { get; init; }
+        public required string RunTimestampUtc { get; init; }
+        public required string HarnessCommitSha { get; init; }
         public int CommandersEnumerated { get; init; }
         public int RawDeckCount { get; init; }
         public int DedupedDeckCount { get; init; }
