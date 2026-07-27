@@ -1,0 +1,8 @@
+{
+  "minEstablishedN": 10,
+  "minPopulousN": 20,
+  "maxSampleDropPct": 40,
+  "moverThresholdLands": 0.5,
+  "minMoversForDirectionTest": 10,
+  "maxOneSidedPct": 90
+}
