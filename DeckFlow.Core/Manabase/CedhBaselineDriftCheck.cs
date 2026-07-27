@@ -77,6 +77,7 @@ public static class CedhBaselineDriftCheck
 
         List<CedhDriftFinding> findings = [];
         AddDroppedEstablishedCommanders(previous, candidate, thresholds, findings);
+        AddSampleCollapses(previous, candidate, thresholds, findings);
 
         return new CedhDriftVerdict { Passed = findings.Count == 0, Findings = findings };
     }
@@ -101,6 +102,37 @@ public static class CedhBaselineDriftCheck
                 Detail =
                     $"present with n={prior.N} in the committed snapshot ({previous.Generated}) but absent "
                     + $"from the candidate; floor is n>={thresholds.MinEstablishedN}.",
+            });
+        }
+    }
+
+    private static void AddSampleCollapses(
+        CedhLandBaselineSnapshot previous,
+        CedhLandBaselineSnapshot candidate,
+        CedhDriftThresholds thresholds,
+        List<CedhDriftFinding> findings)
+    {
+        foreach ((string name, CedhCommanderBaselineSnapshot prior) in previous.Commanders)
+        {
+            if (prior.N < thresholds.MinPopulousN
+                || !candidate.Commanders.TryGetValue(name, out CedhCommanderBaselineSnapshot? current))
+            {
+                continue;
+            }
+
+            double dropPct = (prior.N - current.N) / (double)prior.N * 100.0;
+            if (dropPct <= thresholds.MaxSampleDropPct)
+            {
+                continue;
+            }
+
+            findings.Add(new CedhDriftFinding
+            {
+                Rule = "SampleCollapse",
+                Commander = name,
+                Detail =
+                    $"sample fell {dropPct:0.0}% (n {prior.N} -> {current.N}); "
+                    + $"limit is {thresholds.MaxSampleDropPct:0.#}%.",
             });
         }
     }

@@ -99,4 +99,68 @@ public sealed class CedhBaselineDriftCheckTests
 
         Assert.True(verdict.Passed);
     }
+
+    [Fact]
+    public void Evaluate_PopulousCommanderSampleCollapses_Fails()
+    {
+        // Ral, Monsoon Mage fell 105 -> 7 (-93.3%) in the corrupt 2026-07 run because its own
+        // card is a DFC and failed to resolve, so its decks could not be keyed to it.
+        CedhLandBaselineSnapshot previous = Snapshot(
+            "2026-07", ("Ral, Monsoon Mage // Ral, Leyline Prodigy", 105, 21.6));
+        CedhLandBaselineSnapshot candidate = Snapshot(
+            "2026-07", ("Ral, Monsoon Mage // Ral, Leyline Prodigy", 7, 17.9));
+
+        CedhDriftVerdict verdict = CedhBaselineDriftCheck.Evaluate(previous, candidate, Thresholds);
+
+        Assert.False(verdict.Passed);
+        Assert.Contains(verdict.Findings, f => f.Rule == "SampleCollapse");
+    }
+
+    [Fact]
+    public void Evaluate_OrdinaryWindowSlide_Passes()
+    {
+        // The corrected 2026-07 refresh's worst drop among populous commanders was -9.5%.
+        CedhLandBaselineSnapshot previous = Snapshot("2026-07", ("Glarb, Calamity's Augur", 22, 28.5));
+        CedhLandBaselineSnapshot candidate = Snapshot("2026-07", ("Glarb, Calamity's Augur", 20, 27.8));
+
+        CedhDriftVerdict verdict = CedhBaselineDriftCheck.Evaluate(previous, candidate, Thresholds);
+
+        Assert.True(verdict.Passed);
+    }
+
+    [Fact]
+    public void Evaluate_SampleDropExactlyAtLimit_Passes()
+    {
+        // Rule fires above the limit, not at it: 100 -> 60 is exactly 40%.
+        CedhLandBaselineSnapshot previous = Snapshot("2026-07", ("Tivit, Seller of Secrets", 100, 28.3));
+        CedhLandBaselineSnapshot candidate = Snapshot("2026-07", ("Tivit, Seller of Secrets", 60, 28.3));
+
+        CedhDriftVerdict verdict = CedhBaselineDriftCheck.Evaluate(previous, candidate, Thresholds);
+
+        Assert.True(verdict.Passed);
+    }
+
+    [Fact]
+    public void Evaluate_SampleDropJustPastLimit_Fails()
+    {
+        CedhLandBaselineSnapshot previous = Snapshot("2026-07", ("Tivit, Seller of Secrets", 100, 28.3));
+        CedhLandBaselineSnapshot candidate = Snapshot("2026-07", ("Tivit, Seller of Secrets", 59, 28.3));
+
+        CedhDriftVerdict verdict = CedhBaselineDriftCheck.Evaluate(previous, candidate, Thresholds);
+
+        Assert.False(verdict.Passed);
+        Assert.Equal("SampleCollapse", Assert.Single(verdict.Findings).Rule);
+    }
+
+    [Fact]
+    public void Evaluate_ThinCommanderSampleCollapses_Passes()
+    {
+        // Below MinPopulousN the swing is noise, not signal.
+        CedhLandBaselineSnapshot previous = Snapshot("2026-07", ("Kaalia of the Vast", 19, 25.8));
+        CedhLandBaselineSnapshot candidate = Snapshot("2026-07", ("Kaalia of the Vast", 3, 25.3));
+
+        CedhDriftVerdict verdict = CedhBaselineDriftCheck.Evaluate(previous, candidate, Thresholds);
+
+        Assert.True(verdict.Passed);
+    }
 }
