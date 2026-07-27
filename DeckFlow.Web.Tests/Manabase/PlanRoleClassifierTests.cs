@@ -46,6 +46,53 @@ public sealed class PlanRoleClassifierTests
         Assert.Equal(expected, PlanRoleClassifier.FromCategories(new[] { "Counterspell" }, mode));
     }
 
+    // Why: harvested corpus cards like Cordial Vampire and Blade of the Bloodchief wear "Counters"
+    // for the +1/+1-counters theme, not because they counter spells.
+    [Theory]
+    [InlineData("Counters")]
+    [InlineData("Counters Matter")]
+    [InlineData("+1/+1 Counters")]
+    [InlineData("counters")]
+    [InlineData("Encounter")]
+    [InlineData("Encounters")]
+    public void FromCategories_CountersSynergyTag_IsNotACounterspell(string category)
+    {
+        Assert.Equal(PlanRole.None, PlanRoleClassifier.FromCategories(new[] { category }, ManabaseMode.Cedh));
+    }
+
+    [Theory]
+    [InlineData("Counterspell")]
+    [InlineData("Counterspells")]
+    [InlineData("Counter")]
+    [InlineData("Counter Magic")]
+    [InlineData("Countermagic")]
+    [InlineData("Counter-magic")]
+    public void FromCategories_CounterspellTagVariants_StillEarnInteractionInCedhOnly(string category)
+    {
+        Assert.Equal(PlanRole.Interaction, PlanRoleClassifier.FromCategories(new[] { category }, ManabaseMode.Cedh));
+        Assert.Equal(PlanRole.None, PlanRoleClassifier.FromCategories(new[] { category }, ManabaseMode.Casual));
+    }
+
+    [Theory]
+    [InlineData("Counters")]
+    [InlineData("Counters Matter")]
+    [InlineData("+1/+1 Counters")]
+    [InlineData("counters")]
+    [InlineData("Encounter")]
+    [InlineData("Encounters")]
+    [InlineData("Counterspell")]
+    [InlineData("Counterspells")]
+    [InlineData("Counter")]
+    [InlineData("Counter Magic")]
+    [InlineData("Countermagic")]
+    [InlineData("Counter-magic")]
+    public void CategoryMapsToPlanRole_MatchesCedhFromCategories_ForCounterVocabulary(string categoryName)
+    {
+        Assert.Equal(
+            PlanRoleClassifier.CategoryMapsToPlanRole(categoryName),
+            PlanRoleClassifier.FromCategories(new[] { categoryName }, ManabaseMode.Cedh) != PlanRole.None);
+    }
+
     [Theory]
     [InlineData("Ramp")]
     [InlineData("Mana Rock")]
