@@ -980,24 +980,41 @@ Expected: `Drift check passed against ...latest.json`, then the three `Wrote ...
 
 - [ ] **Step 5: Verify the guard blocks a corrupt candidate**
 
-Temporarily lower a threshold so the current (good) refresh trips, proving the failure path writes nothing:
+Two traps make the obvious approaches fail:
+
+- **Lowering the thresholds does nothing.** Re-running against unchanged `_calib` produces a
+  candidate identical to the committed snapshot, so there are zero movers and zero collapses. No
+  rule can fire regardless of how tight the limits are.
+- **Do not use a `/tmp` path for `--out`.** `dotnet` here is the Windows binary invoked from WSL,
+  so it resolves `/tmp` as `C:\tmp` — a different directory from WSL's `/tmp`. The run silently
+  takes the bootstrap path and writes where you are not looking.
+
+Instead, doctor a *previous* snapshot in a repo-internal scratch directory so the unchanged
+candidate looks corrupt against it:
 
 ```bash
-cp scripts/cedh-baseline/drift-thresholds.json /tmp/thr-backup.json
+D=.superpowers/sdd/cedh-baseline-drift-guard-PLAN/drift-fail
+rm -rf $D && mkdir -p $D
 python3 - <<'PY'
 import json
-p = "scripts/cedh-baseline/drift-thresholds.json"
-t = json.load(open(p))
-t["minMoversForDirectionTest"] = 1      # any mover counts
-t["maxOneSidedPct"] = 1                 # any imbalance fails
-json.dump(t, open(p, "w"), indent=2)
+s = json.load(open("DeckFlow.Web/Data/cedh-land-baseline/latest.json"))
+s["commanders"]["Kinnan, Bonder Prodigy"]["n"] = 1000   # candidate has 337 -> -66.3% collapse
+s["commanders"]["Zzz Vanished Commander"] = {"n": 25, "landsMean": 26.0, "landsSd": 1.0}
+json.dump(s, open(".superpowers/sdd/cedh-baseline-drift-guard-PLAN/drift-fail/latest.json","w"), indent=2)
 PY
-"/mnt/c/Program Files/dotnet/dotnet.exe" run --project DeckFlow.CLI -- cedh-land-baseline --data _calib --month 2026-07; echo "exit=$?"
+md5sum $D/latest.json
+"/mnt/c/Program Files/dotnet/dotnet.exe" run --project DeckFlow.CLI -- cedh-land-baseline --data _calib --month 2026-07 --out $D
+ls $D
+md5sum $D/latest.json
 git status --porcelain DeckFlow.Web/Data/cedh-land-baseline/
-cp /tmp/thr-backup.json scripts/cedh-baseline/drift-thresholds.json && rm /tmp/thr-backup.json
+rm -rf $D
 ```
 
-Expected: `exit=1`, a `Drift check FAILED` block naming `OneSidedDrift`, and **empty** `git status` output for the baseline directory — proof nothing was written.
+Expected: a `Drift check FAILED with 2 finding(s); no files written.` block naming both
+`DroppedEstablishedCommander [Zzz Vanished Commander]` and
+`SampleCollapse [Kinnan, Bonder Prodigy]` (66.3% vs the 40% limit); `ls` showing **only**
+`latest.json`; an **unchanged** md5 proving it was not overwritten; and empty `git status` for the
+real baseline directory.
 
 - [ ] **Step 6: Commit**
 
