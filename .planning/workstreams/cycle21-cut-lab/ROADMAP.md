@@ -63,6 +63,8 @@ workstream. It is directly relevant and partly supersedes the assumed approach.
 | `.planning/archive/2026-cycles/research/2026-07-16-edhrec-50commander-B1-B4-rows.json` | 148 qualifying cells, `[slug, bracket, lands, deckCount]` rows. |
 | `.planning/archive/2026-cycles/research/2026-07-16-edhrec-100commander-classified-rows.json` | Top-100 commanders with oracle abilities classified and joined to counts. |
 | `.planning/archive/2026-cycles/research/2026-07-16-commander-manabase-research.md` | Companion write-up. |
+| `/mnt/c/users/chrislunt/source/personal/deckflow/artifacts/edhrec/data-jul26-uigloqve/edhrec.csv` | `commander,card,count`, 14,150,220 lines including the header, 3,378 commanders, 31,788 distinct cards, 618 MB. No bracket column, no per-deck rows. `LICENSE.txt` permits community use and forbids commercial use. Lives in the MAIN worktree, not `deckflow-role-floors`. |
+| `/mnt/c/users/chrislunt/source/personal/deckflow/artifacts/edhrec/averages-jul26-m5o50xfj/averages.csv` | 6,586 lines including the header: 3,372 solo-commander rows plus 3,213 partner-pair rows carrying `avg_land` and `number_decks`. No bracket column, no per-deck rows. Same licence. Lives in the MAIN worktree, not `deckflow-role-floors`. |
 
 **Three things this changes:**
 
@@ -86,6 +88,21 @@ workstream. It is directly relevant and partly supersedes the assumed approach.
 by the developer" under Phase 2 below for the full reasoning. In short: EDHREC for the commander ×
 bracket grid, Postgres for within-commander distributions, 25th-percentile floors, and lands
 re-measured deliberately as a calibration control against this document's own land precedent.
+
+The earlier planning pass also failed to inventory the existing EDHREC tooling that already ships in
+the repo: `DeckFlow.CLI/EdhrecDataDownloadCommandRunner.cs` (archive download),
+`DeckFlow.CLI/EdhrecAveragesCommandRunner.cs` plus
+`DeckFlow.Core/Manabase/EdhrecAveragesConverter.cs` (`averages.csv` ->
+`ManabaseBaselineSnapshot`), and `DeckFlow.Core/Integration/EdhrecCardLookup.cs`; see also the
+proposed shared substrate in `.planning/captures/edhrec-data-feature-plans-2026-07-24.md` and the
+archived investigation at
+`.planning/archive/2026-cycles/quick/260718-nip-investigate-usefulness-of-edhrec-dump-fo/`. The
+consequence is plain: the lands role already has an EDHREC-derived baseline wired into the shipped
+product — `EdhrecAveragesConverter` -> `ManabaseBaselineSnapshot`
+(`DeckFlow.Web/Data/manabase-baseline/latest.json`) -> `IManabaseBaselineProvider` ->
+`CutLabFloorDefaults.ResolveLandsDefault` (`CutLabFloorDefaults.cs:184-201`) — so Phase 2's lands
+calibration must compare against it and not only against the 2026-07-16 write-up. Plan `02-07`
+owns that comparison.
 
 ## Phase Details
 
@@ -149,9 +166,10 @@ Cards confirmed still scoring `PlanRole.None` after Phase 01.1 (measured, `01.1-
 Swiftfoot Boots, Lightning Greaves, Hexing Squelcher, Goblin Chirurgeon, Mother of Runes.
 
 **Why it is not a one-line fix.** `IsProtectionCard` is shared: widening it simultaneously moves
-`InteractionAuditAggregator.cs:58` and Cut Lab's own `protection` role
-(`CutLabRoleAssigner.cs:165`). That is a materially larger blast radius than 01.1 had, and it
-deserves a corpus-backed vocabulary decision rather than needles added one at a time.
+`InteractionAuditAggregator.cs:58`, Cut Lab's own `protection` role
+(`CutLabRoleAssigner.cs:165`), and `PlanRoleClassifier.cs:236`. That is a materially larger blast
+radius than 01.1 had, and it deserves a corpus-backed vocabulary decision rather than needles added
+one at a time.
 
 **Success Criteria** (what must be TRUE):
   1. The vocabulary is derived from the corpus — the phrasings chosen are the ones that actually
@@ -208,20 +226,43 @@ novel.
 **Requirements**: RFLR-01, RFLR-02, RFLR-03, RFLR-04, RFLR-09
 **Starting state — read before planning**: A substantial harness already exists: `DeckFlow.CLI/RoleFloorResearchCommandRunner.cs` (985 LOC, real Postgres path at `:83-113`), `DeckFlow.Core/Research/RoleFloorDivergenceStats.cs` (126 LOC), `RoleFloorDivergenceStatsTests.cs` (116 LOC), plus a `boardFilter` parameter added to `CardCategoryRepository.GetCategoryDeckMembershipForCommanderAsync` and passthroughs. **This phase repairs and runs that harness; it does not build one.**
 
-> **Location correction (2026-07-27):** this document and `STATE.md` both previously said the harness
-> was *uncommitted in the worktree*. It is not on disk and not in git history — it is in
-> **`stash@{0}`** ("cycle21 P2: role-floor research harness … unreviewed"). Nothing is lost, but
-> `git stash pop` is the first step of Phase 2, and no other work in this worktree may run
-> `git stash` in the meantime. Note also that the harness predates the D-A/D-B decisions above: it
-> has a Postgres path only, so the EDHREC half of the hybrid corpus does not exist yet and the P25
-> statistic must be checked against what `RoleFloorDivergenceStats` actually computes.
+> **Location correction (superseded 2026-07-27, re-verified):** the earlier `stash@{0}` claim was
+> WRONG. `git stash list` in this worktree shows one unrelated entry belonging to
+> `feat/manabase-source-list`, not the Phase 2 harness. The harness was on disk as untracked and
+> modified working-tree files against `b741b56a` and was then committed unrepaired as the baseline at
+> `27e25459` on 2026-07-27 so the phase's repair work diffs against a known starting point:
+>
+> | Now at `27e25459` | Path |
+> |---|---|
+> | added | `DeckFlow.CLI/RoleFloorResearchCommandRunner.cs` (985 LOC) |
+> | added | `DeckFlow.Core/Research/RoleFloorDivergenceStats.cs` (126 LOC) |
+> | added | `DeckFlow.Core.Tests/RoleFloorDivergenceStatsTests.cs` (116 LOC) |
+> | modified | `DeckFlow.CLI/Program.cs`, `DeckFlow.CLI/DeckFlow.CLI.csproj` |
+> | modified | `DeckFlow.Core/Knowledge/{CardCategoryRepository,CategoryKnowledgeRepository,DeckQueueRepository}.cs` |
+> | modified | `DeckFlow.Core.Tests/CategoryCacheSchemaParityTests.cs` |
+> | still untracked | `_role-floor-research/cards_full.json` (8.2 MB resumable Scryfall cache — must survive) |
+>
+> No work in this worktree may run `git stash`, because stash is repo-global across this repo's four
+> worktrees. The harness also predates D-A/D-B/D-C: it has a Postgres path only and no EDHREC
+> ingestion at all, while `RoleFloorDivergenceStats.ComputePercentile` already exists and is already
+> called with `0.25` at `RoleFloorResearchCommandRunner.cs:236-238` and `:560`; the actual defect is
+> that `ClearsBar` (`RoleFloorDivergenceStats.cs:47-69`) never reads P25, so P25 is a cosmetic
+> column that does not drive the verdict.
 **Known defects in the starting state**:
   1. `WriteSyntheticVerificationOutputs` (`:818`) / `BuildSyntheticCommander` (`:867`) emit hardcoded fixture stats for commanders literally named Alpha/Beta/Gamma/Delta. The writer is currently orphaned (no caller) but its constants match the committed `RESEARCH-FINDINGS.md` exactly — that document is fixture output, not a run.
   2. `RESEARCH-FINDINGS.md` / `.json` are untracked and **must be deleted, not amended**. Their `ClearsBar` column contradicts its own inputs (identical ratio/z/d across commanders yielding different verdicts), so no part of them is salvageable as evidence.
   3. `role-floor-research-run.log` and `.exit` are both 0 bytes — no run was ever recorded.
   4. `boardFilter` is declared after `CancellationToken`, violating the project convention that the token is the last parameter.
+  5. The role taxonomy in `RoleFloorResearchCommandRunner.TargetRoles` (`:36-43`) is the pre-Phase-1
+     five-role set (`interaction`, `protection`, `engines`, `payoffs`, `wincons`) with no `lands`
+     and no `ramp`, while the shipped `CutLabRoleAssigner.RoleKeys` (`:29-40`) is nine keys plus an
+     `other` fallback assigned when nothing else matches. This is a larger repair than the phase text
+     first implied and is what success criteria 4 and 9 actually require.
+  6. The `--out` and `--out-json` defaults in `DeckFlow.CLI/Program.cs` (`:83-84`) point at the old
+     workstream folder
+     `.planning/workstreams/cutlab-role-floors/phases/01-role-floor-divergence-research/`.
 **Success Criteria** (what must be TRUE):
-  1. The synthetic writer and its helpers are deleted from the harness — grep for `Synthetic` in `DeckFlow.CLI` returns nothing.
+  1. The synthetic writer and its helpers are deleted from the harness — a case-insensitive grep for `synthetic` across `DeckFlow.CLI` `.cs` sources (`grep -rni "synthetic" DeckFlow.CLI --include=*.cs`) returns nothing; generated build output under `bin/`/`obj/` is out of scope.
   2. The harness emits run provenance into both artifacts: database host, commanders enumerated, raw and deduped deck counts, run timestamp, and the harness commit SHA.
   3. The command exits non-zero, and writes no findings artifact, when zero commanders clear the minimum deck count.
   4. `RESEARCH-FINDINGS.md` reports real commander names with non-identical per-commander statistics, over the post-Phase-1 role taxonomy.
@@ -231,7 +272,32 @@ novel.
   8. Both corpora are used and distinguishable in the output (D-A): every reported figure states which source it came from, and coverage is reported per source — commanders reached, cells qualifying, decks deduped.
   9. **Lands and ramp are measured** (D-C), and the lands verdict is stated explicitly against the 2026-07-16 prior as "reproduces" / "contradicts" / "insufficient data". A lands result is never presented as novel without that comparison.
   10. The go/no-go is willing to be negative. If no role clears the bar, the findings say so plainly and Phase 3 becomes a documented no-op — a null result is a valid deliverable for this phase, not a failure of it.
-**Plans**: `02-01-PLAN.md` exists from the pre-re-plan pass and is stale — it plans harness construction, not repair. Re-plan before executing.
+Phase 01.2 is deferred behind Phase 2 by explicit 2026-07-27 developer decision, using the
+ROADMAP's own escape hatch at `:34-37`; the price of that deferral is an explicit
+protection-under-detection disclosure in the Phase 2 go/no-go artifact, delivered by plan `02-07`.
+
+The commander x bracket corpus D-A calls for was fetched on 2026-07-27 — 305 commanders x 5 brackets
+= 1,525 cells, 0 failed — and at the >=400-decks-per-cell floor it yields 805 qualifying cells
+(versus the 2026-07-16 study's 148), with B1/exhibition unusable at exactly one qualifying cell and
+B5/cedh thin at 40. `ManabaseAnalysisService.cs:603-605` and
+`DeckFlow.Web/Data/manabase-baseline/latest.json` independently reached the same conclusion about B1.
+Plans `02-02` and `02-06` carry the detail.
+
+**Plans:** 9 plans (7 waves)
+- [ ] `02-01-PLAN.md` — correct the Phase 2 starting-state record, delete fixture artifacts, and fix the `boardFilter` parameter order.
+- [ ] `02-02-PLAN.md` — commit the existing EDHREC bracket acquisition tooling and record the completed corpus fetch.
+- [ ] `02-03-PLAN.md` — make the floor bar verdict P25-driven with deck-count and zero-baseline guards.
+- [ ] `02-04-PLAN.md` — delete the synthetic writer, widen the harness taxonomy, and fix the wrong output defaults.
+- [ ] `02-05-PLAN.md` — separate percentile figures from point estimates so source semantics are type-enforced.
+- [ ] `02-06-PLAN.md` — ingest the fetched EDHREC bracket corpus into the harness as role point estimates.
+- [ ] `02-07-PLAN.md` — emit lands calibration and explicit go/no-go reasoning over the hybrid corpus.
+- [ ] `02-08-PLAN.md` — run the live research harness and write the real findings artifacts.
+- [ ] `02-09-PLAN.md` — add the `edhrec.csv` expected-role-count grid arm for additional EDHREC coverage.
+
+Wave 1 is ordered `02-01` → `02-03` because both run `dotnet build` plus both test suites and then
+commit, and concurrent runs contend on `obj`/`bin`, on `.git/index.lock`, and on the pinned test
+counts; `02-02` is Python-and-docs only with disjoint files and is the only plan safe to run
+concurrently with either. Waves 2-7 hold one plan each, ending with `02-08`'s live run.
 
 ### Phase 3: Commander-Aware Floor Defaults (CONDITIONAL on Phase 2 = go)
 **Goal**: For any role Phase 2 found real signal for, Cut Lab's floor default reflects that commander's own corpus data via a priority chain, while every commander and role without qualifying signal keeps today's bracket+plan floor unchanged.
@@ -261,7 +327,7 @@ novel.
 **Goal**: Harvested decks carry the bracket Archidekt already reports, so a future commander × bracket floor analysis is possible without re-crawling.
 **Depends on**: Nothing. Does not gate Phase 2 or Phase 3 — the commander floor stays bracket-agnostic this cycle (user decision, 2026-07-26).
 **Requirements**: BRKT-01, BRKT-02, BRKT-03
-**Why non-gating**: Bracket cannot be derived retroactively for already-harvested decks, so coverage builds only as new decks are crawled. Gating the research on backfill would stall the cycle on latency outside our control. Landing the capture early maximizes how much bracket coverage exists when a joint analysis is eventually run.
+**Why non-gating**: Bracket cannot be derived retroactively for already-harvested decks, so coverage builds only as new decks are crawled. Gating the research on backfill would stall the cycle on latency outside our control. Landing the capture early maximizes how much bracket coverage exists when a joint analysis is eventually run. The per-cell arithmetic also makes the limit permanent rather than temporary: `edhBracket` is already present on the fetched Archidekt payload at roughly 25% fill, so capture is free, but the deepest commander in the corpus has 917 decks, and 917 x 25% / 5 brackets is roughly 46 decks per cell against EDHREC's 400-decks-per-cell floor. Archidekt bracket capture therefore cannot fill a bracket cell for any commander, now or after a full backfill. This strengthens D-A rather than weakening it.
 **Reprioritized by the prior-research find**: EDHREC already serves commander × bracket average decks, so this phase is no longer the only path to bracket-aware floors and its urgency drops accordingly. It remains worth doing — it is the only way DeckFlow's *own* corpus ever gains bracket, which matters for any analysis needing real per-deck distributions rather than EDHREC's synthesized averages. Treat it as infrastructure with a long payback, not a Cycle 21 blocker. Ship it whenever it is convenient within the cycle.
 **Success Criteria** (what must be TRUE):
   1. Bracket is parsed from the deck payload already fetched — request count per deck is unchanged.
@@ -276,7 +342,7 @@ novel.
 | 1. Interaction Taxonomy Split | done | **Complete** — pushed, `9527dc72` | 2026-07-26 |
 | 01.1. Plan-Role Classifier Heuristic Fixes | 2/2 | **Complete** — suite green, `b8ec09f3` | 2026-07-27 |
 | 01.2. Protection-Vocabulary Widening | 0/TBD | Not started (inserted from 01.1 D-06) | - |
-| 2. Role-Floor Divergence Research | 0/TBD | Not started — **decisions resolved**, harness in `stash@{0}`, needs re-plan | - |
+| 2. Role-Floor Divergence Research | 0/9 | Not started — harness committed as baseline `27e25459`, re-planned 2026-07-27 — 9 plans across 7 waves; EDHREC bracket corpus acquired 2026-07-27 (1,525 cells) | - |
 | 3. Commander-Aware Floor Defaults | 0/TBD | Not started (gated on Phase 2 go/no-go) | - |
 | 4. Functional-Twins Detector | 0/TBD | Not started | - |
 | 5. Archidekt Bracket Capture | 0/TBD | Not started | - |
