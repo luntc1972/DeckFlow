@@ -95,12 +95,13 @@ commanders that qualify — is likely the right answer. Resolve before writing p
 ### Phase 01.1: Plan-Role Classifier Heuristic Fixes (INSERTED)
 
 **Goal:** Fix two concrete defects in `PlanRoleClassifier`'s oracle-text heuristic fallback found by spike 002 (branch `spike/role-classification-accuracy`, `.planning/spikes/002-corpus-category-signal/README.md`): the `Counters`/counterspell substring collision in `IsCounterCategory` (a +1/+1-counters synergy tag wrongly earns Interaction in cEDH), and the missing `DeckStatClassifier.IsProtectionCard` call in `FromHeuristic` (protection cards score `None` from the heuristic and depend entirely on a crowd tag). Must land before Phase 2, which counts roles per card via `CutLabRoleAssigner` — the same classifier — for its floor-divergence corpus analysis.
-**Requirements**: TBD
+**Requirements**: TBD -- no ID assigned. `REQUIREMENTS.md` maps 19 IDs across Phases 1-5 and was written before this phase was inserted from spike 002. The plans deliberately carry `requirements: []` rather than inventing an ID; a proposed CLSF-01 / CLSF-02 pair is written up in `01.1-01-PLAN.md` under "Requirement Traceability Gap" for the developer to ratify into `REQUIREMENTS.md`.
 **Depends on:** Phase 1
-**Plans:** 0 plans
+**Plans:** 2 plans (2 waves -- both touch `PlanRoleClassifier.cs` and its test file, so they are sequential by file ownership, not by logic)
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 01.1 to break down)
+- [ ] 01.1-01-PLAN.md -- Bug 1: word-boundary-safe `IsCounterCategory` so the `Counters` (+1/+1) synergy tag stops matching the counterspell arm
+- [ ] 01.1-02-PLAN.md -- Bug 2: wire `DeckStatClassifier.IsProtectionCard` into `GrantsInteraction` so protection permanents earn Interaction from oracle text alone (has a blocking checkpoint for the downstream delta)
 
 ### Phase 2: Role-Floor Divergence Research
 **Goal**: We know, from a run that provably touched the corpus, whether any Cut Lab role floor diverges meaningfully by commander — with an artifact that cannot be produced without querying data.
@@ -162,6 +163,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Interaction Taxonomy Split | 0/TBD | Not started | - |
+| 01.1. Plan-Role Classifier Heuristic Fixes | 0/2 | Planned | - |
 | 2. Role-Floor Divergence Research | 0/TBD | Not started (harness exists, unverified) | - |
 | 3. Commander-Aware Floor Defaults | 0/TBD | Not started (gated on Phase 2) | - |
 | 4. Functional-Twins Detector | 0/TBD | Not started | - |
@@ -178,8 +180,12 @@ Plans:
 | RFLR-05, RFLR-06, RFLR-07, RFLR-08 | Phase 3 (conditional) | Pending |
 | TWIN-01, TWIN-02, TWIN-03, TWIN-04 | Phase 4 | Pending |
 | BRKT-01, BRKT-02, BRKT-03 | Phase 5 | Pending |
+| (none assigned) | Phase 01.1 | **Gap** -- inserted after REQUIREMENTS.md was written; see the Phase 01.1 block above |
 
-**Coverage:** 19/19 requirements mapped. No orphans, no duplicates.
+**Coverage:** 19/19 Cycle 21 requirements mapped. No orphans, no duplicates.
+**Known gap:** Phase 01.1 has no requirement ID. It is a defect-repair phase derived from spike 002
+and gates Phase 2's measurement validity. Ratify CLSF-01 / CLSF-02 into `REQUIREMENTS.md` before
+milestone closeout.
 
 ---
 *Roadmap created: 2026-07-26*
