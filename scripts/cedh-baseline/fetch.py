@@ -351,8 +351,8 @@ def http_retry_delay_seconds(exc: urllib.error.HTTPError, attempt: int) -> float
     retry_after = exc.headers.get("Retry-After")
     if retry_after is not None:
         try:
-            # Honor upstream cooldowns when provided, but keep a single retry bounded.
-            return min(float(retry_after), 30.0)
+            # Honor upstream cooldowns when provided, but keep the bounded retry loop paced.
+            return max(COLLECTION_BATCH_DELAY_SECONDS, min(float(retry_after), 30.0))
         except ValueError:
             pass
 
@@ -403,7 +403,7 @@ def resolve_missing_cards(
             }
             if retry_map:
                 time.sleep(COLLECTION_BATCH_DELAY_SECONDS)
-                retried, still_missing = resolve_collection_batch(list(retry_map.values()))
+                retried, _ = resolve_collection_batch(list(retry_map.values()))
                 for original_name, front_face in retry_map.items():
                     if front_face in retried:
                         card_cache[original_name] = retried[front_face]
@@ -412,16 +412,6 @@ def resolve_missing_cards(
                     for name in unresolved
                     if name not in card_cache and retry_map.get(name) not in retried
                 ]
-                if still_missing:
-                    unresolved = [
-                        name
-                        for name in unresolved
-                        if retry_map.get(name) not in still_missing
-                    ] + [
-                        name
-                        for name, front_face in retry_map.items()
-                        if front_face in still_missing and name not in unresolved
-                    ]
 
         write_json(cards_path, card_cache)
         if unresolved:

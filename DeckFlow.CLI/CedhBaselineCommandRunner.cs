@@ -26,6 +26,7 @@ internal static class CedhBaselineCommandRunner
     /// <param name="dataDirectory">Directory containing <c>decks_all.json</c> and <c>cards_full.json</c>.</param>
     /// <param name="outputDirectory">Directory to write the monthly markdown/JSON artifacts into.</param>
     /// <param name="month">Month label in <c>YYYY-MM</c> form.</param>
+    /// <param name="thresholdsPath">Path to the drift-thresholds JSON file.</param>
     public static Task<int> RunAsync(string dataDirectory, string outputDirectory, string month, string thresholdsPath)
     {
         if (string.IsNullOrWhiteSpace(dataDirectory))
@@ -69,12 +70,30 @@ internal static class CedhBaselineCommandRunner
                 return Task.FromResult(2);
             }
 
+            CedhDriftThresholds thresholds;
+            try
+            {
+                if (!File.Exists(thresholdsPath))
+                {
+                    Console.Error.WriteLine($"Drift thresholds file not found at {thresholdsPath}.");
+                    return Task.FromResult(1);
+                }
+
+                thresholds = CedhDriftThresholds.FromJson(File.ReadAllText(thresholdsPath));
+            }
+            catch (JsonException ex)
+            {
+                Console.Error.WriteLine($"Could not read drift inputs: {ex.Message}");
+                return Task.FromResult(1);
+            }
+
             var samples = new List<CedhDeckSample>(decks.Count);
+            var missingCardNames = new HashSet<string>(StringComparer.Ordinal);
             foreach (CalibrationDeck deck in decks)
             {
                 var facts = new List<CardFact>(deck.Commanders.Count + deck.Maindeck.Count);
-                AddCardFacts(facts, deck.Commanders, cards, isCommander: true);
-                AddCardFacts(facts, deck.Maindeck, cards, isCommander: false);
+                AddCardFacts(facts, deck.Commanders, cards, missingCardNames, isCommander: true);
+                AddCardFacts(facts, deck.Maindeck, cards, missingCardNames, isCommander: false);
 
                 // These accuracy flags are pinned ON so the baseline's land count matches the app's
                 // own classification (Sources.IsLand) under the prod accuracy profile; changing them
@@ -95,6 +114,25 @@ internal static class CedhBaselineCommandRunner
                     facts.Count));
             }
 
+            if (missingCardNames.Count > 0)
+            {
+                Console.Error.WriteLine(
+                    $"Calibration cache is incomplete: {missingCardNames.Count} distinct card name(s) were missing.");
+                Console.Error.WriteLine(
+                    "The baseline would under-count those cards, so refusing to continue without writing artifacts.");
+                foreach (string name in missingCardNames.OrderBy(name => name, StringComparer.Ordinal).Take(20))
+                {
+                    Console.Error.WriteLine($"  missing: {name}");
+                }
+
+                if (missingCardNames.Count > 20)
+                {
+                    Console.Error.WriteLine($"  ... and {missingCardNames.Count - 20} more.");
+                }
+
+                return Task.FromResult(1);
+            }
+
             CedhLandBaselineResult result = CedhLandBaseline.Build(samples, month);
             CedhLandBaselineSnapshot snapshot = CedhLandBaseline.ToSnapshot(result);
             if (result.SampleSize == 0)
@@ -106,20 +144,14 @@ internal static class CedhBaselineCommandRunner
             // Evaluate drift BEFORE writing anything. The 2026-07-27 corrupt run overwrote the
             // committed artifacts and they had to be recovered from git; failing first leaves the
             // last-known-good snapshot in place.
+            // Why: fetch.py runs in a separate process and writes its resumable cache before
+            // failing, so the builder must enforce the same zero-unresolved rule where data is used.
             string latestPath = Path.Combine(outputDirectory, "latest.json");
             if (File.Exists(latestPath))
             {
-                if (!File.Exists(thresholdsPath))
-                {
-                    Console.Error.WriteLine($"Drift thresholds file not found at {thresholdsPath}.");
-                    return Task.FromResult(1);
-                }
-
-                CedhDriftThresholds thresholds;
                 CedhLandBaselineSnapshot? previous;
                 try
                 {
-                    thresholds = CedhDriftThresholds.FromJson(File.ReadAllText(thresholdsPath));
                     previous = JsonSerializer.Deserialize<CedhLandBaselineSnapshot>(
                         File.ReadAllText(latestPath),
                         JsonOptions);
@@ -153,7 +185,7 @@ internal static class CedhBaselineCommandRunner
                     return Task.FromResult(1);
                 }
 
-                Console.WriteLine($"Drift check passed against {latestPath}.");
+                Console.WriteLine($"Drift check passed against {latestPath} using thresholds {thresholdsPath}.");
             }
             else
             {
@@ -191,6 +223,7 @@ internal static class CedhBaselineCommandRunner
         List<CardFact> facts,
         IEnumerable<string> names,
         IReadOnlyDictionary<string, ScryfallCardData> cards,
+        ISet<string> missingCardNames,
         bool isCommander)
     {
         foreach (string name in names)
@@ -198,6 +231,10 @@ internal static class CedhBaselineCommandRunner
             if (cards.TryGetValue(name, out ScryfallCardData? card))
             {
                 facts.Add(ScryfallCardFactMapper.ToCardFact(card, quantity: 1, isCommander: isCommander));
+            }
+            else
+            {
+                missingCardNames.Add(name);
             }
         }
     }

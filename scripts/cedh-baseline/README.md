@@ -62,13 +62,14 @@ The pipeline fails closed at two points. Neither is advisory.
    counts lands off the resolved cache, so unresolved modal-DFC lands under-count the deck. The
    card cache is written before the failure, so the run stays resumable.
 
-2. **Drift check (`cedh-land-baseline`).** Before writing any artifact, unless the committed
-   `latest.json` snapshot is missing and the run is treated as a bootstrap, the new snapshot is
+2. **Drift check (`cedh-land-baseline`).** Before writing any artifact, the new snapshot is
    compared against the committed `latest.json` using the limits in
    `scripts/cedh-baseline/drift-thresholds.json`. Three rules fire on shapes that indicate corrupt
    input rather than metagame movement: an established commander disappearing, a populous
    commander's sample collapsing, and many commanders drifting the same direction at once. On
-   failure nothing is written, so the last-known-good snapshot survives.
+   failure nothing is written, so the last-known-good snapshot survives. If no committed
+   `latest.json` exists the run is treated as a bootstrap and the comparison is skipped, but the
+   thresholds file must still be present and valid.
 
 If a refresh trips the drift check because the metagame genuinely moved, retune and commit
 `drift-thresholds.json`, then re-run. Committing the change means the new normal is reviewed in a
