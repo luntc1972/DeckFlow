@@ -32,6 +32,14 @@ public sealed class CedhBaselineDriftCheckTests
                 c => new CedhCommanderBaselineSnapshot { N = c.N, LandsMean = c.Mean, LandsSd = 1.0 }),
         };
 
+    private static CedhLandBaselineSnapshot MoverSnapshot(int count, double meanDelta, int startAt = 0)
+    {
+        (string, int, double)[] rows = Enumerable.Range(startAt, count)
+            .Select(i => ($"Commander {i}", 50, 26.0 + meanDelta))
+            .ToArray();
+        return Snapshot("2026-07", rows);
+    }
+
     [Fact]
     public void Evaluate_IdenticalSnapshots_Passes()
     {
@@ -158,6 +166,61 @@ public sealed class CedhBaselineDriftCheckTests
         // Below MinPopulousN the swing is noise, not signal.
         CedhLandBaselineSnapshot previous = Snapshot("2026-07", ("Kaalia of the Vast", 19, 25.8));
         CedhLandBaselineSnapshot candidate = Snapshot("2026-07", ("Kaalia of the Vast", 3, 25.3));
+
+        CedhDriftVerdict verdict = CedhBaselineDriftCheck.Evaluate(previous, candidate, Thresholds);
+
+        Assert.True(verdict.Passed);
+    }
+
+    [Fact]
+    public void Evaluate_ManyMoversAllSameDirection_Fails()
+    {
+        // The corrupt 2026-07 run moved 42 commanders by >=0.5 lands and every single one moved
+        // down. Metagame drift scatters; systematic corruption pushes one way.
+        CedhLandBaselineSnapshot previous = MoverSnapshot(12, 0.0);
+        CedhLandBaselineSnapshot candidate = MoverSnapshot(12, -1.0);
+
+        CedhDriftVerdict verdict = CedhBaselineDriftCheck.Evaluate(previous, candidate, Thresholds);
+
+        Assert.False(verdict.Passed);
+        CedhDriftFinding finding = Assert.Single(verdict.Findings, f => f.Rule == "OneSidedDrift");
+        Assert.Null(finding.Commander);
+    }
+
+    [Fact]
+    public void Evaluate_ManyMoversMixedDirections_Passes()
+    {
+        var previousRows = Enumerable.Range(0, 12).Select(i => ($"Commander {i}", 50, 26.0)).ToArray();
+        var candidateRows = Enumerable.Range(0, 12)
+            .Select(i => ($"Commander {i}", 50, i % 2 == 0 ? 27.0 : 25.0))
+            .ToArray();
+
+        CedhDriftVerdict verdict = CedhBaselineDriftCheck.Evaluate(
+            Snapshot("2026-07", previousRows), Snapshot("2026-07", candidateRows), Thresholds);
+
+        Assert.True(verdict.Passed);
+    }
+
+    [Fact]
+    public void Evaluate_FewMoversAllSameDirection_Passes()
+    {
+        // Below MinMoversForDirectionTest the rule is inert: the corrected 2026-07 refresh had
+        // only 4 movers (1 up, 3 down), which is 75% one-sided by chance.
+        CedhLandBaselineSnapshot previous = MoverSnapshot(4, 0.0);
+        CedhLandBaselineSnapshot candidate = MoverSnapshot(4, -1.0);
+
+        CedhDriftVerdict verdict = CedhBaselineDriftCheck.Evaluate(previous, candidate, Thresholds);
+
+        Assert.True(verdict.Passed);
+    }
+
+    [Fact]
+    public void Evaluate_SubThresholdMovementIsNotAMover()
+    {
+        // 0.4 lands is below MoverThresholdLands, so these do not count even though all 20 shift
+        // the same way.
+        CedhLandBaselineSnapshot previous = MoverSnapshot(20, 0.0);
+        CedhLandBaselineSnapshot candidate = MoverSnapshot(20, -0.4);
 
         CedhDriftVerdict verdict = CedhBaselineDriftCheck.Evaluate(previous, candidate, Thresholds);
 

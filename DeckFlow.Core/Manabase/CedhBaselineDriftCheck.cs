@@ -78,6 +78,7 @@ public static class CedhBaselineDriftCheck
         List<CedhDriftFinding> findings = [];
         AddDroppedEstablishedCommanders(previous, candidate, thresholds, findings);
         AddSampleCollapses(previous, candidate, thresholds, findings);
+        AddOneSidedDrift(previous, candidate, thresholds, findings);
 
         return new CedhDriftVerdict { Passed = findings.Count == 0, Findings = findings };
     }
@@ -135,5 +136,60 @@ public static class CedhBaselineDriftCheck
                     + $"limit is {thresholds.MaxSampleDropPct:0.#}%.",
             });
         }
+    }
+
+    private static void AddOneSidedDrift(
+        CedhLandBaselineSnapshot previous,
+        CedhLandBaselineSnapshot candidate,
+        CedhDriftThresholds thresholds,
+        List<CedhDriftFinding> findings)
+    {
+        int up = 0;
+        int down = 0;
+
+        foreach ((string name, CedhCommanderBaselineSnapshot prior) in previous.Commanders)
+        {
+            if (!candidate.Commanders.TryGetValue(name, out CedhCommanderBaselineSnapshot? current))
+            {
+                continue;
+            }
+
+            double delta = current.LandsMean - prior.LandsMean;
+            if (Math.Abs(delta) < thresholds.MoverThresholdLands)
+            {
+                continue;
+            }
+
+            if (delta > 0)
+            {
+                up++;
+            }
+            else
+            {
+                down++;
+            }
+        }
+
+        int movers = up + down;
+        if (movers < thresholds.MinMoversForDirectionTest)
+        {
+            return;
+        }
+
+        double oneSidedPct = Math.Max(up, down) / (double)movers * 100.0;
+        if (oneSidedPct < thresholds.MaxOneSidedPct)
+        {
+            return;
+        }
+
+        findings.Add(new CedhDriftFinding
+        {
+            Rule = "OneSidedDrift",
+            Detail =
+                $"{movers} commanders moved at least {thresholds.MoverThresholdLands:0.#} lands and "
+                + $"{oneSidedPct:0.0}% went the same way (up {up}, down {down}); limit is "
+                + $"{thresholds.MaxOneSidedPct:0.#}%. Metagame drift scatters; a one-sided shift "
+                + "indicates systematic input corruption.",
+        });
     }
 }
