@@ -523,6 +523,7 @@ const nonPersistedFieldNames = new Set([
   'WorkflowStep',
   'FetchedEntriesJson',
   'MetaGapPromptText',
+  'CutLabStateJson',
 ]);
 // Phase 10 (D-15 race fix): track the auto-clear timer per form so a
 // rapid second upload cancels the first upload's pending clear-timeout
