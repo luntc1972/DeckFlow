@@ -78,39 +78,47 @@ In `scripts/cedh-baseline/fetch.py`, replace the tail of `main()` (currently the
 
 The card cache is written *before* this check so the expensive Scryfall work is preserved and the run stays resumable.
 
-- [ ] **Step 2: Verify the gate passes on good data**
+- [ ] **Step 2: Verify both gate paths with a stubbed harness**
 
-The committed `_calib` cache is complete (6717/6717).
+Do NOT try to verify by editing `_calib` and re-running the script. `main()` calls
+`fetch_all_decks` first and overwrites `decks_all.json` from the network, so a bogus card injected
+into that file is erased before the gate sees it, and deleting entries from `cards_full.json` just
+causes them to be re-resolved. Either route also costs ~5 minutes of live traffic per attempt.
 
-Run: `python3 scripts/cedh-baseline/fetch.py --outdir _calib; echo "exit=$?"`
-Expected: `exit=0`, no `ERROR:` line.
-
-- [ ] **Step 3: Verify the gate fires on corrupt data**
-
-Simulate the incident by deleting a resolved card from a throwaway copy of the cache:
+Stub the network instead — this exercises the gate directly and makes two Scryfall calls total:
 
 ```bash
-cp -r _calib /tmp/calib-gate-test
+rm -rf /tmp/gate-pass /tmp/gate-fail
 python3 - <<'PY'
-import json
-p = "/tmp/calib-gate-test/cards_full.json"
-cards = json.load(open(p))
-for name in list(cards)[:5]:
-    del cards[name]
-json.dump(cards, open(p, "w"))
+import importlib.util, sys
+
+def load():
+    spec = importlib.util.spec_from_file_location("f", "scripts/cedh-baseline/fetch.py")
+    m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m); return m
+
+m = load()
+m.fetch_all_decks = lambda a, b: [{"commanders": ["Kinnan, Bonder Prodigy"], "maindeck": ["Sol Ring", "Sink into Stupor // Soporific Springs"]}]
+sys.argv = ["fetch.py", "--outdir", "/tmp/gate-pass"]
+print(f"PASS-CASE exit={m.main()}  (expected 0)")
+
+m2 = load()
+m2.fetch_all_decks = lambda a, b: [{"commanders": ["Kinnan, Bonder Prodigy"], "maindeck": ["Sol Ring", "Not A Real Card Xyzzy"]}]
+sys.argv = ["fetch.py", "--outdir", "/tmp/gate-fail"]
+print(f"FAIL-CASE exit={m2.main()}  (expected 1)")
 PY
-python3 scripts/cedh-baseline/fetch.py --outdir /tmp/calib-gate-test; echo "exit=$?"
+rm -rf /tmp/gate-pass /tmp/gate-fail scripts/cedh-baseline/__pycache__
 ```
 
-Expected: `exit=1` and an `ERROR: 5 of 6717 card names did not resolve.` line listing them.
+Expected: `PASS-CASE exit=0` and `FAIL-CASE exit=1`, the latter preceded by
+`ERROR: 1 of 3 card names did not resolve...` naming `Not A Real Card Xyzzy`. The pass case
+deliberately includes a modal-DFC land, so it also confirms front-face resolution still works.
 
-Note: the deleted names get re-resolved by the run itself, so if the gate reports `exit=0`, re-run the deletion with names that are genuinely unresolvable (append a bogus entry to a deck in `/tmp/calib-gate-test/decks_all.json` instead, e.g. `"Not A Real Card Xyzzy"`), which exercises the same path.
-
-- [ ] **Step 4: Clean up**
+- [ ] **Step 3: Confirm no artifacts left behind**
 
 ```bash
-rm -rf /tmp/calib-gate-test
+git status --porcelain scripts/cedh-baseline/
 ```
+Expected: only `fetch.py` modified — no `__pycache__`.
 
 - [ ] **Step 5: Commit**
 
