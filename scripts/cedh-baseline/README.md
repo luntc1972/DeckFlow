@@ -5,7 +5,7 @@ Monthly pipeline:
 1. Refresh the calibration cache:
 
    ```bash
-   python3 scripts/cedh-baseline/fetch.py --since YYYY-MM-DD
+   python3 scripts/cedh-baseline/fetch.py --outdir _calib --since YYYY-MM-DD
    ```
 
 2. Build the monthly baseline artifacts from the cached `_calib` inputs:
