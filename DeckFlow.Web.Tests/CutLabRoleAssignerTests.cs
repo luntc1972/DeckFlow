@@ -153,17 +153,21 @@ public sealed class CutLabRoleAssignerTests
         Assert.Equal(["interaction-mass"], roles);
     }
 
-    [Fact]
-    public void AssignRoles_WipeCategoryTagWithoutHeuristic_IsMassOnly()
+    [Theory]
+    [InlineData("wipe")]
+    [InlineData("Board Wipe")]
+    [InlineData("Board Wipes")]
+    [InlineData("BOARD WIPE")]
+    public void AssignRoles_WipeCategoryTagWithoutHeuristic_IsMassOnly(string category)
     {
         CardFact fact = Fact(
-            "Selective Purge",
+            "Cyclonic Redirection",
             "Instant",
-            oracle: "Destroy target artifact.");
+            oracle: "Return all nonland permanents that player controls to their owner's hand.");
 
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
             fact,
-            ["wipe"],
+            [category],
             isComboPiece: false,
             ManabaseMode.Casual);
 
@@ -229,7 +233,7 @@ public sealed class CutLabRoleAssignerTests
         (CardFact Fact, IReadOnlyList<string> Categories, bool IsComboPiece, ManabaseMode Mode)[] samples =
         [
             (Fact("Wrath of God", "Sorcery", "Destroy all creatures. They can't be regenerated."), Array.Empty<string>(), false, ManabaseMode.Casual),
-            (Fact("Selective Purge", "Instant", "Destroy target artifact."), ["wipe"], false, ManabaseMode.Casual),
+            (Fact("Cyclonic Redirection", "Instant", "Return all nonland permanents that player controls to their owner's hand."), ["Board Wipe"], false, ManabaseMode.Casual),
             (Fact("Swords to Plowshares", "Instant", "Exile target creature. Its controller gains life equal to its power."), Array.Empty<string>(), false, ManabaseMode.Casual),
             (Fact("Counterspell", "Instant", "Counter target spell."), Array.Empty<string>(), false, ManabaseMode.Cedh),
             (Fact("Flexible Answer", "Artifact", "Artifacts you control enter untapped."), ["answer"], false, ManabaseMode.Casual),
