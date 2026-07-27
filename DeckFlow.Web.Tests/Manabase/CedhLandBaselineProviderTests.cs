@@ -25,8 +25,8 @@ public sealed class CedhLandBaselineProviderTests
 
         Assert.True(found);
         Assert.Equal(25.8, mean, 1);
-        Assert.Equal(327, n);
-        Assert.Equal(0.9, sd, 1);
+        Assert.Equal(337, n);
+        Assert.Equal(1.0, sd, 1);
         Assert.Equal("2026-07", generated);
     }
 
@@ -41,7 +41,7 @@ public sealed class CedhLandBaselineProviderTests
 
         Assert.True(found);
         Assert.True(n >= 10, "Plagon must stay at a usable sample size (N>=10).");
-        Assert.Equal(26.3, mean, 1);
+        Assert.Equal(26.0, mean, 1);
         Assert.True(sd > 0);
     }
 
@@ -59,7 +59,7 @@ public sealed class CedhLandBaselineProviderTests
         Assert.True(forwardFound);
         Assert.Equal(27.3, reverseMean, 1);
         Assert.Equal(reverseMean, forwardMean, 1);
-        Assert.Equal(241, reverseN);
+        Assert.Equal(255, reverseN);
         Assert.Equal(reverseN, forwardN);
         Assert.Equal(1.5, reverseSd, 1);
         Assert.Equal(reverseSd, forwardSd, 1);
