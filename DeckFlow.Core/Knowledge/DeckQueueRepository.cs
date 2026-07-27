@@ -332,6 +332,34 @@ internal sealed class DeckQueueRepository
     }
 
     /// <summary>
+    /// Gets stored canonical content hashes for queued Archidekt decks keyed by <c>deck_queue.id</c>.
+    /// </summary>
+    internal async Task<IReadOnlyDictionary<long, string?>> GetContentHashesByIdsAsync(
+        IReadOnlyCollection<long> deckQueueIds,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(deckQueueIds);
+        if (deckQueueIds.Count == 0)
+        {
+            return new Dictionary<long, string?>();
+        }
+
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        string query = _connectionInfo.IsPostgres
+            ? "SELECT id, content_hash FROM deck_queue WHERE id = ANY(@deckQueueIds);"
+            : "SELECT id, content_hash FROM deck_queue WHERE id IN @deckQueueIds;";
+        var rows = await connection.QueryAsync<DeckQueueContentHashRow>(new CommandDefinition(
+            query,
+            new { deckQueueIds = deckQueueIds.ToList() },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+        return rows.ToDictionary(row => row.Id, row => row.ContentHash);
+    }
+
+    /// <summary>
     /// Sets the stored canonical content hash for a queued Archidekt deck; passing null clears it.
     /// </summary>
     /// <param name="deckId">Deck ID to update.</param>
@@ -441,5 +469,11 @@ internal sealed class DeckQueueRepository
         public string CommanderName { get; init; } = string.Empty;
         public long DeckCount { get; init; }
         public string? LastProcessedUtc { get; init; }
+    }
+
+    private sealed class DeckQueueContentHashRow
+    {
+        public long Id { get; init; }
+        public string? ContentHash { get; init; }
     }
 }
