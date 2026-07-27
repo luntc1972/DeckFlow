@@ -42,8 +42,9 @@ public static class CutLabStateSerializer
 
     /// <summary>Deserializes a previously submitted working-session payload.</summary>
     /// <param name="json">Serialized payload.</param>
+    /// <param name="bracketOverride">Optional bracket to use for legacy interaction-floor migration.</param>
     /// <returns>The deserialized state, or an empty state when input is blank or malformed.</returns>
-    public static CutLabState Deserialize(string? json)
+    public static CutLabState Deserialize(string? json, int? bracketOverride = null)
     {
         if (string.IsNullOrWhiteSpace(json) || Encoding.UTF8.GetByteCount(json) > MaxUploadBytes)
         {
@@ -77,7 +78,7 @@ public static class CutLabStateSerializer
                     .ToArray(),
             };
 
-            return CutLabGoalRules.ClampGoals(CutLabFloorRules.ClampFloors(CutLabLockRules.EnforceCommanderLock(state)));
+            return CutLabGoalRules.ClampGoals(CutLabFloorRules.ClampFloors(CutLabLockRules.EnforceCommanderLock(state), bracketOverride));
         }
         catch (JsonException)
         {

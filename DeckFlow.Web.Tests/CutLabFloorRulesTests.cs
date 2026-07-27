@@ -138,6 +138,46 @@ public sealed class CutLabFloorRulesTests
     }
 
     [Fact]
+    public void ClampFloors_WithoutBracketOverride_UsesPersistedIntentBracket()
+    {
+        var state = CreateState(new CutLabRoleFloor { Role = "interaction", Floor = 15, IsUserSet = true }) with
+        {
+            Intent = new CutLabIntent
+            {
+                Bracket = 2,
+                PlayExperience = "Focused",
+            },
+        };
+
+        var result = CutLabFloorRules.ClampFloors(state);
+
+        CutLabRoleFloor targeted = Assert.Single(result.RoleFloors, floor => floor.Role == "interaction-targeted");
+        CutLabRoleFloor mass = Assert.Single(result.RoleFloors, floor => floor.Role == "interaction-mass");
+        Assert.Equal(10, targeted.Floor);
+        Assert.Equal(5, mass.Floor);
+    }
+
+    [Fact]
+    public void ClampFloors_BracketOverride_UsesOverrideInsteadOfPersistedIntentBracket()
+    {
+        var state = CreateState(new CutLabRoleFloor { Role = "interaction", Floor = 15, IsUserSet = true }) with
+        {
+            Intent = new CutLabIntent
+            {
+                Bracket = 2,
+                PlayExperience = "Focused",
+            },
+        };
+
+        var result = CutLabFloorRules.ClampFloors(state, bracketOverride: 4);
+
+        CutLabRoleFloor targeted = Assert.Single(result.RoleFloors, floor => floor.Role == "interaction-targeted");
+        CutLabRoleFloor mass = Assert.Single(result.RoleFloors, floor => floor.Role == "interaction-mass");
+        Assert.Equal(11, targeted.Floor);
+        Assert.Equal(4, mass.Floor);
+    }
+
+    [Fact]
     public void ClampFloors_LegacyNonUserSetInteraction_DropsWithoutMigrating()
     {
         var state = CreateState(new CutLabRoleFloor { Role = "interaction", Floor = 14, IsUserSet = false });
@@ -184,6 +224,29 @@ public sealed class CutLabFloorRulesTests
         Assert.Equal(10, targeted.Floor);
         Assert.Equal(4, mass.Floor);
         Assert.All(result.RoleFloors, floor => Assert.True(floor.IsUserSet));
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    public void ClampFloors_BracketOverride_PreservesLegacyFloorSumAcrossSupportedBrackets(int bracketOverride)
+    {
+        const int legacyFloor = 15;
+        var state = CreateState(new CutLabRoleFloor { Role = "interaction", Floor = legacyFloor, IsUserSet = true }) with
+        {
+            Intent = new CutLabIntent
+            {
+                PlayExperience = "Focused",
+            },
+        };
+
+        var result = CutLabFloorRules.ClampFloors(state, bracketOverride);
+
+        CutLabRoleFloor targeted = Assert.Single(result.RoleFloors, floor => floor.Role == "interaction-targeted");
+        CutLabRoleFloor mass = Assert.Single(result.RoleFloors, floor => floor.Role == "interaction-mass");
+        Assert.Equal(legacyFloor, targeted.Floor + mass.Floor);
     }
 
     [Fact]

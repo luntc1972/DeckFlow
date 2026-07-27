@@ -263,7 +263,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             warnings.Add("Banned-card check unavailable right now - legality was not verified for this import.");
         }
 
-        var priorState = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+        var priorState = CutLabStateSerializer.Deserialize(request.CutLabStateJson, request.Bracket);
         var preAnalysisState = CutLabLockRules.EnforceCommanderLock(
             BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, []));
         IReadOnlyList<CutLabPoolCard> derivedWorkingList = CutLabWorkingList.Derive(preAnalysisState.Pool, preAnalysisState.Decisions, preAnalysisState.QuantityAdjustments);
