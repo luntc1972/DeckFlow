@@ -75,6 +75,7 @@ var cedhLandBaselineCommand = new Command("cedh-land-baseline", "Build the month
 var cedhLandBaselineDataOption = new Option<string>("--data") { Description = "Directory containing decks_all.json and cards_full.json.", IsRequired = true };
 var cedhLandBaselineOutOption = new Option<string>("--out", () => Path.Combine("DeckFlow.Web", "Data", "cedh-land-baseline")) { Description = "Output directory for the monthly markdown/JSON artifacts." };
 var cedhLandBaselineMonthOption = new Option<string>("--month") { Description = "Month label in YYYY-MM format.", IsRequired = true };
+var cedhLandBaselineThresholdsOption = new Option<string>("--thresholds", () => Path.Combine("scripts", "cedh-baseline", "drift-thresholds.json")) { Description = "Path to the committed drift-threshold configuration." };
 var scryfallProbeCommand = new Command("scryfall-probe", "Hit Scryfall once (or many times) and log the full response including headers.");
 var scryfallProbeEndpointOption = new Option<string>("--endpoint", () => "named") { Description = "named | search | random" };
 var scryfallProbeNameOption = new Option<string?>("--name") { Description = "Card name for named/search. Defaults to Sol Ring." };
@@ -161,6 +162,7 @@ cedhLandCalibrateCommand.AddOption(cedhLandCalibrateOutOption);
 cedhLandBaselineCommand.AddOption(cedhLandBaselineDataOption);
 cedhLandBaselineCommand.AddOption(cedhLandBaselineOutOption);
 cedhLandBaselineCommand.AddOption(cedhLandBaselineMonthOption);
+cedhLandBaselineCommand.AddOption(cedhLandBaselineThresholdsOption);
 scryfallProbeCommand.AddOption(scryfallProbeEndpointOption);
 scryfallProbeCommand.AddOption(scryfallProbeNameOption);
 scryfallProbeCommand.AddOption(scryfallProbeRepeatOption);
@@ -316,10 +318,10 @@ cedhLandCalibrateCommand.SetHandler((string dataDirectory, string baselinePath, 
     Environment.ExitCode = CedhCalibrateCommandRunner.RunAsync(dataDirectory, baselinePath, outputPath).GetAwaiter().GetResult();
 }, cedhLandCalibrateDataOption, cedhLandCalibrateBaselineOption, cedhLandCalibrateOutOption);
 
-cedhLandBaselineCommand.SetHandler((string dataDirectory, string outputDirectory, string month) =>
+cedhLandBaselineCommand.SetHandler((string dataDirectory, string outputDirectory, string month, string thresholdsPath) =>
 {
-    Environment.ExitCode = CedhBaselineCommandRunner.RunAsync(dataDirectory, outputDirectory, month).GetAwaiter().GetResult();
-}, cedhLandBaselineDataOption, cedhLandBaselineOutOption, cedhLandBaselineMonthOption);
+    Environment.ExitCode = CedhBaselineCommandRunner.RunAsync(dataDirectory, outputDirectory, month, thresholdsPath).GetAwaiter().GetResult();
+}, cedhLandBaselineDataOption, cedhLandBaselineOutOption, cedhLandBaselineMonthOption, cedhLandBaselineThresholdsOption);
 
 scryfallProbeCommand.SetHandler((string endpoint, string? cardName, int repeat) =>
 {
