@@ -8,6 +8,24 @@ namespace DeckFlow.Core.Research;
 public static class RoleFloorProvenance
 {
     /// <summary>
+    /// Resolves the connection string source for the role-floor harness.
+    /// </summary>
+    /// <param name="flagValue">The <c>--connection-string</c> flag value.</param>
+    /// <param name="environmentValue">The environment-variable value.</param>
+    /// <returns>The flag value when present, otherwise the environment value, otherwise <see langword="null"/>.</returns>
+    public static string? ResolveConnectionString(string? flagValue, string? environmentValue)
+    {
+        if (!string.IsNullOrWhiteSpace(flagValue))
+        {
+            return flagValue;
+        }
+
+        return string.IsNullOrWhiteSpace(environmentValue)
+            ? null
+            : environmentValue;
+    }
+
+    /// <summary>
     /// Derives the database host display from a normalized Postgres connection string.
     /// </summary>
     /// <param name="normalizedConnectionString">The normalized Postgres connection string.</param>
