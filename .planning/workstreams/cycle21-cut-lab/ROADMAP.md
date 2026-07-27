@@ -3,14 +3,16 @@
 **Workstream:** `cycle21-cut-lab` (branch `gsd/cycle21-cut-lab`, isolated worktree at `../deckflow-role-floors`)
 **Core Value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip, without the user reformatting anything.
 
-Five phases. Phase 3 is conditional on Phase 2's findings. Phases 4 and 5 are independent of
-everything else and can run in parallel with the 1→2→3 spine.
+Seven phases (two inserted: 01.1 and 01.2, both classifier-defect repairs that gate Phase 2's
+measurement validity). Phase 3 is conditional on Phase 2's findings. Phases 4 and 5 are independent
+of everything else and can run in parallel with the 1→01.1→01.2→2→3 spine.
 
 ## Phases
 
-- [ ] **Phase 1: Interaction Taxonomy Split** - Split the merged `interaction` role into `interaction-targeted` and `interaction-mass` from the classifier calls that are already separate, so the taxonomy Phase 2 measures is the taxonomy that ships.
-- [ ] **Phase 01.1: Plan-Role Classifier Heuristic Fixes (INSERTED)** - Fix the Counters/counterspell substring collision and the missing protection-card check in `PlanRoleClassifier`'s oracle heuristic (spike 002 findings), before Phase 2 measures floors on top of this same classifier.
-- [ ] **Phase 2: Role-Floor Divergence Research** - Repair and actually run the research harness against the real Postgres corpus; delete the synthetic fixture writer; publish an honest go/no-go.
+- [x] **Phase 1: Interaction Taxonomy Split** - Split the merged `interaction` role into `interaction-targeted` and `interaction-mass` from the classifier calls that are already separate, so the taxonomy Phase 2 measures is the taxonomy that ships. *(shipped 2026-07-26, head `9527dc72`)*
+- [x] **Phase 01.1: Plan-Role Classifier Heuristic Fixes (INSERTED)** - Fix the Counters/counterspell substring collision and the missing protection-card check in `PlanRoleClassifier`'s oracle heuristic (spike 002 findings), before Phase 2 measures floors on top of this same classifier. *(completed 2026-07-27, head `b8ec09f3`)*
+- [ ] **Phase 01.2: Protection-Vocabulary Widening (INSERTED, from Phase 01.1 D-06)** - Widen `DeckStatClassifier.IsProtectionCard`'s oracle vocabulary, which currently under-detects in both directions because its verb agreement is inconsistent across its own four needles. Same rationale as 01.1: Phase 2 counts roles through this predicate.
+- [ ] **Phase 2: Role-Floor Divergence Research** - Run the repaired harness over a **hybrid corpus** (EDHREC for the commander × bracket grid, Postgres for within-commander distributions), report a **25th-percentile** floor per role, and publish an honest go/no-go. Scope now includes **lands and ramp** alongside the non-land roles. Delete the synthetic fixture writer.
 - [ ] **Phase 3: Commander-Aware Floor Defaults (CONDITIONAL on Phase 2 = go)** - Extend `CutLabFloorDefaults` with a commander-specific priority-chain layer for the roles Phase 2 found signal for, showing bracket and commander floors side by side.
 - [ ] **Phase 4: Functional-Twins Detector (INDEPENDENT)** - Add the first discriminating structural finding: cards competing for the same slot at the same cost.
 - [ ] **Phase 5: Archidekt Bracket Capture (INDEPENDENT, non-gating)** - Capture the bracket already present on the Archidekt deck payload so a future commander × bracket analysis is possible.
@@ -18,13 +20,21 @@ everything else and can run in parallel with the 1→2→3 spine.
 ## Execution Order
 
 ```
-Phase 1 ──▶ Phase 2 ──▶ Phase 3 (gated on go/no-go)
-Phase 4 ─────────────────────────▶  (parallel, no dependencies)
-Phase 5 ─────────────────────────▶  (parallel, no dependencies, backfills over time)
+Phase 1 ──▶ Phase 01.1 ──▶ Phase 01.2 ──▶ Phase 2 ──▶ Phase 3 (gated on go/no-go)
+   ✅            ✅
+Phase 4 ────────────────────────────────────────────▶  (parallel, no dependencies)
+Phase 5 ────────────────────────────────────────────▶  (parallel, no dependencies, backfills over time)
 ```
 
 Phase 1 **must** precede Phase 2: Phase 2 reports spread per role, and `interaction` is one of the
 roles the go/no-go hinges on. Measuring a role that is about to be redefined wastes the run.
+
+Phases 01.1 and 01.2 sit on the same spine for the same reason, one level down: Phase 2 counts roles
+per card through `PlanRoleClassifier` / `DeckStatClassifier`, so a defect in those predicates is
+measured as if it were a property of the decks. 01.1 is done. **01.2's placement ahead of Phase 2 is
+a judgment call, not a hard dependency** — it is sequenced here for consistency with 01.1, but if it
+proves large it can be deferred behind Phase 2 provided the go/no-go explicitly records that
+protection was under-detected during the run.
 
 ## Release Posture — ship phases as they complete
 
@@ -72,11 +82,10 @@ workstream. It is directly relevant and partly supersedes the assumed approach.
    non-land roles behave differently. Phase 2 must be prepared to reach the same negative verdict
    and say so plainly.
 
-**Open decision for Phase 2 planning:** Postgres Archidekt corpus (real distributions, no bracket,
-known coverage gaps, 240 decks / 6 commanders in the attempted run) versus EDHREC average-decks
-(bracket built in, ≥400 decks/cell, 50–100 commanders proven reachable, but point estimates only).
-A hybrid — EDHREC for the commander × bracket grid, Postgres for within-commander spread on the
-commanders that qualify — is likely the right answer. Resolve before writing plans.
+**RESOLVED 2026-07-27 — hybrid corpus, P25 floor, lands and ramp in scope.** See "Decisions RESOLVED
+by the developer" under Phase 2 below for the full reasoning. In short: EDHREC for the commander ×
+bracket grid, Postgres for within-commander distributions, 25th-percentile floors, and lands
+re-measured deliberately as a calibration control against this document's own land precedent.
 
 ## Phase Details
 
@@ -100,14 +109,112 @@ commanders that qualify — is likely the right answer. Resolve before writing p
 **Plans:** 2 plans (2 waves -- both touch `PlanRoleClassifier.cs` and its test file, so they are sequential by file ownership, not by logic)
 
 Plans:
-- [ ] 01.1-01-PLAN.md -- Bug 1: word-boundary-safe `IsCounterCategory` so the `Counters` (+1/+1) synergy tag stops matching the counterspell arm
-- [ ] 01.1-02-PLAN.md -- Bug 2: wire `DeckStatClassifier.IsProtectionCard` into `GrantsInteraction` so protection permanents earn Interaction from oracle text alone (has a blocking checkpoint for the downstream delta)
+- [x] 01.1-01-PLAN.md -- Bug 1: word-boundary-safe `IsCounterCategory` so the `Counters` (+1/+1) synergy tag stops matching the counterspell arm *(`773cc458` RED, `44e12c90` GREEN, `d30b3141` doc)*
+- [x] 01.1-02-PLAN.md -- Bug 2: wire `DeckStatClassifier.IsProtectionCard` into `GrantsInteraction` so protection permanents earn Interaction from oracle text alone (has a blocking checkpoint for the downstream delta) *(`db4d3359` RED, `34e92cc3` GREEN, `b8ec09f3` checkpoint)*
+
+**Outcome (2026-07-27):** Both bugs fixed. Suite green — build 0/0, Core 1630, Web 2095/0/16.
+The feared regression did **not** materialize: `ManabaseHealthBandRegressionTests` held at
+`("Solid","Solid")` on `.manabase-arch-7084567-facts.json` (18/18), so counting protection permanents
+as interaction did not move a deck's health band, and no golden or expectation value was edited.
+One user-visible change ships with this phase and must not be filed as a bug at UAT: a 3-card
+`Counters` subtheme is now **eligible** for a `StrandedSubtheme` finding, where the substring
+collision previously caused `ComputeStrandedSubthemes` to skip it.
+Checkpoint dispositions: delta **accepted** with one authorized test-oracle correction (the plan's own
+synthetic enchantment oracle used plural-subject phrasing that fell inside its own D-06 gap);
+D-06 → **follow-up phase requested**, now Phase 01.2 below.
+
+### Phase 01.2: Protection-Vocabulary Widening (INSERTED, from Phase 01.1 D-06)
+
+**Goal:** `DeckStatClassifier.IsProtectionCard` detects protection consistently regardless of a
+card's grammatical phrasing, so a commander's measured interaction floor stops being a function of
+how its cards happen to word an effect.
+**Depends on:** Phase 01.1
+**Requirements**: TBD -- same traceability gap as 01.1; ratify alongside CLSF-01 / CLSF-02.
+
+**The defect, precisely.** `IsProtectionCard` (`DeckFlow.Core/Analysis/DeckStatClassifier.cs:226-231`)
+is a curated-name check OR-ed with four oracle needles, and **its verb agreement is inconsistent
+across those four needles**:
+
+| Needle | Subject form it assumes | Misses |
+|---|---|---|
+| `gains hexproof` | singular | "creatures you control **gain** hexproof" |
+| `gains indestructible` | singular | "permanents you control **gain** indestructible" |
+| `gain protection from` | **plural** | Mother of Runes — "target creature **gains** protection from…" |
+| `phases out` | singular | Teferi's Protection — "permanents you control **phase out**" |
+
+So it under-detects in *both* directions depending on phrasing. Vocabulary is also incomplete —
+shroud and regeneration are absent entirely.
+
+Cards confirmed still scoring `PlanRole.None` after Phase 01.1 (measured, `01.1-02-DELTA.md` §d):
+Swiftfoot Boots, Lightning Greaves, Hexing Squelcher, Goblin Chirurgeon, Mother of Runes.
+
+**Why it is not a one-line fix.** `IsProtectionCard` is shared: widening it simultaneously moves
+`InteractionAuditAggregator.cs:58` and Cut Lab's own `protection` role
+(`CutLabRoleAssigner.cs:165`). That is a materially larger blast radius than 01.1 had, and it
+deserves a corpus-backed vocabulary decision rather than needles added one at a time.
+
+**Success Criteria** (what must be TRUE):
+  1. The vocabulary is derived from the corpus — the phrasings chosen are the ones that actually
+     occur, with counts, not a guessed list.
+  2. Verb agreement is handled uniformly; no needle assumes a subject number the others do not.
+  3. The blast radius on `InteractionAuditAggregator` and Cut Lab's `protection` role is measured
+     against real fixtures and explicitly accepted, exactly as 01.1 did — no golden regenerated to
+     make a test pass.
+  4. False positives are bounded: a card that merely mentions hexproof/indestructible without
+     granting it does not become protection.
 
 ### Phase 2: Role-Floor Divergence Research
 **Goal**: We know, from a run that provably touched the corpus, whether any Cut Lab role floor diverges meaningfully by commander — with an artifact that cannot be produced without querying data.
-**Depends on**: Phase 1 (taxonomy must be final before measuring)
+**Depends on**: Phase 1 (taxonomy must be final before measuring), Phase 01.1, Phase 01.2
+
+#### Decisions RESOLVED by the developer, 2026-07-27
+
+The two open decisions that blocked plan-writing are now settled. Do not reopen them in planning.
+
+**D-A — Corpus: HYBRID.** EDHREC average-decks supply the commander × bracket grid
+(`https://json.edhrec.com/pages/average-decks/<slug>/<bracket>.json`, slugs
+exhibition/core/upgraded/optimized/cedh = B1–B5, ≥400 decks/cell); the Postgres Archidekt corpus
+supplies within-commander distributions for commanders that clear a minimum deck count. Neither
+source alone is sufficient — EDHREC has bracket but no variance, Postgres has variance but no
+bracket.
+
+**D-B — Floor statistic: 25th percentile.** A mean-derived floor puts roughly half of a commander's
+own decks below their own floor, which is the wrong shape for a threshold most decks should clear.
+P25 requires a real distribution, which is precisely why D-A cannot be EDHREC-only: **the two
+decisions are coupled.** Where only an EDHREC point estimate exists for a cell, report it as a point
+estimate and say so — do not present it as a percentile.
+
+**D-C — Scope now includes LANDS and RAMP**, alongside the non-land roles.
+
+Lands carry a documented prior that plan-writing must confront head-on rather than ignore: the
+2026-07-16 EDHREC study (see Prior Research below) swept ~337k decks and concluded *commander
+identity barely moves land count; bracket is the only driver*, and every commander-ability manabase
+adjustment was rejected on that evidence. Re-running lands is **deliberate and authorized** on this
+reasoning:
+
+1. The prior study used EDHREC average-decks only, so it structurally **could not** compute a
+   within-commander percentile. P25 over real per-deck distributions measures something the earlier
+   work was not able to measure.
+2. Lands therefore double as a **calibration control**. If the new methodology reproduces the known
+   no-go on lands, that is evidence the harness is trustworthy on the roles where the answer is not
+   already known. If it *contradicts* the prior, that is a finding about the methodology and must be
+   reported as such before it is treated as a finding about decks.
+3. Ramp was never measured this way at all — the rejected work was commander-**ability**-driven land
+   adjustment, which is a different question from whether ramp counts vary by commander.
+
+Reporting requirement: the findings must state the lands verdict against the prior explicitly —
+"reproduces", "contradicts", or "insufficient data" — and never quietly present a lands result as
+novel.
 **Requirements**: RFLR-01, RFLR-02, RFLR-03, RFLR-04, RFLR-09
-**Starting state — read before planning**: A substantial harness already exists uncommitted in this worktree: `DeckFlow.CLI/RoleFloorResearchCommandRunner.cs` (985 LOC, real Postgres path at `:83-113`), `DeckFlow.Core/Research/RoleFloorDivergenceStats.cs` (126 LOC), `RoleFloorDivergenceStatsTests.cs` (116 LOC), plus a `boardFilter` parameter added to `CardCategoryRepository.GetCategoryDeckMembershipForCommanderAsync` and passthroughs. **This phase repairs and runs that harness; it does not build one.**
+**Starting state — read before planning**: A substantial harness already exists: `DeckFlow.CLI/RoleFloorResearchCommandRunner.cs` (985 LOC, real Postgres path at `:83-113`), `DeckFlow.Core/Research/RoleFloorDivergenceStats.cs` (126 LOC), `RoleFloorDivergenceStatsTests.cs` (116 LOC), plus a `boardFilter` parameter added to `CardCategoryRepository.GetCategoryDeckMembershipForCommanderAsync` and passthroughs. **This phase repairs and runs that harness; it does not build one.**
+
+> **Location correction (2026-07-27):** this document and `STATE.md` both previously said the harness
+> was *uncommitted in the worktree*. It is not on disk and not in git history — it is in
+> **`stash@{0}`** ("cycle21 P2: role-floor research harness … unreviewed"). Nothing is lost, but
+> `git stash pop` is the first step of Phase 2, and no other work in this worktree may run
+> `git stash` in the meantime. Note also that the harness predates the D-A/D-B decisions above: it
+> has a Postgres path only, so the EDHREC half of the hybrid corpus does not exist yet and the P25
+> statistic must be checked against what `RoleFloorDivergenceStats` actually computes.
 **Known defects in the starting state**:
   1. `WriteSyntheticVerificationOutputs` (`:818`) / `BuildSyntheticCommander` (`:867`) emit hardcoded fixture stats for commanders literally named Alpha/Beta/Gamma/Delta. The writer is currently orphaned (no caller) but its constants match the committed `RESEARCH-FINDINGS.md` exactly — that document is fixture output, not a run.
   2. `RESEARCH-FINDINGS.md` / `.json` are untracked and **must be deleted, not amended**. Their `ClearsBar` column contradicts its own inputs (identical ratio/z/d across commanders yielding different verdicts), so no part of them is salvageable as evidence.
@@ -120,6 +227,10 @@ Plans:
   4. `RESEARCH-FINDINGS.md` reports real commander names with non-identical per-commander statistics, over the post-Phase-1 role taxonomy.
   5. The findings end with an explicit go/no-go naming exactly which roles are in scope for Phase 3.
   6. `boardFilter` moves ahead of `CancellationToken`; no production runtime path changes behavior.
+  7. Floors are reported as **25th percentiles** over real per-deck distributions (D-B). Any cell backed only by an EDHREC point estimate is labelled as such and is never presented as a percentile.
+  8. Both corpora are used and distinguishable in the output (D-A): every reported figure states which source it came from, and coverage is reported per source — commanders reached, cells qualifying, decks deduped.
+  9. **Lands and ramp are measured** (D-C), and the lands verdict is stated explicitly against the 2026-07-16 prior as "reproduces" / "contradicts" / "insufficient data". A lands result is never presented as novel without that comparison.
+  10. The go/no-go is willing to be negative. If no role clears the bar, the findings say so plainly and Phase 3 becomes a documented no-op — a null result is a valid deliverable for this phase, not a failure of it.
 **Plans**: `02-01-PLAN.md` exists from the pre-re-plan pass and is stale — it plans harness construction, not repair. Re-plan before executing.
 
 ### Phase 3: Commander-Aware Floor Defaults (CONDITIONAL on Phase 2 = go)
@@ -162,10 +273,11 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Interaction Taxonomy Split | 0/TBD | Not started | - |
-| 01.1. Plan-Role Classifier Heuristic Fixes | 0/2 | Planned | - |
-| 2. Role-Floor Divergence Research | 0/TBD | Not started (harness exists, unverified) | - |
-| 3. Commander-Aware Floor Defaults | 0/TBD | Not started (gated on Phase 2) | - |
+| 1. Interaction Taxonomy Split | done | **Complete** — pushed, `9527dc72` | 2026-07-26 |
+| 01.1. Plan-Role Classifier Heuristic Fixes | 2/2 | **Complete** — suite green, `b8ec09f3` | 2026-07-27 |
+| 01.2. Protection-Vocabulary Widening | 0/TBD | Not started (inserted from 01.1 D-06) | - |
+| 2. Role-Floor Divergence Research | 0/TBD | Not started — **decisions resolved**, harness in `stash@{0}`, needs re-plan | - |
+| 3. Commander-Aware Floor Defaults | 0/TBD | Not started (gated on Phase 2 go/no-go) | - |
 | 4. Functional-Twins Detector | 0/TBD | Not started | - |
 | 5. Archidekt Bracket Capture | 0/TBD | Not started | - |
 
@@ -181,11 +293,12 @@ Plans:
 | TWIN-01, TWIN-02, TWIN-03, TWIN-04 | Phase 4 | Pending |
 | BRKT-01, BRKT-02, BRKT-03 | Phase 5 | Pending |
 | (none assigned) | Phase 01.1 | **Gap** -- inserted after REQUIREMENTS.md was written; see the Phase 01.1 block above |
+| (none assigned) | Phase 01.2 | **Gap** -- inserted 2026-07-27 from 01.1's D-06; ratify alongside CLSF-01/CLSF-02 |
 
 **Coverage:** 19/19 Cycle 21 requirements mapped. No orphans, no duplicates.
-**Known gap:** Phase 01.1 has no requirement ID. It is a defect-repair phase derived from spike 002
-and gates Phase 2's measurement validity. Ratify CLSF-01 / CLSF-02 into `REQUIREMENTS.md` before
-milestone closeout.
+**Known gap:** Phases 01.1 and 01.2 have no requirement IDs. Both are defect-repair phases derived
+from spike 002 that gate Phase 2's measurement validity. Ratify CLSF-01 / CLSF-02 (and a third ID for
+01.2's vocabulary widening) into `REQUIREMENTS.md` before milestone closeout.
 
 ---
 *Roadmap created: 2026-07-26*
