@@ -164,9 +164,10 @@ public static class PlanRoleClassifier
 
     /// <summary>
     /// Oracle-text heuristic fallback for a card with no useful category tags and not a known combo
-    /// piece. Reuses the shared <see cref="DeckStatClassifier"/> signals. Engine requires a PERMANENT
-    /// draw source (repeatable) — a one-shot instant/sorcery "draw two" is filler, not an engine, and
-    /// stays None.
+    /// piece. Reuses the shared <see cref="DeckStatClassifier"/> signals, including the Interaction
+    /// determination for removal, board wipes, protection, and pure counters. Engine requires a
+    /// PERMANENT draw source (repeatable) — a one-shot instant/sorcery "draw two" is filler, not an
+    /// engine, and stays None.
     /// </summary>
     /// <param name="fact">The resolved card (type line + oracle text).</param>
     /// <param name="mode">Analysis profile; gates whether a pure counterspell earns Interaction.</param>
@@ -189,7 +190,7 @@ public static class PlanRoleClassifier
             roles |= PlanRole.TutorCombo;
         }
 
-        if (GrantsInteraction(typeLine, oracle, mode))
+        if (GrantsInteraction(fact.Name, typeLine, oracle, mode))
         {
             roles |= PlanRole.Interaction;
         }
@@ -208,12 +209,14 @@ public static class PlanRoleClassifier
 
     /// <summary>
     /// Whether a card earns <see cref="PlanRole.Interaction"/> from the oracle-text heuristic. Removal,
-    /// board wipes, and non-counter instants always qualify. A pure counterspell — one that counters a
-    /// spell and does nothing else — qualifies only in <see cref="ManabaseMode.Cedh"/>: a casual counter
-    /// is reactive insurance, not a card that advances the win plan. A card that both counters and
-    /// removes still counts in casual (it has removal merit beyond the counter).
+    /// board wipes, protection (curated staple or oracle text granting hexproof / indestructible /
+    /// protection-from, or phasing out), and non-counter instants always qualify. A pure counterspell
+    /// — one that counters a spell and does nothing else — qualifies only in
+    /// <see cref="ManabaseMode.Cedh"/>: a casual counter is reactive insurance, not a card that
+    /// advances the win plan. A card that both counters and removes still counts in casual (it has
+    /// removal merit beyond the counter).
     /// </summary>
-    private static bool GrantsInteraction(string typeLine, string oracle, ManabaseMode mode)
+    private static bool GrantsInteraction(string name, string typeLine, string oracle, ManabaseMode mode)
     {
         // A pure counterspell hits IsInteractionCard (it's an instant / "counter target ...") but in
         // Casual earns nothing: it is reactive insurance, not a card that advances the win plan. cEDH
@@ -225,7 +228,12 @@ public static class PlanRoleClassifier
 
         return interactionMerit
             || DeckStatClassifier.IsBoardWipeCard(oracle)
-            || DeckStatClassifier.IsTargetedRemovalCard(typeLine, oracle);
+            || DeckStatClassifier.IsTargetedRemovalCard(typeLine, oracle)
+            // Why: spike 002 found the "protect" category path already grants Interaction in both
+            // modes, so mode-gating the oracle arm would make tagged and untagged copies disagree; and
+            // FromHeuristic stays type-agnostic because Classify already strips Interaction from the
+            // seven curated protection instants via PermanentOnlyRoles.
+            || DeckStatClassifier.IsProtectionCard(name, oracle);
     }
 
     // Broader than DeckStatClassifier.IsCounterspellCard (exact "counter target spell" only): also
