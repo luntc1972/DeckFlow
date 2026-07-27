@@ -292,6 +292,54 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
     }
 
     [Fact]
+    public async Task GetCategoryDeckMembershipForCommanderAsync_BoardFilterPreservesDefaultBehavior()
+    {
+        var repository = CreateRepository();
+
+        await repository.AddDeckIdsAsync(new[] { "deck-1", "deck-2" });
+        await repository.MarkDeckProcessedAsync("deck-1", "Kinnan, Bonder Prodigy");
+        await repository.MarkDeckProcessedAsync("deck-2", "Kinnan, Bonder Prodigy");
+        await repository.PersistObservedCategoriesAsync("archidekt_live:deck-1", "Sol Ring", new[] { "Ramp" }, quantity: 1, board: "mainboard", deckCountIncrement: 1);
+        await repository.PersistObservedCategoriesAsync("archidekt_live:deck-2", "Swan Song", new[] { "Interaction" }, quantity: 1, board: "sideboard", deckCountIncrement: 1);
+
+        var mainboardMemberships = await repository.GetCategoryDeckMembershipForCommanderAsync(
+            "Kinnan, Bonder Prodigy",
+            CancellationToken.None,
+            boardFilter: "mainboard");
+        var defaultMemberships = await repository.GetCategoryDeckMembershipForCommanderAsync("Kinnan, Bonder Prodigy");
+
+        var mainboardMembership = Assert.Single(mainboardMemberships);
+        Assert.Equal("Sol Ring", mainboardMembership.CardName);
+        Assert.DoesNotContain(mainboardMemberships, membership => membership.CardName == "Swan Song");
+        Assert.Equal(2, defaultMemberships.Count);
+        Assert.Contains(defaultMemberships, membership => membership.CardName == "Sol Ring");
+        Assert.Contains(defaultMemberships, membership => membership.CardName == "Swan Song");
+    }
+
+    [Fact]
+    public async Task GetContentHashesByIdsAsync_ReturnsHashedNullAndMissingEntriesAsExpected()
+    {
+        var repository = CreateRepository();
+
+        await repository.AddDeckIdsAsync(new[] { "deck-1", "deck-2" });
+        await repository.MarkDeckProcessedAsync("deck-1", "Kinnan, Bonder Prodigy");
+        await repository.MarkDeckProcessedAsync("deck-2", "Kinnan, Bonder Prodigy");
+        await repository.SetContentHashAsync("deck-1", "hash-1");
+
+        await using var connection = await OpenConnectionAsync();
+        var deckQueueIds = await QueryInt64ListAsync(
+            connection,
+            "SELECT id FROM deck_queue WHERE deck_id IN ('deck-1', 'deck-2') ORDER BY deck_id;");
+
+        var hashes = await repository.GetContentHashesByIdsAsync(new[] { deckQueueIds[0], deckQueueIds[1], 999999L });
+
+        Assert.Equal("hash-1", hashes[deckQueueIds[0]]);
+        Assert.True(hashes.ContainsKey(deckQueueIds[1]));
+        Assert.Null(hashes[deckQueueIds[1]]);
+        Assert.False(hashes.ContainsKey(999999L));
+    }
+
+    [Fact]
     public async Task UrlImportSource_ContributesToCardRowsWithoutQueueing()
     {
         var repository = CreateRepository();
