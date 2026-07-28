@@ -33,7 +33,11 @@ internal static class RoleFloorResearchCommandRunner
     // stating as a floor recommendation, and RFLR-02 requires the whole written bar in one place.
     private const double AbsoluteFloorGap = 2.0;
     private const int BreadthMinimum = 3;
-    private const int EdhrecMinimumCellDeckCount = 400;
+    // Why: the 2026-07-16 prior set the per-cell EDHREC floor at 400 decks backing the cell, and
+    // the manifest's min_decks: 8000 is the commander-selection floor for which commanders were
+    // fetched, not the per-cell qualifying floor used by this harness.
+    private const int EdhrecMinCellDeckCount = 400;
+    private const int EdhrecThinBracketThreshold = 50;
     private const int CommanderMembershipMaxConcurrency = 8;
     private const int CommanderMembershipProgressInterval = 200;
     private const int ScryfallRateLimitRetryMaxAttempts = 4;
@@ -73,6 +77,7 @@ internal static class RoleFloorResearchCommandRunner
         string cardsCachePath,
         string outputPath,
         string outputJsonPath,
+        string? edhrecDataPath = null,
         CancellationToken cancellationToken = default)
     {
         const string connectionStringEnvironmentVariableName = "DECKFLOW_ROLE_FLOOR_CONNECTION_STRING";
@@ -122,6 +127,17 @@ internal static class RoleFloorResearchCommandRunner
             {
                 Console.Error.WriteLine(taxonomyError);
                 return 1;
+            }
+
+            EdhrecReadResult? edhrecReadResult = null;
+            if (!string.IsNullOrWhiteSpace(edhrecDataPath))
+            {
+                edhrecReadResult = EdhrecCellReader.Read(edhrecDataPath, EdhrecMinCellDeckCount);
+                if (edhrecReadResult.Failure is not null)
+                {
+                    Console.Error.WriteLine(edhrecReadResult.Failure);
+                    return 1;
+                }
             }
 
             List<(string CommanderName, int DeckCount, string? LastProcessedUtc)> commanderRows =
@@ -201,6 +217,17 @@ internal static class RoleFloorResearchCommandRunner
                 distinctCardNames.Add(cardName);
             }
 
+            if (edhrecReadResult is not null)
+            {
+                foreach (EdhrecCell cell in edhrecReadResult.Cells)
+                {
+                    foreach (EdhrecCard card in cell.Cards)
+                    {
+                        distinctCardNames.Add(card.Name);
+                    }
+                }
+            }
+
             IReadOnlyDictionary<long, string?> contentHashes = await repository
                 .GetContentHashesByIdsAsync(
                     commanderDecks.Values.SelectMany(set => set.RawDecks.Keys).Distinct().ToList(),
@@ -217,6 +244,14 @@ internal static class RoleFloorResearchCommandRunner
                 distinctCardNames,
                 cardsCachePath,
                 cancellationToken).ConfigureAwait(false);
+
+            List<EdhrecRolePointEstimate> edhrecPointEstimates = [];
+            List<EdhrecBracketCoverage> edhrecBracketCoverage = [];
+            List<EdhrecLandSelfCheck> edhrecLandSelfChecks = [];
+            int edhrecParseFailureCount = 0;
+            int edhrecCardCountAnomalyCount = 0;
+            string? edhrecMinSaveDate = null;
+            string? edhrecMaxSaveDate = null;
 
             foreach (CommanderDeckSet commander in commanderDecks.Values)
             {
@@ -247,6 +282,77 @@ internal static class RoleFloorResearchCommandRunner
 
                     commander.RepresentativeRoleCounts[deckId] = roleCounts;
                 }
+            }
+
+            if (edhrecReadResult is not null)
+            {
+                edhrecParseFailureCount = edhrecReadResult.Cells.Sum(cell => cell.ParseFailures.Count);
+                edhrecCardCountAnomalyCount = edhrecReadResult.CardCountAnomalies.Count;
+                edhrecMinSaveDate = edhrecReadResult.Cells.Count == 0
+                    ? null
+                    : edhrecReadResult.Cells.Min(cell => cell.MinSaveDate);
+                edhrecMaxSaveDate = edhrecReadResult.Cells.Count == 0
+                    ? null
+                    : edhrecReadResult.Cells.Max(cell => cell.MaxSaveDate);
+
+                foreach (EdhrecCell cell in edhrecReadResult.Cells)
+                {
+                    var roleCounts = TargetRoles.ToDictionary(role => role, _ => 0, StringComparer.Ordinal);
+                    foreach (EdhrecCard cardEntry in cell.Cards)
+                    {
+                        if (!cardResolution.ResolvedCards.TryGetValue(cardEntry.Name, out ScryfallCardData? card))
+                        {
+                            continue;
+                        }
+
+                        CardFact fact = ScryfallCardFactMapper.ToCardFact(card, quantity: 1, isCommander: false);
+                        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], isComboPiece: false, resolvedMode);
+                        foreach (string role in roles)
+                        {
+                            if (roleCounts.ContainsKey(role))
+                            {
+                                // Why: EDHREC decklists carry real basic-land quantities; on the
+                                // measured 2026-07-27 Adrix/core cell the 82 deck entries still
+                                // sum to 100 cards and EDHREC's own basic aggregate is 20, so
+                                // quantity-1 would undercount lands by roughly a dozen cards on an
+                                // average deck. That deliberately diverges from the Postgres path's
+                                // singleton assumption, which is correct there because Commander is
+                                // singleton for the nonland roles that path reconstructs.
+                                roleCounts[role] += cardEntry.Quantity;
+                            }
+                        }
+                    }
+
+                    int harnessLandCount = roleCounts["lands"];
+                    // Why: EDHREC's aggregate land count and the harness's
+                    // CutLabLockRules.IsLand(typeLine) || fact.HasLandFace test can legitimately
+                    // disagree on modal double-faced cards, so a mismatch is a methodology finding
+                    // for the later lands verdict rather than a run failure.
+                    edhrecLandSelfChecks.Add(new EdhrecLandSelfCheck
+                    {
+                        CellId = BuildEdhrecCellId(cell),
+                        EdhrecLandCount = cell.EdhrecLandCount,
+                        HarnessLandCount = harnessLandCount,
+                        Delta = harnessLandCount - cell.EdhrecLandCount,
+                    });
+
+                    foreach (string role in TargetRoles)
+                    {
+                        edhrecPointEstimates.Add(new EdhrecRolePointEstimate
+                        {
+                            Source = RoleFloorSource.Edhrec,
+                            Role = role,
+                            CommanderName = cell.Commander,
+                            BracketSlug = cell.Bracket,
+                            BracketIndex = cell.BracketIndex,
+                            Count = roleCounts[role],
+                            DeckCount = cell.NDecks,
+                            Qualifies = cell.Qualifies,
+                        });
+                    }
+                }
+
+                edhrecBracketCoverage = BuildEdhrecBracketCoverage(edhrecReadResult);
             }
 
             Dictionary<string, RoleBaseline> corpusBaseline = BuildCorpusBaseline(commanderDecks.Values);
@@ -357,15 +463,28 @@ internal static class RoleFloorResearchCommandRunner
                 CorpusBaseline = corpusBaseline,
                 Commanders = qualifyingCommanders,
                 PostgresDistributions = postgresDistributions,
-                EdhrecPointEstimates = [],
+                EdhrecPointEstimates = edhrecPointEstimates,
                 EdhrecCoverage = new EdhrecCoverage
                 {
-                    CellsFetched = 0,
-                    CellsQualifying = 0,
-                    CellsMissing = 0,
-                    CommandersReached = 0,
-                    MinCellDeckCount = EdhrecMinimumCellDeckCount,
+                    CellsFetched = edhrecReadResult?.Cells.Count ?? 0,
+                    CellsQualifying = edhrecReadResult?.Cells.Count(cell => cell.Qualifies) ?? 0,
+                    CellsMissing = edhrecReadResult is null
+                        ? 0
+                        : edhrecReadResult.MissingCells.Count + edhrecReadResult.InvalidCells.Count,
+                    InvalidCells = edhrecReadResult?.InvalidCells.Count ?? 0,
+                    UnexpectedCells = edhrecReadResult?.UnexpectedCells.Count ?? 0,
+                    CommandersReached = edhrecReadResult?.Cells
+                        .Select(cell => cell.Slug)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .Count() ?? 0,
+                    MinCellDeckCount = EdhrecMinCellDeckCount,
+                    MinSaveDate = edhrecMinSaveDate,
+                    MaxSaveDate = edhrecMaxSaveDate,
+                    Brackets = edhrecBracketCoverage,
+                    LandSelfChecks = edhrecLandSelfChecks,
                 },
+                EdhrecParseFailureCount = edhrecParseFailureCount,
+                EdhrecCardCountAnomalyCount = edhrecCardCountAnomalyCount,
                 ThresholdCounts = thresholdCounts,
             };
 
@@ -774,7 +893,8 @@ internal static class RoleFloorResearchCommandRunner
         var emittedKeys = new HashSet<string>(StringComparer.Ordinal);
         foreach (CardFact probe in probes)
         {
-            foreach (string role in CutLabRoleAssigner.AssignRoles(probe, [], isComboPiece: false, mode))
+            foreach (string role in CutLabRoleAssigner
+                         .AssignRoles(probe, [], isComboPiece: false, mode))
             {
                 emittedKeys.Add(role);
             }
@@ -819,6 +939,60 @@ internal static class RoleFloorResearchCommandRunner
 
         return baseline;
     }
+
+    private static List<EdhrecBracketCoverage> BuildEdhrecBracketCoverage(EdhrecReadResult readResult)
+    {
+        ArgumentNullException.ThrowIfNull(readResult);
+
+        var brackets = new List<EdhrecBracketCoverage>(readResult.Brackets.Count);
+        for (int index = 0; index < readResult.Brackets.Count; index++)
+        {
+            string bracketSlug = readResult.Brackets[index];
+            List<EdhrecCell> bracketCells = readResult.Cells
+                .Where(cell => string.Equals(cell.Bracket, bracketSlug, StringComparison.Ordinal))
+                .ToList();
+            int qualifyingCount = bracketCells.Count(cell => cell.Qualifies);
+
+            brackets.Add(new EdhrecBracketCoverage
+            {
+                BracketSlug = bracketSlug,
+                BracketIndex = index + 1,
+                CellsFetched = bracketCells.Count,
+                CellsQualifying = qualifyingCount,
+                MedianBackingDeckCount = bracketCells.Count == 0
+                    ? 0.0
+                    : RoleFloorDivergenceStats.ComputePercentile(
+                        bracketCells.Select(cell => (double)cell.NDecks).ToList(),
+                        0.5),
+                SupportLabel = BuildEdhrecSupportLabel(qualifyingCount),
+            });
+        }
+
+        return brackets;
+    }
+
+    private static string BuildEdhrecSupportLabel(int qualifyingCount)
+    {
+        if (qualifyingCount <= 1)
+        {
+            return "NOT REPORTED — insufficient cells";
+        }
+
+        if (qualifyingCount < EdhrecThinBracketThreshold)
+        {
+            return FormattableString.Invariant($"THIN — {qualifyingCount} qualifying cells");
+        }
+
+        // Why: on the 2026-07-27 corpus this yields B1 NOT REPORTED (1 qualifying cell of 305)
+        // and B5 THIN (40), so a one-cell bracket figure is treated as a single deck's number
+        // wearing the costume of an average rather than presented as supported. That matches the
+        // independent B1 omission already present in ManabaseAnalysisService.cs:603-605 and the
+        // committed DeckFlow.Web/Data/manabase-baseline/latest.json snapshot.
+        return "reported";
+    }
+
+    private static string BuildEdhrecCellId(EdhrecCell cell)
+        => FormattableString.Invariant($"{cell.Slug}__{cell.Bracket}");
 
     private static Dictionary<string, RoleOutcome> BuildGoNoGo(IReadOnlyDictionary<string, CommanderResearch> qualifyingCommanders)
     {
@@ -931,16 +1105,56 @@ internal static class RoleFloorResearchCommandRunner
         builder.AppendLine("|--------|------:|");
         builder.AppendLine(FormattableString.Invariant($"| Cells fetched | {computation.EdhrecCoverage.CellsFetched} |"));
         builder.AppendLine(FormattableString.Invariant($"| Cells qualifying at >= {computation.EdhrecCoverage.MinCellDeckCount} decks backing cell | {computation.EdhrecCoverage.CellsQualifying} |"));
-        builder.AppendLine(FormattableString.Invariant($"| Cells missing | {computation.EdhrecCoverage.CellsMissing} |"));
+        builder.AppendLine(FormattableString.Invariant($"| Cells missing or invalid | {computation.EdhrecCoverage.CellsMissing} |"));
+        builder.AppendLine(FormattableString.Invariant($"| Invalid cells | {computation.EdhrecCoverage.InvalidCells} |"));
+        builder.AppendLine(FormattableString.Invariant($"| Unexpected cells | {computation.EdhrecCoverage.UnexpectedCells} |"));
         builder.AppendLine(FormattableString.Invariant($"| Commanders reached | {computation.EdhrecCoverage.CommandersReached} |"));
         builder.AppendLine(FormattableString.Invariant($"| Per-cell minimum | {computation.EdhrecCoverage.MinCellDeckCount} |"));
+        builder.AppendLine(FormattableString.Invariant($"| Corpus save-date range | {FormatEdhrecDateRange(computation.EdhrecCoverage.MinSaveDate, computation.EdhrecCoverage.MaxSaveDate)} |"));
+        if (computation.EdhrecCoverage.Brackets.Count > 0)
+        {
+            builder.AppendLine();
+            builder.AppendLine("| Bracket | Index | Cells fetched | Cells qualifying | Median backing deck count | Support |");
+            builder.AppendLine("|---------|------:|--------------:|-----------------:|--------------------------:|---------|");
+            foreach (EdhrecBracketCoverage bracket in computation.EdhrecCoverage.Brackets.OrderBy(row => row.BracketIndex))
+            {
+                builder.AppendLine(FormattableString.Invariant(
+                    $"| {EscapePipe(bracket.BracketSlug)} | {bracket.BracketIndex} | {bracket.CellsFetched} | {bracket.CellsQualifying} | {FormatMetric(bracket.MedianBackingDeckCount)} | {EscapePipe(bracket.SupportLabel)} |"));
+            }
+        }
+
+        builder.AppendLine();
+        builder.AppendLine("### EDHREC land self-check");
+        if (computation.EdhrecCoverage.LandSelfChecks.Count == 0)
+        {
+            builder.AppendLine("_No EDHREC cells were supplied for this run (--edhrec-data not provided)._");
+        }
+        else
+        {
+            builder.AppendLine("This comparison is only meaningful after a full Scryfall resolution pass; a run against a partially populated card cache will undercount unresolved names and therefore report artificially low harness land counts.");
+            EdhrecLandSelfCheckSummary selfCheckSummary = SummarizeEdhrecLandSelfChecks(computation.EdhrecCoverage.LandSelfChecks);
+            builder.AppendLine(FormattableString.Invariant($"- Exact match: {selfCheckSummary.ExactMatchCount}"));
+            builder.AppendLine(FormattableString.Invariant($"- Within one: {selfCheckSummary.WithinOneCount}"));
+            builder.AppendLine(FormattableString.Invariant($"- Diverged by more than one: {selfCheckSummary.DivergedByMoreThanOneCount}"));
+            builder.AppendLine();
+            builder.AppendLine("| CellId | EDHREC lands | Harness lands | Delta |");
+            builder.AppendLine("|--------|-------------:|--------------:|------:|");
+            foreach (EdhrecLandSelfCheck selfCheck in computation.EdhrecCoverage.LandSelfChecks
+                         .OrderByDescending(check => Math.Abs(check.Delta))
+                         .ThenBy(check => check.CellId, StringComparer.Ordinal)
+                         .Take(5))
+            {
+                builder.AppendLine(FormattableString.Invariant(
+                    $"| {EscapePipe(selfCheck.CellId)} | {selfCheck.EdhrecLandCount} | {selfCheck.HarnessLandCount} | {selfCheck.Delta:+#;-#;0} |"));
+            }
+        }
 
         builder.AppendLine();
         builder.AppendLine("## Methodology");
         builder.AppendLine(FormattableString.Invariant(
             $"A commander-role row clears the written statistical bar only when DEDUPED N >= {computation.MinDeckCount}, the commander's P25 is >= {RatioHigh:0.###}x or <= {RatioLow:0.###}x the corpus P25 (or differs by at least {AbsoluteFloorGap:0.0} cards when the corpus P25 is zero), and |z| >= {ZThreshold:0.0}; z is computed as (commanderMean - corpusMean) / (corpusStdDev / sqrt(n))."));
         builder.AppendLine("RAW N is the count of distinct reconstructed mainboard deck_queue ids for a commander before content-hash collapse; DEDUPED N collapses same-content_hash near-duplicates to one representative deck per non-null hash, so DEDUPED N is the only N compared against the threshold or passed into ClearsFloorBar.");
-        builder.AppendLine("Every card is classified oracle-only with `CutLabRoleAssigner.AssignRoles(fact, [], isComboPiece: false, mode)`: categories are intentionally always `[]` because `PlanRoleClassifier.Classify` is categories-first and first-hit-wins, so using live Archidekt tags would partially measure each commander playerbase's tagging habits rather than the card's mechanics. This matches the already-shipped `CutLabSimulationService.cs:517` call shape, but it means these findings do not reproduce what CutLabRoleAssigner outputs today for an actually-tagged production decklist.");
+        builder.AppendLine("Every card is classified oracle-only with the production role assigner using empty categories and `isComboPiece: false`: categories are intentionally always `[]` because `PlanRoleClassifier.Classify` is categories-first and first-hit-wins, so using live Archidekt tags would partially measure each commander playerbase's tagging habits rather than the card's mechanics. This matches the already-shipped `CutLabSimulationService.cs:517` call shape, but it means these findings do not reproduce what CutLabRoleAssigner outputs today for an actually-tagged production decklist.");
         builder.AppendLine("The verdict is computed from the commander's 25th percentile against the corpus 25th percentile; the mean z-score is retained only as a significance gate because a sample percentile has no closed-form standard error.");
         builder.AppendLine("When the corpus P25 is zero, the multiplicative ratio is undefined and `ComputeRatio` returns 0.0, so the bar falls back to an absolute gap of 2.0 cards; that is the smallest floor difference worth stating as a recommendation.");
         builder.AppendLine("EDHREC cells never enter the go/no-go, because ClearsFloorBar requires a standard deviation and a sample size that a single synthesized average deck cannot supply.");
@@ -960,9 +1174,11 @@ internal static class RoleFloorResearchCommandRunner
         builder.AppendLine("- `isComboPiece` is fixed to `false`, so combo-only win conditions can be undercounted.");
         builder.AppendLine("- ManabaseMode is fixed per run, so this pass does not compare role floors across multiple play-experience modes.");
         builder.AppendLine("- The `other` residual role is deliberately excluded because it measures fallback classifier coverage rather than deck-construction structure.");
-        builder.AppendLine("- Quantity is always treated as 1 when classifying cards, matching Commander singleton expectations for the target nonland roles.");
+        builder.AppendLine("- Postgres decks are classified as singleton card sets because Commander is singleton for the target nonland roles there, while EDHREC cells preserve real decklist quantities so basics and other repeated entries are counted at their actual quantity.");
         builder.AppendLine("- Oracle-only classification means these findings do not reproduce today's category-aware production role output for a tagged decklist.");
         builder.AppendLine("- Cards that still fail after harness-side HTTP 429 retry are tracked separately as `rate_limited_after_retry`; like true `not_found` names, they are excluded from classification tallies, but this run distinguishes the two unresolved reasons.");
+        builder.AppendLine(FormattableString.Invariant($"- EDHREC quantity-parse failures excluded rather than dropped silently: {computation.EdhrecParseFailureCount} raw deck entries across all ingested cells failed the quantity-prefix parse and were left out of classification."));
+        builder.AppendLine(FormattableString.Invariant($"- EDHREC parsed-card-count anomalies: {computation.EdhrecCardCountAnomalyCount} ingested cells did not sum to 100 parsed cards after quantity parsing."));
         builder.AppendLine();
         builder.AppendLine("## Qualifying Commanders By DEDUPED-N Threshold");
         builder.AppendLine("| Threshold | Qualifying Commanders |");
@@ -1049,6 +1265,7 @@ internal static class RoleFloorResearchCommandRunner
             computation.HarnessCommitSha,
             computation.RawDeckCount,
             computation.DedupedDeckCount);
+        EdhrecLandSelfCheckSummary edhrecLandSelfCheckSummary = SummarizeEdhrecLandSelfChecks(computation.EdhrecCoverage.LandSelfChecks);
 
         return new
         {
@@ -1126,8 +1343,45 @@ internal static class RoleFloorResearchCommandRunner
                     cellsFetched = computation.EdhrecCoverage.CellsFetched,
                     cellsQualifying = computation.EdhrecCoverage.CellsQualifying,
                     cellsMissing = computation.EdhrecCoverage.CellsMissing,
+                    invalidCells = computation.EdhrecCoverage.InvalidCells,
+                    unexpectedCells = computation.EdhrecCoverage.UnexpectedCells,
                     commandersReached = computation.EdhrecCoverage.CommandersReached,
                     minCellDeckCount = computation.EdhrecCoverage.MinCellDeckCount,
+                    minSaveDate = computation.EdhrecCoverage.MinSaveDate,
+                    maxSaveDate = computation.EdhrecCoverage.MaxSaveDate,
+                    brackets = computation.EdhrecCoverage.Brackets
+                        .OrderBy(bracket => bracket.BracketIndex)
+                        .Select(bracket => new
+                        {
+                            bracket = bracket.BracketSlug,
+                            bracketIndex = bracket.BracketIndex,
+                            cellsFetched = bracket.CellsFetched,
+                            cellsQualifying = bracket.CellsQualifying,
+                            medianBackingDeckCount = bracket.MedianBackingDeckCount,
+                            supportLabel = bracket.SupportLabel,
+                        })
+                        .ToArray(),
+                    landSelfCheck = new
+                    {
+                        summary = new
+                        {
+                            exactMatch = edhrecLandSelfCheckSummary.ExactMatchCount,
+                            withinOne = edhrecLandSelfCheckSummary.WithinOneCount,
+                            divergedByMoreThanOne = edhrecLandSelfCheckSummary.DivergedByMoreThanOneCount,
+                        },
+                        worstFive = computation.EdhrecCoverage.LandSelfChecks
+                            .OrderByDescending(check => Math.Abs(check.Delta))
+                            .ThenBy(check => check.CellId, StringComparer.Ordinal)
+                            .Take(5)
+                            .Select(check => new
+                            {
+                                cellId = check.CellId,
+                                edhrecLandCount = check.EdhrecLandCount,
+                                harnessLandCount = check.HarnessLandCount,
+                                delta = check.Delta,
+                            })
+                            .ToArray(),
+                    },
                 },
             },
             goNoGo = TargetRoles.ToDictionary(
@@ -1213,6 +1467,23 @@ internal static class RoleFloorResearchCommandRunner
     private static string FormatBoolean(bool value)
         => value ? "true" : "false";
 
+    private static string FormatEdhrecDateRange(string? minSaveDate, string? maxSaveDate)
+        => string.IsNullOrWhiteSpace(minSaveDate) || string.IsNullOrWhiteSpace(maxSaveDate)
+            ? "n/a"
+            : FormattableString.Invariant($"{minSaveDate} to {maxSaveDate}");
+
+    private static EdhrecLandSelfCheckSummary SummarizeEdhrecLandSelfChecks(IReadOnlyList<EdhrecLandSelfCheck> selfChecks)
+    {
+        ArgumentNullException.ThrowIfNull(selfChecks);
+
+        return new EdhrecLandSelfCheckSummary
+        {
+            ExactMatchCount = selfChecks.Count(check => check.Delta == 0),
+            WithinOneCount = selfChecks.Count(check => Math.Abs(check.Delta) == 1),
+            DivergedByMoreThanOneCount = selfChecks.Count(check => Math.Abs(check.Delta) > 1),
+        };
+    }
+
     private static int ResolveCommanderDedupedN(
         IReadOnlyDictionary<string, CommanderResearch> commanders,
         string commanderName)
@@ -1281,6 +1552,8 @@ internal static class RoleFloorResearchCommandRunner
         public IReadOnlyList<PostgresRoleDistribution> PostgresDistributions { get; init; } = [];
         public IReadOnlyList<EdhrecRolePointEstimate> EdhrecPointEstimates { get; init; } = [];
         public required EdhrecCoverage EdhrecCoverage { get; init; }
+        public int EdhrecParseFailureCount { get; init; }
+        public int EdhrecCardCountAnomalyCount { get; init; }
         public required Dictionary<int, int> ThresholdCounts { get; init; }
         public Dictionary<string, RoleOutcome> GoNoGo { get; set; } = new(StringComparer.Ordinal);
     }
@@ -1327,8 +1600,39 @@ internal static class RoleFloorResearchCommandRunner
         public int CellsFetched { get; init; }
         public int CellsQualifying { get; init; }
         public int CellsMissing { get; init; }
+        public int InvalidCells { get; init; }
+        public int UnexpectedCells { get; init; }
         public int CommandersReached { get; init; }
         public int MinCellDeckCount { get; init; }
+        public string? MinSaveDate { get; init; }
+        public string? MaxSaveDate { get; init; }
+        public IReadOnlyList<EdhrecBracketCoverage> Brackets { get; init; } = [];
+        public IReadOnlyList<EdhrecLandSelfCheck> LandSelfChecks { get; init; } = [];
+    }
+
+    private sealed class EdhrecBracketCoverage
+    {
+        public required string BracketSlug { get; init; }
+        public int BracketIndex { get; init; }
+        public int CellsFetched { get; init; }
+        public int CellsQualifying { get; init; }
+        public double MedianBackingDeckCount { get; init; }
+        public required string SupportLabel { get; init; }
+    }
+
+    private sealed class EdhrecLandSelfCheck
+    {
+        public required string CellId { get; init; }
+        public int EdhrecLandCount { get; init; }
+        public int HarnessLandCount { get; init; }
+        public int Delta { get; init; }
+    }
+
+    private sealed class EdhrecLandSelfCheckSummary
+    {
+        public int ExactMatchCount { get; init; }
+        public int WithinOneCount { get; init; }
+        public int DivergedByMoreThanOneCount { get; init; }
     }
 
     private sealed class RoleOutcome
