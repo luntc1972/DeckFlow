@@ -95,24 +95,6 @@ internal static class EdhrecRoleGridCommandRunner
             string resolvedOutputPath = Path.GetFullPath(outputPath);
             string resolvedOutputJsonPath = Path.GetFullPath(outputJsonPath);
 
-            if (dryRun)
-            {
-                Console.WriteLine("edhrec-role-grid dry run");
-                Console.WriteLine(FormattableString.Invariant($"  edhrec.csv: {resolvedEdhrecCsvPath}"));
-                Console.WriteLine(FormattableString.Invariant($"  averages.csv: {resolvedAveragesCsvPath}"));
-                Console.WriteLine(FormattableString.Invariant($"  cards-cache: {resolvedCardsCachePath}"));
-                Console.WriteLine(FormattableString.Invariant($"  mode: {resolvedMode}"));
-                Console.WriteLine(FormattableString.Invariant($"  min-decks: {minDecks}"));
-                Console.WriteLine(FormattableString.Invariant($"  out: {resolvedOutputPath}"));
-                Console.WriteLine(FormattableString.Invariant($"  out-json: {resolvedOutputJsonPath}"));
-                Console.WriteLine(FormattableString.Invariant($"  target roles: {string.Join(", ", roleKeys)}"));
-                Console.WriteLine("  residual role excluded from grid: other");
-                Console.WriteLine("  taxonomy: OK");
-                Console.WriteLine("  archive read: skipped");
-                Console.WriteLine("  scryfall calls: skipped");
-                return 0;
-            }
-
             if (!File.Exists(resolvedEdhrecCsvPath))
             {
                 Console.Error.WriteLine(FormattableString.Invariant($"--edhrec-csv path not found: {resolvedEdhrecCsvPath}"));
@@ -123,6 +105,25 @@ internal static class EdhrecRoleGridCommandRunner
             {
                 Console.Error.WriteLine(FormattableString.Invariant($"--averages path not found: {resolvedAveragesCsvPath}"));
                 return 1;
+            }
+
+            if (dryRun)
+            {
+                // Why: plan 02-08 uses this dry run as the operator pre-flight, so it must fail on bad input paths.
+                Console.WriteLine("edhrec-role-grid dry run");
+                Console.WriteLine(FormattableString.Invariant($"  edhrec.csv: {DescribeDryRunPath(resolvedEdhrecCsvPath, mustExist: true)}"));
+                Console.WriteLine(FormattableString.Invariant($"  averages.csv: {DescribeDryRunPath(resolvedAveragesCsvPath, mustExist: true)}"));
+                Console.WriteLine(FormattableString.Invariant($"  cards-cache: {DescribeDryRunPath(resolvedCardsCachePath, mustExist: false)}"));
+                Console.WriteLine(FormattableString.Invariant($"  mode: {resolvedMode}"));
+                Console.WriteLine(FormattableString.Invariant($"  min-decks: {minDecks}"));
+                Console.WriteLine(FormattableString.Invariant($"  out: {resolvedOutputPath}"));
+                Console.WriteLine(FormattableString.Invariant($"  out-json: {resolvedOutputJsonPath}"));
+                Console.WriteLine(FormattableString.Invariant($"  target roles: {string.Join(", ", roleKeys)}"));
+                Console.WriteLine("  residual role excluded from grid: other");
+                Console.WriteLine("  taxonomy: OK");
+                Console.WriteLine("  archive read: skipped");
+                Console.WriteLine("  scryfall calls: skipped");
+                return 0;
             }
 
             string runTimestampUtc = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture);
@@ -584,6 +585,19 @@ internal static class EdhrecRoleGridCommandRunner
             SizeBytes = info.Length,
             Sha256 = info.Length <= 16 * 1024 * 1024 ? ComputeSha256(path) : null,
         };
+    }
+
+    private static string DescribeDryRunPath(string path, bool mustExist)
+    {
+        if (!File.Exists(path))
+        {
+            return mustExist
+                ? FormattableString.Invariant($"{path} (not found)")
+                : FormattableString.Invariant($"{path} (not found - will be created)");
+        }
+
+        long length = new FileInfo(path).Length;
+        return FormattableString.Invariant($"{path} (found, {length:N0} bytes)");
     }
 
     private static string? ComputeSha256(string path)
