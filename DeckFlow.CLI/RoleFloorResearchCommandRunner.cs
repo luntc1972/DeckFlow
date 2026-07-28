@@ -27,6 +27,10 @@ internal static class RoleFloorResearchCommandRunner
     private const double RatioLow = 0.667;
     private const double RatioHigh = 1.5;
     private const double ZThreshold = 2.0;
+    // Why: when the corpus 25th percentile is zero, ComputeRatio returns 0.0 and would slide
+    // under RatioLow, marking every commander divergent-low; 2.0 cards is the smallest gap worth
+    // stating as a floor recommendation, and RFLR-02 requires the whole written bar in one place.
+    private const double AbsoluteFloorGap = 2.0;
     private const int BreadthMinimum = 3;
     private const int CommanderMembershipMaxConcurrency = 8;
     private const int CommanderMembershipProgressInterval = 200;
@@ -260,25 +264,29 @@ internal static class RoleFloorResearchCommandRunner
                         .Select(counts => (double)counts[role])
                         .ToList();
                     double commanderMean = perDeckCounts.Count == 0 ? 0.0 : perDeckCounts.Average();
+                    double commanderP25 = perDeckCounts.Count == 0
+                        ? 0.0
+                        : RoleFloorDivergenceStats.ComputePercentile(perDeckCounts, 0.25);
                     RoleBaseline baseline = corpusBaseline[role];
                     commanderResearch.Roles[role] = new CommanderRoleStat
                     {
                         Mean = commanderMean,
-                        P25 = perDeckCounts.Count == 0
-                            ? 0.0
-                            : RoleFloorDivergenceStats.ComputePercentile(perDeckCounts, 0.25),
+                        P25 = commanderP25,
                         Ratio = RoleFloorDivergenceStats.ComputeRatio(commanderMean, baseline.Mean),
                         ZScore = RoleFloorDivergenceStats.ComputeZScore(commanderMean, baseline.Mean, baseline.StdDev, commander.DedupedN),
                         CohensD = RoleFloorDivergenceStats.ComputeCohensD(commanderMean, baseline.Mean, baseline.StdDev),
-                        ClearsBar = RoleFloorDivergenceStats.ClearsBar(
+                        ClearsBar = RoleFloorDivergenceStats.ClearsFloorBar(
                             commander.DedupedN,
+                            commanderP25,
+                            baseline.P25,
                             commanderMean,
                             baseline.Mean,
                             baseline.StdDev,
                             minDeckCount,
                             ratioLow: RatioLow,
                             ratioHigh: RatioHigh,
-                            zThreshold: ZThreshold),
+                            zThreshold: ZThreshold,
+                            absoluteFloorGap: AbsoluteFloorGap),
                     };
                 }
 
@@ -869,10 +877,12 @@ internal static class RoleFloorResearchCommandRunner
         builder.AppendLine();
         builder.AppendLine("## Methodology");
         builder.AppendLine(FormattableString.Invariant(
-            $"A commander-role row clears the written statistical bar only when DEDUPED N >= {computation.MinDeckCount}, ratio >= {RatioHigh:0.###}x or <= {RatioLow:0.###}x the corpus mean, and |z| >= {ZThreshold:0.0}; z is computed as (commanderMean - corpusMean) / (corpusStdDev / sqrt(n))."));
-        builder.AppendLine("RAW N is the count of distinct reconstructed mainboard deck_queue ids for a commander before content-hash collapse; DEDUPED N collapses same-content_hash near-duplicates to one representative deck per non-null hash, so DEDUPED N is the only N compared against the threshold or passed into ClearsBar.");
+            $"A commander-role row clears the written statistical bar only when DEDUPED N >= {computation.MinDeckCount}, the commander's P25 is >= {RatioHigh:0.###}x or <= {RatioLow:0.###}x the corpus P25 (or differs by at least {AbsoluteFloorGap:0.0} cards when the corpus P25 is zero), and |z| >= {ZThreshold:0.0}; z is computed as (commanderMean - corpusMean) / (corpusStdDev / sqrt(n))."));
+        builder.AppendLine("RAW N is the count of distinct reconstructed mainboard deck_queue ids for a commander before content-hash collapse; DEDUPED N collapses same-content_hash near-duplicates to one representative deck per non-null hash, so DEDUPED N is the only N compared against the threshold or passed into ClearsFloorBar.");
         builder.AppendLine("Every card is classified oracle-only with `CutLabRoleAssigner.AssignRoles(fact, [], isComboPiece: false, mode)`: categories are intentionally always `[]` because `PlanRoleClassifier.Classify` is categories-first and first-hit-wins, so using live Archidekt tags would partially measure each commander playerbase's tagging habits rather than the card's mechanics. This matches the already-shipped `CutLabSimulationService.cs:517` call shape, but it means these findings do not reproduce what CutLabRoleAssigner outputs today for an actually-tagged production decklist.");
-        builder.AppendLine("A floor should be derived from the 25th percentile, not the mean: a mean-derived floor puts roughly half of the commander's own decks below the floor, which defeats the purpose of calling it a floor.");
+        builder.AppendLine("The verdict is computed from the commander's 25th percentile against the corpus 25th percentile; the mean z-score is retained only as a significance gate because a sample percentile has no closed-form standard error.");
+        builder.AppendLine("When the corpus P25 is zero, the multiplicative ratio is undefined and `ComputeRatio` returns 0.0, so the bar falls back to an absolute gap of 2.0 cards; that is the smallest floor difference worth stating as a recommendation.");
+        builder.AppendLine("EDHREC cells never enter the go/no-go, because ClearsFloorBar requires a standard deviation and a sample size that a single synthesized average deck cannot supply.");
         builder.AppendLine("Cohen's d is reported alongside ratio and z as a scale-uniform effect size, because a fixed 1.5x / 0.667x ratio gate is not scale-fair across roles with very different corpus-wide means.");
         builder.AppendLine(FormattableString.Invariant(
             $"A role is only a Phase-2 \"go\" when at least {BreadthMinimum} distinct qualifying commanders clear the bar in that role; one or two clearing commanders is recorded as signal present but insufficient breadth."));
