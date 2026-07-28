@@ -2014,49 +2014,35 @@ internal static class RoleFloorResearchCommandRunner
         ArgumentNullException.ThrowIfNull(computation);
 
         string expression = "Avg_role(Avg_commander(max(0, commanderMean - commanderP25)) / PopStdDev_commander(commanderMean))";
-        List<string> perRoleRatios = TargetRoles
-            .Select(role =>
+        var perRoleRatios = new List<(string Role, double? Ratio)>();
+        foreach (string role in TargetRoles)
+        {
+            List<CommanderResearch> commanders = computation.Commanders.Values
+                .Where(commander => commander.Roles.ContainsKey(role))
+                .ToList();
+            if (commanders.Count < 2)
             {
-                List<CommanderResearch> commanders = computation.Commanders.Values
-                    .Where(commander => commander.Roles.ContainsKey(role))
-                    .ToList();
-                if (commanders.Count < 2)
-                {
-                    return null;
-                }
+                continue;
+            }
 
-                double withinCommanderLowerTailSpread = commanders.Average(commander => Math.Max(0.0, commander.Roles[role].Mean - commander.Roles[role].P25));
-                double betweenCommanderSpread = ComputePopulationStdDev(
-                    commanders.Select(commander => commander.Roles[role].Mean).ToArray(),
-                    commanders.Average(commander => commander.Roles[role].Mean));
-                string ratioText = betweenCommanderSpread <= 0.0
-                    ? "n/a"
-                    : FormatMetric(withinCommanderLowerTailSpread / betweenCommanderSpread);
-                return $"{role}={ratioText}";
-            })
-            .Where(value => value is not null)
-            .Cast<string>()
+            double withinCommanderLowerTailSpread = commanders.Average(commander => Math.Max(0.0, commander.Roles[role].Mean - commander.Roles[role].P25));
+            double betweenCommanderSpread = ComputePopulationStdDev(
+                commanders.Select(commander => commander.Roles[role].Mean).ToArray(),
+                commanders.Average(commander => commander.Roles[role].Mean));
+            perRoleRatios.Add((
+                Role: role,
+                Ratio: betweenCommanderSpread <= 0.0
+                    ? null
+                    : withinCommanderLowerTailSpread / betweenCommanderSpread));
+        }
+
+        List<string> formattedPerRoleRatios = perRoleRatios
+            .Select(value => $"{value.Role}={(value.Ratio is null ? "n/a" : FormatMetric(value.Ratio.Value))}")
             .ToList();
 
-        List<double> comparableRatios = TargetRoles
-            .Select(role =>
-            {
-                List<CommanderResearch> commanders = computation.Commanders.Values
-                    .Where(commander => commander.Roles.ContainsKey(role))
-                    .ToList();
-                if (commanders.Count < 2)
-                {
-                    return (double?)null;
-                }
-
-                double withinCommanderLowerTailSpread = commanders.Average(commander => Math.Max(0.0, commander.Roles[role].Mean - commander.Roles[role].P25));
-                double betweenCommanderSpread = ComputePopulationStdDev(
-                    commanders.Select(commander => commander.Roles[role].Mean).ToArray(),
-                    commanders.Average(commander => commander.Roles[role].Mean));
-                return betweenCommanderSpread <= 0.0 ? (double?)null : withinCommanderLowerTailSpread / betweenCommanderSpread;
-            })
-            .Where(value => value.HasValue)
-            .Select(value => value!.Value)
+        List<double> comparableRatios = perRoleRatios
+            .Where(value => value.Ratio is not null)
+            .Select(value => value.Ratio!.Value)
             .ToList();
 
         if (comparableRatios.Count == 0)
@@ -2066,7 +2052,7 @@ internal static class RoleFloorResearchCommandRunner
         }
 
         return FormattableString.Invariant(
-            $"This run says, using `{expression}`, that the lower-tail within-commander spread relative to the between-commander spread is {FormatMetric(comparableRatios.Average())} on average across roles ({string.Join(", ", perRoleRatios)}). That is evidence about lower-tail spread in the measured Postgres corpus, not a rebuttal of the broader claim.");
+            $"This run says, using `{expression}`, that the lower-tail within-commander spread relative to the between-commander spread is {FormatMetric(comparableRatios.Average())} on average across roles ({string.Join(", ", formattedPerRoleRatios)}). That is evidence about lower-tail spread in the measured Postgres corpus, not a rebuttal of the broader claim.");
     }
 
     private static void AppendBlock(StringBuilder builder, string block)
