@@ -378,6 +378,61 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
     }
 
     [Fact]
+    public async Task GetCategoryDeckMembershipForCommanderAsync_BoardFilterMainboard_ExcludesNonMainboardRowsForSingleOversizedDeck()
+    {
+        var repository = CreateRepository();
+
+        await repository.AddDeckIdsAsync(new[] { "deck-oversized" });
+        await repository.MarkDeckProcessedAsync("deck-oversized", "Kinnan, Bonder Prodigy");
+
+        for (var index = 1; index <= 100; index++)
+        {
+            await repository.PersistObservedCategoriesAsync(
+                "archidekt_live:deck-oversized",
+                $"Oversized Mainboard Card {index}",
+                new[] { "RampPlan" },
+                quantity: 1,
+                board: "mainboard",
+                deckCountIncrement: 1);
+        }
+
+        for (var index = 101; index <= 160; index++)
+        {
+            await repository.PersistObservedCategoriesAsync(
+                "archidekt_live:deck-oversized",
+                $"Oversized Sideboard Card {index}",
+                new[] { "InteractionPlan" },
+                quantity: 1,
+                board: "sideboard",
+                deckCountIncrement: 1);
+        }
+
+        for (var index = 161; index <= 220; index++)
+        {
+            await repository.PersistObservedCategoriesAsync(
+                "archidekt_live:deck-oversized",
+                $"Oversized Maybeboard Card {index}",
+                new[] { "ValueEngine" },
+                quantity: 1,
+                board: "maybeboard",
+                deckCountIncrement: 1);
+        }
+
+        var allMemberships = await repository.GetCategoryDeckMembershipForCommanderAsync("Kinnan, Bonder Prodigy");
+        var mainboardMemberships = await repository.GetCategoryDeckMembershipForCommanderAsync(
+            "Kinnan, Bonder Prodigy",
+            boardFilter: "mainboard",
+            cancellationToken: CancellationToken.None);
+
+        Assert.Equal(220, allMemberships.Count);
+        Assert.Contains(allMemberships, membership => membership.CardName == "Oversized Sideboard Card 101");
+        Assert.Contains(allMemberships, membership => membership.CardName == "Oversized Maybeboard Card 161");
+        Assert.Equal(100, mainboardMemberships.Count);
+        Assert.DoesNotContain(mainboardMemberships, membership => membership.CardName == "Oversized Sideboard Card 101");
+        Assert.DoesNotContain(mainboardMemberships, membership => membership.CardName == "Oversized Maybeboard Card 161");
+    }
+
+    [Fact]
     public async Task GetContentHashesByIdsAsync_ReturnsHashedNullAndMissingEntriesAsExpected()
     {
         var repository = CreateRepository();
