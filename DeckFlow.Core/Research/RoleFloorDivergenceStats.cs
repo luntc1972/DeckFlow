@@ -2,19 +2,20 @@ namespace DeckFlow.Core.Research;
 
 /// <summary>
 /// The single, written statistical bar Cycle 21 Phase 2 applies uniformly to every commander/role
-/// pair per decision D-B; no other file may re-derive or fork this threshold logic, and the
-/// adopted floor statistic is the 25th percentile rather than the mean. The adopted defaults are
-/// minDeckCount=40, ratioLow=0.667, ratioHigh=1.5, zThreshold=2.0, and absoluteFloorGap=2.0:
-/// N=40 keeps the standard error of a role-count mean to roughly stdev/sqrt(40) for a corpus of a
-/// few thousand decks, tight enough to separate a real 50% mean shift from sampling noise;
-/// requiring both the ratio and z-score conditions rejects both "big N, small effect" and "big
-/// ratio, tiny N" false positives; and when the corpus 25th percentile is zero, a floor differing
-/// by one card is not worth acting on, so the absolute-gap fallback requires at least two cards. At
-/// these exact defaults the z-gate is largely redundant once N and ratio are both satisfied (for
-/// example, N=40, sd=3, mean=6, ratio=1.5x implies z~6.3, well above 2.0), but the gate remains
-/// part of the documented bar. Cohen's d is reporting-only here: it gives a scale-uniform effect
-/// size alongside fixed percentage ratio thresholds, which are not scale-fair across roles with
-/// very different corpus-wide means.
+/// pair per decision D-B; no other file may re-derive or fork this threshold logic, and
+/// <see cref="ClearsFloorBar"/> is the only verdict bar. The adopted floor statistic is the 25th
+/// percentile rather than the mean. The adopted defaults are minDeckCount=40, ratioLow=0.667,
+/// ratioHigh=1.5, zThreshold=2.0, and absoluteFloorGap=2.0: N=40 keeps the standard error of a
+/// role-count mean to roughly stdev/sqrt(40) for a corpus of a few thousand decks, tight enough to
+/// separate a real 50% mean shift from sampling noise; requiring both the ratio and z-score
+/// conditions rejects both "big N, small effect" and "big ratio, tiny N" false positives; and
+/// when the corpus 25th percentile is zero, a floor differing by one card is not worth acting on,
+/// so the absolute-gap fallback requires at least two cards. At these exact defaults the z-gate is
+/// largely redundant once N and ratio are both satisfied (for example, N=40, sd=3, mean=6,
+/// ratio=1.5x implies z~6.3, well above 2.0), but the gate remains part of the documented bar.
+/// Cohen's d is reporting-only here: it gives a scale-uniform effect size alongside fixed
+/// percentage ratio thresholds, which are not scale-fair across roles with very different
+/// corpus-wide means.
 /// </summary>
 public static class RoleFloorDivergenceStats
 {
@@ -40,35 +41,6 @@ public static class RoleFloorDivergenceStats
         }
 
         return (commanderMean - corpusMean) / (corpusStdDev / Math.Sqrt(n));
-    }
-
-    /// <summary>
-    /// Returns true only when the commander clears the full written bar: enough deduped decks, a
-    /// non-zero corpus baseline with a ratio outside the neutral band, and an absolute z-score at
-    /// or above the threshold.
-    /// </summary>
-    public static bool ClearsBar(
-        int n,
-        double commanderMean,
-        double corpusMean,
-        double corpusStdDev,
-        int minDeckCount,
-        double ratioLow,
-        double ratioHigh,
-        double zThreshold)
-    {
-        if (n < minDeckCount || corpusMean <= 0.0)
-        {
-            return false;
-        }
-
-        double ratio = ComputeRatio(commanderMean, corpusMean);
-        if (ratio < ratioHigh && ratio > ratioLow)
-        {
-            return false;
-        }
-
-        return Math.Abs(ComputeZScore(commanderMean, corpusMean, corpusStdDev, n)) >= zThreshold;
     }
 
     /// <summary>
