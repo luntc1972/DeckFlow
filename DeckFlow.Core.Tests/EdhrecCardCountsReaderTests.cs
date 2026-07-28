@@ -114,6 +114,8 @@ public sealed class EdhrecCardCountsReaderTests : IDisposable
             commander,card,count
             Reaper King,Sol Ring,8
             Reaper King,Arcane Signet,5
+            Atraxa,Sol Ring,9
+            Atraxa,Farseek,4
             Healthy Commander,Sol Ring,3
             Healthy Commander,Swords to Plowshares,2
             """);
@@ -121,12 +123,14 @@ public sealed class EdhrecCardCountsReaderTests : IDisposable
         var denominators = new Dictionary<string, long>(StringComparer.Ordinal)
         {
             ["Reaper King"] = 6,
+            ["Atraxa"] = 8,
             ["Healthy Commander"] = 10,
         };
         var cardRoles = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
         {
             ["Sol Ring"] = new[] { "ramp" },
             ["Arcane Signet"] = new[] { "ramp" },
+            ["Farseek"] = new[] { "ramp" },
             ["Swords to Plowshares"] = new[] { "interaction" },
         };
 
@@ -137,13 +141,28 @@ public sealed class EdhrecCardCountsReaderTests : IDisposable
             new[] { "ramp", "interaction" });
 
         Assert.Null(result.Failure);
-        Assert.Single(result.DenominatorMismatches);
-        Assert.Contains("Reaper King", result.DenominatorMismatches[0]);
-        Assert.Contains("Sol Ring", result.DenominatorMismatches[0]);
-        Assert.Contains("count=8", result.DenominatorMismatches[0]);
-        Assert.Contains("denominator=6", result.DenominatorMismatches[0]);
-        Assert.Contains("ratio=1.333333", result.DenominatorMismatches[0]);
-        Assert.DoesNotContain(result.Commanders, commander => commander.Commander == "Reaper King");
+        Assert.Equal(2, result.DenominatorMismatches.Count);
+        Assert.Collection(
+            result.DenominatorMismatches,
+            mismatch =>
+            {
+                Assert.Equal("Reaper King", mismatch.Commander);
+                Assert.Equal("Sol Ring", mismatch.Card);
+                Assert.Equal(8, mismatch.Count);
+                Assert.Equal(6L, mismatch.Denominator);
+                Assert.True(mismatch.Ratio > 1.0d);
+                Assert.Equal(8d / 6d, mismatch.Ratio, precision: 6);
+            },
+            mismatch =>
+            {
+                Assert.Equal("Atraxa", mismatch.Commander);
+                Assert.Equal("Sol Ring", mismatch.Card);
+                Assert.Equal(9, mismatch.Count);
+                Assert.Equal(8L, mismatch.Denominator);
+                Assert.True(mismatch.Ratio > 1.0d);
+                Assert.Equal(9d / 8d, mismatch.Ratio, precision: 6);
+            });
+        Assert.DoesNotContain(result.Commanders, commander => commander.Commander is "Reaper King" or "Atraxa");
         Assert.Single(result.Commanders);
         Assert.Equal("Healthy Commander", result.Commanders[0].Commander);
     }
