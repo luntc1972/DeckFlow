@@ -1277,6 +1277,7 @@ internal static class RoleFloorResearchCommandRunner
         builder.AppendLine("- Cards that still fail after harness-side HTTP 429 retry are tracked separately as `rate_limited_after_retry`; like true `not_found` names, they are excluded from classification tallies, but this run distinguishes the two unresolved reasons.");
         builder.AppendLine(FormattableString.Invariant($"- EDHREC quantity-parse failures excluded rather than dropped silently: {computation.EdhrecParseFailureCount} raw deck entries across all ingested cells failed the quantity-prefix parse and were left out of classification."));
         builder.AppendLine(FormattableString.Invariant($"- EDHREC parsed-card-count anomalies: {computation.EdhrecCardCountAnomalyCount} ingested cells did not sum to 100 parsed cards after quantity parsing."));
+        builder.AppendLine("- `boardFilter: \"mainboard\"` commander-membership exclusion of `sideboard` and `maybeboard` rows is verified by `CategoryCacheSchemaParityTests.GetCategoryDeckMembershipForCommanderAsync_BoardFilterMainboard_ExcludesSideboardAndMaybeboardRows`.");
         builder.AppendLine(FormattableString.Invariant($"- Protection under-detection disclosure (unconditional): {BuildProtectionUnderDetectionPointer()}"));
         AppendBlock(builder, BuildCorpusHygieneNotice(computation));
         builder.AppendLine();
