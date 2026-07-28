@@ -106,6 +106,44 @@ public sealed class EdhrecCardCountsReaderTests : IDisposable
     }
 
     [Fact]
+    public void Accumulate_RecordsMalformedRowLineNumber_FieldCount_AndExcerpt()
+    {
+        string csvPath = WriteTempFile(
+            "edhrec.csv",
+            """
+            commander,card,count
+            Healthy Commander,Sol Ring,3
+            Broken,OnlyTwoColumns
+            Healthy Commander,Arcane Signet,2
+            """);
+
+        var denominators = new Dictionary<string, long>(StringComparer.Ordinal)
+        {
+            ["Healthy Commander"] = 10,
+        };
+        var cardRoles = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
+        {
+            ["Sol Ring"] = new[] { "ramp" },
+            ["Arcane Signet"] = new[] { "ramp" },
+        };
+
+        EdhrecBulkGridResult result = EdhrecCardCountsReader.Accumulate(
+            csvPath,
+            denominators,
+            cardRoles,
+            new[] { "ramp" });
+
+        Assert.Null(result.Failure);
+        Assert.Equal(1, result.MalformedRows);
+        Assert.Equal(0, result.MalformedRowDetailsOmittedCount);
+
+        EdhrecMalformedRow malformedRow = Assert.Single(result.MalformedRowDetails);
+        Assert.Equal(3, malformedRow.LineNumber);
+        Assert.Equal(2, malformedRow.FieldCount);
+        Assert.Equal("Broken,OnlyTwoColumns", malformedRow.RawLineExcerpt);
+    }
+
+    [Fact]
     public void Accumulate_RecordsDenominatorMismatch_AndExcludesCommanderWithoutClamping()
     {
         string csvPath = WriteTempFile(
