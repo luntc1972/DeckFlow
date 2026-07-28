@@ -58,6 +58,13 @@ For the six roles Phase 2 returned GO on — **ramp, draw, interaction-targeted,
   - **Cut Lab has no aggregate feasibility guard today** — every `Sum(` in `DeckFlow.Web/Services/CutLab/` counts cards, never floors.
   - The advisory must name which floors to relax, matching Cut Lab's existing "warn before breaking a floor, never silently" contract.
 
+  - **D-06a (AMENDMENT, 2026-07-28, post-research): roles are NOT mutually exclusive, so the naive sum is an upper bound and the advisory must apply a structural overlap correction.**
+    - O-1 is resolved against exclusivity. `CutLabRoleAssigner`'s own docstring states roles overlap; `CutLabAnalysisContextBuilder.cs:219-224` double-increments a card into every role it matches; **`engines` is a strict subset of `draw`**; and `wincons` co-occurs with any role via `isComboPiece`. See `03-RESEARCH.md` §O-1.
+    - Consequence: every count in the bullet above (3 / 16 / 23 of 841, and the 78-slot worst case) is an **upper bound on infeasibility, not a measured count**. Shipping the naive sum would fire the advisory on commanders whose overlapping roles make them perfectly feasible.
+    - **The correction is analytic, not empirical — no new corpus pass.** The nesting is a code fact. Required slots are computed by collapsing known-nested roles rather than summing them: count `max(engines, draw)` in place of `engines + draw`, and treat `wincons` as free-riding on other roles rather than consuming its own slots. The trigger threshold is re-derived from that corrected sum.
+    - Rejected alternatives: shipping the naive sum with hedged "may be infeasible" copy (knowingly over-fires), and deferring the advisory to a follow-up phase (leaves `max()` with no feasibility pushback at all).
+    - The advisory must not claim precision the correction does not have — where overlap magnitude is genuinely unmeasured (`wincons` free-riding), the copy states the estimate is conservative rather than exact.
+
 ### Source arm and data shipping
 
 - **D-07: Commander floors come from the Postgres arm only.** The EDHREC arm serves averages only — its 13,725 cells carry `count`/`deckCount`, no percentile — so it structurally cannot supply p25. Its bracket coverage is also uneven (`exhibition` NOT REPORTED at 1 qualifying cell, `cedh` THIN at 40). `02-08-SUMMARY.md` establishes that singleton-set treatment is correct for all six nonland GO roles — the flaw was lands-specific — so the Postgres measurement is sound here. EDHREC stays as corroborating context in the findings, not as a floor source.
@@ -187,9 +194,13 @@ These were surfaced during discussion and left to the planner/implementer:
 <open_questions>
 ## Open Questions for Research
 
-- **O-1: Is Cut Lab role assignment mutually exclusive, or can one card carry multiple roles?** D-06's infeasibility arithmetic (78 vs ~63 slots, 23/841 at bracket 5) assumes exclusivity. If roles overlap, the real constraint is looser and the advisory's threshold changes. Resolve before sizing D-06.
-- **O-2: Sequencing of the rebase onto main (`1511dd95`).** D-09's fail-closed drift guard copies `CedhBaselineDriftCheck`, which does not exist in this worktree. Planning must decide whether the rebase precedes Phase 3 implementation or whether the guard is written from scratch here and reconciled later.
-- **O-3: Does `CutLabCutRoundEngine`'s overshoot ranking have in-pool counts in scope** at the point it orders roles? D-13 needs count and effective floor together.
+**All three resolved 2026-07-28 during `/gsd-plan-phase 3`. Retained with their answers so the reasoning stays auditable.**
+
+- **O-1 — RESOLVED: roles are NOT mutually exclusive.** `CutLabRoleAssigner` documents the overlap; `CutLabAnalysisContextBuilder.cs:219-224` double-increments; `engines` ⊂ `draw`; `wincons` co-occurs via `isComboPiece`. D-06's arithmetic is an upper bound. Disposition recorded as **D-06a** — structural overlap correction, analytic, no new corpus pass. See `03-RESEARCH.md` §O-1.
+- **O-2 — RESOLVED: the rebase onto `main` (`1511dd95`) precedes Phase 3 implementation.** User decision, 2026-07-28. `gsd/cycle21-cut-lab` is 54 behind / 95 ahead; `DeckFlow.Core/Manabase/CedhBaselineDriftCheck.cs` and its test exist on `main` and will be present. D-09 mirrors that guard rather than writing one from scratch. Consistent with the standing rebase→ff rule. **The rebase is a precondition of execute-phase, not of planning** — plans may assume the post-rebase tree.
+- **O-3 — RESOLVED: no, the counts are not in scope.** `BuildQueue` / `BuildLockedOvershootAdvisory` / `RolePriority` (`CutLabCutRoundEngine.cs:184-444`) receive neither `floorByRole` nor in-pool `RoleCounts`; both are dropped between `BuildFindingsAndRoundPlan` and `BuildQueue`. D-13 therefore threads two new parameters through three signatures, touching 14 `BuildQueue` call sites and rewriting 2 existing tests. See `03-RESEARCH.md` §O-3.
+
+**Correction to `<code_context>` above, from research:** the role-floors table (`CutLab.cshtml:779-821`) renders on **full page load only** and is not on the AJAX patch path — so D-11's two new columns do **not** require `CutLabUiPatchBuilder` changes. D-13's locked-overshoot advisory *is* live-patched after every accept/reject, so the patch-builder work belongs to D-13.
 
 </open_questions>
 
