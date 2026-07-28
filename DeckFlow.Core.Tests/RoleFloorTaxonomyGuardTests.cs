@@ -1,3 +1,5 @@
+using System.Reflection;
+using System.Text;
 using DeckFlow.CLI;
 using DeckFlow.Core.Manabase;
 using Xunit;
@@ -33,5 +35,28 @@ public sealed class RoleFloorTaxonomyGuardTests
         string? result = RoleFloorResearchCommandRunner.ValidateTaxonomyAgainstAssigner(mode);
 
         Assert.Null(result);
+    }
+
+    [Fact]
+    public void AppendBlock_NormalizesWindowsLineEndings_WithoutDoubleCarriageReturns()
+    {
+        var builder = new StringBuilder();
+        MethodInfo appendBlock = typeof(RoleFloorResearchCommandRunner).GetMethod("AppendBlock", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        appendBlock.Invoke(null, new object[] { builder, "### Heading\r\nLine one\r\nLine two\r\n" });
+
+        string emitted = builder.ToString();
+        Assert.DoesNotContain("\r\r", emitted, StringComparison.Ordinal);
+        Assert.Equal($"### Heading{Environment.NewLine}Line one{Environment.NewLine}Line two{Environment.NewLine}", emitted);
+    }
+
+    [Fact]
+    public void BuildProtectionUnderDetectionPointer_NormalizesEmbeddedNoticeLineEndings()
+    {
+        MethodInfo buildPointer = typeof(RoleFloorResearchCommandRunner).GetMethod("BuildProtectionUnderDetectionPointer", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        string pointer = (string)buildPointer.Invoke(null, Array.Empty<object>())!;
+
+        Assert.DoesNotContain('\r', pointer);
     }
 }
