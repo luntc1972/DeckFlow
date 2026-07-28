@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # D-01: the connection string is environment-only, fail-closed, never echoed, and never passed on
 # argv. D-02: exit code 2 is a legitimate result, not a retry trigger or a reason to lower the
-# threshold without developer authorization. Cheap criterion-3 smoke run:
+# threshold without developer authorization. D-03: when LIMIT is set, refuse any non-positive or
+# non-integer value here because the CLI treats <=0 as no limit and would start the full multi-hour
+# corpus run. Cheap criterion-3 smoke run:
 # MIN_DECKS=999999 LIMIT=50 bash scripts/edhrec-brackets/run-role-floor-research.sh
 set -euo pipefail
 
@@ -27,6 +29,20 @@ min_decks="${MIN_DECKS:-40}"
 mode="${MODE:-cedh}"
 cards_cache="${CARDS_CACHE:-_role-floor-research/cards_full.json}"
 limit="${LIMIT:-}"
+
+if [ -n "${limit}" ]; then
+  case "${limit}" in
+    *[!0-9]*)
+      echo "ERROR: LIMIT='${limit}' is invalid. This wrapper only accepts a positive integer LIMIT. The CLI treats LIMIT <= 0 as no limit, so allowing '${limit}' would start the full multi-hour corpus run. Omit LIMIT entirely for a full run." >&2
+      exit 1
+      ;;
+  esac
+
+  if [ "$((10#${limit}))" -le 0 ]; then
+    echo "ERROR: LIMIT='${limit}' is invalid. This wrapper only accepts a positive integer LIMIT. The CLI treats LIMIT <= 0 as no limit, so allowing '${limit}' would start the full multi-hour corpus run. Omit LIMIT entirely for a full run." >&2
+    exit 1
+  fi
+fi
 
 if [ "${EDHREC_DATA+x}" = "x" ]; then
   edhrec_data="${EDHREC_DATA}"
