@@ -18,7 +18,7 @@ No Cut Lab role floor diverges by commander at the stated bar, therefore Phase 3
 
 ## 3. What was measured
 
-The run measured `draw`, `ramp`, `lands`, `interaction-targeted`, `interaction-mass`, `board-wipes`, `protection`, `recursion`, and `tutors` across the EDHREC commander x bracket grid and the Postgres per-deck corpus, over `{fill: deck counts}` and `{fill: qualifying cell counts}`, using `minDeckCount = {fill: n}`, P25 ratio band `{fill: band}`, z threshold `{fill: z}`, absolute-gap fallback `{fill: gap}`, and breadth minimum `{fill: commanders}`.
+The run measured `lands`, `ramp`, `draw`, `interaction-targeted`, `interaction-mass`, `protection`, `engines`, `payoffs`, and `wincons` across the EDHREC commander x bracket grid and the Postgres per-deck corpus, over `{fill: deck counts}` and `{fill: qualifying cell counts}`, using `minDeckCount = {fill: n}`, P25 ratio band `{fill: band}`, z threshold `{fill: z}`, absolute-gap fallback `{fill: gap}`, and breadth minimum `{fill: commanders}`.
 
 ## 4. Why this is a result and not a failure
 
