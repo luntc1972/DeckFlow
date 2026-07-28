@@ -1,7 +1,9 @@
 using System.Net;
 using System.Text.RegularExpressions;
+using DeckFlow.Core.Normalization;
 using DeckFlow.Web.Services.Scryfall;
 using RestSharp;
+using CoreScryfallCollectionIdentifier = DeckFlow.Core.Normalization.ScryfallCollectionIdentifier;
 
 namespace DeckFlow.Web.Services.Packets;
 
@@ -90,15 +92,14 @@ internal sealed partial class ScryfallReferenceResolver
 
     /// <summary>
     /// Resolves a batch of card names: chunks into batches of <c>75</c>, submits
-    /// <c>cards/collection</c> (identifiers = <see cref="ScryfallCardResolver.NormalizeForScryfall"/>
-    /// of each name when <paramref name="normalizeForScryfall"/> is <see langword="true"/>, else the
-    /// raw name), validates 2xx + non-null <c>Data</c>, matches returned cards back to the ORIGINAL
-    /// request name, and dispatches <paramref name="fallbackStrategy"/> for each still-unresolved
-    /// original name.
+    /// <c>cards/collection</c> with single-face identifiers from
+    /// <see cref="CoreScryfallCollectionIdentifier.ToFaceIdentifier(string)"/>, validates 2xx + non-null
+    /// <c>Data</c>, matches returned cards back to the ORIGINAL request name, and dispatches
+    /// <paramref name="fallbackStrategy"/> for each still-unresolved original name.
     /// </summary>
     /// <param name="requestNames">Original request names, already de-duplicated/ordered by the caller.</param>
     /// <param name="fallbackStrategy">Per-caller miss-handling strategy (e.g. printed-name-fallback vs exact-name-fallback).</param>
-    /// <param name="normalizeForScryfall">When <see langword="true"/>, submits <see cref="ScryfallCardResolver.NormalizeForScryfall"/>(name) instead of the raw name. Never affects the match key.</param>
+    /// <param name="normalizeForScryfall">Retained for caller compatibility; collection identifiers always use single-face names. Never affects the match key.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     internal async Task<ScryfallBatchResolution> ResolveBatchAsync(
         IReadOnlyList<string> requestNames,
@@ -121,11 +122,16 @@ internal sealed partial class ScryfallReferenceResolver
 
         foreach (var chunk in Chunk(requestNames, ScryfallBatchSize))
         {
+            string[] chunkIdentifiers = chunk
+                .Select(CoreScryfallCollectionIdentifier.ToFaceIdentifier)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
             var request = new RestRequest("cards/collection", Method.Post);
+            // Why: Scryfall cards/collection name identifiers match a single face name; combined A // B returns not_found.
             request.AddJsonBody(new
             {
-                identifiers = chunk
-                    .Select(name => new { name = normalizeForScryfall ? ScryfallCardResolver.NormalizeForScryfall(name) : name })
+                identifiers = chunkIdentifiers
+                    .Select(name => new { name })
                     .ToArray()
             });
 
