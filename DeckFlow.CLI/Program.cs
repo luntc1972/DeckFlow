@@ -91,6 +91,15 @@ var roleFloorResearchEdhrecDataOption = new Option<string?>("--edhrec-data") { D
 // exists in this workstream.
 var roleFloorResearchOutOption = new Option<string>("--out", () => Path.Combine(".planning", "workstreams", "cycle21-cut-lab", "phases", "02-role-floor-divergence-research", "RESEARCH-FINDINGS.md")) { Description = "Markdown findings output path." };
 var roleFloorResearchOutJsonOption = new Option<string>("--out-json", () => Path.Combine(".planning", "workstreams", "cycle21-cut-lab", "phases", "02-role-floor-divergence-research", "RESEARCH-FINDINGS.json")) { Description = "Machine-readable findings output path." };
+var edhrecRoleGridCommand = new Command("edhrec-role-grid", "Build the EDHREC bulk expected-role-count grid from local CSVs. --edhrec-csv and --averages are required absolute paths into the main worktree (/mnt/c/users/chrislunt/source/personal/deckflow/artifacts/edhrec/...) because artifacts/edhrec/ does not exist in this worktree. Exit codes: 0 = artifacts written; 1 = bad arguments, taxonomy drift, missing input, or unhandled exception; 2 = ran successfully but zero commanders survived the denominator gate and --min-decks, so no artifact was written.");
+var edhrecRoleGridCsvOption = new Option<string>("--edhrec-csv") { Description = "Absolute path to edhrec.csv in the main worktree archive.", IsRequired = true };
+var edhrecRoleGridAveragesOption = new Option<string>("--averages") { Description = "Absolute path to averages.csv in the main worktree archive.", IsRequired = true };
+var edhrecRoleGridCardsCacheOption = new Option<string>("--cards-cache", () => Path.Combine("_role-floor-research", "cards_full.json")) { Description = "Path to the shared Scryfall cards cache JSON." };
+var edhrecRoleGridModeOption = new Option<string>("--mode", () => "cedh") { Description = "casual | focused | cedh -- resolved via CutLabRoleAssigner.ResolveMode" };
+var edhrecRoleGridMinDecksOption = new Option<int>("--min-decks", () => 0) { Description = "Minimum number_decks denominator required for a commander to survive. 0 means all." };
+var edhrecRoleGridOutOption = new Option<string>("--out", () => Path.Combine(".planning", "workstreams", "cycle21-cut-lab", "phases", "02-role-floor-divergence-research", "EDHREC-ROLE-GRID.md")) { Description = "Markdown output path." };
+var edhrecRoleGridOutJsonOption = new Option<string>("--out-json", () => Path.Combine(".planning", "workstreams", "cycle21-cut-lab", "phases", "02-role-floor-divergence-research", "EDHREC-ROLE-GRID.json")) { Description = "Machine-readable output path." };
+var edhrecRoleGridDryRunOption = new Option<bool>("--dry-run") { Description = "Resolve paths, validate taxonomy, print the plan, and exit without reading the full archive or calling Scryfall." };
 var scryfallProbeCommand = new Command("scryfall-probe", "Hit Scryfall once (or many times) and log the full response including headers.");
 var scryfallProbeEndpointOption = new Option<string>("--endpoint", () => "named") { Description = "named | search | random" };
 var scryfallProbeNameOption = new Option<string?>("--name") { Description = "Card name for named/search. Defaults to Sol Ring." };
@@ -185,6 +194,14 @@ roleFloorResearchCommand.AddOption(roleFloorResearchCardsCacheOption);
 roleFloorResearchCommand.AddOption(roleFloorResearchEdhrecDataOption);
 roleFloorResearchCommand.AddOption(roleFloorResearchOutOption);
 roleFloorResearchCommand.AddOption(roleFloorResearchOutJsonOption);
+edhrecRoleGridCommand.AddOption(edhrecRoleGridCsvOption);
+edhrecRoleGridCommand.AddOption(edhrecRoleGridAveragesOption);
+edhrecRoleGridCommand.AddOption(edhrecRoleGridCardsCacheOption);
+edhrecRoleGridCommand.AddOption(edhrecRoleGridModeOption);
+edhrecRoleGridCommand.AddOption(edhrecRoleGridMinDecksOption);
+edhrecRoleGridCommand.AddOption(edhrecRoleGridOutOption);
+edhrecRoleGridCommand.AddOption(edhrecRoleGridOutJsonOption);
+edhrecRoleGridCommand.AddOption(edhrecRoleGridDryRunOption);
 scryfallProbeCommand.AddOption(scryfallProbeEndpointOption);
 scryfallProbeCommand.AddOption(scryfallProbeNameOption);
 scryfallProbeCommand.AddOption(scryfallProbeRepeatOption);
@@ -268,6 +285,7 @@ rootCommand.AddCommand(edhrecDownloadCommand);
 rootCommand.AddCommand(cedhLandCalibrateCommand);
 rootCommand.AddCommand(cedhLandBaselineCommand);
 rootCommand.AddCommand(roleFloorResearchCommand);
+rootCommand.AddCommand(edhrecRoleGridCommand);
 rootCommand.AddCommand(scryfallProbeCommand);
 rootCommand.AddCommand(contentSourceAddCommand);
 rootCommand.AddCommand(contentSourceSetEnabledCommand);
@@ -350,6 +368,11 @@ roleFloorResearchCommand.SetHandler((string? connectionString, int minDecks, str
 {
     Environment.ExitCode = RoleFloorResearchCommandRunner.RunAsync(connectionString, minDecks, mode, cardsCachePath, outputPath, outputJsonPath, edhrecDataPath).GetAwaiter().GetResult();
 }, roleFloorResearchConnectionStringOption, roleFloorResearchMinDecksOption, roleFloorResearchModeOption, roleFloorResearchCardsCacheOption, roleFloorResearchEdhrecDataOption, roleFloorResearchOutOption, roleFloorResearchOutJsonOption);
+
+edhrecRoleGridCommand.SetHandler((string edhrecCsvPath, string averagesCsvPath, string cardsCachePath, string mode, int minDecks, string outputPath, string outputJsonPath, bool dryRun) =>
+{
+    Environment.ExitCode = EdhrecRoleGridCommandRunner.RunAsync(edhrecCsvPath, averagesCsvPath, cardsCachePath, mode, minDecks, outputPath, outputJsonPath, dryRun).GetAwaiter().GetResult();
+}, edhrecRoleGridCsvOption, edhrecRoleGridAveragesOption, edhrecRoleGridCardsCacheOption, edhrecRoleGridModeOption, edhrecRoleGridMinDecksOption, edhrecRoleGridOutOption, edhrecRoleGridOutJsonOption, edhrecRoleGridDryRunOption);
 
 scryfallProbeCommand.SetHandler((string endpoint, string? cardName, int repeat) =>
 {
