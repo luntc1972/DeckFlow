@@ -76,6 +76,23 @@ public sealed class EdhrecCardCountsReaderTests : IDisposable
     }
 
     [Fact]
+    public void ReadSoloDenominators_PreservesQuotedCommaBearingCommanderNames()
+    {
+        string csvPath = WriteTempFile(
+            "averages.csv",
+            """
+            commander,commander2,oracle_id,oracle_id2,avg_creature,avg_instant,avg_sorcery,avg_artifact,avg_enchantment,avg_battle,avg_planeswalker,avg_nonbasicland,avg_basicland,avg_land,number_decks
+            "Adrix and Nev, Twincasters",,id-1,,30,10,10,8,5,0,1,24,10,34,120
+            "Adrix and Nev, Twincasters",Esior,id-1,id-2,29,9,10,8,5,0,1,23,10,33,999
+            """);
+
+        IReadOnlyDictionary<string, long> denominators = EdhrecCardCountsReader.ReadSoloDenominators(csvPath);
+
+        Assert.Equal(120L, denominators["Adrix and Nev, Twincasters"]);
+        Assert.Single(denominators);
+    }
+
+    [Fact]
     public void Accumulate_SkipsCommandersWithoutSoloDenominators_AndRecordsThem()
     {
         string csvPath = WriteTempFile(
@@ -103,6 +120,47 @@ public sealed class EdhrecCardCountsReaderTests : IDisposable
         Assert.Equal(new[] { "Missing Commander" }, result.MissingDenominators);
         Assert.Empty(result.DenominatorMismatches);
         Assert.Equal(2, result.RowsRead);
+    }
+
+    [Fact]
+    public void Accumulate_JoinsQuotedCommaBearingCommanderNames_ToSoloDenominators()
+    {
+        string averagesCsvPath = WriteTempFile(
+            "averages.csv",
+            """
+            commander,commander2,oracle_id,oracle_id2,avg_creature,avg_instant,avg_sorcery,avg_artifact,avg_enchantment,avg_battle,avg_planeswalker,avg_nonbasicland,avg_basicland,avg_land,number_decks
+            "Adrix and Nev, Twincasters",,id-1,,30,10,10,8,5,0,1,24,10,34,120
+            """);
+        string edhrecCsvPath = WriteTempFile(
+            "edhrec.csv",
+            """
+            commander,card,count
+            "Adrix and Nev, Twincasters",Sol Ring,60
+            "Adrix and Nev, Twincasters",Arcane Signet,30
+            """);
+
+        IReadOnlyDictionary<string, long> denominators = EdhrecCardCountsReader.ReadSoloDenominators(averagesCsvPath);
+        var cardRoles = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
+        {
+            ["Sol Ring"] = new[] { "ramp" },
+            ["Arcane Signet"] = new[] { "ramp" },
+        };
+
+        EdhrecBulkGridResult result = EdhrecCardCountsReader.Accumulate(
+            edhrecCsvPath,
+            denominators,
+            cardRoles,
+            new[] { "ramp" });
+
+        Assert.Null(result.Failure);
+        Assert.Empty(result.MissingDenominators);
+
+        EdhrecBulkCommanderTotals commander = Assert.Single(result.Commanders);
+        Assert.Equal("Adrix and Nev, Twincasters", commander.Commander);
+        Assert.Equal(120L, commander.Denominator);
+        Assert.Equal(2, commander.RowsConsumed);
+        Assert.Equal(0.75d, commander.TotalInclusionRate, precision: 6);
+        Assert.Equal(0.75d, commander.ExpectedByRole["ramp"], precision: 6);
     }
 
     [Fact]
