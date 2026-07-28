@@ -1970,7 +1970,7 @@ internal static class RoleFloorResearchCommandRunner
 
     private static string BuildProtectionUnderDetectionPointer()
         => FormattableString.Invariant(
-            $"see `## Go/No-Go` below for the full disclosure; this run's protection floors are a LOWER BOUND and any protection verdict is PROVISIONAL pending Phase 01.2. {BuildProtectionUnderDetectionNotice(includeHeading: false, includeEvidencePriceSentence: false, includeDeferralSentence: false).Split('\n')[0]}");
+            $"see `## Go/No-Go` below for the full disclosure; this run's protection floors are a LOWER BOUND and any protection verdict is PROVISIONAL pending Phase 01.2. {BuildProtectionUnderDetectionNotice(includeHeading: false, includeEvidencePriceSentence: false, includeDeferralSentence: false).ReplaceLineEndings("\n").Split('\n')[0]}");
 
     private static string BuildCorpusHygieneNotice(ResearchComputation computation)
     {
@@ -2060,9 +2060,16 @@ internal static class RoleFloorResearchCommandRunner
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentException.ThrowIfNullOrWhiteSpace(block);
 
-        foreach (string line in block.Split('\n'))
+        string[] lines = block.ReplaceLineEndings("\n").Split('\n');
+        int lineCount = lines.Length;
+        if (lines[^1].Length == 0)
         {
-            builder.AppendLine(line);
+            lineCount--;
+        }
+
+        for (var index = 0; index < lineCount; index++)
+        {
+            builder.AppendLine(lines[index]);
         }
     }
 
