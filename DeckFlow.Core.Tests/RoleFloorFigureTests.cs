@@ -36,16 +36,17 @@ public sealed class RoleFloorFigureTests
     ];
 
     [Fact]
-    public void RoleFloorSource_HasExactlyTwoExplicitNonZeroMembers()
+    public void RoleFloorSource_HasExactlyThreeExplicitNonZeroMembers()
     {
         RoleFloorSource[] values = Enum.GetValues<RoleFloorSource>();
 
         // Forward note: plan 02-09 is narrowly authorized to change this count from 2 to 3 for
         // EdhrecBulk = 3; this assertion exists to prevent a zero-valued accidental default source,
         // not to freeze the enum forever.
-        Assert.Equal(2, values.Length);
+        Assert.Equal(3, values.Length);
         Assert.Equal(1, (int)RoleFloorSource.Postgres);
         Assert.Equal(2, (int)RoleFloorSource.Edhrec);
+        Assert.Equal(3, (int)RoleFloorSource.EdhrecBulk);
         Assert.All(values, value => Assert.NotEqual(0, (int)value));
     }
 
@@ -75,6 +76,20 @@ public sealed class RoleFloorFigureTests
         Assert.False(
             offenders.Any(),
             $"EdhrecRolePointEstimate must not expose distribution properties; found: {string.Join(", ", offenders)}");
+    }
+
+    [Fact]
+    public void EdhrecBulkRoleExpectation_DoesNotExposeDistributionProperties()
+    {
+        string[] offenders = typeof(EdhrecBulkRoleExpectation)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(property => property.Name)
+            .Where(name => EdhrecDistributionPropertyNeedles.Any(needle => name.Contains(needle, StringComparison.Ordinal)))
+            .ToArray();
+
+        Assert.False(
+            offenders.Any(),
+            $"EdhrecBulkRoleExpectation must not expose distribution properties; found: {string.Join(", ", offenders)}");
     }
 
     [Fact]
@@ -142,10 +157,38 @@ public sealed class RoleFloorFigureTests
     }
 
     [Fact]
+    public void EdhrecBulkRoleExpectation_SurvivesJsonRoundTrip()
+    {
+        EdhrecBulkRoleExpectation original = new()
+        {
+            Source = RoleFloorSource.EdhrecBulk,
+            Role = "interaction",
+            CommanderName = "Kinnan, Bonder Prodigy",
+            ExpectedCount = 9.75,
+            DeckCount = 1284,
+            RowsConsumed = 412,
+            MaxCardInclusion = 0.87,
+        };
+
+        string json = JsonSerializer.Serialize(original);
+        EdhrecBulkRoleExpectation? restored = JsonSerializer.Deserialize<EdhrecBulkRoleExpectation>(json);
+
+        Assert.NotNull(restored);
+        Assert.Equal(original.Source, restored!.Source);
+        Assert.Equal(original.Role, restored.Role);
+        Assert.Equal(original.CommanderName, restored.CommanderName);
+        Assert.Equal(original.ExpectedCount, restored.ExpectedCount);
+        Assert.Equal(original.DeckCount, restored.DeckCount);
+        Assert.Equal(original.RowsConsumed, restored.RowsConsumed);
+        Assert.Equal(original.MaxCardInclusion, restored.MaxCardInclusion);
+    }
+
+    [Fact]
     public void RoleFloorFigureTable_ColumnListsCarrySourceColumn()
     {
         Assert.Contains("Source", RoleFloorFigureTable.PostgresColumns);
         Assert.Contains("Source", RoleFloorFigureTable.EdhrecColumns);
+        Assert.Contains("Source", RoleFloorFigureTable.EdhrecBulkColumns);
         Assert.False(RoleFloorFigureTable.HasSourceColumn(["Commander", "Mean"]));
         Assert.True(RoleFloorFigureTable.HasSourceColumn(["Commander", "Source"]));
     }
