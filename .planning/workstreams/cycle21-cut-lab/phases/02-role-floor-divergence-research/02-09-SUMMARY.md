@@ -288,3 +288,16 @@ The final shipped state matches the plan's intended boundaries:
 - the production classifier and resolver path are reused, with only the batching loop duplicated;
 - the main role-floor harness stayed untouched;
 - and the live operator run remains deferred to plan `02-08`.
+
+## Known limitations
+
+- `ParseCsvLine` does not span records. A quoted field containing an embedded newline would be split
+  into two malformed rows and both rows would be dropped. This is an accepted limitation because
+  `EdhrecAveragesConverter` makes the same documented assumption that the EDHREC dump does not
+  contain embedded newlines inside quoted fields (`DeckFlow.Core/Manabase/EdhrecAveragesConverter.cs:112-113`).
+  Multi-line CSV support is intentionally not implemented here.
+- Operator note for plan `02-08`: `--edhrec-csv` and `--averages` must be passed as Windows paths
+  such as `C:\users\chrislunt\source\personal\deckflow\artifacts\edhrec\edhrec.csv`. When this
+  workflow is run through the Windows `dotnet.exe` used in this worktree, a WSL-style `/mnt/c/...`
+  path resolves to `C:\mnt\c\...`, fails `File.Exists`, and the command exits `1`. This matters
+  specifically because `--dry-run` is the plan `02-08` pre-flight.
