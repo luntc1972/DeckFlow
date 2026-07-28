@@ -76,11 +76,15 @@ var cedhLandBaselineDataOption = new Option<string>("--data") { Description = "D
 var cedhLandBaselineOutOption = new Option<string>("--out", () => Path.Combine("DeckFlow.Web", "Data", "cedh-land-baseline")) { Description = "Output directory for the monthly markdown/JSON artifacts." };
 var cedhLandBaselineMonthOption = new Option<string>("--month") { Description = "Month label in YYYY-MM format.", IsRequired = true };
 var cedhLandBaselineThresholdsOption = new Option<string>("--thresholds", () => Path.Combine("scripts", "cedh-baseline", "drift-thresholds.json")) { Description = "Path to the committed drift-threshold configuration." };
-var roleFloorResearchCommand = new Command("role-floor-research", "Reconstruct commander corpora, classify roles oracle-only, and measure role-floor divergence. The connection string may be supplied by --connection-string or by the DECKFLOW_ROLE_FLOOR_CONNECTION_STRING environment variable. Exit codes: 0 = success with at least one qualifying commander and artifacts written; 1 = bad arguments, taxonomy drift, or unhandled exception; 2 = ran successfully but zero commanders cleared the minimum deck count, so no artifact was written.");
-var roleFloorResearchConnectionStringOption = new Option<string?>("--connection-string") { Description = "Postgres connection string for the category-knowledge corpus. Optional on the command line; if omitted the value is read from the DECKFLOW_ROLE_FLOOR_CONNECTION_STRING environment variable. Prefer the environment variable because command-line arguments are visible in the process list. Supplying the flag overrides the environment variable.", IsRequired = false };
+var roleFloorResearchCommand = new Command("role-floor-research", "Reconstruct commander corpora, classify roles oracle-only, and measure role-floor divergence. The connection string may be supplied by --connection-string or by the runner's dedicated environment-variable fallback. Exit codes: 0 = success with at least one qualifying commander and artifacts written; 1 = bad arguments, taxonomy drift, or unhandled exception; 2 = ran successfully but zero commanders cleared the minimum deck count, so no artifact was written.");
+var roleFloorResearchConnectionStringOption = new Option<string?>("--connection-string") { Description = "Postgres connection string for the category-knowledge corpus. Optional on the command line; if omitted the value is read from the runner's dedicated environment-variable fallback. Prefer the environment-variable fallback because command-line arguments are visible in the process list. Supplying the flag overrides that fallback.", IsRequired = false };
 var roleFloorResearchMinDecksOption = new Option<int>("--min-decks", () => 40) { Description = "Minimum deduped deck count required for a commander to qualify." };
 var roleFloorResearchModeOption = new Option<string>("--mode", () => "cedh") { Description = "casual | focused | cedh -- resolved via CutLabRoleAssigner.ResolveMode" };
 var roleFloorResearchCardsCacheOption = new Option<string>("--cards-cache", () => Path.Combine("_role-floor-research", "cards_full.json")) { Description = "Path to the resumable Scryfall cards cache JSON." };
+// Why: the Python fetcher writes the EDHREC corpus to --outdir, while the CLI reads it from
+// --edhrec-data; that deliberate asymmetry matches the existing scripts/cedh-baseline pipeline,
+// where fetch.py writes --outdir and the CLI reads --data.
+var roleFloorResearchEdhrecDataOption = new Option<string?>("--edhrec-data") { Description = "Directory produced by scripts/edhrec-brackets/fetch.py --outdir (default _edhrec-brackets) containing manifest.json and cells/. Optional; when omitted the run uses Postgres alone and the artifacts state that no EDHREC corpus was supplied. When supplied but missing or unreadable the run fails with exit code 1." };
 // Why: this workstream was renamed from the older "cutlab role floors" slug to cycle21-cut-lab and the phase was
 // renumbered from 01 to 02 on 2026-07-26, so the old defaults wrote into a folder that no longer
 // exists in this workstream.
@@ -177,6 +181,7 @@ roleFloorResearchCommand.AddOption(roleFloorResearchConnectionStringOption);
 roleFloorResearchCommand.AddOption(roleFloorResearchMinDecksOption);
 roleFloorResearchCommand.AddOption(roleFloorResearchModeOption);
 roleFloorResearchCommand.AddOption(roleFloorResearchCardsCacheOption);
+roleFloorResearchCommand.AddOption(roleFloorResearchEdhrecDataOption);
 roleFloorResearchCommand.AddOption(roleFloorResearchOutOption);
 roleFloorResearchCommand.AddOption(roleFloorResearchOutJsonOption);
 scryfallProbeCommand.AddOption(scryfallProbeEndpointOption);
@@ -340,10 +345,10 @@ cedhLandBaselineCommand.SetHandler((string dataDirectory, string outputDirectory
     Environment.ExitCode = CedhBaselineCommandRunner.RunAsync(dataDirectory, outputDirectory, month, thresholdsPath).GetAwaiter().GetResult();
 }, cedhLandBaselineDataOption, cedhLandBaselineOutOption, cedhLandBaselineMonthOption, cedhLandBaselineThresholdsOption);
 
-roleFloorResearchCommand.SetHandler((string? connectionString, int minDecks, string mode, string cardsCachePath, string outputPath, string outputJsonPath) =>
+roleFloorResearchCommand.SetHandler((string? connectionString, int minDecks, string mode, string cardsCachePath, string? edhrecDataPath, string outputPath, string outputJsonPath) =>
 {
-    Environment.ExitCode = RoleFloorResearchCommandRunner.RunAsync(connectionString, minDecks, mode, cardsCachePath, outputPath, outputJsonPath).GetAwaiter().GetResult();
-}, roleFloorResearchConnectionStringOption, roleFloorResearchMinDecksOption, roleFloorResearchModeOption, roleFloorResearchCardsCacheOption, roleFloorResearchOutOption, roleFloorResearchOutJsonOption);
+    Environment.ExitCode = RoleFloorResearchCommandRunner.RunAsync(connectionString, minDecks, mode, cardsCachePath, outputPath, outputJsonPath, edhrecDataPath).GetAwaiter().GetResult();
+}, roleFloorResearchConnectionStringOption, roleFloorResearchMinDecksOption, roleFloorResearchModeOption, roleFloorResearchCardsCacheOption, roleFloorResearchEdhrecDataOption, roleFloorResearchOutOption, roleFloorResearchOutJsonOption);
 
 scryfallProbeCommand.SetHandler((string endpoint, string? cardName, int repeat) =>
 {
