@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # D-01: the connection string is environment-only, fail-closed, never echoed, and never passed on
 # argv. D-02: exit code 2 is a legitimate result, not a retry trigger or a reason to lower the
-# threshold without developer authorization.
+# threshold without developer authorization. Cheap criterion-3 smoke run:
+# MIN_DECKS=999999 LIMIT=50 bash scripts/edhrec-brackets/run-role-floor-research.sh
 set -euo pipefail
 
 if [ "$#" -ne 0 ]; then
@@ -25,6 +26,7 @@ dotnet_path="/mnt/c/Program Files/dotnet/dotnet.exe"
 min_decks="${MIN_DECKS:-40}"
 mode="${MODE:-cedh}"
 cards_cache="${CARDS_CACHE:-_role-floor-research/cards_full.json}"
+limit="${LIMIT:-}"
 
 if [ "${EDHREC_DATA+x}" = "x" ]; then
   edhrec_data="${EDHREC_DATA}"
@@ -54,6 +56,10 @@ args=(
 
 if [ -n "${edhrec_data}" ]; then
   args+=(--edhrec-data "${edhrec_data}")
+fi
+
+if [ -n "${limit}" ]; then
+  args+=(--limit "${limit}")
 fi
 
 if [[ "${dotnet_path}" == *.exe || "${dotnet_path}" == *"/mnt/c/"* ]]; then
