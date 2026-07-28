@@ -4,6 +4,7 @@ using System.Net;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Normalization;
@@ -32,6 +33,7 @@ internal static class RoleFloorResearchCommandRunner
     // stating as a floor recommendation, and RFLR-02 requires the whole written bar in one place.
     private const double AbsoluteFloorGap = 2.0;
     private const int BreadthMinimum = 3;
+    private const int EdhrecMinimumCellDeckCount = 400;
     private const int CommanderMembershipMaxConcurrency = 8;
     private const int CommanderMembershipProgressInterval = 200;
     private const int ScryfallRateLimitRetryMaxAttempts = 4;
@@ -249,6 +251,7 @@ internal static class RoleFloorResearchCommandRunner
 
             Dictionary<string, RoleBaseline> corpusBaseline = BuildCorpusBaseline(commanderDecks.Values);
             var qualifyingCommanders = new Dictionary<string, CommanderResearch>(StringComparer.OrdinalIgnoreCase);
+            var postgresDistributions = new List<PostgresRoleDistribution>();
             foreach (CommanderDeckSet commander in commanderDecks.Values.Where(set => set.DedupedN >= minDeckCount))
             {
                 var commanderResearch = new CommanderResearch
@@ -288,6 +291,21 @@ internal static class RoleFloorResearchCommandRunner
                             zThreshold: ZThreshold,
                             absoluteFloorGap: AbsoluteFloorGap),
                     };
+
+                    postgresDistributions.Add(new PostgresRoleDistribution
+                    {
+                        Source = RoleFloorSource.Postgres,
+                        Role = role,
+                        CommanderName = commander.CommanderName,
+                        DeckCount = commander.RawN,
+                        Mean = commanderMean,
+                        P25 = commanderP25,
+                        StdDev = baseline.StdDev,
+                        Ratio = commanderResearch.Roles[role].Ratio,
+                        ZScore = commanderResearch.Roles[role].ZScore,
+                        CohensD = commanderResearch.Roles[role].CohensD,
+                        ClearsBar = commanderResearch.Roles[role].ClearsBar,
+                    });
                 }
 
                 qualifyingCommanders[commander.CommanderName] = commanderResearch;
@@ -326,8 +344,28 @@ internal static class RoleFloorResearchCommandRunner
                 DedupedDeckCount = commanderDecks.Values.Sum(set => set.DedupedN),
                 UnresolvedNotFoundCount = cardResolution.UnresolvedNotFoundCount,
                 UnresolvedRateLimitedAfterRetryCount = cardResolution.UnresolvedRateLimitedAfterRetryCount,
+                PostgresCoverage = new PostgresCoverage
+                {
+                    CommandersEnumerated = commanderRows.Count,
+                    CommandersWithMembership = commandersWithMembership,
+                    RawDeckCount = commanderDecks.Values.Sum(set => set.RawN),
+                    DedupedDeckCount = commanderDecks.Values.Sum(set => set.DedupedN),
+                    CommandersQualifying = qualifyingCommanders.Count,
+                    UnresolvedNotFoundCount = cardResolution.UnresolvedNotFoundCount,
+                    UnresolvedRateLimitedAfterRetryCount = cardResolution.UnresolvedRateLimitedAfterRetryCount,
+                },
                 CorpusBaseline = corpusBaseline,
                 Commanders = qualifyingCommanders,
+                PostgresDistributions = postgresDistributions,
+                EdhrecPointEstimates = [],
+                EdhrecCoverage = new EdhrecCoverage
+                {
+                    CellsFetched = 0,
+                    CellsQualifying = 0,
+                    CellsMissing = 0,
+                    CommandersReached = 0,
+                    MinCellDeckCount = EdhrecMinimumCellDeckCount,
+                },
                 ThresholdCounts = thresholdCounts,
             };
 
@@ -845,7 +883,7 @@ internal static class RoleFloorResearchCommandRunner
         }
 
         SnapshotFileWriter.WriteLfFile(outputPath, BuildMarkdownReport(computation));
-        SnapshotFileWriter.WriteLfFile(outputJsonPath, JsonSerializer.Serialize(BuildJsonPayload(computation), JsonOptions));
+        SnapshotFileWriter.WriteLfFile(outputJsonPath, JsonSerializer.Serialize(BuildJsonPayload(computation), CreateResearchJsonOptions()));
     }
 
     private static string BuildMarkdownReport(ResearchComputation computation)
@@ -873,6 +911,29 @@ internal static class RoleFloorResearchCommandRunner
         {
             builder.AppendLine($"> **WARNING — provenance degraded:** {warning}");
         }
+
+        builder.AppendLine();
+        builder.AppendLine("## Corpus Coverage");
+        builder.AppendLine("### Postgres (within-commander distributions)");
+        builder.AppendLine("| Metric | Value |");
+        builder.AppendLine("|--------|------:|");
+        builder.AppendLine(FormattableString.Invariant($"| Commanders enumerated | {computation.PostgresCoverage.CommandersEnumerated} |"));
+        builder.AppendLine(FormattableString.Invariant($"| Commanders with membership | {computation.PostgresCoverage.CommandersWithMembership} |"));
+        builder.AppendLine(FormattableString.Invariant($"| Raw deck count | {computation.PostgresCoverage.RawDeckCount} |"));
+        builder.AppendLine(FormattableString.Invariant($"| Deduped deck count | {computation.PostgresCoverage.DedupedDeckCount} |"));
+        builder.AppendLine(FormattableString.Invariant($"| Commanders qualifying at DEDUPED N >= {computation.MinDeckCount} | {computation.PostgresCoverage.CommandersQualifying} |"));
+        builder.AppendLine(FormattableString.Invariant($"| Unresolved cards (not_found) | {computation.PostgresCoverage.UnresolvedNotFoundCount} |"));
+        builder.AppendLine(FormattableString.Invariant($"| Unresolved cards (rate_limited_after_retry) | {computation.PostgresCoverage.UnresolvedRateLimitedAfterRetryCount} |"));
+        builder.AppendLine(FormattableString.Invariant($"| Unresolved cards (total) | {computation.PostgresCoverage.UnresolvedCardCount} |"));
+        builder.AppendLine();
+        builder.AppendLine("### EDHREC (commander x bracket grid)");
+        builder.AppendLine("| Metric | Value |");
+        builder.AppendLine("|--------|------:|");
+        builder.AppendLine(FormattableString.Invariant($"| Cells fetched | {computation.EdhrecCoverage.CellsFetched} |"));
+        builder.AppendLine(FormattableString.Invariant($"| Cells qualifying at >= {computation.EdhrecCoverage.MinCellDeckCount} decks backing cell | {computation.EdhrecCoverage.CellsQualifying} |"));
+        builder.AppendLine(FormattableString.Invariant($"| Cells missing | {computation.EdhrecCoverage.CellsMissing} |"));
+        builder.AppendLine(FormattableString.Invariant($"| Commanders reached | {computation.EdhrecCoverage.CommandersReached} |"));
+        builder.AppendLine(FormattableString.Invariant($"| Per-cell minimum | {computation.EdhrecCoverage.MinCellDeckCount} |"));
 
         builder.AppendLine();
         builder.AppendLine("## Methodology");
@@ -932,15 +993,35 @@ internal static class RoleFloorResearchCommandRunner
                 continue;
             }
 
-            builder.AppendLine("| Commander | RAW N | DEDUPED N | Mean | P25 | Ratio | Z | Cohen's d | ClearsBar |");
-            builder.AppendLine("|-----------|------:|----------:|-----:|----:|------:|--:|----------:|----------:|");
-            foreach (CommanderResearch commander in computation.Commanders.Values
-                         .OrderByDescending(candidate => candidate.N)
-                         .ThenBy(candidate => candidate.CommanderName, StringComparer.Ordinal))
+            builder.AppendLine("### Postgres — within-commander distribution (n decks per commander)");
+            AppendMarkdownTableHeader(builder, RoleFloorFigureTable.PostgresColumns);
+            foreach (PostgresRoleDistribution distribution in computation.PostgresDistributions
+                         .Where(figure => string.Equals(figure.Role, role, StringComparison.Ordinal))
+                         .OrderByDescending(figure => ResolveCommanderDedupedN(computation.Commanders, figure.CommanderName))
+                         .ThenBy(figure => figure.CommanderName, StringComparer.Ordinal))
             {
-                CommanderRoleStat stats = commander.Roles[role];
-                builder.AppendLine(FormattableString.Invariant(
-                    $"| {EscapePipe(commander.CommanderName)} | {commander.RawN} | {commander.N} | {FormatMetric(stats.Mean)} | {FormatMetric(stats.P25)} | {FormatMetric(stats.Ratio)} | {FormatMetric(stats.ZScore)} | {FormatMetric(stats.CohensD)} | {(stats.ClearsBar ? "true" : "false")} |"));
+                builder.AppendLine(BuildPostgresFigureRow(computation.Commanders, distribution));
+            }
+
+            builder.AppendLine();
+            builder.AppendLine("### EDHREC — commander x bracket point estimates");
+            if (computation.EdhrecPointEstimates.Count == 0)
+            {
+                builder.AppendLine("_No EDHREC cells were supplied for this run (--edhrec-data not provided)._");
+            }
+            else
+            {
+                AppendMarkdownTableHeader(builder, RoleFloorFigureTable.EdhrecColumns);
+                foreach (EdhrecRolePointEstimate pointEstimate in computation.EdhrecPointEstimates
+                             .Where(figure => string.Equals(figure.Role, role, StringComparison.Ordinal))
+                             .OrderBy(figure => figure.CommanderName, StringComparer.Ordinal)
+                             .ThenBy(figure => figure.BracketIndex))
+                {
+                    builder.AppendLine(BuildEdhrecFigureRow(pointEstimate));
+                }
+
+                builder.AppendLine();
+                builder.AppendLine("*Each figure above is a point estimate from a single synthesized average deck. It is not a percentile and has no within-cell variance. EDHREC figures do not enter the go/no-go.*");
             }
         }
 
@@ -977,6 +1058,7 @@ internal static class RoleFloorResearchCommandRunner
                 ratioLow = RatioLow,
                 ratioHigh = RatioHigh,
                 zThreshold = ZThreshold,
+                absoluteFloorGap = AbsoluteFloorGap,
                 breadthMinimum = BreadthMinimum,
                 databaseHost = computation.DatabaseHost,
                 runTimestampUtc = computation.RunTimestampUtc,
@@ -1011,6 +1093,7 @@ internal static class RoleFloorResearchCommandRunner
                             role => role,
                             role => new
                             {
+                                source = RoleFloorSource.Postgres,
                                 mean = commander.Roles[role].Mean,
                                 p25 = commander.Roles[role].P25,
                                 ratio = commander.Roles[role].Ratio,
@@ -1021,6 +1104,32 @@ internal static class RoleFloorResearchCommandRunner
                             StringComparer.Ordinal),
                     },
                     StringComparer.Ordinal),
+            edhrec = new
+            {
+                cells = computation.EdhrecPointEstimates
+                    .OrderBy(cell => cell.CommanderName, StringComparer.Ordinal)
+                    .ThenBy(cell => cell.BracketIndex)
+                    .Select(cell => new
+                    {
+                        source = cell.Source,
+                        role = cell.Role,
+                        commander = cell.CommanderName,
+                        bracket = cell.BracketSlug,
+                        bracketIndex = cell.BracketIndex,
+                        count = cell.Count,
+                        deckCount = cell.DeckCount,
+                        qualifies = cell.Qualifies,
+                    })
+                    .ToArray(),
+                coverage = new
+                {
+                    cellsFetched = computation.EdhrecCoverage.CellsFetched,
+                    cellsQualifying = computation.EdhrecCoverage.CellsQualifying,
+                    cellsMissing = computation.EdhrecCoverage.CellsMissing,
+                    commandersReached = computation.EdhrecCoverage.CommandersReached,
+                    minCellDeckCount = computation.EdhrecCoverage.MinCellDeckCount,
+                },
+            },
             goNoGo = TargetRoles.ToDictionary(
                 role => role,
                 role => new
@@ -1044,6 +1153,79 @@ internal static class RoleFloorResearchCommandRunner
     }
 
     private static string EscapePipe(string value) => value.Replace("|", "\\|", StringComparison.Ordinal);
+
+    private static string BuildPostgresFigureRow(
+        IReadOnlyDictionary<string, CommanderResearch> commanders,
+        PostgresRoleDistribution distribution)
+    {
+        if (!commanders.TryGetValue(distribution.CommanderName, out CommanderResearch? commander))
+        {
+            throw new InvalidOperationException(
+                FormattableString.Invariant($"Missing commander research row for {distribution.CommanderName}."));
+        }
+
+        // Why: criterion 8 requires every reported figure to state which source it came from, and
+        // a heading-based source tag silently stops covering any column a future contributor adds.
+        return FormattableString.Invariant(
+            $"| {FormatRoleFloorSource(distribution.Source)} | {EscapePipe(distribution.CommanderName)} | {distribution.DeckCount} | {commander.N} | {FormatMetric(distribution.Mean)} | {FormatMetric(distribution.P25)} | {FormatMetric(distribution.Ratio)} | {FormatMetric(distribution.ZScore)} | {FormatMetric(distribution.CohensD)} | {FormatBoolean(distribution.ClearsBar)} |");
+    }
+
+    private static string BuildEdhrecFigureRow(EdhrecRolePointEstimate pointEstimate)
+        => FormattableString.Invariant(
+            $"| {FormatRoleFloorSource(pointEstimate.Source)} | {EscapePipe(pointEstimate.CommanderName)} | {EscapePipe(pointEstimate.BracketSlug)} | {FormatMetric(pointEstimate.Count)} | {pointEstimate.DeckCount} | {FormatBoolean(pointEstimate.Qualifies)} |");
+
+    private static void AppendMarkdownTableHeader(StringBuilder builder, IReadOnlyList<string> columns)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(columns);
+
+        builder.AppendLine(FormattableString.Invariant($"| {string.Join(" | ", columns)} |"));
+        builder.AppendLine(BuildMarkdownAlignmentRow(columns));
+    }
+
+    private static string BuildMarkdownAlignmentRow(IReadOnlyList<string> columns)
+        => FormattableString.Invariant(
+            $"| {string.Join(" | ", columns.Select(GetMarkdownAlignmentCell))} |");
+
+    private static string GetMarkdownAlignmentCell(string column)
+        => column switch
+        {
+            "Source" => "------",
+            "Commander" => "-----------",
+            "RAW N" => "------:",
+            "DEDUPED N" => "----------:",
+            "Mean" => "-----:",
+            "P25" => "----:",
+            "Ratio" => "------:",
+            "Z" => "--:",
+            "Cohen's d" => "----------:",
+            "ClearsBar" => "----------:",
+            "Bracket" => "---------",
+            "Count" => "-----:",
+            "Decks backing cell" => "------------------:",
+            "Qualifies" => "----------:",
+            _ => throw new InvalidOperationException(FormattableString.Invariant($"Unsupported markdown column '{column}'.")),
+        };
+
+    private static string FormatRoleFloorSource(RoleFloorSource source)
+        => source.ToString().ToLowerInvariant();
+
+    private static string FormatBoolean(bool value)
+        => value ? "true" : "false";
+
+    private static int ResolveCommanderDedupedN(
+        IReadOnlyDictionary<string, CommanderResearch> commanders,
+        string commanderName)
+        => commanders.TryGetValue(commanderName, out CommanderResearch? commander)
+            ? commander.N
+            : 0;
+
+    private static JsonSerializerOptions CreateResearchJsonOptions()
+    {
+        var options = new JsonSerializerOptions(JsonOptions);
+        options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+        return options;
+    }
 
     private static string FormatMetric(double value)
     {
@@ -1093,8 +1275,12 @@ internal static class RoleFloorResearchCommandRunner
         public int UnresolvedNotFoundCount { get; init; }
         public int UnresolvedRateLimitedAfterRetryCount { get; init; }
         public int UnresolvedCardCount => UnresolvedNotFoundCount + UnresolvedRateLimitedAfterRetryCount;
+        public required PostgresCoverage PostgresCoverage { get; init; }
         public required Dictionary<string, RoleBaseline> CorpusBaseline { get; init; }
         public required Dictionary<string, CommanderResearch> Commanders { get; init; }
+        public IReadOnlyList<PostgresRoleDistribution> PostgresDistributions { get; init; } = [];
+        public IReadOnlyList<EdhrecRolePointEstimate> EdhrecPointEstimates { get; init; } = [];
+        public required EdhrecCoverage EdhrecCoverage { get; init; }
         public required Dictionary<int, int> ThresholdCounts { get; init; }
         public Dictionary<string, RoleOutcome> GoNoGo { get; set; } = new(StringComparer.Ordinal);
     }
@@ -1122,6 +1308,27 @@ internal static class RoleFloorResearchCommandRunner
         public double Mean { get; init; }
         public double StdDev { get; init; }
         public double P25 { get; init; }
+    }
+
+    private sealed class PostgresCoverage
+    {
+        public int CommandersEnumerated { get; init; }
+        public int CommandersWithMembership { get; init; }
+        public int RawDeckCount { get; init; }
+        public int DedupedDeckCount { get; init; }
+        public int CommandersQualifying { get; init; }
+        public int UnresolvedNotFoundCount { get; init; }
+        public int UnresolvedRateLimitedAfterRetryCount { get; init; }
+        public int UnresolvedCardCount => UnresolvedNotFoundCount + UnresolvedRateLimitedAfterRetryCount;
+    }
+
+    private sealed class EdhrecCoverage
+    {
+        public int CellsFetched { get; init; }
+        public int CellsQualifying { get; init; }
+        public int CellsMissing { get; init; }
+        public int CommandersReached { get; init; }
+        public int MinCellDeckCount { get; init; }
     }
 
     private sealed class RoleOutcome
