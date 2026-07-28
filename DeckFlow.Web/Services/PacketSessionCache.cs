@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using DeckFlow.Web.Services.CreatorStyle;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -184,6 +185,29 @@ internal static class PacketSizeEstimator
             + (result.RequestContextText?.Length ?? 0)
             + (result.DecklistText?.Length ?? 0);
     }
+
+    public static int EstimateSizeBytes(CreatorStylePacketResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        return (result.ArtifactText?.Length ?? 0)
+            + (result.Notice?.Length ?? 0)
+            + result.ValidatedWhitelist.Sum(static cardName => cardName.Length)
+            + result.ValidatedComboCards.Sum(static cardName => cardName.Length)
+            + result.Exemplars.Sum(static exemplar =>
+                exemplar.DeckId.Length
+                + (exemplar.FolderName?.Length ?? 0)
+                + exemplar.ConfidenceMarker.Length
+                + exemplar.CardNames.Sum(static cardName => cardName.Length))
+            + result.RubricScores.CreatorSlug.Length
+            + result.RubricScores.MetricScores.Sum(static score =>
+                score.Metric.Length
+                + score.TargetValue.ToString().Length
+                + (score.SubmittedValue?.ToString().Length ?? 0)
+                + (score.Delta?.ToString().Length ?? 0)
+                + score.Weight.ToString().Length
+                + score.Verdict.Length
+                + (score.Confidence?.Length ?? 0));
+    }
 }
 
 internal sealed record DeckAnalysisCacheInputs(
@@ -210,3 +234,8 @@ internal sealed record MetaGapCacheInputs(
     int? MaxStanding,
     IReadOnlyList<int> SelectedReferenceIndexes,
     string TargetAiPlatformKey);
+
+internal sealed record CreatorStyleCacheInputs(
+    string CreatorSlug,
+    string NormalizedDeckSource,
+    string Format);
