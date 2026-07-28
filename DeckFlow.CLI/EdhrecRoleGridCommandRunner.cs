@@ -659,6 +659,15 @@ internal static class EdhrecRoleGridCommandRunner
         }
 
         builder.AppendLine();
+        builder.AppendLine("## Commander totals");
+        builder.AppendLine();
+        foreach (EdhrecBulkCommanderTotals commander in report.CommanderTotals)
+        {
+            builder.AppendLine(FormattableString.Invariant(
+                $"- {EscapePipe(commander.Commander)}: rows consumed={commander.RowsConsumed}; total inclusion rate={FormatMetric(commander.TotalInclusionRate)}"));
+        }
+
+        builder.AppendLine();
         builder.AppendLine("## Known gaps");
         builder.AppendLine();
         builder.AppendLine("- No bracket dimension exists in this archive.");
