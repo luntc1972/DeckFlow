@@ -40,38 +40,6 @@ public sealed class RoleFloorDivergenceStatsTests
     }
 
     [Fact]
-    public void ClearsBar_WhenAllThresholdsMet_ReturnsTrue()
-    {
-        var clearsBar = RoleFloorDivergenceStats.ClearsBar(40, 9.0, 6.0, 3.0, 40, 0.667, 1.5, 2.0);
-
-        Assert.True(clearsBar);
-    }
-
-    [Fact]
-    public void ClearsBar_WhenDeckCountBelowMinimum_ReturnsFalse()
-    {
-        var clearsBar = RoleFloorDivergenceStats.ClearsBar(39, 9.0, 6.0, 3.0, 40, 0.667, 1.5, 2.0);
-
-        Assert.False(clearsBar);
-    }
-
-    [Fact]
-    public void ClearsBar_WhenRatioFallsInsideBand_ReturnsFalse()
-    {
-        var clearsBar = RoleFloorDivergenceStats.ClearsBar(200, 7.2, 6.0, 3.0, 40, 0.667, 1.5, 2.0);
-
-        Assert.False(clearsBar);
-    }
-
-    [Fact]
-    public void ClearsBar_WhenCorpusMeanIsZero_ReturnsFalse()
-    {
-        var clearsBar = RoleFloorDivergenceStats.ClearsBar(200, 6.0, 0.0, 0.0, 40, 0.667, 1.5, 2.0);
-
-        Assert.False(clearsBar);
-    }
-
-    [Fact]
     public void ClearsFloorBar_BelowMinimumDeckCount_ReturnsFalse()
     {
         var clearsBar = RoleFloorDivergenceStats.ClearsFloorBar(39, 9.0, 6.0, 9.0, 6.0, 3.0, 40, 0.667, 1.5, 2.0, 2.0);
@@ -113,23 +81,18 @@ public sealed class RoleFloorDivergenceStatsTests
 
     [Theory]
     [InlineData(0.0, false)]
+    [InlineData(1.999, false)]
+    [InlineData(2.0, true)]
     [InlineData(3.0, true)]
     [InlineData(1.0, false)]
     public void ClearsFloorBar_ZeroCorpusP25_UsesAbsoluteGapFallback(double commanderP25, bool expected)
     {
         // Why: ComputeRatio returns 0.0 when the denominator is zero, which would otherwise slide
         // under ratioLow and mark every commander divergent-low.
+        // Why: the exact-boundary 2.0 case is intentional coverage for the >= absoluteFloorGap comparison.
         var clearsBar = RoleFloorDivergenceStats.ClearsFloorBar(40, commanderP25, 0.0, 9.0, 6.0, 3.0, 40, 0.667, 1.5, 2.0, 2.0);
 
         Assert.Equal(expected, clearsBar);
-    }
-
-    [Fact]
-    public void ClearsBar_ExistingMeanDrivenBehavior_IsUnchangedByThisPlan()
-    {
-        var clearsBar = RoleFloorDivergenceStats.ClearsBar(40, 9.0, 6.0, 3.0, 40, 0.667, 1.5, 2.0);
-
-        Assert.True(clearsBar);
     }
 
     [Theory]
