@@ -195,4 +195,40 @@ public sealed class RoleFloorGuardsTests
     {
         Assert.Equal(expected, RoleFloorGuards.HasNoQualifyingCommanders(qualifyingCommanderCount));
     }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(10_000)]
+    public void HasReachedCommanderLimit_NullLimit_ReturnsFalse(int loadedCount)
+    {
+        Assert.False(RoleFloorGuards.HasReachedCommanderLimit(loadedCount, commanderLimit: null));
+    }
+
+    [Theory]
+    [InlineData(49, false)]
+    [InlineData(50, true)]
+    [InlineData(51, true)]
+    public void HasReachedCommanderLimit_PositiveLimit_ReturnsExpectedValue(int loadedCount, bool expected)
+    {
+        Assert.Equal(expected, RoleFloorGuards.HasReachedCommanderLimit(loadedCount, commanderLimit: 50));
+    }
+
+    [Fact]
+    public void HasReachedCommanderLimit_ZeroLimit_ReturnsFalse()
+    {
+        Assert.False(RoleFloorGuards.HasReachedCommanderLimit(loadedCount: 0, commanderLimit: 0));
+    }
+
+    [Fact]
+    public void HasReachedCommanderLimit_NegativeLimit_ReturnsFalse()
+    {
+        Assert.False(RoleFloorGuards.HasReachedCommanderLimit(loadedCount: 10, commanderLimit: -1));
+    }
+
+    [Fact]
+    public void HasReachedCommanderLimit_LimitOneAtOneLoaded_ReturnsTrue()
+    {
+        Assert.True(RoleFloorGuards.HasReachedCommanderLimit(loadedCount: 1, commanderLimit: 1));
+    }
 }
