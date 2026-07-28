@@ -76,6 +76,27 @@ public sealed record EdhrecDenominatorMismatch
 }
 
 /// <summary>
+/// Carries the structured details for one malformed EDHREC row.
+/// </summary>
+public sealed record EdhrecMalformedRow
+{
+    /// <summary>
+    /// Gets the one-based line number from <c>edhrec.csv</c>.
+    /// </summary>
+    public required int LineNumber { get; init; }
+
+    /// <summary>
+    /// Gets the parsed CSV field count for the malformed row.
+    /// </summary>
+    public required int FieldCount { get; init; }
+
+    /// <summary>
+    /// Gets a truncated excerpt of the raw line for investigation.
+    /// </summary>
+    public required string RawLineExcerpt { get; init; }
+}
+
+/// <summary>
 /// Represents the result of accumulating EDHREC bulk card counts into per-commander totals.
 /// </summary>
 public sealed record EdhrecBulkGridResult
@@ -101,6 +122,16 @@ public sealed record EdhrecBulkGridResult
     public required int MalformedRows { get; init; }
 
     /// <summary>
+    /// Gets the first malformed EDHREC rows retained for investigation.
+    /// </summary>
+    public required IReadOnlyList<EdhrecMalformedRow> MalformedRowDetails { get; init; }
+
+    /// <summary>
+    /// Gets the number of malformed EDHREC rows omitted from <see cref="MalformedRowDetails"/>.
+    /// </summary>
+    public required int MalformedRowDetailsOmittedCount { get; init; }
+
+    /// <summary>
     /// Gets the distinct valid card-name count observed while streaming pass 2.
     /// </summary>
     public required int DistinctCardCount { get; init; }
@@ -121,6 +152,12 @@ public sealed record EdhrecBulkGridResult
 /// </summary>
 public static class EdhrecCardCountsReader
 {
+    // Why: the archive is large enough that a badly malformed file could contain huge numbers of bad
+    // rows; retaining only the first 50 keeps investigation actionable without letting diagnostics
+    // grow without bound.
+    private const int MalformedRowDetailsCap = 50;
+    private const int MalformedRowExcerptMaxLength = 256;
+
     /// <summary>
     /// Reads every distinct valid card name from the EDHREC bulk archive.
     /// </summary>
@@ -148,7 +185,7 @@ public static class EdhrecCardCountsReader
                 continue;
             }
 
-            if (!TryParseEdhrecRow(line, header, out string _, out string cardName, out int _, out _))
+            if (!TryParseEdhrecRow(line, header, out string _, out string cardName, out int _, out int _))
             {
                 malformedRows++;
                 continue;
@@ -231,9 +268,12 @@ public static class EdhrecCardCountsReader
             var distinctCards = new HashSet<string>(StringComparer.Ordinal);
             var missingDenominators = new HashSet<string>(StringComparer.Ordinal);
             var accumulators = new Dictionary<string, CommanderAccumulator>(StringComparer.Ordinal);
+            var malformedRowDetails = new List<EdhrecMalformedRow>(MalformedRowDetailsCap);
 
             int malformedRows = 0;
+            int malformedRowDetailsOmittedCount = 0;
             long rowsRead = 0;
+            int lineNumber = 1;
 
             // Why: edhrec.csv is 618 MB / 14,150,220 lines, so any API that returns all lines is
             // disqualified. This design takes two streaming passes because a single pass would require
@@ -242,15 +282,18 @@ public static class EdhrecCardCountsReader
             string? line;
             while ((line = reader.ReadLine()) is not null)
             {
+                lineNumber++;
                 if (string.IsNullOrWhiteSpace(line))
                 {
                     malformedRows++;
+                    RecordMalformedRow(malformedRowDetails, ref malformedRowDetailsOmittedCount, lineNumber, 0, line);
                     continue;
                 }
 
-                if (!TryParseEdhrecRow(line, header, out string commander, out string cardName, out int count, out _))
+                if (!TryParseEdhrecRow(line, header, out string commander, out string cardName, out int count, out int lineFieldCount))
                 {
                     malformedRows++;
+                    RecordMalformedRow(malformedRowDetails, ref malformedRowDetailsOmittedCount, lineNumber, lineFieldCount, line);
                     continue;
                 }
 
@@ -336,6 +379,8 @@ public static class EdhrecCardCountsReader
                     .ToArray(),
                 MissingDenominators = missingDenominators.OrderBy(name => name, StringComparer.Ordinal).ToArray(),
                 MalformedRows = malformedRows,
+                MalformedRowDetails = malformedRowDetails,
+                MalformedRowDetailsOmittedCount = malformedRowDetailsOmittedCount,
                 DistinctCardCount = distinctCards.Count,
                 RowsRead = rowsRead,
                 Failure = null,
@@ -349,6 +394,8 @@ public static class EdhrecCardCountsReader
                 DenominatorMismatches = Array.Empty<EdhrecDenominatorMismatch>(),
                 MissingDenominators = Array.Empty<string>(),
                 MalformedRows = 0,
+                MalformedRowDetails = Array.Empty<EdhrecMalformedRow>(),
+                MalformedRowDetailsOmittedCount = 0,
                 DistinctCardCount = 0,
                 RowsRead = 0,
                 Failure = ex.Message,
@@ -495,6 +542,8 @@ public static class EdhrecCardCountsReader
 
     private static List<string> ParseCsvLine(string line)
     {
+        // Why: EdhrecAveragesConverter documents the same EDHREC-dump assumption: quoted fields do
+        // not contain embedded newlines, so this parser intentionally does not span multiple records.
         var fields = new List<string>();
         var current = new StringBuilder();
         bool inQuotes = false;
@@ -527,6 +576,37 @@ public static class EdhrecCardCountsReader
 
         fields.Add(current.ToString());
         return fields;
+    }
+
+    private static void RecordMalformedRow(
+        ICollection<EdhrecMalformedRow> malformedRowDetails,
+        ref int omittedCount,
+        int lineNumber,
+        int fieldCount,
+        string line)
+    {
+        if (malformedRowDetails.Count >= MalformedRowDetailsCap)
+        {
+            omittedCount++;
+            return;
+        }
+
+        malformedRowDetails.Add(new EdhrecMalformedRow
+        {
+            LineNumber = lineNumber,
+            FieldCount = fieldCount,
+            RawLineExcerpt = TruncateForDiagnostic(line),
+        });
+    }
+
+    private static string TruncateForDiagnostic(string value)
+    {
+        if (value.Length <= MalformedRowExcerptMaxLength)
+        {
+            return value;
+        }
+
+        return value[..MalformedRowExcerptMaxLength];
     }
 
     private sealed record HeaderIndexes(int First, int Second, int Third);
