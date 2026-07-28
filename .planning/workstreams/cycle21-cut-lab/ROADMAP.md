@@ -342,7 +342,7 @@ concurrently with either. Waves 2-7 hold one plan each, ending with `02-08`'s li
 | 1. Interaction Taxonomy Split | done | **Complete** — pushed, `9527dc72` | 2026-07-26 |
 | 01.1. Plan-Role Classifier Heuristic Fixes | 2/2 | **Complete** — suite green, `b8ec09f3` | 2026-07-27 |
 | 01.2. Protection-Vocabulary Widening | 0/TBD | Not started (inserted from 01.1 D-06) | - |
-| 2. Role-Floor Divergence Research | 0/9 | Not started — harness committed as baseline `27e25459`, re-planned 2026-07-27 — 9 plans across 7 waves; EDHREC bracket corpus acquired 2026-07-27 (1,525 cells) | - |
+| 2. Role-Floor Divergence Research | 11/11 | **Complete** — real run exit 0, 841 qualifying commanders. GO on ramp, draw, interaction-targeted, engines, payoffs, wincons; **lands PULLED** at the Task 4 checkpoint (the Postgres arm measures distinct land NAMES, not land count; colour count explains 54% of its variance). See `02-08-SUMMARY.md` | 2026-07-28 |
 | 3. Commander-Aware Floor Defaults | 0/TBD | Not started (gated on Phase 2 go/no-go) | - |
 | 4. Functional-Twins Detector | 0/TBD | Not started | - |
 | 5. Archidekt Bracket Capture | 0/TBD | Not started | - |
