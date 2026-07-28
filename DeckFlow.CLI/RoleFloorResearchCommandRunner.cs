@@ -33,6 +33,47 @@ internal static class RoleFloorResearchCommandRunner
     // stating as a floor recommendation, and RFLR-02 requires the whole written bar in one place.
     private const double AbsoluteFloorGap = 2.0;
     private const int BreadthMinimum = 3;
+    // Source: .planning/archive/2026-cycles/research/2026-07-16-edhrec-bracket-land-data.md
+    // "bracket mean" row. The B1 value carries the archive's own caveat that Teval's 42-land B1
+    // cell came from ~50 decks and pushed up a tiny-sample outlier.
+    private static readonly IReadOnlyDictionary<int, double> PriorLandBracketMeans = new Dictionary<int, double>
+    {
+        [1] = 36.3,
+        [2] = 35.7,
+        [3] = 35.2,
+        [4] = 34.5,
+        [5] = 30.0,
+    };
+    // Source: .planning/archive/2026-cycles/research/2026-07-16-edhrec-bracket-land-data.md
+    // "bracket SD" row. The B1 value carries the archive's own caveat that Teval's 42-land B1
+    // cell came from ~50 decks and pushed up a tiny-sample outlier.
+    private static readonly IReadOnlyDictionary<int, double> PriorLandBracketStdDevs = new Dictionary<int, double>
+    {
+        [1] = 2.24,
+        [2] = 1.19,
+        [3] = 1.25,
+        [4] = 1.20,
+        [5] = 2.14,
+    };
+    // Source: .planning/archive/2026-cycles/research/2026-07-16-edhrec-bracket-land-data.md
+    // "bracket mean" / "bracket SD" rows, ALL column.
+    private const double PriorLandOverallMean = 34.9;
+    private const double PriorLandOverallStdDev = 1.45;
+    private const string PriorLandStudyDate = "2026-07-16";
+    private const string PriorLandStudyPath = ".planning/archive/2026-cycles/research/2026-07-16-edhrec-bracket-land-data.md";
+    private const int LandsCalibrationMinCommanders = 3;
+    // Source: DeckFlow.Web/Data/manabase-baseline/latest.json, $.brackets[*].avgLands. This is the
+    // live shipped snapshot that resolves Cut Lab's lands floor default today via
+    // EdhrecAveragesConverter -> IManabaseBaselineProvider -> CutLabFloorDefaults.ResolveLandsDefault.
+    private static readonly IReadOnlyDictionary<int, double> LiveBaselineLandBracketMeans = new Dictionary<int, double>
+    {
+        [2] = 35.9,
+        [3] = 35.5,
+        [4] = 34.5,
+        [5] = 30.5,
+    };
+    private const string LiveBaselineSnapshotPath = "DeckFlow.Web/Data/manabase-baseline/latest.json";
+    private const string LiveBaselineGeneratedUtc = "2026-07-17T21:38:00Z";
     // Why: the 2026-07-16 prior set the per-cell EDHREC floor at 400 decks backing the cell, and
     // the manifest's min_decks: 8000 is the commander-selection floor for which commanders were
     // fetched, not the per-cell qualifying floor used by this harness.
@@ -1028,6 +1069,35 @@ internal static class RoleFloorResearchCommandRunner
         return outcomes;
     }
 
+    private static string ClassifyLandsCalibration(ResearchComputation computation)
+    {
+        ArgumentNullException.ThrowIfNull(computation);
+
+        RoleBaseline landsBaseline = computation.CorpusBaseline["lands"];
+        if (computation.Commanders.Count < LandsCalibrationMinCommanders || landsBaseline.Mean <= 0.0)
+        {
+            return "insufficient data";
+        }
+
+        string landsStatus = computation.GoNoGo["lands"].JsonStatus;
+        return landsStatus switch
+        {
+            // Why: the 2026-07-16 prior concluded commander identity barely moves land count, so a
+            // no-go on lands is agreement with that prior and a go is disagreement with it.
+            "no-go" => "reproduces",
+            // Why: signal-present means the harness itself said the breadth was insufficient, so
+            // routing it to contradicts would assert that a ~50-commander study was wrong on the
+            // strength of one or two commanders, on the very role chosen to tell us whether this
+            // harness can be trusted. contradicts requires the SAME breadth bar (BreadthMinimum)
+            // that earns a role a Phase 3 go.
+            "signal-present" => "insufficient data",
+            "go" when computation.GoNoGo["lands"].ClearingCommanderCount >= BreadthMinimum => "contradicts",
+            "go" => "insufficient data",
+            _ => throw new InvalidOperationException(
+                FormattableString.Invariant($"Unexpected lands go/no-go status '{landsStatus}'."))
+        };
+    }
+
     private static void WriteFindingsFiles(ResearchComputation computation, string outputPath, string outputJsonPath)
     {
         string? markdownDirectory = Path.GetDirectoryName(outputPath);
@@ -1228,6 +1298,8 @@ internal static class RoleFloorResearchCommandRunner
         }
 
         builder.AppendLine();
+        AppendLandsCalibrationControl(builder, computation);
+        builder.AppendLine();
         builder.AppendLine("## Go/No-Go");
         foreach (string role in TargetRoles)
         {
@@ -1378,8 +1450,280 @@ internal static class RoleFloorResearchCommandRunner
                     citingCommanders = computation.GoNoGo[role].CitingCommanders,
                 },
                 StringComparer.Ordinal),
+            landsCalibration = BuildLandsCalibrationPayload(computation),
+            rampCalibration = new
+            {
+                verdict = "no-prior",
+                note = "Per-commander ramp variation was not measured in the 2026-07-16 study; that study rejected commander-ability-driven land adjustment, which is a different question.",
+            },
         };
     }
+
+    private static void AppendLandsCalibrationControl(StringBuilder builder, ResearchComputation computation)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(computation);
+
+        string verdict = ClassifyLandsCalibration(computation);
+        RoleBaseline landsBaseline = computation.CorpusBaseline["lands"];
+        IReadOnlyDictionary<int, FreshEdhrecLandBracketFigure?> freshFigures = BuildFreshEdhrecLandBracketFigures(computation);
+        ThreeReferenceAgreement agreement = BuildThreeReferenceAgreement(computation, freshFigures);
+
+        builder.AppendLine("## Lands Calibration Control");
+        builder.AppendLine(FormattableString.Invariant($"**Verdict vs the {PriorLandStudyDate} prior: {verdict}**"));
+        builder.AppendLine(FormattableString.Invariant(
+            $"The prior in `{PriorLandStudyPath}` concluded that bracket drove land count, commander identity barely moved it, and every commander-ability-driven land adjustment was rejected; on this control role that means a lands `no-go` reproduces the prior while a lands `go` contradicts it."));
+        builder.AppendLine();
+        builder.AppendLine("| Bracket | Prior mean / SD | Live shipped avgLands | Fresh measured avgLands | This run Postgres mean / SD / P25 |");
+        builder.AppendLine("|---------|-----------------:|----------------------:|------------------------:|----------------------------------:|");
+        foreach (int bracketIndex in Enumerable.Range(1, 5))
+        {
+            builder.AppendLine(FormattableString.Invariant(
+                $"| B{bracketIndex} | {FormatPriorLandCell(bracketIndex)} | {FormatLiveBaselineLandCell(bracketIndex)} | {FormatFreshMeasuredLandCell(computation, bracketIndex, freshFigures)} | {FormatMetric(landsBaseline.Mean)} / {FormatMetric(landsBaseline.StdDev)} / {FormatMetric(landsBaseline.P25)} |"));
+        }
+
+        builder.AppendLine(FormattableString.Invariant(
+            $"**Do the three reference sets agree?** Maximum absolute spread across prior / live / fresh = {agreement.MaximumSpread:0.###} lands{FormatDivergentBracketClause(agreement)}. Using this run's Postgres mean ({FormatMetric(landsBaseline.Mean)}) as the only comparable scalar from the within-commander corpus, it sits closest on average to {agreement.ClosestReferenceSet}. Agreement among the three EDHREC-derived baselines says nothing about this run's Postgres P25 result, which measures a quantity none of them can measure."));
+
+        if (string.Equals(verdict, "contradicts", StringComparison.Ordinal))
+        {
+            builder.AppendLine();
+            builder.AppendLine("This contradicts the prior, so per the ROADMAP this is a finding about the methodology before it is a finding about decks. First suspects: the P25-versus-point-estimate difference, the EDHREC land self-check deltas from plan 02-06, and the Postgres corpus category-tag coverage gaps already listed in Known gaps.");
+        }
+        else if (string.Equals(verdict, "insufficient data", StringComparison.Ordinal))
+        {
+            builder.AppendLine();
+            builder.AppendLine(BuildLandsInsufficientDataExplanation(computation));
+        }
+
+        builder.AppendLine();
+        builder.AppendLine("### Ramp — no prior to compare against");
+        builder.AppendLine("Per-commander ramp variation was never measured this way in the 2026-07-16 work. That study addressed commander-ability-driven land adjustment, which is a different question, so this run's ramp verdict stands on its own with no reproduce/contradict comparison available.");
+    }
+
+    private static object BuildLandsCalibrationPayload(ResearchComputation computation)
+    {
+        ArgumentNullException.ThrowIfNull(computation);
+
+        IReadOnlyDictionary<int, FreshEdhrecLandBracketFigure?> freshFigures = BuildFreshEdhrecLandBracketFigures(computation);
+        return new
+        {
+            verdict = ClassifyLandsCalibration(computation),
+            priorStudyPath = PriorLandStudyPath,
+            priorStudyDate = PriorLandStudyDate,
+            priorBracketMeans = PriorLandBracketMeans.OrderBy(pair => pair.Key).ToDictionary(pair => pair.Key, pair => pair.Value),
+            priorOverallMean = PriorLandOverallMean,
+            runLandsMeanPostgres = computation.CorpusBaseline["lands"].Mean,
+            runLandsP25Postgres = computation.CorpusBaseline["lands"].P25,
+            runLandsPerBracketEdhrec = freshFigures
+                .OrderBy(pair => pair.Key)
+                .ToDictionary(
+                    pair => pair.Key,
+                    pair => (object)(pair.Value is null
+                        ? new
+                        {
+                            mean = (double?)null,
+                            supportLabel = computation.EdhrecCoverage.CellsFetched == 0
+                                ? "n/a (no EDHREC corpus supplied)"
+                                : ResolveBracketSupportLabel(computation, pair.Key),
+                            qualifyingCellCount = ResolveQualifyingCellCount(computation, pair.Key),
+                        }
+                        : new
+                        {
+                            mean = (double?)pair.Value.Mean,
+                            supportLabel = pair.Value.SupportLabel,
+                            qualifyingCellCount = pair.Value.QualifyingCellCount,
+                        })),
+            qualifyingCommanderCount = computation.Commanders.Count,
+        };
+    }
+
+    private static string BuildLandsInsufficientDataExplanation(ResearchComputation computation)
+    {
+        ArgumentNullException.ThrowIfNull(computation);
+
+        if (computation.Commanders.Count < LandsCalibrationMinCommanders)
+        {
+            return FormattableString.Invariant(
+                $"Insufficient data because only {computation.Commanders.Count} qualifying commanders were available for lands and LandsCalibrationMinCommanders requires {LandsCalibrationMinCommanders}; this does not challenge the prior in either direction.");
+        }
+
+        RoleBaseline landsBaseline = computation.CorpusBaseline["lands"];
+        if (landsBaseline.Mean <= 0.0)
+        {
+            return "Insufficient data because the corpus lands baseline is zero; this does not challenge the prior in either direction.";
+        }
+
+        RoleOutcome landsOutcome = computation.GoNoGo["lands"];
+        if (string.Equals(landsOutcome.JsonStatus, "signal-present", StringComparison.Ordinal))
+        {
+            return FormattableString.Invariant(
+                $"Insufficient data because only {landsOutcome.ClearingCommanderCount} distinct qualifying commanders cleared the lands bar and BreadthMinimum = {BreadthMinimum} distinct qualifying commanders clearing the bar. This is not a contradiction of the prior: the harness itself reported the breadth as insufficient, so the result supports no conclusion about the prior in either direction. What would settle it is more qualifying commanders at the stated minimum deck count.");
+        }
+
+        return FormattableString.Invariant(
+            $"Insufficient data because only {computation.Commanders.Count} qualifying commanders were available for lands and LandsCalibrationMinCommanders requires {LandsCalibrationMinCommanders}, or because the corpus lands baseline was zero; this does not challenge the prior in either direction.");
+    }
+
+    private static IReadOnlyDictionary<int, FreshEdhrecLandBracketFigure?> BuildFreshEdhrecLandBracketFigures(ResearchComputation computation)
+    {
+        ArgumentNullException.ThrowIfNull(computation);
+
+        var results = new Dictionary<int, FreshEdhrecLandBracketFigure?>();
+        foreach (int bracketIndex in Enumerable.Range(1, 5))
+        {
+            if (computation.EdhrecCoverage.CellsFetched == 0)
+            {
+                results[bracketIndex] = null;
+                continue;
+            }
+
+            string supportLabel = ResolveBracketSupportLabel(computation, bracketIndex);
+            if (supportLabel.StartsWith("NOT REPORTED", StringComparison.Ordinal))
+            {
+                results[bracketIndex] = null;
+                continue;
+            }
+
+            List<EdhrecRolePointEstimate> cells = computation.EdhrecPointEstimates
+                .Where(estimate =>
+                    string.Equals(estimate.Role, "lands", StringComparison.Ordinal) &&
+                    estimate.BracketIndex == bracketIndex &&
+                    estimate.Qualifies)
+                .ToList();
+
+            if (cells.Count == 0)
+            {
+                results[bracketIndex] = null;
+                continue;
+            }
+
+            results[bracketIndex] = new FreshEdhrecLandBracketFigure
+            {
+                BracketIndex = bracketIndex,
+                Mean = cells.Average(cell => (double)cell.Count),
+                QualifyingCellCount = cells.Count,
+                SupportLabel = supportLabel,
+            };
+        }
+
+        return results;
+    }
+
+    private static string ResolveBracketSupportLabel(ResearchComputation computation, int bracketIndex)
+        => computation.EdhrecCoverage.Brackets
+            .FirstOrDefault(bracket => bracket.BracketIndex == bracketIndex)?.SupportLabel
+            ?? "n/a (no bracket coverage row)";
+
+    private static int ResolveQualifyingCellCount(ResearchComputation computation, int bracketIndex)
+        => computation.EdhrecCoverage.Brackets
+            .FirstOrDefault(bracket => bracket.BracketIndex == bracketIndex)?.CellsQualifying
+            ?? 0;
+
+    private static string FormatPriorLandCell(int bracketIndex)
+        => FormattableString.Invariant(
+            $"{FormatMetric(PriorLandBracketMeans[bracketIndex])} / {FormatMetric(PriorLandBracketStdDevs[bracketIndex])}");
+
+    private static string FormatLiveBaselineLandCell(int bracketIndex)
+        => LiveBaselineLandBracketMeans.TryGetValue(bracketIndex, out double mean)
+            ? FormatMetric(mean)
+            : "n/a (no B1 row in the snapshot)";
+
+    private static string FormatFreshMeasuredLandCell(
+        ResearchComputation computation,
+        int bracketIndex,
+        IReadOnlyDictionary<int, FreshEdhrecLandBracketFigure?> freshFigures)
+    {
+        ArgumentNullException.ThrowIfNull(computation);
+        ArgumentNullException.ThrowIfNull(freshFigures);
+
+        if (computation.EdhrecCoverage.CellsFetched == 0)
+        {
+            return "n/a (no EDHREC corpus supplied)";
+        }
+
+        string supportLabel = ResolveBracketSupportLabel(computation, bracketIndex);
+        if (supportLabel.StartsWith("NOT REPORTED", StringComparison.Ordinal))
+        {
+            return "n/a (insufficient cells)";
+        }
+
+        if (!freshFigures.TryGetValue(bracketIndex, out FreshEdhrecLandBracketFigure? figure) || figure is null)
+        {
+            return "n/a (insufficient cells)";
+        }
+
+        if (supportLabel.StartsWith("THIN", StringComparison.Ordinal))
+        {
+            return FormattableString.Invariant($"{FormatMetric(figure.Mean)} ({figure.QualifyingCellCount} qualifying cells)");
+        }
+
+        return FormatMetric(figure.Mean);
+    }
+
+    private static ThreeReferenceAgreement BuildThreeReferenceAgreement(
+        ResearchComputation computation,
+        IReadOnlyDictionary<int, FreshEdhrecLandBracketFigure?> freshFigures)
+    {
+        ArgumentNullException.ThrowIfNull(computation);
+        ArgumentNullException.ThrowIfNull(freshFigures);
+
+        var spreads = new List<(int BracketIndex, double Spread)>();
+        foreach (int bracketIndex in Enumerable.Range(1, 5))
+        {
+            var values = new List<double> { PriorLandBracketMeans[bracketIndex] };
+            if (LiveBaselineLandBracketMeans.TryGetValue(bracketIndex, out double liveMean))
+            {
+                values.Add(liveMean);
+            }
+
+            if (freshFigures.TryGetValue(bracketIndex, out FreshEdhrecLandBracketFigure? freshFigure) && freshFigure is not null)
+            {
+                values.Add(freshFigure.Mean);
+            }
+
+            if (values.Count < 2)
+            {
+                continue;
+            }
+
+            spreads.Add((bracketIndex, values.Max() - values.Min()));
+        }
+
+        double postgresMean = computation.CorpusBaseline["lands"].Mean;
+        double priorAverageDistance = PriorLandBracketMeans.Values.Average(value => Math.Abs(postgresMean - value));
+        double liveAverageDistance = LiveBaselineLandBracketMeans.Values.Average(value => Math.Abs(postgresMean - value));
+        double freshAverageDistance = freshFigures.Values
+            .Where(value => value is not null)
+            .Select(value => Math.Abs(postgresMean - value!.Mean))
+            .DefaultIfEmpty(double.PositiveInfinity)
+            .Average();
+
+        string closestReferenceSet = new[]
+            {
+                (Name: "the prior", Distance: priorAverageDistance),
+                (Name: "the live shipped baseline", Distance: liveAverageDistance),
+                (Name: "the fresh measured EDHREC baseline", Distance: freshAverageDistance),
+            }
+            .OrderBy(pair => pair.Distance)
+            .ThenBy(pair => pair.Name, StringComparer.Ordinal)
+            .First().Name;
+
+        return new ThreeReferenceAgreement
+        {
+            MaximumSpread = spreads.Count == 0 ? 0.0 : spreads.Max(spread => spread.Spread),
+            DivergentBrackets = spreads
+                .Where(spread => spread.Spread > 1.0)
+                .Select(spread => $"B{spread.BracketIndex}")
+                .ToArray(),
+            ClosestReferenceSet = closestReferenceSet,
+        };
+    }
+
+    private static string FormatDivergentBracketClause(ThreeReferenceAgreement agreement)
+        => agreement.DivergentBrackets.Count == 0
+            ? "; no bracket exceeds a 1.0-land spread"
+            : FormattableString.Invariant($"; brackets exceeding a 1.0-land spread: {string.Join(", ", agreement.DivergentBrackets)}");
 
     private static string FormatCommanderCitation(RoleOutcome outcome)
     {
@@ -1619,6 +1963,21 @@ internal static class RoleFloorResearchCommandRunner
         public int ExactMatchCount { get; init; }
         public int WithinOneCount { get; init; }
         public int DivergedByMoreThanOneCount { get; init; }
+    }
+
+    private sealed class FreshEdhrecLandBracketFigure
+    {
+        public int BracketIndex { get; init; }
+        public double Mean { get; init; }
+        public int QualifyingCellCount { get; init; }
+        public required string SupportLabel { get; init; }
+    }
+
+    private sealed class ThreeReferenceAgreement
+    {
+        public double MaximumSpread { get; init; }
+        public required IReadOnlyList<string> DivergentBrackets { get; init; }
+        public required string ClosestReferenceSet { get; init; }
     }
 
     private sealed class RoleOutcome
