@@ -5,6 +5,7 @@ using DeckFlow.Web.Services.Http;
 using Polly;
 using Polly.Registry;
 using RestSharp;
+using CoreScryfallCollectionIdentifier = DeckFlow.Core.Normalization.ScryfallCollectionIdentifier;
 
 namespace DeckFlow.Web.Services.Scryfall;
 
@@ -107,8 +108,10 @@ public sealed class ScryfallCardResolver : IScryfallCardResolver
             return null;
         }
 
+        string collectionIdentifier = CoreScryfallCollectionIdentifier.ToFaceIdentifier(cardName);
         var request = new RestRequest("cards/collection", Method.Post);
-        request.AddJsonBody(new { identifiers = new object[] { new { name = cardName } } });
+        // Why: Scryfall cards/collection name identifiers match a single face name; combined A // B returns not_found.
+        request.AddJsonBody(new { identifiers = new object[] { new { name = collectionIdentifier } } });
 
         RestResponse<ScryfallCollectionResponse> response =
             await ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
@@ -221,9 +224,12 @@ public sealed class ScryfallCardResolver : IScryfallCardResolver
 
     /// <summary>
     /// Normalizes a card name for use in Scryfall API payloads.
-    /// Converts the single-slash DFC separator used by Archidekt exports (" / ")
-    /// to the double-slash form Scryfall expects (" // "). This changes only the identifier
-    /// SUBMITTED to Scryfall and never the key a batch resolver matches returned cards back on.
+    /// Converts the single-slash DFC separator used by Archidekt exports (" / ") to the
+    /// double-slash form required by Scryfall <c>cards/search</c> and <c>cards/named</c>.
+    /// This changes only the identifier SUBMITTED to Scryfall and never the key a batch resolver
+    /// matches returned cards back on.
+    /// Verified live on 2026-07-28: <c>cards/collection</c> rejects the combined form and must
+    /// instead use <see cref="CoreScryfallCollectionIdentifier.ToFaceIdentifier(string)"/>.
     /// DeckEntry.Name is NOT modified — normalization happens only at the call site.
     /// </summary>
     /// <remarks>
