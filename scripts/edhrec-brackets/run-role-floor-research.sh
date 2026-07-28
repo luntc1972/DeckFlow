@@ -4,6 +4,12 @@
 # threshold without developer authorization.
 set -euo pipefail
 
+if [ "$#" -ne 0 ]; then
+  echo "ERROR: this script takes no positional arguments. Provide the connection string via DECKFLOW_ROLE_FLOOR_CONNECTION_STRING." >&2
+  echo "WARNING: ${#} positional argument(s) were supplied. If you just typed a connection string on the command line, it is now in your shell history; clear that history entry and consider rotating the credential." >&2
+  exit 1
+fi
+
 if [ -z "${DECKFLOW_ROLE_FLOOR_CONNECTION_STRING:-}" ]; then
   echo "ERROR: export DECKFLOW_ROLE_FLOOR_CONNECTION_STRING before running (see 02-08-PLAN.md). It is never stored in this repo." >&2
   exit 1
@@ -69,7 +75,7 @@ set -e
 printf '%s\n' "${harness_exit}" > "${exit_file}"
 
 if [ "${harness_exit}" = "1" ] && grep -Fq "DECKFLOW_ROLE_FLOOR_CONNECTION_STRING environment variable is required." "${log_file}"; then
-  echo "Harness rejected the environment-only path as if the command-line connection-string flag were still required. Do not add that flag in this wrapper; take the process-list exposure decision to the Task 2 checkpoint."
+  echo "Harness rejected the environment-only path. Possible causes include the plan 02-04 D-07 environment-variable read being absent in the harness, or WSLENV failing to propagate DECKFLOW_ROLE_FLOOR_CONNECTION_STRING into the Windows dotnet process. Do not add the command-line connection-string flag in this wrapper; take the process-list exposure decision to the Task 2 checkpoint." >&2
 fi
 
 case "${harness_exit}" in
