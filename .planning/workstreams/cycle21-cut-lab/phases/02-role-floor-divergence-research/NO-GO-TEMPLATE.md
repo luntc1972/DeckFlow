@@ -34,7 +34,7 @@ Lands calibration verdict: `{fill: reproduces | contradicts | insufficient data}
 
 ## 7. Known limitations that could mask a real effect
 
-- Protection under-detection disclosure: see [01.1-02-DELTA.md](/mnt/c/users/chrislunt/source/personal/deckflow-role-floors/.planning/workstreams/cycle21-cut-lab/phases/01.1-plan-role-classifier-heuristic-fixes-fix-the-counters-counte/01.1-02-DELTA.md:45). Reopen only after Phase 01.2 closes this lower-bound problem.
+- Protection under-detection disclosure: see [01.1-02-DELTA.md](../01.1-plan-role-classifier-heuristic-fixes-fix-the-counters-counte/01.1-02-DELTA.md:47). Reopen only after Phase 01.2 closes this lower-bound problem.
 - Oracle-only classification can miss role intent that is visible in real lists but not in text alone.
 - Category-tag coverage gaps in the Postgres corpus can suppress real role counts and must be reduced before a reopen is credible.
 - The `isComboPiece: false` fix removes one confound, but any residual combo tagging mismatch still weakens interpretation.
