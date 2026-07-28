@@ -162,6 +162,7 @@ internal static class RoleFloorResearchCommandRunner
         string outputPath,
         string outputJsonPath,
         string? edhrecDataPath = null,
+        int? commanderLimit = null,
         CancellationToken cancellationToken = default)
     {
         const string connectionStringEnvironmentVariableName = "DECKFLOW_ROLE_FLOOR_CONNECTION_STRING";
@@ -195,6 +196,7 @@ internal static class RoleFloorResearchCommandRunner
 
         try
         {
+            int? activeCommanderLimit = commanderLimit is > 0 ? commanderLimit : null;
             string runTimestampUtc = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture);
             string normalizedConnectionString = PostgresConnectionStringNormalizer.Normalize(resolvedConnectionString);
             string databaseHost = RoleFloorProvenance.DescribeDatabaseHost(normalizedConnectionString);
@@ -224,8 +226,13 @@ internal static class RoleFloorResearchCommandRunner
                 }
             }
 
+            if (activeCommanderLimit.HasValue)
+            {
+                Console.WriteLine(FormattableString.Invariant($"Commander limit in effect: {activeCommanderLimit.Value} (--limit {activeCommanderLimit.Value})."));
+            }
+
             List<(string CommanderName, int DeckCount, string? LastProcessedUtc)> commanderRows =
-                await LoadCommanderRowsAsync(repository, cancellationToken).ConfigureAwait(false);
+                await LoadCommanderRowsAsync(repository, activeCommanderLimit, cancellationToken).ConfigureAwait(false);
 
             var commanderDecks = new Dictionary<string, CommanderDeckSet>(StringComparer.OrdinalIgnoreCase);
             var distinctCardNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -515,6 +522,7 @@ internal static class RoleFloorResearchCommandRunner
                 DatabaseHost = databaseHost,
                 RunTimestampUtc = runTimestampUtc,
                 HarnessCommitSha = harnessCommitSha,
+                CommanderLimit = activeCommanderLimit,
                 CommandersEnumerated = commanderRows.Count,
                 RawDeckCount = commanderDecks.Values.Sum(set => set.RawN),
                 DedupedDeckCount = commanderDecks.Values.Sum(set => set.DedupedN),
@@ -646,6 +654,7 @@ internal static class RoleFloorResearchCommandRunner
 
     private static async Task<List<(string CommanderName, int DeckCount, string? LastProcessedUtc)>> LoadCommanderRowsAsync(
         CategoryKnowledgeRepository repository,
+        int? commanderLimit,
         CancellationToken cancellationToken)
     {
         var rows = new List<(string CommanderName, int DeckCount, string? LastProcessedUtc)>();
@@ -659,6 +668,14 @@ internal static class RoleFloorResearchCommandRunner
             }
 
             rows.AddRange(pageRows);
+            if (RoleFloorGuards.HasReachedCommanderLimit(rows.Count, commanderLimit))
+            {
+                rows = rows.Take(commanderLimit!.Value).ToList();
+                // Why: plan 02-11's smoke-run proof is about the exit-2 guard staying where it is,
+                // so paging must stop early to make MIN_DECKS=999999 LIMIT=50 finish in seconds.
+                break;
+            }
+
             if (page % 5 == 0)
             {
                 Console.WriteLine($"Paged {page} commander batches ({rows.Count} commanders so far).");
@@ -1167,11 +1184,7 @@ internal static class RoleFloorResearchCommandRunner
     private static string BuildMarkdownReport(ResearchComputation computation)
     {
         var builder = new StringBuilder();
-        IReadOnlyList<string> provenanceWarnings = RoleFloorProvenance.BuildProvenanceWarnings(
-            computation.DatabaseHost,
-            computation.HarnessCommitSha,
-            computation.RawDeckCount,
-            computation.DedupedDeckCount);
+        IReadOnlyList<string> provenanceWarnings = BuildArtifactProvenanceWarnings(computation);
 
         builder.AppendLine("# Role-Floor Divergence Research");
         builder.AppendLine();
@@ -1185,8 +1198,18 @@ internal static class RoleFloorResearchCommandRunner
         builder.AppendLine(FormattableString.Invariant($"| Raw Deck Count | {computation.RawDeckCount} |"));
         builder.AppendLine(FormattableString.Invariant($"| Deduped Deck Count | {computation.DedupedDeckCount} |"));
         builder.AppendLine(FormattableString.Invariant($"| Minimum Deck Count | {computation.MinDeckCount} |"));
+        if (computation.CommanderLimit.HasValue)
+        {
+            builder.AppendLine(FormattableString.Invariant($"| Commander Limit | {FormatCommanderLimit(computation.CommanderLimit)} |"));
+        }
         foreach (string warning in provenanceWarnings)
         {
+            if (warning.StartsWith("limited run:", StringComparison.Ordinal))
+            {
+                builder.AppendLine($"> **WARNING — limited run:** {warning["limited run:".Length..].TrimStart()}");
+                continue;
+            }
+
             builder.AppendLine($"> **WARNING — provenance degraded:** {warning}");
         }
 
@@ -1393,34 +1416,36 @@ internal static class RoleFloorResearchCommandRunner
         // Why: fallback provenance values must never block a run or leak a credential, so the
         // warning array is emitted from the same resolved values to prevent "unavailable"/"unknown"
         // from silently masquerading as complete provenance.
-        IReadOnlyList<string> provenanceWarnings = RoleFloorProvenance.BuildProvenanceWarnings(
-            computation.DatabaseHost,
-            computation.HarnessCommitSha,
-            computation.RawDeckCount,
-            computation.DedupedDeckCount);
+        IReadOnlyList<string> provenanceWarnings = BuildArtifactProvenanceWarnings(computation);
         EdhrecLandSelfCheckSummary edhrecLandSelfCheckSummary = SummarizeEdhrecLandSelfChecks(computation.EdhrecCoverage.LandSelfChecks);
+        var methodology = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["minDeckCount"] = computation.MinDeckCount,
+            ["ratioLow"] = RatioLow,
+            ["ratioHigh"] = RatioHigh,
+            ["zThreshold"] = ZThreshold,
+            ["absoluteFloorGap"] = AbsoluteFloorGap,
+            ["breadthMinimum"] = BreadthMinimum,
+            ["databaseHost"] = computation.DatabaseHost,
+            ["runTimestampUtc"] = computation.RunTimestampUtc,
+            ["harnessCommitSha"] = computation.HarnessCommitSha,
+            ["rawDeckCount"] = computation.RawDeckCount,
+            ["dedupedDeckCount"] = computation.DedupedDeckCount,
+            ["commandersEnumerated"] = computation.CommandersEnumerated,
+            ["unresolvedCardCount"] = computation.UnresolvedCardCount,
+            ["unresolvedNotFoundCount"] = computation.UnresolvedNotFoundCount,
+            ["unresolvedRateLimitedAfterRetryCount"] = computation.UnresolvedRateLimitedAfterRetryCount,
+            ["provenanceWarnings"] = provenanceWarnings,
+        };
+
+        if (computation.CommanderLimit.HasValue)
+        {
+            methodology["commanderLimit"] = computation.CommanderLimit.Value;
+        }
 
         return new
         {
-            methodology = new
-            {
-                minDeckCount = computation.MinDeckCount,
-                ratioLow = RatioLow,
-                ratioHigh = RatioHigh,
-                zThreshold = ZThreshold,
-                absoluteFloorGap = AbsoluteFloorGap,
-                breadthMinimum = BreadthMinimum,
-                databaseHost = computation.DatabaseHost,
-                runTimestampUtc = computation.RunTimestampUtc,
-                harnessCommitSha = computation.HarnessCommitSha,
-                rawDeckCount = computation.RawDeckCount,
-                dedupedDeckCount = computation.DedupedDeckCount,
-                commandersEnumerated = computation.CommandersEnumerated,
-                unresolvedCardCount = computation.UnresolvedCardCount,
-                unresolvedNotFoundCount = computation.UnresolvedNotFoundCount,
-                unresolvedRateLimitedAfterRetryCount = computation.UnresolvedRateLimitedAfterRetryCount,
-                provenanceWarnings,
-            },
+            methodology,
             corpusBaseline = TargetRoles.ToDictionary(
                 role => role,
                 role => new
@@ -1594,6 +1619,30 @@ internal static class RoleFloorResearchCommandRunner
             },
         };
     }
+
+    private static IReadOnlyList<string> BuildArtifactProvenanceWarnings(ResearchComputation computation)
+    {
+        ArgumentNullException.ThrowIfNull(computation);
+
+        var warnings = RoleFloorProvenance.BuildProvenanceWarnings(
+            computation.DatabaseHost,
+            computation.HarnessCommitSha,
+            computation.RawDeckCount,
+            computation.DedupedDeckCount).ToList();
+
+        if (computation.CommanderLimit.HasValue)
+        {
+            warnings.Add(FormattableString.Invariant(
+                $"limited run: only {computation.CommandersEnumerated} commanders were loaded (--limit {computation.CommanderLimit.Value}). These findings are a diagnostic, not evidence."));
+        }
+
+        return warnings;
+    }
+
+    private static string FormatCommanderLimit(int? commanderLimit)
+        => commanderLimit.HasValue
+            ? FormattableString.Invariant($"{commanderLimit.Value} (--limit {commanderLimit.Value})")
+            : "full corpus";
 
     private static void AppendLandsCalibrationControl(StringBuilder builder, ResearchComputation computation)
     {
@@ -2224,6 +2273,7 @@ internal static class RoleFloorResearchCommandRunner
         public required string DatabaseHost { get; init; }
         public required string RunTimestampUtc { get; init; }
         public required string HarnessCommitSha { get; init; }
+        public int? CommanderLimit { get; init; }
         public int CommandersEnumerated { get; init; }
         public int RawDeckCount { get; init; }
         public int DedupedDeckCount { get; init; }
