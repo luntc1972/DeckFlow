@@ -1,0 +1,14 @@
+Commander limit in effect: 50 (--limit 50).
+Loaded commander memberships 50/50 in 00:01:43 (commandersWithMembership=50, rawDecks=22941).
+Zero commanders met the minimum deduped deck count of 999999.
+Commander rows enumerated: 50.
+ThresholdCounts:
+  15: 50
+  20: 50
+  25: 50
+  30: 50
+  40: 50
+  50: 50
+  75: 50
+  100: 50
+NO findings artifact was written.
