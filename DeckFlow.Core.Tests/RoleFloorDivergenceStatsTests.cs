@@ -95,6 +95,26 @@ public sealed class RoleFloorDivergenceStatsTests
         Assert.Equal(expected, clearsBar);
     }
 
+    [Fact]
+    public void ClearsFloorBar_AllZeroCorpusRow_AtAbsoluteGapStillClears()
+    {
+        // Why: this is deliberate. On 2026-07-27 the decision was taken knowingly to keep the
+        // behavior change versus the deleted ClearsBar: if the whole corpus runs zero of a role,
+        // a commander at 2+ cards is a real divergence, and anyone who thinks this is a bug
+        // should read this comment before "fixing" it by restoring the old corpusMean guard.
+        var clearsBar = RoleFloorDivergenceStats.ClearsFloorBar(40, 2.0, 0.0, 2.0, 0.0, 0.0, 40, 0.667, 1.5, 2.0, 2.0);
+
+        Assert.True(clearsBar);
+    }
+
+    [Fact]
+    public void ClearsFloorBar_AllZeroCorpusRow_BelowAbsoluteGapDoesNotClear()
+    {
+        var clearsBar = RoleFloorDivergenceStats.ClearsFloorBar(40, 1.0, 0.0, 2.0, 0.0, 0.0, 40, 0.667, 1.5, 2.0, 2.0);
+
+        Assert.False(clearsBar);
+    }
+
     [Theory]
     [InlineData(new[] { 1.0, 2.0, 3.0, 4.0, 5.0 }, 0.25, 2.0)]
     [InlineData(new[] { 1.0, 2.0, 3.0, 4.0 }, 0.25, 1.75)]
