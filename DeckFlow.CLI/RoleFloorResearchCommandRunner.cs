@@ -1474,16 +1474,17 @@ internal static class RoleFloorResearchCommandRunner
         builder.AppendLine(FormattableString.Invariant(
             $"The prior in `{PriorLandStudyPath}` concluded that bracket drove land count, commander identity barely moved it, and every commander-ability-driven land adjustment was rejected; on this control role that means a lands `no-go` reproduces the prior while a lands `go` contradicts it."));
         builder.AppendLine();
-        builder.AppendLine("| Bracket | Prior mean / SD | Live shipped avgLands | Fresh measured avgLands | This run Postgres mean / SD / P25 |");
-        builder.AppendLine("|---------|-----------------:|----------------------:|------------------------:|----------------------------------:|");
+        builder.AppendLine("| Bracket | Prior mean / SD | Live shipped avgLands | Fresh measured avgLands |");
+        builder.AppendLine("|---------|-----------------:|----------------------:|------------------------:|");
         foreach (int bracketIndex in Enumerable.Range(1, 5))
         {
             builder.AppendLine(FormattableString.Invariant(
-                $"| B{bracketIndex} | {FormatPriorLandCell(bracketIndex)} | {FormatLiveBaselineLandCell(bracketIndex)} | {FormatFreshMeasuredLandCell(computation, bracketIndex, freshFigures)} | {FormatMetric(landsBaseline.Mean)} / {FormatMetric(landsBaseline.StdDev)} / {FormatMetric(landsBaseline.P25)} |"));
+                $"| B{bracketIndex} | {FormatPriorLandCell(bracketIndex)} | {FormatLiveBaselineLandCell(bracketIndex)} | {FormatFreshMeasuredLandCell(computation, bracketIndex, freshFigures)} |"));
         }
 
         builder.AppendLine(FormattableString.Invariant(
-            $"**Do the three reference sets agree?** Maximum absolute spread across prior / live / fresh = {agreement.MaximumSpread:0.###} lands{FormatDivergentBracketClause(agreement)}. Using this run's Postgres mean ({FormatMetric(landsBaseline.Mean)}) as the only comparable scalar from the within-commander corpus, it sits closest on average to {agreement.ClosestReferenceSet}. Agreement among the three EDHREC-derived baselines says nothing about this run's Postgres P25 result, which measures a quantity none of them can measure."));
+            $"Postgres corpus-wide only (not bracket-resolved; the Postgres corpus has no bracket dimension): mean / SD / P25 = {FormatMetric(landsBaseline.Mean)} / {FormatMetric(landsBaseline.StdDev)} / {FormatMetric(landsBaseline.P25)}."));
+        builder.AppendLine(BuildThreeReferenceAgreementSentence(agreement, landsBaseline.Mean));
 
         if (string.Equals(verdict, "contradicts", StringComparison.Ordinal))
         {
@@ -1691,13 +1692,40 @@ internal static class RoleFloorResearchCommandRunner
         }
 
         double postgresMean = computation.CorpusBaseline["lands"].Mean;
-        double priorAverageDistance = PriorLandBracketMeans.Values.Average(value => Math.Abs(postgresMean - value));
-        double liveAverageDistance = LiveBaselineLandBracketMeans.Values.Average(value => Math.Abs(postgresMean - value));
-        double freshAverageDistance = freshFigures.Values
-            .Where(value => value is not null)
-            .Select(value => Math.Abs(postgresMean - value!.Mean))
-            .DefaultIfEmpty(double.PositiveInfinity)
-            .Average();
+        var sharedBracketMeans = Enumerable.Range(1, 5)
+            .Where(bracketIndex =>
+                LiveBaselineLandBracketMeans.ContainsKey(bracketIndex) &&
+                freshFigures.TryGetValue(bracketIndex, out FreshEdhrecLandBracketFigure? freshFigure) &&
+                freshFigure is not null)
+            .Select(bracketIndex => new
+            {
+                BracketIndex = bracketIndex,
+                PriorMean = PriorLandBracketMeans[bracketIndex],
+                LiveMean = LiveBaselineLandBracketMeans[bracketIndex],
+                FreshMean = freshFigures[bracketIndex]!.Mean,
+            })
+            .ToList();
+
+        if (sharedBracketMeans.Count == 0)
+        {
+            return new ThreeReferenceAgreement
+            {
+                MaximumSpread = spreads.Count == 0 ? 0.0 : spreads.Max(spread => spread.Spread),
+                DivergentBrackets = spreads
+                    .Where(spread => spread.Spread > 1.0)
+                    .Select(spread => $"B{spread.BracketIndex}")
+                    .ToArray(),
+                ClosestReferenceSet = null,
+                ComparisonBrackets = Array.Empty<string>(),
+            };
+        }
+
+        // Why: comparing average distances over different bracket sets biases the result toward
+        // whichever set omits the outlier bracket; here B1 = 36.3 is the farthest-out value and
+        // the live snapshot structurally omits it, so all three averages must use the same brackets.
+        double priorAverageDistance = sharedBracketMeans.Average(value => Math.Abs(postgresMean - value.PriorMean));
+        double liveAverageDistance = sharedBracketMeans.Average(value => Math.Abs(postgresMean - value.LiveMean));
+        double freshAverageDistance = sharedBracketMeans.Average(value => Math.Abs(postgresMean - value.FreshMean));
 
         string closestReferenceSet = new[]
             {
@@ -1717,7 +1745,41 @@ internal static class RoleFloorResearchCommandRunner
                 .Select(spread => $"B{spread.BracketIndex}")
                 .ToArray(),
             ClosestReferenceSet = closestReferenceSet,
+            ComparisonBrackets = sharedBracketMeans.Select(value => $"B{value.BracketIndex}").ToArray(),
         };
+    }
+
+    private static string BuildThreeReferenceAgreementSentence(ThreeReferenceAgreement agreement, double postgresMean)
+    {
+        ArgumentNullException.ThrowIfNull(agreement);
+
+        string spreadClause = FormattableString.Invariant(
+            $"**Do the three reference sets agree?** Maximum absolute spread across prior / live / fresh = {agreement.MaximumSpread:0.###} lands{FormatDivergentBracketClause(agreement)}.");
+        if (agreement.ComparisonBrackets.Count == 0 || string.IsNullOrWhiteSpace(agreement.ClosestReferenceSet))
+        {
+            return FormattableString.Invariant(
+                $"{spreadClause} No bracket carries all three reference sets, so no closest-set statement can be made. Agreement among the three EDHREC-derived baselines says nothing about this run's Postgres P25 result, which measures a quantity none of them can measure.");
+        }
+
+        return FormattableString.Invariant(
+            $"{spreadClause} Using this run's Postgres mean ({FormatMetric(postgresMean)}) as the only comparable scalar from the within-commander corpus, it sits closest on average to {agreement.ClosestReferenceSet}, computed over {FormatBracketSet(agreement.ComparisonBrackets)} (brackets where all three sets carry a value). Agreement among the three EDHREC-derived baselines says nothing about this run's Postgres P25 result, which measures a quantity none of them can measure.");
+    }
+
+    private static string FormatBracketSet(IReadOnlyList<string> brackets)
+    {
+        ArgumentNullException.ThrowIfNull(brackets);
+
+        if (brackets.Count == 0)
+        {
+            return "no brackets";
+        }
+
+        if (brackets.Count == 1)
+        {
+            return brackets[0];
+        }
+
+        return FormattableString.Invariant($"{brackets[0]}-{brackets[^1]}");
     }
 
     private static string FormatDivergentBracketClause(ThreeReferenceAgreement agreement)
@@ -1977,7 +2039,8 @@ internal static class RoleFloorResearchCommandRunner
     {
         public double MaximumSpread { get; init; }
         public required IReadOnlyList<string> DivergentBrackets { get; init; }
-        public required string ClosestReferenceSet { get; init; }
+        public required string? ClosestReferenceSet { get; init; }
+        public required IReadOnlyList<string> ComparisonBrackets { get; init; }
     }
 
     private sealed class RoleOutcome
