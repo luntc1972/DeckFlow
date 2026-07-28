@@ -82,6 +82,7 @@ var roleFloorResearchConnectionStringOption = new Option<string?>("--connection-
 var roleFloorResearchMinDecksOption = new Option<int>("--min-decks", () => 40) { Description = "Minimum deduped deck count required for a commander to qualify." };
 var roleFloorResearchModeOption = new Option<string>("--mode", () => "cedh") { Description = "casual | focused | cedh -- resolved via CutLabRoleAssigner.ResolveMode" };
 var roleFloorResearchCardsCacheOption = new Option<string>("--cards-cache", () => Path.Combine("_role-floor-research", "cards_full.json")) { Description = "Path to the resumable Scryfall cards cache JSON." };
+var roleFloorResearchLimitOption = new Option<int?>("--limit") { Description = "Cap the number of commanders loaded. Omit for the full corpus. Intended for cheap smoke runs that prove the exit-2 guard without paying the full membership load; a limited run is labelled in the artifacts and is NOT evidence." };
 // Why: the Python fetcher writes the EDHREC corpus to --outdir, while the CLI reads it from
 // --edhrec-data; that deliberate asymmetry matches the existing scripts/cedh-baseline pipeline,
 // where fetch.py writes --outdir and the CLI reads --data.
@@ -194,6 +195,7 @@ roleFloorResearchCommand.AddOption(roleFloorResearchCardsCacheOption);
 roleFloorResearchCommand.AddOption(roleFloorResearchEdhrecDataOption);
 roleFloorResearchCommand.AddOption(roleFloorResearchOutOption);
 roleFloorResearchCommand.AddOption(roleFloorResearchOutJsonOption);
+roleFloorResearchCommand.AddOption(roleFloorResearchLimitOption);
 edhrecRoleGridCommand.AddOption(edhrecRoleGridCsvOption);
 edhrecRoleGridCommand.AddOption(edhrecRoleGridAveragesOption);
 edhrecRoleGridCommand.AddOption(edhrecRoleGridCardsCacheOption);
@@ -364,10 +366,10 @@ cedhLandBaselineCommand.SetHandler((string dataDirectory, string outputDirectory
     Environment.ExitCode = CedhBaselineCommandRunner.RunAsync(dataDirectory, outputDirectory, month, thresholdsPath).GetAwaiter().GetResult();
 }, cedhLandBaselineDataOption, cedhLandBaselineOutOption, cedhLandBaselineMonthOption, cedhLandBaselineThresholdsOption);
 
-roleFloorResearchCommand.SetHandler((string? connectionString, int minDecks, string mode, string cardsCachePath, string? edhrecDataPath, string outputPath, string outputJsonPath) =>
+roleFloorResearchCommand.SetHandler((string? connectionString, int minDecks, string mode, string cardsCachePath, string? edhrecDataPath, string outputPath, string outputJsonPath, int? commanderLimit) =>
 {
-    Environment.ExitCode = RoleFloorResearchCommandRunner.RunAsync(connectionString, minDecks, mode, cardsCachePath, outputPath, outputJsonPath, edhrecDataPath).GetAwaiter().GetResult();
-}, roleFloorResearchConnectionStringOption, roleFloorResearchMinDecksOption, roleFloorResearchModeOption, roleFloorResearchCardsCacheOption, roleFloorResearchEdhrecDataOption, roleFloorResearchOutOption, roleFloorResearchOutJsonOption);
+    Environment.ExitCode = RoleFloorResearchCommandRunner.RunAsync(connectionString, minDecks, mode, cardsCachePath, outputPath, outputJsonPath, edhrecDataPath, commanderLimit).GetAwaiter().GetResult();
+}, roleFloorResearchConnectionStringOption, roleFloorResearchMinDecksOption, roleFloorResearchModeOption, roleFloorResearchCardsCacheOption, roleFloorResearchEdhrecDataOption, roleFloorResearchOutOption, roleFloorResearchOutJsonOption, roleFloorResearchLimitOption);
 
 edhrecRoleGridCommand.SetHandler((string edhrecCsvPath, string averagesCsvPath, string cardsCachePath, string mode, int minDecks, string outputPath, string outputJsonPath, bool dryRun) =>
 {
