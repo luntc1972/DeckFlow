@@ -114,4 +114,18 @@ public static class RoleFloorGuards
     /// <returns><see langword="true"/> when no commanders qualified; otherwise <see langword="false"/>.</returns>
     public static bool HasNoQualifyingCommanders(int qualifyingCommanderCount)
         => qualifyingCommanderCount == 0;
+
+    /// <summary>
+    /// Returns whether commander paging has reached an active load limit.
+    /// Zero and negative limits are treated as no limit because a literal zero would load nothing and
+    /// manufacture a meaningless exit-2 result that looks like a passing criterion-3 proof.
+    /// </summary>
+    /// <param name="loadedCount">The number of commanders loaded so far.</param>
+    /// <param name="commanderLimit">The optional commander load limit.</param>
+    /// <returns>
+    /// <see langword="true"/> when <paramref name="commanderLimit"/> has a positive value and
+    /// <paramref name="loadedCount"/> has reached or exceeded it; otherwise <see langword="false"/>.
+    /// </returns>
+    public static bool HasReachedCommanderLimit(int loadedCount, int? commanderLimit)
+        => commanderLimit is > 0 && loadedCount >= commanderLimit.Value;
 }
