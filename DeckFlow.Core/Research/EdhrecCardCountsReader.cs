@@ -45,6 +45,37 @@ public sealed record EdhrecBulkCommanderTotals
 }
 
 /// <summary>
+/// Carries the structured details for a commander excluded by the denominator gate.
+/// </summary>
+public sealed record EdhrecDenominatorMismatch
+{
+    /// <summary>
+    /// Gets the commander whose denominator failed validation.
+    /// </summary>
+    public required string Commander { get; init; }
+
+    /// <summary>
+    /// Gets the card that produced the impossible ratio.
+    /// </summary>
+    public required string Card { get; init; }
+
+    /// <summary>
+    /// Gets the observed count for <see cref="Card"/>.
+    /// </summary>
+    public required int Count { get; init; }
+
+    /// <summary>
+    /// Gets the solo-row denominator used for the commander.
+    /// </summary>
+    public required long Denominator { get; init; }
+
+    /// <summary>
+    /// Gets the impossible unclamped ratio that triggered exclusion.
+    /// </summary>
+    public required double Ratio { get; init; }
+}
+
+/// <summary>
 /// Represents the result of accumulating EDHREC bulk card counts into per-commander totals.
 /// </summary>
 public sealed record EdhrecBulkGridResult
@@ -57,7 +88,7 @@ public sealed record EdhrecBulkGridResult
     /// <summary>
     /// Gets the commanders excluded by the denominator gate, with the offending row details.
     /// </summary>
-    public required IReadOnlyList<string> DenominatorMismatches { get; init; }
+    public required IReadOnlyList<EdhrecDenominatorMismatch> DenominatorMismatches { get; init; }
 
     /// <summary>
     /// Gets commanders present in <c>edhrec.csv</c> with no solo denominator row in <c>averages.csv</c>.
@@ -258,7 +289,7 @@ public static class EdhrecCardCountsReader
                 }
             }
 
-            List<string> denominatorMismatches = [];
+            List<EdhrecDenominatorMismatch> denominatorMismatches = [];
             List<EdhrecBulkCommanderTotals> commanders = [];
 
             foreach (CommanderAccumulator accumulator in accumulators.Values.OrderBy(acc => acc.Commander, StringComparer.Ordinal))
@@ -270,9 +301,14 @@ public static class EdhrecCardCountsReader
                 // would have produced.
                 if (accumulator.MaxRatio > 1.0d)
                 {
-                    denominatorMismatches.Add(
-                        FormattableString.Invariant(
-                            $"{accumulator.Commander}: card={accumulator.MaxRatioCard}, count={accumulator.MaxRatioCount}, denominator={accumulator.Denominator}, ratio={accumulator.MaxRatio:F6}"));
+                    denominatorMismatches.Add(new EdhrecDenominatorMismatch
+                    {
+                        Commander = accumulator.Commander,
+                        Card = accumulator.MaxRatioCard,
+                        Count = accumulator.MaxRatioCount,
+                        Denominator = accumulator.Denominator,
+                        Ratio = accumulator.MaxRatio,
+                    });
                     continue;
                 }
 
@@ -293,7 +329,11 @@ public static class EdhrecCardCountsReader
             return new EdhrecBulkGridResult
             {
                 Commanders = commanders,
-                DenominatorMismatches = denominatorMismatches,
+                // Why: Task 3 needs the worst five mismatches directly from this artifact, so keep
+                // them in numeric ratio order instead of forcing a string parse and re-sort later.
+                DenominatorMismatches = denominatorMismatches
+                    .OrderByDescending(mismatch => mismatch.Ratio)
+                    .ToArray(),
                 MissingDenominators = missingDenominators.OrderBy(name => name, StringComparer.Ordinal).ToArray(),
                 MalformedRows = malformedRows,
                 DistinctCardCount = distinctCards.Count,
@@ -306,7 +346,7 @@ public static class EdhrecCardCountsReader
             return new EdhrecBulkGridResult
             {
                 Commanders = Array.Empty<EdhrecBulkCommanderTotals>(),
-                DenominatorMismatches = Array.Empty<string>(),
+                DenominatorMismatches = Array.Empty<EdhrecDenominatorMismatch>(),
                 MissingDenominators = Array.Empty<string>(),
                 MalformedRows = 0,
                 DistinctCardCount = 0,
