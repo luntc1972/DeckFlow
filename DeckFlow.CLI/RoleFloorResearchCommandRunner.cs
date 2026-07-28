@@ -297,31 +297,17 @@ internal static class RoleFloorResearchCommandRunner
 
                 foreach (EdhrecCell cell in edhrecReadResult.Cells)
                 {
-                    var roleCounts = TargetRoles.ToDictionary(role => role, _ => 0, StringComparer.Ordinal);
-                    foreach (EdhrecCard cardEntry in cell.Cards)
-                    {
-                        if (!cardResolution.ResolvedCards.TryGetValue(cardEntry.Name, out ScryfallCardData? card))
-                        {
-                            continue;
-                        }
-
-                        CardFact fact = ScryfallCardFactMapper.ToCardFact(card, quantity: 1, isCommander: false);
-                        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], isComboPiece: false, resolvedMode);
-                        foreach (string role in roles)
-                        {
-                            if (roleCounts.ContainsKey(role))
+                    IReadOnlyDictionary<string, int> roleCounts = EdhrecRoleTally.TallyRoleCounts(
+                        TargetRoles,
+                        cell.Cards
+                            .Where(cardEntry => cardResolution.ResolvedCards.TryGetValue(cardEntry.Name, out _))
+                            .Select(cardEntry =>
                             {
-                                // Why: EDHREC decklists carry real basic-land quantities; on the
-                                // measured 2026-07-27 Adrix/core cell the 82 deck entries still
-                                // sum to 100 cards and EDHREC's own basic aggregate is 20, so
-                                // quantity-1 would undercount lands by roughly a dozen cards on an
-                                // average deck. That deliberately diverges from the Postgres path's
-                                // singleton assumption, which is correct there because Commander is
-                                // singleton for the nonland roles that path reconstructs.
-                                roleCounts[role] += cardEntry.Quantity;
-                            }
-                        }
-                    }
+                                ScryfallCardData card = cardResolution.ResolvedCards[cardEntry.Name];
+                                CardFact fact = ScryfallCardFactMapper.ToCardFact(card, quantity: 1, isCommander: false);
+                                IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], isComboPiece: false, resolvedMode);
+                                return (Roles: roles, Quantity: cardEntry.Quantity);
+                            }));
 
                     int harnessLandCount = roleCounts["lands"];
                     // Why: EDHREC's aggregate land count and the harness's
