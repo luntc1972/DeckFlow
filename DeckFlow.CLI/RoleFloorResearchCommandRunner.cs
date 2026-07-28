@@ -82,6 +82,48 @@ internal static class RoleFloorResearchCommandRunner
     private const int CommanderMembershipMaxConcurrency = 8;
     private const int CommanderMembershipProgressInterval = 200;
     private const int ScryfallRateLimitRetryMaxAttempts = 4;
+    private const string NoGoTemplatePath = ".planning/workstreams/cycle21-cut-lab/phases/02-role-floor-divergence-research/NO-GO-TEMPLATE.md";
+    private const string CasualBiasArchivePath = ".planning/archive/2026-cycles/quick/260718-nip-investigate-usefulness-of-edhrec-dump-fo/";
+    private const string ProtectionClassifierPath = "DeckFlow.Core/Analysis/DeckStatClassifier.cs:226-231";
+    private const string ProtectionDeltaPath = ".planning/workstreams/cycle21-cut-lab/phases/01.1-plan-role-classifier-heuristic-fixes-fix-the-counters-counte/01.1-02-DELTA.md";
+    private static readonly string[] ProtectionNeedles =
+    [
+        "gains hexproof",
+        "gains indestructible",
+        "gain protection from",
+        "phases out",
+    ];
+    private static readonly ProtectionNeedleDisclosure[] ProtectionNeedleDisclosures =
+    [
+        new("gains hexproof", "singular", "creatures you control gain hexproof"),
+        new("gains indestructible", "singular", "permanents you control gain indestructible"),
+        new("gain protection from", "plural", "Mother of Runes' target creature gains protection from the color of your choice until end of turn."),
+        new("phases out", "singular", "permanents you control phase out"),
+    ];
+    private static readonly ProtectionMissedCardDisclosure[] ProtectionKnownMissedCards =
+    [
+        new("Swiftfoot Boots", "measured", "Measured through a scratch dotnet harness against the repo code."),
+        new("Mother of Runes", "measured", "Measured through the same scratch dotnet harness against the repo code."),
+        new("Hexing Squelcher", "measured", "Measured local corpus oracle/type data from _role-floor-research/cards_full.json."),
+        new("Goblin Chirurgeon", "measured", "Measured local corpus oracle/type data from _role-floor-research/cards_full.json."),
+        new("Lightning Greaves", "inferred", "Inferred, not measured: the delta used the plan-provided oracle text and a reasoned Artifact — Equipment type line because no local facts entry for that card was present in the measured corpus files used here."),
+    ];
+    private static readonly string[] ProtectionConsumers =
+    [
+        "InteractionAuditAggregator.cs:58",
+        "CutLabRoleAssigner.cs:165",
+        "PlanRoleClassifier.cs:236",
+    ];
+    private static readonly string[] CorpusHygieneUnparsedPayloadFields =
+    [
+        "deckFormat",
+        "theorycrafted",
+        "createdAt",
+        "updatedAt",
+        "viewCount",
+        "points",
+        "edhBracket",
+    ];
     private static readonly TimeSpan HarnessFallbackSearchPacingDelay = TimeSpan.FromMilliseconds(350);
 
     // Why: the prior five-role list was the pre-Phase-1 taxonomy, including merged
@@ -1235,6 +1277,8 @@ internal static class RoleFloorResearchCommandRunner
         builder.AppendLine("- Cards that still fail after harness-side HTTP 429 retry are tracked separately as `rate_limited_after_retry`; like true `not_found` names, they are excluded from classification tallies, but this run distinguishes the two unresolved reasons.");
         builder.AppendLine(FormattableString.Invariant($"- EDHREC quantity-parse failures excluded rather than dropped silently: {computation.EdhrecParseFailureCount} raw deck entries across all ingested cells failed the quantity-prefix parse and were left out of classification."));
         builder.AppendLine(FormattableString.Invariant($"- EDHREC parsed-card-count anomalies: {computation.EdhrecCardCountAnomalyCount} ingested cells did not sum to 100 parsed cards after quantity parsing."));
+        builder.AppendLine(FormattableString.Invariant($"- Protection under-detection disclosure (unconditional): {BuildProtectionUnderDetectionPointer()}"));
+        AppendBlock(builder, BuildCorpusHygieneNotice(computation));
         builder.AppendLine();
         builder.AppendLine("## Qualifying Commanders By DEDUPED-N Threshold");
         builder.AppendLine("| Threshold | Qualifying Commanders |");
@@ -1301,6 +1345,25 @@ internal static class RoleFloorResearchCommandRunner
         AppendLandsCalibrationControl(builder, computation);
         builder.AppendLine();
         builder.AppendLine("## Go/No-Go");
+        IReadOnlyList<string> rolesInScopeForPhase3 = GetRolesByStatus(computation.GoNoGo, "go");
+        IReadOnlyList<string> signalPresentRoles = GetRolesByStatus(computation.GoNoGo, "signal-present");
+        builder.AppendLine(FormattableString.Invariant(
+            $"**Roles in scope for Phase 3:** {(rolesInScopeForPhase3.Count == 0 ? "NONE." : string.Join(", ", rolesInScopeForPhase3))}"));
+        builder.AppendLine(FormattableString.Invariant(
+            $"**Signal present but insufficient breadth (NOT in scope):** {(signalPresentRoles.Count == 0 ? "NONE." : string.Join(", ", signalPresentRoles))}"));
+        AppendBlock(builder, BuildCasualBiasEngagement(computation));
+        // Why: criterion 10 requires a null result to read as a valid deliverable; without this
+        // dedicated block, nine "no-go" bullets read like a broken run rather than an answer.
+        if (rolesInScopeForPhase3.Count == 0)
+        {
+            builder.AppendLine();
+            builder.AppendLine("### Null result — Phase 3 is a documented no-op");
+            builder.AppendLine("No role's per-commander 25th percentile diverged from the corpus 25th percentile by enough, at enough breadth, to justify a commander-specific floor.");
+            builder.AppendLine("This is a valid result for this phase, not a failed run. Phase 3 becomes a documented no-op closeout, and the cycle ends at Phases 4 and 5 exactly as the ROADMAP's Phase 3 dependency line anticipates.");
+            builder.AppendLine("The measurement itself still stands: the corpus baselines, the per-commander distributions, and the lands calibration verdict are all usable results.");
+            builder.AppendLine(FormattableString.Invariant($"Use `{NoGoTemplatePath}` for the write-up shape."));
+        }
+
         foreach (string role in TargetRoles)
         {
             RoleOutcome outcome = computation.GoNoGo[role];
@@ -1308,6 +1371,11 @@ internal static class RoleFloorResearchCommandRunner
                 ? string.Empty
                 : $" ({FormatCommanderCitation(outcome)})";
             builder.AppendLine($"- {role}: {outcome.MarkdownStatus}{commanderCitation}");
+            if (string.Equals(role, "protection", StringComparison.Ordinal))
+            {
+                builder.AppendLine();
+                AppendBlock(builder, BuildProtectionUnderDetectionNotice());
+            }
         }
 
         return builder.ToString();
@@ -1450,6 +1518,67 @@ internal static class RoleFloorResearchCommandRunner
                     citingCommanders = computation.GoNoGo[role].CitingCommanders,
                 },
                 StringComparer.Ordinal),
+            rolesInScopeForPhase3 = GetRolesByStatus(computation.GoNoGo, "go"),
+            signalPresentRoles = GetRolesByStatus(computation.GoNoGo, "signal-present"),
+            protectionUnderDetection = new
+            {
+                affectedRole = "protection",
+                needles = ProtectionNeedles,
+                knownMissedCards = ProtectionKnownMissedCards.Select(card => new
+                {
+                    name = card.Name,
+                    evidenceGrade = card.EvidenceGrade,
+                    evidenceNote = card.EvidenceNote,
+                }).ToArray(),
+                consequence = "The protection role's measured floors in this run are a LOWER BOUND, and any protection go/no-go verdict is PROVISIONAL pending Phase 01.2.",
+                blockedBy = "Phase 01.2",
+                consumers = ProtectionConsumers,
+            },
+            corpusHygiene = new
+            {
+                corpusDecks = 397063,
+                processedDecks = 151202,
+                commandersWithDecks = 4003,
+                depth = new
+                {
+                    atLeast40 = 847,
+                    atLeast100 = 346,
+                    atLeast250 = 88,
+                    atLeast500 = 17,
+                    deepest = 917,
+                },
+                sample = new
+                {
+                    sampleSize = 300,
+                    liveDecks = 287,
+                    commanderFormatShare = "286/287 live decks are deckFormat 3 (Commander), 99.65%; one was format 7.",
+                    deadIdShare = "13/300 (4.3%) dead deck ids: 404, private, or deleted.",
+                    theorycraftedShare = "7/287 (2.4%) live decks are theorycrafted.",
+                    createdYearHistogram = new Dictionary<string, int>(StringComparer.Ordinal)
+                    {
+                        ["2026"] = 213,
+                        ["2025"] = 62,
+                        ["2024"] = 10,
+                        ["2023"] = 1,
+                        ["2021"] = 1,
+                    },
+                },
+                recencyWindow = (string?)null,
+                unparsedPayloadFields = CorpusHygieneUnparsedPayloadFields,
+                commanderInferredFrom = "card-category",
+                phase5NonGatingRationale = "Phase 5 remains non-gating because edhBracket is only ~25% filled on the payload; even the deepest commander has 917 decks, so 917 x 25% / 5 brackets is roughly 46 decks per cell against EDHREC's 400-deck floor. That arithmetic strengthens decision D-A rather than weakening it.",
+            },
+            casualBiasObjection = new
+            {
+                sourcePath = CasualBiasArchivePath,
+                codebaseResponses = new[]
+                {
+                    "ManabaseAnalysisService.cs:603-605",
+                    "CutLabFloorDefaults.ResolveLandsDefault",
+                },
+                argument = "A stax deck and a swarm deck under the same commander are both correct with wildly different mixes, so distance-from-average is noise for the serious-builder audience.",
+                thisRunSays = BuildCasualBiasThisRunSays(computation),
+            },
             landsCalibration = BuildLandsCalibrationPayload(computation),
             rampCalibration = new
             {
@@ -1787,6 +1916,169 @@ internal static class RoleFloorResearchCommandRunner
             ? "; no bracket exceeds a 1.0-land spread"
             : FormattableString.Invariant($"; brackets exceeding a 1.0-land spread: {string.Join(", ", agreement.DivergentBrackets)}");
 
+    private static IReadOnlyList<string> GetRolesByStatus(
+        IReadOnlyDictionary<string, RoleOutcome> goNoGo,
+        string status)
+        => TargetRoles
+            .Where(role => string.Equals(goNoGo[role].JsonStatus, status, StringComparison.Ordinal))
+            .ToArray();
+
+    private static string BuildProtectionUnderDetectionNotice(
+        bool includeHeading = true,
+        bool includeEvidencePriceSentence = true,
+        bool includeDeferralSentence = true)
+    {
+        var builder = new StringBuilder();
+        if (includeHeading)
+        {
+            builder.AppendLine("### Protection under-detection disclosure");
+        }
+
+        builder.AppendLine(FormattableString.Invariant(
+            $"`DeckStatClassifier.IsProtectionCard` (`{ProtectionClassifierPath}`) is `StaxProtectionCatalog.IsProtection(name)` OR-ed with four oracle needles:"));
+        foreach (ProtectionNeedleDisclosure needle in ProtectionNeedleDisclosures)
+        {
+            builder.AppendLine(FormattableString.Invariant(
+                $"- `{needle.Needle}` assumes a {needle.SubjectForm} subject and misses `{needle.MissedExample}`."));
+        }
+
+        builder.AppendLine("The verb agreement is inconsistent across the four needles, so the predicate under-detects in both directions depending on phrasing. Shroud and regeneration are absent entirely.");
+        builder.AppendLine("Cards still scoring `PlanRole.None` after Phase 01.1, with evidence grade stated rather than flattened:");
+        foreach (ProtectionMissedCardDisclosure card in ProtectionKnownMissedCards)
+        {
+            builder.AppendLine(FormattableString.Invariant(
+                $"- `{card.Name}` — {card.EvidenceGrade}. {card.EvidenceNote}"));
+        }
+
+        if (includeEvidencePriceSentence)
+        {
+            builder.AppendLine(FormattableString.Invariant(
+                $"The distinction is recorded because this disclosure is the price of deferring Phase 01.2, and presenting an inferred result as measured would overstate the very evidence that deferral rests on (`{ProtectionDeltaPath}`, Measurement notes)."));
+        }
+
+        builder.AppendLine("The `protection` role's measured floors in this run are a LOWER BOUND, and any protection go/no-go verdict is PROVISIONAL pending Phase 01.2.");
+        if (includeDeferralSentence)
+        {
+            builder.AppendLine("Phase 01.2 was deliberately deferred behind this phase by developer decision on 2026-07-27, taking the ROADMAP's escape hatch in exchange for this disclosure.");
+        }
+
+        builder.AppendLine(FormattableString.Invariant(
+            $"The predicate is shared by three consumers, so widening it is a larger blast radius than a one-line fix: {string.Join(", ", ProtectionConsumers)}."));
+        return builder.ToString().TrimEnd();
+    }
+
+    private static string BuildProtectionUnderDetectionPointer()
+        => FormattableString.Invariant(
+            $"see `## Go/No-Go` below for the full disclosure; this run's protection floors are a LOWER BOUND and any protection verdict is PROVISIONAL pending Phase 01.2. {BuildProtectionUnderDetectionNotice(includeHeading: false, includeEvidencePriceSentence: false, includeDeferralSentence: false).Split('\n')[0]}");
+
+    private static string BuildCorpusHygieneNotice(ResearchComputation computation)
+    {
+        ArgumentNullException.ThrowIfNull(computation);
+
+        string observedEdhrecRange = FormatEdhrecDateRange(computation.EdhrecCoverage.MinSaveDate, computation.EdhrecCoverage.MaxSaveDate);
+        var builder = new StringBuilder();
+        builder.AppendLine("### Corpus hygiene disclosure");
+        builder.AppendLine("Corpus scale: 397,063 decks, 151,202 processed, 4,003 commanders with processed decks. Depth: 847 commanders at >=40 decks, 346 at >=100, 88 at >=250, 17 at >=500, deepest 917.");
+        builder.AppendLine("From a random sample of n=300 processed decks drawn across commanders clearing the >=40 gate: 286/287 live decks are `deckFormat` 3 (Commander), 99.65% (one was format 7); 13/300 (4.3%) deck ids are dead — 404, private, or deleted; 7/287 (2.4%) live decks are `theorycrafted`. Created-year spread: 213x 2026, 62x 2025, 10x 2024, 1x 2023, 1x 2021.");
+        builder.AppendLine("There is no recency window. Decks are counted regardless of age, and the corpus carries no `createdAt` or `updatedAt` at all — the year figures above come from the sample's live API responses, not from stored data.");
+        builder.AppendLine("The 4.3% dead-id rate inflates every deck count in this document, including the deduped counts the go/no-go breadth bar is applied against.");
+        builder.AppendLine(FormattableString.Invariant(
+            $"`ArchidektApiDeckImporter` parses `cards[]` only. {string.Join(", ", CorpusHygieneUnparsedPayloadFields.Select(field => $"`{field}`"))} are unparsed and unstored, so commander-ness is inferred from a card categorized `Commander`, never from the deck's declared format."));
+        builder.AppendLine("This is a stated limitation, not a blocker. Phase 5 remains independent and non-gating: `edhBracket` is present on the payload at roughly 25% fill and is free to capture, but the deepest commander has 917 decks, so 917 x 25% / 5 brackets is roughly 46 decks per cell against EDHREC's 400 floor. Archidekt bracket capture therefore cannot fill a bracket cell for any commander, now or after a full backfill. That arithmetic strengthens decision D-A rather than weakening it.");
+        builder.AppendLine(FormattableString.Invariant(
+            $"By contrast, the EDHREC side does carry a recency window through each cell's `savedate_summary`; this run observed an overall range of {observedEdhrecRange}."));
+        return builder.ToString().TrimEnd();
+    }
+
+    private static string BuildCasualBiasEngagement(ResearchComputation computation)
+    {
+        ArgumentNullException.ThrowIfNull(computation);
+
+        // Why: D-B moved the statistic from distance-from-average to a P25 over real per-deck
+        // distributions; that makes the question worth re-asking, but it is not itself an answer.
+        string thisRunSays = BuildCasualBiasThisRunSays(computation);
+        var builder = new StringBuilder();
+        builder.AppendLine("### The casual-bias objection");
+        builder.AppendLine(FormattableString.Invariant(
+            $"Archived conclusion: EDHREC averages are casual-dominated (`{CasualBiasArchivePath}`)."));
+        builder.AppendLine("The codebase already acted on that conclusion in two places: `ManabaseAnalysisService.cs:603-605` restricts the EDHREC commander cell to brackets 2-3, and `CutLabFloorDefaults.ResolveLandsDefault` routes bracket 5 to the cEDH tournament corpus instead.");
+        builder.AppendLine("The objection aimed at this phase's premise is that a stax deck and a swarm deck under the same commander are both correct with wildly different mixes, so distance-from-average is noise for the serious-builder audience.");
+        builder.AppendLine(thisRunSays);
+        builder.AppendLine("What this run cannot say is whether the full within-commander archetype spread is multimodal in a way the mean/P25 summary hides; it only speaks to lower-tail spread visible in the Postgres per-deck distributions.");
+        return builder.ToString().TrimEnd();
+    }
+
+    private static string BuildCasualBiasThisRunSays(ResearchComputation computation)
+    {
+        ArgumentNullException.ThrowIfNull(computation);
+
+        string expression = "Avg_role(Avg_commander(max(0, commanderMean - commanderP25)) / PopStdDev_commander(commanderMean))";
+        List<string> perRoleRatios = TargetRoles
+            .Select(role =>
+            {
+                List<CommanderResearch> commanders = computation.Commanders.Values
+                    .Where(commander => commander.Roles.ContainsKey(role))
+                    .ToList();
+                if (commanders.Count < 2)
+                {
+                    return null;
+                }
+
+                double withinCommanderLowerTailSpread = commanders.Average(commander => Math.Max(0.0, commander.Roles[role].Mean - commander.Roles[role].P25));
+                double betweenCommanderSpread = ComputePopulationStdDev(
+                    commanders.Select(commander => commander.Roles[role].Mean).ToArray(),
+                    commanders.Average(commander => commander.Roles[role].Mean));
+                string ratioText = betweenCommanderSpread <= 0.0
+                    ? "n/a"
+                    : FormatMetric(withinCommanderLowerTailSpread / betweenCommanderSpread);
+                return $"{role}={ratioText}";
+            })
+            .Where(value => value is not null)
+            .Cast<string>()
+            .ToList();
+
+        List<double> comparableRatios = TargetRoles
+            .Select(role =>
+            {
+                List<CommanderResearch> commanders = computation.Commanders.Values
+                    .Where(commander => commander.Roles.ContainsKey(role))
+                    .ToList();
+                if (commanders.Count < 2)
+                {
+                    return (double?)null;
+                }
+
+                double withinCommanderLowerTailSpread = commanders.Average(commander => Math.Max(0.0, commander.Roles[role].Mean - commander.Roles[role].P25));
+                double betweenCommanderSpread = ComputePopulationStdDev(
+                    commanders.Select(commander => commander.Roles[role].Mean).ToArray(),
+                    commanders.Average(commander => commander.Roles[role].Mean));
+                return betweenCommanderSpread <= 0.0 ? (double?)null : withinCommanderLowerTailSpread / betweenCommanderSpread;
+            })
+            .Where(value => value.HasValue)
+            .Select(value => value!.Value)
+            .ToList();
+
+        if (comparableRatios.Count == 0)
+        {
+            return FormattableString.Invariant(
+                $"This run cannot yet quantify the objection from its own numbers because no role had enough qualifying commanders to compare within-commander lower-tail spread against between-commander spread. Expression reserved for that comparison: `{expression}`.");
+        }
+
+        return FormattableString.Invariant(
+            $"This run says, using `{expression}`, that the lower-tail within-commander spread relative to the between-commander spread is {FormatMetric(comparableRatios.Average())} on average across roles ({string.Join(", ", perRoleRatios)}). That is evidence about lower-tail spread in the measured Postgres corpus, not a rebuttal of the broader claim.");
+    }
+
+    private static void AppendBlock(StringBuilder builder, string block)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(block);
+
+        foreach (string line in block.Split('\n'))
+        {
+            builder.AppendLine(line);
+        }
+    }
+
     private static string FormatCommanderCitation(RoleOutcome outcome)
     {
         if (outcome.CitingCommanders.Count <= 5)
@@ -2041,6 +2333,34 @@ internal static class RoleFloorResearchCommandRunner
         public required IReadOnlyList<string> DivergentBrackets { get; init; }
         public required string? ClosestReferenceSet { get; init; }
         public required IReadOnlyList<string> ComparisonBrackets { get; init; }
+    }
+
+    private sealed class ProtectionNeedleDisclosure
+    {
+        public ProtectionNeedleDisclosure(string needle, string subjectForm, string missedExample)
+        {
+            Needle = needle;
+            SubjectForm = subjectForm;
+            MissedExample = missedExample;
+        }
+
+        public string Needle { get; }
+        public string SubjectForm { get; }
+        public string MissedExample { get; }
+    }
+
+    private sealed class ProtectionMissedCardDisclosure
+    {
+        public ProtectionMissedCardDisclosure(string name, string evidenceGrade, string evidenceNote)
+        {
+            Name = name;
+            EvidenceGrade = evidenceGrade;
+            EvidenceNote = evidenceNote;
+        }
+
+        public string Name { get; }
+        public string EvidenceGrade { get; }
+        public string EvidenceNote { get; }
     }
 
     private sealed class RoleOutcome
