@@ -1,4 +1,7 @@
+using System.Linq;
 using System.Net;
+using System.Net.Http;
+using System.Text.Json;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Packets;
 using DeckFlow.Web.Services.Scryfall;
@@ -16,6 +19,35 @@ namespace DeckFlow.Web.Tests;
 /// </summary>
 public sealed class ScryfallReferenceResolverTests
 {
+    [Fact]
+    public async Task ResolveSingleAsync_DoubleFacedName_SubmitsFaceIdentifierToCollectionRequest()
+    {
+        string requestBody = string.Empty;
+        var resolver = new ScryfallCardResolver(
+            new FakeScryfallRestClientFactory(new HttpClient { BaseAddress = new Uri("https://api.scryfall.com/") }),
+            new FakeResiliencePipelineProvider(),
+            executeCollectionAsyncOverride: (request, _) =>
+            {
+                requestBody = ExtractRequestBody(request);
+                return Task.FromResult(CreateCollectionResponse(new List<ScryfallCard>
+                {
+                    CreateCard("Delver of Secrets // Insectile Aberration")
+                }));
+            },
+            executeSearchAsyncOverride: (request, _) =>
+                Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
+                {
+                    StatusCode = HttpStatusCode.NotFound,
+                    Data = new ScryfallSearchResponse(new List<ScryfallCard>()),
+                }));
+
+        var card = await resolver.ResolveSingleAsync("Delver of Secrets // Insectile Aberration", CancellationToken.None);
+
+        Assert.NotNull(card);
+        Assert.Equal(new[] { "Delver of Secrets" }, ExtractNames(requestBody));
+        Assert.DoesNotContain("Delver of Secrets // Insectile Aberration", requestBody, StringComparison.Ordinal);
+    }
+
     /// <summary>
     /// H2 lock: a single-slash Archidekt-style name ("A / B") normalized on submission to the
     /// double-slash Scryfall form ("A // B") must NOT match its own original request in the
@@ -49,6 +81,35 @@ public sealed class ScryfallReferenceResolverTests
         Assert.Equal("A // B", resolution.Card.Name);
         Assert.True(resolution.FromFallback);
         Assert.Equal("A // B", result.OracleNameMap["A / B"]);
+    }
+
+    [Fact]
+    public async Task ResolveBatchAsync_DoubleFacedName_SubmitsFaceIdentifierToCollectionRequest()
+    {
+        string requestBody = string.Empty;
+        var resolver = CreateResolver(executeCollectionAsync: (request, _) =>
+        {
+            requestBody = ExtractRequestBody(request);
+            return Task.FromResult(CreateCollectionResponse(new List<ScryfallCard>
+            {
+                CreateCard("Delver of Secrets // Insectile Aberration")
+            }));
+        });
+
+        Task<ScryfallCard?> Fallback(string name, CancellationToken _)
+            => throw new InvalidOperationException($"Fallback must not be invoked for collection hit {name}.");
+
+        var result = await resolver.ResolveBatchAsync(
+            new[] { "Delver of Secrets // Insectile Aberration" },
+            Fallback,
+            normalizeForScryfall: true,
+            CancellationToken.None);
+
+        var resolution = Assert.Single(result.Resolutions);
+        Assert.Equal("Delver of Secrets // Insectile Aberration", resolution.RequestName);
+        Assert.False(resolution.FromFallback);
+        Assert.Equal(new[] { "Delver of Secrets" }, ExtractNames(requestBody));
+        Assert.DoesNotContain("Delver of Secrets // Insectile Aberration", requestBody, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -260,6 +321,36 @@ public sealed class ScryfallReferenceResolverTests
             StatusCode = HttpStatusCode.OK,
             Data = new ScryfallCollectionResponse(cards, []),
         };
+
+    private static string ExtractRequestBody(RestRequest request)
+    {
+        var bodyParameter = request.Parameters.Single(parameter => parameter.Type == ParameterType.RequestBody);
+        return bodyParameter.Value switch
+        {
+            string body => body,
+            null => string.Empty,
+            _ => JsonSerializer.Serialize(bodyParameter.Value),
+        };
+    }
+
+    private static IReadOnlyList<string> ExtractNames(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return Array.Empty<string>();
+        }
+
+        using var document = JsonDocument.Parse(json);
+        if (!document.RootElement.TryGetProperty("identifiers", out var identifiers) || identifiers.ValueKind != JsonValueKind.Array)
+        {
+            return Array.Empty<string>();
+        }
+
+        return identifiers.EnumerateArray()
+            .Select(element => element.TryGetProperty("name", out var name) ? name.GetString() ?? string.Empty : string.Empty)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .ToList();
+    }
 
     private static ScryfallCard CreateCard(string name)
         => new(

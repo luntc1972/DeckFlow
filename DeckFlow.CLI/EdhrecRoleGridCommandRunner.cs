@@ -17,6 +17,7 @@ using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.DependencyInjection;
 using Polly.Registry;
 using RestSharp;
+using CoreScryfallCollectionIdentifier = DeckFlow.Core.Normalization.ScryfallCollectionIdentifier;
 
 namespace DeckFlow.CLI;
 
@@ -368,11 +369,16 @@ internal static class EdhrecRoleGridCommandRunner
         for (int offset = 0; offset < uncachedNames.Count; offset += 75)
         {
             List<string> batchNames = uncachedNames.Skip(offset).Take(75).ToList();
+            string[] batchIdentifiers = batchNames
+                .Select(CoreScryfallCollectionIdentifier.ToFaceIdentifier)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
             Console.WriteLine(FormattableString.Invariant(
                 $"Resolving Scryfall batch {offset / 75 + 1}/{Math.Max(1, (int)Math.Ceiling(uncachedNames.Count / 75.0))} ({Math.Min(offset + batchNames.Count, uncachedNames.Count)}/{uncachedNames.Count})."));
 
             var request = new RestRequest("cards/collection", Method.Post);
-            request.AddJsonBody(new { identifiers = batchNames.Select(cardName => (object)new { name = cardName }).ToArray() });
+            // Why: Scryfall cards/collection name identifiers match a single face name; combined A // B returns not_found.
+            request.AddJsonBody(new { identifiers = batchIdentifiers.Select(cardName => (object)new { name = cardName }).ToArray() });
 
             RestResponse<ScryfallCollectionResponse>? response = await ExecuteWithScryfall429RetryAsync(
                 operationName: $"cards/collection batch {offset / 75 + 1}",
