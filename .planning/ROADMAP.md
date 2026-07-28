@@ -30,7 +30,7 @@
 
 Decimal phases appear between their surrounding integers in numeric order. Numbering continues after shipped Cycle 19 phases 108-111.
 
-- [ ] **Phase 112: Cycle 17 Code Port** - Cycle 17's Core engine (profile records/store, measured + stated extraction, fusion, grounding guard) and creator-style Web services/seed loader/DI registrations are ported and build clean. Waves 1-3 (Core) SHIPPED on `main` (`f23b7580`); waves 4-6 (Web) land on `gsd/cycle20-personal-tools`
+- [x] **Phase 112: Cycle 17 Code Port** - Cycle 17's Core engine (profile records/store, measured + stated extraction, fusion, grounding guard) and creator-style Web services/seed loader/DI registrations are ported and build clean. Waves 1-3 (Core) SHIPPED on `main` (`f23b7580`); waves 4-6 (Web) land on `gsd/cycle20-personal-tools`
 - [ ] **Phase 113: Shared-Infra Re-derivation** - Cycle 17's shared-infrastructure refactors are re-derived line-by-line against current `main`, not applied wholesale from the stale branch
 - [ ] **Phase 114: Port Verification & Admin Personal-Tools Surface** - Ported suites are clean of dead public-surface tests; both personal tools are reachable only through the BasicAuth-gated `/Admin` surface
 - [ ] **Phase 115: Real Data - Stated Rules & Operator Run** - The operator runs the pipeline end to end so `/Admin/CreatorStyle` renders a real critique
@@ -94,9 +94,9 @@ Plans:
 - [x] 112-01-PLAN.md — Pre-port baseline capture and RESEARCH manifest drift preflight
 - [x] 112-02-PLAN.md — Core file allowlist checkout, Postgres test trims, distillation-stack hunks
 - [x] 112-03-PLAN.md — Remaining Core hunks, format/path gates, Commit 1
-- [ ] 112-04-PLAN.md — Web file allowlist checkout, seed placeholders, Web hunks, archidekt pipeline
-- [ ] 112-05-PLAN.md — AddDeckFlowCreatorStyle DI extension and the two Program.cs edits
-- [ ] 112-06-PLAN.md — Real-ArchidektOwnerClient DI test, headless boot smoke, Commit 2
+- [x] 112-04-PLAN.md — Web file allowlist checkout, seed placeholders, Web hunks, archidekt pipeline
+- [x] 112-05-PLAN.md — AddDeckFlowCreatorStyle DI extension and the two Program.cs edits
+- [x] 112-06-PLAN.md — Real-ArchidektOwnerClient DI test, headless boot smoke, Commit 2
 
 ### Phase 113: Shared-Infra Re-derivation
 **Goal**: Cycle 17's shared-infrastructure refactors — the neutral `ScryfallCollectionResolver`, `ScryfallLimits.CollectionBatchSize`, and shared `CachedNameResolution` — are re-derived against current `main` line by line, not applied wholesale from a branch that Cycles 18-19 have since edited underneath. (The `archidekt` resilience pipeline moved to Phase 112 — see below.)
