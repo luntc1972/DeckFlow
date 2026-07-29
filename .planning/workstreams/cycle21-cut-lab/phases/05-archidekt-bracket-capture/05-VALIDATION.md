@@ -36,13 +36,22 @@ created: 2026-07-29
 
 ## Per-Task Verification Map
 
+Eight tasks across three plans and three waves (2 / 3 / 3). Task IDs are keyed `05-0P-0T`.
+
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 05-01-01 | 01 | 1 | BRKT-01 | T-05-01 | Archidekt payload parsed once; no second request for metadata | unit | `dotnet.exe test DeckFlow.Core.Tests/DeckFlow.Core.Tests.csproj --filter FullyQualifiedName~ArchidektApiDeckImporterTests --no-restore` | Yes | pending |
-| 05-01-02 | 01 | 1 | BRKT-02, BRKT-03 | T-05-02 | Nullable schema migration preserves existing rows and captured timestamp distinguishes absent metadata | unit/schema | `dotnet.exe test DeckFlow.Core.Tests/DeckFlow.Core.Tests.csproj --filter "FullyQualifiedName~CategoryKnowledgeRepositoryTests|FullyQualifiedName~CategoryCacheSchemaParityTests" --no-restore` | Yes | pending |
-| 05-01-03 | 01 | 1 | BRKT-01, BRKT-03 | T-05-03 | Bulk and URL imports write metadata only after successful payload parse | unit/integration | `dotnet.exe test DeckFlow.Core.Tests/DeckFlow.Core.Tests.csproj --filter FullyQualifiedName~ArchidektDeckCacheSessionTests --no-restore` and matching Web controller tests | Yes | pending |
+| 05-01-01 | 01 | 1 | BRKT-01 | T-05-01, T-05-03, T-05-12 | Red tests pin one-request capture (`Assert.Equal(1, handler.RequestCount)`), try-parse-only malformed handling, captured-vs-absent, and `Metadata == null` for an unrecognizable payload | unit | `dotnet.exe test DeckFlow.Core.Tests/DeckFlow.Core.Tests.csproj --filter FullyQualifiedName~ArchidektApiDeckImporterTests --no-restore` | Yes | pending |
+| 05-01-02 | 01 | 1 | BRKT-01 | T-05-01, T-05-02, T-05-03, T-05-12 | Metadata parsed from the already-fetched payload; throwing default interface member never fabricates `CapturedUtc`; no metadata value can make `ImportAsync` throw | unit + build | `dotnet.exe test DeckFlow.Core.Tests/DeckFlow.Core.Tests.csproj --filter FullyQualifiedName~ArchidektApiDeckImporterTests --no-restore` then `dotnet.exe build DeckFlow.sln --no-restore` | Yes | pending |
+| 05-02-01 | 02 | 2 | BRKT-02, BRKT-03 | T-05-05, T-05-06, T-05-13 | Red tests pin fresh + from-scratch legacy migration, three-state semantics, the two-step anti-wipe guarantee on both write paths, and the dialect-neutral parameter-type contract | unit/schema | `dotnet.exe test DeckFlow.Core.Tests/DeckFlow.Core.Tests.csproj --filter "FullyQualifiedName~CategoryKnowledgeRepositoryTests|FullyQualifiedName~CategoryCacheSchemaParityTests|FullyQualifiedName~ArchidektDeckMetadataParametersTests" --no-restore` | Yes | pending |
+| 05-02-02 | 02 | 2 | BRKT-02, BRKT-03 | T-05-04, T-05-06, T-05-07, T-05-13 | Additive nullable columns with no backfill; null metadata leaves captured columns untouched; all parameters flow through `ArchidektDeckMetadataParameters.From` as `int?`/`string?` | unit/schema | `dotnet.exe test DeckFlow.Core.Tests/DeckFlow.Core.Tests.csproj --filter "FullyQualifiedName~CategoryKnowledgeRepositoryTests|FullyQualifiedName~CategoryCacheSchemaParityTests|FullyQualifiedName~ArchidektDeckMetadataParametersTests" --no-restore` | Yes | pending |
+| 05-02-03 | 02 | 2 | BRKT-02 | T-05-04, T-05-05, T-05-13 | Dialect parity gated by the dialect-independent parameter-type test; Postgres run is positive-proof-only and otherwise recorded as NOT VERIFIED on Postgres | unit + gated integration | `WSLENV="${WSLENV:+$WSLENV:}DECKFLOW_POSTGRES_TESTS" DECKFLOW_POSTGRES_TESTS=1 dotnet.exe test DeckFlow.Web.Tests/DeckFlow.Web.Tests.csproj --filter FullyQualifiedName~PostgresStorageTests --no-restore` | Yes | pending |
+| 05-03-01 | 03 | 3 | BRKT-01, BRKT-03 | T-05-08, T-05-09 | Red propagation tests pin bulk metadata write, unchanged-card-list metadata refresh, fresh-row skip nulls, URL metadata pass-through, and the exact D-09 banner string | unit/integration | `dotnet.exe test DeckFlow.Core.Tests/DeckFlow.Core.Tests.csproj --filter FullyQualifiedName~ArchidektDeckCacheSessionTests --no-restore` and `dotnet.exe test DeckFlow.Web.Tests/DeckFlow.Web.Tests.csproj --filter FullyQualifiedName~AdminHarvestControllerTests --no-restore` | Yes | pending |
+| 05-03-02 | 03 | 3 | BRKT-01, BRKT-03 | T-05-08, T-05-10, T-05-11 | Bulk harvest forwards importer metadata (and nulls) without touching the card-list content hash; `ContentHashDedupTests` assertions unchanged | unit/integration | `dotnet.exe test DeckFlow.Core.Tests/DeckFlow.Core.Tests.csproj --filter "FullyQualifiedName~ArchidektDeckCacheSessionTests|FullyQualifiedName~ContentHashDedupTests" --no-restore` | Yes | pending |
+| 05-03-03 | 03 | 3 | BRKT-02, BRKT-03 | T-05-09, T-05-11, T-05-14 | URL path shares the repository metadata surface via a new 4-arg overload; 3-arg member untouched so out-of-scope implementers still compile; D-09 commander extraction with no backfill | unit + build | `dotnet.exe test DeckFlow.Web.Tests/DeckFlow.Web.Tests.csproj --filter "FullyQualifiedName~AdminHarvestControllerTests|FullyQualifiedName~CategoryKnowledgeStoreTests" --no-restore` then `dotnet.exe build DeckFlow.sln --no-restore` | Yes | pending |
 
 *Status: pending / green / red / flaky*
+
+Every task additionally runs `scripts/format-check-changed.sh staged` as its plan's final `<automated>` step; CI `format-gate` is the authoritative enforcer.
 
 ---
 
@@ -55,6 +64,8 @@ Existing infrastructure covers all phase requirements. Add or extend tests in th
 ## Manual-Only Verifications
 
 All phase behaviors should have automated verification. Manual production verification is limited to optional post-deploy SQL inspection of `deck_queue` metadata coverage and is not required for local phase completion.
+
+**Postgres fallback note.** `[PostgresFact]` reads `DECKFLOW_POSTGRES_TESTS` from the Windows process environment (`DeckFlow.Web.Tests/Integration/PostgresFactAttribute.cs:14-18`), a WSL-side assignment does not cross into `dotnet.exe` without `WSLENV`, and `.github/workflows/ci.yml` is out of scope for this phase, so the Postgres path is provable in **no** currently available environment. Only output showing `[PostgresFact]` tests **passed** counts as Postgres verification; a skipped or zero-test run is recorded as "**NOT VERIFIED on Postgres**" — never "skipped as expected" — and carried into the phase summary as an open production risk, since Render runs Postgres. The substitute gate that does run everywhere is `ArchidektDeckMetadataParametersTests`, which asserts every metadata SQL parameter is `int?`/`string?` and never `bool` or `DateTimeOffset`.
 
 ---
 
