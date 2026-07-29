@@ -19,6 +19,7 @@ using DeckFlow.Web.Security;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Analytics;
 using DeckFlow.Web.Services.Bracket;
+using DeckFlow.Web.Services.CutLab;
 using DeckFlow.Web.Services.Harvest;
 using DeckFlow.Web.Services.PromptBuilders.Bracket;
 using DeckFlow.Web.Services.Http;
@@ -92,6 +93,7 @@ public partial class Program
             builder.Services.AddSingleton<IHelpContentService, HelpContentService>();
             builder.Services.AddSingleton<IGameChangerCatalogService, GameChangerCatalogService>();
             builder.Services.AddSingleton<ICedhLandBaselineProvider, CedhLandBaselineProvider>();
+            builder.Services.AddSingleton<IRoleFloorBaselineProvider, RoleFloorBaselineProvider>();
             builder.Services.AddSingleton<IManabaseBaselineProvider, ManabaseBaselineProvider>();
             builder.Services.AddSingleton<IVersionService, VersionService>();
             builder.Services.AddSingleton<IFeedbackStore, FeedbackStore>();
@@ -309,6 +311,7 @@ public partial class Program
             app.Logger.LogInformation("Warming cEDH land baseline into memory cache during startup.");
             app.Services.GetRequiredService<ICedhLandBaselineProvider>().EnsureLoaded();
             app.Logger.LogInformation("cEDH land baseline warm-loaded.");
+            app.Services.GetRequiredService<IRoleFloorBaselineProvider>().EnsureLoaded();
 
             app.Services.GetRequiredService<IManabaseBaselineProvider>().EnsureLoaded();
 
