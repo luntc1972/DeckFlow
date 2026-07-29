@@ -295,17 +295,15 @@ Source: `ArchidektDeckCacheSession.RunAsync`. [VERIFIED: codebase grep]
 |---|-------|---------|---------------|
 | A1 | Warning signs listed for missing tests and skip-row fabricated capture are predictive rather than directly observed defects. | Common Pitfalls | Low; they guide planner verification, not implementation design. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Should `viewCount` and `points` be persisted in Phase 5?**
+1. **RESOLVED: Do not persist `viewCount` or `points` in Phase 5.**
    - What we know: The fixture and Phase 2 findings evidence `viewCount` and `points` as top-level payload fields. [VERIFIED: codebase grep]
-   - What's unclear: The Phase 5 context names `deckFormat`, `theorycrafted`, `createdAt`, `updatedAt`, and `edhBracket` as directly useful examples, but does not require `viewCount` or `points`. [CITED: .planning/workstreams/cycle21-cut-lab/phases/05-archidekt-bracket-capture/05-CONTEXT.md]
-   - Recommendation: Do not persist `viewCount` or `points` unless the planner adds an explicit corpus-hygiene use case; avoid expanding the column set beyond bracket/filter/provenance needs. [ASSUMED]
+   - Decision: Phase 5 persists only bracket/filter/provenance metadata named by the context: `edhBracket`, `deckFormat`, `theorycrafted`, `createdAt`, `updatedAt`, and `archidekt_metadata_captured_utc`. `viewCount` and `points` are excluded because no locked requirement or corpus-hygiene use case depends on them. [DECIDED: plan-check resolution]
 
-2. **Should a read API be added for metadata verification?**
+2. **RESOLVED: Do not add a production read API solely for metadata verification.**
    - What we know: Phase 5 does not need a UI, and read APIs are discretionary only if needed for verification/admin diagnostics. [CITED: .planning/workstreams/cycle21-cut-lab/phases/05-archidekt-bracket-capture/05-CONTEXT.md]
-   - What's unclear: Tests can verify via direct SQLite/Postgres SQL without adding public read methods. [VERIFIED: codebase grep]
-   - Recommendation: Prefer direct test SQL helpers over adding production read APIs unless implementation needs them. [ASSUMED]
+   - Decision: Automated tests should verify persisted metadata through repository-visible behavior or direct SQLite/Postgres SQL helpers. Add production read APIs only if execution discovers an implementation need beyond test inspection. [DECIDED: plan-check resolution]
 
 ## Environment Availability
 
