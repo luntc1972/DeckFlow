@@ -1,5 +1,6 @@
 using System.Text.Json;
 using DeckFlow.Core.Manabase;
+using DeckFlow.Web.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -78,7 +79,7 @@ public sealed class CedhLandBaselineProvider : ICedhLandBaselineProvider
 
         generated = snapshot.Generated;
 
-        foreach (string key in CandidateKeys(commanderNames))
+        foreach (string key in CommanderBaselineKeys.Candidates(commanderNames))
         {
             if (snapshot.Commanders.TryGetValue(key, out CedhCommanderBaselineSnapshot? match))
             {
@@ -90,22 +91,6 @@ public sealed class CedhLandBaselineProvider : ICedhLandBaselineProvider
         }
 
         return false;
-    }
-
-    // Baseline keys are either a single commander name or a partner pair joined by " / " in an
-    // unspecified order; try the solo name, then both partner orders. An MDFC commander name
-    // (containing " // ") is a single card = a single key, so it is never split.
-    private static IEnumerable<string> CandidateKeys(IReadOnlyList<string> commanderNames)
-    {
-        if (commanderNames.Count == 1)
-        {
-            yield return commanderNames[0];
-        }
-        else if (commanderNames.Count == 2)
-        {
-            yield return $"{commanderNames[0]} / {commanderNames[1]}";
-            yield return $"{commanderNames[1]} / {commanderNames[0]}";
-        }
     }
 
     private CedhLandBaselineSnapshot? GetOrLoadSnapshot()
