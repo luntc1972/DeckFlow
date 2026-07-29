@@ -1,6 +1,8 @@
 using DeckFlow.Core.Manabase;
+using DeckFlow.Core.Research;
 using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services.CutLab;
+using System.Globalization;
 using System.Text.Json.Serialization;
 
 namespace DeckFlow.Web.Models;
@@ -460,7 +462,7 @@ public sealed record CutLabViewModel
             .ToArray();
     }
 
-    private static IReadOnlyList<CutLabFloorRowView> BuildFloorRows(
+    internal static IReadOnlyList<CutLabFloorRowView> BuildFloorRows(
         IReadOnlyList<CutLabResolvedFloor> resolvedFloors,
         IReadOnlyDictionary<string, int> countsByRole,
         string playExperience)
@@ -469,16 +471,36 @@ public sealed record CutLabViewModel
             .Select(floor =>
             {
                 int inPoolCount = countsByRole.TryGetValue(floor.Role, out int count) ? count : 0;
+                bool supportsCommanderFloor = RoleFloorBaseline.AdoptedRoleKeys.Contains(floor.Role, StringComparer.OrdinalIgnoreCase);
+                string commanderDisplay = supportsCommanderFloor
+                    ? floor.CommanderValue?.ToString(CultureInfo.InvariantCulture)
+                        // Why: per D-08 the shipped snapshot cannot distinguish "commander absent from the corpus"
+                        // from "commander present, role did not clear the bar", so the UI must not claim to.
+                        ?? "—"
+                    // Why: D-12 requires `n/a` for structurally out-of-scope roles because a bare dash would
+                    // imply the tool looked and found nothing, when lands was deliberately pulled at the
+                    // Phase 2 checkpoint and interaction-mass/protection were ruled out for insufficient breadth.
+                    : "n/a";
+                string sourceLabel = floor.CommanderValue is int commander && commander > floor.BracketValue
+                    // Why: the label names which number actually drove the effective default, so a tie reads as
+                    // Bracket because the bracket band alone already produced that number.
+                    ? "Commander"
+                    : "Bracket";
                 return new CutLabFloorRowView
                 {
                     RoleKey = floor.Role,
                     DisplayLabel = DisplayLabelFor(floor.Role),
                     InPoolCount = inPoolCount,
+                    BracketValue = floor.BracketValue,
+                    CommanderValue = floor.CommanderValue,
+                    SupportsCommanderFloor = supportsCommanderFloor,
+                    CommanderDisplay = commanderDisplay,
                     Floor = floor.Floor,
                     DefaultValue = floor.DefaultValue,
                     IsUserSet = floor.IsUserSet,
                     AtFloor = inPoolCount <= floor.Floor + 1,
-                    SourceLabel = floor.BracketWasFallback
+                    SourceLabel = sourceLabel,
+                    SourceDetail = floor.BracketWasFallback
                         ? $"Default: {floor.DefaultValue} — based on {FallbackSource(playExperience)}"
                         : $"Default for B{floor.ResolvedBracket}: {floor.DefaultValue}",
                 };
@@ -1058,6 +1080,18 @@ public sealed record CutLabFloorRowView
     /// <summary>Current number of pool cards filling the role.</summary>
     public int InPoolCount { get; init; }
 
+    /// <summary>The bracket-and-plan derived number for the Bracket column.</summary>
+    public int BracketValue { get; init; }
+
+    /// <summary>The commander p25 floor when one was found; otherwise null.</summary>
+    public int? CommanderValue { get; init; }
+
+    /// <summary>True only for roles that can ever carry commander-aware floor data.</summary>
+    public bool SupportsCommanderFloor { get; init; }
+
+    /// <summary>Prebuilt Commander-cell text, including the two distinct empty states.</summary>
+    public string CommanderDisplay { get; init; } = string.Empty;
+
     /// <summary>Effective floor after merging defaults and user overrides.</summary>
     public int Floor { get; init; }
 
@@ -1070,8 +1104,11 @@ public sealed record CutLabFloorRowView
     /// <summary>True when the pool count is at the caution band of floor plus one or below.</summary>
     public bool AtFloor { get; init; }
 
-    /// <summary>Prebuilt UI copy describing the floor's default source.</summary>
+    /// <summary>Single-word label naming which number drove the effective default.</summary>
     public string SourceLabel { get; init; } = string.Empty;
+
+    /// <summary>Tooltip sentence describing the floor's default provenance.</summary>
+    public string SourceDetail { get; init; } = string.Empty;
 }
 
 /// <summary>View-ready goal row including editable turn target and baseline/current trend.</summary>
