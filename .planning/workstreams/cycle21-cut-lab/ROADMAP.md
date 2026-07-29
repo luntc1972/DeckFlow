@@ -367,7 +367,7 @@ mirror. Branch mutation is the developer's, not a planned task.
 | 01.1. Plan-Role Classifier Heuristic Fixes | 2/2 | **Complete** — suite green, `b8ec09f3` | 2026-07-27 |
 | 01.2. Protection-Vocabulary Widening | 0/TBD | Not started (inserted from 01.1 D-06) | - |
 | 2. Role-Floor Divergence Research | 11/11 | **Complete** — real run exit 0, 841 qualifying commanders. GO on ramp, draw, interaction-targeted, engines, payoffs, wincons; **lands PULLED** at the Task 4 checkpoint (the Postgres arm measures distinct land NAMES, not land count; colour count explains 54% of its variance). See `02-08-SUMMARY.md` | 2026-07-28 |
-| 3. Commander-Aware Floor Defaults | 0/7 | **Planned** — 7 plans across 6 waves; Phase 2 returned GO on six roles | - |
+| 3. Commander-Aware Floor Defaults | 7/7 | **Complete** — all 7 plans verified; `max(bracket, commander)` shipped with both numbers on screen. Snapshot: 678 commanders / 1463 adopted floors, independently recomputed from `RESEARCH-FINDINGS.json`. Task 4 human-verify approved. One WARNING-severity gap on the AJAX patch path (see `03-VERIFICATION.md`) | 2026-07-29 |
 | 4. Functional-Twins Detector | 0/TBD | Not started | - |
 | 5. Archidekt Bracket Capture | 0/TBD | Not started | - |
 
@@ -379,7 +379,7 @@ mirror. Branch mutation is the developer's, not a planned task.
 |-------------|-------|--------|
 | ISPL-01, ISPL-02, ISPL-03 | Phase 1 | Pending |
 | RFLR-01, RFLR-02, RFLR-03, RFLR-04, RFLR-09 | Phase 2 | Pending |
-| RFLR-05, RFLR-06, RFLR-07, RFLR-08 | Phase 3 (conditional) | Pending |
+| RFLR-05, RFLR-06, RFLR-07, RFLR-08 | Phase 3 (conditional) | Satisfied |
 | TWIN-01, TWIN-02, TWIN-03, TWIN-04 | Phase 4 | Pending |
 | BRKT-01, BRKT-02, BRKT-03 | Phase 5 | Pending |
 | (none assigned) | Phase 01.1 | **Gap** -- inserted after REQUIREMENTS.md was written; see the Phase 01.1 block above |
