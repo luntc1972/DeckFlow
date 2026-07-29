@@ -19,6 +19,7 @@ public sealed class CutLabFloorDefaultsTests
             commanderNames: ["Atraxa, Praetors' Voice"],
             baseline: new FakeBaselineProvider(new ManabaseBracketBaseline { Bracket = 4, AvgLands = 36.4, DeckCount = 1000 }),
             cedhBaseline: null,
+            roleFloorBaseline: null,
             priorFloors: []);
 
         Assert.Equal(CutLabFloorRules.RoleKeys, resolved.Select(floor => floor.Role).ToArray());
@@ -70,6 +71,7 @@ public sealed class CutLabFloorDefaultsTests
             commanderNames: ["Atraxa, Praetors' Voice"],
             baseline: new FakeBaselineProvider(new ManabaseBracketBaseline { Bracket = 2, AvgLands = 35.6, DeckCount = 1000 }),
             cedhBaseline: null,
+            roleFloorBaseline: null,
             priorFloors: []);
 
         Assert.All(resolved, floor => Assert.Equal(2, floor.ResolvedBracket));
@@ -93,6 +95,7 @@ public sealed class CutLabFloorDefaultsTests
             commanderNames: ["Tymna the Weaver", "Kraum, Ludevic's Opus"],
             baseline: new FakeBaselineProvider(new ManabaseBracketBaseline { Bracket = 5, AvgLands = 31.2, DeckCount = 1000 }),
             cedhBaseline: new FakeCedhBaselineProvider(mean: 29.6),
+            roleFloorBaseline: null,
             priorFloors: []);
 
         AssertFloor(resolved[0], "lands", 30, false, 30, 5, false);
@@ -108,6 +111,7 @@ public sealed class CutLabFloorDefaultsTests
             commanderNames: ["Tymna the Weaver", "Kraum, Ludevic's Opus"],
             baseline: new FakeBaselineProvider(new ManabaseBracketBaseline { Bracket = 5, AvgLands = 31.2, DeckCount = 1000 }),
             cedhBaseline: new FakeCedhBaselineProvider(),
+            roleFloorBaseline: null,
             priorFloors: []);
 
         AssertFloor(resolved[0], "lands", 31, false, 31, 5, false);
@@ -123,6 +127,7 @@ public sealed class CutLabFloorDefaultsTests
             commanderNames: ["Atraxa, Praetors' Voice"],
             baseline: new FakeBaselineProvider(),
             cedhBaseline: null,
+            roleFloorBaseline: null,
             priorFloors: []);
 
         AssertFloor(resolved[0], "lands", 36, false, 36, 4, false);
@@ -138,6 +143,7 @@ public sealed class CutLabFloorDefaultsTests
             commanderNames: ["Atraxa, Praetors' Voice"],
             baseline: new FakeBaselineProvider(new ManabaseBracketBaseline { Bracket = 4, AvgLands = 36.4, DeckCount = 1000 }),
             cedhBaseline: null,
+            roleFloorBaseline: null,
             priorFloors:
             [
                 new CutLabRoleFloor
@@ -172,6 +178,7 @@ public sealed class CutLabFloorDefaultsTests
             commanderNames: ["Atraxa, Praetors' Voice"],
             baseline: new FakeBaselineProvider(new ManabaseBracketBaseline { Bracket = bracket, AvgLands = 36.4, DeckCount = 1000 }),
             cedhBaseline: null,
+            roleFloorBaseline: null,
             priorFloors: []);
 
         int targeted = resolved.Single(floor => floor.Role == "interaction-targeted").DefaultValue;

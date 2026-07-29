@@ -409,6 +409,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             commanderResolution.CommanderNames,
             _manabaseBaseline,
             _cedhBaseline,
+            null,
             priorState.RoleFloors);
         IReadOnlyDictionary<string, int> floorByRole = resolvedFloors.ToDictionary(
             floor => floor.Role,

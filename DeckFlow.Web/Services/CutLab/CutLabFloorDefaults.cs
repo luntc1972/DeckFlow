@@ -1,4 +1,5 @@
 using DeckFlow.Core.Manabase;
+using DeckFlow.Core.Research;
 using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services.Manabase;
 
@@ -47,6 +48,7 @@ public static class CutLabFloorDefaults
     /// <param name="commanderNames">Resolved commander names for optional cEDH lands baseline lookup.</param>
     /// <param name="baseline">Optional bundled per-bracket baseline provider.</param>
     /// <param name="cedhBaseline">Optional commander-keyed cEDH lands baseline provider.</param>
+    /// <param name="roleFloorBaseline">Optional commander-keyed role-floor baseline provider.</param>
     /// <param name="priorFloors">Previously persisted user floor entries from the working session.</param>
     /// <returns>One resolved floor row per Cut Lab role.</returns>
     public static IReadOnlyList<CutLabResolvedFloor> ResolveDefaults(
@@ -56,6 +58,7 @@ public static class CutLabFloorDefaults
         IReadOnlyList<string> commanderNames,
         IManabaseBaselineProvider? baseline,
         ICedhLandBaselineProvider? cedhBaseline,
+        IRoleFloorBaselineProvider? roleFloorBaseline,
         IReadOnlyList<CutLabRoleFloor> priorFloors)
     {
         ArgumentNullException.ThrowIfNull(playExperience);
@@ -65,7 +68,10 @@ public static class CutLabFloorDefaults
         int resolvedBracket = ResolveBracket(declaredBracket, playExperience, out bool bracketWasFallback);
         int landsDefault = ResolveLandsDefault(resolvedBracket, commanderNames, baseline, cedhBaseline);
         int rampDefault = ManabaseRampDrawBudgetCalculator.CalculateTargetRamp(commanderManaValue);
-        // Mirror ManabaseRampDrawBudgetCalculator's fixed 24-slot split: draw gets whatever ramp does not.
+        // Why: 24 - rampDefault remains the bracket-derived draw component, mirroring
+        // ManabaseRampDrawBudgetCalculator's fixed split. After commander-aware max() resolution,
+        // ramp and draw are independent minimums and may sum past 24 because floors are minimums,
+        // not a budget.
         int drawDefault = 24 - rampDefault;
 
         Dictionary<string, CutLabRoleFloor> userOverrides = GetUserOverrides(priorFloors);
@@ -73,21 +79,41 @@ public static class CutLabFloorDefaults
 
         foreach (string role in CutLabFloorRules.RoleKeys)
         {
-            int defaultValue = role switch
+            int bracketValue = role switch
             {
                 "lands" => landsDefault,
                 "ramp" => rampDefault,
                 "draw" => drawDefault,
                 _ => GetBracketBand(role, resolvedBracket),
             };
+            int? commanderValue = null;
+            // Why: lands is deliberately excluded because the Phase 2 Postgres arm measured distinct
+            // land names rather than land count, and interaction-mass/protection are out of scope for
+            // insufficient breadth. RoleFloorBaseline.AdoptedRoleKeys is the single source of the six
+            // commander-aware GO roles.
+            if (roleFloorBaseline is not null
+                && RoleFloorBaseline.AdoptedRoleKeys.Contains(role, StringComparer.OrdinalIgnoreCase)
+                && roleFloorBaseline.TryGetRoleFloor(commanderNames, role, out int commanderFloor))
+            {
+                commanderValue = commanderFloor;
+            }
+
+            // Why: the bracket bands are prescriptive product opinion, while commander p25 is
+            // descriptive of what people actually build; max() is the reconciliation. At brackets 4-5,
+            // all 124 of 124 adopting payoffs commanders sit below the band, so a literal priority
+            // chain would delete that guardrail outright. Both numbers stay visible because they answer
+            // different questions.
+            int effectiveDefault = Math.Max(bracketValue, commanderValue ?? 0);
 
             bool isUserSet = userOverrides.TryGetValue(role, out CutLabRoleFloor? overrideFloor);
             resolved.Add(new CutLabResolvedFloor
             {
                 Role = role,
-                Floor = isUserSet ? overrideFloor!.Floor : defaultValue,
+                Floor = isUserSet ? overrideFloor!.Floor : effectiveDefault,
                 IsUserSet = isUserSet,
-                DefaultValue = defaultValue,
+                DefaultValue = effectiveDefault,
+                BracketValue = bracketValue,
+                CommanderValue = commanderValue,
                 ResolvedBracket = resolvedBracket,
                 BracketWasFallback = bracketWasFallback,
             });
@@ -213,8 +239,14 @@ public sealed record CutLabResolvedFloor
     /// <summary>True when the effective floor came from a user-set persisted override.</summary>
     public bool IsUserSet { get; init; }
 
-    /// <summary>Freshly derived default before any user override merge.</summary>
+    /// <summary>Freshly derived effective default before any user override merge; resets restore this max(bracket, commander) value.</summary>
     public int DefaultValue { get; init; }
+
+    /// <summary>Freshly derived bracket-and-plan default before commander-aware max() resolution.</summary>
+    public int BracketValue { get; init; }
+
+    /// <summary>Freshly derived commander-specific floor when one matched; otherwise null.</summary>
+    public int? CommanderValue { get; init; }
 
     /// <summary>Bracket that actually drove the resolved default values.</summary>
     public int ResolvedBracket { get; init; }
