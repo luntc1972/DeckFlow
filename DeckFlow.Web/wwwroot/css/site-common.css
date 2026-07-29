@@ -4456,10 +4456,10 @@ button.cutlab-role-chip:focus-visible {
 /* Cut Lab role floors: wrap the added numeric-column sizing in a min-width query because
    this table also carries data-prompt-cedh-reference-table and inherits the generic stacked
    grid at <= 600px, where a fixed width would collapse the value track. */
-table[data-cut-lab-role-floors-table] th:nth-child(3),
-table[data-cut-lab-role-floors-table] th:nth-child(4),
-table[data-cut-lab-role-floors-table] td[data-label="Bracket"],
-table[data-cut-lab-role-floors-table] td[data-label="Commander"] {
+table[data-cut-lab-role-floors-table][data-cut-lab-commander-floors="true"] th:nth-child(3),
+table[data-cut-lab-role-floors-table][data-cut-lab-commander-floors="true"] th:nth-child(4),
+table[data-cut-lab-role-floors-table][data-cut-lab-commander-floors="true"] td[data-label="Bracket"],
+table[data-cut-lab-role-floors-table][data-cut-lab-commander-floors="true"] td[data-label="Commander"] {
   width: 6rem;
   text-align: right;
 }

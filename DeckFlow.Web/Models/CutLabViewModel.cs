@@ -148,6 +148,9 @@ public sealed record CutLabViewModel
     /// <summary>Aggregate floor feasibility advisory, or null when the resolved floor set fits a 100-card deck.</summary>
     public CutLabFloorFeasibilityResult? FloorFeasibility { get; init; }
 
+    /// <summary>True when the role-floors table should show the commander-aware Bracket/Commander columns.</summary>
+    public bool CommanderFloorsEnabled { get; init; }
+
     /// <summary>Editable goal rows rendered in the fixed Cut Lab order.</summary>
     public IReadOnlyList<CutLabGoalRowView> GoalRows { get; init; } = [];
 
@@ -363,6 +366,7 @@ public sealed record CutLabViewModel
             CategoryDataUnavailable = result.HasResult && !result.Findings.CategoryDataAvailable,
             FloorRows = floorRows,
             FloorFeasibility = floorFeasibility,
+            CommanderFloorsEnabled = result.CommanderFloorsEnabled,
             GoalRows = goalRows,
             StickyBar = stickyBar,
             CurrentActualLands = result.CurrentActualLands,

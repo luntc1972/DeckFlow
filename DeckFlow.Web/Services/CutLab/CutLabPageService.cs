@@ -5,6 +5,7 @@ using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Manabase;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.Logging;
@@ -100,6 +101,9 @@ public sealed record CutLabProcessResult
     /// <summary>Target lands in the current working-pool simulation, when available.</summary>
     public double? CurrentTargetLands { get; init; }
 
+    /// <summary>True when the commander-aware floor defaults layer is enabled for this render.</summary>
+    public bool CommanderFloorsEnabled { get; init; }
+
     /// <summary>User-facing error for a hard failure, null on success.</summary>
     public string? ErrorMessage { get; init; }
 
@@ -110,6 +114,13 @@ public sealed record CutLabProcessResult
 /// <summary>Default Cut Lab page-service orchestrator.</summary>
 internal sealed class CutLabPageService : ICutLabPageService
 {
+    /// <summary>
+    /// Commander-aware role-floor defaults flag key: seeded OFF. When enabled, Cut Lab resolves
+    /// the Phase 3 commander baseline layer and shows the Bracket/Commander floor columns; off =
+    /// byte-identical to the pre-Phase-3 bracket-only surface.
+    /// </summary>
+    public const string CommanderFloorsFlagKey = "analysis.cut-lab.commander-floors";
+
     private static readonly HashSet<string> AnalyzedBoards =
         new(StringComparer.OrdinalIgnoreCase) { "mainboard", "commander" };
 
@@ -121,6 +132,7 @@ internal sealed class CutLabPageService : ICutLabPageService
     private readonly IRoleFloorBaselineProvider? _roleFloorBaseline;
     private readonly ICutLabAnalysisContextBuilder _analysisContextBuilder;
     private readonly ICutLabSimulationService _simulationService;
+    private readonly IFeatureFlagCache? _featureFlags;
     private readonly ILogger<CutLabPageService> _logger;
 
     /// <summary>Creates the Cut Lab page service.</summary>
@@ -133,6 +145,7 @@ internal sealed class CutLabPageService : ICutLabPageService
     /// <param name="analysisContextBuilder">Optional shared builder for resolved-card, classification, and role-assignment analysis.</param>
     /// <param name="simulationService">Optional simulation service for baseline, current snapshot, and proposal-delta computation.</param>
     /// <param name="logger">Optional logger for non-blocking diagnostics.</param>
+    /// <param name="featureFlags">Optional feature-flag cache for dark-launching commander-aware floor defaults.</param>
     public CutLabPageService(
         IDeckEntryLoader deckEntryLoader,
         IScryfallCardResolver cardResolver,
@@ -142,7 +155,8 @@ internal sealed class CutLabPageService : ICutLabPageService
         IRoleFloorBaselineProvider? roleFloorBaseline = null,
         ICutLabAnalysisContextBuilder? analysisContextBuilder = null,
         ICutLabSimulationService? simulationService = null,
-        ILogger<CutLabPageService>? logger = null)
+        ILogger<CutLabPageService>? logger = null,
+        IFeatureFlagCache? featureFlags = null)
     {
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
         ArgumentNullException.ThrowIfNull(cardResolver);
@@ -159,6 +173,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             ?? new CutLabAnalysisContextBuilder(cardResolver, sharedResolvedCardCache);
         _simulationService = simulationService
             ?? NoOpCutLabSimulationService.Instance;
+        _featureFlags = featureFlags;
         _logger = logger ?? NullLogger<CutLabPageService>.Instance;
     }
 
@@ -409,6 +424,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             warnings.Add(BuildUnresolvedCardsWarning(stillUnresolvedNames));
         }
 
+        bool commanderFloorsEnabled = IsFlagOn(CommanderFloorsFlagKey);
         IReadOnlyList<CutLabResolvedFloor> resolvedFloors = CutLabFloorDefaults.ResolveDefaults(
             request.Bracket,
             request.PlayExperience,
@@ -416,7 +432,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             commanderResolution.CommanderNames,
             _manabaseBaseline,
             _cedhBaseline,
-            _roleFloorBaseline,
+            commanderFloorsEnabled ? _roleFloorBaseline : null,
             priorState.RoleFloors);
         IReadOnlyDictionary<string, int> floorByRole = resolvedFloors.ToDictionary(
             floor => floor.Role,
@@ -593,9 +609,17 @@ internal sealed class CutLabPageService : ICutLabPageService
             CurrentSnapshot = currentSnapshot,
             CurrentActualLands = currentActualLands,
             CurrentTargetLands = currentTargetLands,
+            CommanderFloorsEnabled = commanderFloorsEnabled,
             HasResult = true,
         };
     }
+
+    // True only when the named flag exists in the snapshot AND is enabled. Fail-safe OFF: a missing
+    // key returns false (unlike IFeatureFlagCache.IsEnabled, which defaults missing keys ON).
+    private bool IsFlagOn(string key)
+        => _featureFlags is { } flags
+            && flags.Snapshot().TryGetValue(key, out bool enabled)
+            && enabled;
 
     private async Task<List<ResolvedCutLabEntry>> ResolveEntriesAsync(
         IReadOnlyList<DeckEntry> entries,

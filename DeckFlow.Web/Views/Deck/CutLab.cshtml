@@ -782,13 +782,20 @@
                     </div>
                 </div>
             <div class="history-timeline__wrap">
-                <table class="conflicts-table" data-prompt-cedh-reference-table data-cut-lab-role-floors-table role="table">
+                <table class="conflicts-table"
+                       data-prompt-cedh-reference-table
+                       data-cut-lab-role-floors-table
+                       data-cut-lab-commander-floors="@(Model.CommanderFloorsEnabled ? "true" : "false")"
+                       role="table">
                     <thead>
                         <tr>
                             <th scope="col">Role</th>
                             <th scope="col">In pool</th>
-                            <th scope="col">Bracket</th>
-                            <th scope="col">Commander</th>
+                            @if (Model.CommanderFloorsEnabled)
+                            {
+                                <th scope="col">Bracket</th>
+                                <th scope="col">Commander</th>
+                            }
                             <th scope="col">Floor</th>
                             <th scope="col">Source</th>
                         </tr>
@@ -808,8 +815,11 @@
                                     <span data-cut-lab-floor-count-label>@row.InPoolCount in pool</span>
                                     <span class="cutlab-floor-state--at @(row.AtFloor ? string.Empty : "hidden")" data-cut-lab-floor-at-marker>· at floor</span>
                                 </td>
-                                <td data-label="Bracket">@row.BracketValue</td>
-                                <td data-label="Commander">@row.CommanderDisplay</td>
+                                @if (Model.CommanderFloorsEnabled)
+                                {
+                                    <td data-label="Bracket">@row.BracketValue</td>
+                                    <td data-label="Commander">@row.CommanderDisplay</td>
+                                }
                                 <td data-label="Floor">
                                     <input type="number"
                                            min="0"
