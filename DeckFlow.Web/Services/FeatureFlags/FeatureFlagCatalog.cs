@@ -125,6 +125,9 @@ public static class FeatureFlagCatalog
                 "Show the Focused mid-power manabase mode between Casual and cEDH. Focused keeps the " +
                 "Casual land target and display surfaces, but raises the color-support threshold from 80% to 85%. " +
                 "Seeded OFF; off = byte-identical to today's two-mode UI and behavior.",
+            ["analysis.cut-lab.commander-floors"] =
+                "Cut Lab: enable the commander-aware floor defaults layer on the role-floors table and floor resolution. " +
+                "Seeded OFF; off = byte-identical to the pre-Phase-3 bracket-only UI and behavior.",
             ["analysis.manabase.source-list"] =
                 "Show two display-only disclosures inside the mana base untapped-sources lens: a full " +
                 "mana-source list with pip letters plus a tapped-sources subset. Page HTML only; off = byte-identical output.",
