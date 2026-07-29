@@ -194,6 +194,12 @@ DeckFlow commits a monthly cEDH land-baseline snapshot under `DeckFlow.Web/Data/
 
 The CLI reclassifies each cached deck through `DeckFlow.Core/Manabase/` (the app's own classifier), applies the cEDH gate (avgMV ≤ 2.7, 95–101 cards), and emits the web-app JSON contract (`generated`, `sampleSize`, `overallMeanLands`, per-commander `n`/`landsMean`/`landsSd` for `n ≥ 3`) plus a human-readable monthly markdown report. The current 6-month snapshot is ~3,300 gated decks. Re-run the calibration harness after each refresh before flipping the flag on. See `scripts/cedh-baseline/README.md` for the operator runbook and how to add a commander to the supplement list.
 
+### Commander role-floor baseline
+
+DeckFlow commits a shipped commander-aware role-floor snapshot at `DeckFlow.Web/Data/role-floor-baseline/latest.json`. Generate it with `dotnet run --project DeckFlow.CLI -- role-floor-baseline --generated YYYY-MM-DD`. The command reads the committed Phase 2 findings artifact at `.planning/workstreams/cycle21-cut-lab/phases/02-role-floor-divergence-research/RESEARCH-FINDINGS.json` by default and writes the minified web-app snapshot under `DeckFlow.Web/Data/role-floor-baseline/`.
+
+Options: `--findings` defaults to `.planning/workstreams/cycle21-cut-lab/phases/02-role-floor-divergence-research/RESEARCH-FINDINGS.json`; `--out` defaults to `DeckFlow.Web/Data/role-floor-baseline`; `--generated` is required and must be `YYYY-MM-DD`; `--thresholds` defaults to `scripts/role-floor-baseline/drift-thresholds.json`. The command refuses to write when the drift check fails or when any adopted role row uses a non-`postgres` source.
+
 ### Code formatting gate
 
 DeckFlow's enforced formatting source of truth is the committed `.editorconfig`. Existing files are not mass-reflowed; the format gate checks changed C# lines only.
