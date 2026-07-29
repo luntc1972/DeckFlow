@@ -308,6 +308,58 @@ public sealed class CutLabFloorDefaultsTests
     }
 
     [Fact]
+    public void ResolveDefaults_CommanderFloorsFlagOffPath_IsIdenticalToBracketOnly()
+    {
+        var baseline = new FakeBaselineProvider(new ManabaseBracketBaseline { Bracket = 4, AvgLands = 36.4, DeckCount = 1000 });
+        var bracketOnly = CutLabFloorDefaults.ResolveDefaults(
+            declaredBracket: 4,
+            playExperience: "Focused",
+            commanderManaValue: 3.0,
+            commanderNames: ["Atraxa, Praetors' Voice"],
+            baseline: baseline,
+            cedhBaseline: null,
+            roleFloorBaseline: null,
+            priorFloors: []);
+        var commanderAwareProvider = new FakeRoleFloorBaselineProvider(new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["engines"] = 9,
+            ["payoffs"] = 8,
+        });
+        var flagOff = CutLabFloorDefaults.ResolveDefaults(
+            declaredBracket: 4,
+            playExperience: "Focused",
+            commanderManaValue: 3.0,
+            commanderNames: ["Atraxa, Praetors' Voice"],
+            baseline: baseline,
+            cedhBaseline: null,
+            roleFloorBaseline: null,
+            priorFloors: []);
+        var flagOn = CutLabFloorDefaults.ResolveDefaults(
+            declaredBracket: 4,
+            playExperience: "Focused",
+            commanderManaValue: 3.0,
+            commanderNames: ["Atraxa, Praetors' Voice"],
+            baseline: baseline,
+            cedhBaseline: null,
+            roleFloorBaseline: commanderAwareProvider,
+            priorFloors: []);
+
+        Assert.Equal(bracketOnly.Count, flagOff.Count);
+        for (int i = 0; i < bracketOnly.Count; i++)
+        {
+            Assert.Equal(bracketOnly[i].Role, flagOff[i].Role);
+            Assert.Equal(bracketOnly[i].Floor, flagOff[i].Floor);
+            Assert.Equal(bracketOnly[i].DefaultValue, flagOff[i].DefaultValue);
+            Assert.Equal(bracketOnly[i].BracketValue, flagOff[i].BracketValue);
+            Assert.Equal(bracketOnly[i].CommanderValue, flagOff[i].CommanderValue);
+        }
+
+        Assert.NotEqual(
+            bracketOnly.Single(floor => floor.Role == "engines").DefaultValue,
+            flagOn.Single(floor => floor.Role == "engines").DefaultValue);
+    }
+
+    [Fact]
     public void ResolveDefaults_OutOfScopeRoles_AreNeverQueried()
     {
         var roleFloorBaseline = new FakeRoleFloorBaselineProvider(new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
