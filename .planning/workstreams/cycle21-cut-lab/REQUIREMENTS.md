@@ -28,7 +28,7 @@ first"). This cycle does both, and is explicit about which requirement serves wh
 
 ### Commander-Aware Floor Defaults (RFLR) — conditional on RFLR-04 = go
 
-- [ ] **RFLR-05**: For each role Phase 2 flagged as real signal, `CutLabFloorDefaults` resolves that role's default through a priority chain (commander-specific corpus data → existing bracket+plan fallback), mirroring the lands pattern already proven in `CutLabFloorDefaults.ResolveLandsDefault`.
+- [ ] **RFLR-05**: For each role Phase 2 flagged as real signal, `CutLabFloorDefaults` resolves that role's effective default as `max(bracket-and-plan derived, commander-derived)`, so commander-specific corpus data may only raise a floor and never lower one; both numbers are retained for display. (amended 2026-07-28 by Phase 3 D-04 from a priority chain to a max; see 03-CONTEXT.md D-04 for the measured payoffs 124-of-124 evidence)
 - [ ] **RFLR-06**: A commander below the statistical bar, or a role that did not clear it, produces byte-identical floor defaults to current shipped behavior.
 - [ ] **RFLR-07**: The new priority-chain resolution has unit coverage for the commander-hit path, the fallback path, and the role-not-in-scope path.
 - [ ] **RFLR-08**: The Cut Lab role-floor UI shows **both numbers side by side** for every role — the bracket-derived floor and the commander-derived floor — clearly labeled, with the commander floor shown regardless of bracket. Roles or commanders without commander-specific data show the bracket value and an explicit empty marker for the commander column, never a silently substituted number.
