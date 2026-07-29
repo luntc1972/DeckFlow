@@ -76,6 +76,11 @@ var cedhLandBaselineDataOption = new Option<string>("--data") { Description = "D
 var cedhLandBaselineOutOption = new Option<string>("--out", () => Path.Combine("DeckFlow.Web", "Data", "cedh-land-baseline")) { Description = "Output directory for the monthly markdown/JSON artifacts." };
 var cedhLandBaselineMonthOption = new Option<string>("--month") { Description = "Month label in YYYY-MM format.", IsRequired = true };
 var cedhLandBaselineThresholdsOption = new Option<string>("--thresholds", () => Path.Combine("scripts", "cedh-baseline", "drift-thresholds.json")) { Description = "Path to the committed drift-threshold configuration." };
+var roleFloorBaselineCommand = new Command("role-floor-baseline", "Build the Cut Lab commander role-floor baseline from the committed Phase 2 research findings.");
+var roleFloorBaselineFindingsOption = new Option<string>("--findings", () => Path.Combine(".planning", "workstreams", "cycle21-cut-lab", "phases", "02-role-floor-divergence-research", "RESEARCH-FINDINGS.json")) { Description = "Path to the committed Phase 2 research findings JSON." };
+var roleFloorBaselineOutOption = new Option<string>("--out", () => Path.Combine("DeckFlow.Web", "Data", "role-floor-baseline")) { Description = "Output directory for the shipped role-floor snapshot." };
+var roleFloorBaselineGeneratedOption = new Option<string>("--generated") { Description = "Snapshot date stamp in YYYY-MM-DD format.", IsRequired = true };
+var roleFloorBaselineThresholdsOption = new Option<string>("--thresholds", () => Path.Combine("scripts", "role-floor-baseline", "drift-thresholds.json")) { Description = "Path to the committed drift-threshold configuration." };
 var roleFloorResearchCommand = new Command("role-floor-research", "Reconstruct commander corpora, classify roles oracle-only, and measure role-floor divergence. The connection string may be supplied by --connection-string or by the DECKFLOW_ROLE_FLOOR_CONNECTION_STRING environment variable. Exit codes: 0 = success with at least one qualifying commander and artifacts written; 1 = bad arguments, taxonomy drift, or unhandled exception; 2 = ran successfully but zero commanders cleared the minimum deck count, so no artifact was written.");
 // Why: name DECKFLOW_ROLE_FLOOR_CONNECTION_STRING here deliberately so --help tells operators how to keep the credential off the command line (plan 02-04 D-07); this is a help-text mention only, and RoleFloorResearchCommandRunner remains the single read site.
 var roleFloorResearchConnectionStringOption = new Option<string?>("--connection-string") { Description = "Postgres connection string for the category-knowledge corpus. Optional on the command line; if omitted the value is read from the DECKFLOW_ROLE_FLOOR_CONNECTION_STRING environment variable. Prefer the environment variable because command-line arguments are visible in the process list. Supplying the flag overrides the environment variable.", IsRequired = false };
@@ -188,6 +193,10 @@ cedhLandBaselineCommand.AddOption(cedhLandBaselineDataOption);
 cedhLandBaselineCommand.AddOption(cedhLandBaselineOutOption);
 cedhLandBaselineCommand.AddOption(cedhLandBaselineMonthOption);
 cedhLandBaselineCommand.AddOption(cedhLandBaselineThresholdsOption);
+roleFloorBaselineCommand.AddOption(roleFloorBaselineFindingsOption);
+roleFloorBaselineCommand.AddOption(roleFloorBaselineOutOption);
+roleFloorBaselineCommand.AddOption(roleFloorBaselineGeneratedOption);
+roleFloorBaselineCommand.AddOption(roleFloorBaselineThresholdsOption);
 roleFloorResearchCommand.AddOption(roleFloorResearchConnectionStringOption);
 roleFloorResearchCommand.AddOption(roleFloorResearchMinDecksOption);
 roleFloorResearchCommand.AddOption(roleFloorResearchModeOption);
@@ -286,6 +295,7 @@ rootCommand.AddCommand(edhrecAveragesCommand);
 rootCommand.AddCommand(edhrecDownloadCommand);
 rootCommand.AddCommand(cedhLandCalibrateCommand);
 rootCommand.AddCommand(cedhLandBaselineCommand);
+rootCommand.AddCommand(roleFloorBaselineCommand);
 rootCommand.AddCommand(roleFloorResearchCommand);
 rootCommand.AddCommand(edhrecRoleGridCommand);
 rootCommand.AddCommand(scryfallProbeCommand);
@@ -365,6 +375,11 @@ cedhLandBaselineCommand.SetHandler((string dataDirectory, string outputDirectory
 {
     Environment.ExitCode = CedhBaselineCommandRunner.RunAsync(dataDirectory, outputDirectory, month, thresholdsPath).GetAwaiter().GetResult();
 }, cedhLandBaselineDataOption, cedhLandBaselineOutOption, cedhLandBaselineMonthOption, cedhLandBaselineThresholdsOption);
+
+roleFloorBaselineCommand.SetHandler((string findingsPath, string outputDirectory, string generated, string thresholdsPath) =>
+{
+    Environment.ExitCode = RoleFloorBaselineCommandRunner.RunAsync(findingsPath, outputDirectory, generated, thresholdsPath).GetAwaiter().GetResult();
+}, roleFloorBaselineFindingsOption, roleFloorBaselineOutOption, roleFloorBaselineGeneratedOption, roleFloorBaselineThresholdsOption);
 
 roleFloorResearchCommand.SetHandler((string? connectionString, int minDecks, string mode, string cardsCachePath, string? edhrecDataPath, string outputPath, string outputJsonPath, int? commanderLimit) =>
 {
