@@ -81,7 +81,9 @@ public sealed class RoleFloorBaselineProvider : IRoleFloorBaselineProvider
 
         foreach (string key in CommanderBaselineKeys.Candidates(commanderNames))
         {
-            if (!snapshot.Commanders.TryGetValue(key, out RoleFloorCommanderSnapshot? match))
+            if (!snapshot.Commanders.TryGetValue(key, out RoleFloorCommanderSnapshot? match)
+                || match is null
+                || match.Floors is null)
             {
                 continue;
             }
@@ -113,6 +115,13 @@ public sealed class RoleFloorBaselineProvider : IRoleFloorBaselineProvider
         {
             string json = File.ReadAllText(_dataFilePath);
             snapshot = JsonSerializer.Deserialize<RoleFloorBaselineSnapshot>(json, JsonOptions);
+            if (snapshot is null || snapshot.Commanders is null)
+            {
+                // Why: C# required is satisfied by an explicit JSON null, so required alone does not
+                // make the payload safe to dereference.
+                LogLoadFailureOnce(new JsonException("Role-floor baseline snapshot contained null members."));
+                snapshot = null;
+            }
         }
         catch (Exception exception) when (
             exception is IOException
