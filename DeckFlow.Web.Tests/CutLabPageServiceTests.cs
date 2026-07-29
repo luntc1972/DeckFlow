@@ -2751,7 +2751,8 @@ public sealed class CutLabPageServiceTests
         Assert.Equal(7, targetedRow.DefaultValue);
         Assert.True(targetedRow.IsUserSet);
         Assert.True(targetedRow.AtFloor);
-        Assert.Equal("Default for B4: 7", targetedRow.SourceLabel);
+        Assert.Equal("Bracket", targetedRow.SourceLabel);
+        Assert.Equal("Default for B4: 7", targetedRow.SourceDetail);
 
         CutLabFloorRowView massRow = Assert.Single(model.FloorRows, row => row.RoleKey == "interaction-mass");
         Assert.Equal("Mass removal", massRow.DisplayLabel);
@@ -2760,7 +2761,8 @@ public sealed class CutLabPageServiceTests
         Assert.Equal(3, massRow.DefaultValue);
         Assert.True(massRow.IsUserSet);
         Assert.True(massRow.AtFloor);
-        Assert.Equal("Default for B4: 3", massRow.SourceLabel);
+        Assert.Equal("Bracket", massRow.SourceLabel);
+        Assert.Equal("Default for B4: 3", massRow.SourceDetail);
 
         Assert.Equal(2, result.State!.RoleFloors.Count);
         Assert.Contains(result.State.RoleFloors, floor => floor.Role == "interaction-targeted" && floor.Floor == 11 && floor.IsUserSet);
