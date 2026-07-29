@@ -13,7 +13,7 @@ of everything else and can run in parallel with the 1→01.1→01.2→2→3 spin
 - [x] **Phase 01.1: Plan-Role Classifier Heuristic Fixes (INSERTED)** - Fix the Counters/counterspell substring collision and the missing protection-card check in `PlanRoleClassifier`'s oracle heuristic (spike 002 findings), before Phase 2 measures floors on top of this same classifier. *(completed 2026-07-27, head `b8ec09f3`)*
 - [ ] **Phase 01.2: Protection-Vocabulary Widening (INSERTED, from Phase 01.1 D-06)** - Widen `DeckStatClassifier.IsProtectionCard`'s oracle vocabulary, which currently under-detects in both directions because its verb agreement is inconsistent across its own four needles. Same rationale as 01.1: Phase 2 counts roles through this predicate.
 - [ ] **Phase 2: Role-Floor Divergence Research** - Run the repaired harness over a **hybrid corpus** (EDHREC for the commander × bracket grid, Postgres for within-commander distributions), report a **25th-percentile** floor per role, and publish an honest go/no-go. Scope now includes **lands and ramp** alongside the non-land roles. Delete the synthetic fixture writer.
-- [ ] **Phase 3: Commander-Aware Floor Defaults (CONDITIONAL on Phase 2 = go)** - Extend `CutLabFloorDefaults` with a commander-specific priority-chain layer for the roles Phase 2 found signal for, showing bracket and commander floors side by side.
+- [x] **Phase 3: Commander-Aware Floor Defaults (CONDITIONAL on Phase 2 = go)** - Extend `CutLabFloorDefaults` with a commander-specific priority-chain layer for the roles Phase 2 found signal for, showing bracket and commander floors side by side. (completed 2026-07-29)
 - [ ] **Phase 4: Functional-Twins Detector (INDEPENDENT)** - Add the first discriminating structural finding: cards competing for the same slot at the same cost.
 - [ ] **Phase 5: Archidekt Bracket Capture (INDEPENDENT, non-gating)** - Capture the bracket already present on the Archidekt deck payload so a future commander × bracket analysis is possible.
 
@@ -316,7 +316,7 @@ bracket value (D-03).
 commander data may only raise a floor, never lower one (D-04). Measured driver: at brackets 4-5 all 124 of
 124 adopting payoffs commanders sit below the bracket band, so a literal chain would delete that guardrail.
 
-**Plans:** 6/7 plans executed
+**Plans:** 7/7 plans complete
 - [ ] `03-01-PLAN.md` — Core snapshot contract, adoption filter, and fail-closed drift check.
 - [ ] `03-02-PLAN.md` — `role-floor-baseline` CLI generator, drift thresholds, and the committed 678-commander snapshot.
 - [ ] `03-03-PLAN.md` — shared commander-key helper and the fail-open runtime role-floor provider.
