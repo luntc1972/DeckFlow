@@ -351,15 +351,29 @@ Verified via `python3 -m json.tool`:
 
 ## Open Questions
 
+> **Both questions below were RESOLVED during `/gsd-plan-phase 3` on 2026-07-28. Retained verbatim with
+> inline resolution markers so the reasoning stays auditable — the findings themselves are unedited.**
+
 1. **Should D-06's aggregate-feasibility check account for role overlap, or ship as a caveated naive sum?**
    - What we know: the naive sum overstates infeasibility because roles overlap (O-1), most severely for draw/engines (strict subset) and any wincons/combo-piece overlap.
    - What's unclear: no corpus measurement exists of how much the naive sum overstates the true deficit — computing it precisely would require a new harness pass cross-tabulating shared cards per commander, which is out of this research phase's scope.
    - Recommendation: raise explicitly in planning/discuss-phase as a scope decision — either (a) ship the naive-sum advisory with caveated copy ("approximate; assumes non-overlapping roles"), or (b) scope a genuine overlap-aware calculation as an explicit, separately-estimated task within D-06.
+   - **RESOLVED 2026-07-28 — option (b), bounded.** Recorded as `03-CONTEXT.md` **D-06a**: a structural overlap
+     correction, analytic rather than empirical, with no new corpus pass. It authorizes **exactly two**
+     corrections — count `max(engines, draw)` in place of `engines + draw` (the proven strict subset), and treat
+     `wincons` as free-riding — and no others. Every remaining role, **`payoffs` included**, counts additively:
+     the payoffs/engines and payoffs/wincons relationships this section documents are co-occurrence, not the
+     proven subset relationship, and no magnitude was measured. Because the correction under-counts demand, the
+     advisory copy must state the estimate is conservative rather than exact. Implemented by plan `03-06`.
 
 2. **Exact wrapper shape for the D-09 role-floor snapshot (top-level `generated`/`sampleSize` stamp or bare commander map)?**
    - What we know: the `cedh-land-baseline` precedent has a wrapper (`generated`, `sampleSize`, `overallMeanLands`, `commanders`); CONTEXT.md's `<specifics>` example shows a bare `{"<name>": {...}}` map with no wrapper.
    - What's unclear: whether D-09's generator should add a provenance wrapper for parity with the lands precedent (useful for the drift check's "previous.Generated" field, which the lands drift check reads directly).
    - Recommendation: add a `generated` field at minimum — `CedhBaselineDriftCheck`'s `EmptyPreviousSnapshot` finding references `previous.Generated` in its message; a role-floor-specific drift check will likely want the same provenance hook.
+   - **RESOLVED 2026-07-28 — wrapper, mirroring the lands precedent.** `RoleFloorBaselineSnapshot` (plan `03-01`)
+     is `{ generated, sampleSize, adoptedPairs, commanders }`, not the bare name-to-floors map shown in
+     `03-CONTEXT.md` `<specifics>` — that example illustrates a single row, not the file. `generated` feeds
+     `EmptyPreviousSnapshot`'s message and `adoptedPairs` feeds the new `AdoptedPairCollapse` drift rule.
 
 ## Environment Availability
 
