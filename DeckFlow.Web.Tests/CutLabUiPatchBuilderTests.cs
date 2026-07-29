@@ -309,6 +309,39 @@ public sealed class CutLabUiPatchBuilderTests
     }
 
     [Fact]
+    public async Task BuildAsync_LockedOvershootAdvisory_GroupsFollowHeadroomOrder()
+    {
+        CutLabState state = CreateState(
+            pool:
+            [
+                Card("Commander", quantity: 1, isCommander: true, isLocked: true, typeLine: "Legendary Creature"),
+                Card("Persistent Petitioners", quantity: 99, isLocked: true, typeLine: "Creature"),
+                Card("Deferred Card", quantity: 1, isLocked: true, typeLine: "Creature"),
+                Card("Wincon Sorcery", quantity: 1, isLocked: true, typeLine: "Sorcery"),
+            ]);
+        FakeAnalysisContextBuilder contextBuilder = new(workingList => CreateAnalysisContext(workingList));
+        CutLabUiPatchBuilder builder = new(contextBuilder, new FakeSimulationService());
+
+        CutLabUiPatchDto patch = await builder.BuildAsync(
+            state,
+            state.Intent.PlayExperience,
+            ["Commander"],
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["draw"] = 10,
+                ["payoffs"] = 0,
+                ["wincons"] = 1,
+            });
+
+        CutLabLockedOvershootAdvisoryDto advisory = Assert.IsType<CutLabLockedOvershootAdvisoryDto>(patch.LockedOvershootAdvisory);
+        Assert.Collection(
+            advisory.Groups,
+            group => Assert.Equal(["Persistent Petitioners"], group.CardNames),
+            group => Assert.Equal(["Deferred Card"], group.CardNames),
+            group => Assert.Equal(["Wincon Sorcery"], group.CardNames));
+    }
+
+    [Fact]
     public async Task BuildAsync_MatchesCutLabViewModelForNoJsParityFields()
     {
         CutLabState state = CreateState(
@@ -836,6 +869,7 @@ public sealed class CutLabUiPatchBuilderTests
                 "Arcane Signet" => ["ramp"],
                 "Counterspell" => ["interaction-targeted"],
                 "Persistent Petitioners" => ["draw"],
+                "Wincon Sorcery" => ["wincons"],
                 "Forest" => ["lands"],
                 "Round 1 Card" => ["engines"],
                 "Round 2 Card" => ["draw"],
@@ -854,6 +888,7 @@ public sealed class CutLabUiPatchBuilderTests
                 "Arcane Signet" => 2,
                 "Counterspell" => 2,
                 "Persistent Petitioners" => 2,
+                "Wincon Sorcery" => 4,
                 "Heliod, Sun-Crowned" => 3,
                 "Walking Ballista" => 4,
                 "Demonic Consultation" => 1,
