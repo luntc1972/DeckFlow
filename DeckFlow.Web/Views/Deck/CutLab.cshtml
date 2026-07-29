@@ -785,7 +785,10 @@
                 <table class="conflicts-table"
                        data-prompt-cedh-reference-table
                        data-cut-lab-role-floors-table
-                       data-cut-lab-commander-floors="@(Model.CommanderFloorsEnabled ? "true" : "false")"
+                       @if (Model.CommanderFloorsEnabled)
+                       {
+                           @:data-cut-lab-commander-floors="true"
+                       }
                        role="table">
                     <thead>
                         <tr>
