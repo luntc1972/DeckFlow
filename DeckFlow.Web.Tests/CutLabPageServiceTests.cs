@@ -13,6 +13,7 @@ using DeckFlow.Web.Services.CutLab;
 using DeckFlow.Web.Services.Harvest;
 using DeckFlow.Web.Services.Manabase;
 using DeckFlow.Web.Services.Scryfall;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -2636,6 +2637,17 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public void CutLabPageService_DiGuardFailsWhenRoleFloorBaselineRegistrationDrops()
+    {
+        using ServiceProvider provider = BuildDiGuardProvider(omitRoleFloorBaseline: true);
+        using IServiceScope scope = provider.CreateScope();
+
+        var service = Assert.IsType<CutLabPageService>(scope.ServiceProvider.GetRequiredService<ICutLabPageService>());
+
+        Assert.False(service.HasStructuralAnalysisDependencies);
+    }
+
+    [Fact]
     public void CutLabPageService_DiGuardFailsWhenSimulationRegistrationDrops()
     {
         using ServiceProvider provider = BuildDiGuardProvider(omitSimulationService: true);
@@ -3011,7 +3023,10 @@ public sealed class CutLabPageServiceTests
             collectorNumber,
             Cmc: cmc);
 
-    private static ServiceProvider BuildDiGuardProvider(bool omitManabaseBaseline = false, bool omitSimulationService = false)
+    private static ServiceProvider BuildDiGuardProvider(
+        bool omitManabaseBaseline = false,
+        bool omitRoleFloorBaseline = false,
+        bool omitSimulationService = false)
     {
         var services = new ServiceCollection();
         services.AddSingleton<IDeckEntryLoader>(new FakeLoader([]));
@@ -3023,6 +3038,12 @@ public sealed class CutLabPageServiceTests
         }
 
         services.AddSingleton<ICedhLandBaselineProvider>(new FakeCedhLandBaselineProvider());
+        if (!omitRoleFloorBaseline)
+        {
+            services.AddSingleton<IRoleFloorBaselineProvider>(
+                new RoleFloorBaselineProvider("missing-role-floor-baseline.json", new MemoryCache(new MemoryCacheOptions())));
+        }
+
         services.AddLogging();
         services.AddSingleton<CutLabResolvedCardCache>();
         services.AddSingleton<CutLabDeltaCache>();
