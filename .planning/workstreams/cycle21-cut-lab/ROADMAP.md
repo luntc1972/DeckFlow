@@ -309,7 +309,31 @@ concurrently with either. Waves 2-7 hold one plan each, ending with `02-08`'s li
   3. Unit coverage for commander-hit, fallback, and role-not-in-scope paths.
   4. The role-floor UI shows bracket floor **and** commander floor side by side for every role, commander floor shown regardless of bracket, with an explicit empty marker where no commander data exists.
   5. `CutLabCutRoundEngine.LockedOvershootRoleOrder` — currently a hardcoded least-to-most-structural ranking — is reconciled with the commander data, or an explicit decision is recorded for why it stays fixed. A hardcoded order that contradicts commander-aware floors on the same page is a defect.
-**Open decision to resolve in planning**: the commander floor should be derived from the 25th percentile, not the mean (a mean-derived floor puts roughly half the commander's own decks below it). Confirm before implementing.
+**Open decision to resolve in planning**: RESOLVED 2026-07-28 — the commander floor is the 25th percentile,
+not the mean (`03-CONTEXT.md` D-01). Fractional values truncate down (D-02) and a p25 of 0 falls back to the
+bracket value (D-03).
+**Amendment carried into REQUIREMENTS.md:** RFLR-05's priority chain becomes `max(bracket, commander)` —
+commander data may only raise a floor, never lower one (D-04). Measured driver: at brackets 4-5 all 124 of
+124 adopting payoffs commanders sit below the bracket band, so a literal chain would delete that guardrail.
+
+**Plans:** 7 plans (6 waves)
+- [ ] `03-01-PLAN.md` — Core snapshot contract, adoption filter, and fail-closed drift check.
+- [ ] `03-02-PLAN.md` — `role-floor-baseline` CLI generator, drift thresholds, and the committed 678-commander snapshot.
+- [ ] `03-03-PLAN.md` — shared commander-key helper and the fail-open runtime role-floor provider.
+- [ ] `03-04-PLAN.md` — `max(bracket, commander)` floor resolution, the split `CutLabResolvedFloor`, and the RFLR-05 amendment.
+- [ ] `03-05-PLAN.md` — the six-column role-floors table with two distinct empty-cell states.
+- [ ] `03-06-PLAN.md` — the overlap-corrected aggregate-infeasibility advisory (D-06a).
+- [ ] `03-07-PLAN.md` — `LockedOvershootRoleOrder` reconciled to headroom ranking (success criterion 5).
+
+Waves 1 holds `03-01` and `03-07` in parallel — they share no files, and `03-07` threads data that already
+exists at its call site, so it depends on nothing else in the phase. Waves 2-6 hold one plan each along the
+data spine: generate the snapshot, load it, resolve floors from it, show both numbers, then warn when the
+raised floors cannot fit. `CutLabFloorDefaults.cs`, `CutLabViewModel.cs` and `CutLab.cshtml` are each touched
+by more than one plan, which is why that spine is sequential rather than raced.
+
+**Execution precondition:** the branch is rebased onto `main` (`1511dd95`) before execution, so
+`CedhBaselineDriftCheck` and the cEDH fail-closed CLI gates are present as the pattern plans 03-01 and 03-02
+mirror. Branch mutation is the developer's, not a planned task.
 
 ### Phase 4: Functional-Twins Detector (INDEPENDENT)
 **Goal**: Cut Lab surfaces cards that compete for the same slot at the same cost, and that finding actually moves those cards up the proposal queue.
@@ -343,7 +367,7 @@ concurrently with either. Waves 2-7 hold one plan each, ending with `02-08`'s li
 | 01.1. Plan-Role Classifier Heuristic Fixes | 2/2 | **Complete** — suite green, `b8ec09f3` | 2026-07-27 |
 | 01.2. Protection-Vocabulary Widening | 0/TBD | Not started (inserted from 01.1 D-06) | - |
 | 2. Role-Floor Divergence Research | 11/11 | **Complete** — real run exit 0, 841 qualifying commanders. GO on ramp, draw, interaction-targeted, engines, payoffs, wincons; **lands PULLED** at the Task 4 checkpoint (the Postgres arm measures distinct land NAMES, not land count; colour count explains 54% of its variance). See `02-08-SUMMARY.md` | 2026-07-28 |
-| 3. Commander-Aware Floor Defaults | 0/TBD | Not started (gated on Phase 2 go/no-go) | - |
+| 3. Commander-Aware Floor Defaults | 0/7 | **Planned** — 7 plans across 6 waves; Phase 2 returned GO on six roles | - |
 | 4. Functional-Twins Detector | 0/TBD | Not started | - |
 | 5. Archidekt Bracket Capture | 0/TBD | Not started | - |
 

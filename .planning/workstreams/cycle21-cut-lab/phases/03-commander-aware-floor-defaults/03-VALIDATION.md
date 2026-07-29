@@ -1,8 +1,8 @@
 ---
 phase: 3
 slug: commander-aware-floor-defaults
-status: draft
-nyquist_compliant: false
+status: planned
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-07-28
 ---
@@ -39,7 +39,18 @@ created: 2026-07-28
 
 ## Per-Task Verification Map
 
-*Populated by `/gsd-plan-phase` once `03-NN-PLAN.md` files exist. Requirement→behavior anchors below are fixed and plans must map onto them.*
+*Populated 2026-07-28 by `/gsd-plan-phase`. The Owning plan column names where each anchor is discharged.*
+
+| Anchor | Owning plan | Automated command |
+|--------|-------------|-------------------|
+| RFLR-05 (`max(bracket, commander)`) | `03-04` task 3 | `--filter FullyQualifiedName~CutLabFloorDefaultsTests` |
+| RFLR-06 (byte-identical fallback) | `03-03` task 3 (fail-open) + `03-04` task 3 (no-match parity) | `--filter FullyQualifiedName~RoleFloorBaselineProviderTests` and `~CutLabFloorDefaultsTests` |
+| RFLR-07 (three-path coverage) | `03-04` task 3 | `--filter FullyQualifiedName~CutLabFloorDefaultsTests` |
+| RFLR-08 (side-by-side columns) | `03-05` tasks 1-3 plus its blocking human checkpoint | `--filter FullyQualifiedName~CutLabViewModelTests` |
+| D-06 / D-06a (overlap-corrected advisory) | `03-06` task 3 | `--filter FullyQualifiedName~CutLabFloorFeasibilityTests` |
+| D-09 (fail-closed generation) | `03-01` task 3 (rules) + `03-02` task 3 (live refusal) | `--filter FullyQualifiedName~RoleFloorBaseline` |
+| D-13 (headroom ranking) | `03-07` tasks 2-3 | `--filter FullyQualifiedName~CutLabCutRoundEngineTests` |
+
 
 | Requirement | Behavior under test | Test type | Automated command | Home file |
 |-------------|---------------------|-----------|-------------------|-----------|
@@ -55,10 +66,12 @@ created: 2026-07-28
 
 ## Wave 0 Requirements
 
-- [ ] `DeckFlow.Web.Tests/CutLabViewModelTests.cs` (or equivalent home) — covers `BuildFloorRows`'s D-12 two-empty-state logic. No such file exists today.
-- [ ] A test home for the D-06a overlap-corrected aggregate-infeasibility check. Plans must state whether it lands in `CutLabStructuralFindingsTests.cs`, `CutLabCutRoundEngineTests.cs`, or a new file — this follows the still-open discretionary call on whether the advisory is a new `CutLabFindingKind` or a panel-level notice.
-- [ ] `FakeRoleFloorBaselineProvider` test double, mirroring `FakeCedhBaselineProvider` at `CutLabFloorDefaultsTests.cs:215-238`. Required by RFLR-06 and RFLR-07.
-- [ ] Drift-check tests for D-09, mirroring `DeckFlow.Core.Tests/Manabase/CedhBaselineDriftCheckTests.cs` (present on `main`; arrives with the O-2 rebase).
+All four gaps are assigned to a plan. None is deferred.
+
+- [ ] `DeckFlow.Web.Tests/CutLabViewModelTests.cs` — created by **`03-05` task 3**, covering `BuildFloorRows`'s D-12 two-empty-state logic, then extended by `03-06` task 3 for the advisory copy.
+- [ ] Test home for the D-06a overlap-corrected aggregate-infeasibility check — **resolved: a new `DeckFlow.Web.Tests/CutLabFloorFeasibilityTests.cs`**, created by `03-06` task 3. The discretionary call is settled in `03-06`: the advisory is a **panel-level notice**, not a new `CutLabFindingKind`, because it attaches to no card and would otherwise have to be added to `ExcludedFindingKindsFromTally`.
+- [ ] `FakeRoleFloorBaselineProvider` test double — created by **`03-04` task 3** inside `CutLabFloorDefaultsTests.cs`, mirroring `FakeCedhBaselineProvider`, and additionally recording queried roles so out-of-scope roles can be proven never to be looked up.
+- [ ] Drift-check tests for D-09 — created by **`03-01` task 3** as `DeckFlow.Core.Tests/RoleFloorBaselineDriftCheckTests.cs`, mirroring `CedhBaselineDriftCheckTests` from `main`, plus three live failure-path runs in `03-02` task 3.
 - Framework install: **none** — xUnit is already wired in both test projects. Adding a test framework or mocking library is forbidden by `CLAUDE.md` without explicit approval.
 
 ---
@@ -74,11 +87,11 @@ created: 2026-07-28
 
 ## Validation Sign-Off
 
-- [ ] All tasks have an `<automated>` verify or a Wave 0 dependency
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all four MISSING references above
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 60s for the per-task signal
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have an `<automated>` verify — every one of the 21 tasks across the 7 plans carries one, except `03-05`'s blocking human checkpoint, which is a manual-only verification already listed in the table above.
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify.
+- [x] Wave 0 covers all four MISSING references above, each assigned to a named plan and task.
+- [x] No watch-mode flags — every command is a one-shot `dotnet build` or `dotnet test --filter`.
+- [x] Feedback latency < 60s for the per-task signal (`dotnet build DeckFlow.sln -c Release`).
+- [x] `nyquist_compliant: true` set in frontmatter.
 
-**Approval:** pending
+**Approval:** planned 2026-07-28; pending execution.
