@@ -135,6 +135,103 @@ public sealed class CutLabViewModelTests
         Assert.Equal(["wincons", "ramp", "lands"], rows.Select(row => row.RoleKey).ToArray());
     }
 
+    [Fact]
+    public void BuildFloorFeasibilityMessage_NamesBothNumbersAndTheRelaxCandidates()
+    {
+        string message = CutLabViewModel.BuildFloorFeasibilityMessage(new CutLabFloorFeasibilityResult
+        {
+            RequiredNonlandSlots = 68,
+            AvailableNonlandSlots = 63,
+            LandsFloor = 36,
+            RelaxCandidates =
+            [
+                new CutLabFloorRelaxCandidate { RoleKey = "payoffs", Floor = 15, CommanderRaise = 5 },
+                new CutLabFloorRelaxCandidate { RoleKey = "ramp", Floor = 12, CommanderRaise = 3 },
+            ],
+        });
+
+        Assert.Contains("68", message);
+        Assert.Contains("63", message);
+        Assert.Contains("36", message);
+        Assert.Contains("Payoffs", message);
+        Assert.Contains("Ramp", message);
+    }
+
+    [Fact]
+    public void BuildFloorFeasibilityMessage_IncludesEachCandidatesRaiseAmount()
+    {
+        // Why: the counts-and-labels test above would still pass if every raise amount vanished.
+        // Task 2 requires the amount to render, so this test must fail when the clause is removed.
+        string message = CutLabViewModel.BuildFloorFeasibilityMessage(new CutLabFloorFeasibilityResult
+        {
+            RequiredNonlandSlots = 68,
+            AvailableNonlandSlots = 63,
+            LandsFloor = 36,
+            RelaxCandidates =
+            [
+                new CutLabFloorRelaxCandidate { RoleKey = "payoffs", Floor = 15, CommanderRaise = 4 },
+                new CutLabFloorRelaxCandidate { RoleKey = "engines", Floor = 12, CommanderRaise = 3 },
+            ],
+        });
+
+        Assert.Contains("Payoffs (raised by 4)", message);
+        Assert.Contains("Engines (raised by 3)", message);
+    }
+
+    [Fact]
+    public void BuildFloorFeasibilityMessage_CandidateWithNoRaise_OmitsTheRaiseSuffix()
+    {
+        string message = CutLabViewModel.BuildFloorFeasibilityMessage(new CutLabFloorFeasibilityResult
+        {
+            RequiredNonlandSlots = 68,
+            AvailableNonlandSlots = 63,
+            LandsFloor = 36,
+            RelaxCandidates =
+            [
+                new CutLabFloorRelaxCandidate { RoleKey = "engines", Floor = 12, CommanderRaise = null },
+            ],
+        });
+
+        Assert.Contains("Engines", message);
+        Assert.DoesNotContain("Engines (raised by", message);
+        Assert.DoesNotContain("raised by 0", message);
+    }
+
+    [Fact]
+    public void BuildFloorFeasibilityMessage_StatesTheEstimateIsConservative()
+    {
+        // Why: D-06a requires the copy to admit the estimate is conservative rather than precise.
+        string message = CutLabViewModel.BuildFloorFeasibilityMessage(new CutLabFloorFeasibilityResult
+        {
+            RequiredNonlandSlots = 68,
+            AvailableNonlandSlots = 63,
+            LandsFloor = 36,
+            RelaxCandidates =
+            [
+                new CutLabFloorRelaxCandidate { RoleKey = "payoffs", Floor = 15, CommanderRaise = 4 },
+            ],
+        });
+
+        Assert.Contains("This is a conservative estimate", message);
+        Assert.Contains("every engine is also a draw spell", message);
+        Assert.Contains("may be larger", message);
+    }
+
+    [Fact]
+    public void BuildFloorFeasibilityMessage_NoRelaxCandidates_OmitsTheActionSentence()
+    {
+        string message = CutLabViewModel.BuildFloorFeasibilityMessage(new CutLabFloorFeasibilityResult
+        {
+            RequiredNonlandSlots = 68,
+            AvailableNonlandSlots = 63,
+            LandsFloor = 36,
+            RelaxCandidates = [],
+        });
+
+        Assert.DoesNotContain("Relax ", message);
+        Assert.DoesNotContain("first.", message);
+    }
+
     private static IReadOnlyList<CutLabFloorRowView> BuildRows(
         IReadOnlyList<CutLabResolvedFloor> resolvedFloors,
         IReadOnlyDictionary<string, int>? countsByRole = null)
