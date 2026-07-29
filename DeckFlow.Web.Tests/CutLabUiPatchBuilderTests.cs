@@ -42,7 +42,6 @@ public sealed class CutLabUiPatchBuilderTests
             state,
             state.Intent.PlayExperience,
             ["Commander"],
-            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase),
             floorWarnings: suppliedWarnings);
 
         Assert.Equal(CutLabStateSerializer.Serialize(state), patch.CutLabStateJson);
@@ -90,8 +89,7 @@ public sealed class CutLabUiPatchBuilderTests
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
             state.Intent.PlayExperience,
-            ["Commander"],
-            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+            ["Commander"]);
 
         Assert.Collection(
             patch.CutsMade,
@@ -146,8 +144,7 @@ public sealed class CutLabUiPatchBuilderTests
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
             state.Intent.PlayExperience,
-            ["Commander"],
-            BuildFloorMap(state.RoleFloors));
+            ["Commander"]);
 
         Assert.False(patch.ComboDataAvailable);
         Assert.False(patch.CategoryDataAvailable);
@@ -188,8 +185,7 @@ public sealed class CutLabUiPatchBuilderTests
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
             state.Intent.PlayExperience,
-            ["Commander"],
-            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+            ["Commander"]);
 
         CutLabDecideFindingGroupDto comboGroup = Assert.Single(
             patch.StructuralFindings,
@@ -245,8 +241,7 @@ public sealed class CutLabUiPatchBuilderTests
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
             state.Intent.PlayExperience,
-            ["Commander"],
-            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+            ["Commander"]);
 
         Assert.Equal(ComboBadgeState.NeedsPartner, patch.ComboBadgeByCardName[CutLabCardNames.Normalize("Demonic Consultation")].BadgeState);
         Assert.Equal("Needs Thassa's Oracle", patch.ComboBadgeByCardName[CutLabCardNames.Normalize("Demonic Consultation")].Context);
@@ -270,8 +265,7 @@ public sealed class CutLabUiPatchBuilderTests
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
             state.Intent.PlayExperience,
-            ["Commander"],
-            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+            ["Commander"]);
 
         Assert.True(patch.NextProposal.IsTerminal);
         Assert.False(patch.NextProposal.IsAtTarget);
@@ -297,8 +291,7 @@ public sealed class CutLabUiPatchBuilderTests
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
             state.Intent.PlayExperience,
-            ["Commander"],
-            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+            ["Commander"]);
 
         Assert.False(patch.NextProposal.IsTerminal);
         Assert.Equal("Immediate Proposal", patch.NextProposal.CardName);
@@ -318,6 +311,27 @@ public sealed class CutLabUiPatchBuilderTests
                 Card("Persistent Petitioners", quantity: 99, isLocked: true, typeLine: "Creature"),
                 Card("Deferred Card", quantity: 1, isLocked: true, typeLine: "Creature"),
                 Card("Wincon Sorcery", quantity: 1, isLocked: true, typeLine: "Sorcery"),
+            ],
+            roleFloors:
+            [
+                new CutLabRoleFloor
+                {
+                    Role = "draw",
+                    Floor = 10,
+                    IsUserSet = true,
+                },
+                new CutLabRoleFloor
+                {
+                    Role = "payoffs",
+                    Floor = 0,
+                    IsUserSet = true,
+                },
+                new CutLabRoleFloor
+                {
+                    Role = "wincons",
+                    Floor = 1,
+                    IsUserSet = true,
+                },
             ]);
         FakeAnalysisContextBuilder contextBuilder = new(workingList => CreateAnalysisContext(workingList));
         CutLabUiPatchBuilder builder = new(contextBuilder, new FakeSimulationService());
@@ -325,13 +339,7 @@ public sealed class CutLabUiPatchBuilderTests
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
             state.Intent.PlayExperience,
-            ["Commander"],
-            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["draw"] = 10,
-                ["payoffs"] = 0,
-                ["wincons"] = 1,
-            });
+            ["Commander"]);
 
         CutLabLockedOvershootAdvisoryDto advisory = Assert.IsType<CutLabLockedOvershootAdvisoryDto>(patch.LockedOvershootAdvisory);
         Assert.Collection(
@@ -369,8 +377,7 @@ public sealed class CutLabUiPatchBuilderTests
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
             state.Intent.PlayExperience,
-            ["Commander"],
-            floorByRole);
+            ["Commander"]);
         CutLabViewModel viewModel = BuildViewModel(state, floorByRole, contextBuilder, simulationService);
 
         Assert.Equal(viewModel.CurrentCount, patch.CurrentCount);
@@ -478,8 +485,7 @@ public sealed class CutLabUiPatchBuilderTests
         CutLabUiPatchDto addedPatch = await builder.BuildAsync(
             addedState,
             addedState.Intent.PlayExperience,
-            ["Commander"],
-            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+            ["Commander"]);
         CutLabViewModel addedViewModel = BuildViewModel(addedState, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase), contextBuilder, simulationService);
 
         Assert.Contains(addedPatch.QuantityTuners, row => row.CardName == "Forest" && row.IsAddedBasic);
@@ -490,8 +496,7 @@ public sealed class CutLabUiPatchBuilderTests
         CutLabUiPatchDto removedPatch = await builder.BuildAsync(
             removedState,
             removedState.Intent.PlayExperience,
-            ["Commander"],
-            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+            ["Commander"]);
         CutLabViewModel removedViewModel = BuildViewModel(removedState, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase), contextBuilder, simulationService);
 
         Assert.DoesNotContain(removedPatch.QuantityTuners, row => row.CardName == "Forest");

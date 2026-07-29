@@ -132,6 +132,7 @@ internal sealed class CutLabPageService : ICutLabPageService
     private readonly IRoleFloorBaselineProvider? _roleFloorBaseline;
     private readonly ICutLabAnalysisContextBuilder _analysisContextBuilder;
     private readonly ICutLabSimulationService _simulationService;
+    private readonly ICutLabFloorResolver _floorResolver;
     private readonly IFeatureFlagCache? _featureFlags;
     private readonly ILogger<CutLabPageService> _logger;
 
@@ -146,6 +147,7 @@ internal sealed class CutLabPageService : ICutLabPageService
     /// <param name="simulationService">Optional simulation service for baseline, current snapshot, and proposal-delta computation.</param>
     /// <param name="logger">Optional logger for non-blocking diagnostics.</param>
     /// <param name="featureFlags">Optional feature-flag cache for dark-launching commander-aware floor defaults.</param>
+    /// <param name="floorResolver">Optional shared floor resolver used to re-derive defaults per request.</param>
     public CutLabPageService(
         IDeckEntryLoader deckEntryLoader,
         IScryfallCardResolver cardResolver,
@@ -156,7 +158,8 @@ internal sealed class CutLabPageService : ICutLabPageService
         ICutLabAnalysisContextBuilder? analysisContextBuilder = null,
         ICutLabSimulationService? simulationService = null,
         ILogger<CutLabPageService>? logger = null,
-        IFeatureFlagCache? featureFlags = null)
+        IFeatureFlagCache? featureFlags = null,
+        ICutLabFloorResolver? floorResolver = null)
     {
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
         ArgumentNullException.ThrowIfNull(cardResolver);
@@ -175,6 +178,8 @@ internal sealed class CutLabPageService : ICutLabPageService
             ?? NoOpCutLabSimulationService.Instance;
         _featureFlags = featureFlags;
         _logger = logger ?? NullLogger<CutLabPageService>.Instance;
+        _floorResolver = floorResolver
+            ?? new CutLabFloorResolver(_manabaseBaseline, _cedhBaseline, _roleFloorBaseline, _featureFlags);
     }
 
     /// <summary>
@@ -425,15 +430,13 @@ internal sealed class CutLabPageService : ICutLabPageService
         }
 
         bool commanderFloorsEnabled = IsFlagOn(CommanderFloorsFlagKey);
-        IReadOnlyList<CutLabResolvedFloor> resolvedFloors = CutLabFloorDefaults.ResolveDefaults(
-            request.Bracket,
-            request.PlayExperience,
+        CutLabState floorResolutionState = CutLabFloorRules.ClampFloors(
+            preAnalysisState with { RoleFloors = priorState.RoleFloors },
+            preAnalysisState.Intent.Bracket);
+        IReadOnlyList<CutLabResolvedFloor> resolvedFloors = _floorResolver.Resolve(
+            floorResolutionState,
             analysisContext.CommanderManaValue,
-            commanderResolution.CommanderNames,
-            _manabaseBaseline,
-            _cedhBaseline,
-            commanderFloorsEnabled ? _roleFloorBaseline : null,
-            priorState.RoleFloors);
+            commanderResolution.CommanderNames);
         IReadOnlyDictionary<string, int> floorByRole = resolvedFloors.ToDictionary(
             floor => floor.Role,
             floor => floor.Floor,
