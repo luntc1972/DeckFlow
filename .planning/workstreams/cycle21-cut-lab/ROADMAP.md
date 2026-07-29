@@ -316,7 +316,7 @@ bracket value (D-03).
 commander data may only raise a floor, never lower one (D-04). Measured driver: at brackets 4-5 all 124 of
 124 adopting payoffs commanders sit below the bracket band, so a literal chain would delete that guardrail.
 
-**Plans:** 7 plans (6 waves)
+**Plans:** 2/7 plans executed
 - [ ] `03-01-PLAN.md` — Core snapshot contract, adoption filter, and fail-closed drift check.
 - [ ] `03-02-PLAN.md` — `role-floor-baseline` CLI generator, drift thresholds, and the committed 678-commander snapshot.
 - [ ] `03-03-PLAN.md` — shared commander-key helper and the fail-open runtime role-floor provider.
