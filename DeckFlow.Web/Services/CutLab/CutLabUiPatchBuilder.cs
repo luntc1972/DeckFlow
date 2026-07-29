@@ -37,19 +37,6 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
     /// <summary>Creates the Cut Lab live-patch builder.</summary>
     /// <param name="analysisContextBuilder">Shared Cut Lab analysis-context builder.</param>
     /// <param name="simulationService">Shared Cut Lab simulation service.</param>
-    public CutLabUiPatchBuilder(
-        ICutLabAnalysisContextBuilder analysisContextBuilder,
-        ICutLabSimulationService simulationService)
-        : this(
-            analysisContextBuilder,
-            simulationService,
-            new StateRoleFloorResolver())
-    {
-    }
-
-    /// <summary>Creates the Cut Lab live-patch builder.</summary>
-    /// <param name="analysisContextBuilder">Shared Cut Lab analysis-context builder.</param>
-    /// <param name="simulationService">Shared Cut Lab simulation service.</param>
     /// <param name="floorResolver">Shared floor resolver reused across Cut Lab transports.</param>
     public CutLabUiPatchBuilder(
         ICutLabAnalysisContextBuilder analysisContextBuilder,
@@ -242,28 +229,6 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
         }
 
         return BuildFloorWarnings(workingList, context, floorByRole, roundPlan.NextProposal.CardName);
-    }
-
-    private sealed class StateRoleFloorResolver : ICutLabFloorResolver
-    {
-        public IReadOnlyList<CutLabResolvedFloor> Resolve(
-            CutLabState state,
-            double commanderManaValue,
-            IReadOnlyList<string> commanderNames)
-        {
-            _ = commanderManaValue;
-            _ = commanderNames;
-
-            return state.RoleFloors
-                .Select(floor => new CutLabResolvedFloor
-                {
-                    Role = floor.Role,
-                    Floor = floor.Floor,
-                    DefaultValue = floor.Floor,
-                    IsUserSet = floor.IsUserSet,
-                })
-                .ToArray();
-        }
     }
 
     private static IReadOnlyList<CutLabDecideFloorWarningDto> BuildFloorWarnings(

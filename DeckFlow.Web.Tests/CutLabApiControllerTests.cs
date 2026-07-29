@@ -101,6 +101,38 @@ public sealed class CutLabApiControllerTests
     }
 
     [Fact]
+    public async Task PostDecideAsync_EmptyPersistedRoleFloors_StillResolvesNonEmptyDefaults()
+    {
+        CutLabState state = CreateState(
+            pool:
+            [
+                Card("Commander", quantity: 1, isCommander: true, isLocked: true),
+                Card("Arcane Signet", quantity: 1),
+                Card("Basic Filler", quantity: 99, isLocked: true),
+            ],
+            roleFloors: []);
+        FakeAnalysisContextBuilder builder = new(workingList => CreateAnalysisContext(workingList));
+        FakeSimulationService simulation = new();
+        ICutLabFloorResolver floorResolver = new CutLabFloorResolver(null, null, null, null);
+        CutLabApiController controller = CreateController(builder, simulation, floorResolver: floorResolver);
+
+        ActionResult<CutLabDecideApiResponse> response = await controller.PostDecideAsync(
+            new CutLabDecideApiRequest
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(state),
+                CardName = "Arcane Signet",
+                Decision = CutLabDecideAction.Accept,
+            },
+            CancellationToken.None);
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
+        CutLabDecideApiResponse payload = Assert.IsType<CutLabDecideApiResponse>(ok.Value);
+        CutLabDecideFloorWarningDto warning = Assert.Single(payload.Patch.FloorWarnings);
+        Assert.Equal("ramp", warning.Role);
+        Assert.True(warning.Floor > 0);
+    }
+
+    [Fact]
     public async Task PostDecideAsync_Accept_AppendsAcceptedDecisionAndRoundTripsState()
     {
         CutLabState state = CreateState();
@@ -827,13 +859,14 @@ public sealed class CutLabApiControllerTests
         FakeSimulationService simulation,
         ICutLabUiPatchBuilder? patchBuilder = null,
         bool sameOrigin = true,
-        ICutLabWhatifService? whatifService = null)
+        ICutLabWhatifService? whatifService = null,
+        ICutLabFloorResolver? floorResolver = null)
     {
-        PassThroughFloorResolver floorResolver = new();
+        ICutLabFloorResolver resolvedFloorResolver = floorResolver ?? new PassThroughFloorResolver();
         CutLabApiController controller = new(
             builder,
-            floorResolver,
-            patchBuilder ?? new CutLabUiPatchBuilder(builder, simulation, floorResolver),
+            resolvedFloorResolver,
+            patchBuilder ?? new CutLabUiPatchBuilder(builder, simulation, resolvedFloorResolver),
             simulation,
             whatifService ?? new FakeCutLabWhatifService(),
             NullLogger<CutLabApiController>.Instance)

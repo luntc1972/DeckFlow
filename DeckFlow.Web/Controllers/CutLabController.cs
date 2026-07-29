@@ -277,7 +277,7 @@ public sealed class CutLabController : Controller
             CutLabExportView export = await _exportService.BuildExportAsync(
                 exportState,
                 request.PlayExperience,
-                BuildCommanderNames(exportState),
+                CutLabCommanderNames.Resolve(exportState),
                 HttpContext.RequestAborted).ConfigureAwait(false);
             return View("CutLab", CutLabViewModel.From(request, result, export: export));
         }
@@ -472,20 +472,6 @@ public sealed class CutLabController : Controller
         }
 
         return [];
-    }
-
-    private static IReadOnlyList<string> BuildCommanderNames(CutLabState state)
-    {
-        IReadOnlyList<string> commanderNames = GetCommanderCards(state)
-            .Select(card => card.Name)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        if (commanderNames.Count > 0)
-        {
-            return commanderNames;
-        }
-
-        return string.IsNullOrWhiteSpace(state.Commander) ? [] : [state.Commander];
     }
 
     private static string FormatDeckLine(CutLabPoolCard card) => $"{card.Quantity} {card.Name}";

@@ -276,6 +276,63 @@ public sealed class CutLabAjaxFloorByRoleRegressionTests
         Assert.NotEmpty(WeakFloorItems(whatifPayload.Patch!.StructuralFindings));
     }
 
+    [Fact]
+    public async Task T6_TwoCommanders_AjaxResolvedRampAndDrawDefaultsMatchFullPageRender()
+    {
+        CutLabState state = CreateEmptyFloorState(
+            pool:
+            [
+                Card("Lower Commander", quantity: 1, isCommander: true, isLocked: true, typeLine: "Legendary Creature"),
+                Card("Higher Commander", quantity: 1, isCommander: true, isLocked: true, typeLine: "Legendary Creature"),
+                Card("Arcane Signet", quantity: 1),
+                Card("Basic Filler", quantity: 100, isLocked: true),
+            ],
+            commander: "Lower Commander");
+        FakeAnalysisContextBuilder analysisBuilder = new();
+        CutLabRequest request = CreateRequest(state);
+        request.CutLabStateJson = string.Empty;
+        request.SelectedCommander = string.Empty;
+        CutLabPageService pageService = new(
+            new FakeLoader(BuildEntries(state)),
+            new FakeResolver(BuildResolvedCards()),
+            new FakeBanListService(),
+            manabaseBaseline: new FakeManabaseBaselineProvider(new ManabaseBracketBaseline
+            {
+                Bracket = 4,
+                AvgLands = 36.0,
+                DeckCount = 100,
+            }),
+            cedhBaseline: new FakeCedhLandBaselineProvider(),
+            roleFloorBaseline: null,
+            analysisContextBuilder: new CutLabAnalysisContextBuilder(
+                new FakeResolver(BuildResolvedCards()),
+                new CutLabResolvedCardCache()),
+            simulationService: new FakeSimulationService(),
+            logger: NullLogger<CutLabPageService>.Instance,
+            featureFlags: null);
+        CutLabProcessResult pageResult = await pageService.ProcessAsync(request);
+        CutLabApiController controller = CreateApiController(analysisBuilder);
+
+        ActionResult<CutLabDecideApiResponse> response = await controller.PostDecideAsync(
+            new CutLabDecideApiRequest
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(state),
+                CardName = "Arcane Signet",
+                Decision = CutLabDecideAction.Accept,
+            },
+            CancellationToken.None);
+
+        CutLabDecideApiResponse payload = AssertOk(response);
+        int expectedRampFloor = Assert.Single(pageResult.ResolvedFloors, floor => floor.Role == "ramp").Floor;
+        int expectedDrawFloor = Assert.Single(pageResult.ResolvedFloors, floor => floor.Role == "draw").Floor;
+
+        Assert.Equal(expectedRampFloor, Assert.Single(payload.Patch.FloorWarnings, warning => warning.Role == "ramp").Floor);
+        Assert.Contains(
+            WeakFloorItems(payload.Patch.StructuralFindings),
+            item => item.Lead.Contains($"suggested floor is {expectedDrawFloor}.", StringComparison.Ordinal)
+                && item.Lead.Contains("draw", StringComparison.OrdinalIgnoreCase));
+    }
+
     private static CutLabApiController CreateApiController(
         FakeAnalysisContextBuilder analysisBuilder,
         IRoleFloorBaselineProvider? roleFloorBaseline = null,
@@ -339,7 +396,7 @@ public sealed class CutLabAjaxFloorByRoleRegressionTests
         {
             DeckInputSource = DeckInputSource.PasteText,
             DeckText = "pool",
-            SelectedCommander = "Focused Commander",
+            SelectedCommander = state.Commander,
             Bracket = 4,
             PlayExperience = "Focused",
             CutLabStateJson = CutLabStateSerializer.Serialize(state),
@@ -348,10 +405,11 @@ public sealed class CutLabAjaxFloorByRoleRegressionTests
     private static CutLabState CreateEmptyFloorState(
         IReadOnlyList<CutLabPoolCard> pool,
         IReadOnlyList<CutLabDecision>? decisions = null,
-        IReadOnlyList<CutLabRoleFloor>? roleFloors = null)
+        IReadOnlyList<CutLabRoleFloor>? roleFloors = null,
+        string commander = "Focused Commander")
         => new()
         {
-            Commander = "Focused Commander",
+            Commander = commander,
             Pool = pool,
             Decisions = decisions ?? [],
             RoleFloors = roleFloors ?? [],
@@ -428,6 +486,8 @@ public sealed class CutLabAjaxFloorByRoleRegressionTests
         => new(StringComparer.OrdinalIgnoreCase)
         {
             ["Focused Commander"] = Spell("Focused Commander", "Legendary Creature - Human Wizard", manaCost: "{1}{G}{U}", cmc: 3),
+            ["Lower Commander"] = Spell("Lower Commander", "Legendary Creature - Human Wizard", manaCost: "{1}{G}{U}", cmc: 3),
+            ["Higher Commander"] = Spell("Higher Commander", "Legendary Creature - Kraken", manaCost: "{4}{U}{U}", cmc: 6),
             ["Arcane Signet"] = Spell("Arcane Signet", "Artifact", manaCost: "{2}", cmc: 2),
             ["Counterspell"] = Spell("Counterspell", "Instant", manaCost: "{U}{U}", cmc: 2),
             ["Wincon Sorcery"] = Spell("Wincon Sorcery", "Sorcery", manaCost: "{3}{R}", cmc: 4),
@@ -650,6 +710,8 @@ public sealed class CutLabAjaxFloorByRoleRegressionTests
                 double manaValue = card.Name switch
                 {
                     "Focused Commander" => 3,
+                    "Lower Commander" => 3,
+                    "Higher Commander" => 6,
                     "Arcane Signet" => 2,
                     "Counterspell" => 2,
                     "Wincon Sorcery" => 4,
@@ -662,11 +724,23 @@ public sealed class CutLabAjaxFloorByRoleRegressionTests
                 });
             }
 
+            double commanderManaValue = workingList
+                .Where(card => commanderNames.Contains(card.Name, StringComparer.OrdinalIgnoreCase))
+                .Select(card => card.Name switch
+                {
+                    "Focused Commander" => 3.0,
+                    "Lower Commander" => 3.0,
+                    "Higher Commander" => 6.0,
+                    _ => 0.0,
+                })
+                .DefaultIfEmpty(0.0)
+                .Max();
+
             CutLabAnalysisContext context = new(
                 analyzedCards,
                 rolesByCardName,
                 roleCounts,
-                3,
+                commanderManaValue,
                 ManabaseMode.Focused,
                 new CutLabClassificationContext([], true, true, new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase), new HashSet<string>(StringComparer.OrdinalIgnoreCase)),
                 workingList.Select(card => new ScryfallCardData
@@ -676,6 +750,8 @@ public sealed class CutLabAjaxFloorByRoleRegressionTests
                     Cmc = card.Name switch
                     {
                         "Focused Commander" => 3,
+                        "Lower Commander" => 3,
+                        "Higher Commander" => 6,
                         "Arcane Signet" => 2,
                         "Counterspell" => 2,
                         "Wincon Sorcery" => 4,
@@ -705,6 +781,8 @@ public sealed class CutLabAjaxFloorByRoleRegressionTests
                 Cmc = card.Name switch
                 {
                     "Focused Commander" => 3,
+                    "Lower Commander" => 3,
+                    "Higher Commander" => 6,
                     "Arcane Signet" => 2,
                     "Counterspell" => 2,
                     "Wincon Sorcery" => 4,
