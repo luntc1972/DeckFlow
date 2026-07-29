@@ -125,10 +125,11 @@ public static class CutLabCutRoundEngine
             CutLabFindingKind.EnablerStarved,
         };
 
-    // Why: this advisory intentionally ranks from least-structural to most-structural roles so the
-    // "last cuts if you must unlock something" list stays stable even if the canonical floor order changes.
-    // Within the interaction split, mass ranks before targeted because sweepers are more replaceable
-    // overshoot cuts than cheap point answers.
+    // Why: headroom (in-pool count minus effective floor) is now the primary locked-overshoot rank, because
+    // the old fixed order put wincons first as least-structural even though wincons usually has the least
+    // slack against its floor. This array survives as the deterministic tiebreak so the advisory still stays
+    // stable between rounds even if the canonical floor order changes. Within the interaction split, mass
+    // ranks before targeted because sweepers are more replaceable overshoot cuts than cheap point answers.
     private static readonly string[] LockedOvershootRoleOrder =
     [
         "wincons",
@@ -189,13 +190,17 @@ public static class CutLabCutRoundEngine
     /// <param name="decisions">Current decision history for second-pass routing and defensive accepted-card filtering.</param>
     /// <param name="cardsToCutTarget">Cards still needing to be cut to reach 100.</param>
     /// <param name="round3DeltaMagnitudes">Optional pure ordering hint for round 3 tradeoff magnitude.</param>
+    /// <param name="floorByRole">Optional effective role floors used to rank the locked-overshoot advisory by headroom.</param>
+    /// <param name="roleCounts">Optional in-pool role counts used to rank the locked-overshoot advisory by headroom.</param>
     /// <returns>The ordered queue, top proposal, and cards still remaining to target.</returns>
     public static CutLabRoundPlan BuildQueue(
         IReadOnlyList<CutLabRoundInputCard> workingList,
         CutLabStructuralFindingsResult findings,
         IReadOnlyList<CutLabDecision> decisions,
         int cardsToCutTarget,
-        IReadOnlyDictionary<string, double>? round3DeltaMagnitudes = null)
+        IReadOnlyDictionary<string, double>? round3DeltaMagnitudes = null,
+        IReadOnlyDictionary<string, int>? floorByRole = null,
+        IReadOnlyDictionary<string, int>? roleCounts = null)
     {
         ArgumentNullException.ThrowIfNull(workingList);
         ArgumentNullException.ThrowIfNull(findings);
@@ -322,7 +327,7 @@ public static class CutLabCutRoundEngine
             .Concat(deferredPass)
             .Concat(rejectedPass)
             .ToArray();
-        CutLabLockedOvershootAdvisory? lockedOvershootAdvisory = BuildLockedOvershootAdvisory(workingList);
+        CutLabLockedOvershootAdvisory? lockedOvershootAdvisory = BuildLockedOvershootAdvisory(workingList, floorByRole, roleCounts);
 
         return new CutLabRoundPlan
         {
@@ -387,7 +392,9 @@ public static class CutLabCutRoundEngine
             findings,
             decisions,
             workingList.Sum(card => card.Quantity) - TargetDeckSize,
-            round3DeltaMagnitudes);
+            round3DeltaMagnitudes,
+            floorByRole,
+            context.RoleCounts);
         return (findings, roundPlan);
     }
 
@@ -450,7 +457,9 @@ public static class CutLabCutRoundEngine
             : double.PositiveInfinity;
 
     private static CutLabLockedOvershootAdvisory? BuildLockedOvershootAdvisory(
-        IReadOnlyList<CutLabRoundInputCard> workingList)
+        IReadOnlyList<CutLabRoundInputCard> workingList,
+        IReadOnlyDictionary<string, int>? floorByRole,
+        IReadOnlyDictionary<string, int>? roleCounts)
     {
         int lockedCardCount = workingList
             .Where(card => card.IsLocked)
@@ -469,8 +478,9 @@ public static class CutLabCutRoundEngine
         }
 
         IReadOnlyList<(string RoleKey, string Name)> rankedCards = lockedCards
-            .Select(card => (RoleKey: AdvisoryRoleFor(card.Roles), Name: card.Name, Type: CardTypeLine.PrimaryType(card.TypeLine)))
-            .OrderBy(entry => RolePriority(entry.RoleKey))
+            .Select(card => (RoleKey: AdvisoryRoleFor(card.Roles, floorByRole, roleCounts), Name: card.Name, Type: CardTypeLine.PrimaryType(card.TypeLine)))
+            .OrderByDescending(entry => HeadroomFor(entry.RoleKey, floorByRole, roleCounts))
+            .ThenBy(entry => RolePriority(entry.RoleKey))
             .ThenBy(entry => TypePriority(entry.Type))
             .ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
             .Select(entry => (entry.RoleKey, entry.Name))
@@ -485,11 +495,75 @@ public static class CutLabCutRoundEngine
         return new CutLabLockedOvershootAdvisory(lockedCardCount - TargetDeckSize, Math.Max(rankedCards.Count - visibleCards.Count, 0), groups);
     }
 
-    private static string AdvisoryRoleFor(IReadOnlyList<string> roles)
-        => roles.OrderBy(RolePriority).FirstOrDefault() ?? "other";
+    private static string AdvisoryRoleFor(
+        IReadOnlyList<string> roles,
+        IReadOnlyDictionary<string, int>? floorByRole,
+        IReadOnlyDictionary<string, int>? roleCounts)
+        // Why: a card's cuttability is bounded by its tightest role, so the conservative attribution is the
+        // role with the least slack. Attributing the card to a roomier role would understate the cost of cutting it.
+        => roles
+            .Select(NormalizeRoleKey)
+            .OrderBy(roleKey => HeadroomFor(roleKey, floorByRole, roleCounts))
+            .ThenBy(RolePriority)
+            .FirstOrDefault() ?? "other";
+
+    private static int HeadroomFor(
+        string roleKey,
+        IReadOnlyDictionary<string, int>? floorByRole,
+        IReadOnlyDictionary<string, int>? roleCounts)
+    {
+        string canonicalRoleKey = NormalizeRoleKey(roleKey);
+        if (string.Equals(canonicalRoleKey, "other", StringComparison.Ordinal))
+        {
+            // Why: "other" has no floor to have headroom against, so it is left to the deterministic tiebreak,
+            // where it already sits last. Ranking it by raw count would silently promote unclassified cards ahead
+            // of every real role, which D-13 does not ask for.
+            return 0;
+        }
+
+        int count = TryGetCaseInsensitiveValue(roleCounts, canonicalRoleKey, out int resolvedCount) ? resolvedCount : 0;
+        int floor = TryGetCaseInsensitiveValue(floorByRole, canonicalRoleKey, out int resolvedFloor) ? resolvedFloor : 0;
+        return count - floor;
+    }
+
+    private static string NormalizeRoleKey(string? roleKey)
+    {
+        foreach (string candidate in CutLabFloorRules.RoleKeys)
+        {
+            if (string.Equals(candidate, roleKey, StringComparison.OrdinalIgnoreCase))
+            {
+                return candidate;
+            }
+        }
+
+        return string.Equals(roleKey, "other", StringComparison.OrdinalIgnoreCase)
+            ? "other"
+            : roleKey?.ToLowerInvariant() ?? "other";
+    }
+
+    private static bool TryGetCaseInsensitiveValue(
+        IReadOnlyDictionary<string, int>? values,
+        string roleKey,
+        out int value)
+    {
+        if (values is not null)
+        {
+            foreach ((string candidateKey, int candidateValue) in values)
+            {
+                if (string.Equals(candidateKey, roleKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    value = candidateValue;
+                    return true;
+                }
+            }
+        }
+
+        value = 0;
+        return false;
+    }
 
     private static int RolePriority(string roleKey)
-        => Array.IndexOf(LockedOvershootRoleOrder, roleKey is null ? "other" : roleKey.ToLowerInvariant()) is int index && index >= 0
+        => Array.IndexOf(LockedOvershootRoleOrder, NormalizeRoleKey(roleKey)) is int index && index >= 0
             ? index
             : LockedOvershootRoleOrder.Length;
 
