@@ -26,7 +26,7 @@ public sealed class CutLabUiPatchBuilderTests
                 Card("Basic Filler", quantity: 99, isLocked: true),
             ]);
         FakeAnalysisContextBuilder contextBuilder = new(workingList => CreateAnalysisContext(workingList));
-        CutLabUiPatchBuilder builder = new(contextBuilder, new FakeSimulationService());
+        CutLabUiPatchBuilder builder = CreateBuilder(contextBuilder);
         IReadOnlyList<CutLabDecideFloorWarningDto> suppliedWarnings =
         [
             new CutLabDecideFloorWarningDto
@@ -84,7 +84,7 @@ public sealed class CutLabUiPatchBuilderTests
                     Ordinal = 1,
                 },
             ]);
-        CutLabUiPatchBuilder builder = new(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)), new FakeSimulationService());
+        CutLabUiPatchBuilder builder = CreateBuilder(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)));
 
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
@@ -134,12 +134,54 @@ public sealed class CutLabUiPatchBuilderTests
                     Floor = 2,
                     IsUserSet = true,
                 },
+                new CutLabRoleFloor
+                {
+                    Role = "lands",
+                    Floor = 0,
+                    IsUserSet = true,
+                },
+                new CutLabRoleFloor
+                {
+                    Role = "draw",
+                    Floor = 0,
+                    IsUserSet = true,
+                },
+                new CutLabRoleFloor
+                {
+                    Role = "interaction-mass",
+                    Floor = 0,
+                    IsUserSet = true,
+                },
+                new CutLabRoleFloor
+                {
+                    Role = "protection",
+                    Floor = 0,
+                    IsUserSet = true,
+                },
+                new CutLabRoleFloor
+                {
+                    Role = "engines",
+                    Floor = 0,
+                    IsUserSet = true,
+                },
+                new CutLabRoleFloor
+                {
+                    Role = "payoffs",
+                    Floor = 0,
+                    IsUserSet = true,
+                },
+                new CutLabRoleFloor
+                {
+                    Role = "wincons",
+                    Floor = 0,
+                    IsUserSet = true,
+                },
             ]);
         FakeAnalysisContextBuilder contextBuilder = new(workingList => CreateAnalysisContext(
             workingList,
             comboDataAvailable: false,
             categoryDataAvailable: false));
-        CutLabUiPatchBuilder builder = new(contextBuilder, new FakeSimulationService());
+        CutLabUiPatchBuilder builder = CreateBuilder(contextBuilder);
 
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
@@ -180,7 +222,7 @@ public sealed class CutLabUiPatchBuilderTests
                 Card("Basic Filler", quantity: 97, isLocked: true),
             ]);
         FakeAnalysisContextBuilder contextBuilder = new(workingList => CreateAnalysisContext(workingList));
-        CutLabUiPatchBuilder builder = new(contextBuilder, new FakeSimulationService());
+        CutLabUiPatchBuilder builder = CreateBuilder(contextBuilder);
 
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
@@ -236,7 +278,7 @@ public sealed class CutLabUiPatchBuilderTests
                 Card("Basic Filler", quantity: 97, isLocked: true),
             ]);
         FakeAnalysisContextBuilder contextBuilder = new(workingList => CreateAnalysisContext(workingList));
-        CutLabUiPatchBuilder builder = new(contextBuilder, new FakeSimulationService());
+        CutLabUiPatchBuilder builder = CreateBuilder(contextBuilder);
 
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
@@ -260,7 +302,7 @@ public sealed class CutLabUiPatchBuilderTests
                 Card("Basic Filler", quantity: 100, isLocked: true, typeLine: "Artifact"),
             ]);
         FakeAnalysisContextBuilder contextBuilder = new(workingList => CreateAnalysisContext(workingList));
-        CutLabUiPatchBuilder builder = new(contextBuilder, new FakeSimulationService());
+        CutLabUiPatchBuilder builder = CreateBuilder(contextBuilder);
 
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
@@ -286,7 +328,7 @@ public sealed class CutLabUiPatchBuilderTests
                 Card("Later Proposal", quantity: 1, typeLine: "Sorcery"),
             ]);
         FakeAnalysisContextBuilder contextBuilder = new(workingList => CreateAnalysisContext(workingList));
-        CutLabUiPatchBuilder builder = new(contextBuilder, new FakeSimulationService());
+        CutLabUiPatchBuilder builder = CreateBuilder(contextBuilder);
 
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
@@ -334,7 +376,7 @@ public sealed class CutLabUiPatchBuilderTests
                 },
             ]);
         FakeAnalysisContextBuilder contextBuilder = new(workingList => CreateAnalysisContext(workingList));
-        CutLabUiPatchBuilder builder = new(contextBuilder, new FakeSimulationService());
+        CutLabUiPatchBuilder builder = CreateBuilder(contextBuilder);
 
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
@@ -371,14 +413,14 @@ public sealed class CutLabUiPatchBuilderTests
             ]);
         FakeAnalysisContextBuilder contextBuilder = new(workingList => CreateAnalysisContext(workingList));
         FakeSimulationService simulationService = new();
-        CutLabUiPatchBuilder builder = new(contextBuilder, simulationService);
-        IReadOnlyDictionary<string, int> floorByRole = BuildFloorMap(state.RoleFloors);
+        CutLabUiPatchBuilder builder = CreateBuilder(contextBuilder, simulationService);
+        IReadOnlyList<CutLabResolvedFloor> resolvedFloors = CreateFloorResolver().Resolve(state, commanderManaValue: 3, ["Commander"]);
 
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
             state.Intent.PlayExperience,
             ["Commander"]);
-        CutLabViewModel viewModel = BuildViewModel(state, floorByRole, contextBuilder, simulationService);
+        CutLabViewModel viewModel = BuildViewModel(state, resolvedFloors, contextBuilder, simulationService);
 
         Assert.Equal(viewModel.CurrentCount, patch.CurrentCount);
         Assert.Equal(viewModel.CurrentCount == 100, patch.CanBuildExport);
@@ -480,13 +522,17 @@ public sealed class CutLabUiPatchBuilderTests
         };
         FakeAnalysisContextBuilder contextBuilder = new(workingList => CreateAnalysisContext(workingList));
         FakeSimulationService simulationService = new();
-        CutLabUiPatchBuilder builder = new(contextBuilder, simulationService);
+        CutLabUiPatchBuilder builder = CreateBuilder(contextBuilder, simulationService);
 
         CutLabUiPatchDto addedPatch = await builder.BuildAsync(
             addedState,
             addedState.Intent.PlayExperience,
             ["Commander"]);
-        CutLabViewModel addedViewModel = BuildViewModel(addedState, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase), contextBuilder, simulationService);
+        CutLabViewModel addedViewModel = BuildViewModel(
+            addedState,
+            CreateFloorResolver().Resolve(addedState, commanderManaValue: 3, ["Commander"]),
+            contextBuilder,
+            simulationService);
 
         Assert.Contains(addedPatch.QuantityTuners, row => row.CardName == "Forest" && row.IsAddedBasic);
         Assert.DoesNotContain("Forest", addedPatch.AddableBasics);
@@ -497,7 +543,11 @@ public sealed class CutLabUiPatchBuilderTests
             removedState,
             removedState.Intent.PlayExperience,
             ["Commander"]);
-        CutLabViewModel removedViewModel = BuildViewModel(removedState, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase), contextBuilder, simulationService);
+        CutLabViewModel removedViewModel = BuildViewModel(
+            removedState,
+            CreateFloorResolver().Resolve(removedState, commanderManaValue: 3, ["Commander"]),
+            contextBuilder,
+            simulationService);
 
         Assert.DoesNotContain(removedPatch.QuantityTuners, row => row.CardName == "Forest");
         Assert.Contains("Forest", removedPatch.AddableBasics);
@@ -548,7 +598,7 @@ public sealed class CutLabUiPatchBuilderTests
         {
             ThrowOnComputeProposalDeltas = true,
         };
-        CutLabUiPatchBuilder builder = new(contextBuilder, simulationService);
+        CutLabUiPatchBuilder builder = CreateBuilder(contextBuilder, simulationService);
 
         CutLabUiPatchDto patch = builder.BuildAdjustPatch(state, ["Commander"]);
 
@@ -621,7 +671,7 @@ public sealed class CutLabUiPatchBuilderTests
         {
             ThrowOnBuild = true,
         };
-        CutLabUiPatchBuilder builder = new(contextBuilder, new FakeSimulationService());
+        CutLabUiPatchBuilder builder = CreateBuilder(contextBuilder);
 
         CutLabUiPatchDto patch = builder.BuildAdjustPatch(state, ["Commander"]);
 
@@ -656,7 +706,7 @@ public sealed class CutLabUiPatchBuilderTests
         {
             ThrowOnComputeProposalDeltas = true,
         };
-        CutLabUiPatchBuilder builder = new(contextBuilder, simulationService);
+        CutLabUiPatchBuilder builder = CreateBuilder(contextBuilder, simulationService);
 
         CutLabUiPatchDto patch = builder.BuildAdjustPatch(state, ["Commander"]);
 
@@ -705,8 +755,7 @@ public sealed class CutLabUiPatchBuilderTests
         {
             ThrowOnComputeProposalDeltas = true,
         };
-        CutLabUiPatchBuilder builder = new(contextBuilder, simulationService);
-
+        CutLabUiPatchBuilder builder = CreateBuilder(contextBuilder, simulationService);
         CutLabUiPatchDto patch = builder.BuildAdjustPatch(state, ["Commander"]);
 
         Assert.Equal(expectedCount, patch.CurrentCount);
@@ -714,6 +763,29 @@ public sealed class CutLabUiPatchBuilderTests
         Assert.Null(patch.NextProposal);
         Assert.Equal(0, contextBuilder.BuildCalls);
         Assert.Equal(0, simulationService.ComputeProposalDeltasCalls);
+    }
+
+    [Fact]
+    public async Task BuildAsync_EmptyPersistedRoleFloors_StillResolvesNonEmptyDefaults()
+    {
+        CutLabState state = CreateState(
+            pool:
+            [
+                Card("Commander", quantity: 1, isCommander: true, isLocked: true),
+                Card("Basic Filler", quantity: 99, isLocked: true),
+            ],
+            roleFloors: []);
+        FakeAnalysisContextBuilder contextBuilder = new(workingList => CreateAnalysisContext(workingList));
+        CutLabUiPatchBuilder builder = CreateBuilder(contextBuilder);
+
+        CutLabUiPatchDto patch = await builder.BuildAsync(
+            state,
+            state.Intent.PlayExperience,
+            ["Commander"]);
+
+        Assert.Contains(
+            patch.StructuralFindings.SelectMany(group => group.Items),
+            item => item.Lead.Contains("suggested floor", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -732,10 +804,14 @@ public sealed class CutLabUiPatchBuilderTests
 
     private static CutLabViewModel BuildViewModel(
         CutLabState state,
-        IReadOnlyDictionary<string, int> floorByRole,
+        IReadOnlyList<CutLabResolvedFloor> resolvedFloors,
         FakeAnalysisContextBuilder contextBuilder,
         FakeSimulationService simulationService)
     {
+        IReadOnlyDictionary<string, int> floorByRole = resolvedFloors.ToDictionary(
+            floor => floor.Role,
+            floor => floor.Floor,
+            StringComparer.OrdinalIgnoreCase);
         IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
         CutLabAnalysisContext context = contextBuilder.BuildAsync(
             workingList,
@@ -759,7 +835,7 @@ public sealed class CutLabUiPatchBuilderTests
             SerializedStateJson = CutLabStateSerializer.Serialize(state),
             HasResult = true,
             RoleAssignmentsByCardName = context.RolesByCardName,
-            ResolvedFloors = BuildResolvedFloors(floorByRole),
+            ResolvedFloors = resolvedFloors,
             Findings = findings,
             RoundPlan = roundPlan,
             InitialProposalDeltas = deltas,
@@ -773,32 +849,17 @@ public sealed class CutLabUiPatchBuilderTests
         return CutLabViewModel.From(request, result);
     }
 
-    private static IReadOnlyList<CutLabResolvedFloor> BuildResolvedFloors(IReadOnlyDictionary<string, int> floorByRole)
-        => CutLabFloorRules.RoleKeys
-            .Select(role => new CutLabResolvedFloor
-            {
-                Role = role,
-                Floor = floorByRole.TryGetValue(role, out int floor) ? floor : 0,
-                DefaultValue = floorByRole.TryGetValue(role, out floor) ? floor : 0,
-                IsUserSet = floorByRole.ContainsKey(role),
-                ResolvedBracket = 3,
-                BracketWasFallback = false,
-            })
-            .ToArray();
+    private static CutLabUiPatchBuilder CreateBuilder(
+        FakeAnalysisContextBuilder contextBuilder,
+        FakeSimulationService? simulationService = null,
+        ICutLabFloorResolver? floorResolver = null)
+        => new(
+            contextBuilder,
+            simulationService ?? new FakeSimulationService(),
+            floorResolver ?? CreateFloorResolver());
 
-    private static IReadOnlyDictionary<string, int> BuildFloorMap(IReadOnlyList<CutLabRoleFloor> roleFloors)
-    {
-        Dictionary<string, int> floors = new(StringComparer.OrdinalIgnoreCase);
-        foreach (CutLabRoleFloor floor in roleFloors)
-        {
-            if (!string.IsNullOrWhiteSpace(floor.Role))
-            {
-                floors[floor.Role] = floor.Floor;
-            }
-        }
-
-        return floors;
-    }
+    private static ICutLabFloorResolver CreateFloorResolver()
+        => new CutLabFloorResolver(null, null, null, null);
 
     private static JsonSerializerOptions CreateMvcJsonSerializerOptions()
     {

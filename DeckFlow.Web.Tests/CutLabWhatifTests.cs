@@ -521,9 +521,11 @@ public sealed class CutLabWhatifTests
             simulationService,
             contextBuilder,
             resolvedCardCache);
+        ICutLabFloorResolver floorResolver = new CutLabFloorResolver(null, null, null, null);
         CutLabApiController controller = new(
             contextBuilder,
-            new CutLabUiPatchBuilder(contextBuilder, simulationService),
+            floorResolver,
+            new CutLabUiPatchBuilder(contextBuilder, simulationService, floorResolver),
             simulationService,
             whatifService,
             NullLogger<CutLabApiController>.Instance)
