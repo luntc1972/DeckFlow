@@ -118,6 +118,7 @@ internal sealed class CutLabPageService : ICutLabPageService
     private readonly ICommanderBanListService _banListService;
     private readonly IManabaseBaselineProvider? _manabaseBaseline;
     private readonly ICedhLandBaselineProvider? _cedhBaseline;
+    private readonly IRoleFloorBaselineProvider? _roleFloorBaseline;
     private readonly ICutLabAnalysisContextBuilder _analysisContextBuilder;
     private readonly ICutLabSimulationService _simulationService;
     private readonly ILogger<CutLabPageService> _logger;
@@ -128,6 +129,7 @@ internal sealed class CutLabPageService : ICutLabPageService
     /// <param name="banListService">Commander banlist service.</param>
     /// <param name="manabaseBaseline">Optional bracket baseline dependency for structural analysis.</param>
     /// <param name="cedhBaseline">Optional cEDH commander baseline dependency for structural analysis.</param>
+    /// <param name="roleFloorBaseline">Optional commander role-floor baseline dependency for structural analysis.</param>
     /// <param name="analysisContextBuilder">Optional shared builder for resolved-card, classification, and role-assignment analysis.</param>
     /// <param name="simulationService">Optional simulation service for baseline, current snapshot, and proposal-delta computation.</param>
     /// <param name="logger">Optional logger for non-blocking diagnostics.</param>
@@ -137,6 +139,7 @@ internal sealed class CutLabPageService : ICutLabPageService
         ICommanderBanListService banListService,
         IManabaseBaselineProvider? manabaseBaseline = null,
         ICedhLandBaselineProvider? cedhBaseline = null,
+        IRoleFloorBaselineProvider? roleFloorBaseline = null,
         ICutLabAnalysisContextBuilder? analysisContextBuilder = null,
         ICutLabSimulationService? simulationService = null,
         ILogger<CutLabPageService>? logger = null)
@@ -150,6 +153,7 @@ internal sealed class CutLabPageService : ICutLabPageService
         _banListService = banListService;
         _manabaseBaseline = manabaseBaseline;
         _cedhBaseline = cedhBaseline;
+        _roleFloorBaseline = roleFloorBaseline;
         CutLabResolvedCardCache sharedResolvedCardCache = new();
         _analysisContextBuilder = analysisContextBuilder
             ?? new CutLabAnalysisContextBuilder(cardResolver, sharedResolvedCardCache);
@@ -165,6 +169,9 @@ internal sealed class CutLabPageService : ICutLabPageService
     internal bool HasStructuralAnalysisDependencies =>
         _manabaseBaseline is not null
         && _cedhBaseline is not null
+        // Why: the provider itself is fail-open, but its absence from the container is a wiring defect,
+        // not a degraded-data case, and the guard must keep those distinct.
+        && _roleFloorBaseline is not null
         && !ReferenceEquals(_simulationService, NoOpCutLabSimulationService.Instance);
 
     /// <inheritdoc />
@@ -409,7 +416,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             commanderResolution.CommanderNames,
             _manabaseBaseline,
             _cedhBaseline,
-            null,
+            _roleFloorBaseline,
             priorState.RoleFloors);
         IReadOnlyDictionary<string, int> floorByRole = resolvedFloors.ToDictionary(
             floor => floor.Role,
