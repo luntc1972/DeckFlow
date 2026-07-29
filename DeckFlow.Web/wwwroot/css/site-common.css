@@ -4452,6 +4452,16 @@ button.cutlab-role-chip:focus-visible {
   text-decoration: underline;
 }
 
+/* Cut Lab role floors: desktop-only column sizing for the two added numeric columns.
+   No mobile rule is needed because the stacked layout is generic over td[data-label]. */
+table[data-cut-lab-role-floors-table] th:nth-child(3),
+table[data-cut-lab-role-floors-table] th:nth-child(4),
+table[data-cut-lab-role-floors-table] td[data-label="Bracket"],
+table[data-cut-lab-role-floors-table] td[data-label="Commander"] {
+  width: 6rem;
+  text-align: right;
+}
+
 input[data-cut-lab-floor] {
   width: 5.5rem;
   min-height: 44px;

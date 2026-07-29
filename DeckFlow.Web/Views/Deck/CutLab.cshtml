@@ -776,11 +776,13 @@
                     </div>
                 </div>
             <div class="history-timeline__wrap">
-                <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
+                <table class="conflicts-table" data-prompt-cedh-reference-table data-cut-lab-role-floors-table role="table">
                     <thead>
                         <tr>
                             <th scope="col">Role</th>
                             <th scope="col">In pool</th>
+                            <th scope="col">Bracket</th>
+                            <th scope="col">Commander</th>
                             <th scope="col">Floor</th>
                             <th scope="col">Source</th>
                         </tr>
@@ -790,6 +792,7 @@
                         {
                             <tr data-cut-lab-floor-row="@row.RoleKey"
                                 data-cut-lab-floor-count="@row.InPoolCount"
+                                @* Reset restores the effective max because DefaultValue is the commander-aware default. *@
                                 data-cut-lab-floor-default="@row.DefaultValue"
                                 data-cut-lab-floor-user-set="@(row.IsUserSet ? "true" : "false")">
                                 <td data-label="Role">
@@ -799,6 +802,8 @@
                                     <span data-cut-lab-floor-count-label>@row.InPoolCount in pool</span>
                                     <span class="cutlab-floor-state--at @(row.AtFloor ? string.Empty : "hidden")" data-cut-lab-floor-at-marker>· at floor</span>
                                 </td>
+                                <td data-label="Bracket">@row.BracketValue</td>
+                                <td data-label="Commander">@row.CommanderDisplay</td>
                                 <td data-label="Floor">
                                     <input type="number"
                                            min="0"
@@ -808,7 +813,7 @@
                                            value="@row.Floor" />
                                 </td>
                                 <td data-label="Source">
-                                    <span class="cutlab-floor-source-default @(row.IsUserSet ? "hidden" : string.Empty)" data-cut-lab-floor-source-default>@row.SourceLabel</span>
+                                    <span class="cutlab-floor-source-default @(row.IsUserSet ? "hidden" : string.Empty)" data-cut-lab-floor-source-default title="@row.SourceDetail">@row.SourceLabel</span>
                                     <span class="kb-chip cutlab-floor-badge--adjusted @(row.IsUserSet ? string.Empty : "hidden")" data-cut-lab-floor-adjusted-badge>Adjusted</span>
                                     <button type="button"
                                             class="cutlab-floor-reset @(row.IsUserSet ? string.Empty : "hidden")"
