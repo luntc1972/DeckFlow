@@ -42,6 +42,12 @@ After restoring the correct implementation, `Build_P25BelowOne_IsDroppedAsNoSign
   - `Skipped: 0`
   - `Total: 19`
 
+## Post-verification test hardening
+
+- Added `FromJson_CompleteDocument_ParsesEveryField` to pin camelCase threshold deserialization across all seven distinct fields, so a `PropertyNamingPolicy` regression or field transposition now fails.
+- Added `Build_PostgresWithDifferentCase_IsExcluded` to pin `StringComparison.Ordinal` on the shipped-source gate, so a regression to case-insensitive matching would now fail.
+- Added `Evaluate_MoversExactlyAtOneSidedLimit_Fails` and `Evaluate_MoversBelowOneSidedLimit_Passes` to pin the `>= MaxOneSidedPct` boundary at exactly 90% versus just below it.
+
 ## Deviations
 
 - None.

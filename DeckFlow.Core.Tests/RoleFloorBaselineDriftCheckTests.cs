@@ -133,6 +133,30 @@ public sealed class RoleFloorBaselineDriftCheckTests
     }
 
     [Fact]
+    public void Evaluate_MoversExactlyAtOneSidedLimit_Fails()
+    {
+        RoleFloorBaselineSnapshot previous = MoverBaselineSnapshot(10);
+        RoleFloorBaselineSnapshot candidate = MixedDirectionMoverSnapshot(10, 9);
+
+        RoleFloorDriftVerdict verdict = RoleFloorBaselineDriftCheck.Evaluate(previous, candidate, Thresholds());
+
+        Assert.False(verdict.Passed);
+        Assert.Equal("OneSidedDrift", Assert.Single(verdict.Findings).Rule);
+    }
+
+    [Fact]
+    public void Evaluate_MoversBelowOneSidedLimit_Passes()
+    {
+        RoleFloorBaselineSnapshot previous = MoverBaselineSnapshot(10);
+        RoleFloorBaselineSnapshot candidate = MixedDirectionMoverSnapshot(10, 8);
+
+        RoleFloorDriftVerdict verdict = RoleFloorBaselineDriftCheck.Evaluate(previous, candidate, Thresholds());
+
+        Assert.True(verdict.Passed);
+        Assert.Empty(verdict.Findings);
+    }
+
+    [Fact]
     public void Evaluate_MoversBelowDirectionTestCount_Passes()
     {
         RoleFloorBaselineSnapshot previous = MoverSnapshot(9, 0);
@@ -172,6 +196,32 @@ public sealed class RoleFloorBaselineDriftCheckTests
             """;
 
         Assert.Throws<JsonException>(() => RoleFloorDriftThresholds.FromJson(Json));
+    }
+
+    [Fact]
+    public void FromJson_CompleteDocument_ParsesEveryField()
+    {
+        const string Json = """
+            {
+              "minEstablishedN": 11,
+              "minPopulousN": 22,
+              "maxSampleDropPct": 33.3,
+              "moverThresholdFloors": 4,
+              "minMoversForDirectionTest": 55,
+              "maxOneSidedPct": 66.6,
+              "maxAdoptedPairDropPct": 77.7
+            }
+            """;
+
+        RoleFloorDriftThresholds thresholds = RoleFloorDriftThresholds.FromJson(Json);
+
+        Assert.Equal(11, thresholds.MinEstablishedN);
+        Assert.Equal(22, thresholds.MinPopulousN);
+        Assert.Equal(33.3, thresholds.MaxSampleDropPct);
+        Assert.Equal(4, thresholds.MoverThresholdFloors);
+        Assert.Equal(55, thresholds.MinMoversForDirectionTest);
+        Assert.Equal(66.6, thresholds.MaxOneSidedPct);
+        Assert.Equal(77.7, thresholds.MaxAdoptedPairDropPct);
     }
 
     private static RoleFloorDriftThresholds Thresholds()
@@ -214,6 +264,24 @@ public sealed class RoleFloorBaselineDriftCheckTests
             "2026-07-29",
             Enumerable.Range(0, count)
                 .Select(index => ($"Commander {index}", 50, Floors(("ramp", 5 + delta))))
+                .ToArray());
+    }
+
+    private static RoleFloorBaselineSnapshot MoverBaselineSnapshot(int count)
+    {
+        return Snapshot(
+            "2026-07-29",
+            Enumerable.Range(0, count)
+                .Select(index => ($"Commander {index}", 50, Floors(("ramp", 5))))
+                .ToArray());
+    }
+
+    private static RoleFloorBaselineSnapshot MixedDirectionMoverSnapshot(int count, int upCount)
+    {
+        return Snapshot(
+            "2026-07-29",
+            Enumerable.Range(0, count)
+                .Select(index => ($"Commander {index}", 50, Floors(("ramp", index < upCount ? 6 : 4))))
                 .ToArray());
     }
 

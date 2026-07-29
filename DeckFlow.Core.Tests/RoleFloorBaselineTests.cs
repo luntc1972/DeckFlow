@@ -67,6 +67,18 @@ public sealed class RoleFloorBaselineTests
     }
 
     [Fact]
+    public void Build_PostgresWithDifferentCase_IsExcluded()
+    {
+        RoleFloorFindingsDocument document = Document(
+            ("Fire Lord Azula", 644, Roles(("ramp", "Postgres", 9.0, true), ("draw", "postgres", 2.0, true))));
+
+        RoleFloorBaselineSnapshot snapshot = RoleFloorBaseline.Build(document, "2026-07-29");
+
+        Assert.DoesNotContain("ramp", snapshot.Commanders["Fire Lord Azula"].Floors.Keys);
+        Assert.Equal(2, snapshot.Commanders["Fire Lord Azula"].Floors["draw"]);
+    }
+
+    [Fact]
     public void Build_LandsAndOutOfScopeRoles_AreNeverAdopted()
     {
         RoleFloorFindingsDocument document = Document(
