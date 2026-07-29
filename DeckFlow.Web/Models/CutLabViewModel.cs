@@ -145,6 +145,9 @@ public sealed record CutLabViewModel
     /// <summary>Role floor rows rendered in the fixed Cut Lab order.</summary>
     public IReadOnlyList<CutLabFloorRowView> FloorRows { get; init; } = [];
 
+    /// <summary>Aggregate floor feasibility advisory, or null when the resolved floor set fits a 100-card deck.</summary>
+    public CutLabFloorFeasibilityResult? FloorFeasibility { get; init; }
+
     /// <summary>Editable goal rows rendered in the fixed Cut Lab order.</summary>
     public IReadOnlyList<CutLabGoalRowView> GoalRows { get; init; } = [];
 
@@ -305,6 +308,7 @@ public sealed record CutLabViewModel
         IReadOnlyList<CutLabFindingGroupView> findingGroups = CutLabFindingPresenter.BuildFindingGroups(findings);
         Dictionary<string, int> countsByRole = CountRoles(derivedWorkingList, result.RoleAssignmentsByCardName);
         IReadOnlyList<CutLabFloorRowView> floorRows = BuildFloorRows(result.ResolvedFloors, countsByRole, request.PlayExperience);
+        CutLabFloorFeasibilityResult? floorFeasibility = CutLabFloorFeasibility.Evaluate(result.ResolvedFloors);
         IReadOnlyDictionary<string, string> roleListByCardName = BuildRoleListByCardName(pool, result.RoleAssignmentsByCardName);
         IReadOnlyDictionary<string, string> roleKeysByCardName = BuildRoleKeysByCardName(pool, result.RoleAssignmentsByCardName);
         IReadOnlyDictionary<string, CutLabCardTextView> cardTextByCardName = result.CardTextByCardName;
@@ -358,6 +362,7 @@ public sealed record CutLabViewModel
             ComboDataUnavailable = result.HasResult && !result.Findings.ComboDataAvailable,
             CategoryDataUnavailable = result.HasResult && !result.Findings.CategoryDataAvailable,
             FloorRows = floorRows,
+            FloorFeasibility = floorFeasibility,
             GoalRows = goalRows,
             StickyBar = stickyBar,
             CurrentActualLands = result.CurrentActualLands,
@@ -386,6 +391,48 @@ public sealed record CutLabViewModel
 
     internal static string FormatCutsAcceptedSoFar(int count)
         => $"{count} {ManabaseWording.Pluralize("cut", count)} so far";
+
+    internal static string BuildFloorFeasibilityMessage(CutLabFloorFeasibilityResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+
+        string demandSentence = string.Format(
+            CultureInfo.InvariantCulture,
+            "These floors need at least {0} nonland slots, but only {1} remain after {2} lands and the commander.",
+            result.RequiredNonlandSlots,
+            result.AvailableNonlandSlots,
+            result.LandsFloor);
+
+        if (result.RelaxCandidates.Count == 0)
+        {
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "{0} This is a conservative estimate — roles overlap, every engine is also a draw spell and win conditions usually double as another role, so the real requirement is at least this large and may be larger.",
+                demandSentence);
+        }
+
+        string actionSentence = string.Format(
+            CultureInfo.InvariantCulture,
+            "Relax {0} first.",
+            string.Join(
+                ", ",
+                result.RelaxCandidates.Select(candidate =>
+                {
+                    string label = DisplayLabelFor(candidate.RoleKey);
+                    return candidate.CommanderRaise is int raise
+                        ? string.Format(CultureInfo.InvariantCulture, "{0} (raised by {1})", label, raise)
+                        : label;
+                })));
+
+        string honestySentence = "This is a conservative estimate — roles overlap, every engine is also a draw spell and win conditions usually double as another role, so the real requirement is at least this large and may be larger.";
+
+        return string.Format(
+            CultureInfo.InvariantCulture,
+            "{0} {1} {2}",
+            demandSentence,
+            actionSentence,
+            honestySentence);
+    }
 
     private static IReadOnlyList<CutLabRoleGroupView> BuildRoleGroups(
         IReadOnlyList<CutLabPoolCard> pool,

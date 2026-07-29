@@ -759,6 +759,12 @@
                 <summary class="cutlab-collapsible__summary">Role floors</summary>
                 <div class="panel-heading">
                     <div>
+                        @if (Model.FloorFeasibility is not null)
+                        {
+                            <div class="warning-banner" role="status" data-cut-lab-floor-feasibility>
+                                <p>@CutLabViewModel.BuildFloorFeasibilityMessage(Model.FloorFeasibility)</p>
+                            </div>
+                        }
                         @{
                             var roleFloorsBracketLabel = Model.Request.Bracket switch
                             {
