@@ -199,6 +199,51 @@ public sealed class RoleFloorBaselineProviderTests : IDisposable
     }
 
     [Fact]
+    public void TryGetRoleFloor_CommandersExplicitlyNull_FailsOpen()
+    {
+        File.WriteAllText(_path, "{\"generated\":\"g\",\"commanders\":null}");
+
+        bool found = true;
+        int floor = -1;
+        Exception? exception = Record.Exception(() =>
+            found = CreateProvider().TryGetRoleFloor(["Brago, King Eternal"], "engines", out floor));
+
+        Assert.Null(exception);
+        Assert.False(found);
+        Assert.Equal(0, floor);
+    }
+
+    [Fact]
+    public void TryGetRoleFloor_CommanderEntryExplicitlyNull_FailsOpen()
+    {
+        File.WriteAllText(_path, "{\"generated\":\"g\",\"commanders\":{\"X\":null}}");
+
+        bool found = true;
+        int floor = -1;
+        Exception? exception = Record.Exception(() =>
+            found = CreateProvider().TryGetRoleFloor(["X"], "engines", out floor));
+
+        Assert.Null(exception);
+        Assert.False(found);
+        Assert.Equal(0, floor);
+    }
+
+    [Fact]
+    public void TryGetRoleFloor_CommanderFloorsExplicitlyNull_FailsOpen()
+    {
+        File.WriteAllText(_path, "{\"generated\":\"g\",\"commanders\":{\"X\":{\"floors\":null}}}");
+
+        bool found = true;
+        int floor = -1;
+        Exception? exception = Record.Exception(() =>
+            found = CreateProvider().TryGetRoleFloor(["X"], "engines", out floor));
+
+        Assert.Null(exception);
+        Assert.False(found);
+        Assert.Equal(0, floor);
+    }
+
+    [Fact]
     public void TryGetRoleFloor_FailedLoad_IsCached()
     {
         var cache = NewCache();

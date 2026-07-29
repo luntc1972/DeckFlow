@@ -30,3 +30,7 @@ Verified on July 29, 2026.
 ## Deviations
 
 - None.
+
+## Post-Verification Fix
+
+- July 29, 2026: closed a verifier-found fail-open gap in `RoleFloorBaselineProvider` where explicit JSON `null` values for `commanders`, a commander entry, or a commander's `floors` could bypass `required` and trigger a `NullReferenceException`. The provider now rejects those shapes through the existing logged cached-miss path so Cut Lab requests continue to fall back to bracket floors.
