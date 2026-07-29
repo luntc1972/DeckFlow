@@ -33,6 +33,7 @@ public sealed class CutLabApiControllerTests
     {
         Assert.Throws<ArgumentNullException>(() => new CutLabApiController(
             new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()),
+            new PassThroughFloorResolver(),
             null!,
             new FakeSimulationService(),
             new FakeCutLabWhatifService(),
@@ -828,9 +829,11 @@ public sealed class CutLabApiControllerTests
         bool sameOrigin = true,
         ICutLabWhatifService? whatifService = null)
     {
+        PassThroughFloorResolver floorResolver = new();
         CutLabApiController controller = new(
             builder,
-            patchBuilder ?? new CutLabUiPatchBuilder(builder, simulation),
+            floorResolver,
+            patchBuilder ?? new CutLabUiPatchBuilder(builder, simulation, floorResolver),
             simulation,
             whatifService ?? new FakeCutLabWhatifService(),
             NullLogger<CutLabApiController>.Instance)
@@ -1108,7 +1111,6 @@ public sealed class CutLabApiControllerTests
             CutLabState state,
             string playExperience,
             IReadOnlyList<string> commanderNames,
-            IReadOnlyDictionary<string, int> floorByRole,
             IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
             string? poolKey = null,
             IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
@@ -1129,11 +1131,27 @@ public sealed class CutLabApiControllerTests
             CutLabState state,
             string playExperience,
             IReadOnlyList<string> commanderNames,
-            IReadOnlyDictionary<string, int> floorByRole,
             IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
             string? poolKey = null,
             IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
             CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("boom");
+    }
+
+    private sealed class PassThroughFloorResolver : ICutLabFloorResolver
+    {
+        public IReadOnlyList<CutLabResolvedFloor> Resolve(
+            CutLabState state,
+            double commanderManaValue,
+            IReadOnlyList<string> commanderNames)
+            => state.RoleFloors
+                .Select(floor => new CutLabResolvedFloor
+                {
+                    Role = floor.Role,
+                    Floor = floor.Floor,
+                    DefaultValue = floor.Floor,
+                    IsUserSet = floor.IsUserSet,
+                })
+                .ToArray();
     }
 }

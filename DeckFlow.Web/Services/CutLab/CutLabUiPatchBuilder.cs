@@ -12,7 +12,6 @@ public interface ICutLabUiPatchBuilder
     /// <param name="state">Current authoritative Cut Lab state.</param>
     /// <param name="playExperience">Resolved play-experience label for the current state.</param>
     /// <param name="commanderNames">Resolved commander names for the current state.</param>
-    /// <param name="floorByRole">Resolved floor map keyed by stable role key.</param>
     /// <param name="preResolvedCards">Optional resolved card payloads that can seed analysis.</param>
     /// <param name="poolKey">Optional precomputed pool key for the derived working list.</param>
     /// <param name="floorWarnings">Optional current-proposal floor warnings that should be preserved as-is.</param>
@@ -22,7 +21,6 @@ public interface ICutLabUiPatchBuilder
         CutLabState state,
         string playExperience,
         IReadOnlyList<string> commanderNames,
-        IReadOnlyDictionary<string, int> floorByRole,
         IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
         string? poolKey = null,
         IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
@@ -34,6 +32,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
 {
     private readonly ICutLabAnalysisContextBuilder _analysisContextBuilder;
     private readonly ICutLabSimulationService _simulationService;
+    private readonly ICutLabFloorResolver _floorResolver;
 
     /// <summary>Creates the Cut Lab live-patch builder.</summary>
     /// <param name="analysisContextBuilder">Shared Cut Lab analysis-context builder.</param>
@@ -41,9 +40,25 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
     public CutLabUiPatchBuilder(
         ICutLabAnalysisContextBuilder analysisContextBuilder,
         ICutLabSimulationService simulationService)
+        : this(
+            analysisContextBuilder,
+            simulationService,
+            new StateRoleFloorResolver())
+    {
+    }
+
+    /// <summary>Creates the Cut Lab live-patch builder.</summary>
+    /// <param name="analysisContextBuilder">Shared Cut Lab analysis-context builder.</param>
+    /// <param name="simulationService">Shared Cut Lab simulation service.</param>
+    /// <param name="floorResolver">Shared floor resolver reused across Cut Lab transports.</param>
+    public CutLabUiPatchBuilder(
+        ICutLabAnalysisContextBuilder analysisContextBuilder,
+        ICutLabSimulationService simulationService,
+        ICutLabFloorResolver floorResolver)
     {
         _analysisContextBuilder = analysisContextBuilder ?? throw new ArgumentNullException(nameof(analysisContextBuilder));
         _simulationService = simulationService ?? throw new ArgumentNullException(nameof(simulationService));
+        _floorResolver = floorResolver ?? throw new ArgumentNullException(nameof(floorResolver));
     }
 
     /// <inheritdoc />
@@ -51,7 +66,6 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
         CutLabState state,
         string playExperience,
         IReadOnlyList<string> commanderNames,
-        IReadOnlyDictionary<string, int> floorByRole,
         IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
         string? poolKey = null,
         IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
@@ -60,7 +74,6 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(playExperience);
         ArgumentNullException.ThrowIfNull(commanderNames);
-        ArgumentNullException.ThrowIfNull(floorByRole);
 
         WorkingListProjection projection = BuildWorkingListProjection(state);
         IReadOnlyList<CutLabPoolCard> workingList = projection.WorkingList;
@@ -72,6 +85,11 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             preResolvedCards,
             resolvedPoolKey,
             cancellationToken).ConfigureAwait(false);
+        IReadOnlyDictionary<string, int> floorByRole = _floorResolver.Resolve(state, context.CommanderManaValue, commanderNames)
+            .ToDictionary(
+                floor => floor.Role,
+                floor => floor.Floor,
+                StringComparer.OrdinalIgnoreCase);
         (CutLabStructuralFindingsResult findings, CutLabRoundPlan roundPlan) = CutLabCutRoundEngine.BuildFindingsAndRoundPlan(
             workingList,
             context,
@@ -224,6 +242,28 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
         }
 
         return BuildFloorWarnings(workingList, context, floorByRole, roundPlan.NextProposal.CardName);
+    }
+
+    private sealed class StateRoleFloorResolver : ICutLabFloorResolver
+    {
+        public IReadOnlyList<CutLabResolvedFloor> Resolve(
+            CutLabState state,
+            double commanderManaValue,
+            IReadOnlyList<string> commanderNames)
+        {
+            _ = commanderManaValue;
+            _ = commanderNames;
+
+            return state.RoleFloors
+                .Select(floor => new CutLabResolvedFloor
+                {
+                    Role = floor.Role,
+                    Floor = floor.Floor,
+                    DefaultValue = floor.Floor,
+                    IsUserSet = floor.IsUserSet,
+                })
+                .ToArray();
+        }
     }
 
     private static IReadOnlyList<CutLabDecideFloorWarningDto> BuildFloorWarnings(

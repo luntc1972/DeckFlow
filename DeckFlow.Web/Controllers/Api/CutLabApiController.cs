@@ -17,6 +17,7 @@ public sealed class CutLabApiController : ControllerBase
     private const string InvalidStateMessage = "Cut Lab state is invalid. Re-import the pool and try again.";
 
     private readonly ICutLabAnalysisContextBuilder _contextBuilder;
+    private readonly ICutLabFloorResolver _floorResolver;
     private readonly ICutLabUiPatchBuilder _patchBuilder;
     private readonly ICutLabSimulationService _simulationService;
     private readonly ICutLabWhatifService _whatifService;
@@ -34,8 +35,33 @@ public sealed class CutLabApiController : ControllerBase
         ICutLabSimulationService simulationService,
         ICutLabWhatifService whatifService,
         ILogger<CutLabApiController> logger)
+        : this(
+            contextBuilder,
+            new StateRoleFloorResolver(),
+            patchBuilder,
+            simulationService,
+            whatifService,
+            logger)
+    {
+    }
+
+    /// <summary>Creates the Cut Lab API controller.</summary>
+    /// <param name="contextBuilder">Shared analysis-context builder reused by intake and decision flows.</param>
+    /// <param name="floorResolver">Shared floor resolver reused across Cut Lab transports.</param>
+    /// <param name="patchBuilder">Shared UI patch builder reused by mutation endpoints.</param>
+    /// <param name="simulationService">Simulation service used for proposal deltas.</param>
+    /// <param name="whatifService">Shared what-if preview service reused by API and no-JS swap flows.</param>
+    /// <param name="logger">Logger used for non-fatal API warnings.</param>
+    public CutLabApiController(
+        ICutLabAnalysisContextBuilder contextBuilder,
+        ICutLabFloorResolver floorResolver,
+        ICutLabUiPatchBuilder patchBuilder,
+        ICutLabSimulationService simulationService,
+        ICutLabWhatifService whatifService,
+        ILogger<CutLabApiController> logger)
     {
         _contextBuilder = contextBuilder ?? throw new ArgumentNullException(nameof(contextBuilder));
+        _floorResolver = floorResolver ?? throw new ArgumentNullException(nameof(floorResolver));
         _patchBuilder = patchBuilder ?? throw new ArgumentNullException(nameof(patchBuilder));
         _simulationService = simulationService ?? throw new ArgumentNullException(nameof(simulationService));
         _whatifService = whatifService ?? throw new ArgumentNullException(nameof(whatifService));
@@ -78,7 +104,6 @@ public sealed class CutLabApiController : ControllerBase
             }
 
             IReadOnlyList<string> commanderNames = GetCommanderNames(state);
-            IReadOnlyDictionary<string, int> floorByRole = BuildFloorMap(state.RoleFloors);
             IReadOnlyList<CutLabPoolCard> fullPool = state.Pool;
 
             IReadOnlyList<CutLabPoolCard> beforeWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
@@ -89,6 +114,11 @@ public sealed class CutLabApiController : ControllerBase
                 commanderNames,
                 poolKey: beforePoolKey,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
+            IReadOnlyDictionary<string, int> floorByRole = _floorResolver.Resolve(state, beforeContext.CommanderManaValue, commanderNames)
+                .ToDictionary(
+                    floor => floor.Role,
+                    floor => floor.Floor,
+                    StringComparer.OrdinalIgnoreCase);
             (_, CutLabRoundPlan beforeRoundPlan) = CutLabCutRoundEngine.BuildFindingsAndRoundPlan(
                 beforeWorkingList,
                 beforeContext,
@@ -111,7 +141,6 @@ public sealed class CutLabApiController : ControllerBase
                 state,
                 state.Intent.PlayExperience,
                 commanderNames,
-                floorByRole,
                 afterPreResolvedCards,
                 afterPoolKey,
                 floorWarnings,
@@ -221,14 +250,12 @@ public sealed class CutLabApiController : ControllerBase
             }
 
             IReadOnlyList<string> commanderNames = GetCommanderNames(state);
-            IReadOnlyDictionary<string, int> floorByRole = BuildFloorMap(state.RoleFloors);
             state = CutLabDecisionApplier.RestartRounds(state, [CutLabCutRoundEngine.Round1Key, CutLabCutRoundEngine.Round2Key]);
 
             CutLabUiPatchDto patch = await _patchBuilder.BuildAsync(
                 state,
                 state.Intent.PlayExperience,
                 commanderNames,
-                floorByRole,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
 
             return Ok(BuildDecideApiResponse(patch));
@@ -352,14 +379,12 @@ public sealed class CutLabApiController : ControllerBase
         }
 
         IReadOnlyList<string> commanderNames = GetCommanderNames(result.State);
-        IReadOnlyDictionary<string, int> floorByRole = BuildFloorMap(result.State.RoleFloors);
         string cardOut = result.CardOut ?? throw new InvalidOperationException("What-if commit must provide CardOut when applied.");
         string cardIn = result.CardIn ?? throw new InvalidOperationException("What-if commit must provide CardIn when applied.");
         CutLabUiPatchDto patch = await _patchBuilder.BuildAsync(
             result.State,
             result.State.Intent.PlayExperience,
             commanderNames,
-            floorByRole,
             cancellationToken: cancellationToken).ConfigureAwait(false);
 
         return Ok(new CutLabWhatifApiResponse
@@ -411,18 +436,26 @@ public sealed class CutLabApiController : ControllerBase
     private static IReadOnlyList<string> GetCommanderNames(CutLabState state)
         => string.IsNullOrWhiteSpace(state.Commander) ? [] : [state.Commander];
 
-    private static IReadOnlyDictionary<string, int> BuildFloorMap(IReadOnlyList<CutLabRoleFloor> roleFloors)
+    private sealed class StateRoleFloorResolver : ICutLabFloorResolver
     {
-        Dictionary<string, int> floors = new(StringComparer.OrdinalIgnoreCase);
-        foreach (CutLabRoleFloor floor in roleFloors)
+        public IReadOnlyList<CutLabResolvedFloor> Resolve(
+            CutLabState state,
+            double commanderManaValue,
+            IReadOnlyList<string> commanderNames)
         {
-            if (!string.IsNullOrWhiteSpace(floor.Role))
-            {
-                floors[floor.Role] = floor.Floor;
-            }
-        }
+            _ = commanderManaValue;
+            _ = commanderNames;
 
-        return floors;
+            return state.RoleFloors
+                .Select(floor => new CutLabResolvedFloor
+                {
+                    Role = floor.Role,
+                    Floor = floor.Floor,
+                    DefaultValue = floor.Floor,
+                    IsUserSet = floor.IsUserSet,
+                })
+                .ToArray();
+        }
     }
 
     private static string DetermineRoundKey(CutLabState state, CutLabDecideApiRequest request, CutLabRoundPlan roundPlan)
