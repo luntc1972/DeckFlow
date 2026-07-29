@@ -421,7 +421,7 @@ public sealed class CutLabCutRoundEngineTests
             {
                 ["payoffs"] = 1,
                 ["engines"] = 1,
-                ["lands"] = 99,
+                ["lands"] = 0,
             },
             roleCounts: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
             {
@@ -431,7 +431,7 @@ public sealed class CutLabCutRoundEngineTests
             });
 
         CutLabLockedOvershootAdvisory advisory = Assert.IsType<CutLabLockedOvershootAdvisory>(plan.LockedOvershootAdvisory);
-        Assert.Equal(["payoffs", "engines", "lands"], advisory.Groups.Select(group => group.RoleKey).ToArray());
+        Assert.Equal(["lands", "payoffs", "engines"], advisory.Groups.Select(group => group.RoleKey).ToArray());
     }
 
     [Fact]
@@ -439,8 +439,8 @@ public sealed class CutLabCutRoundEngineTests
     {
         IReadOnlyList<CutLabRoundInputCard> workingList =
         [
-            Card("Split Role Card", 1, isLocked: true, roles: ["draw", "engines"], typeLine: "Enchantment"),
-            Card("Draw Filler", 1, quantity: 100, isLocked: true, roles: ["draw"], typeLine: "Sorcery"),
+            Card("Split Role Card", 1, isLocked: true, roles: ["wincons", "lands"], typeLine: "Enchantment"),
+            Card("Wincon Filler", 1, quantity: 100, isLocked: true, roles: ["wincons"], typeLine: "Sorcery"),
         ];
 
         CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
@@ -450,19 +450,18 @@ public sealed class CutLabCutRoundEngineTests
             cardsToCutTarget: 2,
             floorByRole: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
             {
-                ["draw"] = 0,
-                ["engines"] = 1,
+                ["wincons"] = 0,
+                ["lands"] = 1,
             },
             roleCounts: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
             {
-                ["draw"] = 100,
-                ["engines"] = 1,
+                ["wincons"] = 100,
+                ["lands"] = 1,
             });
 
         CutLabLockedOvershootAdvisory advisory = Assert.IsType<CutLabLockedOvershootAdvisory>(plan.LockedOvershootAdvisory);
-        CutLabLockedOvershootGroup enginesGroup = Assert.Single(advisory.Groups, group => group.RoleKey == "engines");
-        Assert.Equal(["Split Role Card"], enginesGroup.CardNames);
-        Assert.DoesNotContain("Split Role Card", advisory.Groups.Single(group => group.RoleKey == "draw").CardNames);
+        CutLabLockedOvershootGroup landsGroup = Assert.Single(advisory.Groups, group => group.RoleKey == "lands");
+        Assert.Equal(["Split Role Card"], landsGroup.CardNames);
     }
 
     [Fact]

@@ -24,7 +24,7 @@
 
 ## Final Gates
 
-- Final build: `"/mnt/c/Program Files/dotnet/dotnet.exe" build DeckFlow.sln -c Release` -> `0` warnings, `0` errors.
+- Final build: `"/mnt/c/Program Files/dotnet/dotnet.exe" build DeckFlow.sln -c Release` -> `0` errors and `9` pre-existing `CS8629` warnings, all in `DeckFlow.Core.Tests/Manabase/ManabaseBaselineWeightingTests.cs`.
 - Final full-suite test: `"/mnt/c/Program Files/dotnet/dotnet.exe" test DeckFlow.sln -c Release` -> `4561` total, `4541` passed, `20` skipped, `0` failed.
   - `DeckFlow.Studio.Tests`: `430` total, `426` passed, `4` skipped, `0` failed.
   - `DeckFlow.Web.Tests`: `2120` total, `2104` passed, `16` skipped, `0` failed.
@@ -40,3 +40,4 @@
 ## Deviations From The Plan
 
 - Task 1's verify build was not warning-clean: it succeeded with `9` warnings emitted from `DeckFlow.Core.Tests/Manabase/ManabaseBaselineWeightingTests.cs`, outside the write set. No source outside the plan fence was changed to address them.
+- Post-verification, the locked-overshoot headroom-tiebreak and multi-role attribution tests were strengthened because the original plan fixtures could not discriminate the new headroom-first behavior from the old `roles.OrderBy(RolePriority).FirstOrDefault()` static-priority expression.
