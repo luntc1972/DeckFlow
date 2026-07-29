@@ -5,7 +5,7 @@ milestone_name: milestone
 current_phase: Phase 3 — Commander-Aware Floor Defaults (planned, not executed)
 current_plan: `03-01-PLAN.md` (wave 1 of 6)
 status: planned
-stopped_at: Phase 3 planned — blocked on the rebase onto main (1511dd95) before execution
+stopped_at: Phase 3 planned and rebased onto main (1511dd95) — ready to execute
 last_updated: "2026-07-29T00:51:31.733Z"
 last_activity: 2026-07-29
 progress:
@@ -20,7 +20,9 @@ progress:
 
 ## Current Position
 
-**Status:** Planned — execution blocked on the rebase onto `main` (`1511dd95`)
+**Status:** Planned and rebased onto `main` (`1511dd95`) — ready to execute
+
+> **Rebase, 2026-07-28.** 102 commits replayed onto `main`; 101 remain, one dropped. Five conflicts, all resolved in favour of `main` where both sides had independently fixed the same thing: three e2e specs where both sides disambiguated the sticky-bar locator (main's `.cutlab-sticky-bar[data-cut-lab-sticky-target]` kept as the more specific of the two, which made branch commit `8722a753` wholly redundant — that is the dropped commit), and two `DeckFlow.CLI/Program.cs` seams where main's `--thresholds` option sits directly above the role-floor command block. Verified afterwards: zero CR bytes anywhere in the diff, the whitespace-ignored diff identical to the full diff (so no EOL churn), build 0 errors / 9 pre-existing warnings, and 4,512 tests passing across Studio 426, Web 2098, Core 1988. Recovery point retained at branch `backup/cycle21-cut-lab-pre-rebase-2026-07-28` (`37275a87`).
 **Current Phase:** Phase 3 — Commander-Aware Floor Defaults (planned, not executed)
 **Last Activity:** 2026-07-29
 **Last Activity Description:** Phase 2 closed GO on six roles with lands pulled. Phase 3 planned into 7 plans across 6 waves after research resolved O-1/O-2/O-3, two review rounds (Claude plan-checker, then Codex proof-vs-claim), and a Codex convergence pass. Plans assume the post-rebase tree: 03-01 and 03-02 each open with a runnable precondition gate that exits 1 on the current un-rebased branch.
