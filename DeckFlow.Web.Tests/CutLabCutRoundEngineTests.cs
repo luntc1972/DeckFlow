@@ -306,7 +306,7 @@ public sealed class CutLabCutRoundEngineTests
     }
 
     [Fact]
-    public void BuildQueue_LockedOvershootRanksLeastCriticalRolesThenPrimaryTypes()
+    public void BuildQueue_LockedOvershootWithNoFloorData_KeepsTheFixedRoleOrder()
     {
         IReadOnlyList<CutLabRoundInputCard> workingList =
         [
@@ -357,6 +357,171 @@ public sealed class CutLabCutRoundEngineTests
                 Assert.Equal("lands", group.RoleKey);
                 Assert.Equal(["Ramp Land"], group.CardNames);
             });
+    }
+
+    [Fact]
+    public void BuildQueue_LockedOvershootRanksByHeadroomDescending()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Mass Wipe", 1, isLocked: true, roles: ["interaction-mass"], typeLine: "Sorcery"),
+            Card("Targeted Answer", 1, isLocked: true, roles: ["interaction-targeted"], typeLine: "Instant"),
+            Card("Payoff Creature", 1, isLocked: true, roles: ["payoffs"], typeLine: "Creature"),
+            Card("Wincon Sorcery", 1, isLocked: true, roles: ["wincons"], typeLine: "Sorcery"),
+            Card("Wincon Artifact", 1, isLocked: true, roles: ["wincons"], typeLine: "Artifact"),
+            Card("Draw Engine", 1, quantity: 99, isLocked: true, roles: ["draw"], typeLine: "Enchantment"),
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(),
+            [],
+            cardsToCutTarget: 2,
+            floorByRole: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["DRAW"] = 10,
+                ["payoffs"] = 0,
+                ["interaction-mass"] = 0,
+                ["interaction-targeted"] = 0,
+                ["WINCONS"] = 2,
+            },
+            roleCounts: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["draw"] = 99,
+                ["PAYOFFS"] = 1,
+                ["interaction-mass"] = 1,
+                ["interaction-targeted"] = 1,
+                ["wincons"] = 2,
+            });
+
+        CutLabLockedOvershootAdvisory advisory = Assert.IsType<CutLabLockedOvershootAdvisory>(plan.LockedOvershootAdvisory);
+        // Why: the fixed array put wincons first as least-structural, but wincons usually has the least slack
+        // against its floor. Headroom ranking should surface the roomiest role first and the tightest last.
+        Assert.Equal(
+            ["draw", "payoffs", "interaction-mass", "interaction-targeted", "wincons"],
+            advisory.Groups.Select(group => group.RoleKey).ToArray());
+    }
+
+    [Fact]
+    public void BuildQueue_LockedOvershootHeadroomTies_FallBackToTheFixedRoleOrder()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Payoff Creature", 1, isLocked: true, roles: ["payoffs"], typeLine: "Creature"),
+            Card("Engine Artifact", 1, isLocked: true, roles: ["engines"], typeLine: "Artifact"),
+            Card("Locked Lands", 1, quantity: 99, isLocked: true, isLand: true, roles: ["lands"]),
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(),
+            [],
+            cardsToCutTarget: 2,
+            floorByRole: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["payoffs"] = 1,
+                ["engines"] = 1,
+                ["lands"] = 99,
+            },
+            roleCounts: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["payoffs"] = 2,
+                ["engines"] = 2,
+                ["lands"] = 99,
+            });
+
+        CutLabLockedOvershootAdvisory advisory = Assert.IsType<CutLabLockedOvershootAdvisory>(plan.LockedOvershootAdvisory);
+        Assert.Equal(["payoffs", "engines", "lands"], advisory.Groups.Select(group => group.RoleKey).ToArray());
+    }
+
+    [Fact]
+    public void BuildQueue_LockedOvershootMultiRoleCard_IsAttributedToItsTightestRole()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Split Role Card", 1, isLocked: true, roles: ["draw", "engines"], typeLine: "Enchantment"),
+            Card("Draw Filler", 1, quantity: 100, isLocked: true, roles: ["draw"], typeLine: "Sorcery"),
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(),
+            [],
+            cardsToCutTarget: 2,
+            floorByRole: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["draw"] = 0,
+                ["engines"] = 1,
+            },
+            roleCounts: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["draw"] = 100,
+                ["engines"] = 1,
+            });
+
+        CutLabLockedOvershootAdvisory advisory = Assert.IsType<CutLabLockedOvershootAdvisory>(plan.LockedOvershootAdvisory);
+        CutLabLockedOvershootGroup enginesGroup = Assert.Single(advisory.Groups, group => group.RoleKey == "engines");
+        Assert.Equal(["Split Role Card"], enginesGroup.CardNames);
+        Assert.DoesNotContain("Split Role Card", advisory.Groups.Single(group => group.RoleKey == "draw").CardNames);
+    }
+
+    [Fact]
+    public void BuildQueue_LockedOvershootRoleMissingFromFloorMap_DoesNotThrow()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Unknown Role Card", 1, isLocked: true, roles: ["mystery-role"], typeLine: "Artifact"),
+            Card("Known Role Card", 1, quantity: 100, isLocked: true, roles: ["payoffs"], typeLine: "Creature"),
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(),
+            [],
+            cardsToCutTarget: 2,
+            floorByRole: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["payoffs"] = 0,
+            },
+            roleCounts: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["payoffs"] = 100,
+            });
+
+        CutLabLockedOvershootAdvisory advisory = Assert.IsType<CutLabLockedOvershootAdvisory>(plan.LockedOvershootAdvisory);
+        Assert.Contains(advisory.Groups, group => group.RoleKey == "mystery-role");
+    }
+
+    [Fact]
+    public void BuildQueue_LockedOvershootOtherRole_StaysLastDespiteHighCount()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Payoff Creature", 1, isLocked: true, roles: ["payoffs"], typeLine: "Creature"),
+            Card("No Role Card", 1, isLocked: true, roles: [], typeLine: "Artifact"),
+            Card("Locked Lands", 1, quantity: 99, isLocked: true, isLand: true, roles: ["lands"]),
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(),
+            [],
+            cardsToCutTarget: 2,
+            floorByRole: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["payoffs"] = 0,
+                ["lands"] = 99,
+            },
+            roleCounts: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["payoffs"] = 1,
+                ["lands"] = 99,
+                ["other"] = 500,
+            });
+
+        CutLabLockedOvershootAdvisory advisory = Assert.IsType<CutLabLockedOvershootAdvisory>(plan.LockedOvershootAdvisory);
+        Assert.Equal("other", advisory.Groups[^1].RoleKey);
+        Assert.Equal(["No Role Card"], advisory.Groups[^1].CardNames);
     }
 
     [Fact]
