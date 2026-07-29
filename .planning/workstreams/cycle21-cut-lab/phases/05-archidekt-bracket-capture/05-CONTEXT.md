@@ -44,7 +44,7 @@ Locked scope:
 
 - **D-05: Both bulk harvest and one-off admin URL import write the same deck metadata.** The user selected "Both paths." Any successful Archidekt deck import that marks a deck processed in `deck_queue` should also persist the curated metadata captured from that same payload.
   - Bulk path: `ArchidektDeckCacheSession.PersistDeckAsync` imports the deck, computes the content hash, persists category rows, and calls `MarkDeckProcessedAsync`.
-  - URL path: `AdminHarvestController.ImportUrl` imports the deck, persists category rows, and calls `MarkUrlDeckProcessedAsync`.
+  - URL path: `AdminHarvestController.SubmitUrl(string url, CancellationToken cancellationToken)` (`[HttpPost("url")]`, `AdminHarvestController.cs:229-231`) imports the deck, persists category rows, and calls `MarkUrlDeckProcessedAsync`.
   - Planning should avoid two independent metadata implementations. Prefer one returned metadata shape from the importer and one repository update surface shared by both paths.
 
 - **D-06: Skip/failure rows do not fabricate metadata.** If deck import fails and the deck is marked skipped, metadata columns stay null unless a payload was successfully parsed before the failure. Failed imports must not write a bracket from partial or guessed state.
@@ -54,6 +54,13 @@ Locked scope:
 - **D-07: Extend the Archidekt importer with a metadata-bearing result rather than overloading `DeckEntry`.** `DeckEntry` is card-level data. Deck-level metadata belongs in a separate result/record, with the existing `ImportAsync` either preserved for compatibility or adapted through a wrapper.
 
 - **D-08: Content hash remains card-list based.** Capturing deck metadata must not cause category cache rewrites when only metadata changes unless the planner deliberately adds a metadata-only update path. The existing hash is about deck entries/categories, not top-level deck metadata.
+
+### URL-Import Commander Attribution
+
+- **D-09: The URL-import commander-extraction fix is ratified into Phase 5.** `AdminHarvestController.SubmitUrl` selects the commander with `string.Equals(entry.Category, "Commander", ...)` (`AdminHarvestController.cs:269`). That predicate is **unreachable for Archidekt payloads**: `IsBoardCategory` (`AdminHarvestController.cs:152`, applied at `:79`) strips `Commander` out of `Category`, and `ArchidektApiDeckImporter.DetermineBoard` records the commander as `Board = "commander"` (`ArchidektApiDeckImporter.cs:130`). Consequently every URL-imported `deck_queue` row persists `commander_name = NULL` **always**, today. Phase 5 changes the predicate to `entry.Board == "commander"` with ordinal-ignore-case comparison, matching the already-correct bulk path (`ArchidektDeckCacheSession.cs:185-188`). This is a decision, not a suggestion: plan 05-03 implements it and tests it.
+  - **No backfill.** Pre-existing URL-imported rows are **not** backfilled and keep `commander_name IS NULL`, mirroring D-04's no-backfill posture. Correct commander attribution for the URL subset begins at Phase 5 deploy time.
+  - **Corpus consequence.** Any future commander-grouped corpus query must **not** read the URL-imported subset as a time series: those aggregates filter `commander_name IS NOT NULL` (`DeckQueueRepository.cs:74`, `:101`), so URL-imported decks appear to begin existing at the Phase 5 deploy boundary even though the rows are older.
+  - **User-visible effect.** The admin success banner's rendered text changes from `"Harvested deck: N new observations."` to `"Harvested <Commander>: N new observations."` (`AdminHarvestController.cs:286`). The interpolated format string itself is unchanged; only the previously-always-null `commanderName` now resolves.
 
 ### Claude's Discretion
 
@@ -107,7 +114,7 @@ Locked scope:
 
 ### Integration Points
 - Bulk harvest: `RunAsync` -> `PersistDeckAsync` -> `_repository.MarkDeckProcessedAsync(...)`.
-- URL import: `AdminHarvestController.ImportUrl` -> `_deckImporter.ImportAsync(url)` -> `PersistImportedDeckEntriesAsync` -> `_categoryStore.MarkUrlDeckProcessedAsync(...)`.
+- URL import: `AdminHarvestController.SubmitUrl` (`AdminHarvestController.cs:229-231`) -> `_deckImporter.ImportAsync(url)` -> `PersistImportedDeckEntriesAsync` -> `_categoryStore.MarkUrlDeckProcessedAsync(...)`.
 - Any importer API change must preserve existing deck loading callers that only need `List<DeckEntry>`, such as `DeckEntryLoader`.
 
 </code_context>
