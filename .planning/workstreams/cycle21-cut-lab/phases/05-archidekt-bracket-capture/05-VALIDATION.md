@@ -27,10 +27,10 @@ created: 2026-07-29
 
 ## Sampling Rate
 
-- **After every task commit:** Run the relevant focused test for changed files.
+- **After every task commit:** Run the narrowest relevant focused test filter for changed files; keep this as the fast feedback loop.
 - **After every plan wave:** Run `dotnet.exe test DeckFlow.Core.Tests/DeckFlow.Core.Tests.csproj --no-restore` and any changed Web test project slice.
 - **Before `/gsd:verify-work`:** Full solution build and relevant test projects must be green.
-- **Max feedback latency:** 180 seconds for focused checks.
+- **Max focused feedback latency target:** 30 seconds for per-task filters. Slower Core/Web project slices, gated Postgres tests, and full-solution checks are wave/phase verification rather than per-task feedback.
 
 ---
 
