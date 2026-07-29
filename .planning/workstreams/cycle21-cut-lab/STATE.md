@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: Phase 2 — Role-Floor Divergence Research (planned, not executed)
-current_plan: `02-01-PLAN.md` (wave 1 of 6)
-status: Planned — Phase 2 execution queued from committed baseline `27e25459`
-stopped_at: Phase 3 context gathered
-last_updated: "2026-07-28T23:30:33.873Z"
-last_activity: 2026-07-27
+current_phase: Phase 3 — Commander-Aware Floor Defaults (planned, not executed)
+current_plan: `03-01-PLAN.md` (wave 1 of 6)
+status: planned
+stopped_at: Phase 3 planned — blocked on the rebase onto main (1511dd95) before execution
+last_updated: "2026-07-29T00:51:31.733Z"
+last_activity: 2026-07-29
 progress:
   total_phases: 7
   completed_phases: 1
-  total_plans: 14
+  total_plans: 21
   completed_plans: 11
   percent: 14
 ---
@@ -20,16 +20,18 @@ progress:
 
 ## Current Position
 
-**Status:** Planned — Phase 2 execution queued from committed baseline `27e25459`
-**Current Phase:** Phase 2 — Role-Floor Divergence Research (planned, not executed)
-**Last Activity:** 2026-07-27
-**Last Activity Description:** The developer resolved D-A, D-B, and D-C, committed the unrepaired harness as baseline `27e25459`, re-planned Phase 2 into 9 plans across 7 waves, and queued `02-01-PLAN.md` as wave 1.
+**Status:** Planned — execution blocked on the rebase onto `main` (`1511dd95`)
+**Current Phase:** Phase 3 — Commander-Aware Floor Defaults (planned, not executed)
+**Last Activity:** 2026-07-29
+**Last Activity Description:** Phase 2 closed GO on six roles with lands pulled. Phase 3 planned into 7 plans across 6 waves after research resolved O-1/O-2/O-3, two review rounds (Claude plan-checker, then Codex proof-vs-claim), and a Codex convergence pass. Plans assume the post-rebase tree: 03-01 and 03-02 each open with a runnable precondition gate that exits 1 on the current un-rebased branch.
 
 ## Progress
 
-**Total phases:** 7 (Phase 01.1 and Phase 01.2 both sit ahead of Phase 2; Phase 3 remains conditional on Phase 2 go/no-go; Phases 4 and 5 remain independent)
-**Phases Complete:** 2
-**Current Plan:** `02-01-PLAN.md` (wave 1 of 6)
+**Total phases:** 7 (Phase 01.2 sits ahead of Phase 3; Phases 4 and 5 remain independent)
+**Phases Complete:** 1 (see the frontmatter note below)
+**Current Plan:** `03-01-PLAN.md` (wave 1 of 6)
+
+> **Counter discrepancy, not silently resolved.** `completed_phases: 1` in the frontmatter and the previous prose value of 2 disagreed, and Phase 2's closeout makes both questionable. By summary evidence: Phase 01 has a PLAN but no SUMMARY, Phase 01.1 has two of each, Phase 2 has eleven PLANs and nine SUMMARYs (02-10 and 02-11 were executed without one). The right value depends on whether Phase 01 and the two summary-less Phase 2 plans count as closed — a judgement for the developer, so the counter is left at 1 rather than guessed upward.
 
 ## Decisions Resolved (2026-07-27)
 
