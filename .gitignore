@@ -50,3 +50,10 @@ _calib/
 # Python bytecode from the cEDH baseline scripts. Regenerated on every run and
 # interpreter-version specific, so it is pure churn in a diff.
 __pycache__/
+
+# fable-foreman orchestration ledgers and scratch. AI-side durable state (baseline commits,
+# task rows, worker attempt logs) used to survive context clears - process exhaust, not
+# something the build, the app, or a reader of this repo needs. Engineering rationale belongs
+# in commit bodies and docs/decisions/ ADRs instead. Files stay on disk; history keeps the
+# 22 already committed.
+.foreman/
