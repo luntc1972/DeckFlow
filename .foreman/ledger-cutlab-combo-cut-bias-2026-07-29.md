@@ -209,6 +209,59 @@ explicit user authorization. The second reader was a blind same-family verifier.
 It is **self-implemented with same-family blind review — NOT cross-AI verified.**
 Re-running a Codex read-only review once credits return is recommended before merge.
 
+## T4 — follow-up defect found at UAT (2026-07-30)
+
+User UAT of `31042a36` PASSED for Ashnod's Altar (no longer round 1), then surfaced a
+SECOND card: Agatha's Soul Cauldron proposed first despite sitting in two combos.
+
+Initial foreman diagnosis was WRONG and is recorded as such. I theorised round-3
+cheapest-first ordering. The user's screenshot disproved it: the banner read
+**Round 2 - Structural choices**, "Flagged by 1 findings", chip = **Curve congestion**.
+So the tally fix was working correctly — the card earned round 2 on a legitimate
+non-combo finding.
+
+Real defect (D4): `ComboProtected` had NO effect on ordering at all. Excluding it from
+the tally (T1) stopped it promoting cards, but it never demoted them either, so a card in
+two complete combos could still lead a round on one unrelated finding. The label
+"Combo-protected" promised protection the code never delivered.
+
+Fix (user chose "sort combo pieces last within their round" over filtering them out):
+combo membership is now the FIRST ordering key in all three first-pass rounds
+(`CutLabCutRoundEngine.cs`, round1/round2/round3 comparers) via a new
+`ComboProtectionRank` helper. Combo pieces stay cuttable — they just never lead.
+Set is derived from `findings.Findings` where `Kind == ComboProtected`, NOT from
+`Tally.Kinds`: the tally deliberately drops that kind, so reading it there would have
+produced an empty set and a silently no-op fix.
+Second-pass (deferred/rejected) ordering deliberately untouched — it preserves the user's
+own decision ordinal.
+
+TDD: 3 tests written first, all red (`Failed: 3, Passed: 23`), including
+`BuildQueue_ComboProtectedCardSortsAfterEquallyFlaggedNonComboCard_AgathaRegression`
+(MV-2 combo card vs MV-5 plain card, one curve-congestion finding each).
+Green: Web `Passed: 2052, Failed: 0, Skipped: 16, Total: 2068` (+3), Core `1843/0`.
+EOL: no churn (96 ins / 3 del identical under `--ignore-all-space`, 0 CR both trees).
+Format gate: FORMAT_EXIT=0.
+
+Environment note: the first full-suite run failed with `MSB3027`/`MSB3021`, NOT a test
+failure — the running local UAT server held `DeckFlow.Web.exe` and blocked the test
+build's apphost copy. Stopped the server, re-ran clean. Any `dotnet test` of
+DeckFlow.Web.Tests requires the local server to be stopped first.
+
+User UAT of the combo-sort change: PASSED (2026-07-30).
+
+## Known-but-unfixed (observed in the UAT screenshot, out of scope)
+
+- "Flagged by **1 findings**" — singular/plural grammar bug in the proposal card.
+- "0 of 7 metric families changed meaningfully" is shown on a card the tool is actively
+  proposing to cut, which is a weak basis for leading a round.
+- Round 3's `round3DeltaMagnitudes` parameter is never supplied by ANY of the three
+  production call sites (`CutLabPageService.cs:364`, `CutLabUiPatchBuilder.cs:75`,
+  `CutLabApiController.cs:92`), so `Round3DeltaMagnitudeFor` always returns
+  `PositiveInfinity` and round 3 degrades to an ascending mana-value sort — cheapest
+  first, which is backwards for cEDH. The banner nonetheless claims "ordered by smallest
+  measurable tradeoff first". Pre-existing; NOT the cause of the Agatha report.
+- Defect 3 (`requires[]` template slots) still unfixed — the upstream root cause.
+
 ## Final write set (5 files)
 
 | File | Kind |
