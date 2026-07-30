@@ -217,6 +217,18 @@ public static class CutLabCutRoundEngine
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         IReadOnlyDictionary<string, CardFindingTally> findingTallies = BuildFindingTallies(findings.Findings);
 
+        // Why: ComboProtected is deliberately absent from the tally so it can never promote a card,
+        // but that left it with no effect whatsoever — a card sitting in two complete combos could
+        // still lead a round on one unrelated finding. Combo membership is therefore applied as the
+        // FIRST ordering key of every first-pass round, so a combo piece is proposed only after the
+        // equally-flagged non-combo cards in that same round. It stays cuttable; it stops leading.
+        IReadOnlySet<string> comboProtectedCardNames = findings.Findings
+            .Where(finding => finding.Kind == CutLabFindingKind.ComboProtected)
+            .SelectMany(finding => finding.Evidence)
+            .Select(evidence => evidence.CardName)
+            .Where(cardName => !string.IsNullOrWhiteSpace(cardName))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         IReadOnlyList<CutLabRoundInputCard> eligibleCards = workingList
             .Where(card =>
                 !card.IsLocked
@@ -233,7 +245,8 @@ public static class CutLabCutRoundEngine
 
         IReadOnlyList<CutLabRoundQueueItem> round1 = firstPassCards
             .Where(entry => entry.Tally.Count >= 2)
-            .OrderByDescending(entry => entry.Tally.Count)
+            .OrderBy(entry => ComboProtectionRank(comboProtectedCardNames, entry.Card.Name))
+            .ThenByDescending(entry => entry.Tally.Count)
             .ThenBy(entry => entry.Card.ManaValue)
             .ThenBy(entry => entry.Card.Name, StringComparer.OrdinalIgnoreCase)
             .Select(entry => ToQueueItem(entry.Card.Name, Round1Key, entry.Tally))
@@ -241,14 +254,16 @@ public static class CutLabCutRoundEngine
 
         IReadOnlyList<CutLabRoundQueueItem> round2 = firstPassCards
             .Where(entry => entry.Tally.Count == 1)
-            .OrderBy(entry => entry.Card.ManaValue)
+            .OrderBy(entry => ComboProtectionRank(comboProtectedCardNames, entry.Card.Name))
+            .ThenBy(entry => entry.Card.ManaValue)
             .ThenBy(entry => entry.Card.Name, StringComparer.OrdinalIgnoreCase)
             .Select(entry => ToQueueItem(entry.Card.Name, Round2Key, entry.Tally))
             .ToArray();
 
         IReadOnlyList<CutLabRoundQueueItem> round3 = firstPassCards
             .Where(entry => entry.Tally.Count == 0)
-            .OrderBy(entry => Round3DeltaMagnitudeFor(round3DeltaMagnitudes, entry.Card.Name))
+            .OrderBy(entry => ComboProtectionRank(comboProtectedCardNames, entry.Card.Name))
+            .ThenBy(entry => Round3DeltaMagnitudeFor(round3DeltaMagnitudes, entry.Card.Name))
             .ThenBy(entry => entry.Card.ManaValue)
             .ThenBy(entry => entry.Card.Name, StringComparer.OrdinalIgnoreCase)
             .Select(entry => ToQueueItem(entry.Card.Name, Round3Key, entry.Tally))
@@ -399,6 +414,11 @@ public static class CutLabCutRoundEngine
         => tallies.TryGetValue(cardName, out CardFindingTally? tally)
             ? tally
             : CardFindingTally.Empty;
+
+    // Why: returns a sort rank, not a bool, so it can lead an OrderBy chain without inverting the
+    // remaining keys. 0 = not a combo piece (proposed first), 1 = combo piece (proposed last).
+    private static int ComboProtectionRank(IReadOnlySet<string> comboProtectedCardNames, string cardName)
+        => comboProtectedCardNames.Contains(cardName) ? 1 : 0;
 
     private static double Round3DeltaMagnitudeFor(IReadOnlyDictionary<string, double>? deltaMagnitudes, string cardName)
         => deltaMagnitudes is not null && deltaMagnitudes.TryGetValue(cardName, out double magnitude)

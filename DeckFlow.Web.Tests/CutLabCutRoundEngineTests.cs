@@ -499,6 +499,79 @@ public sealed class CutLabCutRoundEngineTests
         Assert.Equal(CutLabCutRoundEngine.Round1Key, plan.NextProposal.RoundKey);
     }
 
+    // Why: pins the July 2026 report where Agatha's Soul Cauldron led round 2 on a single
+    // curve-congestion finding while sitting in two complete combos. Combo membership must
+    // break the tie so a combo piece is proposed after an equally-flagged non-combo card.
+    [Fact]
+    public void BuildQueue_ComboProtectedCardSortsAfterEquallyFlaggedNonComboCard_AgathaRegression()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Agatha's Soul Cauldron", 2),
+            Card("Plain Filler", 5),
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(
+                Finding(CutLabFindingKind.CurveCongestion, "Agatha's Soul Cauldron", "Plain Filler"),
+                Finding(CutLabFindingKind.ComboProtected, "Agatha's Soul Cauldron")),
+            [],
+            cardsToCutTarget: 2);
+
+        // Both are round 2 (one discriminating finding each); the combo piece must not lead.
+        Assert.Equal("Plain Filler", plan.NextProposal!.CardName);
+        Assert.Equal(CutLabCutRoundEngine.Round2Key, plan.NextProposal.RoundKey);
+
+        CutLabRoundQueueItem cauldron = Assert.Single(plan.Queue, item => item.CardName == "Agatha's Soul Cauldron");
+        Assert.Equal(CutLabCutRoundEngine.Round2Key, cauldron.RoundKey);
+        Assert.True(
+            plan.Queue.ToList().IndexOf(cauldron) > 0,
+            "combo-protected card must not be the first proposal in its round");
+    }
+
+    [Fact]
+    public void BuildQueue_ComboProtectedCardSortsLastInRound1DespiteHigherTally()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Combo Engine", 2),
+            Card("Plain Filler", 4),
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(
+                Finding(CutLabFindingKind.CurveCongestion, "Combo Engine", "Plain Filler"),
+                Finding(CutLabFindingKind.StrandedSubtheme, "Combo Engine", "Plain Filler"),
+                Finding(CutLabFindingKind.RedundantFinishers, "Combo Engine"),
+                Finding(CutLabFindingKind.ComboProtected, "Combo Engine")),
+            [],
+            cardsToCutTarget: 2);
+
+        Assert.Equal("Plain Filler", plan.NextProposal!.CardName);
+        Assert.Equal(CutLabCutRoundEngine.Round1Key, plan.NextProposal.RoundKey);
+    }
+
+    [Fact]
+    public void BuildQueue_ComboProtectedCardSortsLastInRound3DespiteLowerManaValue()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Cheap Combo Piece", 1),
+            Card("Expensive Filler", 6),
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(Finding(CutLabFindingKind.ComboProtected, "Cheap Combo Piece")),
+            [],
+            cardsToCutTarget: 2);
+
+        Assert.Equal("Expensive Filler", plan.NextProposal!.CardName);
+        Assert.Equal(CutLabCutRoundEngine.Round3Key, plan.NextProposal.RoundKey);
+    }
+
     private static CutLabRoundInputCard Card(
         string name,
         double manaValue,
