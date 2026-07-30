@@ -379,6 +379,49 @@ public sealed class CutLabStructuralFindingsTests
     }
 
     [Fact]
+    public void Compute_EnablerStarved_GroupsVariantsSharingTheSameInDeckCardSet()
+    {
+        IReadOnlyList<SpellbookAlmostCombo> nearCombos =
+        [
+            new("Mikaeus, the Unhallowed", ["Ashnod's Altar", "Putrid Goblin"], ["Infinite mana"], "Assemble all three."),
+            new("Melira, Sylvok Outcast", ["Ashnod's Altar", "Putrid Goblin"], ["Infinite mana"], "Assemble all three."),
+            new("Vizier of Remedies", ["Ashnod's Altar", "Putrid Goblin"], ["Infinite mana"], "Assemble all three."),
+        ];
+
+        CutLabStructuralFindingsResult result = CutLabStructuralFindings.Compute(
+            Array.Empty<CutLabAnalyzedCard>(),
+            nearCombos,
+            Floors(),
+            comboDataAvailable: true,
+            categoryDataAvailable: true);
+
+        CutLabFinding finding = Assert.Single(result.Findings, candidate => candidate.Kind == CutLabFindingKind.EnablerStarved);
+        Assert.Equal("Enabler-starved cards", finding.Heading);
+        Assert.Equal(
+            "Ashnod's Altar and Putrid Goblin are missing their combo partners: Melira, Sylvok Outcast, Mikaeus, the Unhallowed and Vizier of Remedies.",
+            finding.Lead);
+    }
+
+    [Fact]
+    public void Compute_EnablerStarved_KeepsDistinctInDeckCardSetsAsSeparateFindings()
+    {
+        IReadOnlyList<SpellbookAlmostCombo> nearCombos =
+        [
+            new("Thassa's Oracle", ["Demonic Consultation", "Tainted Pact"], ["Win the game"], "Cast both."),
+            new("Mikaeus, the Unhallowed", ["Ashnod's Altar", "Putrid Goblin"], ["Infinite mana"], "Assemble all three."),
+        ];
+
+        CutLabStructuralFindingsResult result = CutLabStructuralFindings.Compute(
+            Array.Empty<CutLabAnalyzedCard>(),
+            nearCombos,
+            Floors(),
+            comboDataAvailable: true,
+            categoryDataAvailable: true);
+
+        Assert.Equal(2, result.Findings.Count(candidate => candidate.Kind == CutLabFindingKind.EnablerStarved));
+    }
+
+    [Fact]
     public void Compute_DegradedFlags_PreserveAvailabilityWithoutConfidentDependentFindings()
     {
         IReadOnlyList<CutLabAnalyzedCard> pool =

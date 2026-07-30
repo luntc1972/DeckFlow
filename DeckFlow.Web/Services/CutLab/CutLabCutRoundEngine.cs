@@ -106,14 +106,23 @@ public static class CutLabCutRoundEngine
     /// <summary>Fixed UI banner copy for committed what-if swaps.</summary>
     public const string WhatifSwapLabel = "What-if swap";
 
-    // Why: "Obvious cuts" should reflect findings that discriminate among cards, not role-wide
-    // warnings that attach to every member of a protected or redundant role uniformly.
+    // Why: "Obvious cuts" should reflect findings that discriminate among cards. Two separate
+    // classes of finding fail that test and are excluded here.
+    // WeakFloorCase and RedundantFinishers are role-wide warnings that attach to every member of
+    // a protected or redundant role uniformly, so they rank nothing against anything.
+    // ComboProtected and EnablerStarved are combo advisories, and both are emitted from the same
+    // near-combo input (CutLabStructuralFindings.Compute feeds `nearCombos` to both detectors under
+    // the same threshold). Counting only one of the pair meant a card was pushed *toward* being cut
+    // for being a combo piece: the protective finding scored 0 while its punitive twin scored +1,
+    // so combo-dense cards sorted to the top of round 1. Combo findings inform the user; they never
+    // promote a card up the cut queue. Both still render in the UI.
     private static readonly IReadOnlySet<CutLabFindingKind> ExcludedFindingKindsFromTally =
         new HashSet<CutLabFindingKind>
         {
             CutLabFindingKind.WeakFloorCase,
             CutLabFindingKind.RedundantFinishers,
             CutLabFindingKind.ComboProtected,
+            CutLabFindingKind.EnablerStarved,
         };
 
     // Why: this advisory intentionally ranks from least-structural to most-structural roles so the

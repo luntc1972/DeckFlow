@@ -1,0 +1,220 @@
+# Foreman Ledger — Cut Lab combo-piece cut bias
+
+- **Run started:** 2026-07-29
+- **Mode:** Codex-boosted (Agent ✓, real shell ✓, codex-cli 0.146.0 ✓, ChatGPT-account login)
+- **Baseline commit:** `1511dd95` (== origin/main), working tree clean
+- **Worktree:** `/mnt/c/users/chrislunt/source/personal/deckflow-combo-cuts`
+- **Branch:** `fix/cutlab-combo-cut-bias`
+- **Scope:** defects D1 + D2 only. D3 (`requires[]` template slots) is a separate later branch, explicitly out of scope.
+- **Ship shape:** unflagged hotfix (user decision, 2026-07-29). Merging to main autodeploys.
+- **Codex seats:** coding `gpt-5.4` medium; review `gpt-5.5` medium (session default, user-confirmed).
+
+## Problem
+
+Cut Lab promotes combo-dense cards to Round 1 "Obvious cuts". Reported live on
+Moxfield deck `7KhI3pGznU2O1SELaVK94g` (Celes, Rune Knight) — Ashnod's Altar
+proposed first despite being a live combo piece.
+
+- **D1** — `CutLabCutRoundEngine.cs:111-117`: `ExcludedFindingKindsFromTally`
+  contains `ComboProtected` but not `EnablerStarved`. `BuildFindingTallies:363-386`
+  skips excluded kinds then does `tally.Count++` per surviving finding. The
+  protective finding scores 0; its punitive twin — emitted from the *same*
+  near-combo input — scores +1.
+- **D2** — `CutLabStructuralFindings.cs:282-299`: `ComputeEnablerStarved`
+  iterates `nearCombos` ungrouped, while `ComputeComboProtected:342-378` groups
+  near-combo variants by card-set. N Spellbook variants of one near-combo yield
+  N findings (and, pre-D1, N tally points).
+
+Upstream root cause is D3 (`CommanderSpellbookService.cs:261` reads `uses` only,
+ignoring `requires[]` template slots), which manufactures the phantom
+near-combos these two defects then amplify. Out of scope here.
+
+## Pre-dispatch audit (Claude, before any dispatch)
+
+| Existing test | Verdict |
+|---|---|
+| `CutLabCutRoundEngineTests.cs:11` `BuildQueue_TwoDiscriminatingFindings_PlacesCardInRound1` | Survives. Its `EnablerStarved` fixture at `:26` is incidental — assertions `:30-36` only touch "Round 1 Card". |
+| `CutLabCutRoundEngineTests.cs:66` `BuildQueue_OneDiscriminatingFindingGoesToRound2...` | Survives. Uses `CurveCongestion`, not `EnablerStarved`. |
+| `CutLabStructuralFindingsTests.cs:210` `Compute_EnablerStarved_UsesInDeckCardsAsPluralSubject...` | Survives. Second fixture combo has `CardsInDeck.Count == 1` (below `NearComboMinPiecesInDeck = 2`) so only one group forms; lead string unchanged. |
+| `CutLabStructuralFindingsTests.cs:363` `Compute_ComboProtected_AndEnablerStarved_CoexistForNearComboData` | Survives. Neither defect fix suppresses emission — only tally weight (D1) and per-variant duplication (D2). |
+
+Expectation: **zero existing tests change.** Codex must verify, not assume.
+
+## Foreman design decisions
+
+- **DD-1** — `EnablerStarved` keeps rendering in the UI; only its tally weight is
+  removed. Minimal and reversible; "you're one card from a combo" is a shopping-list
+  signal, not a cut signal.
+- **DD-2** — Grouped `EnablerStarved` lead text preserves the existing string
+  byte-for-byte when exactly one distinct missing card exists, and switches to
+  "combo partners:" (plural) only when >1. This keeps
+  `CutLabStructuralFindingsTests.cs:228` green without a grammar wart.
+
+## Tasks
+
+| ID | Task | Seat | Write set | Status |
+|----|------|------|-----------|--------|
+| T1 | TDD red tests + D1/D2 fix | Codex `gpt-5.4` medium | `CutLabCutRoundEngine.cs`, `CutLabStructuralFindings.cs`, `CutLabCutRoundEngineTests.cs`, `CutLabStructuralFindingsTests.cs` | **BLOCKED** — Codex out of credits |
+| T2 | Blind verification | `foreman-verifier` | none (read-only) | PENDING (gated on T1) |
+| T3 | Cross-AI review | Codex `gpt-5.5` medium, read-only | none | PENDING (also credit-gated) |
+
+## Attempts (append-only)
+
+- 2026-07-29 — ledger created, baseline `1511dd95` clean, T1 not yet dispatched.
+- 2026-07-29 — T1 attempt 1 dispatched to Codex `gpt-5.4` medium, `-s danger-full-access`,
+  `-C <worktree>`. **BLOCKED.** Codex exited without touching a file
+  (`git diff` empty; only the untracked ledger present). Error, verbatim:
+  `ERROR: Your workspace is out of credits. Ask your workspace owner to refill in order to continue.`
+  Not retried: this is a hard account-state error, not a transient failure, and the
+  identical error already aborted a Codex plan review earlier today (~16:56).
+  Surfaced to user for authorization per CLAUDE.md "Cross-AI dispatch failures" rule 3.
+- 2026-07-29 — Environment defect found and fixed (blocks ANY executor, not just Codex):
+  the fresh worktree had no `DeckFlow.Web/node_modules`, so the `CompileTypeScriptAssets`
+  MSBuild target failed with
+  `Cannot find module '...\DeckFlow.Web\node_modules\typescript\bin\tsc'` / `MSB3073`.
+  Fixed with a Windows junction to the main worktree's `node_modules`
+  (the pattern `.gitignore:8` already anticipates). Verified `typescript/bin/tsc` resolves.
+  NOTE: an earlier baseline build was misread as passing because exit code was taken
+  from a pipe, not from `dotnet`. Baseline re-run with the exit code captured directly.
+- 2026-07-29 — Baseline confirmed green: `dotnet build DeckFlow.sln` → BUILD_EXIT=0,
+  0 errors, 9 warnings (matches the known CS8629 baseline).
+- 2026-07-29 — **User authorized Claude to implement T1** after the Codex credit block
+  (explicit answer to a direct AskUserQuestion, options included "pause" and "refill").
+  Seat changed LEAD-implements. Assurance is therefore REDUCED: the standard
+  cross-family split (Codex writes / Claude reviews) is unavailable, so the second
+  reader is a blind `foreman-verifier` — fresh context, no edit tools, given the
+  original task verbatim. Same model family writes and checks. This must be disclosed
+  in the final report and NOT presented as cross-AI verified.
+- 2026-07-29 — T1 step A (RED) complete and evidenced. Ran the two affected test classes
+  against the unfixed tree: `Failed: 5, Passed: 38, Total: 43`. The five failures are
+  exactly the predicted set:
+    * `BuildQueue_EnablerStarvedDoesNotCountTowardDiscriminatingTally`
+    * `BuildQueue_OnlyEnablerStarvedFindings_LandInRound3`
+    * `BuildQueue_ComboProtectedPlusEnablerStarved_IsNotPromotedAboveRound3`
+    * `BuildQueue_ComboDenseCardNeverReachesRound1_AshnodsAltarRegression`
+    * `Compute_EnablerStarved_GroupsVariantsSharingTheSameInDeckCardSet`
+  A7 (`..._KeepsDistinctInDeckCardSetsAsSeparateFindings`) passed before AND after by
+  design — it is an over-grouping guard, not a red test. Stated plainly rather than
+  counted as TDD evidence.
+  Headline red output, verbatim:
+    `Assert.Single() Failure: The collection contained 3 matching items`
+  with the dumped collection showing ONE grouped `ComboProtected` finding beside THREE
+  duplicate `EnablerStarved` findings built from identical input — defect 2 demonstrated
+  directly, and the tally asymmetry of defect 1 visible in the same dump.
+- 2026-07-29 — T1 step B (FIX) applied to the two production files only.
+  B1: `EnablerStarved` added to `ExcludedFindingKindsFromTally`; the stale `// Why:`
+  comment rewritten, since its "role-wide warnings" rationale never described the combo
+  advisories. B2: `ComputeEnablerStarved` grouped on the same card-set key
+  `ComputeComboProtected` uses; single-partner lead string preserved byte-for-byte,
+  plural "combo partners" only when >1 distinct missing card (DD-2).
+- 2026-07-29 — EOL check PASS. `git diff --stat` and `git diff --ignore-all-space --stat`
+  are identical (172 insertions, 10 deletions, 4 files). All four touched files carry
+  0 CR bytes in both the working tree and `HEAD` — LF preserved, no churn.
+  Write set respected exactly; no file outside the fence was modified.
+- 2026-07-29 — T1 step C (GREEN) partial. Core: `Passed: 1843, Failed: 0`. Web:
+  `Passed: 2048, Failed: 1, Skipped: 16, Total: 2065`. All 5 previously-red tests pass.
+  NOTE: `WEB_EXIT=0` / `CORE_EXIT=0` in the log are the exit codes of `tail`, not of
+  `dotnet` — the same piped-exit-code trap as the earlier baseline misread. The counts,
+  not the exit codes, are authoritative here.
+- 2026-07-29 — **ONE FAILURE, and the pre-dispatch audit missed it.**
+  `CutLabApiControllerTests.PostDecideAsync_AutoAdvancesToNextRoundAndSecondPass`
+  (`CutLabApiControllerTests.cs:326`):
+    `Expected: "Round 2 · Structural choices"  Actual: "Round 3 · Preference calls"`
+  Audit gap: I grepped test files for the literal token `EnablerStarved`, which only
+  matched the two engine/findings test files. This test reaches the same code path
+  through a *real* `SpellbookAlmostCombo` fixture, so the grep never saw it. Lesson for
+  the D3 branch: grep the finding-producing fixture types
+  (`SpellbookAlmostCombo`, `SpellbookCombo`), not just the enum member names.
+  Diagnosis — NOT a regression. `CreateAnalysisContext` (`CutLabApiControllerTests.cs:921-929`)
+  gives "Round 2 Card" exactly one findings source:
+    `new SpellbookAlmostCombo("Missing Piece B", ["Round 2 Card", "Support Card"], ...)`
+  which yields `EnablerStarved` (+ `ComboProtected`). Every other finding touching that
+  card was ALREADY tally-excluded. So its Round-2 placement was earned solely by the
+  promotion this fix removes: the test was pinning the defect. Observed Round 2 -> Round 3
+  is the fix behaving exactly as specified.
+  HALTED per the ticket's "if an existing test genuinely must change, STOP and report"
+  rule rather than silently widening the write set to a 5th file. Surfaced to user.
+  Recommended repair (feasibility checked, not yet applied): give "Round 2 Card" and
+  "Support Card" a shared category in the fixture so `ComputeStrandedSubthemes` fires
+  (`StrandedThemeMinCards = 2`, `StrandedThemeMaxCards = 4`; the fixture currently passes
+  empty categories for every card). That restores a genuine discriminating tally of 1 and
+  preserves the test's real intent — walking Round 1 -> Round 2 -> second pass. "Support
+  Card" is `isLocked: true` so it cannot enter the queue as a side effect.
+  Rejected alternative: flipping the assertion to `Round3Label`. It would go green but
+  delete this test's only Round-2 coverage.
+- 2026-07-29 — **User authorized extending the write set to a 5th file**,
+  `DeckFlow.Web.Tests/CutLabApiControllerTests.cs`, and chose the re-fixture repair over
+  weakening the assertion (explicit answer to a direct AskUserQuestion).
+  Collision check before editing: `"Round 2 Card"` / `"Support Card"` appear in only ONE
+  test's pool (`:298-299`), so no other test in the file can be perturbed by giving those
+  two cards a category. Verified by grep before the edit, not assumed.
+  Applied: `CreateAnalysisContext` now assigns the shared category `"stranded-theme"` to
+  those two cards only, with a `// Why:` comment recording that the card must earn its
+  round-2 slot from a discriminating finding rather than from a combo advisory.
+  No assertion was changed; the test's Round 1 -> Round 2 -> second-pass intent is intact.
+
+## T2 — blind verification: PASS_WITH_NOTES
+
+Verifier: `foreman-verifier`, fresh context, no edit tools, given the ORIGINAL defect
+statement (not my restatement) and told to prove each new test fails at HEAD.
+
+Every criterion PASS: scope fence held (5 files, `CommanderSpellbookService.cs` and all
+protected config untouched); D1 fixed at `CutLabCutRoundEngine.cs:125`, consumed at `:364`
+before any `tally.Count++` at `:382`; D2 group key at `CutLabStructuralFindings.cs:288-295`
+byte-identical to `ComputeComboProtected:360-367`; `EnablerStarved` still emitted (`:171`)
+and still rendered (`Views/Deck/CutLab.cshtml:682`); `ComboProtected` untouched; thresholds,
+keys, labels and banner copy untouched; pre-existing assertions at
+`CutLabApiControllerTests.cs:326/339` untouched; build EXIT=0 with 9 warnings, all CS8629
+in an untouched Core.Tests file (matches baseline); Web 2049/0/16, Core 1843/0; no EOL churn
+(`--stat` == `--ignore-all-space --stat`, 183 ins / 11 del, all 5 files CR=0 in both trees).
+
+Independently confirmed the 5 discriminating tests DO fail at HEAD, with HEAD tallies
+computed as 2/2/1/5 → Round1/Round1/Round2/Round1 against asserted Round2/Round3/Round3/
+Round3, and `NextProposal` at HEAD being Ashnod's Altar (count 5) over Genuine Cut (count 2)
+via `OrderByDescending(Tally.Count)` at `CutLabCutRoundEngine.cs:236`.
+
+Findings, all LOW/INFO:
+1. LOW — `Compute_EnablerStarved_KeepsDistinctInDeckCardSetsAsSeparateFindings` is
+   non-discriminating (passes at HEAD too). Already disclosed by me as an over-grouping
+   guard rather than a reproducer; verifier reached the same conclusion independently.
+   No action.
+2. LOW — user-visible side effect, intended: excluding `EnablerStarved` from the tally also
+   drops it from `DiscriminatingFindingKinds`, so no "Enabler-starved cards" chip appears on
+   a proposal (`Models/CutLabViewModel.cs:623-629`). Identical to `ComboProtected`'s existing
+   treatment; the findings panel still renders it. The header "N structural findings" count
+   also drops when variants merge — the intended D2 outcome. **Flag at UAT so it is not
+   mistaken for a regression.**
+3. LOW — ledger untracked and not gitignored, could be swept by `git add -A`.
+   INVESTIGATED AND DISMISSED: `.foreman/` ledgers are already TRACKED in this repo
+   (5 prior ledgers committed; same in the role-floors worktree). Committing it is the
+   established convention, not an accident. Staged the 5 source files explicitly anyway.
+4. INFO — merged missing partners are alphabetically ordered; new deterministic ordering on
+   a previously unreachable copy path. Single-partner copy preserved byte-for-byte and
+   pinned by the untouched test at `CutLabStructuralFindingsTests.cs:228`. Evidence shape
+   unchanged apart from dedupe; no findings dropped.
+
+NOT VERIFIED (carried forward honestly, not silently closed):
+- ~~Changed-lines format gate~~ — CLOSED by foreman: staged the 5 source files explicitly
+  (not `-A`) and ran `scripts/format-check-changed.sh staged` → FORMAT_EXIT=0. PASS.
+- Playwright / e2e UI suite — not run, no browser opened (standing user rule).
+- Live end-to-end behavior on a real Celes, Rune Knight deck — regression is proven at the
+  engine unit level and through the controller path, not against live Spellbook data.
+- Whether defect 3 is genuinely separable — out of scope; only confirmed
+  `CommanderSpellbookService.cs` is unmodified.
+
+## ASSURANCE STATEMENT
+
+This change was implemented by Claude (LEAD seat) after Codex ran out of credits, with
+explicit user authorization. The second reader was a blind same-family verifier.
+It is **self-implemented with same-family blind review — NOT cross-AI verified.**
+Re-running a Codex read-only review once credits return is recommended before merge.
+
+## Final write set (5 files)
+
+| File | Kind |
+|---|---|
+| `DeckFlow.Web/Services/CutLab/CutLabCutRoundEngine.cs` | fix (D1) |
+| `DeckFlow.Web/Services/CutLab/CutLabStructuralFindings.cs` | fix (D2) |
+| `DeckFlow.Web.Tests/CutLabCutRoundEngineTests.cs` | 4 new tests |
+| `DeckFlow.Web.Tests/CutLabStructuralFindingsTests.cs` | 2 new tests + 1 guard |
+| `DeckFlow.Web.Tests/CutLabApiControllerTests.cs` | fixture repair (user-authorized) |

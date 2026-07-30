@@ -407,6 +407,98 @@ public sealed class CutLabCutRoundEngineTests
         Assert.Equal(string.Empty, CutLabCutRoundEngine.RoundBannerBodyFor(unknownRoundKey));
     }
 
+    [Fact]
+    public void BuildQueue_EnablerStarvedDoesNotCountTowardDiscriminatingTally()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList = [Card("Combo Piece", 3)];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(
+                Finding(CutLabFindingKind.CurveCongestion, "Combo Piece"),
+                Finding(CutLabFindingKind.EnablerStarved, "Combo Piece")),
+            [],
+            cardsToCutTarget: 1);
+
+        CutLabRoundQueueItem proposal = Assert.Single(plan.Queue);
+        Assert.Equal(CutLabCutRoundEngine.Round2Key, proposal.RoundKey);
+        Assert.Equal(1, proposal.FindingCount);
+        Assert.Equal([CutLabFindingKind.CurveCongestion], proposal.DiscriminatingFindingKinds);
+    }
+
+    [Fact]
+    public void BuildQueue_OnlyEnablerStarvedFindings_LandInRound3()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList = [Card("Orphaned Piece", 2)];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(
+                Finding(CutLabFindingKind.EnablerStarved, "Orphaned Piece"),
+                Finding(CutLabFindingKind.EnablerStarved, "Orphaned Piece")),
+            [],
+            cardsToCutTarget: 1);
+
+        CutLabRoundQueueItem proposal = Assert.Single(plan.Queue);
+        Assert.Equal(CutLabCutRoundEngine.Round3Key, proposal.RoundKey);
+        Assert.Equal(0, proposal.FindingCount);
+        Assert.Empty(proposal.DiscriminatingFindingKinds);
+    }
+
+    [Fact]
+    public void BuildQueue_ComboProtectedPlusEnablerStarved_IsNotPromotedAboveRound3()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList = [Card("Live Combo Piece", 3)];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(
+                Finding(CutLabFindingKind.ComboProtected, "Live Combo Piece"),
+                Finding(CutLabFindingKind.EnablerStarved, "Live Combo Piece")),
+            [],
+            cardsToCutTarget: 1);
+
+        CutLabRoundQueueItem proposal = Assert.Single(plan.Queue);
+        Assert.Equal(CutLabCutRoundEngine.Round3Key, proposal.RoundKey);
+        Assert.Equal(0, proposal.FindingCount);
+        Assert.Empty(proposal.DiscriminatingFindingKinds);
+    }
+
+    // Why: pins the July 2026 report where Ashnod's Altar was proposed first under
+    // "Obvious cuts" on a live Celes, Rune Knight deck. Combo findings are advisory,
+    // so no number of them may promote a card into round 1 on their own.
+    [Fact]
+    public void BuildQueue_ComboDenseCardNeverReachesRound1_AshnodsAltarRegression()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Ashnod's Altar", 3),
+            Card("Genuine Cut", 5),
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(
+                Finding(CutLabFindingKind.EnablerStarved, "Ashnod's Altar"),
+                Finding(CutLabFindingKind.EnablerStarved, "Ashnod's Altar"),
+                Finding(CutLabFindingKind.EnablerStarved, "Ashnod's Altar"),
+                Finding(CutLabFindingKind.EnablerStarved, "Ashnod's Altar"),
+                Finding(CutLabFindingKind.EnablerStarved, "Ashnod's Altar"),
+                Finding(CutLabFindingKind.ComboProtected, "Ashnod's Altar"),
+                Finding(CutLabFindingKind.CurveCongestion, "Genuine Cut"),
+                Finding(CutLabFindingKind.StrandedSubtheme, "Genuine Cut")),
+            [],
+            cardsToCutTarget: 2);
+
+        CutLabRoundQueueItem altar = Assert.Single(plan.Queue, item => item.CardName == "Ashnod's Altar");
+        Assert.Equal(CutLabCutRoundEngine.Round3Key, altar.RoundKey);
+        Assert.Equal(0, altar.FindingCount);
+
+        // The genuinely-flagged card, not the combo piece, is the first proposal.
+        Assert.Equal("Genuine Cut", plan.NextProposal!.CardName);
+        Assert.Equal(CutLabCutRoundEngine.Round1Key, plan.NextProposal.RoundKey);
+    }
+
     private static CutLabRoundInputCard Card(
         string name,
         double manaValue,
