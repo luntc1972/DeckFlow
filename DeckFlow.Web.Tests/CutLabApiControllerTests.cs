@@ -911,7 +911,17 @@ public sealed class CutLabApiControllerTests
                 _ => 1,
             };
 
-            IReadOnlyList<string> categories = [];
+            // Why: "Round 2 Card" must earn its round-2 slot from a DISCRIMINATING finding.
+            // It previously earned it from an EnablerStarved finding, which is a combo advisory
+            // and no longer counts toward the tally, so the card would silently drop to round 3
+            // and this fixture would stop covering the round-2 hop. A shared category on exactly
+            // two cards trips ComputeStrandedSubthemes (StrandedThemeMinCards 2, Max 4).
+            // "Support Card" is locked, so it cannot enter the proposal queue itself.
+            IReadOnlyList<string> categories = card.Name switch
+            {
+                "Round 2 Card" or "Support Card" => ["stranded-theme"],
+                _ => [],
+            };
             analyzedCards.Add(new CutLabAnalyzedCard(card.Name, manaValue, false, roles, categories)
             {
                 Quantity = card.Quantity,

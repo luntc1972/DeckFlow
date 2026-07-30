@@ -281,20 +281,38 @@ public static class CutLabStructuralFindings
 
     private static IEnumerable<CutLabFinding> ComputeEnablerStarved(IReadOnlyList<SpellbookAlmostCombo> nearCombos)
     {
-        foreach (SpellbookAlmostCombo combo in nearCombos)
+        // Why: Commander Spellbook returns one variant per missing partner, so the previous
+        // ungrouped loop emitted N duplicate findings for a single logical near-combo. Group on the
+        // same card-set key ComputeComboProtected already uses so the two combo detectors stay
+        // symmetric over identical input.
+        foreach (IGrouping<string, SpellbookAlmostCombo> variantGroup in nearCombos
+            .Where(combo => combo.CardsInDeck.Count >= NearComboMinPiecesInDeck)
+            .GroupBy(
+                combo => string.Join(
+                    "|",
+                    combo.CardsInDeck
+                        .OrderBy(cardName => cardName, StringComparer.OrdinalIgnoreCase)),
+                StringComparer.Ordinal))
         {
-            if (combo.CardsInDeck.Count < NearComboMinPiecesInDeck)
-            {
-                continue;
-            }
+            SpellbookAlmostCombo[] variants = variantGroup.ToArray();
+            string[] cardsInDeck = variants[0].CardsInDeck
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            string[] missingCards = variants
+                .Select(combo => combo.MissingCard)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(cardName => cardName, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
 
-            string cardsInDeck = JoinCardNames(combo.CardsInDeck);
+            // Why: the single-partner sentence is preserved byte-for-byte so the existing lead-copy
+            // contract does not shift; only the newly reachable multi-partner case is pluralised.
+            string partnerLabel = missingCards.Length == 1 ? "combo partner" : "combo partners";
 
             yield return new CutLabFinding(
                 CutLabFindingKind.EnablerStarved,
                 "Enabler-starved cards",
-                $"{cardsInDeck} are missing their combo partner: {combo.MissingCard}.",
-                combo.CardsInDeck.Select(cardName => new CutLabFindingEvidence(cardName, null)).ToArray());
+                $"{JoinCardNames(cardsInDeck)} are missing their {partnerLabel}: {JoinCardNames(missingCards)}.",
+                cardsInDeck.Select(cardName => new CutLabFindingEvidence(cardName, null)).ToArray());
         }
     }
 
