@@ -271,3 +271,85 @@ User UAT of the combo-sort change: PASSED (2026-07-30).
 | `DeckFlow.Web.Tests/CutLabCutRoundEngineTests.cs` | 4 new tests |
 | `DeckFlow.Web.Tests/CutLabStructuralFindingsTests.cs` | 2 new tests + 1 guard |
 | `DeckFlow.Web.Tests/CutLabApiControllerTests.cs` | fixture repair (user-authorized) |
+
+## T5 — blind-verifier findings on `6cbe4a30` (2026-07-30)
+
+Verifier verdict on the combo-sort commit: **PASS_WITH_NOTES**. Core claims all held
+(set not tally-derived, rank leads the OrderBy, round membership filtered before sorting,
+second pass untouched, Web 2052/0/16, Core 1843/0, format gate 0, no EOL churn, 3 tests
+empirically red at parent with the real "Agatha's Soul Cauldron" string).
+
+Two MEDIUM findings, both independently re-confirmed by the foreman against source:
+
+- **F1 — demotion over-reaches.** `ComputeComboProtected` (`CutLabStructuralFindings.cs:329-395`)
+  yields `ComboProtected` from TWO loops: complete combos (evidence `ComboBadgeState.CompletePiece`)
+  and near-combos (evidence `ComboBadgeState.NeedsPartner`). The filter at
+  `CutLabCutRoundEngine.cs:225-230` keys on `Kind` alone and takes all evidence, so a card
+  MISSING its combo partner — a dead piece and prime cut candidate, the same card
+  `EnablerStarved` flags — now sorts LAST in its round. Backwards, and D3's phantom
+  near-combos amplify it. Net swing for a near-combo card across the two commits:
+  promoted -> neutral -> demoted-last.
+- **F2 — DFC combo pieces escape demotion.** `ComboProtectionRank` (`:420`) compares
+  deck-sourced `entry.Card.Name` against Spellbook-sourced names with plain
+  `OrdinalIgnoreCase`, skipping `CutLabCardNames.Normalize`/`.Comparer` that every other
+  cross-source comparison in these two files uses. `CardNormalizer.Normalize`
+  (`DeckFlow.Core/Normalization/CardNormalizer.cs:24-29`) truncates at `" // "`, so a deck
+  listing `Malakir Rebirth // Malakir Mire` misses the Spellbook name `Malakir Rebirth`.
+
+Also noted, not defects: `BuildQueue_ComboProtectedCardSortsLastInRound1DespiteHigherTally`
+overstates its name (both cards tally 2; mana value is the real discriminator, since
+`RedundantFinishers` is tally-excluded), and the "Final write set (5 files)" section below
+is stale — it describes T1, not `6cbe4a30`.
+
+Codex re-probed 2026-07-30: still `ERROR: Your workspace is out of credits`. T3 cross-AI
+review remains BLOCKED. User explicitly authorized Claude to implement T5.
+
+| ID | Task | Seat | Write set | Status |
+|----|------|------|-----------|--------|
+| T5 | TDD red tests + F1/F2 fix | WORKHORSE (Claude `sonnet`) | `CutLabCutRoundEngine.cs`, `CutLabCutRoundEngineTests.cs` | DISPATCHED |
+| T6 | Blind verification of T5 | `foreman-verifier` | none (read-only) | PENDING (gated on T5) |
+| T3 | Cross-AI review (both commits + T5) | Codex read-only | none | BLOCKED — no credits |
+
+Baseline for T5: `6cbe4a30`, working tree clean.
+
+### T5 result — DONE (2026-07-30)
+
+TDD honoured: red observed BEFORE any source edit —
+`Failed: 2, Passed: 26, Total: 28`, with the F2 test returning the deck-side name
+`"Malakir Rebirth // Malakir Mire"` as the live proposal (F2 reproduced, not theorised).
+
+Fixes, both in the set builder / rank lookup, none in the detector:
+
+- **F1** — `.Where(evidence => evidence.BadgeState == ComboBadgeState.CompletePiece)` added
+  before the name projection. `BadgeState` is nullable, so this excludes `NeedsPartner`
+  AND badge-less evidence in one predicate.
+- **F2** — set built via `.Select(CutLabCardNames.Normalize).ToHashSet(CutLabCardNames.Comparer)`;
+  lookup via `Contains(CutLabCardNames.Normalize(cardName))`. Both sides normalized.
+  `CutLabCardNames.Comparer` is `Ordinal` (NOT OrdinalIgnoreCase) and that is correct —
+  `Normalize` lowercases first. Do not "fix" the comparer; it would make normalization redundant.
+
+Tests added: `BuildQueue_ComboProtectedNeedsPartnerOnly_DoesNotDemoteCard`,
+`BuildQueue_ComboProtectedDfcCardNormalizesAcrossFrontBackName_MalakirRebirthRegression`,
+plus a `Finding(kind, ComboBadgeState, params cardNames)` helper overload.
+
+**Fixture change requiring scrutiny:** 5 pre-existing fixtures built `ComboProtected`
+evidence through the badge-less `Finding()` helper (`BadgeState = null`), which the F1
+filter excludes — so they were switched to the `CompletePiece` overload. Defensible
+(production `ComputeComboProtected` ALWAYS sets a badge state, never null, so the old
+fixtures were unrealistic) but it is structurally "the fix broke 5 tests so the tests
+changed". Flagged to T6 for adversarial review rather than accepted on the worker's word.
+
+Evidence: Web `Passed: 2054, Failed: 0, Skipped: 16` (baseline 2052 + 2 new), Core
+`1843/0` unchanged, format gate exit 0, EOL clean (72/72 identical under
+`--ignore-all-space`, verified by the foreman independently of the worker's claim).
+
+Known nit, not fixed: `.Where(!IsNullOrWhiteSpace)` runs BEFORE `.Select(Normalize)`, so a
+pathological all-punctuation name would normalize to `""` and enter the set. Unreachable
+with real card names; recorded so it is not rediscovered as a defect.
+
+### Correction to the stale write-set section below
+
+The `## Final write set (5 files)` table describes T1 (`31042a36`) only. Actual cumulative
+write set across the branch: `CutLabCutRoundEngine.cs`, `CutLabStructuralFindings.cs`,
+`CutLabCutRoundEngineTests.cs`, `CutLabStructuralFindingsTests.cs`,
+`CutLabApiControllerTests.cs`, and this ledger.

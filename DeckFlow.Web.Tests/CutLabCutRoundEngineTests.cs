@@ -453,7 +453,7 @@ public sealed class CutLabCutRoundEngineTests
         CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
             workingList,
             Findings(
-                Finding(CutLabFindingKind.ComboProtected, "Live Combo Piece"),
+                Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.CompletePiece, "Live Combo Piece"),
                 Finding(CutLabFindingKind.EnablerStarved, "Live Combo Piece")),
             [],
             cardsToCutTarget: 1);
@@ -484,7 +484,7 @@ public sealed class CutLabCutRoundEngineTests
                 Finding(CutLabFindingKind.EnablerStarved, "Ashnod's Altar"),
                 Finding(CutLabFindingKind.EnablerStarved, "Ashnod's Altar"),
                 Finding(CutLabFindingKind.EnablerStarved, "Ashnod's Altar"),
-                Finding(CutLabFindingKind.ComboProtected, "Ashnod's Altar"),
+                Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.CompletePiece, "Ashnod's Altar"),
                 Finding(CutLabFindingKind.CurveCongestion, "Genuine Cut"),
                 Finding(CutLabFindingKind.StrandedSubtheme, "Genuine Cut")),
             [],
@@ -515,7 +515,7 @@ public sealed class CutLabCutRoundEngineTests
             workingList,
             Findings(
                 Finding(CutLabFindingKind.CurveCongestion, "Agatha's Soul Cauldron", "Plain Filler"),
-                Finding(CutLabFindingKind.ComboProtected, "Agatha's Soul Cauldron")),
+                Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.CompletePiece, "Agatha's Soul Cauldron")),
             [],
             cardsToCutTarget: 2);
 
@@ -545,7 +545,7 @@ public sealed class CutLabCutRoundEngineTests
                 Finding(CutLabFindingKind.CurveCongestion, "Combo Engine", "Plain Filler"),
                 Finding(CutLabFindingKind.StrandedSubtheme, "Combo Engine", "Plain Filler"),
                 Finding(CutLabFindingKind.RedundantFinishers, "Combo Engine"),
-                Finding(CutLabFindingKind.ComboProtected, "Combo Engine")),
+                Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.CompletePiece, "Combo Engine")),
             [],
             cardsToCutTarget: 2);
 
@@ -564,11 +564,61 @@ public sealed class CutLabCutRoundEngineTests
 
         CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
             workingList,
-            Findings(Finding(CutLabFindingKind.ComboProtected, "Cheap Combo Piece")),
+            Findings(Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.CompletePiece, "Cheap Combo Piece")),
             [],
             cardsToCutTarget: 2);
 
         Assert.Equal("Expensive Filler", plan.NextProposal!.CardName);
+        Assert.Equal(CutLabCutRoundEngine.Round3Key, plan.NextProposal.RoundKey);
+    }
+
+    // Why: a card that is only missing its combo partner (NeedsPartner) is a dead piece and a
+    // prime cut candidate — the same card EnablerStarved already flags. Demoting it a second
+    // time for the same reason is backwards; only a genuinely CompletePiece should be demoted.
+    [Fact]
+    public void BuildQueue_ComboProtectedNeedsPartnerOnly_DoesNotDemoteCard()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Needs Partner Piece", 2),
+            Card("Plain Filler", 5),
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(
+                Finding(CutLabFindingKind.CurveCongestion, "Needs Partner Piece", "Plain Filler"),
+                Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.NeedsPartner, "Needs Partner Piece")),
+            [],
+            cardsToCutTarget: 2);
+
+        // Both are round 2 (one discriminating finding each). A NeedsPartner-only combo finding
+        // must not demote, so the lower-mana-value card leads on the normal tiebreak.
+        Assert.Equal("Needs Partner Piece", plan.NextProposal!.CardName);
+        Assert.Equal(CutLabCutRoundEngine.Round2Key, plan.NextProposal.RoundKey);
+    }
+
+    // Why: the combo-protected set's names come from Commander Spellbook (front-face only);
+    // the rank lookup key comes from the deck's full DFC name. Without normalizing both sides
+    // through CutLabCardNames, a DFC combo piece silently escapes demotion.
+    [Fact]
+    public void BuildQueue_ComboProtectedDfcCardNormalizesAcrossFrontBackName_MalakirRebirthRegression()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Malakir Rebirth // Malakir Mire", 1),
+            Card("Plain Filler", 6),
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.CompletePiece, "Malakir Rebirth")),
+            [],
+            cardsToCutTarget: 2);
+
+        // Both land in round 3 (no discriminating findings). The DFC combo piece must still be
+        // recognized and demoted behind the non-combo filler despite its lower mana value.
+        Assert.Equal("Plain Filler", plan.NextProposal!.CardName);
         Assert.Equal(CutLabCutRoundEngine.Round3Key, plan.NextProposal.RoundKey);
     }
 
@@ -599,6 +649,13 @@ public sealed class CutLabCutRoundEngineTests
             kind.ToString(),
             kind.ToString(),
             cardNames.Select(cardName => new CutLabFindingEvidence(cardName, null)).ToArray());
+
+    private static CutLabFinding Finding(CutLabFindingKind kind, ComboBadgeState badgeState, params string[] cardNames)
+        => new(
+            kind,
+            kind.ToString(),
+            kind.ToString(),
+            cardNames.Select(cardName => new CutLabFindingEvidence(cardName, null, badgeState)).ToArray());
 
     private static CutLabStructuralFindingsResult Findings(params CutLabFinding[] findings)
         => new(findings, true, true);
