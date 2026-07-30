@@ -222,12 +222,20 @@ public static class CutLabCutRoundEngine
         // still lead a round on one unrelated finding. Combo membership is therefore applied as the
         // FIRST ordering key of every first-pass round, so a combo piece is proposed only after the
         // equally-flagged non-combo cards in that same round. It stays cuttable; it stops leading.
+        // Why: only CompletePiece evidence counts toward demotion. A NeedsPartner combo piece is
+        // missing its partner and is already a cut candidate (the same card EnablerStarved flags);
+        // demoting it a second time for the same reason is backwards.
+        // Why: names are normalized through CutLabCardNames.Normalize/.Comparer, matching every
+        // other cross-source name comparison in this file, so a DFC card whose deck-side full name
+        // ("Front // Back") differs from the Spellbook-side front-face name still matches.
         IReadOnlySet<string> comboProtectedCardNames = findings.Findings
             .Where(finding => finding.Kind == CutLabFindingKind.ComboProtected)
             .SelectMany(finding => finding.Evidence)
+            .Where(evidence => evidence.BadgeState == ComboBadgeState.CompletePiece)
             .Select(evidence => evidence.CardName)
             .Where(cardName => !string.IsNullOrWhiteSpace(cardName))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            .Select(CutLabCardNames.Normalize)
+            .ToHashSet(CutLabCardNames.Comparer);
 
         IReadOnlyList<CutLabRoundInputCard> eligibleCards = workingList
             .Where(card =>
@@ -418,7 +426,7 @@ public static class CutLabCutRoundEngine
     // Why: returns a sort rank, not a bool, so it can lead an OrderBy chain without inverting the
     // remaining keys. 0 = not a combo piece (proposed first), 1 = combo piece (proposed last).
     private static int ComboProtectionRank(IReadOnlySet<string> comboProtectedCardNames, string cardName)
-        => comboProtectedCardNames.Contains(cardName) ? 1 : 0;
+        => comboProtectedCardNames.Contains(CutLabCardNames.Normalize(cardName)) ? 1 : 0;
 
     private static double Round3DeltaMagnitudeFor(IReadOnlyDictionary<string, double>? deltaMagnitudes, string cardName)
         => deltaMagnitudes is not null && deltaMagnitudes.TryGetValue(cardName, out double magnitude)
