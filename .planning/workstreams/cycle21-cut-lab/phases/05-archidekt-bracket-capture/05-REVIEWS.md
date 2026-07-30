@@ -1,9 +1,13 @@
-# Phase 5: Archidekt Bracket Capture — Plan Review Round 1
+# Phase 5: Archidekt Bracket Capture — Plan Reviews
 
 **Date:** 2026-07-29
 **Workstream:** `cycle21-cut-lab`
-**Plans reviewed:** `05-01-PLAN.md`, `05-02-PLAN.md`, `05-03-PLAN.md` (all at HEAD `2f9ab5ef`)
-**Verdict:** **CHANGES REQUIRED** — 3 BLOCK, 4 HIGH, 8 MEDIUM, 5 LOW after dedup.
+**Plans reviewed:** `05-01-PLAN.md`, `05-02-PLAN.md`, `05-03-PLAN.md`
+**Recorded baseline:** **`7fe8987b`** (`docs(05): fold plan review round 1 findings into phase plans`) — this is the commit the plans now sit at and the baseline for Round 2. Round 1 below reviewed the plans as they stood at `2f9ab5ef` (`docs(05): create archidekt bracket capture plans`), so every *plan* line number quoted in the Round 1 section is pre-fold and will not resolve against the current files. Every *source* line number still resolves: `git diff --name-only 2f9ab5ef 7fe8987b` returns only `.planning/**` docs, so no `.cs` file moved between the two rounds.
+
+## Round 1 — initial plan review
+
+**Verdict:** **CHANGES REQUIRED** — 3 BLOCK, 4 HIGH, 8 MEDIUM, 5 LOW after dedup. **All 20 findings folded at `7fe8987b`; all graded CLOSED by the Round 2 re-review below.**
 
 ## Reviewer roster and assurance level
 
@@ -204,6 +208,27 @@ bare `Get*` on payload values — and wrap the metadata block so no exception ca
 that **`ImportAsync`** (not only `ImportWithMetadataAsync`) still returns the correct entry list when
 `edhBracket` is `3.5`, `"abc"`, `{}`, and `1e999`.
 
+> **⚠ CORRECTION (Round 3, 2026-07-29) — this resolution named two APIs that must not be used.** Left
+> above verbatim as the historical record; superseded in the plans by Round 3 finding **H-1** (and
+> **M-1** for the second half):
+> - **`JsonElement.TryGetBoolean` does not exist.** Verified against this machine's exact SDK ref pack
+>   (`Microsoft.NETCore.App.Ref/10.0.10/ref/net10.0/System.Text.Json.xml`): the `TryGet*` surface is
+>   Byte, BytesFromBase64, DateTime, DateTimeOffset, Decimal, Double, Guid, Int16/32/64, Property,
+>   SByte, Single, UInt16/32/64. The only boolean accessor is `GetBoolean`, which the same sentence
+>   bans. The resolution text was folded verbatim into `05-01-PLAN.md` and graded CLOSED by Round 2,
+>   so an executor would have hit `CS1061` against a hard whitelist with no guidance. **Corrected to:**
+>   map `JsonValueKind.True`/`JsonValueKind.False` directly (no accessor call, cannot throw), with
+>   `bool.TryParse` retained for boolean-valued strings.
+> - **`TryGetDouble` has no legitimate consumer here and is actively harmful.** Verified by executing
+>   the parses on .NET 10: `3.5` → `TryGetDouble` true (`3.5`), and `1e999` → `TryGetDouble` **true
+>   with `∞`**. A `TryGetDouble → (int)` path therefore persists `3` for `3.5` and garbage for `1e999`.
+>   `TryGetInt32` already returns `false` for both. **Corrected to:** `TryGetDouble` removed from the
+>   whitelist; non-integer and overflow numerics are malformed and parse to null.
+> - Also added while correcting the whitelist: `TryGetInt32` throws `InvalidOperationException` on a
+>   non-`Number` element (verified), so the plan now mandates a `JsonValueKind` switch *before* any
+>   try-parse call, and permits `GetString()` under a `JsonValueKind.String` guard as the one `Get*`
+>   that cannot throw.
+
 ### R-M2 — `CapturedUtc` on any parsed JSON records a permanent false "captured, absent"
 **Single-reviewer.** `CapturedUtc` is set on *any* successfully parsed JSON. A wholesale payload-shape
 change (Archidekt renames `edhBracket`, or returns an object) yields `captured_utc NOT NULL` + all
@@ -233,6 +258,23 @@ and R-M4's fix dissolves the conflict: once timestamps are bound as `"O"` **stri
 `DO UPDATE SET archidekt_x = COALESCE(excluded.archidekt_x, deck_queue.archidekt_x)` for all six
 columns, **conditional on R-M4 being applied first**, and add a test that a null-metadata URL re-mark
 preserves prior captured values.
+
+> **⚠ SUPERSEDED IN PART (Round 3, 2026-07-29) — replaced by ratified decision D-10.** Retained above
+> verbatim, not deleted, because the reasoning is the record. What survives: the null-record half —
+> a null-metadata URL re-mark must preserve prior captured values — is correct and is still the rule.
+> What is replaced: the **non-null-record** half. Per-column `COALESCE` cannot deliver the arbitration's
+> own stated intent that "a non-null one overwrites them", because a *captured* record whose
+> `EdhBracket` is null (the legitimate captured-absent state under D-03) binds NULL and `COALESCE`
+> keeps the stale value — producing a row that asserts "Archidekt declared bracket 3 at T2" when it
+> declared nothing, permanently and undetectably, and making "captured, absent" unreachable on the URL
+> path. **The side effect this arbitration did not weigh:** it reasoned from the single-field
+> `commander_name` idiom at `DeckQueueRepository.cs:413`, and mirroring a one-field idiom across six
+> fields is precisely what breaks it — the one-field case has no captured-but-absent state to lose.
+> **D-10** (`05-CONTEXT.md`, user-ratified) replaces it: gate **per record, not per column**, via
+> `CASE WHEN excluded.archidekt_metadata_captured_utc IS NULL THEN deck_queue.archidekt_x ELSE
+> excluded.archidekt_x END`, which is dialect-safe for the same R-M4 reason. The test set was widened
+> from a pair to a partition: Test 5 (all-non-null overwrite), **Test 5c (non-null record containing a
+> null field — the case no prior test covered)**, Test 5b (null record preserves).
 
 ### R-M4 — Timestamp storage instruction is self-contradictory across dialects
 **Corroborated.** `05-02` T2 says "round-trippable UTC text consistently with existing `deck_queue`
@@ -346,3 +388,155 @@ UI) leaked into any plan — D-01..D-08 compliance is otherwise clean, with R-M5
   R-M3 vs R-H2 (`COALESCE` on timestamps), and R-B1's option A vs option B.
 - **Codex re-review still owed** before phase closeout if credits return — this round's claim-vs-code
   lens was same-family.
+
+---
+
+# Round 2 — convergence re-review
+
+**Date:** 2026-07-29
+**Baseline:** HEAD `7fe8987b` (the Round 1 fold), plans as folded.
+**Reviewer:** fresh-context Claude, general-purpose, claim-vs-code against real source — **substitute for Codex, which is out of credits.**
+**Verdict:** **CHANGES REQUIRED** — 1 BLOCK, 3 MEDIUM, 2 LOW, 1 process note.
+
+## ⚠ Assurance disclosure — this round is NOT cross-AI verification
+
+Stated plainly, not buried: **Round 2 is same-family (Claude reviewing Claude) and does not satisfy the
+cross-AI gate.** `CLAUDE.md` makes Codex the authoritative plan reviewer; the Codex re-review from the
+Round 1 disposition remains **OWED** and is not discharged by this round. Codex was unavailable for the
+same deterministic billing reason recorded in Round 1 (`ERROR: Your workspace is out of credits`).
+
+**NEW-1 is direct evidence of the depth limit.** It is a compiler-provable wave-2 build break —
+`CategoryKnowledgeStore.cs:110` forwards positionally, so widening `MarkUrlDeckProcessedAsync` binds
+`CancellationToken` to `ArchidektDeckMetadata?` (`CS1503`) — and it survived **three** same-family
+passes: a `gsd-plan-checker` run, a Round 1 claim-vs-code pass, and the Round 1 fold. Three Claude
+readings did not catch a break a compiler catches in one second. That is the shape of the blind spot a
+same-family reviewer cannot see past, and it is the argument for re-running the Codex gate before
+execution, not merely before closeout.
+
+Neither round ran `dotnet build` or `dotnet test`; NEW-1's `CS1503` is read from signatures, as Round 1's
+compile-break claims were. No SQL was executed against Postgres in either round.
+
+## Round 1 findings: all 20 CLOSED
+
+Every Round 1 finding was verified as folded into the plans at `7fe8987b`:
+
+| Severity | Findings | Status |
+|----------|----------|--------|
+| BLOCK | R-B1, R-B2, R-B3, R-B4 | **CLOSED** (4/4) |
+| HIGH | R-H1, R-H2, R-H3, R-H4 | **CLOSED** (4/4) |
+| MEDIUM | R-M1, R-M2, R-M3, R-M4, R-M5, R-M6, R-M7, R-M8 | **CLOSED** (8/8) |
+| LOW | R-L1, R-L2, R-L3, R-L4, R-L5 | **CLOSED** (5/5) |
+
+Both Round 1 user-decision items were resolved and ratified before the fold: R-M5 became **D-09** in
+`05-CONTEXT.md` (ratify, no backfill), and R-H1 was resolved as **do not touch
+`.github/workflows/ci.yml`** — the Postgres path stays unproven in CI as a recorded, accepted risk.
+
+## Round 2 findings
+
+| ID | Severity | Summary |
+|----|----------|---------|
+| NEW-1 | **BLOCK** | Wave 2 leaves `DeckFlow.Web` uncompilable. `05-02` widens both `DeckQueueRepository` mark-processed methods, but `CategoryKnowledgeStore.cs:110` forwards positionally (`CS1503`) and sat in `05-03`'s write set — one wave too late. The blindness is structural: `05-02` Tasks 1-2 verify only `DeckFlow.Core.Tests`, whose csproj references `DeckFlow.Core` + `DeckFlow.CLI` and **not** `DeckFlow.Web`, so they go green with `DeckFlow.Web` already broken. |
+| NEW-2 | MEDIUM | `IsBoardCategory` attributed to the wrong file in `05-03-PLAN.md` and inside ratified decision **D-09** (`05-CONTEXT.md`). It is `DeckFlow.Core/Integration/ArchidektApiDeckImporter.cs:150`, applied at `:79` of that same file — not `AdminHarvestController.cs:152`. Attribution error only; **D-09's substance is unchanged and stays ratified.** |
+| NEW-3 | MEDIUM | A `must_haves` proxy that fails on correct code — the inverse of the R-H3 defect class. `05-03`'s session `key_links` required the literal `metadata: import.Metadata`, but the plan's own instruction to return metadata from `PersistDeckAsync` produces a destructured `metadata: metadata` at the `RunAsync` call site. |
+| NEW-4 | MEDIUM | Wave-1 tests had no seam for synthesized JSON. Tests 2, 3, 5 and 6 need arbitrary payload bodies, but both specified factories take a fixture **file name** and read from disk (`ArchidektApiDeckImporterTests.cs:36-48`), so the executor would have had to invent the content-accepting overload. |
+| NEW-5 | LOW | Four count/citation errors: `05-01` "13 doubles across 12 files" (actually 13 files); `05-02` "18 `[Fact]`s … `:22-:478`" (actually 16 `[Fact]`s, 0 `[Theory]`s, 557-line file) — the load-bearing claim behind it, that no legacy or double-`EnsureSchemaAsync` test exists, is **confirmed true**; `05-03` `ContentHashDedupTests` `CreateSession` sites `:190/:224/:254/:281` (actually `:193/:226/:256/:283`); `05-03` `ImportAsync` at `:264` (actually `:265`). |
+| NEW-6 | LOW | `05-01` Task 1 claimed all its tests fail red before Task 2. Test 5 exercises only `ImportAsync`, which ignores `edhBracket` today, so it is green at HEAD — correctly, as a regression guard that becomes falsifiable when Task 2 adds parsing. Needed an explicit carve-out so an executor does not "fix" it into something weaker. |
+| NEW-7 | process | This document recorded its baseline as `2f9ab5ef`; the fold was committed as `7fe8987b`. |
+
+## NEW-1 caller audit (full, so the BLOCK cannot recur)
+
+Every call site of the two widened methods, checked at `7fe8987b`. Positional callers break with
+`CS1503`; named callers are immune:
+
+| Call site | Form | Effect | Owned by |
+|-----------|------|--------|----------|
+| `CategoryKnowledgeRepository.cs:257` | positional | breaks | `05-02` write set |
+| `CategoryKnowledgeRepository.cs:300` | positional | breaks | `05-02` write set |
+| `CategoryKnowledgeStore.cs:110` | positional | **breaks — the gap** | was `05-03`, now pulled into `05-02` |
+| `ArchidektDeckCacheSession.cs:125`, `:137` | named (`skip:`, `cancellationToken:`) | safe | `05-03` (edits anyway) |
+| `CategoryCacheSchemaParityTests.cs` ×12, `CategoryKnowledgeRepositoryTests.cs:388`, `ContentHashDedupTests.cs:306`, `PostgresStorageTests.cs:137`/`:161`, `CategoryKnowledgeStoreTests.cs:161-163` | 2 arguments | safe | — |
+| `AdminHarvestController.cs:273` | calls the web store's 3-arg member, which `05-03` leaves untouched | safe | — |
+
+R4's claim is **confirmed**: `CategoryKnowledgeStore.cs:110` is the only unprotected site outside the
+plans' write sets. No additional site was found.
+
+## Round 2 disposition
+
+- **All 7 findings folded**, no user decision required. NEW-1 was fixed both ways: the file moved into
+  `05-02` Task 2 with a named-argument instruction (the local fix), **and** `dotnet.exe build
+  DeckFlow.sln --no-restore` was added to `05-02` Task 2 and `05-03` Task 2 (the structural fix, mirroring
+  R-H4's addition to `05-01` Task 2). The build gate was deliberately **not** added to any TDD-red task,
+  where a clean solution build is not a meaningful gate.
+- **Codex authoritative re-review: still OWED.** Round 1 owed it and Round 2 does not discharge it.
+  Re-run before execution if credits return; if they do not, the phase executes with two same-family
+  review rounds and zero cross-AI verification, and NEW-1 is the recorded evidence for what that costs.
+
+---
+
+# Round 3 — three-reviewer convergence pass
+
+**Date:** 2026-07-29
+**Baseline:** HEAD `1511dd95` working tree, plans as folded at `7fe8987b`.
+**Verdict:** **CHANGES REQUIRED** — 1 BLOCKER, 2 HIGH, 4 MEDIUM, 5 LOW. All folded in one consolidated pass.
+
+## Reviewer roster
+
+| Reviewer | Model | Lens | Verdict |
+|----------|-------|------|---------|
+| R5 | Claude Opus | proof-vs-claim delta against real source — re-verify every citation the plans make | CONVERGED (no new BLOCK from this lens) |
+| R6 | **Fable 5** | full-plan read, cross-family | **CHANGES REQUIRED** — 2 HIGH |
+| R7 | `gsd-plan-checker` (Claude, fresh context) | goal-backward: what would detect each success criterion being unmet | **FAIL** — 1 BLOCKER |
+
+Two of the three findings graded most severe were independently re-verified by the LEAD before folding
+(the phantom `TryGetBoolean` against the SDK ref pack; the `COALESCE` corruption against the live
+`DeckQueueRepository` SQL). The fold worker re-verified all thirteen against real source before writing.
+
+## Findings and disposition
+
+| ID | Sev | Finding | Disposition |
+|----|-----|---------|-------------|
+| B-1 | **BLOCKER** | The URL write path's final persistence hop had no test that could fail. Bulk proves every hop to SQLite; URL proved controller→store (against `FakeCategoryKnowledgeStore`) and repository→`deck_queue`, but nothing proved `CategoryKnowledgeStore`'s new 4-arg overload → `CategoryKnowledgeRepository`. Load-bearing because `05-02` Task 2 rewrites the adjacent line in that same file and `05-03` Task 3 then says "add the overload beside it" — a metadata-dropping copy-paste of the neighbour is the most likely single mistake in the plan set, and **every command in `05-VALIDATION.md` stayed green if it happened.** | **APPLIED.** `DeckFlow.Web.Tests/CategoryKnowledgeStoreTests.cs` added to `05-03` `files_modified` + Task 3 `<files>`; one test specified against the file's existing real-store harness (`:180-228`, `CreateStore` `:261-262`, `store.DatabasePath` `CategoryKnowledgeStore.cs:62`), reading `deck_queue` back over a raw `SqliteConnection`. No production read API. `05-VALIDATION.md` row `05-03-03` updated; task count unchanged at eight (a test was added, not a task). |
+| H-1 | HIGH | `05-01` Task 2 mandated `JsonElement.TryGetBoolean`, **which does not exist**, while banning `GetBoolean` — the only real boolean accessor. Executor hits `CS1061` against a hard whitelist with no guidance, on the very boolean path the whitelist exists to protect (the Postgres `42804` hazard). | **APPLIED.** Whitelist rewritten per field: booleans map `JsonValueKind.True`/`False` directly, `bool.TryParse` retained for boolean strings. Prohibition re-scoped to numeric/boolean/date `Get*` so `GetString()` under a `String`-kind guard stays legal and the sentence stays coherent. R-M1's resolution text — the origin of the phantom API — corrected in place with a dated correction block rather than a silent rewrite. |
+| H-2 | HIGH | URL upsert's per-column `COALESCE` cannot express its own stated intent. A captured record with `EdhBracket = null` binds NULL, so the stale bracket survives and the row falsely attributes it to the later capture timestamp — permanent, undetectable, and divergent from the bulk path against D-05. **User ratified the fix.** | **APPLIED** as **D-10** in `05-CONTEXT.md`: gate per record via `CASE WHEN excluded.archidekt_metadata_captured_utc IS NULL ...`, valid on both dialects because Step A binds `captured` as text. `05-02` Task 2 rewritten with the SQL shape; R-M3 marked superseded-in-part, not deleted. Missing test added as **Test 5c** (non-null record containing a null field), completing a three-way partition with Tests 5 and 5b. |
+| M-1 | MED | `edhBracket` non-integer numerics were unspecified (`3.5` fits neither "numeric" nor "malformed"), and `TryGetDouble` sat on the whitelist with no stated consumer — inviting `(int)3.5 → 3` from one executor and `null` from another, both passing every specified test. | **APPLIED.** Rule stated: non-integer and overflow numerics are malformed → null, which falls out of `TryGetInt32` alone. `TryGetDouble` removed from the whitelist with the reason recorded. Test 2's case list now enumerates `3.5` and `1e999` explicitly. |
+| M-2 | MED | False fixture-uniqueness claim: the plan invited generalizing the string-replacement helper to `createdAt`/`updatedAt`, which would silently rewrite 79 card objects and could flip Test 5's 79-entry assertion. | **APPLIED.** Re-measured independently: `edhBracket`/`deckFormat`/`theorycrafted` = 1 each; **`createdAt` and `updatedAt` = 80 each** (1 top-level + 79 per-card). Sentence corrected to name only the three safe keys, with the full-`key:value` workaround stated for anything else. |
+| M-3 | MED | `05-02` Tests 5 and 5b were in tension: the natural way to make Test 5's record "different" is to null a field, which reds a correct implementation under the old rule, and the likely repair reds 5b. | **APPLIED.** Test 5 now reads "all six values non-null and each differing from the first"; the three tests are introduced as one set that partitions the update branch on the *record*, consistent with D-10. |
+| M-4 | MED | `05-03` Task 1's Tests 4/5 need a commander-bearing importer, but the `Build()`-parameterization instruction sat in Task 3, two tasks downstream. | **APPLIED.** Instruction moved into Task 1 with the concrete signature and all six existing `Build(...)` call sites enumerated; Task 3's text now reads as consuming that work rather than owing it. |
+| L-1 | LOW | Test 2's "missing" case was assigned to `FixtureWithEdhBracket(...)`, which substitutes a value and cannot delete a key. | **APPLIED.** Sibling `FixtureWithoutEdhBracket()` specified, removing `"edhBracket":null,` including its trailing comma — verified valid because the key sits between `"deckFormat":3,` and `"game":null`, and the payload stays recognizably Archidekt so the case lands on "captured, absent" and not Test 6. |
+| L-2 | LOW | "Add exactly one new plumbing method"; the fence below adds three plus a rewritten fourth, plus `FixtureWithEdhBracket`. | **APPLIED.** Count corrected and the additions itemized. |
+| L-3 | LOW | "Test 5 passes immediately" — at the Task-1 gate the assembly does not compile at all. | **APPLIED.** Qualified: green the first time it *can* run, which is after Task 2; the regression-guard point is unchanged. |
+| L-4 | LOW | `FactSnapshot` cited at `ContentHashDedupTests.cs:210`; it is declared at `:432` (`:210` is an assertion). | **APPLIED.** Corrected to `:432` (produced by `ReadFactSnapshotAsync` `:371`), `DeckQueueRow` `:434` (`ReadDeckQueueRowAsync` `:412-430`). |
+| L-5 | LOW | `WSLENV` entry lacked the **`/w`** flag in `05-02-PLAN.md` and `05-VALIDATION.md`, so the Postgres gate would fail the same silent way the `WSLENV` fix was meant to prevent. | **APPLIED** in both files, plus the explanatory note (`/w` is WSL→Win32; `/u` is the wrong direction). |
+
+## Two structural lessons — the durable value of this round
+
+**1. B-1 was invisible to both proof-vs-claim reviewers, and that is a property of the lens, not of the
+reviewers.** Every test the plans specify is real, every citation resolves, and R5 confirmed that. The
+defect was a *missing* claim — an unproven hop between two proven ones — and nothing in a claim-vs-code
+pass looks for absence. Only R7's goal-backward lens, which asks "what would detect this criterion being
+unmet?", could surface it. Keep a goal-backward reviewer in the roster even when the claim-checkers
+converge; the two lenses do not substitute for each other in either direction.
+
+**2. Both of R6's HIGH findings were introduced by prior rounds' own fixes, and three same-model passes
+propagated them.** The phantom `TryGetBoolean` originated in **R-M1's resolution text**, was folded into
+`05-01-PLAN.md` verbatim, and was graded **CLOSED** by Round 2. The `COALESCE` corruption originated in
+**R-M3's LEAD arbitration**. Both then survived a `gsd-plan-checker` run, a Round 1 claim-vs-code pass,
+the Round 1 fold, and the Round 2 re-review — because each pass checked the plan against the *resolution*
+rather than against the API surface and the SQL semantics. A different model family caught both in one
+pass: one by checking the assembly, one by tracing what the SQL actually does to a null field.
+
+This is the second recorded instance in this phase of same-family depth failing where a compiler or a
+different model succeeds in one step — NEW-1 was the first. **The Codex authoritative cross-AI review
+remains OWED**, from Round 1, undischarged by Rounds 2 and 3. Round 3 is direct evidence that adding more
+same-family passes does not substitute for it: the two most severe plan defects at this point in the
+phase were *created by* same-family review output and *ratified* by same-family review.
+
+## Round 3 disposition
+
+- **All 13 findings folded** in one consolidated pass across `05-01-PLAN.md`, `05-02-PLAN.md`,
+  `05-03-PLAN.md`, `05-CONTEXT.md`, `05-VALIDATION.md`, and this file. No source file was touched;
+  `.github/workflows/ci.yml` remains out of scope per the ratified user decision.
+- **One new decision ratified by the user:** **D-10** (per-record URL-upsert gating), recorded in
+  `05-CONTEXT.md` and superseding R-M3's non-null-record arbitration.
+- **Codex authoritative review: still OWED.** Three rounds, zero cross-AI verification of the
+  claim-vs-code kind `CLAUDE.md` requires.
