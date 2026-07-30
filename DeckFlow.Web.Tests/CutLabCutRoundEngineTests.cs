@@ -622,6 +622,33 @@ public sealed class CutLabCutRoundEngineTests
         Assert.Equal(CutLabCutRoundEngine.Round3Key, plan.NextProposal.RoundKey);
     }
 
+    // Why: DFC truncation is not the only way the two name sources diverge. CardNormalizer also
+    // strips punctuation, so a deck spelling the apostrophe as U+2019 and Commander Spellbook
+    // spelling it as U+0027 are the same card only after normalization. Pinned separately from the
+    // DFC case: a refactor could keep a DFC-safe path while dropping normalization, and without
+    // this test the suite would stay green while every apostrophe card escaped demotion again.
+    [Fact]
+    public void BuildQueue_ComboProtectedCardNormalizesDivergentApostrophes_LimDulsVaultRegression()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Lim-Dul’s Vault", 2),
+            Card("Plain Filler", 6),
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.CompletePiece, "Lim-Dul's Vault")),
+            [],
+            cardsToCutTarget: 2);
+
+        // Both land in round 3 (no discriminating findings). The combo piece must be demoted behind
+        // the non-combo filler despite its lower mana value, even though the two sources spell the
+        // apostrophe differently.
+        Assert.Equal("Plain Filler", plan.NextProposal!.CardName);
+        Assert.Equal(CutLabCutRoundEngine.Round3Key, plan.NextProposal.RoundKey);
+    }
+
     private static CutLabRoundInputCard Card(
         string name,
         double manaValue,

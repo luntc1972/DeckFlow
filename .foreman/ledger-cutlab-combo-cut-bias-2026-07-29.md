@@ -353,3 +353,47 @@ The `## Final write set (5 files)` table describes T1 (`31042a36`) only. Actual 
 write set across the branch: `CutLabCutRoundEngine.cs`, `CutLabStructuralFindings.cs`,
 `CutLabCutRoundEngineTests.cs`, `CutLabStructuralFindingsTests.cs`,
 `CutLabApiControllerTests.cs`, and this ledger.
+
+## T6 — blind verification of `b30a5fb7`: PASS_WITH_NOTES (2026-07-30)
+
+All 10 criteria PASS. The high-risk check — the 5-fixture rewrite — came back **sound, none
+vacuous**, with mutation evidence rather than assertion:
+
+- Justification verified at source: `ComputeComboProtected` is the ONLY emitter of
+  `ComboProtected` (grep over production: `CutLabStructuralFindings.cs:347,385` only); loop 1
+  sets `CompletePiece`, loop 2 sets `NeedsPartner`. Never null. So the old badge-less fixtures
+  were testing a state production cannot produce.
+- Mutation C1 (rank neutered to constant 0) turned Agatha / Round1DespiteHigherTally /
+  Round3DespiteLowerManaValue RED. Mutation C2 (combo kinds re-admitted to the tally) turned
+  ComboProtectedPlusEnablerStarved / AshnodsAltarRegression RED. All 5 still catch their
+  original bug.
+- New tests discriminate: Mut A (drop badge filter) reds the NeedsPartner test for the right
+  reason; Mut B (revert normalization) reds the DFC test.
+- Comparer question settled empirically, not by reasoning: `Ordinal` on normalized input is
+  equivalent to case-insensitive because `Normalize` calls `ToLowerInvariant()` first. Probe
+  `MALAKIR REBIRTH` vs `malakir rebirth` green at HEAD.
+- Web 2054/0/16, Core 1843/0, format gate 0, EOL clean, scope exactly the 3 declared files,
+  `CutLabStructuralFindings.cs` byte-unchanged so the UI still renders NeedsPartner as before.
+
+### T7 — closing the one actionable finding
+
+T6 LOW/CONFIRMED: F2's **punctuation** vector was fixed but UNGUARDED — only the DFC vector had
+a test. A refactor could keep a DFC-safe path, drop normalization, and leave the suite green
+while every apostrophe card (`Lim-Dul's Vault`, `Yawgmoth, Thran Physician`) silently escaped
+demotion again.
+
+Closed by `BuildQueue_ComboProtectedCardNormalizesDivergentApostrophes_LimDulsVaultRegression`
+(deck U+2019 vs Spellbook U+0027). Written by the foreman inline, which `CLAUDE.md` permits for
+a trivial assertion caught during review.
+
+Proven discriminating, not assumed: mutating `ComboProtectionRank` back to the un-normalized
+`Contains(cardName)` turns it RED. That mutation reds 5 tests total, because the set stores
+normalized names while the mutated lookup does not — the pairing itself is the invariant.
+Engine restored from git immediately after; only the test file changed.
+
+Evidence: Web `Passed: 2055, Failed: 0, Skipped: 16` (2054 + 1). Core untouched (Web.Tests-only
+change). Format gate exit 0. EOL 0 CR both sides, 27/27 identical under `--ignore-all-space`.
+
+T6 second note (INFO, not fixed): `BuildQueue_ComboProtectedCardSortsLastInRound1DespiteHigherTally`
+is misnamed — `RedundantFinishers` is tally-excluded so both cards tally 2, not "higher". The
+test still discriminates. Cosmetic; left alone deliberately.
