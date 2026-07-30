@@ -540,3 +540,103 @@ phase were *created by* same-family review output and *ratified* by same-family 
   `05-CONTEXT.md` and superseding R-M3's non-null-record arbitration.
 - **Codex authoritative review: still OWED.** Three rounds, zero cross-AI verification of the
   claim-vs-code kind `CLAUDE.md` requires.
+
+---
+
+# Round 4 — cross-family review plus compiler adjudication
+
+**Date:** 2026-07-30
+**Baseline:** plans as folded through Round 3; worktree HEAD `6f51bd7b` (`gsd/cycle21-cut-lab`).
+**Verdict:** **CHANGES REQUIRED** — 1 HIGH, 2 MEDIUM, 3 LOW. **No BLOCKER.** All 6 folded in one consolidated pass.
+
+## Reviewer roster
+
+| Reviewer | Model | Lens | Verdict |
+|----------|-------|------|---------|
+| R8 | **Fable 5** | claim-vs-code, adversarial; explicitly instructed to distrust this file's own resolution text and verify against real source | **CHANGES REQUIRED** — 1 HIGH, 2 MEDIUM, 3 LOW |
+| R9 | **the C# compiler** (`dotnet build DeckFlow.sln`, .NET 10) | proof-by-construction on a throwaway worktree: apply only the plans' interface deltas and see what the compiler says | **CONVERGED** — the interface design is correct |
+
+Round 3 closed by recording that the Codex authoritative review was still owed and that
+same-family passes were not substituting for it. Codex was re-probed at the start of this round
+and returned `ERROR: Your workspace is out of credits.`, so Round 4 substituted the two lenses
+above. **The Codex claim-vs-code review remains OWED** — see the disposition below.
+
+## R9 — what the compiler settled
+
+Throwaway branch `probe/p5-throwing-defaults` off `6f51bd7b`, applying *only* the two interface
+deltas the plans specify — no concrete implementations — so the compiler answers the actual
+question: do the unlisted implementers survive on the defaults alone? Branch and worktree
+deleted after the run; nothing committed.
+
+| Prior finding | Compiler evidence | Verdict |
+|---|---|---|
+| **R-B3** — widening with an optional parameter raises `CS0535` in 5 unlisted implementers | negative control reproduced `CS0535` at **all five cited lines exactly**: `CategorySuggestionServiceTests.cs:149`, `CutLabAnalysisContextBuilderTests.cs:662`, `CutLabPageServiceTests.cs:2918`, `HarvestStatsAggregatorTests.cs:67` and `:138`. A 6th hit, `FakeCategoryKnowledgeStore.cs:12`, is inside plan 05-03's own write set — so "five **unlisted**" is exactly right | plan **CORRECT** |
+| **R-B3** — the throwing-default overload avoids it | both members as throwing defaults → **0 errors, 9 warnings**, the 9 being the pre-existing `CS8629` baseline in `ManabaseBaselineWeightingTests.cs` | plan **CORRECT** |
+| **R-H4** — a Core interface change vs 10 unedited `DeckFlow.Web.Tests` implementers | `DeckFlow.Web.Tests` compiled clean on the throwing default | plan **CORRECT** |
+| **Round 3 H-1** — phantom `JsonElement.TryGetBoolean` | `CS1061: 'JsonElement' does not contain a definition for 'TryGetBoolean'` | Round-3 fold **CORRECT** |
+| plan 05-01's `TryGetDouble` ban and kind-guard rules | executed on .NET 10: `TryGetInt32` false for both `3.5` and `1e999`; `TryGetDouble` **true** for both (`3.5`, and `∞`→`(int)2147483647`); `TryGetInt32` throws `InvalidOperationException` on `String` and `Null` elements; `1e999` has `ValueKind.Number` | plan **CORRECT** on every claim |
+
+Implementer censuses independently confirmed by both reviewers: `ICategoryKnowledgeStore` has
+exactly **7** implementers, `IArchidektDeckImporter` exactly **14** across 14 files, with no
+default members before this phase.
+
+**A note worth keeping.** The negative control needed three builds to reach the test project:
+`DeckFlow.Web` failing meant `DeckFlow.Web.Tests` never compiled, so the first control run
+reported 1 error, not 6. A solution build stops at the first failing project and therefore
+*systematically hides* downstream implementer breakage. This is independent evidence that
+plan 05-01's insistence on running the full `dotnet build DeckFlow.sln` in **wave 1** rather
+than wave 3 is load-bearing rather than ceremony.
+
+## R8 findings and disposition
+
+All six folded. Every one is a plan-text edit; none changes the design.
+
+| ID | Sev | Finding | Where folded | Independently verified? |
+|----|-----|---------|--------------|--------------------------|
+| **F4-1** | **HIGH** | T-05-13's "cannot ship undetected" is false for `archidekt_theorycrafted`. Test 7 proves `From` is correct but nothing proves `DeckQueueRepository` *calls* it. A raw `bool?` bind is byte-identical to `From`'s `int?` on SQLite (`DapperTypeHandlers.cs:111-116`) and fails only on Postgres (`42804`), which is provable in zero environments. Timestamps *are* detectable, but only by an accident of format: the handler emits `DateTime`-`"O"` (`…Z`, `:148-154`) while `From` emits `DateTimeOffset`-`"O"` (`…+00:00`) | `05-02` Task 2 Step A (per-field detectability trace + prefer passing the parameters instance); `05-02` Task 1 (pin which `"O"`); T-05-13 row downgraded to **partial** with an explicit NOT-VERIFIED-on-Postgres carry into `05-02-SUMMARY.md`; Task 2 `<done>`; `05-VALIDATION.md` row `05-02-02` | **YES** — both handlers read at the cited lines |
+| **F4-2** | MED | Test 7's type-only assertions pass over an inverted `Theorycrafted ? 0 : 1` mapping and over any wrong timestamp rendering; `Assert.IsType<int>` on the null case throws rather than failing meaningfully | `05-02` Task 1 Test 7 — assert values as well as types; `true`→`1`, `false`→`0`, `null`→`Assert.Null` | reasoning sound; not re-executed |
+| **F4-3** | MED | 05-03 Test 2's second harvest pass is impossible as specified — the 5-day `DeckRefreshCooldown` requeue predicate means a naive second `RunAsync` processes zero decks | `05-03` Task 1 Test 2 — backdate `last_checked_utc` and re-run `AddDeckIdsAsync`, copying `ContentHashDedupTests.SetLastCheckedUtcAsync` | **YES** — helper at `ContentHashDedupTests.cs:345`, used 5×; `ArchidektDeckCacheSessionTests.cs` has zero occurrences |
+| **F4-4** | LOW | D-10's SQL fragment never says to extend the INSERT column list, which the `excluded.*` discriminator depends on — absent columns make `excluded.<col>` NULL, so the discriminator reads "caller passed null" on every conflict | `05-02` Task 2 Step B — explicit widen-the-INSERT instruction; `05-VALIDATION.md` row `05-02-02` | not independently verified (standard SQL semantics) |
+| **F4-5** | LOW | `using DeckFlow.Core.Integration;` is needed in `ICategoryKnowledgeStore.cs` too, since the new default member's signature names `ArchidektDeckMetadata?`; the plan names only `CategoryKnowledgeStore.cs` | `05-03` Task 3 | **YES** — `CS0246` reproduced on the probe branch |
+| **F4-6** | LOW | 05-01's third artifact gate has no `contains:` and the file exists at HEAD, so it cannot fail | `05-01` frontmatter — added `contains: "ImportWithMetadataAsync"` | **YES** — `git cat-file -e HEAD:` confirms |
+
+## One claim retracted, for the record
+
+An earlier pass in this round reported the `CS1503` positional-caller break at
+`CategoryKnowledgeStore.cs:110` as a **new** finding the reviews had missed. That was **wrong**:
+it is already fully documented at `05-02-PLAN.md:95-98` (complete caller audit) and recorded in
+this file as Round 3's **NEW-1 BLOCK** with a per-caller table, having been pulled from 05-03's
+write set into 05-02. R8 caught the error. Recorded so the correction is durable and so the
+finding is not re-raised a third time.
+
+## The structural lesson of this round
+
+**The two lenses caught disjoint defect sets, and neither could have found the other's.** R9
+found nothing R8 found; R8 found nothing R9 could reach. That is not redundancy failing — it is
+the lenses being genuinely orthogonal:
+
+- The compiler adjudicates *existence and signature* questions absolutely — `CS1061`, `CS0535`,
+  `CS1503`. Rounds 1-3 spent three same-family passes on exactly this class and still shipped a
+  phantom API into a folded plan. One build settled all of it.
+- The compiler is blind to F4-1, because F4-1 **is** a statement about undetectability. No build
+  can surface a defect whose whole nature is that every runnable environment stays green.
+
+The practical consequence for the remaining phases: reach for a throwaway-branch build *before*
+adding another review round whenever the open questions are about APIs, signatures, or
+implementer counts — it is faster, free, and decisive. Reserve model review for the questions a
+compiler cannot express, which is where F4-1 lived.
+
+## Round 4 disposition
+
+- **All 6 findings folded** across `05-01-PLAN.md`, `05-02-PLAN.md`, `05-03-PLAN.md`,
+  `05-VALIDATION.md`, and this file. No source file was touched. `.github/workflows/ci.yml`
+  remains out of scope per the ratified user decision.
+- **No new decision required.** F4-1's fix is honest rewording plus one test-computation
+  pin; D-10 stands as ratified in Round 3.
+- **The three BLOCK-class interface findings that gated this phase (R-B3, R-H4, Round 3 H-1) are
+  now discharged with compiler evidence** rather than review consensus.
+- **Codex authoritative review: still OWED**, now across four rounds. Blocked on workspace
+  credits, re-probed and confirmed dead this round. The nearest available substitute is
+  `cursor-agent --mode=plan --model gpt-5`, which is installed but **not logged in** and needs
+  the developer to authenticate.
+- **No BLOCKER outstanding.** Nothing in Round 4 blocks execution once the fold is committed.
