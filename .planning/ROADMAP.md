@@ -89,13 +89,13 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
   5. The contradiction between `NormalizeForScryfall`'s xmldoc ("so DFC cards resolve on the first attempt instead of cascading into per-card fallbacks") and `ResolveBatchAsync`'s ("Never affects the match key") is resolved — one of the two is factually wrong and misleads the next reader.
   6. Regression tests cover the reduced call count and the 429-vs-404 distinction; existing Web + Core suites stay green.
   7. `ScryfallThrottle.MinInterval` paces at the rate Scryfall actually documents for the endpoints in use — 500ms (2/sec) for `/cards/collection`, `/cards/search`, `/cards/named`, `/cards/random` — instead of 200ms. The stale code comment at `ScryfallThrottle.cs:13` (which cites the "all other methods" 10/sec ceiling as if it applied here) is corrected. Because the throttle is a process-wide static gate, the latency impact on the highest-volume caller is measured and reported BEFORE the change is accepted (research assumption A2, unquantified). User decision 2026-07-31: fold in, global.
-**Plans**: 5 plans (3 waves)
+**Plans**: 5 plans (4 waves) — revised 2026-07-31 after review round 1 (`111.1-REVIEWS.md`)
 
 Plans:
-- [ ] 111.1-01-PLAN.md — Hotfix: drop the redundant per-miss cards/collection POST (SC-1) and fail open on a transient 429 during pool intake (SC-2)
-- [ ] 111.1-02-PLAN.md — Lock the 429 banner as unreachable end to end at ProcessAsync (SC-3); full Web + Core suite gate (SC-6)
-- [ ] 111.1-03-PLAN.md — Resolve assumption A1 with one logged probe; ADR 0004 on the match-key asymmetry (SC-4); correct the NormalizeForScryfall xmldoc (SC-5)
-- [ ] 111.1-04-PLAN.md — Measure the MinInterval 200ms -> 500ms latency impact per flow, then a blocking acceptance checkpoint (SC-7, measurement half)
+- [ ] 111.1-01-PLAN.md — Hotfix: drop the redundant per-miss cards/collection POST (SC-1), fail open on a transient 429 during pool intake (SC-2), and stop caching a rate-limited pool as if Scryfall confirmed the misses (review blocker B-1) with a user-visible degraded-import warning (W-1)
+- [ ] 111.1-02-PLAN.md — Lock the 429 banner as unreachable end to end at ProcessAsync on a 101-card pool, with route-correct 503 inverse locks (SC-3); full Web + Core suite gate (SC-6)
+- [ ] 111.1-03-PLAN.md — ADR 0004 on the match-key asymmetry AND its implementation: an additive punctuation-tolerant second pass over the batch response already in hand (SC-4); correct the NormalizeForScryfall xmldoc (SC-5). Assumption A1 is discharged by the live probes in `111.1-REVIEWS.md` §0 — no further probe
+- [ ] 111.1-04-PLAN.md — Measure the MinInterval 200ms -> 500ms latency impact per flow against the post-01/post-03 call counts, then a blocking acceptance checkpoint (SC-7, measurement half)
 - [ ] 111.1-05-PLAN.md — Apply the 500ms pacing floor + correct both stale rate-limit comments; re-run gates against final state (SC-7, SC-6)
 
 ### Phase 112: Cycle 17 Code Port
