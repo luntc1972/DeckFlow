@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.RegularExpressions;
 using DeckFlow.Web.Services.Scryfall;
 using RestSharp;
 
@@ -65,12 +66,17 @@ internal sealed record ScryfallBatchResolution(
 /// <item>The non-2xx / null-<c>Data</c> collection response throws the same
 /// <see cref="HttpRequestException"/> shape (upstream status preserved) as today -- relaxed for
 /// no caller.</item>
+/// <item>After the raw match-back above, any request names it left unmatched get ONE additional,
+/// punctuation-tolerant, slash-preserving pass over the SAME already-received response (zero extra
+/// Scryfall calls), matching only keys that are unambiguous on both sides. This pass is additive:
+/// it never overrides a raw-pass result and never suppresses the fallback for a name it does not
+/// confidently match. See <c>docs/decisions/0004-scryfall-batch-match-key-asymmetry.md</c>.</item>
 /// </list>
 /// This collaborator ends at "resolved references (original name + card + fallback flag) + oracle
 /// name map" -- mechanic-name extraction, <c>CardReference</c> construction, the Analysis
 /// <c>displayName</c> logic, and stat-input mapping stay in each consuming service.
 /// </remarks>
-internal sealed class ScryfallReferenceResolver
+internal sealed partial class ScryfallReferenceResolver
 {
     private const int ScryfallBatchSize = 75;
 
@@ -143,6 +149,33 @@ internal sealed class ScryfallReferenceResolver
                 resolved[matchingName] = new ScryfallReferenceResolution(matchingName, card, FromFallback: false);
             }
 
+            // Second pass (ADR 0004): punctuation-tolerant, slash-preserving match over the SAME
+            // response, for names the raw pass above left unmatched. Zero additional Scryfall calls.
+            var unclaimedCards = response.Data.Data
+                .Where(card => !oracleNameMap.Values.Contains(card.Name, StringComparer.OrdinalIgnoreCase))
+                .ToList();
+            var unmatchedNames = chunk.Where(name => !resolved.ContainsKey(name)).ToList();
+
+            var nameKeyGroups = unmatchedNames
+                .GroupBy(BatchMatchKey)
+                .Where(group => group.Count() == 1)
+                .ToDictionary(group => group.Key, group => group.First());
+            var cardKeyGroups = unclaimedCards
+                .GroupBy(card => BatchMatchKey(card.Name))
+                .Where(group => group.Count() == 1)
+                .ToDictionary(group => group.Key, group => group.First());
+
+            foreach (var (key, requestName) in nameKeyGroups)
+            {
+                if (!cardKeyGroups.TryGetValue(key, out var card))
+                {
+                    continue;
+                }
+
+                oracleNameMap[requestName] = card.Name;
+                resolved[requestName] = new ScryfallReferenceResolution(requestName, card, FromFallback: false);
+            }
+
             foreach (var unresolvedName in chunk.Where(name => !resolved.ContainsKey(name)))
             {
                 var fallbackCard = await fallbackStrategy(unresolvedName, cancellationToken).ConfigureAwait(false);
@@ -178,4 +211,30 @@ internal sealed class ScryfallReferenceResolver
             yield return chunk;
         }
     }
+
+    /// <summary>
+    /// Match key for the second pass (ADR 0004 --
+    /// <c>docs/decisions/0004-scryfall-batch-match-key-asymmetry.md</c>): trims, lowercases,
+    /// DELETES (never space-replaces) punctuation so <c>"Smuggler's Copter"</c> keys identically to
+    /// <c>"Smugglers Copter"</c> -- space-replacing (as <c>CardNormalizer</c> does) would leave
+    /// <c>"smuggler s copter"</c> vs <c>"smugglers copter"</c>, still distinct. <c>/</c> is
+    /// deliberately PRESERVED (not deleted, not collapsed with other punctuation) so a single-slash
+    /// DFC name (<c>"a / b"</c>) and its double-slash card (<c>"a // b"</c>) remain distinct keys and
+    /// the DFC fallback path is unchanged. <c>CardNormalizer.Normalize</c> is deliberately NOT reused
+    /// here: it truncates at the first DFC separator, so both slash forms would collapse to the same
+    /// key and the H2 lock test would break.
+    /// </summary>
+    private static string BatchMatchKey(string name)
+    {
+        var key = name.Trim().ToLowerInvariant();
+        key = BatchMatchKeyPunctuationRegex().Replace(key, string.Empty);
+        key = BatchMatchKeyMultiSpaceRegex().Replace(key, " ").Trim();
+        return key;
+    }
+
+    [GeneratedRegex(@"[^\p{L}\p{N}\s/]", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
+    private static partial Regex BatchMatchKeyPunctuationRegex();
+
+    [GeneratedRegex(@"\s+", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
+    private static partial Regex BatchMatchKeyMultiSpaceRegex();
 }

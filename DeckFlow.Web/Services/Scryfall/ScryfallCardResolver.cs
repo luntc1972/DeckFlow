@@ -222,10 +222,16 @@ public sealed class ScryfallCardResolver : IScryfallCardResolver
     /// <summary>
     /// Normalizes a card name for use in Scryfall API payloads.
     /// Converts the single-slash DFC separator used by Archidekt exports (" / ")
-    /// to the double-slash form Scryfall expects (" // ") so DFC cards resolve on
-    /// the first /cards/collection attempt instead of cascading into per-card fallbacks.
+    /// to the double-slash form Scryfall expects (" // "). This changes only the identifier
+    /// SUBMITTED to Scryfall and never the key a batch resolver matches returned cards back on.
     /// DeckEntry.Name is NOT modified — normalization happens only at the call site.
     /// </summary>
+    /// <remarks>
+    /// A live probe (<c>111.1-REVIEWS.md</c> §0, 2026-07-31) showed <c>/cards/collection</c>
+    /// resolves NEITHER slash form of a combined multiface name — so no submission spelling makes
+    /// a DFC name resolve there; it reaches its card through the search fallback either way. See
+    /// <c>docs/decisions/0004-scryfall-batch-match-key-asymmetry.md</c>.
+    /// </remarks>
     public static string NormalizeForScryfall(string cardName)
         => cardName.Replace(" / ", " // ");
 }
