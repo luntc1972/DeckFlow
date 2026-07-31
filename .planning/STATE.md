@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: Cycle 20
 milestone_name: Personal Tools
 status: Roadmapped
-stopped_at: "Completed 111.1-03-PLAN.md (Cut Lab Scryfall burst hotfix: ADR 0004 + SC-4/SC-5)"
-last_updated: "2026-07-31T19:05:21.000Z"
-last_activity: 2026-07-24 — Cycle 20 roadmap created (Phases 112-115)
+stopped_at: "Completed 111.1-05-PLAN.md (Cut Lab Scryfall burst hotfix: SC-7 pacing + SC-6 final gate — phase 111.1 COMPLETE, 5/5 plans)"
+last_updated: "2026-07-31T20:10:00.000Z"
+last_activity: 2026-07-31 — Phase 111.1 (Cut Lab Scryfall Burst Hotfix) complete, all 5 plans landed
 progress:
   total_phases: 2
   completed_phases: 0
   total_plans: 11
-  completed_plans: 4
+  completed_plans: 6
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Cycle 20 (Personal Tools) roadmapped: 4 phases (112-115) on branch `feat/personal-tools`, porting Cycle 17's creator-style engine as admin-only tooling. Cycle 19 closed out. Owed (user): flip `tool.cut-lab.enabled` ON in prod `/Admin/Tools` for go-live UAT (currently OFF); then delete branch `gsd/cycle19-cut-lab-upgrade` after UAT.
+**Current focus:** Cycle 20 (Personal Tools) roadmapped: 4 phases (112-115) on branch `feat/personal-tools`, porting Cycle 17's creator-style engine as admin-only tooling. Cycle 19 closed out. Owed (user): flip `tool.cut-lab.enabled` ON in prod `/Admin/Tools` for go-live UAT (currently OFF); then delete branch `gsd/cycle19-cut-lab-upgrade` after UAT. **Phase 111.1 (Cut Lab Scryfall Burst Hotfix, INSERTED) is now COMPLETE** on branch `fix/cutlab-scryfall-burst` (5/5 plans, `0943f13b`) — all commits local-only, nothing pushed per standing instruction; Codex cross-AI review remains OWED (Codex outage window through 2026-08-04).
 
 ## Current Position
 
-Phase: Not started (roadmap approved, planning next)
+Phase: Not started (roadmap approved, planning next) — Phase 111.1 hotfix (inserted, out-of-band) is complete; next roadmap phase is 112
 Plan: —
 Status: Roadmapped
-Last activity: 2026-07-24 — Cycle 20 roadmap created (Phases 112-115)
+Last activity: 2026-07-31 — Phase 111.1 (Cut Lab Scryfall Burst Hotfix) complete, all 5 plans landed
 
 ## Active Milestone
 
@@ -78,7 +78,7 @@ Carried-forward operator gates and descoped items (still open):
 
 ## Session Continuity
 
-Last session: 2026-07-31T19:05:21.000Z
-Stopped at: Completed 111.1-03-PLAN.md (Cut Lab Scryfall burst hotfix: ADR 0004 + SC-4/SC-5)
-Resume file: .planning/phases/111.1-cutlab-scryfall-burst-hotfix/111.1-04-PLAN.md
-Last activity: 2026-07-26 - Completed quick task 260726-pxw: Fix hidden-field cache clobber on Cut Lab page
+Last session: 2026-07-31T20:10:00.000Z
+Stopped at: Completed 111.1-05-PLAN.md (Cut Lab Scryfall burst hotfix: SC-7 pacing + SC-6 final gate — phase 111.1 COMPLETE, 5/5 plans)
+Resume file: None — phase 111.1 complete; next work is Phase 112 (Cycle 17 Code Port), not yet planned
+Last activity: 2026-07-31 - Phase 111.1 (Cut Lab Scryfall Burst Hotfix) complete, all 5 plans landed
