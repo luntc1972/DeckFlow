@@ -88,6 +88,7 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
   4. A decision is recorded (ADR or documented decline) on the match-key asymmetry: `ScryfallReferenceResolver` matches batch hits on the RAW name (`:136`) while `ScryfallCardResolver` matches on `CardNormalizer.Normalize` (`:117-118`), manufacturing phantom misses. The `:52-61` remarks mark this LOAD-BEARING / "do not fix" and it spans 4 other services, so it is changed only with an explicit decision, never as a drive-by.
   5. The contradiction between `NormalizeForScryfall`'s xmldoc ("so DFC cards resolve on the first attempt instead of cascading into per-card fallbacks") and `ResolveBatchAsync`'s ("Never affects the match key") is resolved — one of the two is factually wrong and misleads the next reader.
   6. Regression tests cover the reduced call count and the 429-vs-404 distinction; existing Web + Core suites stay green.
+  7. `ScryfallThrottle.MinInterval` paces at the rate Scryfall actually documents for the endpoints in use — 500ms (2/sec) for `/cards/collection`, `/cards/search`, `/cards/named`, `/cards/random` — instead of 200ms. The stale code comment at `ScryfallThrottle.cs:13` (which cites the "all other methods" 10/sec ceiling as if it applied here) is corrected. Because the throttle is a process-wide static gate, the latency impact on the highest-volume caller is measured and reported BEFORE the change is accepted (research assumption A2, unquantified). User decision 2026-07-31: fold in, global.
 **Plans**: TBD
 
 ### Phase 112: Cycle 17 Code Port
