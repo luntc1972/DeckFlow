@@ -30,6 +30,7 @@
 
 Decimal phases appear between their surrounding integers in numeric order. Numbering continues after shipped Cycle 19 phases 108-111.
 
+- [ ] **Phase 111.1: Cut Lab Scryfall Burst Hotfix (INSERTED)** - Cut Lab's Import-pool intake stops emitting a ~21-request Scryfall burst and stops rendering a 429 error banner to users; prod hotfix, runs before Phase 112
 - [ ] **Phase 112: Cycle 17 Code Port** - Cycle 17's Core engine (profile records/store, measured + stated extraction, fusion, grounding guard) and creator-style Web services/seed loader/DI registrations land on `feat/personal-tools` and build clean
 - [ ] **Phase 113: Shared-Infra Re-derivation** - Cycle 17's shared-infrastructure refactors are re-derived line-by-line against current `main`, not applied wholesale from the stale branch
 - [ ] **Phase 114: Port Verification & Admin Personal-Tools Surface** - Ported suites are clean of dead public-surface tests; both personal tools are reachable only through the BasicAuth-gated `/Admin` surface
@@ -75,6 +76,19 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
 </details>
 
 ## Phase Details
+
+### Phase 111.1: Cut Lab Scryfall Burst Hotfix (INSERTED)
+**Goal**: A Cut Lab "Import pool" of a normal Commander pool resolves without tripping Scryfall rate limiting and without rendering an error banner, by cutting the redundant per-miss Scryfall call and by not failing the whole import closed on a transient 429.
+**Depends on**: None (prod hotfix; runs before Phase 112)
+**Requirements**: Diagnosed in `.planning/debug/cutlab-import-scryfall-429.md` (status `root_cause_found`)
+**Success Criteria** (what must be TRUE):
+  1. `ScryfallCardResolver.ResolveSingleAsync`, when reached as a post-batch-miss fallback, no longer re-POSTs `cards/collection` for an identifier that already failed on that endpoint in the batch call — the worst-case per-miss live-call count drops from 2 to 1.
+  2. A Scryfall `429` during Cut Lab pool intake no longer aborts the entire import: `CutLabPageService.ResolveEntriesAsync`'s fail-closed policy distinguishes a transient 429 from a permanent 404, matching the fail-open behavior every other Cut Lab resolution path already uses.
+  3. The banner text "Scryfall returned HTTP 429. Try again shortly." is no longer reachable from a pool import whose cards all exist.
+  4. A decision is recorded (ADR or documented decline) on the match-key asymmetry: `ScryfallReferenceResolver` matches batch hits on the RAW name (`:136`) while `ScryfallCardResolver` matches on `CardNormalizer.Normalize` (`:117-118`), manufacturing phantom misses. The `:52-61` remarks mark this LOAD-BEARING / "do not fix" and it spans 4 other services, so it is changed only with an explicit decision, never as a drive-by.
+  5. The contradiction between `NormalizeForScryfall`'s xmldoc ("so DFC cards resolve on the first attempt instead of cascading into per-card fallbacks") and `ResolveBatchAsync`'s ("Never affects the match key") is resolved — one of the two is factually wrong and misleads the next reader.
+  6. Regression tests cover the reduced call count and the 429-vs-404 distinction; existing Web + Core suites stay green.
+**Plans**: TBD
 
 ### Phase 112: Cycle 17 Code Port
 **Goal**: Cycle 17's Core engine (Phases 94-98 — profile records and store, measured extraction, stated-rules extraction, profile fusion, card-grounding guard) AND the creator-style Web services, seed loader, and DI registrations land on `feat/personal-tools` and the solution builds clean.
@@ -134,10 +148,11 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 112 -> 113 -> 114 -> 115
+Phases execute in numeric order: 111.1 -> 112 -> 113 -> 114 -> 115
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
+| 111.1. Cut Lab Scryfall Burst Hotfix (INSERTED) | Cycle 20 | 0/0 | Not started | - |
 | 112. Cycle 17 Code Port | Cycle 20 | 0/0 | Not started | - |
 | 113. Shared-Infra Re-derivation | Cycle 20 | 0/0 | Not started | - |
 | 114. Port Verification & Admin Personal-Tools Surface | Cycle 20 | 0/0 | Not started | - |
