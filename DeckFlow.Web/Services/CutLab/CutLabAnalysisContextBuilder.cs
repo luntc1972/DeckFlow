@@ -474,8 +474,13 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
                     _logger.LogWarning(exception, "Cut Lab analysis context failed resolving {CardName}; continuing fail-open.", requestName);
                 }
 
-                // Why (round-1 review W-8): the upstream is actively rate-limiting; continuing to
-                // POST further chunks into it is bounded but counterproductive. The remaining chunks
+                // Why (round-1 review W-8, corrected by blind verification of wave 1): this break
+                // fires for EVERY swallowed exception reaching this catch, not only a 429. When
+                // failOpenOnLookupErrors is false, only a transient rate limit (IsTransientRateLimit)
+                // survives the throw guard above, so the upstream really is actively rate-limiting.
+                // But under failOpenOnLookupErrors: true (the BuildAsync default), a 503 or a timeout
+                // in an early chunk also lands here -- continuing to POST further chunks into a
+                // failing upstream is bounded but counterproductive either way. The remaining chunks
                 // are, by construction, also unattempted -- the post-loop diff below picks them up.
                 break;
             }
