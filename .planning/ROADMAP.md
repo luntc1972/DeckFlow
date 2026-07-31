@@ -160,7 +160,7 @@ Phases execute in numeric order: 111.1 -> 112 -> 113 -> 114 -> 115
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 111.1. Cut Lab Scryfall Burst Hotfix (INSERTED) | Cycle 20 | 5/5 | Complete | 2026-07-31 |
+| 111.1. Cut Lab Scryfall Burst Hotfix (INSERTED) | Cycle 20 | 5/5 | Complete    | 2026-07-31 |
 | 112. Cycle 17 Code Port | Cycle 20 | 0/0 | Not started | - |
 | 113. Shared-Infra Re-derivation | Cycle 20 | 0/0 | Not started | - |
 | 114. Port Verification & Admin Personal-Tools Surface | Cycle 20 | 0/0 | Not started | - |

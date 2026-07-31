@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: Cycle 20
 milestone_name: Personal Tools
-status: Roadmapped
-stopped_at: "Completed 111.1-05-PLAN.md (Cut Lab Scryfall burst hotfix: SC-7 pacing + SC-6 final gate — phase 111.1 COMPLETE, 5/5 plans)"
-last_updated: "2026-07-31T20:10:00.000Z"
+status: ready_to_plan
+stopped_at: Phase 111.1 complete (5/5) — ready to discuss Phase 112
+last_updated: 2026-07-31T19:56:13.968Z
 last_activity: 2026-07-31 — Phase 111.1 (Cut Lab Scryfall Burst Hotfix) complete, all 5 plans landed
 progress:
   total_phases: 2
-  completed_phases: 0
-  total_plans: 11
-  completed_plans: 6
-  percent: 0
+  completed_phases: 6
+  total_plans: 23
+  completed_plans: 8
+  percent: 300
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Cycle 20 (Personal Tools) roadmapped: 4 phases (112-115) on branch `feat/personal-tools`, porting Cycle 17's creator-style engine as admin-only tooling. Cycle 19 closed out. Owed (user): flip `tool.cut-lab.enabled` ON in prod `/Admin/Tools` for go-live UAT (currently OFF); then delete branch `gsd/cycle19-cut-lab-upgrade` after UAT. **Phase 111.1 (Cut Lab Scryfall Burst Hotfix, INSERTED) is now COMPLETE** on branch `fix/cutlab-scryfall-burst` (5/5 plans, `0943f13b`) — all commits local-only, nothing pushed per standing instruction; Codex cross-AI review remains OWED (Codex outage window through 2026-08-04).
+**Current focus:** Phase 112 — cycle 17 code port
 
 ## Current Position
 
-Phase: Not started (roadmap approved, planning next) — Phase 111.1 hotfix (inserted, out-of-band) is complete; next roadmap phase is 112
-Plan: —
-Status: Roadmapped
-Last activity: 2026-07-31 — Phase 111.1 (Cut Lab Scryfall Burst Hotfix) complete, all 5 plans landed
+Phase: 112
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-07-31
 
 ## Active Milestone
 
