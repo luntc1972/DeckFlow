@@ -231,6 +231,67 @@ public sealed class ScryfallReferenceResolverTests
         Assert.IsNotType<ScryfallReferenceCollectionException>(thrown);
     }
 
+    /// <summary>
+    /// SC-4 lock: a punctuation-drifted request name ("Smugglers Copter") that the collection call
+    /// already resolved and returned under different punctuation ("Smuggler's Copter") is matched
+    /// from the SAME batch response by the additive second pass -- the fallback delegate must NEVER
+    /// be dispatched, because the card is already in hand.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_PunctuationDriftedCollectionHit_MatchesFromTheBatchResponseWithoutFallback()
+    {
+        var smugglersCopter = CreateCard("Smuggler's Copter");
+        var resolver = CreateResolver(executeCollectionAsync: (request, _) =>
+            Task.FromResult(CreateCollectionResponse(new List<ScryfallCard> { smugglersCopter })));
+
+        Task<ScryfallCard?> Fallback(string name, CancellationToken _)
+            => throw new InvalidOperationException($"Fallback must not be invoked for a punctuation-drifted collection hit (got: {name}).");
+
+        var result = await resolver.ResolveBatchAsync(
+            new[] { "Smugglers Copter" },
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+
+        var resolution = Assert.Single(result.Resolutions);
+        Assert.Equal("Smugglers Copter", resolution.RequestName);
+        Assert.Equal("Smuggler's Copter", resolution.Card.Name);
+        Assert.False(resolution.FromFallback);
+        Assert.Equal("Smuggler's Copter", result.OracleNameMap["Smugglers Copter"]);
+    }
+
+    /// <summary>
+    /// Permanent guard (ADR 0004): the second pass's match key deletes punctuation but PRESERVES
+    /// "/", so a single-slash Archidekt name ("A / B") and its double-slash card ("A // B") must
+    /// still NOT collide even under the second pass alone (normalizeForScryfall deliberately OFF
+    /// here, isolating this from the H2 submission-normalization lock). This is what keeps a future
+    /// "simplify the key to CardNormalizer.Normalize" change (which collapses both to "a") from
+    /// landing silently -- see docs/decisions/0004-scryfall-batch-match-key-asymmetry.md.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_SlashFormsDoNotCollideUnderTheSecondPass()
+    {
+        var doubleSlashCard = CreateCard("A // B");
+        var resolver = CreateResolver(executeCollectionAsync: (request, _) =>
+            Task.FromResult(CreateCollectionResponse(new List<ScryfallCard> { doubleSlashCard })));
+
+        var fallbackInvocations = new List<string>();
+        Task<ScryfallCard?> Fallback(string name, CancellationToken _)
+        {
+            fallbackInvocations.Add(name);
+            return Task.FromResult<ScryfallCard?>(null);
+        }
+
+        var result = await resolver.ResolveBatchAsync(
+            new[] { "A / B" },
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+
+        Assert.Equal(new[] { "A / B" }, fallbackInvocations);
+        Assert.Empty(result.Resolutions);
+    }
+
     private static ScryfallReferenceResolver CreateResolver(
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> executeCollectionAsync)
     {
