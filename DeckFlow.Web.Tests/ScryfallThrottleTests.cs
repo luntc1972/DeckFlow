@@ -161,6 +161,43 @@ public sealed class ScryfallThrottleTests
         Assert.Equal(1, calls);
     }
 
+    /// <summary>
+    /// SC-7: Scryfall documents a hard 2 requests/second (500ms) limit for <c>/cards/collection</c>,
+    /// <c>/cards/search</c>, <c>/cards/named</c>, and <c>/cards/random</c> — the four endpoints every
+    /// flow behind this throttle calls. This asserts a LOWER bound only (elapsed &gt;= 450ms, a 50ms
+    /// tolerance below the 500ms target for timer granularity). It must never assert an upper bound:
+    /// <see cref="ScryfallThrottle"/> holds process-wide static state (<c>Gate</c>, `_lastCallUtc`),
+    /// so this test is inherently coupled to assembly-wide call ordering and an upper-bound assertion
+    /// would be flaky under CI load from other tests sharing the same static gate.
+    /// </summary>
+    [Fact]
+    public async Task ExecuteAsync_SpacesConsecutiveCallsByAtLeastTheDocumentedPerEndpointLimit()
+    {
+        await Task.Delay(600); // Let prior tests age out so this measures only the two calls below.
+
+        var response = CreateResponse<int>(HttpStatusCode.OK);
+        var calls = 0;
+
+        await ScryfallThrottle.ExecuteAsync<int>(_ =>
+        {
+            calls++;
+            return Task.FromResult(response);
+        }, CancellationToken.None);
+
+        var stopwatch = Stopwatch.StartNew();
+
+        await ScryfallThrottle.ExecuteAsync<int>(_ =>
+        {
+            calls++;
+            return Task.FromResult(response);
+        }, CancellationToken.None);
+
+        stopwatch.Stop();
+
+        Assert.Equal(2, calls);
+        Assert.True(stopwatch.ElapsedMilliseconds >= 450, $"Expected at least ~450ms between calls, saw {stopwatch.ElapsedMilliseconds}ms.");
+    }
+
     [Fact]
     public async Task ExecuteAsync_PacesBackToBackCalls()
     {
