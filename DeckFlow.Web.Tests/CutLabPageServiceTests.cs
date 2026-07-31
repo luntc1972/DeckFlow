@@ -562,6 +562,59 @@ public sealed class CutLabPageServiceTests
         Assert.True(secondResult.CardTextByCardName.TryGetValue("Card 001", out _));
     }
 
+    /// <summary>
+    /// GAP-2 (blind verification of wave 1): <c>BuildUnresolvedCardsWarning</c>'s full contract on
+    /// the degraded path -- names at most 5 unresolved cards with an "and N more" overflow for the
+    /// remainder, and rides a SUCCESS result (<c>HasResult=true</c>, no <c>ErrorMessage</c>) rather
+    /// than an error result. Seven cards are genuinely absent from the resolver's card list (a plain
+    /// "not found", not a swallowed exception) so the batch resolves normally with no per-chunk
+    /// cascade to account for.
+    /// </summary>
+    [Fact]
+    public async Task ProcessAsync_DegradedImportWarning_NamesUpToFiveCardsWithOverflowOnSuccessResult()
+    {
+        string[] missingCardNames =
+        [
+            "Card 010", "Card 011", "Card 012", "Card 013", "Card 014", "Card 015", "Card 016",
+        ];
+        var entries = BuildPoolEntries(nonCommanderCount: 101, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        cards.RemoveAll(card => missingCardNames.Contains(card.Name, StringComparer.OrdinalIgnoreCase));
+        var service = new CutLabPageService(new FakeLoader(entries), new FakeResolver(cards), new FakeBanListService([]));
+        var request = new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool" };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.Null(result.ErrorMessage);
+        Assert.True(result.HasResult);
+        Assert.Contains(result.Warnings, warning =>
+            warning.StartsWith("7 cards could not be looked up (", StringComparison.Ordinal)
+            && warning.Contains("Card 010", StringComparison.Ordinal)
+            && warning.Contains("Card 014", StringComparison.Ordinal)
+            && warning.Contains("and 2 more", StringComparison.Ordinal)
+            && !warning.Contains("Card 015", StringComparison.Ordinal)
+            && !warning.Contains("Card 016", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// GAP-2 inverse lock: on a fully-resolved pool, no degraded-import warning is added at all --
+    /// proving the warning is conditional on an actual gap, not always-on boilerplate.
+    /// </summary>
+    [Fact]
+    public async Task ProcessAsync_FullyResolvedPool_HasNoDegradedImportWarning()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 101, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var service = new CutLabPageService(new FakeLoader(entries), new FakeResolver(cards), new FakeBanListService([]));
+        var request = new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool" };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.Null(result.ErrorMessage);
+        Assert.True(result.HasResult);
+        Assert.DoesNotContain(result.Warnings, warning => warning.Contains("could not be looked up", StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task ProcessAsync_IncludeSideboardAndMaybeboardOff_ExcludesExtraBoardsFromPool()
     {
