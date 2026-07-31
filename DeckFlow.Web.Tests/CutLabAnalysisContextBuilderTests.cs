@@ -505,6 +505,179 @@ public sealed class CutLabAnalysisContextBuilderTests
         Assert.Contains(CutLabCardNames.Normalize("Typo Card"), missingNames!);
     }
 
+    /// <summary>
+    /// SC-1: a batch-collection miss must dispatch <see cref="IScryfallCardResolver.SearchFallbackCardAsync"/>,
+    /// never the two-call <see cref="IScryfallCardResolver.ResolveSingleAsync"/> path, since the identifier
+    /// already failed on cards/collection moments earlier in the same batch call. OBSERVED RED TODAY
+    /// (round-1 review W-7): <c>ResolveSingleCalls == 3</c> and <c>SearchFallbackCalls == 3</c> BOTH, because
+    /// <see cref="CountingResolver.ResolveSingleAsync"/> delegates straight to <c>SearchFallbackCardAsync</c>.
+    /// The assertion that actually goes RED is <c>ResolveSingleCalls == 0</c>.
+    /// </summary>
+    [Fact]
+    public async Task ResolvePoolCardsAsync_BatchMiss_DispatchesSearchFallbackNotResolveSingle()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList =
+        [
+            PoolCard("Phase 111.1 Probe Alpha", "Creature"),
+            PoolCard("Phase 111.1 Probe Beta", "Creature"),
+            PoolCard("Phase 111.1 Probe Gamma", "Creature"),
+        ];
+        var resolver = new CountingResolver([]);
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache());
+
+        await builder.ResolvePoolCardsAsync(workingList);
+
+        Assert.Equal(0, resolver.ResolveSingleCalls);
+        Assert.Equal(3, resolver.SearchFallbackCalls);
+        Assert.Contains("Phase 111.1 Probe Alpha", resolver.SearchFallbackCallsByName.Keys);
+        Assert.Contains("Phase 111.1 Probe Beta", resolver.SearchFallbackCallsByName.Keys);
+        Assert.Contains("Phase 111.1 Probe Gamma", resolver.SearchFallbackCallsByName.Keys);
+        Assert.Equal(1, resolver.ExecuteCollectionCalls);
+    }
+
+    /// <summary>
+    /// SC-1 (round-1 review W-3): built against a REAL <see cref="ScryfallCardResolver"/> (not the
+    /// <see cref="CountingResolver"/> double) with counting collection/search delegate overrides, so the
+    /// reduced live-call count is observed end-to-end through <c>ScryfallReferenceResolver</c>, not
+    /// merely inferred. OBSERVED RED TODAY: <c>collectionCalls == 4</c> (1 batch POST + 1 redundant
+    /// per-miss POST via <c>ResolveSingleAsync</c>) and <c>searchCalls == 3</c>.
+    /// </summary>
+    [Fact]
+    public async Task ResolvePoolCardsAsync_BatchMiss_IssuesExactlyOneLiveCallPerMiss()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList =
+        [
+            PoolCard("Phase 111.1 Probe Alpha", "Creature"),
+            PoolCard("Phase 111.1 Probe Beta", "Creature"),
+            PoolCard("Phase 111.1 Probe Gamma", "Creature"),
+        ];
+        int collectionCalls = 0;
+        int searchCalls = 0;
+        var cardResolver = new ScryfallCardResolver(
+            new FakeScryfallRestClientFactory(new HttpClient { BaseAddress = new Uri("https://api.scryfall.com/") }),
+            new FakeResiliencePipelineProvider(),
+            executeCollectionAsyncOverride: (request, _) =>
+            {
+                collectionCalls++;
+                return Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallCollectionResponse([], []),
+                });
+            },
+            executeSearchAsyncOverride: (request, _) =>
+            {
+                searchCalls++;
+                return Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSearchResponse([]),
+                });
+            });
+        var builder = new CutLabAnalysisContextBuilder(cardResolver, new CutLabResolvedCardCache());
+
+        await builder.ResolvePoolCardsAsync(workingList);
+
+        Assert.Equal(1, collectionCalls);
+        Assert.Equal(3, searchCalls);
+    }
+
+    /// <summary>
+    /// SC-2: a transient HTTP 429 raised by the per-card fallback delegate during
+    /// <c>failOpenOnLookupErrors: false</c> pool intake must NOT abort the resolution — the affected
+    /// card is simply absent from the resolved set. RED today: throws.
+    /// </summary>
+    [Fact]
+    public async Task ResolvePoolCardsAsync_FailClosed_RateLimitDuringFallback_DoesNotThrow()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList = [PoolCard("Phase 111.1 Probe Delta", "Creature")];
+        var resolver = new CountingResolver([])
+        {
+            FallbackException = new HttpRequestException("429", null, HttpStatusCode.TooManyRequests),
+        };
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache());
+
+        IReadOnlyList<ScryfallCardData> result = await builder.ResolvePoolCardsAsync(
+            workingList,
+            failOpenOnLookupErrors: false);
+
+        Assert.DoesNotContain(result, card => string.Equals(card.Name, "Phase 111.1 Probe Delta", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// SC-2 guard: a NON-429 failure during fallback dispatch must still fail closed. This must stay
+    /// GREEN before and after the fix — it is the guard against over-widening the fail-open predicate.
+    /// </summary>
+    [Fact]
+    public async Task ResolvePoolCardsAsync_FailClosed_NonRateLimitDuringFallback_StillThrows()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList = [PoolCard("Phase 111.1 Probe Epsilon", "Creature")];
+        var resolver = new CountingResolver([])
+        {
+            FallbackException = new HttpRequestException("503", null, HttpStatusCode.ServiceUnavailable),
+        };
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache());
+
+        await Assert.ThrowsAsync<HttpRequestException>(() =>
+            builder.ResolvePoolCardsAsync(workingList, failOpenOnLookupErrors: false));
+    }
+
+    /// <summary>
+    /// SC-2: a 429 raised by the BATCH <c>cards/collection</c> call itself (surfaced as
+    /// <c>ScryfallReferenceCollectionException</c>, which derives from <see cref="HttpRequestException"/>)
+    /// must be treated identically to a 429 on the per-card fallback — fail-open, not fail-closed.
+    /// RED today: throws.
+    /// </summary>
+    [Fact]
+    public async Task ResolvePoolCardsAsync_FailClosed_BatchCollectionRateLimit_DoesNotThrow()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList = [PoolCard("Phase 111.1 Probe Zeta", "Creature")];
+        var resolver = new CountingResolver([]) { CollectionStatusCode = HttpStatusCode.TooManyRequests };
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache());
+
+        IReadOnlyList<ScryfallCardData> result = await builder.ResolvePoolCardsAsync(
+            workingList,
+            failOpenOnLookupErrors: false);
+
+        Assert.DoesNotContain(result, card => string.Equals(card.Name, "Phase 111.1 Probe Zeta", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// B-1 (round-1 review): a transient failure must never be memoized as a permanent miss. A card
+    /// left unattempted by a swallowed 429 on the first pass must be re-attempted (not silently
+    /// short-circuited) by the next resolution of the same pool, and must appear once the upstream
+    /// recovers. Uses a batch-collection 429 (rather than a fallback exception) to force a genuine
+    /// collection miss on pass 1: the double's <see cref="CountingResolver.ExecuteCollectionAsync"/>
+    /// always echoes its full <c>cards</c> list regardless of the request, so a card already present in
+    /// that list would otherwise resolve via a direct collection hit on every pass and never reach
+    /// the fallback delegate at all.
+    /// </summary>
+    [Fact]
+    public async Task ResolvePoolCardsAsync_AfterSwallowedRateLimit_SecondResolveReattemptsTheCasualty()
+    {
+        ScryfallCard targetCard = Spell("Phase 111.1 Probe Eta", "Creature");
+        IReadOnlyList<CutLabPoolCard> workingList = [PoolCard("Phase 111.1 Probe Eta", "Creature")];
+        var resolver = new CountingResolver([targetCard]) { CollectionStatusCode = HttpStatusCode.TooManyRequests };
+        var cache = new CutLabResolvedCardCache();
+        var builder = new CutLabAnalysisContextBuilder(resolver, cache);
+
+        IReadOnlyList<ScryfallCardData> firstPass = await builder.ResolvePoolCardsAsync(
+            workingList,
+            failOpenOnLookupErrors: false);
+
+        Assert.DoesNotContain(firstPass, card => string.Equals(card.Name, "Phase 111.1 Probe Eta", StringComparison.OrdinalIgnoreCase));
+
+        resolver.CollectionStatusCode = HttpStatusCode.OK;
+        int collectionCallsAfterFirstPass = resolver.ExecuteCollectionCalls;
+
+        IReadOnlyList<ScryfallCardData> secondPass = await builder.ResolvePoolCardsAsync(
+            workingList,
+            failOpenOnLookupErrors: false);
+
+        Assert.True(resolver.ExecuteCollectionCalls > collectionCallsAfterFirstPass);
+        Assert.Contains(secondPass, card => string.Equals(card.Name, "Phase 111.1 Probe Eta", StringComparison.OrdinalIgnoreCase));
+    }
+
     [Fact]
     public async Task TrySeedDerivedPool_RestoreWithWarmFullPoolCache_AvoidsAdditionalResolverCalls()
     {
@@ -606,9 +779,28 @@ public sealed class CutLabAnalysisContextBuilderTests
 
         public Dictionary<string, int> ResolveSingleCallsByName { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+        public int SearchFallbackCalls { get; private set; }
+
+        public Dictionary<string, int> SearchFallbackCallsByName { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>When set, <see cref="SearchFallbackCardAsync"/> throws this instead of returning a match.</summary>
+        public Exception? FallbackException { get; set; }
+
+        /// <summary>When outside [200,300), <see cref="ExecuteCollectionAsync"/> returns this status with a null payload, simulating a batch-call failure (e.g. a 429 on cards/collection).</summary>
+        public HttpStatusCode CollectionStatusCode { get; set; } = HttpStatusCode.OK;
+
         public Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken cancellationToken)
         {
             ExecuteCollectionCalls++;
+            if ((int)CollectionStatusCode is < 200 or >= 300)
+            {
+                return Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+                {
+                    StatusCode = CollectionStatusCode,
+                    Data = null,
+                });
+            }
+
             return Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
             {
                 StatusCode = HttpStatusCode.OK,
@@ -617,7 +809,18 @@ public sealed class CutLabAnalysisContextBuilderTests
         }
 
         public Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
-            => Task.FromResult(cards.FirstOrDefault(card => string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase)));
+        {
+            SearchFallbackCalls++;
+            SearchFallbackCallsByName[cardName] = SearchFallbackCallsByName.TryGetValue(cardName, out int count)
+                ? count + 1
+                : 1;
+            if (FallbackException is not null)
+            {
+                throw FallbackException;
+            }
+
+            return Task.FromResult(cards.FirstOrDefault(card => string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase)));
+        }
 
         public Task<ScryfallCard?> SearchPrintingFallbackCardAsync(string cardName, CancellationToken cancellationToken)
             => SearchFallbackCardAsync(cardName, cancellationToken);
