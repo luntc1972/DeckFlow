@@ -368,6 +368,161 @@ public sealed class CutLabPageServiceTests
         Assert.False(result.CardTextByCardName.TryGetValue(unresolvedCardName, out _));
     }
 
+    /// <summary>
+    /// SC-3, W-1 (round-1 review): a per-card fallback 429 during pool resolution must never reach
+    /// <see cref="CutLabProcessResult.ErrorMessage"/> -- the fixture is 101 non-commander cards
+    /// (inside <see cref="CutLabPoolValidator"/>'s 101-150 window) so validation cannot manufacture
+    /// a false failure (round-1 review B-2). Also locks W-1: the degraded import still surfaces a
+    /// user-visible warning naming the affected cards.
+    /// </summary>
+    /// <remarks>
+    /// The 101 non-commander cards plus the commander (102 pool names) are batched into a 75-name
+    /// chunk and a 27-name chunk (<c>ScryfallReferenceResolver</c>'s internal batch size). A single
+    /// throwing fallback call aborts <c>ResolveBatchAsync</c> before it returns ANY resolution for
+    /// that call -- including collection hits already matched earlier in the SAME chunk -- so the
+    /// missing card is deliberately placed in the LAST (27-card) chunk: the first (75-card) chunk
+    /// resolves cleanly before the swallow, proving the failure did not blank out the whole import,
+    /// while the whole 27-card chunk containing the casualty is correctly treated as unattempted.
+    /// </remarks>
+    [Fact]
+    public async Task ProcessAsync_ScryfallRateLimitsDuringFallback_ImportSucceedsWithoutBanner()
+    {
+        const string missingCardName = "Card 090";
+        var entries = BuildPoolEntries(nonCommanderCount: 101, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        cards.RemoveAll(card => string.Equals(card.Name, missingCardName, StringComparison.OrdinalIgnoreCase));
+        var resolver = new FakeResolver(cards)
+        {
+            FallbackException = new HttpRequestException(
+                $"Scryfall fallback lookup failed while resolving {missingCardName} with HTTP 429.",
+                null,
+                HttpStatusCode.TooManyRequests),
+        };
+        var service = new CutLabPageService(new FakeLoader(entries), resolver, new FakeBanListService([]));
+        var request = new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool" };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.True(string.IsNullOrEmpty(result.ErrorMessage));
+        Assert.True(result.HasResult);
+        Assert.False(result.CardTextByCardName.TryGetValue(missingCardName, out _));
+        Assert.True(result.CardTextByCardName.TryGetValue("Card 001", out _));
+        Assert.Contains(result.Warnings, warning =>
+            warning.Contains("could not be looked up", StringComparison.Ordinal)
+            && warning.Contains("Card 075", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// SC-3 (round-1 review B-3): a batch <c>cards/collection</c> 429 is a DISTINCT code path from
+    /// the per-card fallback 429 above and must ALSO never reach
+    /// <see cref="CutLabProcessResult.ErrorMessage"/>.
+    /// </summary>
+    [Fact]
+    public async Task ProcessAsync_ScryfallRateLimitsOnBatchCollection_ImportSucceedsWithoutBanner()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 101, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var resolver = new FakeResolver(cards) { CollectionStatusCode = HttpStatusCode.TooManyRequests };
+        var service = new CutLabPageService(new FakeLoader(entries), resolver, new FakeBanListService([]));
+        var request = new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool" };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.True(string.IsNullOrEmpty(result.ErrorMessage));
+        Assert.True(result.HasResult);
+    }
+
+    /// <summary>
+    /// Inverse lock (round-1 review B-3): a genuine 503 during per-card fallback must still reach
+    /// <see cref="CutLabProcessResult.ErrorMessage"/> with the FALLBACK path's exact wording,
+    /// proving the SC-2 429-only fail-open did not blanket-suppress upstream errors.
+    /// </summary>
+    [Fact]
+    public async Task ProcessAsync_ScryfallServerErrorDuringFallback_StillRendersBanner()
+    {
+        const string missingCardName = "Card 050";
+        var entries = BuildPoolEntries(nonCommanderCount: 101, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        cards.RemoveAll(card => string.Equals(card.Name, missingCardName, StringComparison.OrdinalIgnoreCase));
+        var resolver = new FakeResolver(cards)
+        {
+            FallbackException = new HttpRequestException(
+                $"Scryfall fallback lookup failed while resolving {missingCardName} with HTTP 503.",
+                null,
+                HttpStatusCode.ServiceUnavailable),
+        };
+        var service = new CutLabPageService(new FakeLoader(entries), resolver, new FakeBanListService([]));
+        var request = new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool" };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.Equal("Scryfall returned HTTP 503. Try again shortly.", result.ErrorMessage);
+    }
+
+    /// <summary>
+    /// Inverse lock (round-1 review B-3): a genuine 503 on the batch <c>cards/collection</c> call
+    /// must still reach <see cref="CutLabProcessResult.ErrorMessage"/> with the BATCH path's
+    /// DIFFERENT exact wording -- not the fallback path's.
+    /// </summary>
+    [Fact]
+    public async Task ProcessAsync_ScryfallServerErrorOnBatchCollection_StillRendersBanner()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 101, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var resolver = new FakeResolver(cards) { CollectionStatusCode = HttpStatusCode.ServiceUnavailable };
+        var service = new CutLabPageService(new FakeLoader(entries), resolver, new FakeBanListService([]));
+        var request = new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool" };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.Equal(
+            "Scryfall card reference lookup failed while building the analysis packet with HTTP 503. Try again shortly.",
+            result.ErrorMessage);
+    }
+
+    /// <summary>
+    /// B-1, end to end (round-1 review): a swallowed 429 casualty must never be memoized as a
+    /// permanent Scryfall miss. A second <c>ProcessAsync</c> of the SAME pool on the SAME service
+    /// instance must re-attempt it, not replay a degraded cached pool for 30 minutes.
+    /// </summary>
+    /// <remarks>
+    /// The missing card is placed in the LAST (27-card) Scryfall batch chunk -- see the remarks on
+    /// <see cref="ProcessAsync_ScryfallRateLimitsDuringFallback_ImportSucceedsWithoutBanner"/> for
+    /// why a throwing fallback call discards its whole chunk, not just the one missing name.
+    /// </remarks>
+    [Fact]
+    public async Task ProcessAsync_SecondImportAfterSwallowedRateLimit_ReattemptsTheCasualty()
+    {
+        const string missingCardName = "Card 090";
+        var entries = BuildPoolEntries(nonCommanderCount: 101, commanderName: "Atraxa, Praetors' Voice");
+        var fullCards = BuildResolvedCards(entries);
+        var cardsMissingOne = fullCards
+            .Where(card => !string.Equals(card.Name, missingCardName, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        var resolver = new FakeResolver(cardsMissingOne)
+        {
+            FallbackException = new HttpRequestException(
+                $"Scryfall fallback lookup failed while resolving {missingCardName} with HTTP 429.",
+                null,
+                HttpStatusCode.TooManyRequests),
+        };
+        var service = new CutLabPageService(new FakeLoader(entries), resolver, new FakeBanListService([]));
+        var request = new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool" };
+
+        var firstResult = await service.ProcessAsync(request);
+
+        Assert.True(string.IsNullOrEmpty(firstResult.ErrorMessage));
+        Assert.False(firstResult.CardTextByCardName.TryGetValue(missingCardName, out _));
+
+        resolver.FallbackException = null;
+        resolver.Cards = fullCards;
+
+        var secondResult = await service.ProcessAsync(request);
+
+        Assert.True(secondResult.CardTextByCardName.TryGetValue(missingCardName, out CutLabCardTextView? cardText));
+        Assert.NotNull(cardText);
+    }
+
     [Fact]
     public async Task ProcessAsync_IncludeSideboardAndMaybeboardOff_ExcludesExtraBoardsFromPool()
     {
@@ -2679,9 +2834,40 @@ public sealed class CutLabPageServiceTests
 
     private sealed class FakeResolver(IReadOnlyList<ScryfallCard> cards) : IScryfallCardResolver
     {
+        /// <summary>
+        /// Mutable card list backing collection/fallback lookups -- settable so a test can add a
+        /// previously-missing card between two <c>ProcessAsync</c> calls on the same service
+        /// instance (round-1 review B-1, end to end).
+        /// </summary>
+        public IReadOnlyList<ScryfallCard> Cards { get; set; } = cards;
+
+        /// <summary>
+        /// When set, thrown from <see cref="SearchFallbackCardAsync"/> (and therefore also
+        /// <see cref="SearchPrintingFallbackCardAsync"/> and <see cref="ResolveSingleAsync"/>, which
+        /// delegate to it) instead of returning a match -- models a per-card fallback failure such as
+        /// a 429 or 503.
+        /// </summary>
+        public Exception? FallbackException { get; set; }
+
+        /// <summary>
+        /// When outside [200,300), <see cref="ExecuteCollectionAsync"/> returns this status with a
+        /// null payload instead of the matched cards -- models a batch <c>cards/collection</c>
+        /// failure.
+        /// </summary>
+        public HttpStatusCode CollectionStatusCode { get; set; } = HttpStatusCode.OK;
+
         public Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken cancellationToken)
         {
-            var matches = cards.ToList();
+            if ((int)CollectionStatusCode < 200 || (int)CollectionStatusCode >= 300)
+            {
+                return Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+                {
+                    StatusCode = CollectionStatusCode,
+                    Data = null,
+                });
+            }
+
+            var matches = Cards.ToList();
             return Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
             {
                 StatusCode = HttpStatusCode.OK,
@@ -2690,7 +2876,14 @@ public sealed class CutLabPageServiceTests
         }
 
         public Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
-            => Task.FromResult(cards.FirstOrDefault(card => string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase)));
+        {
+            if (FallbackException is not null)
+            {
+                return Task.FromException<ScryfallCard?>(FallbackException);
+            }
+
+            return Task.FromResult(Cards.FirstOrDefault(card => string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase)));
+        }
 
         public Task<ScryfallCard?> SearchPrintingFallbackCardAsync(string cardName, CancellationToken cancellationToken)
             => SearchFallbackCardAsync(cardName, cancellationToken);
