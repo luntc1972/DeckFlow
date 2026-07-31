@@ -523,6 +523,45 @@ public sealed class CutLabPageServiceTests
         Assert.NotNull(cardText);
     }
 
+    /// <summary>
+    /// GAP-1 (blind verification of wave 1): locks
+    /// <c>CutLabAnalysisContextBuilder.PrimeResolvedCardsCache</c>'s <c>_unattemptedNamesByPoolKey</c>
+    /// subtraction. Without it, <c>ProcessAsync</c>'s <c>unresolvedEntryNames</c> (every card left
+    /// unresolved by the swallowed batch 429, with nothing else to distinguish "never attempted"
+    /// from "confirmed missing") would be written to the resolved-card cache's known-missing set
+    /// UNCHANGED -- permanently poisoning every card in the pool as a Scryfall miss for the cache's
+    /// lifetime, even once Scryfall recovers. This is mutation-tested: temporarily deleting the
+    /// subtraction (restoring the code before commit) makes this test RED; restoring it makes this
+    /// test GREEN. Both observations are recorded verbatim in 111.1-02-SUMMARY.md.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately uses the BATCH-level 429 knob (<c>CollectionStatusCode</c>), not the per-card
+    /// fallback knob used by the tests above: a batch 429 swallows the WHOLE pool (all 102 names,
+    /// including the commander) in one predictable shot, which keeps this test's mutation evidence
+    /// simple to reason about -- no partial per-chunk cascade to account for.
+    /// </remarks>
+    [Fact]
+    public async Task ProcessAsync_SecondImportAfterSwallowedRateLimit_DoesNotPoisonKnownMissingCache()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 101, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var resolver = new FakeResolver(cards) { CollectionStatusCode = HttpStatusCode.TooManyRequests };
+        var service = new CutLabPageService(new FakeLoader(entries), resolver, new FakeBanListService([]));
+        var request = new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool" };
+
+        var firstResult = await service.ProcessAsync(request);
+
+        Assert.True(string.IsNullOrEmpty(firstResult.ErrorMessage));
+        Assert.False(firstResult.CardTextByCardName.TryGetValue("Atraxa, Praetors' Voice", out _));
+
+        resolver.CollectionStatusCode = HttpStatusCode.OK;
+
+        var secondResult = await service.ProcessAsync(request);
+
+        Assert.True(secondResult.CardTextByCardName.TryGetValue("Atraxa, Praetors' Voice", out _));
+        Assert.True(secondResult.CardTextByCardName.TryGetValue("Card 001", out _));
+    }
+
     [Fact]
     public async Task ProcessAsync_IncludeSideboardAndMaybeboardOff_ExcludesExtraBoardsFromPool()
     {
