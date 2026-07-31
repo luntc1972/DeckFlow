@@ -89,7 +89,14 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
   5. The contradiction between `NormalizeForScryfall`'s xmldoc ("so DFC cards resolve on the first attempt instead of cascading into per-card fallbacks") and `ResolveBatchAsync`'s ("Never affects the match key") is resolved — one of the two is factually wrong and misleads the next reader.
   6. Regression tests cover the reduced call count and the 429-vs-404 distinction; existing Web + Core suites stay green.
   7. `ScryfallThrottle.MinInterval` paces at the rate Scryfall actually documents for the endpoints in use — 500ms (2/sec) for `/cards/collection`, `/cards/search`, `/cards/named`, `/cards/random` — instead of 200ms. The stale code comment at `ScryfallThrottle.cs:13` (which cites the "all other methods" 10/sec ceiling as if it applied here) is corrected. Because the throttle is a process-wide static gate, the latency impact on the highest-volume caller is measured and reported BEFORE the change is accepted (research assumption A2, unquantified). User decision 2026-07-31: fold in, global.
-**Plans**: TBD
+**Plans**: 5 plans (3 waves)
+
+Plans:
+- [ ] 111.1-01-PLAN.md — Hotfix: drop the redundant per-miss cards/collection POST (SC-1) and fail open on a transient 429 during pool intake (SC-2)
+- [ ] 111.1-02-PLAN.md — Lock the 429 banner as unreachable end to end at ProcessAsync (SC-3); full Web + Core suite gate (SC-6)
+- [ ] 111.1-03-PLAN.md — Resolve assumption A1 with one logged probe; ADR 0004 on the match-key asymmetry (SC-4); correct the NormalizeForScryfall xmldoc (SC-5)
+- [ ] 111.1-04-PLAN.md — Measure the MinInterval 200ms -> 500ms latency impact per flow, then a blocking acceptance checkpoint (SC-7, measurement half)
+- [ ] 111.1-05-PLAN.md — Apply the 500ms pacing floor + correct both stale rate-limit comments; re-run gates against final state (SC-7, SC-6)
 
 ### Phase 112: Cycle 17 Code Port
 **Goal**: Cycle 17's Core engine (Phases 94-98 — profile records and store, measured extraction, stated-rules extraction, profile fusion, card-grounding guard) AND the creator-style Web services, seed loader, and DI registrations land on `feat/personal-tools` and the solution builds clean.
@@ -153,7 +160,7 @@ Phases execute in numeric order: 111.1 -> 112 -> 113 -> 114 -> 115
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 111.1. Cut Lab Scryfall Burst Hotfix (INSERTED) | Cycle 20 | 0/0 | Not started | - |
+| 111.1. Cut Lab Scryfall Burst Hotfix (INSERTED) | Cycle 20 | 0/5 | Planned | - |
 | 112. Cycle 17 Code Port | Cycle 20 | 0/0 | Not started | - |
 | 113. Shared-Infra Re-derivation | Cycle 20 | 0/0 | Not started | - |
 | 114. Port Verification & Admin Personal-Tools Surface | Cycle 20 | 0/0 | Not started | - |
