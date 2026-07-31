@@ -92,7 +92,7 @@ Full details: .planning/milestones/cycle16-ROADMAP.md
 **Plans**: 5 plans (4 waves) — revised 2026-07-31 after review round 1 (`111.1-REVIEWS.md`)
 
 Plans:
-- [ ] 111.1-01-PLAN.md — Hotfix: drop the redundant per-miss cards/collection POST (SC-1), fail open on a transient 429 during pool intake (SC-2), and stop caching a rate-limited pool as if Scryfall confirmed the misses (review blocker B-1) with a user-visible degraded-import warning (W-1)
+- [x] 111.1-01-PLAN.md — Hotfix: drop the redundant per-miss cards/collection POST (SC-1), fail open on a transient 429 during pool intake (SC-2), and stop caching a rate-limited pool as if Scryfall confirmed the misses (review blocker B-1) with a user-visible degraded-import warning (W-1)
 - [ ] 111.1-02-PLAN.md — Lock the 429 banner as unreachable end to end at ProcessAsync on a 101-card pool, with route-correct 503 inverse locks (SC-3); full Web + Core suite gate (SC-6)
 - [ ] 111.1-03-PLAN.md — ADR 0004 on the match-key asymmetry AND its implementation: an additive punctuation-tolerant second pass over the batch response already in hand (SC-4); correct the NormalizeForScryfall xmldoc (SC-5). Assumption A1 is discharged by the live probes in `111.1-REVIEWS.md` §0 — no further probe
 - [ ] 111.1-04-PLAN.md — Measure the MinInterval 200ms -> 500ms latency impact per flow against the post-01/post-03 call counts, then a blocking acceptance checkpoint (SC-7, measurement half)
@@ -160,7 +160,7 @@ Phases execute in numeric order: 111.1 -> 112 -> 113 -> 114 -> 115
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 111.1. Cut Lab Scryfall Burst Hotfix (INSERTED) | Cycle 20 | 0/5 | Planned | - |
+| 111.1. Cut Lab Scryfall Burst Hotfix (INSERTED) | Cycle 20 | 1/5 | In Progress|  |
 | 112. Cycle 17 Code Port | Cycle 20 | 0/0 | Not started | - |
 | 113. Shared-Infra Re-derivation | Cycle 20 | 0/0 | Not started | - |
 | 114. Port Verification & Admin Personal-Tools Surface | Cycle 20 | 0/0 | Not started | - |
