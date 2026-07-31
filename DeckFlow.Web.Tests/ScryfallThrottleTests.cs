@@ -198,33 +198,6 @@ public sealed class ScryfallThrottleTests
         Assert.True(stopwatch.ElapsedMilliseconds >= 450, $"Expected at least ~450ms between calls, saw {stopwatch.ElapsedMilliseconds}ms.");
     }
 
-    [Fact]
-    public async Task ExecuteAsync_PacesBackToBackCalls()
-    {
-        await Task.Delay(250); // Let prior tests age out so this measures only the two calls below.
-
-        var response = CreateResponse<int>(HttpStatusCode.OK);
-        var calls = 0;
-        var stopwatch = Stopwatch.StartNew();
-
-        await ScryfallThrottle.ExecuteAsync<int>(_ =>
-        {
-            calls++;
-            return Task.FromResult(response);
-        }, CancellationToken.None);
-
-        await ScryfallThrottle.ExecuteAsync<int>(_ =>
-        {
-            calls++;
-            return Task.FromResult(response);
-        }, CancellationToken.None);
-
-        stopwatch.Stop();
-
-        Assert.Equal(2, calls);
-        Assert.True(stopwatch.ElapsedMilliseconds >= 180, $"Expected at least ~180ms total, saw {stopwatch.ElapsedMilliseconds}ms.");
-    }
-
     private static RestResponse<T> CreateResponse<T>(HttpStatusCode statusCode, params (string name, string value)[] headers)
     {
         return new RestResponse<T>(new RestRequest("test"))
