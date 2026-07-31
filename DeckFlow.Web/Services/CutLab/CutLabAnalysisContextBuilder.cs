@@ -1,3 +1,4 @@
+using System.Net;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
 using DeckFlow.Web.Models.CutLab;
@@ -137,6 +138,14 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
     private readonly ICommanderSpellbookService? _spellbook;
     private readonly ICategoryKnowledgeStore? _categoryKnowledge;
     private readonly ILogger<CutLabAnalysisContextBuilder> _logger;
+
+    // Why (B-1, round-1 review): names a swallowed transient failure left unattempted for a given
+    // pool key, tracked only for the lifetime of this instance. Safe as instance state because
+    // ICutLabAnalysisContextBuilder is registered AddScoped (CutLabServiceCollectionExtensions.cs),
+    // so its lifetime is exactly one HTTP request; it exists solely so PrimeResolvedCardsCache can
+    // avoid recording a transient casualty as a permanent "Scryfall says missing" entry within that
+    // same request.
+    private readonly Dictionary<string, HashSet<string>> _unattemptedNamesByPoolKey = new(StringComparer.Ordinal);
 
     /// <summary>Creates a new <see cref="CutLabAnalysisContextBuilder"/>.</summary>
     /// <param name="cardResolver">Shared Scryfall resolver pipeline.</param>
@@ -296,6 +305,13 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// B-1 (round-1 review): <c>CutLabPageService.ProcessAsync</c> passes every <c>Card is null</c>
+    /// name as unresolved, which for a swallowed-429 casualty would mean "Scryfall says this card
+    /// does not exist" -- a claim nothing ever verified. Any name this instance's own
+    /// <see cref="ResolvePoolCardsAsync"/> left unattempted for this exact pool key is subtracted
+    /// from the caller-supplied list before it reaches the cache.
+    /// </remarks>
     public void PrimeResolvedCardsCache(
         IReadOnlyList<CutLabPoolCard> workingList,
         IReadOnlyList<ScryfallCardData> resolvedCards,
@@ -304,7 +320,18 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         ArgumentNullException.ThrowIfNull(workingList);
         ArgumentNullException.ThrowIfNull(resolvedCards);
 
-        _resolvedCardCache.Set(CutLabResolvedCardCache.ComputePoolKey(workingList), resolvedCards, unresolvedCardNames);
+        string poolKey = CutLabResolvedCardCache.ComputePoolKey(workingList);
+        IReadOnlyCollection<string>? effectiveUnresolvedNames = unresolvedCardNames;
+        if (unresolvedCardNames is not null
+            && _unattemptedNamesByPoolKey.TryGetValue(poolKey, out HashSet<string>? unattemptedNames)
+            && unattemptedNames.Count > 0)
+        {
+            effectiveUnresolvedNames = unresolvedCardNames
+                .Where(name => !unattemptedNames.Contains(CutLabCardNames.Normalize(name)))
+                .ToArray();
+        }
+
+        _resolvedCardCache.Set(poolKey, resolvedCards, effectiveUnresolvedNames);
     }
 
     internal static IReadOnlyList<ScryfallCardData> AugmentResolvedCardsWithSyntheticBasics(
@@ -407,7 +434,13 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
             {
                 ScryfallBatchResolution batchResolution = await batchResolver.ResolveBatchAsync(
                     requestNames,
-                    (name, ct) => _cardResolver.ResolveSingleAsync(name, ct),
+                    // Why: the batch call above already failed this identifier on cards/collection
+                    // moments earlier, so re-POSTing via ResolveSingleAsync is dead weight -- the
+                    // live probe in 111.1-REVIEWS.md §0 proves the removed POST rescues nothing that
+                    // SearchFallbackCardAsync does not also resolve. ResolveSingleAsync stays
+                    // untouched: CutLabSimulationService and ManabaseAnalysisService call it as
+                    // their ONLY collection attempt, where the POST is not redundant.
+                    (name, ct) => _cardResolver.SearchFallbackCardAsync(name, ct),
                     cancellationToken: cancellationToken).ConfigureAwait(false);
                 HashSet<string> resolvedRequestNames = batchResolution.Resolutions
                     .Select(resolution => CutLabCardNames.Normalize(resolution.RequestName))
@@ -431,7 +464,7 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
             }
             catch (Exception exception)
             {
-                if (!failOpenOnLookupErrors)
+                if (!failOpenOnLookupErrors && !IsTransientRateLimit(exception))
                 {
                     throw;
                 }
@@ -440,15 +473,57 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
                 {
                     _logger.LogWarning(exception, "Cut Lab analysis context failed resolving {CardName}; continuing fail-open.", requestName);
                 }
+
+                // Why (round-1 review W-8): the upstream is actively rate-limiting; continuing to
+                // POST further chunks into it is bounded but counterproductive. The remaining chunks
+                // are, by construction, also unattempted -- the post-loop diff below picks them up.
+                break;
             }
+        }
+
+        // B-1 (round-1 review): compute unattempted names as "requested but landed in neither
+        // resolvedByName nor knownMissingNamesSet" rather than tracking them incrementally inside
+        // the loop above -- this single diff also covers every chunk skipped by the break, with no
+        // separate draining step needed.
+        HashSet<string> unattemptedNames = missingPoolCards
+            .Select(poolCard => CutLabCardNames.Normalize(poolCard.Name))
+            .Where(name => !resolvedByName.ContainsKey(name) && !knownMissingNamesSet.Contains(name))
+            .ToHashSet(CutLabCardNames.Comparer);
+        if (unattemptedNames.Count > 0)
+        {
+            _unattemptedNamesByPoolKey[poolKey] = unattemptedNames;
+            _logger.LogWarning(
+                "Cut Lab analysis context left {Count} card(s) unattempted after a transient failure; they will be re-attempted on the next resolve of this pool.",
+                unattemptedNames.Count);
+        }
+        else
+        {
+            _unattemptedNamesByPoolKey.Remove(poolKey);
         }
 
         IReadOnlyList<ScryfallCardData> resolvedCards = AugmentResolvedCardsWithSyntheticBasics(
             workingList,
             BuildOrderedResolvedCards(workingList, resolvedByName));
+        // Why (B-1): this write stays unconditional. Unattempted names are in neither resolvedByName
+        // nor knownMissingNamesSet, so a later ResolveCardsAsync for the same key re-enumerates them
+        // via EnumerateMissingPoolCards and re-attempts them, while every successfully-resolved card
+        // stays cached. Skipping the write on a partial pool would instead force a full re-resolve of
+        // the whole pool on retry -- more Scryfall traffic, not less.
         _resolvedCardCache.Set(poolKey, resolvedCards, knownMissingNamesSet);
         return resolvedCards;
     }
+
+    /// <summary>
+    /// A 429 is transient: <c>ScryfallThrottle</c> (via <c>ScryfallCardResolver</c>) has
+    /// already exhausted its own Retry-After budget by the time this is reached, so the correct
+    /// intake behavior is to import the pool with that card's facts missing rather than fail the
+    /// whole import. This deliberately also covers <c>ScryfallReferenceCollectionException</c>
+    /// (which derives from <see cref="HttpRequestException"/> and preserves the upstream status), so
+    /// a 429 on the batch <c>cards/collection</c> call is treated identically to a 429 on a per-card
+    /// fallback.
+    /// </summary>
+    private static bool IsTransientRateLimit(Exception exception)
+        => exception is HttpRequestException { StatusCode: HttpStatusCode.TooManyRequests };
 
     private static List<CutLabPoolCard> EnumerateMissingPoolCards(
         IReadOnlyList<CutLabPoolCard> workingList,

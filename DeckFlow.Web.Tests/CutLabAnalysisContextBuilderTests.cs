@@ -458,10 +458,11 @@ public sealed class CutLabAnalysisContextBuilderTests
             ["Focused Commander"],
             preResolvedCards: preResolvedCards);
 
-        Assert.Equal(1, resolver.ResolveSingleCalls);
-        Assert.Equal(1, resolver.ResolveSingleCallsByName["Typo Card"]);
-        Assert.DoesNotContain("Focused Commander", resolver.ResolveSingleCallsByName.Keys);
-        Assert.DoesNotContain("Counterspell", resolver.ResolveSingleCallsByName.Keys);
+        // SC-1: the post-batch-miss fallback dispatches SearchFallbackCardAsync, not ResolveSingleAsync.
+        Assert.Equal(0, resolver.ResolveSingleCalls);
+        Assert.Equal(1, resolver.SearchFallbackCallsByName["Typo Card"]);
+        Assert.DoesNotContain("Focused Commander", resolver.SearchFallbackCallsByName.Keys);
+        Assert.DoesNotContain("Counterspell", resolver.SearchFallbackCallsByName.Keys);
         Assert.Equal(["Focused Commander", "Counterspell"], context.ResolvedCards.Select(card => card.Name));
     }
 
@@ -497,9 +498,10 @@ public sealed class CutLabAnalysisContextBuilderTests
         Assert.Equal(["Focused Commander", "Arcane Signet", "Counterspell"], first.ResolvedCards.Select(card => card.Name));
         Assert.Equal(["Focused Commander", "Arcane Signet", "Counterspell"], second.ResolvedCards.Select(card => card.Name));
         Assert.Equal(1, resolver.ExecuteCollectionCalls);
-        Assert.Equal(1, resolver.ResolveSingleCalls);
-        Assert.Single(resolver.ResolveSingleCallsByName);
-        Assert.Equal(1, resolver.ResolveSingleCallsByName["Typo Card"]);
+        // SC-1: the post-batch-miss fallback dispatches SearchFallbackCardAsync, not ResolveSingleAsync.
+        Assert.Equal(0, resolver.ResolveSingleCalls);
+        Assert.Single(resolver.SearchFallbackCallsByName);
+        Assert.Equal(1, resolver.SearchFallbackCallsByName["Typo Card"]);
         Assert.True(cache.TryGetKnownMissingNames(poolKey, out IReadOnlySet<string>? missingNames));
         Assert.NotNull(missingNames);
         Assert.Contains(CutLabCardNames.Normalize("Typo Card"), missingNames!);
