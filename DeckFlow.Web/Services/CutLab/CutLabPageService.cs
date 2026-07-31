@@ -272,14 +272,21 @@ internal sealed class CutLabPageService : ICutLabPageService
             .Where(card => card is not null)
             .Cast<ScryfallCardData>()
             .ToArray();
-        _analysisContextBuilder.PrimeResolvedCardsCache(
-            preAnalysisState.Pool,
-            preResolvedCards,
-            resolvedEntries
-                .Where(entry => entry.Card is null)
-                .Select(entry => entry.Name)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray());
+        IReadOnlyList<string> unresolvedEntryNames = resolvedEntries
+            .Where(entry => entry.Card is null)
+            .Select(entry => entry.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        _analysisContextBuilder.PrimeResolvedCardsCache(preAnalysisState.Pool, preResolvedCards, unresolvedEntryNames);
+
+        // W-1 (round-1 review): a swallowed transient lookup failure leaves a card with no facts --
+        // its land counts, role assignment, and commander detection can silently be wrong. Surface
+        // that through the same user-visible warnings channel the banlist failure already uses,
+        // rather than only a server-side LogWarning.
+        if (unresolvedEntryNames.Count > 0)
+        {
+            warnings.Add(BuildUnresolvedCardsWarning(unresolvedEntryNames));
+        }
 
         CutLabAnalysisContext analysisContext = await _analysisContextBuilder.BuildAsync(
             derivedWorkingList,
@@ -487,19 +494,16 @@ internal sealed class CutLabPageService : ICutLabPageService
             })
             .ToArray();
 
-        IReadOnlyList<ScryfallCardData>? resolvedCards = null;
-        if (_analysisContextBuilder.TryGetCachedResolvedCards(cacheLookupPool, out IReadOnlyList<ScryfallCardData>? cachedCards)
-            && cachedCards is not null)
-        {
-            resolvedCards = cachedCards;
-        }
-        else
-        {
-            resolvedCards = await _analysisContextBuilder.ResolvePoolCardsAsync(
-                cacheLookupPool,
-                failOpenOnLookupErrors: false,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-        }
+        // Why (B-1, round-1 review): ResolvePoolCardsAsync reads the same CutLabResolvedCardCache
+        // internally and only issues Scryfall calls for names in neither the cached cards nor the
+        // cached known-missing set, so this costs no extra network work on a fully-cached pool --
+        // while the removed TryGetCachedResolvedCards branch returned ANY cached entry, including
+        // one whose gaps were never attempted, which is what made a rate-limited import permanent
+        // for 30 minutes instead of retryable.
+        IReadOnlyList<ScryfallCardData> resolvedCards = await _analysisContextBuilder.ResolvePoolCardsAsync(
+            cacheLookupPool,
+            failOpenOnLookupErrors: false,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
 
         IReadOnlyDictionary<string, ScryfallCardData> cachedCardsByName = CutLabCardNames.ToLastWinsDictionary(
             resolvedCards,
@@ -523,6 +527,28 @@ internal sealed class CutLabPageService : ICutLabPageService
         }
 
         return resolvedEntries;
+    }
+
+    /// <summary>
+    /// Builds the user-facing degraded-import warning (W-1, round-1 review) for cards whose facts
+    /// could not be looked up. Names up to five affected cards and rolls up the remainder as "and N
+    /// more" so the string cannot grow unbounded. Deliberately plain: no HTTP status codes, no
+    /// Scryfall internals, no mention of rate limiting -- only the consequence in the user's terms.
+    /// </summary>
+    private static string BuildUnresolvedCardsWarning(IReadOnlyList<string> unresolvedEntryNames)
+    {
+        const int MaxNamedCards = 5;
+        List<string> namedCards = unresolvedEntryNames.Take(MaxNamedCards).ToList();
+        int remainder = unresolvedEntryNames.Count - namedCards.Count;
+        if (remainder > 0)
+        {
+            namedCards.Add($"and {remainder} more");
+        }
+
+        string cardList = string.Join(", ", namedCards);
+        return unresolvedEntryNames.Count == 1
+            ? $"1 card could not be looked up ({cardList}) - land counts, role assignments, and commander detection may be wrong for it."
+            : $"{unresolvedEntryNames.Count} cards could not be looked up ({cardList}) - land counts, role assignments, and commander detection may be wrong for them.";
     }
 
     private static List<DeckEntry> ReflagInferredCommanders(List<DeckEntry> entries)
