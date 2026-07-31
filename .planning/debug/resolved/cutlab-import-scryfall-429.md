@@ -1,6 +1,8 @@
 ---
 slug: cutlab-import-scryfall-429
-status: root_cause_found
+status: resolved
+resolved_by: phase 111.1-cutlab-scryfall-burst-hotfix
+resolved_on: 2026-07-31
 trigger: "work on last bug — Cut Lab \"Import pool\" shows an on-screen error banner in production; prior session found sustained Scryfall 429 rate limiting but never confirmed the user-visible failure path"
 created: 2026-07-31
 updated: 2026-07-31
