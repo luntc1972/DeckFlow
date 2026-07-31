@@ -279,15 +279,6 @@ internal sealed class CutLabPageService : ICutLabPageService
             .ToArray();
         _analysisContextBuilder.PrimeResolvedCardsCache(preAnalysisState.Pool, preResolvedCards, unresolvedEntryNames);
 
-        // W-1 (round-1 review): a swallowed transient lookup failure leaves a card with no facts --
-        // its land counts, role assignment, and commander detection can silently be wrong. Surface
-        // that through the same user-visible warnings channel the banlist failure already uses,
-        // rather than only a server-side LogWarning.
-        if (unresolvedEntryNames.Count > 0)
-        {
-            warnings.Add(BuildUnresolvedCardsWarning(unresolvedEntryNames));
-        }
-
         CutLabAnalysisContext analysisContext = await _analysisContextBuilder.BuildAsync(
             derivedWorkingList,
             request.PlayExperience,
@@ -295,6 +286,35 @@ internal sealed class CutLabPageService : ICutLabPageService
             preAnalysisState.Decisions.Count == 0 ? null : preResolvedCards,
             poolKey: null,
             cancellationToken).ConfigureAwait(false);
+
+        // Why the union, and why this sits AFTER BuildAsync rather than before it:
+        // B-1 deliberately leaves a swallowed 429's casualties re-attemptable, so BuildAsync retries
+        // them inside this same request -- and at the 500ms pacing floor a transient 429 has usually
+        // cleared by then, making recovery the EXPECTED path rather than a corner case. Deriving the
+        // warning and the card text from the first-pass snapshot alone therefore tells the user a
+        // card could not be looked up, and drops its card text, for a card that resolved seconds ago.
+        // The union (not a swap) is required because BuildAsync resolves derivedWorkingList, which
+        // excludes already-cut cards, while the card-text map covers the FULL pool -- swapping would
+        // lose text for every cut card. ToLastWinsDictionary gives the fresher entry precedence.
+        IReadOnlyList<ScryfallCardData> finalResolvedCards = preResolvedCards
+            .Concat(analysisContext.ResolvedCards)
+            .ToArray();
+        HashSet<string> resolvedAfterBuild = analysisContext.ResolvedCards
+            .Select(card => CutLabCardNames.Normalize(card.Name))
+            .ToHashSet(CutLabCardNames.Comparer);
+        IReadOnlyList<string> stillUnresolvedNames = unresolvedEntryNames
+            .Where(name => !resolvedAfterBuild.Contains(CutLabCardNames.Normalize(name)))
+            .ToArray();
+
+        // W-1 (round-1 review): a swallowed transient lookup failure leaves a card with no facts --
+        // its land counts, role assignment, and commander detection can silently be wrong. Surface
+        // that through the same user-visible warnings channel the banlist failure already uses,
+        // rather than only a server-side LogWarning.
+        if (stillUnresolvedNames.Count > 0)
+        {
+            warnings.Add(BuildUnresolvedCardsWarning(stillUnresolvedNames));
+        }
+
         IReadOnlyList<CutLabResolvedFloor> resolvedFloors = CutLabFloorDefaults.ResolveDefaults(
             request.Bracket,
             request.PlayExperience,
@@ -448,7 +468,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             return Error(exception.Message, warnings);
         }
 
-        IReadOnlyDictionary<string, CutLabCardTextView> cardTextByCardName = BuildCardTextByCardName(state.Pool, preResolvedCards);
+        IReadOnlyDictionary<string, CutLabCardTextView> cardTextByCardName = BuildCardTextByCardName(state.Pool, finalResolvedCards);
         IReadOnlyDictionary<string, CutLabComboBadgeView> comboBadgeByCardName = BuildComboBadgeByCardName(
             analysisContext.Classification.CardComboMembership);
 

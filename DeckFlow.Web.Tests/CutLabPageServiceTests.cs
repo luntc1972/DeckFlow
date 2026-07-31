@@ -597,6 +597,46 @@ public sealed class CutLabPageServiceTests
     }
 
     /// <summary>
+    /// Intra-request recovery lock (external review, 2026-07-31).
+    ///
+    /// ProcessAsync resolves twice in one request: ResolveEntriesAsync, then BuildAsync. B-1
+    /// deliberately leaves a swallowed 429's casualties re-attemptable, so BuildAsync retries them --
+    /// and at the 500ms pacing floor a transient 429 has usually cleared by then, making recovery
+    /// the EXPECTED path, not a corner case.
+    ///
+    /// Deriving the user-visible warning and the card-text map from the first-pass snapshot alone
+    /// therefore told the user a card "could not be looked up", and dropped its card text, for a
+    /// card that had resolved moments earlier in the same request. Both must reflect the FINAL
+    /// state, not the first attempt.
+    ///
+    /// This test fails if either output is rewired back to the pre-BuildAsync snapshot.
+    /// </summary>
+    [Fact]
+    public async Task ProcessAsync_TransientRateLimitRecoveredDuringBuild_HasNoStaleWarningAndKeepsCardText()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 101, commanderName: "Atraxa, Praetors' Voice");
+        var resolver = new FakeResolver(BuildResolvedCards(entries))
+        {
+            // Fail only the first collection call: pass 1 swallows a 429 and resolves nothing,
+            // pass 2 (inside BuildAsync) sees a recovered upstream and resolves the whole pool.
+            TransientCollectionFailures = 1,
+        };
+        var service = new CutLabPageService(new FakeLoader(entries), resolver, new FakeBanListService([]));
+
+        var result = await service.ProcessAsync(
+            new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool" });
+
+        Assert.Null(result.ErrorMessage);
+        Assert.True(result.HasResult);
+        Assert.DoesNotContain(result.Warnings, warning =>
+            warning.Contains("could not be looked up", StringComparison.Ordinal));
+        Assert.NotEmpty(result.CardTextByCardName);
+        Assert.True(
+            result.CardTextByCardName.ContainsKey("Card 001"),
+            "Card text must come from the post-BuildAsync state; a card recovered on the second pass was dropped.");
+    }
+
+    /// <summary>
     /// GAP-2 inverse lock: on a fully-resolved pool, no degraded-import warning is added at all --
     /// proving the warning is conditional on an actual gap, not always-on boilerplate.
     /// </summary>
@@ -2948,8 +2988,27 @@ public sealed class CutLabPageServiceTests
         /// </summary>
         public HttpStatusCode CollectionStatusCode { get; set; } = HttpStatusCode.OK;
 
+        /// <summary>
+        /// When greater than zero, the first N <see cref="ExecuteCollectionAsync"/> calls return
+        /// HTTP 429 with a null payload and the resolver then recovers -- models a transient
+        /// upstream rate limit that clears BETWEEN the two resolution passes a single
+        /// <c>ProcessAsync</c> makes (ResolveEntriesAsync, then BuildAsync). Distinct from
+        /// <see cref="CollectionStatusCode"/>, which fails every call for the whole request.
+        /// </summary>
+        public int TransientCollectionFailures { get; set; }
+
         public Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken cancellationToken)
         {
+            if (TransientCollectionFailures > 0)
+            {
+                TransientCollectionFailures--;
+                return Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+                {
+                    StatusCode = HttpStatusCode.TooManyRequests,
+                    Data = null,
+                });
+            }
+
             if ((int)CollectionStatusCode < 200 || (int)CollectionStatusCode >= 300)
             {
                 return Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
