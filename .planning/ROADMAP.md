@@ -30,7 +30,7 @@
 
 Decimal phases appear between their surrounding integers in numeric order. Numbering continues after shipped Cycle 19 phases 108-111.
 
-- [ ] **Phase 111.1: Cut Lab Scryfall Burst Hotfix (INSERTED)** - Cut Lab's Import-pool intake stops emitting a ~21-request Scryfall burst and stops rendering a 429 error banner to users; prod hotfix, runs before Phase 112
+- [x] **Phase 111.1: Cut Lab Scryfall Burst Hotfix (INSERTED)** - Cut Lab's Import-pool intake stops emitting a ~21-request Scryfall burst and stops rendering a 429 error banner to users; prod hotfix, runs before Phase 112
 - [ ] **Phase 112: Cycle 17 Code Port** - Cycle 17's Core engine (profile records/store, measured + stated extraction, fusion, grounding guard) and creator-style Web services/seed loader/DI registrations land on `feat/personal-tools` and build clean
 - [ ] **Phase 113: Shared-Infra Re-derivation** - Cycle 17's shared-infrastructure refactors are re-derived line-by-line against current `main`, not applied wholesale from the stale branch
 - [ ] **Phase 114: Port Verification & Admin Personal-Tools Surface** - Ported suites are clean of dead public-surface tests; both personal tools are reachable only through the BasicAuth-gated `/Admin` surface
@@ -95,8 +95,8 @@ Plans:
 - [x] 111.1-01-PLAN.md — Hotfix: drop the redundant per-miss cards/collection POST (SC-1), fail open on a transient 429 during pool intake (SC-2), and stop caching a rate-limited pool as if Scryfall confirmed the misses (review blocker B-1) with a user-visible degraded-import warning (W-1)
 - [x] 111.1-02-PLAN.md — Lock the 429 banner as unreachable end to end at ProcessAsync on a 101-card pool, with route-correct 503 inverse locks (SC-3); full Web + Core suite gate (SC-6)
 - [x] 111.1-03-PLAN.md — ADR 0004 on the match-key asymmetry AND its implementation: an additive punctuation-tolerant second pass over the batch response already in hand (SC-4); correct the NormalizeForScryfall xmldoc (SC-5). Assumption A1 is discharged by the live probes in `111.1-REVIEWS.md` §0 — no further probe
-- [ ] 111.1-04-PLAN.md — Measure the MinInterval 200ms -> 500ms latency impact per flow against the post-01/post-03 call counts, then a blocking acceptance checkpoint (SC-7, measurement half)
-- [ ] 111.1-05-PLAN.md — Apply the 500ms pacing floor + correct both stale rate-limit comments; re-run gates against final state (SC-7, SC-6)
+- [x] 111.1-04-PLAN.md — Measure the MinInterval 200ms -> 500ms latency impact per flow against the post-01/post-03 call counts, then a blocking acceptance checkpoint (SC-7, measurement half)
+- [x] 111.1-05-PLAN.md — Apply the 500ms pacing floor + correct both stale rate-limit comments; re-run gates against final state (SC-7, SC-6)
 
 ### Phase 112: Cycle 17 Code Port
 **Goal**: Cycle 17's Core engine (Phases 94-98 — profile records and store, measured extraction, stated-rules extraction, profile fusion, card-grounding guard) AND the creator-style Web services, seed loader, and DI registrations land on `feat/personal-tools` and the solution builds clean.
@@ -160,7 +160,7 @@ Phases execute in numeric order: 111.1 -> 112 -> 113 -> 114 -> 115
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 111.1. Cut Lab Scryfall Burst Hotfix (INSERTED) | Cycle 20 | 3/5 | In Progress|  |
+| 111.1. Cut Lab Scryfall Burst Hotfix (INSERTED) | Cycle 20 | 5/5 | Complete | 2026-07-31 |
 | 112. Cycle 17 Code Port | Cycle 20 | 0/0 | Not started | - |
 | 113. Shared-Infra Re-derivation | Cycle 20 | 0/0 | Not started | - |
 | 114. Port Verification & Admin Personal-Tools Surface | Cycle 20 | 0/0 | Not started | - |
