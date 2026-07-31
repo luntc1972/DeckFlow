@@ -546,9 +546,13 @@ internal sealed class CutLabPageService : ICutLabPageService
         }
 
         string cardList = string.Join(", ", namedCards);
-        return unresolvedEntryNames.Count == 1
-            ? $"1 card could not be looked up ({cardList}) - land counts, role assignments, and commander detection may be wrong for it."
-            : $"{unresolvedEntryNames.Count} cards could not be looked up ({cardList}) - land counts, role assignments, and commander detection may be wrong for them.";
+
+        // Why: vary only the words that actually differ. Spelling the whole sentence out per branch
+        // means a copy-edit can land on one arm and silently ship two different messages by count.
+        bool singular = unresolvedEntryNames.Count == 1;
+        string subject = singular ? "1 card" : $"{unresolvedEntryNames.Count} cards";
+        string pronoun = singular ? "it" : "them";
+        return $"{subject} could not be looked up ({cardList}) - land counts, role assignments, and commander detection may be wrong for {pronoun}.";
     }
 
     private static List<DeckEntry> ReflagInferredCommanders(List<DeckEntry> entries)

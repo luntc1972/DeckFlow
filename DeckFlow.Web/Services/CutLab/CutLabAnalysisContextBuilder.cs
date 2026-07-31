@@ -490,9 +490,8 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         // resolvedByName nor knownMissingNamesSet" rather than tracking them incrementally inside
         // the loop above -- this single diff also covers every chunk skipped by the break, with no
         // separate draining step needed.
-        HashSet<string> unattemptedNames = missingPoolCards
+        HashSet<string> unattemptedNames = EnumerateMissingPoolCards(missingPoolCards, resolvedByName, knownMissingNamesSet)
             .Select(poolCard => CutLabCardNames.Normalize(poolCard.Name))
-            .Where(name => !resolvedByName.ContainsKey(name) && !knownMissingNamesSet.Contains(name))
             .ToHashSet(CutLabCardNames.Comparer);
         if (unattemptedNames.Count > 0)
         {
