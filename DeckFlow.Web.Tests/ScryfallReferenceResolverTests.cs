@@ -261,6 +261,46 @@ public sealed class ScryfallReferenceResolverTests
     }
 
     /// <summary>
+    /// Regression lock for the symbol-suffix class raised by external review (2026-07-31).
+    ///
+    /// The concern: swapping the per-miss fallback from ResolveSingleAsync (collection + NORMALIZED
+    /// compare) to SearchFallbackCardAsync (exact-name search) could silently drop names carrying a
+    /// decorative symbol. Live probes confirmed the asymmetry is real -- cards/collection resolves
+    /// "Sol Ring*" to "Sol Ring", while exact-name search on the same string 404s -- so under the
+    /// swap alone that name would have become a silent miss.
+    ///
+    /// It does not, because the second pass closes it: BatchMatchKey's [^\p{L}\p{N}\s/] deletes any
+    /// symbol (Unicode category So), so request and returned card collapse to the same key and the
+    /// card is matched from the response already in hand. The fallback is never dispatched, so the
+    /// search endpoint's stricter behavior never gets the chance to lose the card.
+    ///
+    /// This test fails if BatchMatchKey is ever narrowed to stop deleting symbols -- which would
+    /// reopen exactly the regression class the review identified.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_SymbolSuffixedCollectionHit_MatchesWithoutReachingTheStricterSearchFallback()
+    {
+        var solRing = CreateCard("Sol Ring");
+        var resolver = CreateResolver(executeCollectionAsync: (request, _) =>
+            Task.FromResult(CreateCollectionResponse(new List<ScryfallCard> { solRing })));
+
+        Task<ScryfallCard?> Fallback(string name, CancellationToken _)
+            => throw new InvalidOperationException(
+                $"Fallback must not be invoked for a symbol-suffixed collection hit; exact-name search 404s on it (got: {name}).");
+
+        var result = await resolver.ResolveBatchAsync(
+            new[] { "Sol Ring★" },
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+
+        var resolution = Assert.Single(result.Resolutions);
+        Assert.Equal("Sol Ring★", resolution.RequestName);
+        Assert.Equal("Sol Ring", resolution.Card.Name);
+        Assert.False(resolution.FromFallback);
+    }
+
+    /// <summary>
     /// Permanent guard (ADR 0004): the second pass's match key deletes punctuation but PRESERVES
     /// "/", so a single-slash Archidekt name ("A / B") and its double-slash card ("A // B") must
     /// still NOT collide even under the second pass alone (normalizeForScryfall deliberately OFF
