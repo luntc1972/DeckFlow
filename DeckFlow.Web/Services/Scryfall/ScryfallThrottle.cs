@@ -6,15 +6,20 @@ namespace DeckFlow.Web.Services;
 
 /// <summary>
 /// Process-wide Scryfall pacing and Retry-After retry helper.
-/// Keeps all Scryfall calls under the 10 req/sec soft cap and recovers from brief 429s.
+/// Keeps all Scryfall calls at or under the documented 2 req/sec (500ms) per-endpoint hard limit
+/// and recovers from brief 429s.
 /// </summary>
 internal static class ScryfallThrottle
 {
-    // Scryfall asks for 50-100ms between requests. We pace at 200ms (~5 req/sec) to leave
-    // plenty of headroom for Cloudflare's burst detection, which is stricter than the published
-    // 10 req/sec ceiling. Packet build still completes fast: for a 100-card deck the collection
-    // batch + a handful of fallback searches is < 3 seconds of pacing total.
-    private static readonly TimeSpan MinInterval = TimeSpan.FromMilliseconds(200);
+    // Scryfall publishes a hard 2 requests/second (500ms) limit for /cards/collection,
+    // /cards/search, /cards/named, and /cards/random -- the four endpoints every flow behind
+    // this throttle calls (https://scryfall.com/docs/api/rate-limits). The previous 200ms figure
+    // was derived from that page's "all other methods" row (10 req/sec), which does not apply to
+    // these endpoints. This gate is process-wide, so 500ms is the application's global Scryfall
+    // floor across every caller, not a per-flow setting. See
+    // .planning/phases/111.1-cutlab-scryfall-burst-hotfix/111.1-PACING-MEASUREMENT.md for the
+    // measured added-latency cost of this change.
+    private static readonly TimeSpan MinInterval = TimeSpan.FromMilliseconds(500);
 
     // Honor Retry-After up to this cap before giving up. Extending to 30s means a single burst
     // that hits 429 with a 30-60s cooldown will recover without the user seeing a failed build,
