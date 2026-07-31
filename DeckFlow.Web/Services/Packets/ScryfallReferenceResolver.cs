@@ -137,11 +137,16 @@ internal sealed partial class ScryfallReferenceResolver
                     response.StatusCode);
             }
 
+            // Why: one pass records the exact matches and collects the leftovers the tolerant pass
+            // below needs, instead of scanning the response twice. TryGetValue recovers the caller's
+            // original spelling, which is the only reason the exact match needs a lookup at all.
+            var chunkNames = new HashSet<string>(chunk, StringComparer.OrdinalIgnoreCase);
+            var unclaimedCards = new List<ScryfallCard>();
             foreach (var card in response.Data.Data)
             {
-                var matchingName = chunk.FirstOrDefault(name => string.Equals(name, card.Name, StringComparison.OrdinalIgnoreCase));
-                if (matchingName is null)
+                if (!chunkNames.TryGetValue(card.Name, out var matchingName))
                 {
+                    unclaimedCards.Add(card);
                     continue;
                 }
 
@@ -151,29 +156,31 @@ internal sealed partial class ScryfallReferenceResolver
 
             // Second pass (ADR 0004): punctuation-tolerant, slash-preserving match over the SAME
             // response, for names the raw pass above left unmatched. Zero additional Scryfall calls.
-            var unclaimedCards = response.Data.Data
-                .Where(card => !oracleNameMap.Values.Contains(card.Name, StringComparer.OrdinalIgnoreCase))
-                .ToList();
+            // Why both sides are scoped to THIS chunk: filtering cards against the run-wide
+            // oracleNameMap would hide a card from a later chunk merely because an earlier chunk had
+            // already claimed that name, costing a needless fallback search for the drifted spelling.
             var unmatchedNames = chunk.Where(name => !resolved.ContainsKey(name)).ToList();
-
-            var nameKeyGroups = unmatchedNames
-                .GroupBy(BatchMatchKey)
-                .Where(group => group.Count() == 1)
-                .ToDictionary(group => group.Key, group => group.First());
-            var cardKeyGroups = unclaimedCards
-                .GroupBy(card => BatchMatchKey(card.Name))
-                .Where(group => group.Count() == 1)
-                .ToDictionary(group => group.Key, group => group.First());
-
-            foreach (var (key, requestName) in nameKeyGroups)
+            if (unmatchedNames.Count > 0)
             {
-                if (!cardKeyGroups.TryGetValue(key, out var card))
-                {
-                    continue;
-                }
+                // Why: a key may match ONLY when it is unambiguous on BOTH sides. If two distinct
+                // names collapse to one key, neither is matched rather than one matched arbitrarily.
+                var unambiguousCardByKey = unclaimedCards
+                    .GroupBy(card => BatchMatchKey(card.Name))
+                    .Where(group => group.Count() == 1)
+                    .ToDictionary(group => group.Key, group => group.First());
 
-                oracleNameMap[requestName] = card.Name;
-                resolved[requestName] = new ScryfallReferenceResolution(requestName, card, FromFallback: false);
+                foreach (var nameGroup in unmatchedNames.GroupBy(BatchMatchKey))
+                {
+                    if (nameGroup.Count() != 1
+                        || !unambiguousCardByKey.TryGetValue(nameGroup.Key, out var card))
+                    {
+                        continue;
+                    }
+
+                    var requestName = nameGroup.First();
+                    oracleNameMap[requestName] = card.Name;
+                    resolved[requestName] = new ScryfallReferenceResolution(requestName, card, FromFallback: false);
+                }
             }
 
             foreach (var unresolvedName in chunk.Where(name => !resolved.ContainsKey(name)))
