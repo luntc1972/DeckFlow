@@ -43,6 +43,19 @@ export default defineConfig({
         viewport: { width: 390, height: 844 },
       },
     },
+    {
+      name: 'webkit-mobile',
+      use: {
+        ...devices['iPhone 13'],
+      },
+      // Why: WebKit is the engine every iOS browser uses, and the project had no
+      // WebKit coverage at all — which is how the readonly-textarea clamp shipped.
+      // Scoped to the mobile/responsive specs only: the full suite includes
+      // simulation-heavy cut-lab specs that already run single-worker on the
+      // 2-core CI runner, and duplicating those on a second engine would blow the
+      // CI budget for no added signal.
+      testMatch: /(ui-responsive|sibling-pages-mobile|deck-analysis-mobile)\.spec\.ts/,
+    },
   ],
   // NOTE: WSL verification runs start the app first via scripts/run-web-test.sh and
   // then execute Playwright with CI=1 to mirror CI retries/parallelism. Detect
