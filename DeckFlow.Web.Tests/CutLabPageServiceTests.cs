@@ -2204,6 +2204,70 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_ConfirmedMissingCardOnly_DoesNotIssueRecoveryRetry()
+    {
+        List<DeckEntry> entries =
+        [
+            Entry("Atraxa, Praetors' Voice", "commander"),
+            Entry("Island", "mainboard") with { Quantity = 40 },
+            Entry("Swamp", "mainboard") with { Quantity = 20 },
+            Entry("Card 001", "mainboard") with { Quantity = 10 },
+            Entry("Card 002", "mainboard") with { Quantity = 10 },
+            Entry("Card 003", "mainboard") with { Quantity = 10 },
+            Entry("Card 004", "mainboard") with { Quantity = 8 },
+            Entry("Card 005", "mainboard") with { Quantity = 6 },
+            Entry("Confirmed Missing Card", "mainboard") with { Quantity = 7 },
+        ];
+        var cards = BuildResolvedCards(entries);
+        cards.RemoveAll(card => string.Equals(card.Name, "Confirmed Missing Card", StringComparison.OrdinalIgnoreCase));
+        var resolver = new CountingNormalizerResolver(cards);
+        var cache = new CutLabResolvedCardCache();
+        var simulationService = new CutLabSimulationService(
+            cache,
+            new CutLabDeltaCache(),
+            resolver,
+            NullLogger<CutLabSimulationService>.Instance);
+        var analysisBuilder = new CutLabAnalysisContextBuilder(
+            resolver,
+            cache,
+            new FakeSpellbookService(),
+            new FakeCategoryKnowledgeStore());
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            resolver,
+            new FakeBanListService([]),
+            new FakeManabaseBaselineProvider(),
+            new FakeCedhLandBaselineProvider(),
+            analysisContextBuilder: analysisBuilder,
+            simulationService: simulationService);
+
+        var result = await service.ProcessAsync(
+            new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool", PlayExperience = "cEDH" });
+
+        Assert.True(result.HasResult);
+        Assert.Equal(1, resolver.ExecuteCollectionCalls);
+        Assert.Contains(result.Warnings, warning => warning.Contains("could not be looked up", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ProcessAsync_RateLimitSpanningBothEarlyPasses_StillResolvesCommanderAfterBuildRecovery()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 101, commanderName: "Atraxa, Praetors' Voice");
+        var resolver = new FakeResolver(BuildResolvedCards(entries))
+        {
+            TransientCollectionFailures = 2,
+        };
+        var service = new CutLabPageService(new FakeLoader(entries), resolver, new FakeBanListService([]));
+
+        var result = await service.ProcessAsync(
+            new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool" });
+
+        Assert.False(result.CommanderSelectionRequired);
+        Assert.Equal("Atraxa, Praetors' Voice", Assert.Single(result.State!.Pool, card => card.IsCommander).Name);
+        Assert.DoesNotContain("Card 001", result.CommanderChoices);
+    }
+
+    [Fact]
     public void From_WhenProposalDeltasUnavailable_StillBuildsProposalCardWithFallbackMessage()
     {
         var request = new CutLabRequest();
