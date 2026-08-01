@@ -369,7 +369,7 @@ Template: `analysis.cut-lab.commander-floors`, built earlier today (2026-07-29,
    separate registration step.
 7. **Read pattern — fail-safe OFF, NOT `IFeatureFlagCache`'s own default**:
    ```csharp
-   // CutLabPageService.cs:507-511
+   // CutLabPageService.cs:622-626
    private bool IsFlagOn(string key)
        => _featureFlags is { } flags
            && flags.Snapshot().TryGetValue(key, out bool enabled)
@@ -397,7 +397,7 @@ Template: `analysis.cut-lab.commander-floors`, built earlier today (2026-07-29,
 
 **Confirmed unified as of today.** `CutLabStructuralFindings.Compute()` is invoked from exactly 4
 production call sites:
-1. `CutLabPageService.cs:391`, inside `BuildFindingsAndRoundPlan`'s call at `CutLabCutRoundEngine.cs:338-347` — full page render.
+1. `CutLabPageService.cs:505`, inside `BuildFindingsAndRoundPlan`'s call at `CutLabCutRoundEngine.cs:338-347` — full page render.
 2. `CutLabApiController.cs:100`, same `BuildFindingsAndRoundPlan` — AJAX `decide` endpoint.
 3. `CutLabUiPatchBuilder.cs:80`, same `BuildFindingsAndRoundPlan` — the shared UI-patch builder consumed by decide/restart/what-if flows.
 4. `CutLabSimulationService.cs:524-535`, standalone, curve-congestion-only, for round-3 delta ordering.

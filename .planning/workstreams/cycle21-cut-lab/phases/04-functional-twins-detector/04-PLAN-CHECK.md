@@ -1,5 +1,12 @@
 # Phase 4 (Functional-Twins Detector) — Plan-Quality Gate
 
+> ⚠ **HISTORICAL RECORD — dated 2026-07-29, checked against the PRE-REBASE tree.** Superseded by the
+> claim-vs-code review of 2026-08-01 (`04-REVIEWS.md`), run after the branch was rebased onto `main`
+> and 46 commits of Scryfall and combo-ordering work landed. Where the two disagree, the newer review
+> wins. In particular this document still refers to test names and to an
+> `ExcludedFindingKindsFromTally` membership that the plans no longer specify. Do not execute from
+> this file; it is kept for provenance.
+
 **Verdict: FAIL**
 
 Scope: `04-01-PLAN.md` .. `04-04-PLAN.md`, cross-checked against `04-RESEARCH.md`,
