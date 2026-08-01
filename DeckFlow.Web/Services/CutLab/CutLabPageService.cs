@@ -233,6 +233,37 @@ internal sealed class CutLabPageService : ICutLabPageService
             return Error(UpstreamErrorMessageBuilder.BuildScryfallMessage(exception), warnings);
         }
 
+        IReadOnlyList<DeckEntry> unresolvedEntries = resolvedEntries
+            .Select((entry, index) => (entry, sourceEntry: analyzedEntries[index]))
+            .Where(pair => pair.entry.Card is null)
+            .Select(pair => pair.sourceEntry)
+            .ToArray();
+        if (unresolvedEntries.Count > 0)
+        {
+            // A swallowed 429 is deliberately re-attemptable. Recover its entries before deriving
+            // commander state so card counts, locks, floors, and the selection prompt all use the
+            // same snapshot. ResolveEntriesAsync uses the existing throttled resolver path.
+            try
+            {
+                IReadOnlyList<ResolvedCutLabEntry> retriedEntries = await ResolveEntriesAsync(
+                    unresolvedEntries,
+                    cancellationToken).ConfigureAwait(false);
+                IReadOnlyDictionary<string, ScryfallCardData> recoveredCardsByName = CutLabCardNames.ToLastWinsDictionary(
+                    retriedEntries.Where(entry => entry.Card is not null).Select(entry => entry.Card!),
+                    card => card.Name,
+                    card => card);
+                resolvedEntries = resolvedEntries
+                    .Select(entry => recoveredCardsByName.TryGetValue(CutLabCardNames.Normalize(entry.Name), out ScryfallCardData? card)
+                        ? entry with { TypeLine = card.TypeLine ?? string.Empty, Card = card }
+                        : entry)
+                    .ToList();
+            }
+            catch (HttpRequestException exception)
+            {
+                return Error(UpstreamErrorMessageBuilder.BuildScryfallMessage(exception), warnings);
+            }
+        }
+
         var commanderResolution = ResolveCommanderSelection(resolvedEntries, request.SelectedCommander);
 
         int nonCommanderCardCount = CountNonCommanderCards(analyzedEntries, commanderResolution.CommanderNames);
