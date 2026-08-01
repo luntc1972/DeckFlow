@@ -7,52 +7,181 @@
   "workstream": "cycle21-cut-lab",
   "worktree": "/mnt/c/users/chrislunt/source/personal/deckflow-role-floors",
   "branch": "gsd/cycle21-cut-lab",
-  "head": "b1d25ed1",
+  "head": "2bf28b4b",
   "plan": null,
   "task": 0,
   "total_tasks": 4,
   "status": "paused",
-  "activity": "plan-review convergence loop — NOT execution. Phase 4's four waves have not started.",
+  "activity": "plan-review convergence loop \u2014 NOT execution. Phase 4's four waves have not started.",
   "completed_tasks": [
-    {"id": "step-1", "name": "ff fix/cutlab-scryfall-burst -> main", "status": "done", "commit": "938cbe4a"},
-    {"id": "step-2", "name": "rebase + ff fix/cutlab-combo-seam -> main", "status": "done", "commit": "c0da20bc"},
-    {"id": "roadmap", "name": "insert Phase 6 Scryfall Throughput in roadmap", "status": "done", "commit": "0e667893"},
-    {"id": "step-3", "name": "rebase gsd/cycle21-cut-lab onto main (155 commits, 2 conflicts, 1 correct skip)", "status": "done", "commit": "c8eae7bb"},
-    {"id": "step-4-r1", "name": "Phase 4 claim-vs-code review round 1 — 2 BLOCK/5 HIGH/6 MED/1 LOW, all folded", "status": "done", "commit": "cd3788f9"},
-    {"id": "step-4-r2", "name": "Phase 4 round 2 — 5 incomplete folds + 5 new defects, all folded", "status": "done", "commit": "13144f11"},
-    {"id": "step-5-pg", "name": "Phase 5 Postgres blocker DISCHARGED — suite 2231/0/1, and F4-1 upgraded from disclosed risk to required [PostgresFact]", "status": "done", "commit": "f7756740"},
-    {"id": "step-4-r3", "name": "Phase 4 round 3 — 9 contradictions, zero new substantive defects, all folded", "status": "done", "commit": "b1d25ed1"},
-    {"id": "push", "name": "push everything — force-with-lease on cycle21, new remote fix/cutlab-combo-seam", "status": "done", "commit": "f7756740"}
+    {
+      "id": "step-1",
+      "name": "ff fix/cutlab-scryfall-burst -> main",
+      "status": "done",
+      "commit": "938cbe4a"
+    },
+    {
+      "id": "step-2",
+      "name": "rebase + ff fix/cutlab-combo-seam -> main",
+      "status": "done",
+      "commit": "c0da20bc"
+    },
+    {
+      "id": "roadmap",
+      "name": "insert Phase 6 Scryfall Throughput in roadmap",
+      "status": "done",
+      "commit": "0e667893"
+    },
+    {
+      "id": "step-3",
+      "name": "rebase gsd/cycle21-cut-lab onto main (155 commits, 2 conflicts, 1 correct skip)",
+      "status": "done",
+      "commit": "c8eae7bb"
+    },
+    {
+      "id": "step-4-r1",
+      "name": "Phase 4 claim-vs-code review round 1 \u2014 2 BLOCK/5 HIGH/6 MED/1 LOW, all folded",
+      "status": "done",
+      "commit": "cd3788f9"
+    },
+    {
+      "id": "step-4-r2",
+      "name": "Phase 4 round 2 \u2014 5 incomplete folds + 5 new defects, all folded",
+      "status": "done",
+      "commit": "13144f11"
+    },
+    {
+      "id": "step-5-pg",
+      "name": "Phase 5 Postgres blocker DISCHARGED \u2014 suite 2231/0/1, and F4-1 upgraded from disclosed risk to required [PostgresFact]",
+      "status": "done",
+      "commit": "f7756740"
+    },
+    {
+      "id": "step-4-r3",
+      "name": "Phase 4 round 3 \u2014 9 contradictions, zero new substantive defects, all folded",
+      "status": "done",
+      "commit": "b1d25ed1"
+    },
+    {
+      "id": "push",
+      "name": "push everything \u2014 force-with-lease on cycle21, new remote fix/cutlab-combo-seam",
+      "status": "done",
+      "commit": "f7756740"
+    }
   ],
   "remaining_tasks": [
-    {"id": "step-4-r4", "name": "Phase 4 round 4 convergence review — DISPATCHED, was still running at pause", "status": "in_progress", "detail": "codex exec gpt-5.6-sol medium; output /tmp/claude-1000/-mnt-c-users-chrislunt-source-personal-deckflow/46dc0886-1a16-4417-8efc-668df2ec69b6/scratchpad/p4-round4.txt ; task id bqaqnr2vu. Background task does NOT survive the session — re-dispatch if the file lacks a VERDICT line."},
-    {"id": "step-5-review", "name": "Phase 5 owed Codex convergence review (never run since the R4 fold at 09bb296a)", "status": "not_started"},
-    {"id": "step-6", "name": "Execute Phase 4 — 4 waves, ~2.3k LOC, major coding -> gpt-5.6-terra", "status": "not_started"},
-    {"id": "step-7", "name": "Execute Phase 5 — Archidekt bracket capture", "status": "not_started"},
-    {"id": "phase-01.2", "name": "Phase 01.2 Protection-Vocabulary Widening — NEVER STARTED, easy to miss", "status": "not_started"},
-    {"id": "phase-06", "name": "Phase 6 Scryfall Throughput — planned in roadmap only, no phase dir yet", "status": "not_started"},
-    {"id": "step-8", "name": "UAT dark, then USER flips tool.cut-lab.enabled", "status": "not_started"}
+    {
+      "id": "step-4-r4",
+      "name": "Phase 4 round 4 convergence review \u2014 DISPATCHED, was still running at pause",
+      "status": "in_progress",
+      "detail": "codex exec gpt-5.6-sol medium; output /tmp/claude-1000/-mnt-c-users-chrislunt-source-personal-deckflow/46dc0886-1a16-4417-8efc-668df2ec69b6/scratchpad/p4-round4.txt ; task id bqaqnr2vu. Background task does NOT survive the session \u2014 re-dispatch if the file lacks a VERDICT line. NOTE: round 4 was still running at pause and its reasoning trace already flagged two stale counts that were FIXED at pause (04-03:448 \"the 7 enumerated above\"->8; 04-02:547 \"18 more executed tests\"->19) \u2014 re-check its findings against the current files before folding."
+    },
+    {
+      "id": "step-5-review",
+      "name": "Phase 5 owed Codex convergence review (never run since the R4 fold at 09bb296a)",
+      "status": "not_started"
+    },
+    {
+      "id": "step-6",
+      "name": "Execute Phase 4 \u2014 4 waves, ~2.3k LOC, major coding -> gpt-5.6-terra",
+      "status": "not_started"
+    },
+    {
+      "id": "step-7",
+      "name": "Execute Phase 5 \u2014 Archidekt bracket capture",
+      "status": "not_started"
+    },
+    {
+      "id": "phase-01.2",
+      "name": "Phase 01.2 Protection-Vocabulary Widening \u2014 NEVER STARTED, easy to miss",
+      "status": "not_started"
+    },
+    {
+      "id": "phase-06",
+      "name": "Phase 6 Scryfall Throughput \u2014 planned in roadmap only, no phase dir yet",
+      "status": "not_started"
+    },
+    {
+      "id": "step-8",
+      "name": "UAT dark, then USER flips tool.cut-lab.enabled",
+      "status": "not_started"
+    }
   ],
   "blockers": [
-    {"description": "Phase 4 plans are NOT converged. Rounds 1-3 all returned CHANGES REQUIRED. Do not execute Phase 4 until a review returns CONVERGED.", "type": "technical", "workaround": "none — convergence rule is explicit in feedback_plan_review_convergence_loop"},
-    {"description": "Phase 5 has an owed Codex convergence review that has never been run against the current plan baseline.", "type": "technical", "workaround": "none"},
-    {"description": "Docker Desktop must be RUNNING for the Postgres-gated tests. It is not started automatically.", "type": "external", "workaround": "Start Docker Desktop on Windows. WSL integration is NOT required — tests run under Windows dotnet.exe and reach the engine over the named pipe."}
+    {
+      "description": "Phase 4 plans are NOT converged. Rounds 1-3 all returned CHANGES REQUIRED. Do not execute Phase 4 until a review returns CONVERGED.",
+      "type": "technical",
+      "workaround": "none \u2014 convergence rule is explicit in feedback_plan_review_convergence_loop"
+    },
+    {
+      "description": "Phase 5 has an owed Codex convergence review that has never been run against the current plan baseline.",
+      "type": "technical",
+      "workaround": "none"
+    },
+    {
+      "description": "Docker Desktop must be RUNNING for the Postgres-gated tests. It is not started automatically.",
+      "type": "external",
+      "workaround": "Start Docker Desktop on Windows. WSL integration is NOT required \u2014 tests run under Windows dotnet.exe and reach the engine over the named pipe."
+    }
   ],
   "human_actions_pending": [
-    {"action": "Flip tool.cut-lab.enabled to true in prod", "context": "Step 8, only after full-milestone UAT. User-only action; never part of a merge.", "blocking": false},
-    {"action": "Decide whether Phase 01.2 and Phase 6 are in scope for 'full milestone'", "context": "Both unstarted. User chose 'Fixes + P4 + P5 (full milestone)' before Phase 6 existed and before 01.2 was noticed.", "blocking": false},
-    {"action": "Start Docker Desktop before any Postgres-gated run", "context": "Engine 29.4.3 verified working this session, but does not persist across reboots.", "blocking": false}
+    {
+      "action": "Flip tool.cut-lab.enabled to true in prod",
+      "context": "Step 8, only after full-milestone UAT. User-only action; never part of a merge.",
+      "blocking": false
+    },
+    {
+      "action": "Decide whether Phase 01.2 and Phase 6 are in scope for 'full milestone'",
+      "context": "Both unstarted. User chose 'Fixes + P4 + P5 (full milestone)' before Phase 6 existed and before 01.2 was noticed.",
+      "blocking": false
+    },
+    {
+      "action": "Start Docker Desktop before any Postgres-gated run",
+      "context": "Engine 29.4.3 verified working this session, but does not persist across reboots.",
+      "blocking": false
+    }
   ],
   "decisions": [
-    {"decision": "Re-run the Phase 4 plan review from scratch rather than fold the lost 2026-07-29 output", "rationale": "Output was lost to compaction AND graded pre-rebase code. Vindicated immediately: BLOCK 1 existed only because of 31042a36, which landed in that window.", "phase": "04"},
-    {"decision": "Reflection test asserts FunctionalTwins ABSENCE only, never exact exclusion-set membership", "rationale": "The set is shared with combo protection and legitimately gained EnablerStarved. A count pin turns a future valid addition into a failure whose easiest fix is deleting a load-bearing exclusion.", "phase": "04"},
-    {"decision": "Replace BuildFindingGroups' capture-index-then-insert with a single-pass build", "rationale": "It renders merged sections in reverse first-occurrence order TODAY. Confirmed independently by the reviewer. Follow-up F-04-03 had deferred this exact refactor as cosmetic.", "phase": "04"},
-    {"decision": "Narrow test 9 from 'proves not invoked' to a paired OFF/ON assertion", "rationale": "IFeatureFlagCache.Snapshot() takes no key, so no fake can attribute a read to the twins key. The original spec was unbuildable.", "phase": "04"},
-    {"decision": "Full-suite runs are the reviewer's gate, not the executor's", "rationale": "Filtered gates run reliably via Windows dotnet.exe; a Codex executor failed the full suite 5 consecutive times on 2026-08-01.", "phase": "04"},
-    {"decision": "Upgrade Phase 5 F4-1 from a disclosed NOT-VERIFIED risk to a required [PostgresFact]", "rationale": "Its premise — 'Postgres is provable in zero environments' — became false once Docker was started. Verified: 2231/0/1 with every PostgresFact executing.", "phase": "05"},
-    {"decision": "Force-push cycle21 with --force-with-lease; keep backup/* refs local", "rationale": "User explicitly authorized. Verified first that all 158 remote-only commits' content exists on the rebased branch (5 differed only by patch-id context shift).", "phase": "04"}
+    {
+      "decision": "Re-run the Phase 4 plan review from scratch rather than fold the lost 2026-07-29 output",
+      "rationale": "Output was lost to compaction AND graded pre-rebase code. Vindicated immediately: BLOCK 1 existed only because of 31042a36, which landed in that window.",
+      "phase": "04"
+    },
+    {
+      "decision": "Reflection test asserts FunctionalTwins ABSENCE only, never exact exclusion-set membership",
+      "rationale": "The set is shared with combo protection and legitimately gained EnablerStarved. A count pin turns a future valid addition into a failure whose easiest fix is deleting a load-bearing exclusion.",
+      "phase": "04"
+    },
+    {
+      "decision": "Replace BuildFindingGroups' capture-index-then-insert with a single-pass build",
+      "rationale": "It renders merged sections in reverse first-occurrence order TODAY. Confirmed independently by the reviewer. Follow-up F-04-03 had deferred this exact refactor as cosmetic.",
+      "phase": "04"
+    },
+    {
+      "decision": "Narrow test 9 from 'proves not invoked' to a paired OFF/ON assertion",
+      "rationale": "IFeatureFlagCache.Snapshot() takes no key, so no fake can attribute a read to the twins key. The original spec was unbuildable.",
+      "phase": "04"
+    },
+    {
+      "decision": "Full-suite runs are the reviewer's gate, not the executor's",
+      "rationale": "Filtered gates run reliably via Windows dotnet.exe; a Codex executor failed the full suite 5 consecutive times on 2026-08-01.",
+      "phase": "04"
+    },
+    {
+      "decision": "Upgrade Phase 5 F4-1 from a disclosed NOT-VERIFIED risk to a required [PostgresFact]",
+      "rationale": "Its premise \u2014 'Postgres is provable in zero environments' \u2014 became false once Docker was started. Verified: 2231/0/1 with every PostgresFact executing.",
+      "phase": "05"
+    },
+    {
+      "decision": "Force-push cycle21 with --force-with-lease; keep backup/* refs local",
+      "rationale": "User explicitly authorized. Verified first that all 158 remote-only commits' content exists on the rebased branch (5 differed only by patch-id context shift).",
+      "phase": "04"
+    }
   ],
-  "uncommitted_files": ["_edhrec-brackets/ (untracked)", "_role-floor-research/ (untracked)"],
-  "next_action": "Read the round-4 output file. If it contains a VERDICT line, act on it: CONVERGED -> proceed to step 6 (execute Phase 4 via gpt-5.6-terra); CHANGES REQUIRED -> fold and re-review. If the file has no VERDICT, the background task died with the session — re-dispatch the round-4 review.",
-  "context_notes": "This session never executed code. It was merge/rebase plumbing, then a plan-review convergence loop, plus discharging Phase 5's Postgres blocker. The dominant lesson is the incomplete-fold anti-pattern: three consecutive rounds failed because I corrected the operative instruction and left a stale contradicting copy in frontmatter / acceptance criteria / <done> / a task name / a threat row. Round 3 explicitly found the plans' SUBSTANCE converged at round 2 — only consistency was failing. Counts are now reconciled mechanically (04-02: 19 tests, 04-03: 12 tests + 8 constructions, 04-04: 7 presenter tests). Everything is pushed; main == origin/main == c0da20bc."
+  "uncommitted_files": [
+    "_edhrec-brackets/ (untracked)",
+    "_role-floor-research/ (untracked)"
+  ],
+  "next_action": "Read the round-4 output file. If it contains a VERDICT line, act on it: CONVERGED -> proceed to step 6 (execute Phase 4 via gpt-5.6-terra); CHANGES REQUIRED -> fold and re-review. If the file has no VERDICT, the background task died with the session \u2014 re-dispatch the round-4 review.",
+  "context_notes": "This session never executed code. It was merge/rebase plumbing, then a plan-review convergence loop, plus discharging Phase 5's Postgres blocker. The dominant lesson is the incomplete-fold anti-pattern: three consecutive rounds failed because I corrected the operative instruction and left a stale contradicting copy in frontmatter / acceptance criteria / <done> / a task name / a threat row. Round 3 explicitly found the plans' SUBSTANCE converged at round 2 \u2014 only consistency was failing. Counts are now reconciled mechanically (04-02: 19 tests, 04-03: 12 tests + 8 constructions, 04-04: 7 presenter tests). Everything is pushed; main == origin/main == c0da20bc."
 }
