@@ -40,6 +40,9 @@ public interface ICutLabAnalysisContextBuilder
         bool failOpenOnLookupErrors = true,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Returns whether this builder left any names unattempted after a transient lookup failure.</summary>
+    bool HasUnattemptedCards(IReadOnlyList<CutLabPoolCard> workingList) => false;
+
     /// <summary>Seeds the resolved-card cache for the provided working pool.</summary>
     void PrimeResolvedCardsCache(
         IReadOnlyList<CutLabPoolCard> workingList,
@@ -266,6 +269,17 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         ArgumentNullException.ThrowIfNull(workingList);
 
         return _resolvedCardCache.TryGet(CutLabResolvedCardCache.ComputePoolKey(workingList), out cards);
+    }
+
+    /// <inheritdoc />
+    public bool HasUnattemptedCards(IReadOnlyList<CutLabPoolCard> workingList)
+    {
+        ArgumentNullException.ThrowIfNull(workingList);
+
+        return _unattemptedNamesByPoolKey.TryGetValue(
+            CutLabResolvedCardCache.ComputePoolKey(workingList),
+            out HashSet<string>? unattemptedNames)
+            && unattemptedNames.Count > 0;
     }
 
     /// <inheritdoc />

@@ -233,34 +233,23 @@ internal sealed class CutLabPageService : ICutLabPageService
             return Error(UpstreamErrorMessageBuilder.BuildScryfallMessage(exception), warnings);
         }
 
-        IReadOnlyList<DeckEntry> unresolvedEntries = resolvedEntries
-            .Select((entry, index) => (entry, sourceEntry: analyzedEntries[index]))
-            .Where(pair => pair.entry.Card is null)
-            .Select(pair => pair.sourceEntry)
+        IReadOnlyList<CutLabPoolCard> resolutionPool = analyzedEntries
+            .Select(entry => new CutLabPoolCard { Name = entry.Name, Quantity = entry.Quantity })
             .ToArray();
-        if (unresolvedEntries.Count > 0)
+        if (_analysisContextBuilder.HasUnattemptedCards(resolutionPool))
         {
-            // A swallowed 429 is deliberately re-attemptable. Recover its entries before deriving
-            // commander state so card counts, locks, floors, and the selection prompt all use the
-            // same snapshot. ResolveEntriesAsync uses the existing throttled resolver path.
+            // The builder records only names skipped after a swallowed transient failure. Re-resolve
+            // the full pool so its known-missing cache continues to suppress confirmed typos.
             try
             {
                 IReadOnlyList<ResolvedCutLabEntry> retriedEntries = await ResolveEntriesAsync(
-                    unresolvedEntries,
+                    analyzedEntries,
                     cancellationToken).ConfigureAwait(false);
-                IReadOnlyDictionary<string, ScryfallCardData> recoveredCardsByName = CutLabCardNames.ToLastWinsDictionary(
-                    retriedEntries.Where(entry => entry.Card is not null).Select(entry => entry.Card!),
-                    card => card.Name,
-                    card => card);
-                resolvedEntries = resolvedEntries
-                    .Select(entry => recoveredCardsByName.TryGetValue(CutLabCardNames.Normalize(entry.Name), out ScryfallCardData? card)
-                        ? entry with { TypeLine = card.TypeLine ?? string.Empty, Card = card }
-                        : entry)
-                    .ToList();
+                resolvedEntries = ReconcileResolvedEntries(resolvedEntries, retriedEntries.Select(entry => entry.Card));
             }
             catch (HttpRequestException exception)
             {
-                return Error(UpstreamErrorMessageBuilder.BuildScryfallMessage(exception), warnings);
+                _logger.LogWarning(exception, "Cut Lab: recovery lookup failed; continuing with the initial resolution snapshot.");
             }
         }
 
@@ -308,7 +297,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             .Select(entry => entry.Name)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
-        _analysisContextBuilder.PrimeResolvedCardsCache(preAnalysisState.Pool, preResolvedCards, unresolvedEntryNames);
+        _analysisContextBuilder.PrimeResolvedCardsCache(derivedWorkingList, preResolvedCards, unresolvedEntryNames);
 
         CutLabAnalysisContext analysisContext = await _analysisContextBuilder.BuildAsync(
             derivedWorkingList,
@@ -336,6 +325,58 @@ internal sealed class CutLabPageService : ICutLabPageService
         IReadOnlyList<string> stillUnresolvedNames = unresolvedEntryNames
             .Where(name => !resolvedAfterBuild.Contains(CutLabCardNames.Normalize(name)))
             .ToArray();
+
+        List<ResolvedCutLabEntry> finalResolvedEntries = ReconcileResolvedEntries(resolvedEntries, finalResolvedCards);
+        if (resolvedEntries.Zip(finalResolvedEntries, (before, after) => before.Card is null && after.Card is not null).Any(static recovered => recovered))
+        {
+            // BuildAsync can recover cards after both intake passes have failed. Rebuild every
+            // commander-dependent value from that final snapshot so locks, counts, roles, floors,
+            // and the picker cannot retain facts from an earlier resolution attempt.
+            resolvedEntries = finalResolvedEntries;
+            commanderResolution = ResolveCommanderSelection(resolvedEntries, request.SelectedCommander);
+            nonCommanderCardCount = CountNonCommanderCards(analyzedEntries, commanderResolution.CommanderNames);
+            try
+            {
+                CutLabPoolValidator.ValidateCardCount(
+                    nonCommanderCardCount,
+                    boardCounts);
+            }
+            catch (InvalidOperationException exception)
+            {
+                return Error(exception.Message, warnings);
+            }
+
+            preAnalysisState = CutLabLockRules.EnforceCommanderLock(
+                BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, []));
+            derivedWorkingList = CutLabWorkingList.Derive(preAnalysisState.Pool, preAnalysisState.Decisions, preAnalysisState.QuantityAdjustments);
+            preResolvedCards = resolvedEntries
+                .Select(entry => entry.Card)
+                .Where(card => card is not null)
+                .Cast<ScryfallCardData>()
+                .ToArray();
+            unresolvedEntryNames = resolvedEntries
+                .Where(entry => entry.Card is null)
+                .Select(entry => entry.Name)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            _analysisContextBuilder.PrimeResolvedCardsCache(derivedWorkingList, preResolvedCards, unresolvedEntryNames);
+            analysisContext = await _analysisContextBuilder.BuildAsync(
+                derivedWorkingList,
+                request.PlayExperience,
+                commanderResolution.CommanderNames,
+                preAnalysisState.Decisions.Count == 0 ? null : preResolvedCards,
+                poolKey: null,
+                cancellationToken).ConfigureAwait(false);
+            finalResolvedCards = preResolvedCards
+                .Concat(analysisContext.ResolvedCards)
+                .ToArray();
+            resolvedAfterBuild = analysisContext.ResolvedCards
+                .Select(card => CutLabCardNames.Normalize(card.Name))
+                .ToHashSet(CutLabCardNames.Comparer);
+            stillUnresolvedNames = unresolvedEntryNames
+                .Where(name => !resolvedAfterBuild.Contains(CutLabCardNames.Normalize(name)))
+                .ToArray();
+        }
 
         // W-1 (round-1 review): a swallowed transient lookup failure leaves a card with no facts --
         // its land counts, role assignment, and commander detection can silently be wrong. Surface
@@ -578,6 +619,21 @@ internal sealed class CutLabPageService : ICutLabPageService
         }
 
         return resolvedEntries;
+    }
+
+    private static List<ResolvedCutLabEntry> ReconcileResolvedEntries(
+        IReadOnlyList<ResolvedCutLabEntry> entries,
+        IEnumerable<ScryfallCardData?> recoveredCards)
+    {
+        IReadOnlyDictionary<string, ScryfallCardData> recoveredCardsByName = CutLabCardNames.ToLastWinsDictionary(
+            recoveredCards.Where(card => card is not null).Cast<ScryfallCardData>(),
+            card => card.Name,
+            card => card);
+        return entries
+            .Select(entry => recoveredCardsByName.TryGetValue(CutLabCardNames.Normalize(entry.Name), out ScryfallCardData? card)
+                ? entry with { TypeLine = card.TypeLine ?? string.Empty, Card = card }
+                : entry)
+            .ToList();
     }
 
     /// <summary>
