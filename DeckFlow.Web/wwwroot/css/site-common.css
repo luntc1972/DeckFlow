@@ -669,8 +669,16 @@ summary:focus-visible,
   align-items: stretch;
 }
 
+/* Why flex-wrap: wrap — the buttons inside carry both `white-space: nowrap` and
+   `flex-shrink: 0` (see .run-button/.copy-button/.clear-cache-button above), so
+   they can neither wrap their label nor shrink. Without a wrap on the row the
+   layout only fits by luck of font metrics: measured at 390px on /deck-analysis,
+   WebKit pushes the second button 12px past the viewport while Chromium fits.
+   Wrapping is inert when they fit and prevents page-level horizontal overflow
+   when they do not. */
 .prompt-step-footer {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.75rem;
   margin-top: 1rem;

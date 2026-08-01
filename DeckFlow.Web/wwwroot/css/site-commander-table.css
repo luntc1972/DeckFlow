@@ -406,6 +406,8 @@ summary:focus-visible,
 
 .prompt-step-footer {
   display: flex;
+  /* See site-common.css — wrap so nowrap/no-shrink buttons cannot overflow the page. */
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.75rem;
   margin-top: 1rem;
