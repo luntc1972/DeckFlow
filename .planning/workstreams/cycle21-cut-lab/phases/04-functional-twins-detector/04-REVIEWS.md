@@ -187,3 +187,52 @@ kinds' behavior") is now the point of the change.
 Round 2 folded 2026-08-01. **Round 3 re-review owed** before execution — findings 1-3 changed test
 semantics, and edits made under review pressure are themselves unreviewed. The convergence rule
 stands: a revised plan is not converged until the reviewer says so.
+
+---
+
+# Round 3 — 2026-08-01. Same reviewer/model. Verdict: CHANGES REQUIRED (contradictions only).
+
+**The shape of this failure is the important part: 9 findings, ALL contradictions, ZERO new
+substantive defects.** Every round-2 substantive fix was verified correct against source:
+
+- **test 7b genuinely defeats the land double-gate** — `draw` is in `TwinEligibleRoleKeys`
+  (`CutLabFloorRules.cs:13`) and `CutLabRoleAssigner` assigns `lands` to a land while independently
+  assigning `draw` when its oracle text qualifies (`:128`, `:141`), so the fixture is reachable;
+- the ordering fixtures are now mutation-sensitive (10 non-alphabetical source order, 11 MV-2 before
+  MV-5, 12 and density-4 same-role/different-type ties with permutation and exact expected order);
+- the role-index-tiebreak-is-structurally-untestable claim is correct.
+
+So the plan's **substance converged at round 2**. Round 3 failed purely on internal consistency.
+
+## The repeating defect, named
+
+Three rounds running, the same mistake: I corrected the *operative* instruction and left a
+contradicting copy elsewhere in the same file — frontmatter `must_haves`, `<verification>`,
+`<success_criteria>`, `<acceptance_criteria>`, a task `<name>`, a threat row, or a `read_first`
+bullet. Nine such copies survived round 2:
+
+| File | Stale copy | Now |
+|---|---|---|
+| 04-01 | frontmatter truth + verification claimed unconditional byte-identity | scoped to supported page/API flows |
+| 04-02 | acceptance said "All 18 tests" after 7b made it 19 | 19, with an explicit do-not-omit-7b warning |
+| 04-03 | completeness grep told the executor to report divergence from **7** | 8 |
+| 04-03 | Task 3 `<name>` and the phase success criterion still demanded "not invoked" / "does not run" | paired OFF/ON output |
+| 04-03 | tests 10-12 mandated `decision.Round` **and** allowed "another controller-owned outcome" | escape hatch closed; substitution now requires operator sign-off, and "no pool separates the round keys" is a finding to report |
+| 04-03 | Task 1 acceptance pinned the initializer to exactly four members | assert nothing removed + `FunctionalTwins` not added; no count pin |
+| 04-04 | `read_first` still called the old branches "the pattern to copy exactly" | marked as the defective pattern being replaced |
+| 04-04 | action said "No indexes" then offered a parallel position-index dictionary | alternative withdrawn; one shape only |
+| 04-04 | withdrawn-branch paragraph cited tests "5 and 7"; ordering is 5 and 6 | corrected |
+| 04-04 | success criterion said the two pre-existing kinds are "behaviorally unchanged" | states the render-order correction explicitly |
+
+**Process change applied:** counts are now verified mechanically rather than by eye. Actual list
+lengths (04-02: 19, 04-03: 12, 04-04: 7) were grepped and reconciled against every numeric claim.
+
+## Not blocking
+
+The round-2 MEDIUM (no test supplies two distinct non-merged kinds in adversarial order) was
+assessed as **not independently blocking** — the single-pass design and the acceptance contract
+determine encounter order. Recorded as a prudent addition, not a gate.
+
+## Status
+
+Round 3 folded 2026-08-01. **Round 4 owed.** Convergence rule stands.
