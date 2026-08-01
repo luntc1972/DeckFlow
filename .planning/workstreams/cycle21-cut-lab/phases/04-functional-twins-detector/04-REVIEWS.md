@@ -433,3 +433,18 @@ D-21. Renumbered to D-23; D-14 through D-23 verified unique across all four plan
 
 Round 7 owed. **Convergence trend is worth watching:** round 5 found 6, round 6 found 7, and round 6's
 most serious finding was created by round 5's fix.
+
+---
+
+# 2026-08-01 — Plan-structure consolidation
+
+Historical correction annotations were removed from the operative plan text and retained here as
+review archaeology. The resulting canonical homes are the D-14–D-23 records for decisions, the
+individual Task acceptance criteria for tests and mutation checks, and the STRIDE rows for threat
+dispositions. The substantive history moved from the plans includes the resolver correction,
+normalized-identity collapse and tally-join corrections, controller-owned flag-read coverage,
+honest-state-only lock invariants, the fabricated-TypeLine consequence, the merge-order correction,
+and decklist/screenshot handling. Live traps remain inline where an executor could otherwise make the
+wrong change: exact-MV rather than CurveCongestion buckets, no exact membership pin for the exclusion
+set, Snapshot's inability to prove non-invocation, D-23's narrowly scoped tally join, the shared
+client-supplied lock value, single-pass merged-group ordering, and sanitized verification evidence.
