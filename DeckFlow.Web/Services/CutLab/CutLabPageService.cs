@@ -297,7 +297,11 @@ internal sealed class CutLabPageService : ICutLabPageService
             .Select(entry => entry.Name)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
-        _analysisContextBuilder.PrimeResolvedCardsCache(derivedWorkingList, preResolvedCards, unresolvedEntryNames);
+        _analysisContextBuilder.PrimeResolvedCardsCache(
+            derivedWorkingList,
+            preResolvedCards,
+            unresolvedEntryNames,
+            resolutionPool);
 
         CutLabAnalysisContext analysisContext = await _analysisContextBuilder.BuildAsync(
             derivedWorkingList,
@@ -359,7 +363,11 @@ internal sealed class CutLabPageService : ICutLabPageService
                 .Select(entry => entry.Name)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
-            _analysisContextBuilder.PrimeResolvedCardsCache(derivedWorkingList, preResolvedCards, unresolvedEntryNames);
+            _analysisContextBuilder.PrimeResolvedCardsCache(
+                derivedWorkingList,
+                preResolvedCards,
+                unresolvedEntryNames,
+                resolutionPool);
             analysisContext = await _analysisContextBuilder.BuildAsync(
                 derivedWorkingList,
                 request.PlayExperience,

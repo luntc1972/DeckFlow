@@ -2268,6 +2268,39 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_RateLimitWithQuantityAdjustmentsAndNoDecisions_StillRecoversCommander()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 101, commanderName: "Atraxa, Praetors' Voice");
+        var resolver = new FakeResolver(BuildResolvedCards(entries))
+        {
+            TransientCollectionFailures = 2,
+        };
+        var service = new CutLabPageService(new FakeLoader(entries), resolver, new FakeBanListService([]));
+        var priorState = new CutLabState
+        {
+            QuantityAdjustments =
+            [
+                new CutLabQuantityAdjustment
+                {
+                    Name = "Card 001",
+                    Delta = -1,
+                },
+            ],
+        };
+
+        var result = await service.ProcessAsync(
+            new CutLabRequest
+            {
+                DeckInputSource = DeckInputSource.PasteText,
+                DeckText = "pool",
+                CutLabStateJson = CutLabStateSerializer.Serialize(priorState),
+            });
+
+        Assert.False(result.CommanderSelectionRequired);
+        Assert.Equal("Atraxa, Praetors' Voice", Assert.Single(result.State!.Pool, card => card.IsCommander).Name);
+    }
+
+    [Fact]
     public void From_WhenProposalDeltasUnavailable_StillBuildsProposalCardWithFallbackMessage()
     {
         var request = new CutLabRequest();
