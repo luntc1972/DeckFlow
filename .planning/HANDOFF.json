@@ -7,12 +7,12 @@
   "workstream": "cycle21-cut-lab",
   "worktree": "/mnt/c/users/chrislunt/source/personal/deckflow-role-floors",
   "branch": "gsd/cycle21-cut-lab",
-  "head": "bc1be075",
+  "head": "ff06857f",
   "plan": null,
   "task": 0,
   "total_tasks": 4,
   "status": "paused",
-  "activity": "Plan-review convergence loop, round 6 complete for both phases. Phase 4 round-6 findings FOLDED (daa6add2). Phase 5 round-6 findings recorded but DELIBERATELY NOT FOLDED \u2014 paused for an operator decision on approach.",
+  "activity": "Round 7 IN FLIGHT for both phases. Since round 6 the plans were both folded AND restructured by Codex; round 7 is the first review of the restructured text.",
   "completed_tasks": [
     {
       "id": "step-1",
@@ -97,14 +97,26 @@
       "name": "Phase 5 round 6 \u2014 2 BLOCK / 3 HIGH / 1 MED / 1 LOW, RECORDED ONLY, not folded",
       "status": "done",
       "commit": "bc1be075"
+    },
+    {
+      "id": "codex-p5",
+      "name": "Codex folded Phase 5 round-6 findings AND restructured (gpt-5.6-terra, fenced) \u2014 both BLOCKs closed, TRX-checked Postgres gate, per-task staging",
+      "status": "done",
+      "commit": "e2b1bd9d"
+    },
+    {
+      "id": "codex-p4",
+      "name": "Codex restructured Phase 4 plans (gpt-5.6-terra, fenced) \u2014 one canonical home per fact, counts no longer restated",
+      "status": "done",
+      "commit": "ff06857f"
     }
   ],
   "remaining_tasks": [
     {
-      "id": "decision-approach",
-      "name": "OPERATOR DECISION NEEDED: how to proceed with the convergence loop",
-      "status": "blocked",
-      "detail": "Round 5 -> round 6 did not converge: Phase 4 went 6 findings -> 7, Phase 5 went 5 -> 7. More important than the counts: FOUR of Phase 5 round-6's seven findings are defects in the round-5 FOLDS THEMSELVES, not in the original plans \u2014 the broken && short-circuit in the red-phase harness, the git add -A over-staging, the Postgres gate that still exits 0 on skip, and stale copies the Postgres fold missed in two files it never opened (05-PATTERNS.md, 05-RESEARCH.md). Phase 4 round 6 had the same shape: its most serious finding (HIGH-1 / D-23) existed only because the round-5 identity-collapse fix created it. The fold is now the dominant defect source, so folding again at the same cadence is not obviously the right move. Options put to the user: (a) keep folding + re-reviewing, (b) delegate the folds to Codex per the codes/reviews split, (c) simplify the plans \u2014 3,200+ lines of plan for ~2.3k LOC is itself a defect surface, (d) accept and execute Phase 4 with recorded caveats."
+      "id": "step-r7",
+      "name": "Round 7 review \u2014 IN FLIGHT for both phases",
+      "status": "in_progress",
+      "detail": "Fresh dispatches, gpt-5.6-sol medium, read-only. Briefs at scratchpad/p4-r7.txt and p5-r7.txt; outputs to p4-r7-out.txt and p5-r7-out.txt. Both briefs make the RESTRUCTURE the primary target and name its two possible failure modes: (A) requirement loss through consolidation \u2014 a fold from rounds 1-6 that now appears in zero places, to be reported as BLOCK; (B) dangling or lying references \u2014 the plans now say \"per D-NN\" / \"every mutation check defined in Tasks 2 and 3\" instead of restating, so each pointer must resolve to text that actually says what the referrer implies. Phase 5 additionally asks for line-by-line shell derivation of the red-phase harnesses (the last two BLOCKs were both shell bugs) and verification that the TRX grep patterns match what .NET emits."
     },
     {
       "id": "step-6",
@@ -201,12 +213,17 @@
       "decision": "Force-push cycle21 with --force-with-lease; keep backup/* refs local",
       "rationale": "User explicitly authorized. Verified first that all 158 remote-only commits' content exists on the rebased branch (5 differed only by patch-id context shift).",
       "phase": "04"
+    },
+    {
+      "decision": "Delegate plan folds to Codex and restructure the plans, rather than continue folding by hand",
+      "rationale": "Rounds 5 and 6 each introduced new defects through the fold itself \u2014 four of Phase 5 round-6 findings were defects in the round-5 folds (broken && short-circuit, git add -A over-staging, a Postgres gate that exits 0 on skip). The failures were mechanical, which is what a focused agent does better. The restructure attacks the root cause: the same fact restated five or six times is what makes an incomplete fold possible.",
+      "phase": "04/05"
     }
   ],
   "uncommitted_files": [
     "_edhrec-brackets/ (untracked)",
     "_role-floor-research/ (untracked)"
   ],
-  "next_action": "STOP AND ASK. Do not fold Phase 5 round 6 or dispatch round 7 without an operator decision \u2014 see the decision-approach task. Phase 5 round-6 findings are fully recorded in 05-REVIEWS.md and are actionable as-is if the user chooses to continue folding.",
+  "next_action": "Collect both round-7 outputs. Per the delegation split now in force: Claude reviews and verifies, CODEX folds any findings (gpt-5.6-terra, hard file fence, no git commands). Repeat until each phase returns VERDICT: CONVERGED. Only then does step 6 (execute Phase 4) unblock.",
   "context_notes": "Session of 2026-08-01, part 2. Still zero code executed \u2014 this remains merge/rebase plumbing plus a plan-review convergence loop. Two things worth carrying forward. (1) THE OWED GATE PAID FOR ITSELF: Phase 5 round 4 closed \"No BLOCKER outstanding\" while recording that the Codex review was owed across four rounds and blocked on credits; the first time it actually ran it found a BLOCK. Do not treat an owed gate as discharged by the reviews that ran in its absence. (2) THE INCOMPLETE FOLD is still the dominant defect in both phases \u2014 round 5 found it again in Phase 5's [PostgresFact] upgrade, with four stale copies including one conditional phrasing (\"do not ship the carry-forward IF this test can be written\") that kept the withdrawn fallback alive as an executor-judged escape hatch. Fold by grepping every phrasing, number-word and digit, across every plan AND the validation doc AND frontmatter must_haves."
 }
