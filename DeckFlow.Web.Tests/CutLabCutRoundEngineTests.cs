@@ -725,6 +725,48 @@ public sealed class CutLabCutRoundEngineTests
     }
 
     [Fact]
+    public void BuildQueue_SecondPassRevisitedComboPieceRotatesByOrdinal()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("A Plain Deferred Card", 6),
+            Card("Z Combo Piece", 1),
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.CompletePiece, "Z Combo Piece")),
+            [
+                new CutLabDecision { CardName = "A Plain Deferred Card", Kind = CutLabDecisionKind.Deferred, Round = CutLabCutRoundEngine.SecondPassDeferredKey, Ordinal = 12 },
+                new CutLabDecision { CardName = "Z Combo Piece", Kind = CutLabDecisionKind.Deferred, Round = CutLabCutRoundEngine.SecondPassDeferredKey, Ordinal = 10 },
+            ],
+            cardsToCutTarget: 2);
+
+        Assert.Equal("Z Combo Piece", plan.NextProposal!.CardName);
+    }
+
+    [Fact]
+    public void BuildQueue_SecondPassRevisitedRejectedComboPieceRotatesByOrdinal()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("A Plain Rejected Card", 6),
+            Card("Z Combo Piece", 1),
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.CompletePiece, "Z Combo Piece")),
+            [
+                new CutLabDecision { CardName = "A Plain Rejected Card", Kind = CutLabDecisionKind.Rejected, Round = CutLabCutRoundEngine.SecondPassRejectedKey, Ordinal = 12 },
+                new CutLabDecision { CardName = "Z Combo Piece", Kind = CutLabDecisionKind.Rejected, Round = CutLabCutRoundEngine.SecondPassRejectedKey, Ordinal = 10 },
+            ],
+            cardsToCutTarget: 2);
+
+        Assert.Equal("Z Combo Piece", plan.NextProposal!.CardName);
+    }
+
+    [Fact]
     public void BuildQueue_ComboProtectedCardSortsLastInRound3DespiteLowerManaValue()
     {
         IReadOnlyList<CutLabRoundInputCard> workingList =
