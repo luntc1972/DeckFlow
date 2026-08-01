@@ -448,3 +448,75 @@ and decklist/screenshot handling. Live traps remain inline where an executor cou
 wrong change: exact-MV rather than CurveCongestion buckets, no exact membership pin for the exclusion
 set, Snapshot's inability to prove non-invocation, D-23's narrowly scoped tally join, the shared
 client-supplied lock value, single-pass merged-group ordering, and sanitized verification evidence.
+
+---
+
+# Round 7 — 2026-08-01. First review of the RESTRUCTURED plans. `gpt-5.6-sol`, medium, read-only.
+# Verdict: CHANGES REQUIRED. 1 BLOCK · 1 HIGH · 4 MEDIUM · 0 LOW. NOT folded yet.
+
+**The restructure passed its audit.** The reviewer explicitly confirmed: *"All other round 1-6 folds
+remain present. D-14 through D-23 each have exactly one definition"*, and independently re-derived
+every count — detector tests 21, flag tests 12, presenter tests 7, density tests 6, constructor blast
+radius 8, `BuildFindingsAndRoundPlan` four call sites plus declaration, no interface gains a member.
+So consolidation lost nothing, which was the main risk it carried.
+
+**BLOCK-1 — D-23 contradicts its own acceptance gate, and test 4b does not guarantee failure without
+the join.** Two distinct defects in the round-6 fold:
+(a) `04-03:446` requires `FunctionalTwins` to appear in the engine **only** inside the
+`ExcludedFindingKindsFromTally` comment — but D-23's tally-join branch necessarily names
+`FunctionalTwins` in engine code, so the plan forbids the thing it mandates. That criterion predates
+D-23 and was not updated when D-23 landed: the incomplete-fold pattern, one more time.
+(b) Test 4b calls `BuildQueue` directly, so no detector "fires" and the test never constrains what
+evidence contains. If the fixture supplies **both** the long and short DFC forms as evidence, the
+existing raw implementation tallies both and **4b passes without D-23** — it cannot fail for the
+defect it exists to catch. Also: `BuildFindingTallies` currently takes only findings
+(`CutLabCutRoundEngine.cs:401-435`) and `TallyFor` does a raw lookup (`:441-444`), so the join needs an
+explicit signature/data-flow change the plan never specifies.
+→ Fix: replace `:446` with an initializer-specific assertion (absent from the exclusion set, while
+occurrences in the D-23 branch are required); specify the implementation shape, e.g.
+`BuildFindingTallies(findings, workingList)`, normalizing only for `FunctionalTwins` and retaining the
+raw branch verbatim for every other kind; make 4b construct evidence explicitly as
+`["Malakir Rebirth", "Card B", "Card C"]` — omitting the long form — while the working list holds
+both, then assert each raw entry has `FindingCount == 1` and the same round; and add a **negative
+control on a non-twins kind** proving the long form still does not inherit the short form's raw tally.
+"No other test changes result" does not prove general tallies were left un-normalized. Confidence 10/10.
+
+**HIGH-1 — two DoS threat rows cite a server gate that does not cover the AJAX path.** `04-02:624`
+and `04-04:643` cite `CutLabPoolValidator.MaxPoolCards` as the bound on pathological detector input.
+But `CutLabStateSerializer.Deserialize` never filters or caps `Pool` (`:56-79`), and `PostDecideAsync`
+accepts that pool and begins derivation without `ValidateCardCount` (`CutLabApiController.cs:78-100`).
+The validator runs on **page intake only** (`CutLabPageService.cs:289`, `:370`). The real remaining
+bound on the AJAX path is the 2 MB request limit. → Fix: either validate the deserialized pool before
+every AJAX analysis path, or move T-04-09/T-04-19 to `accept` and document the 2 MB residual honestly.
+Do not cite `MaxPoolCards` as an AJAX defense unless it is enforced there. Confidence 10/10.
+
+**MEDIUM-1 — the registration precondition cannot detect a duplicate.** `04-03:301-308`, `:437`, `:445`
+claim the gate finds *exactly one* `AddDeckFlowFeatureFlags` call, but the shell is `grep ... && build`
+and grep exits 0 for one **or many** matches. → Fix: assert an exact count,
+`test "$(grep -Ec '<pattern>' DeckFlow.Web/Program.cs)" -eq 1`. Confidence 10/10.
+
+**MEDIUM-2 — two flag threat rows describe a failure that cannot occur.** `04-01:514` and `04-03:795`
+say a missing seed row or dropped DI registration could silently ship twins **ON** via `IsEnabled`'s
+default-ON. `IsEnabled` does default missing keys ON (`IFeatureFlagCache.cs:14-20`), but the planned
+consumers deliberately use `Snapshot().TryGetValue(...) && enabled`, so a missing row stays **OFF**;
+and dropping DI makes the two new **required** constructor dependencies fail resolution — a loud
+startup failure, not a silent enable. → Fix: describe a missing seed row as loss of admin
+visibility/controlled enablement, and required-DI removal as fail-loud. Reserve silent-ON for a
+regression to `IsEnabled` or a hardcoded `true`. Confidence 9/10.
+
+**MEDIUM-3 — the human checkpoint and the phase success criterion disagree.** `04-04:506-510` lets the
+checkpoint pass when `NextProposal` is unchanged provided some round assignment moved, while `:668`
+requires an end-to-end next-proposal change. Queue ordering can legitimately keep the same first card
+while a twins tally moves another card between rounds (`CutLabCutRoundEngine.cs:268-292`). → Fix: pick
+one — require an actual proposal change, or amend the criterion to accept a recorded round-assignment
+change. The unit-level proof stays in 04-03. Confidence 10/10.
+
+**MEDIUM-4 — the follow-up count disagrees with its own list.** `04-04:669` claims six follow-ups;
+only five exist (F-04-01, F-04-02, F-04-04, F-04-05, F-04-06). F-04-03 was resolved in-phase by the
+presenter rewrite (see this file, Round 1 H-6) and cannot sit under "deliberately NOT fixed".
+Confidence 10/10.
+
+## Status
+
+Round 7 not folded. Per the delegation split adopted this session, **Codex folds; Claude reviews.**
+Round 8 owed after the fold.
