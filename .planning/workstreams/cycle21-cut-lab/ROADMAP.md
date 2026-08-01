@@ -375,6 +375,25 @@ from roughly 5 req/s to 2 req/s across all concurrent users. So the two waves be
 problem from both ends: wave 1 restores the floor for the common case, wave 2 removes the calls that
 make the bad case bad.
 
+> ⚠ **WAVE 1 SUPERSEDED 2026-08-01 — do not implement the paragraph below as written.** Research
+> during planning found the 200ms figure was itself the defect, not 111.1's over-correction:
+> `ScryfallThrottle.cs:14-21` records that Scryfall documents a hard 2 req/s **per-endpoint** limit
+> for the four endpoints this throttle covers and that 200ms came from misreading the docs' "all
+> other methods" row; `ScryfallThrottleTests.cs:174` pins `>= 450ms` specifically to assert that
+> limit; and `111.1-PACING-MEASUREMENT.md` calls the change "a documentation correction, not a defect
+> to fix". Restoring 200ms would run above the documented rate and back off only after being caught.
+>
+> **Replacement, by operator decision:** keep the 500ms floor and make the gate **per-endpoint**
+> instead of one process-wide gate, since Scryfall's limit is per-endpoint and a single shared gate is
+> stricter than required. That recovers the aggregate throughput this wave was reaching for — the
+> measurement's own correction puts the real figures at 2.2 -> 1.33 req/s, not 5 -> 2 — without
+> violating anything. The SC-7 test survives unmodified. The adaptive degrade is **deferred, not
+> rejected**. Full reasoning and the replacement success criteria live in
+> `phases/06-scryfall-throughput/06-CONTEXT.md`, which is canonical for this phase.
+>
+> The original text is kept below unedited, because the observed-not-thrown rule and the concurrency
+> warning in it remain correct and still apply if the degrade is revived.
+
 **Wave 1 — adaptive pacing.** Default `MinInterval` back to 200ms. On an **observed** Scryfall 429,
 degrade to 500ms for **5 minutes** since the most recent 429, then revert automatically.
   - ⚠ **The trigger must fire where the 429 is OBSERVED, not where it is thrown.** Phase 111.1's B-1
@@ -383,6 +402,15 @@ degrade to 500ms for **5 minutes** since the most recent 429, then revert automa
     the exact scenario this exists for. Record at status inspection, before the fail-open branch.
   - ⚠ `ScryfallThrottle` is a process-wide `static`. A mutable `MinInterval` is written from
     concurrent requests — use `Interlocked`/`volatile`, not a plain field.
+
+> ⚠ **WAVE 2 SCOPED 2026-08-01.** "The loop" is two loops. `ResolveAsync` takes the fallback as a
+> per-caller delegate, and only one of the two strategies is expressible as an OR query:
+> `SearchFallbackCardAsync` (Comparison, Meta-Gap, Cut Lab, Manabase) is one exact-name request and
+> **is** the target; `SearchPrintingFallbackCardAsync` (Analysis, Deck History) is a three-stage
+> progressive escalation under `unique=prints` with per-name best-match selection, so a batched flat
+> list cannot be attributed back to its term. Batching it is a redesign of its matching semantics and
+> is **out of scope** — meaning Analysis and Deck History see no request-count change from this wave
+> and must not be described as covered. See `06-CONTEXT.md`.
 
 **Wave 2 — batch the fallback.** `ScryfallReferenceResolver` currently does chunk(75) →
 `POST cards/collection` → match-back → **one `GET cards/search?q=!"Name"` per miss**. Collapse that
