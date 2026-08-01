@@ -75,7 +75,7 @@ index. **This is a live defect today**, not one Phase 4 would introduce: `[Curve
 ComboProtected]` renders as `[Curve, ComboProtected, WeakFloor]`. Nothing catches it because no test
 calls `BuildFindingGroups` directly. A third merged kind compounds it.
 *Folded:* replaced with a single-pass placeholder build (no indexes, no deferred inserts). Tests 5 and
-7 added, both of which **fail on the pre-change tree**. Follow-up F-04-03, which had deferred exactly
+6 added, both of which **fail on the pre-change tree**. Follow-up F-04-03, which had deferred exactly
 this refactor as cosmetic, is marked RESOLVED IN-PHASE — the duplication was hiding the arithmetic
 nobody had checked.
 
@@ -124,8 +124,66 @@ Recorded because they are the traps this codebase has actually sprung before, an
   the same analyzed pool names `BuildInputs` uses; the normalized combo-demotion path
   (`CutLabCutRoundEngine.cs:245`) stays safe **provided B-1 is fixed** — which it now is.
 
+---
+
+# Round 2 — 2026-08-01. Same reviewer/model. Verdict: CHANGES REQUIRED. All folded; round 3 owed.
+
+**9 of 14 round-1 folds verified GOOD** (H-3, H-7, M-9, M-11, M-12, M-13, plus B-2's core fix and
+H-6's diagnosis). **5 were INCOMPLETE in the same way, and it is worth naming the pattern:** I fixed
+the *operative* instruction and left a contradicting copy in an acceptance criterion, a `<done>` line,
+or a threat row. A plan that says one thing in the task and the opposite in its acceptance list hands
+the executor a choice, and executors resolve contradictions by picking one.
+
+| # | Leftover contradiction | Fixed |
+|---|---|---|
+| B-1 | threat row T-04-17 still claimed the test asserts the set's "exact contents" | rewritten to absence-only, with the reason |
+| H-4 | acceptance still required "all nine tests" after 10-12 were added | → twelve |
+| H-5 | acceptance + `<done>` still demanded proof of non-invocation | → the paired OFF/ON assertion |
+| M-8 | the operative action still said "7 constructions" and called any other count a divergence | → 8 |
+| L-14 | two stale citations survived (`~391`, `:111-117`) | → `:505`, `:119-125` |
+
+**H-6's diagnosis was independently CONFIRMED** — the reviewer traced the index capture and insert
+order itself and reached the same conclusion, so the live reversal defect is now double-sourced. But
+the fold was internally contradictory: a paragraph further down still said *"do not refactor the three
+near-identical branches."* Withdrawn explicitly; its stated reason ("would change the two pre-existing
+kinds' behavior") is now the point of the change.
+
+## New defects the folds introduced or exposed
+
+1. **HIGH — the controller tests had an escape hatch that voids them.** The fold let tests 10-12 fall
+   back to asserting `NextProposal`. Invalid *for these specific tests*: the controller's flag read
+   feeds `beforeRoundPlan` → `DetermineRoundKey` (`CutLabApiController.cs:100`, `:414`), while the
+   response's `NextProposal` comes from the **separately invoked** patch builder (`:118`) with its own
+   flag read. The fallback passes whenever the patch builder is correct, even with the controller read
+   hardcoded. *Fixed:* must assert the persisted `decision.Round`; `NextProposal` explicitly excluded.
+
+2. **HIGH — the land-exclusion tests are double-gated and prove nothing.** Test 7's land cards sit in
+   role `lands`, which is *also* absent from `TwinEligibleRoleKeys`. Delete `!card.IsLand` → the role
+   filter still yields zero. Admit `lands` → the land filter still yields zero. Neither mutation is
+   detectable. And it matters in production: `CutLabRoleAssigner` gates land-as-*ramp* but can still
+   assign a land an eligible role such as draw (`:128`, `:141`). *Fixed:* new test 7b requires three
+   `isLand` cards sharing one eligible **non-land** role.
+
+3. **HIGH — three ordering fixtures could not detect their own mutations.** Test 10 never required
+   non-alphabetical source order (deleting `ThenBy(Name)` passes); test 11 never required MV-2 to
+   precede MV-5 (deleting the descending-MV sort passes); test 12 never required same-role/
+   different-type ties (leaving `TypeGroupOrder` unexercised); density test 4 had the same gap and
+   lacked an exact-order assertion. *Fixed: adversarial input order is now mandatory in each.*
+
+   **Sub-finding worth keeping — the role-index tiebreak is STRUCTURALLY untestable.** Groups are
+   collected by iterating the canonical `TwinEligibleRoleKeys` list and .NET's `OrderBy`/`ThenBy` are
+   stable, so when MV and type tie, source order already equals role order. No input permutation can
+   make its deletion fail — permuting the pool permutes cards, not the role loop. Kept as defence in
+   depth, documented as deliberately unpinned. Do not manufacture a test that appears to cover it.
+
+4. **MEDIUM — no test supplies two distinct non-merged kinds in adversarial order,** so "non-merged
+   kinds keep encounter order" is preserved by the new design but unproven. Noted; tests 5 and 6 each
+   carry only one non-merged group.
+
+5. **LOW — presenter tests were numbered 1,2,3,4,5,7,6.** Renumbered; all cross-references updated.
+
 ## Status
 
-All 14 findings folded 2026-08-01. Re-review with `gpt-5.6-sol` at medium effort is **owed** before
-Phase 4 execution begins, per the plan-review convergence rule: a revised plan is not converged until
-the reviewer says so.
+Round 2 folded 2026-08-01. **Round 3 re-review owed** before execution — findings 1-3 changed test
+semantics, and edits made under review pressure are themselves unreviewed. The convergence rule
+stands: a revised plan is not converged until the reviewer says so.
