@@ -221,10 +221,11 @@ public static class CutLabCutRoundEngine
         // but that left it with no effect whatsoever — a card sitting in two complete combos could
         // still lead a round on one unrelated finding. Combo membership is therefore the FIRST
         // ordering key of rounds 1–3, so a combo piece is proposed only after equally-flagged
-        // non-combo cards in that same round. In second-pass rounds, cards that have not yet been
-        // revisited sort before cards re-decided in that pass, then combo rank applies within each
-        // group. This prevents starvation: a re-deferred or re-rejected ordinary card rotates
-        // behind the first-appearance combo piece by ordinal instead of leaving it permanently last.
+        // non-combo cards in that same round. In second-pass rounds, combo demotion is a
+        // FIRST-APPEARANCE-ONLY rule: cards that have not yet been revisited sort before cards
+        // re-decided in that pass, while revisited cards rotate purely by ordinal. This prevents
+        // starvation where a re-deferred or re-rejected ordinary card permanently outranks an
+        // older combo piece.
         // Why: only CompletePiece evidence counts toward demotion. A NeedsPartner combo piece is
         // missing its partner and is already a cut candidate (the same card EnablerStarved flags);
         // demoting it a second time for the same reason is backwards.
@@ -289,7 +290,7 @@ public static class CutLabCutRoundEngine
             .ToArray();
         IReadOnlyList<CutLabRoundQueueItem> deferredPass = deferredCards
             .OrderBy(entry => IsSecondPassRound(entry.Decision.Round) ? 1 : 0)
-            .ThenBy(entry => ComboProtectionRank(comboProtectedCardNames, entry.Card.Name))
+            .ThenBy(entry => IsSecondPassRound(entry.Decision.Round) ? 0 : ComboProtectionRank(comboProtectedCardNames, entry.Card.Name))
             .ThenBy(entry => entry.Decision.Ordinal)
             .ThenBy(entry => entry.Card.Name, StringComparer.OrdinalIgnoreCase)
             .Select(entry => ToQueueItem(entry.Card.Name, SecondPassDeferredKey, entry.Tally))
@@ -304,7 +305,7 @@ public static class CutLabCutRoundEngine
             .ToArray();
         IReadOnlyList<CutLabRoundQueueItem> rejectedPass = rejectedCards
             .OrderBy(entry => IsSecondPassRound(entry.Decision.Round) ? 1 : 0)
-            .ThenBy(entry => ComboProtectionRank(comboProtectedCardNames, entry.Card.Name))
+            .ThenBy(entry => IsSecondPassRound(entry.Decision.Round) ? 0 : ComboProtectionRank(comboProtectedCardNames, entry.Card.Name))
             .ThenBy(entry => entry.Decision.Ordinal)
             .ThenBy(entry => entry.Card.Name, StringComparer.OrdinalIgnoreCase)
             .Select(entry => ToQueueItem(entry.Card.Name, SecondPassRejectedKey, entry.Tally))
