@@ -319,4 +319,69 @@ manufacturing diff noise the reviewer must re-verify. Call it if you disagree.
 
 ---
 
-# Round 5 — owed. Fresh blind dispatch, `gpt-5.6-sol`, medium.
+# Round 5 — 2026-08-01. Fresh blind dispatch, `gpt-5.6-sol`, medium. Verdict: CHANGES REQUIRED.
+
+0 BLOCK · 3 HIGH · 2 MEDIUM · 1 LOW. **NOT folded yet.** The reviewer confirmed the round-4 F3
+correction and independently extended it (see H3). It also confirmed the eight-construction blast
+radius is exactly eight, that no interface gains a member, and that the named APIs otherwise exist
+with compatible shapes.
+
+**H1 — HIGH. "Distinct cards" is actually implemented as distinct pool ENTRIES. VERIFIED AGAINST
+SOURCE.** `04-02` D-17 rule 4 says the threshold counts "distinct pool entries", while the section
+heading and the surrounding prose say "distinct cards". Those differ whenever the pool holds two
+entries with the same normalized name. Nothing dedupes: `CutLabStateSerializer.Deserialize` filters
+and clamps `Packages`/`Decisions`/`QuantityAdjustments`/`OriginalEntries` but **never touches `Pool`**
+(`CutLabStateSerializer.cs:56-81`), and `CutLabWorkingList.Derive` appends each pool entry
+individually (`:33-52`). So three entries naming the same card — casing variants, printing variants,
+DFC long/short forms that normalize identically — make `group.Count() == 3` and manufacture a false
+twins finding. The specified test uses ONE entry with `Quantity = 3`, which does not exercise this at
+all and survives the mutation. → Fix: dedupe each candidate group by `CutLabCardNames.Normalize` under
+`CutLabCardNames.Comparer` before thresholding and before emitting evidence; add a test with three
+same-card entries in normalize-identical variants asserting NO finding. Confidence 10/10.
+
+**H2 — HIGH. `04-04`'s flag-OFF human gate demands an identity the same plan makes impossible.**
+`04-04:503-506` says that with the flag OFF the panel returns to "exactly its pre-Phase-4 content".
+But `04-04` deliberately replaces `BuildFindingGroups`' capture-index-then-insert with a single-pass
+build, correcting a `WeakFloorCase`/`ComboProtected` reverse-order defect that is **flag-independent**
+and stays active when twins is OFF (`CutLabFindingPresenter.cs:31-91`). Consistent with this phase's
+own round-3 decision, which adopted that refactor precisely because the reversal is live today. → Fix:
+narrow the checkpoint to "no Functional twins section, no twins help note, no twins contribution to
+ranking", and explicitly permit the intended merged-section order correction. Confidence 10/10.
+
+**H3 — HIGH. `04-01`'s T-04-02 claims a server-resolved commander identity that does not exist.
+VERIFIED AGAINST SOURCE.** The row says clearing `IsCommander` is insufficient because a
+"server-resolved commander-name set" still excludes the commander and `EnforceCommanderLock`
+independently re-locks it. Neither holds. `CutLabCommanderNames.Resolve` derives the set from
+`state.Pool` where `card.IsCommander` — client-supplied — and falls back to `state.Commander`, also
+client-supplied (`CutLabCommanderNames.cs:9-23`); a forged state clears both. `EnforceCommanderLock`
+only re-locks entries **still carrying `IsCommander == true`** and infers nothing
+(`CutLabLockRules.cs:12-25`). → Fix: move T-04-02 `mitigate` → `accept` on the same per-session
+residual-risk rationale now used by T-04-07 and T-04-15, or add a genuinely server-authoritative
+derivation. Do not call the current set server-resolved or independent. Confidence 10/10.
+
+**M1 — MEDIUM. `04-03`'s transport fixture cannot reach the code it tests.** A 12-20 entry fixture is
+specified, but page intake rejects pools of 100 or fewer non-commander cards
+(`CutLabPoolValidator.cs:31-46`) and `BuildQueue` returns an empty queue with a null proposal when no
+cuts are required (`CutLabCutRoundEngine.cs:209-218`). → Fix: require a legal oversized fixture
+totalling 101-150 non-commander cards while keeping 12-20 distinct entries, using a high-quantity
+locked basic-land filler so only the intended twins move ranking. Confidence 9/10.
+
+**M2 — MEDIUM. `04-03:688` T-04-12 cites the wrong missing-key tests.** Tests 3 and 6 cover the page
+service and patch builder; the third newly injected consumer is `CutLabApiController`, whose
+missing-key guard is test 12. The controller has its own pre-round-plan flag read
+(`CutLabApiController.cs:100-104`), so patch-builder coverage cannot substitute. → Fix: cite tests 3,
+6 **and 12**, and require the `IsEnabled` mutation check on the controller too. Confidence 10/10.
+
+**L1 — LOW, and it ADJUDICATES the item the round-4 fold deliberately left open.** The reviewer ruled
+the flag-OFF claims at `04-03:26` and `04-03:714` **safe** — so they correctly stay unfolded. But the
+*rationale* in `04-01:60-68` names the wrong resolver: AJAX paths use `CutLabCommanderNames.Resolve`
+(`CutLabApiController.cs:84`), while initial page intake uses the separate `ResolveCommanderSelection`
+(`CutLabPageService.cs:284, 733-782`) and builds both the pool flags and `state.Commander` from that
+one result (`:865-902`). Outcome safe, stated reason inaccurate. → Fix: state both paths accurately.
+Confidence 10/10.
+
+## Status
+
+Round 5 **not folded.** Round 6 owed after folding. Note H3 is the *same* class of error as round 4's
+F3 — a threat row asserting an independent server-side gate that is really client-supplied data — in a
+row neither of us checked last round because F3 drew all the attention.

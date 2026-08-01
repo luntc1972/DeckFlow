@@ -653,3 +653,76 @@ compiler cannot express, which is where F4-1 lived.
   `cursor-agent --mode=plan --model gpt-5`, which is installed but **not logged in** and needs
   the developer to authenticate.
 - **No BLOCKER outstanding.** Nothing in Round 4 blocks execution once the fold is committed.
+
+---
+
+# Round 5 — 2026-08-01. THE OWED CODEX REVIEW, finally run. `gpt-5.6-sol`, medium, read-only.
+# Verdict: CHANGES REQUIRED.
+
+1 BLOCK · 2 HIGH · 1 MEDIUM · 1 LOW. **NOT folded yet.**
+
+⚠ **This overturns Round 4's closing line.** Round 4 ended "No BLOCKER outstanding — nothing blocks
+execution once the fold is committed", while recording that the authoritative Codex review was owed
+across four rounds and blocked on credits. Credits were restored 2026-08-01 and the review found a
+BLOCK on its first run. Round 4's all-clear was a same-family verdict standing in for a gate that had
+never actually run. **Do not treat an owed gate as discharged by the reviews that ran in its absence.**
+
+**B1 — BLOCK. The red-test tasks cannot satisfy their own automated gates.** `05-01:161-168` requires
+tests 1/2/3/4/6 to be RED, then uses a plain `dotnet test` as the task's `<automated>` verification;
+`05-02:149-154` and `05-03:141-145` do the same. A GSD executor treats failed task verification as
+blocking, so a nonzero `dotnet test` can never clear the task — the plan instructs the executor into a
+state its own gate rejects. The tests are genuinely red at that point: `ImportWithMetadataAsync` does
+not exist (`DeckImporterInterfaces.cs:54-63`), `CategoryKnowledgeRepository` has neither metadata
+parameter (`:252-300`), and both call sites still use the old paths (`ArchidektDeckCacheSession.cs:109-137`,
+`AdminHarvestController.cs:265-273`). → Fix: either merge each red task into its implementation task as
+one RED→GREEN TDD task, or replace the `<automated>` entry with an expected-failure harness that exits
+0 only when the intended tests fail for the intended reason — with the later GREEN gate running a
+normal `dotnet test`. Confidence 10/10.
+
+**H1 — HIGH. The `[PostgresFact]` upgrade is an INCOMPLETE FOLD — the same anti-pattern that cost
+Phase 4 three rounds.** `05-02:177-189` correctly mandates a required `[PostgresFact]` on the grounds
+that Postgres became provable. Four operative copies still contradict it: `05-02:232` (routing enforced
+by review only, Postgres unprovable), `05-02:245-258` (Core mapping test "authoritative", Postgres an
+accepted risk, `NOT VERIFIED on Postgres` permitted), `05-02:284` (repeats the fallback), and
+`05-VALIDATION.md:47,68` (retains the fallback and the "provable in no environment" claim). The risk is
+concrete, not theoretical: `BoolTypeHandler` binds SQLite as `1/0` but Postgres as a native boolean
+(`DapperTypeHandlers.cs:98-116`), so a SQLite-only proof cannot cover `Theorycrafted`. Infrastructure is
+confirmed present — `[PostgresFact]` gates on `DECKFLOW_POSTGRES_TESTS == "1"`
+(`PostgresFactAttribute.cs:10-18`) and `PostgresContainerFixture` starts the container (`:36-86`).
+→ Fix: one fully specified required `[PostgresFact]` driving `CategoryKnowledgeRepository` /
+`DeckQueueRepository` with a non-null `Theorycrafted`, asserting all six values round-trip, run in the
+task that implements the repository; then delete every "authoritative Core substitute", "unprovable",
+"accepted risk" and optional NOT-VERIFIED copy. Confidence 10/10.
+
+**H2 — HIGH. The importer tests mutation-lock only one of the parsers they claim to cover.**
+`05-01:98` promises the complete numeric matrix for both `edhBracket` and `deckFormat`, and
+`:184-195` specifies boolean and timestamp parsing plus no-throw behavior — but the actual recipe at
+`:136-158` mutates **only** `edhBracket`. The fixture supplies a single `deckFormat: 3`, a single
+`theorycrafted: false`, and valid timestamps, against 80 occurrences each of `createdAt`/`updatedAt`.
+The current importer ignores every top-level field and parses only `cards[]`
+(`ArchidektApiDeckImporter.cs:56-105`). Three mutations survive: hard-coding `Theorycrafted = false`,
+rejecting a numeric-string `deckFormat`, and using a throwing accessor for malformed timestamps.
+→ Fix: add field-specific synthesis cases for `deckFormat` and `theorycrafted` (true / false / string /
+null / missing / malformed), plus malformed and missing top-level timestamp cases using unique full
+`key:value` replacement, asserting both nullable output and unchanged `ImportAsync` entries.
+Confidence 9.5/10.
+
+**M1 — MEDIUM. The store-to-repository test permits partial metadata loss.** `05-03:195-200` calls it
+the proof that the four-argument store overload forwards metadata, but reads back only
+`archidekt_edh_bracket` and `archidekt_metadata_captured_utc`. The adapter is a one-line forward
+(`CategoryKnowledgeStore.cs:109-110`) and the planned overload is the sole hop between controller and
+repository, so forwarding `metadata with { Theorycrafted = null, CreatedUtc = null, UpdatedUtc = null }`
+keeps both assertions green while silently dropping curated provenance. → Fix: assert exact round-trip
+values for all six columns. Confidence 9/10.
+
+**L1 — LOW, and directly confirmed by observation this session.** `05-01:200`, `05-02:256` and
+`05-03:207` end with `scripts/format-check-changed.sh staged`, which reads only `git diff --cached`
+(`:290-295`) and exits successfully printing "no changed C# files" (`:304-307`). Every planning commit
+made on 2026-08-01 printed exactly that line, so the gate demonstrably passes without inspecting
+anything. → Fix: stage the task-owned C# files before the command, or use a working-tree mode covering
+unstaged changes. Confidence 8.5/10.
+
+## Status
+
+Round 5 **not folded.** Round 6 owed after folding. The Codex authoritative review is no longer owed —
+it ran, and it disagreed with the standing verdict.
