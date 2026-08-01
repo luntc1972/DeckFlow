@@ -49,6 +49,14 @@ public interface ICutLabAnalysisContextBuilder
         IReadOnlyList<ScryfallCardData> resolvedCards,
         IReadOnlyCollection<string>? unresolvedCardNames = null);
 
+    /// <summary>Seeds a derived pool while preserving transient lookup provenance from its source pool.</summary>
+    void PrimeResolvedCardsCache(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        IReadOnlyList<ScryfallCardData> resolvedCards,
+        IReadOnlyCollection<string>? unresolvedCardNames,
+        IReadOnlyList<CutLabPoolCard> unattemptedSourceWorkingList)
+        => PrimeResolvedCardsCache(workingList, resolvedCards, unresolvedCardNames);
+
     /// <summary>Seeds the provided pool from a previously resolved superset payload when possible.</summary>
     bool TrySeedDerivedPool(
         IReadOnlyList<CutLabPoolCard> workingList,
@@ -330,14 +338,24 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         IReadOnlyList<CutLabPoolCard> workingList,
         IReadOnlyList<ScryfallCardData> resolvedCards,
         IReadOnlyCollection<string>? unresolvedCardNames = null)
+        => PrimeResolvedCardsCache(workingList, resolvedCards, unresolvedCardNames, workingList);
+
+    /// <inheritdoc />
+    public void PrimeResolvedCardsCache(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        IReadOnlyList<ScryfallCardData> resolvedCards,
+        IReadOnlyCollection<string>? unresolvedCardNames,
+        IReadOnlyList<CutLabPoolCard> unattemptedSourceWorkingList)
     {
         ArgumentNullException.ThrowIfNull(workingList);
         ArgumentNullException.ThrowIfNull(resolvedCards);
+        ArgumentNullException.ThrowIfNull(unattemptedSourceWorkingList);
 
         string poolKey = CutLabResolvedCardCache.ComputePoolKey(workingList);
+        string unattemptedSourcePoolKey = CutLabResolvedCardCache.ComputePoolKey(unattemptedSourceWorkingList);
         IReadOnlyCollection<string>? effectiveUnresolvedNames = unresolvedCardNames;
         if (unresolvedCardNames is not null
-            && _unattemptedNamesByPoolKey.TryGetValue(poolKey, out HashSet<string>? unattemptedNames)
+            && _unattemptedNamesByPoolKey.TryGetValue(unattemptedSourcePoolKey, out HashSet<string>? unattemptedNames)
             && unattemptedNames.Count > 0)
         {
             effectiveUnresolvedNames = unresolvedCardNames
