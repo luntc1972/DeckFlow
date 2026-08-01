@@ -78,7 +78,7 @@ jobs:
 
       - name: Install Playwright browser
         working-directory: DeckFlow.Web
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Run Playwright E2E smoke
         working-directory: DeckFlow.Web
