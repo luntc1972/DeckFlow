@@ -236,3 +236,69 @@ determine encounter order. Recorded as a prudent addition, not a gate.
 ## Status
 
 Round 3 folded 2026-08-01. **Round 4 owed.** Convergence rule stands.
+
+---
+
+# Round 4 — 2026-08-01. Same reviewer/model. Verdict: CHANGES REQUIRED. **NOT folded — session paused.**
+
+⚠ **The reviewer read the plans BEFORE two pause-time fixes landed. Its findings 1 and 5 are already
+resolved — verify before acting on any finding here.**
+
+- **F1 (already fixed)** — `04-03:448` "divergence if it is not the 7 enumerated above" → now **8**.
+- **F5 (already fixed)** — `04-02:547` "at least 18 more executed tests" → now **19 (18 + 7b)**.
+
+Both were caught from round 4's own reasoning trace during the pause and corrected in `2bf28b4b`.
+They are the **fourth and fifth** instances of the incomplete-fold anti-pattern, and they reveal why
+round 3's sweep missed them: the greps matched the exact sentences already fixed, not every phrasing
+of the same count. **Sweep by number-word AND digit across all phrasings.**
+
+## Five findings that remain OPEN
+
+**F2 — HIGH. 04-03 Task 1 has an impossible `<automated>` gate.** Line 371 requires a solution-wide
+build, but line 385 correctly states the test project **cannot compile until Task 2** repairs the
+eight constructor sites. The prose permits deferral; the machine-readable gate does not. An executor
+following the gate literally is blocked at Task 1. Confidence 10/10.
+→ Fix: scope Task 1's automated gate to what is buildable at that point, or state the deferral in the
+gate itself rather than only in prose.
+
+**F3 — HIGH, and the most substantive finding of the round: the threat model asserts a defence that
+does not exist.** `04-02:570` and `04-03:687` both claim `BuildQueue` **independently** blocks a
+client-forged `IsLocked=false`. It does not. The analyzed card and the queue input inherit the *same*
+client-influenced pool flag: `BuildInputs` copies `card.IsLocked` (`CutLabCutRoundEngine.cs:359`) and
+the queue then checks that same value (`:256`). There is one gate, not two. The planned test only
+proves an *honestly* locked queue input stays excluded — it cannot detect the forged case.
+Confidence 10/10.
+→ Fix: rewrite both threat rows to claim a single gate, and either add a real independent check or
+record the residual risk honestly. **Do not leave a "defence in depth" claim that is one layer.**
+
+**F4 — MEDIUM. 04-01's byte-identity narrowing did not reach three sites:** the constant
+documentation (`:214-216`), the catalog copy (`:248-253`), and the objective's "zero behavior change"
+for the shared extension (`:58-59`). Confidence 9/10.
+
+**F6 — MEDIUM. Three smaller 04-03 verification contradictions.** (a) `:697` requires "all three
+mutation checks" but only two are specified (exclusion-set insertion, `IsEnabled` substitution);
+(b) Task 2 touches five test files (`:401`) while `:520` checks diff-stat parity for "both test
+files"; (c) `:515` says the "only edits" are constructor arguments plus one null test, omitting the
+six engine tests the same task mandates. Confidence 10/10.
+
+**F7 — LOW. `04-03:623-625` is a stale sentence** telling the executor to add a comment explaining
+why the round key was unusable — immediately after instructing them to stop and report instead.
+Delete it. Confidence 9/10.
+
+## Confirmed correct (do not re-litigate)
+
+- 04-03 has 12 flag tests; 04-04 has 7 presenter tests; ordering pinned by tests 5 and 6; test 9 is
+  paired OFF/ON; the exclusion assertion is absence-only; 04-04 mandates only the single-pass build.
+- **None of the four historical ordering/normalization defects is reintroduced.** Both combo
+  advisories stay excluded (`CutLabCutRoundEngine.cs:119`); second-pass rotation intact (`:301-320`);
+  both normalization regressions still guarded by normalized combo-set construction and lookup
+  (`:245-252`, `:449`). Twins evidence uses the same `entry.Name` as the queue inputs, so it adds no
+  new cross-source raw-name match-back.
+- Source citations have drifted (e.g. `CutLabUiPatchBuilderTests` `:793/:829` → `:820/:856`) —
+  misleading but navigable by symbol, explicitly **not** blockers.
+
+## Status
+
+Round 4 **not folded** — session paused after the review returned. Next session: fold F2, F3, F4, F6,
+F7 (skip F1 and F5, already fixed), then re-review. F3 needs care — it is a false security claim, not
+a wording slip.
