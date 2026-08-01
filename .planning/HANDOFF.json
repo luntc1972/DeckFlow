@@ -7,12 +7,12 @@
   "workstream": "cycle21-cut-lab",
   "worktree": "/mnt/c/users/chrislunt/source/personal/deckflow-role-floors",
   "branch": "gsd/cycle21-cut-lab",
-  "head": "2bf28b4b",
+  "head": "06d3e865",
   "plan": null,
   "task": 0,
   "total_tasks": 4,
   "status": "paused",
-  "activity": "plan-review convergence loop \u2014 NOT execution. Phase 4's four waves have not started.",
+  "activity": "plan-review convergence loop, round 6 in flight for BOTH Phase 4 and Phase 5 \u2014 NOT execution. Zero waves have run in either phase.",
   "completed_tasks": [
     {
       "id": "step-1",
@@ -67,20 +67,38 @@
       "name": "push everything \u2014 force-with-lease on cycle21, new remote fix/cutlab-combo-seam",
       "status": "done",
       "commit": "f7756740"
+    },
+    {
+      "id": "step-4-r5",
+      "name": "Phase 4 round 5 (fresh blind) \u2014 3 HIGH / 2 MED / 1 LOW, all folded",
+      "status": "done",
+      "commit": "9ed26264"
+    },
+    {
+      "id": "step-5-r5",
+      "name": "Phase 5 OWED Codex review finally ran \u2014 1 BLOCK / 2 HIGH / 1 MED / 1 LOW, all folded",
+      "status": "done",
+      "commit": "06d3e865"
+    },
+    {
+      "id": "state-fix",
+      "name": "Corrected both stale STATE.md files (root Cycle 20 had percent:300; workstream claimed Phase 3 unexecuted)",
+      "status": "done",
+      "commit": "4a97902c"
     }
   ],
   "remaining_tasks": [
     {
-      "id": "step-4-r5",
-      "name": "Phase 4 round 5 \u2014 fresh blind claim-vs-code review, IN FLIGHT",
+      "id": "step-4-r6",
+      "name": "Phase 4 round 6 \u2014 IN FLIGHT",
       "status": "in_progress",
-      "detail": "Round-4 findings F2/F3/F4/F6/F7 all FOLDED at 5172f6d9 (F1/F5 were already fixed at 2bf28b4b). F3 was verified against source before folding and is a real correction: BuildInputs copies card.IsLocked off the client-supplied pool card (CutLabCutRoundEngine.cs:359) and eligibleCards checks that same copy (:256) \u2014 one gate read twice, so T-04-07 and T-04-15 both moved mitigate->accept. Round 5 dispatched fresh (operator chose fresh over resume) via codex exec, gpt-5.6-sol, medium, read-only. Brief at scratchpad/p4-r5.txt, output to scratchpad/p4-r5-out.txt. If the session died mid-flight, re-dispatch with the same brief."
+      "detail": "Fresh dispatch auditing the six round-5 folds plus a full re-review. Brief at scratchpad/p4-r6.txt, output to scratchpad/p4-r6-out.txt. Round 5 confirmed the eight-construction blast radius and that no interface gains a member. The highest-value remaining check, called out in the brief: THREE threat rows (T-04-07, T-04-15, T-04-02) have now each been corrected for claiming an independent server-side gate over data that is really client-supplied and read twice \u2014 every remaining STRIDE row in all four plans should be checked for that same shape."
     },
     {
-      "id": "step-5-review",
-      "name": "Phase 5 owed Codex convergence review, IN FLIGHT",
+      "id": "step-5-r6",
+      "name": "Phase 5 round 6 \u2014 IN FLIGHT",
       "status": "in_progress",
-      "detail": "Never run since the R4 fold at 09bb296a, so it is an owed gate with no prior independent review of the current text. Dispatched via codex exec, gpt-5.6-sol, medium, read-only. Brief at scratchpad/p5-review.txt, output to scratchpad/p5-out.txt. Brief includes a dialect-parity check (SQLite vs Postgres) and asks it to confirm the F4-1/R-H1 upgrade to a required [PostgresFact] actually landed in the plan text."
+      "detail": "Fresh dispatch auditing the five round-5 folds plus a full re-review. Brief at scratchpad/p5-r6.txt, output to scratchpad/p5-r6-out.txt. Note the round-5 BLOCK fix introduced shell harnesses into three <automated> gates; the brief asks specifically whether any can exit 0 on an unintended failure."
     },
     {
       "id": "step-6",
@@ -110,19 +128,19 @@
   ],
   "blockers": [
     {
-      "description": "Phase 4 plans are NOT converged. Rounds 1-3 all returned CHANGES REQUIRED. Do not execute Phase 4 until a review returns CONVERGED.",
+      "description": "Phase 4 plans are NOT converged. Rounds 1-5 all returned CHANGES REQUIRED. Do not execute until a review returns CONVERGED.",
       "type": "technical",
       "workaround": "none \u2014 convergence rule is explicit in feedback_plan_review_convergence_loop"
     },
     {
-      "description": "Phase 5 has an owed Codex convergence review that has never been run against the current plan baseline.",
+      "description": "Phase 5 plans are NOT converged. Its first-ever Codex review (round 5) returned a BLOCK, overturning round 4's \"no BLOCKER outstanding\" \u2014 that verdict had stood in for a gate that never ran. Do not execute until a review returns CONVERGED.",
       "type": "technical",
       "workaround": "none"
     },
     {
-      "description": "Docker Desktop must be RUNNING for the Postgres-gated tests. It is not started automatically.",
+      "description": "Docker Desktop must be RUNNING for the Postgres-gated tests, and Phase 5 now REQUIRES them \u2014 the \"NOT VERIFIED on Postgres\" fallback was withdrawn in the round-5 fold. A skipped Postgres run is now a blocker, not a recordable outcome.",
       "type": "external",
-      "workaround": "Start Docker Desktop on Windows. WSL integration is NOT required \u2014 tests run under Windows dotnet.exe and reach the engine over the named pipe."
+      "workaround": "Start Docker Desktop on Windows. WSL integration is NOT required \u2014 tests run under Windows dotnet.exe over the named pipe."
     }
   ],
   "human_actions_pending": [
@@ -183,6 +201,6 @@
     "_edhrec-brackets/ (untracked)",
     "_role-floor-research/ (untracked)"
   ],
-  "next_action": "Two Codex reviews were dispatched in parallel and are IN FLIGHT: Phase 4 round 5 (fresh blind) and Phase 5's owed convergence review. Collect both outputs from the scratchpad, fold each phase's findings, and re-review until each returns VERDICT: CONVERGED. Do NOT execute Phase 4 or Phase 5 before their own review converges. If a review verdict is CONVERGED for Phase 4, step 6 (execute Phase 4, 4 waves, ~2.3k LOC) becomes available and routes to gpt-5.6-terra as major coding.",
-  "context_notes": "This session never executed code. It was merge/rebase plumbing, then a plan-review convergence loop, plus discharging Phase 5's Postgres blocker. The dominant lesson is the incomplete-fold anti-pattern: three consecutive rounds failed because I corrected the operative instruction and left a stale contradicting copy in frontmatter / acceptance criteria / <done> / a task name / a threat row. Round 3 explicitly found the plans' SUBSTANCE converged at round 2 \u2014 only consistency was failing. Counts are now reconciled mechanically (04-02: 19 tests, 04-03: 12 tests + 8 constructions, 04-04: 7 presenter tests). Everything is pushed; main == origin/main == c0da20bc."
+  "next_action": "Collect both round-6 outputs from the scratchpad. Fold any findings, re-review, and repeat until EACH phase returns VERDICT: CONVERGED. Only then does step 6 (execute Phase 4, gpt-5.6-terra) unblock. Also still open for the user: whether Phase 01.2 and Phase 6 are in scope for \"full milestone\".",
+  "context_notes": "Session of 2026-08-01, part 2. Still zero code executed \u2014 this remains merge/rebase plumbing plus a plan-review convergence loop. Two things worth carrying forward. (1) THE OWED GATE PAID FOR ITSELF: Phase 5 round 4 closed \"No BLOCKER outstanding\" while recording that the Codex review was owed across four rounds and blocked on credits; the first time it actually ran it found a BLOCK. Do not treat an owed gate as discharged by the reviews that ran in its absence. (2) THE INCOMPLETE FOLD is still the dominant defect in both phases \u2014 round 5 found it again in Phase 5's [PostgresFact] upgrade, with four stale copies including one conditional phrasing (\"do not ship the carry-forward IF this test can be written\") that kept the withdrawn fallback alive as an executor-judged escape hatch. Fold by grepping every phrasing, number-word and digit, across every plan AND the validation doc AND frontmatter must_haves."
 }
