@@ -299,6 +299,24 @@ Delete it. Confidence 9/10.
 
 ## Status
 
-Round 4 **not folded** — session paused after the review returned. Next session: fold F2, F3, F4, F6,
-F7 (skip F1 and F5, already fixed), then re-review. F3 needs care — it is a false security claim, not
-a wording slip.
+Round 4 **FOLDED 2026-08-01.** F1 and F5 were already fixed in `2bf28b4b`; F2, F3, F4, F6 and F7 were
+folded in this pass. Round 5 owed — fresh blind dispatch (operator chose fresh over resume, so the
+reviewer re-reads cold rather than grading its own prior conclusions).
+
+| Finding | Fold |
+|---|---|
+| F2 | `04-03` Task 1's `<automated>` gate rescoped `build DeckFlow.sln` → `build DeckFlow.Web/DeckFlow.Web.csproj`, with an inline `Why:` recording that the test assembly cannot compile until Task 2. Acceptance criterion at the old `:385` rewritten to match and to state that the solution-wide build is **Task 2's** gate. |
+| F3 | **Verified against source before folding.** `BuildInputs` copies `card.IsLocked` off the client-supplied `CutLabPoolCard` (`CutLabCutRoundEngine.cs:359`); `eligibleCards` checks that same copied value (`:256`). One gate read twice, not two. Both `04-02` T-04-07 and `04-03` T-04-15 flipped `mitigate` → **`accept`**, the "two independent gates" / "defence in depth" language deleted, and the residual risk recorded honestly on the T-04-06 rationale (client-held per-request state, forger only alters their own advisory output, no privilege crosses a user boundary). Both rows now state the planned test covers the *honest* case only. |
+| F4 | `04-01` narrowing extended to all three missed sites: the objective's output claim, the key constant's xmldoc instruction (now "no finding produced / contributes nothing to proposal order", with an explicit ban on the broader "byte-identical to pre-Phase-4" phrasing), and the operator-facing catalog copy. Swept by phrase rather than by cited line — `:25` and `:546` already carried the scoped claim from round 3. |
+| F6 | (a) `04-03:697` "all three mutation checks … plus Task 2's" → **two**, enumerated explicitly; the double-count was the exclusion-set check being listed twice. Verified by grep: `04-03` specifies exactly two (`:519`, `:662`); `04-02`'s separate pair is already consistent. (b) "both test files" → **all five**, named. (c) the "only edits" list now includes the six new `CutLabCutRoundEngineTests.cs` tests the same task mandates. |
+| F7 | `04-03`'s stale "Say in a `// Why:` comment why the round key was not usable" deleted — it contradicted the stop-and-report instruction immediately above it. |
+
+**Deliberately not folded, flagged for round 5 to adjudicate:** `04-03:26` and `04-03:710` still say
+"byte-identical to pre-Phase-4" for the flag-OFF paths. Both are conditioned on the flag being off and
+scoped to the three transports, all of which source commander names via `CutLabCommanderNames.Resolve`,
+so the `04-01` Task 2 widening does not reach them. Left as-is rather than edited, to avoid
+manufacturing diff noise the reviewer must re-verify. Call it if you disagree.
+
+---
+
+# Round 5 — owed. Fresh blind dispatch, `gpt-5.6-sol`, medium.
