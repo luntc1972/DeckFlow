@@ -108,6 +108,17 @@
     min-height: 6rem;
   }
 
+  /* Why: the 10rem cap above exists to stop empty paste boxes from ballooning the
+     page (98f525d23), but it is written against the bare `textarea` selector, so it
+     also clamped every readonly OUTPUT textarea to a ~5-line window onto content
+     that runs thousands of pixels (measured: 88px box, 2903px of rules text on
+     /mechanic-lookup). Readonly outputs are meant to be read in place, so give them
+     a viewport-proportional reading height. Editable inputs keep the cap. */
+  textarea[readonly]:not(.prompt-artifact-textarea--expanded) {
+    min-height: 50vh;
+    max-height: 70vh;
+  }
+
   .run-button,
   .clear-cache-button,
   select,

@@ -237,3 +237,23 @@ for (const route of ['/deck-analysis', '/deck-primer', '/sync', '/card-lookup'])
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
   });
 }
+
+test('readonly output textareas get a readable height on mobile without uncapping inputs', async ({ page }) => {
+  const isMobile = test.info().project.name.includes('mobile');
+  await gotoOk(page, '/judge-questions');
+
+  await page.locator('[data-judge-result]').evaluate((element) => element.classList.remove('hidden'));
+
+  const outputHeight = await page.locator('#judge-prompt-output').evaluate((element) => element.clientHeight);
+  const viewportHeight = await page.evaluate(() => window.innerHeight);
+
+  if (isMobile) {
+    expect(outputHeight).toBeGreaterThanOrEqual(0.4 * viewportHeight);
+
+    const inputHeight = await page.locator('#judge-question-text').evaluate((element) => element.clientHeight);
+    expect(inputHeight).toBeLessThanOrEqual(200);
+  } else {
+    expect(outputHeight).toBeGreaterThanOrEqual(200);
+    expect(outputHeight).toBeLessThanOrEqual(400);
+  }
+});
