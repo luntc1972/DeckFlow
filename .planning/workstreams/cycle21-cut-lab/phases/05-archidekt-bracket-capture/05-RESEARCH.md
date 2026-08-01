@@ -78,7 +78,7 @@ No `AGENTS.md` exists in this worktree root, so there are no additional project-
 ### Supporting
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| Testcontainers.PostgreSql | 3.10.0 | Optional Postgres integration coverage | Use only for gated `PostgresFact` tests when Docker and `DECKFLOW_POSTGRES_TESTS=1` are available. [VERIFIED: codebase grep] |
+| Testcontainers.PostgreSql | 3.10.0 | Required Postgres repository proof | Run the plan 05-02 Task 2 `[PostgresFact]` with Docker and `DECKFLOW_POSTGRES_TESTS=1`. [VERIFIED: codebase grep] |
 | Microsoft.Data.Sqlite | existing project dependency | Fast SQLite repository verification | Existing repository/schema tests use temporary SQLite databases for most storage behavior. [VERIFIED: codebase grep] |
 
 ### Alternatives Considered
@@ -307,18 +307,11 @@ Source: `ArchidektDeckCacheSession.RunAsync`. [VERIFIED: codebase grep]
 
 ## Environment Availability
 
-| Dependency | Required By | Available | Version | Fallback |
+| Dependency | Required By | Available | Version |
 |------------|-------------|-----------|---------|----------|
-| `dotnet.exe` | Build/test .NET solution | Yes | 10.0.302 | Use `dotnet.exe` from WSL. [VERIFIED: command output] |
-| `dotnet` | Native Linux build/test command | No | — | Use `dotnet.exe`. [VERIFIED: command output] |
-| Docker | Postgres Testcontainers integration tests | No in WSL PATH | — | SQLite tests cover core behavior; Postgres tests auto-skip unless `DECKFLOW_POSTGRES_TESTS=1` and Docker is available. [VERIFIED: command output] |
-| `DECKFLOW_POSTGRES_TESTS` | Enables gated Postgres tests | Not set | — | Leave Postgres tests skipped locally or enable Docker Desktop WSL integration. [VERIFIED: command output] |
-
-**Missing dependencies with no fallback:**
-- None for planning or SQLite/Core validation. [VERIFIED: command output]
-
-**Missing dependencies with fallback:**
-- Docker is missing for local Postgres integration runs; use existing gated `PostgresFact` behavior or run SQLite-focused tests. [VERIFIED: command output]
+| `dotnet.exe` | Build/test .NET solution | Yes | 10.0.302 |
+| Docker Desktop | Required Postgres fact | Yes | — |
+| `DECKFLOW_POSTGRES_TESTS` | Enables required Postgres fact | Set by Task 2's canonical WSLENV command | — |
 
 ## Validation Architecture
 
@@ -343,7 +336,7 @@ Source: `ArchidektDeckCacheSession.RunAsync`. [VERIFIED: codebase grep]
 ### Sampling Rate
 - **Per task commit:** Run the narrow Core/Web filters above for touched components. [ASSUMED]
 - **Per wave merge:** Run `dotnet.exe test DeckFlow.Core.Tests/DeckFlow.Core.Tests.csproj --nologo` and `dotnet.exe test DeckFlow.Web.Tests/DeckFlow.Web.Tests.csproj --nologo`. [ASSUMED]
-- **Phase gate:** Full solution green before `$gsd-verify-work`; Postgres integration either run with Docker enabled or explicitly recorded as skipped by environment. [ASSUMED]
+- **Phase gate:** Full solution green and the required Postgres fact passes through Task 2's TRX gate before `$gsd-verify-work`. [ASSUMED]
 
 ### Wave 0 Gaps
 - [ ] Extend `DeckFlow.Core.Tests/ArchidektApiDeckImporterTests.cs` with metadata-bearing import assertions; current tests only cover entries. [VERIFIED: codebase grep]

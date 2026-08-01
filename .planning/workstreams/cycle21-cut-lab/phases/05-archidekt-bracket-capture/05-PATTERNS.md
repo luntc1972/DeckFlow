@@ -718,7 +718,7 @@ public async Task CategoryKnowledgeRepository_DeckQueue_AddClaimAndMarkProcessed
     await repo.MarkDecksProcessedAsync(deckIds, skip: false);
 ```
 
-Use this only for optional dialect-specific confidence. SQLite repository/schema tests are sufficient for the default phase plan; Postgres tests are gated by `PostgresFact`.
+Use this for the required dialect-specific repository proof; the exact fact and pass-only TRX gate are defined in plan 05-02 Task 2.
 
 ## Shared Patterns
 

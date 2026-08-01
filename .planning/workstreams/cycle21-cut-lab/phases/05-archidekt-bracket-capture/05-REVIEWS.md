@@ -793,3 +793,9 @@ INTEGER/TEXT schema and per-record `CASE` upsert are valid on both dialects once
 
 Round 6 **not folded.** Paused deliberately: four of seven findings are fold-induced, so continuing to
 fold at the same cadence is what produced them.
+
+## Round 6 fold note — 2026-08-01
+
+Round 6 was folded into the operative plans. Superseded discussion of unavailable, optional, skipped,
+review-only, or fallback Postgres verification was removed from operative documents; the historical
+rationale remains in the preceding Round 6 record.
