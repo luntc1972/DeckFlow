@@ -2,17 +2,32 @@
 gsd_state_version: 1.0
 milestone: Cycle 20
 milestone_name: Personal Tools
-status: ready_to_plan
-stopped_at: Phase 111.1 complete (5/5) — ready to discuss Phase 112
-last_updated: 2026-07-31T19:56:13.968Z
-last_activity: 2026-07-31 — Phase 111.1 (Cut Lab Scryfall Burst Hotfix) complete, all 5 plans landed
+status: paused
+stopped_at: Phase 112 in progress (3 of 6 plans) — PAUSED; active development is in the cycle21-cut-lab workstream
+last_updated: 2026-08-01T21:45:00.000Z
+last_activity: 2026-08-01 — no Cycle 20 activity; all work this session was in the cycle21-cut-lab workstream
 progress:
-  total_phases: 2
-  completed_phases: 6
-  total_plans: 23
+  total_phases: 5
+  completed_phases: 1
+  total_plans: 11
   completed_plans: 8
-  percent: 300
+  percent: 20
 ---
+
+> ⚠ **This file tracks the MAIN workspace (Cycle 20) only. It is NOT where active work lives.**
+> Active development is the **`cycle21-cut-lab` workstream** — its own state is
+> `.planning/workstreams/cycle21-cut-lab/STATE.md`, and the live session handoff is
+> `.planning/HANDOFF.json`. Read those two before resuming anything.
+>
+> Corrected 2026-08-01: this file had been stale since 2026-07-31, claiming Cycle 20 was
+> `ready_to_plan` at Phase 112 with an arithmetically impossible `percent: 300`
+> (`completed_phases: 6` against `total_phases: 2`). Phase 112 has in fact been under way since
+> 2026-07-30.
+>
+> ⚠ **`ROADMAP.md` line 164 is also stale** — it lists Phase 112 as `0/0 | Not started`, but the
+> phase directory holds six plans and three summaries. Not edited here: correcting the roadmap is
+> outside this fix's scope, and that file has a history of being clobbered by planner runs.
+> Plan counts above come from the phase directory, which is the ground truth.
 
 # Project State
 
@@ -21,14 +36,14 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip — without the user reformatting anything.
-**Current focus:** Phase 112 — cycle 17 code port
+**Current focus:** none in this workspace — Cycle 20 is paused. Active focus is the `cycle21-cut-lab` workstream (Phase 4 plan-review convergence).
 
 ## Current Position
 
-Phase: 112
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-07-31
+Phase: 112 — Cycle 17 Code Port
+Plan: 3 of 6 complete (`112-01`, `112-02`, `112-03` have summaries; `112-04`–`112-06` do not)
+Status: **Paused mid-phase**, not "ready to plan" — plans exist and three have executed
+Last activity: 2026-07-30 (waves 1-3, `f23b7580`)
 
 ## Active Milestone
 
@@ -78,7 +93,13 @@ Carried-forward operator gates and descoped items (still open):
 
 ## Session Continuity
 
-Last session: 2026-07-31T20:10:00.000Z
-Stopped at: Completed 111.1-05-PLAN.md (Cut Lab Scryfall burst hotfix: SC-7 pacing + SC-6 final gate — phase 111.1 COMPLETE, 5/5 plans)
-Resume file: None — phase 111.1 complete; next work is Phase 112 (Cycle 17 Code Port), not yet planned
-Last activity: 2026-07-31 - Phase 111.1 (Cut Lab Scryfall Burst Hotfix) complete, all 5 plans landed
+Last session: 2026-08-01T21:45:00.000Z
+Stopped at: Nothing in this workspace. The 2026-08-01 session worked entirely in the `cycle21-cut-lab` workstream — folded Phase 4's round-4 plan-review findings (`5172f6d9`) and dispatched two Codex reviews (Phase 4 round 5, Phase 5 owed convergence).
+Resume file: **`.planning/HANDOFF.json`** — the live handoff, and the correct entry point for resuming. Cycle 20's own resume point is Phase 112 plan 4 of 6.
+Last activity: 2026-08-01 - cycle21-cut-lab workstream only; no Cycle 20 work
+
+## Open Question (carried)
+
+Cycle 20 (Phases 112-115, Personal Tools) has been paused since 2026-07-30 with Phase 112 half
+executed. It was never formally deferred — it was overtaken by cycle21-cut-lab. Decide whether to
+finish Phase 112 after the cut-lab milestone or move Cycle 20 to Deferred Items.
