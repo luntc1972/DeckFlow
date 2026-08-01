@@ -285,7 +285,8 @@ public static class CutLabCutRoundEngine
             .Select(entry => entry!.Value)
             .ToArray();
         IReadOnlyList<CutLabRoundQueueItem> deferredPass = deferredCards
-            .OrderBy(entry => entry.Decision.Ordinal)
+            .OrderBy(entry => ComboProtectionRank(comboProtectedCardNames, entry.Card.Name))
+            .ThenBy(entry => entry.Decision.Ordinal)
             .ThenBy(entry => entry.Card.Name, StringComparer.OrdinalIgnoreCase)
             .Select(entry => ToQueueItem(entry.Card.Name, SecondPassDeferredKey, entry.Tally))
             .ToArray();
@@ -298,7 +299,8 @@ public static class CutLabCutRoundEngine
             .Select(entry => entry!.Value)
             .ToArray();
         IReadOnlyList<CutLabRoundQueueItem> rejectedPass = rejectedCards
-            .OrderBy(entry => entry.Decision.Ordinal)
+            .OrderBy(entry => ComboProtectionRank(comboProtectedCardNames, entry.Card.Name))
+            .ThenBy(entry => entry.Decision.Ordinal)
             .ThenBy(entry => entry.Card.Name, StringComparer.OrdinalIgnoreCase)
             .Select(entry => ToQueueItem(entry.Card.Name, SecondPassRejectedKey, entry.Tally))
             .ToArray();

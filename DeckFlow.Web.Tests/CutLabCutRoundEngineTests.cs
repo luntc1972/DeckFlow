@@ -544,13 +544,73 @@ public sealed class CutLabCutRoundEngineTests
             Findings(
                 Finding(CutLabFindingKind.CurveCongestion, "Combo Engine", "Plain Filler"),
                 Finding(CutLabFindingKind.StrandedSubtheme, "Combo Engine", "Plain Filler"),
-                Finding(CutLabFindingKind.RedundantFinishers, "Combo Engine"),
+                Finding(CutLabFindingKind.CurveCongestion, "Combo Engine"),
                 Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.CompletePiece, "Combo Engine")),
             [],
             cardsToCutTarget: 2);
 
         Assert.Equal("Plain Filler", plan.NextProposal!.CardName);
         Assert.Equal(CutLabCutRoundEngine.Round1Key, plan.NextProposal.RoundKey);
+    }
+
+    /// <summary>
+    /// Why: deferred cards are revisited after the first-pass rounds, so complete
+    /// combo pieces must remain cuttable without becoming the lead proposal there.
+    /// </summary>
+    [Fact]
+    public void BuildQueue_ComboProtectedCardSortsLastInSecondPassDespiteEarlierOrdinal()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Combo Piece", 1),
+            Card("Plain Deferred Card", 6),
+        ];
+        IReadOnlyList<CutLabDecision> decisions =
+        [
+            new CutLabDecision { CardName = "Combo Piece", Kind = CutLabDecisionKind.Deferred, Round = CutLabCutRoundEngine.Round3Key, Ordinal = 1 },
+            new CutLabDecision { CardName = "Plain Deferred Card", Kind = CutLabDecisionKind.Deferred, Round = CutLabCutRoundEngine.Round3Key, Ordinal = 2 },
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.CompletePiece, "Combo Piece")),
+            decisions,
+            cardsToCutTarget: 2);
+
+        Assert.Equal("Plain Deferred Card", plan.NextProposal!.CardName);
+        Assert.Equal(CutLabCutRoundEngine.SecondPassDeferredKey, plan.NextProposal.RoundKey);
+        CutLabRoundQueueItem comboPiece = Assert.Single(plan.Queue, item => item.CardName == "Combo Piece");
+        Assert.True(plan.Queue.ToList().IndexOf(comboPiece) > 0, "combo-protected card must not be the first second-pass proposal");
+    }
+
+    /// <summary>
+    /// Why: rejected cards have their own second-pass queue, where complete combo
+    /// pieces must likewise stay available without leading the retry sequence.
+    /// </summary>
+    [Fact]
+    public void BuildQueue_ComboProtectedCardSortsLastInRejectedSecondPassDespiteEarlierOrdinal()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Combo Piece", 1),
+            Card("Plain Rejected Card", 6),
+        ];
+        IReadOnlyList<CutLabDecision> decisions =
+        [
+            new CutLabDecision { CardName = "Combo Piece", Kind = CutLabDecisionKind.Rejected, Round = CutLabCutRoundEngine.Round3Key, Ordinal = 1 },
+            new CutLabDecision { CardName = "Plain Rejected Card", Kind = CutLabDecisionKind.Rejected, Round = CutLabCutRoundEngine.Round3Key, Ordinal = 2 },
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.CompletePiece, "Combo Piece")),
+            decisions,
+            cardsToCutTarget: 2);
+
+        Assert.Equal("Plain Rejected Card", plan.NextProposal!.CardName);
+        Assert.Equal(CutLabCutRoundEngine.SecondPassRejectedKey, plan.NextProposal.RoundKey);
+        CutLabRoundQueueItem comboPiece = Assert.Single(plan.Queue, item => item.CardName == "Combo Piece");
+        Assert.True(plan.Queue.ToList().IndexOf(comboPiece) > 0, "combo-protected card must not be the first rejected second-pass proposal");
     }
 
     [Fact]
