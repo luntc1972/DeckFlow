@@ -799,3 +799,66 @@ fold at the same cadence is what produced them.
 Round 6 was folded into the operative plans. Superseded discussion of unavailable, optional, skipped,
 review-only, or fallback Postgres verification was removed from operative documents; the historical
 rationale remains in the preceding Round 6 record.
+
+---
+
+# Round 7 — 2026-08-01. First review of the RESTRUCTURED plans. `gpt-5.6-sol`, medium, read-only.
+# Verdict: CHANGES REQUIRED. 2 BLOCK · 2 HIGH · 2 MEDIUM · 0 LOW. NOT folded yet.
+
+The brief made the restructure the primary target and named two failure modes it could introduce:
+(A) a requirement silently lost through consolidation, (B) a reference that resolves to nothing or to
+weaker text than the restatement it replaced. **Both fired** — HIGH-1 is (A), MEDIUM-1 is (B).
+
+**BLOCK-1 — 05-03's Core red-phase harness REJECTS the intended red state.** By wave 3, plan 05-01 has
+already added `ImportWithMetadataAsync`, and the pre-Task-2 production session still calls `ImportAsync`
+(`ArchidektDeckCacheSession.cs:181`). So the new Core propagation tests fail **behaviorally** —
+metadata is absent — not with a compiler diagnostic. Ordinary assertion output need not contain the
+string `ImportWithMetadataAsync`, so `grep -q` returns nonzero and the harness **exits 1 on the state
+it was written to accept**. Full case derivation in the review: both-red can wrongly exit 1; every
+other case behaves correctly. → Fix: give the Core red tests fixed names, emit TRX, and require those
+named tests to have `Failed` outcomes; keep the Web `CS1501` probe. Confidence 10/10.
+
+**BLOCK-2 — both Postgres gates write the TRX to Windows and grep for it on Linux.**
+`results_dir=$(mktemp -d)` yields a WSL path (`/tmp/tmp.X`); Windows `dotnet.exe` resolves `/tmp` to
+`C:\tmp`, so the test host writes the TRX there, while the shell greps the WSL path. **A genuinely
+passing Postgres fact therefore fails the gate.** This is the `reference_wsl_dotnet_env_secret` trap
+(`/tmp` = `C:\tmp`) in a new place. → Fix: put the results directory under the `/mnt/c/...` workspace,
+or pass `wslpath -w "$results_dir"` to `dotnet.exe` while grepping the Linux path; also capture and
+check the `dotnet test` status. **The TRX logic itself is sound** — filter and asserted `testName`
+agree, standard TRX puts `testName`/`outcome` on the `UnitTestResult` start tag, and a Docker-off skip
+(`PostgresContainerFixture.cs:42`, `:84`) cannot satisfy `outcome="Passed"`. Confidence 9.5/10.
+
+**HIGH-1 — the consolidation recreated Round 5's BLOCK inside `05-VALIDATION.md`.** Rows `:43`, `:45`
+and `:48` still give all three red tasks plain `dotnet test` commands, which exit nonzero in the
+required red state — the exact defect Round 5 B1 fixed in the plans. `05-VALIDATION.md:39` says the
+plans are canonical, which makes these restated commands both redundant and wrong. → Fix: reference
+each plan's Task 1 harness; do not restate the command. Confidence 10/10.
+
+**HIGH-2 — two harnesses claim exact compiler-diagnostic checking but only grep a symbol, and 05-02's
+Web diagnostic depends on an unspecified call shape.** `05-01:195` accepts any nonzero output
+containing `ImportWithMetadataAsync`; `05-02:153` Core accepts any nonzero output containing
+`ArchidektDeckMetadataParameters`. Neither checks a compiler code. Worse, for 05-02's Web probe against
+`CategoryKnowledgeRepository.cs:252`, the diagnostic depends entirely on how the test calls it: a
+named-argument call gives **CS1739**, four positional arguments give **CS1503**, and only a deliberate
+five-positional-argument probe gives the required **CS1501** — which the plan never mandates. → Fix:
+require exact patterns (`CS1061.*ImportWithMetadataAsync`, `CS0246.*ArchidektDeckMetadataParameters`)
+and specify the invocation shape that deterministically produces the chosen diagnostic. Confidence
+9.5/10.
+
+**MEDIUM-1 — dangling references: "Task 2 acceptance criteria" does not exist.** `05-02:217`, `:256`
+and `05-VALIDATION.md:46` all point at it. Task 2 has `<action>`, `<verify>` and `<done>` but no
+`<acceptance_criteria>` or `<behavior>` block; the real specifications live in Task 1's Tests 3-7 and
+Task 2's action. → Fix: point explicitly at those, or add one canonical Task 2 acceptance-criteria
+section and reference it consistently. Confidence 10/10.
+
+**MEDIUM-2 — a cross-assembly private helper is claimed as reusable.** `05-03:201` says "the raw reader
+added earlier in this plan already selects all six, so this costs nothing extra". That reader is a
+**private helper in `DeckFlow.Core.Tests/ArchidektDeckCacheSessionTests.cs`** (`05-03:135`), while the
+store-level test lives in `DeckFlow.Web.Tests/CategoryKnowledgeStoreTests.cs` — a different assembly
+and class, so it is inaccessible. → Fix: require a local six-column reader there, or drop the false
+cost claim. Confidence 10/10.
+
+## Status
+
+Round 7 not folded. Per the delegation split adopted this session, **Codex folds; Claude reviews.**
+Round 8 owed after the fold.
