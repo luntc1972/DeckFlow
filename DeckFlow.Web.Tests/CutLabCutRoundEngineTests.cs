@@ -709,19 +709,19 @@ public sealed class CutLabCutRoundEngineTests
         IReadOnlyList<CutLabRoundInputCard> workingList =
         [
             Card("Earlier Revisited Card", 6),
-            Card("Later Revisited Card", 1),
+            Card("Zeroth Revisited Card", 1),
         ];
 
         CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
             workingList,
             Findings(),
             [
-                new CutLabDecision { CardName = "Earlier Revisited Card", Kind = CutLabDecisionKind.Deferred, Round = CutLabCutRoundEngine.SecondPassDeferredKey, Ordinal = 5 },
-                new CutLabDecision { CardName = "Later Revisited Card", Kind = CutLabDecisionKind.Deferred, Round = CutLabCutRoundEngine.SecondPassDeferredKey, Ordinal = 6 },
+                new CutLabDecision { CardName = "Earlier Revisited Card", Kind = CutLabDecisionKind.Deferred, Round = CutLabCutRoundEngine.SecondPassDeferredKey, Ordinal = 6 },
+                new CutLabDecision { CardName = "Zeroth Revisited Card", Kind = CutLabDecisionKind.Deferred, Round = CutLabCutRoundEngine.SecondPassDeferredKey, Ordinal = 5 },
             ],
             cardsToCutTarget: 2);
 
-        Assert.Equal("Earlier Revisited Card", plan.NextProposal!.CardName);
+        Assert.Equal("Zeroth Revisited Card", plan.NextProposal!.CardName);
     }
 
     [Fact]
