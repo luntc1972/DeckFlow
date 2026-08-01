@@ -229,9 +229,11 @@ public static class CutLabCutRoundEngine
         // Why: only CompletePiece evidence counts toward demotion. A NeedsPartner combo piece is
         // missing its partner and is already a cut candidate (the same card EnablerStarved flags);
         // demoting it a second time for the same reason is backwards.
-        // Why: names are normalized through CutLabCardNames.Normalize/.Comparer, matching every
-        // other cross-source name comparison in this file, so a DFC card whose deck-side full name
-        // ("Front // Back") differs from the Spellbook-side front-face name still matches.
+        // Why: only the combo demotion set is normalized through CutLabCardNames.Normalize/.Comparer,
+        // so a DFC card whose deck-side full name ("Front // Back") differs from the Spellbook-side
+        // front-face name still matches. General finding tallies deliberately retain their raw
+        // OrdinalIgnoreCase keys; that is currently safe because ComboProtected is excluded from
+        // those tallies, and changing their keying would alter round 1–3 assignment for every deck.
         IReadOnlySet<string> comboProtectedCardNames = findings.Findings
             .Where(finding => finding.Kind == CutLabFindingKind.ComboProtected)
             .SelectMany(finding => finding.Evidence)
