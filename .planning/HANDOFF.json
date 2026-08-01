@@ -7,12 +7,12 @@
   "workstream": "cycle21-cut-lab",
   "worktree": "/mnt/c/users/chrislunt/source/personal/deckflow-role-floors",
   "branch": "gsd/cycle21-cut-lab",
-  "head": "ff06857f",
+  "head": "0aee0823",
   "plan": null,
   "task": 0,
   "total_tasks": 4,
   "status": "paused",
-  "activity": "Round 7 IN FLIGHT for both phases. Since round 6 the plans were both folded AND restructured by Codex; round 7 is the first review of the restructured text.",
+  "activity": "Round 7 complete for both phases and FOLDED by Codex. Round 8 owed. Still zero waves executed in either phase.",
   "completed_tasks": [
     {
       "id": "step-1",
@@ -109,14 +109,20 @@
       "name": "Codex restructured Phase 4 plans (gpt-5.6-terra, fenced) \u2014 one canonical home per fact, counts no longer restated",
       "status": "done",
       "commit": "ff06857f"
+    },
+    {
+      "id": "r7",
+      "name": "Round 7 both phases \u2014 P4 1 BLOCK/1 HIGH/4 MED, P5 2 BLOCK/2 HIGH/2 MED; all folded by Codex",
+      "status": "done",
+      "commit": "0aee0823"
     }
   ],
   "remaining_tasks": [
     {
-      "id": "step-r7",
-      "name": "Round 7 review \u2014 IN FLIGHT for both phases",
-      "status": "in_progress",
-      "detail": "Fresh dispatches, gpt-5.6-sol medium, read-only. Briefs at scratchpad/p4-r7.txt and p5-r7.txt; outputs to p4-r7-out.txt and p5-r7-out.txt. Both briefs make the RESTRUCTURE the primary target and name its two possible failure modes: (A) requirement loss through consolidation \u2014 a fold from rounds 1-6 that now appears in zero places, to be reported as BLOCK; (B) dangling or lying references \u2014 the plans now say \"per D-NN\" / \"every mutation check defined in Tasks 2 and 3\" instead of restating, so each pointer must resolve to text that actually says what the referrer implies. Phase 5 additionally asks for line-by-line shell derivation of the red-phase harnesses (the last two BLOCKs were both shell bugs) and verification that the TRX grep patterns match what .NET emits."
+      "id": "step-r8",
+      "name": "Round 8 review \u2014 OWED for both phases",
+      "status": "not_started",
+      "detail": "Round 7 confirmed the restructure lost nothing (all round 1-6 folds present, D-14..D-23 unique, every count re-derived). Round 8 should focus on the round-7 fold itself. Highest-value checks: (1) P4 BLOCK-1c specified BuildFindingTallies(findings, workingList) -- verify that shape is actually implementable and cannot alter any non-FunctionalTwins kind; (2) P4 test 4b now builds evidence with only the short DFC form while the working list holds both, plus a negative control -- verify 4b genuinely fails without the join; (3) P5 red gates were rebuilt around named TRX Failed outcomes and wslpath -w -- re-derive every gate case by case, since three of the last four BLOCKs in this cycle were gates that FAIL ON SUCCESS rather than pass on failure; (4) Claude hand-added a POSIX EXIT trap to three P5 gates to clean up $PWD/.phase05-*-$$ directories -- verify the trap syntax and that no gate leaves repo-root litter."
     },
     {
       "id": "step-6",
@@ -224,6 +230,6 @@
     "_edhrec-brackets/ (untracked)",
     "_role-floor-research/ (untracked)"
   ],
-  "next_action": "Collect both round-7 outputs. Per the delegation split now in force: Claude reviews and verifies, CODEX folds any findings (gpt-5.6-terra, hard file fence, no git commands). Repeat until each phase returns VERDICT: CONVERGED. Only then does step 6 (execute Phase 4) unblock.",
+  "next_action": "Dispatch round 8 for both phases (gpt-5.6-sol, medium, read-only), focused on the round-7 folds per the step-r8 detail. Codex folds any findings; Claude reviews. Repeat until each phase returns VERDICT: CONVERGED, which is the gate on executing Phase 4.",
   "context_notes": "Session of 2026-08-01, part 2. Still zero code executed \u2014 this remains merge/rebase plumbing plus a plan-review convergence loop. Two things worth carrying forward. (1) THE OWED GATE PAID FOR ITSELF: Phase 5 round 4 closed \"No BLOCKER outstanding\" while recording that the Codex review was owed across four rounds and blocked on credits; the first time it actually ran it found a BLOCK. Do not treat an owed gate as discharged by the reviews that ran in its absence. (2) THE INCOMPLETE FOLD is still the dominant defect in both phases \u2014 round 5 found it again in Phase 5's [PostgresFact] upgrade, with four stale copies including one conditional phrasing (\"do not ship the carry-forward IF this test can be written\") that kept the withdrawn fallback alive as an executor-judged escape hatch. Fold by grepping every phrasing, number-word and digit, across every plan AND the validation doc AND frontmatter must_haves."
 }
