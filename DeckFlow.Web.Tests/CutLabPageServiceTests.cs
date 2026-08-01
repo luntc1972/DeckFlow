@@ -2268,6 +2268,61 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_MaxSizePoolWithRateLimitSpanningBothPasses_IsNotRejectedForCardCount()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 150, commanderName: "Atraxa, Praetors' Voice");
+        var resolver = new FakeResolver(BuildResolvedCards(entries))
+        {
+            TransientCollectionFailures = 2,
+        };
+        var service = new CutLabPageService(new FakeLoader(entries), resolver, new FakeBanListService([]));
+
+        var result = await service.ProcessAsync(
+            new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool" });
+
+        Assert.Null(result.ErrorMessage);
+        Assert.True(result.HasResult);
+        Assert.False(result.CommanderSelectionRequired);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_OversizedPoolWithRateLimitSpanningBothPasses_IsRejectedAfterRecovery()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 151, commanderName: "Atraxa, Praetors' Voice");
+        var resolver = new FakeResolver(BuildResolvedCards(entries))
+        {
+            TransientCollectionFailures = 2,
+        };
+        var service = new CutLabPageService(new FakeLoader(entries), resolver, new FakeBanListService([]));
+
+        var result = await service.ProcessAsync(
+            new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool" });
+
+        Assert.Equal(
+            "This pool has 151 non-commander cards — over Cut Lab's 150 max. Main 151 · Sideboard 0 · Considering/Maybe 0. Deselect the sideboard or considering list to fit.",
+            result.ErrorMessage);
+        Assert.False(result.HasResult);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_OversizedPoolWithFlaggedIneligibleCommander_IsRejected()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 151, commanderName: "Ineligible Commander");
+        var cards = BuildResolvedCards(entries);
+        cards.RemoveAll(card => string.Equals(card.Name, "Ineligible Commander", StringComparison.OrdinalIgnoreCase));
+        cards.Add(Spell("Ineligible Commander", "Artifact"));
+        var service = new CutLabPageService(new FakeLoader(entries), new FakeResolver(cards), new FakeBanListService([]));
+
+        var result = await service.ProcessAsync(
+            new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool" });
+
+        Assert.Equal(
+            "This pool has 152 non-commander cards — over Cut Lab's 150 max. Main 151 · Sideboard 0 · Considering/Maybe 0. Deselect the sideboard or considering list to fit.",
+            result.ErrorMessage);
+        Assert.False(result.HasResult);
+    }
+
+    [Fact]
     public async Task ProcessAsync_RateLimitWithQuantityAdjustmentsAndNoDecisions_StillRecoversCommander()
     {
         var entries = BuildPoolEntries(nonCommanderCount: 101, commanderName: "Atraxa, Praetors' Voice");

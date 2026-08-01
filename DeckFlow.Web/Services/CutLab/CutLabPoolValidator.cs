@@ -27,14 +27,18 @@ public static class CutLabPoolValidator
     /// <summary>Rejects non-commander pool sizes outside Cut Lab's supported 101-150 inclusive range.</summary>
     /// <param name="nonCommanderCardCount">Loaded non-commander pool card count, excluding the commander — the commander is the plus one.</param>
     /// <param name="boardCounts">Loaded per-board counts used for the breakdown display.</param>
-    public static void ValidateCardCount(int nonCommanderCardCount, BoardCounts? boardCounts = null)
+    /// <param name="validateMaximum">Whether to reject counts above the maximum before resolution is final.</param>
+    public static void ValidateCardCount(
+        int nonCommanderCardCount,
+        BoardCounts? boardCounts = null,
+        bool validateMaximum = true)
     {
         if (nonCommanderCardCount < MinPoolCards)
         {
             throw new InvalidOperationException("This pool already has 100 cards or fewer — Cut Lab is for trimming an oversized pool down to 100. Try Deck Sync or Deck Analysis instead.");
         }
 
-        if (nonCommanderCardCount > MaxPoolCards)
+        if (validateMaximum && nonCommanderCardCount > MaxPoolCards)
         {
             string breakdown = (boardCounts ?? new BoardCounts()).ToBreakdown();
             throw new InvalidOperationException(

@@ -253,6 +253,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             }
         }
 
+        bool upperBoundValidationDeferred = _analysisContextBuilder.HasUnattemptedCards(resolutionPool);
         var commanderResolution = ResolveCommanderSelection(resolvedEntries, request.SelectedCommander);
 
         int nonCommanderCardCount = CountNonCommanderCards(analyzedEntries, commanderResolution.CommanderNames);
@@ -260,7 +261,8 @@ internal sealed class CutLabPageService : ICutLabPageService
         {
             CutLabPoolValidator.ValidateCardCount(
                 nonCommanderCardCount,
-                boardCounts);
+                boardCounts,
+                validateMaximum: !upperBoundValidationDeferred);
         }
         catch (InvalidOperationException exception)
         {
@@ -331,13 +333,10 @@ internal sealed class CutLabPageService : ICutLabPageService
             .ToArray();
 
         List<ResolvedCutLabEntry> finalResolvedEntries = ReconcileResolvedEntries(resolvedEntries, finalResolvedCards);
-        if (resolvedEntries.Zip(finalResolvedEntries, (before, after) => before.Card is null && after.Card is not null).Any(static recovered => recovered))
+        bool recoveredDuringBuild = resolvedEntries.Zip(finalResolvedEntries, (before, after) => before.Card is null && after.Card is not null).Any(static recovered => recovered);
+        if (upperBoundValidationDeferred || recoveredDuringBuild)
         {
-            // BuildAsync can recover cards after both intake passes have failed. Rebuild every
-            // commander-dependent value from that final snapshot so locks, counts, roles, floors,
-            // and the picker cannot retain facts from an earlier resolution attempt.
-            resolvedEntries = finalResolvedEntries;
-            commanderResolution = ResolveCommanderSelection(resolvedEntries, request.SelectedCommander);
+            commanderResolution = ResolveCommanderSelection(finalResolvedEntries, request.SelectedCommander);
             nonCommanderCardCount = CountNonCommanderCards(analyzedEntries, commanderResolution.CommanderNames);
             try
             {
@@ -349,6 +348,14 @@ internal sealed class CutLabPageService : ICutLabPageService
             {
                 return Error(exception.Message, warnings);
             }
+        }
+
+        if (recoveredDuringBuild)
+        {
+            // BuildAsync can recover cards after both intake passes have failed. Rebuild every
+            // commander-dependent value from that final snapshot so locks, counts, roles, floors,
+            // and the picker cannot retain facts from an earlier resolution attempt.
+            resolvedEntries = finalResolvedEntries;
 
             preAnalysisState = CutLabLockRules.EnforceCommanderLock(
                 BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, []));
