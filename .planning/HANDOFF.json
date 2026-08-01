@@ -7,12 +7,12 @@
   "workstream": "cycle21-cut-lab",
   "worktree": "/mnt/c/users/chrislunt/source/personal/deckflow-role-floors",
   "branch": "gsd/cycle21-cut-lab",
-  "head": "06d3e865",
+  "head": "bc1be075",
   "plan": null,
   "task": 0,
   "total_tasks": 4,
   "status": "paused",
-  "activity": "plan-review convergence loop, round 6 in flight for BOTH Phase 4 and Phase 5 \u2014 NOT execution. Zero waves have run in either phase.",
+  "activity": "Plan-review convergence loop, round 6 complete for both phases. Phase 4 round-6 findings FOLDED (daa6add2). Phase 5 round-6 findings recorded but DELIBERATELY NOT FOLDED \u2014 paused for an operator decision on approach.",
   "completed_tasks": [
     {
       "id": "step-1",
@@ -85,20 +85,26 @@
       "name": "Corrected both stale STATE.md files (root Cycle 20 had percent:300; workstream claimed Phase 3 unexecuted)",
       "status": "done",
       "commit": "4a97902c"
+    },
+    {
+      "id": "step-4-r6",
+      "name": "Phase 4 round 6 \u2014 2 HIGH / 3 MED / 2 LOW, all folded. HIGH-1 was a NEW defect created by the round-5 fix; folded as D-23 normalized tally join",
+      "status": "done",
+      "commit": "daa6add2"
+    },
+    {
+      "id": "step-5-r6",
+      "name": "Phase 5 round 6 \u2014 2 BLOCK / 3 HIGH / 1 MED / 1 LOW, RECORDED ONLY, not folded",
+      "status": "done",
+      "commit": "bc1be075"
     }
   ],
   "remaining_tasks": [
     {
-      "id": "step-4-r6",
-      "name": "Phase 4 round 6 \u2014 IN FLIGHT",
-      "status": "in_progress",
-      "detail": "Fresh dispatch auditing the six round-5 folds plus a full re-review. Brief at scratchpad/p4-r6.txt, output to scratchpad/p4-r6-out.txt. Round 5 confirmed the eight-construction blast radius and that no interface gains a member. The highest-value remaining check, called out in the brief: THREE threat rows (T-04-07, T-04-15, T-04-02) have now each been corrected for claiming an independent server-side gate over data that is really client-supplied and read twice \u2014 every remaining STRIDE row in all four plans should be checked for that same shape."
-    },
-    {
-      "id": "step-5-r6",
-      "name": "Phase 5 round 6 \u2014 IN FLIGHT",
-      "status": "in_progress",
-      "detail": "Fresh dispatch auditing the five round-5 folds plus a full re-review. Brief at scratchpad/p5-r6.txt, output to scratchpad/p5-r6-out.txt. Note the round-5 BLOCK fix introduced shell harnesses into three <automated> gates; the brief asks specifically whether any can exit 0 on an unintended failure."
+      "id": "decision-approach",
+      "name": "OPERATOR DECISION NEEDED: how to proceed with the convergence loop",
+      "status": "blocked",
+      "detail": "Round 5 -> round 6 did not converge: Phase 4 went 6 findings -> 7, Phase 5 went 5 -> 7. More important than the counts: FOUR of Phase 5 round-6's seven findings are defects in the round-5 FOLDS THEMSELVES, not in the original plans \u2014 the broken && short-circuit in the red-phase harness, the git add -A over-staging, the Postgres gate that still exits 0 on skip, and stale copies the Postgres fold missed in two files it never opened (05-PATTERNS.md, 05-RESEARCH.md). Phase 4 round 6 had the same shape: its most serious finding (HIGH-1 / D-23) existed only because the round-5 identity-collapse fix created it. The fold is now the dominant defect source, so folding again at the same cadence is not obviously the right move. Options put to the user: (a) keep folding + re-reviewing, (b) delegate the folds to Codex per the codes/reviews split, (c) simplify the plans \u2014 3,200+ lines of plan for ~2.3k LOC is itself a defect surface, (d) accept and execute Phase 4 with recorded caveats."
     },
     {
       "id": "step-6",
@@ -201,6 +207,6 @@
     "_edhrec-brackets/ (untracked)",
     "_role-floor-research/ (untracked)"
   ],
-  "next_action": "Collect both round-6 outputs from the scratchpad. Fold any findings, re-review, and repeat until EACH phase returns VERDICT: CONVERGED. Only then does step 6 (execute Phase 4, gpt-5.6-terra) unblock. Also still open for the user: whether Phase 01.2 and Phase 6 are in scope for \"full milestone\".",
+  "next_action": "STOP AND ASK. Do not fold Phase 5 round 6 or dispatch round 7 without an operator decision \u2014 see the decision-approach task. Phase 5 round-6 findings are fully recorded in 05-REVIEWS.md and are actionable as-is if the user chooses to continue folding.",
   "context_notes": "Session of 2026-08-01, part 2. Still zero code executed \u2014 this remains merge/rebase plumbing plus a plan-review convergence loop. Two things worth carrying forward. (1) THE OWED GATE PAID FOR ITSELF: Phase 5 round 4 closed \"No BLOCKER outstanding\" while recording that the Codex review was owed across four rounds and blocked on credits; the first time it actually ran it found a BLOCK. Do not treat an owed gate as discharged by the reviews that ran in its absence. (2) THE INCOMPLETE FOLD is still the dominant defect in both phases \u2014 round 5 found it again in Phase 5's [PostgresFact] upgrade, with four stale copies including one conditional phrasing (\"do not ship the carry-forward IF this test can be written\") that kept the withdrawn fallback alive as an executor-judged escape hatch. Fold by grepping every phrasing, number-word and digit, across every plan AND the validation doc AND frontmatter must_haves."
 }
