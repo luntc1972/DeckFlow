@@ -385,3 +385,51 @@ Confidence 10/10.
 Round 5 **not folded.** Round 6 owed after folding. Note H3 is the *same* class of error as round 4's
 F3 — a threat row asserting an independent server-side gate that is really client-supplied data — in a
 row neither of us checked last round because F3 drew all the attention.
+
+---
+
+# Round 6 — 2026-08-01. Fresh dispatch, `gpt-5.6-sol`, medium. Verdict: CHANGES REQUIRED.
+
+0 BLOCK · 2 HIGH · 3 MEDIUM · 2 LOW. **All seven folded** at `daa6add2`.
+
+**HIGH-1 — the round-5 H1 fix was incomplete in a way that created a NEW defect.** The identity
+collapse emits one normalized representative per group, but `BuildFindingTallies` keys tallies by raw
+name under `OrdinalIgnoreCase` (`CutLabCutRoundEngine.cs:401`) and `TallyFor` looks up the raw
+working-list name (`:441`). A DFC long form beside its short form therefore produces a **visible twins
+finding while one of the two entries gets no tally and stays in round 3** — UI and ranking openly
+disagree, the exact divergence class T-04-14 exists to prevent. The engine's own comment at `:240-244`
+documents this hazard and says raw keying is safe *only because* `ComboProtected` is excluded from
+tallies; `FunctionalTwins` is deliberately not excluded, so Phase 4 is the first change to break that
+precondition. Tests 9b/9c cannot catch it — they assert on detector output and never reach the queue.
+→ Folded as **D-23** (a `FunctionalTwins`-only normalized tally join, every other kind byte-identical),
+with the production instruction in 04-03 Task 1, test 4b in Task 2, and a mutation check that also
+requires **no other test to change result**. Flagged for operator override rather than settled.
+Confidence 10/10.
+
+**HIGH-2 — the round-4 T-04-15 correction never reached Task 2 test 4**, which still called `BuildQueue`
+"the second, independent gate" holding "even if a forged pool state slipped a locked card into a twin
+group". Same claim, same plan, corrected in the threat row and missed in the test. Rewritten as an
+honest-state invariant. Confidence 10/10.
+
+**MEDIUM-1 — the round-5 H1 fold missed the `REQUIREMENTS.md` amendment text** it mandates, which still
+said "3 or more distinct cards". Confidence 10/10.
+
+**MEDIUM-2 — T-04-03 understated fabricated `TypeLine`.** It said the effect is "advisory finding text
+only"; because twins feeds the tally, it also moves round assignment and proposal order. Split into
+T-04-03a (blank, `mitigate`, fail-closed) and T-04-03b (fabricated, `accept`). Confidence 10/10.
+
+**MEDIUM-3 — T-04-21 claimed the manual session leaves no committed artifact**, contradicted by Task 3
+requiring the deck used and two screenshots in the committed summary. Now requires a public decklist
+and sanitized or out-of-repo screenshots. Confidence 9/10.
+
+**LOW-1 — the obsolete universal-resolver claim sat immediately above its own correction.** Deleted.
+**LOW-2 — T-04-11 cited tests 1 and 4** for hardcoded-ON coverage, missing the controller's own read;
+now cites 1, 4 and 11. Confidence 9-10/10.
+
+**Caught while folding, not by the reviewer:** the new decision initially collided with 04-04's existing
+D-21. Renumbered to D-23; D-14 through D-23 verified unique across all four plans.
+
+## Status
+
+Round 7 owed. **Convergence trend is worth watching:** round 5 found 6, round 6 found 7, and round 6's
+most serious finding was created by round 5's fix.

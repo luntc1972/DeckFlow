@@ -726,3 +726,70 @@ unstaged changes. Confidence 8.5/10.
 
 Round 5 **not folded.** Round 6 owed after folding. The Codex authoritative review is no longer owed —
 it ran, and it disagreed with the standing verdict.
+
+---
+
+# Round 6 — 2026-08-01. Fresh dispatch, `gpt-5.6-sol`, medium. Verdict: CHANGES REQUIRED.
+
+2 BLOCK · 3 HIGH · 1 MEDIUM · 1 LOW. **NOT folded — paused for an operator decision on approach.**
+
+⚠ **Four of the seven findings are defects in the round-5 FOLDS themselves, not in the original plans.**
+That is the headline. The fold is now the defect source.
+
+**BLOCK-1 — the round-5 red-phase harness for 05-03 is broken.** Its two `dotnet test` commands were
+joined with `&&` (my own fix for a `$?`-capture bug), so the Core command failing — which it must,
+that is the red phase — **short-circuits the Web command entirely**, and the harness then greps for a
+symbol that was never given a chance to appear. Worse, the Web red phase may produce no missing-symbol
+diagnostic at all: the controller still calls the 3-arg member (`AdminHarvestController.cs:265-273`)
+and a fake can declare a 4-arg method before the interface does. → Fix: run both commands
+independently, capture both statuses, and give the Web side a deterministic compile probe requiring an
+exact diagnostic (`CS1501.*MarkUrlDeckProcessedAsync`). Confidence 10/10.
+
+**BLOCK-2 — the required `[PostgresFact]` is assigned outside its task's file fence and never run by the
+implementing task.** Task 2 is told to add it, but Task 2's `<files>` excludes
+`PostgresStorageTests.cs` (`05-02:173`) and its gates neither build nor run that class. Task 1 owns the
+file but its Test 6 only asserts columns exist and "one metadata write succeeds" — no non-null
+`Theorycrafted`, no six-value readback — and its red gate runs only `DeckFlow.Core.Tests`. First actual
+Postgres execution lands in Task 3, **after the implementation task is already declared done**.
+Confidence 10/10.
+
+**HIGH-1 — the Postgres fold left MORE stale copies than it removed.** Still live: `05-02:149`
+("unrunnable"), `:179-182` ("provable in zero environments", routing not test-enforced), `:201`
+(code-review-only routing invariant), `:251` ("fallback note"), and `05-VALIDATION.md:46` (an explicit
+F4-1 carry-forward "if it proves impossible"). **And two files the round-5 fold never touched at all** —
+`05-PATTERNS.md:721` and `05-RESEARCH.md:314-321,346` — still describe Postgres as optional/skippable.
+Confidence 10/10.
+
+**HIGH-2 — the required Postgres command can still exit 0 with the metadata test skipped.**
+`PostgresContainerFixture` catches every container-start failure and stores a skip reason (`:72-87`);
+`GetConnectionStringOrSkipAsync` throws `SkipException` (`:36-43`); xUnit reports skipped and
+`dotnet test` exits **0**. The gate checks only the process exit code, so a stopped Docker or a broken
+`WSLENV` bridge satisfies it — the precise silent-skip failure the plan elsewhere warns about. → Fix:
+filter to the exact test, emit TRX, and mechanically require a passed outcome with zero skipped.
+Confidence 9.5/10.
+
+**HIGH-3 — `git add -A` stages files no task owns.** This worktree carries untracked
+`_edhrec-brackets/` and `_role-floor-research/`; `git add -A` sweeps both into the index along with any
+unrelated modification. → Fix: `git add -- <owned paths>` per task. Confidence 10/10.
+
+**MEDIUM-1 — `05-VALIDATION.md:50` still describes the two-column store assertion** that `05-03:203-207`
+just replaced with all six. Confidence 10/10.
+
+**LOW-1 — the plan-level verification blocks still prescribe bare `format-check-changed.sh staged`**
+(`05-01:266`, `05-02:306`, `05-03:248`), which is false-green on an empty index after task commits.
+Confidence 9/10.
+
+## Confirmed correct (do not re-litigate)
+
+The fixture audit passes: `edhBracket` / `deckFormat` / `theorycrafted` occur once each,
+`createdAt` / `updatedAt` 80 times each, and the proposed top-level `createdAt` pair is unique — so
+round-5's HIGH-2 substitution technique is sound. Interface censuses pass: 14 `IArchidektDeckImporter`
+implementers across 14 files, 7 `ICategoryKnowledgeStore` implementers, out-of-scope fakes accounted
+for. Existing call sites including target-typed constructors match the plans. The nullable
+INTEGER/TEXT schema and per-record `CASE` upsert are valid on both dialects once values route as
+`int?`/`string?`.
+
+## Status
+
+Round 6 **not folded.** Paused deliberately: four of seven findings are fold-induced, so continuing to
+fold at the same cadence is what produced them.
