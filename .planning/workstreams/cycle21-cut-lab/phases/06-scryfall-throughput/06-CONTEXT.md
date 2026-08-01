@@ -31,24 +31,78 @@ flag-gated. It is affecting production users today, outside any flag.
 Every decision below is **locked** — taken from the operator's own ROADMAP Phase 6 block, written
 2026-08-01. Do not re-open them during planning.
 
-### Wave 1 — adaptive pacing
+### Wave 1 — per-endpoint gating (REPLACES the roadmap's "restore 200ms" plan)
 
-- Default `MinInterval` returns to **200ms**.
-- On an **observed** Scryfall 429, degrade to **500ms**.
-- The degrade lasts **5 minutes since the most recent 429**, then reverts **automatically**. No manual
-  intervention, no admin toggle.
-- ⚠ **The trigger must fire where the 429 is OBSERVED, not where it is thrown.** Phase 111.1's B-1
-  design deliberately **swallows** 429s in the Cut Lab fail-open path — they never reach
-  `ScryfallThrottle.ThrowIfUpstreamUnavailable`. A degrade hook on the throw path alone would miss the
-  exact scenario this phase exists for. Record at status inspection, **before** the fail-open branch.
-- ⚠ `ScryfallThrottle` is a process-wide `static`. A mutable `MinInterval` is written from concurrent
-  requests — use `Interlocked`/`volatile`, **not** a plain field.
+⚠ **SUPERSEDED 2026-08-01, by operator decision, after research contradicted the roadmap's premise.**
+The ROADMAP Phase 6 block says wave 1 should "restore the 200ms pacing floor behind an adaptive
+degrade to 500ms on observed rate limiting". **Do not plan that.** Three independent pieces of
+evidence say the 200ms figure was itself the defect:
 
-### Wave 2 — batch the fallback
+1. `ScryfallThrottle.cs:14-21` — "Scryfall publishes a hard 2 requests/second (500ms) limit for
+   `/cards/collection`, `/cards/search`, `/cards/named`, and `/cards/random` — the four endpoints
+   every flow behind this throttle calls. **The previous 200ms figure was derived from that page's
+   'all other methods' row (10 req/sec), which does not apply to these endpoints.**"
+2. `ScryfallThrottleTests.cs:165-174` — `ExecuteAsync_SpacesConsecutiveCallsByAtLeastTheDocumentedPerEndpointLimit`
+   asserts **>= 450ms**, written specifically to pin the documented limit. Restoring 200ms would
+   require deleting or inverting it.
+3. `111.1-PACING-MEASUREMENT.md` — "pacing conservatively *under* the documented limit is the desired
+   behavior. This is a **documentation correction, not a defect to fix**."
+
+Restoring 200ms would mean running above Scryfall's documented per-endpoint rate and backing off only
+*after* being caught — a design that re-earns the Cloudflare block rather than avoiding it.
+
+**The concern behind wave 1 is nonetheless real.** The measurement's own correction records true
+achieved throughput as `1 / (MinInterval + s)`, i.e. roughly **2.2 req/s before, 1.33 req/s after** —
+not the 5 and 2 quoted in the summary tables. Process-wide aggregate throughput genuinely fell.
+
+**Decision: recover the throughput legitimately, by making the gate per-endpoint.**
+
+- Scryfall's 2 req/s limit is documented **per endpoint**; `ScryfallThrottle` currently enforces a
+  **single process-wide gate** shared across all four. That is stricter than required and is the
+  actual source of the aggregate-throughput loss.
+- Keep the **500ms floor per endpoint**. Do not lower it. The SC-7 test stays and must keep passing.
+- Replace the single `Gate` + `_lastCallUtc` pair with per-endpoint pacing state, keyed by endpoint.
+- ⚠ `ScryfallThrottle.ExecuteAsync` currently takes only a `Func<...>` — **it cannot see which
+  endpoint it is pacing.** An endpoint key must be threaded through, and there are **14 call sites
+  across 8 services** (`DeckConvertService`, `ScryfallCommanderSearchService`, `CardLookupService` x4,
+  `CardSearchService`, `ScryfallCardResolver` x3, `ScryfallTaggerLookupService`, `ScryfallSetService`
+  x2). That enumeration is the wave's real blast radius.
+- ⚠ `ScryfallThrottle` is a process-wide `static` and its state is written from concurrent requests.
+  Per-endpoint state must be concurrency-safe — a `ConcurrentDictionary` of per-endpoint gates, or
+  equivalent. Not a plain field, and not a non-thread-safe dictionary.
+- The adaptive degrade-on-429 idea is **deferred, not rejected** — see `<deferred>`. It becomes
+  coherent only once the floor is no longer the thing being violated.
+
+### Wave 2 — batch the fallback (SCOPED: one of the two strategies only)
 
 - `ScryfallReferenceResolver` currently does chunk(75) -> `POST cards/collection` -> match-back ->
   **one `GET cards/search?q=!"Name"` per miss**. Collapse that loop into a single OR query:
   `q=!"A" or !"B" or !"C"`.
+
+⚠ **Scope correction, 2026-08-01, from research.** The roadmap describes "the loop" as if there were
+one. There are **two** per-caller fallback strategies, passed into `ResolveAsync` as a required
+`Func<string, CancellationToken, Task<ScryfallCard?>>` delegate — the resolver does **not** own the
+fallback query. Only one of the two is expressible as an OR query:
+
+| Strategy | Callers | Shape | Batchable |
+|---|---|---|---|
+| `SearchFallbackCardAsync` (`ScryfallCardResolver.cs:140-159`) | Comparison, Meta-Gap, Cut Lab, Manabase | ONE request: `q=!"Name"`, `unique=cards`, `order=name` | **YES — this is wave 2's target** |
+| `SearchPrintingFallbackCardAsync` (`ScryfallCardResolver.cs:162-205`) | Analysis, Deck History | up to THREE sequential requests: `(printed:"X" OR name:"X")` -> bare `X` -> `cards/named?fuzzy=X`, all `unique=prints` | **NO — out of scope, see below** |
+
+**Why the printing strategy is excluded, stated so nobody "completes" it later without deciding to.**
+It is a progressive per-name escalation: each stage runs only if the previous found nothing, and the
+match-back picks a per-name best match
+(`FirstOrDefault(card => NormalizeLookupName(card.Name) == normalizedCardName) ?? FirstOrDefault()`).
+`unique=prints` returns many printings per card, so a batched flat list cannot be attributed back to
+the term that produced it, and stages 2 and 3 are per-name by construction. Batching it is a redesign
+of its matching semantics, not a request-count optimization. **Out of scope for this phase; record it
+as a follow-up.**
+
+**Consequence to state honestly in the plan:** wave 2 improves the four consumers on the exact-name
+strategy. Analysis and Deck History — which use the printing strategy — see **no** request-count
+change. If the 39-call miss-heavy scenario in `111.1-PACING-MEASUREMENT.md` came from one of those two
+flows, this wave does not address that specific number. Verify which flow it was during planning and
+say so plainly rather than implying phase-wide coverage.
 - Chunk at roughly **60 names** — smaller than collection's 75, because `cards/search` is a GET and URL
   length bounds the batch at ~30 chars per term.
 - ⚠ **Match-back is the risk.** Today it is 1 name -> 1 result; a batch returns a flat list. **This is
@@ -110,17 +164,24 @@ and the operator may reword them.
 
 | ID | Proposed text |
 |----|----------------|
-| SCRY-01 | Scryfall pacing defaults to a 200ms minimum interval, and an observed 429 degrades it to 500ms for 5 minutes since the most recent 429, reverting automatically with no manual intervention. |
-| SCRY-02 | The degrade triggers on a 429 that is **observed at status inspection**, including one swallowed by a fail-open path, not only on a 429 that is thrown. |
-| SCRY-03 | N unresolved cards within one chunk cost **one** `cards/search` request, not N. |
+| SCRY-01 | Scryfall pacing is enforced **per endpoint** at the documented 500ms minimum interval, rather than by a single process-wide gate shared across all endpoints. |
+| SCRY-02 | Every one of the 14 `ScryfallThrottle.ExecuteAsync` call sites supplies an endpoint key, and no call site can pace against the wrong endpoint's state or bypass pacing entirely. |
+| SCRY-03 | N unresolved cards within one chunk cost **one** `cards/search` request, not N, for callers using the exact-name fallback strategy. |
 | SCRY-04 | The batched path matches results back correctly for DFC (`Front // Back`) and curly-apostrophe names, falls back to per-card resolution on a 400 without losing any card the per-card path would have resolved, and treats a 404 as "every term missed". |
 
-### Success Criteria (copied verbatim from ROADMAP Phase 6)
+⚠ SCRY-01 and SCRY-02 are **rewritten** from the versions implied by the ROADMAP, which described the
+superseded 200ms-restore design. SCRY-03 is **narrowed** to the exact-name strategy.
 
-1. Steady state paces at 200ms; an observed 429 moves it to 500ms; it returns to 200ms 5 minutes
-   after the last 429, with no manual intervention.
-2. A swallowed (fail-open) 429 triggers the degrade — **proven by a test, not by inspection**.
-3. N unresolved cards in one chunk cost ONE `cards/search` request, not N.
+### Success Criteria (AMENDED — 1 and 2 replaced, 3 narrowed; 4-6 verbatim from ROADMAP Phase 6)
+
+1. **(replaced)** Pacing is enforced per endpoint at >= 500ms each. Two calls to *different* endpoints
+   are no longer serialized behind one another; two calls to the *same* endpoint still are. The
+   existing SC-7 test (`ScryfallThrottleTests.cs:174`) still passes **unmodified**.
+2. **(replaced)** All 14 call sites across 8 services supply an endpoint key, verified by enumeration
+   rather than by grep alone — and a call site that omits one fails to compile rather than silently
+   pacing against a default bucket.
+3. **(narrowed)** N unresolved cards in one chunk cost ONE `cards/search` request, not N, **for the
+   exact-name fallback strategy**. The printing-fallback strategy is explicitly unchanged.
 4. A 400 on the batch query falls back to per-card resolution and loses no card that the per-card path
    would have resolved.
 5. DFC (`Front // Back`) and curly-apostrophe names match back correctly in the batched path.
@@ -139,11 +200,22 @@ criterion 6 is not a formality.
 <deferred>
 ## Deferred Ideas
 
-- Any admin-visible control over the pacing interval. The degrade is automatic and self-reverting by
-  decision; an operator toggle is not in scope.
+- **Adaptive degrade-on-observed-429 (the roadmap's original wave 1).** Deferred, not rejected. It is
+  coherent only *above* a floor that already respects the documented limit — as a degrade from 500ms
+  to something slower under sustained pressure, never as justification for a faster steady state. If
+  it is revived, the observed-not-thrown rule still holds: Phase 111.1's fail-open path **swallows**
+  429s so they never reach `ScryfallThrottle.ThrowIfUpstreamUnavailable`, and a hook on the throw path
+  alone would miss them.
+- **Batching `SearchPrintingFallbackCardAsync`.** Out of scope with a stated reason (see the wave 2
+  block). Revisiting it means redesigning its progressive-escalation matching semantics, which is its
+  own decision. Record as a follow-up so Analysis and Deck History are not assumed covered.
+- Any admin-visible control over the pacing interval.
 - Extending batching to `cards/collection` itself, which is already batched at 75.
-- Re-tuning the 5-minute window or the 200/500ms pair based on production telemetry. Those numbers are
-  locked for this phase; revisiting them is a later decision informed by whether the block recurs.
+- Re-tuning the 500ms floor based on production telemetry. It is the documented per-endpoint limit and
+  is locked for this phase.
+- Per-endpoint intervals that differ by endpoint — e.g. giving non-card endpoints the docs' faster
+  "all other methods" rate. Possible once gating is per-endpoint, but it is a second decision and this
+  phase deliberately applies one uniform 500ms to every bucket.
 
 </deferred>
 
