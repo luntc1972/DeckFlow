@@ -483,9 +483,6 @@ public sealed class CutLabApiController : ControllerBase
             .ToArray();
     }
 
-    private static CutLabDecideNextProposalDto BuildNextProposal(CutLabRoundPlan roundPlan, CutLabStructuralFindingsResult findings)
-        => CutLabNextProposalBuilder.Build(roundPlan, findings);
-
     private static IReadOnlyList<CutLabDecideMetricDeltaDto> BuildMetricDeltas(IReadOnlyList<CutLabMetricDelta> deltas)
         => deltas
             .Select(delta => new CutLabDecideMetricDeltaDto
