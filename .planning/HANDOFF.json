@@ -72,9 +72,9 @@
   "remaining_tasks": [
     {
       "id": "step-4-r4",
-      "name": "Phase 4 round 4 convergence review \u2014 DISPATCHED, was still running at pause",
-      "status": "in_progress",
-      "detail": "codex exec gpt-5.6-sol medium; output /tmp/claude-1000/-mnt-c-users-chrislunt-source-personal-deckflow/46dc0886-1a16-4417-8efc-668df2ec69b6/scratchpad/p4-round4.txt ; task id bqaqnr2vu. Background task does NOT survive the session \u2014 re-dispatch if the file lacks a VERDICT line. NOTE: round 4 was still running at pause and its reasoning trace already flagged two stale counts that were FIXED at pause (04-03:448 \"the 7 enumerated above\"->8; 04-02:547 \"18 more executed tests\"->19) \u2014 re-check its findings against the current files before folding."
+      "name": "Fold Phase 4 round-4 findings F2/F3/F4/F6/F7 (F1 and F5 already fixed at pause), then re-review",
+      "status": "not_started",
+      "detail": "Round 4 COMPLETED and returned CHANGES REQUIRED. Findings recorded in 04-REVIEWS.md \u2014 the /tmp output is NOT needed. F3 is the important one: the threat model claims BuildQueue independently blocks a client-forged IsLocked=false, but BuildInputs copies the same client-influenced flag the queue then checks (CutLabCutRoundEngine.cs:359 and :256) \u2014 one gate, not two. F2 is an impossible automated gate on Task 1."
     },
     {
       "id": "step-5-review",
@@ -182,6 +182,6 @@
     "_edhrec-brackets/ (untracked)",
     "_role-floor-research/ (untracked)"
   ],
-  "next_action": "Read the round-4 output file. If it contains a VERDICT line, act on it: CONVERGED -> proceed to step 6 (execute Phase 4 via gpt-5.6-terra); CHANGES REQUIRED -> fold and re-review. If the file has no VERDICT, the background task died with the session \u2014 re-dispatch the round-4 review.",
+  "next_action": "Read 04-REVIEWS.md round-4 section. Fold F2, F3, F4, F6, F7 \u2014 skip F1 and F5, already fixed in 2bf28b4b. Treat F3 as a real security-modelling error, not a wording slip. Then dispatch round 5 (gpt-5.6-sol, medium).",
   "context_notes": "This session never executed code. It was merge/rebase plumbing, then a plan-review convergence loop, plus discharging Phase 5's Postgres blocker. The dominant lesson is the incomplete-fold anti-pattern: three consecutive rounds failed because I corrected the operative instruction and left a stale contradicting copy in frontmatter / acceptance criteria / <done> / a task name / a threat row. Round 3 explicitly found the plans' SUBSTANCE converged at round 2 \u2014 only consistency was failing. Counts are now reconciled mechanically (04-02: 19 tests, 04-03: 12 tests + 8 constructions, 04-04: 7 presenter tests). Everything is pushed; main == origin/main == c0da20bc."
 }
