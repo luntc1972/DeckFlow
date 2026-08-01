@@ -16,6 +16,7 @@ of everything else and can run in parallel with the 1→01.1→01.2→2→3 spin
 - [x] **Phase 3: Commander-Aware Floor Defaults (CONDITIONAL on Phase 2 = go)** - Extend `CutLabFloorDefaults` with a commander-specific priority-chain layer for the roles Phase 2 found signal for, showing bracket and commander floors side by side. (completed 2026-07-29)
 - [ ] **Phase 4: Functional-Twins Detector (INDEPENDENT)** - Add the first discriminating structural finding: cards competing for the same slot at the same cost.
 - [ ] **Phase 5: Archidekt Bracket Capture (INDEPENDENT, non-gating)** - Capture the bracket already present on the Archidekt deck payload so a future commander × bracket analysis is possible.
+- [ ] **Phase 6: Scryfall Throughput (INSERTED 2026-08-01, INDEPENDENT)** - Restore the 200ms pacing floor behind an adaptive degrade to 500ms on observed rate limiting, and batch the per-miss fallback into one `cards/search` OR-query so a miss-heavy import costs one request instead of N.
 
 ## Execution Order
 
@@ -24,6 +25,7 @@ Phase 1 ──▶ Phase 01.1 ──▶ Phase 01.2 ──▶ Phase 2 ──▶ Ph
    ✅            ✅
 Phase 4 ────────────────────────────────────────────▶  (parallel, no dependencies)
 Phase 5 ────────────────────────────────────────────▶  (parallel, no dependencies, backfills over time)
+Phase 6 ────────────────────────────────────────────▶  (parallel, no dependencies; wave 1 ──▶ wave 2)
 ```
 
 Phase 1 **must** precede Phase 2: Phase 2 reports spread per role, and `interaction` is one of the
@@ -359,6 +361,54 @@ mirror. Branch mutation is the developer's, not a planned task.
   3. "Not captured" (harvested before this change) is distinguishable from "captured, absent" (deck declared no bracket).
   4. Harvest continues to succeed when the field is missing or malformed — no new failure mode on a payload shape change.
 
+### Phase 6: Scryfall Throughput (INSERTED 2026-08-01, INDEPENDENT)
+**Goal**: Get the pacing floor back to 200ms without re-earning the Cloudflare block, and stop paying one throttled request per unresolved card.
+**Depends on**: Nothing. Does not gate any other phase.
+**Requirements**: SCRY-01, SCRY-02, SCRY-03, SCRY-04 (ratify into `REQUIREMENTS.md` before closeout)
+**Origin**: User decision, 2026-08-01, after Phase 111.1 raised `ScryfallThrottle.MinInterval` from 200ms to 500ms to stop a Cloudflare IP block. That fix was correct but blunt, and it applies process-wide to **every** Scryfall consumer (Comparison, Meta-Gap, Analysis, Manabase, Deck History) — not just Cut Lab, which is flag-gated.
+
+**Why this is worth a phase, with the measurement**: `111.1-PACING-MEASUREMENT.md` shows the cost is
+not uniform. A normal 0-miss flow makes 2 throttled calls, so it pays **one** extra gap — 200-300ms,
+barely perceptible. The damage is concentrated in miss-heavy flows, where the doc models 39 calls
+against `39 x 500ms ≈ 19.5s` of serialized throttle time. Aggregate process-wide ceiling also falls
+from roughly 5 req/s to 2 req/s across all concurrent users. So the two waves below attack the same
+problem from both ends: wave 1 restores the floor for the common case, wave 2 removes the calls that
+make the bad case bad.
+
+**Wave 1 — adaptive pacing.** Default `MinInterval` back to 200ms. On an **observed** Scryfall 429,
+degrade to 500ms for **5 minutes** since the most recent 429, then revert automatically.
+  - ⚠ **The trigger must fire where the 429 is OBSERVED, not where it is thrown.** Phase 111.1's B-1
+    design deliberately **swallows** 429s in the Cut Lab fail-open path — they never reach
+    `ScryfallThrottle.ThrowIfUpstreamUnavailable`. A degrade hook on the throw path alone would miss
+    the exact scenario this exists for. Record at status inspection, before the fail-open branch.
+  - ⚠ `ScryfallThrottle` is a process-wide `static`. A mutable `MinInterval` is written from
+    concurrent requests — use `Interlocked`/`volatile`, not a plain field.
+
+**Wave 2 — batch the fallback.** `ScryfallReferenceResolver` currently does chunk(75) →
+`POST cards/collection` → match-back → **one `GET cards/search?q=!"Name"` per miss**. Collapse that
+loop into a single OR query: `q=!"A" or !"B" or !"C"`.
+  - URL length bounds the batch: `cards/search` is a GET, ~30 chars per term, so chunk at roughly 60
+    names — smaller than collection's 75.
+  - ⚠ Match-back is the risk. Today it is 1 name → 1 result; a batch returns a flat list. This is the
+    same seam that produced BOTH combo-seam MEDs on 2026-08-01 (DFC front-face, curly apostrophe).
+    Normalize both sides through `CutLabCardNames.Normalize` from the start, and pin those two
+    vectors in tests.
+  - One malformed term can 400 the whole chunk. Degrade to the existing per-card path on 400 so nine
+    good resolutions are not lost to one bad name.
+  - 404 changes meaning: a search 404s only when EVERY term misses. "Which missed" becomes set
+    subtraction, which the existing `resolvedRequestNames` step already computes.
+
+**Success Criteria** (what must be TRUE):
+  1. Steady state paces at 200ms; an observed 429 moves it to 500ms; it returns to 200ms 5 minutes
+     after the last 429, with no manual intervention.
+  2. A swallowed (fail-open) 429 triggers the degrade — proven by a test, not by inspection.
+  3. N unresolved cards in one chunk cost ONE `cards/search` request, not N.
+  4. A 400 on the batch query falls back to per-card resolution and loses no card that the per-card
+     path would have resolved.
+  5. DFC (`Front // Back`) and curly-apostrophe names match back correctly in the batched path.
+  6. No regression for the other five Scryfall consumers — this is shared infrastructure, and Cut
+     Lab's flag does **not** gate it.
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -370,6 +420,7 @@ mirror. Branch mutation is the developer's, not a planned task.
 | 3. Commander-Aware Floor Defaults | 7/7 | **Complete** — all 7 plans verified; `max(bracket, commander)` shipped with both numbers on screen. Snapshot: 678 commanders / 1463 adopted floors, independently recomputed from `RESEARCH-FINDINGS.json`. Task 4 human-verify approved. One WARNING-severity gap on the AJAX patch path (see `03-VERIFICATION.md`) | 2026-07-29 |
 | 4. Functional-Twins Detector | 0/TBD | Not started | - |
 | 5. Archidekt Bracket Capture | 0/TBD | Not started | - |
+| 6. Scryfall Throughput | 0/TBD | Not started (inserted 2026-08-01; 2 waves — adaptive pacing, then fallback batching) | - |
 
 ---
 
@@ -382,14 +433,20 @@ mirror. Branch mutation is the developer's, not a planned task.
 | RFLR-05, RFLR-06, RFLR-07, RFLR-08 | Phase 3 (conditional) | Satisfied |
 | TWIN-01, TWIN-02, TWIN-03, TWIN-04 | Phase 4 | Pending |
 | BRKT-01, BRKT-02, BRKT-03 | Phase 5 | Pending |
+| SCRY-01, SCRY-02, SCRY-03, SCRY-04 | Phase 6 | **Gap** -- inserted 2026-08-01 by user decision; ratify into `REQUIREMENTS.md` before closeout |
 | (none assigned) | Phase 01.1 | **Gap** -- inserted after REQUIREMENTS.md was written; see the Phase 01.1 block above |
 | (none assigned) | Phase 01.2 | **Gap** -- inserted 2026-07-27 from 01.1's D-06; ratify alongside CLSF-01/CLSF-02 |
 
-**Coverage:** 19/19 Cycle 21 requirements mapped. No orphans, no duplicates.
-**Known gap:** Phases 01.1 and 01.2 have no requirement IDs. Both are defect-repair phases derived
-from spike 002 that gate Phase 2's measurement validity. Ratify CLSF-01 / CLSF-02 (and a third ID for
-01.2's vocabulary widening) into `REQUIREMENTS.md` before milestone closeout.
+**Coverage:** 19/19 of the ORIGINAL Cycle 21 requirements mapped. No orphans, no duplicates among
+those 19. Phase 6's SCRY-01..04 are **not** in that count — they are proposed IDs, not yet in
+`REQUIREMENTS.md`.
+**Known gap:** Phases 01.1, 01.2 and 6 have no ratified requirement IDs. 01.1 and 01.2 are
+defect-repair phases derived from spike 002 that gate Phase 2's measurement validity. Phase 6 is a
+throughput phase inserted from the Phase 111.1 fallout. Ratify CLSF-01 / CLSF-02 (and a third ID for
+01.2's vocabulary widening) plus SCRY-01..04 into `REQUIREMENTS.md` before milestone closeout.
 
 ---
 *Roadmap created: 2026-07-26*
 *Re-planned: 2026-07-26 — scope widened from 2 phases to 5; see PROJECT.md Decisions Log*
+*Amended 2026-08-01 — Phase 6 (Scryfall Throughput) inserted by user decision after Phase 111.1's
+200ms->500ms pacing change; see the Phase 6 block for the measurement that motivates both waves.*
