@@ -581,6 +581,17 @@ public sealed class CutLabCutRoundEngineTests
         Assert.Equal(CutLabCutRoundEngine.SecondPassDeferredKey, plan.NextProposal.RoundKey);
         CutLabRoundQueueItem comboPiece = Assert.Single(plan.Queue, item => item.CardName == "Combo Piece");
         Assert.True(plan.Queue.ToList().IndexOf(comboPiece) > 0, "combo-protected card must not be the first second-pass proposal");
+
+        CutLabRoundPlan revisitedPlan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.CompletePiece, "Combo Piece")),
+            [
+                new CutLabDecision { CardName = "Combo Piece", Kind = CutLabDecisionKind.Deferred, Round = CutLabCutRoundEngine.Round3Key, Ordinal = 1 },
+                new CutLabDecision { CardName = "Plain Deferred Card", Kind = CutLabDecisionKind.Deferred, Round = CutLabCutRoundEngine.SecondPassDeferredKey, Ordinal = 5 },
+            ],
+            cardsToCutTarget: 2);
+
+        Assert.Equal("Combo Piece", revisitedPlan.NextProposal!.CardName);
     }
 
     /// <summary>
@@ -611,6 +622,106 @@ public sealed class CutLabCutRoundEngineTests
         Assert.Equal(CutLabCutRoundEngine.SecondPassRejectedKey, plan.NextProposal.RoundKey);
         CutLabRoundQueueItem comboPiece = Assert.Single(plan.Queue, item => item.CardName == "Combo Piece");
         Assert.True(plan.Queue.ToList().IndexOf(comboPiece) > 0, "combo-protected card must not be the first rejected second-pass proposal");
+
+        CutLabRoundPlan revisitedPlan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.CompletePiece, "Combo Piece")),
+            [
+                new CutLabDecision { CardName = "Combo Piece", Kind = CutLabDecisionKind.Rejected, Round = CutLabCutRoundEngine.Round3Key, Ordinal = 1 },
+                new CutLabDecision { CardName = "Plain Rejected Card", Kind = CutLabDecisionKind.Rejected, Round = CutLabCutRoundEngine.SecondPassRejectedKey, Ordinal = 5 },
+            ],
+            cardsToCutTarget: 2);
+
+        Assert.Equal("Combo Piece", revisitedPlan.NextProposal!.CardName);
+    }
+
+    [Fact]
+    public void BuildQueue_SecondPassComboPieceSurfacesAfterOrdinaryCardIsRevisited()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Plain Deferred Card", 6),
+            Card("Combo Piece", 1),
+        ];
+        CutLabStructuralFindingsResult findings = Findings(
+            Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.CompletePiece, "Combo Piece"));
+
+        CutLabRoundPlan firstAppearancePlan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            findings,
+            [
+                new CutLabDecision { CardName = "Plain Deferred Card", Kind = CutLabDecisionKind.Deferred, Round = CutLabCutRoundEngine.Round2Key, Ordinal = 2 },
+                new CutLabDecision { CardName = "Combo Piece", Kind = CutLabDecisionKind.Deferred, Round = CutLabCutRoundEngine.Round2Key, Ordinal = 1 },
+            ],
+            cardsToCutTarget: 2);
+
+        Assert.Equal("Plain Deferred Card", firstAppearancePlan.NextProposal!.CardName);
+
+        CutLabRoundPlan revisitedPlan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            findings,
+            [
+                new CutLabDecision { CardName = "Plain Deferred Card", Kind = CutLabDecisionKind.Deferred, Round = CutLabCutRoundEngine.SecondPassDeferredKey, Ordinal = 5 },
+                new CutLabDecision { CardName = "Combo Piece", Kind = CutLabDecisionKind.Deferred, Round = CutLabCutRoundEngine.Round2Key, Ordinal = 2 },
+            ],
+            cardsToCutTarget: 2);
+
+        Assert.Equal("Combo Piece", revisitedPlan.NextProposal!.CardName);
+    }
+
+    [Fact]
+    public void BuildQueue_SecondPassRejectedComboPieceSurfacesAfterOrdinaryCardIsRevisited()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Plain Rejected Card", 6),
+            Card("Combo Piece", 1),
+        ];
+        CutLabStructuralFindingsResult findings = Findings(
+            Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.CompletePiece, "Combo Piece"));
+
+        CutLabRoundPlan firstAppearancePlan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            findings,
+            [
+                new CutLabDecision { CardName = "Plain Rejected Card", Kind = CutLabDecisionKind.Rejected, Round = CutLabCutRoundEngine.Round2Key, Ordinal = 2 },
+                new CutLabDecision { CardName = "Combo Piece", Kind = CutLabDecisionKind.Rejected, Round = CutLabCutRoundEngine.Round2Key, Ordinal = 1 },
+            ],
+            cardsToCutTarget: 2);
+
+        Assert.Equal("Plain Rejected Card", firstAppearancePlan.NextProposal!.CardName);
+
+        CutLabRoundPlan revisitedPlan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            findings,
+            [
+                new CutLabDecision { CardName = "Plain Rejected Card", Kind = CutLabDecisionKind.Rejected, Round = CutLabCutRoundEngine.SecondPassRejectedKey, Ordinal = 5 },
+                new CutLabDecision { CardName = "Combo Piece", Kind = CutLabDecisionKind.Rejected, Round = CutLabCutRoundEngine.Round2Key, Ordinal = 2 },
+            ],
+            cardsToCutTarget: 2);
+
+        Assert.Equal("Combo Piece", revisitedPlan.NextProposal!.CardName);
+    }
+
+    [Fact]
+    public void BuildQueue_SecondPassRevisitedCardsRotateByOrdinal()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Earlier Revisited Card", 6),
+            Card("Later Revisited Card", 1),
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(),
+            [
+                new CutLabDecision { CardName = "Earlier Revisited Card", Kind = CutLabDecisionKind.Deferred, Round = CutLabCutRoundEngine.SecondPassDeferredKey, Ordinal = 5 },
+                new CutLabDecision { CardName = "Later Revisited Card", Kind = CutLabDecisionKind.Deferred, Round = CutLabCutRoundEngine.SecondPassDeferredKey, Ordinal = 6 },
+            ],
+            cardsToCutTarget: 2);
+
+        Assert.Equal("Earlier Revisited Card", plan.NextProposal!.CardName);
     }
 
     [Fact]
