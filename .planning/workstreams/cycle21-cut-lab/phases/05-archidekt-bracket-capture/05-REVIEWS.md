@@ -1,5 +1,18 @@
 # Phase 5: Archidekt Bracket Capture — Plan Reviews
 
+> ⚠ **2026-08-01 — R-H1 AND F4-1's SHARED PREMISE IS NO LONGER TRUE.** Both findings rest on
+> *"Postgres is provable in zero environments."* It is now provable locally: Docker Desktop plus the
+> existing `PostgresContainerFixture` runs the gated suite green from this worktree — **2231 passed /
+> 0 failed / 1 skipped**, down from 16 skips, i.e. every `[PostgresFact]` executed. Invocation:
+> `WSLENV=DECKFLOW_POSTGRES_TESTS/w DECKFLOW_POSTGRES_TESTS=1 "/mnt/c/Program Files/dotnet/dotnet.exe" test DeckFlow.Web.Tests -c Release`
+> (the `/w` is mandatory; without it the flag never reaches the Windows test host and every fact
+> silently skips, which reads exactly like a pass).
+>
+> Consequence: the `archidekt_theorycrafted` `42804` hole must now be **closed with a `[PostgresFact]`
+> driving `DeckQueueRepository`'s metadata write**, not disclosed as a NOT-VERIFIED carry-forward.
+> The concession was honest when written; the environment limitation behind it is gone. Findings
+> below are preserved as the historical record — read them with this banner in force.
+
 **Date:** 2026-07-29
 **Workstream:** `cycle21-cut-lab`
 **Plans reviewed:** `05-01-PLAN.md`, `05-02-PLAN.md`, `05-03-PLAN.md`
@@ -372,7 +385,7 @@ the new `sealed record` must not have `[Attribute]` inlined onto the property li
 | Req | Plans | Executable proof |
 |-----|-------|------------------|
 | BRKT-01 | 05-01, 05-03 | **Yes** — strongest-covered requirement |
-| BRKT-02 | 05-02, 05-03 | **Partial** — SQLite fresh + legacy migration; Postgres (the real target, Render) has no runnable proof |
+| BRKT-02 | 05-02, 05-03 | **Upgradable to full (2026-08-01)** — SQLite fresh + legacy migration, and Postgres is now runnable locally via Docker + `PostgresContainerFixture` (see banner). Add the `[PostgresFact]` and this becomes full coverage. |
 | BRKT-03 | 05-02, 05-03 | **Partial** — three-state proven for fresh/legacy; both corruption paths ungated |
 
 All three IDs appear in a plan's `requirements` field. Dependency graph (`[] → [05-01] → [05-01,05-02]`,
