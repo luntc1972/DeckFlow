@@ -39,6 +39,32 @@ public sealed class CutLabApiControllerTests
             NullLogger<CutLabApiController>.Instance));
     }
 
+    /// <summary>
+    /// Why: proposal names come from the deck while combo evidence comes from
+    /// Spellbook, which can use a different apostrophe character for one card.
+    /// </summary>
+    [Fact]
+    public void BuildNextProposal_CurlyApostropheCardName_StillCarriesItsFindingChips()
+    {
+        CutLabDecideNextProposalDto proposal = BuildNextProposalForTest("Lim-Dul’s Vault", "Lim-Dul's Vault");
+
+        Assert.Contains("Combo-protected cards", proposal.FindingChips);
+        Assert.DoesNotContain("Unrelated finding", proposal.FindingChips);
+    }
+
+    /// <summary>
+    /// Why: a deck records double-faced cards by both faces while Spellbook
+    /// supplies the front face, so the proposal chip needs the shared name form.
+    /// </summary>
+    [Fact]
+    public void BuildNextProposal_DoubleFacedCardName_StillCarriesItsFindingChips()
+    {
+        CutLabDecideNextProposalDto proposal = BuildNextProposalForTest("Malakir Rebirth // Malakir Mire", "Malakir Rebirth");
+
+        Assert.Contains("Combo-protected cards", proposal.FindingChips);
+        Assert.DoesNotContain("Unrelated finding", proposal.FindingChips);
+    }
+
     [Fact]
     public async Task PostDecideAsync_ReturnsForbidden_WhenOriginIsCrossSite()
     {
@@ -844,6 +870,22 @@ public sealed class CutLabApiControllerTests
         controller.Request.Host = new HostString("deckflow.test");
         controller.Request.Headers.Origin = sameOrigin ? "https://deckflow.test" : "https://evil.test";
         return controller;
+    }
+
+    private static CutLabDecideNextProposalDto BuildNextProposalForTest(string proposalCardName, string evidenceCardName)
+    {
+        MethodInfo method = typeof(CutLabApiController).GetMethod("BuildNextProposal", BindingFlags.NonPublic | BindingFlags.Static)!;
+        CutLabRoundQueueItem nextProposal = new(proposalCardName, CutLabCutRoundEngine.Round3Key, CutLabCutRoundEngine.Round3Label, 0, []);
+        CutLabRoundPlan roundPlan = new() { Queue = [nextProposal], NextProposal = nextProposal, CardsRemainingToTarget = 1 };
+        CutLabStructuralFindingsResult findings = new(
+            [
+                new CutLabFinding(CutLabFindingKind.ComboProtected, "Combo-protected cards", "matched", [new CutLabFindingEvidence(evidenceCardName, null)]),
+                new CutLabFinding(CutLabFindingKind.CurveCongestion, "Unrelated finding", "unmatched", [new CutLabFindingEvidence("Genuinely Different Card", null)]),
+            ],
+            true,
+            true);
+
+        return Assert.IsType<CutLabDecideNextProposalDto>(method.Invoke(null, [roundPlan, findings]));
     }
 
     private static CutLabState CreateState(

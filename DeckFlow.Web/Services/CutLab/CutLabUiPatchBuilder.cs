@@ -250,33 +250,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
     }
 
     private static CutLabDecideNextProposalDto BuildNextProposal(CutLabRoundPlan roundPlan, CutLabStructuralFindingsResult findings)
-    {
-        if (roundPlan.NextProposal is null)
-        {
-            return new CutLabDecideNextProposalDto
-            {
-                IsTerminal = true,
-                IsAtTarget = roundPlan.CardsRemainingToTarget == 0,
-                IsNothingToCut = roundPlan.CardsRemainingToTarget > 0,
-            };
-        }
-
-        string[] chips = findings.Findings
-            .Where(finding => finding.Evidence.Any(evidence => string.Equals(evidence.CardName, roundPlan.NextProposal.CardName, StringComparison.OrdinalIgnoreCase)))
-            .Select(finding => finding.Heading)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
-        return new CutLabDecideNextProposalDto
-        {
-            CardName = roundPlan.NextProposal.CardName,
-            RoundKey = roundPlan.NextProposal.RoundKey,
-            RoundLabel = roundPlan.NextProposal.RoundLabel,
-            RoundBannerBody = CutLabCutRoundEngine.RoundBannerBodyFor(roundPlan.NextProposal.RoundKey),
-            FindingCount = roundPlan.NextProposal.FindingCount,
-            FindingChips = chips,
-        };
-    }
+        => CutLabNextProposalBuilder.Build(roundPlan, findings);
 
     private static CutLabDecideProposalDeltasDto BuildProposalDeltas(CutLabProposalDeltas proposalDeltas)
         => new()
