@@ -637,6 +637,73 @@ public sealed class CutLabPageServiceTests
     }
 
     /// <summary>
+    /// A transient collection 429 can clear during the same import, but commander selection was
+    /// previously derived from the stale first-pass snapshot. Recovery must retain the flagged,
+    /// eligible commander instead of showing the fallback picker for every card in the pool.
+    /// </summary>
+    [Fact]
+    public async Task ProcessAsync_TransientRateLimitRecoveredDuringBuild_ResolvesCommanderFromRecoveredData()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 101, commanderName: "Atraxa, Praetors' Voice");
+        var resolver = new FakeResolver(BuildResolvedCards(entries))
+        {
+            TransientCollectionFailures = 1,
+        };
+        var service = new CutLabPageService(new FakeLoader(entries), resolver, new FakeBanListService([]));
+
+        var result = await service.ProcessAsync(
+            new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool" });
+
+        Assert.Null(result.ErrorMessage);
+        Assert.True(result.HasResult);
+        Assert.False(result.CommanderSelectionRequired);
+        Assert.Equal("Atraxa, Praetors' Voice", Assert.Single(result.State!.Pool, card => card.IsCommander).Name);
+        Assert.DoesNotContain("Card 001", result.CommanderChoices);
+    }
+
+    /// <summary>
+    /// When a transient collection 429 clears within the import, the recovered commander must be
+    /// locked in the returned pool; otherwise Cut Lab offers the commander as a cut candidate.
+    /// </summary>
+    [Fact]
+    public async Task ProcessAsync_TransientRateLimitRecoveredDuringBuild_KeepsCommanderOutOfTheCuttablePool()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 101, commanderName: "Atraxa, Praetors' Voice");
+        var resolver = new FakeResolver(BuildResolvedCards(entries))
+        {
+            TransientCollectionFailures = 1,
+        };
+        var service = new CutLabPageService(new FakeLoader(entries), resolver, new FakeBanListService([]));
+
+        var result = await service.ProcessAsync(
+            new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool" });
+
+        CutLabPoolCard commander = Assert.Single(result.State!.Pool, card => card.Name == "Atraxa, Praetors' Voice");
+        Assert.True(commander.IsCommander);
+        Assert.True(commander.IsLocked);
+    }
+
+    /// <summary>
+    /// A board flag alone must never promote a card whose resolved type line is genuinely
+    /// ineligible, preserving the eligibility check while recovery re-attempts transient misses.
+    /// </summary>
+    [Fact]
+    public async Task ProcessAsync_FlaggedIneligibleCommander_RemainsUnresolvedForSelection()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 101, commanderName: "Ineligible Commander");
+        var cards = BuildResolvedCards(entries);
+        cards.RemoveAll(card => string.Equals(card.Name, "Ineligible Commander", StringComparison.OrdinalIgnoreCase));
+        cards.Add(Spell("Ineligible Commander", "Artifact"));
+        var service = new CutLabPageService(new FakeLoader(entries), new FakeResolver(cards), new FakeBanListService([]));
+
+        var result = await service.ProcessAsync(
+            new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool" });
+
+        Assert.True(result.CommanderSelectionRequired);
+        Assert.DoesNotContain(result.State!.Pool, card => card.IsCommander);
+    }
+
+    /// <summary>
     /// GAP-2 inverse lock: on a fully-resolved pool, no degraded-import warning is added at all --
     /// proving the warning is conditional on an actual gap, not always-on boilerplate.
     /// </summary>
