@@ -129,7 +129,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             CutsMade = BuildCutsMade(state.Decisions),
             StructuralFindings = BuildStructuralFindings(findings),
             LockedOvershootAdvisory = BuildLockedOvershootAdvisory(roundPlan.LockedOvershootAdvisory),
-            ComboBadgeByCardName = BuildComboBadgeByCardName(context.Classification.CardComboMembership),
+            ComboBadgeByCardName = BuildComboBadgeByCardName(state.Pool, context.Classification.CardComboMembership),
             ComboDataAvailable = findings.ComboDataAvailable,
             CategoryDataAvailable = findings.CategoryDataAvailable,
             WhatifCardOutOptions = projection.WhatifCardOutOptions,
@@ -174,7 +174,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             CutsMade = BuildCutsMade(state.Decisions),
             StructuralFindings = [],
             LockedOvershootAdvisory = null,
-            ComboBadgeByCardName = new Dictionary<string, CutLabDecideComboBadgeDto>(CutLabCardNames.Comparer),
+            ComboBadgeByCardName = new Dictionary<string, CutLabDecideComboBadgeDto>(StringComparer.Ordinal),
             ComboDataAvailable = false,
             CategoryDataAvailable = false,
             WhatifCardOutOptions = projection.WhatifCardOutOptions,
@@ -318,39 +318,61 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             })
             .ToArray();
 
+    // Why: D-24. The JavaScript consumer looks badges up by the raw rendered pool name and property
+    // lookup there is case-sensitive, so the normalized membership map is re-keyed once here, onto
+    // every raw pool spelling, under StringComparer.Ordinal. Several raw names — a DFC's long and
+    // short forms, or two spellings differing only by case — can share one normalized identity, and
+    // each of them gets its own entry.
     private static IReadOnlyDictionary<string, CutLabDecideComboBadgeDto> BuildComboBadgeByCardName(
+        IReadOnlyList<CutLabPoolCard> pool,
         IReadOnlyDictionary<string, CutLabCardComboMembership> cardComboMembership)
     {
-        Dictionary<string, CutLabDecideComboBadgeDto> comboBadgeByCardName = new(CutLabCardNames.Comparer);
+        Dictionary<string, CutLabDecideComboBadgeDto> comboBadgeByCardName = new(StringComparer.Ordinal);
 
-        foreach ((string normalizedCardName, CutLabCardComboMembership membership) in cardComboMembership)
+        foreach (CutLabPoolCard card in pool)
         {
-            if (membership.CompleteCombos.Count > 0)
+            if (comboBadgeByCardName.ContainsKey(card.Name)
+                || !cardComboMembership.TryGetValue(CutLabCardNames.Normalize(card.Name), out CutLabCardComboMembership? membership))
             {
-                comboBadgeByCardName[normalizedCardName] = new CutLabDecideComboBadgeDto
-                {
-                    BadgeState = ComboBadgeState.CompletePiece,
-                    Context = JoinCardNames(
-                        membership.CompleteCombos
-                            .SelectMany(combo => combo.Results)
-                            .Distinct(StringComparer.OrdinalIgnoreCase)
-                            .OrderBy(result => result, StringComparer.OrdinalIgnoreCase)
-                            .ToArray()),
-                };
                 continue;
             }
 
-            if (membership.NearCombos.Count > 0)
+            CutLabDecideComboBadgeDto? badge = BuildComboBadge(membership);
+            if (badge is not null)
             {
-                comboBadgeByCardName[normalizedCardName] = new CutLabDecideComboBadgeDto
-                {
-                    BadgeState = ComboBadgeState.NeedsPartner,
-                    Context = $"Needs {JoinCardNames(membership.NearCombos.Select(combo => combo.MissingCard).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(cardName => cardName, StringComparer.OrdinalIgnoreCase).ToArray())}",
-                };
+                comboBadgeByCardName[card.Name] = badge;
             }
         }
 
         return comboBadgeByCardName;
+    }
+
+    private static CutLabDecideComboBadgeDto? BuildComboBadge(CutLabCardComboMembership membership)
+    {
+        if (membership.CompleteCombos.Count > 0)
+        {
+            return new CutLabDecideComboBadgeDto
+            {
+                BadgeState = ComboBadgeState.CompletePiece,
+                Context = JoinCardNames(
+                    membership.CompleteCombos
+                        .SelectMany(combo => combo.Results)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .OrderBy(result => result, StringComparer.OrdinalIgnoreCase)
+                        .ToArray()),
+            };
+        }
+
+        if (membership.NearCombos.Count > 0)
+        {
+            return new CutLabDecideComboBadgeDto
+            {
+                BadgeState = ComboBadgeState.NeedsPartner,
+                Context = $"Needs {JoinCardNames(membership.NearCombos.Select(combo => combo.MissingCard).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(cardName => cardName, StringComparer.OrdinalIgnoreCase).ToArray())}",
+            };
+        }
+
+        return null;
     }
 
     private static WorkingListProjection BuildWorkingListProjection(CutLabState state)

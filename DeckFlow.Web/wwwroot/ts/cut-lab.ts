@@ -2313,6 +2313,14 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         const groupElement = document.createElement('div');
         groupElement.className = 'cutlab-finding';
         groupElement.appendChild(createTextElement('p', 'cutlab-finding__heading', group.heading));
+        if (group.kind === 'FunctionalTwins') {
+          // Copy must stay character-identical to the Razor twins help note in CutLab.cshtml.
+          groupElement.appendChild(createTextElement(
+            'p',
+            'manabase-help',
+            'These cards fill the same role at the same mana value with the same card type, so they compete for one slot. The costliest group is listed first, and a card here may also be combo-protected.',
+          ));
+        }
 
         group.items.forEach(item => {
           const itemElement = document.createElement('div');

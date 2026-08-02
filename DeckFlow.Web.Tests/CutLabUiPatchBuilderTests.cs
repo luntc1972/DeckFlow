@@ -235,9 +235,9 @@ public sealed class CutLabUiPatchBuilderTests
         Assert.Equal("Combo-protected cards", comboGroup.Heading);
         CutLabDecideFindingDto comboFinding = Assert.Single(comboGroup.Items);
         Assert.Equal(["Heliod, Sun-Crowned · MV 3", "Walking Ballista · MV 4"], comboFinding.Evidence);
-        Assert.Equal(ComboBadgeState.CompletePiece, patch.ComboBadgeByCardName[CutLabCardNames.Normalize("Heliod, Sun-Crowned")].BadgeState);
-        Assert.Equal("Infinite damage", patch.ComboBadgeByCardName[CutLabCardNames.Normalize("Heliod, Sun-Crowned")].Context);
-        Assert.Equal(ComboBadgeState.CompletePiece, patch.ComboBadgeByCardName[CutLabCardNames.Normalize("Walking Ballista")].BadgeState);
+        Assert.Equal(ComboBadgeState.CompletePiece, patch.ComboBadgeByCardName["Heliod, Sun-Crowned"].BadgeState);
+        Assert.Equal("Infinite damage", patch.ComboBadgeByCardName["Heliod, Sun-Crowned"].Context);
+        Assert.Equal(ComboBadgeState.CompletePiece, patch.ComboBadgeByCardName["Walking Ballista"].BadgeState);
     }
 
     /// <summary>
@@ -285,9 +285,9 @@ public sealed class CutLabUiPatchBuilderTests
             state.Intent.PlayExperience,
             ["Commander"]);
 
-        Assert.Equal(ComboBadgeState.NeedsPartner, patch.ComboBadgeByCardName[CutLabCardNames.Normalize("Demonic Consultation")].BadgeState);
-        Assert.Equal("Needs Thassa's Oracle", patch.ComboBadgeByCardName[CutLabCardNames.Normalize("Demonic Consultation")].Context);
-        Assert.Equal(ComboBadgeState.NeedsPartner, patch.ComboBadgeByCardName[CutLabCardNames.Normalize("Tainted Pact")].BadgeState);
+        Assert.Equal(ComboBadgeState.NeedsPartner, patch.ComboBadgeByCardName["Demonic Consultation"].BadgeState);
+        Assert.Equal("Needs Thassa's Oracle", patch.ComboBadgeByCardName["Demonic Consultation"].Context);
+        Assert.Equal(ComboBadgeState.NeedsPartner, patch.ComboBadgeByCardName["Tainted Pact"].BadgeState);
     }
 
     [Fact]
@@ -800,6 +800,85 @@ public sealed class CutLabUiPatchBuilderTests
             candidate => candidate.ServiceType == typeof(ICutLabUiPatchBuilder));
         Assert.Equal(typeof(CutLabUiPatchBuilder), descriptor.ImplementationType);
         Assert.Equal(ServiceLifetime.Scoped, descriptor.Lifetime);
+    }
+
+    [Fact]
+    public void BuildComboBadgeByCardName_UsesRawMixedCasePunctuatedPoolName()
+    {
+        IReadOnlyList<CutLabPoolCard> pool =
+        [
+            Card("Commander", quantity: 1, isCommander: true, isLocked: true),
+            Card("Heliod, Sun-Crowned"),
+            Card("Walking Ballista"),
+        ];
+
+        IReadOnlyDictionary<string, CutLabDecideComboBadgeDto> badges = InvokeBuildComboBadgeByCardName(
+            pool,
+            CompleteComboMembership("Heliod, Sun-Crowned", "Walking Ballista"));
+
+        Assert.True(badges.ContainsKey("Heliod, Sun-Crowned"));
+        Assert.Equal(ComboBadgeState.CompletePiece, badges["Heliod, Sun-Crowned"].BadgeState);
+        Assert.Equal("Infinite damage", badges["Heliod, Sun-Crowned"].Context);
+        Assert.False(badges.ContainsKey(CutLabCardNames.Normalize("Heliod, Sun-Crowned")));
+    }
+
+    [Fact]
+    public void BuildComboBadgeByCardName_EmitsEachRawDfcForm()
+    {
+        IReadOnlyList<CutLabPoolCard> pool =
+        [
+            Card("Malakir Rebirth // Malakir Mire"),
+            Card("Malakir Rebirth"),
+            Card("Walking Ballista"),
+        ];
+
+        IReadOnlyDictionary<string, CutLabDecideComboBadgeDto> badges = InvokeBuildComboBadgeByCardName(
+            pool,
+            CompleteComboMembership("Malakir Rebirth", "Walking Ballista"));
+
+        Assert.True(badges.ContainsKey("Malakir Rebirth // Malakir Mire"));
+        Assert.True(badges.ContainsKey("Malakir Rebirth"));
+        Assert.Equal(ComboBadgeState.CompletePiece, badges["Malakir Rebirth // Malakir Mire"].BadgeState);
+        Assert.Equal(ComboBadgeState.CompletePiece, badges["Malakir Rebirth"].BadgeState);
+    }
+
+    [Fact]
+    public void BuildComboBadgeByCardName_PreservesDistinctRawPoolNamesThatDifferOnlyByCase()
+    {
+        IReadOnlyList<CutLabPoolCard> pool =
+        [
+            Card("Walking Ballista"),
+            Card("walking ballista"),
+        ];
+
+        IReadOnlyDictionary<string, CutLabDecideComboBadgeDto> badges = InvokeBuildComboBadgeByCardName(
+            pool,
+            CompleteComboMembership("Walking Ballista", "Heliod, Sun-Crowned"));
+
+        Assert.True(badges.ContainsKey("Walking Ballista"));
+        Assert.True(badges.ContainsKey("walking ballista"));
+        Assert.Equal(2, badges.Count);
+    }
+
+    private static IReadOnlyDictionary<string, CutLabDecideComboBadgeDto> InvokeBuildComboBadgeByCardName(
+        IReadOnlyList<CutLabPoolCard> pool,
+        IReadOnlyDictionary<string, CutLabCardComboMembership> cardComboMembership)
+    {
+        MethodInfo method = typeof(CutLabUiPatchBuilder).GetMethod("BuildComboBadgeByCardName", BindingFlags.NonPublic | BindingFlags.Static)!;
+        return Assert.IsAssignableFrom<IReadOnlyDictionary<string, CutLabDecideComboBadgeDto>>(
+            method.Invoke(null, [pool, cardComboMembership]));
+    }
+
+    private static IReadOnlyDictionary<string, CutLabCardComboMembership> CompleteComboMembership(params string[] cardNames)
+    {
+        SpellbookCombo combo = new(cardNames, ["Infinite damage"], "Remove a counter to loop.");
+        Dictionary<string, CutLabCardComboMembership> cardComboMembership = new(CutLabCardNames.Comparer);
+        foreach (string cardName in cardNames)
+        {
+            cardComboMembership[CutLabCardNames.Normalize(cardName)] = new CutLabCardComboMembership([combo], []);
+        }
+
+        return cardComboMembership;
     }
 
     private static CutLabViewModel BuildViewModel(

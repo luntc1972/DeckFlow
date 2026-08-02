@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using DeckFlow.Web.Controllers;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.CutLab;
+using DeckFlow.Web.Services.CutLab;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -147,6 +148,120 @@ public sealed class CutLabViewRenderTests
         Assert.Contains("aria-label=\"Relentless Rats is locked - unlock it to adjust quantity\"", tunerRowHtml, StringComparison.Ordinal);
         Assert.Equal(2, CountOccurrences(tunerRowHtml, "data-cut-lab-card=\"Relentless Rats\""));
         Assert.Equal(2, CountOccurrences(tunerRowHtml, "title=\"Relentless Rats is locked - unlock it to adjust quantity\""));
+    }
+
+    [Fact]
+    public async Task RenderAsync_NormalizedComboBadgeKey_RendersComboBadgeForMixedCasePunctuatedTwinName()
+    {
+        var model = BuildTwinBadgeModel(
+            cardTextByCardName: new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase));
+
+        string html = await RenderAsync(model);
+
+        Assert.Contains("cutlab-combo-badge", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RenderAsync_NormalizedComboBadgeKey_AttachesComboContextToRawCardTextEntry()
+    {
+        var model = BuildTwinBadgeModel(
+            cardTextByCardName: new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase)
+            {
+                [HeliodRawName] = new CutLabCardTextView { OracleText = "Whenever you gain life, put a counter." },
+            });
+
+        string html = await RenderAsync(model);
+
+        Assert.Contains(
+            "\"Heliod, Sun-Crowned\":{\"oracleText\":\"Whenever you gain life, put a counter.\",\"comboContext\":\"Infinite damage\"}",
+            html,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain($"\"{HeliodNormalizedName}\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RenderAsync_NormalizedComboBadgeKey_AttachesComboContextToRawPoolCardWithoutCardText()
+    {
+        var model = BuildTwinBadgeModel(
+            cardTextByCardName: new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase));
+
+        string html = await RenderAsync(model);
+
+        Assert.Contains(
+            "\"Heliod, Sun-Crowned\":{\"comboContext\":\"Infinite damage\"}",
+            html,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain($"\"{HeliodNormalizedName}\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RenderAsync_FunctionalTwinsSection_RendersTheHelpNoteCopyVerbatim()
+    {
+        var model = BuildTwinBadgeModel(
+            cardTextByCardName: new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase));
+
+        string html = await RenderAsync(model);
+
+        // Why: the AJAX re-render in wwwroot/ts/cut-lab.ts emits this same sentence, and
+        // cut-lab-structural-cardtext.test.ts pins the TypeScript copy. Only the TypeScript side was
+        // pinned, so mutating the Razor string alone left every C# and vitest test green and the two
+        // copies silently drifted apart. This assertion pins the Razor side, so a one-sided edit to
+        // EITHER file now fails. Assert the full sentence, not a prefix: a prefix check would not
+        // catch drift in the tail (the "combo-protected" clause).
+        Assert.Contains(
+            "<p class=\"manabase-help\">These cards fill the same role at the same mana value with the same card type, so they compete for one slot. The costliest group is listed first, and a card here may also be combo-protected.</p>",
+            html,
+            StringComparison.Ordinal);
+    }
+
+    private const string HeliodRawName = "Heliod, Sun-Crowned";
+
+    private static readonly string HeliodNormalizedName = CutLabCardNames.Normalize(HeliodRawName);
+
+    private static CutLabViewModel BuildTwinBadgeModel(IReadOnlyDictionary<string, CutLabCardTextView> cardTextByCardName)
+    {
+        var twinFinding = new CutLabFindingView
+        {
+            Kind = CutLabFindingKind.FunctionalTwins,
+            Heading = "Functional twins",
+            Lead = "Three enchantments share mana value 3 in wincons.",
+            Evidence = [HeliodRawName],
+        };
+
+        return new CutLabViewModel
+        {
+            ActiveTab = DeckPageTab.CutLab,
+            HasResult = true,
+            IsLegal = true,
+            Pool =
+            [
+                new CutLabPoolCard
+                {
+                    Name = HeliodRawName,
+                    Quantity = 1,
+                    TypeLine = "Legendary Enchantment Creature — God",
+                },
+            ],
+            Findings = [twinFinding],
+            FindingGroups =
+            [
+                new CutLabFindingGroupView
+                {
+                    Kind = CutLabFindingKind.FunctionalTwins,
+                    Heading = "Functional twins",
+                    Items = [twinFinding],
+                },
+            ],
+            CardTextByCardName = cardTextByCardName,
+            ComboBadgeByCardName = new Dictionary<string, CutLabComboBadgeView>(StringComparer.Ordinal)
+            {
+                [HeliodNormalizedName] = new CutLabComboBadgeView
+                {
+                    BadgeState = ComboBadgeState.CompletePiece,
+                    Context = "Infinite damage",
+                },
+            },
+        };
     }
 
     private static async Task<string> RenderAsync(CutLabViewModel model)
