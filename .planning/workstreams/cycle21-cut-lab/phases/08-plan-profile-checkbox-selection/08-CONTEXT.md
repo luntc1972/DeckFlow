@@ -140,8 +140,9 @@ and touches the same two files Phase 7 rewrites (`CutLab.cshtml`, `wwwroot/ts/cu
   — adoption record and sequencing.
 
 ### Code surfaces named by the spec
-- `DeckFlow.Web/Services/CutLab/CutLabState.cs` (line ~189) — `CutLabIntent`, where
-  `CutLabPlanProfile` lands; session-state serialization.
+- `DeckFlow.Web/Models/CutLab/CutLabState.cs` (line 189, verified) — `CutLabIntent`, where
+  `CutLabPlanProfile` lands; session-state serialization. (The design spec says
+  `Services/CutLab/` — that path is wrong; the state model lives under `Models/CutLab/`.)
 - `DeckFlow.Web/Services/CutLab/CutLabFloorRules.cs` (line ~150) and
   `DeckFlow.Web/Services/CutLab/CutLabFloorResolver.cs` (line ~52) — the two consumers
   proving `PrimaryPlan`/`SecondaryPlan` are inert; floor clamp validation.
