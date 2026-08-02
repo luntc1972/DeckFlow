@@ -3,12 +3,13 @@
 **Workstream:** `cycle21-cut-lab` (branch `gsd/cycle21-cut-lab`, isolated worktree at `../deckflow-role-floors`)
 **Core Value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip, without the user reformatting anything.
 
-Nine phases (two inserted: 01.1 and 01.2, both classifier-defect repairs that gate Phase 2's
-measurement validity; Phase 6 inserted 2026-08-01; Phase 7 adopted 2026-08-02). Phase 3 is
-conditional on Phase 2's findings. Phases 4, 5 and 6 are independent of everything else and can run
-in parallel with the 1→01.1→01.2→2→3 spine. **Phase 7 is the one phase gated on another phase's
-plan rather than on a whole phase** — it must follow `04-04`, which rewrites the same two Cut Lab
-files (`CutLab.cshtml`, `wwwroot/ts/cut-lab.ts`) that Phase 7 reorders.
+Ten phases (two inserted: 01.1 and 01.2, both classifier-defect repairs that gate Phase 2's
+measurement validity; Phase 6 inserted 2026-08-01; Phase 7 adopted 2026-08-02; Phase 8 adopted
+2026-08-02). Phase 3 is conditional on Phase 2's findings. Phases 4, 5 and 6 are independent of
+everything else and can run in parallel with the 1→01.1→01.2→2→3 spine. **Phase 7 is gated on
+another phase's plan rather than on a whole phase** — it must follow `04-04`, which rewrites the
+same two Cut Lab files (`CutLab.cshtml`, `wwwroot/ts/cut-lab.ts`) that Phase 7 reorders. Phase 8's
+engine work is independent; its plan-panel UI plan is gated on Phase 7 for the same two files.
 
 ## Phases
 
@@ -20,7 +21,8 @@ files (`CutLab.cshtml`, `wwwroot/ts/cut-lab.ts`) that Phase 7 reorders.
 - [ ] **Phase 4: Functional-Twins Detector (INDEPENDENT)** - Add the first discriminating structural finding: cards competing for the same slot at the same cost.
 - [ ] **Phase 5: Archidekt Bracket Capture (INDEPENDENT, non-gating)** - Capture the bracket already present on the Archidekt deck payload so a future commander × bracket analysis is possible.
 - [ ] **Phase 6: Scryfall Throughput (INSERTED 2026-08-01, INDEPENDENT)** - Restore the 200ms pacing floor behind an adaptive degrade to 500ms on observed rate limiting, and batch the per-miss fallback into one `cards/search` OR-query so a miss-heavy import costs one request instead of N.
-- [ ] **Phase 7: Cut Lab Workflow UX (ADOPTED 2026-08-02, GATED ON PLAN 04-04)** - Make Cut Lab's primary navigation work, reorder the document into workflow order, and bring the decide loop onto the first screen instead of 87% down the page. Measured defects: all four step tabs inert at import time, Export rendered 1,544px above Decide, 10,453px desktop / 15,896px mobile on a 17-row pool. Excludes the cut engine, the metrics, proposal ordering and every API contract.
+- [ ] **Phase 7: Cut Lab Workflow UX (ADOPTED 2026-08-02, GATED ON PLAN 04-04)** - Make Cut Lab's primary navigation work, reorder the document into workflow order, and bring the decide loop onto the first screen instead of 87% down the page. Measured defects: all four step tabs inert at import time, Export rendered 1,544px above Decide, 10,453px desktop / 15,896px mobile on a 17-row pool. Excludes the cut engine, the metrics, proposal ordering and every API contract. **Must reserve an empty wizard step slot for Phase 8's plan panel** so Phase 8's UI inserts without restructuring the wizard.
+- [ ] **Phase 8: Plan Profile — Checkbox Plan Selection (ADOPTED 2026-08-02)** - Replace the deterministically-inert free-text `PrimaryPlan`/`SecondaryPlan` with a machine-readable plan: fixed generic strategy checkboxes + commander-specific EDHREC themes (`$.panels.taglinks`), driving four engine effects — protect on-plan cards, reorder proposals (off-plan first), plan→floor deltas, and a "stranded off-plan package" finding. Design spec: `.planning/specs/2026-08-02-cutlab-plan-profile-design.md` (research-validated 2026-08-02; no deterministic competitor exists). Engine plans independent/parallel; plan-panel UI plan gated on Phase 7.
 
 ## Execution Order
 
@@ -32,6 +34,8 @@ Phase 5 ────────────────────────
 Phase 6 ────────────────────────────────────────────▶  (parallel, no dependencies; wave 1 ──▶ wave 2)
 
 Phase 4 ──▶ plan 04-04 ──▶ Phase 7   (Phase 7 is gated on 04-04, not on all of Phase 4)
+Phase 8 (engine plans) ─────────────────────────────▶  (parallel, no dependencies)
+Phase 7 ──▶ Phase 8 (plan-panel UI plan only)          (same two files as Phase 7's reorder)
 ```
 
 Phase 1 **must** precede Phase 2: Phase 2 reports spread per role, and `interaction` is one of the
@@ -56,6 +60,7 @@ moment they are green; 3 waits only on 2's verdict.
 | 3. Commander floors | Yes — role-floor UI gains a commander column | Own release, gated on Phase 2 = go. Consider a dedicated flag so it can deploy dark and flip after UAT. |
 | 4. Functional twins | Yes — new structural finding, changes proposal order | Own release. **Recommend a dedicated flag** — this one changes which card is proposed next, the highest-blast-radius behavior change in the cycle. Deploy dark, flip after UAT on a real pool. |
 | 5. Bracket capture | No — harvest/schema only | Deploy with the next release; no flag needed. Coverage builds from the deploy date forward. |
+| 8. Plan profile | Yes — new plan panel, changes protection/ordering/floors/findings | Phased internally (P1 generic+protect/reorder → P2 EDHREC themes → P3 floors+finding); each ships behind `tool.cut-lab.enabled` (tool still dark). Same blast-radius class as Phase 4 — if it lands after the prod flip, give it a dedicated flag. |
 
 Consequence for sequencing: because Phase 4 is independent and separately releasable, it can ship
 before the research spine finishes. If Phase 2 returns no-go, Phase 4 is still the cycle's headline.
