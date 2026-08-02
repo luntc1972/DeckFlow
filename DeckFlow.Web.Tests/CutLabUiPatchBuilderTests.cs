@@ -821,7 +821,8 @@ public sealed class CutLabUiPatchBuilderTests
             workingList,
             context,
             floorByRole,
-            state.Decisions);
+            state.Decisions,
+            twinsEnabled: false);
         CutLabProposalDeltas? deltas = roundPlan.NextProposal is null
             ? null
             : simulationService.ComputeProposalDeltas(
@@ -856,7 +857,11 @@ public sealed class CutLabUiPatchBuilderTests
         => new(
             contextBuilder,
             simulationService ?? new FakeSimulationService(),
-            floorResolver ?? CreateFloorResolver());
+            floorResolver ?? CreateFloorResolver(),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [CutLabStructuralFindings.FunctionalTwinsFlagKey] = false,
+            }));
 
     private static ICutLabFloorResolver CreateFloorResolver()
         => new CutLabFloorResolver(null, null, null, null);
