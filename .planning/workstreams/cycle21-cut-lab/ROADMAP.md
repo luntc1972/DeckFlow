@@ -462,6 +462,26 @@ loop into a single OR query: `q=!"A" or !"B" or !"C"`.
   5. Overlapping selections compose as union (protection), max (floor deltas per role), additive-with-cap (ordering weights) — each proven by a test that mutates the constant.
   6. The "stranded off-plan package" finding fires at the threshold boundary and phrases its message against the user's selection.
 
+**Plans:** 8 plans (6 waves)
+- [ ] `08-01-PLAN.md` — `CutLabPlanProfile` on the serialized intent plus the twelve-strategy catalog and role-proxy table in Core.
+- [ ] `08-02-PLAN.md` — `CutLabPlanAffinityResolver`: union membership, capped additive ordering score, DFC-aware matching.
+- [ ] `08-03-PLAN.md` — `EdhrecCommanderThemeService`: RestSharp + Polly v8 fetch, 403 fail-open, etag disk cache, theme preselector.
+- [ ] `08-04-PLAN.md` — plan→floor-delta table with max-per-role composition, clamped, reported as a separate `PlanDelta`.
+- [ ] `08-05-PLAN.md` — off-plan-first proposal ordering in rounds 1-3 and the stranded-off-plan-package detector.
+- [ ] `08-06-PLAN.md` — `CutLabPlanAffinityFactory` wiring the page, AJAX patch and decide-API paths to the resolver.
+- [ ] `08-07-PLAN.md` — the plan panel: request contract, Razor markup, TypeScript state, `site-common.css` layout, six e2e specs migrated off the removed field. **GATED ON PHASE 7.**
+- [ ] `08-08-PLAN.md` — two-viewport Playwright pass over the panel plus the blocking human-verify checkpoint. `autonomous: false`. **GATED ON PHASE 7** via `08-07`.
+
+Wave 1 is `08-01` alone — every other plan reads its two contracts. Wave 2 races `08-02`, `08-03` and `08-04`,
+which share no files. Waves 3 and 4 are sequential on `CutLabCutRoundEngine.cs` then `CutLabPageService.cs`.
+Waves 5 and 6 are the UI, gated on Phase 7's reserved wizard slot.
+
+⚠ **Source correction found during planning:** the design spec, `08-CONTEXT.md`, `08-RESEARCH.md` and
+`08-PATTERNS.md` all say the reorder effect lands in `CutLabNextProposalBuilder`. That file is 40 lines and
+contains no ranking — it builds a DTO from an already-selected proposal. Proposal ordering lives in
+`CutLabCutRoundEngine.BuildQueue` (`CutLabCutRoundEngine.cs:266-332`), where `ComboProtectionRank` is the
+leading sort key. Plan `08-05` carries the correction.
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -474,7 +494,8 @@ loop into a single OR query: `q=!"A" or !"B" or !"C"`.
 | 4. Functional-Twins Detector | 3/4 | **Executing** — plans CONVERGED at round 12; `04-01` (`518d7d83`), `04-02` (`dbd46e94`) and `04-03` (`b508f27e`) committed and on `main`. `04-04` remains and is `autonomous: false` (human UI checkpoint). A Codex review of `b508f27e` is owed — the one plan Codex did not write | - |
 | 5. Archidekt Bracket Capture | 0/3 | Planned, not started — review at round 9 with 1 HIGH open (over-permissive TRX regex) | - |
 | 6. Scryfall Throughput | 0/TBD | Not started (inserted 2026-08-01; 2 waves — adaptive pacing, then fallback batching) | - |
-| 7. Cut Lab Workflow UX | 0/6 | Not started (adopted 2026-08-02 from the unregistered root phase 116). **Gated on plan `04-04`**, which rewrites the same two files. D-1 (step model: option 1, 2 or 3) is open and gates `07-05` | - |
+| 7. Cut Lab Workflow UX | 0/6 | Not started (adopted 2026-08-02 from the unregistered root phase 116). **Gated on plan `04-04`**, which rewrites the same two files. D-1 (step model: option 1, 2 or 3) is open and gates `07-05` |
+| 8. Plan Profile — Checkbox Plan Selection | 0/8 | Planned 2026-08-02, not started. 6 waves. Engine plans `08-01`..`08-06` are independent of Phase 7; `08-07` and `08-08` are **gated on Phase 7**'s reserved wizard slot. `08-08` is `autonomous: false` (human UI checkpoint at 2 viewports) | - |
 
 ---
 
