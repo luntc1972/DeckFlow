@@ -91,6 +91,9 @@ and touches the same two files Phase 7 rewrites (`CutLab.cshtml`, `wwwroot/ts/cu
   list, never freeform — prior-art rule; undocumented labels are TappedOut's top
   complaint).
 - Proposals and findings cite the plan ("off-plan: supports Tokens — unchecked").
+  **Interpretation confirmed by user 2026-08-02:** the stranded-package finding IS the
+  citation mechanism. A 1-3-card off-plan group reorders first without a per-card chip;
+  only ≥threshold groups produce the visible citation. Deliberate, not a gap.
 - Layout CSS in `site-common.css` (guild-theme constraint); both viewport classes tested.
 
 ### Error handling
