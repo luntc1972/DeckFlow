@@ -802,6 +802,16 @@ A persistent theme picker in the shared layout lets users switch between visual 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
 ### Unreleased
+
+Site-wide UI fixes (batch A of the 2026-08-02 UI audit), affecting every page:
+- **Branded 404 and 403 pages:** a mistyped URL or a flag-gated route now renders the DeckFlow error page with "Page not found" copy and a link back to the tool list, instead of the bare framework error page. `/api/*` responses are unchanged — they still return an empty body so JSON callers do not receive HTML.
+- **Landing-page tiles show their real icons:** Deck History, Ask a Judge, and Category Suggestions were rendering a generic "?" glyph. The landing page also gains the `<h1>` it never had.
+- **Workflow step tabs are usable on phones:** each step tab now carries its own accessible name (the visible label is hidden below 600px), and steps you have not reached yet stay keyboard-reachable instead of dropping out of arrow-key traversal.
+- **Feedback form validates before submitting:** the required message, 10-character minimum, and email format are now checked in the browser rather than costing a server round trip.
+- **Deck Primer "Start Over" works:** it previously cleared the carried deck without resetting the form or navigating. The primer also remembers its form state across reloads now.
+- **Mobile touch targets:** copy, share, feedback, AI-selector, and step-tab controls are all at least 44px, and the feedback fields no longer trigger iOS Safari's zoom-on-focus.
+- **cEDH Meta Gap:** the reference table scrolls horizontally instead of overflowing, and potential cuts with no reference-deck matches no longer print "found in 0 reference deck(s)".
+
 Cut Lab UAT follow-ups (post-2026.07.9), still behind the `tool.cut-lab.enabled` flag:
 - **Card popup:** clicking any card — a role pill, a findings chip, a pool-row name, or a cut proposal — opens a card popup showing that card's oracle text plus **Lock / Unlock** and **Close**. Card text is served from an in-page JSON island, so opening a card costs no extra request. Double-faced cards show the full front // back oracle text.
 - **Portable session transfer:** download the current Cut Lab session as a `.json` file, and load a session file to resume the same run on another device, reusing the scenario-restore path. Sessions stay on your machine; nothing is retained server-side.
