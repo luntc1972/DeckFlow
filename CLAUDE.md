@@ -16,7 +16,7 @@ DeckFlow is a Magic: The Gathering deck analysis tool for cEDH and Commander pla
 - **Public repo**: `luntc1972/DeckFlow` is public — no secrets in commits ever; secrets live in Render dashboard with `sync: false`
 - **Testing**: VSTest unreliable in WSL; rely on `dotnet build` clean + targeted manual harness or push-and-watch CI. **UI testing must NEVER open a browser on the Windows host** — start the web app with `scripts/run-web-test.sh` (or `.ps1`), which sets `DECKFLOW_DISABLE_AUTO_BROWSER=true` so the Development auto-launch is suppressed. Drive live UI checks with `npx --no-install playwright test` (WSL can run it) or a manually-opened browser against the headless server; do NOT rely on the WSL `gstack` headless daemon (observed unstable — crashes / won't follow form-POST navigation).
 - **Commits**: Plain default-author commits, no Co-Authored-By trailer; README updated when behavior changes; commit per logical change
-- **Formatting**: `.editorconfig` is the enforced, tool-agnostic source of truth and `.gitattributes` still enforces LF line endings. New and changed C# lines must satisfy the changed-lines gate locally (`git config core.hooksPath .githooks` opt-in, then the versioned pre-commit hook runs `scripts/format-check-changed.sh staged`) and in CI (`format-gate`, which is the authoritative enforcer). Existing files are not mass-reflowed; the gate is changed-lines-only, so when editing a file, touch only the lines that need touching. The five bug-driven carve-outs override any conflicting formatter preference: never auto-convert `{ get; init; }` to `{ get; }` (System.Text.Json silently skips get-only properties in .NET 9+ — has broken `EdhTop16Client` deserialization before), never inline `[Attribute]` onto the property line, never re-indent C# raw-string literals (changes the literal value shipped to the AI), preserve switch expressions, preserve xmldoc single-space indent, preserve LF line endings (`.gitattributes` enforces). The carve-outs live authoritatively in `.editorconfig` and are guarded by the `CarveOutGuard` test.
+- **Formatting**: `.editorconfig` is the enforced, tool-agnostic source of truth and `.gitattributes` pins line endings per type (LF by default; **CRLF for `.ps1`/`.psm1`/`.bat`/`.cmd`**). New and changed C# lines must satisfy the changed-lines gate locally (`git config core.hooksPath .githooks` opt-in, then the versioned pre-commit hook runs `scripts/format-check-changed.sh staged`) and in CI (`format-gate`, which is the authoritative enforcer). Existing files are not mass-reflowed; the gate is changed-lines-only, so when editing a file, touch only the lines that need touching. The five bug-driven carve-outs override any conflicting formatter preference: never auto-convert `{ get; init; }` to `{ get; }` (System.Text.Json silently skips get-only properties in .NET 9+ — has broken `EdhTop16Client` deserialization before), never inline `[Attribute]` onto the property line, never re-indent C# raw-string literals (changes the literal value shipped to the AI), preserve switch expressions, preserve xmldoc single-space indent, preserve each file's committed line endings (`.gitattributes` pins LF by default, CRLF for `.ps1`/`.psm1`/`.bat`/`.cmd`). The carve-outs live authoritatively in `.editorconfig` and are guarded by the `CarveOutGuard` test.
 <!-- GSD:project-end -->
 
 <!-- GSD:stack-start source:codebase/STACK.md -->
@@ -59,10 +59,12 @@ and `STRUCTURE.md`. Known issues: `CONCERNS.md`.
 
 ### Architectural Constraints — violating these causes real bugs
 
-- **`ScryfallThrottle`** (static `SemaphoreSlim`, `DeckFlow.Web/Services/ScryfallThrottle.cs`) wraps
+- **`ScryfallThrottle`** (static `SemaphoreSlim`, `DeckFlow.Web/Services/Scryfall/ScryfallThrottle.cs`) wraps
   **every** Scryfall call. Bypassing it has caused live Cloudflare IP blocks.
-- **`TaggerSessionCache` TTL (270s) MUST stay strictly below** `ScryfallTaggerHttpClient`
-  `SetHandlerLifetime` (5 min) — see `Program.cs:83-95`.
+- **`TaggerSessionCache` TTL (270s) MUST stay strictly below** the tagger handler lifetime (5 min).
+  Wired in `DeckFlow.Web/Extensions/HttpClientServiceCollectionExtensions.cs`
+  (`.SetHandlerLifetime(TaggerSessionCache.HandlerLifetime)`); guarded by
+  `DeckFlow.Web.Tests/Services/TaggerSessionCacheInvariantTests.cs`.
 - **`UseForwardedHeaders()` MUST run before** HTTPS redirect, security headers, and
   `SameOriginRequestValidator`, or scheme mismatch breaks the CSRF check.
 - **TS build coupling:** `tsc` runs on every build; `wwwroot/js/*.js` is **gitignored** — never stage
