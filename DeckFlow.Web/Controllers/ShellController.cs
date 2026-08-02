@@ -37,13 +37,17 @@ public sealed class ShellController : Controller
         return View("Home", DeckPageTab.Home);
     }
 
-    /// <summary>Gets the branded error page shown when an unhandled exception occurs.</summary>
+    /// <summary>
+    /// Gets the branded error page shown when an unhandled exception occurs, or when
+    /// <c>UseStatusCodePagesWithReExecute</c> re-runs the pipeline for a 404/403.
+    /// </summary>
+    /// <param name="code">The originating status code, supplied by the status-code-pages re-execute.</param>
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     [IgnoreAntiforgeryToken]
     [Route("Deck/Error")]
-    public IActionResult Error()
+    public IActionResult Error([FromQuery] int? code)
     {
-        return View("Error");
+        return View("Error", new ErrorPageModel { StatusCode = code });
     }
 
     /// <summary>
