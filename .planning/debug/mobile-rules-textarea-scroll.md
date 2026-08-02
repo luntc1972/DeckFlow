@@ -1,5 +1,5 @@
 ---
-status: investigating
+status: resolved
 trigger: "on the searching rules page on mobile the text area containing the full rules does not scroll, it used to can fix it and check to see if there are other errors, do not break anything"
 created: 2026-08-01
 updated: 2026-08-01
@@ -171,16 +171,71 @@ updated: 2026-08-01
 
 - branch: `fix/mobile-readonly-textarea-scroll` (uncommitted, pending user device test)
 
+## Follow-up: device UAT closed the open question, and reframed the fix
+
+**iOS device confirmation (2026-08-01, user on iPhone):** the box **does** touch-scroll.
+The suspected WebKit "readonly textareas do not touch-scroll" behavior is therefore NOT
+in play here — that hypothesis is eliminated. But the user reported the box was still
+too short to read comfortably: "with the small area it's hard to actually read because
+you are always scrolling."
+
+**Resolution: replace the control instead of resizing it.** The page already rendered
+its *summary* as `<pre id="mechanic-summary-output" class="oracle-text">` (line 48), and
+Card Lookup renders all rules text into `<pre class="cr-text">` / `<pre class="oracle-text">`
+(`wwwroot/ts/card-lookup.ts:274-277`) — never a textarea. `site-common.css:1390` already
+carries the shared, theme-safe rule block for these, headed "Card Lookup readability
+redesign (shared across all themes) ... auto-grow pre". The rules body was the only part
+of the page still on a fixed-height control.
+
+`MechanicLookup.cshtml:63` changed from
+`<textarea id="mechanic-rules-output" readonly spellcheck="false">` to
+`<pre id="mechanic-rules-output" class="oracle-text" spellcheck="false">`.
+
+Two facts made this a one-line change with no TypeScript work:
+- `copyElementValue` (`wwwroot/ts/deck-sync.ts:296-298`) already falls back to
+  `target.textContent ?? ''` for non-form elements, so the Copy button kept working.
+- Repo-wide, `mechanic-rules-output` had exactly two references, both in this view.
+
+`oracle-text` was chosen over `cr-text` because `.result-panel pre.cr-text`
+(site-common.css:1416) adds `padding: 2.5rem 1rem 0.75rem` to clear Card Lookup's
+*overlaid* icon copy button; Mechanic Rules puts Copy in the `.panel-heading`, so
+`cr-text` would have left a dead 2.5rem gap.
+
+Measured after the swap (live lookups against the running app):
+
+| engine / viewport | mechanic | height | inner scroll | h-overflow |
+|---|---|---|---|---|
+| chromium 390x844 | Prowess (248 chars) | 250px | none | none |
+| webkit iPhone 13 | Prowess | 250px | none | none |
+| chromium 1280 | Prowess | 146px | none | none |
+| webkit iPhone 13 | Landwalk (1060 chars) | 828px | none | none |
+| webkit, Abzan fork theme | Prowess / Landwalk | 250px / 828px | none | none |
+
+`clientHeight == scrollHeight` in every case, so there is no inner scrollbox left at all.
+Copy verified end-to-end in chromium: clipboard received all 248 chars and the button
+reported "Copied". The 12 fork themes' `.result-panel pre { min-height: 16rem }` does
+apply (computed `min-height: 240px` under Abzan) but is inert in practice, since even the
+shortest real section renders taller than that.
+
+The `textarea[readonly]` mobile rule from the original fix REMAINS correct and in force —
+it still governs the other 37 readonly output textareas across 12 other views.
+
+## Closed
+
+- **Local WebKit run — done.** WebKit was installed and the project ran. It immediately
+  earned its keep by catching a real, pre-existing iOS-only defect: `.prompt-step-footer`
+  overflowed the document by 12px on `/deck-analysis` because its buttons carry both
+  `white-space: nowrap` and `flex-shrink: 0` while the row never set `flex-wrap`. Fixed in
+  `c550391b`; `deck-analysis-mobile.spec.ts:41` went from failing 2 of 3 WebKit runs to
+  passing 3 of 3.
+- **Full CI-mode gate (`CI=1`, workers=1, retries=1, all three projects): 397 passed,
+  4 failed.** The 4 are the content-kb pair x 2 projects, a purely local artifact — those
+  tests carry `test.skip(count === 0, 'no KB entries seeded')` and self-skip against CI's
+  fresh database, which is why `main`'s CI history is green. Identical failure set before
+  and after every change in this session, so nothing here regressed anything.
+
 ## Still owed
 
-1. **iOS device confirmation.** Chromium proves the height defect and the fix. It cannot
-   prove whether iOS Safari additionally refuses to *touch*-scroll a readonly textarea.
-   If it does, 420px is a large improvement but the tail of very long rules text would
-   still be unreachable, and the control itself would need to change.
-2. **Local WebKit run.** The new `webkit-mobile` project also re-runs the existing tests
-   in `ui-responsive`, `sibling-pages-mobile`, and `deck-analysis-mobile` on WebKit, which
-   has never been exercised here. Those have NOT been run on WebKit yet — the browser
-   could not be installed on this box (`libwoff2dec`, `libhyphen`, `libmanette` missing).
-   Unblock with `sudo npx playwright install-deps webkit` in `DeckFlow.Web`, then
-   `npx playwright test --project=webkit-mobile`. Until that passes, the CI change is
-   unverified and could redden the pipeline.
+- Nothing blocking. The only unexercised path is a device re-check that the new
+  auto-growing `pre` reads well on a real iPhone once this reaches prod; the headless
+  WebKit measurements above show no inner scrollbox at any tested length or theme.

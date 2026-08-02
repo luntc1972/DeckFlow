@@ -60,7 +60,7 @@
                 </div>
                 <button type="button" class="copy-button" data-copy-target="mechanic-rules-output">Copy</button>
             </div>
-            <textarea id="mechanic-rules-output" readonly spellcheck="false">@Model.RulesText</textarea>
+            <pre id="mechanic-rules-output" class="oracle-text" spellcheck="false">@Model.RulesText</pre>
         </section>
 
         @if (!string.IsNullOrWhiteSpace(Model.RulesTextUrl))
