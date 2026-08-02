@@ -80,7 +80,7 @@ test('postback keeps the server-echoed deck instead of overwriting it from sessi
     inputSource: 'PasteText',
     deckUrl: '',
     deckText: storeValueDeck,
-  }]);
+  }] as const);
 
   // DeckConvert gives the simplest same-page POST rerender for asserting that
   // the echoed DeckText survives DOMContentLoaded without a second overwrite.
