@@ -559,3 +559,37 @@ that permits an unchanged proposal when a round assignment moved.
 ## Status
 
 Round 8 folded. No production code was changed by this documentation fold.
+
+---
+
+# Round 9 — 2026-08-01. Fold of renderer parity, duplicate tally, and fixture-count findings.
+# Verdict: FOLDED. 2 HIGH · 1 LOW.
+
+**HIGH-1 — the round-8 combo-badge repair covered Razor but not the AJAX renderer, and the AJAX
+renderer emitted no twins help note.** Folded as D-24 in `04-04`: `CutLab.cshtml` retains its normalized
+view-model lookup, while `CutLabUiPatchBuilder.BuildComboBadgeByCardName` re-keys normalized combo
+membership once server-side onto raw pool names with `StringComparer.OrdinalIgnoreCase`, matching
+`CardTextByCardName`. This emits an entry for each raw DFC form. By user decision on 2026-08-01, the
+reviewed proposal to port a normalizer into TypeScript was rejected: duplicating star stripping, `*f*`
+stripping, DFC splitting, punctuation collapse, and space collapse in a second language would drift
+silently. `cut-lab.ts` therefore receives no badge normalizer or badge lookup change. The review's
+prescribed TypeScript fixture change from raw to normalized key was deliberately not folded because it
+is wrong under the chosen raw-keyed DTO shape. Task 1 now also adds the identical `FunctionalTwins`
+`p.manabase-help` copy to `renderStructuralFindings`, a scoped vitest AJAX-survival test, the two C# DTO
+re-key mutation tests, the narrowed `wwwroot` scope fence, and live AJAX verification of both badge and
+help-note content.
+
+**HIGH-2 — D-23 could count one twins finding twice when duplicate raw pool entries share a tally
+key.** `04-03` now requires matching normalized targets to be deduplicated by raw name with
+`Distinct(StringComparer.OrdinalIgnoreCase)` before a tally increment. The named sibling test
+`BuildQueue_TwinsDuplicateRawPoolEntries_IncrementEachRawTallyOnce` asserts every resulting queue item
+has `FindingCount == 1`, not 2; it is required in the inventory gate and recorded as D-23 mutation
+proof.
+
+**LOW-1 — `BuildTimingFacts` is 147 cards, not approximately 130.** Every description of that specific
+fixture now says 147 cards and records its `1 + 40 + 20 + 20 + 25 + 24 + 17` composition. The planned
+diverse density fixture remains a 120-140-entry requirement.
+
+## Status
+
+Round 9 folded. No production code was changed by this documentation fold.
