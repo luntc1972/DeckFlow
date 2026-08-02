@@ -448,6 +448,20 @@ loop into a single OR query: `q=!"A" or !"B" or !"C"`.
   6. No regression for the other five Scryfall consumers — this is shared infrastructure, and Cut
      Lab's flag does **not** gate it.
 
+### Phase 8: Plan Profile — Checkbox Plan Selection (ADOPTED 2026-08-02)
+**Goal**: The user's deck plan is machine-readable — fixed generic strategy checkboxes plus commander-specific EDHREC themes — and the deterministic engine acts on it through all four effects: protect on-plan cards, reorder proposals (off-plan first), plan→floor deltas, and a "stranded off-plan package" finding.
+**Depends on**: Nothing for the engine plans (parallel-safe). The plan-panel UI plan is gated on **Phase 7** — it fills the wizard step slot Phase 7 reserves and edits the same two files (`CutLab.cshtml`, `wwwroot/ts/cut-lab.ts`).
+**Requirements**: PLPR-01..PLPR-06 (ratify into `REQUIREMENTS.md` before closeout)
+**Design authority**: `.planning/specs/2026-08-02-cutlab-plan-profile-design.md` (approved, research-validated 2026-08-02) and `phases/08-plan-profile-checkbox-selection/08-CONTEXT.md`, which is canonical for this phase.
+**Internal phasing** (from the spec): P1 `CutLabPlanProfile` + generic strategies + role-proxy resolver + protect/reorder (zero new HTTP) → P2 `EdhrecCommanderThemeService` + commander theme UI + pre-check → P3 floor deltas + off-plan finding detector. All behind the existing Cut Lab flag (prod OFF).
+**Success Criteria** (what must be TRUE):
+  1. `PrimaryPlan`/`SecondaryPlan` free text no longer appears in the intake form; in-flight sessions with the old fields still deserialize.
+  2. With zero checkboxes checked, engine output is byte-identical to today — every effect is a no-op, and the panel says so.
+  3. Checking a generic strategy protects its role-proxy cards (pushed to back of proposal queue, still cuttable), and off-plan cards surface first in Rounds 1/2/3.
+  4. Checking an EDHREC theme resolves membership from that theme's card lists, DFC-aware; a 403/unreachable EDHREC degrades to "commander themes unavailable" while generic strategies keep working.
+  5. Overlapping selections compose as union (protection), max (floor deltas per role), additive-with-cap (ordering weights) — each proven by a test that mutates the constant.
+  6. The "stranded off-plan package" finding fires at the threshold boundary and phrases its message against the user's selection.
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
