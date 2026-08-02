@@ -593,3 +593,35 @@ diverse density fixture remains a 120-140-entry requirement.
 ## Status
 
 Round 9 folded. No production code was changed by this documentation fold.
+
+---
+
+# Round 10 - 2026-08-01. Fold of the remaining D-24 renderer and DTO-contract findings.
+# Verdict: FOLDED. 2 HIGH.
+
+**HIGH-1 - the card-text JSON reader was still broken.** `CutLab.cshtml:234-275` builds
+`cardTextData` from the union of raw `CardTextByCardName` keys and normalized
+`ComboBadgeByCardName` keys. For `Heliod, Sun-Crowned`, that emitted both the raw and punctuation-free
+JSON keys, then attached `comboContext` only to the normalized entry; the TypeScript modal reads the raw
+entry and therefore misses the context. This reader had been incorrectly cleared as correct in round 9
+by both the reviewer and the fold brief on the reasoning that it "iterates dictionary keys." Round 10
+overturned that: it iterates the union of two dictionaries with different key conventions. Folded in
+`04-04` by requiring card-text JSON entries to come only from raw rendered pool/card-text names, the
+badge lookup to normalize `cardName`, and a render regression that asserts the raw Heliod JSON entry has
+`"comboContext":"Infinite damage"` with no punctuation-free duplicate key. The test is explicitly
+required to fail before the fix and was added to Task 1's inventory gate.
+
+**HIGH-2 - the DTO contract and stale existing test indexing contradicted the raw re-key.**
+`CutLabUiPatchDto.cs` still documented normalized keys and defaulted with `CutLabCardNames.Comparer`,
+which is `StringComparer.Ordinal`; it was absent from Task 1's file inventories. The builder instruction
+also permitted `workingList` despite the sibling `CardTextByCardName` using `state.Pool`, and the three
+pre-existing Heliod/Walking Ballista assertions indexed normalized keys that would throw after the re-key.
+Folded in `04-04` by adding the DTO file to both inventories; requiring
+`BuildComboBadgeByCardName(state.Pool, context.Classification.CardComboMembership)` with first parameter
+`pool`; requiring raw-rendered-pool-name xmldoc plus `StringComparer.OrdinalIgnoreCase` for both DTO and
+empty adjust-patch defaults; and directing the three existing assertions to use direct raw keys. The two
+round-9 DTO mutation tests and the four-case inventory-gate behavior remain unchanged.
+
+## Status
+
+Round 10 folded. No production code was changed by this documentation fold.
