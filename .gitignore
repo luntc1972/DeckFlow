@@ -46,3 +46,7 @@ archidekt-baseline-decks.json
 # dump + Scryfall card cache, regenerated every monthly refresh; only the derived artifacts under
 # DeckFlow.Web/Data/cedh-land-baseline/ are committed.
 _calib/
+
+# Python bytecode from the cEDH baseline scripts. Regenerated on every run and
+# interpreter-version specific, so it is pure churn in a diff.
+__pycache__/
