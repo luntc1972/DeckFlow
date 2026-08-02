@@ -3,9 +3,12 @@
 **Workstream:** `cycle21-cut-lab` (branch `gsd/cycle21-cut-lab`, isolated worktree at `../deckflow-role-floors`)
 **Core Value:** Every supported workflow must produce output the user can paste into ChatGPT/Claude/Gemini and get back a useful answer in one round-trip, without the user reformatting anything.
 
-Seven phases (two inserted: 01.1 and 01.2, both classifier-defect repairs that gate Phase 2's
-measurement validity). Phase 3 is conditional on Phase 2's findings. Phases 4 and 5 are independent
-of everything else and can run in parallel with the 1→01.1→01.2→2→3 spine.
+Nine phases (two inserted: 01.1 and 01.2, both classifier-defect repairs that gate Phase 2's
+measurement validity; Phase 6 inserted 2026-08-01; Phase 7 adopted 2026-08-02). Phase 3 is
+conditional on Phase 2's findings. Phases 4, 5 and 6 are independent of everything else and can run
+in parallel with the 1→01.1→01.2→2→3 spine. **Phase 7 is the one phase gated on another phase's
+plan rather than on a whole phase** — it must follow `04-04`, which rewrites the same two Cut Lab
+files (`CutLab.cshtml`, `wwwroot/ts/cut-lab.ts`) that Phase 7 reorders.
 
 ## Phases
 
@@ -17,6 +20,7 @@ of everything else and can run in parallel with the 1→01.1→01.2→2→3 spin
 - [ ] **Phase 4: Functional-Twins Detector (INDEPENDENT)** - Add the first discriminating structural finding: cards competing for the same slot at the same cost.
 - [ ] **Phase 5: Archidekt Bracket Capture (INDEPENDENT, non-gating)** - Capture the bracket already present on the Archidekt deck payload so a future commander × bracket analysis is possible.
 - [ ] **Phase 6: Scryfall Throughput (INSERTED 2026-08-01, INDEPENDENT)** - Restore the 200ms pacing floor behind an adaptive degrade to 500ms on observed rate limiting, and batch the per-miss fallback into one `cards/search` OR-query so a miss-heavy import costs one request instead of N.
+- [ ] **Phase 7: Cut Lab Workflow UX (ADOPTED 2026-08-02, GATED ON PLAN 04-04)** - Make Cut Lab's primary navigation work, reorder the document into workflow order, and bring the decide loop onto the first screen instead of 87% down the page. Measured defects: all four step tabs inert at import time, Export rendered 1,544px above Decide, 10,453px desktop / 15,896px mobile on a 17-row pool. Excludes the cut engine, the metrics, proposal ordering and every API contract.
 
 ## Execution Order
 
@@ -26,6 +30,8 @@ Phase 1 ──▶ Phase 01.1 ──▶ Phase 01.2 ──▶ Phase 2 ──▶ Ph
 Phase 4 ────────────────────────────────────────────▶  (parallel, no dependencies)
 Phase 5 ────────────────────────────────────────────▶  (parallel, no dependencies, backfills over time)
 Phase 6 ────────────────────────────────────────────▶  (parallel, no dependencies; wave 1 ──▶ wave 2)
+
+Phase 4 ──▶ plan 04-04 ──▶ Phase 7   (Phase 7 is gated on 04-04, not on all of Phase 4)
 ```
 
 Phase 1 **must** precede Phase 2: Phase 2 reports spread per role, and `interaction` is one of the
@@ -446,9 +452,10 @@ loop into a single OR query: `q=!"A" or !"B" or !"C"`.
 | 01.2. Protection-Vocabulary Widening | 0/TBD | Not started (inserted from 01.1 D-06) | - |
 | 2. Role-Floor Divergence Research | 11/11 | **Complete** — real run exit 0, 841 qualifying commanders. GO on ramp, draw, interaction-targeted, engines, payoffs, wincons; **lands PULLED** at the Task 4 checkpoint (the Postgres arm measures distinct land NAMES, not land count; colour count explains 54% of its variance). See `02-08-SUMMARY.md` | 2026-07-28 |
 | 3. Commander-Aware Floor Defaults | 7/7 | **Complete** — all 7 plans verified; `max(bracket, commander)` shipped with both numbers on screen. Snapshot: 678 commanders / 1463 adopted floors, independently recomputed from `RESEARCH-FINDINGS.json`. Task 4 human-verify approved. One WARNING-severity gap on the AJAX patch path (see `03-VERIFICATION.md`) | 2026-07-29 |
-| 4. Functional-Twins Detector | 0/TBD | Not started | - |
-| 5. Archidekt Bracket Capture | 0/TBD | Not started | - |
+| 4. Functional-Twins Detector | 3/4 | **Executing** — plans CONVERGED at round 12; `04-01` (`518d7d83`), `04-02` (`dbd46e94`) and `04-03` (`b508f27e`) committed and on `main`. `04-04` remains and is `autonomous: false` (human UI checkpoint). A Codex review of `b508f27e` is owed — the one plan Codex did not write | - |
+| 5. Archidekt Bracket Capture | 0/3 | Planned, not started — review at round 9 with 1 HIGH open (over-permissive TRX regex) | - |
 | 6. Scryfall Throughput | 0/TBD | Not started (inserted 2026-08-01; 2 waves — adaptive pacing, then fallback batching) | - |
+| 7. Cut Lab Workflow UX | 0/6 | Not started (adopted 2026-08-02 from the unregistered root phase 116). **Gated on plan `04-04`**, which rewrites the same two files. D-1 (step model: option 1, 2 or 3) is open and gates `07-05` | - |
 
 ---
 
@@ -462,6 +469,7 @@ loop into a single OR query: `q=!"A" or !"B" or !"C"`.
 | TWIN-01, TWIN-02, TWIN-03, TWIN-04 | Phase 4 | Pending |
 | BRKT-01, BRKT-02, BRKT-03 | Phase 5 | Pending |
 | SCRY-01, SCRY-02, SCRY-03, SCRY-04 | Phase 6 | **Gap** -- inserted 2026-08-01 by user decision; ratify into `REQUIREMENTS.md` before closeout |
+| CLUX-01 .. CLUX-08 | Phase 7 | **Gap** -- adopted 2026-08-02; the eight IDs are declared in the `07-0N-PLAN.md` frontmatter but do not exist in `REQUIREMENTS.md`. Ratify before closeout, same as SCRY-01..04 |
 | (none assigned) | Phase 01.1 | **Gap** -- inserted after REQUIREMENTS.md was written; see the Phase 01.1 block above |
 | (none assigned) | Phase 01.2 | **Gap** -- inserted 2026-07-27 from 01.1's D-06; ratify alongside CLSF-01/CLSF-02 |
 
