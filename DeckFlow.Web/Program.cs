@@ -216,6 +216,13 @@ public partial class Program
                 app.UseHsts();
             }
 
+            // UseExceptionHandler only covers thrown exceptions; a mistyped URL or a flag-gated
+            // 404 would otherwise render the bare framework page. Excluded for /api so JSON
+            // callers keep getting an empty 404 body instead of an HTML document.
+            app.UseWhen(
+                context => !context.Request.Path.StartsWithSegments("/api"),
+                branch => branch.UseStatusCodePagesWithReExecute("/Deck/Error", "?code={0}"));
+
             app.UseDeckFlowSecurityHeaders();
 
             app.UseHttpsRedirection();

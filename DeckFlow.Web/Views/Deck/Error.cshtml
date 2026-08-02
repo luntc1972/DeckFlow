@@ -1,12 +1,33 @@
+@model DeckFlow.Web.Models.ErrorPageModel
 @{
-    ViewData["Title"] = "Error — DeckFlow";
+    // _Layout appends " - DeckFlow", so the brand is deliberately absent here.
+    ViewData["Title"] = Model?.IsNotFound == true
+        ? "Page not found"
+        : Model?.IsForbidden == true
+            ? "Not available"
+            : "Error";
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
 <div class="content-shell">
     <div class="panel error-page__panel">
-        <h1 class="error-page__title">Something went wrong</h1>
-        <p>DeckFlow hit a snag — the error has been logged. Try again, or <a href="@Url.Action("Index", "Feedback")">send feedback</a> if it keeps happening.</p>
-        <p><a href="@Url.Action("Home", "Shell")">← Back to home</a></p>
+        @if (Model?.IsNotFound == true)
+        {
+            <h1 class="error-page__title">Page not found</h1>
+            <p>That URL doesn't match any DeckFlow tool. It may have moved, or the link may be mistyped.</p>
+            <p><a href="@Url.Action("Home", "Shell")">← Browse every tool from the home page</a></p>
+        }
+        else if (Model?.IsForbidden == true)
+        {
+            <h1 class="error-page__title">Not available</h1>
+            <p>That page isn't available to you — it may be turned off, or restricted.</p>
+            <p><a href="@Url.Action("Home", "Shell")">← Back to home</a></p>
+        }
+        else
+        {
+            <h1 class="error-page__title">Something went wrong</h1>
+            <p>DeckFlow hit a snag — the error has been logged. Try again, or <a href="@Url.Action("Index", "Feedback")">send feedback</a> if it keeps happening.</p>
+            <p><a href="@Url.Action("Home", "Shell")">← Back to home</a></p>
+        }
     </div>
 </div>
