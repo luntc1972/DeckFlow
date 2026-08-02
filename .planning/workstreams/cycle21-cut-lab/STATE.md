@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: Phase 4 — Functional-Twins Detector (plan-review convergence; 0 of 4 waves executed)
-current_plan: none executing — `04-01`..`04-04` are written but BLOCKED on review convergence
-status: plan_review
-stopped_at: Phase 4 round-4 findings folded (5172f6d9); round 5 and Phase 5's owed review dispatched
-last_updated: "2026-08-01T21:45:00.000Z"
-last_activity: 2026-08-01
+current_phase: Phase 4 — Functional-Twins Detector (CONVERGED round 12; 3 of 4 waves executed)
+current_plan: `04-04` — next to execute; `autonomous: false`, Task 3 is a human UI checkpoint
+status: executing
+stopped_at: 2026-08-02 — plan 04-03 executed, verified and committed; 04-04 remains
+last_updated: "2026-08-02T17:05:00.000Z"
+last_activity: 2026-08-02
 progress:
   total_phases: 8
   completed_phases: 4
   total_plans: 28
-  completed_plans: 21
-  percent: 50
+  completed_plans: 24
+  percent: 57
 ---
 
 > ⚠ **Corrected 2026-08-01. This file had been stale since 2026-07-29** and claimed Phase 3 was
@@ -102,9 +102,26 @@ PROJECT.md for history.
 
 ## Session Continuity
 
-**Stopped At:** Phase 4 plan-review convergence — round-4 findings folded, round 5 in flight
+**Stopped At:** 2026-08-02. Phase 4 plans CONVERGED at round 12 (`5246033e`); plans `04-01`
+(`476daf66`), `04-02` (`19fdce26`) and `04-03` executed and committed. `04-04` is next.
+
+`04-03` note: Codex `gpt-5.6-terra` wrote Tasks 1-2 and most of Task 3, then correctly returned
+BLOCKED rather than weakening the page-vs-patch parity assertion — but reported one failing test
+where there were four. Both defects were in the new test fixture, not production. The round-2 fix
+dispatch failed with `ERROR: Your workspace is out of credits`, and the operator authorized Claude
+to finish. **A Codex review of 04-03 is owed** and is the first in this phase whose code Codex did
+not write. Full run record was in `.foreman/ledger.md` (gitignored, local only).
 **Resume File:** `.planning/HANDOFF.json` — the authoritative live handoff. Read it before anything
 else; it carries the blockers, the dispatched-review state and the remaining milestone steps.
+
+**Owed on resume:**
+- `gsd/cycle21-cut-lab` is 4 ahead of origin (`476daf66`, `50830c6b`, `19fdce26`, `7b1ff22a`).
+  User pushes; AI does not. `main` is fully pushed (`4cadf943` landed).
+- Phase 5 round-9 HIGH still open: the round-8 TRX regex is too permissive. Fix is fully specified
+  in `HANDOFF.json` (exact `FullyQualifiedName=` filters, per-name counters, require 1/1/2).
+  Dispatch to Codex — hand-editing is what produced the defect.
+- `04-04` is `autonomous:false`; Task 3 is a human UI checkpoint at ~1440px and 390x844.
+  Ask permission before opening any browser.
 
 ## Accumulated Context
 
