@@ -38,9 +38,18 @@ committed and on `main`; only `04-04` remains. **Those SHAs are post-rebase**; t
 
 Phase 5 is planned and unexecuted with one open HIGH. **Phase 7 (Cut Lab Workflow UX) was adopted
 2026-08-02** with 6 plans, gated on plan `04-04`. **Phase 8 (Plan Profile — checkbox plan selection)
-was adopted 2026-08-02** — design spec at `.planning/specs/2026-08-02-cutlab-plan-profile-design.md`;
-engine plans parallel, plan-panel UI plan gated on Phase 7. Phases 01.2, 6 and 8 have not been
-started and have no plans.
+was adopted 2026-08-02 and PLANNED 2026-08-02** — 8 plans in 6 waves (`1a44879f`, checker pass
+0 BLOCK/0 HIGH, findings folded `f04f0154`). Design spec at
+`.planning/specs/2026-08-02-cutlab-plan-profile-design.md`; engine plans (08-01..08-06) parallel
+across waves 1-4; plan-panel UI plans (08-07, 08-08) gated on Phase 7.
+⚠ **Phase 8 planning happened on branch `feat/ui-audit-batch-a`** (the adoption commit `be421acd`
+only exists there) — the plan set is NOT on `gsd/cycle21-cut-lab` or `main` yet.
+⚠ **Codex plan review OWED for Phase 8** — user skipped it 2026-08-02 (checker-only accepted);
+run it before `/gsd:execute-phase 8`.
+Phase 8 planning notes: the reorder effect lands in `CutLabCutRoundEngine.BuildQueue`
+(`:266-332`, `ComboProtectionRank :483`), NOT `CutLabNextProposalBuilder` as the spec says — that
+file is a DTO mapper; and `CutLabIntent` lives at `DeckFlow.Web/Models/CutLab/CutLabState.cs:189`,
+not `Services/CutLab/`. Phases 01.2 and 6 have not been started and have no plans.
 
 **Current Phase:** Phase 4 — Functional-Twins Detector (executing, 3/4)
 **Last Activity:** 2026-08-02
