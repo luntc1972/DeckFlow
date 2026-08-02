@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cut Lab — Option 2: Soft fix</title>
+<link rel="stylesheet" href="http://localhost:5173/css/site-common.css" />
+<link rel="stylesheet" href="http://localhost:5173/css/site.css" />
+<link rel="stylesheet" href="http://localhost:5173/css/site-theme-overrides.css" />
+<link rel="stylesheet" href="http://localhost:5173/css/site-mobile.css" />
+<link rel="stylesheet" href="./mock-shared.css" />
+</head>
+<body>
+<div class="page-shell">
+  <main id="main-content" class="container">
+    <p class="mock-label">Option 2 — Soft fix: one page, DOM reordered, everything but the active section collapsed</p>
+
+    <section class="hero">
+      <h1>Cut Lab</h1>
+    </section>
+
+    <div class="cutlab-intake-summary">
+      <span class="cutlab-intake-summary__commander">Zur the Enchanter</span>
+      <span class="cutlab-intake-summary__facts">
+        <span>137 cards</span>
+        <span>·</span>
+        <span>B4 Optimized</span>
+        <span>·</span>
+        <span>Focused</span>
+        <span>·</span>
+        <span>Main 120 / Side 12 / Considering 5</span>
+      </span>
+      <a class="clear-cache-button cutlab-intake-summary__change" role="button" href="#">Change import</a>
+    </div>
+
+    <!-- Tabs stay, but they scroll + expand rather than hide. -->
+    <div class="prompt-step-nav" role="tablist" aria-label="Cut Lab workflow steps">
+      <button type="button" class="prompt-step-tab is-complete" role="tab" aria-selected="false" tabindex="-1"><span class="prompt-step-tab__num" aria-hidden="true">1</span><span class="prompt-step-tab__label">Process</span></button>
+      <button type="button" class="prompt-step-tab" role="tab" aria-selected="true" tabindex="0"><span class="prompt-step-tab__num" aria-hidden="true">2</span><span class="prompt-step-tab__label">Decide</span></button>
+      <button type="button" class="prompt-step-tab" role="tab" aria-selected="false" tabindex="-1"><span class="prompt-step-tab__num" aria-hidden="true">3</span><span class="prompt-step-tab__label">Goals</span></button>
+      <button type="button" class="prompt-step-tab is-disabled" role="tab" aria-selected="false" tabindex="-1" aria-disabled="true" disabled><span class="prompt-step-tab__num" aria-hidden="true">4</span><span class="prompt-step-tab__label">Export</span></button>
+    </div>
+
+    <div class="cutlab-progress">
+      <span class="cutlab-progress__headline">137 → 100</span>
+      <span class="cutlab-progress__bar"><span class="cutlab-progress__fill" style="width:32%"></span></span>
+      <span><strong>37</strong> to cut</span>
+      <span><strong>12</strong> cut</span>
+      <span><strong>26</strong> locked</span>
+      <span class="cutlab-progress__round">Round 2 · Structural choices</span>
+    </div>
+
+    <p class="mock-note">Step 1 sections — collapsed by default now, not open.</p>
+
+    <section class="result-panel">
+      <details class="cutlab-collapsible"><summary class="cutlab-collapsible__summary">Lock your pool · 137 cards · 26 locked</summary></details>
+    </section>
+    <section class="result-panel">
+      <details class="cutlab-collapsible"><summary class="cutlab-collapsible__summary">Pool explorer — role, type, subtype</summary></details>
+    </section>
+    <section class="result-panel">
+      <details class="cutlab-collapsible"><summary class="cutlab-collapsible__summary">Structural findings · 4</summary></details>
+    </section>
+    <section class="result-panel">
+      <details class="cutlab-collapsible"><summary class="cutlab-collapsible__summary">Role floors</summary></details>
+    </section>
+
+    <p class="mock-note">Step 2 — the only section open on load.</p>
+
+    <section class="result-panel" role="tabpanel" aria-label="Decide">
+      <details class="cutlab-collapsible" open>
+        <summary class="cutlab-collapsible__summary">Cut rounds</summary>
+        <div class="panel-heading">
+          <div>
+            <h2>Cut rounds</h2>
+            <p>Cut Lab picks each card. Accept removes it and proposes the next; Reject keeps it; Defer revisits it later.</p>
+          </div>
+        </div>
+
+        <div class="cutlab-proposal">
+          <p class="cutlab-proposal__heading">Proposed cut: <button type="button" class="cutlab-card-link">Fellwar Stone</button></p>
+          <div class="cutlab-proposal__evidence">
+            <p>Flagged by 1 structural finding.</p>
+            <div class="kb-chip-area__chips"><span class="kb-chip">Ramp: 14 in pool, floor 10</span></div>
+          </div>
+          <div class="cutlab-delta">
+            <p>3 of 7 deck numbers moved.</p>
+            <div class="cutlab-delta__line">
+              <span class="cutlab-delta__sentence">Average mana value 2.41 → 2.38</span>
+              <span class="cutlab-delta__value cutlab-delta__value--down"><span aria-hidden="true">▼</span><span>0.03</span></span>
+            </div>
+            <div class="cutlab-delta__line">
+              <span class="cutlab-delta__sentence">Ramp sources 14 → 13</span>
+              <span class="cutlab-delta__value cutlab-delta__value--down"><span aria-hidden="true">▼</span><span>1</span></span>
+            </div>
+            <div class="cutlab-delta__line">
+              <span class="cutlab-delta__sentence">Commander on turn 3 odds 61% → 59%</span>
+              <span class="cutlab-delta__value cutlab-delta__value--down"><span aria-hidden="true">▼</span><span>2pt</span></span>
+            </div>
+          </div>
+          <details><summary>Show full metric breakdown</summary></details>
+          <div class="cutlab-proposal__actions">
+            <button type="button" class="cutlab-decision-btn cutlab-decision-btn--accept">Accept cut</button>
+            <button type="button" class="cutlab-decision-btn cutlab-decision-btn--reject">Reject cut</button>
+            <button type="button" class="cutlab-decision-btn cutlab-decision-btn--defer">Defer decision</button>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <section class="result-panel">
+      <details class="cutlab-collapsible"><summary class="cutlab-collapsible__summary">Tune quantities</summary></details>
+    </section>
+    <section class="result-panel">
+      <details class="cutlab-collapsible"><summary class="cutlab-collapsible__summary">Cuts made · 12 cards</summary></details>
+    </section>
+
+    <p class="mock-note">Steps 3 and 4 now come <em>after</em> Decide in the DOM — today Export sits 1,544px above it.</p>
+
+    <section class="result-panel">
+      <details class="cutlab-collapsible"><summary class="cutlab-collapsible__summary">Goals &amp; compare to baseline</summary></details>
+    </section>
+    <section class="result-panel">
+      <details class="cutlab-collapsible"><summary class="cutlab-collapsible__summary">What-if swap</summary></details>
+    </section>
+    <section class="result-panel">
+      <details class="cutlab-collapsible"><summary class="cutlab-collapsible__summary">Scenarios &amp; session file</summary></details>
+    </section>
+    <section class="result-panel">
+      <details class="cutlab-collapsible"><summary class="cutlab-collapsible__summary">Export — unlocks at exactly 100 cards</summary></details>
+    </section>
+  </main>
+</div>
+</body>
+</html>
