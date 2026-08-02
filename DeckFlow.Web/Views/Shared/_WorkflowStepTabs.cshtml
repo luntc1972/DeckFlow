@@ -21,6 +21,16 @@
             cls += " is-disabled";
         }
 
+        @* Why no real `disabled` attribute: a disabled button is unfocusable, which dead-ends arrow
+           traversal of the tablist at the first incomplete step. `aria-disabled` conveys the state
+           without removing it from the roving-tabindex sequence, and the capture-phase guard in
+           site.ts swallows activation while it is "true".
+           The type/form binding stays unconditional ON PURPOSE: Cut Lab renders step 4 disabled
+           server-side and enables it client-side once the deck reaches 100 cards, and that JS only
+           flips disabled/aria-disabled — it never restores type or form. Making those conditional
+           left the tab looking enabled while submitting nothing (cut-lab-export.spec.ts:141).
+           aria-label: the visible label span is display:none below 600px (site-mobile.css) while
+           the number span is aria-hidden, so without this the tab is an unnamed button on phones. *@
         <button type="@(step.SubmitFormId is null ? "button" : "submit")"
                 class="@cls"
                 role="tab"
@@ -29,7 +39,7 @@
                 aria-selected="@(step.Step == currentStep ? "true" : "false")"
                 tabindex="@(step.Step == currentStep ? "0" : "-1")"
                 aria-disabled="@(!step.IsEnabled ? "true" : "false")"
-                disabled="@(!step.IsEnabled ? "disabled" : null)"
+                aria-label="@step.Label"
                 form="@step.SubmitFormId"
                 data-@(Model.DataShowStepAttribute)="@step.Step"><span class="prompt-step-tab__num" aria-hidden="true">@step.Step</span><span class="prompt-step-tab__label">@step.Label</span></button>
     }
