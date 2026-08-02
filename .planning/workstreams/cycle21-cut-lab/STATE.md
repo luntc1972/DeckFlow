@@ -9,20 +9,21 @@ stopped_at: 2026-08-02 — plan 04-03 executed and committed; branch rebased ont
 last_updated: "2026-08-02T18:50:00.000Z"
 last_activity: 2026-08-02
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 4
-  total_plans: 28
+  total_plans: 34
   completed_plans: 24
   percent: 57
 ---
 
 > ⚠ **Corrected 2026-08-01. This file had been stale since 2026-07-29** and claimed Phase 3 was
 > "planned, not executed" with `03-01-PLAN.md` as the current wave. **Phase 3 completed 2026-07-29**
-> (7/7 plans, verified, `469dc9cf`); Phases 1, 01.1 and 2 are also complete. The live session state
-> is `.planning/HANDOFF.json` — read it first.
+> (7/7 plans, verified, `469dc9cf`); Phases 1, 01.1 and 2 are also complete. **`HANDOFF.json` no
+> longer exists** — it was deleted 2026-08-02 after going stale enough to mislead a resume. This
+> file is the live state.
 >
 > Counters above are derived from the phase directories and the ROADMAP progress table:
-> 8 phases (1, 01.1, 01.2, 2, 3, 4, 5, 6), of which 1 / 01.1 / 2 / 3 are complete. 28 plan files
+> 9 phases (1, 01.1, 01.2, 2, 3, 4, 5, 6, 7), of which 1 / 01.1 / 2 / 3 are complete. 34 plan files
 > exist; 01.2 and 6 have none yet. The old `total_plans: 24` predated Phase 5's three plans and
 > Phase 4's four.
 
@@ -33,8 +34,11 @@ progress:
 **Status:** Phases 1, 01.1, 2 and 3 complete. Phase 4 plans **CONVERGED at round 12** and **3 of its
 4 waves are executed** — `04-01` (`518d7d83`), `04-02` (`dbd46e94`) and `04-03` (`b508f27e`) are
 committed and on `main`; only `04-04` remains. **Those SHAs are post-rebase**; the pre-rebase
-`476daf66` / `19fdce26` / `c9b55d1b` appear throughout the older notes and in `HANDOFF.json`. Phase 5 is planned and unexecuted with one open HIGH. Phase 01.2 and
-Phase 6 have not been started and have no plans.
+`476daf66` / `19fdce26` / `c9b55d1b` appear throughout the older notes.
+
+Phase 5 is planned and unexecuted with one open HIGH. **Phase 7 (Cut Lab Workflow UX) was adopted
+2026-08-02** with 6 plans, gated on plan `04-04`. Phase 01.2 and Phase 6 have not been started and
+have no plans.
 
 **Current Phase:** Phase 4 — Functional-Twins Detector (executing, 3/4)
 **Last Activity:** 2026-08-02
@@ -77,11 +81,11 @@ now rewritten by the rebase), which is why waves 1-3 were executed.
 > **Rebase, 2026-07-28.** 102 commits replayed onto `main`; 101 remain, one dropped. Five conflicts, all resolved in favour of `main` where both sides had independently fixed the same thing: three e2e specs where both sides disambiguated the sticky-bar locator (main's `.cutlab-sticky-bar[data-cut-lab-sticky-target]` kept as the more specific of the two, which made branch commit `8722a753` wholly redundant — that is the dropped commit), and two `DeckFlow.CLI/Program.cs` seams where main's `--thresholds` option sits directly above the role-floor command block. Verified afterwards: zero CR bytes anywhere in the diff, the whitespace-ignored diff identical to the full diff (so no EOL churn), build 0 errors / 9 pre-existing warnings, and 4,512 tests passing across Studio 426, Web 2098, Core 1988. Recovery point retained at branch `backup/cycle21-cut-lab-pre-rebase-2026-07-28` (`37275a87`).
 ## Progress
 
-**Total phases:** 8 — 1, 01.1, 01.2, 2, 3, 4, 5, 6
+**Total phases:** 9 — 1, 01.1, 01.2, 2, 3, 4, 5, 6, 7
 **Phases complete:** 4 — Phase 1 (`9527dc72`), Phase 01.1 (2/2, `b8ec09f3`), Phase 2 (11/11,
 841 qualifying commanders, lands PULLED), Phase 3 (7/7 verified, `469dc9cf`)
 **Phase 4:** executing, 3 of 4 plans committed — see Current Position for the SHAs
-**Phases planned but unexecuted:** 5 (3 plans)
+**Phases planned but unexecuted:** 5 (3 plans), 7 (6 plans, gated on `04-04`)
 **Phases with no plans yet:** 01.2 Protection-Vocabulary Widening, 6 Scryfall Throughput
 **Current plan:** `04-04`, next to execute
 
@@ -103,6 +107,17 @@ now rewritten by the rebase), which is why waves 1-3 were executed.
 - **D-A — RESOLVED:** Hybrid corpus. See the ROADMAP Phase 2 block for the reasoning.
 - **D-B — RESOLVED:** 25th-percentile floor. See the ROADMAP Phase 2 block for the reasoning.
 - **D-C — RESOLVED:** Lands and ramp are in scope. See the ROADMAP Phase 2 block for the reasoning.
+
+## Open Decision — Phase 7
+
+- **D-1 Step model — OPEN, blocks `07-04` and gates `07-05`.** Pick option 1 (true wizard, 1,022px
+  desktop), 2 (soft fix, 1,596px) or 3 (wizard + pinned proposal, 1,107px) against today's
+  10,453px. Mockups rendered against the real site CSS live in
+  `.planning/ui-design/cut-lab/proposed/`. `07-05` exists only if option 3 wins; every other plan is
+  identical across the three. **The HTML mockups pull site CSS from `http://localhost:5173`** and
+  render unstyled without the dev server — the six PNGs are the self-contained artifact.
+- **D-4 Branch — RESOLVED 2026-08-02:** Phase 7 runs on `gsd/cycle21-cut-lab`, not a separate
+  branch. Rationale in that phase's `README.md`.
 
 ## Uncommitted Work In This Worktree
 
@@ -137,8 +152,10 @@ where there were four. Both defects were in the new test fixture, not production
 dispatch failed with `ERROR: Your workspace is out of credits`, and the operator authorized Claude
 to finish. **A Codex review of 04-03 is owed** and is the first in this phase whose code Codex did
 not write. Full run record was in `.foreman/ledger.md` (gitignored, local only).
-**Resume File:** `.planning/HANDOFF.json` — the authoritative live handoff. Read it before anything
-else; it carries the blockers, the dispatched-review state and the remaining milestone steps.
+**Resume File:** none. `.planning/HANDOFF.json` was deleted 2026-08-02 — it had drifted far enough
+to be a hazard, still listing `04-03` as `not_started` after that plan was executed, verified and
+committed. Everything it carried that outlives a session was moved here or confirmed present in the
+phase docs before deletion. **This file plus the phase `.continue-here.md` are the live state.**
 
 **Owed on resume:**
 - **Push, superseded 2026-08-02 by the rebase + ff.** `main` is now **195 ahead of `origin/main`, 0
@@ -149,9 +166,20 @@ else; it carries the blockers, the dispatched-review state and the remaining mil
 - **Codex review of `b508f27e`** (plan `04-03`, formerly `c9b55d1b` before the rebase) — the first
   Phase 4 commit whose code Codex did not write. Still owed, and it is now on `main`. Review the
   range rather than the working tree.
-- Phase 5 round-9 HIGH still open: the round-8 TRX regex is too permissive. Fix is fully specified
-  in `HANDOFF.json` (exact `FullyQualifiedName=` filters, per-name counters, require 1/1/2).
-  Dispatch to Codex — hand-editing is what produced the defect.
+- **Phase 5 round-9 HIGH still open.** Full spec below — it previously lived only in `HANDOFF.json`
+  and is recorded here because that file is gone and `05-REVIEWS.md` never captured it.
+
+  *Defect:* the round-8 TRX regex, hand-authored rather than dispatched, is too permissive.
+  `testName="[^"]*(name1|name2)[^"]*"` combined with **substring** `FullyQualifiedName~` filters lets
+  suffix-extended tests satisfy the gate — the reviewer confirmed with a synthetic TRX that
+  `RunAsync_MetadataBearingImport_PersistsMetadata_Unrelated` and a second unrelated name together
+  produce `failed_count=2`, passing a gate that is supposed to prove two *specific* tests failed.
+
+  *Fix:* use **exact** `FullyQualifiedName=DeckFlow.Core.Tests.ArchidektDeckCacheSessionTests.<method>`
+  filters, one exact counter per fully qualified name plus a total, and require
+  `first_failed=1`, `second_failed=1`, `total_failed=2`.
+
+  *Dispatch it to Codex — hand-editing is what produced this defect in the first place.*
 - `04-04` is `autonomous:false`; Task 3 is a human UI checkpoint at ~1440px and 390x844.
   Ask permission before opening any browser.
 
