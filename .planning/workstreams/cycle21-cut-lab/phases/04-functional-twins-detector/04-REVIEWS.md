@@ -520,3 +520,42 @@ Confidence 10/10.
 
 Round 7 not folded. Per the delegation split adopted this session, **Codex folds; Claude reviews.**
 Round 8 owed after the fold.
+
+---
+
+# Round 8 — 2026-08-01. Fold of five plan-review findings.
+# Verdict: FOLDED. 2 HIGH · 1 HIGH gate class · 2 MEDIUM.
+
+**HIGH-1 — stale AJAX trust-boundary protection claim.** `04-03`'s client-to-decide row no longer
+claims `CutLabPoolValidator` protects the AJAX boundary. It now names
+`CutLabStateSerializer.MaxUploadBytes` (256 KiB), bounded state collections, and the controller's
+non-empty-pool check, and explicitly says the 101-150 card validator rule is not reapplied there.
+The existing T-04-09 and T-04-19 rows were already aligned and required no new correction.
+
+**HIGH-2 — combo badges were broken in production, and scope widened by user decision on
+2026-08-01.** `04-04` now specifies the line-708 lookup repair to
+`CutLabCardNames.Normalize(evidenceCard.Name)`, adds `CutLab.cshtml` and
+`CutLabViewRenderTests.cs` to the applicable modified-file lists, and adds the real-view render
+mutation proof using `Heliod, Sun-Crowned`. The former one-Razor-edit restriction and automatic-badge
+claim were removed wherever they survived. The plan also records the raw-key wording-fixture caution:
+it is not production-keying evidence and is not changed in this phase.
+
+**HIGH-3 — filtered test gates could pass without the planned tests.** The six executor-owned gates
+now run `dotnet test --list-tests` first and require each named planned method exactly once before the
+filtered run. The detector gate lists all 21 names individually; the flag, presenter, and density
+standalone classes additionally require totals of 12, 7, and 6. Each gate now documents all four exit
+states: intended inventory -> 0; absent/misnamed planned test -> nonzero; unrelated build failure ->
+nonzero; zero matching tests -> nonzero before the filtered command.
+
+**MEDIUM-1 — stale default-OFF comment.** `04-02` now says a missing seed row or key and an unwired
+direct `Compute` caller land OFF, while removal of the required cache registration fails loudly during
+DI activation. This aligns with `04-03` T-04-12.
+
+**MEDIUM-2 — categorical proposal wording.** The catalog copy and its acceptance phrase now say the
+flag can change which card Cut Lab proposes next by changing card-to-round assignment. `04-04` now says
+the kind contributes to the tally and can change the next proposal, matching the existing human gate
+that permits an unchanged proposal when a round assignment moved.
+
+## Status
+
+Round 8 folded. No production code was changed by this documentation fold.
