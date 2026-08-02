@@ -1,3 +1,4 @@
+using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Services.Manabase;
 
 namespace DeckFlow.Web.Services.CutLab;
@@ -22,6 +23,9 @@ public enum CutLabFindingKind
 
     /// <summary>A near-combo has enough in-deck pieces to surface the missing partner.</summary>
     EnablerStarved,
+
+    /// <summary>Three or more distinct cards fill the same role at the same exact mana value with the same primary card type, so they compete for one slot.</summary>
+    FunctionalTwins,
 }
 
 /// <summary>Combo badge state attached to structural finding evidence when combo context applies.</summary>
@@ -134,6 +138,9 @@ public static class CutLabStructuralFindings
     // Why: One in-deck combo card is noise; two pieces in hand makes the missing partner actionable.
     private const int NearComboMinPiecesInDeck = 2;
 
+    // Why: Two cards at the same cost and type is a normal pair, not redundancy worth a cut recommendation; three is the point at which the pool is over-invested in one slot. This is TWIN-01's threshold and it is the only knob in the detector.
+    private const int TwinGroupMinimumCards = 3;
+
     private const string LandsRole = "lands";
     private const string RampRole = "ramp";
     private const string DrawRole = "draw";
@@ -157,6 +164,11 @@ public static class CutLabStructuralFindings
         WinconsRole,
     ];
 
+    // Why: lands is excluded because thirty-plus lands at mana value 0 with primary type Land would form one enormous group that swamps every other finding, and land redundancy is the manabase tool's concern; other is absent from CutLabFloorRules.RoleKeys by construction and must stay absent because it means unclassified, not functionally equivalent.
+    private static readonly string[] TwinEligibleRoleKeys = CutLabFloorRules.RoleKeys
+        .Where(roleKey => !string.Equals(roleKey, LandsRole, StringComparison.Ordinal))
+        .ToArray();
+
     /// <summary>
     /// Computes the structural findings for the current analyzed pool.
     /// </summary>
@@ -166,13 +178,15 @@ public static class CutLabStructuralFindings
     /// <param name="comboDataAvailable"><see langword="true"/> when combo lookup ran (even if it found nothing); <see langword="false"/> when lookup failed/was unavailable.</param>
     /// <param name="categoryDataAvailable"><see langword="true"/> when category lookup ran (even if it found nothing); <see langword="false"/> when lookup failed/was unavailable.</param>
     /// <param name="completeCombos">Resolved complete combos present in the pool when combo lookup succeeded.</param>
+    /// <param name="twinsEnabled"><see langword="true"/> when the <c>analysis.cut-lab.functional-twins</c> flag is on. Defaults to <see langword="false"/> so a call site that has not been wired produces pre-Phase-4 behavior rather than silently shipping the detector.</param>
     public static CutLabStructuralFindingsResult Compute(
         IReadOnlyList<CutLabAnalyzedCard> pool,
         IReadOnlyList<SpellbookAlmostCombo> nearCombos,
         IReadOnlyDictionary<string, int> floors,
         bool comboDataAvailable,
         bool categoryDataAvailable,
-        IReadOnlyList<SpellbookCombo>? completeCombos = null)
+        IReadOnlyList<SpellbookCombo>? completeCombos = null,
+        bool twinsEnabled = false)
     {
         ArgumentNullException.ThrowIfNull(pool);
         ArgumentNullException.ThrowIfNull(nearCombos);
@@ -196,6 +210,12 @@ public static class CutLabStructuralFindings
         {
             findings.AddRange(ComputeComboProtected(pool, completeCombos, nearCombos, floors));
             findings.AddRange(ComputeEnablerStarved(nearCombos));
+        }
+
+        // Why: The default is false rather than true because IFeatureFlagCache.IsEnabled returns true for a missing key, so a dark-launch gate must be inverted at every layer. A missing seed row or key and an unwired direct Compute caller land OFF; removal of the required cache registration fails loudly during DI activation. This mirrors CutLabPageService.IsFlagOn and CutLabFloorResolver.Resolve, which both use TryGetValue(...) && enabled rather than IsEnabled.
+        if (twinsEnabled)
+        {
+            findings.AddRange(ComputeFunctionalTwins(pool));
         }
 
         return new CutLabStructuralFindingsResult(findings, comboDataAvailable, categoryDataAvailable);
@@ -340,6 +360,66 @@ public static class CutLabStructuralFindings
                 "Enabler-starved cards",
                 $"{JoinCardNames(cardsInDeck)} are missing their {partnerLabel}: {JoinCardNames(missingCards)}.",
                 cardsInDeck.Select(cardName => new CutLabFindingEvidence(cardName, null)).ToArray());
+        }
+    }
+
+    private static IEnumerable<CutLabFinding> ComputeFunctionalTwins(IReadOnlyList<CutLabAnalyzedCard> pool)
+    {
+        // Why: This is TWIN-04's group-membership exclusion, and it is stricter than any existing detector applies: the other five detectors include locked and commander cards in their evidence and rely on BuildQueue's eligibleCards filter downstream. A blank TypeLine is ineligible because CardTypeLine.PrimaryType("") returns Other, and admitting blanks would collect every unresolved card into a shared bucket and manufacture false twins.
+        (CutLabAnalyzedCard Card, string PrimaryType)[] eligibleCards = pool
+            .Where(card => !card.IsLand && !card.IsLocked && !card.IsCommander && !string.IsNullOrWhiteSpace(card.TypeLine))
+            .Select(card => (card, CardTypeLine.PrimaryType(card.TypeLine)))
+            .ToArray();
+        if (eligibleCards.Length == 0)
+        {
+            yield break;
+        }
+
+        // Why: A combo-protected card appearing in a twin group is TWIN-04's required compose-not-suppress behavior, so this detector must not add a combo filter.
+        List<(string RoleKey, double ManaValue, string PrimaryType, CutLabAnalyzedCard[] Cards)> qualifyingGroups = [];
+        foreach (string roleKey in TwinEligibleRoleKeys)
+        {
+            foreach (IGrouping<(double ManaValue, string PrimaryType), (CutLabAnalyzedCard Card, string PrimaryType)> group in eligibleCards
+                .Where(card => card.Card.Roles.Contains(roleKey, StringComparer.Ordinal))
+                // Why: The goal is at the same cost, so mana value 1 (Sol Ring) must never group with mana value 0 (a Mox); the private ["0-1","2","3","4","5+"] boundaries used by CurveCongestion are deliberately not reused and not extracted. Bitwise equality on the double is safe here because the value is the Scryfall-reported mana value carried through verbatim, never an arithmetic result, and casting to int would silently merge a fractional mana value with 0.
+                .GroupBy(card => (ManaValue: card.Card.ManaValue, card.PrimaryType)))
+            {
+                // Why: Three copies of one card present no choice whether they arrive as one entry with quantity: 3 or as three separate entries, so neither quantity nor raw entry count is the threshold; ComputeCurveCongestion sums quantity because curve share is about slots, a different question.
+                CutLabAnalyzedCard[] distinctCards = group
+                    .GroupBy(card => CutLabCardNames.Normalize(card.Card.Name), CutLabCardNames.Comparer)
+                    // Why: Select the ordinally-first raw Name for each identity because an arbitrary First() over a GroupBy is stable in practice but not contractually, and CutLabEngineDeterminismTests requires identical output between identical runs.
+                    .Select(identity => identity
+                        .OrderBy(card => card.Card.Name, StringComparer.Ordinal)
+                        .First()
+                        .Card)
+                    .ToArray();
+                if (distinctCards.Length < TwinGroupMinimumCards)
+                {
+                    continue;
+                }
+
+                qualifyingGroups.Add((roleKey, group.Key.ManaValue, group.Key.PrimaryType, distinctCards));
+            }
+        }
+
+        // Why: Under exact-mana-value grouping every member of a group shares one mana value, so a descending sort within a group is degenerate; TWIN-03's intent, surfacing the costlier redundancy first, is therefore honored across groups. The two secondary keys exist purely so the output is deterministic between identical runs, which CutLabEngineDeterminismTests requires.
+        foreach ((string roleKey, double manaValue, string primaryType, CutLabAnalyzedCard[] cards) in qualifyingGroups
+            .OrderByDescending(group => group.ManaValue)
+            .ThenBy(group => Array.IndexOf(CutLabRoleAssigner.TypeGroupOrder, group.PrimaryType))
+            // Why: This role-index tiebreak is belt-and-braces and deliberately unpinned because collection order currently already follows TwinEligibleRoleKeys.
+            .ThenBy(group => Array.IndexOf(TwinEligibleRoleKeys, group.RoleKey)))
+        {
+            string roleLabel = CutLabRoleAssigner.DisplayLabelFor(roleKey);
+
+            yield return new CutLabFinding(
+                CutLabFindingKind.FunctionalTwins,
+                "Functional twins",
+                $"{cards.Length} {primaryType.ToLowerInvariant()} cards fill your {roleLabel} slot at mana value {manaValue:0.##} \u2014 they compete with each other, so the pool likely only needs some of them.",
+                // Why: OrderByDescending(ManaValue) satisfies TWIN-03 and remains correct if the grouping dimension ever widens; ThenBy(Name, Ordinal) produces the deterministic order today.
+                cards.OrderByDescending(card => card.ManaValue)
+                    .ThenBy(card => card.Name, StringComparer.Ordinal)
+                    .Select(card => new CutLabFindingEvidence(card.Name, card.ManaValue))
+                    .ToArray());
         }
     }
 
