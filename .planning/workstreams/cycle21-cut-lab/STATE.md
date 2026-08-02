@@ -9,7 +9,7 @@ stopped_at: 2026-08-02 — plan 04-03 executed and committed; branch rebased ont
 last_updated: "2026-08-02T18:50:00.000Z"
 last_activity: 2026-08-02
 progress:
-  total_phases: 9
+  total_phases: 10
   completed_phases: 4
   total_plans: 34
   completed_plans: 24
@@ -23,9 +23,9 @@ progress:
 > file is the live state.
 >
 > Counters above are derived from the phase directories and the ROADMAP progress table:
-> 9 phases (1, 01.1, 01.2, 2, 3, 4, 5, 6, 7), of which 1 / 01.1 / 2 / 3 are complete. 34 plan files
-> exist; 01.2 and 6 have none yet. The old `total_plans: 24` predated Phase 5's three plans and
-> Phase 4's four.
+> 10 phases (1, 01.1, 01.2, 2, 3, 4, 5, 6, 7, 8), of which 1 / 01.1 / 2 / 3 are complete. 34 plan
+> files exist; 01.2, 6 and 8 have none yet. The old `total_plans: 24` predated Phase 5's three plans
+> and Phase 4's four.
 
 # Project State
 
@@ -37,8 +37,10 @@ committed and on `main`; only `04-04` remains. **Those SHAs are post-rebase**; t
 `476daf66` / `19fdce26` / `c9b55d1b` appear throughout the older notes.
 
 Phase 5 is planned and unexecuted with one open HIGH. **Phase 7 (Cut Lab Workflow UX) was adopted
-2026-08-02** with 6 plans, gated on plan `04-04`. Phase 01.2 and Phase 6 have not been started and
-have no plans.
+2026-08-02** with 6 plans, gated on plan `04-04`. **Phase 8 (Plan Profile — checkbox plan selection)
+was adopted 2026-08-02** — design spec at `.planning/specs/2026-08-02-cutlab-plan-profile-design.md`;
+engine plans parallel, plan-panel UI plan gated on Phase 7. Phases 01.2, 6 and 8 have not been
+started and have no plans.
 
 **Current Phase:** Phase 4 — Functional-Twins Detector (executing, 3/4)
 **Last Activity:** 2026-08-02
