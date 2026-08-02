@@ -1,59 +1,65 @@
 {
   "version": "1.0",
-  "timestamp": "2026-08-03T20:10:00.000Z",
-  "phase": null,
-  "phase_name": "Quick task 260802-b7q — Batch G form-correctness defects",
-  "phase_dir": ".planning/quick/260802-b7q-fix-five-batch-g-form-correctness-defec",
-  "plan": null,
-  "task": 5,
-  "total_tasks": 5,
-  "status": "complete",
-  "context": "quick-task",
-  "branch": "feat/ui-audit-batch-a",
-  "worktree": "/mnt/c/users/chrislunt/source/personal/deckflow",
-  "head": "8b3767d5",
-  "uat": {
-    "date": "2026-08-03",
-    "result": "PASS",
-    "scope": "16 fixes — 11 Batch A + 5 Batch G, one pass covering both converged branches",
-    "commit_under_test": "8b3767d5",
-    "checklist": "/mnt/c/Users/chrislunt/Downloads/DeckFlow-UAT-UI-Audit-Batch-A-G-2026-08-03.md",
-    "notes": [
-      "A1 initially flagged: Ask a Judge renders a '?' glyph. Confirmed CORRECT — the rendered SVG is the deliberate `case \"judge-questions\"` arm (circle r=7.5 + curved hook + dot), not the `default:` fallback, which is a straight vertical line + dot (an exclamation). The two are distinguishable only by path data, not by eye at 20px.",
-      "Both judgment calls accepted as shipped: the landing-page <h1> stays VISIBLE (not .sr-only), and Deck Primer DOES persist form state across reloads."
-    ]
-  },
+  "timestamp": "2026-08-02T20:31:50.771Z",
+  "workstream": "cycle21-cut-lab",
+  "phase": "04",
+  "phase_name": "functional-twins-detector",
+  "phase_dir": ".planning/workstreams/cycle21-cut-lab/phases/04-functional-twins-detector",
+  "plan": 4,
+  "task": 3,
+  "total_tasks": 3,
+  "status": "paused",
+  "branch": "gsd/cycle21-cut-lab",
+  "worktree": "/mnt/c/users/chrislunt/source/personal/deckflow-role-floors",
+  "head": "778995a5",
   "completed_tasks": [
-    {"id": 1, "name": "G1 — route Enter to the current step's action, not the sticky download bar", "status": "done", "commit": "6f467a00"},
-    {"id": 2, "name": "G2 — stop dropping IncludeCardVersions from mobile submissions", "status": "done", "commit": "6f467a00"},
-    {"id": 3, "name": "G3 — make printing-conflict resolution reachable with JS enabled", "status": "done", "commit": "6f467a00"},
-    {"id": 4, "name": "G4 — persist pasted deck text on Bracket and Mana Base", "status": "done", "commit": "6f467a00"},
-    {"id": 5, "name": "G5 — enforce the 100-line Card Lookup cap server-side", "status": "done", "commit": "d3e609db"},
-    {"id": 6, "name": "E2E regression spec (26 tests, desktop + mobile)", "status": "done", "commit": "42a447c4"},
-    {"id": 7, "name": "Converge batch-G onto batch-A so one UAT covers both", "status": "done", "commit": "e9c6b02b"},
-    {"id": 8, "name": "Fix e2e flag clobber (capture-and-restore tool flags)", "status": "done", "commit": "e9c6b02b"},
-    {"id": 9, "name": "User UAT of both batches", "status": "done", "commit": null, "note": "PASS 16/16 on 2026-08-03 against 8b3767d5, from the ../deckflow worktree (not batch-g — the branches had already converged)."},
-    {"id": 10, "name": "Push feat/ui-audit-batch-a and feat/ui-audit-batch-g", "status": "done", "commit": null, "note": "Both branches were ALREADY at origin (0 ahead / 0 behind) as of 2026-08-03. The earlier '8 commits ahead, user must push' claim in this file was stale."},
-    {"id": 11, "name": "Fast-forward feat/ui-audit-batch-a to the converged tip", "status": "done", "commit": "8b3767d5", "note": "Both branches now point at 8b3767d5."},
-    {"id": 12, "name": "File a ticket for the pre-existing cut-lab-tuning.spec.ts flake", "status": "done", "commit": null, "note": ".planning/todos/pending/2026-08-03-fix-cut-lab-tuning-spec-nondeterministic-flake.md"},
-    {"id": 15, "name": "Correct the stale _ToolTileIcon.cshtml comment that called the `default:` fallback 'the question-mark glyph'", "status": "done", "commit": null, "note": "The fallback is an exclamation mark; the question mark is judge-questions' own legitimate icon. Comment now says so and points at the ToolRegistry.All-derived totality test. Comment-only, no behavior change; build 0 errors / 9 warnings (CS8629 baseline)."}
+    {"id": "04-01", "name": "Finding kind, flag key, analyzed-card members", "status": "done", "commit": "b508f27e"},
+    {"id": "04-02", "name": "ComputeFunctionalTwins detector + twinsEnabled param", "status": "done", "commit": "b508f27e"},
+    {"id": "04-03", "name": "Engine wiring + flag read on all three transports + D-23 tally join", "status": "done", "commit": "b508f27e"},
+    {"id": "04-04.1", "name": "Merge FunctionalTwins into one displayed section; single-pass BuildFindingGroups; both Razor normalized combo lookups; AJAX DTO raw re-key; TS help note", "status": "done", "commit": "9594b2f6"},
+    {"id": "04-04.2", "name": "Diverse 130-card density fixture, 6 tests", "status": "done", "commit": "0a9e7cc9"},
+    {"id": "04-04.doc", "name": "04-04-SUMMARY.md with density evidence and owed gates", "status": "done", "commit": "778995a5"}
   ],
   "remaining_tasks": [
-    {"id": 13, "name": "Optional: run the /simplify skill on the change (was done as a manual checklist pass only)", "status": "not_started"},
-    {"id": 14, "name": "Open design decision: Card Lookup's .desktop-only Card List mode — make responsive, or show an explicit 'available on desktop' affordance", "status": "not_started"},
-    {"id": 16, "name": "Rebase onto main — both branches show 3 behind (3115d70e, 0354cd9f, 5c8bbfbb), all docs-only and already present by content", "status": "not_started"}
+    {"id": "04-04.3", "name": "Task 3 — blocking human checkpoint: density + layout on a real ~130-card pool, flag ON locally, 2 viewports, 2 guild themes, TWIN-02 before/after, AJAX survival", "status": "not_started", "type": "checkpoint:human-verify"}
   ],
-  "blockers": [],
-  "human_actions_pending": [],
+  "blockers": [
+    {
+      "description": "Codex workspace is out of credits. Probed 2026-08-02: 'ERROR: Your workspace is out of credits.' A credits error is deterministic, not transient — do not retry as if it were.",
+      "type": "external",
+      "workaround": "User authorized Claude to author 04-04 with a Codex review recorded as an OWED gate. No silent fallback was taken."
+    },
+    {
+      "description": "04-04 Task 3 requires a human judgement on a real decklist. Success Criterion 5 cannot be closed by any automated gate.",
+      "type": "human_action",
+      "workaround": "none — this is the gate by design"
+    }
+  ],
+  "human_actions_pending": [
+    {
+      "action": "Run 04-04 Task 3: load a real ~130-card pool in a locally running app with analysis.cut-lab.functional-twins ON, judge finding density, check layout at desktop + ~390x844 mobile across one light and one dark guild theme, record the TWIN-02 before/after next-proposal card, and confirm the twins section survives an AJAX decide patch.",
+      "context": "Phase 4's only non-code success criterion. A synthetic fixture cannot reproduce a real cEDH list's correlations — real mana rocks genuinely cluster at mana value 2, and whether that reads as insight or noise is exactly the question.",
+      "blocking": true
+    },
+    {
+      "action": "Run a Codex review of 9594b2f6..0a9e7cc9 when credits return: gpt-5.6-sol, medium effort, stage-2 'codex exec' with a written brief (not just 'codex review').",
+      "context": "No cross-family reader saw this diff. Second consecutive Phase 4 plan not Codex-written. Stage 2 is triggered on 3 of its 4 conditions: normalization/matching logic changed, the claim needs checking against the repo rather than the diff, and it is an owed gate with no prior independent review.",
+      "blocking": false
+    },
+    {
+      "action": "Decide whether density test 1's upper bound stays at 12 or tightens to the plan's literal 8.",
+      "context": "Measured is 6. The plan contradicts itself in one sentence — writes '<= 8' then says 'actual count plus generous headroom'. Both values catch the proven 14-finding threshold mutation.",
+      "blocking": false
+    }
+  ],
   "decisions": [
-    {"decision": "Claude implemented directly instead of dispatching Codex", "rationale": "User explicitly chose 'I'll write it myself, no Codex' when asked at task start, overriding the standing Codex-codes rule."},
-    {"decision": "G1 fixed with two mechanisms, not the one the ticket described", "rationale": "Demoting the download button alone just promotes the upload button to default, and upload needs a native multipart submit so form.requestSubmit() rejects it. So: runtime type='button' on the download button PLUS a data-default-action keydown router."},
-    {"decision": "Download button keeps type='submit' in markup; JS demotes it at runtime", "rationale": "formaction only works on submit buttons, so a markup-level type='button' would break the <noscript> download — the mirror of the G3 defect being fixed."},
-    {"decision": "Three file-clean commits instead of the requested one-per-defect", "rationale": "The four front-end defects overlap within the same files (deck-sync.ts has G1+G3, DeckAnalysis.cshtml has G1+G2). A per-defect split needs partial-line staging that cannot produce valid intermediate commits."},
-    {"decision": "DeckPrimer.cshtml's missing data-cache-key left to batch A", "rationale": "Batch A already fixes that exact line; fixing it in batch G too would collide. Resolved by convergence — the G4 sweep is now fully closed."},
-    {"decision": "Recorded the UAT result as a NEW commit rather than amending the wip commit 8b3767d5", "rationale": "8b3767d5 is already published on origin for BOTH branches. Amending it would rewrite published history and need a force-push, which the project rules forbid on a shared branch."}
+    {"decision": "Claude authored 04-04 instead of Codex, with a Codex review recorded as OWED", "rationale": "Codex out of credits; user explicitly chose this over pausing. CLAUDE.md forbids silent fallback, so it was surfaced and authorized first.", "phase": "04"},
+    {"decision": "Committed before the Task 3 human checkpoint", "rationale": "User instruction 'commit work', overriding the default of holding functional changes until manually tested.", "phase": "04"},
+    {"decision": "Fixed the pre-existing WeakFloorCase/ComboProtected merged-section ordering reversal as part of this plan", "rationale": "The single-pass rewrite corrects it structurally; leaving it would mean knowingly shipping a rewrite that preserved a known defect. Flag-independent, locked by a dedicated no-twins regression test.", "phase": "04"},
+    {"decision": "Density test 1 bound set to <= 12 rather than the plan's literal <= 8", "rationale": "Measured 6; the plan's own sentence says to use actual plus generous headroom. Disclosed as a deviation rather than silently applied.", "phase": "04"},
+    {"decision": "Renamed Bramble Elemental to synthetic Thicket Golem Alpha rather than correcting its mana value", "rationale": "Real card is cmc 5, fixture used 3. Correcting to 5 would have destroyed the load-bearing TypeGroupOrder tie that test 4 depends on.", "phase": "04"}
   ],
   "uncommitted_files": [],
-  "next_action": "Nothing is in flight and nothing is owed. Batches A and G are shipped, UAT'd, and on origin. Items 13-16 are pick-up-when-convenient; item 14 (Card Lookup desktop-only) is the only real product decision among them.",
-  "context_notes": "Batch G is finished and fully verified: build 0 errors / 0 warnings, 4710 unit tests pass, full e2e sweep 461 passed with the only 2 failures proven pre-existing and now ticketed. Both suites were mutation-tested to prove they are not vacuous. User UAT passed 16/16 on 2026-08-03. The session's lessons are in the anti-patterns table in .continue-here.md — verifying the worktree instead of HEAD, and a spec that clobbered persistent flag state. A third was added 2026-08-03: this handoff asserted the branches were unpushed when they were already at origin, and that stale claim was nearly acted on. Re-derive git state from git, never from a handoff."
+  "next_action": "Run 04-04 Task 3. Before anything else: probe port 5173 from a WINDOWS shell (netstat) and kill any stale server — WSL's ss cannot see it and a stale server serves pre-Phase-4 code. Then start with scripts/run-web-test.sh, turn the flag ON via /Admin/Flags (local only, never the production row), and follow 04-04-PLAN.md Task 3 steps 0-7.",
+  "context_notes": "Phase 4 is code-complete and green (Web 2286/0/16, Core 2011/0, build 0 err / 9 pre-existing CS8629) but NOT closed — Task 3 is its last gate. The blind foreman-verifier ran 11 mutations and caught a HIGH defect two workers and an independent LEAD gate re-run all missed: 64 of 130 density-fixture cards carried empty roles, so the bound measured a 28-card eligible population rather than 130. Fixed; proven live by mutating TwinGroupMinimumCards 3->2, which now breaches the bound at 14 findings. Take from this that passing tests are not evidence a fixture measures the right population."
 }
