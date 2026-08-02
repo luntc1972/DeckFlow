@@ -568,6 +568,7 @@ Behavior:
 - Exact rules sections such as `Prowess` return the matching numbered section and summary.
 - Glossary terms such as `Battle` resolve through the glossary and, when the glossary points to a major rules section like `310`, the page now returns the full referenced section body rather than only the glossary sentence or section header.
 - The Clear button clears the saved input, summary block, and rendered rules text together.
+- The rules text renders as an auto-growing block sized to its content — the same `pre.oracle-text` treatment Card Lookup uses — so the page scrolls rather than a short inner scrollbox. It was previously a fixed-height `textarea`, which on mobile left roughly a five-line window onto the full section.
 
 The service caches the parsed Wizards rules document in memory for 6 hours so repeated lookups do not keep re-downloading the full rules text file.
 
