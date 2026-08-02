@@ -189,6 +189,29 @@ const buildPatch = (comboContext = 'Infinite cards'): CutLabPatchResponse => ({
   },
 });
 
+// Must stay character-identical to the Razor twins help note in Views/Deck/CutLab.cshtml.
+const twinsHelpNote = 'These cards fill the same role at the same mana value with the same card type, so they compete for one slot. The costliest group is listed first, and a card here may also be combo-protected.';
+
+const buildTwinsPatch = (): CutLabPatchResponse => {
+  const response = buildPatch();
+  response.patch!.structuralFindings = [
+    {
+      kind: 'FunctionalTwins',
+      heading: 'Functional twins',
+      items: [
+        {
+          kind: 'FunctionalTwins',
+          heading: 'Functional twins',
+          lead: 'Three interaction instants share mana value 1.',
+          evidence: ['Counterspell'],
+        },
+      ],
+    },
+  ];
+
+  return response;
+};
+
 describe('cut-lab structural card popup data', () => {
   it('rebuilds structural evidence chips as popup triggers that preserve combo badges', async () => {
     buildFixture();
@@ -238,5 +261,27 @@ describe('cut-lab structural card popup data', () => {
 
     expect(showModalCalls).toBe(1);
     expect(comboLine?.textContent).toBe('Infinite mana');
+  });
+
+  it('renderStructuralFindings_FunctionalTwins_RendersSameHelpNoteAsRazor', async () => {
+    buildFixture();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => buildTwinsPatch(),
+    });
+
+    const form = document.querySelector<HTMLFormElement>('form[action="/cut-lab/decide"]');
+    const button = form?.querySelector<HTMLButtonElement>('[data-cut-lab-decision="accept"]');
+
+    form?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: button ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    const notes = document.querySelectorAll<HTMLElement>('[data-cut-lab-structural-findings-body] .cutlab-finding p.manabase-help');
+    expect(notes.length).toBe(1);
+    expect(notes[0]?.textContent).toBe(twinsHelpNote);
   });
 });

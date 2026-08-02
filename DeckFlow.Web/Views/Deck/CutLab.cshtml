@@ -232,7 +232,7 @@
 @if (Model.HasResult)
 {
     var cardTextData = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
-    foreach (var cardName in Model.CardTextByCardName.Keys.Concat(Model.ComboBadgeByCardName.Keys).Distinct(StringComparer.Ordinal))
+    foreach (var cardName in Model.Pool.Select(card => card.Name).Concat(Model.CardTextByCardName.Keys).Distinct(StringComparer.Ordinal))
     {
         var entry = new Dictionary<string, string>(StringComparer.Ordinal);
         if (Model.CardTextByCardName.TryGetValue(cardName, out var cardText))
@@ -273,7 +273,7 @@
             }
         }
 
-        if (Model.ComboBadgeByCardName.TryGetValue(cardName, out var comboBadge)
+        if (Model.ComboBadgeByCardName.TryGetValue(CutLabCardNames.Normalize(cardName), out var comboBadge)
             && !string.IsNullOrWhiteSpace(comboBadge.Context))
         {
             entry["comboContext"] = comboBadge.Context;
@@ -689,6 +689,10 @@
                             {
                                 <p class="manabase-help">A card here is only missing a partner for THIS combo line — it may still be fully live in another combo, and can also appear under Combo-protected.</p>
                             }
+                            @if (findingGroup.Kind == CutLabFindingKind.FunctionalTwins)
+                            {
+                                <p class="manabase-help">These cards fill the same role at the same mana value with the same card type, so they compete for one slot. The costliest group is listed first, and a card here may also be combo-protected.</p>
+                            }
                             @foreach (var finding in findingGroup.Items)
                             {
                                 <div class="cutlab-finding__item">
@@ -706,7 +710,7 @@
                                                 else
                                                 {
                                                     var chipClasses = $"kb-chip cutlab-role-chip{(evidenceCard.IsLocked ? " cutlab-role-chip--locked" : string.Empty)}";
-                                                    var hasComboBadge = Model.ComboBadgeByCardName.TryGetValue(evidenceCard.Name, out var comboBadge);
+                                                    var hasComboBadge = Model.ComboBadgeByCardName.TryGetValue(CutLabCardNames.Normalize(evidenceCard.Name), out var comboBadge);
                                                     var comboBadgeText = hasComboBadge
                                                         ? comboBadge!.BadgeState == ComboBadgeState.CompletePiece
                                                             ? "Combo piece"
