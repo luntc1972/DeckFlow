@@ -252,7 +252,9 @@
                             aria-label="Sort ascending">Asc &#9650;</button>
                 </div>
 
-                <div class="table-wrapper">
+                @* tabindex+role make the horizontal scroll container keyboard-reachable; the
+                   9-column table overflows between 601px and desktop. *@
+                <div class="table-wrapper" tabindex="0" role="region" aria-label="EDH Top 16 reference decks (scrollable)">
                     @* role=* attributes restore table semantics that the <=600px display:grid
                        override would otherwise strip from screen readers (Roselli 2017).
                        Sortable headers use an in-cell <button> + aria-sort; deck-sync.ts
@@ -598,7 +600,7 @@
                                             {
                                                 <text> (@item.Role)</text>
                                             }
-                                            @if (item.RefCount >= 0)
+                                            @if (item.RefCount > 0)
                                             {
                                                 <text> found in @item.RefCount reference deck(s)</text>
                                             }

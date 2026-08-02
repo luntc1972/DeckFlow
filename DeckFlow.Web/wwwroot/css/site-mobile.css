@@ -121,9 +121,19 @@
 
   .run-button,
   .clear-cache-button,
+  .copy-button,
+  .share-bar__button,
+  .feedback-submit,
   select,
   .df-select__trigger {
     min-height: 44px;
+  }
+
+  /* The icon variant is explicitly sized square, so min-height alone would stretch it into a
+     rectangle — set both axes. */
+  .copy-button.copy-button--icon {
+    width: 44px;
+    height: 44px;
   }
 
   .result-panel,
@@ -144,11 +154,9 @@
     overflow-x: clip;
   }
 
-  .tool-nav__menu-toggle[hidden] {
-    display: inline-flex !important;
-  }
-
   .tool-nav__menu-toggle {
+    /* site-common.css hides this button; the tool nav collapses to a menu only here. */
+    display: inline-flex;
     align-items: center;
     justify-content: space-between;
     width: 100%;
@@ -180,13 +188,15 @@
     transform: rotate(180deg);
   }
 
-  .tool-nav > .tool-nav__group {
+  /* The groups sit inside #deck-tool-nav-groups (display: contents), so these must match on the
+     wrapper rather than on .tool-nav — selector matching ignores display: contents. */
+  .tool-nav__groups > .tool-nav__group {
     display: none;
     min-width: 0;
     width: 100%;
   }
 
-  .tool-nav.is-menu-open > .tool-nav__group {
+  .tool-nav.is-menu-open .tool-nav__groups > .tool-nav__group {
     display: block;
   }
 
@@ -333,10 +343,12 @@
     flex: 0 0 auto;
     align-items: center;
     justify-content: center;
-    width: 2.5rem;
-    min-width: 2.5rem;
-    height: 2.5rem;
-    min-height: 2.5rem;
+    /* px, not rem: the mobile root font-size is 15px, so 2.75rem lands at 41.25px — under the
+       44px tap-target floor. */
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
     padding: 0;
     border: 1px solid var(--line);
     border-radius: 50%;
@@ -394,7 +406,7 @@
   .ai-selector__option-label {
     padding: 8px 10px;
     font-size: var(--fs-sm);
-    min-height: 40px;
+    min-height: 44px;
   }
 
   /* mobile UI phase 2: deck primer rows */

@@ -323,8 +323,14 @@ summary:focus-visible,
   color: var(--accent);
 }
 
+/* The landing page had no h1 at all — its first heading was the section h2. Sizing stays with the
+   theme's own h1 rule; this only tightens the gap to the lede that follows. */
+.hub-title {
+  margin: 1rem 0 0;
+}
+
 .hub-lede {
-  margin: 1rem 0 0.5rem;
+  margin: 0.35rem 0 0.5rem;
   color: var(--muted);
   font-size: var(--fs-base);
 }
@@ -971,10 +977,6 @@ summary:focus-visible,
     padding: 0.25rem;
   }
 
-  .copy-button.copy-button--icon {
-    width: 2rem;
-    height: 2rem;
-  }
 }
 
 /* cEDH meta-gap mobile sort control — hidden on desktop (clickable column
@@ -1349,6 +1351,9 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
     border-radius: 4px;
     padding: 0.5rem;
     font: inherit;
+    /* Why: --fs-base is 0.95rem (~15.2px); iOS Safari auto-zooms the viewport on focus for any
+       form control under 16px. The max() keeps larger inherited sizes intact. */
+    font-size: max(16px, 1em);
 }
 /* Phase 84: decorative brand emphasis, intentionally stays on --accent-strong (D2) */
 .feedback-submit {
@@ -5479,6 +5484,18 @@ html {
   margin-bottom: 1rem;
 }
 
+/* aria-controls target for the mobile menu toggle. `display: contents` keeps the groups as direct
+   layout children of .tool-nav in both the desktop flex row and the mobile grid, so the wrapper
+   costs nothing visually. */
+.tool-nav__groups {
+  display: contents;
+}
+
+/* The tool nav only collapses to a menu on narrow viewports; site-mobile.css reveals this. */
+.tool-nav__menu-toggle {
+  display: none;
+}
+
 .tool-nav__group {
   position: relative;
 }
@@ -5641,6 +5658,12 @@ button {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.75rem;
+}
+
+/* Scroll container for wide tables (the cEDH reference table is 9 columns and overflows between
+   601px and desktop). The markup carries tabindex="0" so keyboard users can reach the scroll. */
+.table-wrapper {
+  overflow-x: auto;
 }
 
 .conflicts-table {
