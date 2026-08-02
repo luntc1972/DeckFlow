@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { mkdir, rmdir, unlink, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
 
@@ -13,6 +14,7 @@ import { expect, test } from '@playwright/test';
 // (no MTG_DATA_DIR): {ContentRoot}/../artifacts/content-site-index.db, where ContentRoot is the
 // DeckFlow.Web project dir the webServer command runs from.
 const dbPath = resolve(__dirname, '..', '..', 'artifacts', 'content-site-index.db');
+const contentKbE2eDirectory = resolve(__dirname, '..', '..', 'content-kb', 'e2e');
 
 const suffix = `${Date.now()}`;
 const pendingKey = `e2e-pending-${suffix}`;
@@ -23,6 +25,8 @@ const approvedTitle = `E2E Approved Control ${suffix}`;
 let pendingId = 0;
 let approvedId = 0;
 let seeded = false;
+
+const approvedArtifactPath = resolve(contentKbE2eDirectory, `${approvedKey}.md`);
 
 function sqlite(sql: string): string {
   // `.timeout` (via -cmd) SILENTLY sets the busy timeout to guard against the running server briefly
@@ -57,6 +61,9 @@ test.beforeAll(async () => {
   try {
     pendingId = seedRow(pendingKey, pendingTitle, 'pending');
     approvedId = seedRow(approvedKey, approvedTitle, 'approved');
+    // The direct-push artifact path returns an honest 404 when it cannot read the file.
+    await mkdir(contentKbE2eDirectory, { recursive: true });
+    await writeFile(approvedArtifactPath, '# E2E approved control\n\nThis artifact proves the approved row can render.\n');
     seeded = pendingId > 0 && approvedId > 0;
   } catch {
     seeded = false; // sqlite3 unavailable or table not yet created — self-skip.
@@ -64,16 +71,26 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  if (!existsSync(dbPath)) {
-    return;
+  if (existsSync(dbPath)) {
+    try {
+      sqlite(
+        `DELETE FROM content_site_index WHERE natural_key_value IN ('${pendingKey}','${approvedKey}');`,
+      );
+    } catch {
+      // best-effort cleanup
+    }
   }
 
   try {
-    sqlite(
-      `DELETE FROM content_site_index WHERE natural_key_value IN ('${pendingKey}','${approvedKey}');`,
-    );
+    await unlink(approvedArtifactPath);
   } catch {
     // best-effort cleanup
+  }
+
+  try {
+    await rmdir(contentKbE2eDirectory);
+  } catch {
+    // Keep a pre-existing or non-empty e2e artifact directory intact.
   }
 });
 
