@@ -1,3 +1,4 @@
+using DeckFlow.Web.Services.Tools;
 using Xunit;
 
 namespace DeckFlow.Web.Tests.Tools;
@@ -58,25 +59,35 @@ public sealed class HomeTilesViewTests
         Assert.DoesNotContain("href=\"@Url.Content(\"~/deck-analysis\")\"", content, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Every icon key the registry can actually emit. Derived from the registry rather than
+    /// hand-listed: the previous hard-coded list had drifted to two keys that no longer existed
+    /// ("ask-a-judge", "category-suggestions" are help slugs, not icon keys) while omitting three
+    /// real ones, so it passed while three tiles rendered the fallback "?" glyph.
+    /// </summary>
+    public static TheoryData<string> IconKeys()
+    {
+        var data = new TheoryData<string>();
+
+        foreach (var iconKey in new ToolRegistry().All
+            .Select(tool => tool.IconKey)
+            .Distinct(StringComparer.Ordinal))
+        {
+            data.Add(iconKey);
+        }
+
+        return data;
+    }
+
     [Theory]
-    [InlineData("deck-analysis")]
-    [InlineData("deck-comparison")]
-    [InlineData("cedh-meta-gap")]
-    [InlineData("manabase")]
-    [InlineData("deck-sync")]
-    [InlineData("convert")]
-    [InlineData("deck-primer")]
-    [InlineData("card-lookup")]
-    [InlineData("mechanic-lookup")]
-    [InlineData("ask-a-judge")]
-    [InlineData("content-kb")]
-    [InlineData("category-suggestions")]
-    [InlineData("commander-categories")]
+    [MemberData(nameof(IconKeys))]
     public void ToolTileIcon_PartialContainsIconArm(string iconKey)
     {
         var content = ReadToolTileIconPartial();
 
-        Assert.Contains($"\"{iconKey}\"", content, StringComparison.Ordinal);
+        // Assert the switch arm specifically — a bare quoted-string match would also be satisfied
+        // by the key appearing in a comment.
+        Assert.Contains($"case \"{iconKey}\":", content, StringComparison.Ordinal);
         Assert.Contains("<svg", content, StringComparison.Ordinal);
     }
 
