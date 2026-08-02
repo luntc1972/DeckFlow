@@ -46,9 +46,9 @@ public sealed record CutLabUiPatchDto
     /// <summary>Read-only locked-overshoot advisory for terminal over-target states, when applicable.</summary>
     public CutLabLockedOvershootAdvisoryDto? LockedOvershootAdvisory { get; init; }
 
-    /// <summary>Per-card combo badge state and context keyed by normalized card name.</summary>
+    /// <summary>Per-card combo badge state and context keyed by raw rendered pool name.</summary>
     public IReadOnlyDictionary<string, CutLabDecideComboBadgeDto> ComboBadgeByCardName { get; init; } =
-        new Dictionary<string, CutLabDecideComboBadgeDto>(CutLabCardNames.Comparer);
+        new Dictionary<string, CutLabDecideComboBadgeDto>(StringComparer.Ordinal);
 
     /// <summary>True when combo-backed findings were computed for this response.</summary>
     public bool ComboDataAvailable { get; init; }
