@@ -501,24 +501,36 @@ private bool IsCardInTheme(CutLabAnalyzedCard poolCard, string[] themeCardNames)
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+All four questions were resolved during planning (2026-08-02); values below are canonical
+in the named plans.
 
 1. **Role-Proxy Table Vocabulary**
+   - RESOLVED: full 12-strategy needle table authored in `08-01-PLAN.md`
+     (`DeckPlanStrategyCatalog`, substring needles mirroring `PlanRoleClassifier.Has`,
+     with the Counters/counterspell collision guard).
    - What we know: Spec examples show aristocrats → `Sac Outlet` | `Drain` | `Recursion` and tokens → `Tokens` | `Anthem`. `CategoryKnowledgeStore` is role-level; archetype names don't exist there.
    - What's unclear: Complete list of 12 generic strategies and their respective role-proxy tag mappings. Planning must curate the full table.
    - Recommendation: Draft the table in the plan; gather corpus evidence for each strategy's typical role distribution if needed.
 
 2. **Plan→Floor-Delta Table Values**
+   - RESOLVED: complete 12-row delta table authored in `08-04-PLAN.md`; composition is
+     max-per-role, clamped by `CutLabFloorRules`, surfaced as a separate `PlanDelta` field.
    - What we know: Spec examples mention "combo → +tutor, +protection" and "combat → +wincon-creature". Deltas are clamped by existing `CutLabFloorRules` validation.
    - What's unclear: Exact floor delta values per strategy per role; whether combo's tutor delta applies to all roles or is ramp-specific.
    - Recommendation: Planner to define the delta table with rationale (corpus-backed or subject-matter reasoning).
 
 3. **Additive Ordering-Weight Cap Value**
+   - RESOLVED: `OnPlanScoreCap = 3`, defined in `08-02-PLAN.md`, consumed by `08-05-PLAN.md`
+     (`PlanAffinityRank`); mutation-guarded.
    - What we know: Spec requires a cap on additive composition; mutation test must guard it.
    - What's unclear: What value the cap should be; how aggressive off-plan reordering should be in Rounds 1/2/3.
    - Recommendation: Planner to choose the cap; spec says planning may tune from default.
 
 4. **Stranded-Package Threshold and Pre-Check Share**
+   - RESOLVED: threshold 4 (`08-05-PLAN.md`) and pre-check top-3 at ≥5% (`08-03-PLAN.md`)
+     — defaults stood; both mutation-guarded constants.
    - What we know: Default threshold is 4 cards; default pre-check is top 3 themes at ≥5% each. Both are tunable.
    - What's unclear: Whether these defaults will hold after UAT, or need adjustment based on real deck pools.
    - Recommendation: Planning to lock default values; Phase 8 implementation to surface them as constants (mutation-guarded).
