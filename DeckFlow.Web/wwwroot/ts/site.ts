@@ -290,6 +290,25 @@
     });
   };
 
+  // Workflow step tabs (_WorkflowStepTabs.cshtml) mark not-yet-reachable steps with
+  // aria-disabled rather than the real `disabled` attribute, so they stay focusable and arrow
+  // traversal of the tablist does not dead-end at the first incomplete step. That leaves them
+  // clickable, so swallow activation here — in the capture phase, before the per-page handlers in
+  // deck-sync.ts and primer-selection.ts get it. One listener covers all five tablist pages.
+  document.addEventListener('click', event => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    if (!target.closest('[role="tab"][aria-disabled="true"]')) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, true);
+
   clearLegacyPageSnapshotsOnLoad();
   document.addEventListener('DOMContentLoaded', attachBackToTop);
   document.addEventListener('DOMContentLoaded', attachThemePicker);
