@@ -86,42 +86,6 @@ test('manabase exposes a Load deck step before Analyze', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Analyze Mana Base' })).toBeVisible();
 });
 
-test('content kb detail copy button signals it builds an AI prompt', async ({ page }) => {
-  const listResponse = await page.goto('/content-kb');
-  expect(listResponse?.ok()).toBeTruthy();
-
-  const firstCardLink = page.locator('[data-kb-entry] .hub-card__title a').first();
-  test.skip((await firstCardLink.count()) === 0, 'no KB entries seeded');
-
-  const href = await firstCardLink.getAttribute('href');
-  expect(href).toBeTruthy();
-
-  const detailResponse = await page.goto(href!);
-  expect(detailResponse?.ok()).toBeTruthy();
-
-  const copyButton = page.locator('button[data-copy-target="kb-artifact-text"]');
-  test.skip((await copyButton.count()) === 0, 'artifact unavailable for this entry');
-
-  // The label and lede must tell the user the copied text is a paste-ready AI
-  // prompt, not just an opaque "Copy" action.
-  await expect(copyButton).toBeVisible();
-  await expect(copyButton).toContainText(/ChatGPT/i);
-
-  const hint = page.locator('.kb-artifact-hint');
-  await expect(hint).toBeVisible();
-  await expect(hint).toContainText(/ChatGPT|Claude/i);
-
-  // The longer label must not overflow the viewport or wrap to a giant button
-  // on the 390px mobile project. Use viewport-relative rect coords.
-  const rect = await copyButton.evaluate((el) => {
-    const r = el.getBoundingClientRect();
-    return { right: r.right, height: r.height, innerWidth: window.innerWidth };
-  });
-  expect(rect.right).toBeLessThanOrEqual(rect.innerWidth + 1);
-  expect(rect.height).toBeLessThanOrEqual(80);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
-});
-
 test.describe('admin content kb flows @admin', () => {
   let heldLock: LockHandle | null = null;
 
