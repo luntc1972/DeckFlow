@@ -1,235 +1,124 @@
 {
   "version": "1.0",
-  "timestamp": "2026-08-01T16:18:40.422Z",
+  "timestamp": "2026-08-02T04:05:02.743Z",
   "phase": "04",
   "phase_name": "functional-twins-detector",
   "phase_dir": ".planning/workstreams/cycle21-cut-lab/phases/04-functional-twins-detector",
   "workstream": "cycle21-cut-lab",
   "worktree": "/mnt/c/users/chrislunt/source/personal/deckflow-role-floors",
   "branch": "gsd/cycle21-cut-lab",
-  "head": "0aee0823",
-  "plan": null,
-  "task": 0,
+  "head": "19fdce26",
+  "plan": 2,
+  "task": 2,
   "total_tasks": 4,
   "status": "paused",
-  "activity": "Round 7 complete for both phases and FOLDED by Codex. Round 8 owed. Still zero waves executed in either phase.",
+  "activity": "Phase 4 plans CONVERGED on review round 12. Plans 04-01 and 04-02 EXECUTED and committed. 04-03 and 04-04 remain. Phase 5 reached round 9 with 1 HIGH owed.",
   "completed_tasks": [
     {
-      "id": "step-1",
-      "name": "ff fix/cutlab-scryfall-burst -> main",
+      "id": "04-01",
+      "name": "Dedicated functional-twins flag seeded OFF in both dialects, plus TypeLine/IsLocked/IsCommander on CutLabAnalyzedCard",
       "status": "done",
-      "commit": "938cbe4a"
+      "commit": "476daf66"
     },
     {
-      "id": "step-2",
-      "name": "rebase + ff fix/cutlab-combo-seam -> main",
+      "id": "04-02",
+      "name": "The FunctionalTwins kind and detector, 21 mutation-proofed tests, TWIN-01/TWIN-03 amendments in REQUIREMENTS.md",
       "status": "done",
-      "commit": "c0da20bc"
+      "commit": "19fdce26"
     },
     {
-      "id": "roadmap",
-      "name": "insert Phase 6 Scryfall Throughput in roadmap",
+      "id": "p4-converge",
+      "name": "Phase 4 plan-review convergence, rounds 8-12, VERDICT CONVERGED",
       "status": "done",
-      "commit": "0e667893"
+      "commit": "5246033e"
     },
     {
-      "id": "step-3",
-      "name": "rebase gsd/cycle21-cut-lab onto main (155 commits, 2 conflicts, 1 correct skip)",
+      "id": "p5-r8",
+      "name": "Phase 5 round-8 fold: prefix-tolerant TRX regex plus staged-nonempty guards on seven formatter gates",
       "status": "done",
-      "commit": "c8eae7bb"
+      "commit": "50830c6b"
     },
     {
-      "id": "step-4-r1",
-      "name": "Phase 4 claim-vs-code review round 1 \u2014 2 BLOCK/5 HIGH/6 MED/1 LOW, all folded",
+      "id": "config",
+      "name": "cross_ai_command to gpt-5.6-terra and canonical GSD model routing in both configs",
       "status": "done",
-      "commit": "cd3788f9"
-    },
-    {
-      "id": "step-4-r2",
-      "name": "Phase 4 round 2 \u2014 5 incomplete folds + 5 new defects, all folded",
-      "status": "done",
-      "commit": "13144f11"
-    },
-    {
-      "id": "step-5-pg",
-      "name": "Phase 5 Postgres blocker DISCHARGED \u2014 suite 2231/0/1, and F4-1 upgraded from disclosed risk to required [PostgresFact]",
-      "status": "done",
-      "commit": "f7756740"
-    },
-    {
-      "id": "step-4-r3",
-      "name": "Phase 4 round 3 \u2014 9 contradictions, zero new substantive defects, all folded",
-      "status": "done",
-      "commit": "b1d25ed1"
-    },
-    {
-      "id": "push",
-      "name": "push everything \u2014 force-with-lease on cycle21, new remote fix/cutlab-combo-seam",
-      "status": "done",
-      "commit": "f7756740"
-    },
-    {
-      "id": "step-4-r5",
-      "name": "Phase 4 round 5 (fresh blind) \u2014 3 HIGH / 2 MED / 1 LOW, all folded",
-      "status": "done",
-      "commit": "9ed26264"
-    },
-    {
-      "id": "step-5-r5",
-      "name": "Phase 5 OWED Codex review finally ran \u2014 1 BLOCK / 2 HIGH / 1 MED / 1 LOW, all folded",
-      "status": "done",
-      "commit": "06d3e865"
-    },
-    {
-      "id": "state-fix",
-      "name": "Corrected both stale STATE.md files (root Cycle 20 had percent:300; workstream claimed Phase 3 unexecuted)",
-      "status": "done",
-      "commit": "4a97902c"
-    },
-    {
-      "id": "step-4-r6",
-      "name": "Phase 4 round 6 \u2014 2 HIGH / 3 MED / 2 LOW, all folded. HIGH-1 was a NEW defect created by the round-5 fix; folded as D-23 normalized tally join",
-      "status": "done",
-      "commit": "daa6add2"
-    },
-    {
-      "id": "step-5-r6",
-      "name": "Phase 5 round 6 \u2014 2 BLOCK / 3 HIGH / 1 MED / 1 LOW, RECORDED ONLY, not folded",
-      "status": "done",
-      "commit": "bc1be075"
-    },
-    {
-      "id": "codex-p5",
-      "name": "Codex folded Phase 5 round-6 findings AND restructured (gpt-5.6-terra, fenced) \u2014 both BLOCKs closed, TRX-checked Postgres gate, per-task staging",
-      "status": "done",
-      "commit": "e2b1bd9d"
-    },
-    {
-      "id": "codex-p4",
-      "name": "Codex restructured Phase 4 plans (gpt-5.6-terra, fenced) \u2014 one canonical home per fact, counts no longer restated",
-      "status": "done",
-      "commit": "ff06857f"
-    },
-    {
-      "id": "r7",
-      "name": "Round 7 both phases \u2014 P4 1 BLOCK/1 HIGH/4 MED, P5 2 BLOCK/2 HIGH/2 MED; all folded by Codex",
-      "status": "done",
-      "commit": "0aee0823"
+      "commit": "ae78fd68"
     }
   ],
   "remaining_tasks": [
     {
-      "id": "step-r8",
-      "name": "Round 8 review \u2014 OWED for both phases",
-      "status": "not_started",
-      "detail": "Round 7 confirmed the restructure lost nothing (all round 1-6 folds present, D-14..D-23 unique, every count re-derived). Round 8 should focus on the round-7 fold itself. Highest-value checks: (1) P4 BLOCK-1c specified BuildFindingTallies(findings, workingList) -- verify that shape is actually implementable and cannot alter any non-FunctionalTwins kind; (2) P4 test 4b now builds evidence with only the short DFC form while the working list holds both, plus a negative control -- verify 4b genuinely fails without the join; (3) P5 red gates were rebuilt around named TRX Failed outcomes and wslpath -w -- re-derive every gate case by case, since three of the last four BLOCKs in this cycle were gates that FAIL ON SUCCESS rather than pass on failure; (4) Claude hand-added a POSIX EXIT trap to three P5 gates to clean up $PWD/.phase05-*-$$ directories -- verify the trap syntax and that no gate leaves repo-root litter."
-    },
-    {
-      "id": "step-6",
-      "name": "Execute Phase 4 \u2014 4 waves, ~2.3k LOC, major coding -> gpt-5.6-terra",
+      "id": "04-03",
+      "name": "Engine wiring, flag read on all three transports, D-23 FunctionalTwins-only normalized tally join",
       "status": "not_started"
     },
     {
-      "id": "step-7",
-      "name": "Execute Phase 5 \u2014 Archidekt bracket capture",
+      "id": "04-04",
+      "name": "Presenter merge, Razor + TypeScript rendering, D-24 combo-badge repair, human UI checkpoint",
       "status": "not_started"
     },
     {
-      "id": "phase-01.2",
-      "name": "Phase 01.2 Protection-Vocabulary Widening \u2014 NEVER STARTED, easy to miss",
+      "id": "p5-r9-fold",
+      "name": "Fold Phase 5 round-9 HIGH, then dispatch round 10",
       "status": "not_started"
     },
     {
-      "id": "phase-06",
-      "name": "Phase 6 Scryfall Throughput \u2014 planned in roadmap only, no phase dir yet",
-      "status": "not_started"
-    },
-    {
-      "id": "step-8",
-      "name": "UAT dark, then USER flips tool.cut-lab.enabled",
+      "id": "p6-plans",
+      "name": "Phase 6 RESEARCH.md, VALIDATION.md and PLAN.md files; only 06-CONTEXT.md exists",
       "status": "not_started"
     }
   ],
   "blockers": [
     {
-      "description": "Phase 4 plans are NOT converged. Rounds 1-5 all returned CHANGES REQUIRED. Do not execute until a review returns CONVERGED.",
+      "description": "Phase 5 round 9 returned 1 HIGH. The round-8 TRX regex fix, which I hand-authored, is too permissive: testName=\"[^\"]*(name1|name2)[^\"]*\" combined with substring FullyQualifiedName~ filters means suffix-extended tests such as RunAsync_MetadataBearingImport_PersistsMetadata_Unrelated satisfy the gate. The reviewer confirmed with a synthetic TRX that both unrelated names produce failed_count=2.",
       "type": "technical",
-      "workaround": "none \u2014 convergence rule is explicit in feedback_plan_review_convergence_loop"
+      "workaround": "Fix is fully specified: exact FullyQualifiedName=DeckFlow.Core.Tests.ArchidektDeckCacheSessionTests.<method> filters, one exact counter per fully qualified name plus a total, requiring first_failed=1, second_failed=1, total_failed=2. Dispatch to Codex rather than hand-editing."
     },
     {
-      "description": "Phase 5 plans are NOT converged. Its first-ever Codex review (round 5) returned a BLOCK, overturning round 4's \"no BLOCKER outstanding\" \u2014 that verdict had stood in for a gate that never ran. Do not execute until a review returns CONVERGED.",
-      "type": "technical",
-      "workaround": "none"
-    },
-    {
-      "description": "Docker Desktop must be RUNNING for the Postgres-gated tests, and Phase 5 now REQUIRES them \u2014 the \"NOT VERIFIED on Postgres\" fallback was withdrawn in the round-5 fold. A skipped Postgres run is now a blocker, not a recordable outcome.",
-      "type": "external",
-      "workaround": "Start Docker Desktop on Windows. WSL integration is NOT required \u2014 tests run under Windows dotnet.exe over the named pipe."
+      "description": "Plan 04-04 is autonomous:false. Task 3 is a human UI checkpoint at desktop and mobile viewports.",
+      "type": "human_action",
+      "workaround": "Ask permission before opening any browser. Start the app with scripts/run-web-test.sh so DECKFLOW_DISABLE_AUTO_BROWSER is set; never open a browser on the Windows host; drive checks with npx --no-install playwright test under env -u DISPLAY."
     }
   ],
   "human_actions_pending": [
     {
-      "action": "Flip tool.cut-lab.enabled to true in prod",
-      "context": "Step 8, only after full-milestone UAT. User-only action; never part of a merge.",
-      "blocking": false
+      "action": "UI verification for 04-04 Task 3 at roughly 1440px and 390x844",
+      "context": "Confirm the merged Functional twins heading and help note wrap cleanly, evidence chips wrap without overflowing, a combo-protected twin chip shows its badge (this requires the D-24 repair to work), and locked-chip styling still renders. Check locked chips on a Weak-floor or Curve-congestion finding, since twin evidence can never be locked.",
+      "blocking": true
     },
     {
-      "action": "Decide whether Phase 01.2 and Phase 6 are in scope for 'full milestone'",
-      "context": "Both unstarted. User chose 'Fixes + P4 + P5 (full milestone)' before Phase 6 existed and before 01.2 was noticed.",
-      "blocking": false
-    },
-    {
-      "action": "Start Docker Desktop before any Postgres-gated run",
-      "context": "Engine 29.4.3 verified working this session, but does not persist across reboots.",
+      "action": "Push 3 branch commits and 1 main commit",
+      "context": "gsd/cycle21-cut-lab is 3 ahead of origin (476daf66, 50830c6b, 19fdce26). main holds 4cadf943 locally, made byte-identical to the branch copy so the branch's two config commits drop automatically on rebase. AI does not push per standing rule.",
       "blocking": false
     }
   ],
   "decisions": [
     {
-      "decision": "Re-run the Phase 4 plan review from scratch rather than fold the lost 2026-07-29 output",
-      "rationale": "Output was lost to compaction AND graded pre-rebase code. Vindicated immediately: BLOCK 1 existed only because of 31042a36, which landed in that window.",
+      "decision": "D-24 - each combo-badge transport keys for its own consumer",
+      "rationale": "The AJAX DTO re-keys ComboBadgeByCardName onto raw pool names server-side under StringComparer.Ordinal; the Razor view model keeps normalized keys and normalizes at lookup. Ordinal rather than OrdinalIgnoreCase because cut-lab.ts reads these keys with case-sensitive JavaScript property lookup and CutLabStateSerializer does not canonicalize Pool. A TypeScript port of CardNormalizer.Normalize was considered and rejected: duplicating the star-strip, *f*-strip, DFC split and punctuation collapse in a second language with nothing binding them would silently recreate the defect class.",
       "phase": "04"
     },
     {
-      "decision": "Reflection test asserts FunctionalTwins ABSENCE only, never exact exclusion-set membership",
-      "rationale": "The set is shared with combo protection and legitimately gained EnablerStarved. A count pin turns a future valid addition into a failure whose easiest fix is deleting a load-bearing exclusion.",
+      "decision": "Phase 4 scope widened to repair three pre-existing combo-badge readers",
+      "rationale": "The plan had claimed twin evidence chips get badges for free. They never rendered at all: the dictionary is written normalized and read raw at CutLab.cshtml:708, cut-lab.ts:1446, and the card-text JSON builder at CutLab.cshtml:234-275. These were found in rounds 8, 9 and 10 respectively, because no consumer census was done before asserting the behavior worked.",
       "phase": "04"
     },
     {
-      "decision": "Replace BuildFindingGroups' capture-index-then-insert with a single-pass build",
-      "rationale": "It renders merged sections in reverse first-occurrence order TODAY. Confirmed independently by the reviewer. Follow-up F-04-03 had deferred this exact refactor as cosmetic.",
+      "decision": "F-04-07 recorded rather than fixed",
+      "rationale": "CardTextByCardName is keyed OrdinalIgnoreCase but consumed by case-sensitive JavaScript, so two pool entries differing only by case lose one card-text entry. Same hazard as D-24, but pre-existing, built by two separate builders, and read server-side at CutLab.cshtml:237 - out of scope for this phase. Live follow-up count is now six.",
       "phase": "04"
     },
     {
-      "decision": "Narrow test 9 from 'proves not invoked' to a paired OFF/ON assertion",
-      "rationale": "IFeatureFlagCache.Snapshot() takes no key, so no fake can attribute a read to the twins key. The original spec was unbuildable.",
-      "phase": "04"
+      "decision": "Phase 6 wave 1 superseded: per-endpoint throttle gates, not a 200ms restore",
+      "rationale": "500ms IS Scryfall's documented per-endpoint limit; the 200ms it replaced came from misreading the docs' all-other-methods row, and ScryfallThrottleTests.cs:174 pins >=450ms specifically to assert it. Recovering throughput legitimately means per-endpoint gate state, which requires threading an endpoint key through 14 call sites across 8 services.",
+      "phase": "06"
     },
     {
-      "decision": "Full-suite runs are the reviewer's gate, not the executor's",
-      "rationale": "Filtered gates run reliably via Windows dotnet.exe; a Codex executor failed the full suite 5 consecutive times on 2026-08-01.",
-      "phase": "04"
-    },
-    {
-      "decision": "Upgrade Phase 5 F4-1 from a disclosed NOT-VERIFIED risk to a required [PostgresFact]",
-      "rationale": "Its premise \u2014 'Postgres is provable in zero environments' \u2014 became false once Docker was started. Verified: 2231/0/1 with every PostgresFact executing.",
-      "phase": "05"
-    },
-    {
-      "decision": "Force-push cycle21 with --force-with-lease; keep backup/* refs local",
-      "rationale": "User explicitly authorized. Verified first that all 158 remote-only commits' content exists on the rebased branch (5 differed only by patch-id context shift).",
-      "phase": "04"
-    },
-    {
-      "decision": "Delegate plan folds to Codex and restructure the plans, rather than continue folding by hand",
-      "rationale": "Rounds 5 and 6 each introduced new defects through the fold itself \u2014 four of Phase 5 round-6 findings were defects in the round-5 folds (broken && short-circuit, git add -A over-staging, a Postgres gate that exits 0 on skip). The failures were mechanical, which is what a focused agent does better. The restructure attacks the root cause: the same fact restated five or six times is what makes an incomplete fold possible.",
-      "phase": "04/05"
+      "decision": "Phase 6 wave 2 scoped to SearchFallbackCardAsync only",
+      "rationale": "SearchPrintingFallbackCardAsync is a three-stage progressive escalation under unique=prints with per-name best-match selection; batching it would redesign its matching semantics. Analysis and Deck History therefore get no request-count change this phase.",
+      "phase": "06"
     }
   ],
-  "uncommitted_files": [
-    "_edhrec-brackets/ (untracked)",
-    "_role-floor-research/ (untracked)"
-  ],
-  "next_action": "Dispatch round 8 for both phases (gpt-5.6-sol, medium, read-only), focused on the round-7 folds per the step-r8 detail. Codex folds any findings; Claude reviews. Repeat until each phase returns VERDICT: CONVERGED, which is the gate on executing Phase 4.",
-  "context_notes": "Session of 2026-08-01, part 2. Still zero code executed \u2014 this remains merge/rebase plumbing plus a plan-review convergence loop. Two things worth carrying forward. (1) THE OWED GATE PAID FOR ITSELF: Phase 5 round 4 closed \"No BLOCKER outstanding\" while recording that the Codex review was owed across four rounds and blocked on credits; the first time it actually ran it found a BLOCK. Do not treat an owed gate as discharged by the reviews that ran in its absence. (2) THE INCOMPLETE FOLD is still the dominant defect in both phases \u2014 round 5 found it again in Phase 5's [PostgresFact] upgrade, with four stale copies including one conditional phrasing (\"do not ship the carry-forward IF this test can be written\") that kept the withdrawn fallback alive as an executor-judged escape hatch. Fold by grepping every phrasing, number-word and digit, across every plan AND the validation doc AND frontmatter must_haves."
+  "uncommitted_files": [],
+  "next_action": "Execute plan 04-03 (engine wiring, flag transports, D-23 tally join). Capture HEAD and the per-file EOL baseline first, dispatch to gpt-5.6-terra with a hard scope fence, then re-run the affected suites INDEPENDENTLY before committing - do not accept the executor's pass claim, which has been wrong twice.",
+  "context_notes": "Phase 4's plans needed TWELVE convergence rounds. The post-mortem produced four preventive rules, now in ~/.claude/CLAUDE.md under 'Plan authoring: four rules that keep the review loop short' plus three project memory files. Dominant cause was serialized discovery of a three-reader production bug across rounds 8-12; second was that each fold added new unreviewed surface, so in rounds 9-11 every HIGH was a defect in the previous round's fix. Executing now is deliberate - converged plans decay against a moving codebase and this one agrees with HEAD as of 19fdce26. Phase 4 (DeckFlow.Web) and Phase 5 (DeckFlow.Core) have zero file overlap, so a read-only Phase 5 review can run concurrently with Phase 4 execution; two full-access Codex writers must never share this worktree. The untracked _edhrec-brackets/ and _role-floor-research/ directories must never be staged - always use explicit git add -- <paths>."
 }
