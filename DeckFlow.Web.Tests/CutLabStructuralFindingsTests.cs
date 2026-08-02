@@ -469,13 +469,78 @@ public sealed class CutLabStructuralFindingsTests
         Assert.True(result.CategoryDataAvailable);
     }
 
+    [Fact]
+    public void Compute_NewAnalyzedCardMembers_DoNotAffectExistingDetectors()
+    {
+        // Why: This is the D-15 scope fence in executable form. If a future change makes any of the
+        // five existing detectors read these members, this test fails; EnablerStarved is excluded
+        // because it does not consume the analyzed pool.
+        IReadOnlyList<CutLabAnalyzedCard> CreatePool(bool populateNewMembers) =>
+        [
+            Card("Wincon 1", 3, false, roles: ["wincons"], categories: ["landfall"], typeLine: populateNewMembers ? "Artifact" : "", isLocked: populateNewMembers, isCommander: populateNewMembers),
+            Card("Wincon 2", 3, false, roles: ["wincons"], categories: ["landfall"], typeLine: populateNewMembers ? "Artifact" : "", isLocked: populateNewMembers, isCommander: populateNewMembers),
+            Card("Wincon 3", 3, false, roles: ["wincons"], typeLine: populateNewMembers ? "Artifact" : "", isLocked: populateNewMembers, isCommander: populateNewMembers),
+            Card("Interaction 1", 3, false, roles: ["interaction-targeted"], typeLine: populateNewMembers ? "Artifact" : "", isLocked: populateNewMembers, isCommander: populateNewMembers),
+            Card("Interaction 2", 3, false, roles: ["interaction-targeted"], typeLine: populateNewMembers ? "Artifact" : "", isLocked: populateNewMembers, isCommander: populateNewMembers),
+            Card("Combo One", 3, false, typeLine: populateNewMembers ? "Artifact" : "", isLocked: populateNewMembers, isCommander: populateNewMembers),
+            Card("Combo Two", 3, false, typeLine: populateNewMembers ? "Artifact" : "", isLocked: populateNewMembers, isCommander: populateNewMembers),
+            Card("Filler 1", 3, false, typeLine: populateNewMembers ? "Artifact" : "", isLocked: populateNewMembers, isCommander: populateNewMembers),
+            Card("Filler 2", 3, false, typeLine: populateNewMembers ? "Artifact" : "", isLocked: populateNewMembers, isCommander: populateNewMembers),
+            Card("Filler 3", 3, false, typeLine: populateNewMembers ? "Artifact" : "", isLocked: populateNewMembers, isCommander: populateNewMembers),
+            Card("Filler 4", 3, false, typeLine: populateNewMembers ? "Artifact" : "", isLocked: populateNewMembers, isCommander: populateNewMembers),
+            Card("Filler 5", 3, false, typeLine: populateNewMembers ? "Artifact" : "", isLocked: populateNewMembers, isCommander: populateNewMembers),
+        ];
+
+        IReadOnlyList<SpellbookCombo> completeCombos =
+        [
+            new(["Combo One", "Combo Two"], ["Win"], "Assemble both."),
+        ];
+        CutLabStructuralFindingsResult baseline = CutLabStructuralFindings.Compute(
+            CreatePool(populateNewMembers: false),
+            Array.Empty<SpellbookAlmostCombo>(),
+            Floors(("interaction-targeted", 2)),
+            comboDataAvailable: true,
+            categoryDataAvailable: true,
+            completeCombos: completeCombos);
+        CutLabStructuralFindingsResult populated = CutLabStructuralFindings.Compute(
+            CreatePool(populateNewMembers: true),
+            Array.Empty<SpellbookAlmostCombo>(),
+            Floors(("interaction-targeted", 2)),
+            comboDataAvailable: true,
+            categoryDataAvailable: true,
+            completeCombos: completeCombos);
+
+        CutLabFindingKind[] expectedKinds =
+        [
+            CutLabFindingKind.CurveCongestion,
+            CutLabFindingKind.StrandedSubtheme,
+            CutLabFindingKind.RedundantFinishers,
+            CutLabFindingKind.WeakFloorCase,
+            CutLabFindingKind.ComboProtected,
+        ];
+        foreach (CutLabFindingKind kind in expectedKinds)
+        {
+            Assert.Contains(baseline.Findings, finding => finding.Kind == kind);
+        }
+
+        Assert.Equal(baseline.Findings.Select(finding => finding.Kind), populated.Findings.Select(finding => finding.Kind));
+        Assert.Equal(baseline.Findings.Select(finding => finding.Heading), populated.Findings.Select(finding => finding.Heading));
+        Assert.Equal(baseline.Findings.Select(finding => finding.Lead), populated.Findings.Select(finding => finding.Lead));
+        Assert.Equal(
+            baseline.Findings.Select(finding => finding.Evidence.Select(evidence => evidence.CardName)),
+            populated.Findings.Select(finding => finding.Evidence.Select(evidence => evidence.CardName)));
+    }
+
     private static CutLabAnalyzedCard Card(
         string name,
         double manaValue,
         bool isLand,
         int quantity = 1,
         IReadOnlyList<string>? roles = null,
-        IReadOnlyList<string>? categories = null)
+        IReadOnlyList<string>? categories = null,
+        string typeLine = "",
+        bool isLocked = false,
+        bool isCommander = false)
         => new(
             name,
             manaValue,
@@ -484,6 +549,9 @@ public sealed class CutLabStructuralFindingsTests
             categories ?? Array.Empty<string>())
         {
             Quantity = quantity,
+            TypeLine = typeLine,
+            IsLocked = isLocked,
+            IsCommander = isCommander,
         };
 
     private static IReadOnlyDictionary<string, int> Floors(params (string Role, int Count)[] overrides)

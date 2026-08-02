@@ -78,6 +78,24 @@ public sealed record CutLabAnalyzedCard(
     /// while structural counts still weight stacked basics and other quantity-bearing entries correctly.
     /// </summary>
     public int Quantity { get; init; } = 1;
+
+    // Why: These members exist for the functional-twins detector (D-15). The five pre-existing
+    // detectors deliberately do not read them: they have always included locked and commander cards
+    // in evidence because filtering happens downstream in BuildQueue's eligibleCards filter, not
+    // during finding computation. Narrowing them here would be an unplanned behavior change in the
+    // cycle's highest-blast-radius phase, so it is tracked as a follow-up and left alone.
+    /// <summary>
+    /// Resolved Scryfall type line used to derive a primary card type. Defaults to empty so existing
+    /// construction sites keep compiling; an empty type line means type unknown and consumers must
+    /// treat it as ineligible rather than guessing.
+    /// </summary>
+    public string TypeLine { get; init; } = string.Empty;
+
+    /// <summary>Whether the card is protected from cuts. Defaults to <see langword="false"/>.</summary>
+    public bool IsLocked { get; init; }
+
+    /// <summary>Whether the card is the resolved commander. Defaults to <see langword="false"/>.</summary>
+    public bool IsCommander { get; init; }
 }
 
 /// <summary>
@@ -88,6 +106,13 @@ public sealed record CutLabAnalyzedCard(
 /// </summary>
 public static class CutLabStructuralFindings
 {
+    /// <summary>
+    /// Dedicated dark-launch gate for the functional-twins detector. Seeded OFF: off means no
+    /// <c>FunctionalTwins</c> finding is produced and this detector contributes nothing to proposal order.
+    /// </summary>
+    // Why: The detector owns this shared gate because multiple consumers must coordinate its release posture.
+    public const string FunctionalTwinsFlagKey = "analysis.cut-lab.functional-twins";
+
     // Why: A bucket needs a materially concentrated share before the curve read is worth surfacing.
     private const double CongestionShareThreshold = 0.30;
 

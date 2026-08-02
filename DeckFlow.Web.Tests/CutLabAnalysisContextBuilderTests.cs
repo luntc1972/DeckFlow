@@ -731,13 +731,118 @@ public sealed class CutLabAnalysisContextBuilderTests
         Assert.Equal(3, restoredContext.ResolvedCards.Count);
     }
 
-    private static CutLabPoolCard PoolCard(string name, string typeLine, int quantity = 1, bool isCommander = false)
+    [Fact]
+    public async Task BuildAsync_CopiesTypeLineLockAndCommanderOntoAnalyzedCards()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList =
+        [
+            PoolCard("Locked Card", "Artifact", isLocked: true),
+            PoolCard("Commander Card", "Legendary Creature - Human", isCommander: true),
+            PoolCard("Plain Card", "Enchantment"),
+        ];
+        var builder = new CutLabAnalysisContextBuilder(new CountingResolver([]), new CutLabResolvedCardCache());
+
+        CutLabAnalysisContext context = await builder.BuildAsync(
+            workingList,
+            "Focused",
+            ["Commander Card"],
+            preResolvedCards:
+            [
+                CardData("Locked Card", "Artifact"),
+                CardData("Commander Card", "Legendary Creature - Human"),
+                CardData("Plain Card", "Enchantment"),
+            ]);
+
+        foreach (CutLabPoolCard source in workingList)
+        {
+            CutLabAnalyzedCard analyzed = Assert.Single(context.AnalyzedCards, card => card.Name == source.Name);
+            Assert.Equal(source.TypeLine, analyzed.TypeLine);
+            Assert.Equal(source.IsLocked, analyzed.IsLocked);
+            Assert.Equal(source.IsCommander, analyzed.IsCommander);
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_CommanderFlaggedOnPoolCardButNotInCommanderNames_IsStillMarkedCommander()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList = [PoolCard("Flagged Commander", "Creature", isCommander: true)];
+        var builder = new CutLabAnalysisContextBuilder(new CountingResolver([]), new CutLabResolvedCardCache());
+
+        CutLabAnalysisContext context = await builder.BuildAsync(
+            workingList,
+            "Focused",
+            [],
+            preResolvedCards: [CardData("Flagged Commander", "Creature")]);
+
+        Assert.True(Assert.Single(context.AnalyzedCards).IsCommander);
+    }
+
+    [Fact]
+    public async Task BuildAsync_CommanderNamedInCommanderNamesButNotFlagged_IsStillMarkedCommander()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList = [PoolCard("Named Commander", "Creature")];
+        var builder = new CutLabAnalysisContextBuilder(new CountingResolver([]), new CutLabResolvedCardCache());
+
+        CutLabAnalysisContext context = await builder.BuildAsync(
+            workingList,
+            "Focused",
+            ["Named Commander"],
+            preResolvedCards: [CardData("Named Commander", "Creature")]);
+
+        Assert.True(Assert.Single(context.AnalyzedCards).IsCommander);
+    }
+
+    [Fact]
+    public async Task BuildAsync_UnresolvedCard_StillProducesAnAnalyzedCardWithCommanderStateApplied()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList = [PoolCard("Unresolved Commander", "Artifact")];
+        var builder = new CutLabAnalysisContextBuilder(new CountingResolver([]), new CutLabResolvedCardCache());
+
+        CutLabAnalysisContext context = await builder.BuildAsync(
+            workingList,
+            "Focused",
+            ["Unresolved Commander"],
+            preResolvedCards: []);
+
+        CutLabAnalyzedCard analyzed = Assert.Single(context.AnalyzedCards);
+        Assert.Empty(context.ResolvedCards);
+        Assert.Equal("Unresolved Commander", analyzed.Name);
+        Assert.True(analyzed.IsCommander);
+    }
+
+    [Fact]
+    public async Task BuildAsync_EmitsOneAnalyzedCardPerWorkingListEntry()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList =
+        [
+            PoolCard("Locked Card", "Artifact", isLocked: true),
+            PoolCard("Commander Card", "Creature", isCommander: true),
+            PoolCard("Plain Card", "Enchantment"),
+        ];
+        var builder = new CutLabAnalysisContextBuilder(new CountingResolver([]), new CutLabResolvedCardCache());
+
+        CutLabAnalysisContext context = await builder.BuildAsync(
+            workingList,
+            "Focused",
+            ["Commander Card"],
+            preResolvedCards:
+            [
+                CardData("Locked Card", "Artifact"),
+                CardData("Commander Card", "Creature"),
+                CardData("Plain Card", "Enchantment"),
+            ]);
+
+        Assert.Equal(workingList.Count, context.AnalyzedCards.Count);
+    }
+
+    private static CutLabPoolCard PoolCard(string name, string typeLine, int quantity = 1, bool isCommander = false, bool isLocked = false)
         => new()
         {
             Name = name,
             Quantity = quantity,
             TypeLine = typeLine,
             IsCommander = isCommander,
+            IsLocked = isLocked,
         };
 
     private static ScryfallCard Spell(
