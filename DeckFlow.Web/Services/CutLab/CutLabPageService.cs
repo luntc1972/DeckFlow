@@ -506,7 +506,8 @@ internal sealed class CutLabPageService : ICutLabPageService
             derivedWorkingList,
             analysisContext,
             floorByRole,
-            state.Decisions);
+            state.Decisions,
+            IsFlagOn(CutLabStructuralFindings.FunctionalTwinsFlagKey));
 
         CutLabMetricSnapshot? currentSnapshot = null;
         int? currentActualLands = null;

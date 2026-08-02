@@ -6,6 +6,7 @@ using DeckFlow.Web.Models.Api;
 using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CutLab;
+using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -37,6 +38,23 @@ public sealed class CutLabApiControllerTests
             null!,
             new FakeSimulationService(),
             new FakeCutLabWhatifService(),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>
+            {
+                [CutLabStructuralFindings.FunctionalTwinsFlagKey] = false,
+            }),
+            NullLogger<CutLabApiController>.Instance));
+    }
+
+    [Fact]
+    public void Constructor_ThrowsArgumentNullException_WhenFeatureFlagCacheIsNull()
+    {
+        Assert.Throws<ArgumentNullException>(() => new CutLabApiController(
+            new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()),
+            new PassThroughFloorResolver(),
+            new TrackingPatchBuilder(),
+            new FakeSimulationService(),
+            new FakeCutLabWhatifService(),
+            null!,
             NullLogger<CutLabApiController>.Instance));
     }
 
@@ -860,15 +878,21 @@ public sealed class CutLabApiControllerTests
         ICutLabUiPatchBuilder? patchBuilder = null,
         bool sameOrigin = true,
         ICutLabWhatifService? whatifService = null,
-        ICutLabFloorResolver? floorResolver = null)
+        ICutLabFloorResolver? floorResolver = null,
+        IFeatureFlagCache? featureFlags = null)
     {
         ICutLabFloorResolver resolvedFloorResolver = floorResolver ?? new PassThroughFloorResolver();
+        IFeatureFlagCache resolvedFeatureFlags = featureFlags ?? new FakeFeatureFlagCache(new Dictionary<string, bool>
+        {
+            [CutLabStructuralFindings.FunctionalTwinsFlagKey] = false,
+        });
         CutLabApiController controller = new(
             builder,
             resolvedFloorResolver,
-            patchBuilder ?? new CutLabUiPatchBuilder(builder, simulation, resolvedFloorResolver),
+            patchBuilder ?? new CutLabUiPatchBuilder(builder, simulation, resolvedFloorResolver, resolvedFeatureFlags),
             simulation,
             whatifService ?? new FakeCutLabWhatifService(),
+            resolvedFeatureFlags,
             NullLogger<CutLabApiController>.Instance)
         {
             ControllerContext = new ControllerContext

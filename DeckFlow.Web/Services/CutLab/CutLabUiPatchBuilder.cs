@@ -2,6 +2,7 @@ using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.Api;
 using DeckFlow.Web.Models.CutLab;
+using DeckFlow.Web.Services.FeatureFlags;
 
 namespace DeckFlow.Web.Services.CutLab;
 
@@ -33,19 +34,23 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
     private readonly ICutLabAnalysisContextBuilder _analysisContextBuilder;
     private readonly ICutLabSimulationService _simulationService;
     private readonly ICutLabFloorResolver _floorResolver;
+    private readonly IFeatureFlagCache _featureFlags;
 
     /// <summary>Creates the Cut Lab live-patch builder.</summary>
     /// <param name="analysisContextBuilder">Shared Cut Lab analysis-context builder.</param>
     /// <param name="simulationService">Shared Cut Lab simulation service.</param>
     /// <param name="floorResolver">Shared floor resolver reused across Cut Lab transports.</param>
+    /// <param name="featureFlags">Feature-flag cache used to gate the functional-twins detector.</param>
     public CutLabUiPatchBuilder(
         ICutLabAnalysisContextBuilder analysisContextBuilder,
         ICutLabSimulationService simulationService,
-        ICutLabFloorResolver floorResolver)
+        ICutLabFloorResolver floorResolver,
+        IFeatureFlagCache featureFlags)
     {
         _analysisContextBuilder = analysisContextBuilder ?? throw new ArgumentNullException(nameof(analysisContextBuilder));
         _simulationService = simulationService ?? throw new ArgumentNullException(nameof(simulationService));
         _floorResolver = floorResolver ?? throw new ArgumentNullException(nameof(floorResolver));
+        _featureFlags = featureFlags ?? throw new ArgumentNullException(nameof(featureFlags));
     }
 
     /// <inheritdoc />
@@ -81,7 +86,8 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             workingList,
             context,
             floorByRole,
-            state.Decisions);
+            state.Decisions,
+            IsFlagOn(CutLabStructuralFindings.FunctionalTwinsFlagKey));
         CutLabSimulationResult snapshotResult = await _simulationService.BuildSnapshotResult(
             workingList,
             playExperience,
@@ -132,6 +138,10 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             AddableBasics = projection.AddableBasics,
         };
     }
+
+    // Why: IsEnabled defaults a missing key ON; dark launch requires missing keys to land OFF.
+    private bool IsFlagOn(string key)
+        => _featureFlags.Snapshot().TryGetValue(key, out bool enabled) && enabled;
 
     /// <summary>Builds a light UI patch for quantity nudges without re-running analysis or simulation.</summary>
     /// <param name="state">Current authoritative Cut Lab state.</param>

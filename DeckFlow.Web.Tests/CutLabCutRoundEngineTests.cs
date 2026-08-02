@@ -1038,6 +1038,170 @@ public sealed class CutLabCutRoundEngineTests
         Assert.Equal(CutLabCutRoundEngine.Round3Key, plan.NextProposal.RoundKey);
     }
 
+    [Fact]
+    public void BuildQueue_FunctionalTwinsFindingIsDiscriminating_PlacesCardInRound2()
+    {
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            [Card("Twin Card", 3), Card("Fallback", 1)],
+            Findings(Finding(CutLabFindingKind.FunctionalTwins, "Twin Card")),
+            [],
+            cardsToCutTarget: 2);
+
+        CutLabRoundQueueItem twinCard = Assert.Single(plan.Queue, item => item.CardName == "Twin Card");
+        Assert.Equal(CutLabCutRoundEngine.Round2Key, twinCard.RoundKey);
+        Assert.Equal(1, twinCard.FindingCount);
+        Assert.Equal([CutLabFindingKind.FunctionalTwins], twinCard.DiscriminatingFindingKinds);
+    }
+
+    [Fact]
+    public void BuildQueue_FunctionalTwinsPlusOneOtherFinding_PlacesCardInRound1()
+    {
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            [Card("Twin Card", 3), Card("Fallback", 1)],
+            Findings(
+                Finding(CutLabFindingKind.FunctionalTwins, "Twin Card"),
+                Finding(CutLabFindingKind.CurveCongestion, "Twin Card")),
+            [],
+            cardsToCutTarget: 2);
+
+        CutLabRoundQueueItem twinCard = Assert.Single(plan.Queue, item => item.CardName == "Twin Card");
+        Assert.Equal(CutLabCutRoundEngine.Round1Key, twinCard.RoundKey);
+        Assert.Equal(2, twinCard.FindingCount);
+        Assert.Equal(
+            [CutLabFindingKind.CurveCongestion, CutLabFindingKind.FunctionalTwins],
+            twinCard.DiscriminatingFindingKinds);
+    }
+
+    // Why: a finding-only assertion would pass if FunctionalTwins were excluded from the tally;
+    // the proposal swap proves its promotion changes the outcome this phase exists to change.
+    [Fact]
+    public void BuildQueue_FunctionalTwinsChangesNextProposal()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Early Fallback", 1),
+            Card("Twin Card", 5),
+        ];
+
+        CutLabRoundPlan withoutTwins = CutLabCutRoundEngine.BuildQueue(workingList, Findings(), [], cardsToCutTarget: 2);
+        CutLabRoundPlan withTwins = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(Finding(CutLabFindingKind.FunctionalTwins, "Twin Card")),
+            [],
+            cardsToCutTarget: 2);
+
+        Assert.NotNull(withoutTwins.NextProposal);
+        Assert.NotNull(withTwins.NextProposal);
+        Assert.Equal("Early Fallback", withoutTwins.NextProposal!.CardName);
+        Assert.Equal("Twin Card", withTwins.NextProposal!.CardName);
+        Assert.NotEqual(withoutTwins.NextProposal.CardName, withTwins.NextProposal.CardName);
+    }
+
+    [Fact]
+    public void BuildQueue_FunctionalTwinsOnALockedOrCommanderCard_DoesNotPropose()
+    {
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            [
+                Card("Locked Twin", 1, isLocked: true),
+                Card("Commander Twin", 1, isCommander: true),
+                Card("Eligible Card", 5),
+            ],
+            Findings(Finding(CutLabFindingKind.FunctionalTwins, "Locked Twin", "Commander Twin")),
+            [],
+            cardsToCutTarget: 3);
+
+        Assert.Equal(["Eligible Card"], plan.Queue.Select(item => item.CardName).ToArray());
+    }
+
+    [Fact]
+    public void BuildQueue_TwinsEvidenceMatchesNormalizedEquivalentWorkingListEntries()
+    {
+        Assert.Equal(
+            CutLabCardNames.Normalize("Malakir Rebirth"),
+            CutLabCardNames.Normalize("Malakir Rebirth // Malakir Mire"));
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Malakir Rebirth // Malakir Mire", 1),
+            Card("Malakir Rebirth", 1),
+            Card("Card B", 1),
+            Card("Card C", 1),
+        ];
+
+        CutLabRoundPlan twinsPlan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(Finding(CutLabFindingKind.FunctionalTwins, "Malakir Rebirth", "Card B", "Card C")),
+            [],
+            cardsToCutTarget: 4);
+
+        // Why: Assert.All passes vacuously on an empty queue, so pin the count first. All four raw
+        // entries must be present -- that is what proves the long form inherited the twins tally
+        // through the D-23 normalized join rather than being dropped by raw lookup.
+        Assert.Equal(4, twinsPlan.Queue.Count);
+        Assert.All(twinsPlan.Queue, item =>
+        {
+            Assert.Equal(1, item.FindingCount);
+            Assert.Equal(CutLabCutRoundEngine.Round2Key, item.RoundKey);
+        });
+
+        CutLabRoundPlan nonTwinsPlan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(Finding(CutLabFindingKind.CurveCongestion, "Malakir Rebirth", "Card B", "Card C")),
+            [],
+            cardsToCutTarget: 4);
+
+        CutLabRoundQueueItem longForm = Assert.Single(
+            nonTwinsPlan.Queue,
+            item => item.CardName == "Malakir Rebirth // Malakir Mire");
+        Assert.Equal(0, longForm.FindingCount);
+    }
+
+    [Fact]
+    public void BuildQueue_TwinsDuplicateRawPoolEntries_IncrementEachRawTallyOnce()
+    {
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            [Card("Twin Card", 1), Card("Twin Card", 1), Card("Card B", 1), Card("Card C", 1)],
+            Findings(Finding(CutLabFindingKind.FunctionalTwins, "Twin Card", "Card B", "Card C")),
+            [],
+            cardsToCutTarget: 4);
+
+        // Why: Assert.All passes vacuously on an empty queue, so pin the count first. Both identical
+        // raw entries plus the two other evidence cards must be queued, each counted once.
+        Assert.Equal(4, plan.Queue.Count);
+        Assert.All(plan.Queue, item => Assert.Equal(1, item.FindingCount));
+    }
+
+    // Why: D-16 deliberately counts each role-specific twins finding: a card filling two saturated
+    // slots at the same cost and type is twice as redundant. Change this test if D-16 is overridden.
+    [Fact]
+    public void BuildQueue_MultiRoleCardWithTwoTwinsFindings_ReachesRound1()
+    {
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            [Card("Multi-Role Twin", 3)],
+            Findings(
+                Finding(CutLabFindingKind.FunctionalTwins, "Multi-Role Twin"),
+                Finding(CutLabFindingKind.FunctionalTwins, "Multi-Role Twin")),
+            [],
+            cardsToCutTarget: 1);
+
+        CutLabRoundQueueItem twinCard = Assert.Single(plan.Queue);
+        Assert.Equal(CutLabCutRoundEngine.Round1Key, twinCard.RoundKey);
+        Assert.Equal(2, twinCard.FindingCount);
+    }
+
+    // Why: behavioral tests prove the effect; this names the cause when a future change excludes
+    // FunctionalTwins from the tally without widening the private field just for test access.
+    [Fact]
+    public void BuildQueue_FunctionalTwinsAbsentFromExclusionSet_IsAssertedStructurally()
+    {
+        System.Reflection.FieldInfo? field = typeof(CutLabCutRoundEngine).GetField(
+            "ExcludedFindingKindsFromTally",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+
+        Assert.NotNull(field);
+        IReadOnlySet<CutLabFindingKind> exclusions = Assert.IsAssignableFrom<IReadOnlySet<CutLabFindingKind>>(field!.GetValue(null));
+        Assert.DoesNotContain(CutLabFindingKind.FunctionalTwins, exclusions);
+    }
+
     private static CutLabRoundInputCard Card(
         string name,
         double manaValue,

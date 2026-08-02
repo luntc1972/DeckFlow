@@ -340,6 +340,10 @@ public sealed class CutLabAjaxFloorByRoleRegressionTests
         ICutLabUiPatchBuilder? patchBuilder = null,
         ICutLabWhatifService? whatifService = null)
     {
+        IFeatureFlagCache resolvedFeatureFlags = featureFlags ?? new FakeFeatureFlagCache(new Dictionary<string, bool>
+        {
+            [CutLabStructuralFindings.FunctionalTwinsFlagKey] = false,
+        });
         ICutLabFloorResolver floorResolver = new CutLabFloorResolver(
             new FakeManabaseBaselineProvider(new ManabaseBracketBaseline
             {
@@ -349,13 +353,14 @@ public sealed class CutLabAjaxFloorByRoleRegressionTests
             }),
             new FakeCedhLandBaselineProvider(),
             roleFloorBaseline,
-            featureFlags);
+            resolvedFeatureFlags);
         CutLabApiController controller = new(
             analysisBuilder,
             floorResolver,
-            patchBuilder ?? new CutLabUiPatchBuilder(analysisBuilder, new FakeSimulationService(), floorResolver),
+            patchBuilder ?? new CutLabUiPatchBuilder(analysisBuilder, new FakeSimulationService(), floorResolver, resolvedFeatureFlags),
             new FakeSimulationService(),
             whatifService ?? new FakeCutLabWhatifService(),
+            resolvedFeatureFlags,
             NullLogger<CutLabApiController>.Instance)
         {
             ControllerContext = new ControllerContext

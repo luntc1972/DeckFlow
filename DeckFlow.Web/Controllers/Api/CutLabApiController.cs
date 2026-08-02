@@ -5,6 +5,7 @@ using DeckFlow.Web.Models.Api;
 using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Security;
 using DeckFlow.Web.Services.CutLab;
+using DeckFlow.Web.Services.FeatureFlags;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DeckFlow.Web.Controllers.Api;
@@ -21,6 +22,7 @@ public sealed class CutLabApiController : ControllerBase
     private readonly ICutLabUiPatchBuilder _patchBuilder;
     private readonly ICutLabSimulationService _simulationService;
     private readonly ICutLabWhatifService _whatifService;
+    private readonly IFeatureFlagCache _featureFlags;
     private readonly ILogger<CutLabApiController> _logger;
 
     /// <summary>Creates the Cut Lab API controller.</summary>
@@ -29,6 +31,7 @@ public sealed class CutLabApiController : ControllerBase
     /// <param name="patchBuilder">Shared UI patch builder reused by mutation endpoints.</param>
     /// <param name="simulationService">Simulation service used for proposal deltas.</param>
     /// <param name="whatifService">Shared what-if preview service reused by API and no-JS swap flows.</param>
+    /// <param name="featureFlags">Feature-flag cache used to gate the functional-twins detector.</param>
     /// <param name="logger">Logger used for non-fatal API warnings.</param>
     public CutLabApiController(
         ICutLabAnalysisContextBuilder contextBuilder,
@@ -36,6 +39,7 @@ public sealed class CutLabApiController : ControllerBase
         ICutLabUiPatchBuilder patchBuilder,
         ICutLabSimulationService simulationService,
         ICutLabWhatifService whatifService,
+        IFeatureFlagCache featureFlags,
         ILogger<CutLabApiController> logger)
     {
         _contextBuilder = contextBuilder ?? throw new ArgumentNullException(nameof(contextBuilder));
@@ -43,6 +47,7 @@ public sealed class CutLabApiController : ControllerBase
         _patchBuilder = patchBuilder ?? throw new ArgumentNullException(nameof(patchBuilder));
         _simulationService = simulationService ?? throw new ArgumentNullException(nameof(simulationService));
         _whatifService = whatifService ?? throw new ArgumentNullException(nameof(whatifService));
+        _featureFlags = featureFlags ?? throw new ArgumentNullException(nameof(featureFlags));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -101,7 +106,8 @@ public sealed class CutLabApiController : ControllerBase
                 beforeWorkingList,
                 beforeContext,
                 floorByRole,
-                state.Decisions);
+                state.Decisions,
+                IsFlagOn(CutLabStructuralFindings.FunctionalTwinsFlagKey));
 
             string roundKey = DetermineRoundKey(state, request, beforeRoundPlan);
             IReadOnlyList<CutLabDecideFloorWarningDto> floorWarnings = request.Decision == CutLabDecideAction.Accept
@@ -373,6 +379,10 @@ public sealed class CutLabApiController : ControllerBase
             CutLabStateJson = patch.CutLabStateJson,
         });
     }
+
+    // Why: IsEnabled defaults a missing key ON; dark launch requires missing keys to land OFF.
+    private bool IsFlagOn(string key)
+        => _featureFlags.Snapshot().TryGetValue(key, out bool enabled) && enabled;
 
     private IReadOnlyList<ScryfallCardData>? TryBuildAfterPreResolvedCards(
         IReadOnlyList<CutLabPoolCard> fullPool,

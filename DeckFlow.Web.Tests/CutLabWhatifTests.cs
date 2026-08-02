@@ -7,6 +7,7 @@ using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Security;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CutLab;
+using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -522,12 +523,17 @@ public sealed class CutLabWhatifTests
             contextBuilder,
             resolvedCardCache);
         ICutLabFloorResolver floorResolver = new CutLabFloorResolver(null, null, null, null);
+        IFeatureFlagCache featureFlags = new FakeFeatureFlagCache(new Dictionary<string, bool>
+        {
+            [CutLabStructuralFindings.FunctionalTwinsFlagKey] = false,
+        });
         CutLabApiController controller = new(
             contextBuilder,
             floorResolver,
-            new CutLabUiPatchBuilder(contextBuilder, simulationService, floorResolver),
+            new CutLabUiPatchBuilder(contextBuilder, simulationService, floorResolver, featureFlags),
             simulationService,
             whatifService,
+            featureFlags,
             NullLogger<CutLabApiController>.Instance)
         {
             ControllerContext = new ControllerContext

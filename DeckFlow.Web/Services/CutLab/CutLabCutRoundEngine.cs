@@ -116,6 +116,9 @@ public static class CutLabCutRoundEngine
     // for being a combo piece: the protective finding scored 0 while its punitive twin scored +1,
     // so combo-dense cards sorted to the top of round 1. Combo findings inform the user; they never
     // promote a card up the cut queue. Both still render in the UI.
+    // FunctionalTwins is deliberately absent because its evidence is per-card selective: a specific
+    // role at a specific exact mana value and a specific primary type, not a role-wide warning that
+    // attaches uniformly to every member of a role.
     private static readonly IReadOnlySet<CutLabFindingKind> ExcludedFindingKindsFromTally =
         new HashSet<CutLabFindingKind>
         {
@@ -223,7 +226,7 @@ public static class CutLabCutRoundEngine
             .Where(entry => entry.Value.Kind == CutLabDecisionKind.Accepted)
             .Select(entry => entry.Key)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        IReadOnlyDictionary<string, CardFindingTally> findingTallies = BuildFindingTallies(findings.Findings);
+        IReadOnlyDictionary<string, CardFindingTally> findingTallies = BuildFindingTallies(findings.Findings, workingList);
 
         // Why: ComboProtected is deliberately absent from the tally so it can never promote a card,
         // but that left it with no effect whatsoever — a card sitting in two complete combos could
@@ -365,11 +368,20 @@ public static class CutLabCutRoundEngine
             .ToArray();
     }
 
+    /// <summary>Builds structural findings and the corresponding deterministic round plan.</summary>
+    /// <param name="workingList">Derived working-list cards for the current session state.</param>
+    /// <param name="context">Resolved analysis context for the working list.</param>
+    /// <param name="floorByRole">Effective role floors for structural analysis.</param>
+    /// <param name="decisions">Current decision history.</param>
+    /// <param name="twinsEnabled"><c>true</c> when the <c>analysis.cut-lab.functional-twins</c> flag is on for this request.</param>
+    /// <param name="round3DeltaMagnitudes">Optional pure ordering hint for round 3 tradeoff magnitude.</param>
+    /// <returns>The structural findings and the corresponding round plan.</returns>
     internal static (CutLabStructuralFindingsResult Findings, CutLabRoundPlan RoundPlan) BuildFindingsAndRoundPlan(
         IReadOnlyList<CutLabPoolCard> workingList,
         CutLabAnalysisContext context,
         IReadOnlyDictionary<string, int> floorByRole,
         IReadOnlyList<CutLabDecision> decisions,
+        bool twinsEnabled,
         IReadOnlyDictionary<string, double>? round3DeltaMagnitudes = null)
     {
         ArgumentNullException.ThrowIfNull(workingList);
@@ -386,7 +398,8 @@ public static class CutLabCutRoundEngine
             completeCombos: context.Classification.CardComboMembership.Values
                 .SelectMany(membership => membership.CompleteCombos)
                 .Distinct()
-                .ToArray());
+                .ToArray(),
+            twinsEnabled: twinsEnabled);
         CutLabRoundPlan roundPlan = BuildQueue(
             BuildInputs(workingList, context.AnalyzedCards),
             findings,
@@ -398,7 +411,9 @@ public static class CutLabCutRoundEngine
         return (findings, roundPlan);
     }
 
-    private static IReadOnlyDictionary<string, CardFindingTally> BuildFindingTallies(IReadOnlyList<CutLabFinding> findings)
+    private static IReadOnlyDictionary<string, CardFindingTally> BuildFindingTallies(
+        IReadOnlyList<CutLabFinding> findings,
+        IReadOnlyList<CutLabRoundInputCard> workingList)
     {
         Dictionary<string, CardFindingTallyBuilder> tallies = new(StringComparer.OrdinalIgnoreCase);
 
@@ -409,10 +424,30 @@ public static class CutLabCutRoundEngine
                 continue;
             }
 
-            HashSet<string> cardNamesInFinding = finding.Evidence
-                .Select(evidence => evidence.CardName)
-                .Where(cardName => !string.IsNullOrWhiteSpace(cardName))
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            HashSet<string> cardNamesInFinding;
+            if (finding.Kind == CutLabFindingKind.FunctionalTwins)
+            {
+                // Why: D-23 keeps general finding tallies raw (see the normalization warning in
+                // BuildQueue) while allowing normalized functional-twins evidence to reach every
+                // equivalent working-list entry.
+                IReadOnlySet<string> normalizedEvidenceNames = finding.Evidence
+                    .Select(evidence => evidence.CardName)
+                    .Where(cardName => !string.IsNullOrWhiteSpace(cardName))
+                    .Select(CutLabCardNames.Normalize)
+                    .ToHashSet(CutLabCardNames.Comparer);
+                cardNamesInFinding = workingList
+                    .Select(card => card.Name)
+                    .Where(name => normalizedEvidenceNames.Contains(CutLabCardNames.Normalize(name)))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            }
+            else
+            {
+                cardNamesInFinding = finding.Evidence
+                    .Select(evidence => evidence.CardName)
+                    .Where(cardName => !string.IsNullOrWhiteSpace(cardName))
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            }
 
             foreach (string cardName in cardNamesInFinding)
             {
