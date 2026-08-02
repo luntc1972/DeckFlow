@@ -5,8 +5,8 @@ milestone_name: milestone
 current_phase: Phase 4 — Functional-Twins Detector (CONVERGED round 12; 3 of 4 waves executed)
 current_plan: `04-04` — next to execute; `autonomous: false`, Task 3 is a human UI checkpoint
 status: executing
-stopped_at: 2026-08-02 — plan 04-03 executed, verified and committed; 04-04 remains
-last_updated: "2026-08-02T17:05:00.000Z"
+stopped_at: 2026-08-02 — plan 04-03 executed and committed; branch rebased onto main and main ff'd to it; 04-04 remains
+last_updated: "2026-08-02T18:50:00.000Z"
 last_activity: 2026-08-02
 progress:
   total_phases: 8
@@ -30,17 +30,41 @@ progress:
 
 ## Current Position
 
-**Status:** Phases 1, 01.1, 2 and 3 complete. Phase 4 is in plan-review convergence with **zero of
-its four waves executed**; Phase 5 is planned and unexecuted with an owed review. Phase 01.2 and
+**Status:** Phases 1, 01.1, 2 and 3 complete. Phase 4 plans **CONVERGED at round 12** and **3 of its
+4 waves are executed** — `04-01` (`518d7d83`), `04-02` (`dbd46e94`) and `04-03` (`b508f27e`) are
+committed and on `main`; only `04-04` remains. **Those SHAs are post-rebase**; the pre-rebase
+`476daf66` / `19fdce26` / `c9b55d1b` appear throughout the older notes and in `HANDOFF.json`. Phase 5 is planned and unexecuted with one open HIGH. Phase 01.2 and
 Phase 6 have not been started and have no plans.
 
-**Current Phase:** Phase 4 — Functional-Twins Detector (plan review, not execution)
-**Last Activity:** 2026-08-01
-**Last Activity Description:** Round-4 plan-review findings folded (`5172f6d9`); Phase 4 round 5 and
-Phase 5's owed convergence review dispatched to Codex in parallel
+**Current Phase:** Phase 4 — Functional-Twins Detector (executing, 3/4)
+**Last Activity:** 2026-08-02
+**Last Activity Description:** `04-03` executed, verified and committed; branch rebased onto `main`
+and `main` fast-forwarded to it at `d0eddea6`
 
-**Hard gate:** do not execute Phase 4 or Phase 5 until that phase's own review returns
-`VERDICT: CONVERGED`. Rounds 1-4 on Phase 4 all returned CHANGES REQUIRED.
+**Hard gate — Phase 5 only.** Do not execute Phase 5 until its review returns `VERDICT: CONVERGED`;
+round 9 returned 1 HIGH. **Phase 4's gate is discharged** — it converged at round 12 (`5246033e`,
+now rewritten by the rebase), which is why waves 1-3 were executed.
+
+> **Rebase + ff to main, 2026-08-02.** `gsd/cycle21-cut-lab` rebased onto `main` (`cec908a8`) —
+> 196 commits attempted, **195 applied, 1 dropped**: `ae78fd68` ("adopt the canonical GSD model
+> routing") was detected as already upstream, exactly as planned when `main`'s `4cadf943` was made
+> byte-identical to it. **One conflict**, in `.gitignore`, purely additive — `main` had added a
+> `__pycache__/` block and the branch a `.foreman/` block at the same position; both kept verbatim,
+> nothing invented. Verified afterwards: `main` is an ancestor so the ff was legal; **0 CR bytes** in
+> the whole diff and only 3 whitespace-only lines out of 628,708, so no EOL churn; build 0 errors /
+> 9 pre-existing CS8629; **Core 2011/0, Web 2266/0 (16 skipped)**. `main` then fast-forwarded to the
+> branch tip `d0eddea6`; the two refs are now identical. Recovery point:
+> `backup/cycle21-cut-lab-pre-rebase-2026-08-02` (`23992715`).
+>
+> **The `.foreman` trap is retired.** It blocked the rebase because commit `804fb13d` *deletes* those
+> tracked ledger files and git refuses to clobber an untracked directory in that position. It was
+> moved aside for the rebase and restored after; the same commit gitignores `.foreman/`, so it will
+> not block a future rebase.
+>
+> **Landing was safe because prod is dark.** Verified live against the Render Postgres at rebase
+> time: `tool.cut-lab.enabled = false`. The whole Cut Lab surface is unreachable in prod, so the
+> incomplete Phase 4 (no twins UI until `04-04`) and the flag-dark twins detector ship invisible.
+> `analysis.cut-lab.commander-floors = true` in prod but sits inside the disabled tool.
 
 > **Rebase, 2026-08-01.** `gsd/cycle21-cut-lab` rebased onto `main` — 155 commits replayed, two code
 > conflicts resolved (`ScryfallCardResolver` using-directives and doc comments; `CutLabPageService`
@@ -56,9 +80,10 @@ Phase 5's owed convergence review dispatched to Codex in parallel
 **Total phases:** 8 — 1, 01.1, 01.2, 2, 3, 4, 5, 6
 **Phases complete:** 4 — Phase 1 (`9527dc72`), Phase 01.1 (2/2, `b8ec09f3`), Phase 2 (11/11,
 841 qualifying commanders, lands PULLED), Phase 3 (7/7 verified, `469dc9cf`)
-**Phases planned but unexecuted:** 4 (4 plans), 5 (3 plans)
+**Phase 4:** executing, 3 of 4 plans committed — see Current Position for the SHAs
+**Phases planned but unexecuted:** 5 (3 plans)
 **Phases with no plans yet:** 01.2 Protection-Vocabulary Widening, 6 Scryfall Throughput
-**Current plan:** none executing
+**Current plan:** `04-04`, next to execute
 
 > **Counter discrepancy — resolved 2026-08-01, previously left open.** The old note kept
 > `completed_phases` at 1 because summary evidence was ambiguous: Phase 01 has a PLAN and no SUMMARY,
@@ -102,8 +127,9 @@ PROJECT.md for history.
 
 ## Session Continuity
 
-**Stopped At:** 2026-08-02. Phase 4 plans CONVERGED at round 12 (`5246033e`); plans `04-01`
-(`476daf66`), `04-02` (`19fdce26`) and `04-03` executed and committed. `04-04` is next.
+**Stopped At:** 2026-08-02. Phase 4 waves 1-3 executed and committed, then the branch was rebased
+onto `main` and `main` fast-forwarded to it — see the rebase note under Current Position for the
+verification gates and the post-rebase SHAs. `04-04` is next.
 
 `04-03` note: Codex `gpt-5.6-terra` wrote Tasks 1-2 and most of Task 3, then correctly returned
 BLOCKED rather than weakening the page-vs-patch parity assertion — but reported one failing test
@@ -115,8 +141,14 @@ not write. Full run record was in `.foreman/ledger.md` (gitignored, local only).
 else; it carries the blockers, the dispatched-review state and the remaining milestone steps.
 
 **Owed on resume:**
-- `gsd/cycle21-cut-lab` is 4 ahead of origin (`476daf66`, `50830c6b`, `19fdce26`, `7b1ff22a`).
-  User pushes; AI does not. `main` is fully pushed (`4cadf943` landed).
+- **Push, superseded 2026-08-02 by the rebase + ff.** `main` is now **195 ahead of `origin/main`, 0
+  behind**, at `d0eddea6`. `gsd/cycle21-cut-lab` points at the same commit but its history was
+  rewritten, so origin diverges 190↔204 and the branch needs **`--force-with-lease`**. User pushes;
+  AI does not. Pushing `main` triggers a Render autodeploy — safe, because `tool.cut-lab.enabled`
+  is `false` in prod.
+- **Codex review of `b508f27e`** (plan `04-03`, formerly `c9b55d1b` before the rebase) — the first
+  Phase 4 commit whose code Codex did not write. Still owed, and it is now on `main`. Review the
+  range rather than the working tree.
 - Phase 5 round-9 HIGH still open: the round-8 TRX regex is too permissive. Fix is fully specified
   in `HANDOFF.json` (exact `FullyQualifiedName=` filters, per-name counters, require 1/1/2).
   Dispatch to Codex — hand-editing is what produced the defect.
