@@ -63,6 +63,10 @@ jobs:
         working-directory: DeckFlow.Web
         run: npm ci
 
+      - name: Type-check Playwright E2E specs
+        working-directory: DeckFlow.Web
+        run: npm run typecheck:e2e
+
       - name: Restore .NET dependencies
         run: dotnet restore DeckFlow.sln
 

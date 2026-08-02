@@ -6,11 +6,13 @@
   "scripts": {
     "e2e": "playwright test",
     "e2e:install": "playwright install chromium",
+    "typecheck:e2e": "tsc -p e2e/tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
+    "@types/node": "^20.19.43",
     "jsdom": "^26.0.0",
     "typescript": "6.0.2",
     "vitest": "^3.2.7"
