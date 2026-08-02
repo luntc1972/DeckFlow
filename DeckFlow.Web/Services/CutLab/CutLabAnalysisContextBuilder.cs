@@ -219,6 +219,9 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         foreach (CutLabPoolCard entry in workingList)
         {
             string normalizedEntryName = CutLabCardNames.Normalize(entry.Name);
+            // Why: Resolve uses flagged pool cards when present and falls back to state.Commander, so
+            // neither representation alone is sufficient; this covers flagged-but-unnamed and named-but-unflagged cards.
+            bool isCommander = entry.IsCommander || commanderNameSet.Contains(normalizedEntryName);
             IReadOnlyList<string> categories = classification.CategoriesByName.TryGetValue(normalizedEntryName, out IReadOnlyList<string>? hit)
                 ? hit
                 : Array.Empty<string>();
@@ -227,7 +230,6 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
 
             if (cardsByName.TryGetValue(normalizedEntryName, out ScryfallCardData? card))
             {
-                bool isCommander = commanderNameSet.Contains(normalizedEntryName);
                 CardFact fact = ScryfallCardFactMapper.ToCardFact(card, entry.Quantity, isCommander);
                 roles = CutLabRoleAssigner.AssignRoles(
                     fact,
@@ -258,6 +260,9 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
                 categories)
             {
                 Quantity = entry.Quantity,
+                TypeLine = entry.TypeLine,
+                IsLocked = entry.IsLocked,
+                IsCommander = isCommander,
             });
         }
 

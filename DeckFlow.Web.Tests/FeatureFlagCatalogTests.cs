@@ -46,6 +46,7 @@ public sealed class FeatureFlagCatalogTests
     [InlineData("analysis.manabase.keep-shapes")]
     [InlineData("analysis.manabase.focused-tier")]
     [InlineData("analysis.cut-lab.commander-floors")]
+    [InlineData("analysis.cut-lab.functional-twins")]
     [InlineData("analysis.manabase.ritual-burst-mana")]
     [InlineData("analysis.manabase.ritual-land-credit")]
     [InlineData("analysis.manabase.scry-credit")]
