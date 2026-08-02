@@ -862,3 +862,33 @@ cost claim. Confidence 10/10.
 
 Round 7 not folded. Per the delegation split adopted this session, **Codex folds; Claude reviews.**
 Round 8 owed after the fold.
+
+---
+
+# Round 8 — 2026-08-01. Plan-review follow-up. Findings folded.
+# Verdict: 1 BLOCK · 1 LOW. RESOLVED.
+
+**BLOCK — TRX test-name matching assumed a method-only display name.** xUnit's default
+`ClassAndMethod` display naming prefixes `testName` with the namespace and class, so the Postgres TRX
+gate's method-only regex could reject a genuinely passed result. **Resolution:** already folded in
+`05-03-PLAN.md`: the TRX regex is prefix-tolerant,
+`testName="[^"]*(...)[^"]*"`, while still requiring the named test to pass and not skip.
+
+**LOW — a scoped `git add --` fence does not prove staged C# exists.**
+`scripts/format-check-changed.sh staged` exits 0 with no staged C# files, so every code-changing
+formatter gate could pass without formatting any task output. **Resolution:** all seven
+code-changing formatter gates now chain
+`test -n "$(git diff --cached --name-only -- '*.cs')"` between the scoped `git add --` and formatter
+invocation. 05-02 Task 3 is validation-only and makes no edits, so its formatter gate was removed
+rather than made artificially nonempty. The validation guidance now distinguishes the scoped staging
+fence from the staged-nonempty assertion.
+
+## Gate audit
+
+Every other harness in the phase is correct across all four exit cases. This includes the Postgres
+gates' `wslpath -w` boundary handling.
+
+## Status
+
+Round 8 findings folded. The Round 8 BLOCK's pre-existing TRX regex fix remains uncommitted and
+unchanged by this fold.

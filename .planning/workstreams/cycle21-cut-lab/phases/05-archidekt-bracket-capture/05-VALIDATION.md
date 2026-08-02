@@ -51,7 +51,7 @@ Task IDs are keyed `05-0P-0T`; the plans are the canonical source for task compo
 
 *Status: pending / green / red / flaky*
 
-Each task uses its own explicit file fence with `git add -- <owned paths>` before the staged formatter; see its plan gate. This avoids an empty-index false green and stages no unrelated work.
+Each code-changing task uses its own explicit file fence with `git add -- <owned paths>` before the staged formatter; see its plan gate. The fence stages no unrelated work, while the staged-nonempty C# assertion closes the empty-index false-green hole.
 
 ---
 
