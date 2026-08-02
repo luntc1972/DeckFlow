@@ -625,3 +625,37 @@ round-9 DTO mutation tests and the four-case inventory-gate behavior remain unch
 ## Status
 
 Round 10 folded. No production code was changed by this documentation fold.
+
+---
+
+# Round 11 - 2026-08-01. Fold of DTO comparer, badge-only JSON, and stale-test-count findings.
+# Verdict: FOLDED. 1 BLOCK · 2 HIGH · 1 MEDIUM.
+
+**BLOCK - the DTO default had the wrong generic type.** `ComboBadgeByCardName` is an
+`IReadOnlyDictionary<string, CutLabDecideComboBadgeDto>`, so the planned
+`new Dictionary<string, string>(...)` would not compile. The DTO default and acceptance criterion now
+repeat the complete typed expression
+`new Dictionary<string, CutLabDecideComboBadgeDto>(StringComparer.Ordinal)`.
+
+**HIGH-1 - the raw-name DTO transport needed `StringComparer.Ordinal`, not
+`StringComparer.OrdinalIgnoreCase`.** The case-insensitive choice originated in the round-9 fold brief's
+"match `CardTextByCardName` exactly" instruction. Round 11 overturned it because the binding constraint
+is the case-sensitive JavaScript consumer: case-distinct raw pool names must remain distinct property
+keys. D-24, the builder/default instructions, and every comparer-naming acceptance criterion now require
+`Ordinal`; the new DTO mutation test proves both case-distinct raw spellings survive and fails under
+`OrdinalIgnoreCase`. The review proposal to change `CardTextByCardName`'s comparer too was deliberately
+NOT folded: it is pre-existing behavior outside this phase's scope, and is recorded as F-04-07 instead.
+
+**HIGH-2 - card-text JSON construction could omit a badge-only pool card.** The plan now pins the key
+set to `Model.Pool.Select(card => card.Name).Concat(Model.CardTextByCardName.Keys).Distinct(StringComparer.Ordinal)`.
+The new `RenderAsync_NormalizedComboBadgeKey_AttachesComboContextToRawPoolCardWithoutCardText`
+regression has an empty card-text map and a normalized combo badge; a card-text-only construction passes
+the existing punctuated regression but fails this one.
+
+**MEDIUM - the stale normalized-key assertion count was three, not six.** The plan now requires all six
+assertions at `CutLabUiPatchBuilderTests.cs:238-240,288-290` to use direct raw pool-name literals, and
+the acceptance criterion matches the count.
+
+## Status
+
+Round 11 folded. No production code was changed by this documentation fold.
