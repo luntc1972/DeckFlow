@@ -234,8 +234,14 @@ internal sealed class StubCardSearchService : ICardSearchService
 
 internal sealed class FakeCardLookupService : ICardLookupService
 {
+    /// <summary>Number of bulk lookups performed, so tests can assert a guard short-circuited.</summary>
+    public int LookupCallCount { get; private set; }
+
     public Task<CardLookupResult> LookupAsync(string cardList, CancellationToken cancellationToken = default)
-        => Task.FromResult(new CardLookupResult(Array.Empty<string>(), Array.Empty<string>()));
+    {
+        LookupCallCount++;
+        return Task.FromResult(new CardLookupResult(Array.Empty<string>(), Array.Empty<string>()));
+    }
 
     public Task<SingleCardLookupResult?> LookupSingleAsync(string cardName, CancellationToken cancellationToken = default)
         => Task.FromResult<SingleCardLookupResult?>(null);

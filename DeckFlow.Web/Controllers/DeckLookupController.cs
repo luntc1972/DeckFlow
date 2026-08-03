@@ -210,6 +210,20 @@ public sealed class DeckLookupController : DeckToolControllerBase
         }
     }
 
+    /// <summary>Maximum non-empty lines accepted per bulk card-lookup submission.</summary>
+    private const int MaxCardLookupLines = 100;
+
+    /// <summary>Cap message shown to the user; kept identical to the client-side copy.</summary>
+    private const string CardLookupLineCapMessage = "Card Lookup accepts up to 100 non-empty lines per submission.";
+
+    /// <summary>
+    /// Counts non-empty lines using the same rule as countNonEmptyLines() in card-lookup.ts:
+    /// split on newlines, trim, discard blanks.
+    /// </summary>
+    /// <param name="value">Raw pasted card list.</param>
+    private static int CountNonEmptyLines(string value) =>
+        value.Split('\n').Count(line => !string.IsNullOrWhiteSpace(line));
+
     /// <summary>
     /// Verifies a pasted card list and returns the result as either a text or JSON file download.
     /// </summary>
@@ -225,6 +239,21 @@ public sealed class DeckLookupController : DeckToolControllerBase
                 ActiveTab = DeckPageTab.CardLookup,
                 Request = request,
                 ErrorMessage = "A card list is required.",
+            });
+        }
+
+        // Why: the advertised 100-line cap was enforced only in card-lookup.ts, so a
+        // direct POST was unbounded. Each line costs a Scryfall call behind a 200ms
+        // throttle, which turns an oversized list into a self-inflicted stall on a
+        // 512MB instance. The counting rule mirrors countNonEmptyLines() in
+        // card-lookup.ts — change both together or the two caps disagree.
+        if (CountNonEmptyLines(request.CardList) > MaxCardLookupLines)
+        {
+            return View("CardLookup", new CardLookupViewModel
+            {
+                ActiveTab = DeckPageTab.CardLookup,
+                Request = request,
+                ErrorMessage = CardLookupLineCapMessage,
             });
         }
 
