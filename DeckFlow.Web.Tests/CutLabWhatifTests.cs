@@ -530,7 +530,7 @@ public sealed class CutLabWhatifTests
         CutLabApiController controller = new(
             contextBuilder,
             floorResolver,
-            new CutLabUiPatchBuilder(contextBuilder, simulationService, floorResolver, featureFlags),
+            new CutLabUiPatchBuilder(contextBuilder, simulationService, floorResolver),
             simulationService,
             whatifService,
             featureFlags,

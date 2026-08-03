@@ -24,6 +24,12 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabFunctionalTwinsFlagTests
 {
     [Fact]
+    public void FunctionalTwinsFlagKey_MatchesRegisteredCatalogKey()
+    {
+        Assert.Equal("analysis.cut-lab.functional-twins", CutLabStructuralFindings.FunctionalTwinsFlagKey);
+    }
+
+    [Fact]
     public async Task PageRender_TwinsFlagOff_ProducesNoFunctionalTwinsFinding()
     {
         CutLabProcessResult result = await RenderPageAsync(Flag(false));
@@ -154,6 +160,17 @@ public sealed class CutLabFunctionalTwinsFlagTests
         Assert.Equal(CutLabCutRoundEngine.Round3Key, Assert.Single(persisted.Decisions).Round);
     }
 
+    [Fact]
+    public async Task DecideApi_WhenFlagSnapshotChangesDuringRequest_UsesItsInitialSnapshotForDecisionAndPatch()
+    {
+        FlippingFeatureFlagCache flagCache = new();
+
+        CutLabDecideApiResponse payload = await DecideResponseAsync(flagCache);
+
+        Assert.Equal(CutLabCutRoundEngine.Round3Key, Assert.Single(CutLabStateSerializer.Deserialize(payload.CutLabStateJson).Decisions).Round);
+        Assert.Empty(Twins(payload.Patch));
+    }
+
     private static async Task<CutLabProcessResult> RenderPageAsync(IFeatureFlagCache flagCache)
     {
         CutLabState state = BuildState();
@@ -184,19 +201,23 @@ public sealed class CutLabFunctionalTwinsFlagTests
     {
         FakeAnalysisContextBuilder contextBuilder = new();
         ICutLabFloorResolver floorResolver = new CutLabFloorResolver(null, null, null, flagCache);
-        CutLabUiPatchBuilder builder = new(contextBuilder, new FakeSimulationService(), floorResolver, flagCache);
+        CutLabUiPatchBuilder builder = new(contextBuilder, new FakeSimulationService(), floorResolver);
         CutLabState state = BuildState();
-        return builder.BuildAsync(state, state.Intent.PlayExperience, ["Twin Commander"]);
+        bool twinsEnabled = flagCache.Snapshot().TryGetValue(CutLabStructuralFindings.FunctionalTwinsFlagKey, out bool enabled) && enabled;
+        return builder.BuildAsync(state, state.Intent.PlayExperience, ["Twin Commander"], twinsEnabled);
     }
 
     private static async Task<CutLabState> DecideAsync(IFeatureFlagCache flagCache)
+        => CutLabStateSerializer.Deserialize((await DecideResponseAsync(flagCache)).CutLabStateJson);
+
+    private static async Task<CutLabDecideApiResponse> DecideResponseAsync(IFeatureFlagCache flagCache)
     {
         FakeAnalysisContextBuilder contextBuilder = new();
         ICutLabFloorResolver floorResolver = new CutLabFloorResolver(null, null, null, flagCache);
         CutLabApiController controller = new(
             contextBuilder,
             floorResolver,
-            new CutLabUiPatchBuilder(contextBuilder, new FakeSimulationService(), floorResolver, flagCache),
+            new CutLabUiPatchBuilder(contextBuilder, new FakeSimulationService(), floorResolver),
             new FakeSimulationService(),
             new FakeCutLabWhatifService(),
             flagCache,
@@ -214,8 +235,7 @@ public sealed class CutLabFunctionalTwinsFlagTests
             CardName = "Twin A",
             Decision = CutLabDecideAction.Accept,
         }, CancellationToken.None);
-        CutLabDecideApiResponse payload = Assert.IsType<CutLabDecideApiResponse>(Assert.IsType<OkObjectResult>(response.Result).Value);
-        return CutLabStateSerializer.Deserialize(payload.CutLabStateJson);
+        return Assert.IsType<CutLabDecideApiResponse>(Assert.IsType<OkObjectResult>(response.Result).Value);
     }
 
     private static FakeFeatureFlagCache Flag(bool enabled)
@@ -338,6 +358,24 @@ public sealed class CutLabFunctionalTwinsFlagTests
         public Task<CutLabSimulationResult> BuildSnapshotResult(IReadOnlyList<CutLabPoolCard> workingList, string? playExperience, int? trialsOverride = ICutLabSimulationService.InLoopTrials, string? poolKey = null, CutLabGoalSettings? goals = null, CancellationToken cancellationToken = default) => Task.FromResult(new CutLabSimulationResult());
         public Task<CutLabMetricSnapshot> BuildSnapshot(IReadOnlyList<CutLabPoolCard> workingList, string? playExperience, int? trialsOverride = ICutLabSimulationService.InLoopTrials, string? poolKey = null, CutLabGoalSettings? goals = null, CancellationToken cancellationToken = default) => Task.FromResult(new CutLabMetricSnapshot());
         public Task<CutLabProposalDeltas> ComputeProposalDeltas(IReadOnlyList<CutLabPoolCard> currentWorkingList, string candidateCardName, string? playExperience, int? trialsOverride = ICutLabSimulationService.InLoopTrials, string? poolKey = null, CutLabGoalSettings? goals = null, CancellationToken cancellationToken = default) => Task.FromResult(new CutLabProposalDeltas { CardName = candidateCardName });
+    }
+
+    private sealed class FlippingFeatureFlagCache : IFeatureFlagCache
+    {
+        private int _snapshotCalls;
+
+        public bool IsEnabled(string key) => Snapshot().TryGetValue(key, out bool enabled) && enabled;
+
+        public IReadOnlyDictionary<string, bool> Snapshot()
+        {
+            _snapshotCalls++;
+            return new Dictionary<string, bool>
+            {
+                [CutLabStructuralFindings.FunctionalTwinsFlagKey] = _snapshotCalls > 1,
+            };
+        }
+
+        public Task ReloadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class FakeLoader(IReadOnlyList<DeckEntry> entries) : IDeckEntryLoader

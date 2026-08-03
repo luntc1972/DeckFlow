@@ -87,6 +87,7 @@ public sealed class CutLabApiController : ControllerBase
             }
 
             IReadOnlyList<string> commanderNames = CutLabCommanderNames.Resolve(state);
+            bool twinsEnabled = IsFlagOn(CutLabStructuralFindings.FunctionalTwinsFlagKey);
             IReadOnlyList<CutLabPoolCard> fullPool = state.Pool;
 
             IReadOnlyList<CutLabPoolCard> beforeWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
@@ -107,7 +108,7 @@ public sealed class CutLabApiController : ControllerBase
                 beforeContext,
                 floorByRole,
                 state.Decisions,
-                IsFlagOn(CutLabStructuralFindings.FunctionalTwinsFlagKey));
+                twinsEnabled);
 
             string roundKey = DetermineRoundKey(state, request, beforeRoundPlan);
             IReadOnlyList<CutLabDecideFloorWarningDto> floorWarnings = request.Decision == CutLabDecideAction.Accept
@@ -125,6 +126,7 @@ public sealed class CutLabApiController : ControllerBase
                 state,
                 state.Intent.PlayExperience,
                 commanderNames,
+                twinsEnabled,
                 afterPreResolvedCards,
                 afterPoolKey,
                 floorWarnings,
@@ -234,12 +236,14 @@ public sealed class CutLabApiController : ControllerBase
             }
 
             IReadOnlyList<string> commanderNames = CutLabCommanderNames.Resolve(state);
+            bool twinsEnabled = IsFlagOn(CutLabStructuralFindings.FunctionalTwinsFlagKey);
             state = CutLabDecisionApplier.RestartRounds(state, [CutLabCutRoundEngine.Round1Key, CutLabCutRoundEngine.Round2Key]);
 
             CutLabUiPatchDto patch = await _patchBuilder.BuildAsync(
                 state,
                 state.Intent.PlayExperience,
                 commanderNames,
+                twinsEnabled,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
 
             return Ok(BuildDecideApiResponse(patch));
@@ -363,12 +367,14 @@ public sealed class CutLabApiController : ControllerBase
         }
 
         IReadOnlyList<string> commanderNames = CutLabCommanderNames.Resolve(result.State);
+        bool twinsEnabled = IsFlagOn(CutLabStructuralFindings.FunctionalTwinsFlagKey);
         string cardOut = result.CardOut ?? throw new InvalidOperationException("What-if commit must provide CardOut when applied.");
         string cardIn = result.CardIn ?? throw new InvalidOperationException("What-if commit must provide CardIn when applied.");
         CutLabUiPatchDto patch = await _patchBuilder.BuildAsync(
             result.State,
             result.State.Intent.PlayExperience,
             commanderNames,
+            twinsEnabled,
             cancellationToken: cancellationToken).ConfigureAwait(false);
 
         return Ok(new CutLabWhatifApiResponse
