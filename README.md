@@ -732,11 +732,21 @@ curl -X POST http://localhost:5000/api/suggestions/commander \
 
 ---
 
+## Form behavior conventions
+
+These rules exist because breaking them produced silent, hard-to-report bugs. They apply to every deck tool.
+
+- **Enter must run the current step's action.** Pressing Enter in a text field (or "Go" on a mobile keyboard) is *implicit submission*: the browser activates the first submit button in DOM order. Because the sticky "Download session (.zip)" bar renders before the workflow buttons, that used to mean Enter downloaded a session zip on Deck Analysis, Deck Comparison and cEDH Meta Gap — and ran "Load deck & detect costs" instead of "Analyze Mana Base" on Mana Base. Each step now marks its intended button with `data-default-action`, and `deck-sync.ts` routes Enter to it. The download button is demoted to `type="button"` at runtime; the markup keeps `type="submit"` so the `<noscript>` download still works natively.
+- **Never hide a form control with CSS.** A `display:none` input is not submitted, so the value silently resets on post. Hiding the "Include card versions" checkbox behind `desktop-only` meant every mobile submission reset it to false and produced different prompt output with no explanation. Hide the explanatory copy instead, never the control.
+- **Every deck-input form carries a `data-cache-key`.** That opts it into the `deck-input-store` sessionStorage system so a pasted decklist survives a refresh or a back-navigation, and makes its "Start over" button (`data-clear-cache`) actually clear something. Bracket and Mana Base — the longest paste in the app — were previously outside the system entirely.
+- **Do not put working functionality inside `<noscript>` only.** The printing-conflict resolution form on Deck Sync existed solely in the `<noscript>` block, so with JavaScript on (the normal case) `/resolve` was unreachable and the swap checklist could never be generated. The panel is now a real form on both paths.
+- **Client-side caps are advisory; enforce them on the server too.** See the Card Lookup line cap below.
+
 ## Scryfall usage
 - Scryfall is used for card-name autocomplete, commander autocomplete, the Card Lookup page, card reference resolution in the Deck Analysis workflow, and async set catalog loading.
 - All Scryfall clients send a real `User-Agent`, an explicit `Accept` header, and use `https`.
 - Card lookup uses `POST /cards/collection` in batches of 75 identifiers.
-- The Card Lookup page is capped at 100 non-empty input lines per submission (at most two `cards/collection` requests plus one `cards/{id}/rulings` request per unique resolved card, all throttled).
+- The Card Lookup page is capped at 100 non-empty input lines per submission (at most two `cards/collection` requests plus one `cards/{id}/rulings` request per unique resolved card, all throttled). The cap is enforced **server-side** in `DeckLookupController`, not only in `card-lookup.ts`, so a direct POST cannot bypass it; both sides count non-empty lines the same way.
 - The AI workflow uses the same batch endpoint to resolve authoritative Oracle text for all deck cards.
 - The set catalog is fetched via `GET /sets` and cached in memory for 6 hours; the web UI loads it asynchronously via `/api/set-options`.
 
