@@ -1,6 +1,6 @@
 # Phase 8: Plan Profile — Checkbox Plan Selection
 
-Adopted 2026-08-02. Not yet planned.
+Adopted 2026-08-02. Planned: eight executable plans (08-01 through 08-08).
 
 Design spec (approved, research-validated):
 `.planning/specs/2026-08-02-cutlab-plan-profile-design.md`

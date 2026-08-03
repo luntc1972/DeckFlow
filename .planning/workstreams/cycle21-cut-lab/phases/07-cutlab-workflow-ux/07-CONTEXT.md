@@ -64,7 +64,7 @@ secondary one.
 
 ### E-3 — Page bulk
 
-Measured with a **17-row** pool (5 stacked basics + 12 spells), far smaller than
+Measured with a **17-row** pool (1 commander, 3 stacked basic rows + 13 other rows), far smaller than
 the 101-150 the tool is built for:
 
 | | desktop 1280 | mobile 390 |
@@ -121,22 +121,20 @@ option 2 includes every section as a collapsed summary row.
 
 ## Decisions
 
-- **D-1 — Step model.** OPEN. Default assumption for this plan is **Option 3**
-  (wizard + pinned proposal). Options 1 and 2 change only plan `07-04`; every
-  other plan is identical. Confirm before executing 07-04.
+- **D-1 — Step model. RESOLVED 2026-08-03: Option 3, wizard + pinned proposal
+  (~1,107px desktop).** Panel-hiding stays, 07-05 executes, and the five-slot
+  contract reserves the Plan slot for Phase 8; the earlier OPEN rationale is superseded.
 - **D-2 — No-JS is not a regression.** With scripts disabled every panel must
-  render, in workflow order 1 → 2 → 3 → 4. The wizard is progressive
+  render, in workflow order Process → Decide → Plan → Goals → Export. The wizard is progressive
   enhancement layered on a correct document, never a prerequisite for it. This
   is why the DOM reorder (07-02) lands *before* the handler (07-03) and is
   independently shippable.
 - **D-3 — Scope fence.** This phase changes navigation, ordering, density and
   copy. It does **not** change the cut engine, the metrics, the proposal
-  ordering, or any API contract. No file under `Services/CutLab/` is edited
-  except `CutLabCutRoundEngine.cs` string constants in 07-06.
-- **D-4 — Branch.** OPEN. Recommended: a new branch off `main`
-  (`feat/cutlab-workflow-ux`) with its own worktree, independent of the in-flight
-  `gsd/cycle21-cut-lab` Phase 4/5 detector work and its owed Codex review on
-  `c9b55d1b`.
+  ordering, or any API contract. No file under `Services/CutLab/` is edited.
+- **D-4 — Branch. RESOLVED 2026-08-02.** This phase runs on
+  `gsd/cycle21-cut-lab`; the earlier separate-branch recommendation was
+  superseded when the branch was rebased and `main` fast-forwarded to it.
 
 ## Reproducing the measurements
 

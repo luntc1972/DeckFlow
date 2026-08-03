@@ -30,19 +30,21 @@ site CSS at 1280 and 390.
 | Plan | Wave | Depends | What |
 |---|---|---|---|
 | 07-01 | 1 | — | Regression gate spec; must FAIL on HEAD |
-| 07-02 | 2 | 01 | DOM reorder to 1→2→3→4 (Razor only, no-JS fix) |
+| 07-02 | 2 | 01 | DOM reorder to Process→Decide→Plan→Goals→Export, with required selector migration |
 | 07-03 | 3 | 02 | Step-tab handler + panel visibility + ARIA keyboard |
 | 07-04 | 4 | 03 | Intake summary, unified progress strip, collapse defaults |
-| 07-05 | 5 | 04 | Pinned proposal — **Option 3 only**, skip otherwise |
+| 07-05 | 5 | 04 | Pinned proposal — selected Option 3 |
 | 07-06 | 6 | 04 | Copy, mobile tab labels, help + README |
 
 07-02 is independently shippable on its own: it fixes the no-JS reading order
 without touching a line of TypeScript.
 
-## Open decisions
+## Decisions
 
-- **D-1 Step model** — Option 1, 2 or 3. Changes 07-04's framing and gates
-  07-05 entirely. Everything else is identical.
+- **D-1 Step model — RESOLVED 2026-08-03 as Option 3: wizard + pinned proposal
+  (~1,107px desktop).** 07-03 keeps runtime panel-hiding and G-2's exactly-one-
+  visible assertion; 07-05 exists and executes. The wizard has five slots, with
+  `cut-lab-step-panel-3` at index 3 reserved for Phase 8's plan panel.
 - **D-4 Branch — RESOLVED 2026-08-02, superseding the original recommendation.**
   This phase was adopted into Cycle 21 as **Phase 7** and runs on
   `gsd/cycle21-cut-lab` like every other phase in the milestone. The original
