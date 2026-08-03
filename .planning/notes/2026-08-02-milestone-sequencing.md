@@ -26,9 +26,9 @@ new AI-enrichment milestone decided today (see
 1. **Land `feat/ui-audit-batch-a`** (pushed) and **`feat/ui-audit-batch-g`**
    (committed in worktree, awaiting user test) to `main`. Both touch views
    Phase 7/8 will edit (`CutLab.cshtml`, Bracket, DeckAnalysis forms) — landing
-   first avoids conflicts. ⚠ Phase 8's plan set exists ONLY on
-   `feat/ui-audit-batch-a` (`be421acd`) — landing this branch is what puts the
-   plans on `main`.
+   first avoids conflicts. The original note that Phase 8's plan set existed only
+   on `feat/ui-audit-batch-a` (`be421acd`) was true when written; after the
+   2026-08-03 rebase, the plans are on this `gsd/cycle21-cut-lab` branch.
 2. **Discharge owed Codex reviews**: plan 04-03 code review; Phase 8 plan
    review (user deferred 2026-08-02 — required before `/gsd-execute-phase 8`).
 
