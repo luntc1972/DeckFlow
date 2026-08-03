@@ -43,17 +43,18 @@ The ticket warned its `file:line` references needed re-checking. Three were wron
 
 ## Deliberately out of scope
 
-- **`DeckPrimer.cshtml:76`** also lacks `data-cache-key`. The batch-A branch already fixes that exact
-  line; fixing it here too would collide when both branches land.
+- **`DeckPrimer.cshtml:76`** — resolved by convergence, not by this batch. Batch A fixes that exact
+  line (`data-cache-key="deck-primer"`), and both branches are now on one branch, so the G4 sweep is
+  fully closed: every deck-input form carries a cache key.
 - **Card Lookup's `.desktop-only` Card List mode** (`CardLookup.cshtml:19,76`). The ticket scopes this
   as a design decision — make it responsive, or show an explicit "available on desktop" affordance —
   not a defect. Still open.
 
 ## Ticket bookkeeping
 
-The source ticket is tracked on `feat/ui-audit-batch-a`, not on `main`, so it is not present in this
-branch to move. Move it to `.planning/todos/completed/` when the batch-A and batch-G branches
-converge — doing it here would duplicate the file.
+Converged with `feat/ui-audit-batch-a` on 2026-08-02 (rebase, no conflicts) so a single UAT pass
+covers both batches. The source ticket has been moved to `.planning/todos/completed/` and marked
+COMPLETE.
 
 ## Note on commit granularity
 

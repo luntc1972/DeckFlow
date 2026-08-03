@@ -3,8 +3,8 @@ title: Batch G — five form-correctness defects (wrong behavior, not polish)
 date: 2026-08-02
 priority: high
 source: 2026-08-02 second front-end audit pass (independent of the batch-A audit)
-target_milestone: TBD — candidate for the post-Cut-Lab consolidation milestone
-status: PENDING
+target_milestone: shipped on feat/ui-audit-batch-g (converged into feat/ui-audit-batch-a 2026-08-02)
+status: COMPLETE
 ---
 
 # Batch G — form-correctness defects
