@@ -35,12 +35,12 @@
     {"id": 9, "name": "User UAT of both batches", "status": "done", "commit": null, "note": "PASS 16/16 on 2026-08-03 against 8b3767d5, from the ../deckflow worktree (not batch-g — the branches had already converged)."},
     {"id": 10, "name": "Push feat/ui-audit-batch-a and feat/ui-audit-batch-g", "status": "done", "commit": null, "note": "Both branches were ALREADY at origin (0 ahead / 0 behind) as of 2026-08-03. The earlier '8 commits ahead, user must push' claim in this file was stale."},
     {"id": 11, "name": "Fast-forward feat/ui-audit-batch-a to the converged tip", "status": "done", "commit": "8b3767d5", "note": "Both branches now point at 8b3767d5."},
-    {"id": 12, "name": "File a ticket for the pre-existing cut-lab-tuning.spec.ts flake", "status": "done", "commit": null, "note": ".planning/todos/pending/2026-08-03-fix-cut-lab-tuning-spec-nondeterministic-flake.md"}
+    {"id": 12, "name": "File a ticket for the pre-existing cut-lab-tuning.spec.ts flake", "status": "done", "commit": null, "note": ".planning/todos/pending/2026-08-03-fix-cut-lab-tuning-spec-nondeterministic-flake.md"},
+    {"id": 15, "name": "Correct the stale _ToolTileIcon.cshtml comment that called the `default:` fallback 'the question-mark glyph'", "status": "done", "commit": null, "note": "The fallback is an exclamation mark; the question mark is judge-questions' own legitimate icon. Comment now says so and points at the ToolRegistry.All-derived totality test. Comment-only, no behavior change; build 0 errors / 9 warnings (CS8629 baseline)."}
   ],
   "remaining_tasks": [
     {"id": 13, "name": "Optional: run the /simplify skill on the change (was done as a manual checklist pass only)", "status": "not_started"},
     {"id": 14, "name": "Open design decision: Card Lookup's .desktop-only Card List mode — make responsive, or show an explicit 'available on desktop' affordance", "status": "not_started"},
-    {"id": 15, "name": "Stale comment in _ToolTileIcon.cshtml calls the `default:` fallback 'the question-mark glyph'. It is an exclamation mark; the question mark is the real judge-questions icon. This wording is what made A1 ambiguous during UAT. One-line docs fix, offered and not yet authorized.", "status": "not_started"},
     {"id": 16, "name": "Rebase onto main — both branches show 3 behind (3115d70e, 0354cd9f, 5c8bbfbb), all docs-only and already present by content", "status": "not_started"}
   ],
   "blockers": [],
