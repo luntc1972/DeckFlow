@@ -28,6 +28,7 @@
 </div>
 
 <form method="post" action="@Url.Content("~/manabase")" class="result-panel"
+      data-cache-key="manabase"
       data-busy-title="Analyzing mana base"
       data-busy-message="Resolving cards and simulating castability — this can take a few seconds."
       data-busy-progress="Loading the deck|Resolving cards via Scryfall|Simulating castability|Scoring colors"
@@ -228,7 +229,7 @@
                 data-busy-title="Loading deck"
                 data-busy-message="Resolving cards and detecting reduced / alternative costs."
                 data-busy-progress="Loading the deck|Resolving cards via Scryfall|Detecting reduced costs">Load deck &amp; detect costs</button>
-        <button type="submit" class="run-button">Analyze Mana Base</button>
+        <button type="submit" class="run-button" data-default-action>Analyze Mana Base</button>
         <a href="@Url.Content("~/manabase")" class="clear-cache-button" role="button" data-clear-cache data-no-busy>Start over</a>
     </div>
 </form>

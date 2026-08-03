@@ -184,20 +184,44 @@
         <textarea autocomplete="off" id="full-import-output" readonly spellcheck="false">@Model.FullImportText</textarea>
     </section>
 
-<section class="result-panel @(Model.Diff?.PrintingConflicts.Count > 0 ? string.Empty : "hidden")" id="deck-sync-conflicts-js">
+@* Why: the printing-conflict *resolution* form used to exist only inside <noscript>,
+   so with JavaScript on — the normal case — /resolve was unreachable and the swap
+   checklist could never be generated. This panel is now the real form for both the
+   server-rendered and the fetch-rendered path. It sits outside #deck-sync-form
+   (which closes above) so the nesting is legal. *@
+<form method="post" action="@Url.Content("~/resolve")" class="result-panel @(Model.Diff?.PrintingConflicts.Count > 0 ? string.Empty : "hidden")" id="deck-sync-conflicts-js" data-deck-sync-resolve-form data-busy-title="Generating Swap Checklist" data-busy-message="Applying your printing choices.">
+        @Html.AntiForgeryToken()
+        @* Mirrored from the deck-sync request so /resolve can rebuild the same diff.
+           JS refreshes these from #deck-sync-form on submit, because the fetch path
+           can change the inputs without a page reload. *@
+        <input type="hidden" name="MoxfieldInputSource" value="@Model.Request.MoxfieldInputSource" data-resolve-mirror="MoxfieldInputSource" />
+        <input type="hidden" name="ArchidektInputSource" value="@Model.Request.ArchidektInputSource" data-resolve-mirror="ArchidektInputSource" />
+        <input type="hidden" name="Direction" value="@Model.Request.Direction" data-resolve-mirror="Direction" />
+        <input type="hidden" name="CategorySyncMode" value="@Model.Request.CategorySyncMode" data-resolve-mirror="CategorySyncMode" />
+        <input type="hidden" name="MoxfieldUrl" value="@Model.Request.MoxfieldUrl" data-resolve-mirror="MoxfieldUrl" />
+        <input type="hidden" name="MoxfieldText" value="@Model.Request.MoxfieldText" data-resolve-mirror="MoxfieldText" />
+        <input type="hidden" name="ArchidektUrl" value="@Model.Request.ArchidektUrl" data-resolve-mirror="ArchidektUrl" />
+        <input type="hidden" name="ArchidektText" value="@Model.Request.ArchidektText" data-resolve-mirror="ArchidektText" />
+        <input type="hidden" name="Mode" value="@Model.Request.Mode" data-resolve-mirror="Mode" />
         <div class="panel-heading">
             <div>
                 <h2>Printing Conflicts</h2>
                 <p><span data-sync-result="target-system">@targetName</span> printings stay in place unless you generate a manual checklist for swapping them afterward.</p>
             </div>
+            <div class="conflict-actions">
+                <button type="button" class="copy-button" data-select-all-choice="@PrintingChoice.KeepArchidekt">Select All <span data-sync-result="target-system">@targetName</span></button>
+                <button type="button" class="copy-button" data-select-all-choice="@PrintingChoice.UseMoxfield">Select All <span data-sync-result="source-system">@sourceName</span></button>
+                <button type="submit" class="run-button">Generate Printing Swap Checklist</button>
+            </div>
         </div>
         <table class="conflicts-table">
-            <caption class="sr-only">Printing conflicts between source and target decks</caption>
+            <caption class="sr-only">Printing conflicts between source and target decks with selection for each card</caption>
             <thead>
                 <tr>
                     <th scope="col">Card</th>
                     <th scope="col" id="deck-sync-conflict-target"><span data-sync-result="target-system">@targetName</span></th>
                     <th scope="col" id="deck-sync-conflict-source"><span data-sync-result="source-system">@sourceName</span></th>
+                    <th scope="col">Use</th>
                 </tr>
             </thead>
             <tbody id="deck-sync-conflicts-body">
@@ -220,12 +244,16 @@
                             <td>(@conflict.MoxfieldVersion.SetCode) @conflict.MoxfieldVersion.CollectorNumber</td>
                             <td>(@conflict.ArchidektVersion.SetCode) @conflict.ArchidektVersion.CollectorNumber@archidektCategorySuffix</td>
                         }
+                        <td class="choice-cell">
+                            <label><input type="radio" name="Resolutions[@conflict.CardName]" value="@PrintingChoice.KeepArchidekt" checked /> @targetName</label>
+                            <label><input type="radio" name="Resolutions[@conflict.CardName]" value="@PrintingChoice.UseMoxfield" /> @sourceName</label>
+                        </td>
                     </tr>
                 }
             }
             </tbody>
         </table>
-    </section>
+    </form>
 
     <details class="result-panel">
         <summary>How to import safely</summary>

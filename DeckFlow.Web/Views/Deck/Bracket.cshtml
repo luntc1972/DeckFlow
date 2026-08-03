@@ -45,6 +45,7 @@
 </div>
 
 <form method="post" action="@Url.Content("~/bracket")" class="result-panel"
+      data-cache-key="bracket"
       data-busy-title="Classifying deck"
       data-busy-message="Loading the deck and checking for Game Changers, combos, and mass land denial."
       data-busy-progress="Loading the deck|Detecting Game Changers|Checking combos|Building the result">
@@ -95,8 +96,8 @@
     @await Html.PartialAsync("_AiSelector", Model.Request.TargetAiPlatform)
 
     <div class="toolbar">
-        <button type="submit" class="run-button">Classify deck</button>
-        <a href="@Url.Content("~/bracket")" class="clear-cache-button" role="button" data-no-busy>Start over</a>
+        <button type="submit" class="run-button" data-default-action>Classify deck</button>
+        <a href="@Url.Content("~/bracket")" class="clear-cache-button" role="button" data-clear-cache data-no-busy>Start over</a>
     </div>
 </form>
 

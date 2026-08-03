@@ -349,7 +349,7 @@ Deck B ([DECK B NAME]):
 
         <div class="prompt-step-footer">
             <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/deck-comparison")">Start Over</button>
-            <button type="button" class="run-button" data-prompt-comparison-next-step="2">Next: Generate Packet</button>
+            <button type="button" class="run-button" data-prompt-comparison-next-step="2" data-default-action>Next: Generate Packet</button>
         </div>
     </section>
 
@@ -425,7 +425,7 @@ Deck B ([DECK B NAME]):
         </details>
 
         <div class="toolbar prompt-step-actions">
-            <button type="submit" class="run-button" data-prompt-comparison-submit-step="2">Generate Comparison Packet</button>
+            <button type="submit" class="run-button" data-prompt-comparison-submit-step="2" data-default-action>Generate Comparison Packet</button>
         </div>
 
         @if (!string.IsNullOrWhiteSpace(Model.InputSummary))
@@ -592,7 +592,7 @@ Deck B ([DECK B NAME]):
         </label>
 
         <div class="toolbar prompt-step-actions">
-            <button type="submit" class="run-button" data-prompt-comparison-submit-step="3">Render Comparison Summary</button>
+            <button type="submit" class="run-button" data-prompt-comparison-submit-step="3" data-default-action>Render Comparison Summary</button>
         </div>
 
         @if (Model.ComparisonResponse is not null)
