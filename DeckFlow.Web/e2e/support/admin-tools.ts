@@ -29,6 +29,20 @@ export async function setToolEnabled(page: Page, label: string, enabled: boolean
   await expect(getAdminToolRow(page, label).locator('[data-label="Status"]')).toHaveText(desiredStatus);
 }
 
+/**
+ * Reads a tool's current flag state.
+ *
+ * Why: a spec that needs a tool enabled must restore whatever it found rather than
+ * assuming the tool ships off. Flag state persists in the dev database, so guessing
+ * wrong leaves the tool disabled for every later run — which is how the /sync smoke,
+ * scripts and responsive specs were broken by a Batch G run.
+ */
+export async function getToolEnabled(page: Page, label: string): Promise<boolean> {
+  await gotoAdminTools(page);
+  const status = getAdminToolRow(page, label).locator('[data-label="Status"]');
+  return (await status.textContent())?.trim() === 'On';
+}
+
 function getAdminToolRow(page: Page, label: string): Locator {
   return page.locator('tbody tr').filter({
     has: page.locator('td[data-label="Tool"] span', { hasText: label }),
