@@ -100,7 +100,7 @@ public sealed class ScryfallCardLookupService : ICardLookupService
         var parsedLines = ParseLines(cardList);
         if (parsedLines.Count > MaxCardsPerSubmission)
         {
-            throw new InvalidOperationException($"Please verify {MaxCardsPerSubmission} non-empty lines or fewer per submission.");
+            throw new InvalidOperationException($"Card Lookup accepts up to {MaxCardsPerSubmission} non-empty lines per submission.");
         }
 
         var resolvedCards = new Dictionary<string, ScryfallCard>(StringComparer.OrdinalIgnoreCase);

@@ -79,7 +79,10 @@ public sealed class CardLookupServiceTests
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.LookupAsync(lines));
 
-        Assert.Equal("Please verify 100 non-empty lines or fewer per submission.", exception.Message);
+        // Why: this string must stay byte-identical to the client-side message in
+        // card-lookup.ts:434, so the cap reads the same whether it trips in the
+        // browser or on the server.
+        Assert.Equal("Card Lookup accepts up to 100 non-empty lines per submission.", exception.Message);
     }
 
     [Fact]

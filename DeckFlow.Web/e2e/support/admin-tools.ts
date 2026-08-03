@@ -1,4 +1,7 @@
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
+import { acquireAdminLockForTest, releaseAdminLockForTest } from './admin-lock';
+
+type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
 
 const adminUser = process.env.FEEDBACK_ADMIN_USER ?? 'admin';
 const adminPassword = process.env.FEEDBACK_ADMIN_PASSWORD ?? 'changeme-local';
@@ -41,6 +44,33 @@ export async function getToolEnabled(page: Page, label: string): Promise<boolean
   await gotoAdminTools(page);
   const status = getAdminToolRow(page, label).locator('[data-label="Status"]');
   return (await status.textContent())?.trim() === 'On';
+}
+
+export function withToolEnabled(label: string): void {
+  let heldLock: LockHandle | null = null;
+  let wasEnabled = false;
+
+  test.beforeEach(async ({ page }) => {
+    heldLock = await acquireAdminLockForTest(page);
+    wasEnabled = await getToolEnabled(page, label);
+    await setToolEnabled(page, label, true);
+  });
+
+  test.afterEach(async ({ page }) => {
+    if (heldLock) {
+      await setToolEnabled(page, label, wasEnabled);
+      await releaseAdminLockForTest(heldLock);
+      heldLock = null;
+    }
+  });
+}
+
+export async function boxOf(page: Page, selector: string): Promise<{ x: number; y: number; width: number; height: number }> {
+  const element = page.locator(selector).first();
+  await expect(element).toBeVisible();
+  const box = await element.boundingBox();
+  expect(box, `${selector} should have a layout box`).not.toBeNull();
+  return box!;
 }
 
 function getAdminToolRow(page: Page, label: string): Locator {

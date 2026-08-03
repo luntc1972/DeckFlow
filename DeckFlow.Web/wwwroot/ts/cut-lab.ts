@@ -2751,7 +2751,6 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     if (exportTab) {
       exportTab.disabled = !atTarget;
       exportTab.setAttribute('aria-disabled', atTarget ? 'false' : 'true');
-      exportTab.classList.toggle('is-disabled', !atTarget);
     }
 
     const buildExportSubmit = getBuildExportSubmit();

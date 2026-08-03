@@ -96,7 +96,7 @@
     @await Html.PartialAsync("_AiSelector", Model.Request.TargetAiPlatform)
 
     <div class="toolbar">
-        <button type="submit" class="run-button" data-default-action>Classify deck</button>
+        <button type="submit" class="run-button">Classify deck</button>
         <a href="@Url.Content("~/bracket")" class="clear-cache-button" role="button" data-clear-cache data-no-busy>Start over</a>
     </div>
 </form>

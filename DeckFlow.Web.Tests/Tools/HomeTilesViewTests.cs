@@ -66,18 +66,9 @@ public sealed class HomeTilesViewTests
     /// real ones, so it passed while three tiles rendered the fallback "?" glyph.
     /// </summary>
     public static TheoryData<string> IconKeys()
-    {
-        var data = new TheoryData<string>();
-
-        foreach (var iconKey in new ToolRegistry().All
+        => new(new ToolRegistry().All
             .Select(tool => tool.IconKey)
-            .Distinct(StringComparer.Ordinal))
-        {
-            data.Add(iconKey);
-        }
-
-        return data;
-    }
+            .Distinct(StringComparer.Ordinal));
 
     [Theory]
     [MemberData(nameof(IconKeys))]
