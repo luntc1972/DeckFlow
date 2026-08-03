@@ -39,6 +39,87 @@ public sealed class DeckLookupControllerTests
     }
 
     [Fact]
+    public async Task CardLookup_ReturnsValidationError_WhenLineCountExceedsCap()
+    {
+        var controller = CreateController(out var service);
+
+        var result = await controller.DownloadCardLookup(new CardLookupRequest
+        {
+            CardList = BuildCardList(101)
+        });
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CardLookupViewModel>(view.Model);
+        Assert.Equal("Card Lookup accepts up to 100 non-empty lines per submission.", model.ErrorMessage);
+        // The cap must short-circuit before Scryfall — that is the whole point of it.
+        Assert.Equal(0, service.LookupCallCount);
+    }
+
+    [Fact]
+    public async Task CardLookupJson_ReturnsValidationError_WhenLineCountExceedsCap()
+    {
+        var controller = CreateController(out _);
+
+        var result = await controller.DownloadCardLookupJson(new CardLookupRequest
+        {
+            CardList = BuildCardList(101)
+        });
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CardLookupViewModel>(view.Model);
+        Assert.Equal("Card Lookup accepts up to 100 non-empty lines per submission.", model.ErrorMessage);
+    }
+
+    // Why: pins the boundary so the cap constant cannot drift without a test failing.
+    // Mutating 100 to 99 or 101 in the controller breaks exactly one of these two.
+    [Fact]
+    public async Task CardLookup_AcceptsExactlyTheCap()
+    {
+        var controller = CreateController(out _);
+
+        var result = await controller.DownloadCardLookup(new CardLookupRequest
+        {
+            CardList = BuildCardList(100)
+        });
+
+        Assert.IsType<FileContentResult>(result);
+    }
+
+    // Mirrors countNonEmptyLines() in card-lookup.ts: blank and whitespace-only
+    // lines are not charged against the cap on either side of the wire.
+    [Fact]
+    public async Task CardLookup_IgnoresBlankLines_WhenApplyingCap()
+    {
+        var controller = CreateController(out _);
+        var padded = string.Join("\n", Enumerable.Range(0, 100).Select(index => $"Card {index}\n   \n"));
+
+        var result = await controller.DownloadCardLookup(new CardLookupRequest
+        {
+            CardList = padded
+        });
+
+        Assert.IsType<FileContentResult>(result);
+    }
+
+    private static string BuildCardList(int lineCount) =>
+        string.Join("\n", Enumerable.Range(0, lineCount).Select(index => $"Card {index}"));
+
+    private static DeckLookupController CreateController(out FakeCardLookupService service)
+    {
+        service = new FakeCardLookupService();
+        return new DeckLookupController(
+            service,
+            new FakeMechanicLookupService(),
+            NullLogger<DeckLookupController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+    }
+
+    [Fact]
     public async Task CardLookup_ReturnsUserFacingError_WhenScryfallFails()
     {
         var controller = new DeckLookupController(
