@@ -640,6 +640,25 @@ public sealed class CutLabCutRoundEngineTests
         Assert.Empty(proposal.DiscriminatingFindingKinds);
     }
 
+    [Fact]
+    public void BuildQueue_ComboProtectedFunctionalTwin_DoesNotPromoteButRemainsInItsLegitimateRound()
+    {
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            [Card("Combo Piece", 2), Card("Ordinary Card", 3)],
+            Findings(
+                Finding(CutLabFindingKind.FunctionalTwins, "Combo Piece"),
+                Finding(CutLabFindingKind.CurveCongestion, "Combo Piece", "Ordinary Card"),
+                Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.CompletePiece, "Combo Piece")),
+            [],
+            cardsToCutTarget: 2);
+
+        Assert.Equal("Ordinary Card", plan.NextProposal!.CardName);
+        Assert.Equal(CutLabCutRoundEngine.Round2Key, plan.NextProposal.RoundKey);
+        CutLabRoundQueueItem comboPiece = Assert.Single(plan.Queue, item => item.CardName == "Combo Piece");
+        Assert.Equal(CutLabCutRoundEngine.Round2Key, comboPiece.RoundKey);
+        Assert.Equal(1, comboPiece.FindingCount);
+    }
+
     // Why: pins the July 2026 report where Ashnod's Altar was proposed first under
     // "Obvious cuts" on a live Celes, Rune Knight deck. Combo findings are advisory,
     // so no number of them may promote a card into round 1 on their own.
@@ -1156,7 +1175,7 @@ public sealed class CutLabCutRoundEngineTests
     }
 
     [Fact]
-    public void BuildQueue_TwinsDuplicateRawPoolEntries_IncrementEachRawTallyOnce()
+    public void BuildQueue_TwinsDuplicateRawPoolEntries_CountsEachRawKeyOnce()
     {
         CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
             [Card("Twin Card", 1), Card("Twin Card", 1), Card("Card B", 1), Card("Card C", 1)],
@@ -1165,7 +1184,8 @@ public sealed class CutLabCutRoundEngineTests
             cardsToCutTarget: 4);
 
         // Why: Assert.All passes vacuously on an empty queue, so pin the count first. Both identical
-        // raw entries plus the two other evidence cards must be queued, each counted once.
+        // raw entries plus the two other evidence cards must be queued; the case-insensitive hash
+        // set supplies the once-per-raw-key tally behavior.
         Assert.Equal(4, plan.Queue.Count);
         Assert.All(plan.Queue, item => Assert.Equal(1, item.FindingCount));
     }

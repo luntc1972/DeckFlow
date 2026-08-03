@@ -94,7 +94,11 @@ public sealed class CutLabFunctionalTwinsDensityTests
     [Fact]
     public void FunctionalTwins_OnDiverse130CardPool_StaysWithinReviewableBound()
     {
-        IReadOnlyList<CutLabFinding> twins = ComputeTwins(BuildDiversePool());
+        IReadOnlyList<CutLabAnalyzedCard> pool = BuildDiversePool();
+        Assert.Equal(92, pool.Count(card => !card.IsLand && card.Roles.Count > 0));
+        Assert.Equal(64, pool.Count(card => card.Name.StartsWith("Filler ", StringComparison.Ordinal) && card.Roles.Count > 0));
+
+        IReadOnlyList<CutLabFinding> twins = ComputeTwins(pool);
 
         Assert.True(twins.Count > 0, "Expected at least one FunctionalTwins finding on a realistic diverse pool.");
 
@@ -248,9 +252,9 @@ public sealed class CutLabFunctionalTwinsDensityTests
     }
 
     // Why: ~38 land entries -- the largest natural cluster in any real pool -- so the density number
-    // measured by test 1 is meaningful. All are isLand: true and role "lands", which
-    // ComputeFunctionalTwins excludes from eligibility entirely, so they must produce zero groups
-    // (test 2).
+    // measured by test 1 is meaningful. The four nonbasic lands deliberately also carry ramp: they
+    // share the same Land/MV0/ramp key, so test 2 proves the explicit land predicate rather than
+    // merely relying on the otherwise-ineligible lands role.
     private static List<CutLabAnalyzedCard> BuildLands()
     {
         List<CutLabAnalyzedCard> lands = [];
@@ -271,7 +275,7 @@ public sealed class CutLabFunctionalTwinsDensityTests
             .Select(index => Card($"{basicName} {index}", 0, isLand: true, $"Basic Land — {basicName}", roles: [LandsRole]));
 
     private static CutLabAnalyzedCard NonbasicLand(string name)
-        => Card(name, 0, isLand: true, "Land", roles: [LandsRole]);
+        => Card(name, 0, isLand: true, "Land", roles: [LandsRole, RampRole]);
 
     // Why: six genuine twin clusters, one per grouping shape, so the fixture measures a non-zero
     // number and would catch the detector silently ceasing to fire. Two cards here also carry a

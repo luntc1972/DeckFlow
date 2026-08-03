@@ -226,8 +226,6 @@ public static class CutLabCutRoundEngine
             .Where(entry => entry.Value.Kind == CutLabDecisionKind.Accepted)
             .Select(entry => entry.Key)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        IReadOnlyDictionary<string, CardFindingTally> findingTallies = BuildFindingTallies(findings.Findings, workingList);
-
         // Why: ComboProtected is deliberately absent from the tally so it can never promote a card,
         // but that left it with no effect whatsoever — a card sitting in two complete combos could
         // still lead a round on one unrelated finding. Combo membership is therefore the FIRST
@@ -253,6 +251,7 @@ public static class CutLabCutRoundEngine
             .Where(cardName => !string.IsNullOrWhiteSpace(cardName))
             .Select(CutLabCardNames.Normalize)
             .ToHashSet(CutLabCardNames.Comparer);
+        IReadOnlyDictionary<string, CardFindingTally> findingTallies = BuildFindingTallies(findings.Findings, workingList, comboProtectedCardNames);
 
         IReadOnlyList<CutLabRoundInputCard> eligibleCards = workingList
             .Where(card =>
@@ -413,7 +412,8 @@ public static class CutLabCutRoundEngine
 
     private static IReadOnlyDictionary<string, CardFindingTally> BuildFindingTallies(
         IReadOnlyList<CutLabFinding> findings,
-        IReadOnlyList<CutLabRoundInputCard> workingList)
+        IReadOnlyList<CutLabRoundInputCard> workingList,
+        IReadOnlySet<string> comboProtectedCardNames)
     {
         Dictionary<string, CardFindingTallyBuilder> tallies = new(StringComparer.OrdinalIgnoreCase);
 
@@ -438,7 +438,6 @@ public static class CutLabCutRoundEngine
                 cardNamesInFinding = workingList
                     .Select(card => card.Name)
                     .Where(name => normalizedEvidenceNames.Contains(CutLabCardNames.Normalize(name)))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToHashSet(StringComparer.OrdinalIgnoreCase);
             }
             else
@@ -451,6 +450,14 @@ public static class CutLabCutRoundEngine
 
             foreach (string cardName in cardNamesInFinding)
             {
+                if (finding.Kind == CutLabFindingKind.FunctionalTwins
+                    && comboProtectedCardNames.Contains(CutLabCardNames.Normalize(cardName)))
+                {
+                    // Why: a complete combo piece remains eligible for its non-twins evidence, but
+                    // twins must not provide the extra tally that promotes it across round boundaries.
+                    continue;
+                }
+
                 if (!tallies.TryGetValue(cardName, out CardFindingTallyBuilder? tally))
                 {
                     tally = new CardFindingTallyBuilder();
