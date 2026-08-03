@@ -2,8 +2,11 @@
 
 @* Why: Model is ToolDefinition.IconKey, which ToolRegistry.Create assigns from `key` — NOT from
    helpSlug. The two differ for judge-questions/ask-a-judge and suggest-categories/category-suggestions,
-   and a mismatch falls silently through to the `default:` question-mark glyph. Every key in
-   ToolRegistry.Definitions needs a case here. *@
+   and a mismatch falls silently through to the `default:` exclamation-mark glyph (circle, vertical
+   line, dot). Do NOT read that fallback as "the question-mark icon": judge-questions' own icon is a
+   real question mark, so at 20px the broken state and a correct tile are both just a circle with a
+   mark in it — tell them apart by path data, not by eye. Every key in ToolRegistry.Definitions needs
+   a case here; the totality test in HomeTilesViewTests derives its cases from ToolRegistry.All. *@
 @switch (Model)
 {
     case "deck-analysis":
