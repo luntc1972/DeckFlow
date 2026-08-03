@@ -1108,10 +1108,10 @@ const syncResolveFormMirror = (): void => {
     return;
   }
 
-  const values = new FormData(syncForm);
+  const values = serializeFormFields(syncForm);
   resolveForm.querySelectorAll<HTMLInputElement>('[data-resolve-mirror]').forEach(mirror => {
-    const value = values.get(mirror.dataset.resolveMirror ?? '');
-    if (typeof value === 'string') {
+    const value = values[mirror.name];
+    if (value !== undefined) {
       mirror.value = value;
     }
   });

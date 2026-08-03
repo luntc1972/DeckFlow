@@ -217,10 +217,10 @@ public partial class Program
             }
 
             // UseExceptionHandler only covers thrown exceptions; a mistyped URL or a flag-gated
-            // 404 would otherwise render the bare framework page. Excluded for /api so JSON
-            // callers keep getting an empty 404 body instead of an HTML document.
+            // 404 would otherwise render the bare framework page. Excluded for API paths so
+            // JSON callers keep getting an empty 404 body instead of an HTML document.
             app.UseWhen(
-                context => !context.Request.Path.StartsWithSegments("/api"),
+                context => !IsApiPath(context.Request.Path),
                 branch => branch.UseStatusCodePagesWithReExecute("/Deck/Error", "?code={0}"));
 
             app.UseDeckFlowSecurityHeaders();
@@ -392,6 +392,9 @@ public partial class Program
     /// </summary>
     internal static string DeriveAdminPartitionKey(HttpContext context)
         => "admin:" + DeriveCloudflareClientIp(context);
+
+    private static bool IsApiPath(PathString path)
+        => path.StartsWithSegments("/api") || path.StartsWithSegments("/Admin/api");
 
     private static async Task ValidateDatabaseConnectionsAsync(IServiceProvider services, IWebHostEnvironment environment, Microsoft.Extensions.Logging.ILogger logger)
     {

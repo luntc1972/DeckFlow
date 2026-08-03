@@ -1,6 +1,7 @@
 using DeckFlow.Web.Extensions;
 using DeckFlow.Web.Security;
 using DeckFlow.Web.Services.Analytics;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
@@ -48,6 +49,14 @@ public sealed class AnalyticsMiddleware : IMiddleware
     /// <inheritdoc />
     public async Task InvokeAsync(HttpContext context, RequestDelegate next)
     {
+        // Why: status-code re-execution runs this pipeline a second time to render the error
+        // page, so recording it would duplicate the original request's analytics event.
+        if (context.Features.Get<IStatusCodeReExecuteFeature>() is not null)
+        {
+            await next(context).ConfigureAwait(false);
+            return;
+        }
+
         // (D-11 / ANLY-06) Filter static assets by path prefix BEFORE endpoint resolution.
         // Avoids high-cardinality versioned asset paths entering the metrics table.
         var path = context.Request.Path.Value;

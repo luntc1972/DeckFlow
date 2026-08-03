@@ -1,17 +1,10 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import { boxOf } from './support/admin-tools';
 
 // Batch A of the 2026-08-02 site UI audit. Each assertion below locks one verified defect so a
 // future edit that reintroduces it fails here rather than in a manual sweep.
 
-const isMobile = (page: Page): boolean => (page.viewportSize()?.width ?? 0) <= 600;
-
-const boxOf = async (page: Page, selector: string) => {
-  const element = page.locator(selector).first();
-  await expect(element).toBeVisible();
-  const box = await element.boundingBox();
-  expect(box, `${selector} should have a layout box`).not.toBeNull();
-  return box!;
-};
+const isMobile = (): boolean => test.info().project.name.includes('mobile');
 
 test.describe('UI audit batch A', () => {
   test('landing page has exactly one h1 and no fallback tile icons', async ({ page }) => {
@@ -115,7 +108,7 @@ test.describe('UI audit batch A', () => {
     });
     expect(controlsSelf, 'aria-controls must not resolve to an ancestor of the toggle').toBe(false);
 
-    if (isMobile(page)) {
+    if (isMobile()) {
       await expect(toggle).toBeVisible();
     } else {
       await expect(toggle).toBeHidden();
@@ -123,7 +116,7 @@ test.describe('UI audit batch A', () => {
   });
 
   test('mobile menu toggle still reveals the tool nav groups', async ({ page }) => {
-    test.skip(!isMobile(page), 'the tool nav only collapses to a menu on the mobile viewport');
+    test.skip(!isMobile(), 'the tool nav only collapses to a menu on the mobile viewport');
 
     await page.goto('/');
 
@@ -154,7 +147,7 @@ test.describe('UI audit batch A', () => {
   });
 
   test('mobile tap targets clear 44px', async ({ page }) => {
-    test.skip(!isMobile(page), 'tap-target floor applies to the mobile viewport');
+    test.skip(!isMobile(), 'tap-target floor applies to the mobile viewport');
 
     await page.goto('/deck-primer');
 
@@ -175,7 +168,7 @@ test.describe('UI audit batch A', () => {
     expect(fontSize, 'controls under 16px trigger iOS Safari zoom-on-focus').toBeGreaterThanOrEqual(16);
 
     const submit = await boxOf(page, '.feedback-submit');
-    if (isMobile(page)) {
+    if (isMobile()) {
       expect(submit.height).toBeGreaterThanOrEqual(44);
     }
   });

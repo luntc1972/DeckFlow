@@ -194,15 +194,15 @@
         @* Mirrored from the deck-sync request so /resolve can rebuild the same diff.
            JS refreshes these from #deck-sync-form on submit, because the fetch path
            can change the inputs without a page reload. *@
-        <input type="hidden" name="MoxfieldInputSource" value="@Model.Request.MoxfieldInputSource" data-resolve-mirror="MoxfieldInputSource" />
-        <input type="hidden" name="ArchidektInputSource" value="@Model.Request.ArchidektInputSource" data-resolve-mirror="ArchidektInputSource" />
-        <input type="hidden" name="Direction" value="@Model.Request.Direction" data-resolve-mirror="Direction" />
-        <input type="hidden" name="CategorySyncMode" value="@Model.Request.CategorySyncMode" data-resolve-mirror="CategorySyncMode" />
-        <input type="hidden" name="MoxfieldUrl" value="@Model.Request.MoxfieldUrl" data-resolve-mirror="MoxfieldUrl" />
-        <input type="hidden" name="MoxfieldText" value="@Model.Request.MoxfieldText" data-resolve-mirror="MoxfieldText" />
-        <input type="hidden" name="ArchidektUrl" value="@Model.Request.ArchidektUrl" data-resolve-mirror="ArchidektUrl" />
-        <input type="hidden" name="ArchidektText" value="@Model.Request.ArchidektText" data-resolve-mirror="ArchidektText" />
-        <input type="hidden" name="Mode" value="@Model.Request.Mode" data-resolve-mirror="Mode" />
+        <input type="hidden" name="MoxfieldInputSource" value="@Model.Request.MoxfieldInputSource" data-resolve-mirror />
+        <input type="hidden" name="ArchidektInputSource" value="@Model.Request.ArchidektInputSource" data-resolve-mirror />
+        <input type="hidden" name="Direction" value="@Model.Request.Direction" data-resolve-mirror />
+        <input type="hidden" name="CategorySyncMode" value="@Model.Request.CategorySyncMode" data-resolve-mirror />
+        <input type="hidden" name="MoxfieldUrl" value="@Model.Request.MoxfieldUrl" data-resolve-mirror />
+        <input type="hidden" name="MoxfieldText" value="@Model.Request.MoxfieldText" data-resolve-mirror />
+        <input type="hidden" name="ArchidektUrl" value="@Model.Request.ArchidektUrl" data-resolve-mirror />
+        <input type="hidden" name="ArchidektText" value="@Model.Request.ArchidektText" data-resolve-mirror />
+        <input type="hidden" name="Mode" value="@Model.Request.Mode" data-resolve-mirror />
         <div class="panel-heading">
             <div>
                 <h2>Printing Conflicts</h2>
@@ -297,58 +297,6 @@
             </div>
             <textarea autocomplete="off" id="full-import-output" readonly spellcheck="false">@Model.FullImportText</textarea>
         </section>
-
-        @if (Model.Diff.PrintingConflicts.Count > 0)
-        {
-            <form method="post" action="@Url.Content("~/resolve")" class="result-panel" data-busy-title="Generating Swap Checklist" data-busy-message="Applying your printing choices.">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="MoxfieldInputSource" value="@Model.Request.MoxfieldInputSource" />
-                <input type="hidden" name="ArchidektInputSource" value="@Model.Request.ArchidektInputSource" />
-                <input type="hidden" name="Direction" value="@Model.Request.Direction" />
-                <input type="hidden" name="CategorySyncMode" value="@Model.Request.CategorySyncMode" />
-                <input type="hidden" name="MoxfieldUrl" value="@Model.Request.MoxfieldUrl" />
-                <input type="hidden" name="MoxfieldText" value="@Model.Request.MoxfieldText" />
-                <input type="hidden" name="ArchidektUrl" value="@Model.Request.ArchidektUrl" />
-                <input type="hidden" name="ArchidektText" value="@Model.Request.ArchidektText" />
-                <input type="hidden" name="Mode" value="@Model.Request.Mode" />
-                <div class="panel-heading">
-                    <div>
-                        <h2>Printing Conflicts</h2>
-                        <p>@targetName printings stay in place unless you generate a manual checklist for swapping them afterward.</p>
-                    </div>
-                    <div class="conflict-actions">
-                        <button type="button" class="copy-button" data-select-all-choice="@PrintingChoice.KeepArchidekt">Select All @targetName</button>
-                        <button type="button" class="copy-button" data-select-all-choice="@PrintingChoice.UseMoxfield">Select All @sourceName</button>
-                        <button type="submit" class="run-button">Generate Printing Swap Checklist</button>
-                    </div>
-                </div>
-                <table class="conflicts-table">
-                    <caption class="sr-only">Printing conflicts between source and target decks with selection for each card</caption>
-                    <thead>
-                        <tr>
-                            <th scope="col">Card</th>
-                            <th scope="col">@targetName</th>
-                            <th scope="col">@sourceName</th>
-                            <th scope="col">Use</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var conflict in Model.Diff.PrintingConflicts)
-                    {
-                        <tr>
-                            <td>@conflict.CardName</td>
-                            <td>(@conflict.ArchidektVersion.SetCode) @conflict.ArchidektVersion.CollectorNumber [@conflict.ArchidektVersion.Category]</td>
-                            <td>(@conflict.MoxfieldVersion.SetCode) @conflict.MoxfieldVersion.CollectorNumber</td>
-                            <td class="choice-cell">
-                                <label><input type="radio" name="Resolutions[@conflict.CardName]" value="@PrintingChoice.KeepArchidekt" checked /> @targetName</label>
-                                <label><input type="radio" name="Resolutions[@conflict.CardName]" value="@PrintingChoice.UseMoxfield" /> @sourceName</label>
-                            </td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
-            </form>
-        }
 
         @if (!string.IsNullOrWhiteSpace(Model.SwapChecklistText))
         {

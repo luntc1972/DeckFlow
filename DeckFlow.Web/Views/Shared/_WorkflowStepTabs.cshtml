@@ -16,10 +16,6 @@
     @foreach (var step in Model.Steps)
     {
         var cls = step.IsComplete ? "prompt-step-tab is-complete" : "prompt-step-tab";
-        if (!step.IsEnabled)
-        {
-            cls += " is-disabled";
-        }
 
         @* Why no real `disabled` attribute: a disabled button is unfocusable, which dead-ends arrow
            traversal of the tablist at the first incomplete step. `aria-disabled` conveys the state

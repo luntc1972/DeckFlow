@@ -1911,13 +1911,13 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
     display: none;
 }
 
-.prompt-step-tab.is-disabled {
+.prompt-step-tab[aria-disabled="true"] {
   color: var(--muted);
   cursor: not-allowed;
   opacity: 0.6;
 }
 
-.prompt-step-tab.is-disabled:hover {
+.prompt-step-tab[aria-disabled="true"]:hover {
   transform: none;
   box-shadow: none;
 }

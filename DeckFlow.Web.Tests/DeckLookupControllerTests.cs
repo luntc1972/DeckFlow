@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Controllers;
 using DeckFlow.Web.Models;
+using DeckFlow.Web.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -41,7 +42,7 @@ public sealed class DeckLookupControllerTests
     [Fact]
     public async Task CardLookup_ReturnsValidationError_WhenLineCountExceedsCap()
     {
-        var controller = CreateController(out var service);
+        var controller = CreateCapEnforcingController(out var service);
 
         var result = await controller.DownloadCardLookup(new CardLookupRequest
         {
@@ -51,14 +52,14 @@ public sealed class DeckLookupControllerTests
         var view = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<CardLookupViewModel>(view.Model);
         Assert.Equal("Card Lookup accepts up to 100 non-empty lines per submission.", model.ErrorMessage);
-        // The cap must short-circuit before Scryfall — that is the whole point of it.
-        Assert.Equal(0, service.LookupCallCount);
+        Assert.Equal(1, service.LookupCallCount);
+        Assert.Equal(0, service.ScryfallLookupCallCount);
     }
 
     [Fact]
     public async Task CardLookupJson_ReturnsValidationError_WhenLineCountExceedsCap()
     {
-        var controller = CreateController(out _);
+        var controller = CreateCapEnforcingController(out var service);
 
         var result = await controller.DownloadCardLookupJson(new CardLookupRequest
         {
@@ -68,14 +69,14 @@ public sealed class DeckLookupControllerTests
         var view = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<CardLookupViewModel>(view.Model);
         Assert.Equal("Card Lookup accepts up to 100 non-empty lines per submission.", model.ErrorMessage);
+        Assert.Equal(1, service.LookupCallCount);
     }
 
-    // Why: pins the boundary so the cap constant cannot drift without a test failing.
-    // Mutating 100 to 99 or 101 in the controller breaks exactly one of these two.
+    // Why: pins the service boundary so the client and server cap cannot drift.
     [Fact]
     public async Task CardLookup_AcceptsExactlyTheCap()
     {
-        var controller = CreateController(out _);
+        var controller = CreateCapEnforcingController(out _);
 
         var result = await controller.DownloadCardLookup(new CardLookupRequest
         {
@@ -90,7 +91,7 @@ public sealed class DeckLookupControllerTests
     [Fact]
     public async Task CardLookup_IgnoresBlankLines_WhenApplyingCap()
     {
-        var controller = CreateController(out _);
+        var controller = CreateCapEnforcingController(out _);
         var padded = string.Join("\n", Enumerable.Range(0, 100).Select(index => $"Card {index}\n   \n"));
 
         var result = await controller.DownloadCardLookup(new CardLookupRequest
@@ -107,6 +108,21 @@ public sealed class DeckLookupControllerTests
     private static DeckLookupController CreateController(out FakeCardLookupService service)
     {
         service = new FakeCardLookupService();
+        return new DeckLookupController(
+            service,
+            new FakeMechanicLookupService(),
+            NullLogger<DeckLookupController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+    }
+
+    private static DeckLookupController CreateCapEnforcingController(out CapEnforcingCardLookupService service)
+    {
+        service = new CapEnforcingCardLookupService();
         return new DeckLookupController(
             service,
             new FakeMechanicLookupService(),
@@ -147,7 +163,7 @@ public sealed class DeckLookupControllerTests
     public async Task CardLookup_ReturnsValidationMessage_WhenTooManyLinesSubmitted()
     {
         var controller = new DeckLookupController(
-            new ThrowingCardLookupService(new InvalidOperationException("Please verify 100 non-empty lines or fewer per submission.")),
+            new ThrowingCardLookupService(new InvalidOperationException("Card Lookup accepts up to 100 non-empty lines per submission.")),
             new FakeMechanicLookupService(),
             NullLogger<DeckLookupController>.Instance)
         {
@@ -164,7 +180,7 @@ public sealed class DeckLookupControllerTests
 
         var view = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<CardLookupViewModel>(view.Model);
-        Assert.Equal("Please verify 100 non-empty lines or fewer per submission.", model.ErrorMessage);
+        Assert.Equal("Card Lookup accepts up to 100 non-empty lines per submission.", model.ErrorMessage);
     }
 
     [Fact]
@@ -351,5 +367,27 @@ public sealed class DeckLookupControllerTests
         Assert.Equal("Prowess", model.MechanicName);
         Assert.Equal("702.108", model.RuleReference);
         Assert.Contains("Prowess", model.RulesText);
+    }
+
+    private sealed class CapEnforcingCardLookupService : ICardLookupService
+    {
+        public int LookupCallCount { get; private set; }
+
+        public int ScryfallLookupCallCount { get; private set; }
+
+        public Task<CardLookupResult> LookupAsync(string cardList, CancellationToken cancellationToken = default)
+        {
+            LookupCallCount++;
+            if (cardList.Split('\n').Count(line => !string.IsNullOrWhiteSpace(line)) > 100)
+            {
+                throw new InvalidOperationException("Card Lookup accepts up to 100 non-empty lines per submission.");
+            }
+
+            ScryfallLookupCallCount++;
+            return Task.FromResult(new CardLookupResult(Array.Empty<string>(), Array.Empty<string>()));
+        }
+
+        public Task<SingleCardLookupResult?> LookupSingleAsync(string cardName, CancellationToken cancellationToken = default)
+            => Task.FromResult<SingleCardLookupResult?>(null);
     }
 }
