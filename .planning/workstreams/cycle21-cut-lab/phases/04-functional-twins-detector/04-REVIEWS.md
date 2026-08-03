@@ -659,3 +659,84 @@ the acceptance criterion matches the count.
 ## Status
 
 Round 11 folded. No production code was changed by this documentation fold.
+
+# Code review — 2026-08-03. THE TWO OWED CODE GATES, discharged.
+# Reviewer: Codex `gpt-5.6-sol`, effort medium, `-s read-only`, rooted at the rebased worktree.
+
+Every round above is a **plan** review. The two sections below are **code** reviews of shipped
+commits — the gates recorded as OWED in `04-03-SUMMARY.md:172-174` and `04-04-SUMMARY.md:200-207`,
+which could not run while the Codex workspace was out of credits.
+
+⚠ **Hashes in the summaries are STALE.** `gsd/cycle21-cut-lab` was rebased onto `main` (`ea3dca2a`)
+on 2026-08-03. The recorded range `9594b2f6..0a9e7cc9` no longer resolves from HEAD; the live range
+is `8b5d2e8e..908402cd`. `b508f27e` survived the rebase and is still an ancestor of both HEAD and
+`main`.
+
+## 04-03 — commit `b508f27e` ("gate functional twins on all three transports")
+
+**Verdict: no BLOCK, no HIGH. THE OWED GATE IS DISCHARGED.** 2 MEDIUM · 1 LOW, all recorded below
+as follow-ups; none blocks the phase.
+
+**MEDIUM — `DeckFlow.Web/Controllers/Api/CutLabApiController.cs:110`** — the decide transport reads
+the flag independently from the patch builder at `:124`, so one request can use two snapshots. If
+the flag flips OFF→ON between the reads, the persisted decision records round 3 while the returned
+findings and proposal use twins-enabled ranking. *Fix:* capture the flag once per request and thread
+that value through both computations.
+
+**MEDIUM — `DeckFlow.Web.Tests/CutLabFunctionalTwinsFlagTests.cs:222`** — all transport tests seed
+the cache using the production constant, so nothing binds that constant to the registered flag key.
+Change `FunctionalTwinsFlagKey` to a typo and the catalog, seed and every new transport test still
+pass — while enabling `analysis.cut-lab.functional-twins` never activates the detector. *Fix:* add a
+literal equality assertion for the constant, or make catalog/seed registration consume the same
+authoritative key.
+
+**LOW — `DeckFlow.Web.Tests/CutLabCutRoundEngineTests.cs:1159`** — the duplicate-entry test does not
+bind the `.Distinct(StringComparer.OrdinalIgnoreCase)` it claims to protect. Remove that operator at
+`CutLabCutRoundEngine.cs:441` and `.ToHashSet` performs the same deduplication, so the test still
+passes. *Fix:* drop the redundant operator and describe the test as guarding once-per-raw-key
+behavior supplied by the hash set.
+
+## 04-04 — range `8b5d2e8e..908402cd` (Tasks 1-2)
+
+Run in two stages per the dispatch rules. **The staging mattered and is worth recording.**
+
+**Stage 1 — `codex review --base ea3dca2a`. Verdict: "No actionable defects were identified in the
+changed code."** It also reported that .NET tests could not be executed because the dotnet runtime
+was inaccessible from WSL under the default `workspace-write` sandbox, so its clean verdict rests on
+the TypeScript tests alone.
+
+**Stage 2 — `codex exec` with a written brief. Verdict: CHANGES REQUIRED. 2 HIGH (both CONFIRMED) ·
+1 MEDIUM.** Stage 2 was mandatory here on three of its four triggers: normalization/matching logic
+changed, the claims needed checking against the repository rather than the diff, and this was an
+owed gate with no prior independent review.
+
+Both HIGHs were structurally invisible to a diff-scoped reviewer — one lives in the *interaction*
+between new and pre-existing code, and the other is an **absent assertion**, which no diff can show.
+
+**HIGH — `DeckFlow.Web/Services/CutLab/CutLabCutRoundEngine.cs:460`** — CONFIRMED. FunctionalTwins
+tallies can promote a complete combo piece into round 1 despite its ComboProtected finding. *Repro:*
+a combo piece in `FunctionalTwins + CurveCongestion + ComboProtected` and an ordinary card in
+`CurveCongestion` only — the combo piece scores 2 and becomes the round-1 proposal while the
+ordinary card is relegated to round 2. *Fix:* suppress the twins tally contribution for complete
+combo pieces, or enforce combo demotion across round boundaries; add an overlap regression test.
+⚠ This is the same combo-starvation class that took four rounds to fix on `fix/cutlab-combo-seam`.
+
+**HIGH — `DeckFlow.Web.Tests/CutLabFunctionalTwinsDensityTests.cs:393`** — CONFIRMED. The repaired
+92-card eligible population is never asserted, so the earlier fix is not load-bearing. Revert the 64
+filler cards to `roles = []` and only 28 cards are eligible, yet the same six designed groups, 20
+evidence names, ordering, gate-off result and homogeneous comparison all still pass. *Fix:* assert
+the exact eligible count and role-bearing filler count before computing density.
+⚠ This is the second time this fixture has measured the wrong population.
+
+**MEDIUM — `DeckFlow.Web.Tests/CutLabFunctionalTwinsDensityTests.cs:115`** — CONFIRMED. The
+no-land-groups test cannot detect removal of production's explicit land exclusion, because every
+fixture land carries only the ineligible `lands` role. Delete `!card.IsLand` from
+`ComputeFunctionalTwins` and all 38 lands stay outside every eligible role loop, so the test still
+passes. *Fix:* give at least three `IsLand` fixture cards the same eligible role/type/mana key, so
+that only the land predicate prevents their grouping.
+
+## Status
+
+`04-03`'s owed gate is **discharged**. `04-04`'s gate ran and returned **CHANGES REQUIRED** — the 2
+HIGHs are unfolded as of 2026-08-03 and must be resolved before Phase 4 closes. Task 3's human UI
+checkpoint remains outstanding and is unaffected by this review.

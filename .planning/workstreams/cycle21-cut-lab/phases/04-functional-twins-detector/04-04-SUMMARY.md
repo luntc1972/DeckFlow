@@ -3,7 +3,7 @@ phase: 04-functional-twins-detector
 plan: 04
 status: tasks-1-2-complete
 task_3_status: NOT STARTED — blocking human checkpoint, awaiting developer
-codex_review: OWED
+codex_review: RUN 2026-08-03 — CHANGES REQUIRED, 2 HIGH unfolded (see 04-REVIEWS.md)
 date: 2026-08-02
 ---
 

@@ -42,10 +42,15 @@ was adopted 2026-08-02 and PLANNED 2026-08-02** — 8 plans in 6 waves (`1a44879
 0 BLOCK/0 HIGH, findings folded `f04f0154`). Design spec at
 `.planning/specs/2026-08-02-cutlab-plan-profile-design.md`; engine plans (08-01..08-06) parallel
 across waves 1-4; plan-panel UI plans (08-07, 08-08) gated on Phase 7.
-⚠ **Phase 8 planning happened on branch `feat/ui-audit-batch-a`** (the adoption commit `be421acd`
-only exists there) — the plan set is NOT on `gsd/cycle21-cut-lab` or `main` yet.
-⚠ **Codex plan review OWED for Phase 8** — user skipped it 2026-08-02 (checker-only accepted);
-run it before `/gsd:execute-phase 8`.
+✅ **Phase 8 plan set is now on `gsd/cycle21-cut-lab`.** It was planned on `feat/ui-audit-batch-a`
+(adoption commit `be421acd`), which reached `main` and then this branch via the 2026-08-03 rebase.
+The earlier "NOT on `gsd/cycle21-cut-lab` or `main` yet" note was true when written and is now
+stale.
+✅ **Codex plan review for Phase 8 RUN 2026-08-03** — see `phases/08-.../08-REVIEWS.md`.
+⛔ **Verdict: CHANGES REQUIRED — 2 BLOCK · 7 HIGH · 4 MEDIUM, none folded. Do NOT run
+`/gsd-execute-phase 8`** until at least both BLOCKs are resolved: `08-06-PLAN.md:199` will not
+compile (70 missed `CutLabPageService` construction sites), and `08-07-PLAN.md:143` silently
+destroys restored user sessions. The same-family checker had passed this plan set clean.
 Phase 8 planning notes: the reorder effect lands in `CutLabCutRoundEngine.BuildQueue`
 (`:266-332`, `ComboProtectionRank :483`), NOT `CutLabNextProposalBuilder` as the spec says — that
 file is a DTO mapper; and `CutLabIntent` lives at `DeckFlow.Web/Models/CutLab/CutLabState.cs:189`,
@@ -161,8 +166,8 @@ verification gates and the post-rebase SHAs. `04-04` is next.
 BLOCKED rather than weakening the page-vs-patch parity assertion — but reported one failing test
 where there were four. Both defects were in the new test fixture, not production. The round-2 fix
 dispatch failed with `ERROR: Your workspace is out of credits`, and the operator authorized Claude
-to finish. **A Codex review of 04-03 is owed** and is the first in this phase whose code Codex did
-not write. Full run record was in `.foreman/ledger.md` (gitignored, local only).
+to finish. **That Codex review of 04-03 ran 2026-08-03 and DISCHARGED the gate** (no BLOCK, no
+HIGH); it was the first in this phase whose code Codex did not write. Full run record was in `.foreman/ledger.md` (gitignored, local only).
 **Resume File:** none. `.planning/HANDOFF.json` was deleted 2026-08-02 — it had drifted far enough
 to be a hazard, still listing `04-03` as `not_started` after that plan was executed, verified and
 committed. Everything it carried that outlives a session was moved here or confirmed present in the
@@ -174,11 +179,22 @@ phase docs before deletion. **This file plus the phase `.continue-here.md` are t
   rewritten, so origin diverges 190↔204 and the branch needs **`--force-with-lease`**. User pushes;
   AI does not. Pushing `main` triggers a Render autodeploy — safe, because `tool.cut-lab.enabled`
   is `false` in prod.
-- **Codex review of `b508f27e`** (plan `04-03`, formerly `c9b55d1b` before the rebase) — the first
-  Phase 4 commit whose code Codex did not write. Still owed, and it is now on `main`. Review the
-  range rather than the working tree.
-- **Phase 5 round-9 HIGH still open.** Full spec below — it previously lived only in `HANDOFF.json`
-  and is recorded here because that file is gone and `05-REVIEWS.md` never captured it.
+- ✅ **Codex review of `b508f27e` (plan `04-03`) RUN 2026-08-03 — GATE DISCHARGED.** No BLOCK, no
+  HIGH; 2 MEDIUM and 1 LOW recorded as follow-ups in `phases/04-.../04-REVIEWS.md`. Neither MEDIUM
+  blocks the phase.
+- ⛔ **Codex review of `04-04` Tasks 1-2 RUN 2026-08-03 — CHANGES REQUIRED, 2 HIGH unfolded.** Live
+  range is `8b5d2e8e..908402cd`; the ranges recorded in the summaries (`9594b2f6..0a9e7cc9`) are
+  STALE after the rebase. Both HIGHs are in `04-REVIEWS.md`: twins tallies can promote a complete
+  combo piece into round 1 over its `ComboProtected` finding (`CutLabCutRoundEngine.cs:460`), and
+  the repaired 92-card density population is never asserted, so reverting the 64 filler roles leaves
+  every test green (`CutLabFunctionalTwinsDensityTests.cs:393`). Stage 1 (`codex review`) found
+  nothing on this same range; stage 2 found both.
+- **Phase 5 round-9 HIGH still open — and its prescribed fix is itself defective.** Round 10
+  (2026-08-03) CONFIRMED the round-9 defect at `05-03-PLAN.md:143` and found two new problems in the
+  prescribed fix: the two pinned test methods do not exist yet (Task 1 creates them — a sequencing
+  constraint, not a phantom), and exact TRX `testName` equality is incompatible with `[Theory]`, so
+  the gate would fail closed. **Do not apply the round-9 fix as written.** Rounds 9 and 10 are now
+  both recorded in `05-REVIEWS.md`; the spec below is retained for continuity.
 
   *Defect:* the round-8 TRX regex, hand-authored rather than dispatched, is too permissive.
   `testName="[^"]*(name1|name2)[^"]*"` combined with **substring** `FullyQualifiedName~` filters lets
