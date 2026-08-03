@@ -201,7 +201,7 @@
 
         <div class="prompt-step-footer">
             <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/cedh-meta-gap")">Start Over</button>
-            <button type="submit" class="run-button" data-prompt-cedh-submit-step="1">Fetch Top Decks</button>
+            <button type="submit" class="run-button" data-prompt-cedh-submit-step="1" data-default-action>Fetch Top Decks</button>
         </div>
     </section>
 
@@ -346,7 +346,7 @@
         </div>
 
         <div class="toolbar prompt-step-actions">
-            <button type="submit" class="run-button" data-prompt-cedh-submit-step="2">Generate Meta Gap Prompt</button>
+            <button type="submit" class="run-button" data-prompt-cedh-submit-step="2" data-default-action>Generate Meta Gap Prompt</button>
         </div>
 
         @if (!string.IsNullOrWhiteSpace(Model.PromptText))
@@ -402,7 +402,7 @@
         </label>
 
         <div class="toolbar prompt-step-actions">
-            <button type="submit" class="run-button" data-prompt-cedh-submit-step="3" data-busy-title="Rendering cEDH Meta Gap Analysis" data-busy-message="Reading your pasted analysis and building the report.">Render Meta Gap Analysis</button>
+            <button type="submit" class="run-button" data-prompt-cedh-submit-step="3" data-default-action data-busy-title="Rendering cEDH Meta Gap Analysis" data-busy-message="Reading your pasted analysis and building the report.">Render Meta Gap Analysis</button>
         </div>
 
         @if (Model.AnalysisResponse is not null)

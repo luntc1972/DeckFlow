@@ -193,7 +193,7 @@ Do not omit any fields from the schema.
         <div class="toolbar prompt-step-actions">
             <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/deck-analysis")">Start Over</button>
             <div class="prompt-step-note">You only need to paste the deck here once. After that, move through the workflow tabs below.</div>
-            <button type="button" class="run-button" data-prompt-next-step="2">Next: Analysis</button>
+            <button type="button" class="run-button" data-prompt-next-step="2" data-default-action>Next: Analysis</button>
         </div>
     </section>
 
@@ -393,11 +393,16 @@ Do not omit any fields from the schema.
                                     </select>
                                     <small class="sync-column__hint">Choose which deck builder you will paste the generated lists into. When assigning or updating categories, you must choose Moxfield or Archidekt and @aiPlatform.DisplayName should return the decklist in a fenced <code>```text</code> block.</small>
                                 </label>
-                                <label class="prompt-question-option desktop-only">
+                                @* Why: this control must never be display:none — a hidden checkbox is
+                                   not submitted, so a mobile post silently reset IncludeCardVersions to
+                                   false and changed the generated prompt without telling the user. Only
+                                   the long explanatory copy is desktop-only now; the control itself
+                                   renders and binds at every viewport. *@
+                                <label class="prompt-question-option">
                                     <input type="checkbox" name="IncludeCardVersions" value="true" @(Model.Request.IncludeCardVersions ? "checked" : "") />
                                     <span>
                                         Include card versions (set code &amp; collector number) for retained cards
-                                        <small class="sync-column__hint sync-column__hint--block">When checked, the original deck's set code and collector number are provided to @aiPlatform.DisplayName so it can preserve the exact printing for any card kept in a generated deck version.</small>
+                                        <small class="sync-column__hint sync-column__hint--block desktop-only">When checked, the original deck's set code and collector number are provided to @aiPlatform.DisplayName so it can preserve the exact printing for any card kept in a generated deck version.</small>
                                     </span>
                                 </label>
                                 <label class="field hidden" data-preferred-categories-field>
@@ -422,7 +427,7 @@ Do not omit any fields from the schema.
             <small class="sync-column__hint">This question is appended to the list of selected analysis questions in the generated prompt.</small>
         </label>
         <div class="toolbar prompt-step-actions">
-            <button type="submit" class="run-button" data-prompt-submit-step="2">Generate Analysis Packet</button>
+            <button type="submit" class="run-button" data-prompt-submit-step="2" data-default-action>Generate Analysis Packet</button>
         </div>
 
         @if (!string.IsNullOrWhiteSpace(Model.SuggestedChatTitle))
@@ -548,7 +553,7 @@ Do not omit any fields from the schema.
         }
 
         <div class="toolbar prompt-step-actions">
-            <button type="submit" class="run-button" data-prompt-submit-step="3">Render Analysis Summary</button>
+            <button type="submit" class="run-button" data-prompt-submit-step="3" data-default-action>Render Analysis Summary</button>
         </div>
 
         @if (Model.AnalysisResponse is not null)
@@ -922,7 +927,7 @@ Do not omit any fields from the schema.
             </label>
         </details>
         <div class="toolbar prompt-step-actions">
-            <button type="submit" class="run-button" data-prompt-submit-step="4">Generate Set Upgrade Packet</button>
+            <button type="submit" class="run-button" data-prompt-submit-step="4" data-default-action>Generate Set Upgrade Packet</button>
         </div>
 
         @if (!string.IsNullOrWhiteSpace(Model.SetUpgradePromptText))
@@ -975,7 +980,7 @@ Do not omit any fields from the schema.
         </label>
 
         <div class="toolbar prompt-step-actions">
-            <button type="submit" class="run-button" data-prompt-submit-step="5">Render Set Upgrade Results</button>
+            <button type="submit" class="run-button" data-prompt-submit-step="5" data-default-action>Render Set Upgrade Results</button>
         </div>
 
         @if (Model.SetUpgradeResponse is not null)

@@ -426,6 +426,15 @@ const triggerPromptBlobDownload = (blob: Blob, filename: string): void => {
 
 const registerPromptDownloadHandler = (): void => {
   document.querySelectorAll<HTMLButtonElement>('button[data-prompt-download-submit]').forEach(button => {
+    // Why: the sticky download bar renders before any workflow submit, which made
+    // it the form's *default button* — so pressing Enter (or "Go" on a mobile
+    // keyboard) in a deck-URL field downloaded a session zip instead of advancing
+    // the workflow. Demoting to type="button" removes it from implicit submission
+    // entirely. The markup keeps type="submit" + formaction so the <noscript>
+    // path still downloads natively; only the JS path is demoted, and the click
+    // handler below already fetches rather than submitting.
+    button.type = 'button';
+
     button.addEventListener('click', async (event: MouseEvent) => {
       const form = button.closest('form');
       if (!form) {
@@ -1065,6 +1074,49 @@ const buildConflictCellText = (
   return `(${setCode}) ${collectorNumber}`.trim();
 };
 
+/**
+ * Builds one radio choice for the printing-conflict resolution table. The name
+ * matches the `Resolutions[cardName]` dictionary binding the /resolve action
+ * expects, and the value matches the PrintingChoice enum member names.
+ */
+const buildConflictChoice = (
+  cardName: string,
+  choice: 'KeepArchidekt' | 'UseMoxfield',
+  label: string,
+  checked: boolean
+): HTMLLabelElement => {
+  const wrapper = document.createElement('label');
+  const radio = document.createElement('input');
+  radio.type = 'radio';
+  radio.name = `Resolutions[${cardName}]`;
+  radio.value = choice;
+  radio.checked = checked;
+  wrapper.appendChild(radio);
+  wrapper.appendChild(document.createTextNode(` ${label}`));
+  return wrapper;
+};
+
+/**
+ * Copies the live deck-sync request values into the resolve form's hidden inputs.
+ * The fetch path can change those inputs without a page reload, so the values
+ * Razor stamped at render time may be stale by the time the user resolves.
+ */
+const syncResolveFormMirror = (): void => {
+  const resolveForm = document.querySelector<HTMLFormElement>('[data-deck-sync-resolve-form]');
+  const syncForm = document.getElementById('deck-sync-form') as HTMLFormElement | null;
+  if (!resolveForm || !syncForm) {
+    return;
+  }
+
+  const values = new FormData(syncForm);
+  resolveForm.querySelectorAll<HTMLInputElement>('[data-resolve-mirror]').forEach(mirror => {
+    const value = values.get(mirror.dataset.resolveMirror ?? '');
+    if (typeof value === 'string') {
+      mirror.value = value;
+    }
+  });
+};
+
 const renderDeckSyncConflicts = (
   printingConflicts: DeckSyncApiResponse['printingConflicts'],
   sourceSystem: string,
@@ -1094,9 +1146,17 @@ const renderDeckSyncConflicts = (
     const sourceCell = document.createElement('td');
     sourceCell.textContent = buildConflictCellText(sourceSystem as DeckSyncSystem, conflict);
 
+    // Why: without this column the JS path rendered a read-only table and /resolve
+    // was unreachable with JavaScript on. Mirrors the server-rendered choice cell.
+    const choiceCell = document.createElement('td');
+    choiceCell.className = 'choice-cell';
+    choiceCell.appendChild(buildConflictChoice(conflict.cardName, 'KeepArchidekt', targetSystem, true));
+    choiceCell.appendChild(buildConflictChoice(conflict.cardName, 'UseMoxfield', sourceSystem, false));
+
     row.appendChild(cardCell);
     row.appendChild(targetCell);
     row.appendChild(sourceCell);
+    row.appendChild(choiceCell);
     body.appendChild(row);
   });
 
@@ -2245,6 +2305,73 @@ const hasRenderedResultOnLoad = (): boolean => {
 
 let deckSyncBootstrapped = false;
 
+// Input types where Enter means "submit the form" rather than "operate the control".
+const implicitSubmissionInputTypes = new Set([
+  'text', 'url', 'search', 'email', 'number', 'password', 'tel', 'date', 'datetime-local', 'month', 'time', 'week'
+]);
+
+/**
+ * Resolves the button Enter should activate for the field the user is in.
+ * Step-based workflows mark one `[data-default-action]` per step panel, so the
+ * lookup is scoped to the enclosing step before falling back to the form.
+ */
+const promptStepPanelSelector = '[data-prompt-step], [data-prompt-comparison-step], [data-prompt-cedh-step]';
+
+const findDefaultAction = (form: HTMLFormElement, target: HTMLElement): HTMLElement | null => {
+  const step = target.closest<HTMLElement>(promptStepPanelSelector);
+  return step?.querySelector<HTMLElement>('[data-default-action]')
+    ?? form.querySelector<HTMLElement>('[data-default-action]');
+};
+
+/**
+ * Routes implicit submission (Enter in a text field, "Go" on a mobile keyboard)
+ * to the action the current step actually intends, instead of letting the
+ * browser pick the first submit button in DOM order.
+ */
+const registerImplicitSubmissionGuard = (): void => {
+  const forms = new Set<HTMLFormElement>();
+  document.querySelectorAll<HTMLElement>('[data-default-action]').forEach(action => {
+    const form = action.closest('form');
+    if (form) {
+      forms.add(form);
+    }
+  });
+
+  forms.forEach(form => {
+    form.addEventListener('keydown', (event: KeyboardEvent) => {
+      // A typeahead or other control that already consumed Enter wins; bailing on
+      // defaultPrevented keeps suggestion pickers working.
+      if (event.key !== 'Enter' || event.defaultPrevented) {
+        return;
+      }
+      if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey || event.isComposing) {
+        return;
+      }
+
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) {
+        return;
+      }
+      if (!implicitSubmissionInputTypes.has((target.type || 'text').toLowerCase())) {
+        return;
+      }
+
+      const action = findDefaultAction(form, target);
+      if (!action) {
+        return;
+      }
+
+      event.preventDefault();
+      action.click();
+    });
+  });
+};
+
+const attachResolveFormMirror = (): void => {
+  document.querySelector<HTMLFormElement>('[data-deck-sync-resolve-form]')
+    ?.addEventListener('submit', () => syncResolveFormMirror());
+};
+
 const bootstrapDeckSync = (): void => {
   if (deckSyncBootstrapped) {
     return;
@@ -2257,11 +2384,13 @@ const bootstrapDeckSync = (): void => {
     window.hideBusyIndicator?.();
   }
   scrollToOnLoadTarget();
+  registerImplicitSubmissionGuard();
   registerPromptDownloadHandler();
   registerPromptPrintHandler();
   attachActionButtons();
   attachGenericPersistedForms();
   attachDeckSyncPersistence();
+  attachResolveFormMirror();
   attachPromptPacketsWorkflow();
   attachPromptComparisonWorkflow();
   attachPromptCedhWorkflow();
