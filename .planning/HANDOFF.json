@@ -1,17 +1,28 @@
 {
   "version": "1.0",
-  "timestamp": "2026-08-03T04:24:04.444Z",
+  "timestamp": "2026-08-03T20:10:00.000Z",
   "phase": null,
   "phase_name": "Quick task 260802-b7q — Batch G form-correctness defects",
   "phase_dir": ".planning/quick/260802-b7q-fix-five-batch-g-form-correctness-defec",
   "plan": null,
   "task": 5,
   "total_tasks": 5,
-  "status": "paused",
+  "status": "complete",
   "context": "quick-task",
-  "branch": "feat/ui-audit-batch-g",
-  "worktree": "/mnt/c/users/chrislunt/source/personal/deckflow-batch-g",
-  "head": "e9c6b02b",
+  "branch": "feat/ui-audit-batch-a",
+  "worktree": "/mnt/c/users/chrislunt/source/personal/deckflow",
+  "head": "8b3767d5",
+  "uat": {
+    "date": "2026-08-03",
+    "result": "PASS",
+    "scope": "16 fixes — 11 Batch A + 5 Batch G, one pass covering both converged branches",
+    "commit_under_test": "8b3767d5",
+    "checklist": "/mnt/c/Users/chrislunt/Downloads/DeckFlow-UAT-UI-Audit-Batch-A-G-2026-08-03.md",
+    "notes": [
+      "A1 initially flagged: Ask a Judge renders a '?' glyph. Confirmed CORRECT — the rendered SVG is the deliberate `case \"judge-questions\"` arm (circle r=7.5 + curved hook + dot), not the `default:` fallback, which is a straight vertical line + dot (an exclamation). The two are distinguishable only by path data, not by eye at 20px.",
+      "Both judgment calls accepted as shipped: the landing-page <h1> stays VISIBLE (not .sr-only), and Deck Primer DOES persist form state across reloads."
+    ]
+  },
   "completed_tasks": [
     {"id": 1, "name": "G1 — route Enter to the current step's action, not the sticky download bar", "status": "done", "commit": "6f467a00"},
     {"id": 2, "name": "G2 — stop dropping IncludeCardVersions from mobile submissions", "status": "done", "commit": "6f467a00"},
@@ -20,37 +31,29 @@
     {"id": 5, "name": "G5 — enforce the 100-line Card Lookup cap server-side", "status": "done", "commit": "d3e609db"},
     {"id": 6, "name": "E2E regression spec (26 tests, desktop + mobile)", "status": "done", "commit": "42a447c4"},
     {"id": 7, "name": "Converge batch-G onto batch-A so one UAT covers both", "status": "done", "commit": "e9c6b02b"},
-    {"id": 8, "name": "Fix e2e flag clobber (capture-and-restore tool flags)", "status": "done", "commit": "e9c6b02b"}
+    {"id": 8, "name": "Fix e2e flag clobber (capture-and-restore tool flags)", "status": "done", "commit": "e9c6b02b"},
+    {"id": 9, "name": "User UAT of both batches", "status": "done", "commit": null, "note": "PASS 16/16 on 2026-08-03 against 8b3767d5, from the ../deckflow worktree (not batch-g — the branches had already converged)."},
+    {"id": 10, "name": "Push feat/ui-audit-batch-a and feat/ui-audit-batch-g", "status": "done", "commit": null, "note": "Both branches were ALREADY at origin (0 ahead / 0 behind) as of 2026-08-03. The earlier '8 commits ahead, user must push' claim in this file was stale."},
+    {"id": 11, "name": "Fast-forward feat/ui-audit-batch-a to the converged tip", "status": "done", "commit": "8b3767d5", "note": "Both branches now point at 8b3767d5."},
+    {"id": 12, "name": "File a ticket for the pre-existing cut-lab-tuning.spec.ts flake", "status": "done", "commit": null, "note": ".planning/todos/pending/2026-08-03-fix-cut-lab-tuning-spec-nondeterministic-flake.md"}
   ],
   "remaining_tasks": [
-    {"id": 9, "name": "User UAT of both batches from the batch-g worktree", "status": "not_started"},
-    {"id": 10, "name": "Push feat/ui-audit-batch-g (and the 8 unpushed batch-a commits)", "status": "not_started"},
-    {"id": 11, "name": "Decide whether to fast-forward feat/ui-audit-batch-a to e9c6b02b", "status": "not_started"},
-    {"id": 12, "name": "File a ticket for the pre-existing cut-lab-tuning.spec.ts flake", "status": "not_started"},
-    {"id": 13, "name": "Optional: run /simplify skill on the change (was done as a manual checklist pass only)", "status": "not_started"},
-    {"id": 14, "name": "Open design decision: Card Lookup's .desktop-only Card List mode — make responsive, or show an explicit 'available on desktop' affordance", "status": "not_started"}
+    {"id": 13, "name": "Optional: run the /simplify skill on the change (was done as a manual checklist pass only)", "status": "not_started"},
+    {"id": 14, "name": "Open design decision: Card Lookup's .desktop-only Card List mode — make responsive, or show an explicit 'available on desktop' affordance", "status": "not_started"},
+    {"id": 15, "name": "Stale comment in _ToolTileIcon.cshtml calls the `default:` fallback 'the question-mark glyph'. It is an exclamation mark; the question mark is the real judge-questions icon. This wording is what made A1 ambiguous during UAT. One-line docs fix, offered and not yet authorized.", "status": "not_started"},
+    {"id": 16, "name": "Rebase onto main — both branches show 3 behind (3115d70e, 0354cd9f, 5c8bbfbb), all docs-only and already present by content", "status": "not_started"}
   ],
-  "blockers": [
-    {
-      "description": "cut-lab-tuning.spec.ts fails non-deterministically (2 of its tests per run, a different pair each time). Cause: '<span>Focused</span> intercepts pointer events' on a Cut Lab radio.",
-      "type": "technical",
-      "workaround": "Pre-existing — reproduced on feat/ui-audit-batch-a with no Batch G code present. Not a regression from either batch. Does not block UAT."
-    }
-  ],
-  "human_actions_pending": [
-    {"action": "UAT both batches", "context": "Must be done in ../deckflow-batch-g. The usual ../deckflow worktree is on batch-a and is missing all five Batch G fixes.", "blocking": true},
-    {"action": "Push the branches", "context": "AI commits, user pushes. batch-g has no upstream at all; batch-a is 8 commits ahead of origin.", "blocking": true},
-    {"action": "Decide on fast-forwarding feat/ui-audit-batch-a to e9c6b02b", "context": "Deliberately not done: that branch is checked out in the user's active worktree and gained commit eade9113 mid-session, so someone is working in it.", "blocking": false}
-  ],
+  "blockers": [],
+  "human_actions_pending": [],
   "decisions": [
     {"decision": "Claude implemented directly instead of dispatching Codex", "rationale": "User explicitly chose 'I'll write it myself, no Codex' when asked at task start, overriding the standing Codex-codes rule."},
     {"decision": "G1 fixed with two mechanisms, not the one the ticket described", "rationale": "Demoting the download button alone just promotes the upload button to default, and upload needs a native multipart submit so form.requestSubmit() rejects it. So: runtime type='button' on the download button PLUS a data-default-action keydown router."},
     {"decision": "Download button keeps type='submit' in markup; JS demotes it at runtime", "rationale": "formaction only works on submit buttons, so a markup-level type='button' would break the <noscript> download — the mirror of the G3 defect being fixed."},
     {"decision": "Three file-clean commits instead of the requested one-per-defect", "rationale": "The four front-end defects overlap within the same files (deck-sync.ts has G1+G3, DeckAnalysis.cshtml has G1+G2). A per-defect split needs partial-line staging that cannot produce valid intermediate commits."},
     {"decision": "DeckPrimer.cshtml's missing data-cache-key left to batch A", "rationale": "Batch A already fixes that exact line; fixing it in batch G too would collide. Resolved by convergence — the G4 sweep is now fully closed."},
-    {"decision": "Did not fast-forward feat/ui-audit-batch-a", "rationale": "It is checked out in the user's active worktree and moved during the session; moving a branch out from under an active worktree is the user's call."}
+    {"decision": "Recorded the UAT result as a NEW commit rather than amending the wip commit 8b3767d5", "rationale": "8b3767d5 is already published on origin for BOTH branches. Amending it would rewrite published history and need a force-push, which the project rules forbid on a shared branch."}
   ],
   "uncommitted_files": [],
-  "next_action": "Nothing is in flight. Work is complete and committed at e9c6b02b. The next real step is the user's UAT from ../deckflow-batch-g, then push.",
-  "context_notes": "Batch G is finished and fully verified: build 0 errors / 0 warnings, 4710 unit tests pass, full e2e sweep 461 passed with the only 2 failures proven pre-existing. Both the unit and e2e suites were mutation-tested to prove they are not vacuous. The session's real lesson is in the anti-patterns table — two of my own verification failures (verifying the worktree instead of HEAD, and a spec that clobbered persistent flag state) are the things a resuming agent must not repeat."
+  "next_action": "Nothing is in flight and nothing is owed. Batches A and G are shipped, UAT'd, and on origin. Items 13-16 are pick-up-when-convenient; item 14 (Card Lookup desktop-only) is the only real product decision among them.",
+  "context_notes": "Batch G is finished and fully verified: build 0 errors / 0 warnings, 4710 unit tests pass, full e2e sweep 461 passed with the only 2 failures proven pre-existing and now ticketed. Both suites were mutation-tested to prove they are not vacuous. User UAT passed 16/16 on 2026-08-03. The session's lessons are in the anti-patterns table in .continue-here.md — verifying the worktree instead of HEAD, and a spec that clobbered persistent flag state. A third was added 2026-08-03: this handoff asserted the branches were unpushed when they were already at origin, and that stale claim was nearly acted on. Re-derive git state from git, never from a handoff."
 }
