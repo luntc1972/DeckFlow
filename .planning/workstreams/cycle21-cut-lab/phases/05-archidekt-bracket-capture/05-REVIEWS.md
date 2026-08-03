@@ -892,3 +892,74 @@ gates' `wslpath -w` boundary handling.
 
 Round 8 findings folded. The Round 8 BLOCK's pre-existing TRX regex fix remains uncommitted and
 unchanged by this fold.
+
+# Round 9 — 2026-08-01. Recorded retroactively on 2026-08-03. Verdict: 1 HIGH, open.
+
+⚠ **This round was never written into this file when it ran.** It survived only in
+`.planning/HANDOFF.json`, that file was deleted on 2026-08-02, and the finding was rescued into
+`STATE.md:180-193`. It is transcribed here because this file is its proper home, and because the
+near-loss is the reason Round 10 below was commissioned at all.
+
+**HIGH — the Round 8 TRX regex, hand-authored rather than dispatched, is too permissive.**
+`testName="[^"]*(name1|name2)[^"]*"` combined with **substring** `FullyQualifiedName~` filters lets
+suffix-extended tests satisfy the gate. The reviewer confirmed with a synthetic TRX that
+`RunAsync_MetadataBearingImport_PersistsMetadata_Unrelated` plus a second unrelated name together
+produce `failed_count=2`, passing a gate whose entire purpose is to prove that two *specific* tests
+failed. The gate fails **open** — it silently certifies nothing.
+
+*Prescribed fix:* exact `FullyQualifiedName=DeckFlow.Core.Tests.ArchidektDeckCacheSessionTests.<method>`
+filters, one exact counter per fully qualified name plus a total, requiring `first_failed=1`,
+`second_failed=1`, `total_failed=2`.
+
+# Round 10 — 2026-08-03. Narrow, single-issue verification of the Round 9 fix.
+# Reviewer: Codex `gpt-5.6-sol`, effort medium, `-s read-only`.
+# Verdict: defect CONFIRMED · 1 BLOCK (sequencing) · 1 HIGH — both NEW, in the prescribed fix itself.
+
+⚠ **This is round 10 against a documented four-round cap.** It was commissioned deliberately, on
+explicit operator instruction, and scoped to the single open Round 9 HIGH — **not** a re-review of
+the plan set. The justification for exceeding the cap is that the two failure directions are not
+equivalent: the Round 8 regex fails **open** (unrelated tests satisfy the gate), while the Round 9
+fix fails **closed** (a legitimate test breaks a correct gate). A fail-open verification gate is
+worth a round that a fail-closed one would not be.
+
+**LOCATION.** `05-03-PLAN.md:143` — both defective elements are on that one line. The reviewer
+grepped the entire phase directory and confirmed this is the **only** occurrence of the executable
+gate; `05-REVIEWS.md:875` describes the generic regex historically but does not duplicate it. No
+incomplete-fold risk.
+
+**VERDICT: CONFIRMED.** The defect remains exactly as recorded in Round 9.
+
+**Filter syntax validated.** The project resolves `Microsoft.NET.Test.Sdk` 17.14.1 with
+`xunit.runner.visualstudio` 3.1.4. In VSTest filter grammar `=` is exact equality and `|` is OR, so
+the proposed filter selects only test cases whose `FullyQualifiedName` equals a supplied value;
+suffix-extended method names cannot match. A runtime probe was not possible — Windows `dotnet.exe`
+interop failed with a WSL vsock error — so this was verified from the resolved test configuration.
+
+**BLOCK (sequencing) — the prescribed fix currently pins two methods that do not exist.**
+`DeckFlow.Core.Tests.ArchidektDeckCacheSessionTests` exists at
+`DeckFlow.Core.Tests/ArchidektDeckCacheSessionTests.cs:13`, but contains only
+`RunAsync_WaitsForFullDurationWhenQueueRunsDry`,
+`RunAsync_WaitsForFullDurationWhenRecentDeckFetchFails` and
+`RunAsync_UsesFetchBatchSizeForDeckProcessing`. Neither `RunAsync_MetadataBearingImport_PersistsMetadata`
+nor `RunAsync_UnchangedCardList_RefreshesMetadataWithoutRewritingFacts` is present. Plan Task 1
+creates them, so this is a **sequencing constraint rather than a phantom API** — but the names Task 1
+emits must match the gate byte-for-byte, and nothing currently enforces that.
+
+**HIGH (new) — exact TRX `testName` equality is incompatible with `[Theory]`.** xUnit theory result
+display names carry argument suffixes in the TRX `testName` attribute, while the VSTest
+`FullyQualifiedName` stays bare. Exact `testName="FQN"` counters therefore reject theory rows — the
+gate fails closed against a correct test. The missing methods have no attributes yet and the plan
+does not require `[Fact]`. *Fix:* have Task 1 explicitly require both tests to be `[Fact]`, or parse
+TRX test definitions / result IDs instead of equating `testName` to the FQN.
+
+**Replacement text** for `05-03-PLAN.md:143` was produced verbatim by the reviewer and is available
+in the round-10 dispatch output. It uses per-name exact filters joined by `|`, three `grep -Ec`
+counters (`first_failed`, `second_failed`, `total_failed`), a `trap`-cleaned temp results directory,
+and `wslpath -w` for the `--results-directory` boundary.
+
+## Status
+
+Round 9's HIGH is **confirmed and still open**. Its prescribed fix must **not** be applied as
+written — resolve the `[Fact]` requirement and pin the two method names in Task 1 first. Per the
+Round 9 note, dispatch the edit to Codex rather than hand-editing: hand-editing is what produced the
+original defect.
