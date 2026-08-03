@@ -42,6 +42,7 @@ public sealed class CutLabUiPatchBuilderTests
             state,
             state.Intent.PlayExperience,
             ["Commander"],
+            twinsEnabled: false,
             floorWarnings: suppliedWarnings);
 
         Assert.Equal(CutLabStateSerializer.Serialize(state), patch.CutLabStateJson);
@@ -89,7 +90,8 @@ public sealed class CutLabUiPatchBuilderTests
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
             state.Intent.PlayExperience,
-            ["Commander"]);
+            ["Commander"],
+            twinsEnabled: false);
 
         Assert.Collection(
             patch.CutsMade,
@@ -186,7 +188,8 @@ public sealed class CutLabUiPatchBuilderTests
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
             state.Intent.PlayExperience,
-            ["Commander"]);
+            ["Commander"],
+            twinsEnabled: false);
 
         Assert.False(patch.ComboDataAvailable);
         Assert.False(patch.CategoryDataAvailable);
@@ -227,7 +230,8 @@ public sealed class CutLabUiPatchBuilderTests
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
             state.Intent.PlayExperience,
-            ["Commander"]);
+            ["Commander"],
+            twinsEnabled: false);
 
         CutLabDecideFindingGroupDto comboGroup = Assert.Single(
             patch.StructuralFindings,
@@ -283,7 +287,8 @@ public sealed class CutLabUiPatchBuilderTests
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
             state.Intent.PlayExperience,
-            ["Commander"]);
+            ["Commander"],
+            twinsEnabled: false);
 
         Assert.Equal(ComboBadgeState.NeedsPartner, patch.ComboBadgeByCardName["Demonic Consultation"].BadgeState);
         Assert.Equal("Needs Thassa's Oracle", patch.ComboBadgeByCardName["Demonic Consultation"].Context);
@@ -307,7 +312,8 @@ public sealed class CutLabUiPatchBuilderTests
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
             state.Intent.PlayExperience,
-            ["Commander"]);
+            ["Commander"],
+            twinsEnabled: false);
 
         Assert.True(patch.NextProposal.IsTerminal);
         Assert.False(patch.NextProposal.IsAtTarget);
@@ -333,7 +339,8 @@ public sealed class CutLabUiPatchBuilderTests
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
             state.Intent.PlayExperience,
-            ["Commander"]);
+            ["Commander"],
+            twinsEnabled: false);
 
         Assert.False(patch.NextProposal.IsTerminal);
         Assert.Equal("Immediate Proposal", patch.NextProposal.CardName);
@@ -381,7 +388,8 @@ public sealed class CutLabUiPatchBuilderTests
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
             state.Intent.PlayExperience,
-            ["Commander"]);
+            ["Commander"],
+            twinsEnabled: false);
 
         CutLabLockedOvershootAdvisoryDto advisory = Assert.IsType<CutLabLockedOvershootAdvisoryDto>(patch.LockedOvershootAdvisory);
         Assert.Collection(
@@ -419,7 +427,8 @@ public sealed class CutLabUiPatchBuilderTests
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
             state.Intent.PlayExperience,
-            ["Commander"]);
+            ["Commander"],
+            twinsEnabled: false);
         CutLabViewModel viewModel = BuildViewModel(state, resolvedFloors, contextBuilder, simulationService);
 
         Assert.Equal(viewModel.CurrentCount, patch.CurrentCount);
@@ -527,7 +536,8 @@ public sealed class CutLabUiPatchBuilderTests
         CutLabUiPatchDto addedPatch = await builder.BuildAsync(
             addedState,
             addedState.Intent.PlayExperience,
-            ["Commander"]);
+            ["Commander"],
+            twinsEnabled: false);
         CutLabViewModel addedViewModel = BuildViewModel(
             addedState,
             CreateFloorResolver().Resolve(addedState, commanderManaValue: 3, ["Commander"]),
@@ -542,7 +552,8 @@ public sealed class CutLabUiPatchBuilderTests
         CutLabUiPatchDto removedPatch = await builder.BuildAsync(
             removedState,
             removedState.Intent.PlayExperience,
-            ["Commander"]);
+            ["Commander"],
+            twinsEnabled: false);
         CutLabViewModel removedViewModel = BuildViewModel(
             removedState,
             CreateFloorResolver().Resolve(removedState, commanderManaValue: 3, ["Commander"]),
@@ -781,7 +792,8 @@ public sealed class CutLabUiPatchBuilderTests
         CutLabUiPatchDto patch = await builder.BuildAsync(
             state,
             state.Intent.PlayExperience,
-            ["Commander"]);
+            ["Commander"],
+            twinsEnabled: false);
 
         Assert.Contains(
             patch.StructuralFindings.SelectMany(group => group.Items),
@@ -936,11 +948,7 @@ public sealed class CutLabUiPatchBuilderTests
         => new(
             contextBuilder,
             simulationService ?? new FakeSimulationService(),
-            floorResolver ?? CreateFloorResolver(),
-            new FakeFeatureFlagCache(new Dictionary<string, bool>
-            {
-                [CutLabStructuralFindings.FunctionalTwinsFlagKey] = false,
-            }));
+            floorResolver ?? CreateFloorResolver());
 
     private static ICutLabFloorResolver CreateFloorResolver()
         => new CutLabFloorResolver(null, null, null, null);

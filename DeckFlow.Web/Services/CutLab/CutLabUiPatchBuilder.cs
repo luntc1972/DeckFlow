@@ -13,6 +13,7 @@ public interface ICutLabUiPatchBuilder
     /// <param name="state">Current authoritative Cut Lab state.</param>
     /// <param name="playExperience">Resolved play-experience label for the current state.</param>
     /// <param name="commanderNames">Resolved commander names for the current state.</param>
+    /// <param name="twinsEnabled">Functional-twins flag value captured for this request.</param>
     /// <param name="preResolvedCards">Optional resolved card payloads that can seed analysis.</param>
     /// <param name="poolKey">Optional precomputed pool key for the derived working list.</param>
     /// <param name="floorWarnings">Optional current-proposal floor warnings that should be preserved as-is.</param>
@@ -22,6 +23,7 @@ public interface ICutLabUiPatchBuilder
         CutLabState state,
         string playExperience,
         IReadOnlyList<string> commanderNames,
+        bool twinsEnabled,
         IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
         string? poolKey = null,
         IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
@@ -34,23 +36,19 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
     private readonly ICutLabAnalysisContextBuilder _analysisContextBuilder;
     private readonly ICutLabSimulationService _simulationService;
     private readonly ICutLabFloorResolver _floorResolver;
-    private readonly IFeatureFlagCache _featureFlags;
 
     /// <summary>Creates the Cut Lab live-patch builder.</summary>
     /// <param name="analysisContextBuilder">Shared Cut Lab analysis-context builder.</param>
     /// <param name="simulationService">Shared Cut Lab simulation service.</param>
     /// <param name="floorResolver">Shared floor resolver reused across Cut Lab transports.</param>
-    /// <param name="featureFlags">Feature-flag cache used to gate the functional-twins detector.</param>
     public CutLabUiPatchBuilder(
         ICutLabAnalysisContextBuilder analysisContextBuilder,
         ICutLabSimulationService simulationService,
-        ICutLabFloorResolver floorResolver,
-        IFeatureFlagCache featureFlags)
+        ICutLabFloorResolver floorResolver)
     {
         _analysisContextBuilder = analysisContextBuilder ?? throw new ArgumentNullException(nameof(analysisContextBuilder));
         _simulationService = simulationService ?? throw new ArgumentNullException(nameof(simulationService));
         _floorResolver = floorResolver ?? throw new ArgumentNullException(nameof(floorResolver));
-        _featureFlags = featureFlags ?? throw new ArgumentNullException(nameof(featureFlags));
     }
 
     /// <inheritdoc />
@@ -58,6 +56,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
         CutLabState state,
         string playExperience,
         IReadOnlyList<string> commanderNames,
+        bool twinsEnabled,
         IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
         string? poolKey = null,
         IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
@@ -87,7 +86,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             context,
             floorByRole,
             state.Decisions,
-            IsFlagOn(CutLabStructuralFindings.FunctionalTwinsFlagKey));
+            twinsEnabled);
         CutLabSimulationResult snapshotResult = await _simulationService.BuildSnapshotResult(
             workingList,
             playExperience,
@@ -138,10 +137,6 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             AddableBasics = projection.AddableBasics,
         };
     }
-
-    // Why: IsEnabled defaults a missing key ON; dark launch requires missing keys to land OFF.
-    private bool IsFlagOn(string key)
-        => _featureFlags.Snapshot().TryGetValue(key, out bool enabled) && enabled;
 
     /// <summary>Builds a light UI patch for quantity nudges without re-running analysis or simulation.</summary>
     /// <param name="state">Current authoritative Cut Lab state.</param>

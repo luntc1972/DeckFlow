@@ -357,7 +357,7 @@ public sealed class CutLabAjaxFloorByRoleRegressionTests
         CutLabApiController controller = new(
             analysisBuilder,
             floorResolver,
-            patchBuilder ?? new CutLabUiPatchBuilder(analysisBuilder, new FakeSimulationService(), floorResolver, resolvedFeatureFlags),
+            patchBuilder ?? new CutLabUiPatchBuilder(analysisBuilder, new FakeSimulationService(), floorResolver),
             new FakeSimulationService(),
             whatifService ?? new FakeCutLabWhatifService(),
             resolvedFeatureFlags,
