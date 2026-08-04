@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: Phase 4 — Functional-Twins Detector (CONVERGED round 12; 3 of 4 waves executed)
-current_plan: `04-04` — next to execute; `autonomous: false`, Task 3 is a human UI checkpoint
+current_phase: Phase 4 — Functional-Twins Detector (CONVERGED round 12; 04-04 Tasks 1-2 done, Task 3 outstanding)
+current_plan: `04-04` — Tasks 1-2 complete and committed; `autonomous: false`, **Task 3 is the blocking human UI checkpoint and has not been run**
 status: executing
-stopped_at: 2026-08-02 — plan 04-03 executed and committed; branch rebased onto main and main ff'd to it; 04-04 remains
-last_updated: "2026-08-02T18:50:00.000Z"
-last_activity: 2026-08-02
+stopped_at: 2026-08-03 — all owed Codex gates discharged and folded (`af43a4e4` plans, `1fc48dd6` code); branch pushed; only 04-04 Task 3 remains before Phase 4 closes
+last_updated: "2026-08-03T23:45:00.000Z"
+last_activity: 2026-08-03
 progress:
   total_phases: 10
   completed_phases: 4
@@ -36,7 +36,7 @@ progress:
 committed and on `main`; only `04-04` remains. **Those SHAs are post-rebase**; the pre-rebase
 `476daf66` / `19fdce26` / `c9b55d1b` appear throughout the older notes.
 
-Phase 5 is planned and unexecuted with one open HIGH. **Phase 7 (Cut Lab Workflow UX) was adopted
+Phase 5 is planned and unexecuted; its last open HIGH was folded 2026-08-03. **Phase 7 (Cut Lab Workflow UX) was adopted
 2026-08-02** with 6 plans, gated on plan `04-04`. **Phase 8 (Plan Profile — checkbox plan selection)
 was adopted 2026-08-02 and PLANNED 2026-08-02** — 8 plans in 6 waves (`1a44879f`, checker pass
 0 BLOCK/0 HIGH, findings folded `f04f0154`). Design spec at
@@ -46,11 +46,13 @@ across waves 1-4; plan-panel UI plans (08-07, 08-08) gated on Phase 7.
 (adoption commit `be421acd`), which reached `main` and then this branch via the 2026-08-03 rebase.
 The earlier "NOT on `gsd/cycle21-cut-lab` or `main` yet" note was true when written and is now
 stale.
-✅ **Codex plan review for Phase 8 RUN 2026-08-03** — see `phases/08-.../08-REVIEWS.md`.
-⛔ **Verdict: CHANGES REQUIRED — 2 BLOCK · 7 HIGH · 4 MEDIUM, none folded. Do NOT run
-`/gsd-execute-phase 8`** until at least both BLOCKs are resolved: `08-06-PLAN.md:199` will not
-compile (70 missed `CutLabPageService` construction sites), and `08-07-PLAN.md:143` silently
-destroys restored user sessions. The same-family checker had passed this plan set clean.
+✅ **Codex plan review for Phase 8 RUN 2026-08-03 and FOLDED** — see `phases/08-.../08-REVIEWS.md`.
+The review returned CHANGES REQUIRED (2 BLOCK · 7 HIGH · 4 MEDIUM) against a plan set the
+same-family checker had passed clean. Both BLOCKs are resolved in the fold at `af43a4e4`:
+`08-06-PLAN.md` no longer prescribes the constructor change that would have broken 70
+`CutLabPageService` construction sites, and `08-07-PLAN.md` now requires the legacy-session
+fixture instead of silently destroying restored user sessions. Round 2 converged — 0 BLOCK,
+0 HIGH, 5 LOW wording notes. **Phase 8 is execute-ready.**
 Phase 8 planning notes: the reorder effect lands in `CutLabCutRoundEngine.BuildQueue`
 (`:266-332`, `ComboProtectionRank :483`), NOT `CutLabNextProposalBuilder` as the spec says — that
 file is a DTO mapper; and `CutLabIntent` lives at `DeckFlow.Web/Models/CutLab/CutLabState.cs:189`,
@@ -61,9 +63,11 @@ not `Services/CutLab/`. Phases 01.2 and 6 have not been started and have no plan
 **Last Activity Description:** `04-03` executed, verified and committed; branch rebased onto `main`
 and `main` fast-forwarded to it at `d0eddea6`
 
-**Hard gate — Phase 5 only.** Do not execute Phase 5 until its review returns `VERDICT: CONVERGED`;
-round 9 returned 1 HIGH. **Phase 4's gate is discharged** — it converged at round 12 (`5246033e`,
-now rewritten by the rebase), which is why waves 1-3 were executed.
+**Hard gate — Phase 5: DISCHARGED 2026-08-03.** The gate required `VERDICT: CONVERGED`; round 9 had
+left 1 HIGH open and round 10 confirmed it plus two defects in its own prescribed fix. The Codex
+review owed since round 1 ran 2026-08-03 and its findings are folded at `af43a4e4`. **Phase 5 is
+execute-ready.** **Phase 4's gate is discharged** — it converged at round 12 (`5246033e`, now
+rewritten by the rebase), which is why waves 1-3 were executed.
 
 > **Rebase + ff to main, 2026-08-02.** `gsd/cycle21-cut-lab` rebased onto `main` (`cec908a8`) —
 > 196 commits attempted, **195 applied, 1 dropped**: `ae78fd68` ("adopt the canonical GSD model
@@ -97,13 +101,15 @@ now rewritten by the rebase), which is why waves 1-3 were executed.
 > **Rebase, 2026-07-28.** 102 commits replayed onto `main`; 101 remain, one dropped. Five conflicts, all resolved in favour of `main` where both sides had independently fixed the same thing: three e2e specs where both sides disambiguated the sticky-bar locator (main's `.cutlab-sticky-bar[data-cut-lab-sticky-target]` kept as the more specific of the two, which made branch commit `8722a753` wholly redundant — that is the dropped commit), and two `DeckFlow.CLI/Program.cs` seams where main's `--thresholds` option sits directly above the role-floor command block. Verified afterwards: zero CR bytes anywhere in the diff, the whitespace-ignored diff identical to the full diff (so no EOL churn), build 0 errors / 9 pre-existing warnings, and 4,512 tests passing across Studio 426, Web 2098, Core 1988. Recovery point retained at branch `backup/cycle21-cut-lab-pre-rebase-2026-07-28` (`37275a87`).
 ## Progress
 
-**Total phases:** 9 — 1, 01.1, 01.2, 2, 3, 4, 5, 6, 7
+**Total phases:** 10 — 1, 01.1, 01.2, 2, 3, 4, 5, 6, 7, 8 (the old "9" predated Phase 8's adoption
+and disagreed with this file's own `total_phases: 10` frontmatter)
 **Phases complete:** 4 — Phase 1 (`9527dc72`), Phase 01.1 (2/2, `b8ec09f3`), Phase 2 (11/11,
 841 qualifying commanders, lands PULLED), Phase 3 (7/7 verified, `469dc9cf`)
-**Phase 4:** executing, 3 of 4 plans committed — see Current Position for the SHAs
-**Phases planned but unexecuted:** 5 (3 plans), 7 (6 plans, gated on `04-04`)
+**Phase 4:** executing, 3 plans committed plus `04-04` Tasks 1-2 — see Current Position for the SHAs
+**Phases planned but unexecuted:** 5 (3 plans, execute-ready), 7 (6 plans, gated on `04-04`),
+8 (8 plans, execute-ready; `08-07`/`08-08` gated on Phase 7)
 **Phases with no plans yet:** 01.2 Protection-Vocabulary Widening, 6 Scryfall Throughput
-**Current plan:** `04-04`, next to execute
+**Current plan:** `04-04` — **Task 3 only**, the blocking human UI checkpoint
 
 > **Counter discrepancy — resolved 2026-08-01, previously left open.** The old note kept
 > `completed_phases` at 1 because summary evidence was ambiguous: Phase 01 has a PLAN and no SUMMARY,
@@ -126,12 +132,14 @@ now rewritten by the rebase), which is why waves 1-3 were executed.
 
 ## Open Decision — Phase 7
 
-- **D-1 Step model — OPEN, blocks `07-04` and gates `07-05`.** Pick option 1 (true wizard, 1,022px
-  desktop), 2 (soft fix, 1,596px) or 3 (wizard + pinned proposal, 1,107px) against today's
-  10,453px. Mockups rendered against the real site CSS live in
-  `.planning/ui-design/cut-lab/proposed/`. `07-05` exists only if option 3 wins; every other plan is
-  identical across the three. **The HTML mockups pull site CSS from `http://localhost:5173`** and
-  render unstyled without the dev server — the six PNGs are the self-contained artifact.
+- **D-1 Step model — RESOLVED 2026-08-03 as Option 3: wizard + pinned proposal (~1,107px desktop
+  against today's 10,453px).** Consequences: `07-03` keeps runtime panel-hiding and G-2's
+  exactly-one-visible assertion, and **`07-05` exists and executes** (it would not have under
+  options 1 or 2). The wizard has five slots, with `cut-lab-step-panel-3` at index 3 reserved empty
+  for Phase 8's plan panel. Mockups rendered against the real site CSS live in
+  `.planning/ui-design/cut-lab/proposed/`. **The HTML mockups pull site CSS from
+  `http://localhost:5173`** and render unstyled without the dev server — the six PNGs are the
+  self-contained artifact.
 - **D-4 Branch — RESOLVED 2026-08-02:** Phase 7 runs on `gsd/cycle21-cut-lab`, not a separate
   branch. Rationale in that phase's `README.md`.
 
@@ -174,43 +182,49 @@ committed. Everything it carried that outlives a session was moved here or confi
 phase docs before deletion. **This file plus the phase `.continue-here.md` are the live state.**
 
 **Owed on resume:**
-- **Push, superseded 2026-08-02 by the rebase + ff.** `main` is now **195 ahead of `origin/main`, 0
-  behind**, at `d0eddea6`. `gsd/cycle21-cut-lab` points at the same commit but its history was
-  rewritten, so origin diverges 190↔204 and the branch needs **`--force-with-lease`**. User pushes;
-  AI does not. Pushing `main` triggers a Render autodeploy — safe, because `tool.cut-lab.enabled`
-  is `false` in prod.
+- ✅ **Push DONE 2026-08-03.** `main` and `gsd/cycle21-cut-lab` are both pushed and level with
+  origin. The force-with-lease the rewritten history needed has been done. User pushes; AI does not.
+  Pushing `main` triggers a Render autodeploy — safe, because `tool.cut-lab.enabled` is `false` in
+  prod.
 - ✅ **Codex review of `b508f27e` (plan `04-03`) RUN 2026-08-03 — GATE DISCHARGED.** No BLOCK, no
   HIGH; 2 MEDIUM and 1 LOW recorded as follow-ups in `phases/04-.../04-REVIEWS.md`. Neither MEDIUM
   blocks the phase.
-- ⛔ **Codex review of `04-04` Tasks 1-2 RUN 2026-08-03 — CHANGES REQUIRED, 2 HIGH unfolded.** Live
-  range is `8b5d2e8e..908402cd`; the ranges recorded in the summaries (`9594b2f6..0a9e7cc9`) are
-  STALE after the rebase. Both HIGHs are in `04-REVIEWS.md`: twins tallies can promote a complete
-  combo piece into round 1 over its `ComboProtected` finding (`CutLabCutRoundEngine.cs:460`), and
-  the repaired 92-card density population is never asserted, so reverting the 64 filler roles leaves
-  every test green (`CutLabFunctionalTwinsDensityTests.cs:393`). Stage 1 (`codex review`) found
-  nothing on this same range; stage 2 found both.
-- **Phase 5 round-9 HIGH still open — and its prescribed fix is itself defective.** Round 10
-  (2026-08-03) CONFIRMED the round-9 defect at `05-03-PLAN.md:143` and found two new problems in the
-  prescribed fix: the two pinned test methods do not exist yet (Task 1 creates them — a sequencing
-  constraint, not a phantom), and exact TRX `testName` equality is incompatible with `[Theory]`, so
-  the gate would fail closed. **Do not apply the round-9 fix as written.** Rounds 9 and 10 are now
-  both recorded in `05-REVIEWS.md`; the spec below is retained for continuity.
-
-  *Defect:* the round-8 TRX regex, hand-authored rather than dispatched, is too permissive.
-  `testName="[^"]*(name1|name2)[^"]*"` combined with **substring** `FullyQualifiedName~` filters lets
-  suffix-extended tests satisfy the gate — the reviewer confirmed with a synthetic TRX that
-  `RunAsync_MetadataBearingImport_PersistsMetadata_Unrelated` and a second unrelated name together
-  produce `failed_count=2`, passing a gate that is supposed to prove two *specific* tests failed.
-
-  *Fix:* use **exact** `FullyQualifiedName=DeckFlow.Core.Tests.ArchidektDeckCacheSessionTests.<method>`
-  filters, one exact counter per fully qualified name plus a total, and require
-  `first_failed=1`, `second_failed=1`, `total_failed=2`.
-
-  *Dispatch it to Codex — hand-editing is what produced this defect in the first place.*
-- `04-04` is `autonomous:false`; Task 3 is a human UI checkpoint at ~1440px and 390x844.
-  Ask permission before opening any browser.
+- ✅ **Codex review of `04-04` Tasks 1-2 — both HIGHs FOLDED at `1fc48dd6` (2026-08-03).** Live range
+  was `8b5d2e8e..908402cd`; the ranges recorded in the summaries (`9594b2f6..0a9e7cc9`) are STALE
+  after the rebase. HIGH-1: twins tallies could promote a complete combo piece into round 1 over its
+  `ComboProtected` finding — combo membership is now resolved **before** `BuildFindingTallies` and
+  passed in, so twins evidence is skipped for those cards while non-twins evidence still counts.
+  HIGH-2: the repaired density population is now asserted, so reverting the filler roles fails the
+  test. A blind verifier over the fix also found a dead `IsFlagOn` helper, removed in the same
+  commit. **Stage 1 (`codex review`) found nothing on this same range; stage 2 found both** — the
+  standing argument for running stage 2 when a change widens a window rather than altering a path.
+- ✅ **Phase 5 round-9 HIGH RESOLVED — folded at `af43a4e4` (2026-08-03).** The history is worth
+  keeping because two successive prescribed fixes were themselves defective. Round 8's hand-authored
+  TRX regex was too permissive: `testName="[^"]*(name1|name2)[^"]*"` plus **substring**
+  `FullyQualifiedName~` filters let suffix-extended tests satisfy the gate, confirmed with a
+  synthetic TRX where `RunAsync_MetadataBearingImport_PersistsMetadata_Unrelated` and one other
+  unrelated name produced `failed_count=2`. Round 9 prescribed exact-name matching; round 10 found
+  *that* broken too — exact TRX `testName` equality cannot match a `[Theory]`, whose TRX names carry
+  per-case argument suffixes, so the gate matched zero rows and passed on zero failures. **The landed
+  fix pins both tests as `[Fact]`** with byte-exact names, stated in the task body and in `<done>`,
+  alongside exact `FullyQualifiedName=` filters and the `first_failed=1 / second_failed=1 /
+  total_failed=2` counters. Generalizable: **a gate keyed on an exact test name is silently void if
+  the test is parameterized.**
+- ⛔ **`04-04` Task 3 — THE ONE THING STILL OWED IN PHASE 4.** `autonomous:false`; a human UI
+  checkpoint at ~1440px and 390x844, across two themes, with the flag flipped ON **locally only**
+  via `/Admin/Flags` (the production row stays OFF). It is the sole authoritative gate on Success
+  Criterion 5, so Phase 4 cannot close without it. **Ask permission before opening any browser.**
 
 ## Accumulated Context
+
+> ⚠ **Every `gsd-tools query` in this milestone needs `--ws cycle21-cut-lab`.** Without it the query
+> answers from the **root** `.planning/ROADMAP.md` — Cycle 20, phases 111-116 — not this workstream.
+> `.planning/active-workstream` does contain `cycle21-cut-lab`, but the stored pointer loses to
+> session-scoped resolution, and the accepted flag is `--ws` (not `--workstream`; the env var is
+> `GSD_WORKSTREAM`, not `GSD_WS`). Measured 2026-08-03: `roadmap.get-phase 112` returns
+> `found: true` while `roadmap.get-phase 7` returns `found: false`, and adding `--ws` flips it.
+> **This fails silently** — a wrong-milestone answer has the same shape as a right one, so a bare
+> query that "works" is not evidence the pointer was honored.
 
 ### Roadmap Evolution
 
