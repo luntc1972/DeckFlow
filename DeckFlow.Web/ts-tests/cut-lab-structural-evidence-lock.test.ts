@@ -139,7 +139,7 @@ const buildFixture = (): void => {
       <span data-cut-lab-sticky-accepted>0 cut so far</span>
     </div>
     <div class="cutlab-round-banner"></div>
-    <button type="button" id="cut-lab-step-tab-4" class="is-disabled" disabled aria-disabled="true">Export</button>
+    <button type="button" id="cut-lab-step-tab-5" class="is-disabled" disabled aria-disabled="true">Export</button>
     <script type="application/json" id="cutlab-card-text-data">{"Counterspell":{"typeLine":"Instant","manaCost":"{U}{U}","setCode":"TMP","collectorNumber":"55","oracleText":"Counter target spell."}}</script>
     <dialog id="cutlab-card-modal" aria-labelledby="cutlab-card-modal-title">
       <h2 id="cutlab-card-modal-title"></h2>
