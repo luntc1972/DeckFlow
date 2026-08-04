@@ -5787,3 +5787,40 @@ pre {
 .cutlab-intake-summary__change {
   margin-left: auto;
 }
+
+.cutlab-progress {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 1.1rem;
+  padding: 0.7rem 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border, #d0d7de);
+  border-radius: 0.5rem;
+  background: var(--panel, #fff);
+  font-size: 0.95rem;
+}
+
+.cutlab-progress__headline {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.cutlab-progress__bar {
+  flex: 1 1 12rem;
+  min-width: 8rem;
+  height: 0.5rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--border, #d0d7de);
+}
+
+.cutlab-progress__fill {
+  display: block;
+  height: 100%;
+  background: var(--accent, #2b6cb0);
+}
+
+.cutlab-progress__round {
+  opacity: 0.85;
+}
