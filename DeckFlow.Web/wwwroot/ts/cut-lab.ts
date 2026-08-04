@@ -512,7 +512,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
-    activateStepTab(selectedTab, false);
+    getStepTabs().forEach(tab => {
+      tab.classList.toggle('is-active', tab === selectedTab);
+    });
     tablist.addEventListener('click', event => {
       const target = event.target;
       const button = target instanceof HTMLElement
