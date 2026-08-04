@@ -3,6 +3,7 @@
 @using DeckFlow.Web.Services.Tools
 @using Microsoft.Extensions.Options
 @inject IOptions<AiPlatformOptions> AiPlatformOptionsAccessor
+@inject DeckFlow.Web.Services.FeatureFlags.IFeatureFlagCache FlagCache
 @{
     ViewData["Title"] = "cEDH Meta Gap Analysis for Your Deck";
     ViewData["Description"] = "Find what your cEDH deck is missing versus the competitive Commander metagame. Includes a one-paste gap-analysis prompt from your decklist.";
@@ -675,6 +676,11 @@
         </div>
     </section>
 </form>
+
+@if (FlagCache.IsEnabled("tool.deck-comparison.enabled"))
+{
+    <aside class="related-tool-link"><p>Compare your list directly with the <a href="@Url.Content("~/deck-comparison")">Commander deck comparison tool</a>.</p></aside>
+}
 
 @section Scripts {
     <script src="~/js/deck-input-store.js" asp-append-version="true"></script>

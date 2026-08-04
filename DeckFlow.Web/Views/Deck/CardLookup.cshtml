@@ -1,4 +1,5 @@
 @model DeckFlow.Web.Models.CardLookupViewModel
+@inject DeckFlow.Web.Services.FeatureFlags.IFeatureFlagCache FlagCache
 @{
     ViewData["Title"] = "MTG Card Lookup & Oracle Text Search";
     ViewData["Description"] = "Look up Magic: The Gathering card details and Oracle text by name. Paste a Commander decklist to fetch every card's rules text at once.";
@@ -117,6 +118,11 @@
 </section>
 
 @await Html.PartialAsync("_ShortFormFooter", "Try pasting ‘Sol Ring’ into Single Card mode to see Oracle text and rulings. Switch to Card List mode on desktop to look up an entire decklist and download the results.")
+
+@if (FlagCache.IsEnabled("tool.mechanic-lookup.enabled"))
+{
+    <aside class="related-tool-link"><p>Need keyword rules too? Try the <a href="@Url.Content("~/mechanic-lookup")">Magic mechanic lookup</a>.</p></aside>
+}
 
 @section Scripts {
     <script src="~/js/busy-indicator.js" asp-append-version="true"></script>

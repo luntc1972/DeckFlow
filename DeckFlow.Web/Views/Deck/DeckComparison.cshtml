@@ -3,6 +3,7 @@
 @using DeckFlow.Web.Services.Tools
 @using Microsoft.Extensions.Options
 @inject IOptions<AiPlatformOptions> AiPlatformOptionsAccessor
+@inject DeckFlow.Web.Services.FeatureFlags.IFeatureFlagCache FlagCache
 @{
     ViewData["Title"] = "Compare Two MTG Commander Decks with AI";
     ViewData["Description"] = "Compare two Commander decks side by side — exact card diffs plus a one-paste analysis prompt to decide which build is stronger. Built for cEDH deck-builders.";
@@ -770,6 +771,11 @@ Deck B ([DECK B NAME]):
         </div>
     </section>
 </form>
+
+@if (FlagCache.IsEnabled("tool.deck-history.enabled"))
+{
+    <aside class="related-tool-link"><p>Keep tracking either build with the <a href="@Url.Content("~/deck-history")">deck version tracker</a>.</p></aside>
+}
 
 @section Scripts {
     <script src="~/js/busy-indicator.js" asp-append-version="true"></script>
