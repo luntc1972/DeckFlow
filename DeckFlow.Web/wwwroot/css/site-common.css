@@ -4885,14 +4885,21 @@ input[data-cut-lab-floor]:focus-visible {
 }
 
 .cutlab-proposal--pinned {
+  /* Why: the 07-05 artifact contract fixes this selector name, though this element is a proposal child. */
   position: sticky;
   top: var(--cutlab-pinned-offset, 4rem);
-  z-index: 19;
+  z-index: 1;
   padding: 0.85rem 1rem;
   border: 2px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+  pointer-events: none;
+}
+
+.cutlab-proposal--pinned button,
+.cutlab-proposal__pinned-actions {
+  pointer-events: auto;
 }
 
 .cutlab-proposal__pinned-row,
