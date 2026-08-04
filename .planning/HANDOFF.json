@@ -1,65 +1,68 @@
 {
   "version": "1.0",
-  "timestamp": "2026-08-02T20:31:50.771Z",
+  "timestamp": "2026-08-04T14:40:56.919Z",
   "workstream": "cycle21-cut-lab",
-  "phase": "04",
-  "phase_name": "functional-twins-detector",
-  "phase_dir": ".planning/workstreams/cycle21-cut-lab/phases/04-functional-twins-detector",
-  "plan": 4,
-  "task": 3,
-  "total_tasks": 3,
-  "status": "paused",
-  "branch": "gsd/cycle21-cut-lab",
+  "phase": "07",
+  "phase_name": "cutlab-workflow-ux",
+  "phase_dir": ".planning/workstreams/cycle21-cut-lab/phases/07-cutlab-workflow-ux",
   "worktree": "/mnt/c/users/chrislunt/source/personal/deckflow-role-floors",
-  "head": "778995a5",
+  "branch": "gsd/cycle21-cut-lab",
+  "head": "8ea1e41d",
+  "plan": 4,
+  "task": 4,
+  "total_tasks": 5,
+  "status": "paused",
   "completed_tasks": [
-    {"id": "04-01", "name": "Finding kind, flag key, analyzed-card members", "status": "done", "commit": "b508f27e"},
-    {"id": "04-02", "name": "ComputeFunctionalTwins detector + twinsEnabled param", "status": "done", "commit": "b508f27e"},
-    {"id": "04-03", "name": "Engine wiring + flag read on all three transports + D-23 tally join", "status": "done", "commit": "b508f27e"},
-    {"id": "04-04.1", "name": "Merge FunctionalTwins into one displayed section; single-pass BuildFindingGroups; both Razor normalized combo lookups; AJAX DTO raw re-key; TS help note", "status": "done", "commit": "9594b2f6"},
-    {"id": "04-04.2", "name": "Diverse 130-card density fixture, 6 tests", "status": "done", "commit": "0a9e7cc9"},
-    {"id": "04-04.doc", "name": "04-04-SUMMARY.md with density evidence and owed gates", "status": "done", "commit": "778995a5"}
+    {"id": "07-01", "name": "RED gate landed", "status": "done", "commit": "multiple"},
+    {"id": "07-02", "name": "Workflow step tabs", "status": "done", "commit": "multiple"},
+    {"id": "07-03", "name": "Collapsible workflow sections", "status": "done", "commit": "multiple"},
+    {"id": "07-04.A", "name": "Blocker A — manabase pill radio actionability, clickManabasePillRadio helper across 24 sites", "status": "done", "commit": "bb4f9b71"},
+    {"id": "07-04.B", "name": "Blocker B — idempotent expandCutLabSection migration across 10 specs", "status": "done", "commit": "fc226b9a"},
+    {"id": "07-04.G", "name": "Gate repair — G-2/G-3/G-4 defects fixed, G-1 audited clean, all 4 green both viewports", "status": "done", "commit": "8ea1e41d"}
   ],
   "remaining_tasks": [
-    {"id": "04-04.3", "name": "Task 3 — blocking human checkpoint: density + layout on a real ~130-card pool, flag ON locally, 2 viewports, 2 guild themes, TWIN-02 before/after, AJAX survival", "status": "not_started", "type": "checkpoint:human-verify"}
+    {"id": "07-04.doc", "name": "07-04-SUMMARY.md — never written", "status": "not_started"},
+    {"id": "07-04.5", "name": "07-04 Task 5 — human UAT checkpoint", "status": "not_started", "type": "checkpoint:human-verify"},
+    {"id": "07-05", "name": "Pinned proposal CLUX-07 (has human checkpoint)", "status": "not_started"},
+    {"id": "07-06", "name": "Copy, mobile tab labels, help + README", "status": "not_started"}
   ],
-  "blockers": [
-    {
-      "description": "Codex workspace is out of credits. Probed 2026-08-02: 'ERROR: Your workspace is out of credits.' A credits error is deterministic, not transient — do not retry as if it were.",
-      "type": "external",
-      "workaround": "User authorized Claude to author 04-04 with a Codex review recorded as an OWED gate. No silent fallback was taken."
-    },
-    {
-      "description": "04-04 Task 3 requires a human judgement on a real decklist. Success Criterion 5 cannot be closed by any automated gate.",
-      "type": "human_action",
-      "workaround": "none — this is the gate by design"
-    }
-  ],
+  "blockers": [],
+  "async_jobs": [],
   "human_actions_pending": [
     {
-      "action": "Run 04-04 Task 3: load a real ~130-card pool in a locally running app with analysis.cut-lab.functional-twins ON, judge finding density, check layout at desktop + ~390x844 mobile across one light and one dark guild theme, record the TWIN-02 before/after next-proposal card, and confirm the twins section survives an AJAX decide patch.",
-      "context": "Phase 4's only non-code success criterion. A synthetic fixture cannot reproduce a real cEDH list's correlations — real mana rocks genuinely cluster at mana value 2, and whether that reads as insight or noise is exactly the question.",
+      "action": "Run 07-04 Task 5: capture Cut Lab headlessly on the Decide step at both viewports and review images plus height numbers against the 10,662px desktop starting point.",
+      "context": "Human checkpoint by design; must not be self-approved. Two cautions: 07-04-PLAN says 1440x900 but playwright.config.ts runs chromium-desktop at 1280x900, and Task 5 as written measures document.documentElement.scrollHeight — the exact quantity that made G-3 lie. Report the Decide panel alongside it.",
       "blocking": true
     },
     {
-      "action": "Run a Codex review of 9594b2f6..0a9e7cc9 when credits return: gpt-5.6-sol, medium effort, stage-2 'codex exec' with a written brief (not just 'codex review').",
-      "context": "No cross-family reader saw this diff. Second consecutive Phase 4 plan not Codex-written. Stage 2 is triggered on 3 of its 4 conditions: normalization/matching logic changed, the claim needs checking against the repo rather than the diff, and it is an owed gate with no prior independent review.",
+      "action": "Answer the deferred blocker-B UX question: locking currently lives inside a step-import section that is already marked complete.",
+      "context": "Raised during the B migration, never put to the user.",
       "blocking": false
     },
     {
-      "action": "Decide whether density test 1's upper bound stays at 12 or tightens to the plan's literal 8.",
-      "context": "Measured is 6. The plan contradicts itself in one sentence — writes '<= 8' then says 'actual count plus generous headroom'. Both values catch the proven 14-finding threshold mutation.",
+      "action": "Decide whether to fold the measured Codex dispatch-efficiency findings into ~/.claude/CLAUDE.md.",
+      "context": "CLAUDE.md is a Do-Not-Modify file, so this needs explicit approval. Findings are n=1 and the recommendations untested; may be worth confirming on the next mechanical dispatch first.",
       "blocking": false
     }
   ],
   "decisions": [
-    {"decision": "Claude authored 04-04 instead of Codex, with a Codex review recorded as OWED", "rationale": "Codex out of credits; user explicitly chose this over pausing. CLAUDE.md forbids silent fallback, so it was surfaced and authorized first.", "phase": "04"},
-    {"decision": "Committed before the Task 3 human checkpoint", "rationale": "User instruction 'commit work', overriding the default of holding functional changes until manually tested.", "phase": "04"},
-    {"decision": "Fixed the pre-existing WeakFloorCase/ComboProtected merged-section ordering reversal as part of this plan", "rationale": "The single-pass rewrite corrects it structurally; leaving it would mean knowingly shipping a rewrite that preserved a known defect. Flag-independent, locked by a dedicated no-twins regression test.", "phase": "04"},
-    {"decision": "Density test 1 bound set to <= 12 rather than the plan's literal <= 8", "rationale": "Measured 6; the plan's own sentence says to use actual plus generous headroom. Disclosed as a deviation rather than silently applied.", "phase": "04"},
-    {"decision": "Renamed Bramble Elemental to synthetic Thicket Golem Alpha rather than correcting its mana value", "rationale": "Real card is cmc 5, fixture used 3. Correcting to 5 would have destroyed the load-bearing TypeGroupOrder tie that test 4 depends on.", "phase": "04"}
+    {"decision": "Repair G-3 AND audit all four gates (user chose option b over a point-fix)", "rationale": "A point-fix would have left G-4's independent false-green and G-2's dead [disabled] filter in place. The audit found both.", "phase": "07"},
+    {"decision": "G-3 measures the Decide panel resolved from aria-controls, not document.documentElement", "rationale": "importPool leaves lock-pool and competes force-expanded as test scaffolding — a state a real user on the Decide step is never in, since G-4 asserts intake collapses after import. Surfaced to the user as a stated assumption and accepted.", "phase": "07"},
+    {"decision": "Prove the repaired gate by mutating its threshold rather than accepting a green run", "rationale": "Three of four gates were green while incapable of failing, so green carries no information. Mutation to 1 produced real failures at 731px/1099px, independently reproducing the prior session's 733/1101 diagnosis.", "phase": "07"},
+    {"decision": "Applied the two cosmetic assertion-message nits directly instead of a Codex round 2", "rationale": "Falls under the CLAUDE.md carve-out for a trivial assertion caught inside an already-running Claude review; a round-2 dispatch would have cost far more than the change.", "phase": "07"},
+    {"decision": "Reused the already-running Windows dev server on :5173 rather than restarting it", "rationale": "Verified via Win32_Process that PID 62128 belongs to this worktree, and the last four commits on the branch are all test-only, so the binary matches the branch's production code. Anti-pattern 5 satisfied by identification rather than by a rebuild.", "phase": "07"}
   ],
   "uncommitted_files": [],
-  "next_action": "Run 04-04 Task 3. Before anything else: probe port 5173 from a WINDOWS shell (netstat) and kill any stale server — WSL's ss cannot see it and a stale server serves pre-Phase-4 code. Then start with scripts/run-web-test.sh, turn the flag ON via /Admin/Flags (local only, never the production row), and follow 04-04-PLAN.md Task 3 steps 0-7.",
-  "context_notes": "Phase 4 is code-complete and green (Web 2286/0/16, Core 2011/0, build 0 err / 9 pre-existing CS8629) but NOT closed — Task 3 is its last gate. The blind foreman-verifier ran 11 mutations and caught a HIGH defect two workers and an independent LEAD gate re-run all missed: 64 of 130 density-fixture cards carried empty roles, so the bound measured a 28-card eligible population rather than 130. Fixed; proven live by mutating TwinGroupMinimumCards 3->2, which now breaches the bound at 14 findings. Take from this that passing tests are not evidence a fixture measures the right population."
+  "next_action": "Write 07-04-SUMMARY.md recording: gates 8/8 on both viewports; Decide panel 731px desktop / 1099px mobile against the 3000/4000 limits; the G-2/G-3/G-4 gate defects; and why every pre-8ea1e41d G-3 number is uninformative. Then run 07-04 Task 5 as a human checkpoint — do not self-approve.",
+  "context_notes": "Phase 7 was stuck across two sessions on what looked like a failing height criterion. It was not. G-3 selected the Decide tab with textContent === 'Decide' while the tab renders '3Decide' (number span + label span), so the find missed, a silent guard swallowed the miss, and the gate measured the whole scaffolded document instead of the Decide panel. The audit that followed found G-4 independently reporting PASS on missing markup, and both G-2 and G-3 filtering on a [disabled] attribute that _WorkflowStepTabs.cshtml documents at length it will never emit. Everything this session was test-only; no production code was touched. 07-04's code has been complete since 1518dd7f — only the SUMMARY and the human checkpoint remain. Do not open a height-reduction workstream: there is no height problem.",
+  "carried_forward_from_previous_handoff": {
+    "note": "This file previously described phase 04 (functional-twins-detector, paused 2026-08-02). Overwriting it for phase 07 would have dropped the items below. Verify their status against .planning/workstreams/cycle21-cut-lab/phases/04-functional-twins-detector/ before assuming they are closed.",
+    "phase": "04",
+    "phase_dir": ".planning/workstreams/cycle21-cut-lab/phases/04-functional-twins-detector",
+    "unresolved_at_time_of_overwrite": [
+      {"action": "04-04 Task 3 — blocking human checkpoint: density + layout on a real ~130-card pool, flag ON locally, 2 viewports, 2 guild themes, TWIN-02 before/after, AJAX survival", "blocking": true, "status_note": "Phase 4 was committed un-UAT'd with the flag OFF; believed still owed."},
+      {"action": "Codex review of 9594b2f6..0a9e7cc9 (gpt-5.6-sol medium, stage-2 codex exec with a written brief)", "blocking": false, "status_note": "Was OWED because Codex was out of credits. Credits returned 2026-08-01 and a P4/P5 review has since been discharged — confirm this specific range was covered before treating it as closed."},
+      {"action": "Decide whether density test 1's upper bound stays at 12 or tightens to the plan's literal 8", "blocking": false, "status_note": "Measured 6; both values catch the proven 14-finding threshold mutation."}
+    ]
+  }
 }
