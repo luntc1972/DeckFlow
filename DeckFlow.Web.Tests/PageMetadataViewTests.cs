@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using DeckFlow.Web.Seo;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
@@ -12,35 +13,55 @@ namespace DeckFlow.Web.Tests;
 /// </summary>
 public sealed class PageMetadataViewTests
 {
-    // The sitewide fallback in _Layout.cshtml; no page may reuse it verbatim.
-    private const string DefaultDescription =
-        "DeckFlow — Magic: The Gathering deck analysis for cEDH and Commander. Compare, analyze, and generate ChatGPT-ready deck prompts.";
+    private static readonly IReadOnlyDictionary<string, (string Folder, string File)> IndexableViewFiles =
+        new Dictionary<string, (string Folder, string File)>(StringComparer.Ordinal)
+        {
+            ["/"] = ("Deck", "Home.cshtml"),
+            ["/sync"] = ("Deck", "DeckSync.cshtml"),
+            ["/convert"] = ("Deck", "DeckConvert.cshtml"),
+            ["/card-lookup"] = ("Deck", "CardLookup.cshtml"),
+            ["/mechanic-lookup"] = ("Deck", "MechanicLookup.cshtml"),
+            ["/deck-analysis"] = ("Deck", "DeckAnalysis.cshtml"),
+            ["/deck-comparison"] = ("Deck", "DeckComparison.cshtml"),
+            ["/cedh-meta-gap"] = ("Deck", "CedhMetaGap.cshtml"),
+            ["/deck-primer"] = ("Deck", "DeckPrimer.cshtml"),
+            ["/suggest-categories"] = ("Deck", "SuggestCategories.cshtml"),
+            ["/commander-categories"] = ("Commander", "CommanderCategories.cshtml"),
+            ["/judge-questions"] = ("Deck", "JudgeQuestions.cshtml"),
+            ["/manabase"] = ("Deck", "Manabase.cshtml"),
+            ["/bracket"] = ("Deck", "Bracket.cshtml"),
+            ["/deck-history"] = ("Deck", "DeckHistory.cshtml"),
+            ["/cut-lab"] = ("Deck", "CutLab.cshtml"),
+            ["/help"] = ("Help", "Index.cshtml"),
+            ["/about"] = ("About", "Index.cshtml"),
+            ["/feedback"] = ("Feedback", "Index.cshtml"),
+        };
 
-    private static readonly (string Folder, string File)[] IndexableViews =
-    {
-        ("Deck", "Home.cshtml"),
-        ("Deck", "DeckSync.cshtml"),
-        ("Deck", "DeckConvert.cshtml"),
-        ("Deck", "CardLookup.cshtml"),
-        ("Deck", "MechanicLookup.cshtml"),
-        ("Deck", "DeckAnalysis.cshtml"),
-        ("Deck", "DeckComparison.cshtml"),
-        ("Deck", "CedhMetaGap.cshtml"),
-        ("Deck", "DeckPrimer.cshtml"),
-        ("Deck", "SuggestCategories.cshtml"),
-        ("Deck", "Manabase.cshtml"),
-        ("Deck", "JudgeQuestions.cshtml"),
-        ("Commander", "CommanderCategories.cshtml"),
-        ("ContentKb", "Index.cshtml"),
-        ("Help", "Index.cshtml"),
-        ("About", "Index.cshtml"),
-        ("Feedback", "Index.cshtml"),
-    };
+    private static readonly Regex DefaultDescriptionLiteral = new(
+        "const string defaultDescription\\s*=\\s*\"(?<value>(?:[^\"\\\\]|\\\\.)*)\"",
+        RegexOptions.Compiled);
 
     // Matches a string-literal assignment: ViewData["Description"] = "....";
     private static readonly Regex DescriptionLiteral = new(
         "ViewData\\[\"Description\"\\]\\s*=\\s*\"(?<value>(?:[^\"\\\\]|\\\\.)*)\"",
         RegexOptions.Compiled);
+
+    private static IReadOnlyList<(string Folder, string File)> IndexableViews => SeoPaths.Indexable
+        .Select(path => IndexableViewFiles.TryGetValue(path, out var view)
+            ? view
+            : throw new InvalidOperationException($"No view file is mapped for indexable path '{path}'."))
+        .ToArray();
+
+    private static string DefaultDescription
+    {
+        get
+        {
+            var match = DefaultDescriptionLiteral.Match(ReadView("Shared", "_Layout.cshtml"));
+            return match.Success
+                ? match.Groups["value"].Value
+                : throw new InvalidOperationException("_Layout.cshtml does not define defaultDescription as a string literal.");
+        }
+    }
 
     public static TheoryData<string, string> IndexableViewData()
     {
@@ -51,6 +72,12 @@ public sealed class PageMetadataViewTests
         }
 
         return data;
+    }
+
+    [Fact]
+    public void EveryIndexablePath_HasAMappedViewFile()
+    {
+        Assert.Equal(SeoPaths.Indexable.Count, IndexableViews.Count);
     }
 
     [Theory]
