@@ -184,7 +184,6 @@ const buildDecisionFixture = (): void => {
       </details>
       <button type="button" id="cut-lab-step-tab-5" class="prompt-step-tab" disabled aria-disabled="true">Export</button>
       <div class="cutlab-round-banner">
-        <p class="cutlab-finding__heading">Round 1 · Obvious cuts</p>
         <p>Cards flagged by 2 or more structural findings from the section above.</p>
       </div>
       <div class="cutlab-proposal" data-cut-lab-card="Sol Ring" data-cut-lab-round="round-1">
@@ -436,7 +435,6 @@ describe('cut-lab proposal enhancement', () => {
     expect(document.querySelector<HTMLElement>('[data-cut-lab-sticky-round]')?.textContent).toBe('Round 2 · Structural choices');
     expect(document.querySelector<HTMLElement>('[data-cut-lab-sticky-remaining]')?.textContent).toBe('11 to cut');
     expect(document.querySelector<HTMLElement>('[data-cut-lab-sticky-accepted]')?.textContent).toBe('1 cut so far');
-    expect(document.querySelector<HTMLElement>('.cutlab-round-banner .cutlab-finding__heading')?.textContent).toBe('Round 2 · Structural choices');
     expect(document.querySelector<HTMLElement>('.cutlab-round-banner p:last-child')?.textContent).toBe('Cards flagged by exactly one structural finding.');
     expect(document.querySelector<HTMLElement>('.cutlab-proposal__heading')?.textContent).toBe('Proposed cut: Arcane Signet');
     expect(document.querySelector<HTMLElement>('.cutlab-proposal__evidence p')?.textContent).toBe('Flagged by 1 findings:');
