@@ -1,59 +1,61 @@
 {
   "version": "1.0",
-  "timestamp": "2026-08-03T20:10:00.000Z",
-  "phase": null,
-  "phase_name": "Quick task 260802-b7q — Batch G form-correctness defects",
-  "phase_dir": ".planning/quick/260802-b7q-fix-five-batch-g-form-correctness-defec",
-  "plan": null,
-  "task": 5,
-  "total_tasks": 5,
-  "status": "complete",
-  "context": "quick-task",
-  "branch": "feat/ui-audit-batch-a",
-  "worktree": "/mnt/c/users/chrislunt/source/personal/deckflow",
-  "head": "8b3767d5",
-  "uat": {
-    "date": "2026-08-03",
-    "result": "PASS",
-    "scope": "16 fixes — 11 Batch A + 5 Batch G, one pass covering both converged branches",
-    "commit_under_test": "8b3767d5",
-    "checklist": "/mnt/c/Users/chrislunt/Downloads/DeckFlow-UAT-UI-Audit-Batch-A-G-2026-08-03.md",
-    "notes": [
-      "A1 initially flagged: Ask a Judge renders a '?' glyph. Confirmed CORRECT — the rendered SVG is the deliberate `case \"judge-questions\"` arm (circle r=7.5 + curved hook + dot), not the `default:` fallback, which is a straight vertical line + dot (an exclamation). The two are distinguishable only by path data, not by eye at 20px.",
-      "Both judgment calls accepted as shipped: the landing-page <h1> stays VISIBLE (not .sr-only), and Deck Primer DOES persist form state across reloads."
-    ]
-  },
+  "timestamp": "2026-08-04T22:52:17.785Z",
+  "phase": "quick-plan",
+  "phase_name": "SEO ladder P0-P3",
+  "phase_dir": ".planning/plans/2026-08-04-seo-ladder.md",
+  "plan": 1,
+  "task": 10,
+  "total_tasks": 10,
+  "status": "paused",
+  "context": "plan",
+  "branch": "feat/seo-ladder",
+  "worktree": "/mnt/c/users/chrislunt/source/personal/deckflow-seo-ladder",
+  "head": "869ae86e",
   "completed_tasks": [
-    {"id": 1, "name": "G1 — route Enter to the current step's action, not the sticky download bar", "status": "done", "commit": "6f467a00"},
-    {"id": 2, "name": "G2 — stop dropping IncludeCardVersions from mobile submissions", "status": "done", "commit": "6f467a00"},
-    {"id": 3, "name": "G3 — make printing-conflict resolution reachable with JS enabled", "status": "done", "commit": "6f467a00"},
-    {"id": 4, "name": "G4 — persist pasted deck text on Bracket and Mana Base", "status": "done", "commit": "6f467a00"},
-    {"id": 5, "name": "G5 — enforce the 100-line Card Lookup cap server-side", "status": "done", "commit": "d3e609db"},
-    {"id": 6, "name": "E2E regression spec (26 tests, desktop + mobile)", "status": "done", "commit": "42a447c4"},
-    {"id": 7, "name": "Converge batch-G onto batch-A so one UAT covers both", "status": "done", "commit": "e9c6b02b"},
-    {"id": 8, "name": "Fix e2e flag clobber (capture-and-restore tool flags)", "status": "done", "commit": "e9c6b02b"},
-    {"id": 9, "name": "User UAT of both batches", "status": "done", "commit": null, "note": "PASS 16/16 on 2026-08-03 against 8b3767d5, from the ../deckflow worktree (not batch-g — the branches had already converged)."},
-    {"id": 10, "name": "Push feat/ui-audit-batch-a and feat/ui-audit-batch-g", "status": "done", "commit": null, "note": "Both branches were ALREADY at origin (0 ahead / 0 behind) as of 2026-08-03. The earlier '8 commits ahead, user must push' claim in this file was stale."},
-    {"id": 11, "name": "Fast-forward feat/ui-audit-batch-a to the converged tip", "status": "done", "commit": "8b3767d5", "note": "Both branches now point at 8b3767d5."},
-    {"id": 12, "name": "File a ticket for the pre-existing cut-lab-tuning.spec.ts flake", "status": "done", "commit": null, "note": ".planning/todos/pending/2026-08-03-fix-cut-lab-tuning-spec-nondeterministic-flake.md"},
-    {"id": 15, "name": "Correct the stale _ToolTileIcon.cshtml comment that called the `default:` fallback 'the question-mark glyph'", "status": "done", "commit": null, "note": "The fallback is an exclamation mark; the question mark is judge-questions' own legitimate icon. Comment now says so and points at the ToolRegistry.All-derived totality test. Comment-only, no behavior change; build 0 errors / 9 warnings (CS8629 baseline)."}
+    {"id": 1, "name": "T-1 Flag-aware sitemap, /content-kb out of the indexable set", "status": "done", "commit": "a560a252"},
+    {"id": 2, "name": "T-2 Meta descriptions and titles for Bracket, DeckHistory, CutLab", "status": "done", "commit": "2ebe04c4"},
+    {"id": 3, "name": "T-3 Repair PageMetadataViewTests (derive from indexable paths)", "status": "done", "commit": "b870ece5"},
+    {"id": 4, "name": "T-4 Help topics in the sitemap (per-topic RequiresFlag)", "status": "done", "commit": "d9e54078"},
+    {"id": 5, "name": "T-5 Canonical normalization (LowercaseUrls + SeoPaths.Normalize)", "status": "done", "commit": "bd637dbd"},
+    {"id": 6, "name": "T-6 Homepage introduction / lede", "status": "done", "commit": "0a60c907"},
+    {"id": 7, "name": "T-7 Homepage tile labels", "status": "done", "commit": "5aee8b2f"},
+    {"id": 8, "name": "T-8 Contextual cross-tool links", "status": "done", "commit": "282d4074"},
+    {"id": 9, "name": "T-9 /deckflow-bridge landing page", "status": "done", "commit": "869ae86e"},
+    {"id": 0, "name": "Review fixes: /content-kb share-bar metadata loss; admin export cookie route casing", "status": "done", "commit": "1f07d17b, cffb089c"}
   ],
   "remaining_tasks": [
-    {"id": 13, "name": "Optional: run the /simplify skill on the change (was done as a manual checklist pass only)", "status": "not_started"},
-    {"id": 14, "name": "Open design decision: Card Lookup's .desktop-only Card List mode — make responsive, or show an explicit 'available on desktop' affordance", "status": "not_started"},
-    {"id": 16, "name": "Rebase onto main — both branches show 3 behind (3115d70e, 0354cd9f, 5c8bbfbb), all docs-only and already present by content", "status": "not_started"}
+    {"id": 10, "name": "T-10 /set-upgrade-analysis landing page (Wave P3)", "status": "not_started"}
   ],
-  "blockers": [],
-  "human_actions_pending": [],
+  "blockers": [
+    {
+      "description": "The end-of-branch review produced 4 severity-ranked findings. Only Finding 1 survived the context clear in recoverable detail; Findings 2-4 were never written to a file and are LOST. They must be re-derived before shipping.",
+      "type": "technical",
+      "workaround": "Re-run the review from this worktree and WRITE THE OUTPUT TO A FILE: codex review --base main -c model=\"gpt-5.6-sol\" -c model_reasoning_effort=\"low\" (note: Codex is out of credits until 2026-08-10 09:48 — use caveman:cavecrew-reviewer meanwhile)."
+    }
+  ],
+  "async_jobs": [],
+  "human_actions_pending": [
+    {
+      "action": "Decide Finding 1: fix the help kill-switch gap, or accept and ship",
+      "context": "HelpController.Index carries [FeatureFlagGate(\"tool.help.enabled\")]; HelpController.Topic does NOT — Topic only checks per-topic RequiresFlag. With tool.help.enabled OFF, /help 404s but /help/{slug} for any topic whose RequiresFlag is null stays live. The sitemap already hides them (SitemapController checks HelpFeatureFlagKey), so this is a kill-switch integrity gap, not an SEO leak. Fix = add [FeatureFlagGate(\"tool.help.enabled\")] to HelpController.Topic plus a test asserting 404 when the flag is off.",
+      "blocking": false
+    },
+    {
+      "action": "Ship decision for feat/seo-ladder: rebase onto main and fast-forward, or hold for external ship review",
+      "context": "Branch is pushed, tree clean, tests green. No PR per project convention.",
+      "blocking": false
+    }
+  ],
   "decisions": [
-    {"decision": "Claude implemented directly instead of dispatching Codex", "rationale": "User explicitly chose 'I'll write it myself, no Codex' when asked at task start, overriding the standing Codex-codes rule."},
-    {"decision": "G1 fixed with two mechanisms, not the one the ticket described", "rationale": "Demoting the download button alone just promotes the upload button to default, and upload needs a native multipart submit so form.requestSubmit() rejects it. So: runtime type='button' on the download button PLUS a data-default-action keydown router."},
-    {"decision": "Download button keeps type='submit' in markup; JS demotes it at runtime", "rationale": "formaction only works on submit buttons, so a markup-level type='button' would break the <noscript> download — the mirror of the G3 defect being fixed."},
-    {"decision": "Three file-clean commits instead of the requested one-per-defect", "rationale": "The four front-end defects overlap within the same files (deck-sync.ts has G1+G3, DeckAnalysis.cshtml has G1+G2). A per-defect split needs partial-line staging that cannot produce valid intermediate commits."},
-    {"decision": "DeckPrimer.cshtml's missing data-cache-key left to batch A", "rationale": "Batch A already fixes that exact line; fixing it in batch G too would collide. Resolved by convergence — the G4 sweep is now fully closed."},
-    {"decision": "Recorded the UAT result as a NEW commit rather than amending the wip commit 8b3767d5", "rationale": "8b3767d5 is already published on origin for BOTH branches. Amending it would rewrite published history and need a force-push, which the project rules forbid on a shared branch."}
+    {"decision": "SeoPaths refactored from a separate Indexable list + NonToolPages set into one Pages array of SeoPage records (Path, IsIndexable, IsTool); Indexable and Tools derived via Where/Select", "rationale": "Each page is declared exactly once, so sitemap, structured data and canonical URL cannot drift apart", "phase": "P0"},
+    {"decision": "/content-kb is IsTool=true, IsIndexable=false", "rationale": "Flag-gated internal tool — keeps its tool metadata (share bar, structured data) but stays out of search discovery", "phase": "P0"},
+    {"decision": "/deckflow-bridge is IsIndexable=true, IsTool=false, ungated", "rationale": "Public landing page for the browser extension; must stay reachable regardless of flag state", "phase": "P2"},
+    {"decision": "StructuredDataBuilder dropped its static WebSiteJson cache; baseUrl now comes from the request", "rationale": "Hardcoded https://www.deckflow.gg broke behind a reverse proxy or an alternate hostname; the caching win was not worth the deployment rigidity", "phase": "P0"},
+    {"decision": "RouteOptions.LowercaseUrls = true plus a permanent redirect /extension-install.html -> /deckflow-bridge", "rationale": "Single canonical casing prevents duplicate-content signals; the 301 preserves old links. Forced the admin export cookie fix (cffb089c) because the cookie path was casing-sensitive.", "phase": "P1"},
+    {"decision": "Help gating is deliberately asymmetric — index gated by attribute, topics gated per-topic", "rationale": "Lets a tool's help page disappear with its tool independently of the help tool itself. See Finding 1 for the hole this leaves.", "phase": "P1"}
   ],
   "uncommitted_files": [],
-  "next_action": "Nothing is in flight and nothing is owed. Batches A and G are shipped, UAT'd, and on origin. Items 13-16 are pick-up-when-convenient; item 14 (Card Lookup desktop-only) is the only real product decision among them.",
-  "context_notes": "Batch G is finished and fully verified: build 0 errors / 0 warnings, 4710 unit tests pass, full e2e sweep 461 passed with the only 2 failures proven pre-existing and now ticketed. Both suites were mutation-tested to prove they are not vacuous. User UAT passed 16/16 on 2026-08-03. The session's lessons are in the anti-patterns table in .continue-here.md — verifying the worktree instead of HEAD, and a spec that clobbered persistent flag state. A third was added 2026-08-03: this handoff asserted the branches were unpushed when they were already at origin, and that stale claim was nearly acted on. Re-derive git state from git, never from a handoff."
+  "next_action": "Decide Finding 1 (fix vs accept). If fixing: add [FeatureFlagGate(\"tool.help.enabled\")] to HelpController.Topic with a flag-off 404 test. Then re-run the branch review to recover Findings 2-4 before any ship decision. T-10 (/set-upgrade-analysis, Wave P3) is the only unstarted plan task and can ship separately.",
+  "context_notes": "P0/P1/P2 complete and pushed — 13 commits, 36 files, +882/-105. Web.Tests 2295 passed / 0 failed / 16 skipped, verified twice across poll cycles. No compiled wwwroot/js staged. Branch tracks origin/feat/seo-ladder. Nothing merged to main. The parallel cycle21 thread is closed and fully backed out — do not reopen it from here; that branch belongs to another agent."
 }
