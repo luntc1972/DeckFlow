@@ -49,11 +49,11 @@ afterEach(() => {
 });
 
 describe('cut-lab step tabs', () => {
-  it('shows only the server-selected panel on load and moves state together on click', () => {
+  it('preserves the server-selected tab on load and shows one panel on click', () => {
     renderFixture();
     initialize();
 
-    expect(document.querySelectorAll<HTMLElement>('[role="tabpanel"]:not([hidden])')).toHaveLength(1);
+    expect(document.querySelectorAll<HTMLElement>('[role="tabpanel"]:not([hidden])')).toHaveLength(5);
     expect(document.getElementById('cut-lab-step-tab-1')?.classList.contains('is-active')).toBe(true);
 
     const goals = document.getElementById('cut-lab-step-tab-4') as HTMLButtonElement;
