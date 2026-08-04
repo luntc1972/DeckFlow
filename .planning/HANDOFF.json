@@ -18,10 +18,11 @@
     {"id": "07-03", "name": "Collapsible workflow sections", "status": "done", "commit": "multiple"},
     {"id": "07-04.A", "name": "Blocker A — manabase pill radio actionability, clickManabasePillRadio helper across 24 sites", "status": "done", "commit": "bb4f9b71"},
     {"id": "07-04.B", "name": "Blocker B — idempotent expandCutLabSection migration across 10 specs", "status": "done", "commit": "fc226b9a"},
-    {"id": "07-04.G", "name": "Gate repair — G-2/G-3/G-4 defects fixed, G-1 audited clean, all 4 green both viewports", "status": "done", "commit": "8ea1e41d"}
+    {"id": "07-04.G", "name": "Gate repair — G-2/G-3/G-4 defects fixed, G-1 audited clean, all 4 green both viewports", "status": "done", "commit": "8ea1e41d"},
+    {"id": "07-04.doc", "name": "07-04-SUMMARY.md written — records gates 8/8, Decide panel 731/1099px vs 3000/4000, the G-2/G-3/G-4 defects, and why every pre-8ea1e41d G-3 number is uninformative. Acceptance criterion 4 (theme readability) recorded as NOT VERIFIED rather than assumed passing.", "status": "done", "commit": "pending"}
   ],
   "remaining_tasks": [
-    {"id": "07-04.doc", "name": "07-04-SUMMARY.md — never written", "status": "not_started"},
+    {"id": "07-04.theme", "name": "Re-run cut-lab-theme-readability.spec.ts — 07-04 acceptance criterion 4 is UNVERIFIED against the current tree (the 2026-08-03 sweep that covered it was invalidated by admin-lock contention)", "status": "not_started"},
     {"id": "07-04.5", "name": "07-04 Task 5 — human UAT checkpoint", "status": "not_started", "type": "checkpoint:human-verify"},
     {"id": "07-05", "name": "Pinned proposal CLUX-07 (has human checkpoint)", "status": "not_started"},
     {"id": "07-06", "name": "Copy, mobile tab labels, help + README", "status": "not_started"}
