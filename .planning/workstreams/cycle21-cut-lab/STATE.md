@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: Phase 7 — Cut Lab Workflow UX (executing, 3 of 6 plans)
-current_plan: `07-04` in flight — intake collapse + progress strip; Task 5 is a HUMAN UAT checkpoint
+current_plan: `07-04` code complete + SUMMARY written; only Task 5, a HUMAN UAT checkpoint, remains
 status: executing
-stopped_at: 2026-08-03 — `07-03` wired the step tabs; gates G-1 and G-2 now PASS on both viewports, G-3/G-4 still RED as designed (07-04/07-05 targets)
-last_updated: "2026-08-04T02:15:00.000Z"
-last_activity: 2026-08-03
+stopped_at: 2026-08-04 — `8ea1e41d` repaired the gate suite; **all four gates now PASS 8/8 on both viewports**. G-3 measures the Decide panel at 731px desktop / 1,099px mobile against 3,000/4,000. Every pre-`8ea1e41d` G-3 number is uninformative — three of four gates were green while incapable of failing. 07-05 does NOT target G-3.
+last_updated: "2026-08-04T15:55:00.000Z"
+last_activity: 2026-08-04
 progress:
   total_phases: 10
   completed_phases: 5
