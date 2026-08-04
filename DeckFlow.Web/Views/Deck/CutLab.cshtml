@@ -340,7 +340,10 @@
                 <div class="panel-heading">
                     <div>
                         <h2>Lock your pool</h2>
-                        <p class="prompt-size-note">Locked cards are protected from any future cut.</p>
+                        <p class="prompt-size-note">
+                            <span data-cut-lab-lock-count>@Model.PoolStatusText</span>
+                            <span>(protected from any future cut)</span>
+                        </p>
                         <p class="prompt-size-note">@Model.BoardCounts.ToBreakdown()</p>
                         <p class="manabase-help">Assigning a package groups cards for bulk lock/unlock — it doesn't remove them from the pool.</p>
                         <p class="manabase-help">Tick a card to LOCK it — locked cards are protected and never proposed for a cut.</p>
@@ -365,6 +368,10 @@
                             <p class="cutlab-pool-match-count">Showing @Model.Pool.Count of @Model.Pool.Count cards</p>
                         </div>
                     </div>
+                </div>
+                <div class="cutlab-sticky-bar cutlab-sticky-bar--pool">
+                    <span class="cutlab-sticky-bar__count" data-cut-lab-pool-sticky-count>@Model.PoolStatusText</span>
+                    <span class="cutlab-sticky-bar__accepted" data-cut-lab-pool-sticky-breakdown>@Model.BoardCounts.ToBreakdown()</span>
                 </div>
             @if (Model.CommanderSelectionRequired)
             {
@@ -896,9 +903,6 @@
                     <span data-cut-lab-sticky-accepted>@CutLabViewModel.FormatCutsAcceptedSoFar(Model.StickyBar.CutsAcceptedCount)</span>
                 }
                 <span data-cut-lab-sticky-locked>@Model.StickyBar.LockedCount locked</span>
-                <span class="sr-only" data-cut-lab-lock-count>@Model.PoolStatusText</span>
-                <span class="sr-only" data-cut-lab-pool-sticky-count>@Model.PoolStatusText</span>
-                <span class="sr-only" data-cut-lab-pool-sticky-breakdown>@Model.BoardCounts.ToBreakdown()</span>
             </div>
             @if (Model.CurrentActualLands is int actualLands && Model.CurrentTargetLands is double targetLands)
             {
