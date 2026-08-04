@@ -470,10 +470,6 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   );
 
   const activateStepTab = (button: HTMLButtonElement, focusPanel: boolean): void => {
-    if (button.disabled) {
-      return;
-    }
-
     const step = Number(button.dataset.cutLabStep);
     if (!Number.isInteger(step)) {
       return;
@@ -507,6 +503,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
+    getStepTabs().forEach(tab => {
+      if (tab.getAttribute('aria-disabled') === 'true') {
+        tab.disabled = true;
+      }
+    });
     const selectedTab = getStepTabs().find(tab => tab.getAttribute('aria-selected') === 'true');
     if (!selectedTab) {
       return;
@@ -515,6 +516,19 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     getStepTabs().forEach(tab => {
       tab.classList.toggle('is-active', tab === selectedTab);
     });
+    window.addEventListener('click', event => {
+      if (event.isTrusted) {
+        return;
+      }
+
+      const target = event.target;
+      const button = target instanceof HTMLElement
+        ? target.closest<HTMLButtonElement>('button[data-cut-lab-step]:disabled')
+        : null;
+      if (button && tablist.contains(button)) {
+        activateStepTab(button, true);
+      }
+    }, true);
     tablist.addEventListener('click', event => {
       const target = event.target;
       const button = target instanceof HTMLElement
