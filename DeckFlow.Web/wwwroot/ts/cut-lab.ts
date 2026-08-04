@@ -465,6 +465,83 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     target.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'start' });
   };
 
+  const getStepTabs = (): HTMLButtonElement[] => Array.from(
+    document.querySelectorAll<HTMLButtonElement>('[role="tab"][data-cut-lab-step]')
+  );
+
+  const activateStepTab = (button: HTMLButtonElement, focusPanel: boolean): void => {
+    if (button.disabled) {
+      return;
+    }
+
+    const step = Number(button.dataset.cutLabStep);
+    if (!Number.isInteger(step)) {
+      return;
+    }
+
+    const panels = Array.from(document.querySelectorAll<HTMLElement>('[role="tabpanel"]'));
+    const targetPanel = panels.find(panel => panel.id === `cut-lab-step-panel-${step}`);
+    if (!targetPanel) {
+      return;
+    }
+
+    panels.forEach(panel => {
+      panel.toggleAttribute('hidden', panel !== targetPanel);
+    });
+    getStepTabs().forEach(tab => {
+      const isActive = tab === button;
+      tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      tab.setAttribute('tabindex', isActive ? '0' : '-1');
+      tab.classList.toggle('is-active', isActive);
+    });
+
+    if (focusPanel) {
+      focusJumpTarget(targetPanel);
+      scrollJumpTargetIntoView(targetPanel);
+    }
+  };
+
+  const attachStepTabHandler = (): void => {
+    const tablist = document.querySelector<HTMLElement>('.prompt-step-nav[role="tablist"]');
+    if (!tablist) {
+      return;
+    }
+
+    tablist.addEventListener('click', event => {
+      const target = event.target;
+      const button = target instanceof HTMLElement
+        ? target.closest<HTMLButtonElement>('button[data-cut-lab-step]')
+        : null;
+      if (!button || !tablist.contains(button)) {
+        return;
+      }
+
+      activateStepTab(button, true);
+    });
+    tablist.addEventListener('keydown', event => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+        return;
+      }
+
+      const enabledTabs = getStepTabs().filter(tab => !tab.disabled);
+      const currentTab = event.target instanceof HTMLButtonElement ? event.target : null;
+      const currentIndex = currentTab ? enabledTabs.indexOf(currentTab) : -1;
+      if (currentIndex < 0 || enabledTabs.length === 0) {
+        return;
+      }
+
+      event.preventDefault();
+      const nextIndex = event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? enabledTabs.length - 1
+          : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + enabledTabs.length) % enabledTabs.length;
+      const nextTab = enabledTabs[nextIndex];
+      nextTab.focus();
+      activateStepTab(nextTab, false);
+    });
+  };
+
   const attachAnchorNavHandler = (): void => {
     const anchorNav = document.querySelector<HTMLElement>('.cutlab-anchor-nav');
     if (!anchorNav) {
@@ -484,6 +561,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         }
 
         event.preventDefault();
+        const targetPanel = target.closest<HTMLElement>('[role="tabpanel"]');
+        const targetTabId = targetPanel?.getAttribute('aria-labelledby');
+        const targetTab = targetTabId ? document.getElementById(targetTabId) : null;
+        if (targetTab instanceof HTMLButtonElement) {
+          activateStepTab(targetTab, false);
+        }
         expandJumpTarget(target);
         scrollJumpTargetIntoView(target);
         focusJumpTarget(target);
@@ -4308,6 +4391,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     collapseMobileCollapsiblesOnLoad();
     restoreSectionCollapseState();
     attachSectionCollapsePersistence();
+    attachStepTabHandler();
     attachAnchorNavHandler();
     cardTextByCardNameCache = null;
     activeModalCardName = null;
