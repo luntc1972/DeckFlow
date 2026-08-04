@@ -118,6 +118,7 @@ test('imports a pool, locks lands and a package, then preserves those edits acro
   await expect(hiddenState).toHaveValue(/"name":"Plains".*"isLocked":true/);
   await expect(hiddenState).toHaveValue(/"name":"Fast mana"/);
 
+  await page.locator('details.cutlab-intake > summary').click();
   await page.locator('#cut-lab-primary-plan').fill('Protect the mana and tutor core before trimming.');
   await page.getByRole('button', { name: 'Import pool' }).click();
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');

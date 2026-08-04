@@ -113,9 +113,7 @@ const ensureDetailsOpen = async (details: Locator): Promise<void> => {
 
 const ensureCutRoundsVisible = async (page: Page): Promise<void> => {
   await page.getByRole('tab', { name: 'Decide' }).click();
-  await expect(page.locator('#cut-lab-section-cut-rounds')).toHaveAttribute('open', '');
-  const findings = page.locator('[data-cut-lab-structural-findings]');
-  await expect(findings).toBeVisible();
+  await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
 
   const stickyBar = page.locator('.cutlab-sticky-bar[data-cut-lab-sticky-target]');
   if (!(await stickyBar.isVisible())) {
@@ -416,6 +414,10 @@ test('keeps the Cut Lab named elements readable across every supported theme', a
     await importPool(page);
     await ensureCutRoundsVisible(page);
 
+    await page.getByRole('tab', { name: 'Process' }).click();
+    await expandCutLabSection(page, 'cut-lab-section-competes');
+    await expandCutLabSection(page, 'cut-lab-section-structural');
+
     const landsGroup = page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' });
     await ensureDetailsOpen(landsGroup);
 
@@ -441,16 +443,18 @@ test('keeps the Cut Lab named elements readable across every supported theme', a
     await assertContrastFloor(theme.name, 'Lock All lands pill', lockAllPill, 3.0);
     // Role chips are compact chip buttons with emphasized labels, so 3.0 is the AA floor here.
     await assertContrastFloor(theme.name, 'Lands role chip', roleChip, 3.0);
-    // Sticky round/count text is normal-size status copy, so it must clear the full 4.5 AA body-text floor.
-    await assertContrastFloor(theme.name, 'sticky status bar', stickyBar, 4.5);
     // Structural findings carry explanatory body copy and evidence context, so they use the 4.5 AA body-text floor.
     await assertContrastFloor(theme.name, 'structural findings panel', findingsPanel, 4.5);
+    await page.locator('details.cutlab-intake > summary').click();
     // The enhanced df-select trigger renders normal form-control text, so it must clear 4.5 AA.
     await assertContrastFloor(theme.name, 'input source select trigger', selectTrigger, 4.5);
     // Plan textareas render editable body text, so the normal-text AA floor is 4.5.
     await assertContrastFloor(theme.name, 'primary plan input', planInput, 4.5);
-    // Accept cut is a bold CTA button label, so the 3.0 large/bold UI-text floor applies.
-    await assertContrastFloor(theme.name, 'accept-cut button', decisionButton, 3.0);
+    await assertFocusIndicatorContrast(theme.name, 'input source select trigger', page, selectTrigger, 3.0);
+    await assertFocusIndicatorContrast(theme.name, 'primary plan input', page, planInput, 3.0);
+    await assertFocusIndicatorContrast(theme.name, 'Lock All lands pill', page, lockAllPill, 3.0);
+    await assertFocusIndicatorContrast(theme.name, 'Lands role chip', page, roleChip, 3.0);
+    await assertFocusIndicatorContrast(theme.name, 'Fast mana package toggle', page, packageToggle, 3.0);
     const cardPopup = await openCardModal(roleChip, page);
     // The popup lock control is a bold CTA-style button label, so the 3.0 large/bold UI-text floor applies.
     await assertContrastFloor(theme.name, 'card popup lock button', cardPopup.locator('[data-cutlab-modal-lock]'), 3.0);
@@ -465,12 +469,13 @@ test('keeps the Cut Lab named elements readable across every supported theme', a
     // Package member chips are pill/chip UI labels, so 3.0 is the AA floor for their emphasized text.
     await assertContrastFloor(theme.name, 'Fast mana package member chip', packageMemberChip, 3.0);
 
-    await assertFocusIndicatorContrast(theme.name, 'input source select trigger', page, selectTrigger, 3.0);
-    await assertFocusIndicatorContrast(theme.name, 'primary plan input', page, planInput, 3.0);
+    await page.getByRole('tab', { name: 'Decide' }).click();
+    await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
+    // Sticky round/count text is normal-size status copy, so it must clear the full 4.5 AA body-text floor.
+    await assertContrastFloor(theme.name, 'sticky status bar', stickyBar, 4.5);
+    // Accept cut is a bold CTA button label, so the 3.0 large/bold UI-text floor applies.
+    await assertContrastFloor(theme.name, 'accept-cut button', decisionButton, 3.0);
     await assertFocusIndicatorContrast(theme.name, 'accept-cut button', page, decisionButton, 3.0);
-    await assertFocusIndicatorContrast(theme.name, 'Lock All lands pill', page, lockAllPill, 3.0);
-    await assertFocusIndicatorContrast(theme.name, 'Lands role chip', page, roleChip, 3.0);
-    await assertFocusIndicatorContrast(theme.name, 'Fast mana package toggle', page, packageToggle, 3.0);
   }
 });
 
