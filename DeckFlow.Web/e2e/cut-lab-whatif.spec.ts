@@ -187,6 +187,7 @@ test('supports the no-JS what-if preview and keep fallback via full-page re-rend
     await expect(noJs.page.locator('h1')).toHaveText('Cut Lab');
     await fillImportFormNoJs(noJs.page);
     await noJs.page.getByRole('button', { name: 'Import pool' }).click();
+    await expandCutLabSection(noJs.page, 'cut-lab-section-lock-pool');
     await expect(noJs.page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
     await expect(noJs.page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
     await waitForCutRounds(noJs.page);
