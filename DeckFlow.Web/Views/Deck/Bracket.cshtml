@@ -5,6 +5,7 @@
 @using Microsoft.Extensions.Options
 @model DeckFlow.Web.Models.BracketViewModel
 @inject IOptions<AiPlatformOptions> AiPlatformOptionsAccessor
+@inject DeckFlow.Web.Services.FeatureFlags.IFeatureFlagCache FlagCache
 @{
     ViewData["Title"] = "MTG Commander Bracket Checker";
     ViewData["Description"] = "Check a Commander deck against the official Magic: The Gathering bracket system and get a local classification, target-bracket gaps, and recommended cuts.";
@@ -336,6 +337,11 @@
         <p class="manabase-help">The classification is computed directly in DeckFlow — no AI needed for the bracket number itself. The AI prompt is only for the optional balancer step (fair swaps to reach a target bracket).</p>
     </div>
 </details>
+
+@if (FlagCache.IsEnabled("tool.deck-analysis.enabled"))
+{
+    <aside class="related-tool-link"><p>For a full review, <a href="@Url.Content("~/deck-analysis")">analyze your Commander deck</a>.</p></aside>
+}
 
 @section Scripts {
     <script src="~/js/deck-input-store.js" asp-append-version="true"></script>

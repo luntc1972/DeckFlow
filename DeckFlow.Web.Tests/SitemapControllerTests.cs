@@ -19,6 +19,17 @@ namespace DeckFlow.Web.Tests;
 public sealed class SitemapControllerTests
 {
     [Fact]
+    public void ContextualCrossToolLinks_are_flag_gated_and_use_descriptive_anchors()
+    {
+        AssertRelatedToolLink("Manabase.cshtml", "tool.deck-analysis.enabled", "~/deck-analysis", "Analyze your Commander deck");
+        AssertRelatedToolLink("DeckAnalysis.cshtml", "tool.deck-primer.enabled", "~/deck-primer", "Commander deck primer builder");
+        AssertRelatedToolLink("DeckComparison.cshtml", "tool.deck-history.enabled", "~/deck-history", "deck version tracker");
+        AssertRelatedToolLink("CedhMetaGap.cshtml", "tool.deck-comparison.enabled", "~/deck-comparison", "Commander deck comparison tool");
+        AssertRelatedToolLink("Bracket.cshtml", "tool.deck-analysis.enabled", "~/deck-analysis", "analyze your Commander deck");
+        AssertRelatedToolLink("CardLookup.cshtml", "tool.mechanic-lookup.enabled", "~/mechanic-lookup", "Magic mechanic lookup");
+    }
+
+    [Fact]
     public async Task RobotsTxt_contains_expected_disallow_rules_and_absolute_sitemap_url()
     {
         var controller = CreateController();
@@ -184,6 +195,16 @@ public sealed class SitemapControllerTests
         }
 
         throw new DirectoryNotFoundException("Could not find DeckFlow.Web/Help from the test working directory.");
+    }
+
+    private static void AssertRelatedToolLink(string viewName, string flagKey, string route, string anchorText)
+    {
+        var projectRoot = Path.GetDirectoryName(FindProjectHelpRoot())!;
+        var view = File.ReadAllText(Path.Combine(projectRoot, "Views", "Deck", viewName));
+
+        Assert.Contains($"@if (FlagCache.IsEnabled(\"{flagKey}\"))", view, StringComparison.Ordinal);
+        Assert.Contains($"href=\"@Url.Content(\"{route}\")\"", view, StringComparison.Ordinal);
+        Assert.Contains(anchorText, view, StringComparison.Ordinal);
     }
 
     private sealed class StubHelpContentService : IHelpContentService

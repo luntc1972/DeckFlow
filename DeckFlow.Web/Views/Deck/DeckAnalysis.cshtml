@@ -4,6 +4,7 @@
 @using DeckFlow.Web.Services.Tools
 @using Microsoft.Extensions.Options
 @inject IOptions<AiPlatformOptions> AiPlatformOptionsAccessor
+@inject DeckFlow.Web.Services.FeatureFlags.IFeatureFlagCache FlagCache
 @{
     ViewData["Title"] = "MTG Commander Deck Analysis for ChatGPT";
     ViewData["Description"] = "Get a structured review of your Commander deck — strengths, weaknesses, and upgrade paths. One-paste prompt workflow for ChatGPT or Claude.";
@@ -1161,6 +1162,11 @@ Do not omit any fields from the schema.
         </div>
     </section>
 </form>
+
+@if (FlagCache.IsEnabled("tool.deck-primer.enabled"))
+{
+    <aside class="related-tool-link"><p>Turn your findings into a guide with the <a href="@Url.Content("~/deck-primer")">Commander deck primer builder</a>.</p></aside>
+}
 
 @section Scripts {
     <script src="~/js/card-lookup.js" asp-append-version="true"></script>

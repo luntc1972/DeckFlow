@@ -1,6 +1,7 @@
 @using DeckFlow.Core.Manabase
 @using DeckFlow.Web.Models
 @model DeckFlow.Web.Models.ManabaseViewModel
+@inject DeckFlow.Web.Services.FeatureFlags.IFeatureFlagCache FlagCache
 @{
     ViewData["Title"] = "MTG Commander Mana Base Analyzer";
     ViewData["Description"] = "Analyze your Commander mana base for color consistency and castability using Karsten-based math. Get a plain-language verdict and fixes.";
@@ -1187,6 +1188,11 @@
             <p class="manabase-help">"Show the work": every verdict above traces back to these counts and the simulation, so every flagged color or card can be audited back to a number.</p>
         </div>
     </details>
+}
+
+@if (FlagCache.IsEnabled("tool.deck-analysis.enabled"))
+{
+    <aside class="related-tool-link"><p>Want a broader review? <a href="@Url.Content("~/deck-analysis")">Analyze your Commander deck</a>.</p></aside>
 }
 
 @section Scripts {
