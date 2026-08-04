@@ -132,7 +132,8 @@ public sealed class AdminYoutubeExportController : Controller
 
         Response.Cookies.Append("yt-export-done", token, new CookieOptions
         {
-            Path = "/Admin/YoutubeExport",
+            // Why: cookie paths are case-sensitive, while route generation is lowercase; root scope works for both URLs.
+            Path = "/",
             HttpOnly = false,
             Secure = Request.IsHttps,
             SameSite = SameSiteMode.Strict,

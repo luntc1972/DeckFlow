@@ -2,7 +2,7 @@
   'use strict';
 
   const cookieName = 'yt-export-done';
-  const cookiePath = '/Admin/YoutubeExport';
+  const cookiePath = '/';
 
   // File-download POSTs give no page feedback, so swap the submit button into a busy
   // state. The browser cannot observe a file download directly; the form sends a random
