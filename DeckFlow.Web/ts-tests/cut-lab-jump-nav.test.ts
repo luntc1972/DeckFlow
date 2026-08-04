@@ -101,6 +101,6 @@ describe('cut-lab jump nav', () => {
 
     expect(exportStep.type).toBe('submit');
     expect(exportStep.getAttribute('form')).toBe('cut-lab-export-form');
-    expect(exportStep.getAttribute('data-cut-lab-step')).toBe('4');
+    expect(exportStep.getAttribute('data-cut-lab-step')).toBe('5');
   });
 });
