@@ -1,0 +1,280 @@
+{
+  "screenshots": [
+    "/tmp/claude-1000/-mnt-c-users-chrislunt-source-personal-deckflow/c3dd7f53-ff53-4e2b-abb9-5d51e41c885e/scratchpad/twins-check/twins-on-azorius-light-desktop-1440.png",
+    "/tmp/claude-1000/-mnt-c-users-chrislunt-source-personal-deckflow/c3dd7f53-ff53-4e2b-abb9-5d51e41c885e/scratchpad/twins-check/twins-on-nyx-dark-desktop-1440.png",
+    "/tmp/claude-1000/-mnt-c-users-chrislunt-source-personal-deckflow/c3dd7f53-ff53-4e2b-abb9-5d51e41c885e/scratchpad/twins-check/twins-on-azorius-light-mobile-390x844.png",
+    "/tmp/claude-1000/-mnt-c-users-chrislunt-source-personal-deckflow/c3dd7f53-ff53-4e2b-abb9-5d51e41c885e/scratchpad/twins-check/twins-on-nyx-dark-mobile-390x844.png"
+  ],
+  "priorState": {
+    "cutLabTool": true,
+    "twinsFlag": false
+  },
+  "bracketUsed": "5",
+  "off": {
+    "sections": [
+      {
+        "heading": "Curve congestion",
+        "items": 1
+      },
+      {
+        "heading": "Redundant finishers",
+        "items": 1
+      },
+      {
+        "heading": "Weak floor cases",
+        "items": 4
+      },
+      {
+        "heading": "Combo-protected cards",
+        "items": 21
+      },
+      {
+        "heading": "Enabler-starved cards",
+        "items": 1
+      },
+      {
+        "heading": "Enabler-starved cards",
+        "items": 1
+      },
+      {
+        "heading": "Enabler-starved cards",
+        "items": 1
+      },
+      {
+        "heading": "Enabler-starved cards",
+        "items": 1
+      }
+    ],
+    "twinsPresent": false,
+    "twinsHelpNotePresent": false,
+    "countLabel": "31 structural findings",
+    "proposal": "Proposed cut: Chrome Mox",
+    "roundBanner": "Round 2 · Structural choices",
+    "lockedChipsTotal": 0
+  },
+  "on": {
+    "sections": [
+      {
+        "heading": "Curve congestion",
+        "items": 1
+      },
+      {
+        "heading": "Redundant finishers",
+        "items": 1
+      },
+      {
+        "heading": "Weak floor cases",
+        "items": 4
+      },
+      {
+        "heading": "Combo-protected cards",
+        "items": 21
+      },
+      {
+        "heading": "Enabler-starved cards",
+        "items": 1
+      },
+      {
+        "heading": "Enabler-starved cards",
+        "items": 1
+      },
+      {
+        "heading": "Enabler-starved cards",
+        "items": 1
+      },
+      {
+        "heading": "Enabler-starved cards",
+        "items": 1
+      },
+      {
+        "heading": "Functional twins",
+        "items": 9
+      }
+    ],
+    "twinsSectionCount": 1,
+    "twinsGroupCount": 9,
+    "twinsChipCount": 38,
+    "twinsDistinctChips": 32,
+    "twinsLeads": [
+      "3 creature cards fill your Card draw slot at mana value 2 — they compete with each other, so the pool likely only needs some of them.",
+      "3 creature cards fill your Engines slot at mana value 2 — they compete with each other, so the pool likely only needs some of them.",
+      "5 artifact cards fill your Ramp slot at mana value 2 — they compete with each other, so the pool likely only needs some of them.",
+      "5 creature cards fill your Ramp slot at mana value 1 — they compete with each other, so the pool likely only needs some of them.",
+      "6 instant cards fill your Targeted removal slot at mana value 1 — they compete with each other, so the pool likely only needs some of them.",
+      "3 artifact cards fill your Ramp slot at mana value 1 — they compete with each other, so the pool likely only needs some of them.",
+      "3 artifact cards fill your Card draw slot at mana value 1 — they compete with each other, so the pool likely only needs some of them.",
+      "3 artifact cards fill your Win conditions slot at mana value 1 — they compete with each other, so the pool likely only needs some of them.",
+      "7 artifact cards fill your Ramp slot at mana value 0 — they compete with each other, so the pool likely only needs some of them."
+    ],
+    "twinsChipsByGroup": [
+      [
+        "Faerie Mastermind · MV 2",
+        "Thrasios, Triton Hero · MV 2",
+        "Wan Shi Tong, Librarian · MV 2"
+      ],
+      [
+        "Faerie Mastermind · MV 2",
+        "Thrasios, Triton Hero · MV 2",
+        "Wan Shi Tong, Librarian · MV 2"
+      ],
+      [
+        "Arcane Signet · MV 2",
+        "Fellwar Stone · MV 2",
+        "Grim Monolith · MV 2\n                                                            Combo piece",
+        "Simic Signet · MV 2",
+        "Talisman of Curiosity · MV 2"
+      ],
+      [
+        "Birds of Paradise · MV 1\n                                                            Needs Freed from the Real",
+        "Delighted Halfling · MV 1",
+        "Elvish Mystic · MV 1",
+        "Fyndhorn Elves · MV 1",
+        "Llanowar Elves · MV 1"
+      ],
+      [
+        "Chain of Vapor · MV 1",
+        "Crop Rotation · MV 1",
+        "Mystical Tutor · MV 1",
+        "Pongify · MV 1",
+        "Veil of Summer · MV 1",
+        "Worldly Tutor · MV 1"
+      ],
+      [
+        "Mana Vault · MV 1\n                                                            Combo piece",
+        "Sol Ring · MV 1\n                                                            Combo piece",
+        "Springleaf Drum · MV 1"
+      ],
+      [
+        "Aether Spellbomb · MV 1",
+        "Sensei's Divining Top · MV 1\n                                                            Combo piece",
+        "Sewer-veillance Cam · MV 1"
+      ],
+      [
+        "Mana Vault · MV 1\n                                                            Combo piece",
+        "Sensei's Divining Top · MV 1\n                                                            Combo piece",
+        "Sol Ring · MV 1\n                                                            Combo piece"
+      ],
+      [
+        "Chrome Mox · MV 0",
+        "Everflowing Chalice · MV 0",
+        "Jeweled Amulet · MV 0",
+        "Lotus Petal · MV 0",
+        "Mox Amber · MV 0\n                                                            Combo piece",
+        "Mox Diamond · MV 0",
+        "Mox Opal · MV 0\n                                                            Combo piece"
+      ]
+    ],
+    "twinsManaValues": [
+      [
+        2,
+        2,
+        2
+      ],
+      [
+        2,
+        2,
+        2
+      ],
+      [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        1,
+        1,
+        1
+      ],
+      [
+        1,
+        1,
+        1
+      ],
+      [
+        1,
+        1,
+        1
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "twinsComboBadges": 10,
+    "twinsHelpNotePresent": true,
+    "countLabel": "40 structural findings",
+    "proposal": "Proposed cut: Chrome Mox",
+    "roundBanner": "Round 1 · Obvious cuts",
+    "lockedChipsTotal": 0,
+    "lockedChipSections": [],
+    "comboBadgeSections": [
+      "Curve congestion",
+      "Redundant finishers",
+      "Weak floor cases",
+      "Combo-protected cards",
+      "Enabler-starved cards",
+      "Enabler-starved cards",
+      "Enabler-starved cards",
+      "Enabler-starved cards",
+      "Functional twins"
+    ]
+  },
+  "proposalChanged": false,
+  "ajax": {
+    "status": 200,
+    "navigations": 1,
+    "twinsSectionCountAfter": 1,
+    "twinsGroupCountBefore": 9,
+    "twinsGroupCountAfter": 9,
+    "helpNoteSurvived": true,
+    "sectionOrderBefore": [
+      "Curve congestion",
+      "Redundant finishers",
+      "Weak floor cases",
+      "Combo-protected cards",
+      "Enabler-starved cards",
+      "Enabler-starved cards",
+      "Enabler-starved cards",
+      "Enabler-starved cards",
+      "Functional twins"
+    ],
+    "sectionOrderAfter": [
+      "Curve congestion",
+      "Redundant finishers",
+      "Weak floor cases",
+      "Combo-protected cards",
+      "Enabler-starved cards",
+      "Enabler-starved cards",
+      "Enabler-starved cards",
+      "Enabler-starved cards",
+      "Functional twins"
+    ],
+    "comboBadgesAfter": 10
+  },
+  "restoredState": {
+    "cutLabTool": true,
+    "twinsFlag": false
+  }
+}

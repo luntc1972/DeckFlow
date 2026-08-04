@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: Phase 4 — Functional-Twins Detector (CONVERGED round 12; 04-04 Tasks 1-2 done, Task 3 outstanding)
-current_plan: `04-04` — Tasks 1-2 complete and committed; `autonomous: false`, **Task 3 is the blocking human UI checkpoint and has not been run**
-status: executing
-stopped_at: 2026-08-03 — all owed Codex gates discharged and folded (`af43a4e4` plans, `1fc48dd6` code); branch pushed; only 04-04 Task 3 remains before Phase 4 closes
-last_updated: "2026-08-03T23:45:00.000Z"
+current_phase: Phase 4 — Functional-Twins Detector — **COMPLETE 2026-08-03** (all 4 plans, all gates)
+current_plan: none in flight — next is Phase 5 (execute-ready), Phase 7 (now ungated) or Phase 8 (execute-ready)
+status: phase-complete
+stopped_at: 2026-08-03 — 04-04 Task 3 human UI checkpoint run and APPROVED on a real 132-card Kinnan cEDH pool; Phase 4 closed
+last_updated: "2026-08-04T00:55:00.000Z"
 last_activity: 2026-08-03
 progress:
   total_phases: 10
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 34
-  completed_plans: 24
-  percent: 57
+  completed_plans: 25
+  percent: 62
 ---
 
 > ⚠ **Corrected 2026-08-01. This file had been stale since 2026-07-29** and claimed Phase 3 was
@@ -31,13 +31,31 @@ progress:
 
 ## Current Position
 
-**Status:** Phases 1, 01.1, 2 and 3 complete. Phase 4 plans **CONVERGED at round 12** and **3 of its
-4 waves are executed** — `04-01` (`518d7d83`), `04-02` (`dbd46e94`) and `04-03` (`b508f27e`) are
-committed and on `main`; only `04-04` remains. **Those SHAs are post-rebase**; the pre-rebase
-`476daf66` / `19fdce26` / `c9b55d1b` appear throughout the older notes.
+**Status:** Phases 1, 01.1, 2, 3 **and 4** complete. Phase 4 plans **CONVERGED at round 12** and all
+four waves are executed — `04-01` (`518d7d83`), `04-02` (`dbd46e94`), `04-03` (`b508f27e`) and
+`04-04` (Tasks 1-2 `8b5d2e8e..908402cd`, HIGH fold `1fc48dd6`). **Those SHAs are post-rebase**; the
+pre-rebase `476daf66` / `19fdce26` / `c9b55d1b` appear throughout the older notes.
+
+✅ **Phase 4 CLOSED 2026-08-03.** `04-04` Task 3, the `checkpoint:human-verify` gate that was Success
+Criterion 5's only authoritative check, was run headlessly and **approved**. Real pool: EDHREC's cEDH
+average list for Kinnan, Bonder Prodigy plus 32 cEDH staples as over-sized intake, 132/100 cards,
+Bracket 5. One merged "Functional twins" section with **9 groups / 38 evidence chips over 32 distinct
+cards**, ordering descending by mana value; findings 31 → 40. TWIN-02 confirmed through the UI by a
+**changed card-to-round assignment** (Round 2 → Round 1) rather than a changed proposal card — the
+alternative the plan allows. AJAX decide returned 200 with no reload and the section survived intact.
+Layout cost attributable to the phase: **+805px desktop / +1,835px at 390px**, against a page that is
+already 19,610px / 45,177px with the flag OFF. Evidence:
+`.planning/ui-design/cut-lab/twins-checkpoint-2026-08-03/`. **The production flag stays OFF** — the
+phase deployed dark and flipping it is a separate developer decision.
+Two follow-ups raised at approval, both deliberately unfixed: **F-04-09** multi-role cards emit
+duplicate twin groups with identical card sets (9 groups covered only 32 distinct cards; dedupe by
+card set is the cheaper lever if tightening is ever wanted, ahead of raising
+`TwinGroupMinimumCards`), and **F-04-10** the mobile "ON THIS PAGE" anchor nav overlays findings
+content at 390px (page-level and pre-existing; fold into Phase 7).
 
 Phase 5 is planned and unexecuted; its last open HIGH was folded 2026-08-03. **Phase 7 (Cut Lab Workflow UX) was adopted
-2026-08-02** with 6 plans, gated on plan `04-04`. **Phase 8 (Plan Profile — checkbox plan selection)
+2026-08-02** with 6 plans; its `04-04` gate is **discharged**, so Phase 7 is execute-ready.
+**Phase 8 (Plan Profile — checkbox plan selection)
 was adopted 2026-08-02 and PLANNED 2026-08-02** — 8 plans in 6 waves (`1a44879f`, checker pass
 0 BLOCK/0 HIGH, findings folded `f04f0154`). Design spec at
 `.planning/specs/2026-08-02-cutlab-plan-profile-design.md`; engine plans (08-01..08-06) parallel
@@ -58,10 +76,10 @@ Phase 8 planning notes: the reorder effect lands in `CutLabCutRoundEngine.BuildQ
 file is a DTO mapper; and `CutLabIntent` lives at `DeckFlow.Web/Models/CutLab/CutLabState.cs:189`,
 not `Services/CutLab/`. Phases 01.2 and 6 have not been started and have no plans.
 
-**Current Phase:** Phase 4 — Functional-Twins Detector (executing, 3/4)
-**Last Activity:** 2026-08-02
-**Last Activity Description:** `04-03` executed, verified and committed; branch rebased onto `main`
-and `main` fast-forwarded to it at `d0eddea6`
+**Current Phase:** Phase 4 — Functional-Twins Detector (COMPLETE, 4/4)
+**Last Activity:** 2026-08-03
+**Last Activity Description:** `04-04` Task 3 human UI checkpoint run headlessly against a real
+132-card Kinnan cEDH pool and **approved**; Phase 4 closed with two new follow-ups (F-04-09, F-04-10)
 
 **Hard gate — Phase 5: DISCHARGED 2026-08-03.** The gate required `VERDICT: CONVERGED`; round 9 had
 left 1 HIGH open and round 10 confirmed it plus two defects in its own prescribed fix. The Codex
@@ -103,13 +121,13 @@ rewritten by the rebase), which is why waves 1-3 were executed.
 
 **Total phases:** 10 — 1, 01.1, 01.2, 2, 3, 4, 5, 6, 7, 8 (the old "9" predated Phase 8's adoption
 and disagreed with this file's own `total_phases: 10` frontmatter)
-**Phases complete:** 4 — Phase 1 (`9527dc72`), Phase 01.1 (2/2, `b8ec09f3`), Phase 2 (11/11,
-841 qualifying commanders, lands PULLED), Phase 3 (7/7 verified, `469dc9cf`)
-**Phase 4:** executing, 3 plans committed plus `04-04` Tasks 1-2 — see Current Position for the SHAs
-**Phases planned but unexecuted:** 5 (3 plans, execute-ready), 7 (6 plans, gated on `04-04`),
-8 (8 plans, execute-ready; `08-07`/`08-08` gated on Phase 7)
+**Phases complete:** 5 — Phase 1 (`9527dc72`), Phase 01.1 (2/2, `b8ec09f3`), Phase 2 (11/11,
+841 qualifying commanders, lands PULLED), Phase 3 (7/7 verified, `469dc9cf`), Phase 4 (4/4, human
+checkpoint approved 2026-08-03)
+**Phases planned but unexecuted:** 5 (3 plans, execute-ready), 7 (6 plans, execute-ready — its
+`04-04` gate is discharged), 8 (8 plans, execute-ready; `08-07`/`08-08` gated on Phase 7)
 **Phases with no plans yet:** 01.2 Protection-Vocabulary Widening, 6 Scryfall Throughput
-**Current plan:** `04-04` — **Task 3 only**, the blocking human UI checkpoint
+**Current plan:** none in flight
 
 > **Counter discrepancy — resolved 2026-08-01, previously left open.** The old note kept
 > `completed_phases` at 1 because summary evidence was ambiguous: Phase 01 has a PLAN and no SUMMARY,
@@ -166,9 +184,11 @@ PROJECT.md for history.
 
 ## Session Continuity
 
-**Stopped At:** 2026-08-02. Phase 4 waves 1-3 executed and committed, then the branch was rebased
-onto `main` and `main` fast-forwarded to it — see the rebase note under Current Position for the
-verification gates and the post-rebase SHAs. `04-04` is next.
+**Stopped At:** 2026-08-03. **Phase 4 is closed** — `04-04` Task 3's human UI checkpoint ran and was
+approved; see the Phase 4 block under Current Position for the measurements. Nothing is in flight.
+Next is a choice between Phase 5 (3 plans, execute-ready), Phase 7 (6 plans, now ungated) and Phase 8
+(engine plans `08-01`..`08-06`, execute-ready). The earlier rebase-and-ff note under Current Position
+still describes how `main` and this branch were reconciled.
 
 `04-03` note: Codex `gpt-5.6-terra` wrote Tasks 1-2 and most of Task 3, then correctly returned
 BLOCKED rather than weakening the page-vs-patch parity assertion — but reported one failing test
@@ -210,10 +230,18 @@ phase docs before deletion. **This file plus the phase `.continue-here.md` are t
   alongside exact `FullyQualifiedName=` filters and the `first_failed=1 / second_failed=1 /
   total_failed=2` counters. Generalizable: **a gate keyed on an exact test name is silently void if
   the test is parameterized.**
-- ⛔ **`04-04` Task 3 — THE ONE THING STILL OWED IN PHASE 4.** `autonomous:false`; a human UI
-  checkpoint at ~1440px and 390x844, across two themes, with the flag flipped ON **locally only**
-  via `/Admin/Flags` (the production row stays OFF). It is the sole authoritative gate on Success
-  Criterion 5, so Phase 4 cannot close without it. **Ask permission before opening any browser.**
+- ✅ **`04-04` Task 3 DONE 2026-08-03 — APPROVED.** The human UI checkpoint ran at 1440px and
+  390x844 across Azorius (light) and Nyx (dark), with the flag ON **locally only** via `/Admin/Flags`
+  and restored to OFF afterwards; the production row was never touched. Full record in
+  `04-04-SUMMARY.md`, evidence in `.planning/ui-design/cut-lab/twins-checkpoint-2026-08-03/`.
+  **Phase 4 is closed.** Two follow-ups came out of it: F-04-09 (duplicate twin groups from
+  multi-role cards) and F-04-10 (mobile anchor nav overlays findings).
+- ⚠ **Trap for any future admin automation: put basic-auth in a HEADER, never in the URL.**
+  Chromium sends URL-embedded credentials only after a 401, and `AdminBruteForceTrackerStore` counts
+  each 401 (10 per 15 minutes, partitioned on `CF-Connecting-IP`). Ten admin page loads locked the
+  entire admin surface out with 429 mid-checkpoint and the run had to be restarted.
+  `e2e/support/admin-lock.ts` sets `Authorization` plus a per-test `CF-Connecting-IP` for exactly
+  this reason — copy that, do not re-derive it.
 
 ## Accumulated Context
 
