@@ -83,6 +83,18 @@ public sealed class PageMetadataViewTests
         Assert.True(duplicates.Count == 0, $"Duplicate meta descriptions: {string.Join(" | ", duplicates)}");
     }
 
+    [Theory]
+    [InlineData("Bracket.cshtml", "MTG Commander Bracket Checker", "Check a Commander deck against the official Magic: The Gathering bracket system and get a local classification, target-bracket gaps, and recommended cuts.")]
+    [InlineData("DeckHistory.cshtml", "MTG Commander Deck Version Tracker", "Track Commander deck versions in a local history, compare any two snapshots, and get a card-by-card changelog with an AI-ready review prompt.")]
+    [InlineData("CutLab.cshtml", "Cut Lab", "Trim an oversized Commander card pool with a structured cut workspace that identifies removable cards, protects locked roles, and exports your finished deck.")]
+    public void UncoveredDeckViews_SetPlannedTitleAndMetaDescription(string file, string title, string description)
+    {
+        var content = ReadView("Deck", file);
+
+        Assert.Contains($"ViewData[\"Title\"] = \"{title}\"", content, StringComparison.Ordinal);
+        Assert.Contains($"ViewData[\"Description\"] = \"{description}\"", content, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void HelpTopicDetail_SetsDescriptionFromSummary()
     {

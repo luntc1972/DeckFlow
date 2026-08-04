@@ -6,7 +6,8 @@
 @model DeckFlow.Web.Models.BracketViewModel
 @inject IOptions<AiPlatformOptions> AiPlatformOptionsAccessor
 @{
-    ViewData["Title"] = "Bracket Check";
+    ViewData["Title"] = "MTG Commander Bracket Checker";
+    ViewData["Description"] = "Check a Commander deck against the official Magic: The Gathering bracket system and get a local classification, target-bracket gaps, and recommended cuts.";
     var isUrl = Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl;
     var cl = Model.Classification;
 
