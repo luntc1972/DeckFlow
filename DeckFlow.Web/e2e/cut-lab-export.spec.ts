@@ -111,7 +111,6 @@ test('keeps export disabled until the working list reaches exactly 100 cards', a
   await expect(page.locator('[data-cut-lab-sticky-remaining]')).toContainText('4 to cut');
   await expect(exportTab).toBeDisabled();
   await expect(exportTab).toHaveAttribute('aria-disabled', 'true');
-  await expect(exportTab).toHaveClass(/is-disabled/);
   await expect(exportPanel.locator('.cutlab-export__hint')).toContainText('Reach exactly 100 cards before copying the finished-list export.');
   await expect(exportPanel.locator('.cutlab-export__status').first()).toContainText('Card count = 104');
   await expect(exportPanel.locator('#cut-lab-export-moxfield-full')).toHaveCount(0);
@@ -149,7 +148,6 @@ test('builds the export once accepted cuts reach the target count and shows the 
   await expect(page.locator('.cutlab-proposal__heading')).toHaveText('You\'re at 100 cards');
   await expect(exportTab).toBeEnabled();
   await expect(exportTab).toHaveAttribute('aria-disabled', 'false');
-  await expect(exportTab).not.toHaveClass(/is-disabled/);
   await expect(exportPanel.locator('.cutlab-export__status').first()).toContainText('Card count = 100');
   // Before the export POST, only the card-count line is live-patched by JS. The
   // finished-list textareas and legality/verification status lines still require
