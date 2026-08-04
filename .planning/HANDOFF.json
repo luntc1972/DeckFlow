@@ -1,69 +1,50 @@
 {
   "version": "1.0",
-  "timestamp": "2026-08-04T14:40:56.919Z",
+  "timestamp": "2026-08-04T20:15:00.000Z",
   "workstream": "cycle21-cut-lab",
   "phase": "07",
   "phase_name": "cutlab-workflow-ux",
   "phase_dir": ".planning/workstreams/cycle21-cut-lab/phases/07-cutlab-workflow-ux",
   "worktree": "/mnt/c/users/chrislunt/source/personal/deckflow-role-floors",
   "branch": "gsd/cycle21-cut-lab",
-  "head": "8ea1e41d",
-  "plan": 4,
-  "task": 4,
+  "head": "06b377d6",
+  "plan": 5,
+  "task": 5,
   "total_tasks": 5,
-  "status": "paused",
-  "completed_tasks": [
-    {"id": "07-01", "name": "RED gate landed", "status": "done", "commit": "multiple"},
-    {"id": "07-02", "name": "Workflow step tabs", "status": "done", "commit": "multiple"},
-    {"id": "07-03", "name": "Collapsible workflow sections", "status": "done", "commit": "multiple"},
-    {"id": "07-04.A", "name": "Blocker A — manabase pill radio actionability, clickManabasePillRadio helper across 24 sites", "status": "done", "commit": "bb4f9b71"},
-    {"id": "07-04.B", "name": "Blocker B — idempotent expandCutLabSection migration across 10 specs", "status": "done", "commit": "fc226b9a"},
-    {"id": "07-04.G", "name": "Gate repair — G-2/G-3/G-4 defects fixed, G-1 audited clean, all 4 green both viewports", "status": "done", "commit": "8ea1e41d"},
-    {"id": "07-04.doc", "name": "07-04-SUMMARY.md written — records gates 8/8, Decide panel 731/1099px vs 3000/4000, the G-2/G-3/G-4 defects, and why every pre-8ea1e41d G-3 number is uninformative. Acceptance criterion 4 (theme readability) recorded as NOT VERIFIED rather than assumed passing.", "status": "done", "commit": "pending"}
+  "status": "code-complete, awaiting human UAT",
+  "foreman_ledger": ".foreman/ledger-07-05-execute-2026-08-04.md",
+  "commits_this_session": [
+    {"sha": "a3c0408a", "subject": "feat(cut-lab): pin decide proposal actions", "note": "07-05 Tasks 1-4. Write-set extension: CutLabDecideApiResponse.cs + CutLabApiController.cs, additive GlanceLine on the RESPONSE only; decide POST contract unchanged."},
+    {"sha": "efee8599", "subject": "fix(theme): raise nyx muted contrast to clear the WCAG floor", "note": "CLOSES 07-04 acceptance criterion 4. --muted #908ba8 -> #918da9, 4.459 -> 4.558 vs --panel #2a263e."},
+    {"sha": "27da7a5d", "subject": "Revert 'fix(cut-lab): keep pinned proposal from blocking workflow'", "note": "Reverted d8dfa26a: it fixed a disproved mechanism. Its four good fixes were restored in 06b377d6."},
+    {"sha": "06b377d6", "subject": "fix(cut-lab): synchronize scenario restore navigation", "note": "Fixes the real defect (a pre-existing spec race) + restores B1-B4."}
   ],
   "remaining_tasks": [
-    {"id": "07-04.theme", "name": "Re-run cut-lab-theme-readability.spec.ts — 07-04 acceptance criterion 4 is UNVERIFIED against the current tree (the 2026-08-03 sweep that covered it was invalidated by admin-lock contention)", "status": "not_started"},
-    {"id": "07-04.5", "name": "07-04 Task 5 — human UAT checkpoint", "status": "not_started", "type": "checkpoint:human-verify"},
-    {"id": "07-05", "name": "Pinned proposal CLUX-07 (has human checkpoint)", "status": "not_started"},
+    {"id": "07-05.5", "name": "07-05 Task 5 UAT - FOLDED with 07-04 Task 5 per user decision 2026-08-04", "status": "not_started", "type": "checkpoint:human-verify"},
     {"id": "07-06", "name": "Copy, mobile tab labels, help + README", "status": "not_started"}
   ],
-  "blockers": [],
-  "async_jobs": [],
   "human_actions_pending": [
-    {
-      "action": "Run 07-04 Task 5: capture Cut Lab headlessly on the Decide step at both viewports and review images plus height numbers against the 10,662px desktop starting point.",
-      "context": "Human checkpoint by design; must not be self-approved. Two cautions: 07-04-PLAN says 1440x900 but playwright.config.ts runs chromium-desktop at 1280x900, and Task 5 as written measures document.documentElement.scrollHeight — the exact quantity that made G-3 lie. Report the Decide panel alongside it.",
-      "blocking": true
-    },
-    {
-      "action": "Answer the deferred blocker-B UX question: locking currently lives inside a step-import section that is already marked complete.",
-      "context": "Raised during the B migration, never put to the user.",
-      "blocking": false
-    },
-    {
-      "action": "Decide whether to fold the measured Codex dispatch-efficiency findings into ~/.claude/CLAUDE.md.",
-      "context": "CLAUDE.md is a Do-Not-Modify file, so this needs explicit approval. Findings are n=1 and the recommendations untested; may be worth confirming on the next mechanical dispatch first.",
-      "blocking": false
-    }
+    {"action": "Combined 07-04 + 07-05 UAT. Run a real pool through several accepts. Confirm the pinned card updates in place, does not double-render, and does not obscure the finding it summarizes; Accept/Reject/Defer stay reachable; check 390px with a long card name (header <= 2 lines).", "blocking": true, "context": "Two reviewer concerns to eye specifically: (1) z-index on .cutlab-proposal--pinned governs PAINTING as well as click stacking - confirm page content scrolls UNDER the pinned card, never over it; (2) confirm the pinned card never covers content the user needs to click."},
+    {"action": "Answer the deferred blocker-B UX question: locking lives inside a step-import section already marked complete.", "blocking": false},
+    {"action": "Decide whether to fold the measured Codex dispatch-efficiency findings into ~/.claude/CLAUDE.md (Do-Not-Modify file).", "blocking": false}
+  ],
+  "verified_green_at_06b377d6": {
+    "build": "0 errors",
+    "gates": "G-1..G-5, 10 isolated processes, each 1 passed, exit 0",
+    "g5_mutation_proof": "desktop -903.65 vs >=44; mobile -1191.41 vs >=158.5 - bites on BOTH viewports",
+    "pill_interactions": "3/3 each project",
+    "theme_readability": "2/2 each project",
+    "vitest": "33 files / 131 tests",
+    "csharp": "2299 passed, 16 skipped, 0 failed",
+    "scenarios_repeat_runs_by_reviewer": "see ledger - run 3x per viewport to confirm the race fix"
+  },
+  "known_pre_existing_not_this_phase": [
+    {"item": "cut-lab-whatif.spec.ts:213 'await noJs.close()' in a finally - browserContext.close: Target page, context or browser has been closed, both projects.", "evidence": "A/B'd at d8537bdf and HEAD: identical 1 passed / 1 failed both sides. Predates a3c0408a. Teardown flake, not a product defect."}
   ],
   "decisions": [
-    {"decision": "Repair G-3 AND audit all four gates (user chose option b over a point-fix)", "rationale": "A point-fix would have left G-4's independent false-green and G-2's dead [disabled] filter in place. The audit found both.", "phase": "07"},
-    {"decision": "G-3 measures the Decide panel resolved from aria-controls, not document.documentElement", "rationale": "importPool leaves lock-pool and competes force-expanded as test scaffolding — a state a real user on the Decide step is never in, since G-4 asserts intake collapses after import. Surfaced to the user as a stated assumption and accepted.", "phase": "07"},
-    {"decision": "Prove the repaired gate by mutating its threshold rather than accepting a green run", "rationale": "Three of four gates were green while incapable of failing, so green carries no information. Mutation to 1 produced real failures at 731px/1099px, independently reproducing the prior session's 733/1101 diagnosis.", "phase": "07"},
-    {"decision": "Applied the two cosmetic assertion-message nits directly instead of a Codex round 2", "rationale": "Falls under the CLAUDE.md carve-out for a trivial assertion caught inside an already-running Claude review; a round-2 dispatch would have cost far more than the change.", "phase": "07"},
-    {"decision": "Reused the already-running Windows dev server on :5173 rather than restarting it", "rationale": "Verified via Win32_Process that PID 62128 belongs to this worktree, and the last four commits on the branch are all test-only, so the binary matches the branch's production code. Anti-pattern 5 satisfied by identification rather than by a rebuild.", "phase": "07"}
+    {"decision": "Offset the pinned card from a RUNTIME-measured --cutlab-pinned-offset published on document.documentElement, and promote --cutlab-anchor-nav-stuck-height to :root", "rationale": "The plan said to reuse --cutlab-anchor-nav-stuck-height, but it is declared only on nav.cutlab-anchor-nav; custom properties inherit DOWN the tree and .cutlab-proposal is a sibling subtree, so that var was unreachable and would silently have taken its fallback - a magic number in disguise. .cutlab-sticky-bar:5135 already has that latent bug. There are also TWO sticky layers above the proposal, and the mobile one has variable height (flex-wrap, max-height:none), so no static offset is correct."},
+    {"decision": "Fold 07-04 Task 5 UAT into 07-05 Task 5", "rationale": "07-05 rewrites the Decide panel layout, so a 07-04 UAT would be invalidated by it. User decision 2026-08-04."},
+    {"decision": "Revert d8dfa26a wholesale, then restore its four good fixes inside 06b377d6", "rationale": "It bundled one disproved fix (pointer-events + z-index 19->1) with four correct ones. Mixed commits make reverts blunt."}
   ],
-  "uncommitted_files": [],
-  "next_action": "Write 07-04-SUMMARY.md recording: gates 8/8 on both viewports; Decide panel 731px desktop / 1099px mobile against the 3000/4000 limits; the G-2/G-3/G-4 gate defects; and why every pre-8ea1e41d G-3 number is uninformative. Then run 07-04 Task 5 as a human checkpoint — do not self-approve.",
-  "context_notes": "Phase 7 was stuck across two sessions on what looked like a failing height criterion. It was not. G-3 selected the Decide tab with textContent === 'Decide' while the tab renders '3Decide' (number span + label span), so the find missed, a silent guard swallowed the miss, and the gate measured the whole scaffolded document instead of the Decide panel. The audit that followed found G-4 independently reporting PASS on missing markup, and both G-2 and G-3 filtering on a [disabled] attribute that _WorkflowStepTabs.cshtml documents at length it will never emit. Everything this session was test-only; no production code was touched. 07-04's code has been complete since 1518dd7f — only the SUMMARY and the human checkpoint remain. Do not open a height-reduction workstream: there is no height problem.",
-  "carried_forward_from_previous_handoff": {
-    "note": "This file previously described phase 04 (functional-twins-detector, paused 2026-08-02). Overwriting it for phase 07 would have dropped the items below. Verify their status against .planning/workstreams/cycle21-cut-lab/phases/04-functional-twins-detector/ before assuming they are closed.",
-    "phase": "04",
-    "phase_dir": ".planning/workstreams/cycle21-cut-lab/phases/04-functional-twins-detector",
-    "unresolved_at_time_of_overwrite": [
-      {"action": "04-04 Task 3 — blocking human checkpoint: density + layout on a real ~130-card pool, flag ON locally, 2 viewports, 2 guild themes, TWIN-02 before/after, AJAX survival", "blocking": true, "status_note": "Phase 4 was committed un-UAT'd with the flag OFF; believed still owed."},
-      {"action": "Codex review of 9594b2f6..0a9e7cc9 (gpt-5.6-sol medium, stage-2 codex exec with a written brief)", "blocking": false, "status_note": "Was OWED because Codex was out of credits. Credits returned 2026-08-01 and a P4/P5 review has since been discharged — confirm this specific range was covered before treating it as closed."},
-      {"action": "Decide whether density test 1's upper bound stays at 12 or tightens to the plan's literal 8", "blocking": false, "status_note": "Measured 6; both values catch the proven 14-finding threshold mutation."}
-    ]
-  }
+  "context_notes": "READ BEFORE RE-OPENING THE SCENARIOS FAILURE. It was NOT a regression from a3c0408a, despite the reviewer initially confirming it as one via A/B. It is a PRE-EXISTING RACE in the spec: scenario Load calls form.requestSubmit(); expandCutLabSection read open=null on the OUTGOING page, and its queued summary click then landed on the REBUILT page after restoreSectionCollapseState had already set open - so the click toggled it CLOSED. a3c0408a merely shifted timing so the race lost more often. Because a race is nondeterministic, single runs per side proved nothing: the reviewer's baseline won the race, Codex's baseline lost it. n=1 per side on a flaky test is not an A/B. THREE MECHANISMS WERE DISPROVED AND MUST NOT BE RE-ATTEMPTED: (1) NOT click interception by the pinned header - elementFromPoint at the summary centre returns the SUMMARY itself; (2) NOT a timing window a wait would paper over - open stayed false stably from t+400ms to t+2400ms; (3) NOT the sticky positioning - forcing position:static reproduces the failure identically. Fix is 3 lines at cut-lab-scenarios.spec.ts:171 awaiting the Load navigation. ALSO: never A/B by creating a git worktree - playwright.config sets reuseExistingServer true under WSL, so a baseline worktree run silently reuses a HEAD server on :5173 and reports the wrong result; use git checkout --detach, verify curl to :5173 returns 000, and rebuild. ALSO: run e2e one spec / one project / one process / --workers=1 with /tmp/deckflow-admin-e2e.lock cleared, or admin-lock contention manufactures false failures (it produced 3 for the reviewer)."
 }
