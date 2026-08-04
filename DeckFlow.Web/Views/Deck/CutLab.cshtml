@@ -1170,167 +1170,6 @@
             </details>
         </section>
 
-        <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-5" aria-labelledby="cut-lab-step-tab-5" data-scroll-on-load="@(Model.Export.HasExport ? "true" : null)">
-            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-export">
-                <summary class="cutlab-collapsible__summary">Export</summary>
-                <div class="panel-heading">
-                    <div>
-                        <h2>Export</h2>
-                        <p>Rebuild the finished list in builder-ready Moxfield and Archidekt text, plus CUT/ADD patches against the original imported list.</p>
-                    </div>
-                </div>
-                <form method="post" action="@Url.Content("~/cut-lab/export")" id="cut-lab-export-form">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
-
-                <div class="cutlab-export">
-                    <div class="cutlab-export__summary">
-                        <div class="cutlab-export__status" data-cut-lab-export-count>
-                            @if (currentCount == 100)
-                            {
-                                <strong data-cut-lab-export-count-text>✅ Card count = 100</strong>
-                            }
-                            else
-                            {
-                                <strong data-cut-lab-export-count-text>❌ Card count = @currentCount</strong>
-                                <span data-cut-lab-export-count-helper>Reach 100 cards to unlock the finished-list export.</span>
-                            }
-                        </div>
-                        <div class="cutlab-export__status">
-                            @if (!Model.Export.HasExport)
-                            {
-                                <strong>⚠ Color-identity verification pending</strong>
-                                <span>Run export to verify the finished list against your commander identity.</span>
-                            }
-                            else if (Model.Export.IllegalColorIdentity.Count == 0)
-                            {
-                                <strong>✅ Color-identity legal</strong>
-                            }
-                            else
-                            {
-                                <strong>⚠ Color-identity illegal</strong>
-                                <span>@string.Join(", ", Model.Export.IllegalColorIdentity)</span>
-                            }
-                        </div>
-                        <div class="cutlab-export__status">
-                            @if (Model.Export.HasExport && Model.Export.UnverifiedColorIdentity.Count > 0)
-                            {
-                                <strong>⚠ Could not verify</strong>
-                                <span>@string.Join(", ", Model.Export.UnverifiedColorIdentity)</span>
-                            }
-                            else if (Model.Export.HasExport)
-                            {
-                                <strong>✅ Color-identity fully verified</strong>
-                            }
-                            else
-                            {
-                                <strong>⚠ Could not verify</strong>
-                                <span>Run export to verify any unresolved cards separately from illegal ones.</span>
-                            }
-                        </div>
-                        <div class="cutlab-export__status">
-                            @if (!Model.Export.HasExport)
-                            {
-                                <strong>⚠ Banlist verification pending</strong>
-                                <span>Run export to re-check the final 100-card list.</span>
-                            }
-                            else if (Model.Export.BanlistOffenders.Count == 0)
-                            {
-                                <strong>✅ Banlist clean</strong>
-                            }
-                            else
-                            {
-                                <strong>⚠ Banlist warning</strong>
-                                <span>@string.Join(", ", Model.Export.BanlistOffenders)</span>
-                            }
-                        </div>
-
-                        @if (Model.Export.ReconstructionWarnings.Count > 0)
-                        {
-                            <div class="cutlab-export__warning">
-                                <strong>⚠ Reconstruction warnings</strong>
-                                <ul>
-                                    @foreach (var warning in Model.Export.ReconstructionWarnings)
-                                    {
-                                        <li>@warning</li>
-                                    }
-                                </ul>
-                            </div>
-                        }
-
-                        @if (Model.Export.Warnings.Count > 0)
-                        {
-                            <div class="cutlab-export__warning">
-                                <strong>⚠ Export warnings</strong>
-                                <ul>
-                                    @foreach (var warning in Model.Export.Warnings)
-                                    {
-                                        <li>@warning</li>
-                                    }
-                                </ul>
-                            </div>
-                        }
-                    </div>
-
-                    @if (Model.Export.HardBlock || currentCount != 100)
-                    {
-                        <p class="cutlab-export__hint">Reach exactly 100 cards before copying the finished-list export. Patch blocks stay available so you can inspect the current diff.</p>
-                    }
-
-                    <div class="cutlab-export__copy-grid">
-                        @if (!Model.Export.HardBlock && Model.Export.HasExport)
-                        {
-                            <div class="cutlab-export__block">
-                                <div class="panel-heading">
-                                    <div>
-                                        <h3>Moxfield finished list</h3>
-                                        <p>Paste straight into the builder.</p>
-                                    </div>
-                                    <button type="button" class="copy-button" data-copy-target="cut-lab-export-moxfield-full">Copy</button>
-                                </div>
-                                <textarea id="cut-lab-export-moxfield-full" class="cutlab-export__textarea" rows="12" readonly>@Model.Export.MoxfieldFullListText</textarea>
-                            </div>
-                            <div class="cutlab-export__block">
-                                <div class="panel-heading">
-                                    <div>
-                                        <h3>Archidekt finished list</h3>
-                                        <p>Paste straight into the builder.</p>
-                                    </div>
-                                    <button type="button" class="copy-button" data-copy-target="cut-lab-export-archidekt-full">Copy</button>
-                                </div>
-                                <textarea id="cut-lab-export-archidekt-full" class="cutlab-export__textarea" rows="12" readonly>@Model.Export.ArchidektFullListText</textarea>
-                            </div>
-                        }
-                        <div class="cutlab-export__block">
-                            <div class="panel-heading">
-                                <div>
-                                    <h3>Moxfield CUT/ADD patch</h3>
-                                    <p>Diff against the original imported list.</p>
-                                </div>
-                                <button type="button" class="copy-button" data-copy-target="cut-lab-export-moxfield-patch" @(Model.Export.HasExport ? null : "disabled")>Copy</button>
-                            </div>
-                            <textarea id="cut-lab-export-moxfield-patch" class="cutlab-export__textarea" rows="12" readonly>@Model.Export.MoxfieldPatchText</textarea>
-                        </div>
-                        <div class="cutlab-export__block">
-                            <div class="panel-heading">
-                                <div>
-                                    <h3>Archidekt CUT/ADD patch</h3>
-                                    <p>Diff against the original imported list.</p>
-                                </div>
-                                <button type="button" class="copy-button" data-copy-target="cut-lab-export-archidekt-patch" @(Model.Export.HasExport ? null : "disabled")>Copy</button>
-                            </div>
-                            <textarea id="cut-lab-export-archidekt-patch" class="cutlab-export__textarea" rows="12" readonly>@Model.Export.ArchidektPatchText</textarea>
-                        </div>
-                    </div>
-
-                    <div class="toolbar cutlab-export__actions">
-                        <button type="submit" class="run-button" @(currentCount == 100 ? null : "disabled")>Build export</button>
-                    </div>
-                </div>
-                </form>
-            </details>
-        </section>
-
         <section class="result-panel">
             <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-scenarios">
                 <summary class="cutlab-collapsible__summary">Scenarios</summary>
@@ -1501,6 +1340,167 @@
                 </details>
             </section>
         }
+        <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-5" aria-labelledby="cut-lab-step-tab-5" data-scroll-on-load="@(Model.Export.HasExport ? "true" : null)">
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-export">
+                <summary class="cutlab-collapsible__summary">Export</summary>
+                <div class="panel-heading">
+                    <div>
+                        <h2>Export</h2>
+                        <p>Rebuild the finished list in builder-ready Moxfield and Archidekt text, plus CUT/ADD patches against the original imported list.</p>
+                    </div>
+                </div>
+                <form method="post" action="@Url.Content("~/cut-lab/export")" id="cut-lab-export-form">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
+
+                <div class="cutlab-export">
+                    <div class="cutlab-export__summary">
+                        <div class="cutlab-export__status" data-cut-lab-export-count>
+                            @if (currentCount == 100)
+                            {
+                                <strong data-cut-lab-export-count-text>✅ Card count = 100</strong>
+                            }
+                            else
+                            {
+                                <strong data-cut-lab-export-count-text>❌ Card count = @currentCount</strong>
+                                <span data-cut-lab-export-count-helper>Reach 100 cards to unlock the finished-list export.</span>
+                            }
+                        </div>
+                        <div class="cutlab-export__status">
+                            @if (!Model.Export.HasExport)
+                            {
+                                <strong>⚠ Color-identity verification pending</strong>
+                                <span>Run export to verify the finished list against your commander identity.</span>
+                            }
+                            else if (Model.Export.IllegalColorIdentity.Count == 0)
+                            {
+                                <strong>✅ Color-identity legal</strong>
+                            }
+                            else
+                            {
+                                <strong>⚠ Color-identity illegal</strong>
+                                <span>@string.Join(", ", Model.Export.IllegalColorIdentity)</span>
+                            }
+                        </div>
+                        <div class="cutlab-export__status">
+                            @if (Model.Export.HasExport && Model.Export.UnverifiedColorIdentity.Count > 0)
+                            {
+                                <strong>⚠ Could not verify</strong>
+                                <span>@string.Join(", ", Model.Export.UnverifiedColorIdentity)</span>
+                            }
+                            else if (Model.Export.HasExport)
+                            {
+                                <strong>✅ Color-identity fully verified</strong>
+                            }
+                            else
+                            {
+                                <strong>⚠ Could not verify</strong>
+                                <span>Run export to verify any unresolved cards separately from illegal ones.</span>
+                            }
+                        </div>
+                        <div class="cutlab-export__status">
+                            @if (!Model.Export.HasExport)
+                            {
+                                <strong>⚠ Banlist verification pending</strong>
+                                <span>Run export to re-check the final 100-card list.</span>
+                            }
+                            else if (Model.Export.BanlistOffenders.Count == 0)
+                            {
+                                <strong>✅ Banlist clean</strong>
+                            }
+                            else
+                            {
+                                <strong>⚠ Banlist warning</strong>
+                                <span>@string.Join(", ", Model.Export.BanlistOffenders)</span>
+                            }
+                        </div>
+
+                        @if (Model.Export.ReconstructionWarnings.Count > 0)
+                        {
+                            <div class="cutlab-export__warning">
+                                <strong>⚠ Reconstruction warnings</strong>
+                                <ul>
+                                    @foreach (var warning in Model.Export.ReconstructionWarnings)
+                                    {
+                                        <li>@warning</li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+
+                        @if (Model.Export.Warnings.Count > 0)
+                        {
+                            <div class="cutlab-export__warning">
+                                <strong>⚠ Export warnings</strong>
+                                <ul>
+                                    @foreach (var warning in Model.Export.Warnings)
+                                    {
+                                        <li>@warning</li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+                    </div>
+
+                    @if (Model.Export.HardBlock || currentCount != 100)
+                    {
+                        <p class="cutlab-export__hint">Reach exactly 100 cards before copying the finished-list export. Patch blocks stay available so you can inspect the current diff.</p>
+                    }
+
+                    <div class="cutlab-export__copy-grid">
+                        @if (!Model.Export.HardBlock && Model.Export.HasExport)
+                        {
+                            <div class="cutlab-export__block">
+                                <div class="panel-heading">
+                                    <div>
+                                        <h3>Moxfield finished list</h3>
+                                        <p>Paste straight into the builder.</p>
+                                    </div>
+                                    <button type="button" class="copy-button" data-copy-target="cut-lab-export-moxfield-full">Copy</button>
+                                </div>
+                                <textarea id="cut-lab-export-moxfield-full" class="cutlab-export__textarea" rows="12" readonly>@Model.Export.MoxfieldFullListText</textarea>
+                            </div>
+                            <div class="cutlab-export__block">
+                                <div class="panel-heading">
+                                    <div>
+                                        <h3>Archidekt finished list</h3>
+                                        <p>Paste straight into the builder.</p>
+                                    </div>
+                                    <button type="button" class="copy-button" data-copy-target="cut-lab-export-archidekt-full">Copy</button>
+                                </div>
+                                <textarea id="cut-lab-export-archidekt-full" class="cutlab-export__textarea" rows="12" readonly>@Model.Export.ArchidektFullListText</textarea>
+                            </div>
+                        }
+                        <div class="cutlab-export__block">
+                            <div class="panel-heading">
+                                <div>
+                                    <h3>Moxfield CUT/ADD patch</h3>
+                                    <p>Diff against the original imported list.</p>
+                                </div>
+                                <button type="button" class="copy-button" data-copy-target="cut-lab-export-moxfield-patch" @(Model.Export.HasExport ? null : "disabled")>Copy</button>
+                            </div>
+                            <textarea id="cut-lab-export-moxfield-patch" class="cutlab-export__textarea" rows="12" readonly>@Model.Export.MoxfieldPatchText</textarea>
+                        </div>
+                        <div class="cutlab-export__block">
+                            <div class="panel-heading">
+                                <div>
+                                    <h3>Archidekt CUT/ADD patch</h3>
+                                    <p>Diff against the original imported list.</p>
+                                </div>
+                                <button type="button" class="copy-button" data-copy-target="cut-lab-export-archidekt-patch" @(Model.Export.HasExport ? null : "disabled")>Copy</button>
+                            </div>
+                            <textarea id="cut-lab-export-archidekt-patch" class="cutlab-export__textarea" rows="12" readonly>@Model.Export.ArchidektPatchText</textarea>
+                        </div>
+                    </div>
+
+                    <div class="toolbar cutlab-export__actions">
+                        <button type="submit" class="run-button" @(currentCount == 100 ? null : "disabled")>Build export</button>
+                    </div>
+                </div>
+                </form>
+            </details>
+        </section>
+
         <dialog id="cutlab-card-modal" class="cutlab-card-modal" aria-labelledby="cutlab-card-modal-title">
             <div class="cutlab-card-modal__panel">
                 <h2 id="cutlab-card-modal-title" class="cutlab-card-modal__title"></h2>
