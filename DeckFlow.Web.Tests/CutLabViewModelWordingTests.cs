@@ -127,6 +127,41 @@ public sealed class CutLabViewModelWordingTests
     }
 
     [Fact]
+    public void From_BuildsIntakeSummaryFromResolvedCommanderAndDeclaredIntent()
+    {
+        var request = new CutLabRequest
+        {
+            Bracket = 4,
+            PlayExperience = "Focused",
+        };
+        var result = new CutLabProcessResult
+        {
+            HasResult = true,
+            BoardCounts = new BoardCounts
+            {
+                MainboardCount = 99,
+                SideboardCount = 2,
+                MaybeboardCount = 1,
+            },
+            State = new CutLabState
+            {
+                Commander = "Zur the Enchanter",
+                Pool =
+                [
+                    new CutLabPoolCard { Name = "Zur the Enchanter", Quantity = 1, IsCommander = true },
+                    new CutLabPoolCard { Name = "Island", Quantity = 101 },
+                ],
+            },
+        };
+
+        CutLabViewModel model = CutLabViewModel.From(request, result);
+
+        Assert.Equal(
+            "Zur the Enchanter · 102 cards · B4 Optimized · Focused · Main 99 · Sideboard 2 · Considering/Maybe 1",
+            model.IntakeSummaryText);
+    }
+
+    [Fact]
     public void From_BuildsThreeGoalRowsInFixedOrderWithDynamicLabels()
     {
         var request = new CutLabRequest

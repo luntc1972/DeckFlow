@@ -125,6 +125,18 @@
     @Model.ErrorMessage
 </div>
 
+<details class="cutlab-intake" data-cut-lab-intake-summary open="@(!Model.HasResult ? "open" : null)">
+    <summary class="cutlab-intake-summary">
+        @if (Model.HasResult)
+        {
+            <span class="cutlab-intake-summary__commander">@Model.IntakeSummaryText</span>
+            <span class="cutlab-intake-summary__change">Change intake</span>
+        }
+        else
+        {
+            <span class="cutlab-intake-summary__commander">Import a pool</span>
+        }
+    </summary>
 <form method="post" action="@Url.Content("~/cut-lab")" class="result-panel"
       data-cache-key="cut-lab"
       data-cut-lab-decide-action="@Url.Content("~/cut-lab/decide")"
@@ -229,6 +241,7 @@
         <a href="@Url.Content("~/cut-lab")" class="clear-cache-button" role="button" data-clear-cache data-no-busy>Start over</a>
     </div>
 </form>
+</details>
 
 @if (Model.HasResult)
 {
