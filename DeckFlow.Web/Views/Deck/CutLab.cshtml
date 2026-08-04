@@ -950,49 +950,49 @@
                         </div>
                     </div>
                     <div class="cutlab-proposal__body">
-                        <div class="cutlab-proposal__evidence">
-                            <p>@Model.Proposal.FindingSummary</p>
-                            @if (Model.Proposal.FindingChips.Count > 0)
-                            {
-                                <div class="kb-chip-area__chips">
-                                    @foreach (var chip in Model.Proposal.FindingChips)
-                                    {
-                                        <span class="kb-chip">@chip</span>
-                                    }
-                                </div>
-                            }
+                    <div class="cutlab-proposal__evidence">
+                        <p>@Model.Proposal.FindingSummary</p>
+                        @if (Model.Proposal.FindingChips.Count > 0)
+                        {
+                            <div class="kb-chip-area__chips">
+                                @foreach (var chip in Model.Proposal.FindingChips)
+                                {
+                                    <span class="kb-chip">@chip</span>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(Model.Proposal.DeltaUnavailableMessage))
+                    {
+                        <div class="cutlab-finding cutlab-proposal__floor-warning">
+                            <p class="cutlab-finding__lead">@Model.Proposal.DeltaUnavailableMessage</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="cutlab-delta">
+                            <p>@Model.Proposal.ChangedFamilyCount of 7 metric families changed meaningfully.</p>
+                            @{ await RenderDeltaLines(Model.Proposal.ChangedDeltaLines); }
                         </div>
 
-                        @if (!string.IsNullOrWhiteSpace(Model.Proposal.DeltaUnavailableMessage))
+                        <details data-cut-lab-delta-expander>
+                            <summary>Show full metric breakdown</summary>
+                            <div class="cutlab-delta">
+                                @{ await RenderDeltaLines(Model.Proposal.FullDeltaLines); }
+                            </div>
+                        </details>
+                    }
+
+                    @if (Model.Proposal.FloorWarnings.Count > 0)
+                    {
+                        @foreach (var warning in Model.Proposal.FloorWarnings)
                         {
                             <div class="cutlab-finding cutlab-proposal__floor-warning">
-                                <p class="cutlab-finding__lead">@Model.Proposal.DeltaUnavailableMessage</p>
+                                <p class="cutlab-finding__lead">@warning</p>
                             </div>
                         }
-                        else
-                        {
-                            <div class="cutlab-delta">
-                                <p>@Model.Proposal.ChangedFamilyCount of 7 metric families changed meaningfully.</p>
-                                @{ await RenderDeltaLines(Model.Proposal.ChangedDeltaLines); }
-                            </div>
-
-                            <details data-cut-lab-delta-expander>
-                                <summary>Show full metric breakdown</summary>
-                                <div class="cutlab-delta">
-                                    @{ await RenderDeltaLines(Model.Proposal.FullDeltaLines); }
-                                </div>
-                            </details>
-                        }
-
-                        @if (Model.Proposal.FloorWarnings.Count > 0)
-                        {
-                            @foreach (var warning in Model.Proposal.FloorWarnings)
-                            {
-                                <div class="cutlab-finding cutlab-proposal__floor-warning">
-                                    <p class="cutlab-finding__lead">@warning</p>
-                                </div>
-                            }
-                        }
+                    }
 
                     </div>
                 </div>

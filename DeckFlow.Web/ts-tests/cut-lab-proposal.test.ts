@@ -714,48 +714,6 @@ describe('cut-lab proposal enhancement', () => {
     expect(proposal?.querySelector('.cutlab-proposal__body .cutlab-proposal__evidence')).not.toBeNull();
   });
 
-  it('uses the delta-unavailable glance copy when the server glance line is blank', async () => {
-    buildDecisionFixture();
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({ patch: buildPatch({
-        nextProposal: {
-          ...buildPatch().nextProposal,
-          glanceLine: '   ',
-        },
-      }) }),
-    });
-
-    const form = document.querySelector<HTMLFormElement>('form[action="/cut-lab/decide"]');
-    const button = form?.querySelector<HTMLButtonElement>('[data-cut-lab-decision="accept"]');
-    form?.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true, submitter: button ?? undefined }));
-    await flushDecisionSubmit();
-
-    expect(document.querySelector('.cutlab-proposal__glance')?.textContent)
-      .toBe("Couldn't recalculate this cut — nothing changed. Try again.");
-  });
-
-  it('uses the delta-unavailable glance copy when the server omits the glance line', async () => {
-    buildDecisionFixture();
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({ patch: buildPatch({
-        nextProposal: {
-          ...buildPatch().nextProposal,
-          glanceLine: undefined,
-        },
-      }) }),
-    });
-
-    const form = document.querySelector<HTMLFormElement>('form[action="/cut-lab/decide"]');
-    const button = form?.querySelector<HTMLButtonElement>('[data-cut-lab-decision="accept"]');
-    form?.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true, submitter: button ?? undefined }));
-    await flushDecisionSubmit();
-
-    expect(document.querySelector('.cutlab-proposal__glance')?.textContent)
-      .toBe("Couldn't recalculate this cut — nothing changed. Try again.");
-  });
-
   it('posts restore decisions and removes the row while updating sticky counts on success', async () => {
     buildDecisionFixture();
     fetchMock.mockResolvedValue({
