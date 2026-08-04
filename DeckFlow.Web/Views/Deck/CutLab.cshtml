@@ -334,7 +334,7 @@
         </nav>
 
         <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-1" aria-labelledby="cut-lab-step-tab-1">
-            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-lock-pool">
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-lock-pool">
                 <summary class="cutlab-collapsible__summary">Lock your pool</summary>
                 <div class="panel-heading">
                     <div>
@@ -473,7 +473,7 @@
             </div>
 
             <section class="result-panel nested-panel">
-                <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-packages">
+                <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-packages">
                     <summary class="cutlab-collapsible__summary">Packages</summary>
                     <div class="cutlab-package-help">
                         <p class="cutlab-package-help__heading">How packages work</p>
@@ -542,7 +542,7 @@
             </details>
 
         <section class="result-panel">
-            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-competes">
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-competes">
                 <summary class="cutlab-collapsible__summary">How your pool competes</summary>
                 <div class="panel-heading">
                     <div>
@@ -610,7 +610,7 @@
         </section>
 
         <section class="result-panel">
-            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-by-type">
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-by-type">
                 <summary class="cutlab-collapsible__summary">By type</summary>
                 <div class="panel-heading">
                     <div>
@@ -650,7 +650,7 @@
         </section>
 
         <section class="result-panel">
-            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-by-subtype">
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-by-subtype">
                 <summary class="cutlab-collapsible__summary">By subtype</summary>
                 <div class="panel-heading">
                     <div>
@@ -670,7 +670,7 @@
         </section>
 
         <section class="result-panel" data-cut-lab-structural-findings>
-            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-structural">
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-structural">
                 <summary class="cutlab-collapsible__summary">Structural findings</summary>
                 <div class="panel-heading">
                     <div>
@@ -764,7 +764,7 @@
         </section>
 
         <section class="result-panel">
-            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-role-floors">
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-role-floors">
                 <summary class="cutlab-collapsible__summary">Role floors</summary>
                 <div class="panel-heading">
                     <div>
@@ -1009,7 +1009,7 @@
             }
 
             <section class="result-panel nested-panel cutlab-tuner">
-                <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-tune">
+                <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-tune">
                     <summary class="cutlab-collapsible__summary">Tune quantities</summary>
                     <div class="panel-heading">
                         <div>
@@ -1092,7 +1092,7 @@
         @if (Model.CutsMade.Count > 0)
         {
             <section class="result-panel">
-                <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-cuts-made">
+                <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-cuts-made">
                     <summary class="cutlab-collapsible__summary">Cuts made</summary>
                     <div class="panel-heading">
                         <div>
@@ -1120,7 +1120,7 @@
         </section>
 
         <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-4" aria-labelledby="cut-lab-step-tab-4">
-            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-goals">
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-goals">
                 <summary class="cutlab-collapsible__summary">Goals</summary>
                 <div class="panel-heading">
                     <div>
@@ -1180,7 +1180,7 @@
             </details>
 
         <section class="result-panel">
-            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-scenarios">
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-scenarios">
                 <summary class="cutlab-collapsible__summary">Scenarios</summary>
                 <p>Save this entire Cut Lab session in this browser, then reload it later to compare different goal, lock, and cut setups.</p>
                 <noscript>
@@ -1214,7 +1214,7 @@
         </section>
 
         <section class="result-panel">
-            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-whatif">
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-whatif">
                 <summary class="cutlab-collapsible__summary">What-if swap</summary>
                 <p>Swap one unlocked working-list card for one card from your cut pile, preview the metric deltas, then keep or discard the change.</p>
                 <form method="post" action="@Url.Content("~/cut-lab/whatif")" data-cut-lab-whatif-form>
@@ -1351,7 +1351,7 @@
         }
         </section>
         <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-5" aria-labelledby="cut-lab-step-tab-5" data-scroll-on-load="@(Model.Export.HasExport ? "true" : null)">
-            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-export">
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-export">
                 <summary class="cutlab-collapsible__summary">Export</summary>
                 <div class="panel-heading">
                     <div>

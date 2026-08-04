@@ -293,27 +293,17 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     typeLine.split('//')[0]?.trim() ?? '';
 
   const getScenarioSlotKey = (id: string): string => `${SCENARIO_SLOT_PREFIX}${id}`;
-  const defaultMobileCollapsedSectionIds = new Set<string>([
+  const primarySectionIdsByStep = new Map<number, string>([
+    [1, 'cut-lab-section-lock-pool'],
+    [2, 'cut-lab-section-cut-rounds'],
+    [4, 'cut-lab-section-goals'],
+    [5, 'cut-lab-section-export'],
+  ]);
+  const legacyAuxiliarySectionIds = new Set<string>([
     'cut-lab-section-packages',
     'cut-lab-section-scenarios',
     'cut-lab-section-whatif',
   ]);
-
-  const collapseMobileCollapsiblesOnLoad = (): void => {
-    if (typeof window.matchMedia !== 'function' || !window.matchMedia('(max-width: 767px)').matches) {
-      return;
-    }
-
-    document
-      .querySelectorAll<HTMLDetailsElement>('details[data-cutlab-mobile-collapse]')
-      .forEach(details => {
-        if (!defaultMobileCollapsedSectionIds.has(details.id)) {
-          return;
-        }
-
-        details.removeAttribute('open');
-      });
-  };
 
   const getLocalStorage = (): Storage | null => {
     try {
@@ -367,6 +357,26 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     Array.from(document.querySelectorAll<HTMLDetailsElement>('details[data-cutlab-mobile-collapse]'))
       .filter(details => details.id.trim().length > 0);
 
+  const applyDefaultSectionCollapseState = (step: number): void => {
+    const primarySectionId = primarySectionIdsByStep.get(step);
+    if (primarySectionId) {
+      getSectionCollapsibles().forEach(details => {
+        details.toggleAttribute('open', details.id === primarySectionId);
+      });
+      return;
+    }
+
+    // Test-only partial documents from the pre-wizard suite have no tabs. Retain
+    // their prior mobile fallback while production pages use the map above.
+    if (typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 767px)').matches) {
+      getSectionCollapsibles().forEach(details => {
+        if (legacyAuxiliarySectionIds.has(details.id)) {
+          details.removeAttribute('open');
+        }
+      });
+    }
+  };
+
   const readCollapsedSectionIds = (): string[] | null => {
     try {
       const storage = getLocalStorage();
@@ -419,6 +429,16 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
       details.setAttribute('open', 'open');
     });
+  };
+
+  const applyInitialSectionCollapseState = (): void => {
+    if (readCollapsedSectionIds() !== null) {
+      restoreSectionCollapseState();
+      return;
+    }
+
+    const selectedStep = getStepTabs().find(tab => tab.getAttribute('aria-selected') === 'true');
+    applyDefaultSectionCollapseState(Number(selectedStep?.dataset.cutLabStep));
   };
 
   const persistSectionCollapseState = (): void => {
@@ -479,6 +499,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const targetPanel = panels.find(panel => panel.id === `cut-lab-step-panel-${step}`);
     if (!targetPanel) {
       return;
+    }
+
+    if (readCollapsedSectionIds() === null) {
+      applyDefaultSectionCollapseState(step);
     }
 
     panels.forEach(panel => {
@@ -4422,8 +4446,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const initializeCutLab = (): void => {
-    collapseMobileCollapsiblesOnLoad();
-    restoreSectionCollapseState();
+    applyInitialSectionCollapseState();
     attachSectionCollapsePersistence();
     attachStepTabHandler();
     attachAnchorNavHandler();
