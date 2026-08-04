@@ -60,6 +60,7 @@ moment they are green; 3 waits only on 2's verdict.
 | 3. Commander floors | Yes — role-floor UI gains a commander column | Own release, gated on Phase 2 = go. Consider a dedicated flag so it can deploy dark and flip after UAT. |
 | 4. Functional twins | Yes — new structural finding, changes proposal order | Own release. **Recommend a dedicated flag** — this one changes which card is proposed next, the highest-blast-radius behavior change in the cycle. Deploy dark, flip after UAT on a real pool. |
 | 5. Bracket capture | No — harvest/schema only | Deploy with the next release; no flag needed. Coverage builds from the deploy date forward. |
+| 7. Workflow UX | Yes — the whole Cut Lab page reorders and becomes a wizard | Own release. No new flag; rides `tool.cut-lab.enabled`, which is OFF in prod, so it deploys dark like the rest of the tool. Pure presentation — no engine or API change — so the risk is layout regression, not wrong output. UAT at both viewports before the prod flip. |
 | 8. Plan profile | Yes — new plan panel, changes protection/ordering/floors/findings | Phased internally (P1 generic+protect/reorder → P2 EDHREC themes → P3 floors+finding); each ships behind `tool.cut-lab.enabled` (tool still dark). Same blast-radius class as Phase 4 — if it lands after the prod flip, give it a dedicated flag. |
 
 Consequence for sequencing: because Phase 4 is independent and separately releasable, it can ship
@@ -448,6 +449,62 @@ loop into a single OR query: `q=!"A" or !"B" or !"C"`.
   6. No regression for the other five Scryfall consumers — this is shared infrastructure, and Cut
      Lab's flag does **not** gate it.
 
+### Phase 7: Cut Lab Workflow UX (ADOPTED 2026-08-02, GATED ON PLAN 04-04)
+**Goal**: Cut Lab's primary navigation works, the document reads in workflow order, and the decide loop is on the first screen instead of 87% down the page.
+**Depends on**: **Plan `04-04`, not all of Phase 4.** `04-04` rewrites `CutLab.cshtml` and `wwwroot/ts/cut-lab.ts` for the presenter merge and the D-24 combo-badge repair — the same two files 07-02, 07-03 and 07-04 reorder and re-wire. Running them concurrently is how this milestone earns a third rebase with real conflicts.
+**Gates**: Phase 8's plan-panel plans (`08-07`, `08-08`) — they fill the wizard step slot this phase reserves.
+**Requirements**: CLUX-01 .. CLUX-08 (declared in the `07-0N-PLAN.md` frontmatter; ratify into `REQUIREMENTS.md` before closeout — see the Traceability Check)
+**Origin**: Adopted 2026-08-02 from the unregistered root phase 116, after a 14-issue UX audit.
+**Canonical**: `phases/07-cutlab-workflow-ux/07-CONTEXT.md` (measured live 2026-08-02 against `scripts/run-web-test.sh`) and that phase's `README.md`.
+
+**Not in scope (D-3):** the cut engine, the metrics, proposal ordering, any API contract. No file under
+`Services/CutLab/` is edited except round-label string constants in `07-06`.
+
+**Measured defects** — all four step tabs are inert at import time; Export renders 1,544px **above**
+Decide; the page is 10,453px desktop / 15,896px mobile on a **17-row** pool.
+
+**D-1 Step model — RESOLVED 2026-08-03 as Option 3 (wizard + pinned proposal).** Mockups rendered
+against the real site CSS live in `.planning/ui-design/cut-lab/proposed/`; the six PNGs are the
+self-contained artifact, because the HTML pulls site CSS from `http://localhost:5173` and renders
+unstyled without the dev server.
+
+| Option | Desktop | Mobile | vs today |
+|---|---|---|---|
+| Today | 10,453px | 15,896px | — |
+| 1 true wizard | 1,022px | 1,440px | −90% |
+| 2 soft fix | 1,596px | 1,929px | −85% |
+| **3 wizard + pinned proposal — SELECTED** | **1,107px** | **1,588px** | **−89%** |
+
+Consequences of Option 3: `07-03` keeps runtime panel-hiding and G-2's exactly-one-visible assertion,
+and `07-05` exists and executes. The wizard has **five** slots, with `cut-lab-step-panel-3` at index 3
+**reserved empty for Phase 8's plan panel** so Phase 8's UI inserts without restructuring the wizard.
+
+**D-4 Branch — RESOLVED 2026-08-02:** this phase runs on `gsd/cycle21-cut-lab` like every other phase
+in the milestone. The original recommendation of a separate `feat/cutlab-workflow-ux` branch off
+`main` assumed `main` did not contain Cycle 21 — which stopped being true once the branch was rebased
+and `main` fast-forwarded to it.
+
+**Plans:** 6 plans (6 waves, strictly sequential — each rewrites what the last produced)
+- [ ] `07-01-PLAN.md` — wave 1 — regression gate spec; **must FAIL on HEAD**.
+- [ ] `07-02-PLAN.md` — wave 2 — DOM reorder to Process → Decide → Plan → Goals → Export, with the required selector migration. **Independently shippable**: it fixes the no-JS reading order without touching a line of TypeScript.
+- [ ] `07-03-PLAN.md` — wave 3 — step-tab handler, panel visibility, ARIA keyboard support.
+- [ ] `07-04-PLAN.md` — wave 4 — intake summary, unified progress strip, collapse defaults.
+- [ ] `07-05-PLAN.md` — wave 5 — pinned proposal (exists because Option 3 won).
+- [ ] `07-06-PLAN.md` — wave 6 — copy, mobile tab labels, help + README.
+
+**Success Criteria** (what must be TRUE):
+  1. Every step tab is operable from import time — none inert.
+  2. The document reads Process → Decide → Plan → Goals → Export, and the no-JS order matches the JS order.
+  3. The decide loop is reachable on the first screen; Export no longer renders above Decide.
+  4. Desktop height on the 17-row measurement pool lands near the Option 3 mockup (~1,107px), not 10,453px.
+  5. Exactly one wizard panel is visible at a time, asserted by test, with slot index 3 present and empty.
+  6. No file under `Services/CutLab/` changes except round-label string constants.
+
+**Follow-ups deliberately excluded:** auto-recompute Goals/Compare on accept (engine + perf change,
+not copy); merging the three pool browse surfaces plus the JS-only lock-table filter into one faceted
+explorer; removing the anchor-nav / tablist duplication; deferring the four Export "⚠ pending" rows
+until Build export runs.
+
 ### Phase 8: Plan Profile — Checkbox Plan Selection (ADOPTED 2026-08-02)
 **Goal**: The user's deck plan is machine-readable — fixed generic strategy checkboxes plus commander-specific EDHREC themes — and the deterministic engine acts on it through all four effects: protect on-plan cards, reorder proposals (off-plan first), plan→floor deltas, and a "stranded off-plan package" finding.
 **Depends on**: Nothing for the engine plans (parallel-safe). The plan-panel UI plan is gated on **Phase 7** — it fills the wizard step slot Phase 7 reserves and edits the same two files (`CutLab.cshtml`, `wwwroot/ts/cut-lab.ts`).
@@ -491,11 +548,11 @@ leading sort key. Plan `08-05` carries the correction.
 | 01.2. Protection-Vocabulary Widening | 0/TBD | Not started (inserted from 01.1 D-06) | - |
 | 2. Role-Floor Divergence Research | 11/11 | **Complete** — real run exit 0, 841 qualifying commanders. GO on ramp, draw, interaction-targeted, engines, payoffs, wincons; **lands PULLED** at the Task 4 checkpoint (the Postgres arm measures distinct land NAMES, not land count; colour count explains 54% of its variance). See `02-08-SUMMARY.md` | 2026-07-28 |
 | 3. Commander-Aware Floor Defaults | 7/7 | **Complete** — all 7 plans verified; `max(bracket, commander)` shipped with both numbers on screen. Snapshot: 678 commanders / 1463 adopted floors, independently recomputed from `RESEARCH-FINDINGS.json`. Task 4 human-verify approved. One WARNING-severity gap on the AJAX patch path (see `03-VERIFICATION.md`) | 2026-07-29 |
-| 4. Functional-Twins Detector | 3/4 | **Executing** — plans CONVERGED at round 12; `04-01` (`518d7d83`), `04-02` (`dbd46e94`) and `04-03` (`b508f27e`) committed and on `main`. `04-04` remains and is `autonomous: false` (human UI checkpoint). The Codex review of `b508f27e` ran 2026-08-03 and DISCHARGED that gate; the `04-04` code review ran the same day and returned 2 HIGH, unfolded — see `04-REVIEWS.md` | - |
-| 5. Archidekt Bracket Capture | 0/3 | Planned, not started — review at round 9 with 1 HIGH open (over-permissive TRX regex) | - |
+| 4. Functional-Twins Detector | 3.5/4 | **Executing** — plans CONVERGED at round 12; `04-01` (`518d7d83`), `04-02` (`dbd46e94`) and `04-03` (`b508f27e`) committed and on `main`. `04-04` Tasks 1-2 are complete and green; **Task 3 — the blocking human UI checkpoint — is NOT STARTED** (`autonomous: false`). Both Codex gates are DISCHARGED: `b508f27e` reviewed 2026-08-03 (no BLOCK/HIGH), and the `04-04` review's 2 HIGH were folded at `1fc48dd6` — see `04-REVIEWS.md` | - |
+| 5. Archidekt Bracket Capture | 0/3 | Planned, not started — **Codex review DISCHARGED 2026-08-03 and folded at `af43a4e4`**. The round-10 finding was that `05-03`'s RED-phase gate certified nothing: exact-TRX-name matching cannot see a `[Theory]`'s per-case name suffixes, so both pinned tests are now `[Fact]` | - |
 | 6. Scryfall Throughput | 0/TBD | Not started (inserted 2026-08-01; 2 waves — adaptive pacing, then fallback batching) | - |
-| 7. Cut Lab Workflow UX | 0/6 | Not started (adopted 2026-08-02 from the unregistered root phase 116). **Gated on plan `04-04`**, which rewrites the same two files. D-1 (step model: option 1, 2 or 3) is open and gates `07-05` |
-| 8. Plan Profile — Checkbox Plan Selection | 0/8 | Planned 2026-08-02, not started. 6 waves. Engine plans `08-01`..`08-06` are independent of Phase 7; `08-07` and `08-08` are **gated on Phase 7**'s reserved wizard slot. `08-08` is `autonomous: false` (human UI checkpoint at 2 viewports) | - |
+| 7. Cut Lab Workflow UX | 0/6 | Planned, not started (adopted 2026-08-02 from the unregistered root phase 116). **Gated on plan `04-04`**, which rewrites the same two files. **D-1 RESOLVED 2026-08-03 as Option 3** (wizard + pinned proposal), so `07-05` exists and executes. Codex review folded at `af43a4e4` | - |
+| 8. Plan Profile — Checkbox Plan Selection | 0/8 | Planned 2026-08-02, not started. 6 waves. Engine plans `08-01`..`08-06` are independent of Phase 7; `08-07` and `08-08` are **gated on Phase 7**'s reserved wizard slot. `08-08` is `autonomous: false` (human UI checkpoint at 2 viewports). **Codex plan review DISCHARGED 2026-08-03** — 2 BLOCK + 17 HIGH folded at `af43a4e4`, round 2 converged (0 BLOCK / 0 HIGH); execute-ready | - |
 
 ---
 
@@ -526,3 +583,7 @@ throughput phase inserted from the Phase 111.1 fallout. Ratify CLSF-01 / CLSF-02
 *Re-planned: 2026-07-26 — scope widened from 2 phases to 5; see PROJECT.md Decisions Log*
 *Amended 2026-08-01 — Phase 6 (Scryfall Throughput) inserted by user decision after Phase 111.1's
 200ms->500ms pacing change; see the Phase 6 block for the measurement that motivates both waves.*
+*Amended 2026-08-03 — Phase 7's detail section was missing entirely (the file jumped Phase 6 → Phase 8),
+so `roadmap.get-phase 7` returned malformed_roadmap. Section written from `07-CONTEXT.md` and the phase
+README; D-1 recorded as RESOLVED = Option 3; Phase 7 added to the Release Posture table; progress rows
+for Phases 4, 5, 7 and 8 refreshed against the discharged Codex gates.*
