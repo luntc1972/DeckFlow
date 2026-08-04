@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
+import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
 
 const oversizedPool = [
   'Commander',
@@ -63,6 +64,7 @@ test('individual card pills lock cards and Lock All stays readable in Commander 
     await page.locator('#cut-lab-deck-text').fill(oversizedPool);
     await page.locator('#cut-lab-primary-plan').fill('Protect the control shell.');
     await page.getByRole('button', { name: 'Import pool' }).click();
+    await expandCutLabSection(page, 'cut-lab-section-lock-pool');
     await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
 
     const group = page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' });
@@ -120,6 +122,7 @@ test('card modal meta shows power and toughness for creature cards', async ({ pa
     await page.locator('#cut-lab-deck-text').fill(oversizedPool);
     await page.locator('#cut-lab-primary-plan').fill('Protect the control shell.');
     await page.getByRole('button', { name: 'Import pool' }).click();
+    await expandCutLabSection(page, 'cut-lab-section-lock-pool');
     await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
 
     const commanderTrigger = page.locator('button[data-cutlab-card-open="Zur the Enchanter"]').first();
@@ -141,6 +144,7 @@ test('structural evidence pills lock the canonical pool checkbox and inert spans
     await page.locator('#cut-lab-deck-text').fill(oversizedPool);
     await page.locator('#cut-lab-primary-plan').fill('Protect the control shell.');
     await page.getByRole('button', { name: 'Import pool' }).click();
+    await expandCutLabSection(page, 'cut-lab-section-lock-pool');
     await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
 
     const findingsSection = page.locator('[data-cut-lab-structural-findings]');
