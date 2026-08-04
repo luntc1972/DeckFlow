@@ -29,9 +29,9 @@
   ],
   "blockers": [
     {
-      "description": "The end-of-branch review produced 4 severity-ranked findings. Only Finding 1 survived the context clear in recoverable detail; Findings 2-4 were never written to a file and are LOST. They must be re-derived before shipping.",
+      "description": "The end-of-branch review produced 4 severity-ranked findings; only Finding 1 survived the context clear in full detail. Two of the rest are recoverable from project memory as consciously ACCEPTED findings of the earlier P0/P1 review — (a) the sitemap omits Request.PathBase, latent because DeckFlow serves from root on Render, and (b) the help-visibility predicate is restated in test doubles at HelpControllerTests.cs:24 and SitemapControllerTests.cs:200. Do not re-raise those two as new. At most one finding is genuinely unaccounted for, and the un-reviewed surface is the P2 commits 5aee8b2f, 282d4074, 869ae86e.",
       "type": "technical",
-      "workaround": "Re-run the review from this worktree and WRITE THE OUTPUT TO A FILE: codex review --base main -c model=\"gpt-5.6-sol\" -c model_reasoning_effort=\"low\" (note: Codex is out of credits until 2026-08-10 09:48 — use caveman:cavecrew-reviewer meanwhile)."
+      "workaround": "Re-review main..HEAD from this worktree and WRITE THE OUTPUT TO A FILE. Codex is out of credits until 2026-08-10 09:48 — do not retry it, do not auto-fall-back; use caveman:cavecrew-reviewer meanwhile."
     }
   ],
   "async_jobs": [],
