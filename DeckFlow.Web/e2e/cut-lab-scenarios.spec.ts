@@ -168,7 +168,10 @@ test('saves a named scenario, then restores the saved session after a fresh impo
   await expect(page.locator('input[data-cut-lab-goal="commander"]')).toHaveValue('3');
   await expect(page.locator('#cut-lab-primary-plan')).toHaveValue(freshPrimaryPlan);
 
-  await getScenarioRow(page, scenarioName).getByRole('button', { name: 'Load' }).click();
+  await Promise.all([
+    page.waitForNavigation(),
+    getScenarioRow(page, scenarioName).getByRole('button', { name: 'Load' }).click(),
+  ]);
 
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
