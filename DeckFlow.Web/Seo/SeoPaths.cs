@@ -35,6 +35,7 @@ public static class SeoPaths
         new("/deck-history", true, true),
         new("/cut-lab", true, true),
         new("/content-kb", false, true),
+        new("/deckflow-bridge", true, false),
         new("/help", true, false),
         new("/about", true, false),
         new("/feedback", true, false),

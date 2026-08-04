@@ -14,7 +14,7 @@ Moxfield's edge blocks requests from server / datacenter IP ranges. When that ha
 
 ## Install
 
-1. Open `/extension-install.html` (linked from the Moxfield URL hints in the app).
+1. Open `/deckflow-bridge` (linked from the Moxfield URL hints in the app).
 2. Download the ZIP from that page.
 3. Unzip it locally.
 4. Load it unpacked via `chrome://extensions` or `edge://extensions` (enable Developer mode first).

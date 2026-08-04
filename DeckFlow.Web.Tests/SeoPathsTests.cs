@@ -31,6 +31,14 @@ public sealed class SeoPathsTests
     }
 
     [Fact]
+    public void DeckFlowBridge_is_an_indexable_non_tool_page()
+    {
+        Assert.Contains("/deckflow-bridge", SeoPaths.Indexable);
+        Assert.DoesNotContain("/deckflow-bridge", SeoPaths.Tools);
+        Assert.False(SeoPaths.IsShareablePage("/deckflow-bridge"));
+    }
+
+    [Fact]
     public void ContentKb_returns_webpage_and_breadcrumb_structured_data()
     {
         var json = StructuredDataBuilder.ForPath(

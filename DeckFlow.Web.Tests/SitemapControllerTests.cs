@@ -66,6 +66,7 @@ public sealed class SitemapControllerTests
 
         Assert.Contains("https://deckflow.test/", urls);
         Assert.Contains("https://deckflow.test/help", urls);
+        Assert.Contains("https://deckflow.test/deckflow-bridge", urls);
         Assert.DoesNotContain("https://deckflow.test/content-kb", urls);
         Assert.Contains("https://deckflow.test/feedback", urls);
         Assert.Contains("https://deckflow.test/manabase", urls);
