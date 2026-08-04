@@ -32,6 +32,17 @@ const themes = [
   { name: 'temur', cookie: 'site-temur.css' },
 ] as const;
 
+const workflowComponentThemes = [
+  { name: 'classic', cookie: 'site.css' },
+  { name: 'azorius', cookie: 'site-azorius.css' },
+  { name: 'nyx', cookie: 'site-nyx.css' },
+] as const;
+
+const workflowViewports = [
+  { name: 'desktop', width: 1440, height: 900 },
+  { name: 'mobile', width: 390, height: 844 },
+] as const;
+
 const oversizedPool = [
   'Commander',
   '1 Zur the Enchanter',
@@ -77,9 +88,10 @@ const importPool = async (page: Page): Promise<void> => {
   await page.locator('#cut-lab-primary-plan').fill('Protect the control shell, then trim to the cleanest Zur line.');
   await page.locator('#cut-lab-secondary-plan').fill('Keep the fast mana package intact.');
   await page.locator('input[name="Bracket"][value="4"]').check();
-  await page.locator('input[name="PlayExperience"][value="Focused"]').check();
+  await page.locator('input[name="PlayExperience"][value="Focused"]').check({ force: true });
   await page.getByRole('button', { name: 'Import pool' }).click();
 
+  await page.getByRole('tab', { name: 'Process' }).click();
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
   await page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' }).locator(':scope > summary').click();
   await expect(page.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
@@ -96,6 +108,8 @@ const ensureDetailsOpen = async (details: Locator): Promise<void> => {
 };
 
 const ensureCutRoundsVisible = async (page: Page): Promise<void> => {
+  await page.getByRole('tab', { name: 'Decide' }).click();
+  await expect(page.locator('#cut-lab-section-cut-rounds')).toHaveAttribute('open', '');
   const findings = page.locator('[data-cut-lab-structural-findings]');
   await expect(findings).toBeVisible();
 
@@ -453,5 +467,26 @@ test('keeps the Cut Lab named elements readable across every supported theme', a
     await assertFocusIndicatorContrast(theme.name, 'Lock All lands pill', page, lockAllPill, 3.0);
     await assertFocusIndicatorContrast(theme.name, 'Lands role chip', page, roleChip, 3.0);
     await assertFocusIndicatorContrast(theme.name, 'Fast mana package toggle', page, packageToggle, 3.0);
+  }
+});
+
+test('keeps intake and progress components readable at workflow viewports', async ({ page }) => {
+  for (const viewport of workflowViewports) {
+    await page.setViewportSize(viewport);
+
+    for (const theme of workflowComponentThemes) {
+      await page.context().clearCookies();
+      await page.context().addCookies([{ name: 'deckflow-theme', value: theme.cookie, url: baseUrl }]);
+      await page.goto('/cut-lab');
+      await page.evaluate(() => window.localStorage.clear());
+
+      await importPool(page);
+      const intakeSummary = page.locator('.cutlab-intake-summary');
+      await assertContrastFloor(`${theme.name} ${viewport.name}`, 'intake summary', intakeSummary, 4.5);
+
+      await ensureCutRoundsVisible(page);
+      const progressStrip = page.locator('.cutlab-progress[data-cut-lab-sticky-target]');
+      await assertContrastFloor(`${theme.name} ${viewport.name}`, 'progress strip', progressStrip, 4.5);
+    }
   }
 });
