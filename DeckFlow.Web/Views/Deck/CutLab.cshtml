@@ -340,10 +340,7 @@
                 <div class="panel-heading">
                     <div>
                         <h2>Lock your pool</h2>
-                        <p class="prompt-size-note">
-                            <span data-cut-lab-lock-count>@Model.PoolStatusText</span>
-                            <span>(protected from any future cut)</span>
-                        </p>
+                        <p class="prompt-size-note">Locked cards are protected from any future cut.</p>
                         <p class="prompt-size-note">@Model.BoardCounts.ToBreakdown()</p>
                         <p class="manabase-help">Assigning a package groups cards for bulk lock/unlock — it doesn't remove them from the pool.</p>
                         <p class="manabase-help">Tick a card to LOCK it — locked cards are protected and never proposed for a cut.</p>
@@ -369,11 +366,6 @@
                         </div>
                     </div>
                 </div>
-                <div class="cutlab-sticky-bar cutlab-sticky-bar--pool">
-                    <span class="cutlab-sticky-bar__count" data-cut-lab-pool-sticky-count>@Model.PoolStatusText</span>
-                    <span class="cutlab-sticky-bar__accepted" data-cut-lab-pool-sticky-breakdown>@Model.BoardCounts.ToBreakdown()</span>
-                </div>
-
             @if (Model.CommanderSelectionRequired)
             {
                 <div class="result-panel nested-panel" data-scroll-on-load>
@@ -891,15 +883,22 @@
                 const int stickyBarTargetDeckSize = 100;
             }
             
-            <div class="cutlab-sticky-bar" data-cut-lab-sticky-target="@stickyBarTargetDeckSize">
-                <span class="cutlab-sticky-bar__locked" data-cut-lab-sticky-locked>@Model.StickyBar.LockedCount locked</span>
-                <span class="cutlab-sticky-bar__current" data-cut-lab-sticky-current>@Model.StickyBar.CurrentCount/@stickyBarTargetDeckSize cards</span>
+            <div class="cutlab-progress cutlab-sticky-bar" data-cut-lab-sticky-target="@stickyBarTargetDeckSize">
+                <span class="cutlab-progress__headline">@Model.BaselineCount → @stickyBarTargetDeckSize cards</span>
+                <span data-cut-lab-sticky-current>@Model.StickyBar.CurrentCount/@stickyBarTargetDeckSize cards</span>
+                <span class="cutlab-progress__bar" role="progressbar" aria-label="Cards remaining in pool" aria-valuemin="0" aria-valuemax="@stickyBarTargetDeckSize" aria-valuenow="@Model.StickyBar.CurrentCount">
+                    <span class="cutlab-progress__fill" data-cut-lab-progress-fill style="width: @Math.Clamp((Model.StickyBar.CurrentCount * 100) / stickyBarTargetDeckSize, 0, 100)%"></span>
+                </span>
                 @if (Model.StickyBar.HasStickyBar)
                 {
-                    <span class="cutlab-sticky-bar__round" data-cut-lab-sticky-round>@Model.StickyBar.RoundLabel</span>
-                    <span class="cutlab-sticky-bar__count" data-cut-lab-sticky-remaining aria-live="polite" aria-atomic="true">@Model.StickyBar.CardsRemainingToCut to cut</span>
-                    <span class="cutlab-sticky-bar__accepted" data-cut-lab-sticky-accepted>@CutLabViewModel.FormatCutsAcceptedSoFar(Model.StickyBar.CutsAcceptedCount)</span>
+                    <span class="cutlab-progress__round" data-cut-lab-sticky-round>@Model.StickyBar.RoundLabel</span>
+                    <span data-cut-lab-sticky-remaining aria-live="polite" aria-atomic="true">@Model.StickyBar.CardsRemainingToCut to cut</span>
+                    <span data-cut-lab-sticky-accepted>@CutLabViewModel.FormatCutsAcceptedSoFar(Model.StickyBar.CutsAcceptedCount)</span>
                 }
+                <span data-cut-lab-sticky-locked>@Model.StickyBar.LockedCount locked</span>
+                <span class="sr-only" data-cut-lab-lock-count>@Model.PoolStatusText</span>
+                <span class="sr-only" data-cut-lab-pool-sticky-count>@Model.PoolStatusText</span>
+                <span class="sr-only" data-cut-lab-pool-sticky-breakdown>@Model.BoardCounts.ToBreakdown()</span>
             </div>
             @if (Model.CurrentActualLands is int actualLands && Model.CurrentTargetLands is double targetLands)
             {
@@ -932,7 +931,6 @@
             @if (Model.Proposal.HasProposal)
             {
                 <div class="cutlab-round-banner">
-                    <p class="cutlab-finding__heading">@Model.Proposal.RoundLabel</p>
                     <p>@Model.Proposal.RoundBannerBody</p>
                 </div>
 
