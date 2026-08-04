@@ -160,6 +160,21 @@ public sealed class PageMetadataViewTests
         Assert.Contains("<meta property=\"og:url\" content=\"@canonicalUrl\" />", content, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Home_lede_names_commander_cedh_and_the_core_deck_capabilities()
+    {
+        var content = ReadView("Deck", "Home.cshtml");
+
+        Assert.Contains("Magic: The Gathering", content, StringComparison.Ordinal);
+        Assert.Contains("Commander", content, StringComparison.Ordinal);
+        Assert.Contains("cEDH", content, StringComparison.Ordinal);
+        Assert.Contains("mana base analysis", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("bracket checking", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("deck comparison", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("deck primers", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("version tracking", content, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string ReadView(string folder, string file)
         => File.ReadAllText(Path.Combine(
             AppContext.BaseDirectory,
