@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: Phase 4 — Functional-Twins Detector — **COMPLETE 2026-08-03** (all 4 plans, all gates)
-current_plan: none in flight — next is Phase 5 (execute-ready), Phase 7 (now ungated) or Phase 8 (execute-ready)
-status: phase-complete
-stopped_at: 2026-08-03 — 04-04 Task 3 human UI checkpoint run and APPROVED on a real 132-card Kinnan cEDH pool; Phase 4 closed
-last_updated: "2026-08-04T00:55:00.000Z"
+current_phase: Phase 7 — Cut Lab Workflow UX (executing, 3 of 6 plans)
+current_plan: `07-04` in flight — intake collapse + progress strip; Task 5 is a HUMAN UAT checkpoint
+status: executing
+stopped_at: 2026-08-03 — `07-03` wired the step tabs; gates G-1 and G-2 now PASS on both viewports, G-3/G-4 still RED as designed (07-04/07-05 targets)
+last_updated: "2026-08-04T02:15:00.000Z"
 last_activity: 2026-08-03
 progress:
   total_phases: 10
   completed_phases: 5
   total_plans: 34
-  completed_plans: 25
-  percent: 62
+  completed_plans: 28
+  percent: 66
 ---
 
 > ⚠ **Corrected 2026-08-01. This file had been stale since 2026-07-29** and claimed Phase 3 was
