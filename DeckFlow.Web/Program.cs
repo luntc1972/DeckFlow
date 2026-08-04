@@ -227,6 +227,16 @@ public partial class Program
             app.UseDeckFlowSecurityHeaders();
 
             app.UseHttpsRedirection();
+            app.Use(async (context, next) =>
+            {
+                if (context.Request.Path.Equals("/extension-install.html", StringComparison.OrdinalIgnoreCase))
+                {
+                    context.Response.Redirect("/deckflow-bridge", permanent: true);
+                    return;
+                }
+
+                await next();
+            });
             app.UseStaticFiles();
             app.UseRouting();
             app.UseAnalyticsMiddleware();   // D-12: after UseRouting (endpoint resolved), before MapControllers

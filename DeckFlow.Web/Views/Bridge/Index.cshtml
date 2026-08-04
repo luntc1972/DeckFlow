@@ -1,0 +1,36 @@
+@{
+    ViewData["Title"] = "Install the DeckFlow Bridge Extension";
+    ViewData["Description"] = "Install DeckFlow Bridge to import Moxfield decks from your logged-in browser when direct deck imports are unavailable.";
+}
+
+<section class="hero">
+    <h1>Install the DeckFlow Bridge extension</h1>
+    <p class="lede">Browsers do not allow this site to install the extension automatically. Download it, load it unpacked, then return to DeckFlow and retry the import.</p>
+    <p><a class="run-button" href="/extensions/deckflow-bridge.zip" download>Download the DeckFlow Bridge (.zip)</a></p>
+</section>
+
+<section class="result-panel">
+    <h2>Current status</h2>
+    <p>Load-unpacked only for now — no Chrome Web Store listing yet.</p>
+    <p>The DeckFlow bridge uses an allowed-origins list in the extension settings. Version 0.1.1 and later ship with <code>deckflow.gg</code> and localhost already allowed, so the public site works out of the box. Only add an origin manually if you run DeckFlow on some other host.</p>
+</section>
+
+<section class="result-panel">
+    <h2>Install steps</h2>
+    <ol>
+        <li>Click Download above to save <code>deckflow-bridge.zip</code>.</li>
+        <li>Unzip it anywhere on your machine.</li>
+        <li>In Chrome or Edge, open <code>chrome://extensions</code>.</li>
+        <li>Turn on <strong>Developer mode</strong>.</li>
+        <li>Click <strong>Load unpacked</strong>.</li>
+        <li>Select the unzipped <code>deckflow-bridge</code> folder.</li>
+        <li>On the public <code>deckflow.gg</code> site this is all you need. If you run DeckFlow on another host, open the extension's details page &rarr; <strong>Extension options</strong> and add that origin to the allow list.</li>
+        <li>Return to DeckFlow and submit the Moxfield URL again.</li>
+    </ol>
+</section>
+
+<section class="result-panel">
+    <h2>What it does</h2>
+    <p>The DeckFlow Bridge fetches the Moxfield deck in your logged-in browser session when the DeckFlow server cannot reach it directly, then hands the deck data back to DeckFlow so the normal import flow can continue.</p>
+    <p>The bridge injects broadly, but it only responds to origins you explicitly allow in extension options.</p>
+</section>

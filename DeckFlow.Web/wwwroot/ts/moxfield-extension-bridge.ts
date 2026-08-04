@@ -55,7 +55,7 @@ const createExtensionRequestId = (): string => {
   return `deckflow-extension-${extensionRequestCounter}`;
 };
 
-const getExtensionInstallUrl = (): string => document.body.dataset.deckflowExtensionInstallUrl ?? '/extension-install.html';
+const getExtensionInstallUrl = (): string => document.body.dataset.deckflowExtensionInstallUrl ?? '/deckflow-bridge';
 
 const isMobileBrowser = (): boolean => {
   const userAgentData = (navigator as any).userAgentData as { mobile?: boolean } | undefined;
