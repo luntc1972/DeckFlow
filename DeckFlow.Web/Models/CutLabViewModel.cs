@@ -740,6 +740,7 @@ public sealed record CutLabViewModel
                 FindingSummary = findingSummary,
                 FindingChips = findingChips,
                 DeltaUnavailableMessage = CutLabMessages.NoChangeMessage,
+                GlanceLine = ComposeProposalGlance(null, CutLabMessages.NoChangeMessage),
                 FloorWarnings = floorWarnings,
             };
         }
@@ -762,8 +763,37 @@ public sealed record CutLabViewModel
             ChangedDeltaLines = changedDeltaLines,
             FullDeltaLines = fullDeltaLines,
             ChangedFamilyCount = proposalDeltas.ChangedFamilyCount,
+            GlanceLine = ComposeProposalGlance(proposalDeltas, CutLabMessages.NoChangeMessage),
             FloorWarnings = floorWarnings,
         };
+    }
+
+    /// <summary>Builds the compact, server-authored proposal summary used by the pinned decide header.</summary>
+    public static string ComposeProposalGlance(CutLabProposalDeltas? proposalDeltas, string deltaUnavailableMessage)
+    {
+        if (proposalDeltas is null)
+        {
+            return deltaUnavailableMessage;
+        }
+
+        IReadOnlyList<CutLabMetricDelta> largestDeltas = proposalDeltas.Deltas
+            .Where(delta => delta.IsMeaningful)
+            .OrderByDescending(delta => Math.Abs(delta.Delta))
+            .Take(2)
+            .ToArray();
+        if (largestDeltas.Count == 0)
+        {
+            return $"{proposalDeltas.ChangedFamilyCount} of 7 deck numbers move";
+        }
+
+        return $"{proposalDeltas.ChangedFamilyCount} of 7 deck numbers move · {string.Join(" · ", largestDeltas.Select(FormatGlanceDelta))}";
+    }
+
+    private static string FormatGlanceDelta(CutLabMetricDelta delta)
+    {
+        string sign = delta.Delta < 0 ? "−" : "+";
+        string suffix = delta.Unit == CutLabMetricUnit.Percent ? "pt" : string.Empty;
+        return $"{delta.Label} {sign}{Math.Abs(delta.Delta):0.##}{suffix}";
     }
 
     private static IReadOnlyList<CutLabDeltaLineView> BuildDeltaLines(
@@ -1316,6 +1346,9 @@ public sealed record CutLabProposalView
 
     /// <summary>Fallback copy shown when the proposal renders without delta data.</summary>
     public string DeltaUnavailableMessage { get; init; } = string.Empty;
+
+    /// <summary>Server-authored compact summary for the pinned proposal header.</summary>
+    public string GlanceLine { get; init; } = string.Empty;
 
     /// <summary>Non-blocking floor-warning copy for the proposed cut.</summary>
     public IReadOnlyList<string> FloorWarnings { get; init; } = [];

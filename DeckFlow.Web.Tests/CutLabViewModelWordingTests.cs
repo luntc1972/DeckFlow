@@ -127,6 +127,29 @@ public sealed class CutLabViewModelWordingTests
     }
 
     [Fact]
+    public void ComposeProposalGlance_WithMeaningfulDeltas_BuildsChangedFamilyCountAndTwoLargestMoves()
+    {
+        string actual = CutLabViewModel.ComposeProposalGlance(new CutLabProposalDeltas
+        {
+            ChangedFamilyCount = 3,
+            Deltas =
+            [
+                new CutLabMetricDelta { Label = "Ramp", Delta = -1, Unit = CutLabMetricUnit.Cards, IsMeaningful = true },
+                new CutLabMetricDelta { Label = "Turn-3 odds", Delta = -2, Unit = CutLabMetricUnit.Percent, IsMeaningful = true },
+                new CutLabMetricDelta { Label = "Flood risk", Delta = 1, Unit = CutLabMetricUnit.Percent, IsMeaningful = true },
+            ],
+        }, "Metrics are unavailable.");
+
+        Assert.Equal("3 of 7 deck numbers move · Turn-3 odds −2pt · Ramp −1", actual);
+    }
+
+    [Fact]
+    public void ComposeProposalGlance_WithoutDeltas_ReturnsDeltaUnavailableMessage()
+    {
+        Assert.Equal("Metrics are unavailable.", CutLabViewModel.ComposeProposalGlance(null, "Metrics are unavailable."));
+    }
+
+    [Fact]
     public void From_BuildsIntakeSummaryFromResolvedCommanderAndDeclaredIntent()
     {
         var request = new CutLabRequest

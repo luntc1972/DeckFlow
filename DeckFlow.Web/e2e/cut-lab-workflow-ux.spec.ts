@@ -132,3 +132,44 @@ test('G-4 collapses intake after import and exposes the commander summary', asyn
   await commanderSummary.scrollIntoViewIfNeeded();
   await expect(commanderSummary).toBeInViewport();
 });
+
+test('G-5 keeps the complete Accept button visible and hit-testable while Decide evidence scrolls', async ({ page }) => {
+  await importPool(page);
+
+  const decideTab = page.locator('[role="tab"][aria-label="Decide"]');
+  await decideTab.click();
+  await expect(decideTab).toHaveAttribute('aria-selected', 'true');
+  const panelId = await decideTab.getAttribute('aria-controls');
+  expect(panelId).toBeTruthy();
+  await page.locator(`#${panelId!}`).evaluate((panel) => panel.scrollIntoView({ block: 'end' }));
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+
+  const acceptButton = page.getByRole('button', { name: 'Accept cut' });
+  await expect(acceptButton).toBeVisible();
+  if (page.viewportSize()?.width === 390) {
+    const headingLineCount = await page.locator('.cutlab-proposal__pinned-row .cutlab-proposal__heading').evaluate((heading) => {
+      const cardButton = heading.querySelector('button');
+      if (cardButton) cardButton.textContent = 'Sword of Feast and Famine';
+      const range = document.createRange();
+      range.selectNodeContents(heading);
+      return new Set(Array.from(range.getClientRects(), rect => Math.round(rect.top))).size;
+    });
+    expect(headingLineCount, 'long proposed card name wraps within two heading lines').toBeLessThanOrEqual(2);
+  }
+  const result = await acceptButton.evaluate((button) => {
+    const rect = button.getBoundingClientRect();
+    const offset = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cutlab-pinned-offset')) || 0;
+    const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    return {
+      y: rect.y,
+      bottom: rect.y + rect.height,
+      innerHeight: window.innerHeight,
+      stickyOffset: offset,
+      isHit: hit === button || Boolean(hit && button.contains(hit)),
+    };
+  });
+
+  expect(result.y, 'Accept button starts below the stacked sticky offset').toBeGreaterThanOrEqual(result.stickyOffset);
+  expect(result.bottom, 'Accept button is fully inside the viewport').toBeLessThanOrEqual(result.innerHeight);
+  expect(result.isHit, 'Accept button centre is not covered by another sticky layer').toBe(true);
+});
