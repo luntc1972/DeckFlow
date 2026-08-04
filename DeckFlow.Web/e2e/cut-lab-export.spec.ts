@@ -58,9 +58,9 @@ const waitForCutRounds = async (page: Page): Promise<void> => {
   await expect(page.locator('.cutlab-proposal')).toBeVisible();
 };
 
-const getExportTab = (page: Page): Locator => page.locator('#cut-lab-step-tab-4');
+const getExportTab = (page: Page): Locator => page.locator('#cut-lab-step-tab-5');
 
-const getExportPanel = (page: Page): Locator => page.locator('#cut-lab-step-panel-4');
+const getExportPanel = (page: Page): Locator => page.locator('#cut-lab-step-panel-5');
 
 const cutToTarget = async (page: Page): Promise<void> => {
   // At exactly 100 the sticky remaining counter is removed and the proposal shows the

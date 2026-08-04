@@ -47,9 +47,9 @@ let heldLock: LockHandle | null = null;
 
 test.describe.configure({ mode: 'serial' });
 
-const getExportTab = (page: Page): Locator => page.locator('#cut-lab-step-tab-4');
+const getExportTab = (page: Page): Locator => page.locator('#cut-lab-step-tab-5');
 
-const getExportPanel = (page: Page): Locator => page.locator('#cut-lab-step-panel-4');
+const getExportPanel = (page: Page): Locator => page.locator('#cut-lab-step-panel-5');
 
 const getMainStateInput = (page: Page): Locator =>
   page.locator('form[data-cache-key="cut-lab"] input[name="CutLabStateJson"]');

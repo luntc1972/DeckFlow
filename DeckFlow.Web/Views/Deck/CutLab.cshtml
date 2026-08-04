@@ -19,8 +19,9 @@
         [
             new WorkflowStepTab(1, "Process", IsComplete: Model.HasResult),
             new WorkflowStepTab(2, "Decide", IsComplete: cardsRemainingToTarget == 0),
-            new WorkflowStepTab(3, "Goals", IsComplete: true),
-            new WorkflowStepTab(4, "Export", IsComplete: Model.Export.HasExport, IsEnabled: currentCount == 100, SubmitFormId: "cut-lab-export-form"),
+            new WorkflowStepTab(3, "Plan", IsComplete: true),
+            new WorkflowStepTab(4, "Goals", IsComplete: true),
+            new WorkflowStepTab(5, "Export", IsComplete: Model.Export.HasExport, IsEnabled: currentCount == 100, SubmitFormId: "cut-lab-export-form"),
         ]);
     string DeltaValueClass(CutLabMetricDirection direction) => direction switch
     {
@@ -855,6 +856,9 @@
         </section>
 
         <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-3" aria-labelledby="cut-lab-step-tab-3">
+        </section>
+
+        <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-4" aria-labelledby="cut-lab-step-tab-4">
             <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-goals">
                 <summary class="cutlab-collapsible__summary">Goals</summary>
                 <div class="panel-heading">
@@ -915,7 +919,7 @@
             </details>
         </section>
 
-        <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-4" aria-labelledby="cut-lab-step-tab-4" data-scroll-on-load="@(Model.Export.HasExport ? "true" : null)">
+        <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-5" aria-labelledby="cut-lab-step-tab-5" data-scroll-on-load="@(Model.Export.HasExport ? "true" : null)">
             <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-export">
                 <summary class="cutlab-collapsible__summary">Export</summary>
                 <div class="panel-heading">

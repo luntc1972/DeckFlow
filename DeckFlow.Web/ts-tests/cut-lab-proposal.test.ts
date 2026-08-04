@@ -182,7 +182,7 @@ const buildDecisionFixture = (): void => {
         <summary class="cutlab-collapsible__summary">Lands right now</summary>
         <p data-cut-lab-lands-text>Lands: 37/39 (95%) as your pool stands now (112 cards).</p>
       </details>
-      <button type="button" id="cut-lab-step-tab-4" disabled aria-disabled="true">Export</button>
+      <button type="button" id="cut-lab-step-tab-5" disabled aria-disabled="true">Export</button>
       <div class="cutlab-round-banner">
         <p class="cutlab-finding__heading">Round 1 · Obvious cuts</p>
         <p>Cards flagged by 2 or more structural findings from the section above.</p>
@@ -278,7 +278,7 @@ const buildDecisionFixture = (): void => {
         </div>
       </details>
     </section>
-    <section class="result-panel" id="cut-lab-step-panel-4">
+    <section class="result-panel" id="cut-lab-step-panel-5">
       <form id="cut-lab-export-form">
         <div class="cutlab-export">
           <div class="cutlab-export__summary">
@@ -959,7 +959,7 @@ describe('cut-lab proposal enhancement', () => {
 
   it('toggles the export tab enabled state based on cards remaining after a decision', async () => {
     buildDecisionFixture();
-    const exportTab = document.getElementById('cut-lab-step-tab-4') as HTMLButtonElement | null;
+    const exportTab = document.getElementById('cut-lab-step-tab-5') as HTMLButtonElement | null;
     fetchMock
       .mockResolvedValueOnce({
         ok: true,
@@ -1061,7 +1061,7 @@ describe('cut-lab proposal enhancement', () => {
       exportStatus.innerHTML = '<strong>✅ Card count = 100</strong>';
     }
 
-    const exportTab = document.getElementById('cut-lab-step-tab-4') as HTMLButtonElement | null;
+    const exportTab = document.getElementById('cut-lab-step-tab-5') as HTMLButtonElement | null;
     if (exportTab) {
       exportTab.disabled = false;
       exportTab.setAttribute('aria-disabled', 'false');

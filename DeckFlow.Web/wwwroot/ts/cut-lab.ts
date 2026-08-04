@@ -775,7 +775,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const getExportStepTab = (): HTMLButtonElement | null =>
-    document.getElementById('cut-lab-step-tab-4') as HTMLButtonElement | null;
+    document.getElementById('cut-lab-step-tab-5') as HTMLButtonElement | null;
 
   const getBuildExportSubmit = (): HTMLButtonElement | null =>
     document.querySelector<HTMLButtonElement>('#cut-lab-export-form button[type="submit"]');
