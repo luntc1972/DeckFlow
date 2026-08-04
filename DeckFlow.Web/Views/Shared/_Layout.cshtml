@@ -75,7 +75,8 @@
     var requestPathBase = Context?.Request.PathBase ?? default;
     var requestPath = Context?.Request.Path ?? default;
     var isFeedbackPage = string.Equals(requestPath.Value, "/feedback", StringComparison.OrdinalIgnoreCase);
-    var canonicalUrl = $"{requestScheme}://{requestHost}{requestPathBase}{requestPath}";
+    var canonicalPath = DeckFlow.Web.Seo.SeoPaths.Normalize(requestPath.Value);
+    var canonicalUrl = $"{requestScheme}://{requestHost}{requestPathBase}{canonicalPath}";
     var openGraphImageUrl = $"{requestScheme}://{requestHost}{Url.Content("~/og-image.png")}";
     var rawPageTitle = Convert.ToString(ViewData["Title"]);
     var structuredDataJson = DeckFlow.Web.Seo.StructuredDataBuilder.ForPath(

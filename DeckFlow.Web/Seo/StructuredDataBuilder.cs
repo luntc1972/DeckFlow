@@ -21,11 +21,6 @@ public static class StructuredDataBuilder
 
     private const string SchemaContext = "https://schema.org";
 
-    // The WebSite fallback graph is entirely constant, so serialize it once instead of rebuilding
-    // + reflection-serializing a fresh dictionary on every request that falls through (about/help
-    // index/feedback and any non-indexed page).
-    private static readonly string WebSiteJson = JsonSerializer.Serialize(WebSiteNode(), SerializerOptions);
-
     /// <summary>
     /// Returns a JSON-LD string for the given request path. Never returns null;
     /// unmapped paths get the site-wide WebSite node (legacy behavior).
@@ -46,18 +41,18 @@ public static class StructuredDataBuilder
             : SeoPaths.Tools.Contains(normalized) ? ToolPageGraph(canonicalUrl, baseUrl, name, description)
             : null;
 
-        return graph is null ? WebSiteJson : JsonSerializer.Serialize(graph, SerializerOptions);
+        return JsonSerializer.Serialize(graph ?? WebSiteNode(baseUrl), SerializerOptions);
     }
 
     private static bool IsHelpDetail(string normalized) =>
         normalized.StartsWith("/help/", StringComparison.Ordinal) && normalized.Length > "/help/".Length;
 
-    private static Dictionary<string, object?> WebSiteNode() => new()
+    private static Dictionary<string, object?> WebSiteNode(string baseUrl) => new()
     {
         ["@context"] = SchemaContext,
         ["@type"] = "WebSite",
         ["name"] = "DeckFlow",
-        ["url"] = "https://www.deckflow.gg",
+        ["url"] = $"{baseUrl}/",
         ["description"] = "DeckFlow — Magic: The Gathering deck analysis for cEDH and Commander. Compare, analyze, and generate ChatGPT-ready deck prompts.",
     };
 
