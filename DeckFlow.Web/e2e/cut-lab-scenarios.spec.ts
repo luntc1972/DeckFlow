@@ -147,6 +147,7 @@ test('saves a named scenario, then restores the saved session after a fresh impo
   await expect(getMainStateInput(page)).toHaveValue(/"name":"Rhystic Study".*"isLocked":true/);
   await expect(getMainStateInput(page)).toHaveValue(/"goals":\{"commanderByTurn":5/);
 
+  await page.locator('details.cutlab-intake > summary').click();
   await page.locator('[data-clear-cache]').click();
   await expect(page.getByRole('heading', { name: 'No pool imported yet' })).toBeVisible({ timeout: 30_000 });
   await clearCutLabSessionCache(page);

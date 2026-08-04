@@ -85,6 +85,7 @@ const importPoolNoJs = async (page: Page): Promise<void> => {
   await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
   await page.getByRole('button', { name: 'Import pool' }).click();
 
+  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 60_000 });
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
 };
@@ -174,11 +175,14 @@ const driveOneJsDecide = async (page: Page): Promise<void> => {
 
 const prepareReviewCapture = async (page: Page): Promise<void> => {
   await importPool(page);
-  await expect(page.locator('[data-cut-lab-sticky-remaining]')).toBeVisible({ timeout: 30_000 });
   await expandMobileCollapsibles(page);
   await createLockedFastManaPackage(page);
+  await page.getByRole('tab', { name: 'Decide' }).click();
+  await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
   await driveOneJsDecide(page);
 
+  await page.getByRole('tab', { name: 'Process' }).click();
+  await expandCutLabSection(page, 'cut-lab-section-competes');
   const landsGroup = page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' });
   await ensureDetailsOpen(landsGroup);
   await expect(landsGroup.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
@@ -187,6 +191,8 @@ const prepareReviewCapture = async (page: Page): Promise<void> => {
   await expect(page.locator('#cut-lab-section-packages')).toHaveAttribute('open', '');
   await expect(page.locator('[data-cut-lab-package-id]').filter({ hasText: 'Fast mana' })).toBeVisible();
 
+  await page.getByRole('tab', { name: 'Decide' }).click();
+  await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
   await page.locator('#cut-lab-section-cut-rounds').scrollIntoViewIfNeeded();
   await expect(page.locator('.cutlab-sticky-bar[data-cut-lab-sticky-target]')).toBeVisible();
   await expect(page.locator('[data-cut-lab-sticky-remaining]')).toBeVisible();
@@ -238,6 +244,8 @@ test('captures cross-theme mobile chrome coverage for Cut Lab navigation and dis
     await page.context().addCookies([{ name: 'deckflow-theme', value: theme.cookie, url: baseUrl }]);
 
     await importPool(page);
+    await page.getByRole('tab', { name: 'Decide' }).click();
+    await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
     await expandMobileCollapsibles(page);
 
     const anchorNav = page.locator('.cutlab-anchor-nav');
@@ -291,6 +299,8 @@ test('captures cross-theme mobile chrome coverage for Cut Lab navigation and dis
     const stickyBarBox = await getBoundingBox(stickyBar, 'Sticky bar');
     expect(stickyBarBox.y, `${theme.name}: sticky bar should start below the anchor nav when both are visible`).toBeGreaterThanOrEqual(stuckNavBox.y + stuckNavBox.height - 1);
 
+    await page.getByRole('tab', { name: 'Process' }).click();
+    await expandCutLabSection(page, 'cut-lab-section-lock-pool');
     await expect(poolFilter).toBeVisible();
     await expect(page.locator('.cutlab-pool-search')).toBeVisible();
     await expect(page.locator('.cutlab-pool-match-count')).toBeVisible();
