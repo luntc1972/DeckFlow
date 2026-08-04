@@ -415,9 +415,9 @@ public sealed class CutLabApiController : ControllerBase
     private static CutLabDecideApiResponse BuildDecideApiResponse(CutLabUiPatchDto patch)
         => new()
         {
-            Patch = patch,
+            Patch = patch with { NextProposal = AddProposalGlance(patch.NextProposal, patch.ProposalDeltas) },
             CutLabStateJson = patch.CutLabStateJson,
-            NextProposal = patch.NextProposal,
+            NextProposal = AddProposalGlance(patch.NextProposal, patch.ProposalDeltas),
             ProposalDeltas = patch.ProposalDeltas,
             FloorWarnings = patch.FloorWarnings,
             CardsRemaining = patch.CardsRemaining,
@@ -425,6 +425,28 @@ public sealed class CutLabApiController : ControllerBase
             StructuralFindings = patch.StructuralFindings,
             ComboDataAvailable = patch.ComboDataAvailable,
             CategoryDataAvailable = patch.CategoryDataAvailable,
+        };
+
+    private static CutLabDecideNextProposalDto AddProposalGlance(
+        CutLabDecideNextProposalDto proposal,
+        CutLabDecideProposalDeltasDto? deltas)
+        => proposal with
+        {
+            GlanceLine = CutLabViewModel.ComposeProposalGlance(
+                deltas is null
+                    ? null
+                    : new CutLabProposalDeltas
+                    {
+                        ChangedFamilyCount = deltas.ChangedFamilyCount,
+                        Deltas = deltas.Deltas.Select(delta => new CutLabMetricDelta
+                        {
+                            Label = delta.Label,
+                            Delta = delta.Delta,
+                            Unit = delta.Unit,
+                            IsMeaningful = delta.IsMeaningful,
+                        }).ToArray(),
+                    },
+                CutLabMessages.NoChangeMessage),
         };
 
     private static string DetermineRoundKey(CutLabState state, CutLabDecideApiRequest request, CutLabRoundPlan roundPlan)

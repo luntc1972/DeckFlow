@@ -939,7 +939,18 @@
                 </div>
 
                 <div class="cutlab-proposal" data-cut-lab-card="@Model.Proposal.CardName" data-cut-lab-round="@Model.Proposal.RoundKey">
-                    <p class="cutlab-proposal__heading">Proposed cut: <button type="button" class="cutlab-card-link" data-cutlab-card-open="@Model.Proposal.CardName">@Model.Proposal.CardName</button></p>
+                    <div class="cutlab-proposal--pinned">
+                        <div class="cutlab-proposal__pinned-row">
+                            <p class="cutlab-proposal__heading">Proposed cut: <button type="button" class="cutlab-card-link" data-cutlab-card-open="@Model.Proposal.CardName">@Model.Proposal.CardName</button></p>
+                            <p class="cutlab-proposal__glance">@Model.Proposal.GlanceLine</p>
+                        </div>
+                        <div class="cutlab-proposal__pinned-actions">
+                            @{ await RenderDecisionForm(Model.Proposal.CardName, Model.Proposal.RoundKey, "accept", "Accept cut", "accept", $"Accept cut for {Model.Proposal.CardName}"); }
+                            @{ await RenderDecisionForm(Model.Proposal.CardName, Model.Proposal.RoundKey, "reject", "Reject cut", "reject", $"Reject cut for {Model.Proposal.CardName}"); }
+                            @{ await RenderDecisionForm(Model.Proposal.CardName, Model.Proposal.RoundKey, "defer", "Defer decision", "defer", $"Defer cut for {Model.Proposal.CardName}"); }
+                        </div>
+                    </div>
+                    <div class="cutlab-proposal__body">
                     <div class="cutlab-proposal__evidence">
                         <p>@Model.Proposal.FindingSummary</p>
                         @if (Model.Proposal.FindingChips.Count > 0)
@@ -984,10 +995,6 @@
                         }
                     }
 
-                    <div class="cutlab-proposal__actions">
-                        @{ await RenderDecisionForm(Model.Proposal.CardName, Model.Proposal.RoundKey, "accept", "Accept cut", "accept", $"Accept cut for {Model.Proposal.CardName}"); }
-                        @{ await RenderDecisionForm(Model.Proposal.CardName, Model.Proposal.RoundKey, "reject", "Reject cut", "reject", $"Reject cut for {Model.Proposal.CardName}"); }
-                        @{ await RenderDecisionForm(Model.Proposal.CardName, Model.Proposal.RoundKey, "defer", "Defer decision", "defer", $"Defer cut for {Model.Proposal.CardName}"); }
                     </div>
                 </div>
             }

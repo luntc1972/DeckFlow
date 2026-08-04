@@ -50,6 +50,7 @@ interface CutLabUiPatch {
     roundBannerBody: string;
     findingCount: number;
     findingChips: string[];
+    glanceLine?: string;
   };
   proposalDeltas: {
     cardName: string;
@@ -687,6 +688,30 @@ describe('cut-lab proposal enhancement', () => {
     expect(document.querySelector<HTMLElement>('.cutlab-round-banner p:last-child')?.textContent).toBe('Server banner copy wins.');
     expect(document.querySelector<HTMLElement>('.cutlab-delta__sentence')?.textContent).toContain('2.5%');
     expect(document.querySelector<HTMLElement>('.cutlab-delta__value span:last-child')?.textContent).toBe('2.5%');
+  });
+
+  it('renders the server-authored pinned proposal header after a decision patch', async () => {
+    buildDecisionFixture();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ patch: buildPatch({
+        nextProposal: {
+          ...buildPatch().nextProposal,
+          glanceLine: '2 of 7 deck numbers move · Keepable hand −2pt',
+        },
+      }) }),
+    });
+
+    const form = document.querySelector<HTMLFormElement>('form[action="/cut-lab/decide"]');
+    const button = form?.querySelector<HTMLButtonElement>('[data-cut-lab-decision="accept"]');
+    form?.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true, submitter: button ?? undefined }));
+    await flushDecisionSubmit();
+
+    const proposal = document.querySelector<HTMLElement>('.cutlab-proposal');
+    expect(proposal?.querySelector('.cutlab-proposal--pinned')).not.toBeNull();
+    expect(proposal?.querySelector('.cutlab-proposal__pinned-row .cutlab-proposal__glance')?.textContent).toBe('2 of 7 deck numbers move · Keepable hand −2pt');
+    expect(proposal?.querySelectorAll('.cutlab-proposal__pinned-actions form')).toHaveLength(3);
+    expect(proposal?.querySelector('.cutlab-proposal__body .cutlab-proposal__evidence')).not.toBeNull();
   });
 
   it('posts restore decisions and removes the row while updating sticky counts on success', async () => {

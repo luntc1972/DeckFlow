@@ -103,6 +103,7 @@ interface CutLabDecisionNextProposal {
   roundBannerBody: string;
   findingCount: number;
   findingChips: string[];
+  glanceLine?: string;
 }
 
 interface CutLabDecisionMetricDelta {
@@ -931,6 +932,29 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
   const getProposalCard = (): HTMLDivElement | null =>
     document.querySelector<HTMLDivElement>('.cutlab-proposal');
+
+  const updatePinnedProposalOffset = (): void => {
+    const pinnedProposal = document.querySelector<HTMLElement>('.cutlab-proposal[data-cut-lab-card] .cutlab-proposal--pinned');
+    if (!pinnedProposal) {
+      return;
+    }
+
+    const stickyCandidates = [
+      document.querySelector<HTMLElement>('nav.cutlab-anchor-nav'),
+      document.querySelector<HTMLElement>('.cutlab-sticky-bar[data-cut-lab-sticky-target]'),
+    ];
+    const offset = stickyCandidates.reduce((total, candidate) => {
+      if (!candidate) {
+        return total;
+      }
+
+      const position = window.getComputedStyle(candidate).position;
+      return position === 'sticky' || position === 'fixed'
+        ? total + candidate.getBoundingClientRect().height
+        : total;
+    }, 0);
+    document.documentElement.style.setProperty('--cutlab-pinned-offset', `${offset}px`);
+  };
 
   const getLockedOvershootAdvisory = (): HTMLDivElement | null =>
     document.querySelector<HTMLDivElement>('[data-cut-lab-locked-overshoot-advisory]');
@@ -2589,11 +2613,28 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     proposal.dataset.cutLabRound = nextProposal.roundKey;
     proposal.textContent = '';
 
+    const pinnedHeader = document.createElement('div');
+    pinnedHeader.className = 'cutlab-proposal--pinned';
+    const pinnedRow = document.createElement('div');
+    pinnedRow.className = 'cutlab-proposal__pinned-row';
     const heading = document.createElement('p');
     heading.className = 'cutlab-proposal__heading';
     heading.appendChild(document.createTextNode('Proposed cut: '));
     heading.appendChild(createCardOpenButton(nextProposal.cardName, 'cutlab-card-link'));
-    proposal.appendChild(heading);
+    pinnedRow.appendChild(heading);
+    pinnedRow.appendChild(createTextElement('p', 'cutlab-proposal__glance', nextProposal.glanceLine ?? cutLabDecisionErrorCopy));
+    pinnedHeader.appendChild(pinnedRow);
+
+    const actions = document.createElement('div');
+    actions.className = 'cutlab-proposal__pinned-actions';
+    actions.appendChild(createDecisionForm('accept', 'Accept cut', 'cutlab-decision-btn--accept', nextProposal.cardName, nextProposal.roundKey, patch.cutLabStateJson, antiForgeryToken));
+    actions.appendChild(createDecisionForm('reject', 'Reject cut', 'cutlab-decision-btn--reject', nextProposal.cardName, nextProposal.roundKey, patch.cutLabStateJson, antiForgeryToken));
+    actions.appendChild(createDecisionForm('defer', 'Defer decision', 'cutlab-decision-btn--defer', nextProposal.cardName, nextProposal.roundKey, patch.cutLabStateJson, antiForgeryToken));
+    pinnedHeader.appendChild(actions);
+    proposal.appendChild(pinnedHeader);
+
+    const body = document.createElement('div');
+    body.className = 'cutlab-proposal__body';
 
     const evidence = document.createElement('div');
     evidence.className = 'cutlab-proposal__evidence';
@@ -2614,7 +2655,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       evidence.appendChild(chips);
     }
 
-    proposal.appendChild(evidence);
+    body.appendChild(evidence);
 
     if (patch.proposalDeltas) {
       const changedLines = patch.proposalDeltas.deltas.filter(delta => delta.isMeaningful);
@@ -2624,7 +2665,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       changedLines.forEach(delta => {
         appendDeltaLine(deltaSummary, nextProposal.cardName, delta);
       });
-      proposal.appendChild(deltaSummary);
+      body.appendChild(deltaSummary);
 
       const details = document.createElement('details');
       details.dataset.cutLabDeltaExpander = '';
@@ -2635,22 +2676,17 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         appendDeltaLine(fullDelta, nextProposal.cardName, delta);
       });
       details.appendChild(fullDelta);
-      proposal.appendChild(details);
+      body.appendChild(details);
     } else {
       const unavailable = document.createElement('div');
       unavailable.className = 'cutlab-finding cutlab-proposal__floor-warning';
       unavailable.appendChild(createTextElement('p', 'cutlab-finding__lead', cutLabDecisionErrorCopy));
-      proposal.appendChild(unavailable);
+      body.appendChild(unavailable);
     }
 
-    renderFloorWarnings(proposal, patch.floorWarnings);
-
-    const actions = document.createElement('div');
-    actions.className = 'cutlab-proposal__actions';
-    actions.appendChild(createDecisionForm('accept', 'Accept cut', 'cutlab-decision-btn--accept', nextProposal.cardName, nextProposal.roundKey, patch.cutLabStateJson, antiForgeryToken));
-    actions.appendChild(createDecisionForm('reject', 'Reject cut', 'cutlab-decision-btn--reject', nextProposal.cardName, nextProposal.roundKey, patch.cutLabStateJson, antiForgeryToken));
-    actions.appendChild(createDecisionForm('defer', 'Defer decision', 'cutlab-decision-btn--defer', nextProposal.cardName, nextProposal.roundKey, patch.cutLabStateJson, antiForgeryToken));
-    proposal.appendChild(actions);
+    renderFloorWarnings(body, patch.floorWarnings);
+    proposal.appendChild(body);
+    updatePinnedProposalOffset();
   };
 
   const renderLandDisclosure = (patch: CutLabUiPatch): void => {
@@ -4450,6 +4486,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     attachSectionCollapsePersistence();
     attachStepTabHandler();
     attachAnchorNavHandler();
+    updatePinnedProposalOffset();
+    window.addEventListener('resize', updatePinnedProposalOffset);
+    window.addEventListener('orientationchange', updatePinnedProposalOffset);
     cardTextByCardNameCache = null;
     activeModalCardName = null;
 
