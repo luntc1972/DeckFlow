@@ -77,7 +77,7 @@ test('G-1 preserves the five-slot wizard contract in document order', async ({ p
 test('G-2 activates exactly one panel through native tab dispatch', async ({ page }) => {
   await importPool(page);
 
-  const tabs = page.getByRole('tab').filter({ hasNot: page.locator('[disabled]') });
+  const tabs = page.locator('[role="tab"]:not([aria-disabled="true"])');
   const tabCount = await tabs.count();
   expect(tabCount).toBeGreaterThan(0);
 
@@ -103,25 +103,26 @@ test('G-2 activates exactly one panel through native tab dispatch', async ({ pag
 test('G-3 keeps Decide page bulk below the desktop and mobile headroom thresholds', async ({ page }) => {
   await importPool(page);
 
-  await page.evaluate(() => {
-    const decideTab = Array.from(document.querySelectorAll<HTMLElement>('[role="tab"]'))
-      .find((button) => button.textContent?.trim() === 'Decide');
-    if (!decideTab || decideTab.matches('[disabled]')) return;
-    decideTab.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-  });
-
-  const height = await page.evaluate(() => document.documentElement.scrollHeight);
+  const decideTab = page.locator('[role="tab"][aria-label="Decide"]');
+  await expect(decideTab).toBeVisible();
+  await expect(decideTab).toHaveAttribute('aria-disabled', 'false');
+  await decideTab.click();
+  await expect(decideTab).toHaveAttribute('aria-selected', 'true');
+  const panelId = await decideTab.getAttribute('aria-controls');
+  expect(panelId, 'Decide tab should reference a panel with aria-controls').toBeTruthy();
+  const height = await page.locator(`#${panelId!}`).evaluate((panel) => panel.scrollHeight);
   const limit = page.viewportSize()?.width === 390 ? 4_000 : 3_000;
-  expect(height, `Decide page height should be below ${limit}px`).toBeLessThan(limit);
+  expect(height, `Decide panel measured ${height}px, should be below ${limit}px`).toBeLessThan(limit);
 });
 
 test('G-4 collapses intake after import and exposes the commander summary', async ({ page }) => {
   await importPool(page);
 
   const deckTextarea = page.locator('#cut-lab-deck-text');
+  await expect(deckTextarea).toHaveCount(1);
   const intakeIsCollapsed = await page.evaluate(() => {
     const textarea = document.querySelector('#cut-lab-deck-text');
-    if (!textarea) return true;
+    if (!textarea) return false;
     const disclosure = textarea.closest('details');
     return Boolean(disclosure && !disclosure.open);
   });
