@@ -6,6 +6,7 @@
 @model DeckFlow.Web.Models.CutLabViewModel
 @{
     ViewData["Title"] = "Cut Lab";
+    ViewData["Description"] = "Trim an oversized Commander card pool with a structured cut workspace that identifies removable cards, protects locked roles, and exports your finished deck.";
     var isUrl = Model.Request.DeckInputSource == DeckInputSource.PublicUrl;
     var totalStructuralFindings = Model.Findings.Count;
     var cardsRemainingToTarget = Model.StickyBar.CardsRemainingToCut;

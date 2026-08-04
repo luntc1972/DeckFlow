@@ -2,7 +2,8 @@
 @using DeckFlow.Core.History
 @model DeckFlow.Web.Models.DeckHistoryViewModel
 @{
-    ViewData["Title"] = "Deck History";
+    ViewData["Title"] = "MTG Commander Deck Version Tracker";
+    ViewData["Description"] = "Track Commander deck versions in a local history, compare any two snapshots, and get a card-by-card changelog with an AI-ready review prompt.";
     var isUrl = Model.Request.DeckInputSource == DeckInputSource.PublicUrl;
 
     async Task RenderVersionSelect(string id, string name, string label, int? selectedId)
