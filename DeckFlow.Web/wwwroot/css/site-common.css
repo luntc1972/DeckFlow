@@ -5764,3 +5764,26 @@ pre {
 .cache-pill__reset:focus-visible {
   color: var(--ink);
 }
+
+.cutlab-intake {
+  margin-bottom: 1rem;
+}
+
+.cutlab-intake-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.9rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border, #d0d7de);
+  border-radius: 0.5rem;
+  background: var(--panel, #fff);
+}
+
+.cutlab-intake-summary__commander {
+  font-weight: 700;
+}
+
+.cutlab-intake-summary__change {
+  margin-left: auto;
+}

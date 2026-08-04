@@ -97,6 +97,9 @@ public sealed record CutLabViewModel
     /// <summary>Per-board counts used for the shared pool breakdown display.</summary>
     public BoardCounts BoardCounts { get; init; } = new();
 
+    /// <summary>Compact intake details shown after a pool has been imported.</summary>
+    public string IntakeSummaryText { get; init; } = string.Empty;
+
     /// <summary>Commander banned-card names present in the current pool.</summary>
     public IReadOnlyList<string> BannedCardsPresent { get; init; } = [];
 
@@ -349,6 +352,7 @@ public sealed record CutLabViewModel
             SideboardCardCount = result.SideboardCardCount,
             MaybeboardCardCount = result.MaybeboardCardCount,
             BoardCounts = result.BoardCounts,
+            IntakeSummaryText = BuildIntakeSummary(request, result.State, result.BoardCounts, baselineCount),
             BannedCardsPresent = result.BannedCardsPresent,
             IsLegal = result.IsLegal,
             CommanderSelectionRequired = result.CommanderSelectionRequired,
@@ -668,6 +672,28 @@ public sealed record CutLabViewModel
             CardsRemainingToCut = roundPlan?.CardsRemainingToTarget ?? 0,
             CutsAcceptedCount = decisions?.Count(decision => decision.Kind == CutLabDecisionKind.Accepted) ?? 0,
         };
+    }
+
+    private static string BuildIntakeSummary(
+        CutLabRequest request,
+        CutLabState? state,
+        BoardCounts boardCounts,
+        int baselineCount)
+    {
+        string commander = !string.IsNullOrWhiteSpace(request.SelectedCommander)
+            ? request.SelectedCommander
+            : state?.Commander ?? string.Empty;
+        string bracketLabel = request.Bracket switch
+        {
+            1 => "B1 Exhibition",
+            2 => "B2 Core",
+            3 => "B3 Upgraded",
+            4 => "B4 Optimized",
+            5 => "B5 cEDH",
+            _ => "Bracket not set",
+        };
+
+        return $"{commander} · {baselineCount} cards · {bracketLabel} · {request.PlayExperience} · {boardCounts.ToBreakdown()}";
     }
 
     private static CutLabProposalView BuildProposal(
