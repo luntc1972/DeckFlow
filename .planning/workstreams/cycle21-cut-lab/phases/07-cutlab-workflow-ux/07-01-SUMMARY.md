@@ -5,8 +5,8 @@
 - Added `DeckFlow.Web/e2e/cut-lab-workflow-ux.spec.ts` with four independent gates:
   five-slot DOM order, native-dispatch tab activation, page-height headroom, and
   collapsed intake/commander summary.
-- Reused the 17-row fixture and the `setToolEnabled` / admin-lock setup from
-  `cut-lab-smoke.spec.ts`.
+- Duplicated the 17-row pool fixture inline from `cut-lab-smoke.spec.ts`
+  byte-identically, and reused its `setToolEnabled` / admin-lock setup.
 - Preserved `test.describe.configure({ mode: 'serial' })`.
 
 ## Pre-change gate failures
@@ -42,11 +42,9 @@ Error: expect(received).resolves.toEqual(expected) // deep equality
 ### G-2
 
 ```text
-Error: expect(locator).toHaveAttribute(expected) failed
+Error: expect(received).not.toEqual(expected) // deep equality
 
-Locator:  getByRole('tab').filter({ hasNot: locator('[disabled]') }).first()
-Expected: "true"
-Received: "false"
+Expected: not ["false", "true", "false", "false"]
 
 2 failed
   [chromium-desktop] › G-2 activates exactly one panel through native tab dispatch
@@ -58,10 +56,14 @@ Received: "false"
 ```text
 Error: Decide page height should be below 3000px
 
+expect(received).toBeLessThan(expected)
+
 Expected: < 3000
 Received:   10735
 
 Error: Decide page height should be below 4000px
+
+expect(received).toBeLessThan(expected)
 
 Expected: < 4000
 Received:   16924
@@ -70,6 +72,10 @@ Received:   16924
   [chromium-desktop] › G-3 keeps Decide page bulk below the desktop and mobile headroom thresholds
   [chromium-mobile] › G-3 keeps Decide page bulk below the desktop and mobile headroom thresholds
 ```
+
+The observed 10,735px desktop and 16,924px mobile heights exceed the 07-CONTEXT
+baseline of 10,453px / 15,896px because plan 04-04's functional-twins section
+landed after that baseline was measured; the pool fixture is not the cause.
 
 ### G-4
 
@@ -83,6 +89,16 @@ Received: false
   [chromium-desktop] › G-4 collapses intake after import and exposes the commander summary
   [chromium-mobile] › G-4 collapses intake after import and exposes the commander summary
 ```
+
+## Round 2 — review fixes
+
+- F1: G-2 now counts panels with computed `display !== 'none'`, so it constrains
+  visibility rather than assuming an inline `display: none` implementation.
+- F2: G-3 dispatches a bubbling, cancelable native click on the Decide tab before
+  measuring, while safely falling through to the height assertion if no actionable
+  Decide tab exists.
+- F3: G-4 scopes the commander assertion to summary-oriented elements and excludes
+  table descendants, preventing the locked-pool row from satisfying the summary gate.
 
 ## CI pickup verification
 
