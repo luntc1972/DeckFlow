@@ -1,17 +1,16 @@
 ---
 phase: 04-functional-twins-detector
 plan: 04
-status: tasks-1-2-complete
-task_3_status: NOT STARTED — blocking human checkpoint, awaiting developer
-codex_review: RUN 2026-08-03 — CHANGES REQUIRED, 2 HIGH unfolded (see 04-REVIEWS.md)
-date: 2026-08-02
+status: complete
+task_3_status: APPROVED 2026-08-03 — see "Task 3 — human checkpoint" below
+codex_review: RUN 2026-08-03 — 2 HIGH folded at `1fc48dd6` (see 04-REVIEWS.md)
+date: 2026-08-03
 ---
 
 # 04-04 Summary — merged twins section + density bound
 
-**Tasks 1 and 2 are complete and green. Task 3 (the blocking human checkpoint) has not been run.**
-Phase 4 is therefore **not** closed: Success Criterion 5 is a human judgement and Task 3 is its only
-authoritative gate.
+**All three tasks are complete.** Tasks 1 and 2 shipped 2026-08-02; Task 3, the blocking human
+checkpoint, was run and **approved 2026-08-03**. Success Criterion 5 is closed and with it Phase 4.
 
 ## What shipped
 
@@ -194,19 +193,95 @@ class recorded in `03-VERIFICATION.md`.
 
 This joins F-04-01 through F-04-07 already recorded in `04-04-PLAN.md`.
 
+## Task 3 — human checkpoint: APPROVED 2026-08-03
+
+**Verdict: approved.** Density and layout accepted on a real cEDH pool. Recorded here per the plan's
+Step 7.
+
+**Pool used.** EDHREC's cEDH average decklist for **Kinnan, Bonder Prodigy** (98 cards, from
+`_edhrec-brackets/cells/kinnan-bonder-prodigy__cedh.json`) plus 32 real cEDH staples drawn from the
+Thrasios and Urza cells as the over-sized intake — **132/100 cards**, Bracket 5 (cEDH), Focused.
+A synthetic fixture could not answer this question (D-22); an EDHREC aggregate preserves the real
+correlation that matters here, namely genuine mana-rock clustering at mana value 0-2. The pool text,
+both raw report JSONs and every screenshot are committed under
+`.planning/ui-design/cut-lab/twins-checkpoint-2026-08-03/`.
+
+**Density — the gate itself.**
+
+| Measure | flag OFF | flag ON |
+|---|---|---|
+| Structural findings | 31 | 40 (+9) |
+| "Functional twins" sections rendered | 0 | **1** (merge confirmed) |
+| Twin groups (leads) | — | **9** |
+| Twin evidence chips | — | **38**, over 32 distinct cards |
+| Round banner | Round 2 · Structural choices | Round 1 · Obvious cuts |
+| Next proposal | Chrome Mox | Chrome Mox |
+
+Leads descend by mana value — 2, 2, 2, 1, 1, 1, 1, 1, 0 — so the costliest group is listed first.
+The flag-OFF pass showed no twins section, no twins help note and no twins contribution; the OFF
+check was for *absence of twins output*, not for the pre-Phase-4 panel, per the plan's warning.
+
+**Step 4 — TWIN-02 end to end.** The proposed card did **not** change (Chrome Mox both ways), but the
+**card-to-round assignment did**: the pool sits in Round 2 with the flag OFF and Round 1 with it ON.
+That is the alternative the plan explicitly accepts, and it is the ranking movement TWIN-02 predicts.
+
+**Step 5 — AJAX parity.** `POST /api/cut-lab/decide` returned 200; the navigation count stayed at 1,
+so the patch was in place with no reload. The merged section survived with the same 9 groups, the
+same help note, the same section order and its combo badges intact (10 badges before and after).
+
+**Step 6 — layout, two viewports, two guild themes.** Azorius (light) and Nyx (dark), at 1440px and
+390x844. Heading and help note wrap cleanly; the `manabase-help` note is legible on the dark theme;
+evidence chips wrap without overflowing. Combo badges render on twin evidence chips, which exercises
+the `CutLab.cshtml:708` normalized-lookup repair. Locked-chip styling was verified on **Curve
+congestion** — a non-twins kind, as required, since twins evidence can never be locked — and renders
+with its distinct outline: 16 locked chips there, 9 in Redundant finishers, 19 in Combo-protected,
+and **0 inside the twins section**, which independently confirms Wave 2's locked-card exclusion.
+
+**Layout cost attributable to this phase.** Measured on the same pool, both flag states:
+
+| | flag OFF | flag ON | delta |
+|---|---|---|---|
+| Findings panel, desktop | 3,535px | 4,340px | **+805px** |
+| Findings panel, 390px | 7,116px | 8,951px | **+1,835px** |
+| Whole page, desktop | 19,610px | 20,415px | +805px |
+| Whole page, 390px | 45,177px | 47,011px | +1,834px |
+
+The page is enormous with the flag OFF; that is the pre-existing problem Phase 7 D-1 exists to fix,
+not something this phase introduced. The twins section's own contribution is the delta column.
+
+**Observations raised at approval, accepted rather than blocking** — recorded as F-04-09 and F-04-10
+below.
+
+## New follow-ups from the Task 3 checkpoint
+
+### F-04-09 — multi-role cards emit duplicate twin groups with identical card sets
+
+Nine groups covered only 32 distinct cards. Faerie Mastermind, Thrasios and Wan Shi Tong appear as
+**both** "3 creature cards fill your Card draw slot at mana value 2" and "…your Engines slot at mana
+value 2" — the same three cards, twice, differing only in the role label. Mana Vault and Sol Ring
+likewise appear under both "Ramp · MV 1" and "Win conditions · MV 1", and Sensei's Divining Top under
+two groups.
+
+This is inherent to iterating eight roles (`ComputeFunctionalTwins` groups by role ∩ mana value ∩
+primary type, and a card carries multiple roles), so it is by construction, not a defect. It is the
+single largest contributor to apparent density. If the section ever needs tightening, **deduplicating
+groups whose normalized card set is identical is the cheaper first lever** — it removes repetition
+without raising `TwinGroupMinimumCards`, which would also discard legitimate 3-card groups.
+Threshold tuning remains a product decision.
+
+### F-04-10 — the "ON THIS PAGE" anchor nav overlays findings content at 390px
+
+At the mobile viewport the sticky in-page anchor bar (Process / Decide / Goals) paints over a chip
+row inside the findings panel. It is page-level and pre-existing rather than twins-specific — the
+twins section merely happens to sit under it — but it lands on the section this phase added and is
+worth folding into the Phase 7 workflow-UX work.
+
 ## Still owed
 
-1. **Task 3 — the blocking human checkpoint.** Density and layout on a real ~130-card pool with the
-   flag ON, across two viewports and two guild themes, plus the TWIN-02 before/after next-proposal
-   observation and the AJAX-survival check. Success Criterion 5 cannot be closed without it.
-2. **A Codex code review of this diff.** Codex was out of credits for this entire run
-   (`ERROR: Your workspace is out of credits.`), so no cross-family reader saw the change. Per
-   `CLAUDE.md` this is an owed gate: `gpt-5.6-sol` at `medium` effort, stage 2 (`codex exec` with a
-   written brief), triggered on three of its four conditions — normalization/matching logic changed,
-   the claim needs checking against the repo rather than the diff, and it is an owed gate with no
-   prior independent review. This is the **second consecutive** Phase 4 plan not written by Codex.
-3. **The commit body** must state that the pre-existing `WeakFloorCase`/`ComboProtected` render order
-   was reversed by the old ascending-insert algorithm and that this change deliberately fixes it — a
-   plan acceptance criterion no worker can satisfy.
-4. **The production `analysis.cut-lab.functional-twins` flag stays OFF.** This phase deploys dark;
+1. **The production `analysis.cut-lab.functional-twins` flag stays OFF.** This phase deploys dark;
    flipping it is a separate post-UAT developer decision.
+
+**Discharged since this summary was first written:** Task 3 (above), and the Codex code review — it
+ran 2026-08-03 against the live range `8b5d2e8e..908402cd` and its two HIGH findings were folded at
+`1fc48dd6`. The commit-body requirement about the reversed `WeakFloorCase`/`ComboProtected` render
+order was satisfied when Tasks 1-2 were committed.
