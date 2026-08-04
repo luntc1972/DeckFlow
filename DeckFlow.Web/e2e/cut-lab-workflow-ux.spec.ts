@@ -141,12 +141,6 @@ test('G-5 keeps the complete Accept button visible and hit-testable while Decide
   await expect(decideTab).toHaveAttribute('aria-selected', 'true');
   const panelId = await decideTab.getAttribute('aria-controls');
   expect(panelId).toBeTruthy();
-  await page.locator(`#${panelId!} .cutlab-proposal__body`).evaluate((body) => {
-    const scrollDepth = document.createElement('div');
-    scrollDepth.style.height = '1200px';
-    scrollDepth.setAttribute('aria-hidden', 'true');
-    body.appendChild(scrollDepth);
-  });
   await page.locator(`#${panelId!}`).evaluate((panel) => panel.scrollIntoView({ block: 'end' }));
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
 

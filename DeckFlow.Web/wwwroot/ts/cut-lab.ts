@@ -261,7 +261,6 @@ const cutLabWhatifCommitApiEndpoint = '/api/cut-lab/whatif/commit';
 const cutLabDecisionTimeoutMs = 20000;
 const cutLabDecisionBusyCopy = 'Recalculating…';
 const cutLabDecisionErrorCopy = "Couldn't recalculate this cut — nothing changed. Try again.";
-const cutLabDeltaUnavailableCopy = "Couldn't recalculate this cut — nothing changed. Try again.";
 const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try again in a moment.';
 const cutLabWhatifPreviewErrorCopy = "Couldn't preview this swap — nothing changed. Try again.";
 const cutLabWhatifKeepErrorCopy = "Couldn't keep this swap — nothing changed. Try again.";
@@ -2623,8 +2622,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     heading.appendChild(document.createTextNode('Proposed cut: '));
     heading.appendChild(createCardOpenButton(nextProposal.cardName, 'cutlab-card-link'));
     pinnedRow.appendChild(heading);
-    const glanceLine = nextProposal.glanceLine?.trim() || cutLabDeltaUnavailableCopy;
-    pinnedRow.appendChild(createTextElement('p', 'cutlab-proposal__glance', glanceLine));
+    pinnedRow.appendChild(createTextElement('p', 'cutlab-proposal__glance', nextProposal.glanceLine ?? cutLabDecisionErrorCopy));
     pinnedHeader.appendChild(pinnedRow);
 
     const actions = document.createElement('div');
