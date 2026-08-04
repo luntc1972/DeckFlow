@@ -1,3 +1,5 @@
+using System.Linq;
+using System.Text.Json;
 using DeckFlow.Web.Seo;
 using Xunit;
 
@@ -19,6 +21,30 @@ public sealed class SeoPathsTests
     [InlineData("", true)]
     public void IsShareablePage_matches_tools_and_home(string path, bool expected)
         => Assert.Equal(expected, SeoPaths.IsShareablePage(path));
+
+    [Fact]
+    public void ContentKb_is_a_non_indexable_tool_and_shareable()
+    {
+        Assert.DoesNotContain("/content-kb", SeoPaths.Indexable);
+        Assert.Contains("/content-kb", SeoPaths.Tools);
+        Assert.True(SeoPaths.IsShareablePage("/content-kb"));
+    }
+
+    [Fact]
+    public void ContentKb_returns_webpage_and_breadcrumb_structured_data()
+    {
+        var json = StructuredDataBuilder.ForPath(
+            "/content-kb", "https://deckflow.test/content-kb", "https://deckflow.test", "Content KB", "Browse content.");
+
+        using var document = JsonDocument.Parse(json);
+        var types = document.RootElement.GetProperty("@graph").EnumerateArray()
+            .Select(node => node.GetProperty("@type").GetString())
+            .ToList();
+
+        Assert.Contains("WebPage", types);
+        Assert.Contains("BreadcrumbList", types);
+        Assert.DoesNotContain("WebSite", types);
+    }
 
     [Theory]
     [InlineData("/Manabase", "/manabase")]

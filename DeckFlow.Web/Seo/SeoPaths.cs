@@ -5,59 +5,58 @@ using System.Linq;
 namespace DeckFlow.Web.Seo;
 
 /// <summary>
-/// Single source of truth for the public, indexable page paths. Consumed by
+/// Single source of truth for the public page paths. Consumed by
 /// <see cref="Controllers.SitemapController"/> (sitemap + robots) and
 /// <see cref="StructuredDataBuilder"/> (JSON-LD) so the two never drift apart.
 /// </summary>
 public static class SeoPaths
 {
     /// <summary>
-    /// Every indexable landing/tool page, in sitemap order. Includes the home,
-    /// help index, about, and feedback pages alongside the tool pages.
+    /// Every page and its independently declared indexability and tool-page facts.
+    /// Each page is declared here exactly once so the sitemap and structured-data views
+    /// cannot drift.
     /// </summary>
-    public static readonly IReadOnlyList<string> Indexable = new[]
+    private static readonly SeoPage[] Pages =
     {
-        "/",
-        "/sync",
-        "/convert",
-        "/card-lookup",
-        "/mechanic-lookup",
-        "/deck-analysis",
-        "/deck-comparison",
-        "/cedh-meta-gap",
-        "/deck-primer",
-        "/suggest-categories",
-        "/commander-categories",
-        "/judge-questions",
-        "/manabase",
-        "/bracket",
-        "/deck-history",
-        "/cut-lab",
-        "/help",
-        "/about",
-        "/feedback",
+        new("/", true, false),
+        new("/sync", true, true),
+        new("/convert", true, true),
+        new("/card-lookup", true, true),
+        new("/mechanic-lookup", true, true),
+        new("/deck-analysis", true, true),
+        new("/deck-comparison", true, true),
+        new("/cedh-meta-gap", true, true),
+        new("/deck-primer", true, true),
+        new("/suggest-categories", true, true),
+        new("/commander-categories", true, true),
+        new("/judge-questions", true, true),
+        new("/manabase", true, true),
+        new("/bracket", true, true),
+        new("/deck-history", true, true),
+        new("/cut-lab", true, true),
+        new("/content-kb", false, true),
+        new("/help", true, false),
+        new("/about", true, false),
+        new("/feedback", true, false),
     };
 
     /// <summary>
-    /// The framing pages in <see cref="Indexable"/> that are NOT tool pages: the home page
-    /// (richer JSON-LD graph), the help index, about, and feedback.
+    /// Every page declared indexable in <see cref="Pages"/>, in sitemap order.
     /// </summary>
-    private static readonly IReadOnlySet<string> NonToolPages = new HashSet<string>(StringComparer.Ordinal)
-    {
-        "/",
-        "/help",
-        "/about",
-        "/feedback",
-    };
+    public static readonly IReadOnlyList<string> Indexable = Pages
+        .Where(page => page.IsIndexable)
+        .Select(page => page.Path)
+        .ToArray();
 
     /// <summary>
-    /// The tool pages that receive WebPage + BreadcrumbList structured data. Derived from
-    /// <see cref="Indexable"/> (minus <see cref="NonToolPages"/>) so a new tool page is added
-    /// in exactly one place and the two views cannot drift.
+    /// Every page declared a tool in <see cref="Pages"/>. Tool status is independent of
+    /// indexability, allowing flag-gated tools to retain their share bar and tool JSON-LD.
     /// </summary>
     public static readonly IReadOnlySet<string> Tools = new HashSet<string>(
-        Indexable.Where(path => !NonToolPages.Contains(path)),
+        Pages.Where(page => page.IsTool).Select(page => page.Path),
         StringComparer.Ordinal);
+
+    private sealed record SeoPage(string Path, bool IsIndexable, bool IsTool);
 
     /// <summary>
     /// Normalizes a request path for matching: lower-invariant, trailing slash stripped
