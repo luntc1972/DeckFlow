@@ -69,6 +69,7 @@ const importPool = async (page: Page): Promise<void> => {
 };
 
 const waitForCutRounds = async (page: Page): Promise<void> => {
+  await page.getByRole('tab', { name: 'Decide' }).click();
   await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
   await expect(page.getByRole('heading', { name: 'Cut rounds' })).toBeVisible();
   await expect(page.locator('.cutlab-round-banner')).toBeVisible();
@@ -244,8 +245,8 @@ test('preserves the adjusted interaction-targeted floor and badge across Recalcu
   await interactionInput.blur();
   await page.locator('[data-cut-lab-recalculate]').click();
 
-  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
-  await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole('tab', { name: 'Process' }).click();
+  await expandCutLabSection(page, 'cut-lab-section-role-floors');
   await expect(getRoleFloorRow(page, 'interaction-targeted').locator('input[data-cut-lab-floor="interaction-targeted"]')).toHaveValue(`${persistedValue}`);
   await expect(getRoleFloorRow(page, 'interaction-targeted').locator('[data-cut-lab-floor-adjusted-badge]')).toBeVisible();
 });
@@ -320,6 +321,7 @@ test('accepts a proposal without a reload, keeps copy neutral, and shows a 7-row
     expect(deltaText).not.toMatch(/\b(?:worse|bad|better)\b/i);
   }
 
+  await page.getByRole('tab', { name: 'Review' }).click();
   const compareDetails = page.locator('details.cutlab-compare');
   await compareDetails.locator(':scope > summary').click();
   await expect(compareDetails.locator('table[data-prompt-cedh-reference-table]')).toBeVisible();
