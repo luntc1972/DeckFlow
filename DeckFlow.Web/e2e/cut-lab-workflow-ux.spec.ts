@@ -91,13 +91,20 @@ test('G-2 activates exactly one panel through native tab dispatch', async ({ pag
     expect(after).not.toEqual(before);
     expect(afterPanels).not.toEqual(beforePanels);
     await expect(tab).toHaveAttribute('aria-selected', 'true');
-    await expect(page.locator('[role="tabpanel"]:not([style*="display: none"])')).toHaveCount(1);
+    await expect(page.locator('[role="tabpanel"]').evaluateAll((panels) => panels.filter((panel) => getComputedStyle(panel).display !== 'none').length)).resolves.toBe(1);
     await expect(page.locator('[role="tab"].is-active')).toHaveCount(1);
   }
 });
 
 test('G-3 keeps Decide page bulk below the desktop and mobile headroom thresholds', async ({ page }) => {
   await importPool(page);
+
+  await page.evaluate(() => {
+    const decideTab = Array.from(document.querySelectorAll<HTMLElement>('[role="tab"]'))
+      .find((button) => button.textContent?.trim() === 'Decide');
+    if (!decideTab || decideTab.matches('[disabled]')) return;
+    decideTab.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  });
 
   const height = await page.evaluate(() => document.documentElement.scrollHeight);
   const limit = page.viewportSize()?.width === 390 ? 4_000 : 3_000;
@@ -115,6 +122,7 @@ test('G-4 collapses intake after import and exposes the commander summary', asyn
     return Boolean(disclosure && !disclosure.open);
   });
   expect(intakeIsCollapsed).toBe(true);
-  await expect(page.getByText('Zur the Enchanter', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('Zur the Enchanter', { exact: true }).first()).toBeInViewport();
+  const commanderSummary = page.locator('xpath=//*[self::summary or @data-cut-lab-intake-summary or @data-cut-lab-summary][contains(normalize-space(), "Zur the Enchanter") and not(ancestor::tr) and not(ancestor::table)]');
+  await expect(commanderSummary).toBeVisible();
+  await expect(commanderSummary).toBeInViewport();
 });
