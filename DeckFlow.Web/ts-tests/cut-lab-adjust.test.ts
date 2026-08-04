@@ -211,11 +211,17 @@ const buildFixture = (options: { includePlainsRow?: boolean; addableBasics?: str
     </section>
     <section class="result-panel">
       <div class="cutlab-round-banner">
-        <p class="cutlab-finding__heading">Round 1</p>
         <p>Keep tuning basics.</p>
       </div>
       <div class="cutlab-proposal" data-cut-lab-card="Island" data-cut-lab-round="round-1">
         <p class="cutlab-proposal__heading">Proposed cut: Island</p>
+        <form method="post">
+          <input type="hidden" name="__RequestVerificationToken" value="token-123" />
+          <input type="hidden" name="CutLabStateJson" value='${stateJson}' />
+          <input type="hidden" name="CardName" value="Island" />
+          <input type="hidden" name="Decision" value="accept" />
+          <button type="submit" data-cut-lab-decision-submit>Accept</button>
+        </form>
         <div class="cutlab-proposal__evidence">
           <p>Flagged by 1 findings:</p>
           <div class="kb-chip-area__chips">
@@ -387,7 +393,6 @@ describe('cut-lab adjust enhancement', () => {
     }));
     await flushAdjustSubmit();
 
-    expect(document.querySelector('.cutlab-round-banner .cutlab-finding__heading')?.textContent).toBe('Round 1');
     expect(document.querySelector('.cutlab-proposal__heading')?.textContent).toBe('Proposed cut: Island');
     expect(document.querySelector('[data-cut-lab-structural-findings-body]')?.textContent).toContain('Existing structural issue.');
     expect(document.querySelector('.cutlab-cuts-made__row [data-cutlab-card-open]')?.textContent).toBe('Old Cut');
@@ -484,9 +489,44 @@ describe('cut-lab adjust enhancement', () => {
     }));
     await flushAdjustSubmit();
 
-    expect(document.querySelector('.cutlab-round-banner .cutlab-finding__heading')?.textContent).toBe('Round 1');
     expect(document.querySelector('.cutlab-proposal__heading')?.textContent).toBe('Proposed cut: Island');
     expect(document.querySelector('[data-cut-lab-sticky-round]')?.textContent).toBe('Round 1');
+  });
+
+  it('renders the next decision round banner body', async () => {
+    buildFixture();
+    const nextStateJson = buildStateJson(98, 1);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        patch: buildPatch(nextStateJson, {
+          nextProposal: {
+            ...buildPatch(nextStateJson).nextProposal,
+            cardName: 'Plains',
+            roundLabel: 'Round 2',
+            roundBannerBody: 'Different round body.',
+          },
+          proposalDeltas: null,
+          floorWarnings: [],
+          cutsMade: [{ cardName: 'Old Cut', roundKey: 'round-1', roundLabel: 'Round 1', ordinal: 1 }],
+          structuralFindings: [],
+          comboDataAvailable: false,
+          categoryDataAvailable: false,
+        }),
+      }),
+    });
+
+    const button = document.querySelector<HTMLButtonElement>('[data-cut-lab-decision-submit]');
+    const form = button?.closest('form');
+    form?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: button ?? undefined,
+    }));
+    await flushAdjustSubmit();
+
+    expect(document.querySelector('.cutlab-round-banner')?.textContent).toBe('Different round body.');
+    expect(document.querySelector('.cutlab-round-banner > p')?.textContent).toBe('Different round body.');
   });
 
   it('renders locked stepper buttons as disabled with lock guidance after a patch update', async () => {
