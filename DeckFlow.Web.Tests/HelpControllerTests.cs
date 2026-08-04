@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using DeckFlow.Web.Controllers;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.FeatureFlags;
 using Microsoft.AspNetCore.Mvc;
 using Xunit;
 
@@ -20,6 +21,8 @@ public class HelpControllerTests
         public IReadOnlyList<HelpTopic> GetAll() => _topics;
         public HelpTopic? GetBySlug(string slug) =>
             _topics.FirstOrDefault(t => string.Equals(t.Slug, slug, StringComparison.OrdinalIgnoreCase));
+        public bool IsTopicVisible(HelpTopic topic, IFeatureFlagCache featureFlags) =>
+            topic.RequiresFlag is null || featureFlags.IsEnabled(topic.RequiresFlag);
     }
 
     private static HelpController CreateController(

@@ -40,13 +40,9 @@ public sealed class HelpController : Controller
     public IActionResult Topic(string slug)
     {
         var topic = _content.GetBySlug(slug);
-        return topic is null || !IsTopicVisible(topic) ? NotFound() : View(topic);
+        return topic is null || !_content.IsTopicVisible(topic, _flags) ? NotFound() : View(topic);
     }
 
     private IReadOnlyList<HelpTopic> VisibleTopics() =>
-        _content.GetAll().Where(IsTopicVisible).ToList();
-
-    // A topic is visible unless it declares a feature flag that is currently disabled.
-    private bool IsTopicVisible(HelpTopic topic) =>
-        topic.RequiresFlag is null || _flags.IsEnabled(topic.RequiresFlag);
+        _content.GetAll().Where(topic => _content.IsTopicVisible(topic, _flags)).ToList();
 }
