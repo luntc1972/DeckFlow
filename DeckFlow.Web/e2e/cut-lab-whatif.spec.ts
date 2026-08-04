@@ -69,7 +69,8 @@ const fillImportFormNoJs = async (page: Page): Promise<void> => {
 const waitForCutRounds = async (page: Page): Promise<void> => {
   await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
   await expect(page.getByRole('heading', { name: 'Cut rounds' })).toBeVisible();
-  await expect(page.locator('.cutlab-round-banner .cutlab-finding__heading')).toBeVisible();
+  await expect(page.locator('.cutlab-round-banner')).toBeVisible();
+  await expect(page.locator('.cutlab-round-banner > p')).toHaveText(/.+/);
   await expect(page.locator('.cutlab-proposal')).toBeVisible();
 };
 

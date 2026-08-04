@@ -62,13 +62,17 @@ const importPool = async (page: Page): Promise<void> => {
 
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
+  await expandCutLabSection(page, 'cut-lab-section-competes');
+  await expandCutLabSection(page, 'cut-lab-section-structural');
+  await expandCutLabSection(page, 'cut-lab-section-role-floors');
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
 };
 
 const waitForCutRounds = async (page: Page): Promise<void> => {
   await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
   await expect(page.getByRole('heading', { name: 'Cut rounds' })).toBeVisible();
-  await expect(page.locator('.cutlab-round-banner .cutlab-finding__heading')).toBeVisible();
+  await expect(page.locator('.cutlab-round-banner')).toBeVisible();
+  await expect(page.locator('.cutlab-round-banner > p')).toHaveText(/.+/);
   await expect(page.locator('[data-cut-lab-sticky-remaining]')).toBeVisible();
   await expect(page.locator('.cutlab-proposal')).toBeVisible();
 };
@@ -185,6 +189,7 @@ test('live-patches the structural findings section after a JS decide without a r
 test('opens the Lands group, shows member chips, and toggles land rows from the group pill', async ({ page }) => {
   await importPool(page);
 
+  await expandCutLabSection(page, 'cut-lab-section-competes');
   const landsGroup = page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' });
   await landsGroup.locator(':scope > summary').click();
   const lockAllButton = landsGroup.locator('[data-cut-lab-lock-role="lands"]');
@@ -302,7 +307,8 @@ test('accepts a proposal without a reload, keeps copy neutral, and shows a 7-row
   await expect(page.locator('[data-cut-lab-sticky-remaining]')).toContainText(`${startingRemaining - 1} to cut`);
   await expect(page.locator('[data-cut-lab-sticky-accepted]')).toContainText(formatAcceptedCountLabel(startingAccepted + 1));
   await expect(page.locator('.cutlab-cuts-made__row')).toContainText(acceptedCardName);
-  await expect(page.locator('.cutlab-round-banner .cutlab-finding__heading')).toBeVisible();
+  await expect(page.locator('.cutlab-round-banner')).toBeVisible();
+  await expect(page.locator('.cutlab-round-banner > p')).toHaveText(/.+/);
   await expect(page.locator('.cutlab-proposal__heading')).not.toHaveText(startingProposalHeading ?? '');
 
   page.off('framenavigated', navigationListener);
@@ -468,6 +474,7 @@ test('captures the structure screenshot matrix across themes and viewports', asy
       await page.context().clearCookies();
       await page.context().addCookies([{ name: 'deckflow-theme', value: theme.cookie, url: baseUrl }]);
       await importPool(page);
+      await expandCutLabSection(page, 'cut-lab-section-competes');
       await page.locator('details.cutlab-role-group').filter({ hasText: 'Targeted removal' }).locator(':scope > summary').click();
       await page.locator('input[data-cut-lab-floor="interaction-targeted"]').scrollIntoViewIfNeeded();
 
