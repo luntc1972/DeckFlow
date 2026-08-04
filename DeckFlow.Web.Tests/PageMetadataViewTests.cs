@@ -143,6 +143,23 @@ public sealed class PageMetadataViewTests
         Assert.Contains("? \"DeckFlow\" : $\"{pageTitle} - DeckFlow\"", content, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("/Manabase")]
+    [InlineData("/manabase/")]
+    [InlineData("/manabase")]
+    public void Layout_normalizes_each_manabase_request_to_the_same_canonical_and_open_graph_url(string requestPath)
+    {
+        var content = ReadView("Shared", "_Layout.cshtml");
+        var normalizedPath = SeoPaths.Normalize(requestPath);
+        var canonicalUrl = $"https://deckflow.test{normalizedPath}";
+
+        Assert.Equal("https://deckflow.test/manabase", canonicalUrl);
+        Assert.Contains("var canonicalPath = DeckFlow.Web.Seo.SeoPaths.Normalize(requestPath.Value);", content, StringComparison.Ordinal);
+        Assert.Contains("var canonicalUrl = $\"{requestScheme}://{requestHost}{requestPathBase}{canonicalPath}\";", content, StringComparison.Ordinal);
+        Assert.Contains("<link rel=\"canonical\" href=\"@canonicalUrl\" />", content, StringComparison.Ordinal);
+        Assert.Contains("<meta property=\"og:url\" content=\"@canonicalUrl\" />", content, StringComparison.Ordinal);
+    }
+
     private static string ReadView(string folder, string file)
         => File.ReadAllText(Path.Combine(
             AppContext.BaseDirectory,
