@@ -879,6 +879,20 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     return Number.isFinite(parsedValue) ? parsedValue : 100;
   };
 
+  const updateProgressFill = (currentCount: number, targetDeckSize: number): void => {
+    const fill = document.querySelector<HTMLElement>('[data-cut-lab-progress-fill]');
+    const progressBar = fill?.parentElement;
+    const percentage = targetDeckSize <= 0 ? 0 : Math.max(0, Math.min(100, (currentCount * 100) / targetDeckSize));
+
+    if (fill) {
+      fill.style.width = `${percentage}%`;
+    }
+
+    if (progressBar instanceof HTMLElement) {
+      progressBar.setAttribute('aria-valuenow', `${currentCount}`);
+    }
+  };
+
   const getExportStepTab = (): HTMLButtonElement | null =>
     document.getElementById('cut-lab-step-tab-5') as HTMLButtonElement | null;
 
@@ -2126,10 +2140,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
-    replaceChildren(banner, [
-      createTextElement('p', 'cutlab-finding__heading', nextProposal.roundLabel),
-      createTextElement('p', '', nextProposal.roundBannerBody),
-    ]);
+    replaceChildren(banner, [createTextElement('p', '', nextProposal.roundBannerBody)]);
   };
 
   const appendDeltaLine = (
@@ -3166,6 +3177,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     if (stickyCurrent) {
       stickyCurrent.textContent = `${patch.currentCount}/${stickyTargetDeckSize} cards`;
+      updateProgressFill(patch.currentCount, stickyTargetDeckSize);
     }
 
     if (shouldHideRoundFields) {
