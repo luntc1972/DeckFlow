@@ -23,7 +23,7 @@ const renderFixture = (): void => {
     </nav>
     <div class="prompt-step-nav" role="tablist" aria-label="Cut Lab workflow steps">
       <button type="button" id="cut-lab-step-tab-1" data-cut-lab-step="1">Process</button>
-      <button type="submit" id="cut-lab-step-tab-4" form="cut-lab-export-form" data-cut-lab-step="4">Export</button>
+      <button type="submit" id="cut-lab-step-tab-5" form="cut-lab-export-form" data-cut-lab-step="5">Export</button>
     </div>
     <form data-cache-key="cut-lab"></form>
     <form id="cut-lab-export-form"></form>
@@ -96,7 +96,7 @@ describe('cut-lab jump nav', () => {
 
     document.dispatchEvent(new Event('DOMContentLoaded'));
 
-    const exportStep = document.getElementById('cut-lab-step-tab-4') as HTMLButtonElement;
+    const exportStep = document.getElementById('cut-lab-step-tab-5') as HTMLButtonElement;
     document.querySelector<HTMLAnchorElement>('.cutlab-anchor-nav a')?.click();
 
     expect(exportStep.type).toBe('submit');
