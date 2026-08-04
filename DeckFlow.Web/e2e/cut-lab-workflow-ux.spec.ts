@@ -46,6 +46,7 @@ const importPool = async (page: Page): Promise<void> => {
 
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
+  await expandCutLabSection(page, 'cut-lab-section-competes');
   await page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' }).locator(':scope > summary').click();
   await expect(page.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
@@ -125,7 +126,8 @@ test('G-4 collapses intake after import and exposes the commander summary', asyn
     return Boolean(disclosure && !disclosure.open);
   });
   expect(intakeIsCollapsed).toBe(true);
-  const commanderSummary = page.locator('xpath=//*[self::summary or @data-cut-lab-intake-summary or @data-cut-lab-summary][contains(normalize-space(), "Zur the Enchanter") and not(ancestor::tr) and not(ancestor::table)]');
+  const commanderSummary = page.locator('[data-cut-lab-intake-summary] > summary').filter({ hasText: 'Zur the Enchanter' });
   await expect(commanderSummary).toBeVisible();
+  await commanderSummary.scrollIntoViewIfNeeded();
   await expect(commanderSummary).toBeInViewport();
 });
