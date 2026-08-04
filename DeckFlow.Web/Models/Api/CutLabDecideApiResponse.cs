@@ -66,6 +66,9 @@ public sealed record CutLabDecideNextProposalDto
 
     /// <summary>Neutral finding chips to render for the proposed card.</summary>
     public IReadOnlyList<string> FindingChips { get; init; } = [];
+
+    /// <summary>Server-authored compact summary for the pinned proposal header.</summary>
+    public string GlanceLine { get; init; } = string.Empty;
 }
 
 /// <summary>Structured metric delta payload for the next proposed cut.</summary>
