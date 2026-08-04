@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
-import { expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
+import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
 
 const baseUrl = 'http://localhost:5173';
@@ -75,11 +75,13 @@ const importPool = async (page: Page, primaryPlan: string): Promise<void> => {
   await fillImportForm(page, primaryPlan);
   await page.getByRole('button', { name: 'Import pool' }).click();
 
+  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
 };
 
 const waitForCutRounds = async (page: Page): Promise<void> => {
+  await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
   await expect(page.getByRole('heading', { name: 'Cut rounds' })).toBeVisible();
   await expect(page.locator('.cutlab-round-banner .cutlab-finding__heading')).toBeVisible();
   await expect(page.locator('.cutlab-proposal')).toBeVisible();
@@ -309,6 +311,7 @@ test('tunes to exactly 100 with basic steppers, then reloads a saved scenario wi
 
   await getScenarioRow(page, scenarioName).getByRole('button', { name: 'Load' }).click();
 
+  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('#cut-lab-primary-plan')).toHaveValue('Protect the control shell, then trim to the cleanest Zur line.');
   await expect(page.locator('.cutlab-proposal__heading')).toHaveText('You\'re at 100 cards');
