@@ -507,6 +507,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
+    const selectedTab = getStepTabs().find(tab => tab.getAttribute('aria-selected') === 'true');
+    if (!selectedTab) {
+      return;
+    }
+
+    activateStepTab(selectedTab, false);
     tablist.addEventListener('click', event => {
       const target = event.target;
       const button = target instanceof HTMLElement
