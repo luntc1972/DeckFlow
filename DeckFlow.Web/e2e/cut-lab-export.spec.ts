@@ -58,7 +58,8 @@ const fillImportForm = async (page: Page): Promise<void> => {
 const waitForCutRounds = async (page: Page): Promise<void> => {
   await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
   await expect(page.getByRole('heading', { name: 'Cut rounds' })).toBeVisible();
-  await expect(page.locator('.cutlab-round-banner .cutlab-finding__heading')).toBeVisible();
+  await expect(page.locator('.cutlab-round-banner')).toBeVisible();
+  await expect(page.locator('.cutlab-round-banner > p')).toHaveText(/.+/);
   await expect(page.locator('.cutlab-proposal')).toBeVisible();
 };
 
@@ -163,6 +164,7 @@ test('builds the export once accepted cuts reach the target count and shows the 
 
   // Activating the Export tab submits cut-lab-export-form (server POST) and re-renders.
   await exportTab.click();
+  await expandCutLabSection(page, 'cut-lab-section-export');
 
   const moxfieldFull = exportPanel.locator('#cut-lab-export-moxfield-full');
   const archidektFull = exportPanel.locator('#cut-lab-export-archidekt-full');

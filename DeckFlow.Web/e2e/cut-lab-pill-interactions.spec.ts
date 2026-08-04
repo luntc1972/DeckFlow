@@ -66,6 +66,7 @@ test('individual card pills lock cards and Lock All stays readable in Commander 
     await page.getByRole('button', { name: 'Import pool' }).click();
     await expandCutLabSection(page, 'cut-lab-section-lock-pool');
     await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
+    await expandCutLabSection(page, 'cut-lab-section-competes');
 
     const group = page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' });
     await group.locator(':scope > summary').click();
@@ -146,6 +147,7 @@ test('structural evidence pills lock the canonical pool checkbox and inert spans
     await page.getByRole('button', { name: 'Import pool' }).click();
     await expandCutLabSection(page, 'cut-lab-section-lock-pool');
     await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
+    await expandCutLabSection(page, 'cut-lab-section-structural');
 
     const findingsSection = page.locator('[data-cut-lab-structural-findings]');
     await expect(findingsSection).toBeVisible();
