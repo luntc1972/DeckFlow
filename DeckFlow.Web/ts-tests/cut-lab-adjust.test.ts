@@ -207,7 +207,7 @@ const buildFixture = (options: { includePlainsRow?: boolean; addableBasics?: str
         <span data-cut-lab-sticky-remaining>1 to cut</span>
         <span data-cut-lab-sticky-accepted>0 cuts so far</span>
       </div>
-      <button type="button" id="cut-lab-step-tab-4" class="prompt-step-tab" disabled aria-disabled="true">Export</button>
+      <button type="button" id="cut-lab-step-tab-5" class="prompt-step-tab" disabled aria-disabled="true">Export</button>
     </section>
     <section class="result-panel">
       <div class="cutlab-round-banner">
@@ -337,7 +337,7 @@ describe('cut-lab adjust enhancement', () => {
       isAddedBasic: false,
     });
     expect(document.querySelector('[data-cut-lab-sticky-remaining]')?.textContent).toBe('0 to cut');
-    expect(document.getElementById('cut-lab-step-tab-4')?.hasAttribute('disabled')).toBe(false);
+    expect(document.getElementById('cut-lab-step-tab-5')?.hasAttribute('disabled')).toBe(false);
     expect(document.querySelector('#cut-lab-export-form button[type="submit"]')?.hasAttribute('disabled')).toBe(false);
     expect(document.querySelector('[data-cut-lab-quantity-value]')?.textContent).toBe('99');
     const rowButtons = document.querySelectorAll<HTMLButtonElement>('tr[data-cut-lab-tuner-row="Island"] [data-cut-lab-adjust]');

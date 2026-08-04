@@ -373,9 +373,9 @@ test('proves the no-JS Cut Lab navigation and card-trigger fallbacks', async ({ 
     // re-render (accepted card in the cuts-made list). Confirm the submit-type
     // Export tab is correctly gated first. Full 100-card Export-gate submit stays
     // in manual/checkpoint coverage.
-    await expect(noJs.page.locator('#cut-lab-step-tab-4')).toBeDisabled();
-    await expect(noJs.page.locator('#cut-lab-step-tab-4')).toHaveAttribute('type', 'submit');
-    await expect(noJs.page.locator('#cut-lab-step-tab-4')).toHaveAttribute('form', 'cut-lab-export-form');
+    await expect(noJs.page.locator('#cut-lab-step-tab-5')).toBeDisabled();
+    await expect(noJs.page.locator('#cut-lab-step-tab-5')).toHaveAttribute('type', 'submit');
+    await expect(noJs.page.locator('#cut-lab-step-tab-5')).toHaveAttribute('form', 'cut-lab-export-form');
     await acceptProposalNoJs(noJs.page);
 
     const anchorLink = noJs.page.locator('.cutlab-anchor-nav-list a[href="#cut-lab-section-cut-rounds"]').first();
