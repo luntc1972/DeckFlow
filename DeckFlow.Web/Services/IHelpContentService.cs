@@ -1,4 +1,5 @@
 using DeckFlow.Web.Models;
+using DeckFlow.Web.Services.FeatureFlags;
 
 namespace DeckFlow.Web.Services;
 
@@ -12,4 +13,7 @@ public interface IHelpContentService
 
     /// <summary>Returns a single topic by slug, or <c>null</c> when not found.</summary>
     HelpTopic? GetBySlug(string slug);
+
+    /// <summary>Returns whether a topic is visible under the current feature-flag state.</summary>
+    bool IsTopicVisible(HelpTopic topic, IFeatureFlagCache featureFlags);
 }

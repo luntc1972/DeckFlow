@@ -1,6 +1,8 @@
 using System.Xml.Linq;
 using DeckFlow.Web.Controllers;
 using DeckFlow.Web.Infrastructure;
+using DeckFlow.Web.Models;
+using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Tools;
 using Microsoft.AspNetCore.Builder;
@@ -80,6 +82,34 @@ public sealed class SitemapControllerTests
         Assert.Contains("https://deckflow.test/bracket", enabledUrls);
     }
 
+    [Fact]
+    public void SitemapXml_includes_all_visible_help_topics_and_omits_flag_hidden_topics()
+    {
+        var visible = new HelpTopic("visible", "Visible", "s", 10, "<p>visible</p>");
+        var hidden = new HelpTopic("hidden", "Hidden", "s", 20, "<p>hidden</p>", "tool.hidden.enabled");
+        var helpContent = new StubHelpContentService(visible, hidden);
+        var flags = new FakeFeatureFlagCache(new Dictionary<string, bool>
+        {
+            ["tool.hidden.enabled"] = false,
+        });
+
+        var urls = GetSitemapUrls(CreateController(flags, helpContent));
+
+        Assert.Contains("https://deckflow.test/help/visible", urls);
+        Assert.DoesNotContain("https://deckflow.test/help/hidden", urls);
+    }
+
+    [Fact]
+    public void SitemapXml_includes_every_project_help_topic_when_all_flags_are_enabled()
+    {
+        var helpContent = new HelpContentService(FindProjectHelpRoot());
+        var urls = GetSitemapUrls(CreateController(helpContent: helpContent));
+
+        var topics = helpContent.GetAll();
+        Assert.Equal(18, topics.Count);
+        Assert.All(topics, topic => Assert.Contains($"https://deckflow.test/help/{topic.Slug}", urls));
+    }
+
     [Fact(Skip = "Validating OnStarting response headers here would require full TestServer host plumbing, which is out of scope for this change.")]
     public async Task Security_headers_add_admin_noindex_only_for_admin_paths()
     {
@@ -121,7 +151,9 @@ public sealed class SitemapControllerTests
             .ToList();
     }
 
-    private static SitemapController CreateController(IFeatureFlagCache? featureFlags = null)
+    private static SitemapController CreateController(
+        IFeatureFlagCache? featureFlags = null,
+        IHelpContentService? helpContent = null)
     {
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Scheme = "https";
@@ -129,12 +161,43 @@ public sealed class SitemapControllerTests
 
         return new SitemapController(
             new ToolRegistry(),
-            featureFlags ?? new FakeFeatureFlagCache())
+            featureFlags ?? new FakeFeatureFlagCache(),
+            helpContent ?? new StubHelpContentService())
         {
             ControllerContext = new ControllerContext
             {
                 HttpContext = httpContext,
             },
         };
+    }
+
+    private static string FindProjectHelpRoot()
+    {
+        var current = new DirectoryInfo(Directory.GetCurrentDirectory());
+        while (current is not null)
+        {
+            var helpRoot = Path.Combine(current.FullName, "DeckFlow.Web", "Help");
+            if (Directory.Exists(helpRoot))
+                return helpRoot;
+
+            current = current.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Could not find DeckFlow.Web/Help from the test working directory.");
+    }
+
+    private sealed class StubHelpContentService : IHelpContentService
+    {
+        private readonly IReadOnlyList<HelpTopic> topics;
+
+        public StubHelpContentService(params HelpTopic[] topics) => this.topics = topics;
+
+        public IReadOnlyList<HelpTopic> GetAll() => topics;
+
+        public HelpTopic? GetBySlug(string slug) =>
+            topics.FirstOrDefault(topic => string.Equals(topic.Slug, slug, StringComparison.OrdinalIgnoreCase));
+
+        public bool IsTopicVisible(HelpTopic topic, IFeatureFlagCache featureFlags) =>
+            topic.RequiresFlag is null || featureFlags.IsEnabled(topic.RequiresFlag);
     }
 }

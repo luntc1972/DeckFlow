@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Web.Models;
+using DeckFlow.Web.Services.FeatureFlags;
 using Markdig;
 using Microsoft.AspNetCore.Hosting;
 
@@ -47,6 +48,10 @@ public sealed class HelpContentService : IHelpContentService
         _ = _all.Value; // ensure load
         return _bySlug.TryGetValue(slug, out var topic) ? topic : null;
     }
+
+    /// <inheritdoc/>
+    public bool IsTopicVisible(HelpTopic topic, IFeatureFlagCache featureFlags) =>
+        topic.RequiresFlag is null || featureFlags.IsEnabled(topic.RequiresFlag);
 
     private IReadOnlyList<HelpTopic> LoadAll()
     {

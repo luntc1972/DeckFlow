@@ -1,5 +1,6 @@
 using System.Xml.Linq;
 using DeckFlow.Web.Seo;
+using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Tools;
 using Microsoft.AspNetCore.Mvc;
@@ -16,16 +17,22 @@ public sealed class SitemapController : Controller
 
     private readonly IToolRegistry toolRegistry;
     private readonly IFeatureFlagCache featureFlags;
+    private readonly IHelpContentService helpContent;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SitemapController"/> class.
     /// </summary>
     /// <param name="toolRegistry">The canonical source of tool routes and flags.</param>
     /// <param name="featureFlags">The current feature-flag state.</param>
-    public SitemapController(IToolRegistry toolRegistry, IFeatureFlagCache featureFlags)
+    /// <param name="helpContent">The canonical source of help topics and their visibility rule.</param>
+    public SitemapController(
+        IToolRegistry toolRegistry,
+        IFeatureFlagCache featureFlags,
+        IHelpContentService helpContent)
     {
         this.toolRegistry = toolRegistry;
         this.featureFlags = featureFlags;
+        this.helpContent = helpContent;
     }
 
     /// <summary>
@@ -58,7 +65,11 @@ public sealed class SitemapController : Controller
         var document = new XDocument(
             new XElement(
                 ns + "urlset",
-                SeoPaths.Indexable.Where(IsReachable).Select(path => new XElement(
+                SeoPaths.Indexable.Where(IsReachable)
+                    .Concat(helpContent.GetAll()
+                        .Where(topic => helpContent.IsTopicVisible(topic, featureFlags))
+                        .Select(topic => $"/help/{topic.Slug}"))
+                    .Select(path => new XElement(
                     ns + "url",
                     new XElement(ns + "loc", BuildAbsoluteUrl(baseUrl, path))))));
 
