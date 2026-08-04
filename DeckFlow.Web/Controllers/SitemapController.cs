@@ -1,5 +1,7 @@
 using System.Xml.Linq;
 using DeckFlow.Web.Seo;
+using DeckFlow.Web.Services.FeatureFlags;
+using DeckFlow.Web.Services.Tools;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DeckFlow.Web.Controllers;
@@ -9,6 +11,23 @@ namespace DeckFlow.Web.Controllers;
 /// </summary>
 public sealed class SitemapController : Controller
 {
+    private const string HelpPath = "/help";
+    private const string HelpFeatureFlagKey = "tool.help.enabled";
+
+    private readonly IToolRegistry toolRegistry;
+    private readonly IFeatureFlagCache featureFlags;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SitemapController"/> class.
+    /// </summary>
+    /// <param name="toolRegistry">The canonical source of tool routes and flags.</param>
+    /// <param name="featureFlags">The current feature-flag state.</param>
+    public SitemapController(IToolRegistry toolRegistry, IFeatureFlagCache featureFlags)
+    {
+        this.toolRegistry = toolRegistry;
+        this.featureFlags = featureFlags;
+    }
+
     /// <summary>
     /// Returns the robots.txt crawl directives for the public site.
     /// </summary>
@@ -39,7 +58,7 @@ public sealed class SitemapController : Controller
         var document = new XDocument(
             new XElement(
                 ns + "urlset",
-                SeoPaths.Indexable.Select(path => new XElement(
+                SeoPaths.Indexable.Where(IsReachable).Select(path => new XElement(
                     ns + "url",
                     new XElement(ns + "loc", BuildAbsoluteUrl(baseUrl, path))))));
 
@@ -49,6 +68,19 @@ public sealed class SitemapController : Controller
     private string BuildBaseUrl()
     {
         return $"{Request.Scheme}://{Request.Host}";
+    }
+
+    private bool IsReachable(string path)
+    {
+        if (path == HelpPath)
+        {
+            return featureFlags.IsEnabled(HelpFeatureFlagKey);
+        }
+
+        var tool = toolRegistry.All.FirstOrDefault(definition =>
+            definition.Route == path || definition.AdditionalRoutes.Contains(path, StringComparer.Ordinal));
+
+        return tool is null || featureFlags.IsEnabled(tool.FlagKey);
     }
 
     private static string BuildAbsoluteUrl(string baseUrl, string path)

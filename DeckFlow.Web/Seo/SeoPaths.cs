@@ -33,7 +33,6 @@ public static class SeoPaths
         "/bracket",
         "/deck-history",
         "/cut-lab",
-        "/content-kb",
         "/help",
         "/about",
         "/feedback",

@@ -1,6 +1,8 @@
 using System.Xml.Linq;
 using DeckFlow.Web.Controllers;
 using DeckFlow.Web.Infrastructure;
+using DeckFlow.Web.Services.FeatureFlags;
+using DeckFlow.Web.Services.Tools;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -51,13 +53,31 @@ public sealed class SitemapControllerTests
 
         Assert.Contains("https://deckflow.test/", urls);
         Assert.Contains("https://deckflow.test/help", urls);
-        Assert.Contains("https://deckflow.test/content-kb", urls);
+        Assert.DoesNotContain("https://deckflow.test/content-kb", urls);
         Assert.Contains("https://deckflow.test/feedback", urls);
         Assert.Contains("https://deckflow.test/manabase", urls);
         Assert.Contains("https://deckflow.test/bracket", urls);
         Assert.Contains("https://deckflow.test/deck-history", urls);
-        Assert.Equal(20, urls.Count);
         Assert.All(urls, url => Assert.StartsWith("https://deckflow.test", url, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void SitemapXml_omits_a_tool_when_its_flag_is_disabled_and_restores_it_when_enabled()
+    {
+        var flags = new FakeFeatureFlagCache(new Dictionary<string, bool>
+        {
+            ["tool.bracket.enabled"] = false,
+        });
+
+        var disabledUrls = GetSitemapUrls(CreateController(flags));
+
+        Assert.DoesNotContain("https://deckflow.test/bracket", disabledUrls);
+
+        flags.Flags["tool.bracket.enabled"] = true;
+
+        var enabledUrls = GetSitemapUrls(CreateController(flags));
+
+        Assert.Contains("https://deckflow.test/bracket", enabledUrls);
     }
 
     [Fact(Skip = "Validating OnStarting response headers here would require full TestServer host plumbing, which is out of scope for this change.")]
@@ -88,13 +108,28 @@ public sealed class SitemapControllerTests
         Assert.False(publicContext.Response.Headers.ContainsKey("X-Robots-Tag"));
     }
 
-    private static SitemapController CreateController()
+    private static List<string> GetSitemapUrls(SitemapController controller)
+    {
+        var result = Assert.IsType<ContentResult>(controller.SitemapXml());
+        var document = XDocument.Parse(Assert.IsType<string>(result.Content));
+        XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
+
+        return document.Root!.Elements(ns + "url")
+            .Select(element => element.Element(ns + "loc")?.Value)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Cast<string>()
+            .ToList();
+    }
+
+    private static SitemapController CreateController(IFeatureFlagCache? featureFlags = null)
     {
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Scheme = "https";
         httpContext.Request.Host = new HostString("deckflow.test");
 
-        return new SitemapController
+        return new SitemapController(
+            new ToolRegistry(),
+            featureFlags ?? new FakeFeatureFlagCache())
         {
             ControllerContext = new ControllerContext
             {
