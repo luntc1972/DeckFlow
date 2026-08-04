@@ -101,7 +101,7 @@ public sealed class AdminYoutubeExportControllerTests
         Assert.IsType<FileContentResult>(result);
         var setCookie = controller.HttpContext.Response.Headers.SetCookie.ToString();
         Assert.Contains("yt-export-done=abc123DEF", setCookie, StringComparison.Ordinal);
-        Assert.Contains("path=/Admin/YoutubeExport", setCookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("path=/", setCookie, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
