@@ -1,5 +1,6 @@
 :root {
   --shell-max-width: 1120px;
+  --cutlab-anchor-nav-stuck-height: 4rem;
   /* WDG-08 finding O: signal user-agent that native chrome (scrollbars,
      form controls) should follow each theme's light/dark intent. */
   color-scheme: light dark;
@@ -4850,6 +4851,49 @@ input[data-cut-lab-floor]:focus-visible {
   font-weight: 600;
 }
 
+.cutlab-proposal--pinned {
+  position: sticky;
+  top: var(--cutlab-pinned-offset, 4rem);
+  z-index: 19;
+  padding: 0.85rem 1rem;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+}
+
+.cutlab-proposal__pinned-row,
+.cutlab-proposal__pinned-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.cutlab-proposal__pinned-row .cutlab-proposal__heading,
+.cutlab-proposal__glance {
+  margin: 0;
+}
+
+.cutlab-proposal__glance {
+  font-size: var(--fs-sm);
+  opacity: 0.85;
+}
+
+.cutlab-proposal__pinned-actions {
+  justify-content: flex-end;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.cutlab-proposal__pinned-actions form {
+  display: contents;
+}
+
+.cutlab-proposal__body {
+  padding-top: 1rem;
+}
+
 .cutlab-proposal__evidence {
   margin-bottom: 1rem;
 }
@@ -5176,6 +5220,14 @@ tr[data-cut-lab-tuner-row]:has(.cutlab-tuner-badge--added) {
   .cutlab-proposal__actions .cutlab-decision-btn,
   .cutlab-cuts-made__row .cutlab-restore-btn {
     width: 100%;
+  }
+
+  .cutlab-proposal__pinned-actions {
+    justify-content: flex-start;
+  }
+
+  .cutlab-proposal__pinned-actions .cutlab-decision-btn {
+    width: auto;
   }
 
   .cutlab-restore-btn {
