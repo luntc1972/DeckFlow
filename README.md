@@ -825,6 +825,11 @@ Site-wide UI fixes (batch A of the 2026-08-02 UI audit), affecting every page:
 - **Mobile touch targets:** copy, share, feedback, AI-selector, and step-tab controls are all at least 44px, and the feedback fields no longer trigger iOS Safari's zoom-on-focus.
 - **cEDH Meta Gap:** the reference table scrolls horizontally instead of overflowing, and potential cuts with no reference-deck matches no longer print "found in 0 reference deck(s)".
 
+Clear and reset controls, affecting every tool that remembers your form:
+- **The "Restored from cache" Reset button works:** it previously did nothing you could see — on a page rendered from a submission it restored each field to the value you were trying to clear, and left the results below untouched. Reset now clears the page the same way **Start over** does.
+- **"Clear" works on Commander Categories, Deck Sync, Mechanic Lookup, and Category Suggestions:** these four had the same dead-button problem after a submission.
+- **"Start over" no longer brings your deck back:** the deck name, label, and decklist were being re-saved on the way out and restored on the fresh page.
+
 Cut Lab UAT follow-ups (post-2026.07.9), still behind the `tool.cut-lab.enabled` flag:
 - **Card popup:** clicking any card — a role pill, a findings chip, a pool-row name, or a cut proposal — opens a card popup showing that card's oracle text plus **Lock / Unlock** and **Close**. Card text is served from an in-page JSON island, so opening a card costs no extra request. Double-faced cards show the full front // back oracle text.
 - **Portable session transfer:** download the current Cut Lab session as a `.json` file, and load a session file to resume the same run on another device, reusing the scenario-restore path. Sessions stay on your machine; nothing is retained server-side.

@@ -38,7 +38,7 @@
                 <input id="commander-search-input" name="CommanderName" value="@Model.Request.CommanderName" placeholder="Bello, Bard of the Bramble" autocomplete="off" required />
         </label>
         <button type="submit" class="run-button" data-enable-on-ready>Show Categories</button>
-        <button type="button" class="clear-cache-button" data-clear-cache>Clear</button>
+        <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/commander-categories")">Clear</button>
     </div>
     <p class="mode-note">Type at least two letters to see intelligent suggestions for commanders backed by Scryfall.</p>
     <div class="mode-note">

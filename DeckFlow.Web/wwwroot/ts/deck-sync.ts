@@ -932,6 +932,42 @@ const formatCacheAge = (savedAtMs: number): string => {
   return `${Math.floor(hours / 24)} day ago`;
 };
 
+/**
+ * Clears a persisted form by letting it navigate to its clean GET — the only reset that
+ * works on a POST-rendered page, because form.reset() restores each control to its HTML
+ * default and the server has already written the submitted values into those defaults.
+ * Returns false when the control carries no URL, leaving the caller to reset in place.
+ */
+const clearFormByNavigating = (
+  form: HTMLFormElement,
+  clearControl: HTMLElement,
+  navigate: (url: string) => void,
+): boolean => {
+  const scriptedHref = clearControl.getAttribute('data-clear-href');
+  // Why: an anchor control navigates natively. That is still a navigation, so it needs the
+  // same skipPersistence guard as the scripted one — pagehide fires while the form is still
+  // populated and would re-persist it straight over the cache we just cleared.
+  const navigatesNatively = clearControl instanceof HTMLAnchorElement
+    && clearControl.hasAttribute('href');
+
+  if (!scriptedHref && !navigatesNatively) {
+    return false;
+  }
+
+  form.dataset.skipPersistence = 'true';
+  if (form.getAttribute('data-cache-key') === 'prompt-packets') {
+    clearPromptPacketsState(form);
+  } else {
+    clearPersistedFormState(form);
+  }
+
+  if (scriptedHref) {
+    navigate(scriptedHref);
+  }
+
+  return true;
+};
+
 const showCachePill = (form: HTMLFormElement, savedAtMs: number): void => {
   if (form.querySelector('[data-cache-pill]')) return;
   const pill = document.createElement('div');
@@ -947,6 +983,16 @@ const showCachePill = (form: HTMLFormElement, savedAtMs: number): void => {
   resetButton.className = 'cache-pill__reset';
   resetButton.textContent = 'Reset';
   resetButton.addEventListener('click', () => {
+    // Why: form.reset() restores every control to its HTML default, and on a POST-rendered
+    // page the server has already written the submitted values into those defaults — so it
+    // clears nothing the user can see, and leaves the rendered results section standing.
+    // Delegate to the form's own clear control, which navigates to a clean GET.
+    const clearControl = form.querySelector<HTMLElement>('[data-clear-cache]');
+    if (clearControl) {
+      clearControl.click();
+      return;
+    }
+
     clearPersistedFormState(form);
     form.reset();
   });
@@ -1002,16 +1048,7 @@ const attachGenericPersistedForms = (): void => {
 
     const clearButton = form.querySelector<HTMLElement>('[data-clear-cache]');
     clearButton?.addEventListener('click', () => {
-      const clearHref = clearButton.getAttribute('data-clear-href');
-      if (clearHref) {
-        form.dataset.skipPersistence = 'true';
-        if (form.getAttribute('data-cache-key') === 'prompt-packets') {
-          clearPromptPacketsState(form);
-        } else {
-          clearPersistedFormState(form);
-        }
-
-        window.location.href = clearHref;
+      if (clearFormByNavigating(form, clearButton, url => { window.location.href = url; })) {
         return;
       }
 
@@ -1292,17 +1329,7 @@ const attachDeckSyncPersistence = (): void => {
 
   const clearButton = form.querySelector<HTMLElement>('[data-clear-cache]');
   clearButton?.addEventListener('click', () => {
-    const clearHref = clearButton.getAttribute('data-clear-href');
-    if (clearHref) {
-      form.dataset.skipPersistence = 'true';
-      const cacheKey = form.getAttribute('data-cache-key');
-      if (cacheKey === 'prompt-packets') {
-        clearPromptPacketsState(form);
-      } else {
-        clearPersistedFormState(form);
-      }
-
-      window.location.replace(clearHref);
+    if (clearFormByNavigating(form, clearButton, url => { window.location.replace(url); })) {
       return;
     }
 
