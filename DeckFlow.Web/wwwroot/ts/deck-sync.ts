@@ -436,8 +436,18 @@ const registerPromptDownloadHandler = (): void => {
     button.type = 'button';
 
     button.addEventListener('click', async (event: MouseEvent) => {
-      const form = button.closest('form');
+      // Why .form and not closest('form'): .form implements the spec's form-association
+      // algorithm, so it honors form="<id>" on a button that is not a DOM descendant of
+      // its target form. closest('form') walks ancestors only — which on /deck-history
+      // returned null and made the click a silent no-op (the button was demoted to
+      // type="button" above, so there was no native submission to fall back on either).
+      // Deliberately no closest('form') fallback: a form="<id>" that resolves to nothing
+      // means the author targeted a form that isn't there, and posting to an enclosing
+      // form instead would silently hit the wrong action.
+      const form = button.form;
       if (!form) {
+        // Silence is what let a dead download button sit in production unnoticed.
+        console.warn('Prompt download: button has no form owner — click ignored.', button);
         return;
       }
       event.preventDefault();
