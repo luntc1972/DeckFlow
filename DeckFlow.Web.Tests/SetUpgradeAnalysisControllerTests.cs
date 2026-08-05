@@ -1,17 +1,14 @@
-using System.Linq;
-using System.Reflection;
 using System.Text.RegularExpressions;
 using DeckFlow.Web.Controllers;
-using DeckFlow.Web.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Routing;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
 
 /// <summary>
 /// Covers the <c>/set-upgrade-analysis</c> landing page: it renders, it carries unique metadata,
-/// it has exactly one h1, and it dies with the deck-analysis workflow it points at.
+/// it has exactly one h1, and every cross-tool link it offers is flag-gated. The page's own
+/// feature-flag gate is proved by <c>ToolRouteGateCoverageTests</c>, not here.
 /// </summary>
 public sealed class SetUpgradeAnalysisControllerTests
 {
@@ -27,30 +24,11 @@ public sealed class SetUpgradeAnalysisControllerTests
         Assert.Null(result.ViewName);
     }
 
-    [Fact]
-    public void Index_is_gated_by_the_deck_analysis_flag()
-    {
-        // A landing page for a dark workflow is worse than no landing page: it ranks, gets
-        // clicked, and lands the visitor on a 404'd tool.
-        var gate = typeof(SetUpgradeAnalysisController)
-            .GetMethod(nameof(SetUpgradeAnalysisController.Index))!
-            .GetCustomAttribute<FeatureFlagGateAttribute>();
-
-        Assert.NotNull(gate);
-        Assert.Equal("tool.deck-analysis.enabled", gate!.Key);
-    }
-
-    [Fact]
-    public void Every_landing_page_action_carries_an_http_route_and_the_gate()
-    {
-        var actions = typeof(SetUpgradeAnalysisController)
-            .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
-            .Where(static method => method.GetCustomAttributes<HttpMethodAttribute>(inherit: true).Any())
-            .ToArray();
-
-        Assert.Equal(new[] { "Index" }, actions.Select(static action => action.Name).ToArray());
-        Assert.All(actions, action => Assert.NotNull(action.GetCustomAttribute<FeatureFlagGateAttribute>()));
-    }
+    // The deck-analysis gate on Index is NOT asserted here. Registering /set-upgrade-analysis in
+    // deck-analysis's AdditionalRoutes puts this action inside ToolRouteGateCoverageTests, which
+    // already fails the build if the attribute is dropped or its key drifts — verified by removing
+    // the attribute and watching that suite go red. Restating it here would just be a third place
+    // to edit on a flag rename.
 
     [Fact]
     public void View_sets_unique_set_upgrade_metadata()
@@ -68,34 +46,26 @@ public sealed class SetUpgradeAnalysisControllerTests
     }
 
     [Fact]
-    public void View_links_to_deck_analysis_and_at_least_one_other_tool()
+    public void View_links_to_deck_analysis_ungated()
     {
-        var content = ViewSource;
-
-        Assert.Contains("~/deck-analysis", content, StringComparison.Ordinal);
-        Assert.True(
-            new[] { "~/bracket", "~/deck-history", "~/manabase" }
-                .Count(route => content.Contains(route, StringComparison.Ordinal)) >= 1,
-            "The landing page must link to at least one tool besides deck analysis.");
+        // Deck Analysis is the workflow this page exists to feed, and the page is already gated
+        // on that same flag — so this link never needs a flag check of its own.
+        Assert.Contains("~/deck-analysis", ViewSource, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void Cross_tool_links_are_flag_gated()
+    [Theory]
+    [InlineData("~/bracket", "tool.bracket.enabled")]
+    [InlineData("~/deck-history", "tool.deck-history.enabled")]
+    [InlineData("~/manabase", "tool.manabase.enabled")]
+    public void Cross_tool_links_are_present_and_flag_gated(string route, string flag)
     {
+        // Asserted unconditionally on purpose. An earlier version guarded each check with
+        // "if the view contains this route", which meant deleting every link left the test
+        // green — it could only pass. Same rule as the T-8 contextual links: never link a
+        // visitor to a dark tool.
         var content = ViewSource;
 
-        // Same rule as the T-8 contextual links: never link a visitor to a dark tool.
-        foreach (var (route, flag) in new[]
-        {
-            ("~/bracket", "tool.bracket.enabled"),
-            ("~/deck-history", "tool.deck-history.enabled"),
-            ("~/manabase", "tool.manabase.enabled"),
-        })
-        {
-            if (content.Contains(route, StringComparison.Ordinal))
-            {
-                Assert.Contains($"FlagCache.IsEnabled(\"{flag}\")", content, StringComparison.Ordinal);
-            }
-        }
+        Assert.Contains($"href=\"@Url.Content(\"{route}\")\"", content, StringComparison.Ordinal);
+        Assert.Contains($"FlagCache.IsEnabled(\"{flag}\")", content, StringComparison.Ordinal);
     }
 }

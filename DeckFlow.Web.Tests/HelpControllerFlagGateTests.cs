@@ -23,9 +23,10 @@ public sealed class HelpControllerFlagGateTests
     {
         var actions = GetHelpActions();
 
-        Assert.Equal(
-            new[] { "Index", "Topic" },
-            actions.Select(static action => action.Name).OrderBy(static name => name, StringComparer.Ordinal).ToArray());
+        // No hardcoded action-name list: ToolRouteGateCoverageTests' sibling rule already fails
+        // when a new help action arrives ungated. What only this test pins is the key itself,
+        // since the sibling rule accepts any key.
+        Assert.NotEmpty(actions);
 
         foreach (var method in actions)
         {
