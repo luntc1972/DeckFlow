@@ -306,8 +306,55 @@ fix: |
   history continuity on Deck History specifically. Do not simply re-add HistoryJson
   to the generic sessionStorage cache — that reintroduces the already-fixed
   stale-clobber bug (.planning/debug/resolved/deck-history-page-bugs.md).
-verification: (not applicable — diagnose-only session, no fix to verify)
-files_changed: []
+verification: |
+  Fix implemented 2026-08-05 on branch `fix/deck-history-silent-fresh-start` (user
+  explicitly authorized Claude to write the production code, overriding the
+  Codex-writes-code rule, because Codex credits do not reset until 2026-08-10).
+  Approach: address gap (2) directly with a `StartedNewHistory` flag plus two
+  server-rendered notices, and address gap (3)'s SYMPTOM server-side rather than
+  touching the cross-tool `deck-input-store.ts` / `deck-sync.ts` restore. Gap (1) is
+  deliberately left alone — re-adding HistoryJson to the sessionStorage cache would
+  reintroduce the already-fixed stale-clobber bug.
+  Evidence:
+  - TDD: tests written first, RED confirmed (CS1061/CS0117 on the missing member).
+  - Mutation-tested both directions — forcing the flag to `false` fails
+    ProcessAsync_DeckOnly_CreatesNewFileAppendsSnapshotAndLeavesPromptEmpty; forcing it
+    to `true` fails ProcessAsync_HistoryAndDeckAtTwoVersions_BuildsPrompt. The guards
+    provably bite.
+  - Full suite: 4749 xUnit passed / 0 failed / 20 skipped; 123 vitest passed.
+    Solution builds with 0 errors (CS8629 warnings are the pre-existing baseline).
+  - Live headless Playwright at 1280x900 and 390x844: the no-history notice renders on
+    a fresh GET and disappears after submit; the fresh-start caveat renders in the
+    success banner; no horizontal overflow at either viewport. Local feature flag was
+    forced On for the run and restored to Off afterwards.
+  - format-check-changed gate exit 0; no EOL or whitespace churn.
+  NOT yet done: user UAT, and push.
+files_changed:
+  - DeckFlow.Web/Services/DeckHistoryPageService.cs
+  - DeckFlow.Web/Models/DeckHistoryViewModel.cs
+  - DeckFlow.Web/Views/Deck/DeckHistory.cshtml
+  - DeckFlow.Web/wwwroot/css/site-common.css
+  - DeckFlow.Web.Tests/DeckHistoryPageServiceTests.cs
+  - DeckFlow.Web.Tests/DeckHistoryViewRenderTests.cs
+  - README.md
+
+## Follow-ups raised by the /simplify review (NOT done here)
+
+1. `deck-input-store.ts`'s `deckflow.last-deck` sessionStorage key is unscoped across
+   every deck tool, while `deck-sync.ts` already has a per-tool `data-cache-key`
+   scoping mechanism and a generalized `nonPersistedFieldNames` exclusion list. That
+   asymmetry is the real architectural cause. Scoping `deckflow.last-deck` per
+   `data-cache-key` is a small change — the attribute is already on every consuming
+   form — and would close it properly.
+2. Cut Lab (`CutLabStateJson`) and cEDH Meta-Gap (`WorkflowStep` /
+   `FetchedEntriesJson` / `MetaGapPromptText`) have the identical shape: a hidden
+   server-computed field excluded from the cache while the deck fields restore. Needs
+   a census for the same silent-reset-reads-as-success risk. Only Deck History was
+   fixed here.
+3. Every `*ViewRenderTests.cs` builds a fresh ServiceCollection + Razor view engine per
+   test; no shared `IClassFixture` exists anywhere in the test project. A shared
+   cached provider would cut render-test cost suite-wide. Pre-existing, not caused by
+   this change.
 
 ## Constraints on this session
 

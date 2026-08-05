@@ -79,6 +79,12 @@ public sealed record DeckHistoryViewModel
     /// <summary>True when a parsed or appended history result is available to render.</summary>
     public bool HasResult { get; init; }
 
+    /// <summary>
+    /// True when this result started a brand-new history file rather than extending an existing
+    /// one. Drives the caveat that tells a returning user their prior versions were not loaded.
+    /// </summary>
+    public bool StartedNewHistory { get; init; }
+
     /// <summary>Builds the page model from the request plus a processed page-service result.</summary>
     /// <param name="request">The posted request to preserve in the form.</param>
     /// <param name="result">The processed result returned by the page service.</param>
@@ -122,6 +128,7 @@ public sealed record DeckHistoryViewModel
             SuccessMessage = BuildSuccessMessage(result, file),
             Warnings = result.Warnings,
             HasResult = file is not null,
+            StartedNewHistory = result.StartedNewHistory,
         };
     }
 

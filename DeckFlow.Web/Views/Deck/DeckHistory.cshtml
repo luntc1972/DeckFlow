@@ -64,6 +64,17 @@
         <label for="history-file">History file (optional)</label>
         <input id="history-file" type="file" name="historyFile" accept=".json,application/json" />
         <small class="manabase-help">First visit? Skip this — import your deck below and download your new history file.</small>
+        @if (string.IsNullOrWhiteSpace(Model.HistoryJson))
+        {
+            @* Why: your deck fields restore from sessionStorage on a fresh load but the history
+               never does, so the page looks like it remembered everything. Say so plainly here,
+               before the user submits and silently starts a disconnected version 1. *@
+            <p class="history-no-file-notice">
+                <strong>No saved history is loaded.</strong>
+                Coming back to a deck you already track? Upload its <code>.json</code> here first —
+                otherwise <em>Update history</em> starts a brand-new file at version 1.
+            </p>
+        }
     </div>
 
     <div class="field">
@@ -119,6 +130,10 @@
         {
             <div class="success-banner" role="status">
                 @Model.SuccessMessage
+                @if (Model.StartedNewHistory)
+                {
+                    <span class="history-fresh-start-caveat">Already had a history file for this deck? It was not loaded, so this is a new file starting at version 1. Press Start over, upload your saved <code>.json</code>, then import the deck again.</span>
+                }
                 <span class="history-success-hint">To add the next version: update your deck, import it above, and press Update history again — your history carries forward on this page.</span>
             </div>
         }
