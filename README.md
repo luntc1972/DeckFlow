@@ -813,6 +813,9 @@ Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags ar
 
 ### Unreleased
 
+Deck History:
+- **A new version no longer looks like it replaced your history.** Deck History keeps no server-side state — your versions live only in the `.json` file you download. If you came back later and imported your deck without re-uploading that file, the page silently started a brand-new history at version 1 and reported it with the same success message as a genuine first save, so prior versions appeared to have been wiped. The page now says plainly, before you submit, that no history is loaded, and the result banner calls out when a fresh file was started instead of an existing one extended. Your deck fields still restore from the previous session; only the misleading silence about history is gone.
+
 Site-wide UI fixes (batch A of the 2026-08-02 UI audit), affecting every page:
 - **Branded 404 and 403 pages:** a mistyped URL or a flag-gated route now renders the DeckFlow error page with "Page not found" copy and a link back to the tool list, instead of the bare framework error page. `/api/*` responses are unchanged — they still return an empty body so JSON callers do not receive HTML.
 - **Landing-page tiles show their real icons:** Deck History, Ask a Judge, and Category Suggestions were rendering a generic "?" glyph. The landing page also gains the `<h1>` it never had.

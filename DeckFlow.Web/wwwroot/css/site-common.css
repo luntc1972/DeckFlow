@@ -1,5 +1,9 @@
 :root {
   --shell-max-width: 1120px;
+  /* Why: the amber caution rail is shared by warning banners and the inline
+     history notices; keep one literal so retuning it cannot leave them adrift.
+     Declared here rather than per-theme because guild themes fork site.css. */
+  --caution-rail: #c8860b;
   /* WDG-08 finding O: signal user-agent that native chrome (scrollbars,
      form controls) should follow each theme's light/dark intent. */
   color-scheme: light dark;
@@ -104,7 +108,7 @@ textarea::-webkit-scrollbar-thumb:hover {
    per-theme .warning-banner background fills; the higher-specificity selector
    beats class-only theme rules and adds a clear amber rail on every viewport. */
 div.warning-banner {
-  border-left: 4px solid #c8860b;
+  border-left: 4px solid var(--caution-rail, #c8860b);
   padding-left: 1rem;
 }
 
@@ -4186,6 +4190,24 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
 .history-success-hint {
   display: block;
   margin-top: 0.4rem;
+}
+
+/* Why: both notices warn that history did NOT carry forward, so they share
+   --caution-rail with div.warning-banner rather than taking a theme-specific fill —
+   guild themes are standalone forks and would each need their own colour otherwise. */
+.history-no-file-notice,
+.history-fresh-start-caveat {
+  display: block;
+  margin-top: 0.5rem;
+  border-left: 4px solid var(--caution-rail, #c8860b);
+  padding-left: 0.75rem;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.history-no-file-notice code,
+.history-fresh-start-caveat code {
+  font-size: 0.95em;
 }
 
 .deck-history-form .manabase-help {

@@ -45,6 +45,13 @@ public sealed record DeckHistoryProcessResult
     /// <summary>True when the current request appended a new snapshot.</summary>
     public bool Appended { get; init; }
 
+    /// <summary>
+    /// True when this request created a brand-new history file because no prior history was
+    /// supplied. Distinguishes a genuine first save from a returning user who forgot to
+    /// re-upload their saved file — both otherwise produce an identical single-version result.
+    /// </summary>
+    public bool StartedNewHistory { get; init; }
+
     /// <summary>The selected older version id for pairwise diff display, when available.</summary>
     public int? PairOlderId { get; init; }
 
@@ -193,6 +200,9 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
         }
 
         var appended = false;
+        // Why: capture this BEFORE the null-coalescing assignment below fills `file` in — once
+        // CreateNew runs, a fresh start is indistinguishable from an append at the call site.
+        var startedNewHistory = load is not null && file is null;
         if (load is not null)
         {
             file ??= DeckHistoryAppender.CreateNew(
@@ -248,6 +258,7 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
             File = file,
             SerializedJson = file is null ? null : DeckHistorySerializer.Serialize(file),
             Appended = appended,
+            StartedNewHistory = startedNewHistory,
             PairOlderId = pairOlderId,
             PairNewerId = pairNewerId,
             PairDiff = pairDiff,

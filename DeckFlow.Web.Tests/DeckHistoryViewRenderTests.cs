@@ -155,6 +155,115 @@ public sealed class DeckHistoryViewRenderTests
         Assert.Contains("DeckFlow Bridge extension", formHtml, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task InputForm_WithoutLoadedHistory_WarnsThatUpdateWillStartANewFile()
+    {
+        var model = new DeckHistoryViewModel
+        {
+            ActiveTab = DeckPageTab.DeckHistory,
+            Request = new DeckHistoryRequest
+            {
+                DeckInputSource = DeckInputSource.PublicUrl,
+                DeckUrl = "https://www.moxfield.com/decks/example",
+                TargetAiPlatform = "ChatGPT",
+            },
+            HistoryJson = string.Empty,
+        };
+
+        string html = NeutralizeAntiforgery(await RenderAsync(model));
+
+        // Why: the deck URL above is restored from sessionStorage on a fresh load while
+        // HistoryJson is not, so the page looks like it remembered everything. Without this
+        // notice the user submits and silently starts a disconnected version-1 file.
+        Assert.Contains("class=\"history-no-file-notice\"", html, StringComparison.Ordinal);
+        Assert.Contains("No saved history is loaded", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task InputForm_WithLoadedHistory_OmitsNoHistoryNotice()
+    {
+        var model = new DeckHistoryViewModel
+        {
+            ActiveTab = DeckPageTab.DeckHistory,
+            Request = new DeckHistoryRequest
+            {
+                DeckInputSource = DeckInputSource.PasteText,
+                DeckText = "1 Sol Ring",
+                TargetAiPlatform = "ChatGPT",
+            },
+            HistoryJson = """{"format":"deckflow/history/v1"}""",
+        };
+
+        string html = NeutralizeAntiforgery(await RenderAsync(model));
+
+        Assert.DoesNotContain("class=\"history-no-file-notice\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ResultView_WhenHistoryWasStartedFresh_RendersFreshStartCaveat()
+    {
+        var model = new DeckHistoryViewModel
+        {
+            ActiveTab = DeckPageTab.DeckHistory,
+            HasResult = true,
+            StartedNewHistory = true,
+            Request = new DeckHistoryRequest
+            {
+                DeckInputSource = DeckInputSource.PasteText,
+                DeckText = "1 Sol Ring",
+                TargetAiPlatform = "ChatGPT",
+            },
+            HistoryJson = """{"format":"deckflow/history/v1"}""",
+            SuccessMessage = "Started a new history — version 1 saved.",
+            TimelineRows =
+            [
+                new TimelineRow
+                {
+                    Id = 1,
+                    Date = DateTimeOffset.Parse("2026-07-09T00:00:00Z"),
+                    CardCount = 100,
+                },
+            ],
+        };
+
+        string html = NeutralizeAntiforgery(await RenderAsync(model));
+
+        Assert.Contains("class=\"history-fresh-start-caveat\"", html, StringComparison.Ordinal);
+        Assert.Contains("Already had a history file for this deck?", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ResultView_WhenVersionAppended_OmitsFreshStartCaveat()
+    {
+        var model = new DeckHistoryViewModel
+        {
+            ActiveTab = DeckPageTab.DeckHistory,
+            HasResult = true,
+            StartedNewHistory = false,
+            Request = new DeckHistoryRequest
+            {
+                DeckInputSource = DeckInputSource.PasteText,
+                DeckText = "1 Sol Ring",
+                TargetAiPlatform = "ChatGPT",
+            },
+            HistoryJson = """{"format":"deckflow/history/v1"}""",
+            SuccessMessage = "Version 2 added.",
+            TimelineRows =
+            [
+                new TimelineRow
+                {
+                    Id = 2,
+                    Date = DateTimeOffset.Parse("2026-07-16T00:00:00Z"),
+                    CardCount = 100,
+                },
+            ],
+        };
+
+        string html = NeutralizeAntiforgery(await RenderAsync(model));
+
+        Assert.DoesNotContain("class=\"history-fresh-start-caveat\"", html, StringComparison.Ordinal);
+    }
+
     private static string NeutralizeAntiforgery(string html) => Regex.Replace(
         html,
         "(name=\"__RequestVerificationToken\"[^>]*value=\")[^\"]*\"",

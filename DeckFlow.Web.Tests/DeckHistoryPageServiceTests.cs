@@ -45,6 +45,11 @@ public sealed class DeckHistoryPageServiceTests
         Assert.Equal("v1", result.File.Versions[0].Label);
         Assert.True(string.IsNullOrWhiteSpace(result.PromptText));
         Assert.False(string.IsNullOrWhiteSpace(result.SerializedJson));
+
+        // Why: a returning user who forgets to re-upload their history file lands on this exact
+        // branch. Without the flag the page cannot tell them their prior versions were never
+        // loaded, and the brand-new single-version file reads as "my history was replaced".
+        Assert.True(result.StartedNewHistory);
     }
 
     [Fact]
@@ -93,6 +98,7 @@ public sealed class DeckHistoryPageServiceTests
         Assert.True(result.Appended);
         Assert.Equal(2, result.File!.Versions.Count);
         Assert.False(string.IsNullOrWhiteSpace(result.PromptText));
+        Assert.False(result.StartedNewHistory);
     }
 
     [Fact]
