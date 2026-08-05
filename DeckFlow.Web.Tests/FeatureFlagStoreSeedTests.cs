@@ -35,10 +35,10 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
     [InlineData("analysis.manabase.commander-castability", true)]
     [InlineData("analysis.manabase.tap-analyzer", true)]
     [InlineData("analysis.command-zone-awareness", false)]
-    [InlineData("tool.bracket.enabled", false)] // BRACKET-05: seeded OFF
+    [InlineData("tool.bracket.enabled", true)] // BRACKET-05: dark launch over, seeded ON
     [InlineData("analysis.multi-axis-score", false)] // SCORE-01: seeded OFF
     [InlineData("tool.primer.stale-flag", false)] // PRIMER: seeded OFF
-    [InlineData("tool.deck-history.enabled", false)] // seeded OFF
+    [InlineData("tool.deck-history.enabled", true)] // dark launch over, seeded ON
     [InlineData("tool.cut-lab.enabled", false)] // seeded OFF
     [InlineData("analysis.manabase.mulligan-eval", true)] // renamed + default ON
     [InlineData("analysis.manabase.plan-presence", true)] // default ON (gated also on mulligan-eval)
