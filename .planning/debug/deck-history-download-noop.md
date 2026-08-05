@@ -1,6 +1,6 @@
 ---
 slug: deck-history-download-noop
-status: diagnosed
+status: fixed
 trigger: "in prod deck-history download deck history button doesn't download anything at least when creating one, havent been able to test a new version yet"
 created: 2026-08-04
 updated: 2026-08-04
@@ -116,5 +116,50 @@ updated: 2026-08-04
     Test gap to close alongside the fix: e2e/deck-history-smoke.spec.ts should dispatch a real
     `button.click()` (not a hand-rolled `page.evaluate` fetch) so the actual registered handler is
     exercised, and e2e/form-correctness-batch-g.spec.ts's G1 path list should include `/deck-history`.
-  verification: not run — goal is find_root_cause_only; no fix was applied in this session
-  files_changed: []
+  applied: |
+    Fix (b) applied on branch fix/deck-history-download-noop, with one deviation from the
+    recommendation above: the `?? button.closest('form')` fallback was DROPPED after the /simplify
+    pass. `.form` is not quite a strict superset — when a `form="<id>"` attribute resolves to no
+    element, the spec says the form owner is null even if an ancestor `<form>` exists. Falling back
+    to `closest('form')` there would silently post to the wrong action, so `const form = button.form;`
+    stands alone. A `console.warn` was added to the `if (!form)` branch: the silent return is what
+    let this sit dead in production for months.
+    Fix (a) (markup restructure) was NOT applied — unnecessary once the shared handler is correct.
+  verification: |
+    - `dotnet build DeckFlow.Web` — 0 errors, 0 warnings (tsc recompiled).
+    - e2e/deck-history-smoke.spec.ts — 6/6 pass, chromium-desktop + chromium-mobile.
+    - MUTATION PROOF: reverting deck-sync.ts to `closest('form')` and rebuilding made
+      chromium-mobile fail at exactly the download step — `waitForResponse` timed out with no POST
+      and no `download` event. The new test genuinely catches the defect; the old one did not.
+      (The chromium-desktop failure in that run was the known admin-e2e lock-contention flake.)
+    - Regression: e2e/form-correctness-batch-g.spec.ts + e2e/manabase-download.spec.ts — 38/38 pass
+      combined with the deck-history spec, so the other 6 download pages are unaffected.
+    - vitest: 122/123 pass. The single failure (ts-tests/cut-lab-proposal.test.ts, export-tab toggle)
+      reproduces on a clean tree with these changes stashed — pre-existing, already ticketed.
+    - EOL: `git diff --stat` matches `git diff --ignore-all-space --stat`; both files 0 CRs in
+      working tree and at HEAD. No churn.
+    - NOT verified: production itself. Needs a deploy + user UAT on www.deckflow.gg.
+  files_changed:
+    - DeckFlow.Web/wwwroot/ts/deck-sync.ts
+    - DeckFlow.Web/e2e/deck-history-smoke.spec.ts
+
+## Follow-ups (found during the /simplify pass, deliberately NOT in this fix)
+
+Two other sites resolve a **form-associable element's** owner with an ancestor-only walk, so they
+carry the identical latent defect. Neither is live today — no view puts a `form="<id>"` attribute on
+these elements — so they were left out rather than widening a bug-fix branch with speculative edits.
+
+- `DeckFlow.Web/wwwroot/ts/deck-sync.ts:2343` — `action.closest('form')` where `action` is a
+  `[data-default-action]` `<button>`. If it ever gained `form="<id>"`, the button would drop out of
+  the `forms` Set and Enter-key routing would silently degrade to native browser behavior.
+- `DeckFlow.Web/wwwroot/ts/admin-feedback.ts:17` — `target.closest('form')` where `target` is the
+  `#typeSelect` `<select>`. Same class.
+
+Not affected: `deck-sync.ts:708` — `container.closest('form')` operates on a plain `<div>`, which is
+not form-associable and has no `.form` property. `closest('form')` is the only correct lookup there.
+
+Also deliberately not done: adding `/deck-history` to `e2e/form-correctness-batch-g.spec.ts`'s G1
+path list, as the original diagnosis suggested. G1 does a bare `page.goto(path)`, but the
+deck-history download button only renders inside a `.result-panel` that requires an existing history,
+so the locator would never resolve. The equivalent `type="button"` assertion was added to
+`deck-history-smoke.spec.ts` instead, at the point where the button actually exists.
