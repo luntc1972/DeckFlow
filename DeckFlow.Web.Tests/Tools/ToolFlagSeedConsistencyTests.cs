@@ -13,14 +13,13 @@ namespace DeckFlow.Web.Tests.Tools;
 public sealed class ToolFlagSeedConsistencyTests : IDisposable
 {
     // Why: some tool flags are intentionally dark-launched (seeded present but disabled
-    // so the UI stays byte-identical before the operator flips them on): tool.bracket.enabled
-    // (BRACKET-05), tool.primer.stale-flag (PRIMER-01, phase 78), tool.deck-history.enabled,
-    // and tool.cut-lab.enabled (phase 101). All other tool flags default to enabled.
+    // so the UI stays byte-identical before the operator flips them on):
+    // tool.primer.stale-flag (PRIMER-01, phase 78) and tool.cut-lab.enabled (phase 101).
+    // Bracket Check (BRACKET-05) and Deck History left dark launch and now seed ON.
+    // All other tool flags default to enabled.
     private static readonly HashSet<string> DarkLaunchedFlags =
     [
-        "tool.bracket.enabled",
         "tool.primer.stale-flag",
-        "tool.deck-history.enabled",
         "tool.cut-lab.enabled",
     ];
 

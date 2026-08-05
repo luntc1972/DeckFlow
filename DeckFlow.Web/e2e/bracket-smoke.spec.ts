@@ -70,8 +70,8 @@ test.describe.configure({ mode: 'serial' });
 test.beforeEach(async ({ page }) => {
   // Serialize against other /Admin/* specs that share the same process-level lock file.
   heldLock = await acquireAdminLockForTest(page);
-  // Enable tool.bracket.enabled for this run (prod seed stays FALSE; only the running store
-  // is toggled — afterEach reverts it regardless of pass/fail).
+  // Force tool.bracket.enabled ON for this run rather than trusting the seed default: the
+  // flag-OFF test below toggles it off, and afterEach reverts it regardless of pass/fail.
   await setToolEnabled(page, 'Bracket Check', true);
 });
 
