@@ -24,6 +24,7 @@ public static class SeoPaths
         new("/card-lookup", true, true),
         new("/mechanic-lookup", true, true),
         new("/deck-analysis", true, true),
+        new("/set-upgrade-analysis", true, false),
         new("/deck-comparison", true, true),
         new("/cedh-meta-gap", true, true),
         new("/deck-primer", true, true),

@@ -22,6 +22,7 @@ public sealed class PageMetadataViewTests
             ["/card-lookup"] = ("Deck", "CardLookup.cshtml"),
             ["/mechanic-lookup"] = ("Deck", "MechanicLookup.cshtml"),
             ["/deck-analysis"] = ("Deck", "DeckAnalysis.cshtml"),
+            ["/set-upgrade-analysis"] = ("SetUpgradeAnalysis", "Index.cshtml"),
             ["/deck-comparison"] = ("Deck", "DeckComparison.cshtml"),
             ["/cedh-meta-gap"] = ("Deck", "CedhMetaGap.cshtml"),
             ["/deck-primer"] = ("Deck", "DeckPrimer.cshtml"),

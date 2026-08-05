@@ -1,0 +1,77 @@
+@inject DeckFlow.Web.Services.FeatureFlags.IFeatureFlagCache FlagCache
+@{
+    ViewData["Title"] = "MTG Commander Set Upgrade Analysis";
+    ViewData["Description"] = "Evaluate a new Magic set against a Commander deck you already own — adds, the cuts that pay for them, strict upgrades, lateral moves, traps, and bracket fit.";
+}
+
+<section class="hero">
+    <h1>Commander set upgrade analysis</h1>
+    <p class="lede">A new set drops every few weeks. Set review articles rank the cards for the format. This answers a narrower and far more useful question: which of those cards belong in <em>your</em> deck, and which of your current ninety-nine comes out to make room.</p>
+    <p><a class="run-button" href="@Url.Content("~/deck-analysis")">Start a deck analysis</a></p>
+</section>
+
+<section class="result-panel">
+    <h2>What this evaluates</h2>
+    <p>Set upgrade analysis takes two things — one Magic set and one Commander decklist — and reasons about them together. It is the optional fourth and fifth step of the DeckFlow deck-analysis workflow, run after the main analysis has already produced a deck profile.</p>
+    <p>That ordering is the point. The analysis is not looking at a card in isolation and asking "is this good?" It is looking at a card next to a deck whose plan, strengths, weak slots and mana it already has in hand, and asking "is this better than what is currently filling that slot?" Those are different questions, and only the second one ends with a decklist change.</p>
+    <h3>What it returns</h3>
+    <ul>
+        <li><strong>Top adds</strong> from the set, each tied to something concrete in your deck profile rather than to general card quality.</li>
+        <li><strong>A suggested cut for every add</strong> — named card, plus why that slot is the weakest one. A recommendation with no cut attached is not an upgrade, it is a wish.</li>
+        <li><strong>Strict upgrades</strong> — same job as a card you already run, meaningfully more powerful or efficient.</li>
+        <li><strong>Lateral moves</strong> — same role, similar power, different angle. Worth it when you want the deck to play differently, not harder.</li>
+        <li><strong>Traps</strong> — cards that read well and would still hurt this deck's plan, consistency, or bracket target.</li>
+        <li><strong>Speculative tests</strong> — new mechanics and unproven synergies worth trying, marked as untested instead of dressed up as certainties.</li>
+        <li><strong>A ranked shortlist</strong> split into must-test, optional, and skip, so a long list of maybes collapses into an order to work through.</li>
+    </ul>
+</section>
+
+<section class="result-panel">
+    <h2>How it differs from a set review</h2>
+    <p>A set review is written before anyone has your decklist. It has to speak to every deck at once, so it grades cards on a curve — powerful in the abstract, format-warping, a build-around for some archetype. That is genuinely useful for knowing what exists.</p>
+    <p>It cannot tell you that the card is the fourth-best three-mana ramp piece in a deck already running three, or that slotting it in means cutting the only artifact you had that answered enchantments. Those conclusions need the other ninety-nine cards, and a review by definition does not have them.</p>
+    <p>The other half of the difference is the cut. Commander is a hard hundred. Every add is also a subtraction, and the subtraction is where decks quietly get worse — the cards that leave are usually the unglamorous ones doing real work. Requiring a named cut and a stated reason for every single recommendation makes that trade visible while you can still argue with it.</p>
+</section>
+
+<section class="result-panel">
+    <h2>Who it is for</h2>
+    <p>Players who already have a deck they care about and a new set they have not read all of. It is most useful when the deck is tuned enough that the easy slots are gone, because that is exactly when "is this better than what I have" stops being obvious and starts needing the full list in front of you.</p>
+    <p>It is less useful mid-brew. A deck still finding its shape has bigger levers than a set's worth of marginal swaps, and the main deck analysis is the better starting point there.</p>
+</section>
+
+<section class="result-panel">
+    <h2>What you provide</h2>
+    <ol>
+        <li>Your decklist and the deck profile produced by the earlier analysis steps — the profile is reused automatically, so you do not re-enter anything.</li>
+        <li>One set, chosen from the set list. DeckFlow builds a compact candidate packet from that set rather than dumping every card in it, which is what keeps the prompt small enough for an AI chat to actually accept.</li>
+        <li>A focus: best additions overall, strict upgrades only, lateral moves only, or both labelled separately.</li>
+        <li>Optionally, your target bracket. Recommendations are then judged against that power level, and anything that would push the deck past it is flagged as a trap rather than praised as an upgrade.</li>
+    </ol>
+    <p>If you would rather assemble the candidate list yourself, a condensed set packet can be pasted in directly and used in place of the generated one.</p>
+</section>
+
+<section class="result-panel">
+    <h2>How the output stays honest</h2>
+    <p>DeckFlow does not run the analysis. It builds a prompt you paste into ChatGPT, Claude or Gemini, and then renders the structured response the AI returns. What DeckFlow controls is the instructions, and those are written to constrain the model rather than to flatter it.</p>
+    <p>Card rules text is carried verbatim from the set packet instead of being recalled from memory, so the analysis reasons over the real card. Cards on the official Commander banned list are excluded from recommendations. Claims are asked to say whether they rest on the supplied data or on inference, and to admit insufficient data rather than overstate. Unrecognized card names are flagged as unknown instead of invented — a real risk with alternate-art and crossover printings.</p>
+    <p>None of that makes an AI's judgment correct. It makes the judgment checkable, which is the most a prompt can honestly offer: every recommendation arrives with the card text, the reason, and the cut, so you can disagree with it specifically.</p>
+</section>
+
+<section class="result-panel">
+    <h2>Related tools</h2>
+    <ul>
+        <li><a href="@Url.Content("~/deck-analysis")">Deck Analysis</a> — the workflow this step belongs to. Run it first; the set-upgrade step needs its deck profile.</li>
+        @if (FlagCache.IsEnabled("tool.bracket.enabled"))
+        {
+            <li><a href="@Url.Content("~/bracket")">Bracket Check</a> — classify the deck locally before choosing a target bracket to upgrade toward.</li>
+        }
+        @if (FlagCache.IsEnabled("tool.deck-history.enabled"))
+        {
+            <li><a href="@Url.Content("~/deck-history")">Deck History</a> — snapshot the deck before a set's worth of swaps, so you can diff what the new cards actually changed.</li>
+        }
+        @if (FlagCache.IsEnabled("tool.manabase.enabled"))
+        {
+            <li><a href="@Url.Content("~/manabase")">Mana Base Analyzer</a> — check that the adds are still castable once the curve and colors shift.</li>
+        }
+    </ul>
+</section>

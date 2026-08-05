@@ -39,6 +39,14 @@ public sealed class SeoPathsTests
     }
 
     [Fact]
+    public void SetUpgradeAnalysis_is_an_indexable_non_tool_page()
+    {
+        Assert.Contains("/set-upgrade-analysis", SeoPaths.Indexable);
+        Assert.DoesNotContain("/set-upgrade-analysis", SeoPaths.Tools);
+        Assert.False(SeoPaths.IsShareablePage("/set-upgrade-analysis"));
+    }
+
+    [Fact]
     public void ContentKb_returns_webpage_and_breadcrumb_structured_data()
     {
         var json = StructuredDataBuilder.ForPath(
