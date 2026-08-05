@@ -9,7 +9,7 @@ public sealed class ToolRegistry : IToolRegistry
 {
     private static readonly IReadOnlyList<ToolDefinition> Definitions =
     [
-        Create("deck-analysis", "Deck Analysis", "/deck-analysis", ToolNavSection.Analyze, "tool.deck-analysis.enabled", true, "Deck Analysis", "Five-step workflow to generate a full analysis prompt for your deck and render the structured response.", "deck-analysis", DeckPageTab.DeckAnalysis, false),
+        Create("deck-analysis", "Deck Analysis", "/deck-analysis", ToolNavSection.Analyze, "tool.deck-analysis.enabled", true, "Deck Analysis", "Five-step workflow to generate a full analysis prompt for your deck and render the structured response.", "deck-analysis", DeckPageTab.DeckAnalysis, false, "/set-upgrade-analysis"),
         Create("manabase", "Mana Base", "/manabase", ToolNavSection.Analyze, "tool.manabase.enabled", false, "Commander Mana Base Analyzer", "Score a deck's lands and colored sources — Frank Karsten's source-count math, extended to weight rocks, dorks, and MDFCs and to count tapped vs. untapped lands. No AI needed.", "manabase", DeckPageTab.Manabase, true),
         Create("deck-comparison", "Deck Comparison", "/deck-comparison", ToolNavSection.Analyze, "tool.deck-comparison.enabled", true, "Deck Comparison", "Side-by-side comparison of two decks with an AI-authored breakdown of strengths, weaknesses, and trade-offs.", "deck-comparison", DeckPageTab.DeckComparison, false),
         Create("cedh-meta-gap", "cEDH Meta Gap", "/cedh-meta-gap", ToolNavSection.Analyze, "tool.cedh-meta-gap.enabled", true, "cEDH Meta Gap", "Measure your cEDH deck against top meta decks and surface the cards, lines, and roles you're missing.", "cedh-meta-gap", DeckPageTab.CedhMetaGap, false),

@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test';
 
+// Ungated (or default-on) routes only. /bracket, /cut-lab and /deck-history seed FALSE in
+// FeatureFlagStore, so an unconditional GET here would 404; each has its own spec that toggles
+// its flag through the admin console instead.
 const routes = [
   '/',
   '/sync',
@@ -9,11 +12,13 @@ const routes = [
   '/suggest-categories',
   '/judge-questions',
   '/deck-analysis',
+  '/set-upgrade-analysis',
   '/deck-comparison',
   '/cedh-meta-gap',
   '/manabase',
   '/deck-primer',
   '/commander-categories',
+  '/deckflow-bridge',
   '/help',
   '/about',
   '/feedback',

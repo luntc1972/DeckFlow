@@ -67,6 +67,7 @@ public sealed class SitemapControllerTests
         Assert.Contains("https://deckflow.test/", urls);
         Assert.Contains("https://deckflow.test/help", urls);
         Assert.Contains("https://deckflow.test/deckflow-bridge", urls);
+        Assert.Contains("https://deckflow.test/set-upgrade-analysis", urls);
         Assert.DoesNotContain("https://deckflow.test/content-kb", urls);
         Assert.Contains("https://deckflow.test/feedback", urls);
         Assert.Contains("https://deckflow.test/manabase", urls);
@@ -92,6 +93,29 @@ public sealed class SitemapControllerTests
         var enabledUrls = GetSitemapUrls(CreateController(flags));
 
         Assert.Contains("https://deckflow.test/bracket", enabledUrls);
+    }
+
+    [Fact]
+    public void SitemapXml_drops_the_set_upgrade_landing_page_with_the_deck_analysis_flag()
+    {
+        // The landing page has no tool row of its own; it rides on deck-analysis's
+        // AdditionalRoutes. Without that join the page is unflagged and would stay in the
+        // sitemap after the workflow it describes goes dark — the defect T-1 exists to fix.
+        var flags = new FakeFeatureFlagCache(new Dictionary<string, bool>
+        {
+            ["tool.deck-analysis.enabled"] = false,
+        });
+
+        var disabledUrls = GetSitemapUrls(CreateController(flags));
+
+        Assert.DoesNotContain("https://deckflow.test/set-upgrade-analysis", disabledUrls);
+        Assert.DoesNotContain("https://deckflow.test/deck-analysis", disabledUrls);
+
+        flags.Flags["tool.deck-analysis.enabled"] = true;
+
+        var enabledUrls = GetSitemapUrls(CreateController(flags));
+
+        Assert.Contains("https://deckflow.test/set-upgrade-analysis", enabledUrls);
     }
 
     [Fact]

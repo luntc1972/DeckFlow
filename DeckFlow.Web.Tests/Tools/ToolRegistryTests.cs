@@ -18,7 +18,7 @@ public sealed class ToolRegistryTests
 
         Assert.Collection(
             registry.All,
-            tool => AssertTool(tool, "deck-analysis", "Deck Analysis", "/deck-analysis", ToolNavSection.Analyze, "tool.deck-analysis.enabled", true, "Deck Analysis", "Five-step workflow to generate a full analysis prompt for your deck and render the structured response.", "deck-analysis", DeckPageTab.DeckAnalysis, false),
+            tool => AssertTool(tool, "deck-analysis", "Deck Analysis", "/deck-analysis", ToolNavSection.Analyze, "tool.deck-analysis.enabled", true, "Deck Analysis", "Five-step workflow to generate a full analysis prompt for your deck and render the structured response.", "deck-analysis", DeckPageTab.DeckAnalysis, false, "/set-upgrade-analysis"),
             tool => AssertTool(tool, "manabase", "Mana Base", "/manabase", ToolNavSection.Analyze, "tool.manabase.enabled", false, "Commander Mana Base Analyzer", "Score a deck's lands and colored sources — Frank Karsten's source-count math, extended to weight rocks, dorks, and MDFCs and to count tapped vs. untapped lands. No AI needed.", "manabase", DeckPageTab.Manabase, true),
             tool => AssertTool(tool, "deck-comparison", "Deck Comparison", "/deck-comparison", ToolNavSection.Analyze, "tool.deck-comparison.enabled", true, "Deck Comparison", "Side-by-side comparison of two decks with an AI-authored breakdown of strengths, weaknesses, and trade-offs.", "deck-comparison", DeckPageTab.DeckComparison, false),
             tool => AssertTool(tool, "cedh-meta-gap", "cEDH Meta Gap", "/cedh-meta-gap", ToolNavSection.Analyze, "tool.cedh-meta-gap.enabled", true, "cEDH Meta Gap", "Measure your cEDH deck against top meta decks and surface the cards, lines, and roles you're missing.", "cedh-meta-gap", DeckPageTab.CedhMetaGap, false),
@@ -45,7 +45,7 @@ public sealed class ToolRegistryTests
         Assert.Equal(16, registry.All.Select(tool => tool.Key).Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(16, registry.All.Select(tool => tool.Route).Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(16, registry.All.Select(tool => tool.Tab).Distinct().Count());
-        Assert.Equal(22, registry.All.SelectMany(tool => tool.AdditionalRoutes.Prepend(tool.Route)).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(23, registry.All.SelectMany(tool => tool.AdditionalRoutes.Prepend(tool.Route)).Distinct(StringComparer.Ordinal).Count());
 
         var coreKeys = registry.All
             .Where(tool => tool.Core)
