@@ -207,7 +207,7 @@ const buildFixture = (options: { includePlainsRow?: boolean; addableBasics?: str
         <span data-cut-lab-sticky-remaining>1 to cut</span>
         <span data-cut-lab-sticky-accepted>0 cuts so far</span>
       </div>
-      <button type="button" id="cut-lab-step-tab-4" class="is-disabled" disabled aria-disabled="true">Export</button>
+      <button type="button" id="cut-lab-step-tab-4" class="prompt-step-tab" disabled aria-disabled="true">Export</button>
     </section>
     <section class="result-panel">
       <div class="cutlab-round-banner">
