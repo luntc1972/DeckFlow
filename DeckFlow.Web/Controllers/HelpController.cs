@@ -33,10 +33,12 @@ public sealed class HelpController : Controller
 
     /// <summary>
     /// Renders a single help topic by slug. A topic gated by a disabled flag returns 404,
-    /// matching its tool's kill-switch.
+    /// matching its tool's kill-switch. The help-wide gate applies first: turning off
+    /// "tool.help.enabled" must take every topic down with the index, not just the index.
     /// </summary>
     /// <param name="slug">Help topic slug.</param>
     [HttpGet("/help/{slug}")]
+    [FeatureFlagGate("tool.help.enabled")]
     public IActionResult Topic(string slug)
     {
         var topic = _content.GetBySlug(slug);
