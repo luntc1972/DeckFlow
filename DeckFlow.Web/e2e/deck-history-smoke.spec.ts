@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
@@ -123,32 +123,36 @@ test('creates history, intercepts download, appends a second version, and captur
   const promptTextarea = page.locator('#deck-history-prompt');
   await expect(promptTextarea).toHaveCount(0);
 
+  const downloadButton = page.locator('[data-prompt-download-submit]');
+  // deck-sync.ts demotes every download button to type="button" so it can never be a
+  // form's implicit default submitter. Asserted here rather than in batch-G's G1 loop
+  // because this button only renders once a history exists, so a bare GET never sees it.
+  await expect(downloadButton).toHaveAttribute('type', 'button');
+
   const downloadResponsePromise = page.waitForResponse((response) =>
     response.url().includes('/deck-history/download') && response.request().method() === 'POST',
   );
-  await page.locator('[data-prompt-download-submit]').evaluate(async (button) => {
-    const submitter = button as HTMLButtonElement;
-    const form = submitter.form;
-    if (!form) {
-      throw new Error('Download button must target a form.');
-    }
-
-    const response = await fetch(submitter.formAction, {
-      method: form.method,
-      body: new FormData(form),
-      credentials: 'same-origin',
-      headers: { Accept: 'application/zip,*/*' },
-    });
-    await response.arrayBuffer();
-  });
+  // Why a real click, not a hand-rolled fetch: this spec previously replayed the request
+  // itself inside page.evaluate using submitter.form, which never ran deck-sync.ts's
+  // registered click handler. That is how a completely dead download button shipped to
+  // prod green (debug session deck-history-download-noop) — the test resolved the form
+  // with the correct API while the handler under test used the wrong one.
+  const downloadPromise = page.waitForEvent('download');
+  await downloadButton.click();
   const downloadResponse = await downloadResponsePromise;
   expect(downloadResponse.ok(), 'download response should succeed').toBeTruthy();
   expect(downloadResponse.headers()['x-deckflow-filename']).toMatch(
     /^deck-history-zur-logbook-\d{8}\.json$/,
   );
+  // The blob save is the user-visible outcome; without it the button is a no-op even
+  // when the POST succeeds.
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/^deck-history-zur-logbook-\d{8}\.json$/);
 
-  const downloadJson = await downloadResponse.text();
-  writeFileSync(uploadJsonPath, downloadJson, 'utf8');
+  // Round-trip the file the browser actually wrote, not the response body: Playwright
+  // cannot serve a body back once Chromium diverts it into a download, and the saved
+  // bytes are the stronger assertion anyway.
+  await download.saveAs(uploadJsonPath);
 
   await page.goto('/deck-history');
   await page.locator('#deck-history-input-source').selectOption('PasteText');
@@ -190,24 +194,11 @@ test('creates history, intercepts download, appends a second version, and captur
   const finalDownloadResponsePromise = page.waitForResponse((response) =>
     response.url().includes('/deck-history/download') && response.request().method() === 'POST',
   );
-  await page.locator('[data-prompt-download-submit]').evaluate(async (button) => {
-    const submitter = button as HTMLButtonElement;
-    const form = submitter.form;
-    if (!form) {
-      throw new Error('Download button must target a form.');
-    }
-
-    const response = await fetch(submitter.formAction, {
-      method: form.method,
-      body: new FormData(form),
-      credentials: 'same-origin',
-      headers: { Accept: 'application/zip,*/*' },
-    });
-    await response.arrayBuffer();
-  });
+  const finalDownloadPromise = page.waitForEvent('download');
+  await page.locator('[data-prompt-download-submit]').click();
   const finalDownloadResponse = await finalDownloadResponsePromise;
   expect(finalDownloadResponse.ok(), 'final download response should succeed').toBeTruthy();
-  writeFileSync(finalHistoryJsonPath, await finalDownloadResponse.text(), 'utf8');
+  await (await finalDownloadPromise).saveAs(finalHistoryJsonPath);
 
   for (const theme of themes) {
     await page.context().clearCookies();
