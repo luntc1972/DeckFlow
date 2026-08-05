@@ -182,7 +182,7 @@ const buildDecisionFixture = (): void => {
         <summary class="cutlab-collapsible__summary">Lands right now</summary>
         <p data-cut-lab-lands-text>Lands: 37/39 (95%) as your pool stands now (112 cards).</p>
       </details>
-      <button type="button" id="cut-lab-step-tab-4" class="is-disabled" disabled aria-disabled="true">Export</button>
+      <button type="button" id="cut-lab-step-tab-4" class="prompt-step-tab" disabled aria-disabled="true">Export</button>
       <div class="cutlab-round-banner">
         <p class="cutlab-finding__heading">Round 1 · Obvious cuts</p>
         <p>Cards flagged by 2 or more structural findings from the section above.</p>
@@ -1001,7 +1001,6 @@ describe('cut-lab proposal enhancement', () => {
 
     expect(exportTab?.disabled).toBe(false);
     expect(exportTab?.getAttribute('aria-disabled')).toBe('false');
-    expect(exportTab?.classList.contains('is-disabled')).toBe(false);
 
     const restoreButton = document.querySelector<HTMLButtonElement>('[data-cut-lab-restore]');
     const restoreForm = restoreButton?.closest('form');
@@ -1014,7 +1013,6 @@ describe('cut-lab proposal enhancement', () => {
 
     expect(exportTab?.disabled).toBe(true);
     expect(exportTab?.getAttribute('aria-disabled')).toBe('true');
-    expect(exportTab?.classList.contains('is-disabled')).toBe(true);
   });
 
   it('updates the export card-count status from not-at-target to exactly 100 after a decision', async () => {
@@ -1064,7 +1062,6 @@ describe('cut-lab proposal enhancement', () => {
     }
 
     const exportTab = document.getElementById('cut-lab-step-tab-4') as HTMLButtonElement | null;
-    exportTab?.classList.remove('is-disabled');
     if (exportTab) {
       exportTab.disabled = false;
       exportTab.setAttribute('aria-disabled', 'false');
