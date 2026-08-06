@@ -1,13 +1,13 @@
 ---
-title: Category Suggestions
+title: Commander Deck Tag Suggestions
 summary: Suggest functional categories for a card using multiple data sources.
 order: 80
 requires_flag: tool.categories.enabled
 ---
 
-# Category Suggestions
+# Commander Deck Tag Suggestions
 
-The Category Suggestions page supports multiple lookup modes:
+The Commander Deck Tag Suggestions (Category Suggestions) page supports multiple lookup modes:
 
 - `CachedData`
 - `ReferenceDeck`

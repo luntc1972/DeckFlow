@@ -20,7 +20,7 @@ Moxfield's edge blocks requests from server / datacenter IP ranges. When that ha
 4. Load it unpacked via `chrome://extensions` or `edge://extensions` (enable Developer mode first).
 5. On the public `deckflow.gg` site you are done — v0.1.1 and later ship with `deckflow.gg` and localhost pre-allowed. Only if you run DeckFlow on another host: open the extension's Options page and add that origin to the allowed-origin list.
 
-The extension only responds on origins on its allow list (which now includes `deckflow.gg` and localhost by default) — explicit allow-listing is the security boundary that stops other sites from driving the bridge. The Moxfield URL import works anywhere DeckFlow serves the deck tools (Deck Sync, Deck Analysis, Mana Base, and Deck Primer).
+The extension only responds on origins on its allow list (which now includes `deckflow.gg` and localhost by default) — explicit allow-listing is the security boundary that stops other sites from driving the bridge. The Moxfield URL import works anywhere DeckFlow serves the deck tools (Moxfield–Archidekt Deck Sync (Deck Sync), Deck Analysis, Commander Mana Base Analyzer (Mana Base), and Deck Primer).
 
 ## What it contains
 

@@ -10,11 +10,11 @@ DeckFlow is deterministic-first. This page states exactly where AI is and is not
 
 ## No AI in analysis results
 
-Mana Base, Bracket Check, Deck Sync, Convert Deck, Card Lookup, and Mechanic Rules are pure computation. The same deck produces the same result every time. No AI model sees your deck or shapes the output.
+Commander Mana Base Analyzer (Mana Base), Commander Bracket Checker (Bracket Check), Moxfield–Archidekt Deck Sync (Deck Sync), MTG Decklist Converter (Convert Deck), Card Lookup, and Mechanic Rules are pure computation. The same deck produces the same result every time. No AI model sees your deck or shapes the output.
 
 ## Prompt tools: you run the AI, not us
 
-Deck Analysis, Deck Primer, Deck Comparison, cEDH Meta-Gap, Deck History's evolution prompt, and Ask a Judge's backup generator produce prompt text for you to copy. DeckFlow never sends your deck to an AI service on your behalf, and never publishes AI output as site content. What you paste, where you paste it, and what you do with the answer is entirely yours.
+Deck Analysis, Deck Primer, Deck Comparison, cEDH Meta-Gap, Deck Version Tracker's evolution prompt, and Ask a Judge's backup generator produce prompt text for you to copy. DeckFlow never sends your deck to an AI service on your behalf, and never publishes AI output as site content. What you paste, where you paste it, and what you do with the answer is entirely yours.
 
 ## Knowledge Base entries
 

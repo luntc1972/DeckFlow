@@ -1,13 +1,13 @@
 ---
-title: Mana Base
+title: Commander Mana Base Analyzer
 summary: Check whether a deck has enough lands and colored sources using Frank Karsten's source-count math — no AI needed for the verdict.
 order: 35
 requires_flag: tool.manabase.enabled
 ---
 
-# Mana Base
+# Commander Mana Base Analyzer
 
-The Mana Base page (`/manabase`) scores your deck's land count and colored-source supply against [Frank Karsten's source-count method](https://www.channelfireball.com/articles/how-many-sources-do-you-need-to-consistently-cast-your-spells/). The verdict is computed **directly in DeckFlow** — there is no AI round-trip needed to tell you whether the mana base holds up.
+The Commander Mana Base Analyzer (Mana Base) page (`/manabase`) scores your deck's land count and colored-source supply against [Frank Karsten's source-count method](https://www.channelfireball.com/articles/how-many-sources-do-you-need-to-consistently-cast-your-spells/). The verdict is computed **directly in DeckFlow** — there is no AI round-trip needed to tell you whether the mana base holds up.
 
 ## Step 1 — Load A Deck
 
