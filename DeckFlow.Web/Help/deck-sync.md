@@ -7,7 +7,7 @@ requires_flag: tool.deck-sync.enabled
 
 # Moxfield–Archidekt Deck Sync
 
-The Moxfield–Archidekt Deck Sync (Deck Sync) page (`/sync`) compares two decks and generates the delta import needed to bring the target deck in line with the source.
+The Moxfield–Archidekt Deck Sync page (`/sync`) compares two decks and generates the delta import needed to bring the target deck in line with the source.
 
 Supported sync directions:
 

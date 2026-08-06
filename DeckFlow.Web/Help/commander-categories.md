@@ -7,6 +7,6 @@ requires_flag: tool.commander-categories.enabled
 
 # Commander Category Reference
 
-The Commander Category Reference (Category Reference) page shows the Archidekt tags that appear most often on decks where a given card is listed as the commander. It reports what observers assigned, not what the app infers.
+The Commander Category Reference page shows the Archidekt tags that appear most often on decks where a given card is listed as the commander. It reports what observers assigned, not what the app infers.
 
 The `% of decks` column is the share of that commander's harvested decks that run at least one card in the category — each deck is counted once, no matter how many of its cards carry the tag.

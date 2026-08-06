@@ -10,7 +10,7 @@ DeckFlow is deterministic-first. This page states exactly where AI is and is not
 
 ## No AI in analysis results
 
-Commander Mana Base Analyzer (Mana Base), Commander Bracket Checker (Bracket Check), Moxfield–Archidekt Deck Sync (Deck Sync), MTG Decklist Converter (Convert Deck), Card Lookup, and Mechanic Rules are pure computation. The same deck produces the same result every time. No AI model sees your deck or shapes the output.
+Commander Mana Base Analyzer, Commander Bracket Checker, Moxfield–Archidekt Deck Sync, MTG Decklist Converter (Convert Deck), Card Lookup, and Mechanic Rules are pure computation. The same deck produces the same result every time. No AI model sees your deck or shapes the output.
 
 ## Prompt tools: you run the AI, not us
 
