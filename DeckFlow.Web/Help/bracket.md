@@ -7,7 +7,7 @@ requires_flag: tool.bracket.enabled
 
 # Commander Bracket Checker
 
-The Commander Bracket Checker (Bracket Check) page (`/bracket`) classifies a Commander deck into the official WotC 1–5 bracket system using three measurable signals: Game Changers, two-card win combos, and mass land denial. The classification is **computed directly in DeckFlow** — no AI round-trip is needed for the bracket number itself.
+The Commander Bracket Checker page (`/bracket`) classifies a Commander deck into the official WotC 1–5 bracket system using three measurable signals: Game Changers, two-card win combos, and mass land denial. The classification is **computed directly in DeckFlow** — no AI round-trip is needed for the bracket number itself.
 
 ## Step 1 — Load a Deck
 
