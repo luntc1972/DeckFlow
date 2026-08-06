@@ -5,7 +5,7 @@ DeckFlow helps deck builders translate decks between Moxfield and Archidekt with
 ## User help
 End-user documentation is served by the running web app at `/help` (feature guides) and `/about` (version, source, credits). This README keeps the developer-facing material (build, publish, API, CLI, deployment).
 
-**Repository description (≤350 characters):** DeckFlow unifies Moxfield/Archidekt decks with a Commander Mana Base Analyzer, Commander Bracket Checker, Moxfield–Archidekt Deck Sync, Deck Version Tracker, Cut Lab trimmer, and MTG Decklist Converter — plus paste-ready AI prompts, card/mechanic lookup, and Ask-a-Judge. Live at deckflow.gg.
+**Repository description (≤350 characters):** DeckFlow unifies Moxfield/Archidekt decks with a Commander Mana Base Analyzer, Commander Bracket Checker, Moxfield–Archidekt Deck Sync, Deck Version Tracker, Cut Lab trimmer, and MTG Decklist Converter — plus paste-ready AI prompts (analysis, primer, cEDH meta-gap), card/mechanic lookup, and Ask-a-Judge. Live at deckflow.gg.
 
 ## User Feedback
 
