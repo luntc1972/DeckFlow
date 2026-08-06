@@ -1,13 +1,13 @@
 ---
-title: Deck History
+title: Deck Version Tracker
 summary: Track a deck's evolution in a JSON history file you own, with snapshot notes, pair diffs, and an AI-ready evolution prompt.
 order: 46
 requires_flag: tool.deck-history.enabled
 ---
 
-# Deck History
+# Deck Version Tracker
 
-The Deck History page (`/deck-history`) turns a deck into a portable history file you own. Each time you load the current list, DeckFlow can append a new snapshot with an optional label and note, show the saved versions in order, diff any two versions, and build a prompt that explains how the deck has evolved over time.
+The Deck Version Tracker (Deck History) page (`/deck-history`) turns a deck into a portable history file you own. Each time you load the current list, DeckFlow can append a new snapshot with an optional label and note, show the saved versions in order, diff any two versions, and build a prompt that explains how the deck has evolved over time.
 
 ## File-you-own model
 

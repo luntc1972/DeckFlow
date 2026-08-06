@@ -103,8 +103,8 @@ public class HelpContentServiceTests : IDisposable
         var topic = service.GetBySlug("category-suggestions");
 
         Assert.NotNull(topic);
-        Assert.Equal("Category Suggestions", topic!.Title);
-        Assert.Contains("Category Suggestions", topic.HtmlContent);
+        Assert.Equal("Commander Deck Tag Suggestions", topic!.Title);
+        Assert.Contains("Commander Deck Tag Suggestions", topic.HtmlContent);
     }
 
     private static string FindProjectHelpRoot()

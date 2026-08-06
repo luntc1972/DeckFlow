@@ -1,13 +1,13 @@
 ---
-title: Convert Deck
+title: MTG Decklist Converter
 summary: Reformat a single decklist between Moxfield and Archidekt without an existing target deck.
 order: 45
 requires_flag: tool.convert.enabled
 ---
 
-# Convert Deck
+# MTG Decklist Converter
 
-The Convert Deck page (`/convert`) reformats one decklist from Moxfield format to Archidekt format, or the other way round. Unlike **Deck Sync**, there is no second deck and no diff — you paste one list (or a public URL), pick the direction, and copy the reformatted output straight into your deck builder's bulk-edit field. No AI is involved.
+The MTG Decklist Converter (Convert Deck) page (`/convert`) reformats one decklist from Moxfield format to Archidekt format, or the other way round. Unlike **Moxfield–Archidekt Deck Sync (Deck Sync)**, there is no second deck and no diff — you paste one list (or a public URL), pick the direction, and copy the reformatted output straight into your deck builder's bulk-edit field. No AI is involved.
 
 ## Step 1 — Choose the direction and input
 

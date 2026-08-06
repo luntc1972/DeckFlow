@@ -1,13 +1,13 @@
 ---
-title: Deck Sync
+title: Moxfield–Archidekt Deck Sync
 summary: Compare two decks and generate the delta needed to keep them in sync.
 order: 40
 requires_flag: tool.deck-sync.enabled
 ---
 
-# Deck Sync
+# Moxfield–Archidekt Deck Sync
 
-The Deck Sync page (`/sync`) compares two decks and generates the delta import needed to bring the target deck in line with the source.
+The Moxfield–Archidekt Deck Sync (Deck Sync) page (`/sync`) compares two decks and generates the delta import needed to bring the target deck in line with the source.
 
 Supported sync directions:
 
