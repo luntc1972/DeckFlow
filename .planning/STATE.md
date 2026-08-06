@@ -92,13 +92,14 @@ Carried-forward operator gates and descoped items (still open):
 | 260726-pxw | Fix hidden-field cache clobber on Cut Lab page (exclude CutLabStateJson from deck-sync.ts generic form persistence) | 2026-07-26 | ca48a41b | [260726-pxw-fix-hidden-field-cache-clobber-on-cut-la](./quick/260726-pxw-fix-hidden-field-cache-clobber-on-cut-la/) |
 | 260802-i81 | Add Codex-facing AGENTS.md at repo root (module map + build/test + format carve-outs; cuts Codex repo re-derivation). File is a symlink to `~/.claude/codex/repos/deckflow-AGENTS.md` — versioned in dev-clunt, NOT in this public repo (AGENTS.md stays gitignored here by design) | 2026-08-02 | 75468329 | [260802-i81-add-codex-facing-agents-md-at-repo-root](./quick/260802-i81-add-codex-facing-agents-md-at-repo-root/) |
 | 260802-b7q | Batch G — five form-correctness defects: Enter/mobile-"Go" triggered the sticky download bar on 4 tools; IncludeCardVersions dropped from every mobile POST; /resolve unreachable with JS on; Bracket + Mana Base lost pasted deck text; Card Lookup 100-line cap was client-side only | 2026-08-02 | ec5c3749 | [260802-b7q-fix-five-batch-g-form-correctness-defec](./quick/260802-b7q-fix-five-batch-g-form-correctness-defec/) |
+| 260805-r3f | Align README, the 10 help topics and the GitHub repo description with the SEO tile titles. Tile/nav references renamed, domain terms left alone (`deck history` JSON stays); `TileTitle` is additive — nav `Label` still holds the short names, so prose names both. Release Notes region frozen | 2026-08-05 | 441c4642 | [260805-r3f-update-readme-help-topics-and-github-des](./quick/260805-r3f-update-readme-help-topics-and-github-des/) |
 
 ## Session Continuity
 
 Last session: 2026-08-01T21:45:00.000Z
 Stopped at: Nothing in this workspace. The 2026-08-01 session worked entirely in the `cycle21-cut-lab` workstream — folded Phase 4's round-4 plan-review findings (`5172f6d9`) and dispatched two Codex reviews (Phase 4 round 5, Phase 5 owed convergence).
 Resume file: **`.planning/HANDOFF.json`** — the live handoff, and the correct entry point for resuming. Cycle 20's own resume point is Phase 112 plan 4 of 6.
-Last activity: 2026-08-02 - Completed quick task 260802-i81: Add Codex-facing AGENTS.md at repo root (branch `docs/codex-agents-md`)
+Last activity: 2026-08-05 - Completed quick task 260805-r3f: Align README, help topics and the GitHub description with the SEO tile titles (branch `docs/seo-tile-renames`)
 
 ## Open Question (carried)
 
