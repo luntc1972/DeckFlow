@@ -381,7 +381,7 @@ public sealed class CutLabApiController : ControllerBase
         {
             CardOut = cardOut,
             CardIn = cardIn,
-            Patch = patch,
+            Patch = patch with { NextProposal = AddProposalGlance(patch.NextProposal, patch.ProposalDeltas) },
             CutLabStateJson = patch.CutLabStateJson,
         });
     }

@@ -811,6 +811,113 @@ public sealed class CutLabApiControllerTests
     }
 
     [Fact]
+    public async Task PostWhatifCommitAsync_WhenPatchHasProposalDeltas_ComposesTheProposalGlanceLine()
+    {
+        CutLabState state = CreateState();
+        ProposalPatchBuilder patchBuilder = new ProposalPatchBuilder
+        {
+            Patch = new CutLabUiPatchDto
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(state),
+                NextProposal = new CutLabDecideNextProposalDto
+                {
+                    CardName = "Working Card",
+                    RoundKey = CutLabCutRoundEngine.WhatifSwapKey,
+                },
+                ProposalDeltas = new CutLabDecideProposalDeltasDto
+                {
+                    ChangedFamilyCount = 3,
+                    Deltas =
+                    [
+                        new CutLabDecideMetricDeltaDto
+                        {
+                            Label = "Castability",
+                            Delta = -2,
+                            Unit = CutLabMetricUnit.Percent,
+                            IsMeaningful = true,
+                        },
+                    ],
+                },
+            },
+        };
+        CutLabApiController controller = CreateController(
+            new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)),
+            new FakeSimulationService(),
+            patchBuilder,
+            whatifService: new FakeCutLabWhatifService
+            {
+                CommitResultFactory = (_, cardOut, cardIn) => new CutLabWhatifCommitResult
+                {
+                    Applied = true,
+                    State = state,
+                    CardOut = cardOut,
+                    CardIn = cardIn,
+                },
+            });
+
+        ActionResult<CutLabWhatifApiResponse> response = await controller.PostWhatifCommitAsync(
+            new CutLabWhatifApiRequest
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(state),
+                CardOut = "Working Card",
+                CardIn = "Cut Card",
+            },
+            CancellationToken.None);
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
+        CutLabWhatifApiResponse payload = Assert.IsType<CutLabWhatifApiResponse>(ok.Value);
+        string glanceLine = payload.Patch!.NextProposal.GlanceLine;
+        Assert.False(string.IsNullOrWhiteSpace(glanceLine));
+        Assert.StartsWith("3 of 7 deck numbers move", glanceLine);
+        Assert.Contains("Castability", glanceLine);
+    }
+
+    [Fact]
+    public async Task PostWhatifCommitAsync_WhenPatchHasNoProposalDeltas_UsesNoChangeGlanceLine()
+    {
+        CutLabState state = CreateState();
+        ProposalPatchBuilder patchBuilder = new ProposalPatchBuilder
+        {
+            Patch = new CutLabUiPatchDto
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(state),
+                NextProposal = new CutLabDecideNextProposalDto
+                {
+                    CardName = "Working Card",
+                    RoundKey = CutLabCutRoundEngine.WhatifSwapKey,
+                },
+            },
+        };
+        CutLabApiController controller = CreateController(
+            new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)),
+            new FakeSimulationService(),
+            patchBuilder,
+            whatifService: new FakeCutLabWhatifService
+            {
+                CommitResultFactory = (_, cardOut, cardIn) => new CutLabWhatifCommitResult
+                {
+                    Applied = true,
+                    State = state,
+                    CardOut = cardOut,
+                    CardIn = cardIn,
+                },
+            });
+
+        ActionResult<CutLabWhatifApiResponse> response = await controller.PostWhatifCommitAsync(
+            new CutLabWhatifApiRequest
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(state),
+                CardOut = "Working Card",
+                CardIn = "Cut Card",
+            },
+            CancellationToken.None);
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
+        CutLabWhatifApiResponse payload = Assert.IsType<CutLabWhatifApiResponse>(ok.Value);
+        Assert.Equal(CutLabMessages.NoChangeMessage, payload.Patch!.NextProposal.GlanceLine);
+    }
+
+    [Fact]
     public async Task PostWhatifCommitAsync_WhenServiceReturnsNotApplied_ReturnsBadRequestWithMessage()
     {
         FakeCutLabWhatifService whatifService = new()
@@ -1181,6 +1288,22 @@ public sealed class CutLabApiControllerTests
                 WhatifCardInOptions = ["Cut Card"],
             });
         }
+    }
+
+    private sealed class ProposalPatchBuilder : ICutLabUiPatchBuilder
+    {
+        public CutLabUiPatchDto Patch { get; init; } = new();
+
+        public Task<CutLabUiPatchDto> BuildAsync(
+            CutLabState state,
+            string playExperience,
+            IReadOnlyList<string> commanderNames,
+            bool twinsEnabled,
+            IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
+            string? poolKey = null,
+            IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(Patch);
     }
 
     private sealed class ThrowingPatchBuilder : ICutLabUiPatchBuilder
