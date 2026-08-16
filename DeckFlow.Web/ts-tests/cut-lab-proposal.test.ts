@@ -183,7 +183,7 @@ const buildDecisionFixture = (): void => {
         <summary class="cutlab-collapsible__summary">Lands right now</summary>
         <p data-cut-lab-lands-text>Lands: 37/39 (95%) as your pool stands now (112 cards).</p>
       </details>
-      <button type="button" id="cut-lab-step-tab-5" disabled aria-disabled="true">Export</button>
+      <button type="button" id="cut-lab-step-tab-5" aria-disabled="true">Export</button>
       <div class="cutlab-round-banner">
         <p>Cards flagged by 2 or more structural findings from the section above.</p>
       </div>
@@ -1076,7 +1076,10 @@ describe('cut-lab proposal enhancement', () => {
     }));
     await flushDecisionSubmit();
 
-    expect(exportTab?.disabled).toBe(true);
+    // Why: the shared step-tab component never uses the native `disabled` attribute — it would
+    // make the tab unfocusable and dead-end arrow traversal. State is carried by aria-disabled
+    // alone, so `disabled` must stay false in BOTH directions.
+    expect(exportTab?.disabled).toBe(false);
     expect(exportTab?.getAttribute('aria-disabled')).toBe('true');
   });
 
@@ -1128,7 +1131,6 @@ describe('cut-lab proposal enhancement', () => {
 
     const exportTab = document.getElementById('cut-lab-step-tab-5') as HTMLButtonElement | null;
     if (exportTab) {
-      exportTab.disabled = false;
       exportTab.setAttribute('aria-disabled', 'false');
     }
 
