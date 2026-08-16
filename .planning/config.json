@@ -22,5 +22,8 @@
     "cross_ai_timeout": 1800,
     "plan_review_convergence": true,
     "use_worktrees": false
+  },
+  "statusline": {
+    "context_position": "front"
   }
 }
