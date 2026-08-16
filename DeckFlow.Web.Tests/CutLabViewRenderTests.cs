@@ -27,6 +27,20 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabViewRenderTests
 {
     [Fact]
+    public async Task ResultView_RendersReservedPlanStepAsIncompleteAndUnavailable()
+    {
+        string html = await RenderAsync(BuildTwinBadgeModel(
+            cardTextByCardName: new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase)));
+
+        int planTabEnd = html.IndexOf("aria-label=\"Plan\"", StringComparison.Ordinal);
+        Assert.True(planTabEnd >= 0, "The Plan workflow tab should render.");
+        string planTab = html.Substring(Math.Max(0, planTabEnd - 300), 300);
+
+        Assert.Contains("aria-disabled=\"true\"", planTab, StringComparison.Ordinal);
+        Assert.DoesNotContain("is-complete", planTab, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ResultView_RendersLockPoolStickySummaryWithDistinctTargets()
     {
         var model = new CutLabViewModel

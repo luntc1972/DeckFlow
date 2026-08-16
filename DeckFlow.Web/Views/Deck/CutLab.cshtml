@@ -20,7 +20,7 @@
         [
             new WorkflowStepTab(1, "Process", IsComplete: Model.HasResult),
             new WorkflowStepTab(2, "Decide", IsComplete: cardsRemainingToTarget == 0),
-            new WorkflowStepTab(3, "Plan", IsComplete: true),
+            new WorkflowStepTab(3, "Plan", IsComplete: false, IsEnabled: false),
             new WorkflowStepTab(4, "Goals", IsComplete: true),
             new WorkflowStepTab(5, "Export", IsComplete: Model.Export.HasExport, IsEnabled: currentCount == 100, SubmitFormId: "cut-lab-export-form"),
         ]);
