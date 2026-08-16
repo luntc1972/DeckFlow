@@ -179,3 +179,27 @@ test('G-5 keeps the complete Accept button visible and hit-testable while Decide
   expect(result.bottom, 'Accept button is fully inside the viewport').toBeLessThanOrEqual(result.innerHeight);
   expect(result.isHit, 'Accept button centre is not covered by another sticky layer').toBe(true);
 });
+
+test('G-6 lets a workflow control beneath the pinned proposal receive a click', async ({ page }) => {
+  await importPool(page);
+
+  const decideTab = page.locator('[role="tab"][aria-label="Decide"]');
+  await decideTab.click();
+  await page.locator('.cutlab-proposal__body').evaluate((body) => {
+    const pinned = document.querySelector<HTMLElement>('.cutlab-proposal--pinned');
+    if (!pinned) throw new Error('Pinned proposal was not rendered.');
+
+    const control = document.createElement('button');
+    control.type = 'button';
+    control.textContent = 'Workflow control beneath pinned proposal';
+    control.style.position = 'fixed';
+    control.style.top = `${pinned.getBoundingClientRect().top + 10}px`;
+    control.style.left = `${pinned.getBoundingClientRect().left + 10}px`;
+    control.addEventListener('click', () => control.dataset.receivedClick = 'true');
+    body.appendChild(control);
+  });
+
+  const control = page.getByRole('button', { name: 'Workflow control beneath pinned proposal' });
+  await control.click();
+  await expect(control).toHaveAttribute('data-received-click', 'true');
+});
