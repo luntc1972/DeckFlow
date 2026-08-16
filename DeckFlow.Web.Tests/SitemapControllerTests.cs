@@ -136,6 +136,25 @@ public sealed class SitemapControllerTests
     }
 
     [Fact]
+    public void SitemapXml_omits_every_help_topic_when_the_global_help_flag_is_disabled()
+    {
+        var visible = new HelpTopic("visible", "Visible", "s", 10, "<p>visible</p>");
+        var gated = new HelpTopic("gated", "Gated", "s", 20, "<p>gated</p>", "tool.gated.enabled");
+        var helpContent = new StubHelpContentService(visible, gated);
+        var flags = new FakeFeatureFlagCache(new Dictionary<string, bool>
+        {
+            ["tool.help.enabled"] = false,
+            ["tool.gated.enabled"] = true,
+        });
+
+        var urls = GetSitemapUrls(CreateController(flags, helpContent));
+
+        Assert.DoesNotContain("https://deckflow.test/help/visible", urls);
+        Assert.DoesNotContain("https://deckflow.test/help/gated", urls);
+        Assert.DoesNotContain("https://deckflow.test/help", urls);
+    }
+
+    [Fact]
     public void SitemapXml_includes_every_project_help_topic_when_all_flags_are_enabled()
     {
         var helpContent = new HelpContentService(FindProjectHelpRoot());

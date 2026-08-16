@@ -66,9 +66,7 @@ public sealed class SitemapController : Controller
             new XElement(
                 ns + "urlset",
                 SeoPaths.Indexable.Where(IsReachable)
-                    .Concat(helpContent.GetAll()
-                        .Where(topic => helpContent.IsTopicVisible(topic, featureFlags))
-                        .Select(topic => $"/help/{topic.Slug}"))
+                    .Concat(VisibleHelpTopicPaths())
                     .Select(path => new XElement(
                     ns + "url",
                     new XElement(ns + "loc", BuildAbsoluteUrl(baseUrl, path))))));
@@ -92,6 +90,19 @@ public sealed class SitemapController : Controller
             definition.Route == path || definition.AdditionalRoutes.Contains(path, StringComparer.Ordinal));
 
         return tool is null || featureFlags.IsEnabled(tool.FlagKey);
+    }
+
+    private IEnumerable<string> VisibleHelpTopicPaths()
+    {
+        // Why: HelpController gates every help route on the global flag, including topic routes.
+        if (!featureFlags.IsEnabled(HelpFeatureFlagKey))
+        {
+            return Enumerable.Empty<string>();
+        }
+
+        return helpContent.GetAll()
+            .Where(topic => helpContent.IsTopicVisible(topic, featureFlags))
+            .Select(topic => $"{HelpPath}/{topic.Slug}");
     }
 
     private static string BuildAbsoluteUrl(string baseUrl, string path)
