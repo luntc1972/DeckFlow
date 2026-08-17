@@ -97,6 +97,18 @@
     return cell;
   };
 
+  const createUnavailableCell = (): HTMLTableCellElement => {
+    const cell = document.createElement('td');
+    const dash = document.createElement('span');
+    dash.setAttribute('aria-hidden', 'true');
+    dash.textContent = '—';
+    const unavailableText = document.createElement('span');
+    unavailableText.className = 'sr-only';
+    unavailableText.textContent = 'Not available';
+    cell.append(dash, unavailableText);
+    return cell;
+  };
+
   const createCommanderSummaryRow = (summary: CommanderSuggestionResponse['summaries'][number]): HTMLTableRowElement => {
     const row = document.createElement('tr');
     row.appendChild(createTextCell(summary.category));
@@ -114,8 +126,11 @@
       rows.forEach(row => {
         const tableRow = document.createElement('tr');
         tableRow.appendChild(createTextCell(row.category));
-        tableRow.appendChild(createTextCell(row.deckCount ?? '—'));
-        tableRow.appendChild(createTextCell(row.percent ?? '—'));
+        tableRow.appendChild(row.deckCount === null ? createUnavailableCell() : createTextCell(row.deckCount));
+        tableRow.appendChild(
+          row.percent === null
+            ? createUnavailableCell()
+            : createTextCell(row.percent === 0 && row.deckCount !== null && row.deckCount > 0 ? '<1%' : `${row.percent}%`));
         tableRow.appendChild(createTextCell(`${row.sourceCount}/${row.sourceTotal}`));
         body.appendChild(tableRow);
       });
