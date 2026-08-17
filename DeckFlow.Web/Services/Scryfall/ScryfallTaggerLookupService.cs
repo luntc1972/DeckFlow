@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using DeckFlow.Web.Services.FeatureFlags;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Polly;
@@ -37,6 +38,9 @@ public interface IScryfallTaggerLookupService
 /// </summary>
 public sealed class ScryfallTaggerLookupService : IScryfallTaggerLookupService
 {
+    internal static readonly TimeSpan PrintingCacheTtl = TimeSpan.FromHours(12);
+    // Why: this private 200,000-character cache stays bounded while retaining immutable printings across requests; the shared IMemoryCache has no SizeLimit and cannot evict on memory pressure.
+    internal const long PrintingCacheCapacityChars = 200_000;
     private static readonly Uri TaggerCookieScopeUri = new("https://tagger.scryfall.com/");
 
     private static readonly string TaggerQuery =
@@ -50,6 +54,7 @@ public sealed class ScryfallTaggerLookupService : IScryfallTaggerLookupService
     private readonly ResiliencePipeline<RestResponse> _taggerPostPipeline;
     private readonly IFeatureFlagCache _flagCache;
     private readonly ILogger<ScryfallTaggerLookupService> _logger;
+    private readonly MemoryCache _printingCache = new(new MemoryCacheOptions { SizeLimit = PrintingCacheCapacityChars });
 
     /// <summary>
     /// HIGH-1 loop guard — flows correctly across async/await boundaries.
@@ -149,6 +154,12 @@ public sealed class ScryfallTaggerLookupService : IScryfallTaggerLookupService
     /// </summary>
     private async Task<(string Set, string CollectorNumber)> ResolveCardPrintingAsync(string cardName, CancellationToken cancellationToken)
     {
+        var cacheKey = cardName.Trim().ToUpperInvariant();
+        if (_printingCache.TryGetValue(cacheKey, out (string Set, string CollectorNumber) cached))
+        {
+            return cached;
+        }
+
         var resolveStopwatch = Stopwatch.StartNew();
         var scryfallClient = _scryfallRestClientFactory.Create();
         var request = new RestRequest("cards/named", Method.Get);
@@ -173,6 +184,15 @@ public sealed class ScryfallTaggerLookupService : IScryfallTaggerLookupService
 
         var set = root.TryGetProperty("set", out var setProp) ? setProp.GetString() ?? string.Empty : string.Empty;
         var number = root.TryGetProperty("collector_number", out var numProp) ? numProp.GetString() ?? string.Empty : string.Empty;
+
+        if (!string.IsNullOrEmpty(set) && !string.IsNullOrEmpty(number))
+        {
+            _printingCache.Set(cacheKey, (set, number), new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = PrintingCacheTtl,
+                Size = Math.Max(cacheKey.Length + set.Length + number.Length, 1),
+            });
+        }
 
         return (set, number);
     }
