@@ -326,10 +326,21 @@ paths sort `SourceCount DESC` first and then split:
 | Copy text (`MergeWeighted`, `CategorySuggestionReporter.cs:105-110`) | Authority DESC (Exact/Tagger=3, Inferred=2, Edhrec=1) | label ASC |
 | Table (`CategoryWeightRowFactory.Build`, `CategoryWeightRowFactory.cs:22-28`) | Percent-is-null ASC, then Percent DESC | Category ASC |
 
-**Why the fix lives in Web, not Core.** `Build` needs `categoryDeckCounts` and `totalDeckCount` — Web-layer
-lookups Core never sees — so the table's ranking cannot move down into `DeckFlow.Core`. Instead both
-controllers now hoist `Build`'s ranked rows into a local and project the copy text *and* the table from
-that one list. `ToText` is unchanged and Core is behaviourally untouched.
+**Why the fix lives in Web, not Core.** Both controllers now hoist `Build`'s ranked rows into a local and
+project the copy text *and* the table from that one list. `ToText` is unchanged and Core is behaviourally
+untouched.
+
+⚠ **Correction (2026-08-17, during the follow-up `/simplify` pass).** This section originally justified the
+Web placement by claiming `Build` needs "Web-layer lookups Core never sees". **That claim is false.**
+`GetCategoryDeckCountsAsync` originates in Core at `DeckFlow.Core/Knowledge/CardCategoryRepository.cs:136`
+and is exposed by `CategoryKnowledgeRepository.cs:73`; the dictionary merely round-trips out through the
+Web `ICategoryKnowledgeStore` facade and back into the Web factory. Core *can* see these counts, so
+unifying the ranking in Core was always technically available. Web placement remains a defensible choice —
+display ranking is presentation, and `Build` also owns the percent derivation and the em-dash fallback —
+but it is a choice, not a constraint, and the original rationale should not be cited as one. The false
+statement was also carried in a code comment on `CategorySuggestionReporter.Merge`; that method had zero
+production callers and was deleted outright on `refactor/category-weights-simplify`, taking the comment
+with it.
 
 **Changes:** `DeckCategoriesController.cs:112-130` (`2b5eda2e`), `SuggestionsApiController.cs:88-95`
 (`4ec7aaad`), and a comment-only correction at `CategorySuggestionReporter.cs:62-64` (`7003bbfb`) — the old
