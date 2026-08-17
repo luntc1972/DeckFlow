@@ -94,13 +94,14 @@ Carried-forward operator gates and descoped items (still open):
 | 260802-b7q | Batch G — five form-correctness defects: Enter/mobile-"Go" triggered the sticky download bar on 4 tools; IncludeCardVersions dropped from every mobile POST; /resolve unreachable with JS on; Bracket + Mana Base lost pasted deck text; Card Lookup 100-line cap was client-side only | 2026-08-02 | ec5c3749 | [260802-b7q-fix-five-batch-g-form-correctness-defec](./quick/260802-b7q-fix-five-batch-g-form-correctness-defec/) |
 | 260805-r3f | Align README, the 10 help topics and the GitHub repo description with the SEO tile titles. Tile/nav references renamed, domain terms left alone (`deck history` JSON stays); `TileTitle` is additive — nav `Label` still holds the short names, so prose names both. Release Notes region frozen | 2026-08-05 | 441c4642 | [260805-r3f-update-readme-help-topics-and-github-des](./quick/260805-r3f-update-readme-help-topics-and-github-des/) |
 | 260805-iu9 | Seed `tool.bracket.enabled` and `tool.deck-history.enabled` ON — both left dark launch. Prod was already flipped ON by hand (2026-07-01 / 2026-07-17); the code default had never followed, so fresh dev/CI databases were booting in a different configuration from production | 2026-08-05 | a59fd80f | [260805-iu9-flip-feature-flag-seed-defaults-on-for-t](./quick/260805-iu9-flip-feature-flag-seed-defaults-on-for-t/) |
+| 260817-kvn | Align the `/suggest-categories` copy box with the weighted table's order — both showed the same categories in two different orders. Copy text was projected from `MergeWeighted` (agreement → authority) before `CategoryWeightRowFactory.Build`'s display ranking (agreement → popularity) was applied. Both controllers now project text and table from one ranked list; Core unchanged apart from a corrected comment | 2026-08-17 | 7003bbfb | [260817-kvn-align-the-suggest-categories-copy-box-or](./quick/260817-kvn-align-the-suggest-categories-copy-box-or/) |
 
 ## Session Continuity
 
 Last session: 2026-08-01T21:45:00.000Z
 Stopped at: Nothing in this workspace. The 2026-08-01 session worked entirely in the `cycle21-cut-lab` workstream — folded Phase 4's round-4 plan-review findings (`5172f6d9`) and dispatched two Codex reviews (Phase 4 round 5, Phase 5 owed convergence).
 Resume file: **`.planning/HANDOFF.json`** — the live handoff, and the correct entry point for resuming. Cycle 20's own resume point is Phase 112 plan 4 of 6.
-Last activity: 2026-08-05 - Completed quick task 260805-r3f: Align README, help topics and the GitHub description with the SEO tile titles (branch `docs/seo-tile-renames`)
+Last activity: 2026-08-17 - Completed quick task 260817-kvn: Align the `/suggest-categories` copy box order with the weighted table ranking (branch `fix/category-copy-box-order`)
 
 ## Open Question (carried)
 
