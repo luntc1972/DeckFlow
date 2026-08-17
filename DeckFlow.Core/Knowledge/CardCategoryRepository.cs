@@ -151,8 +151,7 @@ internal sealed class CardCategoryRepository
              AND t.card_id = o.card_id
              AND t.board = o.board
             WHERE c.normalized_card_name = @normalized
-            GROUP BY o.source_id, o.card_id, o.board, o.category
-            ORDER BY o.source_id, o.card_id, o.board, o.category;
+            GROUP BY o.source_id, o.card_id, o.board, o.category;
             """,
             new { normalized = CardNormalizer.Normalize(cardName) },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
