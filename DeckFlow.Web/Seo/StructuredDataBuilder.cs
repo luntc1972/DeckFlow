@@ -38,7 +38,8 @@ public static class StructuredDataBuilder
         Dictionary<string, object?>? graph =
             normalized == "/" ? HomeGraph(baseUrl, description)
             : IsHelpDetail(normalized) ? HelpArticleGraph(canonicalUrl, baseUrl, name, description)
-            : SeoPaths.Tools.Contains(normalized) ? ToolPageGraph(canonicalUrl, baseUrl, name, description)
+            : SeoPaths.KindOf(normalized) is SeoPageKind.Tool or SeoPageKind.Landing or SeoPageKind.Utility
+                ? ToolPageGraph(canonicalUrl, baseUrl, name, description)
             : null;
 
         return JsonSerializer.Serialize(graph ?? WebSiteNode(baseUrl), SerializerOptions);
