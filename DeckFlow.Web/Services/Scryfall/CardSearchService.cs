@@ -30,6 +30,8 @@ public interface ICardSearchService
 /// </summary>
 public sealed class ScryfallCardSearchService : ICardSearchService
 {
+    private const string CardSearchCachePrefix = "card-search:";
+    private const string CommanderCachePrefix = "commander:";
     private const int SuggestionLimit = 20;
     private readonly IMemoryCache _cache;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeAsync;
@@ -63,8 +65,8 @@ public sealed class ScryfallCardSearchService : ICardSearchService
             return Array.Empty<string>();
         }
 
-        var normalized = query.Trim().ToLowerInvariant();
-        if (_cache.TryGetValue(normalized, out IReadOnlyList<string>? cached) && cached is not null)
+        var cacheKey = $"{CardSearchCachePrefix}{query.Trim().ToLowerInvariant()}";
+        if (_cache.TryGetValue(cacheKey, out IReadOnlyList<string>? cached) && cached is not null)
         {
             return cached;
         }
@@ -79,7 +81,7 @@ public sealed class ScryfallCardSearchService : ICardSearchService
         var response = await _executeAsync(request, cancellationToken);
         if ((int)response.StatusCode == 404)
         {
-            _cache.Set(normalized, (IReadOnlyList<string>)Array.Empty<string>(), TimeSpan.FromMinutes(10));
+            _cache.Set(cacheKey, (IReadOnlyList<string>)Array.Empty<string>(), TimeSpan.FromMinutes(10));
             return Array.Empty<string>();
         }
 
@@ -98,7 +100,7 @@ public sealed class ScryfallCardSearchService : ICardSearchService
             .Take(SuggestionLimit)
             .ToList() ?? new List<string>();
 
-        _cache.Set(normalized, names, TimeSpan.FromMinutes(10));
+        _cache.Set(cacheKey, names, TimeSpan.FromMinutes(10));
         return names;
     }
 
@@ -110,7 +112,7 @@ public sealed class ScryfallCardSearchService : ICardSearchService
             return Array.Empty<string>();
         }
 
-        var cacheKey = $"commander:{query.Trim().ToLowerInvariant()}";
+        var cacheKey = $"{CommanderCachePrefix}{query.Trim().ToLowerInvariant()}";
         if (_cache.TryGetValue(cacheKey, out IReadOnlyList<string>? cached) && cached is not null)
         {
             return cached;

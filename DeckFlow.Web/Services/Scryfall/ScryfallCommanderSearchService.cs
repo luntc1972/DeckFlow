@@ -27,6 +27,7 @@ public interface ICommanderSearchService
 /// </summary>
 public sealed class ScryfallCommanderSearchService : ICommanderSearchService
 {
+    private const string CommanderLegendaryCachePrefix = "commander-legendary:";
     private const int SuggestionLimit = 20;
     private readonly IMemoryCache _cache;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeAsync;
@@ -60,8 +61,8 @@ public sealed class ScryfallCommanderSearchService : ICommanderSearchService
             return Array.Empty<string>();
         }
 
-        var normalized = query.Trim().ToLowerInvariant();
-        if (_cache.TryGetValue(normalized, out IReadOnlyList<string>? cached) && cached is not null)
+        var cacheKey = $"{CommanderLegendaryCachePrefix}{query.Trim().ToLowerInvariant()}";
+        if (_cache.TryGetValue(cacheKey, out IReadOnlyList<string>? cached) && cached is not null)
         {
             return cached;
         }
@@ -89,7 +90,7 @@ public sealed class ScryfallCommanderSearchService : ICommanderSearchService
             .Take(SuggestionLimit)
             .ToList() ?? new List<string>();
 
-        _cache.Set(normalized, names, TimeSpan.FromMinutes(10));
+        _cache.Set(cacheKey, names, TimeSpan.FromMinutes(10));
         return names;
     }
 }
