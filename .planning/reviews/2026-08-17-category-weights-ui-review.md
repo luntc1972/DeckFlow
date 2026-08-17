@@ -310,3 +310,60 @@ fix; recording it rather than folding it in.
 4. **LOW-1..4** — batch with any of the above.
 5. **Re-run this 2-viewport pass after BLOCK-1**, against the real browser path rather than a forced
    native POST.
+
+---
+
+## ✅ Order disagreement discharged — 2026-08-17, GSD quick task `260817-kvn`, branch `fix/category-copy-box-order`
+
+**Decision:** the copy box adopts the **table's** ranking. The copy text FORMAT is unchanged — plain
+`- Category` lines, no weights, no percentages; the earlier locked decision still stands. Order only.
+
+**The divergence was narrower than recorded above.** The copy box was not on "raw merge order" — both
+paths sort `SourceCount DESC` first and then split:
+
+| Path | Secondary | Tertiary |
+|---|---|---|
+| Copy text (`MergeWeighted`, `CategorySuggestionReporter.cs:105-110`) | Authority DESC (Exact/Tagger=3, Inferred=2, Edhrec=1) | label ASC |
+| Table (`CategoryWeightRowFactory.Build`, `CategoryWeightRowFactory.cs:22-28`) | Percent-is-null ASC, then Percent DESC | Category ASC |
+
+**Why the fix lives in Web, not Core.** `Build` needs `categoryDeckCounts` and `totalDeckCount` — Web-layer
+lookups Core never sees — so the table's ranking cannot move down into `DeckFlow.Core`. Instead both
+controllers now hoist `Build`'s ranked rows into a local and project the copy text *and* the table from
+that one list. `ToText` is unchanged and Core is behaviourally untouched.
+
+**Changes:** `DeckCategoriesController.cs:112-130` (`2b5eda2e`), `SuggestionsApiController.cs:88-95`
+(`4ec7aaad`), and a comment-only correction at `CategorySuggestionReporter.cs:62-64` (`7003bbfb`) — the old
+comment claimed the label overload "keeps the copy text and the weighted table in lockstep", which this
+change makes false. That overload (`Merge`) has **zero production callers**; only
+`DeckFlow.Core.Tests/CategorySuggestionReporterMergeTests.cs` calls it.
+
+**The existing suite gave this defect zero coverage.** All four copy-text assertions
+(`DeckCategoriesControllerTests.cs:82`, `:115`, `:224`, `:237`) use fixtures where the two comparators
+happen to coincide — verified arithmetically, and none needed editing. Two new facts were added on a
+fixture where they genuinely diverge: `edhrec=["Ramp"]`, `tagger=["Protection","Draw"]`, counts
+`draw=6 / ramp=30` of 60 → merge order `Draw, Protection, Ramp` vs table order `Ramp, Draw, Protection`.
+Alphabetical order equals the *old* order, so an accidental alpha sort also fails. Each test asserts the
+literal order **and** the structural invariant that `WeightedCategories` matches the copy-text lines.
+
+**Mutation proof (run independently by the reviewer, not taken on report):** flipping
+`CategoryWeightRowFactory.cs:26` to `.ThenBy(row => row.Percent)` reddens **exactly** the two new facts,
+23/25 stay green — the pre-existing table-order tests resolve their ties on the null-Percent flag. Line
+restored and re-verified.
+
+**Verification:** WSL `dotnet build` clean; filtered xUnit 25/25 via the Windows host (independent re-run);
+`codex review` stage 1 (`gpt-5.6-sol`) found no actionable defects. Stage 2 judged unnecessary — the
+consumer census is closed: `MergedCategoriesText` is rendered verbatim by
+`SuggestCategories.cshtml:181` and `category-suggestions.ts:272-273` (`setFieldText`, no parsing or
+re-sorting), and no vitest spec asserts merged ordering. EOL verified per file (all five LF, unchanged);
+whitespace-ignoring diffstat is identical to the plain diffstat, so no reflow churn.
+
+⚠ **Still owed: real-browser UAT.** Verification was headless and unit-level only.
+
+⭐ **Process lesson.** The first Codex dispatch halted claiming the fixture did not diverge, reporting the
+table order as `Draw, Protection, Ramp`. `BuildCategoryWeightRow` looks deck counts up by
+`CategoryCanonicalizer.CanonicalKey`, which **lower-cases** (`CategoryCanonicalizer.cs:35`). Seed the fake
+store with display labels instead of lower-case keys and every lookup misses silently, every `Percent`
+goes null, the null-Percent tier stops separating anything, and the table collapses to the alphabetical
+tiebreak — reproducing precisely that order. Nothing throws. Same write-normalized / read-raw dictionary
+class as BLOCK-1's case-variant crash. A fixture whose keys miss is indistinguishable from a fixture that
+does not diverge.
