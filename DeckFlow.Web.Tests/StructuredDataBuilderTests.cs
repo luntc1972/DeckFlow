@@ -69,6 +69,20 @@ public sealed class StructuredDataBuilderTests
         Assert.Equal($"{BaseUrl}/manabase", crumbs[1].GetProperty("item").GetString());
     }
 
+    [Theory]
+    [InlineData("/set-upgrade-analysis", "Set Upgrade Analysis")]
+    [InlineData("/deckflow-bridge", "DeckFlow Bridge")]
+    public void Landing_and_utility_paths_return_webpage_and_breadcrumb(string path, string title)
+    {
+        var json = StructuredDataBuilder.ForPath(
+            path, $"{BaseUrl}{path}", BaseUrl, title, "Page description.");
+
+        var graph = Parse(json).GetProperty("@graph").EnumerateArray().ToList();
+        var types = graph.Select(node => node.GetProperty("@type").GetString()).ToList();
+        Assert.Contains("WebPage", types);
+        Assert.Contains("BreadcrumbList", types);
+    }
+
     [Fact]
     public void Help_detail_returns_techarticle_and_breadcrumb_depth_three()
     {

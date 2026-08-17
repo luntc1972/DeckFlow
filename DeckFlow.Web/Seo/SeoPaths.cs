@@ -5,6 +5,25 @@ using System.Linq;
 namespace DeckFlow.Web.Seo;
 
 /// <summary>
+/// Drives both the JSON-LD graph emitted by <see cref="StructuredDataBuilder"/> and
+/// whether <c>_Layout</c> renders the share bar; a single bool could not express
+/// “ranks richly but is not shared”.
+/// </summary>
+internal enum SeoPageKind
+{
+    /// <summary>Home graph (WebSite + Organization + SoftwareApplication); shareable.</summary>
+    Home,
+    /// <summary>WebPage + BreadcrumbList; shareable.</summary>
+    Tool,
+    /// <summary>WebPage + BreadcrumbList; shareable. Content describing a capability, which is what people share.</summary>
+    Landing,
+    /// <summary>WebPage + BreadcrumbList; not shareable. A means, not a destination — e.g. an extension-install page.</summary>
+    Utility,
+    /// <summary>The bare WebSite fallback node; not shareable. Also returned for any unregistered path.</summary>
+    Static,
+}
+
+/// <summary>
 /// Single source of truth for the public page paths. Consumed by
 /// <see cref="Controllers.SitemapController"/> (sitemap + robots) and
 /// <see cref="StructuredDataBuilder"/> (JSON-LD) so the two never drift apart.
@@ -12,34 +31,34 @@ namespace DeckFlow.Web.Seo;
 public static class SeoPaths
 {
     /// <summary>
-    /// Every page and its independently declared indexability and tool-page facts.
+    /// Every page and its independently declared indexability and page kind.
     /// Each page is declared here exactly once so the sitemap and structured-data views
     /// cannot drift.
     /// </summary>
     private static readonly SeoPage[] Pages =
     {
-        new("/", true, false),
-        new("/sync", true, true),
-        new("/convert", true, true),
-        new("/card-lookup", true, true),
-        new("/mechanic-lookup", true, true),
-        new("/deck-analysis", true, true),
-        new("/set-upgrade-analysis", true, false),
-        new("/deck-comparison", true, true),
-        new("/cedh-meta-gap", true, true),
-        new("/deck-primer", true, true),
-        new("/suggest-categories", true, true),
-        new("/commander-categories", true, true),
-        new("/judge-questions", true, true),
-        new("/manabase", true, true),
-        new("/bracket", true, true),
-        new("/deck-history", true, true),
-        new("/cut-lab", true, true),
-        new("/content-kb", false, true),
-        new("/deckflow-bridge", true, false),
-        new("/help", true, false),
-        new("/about", true, false),
-        new("/feedback", true, false),
+        new("/", true, SeoPageKind.Home),
+        new("/sync", true, SeoPageKind.Tool),
+        new("/convert", true, SeoPageKind.Tool),
+        new("/card-lookup", true, SeoPageKind.Tool),
+        new("/mechanic-lookup", true, SeoPageKind.Tool),
+        new("/deck-analysis", true, SeoPageKind.Tool),
+        new("/set-upgrade-analysis", true, SeoPageKind.Landing),
+        new("/deck-comparison", true, SeoPageKind.Tool),
+        new("/cedh-meta-gap", true, SeoPageKind.Tool),
+        new("/deck-primer", true, SeoPageKind.Tool),
+        new("/suggest-categories", true, SeoPageKind.Tool),
+        new("/commander-categories", true, SeoPageKind.Tool),
+        new("/judge-questions", true, SeoPageKind.Tool),
+        new("/manabase", true, SeoPageKind.Tool),
+        new("/bracket", true, SeoPageKind.Tool),
+        new("/deck-history", true, SeoPageKind.Tool),
+        new("/cut-lab", true, SeoPageKind.Tool),
+        new("/content-kb", false, SeoPageKind.Tool),
+        new("/deckflow-bridge", true, SeoPageKind.Utility),
+        new("/help", true, SeoPageKind.Static),
+        new("/about", true, SeoPageKind.Static),
+        new("/feedback", true, SeoPageKind.Static),
     };
 
     /// <summary>
@@ -51,14 +70,17 @@ public static class SeoPaths
         .ToArray();
 
     /// <summary>
-    /// Every page declared a tool in <see cref="Pages"/>. Tool status is independent of
-    /// indexability, allowing flag-gated tools to retain their share bar and tool JSON-LD.
+    /// Every page with <see cref="SeoPageKind.Tool"/> in <see cref="Pages"/>. Tool kind is
+    /// independent of indexability, allowing flag-gated tools to retain their share bar and tool JSON-LD.
     /// </summary>
     public static readonly IReadOnlySet<string> Tools = new HashSet<string>(
-        Pages.Where(page => page.IsTool).Select(page => page.Path),
+        Pages.Where(page => page.Kind == SeoPageKind.Tool).Select(page => page.Path),
         StringComparer.Ordinal);
 
-    private sealed record SeoPage(string Path, bool IsIndexable, bool IsTool);
+    private static readonly IReadOnlyDictionary<string, SeoPageKind> Kinds =
+        Pages.ToDictionary(page => page.Path, page => page.Kind, StringComparer.Ordinal);
+
+    private sealed record SeoPage(string Path, bool IsIndexable, SeoPageKind Kind);
 
     /// <summary>
     /// Normalizes a request path for matching: lower-invariant, trailing slash stripped
@@ -80,13 +102,18 @@ public static class SeoPaths
         return lower.Length == 0 ? "/" : lower;
     }
 
+    /// <summary>Normalizes the path and returns <see cref="SeoPageKind.Static"/> for unregistered paths.</summary>
+    internal static SeoPageKind KindOf(string? path)
+    {
+        var normalized = Normalize(path);
+        return Kinds.TryGetValue(normalized, out var kind) ? kind : SeoPageKind.Static;
+    }
+
     /// <summary>
-    /// True when the path is the home page or one of the tool pages — the pages that
-    /// carry the share bar.
+    /// True when the page kind carries the share bar: home, tool, or landing.
     /// </summary>
     public static bool IsShareablePage(string? path)
     {
-        var normalized = Normalize(path);
-        return normalized == "/" || Tools.Contains(normalized);
+        return KindOf(path) is SeoPageKind.Home or SeoPageKind.Tool or SeoPageKind.Landing;
     }
 }
