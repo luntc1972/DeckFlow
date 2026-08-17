@@ -63,6 +63,7 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
     private readonly ArchidektParser _archidektParser;
     private readonly IArchidektDeckImporter _archidektImporter;
     private readonly IScryfallTaggerLookupService _taggerService;
+    private readonly IEdhrecCardLookup _edhrecCardLookup;
 
     /// <summary>
     /// Initializes a new instance of <see cref="CategorySuggestionService"/>.
@@ -71,12 +72,14 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
         ICategoryKnowledgeStore knowledgeStore,
         ArchidektParser archidektParser,
         IArchidektDeckImporter archidektImporter,
-        IScryfallTaggerLookupService taggerService)
+        IScryfallTaggerLookupService taggerService,
+        IEdhrecCardLookup edhrecCardLookup)
     {
         _knowledgeStore = knowledgeStore;
         _archidektParser = archidektParser;
         _archidektImporter = archidektImporter;
         _taggerService = taggerService;
+        _edhrecCardLookup = edhrecCardLookup;
     }
 
     /// <inheritdoc />
@@ -125,7 +128,7 @@ public sealed class CategorySuggestionService : ICategorySuggestionService
             : CardDeckTotals.Empty;
 
         var edhrecCategories = runCachedPath && exactCategories.Count == 0 && inferredCategories.Count == 0 && taggerCategories.Count == 0
-            ? await new EdhrecCardLookup().LookupCategoriesAsync(cardName, cancellationToken)
+            ? await _edhrecCardLookup.LookupCategoriesAsync(cardName, cancellationToken)
             : Array.Empty<string>();
 
         if (edhrecCategories.Count > 0)
