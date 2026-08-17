@@ -152,6 +152,47 @@ public sealed class SuggestionsApiControllerTests
     }
 
     [Fact]
+    public async Task PostCardSuggestionAsync_MergedCopyTextFollowsWeightedTableOrder()
+    {
+        var result = new CategorySuggestionResult(
+            "Guardian Project",
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            ["Ramp"],
+            ["Protection", "Draw"],
+            new Dictionary<string, int>(StringComparer.Ordinal)
+            {
+                ["draw"] = 6,
+                ["ramp"] = 30
+            },
+            new CardDeckTotals(60, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["mainboard"] = 60
+            }),
+            ["EDHREC", "Scryfall Tagger"],
+            false);
+
+        var controller = CreateController(
+            new FakeCategorySuggestionService(result),
+            new FakeCommanderCategoryService(EmptyCommanderResult()),
+            new FakeMechanicLookupService(MechanicLookupResult.NotFound("", "https://magic.wizards.com/en/rules", null)),
+            NullLogger<SuggestionsApiController>.Instance);
+
+        var response = await controller.PostCardSuggestionAsync(new CategorySuggestionRequest
+        {
+            CardName = "Guardian Project"
+        }, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(response.Result);
+        var payload = Assert.IsType<CategorySuggestionApiResponse>(ok.Value);
+        var mergedCategoriesText = Assert.IsType<string>(payload.MergedCategoriesText);
+        Assert.Equal("- Ramp" + Environment.NewLine + "- Draw" + Environment.NewLine + "- Protection", mergedCategoriesText);
+        Assert.Equal(
+            payload.WeightedCategories.Select(row => row.Category),
+            mergedCategoriesText.Split(Environment.NewLine).Select(line => line[2..]));
+    }
+
+    [Fact]
     public async Task PostCardSuggestionAsync_ReturnsTaggerFields()
     {
         var result = new CategorySuggestionResult(
