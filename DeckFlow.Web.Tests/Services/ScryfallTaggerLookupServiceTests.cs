@@ -90,7 +90,7 @@ public sealed class ScryfallTaggerLookupServiceTests
     }
 
     [Fact]
-    public async Task LookupOracleTagsAsync_WarmCache_SkipsCsrfLeg_RefetchesRestAndGraphQL()
+    public async Task LookupOracleTagsAsync_WarmCache_SkipsCsrfAndRestLegs_RefetchesGraphQL()
     {
         using var scryfallMock = new MockHttpMessageHandler();
         using var taggerMock = new MockHttpMessageHandler();
@@ -117,7 +117,7 @@ public sealed class ScryfallTaggerLookupServiceTests
 
         // Cold call
         var first = await sut.LookupOracleTagsAsync("Thrasios, Triton Hero", CancellationToken.None);
-        // Warm call — session cached, CSRF should NOT re-fire; REST+GraphQL re-fire per invocation
+        // Warm call — the printing and session are cached; GraphQL still reflects current community tags.
         var second = await sut.LookupOracleTagsAsync("Thrasios, Triton Hero", CancellationToken.None);
 
         Assert.NotNull(first);
@@ -129,7 +129,71 @@ public sealed class ScryfallTaggerLookupServiceTests
         Assert.Equal(1, taggerMock.GetMatchCount(csrfRoute));
         Assert.Equal(2, taggerMock.GetMatchCount(graphqlRoute));
         // Scryfall REST resolves card on every call (no card-resolution cache in service)
-        Assert.Equal(2, scryfallMock.GetMatchCount(scryfallRoute));
+        Assert.Equal(1, scryfallMock.GetMatchCount(scryfallRoute));
+    }
+
+    [Fact]
+    public async Task LookupOracleTagsAsync_FailedPrintingResolution_IsRetried()
+    {
+        using var scryfallMock = new MockHttpMessageHandler();
+        using var taggerMock = new MockHttpMessageHandler();
+
+        var route = scryfallMock
+            .When(HttpMethod.Get, "https://api.scryfall.com/cards/named*")
+            .Respond(HttpStatusCode.TooManyRequests);
+
+        var sut = CreateService(scryfallMock, taggerMock);
+
+        await sut.LookupOracleTagsAsync("Thrasios, Triton Hero", CancellationToken.None);
+        await sut.LookupOracleTagsAsync("Thrasios, Triton Hero", CancellationToken.None);
+
+        Assert.Equal(6, scryfallMock.GetMatchCount(route));
+    }
+
+    [Fact]
+    public async Task LookupOracleTagsAsync_PrintingLargerThanCacheLimit_IsNotRetained()
+    {
+        using var scryfallMock = new MockHttpMessageHandler();
+        using var taggerMock = new MockHttpMessageHandler();
+
+        var oversizedSet = new string('s', checked((int)ScryfallTaggerLookupService.PrintingCacheCapacityChars + 1));
+        var oversizedPrintingJson = $$"""
+{"object":"card","id":"abc123","name":"Thrasios, Triton Hero","set":"{{oversizedSet}}","collector_number":"161"}
+""";
+        var route = scryfallMock
+            .When(HttpMethod.Get, "https://api.scryfall.com/cards/named*")
+            .Respond(HttpStatusCode.OK, "application/json", oversizedPrintingJson);
+        taggerMock.When(HttpMethod.Get, "https://tagger.scryfall.com/card/*").Respond(HttpStatusCode.OK, "text/html", TaggerCsrfHtml);
+        taggerMock.When(HttpMethod.Post, "https://tagger.scryfall.com/graphql").Respond(HttpStatusCode.OK, "application/json", TaggerGraphQlJson);
+
+        var sut = CreateService(scryfallMock, taggerMock);
+        const string cardName = "Thrasios, Triton Hero";
+
+        await sut.LookupOracleTagsAsync(cardName, CancellationToken.None);
+        await sut.LookupOracleTagsAsync(cardName, CancellationToken.None);
+
+        Assert.Equal(2, scryfallMock.GetMatchCount(route));
+    }
+
+    [Fact]
+    public async Task LookupOracleTagsAsync_CasingVariant_ReusesPrintingResolution()
+    {
+        using var scryfallMock = new MockHttpMessageHandler();
+        using var taggerMock = new MockHttpMessageHandler();
+
+        var route = scryfallMock
+            .When(HttpMethod.Get, "https://api.scryfall.com/cards/named*")
+            .Respond(HttpStatusCode.OK, "application/json", ScryfallCardJson);
+        taggerMock.When(HttpMethod.Get, "https://tagger.scryfall.com/card/lea/161").Respond(HttpStatusCode.OK, "text/html", TaggerCsrfHtml);
+        taggerMock.When(HttpMethod.Post, "https://tagger.scryfall.com/graphql").Respond(HttpStatusCode.OK, "application/json", TaggerGraphQlJson);
+
+        var sut = CreateService(scryfallMock, taggerMock);
+
+        await sut.LookupOracleTagsAsync("Thrasios, Triton Hero", CancellationToken.None);
+        await sut.LookupOracleTagsAsync("THRASIOS, TRITON HERO", CancellationToken.None);
+        await sut.LookupOracleTagsAsync("  Thrasios, Triton Hero  ", CancellationToken.None);
+
+        Assert.Equal(1, scryfallMock.GetMatchCount(route));
     }
 
     [Fact]
