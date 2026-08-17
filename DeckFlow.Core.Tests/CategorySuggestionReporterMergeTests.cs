@@ -57,11 +57,12 @@ public sealed class CategorySuggestionReporterMergeTests
     [Fact]
     public void Merge_DedupsAcrossSources_ReturnsSingleCategory()
     {
-        var merged = CategorySuggestionReporter.Merge(
+        var merged = CategorySuggestionReporter.MergeWeighted(
             ["Card Draw"],
             ["Draw"],
             Array.Empty<string>(),
-            Array.Empty<string>());
+            Array.Empty<string>())
+            .Select(weight => weight.Category);
 
         Assert.Equal(["Draw"], merged);
     }
@@ -69,11 +70,12 @@ public sealed class CategorySuggestionReporterMergeTests
     [Fact]
     public void Merge_AgreementDiffers_HigherAgreementRanksFirst()
     {
-        var merged = CategorySuggestionReporter.Merge(
+        var merged = CategorySuggestionReporter.MergeWeighted(
             ["Ramp", "Protection"],
             ["Ramp"],
             ["Ramp"],
-            Array.Empty<string>());
+            Array.Empty<string>())
+            .Select(weight => weight.Category);
 
         Assert.Equal(["Ramp", "Protection"], merged);
     }
@@ -81,11 +83,12 @@ public sealed class CategorySuggestionReporterMergeTests
     [Fact]
     public void Merge_CategoryAppearsInTagger_PrefersTaggerSpelling()
     {
-        var merged = CategorySuggestionReporter.Merge(
+        var merged = CategorySuggestionReporter.MergeWeighted(
             ["Card Draw"],
             Array.Empty<string>(),
             Array.Empty<string>(),
-            ["Draw"]);
+            ["Draw"])
+            .Select(weight => weight.Category);
 
         Assert.Equal(["Draw"], merged);
     }
@@ -93,11 +96,12 @@ public sealed class CategorySuggestionReporterMergeTests
     [Fact]
     public void Merge_JunkCategoryPresent_ExcludesJunk()
     {
-        var merged = CategorySuggestionReporter.Merge(
+        var merged = CategorySuggestionReporter.MergeWeighted(
             ["WTF?", "Ramp"],
             ["3"],
             ["PUMP✊"],
-            Array.Empty<string>());
+            Array.Empty<string>())
+            .Select(weight => weight.Category);
 
         Assert.Equal(["Ramp"], merged);
     }
@@ -105,11 +109,12 @@ public sealed class CategorySuggestionReporterMergeTests
     [Fact]
     public void Merge_SourceAuthorityBreaksSingleSourceTie()
     {
-        var merged = CategorySuggestionReporter.Merge(
+        var merged = CategorySuggestionReporter.MergeWeighted(
             Array.Empty<string>(),
             Array.Empty<string>(),
             ["Aardvark", "Beaver"],
-            ["Zebra"]);
+            ["Zebra"])
+            .Select(weight => weight.Category);
 
         Assert.Equal(["Zebra", "Aardvark", "Beaver"], merged);
     }
@@ -117,11 +122,12 @@ public sealed class CategorySuggestionReporterMergeTests
     [Fact]
     public void Merge_And_ToText_Unchanged()
     {
-        var merged = CategorySuggestionReporter.Merge(
+        var merged = CategorySuggestionReporter.MergeWeighted(
             ["Card Draw", "Ramp"],
             ["Draw", "Ramp"],
             Array.Empty<string>(),
-            ["Draw"]);
+            ["Draw"])
+            .Select(weight => weight.Category);
 
         var text = CategorySuggestionReporter.ToText(merged, "Guardian Project");
 
