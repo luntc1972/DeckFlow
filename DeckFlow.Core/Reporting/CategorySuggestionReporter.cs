@@ -48,24 +48,6 @@ public static class CategorySuggestionReporter
         return CategoryFilter.IncludedOrFallback(categories);
     }
 
-    /// <summary>Returns a merged, ranked category list across all suggestion sources.</summary>
-    /// <param name="exact">Categories from exact reference-deck matches.</param>
-    /// <param name="inferred">Categories inferred from cached local knowledge.</param>
-    /// <param name="edhrec">Categories inferred from EDHREC.</param>
-    /// <param name="tagger">Categories returned by Scryfall Tagger.</param>
-    /// <returns>Merged category labels ordered by cross-source agreement.</returns>
-    public static IReadOnlyList<string> Merge(
-        IEnumerable<string> exact,
-        IEnumerable<string> inferred,
-        IEnumerable<string> edhrec,
-        IEnumerable<string> tagger)
-        // Why: Merge projects MergeWeighted's ranked output to labels as the Core-only merge-order accessor.
-        // The Suggest Categories UI does not use it because its copy box and weighted table use
-        // CategoryWeightRowFactory.Build's display ranking, which needs Web-layer deck counts Core cannot see.
-        => MergeWeighted(exact, inferred, edhrec, tagger)
-            .Select(weight => weight.Category)
-            .ToList();
-
     /// <summary>Returns a text report listing the supplied category suggestions for <paramref name="cardName"/>.</summary>
     /// <param name="categories">Category suggestions to format.</param>
     /// <param name="cardName">Card name those suggestions apply to.</param>
