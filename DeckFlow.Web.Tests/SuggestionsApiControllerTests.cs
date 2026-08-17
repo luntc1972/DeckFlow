@@ -86,6 +86,72 @@ public sealed class SuggestionsApiControllerTests
     }
 
     [Fact]
+    public async Task PostCardSuggestionAsync_ReturnsWeightedCategoriesInDisplayOrderWithUnavailableCountsNull()
+    {
+        var result = new CategorySuggestionResult(
+            "Guardian Project",
+            ["Card Draw", "Ramp"],
+            ["Draw", "Protection"],
+            ["Protection"],
+            ["Protection", "Tutor"],
+            new Dictionary<string, int>(StringComparer.Ordinal)
+            {
+                ["draw"] = 70,
+                ["protection"] = 120,
+                ["ramp"] = 30
+            },
+            new CardDeckTotals(60, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["mainboard"] = 60
+            }),
+            ["reference deck", "cached store", "EDHREC", "Scryfall Tagger"],
+            false);
+
+        var controller = CreateController(
+            new FakeCategorySuggestionService(result),
+            new FakeCommanderCategoryService(EmptyCommanderResult()),
+            new FakeMechanicLookupService(MechanicLookupResult.NotFound("", "https://magic.wizards.com/en/rules", null)),
+            NullLogger<SuggestionsApiController>.Instance);
+
+        var response = await controller.PostCardSuggestionAsync(new CategorySuggestionRequest
+        {
+            CardName = "Guardian Project"
+        }, CancellationToken.None);
+
+        var payload = Assert.IsType<CategorySuggestionApiResponse>(Assert.IsType<OkObjectResult>(response.Result).Value);
+        Assert.Collection(
+            payload.WeightedCategories,
+            row =>
+            {
+                Assert.Equal("Protection", row.Category);
+                Assert.Equal(120, row.DeckCount);
+                Assert.Equal(100, row.Percent);
+                Assert.Equal(3, row.SourceCount);
+                Assert.Equal(4, row.SourceTotal);
+            },
+            row =>
+            {
+                Assert.Equal("Draw", row.Category);
+                Assert.Equal(70, row.DeckCount);
+                Assert.Equal(100, row.Percent);
+            },
+            row =>
+            {
+                Assert.Equal("Ramp", row.Category);
+                Assert.Equal(30, row.DeckCount);
+                Assert.Equal(50, row.Percent);
+            },
+            row =>
+            {
+                Assert.Equal("Tutor", row.Category);
+                Assert.Null(row.DeckCount);
+                Assert.Null(row.Percent);
+                Assert.Equal(1, row.SourceCount);
+                Assert.Equal(4, row.SourceTotal);
+            });
+    }
+
+    [Fact]
     public async Task PostCardSuggestionAsync_ReturnsTaggerFields()
     {
         var result = new CategorySuggestionResult(

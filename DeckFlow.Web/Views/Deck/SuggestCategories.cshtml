@@ -136,8 +136,7 @@
             </div>
             <button type="button" class="copy-button" data-copy-target="merged-categories-output">Copy</button>
         </div>
-        @if (hasWeightedCategories)
-        {
+        <div class="@(hasWeightedCategories ? null : "hidden")" data-api-panel="weighted">
             <table class="conflicts-table" aria-label="Weighted category suggestions">
                 <thead>
                     <tr>
@@ -147,7 +146,7 @@
                         <th title="Sources that agreed / sources that contributed" aria-label="Sources that agreed / sources that contributed">Sources</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody data-api-field="weighted-body">
                     @foreach (var row in Model.WeightedCategories)
                     {
                         <tr>
@@ -159,7 +158,7 @@
                     }
                 </tbody>
             </table>
-        }
+        </div>
         <textarea autocomplete="off" id="merged-categories-output" data-api-field="merged-text" readonly spellcheck="false">@Model.MergedCategoriesText</textarea>
     </section>
 </section>

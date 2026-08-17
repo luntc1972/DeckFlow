@@ -37,6 +37,13 @@
     taggerSuggestionContextText: string;
     hasTaggerCategories: boolean;
     suggestionSourceSummary?: string | null;
+    weightedCategories?: Array<{
+      category: string;
+      deckCount: number | null;
+      percent: number | null;
+      sourceCount: number;
+      sourceTotal: number;
+    }>;
     noSuggestionsFound: boolean;
     noSuggestionsMessage?: string | null;
     cardDeckTotals: {
@@ -98,6 +105,25 @@
     return row;
   };
 
+  const renderWeightedCategories = (rows?: CardSuggestionResponse['weightedCategories']): void => {
+    const body = document.querySelector<HTMLTableSectionElement>('[data-api-field="weighted-body"]');
+    body?.replaceChildren();
+
+    const hasRows = Boolean(body && rows && rows.length > 0);
+    if (hasRows && body && rows) {
+      rows.forEach(row => {
+        const tableRow = document.createElement('tr');
+        tableRow.appendChild(createTextCell(row.category));
+        tableRow.appendChild(createTextCell(row.deckCount ?? '—'));
+        tableRow.appendChild(createTextCell(row.percent ?? '—'));
+        tableRow.appendChild(createTextCell(`${row.sourceCount}/${row.sourceTotal}`));
+        body.appendChild(tableRow);
+      });
+    }
+
+    toggleSuggestionPanel('weighted', hasRows);
+  };
+
   const handleError = (panel: 'suggest-error' | 'commander-error', message?: string | null): void => {
     if (!message) {
       toggleSuggestionPanel(panel, false);
@@ -113,6 +139,7 @@
     toggleSuggestionPanel('cache-info', false);
     toggleSuggestionPanel('source-summary', false);
     toggleSuggestionPanel('merged', false);
+    toggleSuggestionPanel('weighted', false);
     toggleSuggestionPanel('exact', false);
     toggleSuggestionPanel('inferred', false);
     toggleSuggestionPanel('edhrec', false);
@@ -230,6 +257,7 @@
     const showMerged = Boolean(response.mergedCategoriesText && response.mergedCategoriesText.trim().length > 0);
     setFieldText('merged-text', response.mergedCategoriesText);
     toggleSuggestionPanel('merged', showMerged);
+    renderWeightedCategories(response.weightedCategories);
 
     toggleSuggestionPanel('no-suggestions', response.noSuggestionsFound);
     if (response.noSuggestionsFound) {
@@ -505,6 +533,10 @@
       });
     });
   };
+
+  Object.assign(globalThis, {
+    DeckFlowCategorySuggestions: { renderWeightedCategories }
+  });
 
   document.addEventListener('DOMContentLoaded', attachSuggestionHandlers);
 })();

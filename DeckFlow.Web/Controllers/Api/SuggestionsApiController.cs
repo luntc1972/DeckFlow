@@ -9,6 +9,7 @@ using DeckFlow.Web.Models.Api;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Security;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.Categories;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DeckFlow.Web.Controllers.Api;
@@ -79,7 +80,7 @@ public sealed class SuggestionsApiController : ControllerBase
         try
         {
             var result = await _categorySuggestionService.SuggestAsync(request, cancellationToken);
-            var merged = CategorySuggestionReporter.Merge(
+            var weighted = CategorySuggestionReporter.MergeWeighted(
                 result.ExactCategories,
                 result.InferredCategories,
                 result.EdhrecCategories,
@@ -87,7 +88,8 @@ public sealed class SuggestionsApiController : ControllerBase
             var response = new CategorySuggestionApiResponse
             {
                 CardName = result.CardName,
-                MergedCategoriesText = CategorySuggestionReporter.ToText(merged, result.CardName),
+                MergedCategoriesText = CategorySuggestionReporter.ToText(weighted.Select(weight => weight.Category), result.CardName),
+                WeightedCategories = CategoryWeightRowFactory.Build(weighted, result.CategoryDeckCounts, result.CardDeckTotals.TotalDeckCount),
                 ExactCategoriesText = CategorySuggestionReporter.ToText(result.ExactCategories, result.CardName),
                 ExactSuggestionContextText = "These are exact card-name matches found in the Archidekt reference deck you provided.",
                 InferredCategoriesText = CategorySuggestionReporter.ToText(result.InferredCategories, result.CardName),
