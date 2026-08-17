@@ -143,7 +143,7 @@ internal sealed class CardCategoryRepository
 
         var rows = await connection.QueryAsync<CategoryDeckCountRow>(new CommandDefinition(
             """
-            SELECT o.category AS Category, SUM(o.deck_count) AS DeckCount
+            SELECT o.source_id AS SourceId, o.card_id AS CardId, o.board AS Board, o.category AS Category, SUM(o.deck_count) AS DeckCount
             FROM card_category_observations o
             JOIN cards c ON c.id = o.card_id
             JOIN card_deck_totals t
@@ -151,35 +151,39 @@ internal sealed class CardCategoryRepository
              AND t.card_id = o.card_id
              AND t.board = o.board
             WHERE c.normalized_card_name = @normalized
-            GROUP BY o.category
-            ORDER BY LOWER(o.category), o.category;
+            GROUP BY o.source_id, o.card_id, o.board, o.category
+            ORDER BY o.source_id, o.card_id, o.board, o.category;
             """,
             new { normalized = CardNormalizer.Normalize(cardName) },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
 
-        // Why: SQL groups case-sensitively while this dictionary is case-insensitive, so fold rows before keying.
-        var countsByCategory = rows
-            .GroupBy(row => row.Category, StringComparer.OrdinalIgnoreCase)
+        // Why: aliases in one source/card/board grain represent the same decks, so take their maximum before summing grains.
+        var observedCategories = rows
+            .Select(row => row.Category)
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+        var includedCategories = new HashSet<string>(
+            CategoryFilter.IncludedOrFallback(observedCategories),
+            StringComparer.OrdinalIgnoreCase);
+
+        return rows
+            .Where(row => includedCategories.Contains(row.Category))
+            .GroupBy(row => new
+            {
+                row.SourceId,
+                row.CardId,
+                row.Board,
+                CanonicalKey = CategoryCanonicalizer.CanonicalKey(row.Category)
+            })
+            .Select(group => new
+            {
+                group.Key.CanonicalKey,
+                DeckCount = group.Max(row => row.DeckCount)
+            })
+            .GroupBy(row => row.CanonicalKey, StringComparer.Ordinal)
             .ToDictionary(
                 group => group.Key,
                 group => checked((int)group.Sum(row => row.DeckCount)),
-                StringComparer.OrdinalIgnoreCase);
-        var includedCategories = CategoryFilter.IncludedOrFallback(countsByCategory.Keys);
-        var canonicalCounts = new Dictionary<string, int>(StringComparer.Ordinal);
-        foreach (var category in includedCategories)
-        {
-            if (!countsByCategory.TryGetValue(category, out var deckCount))
-            {
-                continue;
-            }
-
-            var canonicalKey = CategoryCanonicalizer.CanonicalKey(category);
-            canonicalCounts[canonicalKey] = canonicalCounts.TryGetValue(canonicalKey, out var existingCount)
-                ? checked(existingCount + deckCount)
-                : deckCount;
-        }
-
-        return canonicalCounts;
+                StringComparer.Ordinal);
     }
 
     /// <summary>
@@ -895,6 +899,9 @@ internal sealed class CardCategoryRepository
 
     private sealed class CategoryDeckCountRow
     {
+        public long SourceId { get; init; }
+        public long CardId { get; init; }
+        public string Board { get; init; } = string.Empty;
         public string Category { get; init; } = string.Empty;
         public long DeckCount { get; init; }
     }
