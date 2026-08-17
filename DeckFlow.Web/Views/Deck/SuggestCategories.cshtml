@@ -151,13 +151,32 @@
                     {
                         <tr>
                             <td>@row.Category</td>
-                            <td>@(row.DeckCount?.ToString() ?? "—")</td>
-                            <td>@(row.Percent?.ToString() ?? "—")</td>
+                            @if (row.DeckCount is null)
+                            {
+                                <td><span aria-hidden="true">—</span><span class="sr-only">Not available</span></td>
+                            }
+                            else
+                            {
+                                <td>@row.DeckCount</td>
+                            }
+                            @if (row.Percent is null)
+                            {
+                                <td><span aria-hidden="true">—</span><span class="sr-only">Not available</span></td>
+                            }
+                            else if (row.Percent == 0 && row.DeckCount is > 0)
+                            {
+                                <td>@("<1%")</td>
+                            }
+                            else
+                            {
+                                <td>@($"{row.Percent}%")</td>
+                            }
                             <td>@row.SourceCount/@row.SourceTotal</td>
                         </tr>
                     }
                 </tbody>
             </table>
+            <p class="manabase-lens-note">Sources — how many of the consulted sources agreed on the category, out of how many contributed.</p>
         </div>
         <textarea autocomplete="off" id="merged-categories-output" data-api-field="merged-text" readonly spellcheck="false">@Model.MergedCategoriesText</textarea>
     </section>

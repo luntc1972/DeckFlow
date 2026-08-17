@@ -238,7 +238,9 @@ public sealed class DeckCategoriesControllerTests
             WeightedCategories = new[]
             {
                 new CategoryWeightRow("Draw", 12, 34, 2, 3),
-                new CategoryWeightRow("Tutor", null, null, 1, 3)
+                new CategoryWeightRow("Tutor", null, null, 1, 3),
+                new CategoryWeightRow("Trinket", 3, 0, 1, 3),
+                new CategoryWeightRow("Zero", 0, 0, 1, 3)
             }
         };
 
@@ -254,13 +256,20 @@ public sealed class DeckCategoriesControllerTests
         Assert.Contains("title=\"Sources that agreed / sources that contributed\"", html, StringComparison.Ordinal);
         Assert.Contains("<td>Draw</td>", html, StringComparison.Ordinal);
         Assert.Contains("<td>12</td>", html, StringComparison.Ordinal);
-        Assert.Contains("<td>34</td>", html, StringComparison.Ordinal);
+        Assert.Contains("<td>34%</td>", html, StringComparison.Ordinal);
         Assert.Contains("<td>2/3</td>", html, StringComparison.Ordinal);
         Assert.Contains("<td>Tutor</td>", html, StringComparison.Ordinal);
+        Assert.Contains("<td>Trinket</td>", html, StringComparison.Ordinal);
         Assert.True(
-            html.Contains("<td>&#x2014;</td>", StringComparison.Ordinal)
-                || html.Contains("<td>—</td>", StringComparison.Ordinal),
-            "Expected the weighted table to render an em dash for null deck and percent values.");
+            html.Contains("<td>&lt;1%</td>", StringComparison.Ordinal)
+                || html.Contains("<td><1%</td>", StringComparison.Ordinal),
+            "Expected a positive deck count with a zero percent to render as less than one percent.");
+        Assert.Contains("<td>Zero</td>", html, StringComparison.Ordinal);
+        Assert.Contains("<td>0%</td>", html, StringComparison.Ordinal);
+        Assert.Contains("<span aria-hidden=\"true\">—</span><span class=\"sr-only\">Not available</span>", html, StringComparison.Ordinal);
+        var footnoteIndex = html.IndexOf("Sources — how many of the consulted sources agreed on the category, out of how many contributed.", StringComparison.Ordinal);
+        Assert.True(footnoteIndex > html.IndexOf("</table>", tableIndex, StringComparison.Ordinal));
+        Assert.True(footnoteIndex < textareaIndex);
         Assert.Contains(">Copy</button>", html, StringComparison.Ordinal);
         Assert.Contains("id=\"merged-categories-output\"", html, StringComparison.Ordinal);
         Assert.Contains("- Draw", html, StringComparison.Ordinal);

@@ -23,13 +23,17 @@ describe('DeckFlowCategorySuggestions', () => {
 
     api.renderWeightedCategories([
       { category: 'Protection', deckCount: 120, percent: 100, sourceCount: 3, sourceTotal: 4 },
-      { category: 'Tutor', deckCount: null, percent: null, sourceCount: 1, sourceTotal: 4 }
+      { category: 'Tutor', deckCount: null, percent: null, sourceCount: 1, sourceTotal: 4 },
+      { category: 'Trinket', deckCount: 3, percent: 0, sourceCount: 1, sourceTotal: 3 },
+      { category: 'Zero', deckCount: 0, percent: 0, sourceCount: 1, sourceTotal: 3 }
     ]);
 
     const rows = Array.from(document.querySelectorAll('[data-api-field="weighted-body"] tr'));
-    expect(rows).toHaveLength(2);
-    expect(rows[0].textContent).toBe('Protection1201003/4');
-    expect(rows[1].textContent).toBe('Tutor——1/4');
+    expect(rows).toHaveLength(4);
+    expect(rows[0].textContent).toBe('Protection120100%3/4');
+    expect(rows[1].textContent).toBe('Tutor—Not available—Not available1/4');
+    expect(rows[2].textContent).toBe('Trinket3<1%1/3');
+    expect(rows[3].textContent).toBe('Zero00%1/3');
     expect(document.querySelector('[data-api-panel="weighted"]')?.classList.contains('hidden')).toBe(false);
   });
 

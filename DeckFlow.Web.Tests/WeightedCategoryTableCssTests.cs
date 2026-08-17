@@ -20,12 +20,22 @@ public sealed class WeightedCategoryTableCssTests
             content);
         Assert.Matches(
             new Regex(
+                @"\[data-api-panel=""weighted""\][^{}]*\.conflicts-table[^{}]*nth-child\(n \+ 2\)[^{}]*\{[^}]*text-align:\s*right",
+                RegexOptions.Singleline),
+            content);
+        Assert.Matches(
+            new Regex(
                 @"\[data-api-panel=""weighted""\][^{}]*\.conflicts-table[^{}]*nth-child\(3\)[^{}]*\{[^}]*min-width:\s*\d+ch",
                 RegexOptions.Singleline),
             content);
         Assert.DoesNotMatch(
             new Regex(
                 @"(?m)^\.conflicts-table\s+(?:th|td)[^{]*\{[^}]*white-space:\s*nowrap",
+                RegexOptions.Singleline),
+            content);
+        Assert.DoesNotMatch(
+            new Regex(
+                @"(?m)^\.conflicts-table\s+(?:th|td)[^{]*\{[^}]*text-align:\s*right",
                 RegexOptions.Singleline),
             content);
     }

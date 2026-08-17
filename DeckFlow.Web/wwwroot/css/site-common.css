@@ -5717,6 +5717,8 @@ button {
    Scope this to the weighted panel because other .conflicts-table views contain prose columns. */
 [data-api-panel="weighted"] .conflicts-table th:nth-child(n + 2),
 [data-api-panel="weighted"] .conflicts-table td:nth-child(n + 2) {
+  /* Why: numeric columns are easier to compare when right-aligned. */
+  text-align: right;
   white-space: nowrap;
 }
 
