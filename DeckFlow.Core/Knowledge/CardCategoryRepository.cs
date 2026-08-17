@@ -157,10 +157,13 @@ internal sealed class CardCategoryRepository
             new { normalized = CardNormalizer.Normalize(cardName) },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
 
-        var countsByCategory = rows.ToDictionary(
-            row => row.Category,
-            row => checked((int)row.DeckCount),
-            StringComparer.OrdinalIgnoreCase);
+        // Why: SQL groups case-sensitively while this dictionary is case-insensitive, so fold rows before keying.
+        var countsByCategory = rows
+            .GroupBy(row => row.Category, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => checked((int)group.Sum(row => row.DeckCount)),
+                StringComparer.OrdinalIgnoreCase);
         var includedCategories = CategoryFilter.IncludedOrFallback(countsByCategory.Keys);
         var canonicalCounts = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var category in includedCategories)

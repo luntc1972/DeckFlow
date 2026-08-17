@@ -341,6 +341,25 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetCategoryDeckCountsAsync_WhenCategoriesDifferOnlyByCase_AggregatesInsteadOfThrowing()
+    {
+        var repository = CreateRepository();
+
+        await repository.PersistObservedCategoriesAsync("archidekt_live:deck-1", "Sol Ring", new[] { "Draw" }, board: "mainboard", deckCountIncrement: 3);
+        await repository.PersistCardDeckTotalsAsync("archidekt_live:deck-1", "Sol Ring", board: "mainboard", deckCountIncrement: 3);
+        await repository.PersistObservedCategoriesAsync("archidekt_live:deck-2", "Sol Ring", new[] { "draw" }, board: "mainboard", deckCountIncrement: 2);
+        await repository.PersistCardDeckTotalsAsync("archidekt_live:deck-2", "Sol Ring", board: "mainboard", deckCountIncrement: 2);
+
+        var counts = await repository.GetCategoryDeckCountsAsync("Sol Ring");
+        var totals = await repository.GetCardDeckTotalsAsync("Sol Ring");
+
+        Assert.Equal(1, counts.Keys.Count(key => string.Equals(key, "draw", StringComparison.OrdinalIgnoreCase)));
+        Assert.Equal(5, counts["draw"]);
+        Assert.Equal(5, totals.TotalDeckCount);
+        Assert.True(counts["draw"] <= totals.TotalDeckCount);
+    }
+
+    [Fact]
     public async Task EnsureSchemaAsync_CreatesDeckQueueIndexes()
     {
         var repository = CreateRepository();
