@@ -109,12 +109,14 @@ public sealed class DeckCategoriesController : DeckToolControllerBase
             using var timeoutCts = CreateTimeoutScope(SuggestionTimeout);
             var cancellationToken = timeoutCts.Token;
             var result = await _categorySuggestionService.SuggestAsync(request, cancellationToken);
-            // One merge pass drives both the plain copy text and the weighted table.
+            // Why: ranked display rows drive both the weighted table and plain copy text so they agree on screen.
             var weighted = CategorySuggestionReporter.MergeWeighted(
                 result.ExactCategories,
                 result.InferredCategories,
                 result.EdhrecCategories,
                 result.TaggerCategories);
+            IReadOnlyList<CategoryWeightRow> rankedDisplayRows = CategoryWeightRowFactory.Build(
+                weighted, result.CategoryDeckCounts, result.CardDeckTotals.TotalDeckCount);
             var lookupMessage = result.NothingFound
                 ? CategorySuggestionMessageBuilder.BuildNoSuggestionsMessage(result.CardName, result.CardDeckTotals)
                 : null;
@@ -123,8 +125,8 @@ public sealed class DeckCategoriesController : DeckToolControllerBase
                 ActiveTab = DeckPageTab.SuggestCategories,
                 SuggestionRequest = request,
                 MergedCategoriesText = CategorySuggestionReporter.ToText(
-                    weighted.Select(weight => weight.Category), result.CardName),
-                WeightedCategories = CategoryWeightRowFactory.Build(weighted, result.CategoryDeckCounts, result.CardDeckTotals.TotalDeckCount),
+                    rankedDisplayRows.Select(row => row.Category), result.CardName),
+                WeightedCategories = rankedDisplayRows,
                 ExactSuggestedCategoriesText = CategorySuggestionReporter.ToText(result.ExactCategories, result.CardName),
                 ExactSuggestionContextText = "These are exact card-name matches found in the Archidekt reference deck you provided.",
                 InferredCategoriesText = CategorySuggestionReporter.ToText(result.InferredCategories, result.CardName),

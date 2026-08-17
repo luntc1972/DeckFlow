@@ -193,6 +193,49 @@ public sealed class DeckCategoriesControllerTests
     }
 
     [Fact]
+    public async Task SuggestCategories_Success_MergedCopyTextFollowsWeightedTableOrder()
+    {
+        var controller = new DeckCategoriesController(
+            new StubCategorySuggestionService(new CategorySuggestionResult(
+                "Guardian Project",
+                Array.Empty<string>(),
+                Array.Empty<string>(),
+                ["Ramp"],
+                ["Protection", "Draw"],
+                new Dictionary<string, int>(StringComparer.Ordinal)
+                {
+                    ["draw"] = 6,
+                    ["ramp"] = 30
+                },
+                new CardDeckTotals(60, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["mainboard"] = 60
+                }),
+                ["EDHREC", "Scryfall Tagger"],
+                false)),
+            new StubCardSearchService(),
+            NullLogger<DeckCategoriesController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        var response = await controller.SuggestCategories(new CategorySuggestionRequest
+        {
+            CardName = "Guardian Project"
+        });
+
+        var model = Assert.IsType<DeckDiffViewModel>(Assert.IsType<ViewResult>(response).Model);
+        var mergedCategoriesText = Assert.IsType<string>(model.MergedCategoriesText);
+        Assert.Equal("- Ramp" + Environment.NewLine + "- Draw" + Environment.NewLine + "- Protection", mergedCategoriesText);
+        Assert.Equal(
+            model.WeightedCategories.Select(row => row.Category),
+            mergedCategoriesText.Split(Environment.NewLine).Select(line => line[2..]));
+    }
+
+    [Fact]
     public async Task SuggestCategories_Success_KeepsMergedCopyTextPlain()
     {
         var controller = new DeckCategoriesController(
