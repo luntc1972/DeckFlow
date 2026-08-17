@@ -85,11 +85,14 @@ public sealed class SuggestionsApiController : ControllerBase
                 result.InferredCategories,
                 result.EdhrecCategories,
                 result.TaggerCategories);
+            // Why: ranked display rows drive both the weighted table and plain copy text so they agree on screen.
+            IReadOnlyList<CategoryWeightRow> rankedDisplayRows = CategoryWeightRowFactory.Build(
+                weighted, result.CategoryDeckCounts, result.CardDeckTotals.TotalDeckCount);
             var response = new CategorySuggestionApiResponse
             {
                 CardName = result.CardName,
-                MergedCategoriesText = CategorySuggestionReporter.ToText(weighted.Select(weight => weight.Category), result.CardName),
-                WeightedCategories = CategoryWeightRowFactory.Build(weighted, result.CategoryDeckCounts, result.CardDeckTotals.TotalDeckCount),
+                MergedCategoriesText = CategorySuggestionReporter.ToText(rankedDisplayRows.Select(row => row.Category), result.CardName),
+                WeightedCategories = rankedDisplayRows,
                 ExactCategoriesText = CategorySuggestionReporter.ToText(result.ExactCategories, result.CardName),
                 ExactSuggestionContextText = "These are exact card-name matches found in the Archidekt reference deck you provided.",
                 InferredCategoriesText = CategorySuggestionReporter.ToText(result.InferredCategories, result.CardName),
