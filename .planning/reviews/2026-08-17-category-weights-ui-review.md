@@ -108,6 +108,22 @@ genuinely detects the defect rather than passing vacuously.
 Verified in the DOM: all four `<th>` return `scope: null`. Screen readers lose the column-to-cell
 association, so a value is announced without the header naming it. One attribute per header.
 
+### ✅ MEDIUM-1 discharged — 2026-08-17
+
+`scope="col"` on all four headers in `SuggestCategories.cshtml`. An audit while fixing it showed the
+convention is already near-universal here — Cut Lab 29 of 36 `<th>`, cEDH Meta-Gap 9 of 11, Commander
+Categories 6 of 8, Deck Sync 4 of 5 — so this view was the sole 0-of-4 outlier rather than a novel gap.
+
+Guarded in `DeckCategoriesControllerTests` by extracting the rendered table and asserting **no `<th>` inside
+it lacks `scope="col"`**, so a future fifth column cannot ship unscoped. Three assertions in the existing
+above-the-copy-box test had pinned the old bare `<th>` markup and were updated.
+
+No browser pass needed for this one: the render test drives the real Razor engine, so its output is the
+served markup, and the TypeScript only ever fills `<tbody>` — `<thead>` is never rewritten client-side.
+
+**Follow-up worth its own sweep (not done here):** 12 unscoped `<th>` remain across four other views —
+Cut Lab 7, cEDH Meta-Gap 2, Commander Categories 2, Deck Sync 1.
+
 ## 🟠 MEDIUM-2 — the `N/M` ratio is explained only in a `title` tooltip
 
 `<th title="Sources that agreed / sources that contributed">Sources</th>` is the **only** place the
