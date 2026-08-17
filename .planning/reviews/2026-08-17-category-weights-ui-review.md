@@ -121,8 +121,21 @@ above-the-copy-box test had pinned the old bare `<th>` markup and were updated.
 No browser pass needed for this one: the render test drives the real Razor engine, so its output is the
 served markup, and the TypeScript only ever fills `<tbody>` — `<thead>` is never rewritten client-side.
 
-**Follow-up worth its own sweep (not done here):** 12 unscoped `<th>` remain across four other views —
-Cut Lab 7, cEDH Meta-Gap 2, Commander Categories 2, Deck Sync 1.
+~~**Follow-up worth its own sweep (not done here):** 12 unscoped `<th>` remain across four other views —
+Cut Lab 7, cEDH Meta-Gap 2, Commander Categories 2, Deck Sync 1.~~
+
+#### ⚠ Retracted 2026-08-17 — that follow-up was a counting artifact, not a gap
+
+Re-counted before scheduling the sweep: **there are zero unscoped `<th>` in any of those views.** The
+original tally used a `<th`-prefixed grep, which also matches `<thead>`. Per file the claimed "unscoped"
+count is exactly that file's `<thead>` count — Cut Lab 7, cEDH Meta-Gap 2, Commander Categories 2,
+Deck Sync 1 — and `<th[ >]` versus `<th [^>]*scope=` gives 29/29, 9/9, 6/6 and 4/4 scoped. No TypeScript
+creates `<th>` either (`createElement('th')` has no hits under `wwwroot/ts/`), so there is no client-rendered
+header escaping the count.
+
+⭐ Lesson matching the vacuous-assertion one above: **a grep prefix that is also a prefix of another tag
+silently inflates a defect count**, and the inflated number looked plausible enough to become a scheduled
+work item. Anchor the tag with `<th[ >]` when counting header cells.
 
 ## 🟠 MEDIUM-2 — the `N/M` ratio is explained only in a `title` tooltip
 
@@ -130,6 +143,27 @@ Cut Lab 7, cEDH Meta-Gap 2, Commander Categories 2, Deck Sync 1.
 ratio's meaning appears. `title` does not surface on touch devices and is not keyboard-reachable, so
 mobile and keyboard users get an unexplained `2/2`. The `aria-label` duplicate helps screen readers but
 not sighted touch users. Consider a visible caption or footnote under the table.
+
+### ✅ MEDIUM-2 discharged — 2026-08-17
+
+A visible footnote under the table, `<p class="manabase-lens-note">Sources — how many of the consulted
+sources agreed on the category, out of how many contributed.</p>`, reusing the class already present on
+this same view (line 130) so no new CSS was needed.
+
+Two placement details are load-bearing. It sits **inside** the `data-api-panel="weighted"` wrapper, so it
+hides with the table instead of dangling above the copy box on an empty result — and because the wrapper
+is what the TypeScript toggles, the footnote needed no TS change at all. And it sits **after** `</table>`
+but **before** the copy-box textarea, keeping the reading order table → explanation → copy.
+
+The `title` and `aria-label` on the Sources header were kept. The footnote adds a channel for touch and
+keyboard users rather than replacing the one screen readers already had.
+
+Guarded in `DeckCategoriesControllerTests` by asserting the footnote's index falls between the `</table>`
+index and the `id="merged-categories-output"` index — a missing footnote yields `IndexOf` = -1 and fails,
+so the assertion cannot pass vacuously.
+
+**Browser-verified as real visible text** (not a tooltip): rendered height 14px at 1280×900 and 28px at
+390×844, where it wraps to two lines.
 
 ## 🟡 LOW findings
 
@@ -143,6 +177,60 @@ not sighted touch users. Consider a visible caption or footnote under the table.
   0.28% floors to `0`, and a row reading "3 decks, 0%" looks like a bug to the user. `<1` would be honest.
 - **LOW-4 — `—` for unavailable values has no accessible text.** Tagger-only categories render an em dash
   in Decks and %, announced as "em dash" or skipped. A visually-hidden "not available" would read better.
+
+### ✅ LOW-1..4 discharged — 2026-08-17
+
+**LOW-1 — right alignment.** `text-align: right` was added to the *existing*
+`[data-api-panel="weighted"] .conflicts-table th/td:nth-child(n + 2)` block rather than a new rule, so the
+alignment and the HIGH-1 `nowrap` share one scope and cannot drift apart. Census of the shared class before
+changing it — `.conflicts-table` has **five** consumers (`CutLab`, `CedhMetaGap`, `CommanderCategories`,
+`DeckSync`, `SuggestCategories`) and only the weighted panel carries the attribute, so the other four are
+untouched. The guard test gained a matching pair: the scoped rule must exist, **and** no unscoped
+`.conflicts-table th`/`td` rule may set `text-align: right`.
+
+**LOW-2 / LOW-3 — the percent column.** Cells now render `{n}%`; `percent == 0 && deckCount > 0` renders
+`<1%`; a genuine zero still renders `0%`. **The model was deliberately not touched** — `Percent` stays
+`int?` and the API JSON contract is unchanged, because the distinction is display-layer and derivable from
+data already on the row. Widening it to `decimal` would have meant a schema/DTO change, and per the
+standing note that SQLite tests cannot prove Dapper type maps, that is a prod-Postgres risk bought for no
+user-visible gain. In Razor the `<` is escaped by ordinary `@` encoding (`&lt;1%`); in TypeScript the value
+goes through `textContent`, never `innerHTML`.
+
+**LOW-4 — accessible unavailable values.** Both paths now emit
+`<span aria-hidden="true">—</span><span class="sr-only">Not available</span>`, using the `.sr-only` utility
+that already exists in `site-common.css`. The TypeScript builds it with `createElement`/`textContent` via a
+dedicated `createUnavailableCell` helper, keeping `createTextCell` free of markup concerns.
+
+**Both render paths were changed together.** The Razor `@foreach` and `renderWeightedCategories` in
+`category-suggestions.ts` are independent implementations of the same table, and the earlier BLOCK-1 defect
+was precisely a change landing on one path only. All four cases are now asserted on **both** — `<td>34%</td>`,
+`&lt;1%`, `<td>0%</td>` and the paired dash/sr-only spans in `DeckCategoriesControllerTests`; the exact
+`textContent` concatenations `'Protection120100%3/4'`, `'Tutor—Not available—Not available1/4'`,
+`'Trinket3<1%1/3'`, `'Zero00%1/3'` in the vitest DOM test.
+
+**Verification — 2 viewports, headless Chromium in WSL, no browser on the Windows host:**
+
+- Live path (`CachedData`, seeded DB, 5 rows) at 1280×900 and 390×844: computed `text-align` is
+  `left, right, right, right` for both header and body cells; **zero** cells wrapped across line boxes, so
+  HIGH-1 did not regress; percents read `38% 16% 9% 1% <1%`; table 340px at mobile with
+  `scrollWidth == clientWidth == 390`; no console errors.
+- ⭐ **The live corpus gave every row a deck count, so it produced no em dash and the LOW-4 check passed
+  vacuously.** Rather than let that stand, the real TypeScript renderer was driven directly in the browser
+  with all four canonical cases, which returned exactly
+  `171/16%`, `3/<1%`, `0/0%`, and `—/—` with `['Not available', 'Not available']` announced — closing LOW-2,
+  LOW-3 and LOW-4 on the JS path with real data rather than an accidental one.
+- **Mutation-checked:** deleting the scoped rule through CSSOM flips the percent column from `right` back to
+  `left`, so the CSS is load-bearing and the measurement genuinely detects its absence.
+
+`dotnet build` clean (pre-existing `NU1903` SSH.NET advisory only). Filtered xUnit 24/24; vitest 34 files /
+128 tests. The full Web suite still stalls under the WSL test host, so the filtered run remains the
+workaround.
+
+**Reviewers:** `codex review` (gpt-5.6-sol) returned no actionable findings. The Gemini pass was attempted
+but is **not** part of this discharge — the CLI needs configuring first (paused at the user's request), so
+this batch carries one automated reviewer plus the lead's own repo census and browser pass. The `.conflicts-table` consumer
+census above was run directly against the repo rather than inferred from the diff, since a diff-scoped
+reviewer cannot see the four other tables the shared class reaches.
 
 ## What is correct — verified, not assumed
 
