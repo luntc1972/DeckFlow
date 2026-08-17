@@ -41,7 +41,7 @@ public partial class Program
     {
         try
         {
-            var builder = WebApplication.CreateBuilder(args);
+            var builder = CreateBuilder(args);
             var logPath = Path.Combine(builder.Environment.ContentRootPath, "logs", "web-.log");
 
             builder.Host.UseSerilog((context, services, configuration) =>
@@ -363,6 +363,25 @@ public partial class Program
         finally
         {
             Log.CloseAndFlush();
+        }
+    }
+
+    internal static WebApplicationBuilder CreateBuilder(string[] args)
+    {
+        // Why: JSON reload watchers each consume a host-shared inotify instance
+        // (fs.inotify.max_user_instances). Exhaustion throws IOException inside CreateBuilder,
+        // before Main's try; this caused Render update_failed deployment on 2026-08-16.
+        const string reloadConfigOnChangeVariable = "DOTNET_hostBuilder__reloadConfigOnChange";
+        var originalValue = Environment.GetEnvironmentVariable(reloadConfigOnChangeVariable);
+
+        try
+        {
+            Environment.SetEnvironmentVariable(reloadConfigOnChangeVariable, "false");
+            return WebApplication.CreateBuilder(args);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(reloadConfigOnChangeVariable, originalValue);
         }
     }
 
