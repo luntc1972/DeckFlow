@@ -35,7 +35,7 @@ public sealed class CategorySuggestionServiceTests
         };
 
         var store = new FakeKnowledgeStore(new[] { new[] { "Ramp" } }, processedDeckCount: 3, totals, categoryDeckCounts);
-        var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), new FakeTaggerService());
+        var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), new FakeTaggerService(), new FakeEdhrecCardLookup());
 
         var request = new CategorySuggestionRequest
         {
@@ -64,7 +64,7 @@ public sealed class CategorySuggestionServiceTests
         {
             RunCacheSweepException = new InvalidOperationException("Cache sweep should not run.")
         };
-        var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), new FakeTaggerService());
+        var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), new FakeTaggerService(), new FakeEdhrecCardLookup());
 
         var request = new CategorySuggestionRequest
         {
@@ -89,7 +89,7 @@ public sealed class CategorySuggestionServiceTests
             new() { Name = "Guardian Project", NormalizedName = CardNormalizer.Normalize("Guardian Project"), Category = "Draw,Ramp", Quantity = 1, Board = "mainboard" }
         };
         var importer = new FakeImporter(entries);
-        var service = new CategorySuggestionService(store, new ArchidektParser(), importer, new FakeTaggerService());
+        var service = new CategorySuggestionService(store, new ArchidektParser(), importer, new FakeTaggerService(), new FakeEdhrecCardLookup());
 
         var request = new CategorySuggestionRequest
         {
@@ -111,7 +111,7 @@ public sealed class CategorySuggestionServiceTests
     {
         var store = new FakeKnowledgeStore(new[] { Array.Empty<string>() }, processedDeckCount: 0, CardDeckTotals.Empty);
         var tagger = new FakeTaggerService("Protection", "Value");
-        var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), tagger);
+        var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), tagger, new FakeEdhrecCardLookup());
 
         var result = await service.SuggestAsync(new CategorySuggestionRequest
         {
@@ -135,7 +135,7 @@ public sealed class CategorySuggestionServiceTests
         });
         var store = new FakeKnowledgeStore(new[] { new[] { "Draw" } }, processedDeckCount: 4, totals);
         var tagger = new FakeTaggerService("Value");
-        var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), tagger);
+        var service = new CategorySuggestionService(store, new ArchidektParser(), new FakeImporter(), tagger, new FakeEdhrecCardLookup());
 
         var result = await service.SuggestAsync(new CategorySuggestionRequest
         {
@@ -274,5 +274,11 @@ public sealed class CategorySuggestionServiceTests
             LookupCalls++;
             return Task.FromResult(_responses);
         }
+    }
+
+    private sealed class FakeEdhrecCardLookup : IEdhrecCardLookup
+    {
+        public Task<IReadOnlyList<string>> LookupCategoriesAsync(string cardName, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
     }
 }

@@ -20,6 +20,7 @@ using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Analytics;
 using DeckFlow.Web.Services.Bracket;
 using DeckFlow.Web.Services.CutLab;
+using DeckFlow.Web.Services.Edhrec;
 using DeckFlow.Web.Services.Harvest;
 using DeckFlow.Web.Services.PromptBuilders.Bracket;
 using DeckFlow.Web.Services.Http;
@@ -177,6 +178,8 @@ public partial class Program
             builder.Services.AddSingleton<ArchidektCacheJobService>();
             builder.Services.AddSingleton<IArchidektCacheJobService>(sp => sp.GetRequiredService<ArchidektCacheJobService>());
             builder.Services.AddHostedService(sp => sp.GetRequiredService<ArchidektCacheJobService>());
+            builder.Services.AddSingleton<EdhrecCardLookup>();
+            builder.Services.AddSingleton<IEdhrecCardLookup>(sp => new CachingEdhrecCardLookup(sp.GetRequiredService<EdhrecCardLookup>()));
             builder.Services.AddScoped<ICategorySuggestionService, CategorySuggestionService>();
             builder.Services.AddScoped<ICommanderCategoryService, CommanderCategoryService>();
             builder.Services.AddScoped<IDeckSyncService, DeckSyncService>();
