@@ -59,8 +59,9 @@ public static class CategorySuggestionReporter
         IEnumerable<string> inferred,
         IEnumerable<string> edhrec,
         IEnumerable<string> tagger)
-        // The plain label list is MergeWeighted's ranked output projected to its labels;
-        // sharing the one pass keeps the copy text and the weighted table in lockstep.
+        // Why: Merge projects MergeWeighted's ranked output to labels as the Core-only merge-order accessor.
+        // The Suggest Categories UI does not use it because its copy box and weighted table use
+        // CategoryWeightRowFactory.Build's display ranking, which needs Web-layer deck counts Core cannot see.
         => MergeWeighted(exact, inferred, edhrec, tagger)
             .Select(weight => weight.Category)
             .ToList();
