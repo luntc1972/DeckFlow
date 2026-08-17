@@ -79,6 +79,30 @@ Desktop 1440px is unaffected — table 100% width, no overflow, renders cleanly.
 project's standing rule the new rule belongs in `site-common.css`, not `site.css`, because guild themes
 are standalone forks. Verify at 390px after.
 
+### ✅ HIGH-1 discharged — 2026-08-17, `234a2a70`
+
+`white-space: nowrap` on `th`/`td` `nth-child(n + 2)` plus a `min-width: 3ch` floor on column 3, both in
+`site-common.css` next to the `.conflicts-table` block, **scoped to `[data-api-panel="weighted"]`**. The
+scoping is the load-bearing part: `.conflicts-table` is shared with Cut Lab, Deck Sync, cEDH Meta-Gap and
+Commander Categories, whose prose columns must keep wrapping, so a blanket rule would have been a four-page
+regression. Follows the existing `[data-prompt-cedh-reference-table]` scoping precedent at
+`site-common.css:1065`.
+
+`nowrap` does double duty — besides stopping intra-value breaks it forces the auto layout to give those
+columns max-content width, drawing the slack from the wrappable Category column, which is what reopens the
+collapsed `%` column. The `min-width` floor covers the all-em-dash case where no wide numeric content holds
+the column open.
+
+Guarded by `DeckFlow.Web.Tests/WeightedCategoryTableCssTests.cs`, which asserts both scoped rules exist
+**and** that no unscoped `.conflicts-table th`/`td` rule sets `white-space: nowrap` — the third assertion is
+the one that stops a future edit from silently regressing the other four tables.
+
+**Verified headless, 390×844 and 1440×900:** 24 numeric cells measured by counting line boxes per cell
+(`Range.getClientRects().length`), **zero wrapped**, all four headers single-line, table 340px at mobile, no
+page overflow. Mutation-checked: deleting the two rules via CSSOM reproduces exactly two wrapped cells —
+the same `16` and `38` from the original evidence — so the rules are load-bearing and the measurement
+genuinely detects the defect rather than passing vacuously.
+
 ## 🟠 MEDIUM-1 — no `scope="col"` on any header cell
 
 Verified in the DOM: all four `<th>` return `scope: null`. Screen readers lose the column-to-cell
@@ -162,7 +186,7 @@ were corrected; the test now also asserts the wrapper does **not** carry `result
   `/api/suggestions/card` response was confirmed non-empty (5 rows in `CachedData` mode) so the assertions
   ran against real data rather than an empty-state short-circuit.
 
-**Still open — deliberately untouched by this fix:** HIGH-1, MEDIUM-1, MEDIUM-2, LOW-1..4.
+**Still open after BLOCK-1:** HIGH-1 (discharged separately below, `234a2a70`), MEDIUM-1, MEDIUM-2, LOW-1..4.
 
 ## 🟡 New observation — copy box and table disagree on order (pre-existing, not a regression)
 
