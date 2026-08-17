@@ -248,9 +248,9 @@ public sealed class DeckCategoriesControllerTests
 
         Assert.True(tableIndex >= 0);
         Assert.True(textareaIndex > tableIndex);
-        Assert.Contains("<th>Category</th>", html, StringComparison.Ordinal);
-        Assert.Contains("<th>Decks</th>", html, StringComparison.Ordinal);
-        Assert.Contains("<th>%</th>", html, StringComparison.Ordinal);
+        Assert.Contains("<th scope=\"col\">Category</th>", html, StringComparison.Ordinal);
+        Assert.Contains("<th scope=\"col\">Decks</th>", html, StringComparison.Ordinal);
+        Assert.Contains("<th scope=\"col\">%</th>", html, StringComparison.Ordinal);
         Assert.Contains("title=\"Sources that agreed / sources that contributed\"", html, StringComparison.Ordinal);
         Assert.Contains("<td>Draw</td>", html, StringComparison.Ordinal);
         Assert.Contains("<td>12</td>", html, StringComparison.Ordinal);
@@ -265,6 +265,34 @@ public sealed class DeckCategoriesControllerTests
         Assert.Contains("id=\"merged-categories-output\"", html, StringComparison.Ordinal);
         Assert.Contains("- Draw", html, StringComparison.Ordinal);
         Assert.Contains("- Ramp", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SuggestCategoriesView_WeightedTableHeadersHaveColumnScope()
+    {
+        var model = new DeckDiffViewModel
+        {
+            ActiveTab = DeckPageTab.SuggestCategories,
+            SuggestionRequest = new CategorySuggestionRequest
+            {
+                CardName = "Guardian Project"
+            },
+            WeightedCategories = new[]
+            {
+                new CategoryWeightRow("Draw", 12, 34, 2, 3)
+            }
+        };
+
+        var html = await RenderAsync(model);
+        var tableMatch = System.Text.RegularExpressions.Regex.Match(
+            html,
+            "<table class=\"conflicts-table\"[\\s\\S]*?</table>",
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        Assert.True(tableMatch.Success);
+        Assert.DoesNotMatch(
+            "<th\\b(?![^>]*\\bscope\\s*=\\s*\"col\")[^>]*>",
+            tableMatch.Value);
     }
 
     [Fact]
