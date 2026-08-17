@@ -267,6 +267,20 @@ public sealed class DeckCategoriesControllerTests
         Assert.Contains("- Ramp", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task SuggestCategoriesView_RendersHiddenWeightedTableWrapper_WhenNoWeightedCategoriesExist()
+    {
+        var html = await RenderAsync(new DeckDiffViewModel
+        {
+            ActiveTab = DeckPageTab.SuggestCategories
+        });
+
+        Assert.Contains("data-api-panel=\"weighted\"", html, StringComparison.Ordinal);
+        Assert.Matches("<div class=\"hidden\"\\s+data-api-panel=\"weighted\">", html);
+        Assert.DoesNotMatch("<div\\s+class=\"[^\"]*result-panel[^\"]*\"\\s+data-api-panel=\"weighted\">", html);
+        Assert.Contains("data-api-field=\"weighted-body\"", html, StringComparison.Ordinal);
+    }
+
     private static async Task<string> RenderAsync(DeckDiffViewModel model)
     {
         var services = new ServiceCollection();

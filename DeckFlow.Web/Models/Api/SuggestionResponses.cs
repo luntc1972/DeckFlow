@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Reporting;
+using DeckFlow.Web.Models;
 
 namespace DeckFlow.Web.Models.Api;
 
@@ -16,6 +17,8 @@ public sealed class CategorySuggestionApiResponse
     public string CardName { get; init; } = string.Empty;
     /// <summary>Merged, ranked category text across all suggestion sources.</summary>
     public string? MergedCategoriesText { get; init; }
+    /// <summary>Weighted merged categories with cached-store popularity details.</summary>
+    public IReadOnlyList<CategoryWeightRow> WeightedCategories { get; init; } = Array.Empty<CategoryWeightRow>();
     /// <summary>
     /// Exact category text from the optional reference deck.
     /// </summary>
