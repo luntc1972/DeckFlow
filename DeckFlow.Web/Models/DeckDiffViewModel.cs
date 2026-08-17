@@ -3,35 +3,6 @@ using DeckFlow.Core.Reporting;
 
 namespace DeckFlow.Web.Models;
 
-/// <summary>Weighted merged category metadata for Suggest Categories UI rendering.</summary>
-public sealed record CategoryWeightRow
-{
-    /// <summary>Initializes one weighted category row.</summary>
-    public CategoryWeightRow(string category, int? deckCount, int? percent, int sourceCount, int sourceTotal)
-    {
-        Category = category;
-        DeckCount = deckCount;
-        Percent = percent;
-        SourceCount = sourceCount;
-        SourceTotal = sourceTotal;
-    }
-
-    /// <summary>The merged category label shown to the user.</summary>
-    public string Category { get; init; }
-
-    /// <summary>The cached-store deck count for this category, or null when unavailable.</summary>
-    public int? DeckCount { get; init; }
-
-    /// <summary>The cached-store popularity percentage for this category, or null when unavailable.</summary>
-    public int? Percent { get; init; }
-
-    /// <summary>The number of contributing sources that suggested this category.</summary>
-    public int SourceCount { get; init; }
-
-    /// <summary>The total number of sources that contributed at least one merged category.</summary>
-    public int SourceTotal { get; init; }
-}
-
 /// <summary>View model that carries the deck sync workflow state and generated prompt artifacts.</summary>
 public sealed class DeckDiffViewModel
 {
