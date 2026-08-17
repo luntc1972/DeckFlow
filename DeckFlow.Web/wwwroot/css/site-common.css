@@ -5713,6 +5713,18 @@ button {
   vertical-align: top;
 }
 
+/* Weighted category results need intact numeric values at narrow widths.
+   Scope this to the weighted panel because other .conflicts-table views contain prose columns. */
+[data-api-panel="weighted"] .conflicts-table th:nth-child(n + 2),
+[data-api-panel="weighted"] .conflicts-table td:nth-child(n + 2) {
+  white-space: nowrap;
+}
+
+[data-api-panel="weighted"] .conflicts-table th:nth-child(3),
+[data-api-panel="weighted"] .conflicts-table td:nth-child(3) {
+  min-width: 3ch;
+}
+
 .choice-cell label {
   display: inline-flex;
   align-items: center;
