@@ -91,3 +91,25 @@ Fix it in the same pass.
 - Separate, unrelated: the full **parallel** e2e suite shows ~13 timeout-shaped failures on this
   machine (Debug build + parallel workers), reproduced on `origin/main`. Single-worker is clean.
   Do not conflate the two.
+
+## Resolution — 2026-08-17
+
+Swept every pill-wrapped radio onto the shared `clickManabasePillRadio` helper (label click +
+`toBeChecked()` assertion, so the test keeps its teeth). `bb4f9b71` was cherry-picked from
+`fix/cycle21-blockers` for 8 specs; the remaining 14 call sites across 10 files were converted in
+this pass. 0 raw `.check()` calls on pill radios remain; 18 spec files use the helper.
+
+**Mechanism.** `.manabase-pill > input[type="radio"]` is `position:absolute; opacity:0; width:1px;
+height:1px` (site-common.css:2475-2483). `opacity:0` does NOT fail Playwright's visibility check, so
+`.check()` passes actionability and then clicks the input's center — a 1x1 box whose static position
+lands under the label text, so the hit-test resolves to the `<span>`.
+
+**Scope notes / not done.** The acceptance criterion "passes 10 consecutive single-worker runs" was
+explicitly waived by the product owner. The varying-pair non-determinism is therefore explained only
+by inference: geometry alone would fail the *same* tests every run, and the config comment on
+`5a77edb13` documents CPU starvation causing timeout failures in these same sim-heavy decide specs —
+two distinct failure modes that the original report likely conflated. Not reproduced under
+instrumentation.
+
+Also fixed in the same pass: `bracket-smoke.spec.ts` now captures the `Bracket Check` flag in
+`beforeEach` via `getToolEnabled` and restores THAT value, instead of the hardcoded `false`.

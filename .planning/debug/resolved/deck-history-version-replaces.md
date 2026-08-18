@@ -1,6 +1,6 @@
 ---
 slug: deck-history-version-replaces
-status: diagnosed
+status: resolved
 trigger: "I am not able to add a new version of a deck to a saved file on deck version"
 created: 2026-08-05
 updated: 2026-08-05
@@ -47,8 +47,11 @@ download button, which was a no-op from launch — `.planning/debug/deck-history
 status: ROOT CAUSE CONFIRMED (diagnose-only session — no fix applied per session constraints)
 
 hypothesis: CONFIRMED — see Resolution.root_cause below.
-next_action: none — hand off root cause + fix specification to caller for Codex
-  implementation once credits reset (2026-08-10).
+next_action: none — RESOLVED. Fix shipped to main in `4a4cca61` (fix(deck-history): warn when
+  a version silently starts a new history). `DeckHistoryPageService.cs:205` captures
+  `startedNewHistory` before the `??=` fills `file` in; it flows to `DeckHistoryViewModel`
+  and renders a caveat at `DeckHistory.cshtml:133`, guarded by 4 tests. Status corrected
+  2026-08-17 — this doc still read `diagnosed` months after the fix landed.
 
 reasoning_checkpoint:
   hypothesis: |
