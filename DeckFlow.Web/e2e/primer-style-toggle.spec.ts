@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { clickManabasePillRadio } from './support/manabase-pill';
 
 const baseUrl = 'http://localhost:5173';
 
@@ -23,7 +24,7 @@ test('deck primer primer-style radios render, default to Standard, and allow ric
   await expect(richRadio).not.toBeChecked();
   await expect(page.getByText('Moxfield-style adds a clickable table of contents')).toBeVisible();
 
-  await richRadio.check();
+  await clickManabasePillRadio(page, 'PrimerStyle', 'MoxfieldRich');
 
   await expect(richRadio).toBeChecked();
   await expect(standardRadio).not.toBeChecked();
@@ -52,7 +53,7 @@ test('full cedh primer radio is bracket-gated and falls back when leaving cedh',
   await bracketSelect.selectOption('cEDH');
   await expect(fullCedhRadio).toBeVisible();
 
-  await fullCedhRadio.check();
+  await clickManabasePillRadio(page, 'PrimerStyle', 'FullCedh');
   await expect(fullCedhRadio).toBeChecked();
 
   await bracketSelect.selectOption('Optimized');

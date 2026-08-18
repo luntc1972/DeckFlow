@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
+import { clickManabasePillRadio } from './support/manabase-pill';
 
 const baseUrl = 'http://localhost:5173';
 const screenshotDir = resolve(__dirname, '../../.planning/ui-design/cut-lab/screenshots');
@@ -54,8 +55,8 @@ const importPool = async (page: Page): Promise<void> => {
   await page.locator('#cut-lab-deck-text').fill(oversizedPool);
   await page.locator('#cut-lab-primary-plan').fill('Protect the control shell, then trim to the cleanest Zur line.');
   await page.locator('#cut-lab-secondary-plan').fill('Keep the fast mana package intact.');
-  await page.locator('input[name="Bracket"][value="4"]').check();
-  await page.locator('input[name="PlayExperience"][value="Focused"]').check();
+  await clickManabasePillRadio(page, 'Bracket', '4');
+  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
   await page.getByRole('button', { name: 'Import pool' }).click();
 
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
@@ -426,8 +427,8 @@ test('submits the accept form through the no-JS fallback and re-renders with the
     await noJsPage.locator('#cut-lab-deck-text').fill(oversizedPool);
     await noJsPage.locator('#cut-lab-primary-plan').fill('Protect the control shell, then trim to the cleanest Zur line.');
     await noJsPage.locator('#cut-lab-secondary-plan').fill('Keep the fast mana package intact.');
-    await noJsPage.locator('input[name="Bracket"][value="4"]').check();
-    await noJsPage.locator('input[name="PlayExperience"][value="Focused"]').check();
+    await clickManabasePillRadio(noJsPage, 'Bracket', '4');
+    await clickManabasePillRadio(noJsPage, 'PlayExperience', 'Focused');
     await noJsPage.getByRole('button', { name: 'Import pool' }).click();
     await expect(noJsPage.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 60_000 });
     await waitForCutRounds(noJsPage);

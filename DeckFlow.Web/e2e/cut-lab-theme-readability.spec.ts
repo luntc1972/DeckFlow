@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
 import { contrastRatio, resolveContrast, type RgbColor } from './support/contrast';
+import { clickManabasePillRadio } from './support/manabase-pill';
 
 const baseUrl = 'http://localhost:5173';
 
@@ -76,8 +77,8 @@ const importPool = async (page: Page): Promise<void> => {
   await page.locator('#cut-lab-deck-text').fill(oversizedPool);
   await page.locator('#cut-lab-primary-plan').fill('Protect the control shell, then trim to the cleanest Zur line.');
   await page.locator('#cut-lab-secondary-plan').fill('Keep the fast mana package intact.');
-  await page.locator('input[name="Bracket"][value="4"]').check();
-  await page.locator('input[name="PlayExperience"][value="Focused"]').check();
+  await clickManabasePillRadio(page, 'Bracket', '4');
+  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
   await page.getByRole('button', { name: 'Import pool' }).click();
 
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });

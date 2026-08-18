@@ -2,7 +2,8 @@ import { expect, test } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { setToolEnabled } from './support/admin-tools';
+import { getToolEnabled, setToolEnabled } from './support/admin-tools';
+import { clickManabasePillRadio } from './support/manabase-pill';
 
 // Live smoke spec for the /bracket Bracket Check tool (flag-gated, tool.bracket.enabled).
 //
@@ -64,12 +65,14 @@ const themes = [
 type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
 
 let heldLock: LockHandle | null = null;
+let bracketCheckWasEnabled = false;
 
 test.describe.configure({ mode: 'serial' });
 
 test.beforeEach(async ({ page }) => {
   // Serialize against other /Admin/* specs that share the same process-level lock file.
   heldLock = await acquireAdminLockForTest(page);
+  bracketCheckWasEnabled = await getToolEnabled(page, 'Bracket Check');
   // Force tool.bracket.enabled ON for this run rather than trusting the seed default: the
   // flag-OFF test below toggles it off, and afterEach reverts it regardless of pass/fail.
   await setToolEnabled(page, 'Bracket Check', true);
@@ -77,8 +80,8 @@ test.beforeEach(async ({ page }) => {
 
 test.afterEach(async ({ page }) => {
   try {
-    // Restore the flag to OFF so no persistent state leaks between test runs.
-    await setToolEnabled(page, 'Bracket Check', false);
+    // Restore the captured flag state so no persistent state leaks between test runs.
+    await setToolEnabled(page, 'Bracket Check', bracketCheckWasEnabled);
   } finally {
     await releaseAdminLockForTest(heldLock);
     heldLock = null;
@@ -114,7 +117,7 @@ test('POST classifies a high-power deck and renders badge / reasons / violations
 
   // Select target bracket B3 (Upgraded). With 5 GCs + MLD the deck lands at B4, triggering
   // IsOverTarget, floor violations, and starter cuts.
-  await page.locator('input[name="TargetBracketNumber"][value="3"]').check();
+    await clickManabasePillRadio(page, 'TargetBracketNumber', '3');
 
   // Submit. Bracket classification is computed locally — no Scryfall / external HTTP needed.
   await page.getByRole('button', { name: 'Classify deck' }).click();
@@ -199,7 +202,7 @@ test('captures screenshots across Classic / Azorius / Nyx at the current project
     await page.goto('/bracket');
     await page.locator('#bracket-input-source').selectOption('PasteText');
     await page.locator('#bracket-deck-text').fill(HIGH_POWER_DECK);
-    await page.locator('input[name="TargetBracketNumber"][value="3"]').check();
+  await clickManabasePillRadio(page, 'TargetBracketNumber', '3');
     await page.getByRole('button', { name: 'Classify deck' }).click();
     await expect(page.locator('.bracket-badge')).toBeVisible({ timeout: 30_000 });
 
@@ -224,7 +227,7 @@ test('with tool.bracket.enabled OFF, /bracket returns 404 and the tile/tab are a
   page,
 }) => {
   // The flag is ON from beforeEach. Disable it to exercise the gated-off state.
-  // afterEach will attempt setToolEnabled(false) again — that is a no-op when already OFF.
+  // afterEach restores the flag state captured before this test.
   await setToolEnabled(page, 'Bracket Check', false);
 
   // /bracket must return 404.

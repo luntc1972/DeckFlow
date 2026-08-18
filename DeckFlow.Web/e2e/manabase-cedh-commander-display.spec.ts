@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { clickManabasePillRadio } from './support/manabase-pill';
 
 // Live-only regression for the persistent commander header and cEDH baseline range copy.
 // Runs under both Playwright viewport projects (desktop + mobile) and across a small theme
@@ -25,7 +26,7 @@ async function submitDeck(page: Page, mode: 'Casual' | 'Cedh'): Promise<boolean>
   await page.goto('/manabase');
   await page.locator('#manabase-input-source').selectOption('PasteText');
   await page.locator('#manabase-deck-text').fill(WINOTA_DECK);
-  await page.locator(`.manabase-pill input[name="Mode"][value="${mode}"]`).check();
+  await clickManabasePillRadio(page, 'Mode', mode);
   await page.getByRole('button', { name: 'Analyze Mana Base' }).click();
 
   const result = page.locator('.result-panel:has(h2:has-text("Result"))');

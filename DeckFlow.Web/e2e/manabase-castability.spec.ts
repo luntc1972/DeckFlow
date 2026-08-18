@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { clickManabasePillRadio } from './support/manabase-pill';
 
 // Phase 64 — Casual/cEDH modes + castability table + the two FORMULA-01 panels.
 //
@@ -34,8 +35,8 @@ async function submitDeck(
   await page.goto('/manabase');
   await page.locator('#manabase-input-source').selectOption('PasteText');
   await page.locator('#manabase-deck-text').fill(PASTE_DECK);
-  await page.locator(`.manabase-pill input[name="Mode"][value="${mode}"]`).check();
-  await page.locator(`.manabase-pill input[name="CommanderImportance"][value="${importance}"]`).check();
+  await clickManabasePillRadio(page, 'Mode', mode);
+  await clickManabasePillRadio(page, 'CommanderImportance', importance);
   // Click Analyze specifically — the page now also has a "Load deck" run-button, so a bare
   // `button.run-button` matches two elements (strict-mode failure / would post the load step).
   await page.getByRole('button', { name: 'Analyze Mana Base' }).click();
