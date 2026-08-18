@@ -7,6 +7,7 @@ using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Manabase;
+using DeckFlow.Web.Services.Packets;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -173,7 +174,9 @@ internal sealed class CutLabPageService : ICutLabPageService
         _roleFloorBaseline = roleFloorBaseline;
         CutLabResolvedCardCache sharedResolvedCardCache = new();
         _analysisContextBuilder = analysisContextBuilder
-            ?? new CutLabAnalysisContextBuilder(cardResolver, sharedResolvedCardCache);
+            // Why: test-only fallback; the DI path always injects the shared ScryfallReferenceResolver,
+            // so this instance deliberately runs without the shared collection cache.
+            ?? new CutLabAnalysisContextBuilder(cardResolver, sharedResolvedCardCache, new ScryfallReferenceResolver(cardResolver));
         _simulationService = simulationService
             ?? NoOpCutLabSimulationService.Instance;
         _featureFlags = featureFlags;

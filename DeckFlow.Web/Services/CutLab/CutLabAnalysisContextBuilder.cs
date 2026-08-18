@@ -137,7 +137,7 @@ public sealed record CutLabClassificationContext(
 }
 
 /// <summary>Default shared builder for Cut Lab analysis context.</summary>
-public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
+internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
 {
     private const int ScryfallBatchSize = 75;
 
@@ -146,7 +146,7 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
 
     private readonly IScryfallCardResolver _cardResolver;
     private readonly CutLabResolvedCardCache _resolvedCardCache;
-    private readonly ScryfallCollectionCardCache? _collectionCardCache;
+    private readonly ScryfallReferenceResolver _scryfallReferenceResolver;
     private readonly ICommanderSpellbookService? _spellbook;
     private readonly ICategoryKnowledgeStore? _categoryKnowledge;
     private readonly ILogger<CutLabAnalysisContextBuilder> _logger;
@@ -162,21 +162,21 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
     /// <summary>Creates a new <see cref="CutLabAnalysisContextBuilder"/>.</summary>
     /// <param name="cardResolver">Shared Scryfall resolver pipeline.</param>
     /// <param name="resolvedCardCache">Resolved-card cache keyed by working-pool hash.</param>
+    /// <param name="scryfallReferenceResolver">Shared Scryfall reference-resolution collaborator.</param>
     /// <param name="spellbook">Optional Commander Spellbook lookup dependency.</param>
     /// <param name="categoryKnowledge">Optional category lookup dependency.</param>
     /// <param name="logger">Structured logger.</param>
-    /// <param name="collectionCardCache">Optional cache of Scryfall collection-card results.</param>
     public CutLabAnalysisContextBuilder(
         IScryfallCardResolver cardResolver,
         CutLabResolvedCardCache resolvedCardCache,
+        ScryfallReferenceResolver scryfallReferenceResolver,
         ICommanderSpellbookService? spellbook = null,
         ICategoryKnowledgeStore? categoryKnowledge = null,
-        ILogger<CutLabAnalysisContextBuilder>? logger = null,
-        ScryfallCollectionCardCache? collectionCardCache = null)
+        ILogger<CutLabAnalysisContextBuilder>? logger = null)
     {
         _cardResolver = cardResolver ?? throw new ArgumentNullException(nameof(cardResolver));
         _resolvedCardCache = resolvedCardCache ?? throw new ArgumentNullException(nameof(resolvedCardCache));
-        _collectionCardCache = collectionCardCache;
+        _scryfallReferenceResolver = scryfallReferenceResolver ?? throw new ArgumentNullException(nameof(scryfallReferenceResolver));
         _spellbook = spellbook;
         _categoryKnowledge = categoryKnowledge;
         _logger = logger ?? NullLogger<CutLabAnalysisContextBuilder>.Instance;
@@ -465,7 +465,6 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
             resolvedByName[CutLabCardNames.Normalize(resolvedCard.Name)] = resolvedCard;
         }
 
-        var batchResolver = new ScryfallReferenceResolver(_cardResolver, _collectionCardCache);
         List<CutLabPoolCard> missingPoolCards = EnumerateMissingPoolCards(workingList, resolvedByName, knownMissingNames);
         HashSet<string> knownMissingNamesSet = knownMissingNames.ToHashSet(CutLabCardNames.Comparer);
 
@@ -473,7 +472,7 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         {
             try
             {
-                ScryfallBatchResolution batchResolution = await batchResolver.ResolveBatchAsync(
+                ScryfallBatchResolution batchResolution = await _scryfallReferenceResolver.ResolveBatchAsync(
                     requestNames,
                     // Why: the batch call above already failed this identifier on cards/collection
                     // moments earlier, so re-POSTing via ResolveSingleAsync is dead weight -- the

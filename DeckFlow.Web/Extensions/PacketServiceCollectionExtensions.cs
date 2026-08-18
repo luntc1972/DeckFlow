@@ -4,6 +4,7 @@ using DeckFlow.Web.Configuration;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Bracket;
 using DeckFlow.Web.Services.FeatureFlags;
+using DeckFlow.Web.Services.Packets;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
 using DeckFlow.Web.Services.PromptBuilders.Comparison;
 using DeckFlow.Web.Services.PromptBuilders.FollowUp;
@@ -49,6 +50,7 @@ public static class PacketServiceCollectionExtensions
         services.AddScoped<IDeckAnalysisPacketService>(sp =>
             new DeckAnalysisPacketService(
                 sp.GetRequiredService<IScryfallCardResolver>(),
+                sp.GetRequiredService<ScryfallReferenceResolver>(),
                 sp.GetRequiredService<IDeckEntryLoader>(),
                 sp.GetRequiredService<IMechanicLookupService>(),
                 sp.GetRequiredService<ICommanderBanListService>(),
@@ -59,27 +61,26 @@ public static class PacketServiceCollectionExtensions
                 sp.GetRequiredService<SetUpgradePromptVariantRegistry>(),
                 sp.GetRequiredService<PacketSessionCache>(),
                 sp.GetService<IFeatureFlagCache>(),
-                sp.GetService<ILogger<DeckAnalysisPacketService>>(),
-                sp.GetRequiredService<ScryfallCollectionCardCache>()));
+                sp.GetService<ILogger<DeckAnalysisPacketService>>()));
         services.AddScoped<IDeckComparisonService>(sp =>
             new DeckComparisonService(
                 sp.GetRequiredService<IScryfallCardResolver>(),
+                sp.GetRequiredService<ScryfallReferenceResolver>(),
                 sp.GetRequiredService<IDeckEntryLoader>(),
                 sp.GetRequiredService<ICommanderSpellbookService>(),
                 sp.GetRequiredService<ComparisonPromptVariantRegistry>(),
                 sp.GetRequiredService<FollowUpPromptVariantRegistry>(),
                 sp.GetRequiredService<PacketSessionCache>(),
-                sp.GetService<ILogger<DeckComparisonService>>(),
-                sp.GetRequiredService<ScryfallCollectionCardCache>()));
+                sp.GetService<ILogger<DeckComparisonService>>()));
         services.AddScoped<IMetaGapService>(sp =>
             new MetaGapService(
                 sp.GetRequiredService<IScryfallCardResolver>(),
+                sp.GetRequiredService<ScryfallReferenceResolver>(),
                 sp.GetRequiredService<IDeckEntryLoader>(),
                 sp.GetRequiredService<IEdhTop16Client>(),
                 sp.GetRequiredService<ICommanderSpellbookService>(),
                 sp.GetRequiredService<MetaGapPromptVariantRegistry>(),
-                sp.GetRequiredService<PacketSessionCache>(),
-                sp.GetRequiredService<ScryfallCollectionCardCache>()));
+                sp.GetRequiredService<PacketSessionCache>()));
         services.AddScoped<IDeckPrimerPacketService>(sp =>
             new DeckPrimerPacketService(
                 sp.GetRequiredService<IDeckEntryLoader>(),
