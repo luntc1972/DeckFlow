@@ -527,10 +527,12 @@ internal static class EdhrecRoleGridCommandRunner
         services.AddDeckFlowHttpClients();
         services.AddDeckFlowResiliencePipelines();
         services.AddSingleton<IScryfallRestClientFactory, ScryfallRestClientFactory>();
+        services.AddSingleton<ScryfallCollectionCardCache>();
         services.AddSingleton<IScryfallCardResolver>(serviceProvider =>
             new ScryfallCardResolver(
                 serviceProvider.GetRequiredService<IScryfallRestClientFactory>(),
-                serviceProvider.GetRequiredService<ResiliencePipelineProvider<string>>()));
+                serviceProvider.GetRequiredService<ResiliencePipelineProvider<string>>(),
+                serviceProvider.GetRequiredService<ScryfallCollectionCardCache>()));
         return services.BuildServiceProvider();
     }
 

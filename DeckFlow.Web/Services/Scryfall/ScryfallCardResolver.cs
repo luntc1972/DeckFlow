@@ -44,20 +44,23 @@ public sealed class ScryfallCardResolver : IScryfallCardResolver
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>> _executeNamedAsync;
+    private readonly ScryfallCollectionCardCache _collectionCardCache;
 
     /// <summary>
     /// Creates a resolver using the DI-managed Scryfall client factory and resilience pipeline.
     /// </summary>
     public ScryfallCardResolver(
         IScryfallRestClientFactory scryfallRestClientFactory,
-        ResiliencePipelineProvider<string> pipelineProvider)
+        ResiliencePipelineProvider<string> pipelineProvider,
+        ScryfallCollectionCardCache collectionCardCache)
         : this(
             scryfallRestClientFactory,
             pipelineProvider,
             null,
             null,
             null,
-            null)
+            null,
+            collectionCardCache)
     {
     }
 
@@ -67,10 +70,13 @@ public sealed class ScryfallCardResolver : IScryfallCardResolver
         RestClient? restClientOverride = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsyncOverride = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsyncOverride = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsyncOverride = null)
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsyncOverride = null,
+        ScryfallCollectionCardCache? collectionCardCache = null)
     {
         ArgumentNullException.ThrowIfNull(scryfallRestClientFactory);
         ArgumentNullException.ThrowIfNull(pipelineProvider);
+        // Why: this internal constructor is a test seam; production construction must supply the DI-managed singleton.
+        _collectionCardCache = collectionCardCache ?? new ScryfallCollectionCardCache();
         var pipeline = pipelineProvider.GetPipeline<RestResponse>("scryfall") ?? ResiliencePipeline<RestResponse>.Empty;
         var client = restClientOverride ?? scryfallRestClientFactory.Create();
         _executeCollectionAsync = executeCollectionAsyncOverride ?? ((request, cancellationToken) =>
@@ -109,6 +115,20 @@ public sealed class ScryfallCardResolver : IScryfallCardResolver
         }
 
         string collectionIdentifier = CoreScryfallCollectionIdentifier.ToFaceIdentifier(cardName);
+        if (_collectionCardCache.TryGetName(collectionIdentifier, out var cachedCard))
+        {
+            if (cachedCard is not null
+                && string.Equals(CardNormalizer.Normalize(cachedCard.Name), CardNormalizer.Normalize(cardName), StringComparison.Ordinal))
+            {
+                return cachedCard;
+            }
+
+            if (cachedCard is null)
+            {
+                return await SearchFallbackCardAsync(cardName, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
         var request = new RestRequest("cards/collection", Method.Post);
         // Why: Scryfall cards/collection name identifiers match a single face name; combined A // B returns not_found.
         request.AddJsonBody(new { identifiers = new object[] { new { name = collectionIdentifier } } });
@@ -121,8 +141,15 @@ public sealed class ScryfallCardResolver : IScryfallCardResolver
                 string.Equals(CardNormalizer.Normalize(card.Name), CardNormalizer.Normalize(cardName), StringComparison.Ordinal));
             if (hit is not null)
             {
+                _collectionCardCache.SetNamePositive(collectionIdentifier, hit);
                 return hit;
             }
+        }
+
+        if (response.StatusCode is >= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices
+            && response.Data?.NotFound?.Any(identifier => string.Equals(identifier.Name, collectionIdentifier, StringComparison.Ordinal)) == true)
+        {
+            _collectionCardCache.SetNameCollectionMiss(collectionIdentifier);
         }
 
         return await SearchFallbackCardAsync(cardName, cancellationToken).ConfigureAwait(false);

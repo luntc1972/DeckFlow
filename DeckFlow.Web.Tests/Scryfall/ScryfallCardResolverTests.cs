@@ -112,6 +112,187 @@ public sealed class ScryfallCardResolverTests
         Assert.Equal("Lutri, the Spellchaser", card!.Name);
     }
 
+    [Fact]
+    public async Task ResolveSingleAsync_SameIdentifierTwice_IssuesOneCollectionRequest()
+    {
+        int collectionCalls = 0;
+        var resolver = BuildResolver(
+            collection: _ => { collectionCalls++; return Collection(Card("Sol Ring")); },
+            search: _ => Search());
+
+        await resolver.ResolveSingleAsync("Sol Ring", CancellationToken.None);
+        await resolver.ResolveSingleAsync("Sol Ring", CancellationToken.None);
+
+        Assert.Equal(1, collectionCalls);
+    }
+
+    [Fact]
+    public async Task ResolveSingleAsync_MultiEntryCollectionMatchNotFirst_CachesMatchedCard()
+    {
+        int collectionCalls = 0;
+        var resolver = BuildResolver(
+            collection: _ =>
+            {
+                collectionCalls++;
+                return Collection(Card("Not Sol Ring"), Card("Sol Ring"));
+            },
+            search: _ => Search());
+
+        ScryfallCard? coldCard = await resolver.ResolveSingleAsync("Sol Ring", CancellationToken.None);
+        ScryfallCard? warmCard = await resolver.ResolveSingleAsync("Sol Ring", CancellationToken.None);
+
+        Assert.Equal("Sol Ring", coldCard!.Name);
+        Assert.Equal(coldCard, warmCard);
+        Assert.Equal(1, collectionCalls);
+    }
+
+    [Fact]
+    public async Task ResolveSingleAsync_CachedPositiveForDifferentName_ReissuesCollectionPost()
+    {
+        int collectionCalls = 0;
+        var resolver = BuildResolver(
+            collection: _ =>
+            {
+                collectionCalls++;
+                return Collection(Card(collectionCalls == 1 ? "A//B" : "A // C"));
+            },
+            search: _ => Search());
+
+        await resolver.ResolveSingleAsync("A//B", CancellationToken.None);
+        ScryfallCard? secondCard = await resolver.ResolveSingleAsync("A // C", CancellationToken.None);
+
+        Assert.Equal("A // C", secondCard!.Name);
+        Assert.Equal(2, collectionCalls);
+    }
+
+    [Fact]
+    public async Task ResolveSingleAsync_NotFoundAlongsideUnrelatedData_CachesCollectionMiss()
+    {
+        int collectionCalls = 0;
+        int fallbackCalls = 0;
+        var resolver = BuildResolver(
+            collection: _ =>
+            {
+                collectionCalls++;
+                return new RestResponse<ScryfallCollectionResponse>(new RestRequest("cards/collection", Method.Post))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallCollectionResponse([Card("Unrelated")], [new ScryfallCollectionIdentifier("A")]),
+                };
+            },
+            search: _ =>
+            {
+                fallbackCalls++;
+                return Search(Card("A // B"));
+            });
+
+        await resolver.ResolveSingleAsync("A // B", CancellationToken.None);
+        await resolver.ResolveSingleAsync("A // B", CancellationToken.None);
+
+        Assert.Equal(1, collectionCalls);
+        Assert.Equal(2, fallbackCalls);
+    }
+
+    [Fact]
+    public async Task ResolveSingleAsync_DifferentSubmittedIdentifiers_DoNotShareCacheEntry()
+    {
+        int collectionCalls = 0;
+        var resolver = BuildResolver(
+            collection: request =>
+            {
+                collectionCalls++;
+                return Collection(Card("Smuggler's Copter"));
+            },
+            search: _ => Search());
+
+        await resolver.ResolveSingleAsync("Smuggler's Copter", CancellationToken.None);
+        await resolver.ResolveSingleAsync("Smuggler’s Copter", CancellationToken.None);
+
+        Assert.Equal(2, collectionCalls);
+    }
+
+    [Fact]
+    public async Task ResolveSingleAsync_CombinedName_MissesCollectionAndFallsBackWithCacheActive()
+    {
+        int collectionCalls = 0;
+        int fallbackCalls = 0;
+        var resolver = BuildResolver(
+            collection: request =>
+            {
+                collectionCalls++;
+                string requestJson = System.Text.Json.JsonSerializer.Serialize(request.Parameters.First().Value);
+                Assert.Contains("\"name\":\"A\"", requestJson, StringComparison.Ordinal);
+                return new RestResponse<ScryfallCollectionResponse>(new RestRequest("cards/collection", Method.Post))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallCollectionResponse([], [new ScryfallCollectionIdentifier("A")]),
+                };
+            },
+            search: _ =>
+            {
+                fallbackCalls++;
+                return Search(Card("A // B"));
+            });
+
+        ScryfallCard? coldCard = await resolver.ResolveSingleAsync("A // B", CancellationToken.None);
+        ScryfallCard? warmCard = await resolver.ResolveSingleAsync("A // C", CancellationToken.None);
+
+        Assert.Equal(1, collectionCalls);
+        Assert.Equal(2, fallbackCalls);
+        Assert.Equal(coldCard, warmCard);
+        Assert.Equal("A // B", warmCard!.Name);
+    }
+
+    [Fact]
+    public async Task ResolveSingleAsync_CachedCollectionMiss_StillFallsBackWithoutCollectionPost()
+    {
+        int collectionCalls = 0;
+        int fallbackCalls = 0;
+        var resolver = BuildResolver(
+            collection: _ =>
+            {
+                collectionCalls++;
+                return new RestResponse<ScryfallCollectionResponse>(new RestRequest("cards/collection", Method.Post))
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallCollectionResponse([], [new ScryfallCollectionIdentifier("A")]),
+                };
+            },
+            search: _ =>
+            {
+                fallbackCalls++;
+                return Search(Card("A // B"));
+            });
+
+        await resolver.ResolveSingleAsync("A / B", CancellationToken.None);
+        await resolver.ResolveSingleAsync("A / B", CancellationToken.None);
+
+        Assert.Equal(1, collectionCalls);
+        Assert.Equal(2, fallbackCalls);
+    }
+
+    [Fact]
+    public async Task ResolveSingleAsync_TooManyRequests_DoesNotCache()
+    {
+        int collectionCalls = 0;
+        var resolver = BuildResolver(
+            collection: _ =>
+            {
+                collectionCalls++;
+                return new RestResponse<ScryfallCollectionResponse>(new RestRequest("cards/collection", Method.Post))
+                {
+                    StatusCode = HttpStatusCode.TooManyRequests,
+                    Data = new ScryfallCollectionResponse([Card("Sol Ring")], null),
+                };
+            },
+            search: _ => Search());
+
+        await resolver.ResolveSingleAsync("Sol Ring", CancellationToken.None);
+        await resolver.ResolveSingleAsync("Sol Ring", CancellationToken.None);
+
+        Assert.Equal(2, collectionCalls);
+    }
+
     private static ScryfallCardResolver BuildResolver(
         Func<RestRequest, RestResponse<ScryfallCollectionResponse>> collection,
         Func<RestRequest, RestResponse<ScryfallSearchResponse>> search)
