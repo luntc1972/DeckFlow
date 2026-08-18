@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { clickManabasePillRadio } from './support/manabase-pill';
 
 // Live-only Phase 72 command-zone castability surfaces.
 // Requires:
@@ -35,7 +36,7 @@ async function analyzeDeck(page: Page): Promise<Locator> {
   await page.locator('#manabase-deck-text').fill(COMMANDER_COMPANION_DECK);
   await page.locator('.manabase-overrides > summary').click();
   await page.locator('#manabase-companion-name').fill('Jegantha, the Wellspring');
-  await page.locator('.manabase-pill input[name="Mode"][value="Casual"]').check();
+  await clickManabasePillRadio(page, 'Mode', 'Casual');
   await page.getByRole('button', { name: 'Analyze Mana Base' }).click();
 
   const result = page.locator('.result-panel:has(h2:has-text("Result"))');

@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { clickManabasePillRadio } from './support/manabase-pill';
 
 const baseUrl = 'http://localhost:5173';
 const screenshotDir = resolve(__dirname, '../../.planning/ui-design/mbgap-09/screenshots');
@@ -70,7 +71,7 @@ async function submitDeck(page: Page, mode: 'Casual' | 'Cedh'): Promise<boolean>
   await page.goto('/manabase');
   await page.locator('#manabase-input-source').selectOption('PasteText');
   await page.locator('#manabase-deck-text').fill(CEDH_INTERACTION_DECK);
-  await page.locator(`.manabase-pill input[name="Mode"][value="${mode}"]`).check();
+  await clickManabasePillRadio(page, 'Mode', mode);
   await page.getByRole('button', { name: 'Analyze Mana Base' }).click();
 
   const result = page.locator('.result-panel:has(h2:has-text("Result"))');

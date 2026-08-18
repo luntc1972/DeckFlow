@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { clickManabasePillRadio } from './support/manabase-pill';
 
 const CASUAL_DECK = [
   'Commander',
@@ -88,7 +89,7 @@ async function submitDeck(
   await page.goto('/manabase');
   await page.locator('#manabase-input-source').selectOption('PasteText');
   await page.locator('#manabase-deck-text').fill(deckText);
-  await page.locator(`.manabase-pill input[name="Mode"][value="${mode}"]`).check();
+  await clickManabasePillRadio(page, 'Mode', mode);
   await page.getByRole('button', { name: 'Analyze Mana Base' }).click();
 
   const result = page.locator('.result-panel:has(h2:has-text("Result"))');

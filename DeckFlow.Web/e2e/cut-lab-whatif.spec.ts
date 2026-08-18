@@ -2,6 +2,7 @@ import { expect, test, type Browser, type Locator, type Page } from '@playwright
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
 import { expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
+import { clickManabasePillRadio } from './support/manabase-pill';
 
 const baseUrl = 'http://localhost:5173';
 
@@ -49,8 +50,8 @@ const fillImportForm = async (page: Page): Promise<void> => {
   await page.locator('#cut-lab-deck-text').fill(oversizedPool);
   await page.locator('#cut-lab-primary-plan').fill('Protect the control shell, then trim to the cleanest Zur line.');
   await page.locator('#cut-lab-secondary-plan').fill('Keep the fast mana package intact.');
-  await page.locator('input[name="Bracket"][value="4"]').check();
-  await page.locator('input[name="PlayExperience"][value="Focused"]').check();
+  await clickManabasePillRadio(page, 'Bracket', '4');
+  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
 };
 
 const fillImportFormNoJs = async (page: Page): Promise<void> => {
@@ -60,8 +61,8 @@ const fillImportFormNoJs = async (page: Page): Promise<void> => {
   }, oversizedPool);
   await page.locator('#cut-lab-primary-plan').fill('Protect the control shell, then trim to the cleanest Zur line.');
   await page.locator('#cut-lab-secondary-plan').fill('Keep the fast mana package intact.');
-  await page.locator('input[name="Bracket"][value="4"]').check();
-  await page.locator('input[name="PlayExperience"][value="Focused"]').check();
+  await clickManabasePillRadio(page, 'Bracket', '4');
+  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
 };
 
 const waitForCutRounds = async (page: Page): Promise<void> => {
