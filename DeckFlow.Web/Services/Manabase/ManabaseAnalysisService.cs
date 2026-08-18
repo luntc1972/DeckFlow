@@ -1121,97 +1121,98 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 : ((object)new { name = entry.Name }, null, null, entry.Name));
         }
 
-        var index = new ScryfallCardNameIndex();
-        for (int offset = 0; offset < identifiers.Count; offset += ScryfallBatchSize)
+        var identifiersToSubmit = new List<(object Body, string? SetCode, string? CollectorNumber, string? Name, int GlobalPosition)>(identifiers.Count);
+        var positionedCards = new List<(ScryfallCard Card, int GlobalPosition)>(identifiers.Count);
+        for (int globalPosition = 0; globalPosition < identifiers.Count; globalPosition++)
         {
-            var batch = identifiers.Skip(offset).Take(ScryfallBatchSize).ToArray();
-            var identifiersToSubmit = new List<(object Body, string? SetCode, string? CollectorNumber, string? Name, int BatchPosition)>();
-            var indexedCards = new List<(ScryfallCard Card, int BatchPosition)>();
-            for (int batchPosition = 0; batchPosition < batch.Length; batchPosition++)
+            var identifier = identifiers[globalPosition];
+            ScryfallCard? cachedCard = null;
+            bool cached = identifier.Name is not null
+                ? _collectionCardCache?.TryGetName(identifier.Name, out cachedCard) == true
+                : _collectionCardCache?.TryGetPrinting(identifier.SetCode!, identifier.CollectorNumber!, out cachedCard) == true;
+            if (cached)
             {
-                var identifier = batch[batchPosition];
-                ScryfallCard? cachedCard = null;
-                bool cached = identifier.Name is not null
-                    ? _collectionCardCache?.TryGetName(identifier.Name, out cachedCard) == true
-                    : _collectionCardCache?.TryGetPrinting(identifier.SetCode!, identifier.CollectorNumber!, out cachedCard) == true;
-                if (cached)
+                if (cachedCard is not null)
                 {
-                    if (cachedCard is not null)
-                    {
-                        indexedCards.Add((cachedCard, batchPosition));
-                    }
-
-                    continue;
+                    positionedCards.Add((cachedCard, globalPosition));
                 }
 
-                identifiersToSubmit.Add((identifier.Body, identifier.SetCode, identifier.CollectorNumber, identifier.Name, batchPosition));
+                continue;
             }
 
-            var returnedCards = new List<(ScryfallCard Card, int CardIndex)>();
+            identifiersToSubmit.Add((identifier.Body, identifier.SetCode, identifier.CollectorNumber, identifier.Name, globalPosition));
+        }
+
+        var unpairedCards = new List<ScryfallCard>();
+        foreach (var batch in identifiersToSubmit.Chunk(ScryfallBatchSize))
+        {
             var positionedReturnedCards = new Dictionary<int, int>();
-            if (identifiersToSubmit.Count > 0)
+            var request = new RestRequest("cards/collection", Method.Post);
+            request.AddJsonBody(new { identifiers = batch.Select(identifier => identifier.Body).ToArray() });
+
+            RestResponse<ScryfallCollectionResponse> response =
+                await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
+
+            if (response.StatusCode is < HttpStatusCode.OK or >= HttpStatusCode.MultipleChoices || response.Data is null)
             {
-                var request = new RestRequest("cards/collection", Method.Post);
-                request.AddJsonBody(new { identifiers = identifiersToSubmit.Select(identifier => identifier.Body).ToArray() });
+                throw new HttpRequestException(
+                    $"Scryfall card lookup (cards/collection) returned HTTP {(int)response.StatusCode} during mana-base analysis.",
+                    inner: null,
+                    statusCode: response.StatusCode);
+            }
 
-                RestResponse<ScryfallCollectionResponse> response =
-                    await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
-
-                if (response.StatusCode is < HttpStatusCode.OK or >= HttpStatusCode.MultipleChoices || response.Data is null)
+            var returnedCards = response.Data.Data.Select((card, cardIndex) => (Card: card, CardIndex: cardIndex)).ToList();
+            var pairedCardIndexes = new HashSet<int>();
+            foreach (var submission in batch.Where(identifier => identifier.Name is null))
+            {
+                var matchingCards = returnedCards.Where(card => string.Equals(card.Card.SetCode, submission.SetCode, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(card.Card.CollectorNumber, submission.CollectorNumber, StringComparison.OrdinalIgnoreCase)).ToArray();
+                // Why: the seen de-dup guarantees submission uniqueness, so only returned-card ambiguity is live.
+                if (matchingCards.Length == 1)
                 {
-                    throw new HttpRequestException(
-                        $"Scryfall card lookup (cards/collection) returned HTTP {(int)response.StatusCode} during mana-base analysis.",
-                        inner: null,
-                        statusCode: response.StatusCode);
+                    _collectionCardCache?.SetPrintingPositive(submission.SetCode!, submission.CollectorNumber!, matchingCards[0].Card);
+                    pairedCardIndexes.Add(matchingCards[0].CardIndex);
+                    positionedReturnedCards.Add(matchingCards[0].CardIndex, submission.GlobalPosition);
                 }
+            }
 
-                returnedCards = response.Data.Data.Select((card, cardIndex) => (Card: card, CardIndex: cardIndex)).ToList();
-                var pairedCardIndexes = new HashSet<int>();
-                foreach (var submission in identifiersToSubmit.Where(identifier => identifier.Name is null))
+            foreach (var submission in batch.Where(identifier => identifier.Name is not null))
+            {
+                var matchingCards = returnedCards.Where(card => !pairedCardIndexes.Contains(card.CardIndex)
+                    && string.Equals(card.Card.Name, submission.Name, StringComparison.OrdinalIgnoreCase)).ToArray();
+                // Why: the seen de-dup guarantees submission uniqueness, so only returned-card ambiguity is live.
+                if (matchingCards.Length == 1)
                 {
-                    var matchingCards = returnedCards.Where(card => string.Equals(card.Card.SetCode, submission.SetCode, StringComparison.OrdinalIgnoreCase)
-                        && string.Equals(card.Card.CollectorNumber, submission.CollectorNumber, StringComparison.OrdinalIgnoreCase)).ToArray();
-                    // Why: the seen de-dup guarantees submission uniqueness, so only returned-card ambiguity is live.
-                    if (matchingCards.Length == 1)
-                    {
-                        _collectionCardCache?.SetPrintingPositive(submission.SetCode!, submission.CollectorNumber!, matchingCards[0].Card);
-                        pairedCardIndexes.Add(matchingCards[0].CardIndex);
-                        positionedReturnedCards.Add(matchingCards[0].CardIndex, submission.BatchPosition);
-                    }
+                    _collectionCardCache?.SetNamePositive(submission.Name!, matchingCards[0].Card);
+                    positionedReturnedCards.Add(matchingCards[0].CardIndex, submission.GlobalPosition);
                 }
-
-                foreach (var submission in identifiersToSubmit.Where(identifier => identifier.Name is not null))
+                else if (response.Data.NotFound?.Any(notFound => string.Equals(notFound.Name, submission.Name, StringComparison.Ordinal)) == true)
                 {
-                    var matchingCards = returnedCards.Where(card => !pairedCardIndexes.Contains(card.CardIndex)
-                        && string.Equals(card.Card.Name, submission.Name, StringComparison.OrdinalIgnoreCase)).ToArray();
-                    // Why: the seen de-dup guarantees submission uniqueness, so only returned-card ambiguity is live.
-                    if (matchingCards.Length == 1)
-                    {
-                        _collectionCardCache?.SetNamePositive(submission.Name!, matchingCards[0].Card);
-                        positionedReturnedCards.Add(matchingCards[0].CardIndex, submission.BatchPosition);
-                    }
-                    else if (response.Data.NotFound?.Any(notFound => string.Equals(notFound.Name, submission.Name, StringComparison.Ordinal)) == true)
-                    {
-                        _collectionCardCache?.SetNameCollectionMiss(submission.Name!);
-                    }
+                    _collectionCardCache?.SetNameCollectionMiss(submission.Name!);
                 }
             }
 
             foreach (var positionedCard in positionedReturnedCards)
             {
-                indexedCards.Add((returnedCards[positionedCard.Key].Card, positionedCard.Value));
+                positionedCards.Add((returnedCards[positionedCard.Key].Card, positionedCard.Value));
             }
 
-            // Why: Add is last-write-wins, so cache warmth must not decide the name-resolution winner.
-            foreach (var (card, _) in indexedCards.OrderBy(card => card.BatchPosition))
-            {
-                index.Add(ScryfallCardDataMapper.ToCardData(card));
-            }
+            unpairedCards.AddRange(returnedCards.Where(card => !positionedReturnedCards.ContainsKey(card.CardIndex)).Select(card => card.Card));
+        }
 
-            foreach (var returnedCard in returnedCards.Where(card => !positionedReturnedCards.ContainsKey(card.CardIndex)))
-            {
-                index.Add(ScryfallCardDataMapper.ToCardData(returnedCard.Card));
-            }
+        // Why: Add is last-write-wins, so these two loops ARE the precedence rule — later submission
+        // position beats earlier, and an unpaired extra beats every paired card. Both run outside the
+        // chunk loop on purpose: chunk membership now depends on cache warmth, so indexing per chunk
+        // would let a warm cache pick a different winner (and a fully warm deck would index nothing).
+        var index = new ScryfallCardNameIndex();
+        foreach (var (card, _) in positionedCards.OrderBy(card => card.GlobalPosition))
+        {
+            index.Add(ScryfallCardDataMapper.ToCardData(card));
+        }
+
+        foreach (var card in unpairedCards)
+        {
+            index.Add(ScryfallCardDataMapper.ToCardData(card));
         }
 
         return index;
