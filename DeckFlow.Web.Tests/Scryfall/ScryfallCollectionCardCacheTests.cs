@@ -58,6 +58,23 @@ public sealed class ScryfallCollectionCardCacheTests
         Assert.False(cache.TryGetName("miss", out _));
     }
 
+    [Fact]
+    public void CollectionMissesAreChargedByTheirRetainedKeyLength()
+    {
+        var cache = new ScryfallCollectionCardCache(20);
+
+        cache.SetNameCollectionMiss("one");
+
+        Assert.True(cache.TryGetName("one", out var retainedMiss));
+        Assert.Null(retainedMiss);
+
+        cache.SetNameCollectionMiss("first-long-key");
+        cache.SetNameCollectionMiss("second-long-key");
+
+        Assert.False(cache.TryGetName("first-long-key", out _));
+        Assert.False(cache.TryGetName("second-long-key", out _));
+    }
+
     private static ScryfallCard Card(
         string name,
         string? oracleText = null,

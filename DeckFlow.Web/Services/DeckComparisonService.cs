@@ -81,7 +81,8 @@ public sealed class DeckComparisonService : IDeckComparisonService
         ComparisonPromptVariantRegistry comparisonPromptRegistry,
         FollowUpPromptVariantRegistry followUpPromptRegistry,
         PacketSessionCache packetCache,
-        ILogger<DeckComparisonService>? logger = null)
+        ILogger<DeckComparisonService>? logger = null,
+        ScryfallCollectionCardCache? collectionCardCache = null)
     {
         ArgumentNullException.ThrowIfNull(scryfallCardResolver);
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
@@ -90,7 +91,7 @@ public sealed class DeckComparisonService : IDeckComparisonService
         ArgumentNullException.ThrowIfNull(followUpPromptRegistry);
         ArgumentNullException.ThrowIfNull(packetCache);
         _scryfallCardResolver = scryfallCardResolver;
-        _scryfallReferenceResolver = new ScryfallReferenceResolver(scryfallCardResolver);
+        _scryfallReferenceResolver = new ScryfallReferenceResolver(scryfallCardResolver, collectionCardCache);
         _deckEntryLoader = deckEntryLoader;
         _commanderSpellbookService = commanderSpellbookService;
         _comparisonPromptRegistry = comparisonPromptRegistry;

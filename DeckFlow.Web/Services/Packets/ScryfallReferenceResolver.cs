@@ -83,11 +83,15 @@ internal sealed partial class ScryfallReferenceResolver
     private const int ScryfallBatchSize = 75;
 
     private readonly IScryfallCardResolver _scryfallCardResolver;
+    private readonly ScryfallCollectionCardCache? _collectionCardCache;
 
-    public ScryfallReferenceResolver(IScryfallCardResolver scryfallCardResolver)
+    public ScryfallReferenceResolver(
+        IScryfallCardResolver scryfallCardResolver,
+        ScryfallCollectionCardCache? collectionCardCache = null)
     {
         ArgumentNullException.ThrowIfNull(scryfallCardResolver);
         _scryfallCardResolver = scryfallCardResolver;
+        _collectionCardCache = collectionCardCache;
     }
 
     /// <summary>
@@ -126,16 +130,40 @@ internal sealed partial class ScryfallReferenceResolver
                 .Select(CoreScryfallCollectionIdentifier.ToFaceIdentifier)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
+            var cachedCards = new List<ScryfallCard>();
+            var identifiersToSubmit = new List<string>();
+            foreach (var identifier in chunkIdentifiers)
+            {
+                if (_collectionCardCache?.TryGetName(identifier, out var cachedCard) == true)
+                {
+                    if (cachedCard is not null)
+                    {
+                        cachedCards.Add(cachedCard);
+                    }
+
+                    continue;
+                }
+
+                identifiersToSubmit.Add(identifier);
+            }
+
+            var cards = new List<ScryfallCard>(cachedCards);
             var request = new RestRequest("cards/collection", Method.Post);
             // Why: Scryfall cards/collection name identifiers match a single face name; combined A // B returns not_found.
             request.AddJsonBody(new
             {
-                identifiers = chunkIdentifiers
+                identifiers = identifiersToSubmit
                     .Select(name => new { name })
                     .ToArray()
             });
 
-            var response = await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
+            var response = identifiersToSubmit.Count > 0
+                ? await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false)
+                : new RestResponse<ScryfallCollectionResponse>(request)
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallCollectionResponse([], []),
+                };
             if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
             {
                 throw new ScryfallReferenceCollectionException(
@@ -143,12 +171,77 @@ internal sealed partial class ScryfallReferenceResolver
                     response.StatusCode);
             }
 
+            cards.AddRange(response.Data.Data);
+
+            if (identifiersToSubmit.Count > 0 && _collectionCardCache is not null)
+            {
+                var returnedCards = response.Data.Data
+                    .Select((card, index) => (Card: card, Index: index))
+                    .ToList();
+                var cacheEntries = new List<(string Identifier, ScryfallCard? Card)>();
+                var exactPairedIdentifiers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var exactPairedCardIndexes = new HashSet<int>();
+                var unambiguousCardByIdentifier = returnedCards
+                    .GroupBy(card => CoreScryfallCollectionIdentifier.ToFaceIdentifier(card.Card.Name), StringComparer.OrdinalIgnoreCase)
+                    .Where(group => group.Count() == 1)
+                    .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
+                foreach (var identifier in identifiersToSubmit)
+                {
+                    if (unambiguousCardByIdentifier.TryGetValue(identifier, out var card))
+                    {
+                        cacheEntries.Add((identifier, card.Card));
+                        exactPairedIdentifiers.Add(identifier);
+                        exactPairedCardIndexes.Add(card.Index);
+                    }
+                }
+
+                var unambiguousLeftoverCardByKey = returnedCards
+                    .Where(card => !exactPairedCardIndexes.Contains(card.Index))
+                    .GroupBy(card => BatchMatchKey(CoreScryfallCollectionIdentifier.ToFaceIdentifier(card.Card.Name)))
+                    .Where(group => group.Count() == 1)
+                    .ToDictionary(group => group.Key, group => group.First());
+
+                foreach (var identifierGroup in identifiersToSubmit
+                             .Where(identifier => !exactPairedIdentifiers.Contains(identifier))
+                             .GroupBy(BatchMatchKey))
+                {
+                    if (identifierGroup.Count() != 1
+                        || !unambiguousLeftoverCardByKey.TryGetValue(identifierGroup.Key, out var card))
+                    {
+                        continue;
+                    }
+
+                    cacheEntries.Add((identifierGroup.First(), card.Card));
+                }
+
+                foreach (var identifier in identifiersToSubmit)
+                {
+                    if (response.Data.NotFound?.Any(notFound =>
+                            string.Equals(notFound.Name, identifier, StringComparison.Ordinal)) == true)
+                    {
+                        cacheEntries.Add((identifier, null));
+                    }
+                }
+
+                foreach (var (identifier, card) in cacheEntries)
+                {
+                    if (card is null)
+                    {
+                        _collectionCardCache.SetNameCollectionMiss(identifier);
+                        continue;
+                    }
+
+                    _collectionCardCache.SetNamePositive(identifier, card);
+                }
+            }
+
             // Why: one pass records the exact matches and collects the leftovers the tolerant pass
             // below needs, instead of scanning the response twice. TryGetValue recovers the caller's
             // original spelling, which is the only reason the exact match needs a lookup at all.
             var chunkNames = new HashSet<string>(chunk, StringComparer.OrdinalIgnoreCase);
             var unclaimedCards = new List<ScryfallCard>();
-            foreach (var card in response.Data.Data)
+            foreach (var card in cards)
             {
                 if (!chunkNames.TryGetValue(card.Name, out var matchingName))
                 {
