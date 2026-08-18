@@ -195,7 +195,7 @@ public partial class Program
                     sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
                     sp.GetRequiredService<IDeckEntryLoader>()));
             builder.Services.AddScoped<IDeckEntryLoader, DeckEntryLoader>();
-            builder.Services.AddScoped<DeckFlow.Web.Services.Manabase.IManabaseAnalysisService, DeckFlow.Web.Services.Manabase.ManabaseAnalysisService>();
+            builder.Services.AddDeckFlowManabaseServices();
             builder.Services.AddScoped<IBracketClassificationService>(sp =>
                 new BracketClassificationService(
                     sp.GetRequiredService<IDeckEntryLoader>(),
