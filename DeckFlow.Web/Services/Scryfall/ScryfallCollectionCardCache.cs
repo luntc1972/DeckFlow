@@ -80,8 +80,8 @@ public sealed class ScryfallCollectionCardCache
         _cache.Set(key, CollectionMissMarker, new MemoryCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = CollectionMissTtl,
-            // Why: a miss retains only a shared marker and no card payload.
-            Size = 1,
+            // Why: although the marker is shared, the cache retains this entry's key string.
+            Size = Math.Max(key.Length, 1),
         });
     }
 
