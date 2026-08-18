@@ -1,7 +1,9 @@
 # Debug: "Restored from cache" Reset button is a visual no-op
 
 - **Reported:** 2026-08-05 by user, during UAT of `fix/deck-history-silent-fresh-start`
-- **Status:** ROOT CAUSE CONFIRMED, reproduced headlessly. No fix applied.
+- **Status:** RESOLVED. Fix shipped to main in `61bbc6d6` (fix(ui): make the cache pill Reset
+  button actually reset the page). The "Fix applied" section below is the record of that work;
+  this header previously still said "No fix applied" and was corrected 2026-08-17.
 - **Reported symptom:** "the reset button doesn't change this" — screenshot showed the Deck
   History results section (timeline, Save your history, Compare versions, AI prompt) still
   fully rendered after pressing `Reset`.

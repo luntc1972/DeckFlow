@@ -54,3 +54,15 @@ TBD — this is a product decision, not a defect with one right fix. Two candida
 
 Whichever is chosen, decide it for the `.desktop-only` *pattern* on this page as a whole, so
 `:9`'s lede copy stops contradicting whatever the picker does.
+
+## Resolution — 2026-08-17
+
+Option 2 chosen by the product owner: keep the list mode desktop-gated, but make it discoverable.
+
+- `CardLookup.cshtml` renders `<p class="mobile-only">Bulk card-list export is available on desktop.</p>`
+  where the picker vacates below 600px.
+- `site-common.css` gains a single `.mobile-only` rule (base `display:none`, shown inside the existing
+  `@media (max-width: 600px)` block). No second definition was added; `site-commander-table.css:1074`
+  was left alone, and the 600px breakpoint is unchanged.
+- The `:9` lede already wraps its list-mode mention in `.desktop-only`, so mobile copy no longer
+  describes a mode it does not show. `CardLookupViewRenderTests` pins all of it.
