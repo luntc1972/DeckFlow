@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { clickManabasePillRadio } from './support/manabase-pill';
 
 // Regression for the "manabase did not find a commander" bug: a Moxfield plaintext export has
 // no "Commander" section header — the commander is simply the leading card and every line
@@ -25,7 +26,7 @@ async function analyze(page: Page) {
   await page.goto('/manabase');
   await page.locator('#manabase-input-source').selectOption('PasteText');
   await page.locator('#manabase-deck-text').fill(HEADERLESS_DECK);
-  await page.locator('.manabase-pill input[name="Mode"][value="Casual"]').check();
+  await clickManabasePillRadio(page, 'Mode', 'Casual');
   await page.getByRole('button', { name: 'Analyze Mana Base' }).click();
 
   const result = page.locator('.result-panel:has(h2:has-text("Result"))');
