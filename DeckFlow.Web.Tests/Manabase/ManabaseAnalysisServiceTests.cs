@@ -2164,10 +2164,213 @@ public sealed class ManabaseAnalysisServiceTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.LoadAsync("   "));
     }
 
+    [Fact]
+    public async Task ResolveCardsAsync_CacheWarmth_DoesNotChangeCanonicalNameWinner()
+    {
+        var first = Spell("Shared", "{W}", 1, "Creature", set: "abc", cn: "1");
+        var second = Spell("Shared", "{U}", 1, "Creature", set: "abc", cn: "2");
+        var entries = new List<DeckEntry>
+        {
+            Entry("First printing", 1, "mainboard", "abc", "1"),
+            Entry("Second printing", 1, "mainboard", "abc", "2"),
+        };
+
+        async Task<string?> ResolveWinnerAsync(ScryfallCard? cachedCard)
+        {
+            var cache = new ScryfallCollectionCardCache();
+            if (cachedCard is not null)
+            {
+                cache.SetPrintingPositive(cachedCard.SetCode!, cachedCard.CollectorNumber!, cachedCard);
+            }
+
+            var resolver = new StubResolver([Response(HttpStatusCode.OK, new List<ScryfallCard> { first, second }.Where(card => card != cachedCard).ToList())]);
+            var service = new ManabaseAnalysisService(new FakeLoader(entries), resolver, collectionCardCache: cache);
+            MethodInfo method = typeof(ManabaseAnalysisService).GetMethod("ResolveCardsAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var index = await (Task<ScryfallCardNameIndex>)method.Invoke(service, [entries, CancellationToken.None])!;
+
+            Assert.True(index.TryResolve("Shared", null, null, out ScryfallCardData? resolved));
+            return resolved!.CollectorNumber;
+        }
+
+        string? firstCached = await ResolveWinnerAsync(first);
+        string? secondCached = await ResolveWinnerAsync(second);
+        string? neitherCached = await ResolveWinnerAsync(null);
+
+        Assert.Equal(neitherCached, firstCached);
+        Assert.Equal(neitherCached, secondCached);
+        Assert.Equal("2", neitherCached);
+    }
+
     // --- helpers -------------------------------------------------------------
 
     private static string FormatCastabilityRow(CardCastability row)
         => $"{row.Name}|{row.ManaValue}|{row.OnCurveTurn}|{row.CastPercent}|{row.IsCommander}";
+
+    [Fact]
+    public async Task AnalyzeAsync_SharedCollectionCache_SuppressesSecondCollectionPost()
+    {
+        var entries = new List<DeckEntry> { Land("Plains", 1) };
+        var resolver = new CountingResolver([BasicLand("Plains", "W")]);
+        var cache = new ScryfallCollectionCardCache();
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), resolver, collectionCardCache: cache);
+
+        await service.AnalyzeAsync("paste", "first");
+        await service.AnalyzeAsync("paste", "second");
+
+        Assert.Equal(1, resolver.CollectionCallCount);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_FullyCachedChunk_ResolvesWithoutCollectionOrFallbackRequests()
+    {
+        var entries = new List<DeckEntry> { Land("Plains", 1), Land("Island", 1) };
+        var resolver = new CountingResolver([]);
+        var cache = new ScryfallCollectionCardCache();
+        cache.SetNamePositive("Plains", BasicLand("Plains", "W"));
+        cache.SetNamePositive("Island", BasicLand("Island", "U"));
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), resolver, collectionCardCache: cache);
+
+        var result = await service.AnalyzeAsync("paste", "cached");
+
+        Assert.Empty(result.Unresolved);
+        Assert.Equal(0, resolver.CollectionCallCount);
+        Assert.Equal(0, resolver.FallbackCallCount);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_SharedCollectionCache_UsesPrintingNamespaceWithoutCrossPopulatingName()
+    {
+        var card = Spell("Canonical Name", "{W}", 1, "Creature", set: "abc", cn: "1");
+        var resolver = new CountingResolver([card]);
+        var cache = new ScryfallCollectionCardCache();
+
+        await new ManabaseAnalysisService(new FakeLoader([Entry("Flavor Name", 1, "mainboard", "abc", "1")]), resolver, collectionCardCache: cache)
+            .AnalyzeAsync("paste", "printing");
+        Assert.False(cache.TryGetName("Canonical Name", out _));
+        await new ManabaseAnalysisService(new FakeLoader([Entry("Canonical Name", 1, "mainboard")]), resolver, collectionCardCache: cache)
+            .AnalyzeAsync("paste", "name");
+
+        Assert.Equal(2, resolver.CollectionCallCount);
+        Assert.True(cache.TryGetPrinting("abc", "1", out var printing));
+        Assert.NotNull(printing);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_CachedNameCollectionMiss_StillUsesFallback()
+    {
+        var card = BasicLand("Fallback Plains", "W");
+        var resolver = new CountingResolver([card]);
+        var cache = new ScryfallCollectionCardCache();
+        cache.SetNameCollectionMiss("Fallback Plains");
+        var service = new ManabaseAnalysisService(new FakeLoader([Land("Fallback Plains", 1)]), resolver, collectionCardCache: cache);
+
+        await service.AnalyzeAsync("paste", "fallback");
+
+        Assert.Equal(0, resolver.CollectionCallCount);
+        Assert.Equal(1, resolver.FallbackCallCount);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.TooManyRequests)]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    public async Task AnalyzeAsync_FailedCollectionChunk_DoesNotCachePartialResponse(HttpStatusCode statusCode)
+    {
+        var cache = new ScryfallCollectionCardCache();
+        var first = BasicLand("Saved", "W");
+        var leaked = BasicLand("Leaked", "U");
+        var entries = Enumerable.Range(0, 75).Select(i => Land(i == 0 ? "Saved" : $"First {i}", 1))
+            .Append(Land("Leaked", 1)).Append(Land("Missing", 1)).ToList();
+        var resolver = new StubResolver([
+            Response(HttpStatusCode.OK, [first]),
+            Response(statusCode, [leaked], [new ScryfallCollectionIdentifier("Missing")])]);
+
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => new ManabaseAnalysisService(new FakeLoader(entries), resolver, collectionCardCache: cache).AnalyzeAsync("paste", "failure"));
+
+        Assert.Equal(statusCode, error.StatusCode);
+        Assert.Equal($"Scryfall card lookup (cards/collection) returned HTTP {(int)statusCode} during mana-base analysis.", error.Message);
+        Assert.True(cache.TryGetName("Saved", out var saved));
+        Assert.NotNull(saved);
+        Assert.False(cache.TryGetName("Leaked", out _));
+        Assert.False(cache.TryGetName("Missing", out _));
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_NotFoundEcho_CachesOnlyTheEchoedNameMiss()
+    {
+        var cache = new ScryfallCollectionCardCache();
+        var resolver = new StubResolver([Response(HttpStatusCode.OK, [BasicLand("Found", "W")], [new ScryfallCollectionIdentifier("Missing")]), Response(HttpStatusCode.OK, [BasicLand("Found", "W")])]);
+        await new ManabaseAnalysisService(new FakeLoader([Land("Found", 1), Land("Missing", 1)]), resolver, collectionCardCache: cache).AnalyzeAsync("paste", "one");
+        await new ManabaseAnalysisService(new FakeLoader([Land("Found", 1), Land("Missing", 1)]), resolver, collectionCardCache: cache).AnalyzeAsync("paste", "two");
+        Assert.Equal(1, resolver.CollectionCallCount);
+        Assert.True(cache.TryGetName("Missing", out var missing));
+        Assert.Null(missing);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_UnreturnedNameWithoutNotFoundEcho_IsNotCached()
+    {
+        var cache = new ScryfallCollectionCardCache();
+        var resolver = new StubResolver([Response(HttpStatusCode.OK, [BasicLand("Found", "W")]), Response(HttpStatusCode.OK, [BasicLand("Found", "W")])]);
+        var service = new ManabaseAnalysisService(new FakeLoader([Land("Found", 1), Land("Unknown", 1)]), resolver, collectionCardCache: cache);
+        await service.AnalyzeAsync("paste", "one");
+        await service.AnalyzeAsync("paste", "two");
+        Assert.Equal(2, resolver.CollectionCallCount);
+        Assert.False(cache.TryGetName("Unknown", out _));
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_NullOrThrownCollectionResponse_DoesNotAlterExistingCache()
+    {
+        var cache = new ScryfallCollectionCardCache();
+        cache.SetNamePositive("Saved", BasicLand("Saved", "W"));
+        foreach (var response in new[] { Response(HttpStatusCode.OK, null), ThrowingResponse() })
+        {
+            var resolver = new StubResolver([response]);
+            await Assert.ThrowsAsync<HttpRequestException>(() => new ManabaseAnalysisService(new FakeLoader([Land("Unknown", 1)]), resolver, collectionCardCache: cache).AnalyzeAsync("paste", "failure"));
+            Assert.True(cache.TryGetName("Saved", out var saved));
+            Assert.NotNull(saved);
+            Assert.False(cache.TryGetName("Unknown", out _));
+        }
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_AmbiguousCollectionMatches_AreNotCached()
+    {
+        var cache = new ScryfallCollectionCardCache();
+        var resolver = new StubResolver([Response(HttpStatusCode.OK, [Spell("Same", "{W}", 1, "Creature", set: "a", cn: "1"), Spell("Same", "{U}", 1, "Creature", set: "b", cn: "2"), Spell("Other", "{B}", 1, "Creature", set: "p", cn: "9"), Spell("Different", "{R}", 1, "Creature", set: "p", cn: "9"), Spell("No Print", "{G}", 1, "Creature"), Spell("Unique", "{G}", 1, "Creature")])]);
+        await new ManabaseAnalysisService(new FakeLoader([Land("Same", 1), Entry("Request", 1, "mainboard", "p", "9"), Land("No Print", 1), Land("Unique", 1)]), resolver, collectionCardCache: cache).AnalyzeAsync("paste", "ambiguous");
+        Assert.False(cache.TryGetName("Same", out _));
+        Assert.False(cache.TryGetPrinting("p", "9", out _));
+        Assert.False(cache.TryGetPrinting("", "", out _));
+        Assert.True(cache.TryGetName("Unique", out var unique));
+        Assert.NotNull(unique);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_PartialCache_SubmitsOnlyTheUncachedIdentifier()
+    {
+        var cache = new ScryfallCollectionCardCache();
+        cache.SetNamePositive("Cached", BasicLand("Cached", "W"));
+        var resolver = new StubResolver([Response(HttpStatusCode.OK, [BasicLand("Uncached", "U")])]);
+        await new ManabaseAnalysisService(new FakeLoader([Land("Cached", 1), Land("Uncached", 1)]), resolver, collectionCardCache: cache).AnalyzeAsync("paste", "partial");
+        Assert.Equal(1, resolver.CollectionCallCount);
+        string payload = System.Text.Json.JsonSerializer.Serialize(resolver.Requests.Single().Parameters.Single(parameter => parameter.Type == ParameterType.RequestBody).Value);
+        Assert.Contains("Uncached", payload);
+        Assert.DoesNotContain("Cached", payload);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_RawDoubleFaceName_UsesAnIndependentCacheKey()
+    {
+        var cache = new ScryfallCollectionCardCache();
+        cache.SetNamePositive("A", BasicLand("A", "W"));
+        var resolver = new StubResolver([Response(HttpStatusCode.OK, [BasicLand("A // B", "U")])]);
+        await new ManabaseAnalysisService(new FakeLoader([Land("A // B", 1)]), resolver, collectionCardCache: cache).AnalyzeAsync("paste", "double-face");
+        Assert.Equal(1, resolver.CollectionCallCount);
+        Assert.True(cache.TryGetName("A", out _));
+        Assert.True(cache.TryGetName("A // B", out var raw));
+        Assert.NotNull(raw);
+    }
 
     private static DeckEntry Entry(string name, int qty, string board, string? set = null, string? cn = null, string? category = null) => new()
     {
@@ -2199,6 +2402,41 @@ public sealed class ManabaseAnalysisServiceTests
         Power: null, Toughness: null, Keywords: null, ColorIdentity: null,
         SetCode: set, SetName: null, CollectorNumber: cn, CardFaces: null, Id: null,
         Layout: "normal", Cmc: cmc, ProducedMana: null, Rarity: "rare");
+
+    private static Func<RestRequest, Task<RestResponse<ScryfallCollectionResponse>>> Response(HttpStatusCode statusCode, List<ScryfallCard>? cards, List<ScryfallCollectionIdentifier>? notFound = null)
+        => request => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+        {
+            StatusCode = statusCode,
+            Data = cards is null ? null : new ScryfallCollectionResponse(cards, notFound),
+        });
+
+    private static Func<RestRequest, Task<RestResponse<ScryfallCollectionResponse>>> ThrowingResponse()
+        => _ => Task.FromException<RestResponse<ScryfallCollectionResponse>>(new HttpRequestException("Scryfall request failed"));
+
+    private sealed class StubResolver : IScryfallCardResolver
+    {
+        private readonly Queue<Func<RestRequest, Task<RestResponse<ScryfallCollectionResponse>>>> _responses;
+
+        public StubResolver(IEnumerable<Func<RestRequest, Task<RestResponse<ScryfallCollectionResponse>>>> responses)
+            => _responses = new Queue<Func<RestRequest, Task<RestResponse<ScryfallCollectionResponse>>>>(responses);
+
+        public int CollectionCallCount { get; private set; }
+
+        public List<RestRequest> Requests { get; } = [];
+
+        public Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken cancellationToken)
+        {
+            CollectionCallCount++;
+            Requests.Add(request);
+            return _responses.Dequeue()(request);
+        }
+
+        public Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken) => Task.FromResult<ScryfallCard?>(null);
+
+        public Task<ScryfallCard?> SearchPrintingFallbackCardAsync(string cardName, CancellationToken cancellationToken) => Task.FromResult<ScryfallCard?>(null);
+
+        public Task<ScryfallCard?> ResolveSingleAsync(string cardName, CancellationToken cancellationToken) => Task.FromResult<ScryfallCard?>(null);
+    }
 
     private sealed class FakeLoader : IDeckEntryLoader
     {
@@ -2246,6 +2484,37 @@ public sealed class ManabaseAnalysisServiceTests
 
         public Task<ScryfallCard?> ResolveSingleAsync(string cardName, CancellationToken cancellationToken)
             => Task.FromResult(_cards.FirstOrDefault(card => string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private sealed class CountingResolver : IScryfallCardResolver
+    {
+        private readonly IReadOnlyList<ScryfallCard> _cards;
+
+        public CountingResolver(IReadOnlyList<ScryfallCard> cards) => _cards = cards;
+
+        public int CollectionCallCount { get; private set; }
+
+        public int FallbackCallCount { get; private set; }
+
+        public Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken cancellationToken)
+        {
+            CollectionCallCount++;
+            return Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+            {
+                StatusCode = HttpStatusCode.OK,
+                Data = new ScryfallCollectionResponse(_cards.ToList(), null),
+            });
+        }
+
+        public Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
+        {
+            FallbackCallCount++;
+            return Task.FromResult(_cards.FirstOrDefault(card => string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        public Task<ScryfallCard?> SearchPrintingFallbackCardAsync(string cardName, CancellationToken cancellationToken) => Task.FromResult<ScryfallCard?>(null);
+
+        public Task<ScryfallCard?> ResolveSingleAsync(string cardName, CancellationToken cancellationToken) => Task.FromResult<ScryfallCard?>(null);
     }
 
     private sealed class FakeCedhLandBaselineProvider : ICedhLandBaselineProvider
