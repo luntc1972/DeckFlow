@@ -2185,8 +2185,7 @@ public sealed class ManabaseAnalysisServiceTests
 
             var resolver = new StubResolver([Response(HttpStatusCode.OK, new List<ScryfallCard> { first, second }.Where(card => card != cachedCard).ToList())]);
             var service = new ManabaseAnalysisService(new FakeLoader(entries), resolver, collectionCardCache: cache);
-            MethodInfo method = typeof(ManabaseAnalysisService).GetMethod("ResolveCardsAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
-            var index = await (Task<ScryfallCardNameIndex>)method.Invoke(service, [entries, CancellationToken.None])!;
+            var index = await InvokeResolveCardsAsync(service, entries);
 
             Assert.True(index.TryResolve("Shared", null, null, out ScryfallCardData? resolved));
             return resolved!.CollectorNumber;
@@ -2201,7 +2200,124 @@ public sealed class ManabaseAnalysisServiceTests
         Assert.Equal("2", neitherCached);
     }
 
+    [Fact]
+    public async Task ResolveCardsAsync_PartiallyWarmDeckWithAtMostBatchSizeUncached_IssuesOneCollectionPost()
+    {
+        var entries = Enumerable.Range(0, 76).Select(number => Land($"Card {number}", 1)).ToList();
+        var cache = new ScryfallCollectionCardCache();
+        cache.SetNamePositive("Card 0", BasicLand("Card 0", "W"));
+        var resolver = new StubResolver([
+            Response(HttpStatusCode.OK, Enumerable.Range(1, 75).Select(number => BasicLand($"Card {number}", "W")).ToList()),
+            // Why: a second response is queued deliberately. Without it a regression issuing 2 POSTs
+            // would die on an empty queue; with it the test fails as "Expected: 1, Actual: 2".
+            Response(HttpStatusCode.OK, [BasicLand("Card 75", "W")]),
+        ]);
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), resolver, collectionCardCache: cache);
+
+        await InvokeResolveCardsAsync(service, entries);
+
+        Assert.Equal(1, resolver.CollectionCallCount);
+    }
+
+    [Fact]
+    public async Task ResolveCardsAsync_PartiallyWarmDeck_SubmitsOnlyUncachedIdentifiers()
+    {
+        var entries = new List<DeckEntry> { Land("Cached", 1), Land("Uncached One", 1), Land("Uncached Two", 1) };
+        var cache = new ScryfallCollectionCardCache();
+        cache.SetNamePositive("Cached", BasicLand("Cached", "W"));
+        var resolver = new StubResolver([Response(HttpStatusCode.OK, [BasicLand("Uncached One", "U"), BasicLand("Uncached Two", "B")])]);
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), resolver, collectionCardCache: cache);
+
+        await InvokeResolveCardsAsync(service, entries);
+
+        string?[] submittedNames = SubmittedIdentifierNames(resolver);
+        Assert.Equal(2, submittedNames.Length);
+        Assert.Contains("Uncached One", submittedNames);
+        Assert.Contains("Uncached Two", submittedNames);
+        Assert.DoesNotContain("Cached", submittedNames);
+    }
+
+    [Fact]
+    public async Task ResolveCardsAsync_MultiChunkPositionedWinnerIsInvariantToCacheWarmth()
+    {
+        var entries = Enumerable.Range(0, 76).Select(number => Entry($"Request {number}", 1, "mainboard", "abc", number.ToString())).ToList();
+        var cards = Enumerable.Range(0, 76).Select(number => Spell(number is 0 or 75 ? "Shared" : $"Card {number}", "{W}", 1, "Creature", set: "abc", cn: number.ToString())).ToList();
+
+        async Task<string?> ResolveWinnerAsync(bool cacheLater, bool cacheAll)
+        {
+            var cache = new ScryfallCollectionCardCache();
+            if (cacheAll)
+            {
+                foreach (var card in cards)
+                {
+                    cache.SetPrintingPositive(card.SetCode!, card.CollectorNumber!, card);
+                }
+            }
+            else if (cacheLater)
+            {
+                var later = cards[75];
+                cache.SetPrintingPositive(later.SetCode!, later.CollectorNumber!, later);
+            }
+
+            var responses = cacheAll
+                ? Array.Empty<Func<RestRequest, Task<RestResponse<ScryfallCollectionResponse>>>>()
+                : cacheLater
+                    ? [Response(HttpStatusCode.OK, cards.Take(75).ToList())]
+                    : [Response(HttpStatusCode.OK, cards.Take(75).ToList()), Response(HttpStatusCode.OK, cards.Skip(75).ToList())];
+            var service = new ManabaseAnalysisService(new FakeLoader(entries), new StubResolver(responses), collectionCardCache: cache);
+            var index = await InvokeResolveCardsAsync(service, entries);
+
+            Assert.True(index.TryResolve("Shared", null, null, out ScryfallCardData? resolved));
+            return resolved!.CollectorNumber;
+        }
+
+        Assert.Equal("75", await ResolveWinnerAsync(cacheLater: false, cacheAll: false));
+        Assert.Equal("75", await ResolveWinnerAsync(cacheLater: true, cacheAll: false));
+        Assert.Equal("75", await ResolveWinnerAsync(cacheLater: false, cacheAll: true));
+    }
+
+    [Fact]
+    public async Task ResolveCardsAsync_MultiChunkUnpairedCards_AreIndexedAfterAllPositionedCards()
+    {
+        var entries = Enumerable.Range(0, 75)
+            .Select(number => Entry($"Filler {number}", 1, "mainboard"))
+            .Append(Entry("Shared", 1, "mainboard"))
+            .ToList();
+        var firstChunk = Enumerable.Range(0, 75)
+            .Select(number => Spell($"Filler {number}", "{W}", 1, "Creature", cn: number.ToString()))
+            .Append(Spell("Shared", "{W}", 1, "Creature", cn: "99"))
+            .ToList();
+        var responses = new[]
+        {
+            Response(HttpStatusCode.OK, firstChunk),
+            Response(HttpStatusCode.OK, [Spell("Shared", "{W}", 1, "Creature", cn: "1")]),
+        };
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), new StubResolver(responses));
+
+        var index = await InvokeResolveCardsAsync(service, entries);
+
+        // Why: pins unpaired cards after ALL positioned cards across every chunk; moving that append inside the loop must break this.
+        Assert.True(index.TryResolve("Shared", null, null, out ScryfallCardData? resolved));
+        Assert.Equal("99", resolved!.CollectorNumber);
+    }
+
     // --- helpers -------------------------------------------------------------
+
+    // Why: ResolveCardsAsync is private; every test that needs the batch/cache path directly goes
+    // through this one seam rather than repeating the reflection boilerplate.
+    private static Task<ScryfallCardNameIndex> InvokeResolveCardsAsync(ManabaseAnalysisService service, IReadOnlyList<DeckEntry> entries)
+    {
+        MethodInfo method = typeof(ManabaseAnalysisService).GetMethod("ResolveCardsAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        return (Task<ScryfallCardNameIndex>)method.Invoke(service, [entries, CancellationToken.None])!;
+    }
+
+    private static string?[] SubmittedIdentifierNames(StubResolver resolver)
+    {
+        string payload = System.Text.Json.JsonSerializer.Serialize(resolver.Requests.Single().Parameters.Single(parameter => parameter.Type == ParameterType.RequestBody).Value);
+        using var document = System.Text.Json.JsonDocument.Parse(payload);
+        return document.RootElement.GetProperty("identifiers").EnumerateArray().Select(identifier => identifier.GetProperty("name").GetString()).ToArray();
+    }
+
 
     private static string FormatCastabilityRow(CardCastability row)
         => $"{row.Name}|{row.ManaValue}|{row.OnCurveTurn}|{row.CastPercent}|{row.IsCommander}";
