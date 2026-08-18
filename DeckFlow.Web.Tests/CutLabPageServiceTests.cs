@@ -12,6 +12,7 @@ using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CutLab;
 using DeckFlow.Web.Services.Harvest;
 using DeckFlow.Web.Services.Manabase;
+using DeckFlow.Web.Services.Packets;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
@@ -1355,7 +1356,8 @@ public sealed class CutLabPageServiceTests
             Spell("Arcane Signet", "Artifact", manaCost: "{2}", cmc: 2),
         ];
         CutLabResolvedCardCache resolvedCardCache = new();
-        var contextBuilder = new CutLabAnalysisContextBuilder(new FakeResolver(cards), resolvedCardCache);
+        var cardResolver = new FakeResolver(cards);
+        var contextBuilder = new CutLabAnalysisContextBuilder(cardResolver, resolvedCardCache, new ScryfallReferenceResolver(cardResolver));
         var service = new CutLabExportService(
             contextBuilder,
             resolvedCardCache,
@@ -1603,9 +1605,11 @@ public sealed class CutLabPageServiceTests
         var cards = BuildResolvedCards(entries);
         var categoryStore = new FakeCategoryKnowledgeStore();
         var spellbook = new FakeSpellbookService();
+        var sharedCardResolver = new FakeResolver(cards);
         var analysisBuilder = new CutLabAnalysisContextBuilder(
-            new FakeResolver(cards),
+            sharedCardResolver,
             new CutLabResolvedCardCache(),
+            new ScryfallReferenceResolver(sharedCardResolver),
             spellbook,
             categoryStore);
         var service = new CutLabPageService(
@@ -1663,7 +1667,7 @@ public sealed class CutLabPageServiceTests
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
         var cards = BuildResolvedCards(entries);
         var cache = new CutLabResolvedCardCache();
-        var analysisBuilder = new CutLabAnalysisContextBuilder(new FakeResolver(cards), cache);
+        var analysisBuilder = new CutLabAnalysisContextBuilder(new FakeResolver(cards), cache, new ScryfallReferenceResolver(new FakeResolver(cards)));
         var simulationService = new FakeSimulationService();
         var service = new CutLabPageService(
             new FakeLoader(entries),
@@ -1710,6 +1714,7 @@ public sealed class CutLabPageServiceTests
         var analysisBuilder = new CutLabAnalysisContextBuilder(
             resolver,
             cache,
+            new ScryfallReferenceResolver(resolver),
             new FakeSpellbookService(),
             new FakeCategoryKnowledgeStore());
         var service = new CutLabPageService(
@@ -1777,6 +1782,7 @@ public sealed class CutLabPageServiceTests
         var analysisBuilder = new CutLabAnalysisContextBuilder(
             resolver,
             cache,
+            new ScryfallReferenceResolver(resolver),
             new FakeSpellbookService(),
             new FakeCategoryKnowledgeStore());
         var service = new CutLabPageService(
@@ -2067,6 +2073,7 @@ public sealed class CutLabPageServiceTests
         var analysisBuilder = new CutLabAnalysisContextBuilder(
             resolver,
             cache,
+            new ScryfallReferenceResolver(resolver),
             new FakeSpellbookService(),
             new FakeCategoryKnowledgeStore());
         var service = new CutLabPageService(
@@ -2115,6 +2122,7 @@ public sealed class CutLabPageServiceTests
         var analysisBuilder = new CutLabAnalysisContextBuilder(
             resolver,
             cache,
+            new ScryfallReferenceResolver(resolver),
             new FakeSpellbookService(),
             new FakeCategoryKnowledgeStore());
         var service = new CutLabPageService(
@@ -2176,6 +2184,7 @@ public sealed class CutLabPageServiceTests
         var analysisBuilder = new CutLabAnalysisContextBuilder(
             resolver,
             cache,
+            new ScryfallReferenceResolver(resolver),
             new FakeSpellbookService(),
             new FakeCategoryKnowledgeStore());
         var service = new CutLabPageService(
@@ -2231,6 +2240,7 @@ public sealed class CutLabPageServiceTests
         var analysisBuilder = new CutLabAnalysisContextBuilder(
             resolver,
             cache,
+            new ScryfallReferenceResolver(resolver),
             new FakeSpellbookService(),
             new FakeCategoryKnowledgeStore());
         var service = new CutLabPageService(
@@ -2487,9 +2497,11 @@ public sealed class CutLabPageServiceTests
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
         var cards = BuildResolvedCards(entries);
         var logger = new FakeLogger<CutLabAnalysisContextBuilder>();
+        var sharedCardResolver2 = new FakeResolver(cards);
         var analysisBuilder = new CutLabAnalysisContextBuilder(
-            new FakeResolver(cards),
+            sharedCardResolver2,
             new CutLabResolvedCardCache(),
+            new ScryfallReferenceResolver(sharedCardResolver2),
             new FakeSpellbookService { Exception = new InvalidOperationException("spellbook down") },
             new FakeCategoryKnowledgeStore(),
             logger);
@@ -2518,9 +2530,11 @@ public sealed class CutLabPageServiceTests
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
         var cards = BuildResolvedCards(entries);
         var logger = new FakeLogger<CutLabAnalysisContextBuilder>();
+        var sharedCardResolver3 = new FakeResolver(cards);
         var analysisBuilder = new CutLabAnalysisContextBuilder(
-            new FakeResolver(cards),
+            sharedCardResolver3,
             new CutLabResolvedCardCache(),
+            new ScryfallReferenceResolver(sharedCardResolver3),
             new FakeSpellbookService(),
             new ThrowingCategoryKnowledgeStore(new InvalidOperationException("db down")),
             logger);
@@ -2570,9 +2584,11 @@ public sealed class CutLabPageServiceTests
     {
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
         var cards = BuildResolvedCards(entries);
+        var sharedCardResolver4 = new FakeResolver(cards);
         var analysisBuilder = new CutLabAnalysisContextBuilder(
-            new FakeResolver(cards),
+            sharedCardResolver4,
             new CutLabResolvedCardCache(),
+            new ScryfallReferenceResolver(sharedCardResolver4),
             new FakeSpellbookService { Exception = new OperationCanceledException("cancel spellbook") },
             new FakeCategoryKnowledgeStore());
         var service = new CutLabPageService(
@@ -2594,9 +2610,11 @@ public sealed class CutLabPageServiceTests
     {
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
         var cards = BuildResolvedCards(entries);
+        var sharedCardResolver5 = new FakeResolver(cards);
         var analysisBuilder = new CutLabAnalysisContextBuilder(
-            new FakeResolver(cards),
+            sharedCardResolver5,
             new CutLabResolvedCardCache(),
+            new ScryfallReferenceResolver(sharedCardResolver5),
             new FakeSpellbookService(),
             new ThrowingCategoryKnowledgeStore(new OperationCanceledException("cancel categories")));
         var service = new CutLabPageService(
@@ -2701,9 +2719,10 @@ public sealed class CutLabPageServiceTests
                 },
             ],
         };
+        var cardResolver = new FakeResolver(cards);
         var service = new CutLabPageService(
             new FakeLoader(entries),
-            new FakeResolver(cards),
+            cardResolver,
             new FakeBanListService([]),
             new FakeManabaseBaselineProvider(new ManabaseBracketBaseline
             {
@@ -2713,8 +2732,9 @@ public sealed class CutLabPageServiceTests
             }),
             new FakeCedhLandBaselineProvider(),
             analysisContextBuilder: new CutLabAnalysisContextBuilder(
-                new FakeResolver(cards),
+                cardResolver,
                 new CutLabResolvedCardCache(),
+                new ScryfallReferenceResolver(cardResolver),
                 spellbook,
                 categoryStore));
         var request = new CutLabRequest
@@ -3033,6 +3053,7 @@ public sealed class CutLabPageServiceTests
         var services = new ServiceCollection();
         services.AddSingleton<IDeckEntryLoader>(new FakeLoader([]));
         services.AddSingleton<IScryfallCardResolver>(new FakeResolver([]));
+        services.AddSingleton<ScryfallReferenceResolver>();
         services.AddSingleton<ICommanderBanListService>(new FakeBanListService([]));
         if (!omitManabaseBaseline)
         {

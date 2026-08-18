@@ -11,6 +11,7 @@ using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Bracket;
 using DeckFlow.Web.Services.FeatureFlags;
+using DeckFlow.Web.Services.Packets;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
 using DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
 using DeckFlow.Web.Services.Scryfall;
@@ -2044,16 +2045,18 @@ Commander
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null)
     {
+        var cardResolver = new ScryfallCardResolver(
+            new FakeScryfallRestClientFactory(new HttpClient
+            {
+                BaseAddress = new Uri("https://api.scryfall.com/")
+            }),
+            new FakeResiliencePipelineProvider(),
+            executeCollectionAsyncOverride: executeCollectionAsync ?? ((request, _) => Task.FromResult(CreateCollectionResponse(request))),
+            executeSearchAsyncOverride: executeSearchAsync ?? ((request, _) => Task.FromResult(CreateSearchResponse(request))),
+            executeNamedAsyncOverride: executeNamedAsync ?? ((request, _) => Task.FromResult(CreateNamedResponse(request))));
         return new DeckAnalysisPacketService(
-            new ScryfallCardResolver(
-                new FakeScryfallRestClientFactory(new HttpClient
-                {
-                    BaseAddress = new Uri("https://api.scryfall.com/")
-                }),
-                new FakeResiliencePipelineProvider(),
-                executeCollectionAsyncOverride: executeCollectionAsync ?? ((request, _) => Task.FromResult(CreateCollectionResponse(request))),
-                executeSearchAsyncOverride: executeSearchAsync ?? ((request, _) => Task.FromResult(CreateSearchResponse(request))),
-                executeNamedAsyncOverride: executeNamedAsync ?? ((request, _) => Task.FromResult(CreateNamedResponse(request)))),
+            cardResolver,
+            new ScryfallReferenceResolver(cardResolver),
             new DeckEntryLoader(
                 moxfieldDeckImporter ?? new FakeMoxfieldDeckImporter(),
                 new FakeArchidektDeckImporter(),

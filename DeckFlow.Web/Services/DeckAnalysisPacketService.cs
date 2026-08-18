@@ -182,6 +182,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
 
     internal DeckAnalysisPacketService(
         IScryfallCardResolver scryfallCardResolver,
+        ScryfallReferenceResolver scryfallReferenceResolver,
         IDeckEntryLoader deckEntryLoader,
         IMechanicLookupService mechanicLookupService,
         ICommanderBanListService commanderBanListService,
@@ -192,10 +193,10 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         SetUpgradePromptVariantRegistry setUpgradePromptRegistry,
         PacketSessionCache packetCache,
         IFeatureFlagCache? flagCache = null,
-        ILogger<DeckAnalysisPacketService>? logger = null,
-        ScryfallCollectionCardCache? collectionCardCache = null)
+        ILogger<DeckAnalysisPacketService>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(scryfallCardResolver);
+        ArgumentNullException.ThrowIfNull(scryfallReferenceResolver);
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
         ArgumentNullException.ThrowIfNull(mechanicLookupService);
         ArgumentNullException.ThrowIfNull(commanderBanListService);
@@ -206,7 +207,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         ArgumentNullException.ThrowIfNull(setUpgradePromptRegistry);
         ArgumentNullException.ThrowIfNull(packetCache);
         _scryfallCardResolver = scryfallCardResolver;
-        _scryfallReferenceResolver = new ScryfallReferenceResolver(scryfallCardResolver, collectionCardCache);
+        _scryfallReferenceResolver = scryfallReferenceResolver;
         _deckEntryLoader = deckEntryLoader;
         _mechanicLookupService = mechanicLookupService;
         _commanderBanListService = commanderBanListService;
