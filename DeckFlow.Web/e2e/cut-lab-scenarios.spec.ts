@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
 import { expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
+import { clickManabasePillRadio } from './support/manabase-pill';
 
 const baseUrl = 'http://localhost:5173';
 
@@ -49,8 +50,8 @@ const fillImportForm = async (page: Page, primaryPlan: string): Promise<void> =>
   await page.locator('#cut-lab-deck-text').fill(oversizedPool);
   await page.locator('#cut-lab-primary-plan').fill(primaryPlan);
   await page.locator('#cut-lab-secondary-plan').fill('Keep the fast mana package intact.');
-  await page.locator('input[name="Bracket"][value="4"]').check();
-  await page.locator('input[name="PlayExperience"][value="Focused"]').check();
+  await clickManabasePillRadio(page, 'Bracket', '4');
+  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
 };
 
 const waitForCutRounds = async (page: Page): Promise<void> => {

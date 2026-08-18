@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
+import { clickManabasePillRadio } from './support/manabase-pill';
 
 // Phase MBGAP-11 — cEDH keep-shapes live smoke on /manabase, gated behind
 // analysis.manabase.mulligan-eval plus analysis.manabase.keep-shapes. This mirrors the
@@ -114,8 +115,8 @@ async function submitDeck(
   await page.goto('/manabase');
   await page.locator('#manabase-input-source').selectOption('PasteText');
   await page.locator('#manabase-deck-text').fill(deckText);
-  await page.locator(`input[name="Mode"][value="${mode}"]`).check();
-  await page.locator(`input[name="CommanderImportance"][value="${commanderImportance}"]`).check();
+  await clickManabasePillRadio(page, 'Mode', mode);
+  await clickManabasePillRadio(page, 'CommanderImportance', commanderImportance);
   await page.getByRole('button', { name: 'Analyze Mana Base' }).click();
 
   const result = page.locator('.result-panel:has(h2:has-text("Result"))');
