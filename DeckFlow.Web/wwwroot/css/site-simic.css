@@ -45,7 +45,9 @@ body {
     linear-gradient(180deg, #edf7fa 0, var(--bg) 14rem);
 }
 
-a { color: #1e6f7c; text-decoration-thickness: 1.5px; text-underline-offset: 0.14em; }
+/* Why: #1e6f7c cleared AA on the panel at 5.57:1 but only 4.34:1 on the page background. Darkened
+   ~2% to 4.79:1 on --bg. */
+a { color: #1c6874; text-decoration-thickness: 1.5px; text-underline-offset: 0.14em; }
 a:hover, a:focus-visible { color: #134d56; }
 .page-header { border-bottom: 1px solid rgba(31, 120, 145, 0.20); }
 
