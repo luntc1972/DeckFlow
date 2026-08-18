@@ -13,6 +13,8 @@ using DeckFlow.Web.Services.PromptBuilders.Primer;
 using DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
 using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Http;
+using DeckFlow.Web.Services.Manabase;
+using DeckFlow.Web.Services.Scryfall;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
@@ -67,6 +69,7 @@ public sealed class DiCompositionExtensionsTests
         // inline in Program.cs, not part of the packet-services group. Provide them so ValidateOnBuild
         // resolves (DeckAnalysisPacketService takes IGameChangerCatalogService as of Phase 77-04).
         services.AddScoped<IDeckEntryLoader, StubDeckEntryLoader>();
+        services.AddScoped<IManabaseAnalysisService, ManabaseAnalysisService>();
         services.AddSingleton<ICategoryKnowledgeStore, FakeCategoryKnowledgeStore>();
         services.AddSingleton<DeckFlow.Web.Services.Bracket.IGameChangerCatalogService,
             DeckFlow.Web.Services.Bracket.GameChangerCatalogService>();
@@ -88,6 +91,8 @@ public sealed class DiCompositionExtensionsTests
         Assert.NotNull(sp.GetRequiredService<IDeckComparisonService>());
         Assert.NotNull(sp.GetRequiredService<IMetaGapService>());
         Assert.NotNull(sp.GetRequiredService<IDeckPrimerPacketService>());
+        Assert.NotNull(sp.GetRequiredService<IManabaseAnalysisService>());
+        Assert.NotNull(sp.GetRequiredService<ScryfallCollectionCardCache>());
 
         // Resolve the eight prompt-variant registries (singletons)
         Assert.NotNull(sp.GetRequiredService<AnalysisPromptVariantRegistry>());
