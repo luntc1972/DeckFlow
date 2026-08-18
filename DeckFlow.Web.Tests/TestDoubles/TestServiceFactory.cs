@@ -6,6 +6,7 @@ using DeckFlow.Core.Loading;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Bracket;
+using DeckFlow.Web.Services.Packets;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
 using DeckFlow.Web.Services.PromptBuilders.Comparison;
 using DeckFlow.Web.Services.PromptBuilders.FollowUp;
@@ -118,8 +119,14 @@ internal static class TestServiceFactory
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null)
-        => new(
-            CreateScryfallCardResolver(executeCollectionAsync, executeSearchAsync, executeNamedAsync),
+    {
+        // Why: one resolver instance shared by the service and its reference resolver — two
+        // instances would each build their own collection cache, so the direct and batch paths
+        // would stop sharing cached identifiers.
+        var cardResolver = CreateScryfallCardResolver(executeCollectionAsync, executeSearchAsync, executeNamedAsync);
+        return new DeckAnalysisPacketService(
+            cardResolver,
+            new ScryfallReferenceResolver(cardResolver),
             CreateDeckEntryLoader(moxfieldDeckImporter, archidektDeckImporter, moxfieldParser, archidektParser),
             mechanicLookupService,
             commanderBanListService,
@@ -131,6 +138,7 @@ internal static class TestServiceFactory
             new PacketSessionCache(),
             flagCache: null,
             logger: logger);
+    }
 
     /// <summary>Empty catalog (no Game Changers / MLD / extra-turn cards) for tests that do not exercise
     /// the multi-axis score path; bracket classification still runs from combo signals alone.</summary>
@@ -155,14 +163,18 @@ internal static class TestServiceFactory
         ILogger<DeckComparisonService>? logger = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null)
-        => new(
-            CreateScryfallCardResolver(executeCollectionAsync, executeSearchAsync),
+    {
+        var cardResolver = CreateScryfallCardResolver(executeCollectionAsync, executeSearchAsync);
+        return new DeckComparisonService(
+            cardResolver,
+            new ScryfallReferenceResolver(cardResolver),
             CreateDeckEntryLoader(moxfieldDeckImporter, archidektDeckImporter, moxfieldParser, archidektParser),
             commanderSpellbookService,
             BuildComparisonPromptRegistry(),
             BuildFollowUpPromptRegistry(),
             new PacketSessionCache(),
             logger);
+    }
 
     public static MetaGapService CreateMetaGapService(
         IMoxfieldDeckImporter moxfieldDeckImporter,
@@ -173,13 +185,17 @@ internal static class TestServiceFactory
         ICommanderSpellbookService commanderSpellbookService,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null)
-        => new(
-            CreateScryfallCardResolver(executeCollectionAsync, executeSearchAsync),
+    {
+        var cardResolver = CreateScryfallCardResolver(executeCollectionAsync, executeSearchAsync);
+        return new MetaGapService(
+            cardResolver,
+            new ScryfallReferenceResolver(cardResolver),
             CreateDeckEntryLoader(moxfieldDeckImporter, archidektDeckImporter, moxfieldParser, archidektParser),
             edhTop16Client,
             commanderSpellbookService,
             BuildMetaGapPromptRegistry(),
             new PacketSessionCache());
+    }
 
     private static AnalysisPromptVariantRegistry BuildAnalysisPromptRegistry()
         => new(new IAnalysisPromptVariant[]

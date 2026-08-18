@@ -11,6 +11,7 @@ using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CutLab;
 using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Manabase;
+using DeckFlow.Web.Services.Packets;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -292,9 +293,10 @@ public sealed class CutLabAjaxFloorByRoleRegressionTests
         CutLabRequest request = CreateRequest(state);
         request.CutLabStateJson = string.Empty;
         request.SelectedCommander = string.Empty;
+        var sharedCardResolver = new FakeResolver(BuildResolvedCards());
         CutLabPageService pageService = new(
             new FakeLoader(BuildEntries(state)),
-            new FakeResolver(BuildResolvedCards()),
+            sharedCardResolver,
             new FakeBanListService(),
             manabaseBaseline: new FakeManabaseBaselineProvider(new ManabaseBracketBaseline
             {
@@ -305,8 +307,9 @@ public sealed class CutLabAjaxFloorByRoleRegressionTests
             cedhBaseline: new FakeCedhLandBaselineProvider(),
             roleFloorBaseline: null,
             analysisContextBuilder: new CutLabAnalysisContextBuilder(
-                new FakeResolver(BuildResolvedCards()),
-                new CutLabResolvedCardCache()),
+                sharedCardResolver,
+                new CutLabResolvedCardCache(),
+                new ScryfallReferenceResolver(sharedCardResolver)),
             simulationService: new FakeSimulationService(),
             logger: NullLogger<CutLabPageService>.Instance,
             featureFlags: null);

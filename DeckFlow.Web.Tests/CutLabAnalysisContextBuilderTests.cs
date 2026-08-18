@@ -6,6 +6,7 @@ using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CutLab;
 using DeckFlow.Web.Services.Harvest;
+using DeckFlow.Web.Services.Packets;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.Logging;
 using RestSharp;
@@ -41,9 +42,11 @@ public sealed class CutLabAnalysisContextBuilderTests
                 [new SpellbookCombo(["Value Engine"], ["Advantage"], "Draw cards.")],
                 [new SpellbookAlmostCombo("Combo Piece", ["Value Engine"], ["Advantage"], "Missing piece.")]),
         };
+        var sharedCardResolver = new CountingResolver(cards);
         var builder = new CutLabAnalysisContextBuilder(
-            new CountingResolver(cards),
+            sharedCardResolver,
             new CutLabResolvedCardCache(),
+            new ScryfallReferenceResolver(sharedCardResolver),
             spellbook,
             categoryStore);
 
@@ -81,9 +84,11 @@ public sealed class CutLabAnalysisContextBuilderTests
             Spell("Combo Partner", "Artifact", manaCost: "{2}", cmc: 2),
         ];
         SpellbookCombo combo = new(["Value Engine", "Combo Partner"], ["Infinite mana"], "Make infinite mana.");
+        var sharedCardResolver2 = new CountingResolver(cards);
         var builder = new CutLabAnalysisContextBuilder(
-            new CountingResolver(cards),
+            sharedCardResolver2,
             new CutLabResolvedCardCache(),
+            new ScryfallReferenceResolver(sharedCardResolver2),
             new LocalSpellbookService
             {
                 Result = new CommanderSpellbookResult([combo], []),
@@ -118,9 +123,11 @@ public sealed class CutLabAnalysisContextBuilderTests
             Spell("Near Piece", "Artifact", manaCost: "{2}", cmc: 2),
         ];
         SpellbookAlmostCombo nearCombo = new("Missing Piece", ["Near Piece"], ["Draw your deck"], "Add the missing piece.");
+        var sharedCardResolver3 = new CountingResolver(cards);
         var builder = new CutLabAnalysisContextBuilder(
-            new CountingResolver(cards),
+            sharedCardResolver3,
             new CutLabResolvedCardCache(),
+            new ScryfallReferenceResolver(sharedCardResolver3),
             new LocalSpellbookService
             {
                 Result = new CommanderSpellbookResult([], [nearCombo]),
@@ -157,9 +164,11 @@ public sealed class CutLabAnalysisContextBuilderTests
             Spell("Combo Partner", "Artifact", manaCost: "{2}", cmc: 2),
             Spell("Plain Value", "Artifact", manaCost: "{3}", cmc: 3),
         ];
+        var sharedCardResolver4 = new CountingResolver(cards);
         var builder = new CutLabAnalysisContextBuilder(
-            new CountingResolver(cards),
+            sharedCardResolver4,
             new CutLabResolvedCardCache(),
+            new ScryfallReferenceResolver(sharedCardResolver4),
             new LocalSpellbookService
             {
                 Result = new CommanderSpellbookResult(
@@ -191,9 +200,11 @@ public sealed class CutLabAnalysisContextBuilderTests
             Spell("Value Engine", "Enchantment", manaCost: "{2}{U}", cmc: 3),
             Spell("Combo Partner", "Artifact", manaCost: "{2}", cmc: 2),
         ];
+        var sharedCardResolver5 = new CountingResolver(cards);
         var builder = new CutLabAnalysisContextBuilder(
-            new CountingResolver(cards),
+            sharedCardResolver5,
             new CutLabResolvedCardCache(),
+            new ScryfallReferenceResolver(sharedCardResolver5),
             new LocalSpellbookService
             {
                 Result = new CommanderSpellbookResult(
@@ -227,7 +238,7 @@ public sealed class CutLabAnalysisContextBuilderTests
             CutLabResolvedCardCache.ComputePoolKey(workingList.Select(card => (card.Name, card.Quantity)).ToArray()),
             cachedCards);
         var resolver = new CountingResolver([]);
-        var builder = new CutLabAnalysisContextBuilder(resolver, cache);
+        var builder = new CutLabAnalysisContextBuilder(resolver, cache, new ScryfallReferenceResolver(resolver));
 
         CutLabAnalysisContext context = await builder.BuildAsync(
             workingList,
@@ -257,6 +268,7 @@ public sealed class CutLabAnalysisContextBuilderTests
         var builder = new CutLabAnalysisContextBuilder(
             resolver,
             cache,
+            new ScryfallReferenceResolver(resolver),
             new LocalSpellbookService { Exception = new InvalidOperationException("spellbook down") },
             new ThrowingCategoryKnowledgeStore(new InvalidOperationException("db down")));
 
@@ -292,7 +304,7 @@ public sealed class CutLabAnalysisContextBuilderTests
         ];
         cards.AddRange(Enumerable.Range(1, 119).Select(index => Spell($"Card {index:000}", "Artifact", manaCost: "{2}", cmc: 2)));
         var resolver = new CountingResolver(cards);
-        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache());
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(resolver));
 
         CutLabAnalysisContext context = await builder.BuildAsync(
             workingList,
@@ -319,9 +331,11 @@ public sealed class CutLabAnalysisContextBuilderTests
             Spell("Brinelin, the Moon Kraken", "Legendary Creature — Kraken", manaCost: "{4}{U}", cmc: 5),
             Spell("Arcane Signet", "Artifact", manaCost: "{2}", cmc: 2),
         ];
+        var sharedCardResolver6 = new CountingResolver(cards);
         var builder = new CutLabAnalysisContextBuilder(
-            new CountingResolver(cards),
-            new CutLabResolvedCardCache());
+            sharedCardResolver6,
+            new CutLabResolvedCardCache(),
+            new ScryfallReferenceResolver(sharedCardResolver6));
 
         CutLabAnalysisContext context = await builder.BuildAsync(
             workingList,
@@ -349,9 +363,11 @@ public sealed class CutLabAnalysisContextBuilderTests
         ];
         var categoryStore = new FakeCategoryKnowledgeStore();
         categoryStore.CategoriesByName["Malakir Rebirth"] = ["interaction"];
+        var sharedCardResolver7 = new CountingResolver([]);
         var builder = new CutLabAnalysisContextBuilder(
-            new CountingResolver([]),
+            sharedCardResolver7,
             new CutLabResolvedCardCache(),
+            new ScryfallReferenceResolver(sharedCardResolver7),
             categoryKnowledge: categoryStore);
 
         CutLabAnalysisContext context = await builder.BuildAsync(
@@ -387,7 +403,7 @@ public sealed class CutLabAnalysisContextBuilderTests
             Spell("Counterspell", "Instant", manaCost: "{U}{U}", cmc: 2),
         ];
         var resolver = new CountingResolver(cards);
-        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache());
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(resolver));
 
         CutLabAnalysisContext beforeContext = await builder.BuildAsync(
             beforeWorkingList,
@@ -416,7 +432,8 @@ public sealed class CutLabAnalysisContextBuilderTests
         [
             CardData("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{G}{U}", cmc: 3),
         ];
-        var builder = new CutLabAnalysisContextBuilder(new ThrowingResolver(), new CutLabResolvedCardCache());
+        var cardResolver = new ThrowingResolver();
+        var builder = new CutLabAnalysisContextBuilder(cardResolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(cardResolver));
 
         CutLabAnalysisContext context = await builder.BuildAsync(
             workingList,
@@ -450,7 +467,7 @@ public sealed class CutLabAnalysisContextBuilderTests
             Spell("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{G}{U}", cmc: 3),
             Spell("Counterspell", "Instant", manaCost: "{U}{U}", cmc: 2),
         ]);
-        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache());
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(resolver));
 
         CutLabAnalysisContext context = await builder.BuildAsync(
             workingList,
@@ -483,7 +500,7 @@ public sealed class CutLabAnalysisContextBuilderTests
             Spell("Counterspell", "Instant", manaCost: "{U}{U}", cmc: 2),
         ]);
         var cache = new CutLabResolvedCardCache();
-        var builder = new CutLabAnalysisContextBuilder(resolver, cache);
+        var builder = new CutLabAnalysisContextBuilder(resolver, cache, new ScryfallReferenceResolver(resolver));
 
         CutLabAnalysisContext first = await builder.BuildAsync(
             workingList,
@@ -525,7 +542,7 @@ public sealed class CutLabAnalysisContextBuilderTests
             PoolCard("Phase 111.1 Probe Gamma", "Creature"),
         ];
         var resolver = new CountingResolver([]);
-        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache());
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(resolver));
 
         await builder.ResolvePoolCardsAsync(workingList);
 
@@ -576,7 +593,7 @@ public sealed class CutLabAnalysisContextBuilderTests
                     Data = new ScryfallSearchResponse([]),
                 });
             });
-        var builder = new CutLabAnalysisContextBuilder(cardResolver, new CutLabResolvedCardCache());
+        var builder = new CutLabAnalysisContextBuilder(cardResolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(cardResolver));
 
         await builder.ResolvePoolCardsAsync(workingList);
 
@@ -597,7 +614,7 @@ public sealed class CutLabAnalysisContextBuilderTests
         {
             FallbackException = new HttpRequestException("429", null, HttpStatusCode.TooManyRequests),
         };
-        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache());
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(resolver));
 
         IReadOnlyList<ScryfallCardData> result = await builder.ResolvePoolCardsAsync(
             workingList,
@@ -618,7 +635,7 @@ public sealed class CutLabAnalysisContextBuilderTests
         {
             FallbackException = new HttpRequestException("503", null, HttpStatusCode.ServiceUnavailable),
         };
-        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache());
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(resolver));
 
         await Assert.ThrowsAsync<HttpRequestException>(() =>
             builder.ResolvePoolCardsAsync(workingList, failOpenOnLookupErrors: false));
@@ -635,7 +652,7 @@ public sealed class CutLabAnalysisContextBuilderTests
     {
         IReadOnlyList<CutLabPoolCard> workingList = [PoolCard("Phase 111.1 Probe Zeta", "Creature")];
         var resolver = new CountingResolver([]) { CollectionStatusCode = HttpStatusCode.TooManyRequests };
-        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache());
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(resolver));
 
         IReadOnlyList<ScryfallCardData> result = await builder.ResolvePoolCardsAsync(
             workingList,
@@ -661,7 +678,7 @@ public sealed class CutLabAnalysisContextBuilderTests
         IReadOnlyList<CutLabPoolCard> workingList = [PoolCard("Phase 111.1 Probe Eta", "Creature")];
         var resolver = new CountingResolver([targetCard]) { CollectionStatusCode = HttpStatusCode.TooManyRequests };
         var cache = new CutLabResolvedCardCache();
-        var builder = new CutLabAnalysisContextBuilder(resolver, cache);
+        var builder = new CutLabAnalysisContextBuilder(resolver, cache, new ScryfallReferenceResolver(resolver));
 
         IReadOnlyList<ScryfallCardData> firstPass = await builder.ResolvePoolCardsAsync(
             workingList,
@@ -700,7 +717,7 @@ public sealed class CutLabAnalysisContextBuilderTests
             Spell("Arcane Signet", "Artifact", manaCost: "{2}", cmc: 2),
             Spell("Counterspell", "Instant", manaCost: "{U}{U}", cmc: 2),
         ]);
-        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache());
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(resolver));
 
         CutLabAnalysisContext fullPoolContext = await builder.BuildAsync(
             fullPool,
@@ -740,7 +757,8 @@ public sealed class CutLabAnalysisContextBuilderTests
             PoolCard("Commander Card", "Legendary Creature - Human", isCommander: true),
             PoolCard("Plain Card", "Enchantment"),
         ];
-        var builder = new CutLabAnalysisContextBuilder(new CountingResolver([]), new CutLabResolvedCardCache());
+        var cardResolver = new CountingResolver([]);
+        var builder = new CutLabAnalysisContextBuilder(cardResolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(cardResolver));
 
         CutLabAnalysisContext context = await builder.BuildAsync(
             workingList,
@@ -766,7 +784,8 @@ public sealed class CutLabAnalysisContextBuilderTests
     public async Task BuildAsync_CommanderFlaggedOnPoolCardButNotInCommanderNames_IsStillMarkedCommander()
     {
         IReadOnlyList<CutLabPoolCard> workingList = [PoolCard("Flagged Commander", "Creature", isCommander: true)];
-        var builder = new CutLabAnalysisContextBuilder(new CountingResolver([]), new CutLabResolvedCardCache());
+        var cardResolver = new CountingResolver([]);
+        var builder = new CutLabAnalysisContextBuilder(cardResolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(cardResolver));
 
         CutLabAnalysisContext context = await builder.BuildAsync(
             workingList,
@@ -781,7 +800,8 @@ public sealed class CutLabAnalysisContextBuilderTests
     public async Task BuildAsync_CommanderNamedInCommanderNamesButNotFlagged_IsStillMarkedCommander()
     {
         IReadOnlyList<CutLabPoolCard> workingList = [PoolCard("Named Commander", "Creature")];
-        var builder = new CutLabAnalysisContextBuilder(new CountingResolver([]), new CutLabResolvedCardCache());
+        var cardResolver = new CountingResolver([]);
+        var builder = new CutLabAnalysisContextBuilder(cardResolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(cardResolver));
 
         CutLabAnalysisContext context = await builder.BuildAsync(
             workingList,
@@ -796,7 +816,8 @@ public sealed class CutLabAnalysisContextBuilderTests
     public async Task BuildAsync_UnresolvedCard_StillProducesAnAnalyzedCardWithCommanderStateApplied()
     {
         IReadOnlyList<CutLabPoolCard> workingList = [PoolCard("Unresolved Commander", "Artifact")];
-        var builder = new CutLabAnalysisContextBuilder(new CountingResolver([]), new CutLabResolvedCardCache());
+        var cardResolver = new CountingResolver([]);
+        var builder = new CutLabAnalysisContextBuilder(cardResolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(cardResolver));
 
         CutLabAnalysisContext context = await builder.BuildAsync(
             workingList,
@@ -819,7 +840,8 @@ public sealed class CutLabAnalysisContextBuilderTests
             PoolCard("Commander Card", "Creature", isCommander: true),
             PoolCard("Plain Card", "Enchantment"),
         ];
-        var builder = new CutLabAnalysisContextBuilder(new CountingResolver([]), new CutLabResolvedCardCache());
+        var cardResolver = new CountingResolver([]);
+        var builder = new CutLabAnalysisContextBuilder(cardResolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(cardResolver));
 
         CutLabAnalysisContext context = await builder.BuildAsync(
             workingList,

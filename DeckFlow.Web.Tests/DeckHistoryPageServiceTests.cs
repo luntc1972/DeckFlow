@@ -6,6 +6,7 @@ using DeckFlow.Core.Models;
 using DeckFlow.Core.Normalization;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Models;
+using DeckFlow.Web.Services.Packets;
 using DeckFlow.Web.Services.Scryfall;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.PromptBuilders.Evolution;
@@ -400,13 +401,17 @@ public sealed class DeckHistoryPageServiceTests
             logger ?? new FakeLogger<DeckHistoryPageService>(),
             entries);
 
-    private static DeckHistoryPageService CreateService(Exception exception) =>
-        new(
+    private static DeckHistoryPageService CreateService(Exception exception)
+    {
+        var resolver = new FakeScryfallCardResolver();
+        return new DeckHistoryPageService(
             new FakeDeckEntryLoader(exception),
             CreateRegistry(),
-            new FakeScryfallCardResolver(),
+            resolver,
+            new ScryfallReferenceResolver(resolver),
             new FakeLogger<DeckHistoryPageService>(),
             () => FixedNow);
+    }
 
     private static DeckHistoryPageService CreateServiceCore(
         FakeScryfallCardResolver resolver,
@@ -416,6 +421,7 @@ public sealed class DeckHistoryPageServiceTests
             new FakeDeckEntryLoader(new DeckSourceLoadResult(entries.ToList(), FallbackNotice: null)),
             CreateRegistry(),
             resolver,
+            new ScryfallReferenceResolver(resolver),
             logger,
             () => FixedNow);
 
