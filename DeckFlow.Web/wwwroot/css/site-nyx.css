@@ -69,6 +69,18 @@ body {
   background: var(--bg);
 }
 
+/* Why: --link (#a88cd8) was defined but never consumed for bare anchors, so links rendered UA blue
+   at 1.55:1 on the panel. Now 5.13:1. Hover LIGHTENS because the panel is dark. */
+
+a {
+  color: var(--link);
+}
+
+a:hover,
+a:focus-visible {
+  color: #cbbae7;
+}
+
 .skip-link {
   position: absolute;
   left: 0.5rem;

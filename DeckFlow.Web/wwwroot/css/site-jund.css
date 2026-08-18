@@ -67,6 +67,19 @@ body {
   background: var(--bg);
 }
 
+/* Why: links rendered UA blue at 1.47:1 on the #352b24 panel. --link is not usable here — it
+   resolves to #a6613f, only 2.89:1 — and overriding the token would change the kb-chip consumers,
+   so this is the accent lightened to a literal that clears 4.5:1 (4.74). */
+
+a {
+  color: #c7896b;
+}
+
+a:hover,
+a:focus-visible {
+  color: #d8ac97;
+}
+
 .skip-link {
   position: absolute;
   left: 0.5rem;

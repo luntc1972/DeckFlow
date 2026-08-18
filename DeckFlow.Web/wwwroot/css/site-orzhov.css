@@ -44,6 +44,19 @@ body {
     linear-gradient(180deg, #faf7ef 0, var(--bg) 14rem);
 }
 
+/* Why: orzhov @imports site.css, whose new rule resolves --link to this theme's near-black
+   --accent-strong (#0f0d0c) — 1.06:1 against body text, so a link would be invisible AS a link.
+   Override with the guild's --orzhov-gold darkened to clear 4.5:1 on both panel and background. */
+
+a {
+  color: #6c5624;
+}
+
+a:hover,
+a:focus-visible {
+  color: #4d3e1a;
+}
+
 .page-header { border-bottom: 1px solid rgba(185, 147, 61, 0.22); }
 
 .theme-picker,
