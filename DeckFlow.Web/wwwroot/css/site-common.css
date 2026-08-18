@@ -5785,7 +5785,15 @@ pre {
   max-width: 100%;
 }
 
+.mobile-only {
+  display: none;
+}
+
 @media (max-width: 600px) {
+  .mobile-only {
+    display: block !important;
+  }
+
   .desktop-only {
     display: none !important;
   }
