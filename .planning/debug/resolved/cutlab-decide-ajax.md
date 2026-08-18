@@ -1,6 +1,12 @@
 # Debug: Cut Lab decide-flow AJAX bugs
 
-Status: root-caused (investigation complete; fixes not yet applied)
+Status: RESOLVED 2026-08-17. Symptom 1 fixed on main in `d7273aa43` (fix(cut-lab): raise decide
+submit timeout to 20s for cold first request) — `cutLabDecisionTimeoutMs` is now 20000 at
+`cut-lab.ts:260`, shared by all five abort sites. Symptom 2 was closed as INTENDED BEHAVIOR by
+`1d838dead` (docs(cut-lab): state baseline/goals refresh on Recalculate, not per cut): the
+Compare-to-baseline table and goal probabilities are point-in-time by design and refresh on the
+Recalculate postbacks, and `CutLab.cshtml:1460` now says so. Confirmed with the product owner
+2026-08-17; no live-patch work will be done.
 Date: 2026-07-24
 Reporter: user UAT (Cut Lab dark feature, local)
 Feature branch home: main (Cut Lab shipped 2026.07.9; recent UAT batch 68988e12 rewrote cut-lab.ts +501 LOC)
