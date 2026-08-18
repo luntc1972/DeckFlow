@@ -545,8 +545,11 @@ body {
     linear-gradient(180deg, #f5f6f8 0, var(--bg) 14rem);
 }
 
+/* Why: var(--jeskai-blue) (#2b6cb0) clears AA on the panel at 5.19:1 but only reaches 4.30:1 on the
+   page background. This is that blue darkened ~2% to 4.63:1 on --bg; the token itself is left alone
+   because its other consumers are fine. */
 a {
-  color: var(--jeskai-blue);
+  color: #2967a8;
   text-decoration-thickness: 1.5px;
   text-underline-offset: 0.14em;
 }
