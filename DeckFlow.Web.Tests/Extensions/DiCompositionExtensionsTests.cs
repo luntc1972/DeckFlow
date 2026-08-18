@@ -19,6 +19,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using System.Reflection;
 using Xunit;
 
 namespace DeckFlow.Web.Tests.Extensions;
@@ -66,10 +67,10 @@ public sealed class DiCompositionExtensionsTests
         services.AddDeckFlowPromptVariants();
 
         // IDeckEntryLoader, ICategoryKnowledgeStore, and IGameChangerCatalogService are registered
-        // inline in Program.cs, not part of the packet-services group. Provide them so ValidateOnBuild
-        // resolves (DeckAnalysisPacketService takes IGameChangerCatalogService as of Phase 77-04).
+        // separately from the packet-services group. Provide them so ValidateOnBuild resolves
+        // (DeckAnalysisPacketService takes IGameChangerCatalogService as of Phase 77-04).
         services.AddScoped<IDeckEntryLoader, StubDeckEntryLoader>();
-        services.AddScoped<IManabaseAnalysisService, ManabaseAnalysisService>();
+        services.AddDeckFlowManabaseServices();
         services.AddSingleton<ICategoryKnowledgeStore, FakeCategoryKnowledgeStore>();
         services.AddSingleton<DeckFlow.Web.Services.Bracket.IGameChangerCatalogService,
             DeckFlow.Web.Services.Bracket.GameChangerCatalogService>();
@@ -91,8 +92,11 @@ public sealed class DiCompositionExtensionsTests
         Assert.NotNull(sp.GetRequiredService<IDeckComparisonService>());
         Assert.NotNull(sp.GetRequiredService<IMetaGapService>());
         Assert.NotNull(sp.GetRequiredService<IDeckPrimerPacketService>());
-        Assert.NotNull(sp.GetRequiredService<IManabaseAnalysisService>());
-        Assert.NotNull(sp.GetRequiredService<ScryfallCollectionCardCache>());
+        var manabaseService = sp.GetRequiredService<IManabaseAnalysisService>();
+        Assert.NotNull(manabaseService);
+        var cacheField = manabaseService.GetType().GetField("_collectionCardCache", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(cacheField);
+        Assert.Same(sp.GetRequiredService<ScryfallCollectionCardCache>(), cacheField.GetValue(manabaseService));
 
         // Resolve the eight prompt-variant registries (singletons)
         Assert.NotNull(sp.GetRequiredService<AnalysisPromptVariantRegistry>());
