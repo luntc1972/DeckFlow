@@ -3,6 +3,7 @@ using DeckFlow.Core.Models;
 using DeckFlow.Web.Configuration;
 using DeckFlow.Web.Extensions;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.CutLab;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
 using DeckFlow.Web.Services.PromptBuilders.Bracket;
 using DeckFlow.Web.Services.PromptBuilders.Comparison;
@@ -14,6 +15,7 @@ using DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
 using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Http;
 using DeckFlow.Web.Services.Manabase;
+using DeckFlow.Web.Services.Packets;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -49,7 +51,6 @@ public sealed class DiCompositionExtensionsTests
         services.AddMemoryCache();
         services.AddHttpClient();
         services.AddOptions();
-
         // AiPlatformOptions — required by DeckPrimerPacketService
         services.Configure<AiPlatformOptions>(_ => { });
 
@@ -94,9 +95,7 @@ public sealed class DiCompositionExtensionsTests
         Assert.NotNull(sp.GetRequiredService<IDeckPrimerPacketService>());
         var manabaseService = sp.GetRequiredService<IManabaseAnalysisService>();
         Assert.NotNull(manabaseService);
-        var cacheField = manabaseService.GetType().GetField("_collectionCardCache", BindingFlags.NonPublic | BindingFlags.Instance);
-        Assert.NotNull(cacheField);
-        Assert.Same(sp.GetRequiredService<ScryfallCollectionCardCache>(), cacheField.GetValue(manabaseService));
+        AssertUsesCollectionCacheSingleton(sp, manabaseService);
 
         // Resolve the eight prompt-variant registries (singletons)
         Assert.NotNull(sp.GetRequiredService<AnalysisPromptVariantRegistry>());
@@ -107,6 +106,78 @@ public sealed class DiCompositionExtensionsTests
         Assert.NotNull(sp.GetRequiredService<PrimerPromptVariantRegistry>());
         Assert.NotNull(sp.GetRequiredService<BracketPromptVariantRegistry>());
         Assert.NotNull(sp.GetRequiredService<EvolutionPromptVariantRegistry>());
+    }
+
+    [Fact]
+    public void AddDeckFlowScryfallServices_ResolverUsesCollectionCacheSingleton()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddMemoryCache();
+        services.AddOptions();
+        services.AddHttpClient();
+        services.AddDeckFlowResiliencePipelines();
+        services.AddDeckFlowHttpClients();
+        services.AddDeckFlowScryfallServices();
+
+        using var serviceProvider = services.BuildServiceProvider();
+        var resolver = serviceProvider.GetRequiredService<ScryfallReferenceResolver>();
+
+        AssertUsesCollectionCacheSingleton(serviceProvider, resolver);
+    }
+
+    [Fact]
+    public void AddDeckFlowExtensions_AllConsumersShareSingleReferenceResolver()
+    {
+        var services = new ServiceCollection();
+        var contentRoot = Path.Combine(Path.GetTempPath(), $"deckflow-di-{Guid.NewGuid():N}");
+        services.AddSingleton<IWebHostEnvironment>(new StubWebHostEnvironment(contentRoot));
+        services.AddLogging();
+        services.AddMemoryCache();
+        services.AddHttpClient();
+        services.AddOptions();
+        services.Configure<AiPlatformOptions>(_ => { });
+        services.AddScoped<IDeckEntryLoader, StubDeckEntryLoader>();
+        services.AddSingleton<ICategoryKnowledgeStore, FakeCategoryKnowledgeStore>();
+        services.AddSingleton<DeckFlow.Web.Services.Bracket.IGameChangerCatalogService,
+            DeckFlow.Web.Services.Bracket.GameChangerCatalogService>();
+        services.AddDeckFlowFeatureFlags();
+        services.AddDeckFlowResiliencePipelines();
+        services.AddDeckFlowHttpClients();
+        services.AddDeckFlowScryfallServices();
+        services.AddDeckFlowPromptVariants();
+        services.AddDeckFlowManabaseServices();
+        services.AddDeckFlowPacketServices();
+        services.AddDeckFlowCutLabServices();
+        services.AddScoped<IDeckHistoryPageService, DeckHistoryPageService>();
+
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var resolver = scope.ServiceProvider.GetRequiredService<ScryfallReferenceResolver>();
+        object[] consumers =
+        {
+            scope.ServiceProvider.GetRequiredService<IDeckAnalysisPacketService>(),
+            scope.ServiceProvider.GetRequiredService<IDeckComparisonService>(),
+            scope.ServiceProvider.GetRequiredService<IMetaGapService>(),
+            scope.ServiceProvider.GetRequiredService<ICutLabAnalysisContextBuilder>(),
+            scope.ServiceProvider.GetRequiredService<IDeckHistoryPageService>(),
+        };
+        foreach (var consumer in consumers)
+        {
+            var field = consumer.GetType().GetField("_scryfallReferenceResolver", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.NotNull(field);
+            Assert.Same(resolver, field.GetValue(consumer));
+        }
+    }
+
+    // Why: both guards prove the SAME invariant — a service resolved from the container holds the
+    // container-managed cache singleton, not a private one. One reflection probe means a field
+    // rename fails in one place, loudly, instead of silently weakening two separate tests.
+    private static void AssertUsesCollectionCacheSingleton(IServiceProvider provider, object service)
+    {
+        var cacheField = service.GetType().GetField("_collectionCardCache", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(cacheField);
+        Assert.Same(provider.GetRequiredService<ScryfallCollectionCardCache>(), cacheField.GetValue(service));
     }
 
     private sealed class StubWebHostEnvironment(string contentRootPath) : IWebHostEnvironment

@@ -89,21 +89,21 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
     /// <param name="deckEntryLoader">Shared deck loader used for public deck URLs and pasted exports.</param>
     /// <param name="evolutionPromptVariantRegistry">Evolution prompt variant registry.</param>
     /// <param name="scryfallCardResolver">Shared Scryfall resolver used for card-reference enrichment.</param>
+    /// <param name="scryfallReferenceResolver">Shared Scryfall reference-resolution collaborator used for batched card lookups.</param>
     /// <param name="logger">Logger for non-blocking card-reference failures.</param>
-    /// <param name="collectionCardCache">Optional cache of Scryfall collection-card results.</param>
     public DeckHistoryPageService(
         IDeckEntryLoader deckEntryLoader,
         EvolutionPromptVariantRegistry evolutionPromptVariantRegistry,
         IScryfallCardResolver scryfallCardResolver,
-        ILogger<DeckHistoryPageService> logger,
-        ScryfallCollectionCardCache? collectionCardCache = null)
+        ScryfallReferenceResolver scryfallReferenceResolver,
+        ILogger<DeckHistoryPageService> logger)
         : this(
             deckEntryLoader,
             evolutionPromptVariantRegistry,
             scryfallCardResolver,
+            scryfallReferenceResolver,
             logger,
-            () => DateTimeOffset.UtcNow,
-            collectionCardCache)
+            () => DateTimeOffset.UtcNow)
     {
     }
 
@@ -113,26 +113,27 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
     /// <param name="deckEntryLoader">Shared deck loader used for public deck URLs and pasted exports.</param>
     /// <param name="evolutionPromptVariantRegistry">Evolution prompt variant registry.</param>
     /// <param name="scryfallCardResolver">Shared Scryfall resolver used for card-reference enrichment.</param>
+    /// <param name="scryfallReferenceResolver">Shared Scryfall reference-resolution collaborator used for batched card lookups.</param>
     /// <param name="logger">Logger for non-blocking card-reference failures.</param>
     /// <param name="nowUtc">Clock used for new snapshots.</param>
-    /// <param name="collectionCardCache">Optional cache of Scryfall collection-card results.</param>
     internal DeckHistoryPageService(
         IDeckEntryLoader deckEntryLoader,
         EvolutionPromptVariantRegistry evolutionPromptVariantRegistry,
         IScryfallCardResolver scryfallCardResolver,
+        ScryfallReferenceResolver scryfallReferenceResolver,
         ILogger<DeckHistoryPageService>? logger,
-        Func<DateTimeOffset> nowUtc,
-        ScryfallCollectionCardCache? collectionCardCache = null)
+        Func<DateTimeOffset> nowUtc)
     {
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
         ArgumentNullException.ThrowIfNull(evolutionPromptVariantRegistry);
         ArgumentNullException.ThrowIfNull(scryfallCardResolver);
+        ArgumentNullException.ThrowIfNull(scryfallReferenceResolver);
         ArgumentNullException.ThrowIfNull(nowUtc);
 
         _deckEntryLoader = deckEntryLoader;
         _evolutionPromptVariantRegistry = evolutionPromptVariantRegistry;
         _scryfallCardResolver = scryfallCardResolver;
-        _scryfallReferenceResolver = new ScryfallReferenceResolver(scryfallCardResolver, collectionCardCache);
+        _scryfallReferenceResolver = scryfallReferenceResolver;
         _logger = logger ?? NullLogger<DeckHistoryPageService>.Instance;
         _nowUtc = nowUtc;
     }
