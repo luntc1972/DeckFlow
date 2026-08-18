@@ -59,6 +59,18 @@ body {
   background: var(--bg);
 }
 
+/* Why: standalone fork with no @import, so it needs its own bare-link rule; without it links
+   rendered UA blue. */
+
+a {
+  color: var(--link);
+}
+
+a:hover,
+a:focus-visible {
+  color: color-mix(in srgb, var(--link) 78%, #000);
+}
+
 /* Accessibility primitives. */
 .sr-only {
   position: absolute;

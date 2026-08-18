@@ -65,6 +65,21 @@ body {
   background: var(--bg);
 }
 
+/* Why: bare links had no author colour here, so they fell back to the UA #0000EE. This rule also
+   reaches the guild themes that @import site.css without defining their own `a` (gruul, izzet,
+   temur); --link resolves per-theme, so each gets its own accent. Hover darkens via color-mix
+   rather than the usual var(--accent), because on those light themes --accent is LIGHTER and would
+   drop hover to 3.8:1 on the page background. */
+
+a {
+  color: var(--link);
+}
+
+a:hover,
+a:focus-visible {
+  color: color-mix(in srgb, var(--link) 78%, #000);
+}
+
 .skip-link {
   position: absolute;
   left: 0.5rem;
