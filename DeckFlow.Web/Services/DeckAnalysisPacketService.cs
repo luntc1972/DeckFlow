@@ -192,7 +192,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         SetUpgradePromptVariantRegistry setUpgradePromptRegistry,
         PacketSessionCache packetCache,
         IFeatureFlagCache? flagCache = null,
-        ILogger<DeckAnalysisPacketService>? logger = null)
+        ILogger<DeckAnalysisPacketService>? logger = null,
+        ScryfallCollectionCardCache? collectionCardCache = null)
     {
         ArgumentNullException.ThrowIfNull(scryfallCardResolver);
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
@@ -205,7 +206,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         ArgumentNullException.ThrowIfNull(setUpgradePromptRegistry);
         ArgumentNullException.ThrowIfNull(packetCache);
         _scryfallCardResolver = scryfallCardResolver;
-        _scryfallReferenceResolver = new ScryfallReferenceResolver(scryfallCardResolver);
+        _scryfallReferenceResolver = new ScryfallReferenceResolver(scryfallCardResolver, collectionCardCache);
         _deckEntryLoader = deckEntryLoader;
         _mechanicLookupService = mechanicLookupService;
         _commanderBanListService = commanderBanListService;

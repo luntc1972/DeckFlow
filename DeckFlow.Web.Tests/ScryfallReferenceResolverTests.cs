@@ -49,6 +49,651 @@ public sealed class ScryfallReferenceResolverTests
     }
 
     /// <summary>
+    /// T1: a warm name-space entry must be omitted from the next collection POST while a newly
+    /// requested identifier remains in the POST. This catches a resolver that reads cached cards
+    /// only after it has already made the upstream request.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_WarmNameCache_OmitsOnlyCachedIdentifiersFromCollectionPost()
+    {
+        var cache = new ScryfallCollectionCardCache();
+        var postedIdentifiers = new List<IReadOnlyList<string>>();
+        var resolver = CreateResolver(
+            (request, _) =>
+            {
+                var identifiers = ExtractNames(ExtractRequestBody(request));
+                postedIdentifiers.Add(identifiers);
+                return Task.FromResult(CreateCollectionResponse(identifiers.Select(CreateCard).ToList()));
+            },
+            collectionCardCache: cache,
+            useCollectionCardCache: true);
+
+        Task<ScryfallCard?> Fallback(string name, CancellationToken _)
+            => throw new InvalidOperationException($"Fallback must not be invoked for collection hit {name}.");
+
+        await resolver.ResolveBatchAsync(new[] { "Sol Ring" }, Fallback, normalizeForScryfall: false, CancellationToken.None);
+        var result = await resolver.ResolveBatchAsync(
+            new[] { "Sol Ring", "Arcane Signet" },
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+
+        Assert.Equal(2, postedIdentifiers.Count);
+        Assert.Equal(new[] { "Sol Ring" }, postedIdentifiers[0]);
+        Assert.Equal(new[] { "Arcane Signet" }, postedIdentifiers[1]);
+        Assert.Equal(new[] { "Sol Ring", "Arcane Signet" }, result.Resolutions.Select(resolution => resolution.RequestName));
+    }
+
+    /// <summary>
+    /// T2: a cold lookup is the positive control (one POST); repeating the all-warm batch must
+    /// issue no further collection POST and still return the cached card.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_AllWarmNameCache_SkipsCollectionPostAndReturnsCachedCards()
+    {
+        var cache = new ScryfallCollectionCardCache();
+        var collectionCallCount = 0;
+        var resolver = CreateResolver(
+            (request, _) =>
+            {
+                collectionCallCount++;
+                var identifiers = ExtractNames(ExtractRequestBody(request));
+                return Task.FromResult(CreateCollectionResponse(identifiers.Select(CreateCard).ToList()));
+            },
+            collectionCardCache: cache,
+            useCollectionCardCache: true);
+
+        Task<ScryfallCard?> Fallback(string name, CancellationToken _)
+            => throw new InvalidOperationException($"Fallback must not be invoked for collection hit {name}.");
+
+        await resolver.ResolveBatchAsync(new[] { "Sol Ring" }, Fallback, normalizeForScryfall: false, CancellationToken.None);
+        var callsAfterColdLookup = collectionCallCount;
+        var warmResult = await resolver.ResolveBatchAsync(
+            new[] { "Sol Ring" },
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+
+        Assert.Equal(1, callsAfterColdLookup);
+        Assert.Equal(callsAfterColdLookup, collectionCallCount);
+        var resolution = Assert.Single(warmResult.Resolutions);
+        Assert.Equal("Sol Ring", resolution.RequestName);
+        Assert.Equal("Sol Ring", resolution.Card.Name);
+        Assert.False(resolution.FromFallback);
+    }
+
+    /// <summary>
+    /// T3: a card found only by ADR-0004's punctuation-tolerant second pass warms the submitted
+    /// identifier, so the repeat is resolution-equivalent without another collection POST.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_WarmSecondPassCard_PreservesAdr0004MatchWithoutFallback()
+    {
+        var cache = new ScryfallCollectionCardCache();
+        var collectionCallCount = 0;
+        var fallbackCallCount = 0;
+        var smugglersCopter = CreateCard("Smuggler's Copter");
+        var resolver = CreateResolver(
+            (request, _) =>
+            {
+                collectionCallCount++;
+                Assert.Equal(new[] { "Smugglers Copter" }, ExtractNames(ExtractRequestBody(request)));
+                return Task.FromResult(CreateCollectionResponse(new List<ScryfallCard> { smugglersCopter }));
+            },
+            collectionCardCache: cache,
+            useCollectionCardCache: true);
+
+        Task<ScryfallCard?> Fallback(string name, CancellationToken _)
+        {
+            fallbackCallCount++;
+            return Task.FromResult<ScryfallCard?>(null);
+        }
+
+        var coldResult = await resolver.ResolveBatchAsync(
+            new[] { "Smugglers Copter" },
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+        Assert.True(cache.TryGetName("Smugglers Copter", out var cachedCard));
+        Assert.Equal("Smuggler's Copter", cachedCard?.Name);
+        var warmResult = await resolver.ResolveBatchAsync(
+            new[] { "Smugglers Copter" },
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+
+        Assert.Equal(1, collectionCallCount);
+        Assert.Equal(0, fallbackCallCount);
+        AssertEquivalentBatchResolution(coldResult, warmResult);
+        var resolution = Assert.Single(warmResult.Resolutions);
+        Assert.Equal("Smuggler's Copter", resolution.Card.Name);
+        Assert.False(resolution.FromFallback);
+    }
+
+    /// <summary>
+    /// T4: a cached collection miss suppresses only the collection POST. It must still invoke the
+    /// caller's fallback every time, because collection not_found is not an absent-card result.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_WarmCollectionMiss_SkipsPostButStillRunsFallbackPerLookup()
+    {
+        var cache = new ScryfallCollectionCardCache();
+        var collectionCallCount = 0;
+        var fallbackCallCount = 0;
+        var resolver = CreateResolver(
+            (request, _) =>
+            {
+                collectionCallCount++;
+                Assert.Equal(new[] { "Printed Name" }, ExtractNames(ExtractRequestBody(request)));
+                return Task.FromResult(CreateCollectionResponse(
+                    new List<ScryfallCard>(),
+                    new List<ScryfallCollectionIdentifier> { new("Printed Name") }));
+            },
+            collectionCardCache: cache,
+            useCollectionCardCache: true);
+
+        Task<ScryfallCard?> Fallback(string name, CancellationToken _)
+        {
+            fallbackCallCount++;
+            return Task.FromResult<ScryfallCard?>(CreateCard($"Fallback Result {fallbackCallCount}"));
+        }
+
+        var coldResult = await resolver.ResolveBatchAsync(
+            new[] { "Printed Name" },
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+        var warmResult = await resolver.ResolveBatchAsync(
+            new[] { "Printed Name" },
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+
+        Assert.Equal(1, collectionCallCount);
+        Assert.Equal(2, fallbackCallCount);
+        Assert.True(cache.TryGetName("Printed Name", out var cachedMiss));
+        Assert.Null(cachedMiss);
+        Assert.Equal("Fallback Result 1", Assert.Single(coldResult.Resolutions).Card.Name);
+        Assert.Equal("Fallback Result 2", Assert.Single(warmResult.Resolutions).Card.Name);
+        Assert.All(warmResult.Resolutions, resolution => Assert.True(resolution.FromFallback));
+    }
+
+    [Fact]
+    public async Task ResolveBatchAsync_NullCollectionPayload_DoesNotCacheSubmittedIdentifier()
+    {
+        var cache = new ScryfallCollectionCardCache();
+        var postedIdentifiers = new List<IReadOnlyList<string>>();
+        var requestCount = 0;
+        var resolver = CreateResolver(
+            (request, _) =>
+            {
+                var identifiers = ExtractNames(ExtractRequestBody(request));
+                postedIdentifiers.Add(identifiers);
+                requestCount++;
+                if (requestCount == 1)
+                {
+                    return Task.FromResult(CreateCollectionResponse(new List<ScryfallCard> { CreateCard("Cached") }));
+                }
+
+                if (requestCount == 2)
+                {
+                    return Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+                    {
+                        StatusCode = HttpStatusCode.OK,
+                        Data = null,
+                    });
+                }
+
+                return Task.FromResult(CreateCollectionResponse(identifiers.Select(CreateCard).ToList()));
+            },
+            collectionCardCache: cache,
+            useCollectionCardCache: true);
+
+        Task<ScryfallCard?> Fallback(string name, CancellationToken _) => Task.FromResult<ScryfallCard?>(CreateCard(name));
+
+        await resolver.ResolveBatchAsync(new[] { "Cached" }, Fallback, false, CancellationToken.None);
+        await Assert.ThrowsAsync<ScryfallReferenceCollectionException>(() =>
+            resolver.ResolveBatchAsync(new[] { "Cached", "Null Payload" }, Fallback, false, CancellationToken.None));
+
+        Assert.True(cache.TryGetName("Cached", out var cachedCard));
+        Assert.Equal("Cached", cachedCard?.Name);
+        Assert.False(cache.TryGetName("Null Payload", out _));
+
+        await resolver.ResolveBatchAsync(new[] { "Cached", "Null Payload" }, Fallback, false, CancellationToken.None);
+
+        Assert.Equal(new[] { "Cached" }, postedIdentifiers[0]);
+        Assert.Equal(new[] { "Null Payload" }, postedIdentifiers[1]);
+        Assert.Equal(new[] { "Null Payload" }, postedIdentifiers[2]);
+    }
+
+    [Fact]
+    public async Task ResolveBatchAsync_CollectionException_DoesNotCacheSubmittedIdentifier()
+    {
+        var cache = new ScryfallCollectionCardCache();
+        var postedIdentifiers = new List<IReadOnlyList<string>>();
+        var requestCount = 0;
+        var expectedException = new InvalidOperationException("collection exploded");
+        var resolver = CreateResolver(
+            (request, _) =>
+            {
+                var identifiers = ExtractNames(ExtractRequestBody(request));
+                postedIdentifiers.Add(identifiers);
+                requestCount++;
+                if (requestCount == 1)
+                {
+                    return Task.FromResult(CreateCollectionResponse(new List<ScryfallCard> { CreateCard("Cached") }));
+                }
+
+                if (requestCount == 2)
+                {
+                    return Task.FromException<RestResponse<ScryfallCollectionResponse>>(expectedException);
+                }
+
+                return Task.FromResult(CreateCollectionResponse(identifiers.Select(CreateCard).ToList()));
+            },
+            collectionCardCache: cache,
+            useCollectionCardCache: true);
+
+        Task<ScryfallCard?> Fallback(string name, CancellationToken _) => Task.FromResult<ScryfallCard?>(CreateCard(name));
+
+        await resolver.ResolveBatchAsync(new[] { "Cached" }, Fallback, false, CancellationToken.None);
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            resolver.ResolveBatchAsync(new[] { "Cached", "Thrown" }, Fallback, false, CancellationToken.None));
+
+        Assert.Same(expectedException, exception);
+        Assert.True(cache.TryGetName("Cached", out var cachedCard));
+        Assert.Equal("Cached", cachedCard?.Name);
+        Assert.False(cache.TryGetName("Thrown", out _));
+
+        await resolver.ResolveBatchAsync(new[] { "Cached", "Thrown" }, Fallback, false, CancellationToken.None);
+
+        Assert.Equal(new[] { "Cached" }, postedIdentifiers[0]);
+        Assert.Equal(new[] { "Thrown" }, postedIdentifiers[1]);
+        Assert.Equal(new[] { "Thrown" }, postedIdentifiers[2]);
+    }
+
+    [Fact]
+    public async Task ResolveBatchAsync_UnreturnedIdentifier_IsNotCachedWhileReturnedIdentifierIsCached()
+    {
+        var cache = new ScryfallCollectionCardCache();
+        var postedIdentifiers = new List<IReadOnlyList<string>>();
+        var resolver = CreateResolver(
+            (request, _) =>
+            {
+                var identifiers = ExtractNames(ExtractRequestBody(request));
+                postedIdentifiers.Add(identifiers);
+                return Task.FromResult(CreateCollectionResponse(new List<ScryfallCard> { CreateCard(identifiers[0]) }));
+            },
+            collectionCardCache: cache,
+            useCollectionCardCache: true);
+
+        Task<ScryfallCard?> Fallback(string name, CancellationToken _) => Task.FromResult<ScryfallCard?>(CreateCard(name));
+
+        await resolver.ResolveBatchAsync(new[] { "Returned", "Unreturned" }, Fallback, false, CancellationToken.None);
+
+        Assert.True(cache.TryGetName("Returned", out var returnedCard));
+        Assert.Equal("Returned", returnedCard?.Name);
+        Assert.False(cache.TryGetName("Unreturned", out _));
+
+        await resolver.ResolveBatchAsync(new[] { "Returned", "Unreturned" }, Fallback, false, CancellationToken.None);
+
+        Assert.Equal(new[] { "Returned", "Unreturned" }, postedIdentifiers[0]);
+        Assert.Equal(new[] { "Unreturned" }, postedIdentifiers[1]);
+    }
+
+    /// <summary>
+    /// T5: if a later collection chunk is non-2xx, entries already validated in earlier chunks
+    /// stay warm while the failed chunk writes nothing. A retry posts only the failed chunk.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_NonSuccessLaterChunk_KeepsEarlierChunkEntriesAndDropsFailedChunk()
+    {
+        var cache = new ScryfallCollectionCardCache();
+        var names = Enumerable.Range(1, 76).Select(index => $"Card {index:D3}").ToArray();
+        var postedBatches = new List<IReadOnlyList<string>>();
+        var collectionCallCount = 0;
+        var resolver = CreateResolver(
+            (request, _) =>
+            {
+                collectionCallCount++;
+                var identifiers = ExtractNames(ExtractRequestBody(request));
+                postedBatches.Add(identifiers);
+                if (collectionCallCount == 2)
+                {
+                    return Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+                    {
+                        StatusCode = HttpStatusCode.TooManyRequests,
+                        Data = null,
+                    });
+                }
+
+                return Task.FromResult(CreateCollectionResponse(identifiers.Select(CreateCard).ToList()));
+            },
+            collectionCardCache: cache,
+            useCollectionCardCache: true);
+
+        Task<ScryfallCard?> Fallback(string name, CancellationToken _)
+            => throw new InvalidOperationException($"Fallback must not be invoked for collection hit {name}.");
+
+        var exception = await Assert.ThrowsAsync<ScryfallReferenceCollectionException>(() =>
+            resolver.ResolveBatchAsync(names, Fallback, normalizeForScryfall: false, CancellationToken.None));
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, exception.StatusCode);
+        Assert.True(cache.TryGetName(names[0], out var firstChunkCard));
+        Assert.Equal(names[0], firstChunkCard?.Name);
+        Assert.False(cache.TryGetName(names[75], out _));
+        var retry = await resolver.ResolveBatchAsync(names, Fallback, normalizeForScryfall: false, CancellationToken.None);
+        var warmAfterRetry = await resolver.ResolveBatchAsync(names, Fallback, normalizeForScryfall: false, CancellationToken.None);
+
+        Assert.Equal(3, collectionCallCount);
+        Assert.Equal(names.Take(75), postedBatches[0]);
+        Assert.Equal(new[] { names[75] }, postedBatches[1]);
+        Assert.Equal(new[] { names[75] }, postedBatches[2]);
+        Assert.Equal(76, retry.Resolutions.Count);
+        Assert.Equal(76, warmAfterRetry.Resolutions.Count);
+    }
+
+    /// <summary>
+    /// T6: a successful collection response writes direct and ADR-0004 second-pass positives
+    /// under submitted identifiers, while an explicitly named not_found writes a miss marker.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_SuccessfulCollectionResponse_CachesUnambiguousCardsAndExplicitMisses()
+    {
+        var cache = new ScryfallCollectionCardCache();
+        var collectionCallCount = 0;
+        var fallbackCallCount = 0;
+        var resolver = CreateResolver(
+            (request, _) =>
+            {
+                collectionCallCount++;
+                var identifiers = ExtractNames(ExtractRequestBody(request));
+                Assert.Equal(new[] { "Sol Ring", "Smugglers Copter", "Missing Card" }, identifiers);
+                return Task.FromResult(CreateCollectionResponse(
+                    new List<ScryfallCard>
+                    {
+                        CreateCard("Sol Ring"),
+                        CreateCard("Smuggler's Copter"),
+                    },
+                    new List<ScryfallCollectionIdentifier> { new("Missing Card") }));
+            },
+            collectionCardCache: cache,
+            useCollectionCardCache: true);
+
+        Task<ScryfallCard?> Fallback(string name, CancellationToken _)
+        {
+            fallbackCallCount++;
+            return Task.FromResult<ScryfallCard?>(CreateCard("Fallback Card"));
+        }
+
+        await resolver.ResolveBatchAsync(
+            new[] { "Sol Ring", "Smugglers Copter", "Missing Card" },
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+
+        Assert.True(cache.TryGetName("Sol Ring", out var exactCard));
+        Assert.Equal("Sol Ring", exactCard?.Name);
+        Assert.True(cache.TryGetName("Smugglers Copter", out var secondPassCard));
+        Assert.Equal("Smuggler's Copter", secondPassCard?.Name);
+        Assert.True(cache.TryGetName("Missing Card", out var missMarker));
+        Assert.Null(missMarker);
+
+        var warmResult = await resolver.ResolveBatchAsync(
+            new[] { "Sol Ring", "Smugglers Copter", "Missing Card" },
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+
+        Assert.Equal(1, collectionCallCount);
+        Assert.Equal(2, fallbackCallCount);
+        Assert.Equal(new[] { "Sol Ring", "Smugglers Copter", "Missing Card" }, warmResult.Resolutions.Select(resolution => resolution.RequestName));
+    }
+
+    /// <summary>
+    /// T7: two returned cards mapping to one submitted face identifier are ambiguous. Neither may
+    /// seed the cache, even if one also happens to be an exact match for the original request.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_AmbiguousReturnedFaceIdentifier_DoesNotCacheEitherCard()
+    {
+        var cache = new ScryfallCollectionCardCache();
+        var collectionCallCount = 0;
+        var resolver = CreateResolver(
+            (request, _) =>
+            {
+                collectionCallCount++;
+                var identifier = Assert.Single(ExtractNames(ExtractRequestBody(request)));
+                if (identifier == "Alpha")
+                {
+                    return Task.FromResult(CreateCollectionResponse(new List<ScryfallCard>
+                    {
+                        CreateCard("Alpha // One"),
+                        CreateCard("Alpha // Two"),
+                    }));
+                }
+
+                Assert.Equal("Beta", identifier);
+                return Task.FromResult(CreateCollectionResponse(new List<ScryfallCard> { CreateCard("Beta // One") }));
+            },
+            collectionCardCache: cache,
+            useCollectionCardCache: true);
+
+        Task<ScryfallCard?> Fallback(string name, CancellationToken _)
+            => throw new InvalidOperationException($"Fallback must not be invoked for exact collection hit {name}.");
+
+        await resolver.ResolveBatchAsync(new[] { "Alpha // One" }, Fallback, normalizeForScryfall: false, CancellationToken.None);
+
+        Assert.False(cache.TryGetName("Alpha", out _));
+
+        var retry = await resolver.ResolveBatchAsync(
+            new[] { "Alpha // One" },
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+
+        Assert.Equal(2, collectionCallCount);
+        Assert.Equal("Alpha // One", Assert.Single(retry.Resolutions).Card.Name);
+
+        await resolver.ResolveBatchAsync(new[] { "Beta // One" }, Fallback, normalizeForScryfall: false, CancellationToken.None);
+        Assert.True(cache.TryGetName("Beta", out var cachedBeta));
+        Assert.Equal("Beta // One", cachedBeta?.Name);
+
+        await resolver.ResolveBatchAsync(new[] { "Beta // One" }, Fallback, normalizeForScryfall: false, CancellationToken.None);
+        Assert.Equal(3, collectionCallCount);
+    }
+
+    /// <summary>
+    /// T8: existing call sites retain the one-argument constructor and a caller explicitly passing
+    /// a null cache receives the same uncached behavior without throwing.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_NullCollectionCache_PreservesOneArgumentConstructorBehavior()
+    {
+        var collectionCallCount = 0;
+        Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken _)
+        {
+            collectionCallCount++;
+            var identifiers = ExtractNames(ExtractRequestBody(request));
+            return Task.FromResult(CreateCollectionResponse(identifiers.Select(CreateCard).ToList()));
+        }
+
+        var existingConstructorResolver = CreateResolver(ExecuteCollectionAsync);
+        var explicitNullCacheResolver = CreateResolver(
+            ExecuteCollectionAsync,
+            collectionCardCache: null,
+            useCollectionCardCache: true);
+
+        Task<ScryfallCard?> Fallback(string name, CancellationToken _)
+            => throw new InvalidOperationException($"Fallback must not be invoked for collection hit {name}.");
+
+        var existingResult = await existingConstructorResolver.ResolveBatchAsync(
+            new[] { "Sol Ring" },
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+        var nullCacheResult = await explicitNullCacheResolver.ResolveBatchAsync(
+            new[] { "Sol Ring" },
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+        var secondNullCacheResult = await explicitNullCacheResolver.ResolveBatchAsync(
+            new[] { "Sol Ring" },
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+
+        Assert.Equal(3, collectionCallCount);
+        AssertEquivalentBatchResolution(existingResult, nullCacheResult);
+        AssertEquivalentBatchResolution(nullCacheResult, secondNullCacheResult);
+    }
+
+    /// <summary>
+    /// T9: a mixed batch covering raw match, ADR-0004 second-pass match, and fallback produces
+    /// identical resolutions and oracle map cold and warm. The cached miss still reaches fallback.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_WarmMixedBatch_MatchesColdResolutionsAndOracleNameMap()
+    {
+        var cache = new ScryfallCollectionCardCache();
+        var collectionCallCount = 0;
+        var fallbackCallCount = 0;
+        var resolver = CreateResolver(
+            (request, _) =>
+            {
+                collectionCallCount++;
+                Assert.Equal(
+                    new[] { "Sol Ring", "Smugglers Copter", "Missing Card" },
+                    ExtractNames(ExtractRequestBody(request)));
+                return Task.FromResult(CreateCollectionResponse(
+                    new List<ScryfallCard>
+                    {
+                        CreateCard("Sol Ring"),
+                        CreateCard("Smuggler's Copter"),
+                    },
+                    new List<ScryfallCollectionIdentifier> { new("Missing Card") }));
+            },
+            collectionCardCache: cache,
+            useCollectionCardCache: true);
+
+        Task<ScryfallCard?> Fallback(string name, CancellationToken _)
+        {
+            fallbackCallCount++;
+            return Task.FromResult<ScryfallCard?>(CreateCard("Fallback Result"));
+        }
+
+        var coldResult = await resolver.ResolveBatchAsync(
+            new[] { "Sol Ring", "Smugglers Copter", "Missing Card" },
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+        Assert.True(cache.TryGetName("Smugglers Copter", out var secondPassCard));
+        Assert.Equal("Smuggler's Copter", secondPassCard?.Name);
+        var warmResult = await resolver.ResolveBatchAsync(
+            new[] { "Sol Ring", "Smugglers Copter", "Missing Card" },
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+
+        Assert.Equal(1, collectionCallCount);
+        Assert.Equal(2, fallbackCallCount);
+        AssertEquivalentBatchResolution(coldResult, warmResult);
+        Assert.True(warmResult.Resolutions[0].FromFallback is false);
+        Assert.True(warmResult.Resolutions[1].FromFallback is false);
+        Assert.True(warmResult.Resolutions[2].FromFallback);
+    }
+
+    /// <summary>
+    /// T10: an ADR-0004 second-pass card is cached under the submitted identifier during the cold
+    /// lookup, making a warm repeat POST-free and resolution-equivalent.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_SecondPassMatch_CachesSubmittedIdentifierForWarmRepeat()
+    {
+        const string submittedIdentifier = "Nissas Triumph";
+        var returnedCard = CreateCard("Nissa's Triumph");
+        var cache = new ScryfallCollectionCardCache();
+        var collectionCallCount = 0;
+        var resolver = CreateResolver(
+            (request, _) =>
+            {
+                collectionCallCount++;
+                Assert.Equal(new[] { submittedIdentifier }, ExtractNames(ExtractRequestBody(request)));
+                return Task.FromResult(CreateCollectionResponse(new List<ScryfallCard> { returnedCard }));
+            },
+            collectionCardCache: cache,
+            useCollectionCardCache: true);
+
+        Task<ScryfallCard?> Fallback(string name, CancellationToken _)
+            => throw new InvalidOperationException($"Fallback must not be invoked for collection hit {name}.");
+
+        var coldResult = await resolver.ResolveBatchAsync(
+            new[] { submittedIdentifier },
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+
+        Assert.True(cache.TryGetName(submittedIdentifier, out var cachedCard));
+        Assert.Equal(returnedCard.Name, cachedCard?.Name);
+        var callsAfterColdLookup = collectionCallCount;
+        Assert.Equal(1, callsAfterColdLookup);
+
+        var warmResult = await resolver.ResolveBatchAsync(
+            new[] { submittedIdentifier },
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+
+        Assert.Equal(callsAfterColdLookup, collectionCallCount);
+        AssertEquivalentBatchResolution(coldResult, warmResult);
+    }
+
+    /// <summary>
+    /// T11: second-pass cache pairing skips keys ambiguous on either side, while an unambiguous
+    /// leftover in the same response proves that the pairing path still writes a positive entry.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_AmbiguousSecondPassCachePairs_SkipCollisionsAndCacheUnambiguousPair()
+    {
+        var cache = new ScryfallCollectionCardCache();
+        var resolver = CreateResolver(
+            (request, _) =>
+            {
+                Assert.Equal(
+                    new[] { "O'Neil", "ONeil", "Urzas Saga", "Nissas Triumph" },
+                    ExtractNames(ExtractRequestBody(request)));
+                return Task.FromResult(CreateCollectionResponse(new List<ScryfallCard>
+                {
+                    CreateCard("O-Neil"),
+                    CreateCard("Urza's Saga"),
+                    CreateCard("Urza-s Saga"),
+                    CreateCard("Nissa's Triumph"),
+                }));
+            },
+            collectionCardCache: cache,
+            useCollectionCardCache: true);
+
+        Task<ScryfallCard?> Fallback(string _, CancellationToken __)
+            => Task.FromResult<ScryfallCard?>(null);
+
+        var result = await resolver.ResolveBatchAsync(
+            new[] { "O'Neil", "ONeil", "Urzas Saga", "Nissas Triumph" },
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+
+        Assert.False(cache.TryGetName("O'Neil", out _));
+        Assert.False(cache.TryGetName("ONeil", out _));
+        Assert.False(cache.TryGetName("Urzas Saga", out _));
+        Assert.True(cache.TryGetName("Nissas Triumph", out var cachedCard));
+        Assert.Equal("Nissa's Triumph", cachedCard?.Name);
+        var resolution = Assert.Single(result.Resolutions);
+        Assert.Equal("Nissas Triumph", resolution.RequestName);
+        Assert.Equal("Nissa's Triumph", resolution.Card.Name);
+        Assert.False(resolution.FromFallback);
+    }
+
+    /// <summary>
     /// H2 lock: a single-slash Archidekt-style name ("A / B") normalized on submission to the
     /// double-slash Scryfall form ("A // B") must NOT match its own original request in the
     /// collection match-back step (original "A / B" != returned "A // B"), so it falls through to
@@ -394,7 +1039,9 @@ public sealed class ScryfallReferenceResolverTests
     }
 
     private static ScryfallReferenceResolver CreateResolver(
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> executeCollectionAsync)
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> executeCollectionAsync,
+        ScryfallCollectionCardCache? collectionCardCache = null,
+        bool useCollectionCardCache = false)
     {
         var cardResolver = new ScryfallCardResolver(
             new FakeScryfallRestClientFactory(new HttpClient { BaseAddress = new Uri("https://api.scryfall.com/") }),
@@ -413,15 +1060,44 @@ public sealed class ScryfallReferenceResolverTests
                     Data = null,
                 }));
 
+        if (useCollectionCardCache)
+        {
+            return new ScryfallReferenceResolver(cardResolver, collectionCardCache);
+        }
+
         return new ScryfallReferenceResolver(cardResolver);
     }
 
-    private static RestResponse<ScryfallCollectionResponse> CreateCollectionResponse(List<ScryfallCard> cards)
+    private static RestResponse<ScryfallCollectionResponse> CreateCollectionResponse(
+        List<ScryfallCard> cards,
+        List<ScryfallCollectionIdentifier>? notFound = null)
         => new(new RestRequest("cards/collection", Method.Post))
         {
             StatusCode = HttpStatusCode.OK,
-            Data = new ScryfallCollectionResponse(cards, []),
+            Data = new ScryfallCollectionResponse(cards, notFound ?? []),
         };
+
+    private static void AssertEquivalentBatchResolution(
+        ScryfallBatchResolution expected,
+        ScryfallBatchResolution actual)
+    {
+        Assert.Equal(expected.Resolutions.Count, actual.Resolutions.Count);
+        for (var index = 0; index < expected.Resolutions.Count; index++)
+        {
+            var expectedResolution = expected.Resolutions[index];
+            var actualResolution = actual.Resolutions[index];
+            Assert.Equal(expectedResolution.RequestName, actualResolution.RequestName);
+            Assert.Equal(expectedResolution.Card, actualResolution.Card);
+            Assert.Equal(expectedResolution.FromFallback, actualResolution.FromFallback);
+        }
+
+        Assert.Equal(expected.OracleNameMap.Count, actual.OracleNameMap.Count);
+        foreach (var (name, oracleName) in expected.OracleNameMap)
+        {
+            Assert.True(actual.OracleNameMap.TryGetValue(name, out var actualOracleName));
+            Assert.Equal(oracleName, actualOracleName);
+        }
+    }
 
     private static string ExtractRequestBody(RestRequest request)
     {

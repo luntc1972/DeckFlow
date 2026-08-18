@@ -146,6 +146,7 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
 
     private readonly IScryfallCardResolver _cardResolver;
     private readonly CutLabResolvedCardCache _resolvedCardCache;
+    private readonly ScryfallCollectionCardCache? _collectionCardCache;
     private readonly ICommanderSpellbookService? _spellbook;
     private readonly ICategoryKnowledgeStore? _categoryKnowledge;
     private readonly ILogger<CutLabAnalysisContextBuilder> _logger;
@@ -164,15 +165,18 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
     /// <param name="spellbook">Optional Commander Spellbook lookup dependency.</param>
     /// <param name="categoryKnowledge">Optional category lookup dependency.</param>
     /// <param name="logger">Structured logger.</param>
+    /// <param name="collectionCardCache">Optional cache of Scryfall collection-card results.</param>
     public CutLabAnalysisContextBuilder(
         IScryfallCardResolver cardResolver,
         CutLabResolvedCardCache resolvedCardCache,
         ICommanderSpellbookService? spellbook = null,
         ICategoryKnowledgeStore? categoryKnowledge = null,
-        ILogger<CutLabAnalysisContextBuilder>? logger = null)
+        ILogger<CutLabAnalysisContextBuilder>? logger = null,
+        ScryfallCollectionCardCache? collectionCardCache = null)
     {
         _cardResolver = cardResolver ?? throw new ArgumentNullException(nameof(cardResolver));
         _resolvedCardCache = resolvedCardCache ?? throw new ArgumentNullException(nameof(resolvedCardCache));
+        _collectionCardCache = collectionCardCache;
         _spellbook = spellbook;
         _categoryKnowledge = categoryKnowledge;
         _logger = logger ?? NullLogger<CutLabAnalysisContextBuilder>.Instance;
@@ -461,7 +465,7 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
             resolvedByName[CutLabCardNames.Normalize(resolvedCard.Name)] = resolvedCard;
         }
 
-        var batchResolver = new ScryfallReferenceResolver(_cardResolver);
+        var batchResolver = new ScryfallReferenceResolver(_cardResolver, _collectionCardCache);
         List<CutLabPoolCard> missingPoolCards = EnumerateMissingPoolCards(workingList, resolvedByName, knownMissingNames);
         HashSet<string> knownMissingNamesSet = knownMissingNames.ToHashSet(CutLabCardNames.Comparer);
 

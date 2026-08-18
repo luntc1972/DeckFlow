@@ -75,7 +75,8 @@ public sealed class MetaGapService : IMetaGapService
         IEdhTop16Client edhTop16Client,
         ICommanderSpellbookService commanderSpellbookService,
         MetaGapPromptVariantRegistry metaGapPromptRegistry,
-        PacketSessionCache packetCache)
+        PacketSessionCache packetCache,
+        ScryfallCollectionCardCache? collectionCardCache = null)
     {
         ArgumentNullException.ThrowIfNull(scryfallCardResolver);
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
@@ -84,7 +85,7 @@ public sealed class MetaGapService : IMetaGapService
         ArgumentNullException.ThrowIfNull(metaGapPromptRegistry);
         ArgumentNullException.ThrowIfNull(packetCache);
         _scryfallCardResolver = scryfallCardResolver;
-        _scryfallReferenceResolver = new ScryfallReferenceResolver(scryfallCardResolver);
+        _scryfallReferenceResolver = new ScryfallReferenceResolver(scryfallCardResolver, collectionCardCache);
         _deckEntryLoader = deckEntryLoader;
         _edhTop16Client = edhTop16Client;
         _commanderSpellbookService = commanderSpellbookService;

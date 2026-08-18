@@ -90,17 +90,20 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
     /// <param name="evolutionPromptVariantRegistry">Evolution prompt variant registry.</param>
     /// <param name="scryfallCardResolver">Shared Scryfall resolver used for card-reference enrichment.</param>
     /// <param name="logger">Logger for non-blocking card-reference failures.</param>
+    /// <param name="collectionCardCache">Optional cache of Scryfall collection-card results.</param>
     public DeckHistoryPageService(
         IDeckEntryLoader deckEntryLoader,
         EvolutionPromptVariantRegistry evolutionPromptVariantRegistry,
         IScryfallCardResolver scryfallCardResolver,
-        ILogger<DeckHistoryPageService> logger)
+        ILogger<DeckHistoryPageService> logger,
+        ScryfallCollectionCardCache? collectionCardCache = null)
         : this(
             deckEntryLoader,
             evolutionPromptVariantRegistry,
             scryfallCardResolver,
             logger,
-            () => DateTimeOffset.UtcNow)
+            () => DateTimeOffset.UtcNow,
+            collectionCardCache)
     {
     }
 
@@ -112,12 +115,14 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
     /// <param name="scryfallCardResolver">Shared Scryfall resolver used for card-reference enrichment.</param>
     /// <param name="logger">Logger for non-blocking card-reference failures.</param>
     /// <param name="nowUtc">Clock used for new snapshots.</param>
+    /// <param name="collectionCardCache">Optional cache of Scryfall collection-card results.</param>
     internal DeckHistoryPageService(
         IDeckEntryLoader deckEntryLoader,
         EvolutionPromptVariantRegistry evolutionPromptVariantRegistry,
         IScryfallCardResolver scryfallCardResolver,
         ILogger<DeckHistoryPageService>? logger,
-        Func<DateTimeOffset> nowUtc)
+        Func<DateTimeOffset> nowUtc,
+        ScryfallCollectionCardCache? collectionCardCache = null)
     {
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
         ArgumentNullException.ThrowIfNull(evolutionPromptVariantRegistry);
@@ -127,7 +132,7 @@ internal sealed class DeckHistoryPageService : IDeckHistoryPageService
         _deckEntryLoader = deckEntryLoader;
         _evolutionPromptVariantRegistry = evolutionPromptVariantRegistry;
         _scryfallCardResolver = scryfallCardResolver;
-        _scryfallReferenceResolver = new ScryfallReferenceResolver(scryfallCardResolver);
+        _scryfallReferenceResolver = new ScryfallReferenceResolver(scryfallCardResolver, collectionCardCache);
         _logger = logger ?? NullLogger<DeckHistoryPageService>.Instance;
         _nowUtc = nowUtc;
     }

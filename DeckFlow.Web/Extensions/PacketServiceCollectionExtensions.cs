@@ -59,7 +59,8 @@ public static class PacketServiceCollectionExtensions
                 sp.GetRequiredService<SetUpgradePromptVariantRegistry>(),
                 sp.GetRequiredService<PacketSessionCache>(),
                 sp.GetService<IFeatureFlagCache>(),
-                sp.GetService<ILogger<DeckAnalysisPacketService>>()));
+                sp.GetService<ILogger<DeckAnalysisPacketService>>(),
+                sp.GetRequiredService<ScryfallCollectionCardCache>()));
         services.AddScoped<IDeckComparisonService>(sp =>
             new DeckComparisonService(
                 sp.GetRequiredService<IScryfallCardResolver>(),
@@ -68,7 +69,8 @@ public static class PacketServiceCollectionExtensions
                 sp.GetRequiredService<ComparisonPromptVariantRegistry>(),
                 sp.GetRequiredService<FollowUpPromptVariantRegistry>(),
                 sp.GetRequiredService<PacketSessionCache>(),
-                sp.GetService<ILogger<DeckComparisonService>>()));
+                sp.GetService<ILogger<DeckComparisonService>>(),
+                sp.GetRequiredService<ScryfallCollectionCardCache>()));
         services.AddScoped<IMetaGapService>(sp =>
             new MetaGapService(
                 sp.GetRequiredService<IScryfallCardResolver>(),
@@ -76,7 +78,8 @@ public static class PacketServiceCollectionExtensions
                 sp.GetRequiredService<IEdhTop16Client>(),
                 sp.GetRequiredService<ICommanderSpellbookService>(),
                 sp.GetRequiredService<MetaGapPromptVariantRegistry>(),
-                sp.GetRequiredService<PacketSessionCache>()));
+                sp.GetRequiredService<PacketSessionCache>(),
+                sp.GetRequiredService<ScryfallCollectionCardCache>()));
         services.AddScoped<IDeckPrimerPacketService>(sp =>
             new DeckPrimerPacketService(
                 sp.GetRequiredService<IDeckEntryLoader>(),
