@@ -171,6 +171,55 @@ public sealed class ScryfallReferenceResolverTests
     }
 
     /// <summary>
+    /// T5: partition-then-chunk -- warmth spread across chunk boundaries must collapse the cold
+    /// remainder into the fewest chunks, not leave one POST per original chunk.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_WarmthSpreadAcrossChunks_IssuesOnePostForTheColdRemainder()
+    {
+        var cache = new ScryfallCollectionCardCache();
+        var names = Enumerable.Range(0, 100).Select(i => $"Card {i}").ToArray();
+
+        // Why: warm 60 of 100, deliberately INTERLEAVED so every original chunk keeps a cold member.
+        foreach (var index in Enumerable.Range(0, 100).Where(i => i % 10 < 6))
+        {
+            cache.SetNamePositive($"Card {index}", CreateCard($"Card {index}"));
+        }
+
+        var collectionCallCount = 0;
+        var submittedBatchSizes = new List<int>();
+        var resolver = CreateResolver(
+            (request, _) =>
+            {
+                collectionCallCount++;
+                var identifiers = ExtractNames(ExtractRequestBody(request));
+                submittedBatchSizes.Add(identifiers.Count);
+                return Task.FromResult(CreateCollectionResponse(identifiers.Select(CreateCard).ToList()));
+            },
+            collectionCardCache: cache,
+            useCollectionCardCache: true);
+
+        var fallbackCallCount = 0;
+        Task<ScryfallCard?> Fallback(string name, CancellationToken _)
+        {
+            fallbackCallCount++;
+            return Task.FromResult<ScryfallCard?>(null);
+        }
+
+        var result = await resolver.ResolveBatchAsync(
+            names,
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+
+        Assert.Equal(1, collectionCallCount);
+        Assert.Equal(new[] { 40 }, submittedBatchSizes);
+        Assert.Equal(0, fallbackCallCount);
+        Assert.Equal(100, result.Resolutions.Count);
+        Assert.All(result.Resolutions, resolution => Assert.False(resolution.FromFallback));
+    }
+
+    /// <summary>
     /// T4: a cached collection miss suppresses only the collection POST. It must still invoke the
     /// caller's fallback every time, because collection not_found is not an absent-card result.
     /// </summary>
