@@ -163,3 +163,25 @@ path (single-card search) and out of scope here.
 - **Option (b) (`not_found`-driven miss detection) remains on the table** as a later, larger
   consolidation across all five `ResolveBatchAsync` consumers, with its H2-fixture rewrite cost
   named above so it is not mistaken for a free simplification.
+
+## Addendum (2026-08-19): the match scope after partition-then-chunk
+
+`ResolveBatchAsync` now partitions each original 75-name chunk into a warm set (collection-cache
+hits, no POST) and a cold remainder, and re-chunks only the cold remainder for the POSTs. The two
+passes above are unchanged, but the SCOPE they run over is no longer always the original chunk:
+
+- The warm set of each original chunk is matched as its own pseudo-chunk, deliberately with BOTH
+  passes. Giving warm names only the raw pass would send a punctuation-drifted warm name to the
+  fallback strategy -- an extra Scryfall search on the path the cache exists to make free.
+- Pooling every warm name across all chunks into ONE pseudo-chunk was tried and REJECTED (Codex
+  review, round 1): it widened the ambiguity pool, so two cached cards sharing a match key that
+  never shared a response collided and both names declined to fallback.
+- The remaining, ACCEPTED divergence (Codex review, round 2): when two punctuation-colliding names
+  sit in the SAME original chunk and one is warm while the other is cold, they no longer share a
+  scope, so each can match where both previously declined as mutually ambiguous. This resolves MORE
+  names, never fewer, and it is bounded to same-chunk collisions. Pinned by
+  `ScryfallReferenceResolverTests.ResolveBatchAsync_WarmAndColdPunctuationCollisionInOneChunk_ResolvesBoth`.
+- Preserving the pre-change scope exactly would mean decoupling transport from matching: batching
+  the cold identifiers globally for the POSTs, then handing each ORIGINAL chunk back its own cards.
+  That was weighed and deferred -- it needs an attribution rule for ambiguous leftover cards that no
+  pairing pass can assign to a chunk. It belongs with the queued global pairing strategy (F-2/F-6).
