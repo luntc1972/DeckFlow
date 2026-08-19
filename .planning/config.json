@@ -18,9 +18,12 @@
     "auto_advance": true,
     "_auto_chain_active": false,
     "cross_ai_execution": true,
-    "cross_ai_command": "codex exec -m gpt-5.6-terra -c model_reasoning_effort=\"medium\" -s danger-full-access -c approval_policy=\"never\" --color never -",
+    "cross_ai_command": "/home/clunt/.claude/scripts/codex-gsd-shim.sh --model gpt-5.6-terra --effort medium",
     "cross_ai_timeout": 1800,
     "plan_review_convergence": true,
     "use_worktrees": false
+  },
+  "statusline": {
+    "context_position": "front"
   }
 }
