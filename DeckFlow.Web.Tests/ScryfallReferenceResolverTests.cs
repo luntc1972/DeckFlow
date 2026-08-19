@@ -4,7 +4,6 @@ using System.Net.Http;
 using System.Reflection;
 using System.Text.Json;
 using DeckFlow.Web.Services;
-using DeckFlow.Web.Services.Packets;
 using DeckFlow.Web.Services.Scryfall;
 using RestSharp;
 using Xunit;
