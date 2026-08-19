@@ -408,7 +408,7 @@ public sealed class DeckHistoryPageServiceTests
             new FakeDeckEntryLoader(exception),
             CreateRegistry(),
             resolver,
-            new ScryfallReferenceResolver(resolver),
+            new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()),
             new FakeLogger<DeckHistoryPageService>(),
             () => FixedNow);
     }
@@ -421,7 +421,7 @@ public sealed class DeckHistoryPageServiceTests
             new FakeDeckEntryLoader(new DeckSourceLoadResult(entries.ToList(), FallbackNotice: null)),
             CreateRegistry(),
             resolver,
-            new ScryfallReferenceResolver(resolver),
+            new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()),
             logger,
             () => FixedNow);
 

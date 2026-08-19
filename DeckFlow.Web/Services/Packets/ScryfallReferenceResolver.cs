@@ -83,13 +83,22 @@ internal sealed partial class ScryfallReferenceResolver
     private const int ScryfallBatchSize = 75;
 
     private readonly IScryfallCardResolver _scryfallCardResolver;
-    private readonly ScryfallCollectionCardCache? _collectionCardCache;
+    private readonly ScryfallCollectionCardCache _collectionCardCache;
 
+    /// <summary>
+    /// Creates a resolver over the shared collection cache.
+    /// </summary>
+    /// <remarks>
+    /// The cache is REQUIRED, not optional. A cache-less resolver re-posts every identifier to
+    /// <c>cards/collection</c>, and when the parameter defaulted, <c>new ScryfallReferenceResolver(resolver)</c>
+    /// compiled and produced exactly that silently.
+    /// </remarks>
     public ScryfallReferenceResolver(
         IScryfallCardResolver scryfallCardResolver,
-        ScryfallCollectionCardCache? collectionCardCache = null)
+        ScryfallCollectionCardCache collectionCardCache)
     {
         ArgumentNullException.ThrowIfNull(scryfallCardResolver);
+        ArgumentNullException.ThrowIfNull(collectionCardCache);
         _scryfallCardResolver = scryfallCardResolver;
         _collectionCardCache = collectionCardCache;
     }
@@ -141,7 +150,7 @@ internal sealed partial class ScryfallReferenceResolver
             foreach (var requestName in chunk)
             {
                 var identifier = CoreScryfallCollectionIdentifier.ToFaceIdentifier(requestName);
-                if (_collectionCardCache?.TryGetName(identifier, out var cachedCard) != true)
+                if (!_collectionCardCache.TryGetName(identifier, out var cachedCard))
                 {
                     coldNames.Add(requestName);
                     continue;
@@ -173,7 +182,7 @@ internal sealed partial class ScryfallReferenceResolver
             var identifiersToSubmit = new List<string>();
             foreach (var identifier in chunkIdentifiers)
             {
-                if (_collectionCardCache?.TryGetName(identifier, out var cachedCard) == true)
+                if (_collectionCardCache.TryGetName(identifier, out var cachedCard))
                 {
                     if (cachedCard is not null)
                     {
@@ -212,7 +221,7 @@ internal sealed partial class ScryfallReferenceResolver
 
             cards.AddRange(response.Data.Data);
 
-            if (identifiersToSubmit.Count > 0 && _collectionCardCache is not null)
+            if (identifiersToSubmit.Count > 0)
             {
                 var returnedCards = response.Data.Data
                     .Select((card, index) => (Card: card, Index: index))

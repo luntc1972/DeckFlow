@@ -175,8 +175,11 @@ internal sealed class CutLabPageService : ICutLabPageService
         CutLabResolvedCardCache sharedResolvedCardCache = new();
         _analysisContextBuilder = analysisContextBuilder
             // Why: test-only fallback; the DI path always injects the shared ScryfallReferenceResolver,
-            // so this instance deliberately runs without the shared collection cache.
-            ?? new CutLabAnalysisContextBuilder(cardResolver, sharedResolvedCardCache, new ScryfallReferenceResolver(cardResolver));
+            // so this instance gets a private collection cache rather than the shared singleton.
+            ?? new CutLabAnalysisContextBuilder(
+                cardResolver,
+                sharedResolvedCardCache,
+                new ScryfallReferenceResolver(cardResolver, new ScryfallCollectionCardCache()));
         _simulationService = simulationService
             ?? NoOpCutLabSimulationService.Instance;
         _featureFlags = featureFlags;
