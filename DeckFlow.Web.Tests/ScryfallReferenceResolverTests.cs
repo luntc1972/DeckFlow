@@ -220,6 +220,67 @@ public sealed class ScryfallReferenceResolverTests
     }
 
     /// <summary>
+    /// T6: warm names keep their ORIGINAL chunk boundaries. Two cached cards that share an ADR-0004
+    /// match key but never shared a response must not be pooled into one ambiguous group, which
+    /// would decline both matches and buy two fallback searches.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_WarmKeyCollisionAcrossChunks_KeepsBothMatchesWithoutFallback()
+    {
+        var cache = new ScryfallCollectionCardCache();
+        var names = Enumerable.Range(0, 100).Select(i => $"Card {i}").ToArray();
+
+        // Why: index 0 and index 80 land in DIFFERENT 75-name chunks, and their cached cards key
+        // identically under BatchMatchKey while matching neither request name raw.
+        names[0] = "Smugglers Copter";
+        names[80] = "Smuggler's Copter";
+        foreach (var index in Enumerable.Range(0, 100))
+        {
+            var card = index switch
+            {
+                0 => CreateCard("Smugglers, Copter"),
+                80 => CreateCard("Smugglers' Copter"),
+                _ => CreateCard(names[index]),
+            };
+            cache.SetNamePositive(names[index], card);
+        }
+
+        var collectionCallCount = 0;
+        var resolver = CreateResolver(
+            (request, _) =>
+            {
+                collectionCallCount++;
+                var identifiers = ExtractNames(ExtractRequestBody(request));
+                return Task.FromResult(CreateCollectionResponse(identifiers.Select(CreateCard).ToList()));
+            },
+            collectionCardCache: cache,
+            useCollectionCardCache: true);
+
+        var fallbackCallCount = 0;
+        Task<ScryfallCard?> Fallback(string name, CancellationToken _)
+        {
+            fallbackCallCount++;
+            return Task.FromResult<ScryfallCard?>(null);
+        }
+
+        var result = await resolver.ResolveBatchAsync(
+            names,
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+
+        Assert.Equal(0, collectionCallCount);
+        Assert.Equal(0, fallbackCallCount);
+        Assert.Equal(100, result.Resolutions.Count);
+        Assert.Equal(
+            "Smugglers, Copter",
+            result.Resolutions.Single(resolution => resolution.RequestName == "Smugglers Copter").Card.Name);
+        Assert.Equal(
+            "Smugglers' Copter",
+            result.Resolutions.Single(resolution => resolution.RequestName == "Smuggler's Copter").Card.Name);
+    }
+
+    /// <summary>
     /// T4: a cached collection miss suppresses only the collection POST. It must still invoke the
     /// caller's fallback every time, because collection not_found is not an absent-card result.
     /// </summary>

@@ -124,36 +124,43 @@ internal sealed partial class ScryfallReferenceResolver
         var resolved = new Dictionary<string, ScryfallReferenceResolution>(StringComparer.OrdinalIgnoreCase);
         var oracleNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        // Why: partition BEFORE chunking. Chunking the unfiltered list fixes the POST count at the
-        // chunk count of every request name, so warmth spread across chunk boundaries leaves each
-        // chunk holding a cold member and each chunk still POSTs. Filtering inside the loop can
-        // never reduce the loop count -- the same F-1 defect already fixed at site 3.
-        var warmNames = new List<string>();
+        // Why: partition BEFORE chunking the POSTs. Chunking the unfiltered list fixes the POST
+        // count at the chunk count of every request name, so warmth spread across chunk boundaries
+        // leaves each chunk holding a cold member and each chunk still POSTs. Filtering inside the
+        // loop can never reduce the loop count -- the same F-1 defect already fixed at site 3.
+        // Why the warm names keep their ORIGINAL chunk boundaries: the ADR-0004 tolerant pass
+        // declines a key that is ambiguous on either side, so pooling every warm name into one
+        // pseudo-chunk could collide two cached cards that shared a key but never shared a response,
+        // costing a fallback search. Only the COLD remainder is re-chunked.
         var coldNames = new List<string>();
-        var warmCards = new List<ScryfallCard>();
-        var warmIdentifiers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var requestName in requestNames)
+        foreach (var chunk in Chunk(requestNames, ScryfallBatchSize))
         {
-            var identifier = CoreScryfallCollectionIdentifier.ToFaceIdentifier(requestName);
-            if (_collectionCardCache?.TryGetName(identifier, out var cachedCard) != true)
+            var warmNames = new List<string>();
+            var warmCards = new List<ScryfallCard>();
+            var warmIdentifiers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var requestName in chunk)
             {
-                coldNames.Add(requestName);
-                continue;
+                var identifier = CoreScryfallCollectionIdentifier.ToFaceIdentifier(requestName);
+                if (_collectionCardCache?.TryGetName(identifier, out var cachedCard) != true)
+                {
+                    coldNames.Add(requestName);
+                    continue;
+                }
+
+                warmNames.Add(requestName);
+                if (cachedCard is not null && warmIdentifiers.Add(identifier))
+                {
+                    warmCards.Add(cachedCard);
+                }
             }
 
-            warmNames.Add(requestName);
-            if (cachedCard is not null && warmIdentifiers.Add(identifier))
+            // Why: the cached set is its own pseudo-chunk -- no POST, but BOTH match passes. Giving
+            // warm names only the raw pass would send a punctuation-drifted warm name to
+            // fallbackStrategy, buying an EXTRA Scryfall search on the warm path.
+            if (warmNames.Count > 0)
             {
-                warmCards.Add(cachedCard);
+                await MatchChunkAsync(warmNames, warmCards).ConfigureAwait(false);
             }
-        }
-
-        // Why: the cached set is its own pseudo-chunk -- no POST, but BOTH match passes. Giving warm
-        // names only the raw pass would send a punctuation-drifted warm name to fallbackStrategy,
-        // buying an EXTRA Scryfall search on the warm path.
-        if (warmNames.Count > 0)
-        {
-            await MatchChunkAsync(warmNames, warmCards).ConfigureAwait(false);
         }
 
         foreach (var chunk in Chunk(coldNames, ScryfallBatchSize))
