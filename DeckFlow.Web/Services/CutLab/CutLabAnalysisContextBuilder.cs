@@ -3,7 +3,6 @@ using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
 using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services.Manabase;
-using DeckFlow.Web.Services.Packets;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
