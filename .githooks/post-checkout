@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Recreate the repo AGENTS.md symlink after any checkout.
+#
+# Why: AGENTS.md is a symlink to ~/.claude/codex/repos/deckflow-AGENTS.md and is
+# gitignored (.gitignore), so a new worktree or a fresh checkout starts without it.
+# A dispatch in such a tree runs with world_state.agents_md carrying only the global
+# guide -- the state measured at 4.56M tokens per dispatch on 2026-08-18.
+#
+# Must never fail a checkout: exits 0 unconditionally, and is a no-op when the
+# target is missing (fresh clone on another box).
+target="$HOME/.claude/codex/repos/deckflow-AGENTS.md"
+link="$(git rev-parse --show-toplevel 2>/dev/null)/AGENTS.md"
+
+if [ -e "$target" ] && [ ! -e "$link" ]; then
+    ln -s "$target" "$link" 2>/dev/null || true
+fi
+exit 0
