@@ -17,11 +17,12 @@
     "nyquist_validation": true,
     "auto_advance": true,
     "_auto_chain_active": false,
-    "cross_ai_execution": true,
+    "cross_ai_execution": false,
     "cross_ai_command": "/home/clunt/.claude/scripts/codex-gsd-shim.sh --model gpt-5.6-terra --effort medium",
     "cross_ai_timeout": 1800,
     "plan_review_convergence": true,
-    "use_worktrees": false
+    "use_worktrees": false,
+    "cross_ai_execution_note": "Temporarily false 2026-08-19: Claude codes, Codex reviews. Restore to true to revert."
   },
   "statusline": {
     "context_position": "front"
