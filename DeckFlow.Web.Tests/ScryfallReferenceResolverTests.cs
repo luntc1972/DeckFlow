@@ -281,6 +281,55 @@ public sealed class ScryfallReferenceResolverTests
     }
 
     /// <summary>
+    /// T7: ACCEPTED divergence, ADR-0004 addendum. Two punctuation-colliding names in one original
+    /// chunk, one warm and one cold, no longer share a matching scope, so each resolves where both
+    /// previously declined as mutually ambiguous. Resolves more names, never fewer.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_WarmAndColdPunctuationCollisionInOneChunk_ResolvesBoth()
+    {
+        var cache = new ScryfallCollectionCardCache();
+        cache.SetNamePositive("Smugglers Copter", CreateCard("Smugglers, Copter"));
+
+        var collectionCallCount = 0;
+        var submittedIdentifiers = new List<string>();
+        var resolver = CreateResolver(
+            (request, _) =>
+            {
+                collectionCallCount++;
+                submittedIdentifiers.AddRange(ExtractNames(ExtractRequestBody(request)));
+                return Task.FromResult(CreateCollectionResponse(
+                    new List<ScryfallCard> { CreateCard("Smugglers' Copter") }));
+            },
+            collectionCardCache: cache,
+            useCollectionCardCache: true);
+
+        var fallbackCallCount = 0;
+        Task<ScryfallCard?> Fallback(string name, CancellationToken _)
+        {
+            fallbackCallCount++;
+            return Task.FromResult<ScryfallCard?>(null);
+        }
+
+        var result = await resolver.ResolveBatchAsync(
+            new[] { "Smugglers Copter", "Smuggler's Copter" },
+            Fallback,
+            normalizeForScryfall: false,
+            CancellationToken.None);
+
+        Assert.Equal(1, collectionCallCount);
+        Assert.Equal(new[] { "Smuggler's Copter" }, submittedIdentifiers);
+        Assert.Equal(0, fallbackCallCount);
+        Assert.Equal(
+            "Smugglers, Copter",
+            result.Resolutions.Single(resolution => resolution.RequestName == "Smugglers Copter").Card.Name);
+        Assert.Equal(
+            "Smugglers' Copter",
+            result.Resolutions.Single(resolution => resolution.RequestName == "Smuggler's Copter").Card.Name);
+        Assert.All(result.Resolutions, resolution => Assert.False(resolution.FromFallback));
+    }
+
+    /// <summary>
     /// T4: a cached collection miss suppresses only the collection POST. It must still invoke the
     /// caller's fallback every time, because collection not_found is not an absent-card result.
     /// </summary>
