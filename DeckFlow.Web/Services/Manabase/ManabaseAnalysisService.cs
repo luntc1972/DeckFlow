@@ -178,6 +178,21 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     // Scryfall's collection endpoint accepts at most 75 identifiers per request.
     private const int ScryfallBatchSize = 75;
 
+    // Why: ScryfallCardNameIndex precedence bands, declared together so the whole ladder is
+    // readable in one place. Only this class knows how much to trust each card. The bands sit ABOVE
+    // the index's default priority of 0 on purpose: a caller that states nothing must lose to every
+    // caller that does, so a future bare Add() cannot silently outrank a paired card.
+    //   paired to a submission  strongest -- earliest deck position wins
+    //   name-search repair      weaker -- the search may return a different printing than the batch
+    //   unpaired returned card  weakest -- matched no submission uniquely
+    //   (index default, 0)      no stated preference
+    private const int SearchFallbackPriority = 2;
+    private const int UnpairedPriority = 1;
+
+    // Why: earliest deck position wins, so the priority falls as the position rises. Subtracting
+    // from int.MaxValue keeps every paired card above the two sentinel bands for any real deck.
+    private static int PairedPriority(int globalPosition) => int.MaxValue - globalPosition;
+
     // Abuse caps for this anonymous public endpoint: bound the pasted payload and the number
     // of cards so one request can't force unbounded allocations or upstream Scryfall calls.
     // A Commander deck is ~100 cards; these leave generous headroom while rejecting abuse.
@@ -737,7 +752,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 if (fallback is not null)
                 {
                     card = ScryfallCardDataMapper.ToCardData(fallback);
-                    index.Add(card);
+                    index.Add(card, priority: SearchFallbackPriority);
                 }
             }
 
@@ -1086,7 +1101,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         }
 
         ScryfallCardData data = ScryfallCardDataMapper.ToCardData(fallback);
-        index.Add(data);
+        index.Add(data, priority: SearchFallbackPriority);
         return data;
     }
 
@@ -1200,19 +1215,18 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             unpairedCards.AddRange(returnedCards.Where(card => !positionedReturnedCards.ContainsKey(card.CardIndex)).Select(card => card.Card));
         }
 
-        // Why: Add is last-write-wins, so these two loops ARE the precedence rule — later submission
-        // position beats earlier, and an unpaired extra beats every paired card. Both run outside the
-        // chunk loop on purpose: chunk membership now depends on cache warmth, so indexing per chunk
-        // would let a warm cache pick a different winner (and a fully warm deck would index nothing).
+        // Why: precedence is now stated per card rather than implied by call order, so neither the
+        // order of these loops nor chunk membership (which shifts with cache warmth) can change the
+        // winner. The index resolves collisions from the priorities below.
         var index = new ScryfallCardNameIndex();
-        foreach (var (card, _) in positionedCards.OrderBy(card => card.GlobalPosition))
+        foreach (var (card, globalPosition) in positionedCards)
         {
-            index.Add(ScryfallCardDataMapper.ToCardData(card));
+            index.Add(ScryfallCardDataMapper.ToCardData(card), priority: PairedPriority(globalPosition));
         }
 
         foreach (var card in unpairedCards)
         {
-            index.Add(ScryfallCardDataMapper.ToCardData(card));
+            index.Add(ScryfallCardDataMapper.ToCardData(card), priority: UnpairedPriority);
         }
 
         return index;

@@ -2197,7 +2197,8 @@ public sealed class ManabaseAnalysisServiceTests
 
         Assert.Equal(neitherCached, firstCached);
         Assert.Equal(neitherCached, secondCached);
-        Assert.Equal("2", neitherCached);
+        // Why: positions 0 and 1 both resolve to "Shared". Earliest deck position outranks.
+        Assert.Equal("1", neitherCached);
     }
 
     [Fact]
@@ -2271,13 +2272,40 @@ public sealed class ManabaseAnalysisServiceTests
             return resolved!.CollectorNumber;
         }
 
-        Assert.Equal("75", await ResolveWinnerAsync(cacheLater: false, cacheAll: false));
-        Assert.Equal("75", await ResolveWinnerAsync(cacheLater: true, cacheAll: false));
-        Assert.Equal("75", await ResolveWinnerAsync(cacheLater: false, cacheAll: true));
+        // Why: "Shared" sits at deck positions 0 and 75. Earliest position outranks, so the
+        // winner is cn 0 under every cache-warmth shape -- the index decides from the priority the
+        // caller states, never from which chunk happened to deliver the card first.
+        Assert.Equal("0", await ResolveWinnerAsync(cacheLater: false, cacheAll: false));
+        Assert.Equal("0", await ResolveWinnerAsync(cacheLater: true, cacheAll: false));
+        Assert.Equal("0", await ResolveWinnerAsync(cacheLater: false, cacheAll: true));
     }
 
     [Fact]
-    public async Task ResolveCardsAsync_MultiChunkUnpairedCards_AreIndexedAfterAllPositionedCards()
+    public async Task ResolveCardsAsync_EarliestDeckPosition_BeatsTheBetterPrintingKey()
+    {
+        // Why: both entries resolve to "Shared", and the printing tiebreak would pick abc|1 -- the
+        // LATER deck position. Only the caller-stated position priority yields abc|9, so this test
+        // fails the moment the positional priority is dropped.
+        var entries = new List<DeckEntry>
+        {
+            Entry("Early", 1, "mainboard", "abc", "9"),
+            Entry("Late", 1, "mainboard", "abc", "1"),
+        };
+        var cards = new List<ScryfallCard>
+        {
+            Spell("Shared", "{W}", 1, "Creature", set: "abc", cn: "9"),
+            Spell("Shared", "{U}", 1, "Creature", set: "abc", cn: "1"),
+        };
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), new StubResolver([Response(HttpStatusCode.OK, cards)]));
+
+        var index = await InvokeResolveCardsAsync(service, entries);
+
+        Assert.True(index.TryResolve("Shared", null, null, out ScryfallCardData? resolved));
+        Assert.Equal("9", resolved!.CollectorNumber);
+    }
+
+    [Fact]
+    public async Task ResolveCardsAsync_UnpairedCard_LosesToPairedCard()
     {
         var entries = Enumerable.Range(0, 75)
             .Select(number => Entry($"Filler {number}", 1, "mainboard"))
@@ -2285,18 +2313,21 @@ public sealed class ManabaseAnalysisServiceTests
             .ToList();
         var firstChunk = Enumerable.Range(0, 75)
             .Select(number => Spell($"Filler {number}", "{W}", 1, "Creature", cn: number.ToString()))
-            .Append(Spell("Shared", "{W}", 1, "Creature", cn: "99"))
+            .Append(Spell("Shared", "{W}", 1, "Creature", set: "abc", cn: "1"))
             .ToList();
         var responses = new[]
         {
             Response(HttpStatusCode.OK, firstChunk),
-            Response(HttpStatusCode.OK, [Spell("Shared", "{W}", 1, "Creature", cn: "1")]),
+            Response(HttpStatusCode.OK, [Spell("Shared", "{W}", 1, "Creature", set: "abc", cn: "99")]),
         };
         var service = new ManabaseAnalysisService(new FakeLoader(entries), new StubResolver(responses));
 
         var index = await InvokeResolveCardsAsync(service, entries);
 
-        // Why: pins unpaired cards after ALL positioned cards across every chunk; moving that append inside the loop must break this.
+        // Why: chunk 1 returns a "Shared" (abc|1) that matched no submission, so it is unpaired.
+        // Chunk 2 submits "Shared" and pairs abc|99 to it. The printing tiebreak would pick the
+        // UNPAIRED card, so only the paired-beats-unpaired priority band yields cn 99 -- drop that
+        // band and this test fails.
         Assert.True(index.TryResolve("Shared", null, null, out ScryfallCardData? resolved));
         Assert.Equal("99", resolved!.CollectorNumber);
     }
