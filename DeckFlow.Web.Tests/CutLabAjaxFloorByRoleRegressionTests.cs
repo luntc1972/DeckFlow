@@ -309,7 +309,7 @@ public sealed class CutLabAjaxFloorByRoleRegressionTests
             analysisContextBuilder: new CutLabAnalysisContextBuilder(
                 sharedCardResolver,
                 new CutLabResolvedCardCache(),
-                new ScryfallReferenceResolver(sharedCardResolver)),
+                new ScryfallReferenceResolver(sharedCardResolver, new ScryfallCollectionCardCache())),
             simulationService: new FakeSimulationService(),
             logger: NullLogger<CutLabPageService>.Instance,
             featureFlags: null);
