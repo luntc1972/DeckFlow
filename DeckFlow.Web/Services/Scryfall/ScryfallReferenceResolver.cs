@@ -1,11 +1,10 @@
 using System.Net;
 using System.Text.RegularExpressions;
 using DeckFlow.Core.Normalization;
-using DeckFlow.Web.Services.Scryfall;
 using RestSharp;
 using CoreScryfallCollectionIdentifier = DeckFlow.Core.Normalization.ScryfallCollectionIdentifier;
 
-namespace DeckFlow.Web.Services.Packets;
+namespace DeckFlow.Web.Services.Scryfall;
 
 /// <summary>
 /// Raised when the shared <c>cards/collection</c> batch call itself returns a non-success status or a

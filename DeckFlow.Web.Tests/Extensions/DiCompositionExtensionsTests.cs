@@ -15,7 +15,6 @@ using DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
 using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Http;
 using DeckFlow.Web.Services.Manabase;
-using DeckFlow.Web.Services.Packets;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
