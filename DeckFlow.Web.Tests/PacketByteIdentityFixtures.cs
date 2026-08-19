@@ -296,7 +296,7 @@ internal static class PacketByteIdentityFixtures
             executeNamedAsyncOverride: (request, _) => Task.FromResult(CreateNamedResponse(request)));
         return new DeckAnalysisPacketService(
             cardResolver,
-            new ScryfallReferenceResolver(cardResolver),
+            new ScryfallReferenceResolver(cardResolver, new ScryfallCollectionCardCache()),
             new DeckEntryLoader(
                 moxfieldDeckImporter ?? new FixtureMoxfieldDeckImporter([]),
                 new FixtureArchidektDeckImporter(),

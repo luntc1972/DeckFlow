@@ -246,7 +246,7 @@ public sealed class CutLabOriginalEntriesTests
         var analysisBuilder = new CutLabAnalysisContextBuilder(
             resolver,
             cache,
-            new ScryfallReferenceResolver(resolver),
+            new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()),
             new FakeSpellbookService(),
             new FakeCategoryKnowledgeStore());
         return new CutLabPageService(

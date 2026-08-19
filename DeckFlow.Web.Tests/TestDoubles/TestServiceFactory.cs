@@ -126,7 +126,7 @@ internal static class TestServiceFactory
         var cardResolver = CreateScryfallCardResolver(executeCollectionAsync, executeSearchAsync, executeNamedAsync);
         return new DeckAnalysisPacketService(
             cardResolver,
-            new ScryfallReferenceResolver(cardResolver),
+            new ScryfallReferenceResolver(cardResolver, new ScryfallCollectionCardCache()),
             CreateDeckEntryLoader(moxfieldDeckImporter, archidektDeckImporter, moxfieldParser, archidektParser),
             mechanicLookupService,
             commanderBanListService,
@@ -167,7 +167,7 @@ internal static class TestServiceFactory
         var cardResolver = CreateScryfallCardResolver(executeCollectionAsync, executeSearchAsync);
         return new DeckComparisonService(
             cardResolver,
-            new ScryfallReferenceResolver(cardResolver),
+            new ScryfallReferenceResolver(cardResolver, new ScryfallCollectionCardCache()),
             CreateDeckEntryLoader(moxfieldDeckImporter, archidektDeckImporter, moxfieldParser, archidektParser),
             commanderSpellbookService,
             BuildComparisonPromptRegistry(),
@@ -189,7 +189,7 @@ internal static class TestServiceFactory
         var cardResolver = CreateScryfallCardResolver(executeCollectionAsync, executeSearchAsync);
         return new MetaGapService(
             cardResolver,
-            new ScryfallReferenceResolver(cardResolver),
+            new ScryfallReferenceResolver(cardResolver, new ScryfallCollectionCardCache()),
             CreateDeckEntryLoader(moxfieldDeckImporter, archidektDeckImporter, moxfieldParser, archidektParser),
             edhTop16Client,
             commanderSpellbookService,

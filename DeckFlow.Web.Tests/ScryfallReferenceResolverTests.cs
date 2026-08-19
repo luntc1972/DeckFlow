@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Reflection;
 using System.Text.Json;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Packets;
@@ -65,8 +66,7 @@ public sealed class ScryfallReferenceResolverTests
                 postedIdentifiers.Add(identifiers);
                 return Task.FromResult(CreateCollectionResponse(identifiers.Select(CreateCard).ToList()));
             },
-            collectionCardCache: cache,
-            useCollectionCardCache: true);
+            collectionCardCache: cache);
 
         Task<ScryfallCard?> Fallback(string name, CancellationToken _)
             => throw new InvalidOperationException($"Fallback must not be invoked for collection hit {name}.");
@@ -100,8 +100,7 @@ public sealed class ScryfallReferenceResolverTests
                 var identifiers = ExtractNames(ExtractRequestBody(request));
                 return Task.FromResult(CreateCollectionResponse(identifiers.Select(CreateCard).ToList()));
             },
-            collectionCardCache: cache,
-            useCollectionCardCache: true);
+            collectionCardCache: cache);
 
         Task<ScryfallCard?> Fallback(string name, CancellationToken _)
             => throw new InvalidOperationException($"Fallback must not be invoked for collection hit {name}.");
@@ -140,8 +139,7 @@ public sealed class ScryfallReferenceResolverTests
                 Assert.Equal(new[] { "Smugglers Copter" }, ExtractNames(ExtractRequestBody(request)));
                 return Task.FromResult(CreateCollectionResponse(new List<ScryfallCard> { smugglersCopter }));
             },
-            collectionCardCache: cache,
-            useCollectionCardCache: true);
+            collectionCardCache: cache);
 
         Task<ScryfallCard?> Fallback(string name, CancellationToken _)
         {
@@ -196,8 +194,7 @@ public sealed class ScryfallReferenceResolverTests
                 submittedBatchSizes.Add(identifiers.Count);
                 return Task.FromResult(CreateCollectionResponse(identifiers.Select(CreateCard).ToList()));
             },
-            collectionCardCache: cache,
-            useCollectionCardCache: true);
+            collectionCardCache: cache);
 
         var fallbackCallCount = 0;
         Task<ScryfallCard?> Fallback(string name, CancellationToken _)
@@ -253,8 +250,7 @@ public sealed class ScryfallReferenceResolverTests
                 var identifiers = ExtractNames(ExtractRequestBody(request));
                 return Task.FromResult(CreateCollectionResponse(identifiers.Select(CreateCard).ToList()));
             },
-            collectionCardCache: cache,
-            useCollectionCardCache: true);
+            collectionCardCache: cache);
 
         var fallbackCallCount = 0;
         Task<ScryfallCard?> Fallback(string name, CancellationToken _)
@@ -301,8 +297,7 @@ public sealed class ScryfallReferenceResolverTests
                 return Task.FromResult(CreateCollectionResponse(
                     new List<ScryfallCard> { CreateCard("Smugglers' Copter") }));
             },
-            collectionCardCache: cache,
-            useCollectionCardCache: true);
+            collectionCardCache: cache);
 
         var fallbackCallCount = 0;
         Task<ScryfallCard?> Fallback(string name, CancellationToken _)
@@ -348,8 +343,7 @@ public sealed class ScryfallReferenceResolverTests
                     new List<ScryfallCard>(),
                     new List<ScryfallCollectionIdentifier> { new("Printed Name") }));
             },
-            collectionCardCache: cache,
-            useCollectionCardCache: true);
+            collectionCardCache: cache);
 
         Task<ScryfallCard?> Fallback(string name, CancellationToken _)
         {
@@ -405,8 +399,7 @@ public sealed class ScryfallReferenceResolverTests
 
                 return Task.FromResult(CreateCollectionResponse(identifiers.Select(CreateCard).ToList()));
             },
-            collectionCardCache: cache,
-            useCollectionCardCache: true);
+            collectionCardCache: cache);
 
         Task<ScryfallCard?> Fallback(string name, CancellationToken _) => Task.FromResult<ScryfallCard?>(CreateCard(name));
 
@@ -450,8 +443,7 @@ public sealed class ScryfallReferenceResolverTests
 
                 return Task.FromResult(CreateCollectionResponse(identifiers.Select(CreateCard).ToList()));
             },
-            collectionCardCache: cache,
-            useCollectionCardCache: true);
+            collectionCardCache: cache);
 
         Task<ScryfallCard?> Fallback(string name, CancellationToken _) => Task.FromResult<ScryfallCard?>(CreateCard(name));
 
@@ -483,8 +475,7 @@ public sealed class ScryfallReferenceResolverTests
                 postedIdentifiers.Add(identifiers);
                 return Task.FromResult(CreateCollectionResponse(new List<ScryfallCard> { CreateCard(identifiers[0]) }));
             },
-            collectionCardCache: cache,
-            useCollectionCardCache: true);
+            collectionCardCache: cache);
 
         Task<ScryfallCard?> Fallback(string name, CancellationToken _) => Task.FromResult<ScryfallCard?>(CreateCard(name));
 
@@ -528,8 +519,7 @@ public sealed class ScryfallReferenceResolverTests
 
                 return Task.FromResult(CreateCollectionResponse(identifiers.Select(CreateCard).ToList()));
             },
-            collectionCardCache: cache,
-            useCollectionCardCache: true);
+            collectionCardCache: cache);
 
         Task<ScryfallCard?> Fallback(string name, CancellationToken _)
             => throw new InvalidOperationException($"Fallback must not be invoked for collection hit {name}.");
@@ -576,8 +566,7 @@ public sealed class ScryfallReferenceResolverTests
                     },
                     new List<ScryfallCollectionIdentifier> { new("Missing Card") }));
             },
-            collectionCardCache: cache,
-            useCollectionCardCache: true);
+            collectionCardCache: cache);
 
         Task<ScryfallCard?> Fallback(string name, CancellationToken _)
         {
@@ -635,8 +624,7 @@ public sealed class ScryfallReferenceResolverTests
                 Assert.Equal("Beta", identifier);
                 return Task.FromResult(CreateCollectionResponse(new List<ScryfallCard> { CreateCard("Beta // One") }));
             },
-            collectionCardCache: cache,
-            useCollectionCardCache: true);
+            collectionCardCache: cache);
 
         Task<ScryfallCard?> Fallback(string name, CancellationToken _)
             => throw new InvalidOperationException($"Fallback must not be invoked for exact collection hit {name}.");
@@ -663,48 +651,19 @@ public sealed class ScryfallReferenceResolverTests
     }
 
     /// <summary>
-    /// T8: existing call sites retain the one-argument constructor and a caller explicitly passing
-    /// a null cache receives the same uncached behavior without throwing.
+    /// The collection cache is a required collaborator: no constructor may yield a cache-less
+    /// resolver, because a silent cache-less instance re-posts every identifier to Scryfall.
     /// </summary>
     [Fact]
-    public async Task ResolveBatchAsync_NullCollectionCache_PreservesOneArgumentConstructorBehavior()
+    public void Constructors_AllRequireCollectionCardCache()
     {
-        var collectionCallCount = 0;
-        Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken _)
-        {
-            collectionCallCount++;
-            var identifiers = ExtractNames(ExtractRequestBody(request));
-            return Task.FromResult(CreateCollectionResponse(identifiers.Select(CreateCard).ToList()));
-        }
+        var constructors = typeof(ScryfallReferenceResolver)
+            .GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 
-        var existingConstructorResolver = CreateResolver(ExecuteCollectionAsync);
-        var explicitNullCacheResolver = CreateResolver(
-            ExecuteCollectionAsync,
-            collectionCardCache: null,
-            useCollectionCardCache: true);
-
-        Task<ScryfallCard?> Fallback(string name, CancellationToken _)
-            => throw new InvalidOperationException($"Fallback must not be invoked for collection hit {name}.");
-
-        var existingResult = await existingConstructorResolver.ResolveBatchAsync(
-            new[] { "Sol Ring" },
-            Fallback,
-            normalizeForScryfall: false,
-            CancellationToken.None);
-        var nullCacheResult = await explicitNullCacheResolver.ResolveBatchAsync(
-            new[] { "Sol Ring" },
-            Fallback,
-            normalizeForScryfall: false,
-            CancellationToken.None);
-        var secondNullCacheResult = await explicitNullCacheResolver.ResolveBatchAsync(
-            new[] { "Sol Ring" },
-            Fallback,
-            normalizeForScryfall: false,
-            CancellationToken.None);
-
-        Assert.Equal(3, collectionCallCount);
-        AssertEquivalentBatchResolution(existingResult, nullCacheResult);
-        AssertEquivalentBatchResolution(nullCacheResult, secondNullCacheResult);
+        Assert.NotEmpty(constructors);
+        Assert.All(constructors, constructor =>
+            Assert.Contains(constructor.GetParameters(), parameter =>
+                parameter.ParameterType == typeof(ScryfallCollectionCardCache) && !parameter.IsOptional));
     }
 
     /// <summary>
@@ -732,8 +691,7 @@ public sealed class ScryfallReferenceResolverTests
                     },
                     new List<ScryfallCollectionIdentifier> { new("Missing Card") }));
             },
-            collectionCardCache: cache,
-            useCollectionCardCache: true);
+            collectionCardCache: cache);
 
         Task<ScryfallCard?> Fallback(string name, CancellationToken _)
         {
@@ -780,8 +738,7 @@ public sealed class ScryfallReferenceResolverTests
                 Assert.Equal(new[] { submittedIdentifier }, ExtractNames(ExtractRequestBody(request)));
                 return Task.FromResult(CreateCollectionResponse(new List<ScryfallCard> { returnedCard }));
             },
-            collectionCardCache: cache,
-            useCollectionCardCache: true);
+            collectionCardCache: cache);
 
         Task<ScryfallCard?> Fallback(string name, CancellationToken _)
             => throw new InvalidOperationException($"Fallback must not be invoked for collection hit {name}.");
@@ -829,8 +786,7 @@ public sealed class ScryfallReferenceResolverTests
                     CreateCard("Nissa's Triumph"),
                 }));
             },
-            collectionCardCache: cache,
-            useCollectionCardCache: true);
+            collectionCardCache: cache);
 
         Task<ScryfallCard?> Fallback(string _, CancellationToken __)
             => Task.FromResult<ScryfallCard?>(null);
@@ -1199,8 +1155,7 @@ public sealed class ScryfallReferenceResolverTests
 
     private static ScryfallReferenceResolver CreateResolver(
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> executeCollectionAsync,
-        ScryfallCollectionCardCache? collectionCardCache = null,
-        bool useCollectionCardCache = false)
+        ScryfallCollectionCardCache? collectionCardCache = null)
     {
         var cardResolver = new ScryfallCardResolver(
             new FakeScryfallRestClientFactory(new HttpClient { BaseAddress = new Uri("https://api.scryfall.com/") }),
@@ -1219,12 +1174,7 @@ public sealed class ScryfallReferenceResolverTests
                     Data = null,
                 }));
 
-        if (useCollectionCardCache)
-        {
-            return new ScryfallReferenceResolver(cardResolver, collectionCardCache);
-        }
-
-        return new ScryfallReferenceResolver(cardResolver);
+        return new ScryfallReferenceResolver(cardResolver, collectionCardCache ?? new ScryfallCollectionCardCache());
     }
 
     private static RestResponse<ScryfallCollectionResponse> CreateCollectionResponse(
