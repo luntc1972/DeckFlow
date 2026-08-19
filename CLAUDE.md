@@ -26,9 +26,12 @@ ASP.NET 10 / C# 12 (7 projects), TypeScript 6 compiled by MSBuild, Razor MVC, xU
 Polly v8 for all egress; SQLite by default, Postgres via `DECKFLOW_DATABASE_PROVIDER`; Serilog.
 Deployed to Render via Docker.
 
-**Detail — do not re-derive, read these:** `.planning/codebase/STACK.md` (versions, every
-dependency, config env vars), `INTEGRATIONS.md` (upstream APIs), `TESTING.md` (test layout).
-`AGENTS.md` at the repo root is the short module map and build/test guide.
+**Detail — read only on the stated trigger, not by default:**
+`.planning/codebase/STACK.md` — when adding or upgrading a dependency, or when a config env var is
+in question. `INTEGRATIONS.md` — when changing a call to an upstream API. `TESTING.md` — when
+adding a test project or changing test layout. `AGENTS.md` at the repo root is the short module map
+and build/test guide, and is already loaded for Codex; prefer it over the `.planning/codebase/`
+files, which total ~36k tokens and are not cached.
 <!-- GSD:stack-end -->
 
 <!-- GSD:conventions-start source:CONVENTIONS.md -->
@@ -43,7 +46,7 @@ logging only — never string interpolation into a log template. Test doubles: `
 `Stub*` queue-driven, `Throwing*` for exception injection; internal test-seam constructors are
 exposed via `[InternalsVisibleTo]`.
 
-**Detail:** `.planning/codebase/CONVENTIONS.md`. Also in `AGENTS.md` (Codex-facing).
+**Detail — read only when a convention above is ambiguous for the file you are editing:** `.planning/codebase/CONVENTIONS.md`. The same rules are in `AGENTS.md` (Codex-facing), which is cheaper.
 <!-- GSD:conventions-end -->
 
 <!-- GSD:architecture-start source:ARCHITECTURE.md -->
@@ -54,8 +57,10 @@ exposed via `[InternalsVisibleTo]`.
 `DeckFlow.Studio` are separate hosts over the same Core. Composition root is
 `DeckFlow.Web/Program.cs`.
 
-**Detail — component tables, layers, data flow, entry points:** `.planning/codebase/ARCHITECTURE.md`
-and `STRUCTURE.md`. Known issues: `CONCERNS.md`.
+**Detail — read only on the stated trigger:** `.planning/codebase/ARCHITECTURE.md` and
+`STRUCTURE.md` (component tables, layers, data flow, entry points) — when adding a component or
+changing a layer boundary. `CONCERNS.md` — when triaging a known issue. The constraints below are
+the part you need for ordinary work; they are inline precisely so those files stay unread.
 
 ### Architectural Constraints — violating these causes real bugs
 
