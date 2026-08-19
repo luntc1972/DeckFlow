@@ -124,7 +124,39 @@ internal sealed partial class ScryfallReferenceResolver
         var resolved = new Dictionary<string, ScryfallReferenceResolution>(StringComparer.OrdinalIgnoreCase);
         var oracleNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var chunk in Chunk(requestNames, ScryfallBatchSize))
+        // Why: partition BEFORE chunking. Chunking the unfiltered list fixes the POST count at the
+        // chunk count of every request name, so warmth spread across chunk boundaries leaves each
+        // chunk holding a cold member and each chunk still POSTs. Filtering inside the loop can
+        // never reduce the loop count -- the same F-1 defect already fixed at site 3.
+        var warmNames = new List<string>();
+        var coldNames = new List<string>();
+        var warmCards = new List<ScryfallCard>();
+        var warmIdentifiers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var requestName in requestNames)
+        {
+            var identifier = CoreScryfallCollectionIdentifier.ToFaceIdentifier(requestName);
+            if (_collectionCardCache?.TryGetName(identifier, out var cachedCard) != true)
+            {
+                coldNames.Add(requestName);
+                continue;
+            }
+
+            warmNames.Add(requestName);
+            if (cachedCard is not null && warmIdentifiers.Add(identifier))
+            {
+                warmCards.Add(cachedCard);
+            }
+        }
+
+        // Why: the cached set is its own pseudo-chunk -- no POST, but BOTH match passes. Giving warm
+        // names only the raw pass would send a punctuation-drifted warm name to fallbackStrategy,
+        // buying an EXTRA Scryfall search on the warm path.
+        if (warmNames.Count > 0)
+        {
+            await MatchChunkAsync(warmNames, warmCards).ConfigureAwait(false);
+        }
+
+        foreach (var chunk in Chunk(coldNames, ScryfallBatchSize))
         {
             string[] chunkIdentifiers = chunk
                 .Select(CoreScryfallCollectionIdentifier.ToFaceIdentifier)
@@ -236,6 +268,22 @@ internal sealed partial class ScryfallReferenceResolver
                 }
             }
 
+            await MatchChunkAsync(chunk, cards).ConfigureAwait(false);
+        }
+
+        var orderedResolutions = requestNames
+            .Where(resolved.ContainsKey)
+            .Select(name => resolved[name])
+            .ToList();
+
+        return new ScryfallBatchResolution(orderedResolutions, oracleNameMap);
+
+        // Why: shared by the cold chunks and the warm pseudo-chunk so the ADR-0004 tolerant pass can
+        // never drift between the two paths. Match scope stays PER-RESPONSE: matching run-wide widens
+        // the ambiguity pool, so a key unambiguous inside one response could decline run-wide and cost
+        // an extra fallback search.
+        async Task MatchChunkAsync(IReadOnlyList<string> chunk, List<ScryfallCard> cards)
+        {
             // Why: one pass records the exact matches and collects the leftovers the tolerant pass
             // below needs, instead of scanning the response twice. TryGetValue recovers the caller's
             // original spelling, which is the only reason the exact match needs a lookup at all.
@@ -294,13 +342,6 @@ internal sealed partial class ScryfallReferenceResolver
                 resolved[unresolvedName] = new ScryfallReferenceResolution(unresolvedName, fallbackCard, FromFallback: true);
             }
         }
-
-        var orderedResolutions = requestNames
-            .Where(resolved.ContainsKey)
-            .Select(name => resolved[name])
-            .ToList();
-
-        return new ScryfallBatchResolution(orderedResolutions, oracleNameMap);
     }
 
     private static IEnumerable<List<T>> Chunk<T>(IReadOnlyList<T> values, int size)
