@@ -1357,7 +1357,7 @@ public sealed class CutLabPageServiceTests
         ];
         CutLabResolvedCardCache resolvedCardCache = new();
         var cardResolver = new FakeResolver(cards);
-        var contextBuilder = new CutLabAnalysisContextBuilder(cardResolver, resolvedCardCache, new ScryfallReferenceResolver(cardResolver));
+        var contextBuilder = new CutLabAnalysisContextBuilder(cardResolver, resolvedCardCache, new ScryfallReferenceResolver(cardResolver, new ScryfallCollectionCardCache()));
         var service = new CutLabExportService(
             contextBuilder,
             resolvedCardCache,
@@ -1609,7 +1609,7 @@ public sealed class CutLabPageServiceTests
         var analysisBuilder = new CutLabAnalysisContextBuilder(
             sharedCardResolver,
             new CutLabResolvedCardCache(),
-            new ScryfallReferenceResolver(sharedCardResolver),
+            new ScryfallReferenceResolver(sharedCardResolver, new ScryfallCollectionCardCache()),
             spellbook,
             categoryStore);
         var service = new CutLabPageService(
@@ -1667,7 +1667,7 @@ public sealed class CutLabPageServiceTests
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
         var cards = BuildResolvedCards(entries);
         var cache = new CutLabResolvedCardCache();
-        var analysisBuilder = new CutLabAnalysisContextBuilder(new FakeResolver(cards), cache, new ScryfallReferenceResolver(new FakeResolver(cards)));
+        var analysisBuilder = new CutLabAnalysisContextBuilder(new FakeResolver(cards), cache, new ScryfallReferenceResolver(new FakeResolver(cards), new ScryfallCollectionCardCache()));
         var simulationService = new FakeSimulationService();
         var service = new CutLabPageService(
             new FakeLoader(entries),
@@ -1714,7 +1714,7 @@ public sealed class CutLabPageServiceTests
         var analysisBuilder = new CutLabAnalysisContextBuilder(
             resolver,
             cache,
-            new ScryfallReferenceResolver(resolver),
+            new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()),
             new FakeSpellbookService(),
             new FakeCategoryKnowledgeStore());
         var service = new CutLabPageService(
@@ -1782,7 +1782,7 @@ public sealed class CutLabPageServiceTests
         var analysisBuilder = new CutLabAnalysisContextBuilder(
             resolver,
             cache,
-            new ScryfallReferenceResolver(resolver),
+            new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()),
             new FakeSpellbookService(),
             new FakeCategoryKnowledgeStore());
         var service = new CutLabPageService(
@@ -2073,7 +2073,7 @@ public sealed class CutLabPageServiceTests
         var analysisBuilder = new CutLabAnalysisContextBuilder(
             resolver,
             cache,
-            new ScryfallReferenceResolver(resolver),
+            new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()),
             new FakeSpellbookService(),
             new FakeCategoryKnowledgeStore());
         var service = new CutLabPageService(
@@ -2122,7 +2122,7 @@ public sealed class CutLabPageServiceTests
         var analysisBuilder = new CutLabAnalysisContextBuilder(
             resolver,
             cache,
-            new ScryfallReferenceResolver(resolver),
+            new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()),
             new FakeSpellbookService(),
             new FakeCategoryKnowledgeStore());
         var service = new CutLabPageService(
@@ -2184,7 +2184,7 @@ public sealed class CutLabPageServiceTests
         var analysisBuilder = new CutLabAnalysisContextBuilder(
             resolver,
             cache,
-            new ScryfallReferenceResolver(resolver),
+            new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()),
             new FakeSpellbookService(),
             new FakeCategoryKnowledgeStore());
         var service = new CutLabPageService(
@@ -2240,7 +2240,7 @@ public sealed class CutLabPageServiceTests
         var analysisBuilder = new CutLabAnalysisContextBuilder(
             resolver,
             cache,
-            new ScryfallReferenceResolver(resolver),
+            new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()),
             new FakeSpellbookService(),
             new FakeCategoryKnowledgeStore());
         var service = new CutLabPageService(
@@ -2501,7 +2501,7 @@ public sealed class CutLabPageServiceTests
         var analysisBuilder = new CutLabAnalysisContextBuilder(
             sharedCardResolver2,
             new CutLabResolvedCardCache(),
-            new ScryfallReferenceResolver(sharedCardResolver2),
+            new ScryfallReferenceResolver(sharedCardResolver2, new ScryfallCollectionCardCache()),
             new FakeSpellbookService { Exception = new InvalidOperationException("spellbook down") },
             new FakeCategoryKnowledgeStore(),
             logger);
@@ -2534,7 +2534,7 @@ public sealed class CutLabPageServiceTests
         var analysisBuilder = new CutLabAnalysisContextBuilder(
             sharedCardResolver3,
             new CutLabResolvedCardCache(),
-            new ScryfallReferenceResolver(sharedCardResolver3),
+            new ScryfallReferenceResolver(sharedCardResolver3, new ScryfallCollectionCardCache()),
             new FakeSpellbookService(),
             new ThrowingCategoryKnowledgeStore(new InvalidOperationException("db down")),
             logger);
@@ -2588,7 +2588,7 @@ public sealed class CutLabPageServiceTests
         var analysisBuilder = new CutLabAnalysisContextBuilder(
             sharedCardResolver4,
             new CutLabResolvedCardCache(),
-            new ScryfallReferenceResolver(sharedCardResolver4),
+            new ScryfallReferenceResolver(sharedCardResolver4, new ScryfallCollectionCardCache()),
             new FakeSpellbookService { Exception = new OperationCanceledException("cancel spellbook") },
             new FakeCategoryKnowledgeStore());
         var service = new CutLabPageService(
@@ -2614,7 +2614,7 @@ public sealed class CutLabPageServiceTests
         var analysisBuilder = new CutLabAnalysisContextBuilder(
             sharedCardResolver5,
             new CutLabResolvedCardCache(),
-            new ScryfallReferenceResolver(sharedCardResolver5),
+            new ScryfallReferenceResolver(sharedCardResolver5, new ScryfallCollectionCardCache()),
             new FakeSpellbookService(),
             new ThrowingCategoryKnowledgeStore(new OperationCanceledException("cancel categories")));
         var service = new CutLabPageService(
@@ -2734,7 +2734,7 @@ public sealed class CutLabPageServiceTests
             analysisContextBuilder: new CutLabAnalysisContextBuilder(
                 cardResolver,
                 new CutLabResolvedCardCache(),
-                new ScryfallReferenceResolver(cardResolver),
+                new ScryfallReferenceResolver(cardResolver, new ScryfallCollectionCardCache()),
                 spellbook,
                 categoryStore));
         var request = new CutLabRequest
@@ -3053,6 +3053,7 @@ public sealed class CutLabPageServiceTests
         var services = new ServiceCollection();
         services.AddSingleton<IDeckEntryLoader>(new FakeLoader([]));
         services.AddSingleton<IScryfallCardResolver>(new FakeResolver([]));
+        services.AddSingleton<ScryfallCollectionCardCache>();
         services.AddSingleton<ScryfallReferenceResolver>();
         services.AddSingleton<ICommanderBanListService>(new FakeBanListService([]));
         if (!omitManabaseBaseline)
