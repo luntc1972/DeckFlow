@@ -414,6 +414,53 @@ public sealed class CutLabAnalysisContextBuilderTests
             ["Focused Commander"],
             preResolvedCards: beforeContext.ResolvedCards);
 
+        // Why: this count is satisfied by the shared ScryfallCollectionCardCache since 89723ba9, not
+        // by preResolvedCards being honoured -- mutation-proved 2026-08-19. It still pins the warm-cache
+        // no-POST property, but the reuse path itself is guarded by the cold-cache sibling below.
+        Assert.Equal(1, resolver.ExecuteCollectionCalls);
+        Assert.Equal(0, resolver.ResolveSingleCalls);
+        Assert.Equal(["Focused Commander", "Counterspell"], afterContext.ResolvedCards.Select(card => card.Name));
+    }
+
+    [Fact]
+    public async Task BuildAsync_AfterDecisionWithPreResolvedCards_ColdCollectionCache_MakesNoAdditionalResolverCalls()
+    {
+        // Why: the warm-cache sibling above can no longer fail when preResolvedCards is ignored,
+        // because the shared collection cache serves the second build's lookups. ICutLabAnalysisContextBuilder
+        // is AddScoped, so the after-decision build really does run on a fresh builder; pairing that with a
+        // cold ScryfallCollectionCardCache models the post-eviction / post-restart state (24h positive TTL,
+        // bounded capacity) in which preResolvedCards is the only thing standing between the request and a POST.
+        IReadOnlyList<CutLabPoolCard> beforeWorkingList =
+        [
+            PoolCard("Focused Commander", "Legendary Creature — Human Wizard", isCommander: true),
+            PoolCard("Arcane Signet", "Artifact"),
+            PoolCard("Counterspell", "Instant"),
+        ];
+        IReadOnlyList<CutLabPoolCard> afterWorkingList =
+        [
+            PoolCard("Focused Commander", "Legendary Creature — Human Wizard", isCommander: true),
+            PoolCard("Counterspell", "Instant"),
+        ];
+        List<ScryfallCard> cards =
+        [
+            Spell("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{G}{U}", cmc: 3),
+            Spell("Arcane Signet", "Artifact", manaCost: "{2}", cmc: 2),
+            Spell("Counterspell", "Instant", manaCost: "{U}{U}", cmc: 2),
+        ];
+        var resolver = new CountingResolver(cards);
+        var beforeBuilder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()));
+        var afterBuilder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()));
+
+        CutLabAnalysisContext beforeContext = await beforeBuilder.BuildAsync(
+            beforeWorkingList,
+            "Focused",
+            ["Focused Commander"]);
+        CutLabAnalysisContext afterContext = await afterBuilder.BuildAsync(
+            afterWorkingList,
+            "Focused",
+            ["Focused Commander"],
+            preResolvedCards: beforeContext.ResolvedCards);
+
         Assert.Equal(1, resolver.ExecuteCollectionCalls);
         Assert.Equal(0, resolver.ResolveSingleCalls);
         Assert.Equal(["Focused Commander", "Counterspell"], afterContext.ResolvedCards.Select(card => card.Name));
@@ -741,9 +788,52 @@ public sealed class CutLabAnalysisContextBuilderTests
         Assert.True(seededBeforeRestore);
         Assert.True(seeded);
         Assert.NotNull(restoredCards);
+        // Why: as in the pre-resolved pair above, this count is now held up by the shared
+        // ScryfallCollectionCardCache rather than by the seeded cards being consumed -- mutation-proved
+        // 2026-08-19. The consumption itself is guarded by the cold-cache sibling below.
         Assert.Equal(1, resolver.ExecuteCollectionCalls);
         Assert.Equal(0, resolver.ResolveSingleCalls);
         Assert.Equal(2, beforeRestoreContext.ResolvedCards.Count);
+        Assert.Equal(3, restoredContext.ResolvedCards.Count);
+    }
+
+    [Fact]
+    public async Task TrySeedDerivedPool_RestoreWithColdCollectionCache_AvoidsAdditionalResolverCalls()
+    {
+        // Why: the warm-cache sibling above cannot fail when the seeded cards go unconsumed, because the
+        // shared collection cache answers the restore build's lookups. The restore arrives on a later
+        // request and therefore a fresh AddScoped builder; a cold cache alongside it is the state in which
+        // seeding is load-bearing, so this is the assertion that actually guards TrySeedDerivedPool reuse.
+        IReadOnlyList<CutLabPoolCard> fullPool =
+        [
+            PoolCard("Focused Commander", "Legendary Creature — Human Wizard", isCommander: true),
+            PoolCard("Arcane Signet", "Artifact"),
+            PoolCard("Counterspell", "Instant"),
+        ];
+        var resolver = new CountingResolver(
+        [
+            Spell("Focused Commander", "Legendary Creature — Human Wizard", manaCost: "{1}{G}{U}", cmc: 3),
+            Spell("Arcane Signet", "Artifact", manaCost: "{2}", cmc: 2),
+            Spell("Counterspell", "Instant", manaCost: "{U}{U}", cmc: 2),
+        ]);
+        var fullPoolBuilder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()));
+        var restoreBuilder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()));
+
+        CutLabAnalysisContext fullPoolContext = await fullPoolBuilder.BuildAsync(
+            fullPool,
+            "Focused",
+            ["Focused Commander"]);
+        bool seeded = restoreBuilder.TrySeedDerivedPool(fullPool, fullPoolContext.ResolvedCards, out IReadOnlyList<ScryfallCardData>? restoredCards);
+        CutLabAnalysisContext restoredContext = await restoreBuilder.BuildAsync(
+            fullPool,
+            "Focused",
+            ["Focused Commander"],
+            preResolvedCards: restoredCards);
+
+        Assert.True(seeded);
+        Assert.NotNull(restoredCards);
+        Assert.Equal(1, resolver.ExecuteCollectionCalls);
+        Assert.Equal(0, resolver.ResolveSingleCalls);
         Assert.Equal(3, restoredContext.ResolvedCards.Count);
     }
 
