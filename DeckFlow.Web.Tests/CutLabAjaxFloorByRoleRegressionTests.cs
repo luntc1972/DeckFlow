@@ -11,7 +11,6 @@ using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CutLab;
 using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Manabase;
-using DeckFlow.Web.Services.Packets;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;

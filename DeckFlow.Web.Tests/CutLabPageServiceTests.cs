@@ -12,7 +12,6 @@ using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CutLab;
 using DeckFlow.Web.Services.Harvest;
 using DeckFlow.Web.Services.Manabase;
-using DeckFlow.Web.Services.Packets;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
