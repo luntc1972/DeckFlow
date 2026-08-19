@@ -154,6 +154,14 @@ public sealed class DeckHistoryPageServiceTests
         }, uploadedHistoryJson: null);
 
         Assert.Null(result.ErrorMessage);
+        // Why: since 89723ba9 this count can no longer detect a regression that resolves the union
+        // more than once per request -- the shared ScryfallCollectionCardCache serves the repeat and
+        // no second POST is issued (mutation-proved 2026-08-19: duplicating the ResolveCardReferencesAsync
+        // call leaves this at 1, and only fails once the cache is forced cold). Unlike the Cut Lab pair
+        // there is no cold-cache sibling to add, because the repeat happens inside one request where the
+        // cache is warm by construction -- and there the cache is precisely what makes the repeat
+        // harmless upstream. What still guards the deduped UNION is the request-body assertion in
+        // OnExecuteCollectionAsync above, not this count.
         Assert.Equal(1, resolver.ExecuteCollectionCallCount);
         Assert.Contains("CARD REFERENCE", result.PromptText);
         Assert.Contains("Name: Alela, Artful Provocateur", result.PromptText);
