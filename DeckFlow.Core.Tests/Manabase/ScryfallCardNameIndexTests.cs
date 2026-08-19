@@ -12,6 +12,9 @@ public sealed class ScryfallCardNameIndexTests
 {
     private static ScryfallCardData Card(string name) => new() { Name = name };
 
+    private static ScryfallCardData Printing(string name, string set, string collectorNumber)
+        => new() { Name = name, Set = set, CollectorNumber = collectorNumber };
+
     [Fact]
     public void TryResolve_ExactName_Matches()
     {
@@ -86,15 +89,82 @@ public sealed class ScryfallCardNameIndexTests
     }
 
     [Fact]
-    public void Add_DuplicateKey_LastWriteWins()
+    public void Add_DuplicateKeyFullTie_IncumbentWins()
     {
         var index = new ScryfallCardNameIndex();
+        ScryfallCardData first = Card("Forest");
+        index.Add(first);
         index.Add(Card("Forest"));
-        ScryfallCardData second = Card("Forest");
-        index.Add(second);
 
         Assert.True(index.TryResolve("forest", out ScryfallCardData? hit));
-        Assert.Same(second, hit);
+        Assert.Same(first, hit);
+    }
+
+    [Fact]
+    public void Add_CollidingNames_PickTheSameWinnerInEitherOrder()
+    {
+        // Why: the whole point of the precedence rule. Insertion order is Scryfall's response
+        // order, which is not a contract, so the winner must not depend on it.
+        ScryfallCardData Winner() => Printing("Forest", "aaa", "1");
+        ScryfallCardData Loser() => Printing("Forest", "zzz", "9");
+
+        var forward = new ScryfallCardNameIndex();
+        forward.Add(Winner());
+        forward.Add(Loser());
+
+        var reverse = new ScryfallCardNameIndex();
+        reverse.Add(Loser());
+        reverse.Add(Winner());
+
+        Assert.True(forward.TryResolve("forest", out ScryfallCardData? forwardHit));
+        Assert.True(reverse.TryResolve("forest", out ScryfallCardData? reverseHit));
+        Assert.Equal("aaa", forwardHit!.Set);
+        Assert.Equal("aaa", reverseHit!.Set);
+    }
+
+    [Fact]
+    public void Add_CardWithPrinting_BeatsCardWithout()
+    {
+        // Why: a card carrying set + collector is strictly more identifiable, so it outranks one
+        // that carries neither regardless of which arrived first.
+        var index = new ScryfallCardNameIndex();
+        index.Add(Printing("Forest", "zzz", "9"));
+        index.Add(Card("Forest"));
+
+        Assert.True(index.TryResolve("forest", out ScryfallCardData? hit));
+        Assert.Equal("zzz", hit!.Set);
+    }
+
+    [Fact]
+    public void Add_HigherPriority_BeatsTheBetterPrintingInEitherOrder()
+    {
+        // Why: the caller knows things the card does not -- which submission it was matched to, and
+        // how confidently. Priority lets it say so instead of encoding it in call order. "aaa|1"
+        // would win the printing tiebreak, so only priority can put "zzz" in the slot.
+        var forward = new ScryfallCardNameIndex();
+        forward.Add(Printing("Forest", "aaa", "1"), priority: 0);
+        forward.Add(Printing("Forest", "zzz", "9"), priority: 5);
+
+        var reverse = new ScryfallCardNameIndex();
+        reverse.Add(Printing("Forest", "zzz", "9"), priority: 5);
+        reverse.Add(Printing("Forest", "aaa", "1"), priority: 0);
+
+        Assert.True(forward.TryResolve("forest", out ScryfallCardData? forwardHit));
+        Assert.True(reverse.TryResolve("forest", out ScryfallCardData? reverseHit));
+        Assert.Equal("zzz", forwardHit!.Set);
+        Assert.Equal("zzz", reverseHit!.Set);
+    }
+
+    [Fact]
+    public void Add_FrontFaceAlias_UsesTheSamePrecedenceRule()
+    {
+        // Why: _byFrontFace was last-write-wins alongside _byName. One type, one collision rule.
+        var index = new ScryfallCardNameIndex();
+        index.Add(Printing("Fire // Ice", "aaa", "1"));
+        index.Add(Printing("Fire // Ice", "zzz", "9"));
+
+        Assert.True(index.TryResolve("Fire", out ScryfallCardData? hit));
+        Assert.Equal("aaa", hit!.Set);
     }
 
     [Fact]
