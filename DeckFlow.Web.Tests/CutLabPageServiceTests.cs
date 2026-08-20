@@ -377,13 +377,19 @@ public sealed class CutLabPageServiceTests
     /// user-visible warning naming the affected cards.
     /// </summary>
     /// <remarks>
-    /// The 101 non-commander cards plus the commander (102 pool names) are batched into a 75-name
-    /// chunk and a 27-name chunk (<c>ScryfallReferenceResolver</c>'s internal batch size). A single
-    /// throwing fallback call aborts <c>ResolveBatchAsync</c> before it returns ANY resolution for
-    /// that call -- including collection hits already matched earlier in the SAME chunk -- so the
-    /// missing card is deliberately placed in the LAST (27-card) chunk: the first (75-card) chunk
-    /// resolves cleanly before the swallow, proving the failure did not blank out the whole import,
-    /// while the whole 27-card chunk containing the casualty is correctly treated as unattempted.
+    /// The 101 non-commander cards plus the commander (102 pool names) resolve as a 75-name group
+    /// and a 27-name group (<c>ScryfallReferenceResolver</c>'s internal batch size). A single
+    /// throwing fallback call still aborts <c>ResolveBatchAsync</c> before it returns ANY resolution
+    /// for that call, so the missing card is deliberately placed in the LAST (27-card) group: the
+    /// first (75-card) group resolves cleanly before the swallow, proving the failure did not blank
+    /// out the whole import.
+    ///
+    /// The casualty is ONE card, not the whole 27-card group (changed by the UAT finding-2 fix,
+    /// 2026-08-19). The aborted call had already cached the 26 cards its collection POST returned,
+    /// so when the pool is re-resolved <c>PlanBatchResolveGroups</c> puts those 26 in their own warm
+    /// group, which resolves with no POST and cannot be aborted by the cold casualty's fallback.
+    /// Before the fix, warm and cold shared one call and a single 429 threw away 26 cards that were
+    /// already sitting in the cache.
     /// </remarks>
     [Fact]
     public async Task ProcessAsync_ScryfallRateLimitsDuringFallback_ImportSucceedsWithoutBanner()
@@ -408,9 +414,13 @@ public sealed class CutLabPageServiceTests
         Assert.True(result.HasResult);
         Assert.False(result.CardTextByCardName.TryGetValue(missingCardName, out _));
         Assert.True(result.CardTextByCardName.TryGetValue("Card 001", out _));
+        // Only the genuine casualty is lost: the 26 cards its group's POST had already cached come
+        // back from the warm group, so they must NOT appear in the warning (see remarks).
+        Assert.True(result.CardTextByCardName.TryGetValue("Card 075", out _));
+        Assert.Equal(101, result.CardTextByCardName.Count);
         Assert.Contains(result.Warnings, warning =>
             warning.Contains("could not be looked up", StringComparison.Ordinal)
-            && warning.Contains("Card 075", StringComparison.Ordinal));
+            && warning.Contains(missingCardName, StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -487,9 +497,9 @@ public sealed class CutLabPageServiceTests
     /// instance must re-attempt it, not replay a degraded cached pool for 30 minutes.
     /// </summary>
     /// <remarks>
-    /// The missing card is placed in the LAST (27-card) Scryfall batch chunk -- see the remarks on
+    /// The missing card is placed in the LAST (27-card) Scryfall batch group -- see the remarks on
     /// <see cref="ProcessAsync_ScryfallRateLimitsDuringFallback_ImportSucceedsWithoutBanner"/> for
-    /// why a throwing fallback call discards its whole chunk, not just the one missing name.
+    /// what a throwing fallback call does and does not discard.
     /// </remarks>
     [Fact]
     public async Task ProcessAsync_SecondImportAfterSwallowedRateLimit_ReattemptsTheCasualty()
