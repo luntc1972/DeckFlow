@@ -114,8 +114,14 @@ internal sealed partial class ScryfallReferenceResolver
     /// <see cref="ResolveBatchAsync"/> would build internally for the whole list: each warm group
     /// keeps its ORIGINAL chunk boundaries, because pooling every warm name into one group could
     /// collide two cached cards that share an ADR-0004 match key but never shared a response; only
-    /// the COLD remainder is pooled and re-chunked, which is where the saving is. Warmth is a
-    /// snapshot -- a group turning warmer between this call and its resolve only removes POSTs.
+    /// the COLD remainder is pooled and re-chunked, which is where the saving is.
+    ///
+    /// Warmth is a SNAPSHOT: the shared cache is a DI singleton, so a concurrent request can warm
+    /// part of a planned-cold group before it is resolved. That can only REMOVE POSTs -- the
+    /// now-warm identifier drops out of the submitted set. It is NOT result-neutral, though: the
+    /// newly warm name moves into the warm match scope while its group-mates stay in the cold one,
+    /// which is the same warm/cold scope split ADR-0004 accepts as resolving MORE names, never
+    /// fewer. No deterministic test pins that race; it is a documented, benign divergence.
     /// </remarks>
     /// <param name="requestNames">Card names to resolve, in caller order.</param>
     /// <returns>Groups to resolve in order; empty when <paramref name="requestNames"/> is empty.</returns>
