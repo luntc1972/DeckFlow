@@ -103,6 +103,59 @@ internal sealed partial class ScryfallReferenceResolver
     }
 
     /// <summary>
+    /// Plans the groups a caller should hand to <see cref="ResolveBatchAsync"/> one at a time when
+    /// it needs per-call failure isolation and cannot simply pass the whole list.
+    /// </summary>
+    /// <remarks>
+    /// Why this exists (UAT finding 2, 2026-08-19): a caller that chunks the list itself pins the
+    /// POST count at ITS chunk count, so the partition-BEFORE-chunking fix inside
+    /// <see cref="ResolveBatchAsync"/> can never collapse POSTs across those chunks -- every chunk
+    /// keeps a cold member and every chunk still POSTs. This returns the same grouping
+    /// <see cref="ResolveBatchAsync"/> would build internally for the whole list: each warm group
+    /// keeps its ORIGINAL chunk boundaries, because pooling every warm name into one group could
+    /// collide two cached cards that share an ADR-0004 match key but never shared a response; only
+    /// the COLD remainder is pooled and re-chunked, which is where the saving is. Warmth is a
+    /// snapshot -- a group turning warmer between this call and its resolve only removes POSTs.
+    /// </remarks>
+    /// <param name="requestNames">Card names to resolve, in caller order.</param>
+    /// <returns>Groups to resolve in order; empty when <paramref name="requestNames"/> is empty.</returns>
+    internal IReadOnlyList<IReadOnlyList<string>> PlanBatchResolveGroups(IReadOnlyList<string> requestNames)
+    {
+        ArgumentNullException.ThrowIfNull(requestNames);
+
+        var groups = new List<IReadOnlyList<string>>();
+        var coldNames = new List<string>();
+        foreach (var chunk in Chunk(requestNames, ScryfallBatchSize))
+        {
+            var warmNames = new List<string>();
+            foreach (var requestName in chunk)
+            {
+                var identifier = CoreScryfallCollectionIdentifier.ToFaceIdentifier(requestName);
+                if (_collectionCardCache.TryGetName(identifier, out _))
+                {
+                    warmNames.Add(requestName);
+                }
+                else
+                {
+                    coldNames.Add(requestName);
+                }
+            }
+
+            if (warmNames.Count > 0)
+            {
+                groups.Add(warmNames);
+            }
+        }
+
+        foreach (var chunk in Chunk(coldNames, ScryfallBatchSize))
+        {
+            groups.Add(chunk);
+        }
+
+        return groups;
+    }
+
+    /// <summary>
     /// Resolves a batch of card names: chunks into batches of <c>75</c>, submits
     /// <c>cards/collection</c> with single-face identifiers from
     /// <see cref="CoreScryfallCollectionIdentifier.ToFaceIdentifier(string)"/>, validates 2xx + non-null

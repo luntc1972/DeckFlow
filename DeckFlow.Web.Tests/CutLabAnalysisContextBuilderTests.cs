@@ -989,6 +989,50 @@ public sealed class CutLabAnalysisContextBuilderTests
             Cmc = cmc,
         };
 
+    /// <summary>
+    /// UAT Finding 2 (2026-08-19): chunking the missing-name list BEFORE calling
+    /// <c>ResolveBatchAsync</c> pinned the POST count at the OUTER chunk count, so the
+    /// partition-before-chunking fix inside the resolver could never collapse POSTs across those
+    /// chunks -- each outer chunk kept a cold member and each still POSTed. With 150 pool cards of
+    /// which every other one is already warm, the cold remainder is exactly one 75-identifier chunk
+    /// and must cost ONE POST.
+    /// </summary>
+    [Fact]
+    public async Task BuildAsync_PartialWarmthAcrossChunkBoundaries_PostsOnceForTheColdRemainder()
+    {
+        const int poolSize = 150;
+        List<string> allNames = Enumerable.Range(0, poolSize).Select(index => $"Pool Card {index:D3}").ToList();
+        List<string> warmNames = allNames.Where((_, index) => index % 2 == 0).ToList();
+        Assert.Equal(75, warmNames.Count);
+
+        List<ScryfallCard> cards = allNames
+            .Select(name => Spell(name, "Artifact", manaCost: "{2}", cmc: 2))
+            .ToList();
+
+        var sharedCardResolver = new CountingResolver(cards);
+        var builder = new CutLabAnalysisContextBuilder(
+            sharedCardResolver,
+            new CutLabResolvedCardCache(),
+            new ScryfallReferenceResolver(sharedCardResolver, new ScryfallCollectionCardCache()),
+            new LocalSpellbookService());
+
+        // Warm exactly the even-indexed half: 75 identifiers, one chunk, one POST.
+        await builder.BuildAsync(
+            warmNames.Select((name, index) => PoolCard(name, "Artifact", isCommander: index == 0)).ToArray(),
+            "Focused",
+            [warmNames[0]]);
+        Assert.Equal(1, sharedCardResolver.ExecuteCollectionCalls);
+
+        // Same resolver, so the collection cache stays warm; a different pool key forces a re-resolve.
+        // The 75 cold names interleave with the warm ones across BOTH 75-name chunk boundaries.
+        await builder.BuildAsync(
+            allNames.Select((name, index) => PoolCard(name, "Artifact", isCommander: index == 0)).ToArray(),
+            "Focused",
+            [allNames[0]]);
+
+        Assert.Equal(2, sharedCardResolver.ExecuteCollectionCalls);
+    }
+
     private sealed class CountingResolver(IReadOnlyList<ScryfallCard> cards) : IScryfallCardResolver
     {
         public int ExecuteCollectionCalls { get; private set; }
