@@ -203,8 +203,14 @@ still keep their ORIGINAL chunk boundaries, and pooling is still confined to the
 
 Two consequences worth stating:
 
-- Warmth is a snapshot taken at plan time. A group that turns warmer before it is resolved only
-  removes POSTs; it can never add one, because `ResolveBatchAsync` re-checks the cache itself.
+- Warmth is a snapshot taken at plan time, and the cache is a DI singleton, so a concurrent request
+  can warm part of a planned-cold group before it is resolved. That can only REMOVE POSTs -- the
+  now-warm identifier drops out of the submitted set, because `ResolveBatchAsync` re-checks the
+  cache itself. It is not result-neutral: the newly warm name lands in the warm match scope while
+  its group-mates stay in the cold one, which is precisely the accepted divergence three bullets
+  above -- it resolves MORE names, never fewer. No deterministic test pins the race (Codex stage-2
+  review of `0e5a3c7f`, claim 5); it is documented rather than guarded because the outcome is
+  bounded and benign.
 - A caller-visible improvement falls out of it: a throwing fallback no longer discards cards the
   same request had already cached. They are re-planned into a warm group on the next resolve, which
   issues no POST and so cannot be aborted by a cold casualty. Pinned by
