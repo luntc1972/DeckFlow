@@ -2332,6 +2332,23 @@ public sealed class ManabaseAnalysisServiceTests
         Assert.Equal("99", resolved!.CollectorNumber);
     }
 
+    [Fact]
+    public void PriorityBands_RankSearchFallbackAboveUnpairedAboveFloor()
+    {
+        // Why: the two ResolveCardsAsync collision tests pin the paired band and the direction of
+        // the comparison, but neither observes a band's VALUE -- dropping UnpairedPriority to the
+        // 0 floor still loses to paired, so both stay green. Fallback-beats-unpaired is a product
+        // decision (a search-fallback card matched an entry we asked for; an unpaired card is one
+        // Scryfall volunteered against no submission), and nothing else fails if it inverts.
+        int searchFallback = PriorityBand("SearchFallbackPriority");
+        int unpaired = PriorityBand("UnpairedPriority");
+
+        Assert.True(searchFallback > unpaired, $"SearchFallbackPriority ({searchFallback}) must outrank UnpairedPriority ({unpaired}).");
+        Assert.True(unpaired > 0, $"UnpairedPriority ({unpaired}) must outrank the default 0 floor.");
+        Assert.True(PairedBand(0) > searchFallback, "The paired band must outrank every stated band.");
+        Assert.True(PairedBand(499) > searchFallback, "The paired band must outrank every stated band at the 500-card deck cap.");
+    }
+
     // --- helpers -------------------------------------------------------------
 
     // Why: ResolveCardsAsync is private; every test that needs the batch/cache path directly goes
@@ -2341,6 +2358,15 @@ public sealed class ManabaseAnalysisServiceTests
         MethodInfo method = typeof(ManabaseAnalysisService).GetMethod("ResolveCardsAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
         return (Task<ScryfallCardNameIndex>)method.Invoke(service, [entries, CancellationToken.None])!;
     }
+
+    // Why: the bands are private consts on the service. Reflecting them is weaker than a behavioral
+    // test, but fallback-vs-unpaired is only observable through a Scryfall response shape the
+    // resolver does not produce, so pinning the decision beats leaving the ordering unguarded.
+    private static int PriorityBand(string name) =>
+        (int)typeof(ManabaseAnalysisService).GetField(name, BindingFlags.Static | BindingFlags.NonPublic)!.GetRawConstantValue()!;
+
+    private static int PairedBand(int globalPosition) =>
+        (int)typeof(ManabaseAnalysisService).GetMethod("PairedPriority", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [globalPosition])!;
 
     private static string?[] SubmittedIdentifierNames(StubResolver resolver)
     {
