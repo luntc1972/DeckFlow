@@ -42,13 +42,15 @@ a fully warm deck would index nothing at all.
 public void Add(ScryfallCardData card, int priority = 0)
 ```
 
-A collision is never resolved from arrival order. It is decided by what the caller states, then by
-the cards themselves:
+A collision is decided by what the caller states, then by the cards themselves — never by arrival
+order, except in the single case rule 3 names:
 
 1. higher `priority` wins — this is caller knowledge, not a card property;
 2. tie -> the lower printing key (`set|collector`) wins, and a card carrying a printing key
    outranks one carrying none;
-3. full tie -> the incumbent keeps the slot.
+3. full tie -> the incumbent keeps the slot. This is the ONE arrival-order-dependent case, and it
+   needs equal `priority` AND a missing printing key on both cards, so only a caller that states
+   no priority can reach it (see the CLI note under Consequences).
 
 All three maps (`_byName`, `_byFrontFace`, `_byPrinting`) route through one `Put` helper, so the
 type has exactly one collision rule rather than three copies of an assignment.
@@ -73,11 +75,17 @@ unpaired**.
 
 ## Consequences
 
-- The index is order-independent. The same set of cards yields the same winner however they are
-  added, so cache warmth, chunk boundaries and response ordering can no longer move the result.
+- The index is order-independent for every caller that states a priority. The same set of cards
+  yields the same winner however they are added, so cache warmth, chunk boundaries and response
+  ordering can no longer move the result. The exception is a full tie (rule 3), which requires two
+  cards in the same band that BOTH lack `set` + `collector_number`; a Scryfall response does not
+  produce that, so `ManabaseAnalysisService` cannot reach it.
   `ResolveCardsAsync_EarliestDeckPosition_BeatsTheBetterPrintingKey` and
   `ResolveCardsAsync_UnpairedCard_LosesToPairedCard` are built so the printing tiebreak would pick
-  the WRONG card; only the priority bands produce the right one, so dropping a band fails a test.
+  the WRONG card; only the priority bands produce the right one, so dropping the paired band — or
+  inverting the comparison — fails a test. ⚠ Neither pins a band's VALUE: dropping
+  `UnpairedPriority` to the 0 floor still loses to paired, so both stay green.
+  `PriorityBands_RankSearchFallbackAboveUnpairedAboveFloor` pins the ladder itself.
 - The caller-side ordering hack retires. `positionedCards.OrderBy(GlobalPosition)` is gone.
 - ⚠ `DeckFlow.CLI/ManabaseCommandRunner.cs:193` has no positional information and keeps the default
   priority of 0 — the floor — so all its cards tie and its collisions now resolve by printing key
