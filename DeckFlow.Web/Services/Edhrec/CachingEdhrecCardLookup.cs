@@ -45,6 +45,6 @@ public sealed class CachingEdhrecCardLookup : IEdhrecCardLookup
             AbsoluteExpirationRelativeToNow = CacheTtl,
             Size = Math.Max(cacheKey.Length + cachedCategories.Sum(category => category.Length), 1),
         });
-        return cachedCategories.ToArray();
+        return categories;
     }
 }
