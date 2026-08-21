@@ -1106,7 +1106,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
     {
         // Distinct identifiers: printing key when known, else a name key.
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var identifiers = new List<(object Body, string? SetCode, string? CollectorNumber, string? Name)>();
+        var identifiers = new List<(string? SetCode, string? CollectorNumber, string? Name)>();
         foreach (DeckEntry entry in deckCards)
         {
             string? printing = ScryfallCardNameIndex.PrintingKey(entry.SetCode, entry.CollectorNumber);
@@ -1117,11 +1117,11 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             }
 
             identifiers.Add(printing is not null
-                ? ((object)new { set = entry.SetCode, collector_number = entry.CollectorNumber }, entry.SetCode, entry.CollectorNumber, null)
-                : ((object)new { name = entry.Name }, null, null, entry.Name));
+                ? (entry.SetCode, entry.CollectorNumber, null)
+                : (null, null, entry.Name));
         }
 
-        var identifiersToSubmit = new List<(object Body, string? SetCode, string? CollectorNumber, string? Name, int GlobalPosition)>(identifiers.Count);
+        var identifiersToSubmit = new List<(string? SetCode, string? CollectorNumber, string? Name, int GlobalPosition)>(identifiers.Count);
         var positionedCards = new List<(ScryfallCard Card, int GlobalPosition)>(identifiers.Count);
         for (int globalPosition = 0; globalPosition < identifiers.Count; globalPosition++)
         {
@@ -1140,7 +1140,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 continue;
             }
 
-            identifiersToSubmit.Add((identifier.Body, identifier.SetCode, identifier.CollectorNumber, identifier.Name, globalPosition));
+            identifiersToSubmit.Add((identifier.SetCode, identifier.CollectorNumber, identifier.Name, globalPosition));
         }
 
         var unpairedCards = new List<ScryfallCard>();
@@ -1148,7 +1148,12 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         {
             var positionedReturnedCards = new Dictionary<int, int>();
             var request = new RestRequest("cards/collection", Method.Post);
-            request.AddJsonBody(new { identifiers = batch.Select(identifier => identifier.Body).ToArray() });
+            request.AddJsonBody(new
+            {
+                identifiers = batch.Select(identifier => identifier.Name is null
+                    ? (object)new { set = identifier.SetCode, collector_number = identifier.CollectorNumber }
+                    : new { name = identifier.Name }).ToArray()
+            });
 
             RestResponse<ScryfallCollectionResponse> response =
                 await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
