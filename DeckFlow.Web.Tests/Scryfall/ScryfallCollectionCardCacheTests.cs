@@ -1,5 +1,6 @@
 using DeckFlow.Web.Services.Scryfall;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.FeatureFlags;
 using System;
 using System.Collections.Generic;
 using Xunit;
@@ -75,6 +76,131 @@ public sealed class ScryfallCollectionCardCacheTests
         Assert.False(cache.TryGetName("second-long-key", out _));
     }
 
+    [Fact]
+    public void FeatureFlagOff_NamePositiveIsNotCached()
+    {
+        var flags = new FakeFeatureFlagCache(false);
+        var cache = new ScryfallCollectionCardCache(flags);
+
+        cache.SetNamePositive("sol-ring", Card("Sol Ring"));
+        // Why: see FeatureFlagOff_NameCollectionMissIsNotCached - the read gate masks the write gate.
+        flags.Enabled = true;
+
+        Assert.False(cache.TryGetName("sol-ring", out var card));
+        Assert.Null(card);
+    }
+
+    [Fact]
+    public void FeatureFlagOff_PrintingPositiveIsNotCached()
+    {
+        var flags = new FakeFeatureFlagCache(false);
+        var cache = new ScryfallCollectionCardCache(flags);
+
+        cache.SetPrintingPositive("CMM", "396", Card("Sol Ring"));
+        // Why: see FeatureFlagOff_NameCollectionMissIsNotCached - the read gate masks the write gate.
+        flags.Enabled = true;
+
+        Assert.False(cache.TryGetPrinting("CMM", "396", out var card));
+        Assert.Null(card);
+    }
+
+    [Fact]
+    public void FeatureFlagOn_NamePositiveIsCached()
+    {
+        var cache = new ScryfallCollectionCardCache(new FakeFeatureFlagCache(true));
+
+        cache.SetNamePositive("sol-ring", Card("Sol Ring"));
+
+        Assert.True(cache.TryGetName("sol-ring", out var card));
+        Assert.Equal("Sol Ring", card!.Name);
+    }
+
+    [Fact]
+    public void FeatureFlagFlipsOffAfterSet_NameResultIsUnavailable()
+    {
+        var flags = new FakeFeatureFlagCache(true);
+        var cache = new ScryfallCollectionCardCache(flags);
+        cache.SetNamePositive("sol-ring", Card("Sol Ring"));
+        flags.Enabled = false;
+
+        Assert.False(cache.TryGetName("sol-ring", out var card));
+        Assert.Null(card);
+    }
+
+    [Fact]
+    public void FeatureFlagFlipsOffAfterSet_PrintingResultIsUnavailable()
+    {
+        var flags = new FakeFeatureFlagCache(true);
+        var cache = new ScryfallCollectionCardCache(flags);
+        cache.SetPrintingPositive("CMM", "396", Card("Sol Ring"));
+        flags.Enabled = false;
+
+        Assert.False(cache.TryGetPrinting("CMM", "396", out var card));
+        Assert.Null(card);
+    }
+
+    [Fact]
+    public void FeatureFlagFlipsOnAfterOffWrite_OnlyFreshValueIsCached()
+    {
+        var flags = new FakeFeatureFlagCache(false);
+        var cache = new ScryfallCollectionCardCache(flags);
+        cache.SetNamePositive("sol-ring", Card("Sol Ring"));
+        flags.Enabled = true;
+
+        Assert.False(cache.TryGetName("sol-ring", out _));
+        cache.SetNamePositive("sol-ring", Card("Sol Ring"));
+
+        Assert.True(cache.TryGetName("sol-ring", out var card));
+        Assert.Equal("Sol Ring", card!.Name);
+    }
+
+    [Fact]
+    public void FeatureFlagOff_NameCollectionMissIsNotCached()
+    {
+        var flags = new FakeFeatureFlagCache(false);
+        var cache = new ScryfallCollectionCardCache(flags);
+
+        cache.SetNameCollectionMiss("not-a-card");
+        // Why: reading while the flag is off would pass whether or not the write was gated, because
+        // the read gate returns false either way. Flip the flag on so the write path is observed.
+        flags.Enabled = true;
+
+        Assert.False(cache.TryGetName("not-a-card", out var card));
+        Assert.Null(card);
+    }
+
+    [Fact]
+    public void FeatureFlagOn_NameCollectionMissIsCached()
+    {
+        var cache = new ScryfallCollectionCardCache(new FakeFeatureFlagCache(true));
+
+        cache.SetNameCollectionMiss("not-a-card");
+
+        Assert.True(cache.TryGetName("not-a-card", out var card));
+        Assert.Null(card);
+    }
+
+    [Fact]
+    public void CacheReadsTheSeededFlagKey()
+    {
+        var flags = new FakeFeatureFlagCache(true);
+        var cache = new ScryfallCollectionCardCache(flags);
+
+        cache.TryGetName("sol-ring", out _);
+
+        Assert.Contains(FakeFeatureFlagCache.CacheFlagKey, flags.RequestedKeys);
+    }
+
+    [Fact]
+    public void NullFeatureFlags_DefaultConstructorStillCaches()
+    {
+        var cache = new ScryfallCollectionCardCache();
+        cache.SetNamePositive("sol-ring", Card("Sol Ring"));
+
+        Assert.True(cache.TryGetName("sol-ring", out var card));
+        Assert.Equal("Sol Ring", card!.Name);
+    }
+
     private static ScryfallCard Card(
         string name,
         string? oracleText = null,
@@ -99,5 +225,30 @@ public sealed class ScryfallCollectionCardCacheTests
         public override DateTimeOffset GetUtcNow() => _utcNow;
 
         public void Advance(TimeSpan elapsed) => _utcNow += elapsed;
+    }
+
+    private sealed class FakeFeatureFlagCache(bool enabled) : IFeatureFlagCache
+    {
+        // Why: the cache's flag key is a private constant, so a fake that answered every key would
+        // let a typo in it pass every test while shipping an un-gated cache to production.
+        internal const string CacheFlagKey = "service.scryfall-collection-cache.enabled";
+
+        public bool Enabled { get; set; } = enabled;
+
+        public List<string> RequestedKeys { get; } = [];
+
+        // Why: mirrors FeatureFlagCache's D-13 default-on contract - an unknown key reads as enabled.
+        public bool IsEnabled(string key)
+        {
+            RequestedKeys.Add(key);
+            return string.Equals(key, CacheFlagKey, StringComparison.Ordinal) ? Enabled : true;
+        }
+
+        public IReadOnlyDictionary<string, bool> Snapshot() => new Dictionary<string, bool>
+        {
+            [CacheFlagKey] = Enabled,
+        };
+
+        public Task ReloadAsync(System.Threading.CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 }
