@@ -149,21 +149,27 @@ internal sealed partial class ScryfallReferenceResolver
 
             var cards = new List<ScryfallCard>(cachedCards);
             var request = new RestRequest("cards/collection", Method.Post);
-            // Why: Scryfall cards/collection name identifiers match a single face name; combined A // B returns not_found.
-            request.AddJsonBody(new
+            RestResponse<ScryfallCollectionResponse> response;
+            if (identifiersToSubmit.Count > 0)
             {
-                identifiers = identifiersToSubmit
-                    .Select(name => new { name })
-                    .ToArray()
-            });
-
-            var response = identifiersToSubmit.Count > 0
-                ? await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false)
-                : new RestResponse<ScryfallCollectionResponse>(request)
+                // Why: Scryfall cards/collection name identifiers match a single face name; combined A // B returns not_found.
+                request.AddJsonBody(new
+                {
+                    identifiers = identifiersToSubmit
+                        .Select(name => new { name })
+                        .ToArray()
+                });
+                response = await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                response = new RestResponse<ScryfallCollectionResponse>(request)
                 {
                     StatusCode = HttpStatusCode.OK,
                     Data = new ScryfallCollectionResponse([], []),
                 };
+            }
+
             if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
             {
                 throw new ScryfallReferenceCollectionException(
