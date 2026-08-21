@@ -244,7 +244,8 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('sync.directpush-gitbody', FALSE),
           ('sync.reconcile', FALSE),
           ('tool.deck-history.enabled', TRUE),
-          ('tool.cut-lab.enabled', FALSE)
+          ('tool.cut-lab.enabled', FALSE),
+          ('service.scryfall-collection-cache.enabled', FALSE)
         ON CONFLICT (key) DO NOTHING;
         """;
 
@@ -297,7 +298,8 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('sync.directpush-gitbody', 0),
           ('sync.reconcile', 0),
           ('tool.deck-history.enabled', 1),
-          ('tool.cut-lab.enabled', 0)
+          ('tool.cut-lab.enabled', 0),
+          ('service.scryfall-collection-cache.enabled', 0)
         ON CONFLICT (key) DO NOTHING;
         """;
 

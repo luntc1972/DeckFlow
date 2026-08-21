@@ -1,4 +1,5 @@
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
@@ -51,7 +52,8 @@ public static class ScryfallServiceCollectionExtensions
                 sp.GetRequiredService<IScryfallRestClientFactory>(),
                 sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
                 sp.GetRequiredService<CardLookupCache>()));
-        services.AddSingleton<ScryfallCollectionCardCache>();
+        // Why: a partial container without the flag cache must still compose.
+        services.AddSingleton(sp => new ScryfallCollectionCardCache(sp.GetService<IFeatureFlagCache>()));
         services.AddSingleton<IScryfallCardResolver>(sp =>
             new ScryfallCardResolver(
                 sp.GetRequiredService<IScryfallRestClientFactory>(),

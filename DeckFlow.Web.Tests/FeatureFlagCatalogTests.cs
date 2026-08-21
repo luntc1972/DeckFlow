@@ -27,6 +27,7 @@ public sealed class FeatureFlagCatalogTests
     [InlineData("tool.deck-primer.enabled")]
     [InlineData("tool.deck-history.enabled")]
     [InlineData("tool.cut-lab.enabled")]
+    [InlineData("service.scryfall-collection-cache.enabled")]
     [InlineData("tool.card-lookup.enabled")]
     [InlineData("tool.mechanic-lookup.enabled")]
     [InlineData("tool.judge-questions.enabled")]

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Internal;
+using DeckFlow.Web.Services.FeatureFlags;
 
 namespace DeckFlow.Web.Services.Scryfall;
 
@@ -9,27 +10,32 @@ namespace DeckFlow.Web.Services.Scryfall;
 public sealed class ScryfallCollectionCardCache
 {
     private const int CacheCapacityChars = 10_000_000;
+    private const string FlagKey = "service.scryfall-collection-cache.enabled";
     private static readonly TimeSpan PositiveTtl = TimeSpan.FromHours(24);
     private static readonly TimeSpan CollectionMissTtl = TimeSpan.FromHours(1);
     private static readonly object CollectionMissMarker = new();
     private readonly IMemoryCache _cache;
+    private readonly IFeatureFlagCache? _featureFlags;
+
+    private bool IsEnabled => _featureFlags?.IsEnabled(FlagKey) ?? true;
 
     /// <summary>
     /// Creates a bounded collection-result cache.
     /// </summary>
-    public ScryfallCollectionCardCache()
-        : this(CacheCapacityChars)
+    public ScryfallCollectionCardCache(IFeatureFlagCache? featureFlags = null)
+        : this(CacheCapacityChars, featureFlags)
     {
     }
 
-    internal ScryfallCollectionCardCache(int capacityChars)
-        : this(capacityChars, TimeProvider.System)
+    internal ScryfallCollectionCardCache(int capacityChars, IFeatureFlagCache? featureFlags = null)
+        : this(capacityChars, TimeProvider.System, featureFlags)
     {
     }
 
-    internal ScryfallCollectionCardCache(int capacityChars, TimeProvider timeProvider)
+    internal ScryfallCollectionCardCache(int capacityChars, TimeProvider timeProvider, IFeatureFlagCache? featureFlags = null)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
+        _featureFlags = featureFlags;
         _cache = new MemoryCache(new MemoryCacheOptions
         {
             Clock = new TimeProviderSystemClock(timeProvider),
@@ -37,22 +43,56 @@ public sealed class ScryfallCollectionCardCache
         });
     }
 
-    /// <summary>Attempts to read a name-identifier result.</summary>
-    public bool TryGetName(string identifier, out ScryfallCard? card) => TryGet(NameKey(identifier), out card);
+    /// <summary>Attempts to read a name-identifier result; returns no result when the cache flag is off.</summary>
+    public bool TryGetName(string identifier, out ScryfallCard? card)
+    {
+        if (!IsEnabled)
+        {
+            card = null;
+            return false;
+        }
 
-    /// <summary>Stores a successful name-identifier result.</summary>
-    public void SetNamePositive(string identifier, ScryfallCard card) => SetPositive(NameKey(identifier), card);
+        return TryGet(NameKey(identifier), out card);
+    }
 
-    /// <summary>Stores an explicitly returned name-identifier collection miss.</summary>
-    public void SetNameCollectionMiss(string identifier) => SetCollectionMiss(NameKey(identifier));
+    /// <summary>Stores a successful name-identifier result when the cache flag is on.</summary>
+    public void SetNamePositive(string identifier, ScryfallCard card)
+    {
+        if (IsEnabled)
+        {
+            SetPositive(NameKey(identifier), card);
+        }
+    }
 
-    /// <summary>Attempts to read a printing-identifier result.</summary>
-    public bool TryGetPrinting(string setCode, string collectorNumber, out ScryfallCard? card) =>
-        TryGet(PrintingKey(setCode, collectorNumber), out card);
+    /// <summary>Stores an explicitly returned name-identifier collection miss when the cache flag is on.</summary>
+    public void SetNameCollectionMiss(string identifier)
+    {
+        if (IsEnabled)
+        {
+            SetCollectionMiss(NameKey(identifier));
+        }
+    }
 
-    /// <summary>Stores a successful printing-identifier result.</summary>
-    public void SetPrintingPositive(string setCode, string collectorNumber, ScryfallCard card) =>
-        SetPositive(PrintingKey(setCode, collectorNumber), card);
+    /// <summary>Attempts to read a printing-identifier result; returns no result when the cache flag is off.</summary>
+    public bool TryGetPrinting(string setCode, string collectorNumber, out ScryfallCard? card)
+    {
+        if (!IsEnabled)
+        {
+            card = null;
+            return false;
+        }
+
+        return TryGet(PrintingKey(setCode, collectorNumber), out card);
+    }
+
+    /// <summary>Stores a successful printing-identifier result when the cache flag is on.</summary>
+    public void SetPrintingPositive(string setCode, string collectorNumber, ScryfallCard card)
+    {
+        if (IsEnabled)
+        {
+            SetPositive(PrintingKey(setCode, collectorNumber), card);
+        }
+    }
 
     private bool TryGet(string key, out ScryfallCard? card)
     {

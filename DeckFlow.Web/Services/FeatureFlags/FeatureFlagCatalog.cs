@@ -44,6 +44,8 @@ public static class FeatureFlagCatalog
                 "Deck History tool: version a deck into a downloadable snapshot-history JSON file with notes, pair diffs, and an evolution prompt.",
             ["tool.cut-lab.enabled"] =
                 "Cut Lab tool: intake an oversized (101–150 card) Commander pool, declare deck intent (primary/secondary plan, bracket, play experience), and lock cards, named packages, and role groups so later cut rounds can never propose them. Seeded OFF.",
+            ["service.scryfall-collection-cache.enabled"] =
+                "Cache individual Scryfall cards/collection results in process memory (24h TTL). Off makes every lookup hit Scryfall as before. Seeded OFF.",
             ["tool.card-lookup.enabled"] =
                 "Enable the Card Lookup tool that fetches Scryfall card details for a list of card names.",
             ["tool.mechanic-lookup.enabled"] =

@@ -40,6 +40,7 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
     [InlineData("tool.primer.stale-flag", false)] // PRIMER: seeded OFF
     [InlineData("tool.deck-history.enabled", true)] // dark launch over, seeded ON
     [InlineData("tool.cut-lab.enabled", false)] // seeded OFF
+    [InlineData("service.scryfall-collection-cache.enabled", false)] // seeded OFF
     [InlineData("analysis.manabase.mulligan-eval", true)] // renamed + default ON
     [InlineData("analysis.manabase.plan-presence", true)] // default ON (gated also on mulligan-eval)
     [InlineData("analysis.manabase.keep-shapes", false)] // keep-shapes dark launch; flip after UAT
@@ -80,6 +81,7 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
 
         var postgresSql = Assert.IsType<string>(field!.GetRawConstantValue());
         Assert.Contains("('analysis.manabase.mulligan-eval', TRUE)", postgresSql, StringComparison.Ordinal);
+        Assert.Contains("('service.scryfall-collection-cache.enabled', FALSE)", postgresSql, StringComparison.Ordinal);
         Assert.Contains("('analysis.manabase.keep-shapes', FALSE)", postgresSql, StringComparison.Ordinal);
         Assert.Contains("('analysis.manabase.focused-tier', FALSE)", postgresSql, StringComparison.Ordinal);
         Assert.Contains("('analysis.cut-lab.commander-floors', FALSE)", postgresSql, StringComparison.Ordinal);
@@ -91,6 +93,16 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
         Assert.Contains("('analysis.manabase.restricted-lands', FALSE)", postgresSql, StringComparison.Ordinal);
         Assert.Contains("('analysis.manabase.cedh-land-target', FALSE)", postgresSql, StringComparison.Ordinal);
         Assert.Contains("('analysis.manabase.baseline', FALSE)", postgresSql, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SqliteSeedSql_SeedsScryfallCollectionCacheFlag_Off()
+    {
+        var field = typeof(FeatureFlagStore).GetField("SqliteSeedSql", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(field);
+
+        var sqliteSql = Assert.IsType<string>(field!.GetRawConstantValue());
+        Assert.Contains("('service.scryfall-collection-cache.enabled', 0)", sqliteSql, StringComparison.Ordinal);
     }
 
     /// <summary>
