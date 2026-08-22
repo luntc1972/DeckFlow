@@ -517,6 +517,46 @@ public sealed class ParserTests
     }
 
     [Fact]
+    public void ArchidektParser_CustomCategoryWithNoDeckMarkerGoesToMaybeboard()
+    {
+        var entries = new ArchidektParser().ParseText("""
+            1 Wooded Foothills (mh3) 236 [Land]
+            1 Wooded Foothills (mh3) 361 [Upgrade_Lands{noDeck}{noPrice},Land]
+            1 Sol Ring (sld) 2093 [Ramp]
+            """);
+
+        Assert.Equal("mainboard", entries[0].Board);
+        Assert.Equal("maybeboard", entries[1].Board);
+        Assert.Equal("Upgrade_Lands,Land", entries[1].Category);
+        Assert.Equal("mainboard", entries[2].Board);
+    }
+
+    [Fact]
+    public void ArchidektParser_CommanderOutranksNoDeckMarker()
+    {
+        var entry = Assert.Single(new ArchidektParser().ParseText("1 Etali, Primal Conqueror (mom) 298 [Commander{noDeck}]"));
+
+        Assert.Equal("commander", entry.Board);
+    }
+
+    [Fact]
+    public void ArchidektParser_TopMarkerDoesNotExcludeCard()
+    {
+        var entry = Assert.Single(new ArchidektParser().ParseText("1 Etali, Primal Conqueror (mom) 298 [Commander{top}]"));
+
+        Assert.Equal("commander", entry.Board);
+    }
+
+    [Fact]
+    public void ArchidektParser_NoPriceMarkerAloneDoesNotExcludeCard()
+    {
+        var entry = Assert.Single(new ArchidektParser().ParseText("1 Sol Ring (sld) 2093 [Ramp{noPrice}]"));
+
+        Assert.Equal("mainboard", entry.Board);
+        Assert.Equal("Ramp", entry.Category);
+    }
+
+    [Fact]
     public void ArchidektParser_AllowsFoilMarkerBeforeCategories()
     {
         var entries = new ArchidektParser().ParseText("1 Guardian Project (pip) 727 *F* [Draw]");

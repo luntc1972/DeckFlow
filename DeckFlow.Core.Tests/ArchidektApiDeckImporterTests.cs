@@ -33,6 +33,53 @@ public sealed class ArchidektApiDeckImporterTests
         Assert.DoesNotContain(entries, entry => string.Equals(entry.Category, "Companion", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public async Task ImportAsync_ExcludedCategoryFixture_RoutesExcludedCardsToMaybeboard()
+    {
+        var importer = CreateImporterReturningFixture("archidekt-includedindeck.json");
+
+        var entries = await importer.ImportAsync("https://archidekt.com/decks/3674983");
+
+        Assert.Equal("commander", Assert.Single(entries, entry => entry.Name == "Etali, Primal Conqueror // Etali, Primal Sickness").Board);
+        Assert.Equal("mainboard", Assert.Single(entries, entry => entry.CollectorNumber == "236").Board);
+        Assert.Equal("maybeboard", Assert.Single(entries, entry => entry.CollectorNumber == "361").Board);
+        Assert.Equal("mainboard", Assert.Single(entries, entry => entry.Name == "Sol Ring").Board);
+        Assert.Equal("maybeboard", Assert.Single(entries, entry => entry.Name == "Cavern of Souls").Board);
+        Assert.Equal("mainboard", Assert.Single(entries, entry => entry.Name == "Ancient Tomb").Board);
+    }
+
+    [Fact]
+    public async Task ImportAsync_ExcludedCategoryFixture_KeepsAllEntries()
+    {
+        var importer = CreateImporterReturningFixture("archidekt-includedindeck.json");
+
+        var entries = await importer.ImportAsync("https://archidekt.com/decks/3674983");
+
+        Assert.Equal(7, entries.Count);
+    }
+
+    [Fact]
+    public async Task ImportAsync_ExcludedCategoryFixture_CommanderOutranksExcludedCategory()
+    {
+        var importer = CreateImporterReturningFixture("archidekt-includedindeck.json");
+
+        var entries = await importer.ImportAsync("https://archidekt.com/decks/3674983");
+
+        // Guards precedence regression: excluded user category must not demote a commander, because that would drop the validated deck count and make ValidateCommanderDeckSize throw.
+        Assert.Equal("commander", Assert.Single(entries, entry => entry.Name == "Tevesh Szat, Doom of Fools").Board);
+    }
+
+    [Fact]
+    public async Task ImportAsync_ExcludedCategoryFixture_UnknownCategoryDoesNotExclude()
+    {
+        var importer = CreateImporterReturningFixture("archidekt-includedindeck.json");
+
+        var entry = Assert.Single(await importer.ImportAsync("https://archidekt.com/decks/3674983"), entry => entry.Name == "Ancient Tomb");
+
+        Assert.Equal("mainboard", entry.Board);
+        Assert.Equal("_Swap In II", entry.Category);
+    }
+
     private static ArchidektApiDeckImporter CreateImporterReturningFixture(string fileName)
     {
         var restClient = new RestClient(new RestClientOptions
