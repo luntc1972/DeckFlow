@@ -1,4 +1,28 @@
 import { expect, test } from '@playwright/test';
+import { setToolEnabled } from './support/admin-tools';
+
+const cutLabPool = [
+  'Commander',
+  '1 Zur the Enchanter',
+  '',
+  'Deck',
+  '36 Plains',
+  '36 Island',
+  '20 Swamp',
+  '1 Sol Ring',
+  '1 Arcane Signet',
+  '1 Fellwar Stone',
+  '1 Mystic Remora',
+  '1 Rhystic Study',
+  '1 Swords to Plowshares',
+  '1 Path to Exile',
+  '1 Counterspell',
+  "1 Dovin's Veto",
+  '1 Demonic Tutor',
+  '1 Enlightened Tutor',
+  '1 Command Tower',
+  '1 Exotic Orchard',
+].join('\n');
 
 // Guards the Phase-1 mobile UI changes so desktop behavior stays intact while
 // mobile-specific navigation, layout defaults, and overflow fixes remain covered.
@@ -94,19 +118,74 @@ test('mobile workflow stepper is compact (no hidden scroll, numbers shown)', asy
   await expect(nav).toBeVisible();
   expect(await nav.count()).toBeGreaterThan(0);
 
+  const tabs = nav.locator('.prompt-step-tab');
   const firstTab = nav.locator('.prompt-step-tab').first();
   const firstNumber = firstTab.locator('.prompt-step-tab__num');
   const firstLabel = firstTab.locator('.prompt-step-tab__label');
 
   if (isMobile) {
     expect(await nav.evaluate((el) => el.scrollWidth <= el.clientWidth + 2)).toBe(true);
+    await expect(nav).not.toHaveClass(/prompt-step-nav--labeled/);
     await expect(firstNumber).toBeVisible();
     await expect(firstLabel).toBeHidden();
+    const tabMetrics = await tabs.evaluateAll(elements => elements.map(element => {
+      const rect = element.getBoundingClientRect();
+      return { width: rect.width, height: rect.height };
+    }));
+    expect(tabMetrics.every(tab => tab.width === 44 && tab.height === 44)).toBe(true);
     return;
   }
 
   await expect(firstLabel).toBeVisible();
   await expect(firstNumber).toBeHidden();
+});
+
+test('Cut Lab mobile workflow stepper shows its short step names', async ({ page }) => {
+  const isMobile = test.info().project.name.includes('mobile');
+  await setToolEnabled(page, 'Cut Lab', true);
+  const response = await gotoOk(page, '/cut-lab');
+
+  expect(response?.ok()).toBeTruthy();
+
+  await page.locator('#cut-lab-input-source').selectOption('PasteText');
+  await page.locator('#cut-lab-deck-text').fill(cutLabPool);
+  await page.locator('#cut-lab-primary-plan').fill('Protect the control shell.');
+  await page.getByRole('button', { name: 'Import pool' }).click();
+
+  const nav = page.locator('.prompt-step-nav');
+  const tabs = nav.locator('.prompt-step-tab');
+  await expect(tabs).toHaveCount(5);
+
+  if (!isMobile) {
+    return;
+  }
+
+  await expect(nav).toHaveClass(/prompt-step-nav--labeled/);
+  await expect(tabs.locator('.prompt-step-tab__label')).toHaveText([
+    'Process',
+    'Decide',
+    'Plan',
+    'Goals',
+    'Export',
+  ]);
+
+  for (const label of await tabs.locator('.prompt-step-tab__label').all()) {
+    await expect(label).toBeVisible();
+  }
+
+  const tabMetrics = await tabs.evaluateAll(elements => elements.map(element => {
+    const rect = element.getBoundingClientRect();
+    return { text: element.textContent?.trim(), width: rect.width, height: rect.height };
+  }));
+  expect(tabMetrics).toEqual(expect.arrayContaining([
+    expect.objectContaining({ text: '1Process' }),
+    expect.objectContaining({ text: '2Decide' }),
+    expect.objectContaining({ text: '3Plan' }),
+    expect.objectContaining({ text: '4Goals' }),
+    expect.objectContaining({ text: '5Export' }),
+  ]));
+  expect(tabMetrics.every(tab => tab.width >= 44 && tab.height >= 44)).toBe(true);
+  expect(await nav.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true);
 });
 
 test('deck primer section groups collapse on mobile', async ({ page }) => {

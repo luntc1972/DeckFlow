@@ -265,7 +265,7 @@ const cutLabDeltaUnavailableCopy = "Couldn't recalculate this cut — nothing ch
 const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try again in a moment.';
 const cutLabWhatifPreviewErrorCopy = "Couldn't preview this swap — nothing changed. Try again.";
 const cutLabWhatifKeepErrorCopy = "Couldn't keep this swap — nothing changed. Try again.";
-const cutLabWhatifPreviewSummaryCopy = 'metric families changed meaningfully.';
+const cutLabWhatifPreviewSummaryCopy = 'deck numbers moved.';
 const SCENARIO_INDEX_KEY = 'deckflow.cutlab.scenario-index';
 const SCENARIO_SLOT_PREFIX = 'deckflow.cutlab.scenario.';
 const CUT_LAB_SECTION_STORAGE_KEY = 'deckflow.cutlab.sections';
@@ -2645,7 +2645,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       const changedLines = patch.proposalDeltas.deltas.filter(delta => delta.isMeaningful);
       const deltaSummary = document.createElement('div');
       deltaSummary.className = 'cutlab-delta';
-      deltaSummary.appendChild(createTextElement('p', '', `${patch.proposalDeltas.changedFamilyCount} of 7 metric families changed meaningfully.`));
+      deltaSummary.appendChild(createTextElement('p', '', `${patch.proposalDeltas.changedFamilyCount} of 7 deck numbers moved.`));
       changedLines.forEach(delta => {
         appendDeltaLine(deltaSummary, nextProposal.cardName, delta);
       });

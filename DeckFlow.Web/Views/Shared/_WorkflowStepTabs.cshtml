@@ -10,9 +10,10 @@
     var firstIncomplete = Model.Steps.FirstOrDefault(s => !s.IsComplete && s.IsEnabled);
     var firstEnabled = Model.Steps.FirstOrDefault(s => s.IsEnabled);
     var currentStep = firstIncomplete?.Step ?? firstEnabled?.Step ?? (Model.Steps.Count > 0 ? Model.Steps[0].Step : 0);
+    var navClass = Model.UseMobileLabeledTabs ? "prompt-step-nav prompt-step-nav--labeled" : "prompt-step-nav";
 }
 
-<div class="prompt-step-nav" role="tablist" aria-label="@Model.AriaLabel">
+<div class="@navClass" role="tablist" aria-label="@Model.AriaLabel">
     @foreach (var step in Model.Steps)
     {
         var cls = step.IsComplete ? "prompt-step-tab is-complete" : "prompt-step-tab";

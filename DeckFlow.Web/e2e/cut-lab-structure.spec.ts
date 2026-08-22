@@ -381,7 +381,7 @@ test('restarts rounds 1 and 2 without undoing accepted cuts or touching later-ro
   });
   const restartResponse = page.waitForResponse(response =>
     response.url().includes('/api/cut-lab/restart-rounds') && response.request().method() === 'POST');
-  await page.getByRole('button', { name: 'Restart rounds 1 & 2' }).click();
+  await page.getByRole('button', { name: 'Re-run rounds 1 & 2 — your accepted cuts are kept' }).click();
   expect((await restartResponse).ok()).toBeTruthy();
 
   const state = JSON.parse(await page.locator('input[name="CutLabStateJson"]').first().inputValue()) as {
