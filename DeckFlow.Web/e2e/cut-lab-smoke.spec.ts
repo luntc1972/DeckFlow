@@ -132,7 +132,7 @@ test('imports a pool, locks lands and a package, then preserves those edits acro
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"] .cutlab-lock-badge--commander')).toContainText('Commander · Always locked');
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"] input[data-cut-lab-lock-card]')).toBeChecked();
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"] input[data-cut-lab-lock-card]')).toBeDisabled();
-  await expect(page.locator('[data-cut-lab-lock-count]').locator('..')).toContainText('locked (protected from any future cut)');
+  await expect(page.locator('[data-cut-lab-lock-count]')).toHaveText(/^\d+ cards in pool · \d+ locked$/);
   await expect(page.getByText('No banned cards found')).toBeVisible();
 });
 
