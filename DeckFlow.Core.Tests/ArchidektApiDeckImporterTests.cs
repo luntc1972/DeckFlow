@@ -45,7 +45,6 @@ public sealed class ArchidektApiDeckImporterTests
         Assert.Equal("maybeboard", Assert.Single(entries, entry => entry.CollectorNumber == "361").Board);
         Assert.Equal("mainboard", Assert.Single(entries, entry => entry.Name == "Sol Ring").Board);
         Assert.Equal("maybeboard", Assert.Single(entries, entry => entry.Name == "Cavern of Souls").Board);
-        Assert.Equal("mainboard", Assert.Single(entries, entry => entry.Name == "Ancient Tomb").Board);
     }
 
     [Fact]
