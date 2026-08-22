@@ -22,6 +22,7 @@ engine work is independent; its plan-panel UI plan is gated on Phase 7 for the s
 - [ ] **Phase 5: Archidekt Bracket Capture (INDEPENDENT, non-gating)** - Capture the bracket already present on the Archidekt deck payload so a future commander × bracket analysis is possible.
 - [ ] **Phase 6: Scryfall Throughput (INSERTED 2026-08-01, INDEPENDENT)** - Restore the 200ms pacing floor behind an adaptive degrade to 500ms on observed rate limiting, and batch the per-miss fallback into one `cards/search` OR-query so a miss-heavy import costs one request instead of N.
 - [ ] **Phase 7: Cut Lab Workflow UX (ADOPTED 2026-08-02, GATED ON PLAN 04-04)** - Make Cut Lab's primary navigation work, reorder the document into workflow order, and bring the decide loop onto the first screen instead of 87% down the page. Measured defects: all four step tabs inert at import time, Export rendered 1,544px above Decide, 10,453px desktop / 15,896px mobile on a 17-row pool. Excludes the cut engine, the metrics, proposal ordering and every API contract. **Must reserve an empty wizard step slot for Phase 8's plan panel** so Phase 8's UI inserts without restructuring the wizard.
+- [ ] **Phase 07.1: Cut Lab Code-Review Findings Closeout (INSERTED 2026-08-22)** - Close the eight open findings from the 2026-08-16 and 2026-08-22 Cut Lab code gates so the branch leaves review with zero open findings and no test that certifies behaviour it cannot observe: R2-1 (HIGH) arrow navigation activates the reserved `aria-disabled` Plan tab, R2-2 vacuous F-1 regression guard, F-5 five tabpanels visible under a tablist claiming one selection, F-6 `--muted` fails WCAG on `--panel` in grixis/planeswalker-dark/jund, F-7 `nextProposal` declared non-null but serializes null, and two vacuous density tests. Full capture, 13 acceptance criteria and 10 edge cases: `todos/pending/2026-08-22-close-six-open-cut-lab-code-review-findings.md`.
 - [ ] **Phase 8: Plan Profile — Checkbox Plan Selection (ADOPTED 2026-08-02)** - Replace the deterministically-inert free-text `PrimaryPlan`/`SecondaryPlan` with a machine-readable plan: fixed generic strategy checkboxes + commander-specific EDHREC themes (`$.panels.taglinks`), driving four engine effects — protect on-plan cards, reorder proposals (off-plan first), plan→floor deltas, and a "stranded off-plan package" finding. Design spec: `.planning/specs/2026-08-02-cutlab-plan-profile-design.md` (research-validated 2026-08-02; no deterministic competitor exists). Engine plans independent/parallel; plan-panel UI plan gated on Phase 7.
 
 ## Execution Order
@@ -504,6 +505,23 @@ and `main` fast-forwarded to it.
 not copy); merging the three pool browse surfaces plus the JS-only lock-table filter into one faceted
 explorer; removing the anchor-nav / tablist duplication; deferring the four Export "⚠ pending" rows
 until Build export runs.
+
+### Phase 07.1: Cut Lab Code-Review Findings Closeout (INSERTED 2026-08-22)
+**Goal**: Both Cut Lab code-review gates close with zero open findings, and every fix ships with a test whose named killing mutation actually kills it.
+**Depends on**: Phase 7 (all eight findings are against Phase 7's shipped workflow UX)
+**Source of truth**: `todos/pending/2026-08-22-close-six-open-cut-lab-code-review-findings.md` -- 13 acceptance criteria, 10 edge cases, every `file:line` re-verified against `fb7f146c`. Gates: `.planning/workstreams/cycle21-cut-lab/reviews/` -- `2026-08-22-cycle21-0706-code-gate.md` (R2-1, R2-2) and `2026-08-16-cycle21-cutlab-code-gate.md` (F-5, F-6, F-7, density tests).
+
+**Success Criteria** (what must be TRUE):
+  1. R2-1: arrow navigation still moves focus onto the reserved Plan tab but never selects it -- `aria-selected` stays `false` and the reserved panel stays shut. The roving list at `cut-lab.ts:556` filters on `aria-disabled`, not on the native `disabled` property F-2 removed.
+  2. R2-2: the F-1 regression guard targets real production markup instead of an injected `position: fixed` button, so passing it certifies something.
+  3. F-5: exactly one `[role="tabpanel"]:not([hidden])` exists after initialization on `/cut-lab`. `ts-tests/cut-lab-step-tabs.test.ts:56` currently asserts `toHaveLength(5)` and so locks the defect in -- it is corrected, not deleted.
+  4. F-5 side effect: first-load collapsed-section state is either unchanged or deliberately changed and asserted. Reaching panel-hiding through `activateStepTab` also runs `applyDefaultSectionCollapseState` (`cut-lab.ts:506-508`), which force-opens the step's primary `<details>` and closes the rest on every load for a user with no stored state. This must not regress silently.
+  5. F-6: grixis, planeswalker-dark and jund reach >= 4.5:1 for `--muted` on `--panel`, and `workflowComponentThemes` covers the element that actually fails rather than three themes that pass.
+  6. F-7: the declared contract matches the emitted payload for `CutLabUiPatchDto.NextProposal`.
+  7. Density tests: both gain a nonempty precondition and are killed by the empty-list mutation.
+  8. `dotnet build` clean with no new errors and no new warnings; `git diff --stat` and `git diff --ignore-all-space --stat` agree, so no line-ending churn.
+
+**Deliberately excluded**: the sibling-tool F-5 spillover -- `CedhMetaGap`, `DeckComparison` and `DeckAnalysis` render tabpanels without `hidden` too, and `DeckPrimer` shares the partial -- recorded as a follow-up rather than widened here. Also the cut engine, the metrics, proposal ordering and every API contract.
 
 ### Phase 8: Plan Profile — Checkbox Plan Selection (ADOPTED 2026-08-02)
 **Goal**: The user's deck plan is machine-readable — fixed generic strategy checkboxes plus commander-specific EDHREC themes — and the deterministic engine acts on it through all four effects: protect on-plan cards, reorder proposals (off-plan first), plan→floor deltas, and a "stranded off-plan package" finding.
