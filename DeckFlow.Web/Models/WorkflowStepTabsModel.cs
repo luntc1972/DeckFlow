@@ -14,9 +14,11 @@ public sealed record WorkflowStepTab(int Step, string Label, bool IsComplete, bo
 /// <param name="PanelIdPrefix">Prefix used to build stable tab panel identifiers.</param>
 /// <param name="DataShowStepAttribute">Data attribute used by scripts to show the selected step.</param>
 /// <param name="Steps">Ordered workflow steps rendered by the shared partial.</param>
+/// <param name="UseMobileLabeledTabs">Whether mobile tabs use the opt-in labeled pill treatment.</param>
 public sealed record WorkflowStepTabsModel(
     string AriaLabel,
     string TabIdPrefix,
     string PanelIdPrefix,
     string DataShowStepAttribute,
-    IReadOnlyList<WorkflowStepTab> Steps);
+    IReadOnlyList<WorkflowStepTab> Steps,
+    bool UseMobileLabeledTabs = false);

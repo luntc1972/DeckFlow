@@ -7,7 +7,7 @@ requires_flag: tool.cut-lab.enabled
 
 # Cut Lab
 
-The Cut Lab page (`/cut-lab`) is where you take an oversized Commander pool and work it down to a validated 100-card list. The workflow is deterministic and decision-support driven: Cut Lab measures what each cut changes in the deck's numbers, rather than making a judgmental claim that a card is "objectively worse." AI is optional here at most, as an explanation layer, not as a requirement to use the tool.
+The Cut Lab page (`/cut-lab`) is where you take an oversized Commander pool and work it down to a validated 100-card list. After intake, the workspace is a five-slot wizard: **Process**, **Decide**, **Plan**, **Goals**, and **Export**. The unified progress strip keeps those slots visible while you work, and the completed intake collapses so the active workspace is not a single long scrolling page. The workflow is deterministic and decision-support driven: Cut Lab measures what each cut changes in the deck's numbers, rather than making a judgmental claim that a card is "objectively worse." AI is optional here at most, as an explanation layer, not as a requirement to use the tool.
 
 ## Intake
 

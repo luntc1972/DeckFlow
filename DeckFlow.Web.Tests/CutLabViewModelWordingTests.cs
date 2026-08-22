@@ -127,7 +127,7 @@ public sealed class CutLabViewModelWordingTests
     }
 
     [Fact]
-    public void ComposeProposalGlance_WithMeaningfulDeltas_BuildsChangedFamilyCountAndTwoLargestMoves()
+    public void ComposeProposalGlance_WithMeaningfulDeltas_BuildsMovedDeckNumberCountAndTwoLargestMoves()
     {
         string actual = CutLabViewModel.ComposeProposalGlance(new CutLabProposalDeltas
         {

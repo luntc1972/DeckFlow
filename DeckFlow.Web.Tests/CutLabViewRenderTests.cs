@@ -87,6 +87,9 @@ public sealed class CutLabViewRenderTests
         Assert.Contains("Sideboard 42", html, StringComparison.Ordinal);
         Assert.Contains("Considering/Maybe 11", html, StringComparison.Ordinal);
         Assert.Contains("data-cut-lab-lock-count", html, StringComparison.Ordinal);
+        Assert.Contains("Lock a card to protect it from future cuts.", html, StringComparison.Ordinal);
+        Assert.Contains("Current (as of your last recalculation)", html, StringComparison.Ordinal);
+        Assert.Contains("Re-run rounds 1 &amp; 2 — your accepted cuts are kept", html, StringComparison.Ordinal);
     }
 
     [Fact]

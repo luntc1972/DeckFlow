@@ -16,6 +16,7 @@
         TabIdPrefix: "cut-lab-step-tab",
         PanelIdPrefix: "cut-lab-step-panel",
         DataShowStepAttribute: "cut-lab-step",
+        UseMobileLabeledTabs: true,
         Steps:
         [
             new WorkflowStepTab(1, "Process", IsComplete: Model.HasResult),
@@ -342,11 +343,9 @@
                         <h2>Lock your pool</h2>
                         <p class="prompt-size-note">
                             <span data-cut-lab-lock-count>@Model.PoolStatusText</span>
-                            <span>(protected from any future cut)</span>
                         </p>
                         <p class="prompt-size-note">@Model.BoardCounts.ToBreakdown()</p>
                         <p class="manabase-help">Assigning a package groups cards for bulk lock/unlock — it doesn't remove them from the pool.</p>
-                        <p class="manabase-help">Tick a card to LOCK it — locked cards are protected and never proposed for a cut.</p>
                         <p>@(Model.IsLegal ? "No banned cards found" : $"Banned cards present: {string.Join(", ", Model.BannedCardsPresent)}")</p>
                         <div class="cutlab-pool-filter" hidden>
                             <div class="cutlab-pool-filter__group" role="radiogroup" aria-label="Show">
@@ -415,7 +414,7 @@
                 <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
                     <thead>
                         <tr>
-                            <th scope="col">Lock (keep)</th>
+                            <th scope="col">Lock (keep)<span class="prompt-size-note">Lock a card to protect it from future cuts.</span></th>
                             <th scope="col">Card</th>
                             <th scope="col">Type / role</th>
                             <th scope="col">Package assignment</th>
@@ -448,7 +447,6 @@
                                             <div>
                                                 <span class="kb-chip cutlab-lock-badge--commander">Commander · Always locked</span>
                                             </div>
-                                            <div>Your commander is always locked and can't be cut.</div>
                                         </div>
                                     }
                                 </td>
@@ -881,7 +879,7 @@
                         <form method="post" action="@Url.Content("~/cut-lab/restart-rounds")" data-cut-lab-restart-rounds-form data-cut-lab-restart-rounds-api="@Url.Content("~/api/cut-lab/restart-rounds")">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
-                            <button type="submit" class="clear-cache-button" data-cut-lab-restart-rounds>Restart rounds 1 &amp; 2</button>
+                            <button type="submit" class="clear-cache-button" data-cut-lab-restart-rounds>Re-run rounds 1 &amp; 2 — your accepted cuts are kept</button>
                         </form>
                     </div>
                 </div>
@@ -973,7 +971,7 @@
                         else
                         {
                             <div class="cutlab-delta">
-                                <p>@Model.Proposal.ChangedFamilyCount of 7 metric families changed meaningfully.</p>
+                                <p>@Model.Proposal.ChangedFamilyCount of 7 deck numbers moved.</p>
                                 @{ await RenderDeltaLines(Model.Proposal.ChangedDeltaLines); }
                             </div>
 
@@ -1149,7 +1147,7 @@
                                 <tr>
                                     <th scope="col">Goal</th>
                                     <th scope="col">Turn target</th>
-                                    <th scope="col">Current</th>
+                                    <th scope="col">Current (as of your last recalculation)</th>
                                     <th scope="col">Baseline trend</th>
                                 </tr>
                             </thead>
@@ -1337,7 +1335,7 @@
                                 <tr>
                                     <th scope="col">Metric</th>
                                     <th scope="col">Baseline</th>
-                                    <th scope="col">Current</th>
+                                    <th scope="col">Current (as of your last recalculation)</th>
                                     <th scope="col">Delta</th>
                                 </tr>
                             </thead>
