@@ -3527,7 +3527,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
-    const confirmed = window.confirm("Reconsider rejected/deferred cards from Round 1 & 2 with today's findings?");
+    const confirmed = window.confirm(
+      "Re-run rounds 1 & 2? Your accepted cuts are kept — only the rejected and deferred cards get re-scored against today's findings.",
+    );
     if (!confirmed) {
       return;
     }

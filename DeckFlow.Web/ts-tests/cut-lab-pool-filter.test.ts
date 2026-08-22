@@ -31,7 +31,7 @@ describe('DeckFlowCutLab pool filter', () => {
         <textarea name="SecondaryPlan"></textarea>
         <input type="radio" name="Bracket" value="3" checked />
         <input type="radio" name="PlayExperience" value="Focused" checked />
-        <p class="prompt-size-note"><span data-cut-lab-lock-count>3 cards in pool · 2 locked</span><span>(protected from any future cut)</span></p>
+        <p class="prompt-size-note"><span data-cut-lab-lock-count>3 cards in pool · 2 locked</span></p>
         <details class="cutlab-collapsible" open id="cut-lab-section-lock-pool">
           <summary class="cutlab-collapsible__summary">Lock your pool</summary>
           <div class="panel-heading">

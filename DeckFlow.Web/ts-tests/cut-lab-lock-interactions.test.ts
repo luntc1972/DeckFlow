@@ -182,7 +182,7 @@ describe('DeckFlowCutLab', () => {
         <textarea name="SecondaryPlan">Win through inevitability.</textarea>
         <input type="radio" name="Bracket" value="3" checked />
         <input type="radio" name="PlayExperience" value="Focused" checked />
-        <p class="prompt-size-note"><span data-cut-lab-lock-count></span><span>(protected from any future cut)</span></p>
+        <p class="prompt-size-note"><span data-cut-lab-lock-count></span></p>
         <div class="cutlab-sticky-bar cutlab-sticky-bar--pool">
           <span class="cutlab-sticky-bar__count" data-cut-lab-pool-sticky-count></span>
           <span class="cutlab-sticky-bar__accepted" data-cut-lab-pool-sticky-breakdown>Main 99 · Sideboard 0 · Considering/Maybe 0</span>
