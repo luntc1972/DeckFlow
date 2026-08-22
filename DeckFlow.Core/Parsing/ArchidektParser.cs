@@ -199,6 +199,11 @@ public sealed partial class ArchidektParser : IParser
             return "commander";
         }
 
+        if (categories.Contains("{noDeck}", StringComparison.Ordinal))
+        {
+            return "maybeboard";
+        }
+
         return defaultBoard;
     }
 

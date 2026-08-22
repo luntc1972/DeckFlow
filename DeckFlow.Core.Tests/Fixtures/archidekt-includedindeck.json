@@ -1,0 +1,174 @@
+{
+  "id": 18916524,
+  "name": "UAT Etali (trimmed for includedInDeck test)",
+  "deckFormat": 3,
+  "categories": [
+    {
+      "id": 255803282,
+      "name": "cEDH B5 Upgrade",
+      "isPremier": false,
+      "includedInDeck": false,
+      "includedInPrice": false
+    },
+    {
+      "id": 253055525,
+      "name": "Upgrade_Lands",
+      "isPremier": false,
+      "includedInDeck": false,
+      "includedInPrice": false
+    },
+    {
+      "id": 233950047,
+      "name": "Maybeboard",
+      "isPremier": false,
+      "includedInDeck": false,
+      "includedInPrice": false
+    },
+    {
+      "id": 228705774,
+      "name": "Land",
+      "isPremier": false,
+      "includedInDeck": true,
+      "includedInPrice": true
+    },
+    {
+      "id": 228705219,
+      "name": "Ramp",
+      "isPremier": false,
+      "includedInDeck": true,
+      "includedInPrice": true
+    },
+    {
+      "id": 228704979,
+      "name": "Commander",
+      "isPremier": true,
+      "includedInDeck": true,
+      "includedInPrice": true
+    }
+  ],
+  "cards": [
+    {
+      "quantity": 1,
+      "categories": [
+        "Commander"
+      ],
+      "modifier": "Foil",
+      "card": {
+        "collectorNumber": "298",
+        "displayName": null,
+        "edition": {
+          "editioncode": "mom"
+        },
+        "oracleCard": {
+          "name": "Etali, Primal Conqueror // Etali, Primal Sickness"
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Land"
+      ],
+      "modifier": "Foil",
+      "card": {
+        "collectorNumber": "236",
+        "displayName": null,
+        "edition": {
+          "editioncode": "mh3"
+        },
+        "oracleCard": {
+          "name": "Wooded Foothills"
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Upgrade_Lands",
+        "Land"
+      ],
+      "modifier": "Foil",
+      "card": {
+        "collectorNumber": "361",
+        "displayName": null,
+        "edition": {
+          "editioncode": "mh3"
+        },
+        "oracleCard": {
+          "name": "Wooded Foothills"
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Ramp"
+      ],
+      "modifier": "Foil",
+      "card": {
+        "collectorNumber": "2093",
+        "displayName": null,
+        "edition": {
+          "editioncode": "sld"
+        },
+        "oracleCard": {
+          "name": "Sol Ring"
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maybeboard",
+        "_Swap In II",
+        "Land"
+      ],
+      "modifier": "Foil",
+      "card": {
+        "collectorNumber": "402",
+        "displayName": null,
+        "edition": {
+          "editioncode": "2x2"
+        },
+        "oracleCard": {
+          "name": "Cavern of Souls"
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "_Swap In II"
+      ],
+      "modifier": "Normal",
+      "card": {
+        "collectorNumber": "315",
+        "displayName": null,
+        "edition": {
+          "editioncode": "tmp"
+        },
+        "oracleCard": {
+          "name": "Ancient Tomb"
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Commander",
+        "cEDH B5 Upgrade"
+      ],
+      "modifier": "Normal",
+      "card": {
+        "collectorNumber": "2",
+        "displayName": null,
+        "edition": {
+          "editioncode": "cmr"
+        },
+        "oracleCard": {
+          "name": "Tevesh Szat, Doom of Fools"
+        }
+      }
+    }
+  ]
+}

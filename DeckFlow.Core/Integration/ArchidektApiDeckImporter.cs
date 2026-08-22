@@ -56,6 +56,22 @@ public sealed class ArchidektApiDeckImporter : IArchidektDeckImporter
         using var document = JsonDocument.Parse(body);
         var root = document.RootElement;
         var entries = new List<DeckEntry>();
+        var excludedCategoryNames = new HashSet<string>(StringComparer.Ordinal);
+
+        if (root.TryGetProperty("categories", out var deckCategoriesElement) && deckCategoriesElement.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var category in deckCategoriesElement.EnumerateArray())
+            {
+                if (category.ValueKind == JsonValueKind.Object
+                    && category.TryGetProperty("name", out var nameElement)
+                    && nameElement.ValueKind == JsonValueKind.String
+                    && category.TryGetProperty("includedInDeck", out var includedInDeckElement)
+                    && includedInDeckElement.ValueKind == JsonValueKind.False)
+                {
+                    excludedCategoryNames.Add(nameElement.GetString()!);
+                }
+            }
+        }
 
         if (!root.TryGetProperty("cards", out var cardsElement) || cardsElement.ValueKind != JsonValueKind.Array)
         {
@@ -74,7 +90,7 @@ public sealed class ArchidektApiDeckImporter : IArchidektDeckImporter
                 ? categoriesElement.EnumerateArray().Where(cat => cat.ValueKind == JsonValueKind.String).Select(cat => cat.GetString()!).ToList()
                 : [];
 
-            var board = DetermineBoard(categories);
+            var board = DetermineBoard(categories, excludedCategoryNames);
             var userCategories = categories
                 .Where(category => !IsBoardCategory(category))
                 .ToList();
@@ -123,7 +139,8 @@ public sealed class ArchidektApiDeckImporter : IArchidektDeckImporter
     /// Determines which board a card belongs to based on its category list.
     /// </summary>
     /// <param name="categories">List of Archidekt categories attached to the card.</param>
-    private static string DetermineBoard(List<string> categories)
+    /// <param name="excludedCategoryNames">Category names excluded from the deck.</param>
+    private static string DetermineBoard(List<string> categories, IReadOnlySet<string> excludedCategoryNames)
     {
         if (categories.Any(category => string.Equals(category, "Commander", StringComparison.OrdinalIgnoreCase)))
         {
@@ -136,6 +153,11 @@ public sealed class ArchidektApiDeckImporter : IArchidektDeckImporter
         }
 
         if (categories.Any(category => string.Equals(category, "Sideboard", StringComparison.OrdinalIgnoreCase)))
+        {
+            return "maybeboard";
+        }
+
+        if (categories.Any(excludedCategoryNames.Contains))
         {
             return "maybeboard";
         }
