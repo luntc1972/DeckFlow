@@ -254,6 +254,12 @@ phase docs before deletion. **This file plus the phase `.continue-here.md` are t
 > **This fails silently** — a wrong-milestone answer has the same shape as a right one, so a bare
 > query that "works" is not evidence the pointer was honored.
 
+### Pending Todos
+
+- `todos/pending/2026-08-22-close-six-open-cut-lab-code-review-findings.md` — **major** · ui —
+  closes R2-1 (HIGH), R2-2, F-5, F-6, F-7 and the two vacuous density tests left open by the
+  2026-08-16 and 2026-08-22 code gates. Implementation-ready; needs `/gsd-plan-phase`.
+
 ### Roadmap Evolution
 
 - Phase 01.1 edited: shortened auto-generated title/goal to a clean summary
