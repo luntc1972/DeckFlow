@@ -1,6 +1,6 @@
 # Debug: phase 7 gate "Restore .NET dependencies" — `dotnet: command not found`
 
-- **Status:** fix in flight (Codex `gpt-5.6-luna`), environment layer resolved and verified
+- **Status:** RESOLVED 2026-08-22 — both root causes fixed and verified
 - **Opened:** 2026-08-22
 - **Workstream / phase:** cycle21-cut-lab / 7
 - **Run:** `.claude/scratch/dev-agent/runs/2026-08-22-21e357f8.json`
@@ -59,7 +59,7 @@ on `fatal` — otherwise it calls `boundedFix`. A missing toolchain would theref
 fix loop as a code defect and burn Codex fix attempts on a bug that does not exist. That is the same
 failure mode the existing `[2]` carve-out was written to prevent; 126/127 were the missed case.
 
-**Fix (in flight):** `UNRUNNABLE_EXIT_CODES = [126, 127]` folded into the `fatal:` expression inside
+**Fix (landed, dev-agent `d18d88d`, ff-merged to `main`):** `UNRUNNABLE_EXIT_CODES = [126, 127]` folded into the `fatal:` expression inside
 `runChecks`, *not* into `normalizeCheck` defaults — a caller-supplied `fatalExitCodes` array replaces
 the default, and must not be able to drop these.
 
@@ -67,7 +67,14 @@ the default, and must not be able to drop these.
 check declaring `fatalExitCodes: [2]` still fatal on 127. Written before the fix and confirmed to
 fail on `fatal === false`.
 
-Branch: `fix/gate-127-infra-fatal` in `/mnt/c/users/chrislunt/source/Personal/dev-agent`.
+Branch: `fix/gate-127-infra-fatal` in `/mnt/c/users/chrislunt/source/Personal/dev-agent`,
+fast-forwarded to `main` as `d18d88d`. The global `dev-agent` command is an `npm link` symlink to
+that working copy, so the fix is live in the CLI without a reinstall — verified by grepping
+`~/.npm-global/lib/node_modules/dev-agent/src/checks.js`.
+
+**Mutation-verified.** Removing the `UNRUNNABLE_EXIT_CODES.includes(exitCode)` term fails exactly
+three of the four new tests (127, 126, and the caller-override case) and leaves the exit-1 control
+green: `# pass 247 / # fail 3`. Restored: `# pass 250 / # fail 0 / # cancelled 0`.
 
 ## Deliberately not done
 
@@ -81,4 +88,8 @@ Branch: `fix/gate-127-infra-fatal` in `/mnt/c/users/chrislunt/source/Personal/de
 ## Follow-up
 
 The recorded run still carries `verification.passed: false` with the stale 127 failure. Re-run
-verification for run `2026-08-22-21e357f8` once the dev-agent fix lands.
+verification for run `2026-08-22-21e357f8` now that the dev-agent fix has landed.
+
+Gate re-verified on this box after RC-1: `bash -l -e -o pipefail -c 'dotnet restore DeckFlow.sln'`
+exits 0, "All projects are up-to-date for restore." (NU1903 SSH.NET advisories are pre-existing
+warnings, not failures.)
