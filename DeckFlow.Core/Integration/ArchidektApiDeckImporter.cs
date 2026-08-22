@@ -56,22 +56,7 @@ public sealed class ArchidektApiDeckImporter : IArchidektDeckImporter
         using var document = JsonDocument.Parse(body);
         var root = document.RootElement;
         var entries = new List<DeckEntry>();
-        var excludedCategoryNames = new HashSet<string>(StringComparer.Ordinal);
-
-        if (root.TryGetProperty("categories", out var deckCategoriesElement) && deckCategoriesElement.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var category in deckCategoriesElement.EnumerateArray())
-            {
-                if (category.ValueKind == JsonValueKind.Object
-                    && category.TryGetProperty("name", out var nameElement)
-                    && nameElement.ValueKind == JsonValueKind.String
-                    && category.TryGetProperty("includedInDeck", out var includedInDeckElement)
-                    && includedInDeckElement.ValueKind == JsonValueKind.False)
-                {
-                    excludedCategoryNames.Add(nameElement.GetString()!);
-                }
-            }
-        }
+        var excludedCategoryNames = ReadExcludedCategoryNames(root);
 
         if (!root.TryGetProperty("cards", out var cardsElement) || cardsElement.ValueKind != JsonValueKind.Array)
         {
@@ -133,6 +118,33 @@ public sealed class ArchidektApiDeckImporter : IArchidektDeckImporter
         request.AddHeader("Referer", $"https://archidekt.com/decks/{deckId}");
         request.AddHeader("Accept-Language", "en-US,en;q=0.9");
         return request;
+    }
+
+    /// <summary>
+    /// Reads category names excluded from the deck.
+    /// </summary>
+    /// <param name="root">Root element of the Archidekt deck payload.</param>
+    /// <returns>Category names excluded from the deck.</returns>
+    private static HashSet<string> ReadExcludedCategoryNames(JsonElement root)
+    {
+        var excludedCategoryNames = new HashSet<string>(StringComparer.Ordinal);
+
+        if (root.TryGetProperty("categories", out var deckCategoriesElement) && deckCategoriesElement.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var category in deckCategoriesElement.EnumerateArray())
+            {
+                if (category.ValueKind == JsonValueKind.Object
+                    && category.TryGetProperty("name", out var nameElement)
+                    && nameElement.ValueKind == JsonValueKind.String
+                    && category.TryGetProperty("includedInDeck", out var includedInDeckElement)
+                    && includedInDeckElement.ValueKind == JsonValueKind.False)
+                {
+                    excludedCategoryNames.Add(nameElement.GetString()!);
+                }
+            }
+        }
+
+        return excludedCategoryNames;
     }
 
     /// <summary>
