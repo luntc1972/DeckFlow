@@ -1,0 +1,8 @@
+{
+  "checksSkip": [
+    {
+      "match": "playwright install --with-deps",
+      "reason": "provisioning, not verification: --with-deps escalates to root before checking whether anything is missing, and gates run with no TTY, so it always exits 1 here. Locally `playwright install-deps --dry-run` reports every dependency already installed and both browsers launch. CI still runs it, because a fresh runner does need it. If browsers were genuinely missing the next gate, `npm run e2e`, fails loudly."
+    }
+  ]
+}
