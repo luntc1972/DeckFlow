@@ -169,7 +169,7 @@ const buildDecisionFixture = (): void => {
         <form method="post" action="/cut-lab/restart-rounds" data-cut-lab-restart-rounds-form>
           <input type="hidden" name="__RequestVerificationToken" value="token-123" />
           <input type="hidden" name="CutLabStateJson" value="{&quot;version&quot;:1}" />
-          <button type="submit" data-cut-lab-restart-rounds data-cut-lab-restart-rounds-api="/api/cut-lab/restart-rounds">Restart rounds 1 &amp; 2</button>
+          <button type="submit" data-cut-lab-restart-rounds data-cut-lab-restart-rounds-api="/api/cut-lab/restart-rounds">Re-run rounds 1 &amp; 2 — your accepted cuts are kept</button>
         </form>
       </div>
       <div class="cutlab-sticky-bar">
@@ -196,7 +196,7 @@ const buildDecisionFixture = (): void => {
           </div>
         </div>
         <div class="cutlab-delta">
-          <p>1 of 7 metric families changed meaningfully.</p>
+          <p>1 of 7 deck numbers moved.</p>
           <div class="cutlab-delta__line">
             <span class="cutlab-delta__sentence">cutting Sol Ring lowers keepable hand by 2.1%.</span>
             <span class="cutlab-delta__value cutlab-delta__value--down">
