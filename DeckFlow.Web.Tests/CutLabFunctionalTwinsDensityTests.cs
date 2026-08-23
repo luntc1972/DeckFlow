@@ -127,13 +127,18 @@ public sealed class CutLabFunctionalTwinsDensityTests
 
         IReadOnlyList<CutLabFinding> twins = ComputeTwins(pool);
 
+        // Why: A bare twins.Count > 0 check is insufficient because a nonempty outer list whose findings have no evidence executes the inner assertion zero times; this counter's own > 0 assertion also covers the empty-twins case.
+        int assertedEvidenceCount = 0;
         foreach (CutLabFinding finding in twins)
         {
             foreach (CutLabFindingEvidence evidence in finding.Evidence)
             {
+                assertedEvidenceCount++;
                 Assert.DoesNotContain(evidence.CardName, landNames);
             }
         }
+
+        Assert.True(assertedEvidenceCount > 0, "Expected the land-exclusion assertion to execute at least once; zero executions proved nothing.");
     }
 
     [Fact]
@@ -149,6 +154,7 @@ public sealed class CutLabFunctionalTwinsDensityTests
         // Why: bounding distinct evidence NAMES rather than group count, because a single 40-member
         // group is worse for panel reviewability than four 3-member groups and only this assertion
         // catches that shape.
+        Assert.True(distinctEvidenceCount > 0, "Expected at least one distinct evidence card name; zero makes the upper bound vacuous.");
         Assert.True(distinctEvidenceCount <= 40, $"Expected at most 40 distinct evidence card names, got {distinctEvidenceCount}.");
     }
 
