@@ -523,6 +523,17 @@ until Build export runs.
 
 **Deliberately excluded**: the sibling-tool F-5 spillover -- `CedhMetaGap`, `DeckComparison` and `DeckAnalysis` render tabpanels without `hidden` too, and `DeckPrimer` shares the partial -- recorded as a follow-up rather than widened here. Also the cut engine, the metrics, proposal ordering and every API contract.
 
+**Plans:** 7 plans (7 waves)
+- [ ] `07.1-01-PLAN.md` — TRACER: close R2-1 (the roving list filters on the native `disabled` property F-2 removed) and write `07.1-MUTATION-PROTOCOL.md`, the six-step killing-mutation procedure every later plan cites.
+- [ ] `07.1-02-PLAN.md` — F-5: promote a `setVisibleStepPanel` primitive as the single writer of the panel `hidden` attribute, hide on load without the `applyDefaultSectionCollapseState` side effect, keep the no-selection fallback.
+- [ ] `07.1-03-PLAN.md` — F-7: census every builder path and consumer, then declare `CutLabUiPatchDto.NextProposal` nullable on both the C# and TypeScript sides with zero payload change.
+- [ ] `07.1-04-PLAN.md` — the two vacuous density tests gain preconditions that bound the population their own assertions ran over.
+- [ ] `07.1-05-PLAN.md` — F-6: 24-theme `--muted`-on-`--panel` census, raise every failing token, and replace `workflowComponentThemes` with the single 24-entry theme list.
+- [ ] `07.1-06-PLAN.md` — R2-2: re-aim the F-1 regression guard at the delta-expander summary production actually renders, with an explicit pinned-rectangle overlap precondition.
+- [ ] `07.1-07-PLAN.md` — closeout: full regression sweep against the recorded baselines, EOL-churn proof, both review gates closed with plan and mutation citations, spillover todo recorded.
+
+Waves are sequential, not parallel, and deliberately so: every plan shares one build output, one dev server and one `wwwroot/js` compile step, and several transiently mutate production files (`site-common.css`, `CutLabStructuralFindings.cs`) to prove their tests. Concurrent executors in a single working tree (`use_worktrees: false`) would collide, and a running `DeckFlow.Web` locks the exe and turns any concurrent `dotnet test` into an MSB3027 false kill. The tracer (`07.1-01`) leads alone because R2-1 is the only HIGH, it is the only item whose naive fix breaks an existing passing test, and it establishes the mutation protocol the other six consume.
+
 ### Phase 8: Plan Profile — Checkbox Plan Selection (ADOPTED 2026-08-02)
 **Goal**: The user's deck plan is machine-readable — fixed generic strategy checkboxes plus commander-specific EDHREC themes — and the deterministic engine acts on it through all four effects: protect on-plan cards, reorder proposals (off-plan first), plan→floor deltas, and a "stranded off-plan package" finding.
 **Depends on**: Nothing for the engine plans (parallel-safe). The plan-panel UI plan is gated on **Phase 7** — it fills the wizard step slot Phase 7 reserves and edits the same two files (`CutLab.cshtml`, `wwwroot/ts/cut-lab.ts`).
@@ -570,6 +581,7 @@ leading sort key. Plan `08-05` carries the correction.
 | 5. Archidekt Bracket Capture | 0/3 | Planned, not started — **Codex review DISCHARGED 2026-08-03 and folded at `af43a4e4`**. The round-10 finding was that `05-03`'s RED-phase gate certified nothing: exact-TRX-name matching cannot see a `[Theory]`'s per-case name suffixes, so both pinned tests are now `[Fact]` | - |
 | 6. Scryfall Throughput | 0/TBD | Not started (inserted 2026-08-01; 2 waves — adaptive pacing, then fallback batching) | - |
 | 7. Cut Lab Workflow UX | 0/6 | Planned, not started (adopted 2026-08-02 from the unregistered root phase 116). Its `04-04` gate is **discharged** as of 2026-08-03, so this is execute-ready. **D-1 RESOLVED 2026-08-03 as Option 3** (wizard + pinned proposal), so `07-05` exists and executes. Codex review folded at `af43a4e4` | - |
+| 07.1. Cut Lab Code-Review Findings Closeout | 0/7 | **Planned 2026-08-22**, not started. 7 sequential waves; `07.1-01` is a tracer that closes the only HIGH (R2-1) and writes the phase's killing-mutation protocol. Inserted 2026-08-22 to close the eight items left open by the 2026-08-16 and 2026-08-22 code gates. Gate files are at `.planning/reviews/` | - |
 | 8. Plan Profile — Checkbox Plan Selection | 0/8 | Planned 2026-08-02, not started. 6 waves. Engine plans `08-01`..`08-06` are independent of Phase 7; `08-07` and `08-08` are **gated on Phase 7**'s reserved wizard slot. `08-08` is `autonomous: false` (human UI checkpoint at 2 viewports). **Codex plan review DISCHARGED 2026-08-03** — 2 BLOCK + 17 HIGH folded at `af43a4e4`, round 2 converged (0 BLOCK / 0 HIGH); execute-ready | - |
 
 ---
