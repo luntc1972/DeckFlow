@@ -417,7 +417,7 @@ public sealed class CutLabApiController : ControllerBase
         {
             Patch = patch with { NextProposal = AddProposalGlance(patch.NextProposal, patch.ProposalDeltas) },
             CutLabStateJson = patch.CutLabStateJson,
-            NextProposal = AddProposalGlance(patch.NextProposal, patch.ProposalDeltas),
+            NextProposal = AddProposalGlance(patch.NextProposal, patch.ProposalDeltas) ?? throw new InvalidOperationException("A decision response requires a next proposal."),
             ProposalDeltas = patch.ProposalDeltas,
             FloorWarnings = patch.FloorWarnings,
             CardsRemaining = patch.CardsRemaining,
@@ -427,10 +427,12 @@ public sealed class CutLabApiController : ControllerBase
             CategoryDataAvailable = patch.CategoryDataAvailable,
         };
 
-    private static CutLabDecideNextProposalDto AddProposalGlance(
-        CutLabDecideNextProposalDto proposal,
+    private static CutLabDecideNextProposalDto? AddProposalGlance(
+        CutLabDecideNextProposalDto? proposal,
         CutLabDecideProposalDeltasDto? deltas)
-        => proposal with
+        => proposal is null
+            ? null
+            : proposal with
         {
             GlanceLine = CutLabViewModel.ComposeProposalGlance(
                 deltas is null

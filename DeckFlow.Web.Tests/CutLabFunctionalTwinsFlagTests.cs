@@ -117,6 +117,7 @@ public sealed class CutLabFunctionalTwinsFlagTests
         CutLabUiPatchDto patch = await BuildPatchAsync(Flag(true));
 
         Assert.NotNull(page.RoundPlan!.NextProposal);
+        Assert.NotNull(patch.NextProposal);
         Assert.False(patch.NextProposal.IsTerminal);
         Assert.Equal(page.RoundPlan.NextProposal!.CardName, patch.NextProposal.CardName);
     }

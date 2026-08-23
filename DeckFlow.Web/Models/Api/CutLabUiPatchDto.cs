@@ -24,8 +24,8 @@ public sealed record CutLabUiPatchDto
     /// <summary>True when the current working list is eligible for export.</summary>
     public bool CanBuildExport { get; init; }
 
-    /// <summary>The next proposal to render, or a terminal marker when nothing remains to cut.</summary>
-    public CutLabDecideNextProposalDto NextProposal { get; init; } = new();
+    /// <summary>The next proposal to render, null when no proposal is available, or a terminal marker when nothing remains to cut.</summary>
+    public CutLabDecideNextProposalDto? NextProposal { get; init; }
 
     /// <summary>Metric deltas for the current next proposal, when one exists.</summary>
     public CutLabDecideProposalDeltasDto? ProposalDeltas { get; init; }
