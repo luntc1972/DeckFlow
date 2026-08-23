@@ -19,7 +19,7 @@ interface CutLabUiPatch {
     roundBannerBody: string;
     findingCount: number;
     findingChips: string[];
-  };
+  } | null;
   proposalDeltas: null;
   floorWarnings: Array<unknown>;
   cutsMade: Array<unknown>;
@@ -359,7 +359,7 @@ describe('cut-lab adjust enhancement', () => {
       ok: true,
       json: async () => ({
         patch: buildPatch(nextStateJson, {
-          nextProposal: null as any,
+          nextProposal: null,
           proposalDeltas: null,
           floorWarnings: [],
           cutsMade: [{ cardName: 'Old Cut', roundKey: 'round-1', roundLabel: 'Round 1', ordinal: 1 }],

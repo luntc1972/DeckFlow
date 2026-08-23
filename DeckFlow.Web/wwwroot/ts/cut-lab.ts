@@ -171,7 +171,7 @@ interface CutLabUiPatch {
   targetLands?: number;
   canBuildExport: boolean;
   cardTextByCardName?: Record<string, CutLabCardTextEntry>;
-  nextProposal: CutLabDecisionNextProposal;
+  nextProposal: CutLabDecisionNextProposal | null;
   proposalDeltas: CutLabDecisionProposalDeltas | null;
   lockedOvershootAdvisory?: {
     cardsOverTarget: number;
@@ -2616,6 +2616,16 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
 
     const nextProposal = patch.nextProposal;
+    // Why: adjust patches with no proposal are already filtered before rendering.
+    if (nextProposal === null) {
+      renderProposalTerminalState(
+        proposal,
+        'Nothing to cut',
+        'Every remaining card is either locked or your working list is already at 100 cards. Review your locks and packages above, or adjust a role floor if you want to reconsider.',
+      );
+      renderFloorWarnings(proposal, []);
+      return;
+    }
     if (nextProposal.isTerminal) {
       renderProposalTerminalState(
         proposal,
@@ -3251,7 +3261,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const stickyCurrent = getStickyCurrent();
     const stickyTargetDeckSize = getStickyTargetDeckSize();
     const shouldHideRoundFields = !options.preserveProposal
-      && Boolean(patch.nextProposal)
+      && patch.nextProposal !== null
       && (patch.nextProposal.isTerminal || patch.nextProposal.roundLabel.trim() === '');
 
     if (stickyCurrent) {
@@ -3280,16 +3290,17 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     options: { preserveCutsSection?: boolean; preserveProposal?: boolean; preserveFindings?: boolean; adjustedCardName?: string } = {},
   ): void => {
     void options.adjustedCardName;
-    const shouldRenderProposal = Boolean(patch.nextProposal) && (!options.preserveProposal || patch.nextProposal.isTerminal);
+    const shouldRenderProposal = patch.nextProposal !== null && (!options.preserveProposal || patch.nextProposal.isTerminal);
     writeDecisionStateToHiddenInputs(patch.cutLabStateJson);
     setExportEnabled(patch.canBuildExport);
     patchExportCountStatus(patch.currentCount);
     renderWhatifSelectOptions(patch.whatifCardOutOptions, patch.whatifCardInOptions);
     patchStickyBar(patch, options);
     renderLandDisclosure(patch);
-    if (shouldRenderProposal) {
+    const nextProposal = patch.nextProposal;
+    if (shouldRenderProposal && nextProposal !== null) {
       renderLockedOvershootAdvisory(patch.lockedOvershootAdvisory ?? null);
-      renderRoundBanner(patch.nextProposal);
+      renderRoundBanner(nextProposal);
       renderProposalCard(patch, antiForgeryToken);
     }
     if (!(options.preserveCutsSection && patch.cutsMade.length === 0)) {
