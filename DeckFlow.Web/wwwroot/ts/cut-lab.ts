@@ -496,6 +496,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     if (!Number.isInteger(step)) {
       return;
     }
+    // Why: R2-1 keeps focus and selection separate concerns in a roving tablist; this function owns selection only.
+    if (button.getAttribute('aria-disabled') === 'true') {
+      return;
+    }
 
     const panels = Array.from(document.querySelectorAll<HTMLElement>('[role="tabpanel"]'));
     const targetPanel = panels.find(panel => panel.id === `cut-lab-step-panel-${step}`);
@@ -553,7 +557,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         return;
       }
 
-      const enabledTabs = getStepTabs().filter(tab => !tab.disabled);
+      const enabledTabs = getStepTabs();
       const currentTab = event.target instanceof HTMLButtonElement ? event.target : null;
       const currentIndex = currentTab ? enabledTabs.indexOf(currentTab) : -1;
       if (currentIndex < 0 || enabledTabs.length === 0) {

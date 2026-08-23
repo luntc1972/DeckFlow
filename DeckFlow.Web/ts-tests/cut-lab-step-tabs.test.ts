@@ -67,17 +67,76 @@ describe('cut-lab step tabs', () => {
     expect(document.getElementById('cut-lab-step-tab-1')?.getAttribute('aria-selected')).toBe('false');
   });
 
+  // Killing mutation: M1 - remove the activation guard
+  // Killing mutation: M2 - skip aria-disabled tabs during traversal
   it('keeps aria-disabled tabs focusable and reachable by arrow navigation', () => {
-    renderFixture();
+    renderFixture(2);
     initialize();
 
     const decide = document.getElementById('cut-lab-step-tab-2') as HTMLButtonElement;
     const plan = document.getElementById('cut-lab-step-tab-3') as HTMLButtonElement;
     expect(plan.disabled).toBe(false);
 
+    const visiblePanelIdsBefore = Array.from(document.querySelectorAll<HTMLElement>('[role="tabpanel"]:not([hidden])')).map(panel => panel.id);
     decide.focus();
     decide.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
     expect(document.activeElement).toBe(plan);
+    expect(plan.getAttribute('aria-selected')).toBe('false');
+    expect(Array.from(document.querySelectorAll<HTMLElement>('[role="tabpanel"]:not([hidden])')).map(panel => panel.id)).toEqual(visiblePanelIdsBefore);
+    expect(decide.getAttribute('aria-selected')).toBe('true');
+  });
+
+  // Killing mutation: M21 - drop Home/End boundary navigation
+  it('moves focus to the first and last tabs via Home and End', () => {
+    renderFixture();
+    initialize();
+
+    const process = document.getElementById('cut-lab-step-tab-1') as HTMLButtonElement;
+    const exportTab = document.getElementById('cut-lab-step-tab-5') as HTMLButtonElement;
+    exportTab.focus();
+    exportTab.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+    expect(document.activeElement).toBe(process);
+    expect(Array.from(document.querySelectorAll('[aria-disabled="true"]')).every(tab => tab.getAttribute('aria-selected') !== 'true')).toBe(true);
+
+    process.focus();
+    process.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    expect(document.activeElement).toBe(exportTab);
+    expect(Array.from(document.querySelectorAll('[aria-disabled="true"]')).every(tab => tab.getAttribute('aria-selected') !== 'true')).toBe(true);
+  });
+
+  // Killing mutation: M1 - remove the activation guard
+  it('traverses the reserved tab across two ArrowRight presses then one ArrowLeft without ever selecting it', () => {
+    renderFixture(2);
+    initialize();
+
+    const decide = document.getElementById('cut-lab-step-tab-2') as HTMLButtonElement;
+    const plan = document.getElementById('cut-lab-step-tab-3') as HTMLButtonElement;
+    const goals = document.getElementById('cut-lab-step-tab-4') as HTMLButtonElement;
+    decide.focus();
+    decide.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    expect(document.activeElement).toBe(plan);
+    expect(plan.getAttribute('aria-selected')).toBe('false');
+    plan.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    expect(document.activeElement).toBe(goals);
+    expect(plan.getAttribute('aria-selected')).toBe('false');
+
+    const visiblePanelIdsBefore = Array.from(document.querySelectorAll<HTMLElement>('[role="tabpanel"]:not([hidden])')).map(panel => panel.id);
+    goals.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    expect(document.activeElement, 'arrowLeft: focus returns to Plan').toBe(plan);
+    expect(plan.getAttribute('aria-selected'), 'arrowLeft: aria-selected stays false').toBe('false');
+    expect(Array.from(document.querySelectorAll<HTMLElement>('[role="tabpanel"]:not([hidden])')).map(panel => panel.id), 'arrowLeft: visible-panel set unchanged').toEqual(visiblePanelIdsBefore);
+  });
+
+  // Killing mutation: M1 - remove the activation guard
+  it('refuses to select an aria-disabled tab on a direct click', () => {
+    renderFixture(2);
+    initialize();
+
+    const plan = document.getElementById('cut-lab-step-tab-3') as HTMLButtonElement;
+    const visiblePanelIdsBefore = Array.from(document.querySelectorAll<HTMLElement>('[role="tabpanel"]:not([hidden])')).map(panel => panel.id);
+    plan.click();
+    expect(plan.getAttribute('aria-selected')).toBe('false');
+    expect(Array.from(document.querySelectorAll<HTMLElement>('[role="tabpanel"]:not([hidden])')).map(panel => panel.id)).toEqual(visiblePanelIdsBefore);
   });
 
   it('leaves every panel visible when the server selected no tab', () => {
