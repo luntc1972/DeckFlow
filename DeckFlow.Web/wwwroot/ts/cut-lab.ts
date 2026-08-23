@@ -433,6 +433,20 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     });
   };
 
+  // Why: F-5-SIDE-EFFECT distinguishes genuine absence from malformed JSON and unavailable localStorage; only absence is a no-op.
+  const isCollapsedSectionStorageKeyAbsent = (): boolean => {
+    const storage = getLocalStorage();
+    if (!storage) {
+      return false;
+    }
+
+    try {
+      return storage.getItem(CUT_LAB_SECTION_STORAGE_KEY) === null;
+    } catch {
+      return false;
+    }
+  };
+
   const applyInitialSectionCollapseState = (): void => {
     if (readCollapsedSectionIds() !== null) {
       restoreSectionCollapseState();
@@ -440,6 +454,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
 
     const selectedStep = getStepTabs().find(tab => tab.getAttribute('aria-selected') === 'true');
+    if (selectedStep && isCollapsedSectionStorageKeyAbsent()) {
+      return;
+    }
     applyDefaultSectionCollapseState(Number(selectedStep?.dataset.cutLabStep));
   };
 
@@ -491,6 +508,20 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     document.querySelectorAll<HTMLButtonElement>('[role="tab"][data-cut-lab-step]')
   );
 
+  // Why: This is the single writer of step-panel hidden state, without collapse, ARIA or focus behavior.
+  const setVisibleStepPanel = (step: number): boolean => {
+    const panels = Array.from(document.querySelectorAll<HTMLElement>('[role="tabpanel"]'));
+    const targetPanel = panels.find(panel => panel.id === `cut-lab-step-panel-${step}`);
+    if (!targetPanel) {
+      return false;
+    }
+
+    panels.forEach(panel => {
+      panel.toggleAttribute('hidden', panel !== targetPanel);
+    });
+    return true;
+  };
+
   const activateStepTab = (button: HTMLButtonElement, focusPanel: boolean): void => {
     const step = Number(button.dataset.cutLabStep);
     if (!Number.isInteger(step)) {
@@ -501,19 +532,15 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
-    const panels = Array.from(document.querySelectorAll<HTMLElement>('[role="tabpanel"]'));
-    const targetPanel = panels.find(panel => panel.id === `cut-lab-step-panel-${step}`);
-    if (!targetPanel) {
+    if (!setVisibleStepPanel(step)) {
       return;
     }
+    const targetPanel = document.getElementById(`cut-lab-step-panel-${step}`) as HTMLElement;
 
     if (readCollapsedSectionIds() === null) {
       applyDefaultSectionCollapseState(step);
     }
 
-    panels.forEach(panel => {
-      panel.toggleAttribute('hidden', panel !== targetPanel);
-    });
     getStepTabs().forEach(tab => {
       const isActive = tab === button;
       tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
@@ -541,6 +568,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     getStepTabs().forEach(tab => {
       tab.classList.toggle('is-active', tab === selectedTab);
     });
+    const selectedStep = Number(selectedTab.dataset.cutLabStep);
+    if (Number.isInteger(selectedStep)) {
+      // Why: F-5 must not route initialization through activation, which applies collapse defaults on load.
+      setVisibleStepPanel(selectedStep);
+    }
     tablist.addEventListener('click', event => {
       const target = event.target;
       const button = target instanceof HTMLElement

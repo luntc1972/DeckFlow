@@ -17,17 +17,17 @@ const stubMatchMedia = (): void => {
 const renderFixture = (selectedStep = 1): void => {
   document.body.innerHTML = `
     <div class="prompt-step-nav" role="tablist" aria-label="Cut Lab workflow steps">
-      <button type="button" role="tab" id="cut-lab-step-tab-1" data-cut-lab-step="1" aria-selected="${selectedStep === 1}" tabindex="${selectedStep === 1 ? 0 : -1}">Process</button>
-      <button type="button" role="tab" id="cut-lab-step-tab-2" data-cut-lab-step="2" aria-selected="${selectedStep === 2}" tabindex="${selectedStep === 2 ? 0 : -1}">Decide</button>
-      <button type="button" role="tab" id="cut-lab-step-tab-3" data-cut-lab-step="3" aria-disabled="true" aria-selected="false" tabindex="-1">Plan</button>
-      <button type="button" role="tab" id="cut-lab-step-tab-4" data-cut-lab-step="4" aria-selected="${selectedStep === 4}" tabindex="${selectedStep === 4 ? 0 : -1}">Goals</button>
-      <button type="submit" role="tab" id="cut-lab-step-tab-5" form="cut-lab-export-form" data-cut-lab-step="5" aria-selected="${selectedStep === 5}" tabindex="${selectedStep === 5 ? 0 : -1}">Export</button>
+      <button type="button" role="tab" id="cut-lab-step-tab-1" data-cut-lab-step="1" aria-controls="cut-lab-step-panel-1" aria-selected="${selectedStep === 1}" tabindex="${selectedStep === 1 ? 0 : -1}">Process</button>
+      <button type="button" role="tab" id="cut-lab-step-tab-2" data-cut-lab-step="2" aria-controls="cut-lab-step-panel-2" aria-selected="${selectedStep === 2}" tabindex="${selectedStep === 2 ? 0 : -1}">Decide</button>
+      <button type="button" role="tab" id="cut-lab-step-tab-3" data-cut-lab-step="3" aria-controls="cut-lab-step-panel-3" aria-disabled="true" aria-selected="false" tabindex="-1">Plan</button>
+      <button type="button" role="tab" id="cut-lab-step-tab-4" data-cut-lab-step="4" aria-controls="cut-lab-step-panel-4" aria-selected="${selectedStep === 4}" tabindex="${selectedStep === 4 ? 0 : -1}">Goals</button>
+      <button type="submit" role="tab" id="cut-lab-step-tab-5" form="cut-lab-export-form" data-cut-lab-step="5" aria-controls="cut-lab-step-panel-5" aria-selected="${selectedStep === 5}" tabindex="${selectedStep === 5 ? 0 : -1}">Export</button>
     </div>
-    <section role="tabpanel" id="cut-lab-step-panel-1" aria-labelledby="cut-lab-step-tab-1">Process</section>
-    <section role="tabpanel" id="cut-lab-step-panel-2" aria-labelledby="cut-lab-step-tab-2">Decide</section>
+    <section role="tabpanel" id="cut-lab-step-panel-1" aria-labelledby="cut-lab-step-tab-1">Process<details id="cut-lab-section-lock-pool" data-cutlab-mobile-collapse></details></section>
+    <section role="tabpanel" id="cut-lab-step-panel-2" aria-labelledby="cut-lab-step-tab-2">Decide<details id="cut-lab-section-cut-rounds" data-cutlab-mobile-collapse open></details></section>
     <section role="tabpanel" id="cut-lab-step-panel-3" aria-labelledby="cut-lab-step-tab-3">Plan</section>
-    <section role="tabpanel" id="cut-lab-step-panel-4" aria-labelledby="cut-lab-step-tab-4">Goals</section>
-    <section role="tabpanel" id="cut-lab-step-panel-5" aria-labelledby="cut-lab-step-tab-5">Export</section>
+    <section role="tabpanel" id="cut-lab-step-panel-4" aria-labelledby="cut-lab-step-tab-4">Goals<details id="cut-lab-section-goals" data-cutlab-mobile-collapse></details></section>
+    <section role="tabpanel" id="cut-lab-step-panel-5" aria-labelledby="cut-lab-step-tab-5">Export<details id="cut-lab-section-export" data-cutlab-mobile-collapse></details></section>
     <form id="cut-lab-export-form"></form>
   `;
 };
@@ -45,15 +45,19 @@ const initialize = (): void => {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  window.localStorage.clear();
   document.body.innerHTML = '';
 });
 
 describe('cut-lab step tabs', () => {
+  // Killing mutation: M4 - skip the initialization hide
   it('preserves the server-selected tab on load and shows one panel on click', () => {
     renderFixture();
     initialize();
 
-    expect(document.querySelectorAll<HTMLElement>('[role="tabpanel"]:not([hidden])')).toHaveLength(5);
+    const visiblePanels = document.querySelectorAll<HTMLElement>('[role="tabpanel"]:not([hidden])');
+    expect(visiblePanels).toHaveLength(1);
+    expect(visiblePanels[0]?.id).toBe('cut-lab-step-panel-1');
     expect(document.getElementById('cut-lab-step-tab-1')?.classList.contains('is-active')).toBe(true);
 
     const goals = document.getElementById('cut-lab-step-tab-4') as HTMLButtonElement;
@@ -65,6 +69,54 @@ describe('cut-lab step tabs', () => {
     expect(goals.getAttribute('tabindex')).toBe('0');
     expect(goals.classList.contains('is-active')).toBe(true);
     expect(document.getElementById('cut-lab-step-tab-1')?.getAttribute('aria-selected')).toBe('false');
+  });
+
+  // Killing mutation: M4 - skip the initialization hide
+  it('hides every panel except the server-selected one for each selected step', () => {
+    for (const step of [1, 2, 4, 5]) {
+      renderFixture(step);
+      initialize();
+      expect(Array.from(document.querySelectorAll<HTMLElement>('[role="tabpanel"]:not([hidden])')).map(panel => panel.id)).toEqual([`cut-lab-step-panel-${step}`]);
+    }
+  });
+
+  // Killing mutation: M5 - route initialization through tab activation
+  it('does not apply the default section collapse state on first load', () => {
+    renderFixture();
+    initialize();
+    expect(document.getElementById('cut-lab-section-cut-rounds')?.hasAttribute('open')).toBe(true);
+    expect(document.getElementById('cut-lab-section-lock-pool')?.hasAttribute('open')).toBe(false);
+    expect(window.localStorage.getItem('deckflow.cutlab.sections')).toBeNull();
+  });
+
+  // Killing mutation: M6 - delete the collapse default from activation too
+  it('still applies the default section collapse state when a tab is clicked', () => {
+    renderFixture();
+    initialize();
+    (document.getElementById('cut-lab-step-tab-1') as HTMLButtonElement).click();
+    expect(document.getElementById('cut-lab-section-lock-pool')?.hasAttribute('open')).toBe(true);
+    expect(document.getElementById('cut-lab-section-cut-rounds')?.hasAttribute('open')).toBe(false);
+  });
+
+  // Killing mutation: M18 - no-op activation on click
+  it('every entry path leaves exactly one panel visible when the server selected a tab', () => {
+    const assertSelectedPanelVisible = (): void => {
+      const visiblePanelIds = Array.from(document.querySelectorAll<HTMLElement>('[role="tabpanel"]:not([hidden])')).map(panel => panel.id);
+      const selectedTab = document.querySelector<HTMLButtonElement>('[role="tab"][aria-selected="true"]');
+      expect(visiblePanelIds).toHaveLength(1);
+      expect(visiblePanelIds[0]).toBe(selectedTab?.getAttribute('aria-controls'));
+    };
+
+    renderFixture(2);
+    initialize();
+    assertSelectedPanelVisible();
+
+    renderFixture(2);
+    initialize();
+    (document.getElementById('cut-lab-step-tab-4') as HTMLButtonElement).click();
+    assertSelectedPanelVisible();
+    expect(document.getElementById('cut-lab-step-tab-4')?.getAttribute('aria-selected')).toBe('true');
+    expect(document.getElementById('cut-lab-step-tab-2')?.getAttribute('aria-selected')).toBe('false');
   });
 
   // Killing mutation: M1 - remove the activation guard
@@ -139,7 +191,9 @@ describe('cut-lab step tabs', () => {
     expect(Array.from(document.querySelectorAll<HTMLElement>('[role="tabpanel"]:not([hidden])')).map(panel => panel.id)).toEqual(visiblePanelIdsBefore);
   });
 
-  it('leaves every panel visible when the server selected no tab', () => {
+  // Why: D-4 keeps all content available when no tab is selected.
+  // Killing mutation: M7 - hide panels on the no-selection path too
+  it('leaves every panel visible when the server selected no tab, so content is never stranded behind an unselected tablist', () => {
     renderFixture(0);
     initialize();
 
