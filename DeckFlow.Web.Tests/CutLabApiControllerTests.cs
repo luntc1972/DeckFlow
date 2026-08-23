@@ -179,7 +179,8 @@ public sealed class CutLabApiControllerTests
         Assert.Equal(1, payload.CardsRemaining);
         Assert.Equal(payload.Patch.CardsRemaining, payload.CardsRemaining);
         Assert.Equal("Counterspell", payload.NextProposal.CardName);
-        Assert.Equal("Counterspell", payload.Patch.NextProposal.CardName);
+        CutLabDecideNextProposalDto patchNextProposal = Assert.IsType<CutLabDecideNextProposalDto>(payload.Patch.NextProposal);
+        Assert.Equal("Counterspell", patchNextProposal.CardName);
         Assert.Equal("Counterspell", payload.ProposalDeltas!.CardName);
         Assert.Equal(payload.Patch.ProposalDeltas!.CardName, payload.ProposalDeltas.CardName);
         Assert.Equal(payload.Patch.FloorWarnings, payload.FloorWarnings);
@@ -866,7 +867,8 @@ public sealed class CutLabApiControllerTests
 
         OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
         CutLabWhatifApiResponse payload = Assert.IsType<CutLabWhatifApiResponse>(ok.Value);
-        string glanceLine = payload.Patch!.NextProposal.GlanceLine;
+        CutLabDecideNextProposalDto nextProposal = Assert.IsType<CutLabDecideNextProposalDto>(payload.Patch!.NextProposal);
+        string glanceLine = nextProposal.GlanceLine;
         Assert.False(string.IsNullOrWhiteSpace(glanceLine));
         Assert.StartsWith("3 of 7 deck numbers move", glanceLine);
         Assert.Contains("Castability", glanceLine);
@@ -914,7 +916,8 @@ public sealed class CutLabApiControllerTests
 
         OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
         CutLabWhatifApiResponse payload = Assert.IsType<CutLabWhatifApiResponse>(ok.Value);
-        Assert.Equal(CutLabMessages.NoChangeMessage, payload.Patch!.NextProposal.GlanceLine);
+        CutLabDecideNextProposalDto nextProposal = Assert.IsType<CutLabDecideNextProposalDto>(payload.Patch!.NextProposal);
+        Assert.Equal(CutLabMessages.NoChangeMessage, nextProposal.GlanceLine);
     }
 
     [Fact]

@@ -163,7 +163,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
                     IsTerminal = true,
                     IsAtTarget = true,
                 }
-                : null!,
+                : null,
             ProposalDeltas = null,
             FloorWarnings = [],
             CutsMade = BuildCutsMade(state.Decisions),

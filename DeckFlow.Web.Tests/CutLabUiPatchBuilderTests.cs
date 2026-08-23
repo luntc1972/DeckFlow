@@ -49,6 +49,7 @@ public sealed class CutLabUiPatchBuilderTests
         Assert.Equal(100, patch.CurrentCount);
         Assert.Equal(0, patch.CardsRemaining);
         Assert.True(patch.CanBuildExport);
+        Assert.NotNull(patch.NextProposal);
         Assert.True(patch.NextProposal.IsTerminal);
         Assert.True(patch.NextProposal.IsAtTarget);
         Assert.False(patch.NextProposal.IsNothingToCut);
@@ -315,6 +316,7 @@ public sealed class CutLabUiPatchBuilderTests
             ["Commander"],
             twinsEnabled: false);
 
+        Assert.NotNull(patch.NextProposal);
         Assert.True(patch.NextProposal.IsTerminal);
         Assert.False(patch.NextProposal.IsAtTarget);
         Assert.True(patch.NextProposal.IsNothingToCut);
@@ -342,6 +344,7 @@ public sealed class CutLabUiPatchBuilderTests
             ["Commander"],
             twinsEnabled: false);
 
+        Assert.NotNull(patch.NextProposal);
         Assert.False(patch.NextProposal.IsTerminal);
         Assert.Equal("Immediate Proposal", patch.NextProposal.CardName);
         Assert.NotNull(patch.LockedOvershootAdvisory);
