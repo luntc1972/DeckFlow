@@ -20,7 +20,7 @@
     <!-- Reuses the in-solution Markdig (same 0.38.0 the web app uses) to render the review-queue
          notes preview as HTML, mirroring the public /content-kb detail page. -->
     <PackageReference Include="Markdig" Version="0.38.0" />
-    <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageReference Include="SSH.NET" Version="2026.0.0" />
