@@ -42,6 +42,7 @@ public sealed class ShellController : Controller
     /// <c>UseStatusCodePagesWithReExecute</c> re-runs the pipeline for a 404/403.
     /// </summary>
     /// <param name="code">The originating status code, supplied by the status-code-pages re-execute.</param>
+    [ApiExplorerSettings(IgnoreApi = true)]
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     [IgnoreAntiforgeryToken]
     [Route("Deck/Error")]
