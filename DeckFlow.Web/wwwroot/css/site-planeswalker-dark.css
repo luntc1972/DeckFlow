@@ -3,7 +3,8 @@
   --bg: #1a1e2e;
   --panel: #2e3450;
   --ink: #d8dce6;
-  --muted: #8b92a8;
+  /* Why: F-6 requires a 4.61:1 --muted-on---panel ratio. */
+  --muted: #989fb2;
   --line: #485078;
   --accent: #4d8fcc;          /* mana blue */
   --accent-strong: #6aaae0;
