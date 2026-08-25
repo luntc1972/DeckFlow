@@ -8,6 +8,11 @@ Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags ar
 
 ### Unreleased
 
+Dependencies and security:
+- **A known vulnerability in the deploy tooling is closed.** DeckFlow Studio's SSH library carried advisory GHSA-q939-rpr3-3284; it has been updated, and all seven projects now report no vulnerable packages, direct or transitive.
+- **Twenty-one other packages moved to current versions**, including the logging, database, HTTP-resilience and Markdown libraries, plus the whole test toolchain. Nothing about how the site behaves changes: the Markdown renderer was checked page by page and every help topic renders byte-for-byte the same HTML as before, and the full test suite is unchanged at 4,925 passing.
+- **The developer API documentation page works again.** `/swagger` had been returning a server error because the branded error page's route declared no HTTP method, which the documentation generator rejects. That page is only ever served in local development, so no deployed environment was affected. A test now fails the build if another route is added in the same shape.
+
 Deck History:
 - **A new version no longer looks like it replaced your history.** Deck History keeps no server-side state — your versions live only in the `.json` file you download. If you came back later and imported your deck without re-uploading that file, the page silently started a brand-new history at version 1 and reported it with the same success message as a genuine first save, so prior versions appeared to have been wiped. The page now says plainly, before you submit, that no history is loaded, and the result banner calls out when a fresh file was started instead of an existing one extended. Your deck fields still restore from the previous session; only the misleading silence about history is gone.
 
