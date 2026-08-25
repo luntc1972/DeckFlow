@@ -34,12 +34,6 @@ const themes = [
   { name: 'temur', cookie: 'site-temur.css' },
 ] as const;
 
-const workflowComponentThemes = [
-  { name: 'classic', cookie: 'site.css' },
-  { name: 'azorius', cookie: 'site-azorius.css' },
-  { name: 'nyx', cookie: 'site-nyx.css' },
-] as const;
-
 const workflowViewports = [
   { name: 'desktop', width: 1440, height: 900 },
   { name: 'mobile', width: 390, height: 844 },
@@ -480,10 +474,13 @@ test('keeps the Cut Lab named elements readable across every supported theme', a
 });
 
 test('keeps intake and progress components readable at workflow viewports', async ({ page }) => {
+  // Measured 50.1s for 24 themes × 2 viewports; 120s leaves rounded-up twofold headroom.
+  test.setTimeout(120_000);
+
   for (const viewport of workflowViewports) {
     await page.setViewportSize(viewport);
 
-    for (const theme of workflowComponentThemes) {
+    for (const theme of themes) {
       await page.context().clearCookies();
       await page.context().addCookies([{ name: 'deckflow-theme', value: theme.cookie, url: baseUrl }]);
       await page.goto('/cut-lab');
