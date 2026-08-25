@@ -34,11 +34,14 @@ public sealed class OpenApiActionBindingTests
             .GetCustomAttribute<ApiExplorerSettingsAttribute>()?
             .IgnoreApi == true;
 
+        if (controllerIgnored)
+        {
+            return [];
+        }
+
         return controllerType
             .GetMethods(BindingFlags.Public | BindingFlags.Instance)
-            .Where(static method =>
-                method.DeclaringType is not null &&
-                !method.IsSpecialName)
+            .Where(static method => !method.IsSpecialName)
             .Where(method => method.GetCustomAttributes(inherit: true)
                 .OfType<IRouteTemplateProvider>()
                 .Any())
@@ -46,9 +49,7 @@ public sealed class OpenApiActionBindingTests
                 .OfType<IActionHttpMethodProvider>()
                 .Any(provider => provider.HttpMethods is not null &&
                     provider.HttpMethods.Any(static httpMethod => !string.IsNullOrWhiteSpace(httpMethod))))
-            .Where(method =>
-                !controllerIgnored &&
-                method.GetCustomAttribute<ApiExplorerSettingsAttribute>()?.IgnoreApi != true)
+            .Where(static method => method.GetCustomAttribute<ApiExplorerSettingsAttribute>()?.IgnoreApi != true)
             .Select(method => $"{controllerType.Name}.{method.Name}");
     }
 }
