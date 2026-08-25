@@ -3,7 +3,8 @@
   --bg: #181822;
   --panel: #2e3244;
   --ink: #d8d8e2;
-  --muted: #91889d;
+  /* Why: F-6 requires a 4.63:1 --muted-on---panel ratio. */
+  --muted: #a199ab;
   --line: #564e68;
   --accent: #b44a52;          /* Grixis red / cruel command */
   --accent-strong: #d16670;

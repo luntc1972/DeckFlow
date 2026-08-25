@@ -3,7 +3,8 @@
   --bg: #1c1a17;
   --panel: #352b24;
   --ink: #e2d7cb;
-  --muted: #a08d7d;
+  /* Why: F-6 requires a 4.61:1 --muted-on---panel ratio. */
+  --muted: #a49282;
   --line: #6a5548;
   --accent: #8a4c35;          /* Jund red / volcanic bloodline */
   --accent-strong: #a6613f;
