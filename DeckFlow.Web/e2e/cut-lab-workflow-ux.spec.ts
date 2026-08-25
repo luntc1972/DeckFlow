@@ -180,26 +180,48 @@ test('G-5 keeps the complete Accept button visible and hit-testable while Decide
   expect(result.isHit, 'Accept button centre is not covered by another sticky layer').toBe(true);
 });
 
+// R2-2/F-1: guard production-rendered markup; overlap precondition prevents a vacuous hit test.
 test('G-6 lets a workflow control beneath the pinned proposal receive a click', async ({ page }) => {
   await importPool(page);
 
   const decideTab = page.locator('[role="tab"][aria-label="Decide"]');
   await decideTab.click();
-  await page.locator('.cutlab-proposal__body').evaluate((body) => {
-    const pinned = document.querySelector<HTMLElement>('.cutlab-proposal--pinned');
-    if (!pinned) throw new Error('Pinned proposal was not rendered.');
+  await expect(decideTab).toHaveAttribute('aria-selected', 'true');
 
-    const control = document.createElement('button');
-    control.type = 'button';
-    control.textContent = 'Workflow control beneath pinned proposal';
-    control.style.position = 'fixed';
-    control.style.top = `${pinned.getBoundingClientRect().top + 10}px`;
-    control.style.left = `${pinned.getBoundingClientRect().left + 10}px`;
-    control.addEventListener('click', () => control.dataset.receivedClick = 'true');
-    body.appendChild(control);
+  const details = page.locator('details[data-cut-lab-delta-expander]');
+  const summary = details.locator(':scope > summary');
+  await expect(summary, 'details[data-cut-lab-delta-expander] > summary is absent: proposal rendered without metric deltas and the guard has lost its target').toBeVisible();
+  const wasOpen = await details.evaluate((element) => element.open);
+
+  const measure = () => page.evaluate(() => {
+    const pinned = document.querySelector<HTMLElement>('.cutlab-proposal--pinned');
+    const summary = document.querySelector<HTMLElement>('details[data-cut-lab-delta-expander] > summary');
+    if (!pinned || !summary) throw new Error('Pinned proposal or delta-expander summary was not rendered.');
+
+    const pinnedRect = pinned.getBoundingClientRect();
+    const summaryRect = summary.getBoundingClientRect();
+    const x = summaryRect.x + summaryRect.width / 2;
+    const y = summaryRect.y + summaryRect.height / 2;
+    const hit = document.elementFromPoint(x, y);
+    return {
+      pinnedRect: { left: pinnedRect.left, top: pinnedRect.top, right: pinnedRect.right, bottom: pinnedRect.bottom },
+      summaryRect: { left: summaryRect.left, top: summaryRect.top, right: summaryRect.right, bottom: summaryRect.bottom },
+      x,
+      y,
+      overlaps: x >= pinnedRect.left && x <= pinnedRect.right && y >= pinnedRect.top && y <= pinnedRect.bottom,
+      isSummaryHit: hit === summary || Boolean(hit && summary.contains(hit)),
+      hit: hit?.outerHTML ?? null,
+    };
   });
 
-  const control = page.getByRole('button', { name: 'Workflow control beneath pinned proposal' });
-  await control.click();
-  await expect(control).toHaveAttribute('data-received-click', 'true');
+  let result = await measure();
+  for (let attempt = 0; attempt < 12 && !result.overlaps; attempt++) {
+    await page.evaluate(() => window.scrollBy(0, 200));
+    result = await measure();
+  }
+
+  expect(result.overlaps, `delta-expander summary centre must overlap pinned proposal; pinned=${JSON.stringify(result.pinnedRect)} summary=${JSON.stringify(result.summaryRect)}`).toBe(true);
+  expect(result.isSummaryHit, `delta-expander summary centre must not be covered; elementFromPoint returned ${result.hit}`).toBe(true);
+  await page.mouse.click(result.x, result.y);
+  expect(await details.evaluate((element) => element.open), 'delta-expander open state flips after its centre receives a real click').toBe(!wasOpen);
 });
