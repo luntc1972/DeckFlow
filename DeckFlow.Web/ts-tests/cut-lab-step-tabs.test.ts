@@ -80,6 +80,15 @@ describe('cut-lab step tabs', () => {
     }
   });
 
+  it('requires selecting Process before the Lock your pool panel is visible after a Decide load', () => {
+    renderFixture(2);
+    initialize();
+
+    expect(document.getElementById('cut-lab-step-panel-1')?.hidden).toBe(true);
+    document.getElementById('cut-lab-step-tab-1')?.click();
+    expect(document.getElementById('cut-lab-step-panel-1')?.hidden).toBe(false);
+  });
+
   // Killing mutation: M5 - route initialization through tab activation
   it('does not apply the default section collapse state on first load', () => {
     renderFixture();
