@@ -50,6 +50,9 @@ const importPool = async (page: Page): Promise<void> => {
   await page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' }).locator(':scope > summary').click();
   await expect(page.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
+  const decideStep = page.locator('[role="tab"][aria-label="Decide"]');
+  await decideStep.click();
+  await expect(decideStep).toHaveAttribute('aria-selected', 'true');
 };
 
 test.beforeEach(async ({ page }) => {
@@ -108,6 +111,8 @@ test('G-3 keeps Decide page bulk below the desktop and mobile headroom threshold
   await expect(decideTab).toHaveAttribute('aria-disabled', 'false');
   await decideTab.click();
   await expect(decideTab).toHaveAttribute('aria-selected', 'true');
+  // The section must be expanded or the height assertion is vacuous.
+  await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
   const panelId = await decideTab.getAttribute('aria-controls');
   expect(panelId, 'Decide tab should reference a panel with aria-controls').toBeTruthy();
   const height = await page.locator(`#${panelId!}`).evaluate((panel) => panel.scrollHeight);
@@ -139,6 +144,8 @@ test('G-5 keeps the complete Accept button visible and hit-testable while Decide
   const decideTab = page.locator('[role="tab"][aria-label="Decide"]');
   await decideTab.click();
   await expect(decideTab).toHaveAttribute('aria-selected', 'true');
+  // The Decide step no longer guarantees cut rounds is expanded; expand it through the UI before controls enter the accessibility tree.
+  await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
   const panelId = await decideTab.getAttribute('aria-controls');
   expect(panelId).toBeTruthy();
   await page.locator(`#${panelId!} .cutlab-proposal__body`).evaluate((body) => {
@@ -187,6 +194,10 @@ test('G-6 lets a workflow control beneath the pinned proposal receive a click', 
   const decideTab = page.locator('[role="tab"][aria-label="Decide"]');
   await decideTab.click();
   await expect(decideTab).toHaveAttribute('aria-selected', 'true');
+  // The Decide step no longer guarantees cut rounds is expanded; expand it through the UI before controls enter the accessibility tree.
+  await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
+  // Expand Tune quantities purely to give the page enough scroll room for the sticky proposal to reach maximum travel; without it the overlap precondition is unreachable rather than false.
+  await expandCutLabSection(page, 'cut-lab-section-tune');
 
   const details = page.locator('details[data-cut-lab-delta-expander]');
   const summary = details.locator(':scope > summary');
@@ -211,16 +222,21 @@ test('G-6 lets a workflow control beneath the pinned proposal receive a click', 
       overlaps: x >= pinnedRect.left && x <= pinnedRect.right && y >= pinnedRect.top && y <= pinnedRect.bottom,
       isSummaryHit: hit === summary || Boolean(hit && summary.contains(hit)),
       hit: hit?.outerHTML ?? null,
+      scrollY: window.scrollY,
+      scrollHeight: document.documentElement.scrollHeight,
     };
   });
 
   let result = await measure();
-  for (let attempt = 0; attempt < 12 && !result.overlaps; attempt++) {
+  let previousScrollY = result.scrollY;
+  for (let attempt = 0; attempt < 40 && !result.overlaps; attempt++) {
     await page.evaluate(() => window.scrollBy(0, 200));
     result = await measure();
+    if (result.scrollY === previousScrollY) break;
+    previousScrollY = result.scrollY;
   }
 
-  expect(result.overlaps, `delta-expander summary centre must overlap pinned proposal; pinned=${JSON.stringify(result.pinnedRect)} summary=${JSON.stringify(result.summaryRect)}`).toBe(true);
+  expect(result.overlaps, `delta-expander summary centre must overlap pinned proposal; pinned=${JSON.stringify(result.pinnedRect)} summary=${JSON.stringify(result.summaryRect)} scrollY=${result.scrollY} scrollHeight=${result.scrollHeight}`).toBe(true);
   expect(result.isSummaryHit, `delta-expander summary centre must not be covered; elementFromPoint returned ${result.hit}`).toBe(true);
   await page.mouse.click(result.x, result.y);
   expect(await details.evaluate((element) => element.open), 'delta-expander open state flips after its centre receives a real click').toBe(!wasOpen);
