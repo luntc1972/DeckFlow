@@ -214,12 +214,32 @@ test('G-6 lets a workflow control beneath the pinned proposal receive a click', 
     const x = summaryRect.x + summaryRect.width / 2;
     const y = summaryRect.y + summaryRect.height / 2;
     const hit = document.elementFromPoint(x, y);
+    const capturingRects = [...pinned.querySelectorAll<HTMLElement>('.cutlab-proposal__pinned-actions, button')]
+      .map((element) => element.getBoundingClientRect())
+      .filter((rect) => rect.left <= x && x <= rect.right)
+      .sort((left, right) => left.top - right.top);
+    const gaps: Array<[number, number]> = [];
+    let coveredBottom = pinnedRect.top;
+    for (const rect of capturingRects) {
+      const top = Math.max(rect.top, pinnedRect.top);
+      const bottom = Math.min(rect.bottom, pinnedRect.bottom);
+      if (bottom <= top) continue;
+      if (top > coveredBottom) gaps.push([coveredBottom - pinnedRect.top, top - pinnedRect.top]);
+      coveredBottom = Math.max(coveredBottom, bottom);
+    }
+    if (coveredBottom < pinnedRect.bottom) gaps.push([coveredBottom - pinnedRect.top, pinnedRect.bottom - pinnedRect.top]);
+    const capturedByChild = capturingRects.some((rect) => y >= rect.top && y <= rect.bottom);
     return {
       pinnedRect: { left: pinnedRect.left, top: pinnedRect.top, right: pinnedRect.right, bottom: pinnedRect.bottom },
       summaryRect: { left: summaryRect.left, top: summaryRect.top, right: summaryRect.right, bottom: summaryRect.bottom },
+      capturingRects: capturingRects.map((rect) => ({ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom })),
+      gaps,
       x,
       y,
       overlaps: x >= pinnedRect.left && x <= pinnedRect.right && y >= pinnedRect.top && y <= pinnedRect.bottom,
+      capturedByChild,
+      passesThrough: x >= pinnedRect.left && x <= pinnedRect.right && y >= pinnedRect.top && y <= pinnedRect.bottom && !capturedByChild,
+      d: y - pinnedRect.top,
       isSummaryHit: hit === summary || Boolean(hit && summary.contains(hit)),
       hit: hit?.outerHTML ?? null,
       scrollY: window.scrollY,
@@ -227,16 +247,26 @@ test('G-6 lets a workflow control beneath the pinned proposal receive a click', 
     };
   });
 
-  let result = await measure();
-  let previousScrollY = result.scrollY;
-  for (let attempt = 0; attempt < 40 && !result.overlaps; attempt++) {
-    await page.evaluate(() => window.scrollBy(0, 200));
+  const initial = await measure();
+  const targetGap = initial.gaps
+    .filter(([top, bottom]) => (top + bottom) / 2 <= initial.d)
+    .sort(([leftTop, leftBottom], [rightTop, rightBottom]) => (rightTop + rightBottom) - (leftTop + leftBottom))[0];
+  if (!targetGap) throw new Error(`No reachable pinned pass-through gap; gaps=${JSON.stringify(initial.gaps)} d=${initial.d}`);
+
+  const targetD = (targetGap[0] + targetGap[1]) / 2;
+  let result = initial;
+  let lo = 0;
+  let hi = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const mid = (lo + hi) / 2;
+    await page.evaluate((scrollY) => window.scrollTo(0, scrollY), mid);
     result = await measure();
-    if (result.scrollY === previousScrollY) break;
-    previousScrollY = result.scrollY;
+    if (result.passesThrough) break;
+    if (result.d > targetD) lo = mid;
+    else hi = mid;
   }
 
-  expect(result.overlaps, `delta-expander summary centre must overlap pinned proposal; pinned=${JSON.stringify(result.pinnedRect)} summary=${JSON.stringify(result.summaryRect)} scrollY=${result.scrollY} scrollHeight=${result.scrollHeight}`).toBe(true);
+  expect(result.passesThrough, `delta-expander summary centre must pass through pinned proposal; pinned=${JSON.stringify(result.pinnedRect)} summary=${JSON.stringify(result.summaryRect)} capturingRects=${JSON.stringify(result.capturingRects)} gaps=${JSON.stringify(result.gaps)} d=${result.d} targetD=${targetD} scrollY=${result.scrollY} scrollHeight=${result.scrollHeight}`).toBe(true);
   expect(result.isSummaryHit, `delta-expander summary centre must not be covered; elementFromPoint returned ${result.hit}`).toBe(true);
   await page.mouse.click(result.x, result.y);
   expect(await details.evaluate((element) => element.open), 'delta-expander open state flips after its centre receives a real click').toBe(!wasOpen);
