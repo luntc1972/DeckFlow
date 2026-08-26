@@ -8,10 +8,24 @@ export async function expandMobileCollapsibles(page: Page): Promise<void> {
   });
 }
 
-// Importing completes step 1, selecting step 2 whose default collapse state closes
-// sections such as Lock your pool. Expand only the section a spec needs via its UI.
+// Activate a section's hidden workflow step when needed, then expand only the
+// collapsed section a spec needs via its UI.
 export async function expandCutLabSection(page: Page, sectionId: string): Promise<void> {
   const section = page.locator(`details#${sectionId}`);
+  const panel = section.locator('xpath=ancestor::*[@role="tabpanel"][1]');
+
+  if ((await panel.count()) > 0 && (await panel.getAttribute('hidden')) !== null) {
+    const panelId = await panel.getAttribute('id');
+    const tabId = await panel.getAttribute('aria-labelledby');
+    const tab = page.locator(`#${tabId}`);
+    const unreachableMessage =
+      `Section ${sectionId} is unreachable because its step is disabled (panel ${panelId}, tab ${tabId})`;
+
+    await expect(tab, unreachableMessage).not.toBeDisabled();
+    await tab.click();
+    await expect(tab).toHaveAttribute('aria-selected', 'true');
+    await expect(panel).not.toHaveAttribute('hidden');
+  }
 
   if ((await section.getAttribute('open')) === null) {
     await section.locator(':scope > summary').click();
