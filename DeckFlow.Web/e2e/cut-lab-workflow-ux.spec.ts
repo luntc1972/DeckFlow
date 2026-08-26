@@ -202,7 +202,7 @@ test('G-6 lets a workflow control beneath the pinned proposal receive a click', 
   const details = page.locator('details[data-cut-lab-delta-expander]');
   const summary = details.locator(':scope > summary');
   await expect(summary, 'details[data-cut-lab-delta-expander] > summary is absent: proposal rendered without metric deltas and the guard has lost its target').toBeVisible();
-  const wasOpen = await details.evaluate((element) => element.open);
+  const wasOpen = await details.evaluate((element) => (element as HTMLDetailsElement).open);
 
   const measure = () => page.evaluate(() => {
     const pinned = document.querySelector<HTMLElement>('.cutlab-proposal--pinned');
@@ -273,5 +273,5 @@ test('G-6 lets a workflow control beneath the pinned proposal receive a click', 
   expect(result.passesThrough, `delta-expander summary centre must pass through pinned proposal; pinned=${JSON.stringify(result.pinnedRect)} summary=${JSON.stringify(result.summaryRect)} capturingRects=${JSON.stringify(result.capturingRects)} gaps=${JSON.stringify(result.gaps)} d=${result.d} targetD=${targetD} scrollY=${result.scrollY} scrollHeight=${result.scrollHeight}`).toBe(true);
   expect(result.isSummaryHit, `delta-expander summary centre must not be covered; elementFromPoint returned ${result.hit}`).toBe(true);
   await page.mouse.click(result.x, result.y);
-  expect(await details.evaluate((element) => element.open), 'delta-expander open state flips after its centre receives a real click').toBe(!wasOpen);
+  expect(await details.evaluate((element) => (element as HTMLDetailsElement).open), 'delta-expander open state flips after its centre receives a real click').toBe(!wasOpen);
 });
