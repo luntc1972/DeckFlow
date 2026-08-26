@@ -247,6 +247,10 @@ test('G-6 lets a workflow control beneath the pinned proposal receive a click', 
     };
   });
 
+  // Why: d = summaryCentre - pinnedTop is monotone non-increasing in scrollY and is maximal at scroll top.
+  // Measuring it anywhere else (mobile leaves the page saturated at scrollY 2008) reports the FLOOR, and the
+  // reachability filter below then discards every band the summary could actually still descend through.
+  await page.evaluate(() => window.scrollTo(0, 0));
   const initial = await measure();
   const targetGap = initial.gaps
     .filter(([top, bottom]) => (top + bottom) / 2 <= initial.d)
