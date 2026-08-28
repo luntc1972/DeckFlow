@@ -60,7 +60,8 @@ public static class PacketServiceCollectionExtensions
                 sp.GetRequiredService<SetUpgradePromptVariantRegistry>(),
                 sp.GetRequiredService<PacketSessionCache>(),
                 sp.GetService<IFeatureFlagCache>(),
-                sp.GetService<ILogger<DeckAnalysisPacketService>>()));
+                sp.GetService<ILogger<DeckAnalysisPacketService>>(),
+                sp.GetRequiredService<IScryfallCollectionProtocol>()));
         services.AddScoped<IDeckComparisonService>(sp =>
             new DeckComparisonService(
                 sp.GetRequiredService<IScryfallCardResolver>(),

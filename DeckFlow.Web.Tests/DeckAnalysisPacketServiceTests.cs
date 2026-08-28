@@ -1792,6 +1792,38 @@ Commander
     }
 
     [Fact]
+    public async Task BuildAsync_UsesCommanderColorIdentity_ForGeneratedSetPacket()
+    {
+        var service = CreateService(
+            executeCollectionAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+            {
+                StatusCode = HttpStatusCode.OK,
+                Data = new ScryfallCollectionResponse(
+                    [new ScryfallCard(
+                        Name: "Atraxa, Praetors' Voice", ManaCost: null, TypeLine: string.Empty,
+                        OracleText: null, Power: null, Toughness: null, Keywords: null,
+                        ColorIdentity: [" r ", "R", ""], SetCode: null, SetName: null,
+                        CollectorNumber: null)],
+                    [])
+            }));
+
+        var result = await service.BuildAsync(new DeckAnalysisRequest
+        {
+            WorkflowStep = 1,
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+""",
+            DeckProfileJson = "{}",
+            SelectedSetCodes = ["dsk"]
+        });
+
+        Assert.Contains("Off Color Test Card", result.SetUpgradePromptText);
+    }
+
+    [Fact]
     public async Task BuildAsync_ThrowsValidationError_WhenMultipleSetsSelectedForGeneratedPacket()
     {
         var service = CreateService();

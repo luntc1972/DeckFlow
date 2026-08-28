@@ -86,6 +86,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     private readonly IGameChangerCatalogService _catalogService;
     private readonly IScryfallCardResolver _scryfallCardResolver;
     private readonly ScryfallReferenceResolver _scryfallReferenceResolver;
+    private readonly IScryfallCollectionProtocol _collectionProtocol;
     private readonly ILogger<DeckAnalysisPacketService> _logger;
     private readonly AnalysisPromptVariantRegistry _analysisPromptRegistry;
     private readonly SetUpgradePromptVariantRegistry _setUpgradePromptRegistry;
@@ -193,7 +194,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         SetUpgradePromptVariantRegistry setUpgradePromptRegistry,
         PacketSessionCache packetCache,
         IFeatureFlagCache? flagCache = null,
-        ILogger<DeckAnalysisPacketService>? logger = null)
+        ILogger<DeckAnalysisPacketService>? logger = null,
+        IScryfallCollectionProtocol? collectionProtocol = null)
     {
         ArgumentNullException.ThrowIfNull(scryfallCardResolver);
         ArgumentNullException.ThrowIfNull(scryfallReferenceResolver);
@@ -208,6 +210,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         ArgumentNullException.ThrowIfNull(packetCache);
         _scryfallCardResolver = scryfallCardResolver;
         _scryfallReferenceResolver = scryfallReferenceResolver;
+        _collectionProtocol = collectionProtocol ?? new ScryfallCollectionProtocol(scryfallCardResolver);
         _deckEntryLoader = deckEntryLoader;
         _mechanicLookupService = mechanicLookupService;
         _commanderBanListService = commanderBanListService;
@@ -1792,16 +1795,10 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             return Array.Empty<string>();
         }
 
-        var request = new RestRequest("cards/collection", Method.Post)
-            .AddJsonBody(new
-            {
-                identifiers = new[]
-                {
-                    new { name = commanderName.Trim() }
-                }
-            });
-        var response = await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
-        var card = response.Data?.Data?.FirstOrDefault();
+        var response = await _collectionProtocol.ResolveAsync(
+            new ScryfallCollectionProtocolRequest([new ScryfallCollectionIdentifier(commanderName.Trim())]),
+            cancellationToken).ConfigureAwait(false);
+        var card = response.Cards.FirstOrDefault();
         if (card?.ColorIdentity is null)
         {
             return Array.Empty<string>();
