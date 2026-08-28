@@ -53,12 +53,19 @@ public static class ScryfallServiceCollectionExtensions
                 sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
                 sp.GetRequiredService<CardLookupCache>()));
         // Why: a partial container without the flag cache must still compose.
-        services.AddSingleton(sp => new ScryfallCollectionCardCache(sp.GetService<IFeatureFlagCache>()));
+        services.AddSingleton(sp => new ScryfallCollectionCardCache(
+            sp.GetService<IFeatureFlagCache>(),
+            sp.GetService<ILogger<ScryfallCollectionCardCache>>()));
         services.AddSingleton<IScryfallCardResolver>(sp =>
             new ScryfallCardResolver(
                 sp.GetRequiredService<IScryfallRestClientFactory>(),
                 sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
                 sp.GetRequiredService<ScryfallCollectionCardCache>()));
+        services.AddSingleton<IScryfallCollectionProtocol>(sp => new ScryfallCollectionProtocol(
+            sp.GetRequiredService<IScryfallCardResolver>()));
+        services.AddSingleton(sp => new ScryfallReferenceResolver(
+            sp.GetRequiredService<IScryfallCollectionProtocol>(),
+            sp.GetRequiredService<ScryfallCollectionCardCache>()));
         services.AddSingleton<IMechanicLookupService, WotcMechanicLookupService>();
         services.AddSingleton<ICommanderBanListService>(sp =>
             new CommanderBanListService(

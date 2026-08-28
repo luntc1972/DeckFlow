@@ -292,9 +292,10 @@ public sealed class CutLabAjaxFloorByRoleRegressionTests
         CutLabRequest request = CreateRequest(state);
         request.CutLabStateJson = string.Empty;
         request.SelectedCommander = string.Empty;
+        var sharedCardResolver = new FakeResolver(BuildResolvedCards());
         CutLabPageService pageService = new(
             new FakeLoader(BuildEntries(state)),
-            new FakeResolver(BuildResolvedCards()),
+            sharedCardResolver,
             new FakeBanListService(),
             manabaseBaseline: new FakeManabaseBaselineProvider(new ManabaseBracketBaseline
             {
@@ -305,8 +306,9 @@ public sealed class CutLabAjaxFloorByRoleRegressionTests
             cedhBaseline: new FakeCedhLandBaselineProvider(),
             roleFloorBaseline: null,
             analysisContextBuilder: new CutLabAnalysisContextBuilder(
-                new FakeResolver(BuildResolvedCards()),
-                new CutLabResolvedCardCache()),
+                sharedCardResolver,
+                new CutLabResolvedCardCache(),
+                new ScryfallReferenceResolver(sharedCardResolver, new ScryfallCollectionCardCache())),
             simulationService: new FakeSimulationService(),
             logger: NullLogger<CutLabPageService>.Instance,
             featureFlags: null);

@@ -9,7 +9,7 @@ using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using RestSharp;
+using CoreScryfallCollectionIdentifier = DeckFlow.Core.Normalization.ScryfallCollectionIdentifier;
 
 namespace DeckFlow.Web.Services.Manabase;
 
@@ -175,8 +175,20 @@ public sealed record ManabaseLoadResult(
 /// <inheritdoc />
 public sealed class ManabaseAnalysisService : IManabaseAnalysisService
 {
-    // Scryfall's collection endpoint accepts at most 75 identifiers per request.
-    private const int ScryfallBatchSize = 75;
+    // Why: ScryfallCardNameIndex precedence bands, declared together so the whole ladder is
+    // readable in one place. Only this class knows how much to trust each card. The bands sit ABOVE
+    // the index's default priority of 0 on purpose: a caller that states nothing must lose to every
+    // caller that does, so a future bare Add() cannot silently outrank a paired card.
+    //   paired to a submission  strongest -- earliest deck position wins
+    //   name-search repair      weaker -- the search may return a different printing than the batch
+    //   unpaired returned card  weakest -- matched no submission uniquely
+    //   (index default, 0)      no stated preference
+    private const int SearchFallbackPriority = 2;
+    private const int UnpairedPriority = 1;
+
+    // Why: earliest deck position wins, so the priority falls as the position rises. Subtracting
+    // from int.MaxValue keeps every paired card above the two sentinel bands for any real deck.
+    private static int PairedPriority(int globalPosition) => int.MaxValue - globalPosition;
 
     // Abuse caps for this anonymous public endpoint: bound the pasted payload and the number
     // of cards so one request can't force unbounded allocations or upstream Scryfall calls.
@@ -309,6 +321,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
 
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IScryfallCardResolver _scryfallCardResolver;
+    private readonly IScryfallCollectionProtocol _collectionProtocol;
     private readonly IFeatureFlagCache? _featureFlags;
     private readonly ICategoryKnowledgeStore? _categoryKnowledge;
     private readonly ICommanderSpellbookService? _spellbook;
@@ -327,13 +340,15 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         ILogger<ManabaseAnalysisService>? logger = null,
         ICedhLandBaselineProvider? cedhLandBaseline = null,
         IManabaseBaselineProvider? manabaseBaseline = null,
-        ScryfallCollectionCardCache? collectionCardCache = null)
+        ScryfallCollectionCardCache? collectionCardCache = null,
+        IScryfallCollectionProtocol? collectionProtocol = null)
     {
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
         ArgumentNullException.ThrowIfNull(scryfallCardResolver);
 
         _deckEntryLoader = deckEntryLoader;
         _scryfallCardResolver = scryfallCardResolver;
+        _collectionProtocol = collectionProtocol ?? new ScryfallCollectionProtocol(scryfallCardResolver);
         _featureFlags = featureFlags;
         _categoryKnowledge = categoryKnowledge;
         _spellbook = spellbook;
@@ -737,7 +752,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 if (fallback is not null)
                 {
                     card = ScryfallCardDataMapper.ToCardData(fallback);
-                    index.Add(card);
+                    index.Add(card, priority: SearchFallbackPriority);
                 }
             }
 
@@ -1086,7 +1101,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         }
 
         ScryfallCardData data = ScryfallCardDataMapper.ToCardData(fallback);
-        index.Add(data);
+        index.Add(data, priority: SearchFallbackPriority);
         return data;
     }
 
@@ -1110,7 +1125,10 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         foreach (DeckEntry entry in deckCards)
         {
             string? printing = ScryfallCardNameIndex.PrintingKey(entry.SetCode, entry.CollectorNumber);
-            string key = printing ?? $"name:{entry.Name}";
+            string? normalizedName = printing is null
+                ? CoreScryfallCollectionIdentifier.ToFaceIdentifier(entry.Name)
+                : null;
+            string key = printing ?? $"name:{normalizedName}";
             if (!seen.Add(key))
             {
                 continue;
@@ -1118,7 +1136,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
 
             identifiers.Add(printing is not null
                 ? (entry.SetCode, entry.CollectorNumber, null)
-                : (null, null, entry.Name));
+                : (null, null, normalizedName));
         }
 
         var identifiersToSubmit = new List<(string? SetCode, string? CollectorNumber, string? Name, int GlobalPosition)>(identifiers.Count);
@@ -1144,21 +1162,17 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         }
 
         var unpairedCards = new List<ScryfallCard>();
-        foreach (var batch in identifiersToSubmit.Chunk(ScryfallBatchSize))
+        foreach (var batch in identifiersToSubmit.Chunk(IScryfallCollectionProtocol.CollectionBatchSize))
         {
             var positionedReturnedCards = new Dictionary<int, int>();
-            var request = new RestRequest("cards/collection", Method.Post);
-            request.AddJsonBody(new
-            {
-                identifiers = batch.Select(identifier => identifier.Name is null
-                    ? (object)new { set = identifier.SetCode, collector_number = identifier.CollectorNumber }
-                    : new { name = identifier.Name }).ToArray()
-            });
+            var request = new ScryfallCollectionProtocolRequest(batch.Select(identifier => identifier.Name is null
+                ? ScryfallCollectionIdentifier.ForPrinting(identifier.SetCode!, identifier.CollectorNumber!)
+                : ScryfallCollectionIdentifier.ForName(identifier.Name!)).ToArray());
 
-            RestResponse<ScryfallCollectionResponse> response =
-                await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
+            ScryfallCollectionProtocolResponse response =
+                await _collectionProtocol.ResolveAsync(request, cancellationToken).ConfigureAwait(false);
 
-            if (response.StatusCode is < HttpStatusCode.OK or >= HttpStatusCode.MultipleChoices || response.Data is null)
+            if (response.StatusCode is < HttpStatusCode.OK or >= HttpStatusCode.MultipleChoices || !response.HasPayload)
             {
                 throw new HttpRequestException(
                     $"Scryfall card lookup (cards/collection) returned HTTP {(int)response.StatusCode} during mana-base analysis.",
@@ -1166,7 +1180,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                     statusCode: response.StatusCode);
             }
 
-            var returnedCards = response.Data.Data.Select((card, cardIndex) => (Card: card, CardIndex: cardIndex)).ToList();
+            var returnedCards = response.Cards.Select((card, cardIndex) => (Card: card, CardIndex: cardIndex)).ToList();
             var pairedCardIndexes = new HashSet<int>();
             foreach (var submission in batch.Where(identifier => identifier.Name is null))
             {
@@ -1184,14 +1198,14 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             foreach (var submission in batch.Where(identifier => identifier.Name is not null))
             {
                 var matchingCards = returnedCards.Where(card => !pairedCardIndexes.Contains(card.CardIndex)
-                    && string.Equals(card.Card.Name, submission.Name, StringComparison.OrdinalIgnoreCase)).ToArray();
+                    && string.Equals(CoreScryfallCollectionIdentifier.ToFaceIdentifier(card.Card.Name), submission.Name, StringComparison.OrdinalIgnoreCase)).ToArray();
                 // Why: the seen de-dup guarantees submission uniqueness, so only returned-card ambiguity is live.
                 if (matchingCards.Length == 1)
                 {
                     _collectionCardCache?.SetNamePositive(submission.Name!, matchingCards[0].Card);
                     positionedReturnedCards.Add(matchingCards[0].CardIndex, submission.GlobalPosition);
                 }
-                else if (response.Data.NotFound?.Any(notFound => string.Equals(notFound.Name, submission.Name, StringComparison.Ordinal)) == true)
+                else if (response.NotFound.Any(notFound => string.Equals(notFound.Name, submission.Name, StringComparison.Ordinal)))
                 {
                     _collectionCardCache?.SetNameCollectionMiss(submission.Name!);
                 }
@@ -1205,19 +1219,18 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             unpairedCards.AddRange(returnedCards.Where(card => !positionedReturnedCards.ContainsKey(card.CardIndex)).Select(card => card.Card));
         }
 
-        // Why: Add is last-write-wins, so these two loops ARE the precedence rule — later submission
-        // position beats earlier, and an unpaired extra beats every paired card. Both run outside the
-        // chunk loop on purpose: chunk membership now depends on cache warmth, so indexing per chunk
-        // would let a warm cache pick a different winner (and a fully warm deck would index nothing).
+        // Why: precedence is now stated per card rather than implied by call order, so neither the
+        // order of these loops nor chunk membership (which shifts with cache warmth) can change the
+        // winner. The index resolves collisions from the priorities below.
         var index = new ScryfallCardNameIndex();
-        foreach (var (card, _) in positionedCards.OrderBy(card => card.GlobalPosition))
+        foreach (var (card, globalPosition) in positionedCards)
         {
-            index.Add(ScryfallCardDataMapper.ToCardData(card));
+            index.Add(ScryfallCardDataMapper.ToCardData(card), priority: PairedPriority(globalPosition));
         }
 
         foreach (var card in unpairedCards)
         {
-            index.Add(ScryfallCardDataMapper.ToCardData(card));
+            index.Add(ScryfallCardDataMapper.ToCardData(card), priority: UnpairedPriority);
         }
 
         return index;

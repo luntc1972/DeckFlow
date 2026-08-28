@@ -71,8 +71,7 @@ public sealed class PostgresContainerFixture : IAsyncLifetime
 
             try
             {
-                _container = new PostgreSqlBuilder()
-                    .WithImage("postgres:16-alpine")
+                _container = new PostgreSqlBuilder("postgres:16-alpine")
                     .WithDatabase("deckflow_tests")
                     .WithUsername("deckflow")
                     .WithPassword("deckflow")

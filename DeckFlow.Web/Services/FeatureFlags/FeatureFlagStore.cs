@@ -71,7 +71,7 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
 
     /// <summary>
     /// DI ctor — resolves the connection via
-    /// <see cref="DeckFlowDatabaseConnectionFactory.CreateFeatureFlagConnection"/>,
+    /// <see cref="DeckFlowDatabaseConnectionFactory.CreateFeatureFlagConnection(IWebHostEnvironment)"/>,
     /// which shares the feedback DB (D-07).
     /// </summary>
     /// <param name="environment">Web host environment used by the connection factory.</param>

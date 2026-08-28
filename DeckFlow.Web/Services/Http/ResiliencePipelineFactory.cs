@@ -21,6 +21,10 @@ namespace DeckFlow.Web.Services.Http
     /// </summary>
     public static class ResiliencePipelineFactory
     {
+        internal static readonly TimeSpan ScryfallTotalTimeout = TimeSpan.FromSeconds(30);
+
+        internal const int ScryfallMaxRetryAttempts = 2;
+
         /// <summary>Registers all five named pipelines into the supplied IServiceCollection.</summary>
         public static IServiceCollection AddDeckFlowResiliencePipelines(this IServiceCollection services)
         {
@@ -120,23 +124,28 @@ namespace DeckFlow.Web.Services.Http
         /// Retry(2 on 5xx ONLY - NOT 429, defer to ScryfallThrottle backoff).
         /// ScryfallThrottle.ExecuteAsync wraps this pipeline at the call site (D-04).
         /// </summary>
-        private static void BuildScryfall(ResiliencePipelineBuilder<RestResponse> builder) => builder
+        internal static void BuildScryfall(
+            ResiliencePipelineBuilder<RestResponse> builder,
+            TimeSpan? totalTimeout = null)
+        {
             // Total budget - wraps retries; individual attempts have no separate per-try timeout
             // (handler-level timeout disabled per D-08 pattern). Name used in Polly telemetry.
-            .AddTimeout(new TimeoutStrategyOptions
-            {
-                Timeout = TimeSpan.FromSeconds(30),
-                Name = "scryfall-total",
-            })
-            .AddRetry(new RetryStrategyOptions<RestResponse>
-            {
-                MaxRetryAttempts = 2,
-                BackoffType = DelayBackoffType.Exponential,
-                UseJitter = true,
-                ShouldHandle = new PredicateBuilder<RestResponse>()
-                    .HandleResult(static r => r.StatusCode >= HttpStatusCode.InternalServerError)
-                    .Handle<Exception>(static ex => IsTransientException(ex)),
-            });
+            builder
+                .AddTimeout(new TimeoutStrategyOptions
+                {
+                    Timeout = totalTimeout ?? ScryfallTotalTimeout,
+                    Name = "scryfall-total",
+                })
+                .AddRetry(new RetryStrategyOptions<RestResponse>
+                {
+                    MaxRetryAttempts = ScryfallMaxRetryAttempts,
+                    BackoffType = DelayBackoffType.Exponential,
+                    UseJitter = true,
+                    ShouldHandle = new PredicateBuilder<RestResponse>()
+                        .HandleResult(static r => r.StatusCode >= HttpStatusCode.InternalServerError)
+                        .Handle<Exception>(static ex => IsTransientException(ex)),
+                });
+        }
 
         private static bool IsTransientFailure(RestResponse response) =>
             response.StatusCode == HttpStatusCode.RequestTimeout

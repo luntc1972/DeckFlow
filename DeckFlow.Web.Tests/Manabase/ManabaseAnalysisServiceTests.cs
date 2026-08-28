@@ -2197,7 +2197,8 @@ public sealed class ManabaseAnalysisServiceTests
 
         Assert.Equal(neitherCached, firstCached);
         Assert.Equal(neitherCached, secondCached);
-        Assert.Equal("2", neitherCached);
+        // Why: positions 0 and 1 both resolve to "Shared". Earliest deck position outranks.
+        Assert.Equal("1", neitherCached);
     }
 
     [Fact]
@@ -2217,6 +2218,62 @@ public sealed class ManabaseAnalysisServiceTests
         await InvokeResolveCardsAsync(service, entries);
 
         Assert.Equal(1, resolver.CollectionCallCount);
+    }
+
+    [Fact]
+    public async Task ResolveCardsAsync_UncachedCards_DelegatesCollectionSubmissionToProtocol()
+    {
+        var entries = new List<DeckEntry> { Land("Plains", 1), Land("Island", 1) };
+        var protocol = new RecordingCollectionProtocol([BasicLand("Plains", "W"), BasicLand("Island", "U")]);
+        var service = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new ThrowingCollectionResolver(),
+            collectionProtocol: protocol);
+
+        await InvokeResolveCardsAsync(service, entries);
+
+        ScryfallCollectionProtocolRequest request = Assert.Single(protocol.Requests);
+        Assert.Equal(["Plains", "Island"], request.Identifiers.Select(identifier => identifier.Name));
+    }
+
+    [Fact]
+    public async Task ResolveCardsAsync_NameDoubleFacedCard_NormalizesAndWarmsFaceCache()
+    {
+        const string combinedName = "Etali, Primal Conqueror // Etali, Primal Sickness";
+        var entries = new List<DeckEntry> { Land(combinedName, 1) };
+        var card = BasicLand(combinedName, "R");
+        var protocol = new RecordingCollectionProtocol([card]);
+        var cache = new ScryfallCollectionCardCache();
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), new ThrowingCollectionResolver(), collectionCardCache: cache, collectionProtocol: protocol);
+
+        var index = await InvokeResolveCardsAsync(service, entries);
+
+        Assert.Equal(["Etali, Primal Conqueror"], protocol.Requests.Single().Identifiers.Select(identifier => identifier.Name));
+        Assert.True(index.TryResolve(combinedName, null, null, out _));
+        Assert.True(cache.TryGetName("Etali, Primal Conqueror", out _));
+        await InvokeResolveCardsAsync(service, entries);
+        Assert.Single(protocol.Requests);
+    }
+
+    [Fact]
+    public async Task ResolveCardsAsync_DoubleFacedNameVariants_SubmitsAndPairsOnce()
+    {
+        const string combinedName = "Etali, Primal Conqueror // Etali, Primal Sickness";
+        var entries = new List<DeckEntry>
+        {
+            Land(combinedName, 1),
+            Land("Etali, Primal Conqueror", 1)
+        };
+        var protocol = new RecordingCollectionProtocol([BasicLand(combinedName, "R")]);
+        var cache = new ScryfallCollectionCardCache();
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), new ThrowingCollectionResolver(), collectionCardCache: cache, collectionProtocol: protocol);
+
+        var index = await InvokeResolveCardsAsync(service, entries);
+
+        Assert.Equal(["Etali, Primal Conqueror"], protocol.Requests.Single().Identifiers.Select(identifier => identifier.Name));
+        Assert.True(index.TryResolve(combinedName, null, null, out _));
+        Assert.True(index.TryResolve("Etali, Primal Conqueror", null, null, out _));
+        Assert.True(cache.TryGetName("Etali, Primal Conqueror", out _));
     }
 
     [Fact]
@@ -2271,13 +2328,40 @@ public sealed class ManabaseAnalysisServiceTests
             return resolved!.CollectorNumber;
         }
 
-        Assert.Equal("75", await ResolveWinnerAsync(cacheLater: false, cacheAll: false));
-        Assert.Equal("75", await ResolveWinnerAsync(cacheLater: true, cacheAll: false));
-        Assert.Equal("75", await ResolveWinnerAsync(cacheLater: false, cacheAll: true));
+        // Why: "Shared" sits at deck positions 0 and 75. Earliest position outranks, so the
+        // winner is cn 0 under every cache-warmth shape -- the index decides from the priority the
+        // caller states, never from which chunk happened to deliver the card first.
+        Assert.Equal("0", await ResolveWinnerAsync(cacheLater: false, cacheAll: false));
+        Assert.Equal("0", await ResolveWinnerAsync(cacheLater: true, cacheAll: false));
+        Assert.Equal("0", await ResolveWinnerAsync(cacheLater: false, cacheAll: true));
     }
 
     [Fact]
-    public async Task ResolveCardsAsync_MultiChunkUnpairedCards_AreIndexedAfterAllPositionedCards()
+    public async Task ResolveCardsAsync_EarliestDeckPosition_BeatsTheBetterPrintingKey()
+    {
+        // Why: both entries resolve to "Shared", and the printing tiebreak would pick abc|1 -- the
+        // LATER deck position. Only the caller-stated position priority yields abc|9, so this test
+        // fails the moment the positional priority is dropped.
+        var entries = new List<DeckEntry>
+        {
+            Entry("Early", 1, "mainboard", "abc", "9"),
+            Entry("Late", 1, "mainboard", "abc", "1"),
+        };
+        var cards = new List<ScryfallCard>
+        {
+            Spell("Shared", "{W}", 1, "Creature", set: "abc", cn: "9"),
+            Spell("Shared", "{U}", 1, "Creature", set: "abc", cn: "1"),
+        };
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), new StubResolver([Response(HttpStatusCode.OK, cards)]));
+
+        var index = await InvokeResolveCardsAsync(service, entries);
+
+        Assert.True(index.TryResolve("Shared", null, null, out ScryfallCardData? resolved));
+        Assert.Equal("9", resolved!.CollectorNumber);
+    }
+
+    [Fact]
+    public async Task ResolveCardsAsync_UnpairedCard_LosesToPairedCard()
     {
         var entries = Enumerable.Range(0, 75)
             .Select(number => Entry($"Filler {number}", 1, "mainboard"))
@@ -2285,20 +2369,40 @@ public sealed class ManabaseAnalysisServiceTests
             .ToList();
         var firstChunk = Enumerable.Range(0, 75)
             .Select(number => Spell($"Filler {number}", "{W}", 1, "Creature", cn: number.ToString()))
-            .Append(Spell("Shared", "{W}", 1, "Creature", cn: "99"))
+            .Append(Spell("Shared", "{W}", 1, "Creature", set: "abc", cn: "1"))
             .ToList();
         var responses = new[]
         {
             Response(HttpStatusCode.OK, firstChunk),
-            Response(HttpStatusCode.OK, [Spell("Shared", "{W}", 1, "Creature", cn: "1")]),
+            Response(HttpStatusCode.OK, [Spell("Shared", "{W}", 1, "Creature", set: "abc", cn: "99")]),
         };
         var service = new ManabaseAnalysisService(new FakeLoader(entries), new StubResolver(responses));
 
         var index = await InvokeResolveCardsAsync(service, entries);
 
-        // Why: pins unpaired cards after ALL positioned cards across every chunk; moving that append inside the loop must break this.
+        // Why: chunk 1 returns a "Shared" (abc|1) that matched no submission, so it is unpaired.
+        // Chunk 2 submits "Shared" and pairs abc|99 to it. The printing tiebreak would pick the
+        // UNPAIRED card, so only the paired-beats-unpaired priority band yields cn 99 -- drop that
+        // band and this test fails.
         Assert.True(index.TryResolve("Shared", null, null, out ScryfallCardData? resolved));
         Assert.Equal("99", resolved!.CollectorNumber);
+    }
+
+    [Fact]
+    public void PriorityBands_RankSearchFallbackAboveUnpairedAboveFloor()
+    {
+        // Why: the two ResolveCardsAsync collision tests pin the paired band and the direction of
+        // the comparison, but neither observes a band's VALUE -- dropping UnpairedPriority to the
+        // 0 floor still loses to paired, so both stay green. Fallback-beats-unpaired is a product
+        // decision (a search-fallback card matched an entry we asked for; an unpaired card is one
+        // Scryfall volunteered against no submission), and nothing else fails if it inverts.
+        int searchFallback = PriorityBand("SearchFallbackPriority");
+        int unpaired = PriorityBand("UnpairedPriority");
+
+        Assert.True(searchFallback > unpaired, $"SearchFallbackPriority ({searchFallback}) must outrank UnpairedPriority ({unpaired}).");
+        Assert.True(unpaired > 0, $"UnpairedPriority ({unpaired}) must outrank the default 0 floor.");
+        Assert.True(PairedBand(0) > searchFallback, "The paired band must outrank every stated band.");
+        Assert.True(PairedBand(499) > searchFallback, "The paired band must outrank every stated band at the 500-card deck cap.");
     }
 
     // --- helpers -------------------------------------------------------------
@@ -2310,6 +2414,15 @@ public sealed class ManabaseAnalysisServiceTests
         MethodInfo method = typeof(ManabaseAnalysisService).GetMethod("ResolveCardsAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
         return (Task<ScryfallCardNameIndex>)method.Invoke(service, [entries, CancellationToken.None])!;
     }
+
+    // Why: the bands are private consts on the service. Reflecting them is weaker than a behavioral
+    // test, but fallback-vs-unpaired is only observable through a Scryfall response shape the
+    // resolver does not produce, so pinning the decision beats leaving the ordering unguarded.
+    private static int PriorityBand(string name) =>
+        (int)typeof(ManabaseAnalysisService).GetField(name, BindingFlags.Static | BindingFlags.NonPublic)!.GetRawConstantValue()!;
+
+    private static int PairedBand(int globalPosition) =>
+        (int)typeof(ManabaseAnalysisService).GetMethod("PairedPriority", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [globalPosition])!;
 
     private static string?[] SubmittedIdentifierNames(StubResolver resolver)
     {
@@ -2475,17 +2588,32 @@ public sealed class ManabaseAnalysisServiceTests
         Assert.DoesNotContain("Cached", payload);
     }
 
+    /// <summary>
+    /// A deck entry written in the raw <c>A // B</c> form shares the front face's cache key.
+    /// Why: Scryfall's <c>cards/collection</c> name identifier resolves a front-face name to the
+    /// double-faced card and rejects the combined form outright, so the front face is the only
+    /// identifier that can ever be submitted for this card -- which makes a warm front-face entry
+    /// the correct answer for a combined-form entry, and makes the combined form unreachable as a key.
+    /// </summary>
     [Fact]
-    public async Task AnalyzeAsync_RawDoubleFaceName_UsesAnIndependentCacheKey()
+    public async Task AnalyzeAsync_RawDoubleFaceName_SharesTheFrontFaceCacheKey()
     {
         var cache = new ScryfallCollectionCardCache();
         cache.SetNamePositive("A", BasicLand("A", "W"));
-        var resolver = new StubResolver([Response(HttpStatusCode.OK, [BasicLand("A // B", "U")])]);
-        await new ManabaseAnalysisService(new FakeLoader([Land("A // B", 1)]), resolver, collectionCardCache: cache).AnalyzeAsync("paste", "double-face");
-        Assert.Equal(1, resolver.CollectionCallCount);
-        Assert.True(cache.TryGetName("A", out _));
-        Assert.True(cache.TryGetName("A // B", out var raw));
-        Assert.NotNull(raw);
+        // Why: the queued response is the same card, so a regression surfaces as an unexpected
+        // call count rather than as a queue-exhaustion exception.
+        var resolver = new StubResolver([Response(HttpStatusCode.OK, [BasicLand("A", "W")])]);
+
+        await new ManabaseAnalysisService(new FakeLoader([Land("A // B", 1)]), resolver, collectionCardCache: cache)
+            .AnalyzeAsync("paste", "double-face");
+
+        // Why: a one-card deck fails Commander validation, so this asserts the cache contract only.
+        // Index resolution through the shared key is covered by
+        // ResolveCardsAsync_NameDoubleFacedCard_NormalizesAndWarmsFaceCache.
+        Assert.Equal(0, resolver.CollectionCallCount);
+        Assert.True(cache.TryGetName("A", out var front));
+        Assert.NotNull(front);
+        Assert.False(cache.TryGetName("A // B", out _));
     }
 
     private static DeckEntry Entry(string name, int qty, string board, string? set = null, string? cn = null, string? category = null) => new()
@@ -2528,6 +2656,41 @@ public sealed class ManabaseAnalysisServiceTests
 
     private static Func<RestRequest, Task<RestResponse<ScryfallCollectionResponse>>> ThrowingResponse()
         => _ => Task.FromException<RestResponse<ScryfallCollectionResponse>>(new HttpRequestException("Scryfall request failed"));
+
+    private sealed class RecordingCollectionProtocol : IScryfallCollectionProtocol
+    {
+        private readonly IReadOnlyList<ScryfallCard> _cards;
+
+        public RecordingCollectionProtocol(IReadOnlyList<ScryfallCard> cards)
+        {
+            _cards = cards;
+        }
+
+        public List<ScryfallCollectionProtocolRequest> Requests { get; } = [];
+
+        public Task<ScryfallCollectionProtocolResponse> ResolveAsync(
+            ScryfallCollectionProtocolRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            Requests.Add(request);
+            return Task.FromResult(new ScryfallCollectionProtocolResponse(HttpStatusCode.OK, _cards, [], HasPayload: true));
+        }
+    }
+
+    private sealed class ThrowingCollectionResolver : IScryfallCardResolver
+    {
+        public Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken cancellationToken)
+            => throw new Xunit.Sdk.XunitException("ManabaseAnalysisService must delegate collection requests to IScryfallCollectionProtocol.");
+
+        public Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
+            => Task.FromResult<ScryfallCard?>(null);
+
+        public Task<ScryfallCard?> SearchPrintingFallbackCardAsync(string cardName, CancellationToken cancellationToken)
+            => Task.FromResult<ScryfallCard?>(null);
+
+        public Task<ScryfallCard?> ResolveSingleAsync(string cardName, CancellationToken cancellationToken)
+            => Task.FromResult<ScryfallCard?>(null);
+    }
 
     private sealed class StubResolver : IScryfallCardResolver
     {
