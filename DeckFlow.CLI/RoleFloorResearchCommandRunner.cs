@@ -19,6 +19,7 @@ using DeckFlow.Web.Services.Http;
 using DeckFlow.Web.Services.Manabase;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Polly.Registry;
 using RestSharp;
 using CoreScryfallCollectionIdentifier = DeckFlow.Core.Normalization.ScryfallCollectionIdentifier;
@@ -581,6 +582,7 @@ internal static class RoleFloorResearchCommandRunner
             Console.WriteLine(
                 FormattableString.Invariant(
                     $"RawDecks={computation.RawDeckCount}, DedupedDecks={computation.DedupedDeckCount}, Commanders={computation.CommandersEnumerated}, QualifyingCommanders={computation.Commanders.Count}, GoRoles={(string.IsNullOrWhiteSpace(goRoles) ? "none" : goRoles)}, SignalRoles={(string.IsNullOrWhiteSpace(signalRoles) ? "none" : signalRoles)}"));
+            ScryfallCacheStatisticsReporter.Report(serviceProvider.GetRequiredService<ScryfallCollectionCardCache>());
             return 0;
         }
         catch (Exception exception)
@@ -598,7 +600,8 @@ internal static class RoleFloorResearchCommandRunner
         services.AddCliFeatureFlags();
         services.AddSingleton<IScryfallRestClientFactory, ScryfallRestClientFactory>();
         services.AddSingleton(serviceProvider => new ScryfallCollectionCardCache(
-            serviceProvider.GetService<IFeatureFlagCache>()));
+            serviceProvider.GetService<IFeatureFlagCache>(),
+            serviceProvider.GetService<ILogger<ScryfallCollectionCardCache>>()));
         services.AddSingleton<IScryfallCardResolver>(serviceProvider =>
             new ScryfallCardResolver(
                 serviceProvider.GetRequiredService<IScryfallRestClientFactory>(),

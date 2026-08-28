@@ -188,6 +188,7 @@ internal static class ManabaseCommandRunner
             notFound.AddRange(GetNotFoundLabels(response));
         }
 
+        ScryfallCacheStatisticsReporter.Report(serviceProvider.GetRequiredService<ScryfallCollectionCardCache>());
         return (index, notFound);
     }
 

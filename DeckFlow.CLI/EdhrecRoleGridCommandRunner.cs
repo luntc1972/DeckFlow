@@ -16,6 +16,7 @@ using DeckFlow.Web.Services.Http;
 using DeckFlow.Web.Services.Manabase;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Polly.Registry;
 using RestSharp;
 using CoreScryfallCollectionIdentifier = DeckFlow.Core.Normalization.ScryfallCollectionIdentifier;
@@ -144,6 +145,7 @@ internal static class EdhrecRoleGridCommandRunner
                 distinctCardNames,
                 resolvedCardsCachePath,
                 cancellationToken).ConfigureAwait(false);
+            ScryfallCacheStatisticsReporter.Report(serviceProvider.GetRequiredService<ScryfallCollectionCardCache>());
             IReadOnlyDictionary<string, IReadOnlyList<string>> cardRoles = ClassifyResolvedCards(
                 cardResolution.ResolvedCards,
                 roleKeys,
@@ -531,7 +533,8 @@ internal static class EdhrecRoleGridCommandRunner
         services.AddCliFeatureFlags();
         services.AddSingleton<IScryfallRestClientFactory, ScryfallRestClientFactory>();
         services.AddSingleton(serviceProvider => new ScryfallCollectionCardCache(
-            serviceProvider.GetService<IFeatureFlagCache>()));
+            serviceProvider.GetService<IFeatureFlagCache>(),
+            serviceProvider.GetService<ILogger<ScryfallCollectionCardCache>>()));
         services.AddSingleton<IScryfallCardResolver>(serviceProvider =>
             new ScryfallCardResolver(
                 serviceProvider.GetRequiredService<IScryfallRestClientFactory>(),
