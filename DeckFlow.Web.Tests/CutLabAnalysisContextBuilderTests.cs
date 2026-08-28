@@ -579,6 +579,23 @@ public sealed class CutLabAnalysisContextBuilderTests
     /// The assertion that actually goes RED is <c>ResolveSingleCalls == 0</c>.
     /// </summary>
     [Fact]
+    public async Task ResolvePoolCardsAsync_UncachedPool_DelegatesCollectionSubmissionToProtocol()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList = [PoolCard("Protocol Card", "Creature")];
+        var protocol = new RecordingCollectionProtocol([Spell("Protocol Card", "Creature", "{1}{G}", cmc: 2)]);
+        var builder = new CutLabAnalysisContextBuilder(
+            new ThrowingResolver(),
+            new CutLabResolvedCardCache(),
+            new ScryfallReferenceResolver(protocol, new ScryfallCollectionCardCache()));
+
+        IReadOnlyList<ScryfallCardData> result = await builder.ResolvePoolCardsAsync(workingList);
+
+        ScryfallCollectionProtocolRequest request = Assert.Single(protocol.Requests);
+        Assert.Equal("Protocol Card", Assert.Single(request.Identifiers).Name);
+        Assert.Equal("Protocol Card", Assert.Single(result).Name);
+    }
+
+    [Fact]
     public async Task ResolvePoolCardsAsync_BatchMiss_DispatchesSearchFallbackNotResolveSingle()
     {
         IReadOnlyList<CutLabPoolCard> workingList =
@@ -1094,6 +1111,26 @@ public sealed class CutLabAnalysisContextBuilderTests
                 ? count + 1
                 : 1;
             return SearchFallbackCardAsync(cardName, cancellationToken);
+        }
+    }
+
+    private sealed class RecordingCollectionProtocol : IScryfallCollectionProtocol
+    {
+        private readonly IReadOnlyList<ScryfallCard> _cards;
+
+        public RecordingCollectionProtocol(IReadOnlyList<ScryfallCard> cards)
+        {
+            _cards = cards;
+        }
+
+        public List<ScryfallCollectionProtocolRequest> Requests { get; } = [];
+
+        public Task<ScryfallCollectionProtocolResponse> ResolveAsync(
+            ScryfallCollectionProtocolRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            Requests.Add(request);
+            return Task.FromResult(new ScryfallCollectionProtocolResponse(HttpStatusCode.OK, _cards, [], HasPayload: true));
         }
     }
 
