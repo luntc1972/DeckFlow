@@ -544,6 +544,22 @@ public sealed class CutLabStructuralFindingsTests
     }
 
     [Fact]
+    public void Compute_IdenticalEvidenceAcrossRoles_ProducesOneFindingWithOrderedRoles()
+    {
+        CutLabStructuralFindingsResult result = Twins(
+        [
+            Card("C", 2, false, roles: ["ramp", "draw"], typeLine: "Artifact"),
+            Card("A", 2, false, roles: ["ramp", "draw"], typeLine: "Artifact"),
+            Card("B", 2, false, roles: ["ramp", "draw"], typeLine: "Artifact"),
+        ]);
+
+        CutLabFinding finding = Assert.Single(result.Findings);
+        Assert.Equal(["A", "B", "C"], finding.Evidence.Select(evidence => evidence.CardName));
+        Assert.Contains("Ramp", finding.Lead, StringComparison.Ordinal);
+        Assert.Contains("Draw", finding.Lead, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Compute_TwoCardsOnly_DoesNotRaiseFunctionalTwins()
         => Assert.Empty(Twins([Twin("A", 2, "Artifact", "ramp"), Twin("B", 2, "Artifact", "ramp")]).Findings);
 
