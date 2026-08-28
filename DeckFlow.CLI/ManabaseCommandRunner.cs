@@ -8,6 +8,7 @@ using DeckFlow.Web.Services.Http;
 using DeckFlow.Web.Services.Manabase;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.DependencyInjection;
+using CoreScryfallCollectionIdentifier = DeckFlow.Core.Normalization.ScryfallCollectionIdentifier;
 
 namespace DeckFlow.CLI;
 
@@ -154,7 +155,7 @@ internal static class ManabaseCommandRunner
         new(entries
             .Select(entry => !string.IsNullOrWhiteSpace(entry.SetCode) && !string.IsNullOrWhiteSpace(entry.CollectorNumber)
                 ? ScryfallCollectionIdentifier.ForPrinting(entry.SetCode, entry.CollectorNumber)
-                : ScryfallCollectionIdentifier.ForName(entry.Name))
+                : ScryfallCollectionIdentifier.ForName(CoreScryfallCollectionIdentifier.ToFaceIdentifier(entry.Name)))
             .Distinct()
             .ToArray());
 

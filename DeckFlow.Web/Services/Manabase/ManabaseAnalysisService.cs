@@ -9,6 +9,7 @@ using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using CoreScryfallCollectionIdentifier = DeckFlow.Core.Normalization.ScryfallCollectionIdentifier;
 
 namespace DeckFlow.Web.Services.Manabase;
 
@@ -1124,7 +1125,10 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         foreach (DeckEntry entry in deckCards)
         {
             string? printing = ScryfallCardNameIndex.PrintingKey(entry.SetCode, entry.CollectorNumber);
-            string key = printing ?? $"name:{entry.Name}";
+            string? normalizedName = printing is null
+                ? CoreScryfallCollectionIdentifier.ToFaceIdentifier(entry.Name)
+                : null;
+            string key = printing ?? $"name:{normalizedName}";
             if (!seen.Add(key))
             {
                 continue;
@@ -1132,7 +1136,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
 
             identifiers.Add(printing is not null
                 ? (entry.SetCode, entry.CollectorNumber, null)
-                : (null, null, entry.Name));
+                : (null, null, normalizedName));
         }
 
         var identifiersToSubmit = new List<(string? SetCode, string? CollectorNumber, string? Name, int GlobalPosition)>(identifiers.Count);
@@ -1194,7 +1198,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             foreach (var submission in batch.Where(identifier => identifier.Name is not null))
             {
                 var matchingCards = returnedCards.Where(card => !pairedCardIndexes.Contains(card.CardIndex)
-                    && string.Equals(card.Card.Name, submission.Name, StringComparison.OrdinalIgnoreCase)).ToArray();
+                    && string.Equals(CoreScryfallCollectionIdentifier.ToFaceIdentifier(card.Card.Name), submission.Name, StringComparison.OrdinalIgnoreCase)).ToArray();
                 // Why: the seen de-dup guarantees submission uniqueness, so only returned-card ambiguity is live.
                 if (matchingCards.Length == 1)
                 {
