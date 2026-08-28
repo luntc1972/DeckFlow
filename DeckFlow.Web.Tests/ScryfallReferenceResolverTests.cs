@@ -20,6 +20,19 @@ namespace DeckFlow.Web.Tests;
 public sealed class ScryfallReferenceResolverTests
 {
     [Fact]
+    public void ScryfallCollectionProtocolRequest_PrintingIdentifier_SerializesSetAndCollectorNumberOnly()
+    {
+        var request = new ScryfallCollectionProtocolRequest(
+            [ScryfallCollectionIdentifier.ForPrinting("mh3", "123")]);
+
+        string json = JsonSerializer.Serialize(request);
+
+        Assert.Contains("\"set\":\"mh3\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"collector_number\":\"123\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"name\"", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ResolveSingleAsync_DoubleFacedName_SubmitsFaceIdentifierToCollectionRequest()
     {
         string requestBody = string.Empty;
