@@ -3,6 +3,7 @@ using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.FeatureFlags;
 using System;
 using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
@@ -113,6 +114,67 @@ public sealed class ScryfallCollectionCardCacheTests
 
         Assert.True(cache.TryGetName("sol-ring", out var card));
         Assert.Equal("Sol Ring", card!.Name);
+    }
+
+    [Fact]
+    public void FeatureFlagOn_StoreThenProbe_ReportsHit()
+    {
+        var cache = new ScryfallCollectionCardCache(new FakeFeatureFlagCache(true));
+
+        cache.SetNamePositive("sol-ring", Card("Sol Ring"));
+        Assert.True(cache.TryGetName("sol-ring", out _));
+
+        var statistics = cache.GetStatistics();
+        Assert.True(statistics.Enabled);
+        Assert.Equal(1, statistics.Hits);
+        Assert.Equal(0, statistics.Bypasses);
+    }
+
+    [Fact]
+    public void FeatureFlagOff_StoreThenProbe_ReportsBypasses()
+    {
+        var cache = new ScryfallCollectionCardCache(new FakeFeatureFlagCache(false));
+
+        cache.SetNamePositive("sol-ring", Card("Sol Ring"));
+        Assert.False(cache.TryGetName("sol-ring", out _));
+
+        var statistics = cache.GetStatistics();
+        Assert.False(statistics.Enabled);
+        Assert.Equal(0, statistics.Hits);
+        Assert.Equal(0, statistics.Stores);
+        Assert.Equal(2, statistics.Bypasses);
+    }
+
+    [Fact]
+    public void StatisticsLogIntervalReached_LogsSnapshot()
+    {
+        var logger = new FakeLogger<ScryfallCollectionCardCache>();
+        var cache = new ScryfallCollectionCardCache(new FakeFeatureFlagCache(true), logger);
+
+        for (var i = 0; i < ScryfallCollectionCardCache.StatisticsLogInterval; i++)
+        {
+            cache.TryGetName($"missing-{i}", out _);
+        }
+
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Information, entry.Level);
+        Assert.Contains(
+            FormattableString.Invariant($"misses {ScryfallCollectionCardCache.StatisticsLogInterval}"),
+            entry.Message);
+    }
+
+    [Fact]
+    public void StatisticsLogIntervalMinusOne_DoesNotLog()
+    {
+        var logger = new FakeLogger<ScryfallCollectionCardCache>();
+        var cache = new ScryfallCollectionCardCache(new FakeFeatureFlagCache(true), logger);
+
+        for (var i = 0; i < ScryfallCollectionCardCache.StatisticsLogInterval - 1; i++)
+        {
+            cache.TryGetName($"missing-{i}", out _);
+        }
+
+        Assert.Empty(logger.Entries);
     }
 
     [Fact]
