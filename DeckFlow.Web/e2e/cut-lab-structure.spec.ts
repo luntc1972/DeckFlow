@@ -68,9 +68,11 @@ const importPool = async (page: Page): Promise<void> => {
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
 };
 
-const waitForCutRounds = async (page: Page): Promise<void> => {
-  await page.getByRole('tab', { name: 'Decide' }).click();
-  await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
+const waitForCutRounds = async (page: Page, enhancedTabs = true): Promise<void> => {
+  if (enhancedTabs) {
+    await page.getByRole('tab', { name: 'Decide' }).click();
+  }
+  await expandCutLabSection(page, 'cut-lab-section-cut-rounds', enhancedTabs);
   await expect(page.getByRole('heading', { name: 'Cut rounds' })).toBeVisible();
   await expect(page.locator('.cutlab-round-banner')).toBeVisible();
   await expect(page.locator('.cutlab-round-banner > p')).toHaveText(/.+/);
@@ -286,10 +288,10 @@ test('resets an adjusted interaction-targeted floor back to its default value', 
 
 test('accepts a proposal without a reload, keeps copy neutral, and shows a 7-row compare table', async ({ page }) => {
   await importPool(page);
+  await waitForCutRounds(page);
   await expect(page.locator('.cutlab-sticky-bar[data-cut-lab-sticky-target]')).toBeVisible();
   await expect(page.locator('[data-cut-lab-sticky-locked]')).toContainText('1 locked');
   await expect(page.locator('[data-cut-lab-sticky-current]')).toContainText('106/100 cards');
-  await waitForCutRounds(page);
 
   const startingRemaining = await getStickyRemainingCount(page);
   const startingAccepted = await getStickyAcceptedCount(page);
@@ -321,11 +323,16 @@ test('accepts a proposal without a reload, keeps copy neutral, and shows a 7-row
     expect(deltaText).not.toMatch(/\b(?:worse|bad|better)\b/i);
   }
 
-  await page.getByRole('tab', { name: 'Review' }).click();
+  await page.getByRole('tab', { name: 'Goals' }).click();
   const compareDetails = page.locator('details.cutlab-compare');
   await compareDetails.locator(':scope > summary').click();
   await expect(compareDetails.locator('table[data-prompt-cedh-reference-table]')).toBeVisible();
-  await expect(compareDetails.locator('thead th')).toHaveText(['Metric', 'Baseline', 'Current', 'Delta']);
+  await expect(compareDetails.locator('thead th')).toHaveText([
+    'Metric',
+    'Baseline',
+    'Current (as of your last recalculation)',
+    'Delta',
+  ]);
   // 7 metric families expand to per-kind rows: 5 single-kind families (EarlyInteraction
   // omitted for this non-cEDH fixture) + Flood/Screw/Curve (3) + category-by-turn caps (3) = 10.
   await expect(compareDetails.locator('tbody tr')).toHaveCount(10);
@@ -376,7 +383,7 @@ test('restarts rounds 1 and 2 without undoing accepted cuts or touching later-ro
   }, { round1RejectedCard, acceptedCard, round2DeferredCard });
 
   page.once('dialog', async dialog => {
-    expect(dialog.message()).toContain('Round 1 & 2');
+    expect(dialog.message()).toContain('Re-run rounds 1 & 2');
     await dialog.accept();
   });
   const restartResponse = page.waitForResponse(response =>
@@ -442,8 +449,7 @@ test('submits the accept form through the no-JS fallback and re-renders with the
     await clickManabasePillRadio(noJsPage, 'Bracket', '4');
     await clickManabasePillRadio(noJsPage, 'PlayExperience', 'Focused');
     await noJsPage.getByRole('button', { name: 'Import pool' }).click();
-    await expect(noJsPage.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 60_000 });
-    await waitForCutRounds(noJsPage);
+    await waitForCutRounds(noJsPage, false);
 
     const startingProposalHeading = await noJsPage.locator('.cutlab-proposal__heading').textContent();
     const startingCardName = startingProposalHeading?.replace(/^Proposed cut:\s*/, '').trim() ?? '';
