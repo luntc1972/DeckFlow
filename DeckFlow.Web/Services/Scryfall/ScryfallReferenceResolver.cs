@@ -30,7 +30,13 @@ internal sealed class ScryfallReferenceCollectionException : HttpRequestExceptio
 /// submission, never the returned card's own name), the resolved card, and whether the resolution
 /// came from the per-caller fallback strategy rather than a direct collection hit.
 /// </summary>
-internal sealed record ScryfallReferenceResolution(string RequestName, ScryfallCard Card, bool FromFallback);
+internal sealed record ScryfallReferenceResolution(
+    string RequestName,
+    ScryfallCard Card,
+    ScryfallCollectionProtocolBand Band)
+{
+    public bool FromFallback => Band == ScryfallCollectionProtocolBand.Fallback;
+}
 
 /// <summary>
 /// Result of a batch resolution: each resolved reference in original request order, plus an oracle
@@ -81,7 +87,7 @@ internal sealed partial class ScryfallReferenceResolver
 {
     private const int ScryfallBatchSize = 75;
 
-    private readonly IScryfallCardResolver _scryfallCardResolver;
+    private readonly IScryfallCollectionProtocol _collectionProtocol;
     private readonly ScryfallCollectionCardCache _collectionCardCache;
 
     /// <summary>
@@ -95,10 +101,17 @@ internal sealed partial class ScryfallReferenceResolver
     public ScryfallReferenceResolver(
         IScryfallCardResolver scryfallCardResolver,
         ScryfallCollectionCardCache collectionCardCache)
+        : this(new ScryfallCollectionProtocol(scryfallCardResolver), collectionCardCache)
     {
-        ArgumentNullException.ThrowIfNull(scryfallCardResolver);
+    }
+
+    public ScryfallReferenceResolver(
+        IScryfallCollectionProtocol collectionProtocol,
+        ScryfallCollectionCardCache collectionCardCache)
+    {
+        ArgumentNullException.ThrowIfNull(collectionProtocol);
         ArgumentNullException.ThrowIfNull(collectionCardCache);
-        _scryfallCardResolver = scryfallCardResolver;
+        _collectionProtocol = collectionProtocol;
         _collectionCardCache = collectionCardCache;
     }
 
@@ -254,40 +267,22 @@ internal sealed partial class ScryfallReferenceResolver
             }
 
             var cards = new List<ScryfallCard>(cachedCards);
-            var request = new RestRequest("cards/collection", Method.Post);
-            RestResponse<ScryfallCollectionResponse> response;
-            if (identifiersToSubmit.Count > 0)
-            {
-                // Why: Scryfall cards/collection name identifiers match a single face name; combined A // B returns not_found.
-                request.AddJsonBody(new
-                {
-                    identifiers = identifiersToSubmit
-                        .Select(name => new { name })
-                        .ToArray()
-                });
-                response = await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                response = new RestResponse<ScryfallCollectionResponse>(request)
-                {
-                    StatusCode = HttpStatusCode.OK,
-                    Data = new ScryfallCollectionResponse([], []),
-                };
-            }
+            ScryfallCollectionProtocolResponse response = await _collectionProtocol.ExecuteAsync(
+                new ScryfallCollectionProtocolRequest(identifiersToSubmit),
+                cancellationToken).ConfigureAwait(false);
 
-            if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
+            if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || !response.HasPayload)
             {
                 throw new ScryfallReferenceCollectionException(
                     $"Scryfall card reference lookup (cards/collection) returned HTTP {(int)response.StatusCode}.",
                     response.StatusCode);
             }
 
-            cards.AddRange(response.Data.Data);
+            cards.AddRange(response.Cards);
 
             if (identifiersToSubmit.Count > 0)
             {
-                var returnedCards = response.Data.Data
+                var returnedCards = response.Cards
                     .Select((card, index) => (Card: card, Index: index))
                     .ToList();
                 var cacheEntries = new List<(string Identifier, ScryfallCard? Card)>();
@@ -329,7 +324,7 @@ internal sealed partial class ScryfallReferenceResolver
 
                 foreach (var identifier in identifiersToSubmit)
                 {
-                    if (response.Data.NotFound?.Any(notFound =>
+                    if (response.NotFound.Any(notFound =>
                             string.Equals(notFound.Name, identifier, StringComparison.Ordinal)) == true)
                     {
                         cacheEntries.Add((identifier, null));
@@ -378,7 +373,13 @@ internal sealed partial class ScryfallReferenceResolver
                 }
 
                 oracleNameMap[matchingName] = card.Name;
-                resolved[matchingName] = new ScryfallReferenceResolution(matchingName, card, FromFallback: false);
+                var band = string.Equals(
+                    CoreScryfallCollectionIdentifier.ToFaceIdentifier(matchingName),
+                    matchingName,
+                    StringComparison.OrdinalIgnoreCase)
+                    ? ScryfallCollectionProtocolBand.Identifier
+                    : ScryfallCollectionProtocolBand.ExactName;
+                resolved[matchingName] = new ScryfallReferenceResolution(matchingName, card, band);
             }
 
             // Second pass (ADR 0004): punctuation-tolerant, slash-preserving match over the SAME
@@ -406,7 +407,10 @@ internal sealed partial class ScryfallReferenceResolver
 
                     var requestName = nameGroup.First();
                     oracleNameMap[requestName] = card.Name;
-                    resolved[requestName] = new ScryfallReferenceResolution(requestName, card, FromFallback: false);
+                    resolved[requestName] = new ScryfallReferenceResolution(
+                        requestName,
+                        card,
+                        ScryfallCollectionProtocolBand.ExactName);
                 }
             }
 
@@ -419,7 +423,10 @@ internal sealed partial class ScryfallReferenceResolver
                 }
 
                 oracleNameMap[unresolvedName] = fallbackCard.Name;
-                resolved[unresolvedName] = new ScryfallReferenceResolution(unresolvedName, fallbackCard, FromFallback: true);
+                resolved[unresolvedName] = new ScryfallReferenceResolution(
+                    unresolvedName,
+                    fallbackCard,
+                    ScryfallCollectionProtocolBand.Fallback);
             }
         }
     }
