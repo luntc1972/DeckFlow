@@ -2221,6 +2221,22 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public async Task ResolveCardsAsync_UncachedCards_DelegatesCollectionSubmissionToProtocol()
+    {
+        var entries = new List<DeckEntry> { Land("Plains", 1), Land("Island", 1) };
+        var protocol = new RecordingCollectionProtocol([BasicLand("Plains", "W"), BasicLand("Island", "U")]);
+        var service = new ManabaseAnalysisService(
+            new FakeLoader(entries),
+            new ThrowingCollectionResolver(),
+            collectionProtocol: protocol);
+
+        await InvokeResolveCardsAsync(service, entries);
+
+        ScryfallCollectionProtocolRequest request = Assert.Single(protocol.Requests);
+        Assert.Equal(["Plains", "Island"], request.Identifiers.Select(identifier => identifier.Name));
+    }
+
+    [Fact]
     public async Task ResolveCardsAsync_PartiallyWarmDeck_SubmitsOnlyUncachedIdentifiers()
     {
         var entries = new List<DeckEntry> { Land("Cached", 1), Land("Uncached One", 1), Land("Uncached Two", 1) };
@@ -2585,6 +2601,41 @@ public sealed class ManabaseAnalysisServiceTests
 
     private static Func<RestRequest, Task<RestResponse<ScryfallCollectionResponse>>> ThrowingResponse()
         => _ => Task.FromException<RestResponse<ScryfallCollectionResponse>>(new HttpRequestException("Scryfall request failed"));
+
+    private sealed class RecordingCollectionProtocol : IScryfallCollectionProtocol
+    {
+        private readonly IReadOnlyList<ScryfallCard> _cards;
+
+        public RecordingCollectionProtocol(IReadOnlyList<ScryfallCard> cards)
+        {
+            _cards = cards;
+        }
+
+        public List<ScryfallCollectionProtocolRequest> Requests { get; } = [];
+
+        public Task<ScryfallCollectionProtocolResponse> ResolveAsync(
+            ScryfallCollectionProtocolRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            Requests.Add(request);
+            return Task.FromResult(new ScryfallCollectionProtocolResponse(HttpStatusCode.OK, _cards, [], HasPayload: true));
+        }
+    }
+
+    private sealed class ThrowingCollectionResolver : IScryfallCardResolver
+    {
+        public Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken cancellationToken)
+            => throw new Xunit.Sdk.XunitException("ManabaseAnalysisService must delegate collection requests to IScryfallCollectionProtocol.");
+
+        public Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
+            => Task.FromResult<ScryfallCard?>(null);
+
+        public Task<ScryfallCard?> SearchPrintingFallbackCardAsync(string cardName, CancellationToken cancellationToken)
+            => Task.FromResult<ScryfallCard?>(null);
+
+        public Task<ScryfallCard?> ResolveSingleAsync(string cardName, CancellationToken cancellationToken)
+            => Task.FromResult<ScryfallCard?>(null);
+    }
 
     private sealed class StubResolver : IScryfallCardResolver
     {

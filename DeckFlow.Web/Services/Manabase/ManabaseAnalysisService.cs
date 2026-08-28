@@ -9,7 +9,6 @@ using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using RestSharp;
 
 namespace DeckFlow.Web.Services.Manabase;
 
@@ -175,9 +174,6 @@ public sealed record ManabaseLoadResult(
 /// <inheritdoc />
 public sealed class ManabaseAnalysisService : IManabaseAnalysisService
 {
-    // Scryfall's collection endpoint accepts at most 75 identifiers per request.
-    private const int ScryfallBatchSize = 75;
-
     // Why: ScryfallCardNameIndex precedence bands, declared together so the whole ladder is
     // readable in one place. Only this class knows how much to trust each card. The bands sit ABOVE
     // the index's default priority of 0 on purpose: a caller that states nothing must lose to every
@@ -324,6 +320,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
 
     private readonly IDeckEntryLoader _deckEntryLoader;
     private readonly IScryfallCardResolver _scryfallCardResolver;
+    private readonly IScryfallCollectionProtocol _collectionProtocol;
     private readonly IFeatureFlagCache? _featureFlags;
     private readonly ICategoryKnowledgeStore? _categoryKnowledge;
     private readonly ICommanderSpellbookService? _spellbook;
@@ -342,13 +339,15 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         ILogger<ManabaseAnalysisService>? logger = null,
         ICedhLandBaselineProvider? cedhLandBaseline = null,
         IManabaseBaselineProvider? manabaseBaseline = null,
-        ScryfallCollectionCardCache? collectionCardCache = null)
+        ScryfallCollectionCardCache? collectionCardCache = null,
+        IScryfallCollectionProtocol? collectionProtocol = null)
     {
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
         ArgumentNullException.ThrowIfNull(scryfallCardResolver);
 
         _deckEntryLoader = deckEntryLoader;
         _scryfallCardResolver = scryfallCardResolver;
+        _collectionProtocol = collectionProtocol ?? new ScryfallCollectionProtocol(scryfallCardResolver);
         _featureFlags = featureFlags;
         _categoryKnowledge = categoryKnowledge;
         _spellbook = spellbook;
@@ -1159,21 +1158,17 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         }
 
         var unpairedCards = new List<ScryfallCard>();
-        foreach (var batch in identifiersToSubmit.Chunk(ScryfallBatchSize))
+        foreach (var batch in identifiersToSubmit.Chunk(IScryfallCollectionProtocol.CollectionBatchSize))
         {
             var positionedReturnedCards = new Dictionary<int, int>();
-            var request = new RestRequest("cards/collection", Method.Post);
-            request.AddJsonBody(new
-            {
-                identifiers = batch.Select(identifier => identifier.Name is null
-                    ? (object)new { set = identifier.SetCode, collector_number = identifier.CollectorNumber }
-                    : new { name = identifier.Name }).ToArray()
-            });
+            var request = new ScryfallCollectionProtocolRequest(batch.Select(identifier => identifier.Name is null
+                ? ScryfallCollectionIdentifier.ForPrinting(identifier.SetCode!, identifier.CollectorNumber!)
+                : ScryfallCollectionIdentifier.ForName(identifier.Name!)).ToArray());
 
-            RestResponse<ScryfallCollectionResponse> response =
-                await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
+            ScryfallCollectionProtocolResponse response =
+                await _collectionProtocol.ResolveAsync(request, cancellationToken).ConfigureAwait(false);
 
-            if (response.StatusCode is < HttpStatusCode.OK or >= HttpStatusCode.MultipleChoices || response.Data is null)
+            if (response.StatusCode is < HttpStatusCode.OK or >= HttpStatusCode.MultipleChoices || !response.HasPayload)
             {
                 throw new HttpRequestException(
                     $"Scryfall card lookup (cards/collection) returned HTTP {(int)response.StatusCode} during mana-base analysis.",
@@ -1181,7 +1176,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                     statusCode: response.StatusCode);
             }
 
-            var returnedCards = response.Data.Data.Select((card, cardIndex) => (Card: card, CardIndex: cardIndex)).ToList();
+            var returnedCards = response.Cards.Select((card, cardIndex) => (Card: card, CardIndex: cardIndex)).ToList();
             var pairedCardIndexes = new HashSet<int>();
             foreach (var submission in batch.Where(identifier => identifier.Name is null))
             {
@@ -1206,7 +1201,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                     _collectionCardCache?.SetNamePositive(submission.Name!, matchingCards[0].Card);
                     positionedReturnedCards.Add(matchingCards[0].CardIndex, submission.GlobalPosition);
                 }
-                else if (response.Data.NotFound?.Any(notFound => string.Equals(notFound.Name, submission.Name, StringComparison.Ordinal)) == true)
+                else if (response.NotFound.Any(notFound => string.Equals(notFound.Name, submission.Name, StringComparison.Ordinal)))
                 {
                     _collectionCardCache?.SetNameCollectionMiss(submission.Name!);
                 }
