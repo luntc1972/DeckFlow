@@ -10,11 +10,11 @@ export async function expandMobileCollapsibles(page: Page): Promise<void> {
 
 // Activate a section's hidden workflow step when needed, then expand only the
 // collapsed section a spec needs via its UI.
-export async function expandCutLabSection(page: Page, sectionId: string): Promise<void> {
+export async function expandCutLabSection(page: Page, sectionId: string, enhancedTabs = true): Promise<void> {
   const section = page.locator(`details#${sectionId}`);
   const panel = section.locator('xpath=ancestor::*[@role="tabpanel"][1]');
 
-  if ((await panel.count()) > 0) {
+  if ((await panel.count()) > 0 && enhancedTabs) {
     await expect(page.locator('[role="tabpanel"]:not([hidden])')).toHaveCount(1);
 
     const panelId = await panel.getAttribute('id');
