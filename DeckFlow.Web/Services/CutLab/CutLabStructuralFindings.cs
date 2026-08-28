@@ -402,14 +402,36 @@ public static class CutLabStructuralFindings
             }
         }
 
-        // Why: Under exact-mana-value grouping every member of a group shares one mana value, so a descending sort within a group is degenerate; TWIN-03's intent, surfacing the costlier redundancy first, is therefore honored across groups. The two secondary keys exist purely so the output is deterministic between identical runs, which CutLabEngineDeterminismTests requires.
-        foreach ((string roleKey, double manaValue, string primaryType, CutLabAnalyzedCard[] cards) in qualifyingGroups
+        Dictionary<IReadOnlyList<string>, List<(string RoleKey, double ManaValue, string PrimaryType, CutLabAnalyzedCard[] Cards)>> groupsByEvidence = new(NormalizedNameSetComparer.Instance);
+        foreach ((string roleKey, double manaValue, string primaryType, CutLabAnalyzedCard[] cards) in qualifyingGroups)
+        {
+            IReadOnlyList<string> evidenceKey = cards.Select(card => CutLabCardNames.Normalize(card.Name))
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToArray();
+            if (!groupsByEvidence.TryGetValue(evidenceKey, out List<(string RoleKey, double ManaValue, string PrimaryType, CutLabAnalyzedCard[] Cards)>? groups))
+            {
+                groups = [];
+                groupsByEvidence.Add(evidenceKey, groups);
+            }
+
+            groups.Add((roleKey, manaValue, primaryType, cards));
+        }
+
+        List<(string RoleKeys, double ManaValue, string PrimaryType, CutLabAnalyzedCard[] Cards)> canonicalGroups = groupsByEvidence.Values
+            .Select(groups => (
+                string.Join("|", groups.OrderBy(group => Array.IndexOf(TwinEligibleRoleKeys, group.RoleKey)).Select(group => group.RoleKey)),
+                groups[0].ManaValue,
+                groups[0].PrimaryType,
+                groups[0].Cards))
+            .ToList();
+
+        // Why: A normalized evidence-card set is one disclosure even when its cards share several roles.
+        foreach ((string roleKey, double manaValue, string primaryType, CutLabAnalyzedCard[] cards) in canonicalGroups
             .OrderByDescending(group => group.ManaValue)
             .ThenBy(group => Array.IndexOf(CutLabRoleAssigner.TypeGroupOrder, group.PrimaryType))
-            // Why: This role-index tiebreak is belt-and-braces and deliberately unpinned because collection order currently already follows TwinEligibleRoleKeys.
-            .ThenBy(group => Array.IndexOf(TwinEligibleRoleKeys, group.RoleKey)))
+            .ThenBy(group => Array.IndexOf(TwinEligibleRoleKeys, group.RoleKeys.Split('|')[0])))
         {
-            string roleLabel = CutLabRoleAssigner.DisplayLabelFor(roleKey);
+            string roleLabel = string.Join(", ", roleKey.Split('|').Select(CutLabRoleAssigner.DisplayLabelFor));
 
             yield return new CutLabFinding(
                 CutLabFindingKind.FunctionalTwins,
@@ -575,4 +597,24 @@ public static class CutLabStructuralFindings
             WinconsRole => "Win conditions",
             _ => roleKey,
         };
+
+    private sealed class NormalizedNameSetComparer : IEqualityComparer<IReadOnlyList<string>>
+    {
+        public static readonly NormalizedNameSetComparer Instance = new();
+
+        public bool Equals(IReadOnlyList<string>? x, IReadOnlyList<string>? y)
+            => ReferenceEquals(x, y)
+                || (x is not null && y is not null && x.SequenceEqual(y, StringComparer.Ordinal));
+
+        public int GetHashCode(IReadOnlyList<string> names)
+        {
+            HashCode hash = new();
+            foreach (string name in names)
+            {
+                hash.Add(name, StringComparer.Ordinal);
+            }
+
+            return hash.ToHashCode();
+        }
+    }
 }
