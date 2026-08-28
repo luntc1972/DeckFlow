@@ -1160,6 +1160,9 @@ public sealed record CutLabFindingView
 
     /// <summary>Preformatted supporting evidence lines for the finding.</summary>
     public IReadOnlyList<string> Evidence { get; init; } = [];
+
+    /// <summary>Structured role display labels for findings that enumerate roles (e.g. Slot Congestion); empty otherwise.</summary>
+    public IReadOnlyList<string> Roles { get; init; } = [];
 }
 
 /// <summary>View-ready group of one or more structural findings for panel rendering.</summary>

@@ -158,6 +158,9 @@ public sealed record CutLabDecideFindingDto
 
     /// <summary>Preformatted supporting evidence lines for the finding.</summary>
     public IReadOnlyList<string> Evidence { get; init; } = [];
+
+    /// <summary>Structured role display labels for findings that enumerate roles (e.g. Slot Congestion); empty otherwise.</summary>
+    public IReadOnlyList<string> Roles { get; init; } = [];
 }
 
 /// <summary>One grouped structural-finding block rendered for the decide-response live patch.</summary>

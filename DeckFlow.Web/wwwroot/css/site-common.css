@@ -4442,6 +4442,7 @@ button.cutlab-role-chip:focus-visible {
 
 .cutlab-finding__heading,
 .cutlab-finding__lead,
+.cutlab-finding__roles,
 .cutlab-degradation-note {
   margin: 0 0 0.75rem;
 }
@@ -4449,6 +4450,11 @@ button.cutlab-role-chip:focus-visible {
 .cutlab-finding__heading {
   font-size: var(--fs-sm);
   font-weight: 600;
+}
+
+.cutlab-finding__roles {
+  color: var(--muted, inherit);
+  font-size: var(--fs-sm);
 }
 
 .cutlab-findings-count {

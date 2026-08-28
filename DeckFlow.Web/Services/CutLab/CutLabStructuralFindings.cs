@@ -49,11 +49,22 @@ public sealed record CutLabFindingEvidence(string CardName, double? ManaValue, C
 /// <param name="Heading">UI heading, fixed by the Cut Lab UI specification.</param>
 /// <param name="Lead">Lead sentence describing the measured issue.</param>
 /// <param name="Evidence">Supporting card-level evidence.</param>
+/// <param name="Roles">
+/// Structured role display labels for findings that enumerate roles (Slot Congestion), so
+/// presenters and views can render every shared role without parsing <see cref="Lead"/>.
+/// Defaults to an empty collection for findings that carry no role data, and so that existing
+/// four-argument construction sites keep compiling unchanged.
+/// </param>
 public sealed record CutLabFinding(
     CutLabFindingKind Kind,
     string Heading,
     string Lead,
-    IReadOnlyList<CutLabFindingEvidence> Evidence);
+    IReadOnlyList<CutLabFindingEvidence> Evidence,
+    IReadOnlyList<string>? Roles = null)
+{
+    /// <summary>Structured role display labels; see the primary-constructor parameter doc.</summary>
+    public IReadOnlyList<string> Roles { get; init; } = Roles ?? [];
+}
 
 /// <summary>The full structural-finding result plus source-availability flags.</summary>
 /// <param name="Findings">Triggered findings in deterministic display order.</param>
@@ -431,17 +442,24 @@ public static class CutLabStructuralFindings
             .ThenBy(group => Array.IndexOf(CutLabRoleAssigner.TypeGroupOrder, group.PrimaryType))
             .ThenBy(group => Array.IndexOf(TwinEligibleRoleKeys, group.RoleKeys.Split('|')[0])))
         {
-            string roleLabel = string.Join(", ", roleKey.Split('|').Select(CutLabRoleAssigner.DisplayLabelFor));
+            // Why: D-04/T-041-03. roleLabels is the structured, presenter/view-facing channel for
+            // enumerating every shared role (CutLabFindingView.Roles) so consumers never need to
+            // parse Lead's prose; Lead still names the same role(s) for the plain-text reader, but
+            // states only the safe, disclosure-only contract (role, type, exact mana value, review
+            // candidate) without claiming functional equivalence or that any member is costlier.
+            string[] roleLabels = roleKey.Split('|').Select(CutLabRoleAssigner.DisplayLabelFor).ToArray();
+            string roleLabel = string.Join(", ", roleLabels);
 
             yield return new CutLabFinding(
                 CutLabFindingKind.FunctionalTwins,
-                "Functional twins",
-                $"{cards.Length} {primaryType.ToLowerInvariant()} cards fill your {roleLabel} slot at mana value {manaValue:0.##} \u2014 they compete with each other, so the pool likely only needs some of them.",
+                "Slot Congestion",
+                $"{cards.Length} {primaryType.ToLowerInvariant()} cards share the {roleLabel} role, card type, and exact mana value {manaValue:0.##} \u2014 treat them as review candidates, not an automatic cut.",
                 // Why: OrderByDescending(ManaValue) satisfies TWIN-03 and remains correct if the grouping dimension ever widens; ThenBy(Name, Ordinal) produces the deterministic order today.
                 cards.OrderByDescending(card => card.ManaValue)
                     .ThenBy(card => card.Name, StringComparer.Ordinal)
                     .Select(card => new CutLabFindingEvidence(card.Name, card.ManaValue))
-                    .ToArray());
+                    .ToArray(),
+                Roles: roleLabels);
         }
     }
 
