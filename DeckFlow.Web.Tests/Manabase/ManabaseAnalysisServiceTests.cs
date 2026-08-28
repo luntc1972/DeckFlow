@@ -2588,17 +2588,32 @@ public sealed class ManabaseAnalysisServiceTests
         Assert.DoesNotContain("Cached", payload);
     }
 
+    /// <summary>
+    /// A deck entry written in the raw <c>A // B</c> form shares the front face's cache key.
+    /// Why: Scryfall's <c>cards/collection</c> name identifier resolves a front-face name to the
+    /// double-faced card and rejects the combined form outright, so the front face is the only
+    /// identifier that can ever be submitted for this card -- which makes a warm front-face entry
+    /// the correct answer for a combined-form entry, and makes the combined form unreachable as a key.
+    /// </summary>
     [Fact]
-    public async Task AnalyzeAsync_RawDoubleFaceName_UsesAnIndependentCacheKey()
+    public async Task AnalyzeAsync_RawDoubleFaceName_SharesTheFrontFaceCacheKey()
     {
         var cache = new ScryfallCollectionCardCache();
         cache.SetNamePositive("A", BasicLand("A", "W"));
-        var resolver = new StubResolver([Response(HttpStatusCode.OK, [BasicLand("A // B", "U")])]);
-        await new ManabaseAnalysisService(new FakeLoader([Land("A // B", 1)]), resolver, collectionCardCache: cache).AnalyzeAsync("paste", "double-face");
-        Assert.Equal(1, resolver.CollectionCallCount);
-        Assert.True(cache.TryGetName("A", out _));
-        Assert.True(cache.TryGetName("A // B", out var raw));
-        Assert.NotNull(raw);
+        // Why: the queued response is the same card, so a regression surfaces as an unexpected
+        // call count rather than as a queue-exhaustion exception.
+        var resolver = new StubResolver([Response(HttpStatusCode.OK, [BasicLand("A", "W")])]);
+
+        await new ManabaseAnalysisService(new FakeLoader([Land("A // B", 1)]), resolver, collectionCardCache: cache)
+            .AnalyzeAsync("paste", "double-face");
+
+        // Why: a one-card deck fails Commander validation, so this asserts the cache contract only.
+        // Index resolution through the shared key is covered by
+        // ResolveCardsAsync_NameDoubleFacedCard_NormalizesAndWarmsFaceCache.
+        Assert.Equal(0, resolver.CollectionCallCount);
+        Assert.True(cache.TryGetName("A", out var front));
+        Assert.NotNull(front);
+        Assert.False(cache.TryGetName("A // B", out _));
     }
 
     private static DeckEntry Entry(string name, int qty, string board, string? set = null, string? cn = null, string? category = null) => new()
