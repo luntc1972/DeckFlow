@@ -1019,6 +1019,36 @@ Commander
         Assert.Equal(PacketBytes(offResult), PacketBytes(onResult));
     }
 
+    [Fact]
+    public async Task BuildAsync_UsesInjectedClock_ForTimestampIdentity()
+    {
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+        // Each arm uses a separate cache so observed differences come from the shared clock, not packet replay.
+        var firstService = CreateService(
+            moxfieldDeckImporter: new FakeMoxfieldDeckImporter(entries: CreateCompanionFixtureEntries(includeBackgroundCommander: false)),
+            timeProvider: clock);
+        var request = new DeckAnalysisRequest
+        {
+            DeckInputSource = DeckInputSource.PublicUrl,
+            WorkflowStep = 2,
+            DeckSource = "https://www.moxfield.com/decks/test-clock",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["strengths-weaknesses"]
+        };
+
+        var first = await firstService.BuildAsync(request);
+        var sameInstant = await CreateService(
+            moxfieldDeckImporter: new FakeMoxfieldDeckImporter(entries: CreateCompanionFixtureEntries(includeBackgroundCommander: false)),
+            timeProvider: clock).BuildAsync(request);
+        clock.Advance(TimeSpan.FromSeconds(1));
+        var advanced = await CreateService(
+            moxfieldDeckImporter: new FakeMoxfieldDeckImporter(entries: CreateCompanionFixtureEntries(includeBackgroundCommander: false)),
+            timeProvider: clock).BuildAsync(request);
+
+        Assert.Equal(PacketBytes(first), PacketBytes(sameInstant));
+        Assert.NotEqual(PacketBytes(sameInstant), PacketBytes(advanced));
+    }
+
     /// <summary>
     /// Flag-OFF command-zone awareness must be byte-identical to baseline for ALL THREE AI variants,
     /// even for a companion+Background deck. We do NOT assert the companion name is absent — Archidekt
@@ -2107,7 +2137,8 @@ Commander
         ICommanderSpellbookService? spellbookService = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null)
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null,
+        TimeProvider? timeProvider = null)
     {
         var cardResolver = new ScryfallCardResolver(
             new FakeScryfallRestClientFactory(new HttpClient
@@ -2144,8 +2175,9 @@ Commander
                 new GeminiSetUpgradePromptVariant(),
             }),
             new PacketSessionCache(),
-            flagCache,
-            NullLogger<DeckAnalysisPacketService>.Instance);
+            flagCache: flagCache,
+            logger: NullLogger<DeckAnalysisPacketService>.Instance,
+            timeProvider: timeProvider ?? new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero)));
     }
 
     /// <summary>An empty catalog: no Game Changers / MLD / extra-turn cards. Bracket classification still

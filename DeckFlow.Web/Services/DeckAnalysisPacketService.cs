@@ -93,6 +93,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     private readonly SetUpgradePromptVariantRegistry _setUpgradePromptRegistry;
     private readonly PacketSessionCache _packetCache;
     private readonly IFeatureFlagCache? _flagCache;
+    private readonly TimeProvider _timeProvider;
 
     /// <summary>
     /// Feature-flag key controlling reference Oracle text. Enabled (the default-on / absent / store-error
@@ -196,7 +197,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         PacketSessionCache packetCache,
         IFeatureFlagCache? flagCache = null,
         ILogger<DeckAnalysisPacketService>? logger = null,
-        IScryfallCollectionProtocol? collectionProtocol = null)
+        IScryfallCollectionProtocol? collectionProtocol = null,
+        TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(scryfallCardResolver);
         ArgumentNullException.ThrowIfNull(scryfallReferenceResolver);
@@ -223,6 +225,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         _packetCache = packetCache;
         _flagCache = flagCache;
         _logger = logger ?? NullLogger<DeckAnalysisPacketService>.Instance;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary>
@@ -776,7 +779,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 // cache, an absent flag, or a store-read failure all resolve to "keep full Oracle"
                 // (legacy), so a flag-system fault never silently mutates analysis output.
                 var recencyGateEnabled = !(_flagCache?.IsEnabled(ReferenceFullOracleFlag) ?? true);
-                var recencyCutoff = DateOnly.FromDateTime(DateTime.UtcNow).AddMonths(-ReferenceRecencyGateMonths);
+                var recencyCutoff = DateOnly.FromDateTime(_timeProvider.GetUtcNow().DateTime).AddMonths(-ReferenceRecencyGateMonths);
 
                 // Pre-computed deck_stats (flag-controlled, additive): LLMs miscount long card lists, so
                 // state composition facts (lands, creatures, curve, role counts) instead of asking the AI
@@ -790,7 +793,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                     ? BuildDeckStatsText(cardReferenceBundle.CardReferences)
                     : string.Empty;
 
-                referenceText = BuildReferenceText(request, mechanicReferences, cardReferenceBundle.CardReferences, bannedCards, recencyGateEnabled, recencyCutoff, deckStatsText);
+                referenceText = BuildReferenceText(request, mechanicReferences, cardReferenceBundle.CardReferences, bannedCards, recencyGateEnabled, recencyCutoff, deckStatsText, _timeProvider);
 
                 var comboResult = await comboTask.ConfigureAwait(false);
                 // Keep the timing line gated on the prompt-side combo requirement so a score-only fetch
@@ -1173,12 +1176,13 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         IReadOnlyList<string> bannedCards,
         bool recencyGateEnabled,
         DateOnly recencyCutoff,
-        string deckStatsText)
+        string deckStatsText,
+        TimeProvider timeProvider)
     {
         var builder = new StringBuilder();
         builder.AppendLine("reference_context:");
         builder.AppendLine("source: Scryfall Oracle and official Wizards Comprehensive Rules");
-        builder.AppendLine($"generated_at_utc: {DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}");
+        builder.AppendLine($"generated_at_utc: {timeProvider.GetUtcNow():yyyy-MM-ddTHH:mm:ssZ}");
         builder.AppendLine($"format: {NormalizeSingleLine(request.Format, "Commander")}");
         builder.AppendLine();
         if (!string.IsNullOrEmpty(deckStatsText))
