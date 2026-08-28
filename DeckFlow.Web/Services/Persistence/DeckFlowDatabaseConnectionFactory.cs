@@ -34,7 +34,14 @@ public static class DeckFlowDatabaseConnectionFactory
     /// In local-dev SQLite, also shares the feedback.db file.
     /// </summary>
     public static RelationalDatabaseConnection CreateFeatureFlagConnection(IWebHostEnvironment environment)
-        => CreateFeedbackConnection(environment);
+        => CreateFeatureFlagConnection(ResolveArtifactsPath(environment));
+
+    /// <summary>
+    /// Returns the relational connection used by FeatureFlagStore for a caller-resolved artifacts path.
+    /// </summary>
+    /// <param name="artifactsPath">Directory containing local SQLite artifact databases.</param>
+    public static RelationalDatabaseConnection CreateFeatureFlagConnection(string artifactsPath)
+        => CreateConnection(artifactsPath, "feedback.db");
 
     /// <summary>
     /// Returns the relational connection used by the Phase 7 harvest stores.
@@ -80,11 +87,14 @@ public static class DeckFlowDatabaseConnectionFactory
         => CreateConnection(environment, "content-site-index.db");
 
     private static RelationalDatabaseConnection CreateConnection(IWebHostEnvironment environment, string sqliteFileName)
+        => CreateConnection(ResolveArtifactsPath(environment), sqliteFileName);
+
+    private static RelationalDatabaseConnection CreateConnection(string artifactsPath, string sqliteFileName)
     {
         var providerText = Environment.GetEnvironmentVariable(DatabaseProviderEnvVar);
         if (string.IsNullOrWhiteSpace(providerText))
         {
-            return RelationalDatabaseConnection.FromSqlitePath(Path.Combine(ResolveArtifactsPath(environment), sqliteFileName));
+            return RelationalDatabaseConnection.FromSqlitePath(Path.Combine(artifactsPath, sqliteFileName));
         }
 
         if (!Enum.TryParse<RelationalDatabaseProvider>(providerText, ignoreCase: true, out var provider))
@@ -109,7 +119,7 @@ public static class DeckFlowDatabaseConnectionFactory
 
         if (string.IsNullOrWhiteSpace(configuredConnectionString))
         {
-            return RelationalDatabaseConnection.FromSqlitePath(Path.Combine(ResolveArtifactsPath(environment), sqliteFileName));
+            return RelationalDatabaseConnection.FromSqlitePath(Path.Combine(artifactsPath, sqliteFileName));
         }
 
         var sqliteConnectionString = configuredConnectionString.Contains('=', StringComparison.Ordinal)

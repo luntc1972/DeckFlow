@@ -1019,6 +1019,36 @@ Commander
         Assert.Equal(PacketBytes(offResult), PacketBytes(onResult));
     }
 
+    [Fact]
+    public async Task BuildAsync_UsesInjectedClock_ForTimestampIdentity()
+    {
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+        // Each arm uses a separate cache so observed differences come from the shared clock, not packet replay.
+        var firstService = CreateService(
+            moxfieldDeckImporter: new FakeMoxfieldDeckImporter(entries: CreateCompanionFixtureEntries(includeBackgroundCommander: false)),
+            timeProvider: clock);
+        var request = new DeckAnalysisRequest
+        {
+            DeckInputSource = DeckInputSource.PublicUrl,
+            WorkflowStep = 2,
+            DeckSource = "https://www.moxfield.com/decks/test-clock",
+            TargetCommanderBracket = "Upgraded",
+            SelectedAnalysisQuestions = ["strengths-weaknesses"]
+        };
+
+        var first = await firstService.BuildAsync(request);
+        var sameInstant = await CreateService(
+            moxfieldDeckImporter: new FakeMoxfieldDeckImporter(entries: CreateCompanionFixtureEntries(includeBackgroundCommander: false)),
+            timeProvider: clock).BuildAsync(request);
+        clock.Advance(TimeSpan.FromSeconds(1));
+        var advanced = await CreateService(
+            moxfieldDeckImporter: new FakeMoxfieldDeckImporter(entries: CreateCompanionFixtureEntries(includeBackgroundCommander: false)),
+            timeProvider: clock).BuildAsync(request);
+
+        Assert.Equal(PacketBytes(first), PacketBytes(sameInstant));
+        Assert.NotEqual(PacketBytes(sameInstant), PacketBytes(advanced));
+    }
+
     /// <summary>
     /// Flag-OFF command-zone awareness must be byte-identical to baseline for ALL THREE AI variants,
     /// even for a companion+Background deck. We do NOT assert the companion name is absent — Archidekt
@@ -1792,6 +1822,71 @@ Commander
     }
 
     [Fact]
+    public async Task BuildAsync_UsesCommanderColorIdentity_ForGeneratedSetPacket()
+    {
+        var service = CreateService(
+            executeCollectionAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+            {
+                StatusCode = HttpStatusCode.OK,
+                Data = new ScryfallCollectionResponse(
+                    [new ScryfallCard(
+                        Name: "Atraxa, Praetors' Voice", ManaCost: null, TypeLine: string.Empty,
+                        OracleText: null, Power: null, Toughness: null, Keywords: null,
+                        ColorIdentity: [" r ", "R", ""], SetCode: null, SetName: null,
+                        CollectorNumber: null)],
+                    [])
+            }));
+
+        var result = await service.BuildAsync(new DeckAnalysisRequest
+        {
+            WorkflowStep = 1,
+            DeckSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+1 Sol Ring
+""",
+            DeckProfileJson = "{}",
+            SelectedSetCodes = ["dsk"]
+        });
+
+        Assert.Contains("Off Color Test Card", result.SetUpgradePromptText);
+    }
+
+    [Fact]
+    public async Task BuildAsync_UsesSingleFaceCommanderIdentifier_ForGeneratedSetPacket()
+    {
+        RestRequest? submittedRequest = null;
+        var service = CreateService(
+            executeCollectionAsync: (request, _) =>
+            {
+                submittedRequest = request;
+                return Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallCollectionResponse(
+                        [new ScryfallCard(
+                            Name: "Etali, Primal Conqueror // Etali, Primal Sickness", ManaCost: null, TypeLine: string.Empty,
+                            OracleText: null, Power: null, Toughness: null, Keywords: null, ColorIdentity: ["G", "R"],
+                            SetCode: null, SetName: null, CollectorNumber: null)], [])
+                });
+            });
+
+        var result = await service.BuildAsync(new DeckAnalysisRequest
+        {
+            WorkflowStep = 1,
+            DeckSource = "Commander\n1 Etali, Primal Conqueror // Etali, Primal Sickness\n\n1 Sol Ring\n",
+            DeckProfileJson = "{}",
+            SelectedSetCodes = ["dsk"]
+        });
+
+        var body = System.Text.Json.JsonSerializer.Serialize(submittedRequest!.Parameters.Single(parameter => parameter.Type == ParameterType.RequestBody).Value);
+        Assert.Contains("Etali, Primal Conqueror", body);
+        Assert.DoesNotContain("Etali, Primal Conqueror // Etali, Primal Sickness", body);
+        Assert.Contains("Off Color Test Card", result.SetUpgradePromptText);
+    }
+
+    [Fact]
     public async Task BuildAsync_ThrowsValidationError_WhenMultipleSetsSelectedForGeneratedPacket()
     {
         var service = CreateService();
@@ -2042,18 +2137,21 @@ Commander
         ICommanderSpellbookService? spellbookService = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null)
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null,
+        TimeProvider? timeProvider = null)
     {
+        var cardResolver = new ScryfallCardResolver(
+            new FakeScryfallRestClientFactory(new HttpClient
+            {
+                BaseAddress = new Uri("https://api.scryfall.com/")
+            }),
+            new FakeResiliencePipelineProvider(),
+            executeCollectionAsyncOverride: executeCollectionAsync ?? ((request, _) => Task.FromResult(CreateCollectionResponse(request))),
+            executeSearchAsyncOverride: executeSearchAsync ?? ((request, _) => Task.FromResult(CreateSearchResponse(request))),
+            executeNamedAsyncOverride: executeNamedAsync ?? ((request, _) => Task.FromResult(CreateNamedResponse(request))));
         return new DeckAnalysisPacketService(
-            new ScryfallCardResolver(
-                new FakeScryfallRestClientFactory(new HttpClient
-                {
-                    BaseAddress = new Uri("https://api.scryfall.com/")
-                }),
-                new FakeResiliencePipelineProvider(),
-                executeCollectionAsyncOverride: executeCollectionAsync ?? ((request, _) => Task.FromResult(CreateCollectionResponse(request))),
-                executeSearchAsyncOverride: executeSearchAsync ?? ((request, _) => Task.FromResult(CreateSearchResponse(request))),
-                executeNamedAsyncOverride: executeNamedAsync ?? ((request, _) => Task.FromResult(CreateNamedResponse(request)))),
+            cardResolver,
+            new ScryfallReferenceResolver(cardResolver, new ScryfallCollectionCardCache()),
             new DeckEntryLoader(
                 moxfieldDeckImporter ?? new FakeMoxfieldDeckImporter(),
                 new FakeArchidektDeckImporter(),
@@ -2077,8 +2175,9 @@ Commander
                 new GeminiSetUpgradePromptVariant(),
             }),
             new PacketSessionCache(),
-            flagCache,
-            NullLogger<DeckAnalysisPacketService>.Instance);
+            flagCache: flagCache,
+            logger: NullLogger<DeckAnalysisPacketService>.Instance,
+            timeProvider: timeProvider ?? new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero)));
     }
 
     /// <summary>An empty catalog: no Game Changers / MLD / extra-turn cards. Bracket classification still

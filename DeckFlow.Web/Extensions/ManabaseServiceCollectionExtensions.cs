@@ -33,7 +33,9 @@ public static class ManabaseServiceCollectionExtensions
                 sp.GetService<ICedhLandBaselineProvider>(),
                 sp.GetService<IManabaseBaselineProvider>(),
                 // Why: require the singleton so a dropped registration fails loudly instead of disabling the cache.
-                sp.GetRequiredService<ScryfallCollectionCardCache>()));
+                sp.GetRequiredService<ScryfallCollectionCardCache>(),
+                // Why: require the singleton so a dropped registration fails loudly instead of disabling the shared protocol.
+                sp.GetRequiredService<IScryfallCollectionProtocol>()));
 
         return services;
     }

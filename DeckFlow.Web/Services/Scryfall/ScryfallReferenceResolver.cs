@@ -1,11 +1,10 @@
 using System.Net;
 using System.Text.RegularExpressions;
 using DeckFlow.Core.Normalization;
-using DeckFlow.Web.Services.Scryfall;
 using RestSharp;
 using CoreScryfallCollectionIdentifier = DeckFlow.Core.Normalization.ScryfallCollectionIdentifier;
 
-namespace DeckFlow.Web.Services.Packets;
+namespace DeckFlow.Web.Services.Scryfall;
 
 /// <summary>
 /// Raised when the shared <c>cards/collection</c> batch call itself returns a non-success status or a
@@ -31,7 +30,13 @@ internal sealed class ScryfallReferenceCollectionException : HttpRequestExceptio
 /// submission, never the returned card's own name), the resolved card, and whether the resolution
 /// came from the per-caller fallback strategy rather than a direct collection hit.
 /// </summary>
-internal sealed record ScryfallReferenceResolution(string RequestName, ScryfallCard Card, bool FromFallback);
+internal sealed record ScryfallReferenceResolution(
+    string RequestName,
+    ScryfallCard Card,
+    ScryfallCollectionProtocolBand Band)
+{
+    public bool FromFallback => Band == ScryfallCollectionProtocolBand.Fallback;
+}
 
 /// <summary>
 /// Result of a batch resolution: each resolved reference in original request order, plus an oracle
@@ -82,16 +87,91 @@ internal sealed partial class ScryfallReferenceResolver
 {
     private const int ScryfallBatchSize = 75;
 
-    private readonly IScryfallCardResolver _scryfallCardResolver;
-    private readonly ScryfallCollectionCardCache? _collectionCardCache;
+    private readonly IScryfallCollectionProtocol _collectionProtocol;
+    private readonly ScryfallCollectionCardCache _collectionCardCache;
 
+    /// <summary>
+    /// Creates a resolver over the shared collection cache.
+    /// </summary>
+    /// <remarks>
+    /// The cache is REQUIRED, not optional. A cache-less resolver re-posts every identifier to
+    /// <c>cards/collection</c>, and when the parameter defaulted, <c>new ScryfallReferenceResolver(resolver)</c>
+    /// compiled and produced exactly that silently.
+    /// </remarks>
     public ScryfallReferenceResolver(
         IScryfallCardResolver scryfallCardResolver,
-        ScryfallCollectionCardCache? collectionCardCache = null)
+        ScryfallCollectionCardCache collectionCardCache)
+        : this(new ScryfallCollectionProtocol(scryfallCardResolver), collectionCardCache)
     {
-        ArgumentNullException.ThrowIfNull(scryfallCardResolver);
-        _scryfallCardResolver = scryfallCardResolver;
+    }
+
+    public ScryfallReferenceResolver(
+        IScryfallCollectionProtocol collectionProtocol,
+        ScryfallCollectionCardCache collectionCardCache)
+    {
+        ArgumentNullException.ThrowIfNull(collectionProtocol);
+        ArgumentNullException.ThrowIfNull(collectionCardCache);
+        _collectionProtocol = collectionProtocol;
         _collectionCardCache = collectionCardCache;
+    }
+
+    /// <summary>
+    /// Plans the groups a caller should hand to <see cref="ResolveBatchAsync"/> one at a time when
+    /// it needs per-call failure isolation and cannot simply pass the whole list.
+    /// </summary>
+    /// <remarks>
+    /// Why this exists (UAT finding 2, 2026-08-19): a caller that chunks the list itself pins the
+    /// POST count at ITS chunk count, so the partition-BEFORE-chunking fix inside
+    /// <see cref="ResolveBatchAsync"/> can never collapse POSTs across those chunks -- every chunk
+    /// keeps a cold member and every chunk still POSTs. This returns the same grouping
+    /// <see cref="ResolveBatchAsync"/> would build internally for the whole list: each warm group
+    /// keeps its ORIGINAL chunk boundaries, because pooling every warm name into one group could
+    /// collide two cached cards that share an ADR-0004 match key but never shared a response; only
+    /// the COLD remainder is pooled and re-chunked, which is where the saving is.
+    ///
+    /// Warmth is a SNAPSHOT: the shared cache is a DI singleton, so a concurrent request can warm
+    /// part of a planned-cold group before it is resolved. That can only REMOVE POSTs -- the
+    /// now-warm identifier drops out of the submitted set. It is NOT result-neutral, though: the
+    /// newly warm name moves into the warm match scope while its group-mates stay in the cold one,
+    /// which is the same warm/cold scope split ADR-0004 accepts as resolving MORE names, never
+    /// fewer. No deterministic test pins that race; it is a documented, benign divergence.
+    /// </remarks>
+    /// <param name="requestNames">Card names to resolve, in caller order.</param>
+    /// <returns>Groups to resolve in order; empty when <paramref name="requestNames"/> is empty.</returns>
+    internal IReadOnlyList<IReadOnlyList<string>> PlanBatchResolveGroups(IReadOnlyList<string> requestNames)
+    {
+        ArgumentNullException.ThrowIfNull(requestNames);
+
+        var groups = new List<IReadOnlyList<string>>();
+        var coldNames = new List<string>();
+        foreach (var chunk in Chunk(requestNames, ScryfallBatchSize))
+        {
+            var warmNames = new List<string>();
+            foreach (var requestName in chunk)
+            {
+                var identifier = CoreScryfallCollectionIdentifier.ToFaceIdentifier(requestName);
+                if (_collectionCardCache.TryGetName(identifier, out _))
+                {
+                    warmNames.Add(requestName);
+                }
+                else
+                {
+                    coldNames.Add(requestName);
+                }
+            }
+
+            if (warmNames.Count > 0)
+            {
+                groups.Add(warmNames);
+            }
+        }
+
+        foreach (var chunk in Chunk(coldNames, ScryfallBatchSize))
+        {
+            groups.Add(chunk);
+        }
+
+        return groups;
     }
 
     /// <summary>
@@ -124,7 +204,46 @@ internal sealed partial class ScryfallReferenceResolver
         var resolved = new Dictionary<string, ScryfallReferenceResolution>(StringComparer.OrdinalIgnoreCase);
         var oracleNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
+        // Why: partition BEFORE chunking the POSTs. Chunking the unfiltered list fixes the POST
+        // count at the chunk count of every request name, so warmth spread across chunk boundaries
+        // leaves each chunk holding a cold member and each chunk still POSTs. Filtering inside the
+        // loop can never reduce the loop count -- the same F-1 defect already fixed at site 3.
+        // Why the warm names keep their ORIGINAL chunk boundaries: the ADR-0004 tolerant pass
+        // declines a key that is ambiguous on either side, so pooling every warm name into one
+        // pseudo-chunk could collide two cached cards that shared a key but never shared a response,
+        // costing a fallback search. Only the COLD remainder is re-chunked.
+        var coldNames = new List<string>();
         foreach (var chunk in Chunk(requestNames, ScryfallBatchSize))
+        {
+            var warmNames = new List<string>();
+            var warmCards = new List<ScryfallCard>();
+            var warmIdentifiers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var requestName in chunk)
+            {
+                var identifier = CoreScryfallCollectionIdentifier.ToFaceIdentifier(requestName);
+                if (!_collectionCardCache.TryGetName(identifier, out var cachedCard))
+                {
+                    coldNames.Add(requestName);
+                    continue;
+                }
+
+                warmNames.Add(requestName);
+                if (cachedCard is not null && warmIdentifiers.Add(identifier))
+                {
+                    warmCards.Add(cachedCard);
+                }
+            }
+
+            // Why: the cached set is its own pseudo-chunk -- no POST, but BOTH match passes. Giving
+            // warm names only the raw pass would send a punctuation-drifted warm name to
+            // fallbackStrategy, buying an EXTRA Scryfall search on the warm path.
+            if (warmNames.Count > 0)
+            {
+                await MatchChunkAsync(warmNames, warmCards).ConfigureAwait(false);
+            }
+        }
+
+        foreach (var chunk in Chunk(coldNames, ScryfallBatchSize))
         {
             string[] chunkIdentifiers = chunk
                 .Select(CoreScryfallCollectionIdentifier.ToFaceIdentifier)
@@ -134,7 +253,7 @@ internal sealed partial class ScryfallReferenceResolver
             var identifiersToSubmit = new List<string>();
             foreach (var identifier in chunkIdentifiers)
             {
-                if (_collectionCardCache?.TryGetName(identifier, out var cachedCard) == true)
+                if (_collectionCardCache.TryGetName(identifier, out var cachedCard))
                 {
                     if (cachedCard is not null)
                     {
@@ -148,40 +267,22 @@ internal sealed partial class ScryfallReferenceResolver
             }
 
             var cards = new List<ScryfallCard>(cachedCards);
-            var request = new RestRequest("cards/collection", Method.Post);
-            RestResponse<ScryfallCollectionResponse> response;
-            if (identifiersToSubmit.Count > 0)
-            {
-                // Why: Scryfall cards/collection name identifiers match a single face name; combined A // B returns not_found.
-                request.AddJsonBody(new
-                {
-                    identifiers = identifiersToSubmit
-                        .Select(name => new { name })
-                        .ToArray()
-                });
-                response = await _scryfallCardResolver.ExecuteCollectionAsync(request, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                response = new RestResponse<ScryfallCollectionResponse>(request)
-                {
-                    StatusCode = HttpStatusCode.OK,
-                    Data = new ScryfallCollectionResponse([], []),
-                };
-            }
+            ScryfallCollectionProtocolResponse response = await _collectionProtocol.ResolveAsync(
+                new ScryfallCollectionProtocolRequest(identifiersToSubmit),
+                cancellationToken).ConfigureAwait(false);
 
-            if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
+            if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || !response.HasPayload)
             {
                 throw new ScryfallReferenceCollectionException(
                     $"Scryfall card reference lookup (cards/collection) returned HTTP {(int)response.StatusCode}.",
                     response.StatusCode);
             }
 
-            cards.AddRange(response.Data.Data);
+            cards.AddRange(response.Cards);
 
-            if (identifiersToSubmit.Count > 0 && _collectionCardCache is not null)
+            if (identifiersToSubmit.Count > 0)
             {
-                var returnedCards = response.Data.Data
+                var returnedCards = response.Cards
                     .Select((card, index) => (Card: card, Index: index))
                     .ToList();
                 var cacheEntries = new List<(string Identifier, ScryfallCard? Card)>();
@@ -223,7 +324,7 @@ internal sealed partial class ScryfallReferenceResolver
 
                 foreach (var identifier in identifiersToSubmit)
                 {
-                    if (response.Data.NotFound?.Any(notFound =>
+                    if (response.NotFound.Any(notFound =>
                             string.Equals(notFound.Name, identifier, StringComparison.Ordinal)) == true)
                     {
                         cacheEntries.Add((identifier, null));
@@ -242,6 +343,22 @@ internal sealed partial class ScryfallReferenceResolver
                 }
             }
 
+            await MatchChunkAsync(chunk, cards).ConfigureAwait(false);
+        }
+
+        var orderedResolutions = requestNames
+            .Where(resolved.ContainsKey)
+            .Select(name => resolved[name])
+            .ToList();
+
+        return new ScryfallBatchResolution(orderedResolutions, oracleNameMap);
+
+        // Why: shared by the cold chunks and the warm pseudo-chunk so the ADR-0004 tolerant pass can
+        // never drift between the two paths. Match scope stays PER-RESPONSE: matching run-wide widens
+        // the ambiguity pool, so a key unambiguous inside one response could decline run-wide and cost
+        // an extra fallback search.
+        async Task MatchChunkAsync(IReadOnlyList<string> chunk, List<ScryfallCard> cards)
+        {
             // Why: one pass records the exact matches and collects the leftovers the tolerant pass
             // below needs, instead of scanning the response twice. TryGetValue recovers the caller's
             // original spelling, which is the only reason the exact match needs a lookup at all.
@@ -256,7 +373,13 @@ internal sealed partial class ScryfallReferenceResolver
                 }
 
                 oracleNameMap[matchingName] = card.Name;
-                resolved[matchingName] = new ScryfallReferenceResolution(matchingName, card, FromFallback: false);
+                var band = string.Equals(
+                    CoreScryfallCollectionIdentifier.ToFaceIdentifier(matchingName),
+                    matchingName,
+                    StringComparison.OrdinalIgnoreCase)
+                    ? ScryfallCollectionProtocolBand.Identifier
+                    : ScryfallCollectionProtocolBand.ExactName;
+                resolved[matchingName] = new ScryfallReferenceResolution(matchingName, card, band);
             }
 
             // Second pass (ADR 0004): punctuation-tolerant, slash-preserving match over the SAME
@@ -284,7 +407,10 @@ internal sealed partial class ScryfallReferenceResolver
 
                     var requestName = nameGroup.First();
                     oracleNameMap[requestName] = card.Name;
-                    resolved[requestName] = new ScryfallReferenceResolution(requestName, card, FromFallback: false);
+                    resolved[requestName] = new ScryfallReferenceResolution(
+                        requestName,
+                        card,
+                        ScryfallCollectionProtocolBand.ExactName);
                 }
             }
 
@@ -297,16 +423,12 @@ internal sealed partial class ScryfallReferenceResolver
                 }
 
                 oracleNameMap[unresolvedName] = fallbackCard.Name;
-                resolved[unresolvedName] = new ScryfallReferenceResolution(unresolvedName, fallbackCard, FromFallback: true);
+                resolved[unresolvedName] = new ScryfallReferenceResolution(
+                    unresolvedName,
+                    fallbackCard,
+                    ScryfallCollectionProtocolBand.Fallback);
             }
         }
-
-        var orderedResolutions = requestNames
-            .Where(resolved.ContainsKey)
-            .Select(name => resolved[name])
-            .ToList();
-
-        return new ScryfallBatchResolution(orderedResolutions, oracleNameMap);
     }
 
     private static IEnumerable<List<T>> Chunk<T>(IReadOnlyList<T> values, int size)

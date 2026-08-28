@@ -27,13 +27,16 @@ public sealed partial class DeckAnalysisPacketServiceTests
         PacketSessionCache packetCache,
         IFeatureFlagCache flagCache,
         IMoxfieldDeckImporter moxfieldDeckImporter)
-        => new(
-            new ScryfallCardResolver(
-                new FakeScryfallRestClientFactory(new HttpClient { BaseAddress = new Uri("https://api.scryfall.com/") }),
-                new FakeResiliencePipelineProvider(),
-                executeCollectionAsyncOverride: (request, _) => Task.FromResult(CreateCollectionResponse(request)),
-                executeSearchAsyncOverride: (request, _) => Task.FromResult(CreateSearchResponse(request)),
-                executeNamedAsyncOverride: (request, _) => Task.FromResult(CreateNamedResponse(request))),
+    {
+        var cardResolver = new ScryfallCardResolver(
+            new FakeScryfallRestClientFactory(new HttpClient { BaseAddress = new Uri("https://api.scryfall.com/") }),
+            new FakeResiliencePipelineProvider(),
+            executeCollectionAsyncOverride: (request, _) => Task.FromResult(CreateCollectionResponse(request)),
+            executeSearchAsyncOverride: (request, _) => Task.FromResult(CreateSearchResponse(request)),
+            executeNamedAsyncOverride: (request, _) => Task.FromResult(CreateNamedResponse(request)));
+        return new DeckAnalysisPacketService(
+            cardResolver,
+            new ScryfallReferenceResolver(cardResolver, new ScryfallCollectionCardCache()),
             new DeckEntryLoader(
                 moxfieldDeckImporter,
                 new FakeArchidektDeckImporter(),
@@ -59,6 +62,7 @@ public sealed partial class DeckAnalysisPacketServiceTests
             packetCache,
             flagCache,
             NullLogger<DeckAnalysisPacketService>.Instance);
+    }
 
     private static DeckAnalysisRequest CreateWinConMapCacheRequest() => new()
     {

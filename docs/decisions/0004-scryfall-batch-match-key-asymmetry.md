@@ -163,3 +163,55 @@ path (single-card search) and out of scope here.
 - **Option (b) (`not_found`-driven miss detection) remains on the table** as a later, larger
   consolidation across all five `ResolveBatchAsync` consumers, with its H2-fixture rewrite cost
   named above so it is not mistaken for a free simplification.
+
+## Addendum (2026-08-19): the match scope after partition-then-chunk
+
+`ResolveBatchAsync` now partitions each original 75-name chunk into a warm set (collection-cache
+hits, no POST) and a cold remainder, and re-chunks only the cold remainder for the POSTs. The two
+passes above are unchanged, but the SCOPE they run over is no longer always the original chunk:
+
+- The warm set of each original chunk is matched as its own pseudo-chunk, deliberately with BOTH
+  passes. Giving warm names only the raw pass would send a punctuation-drifted warm name to the
+  fallback strategy -- an extra Scryfall search on the path the cache exists to make free.
+- Pooling every warm name across all chunks into ONE pseudo-chunk was tried and REJECTED (Codex
+  review, round 1): it widened the ambiguity pool, so two cached cards sharing a match key that
+  never shared a response collided and both names declined to fallback.
+- The remaining, ACCEPTED divergence (Codex review, round 2): when two punctuation-colliding names
+  sit in the SAME original chunk and one is warm while the other is cold, they no longer share a
+  scope, so each can match where both previously declined as mutually ambiguous. This resolves MORE
+  names, never fewer, and it is bounded to same-chunk collisions. Pinned by
+  `ScryfallReferenceResolverTests.ResolveBatchAsync_WarmAndColdPunctuationCollisionInOneChunk_ResolvesBoth`.
+- Preserving the pre-change scope exactly would mean decoupling transport from matching: batching
+  the cold identifiers globally for the POSTs, then handing each ORIGINAL chunk back its own cards.
+  That was weighed and deferred -- it needs an attribution rule for ambiguous leftover cards that no
+  pairing pass can assign to a chunk. It belongs with the queued global pairing strategy (F-2/F-6).
+
+## Extension: callers that need failure isolation (2026-08-19, UAT finding 2)
+
+`CutLabAnalysisContextBuilder` cannot simply hand `ResolveBatchAsync` its whole missing-name list:
+its resolve loop is also the method's failure isolation, so that one throwing call cannot discard
+names that already resolved. Chunking the list itself, however, pinned the POST count at the
+CALLER's chunk count -- the partition above could never collapse POSTs across those chunks, because
+each kept a cold member and each still POSTed. Measured in UAT: a 111-name pool fully warmed by a
+prior Manabase run still cost 2 POSTs through Cut Lab, where a single-chunk 60-name pool cost 0.
+
+`ScryfallReferenceResolver.PlanBatchResolveGroups` resolves that tension. It returns the same
+grouping `ResolveBatchAsync` would build internally for the whole list -- each original 75-name
+chunk's warm set as its own group, then the pooled cold remainder re-chunked -- and the caller
+resolves those groups one call at a time. The scope rules above are therefore unchanged: warm names
+still keep their ORIGINAL chunk boundaries, and pooling is still confined to the cold remainder.
+
+Two consequences worth stating:
+
+- Warmth is a snapshot taken at plan time, and the cache is a DI singleton, so a concurrent request
+  can warm part of a planned-cold group before it is resolved. That can only REMOVE POSTs -- the
+  now-warm identifier drops out of the submitted set, because `ResolveBatchAsync` re-checks the
+  cache itself. It is not result-neutral: the newly warm name lands in the warm match scope while
+  its group-mates stay in the cold one, which is precisely the accepted divergence three bullets
+  above -- it resolves MORE names, never fewer. No deterministic test pins the race (Codex stage-2
+  review of `0e5a3c7f`, claim 5); it is documented rather than guarded because the outcome is
+  bounded and benign.
+- A caller-visible improvement falls out of it: a throwing fallback no longer discards cards the
+  same request had already cached. They are re-planned into a warm group on the next resolve, which
+  issues no POST and so cannot be aborted by a cold casualty. Pinned by
+  `CutLabPageServiceTests.ProcessAsync_ScryfallRateLimitsDuringFallback_ImportSucceedsWithoutBanner`.

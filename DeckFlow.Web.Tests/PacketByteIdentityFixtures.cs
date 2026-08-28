@@ -287,13 +287,15 @@ internal static class PacketByteIdentityFixtures
         IFeatureFlagCache? flagCache = null,
         ICommanderSpellbookService? spellbookService = null)
     {
+        var cardResolver = new ScryfallCardResolver(
+            new FakeScryfallRestClientFactory(new HttpClient { BaseAddress = new Uri("https://api.scryfall.com/") }),
+            new FakeResiliencePipelineProvider(),
+            executeCollectionAsyncOverride: (request, _) => Task.FromResult(CreateCollectionResponse(request)),
+            executeSearchAsyncOverride: (request, _) => Task.FromResult(CreateSearchResponse(request)),
+            executeNamedAsyncOverride: (request, _) => Task.FromResult(CreateNamedResponse(request)));
         return new DeckAnalysisPacketService(
-            new ScryfallCardResolver(
-                new FakeScryfallRestClientFactory(new HttpClient { BaseAddress = new Uri("https://api.scryfall.com/") }),
-                new FakeResiliencePipelineProvider(),
-                executeCollectionAsyncOverride: (request, _) => Task.FromResult(CreateCollectionResponse(request)),
-                executeSearchAsyncOverride: (request, _) => Task.FromResult(CreateSearchResponse(request)),
-                executeNamedAsyncOverride: (request, _) => Task.FromResult(CreateNamedResponse(request))),
+            cardResolver,
+            new ScryfallReferenceResolver(cardResolver, new ScryfallCollectionCardCache()),
             new DeckEntryLoader(
                 moxfieldDeckImporter ?? new FixtureMoxfieldDeckImporter([]),
                 new FixtureArchidektDeckImporter(),

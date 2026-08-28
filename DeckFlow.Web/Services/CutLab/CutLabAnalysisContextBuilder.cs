@@ -3,7 +3,6 @@ using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
 using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services.Manabase;
-using DeckFlow.Web.Services.Packets;
 using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -137,16 +136,14 @@ public sealed record CutLabClassificationContext(
 }
 
 /// <summary>Default shared builder for Cut Lab analysis context.</summary>
-public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
+internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
 {
-    private const int ScryfallBatchSize = 75;
-
     private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> EmptyCategories =
         new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
 
     private readonly IScryfallCardResolver _cardResolver;
     private readonly CutLabResolvedCardCache _resolvedCardCache;
-    private readonly ScryfallCollectionCardCache? _collectionCardCache;
+    private readonly ScryfallReferenceResolver _scryfallReferenceResolver;
     private readonly ICommanderSpellbookService? _spellbook;
     private readonly ICategoryKnowledgeStore? _categoryKnowledge;
     private readonly ILogger<CutLabAnalysisContextBuilder> _logger;
@@ -162,21 +159,21 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
     /// <summary>Creates a new <see cref="CutLabAnalysisContextBuilder"/>.</summary>
     /// <param name="cardResolver">Shared Scryfall resolver pipeline.</param>
     /// <param name="resolvedCardCache">Resolved-card cache keyed by working-pool hash.</param>
+    /// <param name="scryfallReferenceResolver">Shared Scryfall reference-resolution collaborator.</param>
     /// <param name="spellbook">Optional Commander Spellbook lookup dependency.</param>
     /// <param name="categoryKnowledge">Optional category lookup dependency.</param>
     /// <param name="logger">Structured logger.</param>
-    /// <param name="collectionCardCache">Optional cache of Scryfall collection-card results.</param>
     public CutLabAnalysisContextBuilder(
         IScryfallCardResolver cardResolver,
         CutLabResolvedCardCache resolvedCardCache,
+        ScryfallReferenceResolver scryfallReferenceResolver,
         ICommanderSpellbookService? spellbook = null,
         ICategoryKnowledgeStore? categoryKnowledge = null,
-        ILogger<CutLabAnalysisContextBuilder>? logger = null,
-        ScryfallCollectionCardCache? collectionCardCache = null)
+        ILogger<CutLabAnalysisContextBuilder>? logger = null)
     {
         _cardResolver = cardResolver ?? throw new ArgumentNullException(nameof(cardResolver));
         _resolvedCardCache = resolvedCardCache ?? throw new ArgumentNullException(nameof(resolvedCardCache));
-        _collectionCardCache = collectionCardCache;
+        _scryfallReferenceResolver = scryfallReferenceResolver ?? throw new ArgumentNullException(nameof(scryfallReferenceResolver));
         _spellbook = spellbook;
         _categoryKnowledge = categoryKnowledge;
         _logger = logger ?? NullLogger<CutLabAnalysisContextBuilder>.Instance;
@@ -465,15 +462,22 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
             resolvedByName[CutLabCardNames.Normalize(resolvedCard.Name)] = resolvedCard;
         }
 
-        var batchResolver = new ScryfallReferenceResolver(_cardResolver, _collectionCardCache);
         List<CutLabPoolCard> missingPoolCards = EnumerateMissingPoolCards(workingList, resolvedByName, knownMissingNames);
         HashSet<string> knownMissingNamesSet = knownMissingNames.ToHashSet(CutLabCardNames.Comparer);
 
-        foreach (List<string> requestNames in ChunkDistinctNames(missingPoolCards))
+        // Why (UAT finding 2, 2026-08-19): chunking here pinned the POST count at THIS loop's chunk
+        // count, so the partition-BEFORE-chunking fix inside ResolveBatchAsync could never collapse
+        // POSTs across these chunks -- each kept a cold member and each still POSTed. The resolver
+        // now plans the groups: warm names keep their original chunk boundaries (ADR-0004 ambiguity
+        // pool unchanged) and the cold remainder is pooled and re-chunked, which is the saving. The
+        // loop itself stays, because it is also this method's failure isolation -- one throwing
+        // group must not discard the groups that already resolved.
+        foreach (IReadOnlyList<string> requestNames in _scryfallReferenceResolver.PlanBatchResolveGroups(
+                     missingPoolCards.Select(poolCard => poolCard.Name).ToList()))
         {
             try
             {
-                ScryfallBatchResolution batchResolution = await batchResolver.ResolveBatchAsync(
+                ScryfallBatchResolution batchResolution = await _scryfallReferenceResolver.ResolveBatchAsync(
                     requestNames,
                     // Why: the batch call above already failed this identifier on cards/collection
                     // moments earlier, so re-POSTing via ResolveSingleAsync is dead weight -- the
@@ -614,25 +618,6 @@ public sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuilder
         }
 
         return orderedCards;
-    }
-
-    private static IEnumerable<List<string>> ChunkDistinctNames(IReadOnlyList<CutLabPoolCard> poolCards)
-    {
-        List<string> chunk = new(ScryfallBatchSize);
-        foreach (CutLabPoolCard poolCard in poolCards)
-        {
-            chunk.Add(poolCard.Name);
-            if (chunk.Count == ScryfallBatchSize)
-            {
-                yield return chunk;
-                chunk = new List<string>(ScryfallBatchSize);
-            }
-        }
-
-        if (chunk.Count > 0)
-        {
-            yield return chunk;
-        }
     }
 
     private static IReadOnlyList<(string Name, int Quantity)> ToPoolKeyEntries(IReadOnlyList<CutLabPoolCard> workingList)

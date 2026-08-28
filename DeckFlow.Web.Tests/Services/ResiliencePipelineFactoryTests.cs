@@ -1,8 +1,11 @@
 using System.Collections.Generic;
+using System.Net;
+using System.Threading.Tasks;
 using DeckFlow.Web.Services.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Polly;
 using Polly.Registry;
+using Polly.Timeout;
 using RestSharp;
 using Xunit;
 
@@ -47,5 +50,28 @@ public sealed class ResiliencePipelineFactoryTests
         // so a typo'd pipeline name surfaces loudly on first use.
         Assert.Throws<KeyNotFoundException>(
             () => Provider.GetPipeline<RestResponse>("does-not-exist"));
+    }
+
+    [Fact]
+    public void ScryfallBudget_MatchesIndependentProductionContract()
+    {
+        Assert.Equal(TimeSpan.FromSeconds(30), ResiliencePipelineFactory.ScryfallTotalTimeout);
+        Assert.Equal(2, ResiliencePipelineFactory.ScryfallMaxRetryAttempts);
+    }
+
+    [Fact]
+    public async Task ScryfallTimeout_UsesTotalBudgetAcrossRetries()
+    {
+        var builder = new ResiliencePipelineBuilder<RestResponse>();
+        ResiliencePipelineFactory.BuildScryfall(builder, TimeSpan.FromMilliseconds(200));
+        var pipeline = builder.Build();
+
+        await Assert.ThrowsAsync<TimeoutRejectedException>(
+            async () => await pipeline.ExecuteAsync(
+                async cancellationToken =>
+                {
+                    await Task.Delay(150, cancellationToken);
+                    return new RestResponse { StatusCode = HttpStatusCode.InternalServerError };
+                }));
     }
 }
