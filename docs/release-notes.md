@@ -8,6 +8,14 @@ Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags ar
 
 ### Unreleased
 
+### 2026.08.1 — UI & SEO Polish, Scryfall Cache Consolidation (2026-08-28)
+
+Scryfall reliability (internal, dark behind `service.scryfall-collection-cache.enabled`):
+- **One cache, one protocol.** The call sites that ask Scryfall's `cards/collection` endpoint for card data — deck-analysis packets, Mana Base, and the CLI's offline research tools — previously each built and cached the request differently. They now share one typed protocol and one cache, so a card resolved for one workflow warms the cache for the others instead of re-fetching.
+- **Double-faced commanders get a correct color identity.** A commander named in its combined `A // B` form always missed Scryfall's single-face lookup and silently returned an empty color identity, dropping the color filter from generated set packets. All three affected call sites now submit the single face Scryfall expects.
+- **The CLI honors the cache flag.** The offline research command-runners (`edhrec-role-grid`, `role-floor-research`) previously ignored the flag and always hit the network directly.
+- **Cache activity is now observable at runtime**, via a periodic structured log line — groundwork for confirming the flag's effect in production without guessing.
+
 Dependencies and security:
 - **A known vulnerability in the deploy tooling is closed.** DeckFlow Studio's SSH library carried advisory GHSA-q939-rpr3-3284; it has been updated, and all seven projects now report no vulnerable packages, direct or transitive.
 - **Twenty-one other packages moved to current versions**, including the logging, database, HTTP-resilience and Markdown libraries, plus the whole test toolchain. Nothing about how the site behaves changes: the Markdown renderer was checked page by page and every help topic renders byte-for-byte the same HTML as before, and the full test suite is unchanged at 4,925 passing.
