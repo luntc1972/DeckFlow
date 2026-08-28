@@ -8,7 +8,7 @@ public interface IScryfallCollectionProtocol
     /// <summary>
     /// Executes a collection request through Scryfall safeguards.
     /// </summary>
-    Task<ScryfallCollectionProtocolResponse> ExecuteAsync(
+    Task<ScryfallCollectionProtocolResponse> ResolveAsync(
         ScryfallCollectionProtocolRequest request,
         CancellationToken cancellationToken = default);
 }

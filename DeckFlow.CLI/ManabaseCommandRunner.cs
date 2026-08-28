@@ -1,9 +1,13 @@
 using System.Globalization;
 using System.Net;
-using System.Text.Json.Serialization;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
-using RestSharp;
+using DeckFlow.Web.Extensions;
+using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.Http;
+using DeckFlow.Web.Services.Manabase;
+using DeckFlow.Web.Services.Scryfall;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DeckFlow.CLI;
 
@@ -17,9 +21,6 @@ internal static class ManabaseCommandRunner
 {
     // Scryfall's collection endpoint accepts at most 75 identifiers per request.
     private const int CollectionBatchSize = 75;
-
-    // Scryfall asks for ~50-100ms between requests; pace batches conservatively.
-    private static readonly TimeSpan BatchDelay = TimeSpan.FromMilliseconds(120);
 
     // Only these boards belong in a Commander mana-base analysis; a sideboard / maybeboard
     // is not part of the 100-card deck and would skew the land target.
@@ -71,12 +72,9 @@ internal static class ManabaseCommandRunner
             // Resolve each distinct card once. Prefer an exact printing (set + collector
             // number) so alternate / flavor / accented card names still resolve; fall back
             // to a plain name identifier when the entry carries no printing.
-            var identifiers = deckCards
-                .Select(CardIdentifier.ForEntry)
-                .Distinct()
-                .ToList();
+            ScryfallCollectionProtocolRequest collectionRequest = CreateCollectionRequest(deckCards);
 
-            (var index, var notFound) = await ResolveCardsAsync(identifiers);
+            (var index, var notFound) = await ResolveCardsAsync(collectionRequest);
 
             var deckEntries = new List<DeckCardEntry>();
             var unresolved = new List<string>();
@@ -152,54 +150,49 @@ internal static class ManabaseCommandRunner
 
     // Batch-resolve identifiers through Scryfall's collection endpoint. Returns a card index
     // (keyed by printing + name) and labels for the identifiers Scryfall could not find.
+    internal static ScryfallCollectionProtocolRequest CreateCollectionRequest(IReadOnlyList<DeckEntry> entries) =>
+        new(entries
+            .Select(entry => !string.IsNullOrWhiteSpace(entry.SetCode) && !string.IsNullOrWhiteSpace(entry.CollectorNumber)
+                ? ScryfallCollectionIdentifier.ForPrinting(entry.SetCode, entry.CollectorNumber)
+                : ScryfallCollectionIdentifier.ForName(entry.Name))
+            .Distinct()
+            .ToArray());
+
     private static async Task<(ScryfallCardNameIndex Index, List<string> NotFound)> ResolveCardsAsync(
-        IReadOnlyList<CardIdentifier> identifiers)
+        ScryfallCollectionProtocolRequest collectionRequest)
     {
-        var client = new RestClient(new RestClientOptions
-        {
-            BaseUrl = new Uri("https://api.scryfall.com"),
-            ThrowOnAnyError = false,
-            // Bound each request so a stalled connection can't hang the CLI indefinitely.
-            Timeout = TimeSpan.FromSeconds(30),
-        });
-        client.AddDefaultHeader("User-Agent", "DeckFlow.CLI/1.0 (+https://github.com/luntc1972/DeckFlow)");
-        client.AddDefaultHeader("Accept", "application/json;q=0.9,*/*;q=0.8");
+        using ServiceProvider serviceProvider = BuildScryfallServiceProvider();
+        IScryfallCollectionProtocol collectionProtocol = serviceProvider.GetRequiredService<IScryfallCollectionProtocol>();
 
         var index = new ScryfallCardNameIndex();
         var notFound = new List<string>();
 
-        for (int offset = 0; offset < identifiers.Count; offset += CollectionBatchSize)
+        for (int offset = 0; offset < collectionRequest.Identifiers.Count; offset += CollectionBatchSize)
         {
-            if (offset > 0)
-            {
-                await Task.Delay(BatchDelay);
-            }
-
-            var batch = identifiers.Skip(offset).Take(CollectionBatchSize).ToList();
-            var body = new CollectionRequest(batch);
-
-            var request = new RestRequest("cards/collection", Method.Post);
-            request.AddJsonBody(body);
-
-            RestResponse<CollectionResponse> response = await client.ExecuteAsync<CollectionResponse>(request);
-            if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
+            var request = new ScryfallCollectionProtocolRequest(
+                collectionRequest.Identifiers.Skip(offset).Take(CollectionBatchSize).ToArray());
+            ScryfallCollectionProtocolResponse response = await collectionProtocol.ResolveAsync(request).ConfigureAwait(false);
+            if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || !response.HasPayload)
             {
                 throw new InvalidOperationException(
                     $"Scryfall collection lookup failed with HTTP {(int)response.StatusCode}.");
             }
 
-            foreach (ScryfallCardData card in response.Data.Data)
+            foreach (ScryfallCard card in response.Cards)
             {
-                index.Add(card);
+                index.Add(ScryfallCardDataMapper.ToCardData(card));
             }
 
-            foreach (CardIdentifier missing in response.Data.NotFound ?? new List<CardIdentifier>())
-            {
-                notFound.Add(missing.Label);
-            }
+            notFound.AddRange(GetNotFoundLabels(response));
         }
 
         return (index, notFound);
+    }
+
+    internal static IReadOnlyList<string> GetNotFoundLabels(ScryfallCollectionProtocolResponse response)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+        return response.NotFound.Select(identifier => identifier.Label).ToArray();
     }
 
     private static void PrintReport(
@@ -284,32 +277,13 @@ internal static class ManabaseCommandRunner
     private static bool TryParseMode(string? mode, out ManabaseMode parsed)
         => Enum.TryParse(mode?.Trim(), ignoreCase: true, out parsed) && Enum.IsDefined(parsed);
 
-    /// <summary>Scryfall <c>cards/collection</c> request body.</summary>
-    private sealed record CollectionRequest(
-        [property: JsonPropertyName("identifiers")] IReadOnlyList<CardIdentifier> Identifiers);
-
-    /// <summary>
-    /// A Scryfall collection identifier: either a printing (set + collector number) or a
-    /// name. Null members are omitted from the JSON so a printing identifier doesn't carry
-    /// an empty name. Also used to read the not-found echo back.
-    /// </summary>
-    private sealed record CardIdentifier(
-        [property: JsonPropertyName("name")][property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Name = null,
-        [property: JsonPropertyName("set")][property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Set = null,
-        [property: JsonPropertyName("collector_number")][property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? CollectorNumber = null)
+    private static ServiceProvider BuildScryfallServiceProvider()
     {
-        /// <summary>Build the best identifier for a deck entry: printing when known, else name.</summary>
-        public static CardIdentifier ForEntry(DeckEntry entry) =>
-            !string.IsNullOrWhiteSpace(entry.SetCode) && !string.IsNullOrWhiteSpace(entry.CollectorNumber)
-                ? new CardIdentifier(Set: entry.SetCode, CollectorNumber: entry.CollectorNumber)
-                : new CardIdentifier(Name: entry.Name);
-
-        /// <summary>Human-readable label for diagnostics (the not-found list).</summary>
-        public string Label => Name ?? $"{Set} #{CollectorNumber}";
+        var services = new ServiceCollection();
+        services.AddMemoryCache();
+        services.AddDeckFlowHttpClients();
+        services.AddDeckFlowResiliencePipelines();
+        services.AddDeckFlowScryfallServices();
+        return services.BuildServiceProvider();
     }
-
-    /// <summary>Scryfall <c>cards/collection</c> response.</summary>
-    private sealed record CollectionResponse(
-        [property: JsonPropertyName("data")] IReadOnlyList<ScryfallCardData> Data,
-        [property: JsonPropertyName("not_found")] IReadOnlyList<CardIdentifier>? NotFound);
 }

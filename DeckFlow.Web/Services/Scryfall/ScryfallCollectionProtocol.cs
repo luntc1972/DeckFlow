@@ -4,21 +4,22 @@ using RestSharp;
 namespace DeckFlow.Web.Services.Scryfall;
 
 /// <summary>
-/// The resolution band that produced a Scryfall collection result.
-/// </summary>
-/// <summary>
 /// Routes collection protocol requests through the shared Scryfall resolver safeguards.
 /// </summary>
 public sealed class ScryfallCollectionProtocol : IScryfallCollectionProtocol
 {
     private readonly IScryfallCardResolver _scryfallCardResolver;
 
+    /// <summary>
+    /// Creates a protocol backed by the shared Scryfall resolver.
+    /// </summary>
     public ScryfallCollectionProtocol(IScryfallCardResolver scryfallCardResolver)
     {
         _scryfallCardResolver = scryfallCardResolver ?? throw new ArgumentNullException(nameof(scryfallCardResolver));
     }
 
-    public async Task<ScryfallCollectionProtocolResponse> ExecuteAsync(
+    /// <inheritdoc />
+    public async Task<ScryfallCollectionProtocolResponse> ResolveAsync(
         ScryfallCollectionProtocolRequest request,
         CancellationToken cancellationToken = default)
     {
