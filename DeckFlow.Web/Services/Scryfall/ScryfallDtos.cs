@@ -83,7 +83,27 @@ public sealed record ScryfallCardFace(
 /// <summary>
 /// Represents an identifier Scryfall could not resolve from a collection request.
 /// </summary>
-public sealed record ScryfallCollectionIdentifier(string? Name);
+public sealed record ScryfallCollectionIdentifier(
+    [property: JsonPropertyName("name")][property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Name = null,
+    [property: JsonPropertyName("set")][property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Set = null,
+    [property: JsonPropertyName("collector_number")][property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? CollectorNumber = null)
+{
+    /// <summary>
+    /// Creates a name identifier.
+    /// </summary>
+    public static ScryfallCollectionIdentifier ForName(string name) => new(Name: name);
+
+    /// <summary>
+    /// Creates a printing identifier.
+    /// </summary>
+    public static ScryfallCollectionIdentifier ForPrinting(string set, string collectorNumber) =>
+        new(Set: set, CollectorNumber: collectorNumber);
+
+    /// <summary>
+    /// Gets the identifier label for unresolved-card diagnostics.
+    /// </summary>
+    public string Label => Name ?? $"{Set} #{CollectorNumber}";
+}
 
 /// <summary>
 /// Identifies a specific printing of a card by set code and collector number for a collection lookup.
