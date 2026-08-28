@@ -1787,7 +1787,7 @@ Commander
         Assert.Contains("\"sets\": [", result.SetUpgradePromptText);
         Assert.DoesNotContain("discussion_summary", result.SetUpgradePromptText);
         Assert.DoesNotContain("per-set analysis in condensed form", result.SetUpgradePromptText);
-        Assert.Contains("Off Color Test Card", result.SetUpgradePromptText);
+        Assert.DoesNotContain("Off Color Test Card", result.SetUpgradePromptText);
         Assert.DoesNotContain("Paste the condensed set packet", result.SetUpgradePromptText);
     }
 
@@ -1853,7 +1853,7 @@ Commander
         var body = System.Text.Json.JsonSerializer.Serialize(submittedRequest!.Parameters.Single(parameter => parameter.Type == ParameterType.RequestBody).Value);
         Assert.Contains("Etali, Primal Conqueror", body);
         Assert.DoesNotContain("Etali, Primal Conqueror // Etali, Primal Sickness", body);
-        Assert.DoesNotContain("Off Color Test Card", result.SetUpgradePromptText);
+        Assert.Contains("Off Color Test Card", result.SetUpgradePromptText);
     }
 
     [Fact]
