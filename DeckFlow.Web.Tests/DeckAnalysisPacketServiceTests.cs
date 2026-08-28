@@ -1787,7 +1787,7 @@ Commander
         Assert.Contains("\"sets\": [", result.SetUpgradePromptText);
         Assert.DoesNotContain("discussion_summary", result.SetUpgradePromptText);
         Assert.DoesNotContain("per-set analysis in condensed form", result.SetUpgradePromptText);
-        Assert.DoesNotContain("Off Color Test Card", result.SetUpgradePromptText);
+        Assert.Contains("Off Color Test Card", result.SetUpgradePromptText);
         Assert.DoesNotContain("Paste the condensed set packet", result.SetUpgradePromptText);
     }
 
@@ -1821,6 +1821,39 @@ Commander
         });
 
         Assert.Contains("Off Color Test Card", result.SetUpgradePromptText);
+    }
+
+    [Fact]
+    public async Task BuildAsync_UsesSingleFaceCommanderIdentifier_ForGeneratedSetPacket()
+    {
+        RestRequest? submittedRequest = null;
+        var service = CreateService(
+            executeCollectionAsync: (request, _) =>
+            {
+                submittedRequest = request;
+                return Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallCollectionResponse(
+                        [new ScryfallCard(
+                            Name: "Etali, Primal Conqueror // Etali, Primal Sickness", ManaCost: null, TypeLine: string.Empty,
+                            OracleText: null, Power: null, Toughness: null, Keywords: null, ColorIdentity: ["G", "R"],
+                            SetCode: null, SetName: null, CollectorNumber: null)], [])
+                });
+            });
+
+        var result = await service.BuildAsync(new DeckAnalysisRequest
+        {
+            WorkflowStep = 1,
+            DeckSource = "Commander\n1 Etali, Primal Conqueror // Etali, Primal Sickness\n\n1 Sol Ring\n",
+            DeckProfileJson = "{}",
+            SelectedSetCodes = ["dsk"]
+        });
+
+        var body = System.Text.Json.JsonSerializer.Serialize(submittedRequest!.Parameters.Single(parameter => parameter.Type == ParameterType.RequestBody).Value);
+        Assert.Contains("Etali, Primal Conqueror", body);
+        Assert.DoesNotContain("Etali, Primal Conqueror // Etali, Primal Sickness", body);
+        Assert.DoesNotContain("Off Color Test Card", result.SetUpgradePromptText);
     }
 
     [Fact]
