@@ -308,6 +308,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
                         Heading = item.Heading,
                         Lead = item.Lead,
                         Evidence = item.Evidence,
+                        Roles = item.Roles,
                     })
                     .ToArray(),
             })

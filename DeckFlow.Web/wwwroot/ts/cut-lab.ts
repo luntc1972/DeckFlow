@@ -142,6 +142,7 @@ interface CutLabDecisionFinding {
   heading: string;
   lead: string;
   evidence: string[];
+  roles: string[];
 }
 
 interface CutLabDecisionFindingGroup {
@@ -2501,7 +2502,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
           groupElement.appendChild(createTextElement(
             'p',
             'manabase-help',
-            'These cards fill the same role at the same mana value with the same card type, so they compete for one slot. The costliest group is listed first, and a card here may also be combo-protected.',
+            'Slot Congestion means these cards share the same role, card type, and exact mana value. Treat them as review candidates, not automatic cuts — a card here may also be combo-protected.',
           ));
         }
 
@@ -2509,6 +2510,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
           const itemElement = document.createElement('div');
           itemElement.className = 'cutlab-finding__item';
           itemElement.appendChild(createTextElement('p', 'cutlab-finding__lead', item.lead));
+
+          if (item.roles && item.roles.length > 0) {
+            itemElement.appendChild(createTextElement('p', 'cutlab-finding__roles', `Role: ${item.roles.join(', ')}`));
+          }
 
           if (item.evidence.length > 0) {
             const chips = document.createElement('div');

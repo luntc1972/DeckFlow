@@ -536,11 +536,12 @@ public sealed class CutLabStructuralFindingsTests
     {
         CutLabFinding finding = Assert.Single(Twins([Twin("A", 2, "Artifact", "ramp"), Twin("B", 2, "Artifact", "ramp"), Twin("C", 2, "Artifact", "ramp")]).Findings);
         Assert.Equal(CutLabFindingKind.FunctionalTwins, finding.Kind);
-        Assert.Equal("Functional twins", finding.Heading);
+        Assert.Equal("Slot Congestion", finding.Heading);
         Assert.Equal(["A", "B", "C"], finding.Evidence.Select(evidence => evidence.CardName));
         Assert.Contains("Ramp", finding.Lead, StringComparison.Ordinal);
         Assert.Contains("artifact", finding.Lead, StringComparison.Ordinal);
         Assert.Contains("mana value 2", finding.Lead, StringComparison.Ordinal);
+        Assert.Equal(["Ramp"], finding.Roles);
     }
 
     [Fact]
@@ -627,7 +628,7 @@ public sealed class CutLabStructuralFindingsTests
     {
         // Why: This is where TWIN-03's intent lives under D-14, because within-group descending mana value is degenerate.
         CutLabStructuralFindingsResult result = Twins([Twin("Low A", 2, "Artifact", "ramp"), Twin("Low B", 2, "Artifact", "ramp"), Twin("Low C", 2, "Artifact", "ramp"), Twin("High A", 5, "Creature", "draw"), Twin("High B", 5, "Creature", "draw"), Twin("High C", 5, "Creature", "draw")]);
-        Assert.Equal(["3 creature cards fill your Card draw slot at mana value 5 \u2014 they compete with each other, so the pool likely only needs some of them.", "3 artifact cards fill your Ramp slot at mana value 2 \u2014 they compete with each other, so the pool likely only needs some of them."], result.Findings.Select(finding => finding.Lead));
+        Assert.Equal(["3 creature cards share the Card draw role, card type, and exact mana value 5 \u2014 treat them as review candidates, not an automatic cut.", "3 artifact cards share the Ramp role, card type, and exact mana value 2 \u2014 treat them as review candidates, not an automatic cut."], result.Findings.Select(finding => finding.Lead));
     }
 
     [Fact]
@@ -636,7 +637,7 @@ public sealed class CutLabStructuralFindingsTests
         IReadOnlyList<CutLabAnalyzedCard> pool = [Twin("Enchant Z", 4, "Enchantment", "ramp"), Twin("Enchant A", 4, "Enchantment", "ramp"), Twin("Enchant M", 4, "Enchantment", "ramp"), Twin("Artifact Z", 4, "Artifact", "ramp"), Twin("Artifact A", 4, "Artifact", "ramp"), Twin("Artifact M", 4, "Artifact", "ramp"), Twin("Creature Z", 4, "Creature", "ramp"), Twin("Creature A", 4, "Creature", "ramp"), Twin("Creature M", 4, "Creature", "ramp")];
         CutLabStructuralFindingsResult first = Twins(pool);
         CutLabStructuralFindingsResult second = Twins(pool.Reverse().ToArray());
-        string[] expectedLeads = ["3 creature cards fill your Ramp slot at mana value 4 \u2014 they compete with each other, so the pool likely only needs some of them.", "3 artifact cards fill your Ramp slot at mana value 4 \u2014 they compete with each other, so the pool likely only needs some of them.", "3 enchantment cards fill your Ramp slot at mana value 4 \u2014 they compete with each other, so the pool likely only needs some of them."];
+        string[] expectedLeads = ["3 creature cards share the Ramp role, card type, and exact mana value 4 \u2014 treat them as review candidates, not an automatic cut.", "3 artifact cards share the Ramp role, card type, and exact mana value 4 \u2014 treat them as review candidates, not an automatic cut.", "3 enchantment cards share the Ramp role, card type, and exact mana value 4 \u2014 treat them as review candidates, not an automatic cut."];
         Assert.Equal(expectedLeads, first.Findings.Select(finding => finding.Lead));
         Assert.Equal(expectedLeads, second.Findings.Select(finding => finding.Lead));
         Assert.Equal(first.Findings.Select(finding => finding.Evidence.Select(evidence => evidence.CardName)), second.Findings.Select(finding => finding.Evidence.Select(evidence => evidence.CardName)));

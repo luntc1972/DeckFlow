@@ -29,6 +29,7 @@ internal static class CutLabFindingPresenter
                         ? $"{evidence.CardName} · MV {manaValue:0.##}"
                         : evidence.CardName)
                     .ToArray(),
+                Roles = finding.Roles,
             })
             .ToArray();
     }
