@@ -48,6 +48,35 @@ public sealed class ScryfallReferenceResolverTests
         Assert.DoesNotContain("Delver of Secrets // Insectile Aberration", requestBody, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ResolveBatchAsync_MixedNamesAndDfc_PreservesRequestOrderAndDeduplicatesSubmittedIdentifiers()
+    {
+        IReadOnlyList<string>? submittedIdentifiers = null;
+        var resolver = CreateResolver((request, _) =>
+        {
+            submittedIdentifiers = ExtractNames(ExtractRequestBody(request));
+            return Task.FromResult(CreateCollectionResponse(new List<ScryfallCard>
+            {
+                CreateCard("Sol Ring"),
+                CreateCard("Delver of Secrets // Insectile Aberration"),
+            }));
+        });
+
+        var result = await resolver.ResolveBatchAsync(
+            new[] { "Sol Ring", "Delver of Secrets // Insectile Aberration", "Sol Ring" },
+            static (_, _) => Task.FromResult<ScryfallCard?>(null),
+            normalizeForScryfall: false,
+            CancellationToken.None);
+
+        Assert.Equal(new[] { "Sol Ring", "Delver of Secrets" }, submittedIdentifiers);
+        Assert.Equal(
+            new[] { "Sol Ring", "Delver of Secrets // Insectile Aberration", "Sol Ring" },
+            result.Resolutions.Select(resolution => resolution.RequestName));
+        Assert.Equal(
+            new[] { "Sol Ring", "Delver of Secrets // Insectile Aberration", "Sol Ring" },
+            result.Resolutions.Select(resolution => resolution.Card.Name));
+    }
+
     /// <summary>
     /// T1: a warm name-space entry must be omitted from the next collection POST while a newly
     /// requested identifier remains in the POST. This catches a resolver that reads cached cards

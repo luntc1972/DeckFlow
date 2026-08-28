@@ -253,4 +253,19 @@ public sealed class ScryfallCardNameIndexTests
         Assert.True(index.TryResolve("Fire // Ice", out ScryfallCardData? full));
         Assert.Same(split, full);
     }
+
+    [Fact]
+    public void Add_NormalizedExactNameCollision_PreservesExactNameWinnerOverDfcAlias()
+    {
+        var index = new ScryfallCardNameIndex();
+        ScryfallCardData split = Card("Fire // Ice");
+        ScryfallCardData standalone = Card("  FIRE  ");
+        index.Add(split);
+        index.Add(standalone);
+
+        Assert.True(index.TryResolve("fire", out ScryfallCardData? hit));
+        Assert.Same(standalone, hit);
+        Assert.True(index.TryResolve("Fire // Ice", out ScryfallCardData? full));
+        Assert.Same(split, full);
+    }
 }
