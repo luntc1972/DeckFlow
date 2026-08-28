@@ -60,6 +60,19 @@ public sealed class CutLabFunctionalTwinsDensityTests
 
     private const int FillerCardCount = 64;
 
+    [Fact]
+    public void FunctionalTwins_IdenticalGroupsAcrossRoles_CountsOneCanonicalGroup()
+    {
+        IReadOnlyList<CutLabFinding> findings = ComputeTwins(
+        [
+            Card("A", 2, isLand: false, "Artifact", [RampRole, DrawRole]),
+            Card("B", 2, isLand: false, "Artifact", [RampRole, DrawRole]),
+            Card("C", 2, isLand: false, "Artifact", [RampRole, DrawRole]),
+        ]);
+
+        Assert.Single(findings);
+    }
+
     private static readonly (string TypeLine, string Label)[] FillerTypeLines =
     [
         ("Artifact", "Artifact"),
