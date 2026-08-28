@@ -2237,6 +2237,46 @@ public sealed class ManabaseAnalysisServiceTests
     }
 
     [Fact]
+    public async Task ResolveCardsAsync_NameDoubleFacedCard_NormalizesAndWarmsFaceCache()
+    {
+        const string combinedName = "Etali, Primal Conqueror // Etali, Primal Sickness";
+        var entries = new List<DeckEntry> { Land(combinedName, 1) };
+        var card = BasicLand(combinedName, "R");
+        var protocol = new RecordingCollectionProtocol([card]);
+        var cache = new ScryfallCollectionCardCache();
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), new ThrowingCollectionResolver(), collectionCardCache: cache, collectionProtocol: protocol);
+
+        var index = await InvokeResolveCardsAsync(service, entries);
+
+        Assert.Equal(["Etali, Primal Conqueror"], protocol.Requests.Single().Identifiers.Select(identifier => identifier.Name));
+        Assert.True(index.TryResolve(combinedName, null, null, out _));
+        Assert.True(cache.TryGetName("Etali, Primal Conqueror", out _));
+        await InvokeResolveCardsAsync(service, entries);
+        Assert.Single(protocol.Requests);
+    }
+
+    [Fact]
+    public async Task ResolveCardsAsync_DoubleFacedNameVariants_SubmitsAndPairsOnce()
+    {
+        const string combinedName = "Etali, Primal Conqueror // Etali, Primal Sickness";
+        var entries = new List<DeckEntry>
+        {
+            Land(combinedName, 1),
+            Land("Etali, Primal Conqueror", 1)
+        };
+        var protocol = new RecordingCollectionProtocol([BasicLand(combinedName, "R")]);
+        var cache = new ScryfallCollectionCardCache();
+        var service = new ManabaseAnalysisService(new FakeLoader(entries), new ThrowingCollectionResolver(), collectionCardCache: cache, collectionProtocol: protocol);
+
+        var index = await InvokeResolveCardsAsync(service, entries);
+
+        Assert.Equal(["Etali, Primal Conqueror"], protocol.Requests.Single().Identifiers.Select(identifier => identifier.Name));
+        Assert.True(index.TryResolve(combinedName, null, null, out _));
+        Assert.True(index.TryResolve("Etali, Primal Conqueror", null, null, out _));
+        Assert.True(cache.TryGetName("Etali, Primal Conqueror", out _));
+    }
+
+    [Fact]
     public async Task ResolveCardsAsync_PartiallyWarmDeck_SubmitsOnlyUncachedIdentifiers()
     {
         var entries = new List<DeckEntry> { Land("Cached", 1), Land("Uncached One", 1), Land("Uncached Two", 1) };

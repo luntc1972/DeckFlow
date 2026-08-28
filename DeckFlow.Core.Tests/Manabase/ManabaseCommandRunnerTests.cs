@@ -33,6 +33,21 @@ public sealed class ManabaseCommandRunnerTests
     }
 
     [Fact]
+    public void CreateCollectionRequest_NameDoubleFacedEntry_UsesSingleFaceIdentifier()
+    {
+        IReadOnlyList<DeckEntry> entries =
+        [
+            Entry("Etali, Primal Conqueror // Etali, Primal Sickness", null, null),
+            Entry("Orcish Bowmasters", "ltr", "103")
+        ];
+
+        var request = ManabaseCommandRunner.CreateCollectionRequest(entries);
+
+        Assert.Contains(request.Identifiers, identifier => identifier.Name == "Etali, Primal Conqueror");
+        Assert.Contains(request.Identifiers, identifier => identifier.Set == "ltr" && identifier.CollectorNumber == "103");
+    }
+
+    [Fact]
     public void GetNotFoundLabels_PrintingIdentifier_PreservesPrintingDiagnostic()
     {
         var response = new ScryfallCollectionProtocolResponse(
