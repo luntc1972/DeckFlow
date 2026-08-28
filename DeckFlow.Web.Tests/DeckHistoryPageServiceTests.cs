@@ -196,6 +196,7 @@ public sealed class DeckHistoryPageServiceTests
         }, uploadedHistoryJson: null);
 
         Assert.Null(result.ErrorMessage);
+        Assert.Equal(1, resolver.ExecuteCollectionCallCount);
         Assert.DoesNotContain("CARD REFERENCE", result.PromptText);
         Assert.Contains(
             "Scryfall card lookup failed while building the card reference; the evolution prompt was generated without card details. HTTP 503.",
