@@ -11,6 +11,7 @@ using DeckFlow.Core.Research;
 using DeckFlow.Web.Extensions;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CutLab;
+using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Http;
 using DeckFlow.Web.Services.Manabase;
 using DeckFlow.Web.Services.Scryfall;
@@ -136,6 +137,7 @@ internal static class EdhrecRoleGridCommandRunner
                 out malformedRowsPass1);
 
             using ServiceProvider serviceProvider = BuildScryfallServiceProvider();
+            await CliFeatureFlagServices.InitializeFeatureFlagsAsync(serviceProvider, cancellationToken).ConfigureAwait(false);
             IScryfallCardResolver resolver = serviceProvider.GetRequiredService<IScryfallCardResolver>();
             CardResolutionResult cardResolution = await ResolveCardsAsync(
                 resolver,
@@ -526,8 +528,10 @@ internal static class EdhrecRoleGridCommandRunner
         var services = new ServiceCollection();
         services.AddDeckFlowHttpClients();
         services.AddDeckFlowResiliencePipelines();
+        services.AddCliFeatureFlags();
         services.AddSingleton<IScryfallRestClientFactory, ScryfallRestClientFactory>();
-        services.AddSingleton(_ => new ScryfallCollectionCardCache());
+        services.AddSingleton(serviceProvider => new ScryfallCollectionCardCache(
+            serviceProvider.GetService<IFeatureFlagCache>()));
         services.AddSingleton<IScryfallCardResolver>(serviceProvider =>
             new ScryfallCardResolver(
                 serviceProvider.GetRequiredService<IScryfallRestClientFactory>(),

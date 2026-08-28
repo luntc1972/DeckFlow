@@ -14,6 +14,7 @@ using DeckFlow.Core.Storage;
 using DeckFlow.Web.Extensions;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CutLab;
+using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Http;
 using DeckFlow.Web.Services.Manabase;
 using DeckFlow.Web.Services.Scryfall;
@@ -206,6 +207,7 @@ internal static class RoleFloorResearchCommandRunner
                 normalizedConnectionString);
             var repository = new CategoryKnowledgeRepository(connectionInfo);
             using var serviceProvider = BuildScryfallServiceProvider();
+            await CliFeatureFlagServices.InitializeFeatureFlagsAsync(serviceProvider, cancellationToken).ConfigureAwait(false);
             var resolver = serviceProvider.GetRequiredService<IScryfallCardResolver>();
             ManabaseMode resolvedMode = CutLabRoleAssigner.ResolveMode(mode);
             string? taxonomyError = ValidateTaxonomyAgainstAssigner(resolvedMode);
@@ -593,8 +595,10 @@ internal static class RoleFloorResearchCommandRunner
         var services = new ServiceCollection();
         services.AddDeckFlowHttpClients();
         services.AddDeckFlowResiliencePipelines();
+        services.AddCliFeatureFlags();
         services.AddSingleton<IScryfallRestClientFactory, ScryfallRestClientFactory>();
-        services.AddSingleton(_ => new ScryfallCollectionCardCache());
+        services.AddSingleton(serviceProvider => new ScryfallCollectionCardCache(
+            serviceProvider.GetService<IFeatureFlagCache>()));
         services.AddSingleton<IScryfallCardResolver>(serviceProvider =>
             new ScryfallCardResolver(
                 serviceProvider.GetRequiredService<IScryfallRestClientFactory>(),

@@ -163,6 +163,7 @@ internal static class ManabaseCommandRunner
         ScryfallCollectionProtocolRequest collectionRequest)
     {
         using ServiceProvider serviceProvider = BuildScryfallServiceProvider();
+        await CliFeatureFlagServices.InitializeFeatureFlagsAsync(serviceProvider, CancellationToken.None).ConfigureAwait(false);
         IScryfallCollectionProtocol collectionProtocol = serviceProvider.GetRequiredService<IScryfallCollectionProtocol>();
 
         var index = new ScryfallCardNameIndex();
@@ -284,6 +285,7 @@ internal static class ManabaseCommandRunner
         services.AddMemoryCache();
         services.AddDeckFlowHttpClients();
         services.AddDeckFlowResiliencePipelines();
+        services.AddCliFeatureFlags();
         services.AddDeckFlowScryfallServices();
         return services.BuildServiceProvider();
     }
