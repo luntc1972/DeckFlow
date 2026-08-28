@@ -59,8 +59,10 @@ public static class ScryfallServiceCollectionExtensions
                 sp.GetRequiredService<IScryfallRestClientFactory>(),
                 sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
                 sp.GetRequiredService<ScryfallCollectionCardCache>()));
+        services.AddSingleton<IScryfallCollectionProtocol>(sp => new ScryfallCollectionProtocol(
+            sp.GetRequiredService<IScryfallCardResolver>()));
         services.AddSingleton(sp => new ScryfallReferenceResolver(
-            sp.GetRequiredService<IScryfallCardResolver>(),
+            sp.GetRequiredService<IScryfallCollectionProtocol>(),
             sp.GetRequiredService<ScryfallCollectionCardCache>()));
         services.AddSingleton<IMechanicLookupService, WotcMechanicLookupService>();
         services.AddSingleton<ICommanderBanListService>(sp =>

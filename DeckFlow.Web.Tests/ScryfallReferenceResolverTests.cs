@@ -77,6 +77,39 @@ public sealed class ScryfallReferenceResolverTests
             result.Resolutions.Select(resolution => resolution.Card.Name));
     }
 
+    [Fact]
+    public async Task ResolveBatchAsync_MixedRequests_ReportsIdentifierAndExactNameProtocolBands()
+    {
+        var resolver = CreateResolver((_, _) => Task.FromResult(CreateCollectionResponse(new List<ScryfallCard>
+        {
+            CreateCard("Sol Ring"),
+            CreateCard("Delver of Secrets // Insectile Aberration"),
+        })));
+
+        var result = await resolver.ResolveBatchAsync(
+            new[] { "Sol Ring", "Delver of Secrets // Insectile Aberration" },
+            static (_, _) => Task.FromResult<ScryfallCard?>(null),
+            normalizeForScryfall: false,
+            CancellationToken.None);
+
+        Assert.Equal(ScryfallCollectionProtocolBand.Identifier, result.Resolutions[0].Band);
+        Assert.Equal(ScryfallCollectionProtocolBand.ExactName, result.Resolutions[1].Band);
+    }
+
+    [Fact]
+    public async Task ResolveBatchAsync_CollectionMiss_ReportsFallbackProtocolBand()
+    {
+        var resolver = CreateResolver((_, _) => Task.FromResult(CreateCollectionResponse(new List<ScryfallCard>())));
+
+        var result = await resolver.ResolveBatchAsync(
+            new[] { "Missing Card" },
+            static (_, _) => Task.FromResult<ScryfallCard?>(CreateCard("Recovered Card")),
+            normalizeForScryfall: false,
+            CancellationToken.None);
+
+        Assert.Equal(ScryfallCollectionProtocolBand.Fallback, Assert.Single(result.Resolutions).Band);
+    }
+
     /// <summary>
     /// T1: a warm name-space entry must be omitted from the next collection POST while a newly
     /// requested identifier remains in the POST. This catches a resolver that reads cached cards
