@@ -140,7 +140,7 @@ public sealed class CutLabFunctionalTwinsFlagTests
 
         CutLabDecision decision = Assert.Single(persisted.Decisions);
         Assert.Equal("Twin A", decision.CardName);
-        Assert.Equal(CutLabCutRoundEngine.Round2Key, decision.Round);
+        Assert.Equal(CutLabCutRoundEngine.Round3Key, decision.Round);
     }
 
     [Fact]
