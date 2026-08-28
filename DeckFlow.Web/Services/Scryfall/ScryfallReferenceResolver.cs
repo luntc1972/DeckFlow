@@ -267,7 +267,7 @@ internal sealed partial class ScryfallReferenceResolver
             }
 
             var cards = new List<ScryfallCard>(cachedCards);
-            ScryfallCollectionProtocolResponse response = await _collectionProtocol.ExecuteAsync(
+            ScryfallCollectionProtocolResponse response = await _collectionProtocol.ResolveAsync(
                 new ScryfallCollectionProtocolRequest(identifiersToSubmit),
                 cancellationToken).ConfigureAwait(false);
 
