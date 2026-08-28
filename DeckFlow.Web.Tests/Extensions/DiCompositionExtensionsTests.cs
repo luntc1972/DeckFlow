@@ -153,6 +153,7 @@ public sealed class DiCompositionExtensionsTests
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
         var resolver = scope.ServiceProvider.GetRequiredService<ScryfallReferenceResolver>();
+        var manabaseService = scope.ServiceProvider.GetRequiredService<IManabaseAnalysisService>();
         object[] consumers =
         {
             scope.ServiceProvider.GetRequiredService<IDeckAnalysisPacketService>(),
@@ -167,6 +168,10 @@ public sealed class DiCompositionExtensionsTests
             Assert.NotNull(field);
             Assert.Same(resolver, field.GetValue(consumer));
         }
+
+        var protocolField = manabaseService.GetType().GetField("_collectionProtocol", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(protocolField);
+        Assert.Same(scope.ServiceProvider.GetRequiredService<IScryfallCollectionProtocol>(), protocolField.GetValue(manabaseService));
     }
 
     // Why: both guards prove the SAME invariant — a service resolved from the container holds the
