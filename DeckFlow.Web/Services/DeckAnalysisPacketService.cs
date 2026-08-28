@@ -19,6 +19,7 @@ using Polly;
 using Polly.Registry;
 using RestSharp;
 using DeckFlow.Web.Models;
+using CoreScryfallCollectionIdentifier = DeckFlow.Core.Normalization.ScryfallCollectionIdentifier;
 using DeckFlow.Web.Services.Manabase;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
 using DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
@@ -1796,7 +1797,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         }
 
         var response = await _collectionProtocol.ResolveAsync(
-            new ScryfallCollectionProtocolRequest([ScryfallCollectionIdentifier.ForName(commanderName.Trim())]),
+            new ScryfallCollectionProtocolRequest([ScryfallCollectionIdentifier.ForName(CoreScryfallCollectionIdentifier.ToFaceIdentifier(commanderName.Trim()))]),
             cancellationToken).ConfigureAwait(false);
         var card = response.Cards.FirstOrDefault();
         if (card?.ColorIdentity is null)
