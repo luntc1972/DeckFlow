@@ -214,6 +214,43 @@ public sealed class CutLabUiPatchBuilderTests
             });
     }
 
+    /// <summary>
+    /// Why: T-041-03 / D-01 / D-04. Pins the AJAX/patch-builder boundary that cut-lab.ts actually
+    /// reads: the Slot Congestion heading, the structured Roles field flowing through
+    /// CutLabDecideFindingDto, and the absence of the legacy overclaiming strings.
+    /// </summary>
+    [Fact]
+    public async Task BuildAsync_FunctionalTwinsEnabled_ReturnsSlotCongestionFindingWithRoles()
+    {
+        CutLabState state = CreateState(
+            pool:
+            [
+                Card("Commander", quantity: 1, isCommander: true, isLocked: true),
+                Card("Twin Ramp A", quantity: 1, typeLine: "Artifact"),
+                Card("Twin Ramp B", quantity: 1, typeLine: "Artifact"),
+                Card("Twin Ramp C", quantity: 1, typeLine: "Artifact"),
+                Card("Basic Filler", quantity: 96, isLocked: true),
+            ]);
+        FakeAnalysisContextBuilder contextBuilder = new(workingList => CreateAnalysisContext(workingList));
+        CutLabUiPatchBuilder builder = CreateBuilder(contextBuilder);
+
+        CutLabUiPatchDto patch = await builder.BuildAsync(
+            state,
+            state.Intent.PlayExperience,
+            ["Commander"],
+            twinsEnabled: true);
+
+        CutLabDecideFindingGroupDto twinsGroup = Assert.Single(
+            patch.StructuralFindings,
+            group => group.Kind == CutLabFindingKind.FunctionalTwins);
+        Assert.Equal("Slot Congestion", twinsGroup.Heading);
+        CutLabDecideFindingDto twinsFinding = Assert.Single(twinsGroup.Items);
+        Assert.Equal(["Ramp"], twinsFinding.Roles);
+        Assert.Contains("exact mana value", twinsFinding.Lead, StringComparison.Ordinal);
+        Assert.DoesNotContain("Functional twins", twinsFinding.Heading, StringComparison.Ordinal);
+        Assert.DoesNotContain("costliest group", twinsFinding.Lead, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task BuildAsync_RoundTripsCompleteComboBadgesAndComboProtectedFindings()
     {
@@ -1035,6 +1072,7 @@ public sealed class CutLabUiPatchBuilderTests
                 "Round 1 Card" => ["engines"],
                 "Round 2 Card" => ["draw"],
                 "Deferred Card" => ["payoffs"],
+                "Twin Ramp A" or "Twin Ramp B" or "Twin Ramp C" => ["ramp"],
                 _ => [],
             };
 
@@ -1059,6 +1097,7 @@ public sealed class CutLabUiPatchBuilderTests
                 "Round 2 Card" => 3,
                 "Support Card" => 4,
                 "Deferred Card" => 5,
+                "Twin Ramp A" or "Twin Ramp B" or "Twin Ramp C" => 2,
                 _ => 1,
             };
             bool isLand = card.TypeLine.Contains("Land", StringComparison.OrdinalIgnoreCase);
@@ -1066,6 +1105,7 @@ public sealed class CutLabUiPatchBuilderTests
             analyzedCards.Add(new CutLabAnalyzedCard(card.Name, manaValue, isLand, roles, [])
             {
                 Quantity = card.Quantity,
+                TypeLine = card.TypeLine,
             });
         }
 
