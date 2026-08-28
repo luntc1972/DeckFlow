@@ -126,6 +126,7 @@ public static class CutLabCutRoundEngine
             CutLabFindingKind.RedundantFinishers,
             CutLabFindingKind.ComboProtected,
             CutLabFindingKind.EnablerStarved,
+            CutLabFindingKind.FunctionalTwins,
         };
 
     // Why: headroom (in-pool count minus effective floor) is now the primary locked-overshoot rank, because

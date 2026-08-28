@@ -556,7 +556,7 @@ public sealed class CutLabStructuralFindingsTests
         CutLabFinding finding = Assert.Single(result.Findings);
         Assert.Equal(["A", "B", "C"], finding.Evidence.Select(evidence => evidence.CardName));
         Assert.Contains("Ramp", finding.Lead, StringComparison.Ordinal);
-        Assert.Contains("Draw", finding.Lead, StringComparison.Ordinal);
+        Assert.Contains("Card draw", finding.Lead, StringComparison.Ordinal);
     }
 
     [Fact]
