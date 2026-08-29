@@ -86,7 +86,7 @@ const importPoolNoJs = async (page: Page): Promise<void> => {
   await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
   await page.getByRole('button', { name: 'Import pool' }).click();
 
-  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
+  await expandCutLabSection(page, 'cut-lab-section-lock-pool', false);
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 60_000 });
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
 };

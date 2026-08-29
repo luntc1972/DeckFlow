@@ -66,8 +66,8 @@ const fillImportFormNoJs = async (page: Page): Promise<void> => {
   await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
 };
 
-const waitForCutRounds = async (page: Page): Promise<void> => {
-  await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
+const waitForCutRounds = async (page: Page, enhancedTabs = true): Promise<void> => {
+  await expandCutLabSection(page, 'cut-lab-section-cut-rounds', enhancedTabs);
   await expect(page.getByRole('heading', { name: 'Cut rounds' })).toBeVisible();
   await expect(page.locator('.cutlab-round-banner')).toBeVisible();
   await expect(page.locator('.cutlab-round-banner > p')).toHaveText(/.+/);
@@ -180,6 +180,11 @@ test('previews, discards, and keeps a what-if swap without mutating state until 
 });
 
 test('supports the no-JS what-if preview and keep fallback via full-page re-render', async ({ browser }) => {
+  // No-JS accept/preview/keep POSTs run the sim-heavy pipeline server-side on
+  // the default Debug build, and the shared admin-lock beforeEach resets every
+  // test's budget to exactly 120s (support/admin-lock.ts:107) -- extend headroom
+  // here the same way the sibling no-JS test in cut-lab-nav-themes.spec.ts does.
+  test.setTimeout(240_000);
   const noJs = await buildNoJsPage(browser);
 
   try {
@@ -187,10 +192,10 @@ test('supports the no-JS what-if preview and keep fallback via full-page re-rend
     await expect(noJs.page.locator('h1')).toHaveText('Cut Lab');
     await fillImportFormNoJs(noJs.page);
     await noJs.page.getByRole('button', { name: 'Import pool' }).click();
-    await expandCutLabSection(noJs.page, 'cut-lab-section-lock-pool');
+    await expandCutLabSection(noJs.page, 'cut-lab-section-lock-pool', false);
     await expect(noJs.page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
     await expect(noJs.page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
-    await waitForCutRounds(noJs.page);
+    await waitForCutRounds(noJs.page, false);
 
     const cutPileCard = await acceptCurrentProposal(noJs.page);
     await expect(noJs.page.locator('[data-cut-lab-sticky-accepted]')).toContainText('1 cut so far');
