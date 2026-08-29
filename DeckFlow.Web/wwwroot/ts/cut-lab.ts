@@ -509,6 +509,18 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     document.querySelectorAll<HTMLButtonElement>('[role="tab"][data-cut-lab-step]')
   );
 
+  const relocateScenarioSection = (): void => {
+    const scenarios = document.getElementById('cut-lab-section-scenarios');
+    if (!scenarios || !scenarios.closest('[role="tabpanel"]')) {
+      return;
+    }
+
+    const anchorNav = document.querySelector<HTMLElement>('.cutlab-anchor-nav');
+    if (anchorNav) {
+      anchorNav.parentElement?.insertBefore(scenarios, anchorNav);
+    }
+  };
+
   // Why: This is the single writer of step-panel hidden state, without collapse, ARIA or focus behavior.
   const setVisibleStepPanel = (step: number): boolean => {
     const panels = Array.from(document.querySelectorAll<HTMLElement>('[role="tabpanel"]'));
@@ -583,6 +595,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         return;
       }
 
+      event.preventDefault();
       activateStepTab(button, true);
     });
     tablist.addEventListener('keydown', event => {
@@ -4521,6 +4534,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const initializeCutLab = (): void => {
     applyInitialSectionCollapseState();
     attachSectionCollapsePersistence();
+    relocateScenarioSection();
     attachStepTabHandler();
     attachAnchorNavHandler();
     updatePinnedProposalOffset();

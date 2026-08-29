@@ -26,8 +26,9 @@ const renderFixture = (selectedStep = 1): void => {
     <section role="tabpanel" id="cut-lab-step-panel-1" aria-labelledby="cut-lab-step-tab-1">Process<details id="cut-lab-section-lock-pool" data-cutlab-mobile-collapse></details></section>
     <section role="tabpanel" id="cut-lab-step-panel-2" aria-labelledby="cut-lab-step-tab-2">Decide<details id="cut-lab-section-cut-rounds" data-cutlab-mobile-collapse open></details></section>
     <section role="tabpanel" id="cut-lab-step-panel-3" aria-labelledby="cut-lab-step-tab-3">Plan</section>
-    <section role="tabpanel" id="cut-lab-step-panel-4" aria-labelledby="cut-lab-step-tab-4">Goals<details id="cut-lab-section-goals" data-cutlab-mobile-collapse></details></section>
+    <section role="tabpanel" id="cut-lab-step-panel-4" aria-labelledby="cut-lab-step-tab-4">Goals<details id="cut-lab-section-goals" data-cutlab-mobile-collapse></details><details id="cut-lab-section-scenarios"></details></section>
     <section role="tabpanel" id="cut-lab-step-panel-5" aria-labelledby="cut-lab-step-tab-5">Export<details id="cut-lab-section-export" data-cutlab-mobile-collapse></details></section>
+    <nav class="cutlab-anchor-nav"></nav>
     <form id="cut-lab-export-form"></form>
   `;
 };
@@ -69,6 +70,28 @@ describe('cut-lab step tabs', () => {
     expect(goals.getAttribute('tabindex')).toBe('0');
     expect(goals.classList.contains('is-active')).toBe(true);
     expect(document.getElementById('cut-lab-step-tab-1')?.getAttribute('aria-selected')).toBe('false');
+  });
+
+  it('prevents a submit-type step tab from submitting its export form', () => {
+    renderFixture();
+    initialize();
+    const submit = vi.fn((event: SubmitEvent) => event.preventDefault());
+    document.getElementById('cut-lab-export-form')?.addEventListener('submit', submit);
+
+    (document.getElementById('cut-lab-step-tab-5') as HTMLButtonElement).click();
+
+    expect(submit).not.toHaveBeenCalled();
+    expect(document.getElementById('cut-lab-step-tab-5')?.getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('moves scenarios outside hidden step panels on initialization', () => {
+    renderFixture(2);
+    initialize();
+
+    const scenarios = document.getElementById('cut-lab-section-scenarios');
+    expect(scenarios?.closest('[role="tabpanel"]')).toBeNull();
+    expect(scenarios?.closest('[hidden]')).toBeNull();
+    expect(scenarios?.nextElementSibling?.classList.contains('cutlab-anchor-nav')).toBe(true);
   });
 
   // Killing mutation: M4 - skip the initialization hide
