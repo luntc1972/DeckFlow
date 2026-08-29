@@ -9,7 +9,8 @@ import { clickManabasePillRadio } from './support/manabase-pill';
 const baseUrl = 'http://localhost:5173';
 const screenshotDir = resolve(__dirname, '../../.planning/ui-design/cut-lab/screenshots');
 const desktopViewport = { width: 1280, height: 900 };
-const mobileViewport = { width: 430, height: 2200 };
+// 2200px left no scrollable headroom below nav.cutlab-anchor-nav for the position:sticky assertion.
+const mobileViewport = { width: 430, height: 932 };
 
 const themes = [
   { name: 'classic', cookie: 'site.css' },
