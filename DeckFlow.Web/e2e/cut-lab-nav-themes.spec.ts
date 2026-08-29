@@ -166,6 +166,7 @@ const driveOneJsDecide = async (page: Page): Promise<void> => {
 
   const response = await decideResponse;
   expect(response.ok(), 'Cut Lab decide request must succeed before review capture').toBeTruthy();
+  await page.getByRole('tab', { name: 'Process' }).click();
   await expect(page.locator('[data-cut-lab-structural-findings]')).toBeVisible();
   expect(
     await page.locator('.cutlab-proposal__evidence .kb-chip, [data-cut-lab-package-id] .kb-chip').count(),
