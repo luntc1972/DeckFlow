@@ -279,7 +279,7 @@ public sealed class CutLabController : Controller
                 request.PlayExperience,
                 CutLabCommanderNames.Resolve(exportState),
                 HttpContext.RequestAborted).ConfigureAwait(false);
-            return View("CutLab", CutLabViewModel.From(request, result, export: export));
+            return View("CutLab", CutLabViewModel.From(request, result, export: export, currentStepOverride: 5));
         }
         catch (InvalidOperationException exception)
         {
