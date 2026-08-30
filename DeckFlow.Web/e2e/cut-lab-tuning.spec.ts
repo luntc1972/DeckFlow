@@ -296,6 +296,10 @@ test('tunes to exactly 100 with basic steppers, then reloads a saved scenario wi
   await expect(page.locator('[data-cut-lab-scenario-status]')).toHaveText('Scenario saved.');
   await expect(getScenarioRow(page, scenarioName)).toBeVisible();
 
+  const intakeDetails = page.locator('details.cutlab-intake');
+  if (!(await intakeDetails.getAttribute('open'))) {
+    await intakeDetails.locator(':scope > summary').click();
+  }
   await page.locator('[data-clear-cache]').click();
   await expect(page.getByRole('heading', { name: 'No pool imported yet' })).toBeVisible({ timeout: 30_000 });
   await clearCutLabSessionCache(page);
