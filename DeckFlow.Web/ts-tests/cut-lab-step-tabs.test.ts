@@ -72,7 +72,7 @@ describe('cut-lab step tabs', () => {
     expect(document.getElementById('cut-lab-step-tab-1')?.getAttribute('aria-selected')).toBe('false');
   });
 
-  it('prevents a submit-type step tab from submitting its export form', () => {
+  it('allows a submit-type step tab to submit its export form natively', () => {
     renderFixture();
     initialize();
     const submit = vi.fn((event: SubmitEvent) => event.preventDefault());
@@ -80,8 +80,8 @@ describe('cut-lab step tabs', () => {
 
     (document.getElementById('cut-lab-step-tab-5') as HTMLButtonElement).click();
 
-    expect(submit).not.toHaveBeenCalled();
-    expect(document.getElementById('cut-lab-step-tab-5')?.getAttribute('aria-selected')).toBe('true');
+    expect(submit).toHaveBeenCalled();
+    expect(document.getElementById('cut-lab-step-tab-5')?.getAttribute('aria-selected')).toBe('false');
   });
 
   it('moves scenarios outside hidden step panels on initialization', () => {
