@@ -130,6 +130,7 @@ test('previews, discards, and keeps a what-if swap without mutating state until 
   await importPool(page);
   await waitForCutRounds(page);
   await expandMobileCollapsibles(page);
+  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
 
   await page.locator('tr[data-cut-lab-card="Plains"] input[data-cut-lab-lock-card]').check();
   const cutPileCard = await acceptCurrentProposal(page);
