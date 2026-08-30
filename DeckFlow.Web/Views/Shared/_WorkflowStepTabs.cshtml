@@ -9,7 +9,7 @@
     // focusable entry point.
     var firstIncomplete = Model.Steps.FirstOrDefault(s => !s.IsComplete && s.IsEnabled);
     var firstEnabled = Model.Steps.FirstOrDefault(s => s.IsEnabled);
-    var currentStep = firstIncomplete?.Step ?? firstEnabled?.Step ?? (Model.Steps.Count > 0 ? Model.Steps[0].Step : 0);
+    var currentStep = Model.CurrentStepOverride ?? firstIncomplete?.Step ?? firstEnabled?.Step ?? (Model.Steps.Count > 0 ? Model.Steps[0].Step : 0);
     var navClass = Model.UseMobileLabeledTabs ? "prompt-step-nav prompt-step-nav--labeled" : "prompt-step-nav";
 }
 
