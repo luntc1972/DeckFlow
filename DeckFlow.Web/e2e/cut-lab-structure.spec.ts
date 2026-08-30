@@ -504,6 +504,7 @@ test('captures the structure screenshot matrix across themes and viewports', asy
       });
 
       const compareDetails = page.locator('details.cutlab-compare');
+      await page.getByRole('tab', { name: 'Goals' }).click();
       await compareDetails.locator(':scope > summary').click();
       await compareDetails.scrollIntoViewIfNeeded();
       await compareDetails.screenshot({
