@@ -403,7 +403,7 @@ test('proves the no-JS Cut Lab navigation and card-trigger fallbacks', async ({ 
     });
     expect(targetInView).toBe(true);
 
-    const mobileDetails = noJs.page.locator('details[data-cutlab-mobile-collapse]').first();
+    const mobileDetails = noJs.page.locator('#cut-lab-section-cut-rounds');
     await expect(mobileDetails).toHaveAttribute('open', '');
     await mobileDetails.locator('> summary').click();
     await expect(mobileDetails).not.toHaveAttribute('open', '');
