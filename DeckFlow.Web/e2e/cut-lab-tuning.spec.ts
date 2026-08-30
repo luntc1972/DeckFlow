@@ -126,12 +126,14 @@ const acceptUntilRemainingBySingleCopyCuts = async (page: Page, targetRemaining:
     }
 
     const cardName = await getProposalCardName(page);
+    await expandCutLabSection(page, 'cut-lab-section-lock-pool');
     const row = getPoolRow(page, cardName);
     await expect(row).toBeVisible();
     await expect(row.locator('input[data-cut-lab-lock-card]')).not.toBeChecked();
     expect(await getRowQuantity(page, cardName)).toBe(1);
 
     const heading = (await headingLocator.textContent())?.trim() ?? '';
+    await page.getByRole('tab', { name: 'Decide' }).click();
     await page.locator('.cutlab-proposal .cutlab-decision-btn--accept').first().click();
     // The first decide pays cold JIT + cold sim-cache cost; allow headroom on slow CI.
     await expect(page.locator('[data-cut-lab-sticky-remaining]')).toHaveText(`${remaining - 1} to cut`, { timeout: 30_000 });
@@ -199,6 +201,7 @@ const tuneToExactHundredWithAddedBasic = async (page: Page): Promise<void> => {
   await waitForCutRounds(page);
   await acceptUntilRemainingBySingleCopyCuts(page, 2);
 
+  await expandCutLabSection(page, 'cut-lab-section-tune');
   await expect(page.locator('[data-cut-lab-sticky-remaining]')).toHaveText('2 to cut');
   await expect(tunerRow(page, 'Island')).toBeVisible();
   await expect(tunerRow(page, 'Island').locator('td[data-label="Role"]')).toContainText('Lands');
@@ -219,6 +222,7 @@ const tuneToExactHundredWithExistingBasics = async (page: Page): Promise<void> =
   await waitForCutRounds(page);
   await acceptUntilRemainingBySingleCopyCuts(page, 2);
 
+  await expandCutLabSection(page, 'cut-lab-section-tune');
   await expect(page.locator('[data-cut-lab-sticky-remaining]')).toHaveText('2 to cut');
   await expect(tunerRow(page, 'Island')).toBeVisible();
   await expect(tunerRow(page, 'Island').locator('td[data-label="Role"]')).toContainText('Lands');
