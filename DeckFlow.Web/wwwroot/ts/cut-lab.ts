@@ -595,6 +595,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         return;
       }
 
+      if (button.type === 'submit') {
+        return;
+      }
+
       event.preventDefault();
       activateStepTab(button, true);
     });
