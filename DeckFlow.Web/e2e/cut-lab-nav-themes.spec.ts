@@ -6,7 +6,9 @@ import { setToolEnabled } from './support/admin-tools';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
 
-const baseUrl = 'http://localhost:5173';
+import { resolveE2EPort } from './support/e2e-port';
+
+const baseUrl = `http://localhost:${resolveE2EPort()}`;
 const screenshotDir = resolve(__dirname, '../../.planning/ui-design/cut-lab/screenshots');
 const desktopViewport = { width: 1280, height: 900 };
 // 2200px left no scrollable headroom below nav.cutlab-anchor-nav for the position:sticky assertion.
