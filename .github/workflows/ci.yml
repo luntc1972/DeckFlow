@@ -71,10 +71,10 @@ jobs:
         run: dotnet restore DeckFlow.sln
 
       - name: Build solution (compiles C# + browser TypeScript)
-        run: dotnet build DeckFlow.sln -c Release --no-restore
+        run: dotnet build DeckFlow.sln -c Release --no-restore -nodeReuse:false
 
       - name: Run .NET tests (xUnit — Core + Web; PG/integration auto-skip)
-        run: dotnet test DeckFlow.sln -c Release --no-build --verbosity normal
+        run: dotnet test DeckFlow.sln -c Release --no-build --verbosity normal -nodeReuse:false
 
       - name: Run browser TypeScript tests (Vitest + jsdom)
         working-directory: DeckFlow.Web
