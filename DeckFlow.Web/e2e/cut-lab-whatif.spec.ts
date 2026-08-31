@@ -133,8 +133,14 @@ test('previews, discards, and keeps a what-if swap without mutating state until 
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
 
   await page.locator('tr[data-cut-lab-card="Plains"] input[data-cut-lab-lock-card]').check();
+  await page.getByRole('tab', { name: 'Decide' }).click();
   const cutPileCard = await acceptCurrentProposal(page);
   await expect(page.locator('[data-cut-lab-sticky-accepted]')).toContainText('1 cut so far');
+
+  // The what-if selects live in the Goals panel, not Decide -- switch before
+  // any interaction with them (reads via evaluateAll don't need this, but
+  // .selectOption()/.click() below do).
+  await page.getByRole('tab', { name: 'Goals' }).click();
 
   const cardOutSelect = 'select[data-cut-lab-whatif-card-out]';
   const cardInSelect = 'select[data-cut-lab-whatif-card-in]';
