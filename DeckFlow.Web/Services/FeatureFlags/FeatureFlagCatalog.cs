@@ -131,11 +131,11 @@ public static class FeatureFlagCatalog
                 "Cut Lab: enable the commander-aware floor defaults layer on the role-floors table and floor resolution. " +
                 "Seeded OFF; off = byte-identical to the pre-Phase-3 bracket-only UI and behavior.",
             ["analysis.cut-lab.functional-twins"] =
-                "Cut Lab: surface the functional-twins structural finding - three or more unlocked, " +
+                "Cut Lab: surface the Slot Congestion structural finding - three or more unlocked, " +
                 "non-commander cards sharing the same role, the same exact mana value, and the same primary " +
-                "card type. This finding is discriminating, so turning it ON can change which card Cut Lab " +
-                "proposes next by changing card-to-round assignment. Seeded OFF; off = no functional-twins finding is produced and proposal order " +
-                "is unaffected by this detector.",
+                "card type. This finding is disclosure-only: it is excluded from the cut-round tally, so turning " +
+                "it ON cannot change which card Cut Lab proposes next, the queue order, or combo-protection " +
+                "composition. Seeded OFF; off = no Slot Congestion finding is produced.",
             ["analysis.manabase.source-list"] =
                 "Show two display-only disclosures inside the mana base untapped-sources lens: a full " +
                 "mana-source list with pip letters plus a tapped-sources subset. Page HTML only; off = byte-identical output.",

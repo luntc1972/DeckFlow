@@ -65,6 +65,16 @@ public sealed class FeatureFlagCatalogTests
     }
 
     [Fact]
+    public void Describe_SlotCongestion_UsesDisclosureOnlyLanguage()
+    {
+        string description = FeatureFlagCatalog.Describe("analysis.cut-lab.functional-twins");
+
+        Assert.DoesNotContain("can change which card", description, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("functional-twins", description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("disclosure-only", description, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Describe_UnknownKey_ReturnsEmptyString()
     {
         Assert.Equal(string.Empty, FeatureFlagCatalog.Describe("does.not.exist"));
