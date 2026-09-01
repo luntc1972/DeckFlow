@@ -14,6 +14,8 @@ internal static class PacketArtifactStore
 {
     private const int MaxEntryUncompressedBytes = 2 * 1024 * 1024;
     private const int MaxTotalUncompressedBytes = 10 * 1024 * 1024;
+    private static readonly DateTimeOffset FixedZipEntryLastWriteTime =
+        new(1980, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
     // Phase 10-05: serialization options for the new 20-edh-top16-references.json
     // artifact. CamelCase property names match the EdhTop16Entry JSON shape used
@@ -808,6 +810,7 @@ internal static class PacketArtifactStore
     private static void WriteEntry(ZipArchive archive, string fileName, string content)
     {
         var entry = archive.CreateEntry(fileName, CompressionLevel.Fastest);
+        entry.LastWriteTime = FixedZipEntryLastWriteTime;
         using var writer = new StreamWriter(entry.Open(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         writer.Write(content);
     }
