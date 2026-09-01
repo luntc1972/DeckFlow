@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -20,6 +21,26 @@ namespace DeckFlow.Web.Tests;
 /// </summary>
 public sealed class DeckPacketControllerTests
 {
+    [Fact]
+    public void BuildZip_SetsFixedLastWriteTimeOnEveryEntry()
+    {
+        var bytes = PacketArtifactStore.BuildZip(
+            new DeckAnalysisRequest(),
+            commanderName: null,
+            inputSummary: "input",
+            requestContextText: "context",
+            referenceText: "reference",
+            analysisPromptText: "prompt",
+            deckProfileSchemaJson: "{}",
+            setUpgradePromptText: "upgrade");
+
+        using var archive = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read);
+
+        Assert.NotEmpty(archive.Entries);
+        Assert.All(archive.Entries, entry =>
+            Assert.Equal(new DateTime(1980, 1, 1), entry.LastWriteTime.Date));
+    }
+
     [Fact]
     public void CedhMetaGap_Get_ReturnsExpectedViewModel()
     {
