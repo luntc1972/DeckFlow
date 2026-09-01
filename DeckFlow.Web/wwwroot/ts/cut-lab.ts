@@ -142,6 +142,7 @@ interface CutLabDecisionFinding {
   heading: string;
   lead: string;
   evidence: string[];
+  roles: string[];
 }
 
 interface CutLabDecisionFindingGroup {
@@ -508,6 +509,18 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     document.querySelectorAll<HTMLButtonElement>('[role="tab"][data-cut-lab-step]')
   );
 
+  const relocateScenarioSection = (): void => {
+    const scenarios = document.getElementById('cut-lab-section-scenarios');
+    if (!scenarios || !scenarios.closest('[role="tabpanel"]')) {
+      return;
+    }
+
+    const anchorNav = document.querySelector<HTMLElement>('.cutlab-anchor-nav');
+    if (anchorNav) {
+      anchorNav.parentElement?.insertBefore(scenarios, anchorNav);
+    }
+  };
+
   // Why: This is the single writer of step-panel hidden state, without collapse, ARIA or focus behavior.
   const setVisibleStepPanel = (step: number): boolean => {
     const panels = Array.from(document.querySelectorAll<HTMLElement>('[role="tabpanel"]'));
@@ -582,6 +595,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         return;
       }
 
+      if (button.type === 'submit') {
+        return;
+      }
+
+      event.preventDefault();
       activateStepTab(button, true);
     });
     tablist.addEventListener('keydown', event => {
@@ -2501,7 +2519,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
           groupElement.appendChild(createTextElement(
             'p',
             'manabase-help',
-            'These cards fill the same role at the same mana value with the same card type, so they compete for one slot. The costliest group is listed first, and a card here may also be combo-protected.',
+            'Slot Congestion means these cards share the same role, card type, and exact mana value. Treat them as review candidates, not automatic cuts — a card here may also be combo-protected.',
           ));
         }
 
@@ -2509,6 +2527,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
           const itemElement = document.createElement('div');
           itemElement.className = 'cutlab-finding__item';
           itemElement.appendChild(createTextElement('p', 'cutlab-finding__lead', item.lead));
+
+          if (item.roles && item.roles.length > 0) {
+            itemElement.appendChild(createTextElement('p', 'cutlab-finding__roles', `Role: ${item.roles.join(', ')}`));
+          }
 
           if (item.evidence.length > 0) {
             const chips = document.createElement('div');
@@ -4516,6 +4538,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const initializeCutLab = (): void => {
     applyInitialSectionCollapseState();
     attachSectionCollapsePersistence();
+    relocateScenarioSection();
     attachStepTabHandler();
     attachAnchorNavHandler();
     updatePinnedProposalOffset();

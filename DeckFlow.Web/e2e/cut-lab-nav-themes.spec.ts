@@ -6,10 +6,13 @@ import { setToolEnabled } from './support/admin-tools';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
 
-const baseUrl = 'http://localhost:5173';
+import { resolveE2EPort } from './support/e2e-port';
+
+const baseUrl = `http://localhost:${resolveE2EPort()}`;
 const screenshotDir = resolve(__dirname, '../../.planning/ui-design/cut-lab/screenshots');
 const desktopViewport = { width: 1280, height: 900 };
-const mobileViewport = { width: 430, height: 2200 };
+// 2200px left no scrollable headroom below nav.cutlab-anchor-nav for the position:sticky assertion.
+const mobileViewport = { width: 430, height: 932 };
 
 const themes = [
   { name: 'classic', cookie: 'site.css' },
@@ -85,7 +88,7 @@ const importPoolNoJs = async (page: Page): Promise<void> => {
   await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
   await page.getByRole('button', { name: 'Import pool' }).click();
 
-  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
+  await expandCutLabSection(page, 'cut-lab-section-lock-pool', false);
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 60_000 });
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
 };
@@ -166,6 +169,7 @@ const driveOneJsDecide = async (page: Page): Promise<void> => {
 
   const response = await decideResponse;
   expect(response.ok(), 'Cut Lab decide request must succeed before review capture').toBeTruthy();
+  await page.getByRole('tab', { name: 'Process' }).click();
   await expect(page.locator('[data-cut-lab-structural-findings]')).toBeVisible();
   expect(
     await page.locator('.cutlab-proposal__evidence .kb-chip, [data-cut-lab-package-id] .kb-chip').count(),
@@ -401,7 +405,7 @@ test('proves the no-JS Cut Lab navigation and card-trigger fallbacks', async ({ 
     });
     expect(targetInView).toBe(true);
 
-    const mobileDetails = noJs.page.locator('details[data-cutlab-mobile-collapse]').first();
+    const mobileDetails = noJs.page.locator('#cut-lab-section-cut-rounds');
     await expect(mobileDetails).toHaveAttribute('open', '');
     await mobileDetails.locator('> summary').click();
     await expect(mobileDetails).not.toHaveAttribute('open', '');

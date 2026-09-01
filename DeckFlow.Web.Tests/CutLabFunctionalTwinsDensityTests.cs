@@ -60,6 +60,19 @@ public sealed class CutLabFunctionalTwinsDensityTests
 
     private const int FillerCardCount = 64;
 
+    [Fact]
+    public void FunctionalTwins_IdenticalGroupsAcrossRoles_CountsOneCanonicalGroup()
+    {
+        IReadOnlyList<CutLabFinding> findings = ComputeTwins(
+        [
+            Card("A", 2, isLand: false, "Artifact", [RampRole, DrawRole]),
+            Card("B", 2, isLand: false, "Artifact", [RampRole, DrawRole]),
+            Card("C", 2, isLand: false, "Artifact", [RampRole, DrawRole]),
+        ]);
+
+        Assert.Single(findings);
+    }
+
     private static readonly (string TypeLine, string Label)[] FillerTypeLines =
     [
         ("Artifact", "Artifact"),
@@ -175,12 +188,12 @@ public sealed class CutLabFunctionalTwinsDensityTests
         // regardless of input order -- that is what this test actually proves.
         string[] expectedLeads =
         [
-            "3 planeswalker cards fill your Win conditions slot at mana value 5 — they compete with each other, so the pool likely only needs some of them.",
-            "3 enchantment cards fill your Engines slot at mana value 4 — they compete with each other, so the pool likely only needs some of them.",
-            "3 creature cards fill your Ramp slot at mana value 3 — they compete with each other, so the pool likely only needs some of them.",
-            "4 artifact cards fill your Ramp slot at mana value 3 — they compete with each other, so the pool likely only needs some of them.",
-            "4 sorcery cards fill your Card draw slot at mana value 2 — they compete with each other, so the pool likely only needs some of them.",
-            "3 instant cards fill your Targeted removal slot at mana value 1 — they compete with each other, so the pool likely only needs some of them.",
+            "3 planeswalker cards share the Win conditions role, card type, and exact mana value 5 — treat them as review candidates, not an automatic cut.",
+            "3 enchantment cards share the Engines role, card type, and exact mana value 4 — treat them as review candidates, not an automatic cut.",
+            "3 creature cards share the Ramp role, card type, and exact mana value 3 — treat them as review candidates, not an automatic cut.",
+            "4 artifact cards share the Ramp role, card type, and exact mana value 3 — treat them as review candidates, not an automatic cut.",
+            "4 sorcery cards share the Card draw role, card type, and exact mana value 2 — treat them as review candidates, not an automatic cut.",
+            "3 instant cards share the Targeted removal role, card type, and exact mana value 1 — treat them as review candidates, not an automatic cut.",
         ];
 
         string[] expectedEvidenceJoined =

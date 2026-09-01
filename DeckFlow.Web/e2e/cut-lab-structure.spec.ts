@@ -6,7 +6,9 @@ import { setToolEnabled } from './support/admin-tools';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
 
-const baseUrl = 'http://localhost:5173';
+import { resolveE2EPort } from './support/e2e-port';
+
+const baseUrl = `http://localhost:${resolveE2EPort()}`;
 const screenshotDir = resolve(__dirname, '../../.planning/ui-design/cut-lab/screenshots');
 
 const themes = [
@@ -504,6 +506,7 @@ test('captures the structure screenshot matrix across themes and viewports', asy
       });
 
       const compareDetails = page.locator('details.cutlab-compare');
+      await page.getByRole('tab', { name: 'Goals' }).click();
       await compareDetails.locator(':scope > summary').click();
       await compareDetails.scrollIntoViewIfNeeded();
       await compareDetails.screenshot({

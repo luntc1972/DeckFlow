@@ -226,7 +226,43 @@ public sealed class CutLabViewRenderTests
         // EITHER file now fails. Assert the full sentence, not a prefix: a prefix check would not
         // catch drift in the tail (the "combo-protected" clause).
         Assert.Contains(
-            "<p class=\"manabase-help\">These cards fill the same role at the same mana value with the same card type, so they compete for one slot. The costliest group is listed first, and a card here may also be combo-protected.</p>",
+            "<p class=\"manabase-help\">Slot Congestion means these cards share the same role, card type, and exact mana value. Treat them as review candidates, not automatic cuts — a card here may also be combo-protected.</p>",
+            html,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Why: T-041-03. Pins the absence of the legacy overclaiming copy so a future edit that
+    /// reintroduces "Functional twins" or "costliest group" prose fails loudly instead of drifting
+    /// back in silently.
+    /// </summary>
+    [Fact]
+    public async Task RenderAsync_FunctionalTwinsSection_DoesNotRenderLegacyWording()
+    {
+        var model = BuildTwinBadgeModel(
+            cardTextByCardName: new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase));
+
+        string html = await RenderAsync(model);
+
+        Assert.DoesNotContain("Functional twins", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("costliest group", html, StringComparison.Ordinal);
+        Assert.Contains("Slot Congestion", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Why: T-041-03. The structured Roles field is the presenter/view channel for enumerating
+    /// every shared role without parsing Lead's prose — pin that it actually renders.
+    /// </summary>
+    [Fact]
+    public async Task RenderAsync_FunctionalTwinsSection_RendersStructuredRolesLine()
+    {
+        var model = BuildTwinBadgeModel(
+            cardTextByCardName: new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase));
+
+        string html = await RenderAsync(model);
+
+        Assert.Contains(
+            "<p class=\"cutlab-finding__roles\">Role: Win conditions</p>",
             html,
             StringComparison.Ordinal);
     }
@@ -240,9 +276,10 @@ public sealed class CutLabViewRenderTests
         var twinFinding = new CutLabFindingView
         {
             Kind = CutLabFindingKind.FunctionalTwins,
-            Heading = "Functional twins",
-            Lead = "Three enchantments share mana value 3 in wincons.",
+            Heading = "Slot Congestion",
+            Lead = "Three enchantments share the Win conditions role, card type, and exact mana value 3 — treat them as review candidates, not an automatic cut.",
             Evidence = [HeliodRawName],
+            Roles = ["Win conditions"],
         };
 
         return new CutLabViewModel
@@ -265,7 +302,7 @@ public sealed class CutLabViewRenderTests
                 new CutLabFindingGroupView
                 {
                     Kind = CutLabFindingKind.FunctionalTwins,
-                    Heading = "Functional twins",
+                    Heading = "Slot Congestion",
                     Items = [twinFinding],
                 },
             ],

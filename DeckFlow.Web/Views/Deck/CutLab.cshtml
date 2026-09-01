@@ -16,6 +16,7 @@
         TabIdPrefix: "cut-lab-step-tab",
         PanelIdPrefix: "cut-lab-step-panel",
         DataShowStepAttribute: "cut-lab-step",
+        CurrentStepOverride: Model.CurrentStepOverride,
         UseMobileLabeledTabs: true,
         Steps:
         [
@@ -701,12 +702,16 @@
                             }
                             @if (findingGroup.Kind == CutLabFindingKind.FunctionalTwins)
                             {
-                                <p class="manabase-help">These cards fill the same role at the same mana value with the same card type, so they compete for one slot. The costliest group is listed first, and a card here may also be combo-protected.</p>
+                                <p class="manabase-help">Slot Congestion means these cards share the same role, card type, and exact mana value. Treat them as review candidates, not automatic cuts — a card here may also be combo-protected.</p>
                             }
                             @foreach (var finding in findingGroup.Items)
                             {
                                 <div class="cutlab-finding__item">
                                     <p class="cutlab-finding__lead">@finding.Lead</p>
+                                    @if (finding.Roles.Count > 0)
+                                    {
+                                        <p class="cutlab-finding__roles">Role: @string.Join(", ", finding.Roles)</p>
+                                    }
                                     @if (finding.Evidence.Count > 0)
                                     {
                                         <div class="kb-chip-area__chips">
