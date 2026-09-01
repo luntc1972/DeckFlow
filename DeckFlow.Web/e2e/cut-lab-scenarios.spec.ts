@@ -4,7 +4,9 @@ import { setToolEnabled } from './support/admin-tools';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
 
-const baseUrl = 'http://localhost:5173';
+import { resolveE2EPort } from './support/e2e-port';
+
+const baseUrl = `http://localhost:${resolveE2EPort()}`;
 
 const oversizedPool = [
   'Commander',
@@ -128,12 +130,12 @@ test('saves a named scenario, then restores the saved session after a fresh impo
   const scenarioName = 'Locked tutor line';
 
   await importPool(page, savedPrimaryPlan);
-  await waitForCutRounds(page);
-  await expandMobileCollapsibles(page);
-
   await page.locator('tr[data-cut-lab-card="Rhystic Study"] input[data-cut-lab-lock-card]').check();
-  await page.locator('input[data-cut-lab-goal="commander"]').fill('5');
+  await waitForCutRounds(page);
   const acceptedCard = await acceptCurrentProposal(page);
+  await expandCutLabSection(page, 'cut-lab-section-goals');
+  await page.locator('input[data-cut-lab-goal="commander"]').fill('5');
+  await expandMobileCollapsibles(page);
 
   await expect(page.locator('[data-cut-lab-sticky-accepted]')).toContainText('1 cut so far');
   await expect(page.locator('.cutlab-cuts-made__row')).toContainText(acceptedCard);

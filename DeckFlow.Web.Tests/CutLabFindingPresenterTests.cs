@@ -1,4 +1,5 @@
 using DeckFlow.Web.Models;
+using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CutLab;
 using Xunit;
 
@@ -155,4 +156,38 @@ public sealed class CutLabFindingPresenterTests
             Lead = lead,
             Evidence = [],
         };
+
+    /// <summary>
+    /// Why: T-041-03 / D-01 / D-04. This runs the real detector (not a synthetic fixture) through
+    /// BuildFindings to catch drift between the production heading/copy and this presenter, and
+    /// pins the legacy strings' absence at the boundary the Razor and AJAX surfaces actually read.
+    /// </summary>
+    [Fact]
+    public void BuildFindings_RealFunctionalTwinsDetectorOutput_UsesSlotCongestionAndStructuredRoles()
+    {
+        CutLabAnalyzedCard[] pool =
+        [
+            new("Twin A", 2, false, ["ramp"], []) { TypeLine = "Artifact" },
+            new("Twin B", 2, false, ["ramp"], []) { TypeLine = "Artifact" },
+            new("Twin C", 2, false, ["ramp"], []) { TypeLine = "Artifact" },
+        ];
+        CutLabStructuralFindingsResult result = CutLabStructuralFindings.Compute(
+            pool,
+            Array.Empty<SpellbookAlmostCombo>(),
+            new Dictionary<string, int>(StringComparer.Ordinal),
+            comboDataAvailable: false,
+            categoryDataAvailable: false,
+            twinsEnabled: true);
+
+        IReadOnlyList<CutLabFindingView> views = CutLabFindingPresenter.BuildFindings(result.Findings);
+        CutLabFindingView view = Assert.Single(views);
+
+        Assert.Equal(CutLabFindingKind.FunctionalTwins, view.Kind);
+        Assert.Equal("Slot Congestion", view.Heading);
+        Assert.DoesNotContain("Functional twins", view.Heading, StringComparison.Ordinal);
+        Assert.DoesNotContain("Functional twins", view.Lead, StringComparison.Ordinal);
+        Assert.DoesNotContain("costliest group", view.Lead, StringComparison.Ordinal);
+        Assert.Contains("exact mana value", view.Lead, StringComparison.Ordinal);
+        Assert.Equal(["Ramp"], view.Roles);
+    }
 }

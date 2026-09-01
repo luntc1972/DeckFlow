@@ -30,6 +30,7 @@ interface CutLabPatchResponse {
         heading: string;
         lead: string;
         evidence: string[];
+        roles?: string[];
       }>;
     }>;
     comboDataAvailable: boolean;
@@ -190,20 +191,21 @@ const buildPatch = (comboContext = 'Infinite cards'): CutLabPatchResponse => ({
 });
 
 // Must stay character-identical to the Razor twins help note in Views/Deck/CutLab.cshtml.
-const twinsHelpNote = 'These cards fill the same role at the same mana value with the same card type, so they compete for one slot. The costliest group is listed first, and a card here may also be combo-protected.';
+const twinsHelpNote = 'Slot Congestion means these cards share the same role, card type, and exact mana value. Treat them as review candidates, not automatic cuts — a card here may also be combo-protected.';
 
 const buildTwinsPatch = (): CutLabPatchResponse => {
   const response = buildPatch();
   response.patch!.structuralFindings = [
     {
       kind: 'FunctionalTwins',
-      heading: 'Functional twins',
+      heading: 'Slot Congestion',
       items: [
         {
           kind: 'FunctionalTwins',
-          heading: 'Functional twins',
-          lead: 'Three interaction instants share mana value 1.',
+          heading: 'Slot Congestion',
+          lead: 'Three interaction instants share the Targeted removal role, card type, and exact mana value 1 — treat them as review candidates, not an automatic cut.',
           evidence: ['Counterspell'],
+          roles: ['Targeted removal'],
         },
       ],
     },
@@ -283,5 +285,36 @@ describe('cut-lab structural card popup data', () => {
     const notes = document.querySelectorAll<HTMLElement>('[data-cut-lab-structural-findings-body] .cutlab-finding p.manabase-help');
     expect(notes.length).toBe(1);
     expect(notes[0]?.textContent).toBe(twinsHelpNote);
+  });
+
+  // Why: T-041-03. Pins the AJAX-rendered Slot Congestion copy and role line, and pins the
+  // absence of the legacy overclaiming strings so a future edit that reintroduces
+  // "Functional twins" or "costliest group" prose in the TS render path fails loudly.
+  it('renderStructuralFindings_FunctionalTwins_UsesSlotCongestionAndRendersRoles_NoLegacyWording', async () => {
+    buildFixture();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => buildTwinsPatch(),
+    });
+
+    const form = document.querySelector<HTMLFormElement>('form[action="/cut-lab/decide"]');
+    const button = form?.querySelector<HTMLButtonElement>('[data-cut-lab-decision="accept"]');
+
+    form?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: button ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    const body = document.querySelector<HTMLElement>('[data-cut-lab-structural-findings-body]');
+    const heading = body?.querySelector<HTMLElement>('.cutlab-finding__heading');
+    const rolesLine = body?.querySelector<HTMLElement>('.cutlab-finding__roles');
+
+    expect(heading?.textContent).toBe('Slot Congestion');
+    expect(rolesLine?.textContent).toBe('Role: Targeted removal');
+    expect(body?.textContent).toContain('exact mana value');
+    expect(body?.textContent).not.toContain('Functional twins');
+    expect(body?.textContent).not.toContain('costliest group');
   });
 });

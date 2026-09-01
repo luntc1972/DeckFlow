@@ -1,9 +1,11 @@
 import { existsSync } from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
+import { resolveE2EPort } from './e2e/support/e2e-port';
 
 const windowsDotnetPath = '/mnt/c/Program Files/dotnet/dotnet.exe';
 const dotnetCommand = existsSync(windowsDotnetPath) ? `"${windowsDotnetPath}"` : 'dotnet';
 const reuseExistingServer = !process.env.CI || Boolean(process.env.WSL_DISTRO_NAME);
+const e2ePort = resolveE2EPort();
 
 export default defineConfig({
   testDir: './e2e',
@@ -19,7 +21,7 @@ export default defineConfig({
   use: {
     // Force headless so a local WSL run never surfaces a browser window on the Windows host via WSLg.
     headless: true,
-    baseURL: 'http://localhost:5173',
+    baseURL: `http://localhost:${e2ePort}`,
     httpCredentials: {
       username: process.env.FEEDBACK_ADMIN_USER ?? 'admin',
       password: process.env.FEEDBACK_ADMIN_PASSWORD ?? 'changeme-local',
@@ -78,8 +80,8 @@ export default defineConfig({
     // /api/cut-lab/decide take >15s on the 2-core runner and deterministically
     // times out the cut-lab decide/tuning specs. Local dev keeps the default
     // Debug build (fast enough on dev hardware, no Release build required).
-    command: `${dotnetCommand} run${process.env.CI ? ' -c Release --no-build' : ''} --launch-profile http-no-browser`,
-    url: 'http://localhost:5173',
+    command: `${dotnetCommand} run${process.env.CI ? ' -c Release --no-build' : ''} --launch-profile http-no-browser --urls http://localhost:${e2ePort}`,
+    url: `http://localhost:${e2ePort}`,
     reuseExistingServer,
     timeout: 120_000,
     env: {

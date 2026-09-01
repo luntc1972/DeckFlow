@@ -118,6 +118,9 @@ public sealed record CutLabViewModel
     /// <summary>True when a resolved state is available to render.</summary>
     public bool HasResult { get; init; }
 
+    /// <summary>Optional workflow step selected by the server-rendered response.</summary>
+    public int? CurrentStepOverride { get; init; }
+
     /// <summary>Serialized hidden-field working-session JSON.</summary>
     public string CutLabStateJson { get; init; } = string.Empty;
 
@@ -298,7 +301,8 @@ public sealed record CutLabViewModel
         CutLabRequest request,
         CutLabProcessResult result,
         CutLabWhatifPreviewView? whatif = null,
-        CutLabExportView? export = null)
+        CutLabExportView? export = null,
+        int? currentStepOverride = null)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(result);
@@ -359,6 +363,7 @@ public sealed record CutLabViewModel
             CommanderChoices = result.CommanderChoices,
             Warnings = result.Warnings,
             HasResult = result.HasResult,
+            CurrentStepOverride = currentStepOverride,
             CutLabStateJson = result.SerializedStateJson ?? request.CutLabStateJson,
             Pool = pool,
             Packages = result.State?.Packages ?? [],
@@ -1160,6 +1165,9 @@ public sealed record CutLabFindingView
 
     /// <summary>Preformatted supporting evidence lines for the finding.</summary>
     public IReadOnlyList<string> Evidence { get; init; } = [];
+
+    /// <summary>Structured role display labels for findings that enumerate roles (e.g. Slot Congestion); empty otherwise.</summary>
+    public IReadOnlyList<string> Roles { get; init; } = [];
 }
 
 /// <summary>View-ready group of one or more structural findings for panel rendering.</summary>

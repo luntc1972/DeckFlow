@@ -26,7 +26,7 @@ export async function expandCutLabSection(page: Page, sectionId: string, enhance
       const unreachableMessage =
         `Section ${sectionId} is unreachable because its step is disabled (panel ${panelId}, tab ${tabId!})`;
 
-      await expect(tab, unreachableMessage).not.toBeDisabled();
+      await expect(tab, unreachableMessage).not.toHaveAttribute('aria-disabled', 'true');
       await tab.click();
       await expect(tab).toHaveAttribute('aria-selected', 'true');
       await expect(panel).not.toHaveAttribute('hidden', /.*/);

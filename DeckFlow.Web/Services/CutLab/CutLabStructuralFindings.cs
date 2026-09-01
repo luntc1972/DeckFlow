@@ -49,11 +49,22 @@ public sealed record CutLabFindingEvidence(string CardName, double? ManaValue, C
 /// <param name="Heading">UI heading, fixed by the Cut Lab UI specification.</param>
 /// <param name="Lead">Lead sentence describing the measured issue.</param>
 /// <param name="Evidence">Supporting card-level evidence.</param>
+/// <param name="Roles">
+/// Structured role display labels for findings that enumerate roles (Slot Congestion), so
+/// presenters and views can render every shared role without parsing <see cref="Lead"/>.
+/// Defaults to an empty collection for findings that carry no role data, and so that existing
+/// four-argument construction sites keep compiling unchanged.
+/// </param>
 public sealed record CutLabFinding(
     CutLabFindingKind Kind,
     string Heading,
     string Lead,
-    IReadOnlyList<CutLabFindingEvidence> Evidence);
+    IReadOnlyList<CutLabFindingEvidence> Evidence,
+    IReadOnlyList<string>? Roles = null)
+{
+    /// <summary>Structured role display labels; see the primary-constructor parameter doc.</summary>
+    public IReadOnlyList<string> Roles { get; init; } = Roles ?? [];
+}
 
 /// <summary>The full structural-finding result plus source-availability flags.</summary>
 /// <param name="Findings">Triggered findings in deterministic display order.</param>
@@ -402,24 +413,53 @@ public static class CutLabStructuralFindings
             }
         }
 
-        // Why: Under exact-mana-value grouping every member of a group shares one mana value, so a descending sort within a group is degenerate; TWIN-03's intent, surfacing the costlier redundancy first, is therefore honored across groups. The two secondary keys exist purely so the output is deterministic between identical runs, which CutLabEngineDeterminismTests requires.
-        foreach ((string roleKey, double manaValue, string primaryType, CutLabAnalyzedCard[] cards) in qualifyingGroups
+        Dictionary<IReadOnlyList<string>, List<(string RoleKey, double ManaValue, string PrimaryType, CutLabAnalyzedCard[] Cards)>> groupsByEvidence = new(NormalizedNameSetComparer.Instance);
+        foreach ((string roleKey, double manaValue, string primaryType, CutLabAnalyzedCard[] cards) in qualifyingGroups)
+        {
+            IReadOnlyList<string> evidenceKey = cards.Select(card => CutLabCardNames.Normalize(card.Name))
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToArray();
+            if (!groupsByEvidence.TryGetValue(evidenceKey, out List<(string RoleKey, double ManaValue, string PrimaryType, CutLabAnalyzedCard[] Cards)>? groups))
+            {
+                groups = [];
+                groupsByEvidence.Add(evidenceKey, groups);
+            }
+
+            groups.Add((roleKey, manaValue, primaryType, cards));
+        }
+
+        List<(string RoleKeys, double ManaValue, string PrimaryType, CutLabAnalyzedCard[] Cards)> canonicalGroups = groupsByEvidence.Values
+            .Select(groups => (
+                string.Join("|", groups.OrderBy(group => Array.IndexOf(TwinEligibleRoleKeys, group.RoleKey)).Select(group => group.RoleKey)),
+                groups[0].ManaValue,
+                groups[0].PrimaryType,
+                groups[0].Cards))
+            .ToList();
+
+        // Why: A normalized evidence-card set is one disclosure even when its cards share several roles.
+        foreach ((string roleKey, double manaValue, string primaryType, CutLabAnalyzedCard[] cards) in canonicalGroups
             .OrderByDescending(group => group.ManaValue)
             .ThenBy(group => Array.IndexOf(CutLabRoleAssigner.TypeGroupOrder, group.PrimaryType))
-            // Why: This role-index tiebreak is belt-and-braces and deliberately unpinned because collection order currently already follows TwinEligibleRoleKeys.
-            .ThenBy(group => Array.IndexOf(TwinEligibleRoleKeys, group.RoleKey)))
+            .ThenBy(group => Array.IndexOf(TwinEligibleRoleKeys, group.RoleKeys.Split('|')[0])))
         {
-            string roleLabel = CutLabRoleAssigner.DisplayLabelFor(roleKey);
+            // Why: D-04/T-041-03. roleLabels is the structured, presenter/view-facing channel for
+            // enumerating every shared role (CutLabFindingView.Roles) so consumers never need to
+            // parse Lead's prose; Lead still names the same role(s) for the plain-text reader, but
+            // states only the safe, disclosure-only contract (role, type, exact mana value, review
+            // candidate) without claiming functional equivalence or that any member is costlier.
+            string[] roleLabels = roleKey.Split('|').Select(CutLabRoleAssigner.DisplayLabelFor).ToArray();
+            string roleLabel = string.Join(", ", roleLabels);
 
             yield return new CutLabFinding(
                 CutLabFindingKind.FunctionalTwins,
-                "Functional twins",
-                $"{cards.Length} {primaryType.ToLowerInvariant()} cards fill your {roleLabel} slot at mana value {manaValue:0.##} \u2014 they compete with each other, so the pool likely only needs some of them.",
+                "Slot Congestion",
+                $"{cards.Length} {primaryType.ToLowerInvariant()} cards share the {roleLabel} role, card type, and exact mana value {manaValue:0.##} \u2014 treat them as review candidates, not an automatic cut.",
                 // Why: OrderByDescending(ManaValue) satisfies TWIN-03 and remains correct if the grouping dimension ever widens; ThenBy(Name, Ordinal) produces the deterministic order today.
                 cards.OrderByDescending(card => card.ManaValue)
                     .ThenBy(card => card.Name, StringComparer.Ordinal)
                     .Select(card => new CutLabFindingEvidence(card.Name, card.ManaValue))
-                    .ToArray());
+                    .ToArray(),
+                Roles: roleLabels);
         }
     }
 
@@ -575,4 +615,24 @@ public static class CutLabStructuralFindings
             WinconsRole => "Win conditions",
             _ => roleKey,
         };
+
+    private sealed class NormalizedNameSetComparer : IEqualityComparer<IReadOnlyList<string>>
+    {
+        public static readonly NormalizedNameSetComparer Instance = new();
+
+        public bool Equals(IReadOnlyList<string>? x, IReadOnlyList<string>? y)
+            => ReferenceEquals(x, y)
+                || (x is not null && y is not null && x.SequenceEqual(y, StringComparer.Ordinal));
+
+        public int GetHashCode(IReadOnlyList<string> names)
+        {
+            HashCode hash = new();
+            foreach (string name in names)
+            {
+                hash.Add(name, StringComparer.Ordinal);
+            }
+
+            return hash.ToHashCode();
+        }
+    }
 }
