@@ -1,6 +1,7 @@
 using System.Data.Common;
 using Dapper;
 using Microsoft.Extensions.Logging;
+using DeckFlow.Core.Integration;
 using DeckFlow.Core.Storage;
 
 namespace DeckFlow.Core.Knowledge;
@@ -277,11 +278,13 @@ internal sealed class DeckQueueRepository
     /// <param name="deckId">Deck ID to update.</param>
     /// <param name="commanderName">Commander card name extracted from the imported deck, or null on skip / unknown.</param>
     /// <param name="skip">Whether the deck should be marked as skipped after failure.</param>
+    /// <param name="metadata">Captured Archidekt metadata, or null when no capture occurred.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     internal async Task MarkDeckProcessedAsync(
         string deckId,
         string? commanderName,
         bool skip = false,
+        ArchidektDeckMetadata? metadata = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(deckId);
@@ -293,22 +296,46 @@ internal sealed class DeckQueueRepository
         // D-17: capture commander identity in the same UPDATE that flips processed=1 so the
         // harvest stats panel (top-10 commanders) can read deck_queue.commander_name without
         // a join into card_category_observations.
-        await connection.ExecuteAsync(new CommandDefinition(
-            """
+        var metadataParameters = metadata is null ? null : ArchidektDeckMetadataParameters.From(metadata);
+        var sql = metadataParameters is null
+            ? """
             UPDATE deck_queue
                SET processed = 1,
                    skipped = @skipped,
                    last_checked_utc = @now,
                    commander_name = @commanderName
              WHERE deck_id = @deckId;
-            """,
-            new
-            {
-                deckId,
-                now = DateTime.UtcNow,
-                skipped = skip ? 1 : 0,
-                commanderName
-            },
+            """
+            : """
+            UPDATE deck_queue
+               SET processed = 1,
+                   skipped = @skipped,
+                   last_checked_utc = @now,
+                   commander_name = @commanderName,
+                   archidekt_edh_bracket = @EdhBracket,
+                   archidekt_deck_format = @DeckFormat,
+                   archidekt_theorycrafted = @Theorycrafted,
+                   archidekt_created_utc = @CreatedUtc,
+                   archidekt_updated_utc = @UpdatedUtc,
+                   archidekt_metadata_captured_utc = @CapturedUtc
+             WHERE deck_id = @deckId;
+            """;
+        var parameters = new
+        {
+            deckId,
+            now = DateTime.UtcNow,
+            skipped = skip ? 1 : 0,
+            commanderName,
+            metadataParameters?.EdhBracket,
+            metadataParameters?.DeckFormat,
+            metadataParameters?.Theorycrafted,
+            metadataParameters?.CreatedUtc,
+            metadataParameters?.UpdatedUtc,
+            CapturedUtc = metadataParameters?.CapturedUtc,
+        };
+        await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            parameters,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
@@ -389,10 +416,12 @@ internal sealed class DeckQueueRepository
     /// </summary>
     /// <param name="deckId">Archidekt deck ID validated upstream by ArchidektApiUrl.TryGetDeckId.</param>
     /// <param name="commanderName">Commander name extracted from the imported deck, or null when extraction failed.</param>
+    /// <param name="metadata">Captured Archidekt metadata, or null when no capture occurred.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     internal async Task MarkUrlDeckProcessedAsync(
         string deckId,
         string? commanderName,
+        ArchidektDeckMetadata? metadata = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(deckId);
@@ -402,17 +431,39 @@ internal sealed class DeckQueueRepository
         await connection.OpenAsync(cancellationToken);
 
         var now = DateTime.UtcNow;
+        var metadataParameters = metadata is null ? null : ArchidektDeckMetadataParameters.From(metadata);
+        var parameters = new
+        {
+            deckId,
+            now,
+            commanderName,
+            metadataParameters?.EdhBracket,
+            metadataParameters?.DeckFormat,
+            metadataParameters?.Theorycrafted,
+            metadataParameters?.CreatedUtc,
+            metadataParameters?.UpdatedUtc,
+            CapturedUtc = metadataParameters?.CapturedUtc,
+        };
         await connection.ExecuteAsync(new CommandDefinition(
             """
-            INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, commander_name)
-            VALUES (@deckId, @now, 1, 0, @now, @commanderName)
+            INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, commander_name,
+                archidekt_edh_bracket, archidekt_deck_format, archidekt_theorycrafted, archidekt_created_utc,
+                archidekt_updated_utc, archidekt_metadata_captured_utc)
+            VALUES (@deckId, @now, 1, 0, @now, @commanderName, @EdhBracket, @DeckFormat, @Theorycrafted,
+                @CreatedUtc, @UpdatedUtc, @CapturedUtc)
             ON CONFLICT(deck_id) DO UPDATE
             SET processed = 1,
                 skipped = 0,
                 last_checked_utc = excluded.last_checked_utc,
-                commander_name = COALESCE(excluded.commander_name, deck_queue.commander_name);
+                commander_name = COALESCE(excluded.commander_name, deck_queue.commander_name),
+                archidekt_edh_bracket = CASE WHEN excluded.archidekt_metadata_captured_utc IS NULL THEN deck_queue.archidekt_edh_bracket ELSE excluded.archidekt_edh_bracket END,
+                archidekt_deck_format = CASE WHEN excluded.archidekt_metadata_captured_utc IS NULL THEN deck_queue.archidekt_deck_format ELSE excluded.archidekt_deck_format END,
+                archidekt_theorycrafted = CASE WHEN excluded.archidekt_metadata_captured_utc IS NULL THEN deck_queue.archidekt_theorycrafted ELSE excluded.archidekt_theorycrafted END,
+                archidekt_created_utc = CASE WHEN excluded.archidekt_metadata_captured_utc IS NULL THEN deck_queue.archidekt_created_utc ELSE excluded.archidekt_created_utc END,
+                archidekt_updated_utc = CASE WHEN excluded.archidekt_metadata_captured_utc IS NULL THEN deck_queue.archidekt_updated_utc ELSE excluded.archidekt_updated_utc END,
+                archidekt_metadata_captured_utc = CASE WHEN excluded.archidekt_metadata_captured_utc IS NULL THEN deck_queue.archidekt_metadata_captured_utc ELSE excluded.archidekt_metadata_captured_utc END;
             """,
-            new { deckId, now, commanderName },
+            parameters,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
