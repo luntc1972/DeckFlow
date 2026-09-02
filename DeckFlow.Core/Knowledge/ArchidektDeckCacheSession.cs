@@ -106,7 +106,7 @@ public sealed class ArchidektDeckCacheSession
             {
                 try
                 {
-                    var (cacheResult, commanderName) = await PersistDeckAsync(deckId, cancellationToken);
+                    var (cacheResult, commanderName, metadata) = await PersistDeckAsync(deckId, cancellationToken);
                     if (cacheResult == DeckCacheWriteResult.Added)
                     {
                         added++;
@@ -122,7 +122,7 @@ public sealed class ArchidektDeckCacheSession
 
                     _logger?.LogInformation("Cached categories from deck {DeckId} ({Result}) commander={Commander}.", deckId, cacheResult, commanderName ?? "(none)");
                     // D-17: write commander_name in the same UPDATE that flips processed=1.
-                    await _repository.MarkDeckProcessedAsync(deckId, commanderName, skip: false, cancellationToken: cancellationToken);
+                    await _repository.MarkDeckProcessedAsync(deckId, commanderName, skip: false, metadata: metadata, cancellationToken: cancellationToken);
                     progress?.Report(added + updated);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -134,7 +134,7 @@ public sealed class ArchidektDeckCacheSession
                     skipped++;
                     _logger?.LogWarning(exception, "Skipping deck {DeckId} while caching categories.", deckId);
                     // Skip path passes null commander — top-N query filters commander_name IS NOT NULL.
-                    await _repository.MarkDeckProcessedAsync(deckId, commanderName: null, skip: true, cancellationToken: cancellationToken);
+                    await _repository.MarkDeckProcessedAsync(deckId, commanderName: null, skip: true, metadata: null, cancellationToken: cancellationToken);
                     progress?.Report(added + updated);
                 }
 
@@ -174,11 +174,12 @@ public sealed class ArchidektDeckCacheSession
     /// <param name="deckId">Deck ID to process.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Tuple of cache write result and the commander name (or null when none was found).</returns>
-    private async Task<(DeckCacheWriteResult Result, string? CommanderName)> PersistDeckAsync(string deckId, CancellationToken cancellationToken)
+    private async Task<(DeckCacheWriteResult Result, string? CommanderName, ArchidektDeckMetadata? Metadata)> PersistDeckAsync(string deckId, CancellationToken cancellationToken)
     {
         var source = $"archidekt_live:{deckId}";
         var alreadyCached = await _repository.HasSourceDataAsync(source, cancellationToken);
-        var entries = await _deckImporter.ImportAsync(deckId, cancellationToken);
+        var import = await _deckImporter.ImportWithMetadataAsync(deckId, cancellationToken);
+        var entries = import.Entries;
 
         // D-17: extract the commander entry from the imported deck. Most decks have exactly
         // one Commander; if there are multiple (partner pairs etc.) take the first deterministically.
@@ -191,13 +192,13 @@ public sealed class ArchidektDeckCacheSession
         var storedHash = await _repository.GetContentHashAsync(deckId, cancellationToken);
         if (storedHash is not null && string.Equals(storedHash, newHash, StringComparison.Ordinal))
         {
-            return (DeckCacheWriteResult.Unchanged, commanderName);
+            return (DeckCacheWriteResult.Unchanged, commanderName, import.Metadata);
         }
 
         await _repository.SetContentHashAsync(deckId, null, cancellationToken);
         await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(_repository, source, entries, cancellationToken);
         await _repository.SetContentHashAsync(deckId, newHash, cancellationToken);
-        return (alreadyCached ? DeckCacheWriteResult.Updated : DeckCacheWriteResult.Added, commanderName);
+        return (alreadyCached ? DeckCacheWriteResult.Updated : DeckCacheWriteResult.Added, commanderName, import.Metadata);
     }
 }
 
