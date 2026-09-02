@@ -440,6 +440,9 @@ public sealed class ContentHashDedupTests : IDisposable
         public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
             => Task.FromResult(_entriesByDeckId[urlOrDeckId].ToList());
 
+        public async Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+            => new(await ImportAsync(urlOrDeckId, cancellationToken), new ArchidektDeckMetadata(3, 1, false, null, null, DateTimeOffset.Parse("2026-01-01T00:00:00Z")));
+
         public void SetEntries(string deckId, IReadOnlyList<DeckEntry> entries)
         {
             _entriesByDeckId[deckId] = entries.ToList();
