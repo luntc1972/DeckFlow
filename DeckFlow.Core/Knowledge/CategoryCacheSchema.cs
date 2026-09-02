@@ -53,7 +53,13 @@ internal sealed class CategoryCacheSchema
                 skipped INTEGER NOT NULL DEFAULT 0,
                 last_checked_utc TEXT,
                 commander_name TEXT NULL,
-                content_hash TEXT NULL
+                content_hash TEXT NULL,
+                archidekt_edh_bracket INTEGER NULL,
+                archidekt_deck_format INTEGER NULL,
+                archidekt_theorycrafted INTEGER NULL,
+                archidekt_created_utc TEXT NULL,
+                archidekt_updated_utc TEXT NULL,
+                archidekt_metadata_captured_utc TEXT NULL
             );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
@@ -64,6 +70,25 @@ internal sealed class CategoryCacheSchema
             var addContentHashCommand = connection.CreateCommand();
             addContentHashCommand.CommandText = "ALTER TABLE deck_queue ADD COLUMN content_hash TEXT NULL;";
             await addContentHashCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        foreach (var column in new[]
+                 {
+                     "archidekt_edh_bracket INTEGER NULL",
+                     "archidekt_deck_format INTEGER NULL",
+                     "archidekt_theorycrafted INTEGER NULL",
+                     "archidekt_created_utc TEXT NULL",
+                     "archidekt_updated_utc TEXT NULL",
+                     "archidekt_metadata_captured_utc TEXT NULL",
+                 })
+        {
+            var name = column.Split(' ')[0];
+            if (!deckQueueColumns.Contains(name))
+            {
+                var addColumnCommand = connection.CreateCommand();
+                addColumnCommand.CommandText = $"ALTER TABLE deck_queue ADD COLUMN {column};";
+                await addColumnCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
         }
 
         var crawlStateCommand = connection.CreateCommand();
