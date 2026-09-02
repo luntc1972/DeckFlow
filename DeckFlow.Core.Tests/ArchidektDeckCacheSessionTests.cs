@@ -121,6 +121,21 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_ImporterWithoutMetadataSupport_SkipsDeck()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.AddDeckIdsAsync(new[] { "metadata-unsupported-deck" });
+
+        var result = await new ArchidektDeckCacheSession(
+            repository,
+            new ImportOnlyDeckImporter(),
+            new FakeRecentDecksImporter(),
+            idlePollDelay: TimeSpan.FromMilliseconds(1)).RunAsync(TimeSpan.FromMilliseconds(30));
+
+        Assert.True(result.DecksSkipped >= 1);
+    }
+
+    [Fact]
     public async Task RunAsync_UnchangedCardList_RefreshesMetadataWithoutRewritingFacts()
     {
         var repository = new CategoryKnowledgeRepository(_databasePath);
@@ -163,7 +178,7 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         command.Parameters.AddWithValue("$deckId", deckId);
         await using var reader = await command.ExecuteReaderAsync();
         Assert.True(await reader.ReadAsync());
-        return new DeckQueueRow(reader.GetString(0), reader.IsDBNull(1) ? null : reader.GetInt32(1), reader.IsDBNull(2) ? null : reader.GetInt32(2), reader.IsDBNull(3) ? null : reader.GetBoolean(3), reader.IsDBNull(4) ? null : DateTimeOffset.Parse(reader.GetString(4)), reader.IsDBNull(5) ? null : DateTimeOffset.Parse(reader.GetString(5)), reader.IsDBNull(6) ? null : DateTimeOffset.Parse(reader.GetString(6)));
+        return new DeckQueueRow(reader.IsDBNull(0) ? null : reader.GetString(0), reader.IsDBNull(1) ? null : reader.GetInt32(1), reader.IsDBNull(2) ? null : reader.GetInt32(2), reader.IsDBNull(3) ? null : reader.GetBoolean(3), reader.IsDBNull(4) ? null : DateTimeOffset.Parse(reader.GetString(4)), reader.IsDBNull(5) ? null : DateTimeOffset.Parse(reader.GetString(5)), reader.IsDBNull(6) ? null : DateTimeOffset.Parse(reader.GetString(6)));
     }
 
     private sealed record DeckQueueRow(string? ContentHash, int? EdhBracket, int? DeckFormat, bool? Theorycrafted, DateTimeOffset? CreatedUtc, DateTimeOffset? UpdatedUtc, DateTimeOffset? CapturedUtc);
@@ -218,6 +233,12 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
 
         public Task<IReadOnlyList<string>> ImportRecentDeckIdsPageAsync(int page, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+    }
+
+    private sealed class ImportOnlyDeckImporter : IArchidektDeckImporter
+    {
+        public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+            => Task.FromResult(new List<DeckEntry>());
     }
 
     /// <summary>

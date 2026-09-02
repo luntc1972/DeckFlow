@@ -129,7 +129,7 @@ public sealed class ArchidektDeckCacheSession
                 {
                     throw;
                 }
-                catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
+                catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or NotSupportedException)
                 {
                     skipped++;
                     _logger?.LogWarning(exception, "Skipping deck {DeckId} while caching categories.", deckId);
@@ -182,11 +182,9 @@ public sealed class ArchidektDeckCacheSession
         var entries = import.Entries;
 
         // D-17: extract the commander entry from the imported deck. Most decks have exactly
-        // one Commander; if there are multiple (partner pairs etc.) take the first deterministically.
-        string? commanderName = entries
-            .Where(e => string.Equals(e.Board, "commander", StringComparison.OrdinalIgnoreCase))
-            .Select(e => e.Name)
-            .FirstOrDefault();
+        // one Commander; partner pairs are sorted by name for a stable choice across harvests because
+        // Archidekt's array order is not itself guaranteed.
+        var commanderName = DeckCommanderResolver.ResolveCommanderName(entries);
 
         var newHash = DeckCategoryCacheWriter.ComputeCanonicalHash(entries);
         var storedHash = await _repository.GetContentHashAsync(deckId, cancellationToken);

@@ -272,9 +272,14 @@ internal sealed class DeckQueueRepository
     /// Marks a single deck as processed and captures its commander identity in the
     /// same UPDATE so the harvest stats panel (Plan 06 top-10 commanders) can read
     /// <c>deck_queue.commander_name</c> directly without joining
-    /// <c>card_category_observations</c> (Phase 7 D-17). NULL <paramref name="commanderName"/>
-    /// writes SQL NULL — the top-N query already filters <c>commander_name IS NOT NULL</c>.
+    /// <c>card_category_observations</c> (Phase 7 D-17). A null <paramref name="commanderName"/>
+    /// preserves a previously captured commander during a skipped retry.
     /// </summary>
+    /// <remarks>
+    /// When <paramref name="metadata"/> is non-null, metadata capture is last-capture-wins per field,
+    /// not per-field COALESCE. The fresh <c>archidekt_metadata_captured_utc</c> truthfully records the
+    /// most recent recognizable payload, so null fields in that payload are trusted over stale values.
+    /// </remarks>
     /// <param name="deckId">Deck ID to update.</param>
     /// <param name="commanderName">Commander card name extracted from the imported deck, or null on skip / unknown.</param>
     /// <param name="skip">Whether the deck should be marked as skipped after failure.</param>
@@ -303,7 +308,7 @@ internal sealed class DeckQueueRepository
                SET processed = 1,
                    skipped = @skipped,
                    last_checked_utc = @now,
-                   commander_name = @commanderName
+                   commander_name = COALESCE(@commanderName, deck_queue.commander_name)
              WHERE deck_id = @deckId;
             """
             : """
@@ -326,11 +331,12 @@ internal sealed class DeckQueueRepository
             now = DateTime.UtcNow,
             skipped = skip ? 1 : 0,
             commanderName,
-            metadataParameters?.EdhBracket,
-            metadataParameters?.DeckFormat,
-            metadataParameters?.Theorycrafted,
-            metadataParameters?.CreatedUtc,
-            metadataParameters?.UpdatedUtc,
+            // Why: These member names must match the SQL parameter names exactly for Dapper binding.
+            EdhBracket = metadataParameters?.EdhBracket,
+            DeckFormat = metadataParameters?.DeckFormat,
+            Theorycrafted = metadataParameters?.Theorycrafted,
+            CreatedUtc = metadataParameters?.CreatedUtc,
+            UpdatedUtc = metadataParameters?.UpdatedUtc,
             CapturedUtc = metadataParameters?.CapturedUtc,
         };
         await connection.ExecuteAsync(new CommandDefinition(
@@ -437,11 +443,12 @@ internal sealed class DeckQueueRepository
             deckId,
             now,
             commanderName,
-            metadataParameters?.EdhBracket,
-            metadataParameters?.DeckFormat,
-            metadataParameters?.Theorycrafted,
-            metadataParameters?.CreatedUtc,
-            metadataParameters?.UpdatedUtc,
+            // Why: These member names must match the SQL parameter names exactly for Dapper binding.
+            EdhBracket = metadataParameters?.EdhBracket,
+            DeckFormat = metadataParameters?.DeckFormat,
+            Theorycrafted = metadataParameters?.Theorycrafted,
+            CreatedUtc = metadataParameters?.CreatedUtc,
+            UpdatedUtc = metadataParameters?.UpdatedUtc,
             CapturedUtc = metadataParameters?.CapturedUtc,
         };
         await connection.ExecuteAsync(new CommandDefinition(

@@ -41,7 +41,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
             ? Path.Combine(_artifactsPath, "category-knowledge.db")
             : null;
         _repository = new CategoryKnowledgeRepository(_connectionInfo, logger);
-        _archidektImporter = new ArchidektApiDeckImporter();
+        _archidektImporter = new ArchidektApiDeckImporter(logger: logger);
         _recentDeckImporter = new ArchidektRecentDecksImporter();
     }
 
@@ -166,7 +166,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
             // schema-qualified to_regclass lookup avoids cross-schema name collisions, and
             // the <= 0 guard handles fresh deploys before planner stats exist.
             var estimate = CoerceCount(await connection.ExecuteScalarAsync<object?>(new CommandDefinition(
-                "SELECT reltuples::bigint FROM pg_class WHERE oid = to_regclass('public.card_category_observations');",
+                "SELECT reltuples::bigint FROM pg_class WHERE oid = to_regclass(current_schema() || '.card_category_observations');",
                 cancellationToken: cancellationToken)).ConfigureAwait(false));
             if (estimate > 0)
             {
