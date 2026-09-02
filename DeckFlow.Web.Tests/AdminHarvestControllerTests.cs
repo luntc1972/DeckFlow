@@ -301,10 +301,10 @@ public sealed class AdminHarvestControllerTests
             => Task.CompletedTask;
 
         public Task<Guid> InsertQueuedAsync(HarvestRunKind kind, int durationSeconds, string? url, DateTimeOffset now, CancellationToken cancellationToken = default)
-            => throw new NotImplementedException();
+            => Task.FromResult(Guid.NewGuid());
 
         public Task UpdateStateAsync(Guid id, HarvestRunState state, DateTimeOffset? startedUtc, DateTimeOffset? completedUtc, int decksProcessed, int additionalDecksFound, string? errorMessage, CancellationToken cancellationToken = default)
-            => throw new NotImplementedException();
+            => Task.CompletedTask;
 
         public Task UpdateProgressAsync(Guid id, int decksProcessed, int additionalDecksFound, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();

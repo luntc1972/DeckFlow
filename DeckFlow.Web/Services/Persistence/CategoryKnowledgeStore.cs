@@ -122,6 +122,10 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     public Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, CancellationToken cancellationToken = default) => _repository.MarkUrlDeckProcessedAsync(deckId, commanderName, cancellationToken: cancellationToken);
 
     /// <inheritdoc/>
+    public Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, ArchidektDeckMetadata? metadata, CancellationToken cancellationToken = default)
+        => _repository.MarkUrlDeckProcessedAsync(deckId, commanderName, metadata, cancellationToken);
+
+    /// <inheritdoc/>
     public async Task<int> GetTotalProcessedDeckCountAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);

@@ -32,6 +32,7 @@ These rules exist because breaking them produced silent, hard-to-report bugs. Th
 - Core logic is isolated in `DeckFlow.Core` (diff engine, export helpers, parsers, integration clients, knowledge store).
 - Web and CLI layers orchestrate requests and rely on DI to resolve shared services.
 - Importers for Archidekt and Moxfield implement typed interfaces (`IMoxfieldDeckImporter`, `IArchidektDeckImporter`) for easy test substitution.
+- Archidekt harvest prospectively records deck-level bracket and provenance metadata on `deck_queue` without backfilling; admin URL imports also attribute the imported commander.
 - `DeckAnalysisPacketService` parallelizes independent fetches (banned-list, set-packet, Commander Spellbook) using `Task.WhenAll` to reduce total build time.
 - `DeckComparisonService` parses two decklists, resolves cards via Scryfall, queries Commander Spellbook for both decks, derives comparison context (role counts, mana curves, combo gaps), and generates structured AI prompts with a JSON output schema.
 - `CommanderSpellbookService` caches results for 30 minutes and degrades gracefully on API failure.
