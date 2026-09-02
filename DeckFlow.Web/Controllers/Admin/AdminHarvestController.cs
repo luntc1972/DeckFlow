@@ -262,15 +262,16 @@ public sealed class AdminHarvestController : Controller
 
         try
         {
-            var entries = await _deckImporter.ImportAsync(url, cancellationToken).ConfigureAwait(false);
+            var result = await _deckImporter.ImportWithMetadataAsync(url, cancellationToken).ConfigureAwait(false);
+            var entries = result.Entries;
             await PersistImportedDeckEntriesAsync(url, entries, cancellationToken).ConfigureAwait(false);
 
             var commanderName = entries
-                .Where(entry => string.Equals(entry.Category, "Commander", StringComparison.OrdinalIgnoreCase))
+                .Where(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
                 .Select(entry => entry.Name)
                 .FirstOrDefault();
 
-            await _categoryStore.MarkUrlDeckProcessedAsync(deckId, commanderName, cancellationToken).ConfigureAwait(false);
+            await _categoryStore.MarkUrlDeckProcessedAsync(deckId, commanderName, result.Metadata, cancellationToken).ConfigureAwait(false);
 
             var completedUtc = DateTimeOffset.UtcNow;
             await _runStore.UpdateStateAsync(
