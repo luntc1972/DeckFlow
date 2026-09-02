@@ -208,6 +208,7 @@ test('supports the no-JS what-if preview and keep fallback via full-page re-rend
 
     const cutPileCard = await acceptCurrentProposal(noJs.page);
     await expect(noJs.page.locator('[data-cut-lab-sticky-accepted]')).toContainText('1 cut so far');
+    await expandCutLabSection(noJs.page, 'cut-lab-section-whatif', false);
 
     const cardOut = await chooseCardOut(noJs.page, new Set(['', cutPileCard]));
     await noJs.page.locator('select[name="cardOut"]').selectOption(cardOut);
@@ -218,6 +219,7 @@ test('supports the no-JS what-if preview and keep fallback via full-page re-rend
     expect(await noJs.page.locator('[data-cut-lab-whatif-delta-body] tr').count()).toBeGreaterThan(0);
     await expect(noJs.page.locator('.cutlab-cuts-made__row').filter({ hasText: cardOut })).toHaveCount(0);
 
+    await expandCutLabSection(noJs.page, 'cut-lab-section-whatif', false);
     await noJs.page.locator('form[action$="/cut-lab/whatif"] button[name="intent"][value="keep"]').click();
 
     await expectCutsMadeRow(noJs.page, cardOut, 'What-if swap');

@@ -1,3 +1,4 @@
+using DeckFlow.Core.Integration;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Services.Harvest;
 using Microsoft.Extensions.Logging;
@@ -74,7 +75,13 @@ public interface ICategoryKnowledgeStore
     /// <param name="deckId">External deck identifier to mark processed.</param>
     /// <param name="commanderName">Commander name associated with the processed deck, when known.</param>
     /// <param name="cancellationToken">Token used to cancel the update.</param>
+    [Obsolete("Use the ArchidektDeckMetadata overload; this one silently discards captured metadata.")]
     Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Marks a URL-imported deck as processed while preserving importer-captured metadata.
+    /// </summary>
+    Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, ArchidektDeckMetadata? metadata, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Metadata-bearing URL processing is not supported by this store.");
     /// <summary>
     /// Returns the total number of processed decks across the category cache.
     /// </summary>

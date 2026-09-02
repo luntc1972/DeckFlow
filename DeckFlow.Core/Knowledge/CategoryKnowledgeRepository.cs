@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Core.Storage;
+using DeckFlow.Core.Integration;
 
 namespace DeckFlow.Core.Knowledge;
 
@@ -256,13 +257,15 @@ public sealed class CategoryKnowledgeRepository
     /// <param name="deckId">Deck ID to update.</param>
     /// <param name="commanderName">Commander card name extracted from the imported deck, or null on skip / unknown.</param>
     /// <param name="skip">Whether the deck should be marked as skipped after failure.</param>
+    /// <param name="metadata">Captured Archidekt metadata, or null when no capture occurred.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task MarkDeckProcessedAsync(
         string deckId,
         string? commanderName,
         bool skip = false,
+        ArchidektDeckMetadata? metadata = null,
         CancellationToken cancellationToken = default)
-        => _deckQueue.MarkDeckProcessedAsync(deckId, commanderName, skip, cancellationToken);
+        => _deckQueue.MarkDeckProcessedAsync(deckId, commanderName, skip, metadata, cancellationToken);
 
     /// <summary>
     /// Gets the stored canonical content hash for a queued Archidekt deck.
@@ -300,12 +303,14 @@ public sealed class CategoryKnowledgeRepository
     /// </summary>
     /// <param name="deckId">Archidekt deck ID validated upstream by ArchidektApiUrl.TryGetDeckId.</param>
     /// <param name="commanderName">Commander name extracted from the imported deck, or null when extraction failed.</param>
+    /// <param name="metadata">Captured Archidekt metadata, or null when no capture occurred.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task MarkUrlDeckProcessedAsync(
         string deckId,
         string? commanderName,
+        ArchidektDeckMetadata? metadata = null,
         CancellationToken cancellationToken = default)
-        => _deckQueue.MarkUrlDeckProcessedAsync(deckId, commanderName, cancellationToken);
+        => _deckQueue.MarkUrlDeckProcessedAsync(deckId, commanderName, metadata, cancellationToken);
 
     /// <summary>
     /// Marks the provided deck IDs as processed, optionally skipping them.

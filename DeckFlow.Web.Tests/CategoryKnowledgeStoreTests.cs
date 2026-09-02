@@ -1,3 +1,4 @@
+using DeckFlow.Core.Integration;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
 using Microsoft.AspNetCore.Hosting;
@@ -244,6 +245,49 @@ public sealed class CategoryKnowledgeStoreTests
             }
         }
     }
+
+    [Fact]
+    public async Task MarkUrlDeckProcessedAsync_MetadataBearingImport_PersistsAllMetadataColumns()
+    {
+        var original = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
+        var tempRoot = Path.Combine(Path.GetTempPath(), "deckflow-store-" + Guid.NewGuid().ToString("N"));
+        var metadata = new ArchidektDeckMetadata(3, 1, true, DateTimeOffset.Parse("2026-01-01T00:00:00Z"), DateTimeOffset.Parse("2026-01-02T00:00:00Z"), DateTimeOffset.Parse("2026-01-03T00:00:00Z"));
+
+        try
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", null);
+            var store = CreateStore(Path.Combine(tempRoot, "content"));
+            await store.MarkUrlDeckProcessedAsync("metadata-url", "Commander", metadata);
+            var row = await ReadMetadataRowAsync(Assert.IsType<string>(store.DatabasePath), "metadata-url");
+
+            Assert.Equal(metadata.EdhBracket, row.EdhBracket);
+            Assert.Equal(metadata.DeckFormat, row.DeckFormat);
+            Assert.Equal(metadata.Theorycrafted, row.Theorycrafted);
+            Assert.Equal(metadata.CreatedUtc, row.CreatedUtc);
+            Assert.Equal(metadata.UpdatedUtc, row.UpdatedUtc);
+            Assert.Equal(metadata.CapturedUtc, row.CapturedUtc);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", original);
+            SqliteConnection.ClearAllPools();
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    private static async Task<MetadataRow> ReadMetadataRowAsync(string databasePath, string deckId)
+    {
+        await using var connection = new SqliteConnection($"Data Source={databasePath}");
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT archidekt_edh_bracket, archidekt_deck_format, archidekt_theorycrafted, archidekt_created_utc, archidekt_updated_utc, archidekt_metadata_captured_utc FROM deck_queue WHERE deck_id = $deckId;";
+        command.Parameters.AddWithValue("$deckId", deckId);
+        await using var reader = await command.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+        return new MetadataRow(reader.GetInt32(0), reader.GetInt32(1), reader.GetBoolean(2), DateTimeOffset.Parse(reader.GetString(3)), DateTimeOffset.Parse(reader.GetString(4)), DateTimeOffset.Parse(reader.GetString(5)));
+    }
+
+    private sealed record MetadataRow(int EdhBracket, int DeckFormat, bool Theorycrafted, DateTimeOffset CreatedUtc, DateTimeOffset UpdatedUtc, DateTimeOffset CapturedUtc);
 
     [Fact]
     public async Task FakeCategoryKnowledgeStore_ReturnsConfiguredPagedCommandersAndRecordsInputs()
