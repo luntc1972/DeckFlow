@@ -41,6 +41,18 @@ public sealed class ArchidektApiDeckImporter : IArchidektDeckImporter
     /// <param name="cancellationToken">Cancellation token for the request.</param>
     public async Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
     {
+        var result = await ImportWithMetadataAsync(urlOrDeckId, cancellationToken).ConfigureAwait(false);
+        return result.Entries;
+    }
+
+    /// <summary>
+    /// Imports deck entries from an Archidekt deck, preserving categories and boards, and
+    /// captures curated deck-level metadata from the same payload request (no second request).
+    /// </summary>
+    /// <param name="urlOrDeckId">Deck URL or ID.</param>
+    /// <param name="cancellationToken">Cancellation token for the request.</param>
+    public async Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+    {
         if (!ArchidektApiUrl.TryGetDeckId(urlOrDeckId, out var deckId))
         {
             throw new InvalidOperationException($"Unable to determine Archidekt deck id from: {urlOrDeckId}");
@@ -57,10 +69,11 @@ public sealed class ArchidektApiDeckImporter : IArchidektDeckImporter
         var root = document.RootElement;
         var entries = new List<DeckEntry>();
         var excludedCategoryNames = ReadExcludedCategoryNames(root);
+        var metadata = TryExtractMetadata(root);
 
         if (!root.TryGetProperty("cards", out var cardsElement) || cardsElement.ValueKind != JsonValueKind.Array)
         {
-            return entries;
+            return new ArchidektDeckImportResult(entries, metadata);
         }
 
         foreach (var item in cardsElement.EnumerateArray())
@@ -103,7 +116,101 @@ public sealed class ArchidektApiDeckImporter : IArchidektDeckImporter
             });
         }
 
-        return entries;
+        return new ArchidektDeckImportResult(entries, metadata);
+    }
+
+    /// <summary>
+    /// Attempts to extract curated deck-level Archidekt metadata from the deck payload root.
+    /// Returns null when the payload is not recognizable as an Archidekt deck payload, or when
+    /// any unexpected failure occurs — this method must never throw, so that no metadata value
+    /// can introduce a new failure mode into ImportAsync.
+    /// </summary>
+    /// <param name="root">Root element of the Archidekt deck payload.</param>
+    private static ArchidektDeckMetadata? TryExtractMetadata(JsonElement root)
+    {
+        try
+        {
+            var hasId = root.TryGetProperty("id", out _);
+            var hasName = root.TryGetProperty("name", out _);
+            var hasEdhBracket = root.TryGetProperty("edhBracket", out var edhBracketElement);
+            var hasDeckFormat = root.TryGetProperty("deckFormat", out var deckFormatElement);
+            var hasTheorycrafted = root.TryGetProperty("theorycrafted", out var theorycraftedElement);
+            var hasCreatedAt = root.TryGetProperty("createdAt", out var createdAtElement);
+            var hasUpdatedAt = root.TryGetProperty("updatedAt", out var updatedAtElement);
+
+            var isRecognizableArchidektPayload = (hasId || hasName)
+                && (hasEdhBracket || hasDeckFormat || hasTheorycrafted || hasCreatedAt || hasUpdatedAt);
+
+            if (!isRecognizableArchidektPayload)
+            {
+                return null;
+            }
+
+            return new ArchidektDeckMetadata(
+                EdhBracket: hasEdhBracket ? ParseNullableInt(edhBracketElement) : null,
+                DeckFormat: hasDeckFormat ? ParseNullableInt(deckFormatElement) : null,
+                Theorycrafted: hasTheorycrafted ? ParseNullableBool(theorycraftedElement) : null,
+                CreatedUtc: hasCreatedAt ? ParseNullableTimestamp(createdAtElement) : null,
+                UpdatedUtc: hasUpdatedAt ? ParseNullableTimestamp(updatedAtElement) : null,
+                CapturedUtc: DateTimeOffset.UtcNow);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Parses a JSON element into a nullable integer, guarding on JsonValueKind so no bare
+    /// numeric accessor can throw on a malformed or unexpected-kind value.
+    /// </summary>
+    /// <param name="element">JSON element to parse.</param>
+    private static int? ParseNullableInt(JsonElement element)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Number:
+                return element.TryGetInt32(out var numericValue) ? numericValue : null;
+            case JsonValueKind.String:
+                return int.TryParse(element.GetString(), out var parsedValue) ? parsedValue : null;
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>
+    /// Parses a JSON element into a nullable boolean by mapping JsonValueKind directly — no
+    /// bare GetBoolean() accessor exists on JsonElement, and a kind comparison cannot throw.
+    /// </summary>
+    /// <param name="element">JSON element to parse.</param>
+    private static bool? ParseNullableBool(JsonElement element)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.True:
+                return true;
+            case JsonValueKind.False:
+                return false;
+            case JsonValueKind.String:
+                return bool.TryParse(element.GetString(), out var parsedValue) ? parsedValue : null;
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>
+    /// Parses a JSON element into a nullable timestamp, guarding on JsonValueKind so a
+    /// malformed or wrong-kind value never throws.
+    /// </summary>
+    /// <param name="element">JSON element to parse.</param>
+    private static DateTimeOffset? ParseNullableTimestamp(JsonElement element)
+    {
+        if (element.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        return DateTimeOffset.TryParse(element.GetString(), out var parsedValue) ? parsedValue : null;
     }
 
     /// <summary>
