@@ -1,4 +1,5 @@
 using DeckFlow.Core.Reporting;
+using DeckFlow.Core.Integration;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
 using Microsoft.Extensions.Logging;
@@ -28,6 +29,12 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
     public Exception? RunCacheSweepException { get; set; }
 
     public int TotalProcessedDeckCount { get; set; }
+
+    public string? LastUrlDeckId { get; private set; }
+
+    public string? LastUrlCommanderName { get; private set; }
+
+    public ArchidektDeckMetadata? LastUrlMetadata { get; private set; }
 
     public int DistinctProcessedCommanderCount { get; set; }
 
@@ -124,7 +131,19 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         => Task.CompletedTask;
 
     public Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, CancellationToken cancellationToken = default)
-        => Task.CompletedTask;
+    {
+        LastUrlDeckId = deckId;
+        LastUrlCommanderName = commanderName;
+        return Task.CompletedTask;
+    }
+
+    public Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, ArchidektDeckMetadata? metadata, CancellationToken cancellationToken = default)
+    {
+        LastUrlDeckId = deckId;
+        LastUrlCommanderName = commanderName;
+        LastUrlMetadata = metadata;
+        return Task.CompletedTask;
+    }
 
     public Task<int> GetTotalProcessedDeckCountAsync(CancellationToken cancellationToken = default)
         => Task.FromResult(TotalProcessedDeckCount);

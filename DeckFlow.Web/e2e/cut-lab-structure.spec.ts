@@ -392,6 +392,7 @@ test('restarts rounds 1 and 2 without undoing accepted cuts or touching later-ro
     response.url().includes('/api/cut-lab/restart-rounds') && response.request().method() === 'POST');
   await page.getByRole('button', { name: 'Re-run rounds 1 & 2 — your accepted cuts are kept' }).click();
   expect((await restartResponse).ok()).toBeTruthy();
+  await expect(page.locator('[data-cut-lab-sticky-current]')).toContainText('105/100 cards');
 
   const state = JSON.parse(await page.locator('input[name="CutLabStateJson"]').first().inputValue()) as {
     decisions: Array<{ cardName: string; kind: number; round: string }>;
@@ -399,7 +400,6 @@ test('restarts rounds 1 and 2 without undoing accepted cuts or touching later-ro
   expect(state.decisions.some(decision => decision.cardName === acceptedCard && decision.kind === 0)).toBe(true);
   expect(state.decisions.some(decision => decision.cardName === round1RejectedCard)).toBe(false);
   expect(state.decisions.some(decision => decision.cardName === round2DeferredCard)).toBe(false);
-  await expect(page.locator('[data-cut-lab-sticky-current]')).toContainText('105/100 cards');
   await expect(page.locator('[data-cut-lab-sticky-accepted]')).toContainText('1 cut so far');
 
   const resurfaced = new Set<string>();

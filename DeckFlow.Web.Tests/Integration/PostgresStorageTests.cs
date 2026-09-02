@@ -1,4 +1,5 @@
 using DeckFlow.Core.Knowledge;
+using DeckFlow.Core.Integration;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Core.Storage;
 using DeckFlow.Web.Models;
@@ -28,6 +29,48 @@ public sealed class PostgresStorageTests : IClassFixture<PostgresContainerFixtur
 
     private async Task<CategoryKnowledgeRepository> CreateRepositoryAsync()
         => new(CreateConnection(await _fixture.GetConnectionStringOrSkipAsync()));
+
+    [PostgresFact]
+    public async Task MarkDeckProcessedAsync_Metadata_RoundTripsAllValues()
+    {
+        var repository = await CreateRepositoryAsync();
+        var deckId = $"metadata-{Guid.NewGuid():N}";
+        var capturedUtc = DateTimeOffset.UtcNow;
+        var metadata = new ArchidektDeckMetadata(3, 1, true, capturedUtc, capturedUtc, capturedUtc);
+
+        await repository.AddDeckIdsAsync(new[] { deckId });
+        await repository.MarkDeckProcessedAsync(deckId, "Commander", false, metadata, CancellationToken.None);
+
+        var row = await ReadArchidektMetadataRowAsync(deckId);
+
+        Assert.Equal(metadata.EdhBracket, row.EdhBracket);
+        Assert.Equal(metadata.DeckFormat, row.DeckFormat);
+        Assert.Equal(1, row.Theorycrafted);
+        Assert.Equal(metadata.CreatedUtc?.ToUniversalTime().ToString("O"), row.CreatedUtc);
+        Assert.Equal(metadata.UpdatedUtc?.ToUniversalTime().ToString("O"), row.UpdatedUtc);
+        Assert.Equal(metadata.CapturedUtc.ToUniversalTime().ToString("O"), row.CapturedUtc);
+    }
+
+    [PostgresFact]
+    public async Task MarkUrlDeckProcessedAsync_Metadata_RoundTripsAllValues()
+    {
+        var repository = await CreateRepositoryAsync();
+        var deckId = $"url-metadata-{Guid.NewGuid():N}";
+        var capturedUtc = DateTimeOffset.UtcNow;
+        var metadata = new ArchidektDeckMetadata(3, 1, true, capturedUtc, capturedUtc, capturedUtc);
+
+        await repository.MarkUrlDeckProcessedAsync(deckId, "Commander", metadata, CancellationToken.None);
+
+        var row = await ReadArchidektMetadataRowAsync(deckId);
+
+        Assert.Equal("Commander", row.CommanderName);
+        Assert.Equal(metadata.EdhBracket, row.EdhBracket);
+        Assert.Equal(metadata.DeckFormat, row.DeckFormat);
+        Assert.Equal(1, row.Theorycrafted);
+        Assert.Equal(metadata.CreatedUtc?.ToUniversalTime().ToString("O"), row.CreatedUtc);
+        Assert.Equal(metadata.UpdatedUtc?.ToUniversalTime().ToString("O"), row.UpdatedUtc);
+        Assert.Equal(metadata.CapturedUtc.ToUniversalTime().ToString("O"), row.CapturedUtc);
+    }
 
     [PostgresFact]
     public async Task FeedbackStore_Insert_Get_List_Update_Delete_Roundtrips()
@@ -228,4 +271,40 @@ public sealed class PostgresStorageTests : IClassFixture<PostgresContainerFixtur
 
         return Convert.ToInt64(await command.ExecuteScalarAsync() ?? 0L);
     }
+
+    private async Task<ArchidektMetadataRow> ReadArchidektMetadataRowAsync(string deckId)
+    {
+        var connectionInfo = CreateConnection(await _fixture.GetConnectionStringOrSkipAsync());
+        await using var connection = connectionInfo.CreateConnection();
+        await connection.OpenAsync();
+
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT commander_name, archidekt_edh_bracket, archidekt_deck_format, archidekt_theorycrafted,
+                   archidekt_created_utc, archidekt_updated_utc, archidekt_metadata_captured_utc
+            FROM deck_queue
+            WHERE deck_id = @deckId;
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@deckId", deckId);
+
+        await using var reader = await command.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+        return new(
+            reader.IsDBNull(0) ? null : reader.GetString(0),
+            reader.IsDBNull(1) ? null : reader.GetInt32(1),
+            reader.IsDBNull(2) ? null : reader.GetInt32(2),
+            reader.IsDBNull(3) ? null : reader.GetInt32(3),
+            reader.IsDBNull(4) ? null : reader.GetString(4),
+            reader.IsDBNull(5) ? null : reader.GetString(5),
+            reader.IsDBNull(6) ? null : reader.GetString(6));
+    }
+
+    private sealed record ArchidektMetadataRow(
+        string? CommanderName,
+        int? EdhBracket,
+        int? DeckFormat,
+        int? Theorycrafted,
+        string? CreatedUtc,
+        string? UpdatedUtc,
+        string? CapturedUtc);
 }

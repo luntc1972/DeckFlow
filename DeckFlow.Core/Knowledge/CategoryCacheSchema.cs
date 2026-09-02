@@ -1,6 +1,7 @@
 using System.Data.Common;
 using Dapper;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 using DeckFlow.Core.Storage;
 
 namespace DeckFlow.Core.Knowledge;
@@ -53,7 +54,13 @@ internal sealed class CategoryCacheSchema
                 skipped INTEGER NOT NULL DEFAULT 0,
                 last_checked_utc TEXT,
                 commander_name TEXT NULL,
-                content_hash TEXT NULL
+                content_hash TEXT NULL,
+                archidekt_edh_bracket INTEGER NULL,
+                archidekt_deck_format INTEGER NULL,
+                archidekt_theorycrafted INTEGER NULL,
+                archidekt_created_utc TEXT NULL,
+                archidekt_updated_utc TEXT NULL,
+                archidekt_metadata_captured_utc TEXT NULL
             );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
@@ -63,7 +70,39 @@ internal sealed class CategoryCacheSchema
         {
             var addContentHashCommand = connection.CreateCommand();
             addContentHashCommand.CommandText = "ALTER TABLE deck_queue ADD COLUMN content_hash TEXT NULL;";
-            await addContentHashCommand.ExecuteNonQueryAsync(cancellationToken);
+            try
+            {
+                await addContentHashCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
+            catch (DbException exception) when (IsDuplicateColumn(exception))
+            {
+                _logger?.LogDebug(exception, "Ignoring concurrent duplicate content_hash column migration.");
+            }
+        }
+
+        foreach (var (name, definition) in new[]
+                 {
+                     ("archidekt_edh_bracket", "INTEGER NULL"),
+                     ("archidekt_deck_format", "INTEGER NULL"),
+                     ("archidekt_theorycrafted", "INTEGER NULL"),
+                     ("archidekt_created_utc", "TEXT NULL"),
+                     ("archidekt_updated_utc", "TEXT NULL"),
+                     ("archidekt_metadata_captured_utc", "TEXT NULL"),
+                 })
+        {
+            if (!deckQueueColumns.Contains(name))
+            {
+                var addColumnCommand = connection.CreateCommand();
+                addColumnCommand.CommandText = $"ALTER TABLE deck_queue ADD COLUMN {name} {definition};";
+                try
+                {
+                    await addColumnCommand.ExecuteNonQueryAsync(cancellationToken);
+                }
+                catch (DbException exception) when (IsDuplicateColumn(exception))
+                {
+                    _logger?.LogDebug(exception, "Ignoring concurrent duplicate deck_queue column migration.");
+                }
+            }
         }
 
         var crawlStateCommand = connection.CreateCommand();
@@ -112,6 +151,10 @@ internal sealed class CategoryCacheSchema
                 "Category knowledge index creation failed during schema startup; continuing without optional indexes.");
         }
     }
+
+    private static bool IsDuplicateColumn(DbException exception)
+        => exception is PostgresException postgresException && postgresException.SqlState == "42701"
+           || exception.Message.Contains("duplicate column name", StringComparison.OrdinalIgnoreCase);
 
     private static async Task CreateCardsTableAsync(DbConnection connection, string surrogateIdColumnType, CancellationToken cancellationToken)
     {
