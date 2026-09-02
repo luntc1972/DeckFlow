@@ -1,4 +1,5 @@
 using DeckFlow.Core.Knowledge;
+using DeckFlow.Core.Integration;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Core.Storage;
 using DeckFlow.Web.Models;
@@ -28,6 +29,18 @@ public sealed class PostgresStorageTests : IClassFixture<PostgresContainerFixtur
 
     private async Task<CategoryKnowledgeRepository> CreateRepositoryAsync()
         => new(CreateConnection(await _fixture.GetConnectionStringOrSkipAsync()));
+
+    [PostgresFact]
+    public async Task MarkDeckProcessedAsync_Metadata_RoundTripsAllValues()
+    {
+        var repository = await CreateRepositoryAsync();
+        var deckId = $"metadata-{Guid.NewGuid():N}";
+        var capturedUtc = DateTimeOffset.UtcNow;
+        var metadata = new ArchidektDeckMetadata(3, 1, true, capturedUtc, capturedUtc, capturedUtc);
+
+        await repository.AddDeckIdsAsync(new[] { deckId });
+        await repository.MarkDeckProcessedAsync(deckId, "Commander", false, metadata, CancellationToken.None);
+    }
 
     [PostgresFact]
     public async Task FeedbackStore_Insert_Get_List_Update_Delete_Roundtrips()

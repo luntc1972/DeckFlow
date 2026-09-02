@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 
 namespace DeckFlow.Core.Tests;
@@ -449,7 +450,56 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
         Assert.Contains("card_deck_totals", tableNames);
     }
 
+    [Fact]
+    public async Task MarkDeckProcessedAsync_NullMetadata_PreservesCapturedValues()
+    {
+        var repository = CreateRepository();
+        var captured = new DateTimeOffset(2026, 8, 1, 12, 0, 0, TimeSpan.Zero);
+        var metadata = new ArchidektDeckMetadata(3, 1, true, captured, captured, captured);
+        await repository.AddDeckIdsAsync(new[] { "metadata-processed" });
+        await repository.MarkDeckProcessedAsync("metadata-processed", "Commander", metadata: metadata);
+        await repository.MarkDeckProcessedAsync("metadata-processed", null, skip: true, metadata: null);
+
+        var row = await GetMetadataRowAsync("metadata-processed");
+        Assert.Equal(3L, row.Bracket);
+        Assert.Equal(1L, row.Format);
+        Assert.Equal(1L, row.Theorycrafted);
+        Assert.Equal(captured.ToString("O"), row.CapturedUtc);
+    }
+
+    [Fact]
+    public async Task MarkUrlDeckProcessedAsync_NonNullRecord_OverwritesNullFieldsAndNullRecordPreserves()
+    {
+        var repository = CreateRepository();
+        var first = new DateTimeOffset(2026, 8, 1, 12, 0, 0, TimeSpan.Zero);
+        var second = first.AddHours(1);
+        await repository.MarkUrlDeckProcessedAsync("metadata-url", "Commander", new ArchidektDeckMetadata(3, 1, true, first, first, first));
+        await repository.MarkUrlDeckProcessedAsync("metadata-url", "Commander", new ArchidektDeckMetadata(null, 2, false, second, second, second));
+
+        var recaptured = await GetMetadataRowAsync("metadata-url");
+        Assert.Null(recaptured.Bracket);
+        Assert.Equal(2L, recaptured.Format);
+        Assert.Equal(second.ToString("O"), recaptured.CapturedUtc);
+
+        await repository.MarkUrlDeckProcessedAsync("metadata-url", "Commander", metadata: null);
+        var preserved = await GetMetadataRowAsync("metadata-url");
+        Assert.Equal(recaptured.CapturedUtc, preserved.CapturedUtc);
+        Assert.Null(preserved.Bracket);
+    }
+
     private CategoryKnowledgeRepository CreateRepository() => new(_databasePath);
+
+    private async Task<(long? Bracket, long? Format, long? Theorycrafted, string? CapturedUtc)> GetMetadataRowAsync(string deckId)
+    {
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT archidekt_edh_bracket, archidekt_deck_format, archidekt_theorycrafted, archidekt_metadata_captured_utc FROM deck_queue WHERE deck_id = $deckId;";
+        command.Parameters.AddWithValue("$deckId", deckId);
+        await using var reader = await command.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+        return (reader.IsDBNull(0) ? null : reader.GetInt64(0), reader.IsDBNull(1) ? null : reader.GetInt64(1), reader.IsDBNull(2) ? null : reader.GetInt64(2), reader.IsDBNull(3) ? null : reader.GetString(3));
+    }
 
     private async Task SeedProcessedDeckAsync(
         CategoryKnowledgeRepository repository,
