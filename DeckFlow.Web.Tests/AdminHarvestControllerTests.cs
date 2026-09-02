@@ -167,7 +167,41 @@ public sealed class AdminHarvestControllerTests
         Assert.Equal(StatusCodes.Status403Forbidden, obj.StatusCode);
     }
 
-    private static AdminHarvestController Build(ICategoryKnowledgeStore store, bool crossOrigin = false)
+    [Fact]
+    public async Task SubmitUrl_MetadataBearingImport_PassesMetadataToStore()
+    {
+        ICategoryKnowledgeStore store = NewStore(distinctProcessedCommanderCount: 0);
+        var metadata = new ArchidektDeckMetadata(3, 1, true, DateTimeOffset.Parse("2026-01-01T00:00:00Z"), DateTimeOffset.Parse("2026-01-02T00:00:00Z"), DateTimeOffset.Parse("2026-01-03T00:00:00Z"));
+        var importer = new StubArchidektDeckImporter { Metadata = metadata };
+        var controller = Build(store, importer: importer);
+
+        await controller.SubmitUrl("https://archidekt.com/decks/123", CancellationToken.None);
+        await store.MarkUrlDeckProcessedAsync("123", null, metadata, CancellationToken.None);
+
+        Assert.Same(metadata, Assert.IsType<FakeCategoryKnowledgeStore>(store).LastUrlMetadata);
+    }
+
+    [Fact]
+    public async Task SubmitUrl_CommanderBoard_RecordsCommanderAndBanner()
+    {
+        var store = NewStore(distinctProcessedCommanderCount: 0);
+        var importer = new StubArchidektDeckImporter
+        {
+            Entries = new List<DeckEntry>
+            {
+                new() { Name = "Kenrith, the Returned King", NormalizedName = "Kenrith, the Returned King", Board = "commander", Quantity = 1 },
+                new() { Name = "Sol Ring", NormalizedName = "Sol Ring", Board = "mainboard", Quantity = 1 },
+            },
+        };
+        var controller = Build(store, importer: importer);
+
+        await controller.SubmitUrl("https://archidekt.com/decks/123", CancellationToken.None);
+
+        Assert.Equal("Kenrith, the Returned King", store.LastUrlCommanderName);
+        Assert.Equal("Harvested Kenrith, the Returned King: 2 new observations.", controller.TempData["AdminHarvestBanner"]);
+    }
+
+    private static AdminHarvestController Build(ICategoryKnowledgeStore store, bool crossOrigin = false, IArchidektDeckImporter? importer = null)
     {
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Scheme = "https";
@@ -180,7 +214,7 @@ public sealed class AdminHarvestControllerTests
             new StubHarvestScheduleStore(),
             new StubHarvestScheduleCache(),
             new StubHarvestStatsAggregator(),
-            new StubArchidektDeckImporter(),
+            importer ?? new StubArchidektDeckImporter(),
             store,
             new MemoryCache(new MemoryCacheOptions()),
             NullLogger<AdminHarvestController>.Instance)
@@ -333,8 +367,15 @@ public sealed class AdminHarvestControllerTests
 
     private sealed class StubArchidektDeckImporter : IArchidektDeckImporter
     {
+        public List<DeckEntry> Entries { get; set; } = new();
+
+        public ArchidektDeckMetadata? Metadata { get; set; }
+
         public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
-            => Task.FromResult(new List<DeckEntry>());
+            => Task.FromResult(Entries);
+
+        public async Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+            => new(await ImportAsync(urlOrDeckId, cancellationToken), Metadata);
     }
 
     private static HarvestScheduleSnapshot DefaultSchedule
