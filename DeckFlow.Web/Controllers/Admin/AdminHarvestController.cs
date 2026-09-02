@@ -1,4 +1,5 @@
 using DeckFlow.Core.Integration;
+using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Models.Admin;
@@ -266,10 +267,7 @@ public sealed class AdminHarvestController : Controller
             var entries = result.Entries;
             await PersistImportedDeckEntriesAsync(url, entries, cancellationToken).ConfigureAwait(false);
 
-            var commanderName = entries
-                .Where(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
-                .Select(entry => entry.Name)
-                .FirstOrDefault();
+            var commanderName = DeckCommanderResolver.ResolveCommanderName(entries);
 
             await _categoryStore.MarkUrlDeckProcessedAsync(deckId, commanderName, result.Metadata, cancellationToken).ConfigureAwait(false);
 
@@ -294,6 +292,9 @@ public sealed class AdminHarvestController : Controller
         catch (Exception exception)
         {
             _logger.LogError(exception, "Harvest URL import failed for {Url}.", url);
+            var operatorMessage = exception is InvalidOperationException
+                ? "Archidekt rejected the request. See harvest logs for the upstream response."
+                : "Import failed. See harvest logs.";
 
             await _runStore.UpdateStateAsync(
                 runId,
@@ -302,10 +303,10 @@ public sealed class AdminHarvestController : Controller
                 completedUtc: DateTimeOffset.UtcNow,
                 decksProcessed: 0,
                 additionalDecksFound: 0,
-                errorMessage: exception.Message,
+                errorMessage: operatorMessage,
                 cancellationToken).ConfigureAwait(false);
 
-            TempData[BannerKey] = $"Failed to harvest URL: {exception.Message}";
+            TempData[BannerKey] = $"Failed to harvest URL: {operatorMessage}";
             return RedirectToAction(nameof(Index));
         }
     }

@@ -170,15 +170,15 @@ public sealed class AdminHarvestControllerTests
     [Fact]
     public async Task SubmitUrl_MetadataBearingImport_PassesMetadataToStore()
     {
-        ICategoryKnowledgeStore store = NewStore(distinctProcessedCommanderCount: 0);
+        var store = NewStore(distinctProcessedCommanderCount: 0);
         var metadata = new ArchidektDeckMetadata(3, 1, true, DateTimeOffset.Parse("2026-01-01T00:00:00Z"), DateTimeOffset.Parse("2026-01-02T00:00:00Z"), DateTimeOffset.Parse("2026-01-03T00:00:00Z"));
         var importer = new StubArchidektDeckImporter { Metadata = metadata };
         var controller = Build(store, importer: importer);
 
         await controller.SubmitUrl("https://archidekt.com/decks/123", CancellationToken.None);
-        await store.MarkUrlDeckProcessedAsync("123", null, metadata, CancellationToken.None);
 
-        Assert.Same(metadata, Assert.IsType<FakeCategoryKnowledgeStore>(store).LastUrlMetadata);
+        Assert.Equal("123", store.LastUrlDeckId);
+        Assert.Same(metadata, store.LastUrlMetadata);
     }
 
     [Fact]

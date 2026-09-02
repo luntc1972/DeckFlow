@@ -468,6 +468,18 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task MarkDeckProcessedAsync_NullMetadataSkip_PreservesCommanderName()
+    {
+        var repository = CreateRepository();
+        await repository.AddDeckIdsAsync(new[] { "commander-processed" });
+        await repository.MarkDeckProcessedAsync("commander-processed", "Original Commander");
+        await repository.MarkDeckProcessedAsync("commander-processed", null, skip: true, metadata: null);
+
+        var commanderName = await GetCommanderNameAsync("commander-processed");
+        Assert.Equal("Original Commander", commanderName);
+    }
+
+    [Fact]
     public async Task MarkUrlDeckProcessedAsync_NonNullRecord_OverwritesNullFieldsAndNullRecordPreserves()
     {
         var repository = CreateRepository();
@@ -488,6 +500,16 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     private CategoryKnowledgeRepository CreateRepository() => new(_databasePath);
+
+    private async Task<string?> GetCommanderNameAsync(string deckId)
+    {
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT commander_name FROM deck_queue WHERE deck_id = $deckId;";
+        command.Parameters.AddWithValue("$deckId", deckId);
+        return (string?)await command.ExecuteScalarAsync();
+    }
 
     private async Task<(long? Bracket, long? Format, long? Theorycrafted, string? CapturedUtc)> GetMetadataRowAsync(string deckId)
     {

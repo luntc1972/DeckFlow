@@ -3,6 +3,7 @@ using System.Text.Json;
 using Polly;
 using Polly.Retry;
 using RestSharp;
+using Microsoft.Extensions.Logging;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Normalization;
 
@@ -14,6 +15,7 @@ namespace DeckFlow.Core.Integration;
 public sealed class ArchidektApiDeckImporter : IArchidektDeckImporter
 {
     private readonly RestClient _restClient;
+    private readonly ILogger? _logger;
     private static readonly AsyncRetryPolicy<RestResponse> RetryPolicy = Policy<RestResponse>
         .HandleResult(response => response.StatusCode == HttpStatusCode.TooManyRequests || (int)response.StatusCode >= 500)
         .WaitAndRetryAsync(
@@ -22,16 +24,18 @@ public sealed class ArchidektApiDeckImporter : IArchidektDeckImporter
             onRetry: (outcome, timespan, retryAttempt, context) => { });
 
     /// <summary>
-    /// Initializes the Archidekt importer with an optional RestClient instance.
+    /// Initializes the Archidekt importer with optional dependencies.
     /// </summary>
     /// <param name="restClient">Optional REST client for test injection.</param>
-    public ArchidektApiDeckImporter(RestClient? restClient = null)
+    /// <param name="logger">Optional logger for metadata extraction diagnostics.</param>
+    public ArchidektApiDeckImporter(RestClient? restClient = null, ILogger? logger = null)
     {
         _restClient = restClient ?? new RestClient(new RestClientOptions
         {
             BaseUrl = new Uri("https://archidekt.com"),
             ThrowOnAnyError = false,
         });
+        _logger = logger;
     }
 
     /// <summary>
@@ -126,7 +130,7 @@ public sealed class ArchidektApiDeckImporter : IArchidektDeckImporter
     /// can introduce a new failure mode into ImportAsync.
     /// </summary>
     /// <param name="root">Root element of the Archidekt deck payload.</param>
-    private static ArchidektDeckMetadata? TryExtractMetadata(JsonElement root)
+    private ArchidektDeckMetadata? TryExtractMetadata(JsonElement root)
     {
         try
         {
@@ -143,6 +147,7 @@ public sealed class ArchidektApiDeckImporter : IArchidektDeckImporter
 
             if (!isRecognizableArchidektPayload)
             {
+                _logger?.LogDebug("Archidekt payload did not contain recognizable deck metadata.");
                 return null;
             }
 
@@ -154,8 +159,9 @@ public sealed class ArchidektApiDeckImporter : IArchidektDeckImporter
                 UpdatedUtc: hasUpdatedAt ? ParseNullableTimestamp(updatedAtElement) : null,
                 CapturedUtc: DateTimeOffset.UtcNow);
         }
-        catch
+        catch (Exception exception)
         {
+            _logger?.LogWarning(exception, "Unable to extract metadata from Archidekt payload.");
             return null;
         }
     }

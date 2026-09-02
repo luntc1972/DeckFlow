@@ -539,6 +539,35 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
         Assert.Equal(1L, await QuerySingleInt64Async(migrated, "SELECT COUNT(1) FROM deck_queue WHERE deck_id = 'legacy-deck' AND archidekt_metadata_captured_utc IS NULL;"));
     }
 
+    [Fact]
+    public async Task EnsureSchema_ConcurrentCallsOnLegacyDeckQueue_DoNotThrow()
+    {
+        for (var databaseNumber = 0; databaseNumber < 12; databaseNumber++)
+        {
+            var databasePath = Path.Combine(_tempDirectory, $"concurrent-{databaseNumber}.db");
+            await using (var connection = new SqliteConnection($"Data Source={databasePath}"))
+            {
+                await connection.OpenAsync();
+                await ExecuteNonQueryAsync(
+                    connection,
+                    """
+                    CREATE TABLE deck_queue (
+                        deck_id TEXT PRIMARY KEY NOT NULL,
+                        commander_name TEXT NULL,
+                        inserted_utc TEXT NOT NULL,
+                        last_checked_utc TEXT NULL,
+                        processed INTEGER NOT NULL DEFAULT 0,
+                        skipped INTEGER NOT NULL DEFAULT 0
+                    );
+                    """);
+            }
+
+            var repository = new CategoryKnowledgeRepository(databasePath);
+
+            await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Run(() => repository.EnsureSchemaAsync())));
+        }
+    }
+
     private CategoryKnowledgeRepository CreateRepository() => new(_databasePath);
 
     private async Task<SqliteConnection> OpenConnectionAsync()

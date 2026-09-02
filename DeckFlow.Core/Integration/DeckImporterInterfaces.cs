@@ -53,6 +53,11 @@ public interface IMoxfieldDeckImporter
 /// already returns cards[]. Malformed or missing source fields become null; CapturedUtc is
 /// always set when a recognizable Archidekt deck payload was parsed.
 /// </summary>
+/// <remarks>
+/// Metadata capture is last-capture-wins per field, not per-field COALESCE. A fresh CapturedUtc
+/// truthfully identifies the most recent recognizable payload, so null fields in that payload are
+/// trusted over stale values from an earlier capture.
+/// </remarks>
 public sealed record ArchidektDeckMetadata(
     int? EdhBracket,
     int? DeckFormat,
@@ -86,6 +91,8 @@ public interface IArchidektDeckImporter
     /// payload request (no extra HTTP request). Default implementation is intentionally
     /// unsupported — real support is provided only by ArchidektApiDeckImporter, so that
     /// no implementer can fabricate a CapturedUtc for a payload it never actually parsed.
+    /// Callers must treat <see cref="NotSupportedException"/> as a per-item skip signal rather
+    /// than a fatal error.
     /// </summary>
     Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
         => throw new NotSupportedException($"{GetType().Name} does not support {nameof(ImportWithMetadataAsync)}.");

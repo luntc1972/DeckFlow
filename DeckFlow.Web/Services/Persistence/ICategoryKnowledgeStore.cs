@@ -75,6 +75,7 @@ public interface ICategoryKnowledgeStore
     /// <param name="deckId">External deck identifier to mark processed.</param>
     /// <param name="commanderName">Commander name associated with the processed deck, when known.</param>
     /// <param name="cancellationToken">Token used to cancel the update.</param>
+    [Obsolete("Use the ArchidektDeckMetadata overload; this one silently discards captured metadata.")]
     Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, CancellationToken cancellationToken = default);
     /// <summary>
     /// Marks a URL-imported deck as processed while preserving importer-captured metadata.
